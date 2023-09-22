@@ -5,3 +5,6 @@ build
 
 # Packages for zambda deployment
 .dist
+
+# Ignoring npm lockfile because we are using pnpm
+package-lock.json
