@@ -1,0 +1,92 @@
+{
+  "name": "zapehr-telehealth-ui",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "start": "pnpm run start:local",
+    "start:local": "ENV=local pnpm run start-skeleton",
+    "start:local-to-zapehr-local": "ENV=local-to-zapehr-local pnpm run start-skeleton",
+    "start:dev": "ENV=dev pnpm run start-skeleton",
+    "start:testing": "ENV=testing pnpm run start-skeleton",
+    "start:staging": "ENV=staging pnpm run start-skeleton",
+    "start-skeleton": "env-cmd -f env/${ENV}.env.js react-scripts start",
+    "build": "pnpm run build:dev",
+    "build:dev": "ENV=dev ROBOTS_FILE=lowers pnpm run build-skeleton",
+    "build:dev2": "ENV=dev2 ROBOTS_FILE=lowers pnpm run build-skeleton",
+    "build:testing": "ENV=testing ROBOTS_FILE=lowers pnpm run build-skeleton",
+    "build:staging": "ENV=staging ROBOTS_FILE=lowers pnpm run build-skeleton",
+    "build:production": "ENV=production ROBOTS_FILE=production pnpm run build-skeleton",
+    "build-skeleton": "env-cmd -f env/${ENV}.env.js react-scripts build && cp src/assets/robots-${ROBOTS_FILE}.txt build/robots.txt",
+    "deploy:dev": "ENV=dev PREFIX=development pnpm run deploy-skeleton",
+    "deploy:dev2": "ENV=dev2 PREFIX=development pnpm run deploy-skeleton",
+    "deploy:testing": "ENV=testing PREFIX=testing pnpm run deploy-skeleton",
+    "deploy-skeleton": "REACT_APP_SHA=$(git rev-parse --short HEAD) REACT_APP_VERSION=$(node -pe 'require(\"./package.json\").version') pnpm run build:${ENV} && aws s3 sync build/ s3://${PREFIX}-TODO.masslight.com --profile TODO --delete",
+    "ci-deploy:dev": "ENV=dev PREFIX=development CLOUDFRONT_ID=TODO pnpm run ci-deploy-skeleton",
+    "ci-deploy:testing": "ENV=testing PREFIX=testing CLOUDFRONT_ID=TODO pnpm run ci-deploy-skeleton",
+    "ci-deploy:staging": "ENV=staging PREFIX=staging CLOUDFRONT_ID=TODO pnpm run ci-deploy-skeleton",
+    "ci-deploy:production": "ENV=production PREFIX=production CLOUDFRONT_ID=TODO pnpm run ci-deploy-skeleton",
+    "ci-deploy-skeleton": "REACT_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} REACT_APP_VERSION=$(node -pe 'require(\"./package.json\").version') pnpm run build:${ENV} && aws s3 sync build/ s3://${PREFIX}-TODO.masslight.com --region us-east-1 --delete && aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_ID} --paths '/*' --region us-east-1",
+    "test": "react-scripts test",
+    "lint": "eslint",
+    "prettier": "prettier --write ."
+  },
+  "packageManager": "^pnpm@8.7.6",
+  "engines": {
+    "pnpm": ">=8.0.0",
+    "node": ">=18.0.0"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "dependencies": {
+    "@auth0/auth0-react": "^1.12.0",
+    "@emotion/react": "^11.10.5",
+    "@emotion/styled": "^11.10.5",
+    "@hookform/resolvers": "^2.9.10",
+    "@mui/icons-material": "^5.11.16",
+    "@mui/lab": "^5.0.0-alpha.115",
+    "@mui/material": "^5.10.16",
+    "@mui/system": "^5.10.16",
+    "@mui/x-date-pickers": "^5.0.10",
+    "@zapehr/sdk": "^1.0.8",
+    "i18next-browser-languagedetector": "^7.0.1",
+    "luxon": "^3.1.1",
+    "mixpanel-browser": "^2.45.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-hook-form": "^7.40.0",
+    "react-i18next": "^12.2.0",
+    "react-imask": "^6.4.3",
+    "react-router-dom": "^6.3.0",
+    "web-vitals": "^2.1.4",
+    "yup": "^0.32.11"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^13.3.0",
+    "@testing-library/user-event": "^13.5.0",
+    "@types/luxon": "^3.1.0",
+    "@types/mixpanel-browser": "^2.38.1",
+    "@types/node": "^16.11.47",
+    "@types/node-fetch": "^2.6.2",
+    "@types/react": "^18.0.17",
+    "@types/react-dom": "^18.0.6",
+    "@typescript-eslint/eslint-plugin": "^5.45.0",
+    "@typescript-eslint/parser": "^5.45.0",
+    "eslint": "^8.29.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-prettier": "^4.2.1",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "prettier": "^2.8.0",
+    "react-scripts": "^5.0.1",
+    "typescript": "^4.7.4"
+  }
+}

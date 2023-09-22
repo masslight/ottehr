@@ -1,0 +1,27 @@
+{
+  "folders": [
+    {
+      "name": "ROOT",
+      "path": "../"
+    },
+    {
+      "name": "App",
+      "path": "../packages/app"
+    },
+    {
+      "name": "Zambdas",
+      "path": "../packages/zambdas"
+    },
+  ],
+  "settings": {
+    "files.exclude": {
+      "node_modules/": true,
+      "packages/": true
+    },
+  },
+  "extensions": {
+    "recommendations": [
+      "dbaeumer.vscode-eslint"
+    ],
+  }
+}

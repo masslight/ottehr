@@ -1,0 +1,37 @@
+service: zambdas
+
+frameworkVersion: '3'
+
+package:
+  individually: true
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  stage: ${opt:stage, self:custom.defaultStage}
+
+custom:
+  defaultStage: local
+  serverless-offline:
+    reloadHandler: true
+    httpPort: 3301
+
+functions:
+  version:
+    handler: src/version/index.index
+    events:
+      - http:
+          path: zambda/version/execute-public
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+
+plugins:
+  - serverless-offline
+  - serverless-esbuild
+  # - serverless-custom-packaging-plugin

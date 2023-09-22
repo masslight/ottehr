@@ -1,0 +1,94 @@
+{
+  "general": {
+    "button": {
+      "book": "Book an appointment",
+      "submit": "Submit",
+      "continue": "Continue",
+      "back": "Back",
+      "close": "Close",
+      "tryAgain": "Try again",
+      "checked": "Checked",
+      "unchecked": "Unchecked"
+    },
+    "dateOfBirth": "Date of birth",
+    "dropdownPlaceholder": "Please select",
+    "datePlaceholder": "MM/DD/YYYY",
+    "errors": {
+      "validation": {
+        "firstName": "First name is required",
+        "lastName": "Last name is required",
+        "dateOfBirth": {
+          "format": "Date must be in the format MM/DD/YYYY",
+          "required": "Birth date is required"
+        },
+        "zip": {
+          "number": "Zip code must be 5 digits",
+          "required": "ZIP is required"
+        }
+      },
+      "submit": {
+        "title": "There was an issue booking an appointment"
+      }
+    },
+    "firstName": "First name",
+    "footer": "This service is not for emergencies. If you believe that you or your child is having an emergency, and is at risk of harming themself or someone else, please call 988 or go to the nearest emergency room immediately.",
+    "lastName": "Last name",
+    "required": "required field",
+    "stateFullNames": {
+      "AK": "Alaska",
+      "AL": "Alabama",
+      "AR": "Arkansas",
+      "AZ": "Arizona",
+      "CA": "California",
+      "CO": "Colorado",
+      "CT": "Connecticut",
+      "DC": "District of Columbia",
+      "DE": "Delaware",
+      "FL": "Florida",
+      "GA": "Georgia",
+      "HI": "Hawaii",
+      "IA": "Iowa",
+      "ID": "Idaho",
+      "IL": "Illinois",
+      "IN": "Indiana",
+      "KS": "Kansas",
+      "KY": "Kentucky",
+      "LA": "Louisiana",
+      "MA": "Massachusetts",
+      "MD": "Maryland",
+      "ME": "Maine",
+      "MI": "Michigan",
+      "MN": "Minnesota",
+      "MO": "Missouri",
+      "MS": "Mississippi",
+      "MT": "Montana",
+      "NC": "North Carolina",
+      "ND": "North Dakota",
+      "NE": "Nebraska",
+      "NH": "New Hampshire",
+      "NJ": "New Jersey",
+      "NM": "New Mexico",
+      "NV": "Nevada",
+      "NY": "New York",
+      "OH": "Ohio",
+      "OK": "Oklahoma",
+      "OR": "Oregon",
+      "PA": "Pennsylvania",
+      "RI": "Rhode Island",
+      "SC": "South Carolina",
+      "SD": "South Dakota",
+      "TN": "Tennessee",
+      "TX": "Texas",
+      "UT": "Utah",
+      "VA": "Virginia",
+      "VT": "Vermont",
+      "WA": "Washington",
+      "WI": "Wisconsin",
+      "WV": "West Virginia",
+      "WY": "Wyoming"
+    },
+    "sunAlt": "Yellow sun icon",
+    "weekdays": ["S", "M", "T", "W", "T", "F", "S"],
+    "zip": "ZIP"
+  }
+}

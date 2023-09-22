@@ -1,0 +1,57 @@
+{
+  "name": "zapehr-telehealth-zambdas",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "start": "pnpm run start:local",
+    "start:local": "ENV=local pnpm run start-skeleton",
+    "start:dev": "ENV=dev pnpm run start-skeleton",
+    "start:tests": "ENV=tests pnpm run start-skeleton",
+    "start:dev2": "ENV=dev2 pnpm run start-skeleton",
+    "start:testing": "ENV=testing pnpm run start-skeleton",
+    "start:staging": "ENV=staging pnpm run start-skeleton",
+    "start-skeleton": "sls offline --stage ${ENV}",
+    "create-subscription:dev": "ENV=dev pnpm run create-subscription-skeleton",
+    "create-subscription:dev2": "ENV=dev2 pnpm run create-subscription-skeleton",
+    "create-subscription:testing": "ENV=testing pnpm run create-subscription-skeleton",
+    "create-subscription:staging": "ENV=staging pnpm run create-subscription-skeleton",
+    "create-subscription:production": "ENV=production pnpm run create-subscription-skeleton",
+    "create-subscription-skeleton": "env-cmd -f ./.env/${ENV}.json ts-node scripts/create-subscription.ts",
+    "create-location:placeholder": "env-cmd -f ./.env/local.json ts-node scripts/create-location.ts",
+    "setup-zapehr-secrets": "ts-node scripts/configure-zapehr-secrets.ts",
+    "deploy-zambdas": "pnpm run package && ts-node scripts/deploy-zambdas.ts",
+    "build": "tsc && sls package --stage dev",
+    "package": "tsc && sls package && pnpm run rebundle",
+    "rebundle": "bash scripts/package-for-release.sh"
+  },
+  "packageManager": "^pnpm@8.7.6",
+  "engines": {
+    "pnpm": ">=8.0.0",
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.272.0",
+    "@sendgrid/mail": "^7.7.0",
+    "@zapehr/sdk": "^1.0.7",
+    "aws-lambda": "^1.0.7",
+    "esbuild": "^0.18.14",
+    "fast-json-patch": "^3.1.1",
+    "query-string": "^6.0.0",
+    "short-uuid": "^4.2.2"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.109",
+    "@typescript-eslint/eslint-plugin": "^5.45.0",
+    "@typescript-eslint/parser": "^5.45.0",
+    "aws-lambda": "^1.0.7",
+    "eslint": "^8.29.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-prettier": "^4.2.1",
+    "prettier": "2.8.1",
+    "serverless": "^3.26.0",
+    "serverless-esbuild": "^1.45.1",
+    "serverless-offline": "^12.0.3",
+    "ts-node": "^10.9.1",
+    "typescript": "^4.7.4"
+  }
+}
