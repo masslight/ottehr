@@ -8,11 +8,14 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+env:
+  environment: dev
+
 jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    environment: dev
+    environment: ${{ env.environment }}
     
     steps:
       - uses: actions/checkout@v3
@@ -33,7 +36,7 @@ jobs:
           json: ${{ secrets.TELEHEALTH_SECRETS_JSON }}
       
       - name: Move env file into .env folder
-        run: mkdir -p packages/zambdas/.env/ && cp secrets.json packages/zambdas/.env/${{ github.environment }}.json
+        run: mkdir -p packages/zambdas/.env/ && cp secrets.json packages/zambdas/.env/${{ env.environment }}.json
 
       - id: get-store-path
         run: echo STORE_PATH=$(pnpm store path) >> $GITHUB_OUTPUT
