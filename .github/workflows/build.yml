@@ -8,13 +8,14 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
-env:
-  environment: dev
 
 jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    env:
+      environment: dev
+    
     environment: ${{ env.environment }}
     
     steps:
