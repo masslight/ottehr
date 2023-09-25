@@ -23,6 +23,8 @@ jobs:
         with:
           node-version: '18'
 
+      - uses: pnpm/action-setup@v2
+
       - name: Create secrets file from github secrets
         id: create-json
         uses: jsdaniell/create-json@v1.2.2
