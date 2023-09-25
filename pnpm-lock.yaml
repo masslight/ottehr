@@ -11,9 +11,6 @@ importers:
       i18next:
         specifier: 23.5.1
         version: 23.5.1
-      zapehr-telehealth-ui:
-        specifier: workspace:*
-        version: link:packages/app
     devDependencies:
       '@types/fhir':
         specifier: ^0.0.35
@@ -130,9 +127,6 @@ importers:
       '@types/node':
         specifier: ^16.11.47
         version: 16.18.53
-      '@types/node-fetch':
-        specifier: ^2.6.2
-        version: 2.6.5
       '@types/react':
         specifier: ^18.0.17
         version: 18.2.22
@@ -197,6 +191,12 @@ importers:
       '@types/aws-lambda':
         specifier: ^8.10.109
         version: 8.10.121
+      '@types/node':
+        specifier: ^16.18.53
+        version: 16.18.53
+      '@types/node-fetch':
+        specifier: 2.6.6
+        version: 2.6.6
       '@typescript-eslint/eslint-plugin':
         specifier: ^5.45.0
         version: 5.62.0(@typescript-eslint/parser@5.62.0)(eslint@8.49.0)(typescript@4.9.5)
@@ -4861,8 +4861,8 @@ packages:
     resolution: {integrity: sha512-4Oif1hbjmStA6KI1OLer19rbKjlPd67ujp5Wipfa7rIskA/lOFZbp6kYsPjXD0f5AiiCQTbf0R/SnnzgOaKrbA==}
     dev: true
 
-  /@types/node-fetch@2.6.5:
-    resolution: {integrity: sha512-OZsUlr2nxvkqUFLSaY2ZbA+P1q22q+KrlxWOn/38RX+u5kTkYL2mTujEpzUhGkS+K/QCYp9oagfXG39XOzyySg==}
+  /@types/node-fetch@2.6.6:
+    resolution: {integrity: sha512-95X8guJYhfqiuVVhRFxVQcf4hW/2bCuoPwDasMf/531STFoNoWTT7YDnWdXHEZKqAGUigmpG31r2FE70LwnzJw==}
     dependencies:
       '@types/node': 16.18.53
       form-data: 4.0.0

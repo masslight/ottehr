@@ -7,5 +7,3 @@ export * from './replaceNonBasicLatin';
 export { getSecret, SecretsKeys } from './secrets';
 export { topLevelCatch } from './errors';
 export { emailRegex, phoneRegex, stateRegex, zipRegex, MINIMUM_AGE, MAXIMUM_AGE } from './validation';
-export { getSignedAssertion } from './getSignedAssertion';
-export { getRedoxAccessToken } from './getRedoxAccessToken';
