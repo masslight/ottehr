@@ -7,6 +7,7 @@ import { getAuth0Token } from '../src/shared';
 import { FhirClient, ZambdaClient } from '@zapehr/sdk';
 import { Subscription } from 'fhir/r4';
 import { Operation } from 'fast-json-patch';
+import fetch from 'node-fetch';
 
 interface DeployZambda {
   type: 'http_open' | 'http_auth' | 'subscription';

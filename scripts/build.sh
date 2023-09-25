@@ -14,7 +14,7 @@ node --version
 pnpm --version
 
 # Install
-[ ! -d "node_modules" ] && pnpm ci
+pnpm install
 
 # Build zapehr-telehealth
 BUILD_ORDER=("zambdas" "app")

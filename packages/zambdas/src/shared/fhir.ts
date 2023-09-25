@@ -12,14 +12,13 @@ import {
   DocumentReference,
   DocumentReferenceContent,
   Consent,
-  Coverage,
   CodeableConcept,
   Extension,
 } from 'fhir/r4';
 import { DateTime } from 'luxon';
 import { CancellationReasonOptions, PatientInfo } from '../../../app/src/store/types';
 import { PatientEthnicityCode, PatientRaceCode, CancellationReasonCodes } from '../../../app/src/store/types';
-import { formatDateForFHIR, removeTimeFromDate } from './dateUtils';
+import { removeTimeFromDate } from './dateUtils';
 import { FhirClient, SearchParam } from '@zapehr/sdk';
 import { Operation } from 'fast-json-patch';
 

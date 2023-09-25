@@ -1,0 +1,81 @@
+name: Build zapEHR Telehealth
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - packages/*
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      # - name: Install SSH Client
+      #   uses: webfactory/ssh-agent@v0.7.0
+      #   with:
+      #     ssh-private-key: ${{ secrets.ZAPEHR_TELEHEALTH_PRIVATE_SSH_KEY }}
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      # - name: Check out secrets repo to grab the secrets file.
+      #   uses: actions/checkout@v3
+      #   with:
+      #     repository: masslight/TODO-secrets
+      #     ssh-key: ${{ secrets.ZAPEHR_TELEHEALTH_PRIVATE_SSH_KEY }}
+      #     path: 'secrets'
+
+      - name: Create secrets file from github secrets
+        id: create-json
+        uses: jsdaniell/create-json@v1.2.2
+        with:
+          name: "secrets.json"
+          json: ${{ secrets.TELEHEALTH_SECRETS_JSON }}
+      
+      -name: Move env file into .env folder
+        run: mkdir -p packages/zambdas/.env/ && cp secrets.json packages/zambdas/.env/${{ github.environment }}.json
+
+      - id: get-store-path
+        run: echo STORE_PATH=$(pnpm store path) >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v3
+        timeout-minutes: 5
+        id: cache-pnpm-store
+        with:
+          path: ${{ steps.get-store-path.outputs.STORE_PATH }}
+          key: pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-
+            pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Run build.sh
+        env:
+          NODE_OPTIONS: '--max-old-space-size=8192'
+        run: ./scripts/build.sh
+
+      - name: Report status - Success
+        if: ${{ always() }}
+        run: echo "::set-output name=build_status::success"
+
+      - name: Report status - Failure
+        if: ${{ failure() }}
+        run: echo "::set-output name=build_status::failure"
+
+      - name: Set status
+        if: ${{ env.build_status != '' }}
+        run: |
+          if [[ "${{ env.build_status }}" == "success" ]]; then
+            echo "Build successful - setting status"
+            gh pr status "$GITHUB_SHA" -s success -d "Build successful"
+          else
+            echo "Build failed - setting status"
+            gh pr status "$GITHUB_SHA" -s failure -d "Build failed"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
