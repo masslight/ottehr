@@ -5,3 +5,7 @@ export { default as bg4 } from './bg4.png';
 export { default as bg5 } from './bg5.png';
 export { default as doctor } from './doctor.svg';
 export { default as patient } from './patient.svg';
+export { default as chat } from './chat.svg';
+export { default as call } from './call_end.svg';
+export { default as microphone } from './keyboard_voice.svg';
+export { default as videocam } from './videocam.svg';
