@@ -11,6 +11,9 @@ importers:
       i18next:
         specifier: 23.5.1
         version: 23.5.1
+      nvm:
+        specifier: 0.0.4
+        version: 0.0.4
     devDependencies:
       '@types/fhir':
         specifier: ^0.0.35
@@ -10982,6 +10985,12 @@ packages:
     dependencies:
       boolbase: 1.0.0
     dev: true
+
+  /nvm@0.0.4:
+    resolution: {integrity: sha512-jvmyELykYcdyd0VCGY0E8Aqe5MngEasVvlPvrcJHbwBMUbVqa72mPdQuPzyTcykEtEx7jDrMY0QA5MoV+8EhgA==}
+    deprecated: This is NOT the correct nvm. Visit https://nvm.sh and use the curl command to install it.
+    hasBin: true
+    dev: false
 
   /nwsapi@2.2.7:
     resolution: {integrity: sha512-ub5E4+FBPKwAZx0UwIQOjYWGHTEq5sPqHQNRN8Z9e4A7u3Tj1weLJsL59yH9vmvqEtBHaOmT6cYQKIZOxp35FQ==}

@@ -44,6 +44,7 @@ export const otherColors = {
   patientSubtitle: '#545454',
   wrongPatient: '#8F9AA7',
   cardBackground: '#F7F8F9',
+  darkBackgroundPaper: '#263954',
 };
 
 export const typography: TypographyOptions = {
