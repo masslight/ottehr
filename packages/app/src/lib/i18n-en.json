@@ -31,7 +31,7 @@
       }
     },
     "firstName": "First name",
-    "footer": "This service is not for emergencies. If you believe that you or your child is having an emergency, and is at risk of harming themself or someone else, please call 988 or go to the nearest emergency room immediately.",
+    "footer": "Powered by",
     "lastName": "Last name",
     "required": "required field",
     "stateFullNames": {

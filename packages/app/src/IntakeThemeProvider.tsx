@@ -44,6 +44,7 @@ export const otherColors = {
   patientSubtitle: '#545454',
   wrongPatient: '#8F9AA7',
   cardBackground: '#F7F8F9',
+  footerBackground: '#263954',
 };
 
 export const typography: TypographyOptions = {
@@ -141,8 +142,9 @@ export const palette = {
     disabled: '#C3C9D2',
   },
   primary: {
-    main: '#4D15B7',
+    main: '#2896C6',
     contrast: '#FFFFFF',
+    light: '#4AC0F2',
   },
   secondary: {
     main: '#301367',
