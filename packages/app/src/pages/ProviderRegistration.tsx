@@ -10,6 +10,9 @@ import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Button from '@mui/material/Button';
 
+// import { ReactComponent as DoctorSVG } from '../assets/doctor.svg';
+// import { ReactComponent as PatientSVG } from '../assets/patient.svg';
+
 type Props = {
   name?: string;
   email?: string;
@@ -17,6 +20,11 @@ type Props = {
 };
 
 const ProviderRegistration = (props: Props): JSX.Element => {
+  const handleSubmit = (event: any): void => {
+    event.preventDefault();
+    // TODO: form submission structure
+  };
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'row', height: '100vh' }}>
       <p>{props.name}</p>
@@ -42,7 +50,10 @@ const ProviderRegistration = (props: Props): JSX.Element => {
           </Typography>
         </Box>
         <Box sx={{ height: '74%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          {/* Content will go here */}
+          <Box sx={{ height: '74%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            {/* <DoctorSVG style={{ width: '50px', height: '50px', marginRight: '20px' }} />
+            <PatientSVG style={{ width: '50px', height: '50px', marginLeft: '20px' }} /> */}
+          </Box>
         </Box>
         <Box
           sx={{
@@ -68,9 +79,8 @@ const ProviderRegistration = (props: Props): JSX.Element => {
           <Typography sx={{ fontSize: '1.25rem', color: '#4AC0F2', paddingTop: '1%', paddingBottom: '1%' }}>
             Provider registration
           </Typography>
-          <form>
+          <form onSubmit={handleSubmit}>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'left', paddingY: '1.5rem' }}>
-              {/* Title */}
               <FormControl variant="outlined" sx={{ width: '26.4rem', marginBottom: '1rem' }}>
                 <InputLabel>Title</InputLabel>
                 <Select label="Title">
@@ -79,32 +89,24 @@ const ProviderRegistration = (props: Props): JSX.Element => {
                   <MenuItem value="assistant">Assistant</MenuItem>
                 </Select>
               </FormControl>
-              {/* First Name */}
               <TextField variant="outlined" label="First Name" sx={{ width: '26.4rem', paddingBottom: '1rem' }} />
-              {/* Last Name */}
               <TextField variant="outlined" label="Last Name" sx={{ width: '26.4rem', paddingBottom: '1rem' }} />
-              {/* Room Name */}
               <TextField variant="outlined" label="Room Name" sx={{ width: '26.4rem', paddingBottom: '1rem' }} />
-              {/* Email Address */}
               <TextField variant="outlined" label="Email Address" sx={{ width: '26.4rem', paddingBottom: '1rem' }} />
-              {/* Password */}
               <TextField
                 variant="outlined"
                 label="Password"
                 type="password"
                 sx={{ width: '26.4rem', paddingBottom: '1rem' }}
               />
-              {/* I am not a patient Checkbox */}
               <FormControlLabel control={<Checkbox />} label="I am not a patient" />
 
-              {/* I accept the terms and conditions Checkbox */}
               <FormControlLabel control={<Checkbox />} label="I accept the terms and conditions" />
-              {/* SIGN UP Button */}
               <Button
                 type="submit"
                 variant="contained"
                 sx={{
-                  width: '28rem',
+                  width: '26.4rem',
                   backgroundColor: '#2896C6',
                   color: 'white',
                   marginTop: '1rem',
