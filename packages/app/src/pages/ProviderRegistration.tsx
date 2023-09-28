@@ -10,15 +10,16 @@ import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Button from '@mui/material/Button';
 
-import { ReactComponent as DoctorSVG } from '../assets/icons/doctor.svg';
-import { ReactComponent as ChatSVG } from '../assets/icons/chat.svg';
-import { ReactComponent as CallSVG } from '../assets/icons/call_end.svg';
-import { ReactComponent as MicrophoneSVG } from '../assets/icons/keyboard_voice.svg';
-import { ReactComponent as VideocamSVG } from '../assets/icons/videocam.svg';
-import { ReactComponent as CheckCircleSVG } from '../assets/icons/check_circle.svg';
-import { ReactComponent as CancelSVG } from '../assets/icons/cancel.svg';
-import { ReactComponent as EllipseDarkSVG } from '../assets/Ellipse 4.svg';
-import { ReactComponent as EllipseLightSVG } from '../assets/Ellipse 5.svg';
+import Patient from '../assets/icons/patient.png';
+import Doctor from '../assets/icons/doctor.png';
+import Chat from '../assets/icons/chat.svg';
+import Call from '../assets/icons/call_end.svg';
+import Microphone from '../assets/icons/keyboard_voice.svg';
+import Videocam from '../assets/icons/videocam.svg';
+import Check from '../assets/icons/check_circle.png';
+import Cancel from '../assets/icons/cancel.png';
+import EllipseDark from '../assets/icons/Ellipse 4.png';
+import EllipseLight from '../assets/icons/Ellipse 5.png';
 // import { ReactComponent as PatientSVG } from '../assets/icons/patient.svg';
 
 const ProviderRegistration = (): JSX.Element => {
@@ -34,7 +35,7 @@ const ProviderRegistration = (): JSX.Element => {
   const helperText = isError ? 'This name is already taken, please use another one' : '';
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'row', height: '100vh' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'row' }}>
       {/* left side */}
       <Box sx={{ width: '55%', backgroundColor: '#263954' }}>
         <Box
@@ -63,12 +64,40 @@ const ProviderRegistration = (): JSX.Element => {
             alignItems: 'center',
           }}
         >
-          <EllipseDarkSVG
+          <img
+            src={EllipseDark}
             style={{ width: '29rem', height: '29rem', position: 'absolute', marginBottom: '9rem', marginRight: '9rem' }}
           />
-          <EllipseLightSVG
+          <img
+            src={EllipseLight}
             style={{ width: '29rem', height: '29rem', position: 'absolute', marginTop: '9rem', marginLeft: '9rem' }}
           />
+          <Box
+            sx={{
+              width: '6.8rem',
+              height: '6.8rem',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              borderRadius: '1.25rem',
+              backgroundColor: '#D9D9D9',
+              overflow: 'hidden',
+              border: '0.25rem solid #fff',
+              position: 'absolute',
+              marginBottom: '23rem',
+              marginLeft: '18rem',
+              zIndex: '2',
+            }}
+          >
+            <img
+              src={Patient}
+              style={{
+                width: '6.75rem',
+                height: '6.75rem',
+              }}
+            />
+          </Box>
+
           <Box
             sx={{
               width: '18.2rem',
@@ -84,9 +113,11 @@ const ProviderRegistration = (): JSX.Element => {
               zIndex: '1',
             }}
           >
-            <DoctorSVG style={{ width: '18.1rem', height: '18.1rem' }} />
+            <img src={Doctor} style={{ width: '18.1rem', height: '18.1rem' }} />
+
             {/* <PatientSVG style={{ width: '18.125rem', height: '18.125rem' }} /> */}
           </Box>
+
           <Box
             sx={{
               display: 'flex',
@@ -99,10 +130,10 @@ const ProviderRegistration = (): JSX.Element => {
               zIndex: '1',
             }}
           >
-            <ChatSVG />
-            <CallSVG />
-            <MicrophoneSVG />
-            <VideocamSVG />
+            <img src={Videocam} />
+            <img src={Microphone} />
+            <img src={Chat} />
+            <img src={Call} />
           </Box>
         </Box>
         <Box
@@ -123,7 +154,7 @@ const ProviderRegistration = (): JSX.Element => {
       </Box>
 
       {/* right side */}
-      <Box sx={{ width: '45%', backgroundColor: 'white', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ width: '45%', height: '100vh', backgroundColor: 'white', display: 'flex', flexDirection: 'column' }}>
         <Box sx={{ margin: '4rem 6.25rem', display: 'flex', flexDirection: 'column', height: '54rem' }}>
           <Typography sx={{ fontSize: '2.125rem' }}>Welcome to [app name]</Typography>
           <Typography sx={{ fontSize: '1.25rem', color: '#4AC0F2', paddingTop: '1%', paddingBottom: '1%' }}>
@@ -154,7 +185,13 @@ const ProviderRegistration = (): JSX.Element => {
                 helperText={helperText}
               />
               <Box sx={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
-                <Box sx={{ marginRight: '0.5rem' }}>{isError ? <CancelSVG /> : <CheckCircleSVG />}</Box>
+                <Box sx={{ marginRight: '0.5rem' }}>
+                  {isError ? (
+                    <img src={Cancel} style={{ width: '1.5rem', height: '1.5rem' }} />
+                  ) : (
+                    <img src={Check} style={{ width: '1.5rem', height: '1.5rem' }} />
+                  )}
+                </Box>
                 <Typography variant="body2">{`https://zapehr.app/${roomName}`}</Typography>
               </Box>
 
