@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
@@ -10,18 +10,25 @@ import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Button from '@mui/material/Button';
 
-import { ReactComponent as DoctorSVG } from '../assets/doctor.svg';
-import { ReactComponent as ChatSVG } from '../assets/chat.svg';
-import { ReactComponent as CallSVG } from '../assets/call_end.svg';
-import { ReactComponent as MicrophoneSVG } from '../assets/keyboard_voice.svg';
-import { ReactComponent as VideocamSVG } from '../assets/videocam.svg';
-// import { ReactComponent as PatientSVG } from '../assets/patient.svg';
+import { ReactComponent as DoctorSVG } from '../assets/icons/doctor.svg';
+import { ReactComponent as ChatSVG } from '../assets/icons/chat.svg';
+import { ReactComponent as CallSVG } from '../assets/icons/call_end.svg';
+import { ReactComponent as MicrophoneSVG } from '../assets/icons/keyboard_voice.svg';
+import { ReactComponent as VideocamSVG } from '../assets/icons/videocam.svg';
+import { ReactComponent as CheckCircleSVG } from '../assets/icons/check_circle.svg';
+import { ReactComponent as CancelSVG } from '../assets/icons/cancel.svg';
+import { ReactComponent as EllipseDarkSVG } from '../assets/Ellipse 4.svg';
+import { ReactComponent as EllipseLightSVG } from '../assets/Ellipse 5.svg';
+// import { ReactComponent as PatientSVG } from '../assets/icons/patient.svg';
 
 const ProviderRegistration = (): JSX.Element => {
   const handleSubmit = (event: any): void => {
     event.preventDefault();
     // TODO: form submission structure
   };
+
+  const [roomName, setRoomName] = useState('');
+  const mockData = ['aykhanahmadli', 'samiromarov'];
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'row', height: '100vh' }}>
@@ -53,6 +60,12 @@ const ProviderRegistration = (): JSX.Element => {
             alignItems: 'center',
           }}
         >
+          <EllipseDarkSVG
+            style={{ width: '29rem', height: '29rem', position: 'absolute', marginBottom: '9rem', marginRight: '9rem' }}
+          />
+          <EllipseLightSVG
+            style={{ width: '29rem', height: '29rem', position: 'absolute', marginTop: '9rem', marginLeft: '9rem' }}
+          />
           <Box
             sx={{
               width: '18.2rem',
@@ -65,6 +78,7 @@ const ProviderRegistration = (): JSX.Element => {
               overflow: 'hidden',
               border: '0.25rem solid #fff',
               marginBottom: '1.25rem',
+              zIndex: '1',
             }}
           >
             <DoctorSVG style={{ width: '18.1rem', height: '18.1rem' }} />
@@ -79,6 +93,7 @@ const ProviderRegistration = (): JSX.Element => {
               height: '3.375rem',
               borderRadius: '1.25rem',
               backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              zIndex: '1',
             }}
           >
             <ChatSVG />
@@ -105,8 +120,8 @@ const ProviderRegistration = (): JSX.Element => {
       </Box>
 
       {/* right side */}
-      <Box sx={{ width: '45%', height: '100%', backgroundColor: 'white', display: 'flex', flexDirection: 'column' }}>
-        <Box sx={{ margin: '5rem 6.25rem', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ width: '45%', backgroundColor: 'white', display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ margin: '4rem 6.25rem', display: 'flex', flexDirection: 'column', height: '54rem' }}>
           <Typography sx={{ fontSize: '2.125rem' }}>Welcome to [app name]</Typography>
           <Typography sx={{ fontSize: '1.25rem', color: '#4AC0F2', paddingTop: '1%', paddingBottom: '1%' }}>
             Provider registration
@@ -123,7 +138,21 @@ const ProviderRegistration = (): JSX.Element => {
               </FormControl>
               <TextField variant="outlined" label="First Name" sx={{ width: '26.4rem', paddingBottom: '1rem' }} />
               <TextField variant="outlined" label="Last Name" sx={{ width: '26.4rem', paddingBottom: '1rem' }} />
-              <TextField variant="outlined" label="Room Name" sx={{ width: '26.4rem', paddingBottom: '1rem' }} />
+              <TextField
+                variant="outlined"
+                label="Room Name"
+                sx={{
+                  width: '26.4rem',
+                  paddingBottom: '0.5rem',
+                  borderColor: 'red',
+                }}
+                value={roomName}
+                onChange={(e) => setRoomName(e.target.value)}
+              />
+              <Box sx={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
+                {mockData.includes(roomName) ? <CancelSVG /> : <CheckCircleSVG />}
+                <Typography variant="body2">{`https://zapehr.app/${roomName}`}</Typography>
+              </Box>
               <TextField variant="outlined" label="Email Address" sx={{ width: '26.4rem', paddingBottom: '1rem' }} />
               <TextField
                 variant="outlined"
