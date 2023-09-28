@@ -30,6 +30,9 @@ const ProviderRegistration = (): JSX.Element => {
   const [roomName, setRoomName] = useState('');
   const mockData = ['aykhanahmadli', 'samiromarov'];
 
+  const isError = mockData.includes(roomName);
+  const helperText = isError ? 'This name is already taken, please use another one' : '';
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'row', height: '100vh' }}>
       {/* left side */}
@@ -144,15 +147,17 @@ const ProviderRegistration = (): JSX.Element => {
                 sx={{
                   width: '26.4rem',
                   paddingBottom: '0.5rem',
-                  borderColor: 'red',
                 }}
                 value={roomName}
                 onChange={(e) => setRoomName(e.target.value)}
+                error={isError}
+                helperText={helperText}
               />
               <Box sx={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
-                {mockData.includes(roomName) ? <CancelSVG /> : <CheckCircleSVG />}
+                <Box sx={{ marginRight: '0.5rem' }}>{isError ? <CancelSVG /> : <CheckCircleSVG />}</Box>
                 <Typography variant="body2">{`https://zapehr.app/${roomName}`}</Typography>
               </Box>
+
               <TextField variant="outlined" label="Email Address" sx={{ width: '26.4rem', paddingBottom: '1rem' }} />
               <TextField
                 variant="outlined"
