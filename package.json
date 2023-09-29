@@ -1,6 +1,6 @@
 {
   "name": "zapehr-telehealth",
-  "version": "1.10.0",
+  "version": "0.0.1",
   "private": true,
   "scripts": {
     "lint": "eslint packages/",
@@ -29,6 +29,7 @@
     ]
   },
   "devDependencies": {
+    "@changesets/cli": "2.26.2",
     "@types/fhir": "^0.0.35",
     "@types/luxon": "^3.1.0",
     "@typescript-eslint/eslint-plugin": "^5.45.0",
