@@ -4,6 +4,7 @@ import { ScrollToTop } from './components';
 import { IntakeThemeProvider } from './IntakeThemeProvider';
 import Version from './pages/Version';
 import ProviderRegistration from './pages/ProviderRegistration';
+import PatientCheckIn from './pages/PatientCheckin';
 
 function App(): JSX.Element {
   const { isAuthenticated } = useAuth0();
@@ -16,6 +17,7 @@ function App(): JSX.Element {
           <Routes>
             <Route path={'/'} element={<Version />} />;
             <Route path={'/registration'} element={<ProviderRegistration />} />;
+            <Route path={'/checkin'} element={<PatientCheckIn />} />;
           </Routes>
         ) : (
           <Routes>
