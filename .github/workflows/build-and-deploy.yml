@@ -100,27 +100,13 @@ jobs:
       - name: Install dependencies
         run: pnpm ci
 
+## todo
       - name: Deploy app
         run: cd ${{ env.PACKAGE_LOCATION }} && pnpm run ci-deploy:${{ env.ENVIRONMENT }}
-
-      # - name: Check out secrets repo to grab the env file.
-      #   uses: actions/checkout@v3
-      #   with:
-      #     repository: masslight/pm-pediatrics-secrets
-      #     ssh-key: ${{ secrets.DEPLOY_PMP_BH }}
-      #     path: 'secrets'
-
-
-
-      - name: Move secrets file into the .env directory.
-        run: mkdir -p ${{ env.ZAMBDAS_LOCATION }}/.env/ && cp secrets/bh-zambdas/* ${{ env.ZAMBDAS_LOCATION }}/.env/
-
+## todo
       - name: Setup zapehr secrets
         run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm run setup-zapehr-secrets ${{ env.ENVIRONMENT }}
-
-      - name: Add new insurance organizations
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm run add-new-organizations:${{ env.ENVIRONMENT }}
-
+## todo
       - name: Deploy zambdas
         run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm run deploy-zambdas ${{ env.ENVIRONMENT }}
 
