@@ -77,13 +77,13 @@ jobs:
 
       - name: Move env file into .env folder
         run: mkdir -p ${{ env.ZAMBDAS_LOCATION }}/.env/ && cp secrets.json ${{ env.ZAMBDAS_LOCATION }}/.env/${{ secrets.ENVIRONMENT }}.json
-##
+
       - name: Increase version if input dictates.
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
         run: >
           git config --local user.email "ngreene+zaptelehealthghaction@masslight.com"
           git config --local user.name "GitHub Action Bump Version"
-          npm version ${{ github.event.inputs.versionType }}
+          pnpm version ${{ github.event.inputs.versionType }}
 
       - name: Push increased version if input dictates.
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
@@ -94,15 +94,14 @@ jobs:
 
       - name: Get Version Number from package.json for build notifications.
         id: package-version
-        uses: martinbeentjes/npm-get-version-action@v1.1.0
-        with:
+        uses: martinbeentjes/npm-get-version-action@v1.3.1
           path: ${{ env.PACKAGE_LOCATION }}
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm ci
 
       - name: Deploy app
-        run: cd ${{ env.PACKAGE_LOCATION }} && npm run ci-deploy:${{ env.ENVIRONMENT }}
+        run: cd ${{ env.PACKAGE_LOCATION }} && pnpm run ci-deploy:${{ env.ENVIRONMENT }}
 
       # - name: Check out secrets repo to grab the env file.
       #   uses: actions/checkout@v3
@@ -117,13 +116,13 @@ jobs:
         run: mkdir -p ${{ env.ZAMBDAS_LOCATION }}/.env/ && cp secrets/bh-zambdas/* ${{ env.ZAMBDAS_LOCATION }}/.env/
 
       - name: Setup zapehr secrets
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run setup-zapehr-secrets ${{ env.ENVIRONMENT }}
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm run setup-zapehr-secrets ${{ env.ENVIRONMENT }}
 
       - name: Add new insurance organizations
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run add-new-organizations:${{ env.ENVIRONMENT }}
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm run add-new-organizations:${{ env.ENVIRONMENT }}
 
       - name: Deploy zambdas
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run deploy-zambdas ${{ env.ENVIRONMENT }}
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm run deploy-zambdas ${{ env.ENVIRONMENT }}
 
       - name: Notify Slack
         if: always()
