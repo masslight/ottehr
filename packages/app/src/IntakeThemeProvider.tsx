@@ -44,7 +44,7 @@ export const otherColors = {
   patientSubtitle: '#545454',
   wrongPatient: '#8F9AA7',
   cardBackground: '#F7F8F9',
-  footerBackground: '#263954',
+  footerBackground: '#202A3E',
 };
 
 export const typography: TypographyOptions = {
@@ -69,13 +69,13 @@ export const typography: TypographyOptions = {
     lineHeight: '140%',
   },
   h4: {
-    fontSize: 18,
+    fontSize: 34,
     fontWeight: '500 !important',
     fontFamily: headerFonts.join(','),
     lineHeight: '140%',
   },
   h5: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: '500 !important',
     fontFamily: headerFonts.join(','),
     lineHeight: '140%',
@@ -139,6 +139,7 @@ export const palette = {
   text: {
     primary: '#212130',
     secondary: '#4F4F4F',
+    light: '#323F53DE',
     disabled: '#C3C9D2',
   },
   primary: {
@@ -185,15 +186,15 @@ export const components: Components = {
   MuiButton: {
     styleOverrides: {
       root: {
-        fontSize: 16,
-        fontWeight: 700,
+        fontSize: 14,
+        fontWeight: 600,
         fontFamily: textFonts.join(','),
-        textTransform: 'none',
+        textTransform: 'uppercase',
         lineHeight: '140%',
         '&:not($sizeLarge):not($sizeSmall) $label': {
           fontSize: 16,
         },
-        borderRadius: 50,
+        // borderRadius: 49,
       },
       sizeLarge: {
         '& $label': {

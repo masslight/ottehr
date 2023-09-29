@@ -31,9 +31,15 @@
       }
     },
     "firstName": "First name",
-    "footer": "Powered by",
     "lastName": "Last name",
     "required": "required field",
+    "footer": "Powered by",
+    "goodMorning": "Good Morning",
+    "shareLink": "To invite patient to your room share this link",
+    "copyLink": "Copy Link",
+    "sendEmail": "Send Email",
+    "patientsQueue": "Patients queue",
+    "waiting": "Waiting",
     "stateFullNames": {
       "AK": "Alaska",
       "AL": "Alabama",
