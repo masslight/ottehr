@@ -40,6 +40,7 @@
     "sendEmail": "Send Email",
     "patientsQueue": "Patients queue",
     "waiting": "Waiting",
+    "startCall": "Start Call",
     "stateFullNames": {
       "AK": "Alaska",
       "AL": "Alabama",

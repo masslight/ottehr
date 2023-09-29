@@ -105,7 +105,7 @@ export const typography: TypographyOptions = {
     lineHeight: '140%',
   },
   body2: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 400,
     fontFamily: textFonts.join(','),
     lineHeight: '140%',

@@ -1,8 +1,9 @@
 import { FC } from 'react';
-import { Box, Grid, Link as MuiLink, Typography, useTheme } from '@mui/material';
+import { Box, Button, Grid, Typography } from '@mui/material';
 import defaultPatient from '../assets/icons/defaultPatient.svg';
 import { getQueuedTimeFromTimestamp } from '../helpers';
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export interface PatientQueueProps {
   name: string;
@@ -11,7 +12,7 @@ export interface PatientQueueProps {
 }
 
 const PatientQueue: FC<PatientQueueProps> = ({ name, queuedTime, link }) => {
-  const theme = useTheme();
+  const { t } = useTranslation();
 
   const [relativeQueuedTime, setRelativeQueuedTime] = useState(getQueuedTimeFromTimestamp(queuedTime));
 
@@ -27,27 +28,23 @@ const PatientQueue: FC<PatientQueueProps> = ({ name, queuedTime, link }) => {
   }, [queuedTime]);
 
   return (
-    <Box sx={{ m: 0, px: { xs: 3, md: 5 }, py: 2 }}>
-      <Grid container direction="row" spacing={{ xs: 0, md: 2 }}>
-        <Grid item xs={12} md={3} textAlign={{ xs: 'center', md: 'start' }} sx={{ marginTop: '0 !important' }}>
+    <Box sx={{ m: 0, py: 1 }}>
+      <Grid container alignItems="center" spacing={{ xs: 0 }}>
+        <Grid item xs={8} display="flex" alignItems="center" textAlign={{ xs: 'start' }}>
           <img src={defaultPatient} height="42px" />
+          <Box pl={2}>
+            <Typography variant="body1" color="primary.contrast">
+              {name}
+            </Typography>
+            <Typography variant="body2" color="primary.contrast" sx={{ opacity: 0.6 }}>
+              {relativeQueuedTime}
+            </Typography>
+          </Box>
         </Grid>
-        <Grid item xs={12} md={6} textAlign={{ xs: 'center', md: 'start' }} sx={{ marginTop: '0 !important' }}>
-          <Typography sx={{ fontSize: '18px' }} color={theme.palette.secondary.main}>
-            {name}
-          </Typography>
-        </Grid>
-        <Grid item xs={12} md={3} textAlign={{ xs: 'center', md: 'end' }} sx={{ marginTop: '0 !important' }}>
-          <MuiLink
-            href={link}
-            sx={{
-              fontWeight: 700,
-              fontSize: '16px',
-              color: theme.palette.secondary.main,
-            }}
-          >
-            {relativeQueuedTime}
-          </MuiLink>
+        <Grid item xs={4} display="flex" alignItems="center" justifyContent="flex-end">
+          <Button variant="contained" color="primary" href={link}>
+            {t('general.startCall')}
+          </Button>
         </Grid>
       </Grid>
     </Box>

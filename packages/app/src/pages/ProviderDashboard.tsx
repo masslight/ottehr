@@ -1,11 +1,12 @@
 import React from 'react';
 import { Footer } from '../components';
-import { Container, Box, Grid, Typography, Button } from '@mui/material';
+import { Container, Box, Grid, Typography, Button, Divider } from '@mui/material';
 import defaultProvider from '../assets/icons/defaultProvider.png';
 import { useTranslation } from 'react-i18next';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import PatientQueue from '../components/PatientQueue';
+import TopAppBar from '../components/AppBar';
 
 const ProviderDashboard = (): JSX.Element => {
   const { t } = useTranslation();
@@ -13,30 +14,30 @@ const ProviderDashboard = (): JSX.Element => {
   const patientsData = [
     {
       name: 'John Doe',
-      queuedTime: '2023-09-27T08:15:00Z',
+      queuedTime: '2023-09-29T08:15:00Z',
       link: 'https://example.com/john',
     },
     {
       name: 'Jane Smith',
-      queuedTime: '2023-09-27T09:30:00Z',
+      queuedTime: '2023-09-29T15:54:00Z',
       link: 'https://example.com/jane',
     },
   ];
+
+  const roomLink = ' https://zapehr.app/oliviasmith';
 
   return (
     <Container
       maxWidth={false}
       disableGutters
       sx={{
-        backgroundSize: 'cover',
-        backgroundAttachment: 'fixed',
-        backgroundPosition: 'center',
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
       }}
     >
+      <TopAppBar />
       <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'row' }}>
         <Box
           sx={{
@@ -87,7 +88,7 @@ const ProviderDashboard = (): JSX.Element => {
             </Typography>
 
             <Typography variant="h5" color="text.light" fontFamily="work Sans">
-              https://zapehr.app/oliviasmith
+              {roomLink}
             </Typography>
 
             <Box
@@ -98,7 +99,18 @@ const ProviderDashboard = (): JSX.Element => {
                 marginTop: 2,
               }}
             >
-              <Button variant="contained" color="primary" startIcon={<ContentCopyIcon />}>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<ContentCopyIcon />}
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(roomLink);
+                  } catch (error) {
+                    console.error('Failed to copy room link to clipboard:', error);
+                  }
+                }}
+              >
                 {t('general.copyLink')}
               </Button>
               <Button variant="outlined" color="primary" startIcon={<MailOutlineIcon />}>
@@ -130,7 +142,10 @@ const ProviderDashboard = (): JSX.Element => {
           </Typography>
 
           {patientsData.map((patient, index) => (
-            <PatientQueue key={index} {...patient} />
+            <React.Fragment key={index}>
+              <PatientQueue {...patient} />
+              {index !== patientsData.length - 1 && <Divider sx={{ opacity: 0.12 }} />}
+            </React.Fragment>
           ))}
         </Box>
       </Box>
