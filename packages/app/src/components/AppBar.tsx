@@ -11,14 +11,29 @@ import {
   Tooltip,
   IconButton,
   useTheme,
+  Divider,
 } from '@mui/material';
 import { otherColors } from '../IntakeThemeProvider';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import React from 'react';
+import { Link, NavLink, useLocation } from 'react-router-dom';
+
 const pages = ['Dashboard'];
-const settings = ['Profile', 'LOG OUT'];
+const settings = [
+  {
+    name: 'Profile',
+    route: '/ProviderProfile',
+  },
+  {
+    name: 'LOG OUT',
+    route: '/Logout',
+  },
+];
 
 const TopAppBar: FC = () => {
+  const location = useLocation();
+  const isActive = (path: string): boolean => location.pathname === path;
+
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
 
   const handleOpenUserMenu = (event: React.MouseEvent<HTMLElement>): void => {
@@ -54,7 +69,18 @@ const TopAppBar: FC = () => {
           </Typography>
           <Box sx={{ flexGrow: 1, display: { xs: 'flex' } }}>
             {pages.map((page) => (
-              <Button key={page} sx={{ my: 2, color: 'white', display: 'block' }}>
+              <Button
+                key={page}
+                component={NavLink}
+                to={`/${page.toLowerCase()}`}
+                sx={{
+                  my: 2,
+                  color: isActive(`/${page.toLowerCase()}`) ? 'primary.light' : 'white',
+                  display: 'block',
+                  textDecoration: 'none',
+                  '&.active': { color: 'primary.light' },
+                }}
+              >
                 {page}
               </Button>
             ))}
@@ -82,10 +108,26 @@ const TopAppBar: FC = () => {
               open={Boolean(anchorElUser)}
               onClose={handleCloseUserMenu}
             >
-              {settings.map((setting) => (
-                <MenuItem key={setting} onClick={handleCloseUserMenu}>
-                  <Typography textAlign="center">{setting}</Typography>
-                </MenuItem>
+              <MenuItem disabled>
+                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                  <Typography variant="body1">Name Surname</Typography>
+                  <Typography variant="body1">email@example.com</Typography>
+                </Box>
+              </MenuItem>
+
+              <Divider />
+              {settings.map((setting, index) => (
+                <React.Fragment key={setting.name}>
+                  <MenuItem onClick={handleCloseUserMenu} component={Link} to={setting.route}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      {setting.name === 'Profile' && <AccountCircleIcon sx={{ mr: 4, color: 'text.light' }} />}
+                      <Typography variant="body2" color="text.light">
+                        {setting.name}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                  {index < settings.length - 1 && <Divider />}
+                </React.Fragment>
               ))}
             </Menu>
           </Box>
