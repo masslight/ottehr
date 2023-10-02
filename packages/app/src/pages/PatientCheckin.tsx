@@ -1,8 +1,8 @@
 import { Button, TextField, Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import React from 'react';
-import TopSection from '../components/CheckIn/TopSection';
-import Footer from '../components/CheckIn/Footer';
+import TopSection from '../components/TopSection';
+import Footer from '../components/Footer';
 
 const PatientCheckIn = (): JSX.Element => {
   const handleSubmit = (event: any): void => {

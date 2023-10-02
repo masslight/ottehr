@@ -1,5 +1,5 @@
 import { Typography } from '@mui/material';
-import WaitingRoomLogo from '../../assets/icons/waitingRoomLogo.png';
+import WaitingRoomLogo from '../assets/icons/waitingRoomLogo.png';
 import { Box } from '@mui/system';
 
 //To do: export types to another folder

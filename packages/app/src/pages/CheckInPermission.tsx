@@ -1,8 +1,8 @@
 import { Button, Typography, Box } from '@mui/material';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import React from 'react';
-import TopSection from '../components/CheckIn/TopSection';
-import Footer from '../components/CheckIn/Footer';
+import TopSection from '../components/TopSection';
+import Footer from '../components/Footer';
 
 const CheckInPermission = (): JSX.Element => {
   const enableCamMic = (): void => {
@@ -25,7 +25,8 @@ const CheckInPermission = (): JSX.Element => {
           alignItems: 'center',
           backgroundColor: '#fff',
           height: '35rem',
-          justifyContent: 'center',
+          py: 7.5,
+          px: 12.5,
         }}
       >
         <Box sx={{ width: '31.3rem' }}>
