@@ -27,11 +27,12 @@ const CheckInPermission = (): JSX.Element => {
           height: '35rem',
           py: 7.5,
           px: 12.5,
+          gap: 2,
         }}
       >
-        <Box sx={{ width: '31.3rem' }}>
-          <Typography sx={{ fontSize: '1.5rem', paddingBottom: '0.5rem' }}>Enable your camera and mic</Typography>
-          <Typography sx={{ fontSize: '1rem', paddingBottom: '1.5rem' }}>
+        <Box sx={{ width: '31.3rem', display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Typography sx={{ fontSize: '1.5rem' }}>Enable your camera and mic</Typography>
+          <Typography sx={{ fontSize: '1rem' }}>
             Please give us access to your camera and mic for a video call
           </Typography>
         </Box>
@@ -78,6 +79,7 @@ const CheckInPermission = (): JSX.Element => {
               color: '#2896C6',
               fontSize: '15px',
               cursor: 'pointer',
+              mt: 2,
             }}
             onClick={continueWithoutCamMic}
           >
