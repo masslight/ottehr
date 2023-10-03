@@ -1,26 +1,28 @@
 import React, { useState } from 'react';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import TextField from '@mui/material/TextField';
-import FormControl from '@mui/material/FormControl';
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
-import InputLabel from '@mui/material/InputLabel';
-import Checkbox from '@mui/material/Checkbox';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Button from '@mui/material/Button';
+import {
+  Box,
+  Typography,
+  TextField,
+  FormControl,
+  Select,
+  MenuItem,
+  InputLabel,
+  Checkbox,
+  FormControlLabel,
+  Button,
+} from '@mui/material';
+
+import MicIcon from '@mui/icons-material/Mic';
+import ChatIcon from '@mui/icons-material/Chat';
+import CallEndIcon from '@mui/icons-material/CallEnd';
+import VideocamIcon from '@mui/icons-material/Videocam';
 
 import Patient from '../assets/icons/patient.png';
 import Doctor from '../assets/icons/doctor.png';
-import Chat from '../assets/icons/chat.svg';
-import Call from '../assets/icons/call_end.svg';
-import Microphone from '../assets/icons/keyboard_voice.svg';
-import Videocam from '../assets/icons/videocam.svg';
 import Check from '../assets/icons/check_circle.png';
 import Cancel from '../assets/icons/cancel.png';
 import EllipseDark from '../assets/icons/Ellipse 4.png';
 import EllipseLight from '../assets/icons/Ellipse 5.png';
-// import { ReactComponent as PatientSVG } from '../assets/icons/patient.svg';
 
 const ProviderRegistration = (): JSX.Element => {
   const handleSubmit = (event: any): void => {
@@ -114,8 +116,6 @@ const ProviderRegistration = (): JSX.Element => {
             }}
           >
             <img src={Doctor} style={{ width: '18.1rem', height: '18.1rem' }} />
-
-            {/* <PatientSVG style={{ width: '18.125rem', height: '18.125rem' }} /> */}
           </Box>
 
           <Box
@@ -130,10 +130,10 @@ const ProviderRegistration = (): JSX.Element => {
               zIndex: '1',
             }}
           >
-            <img src={Videocam} />
-            <img src={Microphone} />
-            <img src={Chat} />
-            <img src={Call} />
+            <VideocamIcon style={{ color: 'white' }} />
+            <MicIcon style={{ color: 'white' }} />
+            <ChatIcon style={{ color: 'white' }} />
+            <CallEndIcon style={{ color: 'white' }} />
           </Box>
         </Box>
         <Box
