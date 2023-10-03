@@ -8,28 +8,25 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+env:
+  ENVIRONMENT_NAME: dev
+
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest    
     environment: dev
+    
     steps:
-      # - name: Install SSH Client
-      #   uses: webfactory/ssh-agent@v0.7.0
-      #   with:
-      #     ssh-private-key: ${{ secrets.ZAPEHR_TELEHEALTH_PRIVATE_SSH_KEY }}
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      
       - uses: actions/setup-node@v3
         with:
           node-version: '18'
-      # - name: Check out secrets repo to grab the secrets file.
-      #   uses: actions/checkout@v3
-      #   with:
-      #     repository: masslight/TODO-secrets
-      #     ssh-key: ${{ secrets.ZAPEHR_TELEHEALTH_PRIVATE_SSH_KEY }}
-      #     path: 'secrets'
+
+      - uses: pnpm/action-setup@v2
 
       - name: Create secrets file from github secrets
         id: create-json
@@ -38,8 +35,8 @@ jobs:
           name: "secrets.json"
           json: ${{ secrets.TELEHEALTH_SECRETS_JSON }}
       
-      -name: Move env file into .env folder
-        run: mkdir -p packages/zambdas/.env/ && cp secrets.json packages/zambdas/.env/${{ github.environment }}.json
+      - name: Move env file into .env folder
+        run: mkdir -p packages/zambdas/.env/ && cp secrets.json packages/zambdas/.env/${{ env.ENVIRONMENT_NAME }}.json
 
       - id: get-store-path
         run: echo STORE_PATH=$(pnpm store path) >> $GITHUB_OUTPUT
