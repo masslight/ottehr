@@ -1,7 +1,8 @@
 import { FC } from 'react';
 import { Typography, Box } from '@mui/material';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { useTranslation } from 'react-i18next';
+import { otherColors } from '../IntakeThemeProvider';
+import { Logo } from './Logo';
 
 const Footer: FC = () => {
   const { t } = useTranslation();
@@ -10,17 +11,19 @@ const Footer: FC = () => {
     <Box
       sx={{
         width: '100%',
-        backgroundColor: 'secondary.main',
+        background: otherColors.footerBackground,
         bottom: 0,
+        display: 'flex',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
       }}
-      display="flex"
-      justifyContent="center"
-      alignItems="center"
     >
-      <ErrorOutlineIcon color="warning" sx={{ pl: 1.25 }} />
-      <Typography variant="body2" color="primary.contrast" sx={{ m: 1.25, maxWidth: 850 }}>
+      <Typography variant="body2" color="primary.light" sx={{ m: 1.25, maxWidth: 400 }}>
         {t('general.footer')}
       </Typography>
+      <Box mt={0.7} mr={2}>
+        <Logo width={100} />
+      </Box>
     </Box>
   );
 };
