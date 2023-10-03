@@ -50,6 +50,7 @@ const TopAppBar: FC = () => {
     <AppBar position="static" sx={{ backgroundColor: otherColors.footerBackground }}>
       <Container maxWidth={false}>
         <Toolbar disableGutters variant="dense">
+          {/* placeholder logo */}
           <Typography
             variant="h6"
             noWrap
@@ -75,7 +76,7 @@ const TopAppBar: FC = () => {
                 to={`/${page.toLowerCase()}`}
                 sx={{
                   my: 2,
-                  color: isActive(`/${page.toLowerCase()}`) ? 'primary.light' : 'white',
+                  color: isActive(`/${page.toLowerCase()}`) ? 'primary.light' : 'rgba(255, 255, 255, 0.7)',
                   display: 'block',
                   textDecoration: 'none',
                   '&.active': { color: 'primary.light' },

@@ -24,7 +24,7 @@ const ProviderSettings = (): JSX.Element => {
   };
 
   const mockData = ['aykhanahmadli', 'samiromarov'];
-  const [roomName, setRoomName] = useState('samir');
+  const [roomName, setRoomName] = useState('oliviasmith');
 
   const isError = mockData.includes(roomName);
   const helperText = isError ? 'This name is already taken, please use another one' : '';

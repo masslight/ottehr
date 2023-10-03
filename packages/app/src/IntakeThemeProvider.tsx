@@ -2,8 +2,8 @@ import { FC, ReactNode } from 'react';
 import { BreakpointsOptions, Components, createTheme, PaletteColor, ThemeProvider } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 
-export const textFonts = ['PMDiatype', 'TiemposText', 'Nunito Sans'];
-export const headerFonts = ['TiemposHeadline', 'Nunito Sans'];
+export const textFonts = ['Work Sans'];
+export const headerFonts = ['Work Sans'];
 
 export const breakpoints: BreakpointsOptions = {
   values: {
