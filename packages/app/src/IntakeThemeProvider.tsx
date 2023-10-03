@@ -2,8 +2,8 @@ import { FC, ReactNode } from 'react';
 import { BreakpointsOptions, Components, createTheme, PaletteColor, ThemeProvider } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 
-export const textFonts = ['PMDiatype', 'TiemposText', 'Nunito Sans'];
-export const headerFonts = ['TiemposHeadline', 'Nunito Sans'];
+export const textFonts = ['Work Sans'];
+export const headerFonts = ['Work Sans'];
 
 export const breakpoints: BreakpointsOptions = {
   values: {
@@ -70,13 +70,13 @@ export const typography: TypographyOptions = {
     lineHeight: '140%',
   },
   h4: {
-    fontSize: 18,
+    fontSize: 34,
     fontWeight: '500 !important',
     fontFamily: headerFonts.join(','),
     lineHeight: '140%',
   },
   h5: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: '500 !important',
     fontFamily: headerFonts.join(','),
     lineHeight: '140%',
@@ -106,7 +106,7 @@ export const typography: TypographyOptions = {
     lineHeight: '140%',
   },
   body2: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 400,
     fontFamily: textFonts.join(','),
     lineHeight: '140%',
@@ -140,11 +140,13 @@ export const palette = {
   text: {
     primary: '#212130',
     secondary: '#4F4F4F',
+    light: '#323F53DE',
     disabled: '#C3C9D2',
   },
   primary: {
-    main: '#4D15B7',
+    main: '#2896C6',
     contrast: '#FFFFFF',
+    light: '#4AC0F2',
   },
   secondary: {
     main: '#301367',
@@ -185,15 +187,15 @@ export const components: Components = {
   MuiButton: {
     styleOverrides: {
       root: {
-        fontSize: 16,
-        fontWeight: 700,
+        fontSize: 14,
+        fontWeight: 600,
         fontFamily: textFonts.join(','),
-        textTransform: 'none',
+        textTransform: 'uppercase',
         lineHeight: '140%',
         '&:not($sizeLarge):not($sizeSmall) $label': {
           fontSize: 16,
         },
-        borderRadius: 50,
+        // borderRadius: 49,
       },
       sizeLarge: {
         '& $label': {
