@@ -95,7 +95,7 @@ export const typography: TypographyOptions = {
   },
   subtitle2: {
     fontSize: 14,
-    fontWeight: 700,
+    fontWeight: 600,
     fontFamily: textFonts.join(','),
     lineHeight: '140%',
   },
@@ -111,7 +111,12 @@ export const typography: TypographyOptions = {
     fontFamily: textFonts.join(','),
     lineHeight: '140%',
   },
-  button: {},
+  button: {
+    fontSize: 15,
+    fontWeight: 500,
+    fontFamily: textFonts.join(','),
+    lineHeight: '140%',
+  },
   caption: {
     fontSize: 14,
     fontWeight: 400,

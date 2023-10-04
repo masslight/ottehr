@@ -75,7 +75,7 @@ const ProviderSettings = (): JSX.Element => {
                   helperText={helperText}
                 />
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Box sx={{ mr: '1' }}>{isError ? <CancelIcon color="error" /> : <CheckIcon color="success" />}</Box>
+                  <Box sx={{ mr: 1 }}>{isError ? <CancelIcon color="error" /> : <CheckIcon color="success" />}</Box>
                   <Typography variant="body2">{`https://zapehr.app/${roomName}`}</Typography>
                 </Box>
 

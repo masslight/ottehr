@@ -19,10 +19,11 @@ import VideocamIcon from '@mui/icons-material/Videocam';
 
 import Patient from '../assets/icons/patient.png';
 import Doctor from '../assets/icons/doctor.png';
-import Check from '../assets/icons/check_circle.png';
-import Cancel from '../assets/icons/cancel.png';
+import CheckIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
 import EllipseDark from '../assets/icons/Ellipse 4.png';
 import EllipseLight from '../assets/icons/Ellipse 5.png';
+import { Logo } from '../components/Logo';
 
 const ProviderRegistration = (): JSX.Element => {
   const handleSubmit = (event: any): void => {
@@ -57,12 +58,12 @@ const ProviderRegistration = (): JSX.Element => {
             alignItems: 'center',
           }}
         >
-          <Typography sx={{ color: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: '1.5rem' }}>
+          <Typography variant="h5" color="primary.contrast" sx={{ textAlign: 'center' }}>
             NEW LOGO
           </Typography>
         </Box>
         <Box sx={{ marginTop: 2 }}>
-          <Typography sx={{ color: '#4AC0F2', textAlign: 'center', fontSize: '1rem' }}>
+          <Typography variant="body1" color="primary.light" sx={{ textAlign: 'center' }}>
             Connect with patients virtually
           </Typography>
         </Box>
@@ -100,8 +101,6 @@ const ProviderRegistration = (): JSX.Element => {
           />
           <Box
             sx={{
-              width: 108.8,
-              height: 108.8,
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
@@ -127,8 +126,6 @@ const ProviderRegistration = (): JSX.Element => {
 
           <Box
             sx={{
-              width: 291.2,
-              height: 291.2,
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
@@ -146,13 +143,13 @@ const ProviderRegistration = (): JSX.Element => {
           <Box
             sx={{
               display: 'flex',
-              justifyContent: 'space-around',
               alignItems: 'center',
-              width: 300,
-              height: 54,
               borderRadius: 5,
               backgroundColor: 'rgba(255, 255, 255, 0.2)',
               zIndex: '1',
+              gap: 2.5,
+              py: 1.75,
+              px: 9,
             }}
           >
             <VideocamIcon style={{ color: 'white' }} />
@@ -166,14 +163,13 @@ const ProviderRegistration = (): JSX.Element => {
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
+            gap: 1,
           }}
         >
-          <Typography component="span" sx={{ color: '#4AC0F2', fontSize: '0.875rem' }}>
-            Powered by _
+          <Typography component="span" variant="subtitle2" color="primary.light">
+            Powered by
           </Typography>
-          <Typography component="span" sx={{ color: 'white', fontWeight: 'bold', fontSize: '1rem' }}>
-            zapEHR
-          </Typography>
+          <Logo width={100} />
         </Box>
       </Box>
       {/* right side */}
@@ -188,8 +184,10 @@ const ProviderRegistration = (): JSX.Element => {
         }}
       >
         <Box sx={{ mx: 12.5, my: 10, display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <Typography sx={{ fontSize: '2.125rem' }}>Welcome to [app name]</Typography>
-          <Typography sx={{ fontSize: '1.25rem', color: '#4AC0F2', pb: 1 }}>Provider registration</Typography>
+          <Typography variant="h4">Welcome to [app name]</Typography>
+          <Typography variant="h3" color="primary.light" sx={{ pb: 1 }}>
+            Provider registration
+          </Typography>
           <form onSubmit={handleSubmit}>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'left', gap: 2 }}>
               <FormControl variant="outlined">
@@ -211,11 +209,7 @@ const ProviderRegistration = (): JSX.Element => {
                 helperText={helperText}
               />
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                {isError ? (
-                  <img src={Cancel} style={{ width: '1.5rem', height: '1.5rem' }} />
-                ) : (
-                  <img src={Check} style={{ width: '1.5rem', height: '1.5rem' }} />
-                )}
+                <Box sx={{ mr: 1 }}>{isError ? <CancelIcon color="error" /> : <CheckIcon color="success" />}</Box>
                 <Typography variant="body2">{`https://zapehr.app/${roomName}`}</Typography>
               </Box>
               <TextField variant="outlined" label="Email Address" />
@@ -226,10 +220,10 @@ const ProviderRegistration = (): JSX.Element => {
                 type="submit"
                 variant="contained"
                 sx={{
-                  backgroundColor: '#2896C6',
                   color: 'white',
                   textTransform: 'uppercase',
                   borderRadius: 1,
+                  py: 1,
                 }}
               >
                 Sign Up
