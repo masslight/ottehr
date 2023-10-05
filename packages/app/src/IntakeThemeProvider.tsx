@@ -45,6 +45,7 @@ export const otherColors = {
   wrongPatient: '#8F9AA7',
   cardBackground: '#F7F8F9',
   footerBackground: '#202A3E',
+  darkBackgroundPaper: '#263954',
 };
 
 export const typography: TypographyOptions = {
@@ -94,7 +95,7 @@ export const typography: TypographyOptions = {
   },
   subtitle2: {
     fontSize: 14,
-    fontWeight: 700,
+    fontWeight: 600,
     fontFamily: textFonts.join(','),
     lineHeight: '140%',
   },
