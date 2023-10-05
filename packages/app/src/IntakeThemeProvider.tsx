@@ -111,12 +111,7 @@ export const typography: TypographyOptions = {
     fontFamily: textFonts.join(','),
     lineHeight: '140%',
   },
-  button: {
-    fontSize: 15,
-    fontWeight: 500,
-    fontFamily: textFonts.join(','),
-    lineHeight: '140%',
-  },
+  button: {},
   caption: {
     fontSize: 14,
     fontWeight: 400,

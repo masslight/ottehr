@@ -57,10 +57,10 @@ const CheckInPermission = (): JSX.Element => {
             >
               ENABLE CAMERA AND MIC
             </Button>
-            <Typography
-              variant="button"
-              color="primary.light"
+            <Button
+              variant="text"
               sx={{
+                color: 'primary.light',
                 textAlign: 'center',
                 cursor: 'pointer',
                 mt: 2,
@@ -68,7 +68,7 @@ const CheckInPermission = (): JSX.Element => {
               onClick={continueWithoutCamMic}
             >
               CONTINUE WITHOUT CAMERA AND MIC
-            </Typography>
+            </Button>
           </Box>
         </Box>
       </Box>
