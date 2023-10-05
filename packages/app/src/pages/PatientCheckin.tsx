@@ -13,7 +13,7 @@ const PatientCheckIn = (): JSX.Element => {
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', justifyContent: 'space-between' }}>
       <ProviderHeaderSection providerName="Dr.Smith" title="Waiting Room" />
       {/* Middle Section */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'start', flexGrow: '1' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', flexGrow: '1' }}>
         <Box maxWidth="md" width="100%">
           <Box sx={{ px: 12.5, py: 7.5 }}>
             <Typography variant="h5" sx={{ pb: 1 }}>

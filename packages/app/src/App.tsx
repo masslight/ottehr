@@ -8,6 +8,7 @@ import PatientCheckIn from './pages/PatientCheckin';
 import CheckInPermission from './pages/CheckInPermission';
 import ProviderDashboard from './pages/ProviderDashboard';
 import ProviderSettings from './pages/ProviderSettings';
+import WaitingRoom from './pages/WaitingRoom';
 
 function App(): JSX.Element {
   const { isAuthenticated } = useAuth0();
@@ -20,8 +21,9 @@ function App(): JSX.Element {
           <Routes>
             <Route path={'/'} element={<Version />} />;
             <Route path={'/registration'} element={<ProviderRegistration />} />;
-            <Route path={'/checkin-permission'} element={<CheckInPermission />} />;
             <Route path={'/checkin'} element={<PatientCheckIn />} />;
+            <Route path={'/checkin-permission'} element={<CheckInPermission />} />;
+            <Route path={'/waitingroom'} element={<WaitingRoom />} />;
             <Route path={'/dashboard'} element={<ProviderDashboard />} />;
             <Route path={'/ProviderProfile'} element={<ProviderSettings />} />;
           </Routes>
