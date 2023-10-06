@@ -17,12 +17,13 @@ import ChatIcon from '@mui/icons-material/Chat';
 import CallEndIcon from '@mui/icons-material/CallEnd';
 import VideocamIcon from '@mui/icons-material/Videocam';
 
-import Patient from '../assets/icons/patient.png';
-import Doctor from '../assets/icons/doctor.png';
+import Patient from '../assets/icons/ottehrPatientIcon.svg';
+import Doctor from '../assets/icons/ottehrProviderIcon.svg';
 import CheckIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import EllipseDark from '../assets/icons/Ellipse 4.png';
 import EllipseLight from '../assets/icons/Ellipse 5.png';
+import RegistrationLogo from '../assets/icons/ottehrRegistrationLogo.svg';
 import { Logo } from '../components/Logo';
 
 const ProviderRegistration = (): JSX.Element => {
@@ -47,8 +48,7 @@ const ProviderRegistration = (): JSX.Element => {
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
-          pt: 10,
-          pb: 8,
+          gap: 2,
         }}
       >
         <Box
@@ -58,23 +58,20 @@ const ProviderRegistration = (): JSX.Element => {
             alignItems: 'center',
           }}
         >
-          <Typography variant="h5" color="primary.contrast" sx={{ textAlign: 'center' }}>
-            NEW LOGO
-          </Typography>
+          <Box component="img" src={RegistrationLogo} />
         </Box>
-        <Box sx={{ marginTop: 2 }}>
-          <Typography variant="body1" color="primary.light" sx={{ textAlign: 'center' }}>
+        <Box>
+          <Typography variant="body1" color="primary.light" sx={{ textAlign: 'center', py: 2 }}>
             Connect with patients virtually
           </Typography>
         </Box>
         <Box
           sx={{
-            minHeight: '37rem',
-            minWidth: '37rem',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
             alignItems: 'center',
+            py: 10,
           }}
         >
           <Box
@@ -104,40 +101,26 @@ const ProviderRegistration = (): JSX.Element => {
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
-              borderRadius: 5,
-              backgroundColor: '#D9D9D9',
               overflow: 'hidden',
-              border: '0.25rem solid #fff',
               position: 'absolute',
               mb: 46,
               marginLeft: 36,
               zIndex: '2',
             }}
           >
-            <Box
-              component="img"
-              src={Patient}
-              sx={{
-                width: 108,
-                height: 108,
-              }}
-            />
+            <Box component="img" src={Patient} />
           </Box>
 
           <Box
             sx={{
               display: 'flex',
               justifyContent: 'center',
-              alignItems: 'center',
-              borderRadius: 5,
-              backgroundColor: '#D9D9D9',
               overflow: 'hidden',
-              border: '0.25rem solid #fff',
               mb: 2.5,
               zIndex: '1',
             }}
           >
-            <img src={Doctor} style={{ width: '18.1rem', height: '18.1rem' }} />
+            <img src={Doctor} />
           </Box>
 
           <Box

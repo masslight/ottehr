@@ -1,7 +1,7 @@
 import React from 'react';
 import { Footer } from '../components';
 import { Container, Box, Grid, Typography, Button, Divider } from '@mui/material';
-import defaultProvider from '../assets/icons/defaultProvider.png';
+import defaultProvider from '../assets/icons/ottehrDefaultProvider.svg';
 import { useTranslation } from 'react-i18next';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';

@@ -1,5 +1,5 @@
 import { Typography, Box } from '@mui/material';
-import defaultProvider from '../assets/icons/defaultProvider.png';
+import defaultProvider from '../assets/icons/ottehrDefaultProvider.svg';
 
 //To do: export types to another folder
 interface ProviderHeaderSectionProps {
@@ -14,20 +14,6 @@ const ProviderHeaderSection: React.FC<ProviderHeaderSectionProps> = ({ providerN
         background: 'linear-gradient(89deg, rgba(40, 160, 198, 0.60) 5.05%, rgba(80, 96, 241, 0.17) 50.42%), #263954',
       }}
     >
-      {/* // placeholder for logo */}
-      <Typography
-        sx={{
-          color: 'white',
-          textAlign: 'left',
-          fontWeight: 'bold',
-          fontSize: '1.25rem',
-          pt: 1.4,
-          pl: 2.74,
-          position: 'absolute',
-        }}
-      >
-        NEW LOGO
-      </Typography>
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 5, alignItems: 'center' }}>
         <Box maxWidth="md" width="100%">
           <Box sx={{ display: 'flex', justifyContent: 'start', alignItems: 'center', mx: 12.5 }}>
