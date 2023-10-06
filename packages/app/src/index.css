@@ -10,6 +10,8 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
 
+@import url('https://fonts.googleapis.com/css2?family=Work+Sans:wght@100;200;300;400;500;700&display=swap');
+
 @font-face {
   font-family: 'PMDiatype';
   src: local('PMDiatype'), url(./fonts/PMDiatype-Regular.woff2) format('woff2'),
@@ -59,5 +61,3 @@ code {
     local('TiemposHeadline'), url(./fonts/TiemposHeadline-Regular.otf) format('otf'),
     local('TiemposHeadline'), url(./fonts/TiemposHeadline-Regular.ttf) format('ttf');
 }
-
-@import url('https://fonts.googleapis.com/css2?family=Work+Sans:wght@100;200;300;400;500;700&display=swap');
