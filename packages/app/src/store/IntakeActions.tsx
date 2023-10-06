@@ -5,7 +5,7 @@ import { FhirClient, ZambdaClient } from '@zapehr/sdk';
 
 export const setFhirClient = (token: string, dispatch: Dispatch<IntakeAction>): void => {
   const fhirClient = new FhirClient({
-    apiUrl: process.env.REACT_APP_FHIR_API_URL,
+    apiUrl: import.meta.env.VITE_FHIR_API_URL,
     accessToken: token,
   });
   dispatch({
@@ -16,7 +16,7 @@ export const setFhirClient = (token: string, dispatch: Dispatch<IntakeAction>): 
 
 export const setZambdaClient = (token: string | undefined, dispatch: Dispatch<IntakeAction>): void => {
   const zambdaClient = new ZambdaClient({
-    apiUrl: process.env.REACT_APP_PROJECT_API_URL,
+    apiUrl: import.meta.env.VITE_PROJECT_API_URL,
     accessToken: token,
   });
   dispatch({

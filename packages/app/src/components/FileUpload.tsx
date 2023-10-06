@@ -70,7 +70,7 @@ const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, options })
 
         // Return an endpoint to the file input to create the object
         const fileType = file.type.split('/')[1];
-        return `${process.env.REACT_APP_UPLOAD_URL}/z3/object/${bucketName}/${objectFolder}/${objectName}.${fileType}`;
+        return `${import.meta.env.VITE_UPLOAD_URL}/z3/object/${bucketName}/${objectFolder}/${objectName}.${fileType}`;
       } else {
         console.error('Error uploading file: No patient id found');
         return null;
