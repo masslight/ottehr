@@ -1,0 +1,10 @@
+{
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "buildCommand": "pnpm run build",
+  "installCommand": "npm i pnpm@8.8.0 -g && pnpm install"
+}
