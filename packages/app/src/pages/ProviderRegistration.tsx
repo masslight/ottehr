@@ -167,7 +167,7 @@ const ProviderRegistration = (): JSX.Element => {
         }}
       >
         <Box sx={{ mx: 12.5, my: 10, display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <Typography variant="h4">Welcome to [app name]</Typography>
+          <Typography variant="h4">Welcome to OttEHR</Typography>
           <Typography variant="h3" color="primary.light" sx={{ pb: 1 }}>
             Provider registration
           </Typography>
