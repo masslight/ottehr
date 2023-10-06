@@ -1,19 +1,19 @@
 const Version = (): JSX.Element => {
-  const { REACT_APP_ENV, REACT_APP_SHA, REACT_APP_VERSION } = process.env;
+  const { VITE_ENV, VITE_SHA, VITE_VERSION } = import.meta.env;
 
   return (
     <div>
       <p>
         Env:
-        {REACT_APP_ENV}
+        {VITE_ENV}
       </p>
       <p>
         Hash:
-        {REACT_APP_SHA}
+        {VITE_SHA}
       </p>
       <p>
         Version:
-        {REACT_APP_VERSION}
+        {VITE_VERSION}
       </p>
     </div>
   );

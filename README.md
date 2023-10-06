@@ -4,7 +4,7 @@
 
 This repository uses a monorepo structure. Each node module has its own code in its repsective folder in `packages/`.
 
-- `app` - The create-react-app static frontend website that patients use to join their telehealth visit and providers use to answer.
+- `app` - The static frontend website that patients use to join their telehealth visit and providers use to answer.
 - `zambdas` - The application's backend endpoints, deployed on the zapEHR platform.
 
 Each package has its own README explaining in more detail its purpose, as well as how to run locally and deploy (if applicable).

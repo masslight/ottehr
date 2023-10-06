@@ -6,9 +6,9 @@ export interface ZapehrSearchParameter {
   value: string;
 }
 
-const CHECK_IN_ZAMBDA_ID = process.env.REACT_APP_CHECK_IN_ZAMBDA_ID;
-const GET_PATIENTS_ZAMBDA_ID = process.env.REACT_APP_GET_PATIENTS_ZAMBDA_ID;
-const GET_APPOINTMENTS_ZAMBDA_ID = process.env.REACT_APP_GET_APPOINTMENTS_ZAMBDA_ID;
+const CHECK_IN_ZAMBDA_ID = import.meta.env.VITE_CHECK_IN_ZAMBDA_ID;
+const GET_PATIENTS_ZAMBDA_ID = import.meta.env.VITE_GET_PATIENTS_ZAMBDA_ID;
+const GET_APPOINTMENTS_ZAMBDA_ID = import.meta.env.VITE_GET_APPOINTMENTS_ZAMBDA_ID;
 
 class API {
   async checkIn(zambdaClient: ZambdaClient, appointmentId: string): Promise<any> {
