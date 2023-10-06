@@ -1,6 +1,6 @@
 # app
 
-The create-react-app static frontend web application for zapEHR Telehealth.
+The static frontend web application for zapEHR Telehealth.
 
 ## Run Locally
 
