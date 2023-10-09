@@ -1,33 +1,64 @@
-import { Box } from '@mui/system';
+import { Box, Typography, useTheme } from '@mui/material';
+import { useState } from 'react';
 import Footer from '../components/Footer';
 import ProviderHeaderSection from '../components/ProviderHeaderSection';
-import { Typography } from '@mui/material';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import MicIcon from '@mui/icons-material/Mic';
 import MicOffIcon from '@mui/icons-material/MicOff';
 import SettingsIcon from '@mui/icons-material/Settings';
-import { useState } from 'react';
 import { videoCallMock } from '../assets/icons';
 
 const WaitingRoom = (): JSX.Element => {
   const [isVideoOpen, setIsVideoOpen] = useState(false);
   const [isMicOpen, setIsMicOpen] = useState(false);
+  const theme = useTheme();
 
   const toggleMic = (): void => {
     setIsMicOpen(!isMicOpen);
   };
+
   const toggleVideo = (): void => {
     setIsVideoOpen(!isVideoOpen);
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', justifyContent: 'space-between' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        justifyContent: 'space-between',
+      }}
+    >
       <ProviderHeaderSection providerName="Dr.Smith" title="Waiting Room" />
       {/* Middle Section */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', flexGrow: '1' }}>
-        <Box maxWidth="md" width="100%">
-          <Box sx={{ px: 12.5, py: 7.5 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          flexGrow: '1',
+        }}
+      >
+        <Box
+          maxWidth="md"
+          width="100%"
+          sx={{
+            [theme.breakpoints.down('sm')]: {
+              px: 2,
+            },
+          }}
+        >
+          <Box
+            sx={{
+              px: 12.5,
+              py: 7.5,
+              [theme.breakpoints.down('sm')]: {
+                px: 2,
+                py: 4,
+              },
+            }}
+          >
             <Typography variant="h5" sx={{ pb: 1 }}>
               Your call will start soon
             </Typography>
@@ -40,6 +71,8 @@ const WaitingRoom = (): JSX.Element => {
                 style={{
                   visibility: isVideoOpen ? 'visible' : 'hidden',
                   display: 'block',
+                  maxWidth: '100%',
+                  height: 'auto',
                 }}
               />
               <Box

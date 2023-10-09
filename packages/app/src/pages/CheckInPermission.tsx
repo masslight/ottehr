@@ -1,10 +1,11 @@
-import { Button, Typography, Box } from '@mui/material';
+import { Button, Typography, Box, useTheme } from '@mui/material';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import React from 'react';
 import Footer from '../components/Footer';
 import ProviderHeaderSection from '../components/ProviderHeaderSection';
 
 const CheckInPermission = (): JSX.Element => {
+  const theme = useTheme();
   const enableCamMic = (): void => {
     // TODO: form submission structure
   };
@@ -14,12 +15,40 @@ const CheckInPermission = (): JSX.Element => {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', justifyContent: 'space-between' }}>
-      <ProviderHeaderSection providerName="Dr.Smith" title="Waiting Room" />
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        justifyContent: 'space-between',
+        [theme.breakpoints.down('md')]: {
+          padding: '0 0',
+        },
+      }}
+    >
+      <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" />
       {/* Middle Section */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', flexGrow: '1' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          flexGrow: '1',
+        }}
+      >
         <Box maxWidth="md" width="100%">
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, px: 12.5, py: 7.5 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+              px: 12.5,
+              py: 7.5,
+              [theme.breakpoints.down('sm')]: {
+                px: 2,
+                py: 4,
+              },
+            }}
+          >
             <Typography variant="h5">Enable your camera and mic</Typography>
             <Typography variant="body1">Please give us access to your camera and mic for a video call</Typography>
             <Box
@@ -32,6 +61,10 @@ const CheckInPermission = (): JSX.Element => {
                 justifyContent: 'center',
                 px: 15,
                 py: 10,
+                [theme.breakpoints.down('md')]: {
+                  px: 8,
+                  py: 6,
+                },
               }}
             >
               <VideocamOffIcon sx={{ color: '#FFF' }} />
