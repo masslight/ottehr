@@ -20,27 +20,27 @@ pnpm run start:local
 
 To connect with eClinicalWorks, we use Redox, a platform for connecting to EHRs. Here are zambdas that work with Redox:
 
-* **`redox-patient`:** A subscription zambda, when an Appointment is created in FHIR, `redox-patient` is called. This function:
-  * Checks if the appointment has already been sent to Redox. If it has, it returns.
-  * Gets the Patient who booked the Appointment.
-  * Searches Redox for patients with the first name, last name, and date of birth.
-    * If there is not a match, it creates a new patient to send to Redox.
-    * If there is one match, it updates a patient to send to Redox.
-    * If there are multiple matches, it exits.
-  * Calls Redox based on the above conditions.
-* **`redox-patient-updated-webhook`:** A public zambda that is called by Redox. This function:
-  * Checks that the request is from Redox.
-  * Takes in a RedoxPatient as input.
-  * Searches zapEHR for FHIR resources related to the patient and appointment using the RedoxPatient's ID.
-  * Creates a new appointment in Redox.
-  * Marks that the appointment was sent to Redox in zapEHR FHIR — refer to the `redox-patient` steps.
-* **`redox-patient-appointment-status`:** A subscription zambda, when an Appointment status changes, `redox-patient-appointment-status` is called. This function:
-  * Calls Redox to update the appointment status.
-* **`redox-patient-send-document`** A subscription zambda, when a DocumentReference is created, `redox-patient-send-document` sends the document to Redox.
-  * Calls Redox to send a document stored in zapEHR Z3. Documents are created for:
-    * a patient adds an image of their ID front and back.
-    * a patient adds an image of their insurance card front and back.
-    * a patient signs the consent forms for an appointment and we create a PDF for each form.
+- **`redox-patient`:** A subscription zambda, when an Appointment is created in FHIR, `redox-patient` is called. This function:
+  - Checks if the appointment has already been sent to Redox. If it has, it returns.
+  - Gets the Patient who booked the Appointment.
+  - Searches Redox for patients with the first name, last name, and date of birth.
+    - If there is not a match, it creates a new patient to send to Redox.
+    - If there is one match, it updates a patient to send to Redox.
+    - If there are multiple matches, it exits.
+  - Calls Redox based on the above conditions.
+- **`redox-patient-updated-webhook`:** A public zambda that is called by Redox. This function:
+  - Checks that the request is from Redox.
+  - Takes in a RedoxPatient as input.
+  - Searches zapEHR for FHIR resources related to the patient and appointment using the RedoxPatient's ID.
+  - Creates a new appointment in Redox.
+  - Marks that the appointment was sent to Redox in zapEHR FHIR — refer to the `redox-patient` steps.
+- **`redox-patient-appointment-status`:** A subscription zambda, when an Appointment status changes, `redox-patient-appointment-status` is called. This function:
+  - Calls Redox to update the appointment status.
+- **`redox-patient-send-document`** A subscription zambda, when a DocumentReference is created, `redox-patient-send-document` sends the document to Redox.
+  - Calls Redox to send a document stored in zapEHR Z3. Documents are created for:
+    - a patient adds an image of their ID front and back.
+    - a patient adds an image of their insurance card front and back.
+    - a patient signs the consent forms for an appointment and we create a PDF for each form.
 
 ### Secrets One Time Setup
 
@@ -55,7 +55,7 @@ Run `pnpm run setup-zapehr-secrets`. This interactive script will create or upda
 3. Navigate to /zambdas on the console (e.g. [testing](https://testing-console.zapehr.com/zambdas)).
 4. Create a zambda by entering the name of the zambda you want to create and clicking the "+" button.
 5. Find the zambda ID from the URL on zapehr (e.g. for `https://testing-console.zapehr.com/zambdas/4250874c-6cc3-49b2-ba6e-64537a172e43` the zambda ID is `4250874c-6cc3-49b2-ba6e-64537a172e43`).
-6. Update the zambda ID in the relevant env files (e.g. [testing frontend](../app/env/testing.env.js), [testing backend in secrets repo](https://github.com/masslight/TODO-secrets/blob/main/bh-zambdas/testing.json)).
+6. Update the zambda ID in the relevant env files (e.g. [testing frontend](../app/env/testing.env.js), [testing backend in secrets repo](https://github.com/masslight/ottehr-secrets/blob/main/bh-zambdas/testing.json)).
 7. If the zambda needs to be public, you'll need access to the zapehr database since there is no endpoint to change the zambda access right now. If you don't have access, please contact someone to get it.
    1. **!!!!! Be careful doing these steps !!!!! You are editing the database directly, and, if in production, may accidentally change other users' rows.** Hopefully by the time we release zapEHR production there will be an endpoint to update zambda status so these steps will not be necessary.
    2. Connect to the zapehr database. This README uses pgAdmin.
