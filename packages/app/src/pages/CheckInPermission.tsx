@@ -3,15 +3,18 @@ import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import React from 'react';
 import Footer from '../components/Footer';
 import ProviderHeaderSection from '../components/ProviderHeaderSection';
+import { usePatient } from '../store/IntakeContext';
+import { useNavigate } from 'react-router-dom';
 
 const CheckInPermission = (): JSX.Element => {
+  const { setIsVideoOpen, setIsMicOpen } = usePatient();
   const theme = useTheme();
-  const enableCamMic = (): void => {
-    // TODO: form submission structure
-  };
+  const navigate = useNavigate();
 
-  const continueWithoutCamMic = (): void => {
-    // TODO: Logic for continuing without camera and mic
+  const toggleCamMic = (userInput: boolean): void => {
+    setIsVideoOpen(userInput);
+    setIsMicOpen(userInput);
+    navigate('/waitingroom');
   };
 
   return (
@@ -81,7 +84,7 @@ const CheckInPermission = (): JSX.Element => {
             </Box>
 
             <Button
-              onClick={enableCamMic}
+              onClick={() => toggleCamMic(true)}
               variant="contained"
               sx={{
                 color: 'white',
@@ -98,7 +101,7 @@ const CheckInPermission = (): JSX.Element => {
                 cursor: 'pointer',
                 mt: 2,
               }}
-              onClick={continueWithoutCamMic}
+              onClick={() => toggleCamMic(false)}
             >
               CONTINUE WITHOUT CAMERA AND MIC
             </Button>

@@ -10,6 +10,7 @@ import ProviderDashboard from './pages/ProviderDashboard';
 import ProviderSettings from './pages/ProviderSettings';
 import WaitingRoom from './pages/WaitingRoom';
 import PostCall from './pages/PostCall';
+import { PatientProvider } from './store/IntakeContext';
 
 function App(): JSX.Element {
   const { isAuthenticated } = useAuth0();
@@ -21,11 +22,13 @@ function App(): JSX.Element {
         {!isAuthenticated ? (
           <Routes>
             <Route path={'/'} element={<Version />} />;
-            <Route path={'/registration'} element={<ProviderRegistration />} />;
-            <Route path={'/checkin'} element={<PatientCheckIn />} />;
-            <Route path={'/checkin-permission'} element={<CheckInPermission />} />;
-            <Route path={'/postcall'} element={<PostCall />} />;
-            <Route path={'/waitingroom'} element={<WaitingRoom />} />;
+            <Route element={<PatientProvider />}>
+              <Route path={'/registration'} element={<ProviderRegistration />} />;
+              <Route path={'/checkin'} element={<PatientCheckIn />} />;
+              <Route path={'/checkin-permission'} element={<CheckInPermission />} />;
+              <Route path={'/postcall'} element={<PostCall />} />;
+              <Route path={'/waitingroom'} element={<WaitingRoom />} />;
+            </Route>
             <Route path={'/dashboard'} element={<ProviderDashboard />} />;
             <Route path={'/ProviderProfile'} element={<ProviderSettings />} />;
           </Routes>

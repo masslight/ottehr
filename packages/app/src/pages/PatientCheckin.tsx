@@ -2,12 +2,27 @@ import { Button, TextField, Typography, useTheme } from '@mui/material';
 import { Box } from '@mui/system';
 import Footer from '../components/Footer';
 import ProviderHeaderSection from '../components/ProviderHeaderSection';
+import { usePatient } from '../store/IntakeContext';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const PatientCheckIn = (): JSX.Element => {
+  const { patientName, setPatientName } = usePatient();
+  const [name, setName] = useState(patientName);
+  const [isError, setIsError] = useState(false);
+
   const theme = useTheme();
+  const navigate = useNavigate();
+
   const handleSubmit = (event: any): void => {
     event.preventDefault();
-    // TODO: form submission structure
+    if (name) {
+      setPatientName(name);
+      navigate('/checkin-permission');
+      console.log('hee');
+    } else {
+      setIsError(true);
+    }
   };
 
   return (
@@ -61,7 +76,14 @@ const PatientCheckIn = (): JSX.Element => {
                   alignItems: 'flex-start',
                 }}
               >
-                <TextField variant="outlined" label="Your Name" sx={{ pb: 2, width: '100%' }} />
+                <TextField
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  variant="outlined"
+                  label="Your Name"
+                  error={isError}
+                  sx={{ pb: 2, width: '100%' }}
+                />
                 <Button
                   type="submit"
                   variant="contained"

@@ -1,5 +1,4 @@
 import { Box, Typography, useTheme } from '@mui/material';
-import { useState } from 'react';
 import Footer from '../components/Footer';
 import ProviderHeaderSection from '../components/ProviderHeaderSection';
 import VideocamIcon from '@mui/icons-material/Videocam';
@@ -8,12 +7,11 @@ import MicIcon from '@mui/icons-material/Mic';
 import MicOffIcon from '@mui/icons-material/MicOff';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { videoCallMock } from '../assets/icons';
+import { usePatient } from '../store/IntakeContext';
 
 const WaitingRoom = (): JSX.Element => {
-  const [isVideoOpen, setIsVideoOpen] = useState(false);
-  const [isMicOpen, setIsMicOpen] = useState(false);
+  const { isVideoOpen, setIsVideoOpen, isMicOpen, setIsMicOpen } = usePatient();
   const theme = useTheme();
-
   const toggleMic = (): void => {
     setIsMicOpen(!isMicOpen);
   };
@@ -71,8 +69,6 @@ const WaitingRoom = (): JSX.Element => {
                 style={{
                   visibility: isVideoOpen ? 'visible' : 'hidden',
                   display: 'block',
-                  maxWidth: '100%',
-                  height: 'auto',
                 }}
               />
               <Box
