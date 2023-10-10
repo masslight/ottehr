@@ -1,7 +1,7 @@
-import { Dispatch } from 'react';
-import { Location, Patient, Slot } from 'fhir/r4';
-import { IntakeAction, PatientInfo } from './types';
 import { FhirClient, ZambdaClient } from '@zapehr/sdk';
+import { Location, Patient, Slot } from 'fhir/r4';
+import { Dispatch } from 'react';
+import { IntakeAction, PatientInfo } from './types';
 
 export const setFhirClient = (token: string, dispatch: Dispatch<IntakeAction>): void => {
   const fhirClient = new FhirClient({
@@ -25,45 +25,32 @@ export const setZambdaClient = (token: string | undefined, dispatch: Dispatch<In
   });
 };
 
-export const updatePhoneNumber = (phoneNumber: string, dispatch: Dispatch<IntakeAction>): void => {
+export const updateAdditionalInformation = (additionalInfo: string, dispatch: Dispatch<IntakeAction>): void => {
   dispatch({
-    type: 'UPDATE_PHONE_NUMBER',
-    phoneNumber: phoneNumber,
+    type: 'UPDATE_ADDITIONAL_INFORMATION',
+    additionalInformation: additionalInfo,
   });
 };
 
-export const updateSubmittedInsuranceType = ({ type }: { type: string }, dispatch: Dispatch<IntakeAction>): void => {
+export const updateAppointmentId = (appointment: { id: string }, dispatch: Dispatch<IntakeAction>): void => {
   dispatch({
-    type: 'UPDATE_SUBMITTED_INSURANCE_TYPE',
-    submittedInsuranceType: type,
+    type: 'UPDATE_APPOINTMENT_ID',
+    appointmentId: appointment.id,
   });
 };
 
-export const updateCoverageId = ({ id }: { id: string }, dispatch: Dispatch<IntakeAction>): void => {
+// TODO Shouldn't this be a slot?
+export const updateAppointmentSlot = (appointmentSlot: string, dispatch: Dispatch<IntakeAction>): void => {
   dispatch({
-    type: 'UPDATE_COVERAGE_ID',
-    coverageId: id,
+    type: 'UPDATE_APPOINTMENT_SLOT',
+    appointmentSlot: appointmentSlot,
   });
 };
 
-export const updateResponsiblePartyId = ({ id }: { id: string }, dispatch: Dispatch<IntakeAction>): void => {
+export const updateCancellationReason = (cancellationReason: string, dispatch: Dispatch<IntakeAction>): void => {
   dispatch({
-    type: 'UPDATE_RESPONSIBLE_PARTY_ID',
-    responsiblePartyId: id,
-  });
-};
-
-export const updateRelatedPersonId = ({ id }: { id: string }, dispatch: Dispatch<IntakeAction>): void => {
-  dispatch({
-    type: 'UPDATE_RELATED_PERSON_ID',
-    relatedPersonId: id,
-  });
-};
-
-export const updateConsentFormSignerId = ({ id }: { id: string }, dispatch: Dispatch<IntakeAction>): void => {
-  dispatch({
-    type: 'UPDATE_CONSENT_FORM_SIGNER_ID',
-    consentFormSignerId: id,
+    type: 'UPDATE_CANCELLATION_REASON',
+    cancellationReason: cancellationReason,
   });
 };
 
@@ -74,17 +61,17 @@ export const updateConsentFormId = ({ id }: { id: string }, dispatch: Dispatch<I
   });
 };
 
-export const updatePatients = (patients: Patient[], dispatch: Dispatch<IntakeAction>): void => {
+export const updateConsentFormSignerId = ({ id }: { id: string }, dispatch: Dispatch<IntakeAction>): void => {
   dispatch({
-    type: 'UPDATE_PATIENTS',
-    patients: patients,
+    type: 'UPDATE_CONSENT_FORM_SIGNER_ID',
+    consentFormSignerId: id,
   });
 };
 
-export const updatePatient = (patient: PatientInfo | undefined, dispatch: Dispatch<IntakeAction>): void => {
+export const updateCoverageId = ({ id }: { id: string }, dispatch: Dispatch<IntakeAction>): void => {
   dispatch({
-    type: 'UPDATE_PATIENT',
-    patient: patient,
+    type: 'UPDATE_COVERAGE_ID',
+    coverageId: id,
   });
 };
 
@@ -95,17 +82,52 @@ export const updateLocationId = (location: { id: string }, dispatch: Dispatch<In
   });
 };
 
-export const updateSelectedAppointmentSlotId = ({ id }: { id: string }, dispatch: Dispatch<IntakeAction>): void => {
-  dispatch({
-    type: 'UPDATE_SELECTED_APPOINTMENT_SLOT_ID',
-    selectedApptSlotId: id,
-  });
-};
-
 export const updateLocations = (locations: Location[], dispatch: Dispatch<IntakeAction>): void => {
   dispatch({
     type: 'UPDATE_LOCATIONS',
     locations: locations,
+  });
+};
+
+export const updatePatient = (patient: PatientInfo | undefined, dispatch: Dispatch<IntakeAction>): void => {
+  dispatch({
+    type: 'UPDATE_PATIENT',
+    patient: patient,
+  });
+};
+
+export const updatePatients = (patients: Patient[], dispatch: Dispatch<IntakeAction>): void => {
+  dispatch({
+    type: 'UPDATE_PATIENTS',
+    patients: patients,
+  });
+};
+
+export const updatePhoneNumber = (phoneNumber: string, dispatch: Dispatch<IntakeAction>): void => {
+  dispatch({
+    type: 'UPDATE_PHONE_NUMBER',
+    phoneNumber: phoneNumber,
+  });
+};
+
+export const updateRelatedPersonId = ({ id }: { id: string }, dispatch: Dispatch<IntakeAction>): void => {
+  dispatch({
+    type: 'UPDATE_RELATED_PERSON_ID',
+    relatedPersonId: id,
+  });
+};
+
+export const updateResponsiblePartyId = ({ id }: { id: string }, dispatch: Dispatch<IntakeAction>): void => {
+  dispatch({
+    type: 'UPDATE_RESPONSIBLE_PARTY_ID',
+    responsiblePartyId: id,
+  });
+};
+
+export const updateSelectedAppointmentSlotId = ({ id }: { id: string }, dispatch: Dispatch<IntakeAction>): void => {
+  dispatch({
+    type: 'UPDATE_SELECTED_APPOINTMENT_SLOT_ID',
+    selectedApptSlotId: id,
   });
 };
 
@@ -123,31 +145,10 @@ export const updateSlots = (slots: Slot[], dispatch: Dispatch<IntakeAction>): vo
   });
 };
 
-export const updateAppointmentSlot = (appointmentSlot: string, dispatch: Dispatch<IntakeAction>): void => {
+export const updateSubmittedInsuranceType = ({ type }: { type: string }, dispatch: Dispatch<IntakeAction>): void => {
   dispatch({
-    type: 'UPDATE_APPOINTMENT_SLOT',
-    appointmentSlot: appointmentSlot,
-  });
-};
-
-export const updateAppointmentId = (appointment: { id: string }, dispatch: Dispatch<IntakeAction>): void => {
-  dispatch({
-    type: 'UPDATE_APPOINTMENT_ID',
-    appointmentId: appointment.id,
-  });
-};
-
-export const updateAdditionalInformation = (additionalInfo: string, dispatch: Dispatch<IntakeAction>): void => {
-  dispatch({
-    type: 'UPDATE_ADDITIONAL_INFORMATION',
-    additionalInformation: additionalInfo,
-  });
-};
-
-export const updateCancellationReason = (cancellationReason: string, dispatch: Dispatch<IntakeAction>): void => {
-  dispatch({
-    type: 'UPDATE_CANCELLATION_REASON',
-    cancellationReason: cancellationReason,
+    type: 'UPDATE_SUBMITTED_INSURANCE_TYPE',
+    submittedInsuranceType: type,
   });
 };
 

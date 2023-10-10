@@ -1,17 +1,36 @@
-import { Location, Patient, Slot } from 'fhir/r4';
 import { FhirClient, ZambdaClient } from '@zapehr/sdk';
+import { Location, Patient, Slot } from 'fhir/r4';
 
-export enum PatientSex {
-  Male = 'male',
-  Female = 'female',
-  Other = 'other',
+export enum AdditionalInformationOptions {
+  'Friend/Family' = 'Friend/Family',
+  'Healthcare Professional' = 'Healthcare Professional',
+  'Google/internet search' = 'Google/internet search',
+  'Internet ad' = 'Internet ad',
+  'Social media community group' = 'Social media community group',
+  'Webinar' = 'Webinar',
+  'TV/Radio' = 'TV/Radio',
+  'Newsletter' = 'Newsletter',
+  'School' = 'School',
+  'Drive by/Signage' = 'Drive by/Signage',
 }
 
-export const PatientSexValues: { [key: string]: string } = {
-  Male: 'male',
-  Female: 'female',
-  Other: 'other',
-};
+export enum CancellationReasonCodes {
+  'Duplicate Visit or Account Error' = 'duplicate-visit-account-error',
+  'Financial Responsibility Concern' = 'financial-concern',
+  'Non-par or inactive insurance' = 'inactive-insurance',
+  'Patient improved' = 'patient-improved',
+  'Wait Time' = 'wait-time',
+  'Went to outside facility' = 'outside-facility',
+}
+
+export enum CancellationReasonOptions {
+  'Duplicate Visit or Account Error' = 'Duplicate Visit or Account Error',
+  'Financial Responsibility Concern' = 'Financial Responsibility Concern',
+  'Non-par or inactive insurance' = 'Non-par or inactive insurance',
+  'Patient improved' = 'Patient improved',
+  'Wait Time' = 'Wait Time',
+  'Went to outside facility' = 'Went to outside facility',
+}
 
 export enum PatientEthnicity {
   'Hispanic/Latino' = 'Hispanic/Latino',
@@ -47,17 +66,10 @@ export const PatientRaceCode = {
   White: '2106-3',
 };
 
-export enum AdditionalInformationOptions {
-  'Friend/Family' = 'Friend/Family',
-  'Healthcare Professional' = 'Healthcare Professional',
-  'Google/internet search' = 'Google/internet search',
-  'Internet ad' = 'Internet ad',
-  'Social media community group' = 'Social media community group',
-  'Webinar' = 'Webinar',
-  'TV/Radio' = 'TV/Radio',
-  'Newsletter' = 'Newsletter',
-  'School' = 'School',
-  'Drive by/Signage' = 'Drive by/Signage',
+export enum PatientSex {
+  Male = 'male',
+  Female = 'female',
+  Other = 'other',
 }
 
 export enum RelationshipToPatientOptions {
@@ -67,40 +79,6 @@ export enum RelationshipToPatientOptions {
   'Mother' = 'Mother',
   'Spouse ' = 'Spouse ',
 }
-
-export enum CancellationReasonOptions {
-  'Duplicate Visit or Account Error' = 'Duplicate Visit or Account Error',
-  'Financial Responsibility Concern' = 'Financial Responsibility Concern',
-  'Non-par or inactive insurance' = 'Non-par or inactive insurance',
-  'Patient improved' = 'Patient improved',
-  'Service not offered at PM' = 'Service not offered at PM',
-  'Wait Time' = 'Wait Time',
-  'Went to other PM or PMPT' = 'Went to other PM or PMPT',
-  'Went to outside facility' = 'Went to outside facility',
-}
-
-export const CancellationReasonCodes = {
-  'Duplicate Visit or Account Error': 'duplicate-visit-account-error',
-  'Financial Responsibility Concern': 'financial-concern',
-  'Non-par or inactive insurance': 'inactive-insurance',
-  'Patient improved': 'patient-improved',
-  'Service not offered at PM': 'service-not-offered',
-  'Wait Time': 'wait-time',
-  'Went to other PM or PMPT': 'other-pm',
-  'Went to outside facility': 'outside-facility',
-};
-
-export type PatientInfo = {
-  id: string | undefined;
-  newPatient: boolean;
-  firstName: string | undefined;
-  lastName: string | undefined;
-  dateOfBirth: string | undefined;
-  sex: PatientSex | undefined;
-  ethnicity: PatientEthnicity | undefined;
-  race: PatientRace | undefined;
-  reasonForVisit: string[] | undefined;
-};
 
 export enum ResponsiblePartySex {
   Male = 'male',
@@ -115,6 +93,18 @@ export enum ResponsiblePartyRelationship {
   'Mother' = 'Mother',
   'Spouse' = 'Spouse',
 }
+
+export type PatientInfo = {
+  id: string | undefined;
+  newPatient: boolean;
+  firstName: string | undefined;
+  lastName: string | undefined;
+  dateOfBirth: string | undefined;
+  sex: PatientSex | undefined;
+  ethnicity: PatientEthnicity | undefined;
+  race: PatientRace | undefined;
+  reasonForVisit: string[] | undefined;
+};
 
 export type IntakeAction =
   | { type: 'SET_FHIR_CLIENT'; fhirClient: FhirClient }
