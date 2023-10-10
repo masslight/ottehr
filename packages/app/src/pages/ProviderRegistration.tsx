@@ -18,7 +18,7 @@ import {
 } from '@mui/material';
 import { useState } from 'react';
 import { ellipse4, ellipse5, ottehrPatientIcon, ottehrProviderIcon, ottehrRegistrationLogo } from '../assets/icons';
-import { Logo } from '../components';
+import { ZapEHRLogo } from '../components';
 
 export const ProviderRegistration = (): JSX.Element => {
   const handleSubmit = (event: any): void => {
@@ -144,7 +144,7 @@ export const ProviderRegistration = (): JSX.Element => {
           <Typography component="span" variant="subtitle2" color="primary.light">
             Powered by
           </Typography>
-          <Logo width={100} />
+          <ZapEHRLogo width={100} />
         </Box>
       </Box>
       {/* right side */}
