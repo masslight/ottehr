@@ -1,5 +1,6 @@
 name: Deploy
 
+# Do we even need these?
 env:
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
@@ -73,7 +74,7 @@ jobs:
         id: create-json
         uses: jsdaniell/create-json@v1.2.2
         with:
-          name: "secrets.json"
+          name: 'secrets.json'
           json: ${{ secrets.TELEHEALTH_SECRETS_JSON }}
 
       - name: Move env file into .env folder
