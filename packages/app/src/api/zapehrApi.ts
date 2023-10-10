@@ -110,6 +110,4 @@ class API {
   }
 }
 
-const api = new API();
-
-export default api;
+export const zapehrApi = new API();
