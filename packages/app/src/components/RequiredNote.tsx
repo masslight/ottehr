@@ -1,8 +1,8 @@
-import { FC } from 'react';
 import { Typography } from '@mui/material';
+import { FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
-const RequiredNote: FC = () => {
+export const RequiredNote: FC = () => {
   const { t } = useTranslation();
 
   return (
@@ -18,5 +18,3 @@ const RequiredNote: FC = () => {
     </Typography>
   );
 };
-
-export default RequiredNote;

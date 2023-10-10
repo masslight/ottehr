@@ -1,12 +1,12 @@
 import { Typography, Box, useTheme } from '@mui/material';
-import defaultProvider from '../assets/icons/ottehrDefaultProvider.svg';
+import { ottehrDefaultProvider } from '../assets/icons';
 
 interface ProviderHeaderSectionProps {
   providerName: string;
   title: string;
 }
 
-const ProviderHeaderSection: React.FC<ProviderHeaderSectionProps> = ({ providerName, title }) => {
+export const ProviderHeaderSection: React.FC<ProviderHeaderSectionProps> = ({ providerName, title }) => {
   const theme = useTheme();
   return (
     <Box
@@ -40,7 +40,7 @@ const ProviderHeaderSection: React.FC<ProviderHeaderSectionProps> = ({ providerN
               },
             }}
           >
-            <img src={defaultProvider} style={{ width: '6.25rem', height: '6.25rem' }} />
+            <img src={ottehrDefaultProvider} style={{ width: '6.25rem', height: '6.25rem' }} />
             <Box
               sx={{
                 ml: 3,
@@ -66,5 +66,3 @@ const ProviderHeaderSection: React.FC<ProviderHeaderSectionProps> = ({ providerN
     </Box>
   );
 };
-
-export default ProviderHeaderSection;

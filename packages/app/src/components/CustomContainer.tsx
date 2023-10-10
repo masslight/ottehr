@@ -1,10 +1,8 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
+import { useAuth0 } from '@auth0/auth0-react';
 import { AppBar, Box, Button, Card, Container, Grid, Typography, useTheme } from '@mui/material';
 import { FC, ReactElement } from 'react';
-import { bg1, bg3, bg4, bg5 } from '../assets';
-import { otherColors } from '../IntakeThemeProvider';
-import Footer from './Footer';
-import { useAuth0 } from '@auth0/auth0-react';
+import { bg1 } from '../assets';
+import { Footer } from './Footer';
 
 interface ContainerProps {
   title: string;
@@ -18,7 +16,7 @@ interface ContainerProps {
   children: any;
 }
 
-const CustomContainer: FC<ContainerProps> = ({
+export const CustomContainer: FC<ContainerProps> = ({
   title,
   subtitle,
   isFirstPage,
@@ -156,4 +154,3 @@ const CustomContainer: FC<ContainerProps> = ({
     </Container>
   );
 };
-export default CustomContainer;

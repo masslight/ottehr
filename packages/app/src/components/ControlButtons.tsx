@@ -1,8 +1,8 @@
 import LoadingButton from '@mui/lab/LoadingButton';
 import { Box, Button } from '@mui/material';
 import { FC } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
 /**
  * Navigation Buttons.
@@ -21,7 +21,12 @@ export interface ControlButtonsProps {
   loading?: boolean;
 }
 
-const ControlButtons: FC<ControlButtonsProps> = ({ submitDisabled, submitLabel, backButton = true, loading }) => {
+export const ControlButtons: FC<ControlButtonsProps> = ({
+  submitDisabled,
+  submitLabel,
+  backButton = true,
+  loading,
+}) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -57,4 +62,3 @@ const ControlButtons: FC<ControlButtonsProps> = ({ submitDisabled, submitLabel, 
     </Box>
   );
 };
-export default ControlButtons;

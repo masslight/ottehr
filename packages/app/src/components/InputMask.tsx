@@ -8,7 +8,7 @@ interface InputMaskProps {
   blocks: any;
 }
 
-const InputMask = forwardRef<HTMLElement, InputMaskProps>(({ onChange, name, mask, blocks, ...other }, ref) => {
+export const InputMask = forwardRef<HTMLElement, InputMaskProps>(({ onChange, name, mask, blocks, ...other }, ref) => {
   return (
     <IMaskInput
       {...other}
@@ -20,5 +20,3 @@ const InputMask = forwardRef<HTMLElement, InputMaskProps>(({ onChange, name, mas
     />
   );
 });
-
-export default InputMask;

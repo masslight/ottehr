@@ -1,4 +1,3 @@
-import { FC, ReactElement } from 'react';
 import { Close } from '@mui/icons-material';
 import {
   Button,
@@ -10,6 +9,7 @@ import {
   IconButton,
   useTheme,
 } from '@mui/material';
+import { FC, ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
 interface props {
@@ -20,7 +20,7 @@ interface props {
   closeButtonText: string;
 }
 
-const ErrorDialog: FC<props> = ({ open, handleClose, title, description, closeButtonText }) => {
+export const ErrorDialog: FC<props> = ({ open, handleClose, title, description, closeButtonText }) => {
   const theme = useTheme();
   const { t } = useTranslation();
   return (
@@ -72,4 +72,3 @@ const ErrorDialog: FC<props> = ({ open, handleClose, title, description, closeBu
     </Dialog>
   );
 };
-export default ErrorDialog;

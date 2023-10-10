@@ -1,11 +1,11 @@
+import { FormControl, InputProps, TextField, alpha, useTheme } from '@mui/material';
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { alpha, FormControl, InputProps, TextField, useTheme } from '@mui/material';
-import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { CustomAdapterLuxon } from '../helpers';
-import { otherColors } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
+import { otherColors } from '../OttehrThemeProvider';
 import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
 import { InputHelperText } from './InputHelperText';
 
@@ -16,7 +16,7 @@ type DateInputProps = {
   required?: boolean;
 } & InputProps;
 
-const DateInput: FC<DateInputProps> = ({ name, label, helperText, required, defaultValue }) => {
+export const DateInput: FC<DateInputProps> = ({ name, label, helperText, required, defaultValue }) => {
   const {
     control,
     formState: { errors },
@@ -42,7 +42,6 @@ const DateInput: FC<DateInputProps> = ({ name, label, helperText, required, defa
             <BoldPurpleInputLabel htmlFor={`${name}-label`} shrink>
               {label}
             </BoldPurpleInputLabel>
-
             <DatePicker
               value={value}
               disableFuture
@@ -94,5 +93,3 @@ const DateInput: FC<DateInputProps> = ({ name, label, helperText, required, defa
     />
   );
 };
-
-export default DateInput;

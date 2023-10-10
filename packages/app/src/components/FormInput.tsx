@@ -1,11 +1,11 @@
-import { FC } from 'react';
-import { Controller, useFormContext } from 'react-hook-form';
 import { FormControl, Input, InputProps } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
-import { otherColors } from '../IntakeThemeProvider';
+import { FC } from 'react';
+import { Controller, useFormContext } from 'react-hook-form';
+import { otherColors } from '../OttehrThemeProvider';
 import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
 import { InputHelperText } from './InputHelperText';
-import InputMask from './InputMask';
+import { InputMask } from './InputMask';
 
 type FormInputProps = {
   name: string;
@@ -15,7 +15,15 @@ type FormInputProps = {
   mask?: string;
 } & InputProps;
 
-const FormInput: FC<FormInputProps> = ({ name, label, format, defaultValue, helperText, mask, ...otherProps }) => {
+export const FormInput: FC<FormInputProps> = ({
+  name,
+  label,
+  format,
+  defaultValue,
+  helperText,
+  mask,
+  ...otherProps
+}) => {
   const {
     control,
     formState: { errors },
@@ -84,5 +92,3 @@ const FormInput: FC<FormInputProps> = ({ name, label, format, defaultValue, help
     />
   );
 };
-
-export default FormInput;

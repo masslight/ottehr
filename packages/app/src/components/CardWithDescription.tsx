@@ -1,7 +1,7 @@
-import { FC } from 'react';
 import { Box, Card, Grid, Typography, useTheme } from '@mui/material';
+import { FC } from 'react';
 
-export interface CardWithDescriptionProps {
+interface CardWithDescriptionProps {
   icon: string;
   iconAlt: string;
   iconHeight: string;
@@ -10,7 +10,7 @@ export interface CardWithDescriptionProps {
   bgColor: string;
 }
 
-const CardWithDescription: FC<CardWithDescriptionProps> = ({
+export const CardWithDescription: FC<CardWithDescriptionProps> = ({
   icon,
   iconAlt,
   iconHeight,
@@ -39,5 +39,3 @@ const CardWithDescription: FC<CardWithDescriptionProps> = ({
     </Card>
   );
 };
-
-export default CardWithDescription;

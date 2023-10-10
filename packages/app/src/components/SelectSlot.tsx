@@ -1,8 +1,8 @@
-import { Button, Grid, styled, Typography, useTheme } from '@mui/material';
+import { Button, Grid, Typography, styled, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
+import { useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IntakeDataContext, updateAppointmentSlot } from '../store';
-import { useContext } from 'react';
 
 const AppointmentSlotButton = styled(Button)({
   borderRadius: '8px',

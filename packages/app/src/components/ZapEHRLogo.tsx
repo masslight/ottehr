@@ -1,10 +1,8 @@
-import React from 'react';
-
-export interface LogoProps {
+interface LogoProps {
   width: number;
 }
 
-export function Logo(props: LogoProps): JSX.Element {
+export function ZapEHRLogo(props: LogoProps): JSX.Element {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 104 21" style={{ width: props.width }}>
       <title>zapEHR Logo</title>

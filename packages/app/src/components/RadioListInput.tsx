@@ -1,11 +1,11 @@
+import { FormControl, FormControlLabel, Radio, RadioGroup, RadioGroupProps, SxProps } from '@mui/material';
 import { FC, SyntheticEvent } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { FormControl, FormControlLabel, Radio, RadioGroup, RadioGroupProps, SxProps } from '@mui/material';
 import { RadioOption } from '../types';
 import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
 import { InputHelperText } from './InputHelperText';
 
-type RadioInputProps = {
+type RadioListInputProps = {
   name: string;
   label: string;
   options: RadioOption[];
@@ -16,7 +16,8 @@ type RadioInputProps = {
   onChange: (event: SyntheticEvent) => void;
   radioStyling?: SxProps;
 } & RadioGroupProps;
-const RadioInput: FC<RadioInputProps> = ({
+
+export const RadioListInput: FC<RadioListInputProps> = ({
   name,
   label,
   value,
@@ -31,7 +32,7 @@ const RadioInput: FC<RadioInputProps> = ({
     formState: { errors },
   } = useFormContext();
 
-  //   const theme = useTheme();
+  // const theme = useTheme();
 
   return (
     <Controller
@@ -69,5 +70,3 @@ const RadioInput: FC<RadioInputProps> = ({
     />
   );
 };
-
-export default RadioInput;

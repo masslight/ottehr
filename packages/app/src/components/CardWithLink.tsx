@@ -1,7 +1,7 @@
-import { FC } from 'react';
 import { Box, Card, Grid, Link as MuiLink, Typography, useTheme } from '@mui/material';
+import { FC } from 'react';
 
-export interface CardWithLinkProps {
+interface CardWithLinkProps {
   icon: string;
   iconAlt: string;
   iconHeight: string;
@@ -11,7 +11,15 @@ export interface CardWithLinkProps {
   bgColor: string;
 }
 
-const CardWithLink: FC<CardWithLinkProps> = ({ icon, iconAlt, iconHeight, mainText, linkText, link, bgColor }) => {
+export const CardWithLink: FC<CardWithLinkProps> = ({
+  icon,
+  iconAlt,
+  iconHeight,
+  mainText,
+  linkText,
+  link,
+  bgColor,
+}) => {
   const theme = useTheme();
   return (
     <Card sx={{ mt: 2, borderRadius: 2, backgroundColor: bgColor, [theme.breakpoints.down('md')]: { mx: 2 } }}>
@@ -42,5 +50,3 @@ const CardWithLink: FC<CardWithLinkProps> = ({ icon, iconAlt, iconHeight, mainTe
     </Card>
   );
 };
-
-export default CardWithLink;

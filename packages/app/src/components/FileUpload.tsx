@@ -1,10 +1,10 @@
-import { FC, ChangeEvent, ReactNode, useState, useEffect } from 'react';
-import UploadComponent from './UploadComponent';
-import CardComponent from './CardComponent';
 import { Box, CircularProgress, Typography, useTheme } from '@mui/material';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
-import zapehrApi from '../api/zapehrApi';
+import { ChangeEvent, FC, ReactNode, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
+import { zapehrApi } from '../api';
+import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
+import { CardComponent } from './CardComponent';
+import { UploadComponent } from './UploadComponent';
 
 export interface FileUploadOptions {
   description: ReactNode;
@@ -25,22 +25,22 @@ interface FileUploadProps {
   options: FileUploadOptions;
 }
 
-const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, options }) => {
+export const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, options }) => {
   const {
-    description,
-    onUpload,
-    uploadFailed,
-    resetUploadFailed,
-    onClear,
     bucketName,
+    description,
     objectFolder,
     objectName,
+    onClear,
+    onUpload,
+    resetUploadFailed,
+    uploadFailed,
     token,
   } = options;
   const theme = useTheme();
   const { setValue } = useFormContext();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
   const [fileUrl, setFileUrl] = useState<string | undefined>(defaultValue);
 
   // If default value exists get a presignedUrl from the defaultValue and assign it to previewUrl
@@ -131,11 +131,11 @@ const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, options })
         );
       }
       if (previewUrl !== 'Not Found' && previewUrl !== null && !loading) {
-        // Show the image if the fetch succeeds
-        // If a default value was provided then UploadComponent isn't rendered and the form value never gets set so set it manually.
-        // To test this try to log defaultValue in UploadComponent. It will always be undefined because the component is never
-        // rendered when a default value exists. Instead a CardComponent is rendered and the form state of name will be undefined
-        // unless you set its value because CardComponent does not render an <input />
+        // Show the image if the fetch succeeds. If a default value was provided then UploadComponent isn't rendered and
+        // the form value never gets set so set it manually. To test this try to log defaultValue in UploadComponent. It
+        // will always be undefined because the component is never rendered when a default value exists. Instead a
+        // CardComponent is rendered and the form state of name will be undefined unless you set its value because
+        // CardComponent does not render an <input />.
         setValue(name, defaultValue);
         return (
           <CardComponent
@@ -187,5 +187,3 @@ const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, options })
     </>
   );
 };
-
-export default FileUpload;

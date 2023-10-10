@@ -1,20 +1,19 @@
-import { FormProvider, useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
-import * as Yup from 'yup';
-import FormInput from './FormInput';
-import { ReactElement } from 'react';
-import ControlButtons, { ControlButtonsProps } from './ControlButtons';
-import SelectInput, { SelectInputOption } from './SelectInput';
-import { RadioOption } from '../types';
-import RadioInput, { RadioStyling } from './RadioInput';
-import FreeMultiSelectInput from './FreeMultiSelectInput';
-import DateInput from './DateInput';
 import { Grid, TextFieldProps, Typography, Box } from '@mui/material';
-import { phoneRegex, yupDateRegex, yupDateTransform } from '../helpers';
-import RadioListInput from './RadioListInput';
-import { emailRegex, stateRegex, zipRegex } from '../helpers/validation';
-import FileUpload, { FileUploadOptions } from './FileUpload';
-import ControlledCheckBox from './ControlledCheckBox';
+import { FC, ReactElement } from 'react';
+import { FormProvider, useForm } from 'react-hook-form';
+import * as Yup from 'yup';
+import { emailRegex, phoneRegex, stateRegex, yupDateRegex, yupDateTransform, zipRegex } from '../helpers';
+import { RadioOption } from '../types';
+import { ControlButtons, ControlButtonsProps } from './ControlButtons';
+import { ControlledCheckBox } from './ControlledCheckBox';
+import { DateInput } from './DateInput';
+import { FileUpload, FileUploadOptions } from './FileUpload';
+import { FormInput } from './FormInput';
+import { FreeMultiSelectInput } from './FreeMultiSelectInput';
+import { RadioInput, RadioStyling } from './RadioInput';
+import { RadioListInput } from './RadioListInput';
+import { SelectInput, SelectInputOption } from './SelectInput';
 
 type FormInput = {
   type:
@@ -49,14 +48,19 @@ type FormInput = {
   validationRegexError?: string;
 } & TextFieldProps;
 
-interface props {
+interface PageFormProps {
   formElements?: FormInput[];
   onSubmit?: any;
   controlButtons?: ControlButtonsProps;
   bottomComponent?: ReactElement;
 }
 
-const PageForm: React.FC<props> = ({ formElements, onSubmit, controlButtons, bottomComponent }): JSX.Element => {
+export const PageForm: FC<PageFormProps> = ({
+  formElements,
+  onSubmit,
+  controlButtons,
+  bottomComponent,
+}): JSX.Element => {
   // todo do in one line?
   // todo use more specific type
   // const validation: any = {
@@ -69,37 +73,39 @@ const PageForm: React.FC<props> = ({ formElements, onSubmit, controlButtons, bot
     formElements
       .filter((formInput) => !formInput.hidden)
       .forEach((formInput) => {
-        if (formInput.format === 'Phone Number') {
-          formInput.placeholder = '(123) 456-7890';
-          formInput.validationRegex = phoneRegex;
-          formInput.validationRegexError = 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
-          formInput.mask = '(000) 000-0000';
-        }
+        switch (formInput.format) {
+          case 'Email':
+            formInput.placeholder = 'jon@snow.com';
+            formInput.validationRegex = emailRegex;
+            formInput.validationRegexError = 'Email is not valid';
+            break;
 
-        if (formInput.format === 'Email') {
-          formInput.placeholder = 'jon@snow.com';
-          formInput.validationRegex = emailRegex;
-          formInput.validationRegexError = 'Email is not valid';
-        }
+          case 'Phone Number':
+            formInput.placeholder = '(123) 456-7890';
+            formInput.validationRegex = phoneRegex;
+            formInput.validationRegexError = 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
+            formInput.mask = '(000) 000-0000';
+            break;
 
-        if (formInput.format === 'State') {
-          formInput.validationRegex = stateRegex;
-          formInput.validationRegexError = 'State must be 2 letters';
-        }
+          case 'Signature':
+            formInput.placeholder = 'Type out your full name';
+            break;
 
-        if (formInput.format === 'ZIP') {
-          formInput.validationRegex = zipRegex;
-          formInput.validationRegexError = 'ZIP Code must be 5 numbers';
-        }
+          case 'State':
+            formInput.validationRegex = stateRegex;
+            formInput.validationRegexError = 'State must be 2 letters';
+            break;
 
-        if (formInput.format === 'Signature') {
-          formInput.placeholder = 'Type out your full name';
+          case 'ZIP':
+            formInput.validationRegex = zipRegex;
+            formInput.validationRegexError = 'ZIP Code must be 5 numbers';
+            break;
         }
 
         // if (formInput.type === 'Text') {
-        // if (formInput.defaultValue === '') {
-        //   formInput.defaultValue = undefined;
-        // }
+        //   if (formInput.defaultValue === '') {
+        //     formInput.defaultValue = undefined;
+        //   }
         // }
 
         if (formInput.type === 'Free Select') {
@@ -112,7 +118,7 @@ const PageForm: React.FC<props> = ({ formElements, onSubmit, controlButtons, bot
           });
         } else {
           validation[formInput.name] = Yup.string()
-            .when('$validationRegex', (validationRegex, schema) => {
+            .when('$validationRegex', (_, schema) => {
               return formInput.validationRegex
                 ? schema.matches(formInput.validationRegex, {
                     message: formInput.validationRegexError,
@@ -120,10 +126,10 @@ const PageForm: React.FC<props> = ({ formElements, onSubmit, controlButtons, bot
                   })
                 : schema;
             })
-            .when('$required', (required, schema) => {
+            .when('$required', (_, schema) => {
               return formInput.required ? schema.required(`${formInput.label} is required`) : schema;
             })
-            .when('$formInputType', (formInputType, schema) => {
+            .when('$formInputType', (_, schema) => {
               return formInput.type === 'Date'
                 ? schema
                     .transform(yupDateTransform)
@@ -154,19 +160,14 @@ const PageForm: React.FC<props> = ({ formElements, onSubmit, controlButtons, bot
                 <Grid item xs={formInput.width || 12} key={formInput.name}>
                   {(() => {
                     switch (formInput.type) {
-                      case 'Text':
+                      case 'Checkbox':
                         return (
-                          <FormInput
+                          <ControlledCheckBox
                             name={formInput.name}
-                            label={formInput.label || 'No label'}
-                            format={formInput.format}
-                            helperText={formInput.helperText}
-                            defaultValue={formInput.defaultValue || ''}
+                            label={formInput.label}
+                            defaultValue={formInput.defaultValue === 'true'}
                             required={formInput.required}
-                            placeholder={formInput.placeholder}
-                            mask={formInput.mask}
-                            multiline={formInput.multiline}
-                            minRows={formInput.minRows}
+                            document={formInput.document}
                           />
                         );
                       case 'Date':
@@ -179,36 +180,18 @@ const PageForm: React.FC<props> = ({ formElements, onSubmit, controlButtons, bot
                             required={formInput.required}
                           />
                         );
-                      case 'Checkbox':
-                        return (
-                          <ControlledCheckBox
-                            name={formInput.name}
-                            label={formInput.label}
-                            defaultValue={formInput.defaultValue === 'true'}
-                            required={formInput.required}
-                            document={formInput.document}
-                          />
-                        );
-                      case 'Select':
-                        if (!formInput.selectOptions) {
-                          throw new Error('No selectOptions given in select');
+                      case 'Description':
+                        return <Typography variant="body1">{formInput.name}</Typography>;
+                      case 'File':
+                        if (!formInput.fileOptions) {
+                          throw new Error('No fileOptions given in file input');
                         }
                         return (
-                          <SelectInput
+                          <FileUpload
                             name={formInput.name}
                             label={formInput.label || 'No label'}
-                            helperText={formInput.helperText}
-                            placeholder={formInput.placeholder}
-                            defaultValue={formInput.defaultValue}
-                            required={formInput.required}
-                            options={formInput.selectOptions}
-                            onChange={(event) => {
-                              const target = event.target as HTMLInputElement;
-                              methods.setValue(formInput.name, target.value);
-                              if (formInput.onChange) {
-                                formInput.onChange(event);
-                              }
-                            }}
+                            defaultValue={formInput.defaultValue as string}
+                            options={formInput.fileOptions}
                           />
                         );
                       case 'Free Select':
@@ -230,6 +213,14 @@ const PageForm: React.FC<props> = ({ formElements, onSubmit, controlButtons, bot
                             //   formInput.onChange(event);
                             // }}
                           />
+                        );
+                      case 'Header 3':
+                        return (
+                          <Box mb={1}>
+                            <Typography variant="h3" color="secondary">
+                              {formInput.name}
+                            </Typography>
+                          </Box>
                         );
                       case 'Radio':
                         if (!formInput.radioOptions) {
@@ -280,28 +271,43 @@ const PageForm: React.FC<props> = ({ formElements, onSubmit, controlButtons, bot
                             // }}
                           />
                         );
-                      case 'File':
-                        if (!formInput.fileOptions) {
-                          throw new Error('No fileOptions given in file input');
+                      case 'Select':
+                        if (!formInput.selectOptions) {
+                          throw new Error('No selectOptions given in select');
                         }
                         return (
-                          <FileUpload
+                          <SelectInput
                             name={formInput.name}
                             label={formInput.label || 'No label'}
-                            defaultValue={formInput.defaultValue as string}
-                            options={formInput.fileOptions}
+                            helperText={formInput.helperText}
+                            placeholder={formInput.placeholder}
+                            defaultValue={formInput.defaultValue}
+                            required={formInput.required}
+                            options={formInput.selectOptions}
+                            onChange={(event) => {
+                              const target = event.target as HTMLInputElement;
+                              methods.setValue(formInput.name, target.value);
+                              if (formInput.onChange) {
+                                formInput.onChange(event);
+                              }
+                            }}
                           />
                         );
-                      case 'Header 3':
+                      case 'Text':
                         return (
-                          <Box mb={1}>
-                            <Typography variant="h3" color="secondary">
-                              {formInput.name}
-                            </Typography>
-                          </Box>
+                          <FormInput
+                            name={formInput.name}
+                            label={formInput.label || 'No label'}
+                            format={formInput.format}
+                            helperText={formInput.helperText}
+                            defaultValue={formInput.defaultValue || ''}
+                            required={formInput.required}
+                            placeholder={formInput.placeholder}
+                            mask={formInput.mask}
+                            multiline={formInput.multiline}
+                            minRows={formInput.minRows}
+                          />
                         );
-                      case 'Description':
-                        return <Typography variant="body1">{formInput.name}</Typography>;
                       default:
                         throw new Error('Form input type without a match');
                     }
@@ -316,5 +322,3 @@ const PageForm: React.FC<props> = ({ formElements, onSubmit, controlButtons, bot
     </FormProvider>
   );
 };
-
-export default PageForm;
