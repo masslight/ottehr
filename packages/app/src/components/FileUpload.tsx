@@ -2,7 +2,7 @@ import { Box, CircularProgress, Typography, useTheme } from '@mui/material';
 import { ChangeEvent, FC, ReactNode, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { zapehrApi } from '../api';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
+import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { CardComponent } from './CardComponent';
 import { UploadComponent } from './UploadComponent';
 
@@ -180,9 +180,9 @@ export const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, opt
 
   return (
     <>
-      <BoldPurpleInputLabel htmlFor={`${name}-label`} shrink>
+      <BoldPrimaryInputLabel htmlFor={`${name}-label`} shrink>
         {label}
-      </BoldPurpleInputLabel>
+      </BoldPrimaryInputLabel>
       {showCard()}
     </>
   );

@@ -1,4 +1,4 @@
-export * from './BoldPurpleInputLabel';
+export * from './BoldPrimaryInputLabel';
 export * from './CardComponent';
 export * from './CardWithDescription';
 export * from './CardWithLink';

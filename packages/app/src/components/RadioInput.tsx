@@ -15,7 +15,7 @@ import { Controller, FieldValues, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { customRadioButtonCheckedIcon, customRadioButtonUncheckedIcon } from '../assets/icons';
 import { RadioOption } from '../types';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
+import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
 
 type RadioInputProps = {
@@ -75,9 +75,9 @@ export const RadioInput: FC<RadioInputProps> = ({
           <FormControl required={required} error={!!errors[name]} sx={{ width: '100%', mt: 3.5 }}>
             {/* Had to add a margin here and on FormControl because none of the variants worked properly */}
             {/* Same for padding. I want to emphasize how much I hate this. */}
-            <BoldPurpleInputLabel htmlFor={`${name}-label`} shrink sx={{ mt: -2.25 }}>
+            <BoldPrimaryInputLabel htmlFor={`${name}-label`} shrink sx={{ mt: -2.25 }}>
               {label}
-            </BoldPurpleInputLabel>
+            </BoldPrimaryInputLabel>
             <RadioGroup
               sx={{
                 '.MuiFormControlLabel-label': {

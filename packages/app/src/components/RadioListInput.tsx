@@ -2,7 +2,7 @@ import { FormControl, FormControlLabel, Radio, RadioGroup, RadioGroupProps, SxPr
 import { FC, SyntheticEvent } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { RadioOption } from '../types';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
+import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
 
 type RadioListInputProps = {
@@ -44,9 +44,9 @@ export const RadioListInput: FC<RadioListInputProps> = ({
           <FormControl required={required} error={!!errors[name]} sx={{ width: '100%', mt: 3.5 }}>
             {/* Had to add a margin here and on FormControl because none of the variants worked properly */}
             {/* Same for padding. I want to emphasize how much I hate this. */}
-            <BoldPurpleInputLabel htmlFor={`${name}-label`} shrink sx={{ mt: -2.25 }}>
+            <BoldPrimaryInputLabel htmlFor={`${name}-label`} shrink sx={{ mt: -2.25 }}>
               {label}
-            </BoldPurpleInputLabel>
+            </BoldPrimaryInputLabel>
             <RadioGroup row value={field.value || 'unknown'}>
               {options.map((option) => {
                 return (

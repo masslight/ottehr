@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { CustomAdapterLuxon } from '../helpers';
 import i18n from '../lib/i18n';
 import { otherColors } from '../OttehrThemeProvider';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
+import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
 
 type DateInputProps = {
@@ -39,9 +39,9 @@ export const DateInput: FC<DateInputProps> = ({ name, label, helperText, require
           }}
         >
           <LocalizationProvider adapterLocale={i18n.language} dateAdapter={CustomAdapterLuxon}>
-            <BoldPurpleInputLabel htmlFor={`${name}-label`} shrink>
+            <BoldPrimaryInputLabel htmlFor={`${name}-label`} shrink>
               {label}
-            </BoldPurpleInputLabel>
+            </BoldPrimaryInputLabel>
             <DatePicker
               value={value}
               disableFuture

@@ -3,7 +3,7 @@ import { alpha, useTheme } from '@mui/material/styles';
 import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { otherColors } from '../OttehrThemeProvider';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
+import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
 import { InputMask } from './InputMask';
 
@@ -71,9 +71,9 @@ export const FormInput: FC<FormInputProps> = ({
             width: '100%',
           }}
         >
-          <BoldPurpleInputLabel htmlFor={`${name}-label`} shrink>
+          <BoldPrimaryInputLabel htmlFor={`${name}-label`} shrink>
             {label}
-          </BoldPurpleInputLabel>
+          </BoldPrimaryInputLabel>
           <Input
             id={`${name}-label`}
             value={value}

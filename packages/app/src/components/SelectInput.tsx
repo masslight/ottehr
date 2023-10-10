@@ -4,7 +4,7 @@ import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { otherColors } from '../OttehrThemeProvider';
 import { findLabelFromOptions } from '../helpers';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
+import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
 import { RenderLabelFromSelect } from './RenderLabelFromSelect';
 
@@ -50,9 +50,9 @@ export const SelectInput: FC<SelectInputProps> = ({
             width: '100%',
           }}
         >
-          <BoldPurpleInputLabel id={`${name}-label`} shrink>
+          <BoldPrimaryInputLabel id={`${name}-label`} shrink>
             {label}
-          </BoldPurpleInputLabel>
+          </BoldPrimaryInputLabel>
           <Select
             labelId={`${name}-label`}
             IconComponent={ExpandMore}
