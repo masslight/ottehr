@@ -1,1 +1,1 @@
-export type { RadioOption } from './types';
+export * from './types';
