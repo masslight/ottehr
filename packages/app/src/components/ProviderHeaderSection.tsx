@@ -1,4 +1,5 @@
 import { Typography, Box, useTheme } from '@mui/material';
+import { FC } from 'react';
 import { ottehrDefaultProvider } from '../assets/icons';
 
 interface ProviderHeaderSectionProps {
@@ -6,7 +7,7 @@ interface ProviderHeaderSectionProps {
   title: string;
 }
 
-export const ProviderHeaderSection: React.FC<ProviderHeaderSectionProps> = ({ providerName, title }) => {
+export const ProviderHeaderSection: FC<ProviderHeaderSectionProps> = ({ providerName, title }) => {
   const theme = useTheme();
   return (
     <Box

@@ -1,7 +1,7 @@
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import { Container, Box, Button, Divider, Grid, Typography } from '@mui/material';
-import React from 'react';
+import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ottehrDefaultProvider } from '../assets/icons';
 import { Footer, PatientQueue, TopAppBar } from '../components';
@@ -140,10 +140,10 @@ export const ProviderDashboard = (): JSX.Element => {
           </Typography>
 
           {patientsData.map((patient, index) => (
-            <React.Fragment key={index}>
+            <Fragment key={index}>
               <PatientQueue {...patient} />
               {index !== patientsData.length - 1 && <Divider sx={{ opacity: 0.12 }} />}
-            </React.Fragment>
+            </Fragment>
           ))}
         </Box>
       </Box>

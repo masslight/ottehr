@@ -1,4 +1,4 @@
-import { Dispatch, FC, ReactNode, createContext, useContext, useReducer, useState } from 'react';
+import { Dispatch, FC, ReactNode, SetStateAction, createContext, useContext, useReducer, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { IntakeAction, IntakeState } from './types';
 
@@ -13,11 +13,11 @@ type IntakeDataContextProps = {
 
 type PatientContextProps = {
   patientName: string;
-  setPatientName: React.Dispatch<React.SetStateAction<string>>;
+  setPatientName: Dispatch<SetStateAction<string>>;
   isVideoOpen: boolean;
-  setIsVideoOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsVideoOpen: Dispatch<SetStateAction<boolean>>;
   isMicOpen: boolean;
-  setIsMicOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsMicOpen: Dispatch<SetStateAction<boolean>>;
 };
 
 export const usePatient = (): PatientContextProps => {
@@ -28,7 +28,7 @@ export const usePatient = (): PatientContextProps => {
   return context;
 };
 
-export const PatientProvider: React.FC = () => {
+export const PatientProvider: FC = () => {
   const [patientName, setPatientName] = useState('');
   const [isVideoOpen, setIsVideoOpen] = useState(false);
   const [isMicOpen, setIsMicOpen] = useState(false);
