@@ -1,14 +1,12 @@
-import React from 'react';
-import { Footer } from '../components';
-import { Container, Box, Grid, Typography, Button, Divider } from '@mui/material';
-import defaultProvider from '../assets/icons/ottehrDefaultProvider.svg';
-import { useTranslation } from 'react-i18next';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
-import PatientQueue from '../components/PatientQueue';
-import TopAppBar from '../components/AppBar';
+import { Container, Box, Button, Divider, Grid, Typography } from '@mui/material';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { ottehrDefaultProvider } from '../assets/icons';
+import { Footer, PatientQueue, TopAppBar } from '../components';
 
-const ProviderDashboard = (): JSX.Element => {
+export const ProviderDashboard = (): JSX.Element => {
   const { t } = useTranslation();
 
   const patientsData = [
@@ -70,7 +68,7 @@ const ProviderDashboard = (): JSX.Element => {
                 textAlign: 'right',
               }}
             >
-              <img src={defaultProvider} alt="Provider Image" width="100px" />
+              <img src={ottehrDefaultProvider} alt="Provider Image" width="100px" />
             </Grid>
           </Grid>
           <Box
@@ -153,5 +151,3 @@ const ProviderDashboard = (): JSX.Element => {
     </Container>
   );
 };
-
-export default ProviderDashboard;

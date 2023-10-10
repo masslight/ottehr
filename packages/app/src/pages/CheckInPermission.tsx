@@ -1,12 +1,10 @@
-import { Button, Typography, Box, useTheme } from '@mui/material';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
-import React from 'react';
-import Footer from '../components/Footer';
-import ProviderHeaderSection from '../components/ProviderHeaderSection';
-import { usePatient } from '../store/IntakeContext';
+import { Button, Box, Typography, useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { Footer, ProviderHeaderSection } from '../components';
+import { usePatient } from '../store';
 
-const CheckInPermission = (): JSX.Element => {
+export const CheckInPermission = (): JSX.Element => {
   const { setIsVideoOpen, setIsMicOpen } = usePatient();
   const theme = useTheme();
   const navigate = useNavigate();
@@ -14,7 +12,7 @@ const CheckInPermission = (): JSX.Element => {
   const toggleCamMic = (userInput: boolean): void => {
     setIsVideoOpen(userInput);
     setIsMicOpen(userInput);
-    navigate('/waitingroom');
+    navigate('/waiting-room');
   };
 
   return (
@@ -89,9 +87,10 @@ const CheckInPermission = (): JSX.Element => {
               sx={{
                 color: 'white',
                 borderRadius: '4px',
+                textTransform: 'uppercase',
               }}
             >
-              ENABLE CAMERA AND MIC
+              Enable camera and mic
             </Button>
             <Button
               variant="text"
@@ -99,11 +98,12 @@ const CheckInPermission = (): JSX.Element => {
                 color: 'primary.light',
                 textAlign: 'center',
                 cursor: 'pointer',
+                textTransform: 'uppercase',
                 mt: 2,
               }}
               onClick={() => toggleCamMic(false)}
             >
-              CONTINUE WITHOUT CAMERA AND MIC
+              Continue without camera and mic
             </Button>
           </Box>
         </Box>
@@ -112,5 +112,3 @@ const CheckInPermission = (): JSX.Element => {
     </Box>
   );
 };
-
-export default CheckInPermission;
