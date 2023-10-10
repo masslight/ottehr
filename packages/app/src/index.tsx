@@ -1,14 +1,14 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import './index.css';
-import App from './App';
-import './lib/i18n';
 import { Auth0Provider } from '@auth0/auth0-react';
+import React, { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './App';
+import './index.css';
+import './lib/i18n';
 import { IntakeDataProvider } from './store';
 
-const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
+const root = createRoot(document.getElementById('root') as HTMLElement);
 root.render(
-  <React.StrictMode>
+  <StrictMode>
     <Auth0Provider
       domain="https://zapehr-dev.us.auth0.com"
       clientId="zTvIC4lHOGvQUi0KWlvkUdotpQ2DRB5M"
@@ -20,5 +20,5 @@ root.render(
         <App />
       </IntakeDataProvider>
     </Auth0Provider>
-  </React.StrictMode>
+  </StrictMode>
 );
