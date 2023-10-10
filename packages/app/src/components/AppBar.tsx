@@ -17,6 +17,7 @@ import { otherColors } from '../IntakeThemeProvider';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import React from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
+import DashboardLogo from '../assets/icons/dashboardLogo.svg';
 
 const pages = ['Dashboard'];
 const settings = [
@@ -50,24 +51,7 @@ const TopAppBar: FC = () => {
     <AppBar position="static" sx={{ backgroundColor: otherColors.footerBackground }}>
       <Container maxWidth={false}>
         <Toolbar disableGutters variant="dense">
-          {/* placeholder logo */}
-          <Typography
-            variant="h6"
-            noWrap
-            component="a"
-            href="/"
-            sx={{
-              mr: 2,
-              display: { xs: 'flex' },
-              fontFamily: 'monospace',
-              fontWeight: 700,
-              letterSpacing: '.3rem',
-              color: 'inherit',
-              textDecoration: 'none',
-            }}
-          >
-            NEW LOGO
-          </Typography>
+          <Box component="img" src={DashboardLogo} mr={5} />
           <Box sx={{ flexGrow: 1, display: { xs: 'flex' } }}>
             {pages.map((page) => (
               <Button

@@ -1,11 +1,45 @@
-import { createContext, Dispatch, FC, ReactNode, useReducer } from 'react';
+import { createContext, Dispatch, FC, ReactNode, useContext, useReducer, useState } from 'react';
 import { IntakeState, IntakeAction } from './types';
+import { Outlet } from 'react-router-dom';
 
 const initialState = {};
+
+const PatientContext = createContext<PatientContextProps | undefined>(undefined);
 
 type IntakeDataContextProps = {
   state: IntakeState;
   dispatch: Dispatch<IntakeAction>;
+};
+
+type PatientContextProps = {
+  patientName: string;
+  setPatientName: React.Dispatch<React.SetStateAction<string>>;
+  isVideoOpen: boolean;
+  setIsVideoOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isMicOpen: boolean;
+  setIsMicOpen: React.Dispatch<React.SetStateAction<boolean>>;
+};
+
+export const usePatient = (): PatientContextProps => {
+  const context = useContext(PatientContext);
+  if (!context) {
+    throw new Error('usePatient must be used within a PatientProvider');
+  }
+  return context;
+};
+
+export const PatientProvider: React.FC = () => {
+  const [patientName, setPatientName] = useState<string>('');
+  const [isVideoOpen, setIsVideoOpen] = useState(false);
+  const [isMicOpen, setIsMicOpen] = useState(false);
+
+  return (
+    <PatientContext.Provider
+      value={{ patientName, setPatientName, isVideoOpen, setIsVideoOpen, isMicOpen, setIsMicOpen }}
+    >
+      <Outlet />
+    </PatientContext.Provider>
+  );
 };
 
 export const IntakeDataContext = createContext<IntakeDataContextProps>({ state: initialState, dispatch: () => null });

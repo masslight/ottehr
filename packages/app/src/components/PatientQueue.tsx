@@ -1,6 +1,6 @@
 import { FC } from 'react';
 import { Box, Button, Grid, Typography } from '@mui/material';
-import defaultPatient from '../assets/icons/defaultPatient.svg';
+import defaultPatient from '../assets/icons/ottehrDefaultPatient.svg';
 import { getQueuedTimeFromTimestamp } from '../helpers';
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';

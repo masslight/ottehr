@@ -10,3 +10,4 @@ export { default as people } from './people.png';
 export { default as customRadioButtonUncheckedIcon } from './custom-radio-button-unchecked-icon.svg';
 export { default as customRadioButtonCheckedIcon } from './custom-radio-button-checked-icon.svg';
 export { default as stethiscope } from './stethiscope.png';
+export { default as videoCallMock } from './videoCallMock.png';
