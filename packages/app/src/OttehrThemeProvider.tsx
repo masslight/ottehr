@@ -291,11 +291,11 @@ export const components: Components = {
   },
 };
 
-interface OttehrThemeProviderProps {
+interface OttEHRThemeProviderProps {
   children: ReactNode;
 }
 
-export const OttehrThemeProvider: FC<OttehrThemeProviderProps> = ({ children }) => {
+export const OttEHRThemeProvider: FC<OttEHRThemeProviderProps> = ({ children }) => {
   const theme = createTheme({
     palette: palette,
     components: components,

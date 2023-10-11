@@ -2,7 +2,7 @@ import { FormControl, Input, InputProps } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { otherColors } from '../OttehrThemeProvider';
+import { otherColors } from '../OttEHRThemeProvider';
 import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
 import { InputMask } from './InputMask';

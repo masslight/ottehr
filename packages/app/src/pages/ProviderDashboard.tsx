@@ -3,7 +3,7 @@ import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import { Container, Box, Button, Divider, Grid, Typography } from '@mui/material';
 import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ottehrDefaultProvider } from '../assets/icons';
+import { ottEHRDefaultProvider } from '../assets/icons';
 import { Footer, PatientQueue, TopAppBar } from '../components';
 
 export const ProviderDashboard = (): JSX.Element => {
@@ -68,7 +68,7 @@ export const ProviderDashboard = (): JSX.Element => {
                 textAlign: 'right',
               }}
             >
-              <img src={ottehrDefaultProvider} alt="Provider Image" width="100px" />
+              <img src={ottEHRDefaultProvider} alt="Provider Image" width="100px" />
             </Grid>
           </Grid>
           <Box

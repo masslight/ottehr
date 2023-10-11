@@ -15,7 +15,7 @@ import {
 } from '@mui/material';
 import { FC, Fragment, MouseEvent, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { otherColors } from '../OttehrThemeProvider';
+import { otherColors } from '../OttEHRThemeProvider';
 import { dashboardLogo } from '../assets/icons';
 
 const pages = ['Dashboard'];
@@ -59,7 +59,7 @@ export const TopAppBar: FC = () => {
                 to={`/${page.toLowerCase()}`}
                 sx={{
                   my: 2,
-                  // TODO move all colors to OttehrThemeProvider
+                  // TODO move all colors to OttEHRThemeProvider
                   color: isActive(`/${page.toLowerCase()}`) ? theme.palette.primary.light : 'rgba(255, 255, 255, 0.7)',
                   display: 'block',
                   textDecoration: 'none',

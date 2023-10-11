@@ -2,7 +2,7 @@ import { ExpandMore } from '@mui/icons-material';
 import { FormControl, MenuItem, Select, SelectProps, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { otherColors } from '../OttehrThemeProvider';
+import { otherColors } from '../OttEHRThemeProvider';
 import { findLabelFromOptions } from '../helpers';
 import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';

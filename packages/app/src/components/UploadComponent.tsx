@@ -1,7 +1,7 @@
 import { Box, Button, useTheme } from '@mui/material';
 import { ChangeEvent, FC, ReactNode } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { otherColors } from '../OttehrThemeProvider';
+import { otherColors } from '../OttEHRThemeProvider';
 
 interface UploadComponentProps {
   name: string;

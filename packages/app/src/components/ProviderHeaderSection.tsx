@@ -1,6 +1,6 @@
 import { Typography, Box, useTheme } from '@mui/material';
 import { FC } from 'react';
-import { ottehrDefaultProvider } from '../assets/icons';
+import { ottEHRDefaultProvider } from '../assets/icons';
 
 interface ProviderHeaderSectionProps {
   providerName: string;
@@ -41,7 +41,7 @@ export const ProviderHeaderSection: FC<ProviderHeaderSectionProps> = ({ provider
               },
             }}
           >
-            <img src={ottehrDefaultProvider} style={{ width: '6.25rem', height: '6.25rem' }} />
+            <img src={ottEHRDefaultProvider} style={{ width: '6.25rem', height: '6.25rem' }} />
             <Box
               sx={{
                 ml: 3,

@@ -17,7 +17,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useState } from 'react';
-import { ellipse4, ellipse5, ottehrPatientIcon, ottehrProviderIcon, ottehrRegistrationLogo } from '../assets/icons';
+import { ellipse4, ellipse5, ottEHRPatientIcon, ottEHRProviderIcon, ottEHRRegistrationLogo } from '../assets/icons';
 import { ZapEHRLogo } from '../components';
 
 export const ProviderRegistration = (): JSX.Element => {
@@ -52,7 +52,7 @@ export const ProviderRegistration = (): JSX.Element => {
             alignItems: 'center',
           }}
         >
-          <Box component="img" src={ottehrRegistrationLogo} />
+          <Box component="img" src={ottEHRRegistrationLogo} />
         </Box>
         <Box>
           <Typography variant="body1" color="primary.light" sx={{ textAlign: 'center', py: 2 }}>
@@ -102,7 +102,7 @@ export const ProviderRegistration = (): JSX.Element => {
               zIndex: '2',
             }}
           >
-            <Box component="img" src={ottehrPatientIcon} />
+            <Box component="img" src={ottEHRPatientIcon} />
           </Box>
           <Box
             sx={{
@@ -113,7 +113,7 @@ export const ProviderRegistration = (): JSX.Element => {
               zIndex: '1',
             }}
           >
-            <img src={ottehrProviderIcon} />
+            <img src={ottEHRProviderIcon} />
           </Box>
           <Box
             sx={{
