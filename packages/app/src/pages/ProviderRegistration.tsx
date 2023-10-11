@@ -10,6 +10,7 @@ import {
   Checkbox,
   FormControlLabel,
   Button,
+  useTheme,
 } from '@mui/material';
 
 import MicIcon from '@mui/icons-material/Mic';
@@ -21,8 +22,8 @@ import Patient from '../assets/icons/ottehrPatientIcon.svg';
 import Doctor from '../assets/icons/ottehrProviderIcon.svg';
 import CheckIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
-import EllipseDark from '../assets/icons/Ellipse 4.png';
-import EllipseLight from '../assets/icons/Ellipse 5.png';
+import EllipseDark from '../assets/icons/Ellipse 4.svg';
+import EllipseLight from '../assets/icons/Ellipse 5.svg';
 import RegistrationLogo from '../assets/icons/ottehrRegistrationLogo.svg';
 import { Logo } from '../components/Logo';
 
@@ -32,6 +33,8 @@ const ProviderRegistration = (): JSX.Element => {
     // TODO: form submission structure
   };
 
+  const theme = useTheme();
+
   const [roomName, setRoomName] = useState('');
   const mockData = ['aykhanahmadli', 'samiromarov'];
 
@@ -39,7 +42,7 @@ const ProviderRegistration = (): JSX.Element => {
   const helperText = isError ? 'This name is already taken, please use another one' : '';
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'row' }}>
+    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' } }}>
       {/* left side */}
       <Box
         sx={{
@@ -49,6 +52,10 @@ const ProviderRegistration = (): JSX.Element => {
           flexDirection: 'column',
           justifyContent: 'center',
           gap: 2,
+          [theme.breakpoints.down('md')]: {
+            py: 2,
+            width: '100%',
+          },
         }}
       >
         <Box
@@ -72,28 +79,38 @@ const ProviderRegistration = (): JSX.Element => {
             justifyContent: 'center',
             alignItems: 'center',
             py: 10,
+            [theme.breakpoints.down('md')]: {
+              flexDirection: 'row',
+              py: 0,
+              gap: 2,
+            },
           }}
         >
           <Box
             component="img"
             src={EllipseDark}
             sx={{
-              width: 464,
-              height: 464,
               position: 'absolute',
-              mb: 18,
+              mb: 25,
               mr: 18,
+              [theme.breakpoints.down('md')]: {
+                maxWidth: '60%',
+                maxHeight: '60%',
+                mb: 0,
+              },
             }}
           />
           <Box
             component="img"
             src={EllipseLight}
             sx={{
-              width: 464,
-              height: 464,
               position: 'absolute',
-              mt: 18,
-              ml: 18,
+              ml: 25,
+              [theme.breakpoints.down('md')]: {
+                maxWidth: '60%',
+                maxHeight: '60%',
+                ml: 18,
+              },
             }}
           />
           <Box
@@ -105,6 +122,11 @@ const ProviderRegistration = (): JSX.Element => {
               position: 'absolute',
               mb: 46,
               marginLeft: 36,
+              [theme.breakpoints.down('md')]: {
+                position: 'static',
+                mb: 0,
+                ml: 0,
+              },
               zIndex: '2',
             }}
           >
@@ -112,16 +134,21 @@ const ProviderRegistration = (): JSX.Element => {
           </Box>
 
           <Box
+            component="img"
+            src={Doctor}
             sx={{
               display: 'flex',
               justifyContent: 'center',
               overflow: 'hidden',
-              mb: 2.5,
               zIndex: '1',
+              [theme.breakpoints.down('md')]: {
+                maxWidth: '120px',
+                maxHeight: '120px',
+                borderRadius: 7,
+                border: '0.25 solid #fff',
+              },
             }}
-          >
-            <img src={Doctor} />
-          </Box>
+          />
 
           <Box
             sx={{
@@ -133,6 +160,9 @@ const ProviderRegistration = (): JSX.Element => {
               gap: 2.5,
               py: 1.75,
               px: 9,
+              [theme.breakpoints.down('md')]: {
+                display: 'none',
+              },
             }}
           >
             <VideocamIcon style={{ color: 'white' }} />
@@ -164,9 +194,13 @@ const ProviderRegistration = (): JSX.Element => {
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
+          [theme.breakpoints.down('md')]: {
+            width: '100%',
+            height: '100%',
+          },
         }}
       >
-        <Box sx={{ mx: 12.5, my: 10, display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box sx={{ mx: { xs: 2, md: 12.5 }, my: { xs: 4, md: 10 }, display: 'flex', flexDirection: 'column', gap: 1 }}>
           <Typography variant="h4">Welcome to OttEHR</Typography>
           <Typography variant="h3" color="primary.light" sx={{ pb: 1 }}>
             Provider registration

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Footer } from '../components';
-import { Container, Box, Grid, Typography, Button, Divider } from '@mui/material';
+import { Container, Box, Typography, Button, Divider, useTheme } from '@mui/material';
 import defaultProvider from '../assets/icons/ottehrDefaultProvider.svg';
 import { useTranslation } from 'react-i18next';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -10,6 +10,8 @@ import TopAppBar from '../components/AppBar';
 
 const ProviderDashboard = (): JSX.Element => {
   const { t } = useTranslation();
+
+  const theme = useTheme();
 
   const patientsData = [
     {
@@ -38,23 +40,37 @@ const ProviderDashboard = (): JSX.Element => {
       }}
     >
       <TopAppBar />
-      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'row' }}>
+      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: { xs: 'column', md: 'row' } }}>
         <Box
           sx={{
-            width: '60%',
+            width: { xs: '100%', md: '60%' },
             flexGrow: 1,
             backgroundColor: 'transparent',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'flex-start',
-            pt: 10,
-            pl: 10,
-            pr: 10,
+            pt: 7.5,
+            px: 7.5,
+            [theme.breakpoints.down('md')]: {
+              px: 2,
+              py: 4,
+              flexGrow: 0,
+            },
           }}
         >
-          <Grid container>
-            <Grid item xs={6}>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              width: '100%',
+              flexDirection: { xs: 'column-reverse', md: 'row' },
+              [theme.breakpoints.down('md')]: {
+                gap: 1,
+              },
+            }}
+          >
+            <Box>
               <Typography variant="h5" color="primary.light" fontWeight={500}>
                 {t('general.goodMorning')}
               </Typography>
@@ -62,17 +78,11 @@ const ProviderDashboard = (): JSX.Element => {
               <Typography variant="h4" color="text.light" mt={1}>
                 Dr. Olivia Smith
               </Typography>
-            </Grid>
-            <Grid
-              item
-              xs={6}
-              sx={{
-                textAlign: 'right',
-              }}
-            >
-              <img src={defaultProvider} alt="Provider Image" width="100px" />
-            </Grid>
-          </Grid>
+            </Box>
+            <Box sx={{ maxWidth: { xs: '50px', md: '100px' } }}>
+              <img src={defaultProvider} alt="Provider Image" width={'100%'} />
+            </Box>
+          </Box>
           <Box
             sx={{
               width: '100%',
@@ -81,6 +91,11 @@ const ProviderDashboard = (): JSX.Element => {
               margin: 3,
               p: 3,
               boxSizing: 'border-box',
+              [theme.breakpoints.down('md')]: {
+                my: 2,
+                mx: 0,
+                p: 4,
+              },
             }}
           >
             <Typography variant="body1" color="text.light">
@@ -122,15 +137,18 @@ const ProviderDashboard = (): JSX.Element => {
 
         <Box
           sx={{
-            width: '40%',
+            width: { xs: '100%', md: '40%' },
             flexGrow: 1,
             background: 'linear-gradient(21deg, rgba(40, 150, 198, 0.60) 3.6%, rgba(80, 96, 241, 0.00) 40%), #263954',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'flex-start',
-            pt: 10,
-            pl: 10,
-            pr: 10,
+            pt: 7.5,
+            px: 7.5,
+            [theme.breakpoints.down('md')]: {
+              px: 2,
+              py: 4,
+            },
           }}
         >
           <Typography variant="h5" color="primary.light" fontWeight={500}>

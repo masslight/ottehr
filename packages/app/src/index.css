@@ -1,3 +1,6 @@
+* {
+  box-sizing: border-box;
+}
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans',
@@ -14,50 +17,49 @@ code {
 
 @font-face {
   font-family: 'PMDiatype';
-  src: local('PMDiatype'), url(./fonts/PMDiatype-Regular.woff2) format('woff2'),
-    local('PMDiatype'), url(./fonts/PMDiatype-Regular.woff) format('woff'),
-    local('PMDiatype'), url(./fonts/PMDiatype-Regular.otf) format('otf');
+  src: local('PMDiatype'), url(./fonts/PMDiatype-Regular.woff2) format('woff2'), local('PMDiatype'),
+    url(./fonts/PMDiatype-Regular.woff) format('woff'), local('PMDiatype'),
+    url(./fonts/PMDiatype-Regular.otf) format('otf');
   font-weight: normal;
   font-style: normal;
 }
 
 @font-face {
   font-family: 'PMDiatype';
-  src: local('PMDiatype'), url(./fonts/PMDiatype-RegularItalic.woff2) format('woff2'),
-    local('PMDiatype'), url(./fonts/PMDiatype-RegularItalic.woff) format('woff'),
-    local('PMDiatype'), url(./fonts/PMDiatype-RegularItalic.otf) format('otf');
+  src: local('PMDiatype'), url(./fonts/PMDiatype-RegularItalic.woff2) format('woff2'), local('PMDiatype'),
+    url(./fonts/PMDiatype-RegularItalic.woff) format('woff'), local('PMDiatype'),
+    url(./fonts/PMDiatype-RegularItalic.otf) format('otf');
   font-weight: normal;
   font-style: italic;
 }
 
 @font-face {
   font-family: 'PMDiatype';
-  src: local('PMDiatype'), url(./fonts/PMDiatype-Bold.woff2) format('woff2'),
-    local('PMDiatype'), url(./fonts/PMDiatype-Bold.woff) format('woff'),
-    local('PMDiatype'), url(./fonts/PMDiatype-Bold.otf) format('otf');
+  src: local('PMDiatype'), url(./fonts/PMDiatype-Bold.woff2) format('woff2'), local('PMDiatype'),
+    url(./fonts/PMDiatype-Bold.woff) format('woff'), local('PMDiatype'), url(./fonts/PMDiatype-Bold.otf) format('otf');
   font-weight: bold;
   font-style: normal;
 }
 
 @font-face {
   font-family: 'PMDiatype';
-  src: local('PMDiatype'), url(./fonts/PMDiatype-BoldItalic.woff2) format('woff2'),
-    local('PMDiatype'), url(./fonts/PMDiatype-BoldItalic.woff) format('woff'),
-    local('PMDiatype'), url(./fonts/PMDiatype-BoldItalic.woff2) format('otf');
+  src: local('PMDiatype'), url(./fonts/PMDiatype-BoldItalic.woff2) format('woff2'), local('PMDiatype'),
+    url(./fonts/PMDiatype-BoldItalic.woff) format('woff'), local('PMDiatype'),
+    url(./fonts/PMDiatype-BoldItalic.woff2) format('otf');
   font-weight: bold;
   font-style: italic;
 }
 
 @font-face {
   font-family: 'TiemposText';
-  src: local('TiemposText'), url(./fonts/tiempos-text-regular.woff2) format('woff2'),
-    local('TiemposText'), url(./fonts/TiemposText-Regular.otf) format('otf'),
-    local('TiemposText'), url(./fonts/TiemposText-Regular.ttf) format('ttf');
+  src: local('TiemposText'), url(./fonts/tiempos-text-regular.woff2) format('woff2'), local('TiemposText'),
+    url(./fonts/TiemposText-Regular.otf) format('otf'), local('TiemposText'),
+    url(./fonts/TiemposText-Regular.ttf) format('ttf');
 }
 
 @font-face {
   font-family: 'TiemposHeadline';
-  src: local('TiemposHeadline'), url(./fonts/tiempos-headline-regular.woff2) format('woff2'),
-    local('TiemposHeadline'), url(./fonts/TiemposHeadline-Regular.otf) format('otf'),
-    local('TiemposHeadline'), url(./fonts/TiemposHeadline-Regular.ttf) format('ttf');
+  src: local('TiemposHeadline'), url(./fonts/tiempos-headline-regular.woff2) format('woff2'), local('TiemposHeadline'),
+    url(./fonts/TiemposHeadline-Regular.otf) format('otf'), local('TiemposHeadline'),
+    url(./fonts/TiemposHeadline-Regular.ttf) format('ttf');
 }

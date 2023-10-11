@@ -18,6 +18,7 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import React from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import DashboardLogo from '../assets/icons/dashboardLogo.svg';
+import MenuIcon from '@mui/icons-material/Menu';
 
 const pages = ['Dashboard'];
 const settings = [
@@ -48,11 +49,20 @@ const TopAppBar: FC = () => {
   const theme = useTheme();
 
   return (
-    <AppBar position="static" sx={{ backgroundColor: otherColors.footerBackground }}>
+    <AppBar position="static" sx={{ backgroundColor: otherColors.footerBackground, width: '100vw' }}>
       <Container maxWidth={false}>
-        <Toolbar disableGutters variant="dense">
+        <Toolbar
+          disableGutters
+          variant="dense"
+          sx={{
+            [theme.breakpoints.down('md')]: {
+              display: 'flex',
+              justifyContent: 'space-between',
+            },
+          }}
+        >
           <Box component="img" src={DashboardLogo} mr={5} />
-          <Box sx={{ flexGrow: 1, display: { xs: 'flex' } }}>
+          <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
             {pages.map((page) => (
               <Button
                 key={page}
@@ -74,11 +84,52 @@ const TopAppBar: FC = () => {
           <Box sx={{ flexGrow: 0 }}>
             <Tooltip title="Open settings">
               <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
-                <AccountCircleIcon sx={{ color: theme.palette.primary.light }} />
+                <AccountCircleIcon sx={{ color: theme.palette.primary.light, display: { xs: 'none', md: 'block' } }} />
+                <MenuIcon sx={{ color: 'white', display: { md: 'none' } }} />
               </IconButton>
             </Tooltip>
             <Menu
-              sx={{ mt: '45px' }}
+              sx={{ mt: '45px', display: { xs: 'none', md: 'block' } }}
+              id="menu-appbar"
+              anchorEl={anchorElUser}
+              anchorOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+              keepMounted
+              transformOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+              open={Boolean(anchorElUser)}
+              onClose={handleCloseUserMenu}
+            >
+              <MenuItem disabled>
+                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                  <Typography variant="body1">Name Surname</Typography>
+                  <Typography variant="body1">email@example.com</Typography>
+                </Box>
+              </MenuItem>
+
+              <Divider />
+              {settings.map((setting, index) => (
+                <React.Fragment key={setting.name}>
+                  <MenuItem onClick={handleCloseUserMenu} component={Link} to={setting.route}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      {setting.name === 'Profile' && <AccountCircleIcon sx={{ mr: 4, color: 'text.light' }} />}
+                      <Typography variant="body2" color="text.light">
+                        {setting.name}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                  {index < settings.length - 1 && <Divider />}
+                </React.Fragment>
+              ))}
+            </Menu>
+
+            {/* TO DO menu integration */}
+            <Menu
+              sx={{ mt: '45px', display: { xs: 'block', md: 'none' } }}
               id="menu-appbar"
               anchorEl={anchorElUser}
               anchorOrigin={{
