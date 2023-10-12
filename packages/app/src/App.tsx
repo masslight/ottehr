@@ -25,10 +25,10 @@ export default function App(): JSX.Element {
           <Routes>
             <Route path={'/'} element={<Version />} />;
             <Route element={<PatientProvider />}>
-              <Route path={'/registration'} element={<ProviderRegistration />} />;
               <Route path={'/checkin'} element={<PatientCheckIn />} />;
               <Route path={'/checkin-permission'} element={<CheckInPermission />} />;
               <Route path={'/post-call'} element={<PostCall />} />;
+              <Route path={'/registration'} element={<ProviderRegistration />} />;
               <Route path={'/waiting-room'} element={<WaitingRoom />} />;
             </Route>
             <Route path={'/dashboard'} element={<ProviderDashboard />} />;
