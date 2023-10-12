@@ -1,13 +1,12 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
+import { ExpandMore } from '@mui/icons-material';
+import { FormControl, MenuItem, Select, SelectProps, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { FormControl, SelectProps, MenuItem, Select, useTheme } from '@mui/material';
-import { ExpandMore } from '@mui/icons-material';
-import { otherColors } from '../IntakeThemeProvider';
+import { otherColors } from '../OttEHRThemeProvider';
 import { findLabelFromOptions } from '../helpers';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
+import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
-import RenderLabelFromSelect from './RenderLabelFromSelect';
+import { RenderLabelFromSelect } from './RenderLabelFromSelect';
 
 export interface SelectInputOption {
   value: string;
@@ -22,10 +21,9 @@ type SelectInputProps = {
   placeholder?: string;
 } & SelectProps;
 
-const SelectInput: FC<SelectInputProps> = ({
+export const SelectInput: FC<SelectInputProps> = ({
   name,
   label,
-  value,
   defaultValue,
   options,
   helperText,
@@ -52,9 +50,9 @@ const SelectInput: FC<SelectInputProps> = ({
             width: '100%',
           }}
         >
-          <BoldPurpleInputLabel id={`${name}-label`} shrink>
+          <BoldPrimaryInputLabel id={`${name}-label`} shrink>
             {label}
-          </BoldPurpleInputLabel>
+          </BoldPrimaryInputLabel>
           <Select
             labelId={`${name}-label`}
             IconComponent={ExpandMore}
@@ -106,5 +104,3 @@ const SelectInput: FC<SelectInputProps> = ({
     />
   );
 };
-
-export default SelectInput;

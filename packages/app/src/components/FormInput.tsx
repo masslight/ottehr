@@ -1,11 +1,11 @@
-import { FC } from 'react';
-import { Controller, useFormContext } from 'react-hook-form';
 import { FormControl, Input, InputProps } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
-import { otherColors } from '../IntakeThemeProvider';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
+import { FC } from 'react';
+import { Controller, useFormContext } from 'react-hook-form';
+import { otherColors } from '../OttEHRThemeProvider';
+import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
-import InputMask from './InputMask';
+import { InputMask } from './InputMask';
 
 type FormInputProps = {
   name: string;
@@ -15,7 +15,15 @@ type FormInputProps = {
   mask?: string;
 } & InputProps;
 
-const FormInput: FC<FormInputProps> = ({ name, label, format, defaultValue, helperText, mask, ...otherProps }) => {
+export const FormInput: FC<FormInputProps> = ({
+  name,
+  label,
+  format,
+  defaultValue,
+  helperText,
+  mask,
+  ...otherProps
+}) => {
   const {
     control,
     formState: { errors },
@@ -63,9 +71,9 @@ const FormInput: FC<FormInputProps> = ({ name, label, format, defaultValue, help
             width: '100%',
           }}
         >
-          <BoldPurpleInputLabel htmlFor={`${name}-label`} shrink>
+          <BoldPrimaryInputLabel htmlFor={`${name}-label`} shrink>
             {label}
-          </BoldPurpleInputLabel>
+          </BoldPrimaryInputLabel>
           <Input
             id={`${name}-label`}
             value={value}
@@ -84,5 +92,3 @@ const FormInput: FC<FormInputProps> = ({ name, label, format, defaultValue, help
     />
   );
 };
-
-export default FormInput;

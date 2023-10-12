@@ -19,7 +19,7 @@
         "lastName": "Last name is required",
         "dateOfBirth": {
           "format": "Date must be in the format MM/DD/YYYY",
-          "required": "Birth date is required"
+          "required": "Date of birth is required"
         },
         "zip": {
           "number": "Zip code must be 5 digits",
@@ -35,7 +35,7 @@
     "required": "required field",
     "footer": "Powered by",
     "goodMorning": "Good Morning",
-    "shareLink": "To invite patient to your room share this link",
+    "shareLink": "To invite patients to your room share this link",
     "copyLink": "Copy Link",
     "sendEmail": "Send Email",
     "patientsQueue": "Patients queue",

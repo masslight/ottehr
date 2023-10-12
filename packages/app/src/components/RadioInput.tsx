@@ -1,6 +1,3 @@
-import { FC, SyntheticEvent } from 'react';
-import { Controller, FieldValues, useFormContext } from 'react-hook-form';
-import { useTranslation } from 'react-i18next';
 import {
   FormControl,
   FormControlLabel,
@@ -13,9 +10,12 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { FC, SyntheticEvent } from 'react';
+import { Controller, FieldValues, useFormContext } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { customRadioButtonCheckedIcon, customRadioButtonUncheckedIcon } from '../assets/icons';
 import { RadioOption } from '../types';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
+import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
 
 type RadioInputProps = {
@@ -39,7 +39,7 @@ export type RadioStyling = {
   height?: string;
 };
 
-const RadioInput: FC<RadioInputProps> = ({
+export const RadioInput: FC<RadioInputProps> = ({
   name,
   label,
   defaultValue,
@@ -75,9 +75,9 @@ const RadioInput: FC<RadioInputProps> = ({
           <FormControl required={required} error={!!errors[name]} sx={{ width: '100%', mt: 3.5 }}>
             {/* Had to add a margin here and on FormControl because none of the variants worked properly */}
             {/* Same for padding. I want to emphasize how much I hate this. */}
-            <BoldPurpleInputLabel htmlFor={`${name}-label`} shrink sx={{ mt: -2.25 }}>
+            <BoldPrimaryInputLabel htmlFor={`${name}-label`} shrink sx={{ mt: -2.25 }}>
               {label}
-            </BoldPurpleInputLabel>
+            </BoldPrimaryInputLabel>
             <RadioGroup
               sx={{
                 '.MuiFormControlLabel-label': {
@@ -122,7 +122,7 @@ const RadioInput: FC<RadioInputProps> = ({
                         sx={{
                           alignSelf: 'start',
                           mt: '8px',
-                          // If screen is smaller than small breakpoint
+                          // If screen is smaller than medium breakpoint
                           [theme.breakpoints.down('md')]: {
                             mt: 0,
                           },
@@ -145,8 +145,8 @@ const RadioInput: FC<RadioInputProps> = ({
                           },
                         }}
                       >
-                        {/* description xs ternary makes it work because point comfort doesn't have
-                        a description, might be nice to change it later */}
+                        {/* description xs ternary makes it work because some options might not have a description,
+                            might be nice to change it later */}
                         <Grid
                           item
                           xs={gridWidths.mobile.labelText}
@@ -228,5 +228,3 @@ const RadioInput: FC<RadioInputProps> = ({
     />
   );
 };
-
-export default RadioInput;

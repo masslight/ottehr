@@ -1,9 +1,8 @@
-import { FC } from 'react';
 import { Box, Button, Grid, Typography } from '@mui/material';
-import defaultPatient from '../assets/icons/ottehrDefaultPatient.svg';
-import { getQueuedTimeFromTimestamp } from '../helpers';
-import React, { useState, useEffect } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ottEHRDefaultPatient } from '../assets/icons';
+import { getQueuedTimeFromTimestamp } from '../helpers';
 
 export interface PatientQueueProps {
   name: string;
@@ -11,7 +10,7 @@ export interface PatientQueueProps {
   link: string;
 }
 
-const PatientQueue: FC<PatientQueueProps> = ({ name, queuedTime, link }) => {
+export const PatientQueue: FC<PatientQueueProps> = ({ name, queuedTime, link }) => {
   const { t } = useTranslation();
 
   const [relativeQueuedTime, setRelativeQueuedTime] = useState(getQueuedTimeFromTimestamp(queuedTime));
@@ -31,7 +30,7 @@ const PatientQueue: FC<PatientQueueProps> = ({ name, queuedTime, link }) => {
     <Box sx={{ m: 0, py: 1 }}>
       <Grid container alignItems="center" spacing={{ xs: 0 }}>
         <Grid item xs={8} display="flex" alignItems="center" textAlign={{ xs: 'start' }}>
-          <img src={defaultPatient} height="42px" />
+          <img src={ottEHRDefaultPatient} height="42px" />
           <Box pl={2}>
             <Typography variant="body1" color="primary.contrast">
               {name}
@@ -50,5 +49,3 @@ const PatientQueue: FC<PatientQueueProps> = ({ name, queuedTime, link }) => {
     </Box>
   );
 };
-
-export default PatientQueue;

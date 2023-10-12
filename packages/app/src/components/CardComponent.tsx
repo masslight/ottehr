@@ -1,7 +1,7 @@
-import { FC } from 'react';
 import { Box, Button, useTheme } from '@mui/material';
+import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { otherColors } from '../IntakeThemeProvider';
+import { otherColors } from '../OttEHRThemeProvider';
 
 interface CardComponentProps {
   name: string;
@@ -12,7 +12,7 @@ interface CardComponentProps {
   onClear: () => void;
 }
 
-const CardComponent: FC<CardComponentProps> = ({
+export const CardComponent: FC<CardComponentProps> = ({
   name,
   previewUrl,
   objectName,
@@ -55,5 +55,3 @@ const CardComponent: FC<CardComponentProps> = ({
     </Box>
   );
 };
-
-export default CardComponent;

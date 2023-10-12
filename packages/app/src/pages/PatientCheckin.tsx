@@ -1,12 +1,11 @@
 import { Button, TextField, Typography, useTheme } from '@mui/material';
 import { Box } from '@mui/system';
-import Footer from '../components/Footer';
-import ProviderHeaderSection from '../components/ProviderHeaderSection';
-import { usePatient } from '../store/IntakeContext';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Footer, ProviderHeaderSection } from '../components';
+import { usePatient } from '../store';
 
-const PatientCheckIn = (): JSX.Element => {
+export const PatientCheckIn = (): JSX.Element => {
   const { patientName, setPatientName } = usePatient();
   const [name, setName] = useState(patientName);
   const [isError, setIsError] = useState(false);
@@ -34,7 +33,7 @@ const PatientCheckIn = (): JSX.Element => {
         justifyContent: 'space-between',
       }}
     >
-      <ProviderHeaderSection providerName="Dr.Smith" title="Waiting Room" />
+      <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" />
       {/* Middle Section */}
       <Box
         sx={{
@@ -68,6 +67,7 @@ const PatientCheckIn = (): JSX.Element => {
             <Typography variant="body1" sx={{ pb: 3 }}>
               Please enter your name to join the call line of Dr. Olivia Smith
             </Typography>
+            {/* TODO Should we use React hook form? */}
             <form onSubmit={handleSubmit}>
               <Box
                 sx={{
@@ -105,5 +105,3 @@ const PatientCheckIn = (): JSX.Element => {
     </Box>
   );
 };
-
-export default PatientCheckIn;

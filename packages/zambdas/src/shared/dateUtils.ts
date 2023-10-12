@@ -21,13 +21,6 @@ export function formatDate(date: DateTime): string {
   return `${date.toISO()}`;
 }
 
-export function createMinimumAndMaximumTime(date: DateTime, buffer?: number): { minimum: string; maximum: string } {
-  const minimum = formatDate(date);
-  const tomorrow = date.plus({ days: buffer ?? 1 });
-  const maximum = formatDate(tomorrow.endOf('day'));
-  return { minimum: minimum, maximum: maximum };
-}
-
 export const getDateTimeFromDateAndTime = (currentDate: DateTime, currentTime: string): DateTime => {
   const time = DateTime.fromFormat(currentTime, 'HH:mm:ss');
   // Combine date and time into a single DateTime object

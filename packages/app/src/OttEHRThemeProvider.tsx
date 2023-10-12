@@ -1,6 +1,6 @@
-import { FC, ReactNode } from 'react';
-import { BreakpointsOptions, Components, createTheme, PaletteColor, ThemeProvider } from '@mui/material';
+import { BreakpointsOptions, Components, PaletteColor, ThemeProvider, createTheme } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
+import { FC, ReactNode } from 'react';
 
 export const textFonts = ['Work Sans'];
 export const headerFonts = ['Work Sans'];
@@ -20,32 +20,31 @@ export const otherColors = {
   background: '#5324BE',
   borderGray: '#D6D8DF',
   borderLightBlue: '#4294F3',
+  brown: '#604203',
+  cardBackground: '#F7F8F9',
   checkIcon: '#7045F2',
   clearImage: '#EB5757',
   coachingVisit: '#EDE8FF',
-  lightBlue: '#CFF5FF',
-  darkPurple: '#301367',
+  darkBackgroundPaper: '#263954',
   darkGreen: '#0F5A4C',
-  lightGreen: '#C1FBEA',
-  purple: '#4D15B7',
-  brown: '#604203',
-  lightPurple: '#F5F2FF',
+  darkPurple: '#301367',
+  footerBackground: '#202A3E',
   languageIcon: 'rgba(15, 229, 189, 1)',
-  lightblue: '#ECF5FF',
+  lightBlue: '#CFF5FF',
   lightGray: '#CED4DA',
+  lightGreen: '#C1FBEA',
+  lightPurple: '#F5F2FF',
+  patientGreen: '#C7FDD3',
+  patientSubtitle: '#545454',
   placeholder: '#A9A9A9',
-  primaryBackground: '#F5F2FF',
   popupBackground: 'rgba(97, 97, 97, 0.9)',
+  primaryBackground: '#F5F2FF',
   primaryBoxShadow: 'rgba(77, 21, 183, 0.25)',
+  purple: '#4D15B7',
   scheduleBorder: '#8F9AA7',
   translateIcon: '#0FE5BD',
   transparent: 'rgba(0, 0, 0, 0)',
-  patientGreen: '#C7FDD3',
-  patientSubtitle: '#545454',
   wrongPatient: '#8F9AA7',
-  cardBackground: '#F7F8F9',
-  footerBackground: '#202A3E',
-  darkBackgroundPaper: '#263954',
 };
 
 export const typography: TypographyOptions = {
@@ -195,7 +194,6 @@ export const components: Components = {
         '&:not($sizeLarge):not($sizeSmall) $label': {
           fontSize: 16,
         },
-        // borderRadius: 49,
       },
       sizeLarge: {
         '& $label': {
@@ -293,11 +291,11 @@ export const components: Components = {
   },
 };
 
-interface IntakeThemeProviderProps {
+interface OttEHRThemeProviderProps {
   children: ReactNode;
 }
 
-export const IntakeThemeProvider: FC<IntakeThemeProviderProps> = ({ children }) => {
+export const OttEHRThemeProvider: FC<OttEHRThemeProviderProps> = ({ children }) => {
   const theme = createTheme({
     palette: palette,
     components: components,

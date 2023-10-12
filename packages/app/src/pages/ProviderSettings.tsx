@@ -1,23 +1,20 @@
+import CancelIcon from '@mui/icons-material/Cancel';
+import CheckIcon from '@mui/icons-material/CheckCircle';
 import {
-  Button,
-  TextField,
   Box,
+  Button,
   Container,
   FormControl,
   InputLabel,
-  Select,
   MenuItem,
+  Select,
+  TextField,
   Typography,
 } from '@mui/material';
-
-import { Footer } from '../components';
-import TopAppBar from '../components/AppBar';
-import ProviderHeaderSection from '../components/ProviderHeaderSection';
 import { useState } from 'react';
-import CheckIcon from '@mui/icons-material/CheckCircle';
-import CancelIcon from '@mui/icons-material/Cancel';
+import { Footer, ProviderHeaderSection, TopAppBar } from '../components';
 
-const ProviderSettings = (): JSX.Element => {
+export const ProviderSettings = (): JSX.Element => {
   const handleSubmit = (event: any): void => {
     event.preventDefault();
     // TODO: form submission structure
@@ -42,7 +39,6 @@ const ProviderSettings = (): JSX.Element => {
     >
       <TopAppBar />
       <ProviderHeaderSection providerName="Dr. Olivia Smith" title="My profile" />
-
       <Box
         sx={{
           flex: '1 1 auto',
@@ -78,9 +74,7 @@ const ProviderSettings = (): JSX.Element => {
                   <Box sx={{ mr: 1 }}>{isError ? <CancelIcon color="error" /> : <CheckIcon color="success" />}</Box>
                   <Typography variant="body2">{`https://zapehr.app/${roomName}`}</Typography>
                 </Box>
-
                 <TextField variant="outlined" label="Email Address" />
-
                 <Button
                   type="submit"
                   variant="contained"
@@ -103,5 +97,3 @@ const ProviderSettings = (): JSX.Element => {
     </Container>
   );
 };
-
-export default ProviderSettings;

@@ -1,13 +1,13 @@
-import { FC, ReactNode } from 'react';
-import { Stack, Typography } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
-import { otherColors } from '../IntakeThemeProvider';
+import { Stack, Typography } from '@mui/material';
+import { FC, ReactNode } from 'react';
+import { otherColors } from '../OttEHRThemeProvider';
 
 interface CheckIconWithTextProps {
   children: ReactNode;
 }
 
-const CheckIconWithText: FC<CheckIconWithTextProps> = ({ children }) => {
+export const CheckIconWithText: FC<CheckIconWithTextProps> = ({ children }) => {
   return (
     <Stack direction="row" spacing={2}>
       <CheckIcon sx={{ color: otherColors.checkIcon }} />
@@ -17,4 +17,3 @@ const CheckIconWithText: FC<CheckIconWithTextProps> = ({ children }) => {
     </Stack>
   );
 };
-export default CheckIconWithText;

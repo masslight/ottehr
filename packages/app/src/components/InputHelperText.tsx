@@ -1,7 +1,7 @@
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { Box, FormHelperText, Typography } from '@mui/material';
 import { FC } from 'react';
 import { FieldErrors } from 'react-hook-form';
-import { Box, FormHelperText, Typography } from '@mui/material';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 type InputHelperTextProps = {
   name: string;

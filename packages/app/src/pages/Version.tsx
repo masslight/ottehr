@@ -1,4 +1,4 @@
-const Version = (): JSX.Element => {
+export const Version = (): JSX.Element => {
   const { VITE_ENV, VITE_SHA, VITE_VERSION } = import.meta.env;
 
   return (
@@ -18,5 +18,3 @@ const Version = (): JSX.Element => {
     </div>
   );
 };
-
-export default Version;

@@ -7,9 +7,6 @@ interface timezone {
   label: string;
 }
 
-export const MINIMUM_AGE = 5;
-export const MAXIMUM_AGE = 26;
-
 export const availableTimezones = (date: DateTime | undefined): timezone[] => {
   if (!date) {
     date = DateTime.now();
@@ -131,12 +128,6 @@ export const yupDateTransform = (d: any): string => {
   }
 };
 
-export function ageIsInRange(dateOfBirth: string): boolean {
-  // make sure string is in iso format
-  const iso = isoStringFromMDYString(dateOfBirth);
-  const age = Math.floor(-DateTime.fromISO(iso).diffNow('years').years);
-  return age >= MINIMUM_AGE && age <= MAXIMUM_AGE;
-}
 export const yupDateRegex = /^\d{2}\/\d{2}\/\d{4}$/;
 
 export function getLocaleDateTimeString(
@@ -165,14 +156,6 @@ export function getLocaleDateTimeString(
     returnString += ' ' + dateTime.toFormat('ZZZZ');
   }
   return returnString;
-}
-
-export function createMinimumAndMaximumTime(date: DateTime, buffer?: number): { minimum: DateTime; maximum: DateTime } {
-  // PMP requirement to allow at least 24 hours for their team to review bookings.
-  const minimum = date.plus({ hours: buffer ?? 24 });
-  // Could do #plus({ months: 1 }), but 30 days is easier to test
-  const maximum = date.plus({ days: 30 });
-  return { minimum: minimum, maximum: maximum };
 }
 
 // for now assuming timestamp will be in ISO format

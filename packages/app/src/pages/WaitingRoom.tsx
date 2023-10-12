@@ -1,15 +1,14 @@
-import { Box, Typography, useTheme } from '@mui/material';
-import Footer from '../components/Footer';
-import ProviderHeaderSection from '../components/ProviderHeaderSection';
-import VideocamIcon from '@mui/icons-material/Videocam';
-import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import MicIcon from '@mui/icons-material/Mic';
 import MicOffIcon from '@mui/icons-material/MicOff';
 import SettingsIcon from '@mui/icons-material/Settings';
+import VideocamIcon from '@mui/icons-material/Videocam';
+import VideocamOffIcon from '@mui/icons-material/VideocamOff';
+import { Box, Typography, useTheme } from '@mui/material';
 import { videoCallMock } from '../assets/icons';
-import { usePatient } from '../store/IntakeContext';
+import { Footer, ProviderHeaderSection } from '../components';
+import { usePatient } from '../store';
 
-const WaitingRoom = (): JSX.Element => {
+export const WaitingRoom = (): JSX.Element => {
   const { isVideoOpen, setIsVideoOpen, isMicOpen, setIsMicOpen } = usePatient();
   const theme = useTheme();
   const toggleMic = (): void => {
@@ -29,7 +28,7 @@ const WaitingRoom = (): JSX.Element => {
         justifyContent: 'space-between',
       }}
     >
-      <ProviderHeaderSection providerName="Dr.Smith" title="Waiting Room" />
+      <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" />
       {/* Middle Section */}
       <Box
         sx={{
@@ -107,5 +106,3 @@ const WaitingRoom = (): JSX.Element => {
     </Box>
   );
 };
-
-export default WaitingRoom;

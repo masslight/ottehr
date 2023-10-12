@@ -1,7 +1,7 @@
-import { ChangeEvent, FC, ReactNode } from 'react';
 import { Box, Button, useTheme } from '@mui/material';
+import { ChangeEvent, FC, ReactNode } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { otherColors } from '../IntakeThemeProvider';
+import { otherColors } from '../OttEHRThemeProvider';
 
 interface UploadComponentProps {
   name: string;
@@ -10,7 +10,7 @@ interface UploadComponentProps {
   handleFileUpload: (event: ChangeEvent<HTMLInputElement>) => string | null;
 }
 
-const UploadComponent: FC<UploadComponentProps> = ({
+export const UploadComponent: FC<UploadComponentProps> = ({
   name,
   defaultValue,
   uploadDescription,
@@ -61,5 +61,3 @@ const UploadComponent: FC<UploadComponentProps> = ({
     </Box>
   );
 };
-
-export default UploadComponent;

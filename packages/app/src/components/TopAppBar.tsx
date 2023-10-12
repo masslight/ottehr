@@ -1,23 +1,21 @@
-import { FC } from 'react';
-import {
-  Typography,
-  Box,
-  AppBar,
-  Container,
-  Toolbar,
-  MenuItem,
-  Menu,
-  Button,
-  Tooltip,
-  IconButton,
-  useTheme,
-  Divider,
-} from '@mui/material';
-import { otherColors } from '../IntakeThemeProvider';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import React from 'react';
+import {
+  AppBar,
+  Box,
+  Button,
+  Container,
+  Divider,
+  IconButton,
+  Menu,
+  MenuItem,
+  Toolbar,
+  Tooltip,
+  Typography,
+} from '@mui/material';
+import { FC, Fragment, MouseEvent, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import DashboardLogo from '../assets/icons/dashboardLogo.svg';
+import { otherColors } from '../OttEHRThemeProvider';
+import { dashboardLogo } from '../assets/icons';
 
 const pages = ['Dashboard'];
 const settings = [
@@ -26,18 +24,18 @@ const settings = [
     route: '/ProviderProfile',
   },
   {
-    name: 'LOG OUT',
+    name: 'Log out',
     route: '/Logout',
   },
 ];
 
-const TopAppBar: FC = () => {
+export const TopAppBar: FC = () => {
   const location = useLocation();
   const isActive = (path: string): boolean => location.pathname === path;
 
-  const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
+  const [anchorElUser, setAnchorElUser] = useState<HTMLElement | null>(null);
 
-  const handleOpenUserMenu = (event: React.MouseEvent<HTMLElement>): void => {
+  const handleOpenUserMenu = (event: MouseEvent<HTMLElement>): void => {
     setAnchorElUser(event.currentTarget);
   };
 
@@ -45,13 +43,11 @@ const TopAppBar: FC = () => {
     setAnchorElUser(null);
   };
 
-  const theme = useTheme();
-
   return (
     <AppBar position="static" sx={{ backgroundColor: otherColors.footerBackground }}>
       <Container maxWidth={false}>
         <Toolbar disableGutters variant="dense">
-          <Box component="img" src={DashboardLogo} mr={5} />
+          <Box component="img" src={dashboardLogo} mr={5} />
           <Box sx={{ flexGrow: 1, display: { xs: 'flex' } }}>
             {pages.map((page) => (
               <Button
@@ -60,6 +56,7 @@ const TopAppBar: FC = () => {
                 to={`/${page.toLowerCase()}`}
                 sx={{
                   my: 2,
+                  // TODO move all colors to OttEHRThemeProvider
                   color: isActive(`/${page.toLowerCase()}`) ? 'primary.light' : 'rgba(255, 255, 255, 0.7)',
                   display: 'block',
                   textDecoration: 'none',
@@ -70,11 +67,10 @@ const TopAppBar: FC = () => {
               </Button>
             ))}
           </Box>
-
           <Box sx={{ flexGrow: 0 }}>
             <Tooltip title="Open settings">
               <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
-                <AccountCircleIcon sx={{ color: theme.palette.primary.light }} />
+                <AccountCircleIcon sx={{ color: 'primary.light' }} />
               </IconButton>
             </Tooltip>
             <Menu
@@ -99,10 +95,9 @@ const TopAppBar: FC = () => {
                   <Typography variant="body1">email@example.com</Typography>
                 </Box>
               </MenuItem>
-
               <Divider />
               {settings.map((setting, index) => (
-                <React.Fragment key={setting.name}>
+                <Fragment key={setting.name}>
                   <MenuItem onClick={handleCloseUserMenu} component={Link} to={setting.route}>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       {setting.name === 'Profile' && <AccountCircleIcon sx={{ mr: 4, color: 'text.light' }} />}
@@ -112,7 +107,7 @@ const TopAppBar: FC = () => {
                     </Box>
                   </MenuItem>
                   {index < settings.length - 1 && <Divider />}
-                </React.Fragment>
+                </Fragment>
               ))}
             </Menu>
           </Box>
@@ -121,4 +116,3 @@ const TopAppBar: FC = () => {
     </AppBar>
   );
 };
-export default TopAppBar;

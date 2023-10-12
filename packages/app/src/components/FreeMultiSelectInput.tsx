@@ -1,8 +1,8 @@
+import { Autocomplete, Chip, FormControl, InputBase, SelectProps, useTheme } from '@mui/material';
 import { FC, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { FormControl, SelectProps, useTheme, Autocomplete, Chip, InputBase } from '@mui/material';
-import { otherColors } from '../IntakeThemeProvider';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
+import { otherColors } from '../OttEHRThemeProvider';
+import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
 
 type FreeMultiSelectInputProps = {
@@ -14,7 +14,7 @@ type FreeMultiSelectInputProps = {
   // placeholder?: string;
 } & SelectProps;
 
-const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
+export const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
   name,
   helperText,
   label,
@@ -48,9 +48,9 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
               width: '100%',
             }}
           >
-            <BoldPurpleInputLabel id={`${name}-label`} shrink>
+            <BoldPrimaryInputLabel id={`${name}-label`} shrink>
               {label}
-            </BoldPurpleInputLabel>
+            </BoldPrimaryInputLabel>
             <Autocomplete
               multiple
               autoComplete
@@ -116,5 +116,3 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
     />
   );
 };
-
-export default FreeMultiSelectInput;
