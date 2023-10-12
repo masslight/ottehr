@@ -7,17 +7,17 @@ const initialState = {};
 const PatientContext = createContext<PatientContextProps | undefined>(undefined);
 
 type IntakeDataContextProps = {
-  state: IntakeState;
   dispatch: Dispatch<IntakeAction>;
+  state: IntakeState;
 };
 
 type PatientContextProps = {
-  patientName: string;
-  setPatientName: Dispatch<SetStateAction<string>>;
-  isVideoOpen: boolean;
-  setIsVideoOpen: Dispatch<SetStateAction<boolean>>;
   isMicOpen: boolean;
+  isVideoOpen: boolean;
+  patientName: string;
   setIsMicOpen: Dispatch<SetStateAction<boolean>>;
+  setIsVideoOpen: Dispatch<SetStateAction<boolean>>;
+  setPatientName: Dispatch<SetStateAction<string>>;
 };
 
 export const usePatient = (): PatientContextProps => {
@@ -29,20 +29,20 @@ export const usePatient = (): PatientContextProps => {
 };
 
 export const PatientProvider: FC = () => {
-  const [patientName, setPatientName] = useState('');
-  const [isVideoOpen, setIsVideoOpen] = useState(false);
   const [isMicOpen, setIsMicOpen] = useState(false);
+  const [isVideoOpen, setIsVideoOpen] = useState(false);
+  const [patientName, setPatientName] = useState('');
 
   return (
     <PatientContext.Provider
-      value={{ patientName, setPatientName, isVideoOpen, setIsVideoOpen, isMicOpen, setIsMicOpen }}
+      value={{ isMicOpen, isVideoOpen, patientName, setIsMicOpen, setIsVideoOpen, setPatientName }}
     >
       <Outlet />
     </PatientContext.Provider>
   );
 };
 
-export const IntakeDataContext = createContext<IntakeDataContextProps>({ state: initialState, dispatch: () => null });
+export const IntakeDataContext = createContext<IntakeDataContextProps>({ dispatch: () => null, state: initialState });
 
 const intakeDataReducer = (state: IntakeState, action: IntakeAction): IntakeState => {
   switch (action.type) {
