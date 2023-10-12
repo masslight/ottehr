@@ -1,6 +1,6 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import OttEHRThemeProvider from './OttEHRThemeProvider';
+import { OttEHRThemeProvider } from './OttEHRThemeProvider';
 import { ScrollToTop } from './components';
 import {
   CheckInPermission,
