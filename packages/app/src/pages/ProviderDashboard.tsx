@@ -94,15 +94,15 @@ const ProviderDashboard = (): JSX.Element => {
               [theme.breakpoints.down('md')]: {
                 my: 2,
                 mx: 0,
-                p: 4,
+                p: 3,
               },
             }}
           >
-            <Typography variant="body1" color="text.light">
+            <Typography variant="body1" color="text.light" sx={{ overflowWrap: 'break-word' }}>
               {t('general.shareLink')}
             </Typography>
 
-            <Typography variant="h5" color="text.light" fontFamily="work Sans">
+            <Typography variant="h5" color="text.light" fontFamily="work Sans" sx={{ overflowWrap: 'break-word' }}>
               {roomLink}
             </Typography>
 

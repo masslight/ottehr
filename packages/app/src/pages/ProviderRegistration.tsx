@@ -134,21 +134,27 @@ const ProviderRegistration = (): JSX.Element => {
           </Box>
 
           <Box
-            component="img"
-            src={Doctor}
             sx={{
               display: 'flex',
               justifyContent: 'center',
               overflow: 'hidden',
               zIndex: '1',
+              backgroundColor: '#D9F3FF',
+              border: '5px solid #fff',
+              borderRadius: 5,
+              mb: 2,
+              px: 2,
+              pt: 4,
               [theme.breakpoints.down('md')]: {
-                maxWidth: '120px',
-                maxHeight: '120px',
-                borderRadius: 7,
-                border: '0.25 solid #fff',
+                maxWidth: '118px',
+                maxHeight: '118px',
+                pt: 1.5,
+                px: 1,
               },
             }}
-          />
+          >
+            <Box component="img" src={Doctor} sx={{ mb: -1 }} />
+          </Box>
 
           <Box
             sx={{
