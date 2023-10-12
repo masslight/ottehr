@@ -295,7 +295,7 @@ interface OttEHRThemeProviderProps {
   children: ReactNode;
 }
 
-export const OttEHRThemeProvider: FC<OttEHRThemeProviderProps> = ({ children }) => {
+const OttEHRThemeProvider: FC<OttEHRThemeProviderProps> = ({ children }) => {
   const theme = createTheme({
     palette: palette,
     components: components,
@@ -320,3 +320,5 @@ export const OttEHRThemeProvider: FC<OttEHRThemeProviderProps> = ({ children }) 
 
   return <ThemeProvider theme={theme}>{children}</ThemeProvider>;
 };
+
+export default OttEHRThemeProvider;
