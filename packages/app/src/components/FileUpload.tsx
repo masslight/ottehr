@@ -7,25 +7,25 @@ import { CardComponent } from './CardComponent';
 import { UploadComponent } from './UploadComponent';
 
 export interface FileUploadOptions {
-  description: ReactNode;
-  onUpload: (file: File | null) => void;
-  uploadFailed: boolean;
-  resetUploadFailed: () => void;
-  onClear: () => void;
   bucketName: string;
+  description: ReactNode;
   objectFolder: string | undefined;
   objectName: string;
+  onClear: () => void;
+  onUpload: (file: File | null) => void;
+  resetUploadFailed: () => void;
   token: string | null;
+  uploadFailed: boolean;
 }
 
 interface FileUploadProps {
-  name: string;
-  label: string;
   defaultValue?: string;
+  label: string;
+  name: string;
   options: FileUploadOptions;
 }
 
-export const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, options }) => {
+export const FileUpload: FC<FileUploadProps> = ({ defaultValue, label, name, options }) => {
   const {
     bucketName,
     description,
@@ -34,8 +34,8 @@ export const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, opt
     onClear,
     onUpload,
     resetUploadFailed,
-    uploadFailed,
     token,
+    uploadFailed,
   } = options;
   const theme = useTheme();
   const { setValue } = useFormContext();
@@ -85,15 +85,15 @@ export const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, opt
     if (uploadFailed) {
       return (
         <UploadComponent
-          name={name}
           defaultValue={defaultValue}
+          handleFileUpload={handleFileUpload}
+          name={name}
           uploadDescription={
             <>
               <Typography>Failed to upload card. Please try again.</Typography>
               {description}
             </>
           }
-          handleFileUpload={handleFileUpload}
         />
       );
     }
@@ -103,11 +103,11 @@ export const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, opt
       return (
         <CardComponent
           name={name}
-          previewUrl={previewUrl}
           objectName={objectName}
-          setPreviewUrl={setPreviewUrl}
-          setFileUrl={setFileUrl}
           onClear={onClear}
+          previewUrl={previewUrl}
+          setFileUrl={setFileUrl}
+          setPreviewUrl={setPreviewUrl}
         />
       );
     }
@@ -118,15 +118,15 @@ export const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, opt
         // Prompt to upload again if fetching the image fails
         return (
           <UploadComponent
-            name={name}
             defaultValue={defaultValue}
+            handleFileUpload={handleFileUpload}
+            name={name}
             uploadDescription={
               <>
                 <Typography>Failed to retrieve card. Please try again.</Typography>
                 {description}
               </>
             }
-            handleFileUpload={handleFileUpload}
           />
         );
       }
@@ -142,9 +142,9 @@ export const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, opt
             name={name}
             previewUrl={previewUrl}
             objectName={objectName}
-            setPreviewUrl={setPreviewUrl}
-            setFileUrl={setFileUrl}
             onClear={onClear}
+            setFileUrl={setFileUrl}
+            setPreviewUrl={setPreviewUrl}
           />
         );
       }
@@ -153,12 +153,12 @@ export const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, opt
         <Box sx={{ mb: 2 }}>
           <Box
             sx={{
-              height: 260,
+              alignItems: 'center',
               border: `1px dashed ${theme.palette.primary.main}`,
               borderRadius: 2,
               display: 'flex',
+              height: 260,
               justifyContent: 'center',
-              alignItems: 'center',
             }}
           >
             <CircularProgress />
@@ -170,10 +170,10 @@ export const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, opt
     // Otherwise prompt to upload a file
     return (
       <UploadComponent
-        name={name}
         defaultValue={defaultValue}
-        uploadDescription={description}
         handleFileUpload={handleFileUpload}
+        name={name}
+        uploadDescription={description}
       />
     );
   };

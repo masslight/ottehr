@@ -17,10 +17,10 @@ export const ProviderHeaderSection: FC<ProviderHeaderSectionProps> = ({ provider
     >
       <Box
         sx={{
+          alignItems: 'center',
           display: 'flex',
           justifyContent: 'center',
           py: 5,
-          alignItems: 'center',
           [theme.breakpoints.down('md')]: {
             flexDirection: 'column',
             py: 3,
@@ -30,9 +30,9 @@ export const ProviderHeaderSection: FC<ProviderHeaderSectionProps> = ({ provider
         <Box maxWidth="md" width="100%">
           <Box
             sx={{
+              alignItems: 'center',
               display: 'flex',
               justifyContent: 'start',
-              alignItems: 'center',
               mx: 12.5,
               [theme.breakpoints.down('md')]: {
                 flexDirection: 'column',
@@ -41,23 +41,23 @@ export const ProviderHeaderSection: FC<ProviderHeaderSectionProps> = ({ provider
               },
             }}
           >
-            <img src={ottEHRDefaultProvider} style={{ width: '6.25rem', height: '6.25rem' }} />
+            <img src={ottEHRDefaultProvider} style={{ height: '6.25rem', width: '6.25rem' }} />
             <Box
               sx={{
                 ml: 3,
                 [theme.breakpoints.down('md')]: {
+                  alignItems: 'center',
                   display: 'flex',
                   flexDirection: 'column',
-                  alignItems: 'center',
                   ml: 0,
                   mt: 2,
                 },
               }}
             >
-              <Typography variant="h5" color="primary.light">
+              <Typography color="primary.light" variant="h5">
                 {title}
               </Typography>
-              <Typography variant="h4" color="primary.contrast">
+              <Typography color="primary.contrast" variant="h4">
                 {providerName}
               </Typography>
             </Box>

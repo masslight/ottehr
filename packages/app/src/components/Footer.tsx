@@ -11,20 +11,20 @@ export const Footer: FC = () => {
   return (
     <Box
       sx={{
-        width: '100%',
+        alignItems: 'center',
         background: otherColors.footerBackground,
         bottom: 0,
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'center',
+        width: '100%',
       }}
     >
-      <Box component="img" src={footerLogo} ml={2}></Box>
-      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-        <Typography variant="body2" color="primary.light" sx={{ m: 1.25, maxWidth: 400 }}>
+      <Box component="img" ml={2} src={footerLogo}></Box>
+      <Box sx={{ alignItems: 'center', display: 'flex' }}>
+        <Typography color="primary.light" variant="body2" sx={{ m: 1.25, maxWidth: 400 }}>
           {t('general.footer')}
         </Typography>
-        <Box mt={0.7} mr={2}>
+        <Box mr={2} mt={0.7}>
           <ZapEHRLogo width={100} />
         </Box>
       </Box>

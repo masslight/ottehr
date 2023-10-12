@@ -2,35 +2,35 @@ import { Box, Card, Grid, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
 
 interface CardWithDescriptionProps {
+  bgColor: string;
+  descText: string;
   icon: string;
   iconAlt: string;
   iconHeight: string;
   mainText: string;
-  descText: string;
-  bgColor: string;
 }
 
 export const CardWithDescription: FC<CardWithDescriptionProps> = ({
+  bgColor,
+  descText,
   icon,
   iconAlt,
   iconHeight,
   mainText,
-  descText,
-  bgColor,
 }) => {
   const theme = useTheme();
   return (
-    <Card sx={{ mt: 2, borderRadius: 2, backgroundColor: bgColor, [theme.breakpoints.down('md')]: { mx: 2 } }}>
+    <Card sx={{ backgroundColor: bgColor, borderRadius: 2, mt: 2, [theme.breakpoints.down('md')]: { mx: 2 } }}>
       <Box sx={{ m: 0, px: { xs: 3, md: 5 }, py: 2 }}>
-        <Grid container direction="row" alignItems="center">
-          <Grid item xs={12} md={2} textAlign={{ xs: 'center', md: 'start' }} sx={{ marginTop: '0 !important' }}>
-            <img src={icon} alt={iconAlt} height={iconHeight} />
+        <Grid alignItems="center" container direction="row">
+          <Grid item textAlign={{ xs: 'center', md: 'start' }} xs={12} md={2} sx={{ mt: '0 !important' }}>
+            <img alt={iconAlt} height={iconHeight} src={icon} />
           </Grid>
-          <Grid item xs={12} md={8} textAlign={{ xs: 'center', md: 'start' }} sx={{ marginTop: '0 !important' }}>
-            <Typography sx={{ fontSize: '16px', fontWeight: '700' }} color={theme.palette.secondary.main}>
+          <Grid item textAlign={{ xs: 'center', md: 'start' }} xs={12} md={8} sx={{ mt: '0 !important' }}>
+            <Typography color={theme.palette.secondary.main} sx={{ fontSize: '16px', fontWeight: '700' }}>
               {mainText}
             </Typography>
-            <Typography sx={{ fontSize: '16px' }} color={theme.palette.secondary.main}>
+            <Typography color={theme.palette.secondary.main} sx={{ fontSize: '16px' }}>
               {descText}
             </Typography>
           </Grid>

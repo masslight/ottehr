@@ -1,8 +1,8 @@
 import { InputLabel, styled } from '@mui/material';
 
 export const BoldPrimaryInputLabel = styled(InputLabel)(({ theme }) => ({
-  fontWeight: 700,
-  fontSize: 16,
-  transform: 'translate(0, -9px) scale(1)',
   color: theme.palette.secondary.main,
+  fontSize: 16,
+  fontWeight: 700,
+  transform: 'translate(0, -9px) scale(1)',
 }));

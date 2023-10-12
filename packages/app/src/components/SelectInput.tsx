@@ -9,24 +9,24 @@ import { InputHelperText } from './InputHelperText';
 import { RenderLabelFromSelect } from './RenderLabelFromSelect';
 
 export interface SelectInputOption {
-  value: string;
   label: string;
+  value: string;
 }
 
 type SelectInputProps = {
-  name: string;
-  label: string;
-  options: SelectInputOption[];
   helperText?: string;
+  label: string;
+  name: string;
+  options: SelectInputOption[];
   placeholder?: string;
 } & SelectProps;
 
 export const SelectInput: FC<SelectInputProps> = ({
-  name,
-  label,
   defaultValue,
-  options,
   helperText,
+  label,
+  name,
+  options,
   placeholder,
   ...otherProps
 }) => {
@@ -38,14 +38,14 @@ export const SelectInput: FC<SelectInputProps> = ({
 
   return (
     <Controller
-      name={name}
       control={control}
       defaultValue={defaultValue || ''}
+      name={name}
       render={({ field }) => (
         <FormControl
-          variant="standard"
-          required={otherProps.required}
           error={!!errors[name]}
+          required={otherProps.required}
+          variant="standard"
           sx={{
             width: '100%',
           }}
@@ -54,33 +54,14 @@ export const SelectInput: FC<SelectInputProps> = ({
             {label}
           </BoldPrimaryInputLabel>
           <Select
-            labelId={`${name}-label`}
-            IconComponent={ExpandMore}
-            displayEmpty
             {...field}
             {...otherProps}
-            disableUnderline
+            IconComponent={ExpandMore}
             // To stop it adding a padding-right on the main element, shifting the background image
             MenuProps={{ disableScrollLock: true, PaperProps: { style: { maxHeight: 400 } } }}
-            sx={{
-              '& .MuiInputBase-input': {
-                borderRadius: '8px',
-                backgroundColor: theme.palette.background.paper,
-                border: '1px solid',
-                borderColor: otherColors.lightGray,
-                padding: '10px 26px 10px 12px',
-                '&:focus': {
-                  borderRadius: '8px',
-                  backgroundColor: theme.palette.background.paper,
-                },
-              },
-              '& .MuiSelect-icon': {
-                marginRight: '10px',
-              },
-              '& .MuiSelect-iconOpen': {
-                marginRight: '10px',
-              },
-            }}
+            disableUnderline
+            displayEmpty
+            labelId={`${name}-label`}
             renderValue={(selected) => {
               if (selected.length === 0) {
                 return (
@@ -91,6 +72,25 @@ export const SelectInput: FC<SelectInputProps> = ({
               }
               return <RenderLabelFromSelect>{findLabelFromOptions(selected, options)}</RenderLabelFromSelect>;
             }}
+            sx={{
+              '& .MuiSelect-icon': {
+                mr: '10px',
+              },
+              '& .MuiSelect-iconOpen': {
+                mr: '10px',
+              },
+              '& .MuiInputBase-input': {
+                backgroundColor: theme.palette.background.paper,
+                border: '1px solid',
+                borderColor: otherColors.lightGray,
+                borderRadius: '8px',
+                p: '10px 26px 10px 12px',
+                '&:focus': {
+                  backgroundColor: theme.palette.background.paper,
+                  borderRadius: '8px',
+                },
+              },
+            }}
           >
             {options.map((option) => (
               <MenuItem key={option.value} value={option.value}>
@@ -98,7 +98,7 @@ export const SelectInput: FC<SelectInputProps> = ({
               </MenuItem>
             ))}
           </Select>
-          <InputHelperText name={name} errors={errors} helperText={helperText} />
+          <InputHelperText errors={errors} helperText={helperText} name={name} />
         </FormControl>
       )}
     />

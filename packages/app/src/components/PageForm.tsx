@@ -16,50 +16,50 @@ import { RadioListInput } from './RadioListInput';
 import { SelectInput, SelectInputOption } from './SelectInput';
 
 type FormInput = {
-  type:
-    | 'Text'
-    | 'Select'
-    | 'Radio'
-    | 'Radio List'
-    | 'Free Select'
-    | 'Date'
-    | 'File'
-    | 'Checkbox'
-    | 'Header 3'
-    | 'Description';
-  format?: 'Phone Number' | 'Email' | 'State' | 'ZIP' | 'Signature';
-  name: string;
-  label?: string;
-  document?: ReactElement;
-  width?: number;
-  freeSelectOptions?: string[];
-  selectOptions?: SelectInputOption[];
-  radioOptions?: RadioOption[];
-  radioStyling?: RadioStyling;
-  fileOptions?: FileUploadOptions;
+  backgroundSelected?: string;
   borderColor?: string;
   borderSelected?: string;
-  backgroundSelected?: string;
-  hidden?: boolean;
-  mask?: string;
+  document?: ReactElement;
+  fileOptions?: FileUploadOptions;
+  format?: 'Email' | 'Phone Number' | 'Signature' | 'State' | 'ZIP';
+  freeSelectOptions?: string[];
   helperText?: string;
+  hidden?: boolean;
+  label?: string;
+  mask?: string;
+  name: string;
   onChange?: any;
+  radioOptions?: RadioOption[];
+  radioStyling?: RadioStyling;
+  selectOptions?: SelectInputOption[];
+  type:
+    | 'Checkbox'
+    | 'Date'
+    | 'Description'
+    | 'File'
+    | 'Free Select'
+    | 'Header 3'
+    | 'Radio'
+    | 'Radio List'
+    | 'Select'
+    | 'Text';
   validationRegex?: RegExp;
   validationRegexError?: string;
+  width?: number;
 } & TextFieldProps;
 
 interface PageFormProps {
+  bottomComponent?: ReactElement;
+  controlButtons?: ControlButtonsProps;
   formElements?: FormInput[];
   onSubmit?: any;
-  controlButtons?: ControlButtonsProps;
-  bottomComponent?: ReactElement;
 }
 
 export const PageForm: FC<PageFormProps> = ({
+  bottomComponent,
+  controlButtons,
   formElements,
   onSubmit,
-  controlButtons,
-  bottomComponent,
 }): JSX.Element => {
   // todo do in one line?
   // todo use more specific type
@@ -81,10 +81,10 @@ export const PageForm: FC<PageFormProps> = ({
             break;
 
           case 'Phone Number':
+            formInput.mask = '(000) 000-0000';
             formInput.placeholder = '(123) 456-7890';
             formInput.validationRegex = phoneRegex;
             formInput.validationRegexError = 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
-            formInput.mask = '(000) 000-0000';
             break;
 
           case 'Signature':
@@ -144,9 +144,9 @@ export const PageForm: FC<PageFormProps> = ({
   const methods = useForm({
     resolver: yupResolver(validationSchema),
     context: {
-      validationRegex: true,
-      required: true,
       formInputType: true,
+      required: true,
+      validationRegex: true,
     },
   });
   return (
@@ -157,26 +157,26 @@ export const PageForm: FC<PageFormProps> = ({
             {formElements
               .filter((formInput) => !formInput.hidden)
               .map((formInput) => (
-                <Grid item xs={formInput.width || 12} key={formInput.name}>
+                <Grid item key={formInput.name} xs={formInput.width || 12}>
                   {(() => {
                     switch (formInput.type) {
                       case 'Checkbox':
                         return (
                           <ControlledCheckBox
-                            name={formInput.name}
-                            label={formInput.label}
                             defaultValue={formInput.defaultValue === 'true'}
-                            required={formInput.required}
                             document={formInput.document}
+                            label={formInput.label}
+                            name={formInput.name}
+                            required={formInput.required}
                           />
                         );
                       case 'Date':
                         return (
                           <DateInput
-                            name={formInput.name}
-                            label={formInput.label || 'No label'}
-                            helperText={formInput.helperText}
                             defaultValue={formInput.defaultValue}
+                            helperText={formInput.helperText}
+                            label={formInput.label || 'No label'}
+                            name={formInput.name}
                             required={formInput.required}
                           />
                         );
@@ -188,9 +188,9 @@ export const PageForm: FC<PageFormProps> = ({
                         }
                         return (
                           <FileUpload
-                            name={formInput.name}
-                            label={formInput.label || 'No label'}
                             defaultValue={formInput.defaultValue as string}
+                            label={formInput.label || 'No label'}
+                            name={formInput.name}
                             options={formInput.fileOptions}
                           />
                         );
@@ -200,24 +200,24 @@ export const PageForm: FC<PageFormProps> = ({
                         }
                         return (
                           <FreeMultiSelectInput
-                            name={formInput.name}
-                            label={formInput.label || 'No label'}
-                            placeholder={formInput.placeholder}
-                            helperText={formInput.helperText}
-                            required={formInput.required}
                             defaultValue={formInput.defaultValue as string[]}
-                            options={formInput.freeSelectOptions}
+                            label={formInput.label || 'No label'}
+                            helperText={formInput.helperText}
+                            name={formInput.name}
+                            placeholder={formInput.placeholder}
                             // onChange={(event) => {
                             //   const target = event.target as HTMLInputElement;
                             //   methods.setValue(formInput.name, target.value);
                             //   formInput.onChange(event);
                             // }}
+                            options={formInput.freeSelectOptions}
+                            required={formInput.required}
                           />
                         );
                       case 'Header 3':
                         return (
                           <Box mb={1}>
-                            <Typography variant="h3" color="secondary">
+                            <Typography color="secondary" variant="h3">
                               {formInput.name}
                             </Typography>
                           </Box>
@@ -228,21 +228,21 @@ export const PageForm: FC<PageFormProps> = ({
                         }
                         return (
                           <RadioInput
-                            name={formInput.name}
-                            label={formInput.label || 'No label'}
-                            helperText={formInput.helperText}
-                            required={formInput.required}
-                            options={formInput.radioOptions}
+                            backgroundSelected={formInput.backgroundSelected}
                             borderColor={formInput.borderColor}
                             borderSelected={formInput.borderSelected}
-                            backgroundSelected={formInput.backgroundSelected}
-                            getSelected={methods.watch}
-                            radioStyling={formInput.radioStyling}
                             defaultValue={formInput.defaultValue}
+                            getSelected={methods.watch}
+                            helperText={formInput.helperText}
+                            label={formInput.label || 'No label'}
+                            name={formInput.name}
                             onChange={(event) => {
                               const target = event.target as HTMLInputElement;
                               methods.setValue(formInput.name, target.value);
                             }}
+                            options={formInput.radioOptions}
+                            radioStyling={formInput.radioStyling}
+                            required={formInput.required}
                           />
                         );
                       case 'Radio List':
@@ -251,13 +251,10 @@ export const PageForm: FC<PageFormProps> = ({
                         }
                         return (
                           <RadioListInput
-                            name={formInput.name}
-                            label={formInput.label || 'No label'}
-                            helperText={formInput.helperText}
-                            required={formInput.required}
-                            value={formInput.value ?? ''}
-                            options={formInput.radioOptions}
                             defaultValue={formInput.defaultValue}
+                            helperText={formInput.helperText}
+                            label={formInput.label || 'No label'}
+                            name={formInput.name}
                             onChange={(event) => {
                               const target = event.target as HTMLInputElement;
                               methods.setValue(formInput.name, target.value);
@@ -265,10 +262,13 @@ export const PageForm: FC<PageFormProps> = ({
                                 formInput.onChange(event);
                               }
                             }}
+                            options={formInput.radioOptions}
                             // radioStyling={{
                             //   alignSelf: 'start',
                             //   mt: '8px',
                             // }}
+                            required={formInput.required}
+                            value={formInput.value ?? ''}
                           />
                         );
                       case 'Select':
@@ -277,13 +277,10 @@ export const PageForm: FC<PageFormProps> = ({
                         }
                         return (
                           <SelectInput
-                            name={formInput.name}
-                            label={formInput.label || 'No label'}
-                            helperText={formInput.helperText}
-                            placeholder={formInput.placeholder}
                             defaultValue={formInput.defaultValue}
-                            required={formInput.required}
-                            options={formInput.selectOptions}
+                            helperText={formInput.helperText}
+                            label={formInput.label || 'No label'}
+                            name={formInput.name}
                             onChange={(event) => {
                               const target = event.target as HTMLInputElement;
                               methods.setValue(formInput.name, target.value);
@@ -291,21 +288,24 @@ export const PageForm: FC<PageFormProps> = ({
                                 formInput.onChange(event);
                               }
                             }}
+                            options={formInput.selectOptions}
+                            placeholder={formInput.placeholder}
+                            required={formInput.required}
                           />
                         );
                       case 'Text':
                         return (
                           <FormInput
-                            name={formInput.name}
-                            label={formInput.label || 'No label'}
+                            defaultValue={formInput.defaultValue || ''}
                             format={formInput.format}
                             helperText={formInput.helperText}
-                            defaultValue={formInput.defaultValue || ''}
-                            required={formInput.required}
-                            placeholder={formInput.placeholder}
+                            label={formInput.label || 'No label'}
                             mask={formInput.mask}
-                            multiline={formInput.multiline}
                             minRows={formInput.minRows}
+                            multiline={formInput.multiline}
+                            name={formInput.name}
+                            placeholder={formInput.placeholder}
+                            required={formInput.required}
                           />
                         );
                       default:

@@ -13,28 +13,29 @@ import { FC, ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
 interface props {
-  open: boolean;
-  handleClose: any;
-  title: string;
-  description: string | ReactElement;
   closeButtonText: string;
+  description: string | ReactElement;
+  handleClose: any;
+  open: boolean;
+  title: string;
 }
 
-export const ErrorDialog: FC<props> = ({ open, handleClose, title, description, closeButtonText }) => {
+export const ErrorDialog: FC<props> = ({ closeButtonText, description, handleClose, open, title }) => {
   const theme = useTheme();
   const { t } = useTranslation();
+
   return (
     <Dialog
-      open={open}
-      onClose={handleClose}
       disableScrollLock
+      onClose={handleClose}
+      open={open}
       sx={{
         '.MuiPaper-root': {
-          padding: 2,
+          p: 2,
         },
       }}
     >
-      <DialogTitle variant="h2" color="secondary.main" sx={{ width: '80%' }}>
+      <DialogTitle color="secondary.main" variant="h2" sx={{ width: '80%' }}>
         {title}
         <IconButton
           aria-label={t('general.button.close')}
@@ -59,9 +60,9 @@ export const ErrorDialog: FC<props> = ({ open, handleClose, title, description, 
       </DialogContent>
       <DialogActions>
         <Button
-          variant="contained"
           onClick={handleClose}
           size="large"
+          variant="contained"
           sx={{
             fontWeight: '700',
           }}
