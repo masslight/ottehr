@@ -60,10 +60,10 @@ export const TopAppBar: FC = () => {
                 sx={{
                   my: 2,
                   // TODO move all colors to OttEHRThemeProvider
-                  color: isActive(`/${page.toLowerCase()}`) ? theme.palette.primary.light : 'rgba(255, 255, 255, 0.7)',
+                  color: isActive(`/${page.toLowerCase()}`) ? 'primary.light' : 'rgba(255, 255, 255, 0.7)',
                   display: 'block',
                   textDecoration: 'none',
-                  '&.active': { color: theme.palette.primary.light },
+                  '&.active': { color: 'primary.light' },
                 }}
               >
                 {page}
@@ -73,7 +73,7 @@ export const TopAppBar: FC = () => {
           <Box sx={{ flexGrow: 0 }}>
             <Tooltip title="Open settings">
               <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
-                <AccountCircleIcon sx={{ color: theme.palette.primary.light }} />
+                <AccountCircleIcon sx={{ color: 'primary.light' }} />
               </IconButton>
             </Tooltip>
             <Menu
@@ -103,10 +103,8 @@ export const TopAppBar: FC = () => {
                 <Fragment key={setting.name}>
                   <MenuItem onClick={handleCloseUserMenu} component={Link} to={setting.route}>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      {setting.name === 'Profile' && (
-                        <AccountCircleIcon sx={{ mr: 4, color: theme.palette.text.primary }} />
-                      )}
-                      <Typography variant="body2" color={theme.palette.text.primary}>
+                      {setting.name === 'Profile' && <AccountCircleIcon sx={{ mr: 4, color: 'text.light' }} />}
+                      <Typography variant="body2" color="text.light">
                         {setting.name}
                       </Typography>
                     </Box>
