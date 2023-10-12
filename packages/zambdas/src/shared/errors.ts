@@ -21,10 +21,7 @@ const sendErrorEmail = async (zambda: string, error: any, secrets: Secrets | nul
   }
 
   const SENDGRID_API_KEY = getSecret(SecretsKeys.SENDGRID_API_KEY, secrets);
-  const SENDGRID_ERROR_EMAIL_TEMPLATE_ID = getSecret(
-    SecretsKeys.ZAPEHR_TELEHEALTH_SENDGRID_ERROR_EMAIL_TEMPLATE_ID,
-    secrets
-  );
+  const SENDGRID_ERROR_EMAIL_TEMPLATE_ID = getSecret(SecretsKeys.OTTEHR_SENDGRID_ERROR_EMAIL_TEMPLATE_ID, secrets);
 
   console.log('Sending error email');
   sendgrid.setApiKey(SENDGRID_API_KEY);
