@@ -11,7 +11,6 @@ import {
   Toolbar,
   Tooltip,
   Typography,
-  useTheme,
 } from '@mui/material';
 import { FC, Fragment, MouseEvent, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
@@ -43,8 +42,6 @@ export const TopAppBar: FC = () => {
   const handleCloseUserMenu = (): void => {
     setAnchorElUser(null);
   };
-
-  const theme = useTheme();
 
   return (
     <AppBar position="static" sx={{ backgroundColor: otherColors.footerBackground }}>
