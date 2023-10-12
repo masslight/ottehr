@@ -23,7 +23,7 @@ export const CheckInPermission = (): JSX.Element => {
         height: '100vh',
         justifyContent: 'space-between',
         [theme.breakpoints.down('md')]: {
-          padding: '0 0',
+          p: '0 0',
         },
       }}
     >
@@ -32,8 +32,8 @@ export const CheckInPermission = (): JSX.Element => {
       <Box
         sx={{
           display: 'flex',
-          justifyContent: 'center',
           flexGrow: '1',
+          justifyContent: 'center',
         }}
       >
         <Box maxWidth="md" width="100%">
@@ -54,11 +54,11 @@ export const CheckInPermission = (): JSX.Element => {
             <Typography variant="body1">Please give us access to your camera and mic for a video call</Typography>
             <Box
               sx={{
-                borderRadius: 2,
+                alignItems: 'center',
                 backgroundColor: 'rgba(50, 63, 83, 0.87)',
+                borderRadius: 2,
                 display: 'flex',
                 flexDirection: 'column',
-                alignItems: 'center',
                 justifyContent: 'center',
                 px: 15,
                 py: 10,
@@ -70,11 +70,11 @@ export const CheckInPermission = (): JSX.Element => {
             >
               <VideocamOffIcon sx={{ color: '#FFF' }} />
               <Typography
-                variant="body1"
                 color="primary.contrast"
+                variant="body1"
                 sx={{
-                  textAlign: 'center',
                   opacity: '0.5',
+                  textAlign: 'center',
                 }}
               >
                 Enable camera in your browser
@@ -85,23 +85,23 @@ export const CheckInPermission = (): JSX.Element => {
               onClick={() => toggleCamMic(true)}
               variant="contained"
               sx={{
-                color: 'white',
                 borderRadius: '4px',
+                color: 'white',
                 textTransform: 'uppercase',
               }}
             >
               Enable camera and mic
             </Button>
             <Button
+              onClick={() => toggleCamMic(false)}
               variant="text"
               sx={{
                 color: 'primary.light',
-                textAlign: 'center',
                 cursor: 'pointer',
-                textTransform: 'uppercase',
                 mt: 2,
+                textAlign: 'center',
+                textTransform: 'uppercase',
               }}
-              onClick={() => toggleCamMic(false)}
             >
               Continue without camera and mic
             </Button>

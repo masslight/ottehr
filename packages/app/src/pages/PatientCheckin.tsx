@@ -38,8 +38,8 @@ export const PatientCheckIn = (): JSX.Element => {
       <Box
         sx={{
           display: 'flex',
-          justifyContent: 'center',
           flexGrow: '1',
+          justifyContent: 'center',
         }}
       >
         <Box
@@ -71,26 +71,26 @@ export const PatientCheckIn = (): JSX.Element => {
             <form onSubmit={handleSubmit}>
               <Box
                 sx={{
+                  alignItems: 'flex-start',
                   display: 'flex',
                   flexDirection: 'column',
-                  alignItems: 'flex-start',
                 }}
               >
                 <TextField
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  variant="outlined"
-                  label="Your Name"
                   error={isError}
+                  label="Your Name"
+                  onChange={(e) => setName(e.target.value)}
+                  value={name}
+                  variant="outlined"
                   sx={{ pb: 2, width: '100%' }}
                 />
                 <Button
                   type="submit"
                   variant="contained"
                   sx={{
+                    borderRadius: '4px',
                     color: 'white',
                     textTransform: 'uppercase',
-                    borderRadius: '4px',
                     width: '100%',
                   }}
                 >

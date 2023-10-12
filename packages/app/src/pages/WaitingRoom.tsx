@@ -33,8 +33,8 @@ export const WaitingRoom = (): JSX.Element => {
       <Box
         sx={{
           display: 'flex',
-          justifyContent: 'center',
           flexGrow: '1',
+          justifyContent: 'center',
         }}
       >
         <Box
@@ -62,39 +62,39 @@ export const WaitingRoom = (): JSX.Element => {
             <Typography variant="body1" sx={{ pb: 3 }}>
               Thank you for your patience. Please wait for Dr. Smith to accept your call.
             </Typography>
-            <Box sx={{ position: 'relative', backgroundColor: 'text.light', borderRadius: 5, overflow: 'hidden' }}>
+            <Box sx={{ backgroundColor: 'text.light', borderRadius: 5, overflow: 'hidden', position: 'relative' }}>
               <img
                 src={videoCallMock}
                 style={{
-                  visibility: isVideoOpen ? 'visible' : 'hidden',
                   display: 'block',
+                  visibility: isVideoOpen ? 'visible' : 'hidden',
                 }}
               />
               <Box
                 sx={{
-                  display: 'flex',
-                  justifyContent: 'center',
                   backgroundColor: 'rgba(50, 63, 83, 0.87)',
+                  borderRadius: 5,
+                  bottom: 16,
+                  display: 'flex',
+                  gap: 1,
+                  justifyContent: 'center',
+                  left: '50%',
+                  maxWidth: 'fit-content',
+                  position: 'absolute',
                   px: 2,
                   py: 1,
-                  gap: 1,
-                  maxWidth: 'fit-content',
-                  borderRadius: 5,
-                  position: 'absolute',
-                  bottom: 16,
-                  left: '50%',
                   transform: 'translate(-50%, 0)',
                 }}
               >
                 {isVideoOpen ? (
-                  <VideocamIcon sx={{ color: 'white' }} onClick={toggleVideo} />
+                  <VideocamIcon onClick={toggleVideo} sx={{ color: 'white' }} />
                 ) : (
-                  <VideocamOffIcon sx={{ color: 'white' }} onClick={toggleVideo} />
+                  <VideocamOffIcon onClick={toggleVideo} sx={{ color: 'white' }} />
                 )}
                 {isMicOpen ? (
-                  <MicIcon sx={{ color: 'white' }} onClick={toggleMic} />
+                  <MicIcon onClick={toggleMic} sx={{ color: 'white' }} />
                 ) : (
-                  <MicOffIcon sx={{ color: 'white' }} onClick={toggleMic} />
+                  <MicOffIcon onClick={toggleMic} sx={{ color: 'white' }} />
                 )}
                 <SettingsIcon sx={{ color: 'white' }} />
               </Box>

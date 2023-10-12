@@ -28,8 +28,8 @@ export const PostCall = (): JSX.Element => {
       <Box
         sx={{
           display: 'flex',
-          justifyContent: 'center',
           flexGrow: '1',
+          justifyContent: 'center',
         }}
       >
         <Box
@@ -56,7 +56,7 @@ export const PostCall = (): JSX.Element => {
             }}
           >
             <Typography variant="h5">This call has ended</Typography>
-            <Typography variant="body1" mb={2}>
+            <Typography mb={2} variant="body1">
               Duration {mockCallDuration} mins
             </Typography>
             {isProvider && (
@@ -64,12 +64,12 @@ export const PostCall = (): JSX.Element => {
                 onClick={goToDashboard}
                 variant="contained"
                 sx={{
-                  color: 'white',
                   borderRadius: '4px',
-                  width: 'fit-content', // Kept the width as 'fit-content'
+                  color: 'white',
                   px: 2,
                   text: 'primary.contrast',
                   textTransform: 'uppercase',
+                  width: 'fit-content', // Kept the width as 'fit-content'
                 }}
               >
                 Go to dashboard
