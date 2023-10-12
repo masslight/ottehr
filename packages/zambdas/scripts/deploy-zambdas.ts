@@ -125,7 +125,7 @@ const updateZambdas = async (config: any): Promise<void> => {
   for await (const zambda of Object.keys(ZAMBDAS)) {
     const currentZambda = ZAMBDAS[zambda];
     let currentDeployedZambda = currentZambdas.find(
-      (tempZambda) => tempZambda.name === `zapehr-telehealth-${zambda.toLowerCase()}`
+      (tempZambda) => tempZambda.name === `ottEHR-${zambda.toLowerCase()}`
     );
 
     if (currentDeployedZambda) {
@@ -133,7 +133,7 @@ const updateZambdas = async (config: any): Promise<void> => {
     } else {
       console.log(`\nZambda ${zambda} is not found, creating it`);
       currentDeployedZambda = await zambdaClient.createZambda({
-        name: `zapehr-telehealth-${zambda.toLowerCase()}`,
+        name: `ottEHR-${zambda.toLowerCase()}`,
       });
       console.log(`Zambda ${zambda} with ID ${currentDeployedZambda.id}`);
     }
@@ -233,7 +233,7 @@ async function updateProjectZambda(
       subscription = await fhirClient.createResource<Subscription>({
         resourceType: 'Subscription',
         status: 'active',
-        reason: 'zapEHR Telehealth',
+        reason: 'ottEHR',
         criteria: zambda.criteria || '',
         channel: {
           type: 'rest-hook',

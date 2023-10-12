@@ -1,4 +1,4 @@
-name: Build zapEHR Telehealth
+name: Build ottEHR
 on:
   workflow_dispatch:
   push:
@@ -14,14 +14,14 @@ env:
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-latest    
+    runs-on: ubuntu-latest
     environment: dev
-    
+
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      
+
       - uses: actions/setup-node@v3
         with:
           node-version: '18'
@@ -32,9 +32,9 @@ jobs:
         id: create-json
         uses: jsdaniell/create-json@v1.2.2
         with:
-          name: "secrets.json"
+          name: 'secrets.json'
           json: ${{ secrets.TELEHEALTH_SECRETS_JSON }}
-      
+
       - name: Move env file into .env folder
         run: mkdir -p packages/zambdas/.env/ && cp secrets.json packages/zambdas/.env/${{ env.ENVIRONMENT_NAME }}.json
 

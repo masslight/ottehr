@@ -35,7 +35,7 @@ const sendErrorEmail = async (zambda: string, error: any, secrets: Secrets | nul
     to: email,
     from: {
       email: email,
-      name: 'zapEHR Telehealth',
+      name: 'ottEHR',
     },
     replyTo: email,
     templateId: SENDGRID_ERROR_EMAIL_TEMPLATE_ID,
