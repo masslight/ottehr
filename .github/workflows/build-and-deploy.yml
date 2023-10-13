@@ -106,7 +106,7 @@ jobs:
 
       - name: Deploy app
         run: |
-          url="$(cd ${{ env.PACKAGE_LOCATION }} && vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})" --scope=ottehr
+          url="$(cd ${{ env.PACKAGE_LOCATION }} && vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} --scope=ottehr)"
           cd ${{ env.PACKAGE_LOCATION }} && vercel alias --token=${{ secrets.VERCEL_TOKEN }} --scope=ottehr set "$url" ${{ github.event.inputs.environment }}.ottehr.com
       - name: Setup zapehr secrets
         run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm run setup-zapehr-secrets ${{ github.event.inputs.environment }}
