@@ -71,7 +71,7 @@ export type PatientInfo = {
   sex: PatientSex | undefined;
 };
 
-export type IntakeAction =
+export type Action =
   | { type: 'SET_FHIR_CLIENT'; fhirClient: FhirClient }
   | { type: 'SET_ZAMBDA_CLIENT'; zambdaClient: ZambdaClient }
   | { type: 'UPDATE_ADDITIONAL_INFORMATION'; additionalInformation: string }
@@ -94,7 +94,7 @@ export type IntakeAction =
   | { type: 'UPDATE_SUBMITTED_INSURANCE_TYPE'; submittedInsuranceType: string }
   | { type: 'UPDATE_TIMEZONE'; timezone: string };
 
-export type IntakeState = {
+export type State = {
   additionalInformation?: string;
   appointmentId?: string;
   appointmentSlot?: string;
