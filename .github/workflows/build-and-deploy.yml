@@ -105,9 +105,9 @@ jobs:
         run: pnpm install
 
       - name: Deploy app
-        run: cd ${{ env.PACKAGE_LOCATION }} && |
-          url="$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})"
-          vercel alias --token=${{ secrets.VERCEL_TOKEN }} set "$url" ${{ github.event.inputs.environment }}.ottehr.com
+        run: |
+          url="$(cd ${{ env.PACKAGE_LOCATION }} && vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})"
+          cd ${{ env.PACKAGE_LOCATION }} && vercel alias --token=${{ secrets.VERCEL_TOKEN }} set "$url" ${{ github.event.inputs.environment }}.ottehr.com
       - name: Setup zapehr secrets
         run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm run setup-zapehr-secrets ${{ github.event.inputs.environment }}
       - name: Deploy zambdas
