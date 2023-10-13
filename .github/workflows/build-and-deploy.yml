@@ -17,7 +17,6 @@ on:
           - dev
           - testing
           - staging
-          - production
       incrementVersion:
         description: 'Bump Version?'
         type: boolean
@@ -30,9 +29,6 @@ on:
           - patch
           - minor
           - major
-      confirmProduction:
-        description: 'If you are 100% sure you want to deploy to production, type: Yes'
-        required: false
 
 jobs:
   deploy:
@@ -46,7 +42,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18.14.0]
+        node-version: [18.18.0]
 
     steps:
       - name: Install SSH Client
@@ -56,10 +52,6 @@ jobs:
             ${{ secrets.ZAPEHR_TELEHEALTH_PRIVATE_SSH_KEY }}
             ${{ secrets.BUMP_VERSION }}
 
-      - name: If environment is production, ensure keys are coming in through input parameters.
-        if: ${{ github.event.inputs.environment == 'production' && !(github.event.inputs.confirmProduction == 'Yes') }}
-        run: echo 'Please confirm you want to deploy to production.' && exit 1
-
       - uses: actions/checkout@v3
         with:
           ssh-key: ${{ secrets.BUMP_VERSION }}
@@ -67,8 +59,21 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
 
       - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Build Project Artifacts
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Deploy Project Artifacts to Vercel
+
+
 
       - name: Create secrets file from github secrets
         id: create-json
@@ -101,10 +106,12 @@ jobs:
           path: ${{ env.PACKAGE_LOCATION }}
 
       - name: Install dependencies
-        run: pnpm ci
+        run: pnpm install
 
       - name: Deploy app
-        run: cd ${{ env.PACKAGE_LOCATION }} && pnpm run ci-deploy:${{ github.event.inputs.environment }}
+        run: |
+          url="$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})"
+          vercel alias --token=${{ secrets.VERCEL_TOKEN }} set "$url" ${{ github.event.inputs.environment }}.ottehr.com
       - name: Setup zapehr secrets
         run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm run setup-zapehr-secrets ${{ github.event.inputs.environment }}
       - name: Deploy zambdas
