@@ -5,6 +5,6 @@
       "destination": "/index.html"
     }
   ],
-  "buildCommand": "pnpm run build --filter ottehr-ui",
+  "buildCommand": "pnpm run build",
   "installCommand": "pnpm install"
 }

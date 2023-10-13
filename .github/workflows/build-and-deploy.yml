@@ -65,11 +65,11 @@ jobs:
           version: 8
       
       - name: Install Vercel CLI
-        run: npm install --global vercel@latest
+        run: pnpm install --global vercel@latest
       - name: Pull Vercel Environment Information
-        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+        run: cd ${{ env.PACKAGE_LOCATION }} && vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
       - name: Build Project Artifacts
-        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        run: cd ${{ env.PACKAGE_LOCATION }} && vercel build --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Create secrets file from github secrets
         id: create-json
@@ -105,7 +105,7 @@ jobs:
         run: pnpm install
 
       - name: Deploy app
-        run: |
+        run: cd ${{ env.PACKAGE_LOCATION }} && |
           url="$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})"
           vercel alias --token=${{ secrets.VERCEL_TOKEN }} set "$url" ${{ github.event.inputs.environment }}.ottehr.com
       - name: Setup zapehr secrets
