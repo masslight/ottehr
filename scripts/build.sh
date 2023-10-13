@@ -16,7 +16,7 @@ pnpm --version
 # Install
 pnpm install
 
-# Build zapehr-telehealth
+# Build ottEHR
 BUILD_ORDER=("zambdas" "app")
 for PACKAGE in ${BUILD_ORDER[@]}; do
   pushd "packages/$PACKAGE"

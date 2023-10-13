@@ -1,10 +1,8 @@
-import { Typography, Box, Button, useTheme } from '@mui/material';
-import React from 'react';
-import Footer from '../components/Footer';
-import ProviderHeaderSection from '../components/ProviderHeaderSection';
+import { Box, Button, Typography, useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { Footer, ProviderHeaderSection } from '../components';
 
-const PostCall = (): JSX.Element => {
+export const PostCall = (): JSX.Element => {
   const navigate = useNavigate();
   const theme = useTheme();
 
@@ -25,13 +23,13 @@ const PostCall = (): JSX.Element => {
         justifyContent: 'space-between',
       }}
     >
-      <ProviderHeaderSection providerName="Dr.Smith" title="Waiting Room" />
+      <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" />
       {/* Middle Section */}
       <Box
         sx={{
           display: 'flex',
-          justifyContent: 'center',
           flexGrow: '1',
+          justifyContent: 'center',
         }}
       >
         <Box
@@ -43,6 +41,7 @@ const PostCall = (): JSX.Element => {
             },
           }}
         >
+          {/* TODO If these sx props are the same, can we extract them to default primary/secondary button components? */}
           <Box
             sx={{
               display: 'flex',
@@ -57,25 +56,24 @@ const PostCall = (): JSX.Element => {
             }}
           >
             <Typography variant="h5">This call has ended</Typography>
-            <Typography variant="body1" mb={2}>
+            <Typography mb={2} variant="body1">
               Duration {mockCallDuration} mins
             </Typography>
-            {isProvider ? (
+            {isProvider && (
               <Button
                 onClick={goToDashboard}
                 variant="contained"
                 sx={{
-                  color: 'white',
                   borderRadius: '4px',
-                  width: 'fit-content', // Kept the width as 'fit-content'
+                  color: 'white',
                   px: 2,
                   text: 'primary.contrast',
+                  textTransform: 'uppercase',
+                  width: 'fit-content', // Kept the width as 'fit-content'
                 }}
               >
-                GO TO DASHBOARD
+                Go to dashboard
               </Button>
-            ) : (
-              ''
             )}
           </Box>
         </Box>
@@ -84,5 +82,3 @@ const PostCall = (): JSX.Element => {
     </Box>
   );
 };
-
-export default PostCall;

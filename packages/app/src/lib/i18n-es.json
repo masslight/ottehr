@@ -25,12 +25,22 @@
           "number": "El código postal debe tener cinco dígitos",
           "required": "El código postal es obligatorio"
         }
+      },
+      "submit": {
+        "title": "TODO There was an issue booking an appointment"
       }
     },
     "firstName": "Nombre",
-    "footer": "Este servicio no es para problemas de salud conductual de emergencia. Si cree que usted o su hijo(a) están teniendo una emergencia y corren el riesgo de hacerse daño a sí mismos o a otra persona, llame al 988 o acuda a la sala de emergencias más cercana de inmediato.",
     "lastName": "Apellido",
     "required": "campo obligatorio",
+    "footer": "TODO Powered by",
+    "goodMorning": "TODO Good Morning",
+    "shareLink": "TODO To invite patients to your room share this link",
+    "copyLink": "TODO Copy Link",
+    "sendEmail": "TODO Send Email",
+    "patientsQueue": "TODO Patients queue",
+    "waiting": "TODO Waiting",
+    "startCall": "TODO Start Call",
     "stateFullNames": {
       "AK": "Alaska",
       "AL": "Alabama",

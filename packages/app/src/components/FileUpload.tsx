@@ -1,46 +1,46 @@
-import { FC, ChangeEvent, ReactNode, useState, useEffect } from 'react';
-import UploadComponent from './UploadComponent';
-import CardComponent from './CardComponent';
 import { Box, CircularProgress, Typography, useTheme } from '@mui/material';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
-import zapehrApi from '../api/zapehrApi';
+import { ChangeEvent, FC, ReactNode, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
+import { zapehrApi } from '../api';
+import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
+import { CardComponent } from './CardComponent';
+import { UploadComponent } from './UploadComponent';
 
 export interface FileUploadOptions {
-  description: ReactNode;
-  onUpload: (file: File | null) => void;
-  uploadFailed: boolean;
-  resetUploadFailed: () => void;
-  onClear: () => void;
   bucketName: string;
+  description: ReactNode;
   objectFolder: string | undefined;
   objectName: string;
+  onClear: () => void;
+  onUpload: (file: File | null) => void;
+  resetUploadFailed: () => void;
   token: string | null;
+  uploadFailed: boolean;
 }
 
 interface FileUploadProps {
-  name: string;
-  label: string;
   defaultValue?: string;
+  label: string;
+  name: string;
   options: FileUploadOptions;
 }
 
-const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, options }) => {
+export const FileUpload: FC<FileUploadProps> = ({ defaultValue, label, name, options }) => {
   const {
-    description,
-    onUpload,
-    uploadFailed,
-    resetUploadFailed,
-    onClear,
     bucketName,
+    description,
     objectFolder,
     objectName,
+    onClear,
+    onUpload,
+    resetUploadFailed,
     token,
+    uploadFailed,
   } = options;
   const theme = useTheme();
   const { setValue } = useFormContext();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
   const [fileUrl, setFileUrl] = useState<string | undefined>(defaultValue);
 
   // If default value exists get a presignedUrl from the defaultValue and assign it to previewUrl
@@ -85,15 +85,15 @@ const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, options })
     if (uploadFailed) {
       return (
         <UploadComponent
-          name={name}
           defaultValue={defaultValue}
+          handleFileUpload={handleFileUpload}
+          name={name}
           uploadDescription={
             <>
               <Typography>Failed to upload card. Please try again.</Typography>
               {description}
             </>
           }
-          handleFileUpload={handleFileUpload}
         />
       );
     }
@@ -103,11 +103,11 @@ const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, options })
       return (
         <CardComponent
           name={name}
-          previewUrl={previewUrl}
           objectName={objectName}
-          setPreviewUrl={setPreviewUrl}
-          setFileUrl={setFileUrl}
           onClear={onClear}
+          previewUrl={previewUrl}
+          setFileUrl={setFileUrl}
+          setPreviewUrl={setPreviewUrl}
         />
       );
     }
@@ -118,33 +118,33 @@ const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, options })
         // Prompt to upload again if fetching the image fails
         return (
           <UploadComponent
-            name={name}
             defaultValue={defaultValue}
+            handleFileUpload={handleFileUpload}
+            name={name}
             uploadDescription={
               <>
                 <Typography>Failed to retrieve card. Please try again.</Typography>
                 {description}
               </>
             }
-            handleFileUpload={handleFileUpload}
           />
         );
       }
       if (previewUrl !== 'Not Found' && previewUrl !== null && !loading) {
-        // Show the image if the fetch succeeds
-        // If a default value was provided then UploadComponent isn't rendered and the form value never gets set so set it manually.
-        // To test this try to log defaultValue in UploadComponent. It will always be undefined because the component is never
-        // rendered when a default value exists. Instead a CardComponent is rendered and the form state of name will be undefined
-        // unless you set its value because CardComponent does not render an <input />
+        // Show the image if the fetch succeeds. If a default value was provided then UploadComponent isn't rendered and
+        // the form value never gets set so set it manually. To test this try to log defaultValue in UploadComponent. It
+        // will always be undefined because the component is never rendered when a default value exists. Instead a
+        // CardComponent is rendered and the form state of name will be undefined unless you set its value because
+        // CardComponent does not render an <input />.
         setValue(name, defaultValue);
         return (
           <CardComponent
             name={name}
             previewUrl={previewUrl}
             objectName={objectName}
-            setPreviewUrl={setPreviewUrl}
-            setFileUrl={setFileUrl}
             onClear={onClear}
+            setFileUrl={setFileUrl}
+            setPreviewUrl={setPreviewUrl}
           />
         );
       }
@@ -153,12 +153,12 @@ const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, options })
         <Box sx={{ mb: 2 }}>
           <Box
             sx={{
-              height: 260,
+              alignItems: 'center',
               border: `1px dashed ${theme.palette.primary.main}`,
               borderRadius: 2,
               display: 'flex',
+              height: 260,
               justifyContent: 'center',
-              alignItems: 'center',
             }}
           >
             <CircularProgress />
@@ -170,22 +170,20 @@ const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, options })
     // Otherwise prompt to upload a file
     return (
       <UploadComponent
-        name={name}
         defaultValue={defaultValue}
-        uploadDescription={description}
         handleFileUpload={handleFileUpload}
+        name={name}
+        uploadDescription={description}
       />
     );
   };
 
   return (
     <>
-      <BoldPurpleInputLabel htmlFor={`${name}-label`} shrink>
+      <BoldPrimaryInputLabel htmlFor={`${name}-label`} shrink>
         {label}
-      </BoldPurpleInputLabel>
+      </BoldPrimaryInputLabel>
       {showCard()}
     </>
   );
 };
-
-export default FileUpload;

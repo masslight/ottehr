@@ -1,12 +1,13 @@
 import { Typography, Box, useTheme } from '@mui/material';
-import defaultProvider from '../assets/icons/ottehrDefaultProvider.svg';
+import { FC } from 'react';
+import { ottEHRDefaultProvider } from '../assets/icons';
 
 interface ProviderHeaderSectionProps {
   providerName: string;
   title: string;
 }
 
-const ProviderHeaderSection: React.FC<ProviderHeaderSectionProps> = ({ providerName, title }) => {
+export const ProviderHeaderSection: FC<ProviderHeaderSectionProps> = ({ providerName, title }) => {
   const theme = useTheme();
   return (
     <Box
@@ -16,10 +17,10 @@ const ProviderHeaderSection: React.FC<ProviderHeaderSectionProps> = ({ providerN
     >
       <Box
         sx={{
+          alignItems: 'center',
           display: 'flex',
           justifyContent: 'center',
           py: 5,
-          alignItems: 'center',
           [theme.breakpoints.down('md')]: {
             flexDirection: 'column',
             py: 3,
@@ -29,9 +30,9 @@ const ProviderHeaderSection: React.FC<ProviderHeaderSectionProps> = ({ providerN
         <Box maxWidth="md" width="100%">
           <Box
             sx={{
+              alignItems: 'center',
               display: 'flex',
               justifyContent: 'start',
-              alignItems: 'center',
               mx: 12.5,
               [theme.breakpoints.down('md')]: {
                 flexDirection: 'column',
@@ -40,23 +41,23 @@ const ProviderHeaderSection: React.FC<ProviderHeaderSectionProps> = ({ providerN
               },
             }}
           >
-            <img src={defaultProvider} style={{ width: '6.25rem', height: '6.25rem' }} />
+            <img src={ottEHRDefaultProvider} style={{ height: '6.25rem', width: '6.25rem' }} />
             <Box
               sx={{
                 ml: 3,
                 [theme.breakpoints.down('md')]: {
+                  alignItems: 'center',
                   display: 'flex',
                   flexDirection: 'column',
-                  alignItems: 'center',
                   ml: 0,
                   mt: 2,
                 },
               }}
             >
-              <Typography variant="h5" color="primary.light">
+              <Typography color="primary.light" variant="h5">
                 {title}
               </Typography>
-              <Typography variant="h4" color="primary.contrast">
+              <Typography color="primary.contrast" variant="h4">
                 {providerName}
               </Typography>
             </Box>
@@ -66,5 +67,3 @@ const ProviderHeaderSection: React.FC<ProviderHeaderSectionProps> = ({ providerN
     </Box>
   );
 };
-
-export default ProviderHeaderSection;

@@ -1,6 +1,6 @@
-import { FC, ReactNode } from 'react';
-import { BreakpointsOptions, Components, createTheme, PaletteColor, ThemeProvider } from '@mui/material';
+import { BreakpointsOptions, Components, PaletteColor, ThemeProvider, createTheme } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
+import { FC, ReactNode } from 'react';
 
 export const textFonts = ['Work Sans'];
 export const headerFonts = ['Work Sans'];
@@ -20,108 +20,107 @@ export const otherColors = {
   background: '#5324BE',
   borderGray: '#D6D8DF',
   borderLightBlue: '#4294F3',
+  brown: '#604203',
+  cardBackground: '#F7F8F9',
   checkIcon: '#7045F2',
   clearImage: '#EB5757',
   coachingVisit: '#EDE8FF',
-  lightBlue: '#CFF5FF',
-  darkPurple: '#301367',
+  darkBackgroundPaper: '#263954',
   darkGreen: '#0F5A4C',
-  lightGreen: '#C1FBEA',
-  purple: '#4D15B7',
-  brown: '#604203',
-  lightPurple: '#F5F2FF',
+  darkPurple: '#301367',
+  footerBackground: '#202A3E',
   languageIcon: 'rgba(15, 229, 189, 1)',
-  lightblue: '#ECF5FF',
+  lightBlue: '#CFF5FF',
   lightGray: '#CED4DA',
+  lightGreen: '#C1FBEA',
+  lightPurple: '#F5F2FF',
+  patientGreen: '#C7FDD3',
+  patientSubtitle: '#545454',
   placeholder: '#A9A9A9',
-  primaryBackground: '#F5F2FF',
   popupBackground: 'rgba(97, 97, 97, 0.9)',
+  primaryBackground: '#F5F2FF',
   primaryBoxShadow: 'rgba(77, 21, 183, 0.25)',
+  purple: '#4D15B7',
   scheduleBorder: '#8F9AA7',
   translateIcon: '#0FE5BD',
   transparent: 'rgba(0, 0, 0, 0)',
-  patientGreen: '#C7FDD3',
-  patientSubtitle: '#545454',
   wrongPatient: '#8F9AA7',
-  cardBackground: '#F7F8F9',
-  footerBackground: '#202A3E',
-  darkBackgroundPaper: '#263954',
 };
 
 export const typography: TypographyOptions = {
   fontFamily: textFonts.join(','),
   fontWeightMedium: 600,
   h1: {
+    fontFamily: headerFonts.join(','),
     fontSize: 34,
     fontWeight: '500 !important',
-    fontFamily: headerFonts.join(','),
     lineHeight: '140%',
   },
   h2: {
+    fontFamily: headerFonts.join(','),
     fontSize: 26,
     fontWeight: '500 !important',
-    fontFamily: headerFonts.join(','),
     lineHeight: '140%',
   },
   h3: {
+    fontFamily: headerFonts.join(','),
     fontSize: 20,
     fontWeight: '600 !important',
-    fontFamily: headerFonts.join(','),
     lineHeight: '140%',
   },
   h4: {
+    fontFamily: headerFonts.join(','),
     fontSize: 34,
     fontWeight: '500 !important',
-    fontFamily: headerFonts.join(','),
     lineHeight: '140%',
   },
   h5: {
+    fontFamily: headerFonts.join(','),
     fontSize: 24,
     fontWeight: '500 !important',
-    fontFamily: headerFonts.join(','),
     lineHeight: '140%',
   },
   h6: {
+    fontFamily: headerFonts.join(','),
     fontSize: 16,
     fontWeight: '500 !important',
-    fontFamily: headerFonts.join(','),
     lineHeight: '140%',
   },
   subtitle1: {
+    fontFamily: textFonts.join(','),
     fontSize: 16,
     fontWeight: 700,
-    fontFamily: textFonts.join(','),
     lineHeight: '140%',
   },
   subtitle2: {
+    fontFamily: textFonts.join(','),
     fontSize: 14,
     fontWeight: 600,
-    fontFamily: textFonts.join(','),
     lineHeight: '140%',
   },
   body1: {
+    fontFamily: textFonts.join(','),
     fontSize: 16,
     fontWeight: 400,
-    fontFamily: textFonts.join(','),
     lineHeight: '140%',
   },
   body2: {
+    fontFamily: textFonts.join(','),
     fontSize: 14,
     fontWeight: 400,
-    fontFamily: textFonts.join(','),
     lineHeight: '140%',
   },
   button: {},
   caption: {
+    fontFamily: textFonts.join(','),
     fontSize: 14,
     fontWeight: 400,
-    fontFamily: textFonts.join(','),
     lineHeight: '140%',
   },
   overline: {
+    fontFamily: textFonts.join(','),
     fontSize: 16,
     fontWeight: 700,
-    fontFamily: textFonts.join(','),
     lineHeight: '140%',
   },
 };
@@ -138,19 +137,19 @@ declare module '@mui/material/styles' {
 const { palette: p } = createTheme(); // TODO: once https://github.com/mui/material-ui/issues/17410 is resolved, export directly from mui
 export const palette = {
   text: {
+    disabled: '#C3C9D2',
+    light: '#323F53DE',
     primary: '#212130',
     secondary: '#4F4F4F',
-    light: '#323F53DE',
-    disabled: '#C3C9D2',
   },
   primary: {
-    main: '#2896C6',
     contrast: '#FFFFFF',
     light: '#4AC0F2',
+    main: '#2896C6',
   },
   secondary: {
-    main: '#301367',
     contrast: '#FFFFFF',
+    main: '#301367',
   },
   tertiary: p.augmentColor({ color: { main: '#ECE4FB' } }),
   step: {
@@ -170,11 +169,11 @@ export const palette = {
   },
   action: {
     active: 'rgba(0, 0, 0, 0.54)',
-    hover: 'rgba(0, 0, 0, 0.04)',
-    selected: 'rgba(0, 0, 0, 0.08)',
     disabled: 'rgba(0, 0, 0, 0.26)',
     disabledBackground: 'rgba(0, 0, 0, 0.12)',
     focus: 'rgba(0, 0, 0, 0.12)',
+    hover: 'rgba(0, 0, 0, 0.04)',
+    selected: 'rgba(0, 0, 0, 0.08)',
   },
   background: {
     default: '#FFFFFF',
@@ -187,15 +186,14 @@ export const components: Components = {
   MuiButton: {
     styleOverrides: {
       root: {
+        fontFamily: textFonts.join(','),
         fontSize: 14,
         fontWeight: 600,
-        fontFamily: textFonts.join(','),
-        textTransform: 'uppercase',
         lineHeight: '140%',
+        textTransform: 'uppercase',
         '&:not($sizeLarge):not($sizeSmall) $label': {
           fontSize: 16,
         },
-        // borderRadius: 49,
       },
       sizeLarge: {
         '& $label': {
@@ -214,11 +212,11 @@ export const components: Components = {
       root: {
         '&.MuiPickersDay-root': {
           fontSize: 16,
-          '&.MuiPickersDay-today': {
-            borderColor: palette.secondary.main,
-          },
           '&.Mui-selected': {
             backgroundColor: palette.secondary.main,
+          },
+          '&.MuiPickersDay-today': {
+            borderColor: palette.secondary.main,
           },
         },
       },
@@ -265,8 +263,8 @@ export const components: Components = {
   MuiTab: {
     styleOverrides: {
       root: {
-        textTransform: 'capitalize',
         fontSize: 16,
+        textTransform: 'capitalize',
       },
     },
   },
@@ -282,8 +280,8 @@ export const components: Components = {
     styleOverrides: {
       root: {
         '&.MuiDayPicker-weekDayLabel': {
-          fontSize: 16,
           color: otherColors.scheduleBorder,
+          fontSize: 16,
         },
         '&.PrivatePickersMonth-root:disabled': {
           color: palette.text.disabled,
@@ -293,16 +291,16 @@ export const components: Components = {
   },
 };
 
-interface IntakeThemeProviderProps {
+interface OttEHRThemeProviderProps {
   children: ReactNode;
 }
 
-export const IntakeThemeProvider: FC<IntakeThemeProviderProps> = ({ children }) => {
+export const OttEHRThemeProvider: FC<OttEHRThemeProviderProps> = ({ children }) => {
   const theme = createTheme({
-    palette: palette,
+    breakpoints: breakpoints,
     components: components,
     direction: 'ltr',
-    breakpoints: breakpoints,
+    palette: palette,
     typography: typography,
   });
 

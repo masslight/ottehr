@@ -1,78 +1,76 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
+import { useAuth0 } from '@auth0/auth0-react';
 import { AppBar, Box, Button, Card, Container, Grid, Typography, useTheme } from '@mui/material';
 import { FC, ReactElement } from 'react';
-import { bg1, bg3, bg4, bg5 } from '../assets';
-import { otherColors } from '../IntakeThemeProvider';
-import Footer from './Footer';
-import { useAuth0 } from '@auth0/auth0-react';
+import { bg1 } from '../assets';
+import { Footer } from './Footer';
 
 interface ContainerProps {
-  title: string;
-  subtitle?: string;
-  isFirstPage?: boolean;
+  children: any;
+  description?: string | string[] | ReactElement;
   img?: string;
   imgAlt?: string;
   imgWidth?: number;
-  description?: string | string[] | ReactElement;
+  isFirstPage?: boolean;
   outsideCardComponent?: (type: string) => Element;
-  children: any;
+  subtitle?: string;
+  title: string;
 }
 
-const CustomContainer: FC<ContainerProps> = ({
-  title,
-  subtitle,
-  isFirstPage,
+export const CustomContainer: FC<ContainerProps> = ({
+  children,
+  description,
   img,
   imgAlt,
   imgWidth,
-  description,
+  isFirstPage,
   outsideCardComponent,
-  children,
+  subtitle,
+  title,
 }) => {
   const theme = useTheme();
   const { isAuthenticated, logout } = useAuth0();
   const backgroundImage = bg1;
 
-  const gridWidths = { title: img ? 8 : 12, image: 4 };
+  const gridWidths = { image: 4, title: img ? 8 : 12 };
   return (
     <Container
-      maxWidth={false}
       disableGutters
+      maxWidth={false}
       sx={{
+        backgroundAttachment: 'fixed',
+        backgroundColor: '#3ECCA2',
         backgroundImage: `url(${backgroundImage})`,
+        backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
         backgroundSize: 'cover',
-        backgroundColor: '#3ECCA2',
-        backgroundAttachment: 'fixed',
-        backgroundPosition: 'center',
-        minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
+        minHeight: '100vh',
       }}
     >
       <AppBar position="static" sx={{ backgroundColor: theme.palette.primary.contrastText }}>
         <Grid container justifyContent="space-between">
-          <Grid item></Grid>
+          <Grid item />
           <Grid
             item
             sx={{
-              marginLeft: isAuthenticated ? { xs: 'auto', md: '100px' } : 'auto',
-              marginRight: isAuthenticated ? '0px' : 'auto',
+              ml: isAuthenticated ? { xs: 'auto', md: '100px' } : 'auto',
+              mr: isAuthenticated ? '0px' : 'auto',
             }}
-          ></Grid>
+          />
           <Grid
             item
             sx={{
-              display: isAuthenticated ? 'flex' : 'none',
               alignItems: 'center',
+              display: isAuthenticated ? 'flex' : 'none',
               mx: { xs: 'auto', md: 2 },
             }}
           >
             {isAuthenticated && (
               <Button
-                variant="text"
                 onClick={() => logout({ returnTo: window.location.origin })}
+                variant="text"
                 sx={{ '&:hover': { backgroundColor: 'transparent' } }}
               >
                 Logout
@@ -82,44 +80,44 @@ const CustomContainer: FC<ContainerProps> = ({
         </Grid>
       </AppBar>
       <Box
+        alignItems="center"
         display="flex"
         flexDirection="column"
         justifyContent="space-between"
-        alignItems="center"
-        sx={{ marginTop: 5, flex: 1 }}
+        sx={{ mt: 5, flex: 1 }}
       >
         <Container maxWidth="md" sx={{ mb: 5 }}>
           <>
             <Card
               variant="outlined"
-              sx={{ boxShadow: 1, mt: 0, pt: 0, borderRadius: 2, [theme.breakpoints.down('md')]: { mx: 2 } }}
+              sx={{ borderRadius: 2, boxShadow: 1, mt: 0, pt: 0, [theme.breakpoints.down('md')]: { mx: 2 } }}
             >
               <Box sx={{ m: 0, p: { xs: 3, md: 5 } }}>
                 <Grid
                   container
-                  spacing={{ xs: 0, md: 2 }}
                   justifyContent="center"
+                  spacing={{ xs: 0, md: 2 }}
                   sx={{ justifyContent: 'space-between' }}
                 >
                   <Grid item xs={12} md={gridWidths.title}>
                     <Typography
-                      sx={{ width: isFirstPage ? '350px' : '100%' }}
-                      variant={isFirstPage ? 'h1' : 'h2'}
                       color="secondary.main"
+                      variant={isFirstPage ? 'h1' : 'h2'}
+                      sx={{ width: isFirstPage ? '350px' : '100%' }}
                     >
                       {title}
                     </Typography>
                     {subtitle && (
-                      <Typography variant="h2" color="primary.main" mt={1}>
+                      <Typography color="primary.main" mt={1} variant="h2">
                         {subtitle}
                       </Typography>
                     )}
                   </Grid>
                   {img && (
                     <Grid
-                      item
-                      display="flex"
                       alignItems="center"
+                      display="flex"
+                      item
                       justifyContent={{ xs: 'flex-start', md: 'flex-end' }}
                       xs={12}
                       md={gridWidths.image}
@@ -136,12 +134,12 @@ const CustomContainer: FC<ContainerProps> = ({
                 </Grid>
                 {description && Array.isArray(description) ? (
                   description.map((paragraph, i) => (
-                    <Typography key={i} variant="body1" color="text.primary" mt={1} mb={2}>
+                    <Typography color="text.primary" key={i} mb={2} mt={1} variant="body1">
                       {paragraph}
                     </Typography>
                   ))
                 ) : (
-                  <Typography variant="body1" color="text.primary" mt={1} mb={2}>
+                  <Typography color="text.primary" mb={2} mt={1} variant="body1">
                     {description}
                   </Typography>
                 )}
@@ -156,4 +154,3 @@ const CustomContainer: FC<ContainerProps> = ({
     </Container>
   );
 };
-export default CustomContainer;

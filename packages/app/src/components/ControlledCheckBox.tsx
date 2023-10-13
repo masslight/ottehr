@@ -1,50 +1,50 @@
+import { Checkbox, FormControlLabel } from '@mui/material';
+import { Box } from '@mui/system';
 import { FC, ReactElement } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { FormControlLabel, Checkbox } from '@mui/material';
-import { Box } from '@mui/system';
 
 interface ControlledCheckBoxProps {
-  name: string;
-  label: string | undefined;
   defaultValue?: boolean;
-  required?: boolean;
   document: ReactElement | undefined;
+  label: string | undefined;
+  name: string;
+  required?: boolean;
 }
 
-const ControlledCheckBox: FC<ControlledCheckBoxProps> = ({ name, label, defaultValue, required, document }) => {
+export const ControlledCheckBox: FC<ControlledCheckBoxProps> = ({ defaultValue, document, label, name, required }) => {
   const { control } = useFormContext();
+
   return (
     <FormControlLabel
-      sx={{ pt: 1, alignItems: 'flex-start' }}
       control={
         <Controller
-          name={name}
           control={control}
           defaultValue={defaultValue}
+          name={name}
           render={({ field: props }) => {
             return (
               <Checkbox
                 {...props}
                 checked={(props.value as boolean | undefined) ?? false}
                 color="primary"
+                required={required}
                 style={{ borderRadius: '4px' }}
                 sx={{
                   alignSelf: 'flex-start',
-                  paddingRight: 1,
-                  paddingBottom: 1,
-                  width: '18px',
                   height: '18px',
-                  marginRight: '10px',
+                  mr: '10px',
+                  pr: 1,
+                  pb: 1,
+                  width: '18px',
+                  '&.Mui-checked': {
+                    borderRadius: '4px',
+                    color: '#F5F2FF',
+                    outline: '1px solid #4D15B7',
+                  },
                   '&.MuiCheckbox-root': {
                     borderRadius: '4px',
                   },
-                  '&.Mui-checked': {
-                    color: '#F5F2FF',
-                    borderRadius: '4px',
-                    outline: '1px solid #4D15B7',
-                  },
                 }}
-                required={required}
               />
             );
           }}
@@ -56,7 +56,7 @@ const ControlledCheckBox: FC<ControlledCheckBoxProps> = ({ name, label, defaultV
           {document}
         </Box>
       }
+      sx={{ alignItems: 'flex-start', pt: 1 }}
     />
   );
 };
-export default ControlledCheckBox;

@@ -1,12 +1,11 @@
 import { Button, TextField, Typography, useTheme } from '@mui/material';
 import { Box } from '@mui/system';
-import Footer from '../components/Footer';
-import ProviderHeaderSection from '../components/ProviderHeaderSection';
-import { usePatient } from '../store/IntakeContext';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Footer, ProviderHeaderSection } from '../components';
+import { usePatient } from '../store';
 
-const PatientCheckIn = (): JSX.Element => {
+export const PatientCheckIn = (): JSX.Element => {
   const { patientName, setPatientName } = usePatient();
   const [name, setName] = useState(patientName);
   const [isError, setIsError] = useState(false);
@@ -34,13 +33,13 @@ const PatientCheckIn = (): JSX.Element => {
         justifyContent: 'space-between',
       }}
     >
-      <ProviderHeaderSection providerName="Dr.Smith" title="Waiting Room" />
+      <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" />
       {/* Middle Section */}
       <Box
         sx={{
           display: 'flex',
-          justifyContent: 'center',
           flexGrow: '1',
+          justifyContent: 'center',
         }}
       >
         <Box
@@ -68,29 +67,30 @@ const PatientCheckIn = (): JSX.Element => {
             <Typography variant="body1" sx={{ pb: 3 }}>
               Please enter your name to join the call line of Dr. Olivia Smith
             </Typography>
+            {/* TODO Should we use React hook form? */}
             <form onSubmit={handleSubmit}>
               <Box
                 sx={{
+                  alignItems: 'flex-start',
                   display: 'flex',
                   flexDirection: 'column',
-                  alignItems: 'flex-start',
                 }}
               >
                 <TextField
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  variant="outlined"
-                  label="Your Name"
                   error={isError}
+                  label="Your Name"
+                  onChange={(e) => setName(e.target.value)}
+                  value={name}
+                  variant="outlined"
                   sx={{ pb: 2, width: '100%' }}
                 />
                 <Button
                   type="submit"
                   variant="contained"
                   sx={{
+                    borderRadius: '4px',
                     color: 'white',
                     textTransform: 'uppercase',
-                    borderRadius: '4px',
                     width: '100%',
                   }}
                 >
@@ -105,5 +105,3 @@ const PatientCheckIn = (): JSX.Element => {
     </Box>
   );
 };
-
-export default PatientCheckIn;

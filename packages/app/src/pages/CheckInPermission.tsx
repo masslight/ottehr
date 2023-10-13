@@ -1,12 +1,10 @@
-import { Button, Typography, Box, useTheme } from '@mui/material';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
-import React from 'react';
-import Footer from '../components/Footer';
-import ProviderHeaderSection from '../components/ProviderHeaderSection';
-import { usePatient } from '../store/IntakeContext';
+import { Button, Box, Typography, useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { Footer, ProviderHeaderSection } from '../components';
+import { usePatient } from '../store';
 
-const CheckInPermission = (): JSX.Element => {
+export const CheckInPermission = (): JSX.Element => {
   const { setIsVideoOpen, setIsMicOpen } = usePatient();
   const theme = useTheme();
   const navigate = useNavigate();
@@ -14,7 +12,7 @@ const CheckInPermission = (): JSX.Element => {
   const toggleCamMic = (userInput: boolean): void => {
     setIsVideoOpen(userInput);
     setIsMicOpen(userInput);
-    navigate('/waitingroom');
+    navigate('/waiting-room');
   };
 
   return (
@@ -25,7 +23,7 @@ const CheckInPermission = (): JSX.Element => {
         height: '100vh',
         justifyContent: 'space-between',
         [theme.breakpoints.down('md')]: {
-          padding: '0 0',
+          p: '0 0',
         },
       }}
     >
@@ -34,8 +32,8 @@ const CheckInPermission = (): JSX.Element => {
       <Box
         sx={{
           display: 'flex',
-          justifyContent: 'center',
           flexGrow: '1',
+          justifyContent: 'center',
         }}
       >
         <Box maxWidth="md" width="100%">
@@ -56,11 +54,11 @@ const CheckInPermission = (): JSX.Element => {
             <Typography variant="body1">Please give us access to your camera and mic for a video call</Typography>
             <Box
               sx={{
-                borderRadius: 2,
+                alignItems: 'center',
                 backgroundColor: 'rgba(50, 63, 83, 0.87)',
+                borderRadius: 2,
                 display: 'flex',
                 flexDirection: 'column',
-                alignItems: 'center',
                 justifyContent: 'center',
                 px: 15,
                 py: 10,
@@ -72,11 +70,11 @@ const CheckInPermission = (): JSX.Element => {
             >
               <VideocamOffIcon sx={{ color: '#FFF' }} />
               <Typography
-                variant="body1"
                 color="primary.contrast"
+                variant="body1"
                 sx={{
-                  textAlign: 'center',
                   opacity: '0.5',
+                  textAlign: 'center',
                 }}
               >
                 Enable camera in your browser
@@ -87,23 +85,25 @@ const CheckInPermission = (): JSX.Element => {
               onClick={() => toggleCamMic(true)}
               variant="contained"
               sx={{
-                color: 'white',
                 borderRadius: '4px',
+                color: 'white',
+                textTransform: 'uppercase',
               }}
             >
-              ENABLE CAMERA AND MIC
+              Enable camera and mic
             </Button>
             <Button
+              onClick={() => toggleCamMic(false)}
               variant="text"
               sx={{
                 color: 'primary.light',
-                textAlign: 'center',
                 cursor: 'pointer',
                 mt: 2,
+                textAlign: 'center',
+                textTransform: 'uppercase',
               }}
-              onClick={() => toggleCamMic(false)}
             >
-              CONTINUE WITHOUT CAMERA AND MIC
+              Continue without camera and mic
             </Button>
           </Box>
         </Box>
@@ -112,5 +112,3 @@ const CheckInPermission = (): JSX.Element => {
     </Box>
   );
 };
-
-export default CheckInPermission;

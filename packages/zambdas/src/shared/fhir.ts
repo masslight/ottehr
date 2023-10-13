@@ -1,26 +1,31 @@
-import {
-  Patient,
-  Practitioner,
-  Resource,
-  Slot,
-  Location,
-  RelatedPerson,
-  Schedule,
-  Account,
-  Appointment,
-  Encounter,
-  DocumentReference,
-  DocumentReferenceContent,
-  Consent,
-  CodeableConcept,
-  Extension,
-} from 'fhir/r4';
-import { DateTime } from 'luxon';
-import { CancellationReasonOptions, PatientInfo } from '../../../app/src/store/types';
-import { PatientEthnicityCode, PatientRaceCode, CancellationReasonCodes } from '../../../app/src/store/types';
-import { removeTimeFromDate } from './dateUtils';
 import { FhirClient, SearchParam } from '@zapehr/sdk';
 import { Operation } from 'fast-json-patch';
+import {
+  Account,
+  Appointment,
+  CodeableConcept,
+  Consent,
+  DocumentReference,
+  DocumentReferenceContent,
+  Encounter,
+  Extension,
+  Location,
+  Patient,
+  Practitioner,
+  RelatedPerson,
+  Resource,
+  Schedule,
+  Slot,
+} from 'fhir/r4';
+import { DateTime } from 'luxon';
+import { removeTimeFromDate } from './dateUtils';
+import {
+  CancellationReasonCodes,
+  CancellationReasonOptions,
+  PatientEthnicityCode,
+  PatientInfo,
+  PatientRaceCode,
+} from '../types';
 
 export async function createPatientResource(parameters: PatientInfo, fhirClient: FhirClient): Promise<any> {
   try {

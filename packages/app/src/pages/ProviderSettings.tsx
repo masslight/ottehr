@@ -1,23 +1,20 @@
+import CancelIcon from '@mui/icons-material/Cancel';
+import CheckIcon from '@mui/icons-material/CheckCircle';
 import {
-  Button,
-  TextField,
   Box,
+  Button,
   Container,
   FormControl,
   InputLabel,
-  Select,
   MenuItem,
+  Select,
+  TextField,
   Typography,
 } from '@mui/material';
-
-import { Footer } from '../components';
-import TopAppBar from '../components/AppBar';
-import ProviderHeaderSection from '../components/ProviderHeaderSection';
 import { useState } from 'react';
-import CheckIcon from '@mui/icons-material/CheckCircle';
-import CancelIcon from '@mui/icons-material/Cancel';
+import { Footer, ProviderHeaderSection, TopAppBar } from '../components';
 
-const ProviderSettings = (): JSX.Element => {
+export const ProviderSettings = (): JSX.Element => {
   const handleSubmit = (event: any): void => {
     event.preventDefault();
     // TODO: form submission structure
@@ -31,31 +28,30 @@ const ProviderSettings = (): JSX.Element => {
 
   return (
     <Container
-      maxWidth={false}
       disableGutters
+      maxWidth={false}
       sx={{
-        minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
+        minHeight: '100vh',
       }}
     >
       <TopAppBar />
       <ProviderHeaderSection providerName="Dr. Olivia Smith" title="My profile" />
-
       <Box
         sx={{
-          flex: '1 1 auto',
-          display: 'flex',
-          flexDirection: 'column',
           alignItems: 'center',
+          display: 'flex',
+          flex: '1 1 auto',
+          flexDirection: 'column',
           p: 5,
         }}
       >
         <Box maxWidth="md" width="100%">
           <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'start', mx: 12.5 }}>
             <form onSubmit={handleSubmit}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'left', gap: 2 }}>
+              <Box sx={{ alignItems: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <FormControl variant="outlined">
                   <InputLabel>Title</InputLabel>
                   <Select label="Title">
@@ -64,32 +60,30 @@ const ProviderSettings = (): JSX.Element => {
                     <MenuItem value="assistant">Assistant</MenuItem>
                   </Select>
                 </FormControl>
-                <TextField variant="outlined" label="First Name" />
-                <TextField variant="outlined" label="Last Name" />
+                <TextField label="First Name" variant="outlined" />
+                <TextField label="Last Name" variant="outlined" />
                 <TextField
-                  variant="outlined"
-                  label="Room Name (slug)"
-                  value={roomName}
-                  onChange={(e) => setRoomName(e.target.value)}
                   error={isError}
                   helperText={helperText}
+                  label="Room Name (slug)"
+                  onChange={(e) => setRoomName(e.target.value)}
+                  value={roomName}
+                  variant="outlined"
                 />
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Box sx={{ alignItems: 'center', display: 'flex' }}>
                   <Box sx={{ mr: 1 }}>{isError ? <CancelIcon color="error" /> : <CheckIcon color="success" />}</Box>
                   <Typography variant="body2">{`https://zapehr.app/${roomName}`}</Typography>
                 </Box>
-
-                <TextField variant="outlined" label="Email Address" />
-
+                <TextField label="Email Address" variant="outlined" />
                 <Button
                   type="submit"
                   variant="contained"
                   sx={{
-                    width: '100%',
                     backgroundColor: 'primary.main',
                     color: 'white',
                     py: 1.5,
                     textTransform: 'uppercase',
+                    width: '100%',
                   }}
                 >
                   Update
@@ -103,5 +97,3 @@ const ProviderSettings = (): JSX.Element => {
     </Container>
   );
 };
-
-export default ProviderSettings;

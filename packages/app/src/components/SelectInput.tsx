@@ -1,34 +1,32 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
+import { ExpandMore } from '@mui/icons-material';
+import { FormControl, MenuItem, Select, SelectProps, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { FormControl, SelectProps, MenuItem, Select, useTheme } from '@mui/material';
-import { ExpandMore } from '@mui/icons-material';
-import { otherColors } from '../IntakeThemeProvider';
+import { otherColors } from '../OttEHRThemeProvider';
 import { findLabelFromOptions } from '../helpers';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
+import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
-import RenderLabelFromSelect from './RenderLabelFromSelect';
+import { RenderLabelFromSelect } from './RenderLabelFromSelect';
 
 export interface SelectInputOption {
-  value: string;
   label: string;
+  value: string;
 }
 
 type SelectInputProps = {
-  name: string;
-  label: string;
-  options: SelectInputOption[];
   helperText?: string;
+  label: string;
+  name: string;
+  options: SelectInputOption[];
   placeholder?: string;
 } & SelectProps;
 
-const SelectInput: FC<SelectInputProps> = ({
-  name,
-  label,
-  value,
+export const SelectInput: FC<SelectInputProps> = ({
   defaultValue,
-  options,
   helperText,
+  label,
+  name,
+  options,
   placeholder,
   ...otherProps
 }) => {
@@ -40,49 +38,30 @@ const SelectInput: FC<SelectInputProps> = ({
 
   return (
     <Controller
-      name={name}
       control={control}
       defaultValue={defaultValue || ''}
+      name={name}
       render={({ field }) => (
         <FormControl
-          variant="standard"
-          required={otherProps.required}
           error={!!errors[name]}
+          required={otherProps.required}
+          variant="standard"
           sx={{
             width: '100%',
           }}
         >
-          <BoldPurpleInputLabel id={`${name}-label`} shrink>
+          <BoldPrimaryInputLabel id={`${name}-label`} shrink>
             {label}
-          </BoldPurpleInputLabel>
+          </BoldPrimaryInputLabel>
           <Select
-            labelId={`${name}-label`}
-            IconComponent={ExpandMore}
-            displayEmpty
             {...field}
             {...otherProps}
-            disableUnderline
+            IconComponent={ExpandMore}
             // To stop it adding a padding-right on the main element, shifting the background image
             MenuProps={{ disableScrollLock: true, PaperProps: { style: { maxHeight: 400 } } }}
-            sx={{
-              '& .MuiInputBase-input': {
-                borderRadius: '8px',
-                backgroundColor: theme.palette.background.paper,
-                border: '1px solid',
-                borderColor: otherColors.lightGray,
-                padding: '10px 26px 10px 12px',
-                '&:focus': {
-                  borderRadius: '8px',
-                  backgroundColor: theme.palette.background.paper,
-                },
-              },
-              '& .MuiSelect-icon': {
-                marginRight: '10px',
-              },
-              '& .MuiSelect-iconOpen': {
-                marginRight: '10px',
-              },
-            }}
+            disableUnderline
+            displayEmpty
+            labelId={`${name}-label`}
             renderValue={(selected) => {
               if (selected.length === 0) {
                 return (
@@ -93,6 +72,25 @@ const SelectInput: FC<SelectInputProps> = ({
               }
               return <RenderLabelFromSelect>{findLabelFromOptions(selected, options)}</RenderLabelFromSelect>;
             }}
+            sx={{
+              '& .MuiSelect-icon': {
+                mr: '10px',
+              },
+              '& .MuiSelect-iconOpen': {
+                mr: '10px',
+              },
+              '& .MuiInputBase-input': {
+                backgroundColor: theme.palette.background.paper,
+                border: '1px solid',
+                borderColor: otherColors.lightGray,
+                borderRadius: '8px',
+                p: '10px 26px 10px 12px',
+                '&:focus': {
+                  backgroundColor: theme.palette.background.paper,
+                  borderRadius: '8px',
+                },
+              },
+            }}
           >
             {options.map((option) => (
               <MenuItem key={option.value} value={option.value}>
@@ -100,11 +98,9 @@ const SelectInput: FC<SelectInputProps> = ({
               </MenuItem>
             ))}
           </Select>
-          <InputHelperText name={name} errors={errors} helperText={helperText} />
+          <InputHelperText errors={errors} helperText={helperText} name={name} />
         </FormControl>
       )}
     />
   );
 };
-
-export default SelectInput;

@@ -1,4 +1,4 @@
-# Telehealth
+# ottEHR
 
 ## Repository Structure
 
@@ -51,7 +51,7 @@ There is a vscode workspace defined in the root's `.vscode` folder. The workspac
 The workspace can be opened with the VSCode CLI:
 
 ```[bash]
-code .vscode/telehealth.code-workspace
+code .vscode/ottEHR.code-workspace
 ```
 
-or alternatively by opening `.vscode/telehealth.code-workspace` from VSCode.
+or alternatively by opening `.vscode/ottEHR.code-workspace` from VSCode.

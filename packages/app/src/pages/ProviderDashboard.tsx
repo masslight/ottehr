@@ -1,14 +1,12 @@
-import React from 'react';
-import { Footer } from '../components';
-import { Container, Box, Typography, Button, Divider, useTheme } from '@mui/material';
-import defaultProvider from '../assets/icons/ottehrDefaultProvider.svg';
-import { useTranslation } from 'react-i18next';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
-import PatientQueue from '../components/PatientQueue';
-import TopAppBar from '../components/AppBar';
+import { Container, Box, Button, Divider, Typography, useTheme } from '@mui/material';
+import { Fragment } from 'react';
+import { useTranslation } from 'react-i18next';
+import { ottEHRDefaultProvider } from '../assets/icons';
+import { Footer, PatientQueue, TopAppBar } from '../components';
 
-const ProviderDashboard = (): JSX.Element => {
+export const ProviderDashboard = (): JSX.Element => {
   const { t } = useTranslation();
 
   const theme = useTheme();
@@ -30,13 +28,13 @@ const ProviderDashboard = (): JSX.Element => {
 
   return (
     <Container
-      maxWidth={false}
       disableGutters
+      maxWidth={false}
       sx={{
-        minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
+        minHeight: '100vh',
       }}
     >
       <TopAppBar />
@@ -44,11 +42,10 @@ const ProviderDashboard = (): JSX.Element => {
         <Box
           sx={{
             width: { xs: '100%', md: '60%' },
-            flexGrow: 1,
             backgroundColor: 'transparent',
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center',
+            flexGrow: 1,
             justifyContent: 'flex-start',
             pt: 7.5,
             px: 7.5,
@@ -75,22 +72,21 @@ const ProviderDashboard = (): JSX.Element => {
                 {t('general.goodMorning')}
               </Typography>
 
-              <Typography variant="h4" color="text.light" mt={1}>
+              <Typography color="text.light" mt={1} variant="h4">
                 Dr. Olivia Smith
               </Typography>
             </Box>
             <Box sx={{ maxWidth: { xs: '50px', md: '100px' } }}>
-              <img src={defaultProvider} alt="Provider Image" width={'100%'} />
+              <img src={ottEHRDefaultProvider} alt="Provider Image" width={'100%'} />
             </Box>
           </Box>
           <Box
             sx={{
-              width: '100%',
               backgroundColor: '#e5f2f8',
               borderRadius: 1,
+              boxSizing: 'border-box',
               margin: 3,
               p: 3,
-              boxSizing: 'border-box',
               [theme.breakpoints.down('md')]: {
                 my: 2,
                 mx: 0,
@@ -109,15 +105,13 @@ const ProviderDashboard = (): JSX.Element => {
             <Box
               sx={{
                 display: 'flex',
-                justifyContent: 'flex-start',
                 gap: 2,
+                justifyContent: 'flex-start',
                 marginTop: 2,
               }}
             >
               <Button
-                variant="contained"
                 color="primary"
-                startIcon={<ContentCopyIcon />}
                 onClick={async () => {
                   try {
                     await navigator.clipboard.writeText(roomLink);
@@ -125,10 +119,12 @@ const ProviderDashboard = (): JSX.Element => {
                     console.error('Failed to copy room link to clipboard:', error);
                   }
                 }}
+                startIcon={<ContentCopyIcon />}
+                variant="contained"
               >
                 {t('general.copyLink')}
               </Button>
-              <Button variant="outlined" color="primary" startIcon={<MailOutlineIcon />}>
+              <Button color="primary" startIcon={<MailOutlineIcon />} variant="outlined">
                 {t('general.sendEmail')}
               </Button>
             </Box>
@@ -138,10 +134,10 @@ const ProviderDashboard = (): JSX.Element => {
         <Box
           sx={{
             width: { xs: '100%', md: '40%' },
-            flexGrow: 1,
             background: 'linear-gradient(21deg, rgba(40, 150, 198, 0.60) 3.6%, rgba(80, 96, 241, 0.00) 40%), #263954',
             display: 'flex',
             flexDirection: 'column',
+            flexGrow: 1,
             justifyContent: 'flex-start',
             pt: 7.5,
             px: 7.5,
@@ -151,19 +147,19 @@ const ProviderDashboard = (): JSX.Element => {
             },
           }}
         >
-          <Typography variant="h5" color="primary.light" fontWeight={500}>
+          <Typography color="primary.light" fontWeight={500} variant="h5">
             {t('general.patientsQueue')}
           </Typography>
 
-          <Typography variant="body2" sx={{ opacity: 0.6 }} color="primary.contrast" fontWeight={500}>
+          <Typography color="primary.contrast" fontWeight={500} variant="body2" sx={{ opacity: 0.6 }}>
             {t('general.waiting')}
           </Typography>
 
           {patientsData.map((patient, index) => (
-            <React.Fragment key={index}>
+            <Fragment key={index}>
               <PatientQueue {...patient} />
               {index !== patientsData.length - 1 && <Divider sx={{ opacity: 0.12 }} />}
-            </React.Fragment>
+            </Fragment>
           ))}
         </Box>
       </Box>
@@ -171,5 +167,3 @@ const ProviderDashboard = (): JSX.Element => {
     </Container>
   );
 };
-
-export default ProviderDashboard;
