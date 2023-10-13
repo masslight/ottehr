@@ -49,7 +49,7 @@ jobs:
         uses: webfactory/ssh-agent@v0.7.0
         with:
           ssh-private-key: |
-            ${{ secrets.ZAPEHR_TELEHEALTH_PRIVATE_SSH_KEY }}
+            ${{ secrets.OTTEHR_PRIVATE_SSH_KEY }}
             ${{ secrets.BUMP_VERSION }}
 
       - uses: actions/checkout@v3
@@ -76,7 +76,7 @@ jobs:
         uses: jsdaniell/create-json@v1.2.2
         with:
           name: 'secrets.json'
-          json: ${{ secrets.TELEHEALTH_SECRETS_JSON }}
+          json: ${{ secrets.OTTEHR_SECRETS_JSON }}
 
       - name: Move env file into .env folder
         run: mkdir -p ${{ env.ZAMBDAS_LOCATION }}/.env/ && mv secrets.json ${{ env.ZAMBDAS_LOCATION }}/.env/${{ secrets.ENVIRONMENT }}.json
@@ -84,7 +84,7 @@ jobs:
       - name: Increase version if input dictates.
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
         run: >
-          git config --local user.email "ngreene+zaptelehealthghaction@masslight.com"
+          git config --local user.email "ngreene+ottehrghaction@masslight.com"
           git config --local user.name "GitHub Action Bump Version"
           pnpm version ${{ github.event.inputs.versionType }}
 
