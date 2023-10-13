@@ -7,8 +7,8 @@ export const RequiredNote: FC = () => {
 
   return (
     <Typography
-      variant="subtitle2"
       color="text.secondary"
+      variant="subtitle2"
       sx={{
         fontWeight: 400,
         mt: 2,

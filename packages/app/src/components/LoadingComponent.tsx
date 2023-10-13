@@ -10,10 +10,10 @@ export function LoadingComponent({ height }: LoadingComponentProps): JSX.Element
     <CustomContainer title="Loading...">
       <Box
         sx={{
-          display: 'flex',
-          justifyContent: 'center',
           alignItems: 'center',
+          display: 'flex',
           height: height != null ? height : 500,
+          justifyContent: 'center',
         }}
       >
         <CircularProgress />

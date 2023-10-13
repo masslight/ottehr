@@ -1,12 +1,12 @@
 import { ReactElement } from 'react';
 
 export interface RadioOption {
-  value: string;
-  label?: string;
+  borderColor?: string;
+  color?: string;
   description?: string | ReactElement;
   image?: string;
   imageAlt?: string;
   imageWidth?: number;
-  color?: string;
-  borderColor?: string;
+  label?: string;
+  value: string;
 }

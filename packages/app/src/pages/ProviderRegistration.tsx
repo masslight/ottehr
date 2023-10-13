@@ -37,34 +37,34 @@ export const ProviderRegistration = (): JSX.Element => {
       {/* left side */}
       <Box
         sx={{
-          width: '55%',
           backgroundColor: '#263954',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
           gap: 2,
+          width: '55%',
         }}
       >
         <Box
           sx={{
+            alignItems: 'center',
             display: 'flex',
             justifyContent: 'center',
-            alignItems: 'center',
           }}
         >
           <Box component="img" src={ottEHRRegistrationLogo} />
         </Box>
         <Box>
-          <Typography variant="body1" color="primary.light" sx={{ textAlign: 'center', py: 2 }}>
+          <Typography color="primary.light" variant="body1" sx={{ textAlign: 'center', py: 2 }}>
             Connect with patients virtually
           </Typography>
         </Box>
         <Box
           sx={{
+            alignItems: 'center',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
-            alignItems: 'center',
             py: 10,
           }}
         >
@@ -72,33 +72,33 @@ export const ProviderRegistration = (): JSX.Element => {
             component="img"
             src={ellipse4}
             sx={{
-              width: 464,
               height: 464,
-              position: 'absolute',
               mb: 18,
               mr: 18,
+              position: 'absolute',
+              width: 464,
             }}
           />
           <Box
             component="img"
             src={ellipse5}
             sx={{
-              width: 464,
               height: 464,
-              position: 'absolute',
-              mt: 18,
               ml: 18,
+              mt: 18,
+              width: 464,
+              position: 'absolute',
             }}
           />
           <Box
             sx={{
+              alignItems: 'center',
               display: 'flex',
               justifyContent: 'center',
-              alignItems: 'center',
+              marginLeft: 36,
+              mb: 46,
               overflow: 'hidden',
               position: 'absolute',
-              mb: 46,
-              marginLeft: 36,
               zIndex: '2',
             }}
           >
@@ -108,8 +108,8 @@ export const ProviderRegistration = (): JSX.Element => {
             sx={{
               display: 'flex',
               justifyContent: 'center',
-              overflow: 'hidden',
               mb: 2.5,
+              overflow: 'hidden',
               zIndex: '1',
             }}
           >
@@ -117,14 +117,14 @@ export const ProviderRegistration = (): JSX.Element => {
           </Box>
           <Box
             sx={{
-              display: 'flex',
               alignItems: 'center',
-              borderRadius: 5,
               backgroundColor: 'rgba(255, 255, 255, 0.2)',
-              zIndex: '1',
+              borderRadius: 5,
+              display: 'flex',
               gap: 2.5,
-              py: 1.75,
               px: 9,
+              py: 1.75,
+              zIndex: '1',
             }}
           >
             <VideocamIcon style={{ color: 'white' }} />
@@ -135,13 +135,13 @@ export const ProviderRegistration = (): JSX.Element => {
         </Box>
         <Box
           sx={{
-            display: 'flex',
-            justifyContent: 'center',
             alignItems: 'center',
+            display: 'flex',
             gap: 1,
+            justifyContent: 'center',
           }}
         >
-          <Typography component="span" variant="subtitle2" color="primary.light">
+          <Typography color="primary.light" component="span" variant="subtitle2">
             Powered by
           </Typography>
           <ZapEHRLogo width={100} />
@@ -150,21 +150,21 @@ export const ProviderRegistration = (): JSX.Element => {
       {/* right side */}
       <Box
         sx={{
-          width: '45%',
-          height: '100vh',
           backgroundColor: 'white',
           display: 'flex',
           flexDirection: 'column',
+          height: '100vh',
           justifyContent: 'center',
+          width: '45%',
         }}
       >
-        <Box sx={{ mx: 12.5, my: 10, display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mx: 12.5, my: 10 }}>
           <Typography variant="h4">Welcome to OttEHR</Typography>
-          <Typography variant="h3" color="primary.light" sx={{ pb: 1 }}>
+          <Typography color="primary.light" variant="h3" sx={{ pb: 1 }}>
             Provider registration
           </Typography>
           <form onSubmit={handleSubmit}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'left', gap: 2 }}>
+            <Box sx={{ alignItems: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}>
               <FormControl variant="outlined">
                 <InputLabel>Title</InputLabel>
                 <Select label="Title">
@@ -173,22 +173,22 @@ export const ProviderRegistration = (): JSX.Element => {
                   <MenuItem value="assistant">Assistant</MenuItem>
                 </Select>
               </FormControl>
-              <TextField variant="outlined" label="First Name" />
-              <TextField variant="outlined" label="Last Name" />
+              <TextField label="First Name" variant="outlined" />
+              <TextField label="Last Name" variant="outlined" />
               <TextField
-                variant="outlined"
-                label="Room Name"
-                value={roomName}
-                onChange={(e) => setRoomName(e.target.value)}
                 error={isError}
                 helperText={helperText}
+                label="Room Name"
+                onChange={(e) => setRoomName(e.target.value)}
+                value={roomName}
+                variant="outlined"
               />
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Box sx={{ alignItems: 'center', display: 'flex' }}>
                 <Box sx={{ mr: 1 }}>{isError ? <CancelIcon color="error" /> : <CheckIcon color="success" />}</Box>
                 <Typography variant="body2">{`https://zapehr.app/${roomName}`}</Typography>
               </Box>
-              <TextField variant="outlined" label="Email Address" />
-              <TextField variant="outlined" label="Password" type="password" />
+              <TextField label="Email Address" variant="outlined" />
+              <TextField label="Password" type="password" variant="outlined" />
               <FormControlLabel control={<Checkbox />} label="I am not a patient" />
               {/* TODO too much whitespace here? */}
               <FormControlLabel control={<Checkbox />} label="I accept the terms and conditions" />
@@ -196,9 +196,9 @@ export const ProviderRegistration = (): JSX.Element => {
                 type="submit"
                 variant="contained"
                 sx={{
+                  borderRadius: 1,
                   color: 'white',
                   textTransform: 'uppercase',
-                  borderRadius: 1,
                   py: 1,
                 }}
               >

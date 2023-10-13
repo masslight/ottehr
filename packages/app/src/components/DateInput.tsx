@@ -10,13 +10,13 @@ import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
 
 type DateInputProps = {
-  name: string;
-  label: string;
   helperText?: string;
+  label: string;
+  name: string;
   required?: boolean;
 } & InputProps;
 
-export const DateInput: FC<DateInputProps> = ({ name, label, helperText, required, defaultValue }) => {
+export const DateInput: FC<DateInputProps> = ({ defaultValue, helperText, label, name, required }) => {
   const {
     control,
     formState: { errors },
@@ -27,13 +27,13 @@ export const DateInput: FC<DateInputProps> = ({ name, label, helperText, require
   return (
     <Controller
       control={control}
-      name={name}
       defaultValue={defaultValue || ''}
+      name={name}
       render={({ field: { onChange, value } }) => (
         <FormControl
-          variant="standard"
           error={!!errors[name]}
           required={required}
+          variant="standard"
           sx={{
             width: '100%',
           }}
@@ -43,51 +43,51 @@ export const DateInput: FC<DateInputProps> = ({ name, label, helperText, require
               {label}
             </BoldPrimaryInputLabel>
             <DatePicker
-              value={value}
               disableFuture
-              onChange={onChange}
               inputFormat="MM/dd/yyyy"
+              onChange={onChange}
               renderInput={(params) => (
                 // todo remove code duplication with FormInput
                 <TextField
-                  id={`${name}-label`}
                   {...params}
+                  error={!!errors[name]}
                   fullWidth
+                  id={`${name}-label`}
                   inputProps={{
                     ...params.inputProps,
                     placeholder: t('general.datePlaceholder'),
                   }}
                   required={required}
                   size="small"
-                  error={!!errors[name]}
                   sx={{
-                    mt: 2,
-                    '.MuiFormHelperText-root': {
-                      ml: 1,
-                    },
                     fieldset: {
-                      transition: theme.transitions.create(['border-color', 'background-color', 'box-shadow']),
-                      borderRadius: '8px',
                       borderColor: otherColors.lightGray,
-                    },
-                    ':hover fieldset': {
-                      borderColor: `${otherColors.lightGray} !important`,
+                      borderRadius: '8px',
+                      transition: theme.transitions.create(['border-color', 'background-color', 'box-shadow']),
                     },
                     input: {
-                      padding: '10px 12px',
                       fontSize: 16,
+                      padding: '10px 12px',
                     },
+                    mt: 2,
                     '.Mui-focused fieldset': {
                       border: '1px solid !important',
                       borderColor: `${theme.palette.primary.main} !important`,
                       boxShadow: `${alpha(theme.palette.primary.main, 0.25)} 0 0 0 0.2rem`,
                     },
+                    '.MuiFormHelperText-root': {
+                      ml: 1,
+                    },
+                    ':hover fieldset': {
+                      borderColor: `${otherColors.lightGray} !important`,
+                    },
                   }}
                 />
               )}
+              value={value}
             />
           </LocalizationProvider>
-          <InputHelperText name={name} errors={errors} helperText={helperText} />
+          <InputHelperText errors={errors} helperText={helperText} name={name} />
         </FormControl>
       )}
     />

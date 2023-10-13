@@ -11,7 +11,7 @@ export const CheckIconWithText: FC<CheckIconWithTextProps> = ({ children }) => {
   return (
     <Stack direction="row" spacing={2}>
       <CheckIcon sx={{ color: otherColors.checkIcon }} />
-      <Typography variant="body2" color="secondary.main">
+      <Typography color="secondary.main" variant="body2">
         {children}
       </Typography>
     </Stack>

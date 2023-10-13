@@ -9,9 +9,9 @@ const AppointmentSlotButton = styled(Button)({
 });
 
 interface SelectSlotProps {
+  reschedule?: boolean;
   slots: string[];
   timezone: string;
-  reschedule?: boolean;
 }
 
 export function SelectSlot({ slots, timezone }: SelectSlotProps): JSX.Element {
@@ -29,18 +29,18 @@ export function SelectSlot({ slots, timezone }: SelectSlotProps): JSX.Element {
   }
 
   return (
-    <Grid container spacing={1} justifyContent={'center'} mt={1}>
+    <Grid container justifyContent={'center'} mt={1} spacing={1}>
       {slots.map((slot, idx) => {
         const startDate = DateTime.fromISO(slot);
         const startDateTimezoneAdjusted = startDate.setZone(timezone);
         const isSelected = selectedSlot === slot;
         return (
-          <Grid key={idx} item>
+          <Grid item key={idx}>
             <AppointmentSlotButton
-              sx={{ width: '110px', borderColor: theme.palette.divider, fontWeight: isSelected ? 700 : 400 }}
-              variant={isSelected ? 'contained' : 'outlined'}
               color="secondary"
               onClick={() => updateAppointmentSlot(slot, dispatch)}
+              sx={{ borderColor: theme.palette.divider, fontWeight: isSelected ? 700 : 400, width: '110px' }}
+              variant={isSelected ? 'contained' : 'outlined'}
             >
               {startDateTimezoneAdjusted.toFormat('h:mm a')}
             </AppointmentSlotButton>

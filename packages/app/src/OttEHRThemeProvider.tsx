@@ -51,76 +51,76 @@ export const typography: TypographyOptions = {
   fontFamily: textFonts.join(','),
   fontWeightMedium: 600,
   h1: {
+    fontFamily: headerFonts.join(','),
     fontSize: 34,
     fontWeight: '500 !important',
-    fontFamily: headerFonts.join(','),
     lineHeight: '140%',
   },
   h2: {
+    fontFamily: headerFonts.join(','),
     fontSize: 26,
     fontWeight: '500 !important',
-    fontFamily: headerFonts.join(','),
     lineHeight: '140%',
   },
   h3: {
+    fontFamily: headerFonts.join(','),
     fontSize: 20,
     fontWeight: '600 !important',
-    fontFamily: headerFonts.join(','),
     lineHeight: '140%',
   },
   h4: {
+    fontFamily: headerFonts.join(','),
     fontSize: 34,
     fontWeight: '500 !important',
-    fontFamily: headerFonts.join(','),
     lineHeight: '140%',
   },
   h5: {
+    fontFamily: headerFonts.join(','),
     fontSize: 24,
     fontWeight: '500 !important',
-    fontFamily: headerFonts.join(','),
     lineHeight: '140%',
   },
   h6: {
+    fontFamily: headerFonts.join(','),
     fontSize: 16,
     fontWeight: '500 !important',
-    fontFamily: headerFonts.join(','),
     lineHeight: '140%',
   },
   subtitle1: {
+    fontFamily: textFonts.join(','),
     fontSize: 16,
     fontWeight: 700,
-    fontFamily: textFonts.join(','),
     lineHeight: '140%',
   },
   subtitle2: {
+    fontFamily: textFonts.join(','),
     fontSize: 14,
     fontWeight: 600,
-    fontFamily: textFonts.join(','),
     lineHeight: '140%',
   },
   body1: {
+    fontFamily: textFonts.join(','),
     fontSize: 16,
     fontWeight: 400,
-    fontFamily: textFonts.join(','),
     lineHeight: '140%',
   },
   body2: {
+    fontFamily: textFonts.join(','),
     fontSize: 14,
     fontWeight: 400,
-    fontFamily: textFonts.join(','),
     lineHeight: '140%',
   },
   button: {},
   caption: {
+    fontFamily: textFonts.join(','),
     fontSize: 14,
     fontWeight: 400,
-    fontFamily: textFonts.join(','),
     lineHeight: '140%',
   },
   overline: {
+    fontFamily: textFonts.join(','),
     fontSize: 16,
     fontWeight: 700,
-    fontFamily: textFonts.join(','),
     lineHeight: '140%',
   },
 };
@@ -137,19 +137,19 @@ declare module '@mui/material/styles' {
 const { palette: p } = createTheme(); // TODO: once https://github.com/mui/material-ui/issues/17410 is resolved, export directly from mui
 export const palette = {
   text: {
+    disabled: '#C3C9D2',
+    light: '#323F53DE',
     primary: '#212130',
     secondary: '#4F4F4F',
-    light: '#323F53DE',
-    disabled: '#C3C9D2',
   },
   primary: {
-    main: '#2896C6',
     contrast: '#FFFFFF',
     light: '#4AC0F2',
+    main: '#2896C6',
   },
   secondary: {
-    main: '#301367',
     contrast: '#FFFFFF',
+    main: '#301367',
   },
   tertiary: p.augmentColor({ color: { main: '#ECE4FB' } }),
   step: {
@@ -169,11 +169,11 @@ export const palette = {
   },
   action: {
     active: 'rgba(0, 0, 0, 0.54)',
-    hover: 'rgba(0, 0, 0, 0.04)',
-    selected: 'rgba(0, 0, 0, 0.08)',
     disabled: 'rgba(0, 0, 0, 0.26)',
     disabledBackground: 'rgba(0, 0, 0, 0.12)',
     focus: 'rgba(0, 0, 0, 0.12)',
+    hover: 'rgba(0, 0, 0, 0.04)',
+    selected: 'rgba(0, 0, 0, 0.08)',
   },
   background: {
     default: '#FFFFFF',
@@ -186,11 +186,11 @@ export const components: Components = {
   MuiButton: {
     styleOverrides: {
       root: {
+        fontFamily: textFonts.join(','),
         fontSize: 14,
         fontWeight: 600,
-        fontFamily: textFonts.join(','),
-        textTransform: 'uppercase',
         lineHeight: '140%',
+        textTransform: 'uppercase',
         '&:not($sizeLarge):not($sizeSmall) $label': {
           fontSize: 16,
         },
@@ -212,11 +212,11 @@ export const components: Components = {
       root: {
         '&.MuiPickersDay-root': {
           fontSize: 16,
-          '&.MuiPickersDay-today': {
-            borderColor: palette.secondary.main,
-          },
           '&.Mui-selected': {
             backgroundColor: palette.secondary.main,
+          },
+          '&.MuiPickersDay-today': {
+            borderColor: palette.secondary.main,
           },
         },
       },
@@ -263,8 +263,8 @@ export const components: Components = {
   MuiTab: {
     styleOverrides: {
       root: {
-        textTransform: 'capitalize',
         fontSize: 16,
+        textTransform: 'capitalize',
       },
     },
   },
@@ -280,8 +280,8 @@ export const components: Components = {
     styleOverrides: {
       root: {
         '&.MuiDayPicker-weekDayLabel': {
-          fontSize: 16,
           color: otherColors.scheduleBorder,
+          fontSize: 16,
         },
         '&.PrivatePickersMonth-root:disabled': {
           color: palette.text.disabled,
@@ -297,10 +297,10 @@ interface OttEHRThemeProviderProps {
 
 export const OttEHRThemeProvider: FC<OttEHRThemeProviderProps> = ({ children }) => {
   const theme = createTheme({
-    palette: palette,
+    breakpoints: breakpoints,
     components: components,
     direction: 'ltr',
-    breakpoints: breakpoints,
+    palette: palette,
     typography: typography,
   });
 

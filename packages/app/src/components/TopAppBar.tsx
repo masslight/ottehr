@@ -47,18 +47,18 @@ export const TopAppBar: FC = () => {
     <AppBar position="static" sx={{ backgroundColor: otherColors.footerBackground }}>
       <Container maxWidth={false}>
         <Toolbar disableGutters variant="dense">
-          <Box component="img" src={dashboardLogo} mr={5} />
-          <Box sx={{ flexGrow: 1, display: { xs: 'flex' } }}>
+          <Box component="img" mr={5} src={dashboardLogo} />
+          <Box sx={{ display: { xs: 'flex' }, flexGrow: 1 }}>
             {pages.map((page) => (
               <Button
-                key={page}
                 component={NavLink}
+                key={page}
                 to={`/${page.toLowerCase()}`}
                 sx={{
-                  my: 2,
                   // TODO move all colors to OttEHRThemeProvider
                   color: isActive(`/${page.toLowerCase()}`) ? 'primary.light' : 'rgba(255, 255, 255, 0.7)',
                   display: 'block',
+                  my: 2,
                   textDecoration: 'none',
                   '&.active': { color: 'primary.light' },
                 }}
@@ -74,20 +74,20 @@ export const TopAppBar: FC = () => {
               </IconButton>
             </Tooltip>
             <Menu
-              sx={{ mt: '45px' }}
-              id="menu-appbar"
               anchorEl={anchorElUser}
               anchorOrigin={{
-                vertical: 'top',
                 horizontal: 'right',
+                vertical: 'top',
               }}
+              id="menu-appbar"
               keepMounted
-              transformOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
-              }}
-              open={Boolean(anchorElUser)}
               onClose={handleCloseUserMenu}
+              open={Boolean(anchorElUser)}
+              transformOrigin={{
+                horizontal: 'right',
+                vertical: 'top',
+              }}
+              sx={{ mt: '45px' }}
             >
               <MenuItem disabled>
                 <Box sx={{ display: 'flex', flexDirection: 'column' }}>
@@ -98,10 +98,10 @@ export const TopAppBar: FC = () => {
               <Divider />
               {settings.map((setting, index) => (
                 <Fragment key={setting.name}>
-                  <MenuItem onClick={handleCloseUserMenu} component={Link} to={setting.route}>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      {setting.name === 'Profile' && <AccountCircleIcon sx={{ mr: 4, color: 'text.light' }} />}
-                      <Typography variant="body2" color="text.light">
+                  <MenuItem component={Link} onClick={handleCloseUserMenu} to={setting.route}>
+                    <Box sx={{ alignItems: 'center', display: 'flex' }}>
+                      {setting.name === 'Profile' && <AccountCircleIcon sx={{ color: 'text.light', mr: 4 }} />}
+                      <Typography color="text.light" variant="body2">
                         {setting.name}
                       </Typography>
                     </Box>

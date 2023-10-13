@@ -7,9 +7,9 @@ export function ScrollToTop(): null {
 
   useEffect(() => {
     document.documentElement.scrollTo({
-      top: 0,
-      left: 0,
       behavior: 'smooth',
+      left: 0,
+      top: 0,
     });
   }, [pathname]);
 

@@ -4,12 +4,12 @@ import { FC } from 'react';
 import { FieldErrors } from 'react-hook-form';
 
 type InputHelperTextProps = {
-  name: string;
   errors: FieldErrors;
   helperText?: string;
+  name: string;
 };
 
-export const InputHelperText: FC<InputHelperTextProps> = ({ name, errors, helperText }) => {
+export const InputHelperText: FC<InputHelperTextProps> = ({ errors, helperText, name }) => {
   return (
     <Box>
       <FormHelperText id={`${name}-helper-text`} sx={{ gap: 0, mt: 1 }}>
@@ -17,10 +17,8 @@ export const InputHelperText: FC<InputHelperTextProps> = ({ name, errors, helper
       </FormHelperText>
       {helperText && (
         <Box display="flex">
-          <InfoOutlinedIcon
-            sx={{ fontSize: '18px', color: 'info.main', verticalAlign: 'bottom', paddingRight: '4px' }}
-          />
-          <Typography variant="caption" color="text.primary">
+          <InfoOutlinedIcon sx={{ color: 'info.main', fontSize: '18px', pr: '4px', verticalAlign: 'bottom' }} />
+          <Typography color="text.primary" variant="caption">
             {helperText}
           </Typography>
         </Box>

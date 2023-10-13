@@ -2,19 +2,19 @@ import { forwardRef } from 'react';
 import { IMaskInput } from 'react-imask';
 
 interface InputMaskProps {
-  onChange: (event: { target: { name: string; value: string } }) => void;
-  name: string;
-  mask: string;
   blocks: any;
+  mask: string;
+  name: string;
+  onChange: (event: { target: { name: string; value: string } }) => void;
 }
 
-export const InputMask = forwardRef<HTMLElement, InputMaskProps>(({ onChange, name, mask, blocks, ...other }, ref) => {
+export const InputMask = forwardRef<HTMLElement, InputMaskProps>(({ blocks, mask, name, onChange, ...other }, ref) => {
   return (
     <IMaskInput
       {...other}
-      mask={mask}
-      inputRef={ref as any}
       blocks={blocks}
+      inputRef={ref as any}
+      mask={mask}
       onAccept={(value: any) => onChange({ target: { name: name, value } })}
       overwrite
     />

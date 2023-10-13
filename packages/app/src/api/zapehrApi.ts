@@ -1,5 +1,5 @@
-import { apiErrorToThrow } from './apiErrorToThrow';
 import { ZambdaClient } from '@zapehr/sdk';
+import { apiErrorToThrow } from './apiErrorToThrow';
 
 export interface ZapehrSearchParameter {
   key: string;
@@ -7,8 +7,8 @@ export interface ZapehrSearchParameter {
 }
 
 const CHECK_IN_ZAMBDA_ID = import.meta.env.VITE_CHECK_IN_ZAMBDA_ID;
-const GET_PATIENTS_ZAMBDA_ID = import.meta.env.VITE_GET_PATIENTS_ZAMBDA_ID;
 const GET_APPOINTMENTS_ZAMBDA_ID = import.meta.env.VITE_GET_APPOINTMENTS_ZAMBDA_ID;
+const GET_PATIENTS_ZAMBDA_ID = import.meta.env.VITE_GET_PATIENTS_ZAMBDA_ID;
 
 class API {
   async checkIn(zambdaClient: ZambdaClient, appointmentId: string): Promise<any> {

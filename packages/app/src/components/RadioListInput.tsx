@@ -6,26 +6,26 @@ import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
 
 type RadioListInputProps = {
-  name: string;
-  label: string;
-  options: RadioOption[];
-  required?: boolean;
-  helperText?: string;
   borderColor?: string;
   centerImages?: boolean;
+  helperText?: string;
+  label: string;
+  name: string;
   onChange: (event: SyntheticEvent) => void;
+  options: RadioOption[];
   radioStyling?: SxProps;
+  required?: boolean;
 } & RadioGroupProps;
 
 export const RadioListInput: FC<RadioListInputProps> = ({
-  name,
-  label,
-  value,
   defaultValue,
-  required,
-  options,
   helperText,
+  label,
+  name,
   onChange,
+  options,
+  required,
+  value,
 }) => {
   const {
     control,
@@ -36,12 +36,12 @@ export const RadioListInput: FC<RadioListInputProps> = ({
 
   return (
     <Controller
-      name={name}
       control={control}
       defaultValue={defaultValue}
+      name={name}
       render={({ field }) => {
         return (
-          <FormControl required={required} error={!!errors[name]} sx={{ width: '100%', mt: 3.5 }}>
+          <FormControl error={!!errors[name]} required={required} sx={{ width: '100%', mt: 3.5 }}>
             {/* Had to add a margin here and on FormControl because none of the variants worked properly */}
             {/* Same for padding. I want to emphasize how much I hate this. */}
             <BoldPrimaryInputLabel htmlFor={`${name}-label`} shrink sx={{ mt: -2.25 }}>
@@ -51,19 +51,19 @@ export const RadioListInput: FC<RadioListInputProps> = ({
               {options.map((option) => {
                 return (
                   <FormControlLabel
-                    value={option.value}
                     control={<Radio />}
-                    key={option.value}
                     label={option.label}
+                    key={option.value}
                     onChange={onChange}
+                    value={option.value}
                     sx={{
-                      marginRight: 5,
+                      mr: 5,
                     }}
                   />
                 );
               })}
             </RadioGroup>
-            {!value && <InputHelperText name={name} errors={errors} helperText={helperText} />}
+            {!value && <InputHelperText errors={errors} helperText={helperText} name={name} />}
           </FormControl>
         );
       }}
