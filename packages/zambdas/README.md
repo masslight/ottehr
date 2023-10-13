@@ -1,6 +1,6 @@
 # Zambdas
 
-Backend endpoints for the zapehr telemedicine application. These endpoints are responsible for everything from fetching appointment slots for the patient to select from, to booking the appointment, and syncing data from our zapEHR project to eClinicalWorks.
+Backend endpoints for the ottEHR application. These endpoints are responsible for everything from fetching appointment slots for the patient to select from, to booking the appointment, and syncing data from our zapEHR project to eClinicalWorks.
 
 ## Setup
 

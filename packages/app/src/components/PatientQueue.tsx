@@ -1,17 +1,16 @@
-import { FC } from 'react';
 import { Box, Button, Grid, Typography } from '@mui/material';
-import defaultPatient from '../assets/icons/defaultPatient.svg';
-import { getQueuedTimeFromTimestamp } from '../helpers';
-import React, { useState, useEffect } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ottEHRDefaultPatient } from '../assets/icons';
+import { getQueuedTimeFromTimestamp } from '../helpers';
 
 export interface PatientQueueProps {
+  link: string;
   name: string;
   queuedTime: string;
-  link: string;
 }
 
-const PatientQueue: FC<PatientQueueProps> = ({ name, queuedTime, link }) => {
+export const PatientQueue: FC<PatientQueueProps> = ({ link, name, queuedTime }) => {
   const { t } = useTranslation();
 
   const [relativeQueuedTime, setRelativeQueuedTime] = useState(getQueuedTimeFromTimestamp(queuedTime));
@@ -29,20 +28,20 @@ const PatientQueue: FC<PatientQueueProps> = ({ name, queuedTime, link }) => {
 
   return (
     <Box sx={{ m: 0, py: 1 }}>
-      <Grid container alignItems="center" spacing={{ xs: 0 }}>
-        <Grid item xs={8} display="flex" alignItems="center" textAlign={{ xs: 'start' }}>
-          <img src={defaultPatient} height="42px" />
+      <Grid alignItems="center" container spacing={{ xs: 0 }}>
+        <Grid alignItems="center" display="flex" item textAlign={{ xs: 'start' }} xs={8}>
+          <img height="42px" src={ottEHRDefaultPatient} />
           <Box pl={2}>
-            <Typography variant="body1" color="primary.contrast">
+            <Typography color="primary.contrast" variant="body1">
               {name}
             </Typography>
-            <Typography variant="body2" color="primary.contrast" sx={{ opacity: 0.6 }}>
+            <Typography color="primary.contrast" variant="body2" sx={{ opacity: 0.6 }}>
               {relativeQueuedTime}
             </Typography>
           </Box>
         </Grid>
-        <Grid item xs={4} display="flex" alignItems="center" justifyContent="flex-end">
-          <Button variant="contained" color="primary" href={link}>
+        <Grid alignItems="center" display="flex" item justifyContent="flex-end" xs={4}>
+          <Button color="primary" href={link} variant="contained">
             {t('general.startCall')}
           </Button>
         </Grid>
@@ -50,5 +49,3 @@ const PatientQueue: FC<PatientQueueProps> = ({ name, queuedTime, link }) => {
     </Box>
   );
 };
-
-export default PatientQueue;

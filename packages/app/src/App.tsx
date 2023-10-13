@@ -1,29 +1,38 @@
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { useAuth0 } from '@auth0/auth0-react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { OttEHRThemeProvider } from './OttEHRThemeProvider';
 import { ScrollToTop } from './components';
-import { IntakeThemeProvider } from './IntakeThemeProvider';
-import Version from './pages/Version';
-import ProviderRegistration from './pages/ProviderRegistration';
-import PatientCheckIn from './pages/PatientCheckin';
-import CheckInPermission from './pages/CheckInPermission';
-import ProviderDashboard from './pages/ProviderDashboard';
-import ProviderSettings from './pages/ProviderSettings';
+import {
+  CheckInPermission,
+  PatientCheckIn,
+  PostCall,
+  ProviderDashboard,
+  ProviderRegistration,
+  ProviderSettings,
+  Version,
+  WaitingRoom,
+} from './pages';
+import { PatientProvider } from './store';
 
-function App(): JSX.Element {
+export default function App(): JSX.Element {
   const { isAuthenticated } = useAuth0();
 
   return (
-    <IntakeThemeProvider>
+    <OttEHRThemeProvider>
       <Router>
         <ScrollToTop />
         {!isAuthenticated ? (
           <Routes>
             <Route path={'/'} element={<Version />} />;
-            <Route path={'/registration'} element={<ProviderRegistration />} />;
-            <Route path={'/checkin-permission'} element={<CheckInPermission />} />;
-            <Route path={'/checkin'} element={<PatientCheckIn />} />;
+            <Route element={<PatientProvider />}>
+              <Route path={'/checkin'} element={<PatientCheckIn />} />;
+              <Route path={'/checkin-permission'} element={<CheckInPermission />} />;
+              <Route path={'/post-call'} element={<PostCall />} />;
+              <Route path={'/registration'} element={<ProviderRegistration />} />;
+              <Route path={'/waiting-room'} element={<WaitingRoom />} />;
+            </Route>
             <Route path={'/dashboard'} element={<ProviderDashboard />} />;
-            <Route path={'/ProviderProfile'} element={<ProviderSettings />} />;
+            <Route path={'/provider-profile'} element={<ProviderSettings />} />;
           </Routes>
         ) : (
           <Routes>
@@ -31,8 +40,6 @@ function App(): JSX.Element {
           </Routes>
         )}
       </Router>
-    </IntakeThemeProvider>
+    </OttEHRThemeProvider>
   );
 }
-
-export default App;

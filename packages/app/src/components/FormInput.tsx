@@ -1,21 +1,29 @@
-import { FC } from 'react';
-import { Controller, useFormContext } from 'react-hook-form';
 import { FormControl, Input, InputProps } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
-import { otherColors } from '../IntakeThemeProvider';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
+import { FC } from 'react';
+import { Controller, useFormContext } from 'react-hook-form';
+import { otherColors } from '../OttEHRThemeProvider';
+import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
-import InputMask from './InputMask';
+import { InputMask } from './InputMask';
 
 type FormInputProps = {
-  name: string;
-  label: string;
   format?: string;
   helperText?: string;
+  label: string;
   mask?: string;
+  name: string;
 } & InputProps;
 
-const FormInput: FC<FormInputProps> = ({ name, label, format, defaultValue, helperText, mask, ...otherProps }) => {
+export const FormInput: FC<FormInputProps> = ({
+  defaultValue,
+  format,
+  helperText,
+  label,
+  mask,
+  name,
+  ...otherProps
+}) => {
   const {
     control,
     formState: { errors },
@@ -26,14 +34,14 @@ const FormInput: FC<FormInputProps> = ({ name, label, format, defaultValue, help
   const styles = {
     inputStyles: {
       '.MuiInput-input': {
-        borderRadius: '8px',
         border: '1px solid',
         borderColor: otherColors.lightGray,
-        padding: '10px 12px',
+        borderRadius: '8px',
+        p: '10px 12px',
         transition: theme.transitions.create(['border-color', 'background-color', 'box-shadow']),
         '&:focus': {
-          boxShadow: `${alpha(theme.palette.primary.main, 0.25)} 0 0 0 0.2rem`,
           borderColor: theme.palette.primary.main,
+          boxShadow: `${alpha(theme.palette.primary.main, 0.25)} 0 0 0 0.2rem`,
         },
       },
     },
@@ -51,38 +59,36 @@ const FormInput: FC<FormInputProps> = ({ name, label, format, defaultValue, help
   return (
     <Controller
       control={control}
-      name={name}
       defaultValue={defaultValue}
+      name={name}
       render={({ field: { value, onChange } }) => (
         <FormControl
-          variant="standard"
-          required={otherProps.required}
           error={!!errors[name]}
+          required={otherProps.required}
+          variant="standard"
           sx={{
-            marginTop: format === 'Signature' ? '20px' : 0,
+            mt: format === 'Signature' ? '20px' : 0,
             width: '100%',
           }}
         >
-          <BoldPurpleInputLabel htmlFor={`${name}-label`} shrink>
+          <BoldPrimaryInputLabel htmlFor={`${name}-label`} shrink>
             {label}
-          </BoldPurpleInputLabel>
+          </BoldPrimaryInputLabel>
           <Input
-            id={`${name}-label`}
-            value={value}
+            {...otherProps}
             aria-describedby={`${name}-helper-text`}
+            disableUnderline
+            id={`${name}-label`}
             inputComponent={myInputComponent}
             inputProps={{ mask: mask }}
             onChange={(e) => onChange(e.target.value.trimStart())}
-            {...otherProps}
-            disableUnderline
+            value={value}
             // todo remove code duplication with DateInput
             sx={format === 'Signature' ? { ...styles.inputStyles, ...styles.signatureStyles } : styles.inputStyles}
           />
-          <InputHelperText name={name} errors={errors} helperText={helperText} />
+          <InputHelperText errors={errors} helperText={helperText} name={name} />
         </FormControl>
       )}
     />
   );
 };
-
-export default FormInput;

@@ -1,20 +1,20 @@
-import { ChangeEvent, FC, ReactNode } from 'react';
 import { Box, Button, useTheme } from '@mui/material';
+import { ChangeEvent, FC, ReactNode } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { otherColors } from '../IntakeThemeProvider';
+import { otherColors } from '../OttEHRThemeProvider';
 
 interface UploadComponentProps {
-  name: string;
   defaultValue?: string;
-  uploadDescription: ReactNode;
   handleFileUpload: (event: ChangeEvent<HTMLInputElement>) => string | null;
+  name: string;
+  uploadDescription: ReactNode;
 }
 
-const UploadComponent: FC<UploadComponentProps> = ({
-  name,
+export const UploadComponent: FC<UploadComponentProps> = ({
   defaultValue,
-  uploadDescription,
   handleFileUpload,
+  name,
+  uploadDescription,
 }): JSX.Element => {
   const theme = useTheme();
   const { control } = useFormContext();
@@ -22,37 +22,37 @@ const UploadComponent: FC<UploadComponentProps> = ({
   return (
     <Box
       sx={{
-        height: 260,
+        alignItems: 'center',
+        background: otherColors.cardBackground,
         border: `1px dashed ${theme.palette.primary.main}`,
         borderRadius: 2,
-        display: 'flex',
-        background: otherColors.cardBackground,
         flexDirection: 'column',
-        alignItems: 'center',
-        textAlign: 'center',
-        justifyContent: 'center',
+        display: 'flex',
         gap: 1,
-        px: 4,
+        height: 260,
+        justifyContent: 'center',
         mb: 2,
+        px: 4,
+        textAlign: 'center',
       }}
     >
       {uploadDescription}
-      <Button component="label" variant="contained" sx={{ textTransform: 'none', mt: 2 }}>
+      <Button component="label" variant="contained" sx={{ mt: 2, textTransform: 'none' }}>
         Upload
         <Controller
-          name={name}
           control={control}
           defaultValue={defaultValue}
-          render={({ field: { value, onChange, ...field } }) => {
+          name={name}
+          render={({ field: { onChange, value, ...field } }) => {
             return (
               <input
                 {...field}
-                value={value?.filename}
-                type="file"
                 accept="image/png, image/jpeg, image/jpg"
-                hidden
                 disabled={false}
+                hidden
                 onChange={(e) => onChange(handleFileUpload(e))}
+                type="file"
+                value={value?.filename}
               />
             );
           }}
@@ -61,5 +61,3 @@ const UploadComponent: FC<UploadComponentProps> = ({
     </Box>
   );
 };
-
-export default UploadComponent;

@@ -1,73 +1,72 @@
+import { FormControl, FormControlLabel, Radio, RadioGroup, RadioGroupProps, SxProps } from '@mui/material';
 import { FC, SyntheticEvent } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { FormControl, FormControlLabel, Radio, RadioGroup, RadioGroupProps, SxProps } from '@mui/material';
 import { RadioOption } from '../types';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
+import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
 
-type RadioInputProps = {
-  name: string;
-  label: string;
-  options: RadioOption[];
-  required?: boolean;
-  helperText?: string;
+type RadioListInputProps = {
   borderColor?: string;
   centerImages?: boolean;
+  helperText?: string;
+  label: string;
+  name: string;
   onChange: (event: SyntheticEvent) => void;
+  options: RadioOption[];
   radioStyling?: SxProps;
+  required?: boolean;
 } & RadioGroupProps;
-const RadioInput: FC<RadioInputProps> = ({
-  name,
-  label,
-  value,
+
+export const RadioListInput: FC<RadioListInputProps> = ({
   defaultValue,
-  required,
-  options,
   helperText,
+  label,
+  name,
   onChange,
+  options,
+  required,
+  value,
 }) => {
   const {
     control,
     formState: { errors },
   } = useFormContext();
 
-  //   const theme = useTheme();
+  // const theme = useTheme();
 
   return (
     <Controller
-      name={name}
       control={control}
       defaultValue={defaultValue}
+      name={name}
       render={({ field }) => {
         return (
-          <FormControl required={required} error={!!errors[name]} sx={{ width: '100%', mt: 3.5 }}>
+          <FormControl error={!!errors[name]} required={required} sx={{ width: '100%', mt: 3.5 }}>
             {/* Had to add a margin here and on FormControl because none of the variants worked properly */}
             {/* Same for padding. I want to emphasize how much I hate this. */}
-            <BoldPurpleInputLabel htmlFor={`${name}-label`} shrink sx={{ mt: -2.25 }}>
+            <BoldPrimaryInputLabel htmlFor={`${name}-label`} shrink sx={{ mt: -2.25 }}>
               {label}
-            </BoldPurpleInputLabel>
+            </BoldPrimaryInputLabel>
             <RadioGroup row value={field.value || 'unknown'}>
               {options.map((option) => {
                 return (
                   <FormControlLabel
-                    value={option.value}
                     control={<Radio />}
-                    key={option.value}
                     label={option.label}
+                    key={option.value}
                     onChange={onChange}
+                    value={option.value}
                     sx={{
-                      marginRight: 5,
+                      mr: 5,
                     }}
                   />
                 );
               })}
             </RadioGroup>
-            {!value && <InputHelperText name={name} errors={errors} helperText={helperText} />}
+            {!value && <InputHelperText errors={errors} helperText={helperText} name={name} />}
           </FormControl>
         );
       }}
     />
   );
 };
-
-export default RadioInput;

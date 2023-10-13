@@ -1,6 +1,3 @@
-import { FC, SyntheticEvent } from 'react';
-import { Controller, FieldValues, useFormContext } from 'react-hook-form';
-import { useTranslation } from 'react-i18next';
 import {
   FormControl,
   FormControlLabel,
@@ -13,46 +10,49 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { FC, SyntheticEvent } from 'react';
+import { Controller, FieldValues, useFormContext } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { customRadioButtonCheckedIcon, customRadioButtonUncheckedIcon } from '../assets/icons';
 import { RadioOption } from '../types';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
+import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
 
 type RadioInputProps = {
-  name: string;
-  label: string;
-  options: RadioOption[];
-  required?: boolean;
-  helperText?: string;
+  backgroundSelected?: string;
   borderColor?: string;
   borderSelected?: string;
-  backgroundSelected?: string;
-  getSelected: () => FieldValues;
   centerImages?: boolean;
+  getSelected: () => FieldValues;
+  helperText?: string;
+  label: string;
+  name: string;
   onChange: (event: SyntheticEvent) => void;
+  options: RadioOption[];
   radioStyling?: RadioStyling;
+  required?: boolean;
 } & RadioGroupProps;
 
 export type RadioStyling = {
-  radio?: SxProps;
-  label?: SxProps;
   height?: string;
+  label?: SxProps;
+  radio?: SxProps;
 };
 
-const RadioInput: FC<RadioInputProps> = ({
-  name,
-  label,
-  defaultValue,
-  required,
-  options,
-  helperText,
+export const RadioInput: FC<RadioInputProps> = ({
+  backgroundSelected,
   borderColor = 'primary.contrast',
   borderSelected,
-  backgroundSelected,
-  getSelected,
   centerImages,
+  defaultValue,
+  getSelected,
+  helperText,
+  label,
+  name,
   onChange,
+  options,
   radioStyling,
+  required,
 }) => {
   const {
     control,
@@ -67,33 +67,33 @@ const RadioInput: FC<RadioInputProps> = ({
 
   return (
     <Controller
-      name={name}
       control={control}
       defaultValue={defaultValue}
+      name={name}
       render={({ field }) => {
         return (
-          <FormControl required={required} error={!!errors[name]} sx={{ width: '100%', mt: 3.5 }}>
+          <FormControl error={!!errors[name]} required={required} sx={{ mt: 3.5, width: '100%' }}>
             {/* Had to add a margin here and on FormControl because none of the variants worked properly */}
             {/* Same for padding. I want to emphasize how much I hate this. */}
-            <BoldPurpleInputLabel htmlFor={`${name}-label`} shrink sx={{ mt: -2.25 }}>
+            <BoldPrimaryInputLabel htmlFor={`${name}-label`} shrink sx={{ mt: -2.25 }}>
               {label}
-            </BoldPurpleInputLabel>
+            </BoldPrimaryInputLabel>
             <RadioGroup
-              sx={{
-                '.MuiFormControlLabel-label': {
-                  width: '100%',
-                },
-                gap: 1,
-              }}
               {...field}
               // This is gross but amounts to allowing the value from the form to be over-written with the supplied
               // value prop
               value={field.value || 'unknown'}
+              sx={{
+                gap: 1,
+                '.MuiFormControlLabel-label': {
+                  width: '100%',
+                },
+              }}
             >
               {options.map((option) => {
                 const gridWidths = {
-                  desktop: { labelText: 8.5, space: 0.2, image: 2 },
-                  mobile: { labelText: 12, space: 0, image: 12 },
+                  desktop: { image: 2, labelText: 8.5, space: 0.2 },
+                  mobile: { image: 12, labelText: 12, space: 0 },
                 };
 
                 if (!option.label || !option.description) {
@@ -106,27 +106,26 @@ const RadioInput: FC<RadioInputProps> = ({
 
                 return (
                   <FormControlLabel
-                    value={option.value}
                     control={
                       <Radio
                         icon={
                           <Icon sx={{ display: 'flex', justifyContent: 'center', scale: '75%' }}>
-                            <img src={customRadioButtonUncheckedIcon} alt={t('general.button.unchecked')} />
+                            <img alt={t('general.button.unchecked')} src={customRadioButtonUncheckedIcon} />
                           </Icon>
                         }
                         checkedIcon={
                           <Icon sx={{ display: 'flex', justifyContent: 'center', scale: '75%' }}>
-                            <img src={customRadioButtonCheckedIcon} alt={t('general.button.checked')} />
+                            <img alt={t('general.button.checked')} src={customRadioButtonCheckedIcon} />
                           </Icon>
                         }
                         sx={{
+                          ...radioStyling?.radio,
                           alignSelf: 'start',
                           mt: '8px',
-                          // If screen is smaller than small breakpoint
+                          // If screen is smaller than medium breakpoint
                           [theme.breakpoints.down('md')]: {
                             mt: 0,
                           },
-                          ...radioStyling?.radio,
                         }}
                       />
                     }
@@ -135,18 +134,18 @@ const RadioInput: FC<RadioInputProps> = ({
                       <Grid
                         container
                         sx={{
-                          paddingTop: '5px',
-                          paddingBottom: '5px',
                           alignItems: 'center',
+                          pb: '5px',
+                          pt: '5px',
                           // If screen is smaller than medium breakpoint
                           [theme.breakpoints.down('md')]: {
-                            flexDirection: 'column',
                             alignItems: 'flex-start',
+                            flexDirection: 'column',
                           },
                         }}
                       >
-                        {/* description xs ternary makes it work because point comfort doesn't have
-                        a description, might be nice to change it later */}
+                        {/* description xs ternary makes it work because some options might not have a description,
+                            might be nice to change it later */}
                         <Grid
                           item
                           xs={gridWidths.mobile.labelText}
@@ -155,7 +154,7 @@ const RadioInput: FC<RadioInputProps> = ({
                         >
                           <>
                             {option.label && (
-                              <Typography variant="h5" color="secondary.main" sx={radioStyling?.label}>
+                              <Typography color="secondary.main" variant="h5" sx={radioStyling?.label}>
                                 {option.label}
                               </Typography>
                             )}
@@ -167,7 +166,7 @@ const RadioInput: FC<RadioInputProps> = ({
                                   marginTop: option.label ? '5px' : 0,
                                 }}
                               >
-                                <Typography variant={option.label ? 'caption' : 'body2'} color="secondary.main">
+                                <Typography color="secondary.main" variant={option.label ? 'caption' : 'body2'}>
                                   {option.description}
                                 </Typography>
                               </div>
@@ -188,17 +187,15 @@ const RadioInput: FC<RadioInputProps> = ({
                                 },
                               }}
                             >
-                              <img alt={option.imageAlt} src={option.image} width={option.imageWidth}></img>
+                              <img alt={option.imageAlt} src={option.image} width={option.imageWidth} />
                             </Grid>
                           </>
                         )}
                       </Grid>
                     }
                     onChange={onChange}
+                    value={option.value}
                     sx={{
-                      border: '1px solid',
-                      borderRadius: 2,
-                      borderColor: selected[name] === option.value ? borderSelected : borderColor,
                       backgroundColor: () => {
                         if (selected[name] === option.value) {
                           if (backgroundSelected) {
@@ -210,23 +207,24 @@ const RadioInput: FC<RadioInputProps> = ({
                           return option.color || theme.palette.background.paper;
                         }
                       },
-                      paddingTop: 0,
-                      paddingBottom: 0,
-                      paddingRight: 2,
-                      marginX: 0,
-                      minHeight: 46,
+                      border: '1px solid',
+                      borderColor: selected[name] === option.value ? borderSelected : borderColor,
+                      borderRadius: 2,
                       height: radioStyling?.height,
+                      minHeight: 46,
+                      mx: 0,
+                      pb: 0,
+                      pr: 2,
+                      pt: 0,
                     }}
                   />
                 );
               })}
             </RadioGroup>
-            <InputHelperText name={name} errors={errors} helperText={helperText} />
+            <InputHelperText errors={errors} helperText={helperText} name={name} />
           </FormControl>
         );
       }}
     />
   );
 };
-
-export default RadioInput;

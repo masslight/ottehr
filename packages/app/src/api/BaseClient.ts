@@ -1,20 +1,20 @@
 export interface ClientConfig {
+  readonly accessToken?: string;
   readonly apiUrl?: string;
   readonly projectId?: string;
-  readonly accessToken?: string;
 }
 
 export abstract class BaseClient {
+  readonly accessToken?: string;
   readonly apiUrl: string;
   readonly projectId?: string;
-  readonly accessToken?: string;
 
   constructor(config: ClientConfig) {
     if (!config.apiUrl) {
       throw new Error('apiUrl is required');
     }
+    this.accessToken = config.accessToken;
     this.apiUrl = config.apiUrl;
     this.projectId = config.projectId;
-    this.accessToken = config.accessToken;
   }
 }
