@@ -1,3 +1,4 @@
+import { useAuth0 } from '@auth0/auth0-react';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import {
   AppBar,
@@ -12,24 +13,15 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { FC, Fragment, MouseEvent, useState } from 'react';
+import { FC, MouseEvent, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { otherColors } from '../OttEHRThemeProvider';
 import { dashboardLogo } from '../assets/icons';
 
 const pages = ['Dashboard'];
-const settings = [
-  {
-    name: 'Profile',
-    route: '/ProviderProfile',
-  },
-  {
-    name: 'Log out',
-    route: '/Logout',
-  },
-];
 
 export const TopAppBar: FC = () => {
+  const { logout } = useAuth0();
   const location = useLocation();
   const isActive = (path: string): boolean => location.pathname === path;
 
@@ -96,19 +88,27 @@ export const TopAppBar: FC = () => {
                 </Box>
               </MenuItem>
               <Divider />
-              {settings.map((setting, index) => (
-                <Fragment key={setting.name}>
-                  <MenuItem component={Link} onClick={handleCloseUserMenu} to={setting.route}>
-                    <Box sx={{ alignItems: 'center', display: 'flex' }}>
-                      {setting.name === 'Profile' && <AccountCircleIcon sx={{ color: 'text.light', mr: 4 }} />}
-                      <Typography color="text.light" variant="body2">
-                        {setting.name}
-                      </Typography>
-                    </Box>
-                  </MenuItem>
-                  {index < settings.length - 1 && <Divider />}
-                </Fragment>
-              ))}
+              <MenuItem component={Link} onClick={handleCloseUserMenu} to="/provider-profile">
+                <Box sx={{ alignItems: 'center', justifyContent: 'center', display: 'flex' }}>
+                  <AccountCircleIcon sx={{ color: 'text.light', mr: 4 }} />
+                  <Typography color="text.light" variant="body2">
+                    Profile
+                  </Typography>
+                </Box>
+              </MenuItem>
+              <Divider />
+              <MenuItem
+                onClick={() => {
+                  handleCloseUserMenu();
+                  logout({ returnTo: window.location.origin });
+                }}
+              >
+                <Box sx={{ alignItems: 'center', justifyContent: 'center', display: 'flex' }}>
+                  <Typography color="text.light" variant="body2">
+                    Logout
+                  </Typography>
+                </Box>
+              </MenuItem>
             </Menu>
           </Box>
         </Toolbar>
