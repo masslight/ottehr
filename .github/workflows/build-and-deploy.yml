@@ -67,9 +67,9 @@ jobs:
       - name: Install Vercel CLI
         run: pnpm install --global vercel@latest
       - name: Pull Vercel Environment Information
-        run: cd ${{ env.PACKAGE_LOCATION }} && vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+        run: cd ${{ env.PACKAGE_LOCATION }} && vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }} --scope ottehr
       - name: Build Project Artifacts
-        run: cd ${{ env.PACKAGE_LOCATION }} && vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        run: cd ${{ env.PACKAGE_LOCATION }} && vercel build --token=${{ secrets.VERCEL_TOKEN }} --scope ottehr
 
       - name: Create secrets file from github secrets
         id: create-json
@@ -106,8 +106,8 @@ jobs:
 
       - name: Deploy app
         run: |
-          url="$(cd ${{ env.PACKAGE_LOCATION }} && vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})"
-          cd ${{ env.PACKAGE_LOCATION }} && vercel alias --token=${{ secrets.VERCEL_TOKEN }} set "$url" ${{ github.event.inputs.environment }}.ottehr.com
+          url="$(cd ${{ env.PACKAGE_LOCATION }} && vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})" --scope ottehr
+          cd ${{ env.PACKAGE_LOCATION }} && vercel alias --token=${{ secrets.VERCEL_TOKEN }} --scope ottehr set "$url" ${{ github.event.inputs.environment }}.ottehr.com
       - name: Setup zapehr secrets
         run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm run setup-zapehr-secrets ${{ github.event.inputs.environment }}
       - name: Deploy zambdas
