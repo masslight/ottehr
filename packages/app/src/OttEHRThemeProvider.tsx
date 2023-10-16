@@ -1,4 +1,4 @@
-import { BreakpointsOptions, Components, PaletteColor, ThemeProvider, createTheme } from '@mui/material';
+import { BreakpointsOptions, Components, PaletteColor, ThemeProvider, alpha, createTheme } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { FC, ReactNode } from 'react';
 
@@ -289,6 +289,12 @@ export const components: Components = {
       },
     },
   },
+};
+
+export const focusStyling = {
+  border: '1px solid !important',
+  borderColor: `${palette.primary.main} !important`,
+  boxShadow: `${alpha(palette.primary.main, 0.25)} 0 0 0 0.2rem`,
 };
 
 interface OttEHRThemeProviderProps {

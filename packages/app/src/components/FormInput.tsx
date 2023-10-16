@@ -1,8 +1,8 @@
 import { FormControl, Input, InputProps } from '@mui/material';
-import { alpha, useTheme } from '@mui/material/styles';
+import { useTheme } from '@mui/material/styles';
 import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { otherColors } from '../OttEHRThemeProvider';
+import { focusStyling, otherColors } from '../OttEHRThemeProvider';
 import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
 import { InputMask } from './InputMask';
@@ -39,10 +39,7 @@ export const FormInput: FC<FormInputProps> = ({
         borderRadius: '8px',
         p: '10px 12px',
         transition: theme.transitions.create(['border-color', 'background-color', 'box-shadow']),
-        '&:focus': {
-          borderColor: theme.palette.primary.main,
-          boxShadow: `${alpha(theme.palette.primary.main, 0.25)} 0 0 0 0.2rem`,
-        },
+        '&:focus': focusStyling,
       },
     },
     signatureStyles: {
@@ -83,7 +80,6 @@ export const FormInput: FC<FormInputProps> = ({
             inputProps={{ mask: mask }}
             onChange={(e) => onChange(e.target.value.trimStart())}
             value={value}
-            // todo remove code duplication with DateInput
             sx={format === 'Signature' ? { ...styles.inputStyles, ...styles.signatureStyles } : styles.inputStyles}
           />
           <InputHelperText errors={errors} helperText={helperText} name={name} />
