@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Box, Typography, useTheme } from '@mui/material';
-import Video, { Room, Participant } from 'twilio-video';
+import Video, { Room, Participant, LocalVideoTrack } from 'twilio-video';
 
 // import { videoCallMock } from '../assets/icons';
 import { Footer, ProviderHeaderSection, VideoControls, VideoParticipant } from '../components';
@@ -9,7 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export const WaitingRoom = (): JSX.Element => {
-  const { isVideoOpen, setIsVideoOpen, isMicOpen, setIsMicOpen, room } = usePatient();
+  const { isVideoOpen, setIsVideoOpen, isMicOpen, setIsMicOpen, room, localTracks } = usePatient();
   const theme = useTheme();
 
   const navigate = useNavigate();
@@ -53,6 +53,26 @@ export const WaitingRoom = (): JSX.Element => {
   useEffect(() => {
     console.log('room', room);
   }, [room]);
+
+  const videoRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (videoRef.current && localTracks) {
+      const localVideoTrack = localTracks.find((track) => track.kind === 'video') as LocalVideoTrack;
+      if (localVideoTrack) {
+        const videoElement = localVideoTrack.attach();
+        videoElement.style.width = '100%';
+        videoElement.style.height = '100%';
+        videoRef.current.appendChild(videoElement);
+      }
+    }
+    return () => {
+      // Detach the video track when the component unmounts
+      if (videoRef.current) {
+        videoRef.current.querySelectorAll('video').forEach((v) => v.remove());
+      }
+    };
+  }, [localTracks]);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', justifyContent: 'space-between' }}>
@@ -98,6 +118,7 @@ export const WaitingRoom = (): JSX.Element => {
                 />
               </Box>
               <Box
+                ref={videoRef}
                 sx={{
                   position: 'absolute',
                   top: 0,
@@ -105,11 +126,7 @@ export const WaitingRoom = (): JSX.Element => {
                   width: '100%',
                   height: '100%',
                 }}
-              >
-                {room?.localParticipant ? (
-                  <VideoParticipant key={room.localParticipant.sid} participant={room.localParticipant} />
-                ) : null}
-              </Box>
+              ></Box>
             </Box>
           </Box>
         </Box>

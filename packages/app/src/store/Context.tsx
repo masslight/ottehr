@@ -1,7 +1,7 @@
 import { Dispatch, FC, ReactNode, SetStateAction, createContext, useContext, useReducer, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Action, State } from './types';
-import { Room } from 'twilio-video';
+import { LocalAudioTrack, LocalVideoTrack, Room } from 'twilio-video';
 
 const initialState = {};
 
@@ -21,6 +21,8 @@ type PatientContextProps = {
   setPatientName: Dispatch<SetStateAction<string>>;
   room: Room | null;
   setRoom: Dispatch<SetStateAction<Room | null>>;
+  localTracks: (LocalAudioTrack | LocalVideoTrack)[];
+  setLocalTracks: Dispatch<SetStateAction<(LocalAudioTrack | LocalVideoTrack)[]>>;
 };
 
 export const usePatient = (): PatientContextProps => {
@@ -36,10 +38,22 @@ export const PatientProvider: FC = () => {
   const [isVideoOpen, setIsVideoOpen] = useState(false);
   const [patientName, setPatientName] = useState('');
   const [room, setRoom] = useState<Room | null>(null);
+  const [localTracks, setLocalTracks] = useState<(LocalAudioTrack | LocalVideoTrack)[]>([]);
 
   return (
     <PatientContext.Provider
-      value={{ isMicOpen, isVideoOpen, patientName, setIsMicOpen, setIsVideoOpen, setPatientName, room, setRoom }}
+      value={{
+        isMicOpen,
+        isVideoOpen,
+        patientName,
+        setIsMicOpen,
+        setIsVideoOpen,
+        setPatientName,
+        room,
+        setRoom,
+        localTracks,
+        setLocalTracks,
+      }}
     >
       <Outlet />
     </PatientContext.Provider>

@@ -1,37 +1,56 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-floating-promises */
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import { Button, Box, Typography, useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { Footer, ProviderHeaderSection } from '../components';
 import { usePatient } from '../store';
 import { zapehrApi } from '../api';
-import Video from 'twilio-video';
+import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
 
 export const CheckInPermission = (): JSX.Element => {
-  const { setIsVideoOpen, setIsMicOpen, setRoom } = usePatient();
+  const { setIsVideoOpen, setIsMicOpen, setRoom, setLocalTracks } = usePatient();
   const theme = useTheme();
   const navigate = useNavigate();
 
-  const roomName = 'testRoom111';
+  const roomName = 'testRoom1111';
 
   const toggleCamMic = async (userInput: boolean): Promise<void> => {
-    setIsVideoOpen(userInput);
-    setIsMicOpen(userInput);
     try {
+      setIsVideoOpen(userInput);
+      setIsMicOpen(userInput);
+
       const fetchedToken = await zapehrApi.getTwilioToken(roomName);
       if (fetchedToken === null) {
         console.error('Failed to fetch token');
         return;
       }
+
+      const tracks = await Video.createLocalTracks({
+        audio: true,
+        video: true,
+      });
+
+      const localTracks = tracks.filter((track) => track.kind === 'audio' || track.kind === 'video') as (
+        | LocalAudioTrack
+        | LocalVideoTrack
+      )[];
+
+      // check if need to await
+      setLocalTracks(localTracks);
+
       const connectedRoom = await Video.connect(fetchedToken, {
         name: roomName,
         audio: true,
         video: true,
+        tracks: localTracks,
         logLevel: 'debug',
       });
+
       setRoom(connectedRoom);
       navigate('/waiting-room');
     } catch (error) {
-      console.error('Failed to connect to room:', error);
+      console.error('An error occurred:', error);
     }
   };
 
