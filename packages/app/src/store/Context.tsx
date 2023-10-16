@@ -1,6 +1,7 @@
 import { Dispatch, FC, ReactNode, SetStateAction, createContext, useContext, useReducer, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Action, State } from './types';
+import { Room } from 'twilio-video';
 
 const initialState = {};
 
@@ -18,6 +19,8 @@ type PatientContextProps = {
   setIsMicOpen: Dispatch<SetStateAction<boolean>>;
   setIsVideoOpen: Dispatch<SetStateAction<boolean>>;
   setPatientName: Dispatch<SetStateAction<string>>;
+  room: Room | null;
+  setRoom: Dispatch<SetStateAction<Room | null>>;
 };
 
 export const usePatient = (): PatientContextProps => {
@@ -32,10 +35,11 @@ export const PatientProvider: FC = () => {
   const [isMicOpen, setIsMicOpen] = useState(false);
   const [isVideoOpen, setIsVideoOpen] = useState(false);
   const [patientName, setPatientName] = useState('');
+  const [room, setRoom] = useState<Room | null>(null);
 
   return (
     <PatientContext.Provider
-      value={{ isMicOpen, isVideoOpen, patientName, setIsMicOpen, setIsVideoOpen, setPatientName }}
+      value={{ isMicOpen, isVideoOpen, patientName, setIsMicOpen, setIsVideoOpen, setPatientName, room, setRoom }}
     >
       <Outlet />
     </PatientContext.Provider>

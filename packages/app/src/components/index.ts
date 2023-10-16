@@ -28,3 +28,8 @@ export * from './SelectSlot';
 export * from './TopAppBar';
 export * from './UploadComponent';
 export * from './ZapEHRLogo';
+
+export * from './VideoControls';
+export * from './VideoParticipant';
+export * from './VideoRoom';
+export * from './LoadingSpinner';

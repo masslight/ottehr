@@ -108,6 +108,26 @@ class API {
       throw apiErrorToThrow(error);
     }
   }
+
+  async getTwilioToken(roomName: string): Promise<string | null> {
+    try {
+      // for development, we can use the local express server to generate a token
+      const response = await fetch('http://localhost:5000/join-room', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ roomName }),
+      });
+
+      const { token } = await response.json();
+      return token;
+    } catch (error) {
+      console.error('Error fetching token:', error);
+      return null;
+    }
+  }
 }
 
 export const zapehrApi = new API();

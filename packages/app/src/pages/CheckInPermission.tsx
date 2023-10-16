@@ -3,16 +3,36 @@ import { Button, Box, Typography, useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { Footer, ProviderHeaderSection } from '../components';
 import { usePatient } from '../store';
+import { zapehrApi } from '../api';
+import Video from 'twilio-video';
 
 export const CheckInPermission = (): JSX.Element => {
-  const { setIsVideoOpen, setIsMicOpen } = usePatient();
+  const { setIsVideoOpen, setIsMicOpen, setRoom } = usePatient();
   const theme = useTheme();
   const navigate = useNavigate();
 
-  const toggleCamMic = (userInput: boolean): void => {
+  const roomName = 'testRoom111';
+
+  const toggleCamMic = async (userInput: boolean): Promise<void> => {
     setIsVideoOpen(userInput);
     setIsMicOpen(userInput);
-    navigate('/waiting-room');
+    try {
+      const fetchedToken = await zapehrApi.getTwilioToken(roomName);
+      if (fetchedToken === null) {
+        console.error('Failed to fetch token');
+        return;
+      }
+      const connectedRoom = await Video.connect(fetchedToken, {
+        name: roomName,
+        audio: true,
+        video: true,
+        logLevel: 'debug',
+      });
+      setRoom(connectedRoom);
+      navigate('/waiting-room');
+    } catch (error) {
+      console.error('Failed to connect to room:', error);
+    }
   };
 
   return (

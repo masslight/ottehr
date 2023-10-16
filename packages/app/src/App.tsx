@@ -11,6 +11,7 @@ import {
   ProviderSettings,
   Version,
   WaitingRoom,
+  VideoChatPage,
 } from './pages';
 import { PatientProvider } from './store';
 
@@ -30,6 +31,7 @@ export default function App(): JSX.Element {
               <Route path={'/post-call'} element={<PostCall />} />;
               <Route path={'/registration'} element={<ProviderRegistration />} />;
               <Route path={'/waiting-room'} element={<WaitingRoom />} />;
+              <Route path={'/video-call'} element={<VideoChatPage />} />;
             </Route>
             <Route path={'/dashboard'} element={<ProviderDashboard />} />;
             <Route path={'/provider-profile'} element={<ProviderSettings />} />;
