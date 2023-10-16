@@ -189,9 +189,10 @@ export const ProviderRegistration = (): JSX.Element => {
               </Box>
               <TextField label="Email Address" variant="outlined" />
               <TextField label="Password" type="password" variant="outlined" />
-              <FormControlLabel control={<Checkbox />} label="I am not a patient" />
-              {/* TODO too much whitespace here? */}
-              <FormControlLabel control={<Checkbox />} label="I accept the terms and conditions" />
+              <Box>
+                <FormControlLabel control={<Checkbox />} label="I am not a patient" />
+                <FormControlLabel control={<Checkbox />} label="I accept the terms and conditions" />
+              </Box>
               <Button
                 type="submit"
                 variant="contained"
