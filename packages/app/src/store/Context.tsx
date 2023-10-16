@@ -1,14 +1,14 @@
 import { Dispatch, FC, ReactNode, SetStateAction, createContext, useContext, useReducer, useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import { IntakeAction, IntakeState } from './types';
+import { Action, State } from './types';
 
 const initialState = {};
 
 const PatientContext = createContext<PatientContextProps | undefined>(undefined);
 
-type IntakeDataContextProps = {
-  dispatch: Dispatch<IntakeAction>;
-  state: IntakeState;
+type DataContextProps = {
+  dispatch: Dispatch<Action>;
+  state: State;
 };
 
 type PatientContextProps = {
@@ -42,9 +42,9 @@ export const PatientProvider: FC = () => {
   );
 };
 
-export const IntakeDataContext = createContext<IntakeDataContextProps>({ dispatch: () => null, state: initialState });
+export const DataContext = createContext<DataContextProps>({ dispatch: () => null, state: initialState });
 
-const intakeDataReducer = (state: IntakeState, action: IntakeAction): IntakeState => {
+const DataReducer = (state: State, action: Action): State => {
   switch (action.type) {
     case 'SET_FHIR_CLIENT':
       return { ...state, fhirClient: action.fhirClient };
@@ -93,12 +93,12 @@ const intakeDataReducer = (state: IntakeState, action: IntakeAction): IntakeStat
   }
 };
 
-interface IntakeDataProviderProps {
+interface DataProviderProps {
   children: ReactNode;
 }
 
-export const IntakeDataProvider: FC<IntakeDataProviderProps> = ({ children }) => {
-  const [state, dispatch] = useReducer(intakeDataReducer, initialState);
+export const DataProvider: FC<DataProviderProps> = ({ children }) => {
+  const [state, dispatch] = useReducer(DataReducer, initialState);
 
-  return <IntakeDataContext.Provider value={{ state, dispatch }}>{children}</IntakeDataContext.Provider>;
+  return <DataContext.Provider value={{ state, dispatch }}>{children}</DataContext.Provider>;
 };

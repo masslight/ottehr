@@ -2,7 +2,7 @@ import { Button, Grid, Typography, styled, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
 import { useContext } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IntakeDataContext, updateAppointmentSlot } from '../store';
+import { DataContext, updateAppointmentSlot } from '../store';
 
 const AppointmentSlotButton = styled(Button)({
   borderRadius: '8px',
@@ -15,7 +15,7 @@ interface SelectSlotProps {
 }
 
 export function SelectSlot({ slots, timezone }: SelectSlotProps): JSX.Element {
-  const { state, dispatch } = useContext(IntakeDataContext);
+  const { state, dispatch } = useContext(DataContext);
   const theme = useTheme();
   const { t } = useTranslation();
   const selectedSlot = state.appointmentSlot;
