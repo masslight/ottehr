@@ -80,6 +80,9 @@ jobs:
 
       - name: Move env file into .env folder
         run: mkdir -p ${{ env.ZAMBDAS_LOCATION }}/.env/ && mv secrets.json ${{ env.ZAMBDAS_LOCATION }}/.env/${{ github.event.inputs.environment }}.json
+      
+      - name: Copy env file to local.env to support serverless package command
+        run: cp ${{ env.ZAMBDAS_LOCATION }}/.env/${{ github.event.inputs.environment }}.json ${{ env.ZAMBDAS_LOCATION }}/.env/local.json
 
       - name: Increase version if input dictates.
         if: ${{ github.event.inputs.incrementVersion == 'true' }}

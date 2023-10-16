@@ -21,7 +21,7 @@
     "setup-zapehr-secrets": "ts-node scripts/configure-zapehr-secrets.ts",
     "deploy-zambdas": "pnpm run package && ts-node scripts/deploy-zambdas.ts",
     "build": "tsc && sls package --stage dev",
-    "package": "tsc && sls package --stage dev && pnpm run rebundle",
+    "package": "tsc && sls package && pnpm run rebundle",
     "rebundle": "bash scripts/package-for-release.sh"
   },
   "packageManager": "^pnpm@8.7.6",
