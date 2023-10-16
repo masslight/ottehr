@@ -67,7 +67,6 @@ export const PatientCheckIn = (): JSX.Element => {
             <Typography variant="body1" sx={{ pb: 3 }}>
               Please enter your name to join the call line of Dr. Olivia Smith
             </Typography>
-            {/* TODO Should we use React hook form? */}
             <form onSubmit={handleSubmit}>
               <Box
                 sx={{
