@@ -1,3 +1,5 @@
+export { default as backgroundEllipseDark } from './backgroundEllipseDark.svg';
+export { default as backgroundEllipseLight } from './backgroundEllipseLight.svg';
 export { default as callButtonMobile } from './callButtonMobile.svg';
 export { default as cancel } from './cancel.png';
 export { default as checkCircle } from './checkCircle.png';
@@ -5,8 +7,6 @@ export { default as clipboard } from './clipboard.png';
 export { default as customRadioButtonCheckedIcon } from './customRadioButtonCheckedIcon.svg';
 export { default as customRadioButtonUncheckedIcon } from './customRadioButtonUncheckedIcon.svg';
 export { default as dashboardLogo } from './dashboardLogo.svg';
-export { default as ellipse4 } from './ellipse4.svg';
-export { default as ellipse5 } from './ellipse5.svg';
 export { default as footerLogo } from './footerLogo.svg';
 export { default as inPersonInfo } from './inPersonInfo.svg';
 export { default as insuranceCard } from './insuranceCard.png';

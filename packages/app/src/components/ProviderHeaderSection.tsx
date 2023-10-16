@@ -5,10 +5,10 @@ import { ottEHRDefaultProvider, ottEHRDefaultPatient } from '../assets/icons';
 interface ProviderHeaderSectionProps {
   providerName: string;
   title: string;
-  user: string;
+  isProvider: boolean;
 }
 
-export const ProviderHeaderSection: FC<ProviderHeaderSectionProps> = ({ providerName, title, user }) => {
+export const ProviderHeaderSection: FC<ProviderHeaderSectionProps> = ({ providerName, title, isProvider }) => {
   const theme = useTheme();
   return (
     <Box
@@ -42,7 +42,7 @@ export const ProviderHeaderSection: FC<ProviderHeaderSectionProps> = ({ provider
               },
             }}
           >
-            {user === 'provider' ? (
+            {isProvider ? (
               <img src={ottEHRDefaultProvider} style={{ height: '6.25rem', width: '6.25rem' }} />
             ) : (
               <img src={ottEHRDefaultPatient} style={{ height: '6.25rem', width: '6.25rem' }} />

@@ -27,10 +27,10 @@ export const PostCall = (): JSX.Element => {
       {isProvider ? (
         <Box>
           <TopAppBar />
-          <ProviderHeaderSection providerName={patientName} title="Call with" user="patient" />
+          <ProviderHeaderSection providerName={patientName} title="Call with" isProvider={isProvider} />
         </Box>
       ) : (
-        <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" user="provider" />
+        <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" isProvider={!isProvider} />
       )}
 
       {/* Middle Section */}

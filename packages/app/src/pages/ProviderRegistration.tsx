@@ -18,7 +18,13 @@ import {
   useTheme,
 } from '@mui/material';
 import { useState } from 'react';
-import { ellipse4, ellipse5, ottEHRPatientIcon, ottEHRProviderIcon, ottEHRRegistrationLogo } from '../assets/icons';
+import {
+  backgroundEllipseDark,
+  backgroundEllipseLight,
+  ottEHRPatientIcon,
+  ottEHRProviderIcon,
+  ottEHRRegistrationLogo,
+} from '../assets/icons';
 import { ZapEHRLogo } from '../components';
 
 export const ProviderRegistration = (): JSX.Element => {
@@ -82,7 +88,7 @@ export const ProviderRegistration = (): JSX.Element => {
         >
           <Box
             component="img"
-            src={ellipse4}
+            src={backgroundEllipseDark}
             sx={{
               position: 'absolute',
               mb: 25,
@@ -96,7 +102,7 @@ export const ProviderRegistration = (): JSX.Element => {
           />
           <Box
             component="img"
-            src={ellipse5}
+            src={backgroundEllipseLight}
             sx={{
               position: 'absolute',
               ml: 25,
@@ -155,6 +161,7 @@ export const ProviderRegistration = (): JSX.Element => {
               borderRadius: 5,
               display: 'flex',
               gap: 2.5,
+              py: 1.75,
               px: 9,
               [theme.breakpoints.down('md')]: {
                 display: 'none',
@@ -193,6 +200,7 @@ export const ProviderRegistration = (): JSX.Element => {
             width: '100%',
             height: '100%',
           },
+          width: '45%',
         }}
       >
         <Box sx={{ mx: { xs: 2, md: 12.5 }, my: { xs: 4, md: 10 }, display: 'flex', flexDirection: 'column', gap: 1 }}>
