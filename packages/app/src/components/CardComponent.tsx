@@ -47,7 +47,7 @@ export const CardComponent: FC<CardComponentProps> = ({
           justifyContent: 'start',
           mt: 2,
           px: 0,
-          '&:hover': { backgroundColor: 'transparent' },
+          '&:hover': { backgroundColor: otherColors.transparent },
         }}
       >
         Clear

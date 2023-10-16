@@ -18,6 +18,8 @@ export const breakpoints: BreakpointsOptions = {
 export const otherColors = {
   appointmentInfoBackground: '#8F66EF',
   background: '#5324BE',
+  bannerGradient: 'linear-gradient(89deg, rgba(40, 160, 198, 0.60) 5.05%, rgba(80, 96, 241, 0.17) 50.42%), #263954',
+  biscay: 'rgba(50, 63, 83, 0.87)',
   borderGray: '#D6D8DF',
   borderLightBlue: '#4294F3',
   brown: '#604203',
@@ -28,6 +30,7 @@ export const otherColors = {
   darkBackgroundPaper: '#263954',
   darkGreen: '#0F5A4C',
   darkPurple: '#301367',
+  dashboardGradient: 'linear-gradient(21deg, rgba(40, 150, 198, 0.60) 3.6%, rgba(80, 96, 241, 0.00) 40%), #263954',
   footerBackground: '#202A3E',
   languageIcon: 'rgba(15, 229, 189, 1)',
   lightBlue: '#CFF5FF',
@@ -36,15 +39,18 @@ export const otherColors = {
   lightPurple: '#F5F2FF',
   patientGreen: '#C7FDD3',
   patientSubtitle: '#545454',
+  pattensBlue: '#E5F2F8',
   placeholder: '#A9A9A9',
   popupBackground: 'rgba(97, 97, 97, 0.9)',
   primaryBackground: '#F5F2FF',
   primaryBoxShadow: 'rgba(77, 21, 183, 0.25)',
   purple: '#4D15B7',
   scheduleBorder: '#8F9AA7',
+  shamrock: '#3ECCA2',
   translateIcon: '#0FE5BD',
   transparent: 'rgba(0, 0, 0, 0)',
   wrongPatient: '#8F9AA7',
+  zapEHRBlue: '#1BCDFF',
 };
 
 export const typography: TypographyOptions = {

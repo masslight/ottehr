@@ -88,7 +88,7 @@ export const PatientCheckIn = (): JSX.Element => {
                   variant="contained"
                   sx={{
                     borderRadius: '4px',
-                    color: 'white',
+                    color: theme.palette.background.default,
                     textTransform: 'uppercase',
                     width: '100%',
                   }}

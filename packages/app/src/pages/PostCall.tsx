@@ -65,7 +65,7 @@ export const PostCall = (): JSX.Element => {
                 variant="contained"
                 sx={{
                   borderRadius: '4px',
-                  color: 'white',
+                  color: theme.palette.background.default,
                   px: 2,
                   text: 'primary.contrast',
                   textTransform: 'uppercase',

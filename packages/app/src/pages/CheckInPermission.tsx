@@ -1,6 +1,7 @@
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import { Button, Box, Typography, useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { otherColors } from '../OttEHRThemeProvider';
 import { Footer, ProviderHeaderSection } from '../components';
 import { usePatient } from '../store';
 
@@ -55,7 +56,7 @@ export const CheckInPermission = (): JSX.Element => {
             <Box
               sx={{
                 alignItems: 'center',
-                backgroundColor: 'rgba(50, 63, 83, 0.87)',
+                backgroundColor: otherColors.biscay,
                 borderRadius: 2,
                 display: 'flex',
                 flexDirection: 'column',
@@ -68,7 +69,7 @@ export const CheckInPermission = (): JSX.Element => {
                 },
               }}
             >
-              <VideocamOffIcon sx={{ color: '#FFF' }} />
+              <VideocamOffIcon sx={{ color: theme.palette.background.default }} />
               <Typography
                 color="primary.contrast"
                 variant="body1"
@@ -86,7 +87,7 @@ export const CheckInPermission = (): JSX.Element => {
               variant="contained"
               sx={{
                 borderRadius: '4px',
-                color: 'white',
+                color: theme.palette.background.default,
                 textTransform: 'uppercase',
               }}
             >
@@ -96,7 +97,7 @@ export const CheckInPermission = (): JSX.Element => {
               onClick={() => toggleCamMic(false)}
               variant="text"
               sx={{
-                color: 'primary.light',
+                color: theme.palette.primary.light,
                 cursor: 'pointer',
                 mt: 2,
                 textAlign: 'center',
