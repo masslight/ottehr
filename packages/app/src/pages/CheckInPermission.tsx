@@ -27,7 +27,7 @@ export const CheckInPermission = (): JSX.Element => {
         },
       }}
     >
-      <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" />
+      <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" user="provider" />
       {/* Middle Section */}
       <Box
         sx={{
