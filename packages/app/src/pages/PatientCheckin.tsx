@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Footer, ProviderHeaderSection } from '../components';
 import { usePatient } from '../store';
+import { otherStyling } from '../OttEHRThemeProvider';
 
 export const PatientCheckIn = (): JSX.Element => {
   const { patientName, setPatientName } = usePatient();
@@ -53,11 +54,9 @@ export const PatientCheckIn = (): JSX.Element => {
         >
           <Box
             sx={{
-              px: 12.5,
-              py: 7.5,
+              ...otherStyling.boxPadding,
               [theme.breakpoints.down('md')]: {
-                px: 2,
-                py: 4,
+                ...otherStyling.boxPaddingMobile,
               },
             }}
           >
@@ -87,9 +86,7 @@ export const PatientCheckIn = (): JSX.Element => {
                   type="submit"
                   variant="contained"
                   sx={{
-                    borderRadius: '4px',
-                    color: theme.palette.background.default,
-                    textTransform: 'uppercase',
+                    ...otherStyling.buttonPrimary,
                     width: '100%',
                   }}
                 >

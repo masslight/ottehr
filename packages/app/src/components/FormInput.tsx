@@ -2,7 +2,7 @@ import { FormControl, Input, InputProps } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { focusStyling, otherColors } from '../OttEHRThemeProvider';
+import { otherColors, otherStyling } from '../OttEHRThemeProvider';
 import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
 import { InputMask } from './InputMask';
@@ -39,7 +39,7 @@ export const FormInput: FC<FormInputProps> = ({
         borderRadius: '8px',
         p: '10px 12px',
         transition: theme.transitions.create(['border-color', 'background-color', 'box-shadow']),
-        '&:focus': focusStyling,
+        '&:focus': otherStyling.formFocus,
       },
     },
     signatureStyles: {

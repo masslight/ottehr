@@ -4,7 +4,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import { Box, Typography, useTheme } from '@mui/material';
-import { otherColors } from '../OttEHRThemeProvider';
+import { otherColors, otherStyling } from '../OttEHRThemeProvider';
 import { videoCallMock } from '../assets/icons';
 import { Footer, ProviderHeaderSection } from '../components';
 import { usePatient } from '../store';
@@ -49,11 +49,9 @@ export const WaitingRoom = (): JSX.Element => {
         >
           <Box
             sx={{
-              px: 12.5,
-              py: 7.5,
+              ...otherStyling.boxPadding,
               [theme.breakpoints.down('sm')]: {
-                px: 2,
-                py: 4,
+                ...otherStyling.boxPaddingMobile,
               },
             }}
           >
