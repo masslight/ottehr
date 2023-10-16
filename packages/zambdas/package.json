@@ -19,9 +19,9 @@
     "create-subscription-skeleton": "env-cmd -f ./.env/${ENV}.json ts-node scripts/create-subscription.ts",
     "create-location:placeholder": "env-cmd -f ./.env/local.json ts-node scripts/create-location.ts",
     "setup-zapehr-secrets": "ts-node scripts/configure-zapehr-secrets.ts",
-    "deploy-zambdas": "pnpm run package && ts-node scripts/deploy-zambdas.ts",
+    "deploy-zambdas:dev": "pnpm run package:dev && ts-node scripts/deploy-zambdas.ts",
     "build": "tsc && sls package --stage dev",
-    "package": "tsc && sls package && pnpm run rebundle",
+    "package:dev": "tsc && sls package --stage dev && pnpm run rebundle",
     "rebundle": "bash scripts/package-for-release.sh"
   },
   "packageManager": "^pnpm@8.7.6",
