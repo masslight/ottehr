@@ -33,7 +33,7 @@ export const PatientCheckIn = (): JSX.Element => {
         justifyContent: 'space-between',
       }}
     >
-      <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" />
+      <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" user="provider" />
       {/* Middle Section */}
       <Box
         sx={{
