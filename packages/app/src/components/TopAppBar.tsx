@@ -130,7 +130,6 @@ export const TopAppBar: FC = () => {
               </MenuItem>
             </Menu>
 
-            {/* TO DO menu integration */}
             <Box
               sx={{
                 position: 'fixed',
@@ -162,8 +161,8 @@ export const TopAppBar: FC = () => {
                 <Divider sx={{ color: 'primary.contrast' }} />
                 <MenuItem component={Link} onClick={handleCloseUserMenu} to="/provider-profile">
                   <Box sx={{ alignItems: 'center', justifyContent: 'center', display: 'flex' }}>
-                    <AccountCircleIcon sx={{ color: 'text.light', mr: 4 }} />
-                    <Typography color="text.light" variant="body2">
+                    <AccountCircleIcon sx={{ color: theme.palette.background.default, mr: 4 }} />
+                    <Typography color="theme.palette.background.default" variant="body2">
                       Profile
                     </Typography>
                   </Box>
@@ -176,7 +175,7 @@ export const TopAppBar: FC = () => {
                   }}
                 >
                   <Box sx={{ alignItems: 'center', justifyContent: 'center', display: 'flex' }}>
-                    <Typography color="text.light" variant="body2">
+                    <Typography color="theme.palette.background.defaul" variant="body2">
                       Logout
                     </Typography>
                   </Box>
