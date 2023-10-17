@@ -15,9 +15,11 @@ import {
   Select,
   TextField,
   Typography,
+  alpha,
   useTheme,
 } from '@mui/material';
 import { useState } from 'react';
+import { otherColors } from '../OttEHRThemeProvider';
 import {
   backgroundEllipseDark,
   backgroundEllipseLight,
@@ -28,13 +30,11 @@ import {
 import { ZapEHRLogo } from '../components';
 
 export const ProviderRegistration = (): JSX.Element => {
+  const theme = useTheme();
   const handleSubmit = (event: any): void => {
     event.preventDefault();
     // TODO: form submission structure
   };
-
-  const theme = useTheme();
-
   const [roomName, setRoomName] = useState('');
   const mockData = ['aykhanahmadli', 'samiromarov'];
 
@@ -46,7 +46,7 @@ export const ProviderRegistration = (): JSX.Element => {
       {/* left side */}
       <Box
         sx={{
-          backgroundColor: '#263954',
+          backgroundColor: otherColors.darkBackgroundPaper,
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
@@ -157,7 +157,7 @@ export const ProviderRegistration = (): JSX.Element => {
           <Box
             sx={{
               alignItems: 'center',
-              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              backgroundColor: alpha(theme.palette.background.default, 0.2),
               borderRadius: 5,
               display: 'flex',
               gap: 2.5,
@@ -168,10 +168,10 @@ export const ProviderRegistration = (): JSX.Element => {
               },
             }}
           >
-            <VideocamIcon style={{ color: 'white' }} />
-            <MicIcon style={{ color: 'white' }} />
-            <ChatIcon style={{ color: 'white' }} />
-            <CallEndIcon style={{ color: 'white' }} />
+            <VideocamIcon style={{ color: theme.palette.background.default }} />
+            <MicIcon style={{ color: theme.palette.background.default }} />
+            <ChatIcon style={{ color: theme.palette.background.default }} />
+            <CallEndIcon style={{ color: theme.palette.background.default }} />
           </Box>
         </Box>
         <Box
@@ -191,7 +191,7 @@ export const ProviderRegistration = (): JSX.Element => {
       {/* right side */}
       <Box
         sx={{
-          backgroundColor: 'white',
+          backgroundColor: theme.palette.background.default,
           display: 'flex',
           flexDirection: 'column',
           height: '100vh',
@@ -234,15 +234,16 @@ export const ProviderRegistration = (): JSX.Element => {
               </Box>
               <TextField label="Email Address" variant="outlined" />
               <TextField label="Password" type="password" variant="outlined" />
-              <FormControlLabel control={<Checkbox />} label="I am not a patient" />
-              {/* TODO too much whitespace here? */}
-              <FormControlLabel control={<Checkbox />} label="I accept the terms and conditions" />
+              <Box>
+                <FormControlLabel control={<Checkbox />} label="I am not a patient" />
+                <FormControlLabel control={<Checkbox />} label="I accept the terms and conditions" />
+              </Box>
               <Button
                 type="submit"
                 variant="contained"
                 sx={{
                   borderRadius: 1,
-                  color: 'white',
+                  color: theme.palette.background.default,
                   textTransform: 'uppercase',
                   py: 1,
                 }}

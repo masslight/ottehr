@@ -10,11 +10,13 @@ import {
   Select,
   TextField,
   Typography,
+  useTheme,
 } from '@mui/material';
 import { useState } from 'react';
 import { Footer, ProviderHeaderSection, TopAppBar } from '../components';
 
 export const ProviderSettings = (): JSX.Element => {
+  const theme = useTheme();
   const handleSubmit = (event: any): void => {
     event.preventDefault();
     // TODO: form submission structure
@@ -79,8 +81,8 @@ export const ProviderSettings = (): JSX.Element => {
                   type="submit"
                   variant="contained"
                   sx={{
-                    backgroundColor: 'primary.main',
-                    color: 'white',
+                    backgroundColor: theme.palette.primary.main,
+                    color: theme.palette.background.default,
                     py: 1.5,
                     textTransform: 'uppercase',
                     width: '100%',

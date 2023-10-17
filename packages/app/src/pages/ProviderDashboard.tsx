@@ -3,6 +3,7 @@ import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import { Container, Box, Button, Divider, Typography, useTheme } from '@mui/material';
 import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
+import { otherColors } from '../OttEHRThemeProvider';
 import { ottEHRDefaultProvider } from '../assets/icons';
 import { Footer, PatientQueue, TopAppBar } from '../components';
 
@@ -41,7 +42,7 @@ export const ProviderDashboard = (): JSX.Element => {
       <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: { xs: 'column', md: 'row' } }}>
         <Box
           sx={{
-            width: { xs: '100%', md: '60%' },
+            alignItems: 'center',
             backgroundColor: 'transparent',
             display: 'flex',
             flexDirection: 'column',
@@ -82,7 +83,7 @@ export const ProviderDashboard = (): JSX.Element => {
           </Box>
           <Box
             sx={{
-              backgroundColor: '#e5f2f8',
+              backgroundColor: otherColors.pattensBlue,
               borderRadius: 1,
               boxSizing: 'border-box',
               margin: 3,
@@ -133,7 +134,6 @@ export const ProviderDashboard = (): JSX.Element => {
 
         <Box
           sx={{
-            width: { xs: '100%', md: '40%' },
             background: 'linear-gradient(21deg, rgba(40, 150, 198, 0.60) 3.6%, rgba(80, 96, 241, 0.00) 40%), #263954',
             display: 'flex',
             flexDirection: 'column',

@@ -11,6 +11,7 @@ import {
   Toolbar,
   Tooltip,
   Typography,
+  alpha,
   useTheme,
 } from '@mui/material';
 import { FC, MouseEvent, useState } from 'react';
@@ -23,24 +24,12 @@ import React from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 
 const pages = ['Dashboard'];
-const settings = [
-  {
-    name: 'Profile',
-    route: '/ProviderProfile',
-  },
-  {
-    name: 'Log out',
-    route: '/Logout',
-  },
-];
 
 export const TopAppBar: FC = () => {
   const { logout } = useAuth0();
   const location = useLocation();
-  const isActive = (path: string): boolean => location.pathname === path;
-
   const theme = useTheme();
-
+  const isActive = (path: string): boolean => location.pathname === path;
   const [anchorElUser, setAnchorElUser] = useState<HTMLElement | null>(null);
   const [menuOpen, setMenuOpen] = useState<boolean>(false);
 
@@ -75,12 +64,13 @@ export const TopAppBar: FC = () => {
                 key={page}
                 to={`/${page.toLowerCase()}`}
                 sx={{
-                  // TODO move all colors to OttEHRThemeProvider
-                  color: isActive(`/${page.toLowerCase()}`) ? 'primary.light' : 'rgba(255, 255, 255, 0.7)',
+                  color: isActive(`/${page.toLowerCase()}`)
+                    ? theme.palette.primary.light
+                    : alpha(theme.palette.background.default, 0.7),
                   display: 'block',
                   my: 2,
                   textDecoration: 'none',
-                  '&.active': { color: 'primary.light' },
+                  '&.active': { color: theme.palette.primary.light },
                 }}
               >
                 {page}
@@ -91,7 +81,7 @@ export const TopAppBar: FC = () => {
             <Tooltip title="Open settings">
               <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
                 <AccountCircleIcon sx={{ color: theme.palette.primary.light, display: { xs: 'none', md: 'block' } }} />
-                <MenuIcon sx={{ color: 'white', display: { md: 'none' } }} />
+                <MenuIcon sx={{ color: theme.palette.primary.light, display: { md: 'none' } }} />
               </IconButton>
             </Tooltip>
             <Menu
@@ -170,25 +160,27 @@ export const TopAppBar: FC = () => {
                   </Box>
                 </Button>
                 <Divider sx={{ color: 'primary.contrast' }} />
-                {settings.map((setting, index) => (
-                  <React.Fragment key={setting.name}>
-                    <Button onClick={handleCloseUserMenu} component={Link} to={setting.route}>
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          justifyContent: 'flex-start',
-                          textAlign: 'left',
-                        }}
-                      >
-                        {setting.name === 'Profile' && <AccountCircleIcon sx={{ mr: 4, color: 'white' }} />}
-                        <Typography variant="body2" color="white" sx={{ textAlign: 'left' }}>
-                          {setting.name}
-                        </Typography>
-                      </Box>
-                    </Button>
-                    {index < settings.length - 1 && <Divider />}
-                  </React.Fragment>
-                ))}
+                <MenuItem component={Link} onClick={handleCloseUserMenu} to="/provider-profile">
+                  <Box sx={{ alignItems: 'center', justifyContent: 'center', display: 'flex' }}>
+                    <AccountCircleIcon sx={{ color: 'text.light', mr: 4 }} />
+                    <Typography color="text.light" variant="body2">
+                      Profile
+                    </Typography>
+                  </Box>
+                </MenuItem>
+                <Divider />
+                <MenuItem
+                  onClick={() => {
+                    handleCloseUserMenu();
+                    logout({ returnTo: window.location.origin });
+                  }}
+                >
+                  <Box sx={{ alignItems: 'center', justifyContent: 'center', display: 'flex' }}>
+                    <Typography color="text.light" variant="body2">
+                      Logout
+                    </Typography>
+                  </Box>
+                </MenuItem>
               </Box>
               <Button onClick={handleCloseUserMenu} sx={{ position: 'absolute', top: 0, left: 0 }}>
                 <ArrowForwardIcon sx={{ color: 'white' }} />
