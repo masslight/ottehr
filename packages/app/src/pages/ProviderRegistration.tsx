@@ -15,11 +15,10 @@ import {
   Select,
   TextField,
   Typography,
-  alpha,
   useTheme,
 } from '@mui/material';
 import { useState } from 'react';
-import { otherColors } from '../OttEHRThemeProvider';
+import { useForm, Controller } from 'react-hook-form';
 import {
   backgroundEllipseDark,
   backgroundEllipseLight,
@@ -30,11 +29,21 @@ import {
 import { ZapEHRLogo } from '../components';
 
 export const ProviderRegistration = (): JSX.Element => {
-  const theme = useTheme();
-  const handleSubmit = (event: any): void => {
-    event.preventDefault();
-    // TODO: form submission structure
+  const {
+    handleSubmit,
+    control,
+    // setValue,
+    // watch,
+    formState: { errors },
+  } = useForm();
+
+  const onSubmit: any = (data: any) => {
+    console.log(data);
+    // TODO: form submission logic
   };
+
+  const theme = useTheme();
+
   const [roomName, setRoomName] = useState('');
   const mockData = ['aykhanahmadli', 'samiromarov'];
 
@@ -46,7 +55,7 @@ export const ProviderRegistration = (): JSX.Element => {
       {/* left side */}
       <Box
         sx={{
-          backgroundColor: otherColors.darkBackgroundPaper,
+          backgroundColor: '#263954',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
@@ -157,7 +166,7 @@ export const ProviderRegistration = (): JSX.Element => {
           <Box
             sx={{
               alignItems: 'center',
-              backgroundColor: alpha(theme.palette.background.default, 0.2),
+              backgroundColor: 'rgba(255, 255, 255, 0.2)',
               borderRadius: 5,
               display: 'flex',
               gap: 2.5,
@@ -168,10 +177,10 @@ export const ProviderRegistration = (): JSX.Element => {
               },
             }}
           >
-            <VideocamIcon style={{ color: theme.palette.background.default }} />
-            <MicIcon style={{ color: theme.palette.background.default }} />
-            <ChatIcon style={{ color: theme.palette.background.default }} />
-            <CallEndIcon style={{ color: theme.palette.background.default }} />
+            <VideocamIcon style={{ color: 'white' }} />
+            <MicIcon style={{ color: 'white' }} />
+            <ChatIcon style={{ color: 'white' }} />
+            <CallEndIcon style={{ color: 'white' }} />
           </Box>
         </Box>
         <Box
@@ -191,7 +200,7 @@ export const ProviderRegistration = (): JSX.Element => {
       {/* right side */}
       <Box
         sx={{
-          backgroundColor: theme.palette.background.default,
+          backgroundColor: 'white',
           display: 'flex',
           flexDirection: 'column',
           height: '100vh',
@@ -208,46 +217,108 @@ export const ProviderRegistration = (): JSX.Element => {
           <Typography color="primary.light" variant="h3" sx={{ pb: 1 }}>
             Provider registration
           </Typography>
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit(onSubmit)}>
             <Box sx={{ alignItems: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <FormControl variant="outlined">
-                <InputLabel>Title</InputLabel>
-                <Select label="Title">
-                  <MenuItem value="dr">Dr.</MenuItem>
-                  <MenuItem value="nurse">Nurse</MenuItem>
-                  <MenuItem value="assistant">Assistant</MenuItem>
-                </Select>
-              </FormControl>
-              <TextField label="First Name" variant="outlined" />
-              <TextField label="Last Name" variant="outlined" />
-              <TextField
-                error={isError}
-                helperText={helperText}
-                label="Room Name"
-                onChange={(e) => setRoomName(e.target.value)}
-                value={roomName}
-                variant="outlined"
+              <Controller
+                name="title"
+                control={control}
+                defaultValue=""
+                render={({ field }) => (
+                  <FormControl variant="outlined">
+                    <InputLabel>Title</InputLabel>
+                    <Select label="Title" {...field}>
+                      <MenuItem value="dr">Dr.</MenuItem>
+                      <MenuItem value="nurse">Nurse</MenuItem>
+                      <MenuItem value="assistant">Assistant</MenuItem>
+                    </Select>
+                  </FormControl>
+                )}
               />
-              <Box sx={{ alignItems: 'center', display: 'flex' }}>
-                <Box sx={{ mr: 1 }}>{isError ? <CancelIcon color="error" /> : <CheckIcon color="success" />}</Box>
-                <Typography variant="body2">{`https://zapehr.app/${roomName}`}</Typography>
-              </Box>
-              <TextField label="Email Address" variant="outlined" />
-              <TextField label="Password" type="password" variant="outlined" />
-              <Box>
-                <FormControlLabel control={<Checkbox />} label="I am not a patient" />
-                <FormControlLabel control={<Checkbox />} label="I accept the terms and conditions" />
-              </Box>
-              <Button
-                type="submit"
-                variant="contained"
-                sx={{
-                  borderRadius: 1,
-                  color: theme.palette.background.default,
-                  textTransform: 'uppercase',
-                  py: 1,
-                }}
-              >
+              <Controller
+                name="firstName"
+                control={control}
+                defaultValue=""
+                render={({ field }) => (
+                  <TextField
+                    helperText={errors.firstName ? String(errors.firstName.message) : null}
+                    label="First Name"
+                    variant="outlined"
+                    {...field}
+                  />
+                )}
+              />
+              <Controller
+                name="lastName"
+                control={control}
+                defaultValue=""
+                render={({ field }) => (
+                  <TextField
+                    helperText={errors.lastName ? String(errors.lastName.message) : null}
+                    label="Last Name"
+                    variant="outlined"
+                    {...field}
+                  />
+                )}
+              />
+              <Controller
+                name="roomName"
+                control={control}
+                defaultValue=""
+                render={({ field }) => (
+                  <>
+                    <TextField
+                      label="Room Name"
+                      variant="outlined"
+                      error={isError}
+                      helperText={helperText}
+                      {...field}
+                      onChange={(e) => {
+                        setRoomName(e.target.value);
+                        field.onChange(e);
+                      }}
+                    />
+                    <Box sx={{ alignItems: 'center', display: 'flex' }}>
+                      <Box sx={{ mr: 1 }}>{isError ? <CancelIcon color="error" /> : <CheckIcon color="success" />}</Box>
+                      <Typography variant="body2">{`https://zapehr.app/${field.value}`}</Typography>
+                    </Box>
+                  </>
+                )}
+              />
+              <Controller
+                name="email"
+                control={control}
+                defaultValue=""
+                render={({ field }) => <TextField label="Email Address" variant="outlined" {...field} />}
+              />
+              <Controller
+                name="password"
+                control={control}
+                defaultValue=""
+                render={({ field }) => <TextField label="Password" type="password" variant="outlined" {...field} />}
+              />
+              <Controller
+                name="notPatient"
+                control={control}
+                defaultValue={false}
+                render={({ field }) => (
+                  <FormControlLabel
+                    control={<Checkbox {...field} checked={field.value} />}
+                    label="I am not a patient"
+                  />
+                )}
+              />
+              <Controller
+                name="acceptTerms"
+                control={control}
+                defaultValue={false}
+                render={({ field }) => (
+                  <FormControlLabel
+                    control={<Checkbox {...field} checked={field.value} />}
+                    label="I accept the terms and conditions"
+                  />
+                )}
+              />
+              <Button type="submit" variant="contained">
                 Sign Up
               </Button>
             </Box>
