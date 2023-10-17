@@ -12,6 +12,8 @@ import {
   Toolbar,
   Tooltip,
   Typography,
+  alpha,
+  useTheme,
 } from '@mui/material';
 import { FC, MouseEvent, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
@@ -23,6 +25,7 @@ const pages = ['Dashboard'];
 export const TopAppBar: FC = () => {
   const { logout } = useAuth0();
   const location = useLocation();
+  const theme = useTheme();
   const isActive = (path: string): boolean => location.pathname === path;
 
   const [anchorElUser, setAnchorElUser] = useState<HTMLElement | null>(null);
@@ -47,12 +50,13 @@ export const TopAppBar: FC = () => {
                 key={page}
                 to={`/${page.toLowerCase()}`}
                 sx={{
-                  // TODO move all colors to OttEHRThemeProvider
-                  color: isActive(`/${page.toLowerCase()}`) ? 'primary.light' : 'rgba(255, 255, 255, 0.7)',
+                  color: isActive(`/${page.toLowerCase()}`)
+                    ? theme.palette.primary.light
+                    : alpha(theme.palette.background.default, 0.7),
                   display: 'block',
                   my: 2,
                   textDecoration: 'none',
-                  '&.active': { color: 'primary.light' },
+                  '&.active': { color: theme.palette.primary.light },
                 }}
               >
                 {page}
@@ -62,7 +66,7 @@ export const TopAppBar: FC = () => {
           <Box sx={{ flexGrow: 0 }}>
             <Tooltip title="Open settings">
               <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
-                <AccountCircleIcon sx={{ color: 'primary.light' }} />
+                <AccountCircleIcon sx={{ color: theme.palette.primary.light }} />
               </IconButton>
             </Tooltip>
             <Menu

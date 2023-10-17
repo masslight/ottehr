@@ -1,5 +1,6 @@
 import { Typography, Box, useTheme } from '@mui/material';
 import { FC } from 'react';
+import { otherColors } from '../OttEHRThemeProvider';
 import { ottEHRDefaultProvider } from '../assets/icons';
 
 interface ProviderHeaderSectionProps {
@@ -12,7 +13,7 @@ export const ProviderHeaderSection: FC<ProviderHeaderSectionProps> = ({ provider
   return (
     <Box
       sx={{
-        background: 'linear-gradient(89deg, rgba(40, 160, 198, 0.60) 5.05%, rgba(80, 96, 241, 0.17) 50.42%), #263954',
+        background: otherColors.bannerGradient,
       }}
     >
       <Box
