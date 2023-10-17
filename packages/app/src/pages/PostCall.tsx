@@ -1,6 +1,6 @@
 import { Box, Button, Typography, useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { Footer, ProviderHeaderSection } from '../components';
+import { Footer, ProviderHeaderSection, TopAppBar } from '../components';
 import { otherStyling } from '../OttEHRThemeProvider';
 
 export const PostCall = (): JSX.Element => {
@@ -14,6 +14,7 @@ export const PostCall = (): JSX.Element => {
   // Mock datas to be replaced
   const mockCallDuration = '15:05';
   const isProvider = true;
+  const patientName = 'Jack Nickers';
 
   return (
     <Box
@@ -24,7 +25,15 @@ export const PostCall = (): JSX.Element => {
         justifyContent: 'space-between',
       }}
     >
-      <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" />
+      {isProvider ? (
+        <Box>
+          <TopAppBar />
+          <ProviderHeaderSection providerName={patientName} title="Call with" isProvider={!isProvider} />
+        </Box>
+      ) : (
+        <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" isProvider={isProvider} />
+      )}
+
       {/* Middle Section */}
       <Box
         sx={{

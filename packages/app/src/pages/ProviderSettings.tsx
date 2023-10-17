@@ -40,7 +40,7 @@ export const ProviderSettings = (): JSX.Element => {
       }}
     >
       <TopAppBar />
-      <ProviderHeaderSection providerName="Dr. Olivia Smith" title="My profile" />
+      <ProviderHeaderSection providerName="Dr. Olivia Smith" title="My profile" isProvider={true} />
       <Box
         sx={{
           alignItems: 'center',

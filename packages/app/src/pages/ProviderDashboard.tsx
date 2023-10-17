@@ -1,6 +1,6 @@
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
-import { Container, Box, Button, Divider, Grid, Typography } from '@mui/material';
+import { Container, Box, Button, Divider, Typography, useTheme } from '@mui/material';
 import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import { otherColors } from '../OttEHRThemeProvider';
@@ -9,6 +9,8 @@ import { Footer, PatientQueue, TopAppBar } from '../components';
 
 export const ProviderDashboard = (): JSX.Element => {
   const { t } = useTranslation();
+
+  const theme = useTheme();
 
   const patientsData = [
     {
@@ -37,41 +39,48 @@ export const ProviderDashboard = (): JSX.Element => {
       }}
     >
       <TopAppBar />
-      <Box sx={{ display: 'flex', flexDirection: 'row', flexGrow: 1 }}>
+      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: { xs: 'column', md: 'row' } }}>
         <Box
           sx={{
             alignItems: 'center',
-            backgroundColor: otherColors.transparent,
+            backgroundColor: 'transparent',
             display: 'flex',
             flexDirection: 'column',
             flexGrow: 1,
             justifyContent: 'flex-start',
-            pl: 10,
-            pr: 10,
-            pt: 10,
-            width: '60%',
+            pt: 7.5,
+            px: 7.5,
+            [theme.breakpoints.down('md')]: {
+              px: 2,
+              py: 4,
+              flexGrow: 0,
+            },
           }}
         >
-          <Grid container>
-            <Grid item xs={6}>
-              <Typography color="primary.light" fontWeight={500} variant="h5">
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              width: '100%',
+              flexDirection: { xs: 'column-reverse', md: 'row' },
+              [theme.breakpoints.down('md')]: {
+                gap: 1,
+              },
+            }}
+          >
+            <Box>
+              <Typography variant="h5" color="primary.light" fontWeight={500}>
                 {t('general.goodMorning')}
               </Typography>
 
               <Typography color="text.light" mt={1} variant="h4">
                 Dr. Olivia Smith
               </Typography>
-            </Grid>
-            <Grid
-              item
-              xs={6}
-              sx={{
-                textAlign: 'right',
-              }}
-            >
-              <img alt="Provider Image" src={ottEHRDefaultProvider} width="100px" />
-            </Grid>
-          </Grid>
+            </Box>
+            <Box sx={{ maxWidth: { xs: '50px', md: '100px' } }}>
+              <img src={ottEHRDefaultProvider} alt="Provider Image" width={'100%'} />
+            </Box>
+          </Box>
           <Box
             sx={{
               backgroundColor: otherColors.pattensBlue,
@@ -79,14 +88,18 @@ export const ProviderDashboard = (): JSX.Element => {
               boxSizing: 'border-box',
               margin: 3,
               p: 3,
-              width: '100%',
+              [theme.breakpoints.down('md')]: {
+                my: 2,
+                mx: 0,
+                p: 3,
+              },
             }}
           >
-            <Typography color="text.light" variant="body1">
+            <Typography variant="body1" color="text.light" sx={{ overflowWrap: 'break-word' }}>
               {t('general.shareLink')}
             </Typography>
 
-            <Typography color="text.light" fontFamily="work Sans" variant="h5">
+            <Typography variant="h5" color="text.light" fontFamily="work Sans" sx={{ overflowWrap: 'break-word' }}>
               {roomLink}
             </Typography>
 
@@ -121,15 +134,17 @@ export const ProviderDashboard = (): JSX.Element => {
 
         <Box
           sx={{
-            background: otherColors.dashboardGradient,
+            background: 'linear-gradient(21deg, rgba(40, 150, 198, 0.60) 3.6%, rgba(80, 96, 241, 0.00) 40%), #263954',
             display: 'flex',
             flexDirection: 'column',
             flexGrow: 1,
             justifyContent: 'flex-start',
-            pl: 10,
-            pr: 10,
-            pt: 10,
-            width: '40%',
+            pt: 7.5,
+            px: 7.5,
+            [theme.breakpoints.down('md')]: {
+              px: 2,
+              py: 4,
+            },
           }}
         >
           <Typography color="primary.light" fontWeight={500} variant="h5">

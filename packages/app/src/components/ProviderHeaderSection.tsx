@@ -1,14 +1,15 @@
 import { Typography, Box, useTheme } from '@mui/material';
 import { FC } from 'react';
+import { ottEHRDefaultProvider, ottEHRDefaultPatient } from '../assets/icons';
 import { otherColors } from '../OttEHRThemeProvider';
-import { ottEHRDefaultProvider } from '../assets/icons';
 
 interface ProviderHeaderSectionProps {
   providerName: string;
   title: string;
+  isProvider: boolean;
 }
 
-export const ProviderHeaderSection: FC<ProviderHeaderSectionProps> = ({ providerName, title }) => {
+export const ProviderHeaderSection: FC<ProviderHeaderSectionProps> = ({ providerName, title, isProvider }) => {
   const theme = useTheme();
   return (
     <Box
@@ -42,7 +43,12 @@ export const ProviderHeaderSection: FC<ProviderHeaderSectionProps> = ({ provider
               },
             }}
           >
-            <img src={ottEHRDefaultProvider} style={{ height: '6.25rem', width: '6.25rem' }} />
+            {isProvider ? (
+              <img src={ottEHRDefaultProvider} style={{ height: '6.25rem', width: '6.25rem' }} />
+            ) : (
+              <img src={ottEHRDefaultPatient} style={{ height: '6.25rem', width: '6.25rem' }} />
+            )}
+
             <Box
               sx={{
                 ml: 3,
