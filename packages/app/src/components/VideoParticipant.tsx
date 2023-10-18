@@ -41,6 +41,7 @@ export const VideoParticipant = ({ participant }: ParticipantProps) => {
   // When a new track is added or removed, update the video and audio tracks in the state
   useEffect(() => {
     const trackSubscribed = (track: AudioTrack | VideoTrack) => {
+      console.log(`Track subscribed: ${track.kind}`);
       if (track.kind === 'video') {
         setVideoTracks((videoTracks) => [...videoTracks, track]);
       } else {
@@ -49,6 +50,7 @@ export const VideoParticipant = ({ participant }: ParticipantProps) => {
     };
 
     const trackUnsubscribed = (track: AudioTrack | VideoTrack) => {
+      console.log(`Track unsubscribed: ${track.kind}`);
       if (track.kind === 'video') {
         setVideoTracks((videoTracks) => videoTracks.filter((v) => v !== track));
       } else {
@@ -84,7 +86,7 @@ export const VideoParticipant = ({ participant }: ParticipantProps) => {
   // When unsubscribed, detach it
   useEffect(() => {
     const videoTrack = videoTracks[0];
-    console.log('Current video track:', videoTrack);
+    console.log('Current video tracks:', videoTracks);
 
     if (videoRef.current && videoTrack) {
       videoTrack.attach(videoRef.current);

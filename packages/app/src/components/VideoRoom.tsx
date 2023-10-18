@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Video, { Room, Participant } from 'twilio-video';
 import { Box, CircularProgress } from '@mui/material';
 import { VideoParticipant, VideoControls, LoadingSpinner } from '../components';
+import { usePatient } from '../store';
 
 interface RoomProps {
   room: Room | null;
@@ -13,6 +14,30 @@ interface RoomProps {
 
 export const VideoRoom: React.FC<RoomProps> = ({ room, handleLogout, participants, setParticipants }) => {
   // const [localParticipant, setLocalParticipant] = useState<Participant | null>(null);
+  const localVideoRef = useRef<HTMLDivElement | null>(null);
+  const { localTracks, setLocalTracks } = usePatient();
+
+  useEffect(() => {
+    const currentLocalVideoRef = localVideoRef.current;
+
+    if (currentLocalVideoRef) {
+      // Assuming localTracks contains the participant's LocalVideoTrack
+      const localVideoTrack = localTracks.find((track) => track.kind === 'video');
+
+      if (localVideoTrack) {
+        const videoElement = localVideoTrack.attach();
+        videoElement.style.width = '100%';
+        videoElement.style.height = '100%';
+        currentLocalVideoRef.appendChild(videoElement);
+      }
+    }
+
+    return () => {
+      if (currentLocalVideoRef) {
+        currentLocalVideoRef.querySelectorAll('video').forEach((v) => v.remove());
+      }
+    };
+  }, [localTracks]);
 
   const [isVideoOpen, setIsVideoOpen] = useState(true);
   const [isMicOpen, setIsMicOpen] = useState(true);
@@ -79,6 +104,7 @@ export const VideoRoom: React.FC<RoomProps> = ({ room, handleLogout, participant
         </Box>
         {/* todo: update sx to be more dynamic */}
         <Box
+          ref={localVideoRef}
           sx={{
             position: 'absolute',
             top: 16,
@@ -89,9 +115,9 @@ export const VideoRoom: React.FC<RoomProps> = ({ room, handleLogout, participant
             zIndex: 2,
           }}
         >
-          {room?.localParticipant ? (
+          {/* {room?.localParticipant ? (
             <VideoParticipant key={room.localParticipant.sid} participant={room.localParticipant} />
-          ) : null}
+          ) : null} */}
         </Box>
         <Box
           sx={{
