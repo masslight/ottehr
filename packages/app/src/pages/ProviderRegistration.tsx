@@ -29,27 +29,35 @@ import {
 import { otherColors } from '../OttEHRThemeProvider';
 import { ZapEHRLogo } from '../components';
 
-export const ProviderRegistration = (): JSX.Element => {
+interface FormData {
+  title: string;
+  firstName: string;
+  lastName: string;
+  roomName: string;
+  email: string;
+  password: string;
+  notPatient: boolean;
+  acceptTerms: boolean;
+}
+
+export const ProviderRegistration: React.FC = (): JSX.Element => {
   const {
     handleSubmit,
     control,
-    // setValue,
-    // watch,
     formState: { errors },
-  } = useForm();
+  } = useForm<FormData>();
 
-  const onSubmit: any = (data: any) => {
+  const onSubmit = (data: FormData): void => {
     console.log(data);
     // TODO: form submission logic
   };
 
-  const theme = useTheme();
-
-  const [roomName, setRoomName] = useState('');
+  const [roomName, setRoomName] = useState<string>('');
   const mockData = ['aykhanahmadli', 'samiromarov'];
-
   const isError = mockData.includes(roomName);
   const helperText = isError ? 'This name is already taken, please use another one' : '';
+
+  const theme = useTheme();
 
   return (
     <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' } }}>
@@ -235,6 +243,7 @@ export const ProviderRegistration = (): JSX.Element => {
                   </FormControl>
                 )}
               />
+
               <Controller
                 name="firstName"
                 control={control}
@@ -268,7 +277,6 @@ export const ProviderRegistration = (): JSX.Element => {
                 render={({ field }) => (
                   <>
                     <TextField
-                      {...field}
                       label="Room Name"
                       variant="outlined"
                       error={isError}
