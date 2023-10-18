@@ -249,7 +249,6 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
               <Controller
                 name="title"
                 control={control}
-                defaultValue=""
                 render={({ field }) => (
                   <FormControl variant="outlined">
                     <InputLabel>Title</InputLabel>
