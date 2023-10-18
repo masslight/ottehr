@@ -26,6 +26,7 @@ import {
   ottEHRProviderIcon,
   ottEHRRegistrationLogo,
 } from '../assets/icons';
+import { otherColors } from '../OttEHRThemeProvider';
 import { ZapEHRLogo } from '../components';
 
 export const ProviderRegistration = (): JSX.Element => {
@@ -55,7 +56,7 @@ export const ProviderRegistration = (): JSX.Element => {
       {/* left side */}
       <Box
         sx={{
-          backgroundColor: '#263954',
+          backgroundColor: otherColors.darkBackgroundPaper,
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
@@ -147,7 +148,7 @@ export const ProviderRegistration = (): JSX.Element => {
               justifyContent: 'center',
               overflow: 'hidden',
               zIndex: '1',
-              backgroundColor: '#D9F3FF',
+              backgroundColor: otherColors.providerIconBackground,
               border: '5px solid #fff',
               borderRadius: 5,
               mb: 2,
@@ -166,7 +167,7 @@ export const ProviderRegistration = (): JSX.Element => {
           <Box
             sx={{
               alignItems: 'center',
-              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              backgroundColor: otherColors.callIconsBackground,
               borderRadius: 5,
               display: 'flex',
               gap: 2.5,
@@ -200,7 +201,7 @@ export const ProviderRegistration = (): JSX.Element => {
       {/* right side */}
       <Box
         sx={{
-          backgroundColor: 'white',
+          backgroundColor: 'primary.contrast',
           display: 'flex',
           flexDirection: 'column',
           height: '100vh',
@@ -240,10 +241,10 @@ export const ProviderRegistration = (): JSX.Element => {
                 defaultValue=""
                 render={({ field }) => (
                   <TextField
+                    {...field}
                     helperText={errors.firstName ? String(errors.firstName.message) : null}
                     label="First Name"
                     variant="outlined"
-                    {...field}
                   />
                 )}
               />
@@ -253,10 +254,10 @@ export const ProviderRegistration = (): JSX.Element => {
                 defaultValue=""
                 render={({ field }) => (
                   <TextField
+                    {...field}
                     helperText={errors.lastName ? String(errors.lastName.message) : null}
                     label="Last Name"
                     variant="outlined"
-                    {...field}
                   />
                 )}
               />
@@ -267,11 +268,11 @@ export const ProviderRegistration = (): JSX.Element => {
                 render={({ field }) => (
                   <>
                     <TextField
+                      {...field}
                       label="Room Name"
                       variant="outlined"
                       error={isError}
                       helperText={helperText}
-                      {...field}
                       onChange={(e) => {
                         setRoomName(e.target.value);
                         field.onChange(e);
@@ -288,13 +289,13 @@ export const ProviderRegistration = (): JSX.Element => {
                 name="email"
                 control={control}
                 defaultValue=""
-                render={({ field }) => <TextField label="Email Address" variant="outlined" {...field} />}
+                render={({ field }) => <TextField {...field} label="Email Address" variant="outlined" />}
               />
               <Controller
                 name="password"
                 control={control}
                 defaultValue=""
-                render={({ field }) => <TextField label="Password" type="password" variant="outlined" {...field} />}
+                render={({ field }) => <TextField {...field} label="Password" type="password" variant="outlined" />}
               />
               <Controller
                 name="notPatient"
