@@ -13,7 +13,7 @@ export const CheckInPermission = (): JSX.Element => {
   const theme = useTheme();
   const navigate = useNavigate();
 
-  const roomName = 'testRoom1111';
+  const roomName = 'testRoom';
 
   const toggleCamMic = async (userInput: boolean): Promise<void> => {
     try {
@@ -44,7 +44,7 @@ export const CheckInPermission = (): JSX.Element => {
         audio: true,
         video: true,
         tracks: localTracks,
-        logLevel: 'debug',
+        // logLevel: 'debug',
       });
 
       setRoom(connectedRoom);

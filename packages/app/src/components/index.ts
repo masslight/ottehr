@@ -33,3 +33,4 @@ export * from './VideoControls';
 export * from './VideoParticipant';
 export * from './VideoRoom';
 export * from './LoadingSpinner';
+export * from './CallSettings';

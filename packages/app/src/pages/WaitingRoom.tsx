@@ -57,19 +57,22 @@ export const WaitingRoom = (): JSX.Element => {
   const videoRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (videoRef.current && localTracks) {
+    const currentVideoRef = videoRef.current;
+
+    if (currentVideoRef && localTracks) {
       const localVideoTrack = localTracks.find((track) => track.kind === 'video') as LocalVideoTrack;
       if (localVideoTrack) {
         const videoElement = localVideoTrack.attach();
         videoElement.style.width = '100%';
         videoElement.style.height = '100%';
-        videoRef.current.appendChild(videoElement);
+        currentVideoRef.appendChild(videoElement);
       }
     }
+
     return () => {
       // Detach the video track when the component unmounts
-      if (videoRef.current) {
-        videoRef.current.querySelectorAll('video').forEach((v) => v.remove());
+      if (currentVideoRef) {
+        currentVideoRef.querySelectorAll('video').forEach((v) => v.remove());
       }
     };
   }, [localTracks]);

@@ -23,6 +23,8 @@ type PatientContextProps = {
   setRoom: Dispatch<SetStateAction<Room | null>>;
   localTracks: (LocalAudioTrack | LocalVideoTrack)[];
   setLocalTracks: Dispatch<SetStateAction<(LocalAudioTrack | LocalVideoTrack)[]>>;
+  selectedSpeaker: string | null;
+  setSelectedSpeaker: React.Dispatch<React.SetStateAction<string | null>>;
 };
 
 export const usePatient = (): PatientContextProps => {
@@ -39,6 +41,7 @@ export const PatientProvider: FC = () => {
   const [patientName, setPatientName] = useState('');
   const [room, setRoom] = useState<Room | null>(null);
   const [localTracks, setLocalTracks] = useState<(LocalAudioTrack | LocalVideoTrack)[]>([]);
+  const [selectedSpeaker, setSelectedSpeaker] = useState<string | null>(null);
 
   return (
     <PatientContext.Provider
@@ -53,6 +56,8 @@ export const PatientProvider: FC = () => {
         setRoom,
         localTracks,
         setLocalTracks,
+        selectedSpeaker,
+        setSelectedSpeaker,
       }}
     >
       <Outlet />

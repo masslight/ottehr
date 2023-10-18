@@ -3,15 +3,20 @@
 import { Box } from '@mui/material';
 import React, { useState, useEffect, useRef } from 'react';
 import { AudioTrack, VideoTrack, Participant } from 'twilio-video';
+import { usePatient } from '../store';
 
 interface ParticipantProps {
   participant: Participant;
 }
 
+interface HTMLMediaElement {
+  setSinkId(sinkId: string): Promise<void>;
+}
+
 export const VideoParticipant = ({ participant }: ParticipantProps) => {
   const [videoTracks, setVideoTracks] = useState<(VideoTrack | null)[]>([]);
   const [audioTracks, setAudioTracks] = useState<(AudioTrack | null)[]>([]);
-
+  const { selectedSpeaker } = usePatient();
   // Create refs for the HTML elements to attach audio and video to in the DOM
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLMediaElement>(null);
@@ -79,6 +84,8 @@ export const VideoParticipant = ({ participant }: ParticipantProps) => {
   // When unsubscribed, detach it
   useEffect(() => {
     const videoTrack = videoTracks[0];
+    console.log('Current video track:', videoTrack);
+
     if (videoRef.current && videoTrack) {
       videoTrack.attach(videoRef.current);
       return () => {
@@ -91,13 +98,19 @@ export const VideoParticipant = ({ participant }: ParticipantProps) => {
   useEffect(() => {
     const audioTrack = audioTracks[0];
     if (audioRef.current && audioTrack) {
-      audioTrack.attach(audioRef.current);
+      (audioTrack.attach as any)(audioRef.current);
+      if (selectedSpeaker && typeof audioRef.current.setSinkId === 'function') {
+        audioRef.current.setSinkId(selectedSpeaker).catch((err: Error) => {
+          console.warn('Could not set Sink ID:', err);
+        });
+      }
+
       return () => {
         audioTrack.detach();
       };
     }
     return () => {};
-  }, [audioTracks]);
+  }, [audioTracks, selectedSpeaker]);
 
   return (
     <Box
@@ -119,13 +132,7 @@ export const VideoParticipant = ({ participant }: ParticipantProps) => {
           objectFit: 'cover',
         }}
       />
-      <Box
-        component="audio"
-        ref={audioRef}
-        autoPlay={true}
-        muted={false}
-        sx={{ display: 'none' }} // Typically, you'd hide the audio element from view
-      />
+      <Box component="audio" ref={audioRef} autoPlay={true} muted={false} sx={{ display: 'none' }} />
       <Box
         sx={{
           position: 'absolute',

@@ -8,6 +8,8 @@ import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import MicIcon from '@mui/icons-material/Mic';
 import MicOffIcon from '@mui/icons-material/MicOff';
 import SettingsIcon from '@mui/icons-material/Settings';
+import { usePatient } from '../store';
+import { CallSettings } from './CallSettings';
 
 interface VideoControlsProps {
   // room: VideoRoom | null;
@@ -25,18 +27,27 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
   isMicOpen,
   setIsMicOpen,
 }) => {
+  const { localTracks } = usePatient();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  const openSettings = (): void => {
+    setIsSettingsOpen(true);
+  };
+
+  const closeSettings = (): void => {
+    setIsSettingsOpen(false);
+  };
+
   const toggleVideo = (): void => {
     if (localParticipant) {
-      localParticipant.videoTracks.forEach((publication) => {
-        const localTrack = publication.track as LocalVideoTrack;
-        if (localTrack) {
-          if (localTrack.isEnabled) {
-            localTrack.disable();
-            setIsVideoOpen(false);
-          } else {
-            localTrack.enable();
-            setIsVideoOpen(true);
-          }
+      const videoTracks = localTracks.filter((track) => track.kind === 'video') as LocalVideoTrack[];
+      videoTracks.forEach((localTrack) => {
+        if (localTrack.isEnabled) {
+          localTrack.disable();
+          setIsVideoOpen(false);
+        } else {
+          localTrack.enable();
+          setIsVideoOpen(true);
         }
       });
     }
@@ -44,49 +55,51 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
 
   const toggleMic = (): void => {
     if (localParticipant) {
-      localParticipant.audioTracks.forEach((publication) => {
-        const localTrack = publication.track as LocalAudioTrack;
-        if (localTrack) {
-          if (localTrack.isEnabled) {
-            localTrack.disable();
-            setIsMicOpen(false);
-          } else {
-            localTrack.enable();
-            setIsMicOpen(true);
-          }
+      const audioTracks = localTracks.filter((track) => track.kind === 'audio') as LocalAudioTrack[];
+
+      audioTracks.forEach((localTrack) => {
+        if (localTrack.isEnabled) {
+          localTrack.disable();
+          setIsMicOpen(false);
+        } else {
+          localTrack.enable();
+          setIsMicOpen(true);
         }
       });
     }
   };
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(50, 63, 83, 0.87)',
-        px: 2,
-        py: 1,
-        gap: 1,
-        maxWidth: 'fit-content',
-        borderRadius: 5,
-        position: 'absolute',
-        bottom: 16,
-        left: '50%',
-        transform: 'translate(-50%, 0)',
-      }}
-    >
-      {isVideoOpen ? (
-        <VideocamIcon sx={{ color: 'white' }} onClick={toggleVideo} />
-      ) : (
-        <VideocamOffIcon sx={{ color: 'white' }} onClick={toggleVideo} />
-      )}
-      {isMicOpen ? (
-        <MicIcon sx={{ color: 'white' }} onClick={toggleMic} />
-      ) : (
-        <MicOffIcon sx={{ color: 'white' }} onClick={toggleMic} />
-      )}
-      <SettingsIcon sx={{ color: 'white' }} />
-    </Box>
+    <>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          backgroundColor: 'rgba(50, 63, 83, 0.87)',
+          px: 2,
+          py: 1,
+          gap: 1,
+          maxWidth: 'fit-content',
+          borderRadius: 5,
+          position: 'absolute',
+          bottom: 16,
+          left: '50%',
+          transform: 'translate(-50%, 0)',
+        }}
+      >
+        {isVideoOpen ? (
+          <VideocamIcon sx={{ color: 'white' }} onClick={toggleVideo} />
+        ) : (
+          <VideocamOffIcon sx={{ color: 'white' }} onClick={toggleVideo} />
+        )}
+        {isMicOpen ? (
+          <MicIcon sx={{ color: 'white' }} onClick={toggleMic} />
+        ) : (
+          <MicOffIcon sx={{ color: 'white' }} onClick={toggleMic} />
+        )}
+        <SettingsIcon sx={{ color: 'white' }} onClick={openSettings} />
+      </Box>
+      <CallSettings open={isSettingsOpen} onClose={closeSettings} localParticipant={localParticipant} />
+    </>
   );
 };

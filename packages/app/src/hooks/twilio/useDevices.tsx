@@ -1,0 +1,53 @@
+import { useState, useEffect } from 'react';
+
+// This returns the type of the value that is returned by a promise resolution
+type ThenArg<T> = T extends PromiseLike<infer U> ? U : never;
+
+type DeviceInfo = {
+  audioInputDevices: MediaDeviceInfo[];
+  videoInputDevices: MediaDeviceInfo[];
+  audioOutputDevices: MediaDeviceInfo[];
+  hasAudioInputDevices: boolean;
+  hasVideoInputDevices: boolean;
+};
+
+async function getDeviceInfo(): Promise<DeviceInfo> {
+  const devices = await navigator.mediaDevices.enumerateDevices();
+
+  return {
+    audioInputDevices: devices.filter((device) => device.kind === 'audioinput'),
+    videoInputDevices: devices.filter((device) => device.kind === 'videoinput'),
+    audioOutputDevices: devices.filter((device) => device.kind === 'audiooutput'),
+    hasAudioInputDevices: devices.some((device) => device.kind === 'audioinput'),
+    hasVideoInputDevices: devices.some((device) => device.kind === 'videoinput'),
+  };
+}
+
+export default function useDevices(): DeviceInfo {
+  const [deviceInfo, setDeviceInfo] = useState<ThenArg<ReturnType<typeof getDeviceInfo>>>({
+    audioInputDevices: [],
+    videoInputDevices: [],
+    audioOutputDevices: [],
+    hasAudioInputDevices: false,
+    hasVideoInputDevices: false,
+  });
+
+  useEffect(() => {
+    const getDevices = (): void => {
+      getDeviceInfo()
+        .then((devices) => setDeviceInfo(devices))
+        .catch((error) => {
+          console.error('Failed to fetch devices:', error);
+        });
+    };
+
+    navigator.mediaDevices.addEventListener('devicechange', getDevices);
+    getDevices();
+
+    return () => {
+      navigator.mediaDevices.removeEventListener('devicechange', getDevices);
+    };
+  }, []);
+
+  return deviceInfo;
+}
