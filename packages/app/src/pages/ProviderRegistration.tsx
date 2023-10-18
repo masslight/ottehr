@@ -45,7 +45,25 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
     handleSubmit,
     control,
     formState: { errors },
-  } = useForm<FormData>();
+  } = useForm<FormData>({
+    defaultValues: {
+      title: '',
+      firstName: '',
+      lastName: '',
+      roomName: '',
+      email: '',
+      password: '',
+      notPatient: false,
+      acceptTerms: false,
+    },
+  });
+
+  // const updateField = (field: keyof FormData, value: string | boolean): void => {
+  //   setFormData((prevData) => ({
+  //     ...prevData,
+  //     [field]: value,
+  //   }));
+  // };
 
   const onSubmit = (data: FormData): void => {
     console.log(data);
@@ -243,11 +261,9 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
                   </FormControl>
                 )}
               />
-
               <Controller
                 name="firstName"
                 control={control}
-                defaultValue=""
                 render={({ field }) => (
                   <TextField
                     {...field}
@@ -260,7 +276,6 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
               <Controller
                 name="lastName"
                 control={control}
-                defaultValue=""
                 render={({ field }) => (
                   <TextField
                     {...field}
@@ -273,7 +288,6 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
               <Controller
                 name="roomName"
                 control={control}
-                defaultValue=""
                 render={({ field }) => (
                   <>
                     <TextField
@@ -296,22 +310,20 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
               <Controller
                 name="email"
                 control={control}
-                defaultValue=""
                 render={({ field }) => <TextField {...field} label="Email Address" variant="outlined" />}
               />
               <Controller
                 name="password"
                 control={control}
-                defaultValue=""
                 render={({ field }) => <TextField {...field} label="Password" type="password" variant="outlined" />}
               />
               <Controller
                 name="notPatient"
                 control={control}
                 defaultValue={false}
-                render={({ field }) => (
+                render={({ field: { onChange, value } }) => (
                   <FormControlLabel
-                    control={<Checkbox {...field} checked={field.value} />}
+                    control={<Checkbox onChange={onChange} checked={value} />}
                     label="I am not a patient"
                   />
                 )}
@@ -320,9 +332,9 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
                 name="acceptTerms"
                 control={control}
                 defaultValue={false}
-                render={({ field }) => (
+                render={({ field: { onChange, value } }) => (
                   <FormControlLabel
-                    control={<Checkbox {...field} checked={field.value} />}
+                    control={<Checkbox onChange={onChange} checked={value} />}
                     label="I accept the terms and conditions"
                   />
                 )}
