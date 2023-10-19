@@ -1,6 +1,7 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { AppBar, Box, Button, Card, Container, Grid, Typography, useTheme } from '@mui/material';
 import { FC, ReactElement } from 'react';
+import { otherColors } from '../OttEHRThemeProvider';
 import { bg1 } from '../assets';
 import { Footer } from './Footer';
 
@@ -38,7 +39,7 @@ export const CustomContainer: FC<ContainerProps> = ({
       maxWidth={false}
       sx={{
         backgroundAttachment: 'fixed',
-        backgroundColor: '#3ECCA2',
+        backgroundColor: otherColors.shamrock,
         backgroundImage: `url(${backgroundImage})`,
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
@@ -71,7 +72,7 @@ export const CustomContainer: FC<ContainerProps> = ({
               <Button
                 onClick={() => logout({ returnTo: window.location.origin })}
                 variant="text"
-                sx={{ '&:hover': { backgroundColor: 'transparent' } }}
+                sx={{ '&:hover': { backgroundColor: otherColors.transparent } }}
               >
                 Logout
               </Button>

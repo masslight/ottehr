@@ -1,6 +1,8 @@
 export const Version = (): JSX.Element => {
   const { VITE_ENV, VITE_SHA, VITE_VERSION } = import.meta.env;
 
+  console.log(VITE_ENV);
+
   return (
     <div>
       <p>

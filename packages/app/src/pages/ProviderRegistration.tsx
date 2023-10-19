@@ -15,17 +15,26 @@ import {
   Select,
   TextField,
   Typography,
+  alpha,
+  useTheme,
 } from '@mui/material';
 import { useState } from 'react';
-import { ellipse4, ellipse5, ottEHRPatientIcon, ottEHRProviderIcon, ottEHRRegistrationLogo } from '../assets/icons';
+import { otherColors } from '../OttEHRThemeProvider';
+import {
+  backgroundEllipseDark,
+  backgroundEllipseLight,
+  ottEHRPatientIcon,
+  ottEHRProviderIcon,
+  ottEHRRegistrationLogo,
+} from '../assets/icons';
 import { ZapEHRLogo } from '../components';
 
 export const ProviderRegistration = (): JSX.Element => {
+  const theme = useTheme();
   const handleSubmit = (event: any): void => {
     event.preventDefault();
     // TODO: form submission structure
   };
-
   const [roomName, setRoomName] = useState('');
   const mockData = ['aykhanahmadli', 'samiromarov'];
 
@@ -33,15 +42,19 @@ export const ProviderRegistration = (): JSX.Element => {
   const helperText = isError ? 'This name is already taken, please use another one' : '';
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'row' }}>
+    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' } }}>
       {/* left side */}
       <Box
         sx={{
-          backgroundColor: '#263954',
+          backgroundColor: otherColors.darkBackgroundPaper,
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
           gap: 2,
+          [theme.breakpoints.down('md')]: {
+            py: 2,
+            width: '100%',
+          },
           width: '55%',
         }}
       >
@@ -66,28 +79,38 @@ export const ProviderRegistration = (): JSX.Element => {
             flexDirection: 'column',
             justifyContent: 'center',
             py: 10,
+            [theme.breakpoints.down('md')]: {
+              flexDirection: 'row',
+              py: 0,
+              gap: 2,
+            },
           }}
         >
           <Box
             component="img"
-            src={ellipse4}
+            src={backgroundEllipseDark}
             sx={{
-              height: 464,
-              mb: 18,
-              mr: 18,
               position: 'absolute',
-              width: 464,
+              mb: 25,
+              mr: 18,
+              [theme.breakpoints.down('md')]: {
+                maxWidth: '60%',
+                maxHeight: '60%',
+                mb: 0,
+              },
             }}
           />
           <Box
             component="img"
-            src={ellipse5}
+            src={backgroundEllipseLight}
             sx={{
-              height: 464,
-              ml: 18,
-              mt: 18,
-              width: 464,
               position: 'absolute',
+              ml: 25,
+              [theme.breakpoints.down('md')]: {
+                maxWidth: '60%',
+                maxHeight: '60%',
+                ml: 18,
+              },
             }}
           />
           <Box
@@ -99,6 +122,11 @@ export const ProviderRegistration = (): JSX.Element => {
               mb: 46,
               overflow: 'hidden',
               position: 'absolute',
+              [theme.breakpoints.down('md')]: {
+                position: 'static',
+                mb: 0,
+                ml: 0,
+              },
               zIndex: '2',
             }}
           >
@@ -108,29 +136,42 @@ export const ProviderRegistration = (): JSX.Element => {
             sx={{
               display: 'flex',
               justifyContent: 'center',
-              mb: 2.5,
               overflow: 'hidden',
               zIndex: '1',
+              backgroundColor: '#D9F3FF',
+              border: '5px solid #fff',
+              borderRadius: 5,
+              mb: 2,
+              px: 2,
+              pt: 4,
+              [theme.breakpoints.down('md')]: {
+                maxWidth: '118px',
+                maxHeight: '118px',
+                pt: 1.5,
+                px: 1,
+              },
             }}
           >
-            <img src={ottEHRProviderIcon} />
+            <Box component="img" src={ottEHRProviderIcon} sx={{ mb: -1 }} />
           </Box>
           <Box
             sx={{
               alignItems: 'center',
-              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              backgroundColor: alpha(theme.palette.background.default, 0.2),
               borderRadius: 5,
               display: 'flex',
               gap: 2.5,
-              px: 9,
               py: 1.75,
-              zIndex: '1',
+              px: 9,
+              [theme.breakpoints.down('md')]: {
+                display: 'none',
+              },
             }}
           >
-            <VideocamIcon style={{ color: 'white' }} />
-            <MicIcon style={{ color: 'white' }} />
-            <ChatIcon style={{ color: 'white' }} />
-            <CallEndIcon style={{ color: 'white' }} />
+            <VideocamIcon style={{ color: theme.palette.background.default }} />
+            <MicIcon style={{ color: theme.palette.background.default }} />
+            <ChatIcon style={{ color: theme.palette.background.default }} />
+            <CallEndIcon style={{ color: theme.palette.background.default }} />
           </Box>
         </Box>
         <Box
@@ -150,15 +191,19 @@ export const ProviderRegistration = (): JSX.Element => {
       {/* right side */}
       <Box
         sx={{
-          backgroundColor: 'white',
+          backgroundColor: theme.palette.background.default,
           display: 'flex',
           flexDirection: 'column',
           height: '100vh',
           justifyContent: 'center',
+          [theme.breakpoints.down('md')]: {
+            width: '100%',
+            height: '100%',
+          },
           width: '45%',
         }}
       >
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mx: 12.5, my: 10 }}>
+        <Box sx={{ mx: { xs: 2, md: 12.5 }, my: { xs: 4, md: 10 }, display: 'flex', flexDirection: 'column', gap: 1 }}>
           <Typography variant="h4">Welcome to OttEHR</Typography>
           <Typography color="primary.light" variant="h3" sx={{ pb: 1 }}>
             Provider registration
@@ -189,15 +234,16 @@ export const ProviderRegistration = (): JSX.Element => {
               </Box>
               <TextField label="Email Address" variant="outlined" />
               <TextField label="Password" type="password" variant="outlined" />
-              <FormControlLabel control={<Checkbox />} label="I am not a patient" />
-              {/* TODO too much whitespace here? */}
-              <FormControlLabel control={<Checkbox />} label="I accept the terms and conditions" />
+              <Box>
+                <FormControlLabel control={<Checkbox />} label="I am not a patient" />
+                <FormControlLabel control={<Checkbox />} label="I accept the terms and conditions" />
+              </Box>
               <Button
                 type="submit"
                 variant="contained"
                 sx={{
                   borderRadius: 1,
-                  color: 'white',
+                  color: theme.palette.background.default,
                   textTransform: 'uppercase',
                   py: 1,
                 }}

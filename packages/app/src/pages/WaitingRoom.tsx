@@ -5,6 +5,7 @@ import { useVideoParticipant } from '../store';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLocalVideo } from '../hooks/twilio/useLocalVideo';
+import { otherColors, otherStyling } from '../OttEHRThemeProvider';
 
 export const WaitingRoom = (): JSX.Element => {
   const { room, localTracks } = useVideoParticipant();
@@ -43,14 +44,42 @@ export const WaitingRoom = (): JSX.Element => {
   }, [navigate, numParticipants]);
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', justifyContent: 'space-between' }}>
-      <ProviderHeaderSection providerName="Dr.Smith" title="Waiting Room" />
-      <Box sx={{ display: 'flex', justifyContent: 'center', flexGrow: '1' }}>
-        <Box maxWidth="md" width="100%">
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, px: 12.5, py: 7.5 }}>
-            <Typography variant="h5">Your call will start soon</Typography>
-            <Typography variant="body1">
-              Thank you for your patience. Please wait for Dr. Smith to accept your call
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        justifyContent: 'space-between',
+      }}
+    >
+      <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" isProvider={true} />
+      {/* Middle Section */}
+      <Box
+        sx={{
+          display: 'flex',
+          flexGrow: '1',
+          justifyContent: 'center',
+        }}
+      >
+        <Box
+          maxWidth="md"
+          width="100%"
+          sx={{
+            [theme.breakpoints.down('sm')]: {
+              px: 2,
+            },
+          }}
+        >
+          <Box
+            sx={{
+              ...otherStyling.boxPadding,
+              [theme.breakpoints.down('sm')]: {
+                ...otherStyling.boxPaddingMobile,
+              },
+            }}
+          >
+            <Typography variant="h5" sx={{ pb: 1 }}>
+              Your call will start soon
             </Typography>
 
             <Box
@@ -70,6 +99,12 @@ export const WaitingRoom = (): JSX.Element => {
             >
               <Box
                 sx={{
+                  backgroundColor: otherColors.biscay,
+                  borderRadius: 5,
+                  display: 'flex',
+                  gap: 1,
+                  justifyContent: 'center',
+                  maxWidth: 'fit-content',
                   position: 'absolute',
                   bottom: 16,
                   left: '50%',
