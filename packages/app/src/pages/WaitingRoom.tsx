@@ -5,8 +5,9 @@ import Video, { Room, Participant, LocalVideoTrack } from 'twilio-video';
 // import { videoCallMock } from '../assets/icons';
 import { Footer, ProviderHeaderSection, VideoControls, VideoParticipant } from '../components';
 import { usePatient } from '../store';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { MutableRefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLocalVideo } from '../hooks/twilio/useLocalVideo';
 
 export const WaitingRoom = (): JSX.Element => {
   const { isVideoOpen, setIsVideoOpen, isMicOpen, setIsMicOpen, room, localTracks } = usePatient();
@@ -55,27 +56,7 @@ export const WaitingRoom = (): JSX.Element => {
   }, [room]);
 
   const videoRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const currentVideoRef = videoRef.current;
-
-    if (currentVideoRef && localTracks) {
-      const localVideoTrack = localTracks.find((track) => track.kind === 'video') as LocalVideoTrack;
-      if (localVideoTrack) {
-        const videoElement = localVideoTrack.attach();
-        videoElement.style.width = '100%';
-        videoElement.style.height = '100%';
-        currentVideoRef.appendChild(videoElement);
-      }
-    }
-
-    return () => {
-      // Detach the video track when the component unmounts
-      if (currentVideoRef) {
-        currentVideoRef.querySelectorAll('video').forEach((v) => v.remove());
-      }
-    };
-  }, [localTracks]);
+  useLocalVideo(videoRef, localTracks);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', justifyContent: 'space-between' }}>

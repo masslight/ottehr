@@ -13,7 +13,7 @@ export const CheckInPermission = (): JSX.Element => {
   const theme = useTheme();
   const navigate = useNavigate();
 
-  const roomName = 'testRoom11';
+  const roomName = 'testRoom1111';
 
   const toggleCamMic = async (userInput: boolean): Promise<void> => {
     try {

@@ -4,6 +4,7 @@ import Video, { Room, Participant } from 'twilio-video';
 import { Box, CircularProgress } from '@mui/material';
 import { VideoParticipant, VideoControls, LoadingSpinner } from '../components';
 import { usePatient } from '../store';
+import { useLocalVideo } from '../hooks/twilio/useLocalVideo';
 
 interface RoomProps {
   room: Room | null;
@@ -13,31 +14,9 @@ interface RoomProps {
 }
 
 export const VideoRoom: React.FC<RoomProps> = ({ room, handleLogout, participants, setParticipants }) => {
-  // const [localParticipant, setLocalParticipant] = useState<Participant | null>(null);
   const localVideoRef = useRef<HTMLDivElement | null>(null);
   const { localTracks, setLocalTracks } = usePatient();
-
-  useEffect(() => {
-    const currentLocalVideoRef = localVideoRef.current;
-
-    if (currentLocalVideoRef) {
-      // Assuming localTracks contains the participant's LocalVideoTrack
-      const localVideoTrack = localTracks.find((track) => track.kind === 'video');
-
-      if (localVideoTrack) {
-        const videoElement = localVideoTrack.attach();
-        videoElement.style.width = '100%';
-        videoElement.style.height = '100%';
-        currentLocalVideoRef.appendChild(videoElement);
-      }
-    }
-
-    return () => {
-      if (currentLocalVideoRef) {
-        currentLocalVideoRef.querySelectorAll('video').forEach((v) => v.remove());
-      }
-    };
-  }, [localTracks]);
+  useLocalVideo(localVideoRef, localTracks);
 
   const [isVideoOpen, setIsVideoOpen] = useState(true);
   const [isMicOpen, setIsMicOpen] = useState(true);
@@ -64,13 +43,13 @@ export const VideoRoom: React.FC<RoomProps> = ({ room, handleLogout, participant
 
   useEffect(() => {
     if (room) {
-      // setLocalParticipant(room.localParticipant);
       room.on('participantConnected', participantConnected);
       room.on('participantDisconnected', participantDisconnected);
       room.participants.forEach(participantConnected);
     }
   }, [room, participantConnected, participantDisconnected]);
 
+  // loading spinner for when the second participant joins
   useEffect(() => {
     if (numParticipants > 1) {
       setIsLoading(true);
@@ -95,7 +74,6 @@ export const VideoRoom: React.FC<RoomProps> = ({ room, handleLogout, participant
       <Box key="video-room">
         <Box
           sx={{
-            // width: '100%',
             height: '100vh',
             backgroundColor: 'gray',
           }}

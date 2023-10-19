@@ -1,6 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import * as React from 'react';
-import { useEffect } from 'react';
 
 import {
   Button,
@@ -31,11 +29,13 @@ interface CallSettingsProps {
 }
 
 export const CallSettings: React.FC<CallSettingsProps> = ({ open, onClose, localParticipant }) => {
-  const [camera, setCamera] = React.useState<string | number>('');
-  const [microphone, setMicrophone] = React.useState<string | number>('');
-  const [speakers, setSpeakers] = React.useState<string | number>('');
   const { localTracks, setLocalTracks, selectedSpeaker, setSelectedSpeaker } = usePatient();
   const { audioInputDevices, videoInputDevices, audioOutputDevices } = useDevices();
+
+  const [speakers, setSpeakers] = React.useState<string | number>(selectedSpeaker || '');
+
+  const [camera, setCamera] = React.useState<string | number>('');
+  const [microphone, setMicrophone] = React.useState<string | number>('');
 
   const updateDevice = async (type: string, deviceId: string): Promise<void> => {
     if (!localParticipant) return;
@@ -53,43 +53,49 @@ export const CallSettings: React.FC<CallSettingsProps> = ({ open, onClose, local
         return;
     }
 
-    // Unpublish and remove old track, and update localTracks
     const updatedLocalTracks = localTracks.filter((track) => {
       if (track.kind === type.slice(0, -5)) {
-        // 'audioInput' to 'audio', 'videoInput' to 'video'
         localParticipant.unpublishTrack(track);
         track.stop();
         return false;
       }
-      return true; // keep other tracks
+      return true;
     });
 
-    // Publish new track
     localParticipant.publishTrack(newTrack).catch((error) => {
       console.error('Failed to publish track', error);
     });
 
-    // Add the new track to updatedLocalTracks and update the context
     updatedLocalTracks.push(newTrack as LocalAudioTrack | LocalVideoTrack);
     setLocalTracks(updatedLocalTracks);
   };
 
-  const handleCameraChange = async (e: SelectChangeEvent<string | number>): Promise<void> => {
+  const handleCameraChange = (e: SelectChangeEvent<string | number>): void => {
     const selectedCamera = e.target.value;
     setCamera(selectedCamera);
-    await updateDevice('videoInput', String(selectedCamera));
   };
 
-  const handleMicrophoneChange = async (e: SelectChangeEvent<string | number>): Promise<void> => {
+  const handleMicrophoneChange = (e: SelectChangeEvent<string | number>): void => {
     const selectedMicrophone = e.target.value;
     setMicrophone(selectedMicrophone);
-    await updateDevice('audioInput', String(selectedMicrophone));
   };
 
   const handleSpeakersChange = (e: SelectChangeEvent<string | number>): void => {
     const selectedSpeakers = e.target.value;
     setSpeakers(selectedSpeakers);
-    setSelectedSpeaker(String(selectedSpeakers));
+  };
+
+  const handleSave = async (): Promise<void> => {
+    if (camera) {
+      await updateDevice('videoInput', String(camera));
+    }
+    if (microphone) {
+      await updateDevice('audioInput', String(microphone));
+    }
+    if (speakers) {
+      setSelectedSpeaker(String(speakers));
+    }
+    onClose();
   };
 
   return (
@@ -111,7 +117,7 @@ export const CallSettings: React.FC<CallSettingsProps> = ({ open, onClose, local
             ))}
           </Select>
         </FormControl>
-        // Microphone selection
+        {/* Microphone selection */}
         <FormControl fullWidth variant="outlined" margin="normal">
           <InputLabel id="microphone-label">Microphone</InputLabel>
           <Select labelId="microphone-label" value={microphone} label="Microphone" onChange={handleMicrophoneChange}>
@@ -122,7 +128,7 @@ export const CallSettings: React.FC<CallSettingsProps> = ({ open, onClose, local
             ))}
           </Select>
         </FormControl>
-        // Speakers selection
+        {/* Speakers selection */}
         <FormControl fullWidth variant="outlined" margin="normal">
           <InputLabel id="speakers-label">Speakers</InputLabel>
           <Select labelId="speakers-label" value={speakers} label="Speakers" onChange={handleSpeakersChange}>
@@ -142,7 +148,7 @@ export const CallSettings: React.FC<CallSettingsProps> = ({ open, onClose, local
         <Button onClick={onClose} color="primary">
           Cancel
         </Button>
-        <Button onClick={onClose} color="primary">
+        <Button onClick={handleSave} color="primary">
           Save Changes
         </Button>
       </DialogActions>
