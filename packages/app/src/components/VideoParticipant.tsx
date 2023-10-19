@@ -3,7 +3,7 @@
 import { Box } from '@mui/material';
 import React, { useState, useEffect, useRef } from 'react';
 import { AudioTrack, VideoTrack, Participant } from 'twilio-video';
-import { usePatient } from '../store';
+import { useVideoParticipant } from '../store';
 
 interface ParticipantProps {
   participant: Participant;
@@ -16,7 +16,7 @@ interface HTMLMediaElement {
 export const VideoParticipant = ({ participant }: ParticipantProps) => {
   const [videoTracks, setVideoTracks] = useState<(VideoTrack | null)[]>([]);
   const [audioTracks, setAudioTracks] = useState<(AudioTrack | null)[]>([]);
-  const { selectedSpeaker } = usePatient();
+  const { selectedSpeaker } = useVideoParticipant();
   // Create refs for the HTML elements to attach audio and video to in the DOM
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLMediaElement>(null);

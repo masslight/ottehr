@@ -1,16 +1,15 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Box, Typography, useTheme } from '@mui/material';
-import Video, { Room, Participant, LocalVideoTrack } from 'twilio-video';
+import { Participant } from 'twilio-video';
 
-// import { videoCallMock } from '../assets/icons';
 import { Footer, ProviderHeaderSection, VideoControls, VideoParticipant } from '../components';
-import { usePatient } from '../store';
-import { MutableRefObject, useCallback, useEffect, useRef, useState } from 'react';
+import { useVideoParticipant } from '../store';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLocalVideo } from '../hooks/twilio/useLocalVideo';
 
 export const WaitingRoom = (): JSX.Element => {
-  const { isVideoOpen, setIsVideoOpen, isMicOpen, setIsMicOpen, room, localTracks } = usePatient();
+  const { isVideoOpen, setIsVideoOpen, isMicOpen, setIsMicOpen, room, localTracks } = useVideoParticipant();
   const theme = useTheme();
 
   const navigate = useNavigate();

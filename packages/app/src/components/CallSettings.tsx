@@ -19,7 +19,7 @@ import {
   LocalVideoTrack,
   LocalParticipant,
 } from 'twilio-video';
-import { usePatient } from '../store';
+import { useVideoParticipant } from '../store';
 import useDevices from '../hooks/twilio/useDevices';
 
 interface CallSettingsProps {
@@ -29,7 +29,7 @@ interface CallSettingsProps {
 }
 
 export const CallSettings: React.FC<CallSettingsProps> = ({ open, onClose, localParticipant }) => {
-  const { localTracks, setLocalTracks, selectedSpeaker, setSelectedSpeaker } = usePatient();
+  const { localTracks, setLocalTracks, selectedSpeaker, setSelectedSpeaker } = useVideoParticipant();
   const { audioInputDevices, videoInputDevices, audioOutputDevices } = useDevices();
 
   const [speakers, setSpeakers] = React.useState<string | number>(selectedSpeaker || '');

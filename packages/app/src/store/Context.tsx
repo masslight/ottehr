@@ -5,6 +5,8 @@ import { LocalAudioTrack, LocalVideoTrack, Room } from 'twilio-video';
 
 const initialState = {};
 
+const VideoParticipantContext = createContext<VideoParticipantContextProps | undefined>(undefined);
+
 const PatientContext = createContext<PatientContextProps | undefined>(undefined);
 
 type DataContextProps = {
@@ -13,18 +15,60 @@ type DataContextProps = {
 };
 
 type PatientContextProps = {
+  patientName: string;
+  setPatientName: Dispatch<SetStateAction<string>>;
+};
+
+type VideoParticipantContextProps = {
   isMicOpen: boolean;
   isVideoOpen: boolean;
-  patientName: string;
   setIsMicOpen: Dispatch<SetStateAction<boolean>>;
   setIsVideoOpen: Dispatch<SetStateAction<boolean>>;
-  setPatientName: Dispatch<SetStateAction<string>>;
   room: Room | null;
   setRoom: Dispatch<SetStateAction<Room | null>>;
   localTracks: (LocalAudioTrack | LocalVideoTrack)[];
   setLocalTracks: Dispatch<SetStateAction<(LocalAudioTrack | LocalVideoTrack)[]>>;
   selectedSpeaker: string | null;
   setSelectedSpeaker: React.Dispatch<React.SetStateAction<string | null>>;
+};
+
+export const useVideoParticipant = (): VideoParticipantContextProps => {
+  const context = useContext(VideoParticipantContext);
+  if (!context) {
+    throw new Error('useVideoParticipant must be used within a VideoParticipantProvider');
+  }
+  return context;
+};
+
+type VideoParticipantProviderProps = {
+  children: ReactNode;
+};
+
+export const VideoParticipantProvider: FC<VideoParticipantProviderProps> = ({ children }) => {
+  const [isMicOpen, setIsMicOpen] = useState(false);
+  const [isVideoOpen, setIsVideoOpen] = useState(false);
+  const [room, setRoom] = useState<Room | null>(null);
+  const [localTracks, setLocalTracks] = useState<(LocalAudioTrack | LocalVideoTrack)[]>([]);
+  const [selectedSpeaker, setSelectedSpeaker] = useState<string | null>(null);
+
+  return (
+    <VideoParticipantContext.Provider
+      value={{
+        isMicOpen,
+        isVideoOpen,
+        setIsMicOpen,
+        setIsVideoOpen,
+        room,
+        setRoom,
+        localTracks,
+        setLocalTracks,
+        selectedSpeaker,
+        setSelectedSpeaker,
+      }}
+    >
+      {children}
+    </VideoParticipantContext.Provider>
+  );
 };
 
 export const usePatient = (): PatientContextProps => {
@@ -36,28 +80,13 @@ export const usePatient = (): PatientContextProps => {
 };
 
 export const PatientProvider: FC = () => {
-  const [isMicOpen, setIsMicOpen] = useState(false);
-  const [isVideoOpen, setIsVideoOpen] = useState(false);
   const [patientName, setPatientName] = useState('');
-  const [room, setRoom] = useState<Room | null>(null);
-  const [localTracks, setLocalTracks] = useState<(LocalAudioTrack | LocalVideoTrack)[]>([]);
-  const [selectedSpeaker, setSelectedSpeaker] = useState<string | null>(null);
 
   return (
     <PatientContext.Provider
       value={{
-        isMicOpen,
-        isVideoOpen,
         patientName,
-        setIsMicOpen,
-        setIsVideoOpen,
         setPatientName,
-        room,
-        setRoom,
-        localTracks,
-        setLocalTracks,
-        selectedSpeaker,
-        setSelectedSpeaker,
       }}
     >
       <Outlet />

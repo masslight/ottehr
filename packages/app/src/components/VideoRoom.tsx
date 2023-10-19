@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Video, { Room, Participant } from 'twilio-video';
 import { Box, CircularProgress } from '@mui/material';
 import { VideoParticipant, VideoControls, LoadingSpinner } from '../components';
-import { usePatient } from '../store';
+import { useVideoParticipant } from '../store';
 import { useLocalVideo } from '../hooks/twilio/useLocalVideo';
 
 interface RoomProps {
@@ -15,7 +15,7 @@ interface RoomProps {
 
 export const VideoRoom: React.FC<RoomProps> = ({ room, handleLogout, participants, setParticipants }) => {
   const localVideoRef = useRef<HTMLDivElement | null>(null);
-  const { localTracks, setLocalTracks } = usePatient();
+  const { localTracks, setLocalTracks } = useVideoParticipant();
   useLocalVideo(localVideoRef, localTracks);
 
   const [isVideoOpen, setIsVideoOpen] = useState(true);

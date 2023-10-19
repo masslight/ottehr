@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { VideoRoom } from '../components';
 import { Participant, Room } from 'twilio-video';
-import { usePatient } from '../store';
+import { useVideoParticipant } from '../store';
 
 export const VideoChatPage: React.FC = () => {
-  const { room } = usePatient();
+  const { room } = useVideoParticipant();
   const [data, setData] = useState<Room | null>(null);
 
   const [participants, setParticipants] = useState<Participant[]>([]);

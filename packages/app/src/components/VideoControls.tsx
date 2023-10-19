@@ -8,7 +8,7 @@ import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import MicIcon from '@mui/icons-material/Mic';
 import MicOffIcon from '@mui/icons-material/MicOff';
 import SettingsIcon from '@mui/icons-material/Settings';
-import { usePatient } from '../store';
+import { useVideoParticipant } from '../store';
 import { CallSettings } from './CallSettings';
 
 interface VideoControlsProps {
@@ -27,7 +27,7 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
   isMicOpen,
   setIsMicOpen,
 }) => {
-  const { localTracks } = usePatient();
+  const { localTracks } = useVideoParticipant();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const openSettings = (): void => {

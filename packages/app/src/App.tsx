@@ -13,7 +13,7 @@ import {
   WaitingRoom,
   VideoChatPage,
 } from './pages';
-import { PatientProvider } from './store';
+import { PatientProvider, VideoParticipantProvider } from './store';
 
 export default function App(): JSX.Element {
   const { isAuthenticated } = useAuth0();
@@ -22,25 +22,27 @@ export default function App(): JSX.Element {
     <OttEHRThemeProvider>
       <Router>
         <ScrollToTop />
-        {!isAuthenticated ? (
-          <Routes>
-            <Route path={'/'} element={<Version />} />;
-            <Route element={<PatientProvider />}>
-              <Route path={'/checkin'} element={<PatientCheckIn />} />;
-              <Route path={'/checkin-permission'} element={<CheckInPermission />} />;
-              <Route path={'/post-call'} element={<PostCall />} />;
-              <Route path={'/registration'} element={<ProviderRegistration />} />;
-              <Route path={'/waiting-room'} element={<WaitingRoom />} />;
-              <Route path={'/video-call'} element={<VideoChatPage />} />;
-            </Route>
-            <Route path={'/dashboard'} element={<ProviderDashboard />} />;
-            <Route path={'/provider-profile'} element={<ProviderSettings />} />;
-          </Routes>
-        ) : (
-          <Routes>
-            <Route path={'/'} element={<Version />} />;
-          </Routes>
-        )}
+        <VideoParticipantProvider>
+          {!isAuthenticated ? (
+            <Routes>
+              <Route path={'/'} element={<Version />} />;
+              <Route element={<PatientProvider />}>
+                <Route path={'/checkin'} element={<PatientCheckIn />} />;
+                <Route path={'/checkin-permission'} element={<CheckInPermission />} />;
+                <Route path={'/post-call'} element={<PostCall />} />;
+                <Route path={'/registration'} element={<ProviderRegistration />} />;
+                <Route path={'/waiting-room'} element={<WaitingRoom />} />;
+                <Route path={'/video-call'} element={<VideoChatPage />} />;
+              </Route>
+              <Route path={'/dashboard'} element={<ProviderDashboard />} />;
+              <Route path={'/provider-profile'} element={<ProviderSettings />} />;
+            </Routes>
+          ) : (
+            <Routes>
+              <Route path={'/'} element={<Version />} />;
+            </Routes>
+          )}
+        </VideoParticipantProvider>
       </Router>
     </OttEHRThemeProvider>
   );

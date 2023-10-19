@@ -1,15 +1,13 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-floating-promises */
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import { Button, Box, Typography, useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { Footer, ProviderHeaderSection } from '../components';
-import { usePatient } from '../store';
+import { useVideoParticipant } from '../store';
 import { zapehrApi } from '../api';
 import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
 
 export const CheckInPermission = (): JSX.Element => {
-  const { setIsVideoOpen, setIsMicOpen, setRoom, setLocalTracks } = usePatient();
+  const { setIsVideoOpen, setIsMicOpen, setRoom, setLocalTracks } = useVideoParticipant();
   const theme = useTheme();
   const navigate = useNavigate();
 
@@ -36,7 +34,6 @@ export const CheckInPermission = (): JSX.Element => {
         | LocalVideoTrack
       )[];
 
-      // check if need to await
       setLocalTracks(localTracks);
 
       const connectedRoom = await Video.connect(fetchedToken, {
@@ -44,7 +41,6 @@ export const CheckInPermission = (): JSX.Element => {
         audio: true,
         video: true,
         tracks: localTracks,
-        // logLevel: 'debug',
       });
 
       setRoom(connectedRoom);
