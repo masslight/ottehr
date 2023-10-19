@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Room, Participant } from 'twilio-video';
 import { Box } from '@mui/material';
@@ -8,12 +7,11 @@ import { useLocalVideo } from '../hooks/twilio/useLocalVideo';
 
 interface RoomProps {
   room: Room | null;
-  handleLogout: () => void;
   participants: Participant[];
   setParticipants: React.Dispatch<React.SetStateAction<Participant[]>>;
 }
 
-export const VideoRoom: React.FC<RoomProps> = ({ room, handleLogout, participants, setParticipants }) => {
+export const VideoRoom: React.FC<RoomProps> = ({ room, participants, setParticipants }) => {
   const localVideoRef = useRef<HTMLDivElement | null>(null);
   const { localTracks } = useVideoParticipant();
   useLocalVideo(localVideoRef, localTracks);

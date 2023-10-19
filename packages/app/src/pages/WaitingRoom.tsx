@@ -1,8 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Box, Typography, useTheme } from '@mui/material';
-import { Participant } from 'twilio-video';
 
-import { Footer, ProviderHeaderSection, VideoControls, VideoParticipant } from '../components';
+import { Footer, ProviderHeaderSection, VideoControls } from '../components';
 import { useVideoParticipant } from '../store';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -11,17 +9,18 @@ import { useLocalVideo } from '../hooks/twilio/useLocalVideo';
 export const WaitingRoom = (): JSX.Element => {
   const { room, localTracks } = useVideoParticipant();
   const theme = useTheme();
-
+  const videoRef = useRef<HTMLDivElement | null>(null);
+  useLocalVideo(videoRef, localTracks);
   const navigate = useNavigate();
 
   // localParticipant is not counted so we start with 1
   const [numParticipants, setNumParticipants] = useState<number>(1);
 
-  const participantConnected = useCallback((participant: Participant) => {
+  const participantConnected = useCallback(() => {
     setNumParticipants((prevNumParticipants: number) => prevNumParticipants + 1);
   }, []);
 
-  const participantDisconnected = useCallback((participant: Participant) => {
+  const participantDisconnected = useCallback(() => {
     setNumParticipants((prevNumParticipants: number) => prevNumParticipants - 1);
   }, []);
 
@@ -34,6 +33,7 @@ export const WaitingRoom = (): JSX.Element => {
     }
   }, [room, participantConnected, participantDisconnected]);
 
+  // navigate to video call when provider joins
   useEffect(() => {
     console.log('numParticipants', numParticipants);
     if (numParticipants > 1) {
@@ -41,13 +41,6 @@ export const WaitingRoom = (): JSX.Element => {
     }
     return undefined;
   }, [navigate, numParticipants]);
-
-  useEffect(() => {
-    console.log('room', room);
-  }, [room]);
-
-  const videoRef = useRef<HTMLDivElement | null>(null);
-  useLocalVideo(videoRef, localTracks);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', justifyContent: 'space-between' }}>

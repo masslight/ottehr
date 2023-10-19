@@ -1,8 +1,14 @@
-/* eslint-disable @typescript-eslint/no-empty-function */
-/* eslint-disable @typescript-eslint/explicit-function-return-type */
 import { Box } from '@mui/material';
 import React, { useState, useEffect, useRef } from 'react';
-import { AudioTrack, VideoTrack, Participant } from 'twilio-video';
+import {
+  AudioTrack,
+  VideoTrack,
+  Participant,
+  LocalVideoTrack,
+  RemoteVideoTrack,
+  LocalAudioTrack,
+  RemoteAudioTrack,
+} from 'twilio-video';
 import { useVideoParticipant } from '../store';
 
 interface ParticipantProps {
@@ -13,16 +19,16 @@ interface HTMLMediaElement {
   setSinkId(sinkId: string): Promise<void>;
 }
 
-export const VideoParticipant = ({ participant }: ParticipantProps) => {
+export const VideoParticipant: React.FC<ParticipantProps> = ({ participant }) => {
   const [videoTracks, setVideoTracks] = useState<(VideoTrack | null)[]>([]);
   const [audioTracks, setAudioTracks] = useState<(AudioTrack | null)[]>([]);
   const { selectedSpeaker } = useVideoParticipant();
-  // Create refs for the HTML elements to attach audio and video to in the DOM
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLMediaElement>(null);
 
   // Get the audio and video tracks from the participant, filtering out the tracks that are null
-  const getExistingVideoTracks = (participant: Participant) => {
+  const getExistingVideoTracks = (participant: Participant): (LocalVideoTrack | RemoteVideoTrack | null)[] => {
     const videoPublications = Array.from(participant.videoTracks.values());
     const existingVideoTracks = videoPublications
       .map((publication) => publication.track)
@@ -30,7 +36,7 @@ export const VideoParticipant = ({ participant }: ParticipantProps) => {
     return existingVideoTracks;
   };
 
-  const getExistingAudioTracks = (participant: Participant) => {
+  const getExistingAudioTracks = (participant: Participant): (LocalAudioTrack | RemoteAudioTrack | null)[] => {
     const audioPublications = Array.from(participant.audioTracks.values());
     const existingAudioTracks = audioPublications
       .map((publication) => publication.track)
@@ -40,8 +46,7 @@ export const VideoParticipant = ({ participant }: ParticipantProps) => {
 
   // When a new track is added or removed, update the video and audio tracks in the state
   useEffect(() => {
-    const trackSubscribed = (track: AudioTrack | VideoTrack) => {
-      console.log(`Track subscribed: ${track.kind}`);
+    const trackSubscribed = (track: AudioTrack | VideoTrack): void => {
       if (track.kind === 'video') {
         setVideoTracks((videoTracks) => [...videoTracks, track]);
       } else {
@@ -49,8 +54,7 @@ export const VideoParticipant = ({ participant }: ParticipantProps) => {
       }
     };
 
-    const trackUnsubscribed = (track: AudioTrack | VideoTrack) => {
-      console.log(`Track unsubscribed: ${track.kind}`);
+    const trackUnsubscribed = (track: AudioTrack | VideoTrack): void => {
       if (track.kind === 'video') {
         setVideoTracks((videoTracks) => videoTracks.filter((v) => v !== track));
       } else {
@@ -67,7 +71,6 @@ export const VideoParticipant = ({ participant }: ParticipantProps) => {
     participant.on('trackDisabled', (track) => {
       console.log(`Track disabled: ${track.kind}`);
     });
-    // Set up event listeners
     participant.on('trackSubscribed', trackSubscribed);
     participant.on('trackUnsubscribed', trackUnsubscribed);
 
@@ -77,7 +80,6 @@ export const VideoParticipant = ({ participant }: ParticipantProps) => {
       setVideoTracks([]);
       setAudioTracks([]);
       participant.removeAllListeners();
-      // Remove all event listeners from the participant
       participant.videoTracks.forEach((track) => (track.isEnabled = false));
     };
   }, [participant]);
@@ -86,7 +88,6 @@ export const VideoParticipant = ({ participant }: ParticipantProps) => {
   // When unsubscribed, detach it
   useEffect(() => {
     const videoTrack = videoTracks[0];
-    console.log('Current video tracks:', videoTracks);
 
     if (videoRef.current && videoTrack) {
       videoTrack.attach(videoRef.current);
@@ -94,11 +95,12 @@ export const VideoParticipant = ({ participant }: ParticipantProps) => {
         videoTrack.detach();
       };
     }
-    return () => {};
+    return () => undefined;
   }, [videoTracks]);
 
   useEffect(() => {
     const audioTrack = audioTracks[0];
+
     if (audioRef.current && audioTrack) {
       (audioTrack.attach as any)(audioRef.current);
       if (selectedSpeaker && typeof audioRef.current.setSinkId === 'function') {
@@ -111,7 +113,7 @@ export const VideoParticipant = ({ participant }: ParticipantProps) => {
         audioTrack.detach();
       };
     }
-    return () => {};
+    return () => undefined;
   }, [audioTracks, selectedSpeaker]);
 
   return (

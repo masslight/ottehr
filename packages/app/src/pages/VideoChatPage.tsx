@@ -1,35 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { VideoRoom } from '../components';
-import { Participant, Room } from 'twilio-video';
+import { Participant } from 'twilio-video';
 import { useVideoParticipant } from '../store';
 
 export const VideoChatPage: React.FC = () => {
   const { room } = useVideoParticipant();
-  const [data, setData] = useState<Room | null>(null);
 
   const [participants, setParticipants] = useState<Participant[]>([]);
-  console.log('Rendering VideoChatPage...');
 
-  const handleLogout = (): void => {
-    // Handle logout
-  };
-
-  useEffect(() => {
-    setData(room);
-  }, [room]);
-
-  if (!data) {
+  if (!room) {
     return <div>You don't have room created to be here</div>;
   }
 
   return (
     <div>
-      <VideoRoom
-        handleLogout={handleLogout}
-        participants={participants}
-        setParticipants={setParticipants}
-        room={data}
-      />
+      <VideoRoom participants={participants} setParticipants={setParticipants} room={room} />
     </div>
   );
 };
