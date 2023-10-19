@@ -1,6 +1,5 @@
-import * as React from 'react';
-
 import {
+  Box,
   Button,
   Dialog,
   DialogActions,
@@ -21,6 +20,7 @@ import {
 } from 'twilio-video';
 import { useVideoParticipant } from '../store';
 import useDevices from '../hooks/twilio/useDevices';
+import { useEffect, useRef, useState } from 'react';
 
 interface CallSettingsProps {
   open: boolean;
@@ -32,10 +32,52 @@ export const CallSettings: React.FC<CallSettingsProps> = ({ open, onClose, local
   const { localTracks, setLocalTracks, selectedSpeaker, setSelectedSpeaker } = useVideoParticipant();
   const { audioInputDevices, videoInputDevices, audioOutputDevices } = useDevices();
 
-  const [speakers, setSpeakers] = React.useState<string | number>(selectedSpeaker || '');
+  const videoRef = useRef<HTMLDivElement | null>(null);
 
-  const [camera, setCamera] = React.useState<string | number>('');
-  const [microphone, setMicrophone] = React.useState<string | number>('');
+  useEffect(() => {
+    console.log('Open changed:', open);
+    let localVideoTrackCleanup: LocalVideoTrack | null = null;
+
+    const attachVideo = (newTrack: LocalVideoTrack): void => {
+      if (videoRef.current) {
+        console.log('Attaching video element');
+        const videoElement = newTrack.attach();
+        videoElement.style.width = '100%';
+        videoElement.style.height = '100%';
+        videoRef.current.appendChild(videoElement);
+      }
+    };
+
+    const detachVideo = (): void => {
+      console.log('Detaching video element');
+      if (videoRef.current) {
+        videoRef.current.querySelectorAll('video').forEach((v) => v.remove());
+      }
+    };
+
+    if (open) {
+      createLocalVideoTrack()
+        .then((newTrack) => {
+          console.log('New track created');
+          attachVideo(newTrack);
+          localVideoTrackCleanup = newTrack;
+        })
+        .catch((error) => console.error('Failed to create video track:', error));
+    }
+
+    return () => {
+      console.log('Cleaning up...');
+      detachVideo();
+      if (localVideoTrackCleanup) {
+        localVideoTrackCleanup.stop();
+      }
+    };
+  }, [open]);
+
+  const [speakers, setSpeakers] = useState<string | number>(selectedSpeaker || '');
+
+  const [camera, setCamera] = useState<string | number>('');
+  const [microphone, setMicrophone] = useState<string | number>('');
 
   const updateDevice = async (type: string, deviceId: string): Promise<void> => {
     if (!localParticipant) return;
@@ -103,9 +145,13 @@ export const CallSettings: React.FC<CallSettingsProps> = ({ open, onClose, local
       <DialogTitle>Call settings</DialogTitle>
       <DialogContent>
         {/* Camera preview */}
-        <div>
-          <img src="#" alt="Camera Preview" style={{ width: '100%', height: 'auto', marginBottom: '16px' }} />
-        </div>
+        <Box
+          ref={videoRef}
+          sx={{
+            width: '100%',
+            height: '100%',
+          }}
+        />
         {/* Camera selection */}
         <FormControl fullWidth variant="outlined" margin="normal">
           <InputLabel id="camera-label">Camera</InputLabel>
@@ -139,7 +185,6 @@ export const CallSettings: React.FC<CallSettingsProps> = ({ open, onClose, local
             ))}
           </Select>
         </FormControl>
-        {/* Technical issues */}
         <Button variant="contained" color="primary" style={{ marginTop: '16px' }}>
           Having technical issues with the call?
         </Button>

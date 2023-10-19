@@ -1,17 +1,17 @@
-import React, { useState } from 'react';
 import Box from '@mui/material/Box';
-import { LocalAudioTrack, LocalVideoTrack, LocalParticipant } from 'twilio-video';
+import React, { useState } from 'react';
+import { LocalAudioTrack, LocalParticipant, LocalVideoTrack } from 'twilio-video';
 
-import VideocamIcon from '@mui/icons-material/Videocam';
-import VideocamOffIcon from '@mui/icons-material/VideocamOff';
+import CallEndIcon from '@mui/icons-material/CallEnd';
 import MicIcon from '@mui/icons-material/Mic';
 import MicOffIcon from '@mui/icons-material/MicOff';
 import SettingsIcon from '@mui/icons-material/Settings';
-import CallEndIcon from '@mui/icons-material/CallEnd';
+import VideocamIcon from '@mui/icons-material/Videocam';
+import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 
+import { useNavigate } from 'react-router-dom';
 import { useVideoParticipant } from '../store';
 import { CallSettings } from './CallSettings';
-import { useNavigate } from 'react-router-dom';
 
 interface VideoControlsProps {
   localParticipant: LocalParticipant | undefined;
