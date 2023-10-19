@@ -1,34 +1,27 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState } from 'react';
 import Box from '@mui/material/Box';
-import { LocalAudioTrack, LocalVideoTrack, LocalParticipant, Room as VideoRoom } from 'twilio-video';
+import { LocalAudioTrack, LocalVideoTrack, LocalParticipant } from 'twilio-video';
 
 import VideocamIcon from '@mui/icons-material/Videocam';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import MicIcon from '@mui/icons-material/Mic';
 import MicOffIcon from '@mui/icons-material/MicOff';
 import SettingsIcon from '@mui/icons-material/Settings';
+import CallEndIcon from '@mui/icons-material/CallEnd';
+
 import { useVideoParticipant } from '../store';
 import { CallSettings } from './CallSettings';
+import { useNavigate } from 'react-router-dom';
 
 interface VideoControlsProps {
-  // room: VideoRoom | null;
   localParticipant: LocalParticipant | undefined;
-  isVideoOpen: boolean;
-  setIsVideoOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  isMicOpen: boolean;
-  setIsMicOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  inCallRoom: boolean;
 }
 
-export const VideoControls: React.FC<VideoControlsProps> = ({
-  localParticipant,
-  isVideoOpen,
-  setIsVideoOpen,
-  isMicOpen,
-  setIsMicOpen,
-}) => {
-  const { localTracks } = useVideoParticipant();
+export const VideoControls: React.FC<VideoControlsProps> = ({ localParticipant, inCallRoom }) => {
+  const { room, localTracks, isMicOpen, setIsMicOpen, isVideoOpen, setIsVideoOpen } = useVideoParticipant();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const navigate = useNavigate();
 
   const openSettings = (): void => {
     setIsSettingsOpen(true);
@@ -36,6 +29,11 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
 
   const closeSettings = (): void => {
     setIsSettingsOpen(false);
+  };
+
+  const disconnect = (): void => {
+    room?.disconnect();
+    navigate('/post-call');
   };
 
   const toggleVideo = (): void => {
@@ -75,6 +73,7 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
         sx={{
           display: 'flex',
           justifyContent: 'center',
+          alignItems: 'center',
           backgroundColor: 'rgba(50, 63, 83, 0.87)',
           px: 2,
           py: 1,
@@ -98,6 +97,21 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
           <MicOffIcon sx={{ color: 'white' }} onClick={toggleMic} />
         )}
         <SettingsIcon sx={{ color: 'white' }} onClick={openSettings} />
+        {inCallRoom && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '50%',
+              backgroundColor: 'red',
+              width: 30,
+              height: 30,
+            }}
+          >
+            <CallEndIcon sx={{ color: 'white' }} onClick={disconnect} />
+          </Box>
+        )}
       </Box>
       <CallSettings open={isSettingsOpen} onClose={closeSettings} localParticipant={localParticipant} />
     </>

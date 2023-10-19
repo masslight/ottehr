@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import Video, { Room, Participant } from 'twilio-video';
-import { Box, CircularProgress } from '@mui/material';
+import { Room, Participant } from 'twilio-video';
+import { Box } from '@mui/material';
 import { VideoParticipant, VideoControls, LoadingSpinner } from '../components';
 import { useVideoParticipant } from '../store';
 import { useLocalVideo } from '../hooks/twilio/useLocalVideo';
@@ -15,11 +15,8 @@ interface RoomProps {
 
 export const VideoRoom: React.FC<RoomProps> = ({ room, handleLogout, participants, setParticipants }) => {
   const localVideoRef = useRef<HTMLDivElement | null>(null);
-  const { localTracks, setLocalTracks } = useVideoParticipant();
+  const { localTracks } = useVideoParticipant();
   useLocalVideo(localVideoRef, localTracks);
-
-  const [isVideoOpen, setIsVideoOpen] = useState(true);
-  const [isMicOpen, setIsMicOpen] = useState(true);
 
   const participantsRef = useRef(setParticipants);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -80,7 +77,7 @@ export const VideoRoom: React.FC<RoomProps> = ({ room, handleLogout, participant
         >
           {remoteParticipants}
         </Box>
-        {/* todo: update sx to be more dynamic */}
+        {/* local video */}
         <Box
           ref={localVideoRef}
           sx={{
@@ -92,11 +89,7 @@ export const VideoRoom: React.FC<RoomProps> = ({ room, handleLogout, participant
             backgroundColor: 'lightgray',
             zIndex: 2,
           }}
-        >
-          {/* {room?.localParticipant ? (
-            <VideoParticipant key={room.localParticipant.sid} participant={room.localParticipant} />
-          ) : null} */}
-        </Box>
+        />
         <Box
           sx={{
             position: 'absolute',
@@ -106,13 +99,7 @@ export const VideoRoom: React.FC<RoomProps> = ({ room, handleLogout, participant
             zIndex: 3,
           }}
         >
-          <VideoControls
-            localParticipant={room?.localParticipant}
-            isVideoOpen={isVideoOpen}
-            setIsVideoOpen={setIsVideoOpen}
-            isMicOpen={isMicOpen}
-            setIsMicOpen={setIsMicOpen}
-          />
+          <VideoControls localParticipant={room?.localParticipant} inCallRoom={true} />
         </Box>
       </Box>
     </Box>

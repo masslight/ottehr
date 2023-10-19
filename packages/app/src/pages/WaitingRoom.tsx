@@ -9,18 +9,10 @@ import { useNavigate } from 'react-router-dom';
 import { useLocalVideo } from '../hooks/twilio/useLocalVideo';
 
 export const WaitingRoom = (): JSX.Element => {
-  const { isVideoOpen, setIsVideoOpen, isMicOpen, setIsMicOpen, room, localTracks } = useVideoParticipant();
+  const { room, localTracks } = useVideoParticipant();
   const theme = useTheme();
 
   const navigate = useNavigate();
-
-  const toggleMic = (): void => {
-    setIsMicOpen(!isMicOpen);
-  };
-
-  const toggleVideo = (): void => {
-    setIsVideoOpen(!isVideoOpen);
-  };
 
   // localParticipant is not counted so we start with 1
   const [numParticipants, setNumParticipants] = useState<number>(1);
@@ -92,13 +84,7 @@ export const WaitingRoom = (): JSX.Element => {
                   zIndex: 2,
                 }}
               >
-                <VideoControls
-                  localParticipant={room?.localParticipant}
-                  isVideoOpen={isVideoOpen}
-                  setIsVideoOpen={setIsVideoOpen}
-                  isMicOpen={isMicOpen}
-                  setIsMicOpen={setIsMicOpen}
-                />
+                <VideoControls localParticipant={room?.localParticipant} inCallRoom={false} />
               </Box>
               <Box
                 ref={videoRef}
