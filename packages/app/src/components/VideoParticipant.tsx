@@ -76,7 +76,6 @@ export const VideoParticipant: React.FC<ParticipantProps> = ({ participant }) =>
 
     // Clean up at the end by removing all the tracks and the event listeners
     return () => {
-      console.log('Participant disconnected');
       setVideoTracks([]);
       setAudioTracks([]);
       participant.removeAllListeners();

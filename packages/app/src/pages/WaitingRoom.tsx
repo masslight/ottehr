@@ -27,7 +27,6 @@ export const WaitingRoom = (): JSX.Element => {
 
   useEffect(() => {
     if (room) {
-      console.log('room', room);
       room.on('participantConnected', participantConnected);
       room.on('participantDisconnected', participantDisconnected);
       room.participants.forEach(participantConnected);

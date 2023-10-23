@@ -12,16 +12,17 @@ export const ProviderDashboard = (): JSX.Element => {
 
   const theme = useTheme();
 
+  // hard coded patients data for now
   const patientsData = [
     {
       name: 'John Doe',
       queuedTime: '2023-09-29T08:15:00Z',
-      link: 'https://example.com/john',
+      roomName: 'testRoom',
     },
     {
       name: 'Jane Smith',
       queuedTime: '2023-09-29T15:54:00Z',
-      link: 'https://example.com/jane',
+      roomName: 'testRoom',
     },
   ];
 

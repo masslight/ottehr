@@ -12,6 +12,7 @@ export const CheckInPermission = (): JSX.Element => {
   const theme = useTheme();
   const navigate = useNavigate();
 
+  //TODO: hard coded room name for now, note: twilio free rooms are limited to 2 participant, and it takes around 15-20 seconds to disconnect a participant
   const roomName = 'testRoom';
 
   const toggleCamMic = async (userInput: boolean): Promise<void> => {

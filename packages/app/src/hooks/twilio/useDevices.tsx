@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-// This returns the type of the value that is returned by a promise resolution
+// The type of the value that is returned by a promise resolution
 type ThenArg<T> = T extends PromiseLike<infer U> ? U : never;
 
 type DeviceInfo = {

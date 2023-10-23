@@ -35,12 +35,10 @@ export const CallSettings: React.FC<CallSettingsProps> = ({ open, onClose, local
   const videoRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    console.log('Open changed:', open);
     let localVideoTrackCleanup: LocalVideoTrack | null = null;
 
     const attachVideo = (newTrack: LocalVideoTrack): void => {
       if (videoRef.current) {
-        console.log('Attaching video element');
         const videoElement = newTrack.attach();
         videoElement.style.width = '100%';
         videoElement.style.height = '100%';
@@ -49,7 +47,6 @@ export const CallSettings: React.FC<CallSettingsProps> = ({ open, onClose, local
     };
 
     const detachVideo = (): void => {
-      console.log('Detaching video element');
       if (videoRef.current) {
         videoRef.current.querySelectorAll('video').forEach((v) => v.remove());
       }
@@ -58,7 +55,6 @@ export const CallSettings: React.FC<CallSettingsProps> = ({ open, onClose, local
     if (open) {
       createLocalVideoTrack()
         .then((newTrack) => {
-          console.log('New track created');
           attachVideo(newTrack);
           localVideoTrackCleanup = newTrack;
         })
@@ -66,7 +62,6 @@ export const CallSettings: React.FC<CallSettingsProps> = ({ open, onClose, local
     }
 
     return () => {
-      console.log('Cleaning up...');
       detachVideo();
       if (localVideoTrackCleanup) {
         localVideoTrackCleanup.stop();

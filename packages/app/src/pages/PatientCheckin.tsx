@@ -19,7 +19,6 @@ export const PatientCheckIn = (): JSX.Element => {
     if (name) {
       setPatientName(name);
       navigate('/checkin-permission');
-      console.log('hee');
     } else {
       setIsError(true);
     }

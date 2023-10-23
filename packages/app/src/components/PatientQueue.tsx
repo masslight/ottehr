@@ -3,17 +3,60 @@ import { FC, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ottEHRDefaultPatient, callButtonMobile } from '../assets/icons';
 import { getQueuedTimeFromTimestamp } from '../helpers';
+import { useNavigate } from 'react-router-dom';
+import { useVideoParticipant } from '../store';
+import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
+import { zapehrApi } from '../api';
 
 export interface PatientQueueProps {
-  link: string;
+  roomName: string;
   name: string;
   queuedTime: string;
 }
 
-export const PatientQueue: FC<PatientQueueProps> = ({ link, name, queuedTime }) => {
+export const PatientQueue: FC<PatientQueueProps> = ({ roomName, name, queuedTime }) => {
   const { t } = useTranslation();
-
+  const { setIsVideoOpen, setIsMicOpen, setRoom, setLocalTracks } = useVideoParticipant();
+  const navigate = useNavigate();
   const [relativeQueuedTime, setRelativeQueuedTime] = useState(getQueuedTimeFromTimestamp(queuedTime));
+
+  const startCall = async (): Promise<void> => {
+    try {
+      setIsVideoOpen(true);
+      setIsMicOpen(true);
+
+      const fetchedToken = await zapehrApi.getTwilioToken(roomName);
+      if (fetchedToken === null) {
+        console.error('Failed to fetch token');
+        return;
+      }
+
+      const tracks = await Video.createLocalTracks({
+        audio: true,
+        video: true,
+      });
+
+      const localTracks = tracks.filter((track) => track.kind === 'audio' || track.kind === 'video') as (
+        | LocalAudioTrack
+        | LocalVideoTrack
+      )[];
+
+      setLocalTracks(localTracks);
+
+      const connectedRoom = await Video.connect(fetchedToken, {
+        name: roomName,
+        audio: true,
+        video: true,
+        tracks: localTracks,
+      });
+
+      setRoom(connectedRoom);
+      navigate(`/video-call/`);
+      // Navigate to room or handle UI updates
+    } catch (error) {
+      console.error('An error occurred:', error);
+    }
+  };
 
   useEffect(() => {
     setRelativeQueuedTime(getQueuedTimeFromTimestamp(queuedTime));
@@ -41,7 +84,7 @@ export const PatientQueue: FC<PatientQueueProps> = ({ link, name, queuedTime }) 
           </Box>
         </Box>
         <Box>
-          <Button sx={{ display: { xs: 'none', md: 'block' } }} variant="contained" color="primary" href={link}>
+          <Button sx={{ display: { xs: 'none', md: 'block' } }} variant="contained" color="primary" onClick={startCall}>
             {t('general.startCall')}
           </Button>
           <Button
