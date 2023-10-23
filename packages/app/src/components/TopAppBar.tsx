@@ -20,7 +20,6 @@ import { otherColors } from '../OttEHRThemeProvider';
 import { dashboardLogo } from '../assets/icons';
 import MenuIcon from '@mui/icons-material/Menu';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import React from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 
 const pages = ['Dashboard'];
@@ -130,7 +129,6 @@ export const TopAppBar: FC = () => {
               </MenuItem>
             </Menu>
 
-            {/* TO DO menu integration */}
             <Box
               sx={{
                 position: 'fixed',
@@ -138,7 +136,7 @@ export const TopAppBar: FC = () => {
                 right: menuOpen ? 0 : '-100%',
                 width: 'auto',
                 height: '100vh',
-                backgroundColor: '#263954',
+                backgroundColor: otherColors.darkBackgroundPaper,
                 zIndex: 2,
                 transition: 'right 0.3s ease-in-out',
                 p: 2,
@@ -162,8 +160,8 @@ export const TopAppBar: FC = () => {
                 <Divider sx={{ color: 'primary.contrast' }} />
                 <MenuItem component={Link} onClick={handleCloseUserMenu} to="/provider-profile">
                   <Box sx={{ alignItems: 'center', justifyContent: 'center', display: 'flex' }}>
-                    <AccountCircleIcon sx={{ color: 'text.light', mr: 4 }} />
-                    <Typography color="text.light" variant="body2">
+                    <AccountCircleIcon sx={{ color: theme.palette.background.default, mr: 4 }} />
+                    <Typography color={theme.palette.background.default} variant="body2">
                       Profile
                     </Typography>
                   </Box>
@@ -176,7 +174,7 @@ export const TopAppBar: FC = () => {
                   }}
                 >
                   <Box sx={{ alignItems: 'center', justifyContent: 'center', display: 'flex' }}>
-                    <Typography color="text.light" variant="body2">
+                    <Typography color={theme.palette.background.default} variant="body2">
                       Logout
                     </Typography>
                   </Box>
