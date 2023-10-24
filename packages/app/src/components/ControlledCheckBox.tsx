@@ -31,12 +31,6 @@ export const ControlledCheckBox: FC<ControlledCheckBoxProps> = ({ defaultValue, 
                 required={required}
                 style={{ borderRadius: '4px' }}
                 sx={{
-                  alignSelf: 'flex-start',
-                  height: '18px',
-                  mr: '10px',
-                  pr: 1,
-                  pb: 1,
-                  width: '18px',
                   '&.Mui-checked': {
                     borderRadius: '4px',
                     color: otherColors.lightPurple,
@@ -45,6 +39,12 @@ export const ControlledCheckBox: FC<ControlledCheckBoxProps> = ({ defaultValue, 
                   '&.MuiCheckbox-root': {
                     borderRadius: '4px',
                   },
+                  alignSelf: 'flex-start',
+                  height: '18px',
+                  mr: '10px',
+                  pb: 1,
+                  pr: 1,
+                  width: '18px',
                 }}
               />
             );

@@ -136,21 +136,21 @@ export const CallSettings: React.FC<CallSettingsProps> = ({ open, onClose, local
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm">
+    <Dialog maxWidth="sm" onClose={onClose} open={open}>
       <DialogTitle>Call settings</DialogTitle>
       <DialogContent>
         {/* Camera preview */}
         <Box
           ref={videoRef}
           sx={{
-            width: '100%',
             height: '100%',
+            width: '100%',
           }}
         />
         {/* Camera selection */}
-        <FormControl fullWidth variant="outlined" margin="normal">
+        <FormControl fullWidth margin="normal" variant="outlined">
           <InputLabel id="camera-label">Camera</InputLabel>
-          <Select labelId="camera-label" value={camera} label="Camera" onChange={handleCameraChange}>
+          <Select label="Camera" labelId="camera-label" onChange={handleCameraChange} value={camera}>
             {videoInputDevices.map((device) => (
               <MenuItem key={device.deviceId} value={device.deviceId}>
                 {device.label}
@@ -159,9 +159,9 @@ export const CallSettings: React.FC<CallSettingsProps> = ({ open, onClose, local
           </Select>
         </FormControl>
         {/* Microphone selection */}
-        <FormControl fullWidth variant="outlined" margin="normal">
+        <FormControl fullWidth margin="normal" variant="outlined">
           <InputLabel id="microphone-label">Microphone</InputLabel>
-          <Select labelId="microphone-label" value={microphone} label="Microphone" onChange={handleMicrophoneChange}>
+          <Select label="Microphone" labelId="microphone-label" onChange={handleMicrophoneChange} value={microphone}>
             {audioInputDevices.map((device) => (
               <MenuItem key={device.deviceId} value={device.deviceId}>
                 {device.label}
@@ -170,9 +170,9 @@ export const CallSettings: React.FC<CallSettingsProps> = ({ open, onClose, local
           </Select>
         </FormControl>
         {/* Speakers selection */}
-        <FormControl fullWidth variant="outlined" margin="normal">
+        <FormControl fullWidth margin="normal" variant="outlined">
           <InputLabel id="speakers-label">Speakers</InputLabel>
-          <Select labelId="speakers-label" value={speakers} label="Speakers" onChange={handleSpeakersChange}>
+          <Select label="Speakers" labelId="speakers-label" onChange={handleSpeakersChange} value={speakers}>
             {audioOutputDevices.map((device) => (
               <MenuItem key={device.deviceId} value={device.deviceId}>
                 {device.label}
@@ -180,15 +180,15 @@ export const CallSettings: React.FC<CallSettingsProps> = ({ open, onClose, local
             ))}
           </Select>
         </FormControl>
-        <Button variant="contained" color="primary" style={{ marginTop: '16px' }}>
+        <Button color="primary" style={{ marginTop: '16px' }} variant="contained">
           Having technical issues with the call?
         </Button>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} color="primary">
+        <Button color="primary" onClick={onClose}>
           Cancel
         </Button>
-        <Button onClick={handleSave} color="primary">
+        <Button color="primary" onClick={handleSave}>
           Save Changes
         </Button>
       </DialogActions>

@@ -82,13 +82,13 @@ export const RadioInput: FC<RadioInputProps> = ({
               {...field}
               // This is gross but amounts to allowing the value from the form to be over-written with the supplied
               // value prop
-              value={field.value || 'unknown'}
               sx={{
-                gap: 1,
                 '.MuiFormControlLabel-label': {
                   width: '100%',
                 },
+                gap: 1,
               }}
+              value={field.value || 'unknown'}
             >
               {options.map((option) => {
                 const gridWidths = {
@@ -106,16 +106,17 @@ export const RadioInput: FC<RadioInputProps> = ({
 
                 return (
                   <FormControlLabel
+                    key={option.value}
                     control={
                       <Radio
-                        icon={
-                          <Icon sx={{ display: 'flex', justifyContent: 'center', scale: '75%' }}>
-                            <img alt={t('general.button.unchecked')} src={customRadioButtonUncheckedIcon} />
-                          </Icon>
-                        }
                         checkedIcon={
                           <Icon sx={{ display: 'flex', justifyContent: 'center', scale: '75%' }}>
                             <img alt={t('general.button.checked')} src={customRadioButtonCheckedIcon} />
+                          </Icon>
+                        }
+                        icon={
+                          <Icon sx={{ display: 'flex', justifyContent: 'center', scale: '75%' }}>
+                            <img alt={t('general.button.unchecked')} src={customRadioButtonUncheckedIcon} />
                           </Icon>
                         }
                         sx={{
@@ -129,7 +130,6 @@ export const RadioInput: FC<RadioInputProps> = ({
                         }}
                       />
                     }
-                    key={option.value}
                     label={
                       <Grid
                         container
@@ -148,13 +148,13 @@ export const RadioInput: FC<RadioInputProps> = ({
                             might be nice to change it later */}
                         <Grid
                           item
-                          xs={gridWidths.mobile.labelText}
                           md={gridWidths.desktop.labelText}
                           sx={{ margin: '0 !important' }}
+                          xs={gridWidths.mobile.labelText}
                         >
                           <>
                             {option.label && (
-                              <Typography color="secondary.main" variant="h5" sx={radioStyling?.label}>
+                              <Typography color="secondary.main" sx={radioStyling?.label} variant="h5">
                                 {option.label}
                               </Typography>
                             )}
@@ -175,10 +175,9 @@ export const RadioInput: FC<RadioInputProps> = ({
                         </Grid>
                         {option.image && (
                           <>
-                            <Grid item xs={gridWidths.mobile.space} md={gridWidths.desktop.space}></Grid>
+                            <Grid item md={gridWidths.desktop.space} xs={gridWidths.mobile.space}></Grid>
                             <Grid
                               item
-                              xs={gridWidths.mobile.image}
                               md={gridWidths.desktop.image}
                               sx={{
                                 // If screen is larger than medium breakpoint
@@ -186,6 +185,7 @@ export const RadioInput: FC<RadioInputProps> = ({
                                   ...(centerImages && { marginLeft: 'auto', marginRight: 'auto' }),
                                 },
                               }}
+                              xs={gridWidths.mobile.image}
                             >
                               <img alt={option.imageAlt} src={option.image} width={option.imageWidth} />
                             </Grid>
@@ -194,7 +194,6 @@ export const RadioInput: FC<RadioInputProps> = ({
                       </Grid>
                     }
                     onChange={onChange}
-                    value={option.value}
                     sx={{
                       backgroundColor: () => {
                         if (selected[name] === option.value) {
@@ -217,6 +216,7 @@ export const RadioInput: FC<RadioInputProps> = ({
                       pr: 2,
                       pt: 0,
                     }}
+                    value={option.value}
                   />
                 );
               })}

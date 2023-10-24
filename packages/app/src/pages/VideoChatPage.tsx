@@ -14,7 +14,7 @@ export const VideoChatPage: React.FC = () => {
 
   return (
     <div>
-      <VideoRoom participants={participants} setParticipants={setParticipants} room={room} />
+      <VideoRoom participants={participants} room={room} setParticipants={setParticipants} />
     </div>
   );
 };

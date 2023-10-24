@@ -37,8 +37,8 @@ export const ProviderHeaderSection: FC<ProviderHeaderSectionProps> = ({ provider
               justifyContent: 'start',
               mx: 12.5,
               [theme.breakpoints.down('md')]: {
-                flexDirection: 'column',
                 alignItems: 'center',
+                flexDirection: 'column',
                 mx: 2,
               },
             }}

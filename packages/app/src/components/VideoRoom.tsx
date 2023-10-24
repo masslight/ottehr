@@ -64,13 +64,13 @@ export const VideoRoom: React.FC<RoomProps> = ({ room, participants, setParticip
 
   return (
     // for now only speaker view for two participants
-    <Box sx={{ position: 'relative', width: '100vw', height: '100vh' }}>
+    <Box sx={{ height: '100vh', position: 'relative', width: '100vw' }}>
       {isLoading && <LoadingSpinner />}
       <Box key="video-room">
         <Box
           sx={{
-            height: '100vh',
             backgroundColor: 'gray',
+            height: '100vh',
           }}
         >
           {remoteParticipants}
@@ -79,25 +79,25 @@ export const VideoRoom: React.FC<RoomProps> = ({ room, participants, setParticip
         <Box
           ref={localVideoRef}
           sx={{
-            position: 'absolute',
-            top: 16,
-            right: 16,
-            width: 240,
-            height: 135,
             backgroundColor: 'lightgray',
+            height: 135,
+            position: 'absolute',
+            right: 16,
+            top: 16,
+            width: 240,
             zIndex: 2,
           }}
         />
         <Box
           sx={{
-            position: 'absolute',
             bottom: 16,
             left: '50%',
+            position: 'absolute',
             transform: 'translate(-50%, 50%)',
             zIndex: 3,
           }}
         >
-          <VideoControls localParticipant={room?.localParticipant} inCallRoom={true} />
+          <VideoControls inCallRoom={true} localParticipant={room?.localParticipant} />
         </Box>
       </Box>
     </Box>

@@ -8,8 +8,8 @@ export function formatDate(date: DateTime): string {
 
 export function createFhirClient(token: string): FhirClient {
   const CLIENT_CONFIG: ClientConfig = {
-    apiUrl: process.env.FHIR_API,
     accessToken: token,
+    apiUrl: process.env.FHIR_API,
   };
   console.log(CLIENT_CONFIG);
   return new FhirClient(CLIENT_CONFIG);
@@ -17,16 +17,16 @@ export function createFhirClient(token: string): FhirClient {
 
 export function createAppClient(token: string): AppClient {
   const CLIENT_CONFIG: ClientConfig = {
-    apiUrl: process.env.PROJECT_API,
     accessToken: token,
+    apiUrl: process.env.PROJECT_API,
   };
   return new AppClient(CLIENT_CONFIG);
 }
 
 export function createMessagingClient(token: string): MessagingClient {
   const CLIENT_CONFIG: ClientConfig = {
-    apiUrl: process.env.PROJECT_API,
     accessToken: token,
+    apiUrl: process.env.PROJECT_API,
   };
   return new MessagingClient(CLIENT_CONFIG);
 }

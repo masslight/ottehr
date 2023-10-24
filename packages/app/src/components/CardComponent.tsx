@@ -41,14 +41,14 @@ export const CardComponent: FC<CardComponentProps> = ({
           setValue(name, '');
           onClear();
         }}
-        variant="text"
         sx={{
+          '&:hover': { backgroundColor: otherColors.transparent },
           color: otherColors.clearImage,
           justifyContent: 'start',
           mt: 2,
           px: 0,
-          '&:hover': { backgroundColor: otherColors.transparent },
         }}
+        variant="text"
       >
         Clear
       </Button>

@@ -15,8 +15,8 @@ export const createCodableConcept = (
       const { code, system, display } = ip;
       return {
         code,
-        system,
         display,
+        system,
       };
     }),
   };

@@ -44,10 +44,10 @@ export const PatientQueue: FC<PatientQueueProps> = ({ roomName, name, queuedTime
       setLocalTracks(localTracks);
 
       const connectedRoom = await Video.connect(fetchedToken, {
-        name: roomName,
         audio: true,
-        video: true,
+        name: roomName,
         tracks: localTracks,
+        video: true,
       });
 
       setRoom(connectedRoom);
@@ -73,18 +73,18 @@ export const PatientQueue: FC<PatientQueueProps> = ({ roomName, name, queuedTime
     <Box sx={{ m: 0, py: 1 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
         <Box sx={{ display: 'flex' }}>
-          <img src={ottEHRDefaultPatient} height="42px" />
+          <img height="42px" src={ottEHRDefaultPatient} />
           <Box pl={2}>
             <Typography color="primary.contrast" variant="body1">
               {name}
             </Typography>
-            <Typography color="primary.contrast" variant="body2" sx={{ opacity: 0.6 }}>
+            <Typography color="primary.contrast" sx={{ opacity: 0.6 }} variant="body2">
               {relativeQueuedTime}
             </Typography>
           </Box>
         </Box>
         <Box>
-          <Button sx={{ display: { xs: 'none', md: 'block' } }} variant="contained" color="primary" onClick={startCall}>
+          <Button color="primary" onClick={startCall} sx={{ display: { md: 'block', xs: 'none' } }} variant="contained">
             {t('general.startCall')}
           </Button>
           <Button

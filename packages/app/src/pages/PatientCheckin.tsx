@@ -33,7 +33,7 @@ export const PatientCheckIn = (): JSX.Element => {
         justifyContent: 'space-between',
       }}
     >
-      <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" isProvider={true} />
+      <ProviderHeaderSection isProvider={true} providerName="Dr. Smith" title="Waiting Room" />
       {/* Middle Section */}
       <Box
         sx={{
@@ -44,12 +44,12 @@ export const PatientCheckIn = (): JSX.Element => {
       >
         <Box
           maxWidth="md"
-          width="100%"
           sx={{
             [theme.breakpoints.down('md')]: {
               px: 2,
             },
           }}
+          width="100%"
         >
           <Box
             sx={{
@@ -59,10 +59,10 @@ export const PatientCheckIn = (): JSX.Element => {
               },
             }}
           >
-            <Typography variant="h5" sx={{ pb: 1 }}>
+            <Typography sx={{ pb: 1 }} variant="h5">
               Check in
             </Typography>
-            <Typography variant="body1" sx={{ pb: 3 }}>
+            <Typography sx={{ pb: 3 }} variant="body1">
               Please enter your name to join the call line of Dr. Olivia Smith
             </Typography>
             <form onSubmit={handleSubmit}>
@@ -77,17 +77,17 @@ export const PatientCheckIn = (): JSX.Element => {
                   error={isError}
                   label="Your Name"
                   onChange={(e) => setName(e.target.value)}
+                  sx={{ pb: 2, width: '100%' }}
                   value={name}
                   variant="outlined"
-                  sx={{ pb: 2, width: '100%' }}
                 />
                 <Button
-                  type="submit"
-                  variant="contained"
                   sx={{
                     ...otherStyling.buttonPrimary,
                     width: '100%',
                   }}
+                  type="submit"
+                  variant="contained"
                 >
                   Check In
                 </Button>

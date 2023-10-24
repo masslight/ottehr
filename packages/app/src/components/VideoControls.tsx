@@ -71,49 +71,49 @@ export const VideoControls: React.FC<VideoControlsProps> = ({ localParticipant, 
     <>
       <Box
         sx={{
-          display: 'flex',
-          justifyContent: 'center',
           alignItems: 'center',
           backgroundColor: 'rgba(50, 63, 83, 0.87)',
+          borderRadius: 5,
+          bottom: 16,
+          display: 'flex',
+          gap: 1,
+          justifyContent: 'center',
+          left: '50%',
+          maxWidth: 'fit-content',
+          position: 'absolute',
           px: 2,
           py: 1,
-          gap: 1,
-          maxWidth: 'fit-content',
-          borderRadius: 5,
-          position: 'absolute',
-          bottom: 16,
-          left: '50%',
           transform: 'translate(-50%, 0)',
         }}
       >
         {isVideoOpen ? (
-          <VideocamIcon sx={{ color: 'white' }} onClick={toggleVideo} />
+          <VideocamIcon onClick={toggleVideo} sx={{ color: 'white' }} />
         ) : (
-          <VideocamOffIcon sx={{ color: 'white' }} onClick={toggleVideo} />
+          <VideocamOffIcon onClick={toggleVideo} sx={{ color: 'white' }} />
         )}
         {isMicOpen ? (
-          <MicIcon sx={{ color: 'white' }} onClick={toggleMic} />
+          <MicIcon onClick={toggleMic} sx={{ color: 'white' }} />
         ) : (
-          <MicOffIcon sx={{ color: 'white' }} onClick={toggleMic} />
+          <MicOffIcon onClick={toggleMic} sx={{ color: 'white' }} />
         )}
-        <SettingsIcon sx={{ color: 'white' }} onClick={openSettings} />
+        <SettingsIcon onClick={openSettings} sx={{ color: 'white' }} />
         {inCallRoom && (
           <Box
             sx={{
-              display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: '50%',
               backgroundColor: 'red',
-              width: 30,
+              borderRadius: '50%',
+              display: 'flex',
               height: 30,
+              justifyContent: 'center',
+              width: 30,
             }}
           >
-            <CallEndIcon sx={{ color: 'white' }} onClick={disconnect} />
+            <CallEndIcon onClick={disconnect} sx={{ color: 'white' }} />
           </Box>
         )}
       </Box>
-      <CallSettings open={isSettingsOpen} onClose={closeSettings} localParticipant={localParticipant} />
+      <CallSettings localParticipant={localParticipant} onClose={closeSettings} open={isSettingsOpen} />
     </>
   );
 };

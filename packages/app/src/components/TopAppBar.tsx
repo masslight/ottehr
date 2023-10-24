@@ -20,7 +20,6 @@ import { otherColors } from '../OttEHRThemeProvider';
 import { dashboardLogo } from '../assets/icons';
 import MenuIcon from '@mui/icons-material/Menu';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import React from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 
 const pages = ['Dashboard'];
@@ -48,30 +47,30 @@ export const TopAppBar: FC = () => {
       <Container maxWidth={false}>
         <Toolbar
           disableGutters
-          variant="dense"
           sx={{
             [theme.breakpoints.down('md')]: {
               display: 'flex',
               justifyContent: 'space-between',
             },
           }}
+          variant="dense"
         >
-          <Box component="img" src={dashboardLogo} mr={5} />
-          <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
+          <Box component="img" mr={5} src={dashboardLogo} />
+          <Box sx={{ display: { md: 'flex', xs: 'none' }, flexGrow: 1 }}>
             {pages.map((page) => (
               <Button
-                component={NavLink}
                 key={page}
-                to={`/${page.toLowerCase()}`}
+                component={NavLink}
                 sx={{
+                  '&.active': { color: theme.palette.primary.light },
                   color: isActive(`/${page.toLowerCase()}`)
                     ? theme.palette.primary.light
                     : alpha(theme.palette.background.default, 0.7),
                   display: 'block',
                   my: 2,
                   textDecoration: 'none',
-                  '&.active': { color: theme.palette.primary.light },
                 }}
+                to={`/${page.toLowerCase()}`}
               >
                 {page}
               </Button>
@@ -80,25 +79,25 @@ export const TopAppBar: FC = () => {
           <Box sx={{ flexGrow: 0 }}>
             <Tooltip title="Open settings">
               <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
-                <AccountCircleIcon sx={{ color: theme.palette.primary.light, display: { xs: 'none', md: 'block' } }} />
+                <AccountCircleIcon sx={{ color: theme.palette.primary.light, display: { md: 'block', xs: 'none' } }} />
                 <MenuIcon sx={{ color: theme.palette.primary.light, display: { md: 'none' } }} />
               </IconButton>
             </Tooltip>
             <Menu
-              id="menu-appbar"
               anchorEl={anchorElUser}
               anchorOrigin={{
                 horizontal: 'right',
                 vertical: 'top',
               }}
+              id="menu-appbar"
               keepMounted
               onClose={handleCloseUserMenu}
               open={Boolean(anchorElUser)}
+              sx={{ display: { md: 'block', xs: 'none' }, mt: '45px' }}
               transformOrigin={{
                 horizontal: 'right',
                 vertical: 'top',
               }}
-              sx={{ mt: '45px', display: { xs: 'none', md: 'block' } }}
             >
               <MenuItem disabled>
                 <Box sx={{ display: 'flex', flexDirection: 'column' }}>
@@ -108,7 +107,7 @@ export const TopAppBar: FC = () => {
               </MenuItem>
               <Divider />
               <MenuItem component={Link} onClick={handleCloseUserMenu} to="/provider-profile">
-                <Box sx={{ alignItems: 'center', justifyContent: 'center', display: 'flex' }}>
+                <Box sx={{ alignItems: 'center', display: 'flex', justifyContent: 'center' }}>
                   <AccountCircleIcon sx={{ color: 'text.light', mr: 4 }} />
                   <Typography color="text.light" variant="body2">
                     Profile
@@ -122,7 +121,7 @@ export const TopAppBar: FC = () => {
                   logout({ returnTo: window.location.origin });
                 }}
               >
-                <Box sx={{ alignItems: 'center', justifyContent: 'center', display: 'flex' }}>
+                <Box sx={{ alignItems: 'center', display: 'flex', justifyContent: 'center' }}>
                   <Typography color="text.light" variant="body2">
                     Logout
                   </Typography>
@@ -133,35 +132,35 @@ export const TopAppBar: FC = () => {
             {/* TO DO menu integration */}
             <Box
               sx={{
-                position: 'fixed',
-                top: 0,
-                right: menuOpen ? 0 : '-100%',
-                width: 'auto',
-                height: '100vh',
                 backgroundColor: '#263954',
-                zIndex: 2,
-                transition: 'right 0.3s ease-in-out',
+                display: { md: 'none', xs: 'block' },
+                height: '100vh',
                 p: 2,
+                position: 'fixed',
+                right: menuOpen ? 0 : '-100%',
                 textAlign: 'left',
-                display: { xs: 'block', md: 'none' },
+                top: 0,
+                transition: 'right 0.3s ease-in-out',
+                width: 'auto',
+                zIndex: 2,
               }}
             >
               <Box
-                sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: '100%', gap: 2 }}
+                sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', justifyContent: 'flex-end' }}
               >
                 <Button disabled>
                   <Box sx={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
-                    <Typography variant="body1" color="white">
+                    <Typography color="white" variant="body1">
                       Name Surname
                     </Typography>
-                    <Typography variant="body1" color="white">
+                    <Typography color="white" variant="body1">
                       email@example.com
                     </Typography>
                   </Box>
                 </Button>
                 <Divider sx={{ color: 'primary.contrast' }} />
                 <MenuItem component={Link} onClick={handleCloseUserMenu} to="/provider-profile">
-                  <Box sx={{ alignItems: 'center', justifyContent: 'center', display: 'flex' }}>
+                  <Box sx={{ alignItems: 'center', display: 'flex', justifyContent: 'center' }}>
                     <AccountCircleIcon sx={{ color: 'text.light', mr: 4 }} />
                     <Typography color="text.light" variant="body2">
                       Profile
@@ -175,14 +174,14 @@ export const TopAppBar: FC = () => {
                     logout({ returnTo: window.location.origin });
                   }}
                 >
-                  <Box sx={{ alignItems: 'center', justifyContent: 'center', display: 'flex' }}>
+                  <Box sx={{ alignItems: 'center', display: 'flex', justifyContent: 'center' }}>
                     <Typography color="text.light" variant="body2">
                       Logout
                     </Typography>
                   </Box>
                 </MenuItem>
               </Box>
-              <Button onClick={handleCloseUserMenu} sx={{ position: 'absolute', top: 0, left: 0 }}>
+              <Button onClick={handleCloseUserMenu} sx={{ left: 0, position: 'absolute', top: 0 }}>
                 <ArrowForwardIcon sx={{ color: 'white' }} />
               </Button>
             </Box>

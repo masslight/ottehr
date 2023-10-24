@@ -7,11 +7,11 @@ export const headerFonts = ['Work Sans'];
 
 export const breakpoints: BreakpointsOptions = {
   values: {
-    xs: 0,
-    sm: 400,
-    md: 700,
     lg: 1000,
+    md: 700,
+    sm: 400,
     xl: 1400,
+    xs: 0,
   },
 };
 
@@ -54,6 +54,25 @@ export const otherColors = {
 };
 
 export const typography: TypographyOptions = {
+  body1: {
+    fontFamily: textFonts.join(','),
+    fontSize: 16,
+    fontWeight: 400,
+    lineHeight: '140%',
+  },
+  body2: {
+    fontFamily: textFonts.join(','),
+    fontSize: 14,
+    fontWeight: 400,
+    lineHeight: '140%',
+  },
+  button: {},
+  caption: {
+    fontFamily: textFonts.join(','),
+    fontSize: 14,
+    fontWeight: 400,
+    lineHeight: '140%',
+  },
   fontFamily: textFonts.join(','),
   fontWeightMedium: 600,
   h1: {
@@ -92,6 +111,12 @@ export const typography: TypographyOptions = {
     fontWeight: '500 !important',
     lineHeight: '140%',
   },
+  overline: {
+    fontFamily: textFonts.join(','),
+    fontSize: 16,
+    fontWeight: 700,
+    lineHeight: '140%',
+  },
   subtitle1: {
     fontFamily: textFonts.join(','),
     fontSize: 16,
@@ -102,31 +127,6 @@ export const typography: TypographyOptions = {
     fontFamily: textFonts.join(','),
     fontSize: 14,
     fontWeight: 600,
-    lineHeight: '140%',
-  },
-  body1: {
-    fontFamily: textFonts.join(','),
-    fontSize: 16,
-    fontWeight: 400,
-    lineHeight: '140%',
-  },
-  body2: {
-    fontFamily: textFonts.join(','),
-    fontSize: 14,
-    fontWeight: 400,
-    lineHeight: '140%',
-  },
-  button: {},
-  caption: {
-    fontFamily: textFonts.join(','),
-    fontSize: 14,
-    fontWeight: 400,
-    lineHeight: '140%',
-  },
-  overline: {
-    fontFamily: textFonts.join(','),
-    fontSize: 16,
-    fontWeight: 700,
     lineHeight: '140%',
   },
 };
@@ -142,37 +142,6 @@ declare module '@mui/material/styles' {
 }
 const { palette: p } = createTheme(); // TODO: once https://github.com/mui/material-ui/issues/17410 is resolved, export directly from mui
 export const palette = {
-  text: {
-    disabled: '#C3C9D2',
-    light: '#323F53DE',
-    primary: '#212130',
-    secondary: '#4F4F4F',
-  },
-  primary: {
-    contrast: '#FFFFFF',
-    light: '#4AC0F2',
-    main: '#2896C6',
-  },
-  secondary: {
-    contrast: '#FFFFFF',
-    main: '#301367',
-  },
-  tertiary: p.augmentColor({ color: { main: '#ECE4FB' } }),
-  step: {
-    main: '#17C4F3',
-  },
-  info: {
-    main: '#C1FBEA',
-  },
-  success: {
-    main: '#66BA70',
-  },
-  warning: {
-    main: '#FFDF9A',
-  },
-  error: {
-    main: '#EC6930',
-  },
   action: {
     active: 'rgba(0, 0, 0, 0.54)',
     disabled: 'rgba(0, 0, 0, 0.26)',
@@ -186,20 +155,51 @@ export const palette = {
     paper: '#FFFFFF',
   },
   divider: '#C3C9D2',
+  error: {
+    main: '#EC6930',
+  },
+  info: {
+    main: '#C1FBEA',
+  },
+  primary: {
+    contrast: '#FFFFFF',
+    light: '#4AC0F2',
+    main: '#2896C6',
+  },
+  secondary: {
+    contrast: '#FFFFFF',
+    main: '#301367',
+  },
+  step: {
+    main: '#17C4F3',
+  },
+  success: {
+    main: '#66BA70',
+  },
+  tertiary: p.augmentColor({ color: { main: '#ECE4FB' } }),
+  text: {
+    disabled: '#C3C9D2',
+    light: '#323F53DE',
+    primary: '#212130',
+    secondary: '#4F4F4F',
+  },
+  warning: {
+    main: '#FFDF9A',
+  },
 };
 
 export const components: Components = {
   MuiButton: {
     styleOverrides: {
       root: {
+        '&:not($sizeLarge):not($sizeSmall) $label': {
+          fontSize: 16,
+        },
         fontFamily: textFonts.join(','),
         fontSize: 14,
         fontWeight: 600,
         lineHeight: '140%',
         textTransform: 'uppercase',
-        '&:not($sizeLarge):not($sizeSmall) $label': {
-          fontSize: 16,
-        },
       },
       sizeLarge: {
         '& $label': {
@@ -217,13 +217,13 @@ export const components: Components = {
     styleOverrides: {
       root: {
         '&.MuiPickersDay-root': {
-          fontSize: 16,
           '&.Mui-selected': {
             backgroundColor: palette.secondary.main,
           },
           '&.MuiPickersDay-today': {
             borderColor: palette.secondary.main,
           },
+          fontSize: 16,
         },
       },
     },

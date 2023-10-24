@@ -42,15 +42,15 @@ export const ProviderRegistration = (): JSX.Element => {
   const helperText = isError ? 'This name is already taken, please use another one' : '';
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' } }}>
+    <Box sx={{ display: 'flex', flexDirection: { md: 'row', xs: 'column' } }}>
       {/* left side */}
       <Box
         sx={{
           backgroundColor: otherColors.darkBackgroundPaper,
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'center',
           gap: 2,
+          justifyContent: 'center',
           [theme.breakpoints.down('md')]: {
             py: 2,
             width: '100%',
@@ -68,7 +68,7 @@ export const ProviderRegistration = (): JSX.Element => {
           <Box component="img" src={ottEHRRegistrationLogo} />
         </Box>
         <Box>
-          <Typography color="primary.light" variant="body1" sx={{ textAlign: 'center', py: 2 }}>
+          <Typography color="primary.light" sx={{ py: 2, textAlign: 'center' }} variant="body1">
             Connect with patients virtually
           </Typography>
         </Box>
@@ -81,8 +81,8 @@ export const ProviderRegistration = (): JSX.Element => {
             py: 10,
             [theme.breakpoints.down('md')]: {
               flexDirection: 'row',
-              py: 0,
               gap: 2,
+              py: 0,
             },
           }}
         >
@@ -90,12 +90,12 @@ export const ProviderRegistration = (): JSX.Element => {
             component="img"
             src={backgroundEllipseDark}
             sx={{
-              position: 'absolute',
               mb: 25,
               mr: 18,
+              position: 'absolute',
               [theme.breakpoints.down('md')]: {
-                maxWidth: '60%',
                 maxHeight: '60%',
+                maxWidth: '60%',
                 mb: 0,
               },
             }}
@@ -104,11 +104,11 @@ export const ProviderRegistration = (): JSX.Element => {
             component="img"
             src={backgroundEllipseLight}
             sx={{
-              position: 'absolute',
               ml: 25,
+              position: 'absolute',
               [theme.breakpoints.down('md')]: {
-                maxWidth: '60%',
                 maxHeight: '60%',
+                maxWidth: '60%',
                 ml: 18,
               },
             }}
@@ -123,9 +123,9 @@ export const ProviderRegistration = (): JSX.Element => {
               overflow: 'hidden',
               position: 'absolute',
               [theme.breakpoints.down('md')]: {
-                position: 'static',
                 mb: 0,
                 ml: 0,
+                position: 'static',
               },
               zIndex: '2',
             }}
@@ -134,19 +134,19 @@ export const ProviderRegistration = (): JSX.Element => {
           </Box>
           <Box
             sx={{
-              display: 'flex',
-              justifyContent: 'center',
-              overflow: 'hidden',
-              zIndex: '1',
               backgroundColor: '#D9F3FF',
               border: '5px solid #fff',
               borderRadius: 5,
+              display: 'flex',
+              justifyContent: 'center',
               mb: 2,
-              px: 2,
+              overflow: 'hidden',
               pt: 4,
+              px: 2,
+              zIndex: '1',
               [theme.breakpoints.down('md')]: {
-                maxWidth: '118px',
                 maxHeight: '118px',
+                maxWidth: '118px',
                 pt: 1.5,
                 px: 1,
               },
@@ -161,8 +161,8 @@ export const ProviderRegistration = (): JSX.Element => {
               borderRadius: 5,
               display: 'flex',
               gap: 2.5,
-              py: 1.75,
               px: 9,
+              py: 1.75,
               [theme.breakpoints.down('md')]: {
                 display: 'none',
               },
@@ -197,15 +197,15 @@ export const ProviderRegistration = (): JSX.Element => {
           height: '100vh',
           justifyContent: 'center',
           [theme.breakpoints.down('md')]: {
-            width: '100%',
             height: '100%',
+            width: '100%',
           },
           width: '45%',
         }}
       >
-        <Box sx={{ mx: { xs: 2, md: 12.5 }, my: { xs: 4, md: 10 }, display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mx: { md: 12.5, xs: 2 }, my: { md: 10, xs: 4 } }}>
           <Typography variant="h4">Welcome to OttEHR</Typography>
-          <Typography color="primary.light" variant="h3" sx={{ pb: 1 }}>
+          <Typography color="primary.light" sx={{ pb: 1 }} variant="h3">
             Provider registration
           </Typography>
           <form onSubmit={handleSubmit}>
@@ -239,14 +239,14 @@ export const ProviderRegistration = (): JSX.Element => {
                 <FormControlLabel control={<Checkbox />} label="I accept the terms and conditions" />
               </Box>
               <Button
-                type="submit"
-                variant="contained"
                 sx={{
                   borderRadius: 1,
                   color: theme.palette.background.default,
-                  textTransform: 'uppercase',
                   py: 1,
+                  textTransform: 'uppercase',
                 }}
+                type="submit"
+                variant="contained"
               >
                 Sign Up
               </Button>

@@ -33,10 +33,10 @@ export const DateInput: FC<DateInputProps> = ({ defaultValue, helperText, label,
         <FormControl
           error={!!errors[name]}
           required={required}
-          variant="standard"
           sx={{
             width: '100%',
           }}
+          variant="standard"
         >
           <LocalizationProvider adapterLocale={i18n.language} dateAdapter={CustomAdapterLuxon}>
             <BoldPrimaryInputLabel htmlFor={`${name}-label`} shrink>
@@ -59,6 +59,13 @@ export const DateInput: FC<DateInputProps> = ({ defaultValue, helperText, label,
                   required={required}
                   size="small"
                   sx={{
+                    '.Mui-focused fieldset': otherStyling.formFocus,
+                    '.MuiFormHelperText-root': {
+                      ml: 1,
+                    },
+                    ':hover fieldset': {
+                      borderColor: `${otherColors.lightGray} !important`,
+                    },
                     fieldset: {
                       borderColor: otherColors.lightGray,
                       borderRadius: '8px',
@@ -69,13 +76,6 @@ export const DateInput: FC<DateInputProps> = ({ defaultValue, helperText, label,
                       padding: '10px 12px',
                     },
                     mt: 2,
-                    '.Mui-focused fieldset': otherStyling.formFocus,
-                    '.MuiFormHelperText-root': {
-                      ml: 1,
-                    },
-                    ':hover fieldset': {
-                      borderColor: `${otherColors.lightGray} !important`,
-                    },
                   }}
                 />
               )}

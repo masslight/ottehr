@@ -16,20 +16,20 @@ async function getDeviceInfo(): Promise<DeviceInfo> {
 
   return {
     audioInputDevices: devices.filter((device) => device.kind === 'audioinput'),
-    videoInputDevices: devices.filter((device) => device.kind === 'videoinput'),
     audioOutputDevices: devices.filter((device) => device.kind === 'audiooutput'),
     hasAudioInputDevices: devices.some((device) => device.kind === 'audioinput'),
     hasVideoInputDevices: devices.some((device) => device.kind === 'videoinput'),
+    videoInputDevices: devices.filter((device) => device.kind === 'videoinput'),
   };
 }
 
 export default function useDevices(): DeviceInfo {
   const [deviceInfo, setDeviceInfo] = useState<ThenArg<ReturnType<typeof getDeviceInfo>>>({
     audioInputDevices: [],
-    videoInputDevices: [],
     audioOutputDevices: [],
     hasAudioInputDevices: false,
     hasVideoInputDevices: false,
+    videoInputDevices: [],
   });
 
   useEffect(() => {

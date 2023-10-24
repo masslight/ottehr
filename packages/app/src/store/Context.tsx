@@ -56,13 +56,13 @@ export const VideoParticipantProvider: FC<VideoParticipantProviderProps> = ({ ch
       value={{
         isMicOpen,
         isVideoOpen,
+        localTracks,
+        room,
+        selectedSpeaker,
         setIsMicOpen,
         setIsVideoOpen,
-        room,
-        setRoom,
-        localTracks,
         setLocalTracks,
-        selectedSpeaker,
+        setRoom,
         setSelectedSpeaker,
       }}
     >
@@ -152,5 +152,5 @@ interface DataProviderProps {
 export const DataProvider: FC<DataProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(DataReducer, initialState);
 
-  return <DataContext.Provider value={{ state, dispatch }}>{children}</DataContext.Provider>;
+  return <DataContext.Provider value={{ dispatch, state }}>{children}</DataContext.Provider>;
 };
