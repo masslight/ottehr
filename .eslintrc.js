@@ -10,13 +10,14 @@ module.exports = {
     'plugin:react/jsx-runtime',
     'plugin:react-hooks/recommended',
     'plugin:prettier/recommended',
+    'plugin:typescript-sort-keys/recommended',
   ],
   parser: '@typescript-eslint/parser',
   parserOptions: {
     project: ['./tsconfig.base.json', './packages/**/tsconfig.json'],
     tsconfigRootDir: __dirname,
   },
-  plugins: ['@typescript-eslint'],
+  plugins: ['@typescript-eslint', 'typescript-sort-keys'],
   root: true,
   rules: {
     '@typescript-eslint/explicit-function-return-type': [
