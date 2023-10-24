@@ -6,8 +6,8 @@ import { useVideoParticipant } from '../store';
 import { useLocalVideo } from '../hooks/twilio/useLocalVideo';
 
 interface RoomProps {
-  room: Room | null;
   participants: Participant[];
+  room: Room | null;
   setParticipants: React.Dispatch<React.SetStateAction<Participant[]>>;
 }
 

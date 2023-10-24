@@ -3,8 +3,8 @@ import { DateTime, DateTimeJSOptions } from 'luxon';
 import i18n from '../lib/i18n';
 
 interface timezone {
-  value: string;
   label: string;
+  value: string;
 }
 
 export const availableTimezones = (date: DateTime | undefined): timezone[] => {

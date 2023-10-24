@@ -9,9 +9,9 @@ import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
 import { zapehrApi } from '../api';
 
 export interface PatientQueueProps {
-  roomName: string;
   name: string;
   queuedTime: string;
+  roomName: string;
 }
 
 export const PatientQueue: FC<PatientQueueProps> = ({ roomName, name, queuedTime }) => {

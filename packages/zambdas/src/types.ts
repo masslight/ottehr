@@ -29,15 +29,15 @@ export const PatientEthnicityCode = {
 };
 
 export type PatientInfo = {
-  id: string | undefined;
-  newPatient: boolean;
-  firstName: string | undefined;
-  lastName: string | undefined;
   dateOfBirth: string | undefined;
-  sex: PatientSex | undefined;
   ethnicity: PatientEthnicity | undefined;
+  firstName: string | undefined;
+  id: string | undefined;
+  lastName: string | undefined;
+  newPatient: boolean;
   race: PatientRace | undefined;
   reasonForVisit: string[] | undefined;
+  sex: PatientSex | undefined;
 };
 
 export enum PatientRace {
@@ -63,8 +63,8 @@ export const PatientRaceCode = {
 };
 
 export enum PatientSex {
-  Male = 'male',
   Female = 'female',
+  Male = 'male',
   Other = 'other',
 }
 
@@ -73,7 +73,7 @@ export interface Secrets {
 }
 
 export interface ZambdaInput {
-  headers: any | null;
   body: string | null;
+  headers: any | null;
   secrets: Secrets | null;
 }

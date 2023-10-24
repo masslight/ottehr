@@ -14,8 +14,8 @@ import { useVideoParticipant } from '../store';
 import { CallSettings } from './CallSettings';
 
 interface VideoControlsProps {
-  localParticipant: LocalParticipant | undefined;
   inCallRoom: boolean;
+  localParticipant: LocalParticipant | undefined;
 }
 
 export const VideoControls: React.FC<VideoControlsProps> = ({ localParticipant, inCallRoom }) => {

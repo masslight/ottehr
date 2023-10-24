@@ -5,10 +5,10 @@ type ThenArg<T> = T extends PromiseLike<infer U> ? U : never;
 
 type DeviceInfo = {
   audioInputDevices: MediaDeviceInfo[];
-  videoInputDevices: MediaDeviceInfo[];
   audioOutputDevices: MediaDeviceInfo[];
   hasAudioInputDevices: boolean;
   hasVideoInputDevices: boolean;
+  videoInputDevices: MediaDeviceInfo[];
 };
 
 async function getDeviceInfo(): Promise<DeviceInfo> {

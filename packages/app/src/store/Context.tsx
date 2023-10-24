@@ -22,13 +22,13 @@ type PatientContextProps = {
 type VideoParticipantContextProps = {
   isMicOpen: boolean;
   isVideoOpen: boolean;
+  localTracks: (LocalAudioTrack | LocalVideoTrack)[];
+  room: Room | null;
+  selectedSpeaker: string | null;
   setIsMicOpen: Dispatch<SetStateAction<boolean>>;
   setIsVideoOpen: Dispatch<SetStateAction<boolean>>;
-  room: Room | null;
-  setRoom: Dispatch<SetStateAction<Room | null>>;
-  localTracks: (LocalAudioTrack | LocalVideoTrack)[];
   setLocalTracks: Dispatch<SetStateAction<(LocalAudioTrack | LocalVideoTrack)[]>>;
-  selectedSpeaker: string | null;
+  setRoom: Dispatch<SetStateAction<Room | null>>;
   setSelectedSpeaker: React.Dispatch<React.SetStateAction<string | null>>;
 };
 

@@ -4,9 +4,9 @@ import { ottEHRDefaultProvider, ottEHRDefaultPatient } from '../assets/icons';
 import { otherColors } from '../OttEHRThemeProvider';
 
 interface ProviderHeaderSectionProps {
+  isProvider: boolean;
   providerName: string;
   title: string;
-  isProvider: boolean;
 }
 
 export const ProviderHeaderSection: FC<ProviderHeaderSectionProps> = ({ providerName, title, isProvider }) => {

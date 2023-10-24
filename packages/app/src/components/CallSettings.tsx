@@ -23,12 +23,12 @@ import useDevices from '../hooks/twilio/useDevices';
 import { useEffect, useRef, useState } from 'react';
 
 interface CallSettingsProps {
-  open: boolean;
-  onClose: () => void;
   localParticipant: LocalParticipant | undefined;
+  onClose: () => void;
+  open: boolean;
 }
 
-export const CallSettings: React.FC<CallSettingsProps> = ({ open, onClose, localParticipant }) => {
+export const CallSettings: React.FC<CallSettingsProps> = ({ localParticipant, onClose, open }) => {
   const { localTracks, setLocalTracks, selectedSpeaker, setSelectedSpeaker } = useVideoParticipant();
   const { audioInputDevices, videoInputDevices, audioOutputDevices } = useDevices();
 
