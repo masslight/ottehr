@@ -9,7 +9,7 @@ export const VideoChatPage: React.FC = () => {
   const [participants, setParticipants] = useState<Participant[]>([]);
 
   if (!room) {
-    return <div>You don't have room created to be here</div>;
+    return <div>Missing created room</div>;
   }
 
   return (
