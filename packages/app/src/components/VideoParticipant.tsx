@@ -1,5 +1,5 @@
 import { Box } from '@mui/material';
-import React, { useState, useEffect, useRef } from 'react';
+import { FC, useState, useEffect, useRef } from 'react';
 import {
   AudioTrack,
   VideoTrack,
@@ -19,7 +19,7 @@ interface HTMLMediaElement {
   setSinkId(sinkId: string): Promise<void>;
 }
 
-export const VideoParticipant: React.FC<ParticipantProps> = ({ participant }) => {
+export const VideoParticipant: FC<ParticipantProps> = ({ participant }) => {
   const [videoTracks, setVideoTracks] = useState<(VideoTrack | null)[]>([]);
   const [audioTracks, setAudioTracks] = useState<(AudioTrack | null)[]>([]);
   const { selectedSpeaker } = useVideoParticipant();

@@ -26,6 +26,7 @@ export const ControlledCheckBox: FC<ControlledCheckBoxProps> = ({ defaultValue, 
             return (
               <Checkbox
                 {...props}
+                // eslint-disable-next-line react/prop-types -- react-hook-form CheckboxProps.value is a valid, optional prop
                 checked={(props.value as boolean | undefined) ?? false}
                 color="primary"
                 required={required}

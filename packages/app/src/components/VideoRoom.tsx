@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Dispatch, FC, SetStateAction, useState, useEffect, useCallback, useRef } from 'react';
 import { Room, Participant } from 'twilio-video';
 import { Box } from '@mui/material';
 import { VideoParticipant, VideoControls, LoadingSpinner } from '../components';
@@ -8,10 +8,10 @@ import { useLocalVideo } from '../hooks/twilio/useLocalVideo';
 interface RoomProps {
   participants: Participant[];
   room: Room | null;
-  setParticipants: React.Dispatch<React.SetStateAction<Participant[]>>;
+  setParticipants: Dispatch<SetStateAction<Participant[]>>;
 }
 
-export const VideoRoom: React.FC<RoomProps> = ({ room, participants, setParticipants }) => {
+export const VideoRoom: FC<RoomProps> = ({ room, participants, setParticipants }) => {
   const localVideoRef = useRef<HTMLDivElement | null>(null);
   const { localTracks } = useVideoParticipant();
   useLocalVideo(localVideoRef, localTracks);

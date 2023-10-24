@@ -86,6 +86,7 @@ export const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
               )}
               renderTags={(options: readonly (string | string)[], getTagProps) =>
                 options.map((option, index) => (
+                  // eslint-disable-next-line react/jsx-key -- This is provided by getTagProps
                   <Chip {...getTagProps({ index })} label={option} sx={{ fontSize: 16 }} variant="outlined" />
                 ))
               }

@@ -1,5 +1,5 @@
 import Box from '@mui/material/Box';
-import React, { useState } from 'react';
+import { FC, useState } from 'react';
 import { LocalAudioTrack, LocalParticipant, LocalVideoTrack } from 'twilio-video';
 
 import CallEndIcon from '@mui/icons-material/CallEnd';
@@ -18,7 +18,7 @@ interface VideoControlsProps {
   localParticipant: LocalParticipant | undefined;
 }
 
-export const VideoControls: React.FC<VideoControlsProps> = ({ localParticipant, inCallRoom }) => {
+export const VideoControls: FC<VideoControlsProps> = ({ localParticipant, inCallRoom }) => {
   const { room, localTracks, isMicOpen, setIsMicOpen, isVideoOpen, setIsVideoOpen } = useVideoParticipant();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const navigate = useNavigate();

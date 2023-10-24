@@ -29,7 +29,7 @@ type VideoParticipantContextProps = {
   setIsVideoOpen: Dispatch<SetStateAction<boolean>>;
   setLocalTracks: Dispatch<SetStateAction<(LocalAudioTrack | LocalVideoTrack)[]>>;
   setRoom: Dispatch<SetStateAction<Room | null>>;
-  setSelectedSpeaker: React.Dispatch<React.SetStateAction<string | null>>;
+  setSelectedSpeaker: Dispatch<SetStateAction<string | null>>;
 };
 
 export const useVideoParticipant = (): VideoParticipantContextProps => {

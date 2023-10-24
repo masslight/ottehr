@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import { FC, useState } from 'react';
 import { VideoRoom } from '../components';
 import { Participant } from 'twilio-video';
 import { useVideoParticipant } from '../store';
 
-export const VideoChatPage: React.FC = () => {
+export const VideoChatPage: FC = () => {
   const { room } = useVideoParticipant();
 
   const [participants, setParticipants] = useState<Participant[]>([]);

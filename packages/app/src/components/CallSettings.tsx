@@ -20,7 +20,7 @@ import {
 } from 'twilio-video';
 import { useVideoParticipant } from '../store';
 import useDevices from '../hooks/twilio/useDevices';
-import { useEffect, useRef, useState } from 'react';
+import { FC, useEffect, useRef, useState } from 'react';
 
 interface CallSettingsProps {
   localParticipant: LocalParticipant | undefined;
@@ -28,7 +28,7 @@ interface CallSettingsProps {
   open: boolean;
 }
 
-export const CallSettings: React.FC<CallSettingsProps> = ({ localParticipant, onClose, open }) => {
+export const CallSettings: FC<CallSettingsProps> = ({ localParticipant, onClose, open }) => {
   const { localTracks, setLocalTracks, selectedSpeaker, setSelectedSpeaker } = useVideoParticipant();
   const { audioInputDevices, videoInputDevices, audioOutputDevices } = useDevices();
 
