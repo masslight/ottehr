@@ -131,8 +131,11 @@ export const TopAppBar: FC = () => {
 
             <Box
               sx={{
-                backgroundColor: '#263954',
-                display: { md: 'none', xs: 'block' },
+                backgroundColor: otherColors.darkBackgroundPaper,
+                display: {
+                  md: 'none',
+                  xs: 'block',
+                },
                 height: '100vh',
                 p: 2,
                 position: 'fixed',
@@ -141,8 +144,6 @@ export const TopAppBar: FC = () => {
                 top: 0,
                 transition: 'right 0.3s ease-in-out',
                 width: 'auto',
-                height: '100vh',
-                backgroundColor: otherColors.darkBackgroundPaper,
                 zIndex: 2,
               }}
             >
@@ -161,7 +162,13 @@ export const TopAppBar: FC = () => {
                 </Button>
                 <Divider sx={{ color: 'primary.contrast' }} />
                 <MenuItem component={Link} onClick={handleCloseUserMenu} to="/provider-profile">
-                  <Box sx={{ alignItems: 'center', justifyContent: 'center', display: 'flex' }}>
+                  <Box
+                    sx={{
+                      alignItems: 'center',
+                      display: 'flex',
+                      justifyContent: 'center',
+                    }}
+                  >
                     <AccountCircleIcon sx={{ color: theme.palette.background.default, mr: 4 }} />
                     <Typography color={theme.palette.background.default} variant="body2">
                       Profile
@@ -175,7 +182,13 @@ export const TopAppBar: FC = () => {
                     logout({ returnTo: window.location.origin });
                   }}
                 >
-                  <Box sx={{ alignItems: 'center', justifyContent: 'center', display: 'flex' }}>
+                  <Box
+                    sx={{
+                      alignItems: 'center',
+                      display: 'flex',
+                      justifyContent: 'center',
+                    }}
+                  >
                     <Typography color={theme.palette.background.default} variant="body2">
                       Logout
                     </Typography>

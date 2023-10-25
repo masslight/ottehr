@@ -47,7 +47,10 @@ export const ProviderSettings = (): JSX.Element => {
           display: 'flex',
           flex: '1 1 auto',
           flexDirection: 'column',
-          p: { xs: 2, md: 5 },
+          p: {
+            md: 5,
+            xs: 2,
+          },
         }}
       >
         <Box maxWidth="md" width="100%">
@@ -56,8 +59,14 @@ export const ProviderSettings = (): JSX.Element => {
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'start',
-              mx: { xs: 2, md: 12.5 },
-              my: { xs: 2, md: 0 },
+              mx: {
+                md: 12.5,
+                xs: 2,
+              },
+              my: {
+                md: 0,
+                xs: 2,
+              },
             }}
           >
             <form onSubmit={handleSubmit}>

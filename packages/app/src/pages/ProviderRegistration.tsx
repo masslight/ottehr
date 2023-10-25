@@ -47,14 +47,14 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
     formState: { errors },
   } = useForm<FormData>({
     defaultValues: {
-      title: '',
+      acceptTerms: false,
+      email: '',
       firstName: '',
       lastName: '',
-      roomName: '',
-      email: '',
-      password: '',
       notPatient: false,
-      acceptTerms: false,
+      password: '',
+      roomName: '',
+      title: '',
     },
   });
 
@@ -170,10 +170,6 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
           </Box>
           <Box
             sx={{
-              display: 'flex',
-              justifyContent: 'center',
-              overflow: 'hidden',
-              zIndex: '1',
               backgroundColor: otherColors.providerIconBackground,
               border: '5px solid #fff',
               borderRadius: 5,
