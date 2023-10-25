@@ -35,6 +35,7 @@
     "aws-lambda": "^1.0.7",
     "esbuild": "^0.18.14",
     "fast-json-patch": "^3.1.1",
+    "node-fetch": "2.6.1",
     "query-string": "^6.0.0",
     "short-uuid": "^4.2.2"
   },

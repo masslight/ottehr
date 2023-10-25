@@ -47,11 +47,19 @@ export const ProviderSettings = (): JSX.Element => {
           display: 'flex',
           flex: '1 1 auto',
           flexDirection: 'column',
-          p: 5,
+          p: { xs: 2, md: 5 },
         }}
       >
         <Box maxWidth="md" width="100%">
-          <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'start', mx: 12.5 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'start',
+              mx: { xs: 2, md: 12.5 },
+              my: { xs: 2, md: 0 },
+            }}
+          >
             <form onSubmit={handleSubmit}>
               <Box sx={{ alignItems: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <FormControl variant="outlined">
@@ -83,7 +91,6 @@ export const ProviderSettings = (): JSX.Element => {
                     color: theme.palette.background.default,
                     py: 1.5,
                     textTransform: 'uppercase',
-                    width: '100%',
                   }}
                   type="submit"
                   variant="contained"

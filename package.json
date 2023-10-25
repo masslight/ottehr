@@ -29,6 +29,7 @@
     ]
   },
   "devDependencies": {
+    "@changesets/cli": "2.26.2",
     "@types/fhir": "^0.0.35",
     "@types/luxon": "^3.1.0",
     "@typescript-eslint/eslint-plugin": "^5.45.0",
@@ -42,8 +43,5 @@
     "eslint-plugin-typescript-sort-keys": "^3.1.0",
     "prettier": "^2.8.0",
     "typescript": "^4.7.4"
-  },
-  "dependencies": {
-    "i18next": "23.5.1"
   }
 }

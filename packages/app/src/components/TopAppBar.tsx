@@ -129,7 +129,6 @@ export const TopAppBar: FC = () => {
               </MenuItem>
             </Menu>
 
-            {/* TO DO menu integration */}
             <Box
               sx={{
                 backgroundColor: '#263954',
@@ -142,6 +141,8 @@ export const TopAppBar: FC = () => {
                 top: 0,
                 transition: 'right 0.3s ease-in-out',
                 width: 'auto',
+                height: '100vh',
+                backgroundColor: otherColors.darkBackgroundPaper,
                 zIndex: 2,
               }}
             >
@@ -160,9 +161,9 @@ export const TopAppBar: FC = () => {
                 </Button>
                 <Divider sx={{ color: 'primary.contrast' }} />
                 <MenuItem component={Link} onClick={handleCloseUserMenu} to="/provider-profile">
-                  <Box sx={{ alignItems: 'center', display: 'flex', justifyContent: 'center' }}>
-                    <AccountCircleIcon sx={{ color: 'text.light', mr: 4 }} />
-                    <Typography color="text.light" variant="body2">
+                  <Box sx={{ alignItems: 'center', justifyContent: 'center', display: 'flex' }}>
+                    <AccountCircleIcon sx={{ color: theme.palette.background.default, mr: 4 }} />
+                    <Typography color={theme.palette.background.default} variant="body2">
                       Profile
                     </Typography>
                   </Box>
@@ -174,8 +175,8 @@ export const TopAppBar: FC = () => {
                     logout({ returnTo: window.location.origin });
                   }}
                 >
-                  <Box sx={{ alignItems: 'center', display: 'flex', justifyContent: 'center' }}>
-                    <Typography color="text.light" variant="body2">
+                  <Box sx={{ alignItems: 'center', justifyContent: 'center', display: 'flex' }}>
+                    <Typography color={theme.palette.background.default} variant="body2">
                       Logout
                     </Typography>
                   </Box>
