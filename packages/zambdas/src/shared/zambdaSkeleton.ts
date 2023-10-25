@@ -29,7 +29,9 @@ export const createZambdaFromSkeleton = async (
     console.error(`${functionName.name} failure`);
     console.error(JSON.stringify(e));
     return {
-      body: JSON.stringify('Internal Service Error'),
+      body: JSON.stringify({
+        error: 'Internal Service Error',
+      }),
       statusCode: 500,
     };
   }
