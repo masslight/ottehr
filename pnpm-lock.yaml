@@ -172,8 +172,8 @@ importers:
         specifier: ^3.272.0
         version: 3.417.0
       '@zapehr/sdk':
-        specifier: ^1.0.7
-        version: 1.0.10
+        specifier: ^1.0.16
+        version: 1.0.16
       aws-lambda:
         specifier: ^1.0.7
         version: 1.0.7
@@ -3264,6 +3264,11 @@ packages:
 
   /@zapehr/sdk@1.0.10:
     resolution: {integrity: sha512-9xG6b7Z7IhSa3D14WES9XyfXn+o9TV4YEYyG7WTnaW3sLL3njVN5WEZN3ku+1hGasDXvyLGX9PmOzhgxJgH9Ug==}
+    engines: {node: '>=18.0.0', npm: '>=8.0.0'}
+    dev: false
+
+  /@zapehr/sdk@1.0.16:
+    resolution: {integrity: sha512-7JA55wXr8jZ9tV+N8gRpMyuOW2ACaQgJs7k9tc1p4s4H7AB/kTw5Dmrb29smQWEuZ+n8wAnbJZJHKB3zXztuVA==}
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
     dev: false
 
