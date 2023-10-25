@@ -7,82 +7,34 @@ import devConfig from '../.env/dev.json';
 // import testingConfig from '../.env/testing.json';
 // import stagingConfig from '../.env/staging.json';
 // import productionConfig from '../.env/production.json';
-import { getAuth0Token } from '../src/shared';
-import { fhirApiUrlFromAuth0Audience, projectApiUrlFromAuth0Audience } from './common';
+import { SecretsKeys, createFhirClient, createZambdaClient, getAuth0Token, getSecret } from '../src/shared';
 
 interface DeployZambda {
-  type: 'http_open' | 'http_auth' | 'subscription';
+  type: 'cron' | 'http_open' | 'http_auth' | 'subscription';
   event?: 'create' | 'update';
   criteria?: string;
+  schedule?: {
+    end: string;
+    expression: string;
+    start: string;
+  };
 }
 
-const ZAMBDAS: { [name: string]: DeployZambda } = {
-  // 'CANCEL-APPOINTMENT': {
-  //   type: 'http_open',
-  // },
-  // 'CHECK-IN': {
-  //   type: 'http_open',
-  // },
-  // 'GET-LOCATIONS': {
-  //   type: 'http_open',
-  // },
-  // 'GET-SLOTS-AVAILABILITY': {
-  //   type: 'http_open',
-  // },
-  // 'REDOX-APPOINTMENT-UPDATED-WEBHOOK': {
-  //   type: 'http_open',
-  // },
-  // 'REDOX-PATIENT-UPDATED-WEBHOOK': {
-  //   type: 'http_open',
-  // },
-  // 'UPDATE-PAPERWORK': {
-  //   type: 'http_open',
-  // },
-  // 'CHECK-PAPERWORK-STATUS': {
-  //   type: 'http_auth',
-  // },
-  // 'CREATE-APPOINTMENT': {
-  //   type: 'http_auth',
-  // },
-  // 'GET-APPOINTMENTS': {
-  //   type: 'http_auth',
-  // },
-  // 'GET-PATIENTS': {
-  //   type: 'http_auth',
-  // },
-  // 'UPDATE-APPOINTMENT': {
-  //   type: 'http_auth',
-  // },
-  'PATIENT-READY-FOR-APPOINTMENT': {
-    type: 'subscription',
-    event: 'update',
-    criteria: 'Appointment?status=fulfilled',
-  },
-  'REDOX-PATIENT': {
-    type: 'subscription',
-    event: undefined,
-    criteria: 'Patient',
+const ZAMBDAS: Record<string, DeployZambda> = {
+  VERSION: {
+    type: 'http_open',
   },
 };
 
 const updateZambdas = async (config: any): Promise<void> => {
   const token = await getAuth0Token(config);
+  const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, config);
 
   if (!token) {
     throw new Error('Failed to fetch auth token.');
   }
-  const fhirClient = new FhirClient({
-    apiUrl: fhirApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
-    accessToken: token,
-  });
-  const zambdaClient = new ZambdaClient({
-    apiUrl: projectApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
-    accessToken: token,
-  });
-  console.log({
-    apiUrl: fhirApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
-    accessToken: token,
-  });
+  const fhirClient = await createFhirClient(config);
+  const zambdaClient = await createZambdaClient(config);
 
   console.log('Getting list of zambdas');
   const currentZambdas = await zambdaClient.getAllZambdas();
@@ -109,7 +61,7 @@ const updateZambdas = async (config: any): Promise<void> => {
       zambda,
       currentZambda,
       config,
-      projectApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
+      PROJECT_API,
       token,
       fhirClient,
       zambdaClient

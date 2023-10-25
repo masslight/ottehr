@@ -1,4 +1,4 @@
-import { AppClient, FhirClient, MessagingClient } from '@zapehr/sdk';
+import { AppClient, FhirClient, MessagingClient, ZambdaClient } from '@zapehr/sdk';
 import { getAuth0Token, getSecret, SecretsKeys } from '.';
 import { Secrets } from '../types';
 
@@ -65,5 +65,27 @@ export async function createMessagingClient(secrets: Secrets | null): Promise<Me
     console.groupEnd();
     console.error(`Fetch from ${PROJECT_API} failure`);
     throw new Error('Failed to create MessagingClient');
+  }
+}
+
+export async function createZambdaClient(secrets: Secrets | null): Promise<ZambdaClient> {
+  const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
+  const PROJECT_ID = getSecret(SecretsKeys.PROJECT_ID, secrets);
+
+  const accessToken = await getAuth0Token(secrets);
+  try {
+    console.group(`Fetch from ${PROJECT_API}`);
+    const fhirClient = new ZambdaClient({
+      apiUrl: PROJECT_API,
+      projectId: PROJECT_ID,
+      accessToken,
+    });
+    console.groupEnd();
+    console.debug(`Fetch from ${PROJECT_API} success`);
+    return fhirClient;
+  } catch (error) {
+    console.groupEnd();
+    console.error(`Fetch from ${PROJECT_API} failure`);
+    throw new Error('Failed to create ZambdaClient');
   }
 }
