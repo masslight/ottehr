@@ -44,9 +44,9 @@ export const ProviderHeaderSection: FC<ProviderHeaderSectionProps> = ({ provider
             }}
           >
             {isProvider ? (
-              <img src={ottEHRDefaultProvider} style={{ height: '6.25rem', width: '6.25rem' }} />
+              <img alt="Provider Image" src={ottEHRDefaultProvider} style={{ height: '6.25rem', width: '6.25rem' }} />
             ) : (
-              <img src={ottEHRDefaultPatient} style={{ height: '6.25rem', width: '6.25rem' }} />
+              <img alt="Patient Image" src={ottEHRDefaultPatient} style={{ height: '6.25rem', width: '6.25rem' }} />
             )}
 
             <Box

@@ -73,7 +73,7 @@ export const PatientQueue: FC<PatientQueueProps> = ({ roomName, name, queuedTime
     <Box sx={{ m: 0, py: 1 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
         <Box sx={{ display: 'flex' }}>
-          <img height="42px" src={ottEHRDefaultPatient} />
+          <img alt="Patient Image" height="42px" src={ottEHRDefaultPatient} />
           <Box pl={2}>
             <Typography color="primary.contrast" variant="body1">
               {name}
@@ -92,7 +92,7 @@ export const PatientQueue: FC<PatientQueueProps> = ({ roomName, name, queuedTime
               display: { md: 'none' },
             }}
           >
-            <img src={callButtonMobile} />
+            <img alt="Call button image" src={callButtonMobile} />
           </Button>
         </Box>
       </Box>
