@@ -6,6 +6,7 @@ import { Footer, ProviderHeaderSection } from '../components';
 import { useVideoParticipant } from '../store';
 import { zapehrApi } from '../api';
 import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
+import useDevices from '../hooks/twilio/useDevices';
 
 export const CheckInPermission = (): JSX.Element => {
   const { setIsVideoOpen, setIsMicOpen, setRoom, setLocalTracks } = useVideoParticipant();
@@ -13,8 +14,8 @@ export const CheckInPermission = (): JSX.Element => {
   const navigate = useNavigate();
 
   //TODO: hard coded room name for now, note: twilio free rooms are limited to 2 participant, and it takes around 15-20 seconds to disconnect a participant
-  const roomName = 'testRoom';
-
+  const roomName = 'test1';
+  const hasVideoDevice = useDevices().videoInputDevices.length > 0;
   const toggleCamMic = async (userInput: boolean): Promise<void> => {
     try {
       setIsVideoOpen(userInput);
@@ -25,10 +26,10 @@ export const CheckInPermission = (): JSX.Element => {
         console.error('Failed to fetch token');
         return;
       }
-
+      console.log('hasVideoDevice', hasVideoDevice);
       const tracks = await Video.createLocalTracks({
         audio: true,
-        video: true,
+        video: hasVideoDevice,
       });
 
       const localTracks = tracks.filter((track) => track.kind === 'audio' || track.kind === 'video') as (
@@ -42,7 +43,7 @@ export const CheckInPermission = (): JSX.Element => {
         audio: true,
         name: roomName,
         tracks: localTracks,
-        video: true,
+        video: hasVideoDevice,
       });
 
       setRoom(connectedRoom);

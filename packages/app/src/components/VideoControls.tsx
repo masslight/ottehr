@@ -1,6 +1,6 @@
 import Box from '@mui/material/Box';
 import { Dispatch, FC, SetStateAction, useState } from 'react';
-import { LocalAudioTrack, LocalParticipant, LocalVideoTrack } from 'twilio-video';
+import { LocalParticipant } from 'twilio-video';
 
 import CallEndIcon from '@mui/icons-material/CallEnd';
 import MicIcon from '@mui/icons-material/Mic';
