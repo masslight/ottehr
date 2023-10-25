@@ -1,19 +1,21 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ZambdaInput } from '../types';
+import { DefaultErrorMessages, ZambdaFunctionInput, ZambdaFunctionResponse, ZambdaInput } from '../types';
+import { createZambdaFromSkeleton } from '../shared/zambdaSkeleton';
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Cancellation Input: ${JSON.stringify(input)}`);
+  return createZambdaFromSkeleton(input, version);
+};
 
-  try {
+const version = (input: ZambdaFunctionInput): ZambdaFunctionResponse => {
+  const { version } = input.body;
+  if (version == null || typeof version !== 'string') {
     return {
-      statusCode: 200,
-      body: JSON.stringify({ version: 'TODO' }),
-    };
-  } catch (error: any) {
-    console.log('error', error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
+      error: `${DefaultErrorMessages.validation}: "version" must be a string.`,
     };
   }
+  return {
+    response: {
+      version,
+    },
+  };
 };
