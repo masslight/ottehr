@@ -6,8 +6,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   return createZambdaFromSkeleton(input, version);
 };
 
-const version = (input: ZambdaFunctionInput): ZambdaFunctionResponse => {
-  const { version } = input.body;
+const version = (_: ZambdaFunctionInput): ZambdaFunctionResponse => {
   if (version == null || typeof version !== 'string') {
     return {
       error: `${DefaultErrorMessages.validation}: "version" must be a string.`,
@@ -15,7 +14,7 @@ const version = (input: ZambdaFunctionInput): ZambdaFunctionResponse => {
   }
   return {
     response: {
-      version,
+      version: process.env.version,
     },
   };
 };
