@@ -2,6 +2,7 @@ import { Checkbox, FormControlLabel } from '@mui/material';
 import { Box } from '@mui/system';
 import { FC, ReactElement } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
+import { otherColors } from '../OttEHRThemeProvider';
 
 interface ControlledCheckBoxProps {
   defaultValue?: boolean;
@@ -38,8 +39,8 @@ export const ControlledCheckBox: FC<ControlledCheckBoxProps> = ({ defaultValue, 
                   width: '18px',
                   '&.Mui-checked': {
                     borderRadius: '4px',
-                    color: '#F5F2FF',
-                    outline: '1px solid #4D15B7',
+                    color: otherColors.lightPurple,
+                    outline: otherColors.purple,
                   },
                   '&.MuiCheckbox-root': {
                     borderRadius: '4px',

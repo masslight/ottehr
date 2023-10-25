@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Footer, ProviderHeaderSection } from '../components';
 import { usePatient } from '../store';
+import { otherStyling } from '../OttEHRThemeProvider';
 
 export const PatientCheckIn = (): JSX.Element => {
   const { patientName, setPatientName } = usePatient();
@@ -33,7 +34,7 @@ export const PatientCheckIn = (): JSX.Element => {
         justifyContent: 'space-between',
       }}
     >
-      <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" />
+      <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" isProvider={true} />
       {/* Middle Section */}
       <Box
         sx={{
@@ -53,11 +54,9 @@ export const PatientCheckIn = (): JSX.Element => {
         >
           <Box
             sx={{
-              px: 12.5,
-              py: 7.5,
+              ...otherStyling.boxPadding,
               [theme.breakpoints.down('md')]: {
-                px: 2,
-                py: 4,
+                ...otherStyling.boxPaddingMobile,
               },
             }}
           >
@@ -67,7 +66,6 @@ export const PatientCheckIn = (): JSX.Element => {
             <Typography variant="body1" sx={{ pb: 3 }}>
               Please enter your name to join the call line of Dr. Olivia Smith
             </Typography>
-            {/* TODO Should we use React hook form? */}
             <form onSubmit={handleSubmit}>
               <Box
                 sx={{
@@ -88,9 +86,7 @@ export const PatientCheckIn = (): JSX.Element => {
                   type="submit"
                   variant="contained"
                   sx={{
-                    borderRadius: '4px',
-                    color: 'white',
-                    textTransform: 'uppercase',
+                    ...otherStyling.buttonPrimary,
                     width: '100%',
                   }}
                 >

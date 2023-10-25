@@ -4,6 +4,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import { Box, Typography, useTheme } from '@mui/material';
+import { otherColors, otherStyling } from '../OttEHRThemeProvider';
 import { videoCallMock } from '../assets/icons';
 import { Footer, ProviderHeaderSection } from '../components';
 import { usePatient } from '../store';
@@ -28,7 +29,7 @@ export const WaitingRoom = (): JSX.Element => {
         justifyContent: 'space-between',
       }}
     >
-      <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" />
+      <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" isProvider={true} />
       {/* Middle Section */}
       <Box
         sx={{
@@ -48,11 +49,9 @@ export const WaitingRoom = (): JSX.Element => {
         >
           <Box
             sx={{
-              px: 12.5,
-              py: 7.5,
+              ...otherStyling.boxPadding,
               [theme.breakpoints.down('sm')]: {
-                px: 2,
-                py: 4,
+                ...otherStyling.boxPaddingMobile,
               },
             }}
           >
@@ -72,7 +71,7 @@ export const WaitingRoom = (): JSX.Element => {
               />
               <Box
                 sx={{
-                  backgroundColor: 'rgba(50, 63, 83, 0.87)',
+                  backgroundColor: otherColors.biscay,
                   borderRadius: 5,
                   bottom: 16,
                   display: 'flex',
@@ -87,16 +86,16 @@ export const WaitingRoom = (): JSX.Element => {
                 }}
               >
                 {isVideoOpen ? (
-                  <VideocamIcon onClick={toggleVideo} sx={{ color: 'white' }} />
+                  <VideocamIcon onClick={toggleVideo} sx={{ color: theme.palette.background.default }} />
                 ) : (
-                  <VideocamOffIcon onClick={toggleVideo} sx={{ color: 'white' }} />
+                  <VideocamOffIcon onClick={toggleVideo} sx={{ color: theme.palette.background.default }} />
                 )}
                 {isMicOpen ? (
-                  <MicIcon onClick={toggleMic} sx={{ color: 'white' }} />
+                  <MicIcon onClick={toggleMic} sx={{ color: theme.palette.background.default }} />
                 ) : (
-                  <MicOffIcon onClick={toggleMic} sx={{ color: 'white' }} />
+                  <MicOffIcon onClick={toggleMic} sx={{ color: theme.palette.background.default }} />
                 )}
-                <SettingsIcon sx={{ color: 'white' }} />
+                <SettingsIcon sx={{ color: theme.palette.background.default }} />
               </Box>
             </Box>
           </Box>

@@ -15,33 +15,82 @@ import {
   Select,
   TextField,
   Typography,
+  useTheme,
 } from '@mui/material';
 import { useState } from 'react';
-import { ellipse4, ellipse5, ottEHRPatientIcon, ottEHRProviderIcon, ottEHRRegistrationLogo } from '../assets/icons';
+import { useForm, Controller } from 'react-hook-form';
+import {
+  backgroundEllipseDark,
+  backgroundEllipseLight,
+  ottEHRPatientIcon,
+  ottEHRProviderIcon,
+  ottEHRRegistrationLogo,
+} from '../assets/icons';
+import { otherColors } from '../OttEHRThemeProvider';
 import { ZapEHRLogo } from '../components';
 
-export const ProviderRegistration = (): JSX.Element => {
-  const handleSubmit = (event: any): void => {
-    event.preventDefault();
-    // TODO: form submission structure
+interface FormData {
+  title: string;
+  firstName: string;
+  lastName: string;
+  roomName: string;
+  email: string;
+  password: string;
+  notPatient: boolean;
+  acceptTerms: boolean;
+}
+
+export const ProviderRegistration: React.FC = (): JSX.Element => {
+  const {
+    handleSubmit,
+    control,
+    formState: { errors },
+  } = useForm<FormData>({
+    defaultValues: {
+      title: '',
+      firstName: '',
+      lastName: '',
+      roomName: '',
+      email: '',
+      password: '',
+      notPatient: false,
+      acceptTerms: false,
+    },
+  });
+
+  // const updateField = (field: keyof FormData, value: string | boolean): void => {
+  //   setFormData((prevData) => ({
+  //     ...prevData,
+  //     [field]: value,
+  //   }));
+  // };
+
+  const onSubmit = (data: FormData): void => {
+    console.log(data);
+    // TODO: form submission logic
   };
 
-  const [roomName, setRoomName] = useState('');
+  const [roomName, setRoomName] = useState<string>('');
   const mockData = ['aykhanahmadli', 'samiromarov'];
-
   const isError = mockData.includes(roomName);
   const helperText = isError ? 'This name is already taken, please use another one' : '';
 
+  const theme = useTheme();
+
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'row' }}>
+    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' } }}>
       {/* left side */}
       <Box
         sx={{
-          backgroundColor: '#263954',
+          backgroundColor: otherColors.darkBackgroundPaper,
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
           gap: 2,
+          [theme.breakpoints.down('md')]: {
+            py: 2,
+            width: '100%',
+          },
           width: '55%',
         }}
       >
@@ -66,28 +115,38 @@ export const ProviderRegistration = (): JSX.Element => {
             flexDirection: 'column',
             justifyContent: 'center',
             py: 10,
+            [theme.breakpoints.down('md')]: {
+              flexDirection: 'row',
+              py: 0,
+              gap: 2,
+            },
           }}
         >
           <Box
             component="img"
-            src={ellipse4}
+            src={backgroundEllipseDark}
             sx={{
-              height: 464,
-              mb: 18,
-              mr: 18,
               position: 'absolute',
-              width: 464,
+              mb: 25,
+              mr: 18,
+              [theme.breakpoints.down('md')]: {
+                maxWidth: '60%',
+                maxHeight: '60%',
+                mb: 0,
+              },
             }}
           />
           <Box
             component="img"
-            src={ellipse5}
+            src={backgroundEllipseLight}
             sx={{
-              height: 464,
-              ml: 18,
-              mt: 18,
-              width: 464,
               position: 'absolute',
+              ml: 25,
+              [theme.breakpoints.down('md')]: {
+                maxWidth: '60%',
+                maxHeight: '60%',
+                ml: 18,
+              },
             }}
           />
           <Box
@@ -99,6 +158,11 @@ export const ProviderRegistration = (): JSX.Element => {
               mb: 46,
               overflow: 'hidden',
               position: 'absolute',
+              [theme.breakpoints.down('md')]: {
+                position: 'static',
+                mb: 0,
+                ml: 0,
+              },
               zIndex: '2',
             }}
           >
@@ -108,23 +172,36 @@ export const ProviderRegistration = (): JSX.Element => {
             sx={{
               display: 'flex',
               justifyContent: 'center',
-              mb: 2.5,
               overflow: 'hidden',
               zIndex: '1',
+              backgroundColor: otherColors.providerIconBackground,
+              border: '5px solid #fff',
+              borderRadius: 5,
+              mb: 2,
+              px: 2,
+              pt: 4,
+              [theme.breakpoints.down('md')]: {
+                maxWidth: '118px',
+                maxHeight: '118px',
+                pt: 1.5,
+                px: 1,
+              },
             }}
           >
-            <img src={ottEHRProviderIcon} />
+            <Box component="img" src={ottEHRProviderIcon} sx={{ mb: -1 }} />
           </Box>
           <Box
             sx={{
               alignItems: 'center',
-              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              backgroundColor: otherColors.callIconsBackground,
               borderRadius: 5,
               display: 'flex',
               gap: 2.5,
-              px: 9,
               py: 1.75,
-              zIndex: '1',
+              px: 9,
+              [theme.breakpoints.down('md')]: {
+                display: 'none',
+              },
             }}
           >
             <VideocamIcon style={{ color: 'white' }} />
@@ -150,58 +227,118 @@ export const ProviderRegistration = (): JSX.Element => {
       {/* right side */}
       <Box
         sx={{
-          backgroundColor: 'white',
+          backgroundColor: 'primary.contrast',
           display: 'flex',
           flexDirection: 'column',
           height: '100vh',
           justifyContent: 'center',
+          [theme.breakpoints.down('md')]: {
+            width: '100%',
+            height: '100%',
+          },
           width: '45%',
         }}
       >
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mx: 12.5, my: 10 }}>
+        <Box sx={{ mx: { xs: 2, md: 12.5 }, my: { xs: 4, md: 10 }, display: 'flex', flexDirection: 'column', gap: 1 }}>
           <Typography variant="h4">Welcome to OttEHR</Typography>
           <Typography color="primary.light" variant="h3" sx={{ pb: 1 }}>
             Provider registration
           </Typography>
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit(onSubmit)}>
             <Box sx={{ alignItems: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <FormControl variant="outlined">
-                <InputLabel>Title</InputLabel>
-                <Select label="Title">
-                  <MenuItem value="dr">Dr.</MenuItem>
-                  <MenuItem value="nurse">Nurse</MenuItem>
-                  <MenuItem value="assistant">Assistant</MenuItem>
-                </Select>
-              </FormControl>
-              <TextField label="First Name" variant="outlined" />
-              <TextField label="Last Name" variant="outlined" />
-              <TextField
-                error={isError}
-                helperText={helperText}
-                label="Room Name"
-                onChange={(e) => setRoomName(e.target.value)}
-                value={roomName}
-                variant="outlined"
+              <Controller
+                name="title"
+                control={control}
+                render={({ field }) => (
+                  <FormControl variant="outlined">
+                    <InputLabel>Title</InputLabel>
+                    <Select label="Title" {...field}>
+                      <MenuItem value="dr">Dr.</MenuItem>
+                      <MenuItem value="nurse">Nurse</MenuItem>
+                      <MenuItem value="assistant">Assistant</MenuItem>
+                    </Select>
+                  </FormControl>
+                )}
               />
-              <Box sx={{ alignItems: 'center', display: 'flex' }}>
-                <Box sx={{ mr: 1 }}>{isError ? <CancelIcon color="error" /> : <CheckIcon color="success" />}</Box>
-                <Typography variant="body2">{`https://zapehr.app/${roomName}`}</Typography>
-              </Box>
-              <TextField label="Email Address" variant="outlined" />
-              <TextField label="Password" type="password" variant="outlined" />
-              <FormControlLabel control={<Checkbox />} label="I am not a patient" />
-              {/* TODO too much whitespace here? */}
-              <FormControlLabel control={<Checkbox />} label="I accept the terms and conditions" />
-              <Button
-                type="submit"
-                variant="contained"
-                sx={{
-                  borderRadius: 1,
-                  color: 'white',
-                  textTransform: 'uppercase',
-                  py: 1,
-                }}
-              >
+              <Controller
+                name="firstName"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    helperText={errors.firstName ? String(errors.firstName.message) : null}
+                    label="First Name"
+                    variant="outlined"
+                  />
+                )}
+              />
+              <Controller
+                name="lastName"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    helperText={errors.lastName ? String(errors.lastName.message) : null}
+                    label="Last Name"
+                    variant="outlined"
+                  />
+                )}
+              />
+              <Controller
+                name="roomName"
+                control={control}
+                render={({ field }) => (
+                  <>
+                    <TextField
+                      label="Room Name"
+                      variant="outlined"
+                      error={isError}
+                      helperText={helperText}
+                      onChange={(e) => {
+                        setRoomName(e.target.value);
+                        field.onChange(e);
+                      }}
+                    />
+                    <Box sx={{ alignItems: 'center', display: 'flex' }}>
+                      <Box sx={{ mr: 1 }}>{isError ? <CancelIcon color="error" /> : <CheckIcon color="success" />}</Box>
+                      <Typography variant="body2">{`https://zapehr.app/${field.value}`}</Typography>
+                    </Box>
+                  </>
+                )}
+              />
+              <Controller
+                name="email"
+                control={control}
+                render={({ field }) => <TextField {...field} label="Email Address" variant="outlined" />}
+              />
+              <Controller
+                name="password"
+                control={control}
+                render={({ field }) => <TextField {...field} label="Password" type="password" variant="outlined" />}
+              />
+              <Controller
+                name="notPatient"
+                control={control}
+                defaultValue={false}
+                render={({ field: { onChange, value } }) => (
+                  <FormControlLabel
+                    control={<Checkbox onChange={onChange} checked={value} />}
+                    label="I am not a patient"
+                  />
+                )}
+              />
+              <Controller
+                name="acceptTerms"
+                control={control}
+                defaultValue={false}
+                render={({ field: { onChange, value } }) => (
+                  <FormControlLabel
+                    control={<Checkbox onChange={onChange} checked={value} />}
+                    label="I accept the terms and conditions"
+                  />
+                )}
+              />
+              <Button type="submit" variant="contained">
                 Sign Up
               </Button>
             </Box>

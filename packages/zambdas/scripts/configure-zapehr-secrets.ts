@@ -1,26 +1,10 @@
+import { ZambdaClient } from '@zapehr/sdk';
 import devConfig from '../.env/dev.json';
 // import testingConfig from '../.env/testing.json';
 // import stagingConfig from '../.env/staging.json';
 // import productionConfig from '../.env/production.json';
 import { getAuth0Token } from '../src/shared';
-import { ZambdaClient } from '@zapehr/sdk';
-
-const projectApiUrlFromAuth0Audience = (auth0Audience: string): string => {
-  switch (auth0Audience) {
-    case 'https://dev.api.zapehr.com':
-      return 'https://dev.project-api.zapehr.com/v1';
-    case 'https://dev2.api.zapehr.com':
-      return 'https://dev2.project-api.zapehr.com/v1';
-    case 'https://testing.api.zapehr.com':
-      return 'https://testing.project-api.zapehr.com/v1';
-    case 'https://staging.api.zapehr.com':
-      return 'https://staging.project-api.zapehr.com/v1';
-    case 'https://api.zapehr.com':
-      return 'https://project-api.zapehr.com/v1';
-    default:
-      throw `Unexpected auth0 audience value, could not map to a projectApiUrl. auth0Audience was: ${auth0Audience}`;
-  }
-};
+import { projectApiUrlFromAuth0Audience } from './common';
 
 const setupSecrets = async (config: any): Promise<void> => {
   const token = await getAuth0Token(config);

@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import './index.css';
 import './lib/i18n';
-import { IntakeDataProvider } from './store';
+import { DataProvider } from './store';
 
 const root = createRoot(document.getElementById('root') as HTMLElement);
 root.render(
@@ -16,9 +16,9 @@ root.render(
       domain="https://zapehr-dev.us.auth0.com"
       redirectUri={window.location.origin}
     >
-      <IntakeDataProvider>
+      <DataProvider>
         <App />
-      </IntakeDataProvider>
+      </DataProvider>
     </Auth0Provider>
   </StrictMode>
 );

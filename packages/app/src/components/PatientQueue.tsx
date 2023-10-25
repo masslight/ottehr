@@ -1,7 +1,7 @@
-import { Box, Button, Grid, Typography } from '@mui/material';
+import { Box, Button, Typography } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ottEHRDefaultPatient } from '../assets/icons';
+import { ottEHRDefaultPatient, callButtonMobile } from '../assets/icons';
 import { getQueuedTimeFromTimestamp } from '../helpers';
 
 export interface PatientQueueProps {
@@ -28,9 +28,9 @@ export const PatientQueue: FC<PatientQueueProps> = ({ link, name, queuedTime }) 
 
   return (
     <Box sx={{ m: 0, py: 1 }}>
-      <Grid alignItems="center" container spacing={{ xs: 0 }}>
-        <Grid alignItems="center" display="flex" item textAlign={{ xs: 'start' }} xs={8}>
-          <img height="42px" src={ottEHRDefaultPatient} />
+      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+        <Box sx={{ display: 'flex' }}>
+          <img src={ottEHRDefaultPatient} height="42px" />
           <Box pl={2}>
             <Typography color="primary.contrast" variant="body1">
               {name}
@@ -39,13 +39,20 @@ export const PatientQueue: FC<PatientQueueProps> = ({ link, name, queuedTime }) 
               {relativeQueuedTime}
             </Typography>
           </Box>
-        </Grid>
-        <Grid alignItems="center" display="flex" item justifyContent="flex-end" xs={4}>
-          <Button color="primary" href={link} variant="contained">
+        </Box>
+        <Box>
+          <Button sx={{ display: { xs: 'none', md: 'block' } }} variant="contained" color="primary" href={link}>
             {t('general.startCall')}
           </Button>
-        </Grid>
-      </Grid>
+          <Button
+            sx={{
+              display: { md: 'none' },
+            }}
+          >
+            <img src={callButtonMobile} />
+          </Button>
+        </Box>
+      </Box>
     </Box>
   );
 };

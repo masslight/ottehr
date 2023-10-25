@@ -10,11 +10,13 @@ import {
   Select,
   TextField,
   Typography,
+  useTheme,
 } from '@mui/material';
 import { useState } from 'react';
 import { Footer, ProviderHeaderSection, TopAppBar } from '../components';
 
 export const ProviderSettings = (): JSX.Element => {
+  const theme = useTheme();
   const handleSubmit = (event: any): void => {
     event.preventDefault();
     // TODO: form submission structure
@@ -38,18 +40,26 @@ export const ProviderSettings = (): JSX.Element => {
       }}
     >
       <TopAppBar />
-      <ProviderHeaderSection providerName="Dr. Olivia Smith" title="My profile" />
+      <ProviderHeaderSection providerName="Dr. Olivia Smith" title="My profile" isProvider={true} />
       <Box
         sx={{
           alignItems: 'center',
           display: 'flex',
           flex: '1 1 auto',
           flexDirection: 'column',
-          p: 5,
+          p: { xs: 2, md: 5 },
         }}
       >
         <Box maxWidth="md" width="100%">
-          <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'start', mx: 12.5 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'start',
+              mx: { xs: 2, md: 12.5 },
+              my: { xs: 2, md: 0 },
+            }}
+          >
             <form onSubmit={handleSubmit}>
               <Box sx={{ alignItems: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <FormControl variant="outlined">
@@ -79,11 +89,10 @@ export const ProviderSettings = (): JSX.Element => {
                   type="submit"
                   variant="contained"
                   sx={{
-                    backgroundColor: 'primary.main',
-                    color: 'white',
+                    backgroundColor: theme.palette.primary.main,
+                    color: theme.palette.background.default,
                     py: 1.5,
                     textTransform: 'uppercase',
-                    width: '100%',
                   }}
                 >
                   Update
