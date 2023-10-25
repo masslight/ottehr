@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   Box,
   Button,
@@ -20,13 +21,38 @@ import {
 } from 'twilio-video';
 import { useVideoParticipant } from '../store';
 import useDevices from '../hooks/twilio/useDevices';
-import { FC, useEffect, useRef, useState } from 'react';
+import { ChangeEvent, FC, useEffect, useRef, useState } from 'react';
 
 interface CallSettingsProps {
   localParticipant: LocalParticipant | undefined;
   onClose: () => void;
   open: boolean;
 }
+
+interface Device {
+  deviceId: string;
+  label: string;
+}
+
+interface DeviceSelectorProps {
+  devices: Device[];
+  handleChange: (e: SelectChangeEvent<string>) => void;
+  label: string;
+  selectedDevice: string;
+}
+
+const DeviceSelector: FC<DeviceSelectorProps> = ({ devices, selectedDevice, handleChange, label }) => (
+  <FormControl fullWidth margin="normal" variant="outlined">
+    <InputLabel>{label}</InputLabel>
+    <Select label={label} onChange={handleChange} value={selectedDevice}>
+      {devices.map((device) => (
+        <MenuItem key={device.deviceId} value={device.deviceId}>
+          {device.label}
+        </MenuItem>
+      ))}
+    </Select>
+  </FormControl>
+);
 
 export const CallSettings: FC<CallSettingsProps> = ({ localParticipant, onClose, open }) => {
   const { localTracks, setLocalTracks, selectedSpeaker, setSelectedSpeaker } = useVideoParticipant();
@@ -69,10 +95,10 @@ export const CallSettings: FC<CallSettingsProps> = ({ localParticipant, onClose,
     };
   }, [open]);
 
-  const [speakers, setSpeakers] = useState<string | number>(selectedSpeaker || '');
+  const [speakers, setSpeakers] = useState<string>(selectedSpeaker || '');
 
-  const [camera, setCamera] = useState<string | number>('');
-  const [microphone, setMicrophone] = useState<string | number>('');
+  const [camera, setCamera] = useState<string>('');
+  const [microphone, setMicrophone] = useState<string>('');
 
   const updateDevice = async (type: string, deviceId: string): Promise<void> => {
     if (!localParticipant) return;
@@ -107,20 +133,41 @@ export const CallSettings: FC<CallSettingsProps> = ({ localParticipant, onClose,
     setLocalTracks(updatedLocalTracks);
   };
 
-  const handleCameraChange = (e: SelectChangeEvent<string | number>): void => {
+  const handleCameraChange = (e: SelectChangeEvent<string>): void => {
     const selectedCamera = e.target.value;
     setCamera(selectedCamera);
   };
 
-  const handleMicrophoneChange = (e: SelectChangeEvent<string | number>): void => {
+  const handleMicrophoneChange = (e: SelectChangeEvent<string>): void => {
     const selectedMicrophone = e.target.value;
     setMicrophone(selectedMicrophone);
   };
 
-  const handleSpeakersChange = (e: SelectChangeEvent<string | number>): void => {
+  const handleSpeakersChange = (e: SelectChangeEvent<string>): void => {
     const selectedSpeakers = e.target.value;
     setSpeakers(selectedSpeakers);
   };
+
+  const deviceConfigs = [
+    {
+      devices: videoInputDevices,
+      handleChange: handleCameraChange,
+      label: 'Camera',
+      selectedDevice: camera,
+    },
+    {
+      devices: audioInputDevices,
+      handleChange: handleMicrophoneChange,
+      label: 'Microphone',
+      selectedDevice: microphone,
+    },
+    {
+      devices: audioOutputDevices,
+      handleChange: handleSpeakersChange,
+      label: 'Speakers',
+      selectedDevice: speakers,
+    },
+  ];
 
   const handleSave = async (): Promise<void> => {
     if (camera) {
@@ -147,39 +194,16 @@ export const CallSettings: FC<CallSettingsProps> = ({ localParticipant, onClose,
             width: '100%',
           }}
         />
-        {/* Camera selection */}
-        <FormControl fullWidth margin="normal" variant="outlined">
-          <InputLabel id="camera-label">Camera</InputLabel>
-          <Select label="Camera" labelId="camera-label" onChange={handleCameraChange} value={camera}>
-            {videoInputDevices.map((device) => (
-              <MenuItem key={device.deviceId} value={device.deviceId}>
-                {device.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        {/* Microphone selection */}
-        <FormControl fullWidth margin="normal" variant="outlined">
-          <InputLabel id="microphone-label">Microphone</InputLabel>
-          <Select label="Microphone" labelId="microphone-label" onChange={handleMicrophoneChange} value={microphone}>
-            {audioInputDevices.map((device) => (
-              <MenuItem key={device.deviceId} value={device.deviceId}>
-                {device.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        {/* Speakers selection */}
-        <FormControl fullWidth margin="normal" variant="outlined">
-          <InputLabel id="speakers-label">Speakers</InputLabel>
-          <Select label="Speakers" labelId="speakers-label" onChange={handleSpeakersChange} value={speakers}>
-            {audioOutputDevices.map((device) => (
-              <MenuItem key={device.deviceId} value={device.deviceId}>
-                {device.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        {/* Device selectors */}
+        {deviceConfigs.map((config, index) => (
+          <DeviceSelector
+            key={index}
+            devices={config.devices}
+            handleChange={config.handleChange}
+            label={config.label}
+            selectedDevice={config.selectedDevice}
+          />
+        ))}
         <Button color="primary" style={{ marginTop: '16px' }} variant="contained">
           Having technical issues with the call?
         </Button>
