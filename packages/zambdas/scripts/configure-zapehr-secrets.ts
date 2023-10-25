@@ -1,8 +1,5 @@
-import devConfig from '../.env/dev.json';
-// import testingConfig from '../.env/testing.json';
-// import stagingConfig from '../.env/staging.json';
-// import productionConfig from '../.env/production.json';
 import { createZambdaClient } from '../src/shared';
+import { main } from './shared';
 
 const setupSecrets = async (config: any): Promise<void> => {
   const zambdaClient = await createZambdaClient(config);
@@ -22,28 +19,6 @@ const setupSecrets = async (config: any): Promise<void> => {
   }
 };
 
-// So we can use await
-const main = async (): Promise<void> => {
-  const env = process.argv[2];
-
-  switch (env) {
-    case 'dev':
-      await setupSecrets(devConfig);
-      break;
-    // case 'testing':
-    //   await setupSecrets(testingConfig);
-    //   break;
-    // case 'staging':
-    //   await setupSecrets(stagingConfig);
-    //   break;
-    // case 'production':
-    //   await setupSecrets(productionConfig);
-    //   break;
-    default:
-      throw new Error('¯\\_(ツ)_/¯ environment must match a valid zapEHR environment.');
-  }
-};
-
-main().catch((error) => {
+main(setupSecrets).catch((error) => {
   console.log('error', error);
 });
