@@ -39,25 +39,17 @@ export async function createPatientResource(parameters: PatientInfo, fhirClient:
       throw new Error('Race is undefined');
     }
     const patientResource: Patient = {
-      resourceType: 'Patient',
-      name: [
-        {
-          given: [parameters.firstName],
-          family: parameters.lastName,
-        },
-      ],
-      birthDate: removeTimeFromDate(parameters.dateOfBirth ?? ''),
-      gender: parameters.sex,
       active: true,
+      birthDate: removeTimeFromDate(parameters.dateOfBirth ?? ''),
       extension: [
         {
           url: 'http://example.com/fhir/extensions#race',
           valueCodeableConcept: {
             coding: [
               {
-                system: 'http://hl7.org/fhir/v3/Race',
                 code: PatientRaceCode[parameters.race],
                 display: parameters.race,
+                system: 'http://hl7.org/fhir/v3/Race',
               },
             ],
           },
@@ -67,14 +59,22 @@ export async function createPatientResource(parameters: PatientInfo, fhirClient:
           valueCodeableConcept: {
             coding: [
               {
-                system: 'http://hl7.org/fhir/v3/Ethnicity',
                 code: PatientEthnicityCode[parameters.ethnicity],
                 display: parameters.ethnicity,
+                system: 'http://hl7.org/fhir/v3/Ethnicity',
               },
             ],
           },
         },
       ],
+      gender: parameters.sex,
+      name: [
+        {
+          family: parameters.lastName,
+          given: [parameters.firstName],
+        },
+      ],
+      resourceType: 'Patient',
     };
 
     const response: Patient = await fhirClient.createResource(patientResource);
@@ -86,8 +86,8 @@ export async function createPatientResource(parameters: PatientInfo, fhirClient:
 
 export async function getPatientResource(patientId: string, fhirClient: FhirClient): Promise<any> {
   const response: Patient = await fhirClient.readResource({
-    resourceType: 'Patient',
     resourceId: patientId ?? '',
+    resourceType: 'Patient',
   });
 
   console.log(5, response, patientId, response.extension?.[0].valueCodeableConcept);
@@ -97,8 +97,8 @@ export async function getPatientResource(patientId: string, fhirClient: FhirClie
 
 export async function getAppointmentResource(appointmentId: string, fhirClient: FhirClient): Promise<any> {
   const response: Appointment = await fhirClient.readResource({
-    resourceType: 'Appointment',
     resourceId: appointmentId ?? '',
+    resourceType: 'Appointment',
   });
 
   return response;
@@ -111,9 +111,9 @@ export async function updatePatientResource(
 ): Promise<Patient> {
   try {
     const response: Patient = await fhirClient.patchResource({
-      resourceType: 'Patient',
-      resourceId: patientId,
       operations: patchOperations,
+      resourceId: patientId,
+      resourceType: 'Patient',
     });
     return response;
   } catch (error: unknown) {
@@ -123,13 +123,13 @@ export async function updatePatientResource(
 
 export async function getLocation(scheduleId: string, fhirClient: FhirClient): Promise<Location> {
   const schedule: Schedule = await fhirClient.readResource({
-    resourceType: 'Schedule',
     resourceId: scheduleId,
+    resourceType: 'Schedule',
   });
 
   const location: Location = await fhirClient.readResource({
-    resourceType: 'Location',
     resourceId: schedule?.actor[0]?.reference?.split('/')[1] || '',
+    resourceType: 'Location',
   });
 
   return location;
@@ -137,8 +137,8 @@ export async function getLocation(scheduleId: string, fhirClient: FhirClient): P
 
 export async function getResponsiblePartyResource(responsiblePartyId: string, fhirClient: FhirClient): Promise<any> {
   const response: Patient = await fhirClient.readResource({
-    resourceType: 'RelatedPerson',
     resourceId: responsiblePartyId ?? '',
+    resourceType: 'RelatedPerson',
   });
 
   return response;
@@ -146,8 +146,8 @@ export async function getResponsiblePartyResource(responsiblePartyId: string, fh
 
 export async function getPractitionerResource(practitionerId: string, fhirClient: FhirClient): Promise<Practitioner> {
   const response: Practitioner = await fhirClient.readResource({
-    resourceType: 'Practitioner',
     resourceId: practitionerId,
+    resourceType: 'Practitioner',
   });
 
   return response;
@@ -179,7 +179,10 @@ export async function createAppointmentResource(
     }
 
     const appointment: Appointment = await fhirClient.createResource({
-      resourceType: 'Appointment',
+      created: now.toISO() ?? '',
+      description: reasonForVisit.join(','),
+      end: endTime,
+      extension: extension,
       participant: [
         {
           actor: {
@@ -194,12 +197,9 @@ export async function createAppointmentResource(
           status: 'accepted',
         },
       ],
+      resourceType: 'Appointment',
       start: startTime,
-      end: endTime,
-      description: reasonForVisit.join(','),
       status: 'booked',
-      created: now.toISO() ?? '',
-      extension: extension,
     });
     const encounter = await createEncounter(appointment, patient, location, fhirClient);
     console.log('encounter: ', encounter);
@@ -217,28 +217,17 @@ export async function createEncounter(
 ): Promise<Encounter> {
   try {
     const encounter: Encounter = await fhirClient.createResource({
-      resourceType: 'Encounter',
-      status: 'planned',
-      statusHistory: [
-        {
-          status: 'planned',
-          period: {
-            start: DateTime.now().toISO() ?? '',
-          },
-        },
-      ],
-      // todo double check this is the correct classification
-      class: {
-        system: 'http://hl7.org/fhir/R4/v3/ActEncounterCode/vs.html',
-        code: 'ACUTE',
-        display: 'inpatient acute',
-      },
-      subject: { reference: `Patient/${patient.id}` },
       appointment: [
         {
           reference: `Appointment/${appointment.id}`,
         },
       ],
+      // todo double check this is the correct classification
+      class: {
+        code: 'ACUTE',
+        display: 'inpatient acute',
+        system: 'http://hl7.org/fhir/R4/v3/ActEncounterCode/vs.html',
+      },
       location: [
         {
           location: {
@@ -246,6 +235,17 @@ export async function createEncounter(
           },
         },
       ],
+      resourceType: 'Encounter',
+      status: 'planned',
+      statusHistory: [
+        {
+          period: {
+            start: DateTime.now().toISO() ?? '',
+          },
+          status: 'planned',
+        },
+      ],
+      subject: { reference: `Patient/${patient.id}` },
     });
     return encounter;
   } catch (error: unknown) {
@@ -260,8 +260,6 @@ export async function cancelAppointmentResource(
 ): Promise<Resource> {
   try {
     const response = await fhirClient.patchResource({
-      resourceType: 'Appointment',
-      resourceId: appointmentId,
       operations: [
         {
           op: 'replace',
@@ -275,14 +273,16 @@ export async function cancelAppointmentResource(
             coding: [
               {
                 // todo reassess codes and reasons, just using custom codes atm
-                system: 'http://terminology.hl7.org/CodeSystem/appointment-cancellation-reason',
                 code: CancellationReasonCodes[cancellationReason],
                 display: cancellationReason,
+                system: 'http://terminology.hl7.org/CodeSystem/appointment-cancellation-reason',
               },
             ],
           },
         },
       ],
+      resourceId: appointmentId,
+      resourceType: 'Appointment',
     });
     return response;
   } catch (error: unknown) {
@@ -297,9 +297,9 @@ export async function patchAppointmentResource(
 ): Promise<Appointment> {
   try {
     const response: Appointment = await fhirClient.patchResource({
-      resourceType: 'Appointment',
-      resourceId: apptId,
       operations: patchOperations,
+      resourceId: apptId,
+      resourceType: 'Appointment',
     });
     return response;
   } catch (error: unknown) {
@@ -316,8 +316,6 @@ export async function updateAppointmentResource(
 ): Promise<Appointment> {
   try {
     const json: Appointment = await fhirClient.patchResource({
-      resourceType: 'Appointment',
-      resourceId: appointmentId ?? '',
       operations: [
         {
           op: 'replace',
@@ -330,6 +328,8 @@ export async function updateAppointmentResource(
           value: endTime,
         },
       ],
+      resourceId: appointmentId ?? '',
+      resourceType: 'Appointment',
     });
     return json;
   } catch (error: unknown) {
@@ -374,9 +374,9 @@ export async function createCardsDocumentReference(
         if (frontUpdated || backUpdated) {
           fhirClient
             .patchResource({
-              resourceType: 'DocumentReference',
-              resourceId: oldDoc.id || '',
               operations: [{ op: 'replace', path: '/status', value: 'superseded' }],
+              resourceId: oldDoc.id || '',
+              resourceType: 'DocumentReference',
             })
             .catch((error) => {
               throw new Error(`Failed to update document reference status: ${JSON.stringify(error)}`);
@@ -404,26 +404,26 @@ export async function createCardsDocumentReference(
     cardFrontUrl &&
       content.push({
         attachment: {
-          url: cardFrontUrl,
           contentType: `image/${cardFrontUrl.split('.').slice(-1)}`,
           title: cardFrontTitle,
+          url: cardFrontUrl,
         },
       });
 
     cardBackUrl &&
       content.push({
         attachment: {
-          url: cardBackUrl,
           contentType: `image/${cardBackUrl.split('.').slice(-1)}`,
           title: cardBackTitle,
+          url: cardBackUrl,
         },
       });
 
     const response = fhirClient.createResource<DocumentReference>({
+      content: content,
       resourceType: 'DocumentReference',
       status: 'current',
       type: type,
-      content: content,
       ...referenceParam,
     });
     const json = await response;
@@ -436,26 +436,26 @@ export async function createCardsDocumentReference(
 export async function createAccountResourceForSelfPay(patientId: string, fhirClient: FhirClient): Promise<Account> {
   try {
     const response: Account = await fhirClient.createResource({
+      name: 'Self-Pay Account',
       resourceType: 'Account',
       status: 'active',
-      type: {
-        coding: [
-          {
-            system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
-            code: 'PBILLACCT',
-            display: 'patient billing account',
-          },
-        ],
-      },
-      name: 'Self-Pay Account',
       subject: [
         {
           reference: `Patient/${patientId}`,
         },
       ],
       text: {
-        status: 'generated',
         div: `<div>Self-pay account for Patient ${patientId}</div>`,
+        status: 'generated',
+      },
+      type: {
+        coding: [
+          {
+            code: 'PBILLACCT',
+            display: 'patient billing account',
+            system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+          },
+        ],
       },
     });
     const json = await response;
@@ -472,7 +472,6 @@ export async function createRelatedPersonConsentInformation(
 ): Promise<RelatedPerson> {
   try {
     const response = await fhirClient.createResource<RelatedPerson>({
-      resourceType: 'RelatedPerson',
       identifier: [
         {
           system: 'http://example.com/signature',
@@ -481,8 +480,8 @@ export async function createRelatedPersonConsentInformation(
       ],
       name: [
         {
-          use: 'official',
           text: forms.fullName,
+          use: 'official',
         },
       ],
       patient: {
@@ -492,13 +491,14 @@ export async function createRelatedPersonConsentInformation(
         {
           coding: [
             {
-              system: 'http://example.com/relationship',
               code: forms.relationship,
               display: forms.relationship,
+              system: 'http://example.com/relationship',
             },
           ],
         },
       ],
+      resourceType: 'RelatedPerson',
     });
     return response;
   } catch (error: unknown) {
@@ -515,53 +515,53 @@ export async function createFormsConsentInformation(
   try {
     const now = DateTime.now();
     const createdConsent: Consent = await fhirClient.createResource({
-      resourceType: 'Consent',
-      status: 'active',
-      scope: {
-        coding: [
-          {
-            system: 'http://terminology.hl7.org/CodeSystem/consentscope',
-            code: 'patient-privacy',
-            display: 'Patient Privacy',
-          },
-        ],
-      },
       category: [
         {
           coding: [
             {
-              system: 'http://terminology.hl7.org/CodeSystem/consentcategorycodes',
               code: 'hipaa-ack',
+              system: 'http://terminology.hl7.org/CodeSystem/consentcategorycodes',
             },
           ],
         },
         {
           coding: [
             {
-              system: 'http://terminology.hl7.org/CodeSystem/consentcategorycodes',
               code: 'treat-guarantee',
+              system: 'http://terminology.hl7.org/CodeSystem/consentcategorycodes',
             },
           ],
         },
       ],
+      dateTime: now.toISO() ?? '',
       patient: {
         reference: `Patient/${patientId}`,
       },
       performer: [{ reference: `RelatedPerson/${signer.id}` }],
-      dateTime: now.toISO() ?? '',
-      provision: {
-        type: 'deny',
-        provision: [
-          {
-            type: forms.HIPAA && forms.consentToTreat ? 'permit' : 'deny',
-          },
-        ],
-      },
       policy: [
         {
           uri: 'http://example.com/policies/consent-policy',
         },
       ],
+      provision: {
+        provision: [
+          {
+            type: forms.HIPAA && forms.consentToTreat ? 'permit' : 'deny',
+          },
+        ],
+        type: 'deny',
+      },
+      resourceType: 'Consent',
+      scope: {
+        coding: [
+          {
+            code: 'patient-privacy',
+            display: 'Patient Privacy',
+            system: 'http://terminology.hl7.org/CodeSystem/consentscope',
+          },
+        ],
+      },
+      status: 'active',
     });
     return createdConsent;
   } catch (error: unknown) {
@@ -571,8 +571,6 @@ export async function createFormsConsentInformation(
 
 export async function makeSlotStatusBusy(slotId: string, fhirClient: FhirClient): Promise<Slot> {
   const slot: Slot = await fhirClient.patchResource({
-    resourceType: 'Slot',
-    resourceId: slotId,
     operations: [
       {
         op: 'replace',
@@ -580,6 +578,8 @@ export async function makeSlotStatusBusy(slotId: string, fhirClient: FhirClient)
         value: 'busy',
       },
     ],
+    resourceId: slotId,
+    resourceType: 'Slot',
   });
 
   if (slot.status !== 'busy') {
@@ -592,8 +592,8 @@ export async function makeSlotStatusBusy(slotId: string, fhirClient: FhirClient)
 export async function getAppointment(apptId: string, fhirClient: FhirClient): Promise<Appointment> {
   try {
     const appointment: Appointment = await fhirClient.readResource({
-      resourceType: 'Appointment',
       resourceId: apptId,
+      resourceType: 'Appointment',
     });
     return appointment;
   } catch (error: unknown) {

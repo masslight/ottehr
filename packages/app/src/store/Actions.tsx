@@ -9,8 +9,8 @@ export const setFhirClient = (token: string, dispatch: Dispatch<Action>): void =
     apiUrl: import.meta.env.VITE_FHIR_API_URL,
   });
   dispatch({
-    type: 'SET_FHIR_CLIENT',
     fhirClient: fhirClient,
+    type: 'SET_FHIR_CLIENT',
   });
 };
 

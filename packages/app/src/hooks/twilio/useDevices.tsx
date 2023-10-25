@@ -5,10 +5,10 @@ type ThenArg<T> = T extends PromiseLike<infer U> ? U : never;
 
 type DeviceInfo = {
   audioInputDevices: MediaDeviceInfo[];
-  videoInputDevices: MediaDeviceInfo[];
   audioOutputDevices: MediaDeviceInfo[];
   hasAudioInputDevices: boolean;
   hasVideoInputDevices: boolean;
+  videoInputDevices: MediaDeviceInfo[];
 };
 
 async function getDeviceInfo(): Promise<DeviceInfo> {
@@ -16,20 +16,20 @@ async function getDeviceInfo(): Promise<DeviceInfo> {
 
   return {
     audioInputDevices: devices.filter((device) => device.kind === 'audioinput'),
-    videoInputDevices: devices.filter((device) => device.kind === 'videoinput'),
     audioOutputDevices: devices.filter((device) => device.kind === 'audiooutput'),
     hasAudioInputDevices: devices.some((device) => device.kind === 'audioinput'),
     hasVideoInputDevices: devices.some((device) => device.kind === 'videoinput'),
+    videoInputDevices: devices.filter((device) => device.kind === 'videoinput'),
   };
 }
 
 export default function useDevices(): DeviceInfo {
   const [deviceInfo, setDeviceInfo] = useState<ThenArg<ReturnType<typeof getDeviceInfo>>>({
     audioInputDevices: [],
-    videoInputDevices: [],
     audioOutputDevices: [],
     hasAudioInputDevices: false,
     hasVideoInputDevices: false,
+    videoInputDevices: [],
   });
 
   useEffect(() => {

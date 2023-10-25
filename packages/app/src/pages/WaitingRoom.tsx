@@ -51,7 +51,7 @@ export const WaitingRoom = (): JSX.Element => {
         justifyContent: 'space-between',
       }}
     >
-      <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" isProvider={true} />
+      <ProviderHeaderSection isProvider={true} providerName="Dr. Smith" title="Waiting Room" />
       {/* Middle Section */}
       <Box
         sx={{
@@ -62,12 +62,12 @@ export const WaitingRoom = (): JSX.Element => {
       >
         <Box
           maxWidth="md"
-          width="100%"
           sx={{
             [theme.breakpoints.down('sm')]: {
               px: 2,
             },
           }}
+          width="100%"
         >
           <Box
             sx={{
@@ -77,50 +77,50 @@ export const WaitingRoom = (): JSX.Element => {
               },
             }}
           >
-            <Typography variant="h5" sx={{ pb: 1 }}>
+            <Typography sx={{ pb: 1 }} variant="h5">
               Your call will start soon
             </Typography>
 
             <Box
               sx={{
-                position: 'relative',
-                overflow: 'hidden',
-                borderRadius: 2,
+                alignItems: 'center',
                 backgroundColor: 'rgba(50, 63, 83, 0.87)',
+                borderRadius: 2,
                 display: 'flex',
                 flexDirection: 'column',
-                alignItems: 'center',
                 justifyContent: 'center',
+                minHeight: '20vh',
+                overflow: 'hidden',
+                position: 'relative',
                 px: 15,
                 py: 10,
-                minHeight: '20vh',
               }}
             >
               <Box
                 sx={{
                   backgroundColor: otherColors.biscay,
                   borderRadius: 5,
+                  bottom: 16,
                   display: 'flex',
                   gap: 1,
                   justifyContent: 'center',
+                  left: '50%',
                   maxWidth: 'fit-content',
                   position: 'absolute',
-                  bottom: 16,
-                  left: '50%',
                   transform: 'translate(-50%, 0)',
                   zIndex: 2,
                 }}
               >
-                <VideoControls localParticipant={room?.localParticipant} inCallRoom={false} />
+                <VideoControls inCallRoom={false} localParticipant={room?.localParticipant} />
               </Box>
               <Box
                 ref={videoRef}
                 sx={{
+                  height: '100%',
+                  left: 0,
                   position: 'absolute',
                   top: 0,
-                  left: 0,
                   width: '100%',
-                  height: '100%',
                 }}
               ></Box>
             </Box>

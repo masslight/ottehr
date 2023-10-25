@@ -1,5 +1,5 @@
 import { Box } from '@mui/material';
-import React, { useState, useEffect, useRef } from 'react';
+import { FC, useState, useEffect, useRef } from 'react';
 import {
   AudioTrack,
   VideoTrack,
@@ -19,7 +19,7 @@ interface HTMLMediaElement {
   setSinkId(sinkId: string): Promise<void>;
 }
 
-export const VideoParticipant: React.FC<ParticipantProps> = ({ participant }) => {
+export const VideoParticipant: FC<ParticipantProps> = ({ participant }) => {
   const [videoTracks, setVideoTracks] = useState<(VideoTrack | null)[]>([]);
   const [audioTracks, setAudioTracks] = useState<(AudioTrack | null)[]>([]);
   const { selectedSpeaker } = useVideoParticipant();
@@ -117,33 +117,33 @@ export const VideoParticipant: React.FC<ParticipantProps> = ({ participant }) =>
 
   return (
     <Box
-      sx={{
-        width: '100%',
-        height: '100%',
-        position: 'relative',
-        overflow: 'hidden',
-      }}
       id={participant.identity}
+      sx={{
+        height: '100%',
+        overflow: 'hidden',
+        position: 'relative',
+        width: '100%',
+      }}
     >
       <Box
+        autoPlay={true}
         component="video"
         ref={videoRef}
-        autoPlay={true}
         sx={{
-          width: '100%',
           height: '100%',
           objectFit: 'cover',
+          width: '100%',
         }}
       />
-      <Box component="audio" ref={audioRef} autoPlay={true} muted={false} sx={{ display: 'none' }} />
+      <Box autoPlay={true} component="audio" muted={false} ref={audioRef} sx={{ display: 'none' }} />
       <Box
         sx={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
           backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          bottom: 0,
           color: 'white',
+          left: 0,
           padding: '0.5rem',
+          position: 'absolute',
         }}
       >
         {participant.identity}

@@ -40,7 +40,7 @@ export const ProviderSettings = (): JSX.Element => {
       }}
     >
       <TopAppBar />
-      <ProviderHeaderSection providerName="Dr. Olivia Smith" title="My profile" isProvider={true} />
+      <ProviderHeaderSection isProvider={true} providerName="Dr. Olivia Smith" title="My profile" />
       <Box
         sx={{
           alignItems: 'center',
@@ -78,8 +78,6 @@ export const ProviderSettings = (): JSX.Element => {
                 </Box>
                 <TextField label="Email Address" variant="outlined" />
                 <Button
-                  type="submit"
-                  variant="contained"
                   sx={{
                     backgroundColor: theme.palette.primary.main,
                     color: theme.palette.background.default,
@@ -87,6 +85,8 @@ export const ProviderSettings = (): JSX.Element => {
                     textTransform: 'uppercase',
                     width: '100%',
                   }}
+                  type="submit"
+                  variant="contained"
                 >
                   Update
                 </Button>

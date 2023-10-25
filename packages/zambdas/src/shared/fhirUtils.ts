@@ -1,8 +1,8 @@
 import { CodeableConcept, Identifier, Period } from 'fhir/r4';
 interface CodeableConceptInput {
   code: string;
-  system: string;
   display?: string;
+  system: string;
 }
 
 export const createCodableConcept = (
@@ -15,8 +15,8 @@ export const createCodableConcept = (
       const { code, system, display } = ip;
       return {
         code,
-        system,
         display,
+        system,
       };
     }),
   };
@@ -34,12 +34,12 @@ export enum IdentifierAssigner {
 }
 
 export interface IdentifierInput {
-  value: string;
-  use?: 'usual' | 'official' | 'temp' | 'secondary' | 'old';
-  type?: CodeableConcept | CodeableConceptInput;
-  system?: IdentifierSystem;
-  period?: Period;
   assignerDisplay?: IdentifierAssigner;
+  period?: Period;
+  system?: IdentifierSystem;
+  type?: CodeableConcept | CodeableConceptInput;
+  use?: 'usual' | 'official' | 'temp' | 'secondary' | 'old';
+  value: string;
 }
 
 export const makeIdentifier = (input: IdentifierInput): Identifier => {

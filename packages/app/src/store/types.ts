@@ -4,8 +4,8 @@ import { Location, Patient, Slot } from 'fhir/r4';
 export enum AdditionalInformationOptions {
   'Drive by/Signage' = 'Drive by/Signage',
   'Friend/Family' = 'Friend/Family',
-  'Healthcare Professional' = 'Healthcare Professional',
   'Google/internet search' = 'Google/internet search',
+  'Healthcare Professional' = 'Healthcare Professional',
   'Internet ad' = 'Internet ad',
   'Newsletter' = 'Newsletter',
   'School' = 'School',
@@ -32,28 +32,28 @@ export enum PatientRace {
 }
 
 export enum PatientSex {
-  Male = 'male',
   Female = 'female',
+  Male = 'male',
   Other = 'other',
 }
 
 export enum RelationshipToPatientOptions {
-  'Legal Guardian' = 'Legal Guardian',
   'Father' = 'Father',
+  'Legal Guardian' = 'Legal Guardian',
   'Mother' = 'Mother',
   'Self' = 'Self',
   'Spouse ' = 'Spouse ',
 }
 
 export enum ResponsiblePartySex {
-  Male = 'male',
   Female = 'female',
+  Male = 'male',
   Other = 'other',
 }
 
 export enum ResponsiblePartyRelationship {
-  'Legal Guardian' = 'Legal Guardian',
   'Father' = 'Father',
+  'Legal Guardian' = 'Legal Guardian',
   'Mother' = 'Mother',
   'Self' = 'Self',
   'Spouse' = 'Spouse',
@@ -72,27 +72,27 @@ export type PatientInfo = {
 };
 
 export type Action =
-  | { type: 'SET_FHIR_CLIENT'; fhirClient: FhirClient }
+  | { fhirClient: FhirClient; type: 'SET_FHIR_CLIENT' }
   | { type: 'SET_ZAMBDA_CLIENT'; zambdaClient: ZambdaClient }
-  | { type: 'UPDATE_ADDITIONAL_INFORMATION'; additionalInformation: string }
-  | { type: 'UPDATE_APPOINTMENT_ID'; appointmentId: string }
-  | { type: 'UPDATE_APPOINTMENT_SLOT'; appointmentSlot: string }
-  | { type: 'UPDATE_CANCELLATION_REASON'; cancellationReason: string }
-  | { type: 'UPDATE_CONSENT_FORM_ID'; consentFormId: string }
-  | { type: 'UPDATE_CONSENT_FORM_SIGNER_ID'; consentFormSignerId: string }
-  | { type: 'UPDATE_COVERAGE_ID'; coverageId: string }
-  | { type: 'UPDATE_LOCATIONS'; locations: Location[] }
-  | { type: 'UPDATE_LOCATION_ID'; locationId: string }
-  | { type: 'UPDATE_PATIENT'; patient: PatientInfo | undefined }
-  | { type: 'UPDATE_PATIENTS'; patients: Patient[] }
-  | { type: 'UPDATE_PHONE_NUMBER'; phoneNumber: string }
-  | { type: 'UPDATE_RELATED_PERSON_ID'; relatedPersonId: string }
-  | { type: 'UPDATE_RESPONSIBLE_PARTY_ID'; responsiblePartyId: string }
-  | { type: 'UPDATE_SELECTED_APPOINTMENT_SLOT_ID'; selectedApptSlotId: string }
-  | { type: 'UPDATE_SELECTED_LOCATION'; location: Location }
-  | { type: 'UPDATE_SLOTS'; slots: Slot[] }
-  | { type: 'UPDATE_SUBMITTED_INSURANCE_TYPE'; submittedInsuranceType: string }
-  | { type: 'UPDATE_TIMEZONE'; timezone: string };
+  | { additionalInformation: string; type: 'UPDATE_ADDITIONAL_INFORMATION' }
+  | { appointmentId: string; type: 'UPDATE_APPOINTMENT_ID' }
+  | { appointmentSlot: string; type: 'UPDATE_APPOINTMENT_SLOT' }
+  | { cancellationReason: string; type: 'UPDATE_CANCELLATION_REASON' }
+  | { consentFormId: string; type: 'UPDATE_CONSENT_FORM_ID' }
+  | { consentFormSignerId: string; type: 'UPDATE_CONSENT_FORM_SIGNER_ID' }
+  | { coverageId: string; type: 'UPDATE_COVERAGE_ID' }
+  | { locations: Location[]; type: 'UPDATE_LOCATIONS' }
+  | { locationId: string; type: 'UPDATE_LOCATION_ID' }
+  | { patient: PatientInfo | undefined; type: 'UPDATE_PATIENT' }
+  | { patients: Patient[]; type: 'UPDATE_PATIENTS' }
+  | { phoneNumber: string; type: 'UPDATE_PHONE_NUMBER' }
+  | { relatedPersonId: string; type: 'UPDATE_RELATED_PERSON_ID' }
+  | { responsiblePartyId: string; type: 'UPDATE_RESPONSIBLE_PARTY_ID' }
+  | { selectedApptSlotId: string; type: 'UPDATE_SELECTED_APPOINTMENT_SLOT_ID' }
+  | { location: Location; type: 'UPDATE_SELECTED_LOCATION' }
+  | { slots: Slot[]; type: 'UPDATE_SLOTS' }
+  | { submittedInsuranceType: string; type: 'UPDATE_SUBMITTED_INSURANCE_TYPE' }
+  | { timezone: string; type: 'UPDATE_TIMEZONE' };
 
 export type State = {
   additionalInformation?: string;

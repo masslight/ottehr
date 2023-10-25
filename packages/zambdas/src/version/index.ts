@@ -6,14 +6,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
   try {
     return {
-      statusCode: 200,
       body: JSON.stringify({ version: 'TODO' }),
+      statusCode: 200,
     };
   } catch (error: any) {
     console.log('error', error);
     return {
-      statusCode: 500,
       body: JSON.stringify({ error: error.message }),
+      statusCode: 500,
     };
   }
 };

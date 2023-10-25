@@ -39,10 +39,10 @@ export const CheckInPermission = (): JSX.Element => {
       setLocalTracks(localTracks);
 
       const connectedRoom = await Video.connect(fetchedToken, {
-        name: roomName,
         audio: true,
-        video: true,
+        name: roomName,
         tracks: localTracks,
+        video: true,
       });
 
       setRoom(connectedRoom);
@@ -64,7 +64,7 @@ export const CheckInPermission = (): JSX.Element => {
         },
       }}
     >
-      <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" isProvider={true} />
+      <ProviderHeaderSection isProvider={true} providerName="Dr. Smith" title="Waiting Room" />
       {/* Middle Section */}
       <Box
         sx={{
@@ -106,22 +106,21 @@ export const CheckInPermission = (): JSX.Element => {
               <VideocamOffIcon sx={{ color: theme.palette.background.default }} />
               <Typography
                 color="primary.contrast"
-                variant="body1"
                 sx={{
                   opacity: '0.5',
                   textAlign: 'center',
                 }}
+                variant="body1"
               >
                 Enable camera in your browser
               </Typography>
             </Box>
 
-            <Button onClick={() => toggleCamMic(true)} variant="contained" sx={otherStyling.buttonPrimary}>
+            <Button onClick={() => toggleCamMic(true)} sx={otherStyling.buttonPrimary} variant="contained">
               Enable camera and mic
             </Button>
             <Button
               onClick={() => toggleCamMic(false)}
-              variant="text"
               sx={{
                 color: theme.palette.primary.light,
                 cursor: 'pointer',
@@ -129,6 +128,7 @@ export const CheckInPermission = (): JSX.Element => {
                 textAlign: 'center',
                 textTransform: 'uppercase',
               }}
+              variant="text"
             >
               Continue without camera and mic
             </Button>

@@ -17,8 +17,8 @@ class API {
         throw new Error('check in environment variable could not be loaded');
       }
       const response = await zambdaClient?.invokePublicZambda({
-        zambdaId: CHECK_IN_ZAMBDA_ID,
         payload: { appointment: appointmentId },
+        zambdaId: CHECK_IN_ZAMBDA_ID,
       });
       return response;
     } catch (error: unknown) {
@@ -60,10 +60,10 @@ class API {
     try {
       // Create the Z3 object
       const response = await fetch(url, {
-        method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        method: 'PUT',
       });
 
       if (!response.ok) {
@@ -74,11 +74,11 @@ class API {
 
       // Upload the file to S3
       const uploadResponse = await fetch(presignedUrl, {
-        method: 'PUT',
+        body: file,
         headers: {
           'Content-Type': file.type,
         },
-        body: file,
+        method: 'PUT',
       });
 
       // console.log('res: ', uploadResponse);
@@ -95,10 +95,10 @@ class API {
   async getZ3Object(url: string, token: string): Promise<string> {
     try {
       const response = await fetch(url, {
-        method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        method: 'GET',
       });
 
       const json = await response.json();
@@ -113,12 +113,12 @@ class API {
     try {
       // for development, we can use the local express server to generate a token
       const response = await fetch('http://localhost:5000/join-room', {
-        method: 'POST',
+        body: JSON.stringify({ roomName }),
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ roomName }),
+        method: 'POST',
       });
 
       const { token } = await response.json();

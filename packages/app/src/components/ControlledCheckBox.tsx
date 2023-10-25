@@ -26,17 +26,12 @@ export const ControlledCheckBox: FC<ControlledCheckBoxProps> = ({ defaultValue, 
             return (
               <Checkbox
                 {...props}
+                // eslint-disable-next-line react/prop-types -- react-hook-form CheckboxProps.value is a valid, optional prop
                 checked={(props.value as boolean | undefined) ?? false}
                 color="primary"
                 required={required}
                 style={{ borderRadius: '4px' }}
                 sx={{
-                  alignSelf: 'flex-start',
-                  height: '18px',
-                  mr: '10px',
-                  pr: 1,
-                  pb: 1,
-                  width: '18px',
                   '&.Mui-checked': {
                     borderRadius: '4px',
                     color: otherColors.lightPurple,
@@ -45,6 +40,12 @@ export const ControlledCheckBox: FC<ControlledCheckBoxProps> = ({ defaultValue, 
                   '&.MuiCheckbox-root': {
                     borderRadius: '4px',
                   },
+                  alignSelf: 'flex-start',
+                  height: '18px',
+                  mr: '10px',
+                  pb: 1,
+                  pr: 1,
+                  width: '18px',
                 }}
               />
             );

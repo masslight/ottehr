@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
+import { RefObject, useEffect } from 'react';
 import { LocalTrack, LocalVideoTrack } from 'twilio-video';
 
-export const useLocalVideo = (ref: React.RefObject<HTMLDivElement>, localTracks: LocalTrack[]): void => {
+export const useLocalVideo = (ref: RefObject<HTMLDivElement>, localTracks: LocalTrack[]): void => {
   useEffect(() => {
     const currentRef = ref.current;
 

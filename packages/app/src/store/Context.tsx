@@ -22,14 +22,14 @@ type PatientContextProps = {
 type VideoParticipantContextProps = {
   isMicOpen: boolean;
   isVideoOpen: boolean;
+  localTracks: (LocalAudioTrack | LocalVideoTrack)[];
+  room: Room | null;
+  selectedSpeaker: string | null;
   setIsMicOpen: Dispatch<SetStateAction<boolean>>;
   setIsVideoOpen: Dispatch<SetStateAction<boolean>>;
-  room: Room | null;
-  setRoom: Dispatch<SetStateAction<Room | null>>;
-  localTracks: (LocalAudioTrack | LocalVideoTrack)[];
   setLocalTracks: Dispatch<SetStateAction<(LocalAudioTrack | LocalVideoTrack)[]>>;
-  selectedSpeaker: string | null;
-  setSelectedSpeaker: React.Dispatch<React.SetStateAction<string | null>>;
+  setRoom: Dispatch<SetStateAction<Room | null>>;
+  setSelectedSpeaker: Dispatch<SetStateAction<string | null>>;
 };
 
 export const useVideoParticipant = (): VideoParticipantContextProps => {
@@ -56,13 +56,13 @@ export const VideoParticipantProvider: FC<VideoParticipantProviderProps> = ({ ch
       value={{
         isMicOpen,
         isVideoOpen,
+        localTracks,
+        room,
+        selectedSpeaker,
         setIsMicOpen,
         setIsVideoOpen,
-        room,
-        setRoom,
-        localTracks,
         setLocalTracks,
-        selectedSpeaker,
+        setRoom,
         setSelectedSpeaker,
       }}
     >
@@ -152,5 +152,5 @@ interface DataProviderProps {
 export const DataProvider: FC<DataProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(DataReducer, initialState);
 
-  return <DataContext.Provider value={{ state, dispatch }}>{children}</DataContext.Provider>;
+  return <DataContext.Provider value={{ dispatch, state }}>{children}</DataContext.Provider>;
 };

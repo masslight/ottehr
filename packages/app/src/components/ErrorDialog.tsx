@@ -35,7 +35,7 @@ export const ErrorDialog: FC<props> = ({ closeButtonText, description, handleClo
         },
       }}
     >
-      <DialogTitle color="secondary.main" variant="h2" sx={{ width: '80%' }}>
+      <DialogTitle color="secondary.main" sx={{ width: '80%' }} variant="h2">
         {title}
         <IconButton
           aria-label={t('general.button.close')}
@@ -62,10 +62,10 @@ export const ErrorDialog: FC<props> = ({ closeButtonText, description, handleClo
         <Button
           onClick={handleClose}
           size="large"
-          variant="contained"
           sx={{
             fontWeight: '700',
           }}
+          variant="contained"
         >
           {closeButtonText}
         </Button>

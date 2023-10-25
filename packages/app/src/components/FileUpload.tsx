@@ -140,9 +140,9 @@ export const FileUpload: FC<FileUploadProps> = ({ defaultValue, label, name, opt
         return (
           <CardComponent
             name={name}
-            previewUrl={previewUrl}
             objectName={objectName}
             onClear={onClear}
+            previewUrl={previewUrl}
             setFileUrl={setFileUrl}
             setPreviewUrl={setPreviewUrl}
           />

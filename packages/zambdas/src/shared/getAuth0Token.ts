@@ -11,16 +11,16 @@ export async function getAuth0Token(secrets: Secrets | null): Promise<string> {
 
   console.group(`Fetch from ${AUTH0_ENDPOINT}`);
   return await fetch(AUTH0_ENDPOINT, {
-    method: 'POST',
+    body: JSON.stringify({
+      audience: AUTH0_AUDIENCE,
+      client_id: AUTH0_CLIENT,
+      client_secret: AUTH0_SECRET,
+      grant_type: 'client_credentials',
+    }),
     headers: {
       'content-type': 'application/json',
     },
-    body: JSON.stringify({
-      grant_type: 'client_credentials',
-      client_id: AUTH0_CLIENT,
-      client_secret: AUTH0_SECRET,
-      audience: AUTH0_AUDIENCE,
-    }),
+    method: 'POST',
   })
     .then((response: any) => {
       if (!response.ok) {
