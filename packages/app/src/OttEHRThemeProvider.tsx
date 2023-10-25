@@ -5,15 +5,17 @@ import { FC, ReactNode } from 'react';
 export const textFonts = ['Work Sans'];
 export const headerFonts = ['Work Sans'];
 
+/* eslint-disable sort-keys -- Sorting by size makes more sense here */
 export const breakpoints: BreakpointsOptions = {
   values: {
-    lg: 1000,
-    md: 700,
-    sm: 400,
-    xl: 1400,
     xs: 0,
+    sm: 400,
+    md: 700,
+    lg: 1000,
+    xl: 1400,
   },
 };
+/* eslint-enable sort-keys */
 
 export const otherColors = {
   appointmentInfoBackground: '#8F66EF',
