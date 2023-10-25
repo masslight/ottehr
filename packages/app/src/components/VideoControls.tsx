@@ -1,5 +1,5 @@
 import Box from '@mui/material/Box';
-import { FC, useState } from 'react';
+import { Dispatch, FC, SetStateAction, useState } from 'react';
 import { LocalAudioTrack, LocalParticipant, LocalVideoTrack } from 'twilio-video';
 
 import CallEndIcon from '@mui/icons-material/CallEnd';
@@ -36,36 +36,24 @@ export const VideoControls: FC<VideoControlsProps> = ({ localParticipant, inCall
     navigate('/post-call');
   };
 
-  const toggleVideo = (): void => {
-    if (localParticipant) {
-      const videoTracks = localTracks.filter((track) => track.kind === 'video') as LocalVideoTrack[];
-      videoTracks.forEach((localTrack) => {
-        if (localTrack.isEnabled) {
-          localTrack.disable();
-          setIsVideoOpen(false);
-        } else {
-          localTrack.enable();
-          setIsVideoOpen(true);
-        }
-      });
-    }
+  const toggleTrack = (kind: 'audio' | 'video', setState: Dispatch<SetStateAction<boolean>>): void => {
+    if (!localParticipant) return;
+
+    const tracks = localTracks.filter((track) => track.kind === kind);
+
+    tracks.forEach((localTrack) => {
+      if (localTrack.isEnabled) {
+        localTrack.disable();
+        setState(false);
+      } else {
+        localTrack.enable();
+        setState(true);
+      }
+    });
   };
 
-  const toggleMic = (): void => {
-    if (localParticipant) {
-      const audioTracks = localTracks.filter((track) => track.kind === 'audio') as LocalAudioTrack[];
-
-      audioTracks.forEach((localTrack) => {
-        if (localTrack.isEnabled) {
-          localTrack.disable();
-          setIsMicOpen(false);
-        } else {
-          localTrack.enable();
-          setIsMicOpen(true);
-        }
-      });
-    }
-  };
+  const toggleVideo = (): void => toggleTrack('video', setIsVideoOpen);
+  const toggleMic = (): void => toggleTrack('audio', setIsMicOpen);
 
   return (
     <>
