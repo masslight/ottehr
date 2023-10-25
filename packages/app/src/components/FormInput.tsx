@@ -77,7 +77,7 @@ export const FormInput: FC<FormInputProps> = ({
             disableUnderline
             id={`${name}-label`}
             inputComponent={myInputComponent}
-            inputProps={{ mask: mask }}
+            inputProps={{ mask }}
             onChange={(e) => onChange(e.target.value.trimStart())}
             value={value}
             sx={format === 'Signature' ? { ...styles.inputStyles, ...styles.signatureStyles } : styles.inputStyles}

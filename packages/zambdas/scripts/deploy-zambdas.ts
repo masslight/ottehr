@@ -125,7 +125,7 @@ async function updateProjectZambda(
 
   console.log('Updating zambda');
   await zambdaClient.updateZambda({
-    zambdaId: zambdaId,
+    zambdaId,
     triggerMethod: zambda.type,
   });
   console.log('Updated zambda');
@@ -155,7 +155,7 @@ async function updateProjectZambda(
         criteria: zambda.criteria || '',
         channel: {
           type: 'rest-hook',
-          endpoint: endpoint,
+          endpoint,
         },
         extension: [
           {
