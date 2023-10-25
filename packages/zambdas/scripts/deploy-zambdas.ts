@@ -17,6 +17,9 @@ interface DeployZambda {
 }
 
 const ZAMBDAS: { [name: string]: DeployZambda } = {
+  VERSION: {
+    type: 'http_open',
+  },
   // 'CANCEL-APPOINTMENT': {
   //   type: 'http_open',
   // },
@@ -53,16 +56,16 @@ const ZAMBDAS: { [name: string]: DeployZambda } = {
   // 'UPDATE-APPOINTMENT': {
   //   type: 'http_auth',
   // },
-  'PATIENT-READY-FOR-APPOINTMENT': {
-    type: 'subscription',
-    event: 'update',
-    criteria: 'Appointment?status=fulfilled',
-  },
-  'REDOX-PATIENT': {
-    type: 'subscription',
-    event: undefined,
-    criteria: 'Patient',
-  },
+  // 'PATIENT-READY-FOR-APPOINTMENT': {
+  //   type: 'subscription',
+  //   event: 'update',
+  //   criteria: 'Appointment?status=fulfilled',
+  // },
+  // 'REDOX-PATIENT': {
+  //   type: 'subscription',
+  //   event: undefined,
+  //   criteria: 'Patient',
+  // },
 };
 
 const updateZambdas = async (config: any): Promise<void> => {
