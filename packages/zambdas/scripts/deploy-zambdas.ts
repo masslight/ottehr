@@ -24,52 +24,6 @@ const ZAMBDAS: Record<string, DeployZambda> = {
   VERSION: {
     type: 'http_open',
   },
-  // 'CANCEL-APPOINTMENT': {
-  //   type: 'http_open',
-  // },
-  // 'CHECK-IN': {
-  //   type: 'http_open',
-  // },
-  // 'GET-LOCATIONS': {
-  //   type: 'http_open',
-  // },
-  // 'GET-SLOTS-AVAILABILITY': {
-  //   type: 'http_open',
-  // },
-  // 'REDOX-APPOINTMENT-UPDATED-WEBHOOK': {
-  //   type: 'http_open',
-  // },
-  // 'REDOX-PATIENT-UPDATED-WEBHOOK': {
-  //   type: 'http_open',
-  // },
-  // 'UPDATE-PAPERWORK': {
-  //   type: 'http_open',
-  // },
-  // 'CHECK-PAPERWORK-STATUS': {
-  //   type: 'http_auth',
-  // },
-  // 'CREATE-APPOINTMENT': {
-  //   type: 'http_auth',
-  // },
-  // 'GET-APPOINTMENTS': {
-  //   type: 'http_auth',
-  // },
-  // 'GET-PATIENTS': {
-  //   type: 'http_auth',
-  // },
-  // 'UPDATE-APPOINTMENT': {
-  //   type: 'http_auth',
-  // },
-  // 'PATIENT-READY-FOR-APPOINTMENT': {
-  //   type: 'subscription',
-  //   event: 'update',
-  //   criteria: 'Appointment?status=fulfilled',
-  // },
-  // 'REDOX-PATIENT': {
-  //   type: 'subscription',
-  //   event: undefined,
-  //   criteria: 'Patient',
-  // },
 };
 
 const updateZambdas = async (config: any): Promise<void> => {
