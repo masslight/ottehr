@@ -16,17 +16,19 @@ export const createZambdaFromSkeleton = async (
     console.groupEnd();
     console.debug(`${functionName.name} success`);
 
-    const body = {
+    const output = {
       error,
       response,
     };
+    console.log(`Output: ${JSON.stringify(output)}`);
+
     return {
-      body: JSON.stringify(body),
+      body: JSON.stringify(output),
       statusCode: 200,
     };
   } catch (e: any) {
     console.groupEnd();
-    console.error(`${functionName.name} failure`);
+    console.error(`\n${functionName.name} failure!\n`);
     console.error(JSON.stringify(e));
     return {
       body: JSON.stringify({
