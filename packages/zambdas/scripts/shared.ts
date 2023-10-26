@@ -1,18 +1,18 @@
 import devConfig from '../.env/dev.json';
-import testingConfig from '../.env/testing.json';
+// import testingConfig from '../.env/testing.json';
 // import stagingConfig from '../.env/staging.json';
 // import productionConfig from '../.env/production.json';
 
 enum environment {
   dev = 'dev',
-  testing = 'testing',
+  // testing = 'testing',
   // staging = 'staging',
   // production = 'production',
 }
 
 const secretsConfig: Record<environment, object> = {
   dev: devConfig,
-  testing: testingConfig,
+  // testing: testingConfig,
   // staging: stagingConfig,
   // production: productionConfig,
 };
