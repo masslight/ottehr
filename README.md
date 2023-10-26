@@ -4,8 +4,8 @@
 
 This repository uses a monorepo structure. Each node module has its own code in its repsective folder in `packages/`.
 
-- `app` - The static frontend website that patients use to join their telehealth visit and providers use to answer.
-- `zambdas` - The application's backend endpoints, deployed on the zapEHR platform.
+- `app` - The static front end website that patients use to join their telehealth visit and providers use to answer.
+- `zambdas` - The application's back end endpoints, deployed on the zapEHR platform.
 
 Each package has its own README explaining in more detail its purpose, as well as how to run locally and deploy (if applicable).
 
@@ -40,9 +40,9 @@ Otherwise, you can install `pnpm` onto your machine using the [pnpm documentatio
 
 run `pnpm install` at the top level to install dependencies for all packages in the monorepo.
 
-### Start up the frontend or backend
+### Start up the front end or back end
 
-Navigate to the directory for the app you want to run, and check out the frontend (`app`) and backend (`zambdas`) to learn how to run them locally.
+Navigate to the directory for the app you want to run, and check out the front end (`app`) and back end (`zambdas`) to learn how to run them locally.
 
 ## VSCode Workspace (Optional)
 

@@ -30,7 +30,7 @@ pnpm <script name>:<env>
 
 ### `build`
 
-Builds the backend.
+Builds the back end.
 
 ### `deploy-zambdas`
 
@@ -46,7 +46,7 @@ Packages all zambdas into individual zips ready to be uploaded.
 
 Environment specific: `local`, `dev`, `testing`, `staging`.
 
-Starts the backend. If the env is excluded, [defaults to local](#run-locally).
+Starts the back end. If the env is excluded, [defaults to local](#run-locally).
 
 ### `setup-zapehr-secrets`
 
