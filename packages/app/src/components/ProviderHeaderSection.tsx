@@ -4,9 +4,9 @@ import { ottEHRDefaultProvider, ottEHRDefaultPatient } from '../assets/icons';
 import { otherColors } from '../OttEHRThemeProvider';
 
 interface ProviderHeaderSectionProps {
+  isProvider: boolean;
   providerName: string;
   title: string;
-  isProvider: boolean;
 }
 
 export const ProviderHeaderSection: FC<ProviderHeaderSectionProps> = ({ providerName, title, isProvider }) => {
@@ -37,16 +37,16 @@ export const ProviderHeaderSection: FC<ProviderHeaderSectionProps> = ({ provider
               justifyContent: 'start',
               mx: 12.5,
               [theme.breakpoints.down('md')]: {
-                flexDirection: 'column',
                 alignItems: 'center',
+                flexDirection: 'column',
                 mx: 2,
               },
             }}
           >
             {isProvider ? (
-              <img src={ottEHRDefaultProvider} style={{ height: '6.25rem', width: '6.25rem' }} />
+              <img alt="Provider Image" src={ottEHRDefaultProvider} style={{ height: '6.25rem', width: '6.25rem' }} />
             ) : (
-              <img src={ottEHRDefaultPatient} style={{ height: '6.25rem', width: '6.25rem' }} />
+              <img alt="Patient Image" src={ottEHRDefaultPatient} style={{ height: '6.25rem', width: '6.25rem' }} />
             )}
 
             <Box

@@ -10,9 +10,9 @@ export async function createAppClient(secrets: Secrets | null): Promise<AppClien
   try {
     console.group(`Fetch from ${PROJECT_API}`);
     const appClient = new AppClient({
+      accessToken,
       apiUrl: PROJECT_API,
       projectId: PROJECT_ID,
-      accessToken,
     });
     console.groupEnd();
     console.debug(`Fetch from ${PROJECT_API} success`);
@@ -32,9 +32,9 @@ export async function createFhirClient(secrets: Secrets | null): Promise<FhirCli
   try {
     console.group(`Fetch from ${FHIR_API}`);
     const fhirClient = new FhirClient({
+      accessToken,
       apiUrl: FHIR_API,
       projectId: PROJECT_ID,
-      accessToken,
     });
     console.groupEnd();
     console.debug(`Fetch from ${FHIR_API} success`);
@@ -54,9 +54,9 @@ export async function createMessagingClient(secrets: Secrets | null): Promise<Me
   try {
     console.group(`Fetch from ${PROJECT_API}`);
     const fhirClient = new MessagingClient({
+      accessToken,
       apiUrl: PROJECT_API,
       projectId: PROJECT_ID,
-      accessToken,
     });
     console.groupEnd();
     console.debug(`Fetch from ${PROJECT_API} success`);
@@ -76,9 +76,9 @@ export async function createZambdaClient(secrets: Secrets | null): Promise<Zambd
   try {
     console.group(`Fetch from ${PROJECT_API}`);
     const fhirClient = new ZambdaClient({
+      accessToken,
       apiUrl: PROJECT_API,
       projectId: PROJECT_ID,
-      accessToken,
     });
     console.groupEnd();
     console.debug(`Fetch from ${PROJECT_API} success`);

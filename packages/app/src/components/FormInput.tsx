@@ -34,12 +34,12 @@ export const FormInput: FC<FormInputProps> = ({
   const styles = {
     inputStyles: {
       '.MuiInput-input': {
+        '&:focus': otherStyling.formFocus,
         border: '1px solid',
         borderColor: otherColors.lightGray,
         borderRadius: '8px',
         p: '10px 12px',
         transition: theme.transitions.create(['border-color', 'background-color', 'box-shadow']),
-        '&:focus': otherStyling.formFocus,
       },
     },
     signatureStyles: {
@@ -62,11 +62,11 @@ export const FormInput: FC<FormInputProps> = ({
         <FormControl
           error={!!errors[name]}
           required={otherProps.required}
-          variant="standard"
           sx={{
             mt: format === 'Signature' ? '20px' : 0,
             width: '100%',
           }}
+          variant="standard"
         >
           <BoldPrimaryInputLabel htmlFor={`${name}-label`} shrink>
             {label}
@@ -79,8 +79,8 @@ export const FormInput: FC<FormInputProps> = ({
             inputComponent={myInputComponent}
             inputProps={{ mask }}
             onChange={(e) => onChange(e.target.value.trimStart())}
-            value={value}
             sx={format === 'Signature' ? { ...styles.inputStyles, ...styles.signatureStyles } : styles.inputStyles}
+            value={value}
           />
           <InputHelperText errors={errors} helperText={helperText} name={name} />
         </FormControl>

@@ -3,8 +3,8 @@ import { DateTime, DateTimeJSOptions } from 'luxon';
 import i18n from '../lib/i18n';
 
 interface timezone {
-  value: string;
   label: string;
+  value: string;
 }
 
 export const availableTimezones = (date: DateTime | undefined): timezone[] => {
@@ -12,10 +12,10 @@ export const availableTimezones = (date: DateTime | undefined): timezone[] => {
     date = DateTime.now();
   }
   const timezones = [
-    { value: 'America/New_York', label: '' },
-    { value: 'America/Chicago', label: '' },
-    { value: 'America/Denver', label: '' },
-    { value: 'America/Los_Angeles', label: '' },
+    { label: '', value: 'America/New_York' },
+    { label: '', value: 'America/Chicago' },
+    { label: '', value: 'America/Denver' },
+    { label: '', value: 'America/Los_Angeles' },
   ];
   timezones.forEach((zone) => {
     if (date) {

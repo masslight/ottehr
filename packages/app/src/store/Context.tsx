@@ -1,8 +1,11 @@
 import { Dispatch, FC, ReactNode, SetStateAction, createContext, useContext, useReducer, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Action, State } from './types';
+import { LocalAudioTrack, LocalVideoTrack, Room } from 'twilio-video';
 
 const initialState = {};
+
+const VideoParticipantContext = createContext<VideoParticipantContextProps | undefined>(undefined);
 
 const PatientContext = createContext<PatientContextProps | undefined>(undefined);
 
@@ -12,12 +15,60 @@ type DataContextProps = {
 };
 
 type PatientContextProps = {
+  patientName: string;
+  setPatientName: Dispatch<SetStateAction<string>>;
+};
+
+type VideoParticipantContextProps = {
   isMicOpen: boolean;
   isVideoOpen: boolean;
-  patientName: string;
+  localTracks: (LocalAudioTrack | LocalVideoTrack)[];
+  room: Room | null;
+  selectedSpeaker: string | null;
   setIsMicOpen: Dispatch<SetStateAction<boolean>>;
   setIsVideoOpen: Dispatch<SetStateAction<boolean>>;
-  setPatientName: Dispatch<SetStateAction<string>>;
+  setLocalTracks: Dispatch<SetStateAction<(LocalAudioTrack | LocalVideoTrack)[]>>;
+  setRoom: Dispatch<SetStateAction<Room | null>>;
+  setSelectedSpeaker: Dispatch<SetStateAction<string | null>>;
+};
+
+export const useVideoParticipant = (): VideoParticipantContextProps => {
+  const context = useContext(VideoParticipantContext);
+  if (!context) {
+    throw new Error('useVideoParticipant must be used within a VideoParticipantProvider');
+  }
+  return context;
+};
+
+type VideoParticipantProviderProps = {
+  children: ReactNode;
+};
+
+export const VideoParticipantProvider: FC<VideoParticipantProviderProps> = ({ children }) => {
+  const [isMicOpen, setIsMicOpen] = useState(false);
+  const [isVideoOpen, setIsVideoOpen] = useState(false);
+  const [room, setRoom] = useState<Room | null>(null);
+  const [localTracks, setLocalTracks] = useState<(LocalAudioTrack | LocalVideoTrack)[]>([]);
+  const [selectedSpeaker, setSelectedSpeaker] = useState<string | null>(null);
+
+  return (
+    <VideoParticipantContext.Provider
+      value={{
+        isMicOpen,
+        isVideoOpen,
+        localTracks,
+        room,
+        selectedSpeaker,
+        setIsMicOpen,
+        setIsVideoOpen,
+        setLocalTracks,
+        setRoom,
+        setSelectedSpeaker,
+      }}
+    >
+      {children}
+    </VideoParticipantContext.Provider>
+  );
 };
 
 export const usePatient = (): PatientContextProps => {
@@ -29,13 +80,14 @@ export const usePatient = (): PatientContextProps => {
 };
 
 export const PatientProvider: FC = () => {
-  const [isMicOpen, setIsMicOpen] = useState(false);
-  const [isVideoOpen, setIsVideoOpen] = useState(false);
   const [patientName, setPatientName] = useState('');
 
   return (
     <PatientContext.Provider
-      value={{ isMicOpen, isVideoOpen, patientName, setIsMicOpen, setIsVideoOpen, setPatientName }}
+      value={{
+        patientName,
+        setPatientName,
+      }}
     >
       <Outlet />
     </PatientContext.Provider>
@@ -100,5 +152,5 @@ interface DataProviderProps {
 export const DataProvider: FC<DataProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(DataReducer, initialState);
 
-  return <DataContext.Provider value={{ state, dispatch }}>{children}</DataContext.Provider>;
+  return <DataContext.Provider value={{ dispatch, state }}>{children}</DataContext.Provider>;
 };

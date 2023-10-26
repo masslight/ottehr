@@ -6,3 +6,4 @@ export * from './ProviderRegistration';
 export * from './ProviderSettings';
 export * from './Version';
 export * from './WaitingRoom';
+export * from './VideoChatPage';
