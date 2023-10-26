@@ -3,7 +3,7 @@ import { Grid, TextFieldProps, Typography, Box } from '@mui/material';
 import { FC, ReactElement } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import * as Yup from 'yup';
-import { emailRegex, phoneRegex, stateRegex, yupDateRegex, yupDateTransform, zipRegex } from '../helpers';
+import { regex, yupDateTransform } from '../helpers';
 import { RadioOption } from '../types';
 import { ControlButtons, ControlButtonsProps } from './ControlButtons';
 import { ControlledCheckBox } from './ControlledCheckBox';
@@ -76,14 +76,14 @@ export const PageForm: FC<PageFormProps> = ({
         switch (formInput.format) {
           case 'Email':
             formInput.placeholder = 'jon@snow.com';
-            formInput.validationRegex = emailRegex;
+            formInput.validationRegex = regex.email;
             formInput.validationRegexError = 'Email is not valid';
             break;
 
           case 'Phone Number':
             formInput.mask = '(000) 000-0000';
             formInput.placeholder = '(123) 456-7890';
-            formInput.validationRegex = phoneRegex;
+            formInput.validationRegex = regex.phone;
             formInput.validationRegexError = 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
             break;
 
@@ -92,12 +92,12 @@ export const PageForm: FC<PageFormProps> = ({
             break;
 
           case 'State':
-            formInput.validationRegex = stateRegex;
+            formInput.validationRegex = regex.state;
             formInput.validationRegexError = 'State must be 2 letters';
             break;
 
           case 'ZIP':
-            formInput.validationRegex = zipRegex;
+            formInput.validationRegex = regex.zip;
             formInput.validationRegexError = 'ZIP Code must be 5 numbers';
             break;
         }
@@ -134,7 +134,7 @@ export const PageForm: FC<PageFormProps> = ({
                 ? schema
                     .transform(yupDateTransform)
                     .typeError('Date must be in the format MM/DD/YYYY')
-                    .matches(yupDateRegex, 'Date must be in the format MM/DD/YYYY')
+                    .matches(regex.yupDate, 'Date must be in the format MM/DD/YYYY')
                 : schema;
             });
         }

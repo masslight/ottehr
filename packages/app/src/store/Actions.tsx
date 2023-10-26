@@ -10,7 +10,7 @@ export const setFhirClient = (token: string, dispatch: Dispatch<Action>): void =
   });
   dispatch({
     type: 'SET_FHIR_CLIENT',
-    fhirClient: fhirClient,
+    fhirClient,
   });
 };
 
@@ -21,7 +21,7 @@ export const setZambdaClient = (token: string | undefined, dispatch: Dispatch<Ac
   });
   dispatch({
     type: 'SET_ZAMBDA_CLIENT',
-    zambdaClient: zambdaClient,
+    zambdaClient,
   });
 };
 
@@ -42,14 +42,14 @@ export const updateAppointmentId = (appointment: { id: string }, dispatch: Dispa
 // TODO Shouldn't this be a slot?
 export const updateAppointmentSlot = (appointmentSlot: string, dispatch: Dispatch<Action>): void => {
   dispatch({
-    appointmentSlot: appointmentSlot,
+    appointmentSlot,
     type: 'UPDATE_APPOINTMENT_SLOT',
   });
 };
 
 export const updateCancellationReason = (cancellationReason: string, dispatch: Dispatch<Action>): void => {
   dispatch({
-    cancellationReason: cancellationReason,
+    cancellationReason,
     type: 'UPDATE_CANCELLATION_REASON',
   });
 };
@@ -84,28 +84,28 @@ export const updateLocationId = (location: { id: string }, dispatch: Dispatch<Ac
 
 export const updateLocations = (locations: Location[], dispatch: Dispatch<Action>): void => {
   dispatch({
-    locations: locations,
+    locations,
     type: 'UPDATE_LOCATIONS',
   });
 };
 
 export const updatePatient = (patient: PatientInfo | undefined, dispatch: Dispatch<Action>): void => {
   dispatch({
-    patient: patient,
+    patient,
     type: 'UPDATE_PATIENT',
   });
 };
 
 export const updatePatients = (patients: Patient[], dispatch: Dispatch<Action>): void => {
   dispatch({
-    patients: patients,
+    patients,
     type: 'UPDATE_PATIENTS',
   });
 };
 
 export const updatePhoneNumber = (phoneNumber: string, dispatch: Dispatch<Action>): void => {
   dispatch({
-    phoneNumber: phoneNumber,
+    phoneNumber,
     type: 'UPDATE_PHONE_NUMBER',
   });
 };
@@ -133,14 +133,14 @@ export const updateSelectedAppointmentSlotId = ({ id }: { id: string }, dispatch
 
 export const updateSelectedLocation = (location: Location, dispatch: Dispatch<Action>): void => {
   dispatch({
-    location: location,
+    location,
     type: 'UPDATE_SELECTED_LOCATION',
   });
 };
 
 export const updateSlots = (slots: Slot[], dispatch: Dispatch<Action>): void => {
   dispatch({
-    slots: slots,
+    slots,
     type: 'UPDATE_SLOTS',
   });
 };
@@ -154,7 +154,7 @@ export const updateSubmittedInsuranceType = ({ type }: { type: string }, dispatc
 
 export const updateTimezone = (timezone: string, dispatch: Dispatch<Action>): void => {
   dispatch({
-    timezone: timezone,
+    timezone,
     type: 'UPDATE_TIMEZONE',
   });
 };

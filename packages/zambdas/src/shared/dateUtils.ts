@@ -1,11 +1,11 @@
 import { DateTime } from 'luxon';
 
-export function removeTimeFromDate(date: string): string {
-  return date.split('T')[0];
-}
-
 export function createDateTimeInET(date: string): DateTime {
   return DateTime.fromISO(date, { zone: 'America/New_York' });
+}
+
+export function formatDate(date: DateTime): string {
+  return `${date.toISO()}`;
 }
 
 export function formatDateForFHIR(date: string): string {
@@ -15,10 +15,6 @@ export function formatDateForFHIR(date: string): string {
   const day = parts[1].padStart(2, '0');
   const outputDate = `${year}-${month}-${day}`;
   return outputDate;
-}
-
-export function formatDate(date: DateTime): string {
-  return `${date.toISO()}`;
 }
 
 export const getDateTimeFromDateAndTime = (currentDate: DateTime, currentTime: string): DateTime => {
@@ -41,21 +37,6 @@ export const isISODateTime = (dateTimeString: string): boolean => {
   }
 };
 
-export const getAvailableSlots = (dateStrings: string[]): string[] => {
-  const currentTime = DateTime.local();
-  const cutoff5pm = currentTime.set({ hour: 17, minute: 0, second: 0 });
-
-  const isAfterCutoff = currentTime >= cutoff5pm;
-
-  const availableSlots = dateStrings.filter((dateString) => {
-    const date = DateTime.fromISO(dateString);
-
-    if (isAfterCutoff) {
-      return date >= cutoff5pm;
-    } else {
-      return date.hasSame(currentTime, 'day');
-    }
-  });
-
-  return availableSlots;
-};
+export function removeTimeFromDate(date: string): string {
+  return date.split('T')[0];
+}
