@@ -2,9 +2,6 @@ import { ZambdaClient } from '@zapehr/sdk';
 import fs from 'fs';
 import { createZambdaClient } from '../src/shared';
 import { main } from './shared';
-import { Operation } from 'fast-json-patch';
-import { Subscription } from 'fhir/r4';
-import console from 'console';
 
 type TriggerMethod = 'cron' | 'http_auth' | 'http_open' | 'subscription';
 interface ZambdaParameters {
@@ -34,7 +31,7 @@ const updateZambdas = async (config: any): Promise<void> => {
   for await (const zambdaName of Object.keys(ZAMBDAS)) {
     const zambdaToDeploy = ZAMBDAS[zambdaName];
     const name = `Ottehr-${zambdaName.toLowerCase()}`;
-    const deployedZambda = deployedZambdas.find((zambda) => zambda.name === name);
+    let deployedZambda = deployedZambdas.find((zambda) => zambda.name === name);
 
     if (deployedZambda) {
       console.log(`\nZambda ${zambdaName} is found with ID ${deployedZambda.id}`);
