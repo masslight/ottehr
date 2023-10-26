@@ -16,6 +16,10 @@ export enum CancellationReasonOptions {
   'Went to outside facility' = 'Went to outside facility',
 }
 
+export enum DefaultErrorMessages {
+  validation = 'Invalid zambda input',
+}
+
 export enum PatientEthnicity {
   'Hispanic/Latino' = 'Hispanic/Latino',
   'Not Hispanic/Latino' = 'Not Hispanic/Latino',
@@ -70,6 +74,37 @@ export enum PatientSex {
 
 export interface Secrets {
   [secretName: string]: string;
+}
+
+export interface ZambdaFunctionInput {
+  body: Record<string, any>;
+  secrets: Secrets;
+}
+
+/**
+ * Mutually exclusive. Return only one.
+ *
+ * @example
+ * ```tsx
+ * function DummyZambdaFunction(input) {
+ *   const age = input.age;
+ *
+ *   if (isNaN(age)) {
+ *     return { error: '"age" must be a number.' };
+ *   }
+ *
+ *   const isAdult = age > 18;
+ *   return {
+ *     response: {
+ *       isAdult,
+ *     }
+ *   };
+ * }
+ * ```
+ */
+export interface ZambdaFunctionResponse {
+  error?: string;
+  response?: Record<string, any>;
 }
 
 export interface ZambdaInput {

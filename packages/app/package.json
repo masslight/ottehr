@@ -48,7 +48,7 @@
     "@mui/system": "^5.10.16",
     "@mui/x-date-pickers": "^5.0.10",
     "@zapehr/sdk": "^1.0.8",
-    "i18next": "23.5.1",
+    "i18next": "23.6.0",
     "i18next-browser-languagedetector": "^7.0.1",
     "luxon": "^3.1.1",
     "mixpanel-browser": "^2.45.0",
@@ -59,7 +59,6 @@
     "react-imask": "^6.4.3",
     "react-router-dom": "^6.3.0",
     "twilio-video": "2.28.1",
-    "web-vitals": "^2.1.4",
     "yup": "^0.32.11"
   },
   "devDependencies": {

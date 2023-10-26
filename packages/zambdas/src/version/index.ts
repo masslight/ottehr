@@ -1,19 +1,22 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ZambdaInput } from '../types';
+import { DefaultErrorMessages, ZambdaFunctionInput, ZambdaFunctionResponse, ZambdaInput } from '../types';
+import { createZambdaFromSkeleton } from '../shared/zambdaSkeleton';
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Cancellation Input: ${JSON.stringify(input)}`);
+  return createZambdaFromSkeleton(input, getVersion);
+};
 
-  try {
+const getVersion = (_: ZambdaFunctionInput): ZambdaFunctionResponse => {
+  // Manual, should be either `process.env.npm_package_version` or `process.env.AWS_LAMBDA_FUNCTION_VERSION`
+  const version = '0.0.1';
+  if (version == null) {
     return {
-      body: JSON.stringify({ version: 'TODO' }),
-      statusCode: 200,
-    };
-  } catch (error: any) {
-    console.log('error', error);
-    return {
-      body: JSON.stringify({ error: error.message }),
-      statusCode: 500,
+      error: `${DefaultErrorMessages.validation}: "version" environment variable missing.`,
     };
   }
+  return {
+    response: {
+      version,
+    },
+  };
 };
