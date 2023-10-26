@@ -1,4 +1,4 @@
-import { otherColors } from '../OttEHRThemeProvider';
+import { otherColors } from '../OttehrThemeProvider';
 
 interface LogoProps {
   width: number;

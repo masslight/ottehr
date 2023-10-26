@@ -1,6 +1,6 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import { OttEHRThemeProvider } from './OttEHRThemeProvider';
+import { OttehrThemeProvider } from './OttehrThemeProvider';
 import { ScrollToTop } from './components';
 import {
   CheckInPermission,
@@ -18,7 +18,7 @@ export default function App(): JSX.Element {
   const { isAuthenticated } = useAuth0();
 
   return (
-    <OttEHRThemeProvider>
+    <OttehrThemeProvider>
       <Router>
         <ScrollToTop />
         {!isAuthenticated ? (
@@ -40,6 +40,6 @@ export default function App(): JSX.Element {
           </Routes>
         )}
       </Router>
-    </OttEHRThemeProvider>
+    </OttehrThemeProvider>
   );
 }

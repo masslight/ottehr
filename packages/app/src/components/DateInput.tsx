@@ -5,7 +5,7 @@ import { Controller, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { CustomAdapterLuxon } from '../helpers';
 import i18n from '../lib/i18n';
-import { otherColors, otherStyling } from '../OttEHRThemeProvider';
+import { otherColors, otherStyling } from '../OttehrThemeProvider';
 import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
 

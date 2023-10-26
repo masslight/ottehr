@@ -4,7 +4,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import { Box, Typography, useTheme } from '@mui/material';
-import { otherColors, otherStyling } from '../OttEHRThemeProvider';
+import { otherColors, otherStyling } from '../OttehrThemeProvider';
 import { videoCallMock } from '../assets/icons';
 import { Footer, ProviderHeaderSection } from '../components';
 import { usePatient } from '../store';

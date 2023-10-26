@@ -1,7 +1,7 @@
 import { Autocomplete, Chip, FormControl, InputBase, SelectProps, useTheme } from '@mui/material';
 import { FC, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { otherColors } from '../OttEHRThemeProvider';
+import { otherColors } from '../OttehrThemeProvider';
 import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
 

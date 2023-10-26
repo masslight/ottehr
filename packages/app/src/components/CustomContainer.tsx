@@ -1,7 +1,7 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { AppBar, Box, Button, Card, Container, Grid, Typography, useTheme } from '@mui/material';
 import { FC, ReactElement } from 'react';
-import { otherColors } from '../OttEHRThemeProvider';
+import { otherColors } from '../OttehrThemeProvider';
 import { bg1 } from '../assets';
 import { Footer } from './Footer';
 

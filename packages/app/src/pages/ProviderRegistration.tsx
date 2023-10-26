@@ -22,11 +22,11 @@ import { useForm, Controller } from 'react-hook-form';
 import {
   backgroundEllipseDark,
   backgroundEllipseLight,
-  ottEHRPatientIcon,
-  ottEHRProviderIcon,
-  ottEHRRegistrationLogo,
+  OttehrPatientIcon,
+  OttehrProviderIcon,
+  OttehrRegistrationLogo,
 } from '../assets/icons';
-import { otherColors } from '../OttEHRThemeProvider';
+import { otherColors } from '../OttehrThemeProvider';
 import { ZapEHRLogo } from '../components';
 
 interface FormData {
@@ -101,7 +101,7 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
             justifyContent: 'center',
           }}
         >
-          <Box component="img" src={ottEHRRegistrationLogo} />
+          <Box component="img" src={OttehrRegistrationLogo} />
         </Box>
         <Box>
           <Typography color="primary.light" variant="body1" sx={{ textAlign: 'center', py: 2 }}>
@@ -166,7 +166,7 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
               zIndex: '2',
             }}
           >
-            <Box component="img" src={ottEHRPatientIcon} />
+            <Box component="img" src={OttehrPatientIcon} />
           </Box>
           <Box
             sx={{
@@ -188,7 +188,7 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
               },
             }}
           >
-            <Box component="img" src={ottEHRProviderIcon} sx={{ mb: -1 }} />
+            <Box component="img" src={OttehrProviderIcon} sx={{ mb: -1 }} />
           </Box>
           <Box
             sx={{
@@ -240,7 +240,7 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
         }}
       >
         <Box sx={{ mx: { xs: 2, md: 12.5 }, my: { xs: 4, md: 10 }, display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <Typography variant="h4">Welcome to OttEHR</Typography>
+          <Typography variant="h4">Welcome to Ottehr</Typography>
           <Typography color="primary.light" variant="h3" sx={{ pb: 1 }}>
             Provider registration
           </Typography>

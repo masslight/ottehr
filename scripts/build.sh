@@ -16,7 +16,7 @@ pnpm --version
 # Install
 pnpm install
 
-# Build ottEHR
+# Build Ottehr
 BUILD_ORDER=("zambdas" "app")
 for PACKAGE in ${BUILD_ORDER[@]}; do
   pushd "packages/$PACKAGE"

@@ -1,6 +1,6 @@
 # app
 
-The static frontend web application for ottEHR.
+The static frontend web application for Ottehr.
 
 ## Run Locally
 
