@@ -34,6 +34,7 @@
     "@zapehr/sdk": "^1.0.16",
     "aws-lambda": "^1.0.7",
     "fast-json-patch": "^3.1.1",
+    "luxon": "^3.1.1",
     "node-fetch": "2.6.1"
   },
   "devDependencies": {
