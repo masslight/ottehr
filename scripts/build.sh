@@ -20,9 +20,9 @@ pnpm install
 BUILD_ORDER=("zambdas" "app")
 for PACKAGE in ${BUILD_ORDER[@]}; do
   pushd "packages/$PACKAGE"
-  pnpm run build
+  pnpm build
   popd
 done
 
 # Lint
-pnpm run lint
+pnpm lint

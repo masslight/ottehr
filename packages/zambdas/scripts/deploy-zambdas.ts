@@ -285,7 +285,7 @@ async function updateProjectZambda(
 
 if (process.argv.length < 3) {
   console.log(
-    'You must provide an environment and an api as command-line arguments, e.g.: pnpm run deploy-zambdas testing'
+    'You must provide an environment and an api as command-line arguments, e.g.: pnpm deploy-zambdas testing'
   );
   process.exit();
 }
