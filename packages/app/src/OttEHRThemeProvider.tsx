@@ -326,11 +326,11 @@ interface OttEHRThemeProviderProps {
 
 export const OttEHRThemeProvider: FC<OttEHRThemeProviderProps> = ({ children }) => {
   const theme = createTheme({
-    breakpoints: breakpoints,
-    components: components,
+    breakpoints,
+    components,
     direction: 'ltr',
-    palette: palette,
-    typography: typography,
+    palette,
+    typography,
   });
 
   // https://mui.com/material-ui/customization/typography/#responsive-font-sizes

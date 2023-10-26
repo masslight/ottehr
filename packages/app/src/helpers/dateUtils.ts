@@ -128,8 +128,6 @@ export const yupDateTransform = (d: any): string => {
   }
 };
 
-export const yupDateRegex = /^\d{2}\/\d{2}\/\d{4}$/;
-
 export function getLocaleDateTimeString(
   dateTime: DateTime | undefined,
   format: 'full' | 'weekday' | 'short',
