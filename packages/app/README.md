@@ -1,39 +1,49 @@
-# app
+# App
 
 The static front end web application for Ottehr.
 
 ## Run Locally
 
-After completing the steps in the monorepo's top level README.md, you can run locally in a number of different configurations depending on what you are trying to do. All of the ways you can run have their own helper script in package.json which you can run like:
+The front end is run locally using [Vite](https://vitejs.dev/).
+
+Start it with:
 
 ```[bash]
 pnpm start
 ```
 
-`start` is the name of the script.
-
-Other scripts for running locally with an explanation of how they work:
-
-- `pnpm start` -- Starts the front end with the `local.env.js` env file. The front end will use your local back end, so make sure it is running.
-- `pnpm start:dev` -- Starts the front end with the `dev.env.js` env file. The front end will point to our development environment on zapEHR.
-- `pnpm start:testing` -- Starts the front end with the `testing.env.js` env file. The front end will point to our testing environment on zapEHR.
-- `pnpm start:staging` -- Starts the front end with the `testing.env.js` env file. The front end will point to our staging environment on zapEHR.
-- `pnpm start:local-to-zapehr-local` -- Starts the front end with the `local-to-zapehr-local.env.js` env file. The front end will use your locally running zapEHR platform, so make sure it is running.
-
 ## Deployment
 
-**Todo this section is out of date**
+To deploy, refer to the [Root README.md](../../README.md).
 
-### Before Deploying Locally
+## Scripts
 
-In order to deploy, you must set up an aws profile called, `TODO`, with an AWS access / secret key pair for your AWS user. Either use the aws CLI, or manually set up the profile in `~/.aws/credentials`.
-
-### Deploy Locally
-
-See package.json for deployment script options. For example,
-
-```[bash]
-pnpm deploy:development
+```sh
+pnpm <script name>
 ```
 
-The deployment script bundles the front end code, then uploads it to the appropriate bucket on AWS S3, overwriting the previous deployment.
+If a script is environment specific, use:
+
+```sh
+pnpm <script name>:<env>
+```
+
+### `build`
+
+Environment specific: `dev`, `testing`, `staging`, `production`.
+
+Builds the front end.
+
+### `lint`
+
+Lints the front end using [ESLint](https://eslint.org/).
+
+### `prettier`
+
+Lints the front end using [Prettier](https://prettier.io/).
+
+### `start`
+
+Environment specific: `local`, `dev`, `testing`, `staging`.
+
+Starts the front end that points to the local backend (`local`, make sure it's running) or the respective ZapEHR project (`dev`, `testing`, `staging`). If the env is excluded, [defaults to local](#run-locally).
