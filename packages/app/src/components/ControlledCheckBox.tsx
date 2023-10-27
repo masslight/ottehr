@@ -2,7 +2,7 @@ import { Checkbox, FormControlLabel } from '@mui/material';
 import { Box } from '@mui/system';
 import { FC, ReactElement } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { otherColors } from '../OttEHRThemeProvider';
+import { otherColors } from '../OttehrThemeProvider';
 
 interface ControlledCheckBoxProps {
   defaultValue?: boolean;

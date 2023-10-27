@@ -3,8 +3,8 @@ import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import { Container, Box, Button, Divider, Typography, useTheme } from '@mui/material';
 import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
-import { otherColors } from '../OttEHRThemeProvider';
-import { ottEHRDefaultProvider } from '../assets/icons';
+import { otherColors } from '../OttehrThemeProvider';
+import { OttehrDefaultProvider } from '../assets/icons';
 import { Footer, PatientQueue, TopAppBar } from '../components';
 
 export const ProviderDashboard = (): JSX.Element => {
@@ -79,7 +79,7 @@ export const ProviderDashboard = (): JSX.Element => {
               </Typography>
             </Box>
             <Box sx={{ maxWidth: { md: '100px', xs: '50px' } }}>
-              <img alt="Provider Image" src={ottEHRDefaultProvider} width={'100%'} />
+              <img alt="Provider Image" src={OttehrDefaultProvider} width={'100%'} />
             </Box>
           </Box>
           <Box

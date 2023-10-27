@@ -2,7 +2,7 @@ import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { footerLogo } from '../assets/icons';
-import { otherColors } from '../OttEHRThemeProvider';
+import { otherColors } from '../OttehrThemeProvider';
 import { ZapEHRLogo } from './ZapEHRLogo';
 
 export const Footer: FC = () => {

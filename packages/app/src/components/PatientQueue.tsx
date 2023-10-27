@@ -1,7 +1,7 @@
 import { Box, Button, Typography } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ottEHRDefaultPatient, callButtonMobile } from '../assets/icons';
+import { OttehrDefaultPatient, callButtonMobile } from '../assets/icons';
 import { getQueuedTimeFromTimestamp } from '../helpers';
 import { useNavigate } from 'react-router-dom';
 import { useVideoParticipant } from '../store';
@@ -73,7 +73,7 @@ export const PatientQueue: FC<PatientQueueProps> = ({ roomName, name, queuedTime
     <Box sx={{ m: 0, py: 1 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
         <Box sx={{ display: 'flex' }}>
-          <img alt="Patient Image" height="42px" src={ottEHRDefaultPatient} />
+          <img alt="Patient Image" height="42px" src={OttehrDefaultPatient} />
           <Box pl={2}>
             <Typography color="primary.contrast" variant="body1">
               {name}

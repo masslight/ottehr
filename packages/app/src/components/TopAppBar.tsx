@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { FC, MouseEvent, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { otherColors } from '../OttEHRThemeProvider';
+import { otherColors } from '../OttehrThemeProvider';
 import { dashboardLogo } from '../assets/icons';
 import MenuIcon from '@mui/icons-material/Menu';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';

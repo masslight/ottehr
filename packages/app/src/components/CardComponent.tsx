@@ -1,7 +1,7 @@
 import { Box, Button, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { otherColors } from '../OttEHRThemeProvider';
+import { otherColors } from '../OttehrThemeProvider';
 
 interface CardComponentProps {
   name: string;
