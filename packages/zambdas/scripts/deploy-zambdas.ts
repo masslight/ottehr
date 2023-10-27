@@ -19,7 +19,7 @@ interface ZambdaParameters {
 const ZAMBDAS: Record<string, ZambdaParameters> = {
   /*
   E.g. a cron zambda that runs every other day starting on Jan 01, 2025 at noon UTC
-  THING: {
+  CRON_THING: {
     description: 'Every other day, do thing',
     schedule: {
       expression: 'rate(2 days)',
