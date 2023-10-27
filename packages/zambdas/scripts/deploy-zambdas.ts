@@ -28,6 +28,10 @@ const ZAMBDAS: Record<string, ZambdaParameters> = {
     triggerMethod: 'cron',
   },
  */
+  GET_SLUG_AVAILABILITY: {
+    description: 'Check if a provider slug is available or not. Returns { availability: boolean }.',
+    triggerMethod: 'http_auth',
+  },
   VERSION: {
     triggerMethod: 'http_open',
   },

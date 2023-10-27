@@ -17,6 +17,7 @@ export enum CancellationReasonOptions {
 }
 
 export enum DefaultErrorMessages {
+  unexpected = 'An unexpected error occurred',
   validation = 'Invalid zambda input',
 }
 
