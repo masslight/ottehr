@@ -16,6 +16,27 @@ Start up the local API Gateway + zambda emulator with:
 pnpm start
 ```
 
+## Create a New Zambda
+
+1. Create a new folder in [src](src) with the name of the zambda in kebab-case.
+1. Create the `index.ts` file in this folder with these contents:
+
+   ```ts
+   import { APIGatewayProxyResult } from 'aws-lambda';
+   import { ZambdaFunctionInput, ZambdaFunctionResponse, ZambdaInput } from '../types';
+   import { createZambdaFromSkeleton } from '../shared/zambdaSkeleton';
+
+   export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+     return createZambdaFromSkeleton(input, <YOUR_FUNCTION_NAME>);
+   };
+
+   const <YOUR_FUNCTION_NAME> = (input: ZambdaFunctionInput): ZambdaFunctionResponse => {
+   };
+   ```
+
+1. Add the zambda's properties to the [deploy script's `ZAMBDAS` constant](scripts/deploy-zambdas.ts#ZAMBDAS) and the [package script's `ZIP_ORDER` variable](scripts/package-for-release.sh#ZIP_ORDER).
+1. Write your zambda's functionality in the `<YOUR_FUNCTION_NAME>` function.
+
 ## Scripts
 
 ```sh

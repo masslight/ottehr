@@ -5,17 +5,29 @@ import { main } from './shared';
 
 type TriggerMethod = 'cron' | 'http_auth' | 'http_open' | 'subscription';
 interface ZambdaParameters {
-  triggerMethod: TriggerMethod;
-  event?: 'create' | 'update';
   criteria?: string;
+  description?: string;
+  event?: 'create' | 'update';
   schedule?: {
-    end: string;
+    end?: string;
     expression: string;
-    start: string;
+    start?: string;
   };
+  triggerMethod: TriggerMethod;
 }
 
 const ZAMBDAS: Record<string, ZambdaParameters> = {
+  /*
+  E.g. a cron zambda that runs every other day starting on Jan 01, 2025 at noon UTC
+  THING: {
+    description: 'Every other day, do thing',
+    schedule: {
+      expression: 'rate(2 days)',
+      start: '2025-01-01T12:00',
+    },
+    triggerMethod: 'cron',
+  },
+ */
   VERSION: {
     triggerMethod: 'http_open',
   },
@@ -65,16 +77,16 @@ async function updateZambda({ client, name, triggerMethod, zambdaId }: UpdateZam
 
   console.group('Upload zambda file');
   await client.uploadZambdaFile({
-    zambdaId,
     file,
+    zambdaId,
   });
   console.groupEnd();
   console.debug('Upload zambda file success');
 
   console.group('Update zambda');
   await client.updateZambda({
-    zambdaId,
     triggerMethod,
+    zambdaId,
   });
   console.groupEnd();
   console.debug('Update zambda success');
