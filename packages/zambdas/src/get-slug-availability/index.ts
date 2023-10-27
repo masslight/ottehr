@@ -21,7 +21,7 @@ const getSlugAvailability = (input: ZambdaFunctionInput): ZambdaFunctionResponse
   const potentialSlug = slug.toLowerCase();
 
   if (oldSlug != null) {
-    if (typeof slug !== 'string') {
+    if (typeof oldSlug !== 'string') {
       return {
         error: `${DefaultErrorMessages.validation}: "oldSlug" must be a string`,
       };
