@@ -8,7 +8,6 @@ export const getSecret = (secretKey: string, secrets: Secrets | null): string =>
   } else {
     value = process.env[secretKey];
   }
-
   if (value == null) {
     throw new Error(`Secret or Environment Variable with key ${secretKey} was not set.`);
   }

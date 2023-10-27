@@ -13,7 +13,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const { body, secrets } = validatedParameters;
     console.log('body', body);
     console.groupEnd();
-    console.debug('validateRequestParameters success');
 
     const token = await getAuth0Token(secrets);
     console.log('token', token);
@@ -28,7 +27,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       },
       method: 'POST',
     });
-    console.log('response', response);
     if (!response.ok) {
       throw new Error(`API call failed: ${response.statusText}`);
     }
