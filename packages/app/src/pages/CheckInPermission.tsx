@@ -1,7 +1,7 @@
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import { Button, Box, Typography, useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { otherColors, otherStyling } from '../OttEHRThemeProvider';
+import { otherColors, otherStyling } from '../OttehrThemeProvider';
 import { Footer, ProviderHeaderSection } from '../components';
 import { useVideoParticipant } from '../store';
 import { zapehrApi } from '../api';

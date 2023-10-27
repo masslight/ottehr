@@ -1,7 +1,7 @@
 import CheckIcon from '@mui/icons-material/Check';
 import { Stack, Typography } from '@mui/material';
 import { FC, ReactNode } from 'react';
-import { otherColors } from '../OttEHRThemeProvider';
+import { otherColors } from '../OttehrThemeProvider';
 
 interface CheckIconWithTextProps {
   children: ReactNode;

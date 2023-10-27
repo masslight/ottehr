@@ -30,7 +30,7 @@ const updateZambdas = async (config: any): Promise<void> => {
   // First check if any zambdas are not found
   for await (const zambdaName of Object.keys(ZAMBDAS)) {
     const zambdaToDeploy = ZAMBDAS[zambdaName];
-    const name = `ottEHR-${zambdaName.toLowerCase()}`;
+    const name = `Ottehr-${zambdaName.toLowerCase()}`;
     let deployedZambda = deployedZambdas.find((zambda) => zambda.name === name);
 
     if (deployedZambda) {
@@ -82,7 +82,7 @@ async function updateZambda({ client, name, triggerMethod, zambdaId }: UpdateZam
 
 if (process.argv.length < 3) {
   console.log(
-    'You must provide an environment and an api as command-line arguments, e.g.: pnpm run deploy-zambdas testing'
+    'You must provide an environment and an api as command-line arguments, e.g.: pnpm deploy-zambdas testing'
   );
   process.exit();
 }

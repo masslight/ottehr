@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Footer, ProviderHeaderSection } from '../components';
 import { usePatient } from '../store';
-import { otherStyling } from '../OttEHRThemeProvider';
+import { otherStyling } from '../OttehrThemeProvider';
 
 export const PatientCheckIn = (): JSX.Element => {
   const { patientName, setPatientName } = usePatient();

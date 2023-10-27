@@ -322,11 +322,11 @@ export const otherStyling = {
   },
 };
 
-interface OttEHRThemeProviderProps {
+interface OttehrThemeProviderProps {
   children: ReactNode;
 }
 
-export const OttEHRThemeProvider: FC<OttEHRThemeProviderProps> = ({ children }) => {
+export const OttehrThemeProvider: FC<OttehrThemeProviderProps> = ({ children }) => {
   const theme = createTheme({
     breakpoints,
     components,

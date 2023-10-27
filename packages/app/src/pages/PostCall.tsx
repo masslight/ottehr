@@ -1,7 +1,7 @@
 import { Box, Button, Typography, useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { Footer, ProviderHeaderSection, TopAppBar } from '../components';
-import { otherStyling } from '../OttEHRThemeProvider';
+import { otherStyling } from '../OttehrThemeProvider';
 
 export const PostCall = (): JSX.Element => {
   const navigate = useNavigate();

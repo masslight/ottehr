@@ -1,7 +1,7 @@
 import { Autocomplete, Chip, FormControl, InputBase, SelectProps, useTheme } from '@mui/material';
 import { FC, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { otherColors } from '../OttEHRThemeProvider';
+import { otherColors } from '../OttehrThemeProvider';
 import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
 
@@ -72,7 +72,7 @@ export const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
               onChange={(_, options) => {
                 // The problem is this dictates what renderTags takes, and if we provide only strings then we can't use
                 // the label/value combo like in SelectInput. It might be easier to just send the entire long string to
-                // the backend e.g. 'PTSD (Post-traumatic Stress Disorder)'
+                // the back end e.g. 'PTSD (Post-traumatic Stress Disorder)'
                 field.onChange(options);
               }}
               onInputChange={(_, newInputValue) => {

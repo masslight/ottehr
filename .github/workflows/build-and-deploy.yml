@@ -63,7 +63,7 @@ jobs:
       - uses: pnpm/action-setup@v2
         with:
           version: 8
-      
+
       - name: Install Vercel CLI
         run: pnpm install --global vercel@latest
       - name: Pull Vercel Environment Information
@@ -80,7 +80,7 @@ jobs:
 
       - name: Move env file into .env folder
         run: mkdir -p ${{ env.ZAMBDAS_LOCATION }}/.env/ && mv secrets.json ${{ env.ZAMBDAS_LOCATION }}/.env/${{ github.event.inputs.environment }}.json
-      
+
       - name: Copy env file to local.env to support serverless package command
         run: cp ${{ env.ZAMBDAS_LOCATION }}/.env/${{ github.event.inputs.environment }}.json ${{ env.ZAMBDAS_LOCATION }}/.env/local.json
 
@@ -112,9 +112,9 @@ jobs:
           url="$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} --scope=ottehr --cwd=${{ env.PACKAGE_LOCATION }})"
           vercel alias --token=${{ secrets.VERCEL_TOKEN }} --scope=ottehr --cwd=${{ env.PACKAGE_LOCATION }} set "$url" ${{ github.event.inputs.environment }}.ottehr.com
       - name: Setup zapehr secrets
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm run setup-zapehr-secrets ${{ github.event.inputs.environment }}
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm setup-zapehr-secrets ${{ github.event.inputs.environment }}
       - name: Deploy zambdas
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm run deploy-zambdas ${{ github.event.inputs.environment }}
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm deploy-zambdas ${{ github.event.inputs.environment }}
 
       - name: Notify Slack
         if: always()
