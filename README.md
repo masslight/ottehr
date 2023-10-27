@@ -2,7 +2,7 @@
 
 ## Repository Structure
 
-This repository uses a monorepo structure. Each package has its own code in its respective folder in [`packages/`](packages/).
+This repository uses a monorepo structure. Each package has its own code in its respective folder in [`packages/`](./packages/).
 
 - `app` - The static frontend website that patients use to join their telehealth visit and providers use to answer.
 - `zambdas` - The application's back end endpoints, deployed on the zapEHR platform.
@@ -25,8 +25,8 @@ To get linting in VSCode:
 
 1. Install the [ESLint Extension](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint).
 2. Always open the repo from its root. This allows the extension to detect the `.eslintrc.json` file which specifies the linter configuration.
-3. (Optional) Use the [VSCode workspace](.vscode/Ottehr.code-workspace) for a helpful alternative organization of the project in the VSCode 'Explorer', which most developers find useful. This can be opened in 2 ways:
-   1. Open [the file](.vscode/Ottehr.code-workspace) in VS Code. Click on the "Open Workspace" button in the bottom-right.
+3. (Optional) Use the [VSCode workspace](./.vscode/Ottehr.code-workspace) for a helpful alternative organization of the project in the VSCode 'Explorer', which most developers find useful. This can be opened in 2 ways:
+   1. Open [the file](./.vscode/Ottehr.code-workspace) in VS Code. Click on the "Open Workspace" button in the bottom-right.
    2. `code .vscode/Ottehr.code-workspace`
 
 ### Installing `pnpm`
@@ -57,7 +57,7 @@ pnpm <script name>:<env>
 
 ### `build`
 
-Builds all packages using the [build script](scripts/build.sh).
+Builds all packages using the [build script](./scripts/build.sh).
 
 ### `lint`
 

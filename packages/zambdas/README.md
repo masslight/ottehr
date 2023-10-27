@@ -4,7 +4,7 @@ Back end zambdas for the Ottehr application. These endpoints are responsible for
 
 ## Setup
 
-Before you can run locally or deploy, you must copy in the env files from the [ottehr-secrets](https://github.com/masslight/ottehr-secrets) repository. These should be copied into [`.env/`](.env) (e.g. dev: [`.env/dev.json`](.env/dev.json)).
+Before you can run locally or deploy, you must copy in the env files from the [ottehr-secrets](https://github.com/masslight/ottehr-secrets) repository. These should be copied into [`.env/`](./.env/) (e.g. dev: [`.env/dev.json`](./.env/dev.json)).
 
 ## Run Locally
 
@@ -18,7 +18,7 @@ pnpm start
 
 ## Create a New Zambda
 
-1. Create a new folder in [src](src) with the name of the zambda in kebab-case.
+1. Create a new folder in [src](./src/) with the name of the zambda in kebab-case.
 1. Create the `index.ts` file in this folder with these contents:
 
    ```ts
@@ -34,7 +34,7 @@ pnpm start
    };
    ```
 
-1. Add the zambda's properties to the [deploy script's `ZAMBDAS` constant](scripts/deploy-zambdas.ts#ZAMBDAS) and the [package script's `ZIP_ORDER` variable](scripts/package-for-release.sh#ZIP_ORDER).
+1. Add the zambda's properties to the [deploy script's `ZAMBDAS` constant](./scripts/deploy-zambdas.ts#ZAMBDAS) and the [package script's `ZIP_ORDER` variable](./scripts/package-for-release.sh#ZIP_ORDER).
 1. Write your zambda's functionality in the `<YOUR_FUNCTION_NAME>` function.
 
 ## Scripts
