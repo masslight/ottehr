@@ -13,9 +13,41 @@ import {
   WaitingRoom,
 } from './pages';
 import { PatientProvider } from './store';
+import { useEffect } from 'react';
+import axios from 'axios';
 
 export default function App(): JSX.Element {
-  const { isAuthenticated } = useAuth0();
+  const { isAuthenticated, getAccessTokenSilently } = useAuth0();
+
+  useEffect(() => {
+    const fetchUserDetails = async (): Promise<void> => {
+      if (isAuthenticated) {
+        try {
+          const token = await getAccessTokenSilently();
+          axios
+            .get('your-server/me-endpoint', {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            })
+            .then((response) => {
+              if (response.status === 404) {
+                console.log('user not found');
+              }
+            })
+            .catch((error) => {
+              console.error('An error occurred:', error);
+            });
+        } catch (e) {
+          console.error('Error while getting the access token:', e);
+        }
+      }
+    };
+
+    fetchUserDetails().catch((error) => {
+      console.error('An error occurred while fetching user details:', error);
+    });
+  }, [isAuthenticated, getAccessTokenSilently]);
 
   return (
     <OttEHRThemeProvider>

@@ -31,6 +31,7 @@
   "devDependencies": {
     "@changesets/cli": "2.26.2",
     "@types/fhir": "^0.0.35",
+    "@types/jsonwebtoken": "9.0.4",
     "@types/luxon": "^3.1.0",
     "@typescript-eslint/eslint-plugin": "^5.45.0",
     "@typescript-eslint/parser": "^5.45.0",
@@ -41,5 +42,9 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "prettier": "^2.8.0",
     "typescript": "^4.7.4"
+  },
+  "dependencies": {
+    "axios": "1.5.1",
+    "jsonwebtoken": "9.0.2"
   }
 }

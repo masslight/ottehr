@@ -11,10 +11,9 @@ root.render(
   <StrictMode>
     <Auth0Provider
       audience="https://api.zapehr.com"
-      clientId="TODO"
-      connection="sms"
+      clientId="dRWFIqGw2L2G8tdM6GuBtNu9awsxRVV4"
       domain="https://zapehr-dev.us.auth0.com"
-      redirectUri={window.location.origin}
+      redirectUri={`${window.location.origin}/dashboard`}
     >
       <DataProvider>
         <App />
