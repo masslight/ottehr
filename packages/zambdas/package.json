@@ -10,17 +10,17 @@
     "deploy-zambdas:production": "ENV=production pnpm deploy-zambdas-skeleton",
     "deploy-zambdas-skeleton": "pnpm package && ts-node scripts/deploy-zambdas.ts ${ENV}",
     "package": "tsc && sls package && bash scripts/package-for-release.sh",
+    "setup-zapehr-secrets:dev": "ENV=dev pnpm setup-zapehr-secrets-skeleton",
+    "setup-zapehr-secrets:testing": "ENV=testing pnpm setup-zapehr-secrets-skeleton",
+    "setup-zapehr-secrets:staging": "ENV=staging pnpm setup-zapehr-secrets-skeleton",
+    "setup-zapehr-secrets:production": "ENV=production pnpm setup-zapehr-secrets-skeleton",
+    "setup-zapehr-secrets-skeleton": "ts-node scripts/configure-zapehr-secrets.ts ${ENV}",
     "start": "pnpm start:local",
     "start:local": "ENV=local pnpm start-skeleton",
     "start:dev": "ENV=dev pnpm start-skeleton",
     "start:testing": "ENV=testing pnpm start-skeleton",
     "start:staging": "ENV=staging pnpm start-skeleton",
-    "start-skeleton": "sls offline --stage ${ENV}",
-    "setup-zapehr-secrets:dev": "ENV=dev pnpm setup-zapehr-secrets-skeleton",
-    "setup-zapehr-secrets:testing": "ENV=testing pnpm setup-zapehr-secrets-skeleton",
-    "setup-zapehr-secrets:staging": "ENV=staging pnpm setup-zapehr-secrets-skeleton",
-    "setup-zapehr-secrets:production": "ENV=production pnpm setup-zapehr-secrets-skeleton",
-    "setup-zapehr-secrets-skeleton": "ts-node scripts/configure-zapehr-secrets.ts ${ENV}"
+    "start-skeleton": "sls offline --stage ${ENV}"
   },
   "packageManager": "^pnpm@8.7.6",
   "engines": {
