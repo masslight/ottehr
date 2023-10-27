@@ -36,6 +36,7 @@ pnpm start
 
 1. Add the zambda's properties to the [deploy script's `ZAMBDAS` constant](./scripts/deploy-zambdas.ts#ZAMBDAS) and the [package script's `ZIP_ORDER` variable](./scripts/package-for-release.sh#ZIP_ORDER).
 1. Write your zambda's functionality in the `<YOUR_FUNCTION_NAME>` function.
+1. Add the zambda's config to [`severless.yml`](./serverless.yml). Ensure to include any env variables you need in the zambda.
 
 ## Scripts
 
