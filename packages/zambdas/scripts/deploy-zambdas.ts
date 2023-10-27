@@ -6,7 +6,6 @@ import { main } from './shared';
 type TriggerMethod = 'cron' | 'http_auth' | 'http_open' | 'subscription';
 interface ZambdaParameters {
   criteria?: string;
-  description?: string;
   event?: 'create' | 'update';
   schedule?: {
     end?: string;
@@ -20,7 +19,6 @@ const ZAMBDAS: Record<string, ZambdaParameters> = {
   /*
   E.g. a cron zambda that runs every other day starting on Jan 01, 2025 at noon UTC
   CRON_THING: {
-    description: 'Every other day, do thing',
     schedule: {
       expression: 'rate(2 days)',
       start: '2025-01-01T12:00',
@@ -29,7 +27,6 @@ const ZAMBDAS: Record<string, ZambdaParameters> = {
   },
  */
   GET_SLUG_AVAILABILITY: {
-    description: 'Check if a provider slug is available or not. Returns { availability: boolean }.',
     triggerMethod: 'http_auth',
   },
   VERSION: {
