@@ -18,7 +18,7 @@ pnpm start
 
 ## Create a New Zambda
 
-1. Create a new folder in [src](./src/) with the name of the zambda in kebab-case.
+1. Create a new folder in [src](./src/) with the name of the zambda in `kebab-case`.
 1. Create the `index.ts` file in this folder with these contents:
 
    ```ts
