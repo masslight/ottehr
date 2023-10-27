@@ -5,7 +5,7 @@ import { useVideoParticipant } from '../store';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLocalVideo } from '../hooks/twilio/useLocalVideo';
-import { otherColors, otherStyling, otherStyling } from '../OttehrThemeProvider';
+import { otherColors, otherStyling } from '../OttehrThemeProvider';
 
 export const WaitingRoom = (): JSX.Element => {
   const { room, localTracks } = useVideoParticipant();
