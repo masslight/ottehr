@@ -42,7 +42,9 @@ const updateZambdas = async (config: any): Promise<void> => {
   // First check if any zambdas are not found
   for await (const zambdaName of Object.keys(ZAMBDAS)) {
     const zambdaToDeploy = ZAMBDAS[zambdaName];
-    const name = `Ottehr-${zambdaName.toLowerCase()}`;
+    // Replace underscores with dashes to match zambda names
+    const lowercaseName = zambdaName.toLowerCase().replace(/_/g, '-');
+    const name = `Ottehr-${lowercaseName}`;
     let deployedZambda = deployedZambdas.find((zambda) => zambda.name === name);
 
     if (deployedZambda) {
@@ -57,7 +59,7 @@ const updateZambdas = async (config: any): Promise<void> => {
 
     await updateZambda({
       client: zambdaClient,
-      name: zambdaName,
+      name: lowercaseName,
       triggerMethod: zambdaToDeploy.triggerMethod,
       zambdaId: deployedZambda.id,
     });
@@ -71,9 +73,7 @@ interface UpdateZambdaInput {
   zambdaId: string;
 }
 async function updateZambda({ client, name, triggerMethod, zambdaId }: UpdateZambdaInput): Promise<void> {
-  // zip file names are lowercase with dashes
-  const zipFile = name.toLowerCase().replace(/_/g, '-');
-  const file = fs.readFileSync(`.dist/${zipFile}.zip`);
+  const file = fs.readFileSync(`.dist/${name}.zip`);
 
   console.group('Upload zambda file');
   await client.uploadZambdaFile({
