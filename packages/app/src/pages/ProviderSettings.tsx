@@ -40,14 +40,17 @@ export const ProviderSettings = (): JSX.Element => {
       }}
     >
       <TopAppBar />
-      <ProviderHeaderSection providerName="Dr. Olivia Smith" title="My profile" isProvider={true} />
+      <ProviderHeaderSection isProvider={true} providerName="Dr. Olivia Smith" title="My profile" />
       <Box
         sx={{
           alignItems: 'center',
           display: 'flex',
           flex: '1 1 auto',
           flexDirection: 'column',
-          p: { xs: 2, md: 5 },
+          p: {
+            md: 5,
+            xs: 2,
+          },
         }}
       >
         <Box maxWidth="md" width="100%">
@@ -56,8 +59,14 @@ export const ProviderSettings = (): JSX.Element => {
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'start',
-              mx: { xs: 2, md: 12.5 },
-              my: { xs: 2, md: 0 },
+              mx: {
+                md: 12.5,
+                xs: 2,
+              },
+              my: {
+                md: 0,
+                xs: 2,
+              },
             }}
           >
             <form onSubmit={handleSubmit}>
@@ -86,14 +95,14 @@ export const ProviderSettings = (): JSX.Element => {
                 </Box>
                 <TextField label="Email Address" variant="outlined" />
                 <Button
-                  type="submit"
-                  variant="contained"
                   sx={{
                     backgroundColor: theme.palette.primary.main,
                     color: theme.palette.background.default,
                     py: 1.5,
                     textTransform: 'uppercase',
                   }}
+                  type="submit"
+                  variant="contained"
                 >
                   Update
                 </Button>

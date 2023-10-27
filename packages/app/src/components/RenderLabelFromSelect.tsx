@@ -8,7 +8,7 @@ interface RenderLabelFromSelectProps {
 
 export const RenderLabelFromSelect: FC<RenderLabelFromSelectProps> = ({ children, styles }) => {
   return (
-    <Typography variant="inherit" sx={{ p: 0, ...styles }}>
+    <Typography sx={{ p: 0, ...styles }} variant="inherit">
       {children}
     </Typography>
   );

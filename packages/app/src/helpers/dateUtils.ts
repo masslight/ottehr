@@ -3,8 +3,8 @@ import { DateTime, DateTimeJSOptions } from 'luxon';
 import i18n from '../lib/i18n';
 
 interface timezone {
-  value: string;
   label: string;
+  value: string;
 }
 
 export const availableTimezones = (date: DateTime | undefined): timezone[] => {
@@ -12,10 +12,10 @@ export const availableTimezones = (date: DateTime | undefined): timezone[] => {
     date = DateTime.now();
   }
   const timezones = [
-    { value: 'America/New_York', label: '' },
-    { value: 'America/Chicago', label: '' },
-    { value: 'America/Denver', label: '' },
-    { value: 'America/Los_Angeles', label: '' },
+    { label: '', value: 'America/New_York' },
+    { label: '', value: 'America/Chicago' },
+    { label: '', value: 'America/Denver' },
+    { label: '', value: 'America/Los_Angeles' },
   ];
   timezones.forEach((zone) => {
     if (date) {
@@ -65,7 +65,7 @@ export function createDateTimeFromMDYString(dateString?: string, options?: DateT
 
 
     The two functions below are for mapping back and forth from iso to mdy. While the user is inputting values we want
-    to keep the date in mdy form. Before sending to the backend we want to map to the fhir-approved iso form.
+    to keep the date in mdy form. Before sending to the back end we want to map to the fhir-approved iso form.
     In no case do we want any time or timezone info in the date strings.
 
     If an input is provided in the format of the desired output, the input is simply returned.

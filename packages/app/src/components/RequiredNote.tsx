@@ -8,11 +8,11 @@ export const RequiredNote: FC = () => {
   return (
     <Typography
       color="text.secondary"
-      variant="subtitle2"
       sx={{
         fontWeight: 400,
         mt: 2,
       }}
+      variant="subtitle2"
     >
       * {t('general.required')}
     </Typography>

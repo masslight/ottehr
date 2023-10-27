@@ -1,7 +1,7 @@
 import { Box, Button, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { otherColors } from '../OttEHRThemeProvider';
+import { otherColors } from '../OttehrThemeProvider';
 
 interface CardComponentProps {
   name: string;
@@ -41,14 +41,14 @@ export const CardComponent: FC<CardComponentProps> = ({
           setValue(name, '');
           onClear();
         }}
-        variant="text"
         sx={{
+          '&:hover': { backgroundColor: otherColors.transparent },
           color: otherColors.clearImage,
           justifyContent: 'start',
           mt: 2,
           px: 0,
-          '&:hover': { backgroundColor: otherColors.transparent },
         }}
+        variant="text"
       >
         Clear
       </Button>

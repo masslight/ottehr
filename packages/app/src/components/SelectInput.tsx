@@ -2,7 +2,7 @@ import { ExpandMore } from '@mui/icons-material';
 import { FormControl, MenuItem, Select, SelectProps, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { otherColors } from '../OttEHRThemeProvider';
+import { otherColors } from '../OttehrThemeProvider';
 import { findLabelFromOptions } from '../helpers';
 import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
@@ -45,10 +45,10 @@ export const SelectInput: FC<SelectInputProps> = ({
         <FormControl
           error={!!errors[name]}
           required={otherProps.required}
-          variant="standard"
           sx={{
             width: '100%',
           }}
+          variant="standard"
         >
           <BoldPrimaryInputLabel id={`${name}-label`} shrink>
             {label}
@@ -58,7 +58,7 @@ export const SelectInput: FC<SelectInputProps> = ({
             {...otherProps}
             IconComponent={ExpandMore}
             // To stop it adding a padding-right on the main element, shifting the background image
-            MenuProps={{ disableScrollLock: true, PaperProps: { style: { maxHeight: 400 } } }}
+            MenuProps={{ PaperProps: { style: { maxHeight: 400 } }, disableScrollLock: true }}
             disableUnderline
             displayEmpty
             labelId={`${name}-label`}
@@ -73,22 +73,22 @@ export const SelectInput: FC<SelectInputProps> = ({
               return <RenderLabelFromSelect>{findLabelFromOptions(selected, options)}</RenderLabelFromSelect>;
             }}
             sx={{
-              '& .MuiSelect-icon': {
-                mr: '10px',
-              },
-              '& .MuiSelect-iconOpen': {
-                mr: '10px',
-              },
               '& .MuiInputBase-input': {
+                '&:focus': {
+                  backgroundColor: theme.palette.background.paper,
+                  borderRadius: '8px',
+                },
                 backgroundColor: theme.palette.background.paper,
                 border: '1px solid',
                 borderColor: otherColors.lightGray,
                 borderRadius: '8px',
                 p: '10px 26px 10px 12px',
-                '&:focus': {
-                  backgroundColor: theme.palette.background.paper,
-                  borderRadius: '8px',
-                },
+              },
+              '& .MuiSelect-icon': {
+                mr: '10px',
+              },
+              '& .MuiSelect-iconOpen': {
+                mr: '10px',
               },
             }}
           >

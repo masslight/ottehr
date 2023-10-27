@@ -29,7 +29,7 @@ export const ControlButtons: FC<ControlButtonsProps> = ({
   const { t } = useTranslation();
 
   return (
-    <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} sx={{ justifyContent: 'space-between', mt: 4.125 }}>
+    <Box display="flex" flexDirection={{ md: 'row', xs: 'column' }} sx={{ justifyContent: 'space-between', mt: 4.125 }}>
       {backButton && (
         <Button
           onClick={() => {
@@ -47,13 +47,13 @@ export const ControlButtons: FC<ControlButtonsProps> = ({
         disabled={submitDisabled}
         loading={loading}
         size="large"
-        type="submit"
-        variant="contained"
         sx={{
           // align button to right if no back button
-          ml: { xs: 0, md: 'auto' },
-          mt: { xs: 1, md: 0 },
+          ml: { md: 'auto', xs: 0 },
+          mt: { md: 0, xs: 1 },
         }}
+        type="submit"
+        variant="contained"
       >
         {submitLabel ?? 'Continue'}
       </LoadingButton>

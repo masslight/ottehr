@@ -1,19 +1,56 @@
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import { Button, Box, Typography, useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { otherColors, otherStyling } from '../OttEHRThemeProvider';
+import { otherColors, otherStyling } from '../OttehrThemeProvider';
 import { Footer, ProviderHeaderSection } from '../components';
-import { usePatient } from '../store';
+import { useVideoParticipant } from '../store';
+import { zapehrApi } from '../api';
+import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
+import useDevices from '../hooks/twilio/useDevices';
 
 export const CheckInPermission = (): JSX.Element => {
-  const { setIsVideoOpen, setIsMicOpen } = usePatient();
+  const { setIsVideoOpen, setIsMicOpen, setRoom, setLocalTracks } = useVideoParticipant();
   const theme = useTheme();
   const navigate = useNavigate();
 
-  const toggleCamMic = (userInput: boolean): void => {
-    setIsVideoOpen(userInput);
-    setIsMicOpen(userInput);
-    navigate('/waiting-room');
+  //TODO: hard coded room name for now, note: twilio free rooms are limited to 2 participant, and it takes around 15-20 seconds to disconnect a participant
+  const roomName = 'test1';
+  const hasVideoDevice = useDevices().videoInputDevices.length > 0;
+  const toggleCamMic = async (userInput: boolean): Promise<void> => {
+    try {
+      setIsVideoOpen(userInput);
+      setIsMicOpen(userInput);
+
+      const fetchedToken = await zapehrApi.getTwilioToken(roomName);
+      if (fetchedToken === null) {
+        console.error('Failed to fetch token');
+        return;
+      }
+      console.log('hasVideoDevice', hasVideoDevice);
+      const tracks = await Video.createLocalTracks({
+        audio: true,
+        video: hasVideoDevice,
+      });
+
+      const localTracks = tracks.filter((track) => track.kind === 'audio' || track.kind === 'video') as (
+        | LocalAudioTrack
+        | LocalVideoTrack
+      )[];
+
+      setLocalTracks(localTracks);
+
+      const connectedRoom = await Video.connect(fetchedToken, {
+        audio: true,
+        name: roomName,
+        tracks: localTracks,
+        video: hasVideoDevice,
+      });
+
+      setRoom(connectedRoom);
+      navigate('/waiting-room');
+    } catch (error) {
+      console.error('An error occurred:', error);
+    }
   };
 
   return (
@@ -28,7 +65,7 @@ export const CheckInPermission = (): JSX.Element => {
         },
       }}
     >
-      <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" isProvider={true} />
+      <ProviderHeaderSection isProvider={true} providerName="Dr. Smith" title="Waiting Room" />
       {/* Middle Section */}
       <Box
         sx={{
@@ -70,22 +107,21 @@ export const CheckInPermission = (): JSX.Element => {
               <VideocamOffIcon sx={{ color: theme.palette.background.default }} />
               <Typography
                 color="primary.contrast"
-                variant="body1"
                 sx={{
                   opacity: '0.5',
                   textAlign: 'center',
                 }}
+                variant="body1"
               >
                 Enable camera in your browser
               </Typography>
             </Box>
 
-            <Button onClick={() => toggleCamMic(true)} variant="contained" sx={otherStyling.buttonPrimary}>
+            <Button onClick={() => toggleCamMic(true)} sx={otherStyling.buttonPrimary} variant="contained">
               Enable camera and mic
             </Button>
             <Button
               onClick={() => toggleCamMic(false)}
-              variant="text"
               sx={{
                 color: theme.palette.primary.light,
                 cursor: 'pointer',
@@ -93,6 +129,7 @@ export const CheckInPermission = (): JSX.Element => {
                 textAlign: 'center',
                 textTransform: 'uppercase',
               }}
+              variant="text"
             >
               Continue without camera and mic
             </Button>

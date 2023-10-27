@@ -5,6 +5,6 @@
       "destination": "/index.html"
     }
   ],
-  "buildCommand": "pnpm run build",
+  "buildCommand": "pnpm build",
   "installCommand": "pnpm install"
 }

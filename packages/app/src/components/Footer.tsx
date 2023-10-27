@@ -2,7 +2,7 @@ import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { footerLogo } from '../assets/icons';
-import { otherColors } from '../OttEHRThemeProvider';
+import { otherColors } from '../OttehrThemeProvider';
 import { ZapEHRLogo } from './ZapEHRLogo';
 
 export const Footer: FC = () => {
@@ -21,7 +21,7 @@ export const Footer: FC = () => {
     >
       <Box component="img" ml={2} src={footerLogo}></Box>
       <Box sx={{ alignItems: 'center', display: 'flex' }}>
-        <Typography color="primary.light" variant="body2" sx={{ m: 1.25, maxWidth: 400 }}>
+        <Typography color="primary.light" sx={{ m: 1.25, maxWidth: 400 }} variant="body2">
           {t('general.footer')}
         </Typography>
         <Box mr={2} mt={0.7}>

@@ -1,15 +1,16 @@
 {
   "name": "ottehr",
-  "version": "1.10.0",
+  "version": "0.0.2",
   "private": true,
   "scripts": {
-    "lint": "eslint packages/",
-    "update": "pnpm recursive up -L -i",
     "build": "sh ./scripts/build.sh",
+    "lint": "eslint packages/",
+    "start": "pnpm start:local",
     "start:local": "pnpm recursive run start:local",
-    "start:dev": "pnpm recursive run start:local",
-    "start:testing": "pnpm recursive run start:local",
-    "start:staging": "pnpm recursive run start:local"
+    "start:dev": "pnpm recursive run start:dev",
+    "start:testing": "pnpm recursive run start:testing",
+    "start:staging": "pnpm recursive run start:staging",
+    "update": "pnpm recursive up -L -i"
   },
   "packageManager": "pnpm@8.7.6",
   "engines": {
@@ -39,7 +40,9 @@
     "eslint": "^8.29.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-prettier": "^4.2.1",
+    "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-typescript-sort-keys": "^3.1.0",
     "prettier": "^2.8.0",
     "typescript": "^4.7.4"
   },

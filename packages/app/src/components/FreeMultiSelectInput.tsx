@@ -1,7 +1,7 @@
 import { Autocomplete, Chip, FormControl, InputBase, SelectProps, useTheme } from '@mui/material';
 import { FC, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { otherColors } from '../OttEHRThemeProvider';
+import { otherColors } from '../OttehrThemeProvider';
 import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
 
@@ -43,10 +43,10 @@ export const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
           <FormControl
             error={!!errors[name]}
             required={otherProps.required}
-            variant="standard"
             sx={{
               width: '100%',
             }}
+            variant="standard"
           >
             <BoldPrimaryInputLabel id={`${name}-label`} shrink>
               {label}
@@ -62,16 +62,6 @@ export const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
               id={`${name}-label`}
               inputValue={inputValue}
               multiple
-              options={options}
-              // Bringing this in breaks the component for some reason
-              // {...otherProps}
-              onChange={(_, options) => {
-                // The problem is this dictates what renderTags takes, and if we provide only strings then we can't use
-                // the label/value combo like in SelectInput. It might be easier to just send the entire long string to
-                // the backend e.g. 'PTSD (Post-traumatic Stress Disorder)'
-
-                field.onChange(options);
-              }}
               onBlur={() => {
                 if (inputValue.trim() !== '') {
                   const newValues = [...field.value, inputValue.trim()];
@@ -79,34 +69,44 @@ export const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
                 }
                 setInputValue('');
               }}
+              onChange={(_, options) => {
+                // The problem is this dictates what renderTags takes, and if we provide only strings then we can't use
+                // the label/value combo like in SelectInput. It might be easier to just send the entire long string to
+                // the back end e.g. 'PTSD (Post-traumatic Stress Disorder)'
+                field.onChange(options);
+              }}
               onInputChange={(_, newInputValue) => {
                 setInputValue(newInputValue);
               }}
+              options={options}
+              // Bringing this in breaks the component for some reason
+              // {...otherProps}
               renderInput={(params) => (
                 <InputBase autoFocus inputProps={params.inputProps} ref={params.InputProps.ref} />
               )}
               renderTags={(options: readonly (string | string)[], getTagProps) =>
                 options.map((option, index) => (
-                  <Chip {...getTagProps({ index })} label={option} variant="outlined" sx={{ fontSize: 16 }} />
+                  // eslint-disable-next-line react/jsx-key -- This is provided by getTagProps
+                  <Chip {...getTagProps({ index })} label={option} sx={{ fontSize: 16 }} variant="outlined" />
                 ))
               }
               sx={{
-                mt: 2,
                 '& .Mui-focused': {
                   borderColor: `${theme.palette.primary.main}`,
                   boxShadow: `${otherColors.primaryBoxShadow} 0 0 0 0.2rem`,
                 },
                 '& .MuiFilledInput-root': {
+                  '&::before, ::after, :hover:not(.Mui-disabled, .Mui-error)::before': {
+                    borderBottom: 0,
+                  },
                   backgroundColor: `${theme.palette.background.paper} !important`,
                   border: '1px solid',
                   borderColor: otherColors.borderGray,
                   borderRadius: 2,
-                  '&::before, ::after, :hover:not(.Mui-disabled, .Mui-error)::before': {
-                    borderBottom: 0,
-                  },
                   fontSize: 16,
                   p: 0.5,
                 },
+                mt: 2,
               }}
             />
             <InputHelperText errors={errors} helperText={helperText} name={name} />

@@ -1,7 +1,7 @@
 import { Box, Button, Typography, useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { Footer, ProviderHeaderSection, TopAppBar } from '../components';
-import { otherStyling } from '../OttEHRThemeProvider';
+import { otherStyling } from '../OttehrThemeProvider';
 
 export const PostCall = (): JSX.Element => {
   const navigate = useNavigate();
@@ -28,10 +28,10 @@ export const PostCall = (): JSX.Element => {
       {isProvider ? (
         <Box>
           <TopAppBar />
-          <ProviderHeaderSection providerName={patientName} title="Call with" isProvider={!isProvider} />
+          <ProviderHeaderSection isProvider={!isProvider} providerName={patientName} title="Call with" />
         </Box>
       ) : (
-        <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" isProvider={isProvider} />
+        <ProviderHeaderSection isProvider={isProvider} providerName="Dr. Smith" title="Waiting Room" />
       )}
 
       {/* Middle Section */}
@@ -44,12 +44,12 @@ export const PostCall = (): JSX.Element => {
       >
         <Box
           maxWidth="md"
-          width="100%"
           sx={{
             [theme.breakpoints.down('md')]: {
               px: 2,
             },
           }}
+          width="100%"
         >
           <Box
             sx={{
@@ -69,13 +69,13 @@ export const PostCall = (): JSX.Element => {
             {isProvider && (
               <Button
                 onClick={goToDashboard}
-                variant="contained"
                 sx={{
                   ...otherStyling.buttonPrimary,
                   px: 2,
                   text: 'primary.contrast',
                   width: 'fit-content', // Kept the width as 'fit-content'
                 }}
+                variant="contained"
               >
                 Go to dashboard
               </Button>

@@ -8,6 +8,7 @@ interface InputMaskProps {
   onChange: (event: { target: { name: string; value: string } }) => void;
 }
 
+// eslint-disable-next-line react/display-name -- This matches the example in the docs https://react.dev/reference/react/forwardRef
 export const InputMask = forwardRef<HTMLElement, InputMaskProps>(({ blocks, mask, name, onChange, ...other }, ref) => {
   return (
     <IMaskInput
