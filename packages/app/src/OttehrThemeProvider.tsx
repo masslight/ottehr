@@ -5,6 +5,7 @@ import { FC, ReactNode } from 'react';
 export const textFonts = ['Work Sans'];
 export const headerFonts = ['Work Sans'];
 
+/* eslint-disable sort-keys -- Sorting by size makes more sense here */
 export const breakpoints: BreakpointsOptions = {
   values: {
     xs: 0,
@@ -14,6 +15,7 @@ export const breakpoints: BreakpointsOptions = {
     xl: 1400,
   },
 };
+/* eslint-enable sort-keys */
 
 export const otherColors = {
   appointmentInfoBackground: '#8F66EF',
@@ -41,11 +43,11 @@ export const otherColors = {
   patientGreen: '#C7FDD3',
   patientSubtitle: '#545454',
   pattensBlue: '#E5F2F8',
-  providerIconBackground: '#D9F3FF',
   placeholder: '#A9A9A9',
   popupBackground: 'rgba(97, 97, 97, 0.9)',
   primaryBackground: '#F5F2FF',
   primaryBoxShadow: 'rgba(77, 21, 183, 0.25)',
+  providerIconBackground: '#D9F3FF',
   purple: '#4D15B7',
   scheduleBorder: '#8F9AA7',
   shamrock: '#3ECCA2',
@@ -56,6 +58,25 @@ export const otherColors = {
 };
 
 export const typography: TypographyOptions = {
+  body1: {
+    fontFamily: textFonts.join(','),
+    fontSize: 16,
+    fontWeight: 400,
+    lineHeight: '140%',
+  },
+  body2: {
+    fontFamily: textFonts.join(','),
+    fontSize: 14,
+    fontWeight: 400,
+    lineHeight: '140%',
+  },
+  button: {},
+  caption: {
+    fontFamily: textFonts.join(','),
+    fontSize: 14,
+    fontWeight: 400,
+    lineHeight: '140%',
+  },
   fontFamily: textFonts.join(','),
   fontWeightMedium: 600,
   h1: {
@@ -94,6 +115,12 @@ export const typography: TypographyOptions = {
     fontWeight: '500 !important',
     lineHeight: '140%',
   },
+  overline: {
+    fontFamily: textFonts.join(','),
+    fontSize: 16,
+    fontWeight: 700,
+    lineHeight: '140%',
+  },
   subtitle1: {
     fontFamily: textFonts.join(','),
     fontSize: 16,
@@ -104,31 +131,6 @@ export const typography: TypographyOptions = {
     fontFamily: textFonts.join(','),
     fontSize: 14,
     fontWeight: 600,
-    lineHeight: '140%',
-  },
-  body1: {
-    fontFamily: textFonts.join(','),
-    fontSize: 16,
-    fontWeight: 400,
-    lineHeight: '140%',
-  },
-  body2: {
-    fontFamily: textFonts.join(','),
-    fontSize: 14,
-    fontWeight: 400,
-    lineHeight: '140%',
-  },
-  button: {},
-  caption: {
-    fontFamily: textFonts.join(','),
-    fontSize: 14,
-    fontWeight: 400,
-    lineHeight: '140%',
-  },
-  overline: {
-    fontFamily: textFonts.join(','),
-    fontSize: 16,
-    fontWeight: 700,
     lineHeight: '140%',
   },
 };
@@ -144,37 +146,6 @@ declare module '@mui/material/styles' {
 }
 const { palette: p } = createTheme(); // TODO: once https://github.com/mui/material-ui/issues/17410 is resolved, export directly from mui
 export const palette = {
-  text: {
-    disabled: '#C3C9D2',
-    light: '#323F53DE',
-    primary: '#212130',
-    secondary: '#4F4F4F',
-  },
-  primary: {
-    contrast: '#FFFFFF',
-    light: '#4AC0F2',
-    main: '#2896C6',
-  },
-  secondary: {
-    contrast: '#FFFFFF',
-    main: '#301367',
-  },
-  tertiary: p.augmentColor({ color: { main: '#ECE4FB' } }),
-  step: {
-    main: '#17C4F3',
-  },
-  info: {
-    main: '#C1FBEA',
-  },
-  success: {
-    main: '#66BA70',
-  },
-  warning: {
-    main: '#FFDF9A',
-  },
-  error: {
-    main: '#EC6930',
-  },
   action: {
     active: 'rgba(0, 0, 0, 0.54)',
     disabled: 'rgba(0, 0, 0, 0.26)',
@@ -188,20 +159,51 @@ export const palette = {
     paper: '#FFFFFF',
   },
   divider: '#C3C9D2',
+  error: {
+    main: '#EC6930',
+  },
+  info: {
+    main: '#C1FBEA',
+  },
+  primary: {
+    contrast: '#FFFFFF',
+    light: '#4AC0F2',
+    main: '#2896C6',
+  },
+  secondary: {
+    contrast: '#FFFFFF',
+    main: '#301367',
+  },
+  step: {
+    main: '#17C4F3',
+  },
+  success: {
+    main: '#66BA70',
+  },
+  tertiary: p.augmentColor({ color: { main: '#ECE4FB' } }),
+  text: {
+    disabled: '#C3C9D2',
+    light: '#323F53DE',
+    primary: '#212130',
+    secondary: '#4F4F4F',
+  },
+  warning: {
+    main: '#FFDF9A',
+  },
 };
 
 export const components: Components = {
   MuiButton: {
     styleOverrides: {
       root: {
+        '&:not($sizeLarge):not($sizeSmall) $label': {
+          fontSize: 16,
+        },
         fontFamily: textFonts.join(','),
         fontSize: 14,
         fontWeight: 600,
         lineHeight: '140%',
         textTransform: 'uppercase',
-        '&:not($sizeLarge):not($sizeSmall) $label': {
-          fontSize: 16,
-        },
       },
       sizeLarge: {
         '& $label': {
@@ -219,13 +221,13 @@ export const components: Components = {
     styleOverrides: {
       root: {
         '&.MuiPickersDay-root': {
-          fontSize: 16,
           '&.Mui-selected': {
             backgroundColor: palette.secondary.main,
           },
           '&.MuiPickersDay-today': {
             borderColor: palette.secondary.main,
           },
+          fontSize: 16,
         },
       },
     },

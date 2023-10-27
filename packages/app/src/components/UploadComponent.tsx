@@ -26,8 +26,8 @@ export const UploadComponent: FC<UploadComponentProps> = ({
         background: otherColors.cardBackground,
         border: `1px dashed ${theme.palette.primary.main}`,
         borderRadius: 2,
-        flexDirection: 'column',
         display: 'flex',
+        flexDirection: 'column',
         gap: 1,
         height: 260,
         justifyContent: 'center',
@@ -37,7 +37,7 @@ export const UploadComponent: FC<UploadComponentProps> = ({
       }}
     >
       {uploadDescription}
-      <Button component="label" variant="contained" sx={{ mt: 2, textTransform: 'none' }}>
+      <Button component="label" sx={{ mt: 2, textTransform: 'none' }} variant="contained">
         Upload
         <Controller
           control={control}

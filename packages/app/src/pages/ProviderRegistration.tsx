@@ -30,14 +30,14 @@ import { otherColors } from '../OttehrThemeProvider';
 import { ZapEHRLogo } from '../components';
 
 interface FormData {
-  title: string;
+  acceptTerms: boolean;
+  email: string;
   firstName: string;
   lastName: string;
-  roomName: string;
-  email: string;
-  password: string;
   notPatient: boolean;
-  acceptTerms: boolean;
+  password: string;
+  roomName: string;
+  title: string;
 }
 
 export const ProviderRegistration: React.FC = (): JSX.Element => {
@@ -47,14 +47,14 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
     formState: { errors },
   } = useForm<FormData>({
     defaultValues: {
-      title: '',
+      acceptTerms: false,
+      email: '',
       firstName: '',
       lastName: '',
-      roomName: '',
-      email: '',
-      password: '',
       notPatient: false,
-      acceptTerms: false,
+      password: '',
+      roomName: '',
+      title: '',
     },
   });
 
@@ -78,15 +78,15 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
   const theme = useTheme();
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' } }}>
+    <Box sx={{ display: 'flex', flexDirection: { md: 'row', xs: 'column' } }}>
       {/* left side */}
       <Box
         sx={{
           backgroundColor: otherColors.darkBackgroundPaper,
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'center',
           gap: 2,
+          justifyContent: 'center',
           [theme.breakpoints.down('md')]: {
             py: 2,
             width: '100%',
@@ -104,7 +104,7 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
           <Box component="img" src={OttehrRegistrationLogo} />
         </Box>
         <Box>
-          <Typography color="primary.light" variant="body1" sx={{ textAlign: 'center', py: 2 }}>
+          <Typography color="primary.light" sx={{ py: 2, textAlign: 'center' }} variant="body1">
             Connect with patients virtually
           </Typography>
         </Box>
@@ -117,8 +117,8 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
             py: 10,
             [theme.breakpoints.down('md')]: {
               flexDirection: 'row',
-              py: 0,
               gap: 2,
+              py: 0,
             },
           }}
         >
@@ -126,12 +126,12 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
             component="img"
             src={backgroundEllipseDark}
             sx={{
-              position: 'absolute',
               mb: 25,
               mr: 18,
+              position: 'absolute',
               [theme.breakpoints.down('md')]: {
-                maxWidth: '60%',
                 maxHeight: '60%',
+                maxWidth: '60%',
                 mb: 0,
               },
             }}
@@ -140,11 +140,11 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
             component="img"
             src={backgroundEllipseLight}
             sx={{
-              position: 'absolute',
               ml: 25,
+              position: 'absolute',
               [theme.breakpoints.down('md')]: {
-                maxWidth: '60%',
                 maxHeight: '60%',
+                maxWidth: '60%',
                 ml: 18,
               },
             }}
@@ -159,9 +159,9 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
               overflow: 'hidden',
               position: 'absolute',
               [theme.breakpoints.down('md')]: {
-                position: 'static',
                 mb: 0,
                 ml: 0,
+                position: 'static',
               },
               zIndex: '2',
             }}
@@ -170,19 +170,19 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
           </Box>
           <Box
             sx={{
-              display: 'flex',
-              justifyContent: 'center',
-              overflow: 'hidden',
-              zIndex: '1',
               backgroundColor: otherColors.providerIconBackground,
               border: '5px solid #fff',
               borderRadius: 5,
+              display: 'flex',
+              justifyContent: 'center',
               mb: 2,
-              px: 2,
+              overflow: 'hidden',
               pt: 4,
+              px: 2,
+              zIndex: '1',
               [theme.breakpoints.down('md')]: {
-                maxWidth: '118px',
                 maxHeight: '118px',
+                maxWidth: '118px',
                 pt: 1.5,
                 px: 1,
               },
@@ -197,8 +197,8 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
               borderRadius: 5,
               display: 'flex',
               gap: 2.5,
-              py: 1.75,
               px: 9,
+              py: 1.75,
               [theme.breakpoints.down('md')]: {
                 display: 'none',
               },
@@ -233,22 +233,22 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
           height: '100vh',
           justifyContent: 'center',
           [theme.breakpoints.down('md')]: {
-            width: '100%',
             height: '100%',
+            width: '100%',
           },
           width: '45%',
         }}
       >
-        <Box sx={{ mx: { xs: 2, md: 12.5 }, my: { xs: 4, md: 10 }, display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mx: { md: 12.5, xs: 2 }, my: { md: 10, xs: 4 } }}>
           <Typography variant="h4">Welcome to Ottehr</Typography>
-          <Typography color="primary.light" variant="h3" sx={{ pb: 1 }}>
+          <Typography color="primary.light" sx={{ pb: 1 }} variant="h3">
             Provider registration
           </Typography>
           <form onSubmit={handleSubmit(onSubmit)}>
             <Box sx={{ alignItems: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Controller
-                name="title"
                 control={control}
+                name="title"
                 render={({ field }) => (
                   <FormControl variant="outlined">
                     <InputLabel>Title</InputLabel>
@@ -261,8 +261,8 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
                 )}
               />
               <Controller
-                name="firstName"
                 control={control}
+                name="firstName"
                 render={({ field }) => (
                   <TextField
                     {...field}
@@ -273,8 +273,8 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
                 )}
               />
               <Controller
-                name="lastName"
                 control={control}
+                name="lastName"
                 render={({ field }) => (
                   <TextField
                     {...field}
@@ -285,19 +285,19 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
                 )}
               />
               <Controller
-                name="roomName"
                 control={control}
+                name="roomName"
                 render={({ field }) => (
                   <>
                     <TextField
-                      label="Room Name"
-                      variant="outlined"
                       error={isError}
                       helperText={helperText}
+                      label="Room Name"
                       onChange={(e) => {
                         setRoomName(e.target.value);
                         field.onChange(e);
                       }}
+                      variant="outlined"
                     />
                     <Box sx={{ alignItems: 'center', display: 'flex' }}>
                       <Box sx={{ mr: 1 }}>{isError ? <CancelIcon color="error" /> : <CheckIcon color="success" />}</Box>
@@ -307,33 +307,33 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
                 )}
               />
               <Controller
-                name="email"
                 control={control}
+                name="email"
                 render={({ field }) => <TextField {...field} label="Email Address" variant="outlined" />}
               />
               <Controller
-                name="password"
                 control={control}
+                name="password"
                 render={({ field }) => <TextField {...field} label="Password" type="password" variant="outlined" />}
               />
               <Controller
-                name="notPatient"
                 control={control}
                 defaultValue={false}
+                name="notPatient"
                 render={({ field: { onChange, value } }) => (
                   <FormControlLabel
-                    control={<Checkbox onChange={onChange} checked={value} />}
+                    control={<Checkbox checked={value} onChange={onChange} />}
                     label="I am not a patient"
                   />
                 )}
               />
               <Controller
-                name="acceptTerms"
                 control={control}
                 defaultValue={false}
+                name="acceptTerms"
                 render={({ field: { onChange, value } }) => (
                   <FormControlLabel
-                    control={<Checkbox onChange={onChange} checked={value} />}
+                    control={<Checkbox checked={value} onChange={onChange} />}
                     label="I accept the terms and conditions"
                   />
                 )}

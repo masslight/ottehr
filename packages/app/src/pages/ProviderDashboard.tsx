@@ -12,16 +12,17 @@ export const ProviderDashboard = (): JSX.Element => {
 
   const theme = useTheme();
 
+  // hard coded patients data for now
   const patientsData = [
     {
       name: 'John Doe',
       queuedTime: '2023-09-29T08:15:00Z',
-      link: 'https://example.com/john',
+      roomName: 'testRoom',
     },
     {
       name: 'Jane Smith',
       queuedTime: '2023-09-29T15:54:00Z',
-      link: 'https://example.com/jane',
+      roomName: 'testRoom',
     },
   ];
 
@@ -39,7 +40,7 @@ export const ProviderDashboard = (): JSX.Element => {
       }}
     >
       <TopAppBar />
-      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: { xs: 'column', md: 'row' } }}>
+      <Box sx={{ display: 'flex', flexDirection: { md: 'row', xs: 'column' }, flexGrow: 1 }}>
         <Box
           sx={{
             alignItems: 'center',
@@ -51,25 +52,25 @@ export const ProviderDashboard = (): JSX.Element => {
             pt: 7.5,
             px: 7.5,
             [theme.breakpoints.down('md')]: {
+              flexGrow: 0,
               px: 2,
               py: 4,
-              flexGrow: 0,
             },
           }}
         >
           <Box
             sx={{
               display: 'flex',
+              flexDirection: { md: 'row', xs: 'column-reverse' },
               justifyContent: 'space-between',
               width: '100%',
-              flexDirection: { xs: 'column-reverse', md: 'row' },
               [theme.breakpoints.down('md')]: {
                 gap: 1,
               },
             }}
           >
             <Box>
-              <Typography variant="h5" color="primary.light" fontWeight={500}>
+              <Typography color="primary.light" fontWeight={500} variant="h5">
                 {t('general.goodMorning')}
               </Typography>
 
@@ -77,8 +78,8 @@ export const ProviderDashboard = (): JSX.Element => {
                 Dr. Olivia Smith
               </Typography>
             </Box>
-            <Box sx={{ maxWidth: { xs: '50px', md: '100px' } }}>
-              <img src={OttehrDefaultProvider} alt="Provider Image" width={'100%'} />
+            <Box sx={{ maxWidth: { md: '100px', xs: '50px' } }}>
+              <img alt="Provider Image" src={OttehrDefaultProvider} width={'100%'} />
             </Box>
           </Box>
           <Box
@@ -89,17 +90,17 @@ export const ProviderDashboard = (): JSX.Element => {
               margin: 3,
               p: 3,
               [theme.breakpoints.down('md')]: {
-                my: 2,
                 mx: 0,
+                my: 2,
                 p: 3,
               },
             }}
           >
-            <Typography variant="body1" color="text.light" sx={{ overflowWrap: 'break-word' }}>
+            <Typography color="text.light" sx={{ overflowWrap: 'break-word' }} variant="body1">
               {t('general.shareLink')}
             </Typography>
 
-            <Typography variant="h5" color="text.light" fontFamily="work Sans" sx={{ overflowWrap: 'break-word' }}>
+            <Typography color="text.light" fontFamily="work Sans" sx={{ overflowWrap: 'break-word' }} variant="h5">
               {roomLink}
             </Typography>
 
@@ -151,7 +152,7 @@ export const ProviderDashboard = (): JSX.Element => {
             {t('general.patientsQueue')}
           </Typography>
 
-          <Typography color="primary.contrast" fontWeight={500} variant="body2" sx={{ opacity: 0.6 }}>
+          <Typography color="primary.contrast" fontWeight={500} sx={{ opacity: 0.6 }} variant="body2">
             {t('general.waiting')}
           </Typography>
 

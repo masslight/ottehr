@@ -1,20 +1,23 @@
 module.exports = {
-  extends: [
-    'eslint:recommended',
-    'plugin:@typescript-eslint/recommended',
-    'plugin:react-hooks/recommended',
-    'plugin:prettier/recommended',
-  ],
   env: {
     browser: true,
     node: true,
   },
+  extends: [
+    'eslint:recommended',
+    'plugin:@typescript-eslint/recommended',
+    'plugin:react/recommended',
+    'plugin:react/jsx-runtime',
+    'plugin:react-hooks/recommended',
+    'plugin:prettier/recommended',
+    'plugin:typescript-sort-keys/recommended',
+  ],
   parser: '@typescript-eslint/parser',
   parserOptions: {
-    tsconfigRootDir: __dirname,
     project: ['./tsconfig.base.json', './packages/**/tsconfig.json'],
+    tsconfigRootDir: __dirname,
   },
-  plugins: ['@typescript-eslint'],
+  plugins: ['@typescript-eslint', 'typescript-sort-keys'],
   root: true,
   rules: {
     '@typescript-eslint/explicit-function-return-type': [
@@ -34,5 +37,19 @@ module.exports = {
       },
     ],
     'prefer-promise-reject-errors': 'error',
+    'react/jsx-sort-props': [
+      'error',
+      {
+        locale: 'auto',
+        multiline: 'ignore',
+        reservedFirst: ['key'],
+      },
+    ],
+    'sort-keys': ['error', 'asc', { caseSensitive: true, minKeys: 2, natural: true }],
+  },
+  settings: {
+    react: {
+      version: 'detect',
+    },
   },
 };

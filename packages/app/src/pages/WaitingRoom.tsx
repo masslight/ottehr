@@ -1,24 +1,46 @@
-import MicIcon from '@mui/icons-material/Mic';
-import MicOffIcon from '@mui/icons-material/MicOff';
-import SettingsIcon from '@mui/icons-material/Settings';
-import VideocamIcon from '@mui/icons-material/Videocam';
-import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import { Box, Typography, useTheme } from '@mui/material';
-import { otherColors, otherStyling } from '../OttehrThemeProvider';
-import { videoCallMock } from '../assets/icons';
-import { Footer, ProviderHeaderSection } from '../components';
-import { usePatient } from '../store';
+
+import { Footer, ProviderHeaderSection, VideoControls } from '../components';
+import { useVideoParticipant } from '../store';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useLocalVideo } from '../hooks/twilio/useLocalVideo';
+import { otherColors, otherStyling, otherStyling } from '../OttehrThemeProvider';
 
 export const WaitingRoom = (): JSX.Element => {
-  const { isVideoOpen, setIsVideoOpen, isMicOpen, setIsMicOpen } = usePatient();
+  const { room, localTracks } = useVideoParticipant();
   const theme = useTheme();
-  const toggleMic = (): void => {
-    setIsMicOpen(!isMicOpen);
-  };
+  const videoRef = useRef<HTMLDivElement | null>(null);
+  useLocalVideo(videoRef, localTracks);
+  const navigate = useNavigate();
 
-  const toggleVideo = (): void => {
-    setIsVideoOpen(!isVideoOpen);
-  };
+  // localParticipant is not counted so we start with 1
+  const [numParticipants, setNumParticipants] = useState<number>(1);
+
+  const participantConnected = useCallback(() => {
+    setNumParticipants((prevNumParticipants: number) => prevNumParticipants + 1);
+  }, []);
+
+  const participantDisconnected = useCallback(() => {
+    setNumParticipants((prevNumParticipants: number) => prevNumParticipants - 1);
+  }, []);
+
+  useEffect(() => {
+    if (room) {
+      room.on('participantConnected', participantConnected);
+      room.on('participantDisconnected', participantDisconnected);
+      room.participants.forEach(participantConnected);
+    }
+  }, [room, participantConnected, participantDisconnected]);
+
+  // navigate to video call when provider joins
+  useEffect(() => {
+    console.log('numParticipants', numParticipants);
+    if (numParticipants > 1) {
+      navigate(`/video-call/`);
+    }
+    return undefined;
+  }, [navigate, numParticipants]);
 
   return (
     <Box
@@ -29,7 +51,7 @@ export const WaitingRoom = (): JSX.Element => {
         justifyContent: 'space-between',
       }}
     >
-      <ProviderHeaderSection providerName="Dr. Smith" title="Waiting Room" isProvider={true} />
+      <ProviderHeaderSection isProvider={true} providerName="Dr. Smith" title="Waiting Room" />
       {/* Middle Section */}
       <Box
         sx={{
@@ -40,12 +62,12 @@ export const WaitingRoom = (): JSX.Element => {
       >
         <Box
           maxWidth="md"
-          width="100%"
           sx={{
             [theme.breakpoints.down('sm')]: {
               px: 2,
             },
           }}
+          width="100%"
         >
           <Box
             sx={{
@@ -55,20 +77,25 @@ export const WaitingRoom = (): JSX.Element => {
               },
             }}
           >
-            <Typography variant="h5" sx={{ pb: 1 }}>
+            <Typography sx={{ pb: 1 }} variant="h5">
               Your call will start soon
             </Typography>
-            <Typography variant="body1" sx={{ pb: 3 }}>
-              Thank you for your patience. Please wait for Dr. Smith to accept your call.
-            </Typography>
-            <Box sx={{ backgroundColor: 'text.light', borderRadius: 5, overflow: 'hidden', position: 'relative' }}>
-              <img
-                src={videoCallMock}
-                style={{
-                  display: 'block',
-                  visibility: isVideoOpen ? 'visible' : 'hidden',
-                }}
-              />
+
+            <Box
+              sx={{
+                alignItems: 'center',
+                backgroundColor: 'rgba(50, 63, 83, 0.87)',
+                borderRadius: 2,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                minHeight: '20vh',
+                overflow: 'hidden',
+                position: 'relative',
+                px: 15,
+                py: 10,
+              }}
+            >
               <Box
                 sx={{
                   backgroundColor: otherColors.biscay,
@@ -80,23 +107,22 @@ export const WaitingRoom = (): JSX.Element => {
                   left: '50%',
                   maxWidth: 'fit-content',
                   position: 'absolute',
-                  px: 2,
-                  py: 1,
                   transform: 'translate(-50%, 0)',
+                  zIndex: 2,
                 }}
               >
-                {isVideoOpen ? (
-                  <VideocamIcon onClick={toggleVideo} sx={{ color: theme.palette.background.default }} />
-                ) : (
-                  <VideocamOffIcon onClick={toggleVideo} sx={{ color: theme.palette.background.default }} />
-                )}
-                {isMicOpen ? (
-                  <MicIcon onClick={toggleMic} sx={{ color: theme.palette.background.default }} />
-                ) : (
-                  <MicOffIcon onClick={toggleMic} sx={{ color: theme.palette.background.default }} />
-                )}
-                <SettingsIcon sx={{ color: theme.palette.background.default }} />
+                <VideoControls inCallRoom={false} localParticipant={room?.localParticipant} />
               </Box>
+              <Box
+                ref={videoRef}
+                sx={{
+                  height: '100%',
+                  left: 0,
+                  position: 'absolute',
+                  top: 0,
+                  width: '100%',
+                }}
+              ></Box>
             </Box>
           </Box>
         </Box>

@@ -121,8 +121,8 @@ export const PageForm: FC<PageFormProps> = ({
             .when('$validationRegex', (_, schema) => {
               return formInput.validationRegex
                 ? schema.matches(formInput.validationRegex, {
-                    message: formInput.validationRegexError,
                     excludeEmptyString: true,
+                    message: formInput.validationRegexError,
                   })
                 : schema;
             })
@@ -142,12 +142,12 @@ export const PageForm: FC<PageFormProps> = ({
   const validationSchema = Yup.object().shape(validation);
 
   const methods = useForm({
-    resolver: yupResolver(validationSchema),
     context: {
       formInputType: true,
       required: true,
       validationRegex: true,
     },
+    resolver: yupResolver(validationSchema),
   });
   return (
     <FormProvider {...methods}>
@@ -157,7 +157,7 @@ export const PageForm: FC<PageFormProps> = ({
             {formElements
               .filter((formInput) => !formInput.hidden)
               .map((formInput) => (
-                <Grid item key={formInput.name} xs={formInput.width || 12}>
+                <Grid key={formInput.name} item xs={formInput.width || 12}>
                   {(() => {
                     switch (formInput.type) {
                       case 'Checkbox':
@@ -201,16 +201,16 @@ export const PageForm: FC<PageFormProps> = ({
                         return (
                           <FreeMultiSelectInput
                             defaultValue={formInput.defaultValue as string[]}
-                            label={formInput.label || 'No label'}
                             helperText={formInput.helperText}
+                            label={formInput.label || 'No label'}
                             name={formInput.name}
-                            placeholder={formInput.placeholder}
                             // onChange={(event) => {
                             //   const target = event.target as HTMLInputElement;
                             //   methods.setValue(formInput.name, target.value);
                             //   formInput.onChange(event);
                             // }}
                             options={formInput.freeSelectOptions}
+                            placeholder={formInput.placeholder}
                             required={formInput.required}
                           />
                         );

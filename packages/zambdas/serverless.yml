@@ -25,7 +25,7 @@ functions:
           method: POST
     timeout: 25
     environment:
-      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
 
 plugins:
   - serverless-offline

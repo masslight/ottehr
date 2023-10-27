@@ -22,7 +22,7 @@ export function SelectSlot({ slots, timezone }: SelectSlotProps): JSX.Element {
 
   if (slots.length === 0) {
     return (
-      <Typography variant="body2" sx={{ mt: 1, textAlign: 'center' }}>
+      <Typography sx={{ mt: 1, textAlign: 'center' }} variant="body2">
         {t('schedule.errors.noneToday')}
       </Typography>
     );
@@ -35,7 +35,7 @@ export function SelectSlot({ slots, timezone }: SelectSlotProps): JSX.Element {
         const startDateTimezoneAdjusted = startDate.setZone(timezone);
         const isSelected = selectedSlot === slot;
         return (
-          <Grid item key={idx}>
+          <Grid key={idx} item>
             <AppointmentSlotButton
               color="secondary"
               onClick={() => updateAppointmentSlot(slot, dispatch)}

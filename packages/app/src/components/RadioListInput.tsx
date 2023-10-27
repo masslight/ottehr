@@ -41,7 +41,7 @@ export const RadioListInput: FC<RadioListInputProps> = ({
       name={name}
       render={({ field }) => {
         return (
-          <FormControl error={!!errors[name]} required={required} sx={{ width: '100%', mt: 3.5 }}>
+          <FormControl error={!!errors[name]} required={required} sx={{ mt: 3.5, width: '100%' }}>
             {/* Had to add a margin here and on FormControl because none of the variants worked properly */}
             {/* Same for padding. I want to emphasize how much I hate this. */}
             <BoldPrimaryInputLabel htmlFor={`${name}-label`} shrink sx={{ mt: -2.25 }}>
@@ -51,14 +51,14 @@ export const RadioListInput: FC<RadioListInputProps> = ({
               {options.map((option) => {
                 return (
                   <FormControlLabel
+                    key={option.value}
                     control={<Radio />}
                     label={option.label}
-                    key={option.value}
                     onChange={onChange}
-                    value={option.value}
                     sx={{
                       mr: 5,
                     }}
+                    value={option.value}
                   />
                 );
               })}
