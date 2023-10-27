@@ -30,7 +30,12 @@ pnpm start
      return createZambdaFromSkeleton(input, <YOUR_FUNCTION_NAME>);
    };
 
+   interface <YOUR_FUNCTION_NAME>Input {
+     <KEY>: <TYPE>;
+   }
+
    const <YOUR_FUNCTION_NAME> = (input: ZambdaFunctionInput): ZambdaFunctionResponse => {
+    const { <KEY> } = input.body as <YOUR_FUNCTION_NAME>Input;
    };
    ```
 
