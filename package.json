@@ -5,6 +5,7 @@
   "scripts": {
     "build": "sh ./scripts/build.sh",
     "lint": "eslint packages/",
+    "start": "pnpm start:local",
     "start:local": "pnpm recursive run start:local",
     "start:dev": "pnpm recursive run start:dev",
     "start:testing": "pnpm recursive run start:testing",
