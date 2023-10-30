@@ -49,5 +49,15 @@
       "nurse": "Nurse"
     },
     "update": "Update"
+  },
+  "register": {
+    "checkboxes": {
+      "notPatient": "I am not a patient.",
+      "termsConditions": "I accept the terms and conditions."
+    },
+    "connect": "Connect with patients virtually",
+    "signUp": "Sign Up",
+    "register": "Register as a provider",
+    "welcome": "Welcome to Ottehr"
   }
 }

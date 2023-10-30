@@ -22,5 +22,5 @@ export const getProvider = (): any => ({
 });
 
 export const isAvailable = (slug: string): boolean => {
-  return !['aykhanahmadli', 'samiromarov'].includes(slug);
+  return !['aykhanahmadli', 'nathanrobinson', 'omarzubaidi', 'samiromarov'].includes(slug);
 };
