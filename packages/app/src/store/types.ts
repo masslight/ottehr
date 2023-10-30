@@ -72,8 +72,6 @@ export type PatientInfo = {
 };
 
 export type Action =
-  | { fhirClient: FhirClient; type: 'SET_FHIR_CLIENT' }
-  | { type: 'SET_ZAMBDA_CLIENT'; zambdaClient: ZambdaClient }
   | { additionalInformation: string; type: 'UPDATE_ADDITIONAL_INFORMATION' }
   | { appointmentId: string; type: 'UPDATE_APPOINTMENT_ID' }
   | { appointmentSlot: string; type: 'UPDATE_APPOINTMENT_SLOT' }
@@ -81,18 +79,20 @@ export type Action =
   | { consentFormId: string; type: 'UPDATE_CONSENT_FORM_ID' }
   | { consentFormSignerId: string; type: 'UPDATE_CONSENT_FORM_SIGNER_ID' }
   | { coverageId: string; type: 'UPDATE_COVERAGE_ID' }
-  | { locations: Location[]; type: 'UPDATE_LOCATIONS' }
+  | { fhirClient: FhirClient; type: 'SET_FHIR_CLIENT' }
   | { locationId: string; type: 'UPDATE_LOCATION_ID' }
+  | { locations: Location[]; type: 'UPDATE_LOCATIONS' }
   | { patient: PatientInfo | undefined; type: 'UPDATE_PATIENT' }
   | { patients: Patient[]; type: 'UPDATE_PATIENTS' }
   | { phoneNumber: string; type: 'UPDATE_PHONE_NUMBER' }
   | { relatedPersonId: string; type: 'UPDATE_RELATED_PERSON_ID' }
   | { responsiblePartyId: string; type: 'UPDATE_RESPONSIBLE_PARTY_ID' }
   | { selectedApptSlotId: string; type: 'UPDATE_SELECTED_APPOINTMENT_SLOT_ID' }
-  | { location: Location; type: 'UPDATE_SELECTED_LOCATION' }
+  | { selectedLocation: Location; type: 'UPDATE_SELECTED_LOCATION' }
   | { slots: Slot[]; type: 'UPDATE_SLOTS' }
   | { submittedInsuranceType: string; type: 'UPDATE_SUBMITTED_INSURANCE_TYPE' }
-  | { timezone: string; type: 'UPDATE_TIMEZONE' };
+  | { timezone: string; type: 'UPDATE_TIMEZONE' }
+  | { type: 'SET_ZAMBDA_CLIENT'; zambdaClient: ZambdaClient };
 
 export type State = {
   additionalInformation?: string;
@@ -105,7 +105,7 @@ export type State = {
   fhirClient?: FhirClient;
   locationId?: string;
   locations?: Location[];
-  patientInfo?: PatientInfo;
+  patient?: PatientInfo;
   patients?: Patient[];
   phoneNumber?: string;
   relatedPersonId?: string;

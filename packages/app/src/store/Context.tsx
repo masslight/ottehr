@@ -39,7 +39,7 @@ const DataReducer = (state: State, action: Action): State => {
     case 'UPDATE_LOCATION_ID':
       return { ...state, locationId: action.locationId };
     case 'UPDATE_PATIENT':
-      return { ...state, patientInfo: action.patient };
+      return { ...state, patient: action.patient };
     case 'UPDATE_PATIENTS':
       return { ...state, patients: action.patients };
     case 'UPDATE_PHONE_NUMBER':
@@ -51,7 +51,7 @@ const DataReducer = (state: State, action: Action): State => {
     case 'UPDATE_SELECTED_APPOINTMENT_SLOT_ID':
       return { ...state, selectedApptSlotId: action.selectedApptSlotId };
     case 'UPDATE_SELECTED_LOCATION':
-      return { ...state, selectedLocation: action.location };
+      return { ...state, selectedLocation: action.selectedLocation };
     case 'UPDATE_SLOTS':
       return { ...state, slots: action.slots };
     case 'UPDATE_SUBMITTED_INSURANCE_TYPE':

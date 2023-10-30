@@ -131,9 +131,9 @@ export const updateSelectedAppointmentSlotId = ({ id }: { id: string }, dispatch
   });
 };
 
-export const updateSelectedLocation = (location: Location, dispatch: Dispatch<Action>): void => {
+export const updateSelectedLocation = (selectedLocation: Location, dispatch: Dispatch<Action>): void => {
   dispatch({
-    location,
+    selectedLocation,
     type: 'UPDATE_SELECTED_LOCATION',
   });
 };
