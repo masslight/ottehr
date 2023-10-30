@@ -7,7 +7,7 @@ import {
   CheckIn,
   PostCall,
   Dashboard,
-  ProviderRegistration,
+  Register,
   ProviderSettings,
   Version,
   VideoChatPage,
@@ -29,7 +29,7 @@ export default function App(): JSX.Element {
               <Route element={<PatientProvider />}>
                 <Route element={<CheckIn />} path={'/check-in'} />;
                 <Route element={<PostCall />} path={'/post-call'} />;
-                <Route element={<ProviderRegistration />} path={'/registration'} />;
+                <Route element={<Register />} path={'/register'} />;
                 <Route element={<VideoChatPage />} path={'/video-call'} />;
                 <Route element={<VideoSettings />} path={'/video-settings'} />;
                 <Route element={<WaitingRoom />} path={'/waiting-room'} />;

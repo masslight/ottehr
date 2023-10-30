@@ -40,7 +40,7 @@ interface FormData {
   title: string;
 }
 
-export const ProviderRegistration: FC = (): JSX.Element => {
+export const Register: FC = (): JSX.Element => {
   const {
     control,
     formState: { errors },
@@ -242,7 +242,7 @@ export const ProviderRegistration: FC = (): JSX.Element => {
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mx: { md: 12.5, xs: 2 }, my: { md: 10, xs: 4 } }}>
           <Typography variant="h4">Welcome to Ottehr</Typography>
           <Typography color="primary.light" sx={{ pb: 1 }} variant="h3">
-            Provider registration
+            Register as a provider
           </Typography>
           <form onSubmit={handleSubmit(onSubmit)}>
             <Box sx={{ alignItems: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}>
