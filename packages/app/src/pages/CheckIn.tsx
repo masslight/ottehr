@@ -16,6 +16,7 @@ export const CheckIn = (): JSX.Element => {
   const [isError, setIsError] = useState(false);
   const [name, setName] = useState(patientName);
 
+  // TODO hard-coded data
   const provider = {
     checkboxes: true,
     email: 'osmith@provider.com',
