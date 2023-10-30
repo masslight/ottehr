@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
 import { zapehrApi } from '../api';
-import { OttehrDefaultPatient, callButtonMobile } from '../assets/icons';
+import { callButtonMobile, defaultPatient } from '../assets/icons';
 import { getQueuedTimeFromTimestamp } from '../helpers';
 import { useVideoParticipant } from '../store';
 
@@ -73,7 +73,7 @@ export const PatientQueue: FC<PatientQueueProps> = ({ roomName, name, queuedTime
     <Box sx={{ m: 0, py: 1 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
         <Box sx={{ display: 'flex' }}>
-          <img alt="Patient Image" height="42px" src={OttehrDefaultPatient} />
+          <img alt="Patient Image" height="42px" src={defaultPatient} />
           <Box pl={2}>
             <Typography color="primary.contrast" variant="body1">
               {name}

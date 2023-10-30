@@ -23,9 +23,9 @@ import { otherColors } from '../OttehrThemeProvider';
 import {
   backgroundEllipseDark,
   backgroundEllipseLight,
-  OttehrPatientIcon,
-  OttehrProviderIcon,
-  OttehrRegistrationLogo,
+  patientIcon,
+  providerIcon,
+  registrationLogo,
 } from '../assets/icons';
 import { ZapEHRLogo } from '../components';
 
@@ -101,7 +101,7 @@ export const Register: FC = (): JSX.Element => {
             justifyContent: 'center',
           }}
         >
-          <Box component="img" src={OttehrRegistrationLogo} />
+          <Box component="img" src={registrationLogo} />
         </Box>
         <Box>
           <Typography color="primary.light" sx={{ py: 2, textAlign: 'center' }} variant="body1">
@@ -166,7 +166,7 @@ export const Register: FC = (): JSX.Element => {
               zIndex: '2',
             }}
           >
-            <Box component="img" src={OttehrPatientIcon} />
+            <Box component="img" src={patientIcon} />
           </Box>
           <Box
             sx={{
@@ -188,7 +188,7 @@ export const Register: FC = (): JSX.Element => {
               },
             }}
           >
-            <Box component="img" src={OttehrProviderIcon} sx={{ mb: -1 }} />
+            <Box component="img" src={providerIcon} sx={{ mb: -1 }} />
           </Box>
           <Box
             sx={{

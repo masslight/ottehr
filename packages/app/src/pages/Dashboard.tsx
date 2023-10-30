@@ -4,7 +4,7 @@ import { Box, Button, Container, Divider, Typography, useTheme } from '@mui/mate
 import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import { otherColors } from '../OttehrThemeProvider';
-import { OttehrDefaultProvider } from '../assets/icons';
+import { defaultProvider } from '../assets/icons';
 import { Footer, PatientQueue, TopAppBar } from '../components';
 
 export const Dashboard = (): JSX.Element => {
@@ -78,7 +78,7 @@ export const Dashboard = (): JSX.Element => {
               </Typography>
             </Box>
             <Box sx={{ maxWidth: { md: '100px', xs: '50px' } }}>
-              <img alt="Provider Image" src={OttehrDefaultProvider} width={'100%'} />
+              <img alt="Provider Image" src={defaultProvider} width={'100%'} />
             </Box>
           </Box>
           <Box
