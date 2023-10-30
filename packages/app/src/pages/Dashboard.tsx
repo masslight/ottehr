@@ -7,7 +7,7 @@ import { otherColors } from '../OttehrThemeProvider';
 import { OttehrDefaultProvider } from '../assets/icons';
 import { Footer, PatientQueue, TopAppBar } from '../components';
 
-export const ProviderDashboard = (): JSX.Element => {
+export const Dashboard = (): JSX.Element => {
   const { t } = useTranslation();
   const theme = useTheme();
 

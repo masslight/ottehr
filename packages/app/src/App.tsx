@@ -6,7 +6,7 @@ import {
   VideoSettings,
   CheckIn,
   PostCall,
-  ProviderDashboard,
+  Dashboard,
   ProviderRegistration,
   ProviderSettings,
   Version,
@@ -34,7 +34,7 @@ export default function App(): JSX.Element {
                 <Route element={<VideoSettings />} path={'/video-settings'} />;
                 <Route element={<WaitingRoom />} path={'/waiting-room'} />;
               </Route>
-              <Route element={<ProviderDashboard />} path={'/dashboard'} />;
+              <Route element={<Dashboard />} path={'/dashboard'} />;
               <Route element={<ProviderSettings />} path={'/provider-profile'} />;
             </Routes>
           ) : (

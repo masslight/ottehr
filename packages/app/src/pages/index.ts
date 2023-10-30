@@ -1,6 +1,6 @@
 export * from './CheckIn';
 export * from './PostCall';
-export * from './ProviderDashboard';
+export * from './Dashboard';
 export * from './ProviderRegistration';
 export * from './ProviderSettings';
 export * from './Version';
