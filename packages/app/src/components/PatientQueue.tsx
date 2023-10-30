@@ -51,7 +51,7 @@ export const PatientQueue: FC<PatientQueueProps> = ({ roomName, name, queuedTime
       });
 
       setRoom(connectedRoom);
-      navigate(`/video-call/`);
+      navigate(`/video-call`);
       // Navigate to room or handle UI updates
     } catch (error) {
       console.error('An error occurred:', error);

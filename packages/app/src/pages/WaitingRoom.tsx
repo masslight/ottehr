@@ -34,7 +34,6 @@ export const WaitingRoom = (): JSX.Element => {
 
   // navigate to video call when provider joins
   useEffect(() => {
-    console.log('numParticipants', numParticipants);
     if (numParticipants > 1) {
       navigate(`/video-call/`);
     }
