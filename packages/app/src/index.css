@@ -44,23 +44,23 @@ code {
 
 @font-face {
   font-family: 'PMDiatype';
+  font-weight: bold;
+  font-style: italic;
   src: local('PMDiatype'), url(./fonts/PMDiatype-BoldItalic.woff2) format('woff2'), local('PMDiatype'),
     url(./fonts/PMDiatype-BoldItalic.woff) format('woff'), local('PMDiatype'),
     url(./fonts/PMDiatype-BoldItalic.woff2) format('otf');
-  font-weight: bold;
-  font-style: italic;
 }
 
 @font-face {
   font-family: 'TiemposText';
-  src: local('TiemposText'), url(./fonts/tiempos-text-regular.woff2) format('woff2'), local('TiemposText'),
+  src: local('TiemposText'), url(./fonts/TiemposText-Regular.woff2) format('woff2'), local('TiemposText'),
     url(./fonts/TiemposText-Regular.otf) format('otf'), local('TiemposText'),
     url(./fonts/TiemposText-Regular.ttf) format('ttf');
 }
 
 @font-face {
   font-family: 'TiemposHeadline';
-  src: local('TiemposHeadline'), url(./fonts/tiempos-headline-regular.woff2) format('woff2'), local('TiemposHeadline'),
+  src: local('TiemposHeadline'), url(./fonts/TiemposHeadline-Regular.woff2) format('woff2'), local('TiemposHeadline'),
     url(./fonts/TiemposHeadline-Regular.otf) format('otf'), local('TiemposHeadline'),
     url(./fonts/TiemposHeadline-Regular.ttf) format('ttf');
 }
