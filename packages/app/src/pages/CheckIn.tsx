@@ -1,18 +1,29 @@
 import { Button, TextField, Typography, useTheme } from '@mui/material';
 import { Box } from '@mui/system';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { otherStyling } from '../OttehrThemeProvider';
 import { Footer, Header } from '../components';
+import { needsDot } from '../helpers';
 import { usePatient } from '../store';
 
 export const CheckIn = (): JSX.Element => {
-  const { patientName, setPatientName } = usePatient();
-  const [name, setName] = useState(patientName);
-  const [isError, setIsError] = useState(false);
-
-  const theme = useTheme();
   const navigate = useNavigate();
+  const { patientName, setPatientName } = usePatient();
+  const theme = useTheme();
+  const { t } = useTranslation();
+  const [isError, setIsError] = useState(false);
+  const [name, setName] = useState(patientName);
+
+  const provider = {
+    checkboxes: true,
+    email: 'osmith@provider.com',
+    'first name': 'Olivia',
+    'last name': 'Smith',
+    slug: 'oliviasmith',
+    title: 'Dr',
+  };
 
   const handleSubmit = (event: any): void => {
     event.preventDefault();
@@ -33,7 +44,11 @@ export const CheckIn = (): JSX.Element => {
         justifyContent: 'space-between',
       }}
     >
-      <Header isProvider={true} providerName="Dr. Smith" title="Waiting Room" />
+      <Header
+        isProvider={true}
+        providerName={`${provider.title} ${provider['last name']}`}
+        title={t('checkIn.headerTitle')}
+      />
       {/* Middle Section */}
       <Box
         sx={{
@@ -60,10 +75,13 @@ export const CheckIn = (): JSX.Element => {
             }}
           >
             <Typography sx={{ pb: 1 }} variant="h5">
-              Check in
+              {t('checkIn.checkIn')}
             </Typography>
             <Typography sx={{ pb: 3 }} variant="body1">
-              Please enter your name to join the call line of Dr. Olivia Smith
+              {t('checkIn.enterNamePrefix')}
+              {provider.title}
+              {needsDot(provider.title) ? '.' : ''} {provider['first name']} {provider['last name']}
+              {t('checkIn.enterNameSuffix')}
             </Typography>
             <form onSubmit={handleSubmit}>
               <Box
@@ -75,7 +93,7 @@ export const CheckIn = (): JSX.Element => {
               >
                 <TextField
                   error={isError}
-                  label="Your Name"
+                  label={t('checkIn.yourName')}
                   onChange={(e) => setName(e.target.value)}
                   sx={{ pb: 2, width: '100%' }}
                   value={name}
@@ -89,7 +107,7 @@ export const CheckIn = (): JSX.Element => {
                   type="submit"
                   variant="contained"
                 >
-                  Check In
+                  {t('checkIn.checkIn')}
                 </Button>
               </Box>
             </form>

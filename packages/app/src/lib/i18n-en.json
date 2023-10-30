@@ -8,5 +8,12 @@
     "shareLink": "To invite patients to your room share this link",
     "startCall": "Start Call",
     "waiting": "Waiting"
+  },
+  "checkIn": {
+    "headerTitle": "Waiting Room",
+    "checkIn": "Check In",
+    "yourName": "Your Name",
+    "enterNamePrefix": "Please enter your name to join ",
+    "enterNameSuffix": "'s call line."
   }
 }
