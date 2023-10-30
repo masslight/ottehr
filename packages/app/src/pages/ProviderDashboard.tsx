@@ -134,7 +134,7 @@ export const ProviderDashboard = (): JSX.Element => {
 
         <Box
           sx={{
-            background: 'linear-gradient(21deg, rgba(40, 150, 198, 0.60) 3.6%, rgba(80, 96, 241, 0.00) 40%), #263954',
+            background: otherColors.dashboardGradient,
             display: 'flex',
             flexDirection: 'column',
             flexGrow: 1,

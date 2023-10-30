@@ -1,13 +1,14 @@
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import { FC } from 'react';
+import { otherColors } from '../OttehrThemeProvider';
 
 export const LoadingSpinner: FC = () => {
   return (
     <Box
       sx={{
         alignItems: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        backgroundColor: otherColors.blackTransparent,
         display: 'flex',
         height: '100vh',
         justifyContent: 'center',

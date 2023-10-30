@@ -8,6 +8,7 @@ import Box from '@mui/material/Box';
 import { Dispatch, FC, SetStateAction, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LocalParticipant } from 'twilio-video';
+import { otherColors } from '../OttehrThemeProvider';
 import { useVideoParticipant } from '../store';
 import { CallSettings } from './CallSettings';
 
@@ -58,7 +59,7 @@ export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom, localPartici
       <Box
         sx={{
           alignItems: 'center',
-          backgroundColor: 'rgba(50, 63, 83, 0.87)',
+          backgroundColor: otherColors.biscay,
           borderRadius: 5,
           bottom: 16,
           display: 'flex',

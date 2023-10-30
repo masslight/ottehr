@@ -83,7 +83,7 @@ export const WaitingRoom = (): JSX.Element => {
             <Box
               sx={{
                 alignItems: 'center',
-                backgroundColor: 'rgba(50, 63, 83, 0.87)',
+                backgroundColor: otherColors.biscay,
                 borderRadius: 2,
                 display: 'flex',
                 flexDirection: 'column',

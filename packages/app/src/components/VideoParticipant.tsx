@@ -9,6 +9,7 @@ import {
   RemoteVideoTrack,
   VideoTrack,
 } from 'twilio-video';
+import { otherColors } from '../OttehrThemeProvider';
 import { useVideoParticipant } from '../store';
 
 interface ParticipantProps {
@@ -137,7 +138,7 @@ export const VideoParticipant: FC<ParticipantProps> = ({ participant }) => {
       <Box autoPlay={true} component="audio" muted={false} ref={audioRef} sx={{ display: 'none' }} />
       <Box
         sx={{
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          backgroundColor: otherColors.blackTransparent,
           bottom: 0,
           color: 'white',
           left: 0,
