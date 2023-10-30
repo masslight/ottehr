@@ -59,5 +59,13 @@
     "signUp": "Sign Up",
     "register": "Register as a provider",
     "welcome": "Welcome to Ottehr"
+  },
+  "video": {
+    "continueWithout": "Continue without camera and microphone",
+    "enableBoth": "Enable camera and microphone",
+    "enableCamAndMic": "Enable your camera and microphone",
+    "enableInBrowser": "Enable camera in your browser",
+    "missingRoom": "Missing created room.",
+    "permissionAccess": "Please give us access to your camera and microphone for a video call."
   }
 }

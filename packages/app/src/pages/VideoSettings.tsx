@@ -1,21 +1,27 @@
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import { Box, Button, Typography, useTheme } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
 import { otherColors, otherStyling } from '../OttehrThemeProvider';
 import { zapehrApi } from '../api';
 import { Footer, Header } from '../components';
+import { createProviderName } from '../helpers';
 import { useDevices } from '../hooks';
 import { useVideoParticipant } from '../store';
+import { getProvider } from '../helpers/mockData';
 
 export const VideoSettings = (): JSX.Element => {
-  const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom } = useVideoParticipant();
-  const theme = useTheme();
   const navigate = useNavigate();
-
-  //TODO: hard coded room name for now, note: twilio free rooms are limited to 2 participant, and it takes around 15-20 seconds to disconnect a participant
-  const roomName = 'test1';
+  const theme = useTheme();
+  const { t } = useTranslation();
+  const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom } = useVideoParticipant();
+  // Note: twilio free rooms are limited to 2 participant, and it takes around 15-20 seconds to disconnect a participant
   const hasVideoDevice = useDevices().videoInputDevices.length > 0;
+
+  // TODO hard-coded data
+  const provider = getProvider();
+  const roomName = 'test1';
   const toggleMicAndCam = async (userInput: boolean): Promise<void> => {
     try {
       setIsMicOpen(userInput);
@@ -64,7 +70,7 @@ export const VideoSettings = (): JSX.Element => {
         },
       }}
     >
-      <Header isProvider={true} providerName="Dr. Smith" title="Waiting Room" />
+      <Header isProvider={true} providerName={createProviderName(provider)} title={t('general.waitingRoom')} />
       {/* Middle Section */}
       <Box
         sx={{
@@ -85,10 +91,8 @@ export const VideoSettings = (): JSX.Element => {
               },
             }}
           >
-            <Typography variant="h5">Enable your camera and microphone</Typography>
-            <Typography variant="body1">
-              Please give us access to your camera and microphone for a video call
-            </Typography>
+            <Typography variant="h5">{t('video.enableCamAndMic')}</Typography>
+            <Typography variant="body1">{t('video.permissionAccess')}</Typography>
             <Box
               sx={{
                 alignItems: 'center',
@@ -114,12 +118,12 @@ export const VideoSettings = (): JSX.Element => {
                 }}
                 variant="body1"
               >
-                Enable camera in your browser
+                {t('video.enableInBrowser')}
               </Typography>
             </Box>
 
             <Button onClick={() => toggleMicAndCam(true)} sx={otherStyling.buttonPrimary} variant="contained">
-              Enable camera and microphone
+              {t('video.enableBoth')}
             </Button>
             <Button
               onClick={() => toggleMicAndCam(false)}
@@ -132,7 +136,7 @@ export const VideoSettings = (): JSX.Element => {
               }}
               variant="text"
             >
-              Continue without camera and microphone
+              {t('video.continueWithout')}
             </Button>
           </Box>
         </Box>
