@@ -1,6 +1,6 @@
 import { FC, useState } from 'react';
-import { VideoRoom } from '../components';
 import { Participant } from 'twilio-video';
+import { VideoRoom } from '../components';
 import { useVideoParticipant } from '../store';
 
 export const VideoChatPage: FC = () => {
