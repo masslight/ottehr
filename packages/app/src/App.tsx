@@ -10,8 +10,8 @@ import {
   ProviderRegistration,
   ProviderSettings,
   Version,
-  WaitingRoom,
   VideoChatPage,
+  WaitingRoom,
 } from './pages';
 import { PatientProvider, VideoParticipantProvider } from './store';
 

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   Box,
   Button,
@@ -12,6 +11,7 @@ import {
   Select,
   SelectChangeEvent,
 } from '@mui/material';
+import { FC, useEffect, useRef, useState } from 'react';
 import {
   createLocalAudioTrack,
   createLocalVideoTrack,
@@ -19,9 +19,8 @@ import {
   LocalVideoTrack,
   LocalParticipant,
 } from 'twilio-video';
+import { useDevices } from '../hooks';
 import { useVideoParticipant } from '../store';
-import useDevices from '../hooks/twilio/useDevices';
-import { ChangeEvent, FC, useEffect, useRef, useState } from 'react';
 
 interface CallSettingsProps {
   localParticipant: LocalParticipant | undefined;

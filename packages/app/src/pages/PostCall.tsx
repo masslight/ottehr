@@ -1,7 +1,7 @@
 import { Box, Button, Typography, useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { Footer, ProviderHeaderSection, TopAppBar } from '../components';
 import { otherStyling } from '../OttehrThemeProvider';
+import { Footer, ProviderHeaderSection, TopAppBar } from '../components';
 
 export const PostCall = (): JSX.Element => {
   const navigate = useNavigate();
@@ -11,7 +11,7 @@ export const PostCall = (): JSX.Element => {
     navigate('/dashboard');
   };
 
-  // Mock datas to be replaced
+  // Mock data to be replaced
   const mockCallDuration = '15:05';
   const isProvider = true;
   const patientName = 'Jack Nickers';
@@ -73,7 +73,7 @@ export const PostCall = (): JSX.Element => {
                   ...otherStyling.buttonPrimary,
                   px: 2,
                   text: 'primary.contrast',
-                  width: 'fit-content', // Kept the width as 'fit-content'
+                  width: 'fit-content',
                 }}
                 variant="contained"
               >

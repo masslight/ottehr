@@ -1,6 +1,6 @@
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
-import { Container, Box, Button, Divider, Typography, useTheme } from '@mui/material';
+import { Box, Button, Container, Divider, Typography, useTheme } from '@mui/material';
 import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import { otherColors } from '../OttehrThemeProvider';
@@ -9,7 +9,6 @@ import { Footer, PatientQueue, TopAppBar } from '../components';
 
 export const ProviderDashboard = (): JSX.Element => {
   const { t } = useTranslation();
-
   const theme = useTheme();
 
   // hard coded patients data for now

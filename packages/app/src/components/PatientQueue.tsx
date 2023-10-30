@@ -1,12 +1,12 @@
 import { Box, Button, Typography } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { OttehrDefaultPatient, callButtonMobile } from '../assets/icons';
-import { getQueuedTimeFromTimestamp } from '../helpers';
 import { useNavigate } from 'react-router-dom';
-import { useVideoParticipant } from '../store';
 import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
 import { zapehrApi } from '../api';
+import { OttehrDefaultPatient, callButtonMobile } from '../assets/icons';
+import { getQueuedTimeFromTimestamp } from '../helpers';
+import { useVideoParticipant } from '../store';
 
 export interface PatientQueueProps {
   name: string;
@@ -15,15 +15,15 @@ export interface PatientQueueProps {
 }
 
 export const PatientQueue: FC<PatientQueueProps> = ({ roomName, name, queuedTime }) => {
-  const { t } = useTranslation();
-  const { setIsVideoOpen, setIsMicOpen, setRoom, setLocalTracks } = useVideoParticipant();
   const navigate = useNavigate();
+  const { t } = useTranslation();
+  const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom } = useVideoParticipant();
   const [relativeQueuedTime, setRelativeQueuedTime] = useState(getQueuedTimeFromTimestamp(queuedTime));
 
   const startCall = async (): Promise<void> => {
     try {
-      setIsVideoOpen(true);
       setIsMicOpen(true);
+      setIsVideoOpen(true);
 
       const fetchedToken = await zapehrApi.getTwilioToken(roomName);
       if (fetchedToken === null) {

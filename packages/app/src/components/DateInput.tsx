@@ -3,9 +3,9 @@ import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { otherColors, otherStyling } from '../OttehrThemeProvider';
 import { CustomAdapterLuxon } from '../helpers';
 import i18n from '../lib/i18n';
-import { otherColors, otherStyling } from '../OttehrThemeProvider';
 import { BoldPrimaryInputLabel } from './BoldPrimaryInputLabel';
 import { InputHelperText } from './InputHelperText';
 

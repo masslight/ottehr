@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 // The type of the value that is returned by a promise resolution
 type ThenArg<T> = T extends PromiseLike<infer U> ? U : never;
@@ -23,7 +23,7 @@ async function getDeviceInfo(): Promise<DeviceInfo> {
   };
 }
 
-export default function useDevices(): DeviceInfo {
+export function useDevices(): DeviceInfo {
   const [deviceInfo, setDeviceInfo] = useState<ThenArg<ReturnType<typeof getDeviceInfo>>>({
     audioInputDevices: [],
     audioOutputDevices: [],

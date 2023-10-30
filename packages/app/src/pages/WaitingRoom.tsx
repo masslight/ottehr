@@ -1,11 +1,10 @@
 import { Box, Typography, useTheme } from '@mui/material';
-
-import { Footer, ProviderHeaderSection, VideoControls } from '../components';
-import { useVideoParticipant } from '../store';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useLocalVideo } from '../hooks/twilio/useLocalVideo';
 import { otherColors, otherStyling } from '../OttehrThemeProvider';
+import { Footer, ProviderHeaderSection, VideoControls } from '../components';
+import { useLocalVideo } from '../hooks';
+import { useVideoParticipant } from '../store';
 
 export const WaitingRoom = (): JSX.Element => {
   const { room, localTracks } = useVideoParticipant();

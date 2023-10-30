@@ -1,15 +1,13 @@
-import Box from '@mui/material/Box';
-import { Dispatch, FC, SetStateAction, useState } from 'react';
-import { LocalParticipant } from 'twilio-video';
-
 import CallEndIcon from '@mui/icons-material/CallEnd';
 import MicIcon from '@mui/icons-material/Mic';
 import MicOffIcon from '@mui/icons-material/MicOff';
 import SettingsIcon from '@mui/icons-material/Settings';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
-
+import Box from '@mui/material/Box';
+import { Dispatch, FC, SetStateAction, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { LocalParticipant } from 'twilio-video';
 import { useVideoParticipant } from '../store';
 import { CallSettings } from './CallSettings';
 
@@ -18,10 +16,10 @@ interface VideoControlsProps {
   localParticipant: LocalParticipant | undefined;
 }
 
-export const VideoControls: FC<VideoControlsProps> = ({ localParticipant, inCallRoom }) => {
-  const { room, localTracks, isMicOpen, setIsMicOpen, isVideoOpen, setIsVideoOpen } = useVideoParticipant();
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom, localParticipant }) => {
   const navigate = useNavigate();
+  const { isMicOpen, isVideoOpen, localTracks, room, setIsMicOpen, setIsVideoOpen } = useVideoParticipant();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const openSettings = (): void => {
     setIsSettingsOpen(true);
@@ -52,8 +50,8 @@ export const VideoControls: FC<VideoControlsProps> = ({ localParticipant, inCall
     });
   };
 
-  const toggleVideo = (): void => toggleTrack('video', setIsVideoOpen);
   const toggleMic = (): void => toggleTrack('audio', setIsMicOpen);
+  const toggleVideo = (): void => toggleTrack('video', setIsVideoOpen);
 
   return (
     <>

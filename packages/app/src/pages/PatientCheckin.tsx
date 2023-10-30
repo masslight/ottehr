@@ -2,9 +2,9 @@ import { Button, TextField, Typography, useTheme } from '@mui/material';
 import { Box } from '@mui/system';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { otherStyling } from '../OttehrThemeProvider';
 import { Footer, ProviderHeaderSection } from '../components';
 import { usePatient } from '../store';
-import { otherStyling } from '../OttehrThemeProvider';
 
 export const PatientCheckIn = (): JSX.Element => {
   const { patientName, setPatientName } = usePatient();

@@ -1,4 +1,7 @@
+import { useAuth0 } from '@auth0/auth0-react';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import MenuIcon from '@mui/icons-material/Menu';
 import {
   AppBar,
   Box,
@@ -18,9 +21,6 @@ import { FC, MouseEvent, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { otherColors } from '../OttehrThemeProvider';
 import { dashboardLogo } from '../assets/icons';
-import MenuIcon from '@mui/icons-material/Menu';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import { useAuth0 } from '@auth0/auth0-react';
 
 const pages = ['Dashboard'];
 
@@ -28,9 +28,10 @@ export const TopAppBar: FC = () => {
   const { logout } = useAuth0();
   const location = useLocation();
   const theme = useTheme();
-  const isActive = (path: string): boolean => location.pathname === path;
   const [anchorElUser, setAnchorElUser] = useState<HTMLElement | null>(null);
   const [menuOpen, setMenuOpen] = useState<boolean>(false);
+
+  const isActive = (path: string): boolean => location.pathname === path;
 
   const handleOpenUserMenu = (event: MouseEvent<HTMLElement>): void => {
     setAnchorElUser(event.currentTarget);

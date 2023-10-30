@@ -1,4 +1,5 @@
 export * from './BoldPrimaryInputLabel';
+export * from './CallSettings';
 export * from './CardComponent';
 export * from './CardWithDescription';
 export * from './CardWithLink';
@@ -15,6 +16,7 @@ export * from './FreeMultiSelectInput';
 export * from './InputHelperText';
 export * from './InputMask';
 export * from './LoadingComponent';
+export * from './LoadingSpinner';
 export * from './PageForm';
 export * from './PatientQueue';
 export * from './ProviderHeaderSection';
@@ -27,10 +29,7 @@ export * from './SelectInput';
 export * from './SelectSlot';
 export * from './TopAppBar';
 export * from './UploadComponent';
-export * from './ZapEHRLogo';
-
 export * from './VideoControls';
 export * from './VideoParticipant';
 export * from './VideoRoom';
-export * from './LoadingSpinner';
-export * from './CallSettings';
+export * from './ZapEHRLogo';

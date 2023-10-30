@@ -31,7 +31,6 @@ export const RadioListInput: FC<RadioListInputProps> = ({
     control,
     formState: { errors },
   } = useFormContext();
-
   // const theme = useTheme();
 
   return (

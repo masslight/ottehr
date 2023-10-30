@@ -18,6 +18,7 @@ export function SelectSlot({ slots, timezone }: SelectSlotProps): JSX.Element {
   const { state, dispatch } = useContext(DataContext);
   const theme = useTheme();
   const { t } = useTranslation();
+
   const selectedSlot = state.appointmentSlot;
 
   if (slots.length === 0) {

@@ -1,7 +1,7 @@
-import { Typography, Box, useTheme } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
-import { OttehrDefaultPatient, OttehrDefaultProvider } from '../assets/icons';
 import { otherColors } from '../OttehrThemeProvider';
+import { OttehrDefaultPatient, OttehrDefaultProvider } from '../assets/icons';
 
 interface ProviderHeaderSectionProps {
   isProvider: boolean;
@@ -9,8 +9,9 @@ interface ProviderHeaderSectionProps {
   title: string;
 }
 
-export const ProviderHeaderSection: FC<ProviderHeaderSectionProps> = ({ providerName, title, isProvider }) => {
+export const ProviderHeaderSection: FC<ProviderHeaderSectionProps> = ({ isProvider, providerName, title }) => {
   const theme = useTheme();
+
   return (
     <Box
       sx={{

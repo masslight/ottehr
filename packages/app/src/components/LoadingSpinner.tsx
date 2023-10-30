@@ -1,6 +1,6 @@
-import { FC } from 'react';
-import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
+import { FC } from 'react';
 
 export const LoadingSpinner: FC = () => {
   return (

@@ -17,8 +17,9 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { useState } from 'react';
+import { FC, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
+import { otherColors } from '../OttehrThemeProvider';
 import {
   backgroundEllipseDark,
   backgroundEllipseLight,
@@ -26,7 +27,6 @@ import {
   OttehrProviderIcon,
   OttehrRegistrationLogo,
 } from '../assets/icons';
-import { otherColors } from '../OttehrThemeProvider';
 import { ZapEHRLogo } from '../components';
 
 interface FormData {
@@ -40,11 +40,11 @@ interface FormData {
   title: string;
 }
 
-export const ProviderRegistration: React.FC = (): JSX.Element => {
+export const ProviderRegistration: FC = (): JSX.Element => {
   const {
-    handleSubmit,
     control,
     formState: { errors },
+    handleSubmit,
   } = useForm<FormData>({
     defaultValues: {
       acceptTerms: false,
@@ -71,7 +71,7 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
   };
 
   const [roomName, setRoomName] = useState<string>('');
-  const mockData = ['aykhanahmadli', 'samiromarov'];
+  const mockData = ['aykhanahmadli', 'nathanrobinson', 'omarzubaidi', 'samiromarov'];
   const isError = mockData.includes(roomName);
   const helperText = isError ? 'This name is already taken, please use another one' : '';
 
@@ -292,7 +292,7 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
                     <TextField
                       error={isError}
                       helperText={helperText}
-                      label="Room Name"
+                      label="Slug"
                       onChange={(e) => {
                         setRoomName(e.target.value);
                         field.onChange(e);

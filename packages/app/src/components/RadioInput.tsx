@@ -58,7 +58,6 @@ export const RadioInput: FC<RadioInputProps> = ({
     control,
     formState: { errors },
   } = useFormContext();
-
   const theme = useTheme();
   const { t } = useTranslation();
 

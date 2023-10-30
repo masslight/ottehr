@@ -17,6 +17,7 @@ import { Footer, ProviderHeaderSection, TopAppBar } from '../components';
 
 export const ProviderSettings = (): JSX.Element => {
   const theme = useTheme();
+
   const handleSubmit = (event: any): void => {
     event.preventDefault();
     // TODO: form submission structure
@@ -84,7 +85,7 @@ export const ProviderSettings = (): JSX.Element => {
                 <TextField
                   error={isError}
                   helperText={helperText}
-                  label="Room Name (slug)"
+                  label="Slug"
                   onChange={(e) => setRoomName(e.target.value)}
                   value={roomName}
                   variant="outlined"

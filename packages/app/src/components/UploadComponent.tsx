@@ -16,8 +16,8 @@ export const UploadComponent: FC<UploadComponentProps> = ({
   name,
   uploadDescription,
 }): JSX.Element => {
-  const theme = useTheme();
   const { control } = useFormContext();
+  const theme = useTheme();
 
   return (
     <Box
