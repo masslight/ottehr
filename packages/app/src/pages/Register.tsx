@@ -29,7 +29,7 @@ import {
   registrationLogo,
 } from '../assets/icons';
 import { ZapEHRLogo } from '../components';
-import { isAvailable } from '../helpers/mockData';
+import { getTitles, isAvailable } from '../helpers/mockData';
 
 interface FormData {
   acceptTerms: boolean;
@@ -74,8 +74,10 @@ export const Register: FC = (): JSX.Element => {
   };
 
   const [slug, setSlug] = useState<string>('');
+  // TODO hard-coded data
   const isError = !isAvailable(slug);
   const helperText = isError ? t('error.slugUnavailable') : '';
+  const titles = getTitles();
 
   const theme = useTheme();
 
@@ -256,12 +258,11 @@ export const Register: FC = (): JSX.Element => {
                   <FormControl variant="outlined">
                     <InputLabel>Title</InputLabel>
                     <Select label="Title" {...field}>
-                      <MenuItem value="assistant">{t('profile.titleOption.assistant')}</MenuItem>
-                      <MenuItem value="dr">{t('profile.titleOption.dr')}</MenuItem>
-                      <MenuItem value="mr">{t('profile.titleOption.mr')}</MenuItem>
-                      <MenuItem value="mrs">{t('profile.titleOption.mrs')}</MenuItem>
-                      <MenuItem value="ms">{t('profile.titleOption.ms')}</MenuItem>
-                      <MenuItem value="nurse">{t('profile.titleOption.nurse')}</MenuItem>
+                      {titles.map((title) => (
+                        <MenuItem key={title} value={title.toLowerCase()}>
+                          {t(`profile.titleOption.${title.toLowerCase()}`)}
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
                 )}

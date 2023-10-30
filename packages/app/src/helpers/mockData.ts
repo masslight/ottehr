@@ -21,6 +21,8 @@ export const getProvider = (): any => ({
   title: 'Dr',
 });
 
+export const getTitles = (): string[] => ['Assistant', 'Dr', 'Mr', 'Mrs', 'Ms', 'Nurse'];
+
 export const isAvailable = (slug: string): boolean => {
   return !['aykhanahmadli', 'nathanrobinson', 'omarzubaidi', 'samiromarov'].includes(slug);
 };

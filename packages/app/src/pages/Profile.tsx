@@ -15,8 +15,8 @@ import {
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Footer, Header, TopAppBar } from '../components';
-import { getProvider, isAvailable } from '../helpers/mockData';
 import { createProviderName } from '../helpers';
+import { getProvider, getTitles, isAvailable } from '../helpers/mockData';
 
 export const Profile = (): JSX.Element => {
   const theme = useTheme();
@@ -30,6 +30,7 @@ export const Profile = (): JSX.Element => {
   // TODO hard-coded data
   const provider = getProvider();
   const [slug, setSlug] = useState(provider.slug);
+  const titles = getTitles();
 
   const isError = !isAvailable(slug);
   const helperText = isError ? t('error.slugUnavailable') : '';
@@ -81,12 +82,11 @@ export const Profile = (): JSX.Element => {
                 <FormControl variant="outlined">
                   <InputLabel>{t('profile.title')}</InputLabel>
                   <Select label="Title">
-                    <MenuItem value="assistant">{t('profile.titleOption.assistant')}</MenuItem>
-                    <MenuItem value="dr">{t('profile.titleOption.dr')}</MenuItem>
-                    <MenuItem value="mr">{t('profile.titleOption.mr')}</MenuItem>
-                    <MenuItem value="mrs">{t('profile.titleOption.mrs')}</MenuItem>
-                    <MenuItem value="ms">{t('profile.titleOption.ms')}</MenuItem>
-                    <MenuItem value="nurse">{t('profile.titleOption.nurse')}</MenuItem>
+                    {titles.map((title) => (
+                      <MenuItem key={title} value={title.toLowerCase()}>
+                        {t(`profile.titleOption.${title.toLowerCase()}`)}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
                 <TextField label="First Name" variant="outlined" />
