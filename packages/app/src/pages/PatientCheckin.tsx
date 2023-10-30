@@ -18,7 +18,7 @@ export const PatientCheckIn = (): JSX.Element => {
     event.preventDefault();
     if (name) {
       setPatientName(name);
-      navigate('/checkin-permission');
+      navigate('/video-settings');
     } else {
       setIsError(true);
     }

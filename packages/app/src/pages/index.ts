@@ -1,4 +1,3 @@
-export * from './CheckInPermission';
 export * from './PatientCheckin';
 export * from './PostCall';
 export * from './ProviderDashboard';
@@ -7,3 +6,4 @@ export * from './ProviderSettings';
 export * from './Version';
 export * from './WaitingRoom';
 export * from './VideoChatPage';
+export * from './VideoSettings';

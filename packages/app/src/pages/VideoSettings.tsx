@@ -8,7 +8,7 @@ import { Footer, ProviderHeaderSection } from '../components';
 import { useDevices } from '../hooks';
 import { useVideoParticipant } from '../store';
 
-export const CheckInPermission = (): JSX.Element => {
+export const VideoSettings = (): JSX.Element => {
   const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom } = useVideoParticipant();
   const theme = useTheme();
   const navigate = useNavigate();
