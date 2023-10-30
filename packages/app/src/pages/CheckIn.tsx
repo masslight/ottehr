@@ -3,7 +3,7 @@ import { Box } from '@mui/system';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { otherStyling } from '../OttehrThemeProvider';
-import { Footer, ProviderHeaderSection } from '../components';
+import { Footer, Header } from '../components';
 import { usePatient } from '../store';
 
 export const CheckIn = (): JSX.Element => {
@@ -33,7 +33,7 @@ export const CheckIn = (): JSX.Element => {
         justifyContent: 'space-between',
       }}
     >
-      <ProviderHeaderSection isProvider={true} providerName="Dr. Smith" title="Waiting Room" />
+      <Header isProvider={true} providerName="Dr. Smith" title="Waiting Room" />
       {/* Middle Section */}
       <Box
         sx={{

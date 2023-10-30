@@ -2,7 +2,7 @@ import { Box, Typography, useTheme } from '@mui/material';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { otherColors, otherStyling } from '../OttehrThemeProvider';
-import { Footer, ProviderHeaderSection, VideoControls } from '../components';
+import { Footer, Header, VideoControls } from '../components';
 import { useLocalVideo } from '../hooks';
 import { useVideoParticipant } from '../store';
 
@@ -49,7 +49,7 @@ export const WaitingRoom = (): JSX.Element => {
         justifyContent: 'space-between',
       }}
     >
-      <ProviderHeaderSection isProvider={true} providerName="Dr. Smith" title="Waiting Room" />
+      <Header isProvider={true} providerName="Dr. Smith" title="Waiting Room" />
       {/* Middle Section */}
       <Box
         sx={{

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
 import { otherColors, otherStyling } from '../OttehrThemeProvider';
 import { zapehrApi } from '../api';
-import { Footer, ProviderHeaderSection } from '../components';
+import { Footer, Header } from '../components';
 import { useDevices } from '../hooks';
 import { useVideoParticipant } from '../store';
 
@@ -64,7 +64,7 @@ export const VideoSettings = (): JSX.Element => {
         },
       }}
     >
-      <ProviderHeaderSection isProvider={true} providerName="Dr. Smith" title="Waiting Room" />
+      <Header isProvider={true} providerName="Dr. Smith" title="Waiting Room" />
       {/* Middle Section */}
       <Box
         sx={{

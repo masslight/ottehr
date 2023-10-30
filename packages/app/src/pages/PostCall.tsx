@@ -1,7 +1,7 @@
 import { Box, Button, Typography, useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { otherStyling } from '../OttehrThemeProvider';
-import { Footer, ProviderHeaderSection, TopAppBar } from '../components';
+import { Footer, Header, TopAppBar } from '../components';
 
 export const PostCall = (): JSX.Element => {
   const navigate = useNavigate();
@@ -26,12 +26,12 @@ export const PostCall = (): JSX.Element => {
       }}
     >
       {isProvider ? (
+        <Header isProvider={isProvider} providerName="Dr. Smith" title="Waiting Room" />
+      ) : (
         <Box>
           <TopAppBar />
-          <ProviderHeaderSection isProvider={!isProvider} providerName={patientName} title="Call with" />
+          <Header isProvider={!isProvider} providerName={patientName} title="Call with" />
         </Box>
-      ) : (
-        <ProviderHeaderSection isProvider={isProvider} providerName="Dr. Smith" title="Waiting Room" />
       )}
 
       {/* Middle Section */}

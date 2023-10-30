@@ -3,13 +3,13 @@ import { FC } from 'react';
 import { otherColors } from '../OttehrThemeProvider';
 import { defaultPatient, defaultProvider } from '../assets/icons';
 
-interface ProviderHeaderSectionProps {
+interface HeaderProps {
   isProvider: boolean;
   providerName: string;
   title: string;
 }
 
-export const ProviderHeaderSection: FC<ProviderHeaderSectionProps> = ({ isProvider, providerName, title }) => {
+export const Header: FC<HeaderProps> = ({ isProvider, providerName, title }) => {
   const theme = useTheme();
 
   return (

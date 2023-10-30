@@ -13,7 +13,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { useState } from 'react';
-import { Footer, ProviderHeaderSection, TopAppBar } from '../components';
+import { Footer, Header, TopAppBar } from '../components';
 
 export const Profile = (): JSX.Element => {
   const theme = useTheme();
@@ -41,7 +41,7 @@ export const Profile = (): JSX.Element => {
       }}
     >
       <TopAppBar />
-      <ProviderHeaderSection isProvider={true} providerName="Dr. Olivia Smith" title="My profile" />
+      <Header isProvider={true} providerName="Dr. Olivia Smith" title="My profile" />
       <Box
         sx={{
           alignItems: 'center',
