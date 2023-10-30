@@ -12,6 +12,7 @@ import {
   SelectChangeEvent,
 } from '@mui/material';
 import { FC, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   createLocalAudioTrack,
   createLocalVideoTrack,
@@ -54,10 +55,10 @@ const DeviceSelector: FC<DeviceSelectorProps> = ({ devices, selectedDevice, hand
 );
 
 export const CallSettings: FC<CallSettingsProps> = ({ localParticipant, onClose, open }) => {
-  const { localTracks, setLocalTracks, selectedSpeaker, setSelectedSpeaker } = useVideoParticipant();
   const { audioInputDevices, videoInputDevices, audioOutputDevices } = useDevices();
-
   const videoRef = useRef<HTMLDivElement | null>(null);
+  const { t } = useTranslation();
+  const { localTracks, setLocalTracks, selectedSpeaker, setSelectedSpeaker } = useVideoParticipant();
 
   useEffect(() => {
     let localVideoTrackCleanup: LocalVideoTrack | null = null;
@@ -94,10 +95,9 @@ export const CallSettings: FC<CallSettingsProps> = ({ localParticipant, onClose,
     };
   }, [open]);
 
-  const [speakers, setSpeakers] = useState<string>(selectedSpeaker || '');
-
   const [camera, setCamera] = useState<string>('');
   const [microphone, setMicrophone] = useState<string>('');
+  const [speakers, setSpeakers] = useState<string>(selectedSpeaker || '');
 
   const updateDevice = async (type: string, deviceId: string): Promise<void> => {
     if (!localParticipant) return;
@@ -147,6 +147,7 @@ export const CallSettings: FC<CallSettingsProps> = ({ localParticipant, onClose,
     setSpeakers(selectedSpeakers);
   };
 
+  // TODO device labels translated without breaking video call functionality/back end submission
   const deviceConfigs = [
     {
       devices: videoInputDevices,
@@ -183,7 +184,7 @@ export const CallSettings: FC<CallSettingsProps> = ({ localParticipant, onClose,
 
   return (
     <Dialog maxWidth="sm" onClose={onClose} open={open}>
-      <DialogTitle>Call settings</DialogTitle>
+      <DialogTitle>{t('callSettings.callSettings')}</DialogTitle>
       <DialogContent>
         {/* Camera preview */}
         <Box
@@ -204,15 +205,15 @@ export const CallSettings: FC<CallSettingsProps> = ({ localParticipant, onClose,
           />
         ))}
         <Button color="primary" style={{ marginTop: '16px' }} variant="contained">
-          Having technical issues with the call?
+          {t('callSettings.technicalIssues')}
         </Button>
       </DialogContent>
       <DialogActions>
         <Button color="primary" onClick={onClose}>
-          Cancel
+          {t('callSettings.cancel')}
         </Button>
         <Button color="primary" onClick={handleSave}>
-          Save Changes
+          {t('callSettings.save')}
         </Button>
       </DialogActions>
     </Dialog>

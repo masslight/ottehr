@@ -75,7 +75,7 @@ export const Dashboard = (): JSX.Element => {
               </Typography>
             </Box>
             <Box sx={{ maxWidth: { md: '100px', xs: '50px' } }}>
-              <img alt={t('imageAlts.providerImage')} src={defaultProvider} width={'100%'} />
+              <img alt={t('imageAlts.provider')} src={defaultProvider} width={'100%'} />
             </Box>
           </Box>
           <Box

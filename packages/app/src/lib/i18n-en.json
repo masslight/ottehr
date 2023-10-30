@@ -1,8 +1,9 @@
 {
-  "general": {
-    "footer": "Powered by",
-    "startCall": "Start Call",
-    "waitingRoom": "Waiting Room"
+  "callSettings": {
+    "callSettings": "Call settings",
+    "cancel": "Cancel",
+    "save": "Save Changes",
+    "technicalIssues": "Having technical issues with the call?"
   },
   "checkIn": {
     "checkIn": "Check In",
@@ -23,8 +24,18 @@
   "error": {
     "slugUnavailable": "This slug is already taken, please use another one."
   },
+  "general": {
+    "footer": "Powered by",
+    "logOut": "Log out",
+    "openSettings": "Open Settings",
+    "profile": "Profile",
+    "startCall": "Start Call",
+    "waitingRoom": "Waiting Room"
+  },
   "imageAlts": {
-    "providerImage": "Provider Image"
+    "callButton": "Call button image",
+    "patient": "Patient image",
+    "provider": "Provider image"
   },
   "postCall": {
     "callEnded": "This call has ended.",

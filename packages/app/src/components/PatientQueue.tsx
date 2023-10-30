@@ -73,7 +73,7 @@ export const PatientQueue: FC<PatientQueueProps> = ({ roomName, name, queuedTime
     <Box sx={{ m: 0, py: 1 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
         <Box sx={{ display: 'flex' }}>
-          <img alt="Patient Image" height="42px" src={defaultPatient} />
+          <img alt={t('imageAlts.patient')} height="42px" src={defaultPatient} />
           <Box pl={2}>
             <Typography color="primary.contrast" variant="body1">
               {name}
@@ -92,7 +92,7 @@ export const PatientQueue: FC<PatientQueueProps> = ({ roomName, name, queuedTime
               display: { md: 'none' },
             }}
           >
-            <img alt="Call button image" src={callButtonMobile} />
+            <img alt={t('imageAlts.callButton')} src={callButtonMobile} />
           </Button>
         </Box>
       </Box>
