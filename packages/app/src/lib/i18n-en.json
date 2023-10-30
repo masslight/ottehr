@@ -20,6 +20,9 @@
     "shareLink": "To invite patients to your room, share this link.",
     "waiting": "Waiting"
   },
+  "error": {
+    "slugUnavailable": "This slug is already taken, please use another one."
+  },
   "imageAlts": {
     "providerImage": "Provider Image"
   },
@@ -29,5 +32,22 @@
     "durationPrefix": "Duration: ",
     "durationSuffix": " minutes.",
     "goToDashboard": "Go to Dashboard"
+  },
+  "profile": {
+    "email": "Email Address",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "myProfile": "My Profile",
+    "slug": "Slug",
+    "title": "Title",
+    "titleOption": {
+      "assistant": "Assistant",
+      "dr": "Dr",
+      "mr": "Mr",
+      "mrs": "Mrs",
+      "ms": "Ms",
+      "nurse": "Nurse"
+    },
+    "update": "Update"
   }
 }

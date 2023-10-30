@@ -8,32 +8,15 @@ import { otherColors } from '../OttehrThemeProvider';
 import { defaultProvider } from '../assets/icons';
 import { Footer, PatientQueue, TopAppBar } from '../components';
 import { createProviderName } from '../helpers';
+import { getPatients, getProvider } from '../helpers/mockData';
 
 export const Dashboard = (): JSX.Element => {
   const theme = useTheme();
   const { t } = useTranslation();
 
   // TODO hard-coded data
-  const patients = [
-    {
-      name: 'John Doe',
-      queuedTime: '2023-09-29T08:15:00Z',
-      roomName: 'testRoom',
-    },
-    {
-      name: 'Jane Smith',
-      queuedTime: '2023-09-29T15:54:00Z',
-      roomName: 'testRoom',
-    },
-  ];
-  const provider = {
-    checkboxes: true,
-    email: 'osmith@provider.com',
-    'first name': 'Olivia',
-    'last name': 'Smith',
-    slug: 'oliviasmith',
-    title: 'Dr',
-  };
+  const patients = getPatients();
+  const provider = getProvider();
 
   const hour = DateTime.now().get('hour');
 

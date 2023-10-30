@@ -13,21 +13,26 @@ import {
   useTheme,
 } from '@mui/material';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Footer, Header, TopAppBar } from '../components';
+import { getProvider, isAvailable } from '../helpers/mockData';
+import { createProviderName } from '../helpers';
 
 export const Profile = (): JSX.Element => {
   const theme = useTheme();
+  const { t } = useTranslation();
 
   const handleSubmit = (event: any): void => {
     event.preventDefault();
     // TODO: form submission structure
   };
 
-  const mockData = ['aykhanahmadli', 'samiromarov'];
-  const [roomName, setRoomName] = useState('oliviasmith');
+  // TODO hard-coded data
+  const provider = getProvider();
+  const [slug, setSlug] = useState(provider.slug);
 
-  const isError = mockData.includes(roomName);
-  const helperText = isError ? 'This name is already taken, please use another one' : '';
+  const isError = !isAvailable(slug);
+  const helperText = isError ? t('error.slugUnavailable') : '';
 
   return (
     <Container
@@ -41,7 +46,7 @@ export const Profile = (): JSX.Element => {
       }}
     >
       <TopAppBar />
-      <Header isProvider={true} providerName="Dr. Olivia Smith" title="My profile" />
+      <Header isProvider={true} providerName={createProviderName(provider)} title={t('profile.myProfile')} />
       <Box
         sx={{
           alignItems: 'center',
@@ -72,12 +77,16 @@ export const Profile = (): JSX.Element => {
           >
             <form onSubmit={handleSubmit}>
               <Box sx={{ alignItems: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {/* TODO form labels translated without breaking react hook form/back end submission */}
                 <FormControl variant="outlined">
-                  <InputLabel>Title</InputLabel>
+                  <InputLabel>{t('profile.title')}</InputLabel>
                   <Select label="Title">
-                    <MenuItem value="dr">Dr.</MenuItem>
-                    <MenuItem value="nurse">Nurse</MenuItem>
-                    <MenuItem value="assistant">Assistant</MenuItem>
+                    <MenuItem value="assistant">{t('profile.titleOption.assistant')}</MenuItem>
+                    <MenuItem value="dr">{t('profile.titleOption.dr')}</MenuItem>
+                    <MenuItem value="mr">{t('profile.titleOption.mr')}</MenuItem>
+                    <MenuItem value="mrs">{t('profile.titleOption.mrs')}</MenuItem>
+                    <MenuItem value="ms">{t('profile.titleOption.ms')}</MenuItem>
+                    <MenuItem value="nurse">{t('profile.titleOption.nurse')}</MenuItem>
                   </Select>
                 </FormControl>
                 <TextField label="First Name" variant="outlined" />
@@ -86,13 +95,13 @@ export const Profile = (): JSX.Element => {
                   error={isError}
                   helperText={helperText}
                   label="Slug"
-                  onChange={(e) => setRoomName(e.target.value)}
-                  value={roomName}
+                  onChange={(e) => setSlug(e.target.value)}
+                  value={slug}
                   variant="outlined"
                 />
                 <Box sx={{ alignItems: 'center', display: 'flex' }}>
                   <Box sx={{ mr: 1 }}>{isError ? <CancelIcon color="error" /> : <CheckIcon color="success" />}</Box>
-                  <Typography variant="body2">{`https://zapehr.app/${roomName}`}</Typography>
+                  <Typography variant="body2">{`https://zapehr.app/${slug}`}</Typography>
                 </Box>
                 <TextField label="Email Address" variant="outlined" />
                 <Button
@@ -105,7 +114,7 @@ export const Profile = (): JSX.Element => {
                   type="submit"
                   variant="contained"
                 >
-                  Update
+                  {t('profile.update')}
                 </Button>
               </Box>
             </form>

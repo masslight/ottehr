@@ -7,6 +7,7 @@ import { otherStyling } from '../OttehrThemeProvider';
 import { Footer, Header } from '../components';
 import { createProviderName } from '../helpers';
 import { usePatient } from '../store';
+import { getProvider } from '../helpers/mockData';
 
 export const CheckIn = (): JSX.Element => {
   const navigate = useNavigate();
@@ -17,14 +18,7 @@ export const CheckIn = (): JSX.Element => {
   const [name, setName] = useState(patientName);
 
   // TODO hard-coded data
-  const provider = {
-    checkboxes: true,
-    email: 'osmith@provider.com',
-    'first name': 'Olivia',
-    'last name': 'Smith',
-    slug: 'oliviasmith',
-    title: 'Dr',
-  };
+  const provider = getProvider();
 
   const handleSubmit = (event: any): void => {
     event.preventDefault();

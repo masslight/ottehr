@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { otherStyling } from '../OttehrThemeProvider';
 import { Footer, Header, TopAppBar } from '../components';
 import { createProviderName } from '../helpers';
+import { getPatients, getProvider } from '../helpers/mockData';
 
 export const PostCall = (): JSX.Element => {
   const navigate = useNavigate();
@@ -17,19 +18,8 @@ export const PostCall = (): JSX.Element => {
   // TODO hard-coded data
   const mockCallDuration = '15:05';
   const isProvider = true;
-  const patient = {
-    name: 'John Doe',
-    queuedTime: '2023-09-29T08:15:00Z',
-    roomName: 'testRoom',
-  };
-  const provider = {
-    checkboxes: true,
-    email: 'osmith@provider.com',
-    'first name': 'Olivia',
-    'last name': 'Smith',
-    slug: 'oliviasmith',
-    title: 'Dr',
-  };
+  const patient = getPatients()[0];
+  const provider = getProvider();
 
   return (
     <Box
