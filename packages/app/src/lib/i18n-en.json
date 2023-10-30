@@ -67,5 +67,8 @@
     "enableInBrowser": "Enable camera in your browser",
     "missingRoom": "Missing created room.",
     "permissionAccess": "Please give us access to your camera and microphone for a video call."
+  },
+  "waitingRoom": {
+    "startingSoon": "Your call will start soon."
   }
 }

@@ -59,6 +59,7 @@ export const Register: FC = (): JSX.Element => {
       title: '',
     },
   });
+  const theme = useTheme();
   const { t } = useTranslation();
 
   // const updateField = (field: keyof FormData, value: string | boolean): void => {
@@ -78,8 +79,6 @@ export const Register: FC = (): JSX.Element => {
   const isError = !isAvailable(slug);
   const helperText = isError ? t('error.slugUnavailable') : '';
   const titles = getTitles();
-
-  const theme = useTheme();
 
   return (
     <Box sx={{ display: 'flex', flexDirection: { md: 'row', xs: 'column' } }}>
