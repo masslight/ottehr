@@ -10,10 +10,10 @@
     "waiting": "Waiting"
   },
   "checkIn": {
-    "headerTitle": "Waiting Room",
     "checkIn": "Check In",
-    "yourName": "Your Name",
     "enterNamePrefix": "Please enter your name to join ",
-    "enterNameSuffix": "'s call line."
+    "enterNameSuffix": "'s call line.",
+    "headerTitle": "Waiting Room",
+    "yourName": "Your Name"
   }
 }
