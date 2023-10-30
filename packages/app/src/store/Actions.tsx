@@ -89,9 +89,9 @@ export const updateLocations = (locations: Location[], dispatch: Dispatch<Action
   });
 };
 
-export const updatePatient = (patient: PatientInfo | undefined, dispatch: Dispatch<Action>): void => {
+export const updatePatient = (patientInfo: PatientInfo | undefined, dispatch: Dispatch<Action>): void => {
   dispatch({
-    patient,
+    patientInfo,
     type: 'UPDATE_PATIENT',
   });
 };
