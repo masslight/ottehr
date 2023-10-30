@@ -1,13 +1,13 @@
 {
   "general": {
     "footer": "Powered by",
-    "startCall": "Start Call"
+    "startCall": "Start Call",
+    "waitingRoom": "Waiting Room"
   },
   "checkIn": {
     "checkIn": "Check In",
     "enterNamePrefix": "Please enter your name to join ",
     "enterNameSuffix": "'s call line.",
-    "headerTitle": "Waiting Room",
     "yourName": "Your Name"
   },
   "dashboard": {
@@ -15,12 +15,19 @@
     "greetingAfternoon": "Good Afternoon",
     "greetingEvening": "Good Evening",
     "greetingMorning": "Good Morning",
-    "patientsQueue": "Patients Queue",
+    "patientQueue": "Patient Queue",
     "sendEmail": "Send Email",
     "shareLink": "To invite patients to your room, share this link.",
     "waiting": "Waiting"
   },
   "imageAlts": {
     "providerImage": "Provider Image"
+  },
+  "postCall": {
+    "callEnded": "This call has ended.",
+    "callWith": "Call With",
+    "durationPrefix": "Duration: ",
+    "durationSuffix": " minutes.",
+    "goToDashboard": "Go to Dashboard"
   }
 }

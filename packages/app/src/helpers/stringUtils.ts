@@ -8,3 +8,11 @@ export const createProviderName = (provider: any, full?: boolean): string => {
   // Unless specifying not full name, return full name
   return `${title} ${full === false ? '' : provider['first name']} ${provider['last name']}`;
 };
+
+// TODO add patient type
+export const createPatientName = (patient: any, lastNameFirst?: boolean): string => {
+  if (lastNameFirst) {
+    return `${patient['last name']}, ${patient['first name']}`;
+  }
+  return `${patient['first name']} ${patient['last name']}`;
+};

@@ -10,8 +10,8 @@ import { Footer, PatientQueue, TopAppBar } from '../components';
 import { createProviderName } from '../helpers';
 
 export const Dashboard = (): JSX.Element => {
-  const { t } = useTranslation();
   const theme = useTheme();
+  const { t } = useTranslation();
 
   // TODO hard-coded data
   const patients = [
@@ -162,7 +162,7 @@ export const Dashboard = (): JSX.Element => {
           }}
         >
           <Typography color="primary.light" fontWeight={500} variant="h5">
-            {t('dashboard.patientsQueue')}
+            {t('dashboard.patientQueue')}
           </Typography>
 
           <Typography color="primary.contrast" fontWeight={500} sx={{ opacity: 0.6 }} variant="body2">

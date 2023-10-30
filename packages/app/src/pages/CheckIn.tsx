@@ -45,11 +45,7 @@ export const CheckIn = (): JSX.Element => {
         justifyContent: 'space-between',
       }}
     >
-      <Header
-        isProvider={true}
-        providerName={`${provider.title} ${provider['last name']}`}
-        title={t('checkIn.headerTitle')}
-      />
+      <Header isProvider={true} providerName={createProviderName(provider, false)} title={t('general.waitingRoom')} />
       {/* Middle Section */}
       <Box
         sx={{

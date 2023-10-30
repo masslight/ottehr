@@ -1,2 +1,2 @@
 export * from './dateUtils';
-export * from './provider';
+export * from './stringUtils';
