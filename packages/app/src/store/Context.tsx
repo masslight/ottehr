@@ -39,7 +39,7 @@ const DataReducer = (state: State, action: Action): State => {
     case 'UPDATE_LOCATION_ID':
       return { ...state, locationId: action.locationId };
     case 'UPDATE_PATIENT':
-      return { ...state, patient: action.patient };
+      return { ...state, patientInfo: action.patientInfo };
     case 'UPDATE_PATIENTS':
       return { ...state, patients: action.patients };
     case 'UPDATE_PHONE_NUMBER':

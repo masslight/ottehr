@@ -82,7 +82,7 @@ export type Action =
   | { fhirClient: FhirClient; type: 'SET_FHIR_CLIENT' }
   | { locationId: string; type: 'UPDATE_LOCATION_ID' }
   | { locations: Location[]; type: 'UPDATE_LOCATIONS' }
-  | { patient: PatientInfo | undefined; type: 'UPDATE_PATIENT' }
+  | { patientInfo: PatientInfo | undefined; type: 'UPDATE_PATIENT' }
   | { patients: Patient[]; type: 'UPDATE_PATIENTS' }
   | { phoneNumber: string; type: 'UPDATE_PHONE_NUMBER' }
   | { relatedPersonId: string; type: 'UPDATE_RELATED_PERSON_ID' }
@@ -105,7 +105,7 @@ export type State = {
   fhirClient?: FhirClient;
   locationId?: string;
   locations?: Location[];
-  patient?: PatientInfo;
+  patientInfo?: PatientInfo;
   patients?: Patient[];
   phoneNumber?: string;
   relatedPersonId?: string;
