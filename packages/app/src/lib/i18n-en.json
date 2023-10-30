@@ -1,24 +1,12 @@
 {
-  "errors": {
-    "noneToday": "No slots available"
-  },
   "general": {
-    "button": {
-      "back": "Back",
-      "checked": "Checked",
-      "close": "Close",
-      "unchecked": "Unchecked"
-    },
     "copyLink": "Copy Link",
-    "datePlaceholder": "MM/DD/YYYY",
     "footer": "Powered by",
     "goodMorning": "Good Morning",
     "patientsQueue": "Patients queue",
-    "required": "required field",
     "sendEmail": "Send Email",
     "shareLink": "To invite patients to your room share this link",
     "startCall": "Start Call",
-    "waiting": "Waiting",
-    "weekdays": ["S", "M", "T", "W", "T", "F", "S"]
+    "waiting": "Waiting"
   }
 }
