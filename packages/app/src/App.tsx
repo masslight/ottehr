@@ -25,8 +25,9 @@ export default function App(): JSX.Element {
       if (isAuthenticated) {
         try {
           const token = await getAccessTokenSilently();
+          console.log('token is', token);
           axios
-            .get('your-server/me-endpoint', {
+            .get('http://localhost:3301/local/zambda/get-slug-availability/execute-public', {
               headers: {
                 Authorization: `Bearer ${token}`,
               },

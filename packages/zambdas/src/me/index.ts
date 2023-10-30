@@ -1,41 +1,38 @@
-import { ZambdaInput } from '../types';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import jwt from 'jsonwebtoken';
+import { ZambdaInput } from '../types';
+import { getAuth0Token } from '../shared/getAuth0Token';
+import fetch from 'node-fetch';
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    const userDetails: string[] = [];
-    const token = input.headers.Authorization.split(' ')[1];
-    // Validate the Auth0 token and fetch user details
+    const accessToken = await getAuth0Token(input.secrets);
+    console.log(accessToken);
+    // const user = await getUser(accessToken);
+    const url = 'https://project-api.zapehr.com/v1/m2m';
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'x-zapehr-project-id': '2bea9e93-fd66-45d5-904a-568f1eebef37',
+      },
+      method: 'GET',
+    });
+    const data = await response.json();
 
-    const validateToken = (token: string): boolean => {
-      try {
-        const secretKey = 'secret-key'; //to do find the secret key
-        jwt.verify(token, secretKey);
-        return true;
-      } catch (error) {
-        console.error('Token validation failed:', error);
-        return false;
-      }
-    };
-
-    validateToken(token);
-
-    if (!userDetails) {
+    if (!accessToken) {
       return {
         statusCode: 404,
-        body: JSON.stringify({ message: 'User not found' }),
+        body: JSON.stringify({ error: 'User not found' }),
       };
     }
 
     return {
       statusCode: 200,
-      body: JSON.stringify(userDetails),
+      body: JSON.stringify(accessToken),
     };
   } catch (error) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: 'Internal Server Error' }),
+      body: JSON.stringify({ error: 'Internal Server Error' }),
     };
   }
 };
