@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { otherStyling } from '../OttehrThemeProvider';
 import { Footer, Header } from '../components';
-import { needsDot } from '../helpers';
+import { createProviderName } from '../helpers';
 import { usePatient } from '../store';
 
 export const CheckIn = (): JSX.Element => {
@@ -79,8 +79,7 @@ export const CheckIn = (): JSX.Element => {
             </Typography>
             <Typography sx={{ pb: 3 }} variant="body1">
               {t('checkIn.enterNamePrefix')}
-              {provider.title}
-              {needsDot(provider.title) ? '.' : ''} {provider['first name']} {provider['last name']}
+              {createProviderName(provider)}
               {t('checkIn.enterNameSuffix')}
             </Typography>
             <form onSubmit={handleSubmit}>
