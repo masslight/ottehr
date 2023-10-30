@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
 import { otherColors, otherStyling } from '../OttehrThemeProvider';
 import { zapehrApi } from '../api';
-import { ProviderHeaderSection, Footer } from '../components';
+import { Footer, ProviderHeaderSection } from '../components';
 import { useDevices } from '../hooks';
 import { useVideoParticipant } from '../store';
 
