@@ -6,7 +6,7 @@ import { otherStyling } from '../OttehrThemeProvider';
 import { Footer, ProviderHeaderSection } from '../components';
 import { usePatient } from '../store';
 
-export const PatientCheckIn = (): JSX.Element => {
+export const CheckIn = (): JSX.Element => {
   const { patientName, setPatientName } = usePatient();
   const [name, setName] = useState(patientName);
   const [isError, setIsError] = useState(false);

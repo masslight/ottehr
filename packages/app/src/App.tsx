@@ -4,7 +4,7 @@ import { OttehrThemeProvider } from './OttehrThemeProvider';
 import { ScrollToTop } from './components';
 import {
   VideoSettings,
-  PatientCheckIn,
+  CheckIn,
   PostCall,
   ProviderDashboard,
   ProviderRegistration,
@@ -27,7 +27,7 @@ export default function App(): JSX.Element {
             <Routes>
               <Route element={<Version />} path={'/'} />;
               <Route element={<PatientProvider />}>
-                <Route element={<PatientCheckIn />} path={'/checkin'} />;
+                <Route element={<CheckIn />} path={'/check-in'} />;
                 <Route element={<PostCall />} path={'/post-call'} />;
                 <Route element={<ProviderRegistration />} path={'/registration'} />;
                 <Route element={<VideoChatPage />} path={'/video-call'} />;

@@ -1,4 +1,4 @@
-export * from './PatientCheckin';
+export * from './CheckIn';
 export * from './PostCall';
 export * from './ProviderDashboard';
 export * from './ProviderRegistration';
