@@ -15,7 +15,7 @@ import {
 import { useState } from 'react';
 import { Footer, ProviderHeaderSection, TopAppBar } from '../components';
 
-export const ProviderSettings = (): JSX.Element => {
+export const Profile = (): JSX.Element => {
   const theme = useTheme();
 
   const handleSubmit = (event: any): void => {

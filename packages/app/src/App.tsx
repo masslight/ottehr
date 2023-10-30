@@ -8,7 +8,7 @@ import {
   PostCall,
   Dashboard,
   Register,
-  ProviderSettings,
+  Profile,
   Version,
   VideoChatPage,
   WaitingRoom,
@@ -35,7 +35,7 @@ export default function App(): JSX.Element {
                 <Route element={<WaitingRoom />} path={'/waiting-room'} />;
               </Route>
               <Route element={<Dashboard />} path={'/dashboard'} />;
-              <Route element={<ProviderSettings />} path={'/provider-profile'} />;
+              <Route element={<Profile />} path={'/profile'} />;
             </Routes>
           ) : (
             <Routes>
