@@ -1,19 +1,6 @@
 import { FhirClient, ZambdaClient } from '@zapehr/sdk';
 import { Location, Patient, Slot } from 'fhir/r4';
 
-export enum AdditionalInformationOptions {
-  'Drive by/Signage' = 'Drive by/Signage',
-  'Friend/Family' = 'Friend/Family',
-  'Google/internet search' = 'Google/internet search',
-  'Healthcare Professional' = 'Healthcare Professional',
-  'Internet ad' = 'Internet ad',
-  'Newsletter' = 'Newsletter',
-  'School' = 'School',
-  'Social media community group' = 'Social media community group',
-  'TV/Radio' = 'TV/Radio',
-  'Webinar' = 'Webinar',
-}
-
 export enum PatientEthnicity {
   'Hispanic/Latino' = 'Hispanic/Latino',
   'Not Hispanic/Latino' = 'Not Hispanic/Latino',
@@ -35,28 +22,6 @@ export enum PatientSex {
   Female = 'female',
   Male = 'male',
   Other = 'other',
-}
-
-export enum RelationshipToPatientOptions {
-  'Father' = 'Father',
-  'Legal Guardian' = 'Legal Guardian',
-  'Mother' = 'Mother',
-  'Self' = 'Self',
-  'Spouse ' = 'Spouse ',
-}
-
-export enum ResponsiblePartySex {
-  Female = 'female',
-  Male = 'male',
-  Other = 'other',
-}
-
-export enum ResponsiblePartyRelationship {
-  'Father' = 'Father',
-  'Legal Guardian' = 'Legal Guardian',
-  'Mother' = 'Mother',
-  'Self' = 'Self',
-  'Spouse' = 'Spouse',
 }
 
 export type PatientInfo = {
