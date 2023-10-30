@@ -9,9 +9,9 @@ export function validateRequestParameters(input: ZambdaInput): any {
   const { body } = JSON.parse(input.body);
 
   // Check existence of necessary fields
-  if (body === undefined) {
-    throw new Error('body field is required');
-  }
+  // if (body === undefined) {
+  //   throw new Error('body field is required');
+  // }
 
   return { body, secrets: input.secrets };
 }

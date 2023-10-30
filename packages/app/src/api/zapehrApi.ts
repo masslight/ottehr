@@ -5,7 +5,7 @@ export interface ZapehrSearchParameter {
   key: string;
   value: string;
 }
-
+import { Encounter } from 'fhir/r4';
 const CHECK_IN_ZAMBDA_ID = import.meta.env.VITE_CHECK_IN_ZAMBDA_ID;
 const GET_APPOINTMENTS_ZAMBDA_ID = import.meta.env.VITE_GET_APPOINTMENTS_ZAMBDA_ID;
 const GET_PATIENTS_ZAMBDA_ID = import.meta.env.VITE_GET_PATIENTS_ZAMBDA_ID;
@@ -106,6 +106,58 @@ class API {
       return signedUrl;
     } catch (error: unknown) {
       throw apiErrorToThrow(error);
+    }
+  }
+
+  async createTelemedRoom(): Promise<Encounter | null> {
+    try {
+      const response = await fetch('http://localhost:3301/local/zambda/telemed-room/execute-public', {
+        body: JSON.stringify({ testBody: 'test' }),
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        method: 'POST',
+      });
+
+      const responseBody = await response.json();
+      const encounter: Encounter | undefined = responseBody.version?.encounter;
+
+      if (!encounter) {
+        console.error('Encounter is missing in the response');
+        return null;
+      }
+
+      return encounter;
+    } catch (error) {
+      console.error('Error fetching encounter:', error);
+      return null;
+    }
+  }
+
+  async getTelemedToken(encounterId: string): Promise<string | null> {
+    try {
+      // hardcoded for development
+      const response = await fetch('http://localhost:3301/local/zambda/telemed-token/execute-public', {
+        body: JSON.stringify({ body: { encounterId } }),
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        method: 'POST',
+      });
+
+      const responseBody = await response.json();
+      const token = responseBody.version?.token;
+
+      if (!token) {
+        console.error('Token is missing in the response');
+        return null;
+      }
+      return token;
+    } catch (error) {
+      console.error('Error fetching token:', error);
+      return null;
     }
   }
 

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ZambdaInput } from '../types';
-import { CREATE_ROOM_VALID_ENCOUNTER, createEncounter, createFhirClient, getAuth0Token } from '../shared';
+import { CREATE_ROOM_VALID_ENCOUNTER, getAuth0Token } from '../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import fetch from 'node-fetch';
 import { Encounter } from 'fhir/r4';
@@ -10,7 +10,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   // hardcoded for testing
   const PROJECT_ID = '4564eab4-c85f-48e6-97a9-1382c39f07c4';
   const M2M_ID = '92a80a55-0ceb-480b-8113-ca2a24627526';
-  const PATIENT_ID = '12bf5b37-e0b8-42e0-8dcf-dc8c4aefc000';
   const PROVIDER_PROFILE = 'Practitioner/ded0ff7e-1c5b-40d5-845b-3ae679de95cd';
 
   try {

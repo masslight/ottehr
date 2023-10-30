@@ -9,23 +9,25 @@ import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
 import { zapehrApi } from '../api';
 
 export interface PatientQueueProps {
+  encounterId: string;
   name: string;
   queuedTime: string;
-  roomName: string;
 }
 
-export const PatientQueue: FC<PatientQueueProps> = ({ roomName, name, queuedTime }) => {
+export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, name, queuedTime }) => {
   const { t } = useTranslation();
   const { setIsVideoOpen, setIsMicOpen, setRoom, setLocalTracks } = useVideoParticipant();
   const navigate = useNavigate();
   const [relativeQueuedTime, setRelativeQueuedTime] = useState(getQueuedTimeFromTimestamp(queuedTime));
 
+  // todo: get this from encounter extension
+  const roomSID = 'testRoom';
   const startCall = async (): Promise<void> => {
     try {
       setIsVideoOpen(true);
       setIsMicOpen(true);
 
-      const fetchedToken = await zapehrApi.getTwilioToken(roomName);
+      const fetchedToken = await zapehrApi.getTelemedToken(encounterId);
       if (fetchedToken === null) {
         console.error('Failed to fetch token');
         return;
@@ -45,7 +47,7 @@ export const PatientQueue: FC<PatientQueueProps> = ({ roomName, name, queuedTime
 
       const connectedRoom = await Video.connect(fetchedToken, {
         audio: true,
-        name: roomName,
+        name: roomSID,
         tracks: localTracks,
         video: true,
       });

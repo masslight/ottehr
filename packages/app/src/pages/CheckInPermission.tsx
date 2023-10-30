@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import { Button, Box, Typography, useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
@@ -7,6 +8,7 @@ import { useVideoParticipant } from '../store';
 import { zapehrApi } from '../api';
 import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
 import useDevices from '../hooks/twilio/useDevices';
+import { Encounter } from 'fhir/r4';
 
 export const CheckInPermission = (): JSX.Element => {
   const { setIsVideoOpen, setIsMicOpen, setRoom, setLocalTracks } = useVideoParticipant();
@@ -14,22 +16,45 @@ export const CheckInPermission = (): JSX.Element => {
   const navigate = useNavigate();
 
   //TODO: hard coded room name for now, note: twilio free rooms are limited to 2 participant, and it takes around 15-20 seconds to disconnect a participant
-  const roomName = 'test1';
   const hasVideoDevice = useDevices().videoInputDevices.length > 0;
   const toggleCamMic = async (userInput: boolean): Promise<void> => {
     try {
       setIsVideoOpen(userInput);
       setIsMicOpen(userInput);
 
-      const fetchedToken = await zapehrApi.getTwilioToken(roomName);
-      if (fetchedToken === null) {
-        console.error('Failed to fetch token');
+      const encounter: Encounter | null = await zapehrApi.createTelemedRoom();
+      if (encounter === null) {
+        console.error('Failed to create telemed room');
         return;
       }
-      console.log('hasVideoDevice', hasVideoDevice);
+
+      const roomSID = encounter?.extension
+        ?.find((ext: any) => ext.url === 'https://extensions.fhir.zapehr.com/encounter-virtual-service-pre-release')
+        ?.extension?.find((innerExt: any) => innerExt.url === 'addressString')?.valueString;
+
+      if (roomSID) {
+        console.log('RoomSID:', roomSID);
+      } else {
+        console.log('RoomSID not found');
+      }
+
+      const encounterId = encounter.id || '';
+
+      const twilioToken = await zapehrApi.getTelemedToken(encounterId);
+
+      // local express for testing
+      // const twilioToken = await zapehrApi.getTwilioToken('test');
+
+      if (twilioToken === null) {
+        console.error('Failed to get Twilio token');
+        return;
+      }
+
+      console.log('Twilio token:', twilioToken);
+
       const tracks = await Video.createLocalTracks({
         audio: true,
-        video: hasVideoDevice,
+        video: true,
       });
 
       const localTracks = tracks.filter((track) => track.kind === 'audio' || track.kind === 'video') as (
@@ -39,13 +64,14 @@ export const CheckInPermission = (): JSX.Element => {
 
       setLocalTracks(localTracks);
 
-      const connectedRoom = await Video.connect(fetchedToken, {
+      const connectedRoom = await Video.connect(twilioToken, {
         audio: true,
-        name: roomName,
+        // logLevel: 'debug',
+        // name: encounterId,
         tracks: localTracks,
-        video: hasVideoDevice,
+        video: true,
       });
-
+      console.log('Connected room:', connectedRoom);
       setRoom(connectedRoom);
       navigate('/waiting-room');
     } catch (error) {

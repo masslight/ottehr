@@ -15,14 +15,14 @@ export const ProviderDashboard = (): JSX.Element => {
   // hard coded patients data for now
   const patientsData = [
     {
+      encounterId: 'testRoom',
       name: 'John Doe',
       queuedTime: '2023-09-29T08:15:00Z',
-      roomName: 'testRoom',
     },
     {
+      encounterId: 'testRoom',
       name: 'Jane Smith',
       queuedTime: '2023-09-29T15:54:00Z',
-      roomName: 'testRoom',
     },
   ];
 
