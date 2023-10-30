@@ -31,8 +31,8 @@ export default function App(): JSX.Element {
                 <Route element={<CheckInPermission />} path={'/checkin-permission'} />;
                 <Route element={<PostCall />} path={'/post-call'} />;
                 <Route element={<ProviderRegistration />} path={'/registration'} />;
-                <Route element={<WaitingRoom />} path={'/waiting-room'} />;
                 <Route element={<VideoChatPage />} path={'/video-call'} />;
+                <Route element={<WaitingRoom />} path={'/waiting-room'} />;
               </Route>
               <Route element={<ProviderDashboard />} path={'/dashboard'} />;
               <Route element={<ProviderSettings />} path={'/provider-profile'} />;
