@@ -69,7 +69,7 @@ jobs:
       - name: Pull Vercel Environment Information
         run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }} --scope=ottehr --cwd=${{ env.PACKAGE_LOCATION }}
       - name: Copy vercel env config file to vercel.json
-        run cp ${{ env.PACKAGE_LOCATION }}/vercel/vercel-${{ github.event.inputs.environment }}.json ${{ env.PACKAGE_LOCATION }}/vercel.json
+        run: cp ${{ env.PACKAGE_LOCATION }}/vercel/vercel-${{ github.event.inputs.environment }}.json ${{ env.PACKAGE_LOCATION }}/vercel.json
       - name: Build Project Artifacts
         run: vercel build --token=${{ secrets.VERCEL_TOKEN }} --scope=ottehr --cwd=packages/app
 
