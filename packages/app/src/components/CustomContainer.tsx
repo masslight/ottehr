@@ -1,4 +1,4 @@
-import { Box, Container, useTheme } from '@mui/material';
+import { Box, Container } from '@mui/material';
 import { FC, ReactNode } from 'react';
 import { Footer } from './Footer';
 import { Header } from './Header';
@@ -10,8 +10,6 @@ interface CustomContainerProps {
   title: string;
 }
 export const CustomContainer: FC<CustomContainerProps> = ({ children, isProvider, subtitle, title }) => {
-  const theme = useTheme();
-
   return (
     <Container
       disableGutters
@@ -19,29 +17,35 @@ export const CustomContainer: FC<CustomContainerProps> = ({ children, isProvider
       sx={{
         display: 'flex',
         flexDirection: 'column',
+        // If there isn't enough content, this stops the footer from being in the middle of the page
+        height: '100vh',
         justifyContent: 'space-between',
         minHeight: '100vh',
       }}
     >
-      <Header isProvider={isProvider} subtitle={subtitle} title={title} />
       <Box
-        maxWidth="md"
-        sx={{
-          alignSelf: 'center',
-          display: 'flex',
-          flexDirection: 'column',
-          flexGrow: '1',
-          px: 12.5,
-          py: 7.5,
-          [theme.breakpoints.down('md')]: {
-            px: 2,
-            py: 4,
-          },
-        }}
+        alignItems="center"
+        display="flex"
+        flexDirection="column"
+        justifyContent="space-between"
+        sx={{ height: '100%', m: 0 }}
       >
-        {children}
+        <Header isProvider={isProvider} subtitle={subtitle} title={title} />
+        <Container
+          maxWidth="md"
+          sx={{
+            alignSelf: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            flexGrow: '1',
+            px: { md: 12.5, xs: 2 },
+            py: { md: 7.5, xs: 4 },
+          }}
+        >
+          {children}
+        </Container>
+        <Footer />
       </Box>
-      <Footer />
     </Container>
   );
 };
