@@ -31,11 +31,11 @@ export const PostCall = (): JSX.Element => {
       }}
     >
       {isProvider ? (
-        <Header isProvider={true} providerName={createProviderName(provider, false)} title={t('general.waitingRoom')} />
+        <Header isProvider={true} subtitle={createProviderName(provider, false)} title={t('general.waitingRoom')} />
       ) : (
         <Box>
           <TopAppBar />
-          <Header isProvider={false} providerName={createProviderName(patient)} title={t('postCall.callWith')} />
+          <Header isProvider={false} subtitle={createProviderName(patient)} title={t('postCall.callWith')} />
         </Box>
       )}
 

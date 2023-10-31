@@ -47,7 +47,7 @@ export const Profile = (): JSX.Element => {
       }}
     >
       <TopAppBar />
-      <Header isProvider={true} providerName={createProviderName(provider)} title={t('profile.myProfile')} />
+      <Header isProvider={true} subtitle={createProviderName(provider)} title={t('profile.myProfile')} />
       <Box
         sx={{
           alignItems: 'center',

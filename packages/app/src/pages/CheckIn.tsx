@@ -1,10 +1,10 @@
-import { Button, TextField, Typography, useTheme } from '@mui/material';
+import { Button, TextField, Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { otherStyling } from '../OttehrThemeProvider';
-import { Footer, Header } from '../components';
+import { CustomContainer } from '../components';
 import { createProviderName } from '../helpers';
 import { usePatient } from '../store';
 import { getProvider } from '../helpers/mockData';
@@ -12,7 +12,6 @@ import { getProvider } from '../helpers/mockData';
 export const CheckIn = (): JSX.Element => {
   const navigate = useNavigate();
   const { patientName, setPatientName } = usePatient();
-  const theme = useTheme();
   const { t } = useTranslation();
   const [isError, setIsError] = useState(false);
   const [name, setName] = useState(patientName);
@@ -31,80 +30,43 @@ export const CheckIn = (): JSX.Element => {
   };
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100vh',
-        justifyContent: 'space-between',
-      }}
-    >
-      <Header isProvider={true} providerName={createProviderName(provider, false)} title={t('general.waitingRoom')} />
-      {/* Middle Section */}
-      <Box
-        sx={{
-          display: 'flex',
-          flexGrow: '1',
-          justifyContent: 'center',
-        }}
-      >
+    <CustomContainer isProvider={false} subtitle={createProviderName(provider, false)} title={t('general.waitingRoom')}>
+      <Typography sx={{ pb: 1 }} variant="h5">
+        {t('checkIn.checkIn')}
+      </Typography>
+      <Typography sx={{ pb: 3 }} variant="body1">
+        {t('checkIn.enterNamePrefix')}
+        {createProviderName(provider)}
+        {t('checkIn.enterNameSuffix')}
+      </Typography>
+      <form onSubmit={handleSubmit}>
         <Box
-          maxWidth="md"
           sx={{
-            [theme.breakpoints.down('md')]: {
-              px: 2,
-            },
+            alignItems: 'flex-start',
+            display: 'flex',
+            flexDirection: 'column',
           }}
-          width="100%"
         >
-          <Box
+          <TextField
+            error={isError}
+            label={t('checkIn.yourName')}
+            onChange={(e) => setName(e.target.value)}
+            sx={{ pb: 2, width: '100%' }}
+            value={name}
+            variant="outlined"
+          />
+          <Button
             sx={{
-              ...otherStyling.boxPadding,
-              [theme.breakpoints.down('md')]: {
-                ...otherStyling.boxPaddingMobile,
-              },
+              ...otherStyling.buttonPrimary,
+              width: '100%',
             }}
+            type="submit"
+            variant="contained"
           >
-            <Typography sx={{ pb: 1 }} variant="h5">
-              {t('checkIn.checkIn')}
-            </Typography>
-            <Typography sx={{ pb: 3 }} variant="body1">
-              {t('checkIn.enterNamePrefix')}
-              {createProviderName(provider)}
-              {t('checkIn.enterNameSuffix')}
-            </Typography>
-            <form onSubmit={handleSubmit}>
-              <Box
-                sx={{
-                  alignItems: 'flex-start',
-                  display: 'flex',
-                  flexDirection: 'column',
-                }}
-              >
-                <TextField
-                  error={isError}
-                  label={t('checkIn.yourName')}
-                  onChange={(e) => setName(e.target.value)}
-                  sx={{ pb: 2, width: '100%' }}
-                  value={name}
-                  variant="outlined"
-                />
-                <Button
-                  sx={{
-                    ...otherStyling.buttonPrimary,
-                    width: '100%',
-                  }}
-                  type="submit"
-                  variant="contained"
-                >
-                  {t('checkIn.checkIn')}
-                </Button>
-              </Box>
-            </form>
-          </Box>
+            {t('checkIn.checkIn')}
+          </Button>
         </Box>
-      </Box>
-      <Footer />
-    </Box>
+      </form>
+    </CustomContainer>
   );
 };

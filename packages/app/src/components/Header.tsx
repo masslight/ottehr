@@ -6,11 +6,11 @@ import { defaultPatient, defaultProvider } from '../assets/icons';
 
 interface HeaderProps {
   isProvider: boolean;
-  providerName: string;
+  subtitle: string;
   title: string;
 }
 
-export const Header: FC<HeaderProps> = ({ isProvider, providerName, title }) => {
+export const Header: FC<HeaderProps> = ({ isProvider, subtitle, title }) => {
   const theme = useTheme();
   const { t } = useTranslation();
 
@@ -72,7 +72,7 @@ export const Header: FC<HeaderProps> = ({ isProvider, providerName, title }) => 
                 {title}
               </Typography>
               <Typography color="primary.contrast" variant="h4">
-                {providerName}
+                {subtitle}
               </Typography>
             </Box>
           </Box>

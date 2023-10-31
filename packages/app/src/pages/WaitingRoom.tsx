@@ -55,7 +55,7 @@ export const WaitingRoom = (): JSX.Element => {
         justifyContent: 'space-between',
       }}
     >
-      <Header isProvider={true} providerName={createProviderName(provider)} title={t('general.waitingRoom')} />
+      <Header isProvider={true} subtitle={createProviderName(provider)} title={t('general.waitingRoom')} />
       {/* Middle Section */}
       <Box
         sx={{
