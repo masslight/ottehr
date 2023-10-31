@@ -1,4 +1,4 @@
-import { Box, useTheme } from '@mui/material';
+import { Box, Container, useTheme } from '@mui/material';
 import { FC, ReactNode } from 'react';
 import { Footer } from './Footer';
 import { Header } from './Header';
@@ -13,12 +13,14 @@ export const CustomContainer: FC<CustomContainerProps> = ({ children, isProvider
   const theme = useTheme();
 
   return (
-    <Box
+    <Container
+      disableGutters
+      maxWidth={false}
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        height: '100vh',
         justifyContent: 'space-between',
+        minHeight: '100vh',
       }}
     >
       <Header isProvider={isProvider} subtitle={subtitle} title={title} />
@@ -40,6 +42,6 @@ export const CustomContainer: FC<CustomContainerProps> = ({ children, isProvider
         {children}
       </Box>
       <Footer />
-    </Box>
+    </Container>
   );
 };
