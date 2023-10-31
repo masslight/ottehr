@@ -9,12 +9,13 @@ import { getQueuedTimeFromTimestamp } from '../helpers';
 import { useVideoParticipant } from '../store';
 
 export interface PatientQueueProps {
-  name: string;
+  firstName: string;
+  lastName: string;
   queuedTime: string;
   roomName: string;
 }
 
-export const PatientQueue: FC<PatientQueueProps> = ({ roomName, name, queuedTime }) => {
+export const PatientQueue: FC<PatientQueueProps> = ({ firstName, lastName, queuedTime, roomName }) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom } = useVideoParticipant();
@@ -76,7 +77,7 @@ export const PatientQueue: FC<PatientQueueProps> = ({ roomName, name, queuedTime
           <img alt={t('imageAlts.patient')} height="42px" src={defaultPatient} />
           <Box pl={2}>
             <Typography color="primary.contrast" variant="body1">
-              {name}
+              {firstName} {lastName}
             </Typography>
             <Typography color="primary.contrast" sx={{ opacity: 0.6 }} variant="body2">
               {relativeQueuedTime}
