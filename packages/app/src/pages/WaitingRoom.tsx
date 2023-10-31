@@ -1,9 +1,9 @@
-import { Box, Typography, useTheme } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { otherColors, otherStyling } from '../OttehrThemeProvider';
-import { Footer, Header, VideoControls } from '../components';
+import { otherColors } from '../OttehrThemeProvider';
+import { CustomContainer, VideoControls } from '../components';
 import { createProviderName } from '../helpers';
 import { useLocalVideo } from '../hooks';
 import { useVideoParticipant } from '../store';
@@ -12,7 +12,6 @@ import { getProvider } from '../helpers/mockData';
 export const WaitingRoom = (): JSX.Element => {
   const navigate = useNavigate();
   const videoRef = useRef<HTMLDivElement | null>(null);
-  const theme = useTheme();
   const { t } = useTranslation();
   const { room, localTracks } = useVideoParticipant();
   useLocalVideo(videoRef, localTracks);
@@ -47,91 +46,54 @@ export const WaitingRoom = (): JSX.Element => {
   const provider = getProvider();
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100vh',
-        justifyContent: 'space-between',
-      }}
-    >
-      <Header isProvider={true} subtitle={createProviderName(provider)} title={t('general.waitingRoom')} />
-      {/* Middle Section */}
+    <CustomContainer isProvider={false} subtitle={createProviderName(provider)} title={t('general.waitingRoom')}>
+      <Typography sx={{ pb: 1 }} variant="h5">
+        {t('waitingRoom.startingSoon')}
+      </Typography>
+
       <Box
         sx={{
+          alignItems: 'center',
+          backgroundColor: otherColors.biscay,
+          borderRadius: 2,
           display: 'flex',
-          flexGrow: '1',
+          flexDirection: 'column',
           justifyContent: 'center',
+          minHeight: '20vh',
+          overflow: 'hidden',
+          position: 'relative',
+          px: 15,
+          py: 10,
         }}
       >
         <Box
-          maxWidth="md"
           sx={{
-            [theme.breakpoints.down('sm')]: {
-              px: 2,
-            },
+            backgroundColor: otherColors.biscay,
+            borderRadius: 5,
+            bottom: 16,
+            display: 'flex',
+            gap: 1,
+            justifyContent: 'center',
+            left: '50%',
+            maxWidth: 'fit-content',
+            position: 'absolute',
+            transform: 'translate(-50%, 0)',
+            zIndex: 2,
           }}
-          width="100%"
         >
-          <Box
-            sx={{
-              ...otherStyling.boxPadding,
-              [theme.breakpoints.down('sm')]: {
-                ...otherStyling.boxPaddingMobile,
-              },
-            }}
-          >
-            <Typography sx={{ pb: 1 }} variant="h5">
-              {t('waitingRoom.startingSoon')}
-            </Typography>
-
-            <Box
-              sx={{
-                alignItems: 'center',
-                backgroundColor: otherColors.biscay,
-                borderRadius: 2,
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                minHeight: '20vh',
-                overflow: 'hidden',
-                position: 'relative',
-                px: 15,
-                py: 10,
-              }}
-            >
-              <Box
-                sx={{
-                  backgroundColor: otherColors.biscay,
-                  borderRadius: 5,
-                  bottom: 16,
-                  display: 'flex',
-                  gap: 1,
-                  justifyContent: 'center',
-                  left: '50%',
-                  maxWidth: 'fit-content',
-                  position: 'absolute',
-                  transform: 'translate(-50%, 0)',
-                  zIndex: 2,
-                }}
-              >
-                <VideoControls inCallRoom={false} localParticipant={room?.localParticipant} />
-              </Box>
-              <Box
-                ref={videoRef}
-                sx={{
-                  height: '100%',
-                  left: 0,
-                  position: 'absolute',
-                  top: 0,
-                  width: '100%',
-                }}
-              ></Box>
-            </Box>
-          </Box>
+          <VideoControls inCallRoom={false} localParticipant={room?.localParticipant} />
         </Box>
+        <Box
+          ref={videoRef}
+          sx={{
+            height: '100%',
+            left: 0,
+            position: 'absolute',
+            top: 0,
+            width: '100%',
+          }}
+        ></Box>
       </Box>
-      <Footer />
-    </Box>
+    </CustomContainer>
   );
 };

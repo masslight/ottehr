@@ -303,14 +303,6 @@ export const components: Components = {
 };
 
 export const otherStyling = {
-  boxPadding: {
-    px: 12.5,
-    py: 7.5,
-  },
-  boxPaddingMobile: {
-    px: 2,
-    py: 4,
-  },
   buttonPrimary: {
     borderRadius: '4px',
     color: palette.background.default,
