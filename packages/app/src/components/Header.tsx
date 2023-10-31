@@ -1,16 +1,19 @@
-import { Typography, Box, useTheme } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
-import { OttehrDefaultPatient, OttehrDefaultProvider } from '../assets/icons';
+import { useTranslation } from 'react-i18next';
 import { otherColors } from '../OttehrThemeProvider';
+import { defaultPatient, defaultProvider } from '../assets/icons';
 
-interface ProviderHeaderSectionProps {
+interface HeaderProps {
   isProvider: boolean;
   providerName: string;
   title: string;
 }
 
-export const ProviderHeaderSection: FC<ProviderHeaderSectionProps> = ({ providerName, title, isProvider }) => {
+export const Header: FC<HeaderProps> = ({ isProvider, providerName, title }) => {
   const theme = useTheme();
+  const { t } = useTranslation();
+
   return (
     <Box
       sx={{
@@ -44,9 +47,13 @@ export const ProviderHeaderSection: FC<ProviderHeaderSectionProps> = ({ provider
             }}
           >
             {isProvider ? (
-              <img alt="Provider Image" src={OttehrDefaultProvider} style={{ height: '6.25rem', width: '6.25rem' }} />
+              <img
+                alt={t('imageAlts.provider')}
+                src={defaultProvider}
+                style={{ height: '6.25rem', width: '6.25rem' }}
+              />
             ) : (
-              <img alt="Patient Image" src={OttehrDefaultPatient} style={{ height: '6.25rem', width: '6.25rem' }} />
+              <img alt={t('imageAlts.patient')} src={defaultPatient} style={{ height: '6.25rem', width: '6.25rem' }} />
             )}
 
             <Box

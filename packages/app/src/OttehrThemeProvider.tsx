@@ -22,6 +22,7 @@ export const otherColors = {
   background: '#5324BE',
   bannerGradient: 'linear-gradient(89deg, rgba(40, 160, 198, 0.60) 5.05%, rgba(80, 96, 241, 0.17) 50.42%), #263954',
   biscay: 'rgba(50, 63, 83, 0.87)',
+  blackTransparent: 'rgba(0, 0, 0, 0.5)',
   borderGray: '#D6D8DF',
   borderLightBlue: '#4294F3',
   brown: '#604203',

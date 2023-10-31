@@ -1,14 +1,15 @@
 import { Box } from '@mui/material';
-import { FC, useState, useEffect, useRef } from 'react';
+import { FC, useEffect, useRef, useState } from 'react';
 import {
   AudioTrack,
-  VideoTrack,
-  Participant,
-  LocalVideoTrack,
-  RemoteVideoTrack,
   LocalAudioTrack,
+  LocalVideoTrack,
+  Participant,
   RemoteAudioTrack,
+  RemoteVideoTrack,
+  VideoTrack,
 } from 'twilio-video';
+import { otherColors } from '../OttehrThemeProvider';
 import { useVideoParticipant } from '../store';
 
 interface ParticipantProps {
@@ -20,28 +21,27 @@ interface HTMLMediaElement {
 }
 
 export const VideoParticipant: FC<ParticipantProps> = ({ participant }) => {
+  const audioRef = useRef<HTMLMediaElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const { selectedSpeaker } = useVideoParticipant();
   const [videoTracks, setVideoTracks] = useState<(VideoTrack | null)[]>([]);
   const [audioTracks, setAudioTracks] = useState<(AudioTrack | null)[]>([]);
-  const { selectedSpeaker } = useVideoParticipant();
-
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const audioRef = useRef<HTMLMediaElement>(null);
 
   // Get the audio and video tracks from the participant, filtering out the tracks that are null
-  const getExistingVideoTracks = (participant: Participant): (LocalVideoTrack | RemoteVideoTrack | null)[] => {
-    const videoPublications = Array.from(participant.videoTracks.values());
-    const existingVideoTracks = videoPublications
-      .map((publication) => publication.track)
-      .filter((track) => track !== null);
-    return existingVideoTracks;
-  };
-
   const getExistingAudioTracks = (participant: Participant): (LocalAudioTrack | RemoteAudioTrack | null)[] => {
     const audioPublications = Array.from(participant.audioTracks.values());
     const existingAudioTracks = audioPublications
       .map((publication) => publication.track)
       .filter((track) => track !== null);
     return existingAudioTracks;
+  };
+
+  const getExistingVideoTracks = (participant: Participant): (LocalVideoTrack | RemoteVideoTrack | null)[] => {
+    const videoPublications = Array.from(participant.videoTracks.values());
+    const existingVideoTracks = videoPublications
+      .map((publication) => publication.track)
+      .filter((track) => track !== null);
+    return existingVideoTracks;
   };
 
   // When a new track is added or removed, update the video and audio tracks in the state
@@ -62,8 +62,8 @@ export const VideoParticipant: FC<ParticipantProps> = ({ participant }) => {
       }
     };
 
-    setVideoTracks(getExistingVideoTracks(participant));
     setAudioTracks(getExistingAudioTracks(participant));
+    setVideoTracks(getExistingVideoTracks(participant));
 
     participant.on('trackEnabled', (track) => {
       console.log(`Track enabled: ${track.kind}`);
@@ -76,8 +76,8 @@ export const VideoParticipant: FC<ParticipantProps> = ({ participant }) => {
 
     // Clean up at the end by removing all the tracks and the event listeners
     return () => {
-      setVideoTracks([]);
       setAudioTracks([]);
+      setVideoTracks([]);
       participant.removeAllListeners();
       participant.videoTracks.forEach((track) => (track.isEnabled = false));
     };
@@ -138,7 +138,7 @@ export const VideoParticipant: FC<ParticipantProps> = ({ participant }) => {
       <Box autoPlay={true} component="audio" muted={false} ref={audioRef} sx={{ display: 'none' }} />
       <Box
         sx={{
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          backgroundColor: otherColors.blackTransparent,
           bottom: 0,
           color: 'white',
           left: 0,

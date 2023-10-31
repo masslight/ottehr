@@ -1,9 +1,9 @@
-import { Dispatch, FC, SetStateAction, useState, useEffect, useCallback, useRef } from 'react';
-import { Room, Participant } from 'twilio-video';
 import { Box } from '@mui/material';
-import { VideoParticipant, VideoControls, LoadingSpinner } from '../components';
+import { Dispatch, FC, SetStateAction, useState, useEffect, useCallback, useRef } from 'react';
+import { Participant, Room } from 'twilio-video';
+import { LoadingSpinner, VideoControls, VideoParticipant } from '../components';
+import { useLocalVideo } from '../hooks';
 import { useVideoParticipant } from '../store';
-import { useLocalVideo } from '../hooks/twilio/useLocalVideo';
 
 interface RoomProps {
   participants: Participant[];
@@ -13,12 +13,10 @@ interface RoomProps {
 
 export const VideoRoom: FC<RoomProps> = ({ room, participants, setParticipants }) => {
   const localVideoRef = useRef<HTMLDivElement | null>(null);
+  const participantsRef = useRef(setParticipants);
   const { localTracks } = useVideoParticipant();
   useLocalVideo(localVideoRef, localTracks);
-
-  const participantsRef = useRef(setParticipants);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-
   // localParticipant is not counted so we start with 1
   const [numParticipants, setNumParticipants] = useState<number>(1);
 

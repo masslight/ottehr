@@ -1,32 +1,24 @@
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
-import { Container, Box, Button, Divider, Typography, useTheme } from '@mui/material';
+import { Box, Button, Container, Divider, Typography, useTheme } from '@mui/material';
+import { DateTime } from 'luxon';
 import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import { otherColors } from '../OttehrThemeProvider';
-import { OttehrDefaultProvider } from '../assets/icons';
+import { defaultProvider } from '../assets/icons';
 import { Footer, PatientQueue, TopAppBar } from '../components';
+import { createProviderName } from '../helpers';
+import { getPatients, getProvider } from '../helpers/mockData';
 
-export const ProviderDashboard = (): JSX.Element => {
+export const Dashboard = (): JSX.Element => {
+  const theme = useTheme();
   const { t } = useTranslation();
 
-  const theme = useTheme();
+  // TODO hard-coded data
+  const patients = getPatients();
+  const provider = getProvider();
 
-  // hard coded patients data for now
-  const patientsData = [
-    {
-      name: 'John Doe',
-      queuedTime: '2023-09-29T08:15:00Z',
-      roomName: 'testRoom',
-    },
-    {
-      name: 'Jane Smith',
-      queuedTime: '2023-09-29T15:54:00Z',
-      roomName: 'testRoom',
-    },
-  ];
-
-  const roomLink = ' https://zapehr.app/oliviasmith';
+  const hour = DateTime.now().get('hour');
 
   return (
     <Container
@@ -71,15 +63,19 @@ export const ProviderDashboard = (): JSX.Element => {
           >
             <Box>
               <Typography color="primary.light" fontWeight={500} variant="h5">
-                {t('general.goodMorning')}
+                {hour >= 17
+                  ? t('dashboard.greetingEvening')
+                  : hour >= 12
+                  ? t('dashboard.greetingAfternoon')
+                  : t('dashboard.greetingMorning')}
               </Typography>
 
               <Typography color="text.light" mt={1} variant="h4">
-                Dr. Olivia Smith
+                {createProviderName(provider)}
               </Typography>
             </Box>
             <Box sx={{ maxWidth: { md: '100px', xs: '50px' } }}>
-              <img alt="Provider Image" src={OttehrDefaultProvider} width={'100%'} />
+              <img alt={t('imageAlts.provider')} src={defaultProvider} width={'100%'} />
             </Box>
           </Box>
           <Box
@@ -97,11 +93,11 @@ export const ProviderDashboard = (): JSX.Element => {
             }}
           >
             <Typography color="text.light" sx={{ overflowWrap: 'break-word' }} variant="body1">
-              {t('general.shareLink')}
+              {t('dashboard.shareLink')}
             </Typography>
 
-            <Typography color="text.light" fontFamily="work Sans" sx={{ overflowWrap: 'break-word' }} variant="h5">
-              {roomLink}
+            <Typography color="text.light" sx={{ overflowWrap: 'break-word' }} variant="h5">
+              https://zapehr.app/{provider.slug}
             </Typography>
 
             <Box
@@ -116,7 +112,7 @@ export const ProviderDashboard = (): JSX.Element => {
                 color="primary"
                 onClick={async () => {
                   try {
-                    await navigator.clipboard.writeText(roomLink);
+                    await navigator.clipboard.writeText(`https://zapehr.app/${provider.slug}`);
                   } catch (error) {
                     console.error('Failed to copy room link to clipboard:', error);
                   }
@@ -124,10 +120,10 @@ export const ProviderDashboard = (): JSX.Element => {
                 startIcon={<ContentCopyIcon />}
                 variant="contained"
               >
-                {t('general.copyLink')}
+                {t('dashboard.copyLink')}
               </Button>
               <Button color="primary" startIcon={<MailOutlineIcon />} variant="outlined">
-                {t('general.sendEmail')}
+                {t('dashboard.sendEmail')}
               </Button>
             </Box>
           </Box>
@@ -135,7 +131,7 @@ export const ProviderDashboard = (): JSX.Element => {
 
         <Box
           sx={{
-            background: 'linear-gradient(21deg, rgba(40, 150, 198, 0.60) 3.6%, rgba(80, 96, 241, 0.00) 40%), #263954',
+            background: otherColors.dashboardGradient,
             display: 'flex',
             flexDirection: 'column',
             flexGrow: 1,
@@ -149,17 +145,17 @@ export const ProviderDashboard = (): JSX.Element => {
           }}
         >
           <Typography color="primary.light" fontWeight={500} variant="h5">
-            {t('general.patientsQueue')}
+            {t('dashboard.patientQueue')}
           </Typography>
 
           <Typography color="primary.contrast" fontWeight={500} sx={{ opacity: 0.6 }} variant="body2">
-            {t('general.waiting')}
+            {t('dashboard.waiting')}
           </Typography>
 
-          {patientsData.map((patient, index) => (
+          {patients.map((patient, index) => (
             <Fragment key={index}>
               <PatientQueue {...patient} />
-              {index !== patientsData.length - 1 && <Divider sx={{ opacity: 0.12 }} />}
+              {index !== patients.length - 1 && <Divider sx={{ opacity: 0.12 }} />}
             </Fragment>
           ))}
         </Box>

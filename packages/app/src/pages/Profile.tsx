@@ -13,20 +13,27 @@ import {
   useTheme,
 } from '@mui/material';
 import { useState } from 'react';
-import { Footer, ProviderHeaderSection, TopAppBar } from '../components';
+import { useTranslation } from 'react-i18next';
+import { Footer, Header, TopAppBar } from '../components';
+import { createProviderName } from '../helpers';
+import { getProvider, getTitles, isAvailable } from '../helpers/mockData';
 
-export const ProviderSettings = (): JSX.Element => {
+export const Profile = (): JSX.Element => {
   const theme = useTheme();
+  const { t } = useTranslation();
+
   const handleSubmit = (event: any): void => {
     event.preventDefault();
     // TODO: form submission structure
   };
 
-  const mockData = ['aykhanahmadli', 'samiromarov'];
-  const [roomName, setRoomName] = useState('oliviasmith');
+  // TODO hard-coded data
+  const provider = getProvider();
+  const [slug, setSlug] = useState(provider.slug);
+  const titles = getTitles();
 
-  const isError = mockData.includes(roomName);
-  const helperText = isError ? 'This name is already taken, please use another one' : '';
+  const isError = !isAvailable(slug);
+  const helperText = isError ? t('error.slugUnavailable') : '';
 
   return (
     <Container
@@ -40,7 +47,7 @@ export const ProviderSettings = (): JSX.Element => {
       }}
     >
       <TopAppBar />
-      <ProviderHeaderSection isProvider={true} providerName="Dr. Olivia Smith" title="My profile" />
+      <Header isProvider={true} providerName={createProviderName(provider)} title={t('profile.myProfile')} />
       <Box
         sx={{
           alignItems: 'center',
@@ -71,12 +78,15 @@ export const ProviderSettings = (): JSX.Element => {
           >
             <form onSubmit={handleSubmit}>
               <Box sx={{ alignItems: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {/* TODO form labels translated without breaking react hook form/back end submission */}
                 <FormControl variant="outlined">
-                  <InputLabel>Title</InputLabel>
+                  <InputLabel>{t('profile.title')}</InputLabel>
                   <Select label="Title">
-                    <MenuItem value="dr">Dr.</MenuItem>
-                    <MenuItem value="nurse">Nurse</MenuItem>
-                    <MenuItem value="assistant">Assistant</MenuItem>
+                    {titles.map((title) => (
+                      <MenuItem key={title} value={title.toLowerCase()}>
+                        {t(`profile.titleOption.${title.toLowerCase()}`)}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
                 <TextField label="First Name" variant="outlined" />
@@ -84,14 +94,14 @@ export const ProviderSettings = (): JSX.Element => {
                 <TextField
                   error={isError}
                   helperText={helperText}
-                  label="Room Name (slug)"
-                  onChange={(e) => setRoomName(e.target.value)}
-                  value={roomName}
+                  label="Slug"
+                  onChange={(e) => setSlug(e.target.value)}
+                  value={slug}
                   variant="outlined"
                 />
                 <Box sx={{ alignItems: 'center', display: 'flex' }}>
                   <Box sx={{ mr: 1 }}>{isError ? <CancelIcon color="error" /> : <CheckIcon color="success" />}</Box>
-                  <Typography variant="body2">{`https://zapehr.app/${roomName}`}</Typography>
+                  <Typography variant="body2">{`https://zapehr.app/${slug}`}</Typography>
                 </Box>
                 <TextField label="Email Address" variant="outlined" />
                 <Button
@@ -104,7 +114,7 @@ export const ProviderSettings = (): JSX.Element => {
                   type="submit"
                   variant="contained"
                 >
-                  Update
+                  {t('profile.update')}
                 </Button>
               </Box>
             </form>

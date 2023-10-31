@@ -17,17 +17,19 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { useState } from 'react';
+import { FC, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+import { otherColors } from '../OttehrThemeProvider';
 import {
   backgroundEllipseDark,
   backgroundEllipseLight,
-  OttehrPatientIcon,
-  OttehrProviderIcon,
-  OttehrRegistrationLogo,
+  patientIcon,
+  providerIcon,
+  registrationLogo,
 } from '../assets/icons';
-import { otherColors } from '../OttehrThemeProvider';
 import { ZapEHRLogo } from '../components';
+import { getTitles, isAvailable } from '../helpers/mockData';
 
 interface FormData {
   acceptTerms: boolean;
@@ -36,15 +38,15 @@ interface FormData {
   lastName: string;
   notPatient: boolean;
   password: string;
-  roomName: string;
+  slug: string;
   title: string;
 }
 
-export const ProviderRegistration: React.FC = (): JSX.Element => {
+export const Register: FC = (): JSX.Element => {
   const {
-    handleSubmit,
     control,
     formState: { errors },
+    handleSubmit,
   } = useForm<FormData>({
     defaultValues: {
       acceptTerms: false,
@@ -53,10 +55,12 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
       lastName: '',
       notPatient: false,
       password: '',
-      roomName: '',
+      slug: '',
       title: '',
     },
   });
+  const theme = useTheme();
+  const { t } = useTranslation();
 
   // const updateField = (field: keyof FormData, value: string | boolean): void => {
   //   setFormData((prevData) => ({
@@ -70,12 +74,11 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
     // TODO: form submission logic
   };
 
-  const [roomName, setRoomName] = useState<string>('');
-  const mockData = ['aykhanahmadli', 'samiromarov'];
-  const isError = mockData.includes(roomName);
-  const helperText = isError ? 'This name is already taken, please use another one' : '';
-
-  const theme = useTheme();
+  const [slug, setSlug] = useState<string>('');
+  // TODO hard-coded data
+  const isError = !isAvailable(slug);
+  const helperText = isError ? t('error.slugUnavailable') : '';
+  const titles = getTitles();
 
   return (
     <Box sx={{ display: 'flex', flexDirection: { md: 'row', xs: 'column' } }}>
@@ -101,11 +104,11 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
             justifyContent: 'center',
           }}
         >
-          <Box component="img" src={OttehrRegistrationLogo} />
+          <Box component="img" src={registrationLogo} />
         </Box>
         <Box>
           <Typography color="primary.light" sx={{ py: 2, textAlign: 'center' }} variant="body1">
-            Connect with patients virtually
+            {t('register.connect')}
           </Typography>
         </Box>
         <Box
@@ -166,7 +169,7 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
               zIndex: '2',
             }}
           >
-            <Box component="img" src={OttehrPatientIcon} />
+            <Box component="img" src={patientIcon} />
           </Box>
           <Box
             sx={{
@@ -188,7 +191,7 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
               },
             }}
           >
-            <Box component="img" src={OttehrProviderIcon} sx={{ mb: -1 }} />
+            <Box component="img" src={providerIcon} sx={{ mb: -1 }} />
           </Box>
           <Box
             sx={{
@@ -219,7 +222,7 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
           }}
         >
           <Typography color="primary.light" component="span" variant="subtitle2">
-            Powered by
+            {t('general.footer')}
           </Typography>
           <ZapEHRLogo width={100} />
         </Box>
@@ -240,10 +243,11 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
         }}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mx: { md: 12.5, xs: 2 }, my: { md: 10, xs: 4 } }}>
-          <Typography variant="h4">Welcome to Ottehr</Typography>
+          <Typography variant="h4">{t('register.welcome')}</Typography>
           <Typography color="primary.light" sx={{ pb: 1 }} variant="h3">
-            Provider registration
+            {t('register.register')}
           </Typography>
+          {/* TODO form labels translated without breaking react hook form/back end submission */}
           <form onSubmit={handleSubmit(onSubmit)}>
             <Box sx={{ alignItems: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Controller
@@ -253,9 +257,11 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
                   <FormControl variant="outlined">
                     <InputLabel>Title</InputLabel>
                     <Select label="Title" {...field}>
-                      <MenuItem value="dr">Dr.</MenuItem>
-                      <MenuItem value="nurse">Nurse</MenuItem>
-                      <MenuItem value="assistant">Assistant</MenuItem>
+                      {titles.map((title) => (
+                        <MenuItem key={title} value={title.toLowerCase()}>
+                          {t(`profile.titleOption.${title.toLowerCase()}`)}
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
                 )}
@@ -286,15 +292,15 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
               />
               <Controller
                 control={control}
-                name="roomName"
+                name="slug"
                 render={({ field }) => (
                   <>
                     <TextField
                       error={isError}
                       helperText={helperText}
-                      label="Room Name"
+                      label="Slug"
                       onChange={(e) => {
-                        setRoomName(e.target.value);
+                        setSlug(e.target.value);
                         field.onChange(e);
                       }}
                       variant="outlined"
@@ -339,7 +345,7 @@ export const ProviderRegistration: React.FC = (): JSX.Element => {
                 )}
               />
               <Button type="submit" variant="contained">
-                Sign Up
+                {t('register.signUp')}
               </Button>
             </Box>
           </form>

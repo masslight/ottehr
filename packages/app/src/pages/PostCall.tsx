@@ -1,20 +1,25 @@
 import { Box, Button, Typography, useTheme } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Footer, ProviderHeaderSection, TopAppBar } from '../components';
 import { otherStyling } from '../OttehrThemeProvider';
+import { Footer, Header, TopAppBar } from '../components';
+import { createProviderName } from '../helpers';
+import { getPatients, getProvider } from '../helpers/mockData';
 
 export const PostCall = (): JSX.Element => {
   const navigate = useNavigate();
   const theme = useTheme();
+  const { t } = useTranslation();
 
   const goToDashboard = (): void => {
     navigate('/dashboard');
   };
 
-  // Mock datas to be replaced
+  // TODO hard-coded data
   const mockCallDuration = '15:05';
   const isProvider = true;
-  const patientName = 'Jack Nickers';
+  const patient = getPatients()[0];
+  const provider = getProvider();
 
   return (
     <Box
@@ -26,12 +31,12 @@ export const PostCall = (): JSX.Element => {
       }}
     >
       {isProvider ? (
+        <Header isProvider={true} providerName={createProviderName(provider, false)} title={t('general.waitingRoom')} />
+      ) : (
         <Box>
           <TopAppBar />
-          <ProviderHeaderSection isProvider={!isProvider} providerName={patientName} title="Call with" />
+          <Header isProvider={false} providerName={createProviderName(patient)} title={t('postCall.callWith')} />
         </Box>
-      ) : (
-        <ProviderHeaderSection isProvider={isProvider} providerName="Dr. Smith" title="Waiting Room" />
       )}
 
       {/* Middle Section */}
@@ -62,9 +67,11 @@ export const PostCall = (): JSX.Element => {
               },
             }}
           >
-            <Typography variant="h5">This call has ended</Typography>
+            <Typography variant="h5">{t('postCall.callEnded')}</Typography>
             <Typography mb={2} variant="body1">
-              Duration {mockCallDuration} mins
+              {t('postCall.durationPrefix')}
+              {mockCallDuration}
+              {t('postCall.durationSuffix')}
             </Typography>
             {isProvider && (
               <Button
@@ -73,11 +80,11 @@ export const PostCall = (): JSX.Element => {
                   ...otherStyling.buttonPrimary,
                   px: 2,
                   text: 'primary.contrast',
-                  width: 'fit-content', // Kept the width as 'fit-content'
+                  width: 'fit-content',
                 }}
                 variant="contained"
               >
-                Go to dashboard
+                {t('postCall.goToDashboard')}
               </Button>
             )}
           </Box>

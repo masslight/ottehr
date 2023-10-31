@@ -1,32 +1,38 @@
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
-import { Button, Box, Typography, useTheme } from '@mui/material';
+import { Box, Button, Typography, useTheme } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { otherColors, otherStyling } from '../OttehrThemeProvider';
-import { Footer, ProviderHeaderSection } from '../components';
-import { useVideoParticipant } from '../store';
-import { zapehrApi } from '../api';
 import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
-import useDevices from '../hooks/twilio/useDevices';
+import { otherColors, otherStyling } from '../OttehrThemeProvider';
+import { zapehrApi } from '../api';
+import { Footer, Header } from '../components';
+import { createProviderName } from '../helpers';
+import { useDevices } from '../hooks';
+import { useVideoParticipant } from '../store';
+import { getProvider } from '../helpers/mockData';
 
-export const CheckInPermission = (): JSX.Element => {
-  const { setIsVideoOpen, setIsMicOpen, setRoom, setLocalTracks } = useVideoParticipant();
-  const theme = useTheme();
+export const VideoSettings = (): JSX.Element => {
   const navigate = useNavigate();
-
-  //TODO: hard coded room name for now, note: twilio free rooms are limited to 2 participant, and it takes around 15-20 seconds to disconnect a participant
-  const roomName = 'test1';
+  const theme = useTheme();
+  const { t } = useTranslation();
+  const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom } = useVideoParticipant();
+  // Note: twilio free rooms are limited to 2 participant, and it takes around 15-20 seconds to disconnect a participant
   const hasVideoDevice = useDevices().videoInputDevices.length > 0;
-  const toggleCamMic = async (userInput: boolean): Promise<void> => {
+
+  // TODO hard-coded data
+  const provider = getProvider();
+  const roomName = 'test1';
+  const toggleMicAndCam = async (userInput: boolean): Promise<void> => {
     try {
-      setIsVideoOpen(userInput);
       setIsMicOpen(userInput);
+      setIsVideoOpen(userInput);
 
       const fetchedToken = await zapehrApi.getTwilioToken(roomName);
       if (fetchedToken === null) {
         console.error('Failed to fetch token');
         return;
       }
-      console.log('hasVideoDevice', hasVideoDevice);
+
       const tracks = await Video.createLocalTracks({
         audio: true,
         video: hasVideoDevice,
@@ -36,7 +42,6 @@ export const CheckInPermission = (): JSX.Element => {
         | LocalAudioTrack
         | LocalVideoTrack
       )[];
-
       setLocalTracks(localTracks);
 
       const connectedRoom = await Video.connect(fetchedToken, {
@@ -65,7 +70,7 @@ export const CheckInPermission = (): JSX.Element => {
         },
       }}
     >
-      <ProviderHeaderSection isProvider={true} providerName="Dr. Smith" title="Waiting Room" />
+      <Header isProvider={true} providerName={createProviderName(provider)} title={t('general.waitingRoom')} />
       {/* Middle Section */}
       <Box
         sx={{
@@ -86,8 +91,8 @@ export const CheckInPermission = (): JSX.Element => {
               },
             }}
           >
-            <Typography variant="h5">Enable your camera and mic</Typography>
-            <Typography variant="body1">Please give us access to your camera and mic for a video call</Typography>
+            <Typography variant="h5">{t('video.enableCamAndMic')}</Typography>
+            <Typography variant="body1">{t('video.permissionAccess')}</Typography>
             <Box
               sx={{
                 alignItems: 'center',
@@ -113,15 +118,15 @@ export const CheckInPermission = (): JSX.Element => {
                 }}
                 variant="body1"
               >
-                Enable camera in your browser
+                {t('video.enableInBrowser')}
               </Typography>
             </Box>
 
-            <Button onClick={() => toggleCamMic(true)} sx={otherStyling.buttonPrimary} variant="contained">
-              Enable camera and mic
+            <Button onClick={() => toggleMicAndCam(true)} sx={otherStyling.buttonPrimary} variant="contained">
+              {t('video.enableBoth')}
             </Button>
             <Button
-              onClick={() => toggleCamMic(false)}
+              onClick={() => toggleMicAndCam(false)}
               sx={{
                 color: theme.palette.primary.light,
                 cursor: 'pointer',
@@ -131,7 +136,7 @@ export const CheckInPermission = (): JSX.Element => {
               }}
               variant="text"
             >
-              Continue without camera and mic
+              {t('video.continueWithout')}
             </Button>
           </Box>
         </Box>
