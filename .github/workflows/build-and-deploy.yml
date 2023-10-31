@@ -114,9 +114,9 @@ jobs:
           url="$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} --scope=ottehr --cwd=${{ env.PACKAGE_LOCATION }})"
           vercel alias --token=${{ secrets.VERCEL_TOKEN }} --scope=ottehr --cwd=${{ env.PACKAGE_LOCATION }} set "$url" ${{ github.event.inputs.environment }}.ottehr.com
       - name: Setup zapehr secrets
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm setup-zapehr-secrets ${{ github.event.inputs.environment }}
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm setup-zapehr-secrets:${{ github.event.inputs.environment }}
       - name: Deploy zambdas
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm deploy-zambdas ${{ github.event.inputs.environment }}
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm deploy-zambdas:${{ github.event.inputs.environment }}
 
       - name: Notify Slack
         if: always()
