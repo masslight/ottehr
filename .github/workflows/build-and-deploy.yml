@@ -106,7 +106,7 @@ jobs:
         run: pnpm install
 
       - name: Build app
-        run: pnpm --filter @ottehr/app recursive run:${{ github.event.inputs.environment }}
+        run: pnpm --filter @ottehr/app recursive run build:${{ github.event.inputs.environment }}
       - name: Deploy app
         run: |
           url="$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} --scope=ottehr --cwd=${{ env.PACKAGE_LOCATION }})"
