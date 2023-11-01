@@ -1,6 +1,5 @@
 import { ZambdaInput } from '../types';
-
-// Note that this file is copied from BH and needs significant changes
+// TODO: validate request parameters after registration/onboarding is done
 export function validateRequestParameters(input: ZambdaInput): any {
   if (!input.body) {
     throw new Error('No request body provided');

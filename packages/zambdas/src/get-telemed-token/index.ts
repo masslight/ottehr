@@ -1,27 +1,28 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ZambdaInput } from '../types';
-import { getAuth0Token } from '../shared';
+import { SecretsKeys, getAuth0Token, getSecret } from '../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import fetch from 'node-fetch';
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  // hardcoded for testing
-  const PROJECT_ID = '4564eab4-c85f-48e6-97a9-1382c39f07c4';
-
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
     const { body, secrets } = validatedParameters;
     console.log('body', body);
+    // TODO: after registration/onboarding is done we should pass the patient/practitioner data to create the encounter
     console.groupEnd();
+
+    const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
+    const PROJECT_ID = getSecret(SecretsKeys.PROJECT_ID, secrets);
 
     const token = await getAuth0Token(secrets);
     console.log('token', token);
 
     const encounterID = body.encounterId;
 
-    const response = await fetch(`https://testing.project-api.zapehr.com/v1/telemed/token?encounterId=${encounterID}`, {
+    const response = await fetch(`${PROJECT_API}/telemed/token?encounterId=${encounterID}`, {
       headers: {
         Authorization: `Bearer ${token}`,
         'content-type': 'application/json',

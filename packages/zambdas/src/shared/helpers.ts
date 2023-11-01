@@ -1,6 +1,42 @@
 /* eslint-disable sort-keys */
 
-export const CREATE_ROOM_VALID_ENCOUNTER = (
+import fetch from 'node-fetch';
+import { SecretsKeys, getSecret } from './secrets';
+
+export async function getM2MUserProfile(token: string, projectId: string, M2MId: string): Promise<any> {
+  const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, null);
+  const PROJECT_ID = getSecret(SecretsKeys.PROJECT_ID, null);
+
+  try {
+    const url = `${PROJECT_API}/m2m/${M2MId}`;
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'x-zapehr-project-id': PROJECT_ID,
+      },
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch M2M user details: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const profile = data.profile;
+
+    if (!profile) {
+      throw new Error('Profile value not found in the returned data');
+    }
+
+    return profile;
+  } catch (error: any) {
+    console.error('Error fetching M2M user details:', error);
+    throw error;
+  }
+}
+
+// Hard coded for testing until authentication is ready
+export const createRoomEncounter = (
   userProfile = 'Practitioner/1ed0ff7e-1c5b-40d5-845b-3ae679de95cd',
   deviceProfile: string
 ): any => ({

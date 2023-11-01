@@ -22,24 +22,25 @@ export const CheckInPermission = (): JSX.Element => {
       setIsVideoOpen(userInput);
       setIsMicOpen(userInput);
 
-      const encounter: Encounter | null = await zapehrApi.createTelemedRoom();
-      if (encounter === null) {
-        console.error('Failed to create telemed room');
-        return;
-      }
+      // const encounter: Encounter | null = await zapehrApi.createTelemedRoom();
+      // if (encounter === null) {
+      //   console.error('Failed to create telemed room');
+      //   return;
+      // }
 
-      const roomSID = encounter?.extension
-        ?.find((ext: any) => ext.url === 'https://extensions.fhir.zapehr.com/encounter-virtual-service-pre-release')
-        ?.extension?.find((innerExt: any) => innerExt.url === 'addressString')?.valueString;
+      // const roomSID = encounter?.extension
+      //   ?.find((ext: any) => ext.url === 'https://extensions.fhir.zapehr.com/encounter-virtual-service-pre-release')
+      //   ?.extension?.find((innerExt: any) => innerExt.url === 'addressString')?.valueString;
 
-      if (roomSID) {
-        console.log('RoomSID:', roomSID);
-      } else {
-        console.log('RoomSID not found');
-      }
+      // if (roomSID) {
+      //   console.log('RoomSID:', roomSID);
+      // } else {
+      //   console.log('RoomSID not found');
+      // }
 
-      const encounterId = encounter.id || '';
-
+      // const encounterId = encounter.id || '';
+      // console.log('Encounter ID:', encounterId);
+      const encounterId = '58c3d837-8995-49b8-a17f-c7f1255268f3';
       const twilioToken = await zapehrApi.getTelemedToken(encounterId);
 
       // local express for testing
@@ -66,8 +67,8 @@ export const CheckInPermission = (): JSX.Element => {
 
       const connectedRoom = await Video.connect(twilioToken, {
         audio: true,
-        // logLevel: 'debug',
-        // name: encounterId,
+        logLevel: 'debug',
+        name: encounterId,
         tracks: localTracks,
         video: true,
       });
