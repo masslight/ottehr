@@ -5,6 +5,7 @@
       "destination": "/index.html"
     }
   ],
-  "buildCommand": "pnpm build",
+  "buildCommand": "pnpm build:dev",
+  "outputDirectory": "dist",
   "installCommand": "pnpm install"
 }
