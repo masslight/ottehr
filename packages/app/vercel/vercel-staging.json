@@ -6,5 +6,6 @@
     }
   ],
   "buildCommand": "pnpm build:staging",
+  "outputDirectory": "dist",
   "installCommand": "pnpm install"
 }
