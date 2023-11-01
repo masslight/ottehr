@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import { Button, Box, Typography, useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
@@ -22,25 +21,25 @@ export const CheckInPermission = (): JSX.Element => {
       setIsVideoOpen(userInput);
       setIsMicOpen(userInput);
 
-      // const encounter: Encounter | null = await zapehrApi.createTelemedRoom();
-      // if (encounter === null) {
-      //   console.error('Failed to create telemed room');
-      //   return;
-      // }
+      const encounter: Encounter | null = await zapehrApi.createTelemedRoom();
+      if (encounter === null) {
+        console.error('Failed to create telemed room');
+        return;
+      }
 
-      // const roomSID = encounter?.extension
-      //   ?.find((ext: any) => ext.url === 'https://extensions.fhir.zapehr.com/encounter-virtual-service-pre-release')
-      //   ?.extension?.find((innerExt: any) => innerExt.url === 'addressString')?.valueString;
+      const roomSID = encounter?.extension
+        ?.find((ext: any) => ext.url === 'https://extensions.fhir.zapehr.com/encounter-virtual-service-pre-release')
+        ?.extension?.find((innerExt: any) => innerExt.url === 'addressString')?.valueString;
 
-      // if (roomSID) {
-      //   console.log('RoomSID:', roomSID);
-      // } else {
-      //   console.log('RoomSID not found');
-      // }
+      if (roomSID) {
+        console.log('RoomSID:', roomSID);
+      } else {
+        console.log('RoomSID not found');
+      }
 
-      // const encounterId = encounter.id || '';
-      // console.log('Encounter ID:', encounterId);
-      const encounterId = '58c3d837-8995-49b8-a17f-c7f1255268f3';
+      const encounterId = encounter.id || '';
+      console.log('Encounter ID:', encounterId);
+
       const twilioToken = await zapehrApi.getTelemedToken(encounterId);
 
       // local express for testing
@@ -55,7 +54,7 @@ export const CheckInPermission = (): JSX.Element => {
 
       const tracks = await Video.createLocalTracks({
         audio: true,
-        video: true,
+        video: hasVideoDevice,
       });
 
       const localTracks = tracks.filter((track) => track.kind === 'audio' || track.kind === 'video') as (
@@ -70,7 +69,7 @@ export const CheckInPermission = (): JSX.Element => {
         logLevel: 'debug',
         name: encounterId,
         tracks: localTracks,
-        video: true,
+        video: hasVideoDevice,
       });
       console.log('Connected room:', connectedRoom);
       setRoom(connectedRoom);

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ZambdaInput } from '../types';
 import { SecretsKeys, getAuth0Token, getSecret } from '../shared';

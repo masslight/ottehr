@@ -111,7 +111,7 @@ class API {
 
   async createTelemedRoom(): Promise<Encounter | null> {
     try {
-      const response = await fetch('http://localhost:3301/local/zambda/telemed-room/execute-public', {
+      const response = await fetch(`${import.meta.env.VITE_LOCAL_TELEMED_API_URL}/telemed-room/execute-public`, {
         body: JSON.stringify({ testBody: 'test' }),
         headers: {
           Accept: 'application/json',
@@ -137,8 +137,7 @@ class API {
 
   async getTelemedToken(encounterId: string): Promise<string | null> {
     try {
-      // hardcoded for development
-      const response = await fetch('http://localhost:3301/local/zambda/telemed-token/execute-public', {
+      const response = await fetch(`${import.meta.env.VITE_LOCAL_TELEMED_API_URL}/telemed-token/execute-public`, {
         body: JSON.stringify({ body: { encounterId } }),
         headers: {
           Accept: 'application/json',
