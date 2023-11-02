@@ -109,7 +109,7 @@ export const TopAppBar: FC = () => {
               <MenuItem disabled>
                 <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                   <Typography variant="body1">
-                    {provider['first name']} {provider['last name']}
+                    {provider.firstName} {provider.lastName}
                   </Typography>
                   <Typography variant="body1">{provider.email}</Typography>
                 </Box>
@@ -162,7 +162,7 @@ export const TopAppBar: FC = () => {
                 <Button disabled>
                   <Box sx={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
                     <Typography color="white" variant="body1">
-                      {provider['first name']} {provider['last name']}
+                      {provider.firstName} {provider.lastName}
                     </Typography>
                     <Typography color="white" variant="body1">
                       {provider.email}

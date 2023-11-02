@@ -50,7 +50,11 @@ export const WaitingRoom = (): JSX.Element => {
       <Typography sx={{ pb: 1 }} variant="h5">
         {t('waitingRoom.startingSoon')}
       </Typography>
-
+      <Typography sx={{ pb: 2.5 }} variant="body1">
+        {t('waitingRoom.thanksPrefix')}
+        {createProviderName(provider, false)}
+        {t('waitingRoom.thanksSuffix')}
+      </Typography>
       <Box
         sx={{
           alignItems: 'center',
@@ -92,7 +96,7 @@ export const WaitingRoom = (): JSX.Element => {
             top: 0,
             width: '100%',
           }}
-        ></Box>
+        />
       </Box>
     </CustomContainer>
   );

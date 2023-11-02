@@ -243,8 +243,10 @@ export const Register: FC = (): JSX.Element => {
         }}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mx: { md: 12.5, xs: 2 }, my: { md: 10, xs: 4 } }}>
-          <Typography variant="h4">{t('register.welcome')}</Typography>
-          <Typography color="primary.light" sx={{ pb: 1 }} variant="h3">
+          <Typography mb={-1} variant="h4">
+            {t('register.welcome')}
+          </Typography>
+          <Typography color="primary.light" mb={2} variant="h3">
             {t('register.register')}
           </Typography>
           {/* TODO form labels translated without breaking react hook form/back end submission */}
@@ -305,7 +307,7 @@ export const Register: FC = (): JSX.Element => {
                       }}
                       variant="outlined"
                     />
-                    <Box sx={{ alignItems: 'center', display: 'flex' }}>
+                    <Box mb={-0.5} mt={-1} sx={{ alignItems: 'center', display: 'flex' }}>
                       <Box sx={{ mr: 1 }}>{isError ? <CancelIcon color="error" /> : <CheckIcon color="success" />}</Box>
                       <Typography variant="body2">{`https://zapehr.app/${field.value}`}</Typography>
                     </Box>
@@ -330,6 +332,7 @@ export const Register: FC = (): JSX.Element => {
                   <FormControlLabel
                     control={<Checkbox checked={value} onChange={onChange} />}
                     label="I am not a patient"
+                    sx={{ mb: -0.5 }}
                   />
                 )}
               />

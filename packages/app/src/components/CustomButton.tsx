@@ -1,4 +1,4 @@
-import { Button, useTheme } from '@mui/material';
+import { Button, SxProps, useTheme } from '@mui/material';
 import { FC, ReactNode } from 'react';
 
 interface CustomButtonProps {
@@ -7,14 +7,16 @@ interface CustomButtonProps {
   onClick?: () => any;
   secondary?: boolean;
   submit?: boolean;
+  sx?: SxProps;
 }
-export const CustomButton: FC<CustomButtonProps> = ({ children, fitContent, onClick, secondary, submit }) => {
+export const CustomButton: FC<CustomButtonProps> = ({ children, fitContent, onClick, secondary, submit, sx }) => {
   const theme = useTheme();
 
   return (
     <Button
       onClick={onClick}
       sx={{
+        ...sx,
         borderRadius: '4px',
         color: secondary ? theme.palette.primary.light : theme.palette.background.default,
         cursor: 'pointer',

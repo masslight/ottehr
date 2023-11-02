@@ -1,4 +1,4 @@
-import { Box, Button, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -7,6 +7,7 @@ import { zapehrApi } from '../api';
 import { callButtonMobile, defaultPatient } from '../assets/icons';
 import { getQueuedTimeFromTimestamp } from '../helpers';
 import { useVideoParticipant } from '../store';
+import { CustomButton } from './CustomButton';
 
 export interface PatientQueueProps {
   firstName: string;
@@ -75,7 +76,7 @@ export const PatientQueue: FC<PatientQueueProps> = ({ firstName, lastName, queue
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
         <Box sx={{ display: 'flex' }}>
           <img alt={t('imageAlts.patient')} height="42px" src={defaultPatient} />
-          <Box pl={2}>
+          <Box pl={1.75}>
             <Typography color="primary.contrast" variant="body1">
               {firstName} {lastName}
             </Typography>
@@ -85,16 +86,12 @@ export const PatientQueue: FC<PatientQueueProps> = ({ firstName, lastName, queue
           </Box>
         </Box>
         <Box>
-          <Button color="primary" onClick={startCall} sx={{ display: { md: 'block', xs: 'none' } }} variant="contained">
+          <CustomButton onClick={startCall} sx={{ display: { md: 'block', xs: 'none' } }}>
             {t('general.startCall')}
-          </Button>
-          <Button
-            sx={{
-              display: { md: 'none' },
-            }}
-          >
+          </CustomButton>
+          <CustomButton sx={{ display: { md: 'none' } }}>
             <img alt={t('imageAlts.callButton')} src={callButtonMobile} />
-          </Button>
+          </CustomButton>
         </Box>
       </Box>
     </Box>

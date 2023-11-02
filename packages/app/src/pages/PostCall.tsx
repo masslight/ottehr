@@ -31,8 +31,10 @@ export const PostCall = (): JSX.Element => {
 
   return (
     <CustomContainer isProvider={isProvider} subtitle={subtitle} title={title}>
-      <Typography variant="h5">{t('postCall.callEnded')}</Typography>
-      <Typography mb={2} variant="body1">
+      <Typography mb={1} variant="h5">
+        {t('postCall.callEnded')}
+      </Typography>
+      <Typography mb={1} variant="body1">
         {t('postCall.durationPrefix')}
         {mockCallDuration}
         {t('postCall.durationSuffix')}

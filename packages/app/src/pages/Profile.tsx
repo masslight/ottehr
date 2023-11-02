@@ -49,7 +49,7 @@ export const Profile = (): JSX.Element => {
             value={slug}
             variant="outlined"
           />
-          <Box sx={{ alignItems: 'center', display: 'flex' }}>
+          <Box mb={-1} mt={-0.5} sx={{ alignItems: 'center', display: 'flex' }}>
             <Box sx={{ mr: 1 }}>{isError ? <CancelIcon color="error" /> : <CheckIcon color="success" />}</Box>
             <Typography variant="body2">{`https://zapehr.app/${slug}`}</Typography>
           </Box>

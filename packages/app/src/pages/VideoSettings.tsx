@@ -70,7 +70,7 @@ export const VideoSettings = (): JSX.Element => {
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
-          mt: 2,
+          mt: 2.5,
           px: 15,
           py: 10,
           [theme.breakpoints.down('md')]: {

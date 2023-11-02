@@ -148,7 +148,7 @@ export const Dashboard = (): JSX.Element => {
             {t('dashboard.patientQueue')}
           </Typography>
 
-          <Typography color="primary.contrast" fontWeight={500} sx={{ opacity: 0.6 }} variant="body2">
+          <Typography color="primary.contrast" fontWeight={500} mb={2} sx={{ opacity: 0.6 }} variant="body2">
             {t('dashboard.waiting')}
           </Typography>
 
