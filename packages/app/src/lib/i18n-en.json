@@ -1,101 +1,85 @@
 {
-  "general": {
-    "button": {
-      "book": "Book an appointment",
-      "submit": "Submit",
-      "continue": "Continue",
-      "back": "Back",
-      "close": "Close",
-      "tryAgain": "Try again",
-      "checked": "Checked",
-      "unchecked": "Unchecked"
-    },
-    "dateOfBirth": "Date of birth",
-    "dropdownPlaceholder": "Please select",
-    "datePlaceholder": "MM/DD/YYYY",
-    "errors": {
-      "validation": {
-        "firstName": "First name is required",
-        "lastName": "Last name is required",
-        "dateOfBirth": {
-          "format": "Date must be in the format MM/DD/YYYY",
-          "required": "Date of birth is required"
-        },
-        "zip": {
-          "number": "Zip code must be 5 digits",
-          "required": "ZIP is required"
-        }
-      },
-      "submit": {
-        "title": "There was an issue booking an appointment"
-      }
-    },
-    "firstName": "First name",
-    "lastName": "Last name",
-    "required": "required field",
-    "footer": "Powered by",
-    "goodMorning": "Good Morning",
-    "shareLink": "To invite patients to your room share this link",
+  "callSettings": {
+    "callSettings": "Call settings",
+    "cancel": "Cancel",
+    "save": "Save Changes",
+    "technicalIssues": "Having technical issues with the call?"
+  },
+  "checkIn": {
+    "checkIn": "Check In",
+    "enterNamePrefix": "Please enter your name to join ",
+    "enterNameSuffix": "'s call line.",
+    "yourName": "Your Name"
+  },
+  "dashboard": {
     "copyLink": "Copy Link",
+    "greetingAfternoon": "Good Afternoon",
+    "greetingEvening": "Good Evening",
+    "greetingMorning": "Good Morning",
+    "patientQueue": "Patient Queue",
     "sendEmail": "Send Email",
-    "patientsQueue": "Patients queue",
-    "waiting": "Waiting",
+    "shareLink": "To invite patients to your room, share this link.",
+    "waiting": "Waiting"
+  },
+  "error": {
+    "slugUnavailable": "This slug is already taken, please use another one."
+  },
+  "general": {
+    "footer": "Powered by",
+    "logOut": "Log out",
+    "openSettings": "Open Settings",
+    "profile": "Profile",
     "startCall": "Start Call",
-    "stateFullNames": {
-      "AK": "Alaska",
-      "AL": "Alabama",
-      "AR": "Arkansas",
-      "AZ": "Arizona",
-      "CA": "California",
-      "CO": "Colorado",
-      "CT": "Connecticut",
-      "DC": "District of Columbia",
-      "DE": "Delaware",
-      "FL": "Florida",
-      "GA": "Georgia",
-      "HI": "Hawaii",
-      "IA": "Iowa",
-      "ID": "Idaho",
-      "IL": "Illinois",
-      "IN": "Indiana",
-      "KS": "Kansas",
-      "KY": "Kentucky",
-      "LA": "Louisiana",
-      "MA": "Massachusetts",
-      "MD": "Maryland",
-      "ME": "Maine",
-      "MI": "Michigan",
-      "MN": "Minnesota",
-      "MO": "Missouri",
-      "MS": "Mississippi",
-      "MT": "Montana",
-      "NC": "North Carolina",
-      "ND": "North Dakota",
-      "NE": "Nebraska",
-      "NH": "New Hampshire",
-      "NJ": "New Jersey",
-      "NM": "New Mexico",
-      "NV": "Nevada",
-      "NY": "New York",
-      "OH": "Ohio",
-      "OK": "Oklahoma",
-      "OR": "Oregon",
-      "PA": "Pennsylvania",
-      "RI": "Rhode Island",
-      "SC": "South Carolina",
-      "SD": "South Dakota",
-      "TN": "Tennessee",
-      "TX": "Texas",
-      "UT": "Utah",
-      "VA": "Virginia",
-      "VT": "Vermont",
-      "WA": "Washington",
-      "WI": "Wisconsin",
-      "WV": "West Virginia",
-      "WY": "Wyoming"
+    "waitingRoom": "Waiting Room"
+  },
+  "imageAlts": {
+    "callButton": "Call button image",
+    "patient": "Patient image",
+    "provider": "Provider image"
+  },
+  "postCall": {
+    "callEnded": "This call has ended.",
+    "callWith": "Call With",
+    "durationPrefix": "Duration: ",
+    "durationSuffix": " minutes.",
+    "goToDashboard": "Go to Dashboard"
+  },
+  "profile": {
+    "email": "Email Address",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "myProfile": "My Profile",
+    "slug": "Slug",
+    "title": "Title",
+    "titleOption": {
+      "assistant": "Assistant",
+      "dr": "Dr",
+      "mr": "Mr",
+      "mrs": "Mrs",
+      "ms": "Ms",
+      "nurse": "Nurse"
     },
-    "sunAlt": "Yellow sun icon",
-    "weekdays": ["S", "M", "T", "W", "T", "F", "S"],
-    "zip": "ZIP"
+    "update": "Update"
+  },
+  "register": {
+    "checkboxes": {
+      "notPatient": "I am not a patient.",
+      "termsConditions": "I accept the terms and conditions."
+    },
+    "connect": "Connect with patients virtually",
+    "signUp": "Sign Up",
+    "register": "Register as a provider",
+    "welcome": "Welcome to Ottehr"
+  },
+  "video": {
+    "continueWithout": "Continue without camera and microphone",
+    "enableBoth": "Enable camera and microphone",
+    "enableCamAndMic": "Enable your camera and microphone",
+    "enableInBrowser": "Enable camera in your browser",
+    "missingRoom": "Missing created room.",
+    "permissionAccess": "Please give us access to your camera and microphone for a video call."
+  },
+  "waitingRoom": {
+    "startingSoon": "Your call will start soon."
   }
 }

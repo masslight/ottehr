@@ -1,6 +1,3 @@
-import { ZambdaClient } from '@zapehr/sdk';
-import { apiErrorToThrow } from './apiErrorToThrow';
-
 export interface ZapehrSearchParameter {
   key: string;
   value: string;
@@ -164,7 +161,7 @@ class API {
 
   async getTwilioToken(roomName: string): Promise<string | null> {
     try {
-      // for development, we can use the local express server to generate a token
+      // For development, we can use the local express server to generate a token
       const response = await fetch('http://localhost:5000/join-room', {
         body: JSON.stringify({ roomName }),
         headers: {

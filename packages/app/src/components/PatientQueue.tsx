@@ -1,12 +1,12 @@
 import { Box, Button, Typography } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { OttehrDefaultPatient, callButtonMobile } from '../assets/icons';
-import { getQueuedTimeFromTimestamp } from '../helpers';
 import { useNavigate } from 'react-router-dom';
-import { useVideoParticipant } from '../store';
 import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
 import { zapehrApi } from '../api';
+import { callButtonMobile, defaultPatient } from '../assets/icons';
+import { getQueuedTimeFromTimestamp } from '../helpers';
+import { useVideoParticipant } from '../store';
 
 export interface PatientQueueProps {
   encounterId: string;
@@ -15,15 +15,16 @@ export interface PatientQueueProps {
 }
 
 export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, name, queuedTime }) => {
-  const { t } = useTranslation();
-  const { setIsVideoOpen, setIsMicOpen, setRoom, setLocalTracks } = useVideoParticipant();
   const navigate = useNavigate();
+  const { t } = useTranslation();
+  const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom } = useVideoParticipant();
   const [relativeQueuedTime, setRelativeQueuedTime] = useState(getQueuedTimeFromTimestamp(queuedTime));
 
   const startCall = async (): Promise<void> => {
     try {
-      setIsVideoOpen(true);
       setIsMicOpen(true);
+      setIsVideoOpen(true);
+
       //  this will not work for now as it is for m2m
       const fetchedToken = await zapehrApi.getTelemedToken(encounterId);
       if (fetchedToken === null) {
@@ -50,7 +51,7 @@ export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, name, queuedT
       });
 
       setRoom(connectedRoom);
-      navigate(`/video-call/`);
+      navigate(`/video-call`);
     } catch (error) {
       console.error('An error occurred:', error);
     }
@@ -71,7 +72,7 @@ export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, name, queuedT
     <Box sx={{ m: 0, py: 1 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
         <Box sx={{ display: 'flex' }}>
-          <img alt="Patient Image" height="42px" src={OttehrDefaultPatient} />
+          <img alt={t('imageAlts.patient')} height="42px" src={defaultPatient} />
           <Box pl={2}>
             <Typography color="primary.contrast" variant="body1">
               {name}
@@ -90,7 +91,7 @@ export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, name, queuedT
               display: { md: 'none' },
             }}
           >
-            <img alt="Call button image" src={callButtonMobile} />
+            <img alt={t('imageAlts.callButton')} src={callButtonMobile} />
           </Button>
         </Box>
       </Box>
