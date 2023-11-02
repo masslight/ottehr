@@ -1,14 +1,13 @@
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckIcon from '@mui/icons-material/CheckCircle';
-import { Box, Button, FormControl, InputLabel, MenuItem, Select, TextField, Typography, useTheme } from '@mui/material';
+import { Box, FormControl, InputLabel, MenuItem, Select, TextField, Typography } from '@mui/material';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CustomContainer } from '../components';
+import { CustomButton, CustomContainer } from '../components';
 import { createProviderName } from '../helpers';
 import { getProvider, getTitles, isAvailable } from '../helpers/mockData';
 
 export const Profile = (): JSX.Element => {
-  const theme = useTheme();
   const { t } = useTranslation();
 
   const handleSubmit = (event: any): void => {
@@ -54,18 +53,9 @@ export const Profile = (): JSX.Element => {
             <Typography variant="body2">{`https://zapehr.app/${slug}`}</Typography>
           </Box>
           <TextField label="Email Address" variant="outlined" />
-          <Button
-            sx={{
-              backgroundColor: theme.palette.primary.main,
-              color: theme.palette.background.default,
-              py: 1.5,
-              textTransform: 'uppercase',
-            }}
-            type="submit"
-            variant="contained"
-          >
+          <CustomButton submit sx={{ py: 1 }}>
             {t('profile.update')}
-          </Button>
+          </CustomButton>
         </Box>
       </form>
     </CustomContainer>

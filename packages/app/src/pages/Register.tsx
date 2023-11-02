@@ -6,7 +6,6 @@ import MicIcon from '@mui/icons-material/Mic';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import {
   Box,
-  Button,
   Checkbox,
   FormControl,
   FormControlLabel,
@@ -28,7 +27,7 @@ import {
   providerIcon,
   registrationLogo,
 } from '../assets/icons';
-import { ZapEHRLogo } from '../components';
+import { CustomButton, ZapEHRLogo } from '../components';
 import { getTitles, isAvailable } from '../helpers/mockData';
 
 interface FormData {
@@ -347,9 +346,9 @@ export const Register: FC = (): JSX.Element => {
                   />
                 )}
               />
-              <Button type="submit" variant="contained">
+              <CustomButton submit sx={{ mt: 0 }}>
                 {t('register.signUp')}
-              </Button>
+              </CustomButton>
             </Box>
           </form>
         </Box>
