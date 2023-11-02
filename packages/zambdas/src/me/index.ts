@@ -6,6 +6,7 @@ import fetch from 'node-fetch';
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const accessToken = await getAuth0Token(input.secrets);
+    console.log(accessToken);
     const url = 'https://project-api.zapehr.com/v1/project';
     const response = await fetch(url, {
       body: JSON.stringify({

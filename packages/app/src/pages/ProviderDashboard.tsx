@@ -1,14 +1,39 @@
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import { Container, Box, Button, Divider, Typography, useTheme } from '@mui/material';
-import { Fragment } from 'react';
+import { Fragment, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { otherColors } from '../OttehrThemeProvider';
 import { OttehrDefaultProvider } from '../assets/icons';
 import { Footer, PatientQueue, TopAppBar } from '../components';
+import { useAuth0 } from '@auth0/auth0-react';
 
 export const ProviderDashboard = (): JSX.Element => {
+  const { isAuthenticated, loginWithRedirect, getAccessTokenSilently } = useAuth0();
+
   const { t } = useTranslation();
+
+  useEffect(() => {
+    const fetchAccessToken = async (): Promise<void> => {
+      try {
+        if (!isAuthenticated) {
+          const token = await getAccessTokenSilently();
+          console.log('Access token:', token);
+        } else {
+          await loginWithRedirect();
+        }
+      } catch (error) {
+        console.error('Error occurred while fetching the access token:', error);
+      }
+    };
+    fetchAccessToken()
+      .then(() => {
+        console.log('Access token fetched successfully');
+      })
+      .catch((error) => {
+        console.error('Error fetching access token:', error);
+      });
+  }, [isAuthenticated, getAccessTokenSilently, loginWithRedirect]);
 
   const theme = useTheme();
 

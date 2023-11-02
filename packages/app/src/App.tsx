@@ -22,7 +22,7 @@ export default function App(): JSX.Element {
 
   useEffect(() => {
     const fetchUserDetails = async (): Promise<void> => {
-      if (isAuthenticated) {
+      if (!isAuthenticated) {
         try {
           const token = await getAccessTokenSilently();
           console.log('token is', token);
