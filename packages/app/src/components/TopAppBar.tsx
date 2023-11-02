@@ -1,4 +1,7 @@
+import { useAuth0 } from '@auth0/auth0-react';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import MenuIcon from '@mui/icons-material/Menu';
 import {
   AppBar,
   Box,
@@ -15,12 +18,11 @@ import {
   useTheme,
 } from '@mui/material';
 import { FC, MouseEvent, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { otherColors } from '../OttehrThemeProvider';
 import { dashboardLogo } from '../assets/icons';
-import MenuIcon from '@mui/icons-material/Menu';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import { useAuth0 } from '@auth0/auth0-react';
+import { getProvider } from '../helpers/mockData';
 
 const pages = ['Dashboard'];
 
@@ -28,9 +30,11 @@ export const TopAppBar: FC = () => {
   const { logout } = useAuth0();
   const location = useLocation();
   const theme = useTheme();
-  const isActive = (path: string): boolean => location.pathname === path;
+  const { t } = useTranslation();
   const [anchorElUser, setAnchorElUser] = useState<HTMLElement | null>(null);
   const [menuOpen, setMenuOpen] = useState<boolean>(false);
+
+  const isActive = (path: string): boolean => location.pathname === path;
 
   const handleOpenUserMenu = (event: MouseEvent<HTMLElement>): void => {
     setAnchorElUser(event.currentTarget);
@@ -41,6 +45,9 @@ export const TopAppBar: FC = () => {
     setAnchorElUser(null);
     setMenuOpen(false);
   };
+
+  // TODO hard-coded data
+  const provider = getProvider();
 
   return (
     <AppBar position="static" sx={{ backgroundColor: otherColors.footerBackground, width: '100vw' }}>
@@ -77,7 +84,7 @@ export const TopAppBar: FC = () => {
             ))}
           </Box>
           <Box sx={{ flexGrow: 0 }}>
-            <Tooltip title="Open settings">
+            <Tooltip title={t('general.openSettings')}>
               <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
                 <AccountCircleIcon sx={{ color: theme.palette.primary.light, display: { md: 'block', xs: 'none' } }} />
                 <MenuIcon sx={{ color: theme.palette.primary.light, display: { md: 'none' } }} />
@@ -101,16 +108,18 @@ export const TopAppBar: FC = () => {
             >
               <MenuItem disabled>
                 <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                  <Typography variant="body1">Name Surname</Typography>
-                  <Typography variant="body1">email@example.com</Typography>
+                  <Typography variant="body1">
+                    {provider['first name']} {provider['last name']}
+                  </Typography>
+                  <Typography variant="body1">{provider.email}</Typography>
                 </Box>
               </MenuItem>
               <Divider />
-              <MenuItem component={Link} onClick={handleCloseUserMenu} to="/provider-profile">
+              <MenuItem component={Link} onClick={handleCloseUserMenu} to="/profile">
                 <Box sx={{ alignItems: 'center', display: 'flex', justifyContent: 'center' }}>
                   <AccountCircleIcon sx={{ color: 'text.light', mr: 4 }} />
                   <Typography color="text.light" variant="body2">
-                    Profile
+                    {t('general.profile')}
                   </Typography>
                 </Box>
               </MenuItem>
@@ -123,7 +132,7 @@ export const TopAppBar: FC = () => {
               >
                 <Box sx={{ alignItems: 'center', display: 'flex', justifyContent: 'center' }}>
                   <Typography color="text.light" variant="body2">
-                    Logout
+                    {t('general.logOut')}
                   </Typography>
                 </Box>
               </MenuItem>
@@ -153,15 +162,15 @@ export const TopAppBar: FC = () => {
                 <Button disabled>
                   <Box sx={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
                     <Typography color="white" variant="body1">
-                      Name Surname
+                      {provider['first name']} {provider['last name']}
                     </Typography>
                     <Typography color="white" variant="body1">
-                      email@example.com
+                      {provider.email}
                     </Typography>
                   </Box>
                 </Button>
                 <Divider sx={{ color: 'primary.contrast' }} />
-                <MenuItem component={Link} onClick={handleCloseUserMenu} to="/provider-profile">
+                <MenuItem component={Link} onClick={handleCloseUserMenu} to="/profile">
                   <Box
                     sx={{
                       alignItems: 'center',
@@ -171,7 +180,7 @@ export const TopAppBar: FC = () => {
                   >
                     <AccountCircleIcon sx={{ color: theme.palette.background.default, mr: 4 }} />
                     <Typography color={theme.palette.background.default} variant="body2">
-                      Profile
+                      {t('general.profile')}
                     </Typography>
                   </Box>
                 </MenuItem>
@@ -190,7 +199,7 @@ export const TopAppBar: FC = () => {
                     }}
                   >
                     <Typography color={theme.palette.background.default} variant="body2">
-                      Logout
+                      {t('general.logOut')}
                     </Typography>
                   </Box>
                 </MenuItem>

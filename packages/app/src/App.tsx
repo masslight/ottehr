@@ -3,15 +3,15 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { OttehrThemeProvider } from './OttehrThemeProvider';
 import { ScrollToTop } from './components';
 import {
-  CheckInPermission,
-  PatientCheckIn,
+  VideoSettings,
+  CheckIn,
   PostCall,
-  ProviderDashboard,
-  ProviderRegistration,
-  ProviderSettings,
+  Dashboard,
+  Register,
+  Profile,
   Version,
-  WaitingRoom,
   VideoChatPage,
+  WaitingRoom,
 } from './pages';
 import { PatientProvider, VideoParticipantProvider } from './store';
 import { useEffect } from 'react';
@@ -60,15 +60,15 @@ export default function App(): JSX.Element {
             <Routes>
               <Route element={<Version />} path={'/'} />;
               <Route element={<PatientProvider />}>
-                <Route element={<PatientCheckIn />} path={'/checkin'} />;
-                <Route element={<CheckInPermission />} path={'/checkin-permission'} />;
+                <Route element={<CheckIn />} path={'/check-in'} />;
                 <Route element={<PostCall />} path={'/post-call'} />;
-                <Route element={<ProviderRegistration />} path={'/registration'} />;
-                <Route element={<WaitingRoom />} path={'/waiting-room'} />;
+                <Route element={<Register />} path={'/register'} />;
                 <Route element={<VideoChatPage />} path={'/video-call'} />;
+                <Route element={<VideoSettings />} path={'/video-settings'} />;
+                <Route element={<WaitingRoom />} path={'/waiting-room'} />;
               </Route>
-              <Route element={<ProviderDashboard />} path={'/dashboard'} />;
-              <Route element={<ProviderSettings />} path={'/provider-profile'} />;
+              <Route element={<Dashboard />} path={'/dashboard'} />;
+              <Route element={<Profile />} path={'/profile'} />;
             </Routes>
           ) : (
             <Routes>

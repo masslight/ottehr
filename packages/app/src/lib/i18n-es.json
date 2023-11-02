@@ -1,101 +1,24 @@
 {
+  "errors": {
+    "noneToday": "TODO No slots available"
+  },
   "general": {
     "button": {
-      "book": "Reservar una cita",
-      "submit": "Enviar",
-      "continue": "Continuar",
       "back": "Atrás",
-      "close": "Cerrar",
-      "tryAgain": "Intente de nuevo",
       "checked": "Marcado",
+      "close": "Cerrar",
       "unchecked": "Sin marcar"
     },
-    "dateOfBirth": "Fecha de nacimiento",
-    "dropdownPlaceholder": "Seleccione",
+    "copyLink": "TODO Copy Link",
     "datePlaceholder": "MM/DD/AAAA",
-    "errors": {
-      "validation": {
-        "firstName": "El nombre es obligatorio",
-        "lastName": "El apellido es obligatorio",
-        "dateOfBirth": {
-          "format": "La fecha debe tener el formato MM/DD/AAAA",
-          "required": "La fecha de nacimiento es obligatoria"
-        },
-        "zip": {
-          "number": "El código postal debe tener cinco dígitos",
-          "required": "El código postal es obligatorio"
-        }
-      },
-      "submit": {
-        "title": "TODO There was an issue booking an appointment"
-      }
-    },
-    "firstName": "Nombre",
-    "lastName": "Apellido",
-    "required": "campo obligatorio",
     "footer": "TODO Powered by",
     "goodMorning": "TODO Good Morning",
-    "shareLink": "TODO To invite patients to your room share this link",
-    "copyLink": "TODO Copy Link",
-    "sendEmail": "TODO Send Email",
     "patientsQueue": "TODO Patients queue",
-    "waiting": "TODO Waiting",
+    "required": "campo obligatorio",
+    "sendEmail": "TODO Send Email",
+    "shareLink": "TODO To invite patients to your room share this link",
     "startCall": "TODO Start Call",
-    "stateFullNames": {
-      "AK": "Alaska",
-      "AL": "Alabama",
-      "AR": "Arkansas",
-      "AZ": "Arizona",
-      "CA": "California",
-      "CO": "Colorado",
-      "CT": "Connecticut",
-      "DC": "Distrito de Columbia",
-      "DE": "Delaware",
-      "FL": "Florida",
-      "GA": "Georgia",
-      "HI": "Hawái",
-      "IA": "Iowa",
-      "ID": "Idaho",
-      "IL": "Illinois",
-      "IN": "Indiana",
-      "KS": "Kansas",
-      "KY": "Kentucky",
-      "LA": "Luisiana",
-      "MA": "Massachusetts",
-      "MD": "Maryland",
-      "ME": "Maine",
-      "MI": "Michigan",
-      "MN": "Minnesota",
-      "MO": "Misuri",
-      "MS": "Misisipi",
-      "MT": "Montana",
-      "NC": "Carolina del Norte",
-      "ND": "Dakota del Norte",
-      "NE": "Nebraska",
-      "NH": "Nuevo Hampshire",
-      "NJ": "Nueva Jersey",
-      "NM": "Nuevo México",
-      "NV": "Nevada",
-      "NY": "Nueva York",
-      "OH": "Ohio",
-      "OK": "Oklahoma",
-      "OR": "Oregón",
-      "PA": "Pensilvania",
-      "RI": "Rhode Island",
-      "SC": "Carolina del Sur",
-      "SD": "Dakota del Sur",
-      "TN": "Tennessee",
-      "TX": "Texas",
-      "UT": "Utah",
-      "VA": "Virginia",
-      "VT": "Vermont",
-      "WA": "Washington",
-      "WI": "Wisconsin",
-      "WV": "Virginia Occidental",
-      "WY": "Wyoming"
-    },
-    "sunAlt": "Icono de sol amarillo",
-    "weekdays": ["D", "L", "M", "X", "J", "V", "S"],
-    "zip": "Código postal"
+    "waiting": "TODO Waiting",
+    "weekdays": ["D", "L", "M", "X", "J", "V", "S"]
   }
 }
