@@ -162,31 +162,6 @@ class API {
     }
   }
 
-  async getTelemedTokenProvider(encounterId: string): Promise<string | null> {
-    try {
-      const response = await fetch(`${TELEMED_API_URL}/telemed-token-provider/execute-public`, {
-        body: JSON.stringify({ body: { encounterId } }),
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-        method: 'POST',
-      });
-
-      const responseBody = await response.json();
-      const token = responseBody.version?.token;
-
-      if (!token) {
-        console.error('Token is missing in the response');
-        return null;
-      }
-      return token;
-    } catch (error) {
-      console.error('Error fetching token:', error);
-      return null;
-    }
-  }
-
   async getTwilioToken(roomName: string): Promise<string | null> {
     try {
       // for development, we can use the local express server to generate a token

@@ -20,14 +20,12 @@ export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, name, queuedT
   const navigate = useNavigate();
   const [relativeQueuedTime, setRelativeQueuedTime] = useState(getQueuedTimeFromTimestamp(queuedTime));
 
-  // todo: get this from encounter extension
-  // const roomSID = 'testRoom';
   const startCall = async (): Promise<void> => {
     try {
       setIsVideoOpen(true);
       setIsMicOpen(true);
-
-      const fetchedToken = await zapehrApi.getTelemedTokenProvider(encounterId);
+      //  this will not work for now as it is for m2m
+      const fetchedToken = await zapehrApi.getTelemedToken(encounterId);
       if (fetchedToken === null) {
         console.error('Failed to fetch token');
         return;
@@ -53,7 +51,6 @@ export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, name, queuedT
 
       setRoom(connectedRoom);
       navigate(`/video-call/`);
-      // Navigate to room or handle UI updates
     } catch (error) {
       console.error('An error occurred:', error);
     }
