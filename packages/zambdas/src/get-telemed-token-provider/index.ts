@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ZambdaInput } from '../types';
-import { SecretsKeys, getAuth0Token, getSecret } from '../shared';
+import { SecretsKeys, getAuth0Token, getM2MUserProfile, getSecret } from '../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import fetch from 'node-fetch';
 
@@ -15,25 +16,29 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
     const PROJECT_ID = getSecret(SecretsKeys.PROJECT_ID, secrets);
+    const TELEMED_VIDEO_DEVICE_ID = '60c69e39-97fa-4f15-ba49-6261fdd65186';
 
-    const token = await getAuth0Token(secrets);
+    const token = await getAuth0Token(secrets, 'provider-m2m');
     console.log('token', token);
 
     const encounterID = body.encounterId;
 
-    const response = await fetch(`${PROJECT_API}/telemed/token?encounterId=${encounterID}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'content-type': 'application/json',
-        'x-zapehr-project-id': PROJECT_ID,
-      },
-      method: 'GET',
-    });
-    if (!response.ok) {
-      throw new Error(`API call failed: ${response.statusText}`);
-    }
+    const response = await getM2MUserProfile(token, PROJECT_ID, TELEMED_VIDEO_DEVICE_ID);
 
-    const responseData = await response.json();
+    // const response = await fetch(`${PROJECT_API}/telemed/token?encounterId=${encounterID}`, {
+    //   headers: {
+    //     Authorization: `Bearer ${token}`,
+    //     'content-type': 'application/json',
+    //     'x-zapehr-project-id': PROJECT_ID,
+    //   },
+    //   method: 'GET',
+    // });
+    // if (!response.ok) {
+    //   throw new Error(`API call failed: ${response.statusText}`);
+    // }
+
+    // const responseData = await response.json();
+    const responseData = response;
     console.log('responseData', responseData);
 
     return {

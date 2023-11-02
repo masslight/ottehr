@@ -21,13 +21,13 @@ export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, name, queuedT
   const [relativeQueuedTime, setRelativeQueuedTime] = useState(getQueuedTimeFromTimestamp(queuedTime));
 
   // todo: get this from encounter extension
-  const roomSID = 'testRoom';
+  // const roomSID = 'testRoom';
   const startCall = async (): Promise<void> => {
     try {
       setIsVideoOpen(true);
       setIsMicOpen(true);
 
-      const fetchedToken = await zapehrApi.getTelemedToken(encounterId);
+      const fetchedToken = await zapehrApi.getTelemedTokenProvider(encounterId);
       if (fetchedToken === null) {
         console.error('Failed to fetch token');
         return;
@@ -47,7 +47,6 @@ export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, name, queuedT
 
       const connectedRoom = await Video.connect(fetchedToken, {
         audio: true,
-        name: roomSID,
         tracks: localTracks,
         video: true,
       });

@@ -9,6 +9,8 @@ import { Encounter } from 'fhir/r4';
 const CHECK_IN_ZAMBDA_ID = import.meta.env.VITE_CHECK_IN_ZAMBDA_ID;
 const GET_APPOINTMENTS_ZAMBDA_ID = import.meta.env.VITE_GET_APPOINTMENTS_ZAMBDA_ID;
 const GET_PATIENTS_ZAMBDA_ID = import.meta.env.VITE_GET_PATIENTS_ZAMBDA_ID;
+// const TELEMED_API_URL = import.meta.env.VITE_TELEMED_API_URL;
+const TELEMED_API_URL = 'http://localhost:3301/local/zambda';
 
 class API {
   async checkIn(zambdaClient: ZambdaClient, appointmentId: string): Promise<any> {
@@ -111,7 +113,7 @@ class API {
 
   async createTelemedRoom(): Promise<Encounter | null> {
     try {
-      const response = await fetch(`${import.meta.env.VITE_LOCAL_TELEMED_API_URL}/telemed-room/execute-public`, {
+      const response = await fetch(`${TELEMED_API_URL}/telemed-room/execute-public`, {
         body: JSON.stringify({ testBody: 'test' }),
         headers: {
           Accept: 'application/json',
@@ -137,7 +139,32 @@ class API {
 
   async getTelemedToken(encounterId: string): Promise<string | null> {
     try {
-      const response = await fetch(`${import.meta.env.VITE_LOCAL_TELEMED_API_URL}/telemed-token/execute-public`, {
+      const response = await fetch(`${TELEMED_API_URL}/telemed-token/execute-public`, {
+        body: JSON.stringify({ body: { encounterId } }),
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        method: 'POST',
+      });
+
+      const responseBody = await response.json();
+      const token = responseBody.version?.token;
+
+      if (!token) {
+        console.error('Token is missing in the response');
+        return null;
+      }
+      return token;
+    } catch (error) {
+      console.error('Error fetching token:', error);
+      return null;
+    }
+  }
+
+  async getTelemedTokenProvider(encounterId: string): Promise<string | null> {
+    try {
+      const response = await fetch(`${TELEMED_API_URL}/telemed-token-provider/execute-public`, {
         body: JSON.stringify({ body: { encounterId } }),
         headers: {
           Accept: 'application/json',

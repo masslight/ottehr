@@ -20,7 +20,6 @@ export const CheckInPermission = (): JSX.Element => {
     try {
       setIsVideoOpen(userInput);
       setIsMicOpen(userInput);
-
       const encounter: Encounter | null = await zapehrApi.createTelemedRoom();
       if (encounter === null) {
         console.error('Failed to create telemed room');

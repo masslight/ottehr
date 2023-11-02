@@ -15,7 +15,7 @@ export const ProviderDashboard = (): JSX.Element => {
   // hard coded patients data for now
   const patientsData = [
     {
-      encounterId: 'testRoom',
+      encounterId: 'c3b187d6-8212-4309-9502-d34c13061278',
       name: 'John Doe',
       queuedTime: '2023-09-29T08:15:00Z',
     },
