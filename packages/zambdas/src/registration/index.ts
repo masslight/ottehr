@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { APIGatewayProxyResult } from 'aws-lambda';
 import fetch from 'node-fetch'; // Make sure to install this package if not already installed
 import { createZambdaFromSkeleton } from '../shared/zambdaSkeleton';
@@ -24,20 +25,20 @@ const postProviderProfile = async (input: ZambdaFunctionInput): Promise<ZambdaFu
   const authToken = await getAuth0Token(secrets);
 
   const patientResource = {
-    active: true,
-    extension: [
-      {
-        url: 'https://fhir-api.zapehr.com/r4/Patient/identifier',
-        valueBoolean: checkboxes,
-      },
-    ],
-    id: slug,
-    identifier: [
-      {
-        use: 'official',
-        value: slug,
-      },
-    ],
+    // active: true,
+    // extension: [
+    //   {
+    //     url: 'https://fhir-api.zapehr.com/r4/Patient/identifier',
+    //     valueBoolean: checkboxes,
+    //   },
+    // ],
+    // id: slug,
+    // identifier: [
+    //   {
+    //     use: 'official',
+    //     value: slug,
+    //   },
+    // ],
     name: [
       {
         family: lastName,
@@ -46,17 +47,17 @@ const postProviderProfile = async (input: ZambdaFunctionInput): Promise<ZambdaFu
         use: 'official',
       },
     ],
-    resourceType: 'Practitioner',
-    telecom: [
-      {
-        system: 'email',
-        value: email,
-      },
-    ],
+    resourceType: 'Patient',
+    // telecom: [
+    //   {
+    //     system: 'email',
+    //     value: email,
+    //   },
+    // ],
   };
 
   try {
-    const response = await fetch(`https://project-api.zapehr.com/v1/user/invite`, {
+    const response = await fetch(`https://fhir-api.zapehr.com/r4/Patient/242b0d4c-908b-4bc2-b08b-7e88ac2c3fcf`, {
       body: JSON.stringify([
         {
           op: 'replace',
@@ -68,7 +69,7 @@ const postProviderProfile = async (input: ZambdaFunctionInput): Promise<ZambdaFu
         Authorization: `Bearer ${authToken}`,
         'Content-Type': 'application/json',
       },
-      method: 'POST',
+      method: 'PATCH',
     });
 
     console.log('response', response);
