@@ -1,4 +1,5 @@
 export * from './CallSettings';
+export * from './CustomButton';
 export * from './CustomContainer';
 export * from './Footer';
 export * from './Header';

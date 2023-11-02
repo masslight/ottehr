@@ -1,11 +1,11 @@
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
-import { Box, Button, Typography, useTheme } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
-import { otherColors, otherStyling } from '../OttehrThemeProvider';
+import { otherColors } from '../OttehrThemeProvider';
 import { zapehrApi } from '../api';
-import { CustomContainer } from '../components';
+import { CustomButton, CustomContainer } from '../components';
 import { createProviderName } from '../helpers';
 import { useDevices } from '../hooks';
 import { useVideoParticipant } from '../store';
@@ -91,23 +91,10 @@ export const VideoSettings = (): JSX.Element => {
           {t('video.enableInBrowser')}
         </Typography>
       </Box>
-
-      <Button onClick={() => toggleMicAndCam(true)} sx={otherStyling.buttonPrimary} variant="contained">
-        {t('video.enableBoth')}
-      </Button>
-      <Button
-        onClick={() => toggleMicAndCam(false)}
-        sx={{
-          color: theme.palette.primary.light,
-          cursor: 'pointer',
-          mt: 2,
-          textAlign: 'center',
-          textTransform: 'uppercase',
-        }}
-        variant="text"
-      >
+      <CustomButton onClick={() => toggleMicAndCam(true)}>{t('video.enableBoth')}</CustomButton>
+      <CustomButton onClick={() => toggleMicAndCam(false)} secondary>
         {t('video.continueWithout')}
-      </Button>
+      </CustomButton>
     </CustomContainer>
   );
 };

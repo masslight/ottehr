@@ -1,10 +1,9 @@
-import { Button, TextField, Typography } from '@mui/material';
+import { TextField, Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { otherStyling } from '../OttehrThemeProvider';
-import { CustomContainer } from '../components';
+import { CustomButton, CustomContainer } from '../components';
 import { createProviderName } from '../helpers';
 import { usePatient } from '../store';
 import { getProvider } from '../helpers/mockData';
@@ -51,20 +50,11 @@ export const CheckIn = (): JSX.Element => {
             error={isError}
             label={t('checkIn.yourName')}
             onChange={(e) => setName(e.target.value)}
-            sx={{ pb: 2, width: '100%' }}
+            sx={{ width: '100%' }}
             value={name}
             variant="outlined"
           />
-          <Button
-            sx={{
-              ...otherStyling.buttonPrimary,
-              width: '100%',
-            }}
-            type="submit"
-            variant="contained"
-          >
-            {t('checkIn.checkIn')}
-          </Button>
+          <CustomButton submit>{t('checkIn.checkIn')}</CustomButton>
         </Box>
       </form>
     </CustomContainer>

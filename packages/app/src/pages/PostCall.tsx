@@ -1,8 +1,7 @@
-import { Button, Typography } from '@mui/material';
+import { Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { otherStyling } from '../OttehrThemeProvider';
-import { CustomContainer } from '../components';
+import { CustomButton, CustomContainer } from '../components';
 import { createPatientName, createProviderName } from '../helpers';
 import { getPatients, getProvider } from '../helpers/mockData';
 
@@ -39,18 +38,9 @@ export const PostCall = (): JSX.Element => {
         {t('postCall.durationSuffix')}
       </Typography>
       {isProvider && (
-        <Button
-          onClick={goToDashboard}
-          sx={{
-            ...otherStyling.buttonPrimary,
-            px: 2,
-            text: 'primary.contrast',
-            width: 'fit-content',
-          }}
-          variant="contained"
-        >
+        <CustomButton fitContent onClick={goToDashboard}>
           {t('postCall.goToDashboard')}
-        </Button>
+        </CustomButton>
       )}
     </CustomContainer>
   );

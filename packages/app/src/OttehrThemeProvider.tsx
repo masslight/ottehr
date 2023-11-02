@@ -303,11 +303,6 @@ export const components: Components = {
 };
 
 export const otherStyling = {
-  buttonPrimary: {
-    borderRadius: '4px',
-    color: palette.background.default,
-    textTransform: 'uppercase',
-  },
   formFocus: {
     border: '1px solid !important',
     borderColor: `${palette.primary.main} !important`,
