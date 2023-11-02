@@ -10,6 +10,7 @@ export async function getAuth0Token(secrets: Secrets | null): Promise<string> {
   const AUTH0_SECRET = getSecret(SecretsKeys.AUTH0_SECRET, secrets);
 
   console.group(`Fetch from ${AUTH0_ENDPOINT}`);
+
   return await fetch(AUTH0_ENDPOINT, {
     body: JSON.stringify({
       audience: AUTH0_AUDIENCE,

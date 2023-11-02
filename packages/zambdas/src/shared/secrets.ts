@@ -3,7 +3,8 @@ import { Secrets } from '../types';
 // Throws if secret could not be found
 export const getSecret = (secretKey: string, secrets: Secrets | null): string => {
   let value: string | undefined;
-  if (secrets != null) {
+
+  if (secrets != null && Object.keys(secrets).length > 0) {
     value = secrets[secretKey];
   } else {
     value = process.env[secretKey];
