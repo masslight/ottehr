@@ -13,7 +13,6 @@ export interface PatientQueueProps {
   encounterId: string;
   firstName: string;
   lastName: string;
-  name: string;
   queuedTime: string;
 }
 
