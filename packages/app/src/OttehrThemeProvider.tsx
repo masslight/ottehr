@@ -1,4 +1,4 @@
-import { BreakpointsOptions, Components, PaletteColor, ThemeProvider, alpha, createTheme } from '@mui/material';
+import { BreakpointsOptions, Components, PaletteColor, ThemeProvider, createTheme } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { FC, ReactNode } from 'react';
 
