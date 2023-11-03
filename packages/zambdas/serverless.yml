@@ -48,7 +48,6 @@ functions:
       AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
       AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
-      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       PROJECT_ID: ${file(./.env/${self:provider.stage}.json):PROJECT_ID}
 
   get-telemed-token:
@@ -65,7 +64,6 @@ functions:
       AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
       FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
-      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       PROJECT_ID: ${file(./.env/${self:provider.stage}.json):PROJECT_ID}
 
 plugins:
