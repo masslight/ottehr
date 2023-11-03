@@ -1,6 +1,3 @@
-import { ZambdaClient } from '@zapehr/sdk';
-import { apiErrorToThrow } from './apiErrorToThrow';
-
 export interface ZapehrSearchParameter {
   key: string;
   value: string;
