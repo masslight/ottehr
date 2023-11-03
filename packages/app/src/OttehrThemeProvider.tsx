@@ -302,14 +302,6 @@ export const components: Components = {
   },
 };
 
-export const otherStyling = {
-  formFocus: {
-    border: '1px solid !important',
-    borderColor: `${palette.primary.main} !important`,
-    boxShadow: `${alpha(palette.primary.main, 0.25)} 0 0 0 0.2rem`,
-  },
-};
-
 interface OttehrThemeProviderProps {
   children: ReactNode;
 }
