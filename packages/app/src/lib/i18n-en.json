@@ -80,6 +80,8 @@
     "permissionAccess": "Please give us access to your camera and microphone for a video call."
   },
   "waitingRoom": {
-    "startingSoon": "Your call will start soon."
+    "startingSoon": "Your call will start soon.",
+    "thanksPrefix": "Thank you for your patience. Please wait for ",
+    "thanksSuffix": " to accept your call."
   }
 }

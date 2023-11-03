@@ -1,12 +1,12 @@
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
-import { Box, Button, Container, Divider, Typography, useTheme } from '@mui/material';
+import { Box, Container, Divider, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
 import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import { otherColors } from '../OttehrThemeProvider';
 import { defaultProvider } from '../assets/icons';
-import { Footer, PatientQueue, TopAppBar } from '../components';
+import { CustomButton, Footer, PatientQueue, TopAppBar } from '../components';
 import { createProviderName } from '../helpers';
 import { getPatients, getProvider } from '../helpers/mockData';
 
@@ -19,6 +19,16 @@ export const Dashboard = (): JSX.Element => {
   const provider = getProvider();
 
   const hour = DateTime.now().get('hour');
+
+  const copySlugToClipboard = (): void => {
+    async () => {
+      try {
+        await navigator.clipboard.writeText(`https://zapehr.app/${provider.slug}`);
+      } catch (error) {
+        console.error('Failed to copy room link to clipboard:', error);
+      }
+    };
+  };
 
   return (
     <Container
@@ -108,23 +118,12 @@ export const Dashboard = (): JSX.Element => {
                 marginTop: 2,
               }}
             >
-              <Button
-                color="primary"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(`https://zapehr.app/${provider.slug}`);
-                  } catch (error) {
-                    console.error('Failed to copy room link to clipboard:', error);
-                  }
-                }}
-                startIcon={<ContentCopyIcon />}
-                variant="contained"
-              >
+              <CustomButton icon={<ContentCopyIcon />} onClick={copySlugToClipboard}>
                 {t('dashboard.copyLink')}
-              </Button>
-              <Button color="primary" startIcon={<MailOutlineIcon />} variant="outlined">
+              </CustomButton>
+              <CustomButton icon={<MailOutlineIcon />} secondary>
                 {t('dashboard.sendEmail')}
-              </Button>
+              </CustomButton>
             </Box>
           </Box>
         </Box>
@@ -148,7 +147,7 @@ export const Dashboard = (): JSX.Element => {
             {t('dashboard.patientQueue')}
           </Typography>
 
-          <Typography color="primary.contrast" fontWeight={500} sx={{ opacity: 0.6 }} variant="body2">
+          <Typography color="primary.contrast" fontWeight={500} mb={2} sx={{ opacity: 0.6 }} variant="body2">
             {t('dashboard.waiting')}
           </Typography>
 

@@ -302,27 +302,6 @@ export const components: Components = {
   },
 };
 
-export const otherStyling = {
-  boxPadding: {
-    px: 12.5,
-    py: 7.5,
-  },
-  boxPaddingMobile: {
-    px: 2,
-    py: 4,
-  },
-  buttonPrimary: {
-    borderRadius: '4px',
-    color: palette.background.default,
-    textTransform: 'uppercase',
-  },
-  formFocus: {
-    border: '1px solid !important',
-    borderColor: `${palette.primary.main} !important`,
-    boxShadow: `${alpha(palette.primary.main, 0.25)} 0 0 0 0.2rem`,
-  },
-};
-
 interface OttehrThemeProviderProps {
   children: ReactNode;
 }
