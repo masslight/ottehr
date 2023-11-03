@@ -2,8 +2,63 @@ export interface ZapehrSearchParameter {
   key: string;
   value: string;
 }
+import { Encounter } from 'fhir/r4';
+// TODO: add env
+// const TELEMED_API_URL = import.meta.env.VITE_TELEMED_API_URL;
+const TELEMED_API_URL = 'http://localhost:3301/local/zambda';
 
 class API {
+  async createTelemedRoom(): Promise<Encounter | null> {
+    try {
+      const response = await fetch(`${TELEMED_API_URL}/telemed-room/execute-public`, {
+        body: JSON.stringify({ testBody: 'test' }),
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        method: 'POST',
+      });
+
+      const responseBody = await response.json();
+      const encounter: Encounter | undefined = responseBody.version?.encounter;
+
+      if (!encounter) {
+        console.error('Encounter is missing in the response');
+        return null;
+      }
+
+      return encounter;
+    } catch (error) {
+      console.error('Error fetching encounter:', error);
+      return null;
+    }
+  }
+
+  async getTelemedToken(encounterId: string): Promise<string | null> {
+    try {
+      const response = await fetch(`${TELEMED_API_URL}/telemed-token/execute-public`, {
+        body: JSON.stringify({ body: { encounterId } }),
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        method: 'POST',
+      });
+
+      const responseBody = await response.json();
+      const token = responseBody.version?.token;
+
+      if (!token) {
+        console.error('Token is missing in the response');
+        return null;
+      }
+      return token;
+    } catch (error) {
+      console.error('Error fetching token:', error);
+      return null;
+    }
+  }
+
   async getTwilioToken(roomName: string): Promise<string | null> {
     try {
       // For development, we can use the local express server to generate a token
