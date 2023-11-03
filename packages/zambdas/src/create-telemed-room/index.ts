@@ -19,9 +19,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
     const PROJECT_ID = getSecret(SecretsKeys.PROJECT_ID, secrets);
-    const TELEMED_VIDEO_DEVICE_ID = getSecret(SecretsKeys.TELEMED_VIDEO_DEVICE_ID, secrets);
 
-    const m2mUserProfile = await getM2MUserProfile(token, PROJECT_ID, TELEMED_VIDEO_DEVICE_ID);
+    const m2mUserProfile = await getM2MUserProfile(token);
 
     const encounter = createRoomEncounter(PROVIDER_PROFILE, m2mUserProfile);
     console.log('encounter', encounter);

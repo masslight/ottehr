@@ -3,12 +3,14 @@
 import fetch from 'node-fetch';
 import { SecretsKeys, getSecret } from './secrets';
 
-export async function getM2MUserProfile(token: string, projectId: string, M2MId: string): Promise<any> {
+export async function getM2MUserProfile(token: string): Promise<any> {
   const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, null);
   const PROJECT_ID = getSecret(SecretsKeys.PROJECT_ID, null);
+  const AUTH0_CLIENT = getSecret(SecretsKeys.AUTH0_CLIENT, null);
 
   try {
-    const url = `${PROJECT_API}/m2m/${M2MId}`;
+    const url = `${PROJECT_API}/m2m`;
+    console.log('url', url);
     const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -22,13 +24,15 @@ export async function getM2MUserProfile(token: string, projectId: string, M2MId:
     }
 
     const data = await response.json();
-    const profile = data.profile;
 
-    if (!profile) {
-      throw new Error('Profile value not found in the returned data');
+    const telemedDevice = data.find((device: any) => device.clientId === AUTH0_CLIENT);
+
+    if (!telemedDevice) {
+      throw new Error('No device matches the provided AUTH0_CLIENT');
     }
 
-    return profile;
+    console.log('device profile:', telemedDevice.profile);
+    return telemedDevice.profile;
   } catch (error: any) {
     console.error('Error fetching M2M user details:', error);
     throw error;
