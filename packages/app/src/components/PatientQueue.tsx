@@ -10,13 +10,15 @@ import { useVideoParticipant } from '../store';
 import { CustomButton } from './CustomButton';
 
 export interface PatientQueueProps {
+  encounterId: string;
   firstName: string;
   lastName: string;
+  encounterId: string;
+  name: string;
   queuedTime: string;
-  roomName: string;
 }
 
-export const PatientQueue: FC<PatientQueueProps> = ({ firstName, lastName, queuedTime, roomName }) => {
+export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, firstName, lastName, queuedTime }) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom } = useVideoParticipant();
@@ -27,7 +29,8 @@ export const PatientQueue: FC<PatientQueueProps> = ({ firstName, lastName, queue
       setIsMicOpen(true);
       setIsVideoOpen(true);
 
-      const fetchedToken = await zapehrApi.getTwilioToken(roomName);
+      //  this will not work for now as it is for m2m
+      const fetchedToken = await zapehrApi.getTelemedToken(encounterId);
       if (fetchedToken === null) {
         console.error('Failed to fetch token');
         return;
@@ -47,14 +50,12 @@ export const PatientQueue: FC<PatientQueueProps> = ({ firstName, lastName, queue
 
       const connectedRoom = await Video.connect(fetchedToken, {
         audio: true,
-        name: roomName,
         tracks: localTracks,
         video: true,
       });
 
       setRoom(connectedRoom);
       navigate(`/video-call`);
-      // Navigate to room or handle UI updates
     } catch (error) {
       console.error('An error occurred:', error);
     }
