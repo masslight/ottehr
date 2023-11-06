@@ -5,6 +5,7 @@
   "scripts": {
     "build": "pnpm build:dev",
     "build:dev": "ENV=dev ROBOTS_FILE=lowers pnpm build-skeleton",
+    "build:dev2": "ENV=dev2 ROBOTS_FILE=lowers pnpm build-skeleton",
     "build:testing": "ENV=testing ROBOTS_FILE=lowers pnpm build-skeleton",
     "build:staging": "ENV=staging ROBOTS_FILE=lowers pnpm build-skeleton",
     "build:production": "ENV=production ROBOTS_FILE=production pnpm build-skeleton",
