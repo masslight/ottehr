@@ -15,6 +15,7 @@ import { t } from 'i18next';
 import { FC, useEffect, useState } from 'react';
 import { Control, Controller } from 'react-hook-form';
 import { zapehrApi } from '../api';
+import { debounce } from '../helpers';
 import { CustomButton } from './CustomButton';
 import { getProvider, getTitles } from '../helpers/mockData';
 
@@ -30,13 +31,22 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
   const provider = getProvider();
   const [slug, setSlug] = useState(provider.slug);
   const [slugError, setSlugError] = useState('');
+
+  const debouncedCheckAvailability = (slug: string): void => {
+    // TODO fix debounce
+    debounce(() => {
+      // TODO doesn't use translation files
+      zapehrApi.getSlugAvailabilityError(slug).then(setSlugError).catch(console.error);
+    });
+  };
+
+  // TODO Would this work?
+  // useMemo(() => debounce(onAccept, 1000), [onAccept])
   useEffect(() => {
-    // Add debounce
     if (slug === '') {
       setSlugError("Slug can't be an empty string.");
     } else {
-      // TODO doesn't use translation files
-      zapehrApi.getSlugAvailabilityError(slug).then(setSlugError).catch(console.error);
+      debouncedCheckAvailability(slug);
     }
   }, [slug]);
   const titles = getTitles();
@@ -97,10 +107,11 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
                 error={slugError.length > 0}
                 helperText={slugError}
                 label="Slug"
-                onBlur={(e) => {
+                onChange={(e) => {
                   setSlug(e.target.value);
                   field.onChange(e);
                 }}
+                value={slug ?? ''}
                 variant="outlined"
               />
               <Box mb={-0.5} mt={-1} sx={{ alignItems: 'center', display: 'flex' }}>
