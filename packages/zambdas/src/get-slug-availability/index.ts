@@ -1,6 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DefaultErrorMessages, ZambdaFunctionInput, ZambdaFunctionResponse, ZambdaInput } from '../types';
 import { createZambdaFromSkeleton } from '../shared/zambdaSkeleton';
+import { regex } from '../shared';
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   return createZambdaFromSkeleton(input, getSlugAvailability);
@@ -15,7 +16,12 @@ const getSlugAvailability = (input: ZambdaFunctionInput): ZambdaFunctionResponse
   const { oldSlug, slug } = input.body as getSlugAvailabilityInput;
   if (slug == null || typeof slug !== 'string') {
     return {
-      error: `${DefaultErrorMessages.validation}: "slug" must be provided and be a string`,
+      error: `${DefaultErrorMessages.validation}: "slug" must be provided and be a string.`,
+    };
+  }
+  if (regex.alphanumeric.test(slug)) {
+    return {
+      error: `${DefaultErrorMessages.validation}: "slug" must only contain alphanumeric characters.`,
     };
   }
   const potentialSlug = slug.toLowerCase();
@@ -23,7 +29,7 @@ const getSlugAvailability = (input: ZambdaFunctionInput): ZambdaFunctionResponse
   if (oldSlug != null) {
     if (typeof oldSlug !== 'string') {
       return {
-        error: `${DefaultErrorMessages.validation}: "oldSlug" must be a string`,
+        error: `${DefaultErrorMessages.validation}: "oldSlug" must be a string.`,
       };
     }
   }
