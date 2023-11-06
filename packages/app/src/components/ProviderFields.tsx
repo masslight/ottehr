@@ -12,10 +12,11 @@ import {
   Typography,
 } from '@mui/material';
 import { t } from 'i18next';
-import { FC, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { Control, Controller } from 'react-hook-form';
+import { zapehrApi } from '../api';
 import { CustomButton } from './CustomButton';
-import { getProvider, getTitles, isAvailable } from '../helpers/mockData';
+import { getProvider, getTitles } from '../helpers/mockData';
 
 interface ProviderFieldsProps {
   buttonText: string;
@@ -28,9 +29,17 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
   // TODO hard-coded data
   const provider = getProvider();
   const [slug, setSlug] = useState(provider.slug);
+  const [slugError, setSlugError] = useState('');
+  useEffect(() => {
+    // Add debounce
+    if (slug === '') {
+      setSlugError("Slug can't be an empty string.");
+    } else {
+      // TODO doesn't use translation files
+      zapehrApi.getSlugAvailabilityError(slug).then(setSlugError).catch(console.error);
+    }
+  }, [slug]);
   const titles = getTitles();
-  const isError = !isAvailable(slug);
-  const helperText = isError ? t('error.slugUnavailable') : '';
 
   return (
     <form onSubmit={onSubmit}>
@@ -85,17 +94,19 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
           render={({ field }) => (
             <>
               <TextField
-                error={isError}
-                helperText={helperText}
+                error={slugError.length > 0}
+                helperText={slugError}
                 label="Slug"
-                onChange={(e) => {
+                onBlur={(e) => {
                   setSlug(e.target.value);
                   field.onChange(e);
                 }}
                 variant="outlined"
               />
               <Box mb={-0.5} mt={-1} sx={{ alignItems: 'center', display: 'flex' }}>
-                <Box sx={{ mr: 1 }}>{isError ? <CancelIcon color="error" /> : <CheckIcon color="success" />}</Box>
+                <Box sx={{ mr: 1 }}>
+                  {slugError === '' ? <CheckIcon color="success" /> : <CancelIcon color="error" />}
+                </Box>
                 <Typography variant="body2">{`https://zapehr.app/${field.value}`}</Typography>
               </Box>
             </>

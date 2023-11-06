@@ -22,7 +22,8 @@
     "waiting": "Waiting"
   },
   "error": {
-    "slugUnavailable": "This slug is already taken, please use another one."
+    "slugUnavailable": "This slug is already taken, please use another one.",
+    "unexpected": "An unexpected error occurred. Please try again."
   },
   "general": {
     "footer": "Powered by",
