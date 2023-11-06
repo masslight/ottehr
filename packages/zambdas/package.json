@@ -18,6 +18,7 @@
     "start": "pnpm start:local",
     "start:local": "ENV=local pnpm start-skeleton",
     "start:dev": "ENV=dev pnpm start-skeleton",
+    "start:dev2": "ENV=dev2 pnpm start-skeleton",
     "start:testing": "ENV=testing pnpm start-skeleton",
     "start:staging": "ENV=staging pnpm start-skeleton",
     "start-skeleton": "sls offline --stage ${ENV}"
