@@ -11,7 +11,7 @@ provider:
   stage: ${opt:stage, self:custom.defaultStage}
 
 custom:
-  defaultStage: local
+  defaultStage: dev2
   serverless-offline:
     reloadHandler: true
     httpPort: 3301

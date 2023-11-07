@@ -2,45 +2,20 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import { Box, Button, Container, Divider, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
-import { Fragment, Key, useEffect } from 'react';
+import { Fragment, Key } from 'react';
 import { useTranslation } from 'react-i18next';
 import { otherColors } from '../OttehrThemeProvider';
 import { defaultProvider } from '../assets/icons';
 import { Footer, PatientQueue, PatientQueueProps, TopAppBar } from '../components';
-import { useAuth0 } from '@auth0/auth0-react';
 import { getPatients, getProvider } from '../helpers/mockData';
 import { createProviderName } from '../helpers';
 import { JSX } from 'react/jsx-runtime';
 
-export const ProviderDashboard = (): JSX.Element => {
-  const { isAuthenticated, loginWithRedirect, getAccessTokenSilently } = useAuth0();
-
+export const Dashboard = (): JSX.Element => {
   const { t } = useTranslation();
   // TODO hard-coded data
   const patients = getPatients();
   const provider = getProvider();
-
-  useEffect(() => {
-    const fetchAccessToken = async (): Promise<void> => {
-      try {
-        if (!isAuthenticated) {
-          const token = await getAccessTokenSilently();
-          console.log('Access token:', token);
-        } else {
-          await loginWithRedirect();
-        }
-      } catch (error) {
-        console.error('Error occurred while fetching the access token:', error);
-      }
-    };
-    fetchAccessToken()
-      .then(() => {
-        console.log('Access token fetched successfully');
-      })
-      .catch((error) => {
-        console.error('Error fetching access token:', error);
-      });
-  }, [isAuthenticated, getAccessTokenSilently, loginWithRedirect]);
 
   const theme = useTheme();
 

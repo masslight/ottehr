@@ -20,49 +20,52 @@ interface PostProviderProfileInput {
 
 const postProviderProfile = async (input: ZambdaFunctionInput): Promise<ZambdaFunctionResponse> => {
   const { body, secrets } = input;
+  console.log(body.name);
+  console.log('here');
+  // return 1;
   const { checkboxes, email, firstName, lastName, slug, title } = body as PostProviderProfileInput;
 
   const authToken = await getAuth0Token(secrets);
 
-  const patientResource = {
-    // active: true,
-    // extension: [
-    //   {
-    //     url: 'https://fhir-api.zapehr.com/r4/Patient/identifier',
-    //     valueBoolean: checkboxes,
-    //   },
-    // ],
-    // id: slug,
-    // identifier: [
-    //   {
-    //     use: 'official',
-    //     value: slug,
-    //   },
-    // ],
-    name: [
-      {
-        family: lastName,
-        given: firstName,
-        prefix: title,
-        use: 'official',
-      },
-    ],
-    resourceType: 'Patient',
-    // telecom: [
-    //   {
-    //     system: 'email',
-    //     value: email,
-    //   },
-    // ],
-  };
+  // const patientResource = {
+  //   // active: true,
+  //   // extension: [
+  //   //   {
+  //   //     url: 'https://fhir-api.zapehr.com/r4/Patient/identifier',
+  //   //     valueBoolean: checkboxes,
+  //   //   },
+  //   // ],
+  //   // id: slug,
+  //   // identifier: [
+  //   //   {
+  //   //     use: 'official',
+  //   //     value: slug,
+  //   //   },
+  //   // ],
+  //   name: [
+  //     {
+  //       family: lastName,
+  //       given: firstName,
+  //       prefix: title,
+  //       use: 'official',
+  //     },
+  //   ],
+  //   resourceType: 'Patient',
+  //   // telecom: [
+  //   //   {
+  //   //     system: 'email',
+  //   //     value: email,
+  //   //   },
+  //   // ],
+  // };
 
   try {
-    const response = await fetch(`https://fhir-api.zapehr.com/r4/Patient/242b0d4c-908b-4bc2-b08b-7e88ac2c3fcf`, {
+    const response = await fetch(`https://fhir-api.zapehr.com/r4/Patient/cfe7e2c6-9070-4339-9a8d-af49a1bba81a`, {
       body: JSON.stringify([
         {
           op: 'replace',
-          path: '/',
-          value: patientResource,
+          path: '/name',
+          value: body,
         },
       ]),
       headers: {

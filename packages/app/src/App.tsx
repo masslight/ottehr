@@ -15,41 +15,68 @@ import {
 } from './pages';
 import { PatientProvider, VideoParticipantProvider } from './store';
 import { useEffect } from 'react';
-import axios from 'axios';
+// import axios from 'axios';
 
 export default function App(): JSX.Element {
-  const { isAuthenticated, getAccessTokenSilently } = useAuth0();
+  const { isLoading, isAuthenticated, loginWithRedirect, getAccessTokenSilently } = useAuth0();
 
   useEffect(() => {
-    const fetchUserDetails = async (): Promise<void> => {
-      if (!isAuthenticated) {
-        try {
+    const fetchAccessToken = async (): Promise<void> => {
+      try {
+        console.log('auth', isAuthenticated);
+        if (isLoading && isAuthenticated) {
           const token = await getAccessTokenSilently();
-          console.log('token is', token);
-          axios
-            .get('http://localhost:3301/local/zambda/get-slug-availability/execute-public', {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            })
-            .then((response) => {
-              if (response.status === 404) {
-                console.log('user not found');
-              }
-            })
-            .catch((error) => {
-              console.error('An error occurred:', error);
-            });
-        } catch (e) {
-          console.error('Error while getting the access token:', e);
+          console.log('Access token:', token);
+        } else {
+          setTimeout(async () => {
+            await loginWithRedirect();
+          }, 1000);
         }
+      } catch (error) {
+        console.error('Error occurred while fetching the access token:', error);
       }
     };
+    setTimeout(async () => {
+      fetchAccessToken()
+        .then(() => {
+          console.log('Access token fetched successfully');
+        })
+        .catch((error) => {
+          console.error('Error fetching access token:', error);
+        });
+    }, 5000);
+  }, [isLoading, isAuthenticated, getAccessTokenSilently, loginWithRedirect]);
 
-    fetchUserDetails().catch((error) => {
-      console.error('An error occurred while fetching user details:', error);
-    });
-  }, [isAuthenticated, getAccessTokenSilently]);
+  // useEffect(() => {
+  //   const fetchUserDetails = async (): Promise<void> => {
+  //     if (isAuthenticated) {
+  //       try {
+  //         const token = await getAccessTokenSilently();
+  //         console.log('token is', token);
+  //         axios
+  //           .get('http://localhost:3301/local/zambda/get-slug-availability/execute-public', {
+  //             headers: {
+  //               Authorization: `Bearer ${token}`,
+  //             },
+  //           })
+  //           .then((response) => {
+  //             if (response.status === 404) {
+  //               console.log('user not found');
+  //             }
+  //           })
+  //           .catch((error) => {
+  //             console.error('An error occurred:', error);
+  //           });
+  //       } catch (e) {
+  //         console.error('Error while getting the access token:', e);
+  //       }
+  //     }
+  //   };
+
+  //   fetchUserDetails().catch((error) => {
+  //     console.error('An error occurred while fetching user details:', error);
+  //   });
+  // }, [isAuthenticated, getAccessTokenSilently]);
 
   return (
     <OttehrThemeProvider>
