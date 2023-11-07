@@ -96,9 +96,9 @@ export const Register: FC = (): JSX.Element => {
           <Box
             sx={{
               alignItems: 'center',
-              backgroundColor: otherColors.registerIconBackground,
+              backgroundColor: 'background.default',
               border: '5px solid #fff',
-              borderColor: otherColors.registerIconBorder,
+              borderColor: otherColors.borderLightBlue,
               borderRadius: 5,
               display: 'flex',
               justifyContent: 'center',
@@ -120,9 +120,9 @@ export const Register: FC = (): JSX.Element => {
           </Box>
           <Box
             sx={{
-              backgroundColor: otherColors.registerIconBackground,
+              backgroundColor: 'background.default',
               border: '5px solid #fff',
-              borderColor: otherColors.registerIconBorder,
+              borderColor: otherColors.borderLightBlue,
               borderRadius: 5,
               display: 'flex',
               justifyContent: 'center',
