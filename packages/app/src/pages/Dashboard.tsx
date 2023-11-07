@@ -115,6 +115,7 @@ export const Dashboard = (): JSX.Element => {
                 gap: 2,
                 justifyContent: 'flex-start',
                 marginTop: 2,
+                width: 'fit-content',
               }}
             >
               <CustomButton icon={<ContentCopyIcon />} onClick={copySlugToClipboard}>
