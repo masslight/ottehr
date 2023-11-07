@@ -15,6 +15,7 @@ on:
         default: 'dev'
         options:
           - dev
+          - dev2
           - testing
           - staging
       incrementVersion:

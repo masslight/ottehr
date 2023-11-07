@@ -61,7 +61,7 @@ Builds the back end.
 
 ### `deploy-zambdas`
 
-Environment specific: `dev`, `testing`, `staging`, `production`.
+Environment specific: `dev`, `dev2`, `testing`, `staging`, `production`.
 
 [Packages](#package) and deploys all zambdas.
 
@@ -71,13 +71,13 @@ Packages all zambdas into individual zips ready to be uploaded.
 
 ### `start`
 
-Environment specific: `local`, `dev`, `testing`, `staging`.
+Environment specific: `local`, `dev`, `dev2`, `testing`, `staging`.
 
 Starts the back end. If the env is excluded, [defaults to local](#run-locally).
 
 ### `setup-zapehr-secrets`
 
-Environment specific: `dev`, `testing`, `staging`, `production`.
+Environment specific: `dev`, `dev2`, `testing`, `staging`, `production`.
 
 Creates or updates all secrets for this env.
 

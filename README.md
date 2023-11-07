@@ -65,7 +65,7 @@ Lints all packages using [ESLint](https://eslint.org/).
 
 ### `start`
 
-Environment specific: `local`, `dev`, `testing`, `staging`.
+Environment specific: `local`, `dev`, `dev2`, `testing`, `staging`.
 
 Starts all packages. If the env is excluded, [defaults to local](#getting-started).
 
