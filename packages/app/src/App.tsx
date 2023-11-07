@@ -102,7 +102,7 @@ export default function App(): JSX.Element {
       <Router>
         <ScrollToTop />
         <VideoParticipantProvider>
-          {!isAuthenticated ? (
+          {isAuthenticated ? (
             <Routes>
               <Route element={<Version />} path={'/'} />;
               <Route element={<PatientProvider />}>
