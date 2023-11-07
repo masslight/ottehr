@@ -120,7 +120,7 @@ export const Dashboard = (): JSX.Element => {
               <CustomButton icon={<ContentCopyIcon />} onClick={copySlugToClipboard}>
                 {t('dashboard.copyLink')}
               </CustomButton>
-              <CustomButton icon={<MailOutlineIcon />} secondary>
+              <CustomButton icon={<MailOutlineIcon />} secondary sx={{ whiteSpace: 'nowrap' }}>
                 {t('dashboard.sendEmail')}
               </CustomButton>
             </Box>

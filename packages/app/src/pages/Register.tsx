@@ -61,7 +61,7 @@ export const Register: FC = (): JSX.Element => {
           backgroundColor: otherColors.darkBackgroundPaper,
           display: 'flex',
           flexDirection: 'column',
-          gap: 2,
+          gap: 6,
           justifyContent: 'center',
           [theme.breakpoints.down('md')]: {
             py: 2,

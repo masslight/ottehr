@@ -23,7 +23,6 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import { otherColors } from '../OttehrThemeProvider';
 import { dashboardLogo } from '../assets/icons';
 import { getProvider } from '../helpers/mockData';
-import { CustomButton } from './CustomButton';
 
 const pages = ['Dashboard'];
 
@@ -205,9 +204,9 @@ export const TopAppBar: FC = () => {
                   </Box>
                 </MenuItem>
               </Box>
-              <CustomButton onClick={handleCloseUserMenu} sx={{ left: 0, position: 'absolute', top: 0 }}>
+              <Button onClick={handleCloseUserMenu} sx={{ left: 0, position: 'absolute', top: 0 }}>
                 <ArrowForwardIcon sx={{ color: 'white' }} />
-              </CustomButton>
+              </Button>
             </Box>
           </Box>
         </Toolbar>
