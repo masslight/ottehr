@@ -1,6 +1,7 @@
 /* eslint-disable typescript-sort-keys/string-enum */
 enum environment {
   dev = 'dev',
+  dev2 = 'dev2',
   testing = 'testing',
   staging = 'staging',
   production = 'production',

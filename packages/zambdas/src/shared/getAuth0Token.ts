@@ -6,6 +6,7 @@ import { getSecret, SecretsKeys } from './secrets';
 export async function getAuth0Token(secrets: Secrets | null): Promise<string> {
   const AUTH0_AUDIENCE = getSecret(SecretsKeys.AUTH0_AUDIENCE, secrets);
   const AUTH0_CLIENT = getSecret(SecretsKeys.AUTH0_CLIENT, secrets);
+
   const AUTH0_ENDPOINT = getSecret(SecretsKeys.AUTH0_ENDPOINT, secrets);
   const AUTH0_SECRET = getSecret(SecretsKeys.AUTH0_SECRET, secrets);
 

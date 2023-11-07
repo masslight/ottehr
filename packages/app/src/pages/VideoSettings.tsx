@@ -1,11 +1,11 @@
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
-import { Box, Button, Typography, useTheme } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
-import { otherColors, otherStyling } from '../OttehrThemeProvider';
+import { otherColors } from '../OttehrThemeProvider';
 import { zapehrApi } from '../api';
-import { Footer, Header } from '../components';
+import { CustomButton, CustomContainer } from '../components';
 import { createProviderName } from '../helpers';
 import { useDevices } from '../hooks';
 import { useVideoParticipant } from '../store';
@@ -59,89 +59,42 @@ export const VideoSettings = (): JSX.Element => {
   };
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100vh',
-        justifyContent: 'space-between',
-        [theme.breakpoints.down('md')]: {
-          p: '0 0',
-        },
-      }}
-    >
-      <Header isProvider={true} providerName={createProviderName(provider)} title={t('general.waitingRoom')} />
-      {/* Middle Section */}
+    <CustomContainer isProvider={false} subtitle={createProviderName(provider)} title={t('general.waitingRoom')}>
+      <Typography variant="h5">{t('video.enableCamAndMic')}</Typography>
+      <Typography variant="body1">{t('video.permissionAccess')}</Typography>
       <Box
         sx={{
+          alignItems: 'center',
+          backgroundColor: otherColors.biscay,
+          borderRadius: 2,
           display: 'flex',
-          flexGrow: '1',
+          flexDirection: 'column',
           justifyContent: 'center',
+          mt: 2.5,
+          px: 15,
+          py: 10,
+          [theme.breakpoints.down('md')]: {
+            px: 8,
+            py: 6,
+          },
         }}
       >
-        <Box maxWidth="md" width="100%">
-          <Box
-            sx={{
-              ...otherStyling.boxPadding,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-              [theme.breakpoints.down('sm')]: {
-                ...otherStyling.boxPaddingMobile,
-              },
-            }}
-          >
-            <Typography variant="h5">{t('video.enableCamAndMic')}</Typography>
-            <Typography variant="body1">{t('video.permissionAccess')}</Typography>
-            <Box
-              sx={{
-                alignItems: 'center',
-                backgroundColor: otherColors.biscay,
-                borderRadius: 2,
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                px: 15,
-                py: 10,
-                [theme.breakpoints.down('md')]: {
-                  px: 8,
-                  py: 6,
-                },
-              }}
-            >
-              <VideocamOffIcon sx={{ color: theme.palette.background.default }} />
-              <Typography
-                color="primary.contrast"
-                sx={{
-                  opacity: '0.5',
-                  textAlign: 'center',
-                }}
-                variant="body1"
-              >
-                {t('video.enableInBrowser')}
-              </Typography>
-            </Box>
-
-            <Button onClick={() => toggleMicAndCam(true)} sx={otherStyling.buttonPrimary} variant="contained">
-              {t('video.enableBoth')}
-            </Button>
-            <Button
-              onClick={() => toggleMicAndCam(false)}
-              sx={{
-                color: theme.palette.primary.light,
-                cursor: 'pointer',
-                mt: 2,
-                textAlign: 'center',
-                textTransform: 'uppercase',
-              }}
-              variant="text"
-            >
-              {t('video.continueWithout')}
-            </Button>
-          </Box>
-        </Box>
+        <VideocamOffIcon sx={{ color: theme.palette.background.default }} />
+        <Typography
+          color="primary.contrast"
+          sx={{
+            opacity: '0.5',
+            textAlign: 'center',
+          }}
+          variant="body1"
+        >
+          {t('video.enableInBrowser')}
+        </Typography>
       </Box>
-      <Footer />
-    </Box>
+      <CustomButton onClick={() => toggleMicAndCam(true)}>{t('video.enableBoth')}</CustomButton>
+      <CustomButton onClick={() => toggleMicAndCam(false)} secondary>
+        {t('video.continueWithout')}
+      </CustomButton>
+    </CustomContainer>
   );
 };

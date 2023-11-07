@@ -23,6 +23,7 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import { otherColors } from '../OttehrThemeProvider';
 import { dashboardLogo } from '../assets/icons';
 import { getProvider } from '../helpers/mockData';
+import { CustomButton } from './CustomButton';
 
 const pages = ['Dashboard'];
 
@@ -109,7 +110,7 @@ export const TopAppBar: FC = () => {
               <MenuItem disabled>
                 <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                   <Typography variant="body1">
-                    {provider['first name']} {provider['last name']}
+                    {provider.firstName} {provider.lastName}
                   </Typography>
                   <Typography variant="body1">{provider.email}</Typography>
                 </Box>
@@ -162,7 +163,7 @@ export const TopAppBar: FC = () => {
                 <Button disabled>
                   <Box sx={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
                     <Typography color="white" variant="body1">
-                      {provider['first name']} {provider['last name']}
+                      {provider.firstName} {provider.lastName}
                     </Typography>
                     <Typography color="white" variant="body1">
                       {provider.email}
@@ -204,9 +205,9 @@ export const TopAppBar: FC = () => {
                   </Box>
                 </MenuItem>
               </Box>
-              <Button onClick={handleCloseUserMenu} sx={{ left: 0, position: 'absolute', top: 0 }}>
+              <CustomButton onClick={handleCloseUserMenu} sx={{ left: 0, position: 'absolute', top: 0 }}>
                 <ArrowForwardIcon sx={{ color: 'white' }} />
-              </Button>
+              </CustomButton>
             </Box>
           </Box>
         </Toolbar>
