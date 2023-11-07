@@ -1,27 +1,29 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ZambdaInput } from '../types';
+import { ZambdaFunctionInput, ZambdaFunctionResponse, ZambdaInput } from '../types';
 import { SecretsKeys, getAuth0Token, getSecret } from '../shared';
-import { validateRequestParameters } from './validateRequestParameters';
 import fetch from 'node-fetch';
+import { createZambdaFromSkeleton } from '../shared/zambdaSkeleton';
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    const { body, secrets } = validatedParameters;
-    console.log('body', body);
-    // TODO: after registration/onboarding is done we should pass the patient/practitioner data to create the encounter
-    console.groupEnd();
+  return createZambdaFromSkeleton(input, getTelemedToken);
+};
+interface getTelemedTokenInput {
+  encounterId: string;
+}
 
+export const getTelemedToken = async (input: ZambdaFunctionInput): Promise<ZambdaFunctionResponse> => {
+  try {
+    const { body, secrets } = input;
+    const { encounterId } = body as getTelemedTokenInput;
+    console.log('body', body);
+    console.log('encounterId', encounterId);
     const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
     const PROJECT_ID = getSecret(SecretsKeys.PROJECT_ID, secrets);
 
     const token = await getAuth0Token(secrets);
     console.log('token', token);
 
-    const encounterID = body.encounterId;
-
-    const response = await fetch(`${PROJECT_API}/telemed/token?encounterId=${encounterID}`, {
+    const response = await fetch(`${PROJECT_API}/telemed/token?encounterId=${encounterId}`, {
       headers: {
         Authorization: `Bearer ${token}`,
         'content-type': 'application/json',
@@ -34,21 +36,20 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     const responseData = await response.json();
+    const twilioToken = responseData.token;
     console.log('responseData', responseData);
 
     return {
-      body: JSON.stringify({
-        version: responseData,
-      }),
-      statusCode: 200,
+      response: {
+        token: twilioToken,
+      },
     };
   } catch (error: any) {
     console.log('error', error);
     return {
-      body: JSON.stringify({
+      response: {
         error: error.message,
-      }),
-      statusCode: 500,
+      },
     };
   }
 };
