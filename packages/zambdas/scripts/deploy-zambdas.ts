@@ -29,6 +29,12 @@ const ZAMBDAS: Record<string, ZambdaParameters> = {
   GET_SLUG_AVAILABILITY: {
     triggerMethod: 'http_auth',
   },
+  CREATE_TELEMED_ROOM: {
+    triggerMethod: 'http_open',
+  },
+  GET_TELEMED_TOKEN: {
+    triggerMethod: 'http_open',
+  },
   VERSION: {
     triggerMethod: 'http_open',
   },
