@@ -40,7 +40,7 @@
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.109",
-    "@types/inquirer": "9.0.7",
+    "@types/inquirer": "^8.0.0",
     "@types/node": "^16.18.53",
     "@types/node-fetch": "2.6.6",
     "@types/uuid": "9.0.7",

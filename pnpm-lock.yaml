@@ -203,8 +203,8 @@ importers:
         specifier: ^8.10.109
         version: 8.10.121
       '@types/inquirer':
-        specifier: 9.0.7
-        version: 9.0.7
+        specifier: ^8.0.0
+        version: 8.2.10
       '@types/node':
         specifier: ^16.18.53
         version: 16.18.53
@@ -3280,8 +3280,8 @@ packages:
     resolution: {integrity: sha512-FD+nQWA2zJjh4L9+pFXqWOi0Hs1ryBCfI+985NjluQ1p8EYtoLvjLOKidXBtZ4/IcxDX4o8/E8qDS3540tNliw==}
     dev: true
 
-  /@types/inquirer@9.0.7:
-    resolution: {integrity: sha512-Q0zyBupO6NxGRZut/JdmqYKOnN95Eg5V8Csg3PGKkP+FnvsUZx1jAyK7fztIszxxMuoBA6E3KXWvdZVXIpx60g==}
+  /@types/inquirer@8.2.10:
+    resolution: {integrity: sha512-IdD5NmHyVjWM8SHWo/kPBgtzXatwPkfwzyP3fN1jF2g9BWt5WO+8hL2F4o2GKIYsU40PpqeevuUWvkS/roXJkA==}
     dependencies:
       '@types/through': 0.0.33
       rxjs: 7.8.1
