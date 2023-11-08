@@ -79,7 +79,7 @@ export interface Secrets {
 
 export interface ZambdaFunctionInput {
   body: Record<string, any>;
-  secrets: Secrets;
+  secrets: Secrets | null;
 }
 
 /**
