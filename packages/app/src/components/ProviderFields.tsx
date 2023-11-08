@@ -13,7 +13,7 @@ import {
   debounce,
 } from '@mui/material';
 import { t } from 'i18next';
-import { FC, useState } from 'react';
+import { FC, useEffect, useMemo, useState } from 'react';
 import { Control, Controller } from 'react-hook-form';
 import { zapehrApi } from '../api';
 import { CustomButton } from './CustomButton';
@@ -32,10 +32,25 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
   const [slug, setSlug] = useState(provider.slug);
   const [slugError, setSlugError] = useState('');
 
-  const debouncedUpdateSlug = debounce((): void => {
-    // TODO doesn't use translation files
-    zapehrApi.getSlugAvailabilityError(slug).then(setSlugError).catch(console.error);
-  }, 1000);
+  const debouncedUpdateSlug = useMemo(() => {
+    const updateSlug = (): void => {
+      // TODO doesn't use translation files
+      zapehrApi.getSlugAvailabilityError(slug).then(setSlugError).catch(console.error);
+    };
+    return debounce((): void => {
+      updateSlug();
+    }, 1000);
+    // The whole point is to not create a new function on every rerender
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (slug === '') {
+      setSlugError("Slug can't be an empty string.");
+    } else {
+      debouncedUpdateSlug();
+    }
+  }, [debouncedUpdateSlug, slug]);
+
   const titles = getTitles();
 
   return (
@@ -97,9 +112,6 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
                 onChange={(e) => {
                   setSlug(e.target.value);
                   field.onChange(e);
-                  if (e.target.value != '') {
-                    debouncedUpdateSlug();
-                  }
                 }}
                 value={slug ?? ''}
                 variant="outlined"
