@@ -7,13 +7,7 @@ import { FC } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { otherColors } from '../OttehrThemeProvider';
-import {
-  backgroundEllipseDark,
-  backgroundEllipseLight,
-  patientIcon,
-  providerIcon,
-  registrationLogo,
-} from '../assets/icons';
+import { patientIcon, providerIcon, registrationLogo } from '../assets/icons';
 import { ProviderFields, ZapEHRLogo } from '../components';
 
 interface FormData {
@@ -67,7 +61,7 @@ export const Register: FC = (): JSX.Element => {
           backgroundColor: otherColors.darkBackgroundPaper,
           display: 'flex',
           flexDirection: 'column',
-          gap: 2,
+          gap: 6,
           justifyContent: 'center',
           [theme.breakpoints.down('md')]: {
             py: 2,
@@ -85,11 +79,6 @@ export const Register: FC = (): JSX.Element => {
         >
           <Box component="img" src={registrationLogo} />
         </Box>
-        <Box>
-          <Typography color="primary.light" sx={{ py: 2, textAlign: 'center' }} variant="body1">
-            {t('register.connect')}
-          </Typography>
-        </Box>
         <Box
           sx={{
             alignItems: 'center',
@@ -105,41 +94,20 @@ export const Register: FC = (): JSX.Element => {
           }}
         >
           <Box
-            component="img"
-            src={backgroundEllipseDark}
-            sx={{
-              mb: 25,
-              mr: 18,
-              position: 'absolute',
-              [theme.breakpoints.down('md')]: {
-                maxHeight: '60%',
-                maxWidth: '60%',
-                mb: 0,
-              },
-            }}
-          />
-          <Box
-            component="img"
-            src={backgroundEllipseLight}
-            sx={{
-              ml: 25,
-              position: 'absolute',
-              [theme.breakpoints.down('md')]: {
-                maxHeight: '60%',
-                maxWidth: '60%',
-                ml: 18,
-              },
-            }}
-          />
-          <Box
             sx={{
               alignItems: 'center',
+              backgroundColor: 'background.default',
+              border: '5px solid #fff',
+              borderColor: otherColors.borderLightBlue,
+              borderRadius: 5,
               display: 'flex',
               justifyContent: 'center',
               marginLeft: 36,
               mb: 46,
               overflow: 'hidden',
               position: 'absolute',
+              pt: 2,
+              px: 1,
               [theme.breakpoints.down('md')]: {
                 mb: 0,
                 ml: 0,
@@ -152,8 +120,9 @@ export const Register: FC = (): JSX.Element => {
           </Box>
           <Box
             sx={{
-              backgroundColor: otherColors.providerIconBackground,
+              backgroundColor: 'background.default',
               border: '5px solid #fff',
+              borderColor: otherColors.borderLightBlue,
               borderRadius: 5,
               display: 'flex',
               justifyContent: 'center',
@@ -165,6 +134,7 @@ export const Register: FC = (): JSX.Element => {
               [theme.breakpoints.down('md')]: {
                 maxHeight: '118px',
                 maxWidth: '118px',
+                mb: 0,
                 pt: 1.5,
                 px: 1,
               },
