@@ -12,10 +12,10 @@ import {
   Typography,
 } from '@mui/material';
 import { t } from 'i18next';
-import { FC, useEffect, useState } from 'react';
+import debounce from 'lodash.debounce';
+import { FC, useState } from 'react';
 import { Control, Controller } from 'react-hook-form';
 import { zapehrApi } from '../api';
-import { debounce } from '../helpers';
 import { CustomButton } from './CustomButton';
 import { getProvider, getTitles } from '../helpers/mockData';
 
@@ -32,23 +32,19 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
   const [slug, setSlug] = useState(provider.slug);
   const [slugError, setSlugError] = useState('');
 
-  const debouncedCheckAvailability = (slug: string): void => {
-    // TODO fix debounce
-    debounce(() => {
-      // TODO doesn't use translation files
-      zapehrApi.getSlugAvailabilityError(slug).then(setSlugError).catch(console.error);
-    });
+  const updateSlug = (): void => {
+    // TODO doesn't use translation files
+    zapehrApi.getSlugAvailabilityError(slug).then(setSlugError).catch(console.error);
   };
-
-  // TODO Would this work?
-  // useMemo(() => debounce(onAccept, 1000), [onAccept])
-  useEffect(() => {
-    if (slug === '') {
-      setSlugError("Slug can't be an empty string.");
-    } else {
-      debouncedCheckAvailability(slug);
-    }
-  }, [slug]);
+  // useEffect(() => {
+  //   if (slug === '') {
+  //     console.log('slug is empty');
+  //     setSlugError("Slug can't be an empty string.");
+  //   } else {
+  //     console.log('slug is gon debounce');
+  //     debounce(updateSlug, 1000);
+  //   }
+  // }, [slug, updateSlug]);
   const titles = getTitles();
 
   return (
@@ -110,6 +106,9 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
                 onChange={(e) => {
                   setSlug(e.target.value);
                   field.onChange(e);
+                  if (e.target.value != '') {
+                    debounce(updateSlug, 1000);
+                  }
                 }}
                 value={slug ?? ''}
                 variant="outlined"
