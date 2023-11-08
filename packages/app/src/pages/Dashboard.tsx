@@ -45,7 +45,6 @@ export const Dashboard = (): JSX.Element => {
       <Box sx={{ display: 'flex', flexDirection: { md: 'row', xs: 'column' }, flexGrow: 1 }}>
         <Box
           sx={{
-            alignItems: 'center',
             backgroundColor: 'transparent',
             display: 'flex',
             flexDirection: 'column',
@@ -93,7 +92,7 @@ export const Dashboard = (): JSX.Element => {
               backgroundColor: otherColors.pattensBlue,
               borderRadius: 1,
               boxSizing: 'border-box',
-              margin: 3,
+              my: 3,
               p: 3,
               [theme.breakpoints.down('md')]: {
                 mx: 0,
@@ -116,12 +115,13 @@ export const Dashboard = (): JSX.Element => {
                 gap: 2,
                 justifyContent: 'flex-start',
                 marginTop: 2,
+                width: 'fit-content',
               }}
             >
               <CustomButton icon={<ContentCopyIcon />} onClick={copySlugToClipboard}>
                 {t('dashboard.copyLink')}
               </CustomButton>
-              <CustomButton icon={<MailOutlineIcon />} secondary>
+              <CustomButton icon={<MailOutlineIcon />} secondary sx={{ whiteSpace: 'nowrap' }}>
                 {t('dashboard.sendEmail')}
               </CustomButton>
             </Box>

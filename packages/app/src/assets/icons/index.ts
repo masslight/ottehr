@@ -1,5 +1,3 @@
-export { default as backgroundEllipseDark } from './backgroundEllipseDark.svg';
-export { default as backgroundEllipseLight } from './backgroundEllipseLight.svg';
 export { default as callButtonMobile } from './callButtonMobile.svg';
 export { default as dashboardLogo } from './dashboardLogo.svg';
 export { default as defaultPatient } from './defaultPatient.svg';
