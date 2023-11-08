@@ -22,6 +22,9 @@
     "waiting": "Waiting"
   },
   "error": {
+    "alphanumeric": "Must consist of letters and numbers only.",
+    "empty": "This field can't be empty.",
+    "reload": "Please try reloading the page.",
     "slugUnavailable": "This slug is already taken, please use another one.",
     "unexpected": "An unexpected error occurred. Please try again."
   },

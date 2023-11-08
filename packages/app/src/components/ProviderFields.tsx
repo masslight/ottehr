@@ -11,9 +11,9 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { t } from 'i18next';
 import { FC, useEffect, useState } from 'react';
 import { Control, Controller } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { getSlugAvailabilityError } from '../api';
 import { useDebounce } from '../hooks';
 import { CustomButton } from './CustomButton';
@@ -35,14 +35,38 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({
   oldSlug,
   onSubmit,
 }) => {
+  const { t } = useTranslation();
   // TODO hard-coded data
   const provider = getProvider();
   const [slug, setSlug] = useState(provider.slug);
   const [slugError, setSlugError] = useState('');
 
   const debouncedUpdateSlug = useDebounce(() => {
-    // TODO doesn't use translation files
-    getSlugAvailabilityError(slug, oldSlug).then(setSlugError).catch(console.error);
+    getSlugAvailabilityError(slug, oldSlug)
+      .then((response) => {
+        switch (response) {
+          case '':
+            setSlugError('');
+            break;
+          case 'Invalid zambda input: "slug" must only contain alphanumeric characters.':
+            setSlugError(t('error.alphanumeric'));
+            break;
+          case 'Invalid zambda input: "slug" must be provided and be a string.':
+            setSlugError(t('error.empty'));
+            break;
+          case 'Invalid zambda input: please reload the page and try again.':
+            setSlugError(t('error.reload'));
+            break;
+          case 'This slug is already taken, please use another one.':
+            setSlugError(t('error.slugUnavailable'));
+            break;
+          case 'An unexpected error occurred. Please try again.':
+          default:
+            setSlugError(t('error.unexpected'));
+            break;
+        }
+      })
+      .catch(console.error);
   }, 1000);
   useEffect(() => {
     if (slug === '') {
