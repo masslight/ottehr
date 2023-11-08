@@ -12,44 +12,35 @@ interface getTelemedTokenInput {
 }
 
 export const getTelemedToken = async (input: ZambdaFunctionInput): Promise<ZambdaFunctionResponse> => {
-  try {
-    const { body, secrets } = input;
-    const { encounterId } = body as getTelemedTokenInput;
-    console.log('body', body);
-    console.log('encounterId', encounterId);
-    const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
-    const PROJECT_ID = getSecret(SecretsKeys.PROJECT_ID, secrets);
+  const { body, secrets } = input;
+  const { encounterId } = body as getTelemedTokenInput;
+  console.log('body', body);
 
-    const token = await getAuth0Token(secrets);
-    console.log('token', token);
+  const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
+  const PROJECT_ID = getSecret(SecretsKeys.PROJECT_ID, secrets);
 
-    const response = await fetch(`${PROJECT_API}/telemed/token?encounterId=${encounterId}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'content-type': 'application/json',
-        'x-zapehr-project-id': PROJECT_ID,
-      },
-      method: 'GET',
-    });
-    if (!response.ok) {
-      throw new Error(`API call failed: ${response.statusText}`);
-    }
+  const token = await getAuth0Token(secrets);
+  console.log('token', token);
 
-    const responseData = await response.json();
-    const twilioToken = responseData.token;
-    console.log('responseData', responseData);
-
-    return {
-      response: {
-        token: twilioToken,
-      },
-    };
-  } catch (error: any) {
-    console.log('error', error);
-    return {
-      response: {
-        error: error.message,
-      },
-    };
+  const response = await fetch(`${PROJECT_API}/telemed/token?encounterId=${encounterId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+      'x-zapehr-project-id': PROJECT_ID,
+    },
+    method: 'GET',
+  });
+  if (!response.ok) {
+    throw new Error(`API call failed: ${response.statusText}`);
   }
+
+  const responseData = await response.json();
+  const twilioToken = responseData.token;
+  console.log('responseData', responseData);
+
+  return {
+    response: {
+      token: twilioToken,
+    },
+  };
 };

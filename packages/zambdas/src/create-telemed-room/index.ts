@@ -13,44 +13,35 @@ const createTelemedRoom = async (input: ZambdaFunctionInput): Promise<ZambdaFunc
   const { body, secrets } = input;
   console.log('body', body);
 
-  try {
-    const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
-    const PROJECT_ID = getSecret(SecretsKeys.PROJECT_ID, secrets);
+  const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
+  const PROJECT_ID = getSecret(SecretsKeys.PROJECT_ID, secrets);
 
-    const token = await getAuth0Token(secrets);
-    console.log('token', token);
+  const token = await getAuth0Token(secrets);
+  console.log('token', token);
 
-    const m2mUserProfile = await getM2MUserProfile(token);
+  const m2mUserProfile = await getM2MUserProfile(token);
 
-    const encounter = createRoomEncounter(PROVIDER_PROFILE, m2mUserProfile);
-    console.log('encounter', encounter);
+  const encounter = createRoomEncounter(PROVIDER_PROFILE, m2mUserProfile);
+  console.log('encounter', encounter);
 
-    const response = await fetch(`${PROJECT_API}/telemed/room`, {
-      body: JSON.stringify(encounter),
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'content-type': 'application/json',
-        'x-zapehr-project-id': PROJECT_ID,
-      },
-      method: 'POST',
-    });
-    if (!response.ok) {
-      throw new Error(`API call failed: ${response.statusText}`);
-    }
-    const responseData = await response.json();
-    const encounterData = responseData.encounter;
-    console.log('responseData', responseData);
-    return {
-      response: {
-        encounter: encounterData,
-      },
-    };
-  } catch (error: any) {
-    console.log('error', error);
-    return {
-      response: {
-        error: error.message,
-      },
-    };
+  const response = await fetch(`${PROJECT_API}/telemed/room`, {
+    body: JSON.stringify(encounter),
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+      'x-zapehr-project-id': PROJECT_ID,
+    },
+    method: 'POST',
+  });
+  if (!response.ok) {
+    throw new Error(`API call failed: ${response.statusText}`);
   }
+  const responseData = await response.json();
+  const encounterData = responseData.encounter;
+  console.log('responseData', responseData);
+  return {
+    response: {
+      encounter: encounterData,
+    },
+  };
 };
