@@ -14,7 +14,7 @@ import {
 import { t } from 'i18next';
 import { FC, useEffect, useState } from 'react';
 import { Control, Controller } from 'react-hook-form';
-import { zapehrApi } from '../api';
+import { getSlugAvailabilityError } from '../api';
 import { useDebounce } from '../hooks';
 import { CustomButton } from './CustomButton';
 import { getProvider, getTitles } from '../helpers/mockData';
@@ -34,7 +34,7 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
 
   const debouncedUpdateSlug = useDebounce(() => {
     // TODO doesn't use translation files
-    zapehrApi.getSlugAvailabilityError(slug).then(setSlugError).catch(console.error);
+    getSlugAvailabilityError(slug).then(setSlugError).catch(console.error);
   }, 1000);
   useEffect(() => {
     if (slug === '') {

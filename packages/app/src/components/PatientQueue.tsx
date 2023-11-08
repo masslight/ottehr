@@ -3,7 +3,7 @@ import { FC, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
-import { zapehrApi } from '../api';
+import { getTelemedToken } from '../api';
 import { callButtonMobile, defaultPatient } from '../assets/icons';
 import { getQueuedTimeFromTimestamp } from '../helpers';
 import { useVideoParticipant } from '../store';
@@ -28,7 +28,7 @@ export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, firstName, la
       setIsVideoOpen(true);
 
       //  this will not work for now as it is for m2m
-      const fetchedToken = await zapehrApi.getTelemedToken(encounterId);
+      const fetchedToken = await getTelemedToken(encounterId);
       if (fetchedToken === null) {
         console.error('Failed to fetch token');
         return;

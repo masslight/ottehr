@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
 import { otherColors } from '../OttehrThemeProvider';
-import { zapehrApi } from '../api';
+import { getTwilioToken } from '../api';
 import { CustomButton, CustomContainer } from '../components';
 import { createProviderName } from '../helpers';
 import { useDevices } from '../hooks';
@@ -27,7 +27,7 @@ export const VideoSettings = (): JSX.Element => {
       setIsMicOpen(userInput);
       setIsVideoOpen(userInput);
 
-      const fetchedToken = await zapehrApi.getTwilioToken(roomName);
+      const fetchedToken = await getTwilioToken(roomName);
       if (fetchedToken === null) {
         console.error('Failed to fetch token');
         return;
