@@ -10,9 +10,9 @@ const root = createRoot(document.getElementById('root') as HTMLElement);
 root.render(
   // <StrictMode>
   <Auth0Provider
-    audience="https://testing.api.zapehr.com"
-    clientId="EyqrOvOx6BjkletcC9sF0vxQRGZcCZM4" // test
-    domain="https://dev-auth.zapehr.com"
+    audience="https://api.zapehr.com"
+    clientId="dRWFIqGw2L2G8tdM6GuBtNu9awsxRVV4" // test
+    domain="https://auth.zapehr.com"
     redirectUri="http://localhost:5173/dashboard"
   >
     <DataProvider>
