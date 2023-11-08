@@ -24,9 +24,17 @@ interface ProviderFieldsProps {
   control: Control<any, any>;
   errors: any;
   isRegister?: boolean;
+  oldSlug?: string;
   onSubmit?: (prop: any) => any;
 }
-export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, errors, isRegister, onSubmit }) => {
+export const ProviderFields: FC<ProviderFieldsProps> = ({
+  buttonText,
+  control,
+  errors,
+  isRegister,
+  oldSlug,
+  onSubmit,
+}) => {
   // TODO hard-coded data
   const provider = getProvider();
   const [slug, setSlug] = useState(provider.slug);
@@ -34,7 +42,7 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
 
   const debouncedUpdateSlug = useDebounce(() => {
     // TODO doesn't use translation files
-    getSlugAvailabilityError(slug).then(setSlugError).catch(console.error);
+    getSlugAvailabilityError(slug, oldSlug).then(setSlugError).catch(console.error);
   }, 1000);
   useEffect(() => {
     if (slug === '') {

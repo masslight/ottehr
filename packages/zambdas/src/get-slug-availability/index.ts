@@ -35,7 +35,7 @@ const getSlugAvailability = (input: ZambdaFunctionInput): ZambdaFunctionResponse
   }
 
   // Hard-coded for now. I don't know where we're going to store things.
-  let slugs = ['aykhanahmadli', 'nathanrobinson', 'omarzubaidi', 'samiromarov'];
+  let slugs = ['aykhanahmadli', 'nathanrobinson', 'oliviasmith', 'omarzubaidi', 'samiromarov'];
   if (oldSlug != null) {
     // This could happen if a provider opens the update profile page in multiple tabs and tries to update the slug twice
     if (!slugs.includes(oldSlug)) {

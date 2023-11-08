@@ -34,10 +34,10 @@ export async function createTelemedRoom(): Promise<Encounter | null> {
   }
 }
 
-export async function getSlugAvailabilityError(slug: string): Promise<string> {
+export async function getSlugAvailabilityError(slug: string, oldSlug?: string): Promise<string> {
   try {
     const GET_SLUG_AVAILABILITY_ZAMBDA_ID = import.meta.env.VITE_GET_SLUG_AVAILABILITY_ZAMBDA_ID;
-    const responseBody = await callZambda(GET_SLUG_AVAILABILITY_ZAMBDA_ID, 'open', { slug });
+    const responseBody = await callZambda(GET_SLUG_AVAILABILITY_ZAMBDA_ID, 'open', { oldSlug, slug });
     if (responseBody.output.error) {
       return responseBody.output.error;
     }
