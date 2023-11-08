@@ -10,9 +10,9 @@ import {
   Select,
   TextField,
   Typography,
+  debounce,
 } from '@mui/material';
 import { t } from 'i18next';
-import debounce from 'lodash.debounce';
 import { FC, useState } from 'react';
 import { Control, Controller } from 'react-hook-form';
 import { zapehrApi } from '../api';
@@ -32,19 +32,10 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
   const [slug, setSlug] = useState(provider.slug);
   const [slugError, setSlugError] = useState('');
 
-  const updateSlug = (): void => {
+  const debouncedUpdateSlug = debounce((): void => {
     // TODO doesn't use translation files
     zapehrApi.getSlugAvailabilityError(slug).then(setSlugError).catch(console.error);
-  };
-  // useEffect(() => {
-  //   if (slug === '') {
-  //     console.log('slug is empty');
-  //     setSlugError("Slug can't be an empty string.");
-  //   } else {
-  //     console.log('slug is gon debounce');
-  //     debounce(updateSlug, 1000);
-  //   }
-  // }, [slug, updateSlug]);
+  }, 1000);
   const titles = getTitles();
 
   return (
@@ -107,7 +98,7 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
                   setSlug(e.target.value);
                   field.onChange(e);
                   if (e.target.value != '') {
-                    debounce(updateSlug, 1000);
+                    debouncedUpdateSlug();
                   }
                 }}
                 value={slug ?? ''}

@@ -48,7 +48,6 @@
     "@zapehr/sdk": "^1.0.8",
     "i18next": "23.6.0",
     "i18next-browser-languagedetector": "^7.0.1",
-    "lodash.debounce": "4.0.8",
     "luxon": "^3.1.1",
     "mixpanel-browser": "^2.45.0",
     "react": "^18.2.0",
