@@ -19,7 +19,7 @@ const getSlugAvailability = (input: ZambdaFunctionInput): ZambdaFunctionResponse
       error: `${DefaultErrorMessages.validation}: "slug" must be provided and be a string.`,
     };
   }
-  if (regex.alphanumeric.test(slug)) {
+  if (!regex.alphanumeric.test(slug)) {
     return {
       error: `${DefaultErrorMessages.validation}: "slug" must only contain alphanumeric characters.`,
     };
