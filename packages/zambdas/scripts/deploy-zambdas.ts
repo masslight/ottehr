@@ -26,7 +26,13 @@ const ZAMBDAS: Record<string, ZambdaParameters> = {
     triggerMethod: 'cron',
   },
  */
+  CREATE_TELEMED_ROOM: {
+    triggerMethod: 'http_open',
+  },
   GET_SLUG_AVAILABILITY: {
+    triggerMethod: 'http_open',
+  },
+  GET_TELEMED_TOKEN: {
     triggerMethod: 'http_open',
   },
   VERSION: {
