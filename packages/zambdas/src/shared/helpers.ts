@@ -43,8 +43,7 @@ export async function getM2MUserProfile(token: string): Promise<any> {
 export const createRoomEncounter = (
   userProfile: string,
   deviceProfile: string,
-  patientFirstName: string,
-  patientLastName: string,
+  patientName: string,
   startTime: Date = new Date()
 ): any => ({
   encounter: {
@@ -107,7 +106,7 @@ export const createRoomEncounter = (
                 url: 'reference',
                 valueReference: {
                   reference: deviceProfile,
-                  display: `${patientFirstName} ${patientLastName}`,
+                  display: patientName,
                 },
               },
             ],
