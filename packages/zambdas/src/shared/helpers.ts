@@ -41,7 +41,7 @@ export async function getM2MUserProfile(token: string): Promise<any> {
 
 // Hard coded for testing until authentication is ready
 export const createRoomEncounter = (
-  userProfile = 'Practitioner/1ed0ff7e-1c5b-40d5-845b-3ae679de95cd',
+  userProfile: string,
   deviceProfile: string,
   patientFirstName: string,
   patientLastName: string,
