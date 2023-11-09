@@ -42,7 +42,10 @@ export async function getM2MUserProfile(token: string): Promise<any> {
 // Hard coded for testing until authentication is ready
 export const createRoomEncounter = (
   userProfile = 'Practitioner/1ed0ff7e-1c5b-40d5-845b-3ae679de95cd',
-  deviceProfile: string
+  deviceProfile: string,
+  patientFirstName: string,
+  patientLastName: string,
+  startTime: Date = new Date()
 ): any => ({
   encounter: {
     resourceType: 'Encounter',
@@ -58,21 +61,14 @@ export const createRoomEncounter = (
         mode: 'kind',
       },
     ],
-    status: 'finished',
+    status: 'arrived',
     class: {
       system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
       code: 'HH',
       display: 'home health',
     },
-    subject: {
-      reference: 'Patient/13bf5b37-e0b8-42e0-8dcf-dc8c4aefc000',
-    },
     participant: [
       {
-        period: {
-          start: '2015-01-17T16:00:00+10:00',
-          end: '2015-01-17T16:30:00+10:00',
-        },
         individual: {
           reference: userProfile,
           display: 'Dr Adam Careful',
@@ -80,19 +76,13 @@ export const createRoomEncounter = (
       },
     ],
     period: {
-      start: '2015-01-17T16:00:00+10:00',
-      end: '2015-01-17T16:30:00+10:00',
+      start: startTime.toISOString(),
     },
     location: [
       {
         location: {
           reference: '#home',
           display: "Client's home",
-        },
-        status: 'completed',
-        period: {
-          start: '2015-01-17T16:00:00+10:00',
-          end: '2015-01-17T16:30:00+10:00',
         },
       },
     ],
@@ -110,15 +100,14 @@ export const createRoomEncounter = (
               {
                 url: 'period',
                 valuePeriod: {
-                  start: '2015-01-17T16:00:00+10:00',
-                  end: '2015-01-17T16:30:00+10:00',
+                  start: startTime.toISOString(),
                 },
               },
               {
                 url: 'reference',
                 valueReference: {
                   reference: deviceProfile,
-                  display: 'M2M Client for anonymous patient access',
+                  display: `${patientFirstName} ${patientLastName}`,
                 },
               },
             ],
