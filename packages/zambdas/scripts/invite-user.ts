@@ -3,6 +3,7 @@ import fetch from 'node-fetch';
 import { v4 as uuidv4 } from 'uuid';
 import inquirer from 'inquirer';
 import { SecretsKeys, getAuth0Token, getSecret } from '../src/shared';
+import { Identifier, Practitioner } from 'fhir/r4';
 
 const DEFAULTS = {
   title: 'Dr',
@@ -32,6 +33,25 @@ async function inviteUser(
     Authorization: `Bearer ${token}`,
   };
 
+  /* TODO
+  temp is used because ultimately this does not belong as a patient identifier and should be moved once
+  our application matures to use more billing-related resources
+  */
+  const identifier: Identifier = { assigner: { display: 'ottehr-provider-slug' }, value: slug, use: 'temp' };
+
+  const practitioner: Practitioner = {
+    resourceType: 'Practitioner',
+    active: true,
+    identifier: [identifier],
+    name: [{ text: fullName, family: lastName, given: [firstName], prefix: [title] }],
+    telecom: [
+      {
+        system: 'email',
+        value: email,
+      },
+    ],
+  };
+
   const invitedUserResponse = await fetch(`${PROJECT_API}/user/invite`, {
     method: 'POST',
     headers: headers,
@@ -39,17 +59,7 @@ async function inviteUser(
       email: email,
       username: fullName,
       applicationId: applicationId,
-      resource: {
-        resourceType: 'Practitioner',
-        active: true,
-        name: [{ text: fullName }],
-        telecom: [
-          {
-            system: 'email',
-            value: email,
-          },
-        ],
-      },
+      resource: practitioner,
       accessPolicy: {
         rule: [{ action: '*', resource: '*', effect: 'Allow' }],
       },
