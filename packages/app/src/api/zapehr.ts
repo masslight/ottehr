@@ -1,12 +1,12 @@
+import { Encounter } from 'fhir/r4';
+
+const PROJECT_API_URL = import.meta.env.VITE_PROJECT_API_URL;
+const TELEMED_API_URL = import.meta.env.VITE_TELEMED_API_URL;
+
 export interface ZapehrSearchParameter {
   key: string;
   value: string;
 }
-import { Encounter } from 'fhir/r4';
-// TODO: add env
-// const TELEMED_API_URL = import.meta.env.VITE_TELEMED_API_URL;
-const TELEMED_API_URL = 'http://localhost:3301/local/zambda';
-const PROJECT_API_URL = import.meta.env.VITE_PROJECT_API_URL;
 
 export async function createTelemedRoom(): Promise<Encounter | null> {
   try {
