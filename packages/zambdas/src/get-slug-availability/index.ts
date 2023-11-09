@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DefaultErrorMessages, ZambdaFunctionInput, ZambdaFunctionResponse, ZambdaInput } from '../types';
+import { ErrorCodes, ZambdaFunctionInput, ZambdaFunctionResponse, ZambdaInput } from '../types';
 import { createZambdaFromSkeleton } from '../shared/zambdaSkeleton';
 import { regex } from '../shared';
 
@@ -15,21 +15,24 @@ interface getSlugAvailabilityInput {
 const getSlugAvailability = (input: ZambdaFunctionInput): ZambdaFunctionResponse => {
   const { oldSlug, slug } = input.body as getSlugAvailabilityInput;
   if (slug == null || typeof slug !== 'string') {
+    console.error('"slug" must be provided and be a string.');
     return {
-      error: `${DefaultErrorMessages.validation}: "slug" must be provided and be a string.`,
+      error: ErrorCodes.validation,
     };
   }
   if (!regex.alphanumeric.test(slug)) {
+    console.error('"slug" must only contain alphanumeric characters.');
     return {
-      error: `${DefaultErrorMessages.validation}: "slug" must only contain alphanumeric characters.`,
+      error: ErrorCodes.validation,
     };
   }
   const potentialSlug = slug.toLowerCase();
 
   if (oldSlug != null) {
     if (typeof oldSlug !== 'string') {
+      console.error('"oldSlug" must be a string.');
       return {
-        error: `${DefaultErrorMessages.validation}: "oldSlug" must be a string.`,
+        error: ErrorCodes.validation,
       };
     }
   }
@@ -41,7 +44,7 @@ const getSlugAvailability = (input: ZambdaFunctionInput): ZambdaFunctionResponse
     if (!slugs.includes(oldSlug)) {
       console.error('"oldSlug" could not be found in the current list of slugs.');
       return {
-        error: `${DefaultErrorMessages.unexpected}: please reload the page and try again.`,
+        error: ErrorCodes.unexpected,
       };
     }
     // If they're updating their slug, then the old one will be removed eventually

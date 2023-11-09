@@ -16,9 +16,10 @@ export enum CancellationReasonOptions {
   'Went to outside facility' = 'Went to outside facility',
 }
 
-export enum DefaultErrorMessages {
-  unexpected = 'An unexpected error occurred',
-  validation = 'Invalid zambda input',
+// Sort by code instead
+export enum ErrorCodes {
+  validation = 10001,
+  unexpected = 20001,
 }
 
 export enum PatientEthnicity {
@@ -104,7 +105,7 @@ export interface ZambdaFunctionInput {
  * ```
  */
 export interface ZambdaFunctionResponse {
-  error?: string;
+  error?: number;
   response?: Record<string, any>;
 }
 
