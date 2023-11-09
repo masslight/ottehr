@@ -71,7 +71,7 @@ export const createRoomEncounter = (
       {
         individual: {
           reference: userProfile,
-          display: 'Dr Adam Careful',
+          display: 'Dr Adam Careful dev',
         },
       },
     ],
