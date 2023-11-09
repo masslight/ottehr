@@ -17,13 +17,13 @@ const getSlugAvailability = (input: ZambdaFunctionInput): ZambdaFunctionResponse
   if (slug == null || typeof slug !== 'string') {
     console.error('"slug" must be provided and be a string.');
     return {
-      error: ErrorCodes.validation,
+      error: ErrorCodes.mustBeString,
     };
   }
   if (!regex.alphanumeric.test(slug)) {
     console.error('"slug" must only contain alphanumeric characters.');
     return {
-      error: ErrorCodes.validation,
+      error: ErrorCodes.mustBeAlphanumeric,
     };
   }
   const potentialSlug = slug.toLowerCase();
@@ -32,7 +32,7 @@ const getSlugAvailability = (input: ZambdaFunctionInput): ZambdaFunctionResponse
     if (typeof oldSlug !== 'string') {
       console.error('"oldSlug" must be a string.');
       return {
-        error: ErrorCodes.validation,
+        error: ErrorCodes.mustBeString,
       };
     }
   }

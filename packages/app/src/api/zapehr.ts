@@ -34,22 +34,14 @@ export async function createTelemedRoom(): Promise<Encounter | null> {
   }
 }
 
-export async function getSlugAvailabilityError(slug: string, oldSlug?: string): Promise<string> {
+export async function getSlugAvailability(slug: string, oldSlug?: string): Promise<ZambdaFunctionResponse['output']> {
   try {
     const GET_SLUG_AVAILABILITY_ZAMBDA_ID = import.meta.env.VITE_GET_SLUG_AVAILABILITY_ZAMBDA_ID;
     const responseBody = await callZambda(GET_SLUG_AVAILABILITY_ZAMBDA_ID, 'open', { oldSlug, slug });
-    if (responseBody.output.error) {
-      return responseBody.output.error;
-    }
-    const available = responseBody.output.response?.available as boolean;
-    if (available) {
-      return '';
-    } else {
-      return 'This slug is already taken, please use another one.';
-    }
+    return responseBody.output;
   } catch (error) {
     console.error('Error checking availability:', error);
-    return 'An unexpected error occurred. Please try again.';
+    return { error: 10_001 };
   }
 }
 
@@ -102,7 +94,7 @@ export async function getTwilioToken(roomName: string): Promise<string | null> {
 
 export interface ZambdaFunctionResponse {
   output: {
-    error?: string;
+    error?: number;
     response?: Record<string, any>;
   };
 }
