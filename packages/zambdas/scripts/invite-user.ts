@@ -11,7 +11,7 @@ const DEFAULTS = {
   firstName: 'Olivia',
   lastName: 'Smith',
   secretsPath: '../.env/dev.json',
-  applicationId: '1620a91b-4198-4240-ac1c-eadff1e8049d' // Ottehr dev env application id
+  applicationId: '1620a91b-4198-4240-ac1c-eadff1e8049d', // Ottehr dev env application id
 };
 
 async function inviteUser(
