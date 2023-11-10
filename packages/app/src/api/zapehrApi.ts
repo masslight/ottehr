@@ -9,14 +9,11 @@ export interface zapEHRUser {
 }
 import { AppClient } from '@zapehr/sdk';
 import { Encounter } from 'fhir/r4';
-// TODO: add env
-const TELEMED_API_URL = import.meta.env.VITE_LOCAL_TELEMED_API_URL;
-// const TELEMED_API_URL = 'http://localhost:3301/local/zambda';
 
 class API {
   async createTelemedRoom(): Promise<Encounter | null> {
     try {
-      const response = await fetch(`${TELEMED_API_URL}/telemed-room/execute-public`, {
+      const response = await fetch(`${import.meta.env.VITE_PROJECT_API_URL}/telemed-room/execute-public`, {
         body: JSON.stringify({ testBody: 'test' }),
         headers: {
           Accept: 'application/json',
@@ -69,7 +66,7 @@ class API {
 
   async getTelemedToken(encounterId: string): Promise<string | null> {
     try {
-      const response = await fetch(`${TELEMED_API_URL}/telemed-token/execute-public`, {
+      const response = await fetch(`${import.meta.env.VITE_PROJECT_API_URL}/telemed-token/execute-public`, {
         body: JSON.stringify({ encounterId }),
         headers: {
           Accept: 'application/json',
