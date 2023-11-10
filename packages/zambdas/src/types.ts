@@ -74,6 +74,24 @@ export type PatientInfo = {
   sex: PatientSex | undefined;
 };
 
+export enum Title {
+  Assistant = 'Assistant',
+  Dr = 'Dr',
+  Mr = 'Mr',
+  Mrs = 'Mrs',
+  Ms = 'Ms',
+  Nurse = 'Nurse',
+}
+
+export type ProviderInfo = {
+  checkboxes: boolean;
+  email: string;
+  firstName: string;
+  lastName: string;
+  slug: string;
+  title: Title;
+};
+
 export enum PatientRace {
   'American Indian or Alaskan Native' = 'American Indian or Alaskan Native',
   'Asian' = 'Asian',

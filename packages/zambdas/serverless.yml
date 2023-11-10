@@ -11,12 +11,35 @@ provider:
   stage: ${opt:stage, self:custom.defaultStage}
 
 custom:
-  defaultStage: local
+  defaultStage: dev2
   serverless-offline:
     reloadHandler: true
     httpPort: 3301
 
 functions:
+  get-slug-availability:
+    handler: src/get-slug-availability/index.index
+    events:
+      - http:
+          path: zambda/get-slug-availability/execute-public
+          method: POST
+    timeout: 25
+    # This is just an example and isn't needed. When you copy this, delete it from this zambda.
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+  version:
+    handler: src/version/index.index
+    events:
+      - http:
+          path: zambda/version/execute-public
+          method: POST
+    timeout: 25
+  me:
+    handler: src/me/index.index
+    events:
+      - http:
+          path: zambda/me/execute-public
+          method: POST
   create-telemed-room:
     handler: src/create-telemed-room/index.index
     events:

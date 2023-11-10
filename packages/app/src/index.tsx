@@ -10,11 +10,10 @@ const root = createRoot(document.getElementById('root') as HTMLElement);
 root.render(
   // <StrictMode>
   <Auth0Provider
-    audience="https://api.zapehr.com"
-    clientId="TODO"
-    connection="sms"
-    domain="https://zapehr-dev.us.auth0.com"
-    redirectUri={window.location.origin}
+    audience={import.meta.env.VITE_APP_AUDIENCE}
+    clientId={import.meta.env.VITE_APP_CLIENT_ID}
+    domain={import.meta.env.VITE_APP_DOMAIN}
+    redirectUri={import.meta.env.VITE_APP_REDIRECT_URL}
   >
     <DataProvider>
       <App />
