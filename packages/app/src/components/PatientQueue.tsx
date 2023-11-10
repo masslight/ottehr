@@ -27,8 +27,7 @@ export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, firstName, la
       setIsMicOpen(true);
       setIsVideoOpen(true);
 
-      //  this will not work for now as it is for m2m
-      const fetchedToken = await zapehrApi.getTelemedToken(encounterId);
+      const fetchedToken = await zapehrApi.getProviderTelemedToken(encounterId);
       if (fetchedToken === null) {
         console.error('Failed to fetch token');
         return;
