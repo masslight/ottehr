@@ -4,8 +4,8 @@ export interface ZapehrSearchParameter {
 }
 import { Encounter } from 'fhir/r4';
 // TODO: add env
-// const TELEMED_API_URL = import.meta.env.VITE_TELEMED_API_URL;
-const TELEMED_API_URL = 'http://localhost:3301/local/zambda';
+const TELEMED_API_URL = import.meta.env.VITE_LOCAL_TELEMED_API_URL;
+// const TELEMED_API_URL = 'http://localhost:3301/local/zambda';
 
 class API {
   async createTelemedRoom(): Promise<Encounter | null> {
@@ -20,7 +20,8 @@ class API {
       });
 
       const responseBody = await response.json();
-      const encounter: Encounter | undefined = responseBody.version?.encounter;
+      console.log('responseBody', responseBody);
+      const encounter: Encounter | undefined = responseBody.response.encounter;
 
       if (!encounter) {
         console.error('Encounter is missing in the response');
@@ -37,7 +38,7 @@ class API {
   async getTelemedToken(encounterId: string): Promise<string | null> {
     try {
       const response = await fetch(`${TELEMED_API_URL}/telemed-token/execute-public`, {
-        body: JSON.stringify({ body: { encounterId } }),
+        body: JSON.stringify({ encounterId }),
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
@@ -46,7 +47,8 @@ class API {
       });
 
       const responseBody = await response.json();
-      const token = responseBody.version?.token;
+      console.log('responseBody', responseBody);
+      const token = responseBody.response.token;
 
       if (!token) {
         console.error('Token is missing in the response');
