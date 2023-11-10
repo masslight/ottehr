@@ -15,7 +15,7 @@ import {
 } from './pages';
 import { DataContext, PatientProvider, VideoParticipantProvider, setFhirClient } from './store';
 import { useContext, useEffect } from 'react';
-import { zapehrApi } from './api/zapehrApi';
+import { getUser } from './api';
 // import axios from 'axios';
 
 export default function App(): JSX.Element {
@@ -27,7 +27,7 @@ export default function App(): JSX.Element {
       if (isAuthenticated) {
         const accessToken = await getAccessTokenSilently();
         console.log('accessToken', accessToken);
-        const user = await zapehrApi.getUser(accessToken);
+        const user = await getUser(accessToken);
         console.log('user', user);
         setFhirClient(accessToken, dispatch);
       }
