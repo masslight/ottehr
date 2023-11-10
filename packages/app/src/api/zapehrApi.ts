@@ -2,6 +2,12 @@ export interface ZapehrSearchParameter {
   key: string;
   value: string;
 }
+
+export interface zapEHRUser {
+  email: string;
+  name: string;
+}
+import { AppClient } from '@zapehr/sdk';
 import { Encounter } from 'fhir/r4';
 // TODO: add env
 // const TELEMED_API_URL = import.meta.env.VITE_TELEMED_API_URL;
@@ -77,6 +83,14 @@ class API {
       console.error('Error fetching token:', error);
       return null;
     }
+  }
+
+  async getUser(token: string): Promise<zapEHRUser> {
+    const appClient = new AppClient({
+      accessToken: token,
+      apiUrl: 'https://platform-api.zapehr.com/v1',
+    });
+    return appClient.getMe();
   }
 }
 
