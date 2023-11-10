@@ -39,6 +39,7 @@ functions:
     events:
       - http:
           path: zambda/me/execute-public
+          method: POST
 
   create-telemed-room:
     handler: src/create-telemed-room/index.index
