@@ -1,4 +1,4 @@
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, Snackbar, Alert } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -8,6 +8,7 @@ import { callButtonMobile, defaultPatient } from '../assets/icons';
 import { getQueuedTimeFromTimestamp } from '../helpers';
 import { useVideoParticipant } from '../store';
 import { CustomButton } from './CustomButton';
+import { useAuth0 } from '@auth0/auth0-react';
 
 export interface PatientQueueProps {
   encounterId: string;
@@ -21,15 +22,29 @@ export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, firstName, la
   const { t } = useTranslation();
   const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom } = useVideoParticipant();
   const [relativeQueuedTime, setRelativeQueuedTime] = useState(getQueuedTimeFromTimestamp(queuedTime));
+  const { getAccessTokenSilently } = useAuth0();
+  const [telemedToken, setTelemedToken] = useState<string | null>(null);
+  const [openSnackbar, setOpenSnackbar] = useState(false); // new state for Snackbar
+
+  useEffect(() => {
+    async function getZapEHRUser(): Promise<void> {
+      const accessToken = await getAccessTokenSilently();
+      setTelemedToken(await getProviderTelemedToken(encounterId, accessToken));
+    }
+
+    getZapEHRUser().catch((error) => {
+      console.log(error);
+    });
+  }, [encounterId, getAccessTokenSilently]);
 
   const startCall = async (): Promise<void> => {
     try {
       setIsMicOpen(true);
       setIsVideoOpen(true);
 
-      const fetchedToken = await getProviderTelemedToken(encounterId);
-      if (fetchedToken === null) {
+      if (telemedToken === null) {
         console.error('Failed to fetch token');
+        setOpenSnackbar(true); // open Snackbar if token is null
         return;
       }
 
@@ -45,7 +60,7 @@ export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, firstName, la
 
       setLocalTracks(localTracks);
 
-      const connectedRoom = await Video.connect(fetchedToken, {
+      const connectedRoom = await Video.connect(telemedToken, {
         audio: true,
         tracks: localTracks,
         video: true,
@@ -56,6 +71,10 @@ export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, firstName, la
     } catch (error) {
       console.error('An error occurred:', error);
     }
+  };
+
+  const handleCloseSnackbar = (): void => {
+    setOpenSnackbar(false);
   };
 
   useEffect(() => {
@@ -92,6 +111,11 @@ export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, firstName, la
           </CustomButton>
         </Box>
       </Box>
+      <Snackbar autoHideDuration={6000} onClose={handleCloseSnackbar} open={openSnackbar}>
+        <Alert onClose={handleCloseSnackbar} severity="error" sx={{ width: '100%' }}>
+          {t('errors.tokenNotLoaded')}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

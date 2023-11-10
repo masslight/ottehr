@@ -46,6 +46,7 @@
     "reload": "Please try reloading the page.",
     "slugUnavailable": "This slug is already taken, please use another one.",
     "timedOut": "The operation timed out. Please try again.",
+    "tokenNotLoaded": "Token not loaded. Please try again.",
     "unauthorized": "Not authorized to access this resource. Please check your credentials and try again.",
     "unauthorizedByThirdParty": "The operation was rejected by a third party.",
     "unexpected": "An unexpected error occurred. Please try again."
