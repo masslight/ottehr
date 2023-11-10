@@ -1,35 +1,14 @@
 import CallEndIcon from '@mui/icons-material/CallEnd';
-import CancelIcon from '@mui/icons-material/Cancel';
 import ChatIcon from '@mui/icons-material/Chat';
-import CheckIcon from '@mui/icons-material/CheckCircle';
 import MicIcon from '@mui/icons-material/Mic';
 import VideocamIcon from '@mui/icons-material/Videocam';
-import {
-  Box,
-  Button,
-  Checkbox,
-  FormControl,
-  FormControlLabel,
-  InputLabel,
-  MenuItem,
-  Select,
-  TextField,
-  Typography,
-  useTheme,
-} from '@mui/material';
-import { FC, useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { Box, Typography, useTheme } from '@mui/material';
+import { FC } from 'react';
+import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { otherColors } from '../OttehrThemeProvider';
-import {
-  backgroundEllipseDark,
-  backgroundEllipseLight,
-  patientIcon,
-  providerIcon,
-  registrationLogo,
-} from '../assets/icons';
-import { ZapEHRLogo } from '../components';
-import { getTitles, isAvailable } from '../helpers/mockData';
+import { patientIcon, providerIcon, registrationLogo } from '../assets/icons';
+import { ProviderFields, ZapEHRLogo } from '../components';
 
 interface FormData {
   acceptTerms: boolean;
@@ -74,12 +53,6 @@ export const Register: FC = (): JSX.Element => {
     // TODO: form submission logic
   };
 
-  const [slug, setSlug] = useState<string>('');
-  // TODO hard-coded data
-  const isError = !isAvailable(slug);
-  const helperText = isError ? t('error.slugUnavailable') : '';
-  const titles = getTitles();
-
   return (
     <Box sx={{ display: 'flex', flexDirection: { md: 'row', xs: 'column' } }}>
       {/* left side */}
@@ -88,7 +61,7 @@ export const Register: FC = (): JSX.Element => {
           backgroundColor: otherColors.darkBackgroundPaper,
           display: 'flex',
           flexDirection: 'column',
-          gap: 2,
+          gap: 6,
           justifyContent: 'center',
           [theme.breakpoints.down('md')]: {
             py: 2,
@@ -106,11 +79,6 @@ export const Register: FC = (): JSX.Element => {
         >
           <Box component="img" src={registrationLogo} />
         </Box>
-        <Box>
-          <Typography color="primary.light" sx={{ py: 2, textAlign: 'center' }} variant="body1">
-            {t('register.connect')}
-          </Typography>
-        </Box>
         <Box
           sx={{
             alignItems: 'center',
@@ -126,41 +94,20 @@ export const Register: FC = (): JSX.Element => {
           }}
         >
           <Box
-            component="img"
-            src={backgroundEllipseDark}
-            sx={{
-              mb: 25,
-              mr: 18,
-              position: 'absolute',
-              [theme.breakpoints.down('md')]: {
-                maxHeight: '60%',
-                maxWidth: '60%',
-                mb: 0,
-              },
-            }}
-          />
-          <Box
-            component="img"
-            src={backgroundEllipseLight}
-            sx={{
-              ml: 25,
-              position: 'absolute',
-              [theme.breakpoints.down('md')]: {
-                maxHeight: '60%',
-                maxWidth: '60%',
-                ml: 18,
-              },
-            }}
-          />
-          <Box
             sx={{
               alignItems: 'center',
+              backgroundColor: 'background.default',
+              border: '5px solid #fff',
+              borderColor: otherColors.borderLightBlue,
+              borderRadius: 5,
               display: 'flex',
               justifyContent: 'center',
               marginLeft: 36,
               mb: 46,
               overflow: 'hidden',
               position: 'absolute',
+              pt: 2,
+              px: 1,
               [theme.breakpoints.down('md')]: {
                 mb: 0,
                 ml: 0,
@@ -173,8 +120,9 @@ export const Register: FC = (): JSX.Element => {
           </Box>
           <Box
             sx={{
-              backgroundColor: otherColors.providerIconBackground,
+              backgroundColor: 'background.default',
               border: '5px solid #fff',
+              borderColor: otherColors.borderLightBlue,
               borderRadius: 5,
               display: 'flex',
               justifyContent: 'center',
@@ -186,6 +134,7 @@ export const Register: FC = (): JSX.Element => {
               [theme.breakpoints.down('md')]: {
                 maxHeight: '118px',
                 maxWidth: '118px',
+                mb: 0,
                 pt: 1.5,
                 px: 1,
               },
@@ -243,112 +192,20 @@ export const Register: FC = (): JSX.Element => {
         }}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mx: { md: 12.5, xs: 2 }, my: { md: 10, xs: 4 } }}>
-          <Typography variant="h4">{t('register.welcome')}</Typography>
-          <Typography color="primary.light" sx={{ pb: 1 }} variant="h3">
+          <Typography mb={-1} variant="h4">
+            {t('register.welcome')}
+          </Typography>
+          <Typography color="primary.light" mb={2} variant="h3">
             {t('register.register')}
           </Typography>
           {/* TODO form labels translated without breaking react hook form/back end submission */}
-          <form onSubmit={handleSubmit(onSubmit)}>
-            <Box sx={{ alignItems: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Controller
-                control={control}
-                name="title"
-                render={({ field }) => (
-                  <FormControl variant="outlined">
-                    <InputLabel>Title</InputLabel>
-                    <Select label="Title" {...field}>
-                      {titles.map((title) => (
-                        <MenuItem key={title} value={title.toLowerCase()}>
-                          {t(`profile.titleOption.${title.toLowerCase()}`)}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
-              />
-              <Controller
-                control={control}
-                name="firstName"
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    helperText={errors.firstName ? String(errors.firstName.message) : null}
-                    label="First Name"
-                    variant="outlined"
-                  />
-                )}
-              />
-              <Controller
-                control={control}
-                name="lastName"
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    helperText={errors.lastName ? String(errors.lastName.message) : null}
-                    label="Last Name"
-                    variant="outlined"
-                  />
-                )}
-              />
-              <Controller
-                control={control}
-                name="slug"
-                render={({ field }) => (
-                  <>
-                    <TextField
-                      error={isError}
-                      helperText={helperText}
-                      label="Slug"
-                      onChange={(e) => {
-                        setSlug(e.target.value);
-                        field.onChange(e);
-                      }}
-                      variant="outlined"
-                    />
-                    <Box sx={{ alignItems: 'center', display: 'flex' }}>
-                      <Box sx={{ mr: 1 }}>{isError ? <CancelIcon color="error" /> : <CheckIcon color="success" />}</Box>
-                      <Typography variant="body2">{`https://zapehr.app/${field.value}`}</Typography>
-                    </Box>
-                  </>
-                )}
-              />
-              <Controller
-                control={control}
-                name="email"
-                render={({ field }) => <TextField {...field} label="Email Address" variant="outlined" />}
-              />
-              <Controller
-                control={control}
-                name="password"
-                render={({ field }) => <TextField {...field} label="Password" type="password" variant="outlined" />}
-              />
-              <Controller
-                control={control}
-                defaultValue={false}
-                name="notPatient"
-                render={({ field: { onChange, value } }) => (
-                  <FormControlLabel
-                    control={<Checkbox checked={value} onChange={onChange} />}
-                    label="I am not a patient"
-                  />
-                )}
-              />
-              <Controller
-                control={control}
-                defaultValue={false}
-                name="acceptTerms"
-                render={({ field: { onChange, value } }) => (
-                  <FormControlLabel
-                    control={<Checkbox checked={value} onChange={onChange} />}
-                    label="I accept the terms and conditions"
-                  />
-                )}
-              />
-              <Button type="submit" variant="contained">
-                {t('register.signUp')}
-              </Button>
-            </Box>
-          </form>
+          <ProviderFields
+            buttonText={t('profile.update')}
+            control={control}
+            errors={errors}
+            isRegister
+            onSubmit={handleSubmit(onSubmit)}
+          />
         </Box>
       </Box>
     </Box>

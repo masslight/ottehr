@@ -8,6 +8,7 @@
     "start": "pnpm start:local",
     "start:local": "pnpm recursive run start:local",
     "start:dev": "pnpm recursive run start:dev",
+    "start:dev2": "pnpm recursive run start:dev2",
     "start:testing": "pnpm recursive run start:testing",
     "start:staging": "pnpm recursive run start:staging",
     "update": "pnpm recursive up -L -i"

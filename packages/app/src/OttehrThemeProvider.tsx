@@ -1,4 +1,4 @@
-import { BreakpointsOptions, Components, PaletteColor, ThemeProvider, alpha, createTheme } from '@mui/material';
+import { BreakpointsOptions, Components, PaletteColor, ThemeProvider, createTheme } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { FC, ReactNode } from 'react';
 
@@ -24,7 +24,7 @@ export const otherColors = {
   biscay: 'rgba(50, 63, 83, 0.87)',
   blackTransparent: 'rgba(0, 0, 0, 0.5)',
   borderGray: '#D6D8DF',
-  borderLightBlue: '#4294F3',
+  borderLightBlue: '#C5D5ED',
   brown: '#604203',
   callIconsBackground: 'rgba(255, 255, 255, 0.2)',
   cardBackground: '#F7F8F9',
@@ -48,7 +48,6 @@ export const otherColors = {
   popupBackground: 'rgba(97, 97, 97, 0.9)',
   primaryBackground: '#F5F2FF',
   primaryBoxShadow: 'rgba(77, 21, 183, 0.25)',
-  providerIconBackground: '#D9F3FF',
   purple: '#4D15B7',
   scheduleBorder: '#8F9AA7',
   shamrock: '#3ECCA2',
@@ -299,27 +298,6 @@ export const components: Components = {
         },
       },
     },
-  },
-};
-
-export const otherStyling = {
-  boxPadding: {
-    px: 12.5,
-    py: 7.5,
-  },
-  boxPaddingMobile: {
-    px: 2,
-    py: 4,
-  },
-  buttonPrimary: {
-    borderRadius: '4px',
-    color: palette.background.default,
-    textTransform: 'uppercase',
-  },
-  formFocus: {
-    border: '1px solid !important',
-    borderColor: `${palette.primary.main} !important`,
-    boxShadow: `${alpha(palette.primary.main, 0.25)} 0 0 0 0.2rem`,
   },
 };
 

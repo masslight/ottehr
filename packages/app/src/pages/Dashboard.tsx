@@ -1,14 +1,14 @@
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
-import { Box, Button, Container, Divider, Typography, useTheme } from '@mui/material';
+import { Box, Container, Divider, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
 import { Fragment, Key } from 'react';
 import { useTranslation } from 'react-i18next';
 import { otherColors } from '../OttehrThemeProvider';
 import { defaultProvider } from '../assets/icons';
-import { Footer, PatientQueue, PatientQueueProps, TopAppBar } from '../components';
-import { getPatients, getProvider } from '../helpers/mockData';
+import { CustomButton, Footer, PatientQueue, PatientQueueProps, TopAppBar } from '../components';
 import { createProviderName } from '../helpers';
+import { getPatients, getProvider } from '../helpers/mockData';
 import { JSX } from 'react/jsx-runtime';
 
 export const Dashboard = (): JSX.Element => {
@@ -20,6 +20,16 @@ export const Dashboard = (): JSX.Element => {
   const theme = useTheme();
 
   const hour = DateTime.now().get('hour');
+
+  const copySlugToClipboard = (): void => {
+    async () => {
+      try {
+        await navigator.clipboard.writeText(`https://zapehr.app/${provider.slug}`);
+      } catch (error) {
+        console.error('Failed to copy room link to clipboard:', error);
+      }
+    };
+  };
 
   return (
     <Container
@@ -36,7 +46,6 @@ export const Dashboard = (): JSX.Element => {
       <Box sx={{ display: 'flex', flexDirection: { md: 'row', xs: 'column' }, flexGrow: 1 }}>
         <Box
           sx={{
-            alignItems: 'center',
             backgroundColor: 'transparent',
             display: 'flex',
             flexDirection: 'column',
@@ -84,7 +93,7 @@ export const Dashboard = (): JSX.Element => {
               backgroundColor: otherColors.pattensBlue,
               borderRadius: 1,
               boxSizing: 'border-box',
-              margin: 3,
+              my: 3,
               p: 3,
               [theme.breakpoints.down('md')]: {
                 mx: 0,
@@ -107,25 +116,15 @@ export const Dashboard = (): JSX.Element => {
                 gap: 2,
                 justifyContent: 'flex-start',
                 marginTop: 2,
+                width: 'fit-content',
               }}
             >
-              <Button
-                color="primary"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(`https://zapehr.app/${provider.slug}`);
-                  } catch (error) {
-                    console.error('Failed to copy room link to clipboard:', error);
-                  }
-                }}
-                startIcon={<ContentCopyIcon />}
-                variant="contained"
-              >
+              <CustomButton icon={<ContentCopyIcon />} onClick={copySlugToClipboard}>
                 {t('dashboard.copyLink')}
-              </Button>
-              <Button color="primary" startIcon={<MailOutlineIcon />} variant="outlined">
+              </CustomButton>
+              <CustomButton icon={<MailOutlineIcon />} secondary sx={{ whiteSpace: 'nowrap' }}>
                 {t('dashboard.sendEmail')}
-              </Button>
+              </CustomButton>
             </Box>
           </Box>
         </Box>
@@ -149,7 +148,7 @@ export const Dashboard = (): JSX.Element => {
             {t('dashboard.patientQueue')}
           </Typography>
 
-          <Typography color="primary.contrast" fontWeight={500} sx={{ opacity: 0.6 }} variant="body2">
+          <Typography color="primary.contrast" fontWeight={500} mb={2} sx={{ opacity: 0.6 }} variant="body2">
             {t('dashboard.waiting')}
           </Typography>
 

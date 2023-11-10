@@ -1,4 +1,4 @@
-import { Box, Button, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -7,14 +7,16 @@ import { zapehrApi } from '../api';
 import { callButtonMobile, defaultPatient } from '../assets/icons';
 import { getQueuedTimeFromTimestamp } from '../helpers';
 import { useVideoParticipant } from '../store';
+import { CustomButton } from './CustomButton';
 
 export interface PatientQueueProps {
-  name: string;
+  encounterId: string;
+  firstName: string;
+  lastName: string;
   queuedTime: string;
-  roomName: string;
 }
 
-export const PatientQueue: FC<PatientQueueProps> = ({ roomName, name, queuedTime }) => {
+export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, firstName, lastName, queuedTime }) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom } = useVideoParticipant();
@@ -25,7 +27,8 @@ export const PatientQueue: FC<PatientQueueProps> = ({ roomName, name, queuedTime
       setIsMicOpen(true);
       setIsVideoOpen(true);
 
-      const fetchedToken = await zapehrApi.getTwilioToken(roomName);
+      //  this will not work for now as it is for m2m
+      const fetchedToken = await zapehrApi.getTelemedToken(encounterId);
       if (fetchedToken === null) {
         console.error('Failed to fetch token');
         return;
@@ -45,14 +48,12 @@ export const PatientQueue: FC<PatientQueueProps> = ({ roomName, name, queuedTime
 
       const connectedRoom = await Video.connect(fetchedToken, {
         audio: true,
-        name: roomName,
         tracks: localTracks,
         video: true,
       });
 
       setRoom(connectedRoom);
       navigate(`/video-call`);
-      // Navigate to room or handle UI updates
     } catch (error) {
       console.error('An error occurred:', error);
     }
@@ -74,9 +75,9 @@ export const PatientQueue: FC<PatientQueueProps> = ({ roomName, name, queuedTime
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
         <Box sx={{ display: 'flex' }}>
           <img alt={t('imageAlts.patient')} height="42px" src={defaultPatient} />
-          <Box pl={2}>
+          <Box pl={1.75}>
             <Typography color="primary.contrast" variant="body1">
-              {name}
+              {firstName} {lastName}
             </Typography>
             <Typography color="primary.contrast" sx={{ opacity: 0.6 }} variant="body2">
               {relativeQueuedTime}
@@ -84,16 +85,12 @@ export const PatientQueue: FC<PatientQueueProps> = ({ roomName, name, queuedTime
           </Box>
         </Box>
         <Box>
-          <Button color="primary" onClick={startCall} sx={{ display: { md: 'block', xs: 'none' } }} variant="contained">
+          <CustomButton onClick={startCall} sx={{ display: { md: 'block', xs: 'none' } }}>
             {t('general.startCall')}
-          </Button>
-          <Button
-            sx={{
-              display: { md: 'none' },
-            }}
-          >
+          </CustomButton>
+          <CustomButton sx={{ display: { md: 'none' } }}>
             <img alt={t('imageAlts.callButton')} src={callButtonMobile} />
-          </Button>
+          </CustomButton>
         </Box>
       </Box>
     </Box>

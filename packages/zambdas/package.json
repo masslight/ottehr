@@ -5,12 +5,14 @@
   "scripts": {
     "build": "tsc && sls package --stage dev",
     "deploy-zambdas:dev": "ENV=dev pnpm deploy-zambdas-skeleton",
+    "deploy-zambdas:dev2": "ENV=dev2 pnpm deploy-zambdas-skeleton",
     "deploy-zambdas:testing": "ENV=testing pnpm deploy-zambdas-skeleton",
     "deploy-zambdas:staging": "ENV=staging pnpm deploy-zambdas-skeleton",
     "deploy-zambdas:production": "ENV=production pnpm deploy-zambdas-skeleton",
     "deploy-zambdas-skeleton": "pnpm package && ts-node scripts/deploy-zambdas.ts ${ENV}",
     "package": "tsc && sls package && bash scripts/package-for-release.sh",
     "setup-zapehr-secrets:dev": "ENV=dev pnpm setup-zapehr-secrets-skeleton",
+    "setup-zapehr-secrets:dev2": "ENV=dev2 pnpm setup-zapehr-secrets-skeleton",
     "setup-zapehr-secrets:testing": "ENV=testing pnpm setup-zapehr-secrets-skeleton",
     "setup-zapehr-secrets:staging": "ENV=staging pnpm setup-zapehr-secrets-skeleton",
     "setup-zapehr-secrets:production": "ENV=production pnpm setup-zapehr-secrets-skeleton",
@@ -18,6 +20,7 @@
     "start": "pnpm start:local",
     "start:local": "ENV=local pnpm start-skeleton",
     "start:dev": "ENV=dev pnpm start-skeleton",
+    "start:dev2": "ENV=dev2 pnpm start-skeleton",
     "start:testing": "ENV=testing pnpm start-skeleton",
     "start:staging": "ENV=staging pnpm start-skeleton",
     "start-skeleton": "sls offline --stage ${ENV}"
@@ -29,7 +32,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.272.0",
-    "@zapehr/sdk": "^1.0.16",
+    "@zapehr/sdk": "^1.0.17",
     "aws-lambda": "^1.0.7",
     "fast-json-patch": "^3.1.1",
     "luxon": "^3.1.1",
@@ -37,8 +40,10 @@
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.109",
+    "@types/inquirer": "^8.0.0",
     "@types/node": "^16.18.53",
     "@types/node-fetch": "2.6.6",
+    "@types/uuid": "9.0.7",
     "@typescript-eslint/eslint-plugin": "^5.45.0",
     "@typescript-eslint/parser": "^5.45.0",
     "aws-lambda": "^1.0.7",
@@ -46,11 +51,13 @@
     "eslint": "^8.29.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-prettier": "^4.2.1",
+    "inquirer": "^8.0.0",
     "prettier": "2.8.1",
     "serverless": "^3.26.0",
     "serverless-esbuild": "^1.45.1",
     "serverless-offline": "^12.0.3",
     "ts-node": "^10.9.1",
-    "typescript": "^4.7.4"
+    "typescript": "^4.7.4",
+    "uuid": "9.0.1"
   }
 }

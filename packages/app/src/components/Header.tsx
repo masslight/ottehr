@@ -3,81 +3,63 @@ import { FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { otherColors } from '../OttehrThemeProvider';
 import { defaultPatient, defaultProvider } from '../assets/icons';
+import { TopAppBar } from './TopAppBar';
 
 interface HeaderProps {
   isProvider: boolean;
-  providerName: string;
+  subtitle: string;
   title: string;
 }
 
-export const Header: FC<HeaderProps> = ({ isProvider, providerName, title }) => {
+export const Header: FC<HeaderProps> = ({ isProvider, subtitle, title }) => {
   const theme = useTheme();
   const { t } = useTranslation();
 
+  const imageStyle = { height: '6.25rem', width: '6.25rem' };
+
   return (
-    <Box
-      sx={{
-        background: otherColors.bannerGradient,
-      }}
-    >
+    <>
+      {isProvider && <TopAppBar />}
       <Box
         sx={{
           alignItems: 'center',
+          background: otherColors.bannerGradient,
           display: 'flex',
           justifyContent: 'center',
           py: 5,
           [theme.breakpoints.down('md')]: {
+            alignItems: 'center',
             flexDirection: 'column',
             py: 3,
           },
         }}
+        width="100%"
       >
-        <Box maxWidth="md" width="100%">
-          <Box
-            sx={{
+        {isProvider ? (
+          <img alt={t('imageAlts.provider')} src={defaultProvider} style={imageStyle} />
+        ) : (
+          <img alt={t('imageAlts.patient')} src={defaultPatient} style={imageStyle} />
+        )}
+        <Box
+          sx={{
+            ml: 3,
+            [theme.breakpoints.down('md')]: {
               alignItems: 'center',
               display: 'flex',
-              justifyContent: 'start',
-              mx: 12.5,
-              [theme.breakpoints.down('md')]: {
-                alignItems: 'center',
-                flexDirection: 'column',
-                mx: 2,
-              },
-            }}
-          >
-            {isProvider ? (
-              <img
-                alt={t('imageAlts.provider')}
-                src={defaultProvider}
-                style={{ height: '6.25rem', width: '6.25rem' }}
-              />
-            ) : (
-              <img alt={t('imageAlts.patient')} src={defaultPatient} style={{ height: '6.25rem', width: '6.25rem' }} />
-            )}
-
-            <Box
-              sx={{
-                ml: 3,
-                [theme.breakpoints.down('md')]: {
-                  alignItems: 'center',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  ml: 0,
-                  mt: 2,
-                },
-              }}
-            >
-              <Typography color="primary.light" variant="h5">
-                {title}
-              </Typography>
-              <Typography color="primary.contrast" variant="h4">
-                {providerName}
-              </Typography>
-            </Box>
-          </Box>
+              flexDirection: 'column',
+              ml: 0,
+              mt: 2,
+            },
+          }}
+        >
+          <Typography color="primary.light" variant="h5">
+            {title}
+          </Typography>
+          <Typography color="primary.contrast" variant="h4">
+            {subtitle}
+          </Typography>
         </Box>
       </Box>
-    </Box>
+    </>
   );
 };

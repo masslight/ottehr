@@ -194,8 +194,8 @@ importers:
         specifier: ^3.272.0
         version: 3.417.0
       '@zapehr/sdk':
-        specifier: ^1.0.16
-        version: 1.0.16
+        specifier: ^1.0.17
+        version: 1.0.17
       aws-lambda:
         specifier: ^1.0.7
         version: 1.0.7
@@ -212,12 +212,18 @@ importers:
       '@types/aws-lambda':
         specifier: ^8.10.109
         version: 8.10.121
+      '@types/inquirer':
+        specifier: ^8.0.0
+        version: 8.2.10
       '@types/node':
         specifier: ^16.18.53
         version: 16.18.53
       '@types/node-fetch':
         specifier: 2.6.6
         version: 2.6.6
+      '@types/uuid':
+        specifier: 9.0.7
+        version: 9.0.7
       '@typescript-eslint/eslint-plugin':
         specifier: ^5.45.0
         version: 5.62.0(@typescript-eslint/parser@5.62.0)(eslint@8.49.0)(typescript@4.9.5)
@@ -236,6 +242,9 @@ importers:
       eslint-plugin-prettier:
         specifier: ^4.2.1
         version: 4.2.1(eslint-config-prettier@8.10.0)(eslint@8.49.0)(prettier@2.8.1)
+      inquirer:
+        specifier: ^8.0.0
+        version: 8.2.6
       prettier:
         specifier: 2.8.1
         version: 2.8.1
@@ -254,6 +263,9 @@ importers:
       typescript:
         specifier: ^4.7.4
         version: 4.9.5
+      uuid:
+        specifier: 9.0.1
+        version: 9.0.1
 
 packages:
 
@@ -3278,6 +3290,13 @@ packages:
     resolution: {integrity: sha512-FD+nQWA2zJjh4L9+pFXqWOi0Hs1ryBCfI+985NjluQ1p8EYtoLvjLOKidXBtZ4/IcxDX4o8/E8qDS3540tNliw==}
     dev: true
 
+  /@types/inquirer@8.2.10:
+    resolution: {integrity: sha512-IdD5NmHyVjWM8SHWo/kPBgtzXatwPkfwzyP3fN1jF2g9BWt5WO+8hL2F4o2GKIYsU40PpqeevuUWvkS/roXJkA==}
+    dependencies:
+      '@types/through': 0.0.33
+      rxjs: 7.8.1
+    dev: true
+
   /@types/is-ci@3.0.1:
     resolution: {integrity: sha512-mnb1ngaGQPm6LFZaNdh3xPOoQMkrQb/KBPhPPN2p2Wk8XgeUqWj6xPnvyQ8rvcK/VFritVmQG8tvQuy7g+9/nQ==}
     dependencies:
@@ -3375,6 +3394,16 @@ packages:
 
   /@types/semver@7.5.2:
     resolution: {integrity: sha512-7aqorHYgdNO4DM36stTiGO3DvKoex9TQRwsJU6vMaFGyqpBA1MNZkz+PG3gaNUPpTAOYhT1WR7M1JyA3fbS9Cw==}
+    dev: true
+
+  /@types/through@0.0.33:
+    resolution: {integrity: sha512-HsJ+z3QuETzP3cswwtzt2vEIiHBk/dCcHGhbmG5X3ecnwFD/lPrMpliGXxSCg03L9AhrdwA4Oz/qfspkDW+xGQ==}
+    dependencies:
+      '@types/node': 16.18.53
+    dev: true
+
+  /@types/uuid@9.0.7:
+    resolution: {integrity: sha512-WUtIVRUZ9i5dYXefDEAI7sh9/O7jGvHg7Df/5O/gtH3Yabe5odI3UWopVR1qbPXQtvOxWu3mM4XxlYeZtMWF4g==}
     dev: true
 
   /@typescript-eslint/eslint-plugin@5.62.0(@typescript-eslint/parser@5.62.0)(eslint@8.49.0)(typescript@4.9.5):
@@ -3536,8 +3565,8 @@ packages:
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
     dev: false
 
-  /@zapehr/sdk@1.0.16:
-    resolution: {integrity: sha512-7JA55wXr8jZ9tV+N8gRpMyuOW2ACaQgJs7k9tc1p4s4H7AB/kTw5Dmrb29smQWEuZ+n8wAnbJZJHKB3zXztuVA==}
+  /@zapehr/sdk@1.0.17:
+    resolution: {integrity: sha512-pPkPh3lxRAJrP7uV9+a3R6lhwD4fegH/AdARNySmG2svLFOiMOdt8Rh54i89GamHJEpfN1GCszSsj0TO7YaI8A==}
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
     dev: false
 

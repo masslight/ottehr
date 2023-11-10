@@ -1,6 +1,5 @@
 import {
   Box,
-  Button,
   Dialog,
   DialogActions,
   DialogContent,
@@ -22,6 +21,7 @@ import {
 } from 'twilio-video';
 import { useDevices } from '../hooks';
 import { useVideoParticipant } from '../store';
+import { CustomButton } from './CustomButton';
 
 interface CallSettingsProps {
   localParticipant: LocalParticipant | undefined;
@@ -204,17 +204,11 @@ export const CallSettings: FC<CallSettingsProps> = ({ localParticipant, onClose,
             selectedDevice={config.selectedDevice}
           />
         ))}
-        <Button color="primary" style={{ marginTop: '16px' }} variant="contained">
-          {t('callSettings.technicalIssues')}
-        </Button>
+        <CustomButton sx={{ mt: 2 }}>{t('callSettings.technicalIssues')}</CustomButton>
       </DialogContent>
       <DialogActions>
-        <Button color="primary" onClick={onClose}>
-          {t('callSettings.cancel')}
-        </Button>
-        <Button color="primary" onClick={handleSave}>
-          {t('callSettings.save')}
-        </Button>
+        <CustomButton onClick={onClose}>{t('callSettings.cancel')}</CustomButton>
+        <CustomButton onClick={handleSave}>{t('callSettings.save')}</CustomButton>
       </DialogActions>
     </Dialog>
   );

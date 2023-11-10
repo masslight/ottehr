@@ -11,7 +11,7 @@ export const createZambdaFromSkeleton = async (
     console.group(`Starting function ${functionName.name}`);
     const { error, response } = await functionName({
       body: JSON.parse(input.body ?? '{}'),
-      secrets: input.secrets ?? {},
+      secrets: input.secrets || null,
     });
     console.groupEnd();
     console.debug(`${functionName.name} success`);
