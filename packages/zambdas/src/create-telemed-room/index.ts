@@ -10,7 +10,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
 const createTelemedRoom = async (input: ZambdaFunctionInput): Promise<ZambdaFunctionResponse> => {
   // HARDCODED VALUE OF PROVIDER_PROFILE
-  const PROVIDER_PROFILE = 'Practitioner/ded0ff7e-1c5b-40d5-845b-3ae679de95cd';
+  const PROVIDER_PROFILE = 'Practitioner/cf63f237-88bb-4e1c-88b7-422c38c041b7';
   const { body, secrets } = input;
   console.log('body', body);
 

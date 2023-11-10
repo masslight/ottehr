@@ -35,6 +35,32 @@ class API {
     }
   }
 
+  async getProviderTelemedToken(encounterId: string): Promise<string | null> {
+    const token =
+      'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlRRc2xGbWlRX01ZTzg4Z3BRUnlvRCJ9.eyJodHRwczovL2FwaS56YXBlaHIuY29tL3Byb2plY3RfaWQiOiIyYmVhOWU5My1mZDY2LTQ1ZDUtOTA0YS01NjhmMWVlYmVmMzciLCJpc3MiOiJodHRwczovL2F1dGguemFwZWhyLmNvbS8iLCJzdWIiOiJhdXRoMHw2NTRkMzUxYTFlNjhmYTM3ZjhjZDQyN2MiLCJhdWQiOlsiaHR0cHM6Ly9hcGkuemFwZWhyLmNvbSIsImh0dHBzOi8vemFwZWhyLnVzLmF1dGgwLmNvbS91c2VyaW5mbyJdLCJpYXQiOjE2OTk2MzM5MzAsImV4cCI6MTY5OTcyMDMzMCwiYXpwIjoiZFJXRklxR3cyTDJHOHRkTTZHdUJ0TnU5YXdzeFJWVjQiLCJzY29wZSI6Im9wZW5pZCBwcm9maWxlIGVtYWlsIn0.Dbdld7YwQfyYPIrGmdPIkPQusmur1WVl1eqWupss8yYQk7jpvWH2_7CMatna6wsn1UIdHZiIDOL5WppBtPwL-KRSJouGA6pKrOOLESRsHWalJQ6itB4oquXxktw1QymBz5b18HIwhh9t8tdQKgVDPWCQKI78YdV0iNvj6cvCNyzQqEU3Ccs33sUYYZVkcdie-Z5RsEXde7mMlM5-UMUb3S_38vKH23V4k7i_tOipuik7qnCZ4xHIQBxDTEkkNvvNxDaQRJoOIg94WfAoOvWCQyzSonJwUNk93DB4HCAcXFvAyaKAOiHgPvDE1a04U6K2sZGnQ65CbSnoIWrGiC97kQ';
+    try {
+      const response = await fetch(`${import.meta.env.VITE_PROJECT_API_URL}/telemed/token?encounterId=${encounterId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'content-type': 'application/json',
+          'x-zapehr-project-id': import.meta.env.VITE_PROJECT_ID,
+        },
+        method: 'GET',
+      });
+      if (!response.ok) {
+        throw new Error(`API call failed: ${response.statusText}`);
+      }
+
+      const responseData = await response.json();
+      console.log('responseData', responseData);
+      const twilioToken = responseData.token;
+      return twilioToken;
+    } catch (error) {
+      console.error('Error fetching token:', error);
+      return null;
+    }
+  }
+
   async getTelemedToken(encounterId: string): Promise<string | null> {
     try {
       const response = await fetch(`${TELEMED_API_URL}/telemed-token/execute-public`, {
