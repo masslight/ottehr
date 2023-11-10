@@ -5,7 +5,9 @@ export interface ZapehrSearchParameter {
 
 export interface zapEHRUser {
   email: string;
+  id: string;
   name: string;
+  profile: string;
 }
 import { AppClient } from '@zapehr/sdk';
 import { Encounter } from 'fhir/r4';
@@ -113,7 +115,7 @@ class API {
   async getUser(token: string): Promise<zapEHRUser> {
     const appClient = new AppClient({
       accessToken: token,
-      apiUrl: 'https://platform-api.zapehr.com/v1',
+      apiUrl: 'https://project-api.zapehr.com/v1',
     });
     return appClient.getMe();
   }

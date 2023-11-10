@@ -19,6 +19,7 @@ import { zapehrApi } from './api/zapehrApi';
 // import axios from 'axios';
 
 export default function App(): JSX.Element {
+  const { state } = useContext(DataContext);
   const { dispatch } = useContext(DataContext);
   const { isLoading, isAuthenticated, loginWithRedirect, getAccessTokenSilently } = useAuth0();
 
@@ -28,8 +29,17 @@ export default function App(): JSX.Element {
         const accessToken = await getAccessTokenSilently();
         console.log('accessToken', accessToken);
         const user = await zapehrApi.getUser(accessToken);
+        const userId = user.profile.split('/')[1];
         console.log('user', user);
         setFhirClient(accessToken, dispatch);
+        const fhirClient = state.fhirClient;
+
+        const profile = await fhirClient?.readResource({
+          resourceId: userId,
+          resourceType: 'Practitioner',
+        });
+
+        console.log('profile', profile);
       }
     }
     setFhirClientToken().catch((error) => {
@@ -37,6 +47,7 @@ export default function App(): JSX.Element {
     });
   }, [dispatch, getAccessTokenSilently, isAuthenticated]);
 
+  // TO DO redirect only for provider pages
   if (!isAuthenticated && !isLoading) {
     loginWithRedirect().catch((error) => {
       throw new Error(`Error calling loginWithRedirect Auth0 ${error}`);
