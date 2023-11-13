@@ -51,16 +51,16 @@ export default function App(): JSX.Element {
           {isAuthenticated ? (
             <Routes>
               <Route element={<Version />} path={'/'} />;
+              <Route element={<Dashboard />} path={'/dashboard'} />;
+              <Route element={<Profile />} path={'/profile'} />;
               <Route element={<PatientProvider />}>
-                <Route element={<CheckIn />} path={'/check-in'} />;
                 <Route element={<PostCall />} path={'/post-call'} />;
                 <Route element={<Register />} path={'/register'} />;
                 <Route element={<VideoChatPage />} path={'/video-call'} />;
                 <Route element={<VideoSettings />} path={'/video-settings'} />;
                 <Route element={<WaitingRoom />} path={'/waiting-room'} />;
+                <Route element={<CheckIn />} path={'/:slug'} />;
               </Route>
-              <Route element={<Dashboard />} path={'/dashboard'} />;
-              <Route element={<Profile />} path={'/profile'} />;
             </Routes>
           ) : (
             <Routes>

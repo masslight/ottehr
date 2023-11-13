@@ -8,7 +8,7 @@ export interface zapEHRUser {
   name: string;
 }
 import { AppClient } from '@zapehr/sdk';
-import { Encounter } from 'fhir/r4';
+import { Encounter, Practitioner } from 'fhir/r4';
 
 class API {
   async createTelemedRoom(): Promise<Encounter | null> {
@@ -90,11 +90,10 @@ class API {
     }
   }
 
-  async getTwilioToken(roomName: string): Promise<string | null> {
+  async getProvider(slug: string): Promise<Practitioner | null> {
     try {
-      // For development, we can use the local express server to generate a token
-      const response = await fetch('http://localhost:5000/join-room', {
-        body: JSON.stringify({ roomName }),
+      const response = await fetch(`${import.meta.env.VITE_PROJECT_API_URL}/get-provider/execute-public`, {
+        body: JSON.stringify({ slug }),
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
@@ -102,8 +101,16 @@ class API {
         method: 'POST',
       });
 
-      const { token } = await response.json();
-      return token;
+      const responseBody = await response.json();
+      console.log('responseBody', responseBody);
+      const providerData = responseBody.response?.providerData;
+
+      if (!providerData) {
+        console.error('It appears that provider does not exist');
+        return null;
+      }
+
+      return providerData;
     } catch (error) {
       console.error('Error fetching token:', error);
       return null;
