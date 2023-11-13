@@ -26,17 +26,9 @@ interface ProviderFieldsProps {
   control: Control<any, any>;
   errors: any;
   isRegister?: boolean;
-  oldSlug?: string;
   onSubmit?: (prop: any) => any;
 }
-export const ProviderFields: FC<ProviderFieldsProps> = ({
-  buttonText,
-  control,
-  errors,
-  isRegister,
-  oldSlug,
-  onSubmit,
-}) => {
+export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, errors, isRegister, onSubmit }) => {
   const { t } = useTranslation();
   // TODO hard-coded data
   const provider = getProvider();
@@ -44,7 +36,7 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({
   const [slugError, setSlugError] = useState('');
 
   const debouncedUpdateSlug = useDebounce(async () => {
-    const { error, response } = await getSlugAvailability(slug, oldSlug);
+    const { error, response } = await getSlugAvailability(slug);
     console.log('here', error, response);
     let errorMessage: string | undefined;
     if (error) {

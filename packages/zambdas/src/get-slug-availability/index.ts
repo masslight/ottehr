@@ -1,19 +1,20 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ErrorCodes, ZambdaFunctionInput, ZambdaFunctionResponse, ZambdaInput } from '../types';
 import { createZambdaFromSkeleton } from '../shared/zambdaSkeleton';
-import { regex } from '../shared';
+import { createFhirClient, regex } from '../shared';
+import { Practitioner } from 'fhir/r4';
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   return createZambdaFromSkeleton(input, getSlugAvailability);
 };
 
 interface getSlugAvailabilityInput {
-  oldSlug?: string;
   slug: string;
 }
 
-const getSlugAvailability = (input: ZambdaFunctionInput): ZambdaFunctionResponse => {
-  const { oldSlug, slug } = input.body as getSlugAvailabilityInput;
+const getSlugAvailability = async (input: ZambdaFunctionInput): Promise<ZambdaFunctionResponse> => {
+  const { slug } = input.body as getSlugAvailabilityInput;
+  const { secrets } = input;
   if (slug == null || typeof slug !== 'string') {
     console.error('"slug" must be provided and be a string.');
     return {
@@ -28,30 +29,24 @@ const getSlugAvailability = (input: ZambdaFunctionInput): ZambdaFunctionResponse
   }
   const potentialSlug = slug.toLowerCase();
 
-  if (oldSlug != null) {
-    if (typeof oldSlug !== 'string') {
-      console.error('"oldSlug" must be a string.');
-      return {
-        error: ErrorCodes.mustBeString,
-      };
-    }
-  }
+  const fhirClient = await createFhirClient(secrets);
 
-  // Hard-coded for now. I don't know where we're going to store things.
-  let slugs = ['aykhanahmadli', 'nathanrobinson', 'oliviasmith', 'omarzubaidi', 'samiromarov'];
-  if (oldSlug != null) {
-    // This could happen if a provider opens the update profile page in multiple tabs and tries to update the slug twice
-    if (!slugs.includes(oldSlug)) {
-      console.error('"oldSlug" could not be found in the current list of slugs.');
-      return {
-        error: ErrorCodes.unexpected,
-      };
-    }
-    // If they're updating their slug, then the old one will be removed eventually
-    slugs = slugs.filter((usedSlug) => usedSlug !== oldSlug);
-  }
+  const practitioners: Practitioner[] = await fhirClient.searchResources({
+    resourceType: 'Practitioner',
+    searchParams: [
+      {
+        name: 'identifier',
+        value: `${slug}`,
+      },
+    ],
+  });
 
-  const available = !slugs.includes(potentialSlug);
+  console.log('practitioners', practitioners);
+
+  const available = !practitioners.some((practitioner) =>
+    practitioner.identifier?.some((identifier) => identifier.value === potentialSlug)
+  );
+
   return {
     response: {
       available,

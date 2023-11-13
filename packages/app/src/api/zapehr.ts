@@ -1,6 +1,7 @@
 import { AppClient } from '@zapehr/sdk';
 import { Encounter } from 'fhir/r4';
 
+const ZAMBDA_API_URL = import.meta.env.VITE_PROJECT_API_ZAMBDA_URL;
 const PROJECT_API_URL = import.meta.env.VITE_PROJECT_API_URL;
 
 export interface ZapehrSearchParameter {
@@ -15,7 +16,7 @@ export interface zapEHRUser {
 
 export async function createTelemedRoom(): Promise<Encounter | null> {
   try {
-    const response = await fetch(`${PROJECT_API_URL}/telemed-room/execute-public`, {
+    const response = await fetch(`${ZAMBDA_API_URL}/telemed-room/execute-public`, {
       body: JSON.stringify({ testBody: 'test' }),
       headers: {
         Accept: 'application/json',
@@ -39,11 +40,11 @@ export async function createTelemedRoom(): Promise<Encounter | null> {
   }
 }
 
-export async function getSlugAvailability(slug: string, oldSlug?: string): Promise<ZambdaFunctionResponse['output']> {
+export async function getSlugAvailability(slug: string): Promise<ZambdaFunctionResponse['output']> {
   try {
     const GET_SLUG_AVAILABILITY_ZAMBDA_ID = import.meta.env.VITE_GET_SLUG_AVAILABILITY_ZAMBDA_ID;
     const responseBody = await callZambda({
-      body: { oldSlug, slug },
+      body: { slug },
       zambdaId: GET_SLUG_AVAILABILITY_ZAMBDA_ID,
     });
     return responseBody.output;
@@ -79,7 +80,7 @@ export async function getProviderTelemedToken(encounterId: string, accessToken: 
 
 export async function getTelemedToken(encounterId: string): Promise<string | null> {
   try {
-    const response = await fetch(`${PROJECT_API_URL}/telemed-token/execute-public`, {
+    const response = await fetch(`${ZAMBDA_API_URL}/telemed-token/execute-public`, {
       body: JSON.stringify({ body: { encounterId } }),
       headers: {
         Accept: 'application/json',
@@ -151,7 +152,7 @@ async function callZambda({ accessToken, body, zambdaId }: CallZambdaProps): Pro
     'Content-Type': 'application/json',
   };
 
-  const response = await fetch(`${PROJECT_API_URL}/zambda/${zambdaId}/execute${accessToken == null ? '-public' : ''}`, {
+  const response = await fetch(`${ZAMBDA_API_URL}/zambda/${zambdaId}/execute${accessToken == null ? '-public' : ''}`, {
     body: JSON.stringify(body),
     headers:
       accessToken != null

@@ -30,7 +30,6 @@ export const Profile = (): JSX.Element => {
         buttonText={t('profile.update')}
         control={control}
         errors={errors}
-        oldSlug={provider.slug}
         onSubmit={handleSubmit(onSubmit)}
       />
     </CustomContainer>
