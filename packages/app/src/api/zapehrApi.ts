@@ -113,7 +113,7 @@ class API {
 
       return providerData;
     } catch (error) {
-      console.error('Error fetching token:', error);
+      console.error('Error fetching provider info:', error);
       return null;
     }
   }

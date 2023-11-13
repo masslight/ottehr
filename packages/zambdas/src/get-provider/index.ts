@@ -8,7 +8,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 };
 
 interface getProviderInput {
-  providerSlug: string;
+  slug: string;
 }
 interface Practitioner {
   id: string;
@@ -19,7 +19,7 @@ interface Practitioner {
 const getProvider = async (input: ZambdaFunctionInput): Promise<ZambdaFunctionResponse> => {
   const { body, secrets } = input;
   console.log('body', body);
-  const { providerSlug } = body as getProviderInput;
+  const { slug } = body as getProviderInput;
 
   const fhirClient = await createFhirClient(secrets);
 
@@ -28,7 +28,7 @@ const getProvider = async (input: ZambdaFunctionInput): Promise<ZambdaFunctionRe
     searchParams: [
       {
         name: 'identifier',
-        value: providerSlug,
+        value: slug,
       },
     ],
   });
