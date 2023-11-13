@@ -1,7 +1,20 @@
-import { Dispatch, FC, ReactNode, SetStateAction, createContext, useContext, useReducer, useState } from 'react';
+import {
+  Dispatch,
+  FC,
+  ReactNode,
+  SetStateAction,
+  createContext,
+  useContext,
+  useEffect,
+  useReducer,
+  useState,
+} from 'react';
 import { Outlet } from 'react-router-dom';
 import { LocalAudioTrack, LocalVideoTrack, Room } from 'twilio-video';
 import { Action, State } from './types';
+import { useAuth0 } from '@auth0/auth0-react';
+import { setFhirClient } from './Actions';
+import { zapehrApi } from '../api/zapehrApi';
 
 const initialState = {};
 
@@ -121,6 +134,71 @@ export const useVideoParticipant = (): VideoParticipantContextProps => {
   const context = useContext(VideoParticipantContext);
   if (!context) {
     throw new Error('useVideoParticipant must be used within a VideoParticipantProvider');
+  }
+  return context;
+};
+
+// Practitioner
+
+type PractitionerProfile = {
+  id: string;
+  name: string;
+};
+
+type PractitionerContextProps = {
+  practitionerProfile: PractitionerProfile | null;
+  setPractitionerProfile: Dispatch<SetStateAction<PractitionerProfile | null>>;
+};
+
+const PractitionerContext = createContext<PractitionerContextProps | undefined>(undefined);
+
+interface PractitionerProviderProps {
+  children: ReactNode;
+}
+
+// Define the PractitionerProvider component with explicit props
+export const PractitionerProvider: FC<PractitionerProviderProps> = ({ children }) => {
+  const [practitionerProfile, setPractitionerProfile] = useState<PractitionerProfile | null>(null);
+  const { isAuthenticated, isLoading, loginWithRedirect, getAccessTokenSilently } = useAuth0();
+  const { state, dispatch } = useContext(DataContext);
+
+  useEffect(() => {
+    async function setFhirClientToken(): Promise<void> {
+      if (isAuthenticated) {
+        const accessToken = await getAccessTokenSilently();
+        const user = await zapehrApi.getUser(accessToken);
+        const userId = user.profile.split('/')[1];
+        console.log('user', user);
+        setFhirClient(accessToken, dispatch);
+        const fhirClient = state.fhirClient;
+        const profile = await fhirClient?.readResource({
+          resourceId: userId,
+          resourceType: 'Practitioner',
+        });
+
+        console.log('profile', profile);
+      } else if (!isAuthenticated && !isLoading) {
+        loginWithRedirect().catch((error: Error) => {
+          console.error(`Error calling loginWithRedirect: ${error}`);
+        });
+      }
+    }
+    setFhirClientToken().catch((error) => {
+      console.log(error);
+    });
+  }, [dispatch, getAccessTokenSilently, isAuthenticated]);
+
+  return (
+    <PractitionerContext.Provider value={{ practitionerProfile, setPractitionerProfile }}>
+      {children}
+    </PractitionerContext.Provider>
+  );
+};
+
+export const usePractitioner = (): PractitionerContextProps => {
+  const context = useContext(PractitionerContext);
+  if (!context) {
+    throw new Error('usePractitioner must be used within a PractitionerProvider');
   }
   return context;
 };
