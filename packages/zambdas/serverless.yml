@@ -17,29 +17,6 @@ custom:
     httpPort: 3301
 
 functions:
-  get-slug-availability:
-    handler: src/get-slug-availability/index.index
-    events:
-      - http:
-          path: zambda/get-slug-availability/execute-public
-          method: POST
-    timeout: 25
-    # This is just an example and isn't needed. When you copy this, delete it from this zambda.
-    environment:
-      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
-  version:
-    handler: src/version/index.index
-    events:
-      - http:
-          path: zambda/version/execute-public
-          method: POST
-    timeout: 25
-  me:
-    handler: src/me/index.index
-    events:
-      - http:
-          path: zambda/me/execute-public
-          method: POST
   create-telemed-room:
     handler: src/create-telemed-room/index.index
     events:
@@ -76,6 +53,12 @@ functions:
       FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       PROJECT_ID: ${file(./.env/${self:provider.stage}.json):PROJECT_ID}
+  me:
+    handler: src/me/index.index
+    events:
+      - http:
+          path: zambda/me/execute-public
+          method: POST
   version:
     handler: src/version/index.index
     events:
