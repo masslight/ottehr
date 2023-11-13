@@ -42,7 +42,10 @@ export async function createTelemedRoom(): Promise<Encounter | null> {
 export async function getSlugAvailability(slug: string, oldSlug?: string): Promise<ZambdaFunctionResponse['output']> {
   try {
     const GET_SLUG_AVAILABILITY_ZAMBDA_ID = import.meta.env.VITE_GET_SLUG_AVAILABILITY_ZAMBDA_ID;
-    const responseBody = await callZambda(GET_SLUG_AVAILABILITY_ZAMBDA_ID, 'open', { oldSlug, slug });
+    const responseBody = await callZambda({
+      body: { oldSlug, slug },
+      zambdaId: GET_SLUG_AVAILABILITY_ZAMBDA_ID,
+    });
     return responseBody.output;
   } catch (error) {
     console.error('Error checking availability:', error);
@@ -136,22 +139,28 @@ export interface ZambdaFunctionResponse {
     response?: Record<string, any>;
   };
 }
-async function callZambda(zambdaId: string, auth: 'auth' | 'open', body: object): Promise<ZambdaFunctionResponse> {
+
+interface CallZambdaProps {
+  accessToken?: string;
+  body: object;
+  zambdaId: string;
+}
+async function callZambda({ accessToken, body, zambdaId }: CallZambdaProps): Promise<ZambdaFunctionResponse> {
   const headers = {
     Accept: 'application/json',
     'Content-Type': 'application/json',
   };
 
-  const response = await fetch(`${PROJECT_API_URL}/zambda/${zambdaId}/execute${auth === 'open' ? '-public' : ''}`, {
+  const response = await fetch(`${PROJECT_API_URL}/zambda/${zambdaId}/execute${accessToken == null ? '-public' : ''}`, {
     body: JSON.stringify(body),
-    headers: auth
-      ? {
-          ...headers,
-          // Putting the ternary here annoys TS
-          // TODO get token
-          Authorization: `Bearer ${'token'}`,
-        }
-      : headers,
+    headers:
+      accessToken != null
+        ? {
+            ...headers,
+            // Putting the ternary here annoys TS
+            Authorization: `Bearer ${accessToken}`,
+          }
+        : headers,
     method: 'POST',
   });
   return await response.json();
