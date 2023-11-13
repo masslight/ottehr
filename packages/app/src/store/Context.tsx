@@ -41,19 +41,29 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
 type PatientContextProps = {
   patientName: string;
+  providerId: string;
+  providerName: string;
   setPatientName: Dispatch<SetStateAction<string>>;
+  setProviderId: Dispatch<SetStateAction<string>>;
+  setProviderName: Dispatch<SetStateAction<string>>;
 };
 
 const PatientContext = createContext<PatientContextProps | undefined>(undefined);
 
 export const PatientProvider: FC = () => {
   const [patientName, setPatientName] = useState('');
+  const [providerId, setProviderId] = useState('');
+  const [providerName, setProviderName] = useState('');
 
   return (
     <PatientContext.Provider
       value={{
         patientName,
+        providerId,
+        providerName,
         setPatientName,
+        setProviderId,
+        setProviderName,
       }}
     >
       <Outlet />

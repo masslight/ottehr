@@ -9,6 +9,7 @@ export interface zapEHRUser {
 }
 import { AppClient } from '@zapehr/sdk';
 import { Encounter, Practitioner } from 'fhir/r4';
+import { ProviderInfo } from '../store/types';
 
 class API {
   async createTelemedRoom(): Promise<Encounter | null> {
@@ -90,7 +91,7 @@ class API {
     }
   }
 
-  async getProvider(slug: string): Promise<Practitioner | null> {
+  async getProvider(slug: string | undefined): Promise<ProviderInfo | null> {
     try {
       const response = await fetch(`${import.meta.env.VITE_PROJECT_API_URL}/get-provider/execute-public`, {
         body: JSON.stringify({ slug }),

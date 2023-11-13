@@ -1,22 +1,41 @@
 import { TextField, Typography } from '@mui/material';
 import { Box } from '@mui/system';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { CustomButton, CustomContainer } from '../components';
-import { createProviderName } from '../helpers';
 import { usePatient } from '../store';
-import { getProvider } from '../helpers/mockData';
+import { zapehrApi } from '../api';
 
 export const CheckIn = (): JSX.Element => {
   const navigate = useNavigate();
-  const { patientName, setPatientName } = usePatient();
+  const { patientName, setPatientName, providerName, setProviderName, setProviderId } = usePatient();
   const { t } = useTranslation();
   const [isError, setIsError] = useState(false);
   const [name, setName] = useState(patientName);
 
-  // TODO hard-coded data
-  const provider = getProvider();
+  const { slug } = useParams();
+
+  // TODO add loading & show provider not found info
+  useEffect(() => {
+    const fetchProvider = async (): Promise<void> => {
+      try {
+        const provider = await zapehrApi.getProvider(slug || '');
+        if (provider) {
+          setProviderId(provider.id || '');
+          setProviderName(provider.name || '');
+        }
+      } catch (error) {
+        console.error('Error fetching provider:', error);
+      }
+    };
+
+    if (slug) {
+      fetchProvider().catch((error) => {
+        console.log(error);
+      });
+    }
+  }, [slug, setProviderId, setProviderName]);
 
   const handleSubmit = (event: any): void => {
     event.preventDefault();
@@ -29,13 +48,13 @@ export const CheckIn = (): JSX.Element => {
   };
 
   return (
-    <CustomContainer isProvider={false} subtitle={createProviderName(provider, false)} title={t('general.waitingRoom')}>
+    <CustomContainer isProvider={false} subtitle={providerName} title={t('general.waitingRoom')}>
       <Typography sx={{ pb: 1 }} variant="h5">
         {t('checkIn.checkIn')}
       </Typography>
       <Typography sx={{ pb: 3 }} variant="body1">
         {t('checkIn.enterNamePrefix')}
-        {createProviderName(provider)}
+        {providerName}
         {t('checkIn.enterNameSuffix')}
       </Typography>
       <form onSubmit={handleSubmit}>
