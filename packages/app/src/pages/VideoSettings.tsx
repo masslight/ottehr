@@ -10,25 +10,44 @@ import { createProviderName } from '../helpers';
 import { useDevices } from '../hooks';
 import { useVideoParticipant } from '../store';
 import { getProvider } from '../helpers/mockData';
+import { Encounter } from 'fhir/r4';
 
 export const VideoSettings = (): JSX.Element => {
   const navigate = useNavigate();
   const theme = useTheme();
   const { t } = useTranslation();
   const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom } = useVideoParticipant();
-  // Note: twilio free rooms are limited to 2 participant, and it takes around 15-20 seconds to disconnect a participant
   const hasVideoDevice = useDevices().videoInputDevices.length > 0;
 
   // TODO hard-coded data
   const provider = getProvider();
-  const roomName = 'test1';
   const toggleMicAndCam = async (userInput: boolean): Promise<void> => {
     try {
       setIsMicOpen(userInput);
       setIsVideoOpen(userInput);
 
-      const fetchedToken = await zapehrApi.getTwilioToken(roomName);
-      if (fetchedToken === null) {
+      const encounter: Encounter | null = await zapehrApi.createTelemedRoom();
+      if (encounter === null) {
+        console.error('Failed to create telemed room');
+        return;
+      }
+
+      const roomSID = encounter?.extension
+        ?.find((ext: any) => ext.url === 'https://extensions.fhir.zapehr.com/encounter-virtual-service-pre-release')
+        ?.extension?.find((innerExt: any) => innerExt.url === 'addressString')?.valueString;
+
+      if (roomSID) {
+        console.log('RoomSID:', roomSID);
+      } else {
+        console.log('RoomSID not found');
+      }
+
+      const encounterId = encounter.id || '';
+      console.log('Encounter ID:', encounterId);
+
+      const twilioToken = await zapehrApi.getTelemedToken(encounterId);
+
+      if (twilioToken === null) {
         console.error('Failed to fetch token');
         return;
       }
@@ -44,9 +63,8 @@ export const VideoSettings = (): JSX.Element => {
       )[];
       setLocalTracks(localTracks);
 
-      const connectedRoom = await Video.connect(fetchedToken, {
+      const connectedRoom = await Video.connect(twilioToken, {
         audio: true,
-        name: roomName,
         tracks: localTracks,
         video: hasVideoDevice,
       });

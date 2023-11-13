@@ -2,21 +2,22 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import { Box, Container, Divider, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
-import { Fragment } from 'react';
+import { Fragment, Key } from 'react';
 import { useTranslation } from 'react-i18next';
 import { otherColors } from '../OttehrThemeProvider';
 import { defaultProvider } from '../assets/icons';
-import { CustomButton, Footer, PatientQueue, TopAppBar } from '../components';
+import { CustomButton, Footer, PatientQueue, PatientQueueProps, TopAppBar } from '../components';
 import { createProviderName } from '../helpers';
 import { getPatients, getProvider } from '../helpers/mockData';
+import { JSX } from 'react/jsx-runtime';
 
 export const Dashboard = (): JSX.Element => {
-  const theme = useTheme();
   const { t } = useTranslation();
-
   // TODO hard-coded data
   const patients = getPatients();
   const provider = getProvider();
+
+  const theme = useTheme();
 
   const hour = DateTime.now().get('hour');
 
@@ -151,7 +152,7 @@ export const Dashboard = (): JSX.Element => {
             {t('dashboard.waiting')}
           </Typography>
 
-          {patients.map((patient, index) => (
+          {patients.map((patient: JSX.IntrinsicAttributes & PatientQueueProps, index: Key | null | undefined) => (
             <Fragment key={index}>
               <PatientQueue {...patient} />
               {index !== patients.length - 1 && <Divider sx={{ opacity: 0.12 }} />}
