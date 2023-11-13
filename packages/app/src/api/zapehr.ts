@@ -123,7 +123,7 @@ export async function getTwilioToken(roomName: string): Promise<string | null> {
 export async function getUser(token: string): Promise<zapEHRUser> {
   const appClient = new AppClient({
     accessToken: token,
-    apiUrl: 'https://project-api.zapehr.com/v1',
+    apiUrl: PROJECT_API_URL,
   });
   return appClient.getMe();
 }
