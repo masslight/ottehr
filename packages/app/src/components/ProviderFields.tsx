@@ -15,8 +15,10 @@ import { FC, useEffect, useState } from 'react';
 import { Control, Controller } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { getSlugAvailability } from '../api';
-import { useDebounce, useErrorMessage } from '../hooks';
+import { createSlugUrl } from '../helpers';
+import { useDebounce } from '../hooks';
 import { CustomButton } from './CustomButton';
+import { ReturnErrorMessage } from './ReturnErrorMessage';
 import { getProvider, getTitles } from '../helpers/mockData';
 
 interface ProviderFieldsProps {
@@ -46,8 +48,7 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({
     console.log('here', error, response);
     let errorMessage: string | undefined;
     if (error) {
-      // TODO fix hook not allowed in hook
-      errorMessage = useErrorMessage(error);
+      errorMessage = ReturnErrorMessage(error);
       setSlugError(errorMessage);
     }
     if (response?.available) {
@@ -133,7 +134,7 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({
                 <Box sx={{ mr: 1 }}>
                   {slugError === '' ? <CheckIcon color="success" /> : <CancelIcon color="error" />}
                 </Box>
-                <Typography variant="body2">{`https://zapehr.app/${field.value}`}</Typography>
+                <Typography variant="body2">{createSlugUrl(field.value)}</Typography>
               </Box>
             </>
           )}

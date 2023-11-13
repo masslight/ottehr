@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { ErrorCodes } from '../types';
 
-export const useErrorMessage = (errorCode: ErrorCodes): string => {
+export const ReturnErrorMessage = (errorCode: ErrorCodes): string => {
   const { t } = useTranslation();
 
   const errorMessages: Record<ErrorCodes, string> = {
