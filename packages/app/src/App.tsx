@@ -2,25 +2,16 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { OttehrThemeProvider } from './OttehrThemeProvider';
 import { ScrollToTop } from './components';
-import {
-  VideoSettings,
-  CheckIn,
-  PostCall,
-  Dashboard,
-  Register,
-  Profile,
-  Version,
-  VideoChatPage,
-  WaitingRoom,
-} from './pages';
+import { VideoSettings, CheckIn, PostCall, Dashboard, Register, Profile, VideoChatPage, WaitingRoom } from './pages';
 import { DataContext, PatientProvider, VideoParticipantProvider, setFhirClient, PractitionerProvider } from './store';
 import { useContext, useEffect } from 'react';
 import { zapehrApi } from './api/zapehrApi';
+import PrivateRoute from './components/ProviderRoute';
 // import axios from 'axios';
 
 export default function App(): JSX.Element {
   const { state, dispatch } = useContext(DataContext);
-  const { isLoading, isAuthenticated, loginWithRedirect, getAccessTokenSilently } = useAuth0();
+  const { isAuthenticated, getAccessTokenSilently } = useAuth0();
 
   useEffect(() => {
     async function setFhirClientToken(): Promise<void> {
@@ -46,11 +37,6 @@ export default function App(): JSX.Element {
   }, [dispatch, getAccessTokenSilently, isAuthenticated]);
 
   // TO DO redirect only for provider pages
-  if (!isAuthenticated && !isLoading) {
-    loginWithRedirect().catch((error) => {
-      throw new Error(`Error calling loginWithRedirect Auth0 ${error}`);
-    });
-  }
 
   return (
     <OttehrThemeProvider>
@@ -58,17 +44,20 @@ export default function App(): JSX.Element {
         <ScrollToTop />
         <VideoParticipantProvider>
           <PractitionerProvider>
-            {isAuthenticated ? (
-              <Routes>
-                <Route element={<Version />} path={'/'} />;
-                <Route element={<Dashboard />} path={'/dashboard'} />;
-                <Route element={<Profile />} path={'/profile'} />;
-              </Routes>
-            ) : (
-              <Routes>
-                <Route element={<Version />} path={'/'} />;
-              </Routes>
-            )}
+            <Routes>
+              {/* <Route element={<Version />} path="/" /> */}
+              <Route
+                element={
+                  <PrivateRoute>
+                    <Routes>
+                      <Route element={<Dashboard />} path="/dashboard" />
+                      <Route element={<Profile />} path="/profile" />
+                    </Routes>
+                  </PrivateRoute>
+                }
+                path="/"
+              />
+            </Routes>
           </PractitionerProvider>
           <Routes>
             <Route element={<PatientProvider />}>
