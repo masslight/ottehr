@@ -1,2 +1,1 @@
-export * from './apiErrorToThrow';
-export * from './zapehrApi';
+export * from './zapehr';

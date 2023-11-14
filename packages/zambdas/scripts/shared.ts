@@ -6,6 +6,7 @@ enum environment {
   staging = 'staging',
   production = 'production',
 }
+/* eslint-enable typescript-sort-keys/string-enum */
 
 // So we can use await in the scripts' root functions
 export const main = async (functionName: (config: object) => any): Promise<void> => {

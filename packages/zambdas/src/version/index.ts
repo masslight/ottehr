@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DefaultErrorMessages, ZambdaFunctionInput, ZambdaFunctionResponse, ZambdaInput } from '../types';
+import { ErrorCodes, ZambdaFunctionInput, ZambdaFunctionResponse, ZambdaInput } from '../types';
 import { createZambdaFromSkeleton } from '../shared/zambdaSkeleton';
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -10,8 +10,9 @@ const getVersion = (_: ZambdaFunctionInput): ZambdaFunctionResponse => {
   // Manual, should be either `process.env.npm_package_version` or `process.env.AWS_LAMBDA_FUNCTION_VERSION`
   const version = '0.0.2';
   if (version == null) {
+    console.error('"version" environment variable missing.');
     return {
-      error: `${DefaultErrorMessages.validation}: "version" environment variable missing.`,
+      error: ErrorCodes.unexpected,
     };
   }
   return {
