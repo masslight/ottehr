@@ -141,12 +141,11 @@ export const useVideoParticipant = (): VideoParticipantContextProps => {
 // Practitioner
 
 type PractitionerProfile = {
-  id: string;
-  name: string;
+  [key: string]: any;
 };
 
 type PractitionerContextProps = {
-  practitionerProfile: PractitionerProfile | null;
+  practitionerProfile: PractitionerProfile | null | undefined;
   setPractitionerProfile: Dispatch<SetStateAction<PractitionerProfile | null>>;
 };
 
@@ -158,7 +157,7 @@ interface PractitionerProviderProps {
 
 // Define the PractitionerProvider component with explicit props
 export const PractitionerProvider: FC<PractitionerProviderProps> = ({ children }) => {
-  const [practitionerProfile, setPractitionerProfile] = useState<PractitionerProfile | null>(null);
+  const [practitionerProfile, setPractitionerProfile] = useState<Partial<PractitionerProfile | null | undefined>>(null);
   const { isAuthenticated, isLoading, loginWithRedirect, getAccessTokenSilently } = useAuth0();
   const { state, dispatch } = useContext(DataContext);
 
@@ -175,6 +174,7 @@ export const PractitionerProvider: FC<PractitionerProviderProps> = ({ children }
           resourceId: userId,
           resourceType: 'Practitioner',
         });
+        setPractitionerProfile(profile);
 
         console.log('profile', profile);
       } else if (!isAuthenticated && !isLoading) {

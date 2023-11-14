@@ -13,7 +13,7 @@ import {
   VideoChatPage,
   WaitingRoom,
 } from './pages';
-import { DataContext, PatientProvider, VideoParticipantProvider, setFhirClient } from './store';
+import { DataContext, PatientProvider, VideoParticipantProvider, setFhirClient, PractitionerProvider } from './store';
 import { useContext, useEffect } from 'react';
 import { zapehrApi } from './api/zapehrApi';
 // import axios from 'axios';
@@ -57,17 +57,19 @@ export default function App(): JSX.Element {
       <Router>
         <ScrollToTop />
         <VideoParticipantProvider>
-          {isAuthenticated ? (
-            <Routes>
-              <Route element={<Version />} path={'/'} />;
-              <Route element={<Dashboard />} path={'/dashboard'} />;
-              <Route element={<Profile />} path={'/profile'} />;
-            </Routes>
-          ) : (
-            <Routes>
-              <Route element={<Version />} path={'/'} />;
-            </Routes>
-          )}
+          <PractitionerProvider>
+            {isAuthenticated ? (
+              <Routes>
+                <Route element={<Version />} path={'/'} />;
+                <Route element={<Dashboard />} path={'/dashboard'} />;
+                <Route element={<Profile />} path={'/profile'} />;
+              </Routes>
+            ) : (
+              <Routes>
+                <Route element={<Version />} path={'/'} />;
+              </Routes>
+            )}
+          </PractitionerProvider>
           <Routes>
             <Route element={<PatientProvider />}>
               <Route element={<CheckIn />} path={'/check-in'} />;
