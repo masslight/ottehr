@@ -37,7 +37,6 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
 
   const debouncedUpdateSlug = useDebounce(async () => {
     const { error, response } = await getSlugAvailability(slug);
-    console.log('here', error, response);
     let errorMessage: string | undefined;
     if (error) {
       errorMessage = ReturnErrorMessage(error);
