@@ -7,16 +7,15 @@ import { useTranslation } from 'react-i18next';
 import { otherColors } from '../OttehrThemeProvider';
 import { defaultProvider } from '../assets/icons';
 import { CustomButton, Footer, PatientQueue, PatientQueueProps, TopAppBar } from '../components';
-import { createProviderName } from '../helpers';
-import { getPatients, getProvider } from '../helpers/mockData';
+import { getPatients } from '../helpers/mockData';
 import { JSX } from 'react/jsx-runtime';
+import { usePractitioner } from '../store';
 
 export const Dashboard = (): JSX.Element => {
   const { t } = useTranslation();
   // TODO hard-coded data
   const patients = getPatients();
-  const provider = getProvider();
-
+  const { practitionerProfile } = usePractitioner();
   const theme = useTheme();
 
   const hour = DateTime.now().get('hour');
@@ -24,7 +23,7 @@ export const Dashboard = (): JSX.Element => {
   const copySlugToClipboard = (): void => {
     async () => {
       try {
-        await navigator.clipboard.writeText(`https://zapehr.app/${provider.slug}`);
+        await navigator.clipboard.writeText(`https://zapehr.app/${practitionerProfile?.identifier[0].value}`);
       } catch (error) {
         console.error('Failed to copy room link to clipboard:', error);
       }
@@ -81,7 +80,7 @@ export const Dashboard = (): JSX.Element => {
               </Typography>
 
               <Typography color="text.light" mt={1} variant="h4">
-                {createProviderName(provider)}
+                {practitionerProfile?.name[0].text}
               </Typography>
             </Box>
             <Box sx={{ maxWidth: { md: '100px', xs: '50px' } }}>
@@ -107,7 +106,7 @@ export const Dashboard = (): JSX.Element => {
             </Typography>
 
             <Typography color="text.light" sx={{ overflowWrap: 'break-word' }} variant="h5">
-              https://zapehr.app/{provider.slug}
+              https://zapehr.app/{practitionerProfile?.identifier[0].value}
             </Typography>
 
             <Box

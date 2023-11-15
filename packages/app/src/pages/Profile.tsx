@@ -1,8 +1,8 @@
 import { t } from 'i18next';
 import { CustomContainer, ProviderFields } from '../components';
-import { createProviderName } from '../helpers';
-import { getProvider } from '../helpers/mockData';
 import { useForm } from 'react-hook-form';
+import { usePractitioner } from '../store/Context';
+import { FormData } from './Register';
 
 export const Profile = (): JSX.Element => {
   const {
@@ -18,14 +18,14 @@ export const Profile = (): JSX.Element => {
       title: '',
     },
   });
-  const provider = getProvider();
+  const { practitionerProfile } = usePractitioner();
   const onSubmit = (data: FormData): void => {
     console.log(data);
     // TODO: form submission structure
   };
 
   return (
-    <CustomContainer isProvider={true} subtitle={createProviderName(provider)} title={t('profile.myProfile')}>
+    <CustomContainer isProvider={true} subtitle={practitionerProfile?.name[0].text} title={t('profile.myProfile')}>
       <ProviderFields
         buttonText={t('profile.update')}
         control={control}

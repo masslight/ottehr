@@ -17,7 +17,7 @@ import {
   alpha,
   useTheme,
 } from '@mui/material';
-import { FC, MouseEvent, useState } from 'react';
+import { FC, MouseEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { otherColors } from '../OttehrThemeProvider';
@@ -41,9 +41,14 @@ export const TopAppBar: FC = () => {
     setMenuOpen(true);
   };
 
+  // useEffect(() => {
+  //   logout();
+  // }, []);
+
   const handleCloseUserMenu = (): void => {
     setAnchorElUser(null);
     setMenuOpen(false);
+    logout();
   };
 
   // TODO hard-coded data

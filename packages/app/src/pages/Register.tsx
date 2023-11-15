@@ -10,7 +10,7 @@ import { otherColors } from '../OttehrThemeProvider';
 import { patientIcon, providerIcon, registrationLogo } from '../assets/icons';
 import { ProviderFields, ZapEHRLogo } from '../components';
 
-interface FormData {
+export interface FormData {
   acceptTerms: boolean;
   email: string;
   firstName: string;

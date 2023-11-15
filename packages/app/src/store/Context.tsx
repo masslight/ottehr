@@ -151,46 +151,49 @@ type PractitionerContextProps = {
 
 const PractitionerContext = createContext<PractitionerContextProps | undefined>(undefined);
 
-interface PractitionerProviderProps {
-  children: ReactNode;
-}
-
-// Define the PractitionerProvider component with explicit props
-export const PractitionerProvider: FC<PractitionerProviderProps> = ({ children }) => {
+export const PractitionerProvider: FC = () => {
   const [practitionerProfile, setPractitionerProfile] = useState<Partial<PractitionerProfile | null | undefined>>(null);
-  const { isAuthenticated, isLoading, loginWithRedirect, getAccessTokenSilently } = useAuth0();
   const { state, dispatch } = useContext(DataContext);
+  const { isAuthenticated, getAccessTokenSilently } = useAuth0();
+  const [accessToken, setAccessToken] = useState<string>('');
 
   useEffect(() => {
     async function setFhirClientToken(): Promise<void> {
       if (isAuthenticated) {
         const accessToken = await getAccessTokenSilently();
-        const user = await zapehrApi.getUser(accessToken);
-        const userId = user.profile.split('/')[1];
-        console.log('user', user);
+        console.log('accessToken', accessToken);
         setFhirClient(accessToken, dispatch);
-        const fhirClient = state.fhirClient;
-        const profile = await fhirClient?.readResource({
-          resourceId: userId,
-          resourceType: 'Practitioner',
-        });
-        setPractitionerProfile(profile);
-
-        console.log('profile', profile);
-      } else if (!isAuthenticated && !isLoading) {
-        loginWithRedirect().catch((error: Error) => {
-          console.error(`Error calling loginWithRedirect: ${error}`);
-        });
+        setAccessToken(accessToken);
       }
+      // logout();
     }
     setFhirClientToken().catch((error) => {
       console.log(error);
     });
   }, [dispatch, getAccessTokenSilently, isAuthenticated]);
 
+  useEffect(() => {
+    async function setUserProfile(): Promise<void> {
+      const user = await zapehrApi.getUser(accessToken);
+      const userId = user.profile.split('/')[1];
+      const fhirClient = state.fhirClient;
+      console.log('fhirClient', fhirClient);
+      const profile = await fhirClient?.readResource({
+        resourceId: userId,
+        resourceType: 'Practitioner',
+      });
+      setPractitionerProfile(profile);
+    }
+    if (state.fhirClient) {
+      setUserProfile().catch((error) => {
+        console.log(error);
+      });
+    }
+  }, [accessToken, state.fhirClient]);
+
   return (
     <PractitionerContext.Provider value={{ practitionerProfile, setPractitionerProfile }}>
-      {children}
+      <Outlet />
     </PractitionerContext.Provider>
   );
 };
