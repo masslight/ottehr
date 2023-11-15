@@ -6,10 +6,8 @@ import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
 import { otherColors } from '../OttehrThemeProvider';
 import { createTelemedRoom, getTelemedToken } from '../api';
 import { CustomButton, CustomContainer } from '../components';
-import { createProviderName } from '../helpers';
 import { useDevices } from '../hooks';
-import { useVideoParticipant } from '../store';
-import { getProvider } from '../helpers/mockData';
+import { usePatient, useVideoParticipant } from '../store';
 import { Encounter } from 'fhir/r4';
 
 export const VideoSettings = (): JSX.Element => {
@@ -18,15 +16,14 @@ export const VideoSettings = (): JSX.Element => {
   const { t } = useTranslation();
   const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom } = useVideoParticipant();
   const hasVideoDevice = useDevices().videoInputDevices.length > 0;
+  const { patientName, providerId, providerName } = usePatient();
 
-  // TODO hard-coded data
-  const provider = getProvider();
   const toggleMicAndCam = async (userInput: boolean): Promise<void> => {
     try {
       setIsMicOpen(userInput);
       setIsVideoOpen(userInput);
 
-      const encounter: Encounter | null = await createTelemedRoom();
+      const encounter: Encounter | null = await createTelemedRoom(patientName, providerId, providerName);
       if (encounter === null) {
         console.error('Failed to create telemed room');
         return;
@@ -77,7 +74,7 @@ export const VideoSettings = (): JSX.Element => {
   };
 
   return (
-    <CustomContainer isProvider={false} subtitle={createProviderName(provider)} title={t('general.waitingRoom')}>
+    <CustomContainer isProvider={false} subtitle={providerName} title={t('general.waitingRoom')}>
       <Typography variant="h5">{t('video.enableCamAndMic')}</Typography>
       <Typography variant="body1">{t('video.permissionAccess')}</Typography>
       <Box

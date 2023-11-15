@@ -41,7 +41,8 @@ export async function getM2MUserProfile(token: string): Promise<any> {
 
 // Hard coded for testing until authentication is ready
 export const createRoomEncounter = (
-  userProfile: string,
+  providerProfile: string,
+  providerName: string,
   deviceProfile: string,
   patientName: string,
   startTime: Date = new Date()
@@ -69,8 +70,8 @@ export const createRoomEncounter = (
     participant: [
       {
         individual: {
-          reference: userProfile,
-          display: 'Dr Adam Careful dev',
+          reference: providerProfile,
+          display: providerName,
         },
       },
     ],

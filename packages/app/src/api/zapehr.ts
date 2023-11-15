@@ -15,10 +15,14 @@ export interface zapEHRUser {
   name: string;
 }
 
-export async function createTelemedRoom(): Promise<Encounter | null> {
+export async function createTelemedRoom(
+  patientName: string,
+  practitionerId: string,
+  practitionerName: string
+): Promise<Encounter | null> {
   try {
-    const response = await fetch(`${ZAMBDA_API_URL}/telemed-room/execute-public`, {
-      body: JSON.stringify({ testBody: 'test' }),
+    const response = await fetch(`${ZAMBDA_API_URL}/zambda/telemed-room/execute-public`, {
+      body: JSON.stringify({ patientName, practitionerId, practitionerName }),
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
@@ -27,7 +31,8 @@ export async function createTelemedRoom(): Promise<Encounter | null> {
     });
 
     const responseBody = await response.json();
-    const encounter: Encounter | undefined = responseBody.version?.encounter;
+    console.log(responseBody);
+    const encounter: Encounter | undefined = responseBody.response.encounter;
 
     if (!encounter) {
       console.error('Encounter is missing in the response');
@@ -99,8 +104,8 @@ export async function getProviderTelemedToken(encounterId: string, accessToken: 
 
 export async function getTelemedToken(encounterId: string): Promise<string | null> {
   try {
-    const response = await fetch(`${ZAMBDA_API_URL}/telemed-token/execute-public`, {
-      body: JSON.stringify({ body: { encounterId } }),
+    const response = await fetch(`${ZAMBDA_API_URL}/zambda/telemed-token/execute-public`, {
+      body: JSON.stringify({ encounterId }),
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
