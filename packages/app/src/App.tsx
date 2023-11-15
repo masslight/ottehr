@@ -10,7 +10,7 @@ import {
   Profile,
   VideoChatPage,
   WaitingRoom,
-  Version,
+  // Version,
 } from './pages';
 import { PatientProvider, VideoParticipantProvider, PractitionerProvider } from './store';
 

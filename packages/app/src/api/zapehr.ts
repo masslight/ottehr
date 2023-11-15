@@ -48,14 +48,14 @@ export async function createTelemedRoom(
   }
 }
 
-export async function getSlugAvailability(slug: string): Promise<ZambdaFunctionResponse['output']> {
+export async function getSlugAvailability(slug: string): Promise<ZambdaFunctionResponse['response']> {
   try {
     const GET_SLUG_AVAILABILITY_ZAMBDA_ID = import.meta.env.VITE_GET_SLUG_AVAILABILITY_ZAMBDA_ID;
     const responseBody = await callZambda({
       body: { slug },
       zambdaId: GET_SLUG_AVAILABILITY_ZAMBDA_ID,
     });
-    return responseBody.output;
+    return responseBody.response;
   } catch (error) {
     console.error('Error checking availability:', error);
     return { error: 10_001 };
@@ -65,15 +65,17 @@ export async function getSlugAvailability(slug: string): Promise<ZambdaFunctionR
 export async function getPatientQueue(
   providerId: string,
   accessToken: string
-): Promise<ZambdaFunctionResponse['output']> {
+): Promise<ZambdaFunctionResponse['response']> {
   try {
-    const GET_PATIENT_QUEUE_ZAMBDA_ID = import.meta.env.GET_PATIENT_QUEUE_ZAMBDA_ID;
+    const GET_PATIENT_QUEUE_ZAMBDA_ID = import.meta.env.VITE_GET_PATIENT_QUEUE_ZAMBDA_ID;
+    console.log('GET_PATIENT_QUEUE_ZAMBDA_ID', GET_PATIENT_QUEUE_ZAMBDA_ID);
     const responseBody = await callZambda({
       accessToken,
       body: { providerId },
       zambdaId: GET_PATIENT_QUEUE_ZAMBDA_ID,
     });
-    return responseBody.output;
+    console.log('responseBody', responseBody.response);
+    return responseBody.response;
   } catch (error) {
     console.error('Error checking availability:', error);
     return { error: 10_001 };
@@ -166,12 +168,16 @@ export async function getUser(token: string): Promise<zapEHRUser> {
 
 // Zambda call wrapper
 
+// TODO: @Omar I don't have output response anywhere so changing it to response for now
 export interface ZambdaFunctionResponse {
-  output: {
-    error?: number;
-    response?: Record<string, any>;
-  };
+  response?: Record<string, any>;
 }
+// export interface ZambdaFunctionResponse {
+//   output: {
+//     error?: number;
+//     response?: Record<string, any>;
+//   };
+// }
 
 interface CallZambdaProps {
   accessToken?: string;

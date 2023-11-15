@@ -1,25 +1,31 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import { Box, Container, Divider, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
-import { Fragment, Key } from 'react';
+import { Fragment, Key, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { otherColors } from '../OttehrThemeProvider';
 import { defaultProvider } from '../assets/icons';
 import { CustomButton, Footer, PatientQueue, PatientQueueProps, TopAppBar } from '../components';
-import { createProviderName, createSlugUrl } from '../helpers';
-import { getPatients, getProvider } from '../helpers/mockData';
+import { PatientQueueItem, createProviderName, createSlugUrl, mapApiResponseToPatientQueue } from '../helpers';
+import { getProvider } from '../helpers/mockData';
 import { JSX } from 'react/jsx-runtime';
 import { usePractitioner } from '../store';
+import { useAuth0 } from '@auth0/auth0-react';
+import { getPatientQueue } from '../api';
 
 export const Dashboard = (): JSX.Element => {
   const { t } = useTranslation();
+  const { getAccessTokenSilently, isAuthenticated } = useAuth0();
+  const [patients, setPatients] = useState<PatientQueueItem[]>([]);
+
   // TODO hard-coded data
-  const patients = getPatients();
   const provider = getProvider();
 
   const { practitionerProfile } = usePractitioner();
   console.log('practitionerProfile', practitionerProfile);
+  const providerId = practitionerProfile?.id;
   const theme = useTheme();
 
   const hour = DateTime.now().get('hour');
@@ -33,6 +39,19 @@ export const Dashboard = (): JSX.Element => {
       }
     };
   };
+
+  useEffect(() => {
+    async function fetchPatientsQueue(): Promise<void> {
+      const accessToken = await getAccessTokenSilently();
+      const response = await getPatientQueue(providerId, accessToken);
+      console.log('response', response);
+    }
+    if (isAuthenticated) {
+      fetchPatientsQueue().catch((error) => {
+        console.log(error);
+      });
+    }
+  }, [getAccessTokenSilently, isAuthenticated, providerId]);
 
   return (
     <Container

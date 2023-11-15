@@ -164,7 +164,7 @@ const PractitionerContext = createContext<PractitionerContextProps | undefined>(
 export const PractitionerProvider: FC = () => {
   const [practitionerProfile, setPractitionerProfile] = useState<Partial<PractitionerProfile | null | undefined>>(null);
   const { state, dispatch } = useContext(DataContext);
-  const { isAuthenticated, getAccessTokenSilently, logout } = useAuth0();
+  const { isAuthenticated, getAccessTokenSilently } = useAuth0();
   const [accessToken, setAccessToken] = useState<string>('');
 
   useEffect(() => {

@@ -2,6 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { createFhirClient } from '../shared';
 import { createZambdaFromSkeleton } from '../shared/zambdaSkeleton';
 import { ZambdaFunctionInput, ZambdaFunctionResponse, ZambdaInput } from '../types';
+import { Encounter } from 'fhir/r4';
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   return createZambdaFromSkeleton(input, getPatientQueue);
@@ -21,7 +22,7 @@ const getPatientQueue = async (input: ZambdaFunctionInput): Promise<ZambdaFuncti
   const searchDate = new Date();
   const startOfDay = new Date(searchDate.setUTCHours(0, 0, 0, 0)).toISOString();
 
-  const encountersSearchResults = await fhirClient.searchResources({
+  const encountersSearchResults: Encounter[] = await fhirClient.searchResources({
     resourceType: 'Encounter',
     searchParams: [
       {
@@ -40,9 +41,25 @@ const getPatientQueue = async (input: ZambdaFunctionInput): Promise<ZambdaFuncti
     ],
   });
 
+  const patientsQueue = encountersSearchResults.map((encounter) => {
+    const patientNameExtension = encounter.extension
+      ?.find((ext) => ext.url === 'https://extensions.fhir.zapehr.com/encounter-other-participants')
+      ?.extension?.find((ext) => ext.url === 'https://extensions.fhir.zapehr.com/encounter-other-participant')
+      ?.extension?.find((ext) => ext.url === 'reference' && ext.valueReference?.display);
+
+    const patientName = patientNameExtension?.valueReference?.display;
+    const queuedTime = encounter.period?.start;
+
+    return {
+      encounterId: encounter.id,
+      patientName,
+      queuedTime,
+    };
+  });
+
   return {
     response: {
-      patientQueus: encountersSearchResults,
+      patientsQueue,
     },
   };
 };
