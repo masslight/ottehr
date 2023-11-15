@@ -24,7 +24,7 @@ async function inviteUser(
   applicationId = DEFAULTS.applicationId
 ): Promise<string> {
   const fullName = `${title} ${firstName} ${lastName}`;
-  const secrets = await import(secretsPath);
+  const secrets = await import(secretsPath); // CONSIDER: checking the secrets file for the correct keys
   const token = await getAuth0Token(secrets);
   const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
   const headers = {
@@ -86,13 +86,14 @@ async function runCLI(): Promise<void> {
     { name: 'applicationId', message: 'Enter zapEHR application ID:', type: 'input' },
   ];
   const answers = await inquirer.prompt(questions);
+  // TODO: add check that slug is available, if slug unavailable, prompt user to enter a new slug
   const invitationUrl = await inviteUser(
     answers.email,
     answers.title || undefined,
     answers.slug || undefined,
     answers.firstName || undefined,
     answers.lastName || undefined,
-    answers.secretsPath || undefined,
+    answers.secretsPath || undefined, // CONSIDER: checking that there is a file at this path
     answers.applicationId || undefined
   );
   console.log(
