@@ -37,11 +37,12 @@ export default function App(): JSX.Element {
     });
   }, [dispatch, getAccessTokenSilently, isAuthenticated]);
 
-  if (!isAuthenticated && !isLoading) {
-    loginWithRedirect().catch((error) => {
-      throw new Error(`Error calling loginWithRedirect Auth0 ${error}`);
-    });
-  }
+  console.log('isAuthenticated', isAuthenticated);
+  // if (!isAuthenticated && !isLoading) {
+  //   loginWithRedirect().catch((error) => {
+  //     throw new Error(`Error calling loginWithRedirect Auth0 ${error}`);
+  //   });
+  // }
 
   return (
     <OttehrThemeProvider>
@@ -64,7 +65,14 @@ export default function App(): JSX.Element {
             </Routes>
           ) : (
             <Routes>
-              <Route element={<Version />} path={'/'} />;
+              <Route element={<PatientProvider />}>
+                <Route element={<PostCall />} path={'/post-call'} />;
+                <Route element={<Register />} path={'/register'} />;
+                <Route element={<VideoChatPage />} path={'/video-call'} />;
+                <Route element={<VideoSettings />} path={'/video-settings'} />;
+                <Route element={<WaitingRoom />} path={'/waiting-room'} />;
+                <Route element={<CheckIn />} path={'/:slug'} />;
+              </Route>
             </Routes>
           )}
         </VideoParticipantProvider>

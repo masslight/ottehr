@@ -105,29 +105,9 @@ export async function getTelemedToken(encounterId: string): Promise<string | nul
   }
 }
 
-export async function getTwilioToken(roomName: string): Promise<string | null> {
-  try {
-    // For development, we can use the local express server to generate a token
-    const response = await fetch('http://localhost:5000/join-room', {
-      body: JSON.stringify({ roomName }),
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      method: 'POST',
-    });
-
-    const { token } = await response.json();
-    return token;
-  } catch (error) {
-    console.error('Error fetching token:', error);
-    return null;
-  }
-}
-
 export async function getProvider(slug: string | undefined): Promise<ProviderInfo | null> {
   try {
-    const response = await fetch(`${import.meta.env.VITE_PROJECT_API_URL}/get-provider/execute-public`, {
+    const response = await fetch(`${ZAMBDA_API_URL}/zambda/get-provider/execute-public`, {
       body: JSON.stringify({ slug }),
       headers: {
         Accept: 'application/json',
