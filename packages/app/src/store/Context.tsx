@@ -1,7 +1,20 @@
-import { Dispatch, FC, ReactNode, SetStateAction, createContext, useContext, useReducer, useState } from 'react';
+import {
+  Dispatch,
+  FC,
+  ReactNode,
+  SetStateAction,
+  createContext,
+  useContext,
+  useEffect,
+  useReducer,
+  useState,
+} from 'react';
 import { Outlet } from 'react-router-dom';
 import { LocalAudioTrack, LocalVideoTrack, Room } from 'twilio-video';
 import { Action, State } from './types';
+import { useAuth0 } from '@auth0/auth0-react';
+import { setFhirClient } from './Actions';
+import { getUser } from '../api';
 
 const initialState = {};
 
@@ -131,6 +144,75 @@ export const useVideoParticipant = (): VideoParticipantContextProps => {
   const context = useContext(VideoParticipantContext);
   if (!context) {
     throw new Error('useVideoParticipant must be used within a VideoParticipantProvider');
+  }
+  return context;
+};
+
+// Practitioner
+
+type PractitionerProfile = {
+  [key: string]: any;
+};
+
+type PractitionerContextProps = {
+  practitionerProfile: PractitionerProfile | null | undefined;
+  setPractitionerProfile: Dispatch<SetStateAction<PractitionerProfile | null>>;
+};
+
+const PractitionerContext = createContext<PractitionerContextProps | undefined>(undefined);
+
+export const PractitionerProvider: FC = () => {
+  const [practitionerProfile, setPractitionerProfile] = useState<Partial<PractitionerProfile | null | undefined>>(null);
+  const { state, dispatch } = useContext(DataContext);
+  const { isAuthenticated, getAccessTokenSilently, logout } = useAuth0();
+  const [accessToken, setAccessToken] = useState<string>('');
+
+  useEffect(() => {
+    async function setFhirClientToken(): Promise<void> {
+      if (isAuthenticated) {
+        const accessToken = await getAccessTokenSilently();
+        console.log('accessToken', accessToken);
+        setFhirClient(accessToken, dispatch);
+        setAccessToken(accessToken);
+      }
+    }
+    setFhirClientToken().catch((error) => {
+      console.log(error);
+    });
+  }, [dispatch, getAccessTokenSilently, isAuthenticated]);
+
+  useEffect(() => {
+    async function setUserProfile(): Promise<void> {
+      const user = await getUser(accessToken);
+      const userId = user.profile.split('/')[1];
+      console.log('userId', user);
+      const fhirClient = state.fhirClient;
+      console.log('fhirClient', fhirClient);
+      const profile = await fhirClient?.readResource({
+        resourceId: userId,
+        resourceType: 'Practitioner',
+      });
+      setPractitionerProfile(profile);
+    }
+    if (state.fhirClient) {
+      setUserProfile().catch((error) => {
+        console.log(error);
+      });
+    }
+    // logout();
+  }, [accessToken, state.fhirClient]);
+
+  return (
+    <PractitionerContext.Provider value={{ practitionerProfile, setPractitionerProfile }}>
+      <Outlet />
+    </PractitionerContext.Provider>
+  );
+};
+
+export const usePractitioner = (): PractitionerContextProps => {
+  const context = useContext(PractitionerContext);
+  if (!context) {
+    throw new Error('usePractitioner must be used within a PractitionerProvider');
   }
   return context;
 };

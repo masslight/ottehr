@@ -10,6 +10,7 @@ import { CustomButton, Footer, PatientQueue, PatientQueueProps, TopAppBar } from
 import { createProviderName, createSlugUrl } from '../helpers';
 import { getPatients, getProvider } from '../helpers/mockData';
 import { JSX } from 'react/jsx-runtime';
+import { usePractitioner } from '../store';
 
 export const Dashboard = (): JSX.Element => {
   const { t } = useTranslation();
@@ -17,6 +18,8 @@ export const Dashboard = (): JSX.Element => {
   const patients = getPatients();
   const provider = getProvider();
 
+  const { practitionerProfile } = usePractitioner();
+  console.log('practitionerProfile', practitionerProfile);
   const theme = useTheme();
 
   const hour = DateTime.now().get('hour');

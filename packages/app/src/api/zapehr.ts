@@ -12,7 +12,9 @@ export interface ZapehrSearchParameter {
 
 export interface zapEHRUser {
   email: string;
+  id: string;
   name: string;
+  profile: string;
 }
 
 export async function createTelemedRoom(
