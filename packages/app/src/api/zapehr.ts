@@ -55,6 +55,24 @@ export async function getSlugAvailability(slug: string): Promise<ZambdaFunctionR
   }
 }
 
+export async function getPatientQueue(
+  providerId: string,
+  accessToken: string
+): Promise<ZambdaFunctionResponse['output']> {
+  try {
+    const GET_PATIENT_QUEUE_ZAMBDA_ID = import.meta.env.GET_PATIENT_QUEUE_ZAMBDA_ID;
+    const responseBody = await callZambda({
+      accessToken,
+      body: { providerId },
+      zambdaId: GET_PATIENT_QUEUE_ZAMBDA_ID,
+    });
+    return responseBody.output;
+  } catch (error) {
+    console.error('Error checking availability:', error);
+    return { error: 10_001 };
+  }
+}
+
 export async function getProviderTelemedToken(encounterId: string, accessToken: string): Promise<string | null> {
   try {
     const response = await fetch(`${PROJECT_API_URL}/telemed/token?encounterId=${encounterId}`, {

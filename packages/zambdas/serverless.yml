@@ -79,7 +79,7 @@ functions:
     handler: src/get-patient-queue/index.index
     events:
       - http:
-          path: zambda/patient-queue/execute-public
+          path: zambda/get-patient-queue/execute
           method: POST
     timeout: 25
     environment:
