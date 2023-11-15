@@ -6,4 +6,9 @@ export default defineConfig({
   base: '/',
   envDir: './env',
   plugins: [react()],
+  test: {
+    coverage: {
+      reporter: ['lcov', 'text', 'html'],
+    },
+  },
 });
