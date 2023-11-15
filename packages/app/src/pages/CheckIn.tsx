@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CustomButton, CustomContainer } from '../components';
 import { usePatient } from '../store';
-import { zapehrApi } from '../api';
+import { getProvider } from '../api';
 
 export const CheckIn = (): JSX.Element => {
   const navigate = useNavigate();
@@ -20,7 +20,7 @@ export const CheckIn = (): JSX.Element => {
   useEffect(() => {
     const fetchProvider = async (): Promise<void> => {
       try {
-        const provider = await zapehrApi.getProvider(slug || '');
+        const provider = await getProvider(slug || '');
         console.log('provider', provider);
         if (provider) {
           setProviderId(provider.id || '');

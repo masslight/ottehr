@@ -1,5 +1,6 @@
 import { AppClient } from '@zapehr/sdk';
 import { Encounter } from 'fhir/r4';
+import { ProviderInfo } from '../store/types';
 
 const ZAMBDA_API_URL = import.meta.env.VITE_PROJECT_API_ZAMBDA_URL;
 const PROJECT_API_URL = import.meta.env.VITE_PROJECT_API_URL;
@@ -120,6 +121,33 @@ export async function getTwilioToken(roomName: string): Promise<string | null> {
     return token;
   } catch (error) {
     console.error('Error fetching token:', error);
+    return null;
+  }
+}
+
+export async function getProvider(slug: string | undefined): Promise<ProviderInfo | null> {
+  try {
+    const response = await fetch(`${import.meta.env.VITE_PROJECT_API_URL}/get-provider/execute-public`, {
+      body: JSON.stringify({ slug }),
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      method: 'POST',
+    });
+
+    const responseBody = await response.json();
+    console.log('responseBody', responseBody);
+    const providerData = responseBody.response?.providerData;
+
+    if (!providerData) {
+      console.error('It appears that provider does not exist');
+      return null;
+    }
+
+    return providerData;
+  } catch (error) {
+    console.error('Error fetching provider info:', error);
     return null;
   }
 }
