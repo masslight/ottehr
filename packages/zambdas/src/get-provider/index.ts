@@ -21,7 +21,7 @@ const getProvider = async (input: ZambdaFunctionInput): Promise<ZambdaFunctionRe
   const { body, secrets } = input;
   console.log('body', body);
   const { slug } = body as getProviderInput;
-  console.log('slug', slug);
+
   const fhirClient = await createFhirClient(secrets);
   const providerResponse = await fhirClient.searchResources({
     resourceType: 'Practitioner',

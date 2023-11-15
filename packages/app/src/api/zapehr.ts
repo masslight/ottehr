@@ -117,11 +117,10 @@ export async function getProvider(slug: string | undefined): Promise<ProviderInf
     });
 
     const responseBody = await response.json();
-    console.log('responseBody', responseBody);
     const providerData = responseBody.response?.providerData;
 
     if (!providerData) {
-      console.error('It appears that provider does not exist');
+      console.log('It appears that provider does not exist');
       return null;
     }
 

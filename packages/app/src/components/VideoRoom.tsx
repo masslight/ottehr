@@ -63,7 +63,7 @@ export const VideoRoom: FC<RoomProps> = ({ room, participants, setParticipants }
   return (
     // for now only speaker view for two participants
     <Box sx={{ height: '100vh', position: 'relative', width: '100vw' }}>
-      {isLoading && <LoadingSpinner />}
+      {isLoading && <LoadingSpinner transparent={true} />}
       <Box key="video-room">
         <Box
           sx={{
