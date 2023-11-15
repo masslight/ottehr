@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
 import { otherColors } from '../OttehrThemeProvider';
-import { zapehrApi } from '../api';
+import { createTelemedRoom, getTelemedToken } from '../api';
 import { CustomButton, CustomContainer } from '../components';
 import { createProviderName } from '../helpers';
 import { useDevices } from '../hooks';
@@ -26,7 +26,7 @@ export const VideoSettings = (): JSX.Element => {
       setIsMicOpen(userInput);
       setIsVideoOpen(userInput);
 
-      const encounter: Encounter | null = await zapehrApi.createTelemedRoom();
+      const encounter: Encounter | null = await createTelemedRoom();
       if (encounter === null) {
         console.error('Failed to create telemed room');
         return;
@@ -45,7 +45,7 @@ export const VideoSettings = (): JSX.Element => {
       const encounterId = encounter.id || '';
       console.log('Encounter ID:', encounterId);
 
-      const twilioToken = await zapehrApi.getTelemedToken(encounterId);
+      const twilioToken = await getTelemedToken(encounterId);
 
       if (twilioToken === null) {
         console.error('Failed to fetch token');

@@ -11,11 +11,15 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { t } from 'i18next';
-import { FC, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { Control, Controller } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+import { getSlugAvailability } from '../api';
+import { createSlugUrl } from '../helpers';
+import { useDebounce } from '../hooks';
 import { CustomButton } from './CustomButton';
-import { getProvider, getTitles, isAvailable } from '../helpers/mockData';
+import { ReturnErrorMessage } from './ReturnErrorMessage';
+import { getProvider, getTitles } from '../helpers/mockData';
 
 interface ProviderFieldsProps {
   buttonText: string;
@@ -25,12 +29,34 @@ interface ProviderFieldsProps {
   onSubmit?: (prop: any) => any;
 }
 export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, errors, isRegister, onSubmit }) => {
+  const { t } = useTranslation();
   // TODO hard-coded data
   const provider = getProvider();
   const [slug, setSlug] = useState(provider.slug);
+  const [slugError, setSlugError] = useState('');
+
+  const debouncedUpdateSlug = useDebounce(async () => {
+    const { error, response } = await getSlugAvailability(slug);
+    let errorMessage: string | undefined;
+    if (error) {
+      errorMessage = ReturnErrorMessage(error);
+      setSlugError(errorMessage);
+    }
+    if (response?.available) {
+      setSlugError('');
+    } else {
+      setSlugError(t('error.slugUnavailable'));
+    }
+  }, 1000);
+  useEffect(() => {
+    if (slug === '') {
+      setSlugError("Slug can't be an empty string.");
+    } else {
+      debouncedUpdateSlug();
+    }
+  }, [debouncedUpdateSlug, slug]);
+
   const titles = getTitles();
-  const isError = !isAvailable(slug);
-  const helperText = isError ? t('error.slugUnavailable') : '';
 
   return (
     <form onSubmit={onSubmit}>
@@ -85,18 +111,21 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
           render={({ field }) => (
             <>
               <TextField
-                error={isError}
-                helperText={helperText}
+                error={slugError.length > 0}
+                helperText={slugError}
                 label="Slug"
                 onChange={(e) => {
                   setSlug(e.target.value);
                   field.onChange(e);
                 }}
+                value={slug ?? ''}
                 variant="outlined"
               />
               <Box mb={-0.5} mt={-1} sx={{ alignItems: 'center', display: 'flex' }}>
-                <Box sx={{ mr: 1 }}>{isError ? <CancelIcon color="error" /> : <CheckIcon color="success" />}</Box>
-                <Typography variant="body2">{`https://zapehr.app/${field.value}`}</Typography>
+                <Box sx={{ mr: 1 }}>
+                  {slugError === '' ? <CheckIcon color="success" /> : <CancelIcon color="error" />}
+                </Box>
+                <Typography variant="body2">{createSlugUrl(field.value)}</Typography>
               </Box>
             </>
           )}
