@@ -41,14 +41,9 @@ export const TopAppBar: FC = () => {
     setMenuOpen(true);
   };
 
-  // useEffect(() => {
-  //   logout();
-  // }, []);
-
   const handleCloseUserMenu = (): void => {
     setAnchorElUser(null);
     setMenuOpen(false);
-    logout();
   };
 
   // TODO hard-coded data
@@ -132,7 +127,7 @@ export const TopAppBar: FC = () => {
               <MenuItem
                 onClick={() => {
                   handleCloseUserMenu();
-                  logout({ returnTo: window.location.origin });
+                  logout();
                 }}
               >
                 <Box sx={{ alignItems: 'center', display: 'flex', justifyContent: 'center' }}>
@@ -193,7 +188,7 @@ export const TopAppBar: FC = () => {
                 <MenuItem
                   onClick={() => {
                     handleCloseUserMenu();
-                    logout({ returnTo: window.location.origin });
+                    logout();
                   }}
                 >
                   <Box
