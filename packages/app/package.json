@@ -64,6 +64,7 @@
   "devDependencies": {
     "@testing-library/react": "^13.3.0",
     "@testing-library/user-event": "^13.5.0",
+    "@types/lodash.debounce": "4.0.9",
     "@types/luxon": "^3.1.0",
     "@types/mixpanel-browser": "^2.38.1",
     "@types/node": "^16.11.47",

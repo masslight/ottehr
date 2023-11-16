@@ -16,3 +16,7 @@ export const createPatientName = (patient: any, lastNameFirst?: boolean): string
   }
   return `${patient.firstName} ${patient.lastName}`;
 };
+
+export const createSlugUrl = (slug: string): string => {
+  return `https://zapehr.app/waiting-room/${slug}`;
+};

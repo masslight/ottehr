@@ -14,7 +14,7 @@ import { LocalAudioTrack, LocalVideoTrack, Room } from 'twilio-video';
 import { Action, State } from './types';
 import { useAuth0 } from '@auth0/auth0-react';
 import { setFhirClient } from './Actions';
-import { zapehrApi } from '../api/zapehrApi';
+import { getUser } from '../api/zapehr';
 
 const initialState = {};
 
@@ -174,7 +174,7 @@ export const PractitionerProvider: FC = () => {
 
   useEffect(() => {
     async function setUserProfile(): Promise<void> {
-      const user = await zapehrApi.getUser(accessToken);
+      const user = await getUser(accessToken);
       const userId = user.profile.split('/')[1];
       const fhirClient = state.fhirClient;
       console.log('fhirClient', fhirClient);
