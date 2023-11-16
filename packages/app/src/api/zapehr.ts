@@ -21,30 +21,21 @@ export async function createTelemedRoom(
   patientName: string,
   practitionerId: string,
   practitionerName: string
-): Promise<Encounter | null> {
+): Promise<ZambdaFunctionResponse['response']> {
   try {
-    const response = await fetch(`${ZAMBDA_API_URL}/zambda/telemed-room/execute-public`, {
-      body: JSON.stringify({ patientName, practitionerId, practitionerName }),
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      method: 'POST',
+    const CREATE_TELEMED_ROOM_ZAMBDA_ID = import.meta.env.VITE_CREATE_TELEMED_ROOM_ZAMBDA_ID;
+    const responseBody = await callZambda({
+      body: { patientName, practitionerId, practitionerName },
+      zambdaId: CREATE_TELEMED_ROOM_ZAMBDA_ID,
     });
 
-    const responseBody = await response.json();
     console.log(responseBody);
-    const encounter: Encounter | undefined = responseBody.response.encounter;
-
-    if (!encounter) {
-      console.error('Encounter is missing in the response');
-      return null;
-    }
+    const encounter: Encounter | undefined = responseBody.response?.encounter;
 
     return encounter;
   } catch (error) {
     console.error('Error fetching encounter:', error);
-    return null;
+    return { error: 10_001 };
   }
 }
 
@@ -68,7 +59,6 @@ export async function getPatientQueue(
 ): Promise<ZambdaFunctionResponse['response']> {
   try {
     const GET_PATIENT_QUEUE_ZAMBDA_ID = import.meta.env.VITE_GET_PATIENT_QUEUE_ZAMBDA_ID;
-    console.log('GET_PATIENT_QUEUE_ZAMBDA_ID', GET_PATIENT_QUEUE_ZAMBDA_ID);
     const responseBody = await callZambda({
       accessToken,
       body: { providerId },
@@ -106,55 +96,37 @@ export async function getProviderTelemedToken(encounterId: string, accessToken: 
   }
 }
 
-export async function getTelemedToken(encounterId: string): Promise<string | null> {
+export async function getTelemedToken(encounterId: string): Promise<ZambdaFunctionResponse['response']> {
   try {
-    const response = await fetch(`${ZAMBDA_API_URL}/zambda/telemed-token/execute-public`, {
-      body: JSON.stringify({ encounterId }),
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      method: 'POST',
+    const GET_TELEMED_TOKEN_ZAMBDA_ID = import.meta.env.VITE_GET_TELEMED_TOKEN_ZAMBDA_ID;
+
+    const responseBody = await callZambda({
+      body: { encounterId },
+      zambdaId: GET_TELEMED_TOKEN_ZAMBDA_ID,
     });
 
-    const responseBody = await response.json();
-    console.log('responseBody', responseBody);
-    const token = responseBody.response.token;
-
-    if (!token) {
-      console.error('Token is missing in the response');
-      return null;
-    }
+    const token = responseBody.response?.token;
     return token;
   } catch (error) {
     console.error('Error fetching token:', error);
-    return null;
+    return { error: 10_001 };
   }
 }
 
-export async function getProvider(slug: string | undefined): Promise<ProviderInfo | null> {
+export async function getProvider(slug: string | undefined): Promise<ZambdaFunctionResponse['response']> {
   try {
-    const response = await fetch(`${ZAMBDA_API_URL}/zambda/get-provider/execute-public`, {
-      body: JSON.stringify({ slug }),
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      method: 'POST',
+    const GET_PROVIDER_ZAMBDA_ID = import.meta.env.VITE_GET_PROVIDER_ZAMBDA_ID;
+
+    const responseBody = await callZambda({
+      body: { slug },
+      zambdaId: GET_PROVIDER_ZAMBDA_ID,
     });
 
-    const responseBody = await response.json();
     const providerData = responseBody.response?.providerData;
-
-    if (!providerData) {
-      console.log('It appears that provider does not exist');
-      return null;
-    }
-
     return providerData;
   } catch (error) {
     console.error('Error fetching provider info:', error);
-    return null;
+    return { error: 10_001 };
   }
 }
 
