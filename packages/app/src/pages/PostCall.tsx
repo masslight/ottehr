@@ -3,9 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { CustomButton, CustomContainer } from '../components';
 import { createPatientName, createProviderName } from '../helpers';
+import { useAuth0 } from '@auth0/auth0-react';
 import { getPatients, getProvider } from '../helpers/mockData';
 
 export const PostCall = (): JSX.Element => {
+  const { isAuthenticated } = useAuth0();
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -15,13 +17,12 @@ export const PostCall = (): JSX.Element => {
 
   // TODO hard-coded data
   const mockCallDuration = '15:05';
-  const isProvider = true;
   const patient = getPatients()[0];
   const provider = getProvider();
 
   let subtitle = '';
   let title = '';
-  if (isProvider) {
+  if (isAuthenticated) {
     subtitle = createPatientName(patient);
     title = t('postCall.callWith');
   } else {
@@ -30,7 +31,7 @@ export const PostCall = (): JSX.Element => {
   }
 
   return (
-    <CustomContainer isProvider={isProvider} subtitle={subtitle} title={title}>
+    <CustomContainer isProvider={isAuthenticated} subtitle={subtitle} title={title}>
       <Typography mb={1} variant="h5">
         {t('postCall.callEnded')}
       </Typography>
@@ -39,7 +40,7 @@ export const PostCall = (): JSX.Element => {
         {mockCallDuration}
         {t('postCall.durationSuffix')}
       </Typography>
-      {isProvider && (
+      {isAuthenticated && (
         <CustomButton fitContent onClick={goToDashboard}>
           {t('postCall.goToDashboard')}
         </CustomButton>

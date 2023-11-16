@@ -40,10 +40,18 @@ export default function App(): JSX.Element {
                 }
                 path={'/profile'}
               />
+              <Route
+                element={
+                  <PrivateRoute>
+                    <PostCall />
+                  </PrivateRoute>
+                }
+                path={'/provider-post-call'}
+              />
             </Route>
             <Route element={<PatientProvider />}>
               <Route element={<CheckIn />} path={'/check-in'} />;
-              <Route element={<PostCall />} path={'/post-call'} />;
+              <Route element={<PostCall />} path={'/patient-post-call'} />;
               <Route element={<Register />} path={'/register'} />;
               <Route element={<VideoChatPage />} path={'/video-call'} />;
               <Route element={<VideoSettings />} path={'/video-settings'} />;

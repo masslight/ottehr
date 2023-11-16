@@ -152,9 +152,9 @@ type PractitionerContextProps = {
 const PractitionerContext = createContext<PractitionerContextProps | undefined>(undefined);
 
 export const PractitionerProvider: FC = () => {
-  const [practitionerProfile, setPractitionerProfile] = useState<Partial<PractitionerProfile | null | undefined>>(null);
   const { state, dispatch } = useContext(DataContext);
   const { isAuthenticated, getAccessTokenSilently } = useAuth0();
+  const [practitionerProfile, setPractitionerProfile] = useState<Partial<PractitionerProfile | null | undefined>>(null);
   const [accessToken, setAccessToken] = useState<string>('');
 
   useEffect(() => {
@@ -165,7 +165,6 @@ export const PractitionerProvider: FC = () => {
         setFhirClient(accessToken, dispatch);
         setAccessToken(accessToken);
       }
-      // logout();
     }
     setFhirClientToken().catch((error) => {
       console.log(error);
