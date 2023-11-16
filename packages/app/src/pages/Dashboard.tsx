@@ -72,7 +72,7 @@ export const Dashboard = (): JSX.Element => {
         fetchPatientsQueue().catch((error) => {
           console.log(error);
         });
-      }, 15000); // auto fetch every 15 seconds
+      }, 15000); // auto fetch queue every 15 seconds
     }
     return () => {
       if (intervalId) {
