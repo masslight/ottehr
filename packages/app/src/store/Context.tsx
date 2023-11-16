@@ -185,14 +185,11 @@ export const PractitionerProvider: FC = () => {
     async function setUserProfile(): Promise<void> {
       const user = await getUser(accessToken);
       const [resourceType, userId] = user.profile.split('/');
-      console.log('userId', user);
       const fhirClient = state.fhirClient;
-      console.log('fhirClient', fhirClient);
       const profile = await fhirClient?.readResource({
         resourceId: userId,
         resourceType: resourceType,
       });
-      console.log('profile', profile);
       setPractitionerProfile(profile);
     }
     if (state.fhirClient) {
@@ -200,7 +197,6 @@ export const PractitionerProvider: FC = () => {
         console.log(error);
       });
     }
-    // logout();
   }, [accessToken, state.fhirClient]);
 
   return (
