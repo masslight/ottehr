@@ -4,13 +4,13 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CustomButton, CustomContainer, LoadingSpinner } from '../components';
-import { usePatient } from '../store';
+import { useParticipant } from '../store';
 import { getProvider } from '../api';
 
 export const CheckIn = (): JSX.Element => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const { patientName, setPatientName, providerName, setProviderName, setProviderId } = usePatient();
+  const { patientName, setPatientName, providerName, setProviderName, setProviderId } = useParticipant();
   const { t } = useTranslation();
   const [isError, setIsError] = useState(false);
   const [name, setName] = useState(patientName);

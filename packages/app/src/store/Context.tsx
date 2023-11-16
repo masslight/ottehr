@@ -52,7 +52,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
 // Patient
 
-type PatientContextProps = {
+type ParticipantContextProps = {
   patientName: string;
   providerId: string;
   providerName: string;
@@ -61,15 +61,15 @@ type PatientContextProps = {
   setProviderName: Dispatch<SetStateAction<string>>;
 };
 
-const PatientContext = createContext<PatientContextProps | undefined>(undefined);
+const ParticipantContext = createContext<ParticipantContextProps | undefined>(undefined);
 
-export const PatientProvider: FC = () => {
+export const ParticipantProvider: FC = () => {
   const [patientName, setPatientName] = useState('');
   const [providerId, setProviderId] = useState('');
   const [providerName, setProviderName] = useState('');
 
   return (
-    <PatientContext.Provider
+    <ParticipantContext.Provider
       value={{
         patientName,
         providerId,
@@ -80,14 +80,14 @@ export const PatientProvider: FC = () => {
       }}
     >
       <Outlet />
-    </PatientContext.Provider>
+    </ParticipantContext.Provider>
   );
 };
 
-export const usePatient = (): PatientContextProps => {
-  const context = useContext(PatientContext);
+export const useParticipant = (): ParticipantContextProps => {
+  const context = useContext(ParticipantContext);
   if (!context) {
-    throw new Error('usePatient must be used within a PatientProvider');
+    throw new Error('useParticipant must be used within a ParticipantProvider');
   }
   return context;
 };
@@ -184,14 +184,15 @@ export const PractitionerProvider: FC = () => {
   useEffect(() => {
     async function setUserProfile(): Promise<void> {
       const user = await getUser(accessToken);
-      const userId = user.profile.split('/')[1];
+      const [resourceType, userId] = user.profile.split('/');
       console.log('userId', user);
       const fhirClient = state.fhirClient;
       console.log('fhirClient', fhirClient);
       const profile = await fhirClient?.readResource({
         resourceId: userId,
-        resourceType: 'Practitioner',
+        resourceType: resourceType,
       });
+      console.log('profile', profile);
       setPractitionerProfile(profile);
     }
     if (state.fhirClient) {

@@ -10,9 +10,9 @@ import {
   Profile,
   VideoChatPage,
   WaitingRoom,
-  // Version,
+  Version,
 } from './pages';
-import { PatientProvider, VideoParticipantProvider, PractitionerProvider } from './store';
+import { ParticipantProvider, VideoParticipantProvider, PractitionerProvider } from './store';
 
 export default function App(): JSX.Element {
   return (
@@ -22,7 +22,7 @@ export default function App(): JSX.Element {
         <VideoParticipantProvider>
           <Routes>
             <Route element={<PractitionerProvider />}>
-              {/* <Route element={<Version />} path="/" /> */}
+              <Route element={<Version />} path="/" />
               <Route
                 element={
                   <PrivateRoute>
@@ -40,7 +40,7 @@ export default function App(): JSX.Element {
                 path={'/profile'}
               />
             </Route>
-            <Route element={<PatientProvider />}>
+            <Route element={<ParticipantProvider />}>
               <Route element={<PostCall />} path={'/post-call'} />;
               <Route element={<Register />} path={'/register'} />;
               <Route element={<VideoChatPage />} path={'/video-call'} />;

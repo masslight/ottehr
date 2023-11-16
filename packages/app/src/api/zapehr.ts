@@ -1,6 +1,5 @@
 import { AppClient } from '@zapehr/sdk';
 import { Encounter } from 'fhir/r4';
-import { ProviderInfo } from '../store/types';
 
 const ZAMBDA_API_URL = import.meta.env.VITE_PROJECT_API_ZAMBDA_URL;
 const PROJECT_API_URL = import.meta.env.VITE_PROJECT_API_URL;
@@ -96,7 +95,7 @@ export async function getProviderTelemedToken(encounterId: string, accessToken: 
   }
 }
 
-export async function getTelemedToken(encounterId: string): Promise<ZambdaFunctionResponse['response']> {
+export async function getTelemedToken(encounterId: string): Promise<string | null> {
   try {
     const GET_TELEMED_TOKEN_ZAMBDA_ID = import.meta.env.VITE_GET_TELEMED_TOKEN_ZAMBDA_ID;
 
@@ -109,7 +108,7 @@ export async function getTelemedToken(encounterId: string): Promise<ZambdaFuncti
     return token;
   } catch (error) {
     console.error('Error fetching token:', error);
-    return { error: 10_001 };
+    return null;
   }
 }
 
