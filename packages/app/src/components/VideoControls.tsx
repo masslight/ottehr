@@ -7,7 +7,7 @@ import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import Box from '@mui/material/Box';
 import { Dispatch, FC, SetStateAction, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LocalParticipant } from 'twilio-video';
+import { LocalAudioTrack, LocalParticipant, LocalVideoTrack } from 'twilio-video';
 import { otherColors } from '../OttehrThemeProvider';
 import { useVideoParticipant } from '../store';
 import { CallSettings } from './CallSettings';
@@ -31,6 +31,11 @@ export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom, localPartici
   };
 
   const disconnect = (): void => {
+    room?.localParticipant.tracks.forEach((trackPub) => {
+      if (trackPub.track.kind === 'audio' || trackPub.track.kind === 'video') {
+        (trackPub.track as LocalAudioTrack | LocalVideoTrack).stop();
+      }
+    });
     room?.disconnect();
     navigate('/post-call');
   };
