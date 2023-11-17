@@ -203,7 +203,7 @@ importers:
         specifier: ^3.272.0
         version: 3.417.0
       '@zapehr/sdk':
-        specifier: ^1.0.17
+        specifier: ^1.0.16
         version: 1.0.17
       aws-lambda:
         specifier: ^1.0.7
