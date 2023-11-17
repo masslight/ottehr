@@ -5,7 +5,8 @@ export const createZambdaFromSkeleton = async (
   input: ZambdaInput,
   functionName: (functionInput: ZambdaFunctionInput) => ZambdaFunctionResponse | Promise<ZambdaFunctionResponse>
 ): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
+  console.log(`Input body: ${JSON.stringify(input.body)}`);
+  console.log(`Input headers: ${JSON.stringify(input.headers)}`);
 
   try {
     console.group(`Starting function ${functionName.name}`);
