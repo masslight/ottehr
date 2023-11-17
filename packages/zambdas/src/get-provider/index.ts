@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { createFhirClient } from '../shared';
 import { createZambdaFromSkeleton } from '../shared/zambdaSkeleton';
 import { ZambdaFunctionInput, ZambdaFunctionResponse, ZambdaInput } from '../types';
+import { Practitioner } from 'fhir/r4';
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   return createZambdaFromSkeleton(input, getProvider);
@@ -11,12 +12,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 interface getProviderInput {
   slug: string;
 }
-interface Practitioner {
-  id: string;
-  name: Array<{
-    text?: string;
-  }>;
-}
+
 const getProvider = async (input: ZambdaFunctionInput): Promise<ZambdaFunctionResponse> => {
   const { body, secrets } = input;
   console.log('body', body);
