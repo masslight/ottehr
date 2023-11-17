@@ -12,12 +12,11 @@ import { useAuth0 } from '@auth0/auth0-react';
 
 export interface PatientQueueProps {
   encounterId: string;
-  firstName: string;
-  lastName: string;
+  patientName: string;
   queuedTime: string;
 }
 
-export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, firstName, lastName, queuedTime }) => {
+export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, patientName, queuedTime }) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom } = useVideoParticipant();
@@ -95,7 +94,7 @@ export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, firstName, la
           <img alt={t('imageAlts.patient')} height="42px" src={defaultPatient} />
           <Box pl={1.75}>
             <Typography color="primary.contrast" variant="body1">
-              {firstName} {lastName}
+              {patientName}
             </Typography>
             <Typography color="primary.contrast" sx={{ opacity: 0.6 }} variant="body2">
               {relativeQueuedTime}

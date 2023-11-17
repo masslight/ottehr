@@ -35,6 +35,11 @@ export type PatientInfo = {
   sex: PatientSex | undefined;
 };
 
+export type ProviderInfo = {
+  id: string | undefined;
+  name: string | undefined;
+};
+
 export type Action =
   | { fhirClient: FhirClient; type: 'SET_FHIR_CLIENT' }
   | { patientInfo: PatientInfo | undefined; type: 'UPDATE_PATIENT' }

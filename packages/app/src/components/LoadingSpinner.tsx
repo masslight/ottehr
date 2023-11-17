@@ -1,14 +1,18 @@
-import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import { FC } from 'react';
 import { otherColors } from '../OttehrThemeProvider';
+import { useTheme, Box } from '@mui/material';
 
-export const LoadingSpinner: FC = () => {
+interface LoadingSpinnerProps {
+  transparent?: boolean;
+}
+export const LoadingSpinner: FC<LoadingSpinnerProps> = ({ transparent }) => {
+  const theme = useTheme();
   return (
     <Box
       sx={{
         alignItems: 'center',
-        backgroundColor: otherColors.blackTransparent,
+        backgroundColor: transparent ? otherColors.blackTransparent : theme.palette.background.default,
         display: 'flex',
         height: '100vh',
         justifyContent: 'center',

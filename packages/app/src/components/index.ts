@@ -13,3 +13,4 @@ export * from './VideoControls';
 export * from './VideoParticipant';
 export * from './VideoRoom';
 export * from './ZapEHRLogo';
+export * from './ProviderRoute';

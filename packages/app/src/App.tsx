@@ -1,7 +1,6 @@
-import { useAuth0 } from '@auth0/auth0-react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { OttehrThemeProvider } from './OttehrThemeProvider';
-import { ScrollToTop } from './components';
+import { ScrollToTop, PrivateRoute } from './components';
 import {
   VideoSettings,
   CheckIn,
@@ -9,64 +8,47 @@ import {
   Dashboard,
   Register,
   Profile,
-  Version,
   VideoChatPage,
   WaitingRoom,
+  Version,
 } from './pages';
-import { DataContext, PatientProvider, VideoParticipantProvider, setFhirClient } from './store';
-import { useContext, useEffect } from 'react';
-import { getUser } from './api';
-// import axios from 'axios';
+import { ParticipantProvider, VideoParticipantProvider, PractitionerProvider } from './store';
 
 export default function App(): JSX.Element {
-  const { dispatch } = useContext(DataContext);
-  const { isLoading, isAuthenticated, loginWithRedirect, getAccessTokenSilently } = useAuth0();
-
-  useEffect(() => {
-    async function setFhirClientToken(): Promise<void> {
-      if (isAuthenticated) {
-        const accessToken = await getAccessTokenSilently();
-        console.log('accessToken', accessToken);
-        const user = await getUser(accessToken);
-        console.log('user', user);
-        setFhirClient(accessToken, dispatch);
-      }
-    }
-    setFhirClientToken().catch((error) => {
-      console.log(error);
-    });
-  }, [dispatch, getAccessTokenSilently, isAuthenticated]);
-
-  if (!isAuthenticated && !isLoading) {
-    loginWithRedirect().catch((error) => {
-      throw new Error(`Error calling loginWithRedirect Auth0 ${error}`);
-    });
-  }
-
   return (
     <OttehrThemeProvider>
       <Router>
         <ScrollToTop />
         <VideoParticipantProvider>
-          {isAuthenticated ? (
-            <Routes>
-              <Route element={<Version />} path={'/'} />;
-              <Route element={<PatientProvider />}>
-                <Route element={<CheckIn />} path={'/check-in'} />;
-                <Route element={<PostCall />} path={'/post-call'} />;
-                <Route element={<Register />} path={'/register'} />;
-                <Route element={<VideoChatPage />} path={'/video-call'} />;
-                <Route element={<VideoSettings />} path={'/video-settings'} />;
-                <Route element={<WaitingRoom />} path={'/waiting-room'} />;
-              </Route>
-              <Route element={<Dashboard />} path={'/dashboard'} />;
-              <Route element={<Profile />} path={'/profile'} />;
-            </Routes>
-          ) : (
-            <Routes>
-              <Route element={<Version />} path={'/'} />;
-            </Routes>
-          )}
+          <Routes>
+            <Route element={<PractitionerProvider />}>
+              <Route element={<Version />} path="/" />
+              <Route
+                element={
+                  <PrivateRoute>
+                    <Dashboard />
+                  </PrivateRoute>
+                }
+                path={'/dashboard'}
+              />
+              <Route
+                element={
+                  <PrivateRoute>
+                    <Profile />
+                  </PrivateRoute>
+                }
+                path={'/profile'}
+              />
+            </Route>
+            <Route element={<ParticipantProvider />}>
+              <Route element={<PostCall />} path={'/post-call'} />;
+              <Route element={<Register />} path={'/register'} />;
+              <Route element={<VideoChatPage />} path={'/video-call'} />;
+              <Route element={<VideoSettings />} path={'/video-settings'} />;
+              <Route element={<WaitingRoom />} path={'/waiting-room'} />;
+              <Route element={<CheckIn />} path={'/:slug'} />;
+            </Route>
+          </Routes>
         </VideoParticipantProvider>
       </Router>
     </OttehrThemeProvider>
