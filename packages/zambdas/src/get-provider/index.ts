@@ -41,7 +41,7 @@ const getProvider = async (input: ZambdaFunctionInput): Promise<ZambdaFunctionRe
     };
   }
 
-  const provider = providerResponse[0] as Practitioner;
+  const provider = providerResponse[0];
   const providerData = {
     id: provider.id,
     name: provider.name?.[0].text,
