@@ -38,6 +38,12 @@ const ZAMBDAS: Record<string, ZambdaParameters> = {
   VERSION: {
     triggerMethod: 'http_open',
   },
+  GET_PATIENT_QUEUE: {
+    triggerMethod: 'http_auth',
+  },
+  GET_PROVIDER: {
+    triggerMethod: 'http_open',
+  },
 };
 
 const updateZambdas = async (config: any): Promise<void> => {

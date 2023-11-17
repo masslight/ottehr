@@ -14,7 +14,7 @@ import { LocalAudioTrack, LocalVideoTrack, Room } from 'twilio-video';
 import { Action, State } from './types';
 import { useAuth0 } from '@auth0/auth0-react';
 import { setFhirClient } from './Actions';
-import { getUser } from '../api/zapehr';
+import { getUser } from '../api';
 
 const initialState = {};
 
@@ -52,32 +52,42 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
 // Patient
 
-type PatientContextProps = {
+type ParticipantContextProps = {
   patientName: string;
+  providerId: string;
+  providerName: string;
   setPatientName: Dispatch<SetStateAction<string>>;
+  setProviderId: Dispatch<SetStateAction<string>>;
+  setProviderName: Dispatch<SetStateAction<string>>;
 };
 
-const PatientContext = createContext<PatientContextProps | undefined>(undefined);
+const ParticipantContext = createContext<ParticipantContextProps | undefined>(undefined);
 
-export const PatientProvider: FC = () => {
+export const ParticipantProvider: FC = () => {
   const [patientName, setPatientName] = useState('');
+  const [providerId, setProviderId] = useState('');
+  const [providerName, setProviderName] = useState('');
 
   return (
-    <PatientContext.Provider
+    <ParticipantContext.Provider
       value={{
         patientName,
+        providerId,
+        providerName,
         setPatientName,
+        setProviderId,
+        setProviderName,
       }}
     >
       <Outlet />
-    </PatientContext.Provider>
+    </ParticipantContext.Provider>
   );
 };
 
-export const usePatient = (): PatientContextProps => {
-  const context = useContext(PatientContext);
+export const useParticipant = (): ParticipantContextProps => {
+  const context = useContext(ParticipantContext);
   if (!context) {
-    throw new Error('usePatient must be used within a PatientProvider');
+    throw new Error('useParticipant must be used within a ParticipantProvider');
   }
   return context;
 };
@@ -152,10 +162,10 @@ type PractitionerContextProps = {
 const PractitionerContext = createContext<PractitionerContextProps | undefined>(undefined);
 
 export const PractitionerProvider: FC = () => {
+  const [accessToken, setAccessToken] = useState<string>('');
+  const [practitionerProfile, setPractitionerProfile] = useState<Partial<PractitionerProfile | null | undefined>>(null);
   const { state, dispatch } = useContext(DataContext);
   const { isAuthenticated, getAccessTokenSilently } = useAuth0();
-  const [practitionerProfile, setPractitionerProfile] = useState<Partial<PractitionerProfile | null | undefined>>(null);
-  const [accessToken, setAccessToken] = useState<string>('');
 
   useEffect(() => {
     async function setFhirClientToken(): Promise<void> {

@@ -6,11 +6,8 @@ import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
 import { otherColors } from '../OttehrThemeProvider';
 import { createTelemedRoom, getTelemedToken } from '../api';
 import { CustomButton, CustomContainer } from '../components';
-import { createProviderName } from '../helpers';
 import { useDevices } from '../hooks';
-import { useVideoParticipant } from '../store';
-import { getProvider } from '../helpers/mockData';
-import { Encounter } from 'fhir/r4';
+import { useParticipant, useVideoParticipant } from '../store';
 
 export const VideoSettings = (): JSX.Element => {
   const navigate = useNavigate();
@@ -18,15 +15,14 @@ export const VideoSettings = (): JSX.Element => {
   const { t } = useTranslation();
   const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom } = useVideoParticipant();
   const hasVideoDevice = useDevices().videoInputDevices.length > 0;
+  const { patientName, providerId, providerName } = useParticipant();
 
-  // TODO hard-coded data
-  const provider = getProvider();
   const toggleMicAndCam = async (userInput: boolean): Promise<void> => {
     try {
       setIsMicOpen(userInput);
       setIsVideoOpen(userInput);
 
-      const encounter: Encounter | null = await createTelemedRoom();
+      const encounter = await createTelemedRoom(patientName, providerId, providerName);
       if (encounter === null) {
         console.error('Failed to create telemed room');
         return;
@@ -42,11 +38,12 @@ export const VideoSettings = (): JSX.Element => {
         console.log('RoomSID not found');
       }
 
-      const encounterId = encounter.id || '';
+      const encounterId = encounter?.id || '';
       console.log('Encounter ID:', encounterId);
 
       const twilioToken = await getTelemedToken(encounterId);
 
+      // TODO: add snackbar for error
       if (twilioToken === null) {
         console.error('Failed to fetch token');
         return;
@@ -77,7 +74,7 @@ export const VideoSettings = (): JSX.Element => {
   };
 
   return (
-    <CustomContainer isProvider={false} subtitle={createProviderName(provider)} title={t('general.waitingRoom')}>
+    <CustomContainer isProvider={false} subtitle={providerName} title={t('general.waitingRoom')}>
       <Typography variant="h5">{t('video.enableCamAndMic')}</Typography>
       <Typography variant="body1">{t('video.permissionAccess')}</Typography>
       <Box

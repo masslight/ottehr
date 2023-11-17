@@ -3,6 +3,7 @@
   "version": "0.0.2",
   "private": true,
   "scripts": {
+    "test": "pnpm recursive run test",
     "build": "sh ./scripts/build.sh",
     "lint": "eslint packages/",
     "start": "pnpm start:local",
