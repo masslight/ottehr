@@ -28,9 +28,9 @@ export const Dashboard = (): JSX.Element => {
   const [patients, setPatients] = useState<PatientQueueItem[]>([]);
 
   // TODO hard-coded data
-  const provider = getProvider();
+  // const provider = getProvider();
 
-  const { practitionerProfile } = usePractitioner();
+  const { practitionerProfile, provider } = usePractitioner();
   const providerId = practitionerProfile?.id;
   const theme = useTheme();
 
@@ -39,7 +39,7 @@ export const Dashboard = (): JSX.Element => {
   const copySlugToClipboard = (): void => {
     async () => {
       try {
-        await navigator.clipboard.writeText(`https://zapehr.app/${practitionerProfile?.identifier[0].value}`);
+        await navigator.clipboard.writeText(`https://zapehr.app/${createSlugUrl(provider.slug)}`);
       } catch (error) {
         console.error('Failed to copy room link to clipboard:', error);
       }
@@ -131,7 +131,7 @@ export const Dashboard = (): JSX.Element => {
               </Typography>
 
               <Typography color="text.light" mt={1} variant="h4">
-                {practitionerProfile?.name[0].text}
+                {createProviderName(provider)}
               </Typography>
             </Box>
             <Box sx={{ maxWidth: { md: '100px', xs: '50px' } }}>
@@ -157,7 +157,7 @@ export const Dashboard = (): JSX.Element => {
             </Typography>
 
             <Typography color="text.light" sx={{ overflowWrap: 'break-word' }} variant="h5">
-              https://zapehr.app/{practitionerProfile?.identifier[0].value}
+              https://zapehr.app/{provider.slug}
             </Typography>
 
             <Box

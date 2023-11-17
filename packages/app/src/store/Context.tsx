@@ -156,7 +156,12 @@ type PractitionerProfile = {
 
 type PractitionerContextProps = {
   practitionerProfile: PractitionerProfile | null | undefined;
-  setPractitionerProfile: Dispatch<SetStateAction<PractitionerProfile | null>>;
+  provider: {
+    firstName: string;
+    lastName: string;
+    slug: string;
+    title: string;
+  };
 };
 
 const PractitionerContext = createContext<PractitionerContextProps | undefined>(undefined);
@@ -183,11 +188,11 @@ export const PractitionerProvider: FC = () => {
   useEffect(() => {
     async function setUserProfile(): Promise<void> {
       const user = await getUser(accessToken);
-      const userId = user.profile.split('/')[1];
+      const [resourceType, userId] = user.profile.split('/');
       const fhirClient = state.fhirClient;
       const profile = await fhirClient?.readResource({
         resourceId: userId,
-        resourceType: 'Practitioner',
+        resourceType: resourceType,
       });
       setPractitionerProfile(profile);
     }
@@ -198,8 +203,15 @@ export const PractitionerProvider: FC = () => {
     }
   }, [accessToken, state.fhirClient]);
 
+  const provider = {
+    firstName: practitionerProfile?.name[0].given[0],
+    lastName: practitionerProfile?.name[0].family,
+    slug: practitionerProfile?.identifier[0].value,
+    title: practitionerProfile?.name[0].prefix[0],
+  };
+
   return (
-    <PractitionerContext.Provider value={{ practitionerProfile, setPractitionerProfile }}>
+    <PractitionerContext.Provider value={{ practitionerProfile, provider }}>
       <Outlet />
     </PractitionerContext.Provider>
   );

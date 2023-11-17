@@ -5,7 +5,7 @@ const needsDot = (title: string): boolean => {
 // TODO add provider type
 export const createProviderName = (provider: any, full?: boolean): string => {
   const title = provider.title ? `${provider.title}${needsDot(provider.title) ? '.' : ''}` : '';
-  const firstName = full ? (provider.firstName ? `${provider.firstName}` : '') : '';
+  const firstName = !full ? (provider.firstName ? `${provider.firstName}` : '') : '';
   const lastName = provider.lastName ? provider.lastName : '';
   if (!firstName && !lastName) {
     console.error('Missing both firstName and lastName');
