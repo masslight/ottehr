@@ -22,7 +22,6 @@ export const CheckIn = (): JSX.Element => {
     const fetchProvider = async (): Promise<void> => {
       try {
         const provider = await getProvider(slug || '');
-        console.log('provider', provider);
         if (provider) {
           setProviderId(provider.id || '');
           setProviderName(provider.name || '');

@@ -171,7 +171,6 @@ export const PractitionerProvider: FC = () => {
     async function setFhirClientToken(): Promise<void> {
       if (isAuthenticated) {
         const accessToken = await getAccessTokenSilently();
-        console.log('accessToken', accessToken);
         setFhirClient(accessToken, dispatch);
         setAccessToken(accessToken);
       }
@@ -186,7 +185,6 @@ export const PractitionerProvider: FC = () => {
       const user = await getUser(accessToken);
       const userId = user.profile.split('/')[1];
       const fhirClient = state.fhirClient;
-      console.log('fhirClient', fhirClient);
       const profile = await fhirClient?.readResource({
         resourceId: userId,
         resourceType: 'Practitioner',
