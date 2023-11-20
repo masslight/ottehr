@@ -26,7 +26,7 @@ const createTelemedRoom = async (input: ZambdaFunctionInput): Promise<ZambdaFunc
   const token = await getAuth0Token(secrets);
   console.log('token', token);
 
-  const m2mUserProfile = await getM2MUserProfile(token);
+  const m2mUserProfile = await getM2MUserProfile(token, secrets);
 
   const encounter = createRoomEncounter(providerProfile, practitionerName, m2mUserProfile, patientName);
   console.log('encounter', encounter);

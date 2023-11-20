@@ -2,11 +2,12 @@
 
 import fetch from 'node-fetch';
 import { SecretsKeys, getSecret } from './secrets';
+import { Secrets } from '../types';
 
-export async function getM2MUserProfile(token: string): Promise<any> {
-  const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, null);
-  const PROJECT_ID = getSecret(SecretsKeys.PROJECT_ID, null);
-  const AUTH0_CLIENT = getSecret(SecretsKeys.AUTH0_CLIENT, null);
+export async function getM2MUserProfile(token: string, secrets: Secrets | null): Promise<any> {
+  const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
+  const PROJECT_ID = getSecret(SecretsKeys.PROJECT_ID, secrets);
+  const AUTH0_CLIENT = getSecret(SecretsKeys.AUTH0_CLIENT, secrets);
 
   try {
     const url = `${PROJECT_API}/m2m`;
