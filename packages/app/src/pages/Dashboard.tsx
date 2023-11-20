@@ -39,7 +39,7 @@ export const Dashboard = (): JSX.Element => {
   const copySlugToClipboard = (): void => {
     async () => {
       try {
-        await navigator.clipboard.writeText(`https://zapehr.app/${createSlugUrl(provider.slug)}`);
+        await navigator.clipboard.writeText(`${createSlugUrl(provider.slug)}`);
       } catch (error) {
         console.error('Failed to copy room link to clipboard:', error);
       }
@@ -157,7 +157,7 @@ export const Dashboard = (): JSX.Element => {
             </Typography>
 
             <Typography color="text.light" sx={{ overflowWrap: 'break-word' }} variant="h5">
-              https://zapehr.app/{provider.slug}
+              {createSlugUrl(provider.slug)}
             </Typography>
 
             <Box
