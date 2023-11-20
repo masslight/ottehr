@@ -58,12 +58,12 @@ export const WaitingRoom = (): JSX.Element => {
       <Box
         sx={{
           alignItems: 'center',
-          backgroundColor: otherColors.biscay,
+          backgroundColor: otherColors.transparent,
           borderRadius: 2,
           display: 'flex',
           flexDirection: 'column',
+          height: '25vh',
           justifyContent: 'center',
-          minHeight: '20vh',
           overflow: 'hidden',
           position: 'relative',
           px: 15,

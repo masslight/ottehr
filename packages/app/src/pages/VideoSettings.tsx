@@ -5,9 +5,10 @@ import { useNavigate } from 'react-router-dom';
 import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
 import { otherColors } from '../OttehrThemeProvider';
 import { createTelemedRoom, getTelemedToken } from '../api';
-import { CustomButton, CustomContainer } from '../components';
+import { CustomButton, CustomContainer, LoadingSpinner } from '../components';
 import { useDevices } from '../hooks';
 import { useParticipant, useVideoParticipant } from '../store';
+import { useState } from 'react';
 
 export const VideoSettings = (): JSX.Element => {
   const navigate = useNavigate();
@@ -16,9 +17,11 @@ export const VideoSettings = (): JSX.Element => {
   const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom } = useVideoParticipant();
   const hasVideoDevice = useDevices().videoInputDevices.length > 0;
   const { patientName, providerId, providerName } = useParticipant();
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const toggleMicAndCam = async (userInput: boolean): Promise<void> => {
     try {
+      setIsLoading(true);
       setIsMicOpen(userInput);
       setIsVideoOpen(userInput);
 
@@ -65,7 +68,7 @@ export const VideoSettings = (): JSX.Element => {
         tracks: localTracks,
         video: hasVideoDevice,
       });
-
+      setIsLoading(false);
       setRoom(connectedRoom);
       navigate('/waiting-room');
     } catch (error) {
@@ -75,6 +78,7 @@ export const VideoSettings = (): JSX.Element => {
 
   return (
     <CustomContainer isProvider={false} subtitle={providerName} title={t('general.waitingRoom')}>
+      {isLoading && <LoadingSpinner transparent={true} />}
       <Typography variant="h5">{t('video.enableCamAndMic')}</Typography>
       <Typography variant="body1">{t('video.permissionAccess')}</Typography>
       <Box
@@ -84,6 +88,7 @@ export const VideoSettings = (): JSX.Element => {
           borderRadius: 2,
           display: 'flex',
           flexDirection: 'column',
+          height: '25vh',
           justifyContent: 'center',
           mt: 2.5,
           px: 15,
