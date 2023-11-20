@@ -11,7 +11,9 @@ import {
 } from 'twilio-video';
 import { otherColors } from '../OttehrThemeProvider';
 import { useVideoParticipant } from '../store';
-
+import { defaultPatient, defaultProvider } from '../assets/icons';
+import { t } from 'i18next';
+import { useAuth0 } from '@auth0/auth0-react';
 interface ParticipantProps {
   participant: Participant;
 }
@@ -27,6 +29,9 @@ export const VideoParticipant: FC<ParticipantProps> = ({ participant }) => {
   const [videoTracks, setVideoTracks] = useState<(VideoTrack | null)[]>([]);
   const [audioTracks, setAudioTracks] = useState<(AudioTrack | null)[]>([]);
 
+  const [isVideoEnabled, setIsVideoEnabled] = useState<boolean>();
+
+  const { isAuthenticated, isLoading } = useAuth0();
   // Get the audio and video tracks from the participant, filtering out the tracks that are null
   const getExistingAudioTracks = (participant: Participant): (LocalAudioTrack | RemoteAudioTrack | null)[] => {
     const audioPublications = Array.from(participant.audioTracks.values());
@@ -47,8 +52,10 @@ export const VideoParticipant: FC<ParticipantProps> = ({ participant }) => {
   // When a new track is added or removed, update the video and audio tracks in the state
   useEffect(() => {
     const trackSubscribed = (track: AudioTrack | VideoTrack): void => {
+      console.log(`Track subscribed: ${track.kind}`);
       if (track.kind === 'video') {
         setVideoTracks((videoTracks) => [...videoTracks, track]);
+        setIsVideoEnabled(track.isEnabled);
       } else {
         setAudioTracks((audioTracks) => [...audioTracks, track]);
       }
@@ -65,12 +72,23 @@ export const VideoParticipant: FC<ParticipantProps> = ({ participant }) => {
     setAudioTracks(getExistingAudioTracks(participant));
     setVideoTracks(getExistingVideoTracks(participant));
 
-    participant.on('trackEnabled', (track) => {
+    const trackEnabled = (track: AudioTrack | VideoTrack): void => {
       console.log(`Track enabled: ${track.kind}`);
-    });
-    participant.on('trackDisabled', (track) => {
+      if (track.kind === 'video') {
+        setIsVideoEnabled(true);
+      }
+    };
+
+    const trackDisabled = (track: AudioTrack | VideoTrack): void => {
       console.log(`Track disabled: ${track.kind}`);
-    });
+      if (track.kind === 'video') {
+        setIsVideoEnabled(false);
+      }
+    };
+
+    participant.on('trackEnabled', trackEnabled);
+    participant.on('trackDisabled', trackDisabled);
+
     participant.on('trackSubscribed', trackSubscribed);
     participant.on('trackUnsubscribed', trackUnsubscribed);
 
@@ -78,10 +96,12 @@ export const VideoParticipant: FC<ParticipantProps> = ({ participant }) => {
     return () => {
       setAudioTracks([]);
       setVideoTracks([]);
+      participant.off('trackEnabled', trackEnabled);
+      participant.off('trackDisabled', trackDisabled);
       participant.removeAllListeners();
       participant.videoTracks.forEach((track) => (track.isEnabled = false));
     };
-  }, [participant]);
+  }, [isVideoEnabled, participant]);
 
   // When a new videoTrack or audioTrack is subscribed, add it to the DOM.
   // When unsubscribed, detach it
@@ -125,16 +145,34 @@ export const VideoParticipant: FC<ParticipantProps> = ({ participant }) => {
         width: '100%',
       }}
     >
-      <Box
-        autoPlay={true}
-        component="video"
-        ref={videoRef}
-        sx={{
-          height: '100%',
-          objectFit: 'cover',
-          width: '100%',
-        }}
-      />
+      {!isVideoEnabled && (
+        <Box
+          sx={{
+            alignItems: 'center',
+            display: 'flex',
+            height: '100%',
+            justifyContent: 'center',
+          }}
+        >
+          {isAuthenticated && !isLoading ? (
+            <img alt={t('imageAlts.patient')} height="100px" src={defaultPatient} />
+          ) : (
+            <img alt={t('imageAlts.provider')} height="100px" src={defaultProvider} />
+          )}
+        </Box>
+      )}
+      {isVideoEnabled && (
+        <Box
+          autoPlay={true}
+          component="video"
+          ref={videoRef}
+          sx={{
+            height: '100%',
+            objectFit: 'cover',
+            width: '100%',
+          }}
+        />
+      )}
       <Box autoPlay={true} component="audio" muted={false} ref={audioRef} sx={{ display: 'none' }} />
       <Box
         sx={{

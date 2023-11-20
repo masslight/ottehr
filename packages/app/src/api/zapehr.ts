@@ -13,7 +13,7 @@ export interface zapEHRUser {
   email: string;
   id: string;
   name: string;
-  profile: string;
+  profile: any;
 }
 
 export async function createTelemedRoom(
