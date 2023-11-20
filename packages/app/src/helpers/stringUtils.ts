@@ -23,6 +23,6 @@ export const createPatientName = (patient: any, lastNameFirst?: boolean): string
   return `${patient.firstName} ${patient.lastName}`;
 };
 
-export const createSlugUrl = (slug: string): string => {
+export const createSlugUrl = (slug: string | undefined): string => {
   return `https://ottehr.com/${slug}`;
 };

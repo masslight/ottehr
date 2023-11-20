@@ -7,7 +7,7 @@ import { Fragment, Key, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { otherColors } from '../OttehrThemeProvider';
 import { defaultProvider } from '../assets/icons';
-import { CustomButton, Footer, PatientQueue, PatientQueueProps, TopAppBar } from '../components';
+import { CustomButton, Footer, LoadingSpinner, PatientQueue, PatientQueueProps, TopAppBar } from '../components';
 import { createProviderName, createSlugUrl } from '../helpers';
 import { getProvider } from '../helpers/mockData';
 import { JSX } from 'react/jsx-runtime';
@@ -26,6 +26,7 @@ export const Dashboard = (): JSX.Element => {
   }
 
   const [patients, setPatients] = useState<PatientQueueItem[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // TODO hard-coded data
   // const provider = getProvider();
@@ -39,7 +40,7 @@ export const Dashboard = (): JSX.Element => {
   const copySlugToClipboard = (): void => {
     async () => {
       try {
-        await navigator.clipboard.writeText(`${createSlugUrl(provider.slug)}`);
+        await navigator.clipboard.writeText(`${createSlugUrl(provider?.slug)}`);
       } catch (error) {
         console.error('Failed to copy room link to clipboard:', error);
       }
@@ -81,6 +82,15 @@ export const Dashboard = (): JSX.Element => {
     };
   }, [getAccessTokenSilently, isAuthenticated, providerId]);
 
+  useEffect(() => {
+    if (!provider) {
+      setIsLoading(true);
+    } else if (provider) {
+      setIsLoading(false);
+    }
+    return undefined;
+  }, [provider]);
+
   return (
     <Container
       disableGutters
@@ -92,6 +102,7 @@ export const Dashboard = (): JSX.Element => {
         minHeight: '100vh',
       }}
     >
+      {isLoading && <LoadingSpinner transparent={false} />}
       <TopAppBar />
       <Box sx={{ display: 'flex', flexDirection: { md: 'row', xs: 'column' }, flexGrow: 1 }}>
         <Box
@@ -131,7 +142,7 @@ export const Dashboard = (): JSX.Element => {
               </Typography>
 
               <Typography color="text.light" mt={1} variant="h4">
-                {createProviderName(provider)}
+                {provider && createProviderName(provider)}
               </Typography>
             </Box>
             <Box sx={{ maxWidth: { md: '100px', xs: '50px' } }}>
@@ -157,7 +168,7 @@ export const Dashboard = (): JSX.Element => {
             </Typography>
 
             <Typography color="text.light" sx={{ overflowWrap: 'break-word' }} variant="h5">
-              {createSlugUrl(provider.slug)}
+              {createSlugUrl(provider?.slug)}
             </Typography>
 
             <Box

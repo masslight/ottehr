@@ -154,14 +154,16 @@ type PractitionerProfile = {
   [key: string]: any;
 };
 
+type Provider = {
+  firstName: string;
+  lastName: string;
+  slug: string;
+  title: string;
+};
+
 type PractitionerContextProps = {
   practitionerProfile: PractitionerProfile | null | undefined;
-  provider: {
-    firstName: string;
-    lastName: string;
-    slug: string;
-    title: string;
-  };
+  provider: Provider | undefined;
 };
 
 const PractitionerContext = createContext<PractitionerContextProps | undefined>(undefined);
@@ -169,6 +171,7 @@ const PractitionerContext = createContext<PractitionerContextProps | undefined>(
 export const PractitionerProvider: FC = () => {
   const [accessToken, setAccessToken] = useState<string>('');
   const [practitionerProfile, setPractitionerProfile] = useState<Partial<PractitionerProfile | null | undefined>>(null);
+  const [provider, setProvider] = useState<Provider | undefined>();
   const { state, dispatch } = useContext(DataContext);
   const { isAuthenticated, getAccessTokenSilently } = useAuth0();
 
@@ -194,6 +197,13 @@ export const PractitionerProvider: FC = () => {
         resourceId: userId,
         resourceType: resourceType,
       });
+      const provider = {
+        firstName: practitionerProfile?.name[0].given[0],
+        lastName: practitionerProfile?.name[0].family,
+        slug: practitionerProfile?.identifier[0].value,
+        title: practitionerProfile?.name[0].prefix[0],
+      };
+      setProvider(provider);
       setPractitionerProfile(profile);
     }
     if (state.fhirClient) {
@@ -201,14 +211,7 @@ export const PractitionerProvider: FC = () => {
         console.log(error);
       });
     }
-  }, [accessToken, state.fhirClient]);
-
-  const provider = {
-    firstName: practitionerProfile?.name[0].given[0],
-    lastName: practitionerProfile?.name[0].family,
-    slug: practitionerProfile?.identifier[0].value,
-    title: practitionerProfile?.name[0].prefix[0],
-  };
+  }, [accessToken, state.fhirClient, practitionerProfile]);
 
   return (
     <PractitionerContext.Provider value={{ practitionerProfile, provider }}>
