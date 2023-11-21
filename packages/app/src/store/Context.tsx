@@ -15,6 +15,7 @@ import { Action, State } from './types';
 import { useAuth0 } from '@auth0/auth0-react';
 import { setFhirClient } from './Actions';
 import { getUser } from '../api';
+import { Practitioner } from 'fhir/r4';
 
 const initialState = {};
 
@@ -148,12 +149,6 @@ export const useVideoParticipant = (): VideoParticipantContextProps => {
   return context;
 };
 
-// Practitioner
-
-type PractitionerProfile = {
-  [key: string]: any;
-};
-
 type Provider = {
   firstName: string;
   lastName: string;
@@ -162,7 +157,7 @@ type Provider = {
 };
 
 type PractitionerContextProps = {
-  practitionerProfile: PractitionerProfile | null | undefined;
+  practitionerProfile: Practitioner | null | undefined;
   provider: Provider | undefined;
 };
 
@@ -170,7 +165,7 @@ const PractitionerContext = createContext<PractitionerContextProps | undefined>(
 
 export const PractitionerProvider: FC = () => {
   const [accessToken, setAccessToken] = useState<string>('');
-  const [practitionerProfile, setPractitionerProfile] = useState<Partial<PractitionerProfile | null | undefined>>(null);
+  const [practitionerProfile, setPractitionerProfile] = useState<Practitioner | null | undefined>(null);
   const [provider, setProvider] = useState<Provider | undefined>();
   const { state, dispatch } = useContext(DataContext);
   const { isAuthenticated, getAccessTokenSilently } = useAuth0();
@@ -193,15 +188,15 @@ export const PractitionerProvider: FC = () => {
       const user = await getUser(accessToken);
       const [resourceType, userId] = user.profile.split('/');
       const fhirClient = state.fhirClient;
-      const profile = await fhirClient?.readResource({
+      const profile = await fhirClient?.readResource<Practitioner>({
         resourceId: userId,
         resourceType: resourceType,
       });
-      const provider = {
-        firstName: practitionerProfile?.name[0].given[0],
-        lastName: practitionerProfile?.name[0].family,
-        slug: practitionerProfile?.identifier[0].value,
-        title: practitionerProfile?.name[0].prefix[0],
+      const provider: Provider = {
+        firstName: profile?.name && profile.name[0].given ? profile.name[0].given[0] : '',
+        lastName: profile?.name && profile.name[0].family ? profile.name[0].family : '',
+        slug: profile?.identifier && profile.identifier[0].value ? profile.identifier[0].value : '',
+        title: profile?.name && profile.name[0].prefix ? profile.name[0].prefix[0] : '',
       };
       setProvider(provider);
       setPractitionerProfile(profile);
@@ -211,7 +206,7 @@ export const PractitionerProvider: FC = () => {
         console.log(error);
       });
     }
-  }, [accessToken, state.fhirClient, practitionerProfile]);
+  }, [accessToken, state.fhirClient]);
 
   return (
     <PractitionerContext.Provider value={{ practitionerProfile, provider }}>
