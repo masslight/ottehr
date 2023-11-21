@@ -37,14 +37,12 @@ export const Dashboard = (): JSX.Element => {
 
   const hour = DateTime.now().get('hour');
 
-  const copySlugToClipboard = (): void => {
-    async () => {
-      try {
-        await navigator.clipboard.writeText(`${createSlugUrl(provider?.slug)}`);
-      } catch (error) {
-        console.error('Failed to copy room link to clipboard:', error);
-      }
-    };
+  const copySlugToClipboard = async (): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(createSlugUrl(provider?.slug));
+    } catch (error) {
+      console.error('Failed to copy room link to clipboard:', error);
+    }
   };
 
   useEffect(() => {
