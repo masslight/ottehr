@@ -14,6 +14,7 @@ import { JSX } from 'react/jsx-runtime';
 import { usePractitioner } from '../store';
 import { useAuth0 } from '@auth0/auth0-react';
 import { getPatientQueue } from '../api';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 export const Dashboard = (): JSX.Element => {
   const { t } = useTranslation();
@@ -27,9 +28,7 @@ export const Dashboard = (): JSX.Element => {
 
   const [patients, setPatients] = useState<PatientQueueItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-
-  // TODO hard-coded data
-  // const provider = getProvider();
+  const [showCheckIcon, setShowCheckIcon] = useState(false);
 
   const { practitionerProfile, provider } = usePractitioner();
   const providerId = practitionerProfile?.id;
@@ -40,6 +39,8 @@ export const Dashboard = (): JSX.Element => {
   const copySlugToClipboard = async (): Promise<void> => {
     try {
       await navigator.clipboard.writeText(createSlugUrl(provider?.slug));
+      setShowCheckIcon(true);
+      setTimeout(() => setShowCheckIcon(false), 2000);
     } catch (error) {
       console.error('Failed to copy room link to clipboard:', error);
     }
@@ -49,6 +50,8 @@ export const Dashboard = (): JSX.Element => {
     let intervalId: NodeJS.Timeout;
 
     async function fetchPatientsQueue(): Promise<void> {
+      if (!providerId) return;
+
       const accessToken = await getAccessTokenSilently();
       const response = await getPatientQueue(providerId, accessToken);
 
@@ -177,10 +180,14 @@ export const Dashboard = (): JSX.Element => {
                 width: 'fit-content',
               }}
             >
-              <CustomButton icon={<ContentCopyIcon />} onClick={copySlugToClipboard}>
-                {t('dashboard.copyLink')}
+              <CustomButton
+                fitContent
+                icon={showCheckIcon ? <div></div> : <ContentCopyIcon />}
+                onClick={copySlugToClipboard}
+              >
+                {showCheckIcon ? <CheckCircleIcon /> : t('dashboard.copyLink')}
               </CustomButton>
-              <CustomButton icon={<MailOutlineIcon />} secondary sx={{ whiteSpace: 'nowrap' }}>
+              <CustomButton fitContent icon={<MailOutlineIcon />} secondary sx={{ whiteSpace: 'nowrap' }}>
                 {t('dashboard.sendEmail')}
               </CustomButton>
             </Box>
