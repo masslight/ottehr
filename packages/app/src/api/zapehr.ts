@@ -1,5 +1,5 @@
 import { AppClient } from '@zapehr/sdk';
-import { Encounter } from 'fhir/r4';
+import { Encounter, Practitioner } from 'fhir/r4';
 import { chooseJson } from '../helpers/apiUtils';
 
 const ZAMBDA_API_URL = import.meta.env.VITE_PROJECT_API_ZAMBDA_URL;
@@ -136,6 +136,15 @@ export async function getUser(token: string): Promise<zapEHRUser> {
     apiUrl: PROJECT_API_URL,
   });
   return appClient.getMe();
+}
+
+export async function updateProvider(token: string, updatedUser: Practitioner): Promise<zapEHRUser> {
+  const appClient = new AppClient({
+    accessToken: token,
+    apiUrl: PROJECT_API_URL,
+  });
+  console.log(updatedUser);
+  return appClient.updateUser();
 }
 
 // Zambda call wrapper
