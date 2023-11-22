@@ -5,12 +5,13 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import Box from '@mui/material/Box';
-import { Dispatch, FC, SetStateAction, useState } from 'react';
+import { Dispatch, FC, SetStateAction, useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LocalAudioTrack, LocalParticipant, LocalVideoTrack } from 'twilio-video';
 import { otherColors } from '../OttehrThemeProvider';
-import { useVideoParticipant } from '../store';
+import { DataContext, useVideoParticipant } from '../store';
 import { CallSettings } from './CallSettings';
+import { useAuth0 } from '@auth0/auth0-react';
 
 interface VideoControlsProps {
   inCallRoom: boolean;
@@ -21,6 +22,8 @@ export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom, localPartici
   const navigate = useNavigate();
   const { isMicOpen, isVideoOpen, localTracks, room, setIsMicOpen, setIsVideoOpen } = useVideoParticipant();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const { state } = useContext(DataContext);
+  const { isAuthenticated } = useAuth0;
 
   const openSettings = (): void => {
     setIsSettingsOpen(true);
@@ -31,6 +34,23 @@ export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom, localPartici
   };
 
   const disconnect = (): void => {
+    if (isAuthenticated) {
+      state.fhirClient
+        ?.patchResource({
+          operations: [
+            {
+              op: 'replace',
+              path: '/status',
+              value: 'finished',
+            },
+          ],
+          resourceId: room?.name || '',
+          resourceType: 'Encounter',
+        })
+        .catch((err) => {
+          console.error(err);
+        });
+    }
     room?.localParticipant.tracks.forEach((trackPub) => {
       if (trackPub.track.kind === 'audio' || trackPub.track.kind === 'video') {
         (trackPub.track as LocalAudioTrack | LocalVideoTrack).stop();
