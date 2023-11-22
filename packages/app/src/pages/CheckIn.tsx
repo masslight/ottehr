@@ -6,6 +6,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { CustomButton, CustomContainer, LoadingSpinner } from '../components';
 import { useParticipant } from '../store';
 import { getProvider } from '../api';
+import { createProviderName } from '../helpers';
 
 export const CheckIn = (): JSX.Element => {
   const navigate = useNavigate();
@@ -25,7 +26,7 @@ export const CheckIn = (): JSX.Element => {
         console.log('provider', provider);
         if (provider) {
           setProviderId(provider.id || '');
-          setProviderName(provider.name || '');
+          setProviderName(createProviderName(provider));
         }
       } catch (error) {
         console.error('Error fetching provider:', error);

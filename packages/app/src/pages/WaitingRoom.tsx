@@ -4,16 +4,16 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { otherColors } from '../OttehrThemeProvider';
 import { CustomContainer, VideoControls } from '../components';
-import { createProviderName } from '../helpers';
 import { useLocalVideo } from '../hooks';
-import { useVideoParticipant } from '../store';
-import { getProvider } from '../helpers/mockData';
+import { useParticipant, useVideoParticipant } from '../store';
 
 export const WaitingRoom = (): JSX.Element => {
   const navigate = useNavigate();
   const videoRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
   const { room, localTracks } = useVideoParticipant();
+  const { providerName } = useParticipant();
+
   useLocalVideo(videoRef, localTracks);
   // localParticipant is not counted so we start with 1
   const [numParticipants, setNumParticipants] = useState<number>(1);
@@ -42,17 +42,14 @@ export const WaitingRoom = (): JSX.Element => {
     return undefined;
   }, [navigate, numParticipants]);
 
-  // TODO hard-coded data
-  const provider = getProvider();
-
   return (
-    <CustomContainer isProvider={false} subtitle={createProviderName(provider)} title={t('general.waitingRoom')}>
+    <CustomContainer isProvider={false} subtitle={providerName} title={t('general.waitingRoom')}>
       <Typography sx={{ pb: 1 }} variant="h5">
         {t('waitingRoom.startingSoon')}
       </Typography>
       <Typography sx={{ pb: 2.5 }} variant="body1">
         {t('waitingRoom.thanksPrefix')}
-        {createProviderName(provider, false)}
+        {providerName}
         {t('waitingRoom.thanksSuffix')}
       </Typography>
       <Box
