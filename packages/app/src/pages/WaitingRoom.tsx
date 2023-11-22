@@ -39,7 +39,6 @@ export const WaitingRoom = (): JSX.Element => {
     if (numParticipants > 1) {
       navigate(`/video-call/`);
     }
-    return undefined;
   }, [navigate, numParticipants]);
 
   // TODO hard-coded data
