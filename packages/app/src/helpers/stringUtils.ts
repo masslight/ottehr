@@ -24,5 +24,5 @@ export const createPatientName = (patient: any, lastNameFirst?: boolean): string
 };
 
 export const createSlugUrl = (slug: string | undefined): string => {
-  return `https://ottehr.com/${slug}`;
+  return `${import.meta.env.VITE_APP_BASE_URL}/${slug}`;
 };

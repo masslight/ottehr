@@ -168,7 +168,7 @@ export const Dashboard = (): JSX.Element => {
             </Typography>
 
             <Typography color="text.light" sx={{ overflowWrap: 'break-word' }} variant="h5">
-              {createSlugUrl(provider?.slug)}
+              {provider && createSlugUrl(provider.slug)}
             </Typography>
 
             <Box
