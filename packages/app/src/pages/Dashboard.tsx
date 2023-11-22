@@ -86,7 +86,6 @@ export const Dashboard = (): JSX.Element => {
     } else if (provider) {
       setIsLoading(false);
     }
-    return undefined;
   }, [provider]);
 
   return (
