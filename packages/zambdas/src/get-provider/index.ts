@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { createFhirClient } from '../shared';
 import { createZambdaFromSkeleton } from '../shared/zambdaSkeleton';
@@ -39,8 +38,10 @@ const getProvider = async (input: ZambdaFunctionInput): Promise<ZambdaFunctionRe
 
   const provider = providerResponse[0] as Practitioner;
   const providerData = {
+    firstName: provider.name?.[0].given?.join(' '),
     id: provider.id,
-    name: provider.name?.[0].text,
+    lastName: provider.name?.[0].family,
+    title: provider.name?.[0].prefix?.[0],
   };
   return {
     response: {
