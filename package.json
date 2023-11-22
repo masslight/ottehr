@@ -1,0 +1,55 @@
+{
+  "name": "ottehr",
+  "version": "0.0.2",
+  "private": true,
+  "scripts": {
+    "test": "pnpm recursive run test",
+    "build": "sh ./scripts/build.sh",
+    "lint": "eslint packages/",
+    "start": "pnpm start:local",
+    "start:local": "pnpm recursive run start:local",
+    "start:dev": "pnpm recursive run start:dev",
+    "start:dev2": "pnpm recursive run start:dev2",
+    "start:testing": "pnpm recursive run start:testing",
+    "start:staging": "pnpm recursive run start:staging",
+    "update": "pnpm recursive up -L -i"
+  },
+  "packageManager": "pnpm@8.7.6",
+  "engines": {
+    "pnpm": ">=8.0.0",
+    "node": ">=18.0.0"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@changesets/cli": "2.26.2",
+    "@types/fhir": "^0.0.35",
+    "@types/jsonwebtoken": "9.0.4",
+    "@types/luxon": "^3.1.0",
+    "@typescript-eslint/eslint-plugin": "^5.45.0",
+    "@typescript-eslint/parser": "^5.45.0",
+    "env-cmd": "^10.1.0",
+    "eslint": "^8.29.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-prettier": "^4.2.1",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-typescript-sort-keys": "^3.1.0",
+    "prettier": "^2.8.0",
+    "typescript": "^4.7.4"
+  },
+  "dependencies": {
+    "axios": "1.5.1",
+    "jsonwebtoken": "9.0.2"
+  }
+}
