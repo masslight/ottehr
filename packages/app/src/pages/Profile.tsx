@@ -1,11 +1,13 @@
 import { t } from 'i18next';
-import { CustomContainer, ProviderFields } from '../components';
+import { CustomContainer, LoadingSpinner, ProviderFields } from '../components';
 import { useForm } from 'react-hook-form';
 import { usePractitioner } from '../store/Context';
 import { FormData } from './Register';
 import { createProviderName } from '../helpers';
 
 export const Profile = (): JSX.Element => {
+  const { provider } = usePractitioner();
+
   const {
     control,
     formState: { errors },
@@ -13,17 +15,22 @@ export const Profile = (): JSX.Element => {
   } = useForm<FormData>({
     defaultValues: {
       email: '',
-      firstName: '',
+      firstName: provider?.firstName,
       lastName: '',
       slug: '',
       title: '',
     },
   });
-  const { provider } = usePractitioner();
+  console.log(provider);
+
   const onSubmit = (data: FormData): void => {
     console.log(data);
-    // TODO: form submission structure
+    // TODO: form submission structure || ''
   };
+
+  if (!provider) {
+    return <LoadingSpinner transparent={false} />;
+  }
 
   return (
     <CustomContainer isProvider={true} subtitle={createProviderName(provider)} title={t('profile.myProfile')}>
