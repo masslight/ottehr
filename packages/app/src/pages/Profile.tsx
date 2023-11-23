@@ -11,9 +11,9 @@ import { useEffect, useState } from 'react';
 import { Alert, Snackbar } from '@mui/material';
 
 export const Profile = (): JSX.Element => {
+  const { getAccessTokenSilently } = useAuth0();
   const { provider, practitionerProfile } = usePractitioner();
   const providerPatchOps: Operation[] = [];
-  const { getAccessTokenSilently } = useAuth0();
   const [openSnackbar, setOpenSnackbar] = useState(false);
 
   const {
@@ -34,12 +34,9 @@ export const Profile = (): JSX.Element => {
   useEffect(() => {
     reset({
       ...provider,
-      // title: provider?.title?.toLowerCase(),
+      title: provider?.title?.toLowerCase(),
     });
   }, [provider, reset]);
-
-  console.log(provider);
-  console.log('practitionerProfile', practitionerProfile);
 
   const onSubmit = (data: FormData): void => {
     updatePractitioner(data)
@@ -100,7 +97,7 @@ export const Profile = (): JSX.Element => {
       />
       <Snackbar autoHideDuration={6000} onClose={handleCloseSnackbar} open={openSnackbar}>
         <Alert onClose={handleCloseSnackbar} severity="error" sx={{ width: '100%' }}>
-          {t('errors.updateError')}
+          {t('errors.updateUserError')}
         </Alert>
       </Snackbar>
     </CustomContainer>
