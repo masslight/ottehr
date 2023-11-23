@@ -93,6 +93,9 @@ importers:
       '@zapehr/sdk':
         specifier: ^1.0.8
         version: 1.0.10
+      fast-json-patch:
+        specifier: ^3.1.1
+        version: 3.1.1
       i18next:
         specifier: 23.6.0
         version: 23.6.0

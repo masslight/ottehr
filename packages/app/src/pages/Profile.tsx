@@ -4,9 +4,14 @@ import { useForm } from 'react-hook-form';
 import { usePractitioner } from '../store/Context';
 import { FormData } from './Register';
 import { createProviderName } from '../helpers';
+import { Operation } from 'fast-json-patch';
+import { updateProvider } from '../api';
+import { useAuth0 } from '@auth0/auth0-react';
 
 export const Profile = (): JSX.Element => {
-  const { provider } = usePractitioner();
+  const { provider, practitionerProfile } = usePractitioner();
+  const providerPatchOps: Operation[] = [];
+  const { getAccessTokenSilently } = useAuth0();
 
   const {
     control,
@@ -22,11 +27,34 @@ export const Profile = (): JSX.Element => {
     },
   });
   console.log(provider);
+  console.log('practitionerProfile', practitionerProfile);
 
   const onSubmit = (data: FormData): void => {
-    console.log(data);
-    // TODO: form submission structure || ''
+    console.log('data', data);
+    updatePractitioner(data).catch((error) => {
+      console.log(error);
+    });
   };
+
+  async function updatePractitioner(data: FormData): Promise<void> {
+    const accessToken = await getAccessTokenSilently();
+    // TODO: ADD PATCH OPERATIONS FOR ALL FIELDS
+    // providerPatchOps.push({
+    //   op: practitionerProfile?.identifier?.[0].value ? 'replace' : 'add',
+    //   path: '/identifier/0/value',
+    //   value: data.slug,
+    // });
+
+    providerPatchOps.push({
+      op: practitionerProfile?.name?.[0].family ? 'replace' : 'add',
+      path: '/name/0/family',
+      value: data.lastName,
+    });
+
+    updateProvider(accessToken, practitionerProfile?.id || '', providerPatchOps).catch((error) => {
+      console.log(error);
+    });
+  }
 
   if (!provider) {
     return <LoadingSpinner transparent={false} />;

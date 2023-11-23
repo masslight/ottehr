@@ -1,6 +1,7 @@
-import { AppClient } from '@zapehr/sdk';
-import { Encounter, Practitioner } from 'fhir/r4';
+import { AppClient, FhirClient } from '@zapehr/sdk';
+import { Encounter, Practitioner, Resource } from 'fhir/r4';
 import { chooseJson } from '../helpers/apiUtils';
+import { Operation } from 'fast-json-patch';
 
 const ZAMBDA_API_URL = import.meta.env.VITE_PROJECT_API_ZAMBDA_URL;
 const PROJECT_API_URL = import.meta.env.VITE_PROJECT_API_URL;
@@ -138,13 +139,25 @@ export async function getUser(token: string): Promise<zapEHRUser> {
   return appClient.getMe();
 }
 
-export async function updateProvider(token: string, updatedUser: Practitioner): Promise<zapEHRUser> {
-  const appClient = new AppClient({
+export async function updateProvider(
+  token: string,
+  practitionerId: string,
+  patchOperations: Operation[]
+): Promise<void | Resource> {
+  const fhirClient = new FhirClient({
     accessToken: token,
-    apiUrl: PROJECT_API_URL,
+    apiUrl: import.meta.env.VITE_FHIR_API_URL,
   });
-  console.log(updatedUser);
-  return appClient.updateUser();
+  console.log('fhirClient', fhirClient);
+  return fhirClient
+    .patchResource({
+      operations: patchOperations,
+      resourceId: practitionerId,
+      resourceType: 'Practitioner',
+    })
+    .catch((error) => {
+      console.error('Error updating provider:', error);
+    });
 }
 
 // Zambda call wrapper
