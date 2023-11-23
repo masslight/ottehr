@@ -16,9 +16,9 @@ export const Profile = (): JSX.Element => {
     defaultValues: {
       email: '',
       firstName: provider?.firstName,
-      lastName: '',
-      slug: '',
-      title: '',
+      lastName: provider?.lastName,
+      slug: provider?.slug,
+      title: provider?.title.toLowerCase(),
     },
   });
   console.log(provider);
