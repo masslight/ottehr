@@ -133,7 +133,7 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
         <Controller
           control={control}
           name="email"
-          render={({ field }) => <TextField {...field} label="Email Address" variant="outlined" />}
+          render={({ field }) => <TextField {...field} disabled={true} label="Email Address" variant="outlined" />}
         />
         {isRegister && (
           <>

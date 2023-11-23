@@ -7,49 +7,79 @@ import { createProviderName } from '../helpers';
 import { Operation } from 'fast-json-patch';
 import { updateProvider } from '../api';
 import { useAuth0 } from '@auth0/auth0-react';
+import { useEffect, useState } from 'react';
+import { Alert, Snackbar } from '@mui/material';
 
 export const Profile = (): JSX.Element => {
   const { provider, practitionerProfile } = usePractitioner();
   const providerPatchOps: Operation[] = [];
   const { getAccessTokenSilently } = useAuth0();
+  const [openSnackbar, setOpenSnackbar] = useState(false);
 
   const {
     control,
     formState: { errors },
     handleSubmit,
+    reset,
   } = useForm<FormData>({
     defaultValues: {
       email: '',
-      firstName: provider?.firstName,
-      lastName: provider?.lastName,
-      slug: provider?.slug,
-      title: provider?.title.toLowerCase(),
+      firstName: '',
+      lastName: '',
+      slug: '',
+      title: '',
     },
   });
+
+  useEffect(() => {
+    reset({
+      ...provider,
+      // title: provider?.title?.toLowerCase(),
+    });
+  }, [provider, reset]);
+
   console.log(provider);
   console.log('practitionerProfile', practitionerProfile);
 
   const onSubmit = (data: FormData): void => {
-    console.log('data', data);
-    updatePractitioner(data).catch((error) => {
-      console.log(error);
-    });
+    updatePractitioner(data)
+      .then(() => {
+        window.location.reload();
+      })
+      .catch((error) => {
+        console.log(error);
+        setOpenSnackbar(true);
+      });
+  };
+
+  const handleCloseSnackbar = (): void => {
+    setOpenSnackbar(false);
   };
 
   async function updatePractitioner(data: FormData): Promise<void> {
     const accessToken = await getAccessTokenSilently();
-    // TODO: ADD PATCH OPERATIONS FOR ALL FIELDS
-    // providerPatchOps.push({
-    //   op: practitionerProfile?.identifier?.[0].value ? 'replace' : 'add',
-    //   path: '/identifier/0/value',
-    //   value: data.slug,
-    // });
-
-    providerPatchOps.push({
-      op: practitionerProfile?.name?.[0].family ? 'replace' : 'add',
-      path: '/name/0/family',
-      value: data.lastName,
-    });
+    providerPatchOps.push(
+      {
+        op: practitionerProfile?.identifier?.[0].value ? 'replace' : 'add',
+        path: '/identifier/0/value',
+        value: data.slug,
+      },
+      {
+        op: practitionerProfile?.name?.[0].given?.[0] ? 'replace' : 'add',
+        path: '/name/0/given/0',
+        value: data.firstName,
+      },
+      {
+        op: practitionerProfile?.name?.[0].family ? 'replace' : 'add',
+        path: '/name/0/family',
+        value: data.lastName,
+      },
+      {
+        op: practitionerProfile?.name?.[0].prefix?.[0] ? 'replace' : 'add',
+        path: '/name/0/prefix/0',
+        value: data.title,
+      }
+    );
 
     updateProvider(accessToken, practitionerProfile?.id || '', providerPatchOps).catch((error) => {
       console.log(error);
@@ -68,6 +98,11 @@ export const Profile = (): JSX.Element => {
         errors={errors}
         onSubmit={handleSubmit(onSubmit)}
       />
+      <Snackbar autoHideDuration={6000} onClose={handleCloseSnackbar} open={openSnackbar}>
+        <Alert onClose={handleCloseSnackbar} severity="error" sx={{ width: '100%' }}>
+          {t('errors.updateError')}
+        </Alert>
+      </Snackbar>
     </CustomContainer>
   );
 };

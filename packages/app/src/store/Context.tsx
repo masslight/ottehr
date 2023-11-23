@@ -149,7 +149,10 @@ export const useVideoParticipant = (): VideoParticipantContextProps => {
   return context;
 };
 
+// Provider
+
 type Provider = {
+  email: string;
   firstName: string;
   lastName: string;
   slug: string;
@@ -193,6 +196,7 @@ export const PractitionerProvider: FC = () => {
         resourceType: resourceType,
       });
       const provider: Provider = {
+        email: profile?.telecom && profile.telecom[0].value ? profile.telecom[0].value : '',
         firstName: profile?.name && profile.name[0].given ? profile.name[0].given[0] : '',
         lastName: profile?.name && profile.name[0].family ? profile.name[0].family : '',
         slug: profile?.identifier && profile.identifier[0].value ? profile.identifier[0].value : '',
