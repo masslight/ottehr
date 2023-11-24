@@ -34,19 +34,14 @@ export const Profile = (): JSX.Element => {
   useEffect(() => {
     reset({
       ...provider,
-      title: provider?.title?.toLowerCase(),
     });
   }, [provider, reset]);
 
   const onSubmit = (data: FormData): void => {
-    updatePractitioner(data)
-      .then(() => {
-        window.location.reload();
-      })
-      .catch((error) => {
-        console.log(error);
-        setOpenSnackbar(true);
-      });
+    updatePractitioner(data).catch((error) => {
+      console.log(error);
+      setOpenSnackbar(true);
+    });
   };
 
   const handleCloseSnackbar = (): void => {
