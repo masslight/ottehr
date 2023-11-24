@@ -50,7 +50,7 @@ export const TopAppBar: FC = () => {
   const provider = getProvider();
 
   return (
-    <AppBar position="static" sx={{ backgroundColor: otherColors.footerBackground, width: '100vw' }}>
+    <AppBar position="static" sx={{ backgroundColor: otherColors.footerBackground }}>
       <Container maxWidth={false}>
         <Toolbar
           disableGutters
