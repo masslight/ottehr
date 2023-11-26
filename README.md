@@ -17,9 +17,11 @@ Each package has its own README explaining in more detail its purpose, as well a
 - Use nvm to install node 18: `nvm install 18`.
 - Use nvm to make node 18 your default node: `nvm alias default 18`.
 
+Upon successful installation, verify the setup by executing the following command: `node -v`. If the installation was successful, this command should provide the version of Node currently installed
+
 ### ESLint
 
-To keep our code easily readable, there is a rigorous ESLint configuration enforced. VSCode is recommended for coding because it provides an excellent live linting experience.
+To enhance code readability, we maintain a robust ESLint configuration that ensures strict adherence to coding standards. For an optimal coding experience with real-time linting feedback, we highly recommend using Visual Studio Code (VSCode), which offers an outstanding live linting environment.
 
 To get linting in VSCode:
 
@@ -31,7 +33,9 @@ To get linting in VSCode:
 
 ### Installing `pnpm`
 
-The easiest way to get started is to use the brew command:
+The easiest way to get started is to use the [brew](https://brew.sh/) command:
+
+*If Homebrew is not yet installed on your system, you can easily set it up [here](https://brew.sh/).*
 
 ```bash
 brew install pnpm
@@ -41,7 +45,7 @@ Otherwise, you can install it onto your machine using the [documentation](https:
 
 ### Getting started
 
-Run `pnpm i` at the top level to install dependencies for all packages in the monorepo. Then run `pnpm start` to start all packages locally.
+Run `pnpm i` at the root level to install dependencies for all packages in the monorepo. Then run `pnpm start` to start all packages locally.
 
 ## Scripts
 
