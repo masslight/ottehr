@@ -3,9 +3,11 @@ import inquirer from 'inquirer';
 import fetch from 'node-fetch';
 import fs from 'fs';
 import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import { inviteUser } from './invite-user';
 
-async function getUserInput(): Promise<{ accessToken: string; projectId: string }> {
-  const { accessToken, projectId } = await inquirer.prompt([
+async function getUserInput(): Promise<{ accessToken: string; projectId: string; providerEmail: string }> {
+  const { accessToken, projectId, providerEmail } = await inquirer.prompt([
     {
       message: 'Please enter your access token:',
       name: 'accessToken',
@@ -18,11 +20,17 @@ async function getUserInput(): Promise<{ accessToken: string; projectId: string 
       type: 'input',
       validate: (input: any) => !!input || 'Project id is required',
     },
+    {
+      message: 'Please enter the email of your first provider:',
+      name: 'providerEmail',
+      type: 'input',
+      validate: (input: any) => !!input || 'Provider email is required',
+    },
   ]);
-  return { accessToken, projectId };
+  return { accessToken, projectId, providerEmail };
 }
 
-function createApplication(accessToken: string, projectId: string): Promise<string> {
+function createApplication(accessToken: string, projectId: string): Promise<[string, string]> {
   return new Promise((resolve, reject) => {
     fetch('https://project-api.zapehr.com/v1/application', {
       headers: {
@@ -49,7 +57,7 @@ function createApplication(accessToken: string, projectId: string): Promise<stri
           throw new Error(`Failed to create application. Status: ${response.status}`);
         }
       })
-      .then((data) => resolve(data.clientId))
+      .then((data) => resolve([data.id, data.clientId]))
       .catch((error) => reject(error));
   });
 }
@@ -89,6 +97,11 @@ function createM2M(accessToken: string, projectId: string): Promise<[string, str
               action: ['Zambda:*'],
               effect: 'Allow',
             },
+            {
+              resource: ['IAM:M2MClient:*'],
+              action: ['IAM:ListAllM2MClients', 'IAM:GetM2MClient'],
+              effect: 'Allow',
+            },
           ],
         },
       }),
@@ -97,6 +110,7 @@ function createM2M(accessToken: string, projectId: string): Promise<[string, str
         if (response.status === 200) {
           return response.json();
         } else {
+          console.error('response', response);
           throw new Error(`Failed to create M2M client. Status: ${response.status}`);
         }
       })
@@ -140,13 +154,12 @@ function createZambdaEnv(projectId: string, m2mClientId: string, m2mSecret: stri
     PROJECT_ID: projectId,
   };
 
-  const envFolderPath = '/Users/nathan/Development/zapEHR/ottehr/packages/zambdas/.env';
+  const envFolderPath = 'packages/zambdas/.env';
   const envPath = path.join(envFolderPath, 'local.json');
 
   if (!fs.existsSync(envFolderPath)) {
     fs.mkdirSync(envFolderPath, { recursive: true });
   }
-  console.log('envPath', envPath, 'envData', envData);
   fs.writeFileSync(envPath, JSON.stringify(envData, null, 2));
 }
 
@@ -167,12 +180,13 @@ function duplicateEnvTemplate(clientId: string, projectId: string): void {
 }
 
 async function runCLI(): Promise<void> {
-  const { accessToken, projectId } = await getUserInput();
+  const { accessToken, projectId, providerEmail } = await getUserInput();
+  const slug = uuidv4();
   console.log('Starting setup...');
 
   Promise.all([createApplication(accessToken, projectId), createM2M(accessToken, projectId)])
-    .then(([clientId, [m2mClientId, m2mSecret]]) => {
-      console.log('Scripts completed successfully.');
+    .then(([[applicationId, clientId], [m2mClientId, m2mSecret]]) => {
+      console.log('App and m2m setup completed successfully.');
 
       // Run nodejs typescript to create packages/zambdas/.env/local.json
       createZambdaEnv(projectId, m2mClientId, m2mSecret);
@@ -180,6 +194,17 @@ async function runCLI(): Promise<void> {
       // Run nodejs typescript to duplicate packages/app/env/.env.local-template
       // and update it with application client ID and project ID
       duplicateEnvTemplate(clientId, projectId);
+      console.log('Starting to create sample provider.');
+      return inviteUser(providerEmail, undefined, slug, undefined, undefined, '../.env/local.json', applicationId);
+    })
+    .then((invitationUrl) => {
+      console.log(
+        `User with email \x1b[35m${providerEmail}\x1b[0m can gain access to their account by navigating to URL \x1b[35m${invitationUrl}\x1b[0m`
+      );
+      console.log(
+        `Login to the provider dashboard by navigating to URL \x1b[35mhttp://localhost:5173/dashboard\x1b[0m`
+      );
+      console.log(`Join the waiting room by navigating to URL \x1b[35mhttp://localhost:5173/${slug}\x1b[0m`);
     })
     .catch((error) => {
       console.error('Error running scripts:', error);

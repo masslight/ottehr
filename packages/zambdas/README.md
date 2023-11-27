@@ -2,9 +2,37 @@
 
 Back end zambdas for the Ottehr application. These endpoints are responsible for everything from fetching provider profiles to creating and managing video rooms.
 
-## Setup
+## First Time Setup
 
-Before you can run locally or deploy, you must copy in the env files from the [ottehr-secrets](https://github.com/masslight/ottehr-secrets) repository. These should be copied into [`.env/`](./.env/) (e.g. dev: [`.env/dev.json`](./.env/dev.json)).
+The rest of this setup guide assumes that you have access to a ZapEHR project and have cloned down a fork of the ottehr repository. If you have not, please follow these steps:
+
+1. Fork Ottehr: https://github.com/masslight/ottehr/fork
+2. Copy your fork SSH clone link and `git clone git@github.com:{your_profile}/ottehr.git` in the folder you'd like to use
+3. (optional) Add ottehr as upstream `git remote add upstream git@github.com:masslight/ottehr.git`
+4. Open repo in editor of your choice, I will use vscode `code .vscode/Ottehr.code-workspace`
+
+Before you continue, please ensure that you have node v18.x and pnpm installed on your machine. We recommend [nvm](https://github.com/nvm-sh/nvm) for managing your node installation and pnpm can be installed with homebrew with this command: `brew install pnpm`.
+
+After you have these dependencies installed, please execute the setup script from the root directory:
+
+```bash
+sh scripts/setup.sh
+```
+
+You will be asked for this information as input:
+- Your access token. Login to your [ZapEHR project](https://console.zapehr.com) and copy the access token from the dashboard.
+- Your project ID. You can find this on the [ZapEHR project details page](https://console.zapehr.com)
+- Your first provider email. This can be your email.
+
+This script will create various ZapEHR resources that are needed for you to begin development. After the script finishes running, there will be important links highlighted in magenta. You should follow these steps:
+
+1. Find the reset password link in the console output and navigate to the url in your browser. Provide a password.
+2. Navigate to `http://localhost:5173/dashboard` and login using the email you provided to the script and the password you chose.
+3. Open a new tab and navigate to the waiting room URL. This was output in the script logs and is shown in the provider dashboard. It looks like `http://localhost:5173/{uuid}`
+4. Enter your name to act as the patient and begin the call. Grant video/audio permissions.
+5. Accept the call from your provider tab.
+
+You should now be on a video call with yourself.
 
 ## Run Locally
 
