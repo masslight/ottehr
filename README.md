@@ -1,14 +1,5 @@
 # Ottehr
 
-## Repository Structure
-
-This repository uses a monorepo structure. Each package has its own code in its respective folder in [`packages/`](./packages/).
-
-- `app` - The static frontend website that patients use to join their telehealth visit and providers use to answer.
-- `zambdas` - The application's back end endpoints, deployed on the zapEHR platform.
-
-Each package has its own README explaining in more detail its purpose, as well as how to run locally and deploy (if applicable).
-
 ## First Time Setup
 
 ### Node
@@ -27,7 +18,7 @@ brew install pnpm
 
 Otherwise, you can install it onto your machine using the [documentation](https://pnpm.io/installation).
 
-### Getting Started
+### Setup Script
 
 The rest of this setup guide assumes that you have access to a ZapEHR project and have cloned down a fork of the ottehr repository. If you have not, please follow these steps:
 
@@ -47,7 +38,7 @@ sh scripts/setup.sh
 You will be asked for this information as input:
 
 - Your access token. Login to your [ZapEHR project](https://console.zapehr.com) and copy the access token from the dashboard.
-- Your project ID. You can find this on the [ZapEHR project details page](https://console.zapehr.com)
+- Your project ID. You can find this on the [ZapEHR project details page](https://console.zapehr.com/project)
 - Your first provider email. This can be your email.
 
 This script will create various ZapEHR resources that are needed for you to begin development. After the script finishes running, there will be important links highlighted in magenta. You should follow these steps:
@@ -71,6 +62,15 @@ To get linting in VSCode:
 3. (Optional) Use the [VSCode workspace](./.vscode/Ottehr.code-workspace) for a helpful alternative organization of the project in the VSCode 'Explorer', which most developers find useful. This can be opened in 2 ways:
    1. Open [the file](./.vscode/Ottehr.code-workspace) in VS Code. Click on the "Open Workspace" button in the bottom-right.
    2. `code .vscode/Ottehr.code-workspace`
+
+## Repository Structure
+
+This repository uses a monorepo structure. Each package has its own code in its respective folder in [`packages/`](./packages/).
+
+- `app` - The static frontend website that patients use to join their telehealth visit and providers use to answer.
+- `zambdas` - The application's back end endpoints, deployed on the zapEHR platform.
+
+Each package has its own README explaining in more detail its purpose, as well as how to run locally and deploy (if applicable).
 
 ## Scripts
 
