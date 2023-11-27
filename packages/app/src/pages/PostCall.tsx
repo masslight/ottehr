@@ -1,15 +1,18 @@
-import { Typography } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { CustomButton, CustomContainer } from '../components';
+import { CustomButton, CustomContainer, LoadingSpinner } from '../components';
 import { createPatientName, createProviderName } from '../helpers';
 import { useAuth0 } from '@auth0/auth0-react';
 import { getPatients, getProvider } from '../helpers/mockData';
+import { useEffect, useState } from 'react';
 
 export const PostCall = (): JSX.Element => {
   const { isAuthenticated } = useAuth0();
+  const theme = useTheme();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const goToDashboard = (): void => {
     navigate('/dashboard');
@@ -30,21 +33,38 @@ export const PostCall = (): JSX.Element => {
     title = t('general.waitingRoom');
   }
 
+  useEffect(() => {
+    if (!provider) {
+      setIsLoading(true);
+    } else if (provider) {
+      setIsLoading(false);
+    }
+  }, [provider]);
+
   return (
     <CustomContainer isProvider={isAuthenticated} subtitle={subtitle} title={title}>
-      <Typography mb={1} variant="h5">
-        {t('postCall.callEnded')}
-      </Typography>
-      <Typography mb={1} variant="body1">
-        {t('postCall.durationPrefix')}
-        {mockCallDuration}
-        {t('postCall.durationSuffix')}
-      </Typography>
-      {isAuthenticated && (
-        <CustomButton fitContent onClick={goToDashboard}>
-          {t('postCall.goToDashboard')}
-        </CustomButton>
-      )}
+      <Box
+        sx={{
+          [theme.breakpoints.down('md')]: {
+            mx: 2,
+          },
+        }}
+      >
+        {isLoading && <LoadingSpinner transparent={false} />}
+        <Typography mb={1} variant="h5">
+          {t('postCall.callEnded')}
+        </Typography>
+        <Typography mb={1} variant="body1">
+          {t('postCall.durationPrefix')}
+          {mockCallDuration}
+          {t('postCall.durationSuffix')}
+        </Typography>
+        {isAuthenticated && (
+          <CustomButton fitContent onClick={goToDashboard}>
+            {t('postCall.goToDashboard')}
+          </CustomButton>
+        )}
+      </Box>
     </CustomContainer>
   );
 };

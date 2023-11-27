@@ -10,6 +10,7 @@ import {
   Select,
   TextField,
   Typography,
+  useTheme,
 } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
 import { Control, Controller } from 'react-hook-form';
@@ -20,6 +21,7 @@ import { useDebounce } from '../hooks';
 import { CustomButton } from './CustomButton';
 import { ReturnErrorMessage } from './ReturnErrorMessage';
 import { getProvider, getTitles } from '../helpers/mockData';
+import { usePractitioner } from '../store';
 
 interface ProviderFieldsProps {
   buttonText: string;
@@ -30,9 +32,9 @@ interface ProviderFieldsProps {
 }
 export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, errors, isRegister, onSubmit }) => {
   const { t } = useTranslation();
-  // TODO hard-coded data
-  const provider = getProvider();
-  const [slug, setSlug] = useState(provider.slug);
+  const { provider } = usePractitioner();
+  const theme = useTheme();
+  const [slug, setSlug] = useState(provider?.slug);
   const [slugError, setSlugError] = useState('');
 
   const debouncedUpdateSlug = useDebounce(async () => {
@@ -60,7 +62,16 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
 
   return (
     <form onSubmit={onSubmit}>
-      <Box sx={{ alignItems: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          [theme.breakpoints.down('md')]: {
+            mx: 2,
+          },
+        }}
+      >
         {/*
           TODO form labels translated without breaking react hook form/back end submission.
           TODO react hook form for all fields
