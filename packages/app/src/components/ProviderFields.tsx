@@ -19,7 +19,8 @@ import { createSlugUrl } from '../helpers';
 import { useDebounce } from '../hooks';
 import { CustomButton } from './CustomButton';
 import { ReturnErrorMessage } from './ReturnErrorMessage';
-import { getProvider, getTitles } from '../helpers/mockData';
+import { getTitles } from '../helpers/mockData';
+import { usePractitioner } from '../store';
 
 interface ProviderFieldsProps {
   buttonText: string;
@@ -30,18 +31,17 @@ interface ProviderFieldsProps {
 }
 export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, errors, isRegister, onSubmit }) => {
   const { t } = useTranslation();
-  // TODO hard-coded data
-  const provider = getProvider();
-  const [slug, setSlug] = useState(provider.slug);
+  const { provider, practitionerProfile } = usePractitioner();
+  const [slug, setSlug] = useState(provider?.slug);
   const [slugError, setSlugError] = useState('');
-
+  console.log('control', control);
   const debouncedUpdateSlug = useDebounce(async () => {
-    const { error, response } = await getSlugAvailability(slug);
-    let errorMessage: string | undefined;
-    if (error) {
-      errorMessage = ReturnErrorMessage(error);
-      setSlugError(errorMessage);
-    }
+    const response = await getSlugAvailability(slug, practitionerProfile?.id);
+    // let errorMessage: string | undefined;
+    // if (error) {
+    //   errorMessage = ReturnErrorMessage(error);
+    //   setSlugError(errorMessage);
+    // }
     if (response?.available) {
       setSlugError('');
     } else {
@@ -133,7 +133,7 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
         <Controller
           control={control}
           name="email"
-          render={({ field }) => <TextField {...field} label="Email Address" variant="outlined" />}
+          render={({ field }) => <TextField {...field} disabled={true} label="Email Address" variant="outlined" />}
         />
         {isRegister && (
           <>
