@@ -18,7 +18,7 @@ import { getSlugAvailability } from '../api';
 import { createSlugUrl } from '../helpers';
 import { useDebounce } from '../hooks';
 import { CustomButton } from './CustomButton';
-import { ReturnErrorMessage } from './ReturnErrorMessage';
+// import { ReturnErrorMessage } from './ReturnErrorMessage';
 import { getTitles } from '../helpers/mockData';
 import { usePractitioner } from '../store';
 

@@ -1,5 +1,5 @@
 import { AppClient, FhirClient } from '@zapehr/sdk';
-import { Encounter, Practitioner, Resource } from 'fhir/r4';
+import { Encounter, Resource } from 'fhir/r4';
 import { chooseJson } from '../helpers/apiUtils';
 import { Operation } from 'fast-json-patch';
 
