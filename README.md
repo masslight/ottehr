@@ -17,6 +17,49 @@ Each package has its own README explaining in more detail its purpose, as well a
 - Use nvm to install node 18: `nvm install 18`.
 - Use nvm to make node 18 your default node: `nvm alias default 18`.
 
+### Installing `pnpm`
+
+The easiest way to get started is to use the brew command:
+
+```bash
+brew install pnpm
+```
+
+Otherwise, you can install it onto your machine using the [documentation](https://pnpm.io/installation).
+
+### Getting Started
+
+The rest of this setup guide assumes that you have access to a ZapEHR project and have cloned down a fork of the ottehr repository. If you have not, please follow these steps:
+
+1. Fork Ottehr: https://github.com/masslight/ottehr/fork
+2. Copy your fork SSH clone link and `git clone git@github.com:{your_profile}/ottehr.git` in the folder you'd like to use
+3. (optional) Add ottehr as upstream `git remote add upstream git@github.com:masslight/ottehr.git`
+4. Open repo in editor of your choice, I will use vscode `code .vscode/Ottehr.code-workspace`
+
+Before you continue, please ensure that you have [node](#node) v18.x and [pnpm](#installing-pnpm) installed on your machine.
+
+After you have these dependencies installed, please execute the setup script from the root directory:
+
+```bash
+sh scripts/setup.sh
+```
+
+You will be asked for this information as input:
+
+- Your access token. Login to your [ZapEHR project](https://console.zapehr.com) and copy the access token from the dashboard.
+- Your project ID. You can find this on the [ZapEHR project details page](https://console.zapehr.com)
+- Your first provider email. This can be your email.
+
+This script will create various ZapEHR resources that are needed for you to begin development. After the script finishes running, there will be important links highlighted in magenta. You should follow these steps:
+
+1. Find the reset password link in the console output and navigate to the url in your browser. Provide a password.
+2. Navigate to `http://localhost:5173/dashboard` and login using the email you provided to the script and the password you chose.
+3. Open a new tab and navigate to the waiting room URL. This was output in the script logs and is shown in the provider dashboard. It looks like `http://localhost:5173/{uuid}`
+4. Enter your name to act as the patient and begin the call. Grant video/audio permissions.
+5. Accept the call from your provider tab.
+
+You should now be on a video call with yourself.
+
 ### ESLint
 
 To keep our code easily readable, there is a rigorous ESLint configuration enforced. VSCode is recommended for coding because it provides an excellent live linting experience.
@@ -28,20 +71,6 @@ To get linting in VSCode:
 3. (Optional) Use the [VSCode workspace](./.vscode/Ottehr.code-workspace) for a helpful alternative organization of the project in the VSCode 'Explorer', which most developers find useful. This can be opened in 2 ways:
    1. Open [the file](./.vscode/Ottehr.code-workspace) in VS Code. Click on the "Open Workspace" button in the bottom-right.
    2. `code .vscode/Ottehr.code-workspace`
-
-### Installing `pnpm`
-
-The easiest way to get started is to use the brew command:
-
-```bash
-brew install pnpm
-```
-
-Otherwise, you can install it onto your machine using the [documentation](https://pnpm.io/installation).
-
-### Getting started
-
-Run `pnpm i` at the top level to install dependencies for all packages in the monorepo. Then run `pnpm start` to start all packages locally.
 
 ## Scripts
 
