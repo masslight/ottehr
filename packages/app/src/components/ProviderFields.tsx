@@ -71,7 +71,7 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
               <InputLabel>Title</InputLabel>
               <Select label="Title" {...field}>
                 {titles.map((title) => (
-                  <MenuItem key={title} value={title.toLowerCase()}>
+                  <MenuItem key={title} value={title}>
                     {t(`profile.titleOption.${title.toLowerCase()}`)}
                   </MenuItem>
                 ))}
