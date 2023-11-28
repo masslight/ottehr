@@ -1,4 +1,4 @@
-import { Box, Container } from '@mui/material';
+import { Box, Container, useTheme } from '@mui/material';
 import { FC, ReactNode } from 'react';
 import { Footer } from './Footer';
 import { Header } from './Header';
@@ -10,6 +10,7 @@ interface CustomContainerProps {
   title: string;
 }
 export const CustomContainer: FC<CustomContainerProps> = ({ children, isProvider, subtitle, title }) => {
+  const theme = useTheme();
   return (
     <Container
       disableGutters
@@ -28,7 +29,13 @@ export const CustomContainer: FC<CustomContainerProps> = ({ children, isProvider
         display="flex"
         flexDirection="column"
         justifyContent="space-between"
-        sx={{ height: '100%', m: 0 }}
+        sx={{
+          height: '100%',
+          m: 0,
+          [theme.breakpoints.down('md')]: {
+            mx: 2,
+          },
+        }}
       >
         <Header isProvider={isProvider} subtitle={subtitle} title={title} />
         <Container

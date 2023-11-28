@@ -1,5 +1,5 @@
 import { TextField, Typography } from '@mui/material';
-import { Box } from '@mui/system';
+import { Box, useTheme } from '@mui/system';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -13,6 +13,7 @@ export const CheckIn = (): JSX.Element => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const { patientName, setPatientName, providerName, setProviderName, setProviderId } = useParticipant();
   const { t } = useTranslation();
+  const theme = useTheme();
   const [isError, setIsError] = useState(false);
   const [name, setName] = useState(patientName);
 
@@ -57,7 +58,13 @@ export const CheckIn = (): JSX.Element => {
   return (
     <CustomContainer isProvider={false} subtitle={providerName || ''} title={t('general.waitingRoom')}>
       {providerName ? (
-        <>
+        <Box
+          sx={{
+            [theme.breakpoints.down('md')]: {
+              mx: 2,
+            },
+          }}
+        >
           <Typography sx={{ pb: 1 }} variant="h5">
             {t('checkIn.checkIn')}
           </Typography>
@@ -85,7 +92,7 @@ export const CheckIn = (): JSX.Element => {
               <CustomButton submit>{t('checkIn.checkIn')}</CustomButton>
             </Box>
           </form>
-        </>
+        </Box>
       ) : (
         <Box alignItems="center" display="flex" justifyContent="center" style={{ height: '100%', width: '100%' }}>
           <Typography component="h2" style={{ textAlign: 'center' }} variant="h4">
