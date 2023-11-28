@@ -18,7 +18,6 @@ import { getSlugAvailability } from '../api';
 import { createSlugUrl } from '../helpers';
 import { useDebounce } from '../hooks';
 import { CustomButton } from './CustomButton';
-// import { ReturnErrorMessage } from './ReturnErrorMessage';
 import { getTitles } from '../helpers/mockData';
 import { usePractitioner } from '../store';
 
@@ -34,7 +33,6 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
   const { provider } = usePractitioner();
   const [slug, setSlug] = useState(provider?.slug);
   const [slugError, setSlugError] = useState('');
-  console.log('control', control);
   const debouncedUpdateSlug = useDebounce(async () => {
     const response = await getSlugAvailability(slug);
     // let errorMessage: string | undefined;
