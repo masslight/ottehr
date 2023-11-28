@@ -1,4 +1,4 @@
-import { Box, Typography, useTheme } from '@mui/material';
+import { Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { CustomButton, CustomContainer, LoadingSpinner } from '../components';
@@ -9,7 +9,6 @@ import { useEffect, useState } from 'react';
 
 export const PostCall = (): JSX.Element => {
   const { isAuthenticated } = useAuth0();
-  const theme = useTheme();
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -43,28 +42,20 @@ export const PostCall = (): JSX.Element => {
 
   return (
     <CustomContainer isProvider={isAuthenticated} subtitle={subtitle} title={title}>
-      <Box
-        sx={{
-          [theme.breakpoints.down('md')]: {
-            mx: 2,
-          },
-        }}
-      >
-        {isLoading && <LoadingSpinner transparent={false} />}
-        <Typography mb={1} variant="h5">
-          {t('postCall.callEnded')}
-        </Typography>
-        <Typography mb={1} variant="body1">
-          {t('postCall.durationPrefix')}
-          {mockCallDuration}
-          {t('postCall.durationSuffix')}
-        </Typography>
-        {isAuthenticated && (
-          <CustomButton fitContent onClick={goToDashboard}>
-            {t('postCall.goToDashboard')}
-          </CustomButton>
-        )}
-      </Box>
+      {isLoading && <LoadingSpinner transparent={false} />}
+      <Typography mb={1} variant="h5">
+        {t('postCall.callEnded')}
+      </Typography>
+      <Typography mb={1} variant="body1">
+        {t('postCall.durationPrefix')}
+        {mockCallDuration}
+        {t('postCall.durationSuffix')}
+      </Typography>
+      {isAuthenticated && (
+        <CustomButton fitContent onClick={goToDashboard}>
+          {t('postCall.goToDashboard')}
+        </CustomButton>
+      )}
     </CustomContainer>
   );
 };

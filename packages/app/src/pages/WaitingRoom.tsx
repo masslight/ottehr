@@ -1,4 +1,4 @@
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +11,7 @@ export const WaitingRoom = (): JSX.Element => {
   const navigate = useNavigate();
   const videoRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
+  const theme = useTheme();
   const { room, localTracks } = useVideoParticipant();
   const { providerName } = useParticipant();
 

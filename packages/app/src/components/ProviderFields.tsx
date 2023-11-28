@@ -10,7 +10,6 @@ import {
   Select,
   TextField,
   Typography,
-  useTheme,
 } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
 import { Control, Controller } from 'react-hook-form';
@@ -33,7 +32,6 @@ interface ProviderFieldsProps {
 export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, errors, isRegister, onSubmit }) => {
   const { t } = useTranslation();
   const { provider } = usePractitioner();
-  const theme = useTheme();
   const [slug, setSlug] = useState(provider?.slug);
   const [slugError, setSlugError] = useState('');
 
@@ -67,9 +65,6 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
           display: 'flex',
           flexDirection: 'column',
           gap: 2,
-          [theme.breakpoints.down('md')]: {
-            mx: 2,
-          },
         }}
       >
         {/*

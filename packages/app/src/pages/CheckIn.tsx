@@ -52,54 +52,48 @@ export const CheckIn = (): JSX.Element => {
     }
   };
   if (isLoading) {
-    return <LoadingSpinner transparent={false} />;
+    // return <LoadingSpinner transparent={false} />;
   }
 
   return (
     <CustomContainer isProvider={false} subtitle={providerName || ''} title={t('general.waitingRoom')}>
-      {providerName ? (
-        <Box
-          sx={{
-            [theme.breakpoints.down('md')]: {
-              mx: 2,
-            },
-          }}
-        >
-          <Typography sx={{ pb: 1 }} variant="h5">
-            {t('checkIn.checkIn')}
-          </Typography>
-          <Typography sx={{ pb: 3 }} variant="body1">
-            {t('checkIn.enterNamePrefix')}
-            {providerName}
-            {t('checkIn.enterNameSuffix')}
-          </Typography>
-          <form onSubmit={handleSubmit}>
-            <Box
-              sx={{
-                alignItems: 'flex-start',
-                display: 'flex',
-                flexDirection: 'column',
-              }}
-            >
-              <TextField
-                error={isError}
-                label={t('checkIn.yourName')}
-                onChange={(e) => setName(e.target.value)}
-                sx={{ width: '100%' }}
-                value={name}
-                variant="outlined"
-              />
-              <CustomButton submit>{t('checkIn.checkIn')}</CustomButton>
-            </Box>
-          </form>
-        </Box>
-      ) : (
+      {/* {providerName ? ( */}
+      <>
+        <Typography sx={{ pb: 1 }} variant="h5">
+          {t('checkIn.checkIn')}
+        </Typography>
+        <Typography sx={{ pb: 3 }} variant="body1">
+          {t('checkIn.enterNamePrefix')}
+          {providerName}
+          {t('checkIn.enterNameSuffix')}
+        </Typography>
+        <form onSubmit={handleSubmit}>
+          <Box
+            sx={{
+              alignItems: 'flex-start',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <TextField
+              error={isError}
+              label={t('checkIn.yourName')}
+              onChange={(e) => setName(e.target.value)}
+              sx={{ width: '100%' }}
+              value={name}
+              variant="outlined"
+            />
+            <CustomButton submit>{t('checkIn.checkIn')}</CustomButton>
+          </Box>
+        </form>
+      </>
+      {/* ) : (
         <Box alignItems="center" display="flex" justifyContent="center" style={{ height: '100%', width: '100%' }}>
           <Typography component="h2" style={{ textAlign: 'center' }} variant="h4">
             Provider not found
           </Typography>
         </Box>
-      )}
+      )} */}
     </CustomContainer>
   );
 };
