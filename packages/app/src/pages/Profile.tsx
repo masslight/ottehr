@@ -7,12 +7,9 @@ import { createProviderName } from '../helpers';
 import { updateProvider } from '../api';
 import { useEffect, useState } from 'react';
 import { Alert, Snackbar } from '@mui/material';
-// import { Practitioner } from 'fhir/r4';
 
 export const Profile = (): JSX.Element => {
-  // const { getAccessTokenSilently } = useAuth0();
   const { provider, practitionerProfile } = usePractitioner();
-  // const providerPatchOps: Operation[] = [];
   const [openSnackbar, setOpenSnackbar] = useState(false);
 
   const {
@@ -28,6 +25,7 @@ export const Profile = (): JSX.Element => {
       slug: '',
       title: '',
     },
+    mode: 'onChange',
   });
 
   useEffect(() => {
@@ -37,6 +35,7 @@ export const Profile = (): JSX.Element => {
   }, [provider, reset]);
 
   const onSubmit = (data: FormData): void => {
+    console.log('errors', errors);
     const input = {
       data: data,
       practitionerId: practitionerProfile?.id,

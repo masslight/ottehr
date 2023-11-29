@@ -85,8 +85,10 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
           render={({ field }) => (
             <TextField
               {...field}
+              error={errors.firstName}
               helperText={errors.firstName ? String(errors.firstName.message) : null}
               label="First Name"
+              required={true}
               variant="outlined"
             />
           )}
@@ -97,8 +99,10 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
           render={({ field }) => (
             <TextField
               {...field}
+              error={errors.lastName}
               helperText={errors.lastName ? String(errors.lastName.message) : null}
               label="Last Name"
+              required={true}
               variant="outlined"
             />
           )}
