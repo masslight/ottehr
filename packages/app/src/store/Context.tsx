@@ -96,6 +96,7 @@ export const useParticipant = (): ParticipantContextProps => {
 // Video
 
 type VideoParticipantContextProps = {
+  cleanup: () => void;
   isMicOpen: boolean;
   isVideoOpen: boolean;
   localTracks: (LocalAudioTrack | LocalVideoTrack)[];
@@ -121,9 +122,22 @@ export const VideoParticipantProvider: FC<VideoParticipantProviderProps> = ({ ch
   const [room, setRoom] = useState<Room | null>(null);
   const [selectedSpeaker, setSelectedSpeaker] = useState<string | null>(null);
 
+  const cleanup = (): void => {
+    localTracks.forEach((track) => {
+      if (track.kind === 'audio' || track.kind === 'video') {
+        track.stop();
+      }
+    });
+
+    if (room) {
+      room.disconnect();
+    }
+  };
+
   return (
     <VideoParticipantContext.Provider
       value={{
+        cleanup,
         isMicOpen,
         isVideoOpen,
         localTracks,

@@ -11,8 +11,9 @@ export const WaitingRoom = (): JSX.Element => {
   const navigate = useNavigate();
   const videoRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
-  const { room, localTracks } = useVideoParticipant();
+  const { cleanup, room, localTracks } = useVideoParticipant();
   const { providerName } = useParticipant();
+  const inVideoCallWorkflowRef = useRef(false);
 
   useLocalVideo(videoRef, localTracks);
   // localParticipant is not counted so we start with 1
@@ -37,9 +38,19 @@ export const WaitingRoom = (): JSX.Element => {
   // navigate to video call when provider joins
   useEffect(() => {
     if (numParticipants > 1) {
+      inVideoCallWorkflowRef.current = true;
       navigate(`/video-call/`);
     }
-  }, [navigate, numParticipants]);
+  }, [navigate, numParticipants, inVideoCallWorkflowRef]);
+
+  // cleanup when leaving page e.g. navigating backwards
+  useEffect(() => {
+    return () => {
+      if (!inVideoCallWorkflowRef.current) {
+        cleanup();
+      }
+    };
+  }, [cleanup]);
 
   return (
     <CustomContainer isProvider={false} subtitle={providerName} title={t('general.waitingRoom')}>
