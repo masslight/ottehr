@@ -1,7 +1,6 @@
 /* eslint-disable sort-keys */
 import fetch from 'node-fetch';
 import { v4 as uuidv4 } from 'uuid';
-import inquirer from 'inquirer';
 import { SecretsKeys, getAuth0Token, getSecret } from '../src/shared';
 import { Identifier, Practitioner } from 'fhir/r4';
 
@@ -14,7 +13,7 @@ const DEFAULTS = {
   applicationId: '1620a91b-4198-4240-ac1c-eadff1e8049d', // Ottehr dev env application id
 };
 
-async function inviteUser(
+export async function inviteUser(
   email: string,
   title = DEFAULTS.title,
   slug = DEFAULTS.slug,
@@ -74,31 +73,3 @@ async function inviteUser(
   const invitedUser = await invitedUserResponse.json();
   return invitedUser.invitationUrl;
 }
-
-async function runCLI(): Promise<void> {
-  const questions = [
-    { name: 'email', message: 'Enter email:', type: 'input', validate: (input: any) => !!input || 'Email is required' },
-    { name: 'title', message: 'Enter title (Mr, Mrs, Ms, Dr):', type: 'input' },
-    { name: 'slug', message: 'Enter slug:', type: 'input' },
-    { name: 'firstName', message: 'Enter first name:', type: 'input' },
-    { name: 'lastName', message: 'Enter last name:', type: 'input' },
-    { name: 'secretsPath', message: 'Enter secrets path (default is ../.env/dev.json):', type: 'input' },
-    { name: 'applicationId', message: 'Enter zapEHR application ID:', type: 'input' },
-  ];
-  const answers = await inquirer.prompt(questions);
-  // TODO: add check that slug is available, if slug unavailable, prompt user to enter a new slug
-  const invitationUrl = await inviteUser(
-    answers.email,
-    answers.title || undefined,
-    answers.slug || undefined,
-    answers.firstName || undefined,
-    answers.lastName || undefined,
-    answers.secretsPath || undefined, // CONSIDER: checking that there is a file at this path
-    answers.applicationId || undefined
-  );
-  console.log(
-    `User with email ${answers.email} can gain access to their account by navigating to URL ${invitationUrl}`
-  );
-}
-
-runCLI().catch((error) => console.error(error));
