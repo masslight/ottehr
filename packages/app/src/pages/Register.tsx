@@ -9,17 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { otherColors } from '../OttehrThemeProvider';
 import { patientIcon, providerIcon, registrationLogo } from '../assets/icons';
 import { ProviderFields, ZapEHRLogo } from '../components';
-
-export interface FormData {
-  acceptTerms: boolean;
-  email: string;
-  firstName: string;
-  lastName: string;
-  notPatient: boolean;
-  password: string;
-  slug: string;
-  title: string;
-}
+import { FormData } from '../store/types';
 
 export const Register: FC = (): JSX.Element => {
   const {

@@ -1,7 +1,7 @@
-import { AppClient, FhirClient } from '@zapehr/sdk';
-import { Encounter, Resource } from 'fhir/r4';
+import { AppClient } from '@zapehr/sdk';
+import { Encounter } from 'fhir/r4';
 import { chooseJson } from '../helpers/apiUtils';
-import { Operation } from 'fast-json-patch';
+import { FormData } from '../store/types';
 
 const ZAMBDA_API_URL = import.meta.env.VITE_PROJECT_API_ZAMBDA_URL;
 const PROJECT_API_URL = import.meta.env.VITE_PROJECT_API_URL;
@@ -16,6 +16,11 @@ export interface zapEHRUser {
   id: string;
   name: string;
   profile: any;
+}
+
+interface UpdatePractitionerInput {
+  data: FormData;
+  practitionerId: string | undefined;
 }
 
 export async function createTelemedRoom(
@@ -43,10 +48,12 @@ export async function createTelemedRoom(
 export async function getSlugAvailability(slug: string | undefined): Promise<ZambdaFunctionResponse['response']> {
   try {
     const GET_SLUG_AVAILABILITY_ZAMBDA_ID = import.meta.env.VITE_GET_SLUG_AVAILABILITY_ZAMBDA_ID;
+    console.log(GET_SLUG_AVAILABILITY_ZAMBDA_ID);
     const responseBody = await callZambda({
       body: { slug },
       zambdaId: GET_SLUG_AVAILABILITY_ZAMBDA_ID,
     });
+    console.log('responsebody', responseBody);
     return responseBody.response;
   } catch (error) {
     console.error('Error checking availability:', error);
@@ -131,6 +138,27 @@ export async function getProvider(slug: string | undefined): Promise<ZambdaFunct
   }
 }
 
+export async function updateProvider(input: UpdatePractitionerInput): Promise<void> {
+  try {
+    const UPDATE_PRACTITIONER_ZAMBDA_ID = import.meta.env.VITE_UPDATE_PRACTITIONER_ZAMBDA_ID;
+    // console.log(UPDATE_PRACTITIONER_ZAMBDA_ID);
+    console.log('input', input);
+    const responseBody = await callZambda({
+      body: input,
+      zambdaId: UPDATE_PRACTITIONER_ZAMBDA_ID,
+    });
+    console.log(responseBody);
+    const success = responseBody.response?.success;
+    if (success) {
+      console.log('Profile updated successuflly');
+    } else {
+      console.log('Could not update provider');
+    }
+  } catch (error) {
+    console.error('Error updating practitioner:', error);
+  }
+}
+
 export async function getUser(token: string): Promise<zapEHRUser> {
   const appClient = new AppClient({
     accessToken: token,
@@ -139,26 +167,26 @@ export async function getUser(token: string): Promise<zapEHRUser> {
   return appClient.getMe();
 }
 
-export async function updateProvider(
-  token: string,
-  practitionerId: string,
-  patchOperations: Operation[]
-): Promise<void | Resource> {
-  const fhirClient = new FhirClient({
-    accessToken: token,
-    apiUrl: import.meta.env.VITE_FHIR_API_URL,
-  });
-  console.log('fhirClient', fhirClient);
-  return fhirClient
-    .patchResource({
-      operations: patchOperations,
-      resourceId: practitionerId,
-      resourceType: 'Practitioner',
-    })
-    .catch((error) => {
-      console.error('Error updating provider:', error);
-    });
-}
+// export async function updateProvider(
+//   token: string,
+//   practitionerId: string,
+//   patchOperations: Operation[]
+// ): Promise<void | Resource> {
+//   const fhirClient = new FhirClient({
+//     accessToken: token,
+//     apiUrl: import.meta.env.VITE_FHIR_API_URL,
+//   });
+//   console.log('fhirClient', fhirClient);
+//   return fhirClient
+//     .patchResource({
+//       operations: patchOperations,
+//       resourceId: practitionerId,
+//       resourceType: 'Practitioner',
+//     })
+//     .catch((error) => {
+//       console.error('Error updating provider:', error);
+//     });
+// }
 
 // Zambda call wrapper
 

@@ -160,3 +160,14 @@ export interface ZambdaInput {
   headers: any | null;
   secrets: Secrets | null;
 }
+
+export interface FormData {
+  acceptTerms: boolean;
+  email: string;
+  firstName: string;
+  lastName: string;
+  notPatient: boolean;
+  password: string;
+  slug: string;
+  title: string;
+}

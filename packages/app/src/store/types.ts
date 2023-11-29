@@ -50,3 +50,14 @@ export type State = {
   patientInfo?: PatientInfo;
   zambdaClient?: ZambdaClient;
 };
+
+export interface FormData {
+  acceptTerms: boolean;
+  email: string;
+  firstName: string;
+  lastName: string;
+  notPatient: boolean;
+  password: string;
+  slug: string;
+  title: string;
+}

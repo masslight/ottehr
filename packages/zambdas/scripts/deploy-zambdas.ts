@@ -29,19 +29,22 @@ const ZAMBDAS: Record<string, ZambdaParameters> = {
   CREATE_TELEMED_ROOM: {
     triggerMethod: 'http_open',
   },
+  GET_PATIENT_QUEUE: {
+    triggerMethod: 'http_auth',
+  },
+  GET_PROVIDER: {
+    triggerMethod: 'http_open',
+  },
   GET_SLUG_AVAILABILITY: {
     triggerMethod: 'http_open',
   },
   GET_TELEMED_TOKEN: {
     triggerMethod: 'http_open',
   },
-  VERSION: {
+  UPDATE_PROVIDER: {
     triggerMethod: 'http_open',
   },
-  GET_PATIENT_QUEUE: {
-    triggerMethod: 'http_auth',
-  },
-  GET_PROVIDER: {
+  VERSION: {
     triggerMethod: 'http_open',
   },
 };

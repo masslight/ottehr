@@ -2,18 +2,17 @@ import { t } from 'i18next';
 import { CustomContainer, LoadingSpinner, ProviderFields } from '../components';
 import { useForm } from 'react-hook-form';
 import { usePractitioner } from '../store/Context';
-import { FormData } from './Register';
+import { FormData } from '../store/types';
 import { createProviderName } from '../helpers';
-import { Operation } from 'fast-json-patch';
 import { updateProvider } from '../api';
-import { useAuth0 } from '@auth0/auth0-react';
 import { useEffect, useState } from 'react';
 import { Alert, Snackbar } from '@mui/material';
+// import { Practitioner } from 'fhir/r4';
 
 export const Profile = (): JSX.Element => {
-  const { getAccessTokenSilently } = useAuth0();
+  // const { getAccessTokenSilently } = useAuth0();
   const { provider, practitionerProfile } = usePractitioner();
-  const providerPatchOps: Operation[] = [];
+  // const providerPatchOps: Operation[] = [];
   const [openSnackbar, setOpenSnackbar] = useState(false);
 
   const {
@@ -38,45 +37,20 @@ export const Profile = (): JSX.Element => {
   }, [provider, reset]);
 
   const onSubmit = (data: FormData): void => {
-    updatePractitioner(data).catch((error) => {
-      console.log(error);
+    const input = {
+      data: data,
+      practitionerId: practitionerProfile?.id,
+    };
+    updateProvider(input).catch((error) => {
+      console.log('frontend', error);
       setOpenSnackbar(true);
     });
+    console.log(data);
   };
 
   const handleCloseSnackbar = (): void => {
     setOpenSnackbar(false);
   };
-
-  async function updatePractitioner(data: FormData): Promise<void> {
-    const accessToken = await getAccessTokenSilently();
-    providerPatchOps.push(
-      {
-        op: practitionerProfile?.identifier?.[0].value ? 'replace' : 'add',
-        path: '/identifier/0/value',
-        value: data.slug,
-      },
-      {
-        op: practitionerProfile?.name?.[0].given?.[0] ? 'replace' : 'add',
-        path: '/name/0/given/0',
-        value: data.firstName,
-      },
-      {
-        op: practitionerProfile?.name?.[0].family ? 'replace' : 'add',
-        path: '/name/0/family',
-        value: data.lastName,
-      },
-      {
-        op: practitionerProfile?.name?.[0].prefix?.[0] ? 'replace' : 'add',
-        path: '/name/0/prefix/0',
-        value: data.title,
-      }
-    );
-
-    updateProvider(accessToken, practitionerProfile?.id || '', providerPatchOps).catch((error) => {
-      console.log(error);
-    });
-  }
 
   if (!provider) {
     return <LoadingSpinner transparent={false} />;
