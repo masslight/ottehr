@@ -7,7 +7,7 @@ import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import Box from '@mui/material/Box';
 import { Dispatch, FC, SetStateAction, useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LocalAudioTrack, LocalParticipant, LocalVideoTrack } from 'twilio-video';
+import { LocalParticipant } from 'twilio-video';
 import { otherColors } from '../OttehrThemeProvider';
 import { DataContext, useVideoParticipant } from '../store';
 import { CallSettings } from './CallSettings';
