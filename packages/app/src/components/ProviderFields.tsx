@@ -36,12 +36,12 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
   const [slugError, setSlugError] = useState('');
   console.log('control', control);
   const debouncedUpdateSlug = useDebounce(async () => {
-    const response = await getSlugAvailability(slug, practitionerProfile?.id);
-    // let errorMessage: string | undefined;
-    // if (error) {
-    //   errorMessage = ReturnErrorMessage(error);
-    //   setSlugError(errorMessage);
-    // }
+    const { response, error } = await getSlugAvailability(slug, practitionerProfile?.id);
+    let errorMessage: string | undefined;
+    if (error) {
+      errorMessage = ReturnErrorMessage(error);
+      setSlugError(errorMessage);
+    }
     if (response?.available) {
       setSlugError('');
     } else {
