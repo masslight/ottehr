@@ -132,8 +132,6 @@ export const availability = async (slug: string, fhirClient: FhirClient): Promis
     ],
   });
 
-  console.log('practitioners', practitioners);
-
   const available = !practitioners.some((practitioner) =>
     practitioner.identifier?.some((identifier) => identifier.value === slug)
   );

@@ -16,7 +16,6 @@ interface UpdatePractitionerInput {
 
 const performUpdate = async (input: ZambdaFunctionInput): Promise<ZambdaFunctionResponse> => {
   const { body, secrets } = input;
-  console.log('body', body);
   const { practitionerId, data } = body as UpdatePractitionerInput;
 
   if (!practitionerId || typeof practitionerId !== 'string') {

@@ -35,7 +35,6 @@ export async function createTelemedRoom(
       zambdaId: CREATE_TELEMED_ROOM_ZAMBDA_ID,
     });
 
-    console.log(responseBody);
     const encounter: Encounter | undefined = responseBody.response?.encounter;
 
     return encounter;
@@ -48,12 +47,10 @@ export async function createTelemedRoom(
 export async function getSlugAvailability(slug: string | undefined): Promise<ZambdaFunctionResponse['response']> {
   try {
     const GET_SLUG_AVAILABILITY_ZAMBDA_ID = import.meta.env.VITE_GET_SLUG_AVAILABILITY_ZAMBDA_ID;
-    console.log(GET_SLUG_AVAILABILITY_ZAMBDA_ID);
     const responseBody = await callZambda({
       body: { slug },
       zambdaId: GET_SLUG_AVAILABILITY_ZAMBDA_ID,
     });
-    console.log('responsebody', responseBody);
     return responseBody.response;
   } catch (error) {
     console.error('Error checking availability:', error);
@@ -141,13 +138,10 @@ export async function getProvider(slug: string | undefined): Promise<ZambdaFunct
 export async function updateProvider(input: UpdatePractitionerInput): Promise<void> {
   try {
     const UPDATE_PRACTITIONER_ZAMBDA_ID = import.meta.env.VITE_UPDATE_PRACTITIONER_ZAMBDA_ID;
-    // console.log(UPDATE_PRACTITIONER_ZAMBDA_ID);
-    console.log('input', input);
     const responseBody = await callZambda({
       body: input,
       zambdaId: UPDATE_PRACTITIONER_ZAMBDA_ID,
     });
-    console.log(responseBody);
     const success = responseBody.response?.success;
     if (success) {
       console.log('Profile updated successuflly');
@@ -166,27 +160,6 @@ export async function getUser(token: string): Promise<zapEHRUser> {
   });
   return appClient.getMe();
 }
-
-// export async function updateProvider(
-//   token: string,
-//   practitionerId: string,
-//   patchOperations: Operation[]
-// ): Promise<void | Resource> {
-//   const fhirClient = new FhirClient({
-//     accessToken: token,
-//     apiUrl: import.meta.env.VITE_FHIR_API_URL,
-//   });
-//   console.log('fhirClient', fhirClient);
-//   return fhirClient
-//     .patchResource({
-//       operations: patchOperations,
-//       resourceId: practitionerId,
-//       resourceType: 'Practitioner',
-//     })
-//     .catch((error) => {
-//       console.error('Error updating provider:', error);
-//     });
-// }
 
 // Zambda call wrapper
 

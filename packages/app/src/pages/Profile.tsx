@@ -35,16 +35,14 @@ export const Profile = (): JSX.Element => {
   }, [provider, reset]);
 
   const onSubmit = (data: FormData): void => {
-    console.log('errors', errors);
     const input = {
       data: data,
       practitionerId: practitionerProfile?.id,
     };
     updateProvider(input).catch((error) => {
-      console.log('frontend', error);
+      console.log(error);
       setOpenSnackbar(true);
     });
-    console.log(data);
   };
 
   const handleCloseSnackbar = (): void => {
