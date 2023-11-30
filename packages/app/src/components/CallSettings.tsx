@@ -103,6 +103,15 @@ export const CallSettings: FC<CallSettingsProps> = ({ localParticipant, onClose,
     };
   }, [open, camera]);
 
+  useEffect(() => {
+    if (open) {
+      const currentVideoTrack = localTracks.find((track) => track.kind === 'video') as LocalVideoTrack;
+      if (currentVideoTrack) {
+        setCamera(currentVideoTrack.mediaStreamTrack.getSettings().deviceId || '');
+      }
+    }
+  }, [open, localTracks]);
+
   const updateDevice = async (type: string, deviceId: string): Promise<void> => {
     if (!localParticipant) return;
 
