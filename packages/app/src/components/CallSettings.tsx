@@ -59,12 +59,17 @@ export const CallSettings: FC<CallSettingsProps> = ({ localParticipant, onClose,
   const videoRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
   const { localTracks, setLocalTracks, selectedSpeaker, setSelectedSpeaker } = useVideoParticipant();
+  const [camera, setCamera] = useState<string>('');
+  const [microphone, setMicrophone] = useState<string>('');
+  const [speakers, setSpeakers] = useState<string>(selectedSpeaker || '');
 
   useEffect(() => {
     let localVideoTrackCleanup: LocalVideoTrack | null = null;
 
     const attachVideo = (newTrack: LocalVideoTrack): void => {
       if (videoRef.current) {
+        detachVideo();
+
         const videoElement = newTrack.attach();
         videoElement.style.width = '100%';
         videoElement.style.height = '100%';
@@ -74,12 +79,18 @@ export const CallSettings: FC<CallSettingsProps> = ({ localParticipant, onClose,
 
     const detachVideo = (): void => {
       if (videoRef.current) {
-        videoRef.current.querySelectorAll('video').forEach((v) => v.remove());
+        videoRef.current.querySelectorAll('video').forEach((v) => {
+          v.remove();
+        });
+      }
+      if (localVideoTrackCleanup) {
+        localVideoTrackCleanup.stop();
+        localVideoTrackCleanup.detach();
       }
     };
 
     if (open) {
-      createLocalVideoTrack()
+      createLocalVideoTrack({ deviceId: { exact: camera } })
         .then((newTrack) => {
           attachVideo(newTrack);
           localVideoTrackCleanup = newTrack;
@@ -89,15 +100,8 @@ export const CallSettings: FC<CallSettingsProps> = ({ localParticipant, onClose,
 
     return () => {
       detachVideo();
-      if (localVideoTrackCleanup) {
-        localVideoTrackCleanup.stop();
-      }
     };
-  }, [open]);
-
-  const [camera, setCamera] = useState<string>('');
-  const [microphone, setMicrophone] = useState<string>('');
-  const [speakers, setSpeakers] = useState<string>(selectedSpeaker || '');
+  }, [open, camera]);
 
   const updateDevice = async (type: string, deviceId: string): Promise<void> => {
     if (!localParticipant) return;
