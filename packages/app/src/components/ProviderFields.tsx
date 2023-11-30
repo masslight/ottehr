@@ -33,6 +33,10 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
   const { provider } = usePractitioner();
   const [slug, setSlug] = useState(provider?.slug);
   const [slugError, setSlugError] = useState('');
+
+  const isSlugAvailable = slugError === '';
+  const isFormValid = !errors.firstName && !errors.lastName && isSlugAvailable;
+
   const debouncedUpdateSlug = useDebounce(async () => {
     const response = await getSlugAvailability(slug);
     // let errorMessage: string | undefined;
@@ -169,7 +173,7 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
             />
           </>
         )}
-        <CustomButton submit sx={{ mt: 0 }}>
+        <CustomButton disabled={!isFormValid} submit sx={{ mt: 0 }}>
           {buttonText}
         </CustomButton>
       </Box>
