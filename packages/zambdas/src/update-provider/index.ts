@@ -19,6 +19,16 @@ const performUpdate = async (input: ZambdaFunctionInput): Promise<ZambdaFunction
   console.log('body', body);
   const { practitionerId, data } = body as UpdatePractitionerInput;
 
+  if (!practitionerId || typeof practitionerId !== 'string') {
+    console.error('Invalid practitionerId');
+    return { error: ErrorCodes.missingRequired };
+  }
+
+  if (!data || typeof data !== 'object') {
+    console.error('Invalid data');
+    return { error: ErrorCodes.missingRequired };
+  }
+
   const patchOperations: Operation[] = [
     {
       op: data.slug ? 'replace' : 'add',
