@@ -63,12 +63,6 @@ functions:
       FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       PROJECT_ID: ${file(./.env/${self:provider.stage}.json):PROJECT_ID}
-  me:
-    handler: src/me/index.index
-    events:
-      - http:
-          path: zambda/me/execute-public
-          method: POST
   version:
     handler: src/version/index.index
     events:
@@ -106,6 +100,7 @@ functions:
       AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
       FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
       PROJECT_ID: ${file(./.env/${self:provider.stage}.json):PROJECT_ID}
+
   update-provider:
     handler: src/update-provider/index.index
     events:

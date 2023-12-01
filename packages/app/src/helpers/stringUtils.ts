@@ -1,5 +1,5 @@
 import { Practitioner } from 'fhir/r4';
-import { Provider } from '../store/types';
+import { ProviderData } from '../store/types';
 
 const needsDot = (title: string): boolean => {
   return ['Dr', 'Mr', 'Mrs', 'Ms'].includes(title);
@@ -30,7 +30,7 @@ export const createSlugUrl = (slug: string | undefined): string => {
   return `${import.meta.env.VITE_APP_BASE_URL}/${slug}`;
 };
 
-export const createProvider = (providerProfile: Practitioner | undefined): Provider => {
+export const createProvider = (providerProfile: Practitioner | undefined): ProviderData => {
   return {
     email: providerProfile?.telecom && providerProfile.telecom[0].value ? providerProfile.telecom[0].value : '',
     firstName: providerProfile?.name && providerProfile.name[0].given ? providerProfile.name[0].given[0] : '',

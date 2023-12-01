@@ -11,7 +11,7 @@ import {
 } from 'react';
 import { Outlet } from 'react-router-dom';
 import { LocalAudioTrack, LocalVideoTrack, Room } from 'twilio-video';
-import { Action, Provider, State } from './types';
+import { Action, ProviderData, State } from './types';
 import { useAuth0 } from '@auth0/auth0-react';
 import { setFhirClient } from './Actions';
 import { getUser } from '../api';
@@ -154,7 +154,7 @@ export const useVideoParticipant = (): VideoParticipantContextProps => {
 
 type PractitionerContextProps = {
   practitionerProfile: Practitioner | null | undefined;
-  provider: Provider | undefined;
+  provider: ProviderData | undefined;
 };
 
 const PractitionerContext = createContext<PractitionerContextProps | undefined>(undefined);
@@ -162,7 +162,7 @@ const PractitionerContext = createContext<PractitionerContextProps | undefined>(
 export const PractitionerProvider: FC = () => {
   const [accessToken, setAccessToken] = useState<string>('');
   const [practitionerProfile, setPractitionerProfile] = useState<Practitioner | null | undefined>(null);
-  const [provider, setProvider] = useState<Provider | undefined>();
+  const [provider, setProvider] = useState<ProviderData | undefined>();
   const { state, dispatch } = useContext(DataContext);
   const { isAuthenticated, getAccessTokenSilently } = useAuth0();
 

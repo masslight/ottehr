@@ -40,7 +40,7 @@ export type ProviderInfo = {
   name: string | undefined;
 };
 
-export type Provider = {
+export type ProviderData = {
   email: string;
   firstName: string;
   lastName: string;
