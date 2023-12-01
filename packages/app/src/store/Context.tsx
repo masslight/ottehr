@@ -11,11 +11,12 @@ import {
 } from 'react';
 import { Outlet } from 'react-router-dom';
 import { LocalAudioTrack, LocalVideoTrack, Room } from 'twilio-video';
-import { Action, State } from './types';
+import { Action, Provider, State } from './types';
 import { useAuth0 } from '@auth0/auth0-react';
 import { setFhirClient } from './Actions';
 import { getUser } from '../api';
 import { Practitioner } from 'fhir/r4';
+import { createProvider } from '../helpers';
 
 const initialState = {};
 
@@ -151,14 +152,6 @@ export const useVideoParticipant = (): VideoParticipantContextProps => {
 
 // Provider
 
-type Provider = {
-  email: string;
-  firstName: string;
-  lastName: string;
-  slug: string;
-  title: string;
-};
-
 type PractitionerContextProps = {
   practitionerProfile: Practitioner | null | undefined;
   provider: Provider | undefined;
@@ -195,13 +188,7 @@ export const PractitionerProvider: FC = () => {
         resourceId: userId,
         resourceType: resourceType,
       });
-      const provider: Provider = {
-        email: profile?.telecom && profile.telecom[0].value ? profile.telecom[0].value : '',
-        firstName: profile?.name && profile.name[0].given ? profile.name[0].given[0] : '',
-        lastName: profile?.name && profile.name[0].family ? profile.name[0].family : '',
-        slug: profile?.identifier && profile.identifier[0].value ? profile.identifier[0].value : '',
-        title: profile?.name && profile.name[0].prefix ? profile.name[0].prefix[0] : '',
-      };
+      const provider = createProvider(profile);
       setProvider(provider);
       setPractitionerProfile(profile);
     }

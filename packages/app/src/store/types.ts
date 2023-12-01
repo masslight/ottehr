@@ -40,6 +40,14 @@ export type ProviderInfo = {
   name: string | undefined;
 };
 
+export type Provider = {
+  email: string;
+  firstName: string;
+  lastName: string;
+  slug: string;
+  title: string;
+};
+
 export type Action =
   | { fhirClient: FhirClient; type: 'SET_FHIR_CLIENT' }
   | { patientInfo: PatientInfo | undefined; type: 'UPDATE_PATIENT' }
