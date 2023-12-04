@@ -12,14 +12,10 @@ Upon successful installation, verify the setup by executing the following comman
 
 ### Installing `pnpm`
 
-The easiest way to get started is to use the [brew](https://brew.sh/) or [npm](https://www.npmjs.com/) command:
+The easiest way to get started is to use the brew command:
 
 ```bash
 brew install pnpm
-```
-OR
-```bash
-npm install -g pnpm
 ```
 
 Otherwise, you can install it onto your machine using the [documentation](https://pnpm.io/installation).
@@ -57,6 +53,23 @@ This script will create various ZapEHR resources that are needed for you to begi
 
 You should now be on a video call with yourself.
 
+### ESLint
+
+To enhance code readability, we maintain a robust ESLint configuration that ensures strict adherence to coding standards. For an optimal coding experience with real-time linting feedback, we highly recommend using Visual Studio Code (VSCode), which offers an outstanding live linting environment.
+
+To get linting in VSCode:
+
+1. Install the [ESLint Extension](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint).
+2. Always open the repo from its root. This allows the extension to detect the `.eslintrc.json` file which specifies the linter configuration.
+3. (Optional) Use the [VSCode workspace](./.vscode/Ottehr.code-workspace) for a helpful alternative organization of the project in the VSCode 'Explorer', which most developers find useful. This can be opened in 2 ways:
+   1. Open [the file](./.vscode/Ottehr.code-workspace) in VS Code. Click on the "Open Workspace" button in the bottom-right.
+   2. `code .vscode/Ottehr.code-workspace`
+
+### Installing `pnpm`
+
+The easiest way to get started is to use the [brew](https://brew.sh/) command:
+
+*If Homebrew is not yet installed on your system, you can easily set it up [here](https://brew.sh/).*
 
 ## Repository Structure
 
