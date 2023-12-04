@@ -2,10 +2,6 @@
 
 Back end zambdas for the Ottehr application. These endpoints are responsible for everything from fetching provider profiles to creating and managing video rooms.
 
-## Setup
-
-Before you can run locally or deploy, you must copy in the env files from the [ottehr-secrets](https://github.com/masslight/ottehr-secrets) repository. These should be copied into [`.env/`](./.env/) (e.g. dev: [`.env/dev.json`](./.env/dev.json)).
-
 ## Run Locally
 
 The back end is run locally using the [Serverless Framework](https://www.serverless.com/framework/docs) with the [Serverless Offline](https://www.npmjs.com/package/serverless-offline) plugin.

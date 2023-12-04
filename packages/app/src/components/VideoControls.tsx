@@ -7,7 +7,7 @@ import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import Box from '@mui/material/Box';
 import { Dispatch, FC, SetStateAction, useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LocalAudioTrack, LocalParticipant, LocalVideoTrack } from 'twilio-video';
+import { LocalParticipant } from 'twilio-video';
 import { otherColors } from '../OttehrThemeProvider';
 import { DataContext, useVideoParticipant } from '../store';
 import { CallSettings } from './CallSettings';
@@ -20,7 +20,7 @@ interface VideoControlsProps {
 
 export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom, localParticipant }) => {
   const navigate = useNavigate();
-  const { isMicOpen, isVideoOpen, localTracks, room, setIsMicOpen, setIsVideoOpen } = useVideoParticipant();
+  const { cleanup, isMicOpen, isVideoOpen, localTracks, room, setIsMicOpen, setIsVideoOpen } = useVideoParticipant();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { state } = useContext(DataContext);
   const { isAuthenticated } = useAuth0;
@@ -51,12 +51,7 @@ export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom, localPartici
           console.error(err);
         });
     }
-    room?.localParticipant.tracks.forEach((trackPub) => {
-      if (trackPub.track.kind === 'audio' || trackPub.track.kind === 'video') {
-        (trackPub.track as LocalAudioTrack | LocalVideoTrack).stop();
-      }
-    });
-    room?.disconnect();
+    cleanup();
     navigate('/post-call');
   };
 
