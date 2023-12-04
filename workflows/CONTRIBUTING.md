@@ -34,18 +34,21 @@ If you've identified a bug or issue, please follow these steps:
 
 To set up Ottehr locally and run tests, follow these steps:
 
-1. **Clone the Repository:**
+1. **Fork the Repository**
+   https://github.com/masslight/ottehr/fork
+
+2. **Clone the Repository:**
    ```bash
-   git clone https://github.com/{your_username}/ottehr.git
+   git clone https://github.com/masslight/ottehr/fork
    ```
 
-2. **Install Dependencies:**
+3. **Install Dependencies:**
    Navigate to the cloned repository and run:
    ```bash
    pnpm i
    ```
 
-3. **Run Tests:**
+4. **Run Tests:**
    Execute the tests with:
    ```bash
    pnpm test
