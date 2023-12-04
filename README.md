@@ -74,7 +74,6 @@ The easiest way to get started is to use the [brew](https://brew.sh/) command:
 ```bash
 brew install pnpm
 ```
-
 ## Repository Structure
 
 This repository uses a monorepo structure. Each package has its own code in its respective folder in [`packages/`](./packages/).
