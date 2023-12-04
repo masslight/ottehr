@@ -51,6 +51,19 @@ To set up Ottehr locally and run tests, follow these steps:
    pnpm test
    ```
 
+## ESLint
+
+To enhance code readability, we maintain a robust ESLint configuration that ensures strict adherence to coding standards. For an optimal coding experience with real-time linting feedback, we highly recommend using Visual Studio Code (VSCode), which offers an outstanding live linting environment.
+
+To get linting in VSCode:
+
+1. Install the [ESLint Extension](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint).
+2. Always open the repo from its root. This allows the extension to detect the `.eslintrc.json` file which specifies the linter configuration.
+3. (Optional) Use the [VSCode workspace](./.vscode/Ottehr.code-workspace) for a helpful alternative organization of the project in the VSCode 'Explorer', which most developers find useful. This can be opened in 2 ways:
+   1. Open [the file](./.vscode/Ottehr.code-workspace) in VS Code. Click on the "Open Workspace" button in the bottom-right.
+   2. `code .vscode/Ottehr.code-workspace`
+
+
 ## Roadmap and Project Vision
 
 Visit our [project board](https://github.com/masslight/ottehr/projects) to view the current roadmap and upcoming features. The project vision is to create a robust and user-friendly open-source EHR telehealth platform.
