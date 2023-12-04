@@ -3,7 +3,7 @@ import { FC, ReactNode } from 'react';
 
 interface CustomButtonProps {
   children: ReactNode;
-  disabled: boolean;
+  disabled?: boolean;
   fitContent?: boolean;
   icon?: ReactNode;
   onClick?: () => any;

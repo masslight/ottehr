@@ -18,7 +18,7 @@ import { getSlugAvailability } from '../api';
 import { createSlugUrl } from '../helpers';
 import { useDebounce } from '../hooks';
 import { CustomButton } from './CustomButton';
-import { getTitles } from '../helpers/mockData';
+import { getTitles } from '../constants/index';
 import { usePractitioner } from '../store';
 
 interface ProviderFieldsProps {

@@ -22,7 +22,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { otherColors } from '../OttehrThemeProvider';
 import { dashboardLogo } from '../assets/icons';
-import { getProvider } from '../helpers/mockData';
+import { usePractitioner } from '../store';
 
 const pages = ['Dashboard'];
 
@@ -31,6 +31,7 @@ export const TopAppBar: FC = () => {
   const location = useLocation();
   const theme = useTheme();
   const { t } = useTranslation();
+  const { provider } = usePractitioner();
   const [anchorElUser, setAnchorElUser] = useState<HTMLElement | null>(null);
   const [menuOpen, setMenuOpen] = useState<boolean>(false);
 
@@ -45,9 +46,6 @@ export const TopAppBar: FC = () => {
     setAnchorElUser(null);
     setMenuOpen(false);
   };
-
-  // TODO hard-coded data
-  const provider = getProvider();
 
   return (
     <AppBar position="static" sx={{ backgroundColor: otherColors.footerBackground }}>
@@ -109,9 +107,9 @@ export const TopAppBar: FC = () => {
               <MenuItem disabled>
                 <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                   <Typography variant="body1">
-                    {provider.firstName} {provider.lastName}
+                    {provider?.firstName} {provider?.lastName}
                   </Typography>
-                  <Typography variant="body1">{provider.email}</Typography>
+                  <Typography variant="body1">{provider?.email}</Typography>
                 </Box>
               </MenuItem>
               <Divider />
@@ -162,10 +160,10 @@ export const TopAppBar: FC = () => {
                 <Button disabled>
                   <Box sx={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
                     <Typography color="white" variant="body1">
-                      {provider.firstName} {provider.lastName}
+                      {provider?.firstName} {provider?.lastName}
                     </Typography>
                     <Typography color="white" variant="body1">
-                      {provider.email}
+                      {provider?.email}
                     </Typography>
                   </Box>
                 </Button>
