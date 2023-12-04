@@ -16,10 +16,9 @@ import { Control, Controller } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { getSlugAvailability } from '../api';
 import { createSlugUrl } from '../helpers';
-import { useDebounce } from '../hooks';
+import { useDebounce, useErrorMessages } from '../hooks';
 import { usePractitioner } from '../store';
 import { CustomButton } from './CustomButton';
-import { ReturnErrorMessage } from './ReturnErrorMessage';
 import { getTitles } from '../helpers/mockData';
 
 interface ProviderFieldsProps {
@@ -31,21 +30,21 @@ interface ProviderFieldsProps {
 }
 export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, errors, isRegister, onSubmit }) => {
   const { t } = useTranslation();
+  const getErrorMessage = useErrorMessages();
+
   const { provider } = usePractitioner();
   const [slug, setSlug] = useState(provider?.slug);
   const [slugError, setSlugError] = useState('');
-  console.log('control', control);
   const debouncedUpdateSlug = useDebounce(async () => {
     const { error, response } = await getSlugAvailability(slug);
     let errorMessage: string | undefined;
-    console.log('response', response);
     if (error) {
-      errorMessage = ReturnErrorMessage(error);
+      errorMessage = getErrorMessage(error);
       setSlugError(errorMessage);
     }
     if (response?.available) {
       setSlugError('');
-    } else {
+    } else if (response?.available === false) {
       setSlugError(t('error.slugUnavailable'));
     }
   }, 1000);
