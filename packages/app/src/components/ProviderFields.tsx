@@ -17,10 +17,10 @@ import { useTranslation } from 'react-i18next';
 import { getSlugAvailability } from '../api';
 import { createSlugUrl } from '../helpers';
 import { useDebounce } from '../hooks';
+import { usePractitioner } from '../store';
 import { CustomButton } from './CustomButton';
 import { ReturnErrorMessage } from './ReturnErrorMessage';
 import { getTitles } from '../helpers/mockData';
-import { usePractitioner } from '../store';
 
 interface ProviderFieldsProps {
   buttonText: string;
@@ -31,12 +31,12 @@ interface ProviderFieldsProps {
 }
 export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, errors, isRegister, onSubmit }) => {
   const { t } = useTranslation();
-  const { provider, practitionerProfile } = usePractitioner();
+  const { provider } = usePractitioner();
   const [slug, setSlug] = useState(provider?.slug);
   const [slugError, setSlugError] = useState('');
   console.log('control', control);
   const debouncedUpdateSlug = useDebounce(async () => {
-    const { response, error } = await getSlugAvailability(slug, practitionerProfile?.id);
+    const { error, response } = await getSlugAvailability(slug);
     let errorMessage: string | undefined;
     console.log('response', response);
     if (error) {
@@ -52,10 +52,12 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
   useEffect(() => {
     if (slug === '') {
       setSlugError("Slug can't be an empty string.");
+    } else if (slug === provider?.slug) {
+      setSlugError('');
     } else {
       debouncedUpdateSlug();
     }
-  }, [debouncedUpdateSlug, slug]);
+  }, [debouncedUpdateSlug, provider?.slug, slug]);
 
   const titles = getTitles();
 
@@ -134,7 +136,7 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
         <Controller
           control={control}
           name="email"
-          render={({ field }) => <TextField {...field} disabled={true} label="Email Address" variant="outlined" />}
+          render={({ field }) => <TextField {...field} disabled label="Email Address" variant="outlined" />}
         />
         {isRegister && (
           <>

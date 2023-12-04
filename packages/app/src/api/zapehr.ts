@@ -38,15 +38,11 @@ export async function createTelemedRoom(
   }
 }
 
-export async function getSlugAvailability(
-  slug: string | undefined,
-  practitionerId?: string
-): Promise<ZambdaFunctionResponse> {
+export async function getSlugAvailability(slug: string | undefined): Promise<ZambdaFunctionResponse> {
   try {
     const GET_SLUG_AVAILABILITY_ZAMBDA_ID = import.meta.env.VITE_GET_SLUG_AVAILABILITY_ZAMBDA_ID;
-    const requestBody = practitionerId ? { practitionerId, slug } : { slug };
     const responseBody = await callZambda({
-      body: requestBody,
+      body: { slug },
       zambdaId: GET_SLUG_AVAILABILITY_ZAMBDA_ID,
     });
     return responseBody;
