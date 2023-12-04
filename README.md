@@ -6,18 +6,6 @@ This monorepo contains code for the entire Ottehr telehealth platform.
 
 ## First Time Setup
 
-### ESLint
-
-To enhance code readability, we maintain a robust ESLint configuration that ensures strict adherence to coding standards. For an optimal coding experience with real-time linting feedback, we highly recommend using Visual Studio Code (VSCode), which offers an outstanding live linting environment.
-
-To get linting in VSCode:
-
-1. Install the [ESLint Extension](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint).
-2. Always open the repo from its root. This allows the extension to detect the `.eslintrc.json` file which specifies the linter configuration.
-3. (Optional) Use the [VSCode workspace](./.vscode/Ottehr.code-workspace) for a helpful alternative organization of the project in the VSCode 'Explorer', which most developers find useful. This can be opened in 2 ways:
-   1. Open [the file](./.vscode/Ottehr.code-workspace) in VS Code. Click on the "Open Workspace" button in the bottom-right.
-   2. `code .vscode/Ottehr.code-workspace`
-
 ### Node Installation
 
 To manage Node.js versions efficiently, we recommend using [Node Version Manager (nvm)](https://github.com/nvm-sh/nvm#installing-and-updating).
@@ -48,12 +36,15 @@ This command should display the installed Node.js version.
 
 To manage Node.js packages, we recommend using [pnpm](https://pnpm.io/).
 
-#### Using Homebrew (macOS/Linux):
+#### Using Homebrew or NPM (macOS/Linux):
 
-The easiest way to install `pnpm` is through Homebrew:
-
+The easiest way to get started is to use the [brew](https://brew.sh/) or [npm](https://www.npmjs.com/) command:
 ```bash
 brew install pnpm
+```
+OR
+```bash
+npm install -g pnpm
 ```
 
 #### Manual Installation:
