@@ -1,85 +1,122 @@
 # Ottehr
 
+The production-ready, open-source EHR.
+
+This monorepo contains code for the entire Ottehr telehealth platform.
+
 ## First Time Setup
 
-### Node
+### Node Installation
 
-- Install [nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-- Use nvm to install node 18: `nvm install 18`.
-- Use nvm to make node 18 your default node: `nvm alias default 18`.
+To manage Node.js versions efficiently, we recommend using [Node Version Manager (nvm)](https://github.com/nvm-sh/nvm#installing-and-updating).
 
-Upon successful installation, verify the setup by executing the following command: `node -v`. If the installation was successful, this command should provide the version of Node currently installed
+1. Install nvm by following the instructions provided [here](https://github.com/nvm-sh/nvm#installing-and-updating).
+
+2. Use nvm to install Node.js version 18 with the following commands:
+
+    ```bash
+    nvm install 18
+    ```
+
+3. Set Node.js version 18 as the default with:
+
+    ```bash
+    nvm alias default 18
+    ```
+
+After successful installation, verify the setup by executing:
+
+```bash
+node -v
+```
+
+This command should display the installed Node.js version.
 
 ### Installing `pnpm`
 
-The easiest way to get started is to use the brew command:
+To manage Node.js packages, we recommend using [pnpm](https://pnpm.io/).
 
+#### Using Homebrew or NPM (macOS/Linux):
+
+The easiest way to get started is to use the [brew](https://brew.sh/) or [npm](https://www.npmjs.com/) command:
 ```bash
 brew install pnpm
 ```
+OR
+```bash
+npm install -g pnpm
+```
 
-Otherwise, you can install it onto your machine using the [documentation](https://pnpm.io/installation).
+#### Manual Installation:
 
-### Setup Script
+Alternatively, you can install `pnpm` using the [official documentation](https://pnpm.io/installation).
 
-The rest of this setup guide assumes that you have access to a ZapEHR project and have cloned down a fork of the ottehr repository. If you have not, please follow these steps:
+### Joining zapEHR
 
-1. Fork Ottehr: https://github.com/masslight/ottehr/fork
-2. Copy your fork SSH clone link and `git clone git@github.com:{your_profile}/ottehr.git` in the folder you'd like to use
-3. (optional) Add ottehr as upstream `git remote add upstream git@github.com:masslight/ottehr.git`
-4. Open repo in editor of your choice, I will use vscode `code .vscode/Ottehr.code-workspace`
+Unlock the power of zapEHR by registering for access at [zapehr.com](https://zapehr.com). Follow these simple steps:
 
-Before you continue, please ensure that you have [node](#node) v18.x and [pnpm](#installing-pnpm) installed on your machine.
+1. Visit [zapehr.com](https://zapehr.com).
+2. Click on **Free Access** to initiate your early access request.
 
-After you have these dependencies installed, please execute the setup script from the root directory:
+Once your request is received, the zapEHR team will promptly reach out to you via email, providing the credentials you need to kickstart your zapEHR journey.
+
+For comprehensive guidance on getting started with zapEHR, explore our technical documentation available at [https://docs.zapehr.com/docs/welcome](https://docs.zapehr.com/docs/welcome).
+
+## Setup Procedure
+
+To proceed with this setup guide, it is assumed that you have access to a ZapEHR project. If you have done so, please follow these steps:
+
+1. **Fork Ottehr:**
+   Visit [https://github.com/masslight/ottehr/fork](https://github.com/masslight/ottehr/fork) and fork the repository.
+
+2. **Clone Your Fork:**
+   Copy the SSH clone link of your fork and execute the following command in your preferred folder:
+   ```bash
+   git clone git@github.com:{your_profile}/ottehr.git
+   ```
+
+3. (Optional) **Add Ottehr as Upstream:**
+   If desired, add the original Ottehr repository as an upstream remote:
+   ```bash
+   git remote add upstream git@github.com:masslight/ottehr.git
+   ```
+
+4. **Open Repository in Your Editor:**
+   Open the repository in your chosen editor; for example, in VSCode:
+   ```bash
+   code .vscode/Ottehr.code-workspace
+   ```
+
+Before proceeding, ensure that you have [Node.js](#node) v18.x and [pnpm](#installing-pnpm) installed on your machine.
+
+Once these dependencies are in place, execute the setup script from the root directory:
 
 ```bash
 sh scripts/setup.sh
 ```
 
-You will be asked for this information as input:
+The script will prompt you for the following information:
 
-- Your access token. Login to your [ZapEHR project](https://console.zapehr.com) and copy the access token from the dashboard.
-- Your project ID. You can find this on the [ZapEHR project details page](https://console.zapehr.com/project)
-- Your first provider email. This can be your email.
+- Your access token: Log in to your [ZapEHR project](https://console.zapehr.com), and copy the access token from the dashboard.
+- Your project ID: Find this on the [ZapEHR project details page](https://console.zapehr.com/project).
+- Your first provider email: This can be your email address.
 
-This script will create various ZapEHR resources that are needed for you to begin development. After the script finishes running, there will be important links highlighted in magenta. You should follow these steps:
+Upon completion, the script will generate important links highlighted in magenta. Follow these steps:
 
-1. Find the reset password link in the console output and navigate to the url in your browser. Provide a password.
-2. Navigate to `http://localhost:5173/dashboard` and login using the email you provided to the script and the password you chose.
-3. Open a new tab and navigate to the waiting room URL. This was output in the script logs and is shown in the provider dashboard. It looks like `http://localhost:5173/{uuid}`
-4. Enter your name to act as the patient and begin the call. Grant video/audio permissions.
+1. Locate the reset password link in the console output and visit the provided URL in your browser to set a password.
+2. Go to `http://localhost:5173/dashboard` and log in using the email provided to the script and the chosen password.
+3. Open a new tab and visit the waiting room URL, as output in the script logs (e.g., `http://localhost:5173/{uuid}`).
+4. Enter your name as the patient, initiate the call, and grant video/audio permissions.
 5. Accept the call from your provider tab.
 
-You should now be on a video call with yourself.
+You should now be in a video call with yourself.
 
-### ESLint
-
-To enhance code readability, we maintain a robust ESLint configuration that ensures strict adherence to coding standards. For an optimal coding experience with real-time linting feedback, we highly recommend using Visual Studio Code (VSCode), which offers an outstanding live linting environment.
-
-To get linting in VSCode:
-
-1. Install the [ESLint Extension](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint).
-2. Always open the repo from its root. This allows the extension to detect the `.eslintrc.json` file which specifies the linter configuration.
-3. (Optional) Use the [VSCode workspace](./.vscode/Ottehr.code-workspace) for a helpful alternative organization of the project in the VSCode 'Explorer', which most developers find useful. This can be opened in 2 ways:
-   1. Open [the file](./.vscode/Ottehr.code-workspace) in VS Code. Click on the "Open Workspace" button in the bottom-right.
-   2. `code .vscode/Ottehr.code-workspace`
-
-### Installing `pnpm`
-
-The easiest way to get started is to use the [brew](https://brew.sh/) command:
-
-*If Homebrew is not yet installed on your system, you can easily set it up [here](https://brew.sh/).*
-
-```bash
-brew install pnpm
-```
 ## Repository Structure
 
 This repository uses a monorepo structure. Each package has its own code in its respective folder in [`packages/`](./packages/).
 
 - `app` - The static frontend website that patients use to join their telehealth visit and providers use to answer.
-- `zambdas` - The application's back end endpoints, deployed on the zapEHR platform.
+- `zambdas` - The application's backend endpoints, deployed on the zapEHR platform.
 
 Each package has its own README explaining in more detail its purpose, as well as how to run locally and deploy (if applicable).
 
