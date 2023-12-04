@@ -16,7 +16,6 @@ interface createTelemedRoomInput {
 
 const createTelemedRoom = async (input: ZambdaFunctionInput): Promise<ZambdaFunctionResponse> => {
   const { body, secrets } = input;
-  console.log('body', body);
   const { patientName, practitionerId, practitionerName } = body as createTelemedRoomInput;
 
   const providerProfile = `Practitioner/${practitionerId}`;
@@ -29,7 +28,6 @@ const createTelemedRoom = async (input: ZambdaFunctionInput): Promise<ZambdaFunc
   const m2mUserProfile = await getM2MUserProfile(token, secrets);
 
   const encounter = createRoomEncounter(providerProfile, practitionerName, m2mUserProfile, patientName);
-  console.log('encounter', encounter);
 
   const response = await fetch(`${PROJECT_API}/telemed/room`, {
     body: JSON.stringify(encounter),
@@ -45,7 +43,6 @@ const createTelemedRoom = async (input: ZambdaFunctionInput): Promise<ZambdaFunc
   }
   const responseData = await response.json();
   const encounterData = responseData.encounter;
-  console.log('responseData', responseData);
   return {
     response: {
       encounter: encounterData,

@@ -41,11 +41,9 @@ const getSlugAvailability = async (input: ZambdaFunctionInput): Promise<ZambdaFu
     ],
   });
 
-  console.log('practitioners', practitioners);
-
-  const available = !practitioners.some((practitioner) =>
-    practitioner.identifier?.some((identifier) => identifier.value === potentialSlug)
-  );
+  const available = !practitioners.some((practitioner) => {
+    return practitioner.identifier?.some((identifier) => identifier.value === potentialSlug);
+  });
 
   return {
     response: {

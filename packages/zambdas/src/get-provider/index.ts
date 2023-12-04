@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { createFhirClient } from '../shared';
+import { createFhirClient, regex } from '../shared';
 import { createZambdaFromSkeleton } from '../shared/zambdaSkeleton';
-import { ZambdaFunctionInput, ZambdaFunctionResponse, ZambdaInput } from '../types';
+import { ErrorCodes, ZambdaFunctionInput, ZambdaFunctionResponse, ZambdaInput } from '../types';
 import { Practitioner } from 'fhir/r4';
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -16,6 +16,13 @@ const getProvider = async (input: ZambdaFunctionInput): Promise<ZambdaFunctionRe
   const { body, secrets } = input;
   console.log('body', body);
   const { slug } = body as getProviderInput;
+
+  if (!regex.alphanumeric.test(slug)) {
+    console.error('"slug" must only contain alphanumeric characters.');
+    return {
+      error: ErrorCodes.mustBeAlphanumeric,
+    };
+  }
 
   const fhirClient = await createFhirClient(secrets);
   const providerResponse = await fhirClient.searchResources<Practitioner>({
