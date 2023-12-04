@@ -143,7 +143,8 @@ export async function updateProvider(input: UpdatePractitionerInput): Promise<vo
       zambdaId: UPDATE_PRACTITIONER_ZAMBDA_ID,
     });
     const success = responseBody.response?.success;
-    // TO DO: Manage error handling better
+
+    // TO DO: Manage error handling better #UX-Improvements
     if (success) {
       console.log('Profile updated successuflly');
     } else {

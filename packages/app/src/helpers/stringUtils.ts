@@ -31,11 +31,25 @@ export const createSlugUrl = (slug: string | undefined): string => {
 };
 
 export const createProvider = (providerProfile: Practitioner | undefined): ProviderData => {
+  // TODO: fix the type of obj
+  const getProviderProperty = (obj: any, path: string, defaultValue: ''): any => {
+    const keys = path.split('.');
+    return keys.reduce(
+      (currentObj, key) => (currentObj && currentObj[key] !== undefined ? currentObj[key] : defaultValue),
+      obj
+    );
+  };
+  const email = getProviderProperty(providerProfile, 'telecom.0.value', '');
+  const firstName = getProviderProperty(providerProfile, 'name.0.given.0', '');
+  const lastName = getProviderProperty(providerProfile, 'name.0.family', '');
+  const slug = getProviderProperty(providerProfile, 'identifier.0.value', '');
+  const title = getProviderProperty(providerProfile, 'name.0.prefix.0', '');
+
   return {
-    email: providerProfile?.telecom && providerProfile.telecom[0].value ? providerProfile.telecom[0].value : '',
-    firstName: providerProfile?.name && providerProfile.name[0].given ? providerProfile.name[0].given[0] : '',
-    lastName: providerProfile?.name && providerProfile.name[0].family ? providerProfile.name[0].family : '',
-    slug: providerProfile?.identifier && providerProfile.identifier[0].value ? providerProfile.identifier[0].value : '',
-    title: providerProfile?.name && providerProfile.name[0].prefix ? providerProfile.name[0].prefix[0] : '',
+    email: email,
+    firstName: firstName,
+    lastName: lastName,
+    slug: slug,
+    title: title,
   };
 };
