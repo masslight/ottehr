@@ -18,34 +18,34 @@ const performUpdate = async (input: ZambdaFunctionInput): Promise<ZambdaFunction
   const { body, secrets } = input;
   const { practitionerId, data } = body as UpdatePractitionerInput;
 
-  // if (!practitionerId || typeof practitionerId !== 'string') {
-  //   console.error('Invalid practitionerId');
-  //   return { error: ErrorCodes.missingRequired };
-  // }
+  if (!practitionerId || typeof practitionerId !== 'string') {
+    console.error('Invalid practitionerId');
+    return { error: ErrorCodes.missingRequired };
+  }
 
-  // if (!data || typeof data !== 'object') {
-  //   console.error('Invalid data');
-  //   return { error: ErrorCodes.missingRequired };
-  // }
-
+  if (!data || typeof data !== 'object') {
+    console.error('Invalid data');
+    return { error: ErrorCodes.missingRequired };
+  }
+  // Doing replace is a bit risky, should check the current provider state in DB before replacing or adding
   const patchOperations: Operation[] = [
     {
-      op: data.slug ? 'replace' : 'add',
+      op: 'replace',
       path: '/identifier/0/value',
       value: data.slug,
     },
     {
-      op: data.firstName ? 'replace' : 'add',
+      op: 'replace',
       path: '/name/0/given/0',
       value: data.firstName,
     },
     {
-      op: data.lastName ? 'replace' : 'add',
+      op: 'replace',
       path: '/name/0/family',
       value: data.lastName,
     },
     {
-      op: data.title ? 'replace' : 'add',
+      op: 'replace',
       path: '/name/0/prefix/0',
       value: data.title,
     },
