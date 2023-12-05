@@ -1,6 +1,5 @@
 import { AppClient } from '@zapehr/sdk';
 import { Encounter } from 'fhir/r4';
-import { chooseJson } from '../helpers/apiUtils';
 
 const ZAMBDA_API_URL = import.meta.env.VITE_PROJECT_API_ZAMBDA_URL;
 const PROJECT_API_URL = import.meta.env.VITE_PROJECT_API_URL;
@@ -17,6 +16,11 @@ export interface zapEHRUser {
   profile: any;
 }
 
+interface UpdatePractitionerInput {
+  data: FormData;
+  practitionerId: string | undefined;
+}
+
 export async function createTelemedRoom(
   patientName: string,
   practitionerId: string,
@@ -29,7 +33,6 @@ export async function createTelemedRoom(
       zambdaId: CREATE_TELEMED_ROOM_ZAMBDA_ID,
     });
 
-    console.log(responseBody);
     const encounter: Encounter | undefined = responseBody.response?.encounter;
 
     return encounter;
@@ -39,14 +42,14 @@ export async function createTelemedRoom(
   }
 }
 
-export async function getSlugAvailability(slug: string): Promise<ZambdaFunctionResponse['response']> {
+export async function getSlugAvailability(slug: string | undefined): Promise<ZambdaFunctionResponse> {
   try {
     const GET_SLUG_AVAILABILITY_ZAMBDA_ID = import.meta.env.VITE_GET_SLUG_AVAILABILITY_ZAMBDA_ID;
     const responseBody = await callZambda({
       body: { slug },
       zambdaId: GET_SLUG_AVAILABILITY_ZAMBDA_ID,
     });
-    return responseBody.response;
+    return responseBody;
   } catch (error) {
     console.error('Error checking availability:', error);
     return { error: 10_001 };
@@ -113,7 +116,7 @@ export async function getTelemedToken(encounterId: string): Promise<string | nul
   }
 }
 
-export async function getProvider(slug: string | undefined): Promise<ZambdaFunctionResponse['response']> {
+export async function getProvider(slug: string | undefined): Promise<ZambdaFunctionResponse> {
   try {
     const GET_PROVIDER_ZAMBDA_ID = import.meta.env.VITE_GET_PROVIDER_ZAMBDA_ID;
 
@@ -122,11 +125,30 @@ export async function getProvider(slug: string | undefined): Promise<ZambdaFunct
       zambdaId: GET_PROVIDER_ZAMBDA_ID,
     });
 
-    const providerData = responseBody.response?.providerData;
-    return providerData;
+    return responseBody;
   } catch (error) {
     console.error('Error fetching provider info:', error);
     return { error: 10_001 };
+  }
+}
+
+export async function updateProvider(input: UpdatePractitionerInput): Promise<void> {
+  try {
+    const UPDATE_PRACTITIONER_ZAMBDA_ID = import.meta.env.VITE_UPDATE_PRACTITIONER_ZAMBDA_ID;
+    const responseBody = await callZambda({
+      body: input,
+      zambdaId: UPDATE_PRACTITIONER_ZAMBDA_ID,
+    });
+    const success = responseBody.response?.success;
+
+    // TO DO: Manage error handling better #UX-Improvements
+    if (success) {
+      console.log('Profile updated successuflly');
+    } else {
+      console.log('Could not update provider');
+    }
+  } catch (error) {
+    console.error('Error updating practitioner:', error);
   }
 }
 
@@ -139,18 +161,13 @@ export async function getUser(token: string): Promise<zapEHRUser> {
 }
 
 // Zambda call wrapper
-
-// TODO: @Omar I don't have output response anywhere so changing it to response for now
-export interface ZambdaFunctionResponse {
+interface ZambdaFunctionResponse {
+  error?: number;
   response?: Record<string, any>;
 }
-// export interface ZambdaFunctionResponse {
-//   output: {
-//     error?: number;
-//     response?: Record<string, any>;
-//   };
-// }
-
+interface ZambdaResponseWithOutput {
+  output: ZambdaFunctionResponse;
+}
 interface CallZambdaProps {
   accessToken?: string;
   body: object;
@@ -176,4 +193,12 @@ async function callZambda({ accessToken, body, zambdaId }: CallZambdaProps): Pro
   });
   const json = await response.json();
   return chooseJson(json, import.meta.env.DEV);
+}
+
+function chooseJson(json: ZambdaFunctionResponse | ZambdaResponseWithOutput, isLocal: boolean): ZambdaFunctionResponse {
+  if (isLocal) {
+    return json as ZambdaFunctionResponse;
+  } else {
+    return (json as ZambdaResponseWithOutput).output;
+  }
 }

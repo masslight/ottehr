@@ -50,6 +50,7 @@
     "@mui/system": "^5.10.16",
     "@mui/x-date-pickers": "^5.0.10",
     "@zapehr/sdk": "^1.0.8",
+    "fast-json-patch": "^3.1.1",
     "i18next": "23.6.0",
     "i18next-browser-languagedetector": "^7.0.1",
     "luxon": "^3.1.1",

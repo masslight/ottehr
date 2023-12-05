@@ -23,10 +23,12 @@ export const CheckIn = (): JSX.Element => {
     setIsLoading(true);
     const fetchProvider = async (): Promise<void> => {
       try {
-        const provider = await getProvider(slug || '');
+        const { response } = await getProvider(slug || '');
+        const provider = response?.providerData;
         if (provider) {
           setProviderId(provider.id || '');
           setProviderName(createProviderName(provider));
+          setIsLoading(false);
         }
       } catch (error) {
         console.error('Error fetching provider:', error);

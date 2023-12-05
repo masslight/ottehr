@@ -11,11 +11,12 @@ import {
 } from 'react';
 import { Outlet } from 'react-router-dom';
 import { LocalAudioTrack, LocalVideoTrack, Room } from 'twilio-video';
-import { Action, State } from './types';
+import { Action, ProviderData, State } from './types';
 import { useAuth0 } from '@auth0/auth0-react';
 import { setFhirClient } from './Actions';
 import { getUser } from '../api';
 import { Practitioner } from 'fhir/r4';
+import { createProvider } from '../helpers';
 
 const initialState = {};
 
@@ -96,6 +97,7 @@ export const useParticipant = (): ParticipantContextProps => {
 // Video
 
 type VideoParticipantContextProps = {
+  cleanup: () => void;
   isMicOpen: boolean;
   isVideoOpen: boolean;
   localTracks: (LocalAudioTrack | LocalVideoTrack)[];
@@ -121,9 +123,22 @@ export const VideoParticipantProvider: FC<VideoParticipantProviderProps> = ({ ch
   const [room, setRoom] = useState<Room | null>(null);
   const [selectedSpeaker, setSelectedSpeaker] = useState<string | null>(null);
 
+  const cleanup = (): void => {
+    localTracks.forEach((track) => {
+      if (track.kind === 'audio' || track.kind === 'video') {
+        track.stop();
+      }
+    });
+
+    if (room) {
+      room.disconnect();
+    }
+  };
+
   return (
     <VideoParticipantContext.Provider
       value={{
+        cleanup,
         isMicOpen,
         isVideoOpen,
         localTracks,
@@ -149,16 +164,11 @@ export const useVideoParticipant = (): VideoParticipantContextProps => {
   return context;
 };
 
-type Provider = {
-  firstName: string;
-  lastName: string;
-  slug: string;
-  title: string;
-};
+// Provider
 
 type PractitionerContextProps = {
   practitionerProfile: Practitioner | null | undefined;
-  provider: Provider | undefined;
+  provider: ProviderData | undefined;
 };
 
 const PractitionerContext = createContext<PractitionerContextProps | undefined>(undefined);
@@ -166,7 +176,7 @@ const PractitionerContext = createContext<PractitionerContextProps | undefined>(
 export const PractitionerProvider: FC = () => {
   const [accessToken, setAccessToken] = useState<string>('');
   const [practitionerProfile, setPractitionerProfile] = useState<Practitioner | null | undefined>(null);
-  const [provider, setProvider] = useState<Provider | undefined>();
+  const [provider, setProvider] = useState<ProviderData | undefined>();
   const { state, dispatch } = useContext(DataContext);
   const { isAuthenticated, getAccessTokenSilently } = useAuth0();
 
@@ -192,12 +202,7 @@ export const PractitionerProvider: FC = () => {
         resourceId: userId,
         resourceType: resourceType,
       });
-      const provider: Provider = {
-        firstName: profile?.name && profile.name[0].given ? profile.name[0].given[0] : '',
-        lastName: profile?.name && profile.name[0].family ? profile.name[0].family : '',
-        slug: profile?.identifier && profile.identifier[0].value ? profile.identifier[0].value : '',
-        title: profile?.name && profile.name[0].prefix ? profile.name[0].prefix[0] : '',
-      };
+      const provider = createProvider(profile);
       setProvider(provider);
       setPractitionerProfile(profile);
     }

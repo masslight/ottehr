@@ -3,6 +3,7 @@ import { FC, ReactNode } from 'react';
 
 interface CustomButtonProps {
   children: ReactNode;
+  disabled?: boolean;
   fitContent?: boolean;
   icon?: ReactNode;
   onClick?: () => any;
@@ -10,11 +11,21 @@ interface CustomButtonProps {
   submit?: boolean;
   sx?: SxProps;
 }
-export const CustomButton: FC<CustomButtonProps> = ({ children, fitContent, icon, onClick, secondary, submit, sx }) => {
+export const CustomButton: FC<CustomButtonProps> = ({
+  children,
+  fitContent,
+  icon,
+  onClick,
+  secondary,
+  submit,
+  sx,
+  disabled,
+}) => {
   const theme = useTheme();
 
   return (
     <Button
+      disabled={disabled}
       onClick={onClick}
       startIcon={icon}
       sx={{

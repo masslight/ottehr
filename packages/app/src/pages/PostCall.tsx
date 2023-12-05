@@ -4,10 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { CustomButton, CustomContainer, LoadingSpinner } from '../components';
 import { createPatientName, createProviderName } from '../helpers';
 import { useAuth0 } from '@auth0/auth0-react';
-import { getPatients, getProvider } from '../helpers/mockData';
-import { useEffect, useState } from 'react';
+import { usePractitioner } from '../store';
 
 export const PostCall = (): JSX.Element => {
+  const { provider } = usePractitioner();
   const { isAuthenticated } = useAuth0();
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -17,10 +17,13 @@ export const PostCall = (): JSX.Element => {
     navigate('/dashboard');
   };
 
-  // TODO hard-coded data
+  // TODO hard-coded data #Post-Call ticket
   const mockCallDuration = '15:05';
-  const patient = getPatients()[0];
-  const provider = getProvider();
+  const patient = {
+    encounterId: '0b669dc1-ad4c-43c2-84f1-c010400889e2',
+    name: 'John Doe',
+    queuedTime: '2023-09-29T08:15:00Z',
+  };
 
   let subtitle = '';
   let title = '';
