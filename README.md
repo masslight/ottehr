@@ -53,7 +53,7 @@ Alternatively, you can install `pnpm` using the [official documentation](https:/
 
 ### Joining zapEHR
 
-Unlock the power of zapEHR by registering for access at [zapehr.com](https://zapehr.com). Follow these simple steps:
+You'll need a free zapEHR account to run Ottehr.  Register for access at [zapehr.com](https://zapehr.com). Follow these simple steps:
 
 1. Visit [zapehr.com](https://zapehr.com).
 2. Click on **Free Access** to initiate your early access request.
