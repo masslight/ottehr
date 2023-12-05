@@ -5,6 +5,7 @@ import { CustomButton, CustomContainer, LoadingSpinner } from '../components';
 import { createPatientName, createProviderName } from '../helpers';
 import { useAuth0 } from '@auth0/auth0-react';
 import { usePractitioner } from '../store';
+import { useEffect, useState } from 'react';
 
 export const PostCall = (): JSX.Element => {
   const { provider } = usePractitioner();
