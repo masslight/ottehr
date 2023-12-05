@@ -45,6 +45,7 @@ export const TopAppBar: FC = () => {
   const handleCloseUserMenu = (): void => {
     setAnchorElUser(null);
     setMenuOpen(false);
+    console.log('close');
   };
 
   return (
@@ -136,6 +137,7 @@ export const TopAppBar: FC = () => {
               </MenuItem>
             </Menu>
 
+            {/* {menuOpen && ( */}
             <Box
               sx={{
                 backgroundColor: otherColors.darkBackgroundPaper,
@@ -206,6 +208,7 @@ export const TopAppBar: FC = () => {
                 <ArrowForwardIcon sx={{ color: 'white' }} />
               </Button>
             </Box>
+            {/* )} */}
           </Box>
         </Toolbar>
       </Container>
