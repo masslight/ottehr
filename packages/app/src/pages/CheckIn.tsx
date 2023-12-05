@@ -27,6 +27,7 @@ export const CheckIn = (): JSX.Element => {
         if (provider) {
           setProviderId(provider.id || '');
           setProviderName(createProviderName(provider));
+          setIsLoading(false);
         }
       } catch (error) {
         console.error('Error fetching provider:', error);

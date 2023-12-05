@@ -1,15 +1,22 @@
 import { t } from 'i18next';
-import { CustomContainer, ProviderFields } from '../components';
+import { CustomContainer, LoadingSpinner, ProviderFields } from '../components';
 import { useForm } from 'react-hook-form';
 import { usePractitioner } from '../store/Context';
-import { FormData } from './Register';
+import { FormData } from '../store/types';
 import { createProviderName } from '../helpers';
+import { updateProvider } from '../api';
+import { useEffect, useState } from 'react';
+import { Alert, Snackbar } from '@mui/material';
 
 export const Profile = (): JSX.Element => {
+  const { provider, practitionerProfile } = usePractitioner();
+  const [openSnackbar, setOpenSnackbar] = useState(false);
+
   const {
     control,
     formState: { errors },
     handleSubmit,
+    reset,
   } = useForm<FormData>({
     defaultValues: {
       email: '',
@@ -18,12 +25,33 @@ export const Profile = (): JSX.Element => {
       slug: '',
       title: '',
     },
+    mode: 'onChange',
   });
-  const { provider } = usePractitioner();
+
+  useEffect(() => {
+    reset({
+      ...provider,
+    });
+  }, [provider, reset]);
+
   const onSubmit = (data: FormData): void => {
-    console.log(data);
-    // TODO: form submission structure
+    const input = {
+      data: data,
+      practitionerId: practitionerProfile?.id,
+    };
+    updateProvider(input).catch((error) => {
+      console.log(error);
+      setOpenSnackbar(true);
+    });
   };
+
+  const handleCloseSnackbar = (): void => {
+    setOpenSnackbar(false);
+  };
+
+  if (!provider) {
+    return <LoadingSpinner transparent={false} />;
+  }
 
   return (
     <CustomContainer isProvider={true} subtitle={createProviderName(provider)} title={t('profile.myProfile')}>
@@ -33,6 +61,11 @@ export const Profile = (): JSX.Element => {
         errors={errors}
         onSubmit={handleSubmit(onSubmit)}
       />
+      <Snackbar autoHideDuration={6000} onClose={handleCloseSnackbar} open={openSnackbar}>
+        <Alert onClose={handleCloseSnackbar} severity="error" sx={{ width: '100%' }}>
+          {t('errors.updateUserError')}
+        </Alert>
+      </Snackbar>
     </CustomContainer>
   );
 };

@@ -49,7 +49,8 @@
     "tokenNotLoaded": "Token not loaded. Please try again.",
     "unauthorized": "Not authorized to access this resource. Please check your credentials and try again.",
     "unauthorizedByThirdParty": "The operation was rejected by a third party.",
-    "unexpected": "An unexpected error occurred. Please try again."
+    "unexpected": "An unexpected error occurred. Please try again.",
+    "updateUser": "Could not update user. Please try again."
   },
   "general": {
     "footer": "Powered by",

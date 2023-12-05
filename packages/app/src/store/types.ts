@@ -40,6 +40,14 @@ export type ProviderInfo = {
   name: string | undefined;
 };
 
+export type ProviderData = {
+  email: string;
+  firstName: string;
+  lastName: string;
+  slug: string;
+  title: string;
+};
+
 export type Action =
   | { fhirClient: FhirClient; type: 'SET_FHIR_CLIENT' }
   | { patientInfo: PatientInfo | undefined; type: 'UPDATE_PATIENT' }
@@ -50,3 +58,14 @@ export type State = {
   patientInfo?: PatientInfo;
   zambdaClient?: ZambdaClient;
 };
+
+export interface FormData {
+  acceptTerms: boolean;
+  email: string;
+  firstName: string;
+  lastName: string;
+  notPatient: boolean;
+  password: string;
+  slug: string;
+  title: string;
+}

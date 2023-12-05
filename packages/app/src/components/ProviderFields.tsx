@@ -19,7 +19,7 @@ import { createSlugUrl } from '../helpers';
 import { useDebounce, useErrorMessages } from '../hooks';
 import { usePractitioner } from '../store';
 import { CustomButton } from './CustomButton';
-import { getTitles } from '../helpers/mockData';
+import { getTitles } from '../constants/index';
 
 interface ProviderFieldsProps {
   buttonText: string;
@@ -35,6 +35,8 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
   const { provider } = usePractitioner();
   const [slug, setSlug] = useState(provider?.slug);
   const [slugError, setSlugError] = useState('');
+  const isSlugAvailable = slugError === '';
+  const isFormValid = !errors.firstName && !errors.lastName && isSlugAvailable;
   const debouncedUpdateSlug = useDebounce(async () => {
     const { error, response } = await getSlugAvailability(slug);
     let errorMessage: string | undefined;
@@ -48,6 +50,7 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
       setSlugError(t('error.slugUnavailable'));
     }
   }, 1000);
+
   useEffect(() => {
     if (slug === '') {
       setSlugError("Slug can't be an empty string.");
@@ -75,7 +78,7 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
               <InputLabel>Title</InputLabel>
               <Select label="Title" {...field}>
                 {titles.map((title) => (
-                  <MenuItem key={title} value={title.toLowerCase()}>
+                  <MenuItem key={title} value={title}>
                     {t(`profile.titleOption.${title.toLowerCase()}`)}
                   </MenuItem>
                 ))}
@@ -89,8 +92,10 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
           render={({ field }) => (
             <TextField
               {...field}
+              error={errors.firstName}
               helperText={errors.firstName ? String(errors.firstName.message) : null}
               label="First Name"
+              required={true}
               variant="outlined"
             />
           )}
@@ -101,8 +106,10 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
           render={({ field }) => (
             <TextField
               {...field}
+              error={errors.lastName}
               helperText={errors.lastName ? String(errors.lastName.message) : null}
               label="Last Name"
+              required={true}
               variant="outlined"
             />
           )}
@@ -169,7 +176,8 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
             />
           </>
         )}
-        <CustomButton submit sx={{ mt: 0 }}>
+        {/* TODO: Handle loading state #UX-Improvements  */}
+        <CustomButton disabled={!isFormValid} submit sx={{ mt: 0 }}>
           {buttonText}
         </CustomButton>
       </Box>

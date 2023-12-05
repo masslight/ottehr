@@ -16,6 +16,11 @@ export interface zapEHRUser {
   profile: any;
 }
 
+interface UpdatePractitionerInput {
+  data: FormData;
+  practitionerId: string | undefined;
+}
+
 export async function createTelemedRoom(
   patientName: string,
   practitionerId: string,
@@ -28,7 +33,6 @@ export async function createTelemedRoom(
       zambdaId: CREATE_TELEMED_ROOM_ZAMBDA_ID,
     });
 
-    console.log(responseBody);
     const encounter: Encounter | undefined = responseBody.response?.encounter;
 
     return encounter;
@@ -125,6 +129,26 @@ export async function getProvider(slug: string | undefined): Promise<ZambdaFunct
   } catch (error) {
     console.error('Error fetching provider info:', error);
     return { error: 10_001 };
+  }
+}
+
+export async function updateProvider(input: UpdatePractitionerInput): Promise<void> {
+  try {
+    const UPDATE_PRACTITIONER_ZAMBDA_ID = import.meta.env.VITE_UPDATE_PRACTITIONER_ZAMBDA_ID;
+    const responseBody = await callZambda({
+      body: input,
+      zambdaId: UPDATE_PRACTITIONER_ZAMBDA_ID,
+    });
+    const success = responseBody.response?.success;
+
+    // TO DO: Manage error handling better #UX-Improvements
+    if (success) {
+      console.log('Profile updated successuflly');
+    } else {
+      console.log('Could not update provider');
+    }
+  } catch (error) {
+    console.error('Error updating practitioner:', error);
   }
 }
 

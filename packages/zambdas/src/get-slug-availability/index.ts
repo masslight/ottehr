@@ -1,8 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ErrorCodes, ZambdaFunctionInput, ZambdaFunctionResponse, ZambdaInput } from '../types';
 import { createZambdaFromSkeleton } from '../shared/zambdaSkeleton';
-import { createFhirClient, regex } from '../shared';
-import { Practitioner } from 'fhir/r4';
+import { availability, createFhirClient, regex } from '../shared';
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   return createZambdaFromSkeleton(input, getSlugAvailability);
@@ -31,19 +30,7 @@ const getSlugAvailability = async (input: ZambdaFunctionInput): Promise<ZambdaFu
 
   const fhirClient = await createFhirClient(secrets);
 
-  const practitioners: Practitioner[] = await fhirClient.searchResources({
-    resourceType: 'Practitioner',
-    searchParams: [
-      {
-        name: 'identifier',
-        value: `${slug}`,
-      },
-    ],
-  });
-
-  const available = !practitioners.some((practitioner) => {
-    return practitioner.identifier?.some((identifier) => identifier.value === potentialSlug);
-  });
+  const available = await availability(potentialSlug, fhirClient);
 
   return {
     response: {

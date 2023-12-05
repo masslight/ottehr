@@ -3,6 +3,8 @@
 import fetch from 'node-fetch';
 import { SecretsKeys, getSecret } from './secrets';
 import { Secrets } from '../types';
+import { FhirClient } from '@zapehr/sdk';
+import { Practitioner } from 'fhir/r4';
 
 export async function getM2MUserProfile(token: string, secrets: Secrets | null): Promise<any> {
   const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
@@ -118,3 +120,21 @@ export const createRoomEncounter = (
     ],
   },
 });
+
+export const availability = async (slug: string, fhirClient: FhirClient): Promise<boolean> => {
+  const practitioners: Practitioner[] = await fhirClient.searchResources({
+    resourceType: 'Practitioner',
+    searchParams: [
+      {
+        name: 'identifier',
+        value: `${slug}`,
+      },
+    ],
+  });
+
+  const available = !practitioners.some((practitioner) =>
+    practitioner.identifier?.some((identifier) => identifier.value === slug)
+  );
+
+  return available;
+};

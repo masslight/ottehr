@@ -9,7 +9,6 @@ import { otherColors } from '../OttehrThemeProvider';
 import { defaultProvider } from '../assets/icons';
 import { CustomButton, Footer, LoadingSpinner, PatientQueue, PatientQueueProps, TopAppBar } from '../components';
 import { createProviderName, createSlugUrl } from '../helpers';
-import { getProvider } from '../helpers/mockData';
 import { JSX } from 'react/jsx-runtime';
 import { usePractitioner } from '../store';
 import { useAuth0 } from '@auth0/auth0-react';
