@@ -181,7 +181,8 @@ function duplicateEnvTemplate(clientId: string, projectId: string): void {
 
 async function runCLI(): Promise<void> {
   const { accessToken, projectId, providerEmail } = await getUserInput();
-  const slug = uuidv4();
+  const slug = uuidv4().replace(/-/g, '');
+
   console.log('Starting setup...');
 
   Promise.all([createApplication(accessToken, projectId), createM2M(accessToken, projectId)])
