@@ -23,7 +23,7 @@ export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom, localPartici
   const { cleanup, isMicOpen, isVideoOpen, localTracks, room, setIsMicOpen, setIsVideoOpen } = useVideoParticipant();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { state } = useContext(DataContext);
-  const { isAuthenticated } = useAuth0;
+  const { isAuthenticated } = useAuth0();
 
   const openSettings = (): void => {
     setIsSettingsOpen(true);
@@ -52,7 +52,11 @@ export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom, localPartici
         });
     }
     cleanup();
-    navigate('/post-call');
+    // TODO: delete this
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    }
+    // navigate('/post-call');
   };
 
   const toggleTrack = (kind: 'audio' | 'video', setState: Dispatch<SetStateAction<boolean>>): void => {
@@ -61,6 +65,7 @@ export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom, localPartici
     const tracks = localTracks.filter((track) => track.kind === kind);
 
     tracks.forEach((localTrack) => {
+      console.log('toggleTrack', localTrack);
       if (localTrack.isEnabled) {
         localTrack.disable();
         setState(false);
