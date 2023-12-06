@@ -101,7 +101,7 @@ export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, patientName, 
             </Typography>
           </Box>
         </Box>
-        <Box>
+        <Box sx={{ alignItems: 'center', display: 'flex' }}>
           <CustomButton onClick={startCall} sx={{ display: { md: 'block', xs: 'none' } }}>
             {t('general.startCall')}
           </CustomButton>
