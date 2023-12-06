@@ -10,6 +10,7 @@ import {
   Select,
   TextField,
   Typography,
+  useTheme,
 } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
 import { Control, Controller } from 'react-hook-form';
@@ -31,6 +32,7 @@ interface ProviderFieldsProps {
 export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, errors, isRegister, onSubmit }) => {
   const { t } = useTranslation();
   const getErrorMessage = useErrorMessages();
+  const theme = useTheme();
 
   const { provider } = usePractitioner();
   const [slug, setSlug] = useState(provider?.slug);
@@ -140,7 +142,18 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
                 <Box sx={{ mr: 1 }}>
                   {slugError === '' ? <CheckIcon color="success" /> : <CancelIcon color="error" />}
                 </Box>
-                <Typography variant="body2">{createSlugUrl(field.value)}</Typography>
+                <Typography
+                  sx={{
+                    [theme.breakpoints.down('md')]: {
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'no-wrap',
+                    },
+                  }}
+                  variant="body2"
+                >
+                  {createSlugUrl(field.value)}
+                </Typography>
               </Box>
             </>
           )}

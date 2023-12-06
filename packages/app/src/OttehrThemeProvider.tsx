@@ -129,8 +129,8 @@ export const typography: TypographyOptions = {
   },
   subtitle2: {
     fontFamily: textFonts.join(','),
-    fontSize: 14,
-    fontWeight: 600,
+    fontSize: 12,
+    fontWeight: 400,
     lineHeight: '140%',
   },
 };

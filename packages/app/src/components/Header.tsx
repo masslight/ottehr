@@ -1,4 +1,4 @@
-import { Box, Typography, useTheme } from '@mui/material';
+import { Box, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { otherColors } from '../OttehrThemeProvider';
@@ -14,6 +14,9 @@ interface HeaderProps {
 export const Header: FC<HeaderProps> = ({ isProvider, subtitle, title }) => {
   const theme = useTheme();
   const { t } = useTranslation();
+
+  const isSmScreen = useMediaQuery(theme.breakpoints.down('sm'));
+  // const isXsScreen = useMediaQuery(theme.breakpoints.down('xs'));
 
   const imageStyle = { height: '6.25rem', width: '6.25rem' };
 
@@ -52,10 +55,10 @@ export const Header: FC<HeaderProps> = ({ isProvider, subtitle, title }) => {
             },
           }}
         >
-          <Typography color="primary.light" variant="h5">
+          <Typography color="primary.light" variant={isSmScreen ? 'h6' : 'h5'}>
             {title}
           </Typography>
-          <Typography color="primary.contrast" variant="h4">
+          <Typography color="primary.contrast" variant={isSmScreen ? 'h5' : 'h4'}>
             {subtitle}
           </Typography>
         </Box>

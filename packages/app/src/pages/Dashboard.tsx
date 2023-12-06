@@ -103,7 +103,16 @@ export const Dashboard = (): JSX.Element => {
     >
       {isLoading && <LoadingSpinner transparent={false} />}
       <TopAppBar />
-      <Box sx={{ display: 'flex', flexDirection: { md: 'row', xs: 'column' }, flexGrow: 1 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'row',
+          flexGrow: 1,
+          [theme.breakpoints.down('lg')]: {
+            flexDirection: 'column',
+          },
+        }}
+      >
         <Box
           sx={{
             backgroundColor: 'transparent',
@@ -186,7 +195,7 @@ export const Dashboard = (): JSX.Element => {
               >
                 {showCheckIcon ? <CheckCircleIcon /> : t('dashboard.copyLink')}
               </CustomButton>
-              <CustomButton fitContent icon={<MailOutlineIcon />} secondary sx={{ whiteSpace: 'nowrap' }}>
+              <CustomButton fitContent icon={<MailOutlineIcon />} secondary>
                 {t('dashboard.sendEmail')}
               </CustomButton>
             </Box>

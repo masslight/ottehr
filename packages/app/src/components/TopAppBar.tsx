@@ -152,23 +152,21 @@ export const TopAppBar: FC = () => {
                 textAlign: 'left',
                 top: 0,
                 transition: 'right 0.3s ease-in-out',
-                width: 'auto',
+                width: '60%',
                 zIndex: 2,
               }}
             >
               <Box
-                sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', justifyContent: 'flex-end' }}
+                sx={{ display: 'flex', flexDirection: 'column', gap: 1, height: '100%', justifyContent: 'flex-end' }}
               >
-                <Button disabled>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
-                    <Typography color="white" variant="body1">
-                      {provider?.firstName} {provider?.lastName}
-                    </Typography>
-                    <Typography color="white" variant="body1">
-                      {provider?.email}
-                    </Typography>
-                  </Box>
-                </Button>
+                <Box sx={{ display: 'flex', flexDirection: 'column', px: 2, py: 1, textAlign: 'left' }}>
+                  <Typography color="white" variant="body1">
+                    {provider?.firstName} {provider?.lastName}
+                  </Typography>
+                  <Typography color="white" sx={{ wordWrap: 'break-word' }} variant="subtitle2">
+                    {provider?.email}
+                  </Typography>
+                </Box>
                 <Divider sx={{ color: 'primary.contrast' }} />
                 <MenuItem component={Link} onClick={handleCloseUserMenu} to="/profile">
                   <Box
@@ -178,7 +176,7 @@ export const TopAppBar: FC = () => {
                       justifyContent: 'center',
                     }}
                   >
-                    <AccountCircleIcon sx={{ color: theme.palette.background.default, mr: 4 }} />
+                    <AccountCircleIcon sx={{ color: theme.palette.background.default, mr: 2 }} />
                     <Typography color={theme.palette.background.default} variant="body2">
                       {t('general.profile')}
                     </Typography>

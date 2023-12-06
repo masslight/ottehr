@@ -35,7 +35,6 @@ export const CustomContainer: FC<CustomContainerProps> = ({ children, isProvider
       >
         <Header isProvider={isProvider} subtitle={subtitle} title={title} />
         <Container
-          // maxWidth="md"
           sx={{
             alignSelf: 'center',
             display: 'flex',
