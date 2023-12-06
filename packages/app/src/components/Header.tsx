@@ -16,7 +16,6 @@ export const Header: FC<HeaderProps> = ({ isProvider, subtitle, title }) => {
   const { t } = useTranslation();
 
   const isSmScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  // const isXsScreen = useMediaQuery(theme.breakpoints.down('xs'));
 
   const imageStyle = { height: '6.25rem', width: '6.25rem' };
 

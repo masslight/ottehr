@@ -24,17 +24,7 @@ export const Footer: FC = () => {
         width: '100%',
       }}
     >
-      <Box
-        alt="Footer Logo"
-        component="img"
-        ml={2}
-        src={footerLogo}
-        // sx={{
-        //   [theme.breakpoints.down('sm')]: {
-        //     display: 'none',
-        //   },
-        // }}
-      ></Box>
+      <Box alt="Footer Logo" component="img" ml={2} src={footerLogo}></Box>
       <a href="https://zapehr.com/" onClick={handleFooterClick} rel="noopener noreferrer" target="_blank">
         <Box sx={{ alignItems: 'center', display: 'flex' }}>
           <Typography
