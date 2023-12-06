@@ -2,7 +2,6 @@ export * from './CheckIn';
 export * from './Dashboard';
 export * from './PostCall';
 export * from './Profile';
-export * from './Register';
 export * from './Version';
 export * from './VideoChatPage';
 export * from './VideoSettings';
