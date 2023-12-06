@@ -34,14 +34,14 @@ If you've identified a bug or issue, please follow these steps:
 
 To set up Ottehr locally and run tests, follow these steps:
 
-1. **Fork the Repository**
-   https://github.com/masslight/ottehr/fork
+1. **Fork the Repository:**
+   Fork the Ottehr repository by navigating to [https://github.com/masslight/ottehr/fork](https://github.com/masslight/ottehr/fork).
 
 2. **Clone the Repository:**
+   Use the following command to clone the repository to your local machine:
    ```bash
-   git clone https://github.com/masslight/ottehr/fork
+   git clone https://github.com/{{your-git-user-name}}/{{ottehr-fork-name}}.git
    ```
-
 3. **Install Dependencies:**
    Navigate to the cloned repository and run:
    ```bash
