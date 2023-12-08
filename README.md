@@ -6,6 +6,8 @@ This monorepo contains code for the entire Ottehr telehealth platform.
 
 ## First Time Setup
 
+For a video walkthrough, please see this [getting started with ottehr video](https://youtu.be/NJzF9Nzhbeo).
+
 ### Node Installation
 
 To manage Node.js versions efficiently, we recommend using [Node Version Manager (nvm)](https://github.com/nvm-sh/nvm#installing-and-updating).
