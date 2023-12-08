@@ -25,7 +25,13 @@ export const Footer: FC = () => {
       }}
     >
       <Box alt="Footer Logo" component="img" ml={2} src={footerLogo}></Box>
-      <a href="https://zapehr.com/" onClick={handleFooterClick} rel="noopener noreferrer" target="_blank">
+      <a
+        href="https://zapehr.com/"
+        onClick={handleFooterClick}
+        rel="noopener noreferrer"
+        style={{ textDecoration: 'none' }}
+        target="_blank"
+      >
         <Box sx={{ alignItems: 'center', display: 'flex' }}>
           <Typography
             color="primary.light"
