@@ -1,18 +1,14 @@
 import { Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { CustomButton, CustomContainer, LoadingSpinner } from '../components';
 import { createPatientName } from '../helpers';
 import { useAuth0 } from '@auth0/auth0-react';
-import { useParticipant } from '../store';
 
-export const PostCall = (): JSX.Element => {
-  const { providerName } = useParticipant();
+export const ProviderPostCall = (): JSX.Element => {
   const { isAuthenticated } = useAuth0();
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const location = useLocation();
-  const isProvider = location.pathname === '/provider-post-call';
 
   const goToDashboard = (): void => {
     navigate('/dashboard');
@@ -26,16 +22,12 @@ export const PostCall = (): JSX.Element => {
     queuedTime: '2023-09-29T08:15:00Z',
   };
 
-  if (isProvider && !isAuthenticated) {
+  if (!isAuthenticated) {
     return <LoadingSpinner transparent={false} />;
   }
 
   return (
-    <CustomContainer
-      isProvider={isAuthenticated}
-      subtitle={isAuthenticated ? createPatientName(patient) : providerName}
-      title={isAuthenticated ? t('postCall.callWith') : t('general.waitingRoom')}
-    >
+    <CustomContainer isProvider={true} subtitle={createPatientName(patient)} title={t('postCall.callWith')}>
       <Typography mb={1} variant="h5">
         {t('postCall.callEnded')}
       </Typography>
@@ -44,11 +36,9 @@ export const PostCall = (): JSX.Element => {
         {mockCallDuration}
         {t('postCall.durationSuffix')}
       </Typography>
-      {isAuthenticated && (
-        <CustomButton fitContent onClick={goToDashboard}>
-          {t('postCall.goToDashboard')}
-        </CustomButton>
-      )}
+      <CustomButton fitContent onClick={goToDashboard}>
+        {t('postCall.goToDashboard')}
+      </CustomButton>
     </CustomContainer>
   );
 };
