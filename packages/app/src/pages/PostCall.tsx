@@ -1,16 +1,18 @@
 import { Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
-import { CustomButton, CustomContainer } from '../components';
-import { createPatientName, createProviderName } from '../helpers';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { CustomButton, CustomContainer, LoadingSpinner } from '../components';
+import { createPatientName } from '../helpers';
 import { useAuth0 } from '@auth0/auth0-react';
-import { usePractitioner } from '../store';
+import { useParticipant } from '../store';
 
 export const PostCall = (): JSX.Element => {
-  const { provider } = usePractitioner();
+  const { providerName } = useParticipant();
   const { isAuthenticated } = useAuth0();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const location = useLocation();
+  const isProvider = location.pathname === '/provider-post-call';
 
   const goToDashboard = (): void => {
     navigate('/dashboard');
@@ -24,18 +26,16 @@ export const PostCall = (): JSX.Element => {
     queuedTime: '2023-09-29T08:15:00Z',
   };
 
-  let subtitle = '';
-  let title = '';
-  if (isAuthenticated) {
-    subtitle = createPatientName(patient);
-    title = t('postCall.callWith');
-  } else {
-    subtitle = createProviderName(provider, false);
-    title = t('general.waitingRoom');
+  if (isProvider && !isAuthenticated) {
+    return <LoadingSpinner transparent={false} />;
   }
 
   return (
-    <CustomContainer isProvider={isAuthenticated} subtitle={subtitle} title={title}>
+    <CustomContainer
+      isProvider={isAuthenticated}
+      subtitle={isAuthenticated ? createPatientName(patient) : providerName}
+      title={isAuthenticated ? t('postCall.callWith') : t('general.waitingRoom')}
+    >
       <Typography mb={1} variant="h5">
         {t('postCall.callEnded')}
       </Typography>
