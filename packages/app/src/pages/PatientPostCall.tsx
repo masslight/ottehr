@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { CustomContainer } from '../components';
 import { useParticipant } from '../store';
 
+// TODO: Merge 2 post call pages in one
 export const PatientPostCall = (): JSX.Element => {
   const { providerName } = useParticipant();
   const { t } = useTranslation();

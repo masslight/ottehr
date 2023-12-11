@@ -39,6 +39,8 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
   const [slugError, setSlugError] = useState('');
   const isSlugAvailable = slugError === '';
   const isFormValid = !errors.firstName && !errors.lastName && isSlugAvailable;
+
+  //TODO: slugavailability immediately after update checks wrong
   const debouncedUpdateSlug = useDebounce(async () => {
     const { error, response } = await getSlugAvailability(slug);
     let errorMessage: string | undefined;

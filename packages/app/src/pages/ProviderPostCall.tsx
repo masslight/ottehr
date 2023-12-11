@@ -5,6 +5,7 @@ import { CustomButton, CustomContainer, LoadingSpinner } from '../components';
 import { createPatientName } from '../helpers';
 import { useAuth0 } from '@auth0/auth0-react';
 
+// TODO: Merge 2 post call pages in one
 export const ProviderPostCall = (): JSX.Element => {
   const { isAuthenticated } = useAuth0();
   const navigate = useNavigate();
