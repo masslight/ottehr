@@ -87,7 +87,8 @@
       "ms": "Ms",
       "nurse": "Nurse"
     },
-    "update": "Update"
+    "update": "Update",
+    "updateSuccess": "Profile updated successfully!"
   },
   "register": {
     "checkboxes": {
