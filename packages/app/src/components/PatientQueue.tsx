@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
 import { getProviderTelemedToken } from '../api';
 import { callButtonMobile, defaultPatient } from '../assets/icons';
-import { getQueuedTimeFromTimestamp } from '../helpers';
+import { getRelativeTime } from '../helpers';
 import { useVideoParticipant } from '../store';
 import { CustomButton } from './CustomButton';
 import { useAuth0 } from '@auth0/auth0-react';
@@ -20,10 +20,11 @@ export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, patientName, 
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom } = useVideoParticipant();
-  const [relativeQueuedTime, setRelativeQueuedTime] = useState(getQueuedTimeFromTimestamp(queuedTime));
+  const [relativeQueuedTime, setRelativeQueuedTime] = useState(getRelativeTime(queuedTime));
   const { getAccessTokenSilently } = useAuth0();
   const [telemedToken, setTelemedToken] = useState<string | null>(null);
   const [openSnackbar, setOpenSnackbar] = useState(false); // new state for Snackbar
+  const { setCallStart } = useVideoParticipant();
 
   useEffect(() => {
     async function getZapEHRUser(): Promise<void> {
@@ -37,6 +38,7 @@ export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, patientName, 
   }, [encounterId, getAccessTokenSilently]);
 
   const startCall = async (): Promise<void> => {
+    setCallStart(queuedTime);
     try {
       setIsMicOpen(true);
       setIsVideoOpen(true);
@@ -77,11 +79,11 @@ export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, patientName, 
   };
 
   useEffect(() => {
-    setRelativeQueuedTime(getQueuedTimeFromTimestamp(queuedTime));
+    setRelativeQueuedTime(getRelativeTime(queuedTime));
 
     // interval to update the state every minute
     const interval = setInterval(() => {
-      setRelativeQueuedTime(getQueuedTimeFromTimestamp(queuedTime));
+      setRelativeQueuedTime(getRelativeTime(queuedTime));
     }, 60000);
 
     return () => clearInterval(interval);

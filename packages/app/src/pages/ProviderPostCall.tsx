@@ -2,21 +2,22 @@ import { Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { CustomButton, CustomContainer, LoadingSpinner } from '../components';
-import { createPatientName } from '../helpers';
+import { createPatientName, getRelativeTime } from '../helpers';
 import { useAuth0 } from '@auth0/auth0-react';
+import { useVideoParticipant } from '../store';
 
 // TODO: Merge 2 post call pages in one
 export const ProviderPostCall = (): JSX.Element => {
   const { isAuthenticated } = useAuth0();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { callStart } = useVideoParticipant();
 
   const goToDashboard = (): void => {
     navigate('/dashboard');
   };
-
+  const callDuration = getRelativeTime(callStart);
   // TODO hard-coded data #Post-Call ticket
-  const mockCallDuration = '15:05';
   const patient = {
     encounterId: '0b669dc1-ad4c-43c2-84f1-c010400889e2',
     name: 'John Doe',
@@ -34,8 +35,7 @@ export const ProviderPostCall = (): JSX.Element => {
       </Typography>
       <Typography mb={1} variant="body1">
         {t('postCall.durationPrefix')}
-        {mockCallDuration}
-        {t('postCall.durationSuffix')}
+        {callDuration}
       </Typography>
       <CustomButton fitContent onClick={goToDashboard}>
         {t('postCall.goToDashboard')}

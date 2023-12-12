@@ -97,12 +97,14 @@ export const useParticipant = (): ParticipantContextProps => {
 // Video
 
 type VideoParticipantContextProps = {
+  callStart: string;
   cleanup: () => void;
   isMicOpen: boolean;
   isVideoOpen: boolean;
   localTracks: (LocalAudioTrack | LocalVideoTrack)[];
   room: Room | null;
   selectedSpeaker: string | null;
+  setCallStart: Dispatch<SetStateAction<string>>;
   setIsMicOpen: Dispatch<SetStateAction<boolean>>;
   setIsVideoOpen: Dispatch<SetStateAction<boolean>>;
   setLocalTracks: Dispatch<SetStateAction<(LocalAudioTrack | LocalVideoTrack)[]>>;
@@ -122,6 +124,7 @@ export const VideoParticipantProvider: FC<VideoParticipantProviderProps> = ({ ch
   const [localTracks, setLocalTracks] = useState<(LocalAudioTrack | LocalVideoTrack)[]>([]);
   const [room, setRoom] = useState<Room | null>(null);
   const [selectedSpeaker, setSelectedSpeaker] = useState<string | null>(null);
+  const [callStart, setCallStart] = useState<string>('');
 
   const cleanup = (): void => {
     localTracks.forEach((track) => {
@@ -138,12 +141,14 @@ export const VideoParticipantProvider: FC<VideoParticipantProviderProps> = ({ ch
   return (
     <VideoParticipantContext.Provider
       value={{
+        callStart,
         cleanup,
         isMicOpen,
         isVideoOpen,
         localTracks,
         room,
         selectedSpeaker,
+        setCallStart,
         setIsMicOpen,
         setIsVideoOpen,
         setLocalTracks,
