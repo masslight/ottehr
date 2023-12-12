@@ -124,6 +124,7 @@ export const VideoParticipantProvider: FC<VideoParticipantProviderProps> = ({ ch
   const [selectedSpeaker, setSelectedSpeaker] = useState<string | null>(null);
 
   const cleanup = (): void => {
+    console.log('cleanup');
     localTracks.forEach((track) => {
       if (track.kind === 'audio' || track.kind === 'video') {
         track.stop();

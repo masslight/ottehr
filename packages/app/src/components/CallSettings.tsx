@@ -103,7 +103,6 @@ export const CallSettings: FC<CallSettingsProps> = ({ localParticipant, onClose,
     if (!localParticipant) return;
 
     let newTrack;
-
     switch (type) {
       case 'audioInput':
         newTrack = await createLocalAudioTrack({ deviceId: { exact: deviceId } });
@@ -115,21 +114,19 @@ export const CallSettings: FC<CallSettingsProps> = ({ localParticipant, onClose,
         return;
     }
 
-    const updatedLocalTracks = localTracks.filter((track) => {
-      if (track.kind === type.slice(0, -5)) {
-        localParticipant.unpublishTrack(track);
-        track.stop();
-        return false;
-      }
-      return true;
-    });
+    // Find the existing track of the same type and replace it
+    const existingTrackIndex = localTracks.findIndex((track) => track.kind === type.slice(0, -5));
+    if (existingTrackIndex !== -1) {
+      const existingTrack = localTracks[existingTrackIndex];
+      localParticipant.unpublishTrack(existingTrack);
+      existingTrack.stop();
+      localTracks.splice(existingTrackIndex, 1, newTrack as LocalAudioTrack | LocalVideoTrack);
+    } else {
+      localTracks.push(newTrack as LocalAudioTrack | LocalVideoTrack);
+    }
 
-    localParticipant.publishTrack(newTrack).catch((error) => {
-      console.error('Failed to publish track', error);
-    });
-
-    updatedLocalTracks.push(newTrack as LocalAudioTrack | LocalVideoTrack);
-    setLocalTracks(updatedLocalTracks);
+    localParticipant.publishTrack(newTrack).catch((error) => console.error('Failed to publish track', error));
+    setLocalTracks([...localTracks]);
   };
 
   const handleCameraChange = (e: SelectChangeEvent<string>): void => {
@@ -138,6 +135,7 @@ export const CallSettings: FC<CallSettingsProps> = ({ localParticipant, onClose,
   };
 
   const handleMicrophoneChange = (e: SelectChangeEvent<string>): void => {
+    console.log('handleMicrophoneChange', e.target.value);
     const selectedMicrophone = e.target.value;
     setMicrophone(selectedMicrophone);
   };

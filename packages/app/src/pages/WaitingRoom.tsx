@@ -43,14 +43,36 @@ export const WaitingRoom = (): JSX.Element => {
     }
   }, [navigate, numParticipants, inVideoCallWorkflowRef]);
 
-  // cleanup when leaving page e.g. navigating backwards
   useEffect(() => {
-    return () => {
+    const handleLeavePage = (): void => {
+      console.log('leaving page');
       if (!inVideoCallWorkflowRef.current) {
         cleanup();
       }
     };
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent): void => {
+      event.preventDefault();
+      event.returnValue = ''; // Required for Chrome
+      handleLeavePage();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('popstate', handleLeavePage);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handleLeavePage);
+    };
   }, [cleanup]);
+  // cleanup when leaving page e.g. navigating backwards
+  // useEffect(() => {
+  //   return () => {
+  //     if (!inVideoCallWorkflowRef.current) {
+  //       cleanup();
+  //     }
+  //   };
+  // }, [cleanup]);
 
   return (
     <CustomContainer isProvider={false} subtitle={providerName} title={t('general.waitingRoom')}>
