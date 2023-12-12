@@ -1,9 +1,8 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import { Box, Container, Divider, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
-import { Fragment, Key, useEffect, useState } from 'react';
+import { Fragment, Key, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { otherColors } from '../OttehrThemeProvider';
 import { defaultProvider } from '../assets/icons';
@@ -13,6 +12,7 @@ import { JSX } from 'react/jsx-runtime';
 import { usePractitioner } from '../store';
 import { useAuth0 } from '@auth0/auth0-react';
 import { getPatientQueue } from '../api';
+import { queueNotification } from '../assets/sounds';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 export const Dashboard = (): JSX.Element => {
@@ -26,6 +26,7 @@ export const Dashboard = (): JSX.Element => {
   }
 
   const [patients, setPatients] = useState<PatientQueueItem[]>([]);
+  const prevPatientCount = useRef(patients.length);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [showCheckIcon, setShowCheckIcon] = useState(false);
 
@@ -81,6 +82,18 @@ export const Dashboard = (): JSX.Element => {
       }
     };
   }, [getAccessTokenSilently, isAuthenticated, providerId]);
+
+  useEffect(() => {
+    console.log('patients check', patients);
+    if (patients.length > prevPatientCount.current) {
+      console.log('play sound');
+      const audio = new Audio(queueNotification);
+      audio.play().catch((error) => {
+        console.error('Failed to play audio:', error);
+      });
+    }
+    prevPatientCount.current = patients.length;
+  }, [patients]);
 
   useEffect(() => {
     if (!provider) {
