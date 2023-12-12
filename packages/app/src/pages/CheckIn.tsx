@@ -60,10 +60,8 @@ export const CheckIn = (): JSX.Element => {
     <CustomContainer isProvider={false} subtitle={providerName || ''} title={t('general.waitingRoom')}>
       {providerName ? (
         <>
-          <Typography sx={{ pb: 1 }} variant="h5">
-            {t('checkIn.checkIn')}
-          </Typography>
-          <Typography sx={{ pb: 3 }} variant="body1">
+          <Typography variant="h5">{t('checkIn.checkIn')}</Typography>
+          <Typography sx={{ pb: 2 }} variant="body1">
             {t('checkIn.enterNamePrefix')}
             {providerName}
             {t('checkIn.enterNameSuffix')}
@@ -74,6 +72,7 @@ export const CheckIn = (): JSX.Element => {
                 alignItems: 'flex-start',
                 display: 'flex',
                 flexDirection: 'column',
+                gap: 1,
               }}
             >
               <TextField
