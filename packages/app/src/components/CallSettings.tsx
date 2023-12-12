@@ -1,16 +1,19 @@
 import {
   Box,
+  Button,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControl,
+  Grid,
   InputLabel,
   MenuItem,
   Select,
   SelectChangeEvent,
+  Typography,
 } from '@mui/material';
-import { FC, useEffect, useRef, useState } from 'react';
+import { FC, ReactNode, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   createLocalAudioTrack,
@@ -21,7 +24,11 @@ import {
 } from 'twilio-video';
 import { useDevices } from '../hooks';
 import { useVideoParticipant } from '../store';
-import { CustomButton } from './CustomButton';
+import MicIcon from '@mui/icons-material/Mic';
+import MicOffIcon from '@mui/icons-material/MicOff';
+import VideocamIcon from '@mui/icons-material/Videocam';
+import VideocamOffIcon from '@mui/icons-material/VideocamOff';
+import RestartAlt from '@mui/icons-material/RestartAlt';
 
 interface CallSettingsProps {
   localParticipant: LocalParticipant | undefined;
@@ -37,28 +44,48 @@ interface Device {
 interface DeviceSelectorProps {
   devices: Device[];
   handleChange: (e: SelectChangeEvent<string>) => void;
+  isOn?: boolean;
   label: string;
   selectedDevice: string;
 }
 
-const DeviceSelector: FC<DeviceSelectorProps> = ({ devices, selectedDevice, handleChange, label }) => (
-  <FormControl fullWidth margin="normal" variant="outlined">
-    <InputLabel>{label}</InputLabel>
-    <Select label={label} onChange={handleChange} value={selectedDevice}>
-      {devices.map((device) => (
-        <MenuItem key={device.deviceId} value={device.deviceId}>
-          {device.label}
-        </MenuItem>
-      ))}
-    </Select>
-  </FormControl>
+const getDeviceIcon = (deviceType: string, isOn: boolean): ReactNode => {
+  switch (deviceType) {
+    case 'Camera':
+      return isOn ? <VideocamIcon fontSize="large" /> : <VideocamOffIcon fontSize="large" />;
+    case 'Microphone':
+      return isOn ? <MicIcon fontSize="large" /> : <MicOffIcon fontSize="large" />;
+    default:
+      return null;
+  }
+};
+
+const DeviceSelector: FC<DeviceSelectorProps> = ({ devices, selectedDevice, handleChange, label, isOn }) => (
+  <Grid container>
+    <Grid item xs={10}>
+      <FormControl fullWidth margin="normal" variant="outlined">
+        <InputLabel>{label}</InputLabel>
+        <Select label={label} onChange={handleChange} value={selectedDevice}>
+          {devices.map((device) => (
+            <MenuItem key={device.deviceId} value={device.deviceId}>
+              {device.label}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+    </Grid>
+    <Grid alignItems="center" container item justifyContent="flex-end" xs={2}>
+      {getDeviceIcon(label, isOn || false)}
+    </Grid>
+  </Grid>
 );
 
 export const CallSettings: FC<CallSettingsProps> = ({ localParticipant, onClose, open }) => {
   const { audioInputDevices, videoInputDevices, audioOutputDevices } = useDevices();
   const videoRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
-  const { localTracks, setLocalTracks, selectedSpeaker, setSelectedSpeaker } = useVideoParticipant();
+  const { localTracks, setLocalTracks, selectedSpeaker, setSelectedSpeaker, isMicOpen, isVideoOpen } =
+    useVideoParticipant();
 
   useEffect(() => {
     let localVideoTrackCleanup: LocalVideoTrack | null = null;
@@ -135,7 +162,6 @@ export const CallSettings: FC<CallSettingsProps> = ({ localParticipant, onClose,
   };
 
   const handleMicrophoneChange = (e: SelectChangeEvent<string>): void => {
-    console.log('handleMicrophoneChange', e.target.value);
     const selectedMicrophone = e.target.value;
     setMicrophone(selectedMicrophone);
   };
@@ -150,12 +176,14 @@ export const CallSettings: FC<CallSettingsProps> = ({ localParticipant, onClose,
     {
       devices: videoInputDevices,
       handleChange: handleCameraChange,
+      isOn: isVideoOpen,
       label: 'Camera',
       selectedDevice: camera,
     },
     {
       devices: audioInputDevices,
       handleChange: handleMicrophoneChange,
+      isOn: isMicOpen,
       label: 'Microphone',
       selectedDevice: microphone,
     },
@@ -198,15 +226,23 @@ export const CallSettings: FC<CallSettingsProps> = ({ localParticipant, onClose,
             key={index}
             devices={config.devices}
             handleChange={config.handleChange}
+            isOn={config.isOn}
             label={config.label}
             selectedDevice={config.selectedDevice}
           />
         ))}
-        <CustomButton sx={{ mt: 2 }}>{t('callSettings.technicalIssues')}</CustomButton>
+        <Typography sx={{ mt: 2 }}>{t('callSettings.technicalIssues')}</Typography>
+        <Button startIcon={<RestartAlt />} variant="text">
+          {t('callSettings.restartCall')}
+        </Button>
       </DialogContent>
-      <DialogActions>
-        <CustomButton onClick={onClose}>{t('callSettings.cancel')}</CustomButton>
-        <CustomButton onClick={handleSave}>{t('callSettings.save')}</CustomButton>
+      <DialogActions sx={{ alignItems: 'center', justifyContent: 'flex-end', padding: '16px 24px' }}>
+        <Button onClick={onClose} sx={{ marginRight: 1 }} variant="text">
+          {t('callSettings.cancel')}
+        </Button>
+        <Button onClick={handleSave} variant="contained">
+          {t('callSettings.save')}
+        </Button>
       </DialogActions>
     </Dialog>
   );

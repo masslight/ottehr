@@ -3,7 +3,8 @@
     "callSettings": "Call settings",
     "cancel": "Cancel",
     "save": "Save Changes",
-    "technicalIssues": "Having technical issues with the call?"
+    "technicalIssues": "Having technical issues with the call?",
+    "restartCall": "Restart Call"
   },
   "checkIn": {
     "checkIn": "Check In",
