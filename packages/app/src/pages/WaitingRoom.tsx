@@ -11,7 +11,7 @@ export const WaitingRoom = (): JSX.Element => {
   const navigate = useNavigate();
   const videoRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
-  const { cleanup, room, localTracks } = useVideoParticipant();
+  const { cleanup, room, localTracks, setRemoteParticipantName } = useVideoParticipant();
   const { providerName } = useParticipant();
   const inVideoCallWorkflowRef = useRef(false);
 
@@ -32,8 +32,9 @@ export const WaitingRoom = (): JSX.Element => {
       room.on('participantConnected', participantConnected);
       room.on('participantDisconnected', participantDisconnected);
       room.participants.forEach(participantConnected);
+      setRemoteParticipantName(providerName);
     }
-  }, [room, participantConnected, participantDisconnected]);
+  }, [room, participantConnected, participantDisconnected, setRemoteParticipantName, providerName]);
 
   // navigate to video call when provider joins
   useEffect(() => {

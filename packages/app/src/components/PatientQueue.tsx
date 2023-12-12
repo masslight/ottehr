@@ -19,7 +19,7 @@ export interface PatientQueueProps {
 export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, patientName, queuedTime }) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom } = useVideoParticipant();
+  const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom, setRemoteParticipantName } = useVideoParticipant();
   const [relativeQueuedTime, setRelativeQueuedTime] = useState(getQueuedTimeFromTimestamp(queuedTime));
   const { getAccessTokenSilently } = useAuth0();
   const [telemedToken, setTelemedToken] = useState<string | null>(null);
@@ -66,6 +66,7 @@ export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, patientName, 
       });
 
       setRoom(connectedRoom);
+      setRemoteParticipantName(patientName);
       navigate(`/video-call`);
     } catch (error) {
       console.error('An error occurred:', error);

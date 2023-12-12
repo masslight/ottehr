@@ -25,7 +25,7 @@ interface HTMLMediaElement {
 export const VideoParticipant: FC<ParticipantProps> = ({ participant }) => {
   const audioRef = useRef<HTMLMediaElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const { selectedSpeaker } = useVideoParticipant();
+  const { selectedSpeaker, remoteParticipantName } = useVideoParticipant();
   const [videoTracks, setVideoTracks] = useState<(VideoTrack | null)[]>([]);
   const [audioTracks, setAudioTracks] = useState<(AudioTrack | null)[]>([]);
 
@@ -184,7 +184,7 @@ export const VideoParticipant: FC<ParticipantProps> = ({ participant }) => {
           position: 'absolute',
         }}
       >
-        {participant.identity}
+        {remoteParticipantName}
       </Box>
     </Box>
   );

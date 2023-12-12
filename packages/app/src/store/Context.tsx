@@ -101,11 +101,13 @@ type VideoParticipantContextProps = {
   isMicOpen: boolean;
   isVideoOpen: boolean;
   localTracks: (LocalAudioTrack | LocalVideoTrack)[];
+  remoteParticipantName: string;
   room: Room | null;
   selectedSpeaker: string | null;
   setIsMicOpen: Dispatch<SetStateAction<boolean>>;
   setIsVideoOpen: Dispatch<SetStateAction<boolean>>;
   setLocalTracks: Dispatch<SetStateAction<(LocalAudioTrack | LocalVideoTrack)[]>>;
+  setRemoteParticipantName: Dispatch<SetStateAction<string>>;
   setRoom: Dispatch<SetStateAction<Room | null>>;
   setSelectedSpeaker: Dispatch<SetStateAction<string | null>>;
 };
@@ -122,6 +124,7 @@ export const VideoParticipantProvider: FC<VideoParticipantProviderProps> = ({ ch
   const [localTracks, setLocalTracks] = useState<(LocalAudioTrack | LocalVideoTrack)[]>([]);
   const [room, setRoom] = useState<Room | null>(null);
   const [selectedSpeaker, setSelectedSpeaker] = useState<string | null>(null);
+  const [remoteParticipantName, setRemoteParticipantName] = useState<string>('');
 
   const cleanup = (): void => {
     console.log('cleanup');
@@ -143,11 +146,13 @@ export const VideoParticipantProvider: FC<VideoParticipantProviderProps> = ({ ch
         isMicOpen,
         isVideoOpen,
         localTracks,
+        remoteParticipantName,
         room,
         selectedSpeaker,
         setIsMicOpen,
         setIsVideoOpen,
         setLocalTracks,
+        setRemoteParticipantName,
         setRoom,
         setSelectedSpeaker,
       }}
