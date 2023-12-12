@@ -127,7 +127,6 @@ export const VideoParticipantProvider: FC<VideoParticipantProviderProps> = ({ ch
   const [remoteParticipantName, setRemoteParticipantName] = useState<string>('');
 
   const cleanup = (): void => {
-    console.log('cleanup');
     localTracks.forEach((track) => {
       if (track.kind === 'audio' || track.kind === 'video') {
         track.stop();

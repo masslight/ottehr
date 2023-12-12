@@ -1,20 +1,21 @@
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import { Box, Typography, useTheme } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useNavigationType } from 'react-router-dom';
 import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
 import { otherColors } from '../OttehrThemeProvider';
 import { createTelemedRoom, getTelemedToken } from '../api';
 import { CustomButton, CustomContainer, LoadingSpinner } from '../components';
 import { useDevices } from '../hooks';
 import { useParticipant, useVideoParticipant } from '../store';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export const VideoSettings = (): JSX.Element => {
   const navigate = useNavigate();
+  const navType = useNavigationType();
   const theme = useTheme();
   const { t } = useTranslation();
-  const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom } = useVideoParticipant();
+  const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom, cleanup } = useVideoParticipant();
   const hasVideoDevice = useDevices().videoInputDevices.length > 0;
   const { patientName, providerId, providerName } = useParticipant();
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -75,6 +76,12 @@ export const VideoSettings = (): JSX.Element => {
       console.error('An error occurred:', error);
     }
   };
+
+  useEffect(() => {
+    if (navType === 'POP') {
+      cleanup();
+    }
+  }, [cleanup, navType]);
 
   return (
     <CustomContainer isProvider={false} subtitle={providerName} title={t('general.waitingRoom')}>
