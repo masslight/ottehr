@@ -31,7 +31,6 @@ export const VideoSettings = (): JSX.Element => {
         console.error('Failed to create telemed room');
         return;
       }
-      console.log('encounter', encounter);
       setCallStart(encounter?.period.start);
       const roomSID = encounter?.extension
         ?.find((ext: any) => ext.url === 'https://extensions.fhir.zapehr.com/encounter-virtual-service-pre-release')
