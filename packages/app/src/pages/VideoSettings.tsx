@@ -1,7 +1,7 @@
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import { Box, Typography, useTheme } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useNavigationType } from 'react-router-dom';
+import { useNavigate, useNavigationType, NavigationType } from 'react-router-dom';
 import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
 import { otherColors } from '../OttehrThemeProvider';
 import { createTelemedRoom, getTelemedToken } from '../api';
@@ -78,7 +78,7 @@ export const VideoSettings = (): JSX.Element => {
   };
 
   useEffect(() => {
-    if (navType === 'POP') {
+    if (navType === NavigationType.Pop) {
       cleanup();
     }
   }, [cleanup, navType]);

@@ -52,11 +52,8 @@ export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom, localPartici
         });
     }
     cleanup();
-    // TODO: delete this
-    if (isAuthenticated) {
-      navigate('/dashboard');
-    }
-    // navigate('/post-call');
+
+    navigate('/post-call');
   };
 
   const toggleTrack = (kind: 'audio' | 'video', setState: Dispatch<SetStateAction<boolean>>): void => {
@@ -65,7 +62,6 @@ export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom, localPartici
     const tracks = localTracks.filter((track) => track.kind === kind);
 
     tracks.forEach((localTrack) => {
-      console.log('toggleTrack', localTrack);
       if (localTrack.isEnabled) {
         localTrack.disable();
         setState(false);

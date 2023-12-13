@@ -84,9 +84,7 @@ export const Dashboard = (): JSX.Element => {
   }, [getAccessTokenSilently, isAuthenticated, providerId]);
 
   useEffect(() => {
-    console.log('patients check', patients);
     if (patients.length > prevPatientCount.current) {
-      console.log('play sound');
       const audio = new Audio(queueNotification);
       audio.play().catch((error) => {
         console.error('Failed to play audio:', error);

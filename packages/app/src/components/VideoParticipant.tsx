@@ -52,7 +52,6 @@ export const VideoParticipant: FC<ParticipantProps> = ({ participant }) => {
   // When a new track is added or removed, update the video and audio tracks in the state
   useEffect(() => {
     const trackSubscribed = (track: AudioTrack | VideoTrack): void => {
-      console.log(`Track subscribed: ${track.kind}`);
       if (track.kind === 'video') {
         setVideoTracks((videoTracks) => [...videoTracks, track]);
         setIsVideoEnabled(track.isEnabled);
@@ -73,14 +72,12 @@ export const VideoParticipant: FC<ParticipantProps> = ({ participant }) => {
     setVideoTracks(getExistingVideoTracks(participant));
 
     const trackEnabled = (track: AudioTrack | VideoTrack): void => {
-      console.log(`Track enabled: ${track.kind}`);
       if (track.kind === 'video') {
         setIsVideoEnabled(true);
       }
     };
 
     const trackDisabled = (track: AudioTrack | VideoTrack): void => {
-      console.log(`Track disabled: ${track.kind}`);
       if (track.kind === 'video') {
         setIsVideoEnabled(false);
       }
