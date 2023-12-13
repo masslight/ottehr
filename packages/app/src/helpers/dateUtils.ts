@@ -1,5 +1,5 @@
 // For now assuming timestamp will be in ISO format
-export function getQueuedTimeFromTimestamp(timestamp: string): string {
+export function getRelativeTime(timestamp: string): string {
   const now = new Date();
   const queuedDate = new Date(timestamp);
 

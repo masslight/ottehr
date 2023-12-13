@@ -40,6 +40,7 @@ export const CustomContainer: FC<CustomContainerProps> = ({ children, isProvider
             display: 'flex',
             flexDirection: 'column',
             flexGrow: '1',
+            gap: 1,
             maxWidth: { md: 'md', xs: 'xs' },
             px: { md: 12.5, xs: 2 },
             py: { md: 7.5, xs: 4 },

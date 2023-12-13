@@ -11,6 +11,7 @@ import { Alert, Snackbar } from '@mui/material';
 export const Profile = (): JSX.Element => {
   const { provider, practitionerProfile } = usePractitioner();
   const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [updateSuccess, setUpdateSuccess] = useState(false);
 
   const {
     control,
@@ -39,10 +40,14 @@ export const Profile = (): JSX.Element => {
       data: data,
       practitionerId: practitionerProfile?.id,
     };
-    updateProvider(input).catch((error) => {
-      console.log(error);
-      setOpenSnackbar(true);
-    });
+    updateProvider(input)
+      .then(() => {
+        setUpdateSuccess(true);
+      })
+      .catch((error) => {
+        console.log(error);
+        setOpenSnackbar(true);
+      });
   };
 
   const handleCloseSnackbar = (): void => {
@@ -61,9 +66,21 @@ export const Profile = (): JSX.Element => {
         errors={errors}
         onSubmit={handleSubmit(onSubmit)}
       />
+      {updateSuccess && (
+        <Snackbar
+          anchorOrigin={{ horizontal: 'center', vertical: 'top' }}
+          autoHideDuration={6000}
+          onClose={() => setUpdateSuccess(false)}
+          open={updateSuccess}
+        >
+          <Alert onClose={() => setUpdateSuccess(false)} severity="success" sx={{ width: '100%' }}>
+            {t('profile.updateSuccess')}
+          </Alert>
+        </Snackbar>
+      )}
       <Snackbar autoHideDuration={6000} onClose={handleCloseSnackbar} open={openSnackbar}>
         <Alert onClose={handleCloseSnackbar} severity="error" sx={{ width: '100%' }}>
-          {t('errors.updateUserError')}
+          {t('errors.updateUser')}
         </Alert>
       </Snackbar>
     </CustomContainer>

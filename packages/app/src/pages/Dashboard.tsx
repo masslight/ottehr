@@ -10,7 +10,7 @@ import { defaultProvider } from '../assets/icons';
 import { CustomButton, Footer, LoadingSpinner, PatientQueue, PatientQueueProps, TopAppBar } from '../components';
 import { createProviderName, createSlugUrl } from '../helpers';
 import { JSX } from 'react/jsx-runtime';
-import { usePractitioner } from '../store';
+import { usePractitioner, useVideoParticipant } from '../store';
 import { useAuth0 } from '@auth0/auth0-react';
 import { getPatientQueue } from '../api';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
