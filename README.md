@@ -76,7 +76,7 @@ To proceed with this setup guide, it is assumed that you have access to a ZapEHR
 2. **Clone Your Fork:**
    Copy the SSH clone link of your fork and execute the following command in your preferred folder:
    ```bash
-   git clone git@github.com:{your_profile}/ottehr.git
+   git clone https://github.com/{{your-git-user-name}}/{{ottehr-fork-name}}.git
    ```
 
 3. (Optional) **Add Ottehr as Upstream:**
