@@ -34,6 +34,7 @@ export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom, localPartici
   };
 
   const disconnect = (): void => {
+    cleanup();
     if (isAuthenticated) {
       state.fhirClient
         ?.patchResource({
@@ -50,10 +51,10 @@ export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom, localPartici
         .catch((err) => {
           console.error(err);
         });
+      navigate('/provider-post-call');
+    } else {
+      navigate('/patient-post-call');
     }
-    cleanup();
-
-    navigate('/post-call');
   };
 
   const toggleTrack = (kind: 'audio' | 'video', setState: Dispatch<SetStateAction<boolean>>): void => {

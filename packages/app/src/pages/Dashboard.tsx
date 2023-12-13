@@ -9,7 +9,7 @@ import { defaultProvider } from '../assets/icons';
 import { CustomButton, Footer, LoadingSpinner, PatientQueue, PatientQueueProps, TopAppBar } from '../components';
 import { createProviderName, createSlugUrl } from '../helpers';
 import { JSX } from 'react/jsx-runtime';
-import { usePractitioner } from '../store';
+import { usePractitioner, useVideoParticipant } from '../store';
 import { useAuth0 } from '@auth0/auth0-react';
 import { getPatientQueue } from '../api';
 import { queueNotification } from '../assets/sounds';
@@ -114,7 +114,16 @@ export const Dashboard = (): JSX.Element => {
     >
       {isLoading && <LoadingSpinner transparent={false} />}
       <TopAppBar />
-      <Box sx={{ display: 'flex', flexDirection: { md: 'row', xs: 'column' }, flexGrow: 1 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'row',
+          flexGrow: 1,
+          [theme.breakpoints.down('lg')]: {
+            flexDirection: 'column',
+          },
+        }}
+      >
         <Box
           sx={{
             backgroundColor: 'transparent',
@@ -197,7 +206,7 @@ export const Dashboard = (): JSX.Element => {
               >
                 {showCheckIcon ? <CheckCircleIcon /> : t('dashboard.copyLink')}
               </CustomButton>
-              <CustomButton fitContent icon={<MailOutlineIcon />} secondary sx={{ whiteSpace: 'nowrap' }}>
+              <CustomButton fitContent icon={<MailOutlineIcon />} secondary>
                 {t('dashboard.sendEmail')}
               </CustomButton>
             </Box>

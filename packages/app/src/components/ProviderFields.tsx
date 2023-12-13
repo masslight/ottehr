@@ -10,6 +10,7 @@ import {
   Select,
   TextField,
   Typography,
+  useTheme,
 } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
 import { Control, Controller } from 'react-hook-form';
@@ -31,12 +32,15 @@ interface ProviderFieldsProps {
 export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, errors, isRegister, onSubmit }) => {
   const { t } = useTranslation();
   const getErrorMessage = useErrorMessages();
+  const theme = useTheme();
 
   const { provider } = usePractitioner();
   const [slug, setSlug] = useState(provider?.slug);
   const [slugError, setSlugError] = useState('');
   const isSlugAvailable = slugError === '';
   const isFormValid = !errors.firstName && !errors.lastName && isSlugAvailable;
+
+  //TODO: slugavailability immediately after update checks wrong
   const debouncedUpdateSlug = useDebounce(async () => {
     const { error, response } = await getSlugAvailability(slug);
     let errorMessage: string | undefined;
@@ -65,7 +69,13 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
 
   return (
     <form onSubmit={onSubmit}>
-      <Box sx={{ alignItems: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+        }}
+      >
         {/*
           TODO form labels translated without breaking react hook form/back end submission.
           TODO react hook form for all fields
@@ -134,7 +144,18 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
                 <Box sx={{ mr: 1 }}>
                   {slugError === '' ? <CheckIcon color="success" /> : <CancelIcon color="error" />}
                 </Box>
-                <Typography variant="body2">{createSlugUrl(field.value)}</Typography>
+                <Typography
+                  sx={{
+                    [theme.breakpoints.down('md')]: {
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'no-wrap',
+                    },
+                  }}
+                  variant="body2"
+                >
+                  {createSlugUrl(field.value)}
+                </Typography>
               </Box>
             </>
           )}

@@ -19,6 +19,7 @@ export const VideoSettings = (): JSX.Element => {
   const hasVideoDevice = useDevices().videoInputDevices.length > 0;
   const { patientName, providerId, providerName } = useParticipant();
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const { setCallStart } = useVideoParticipant();
 
   const toggleMicAndCam = async (userInput: boolean): Promise<void> => {
     try {
@@ -31,7 +32,7 @@ export const VideoSettings = (): JSX.Element => {
         console.error('Failed to create telemed room');
         return;
       }
-
+      setCallStart(encounter?.period.start);
       const roomSID = encounter?.extension
         ?.find((ext: any) => ext.url === 'https://extensions.fhir.zapehr.com/encounter-virtual-service-pre-release')
         ?.extension?.find((innerExt: any) => innerExt.url === 'addressString')?.valueString;
@@ -44,7 +45,6 @@ export const VideoSettings = (): JSX.Element => {
 
       const encounterId = encounter?.id || '';
       console.log('Encounter ID:', encounterId);
-
       const twilioToken = await getTelemedToken(encounterId);
 
       // TODO: add snackbar for error

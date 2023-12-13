@@ -1,5 +1,6 @@
 import { AppClient } from '@zapehr/sdk';
 import { Encounter } from 'fhir/r4';
+import { FormData } from '../store/types';
 
 const ZAMBDA_API_URL = import.meta.env.VITE_PROJECT_API_ZAMBDA_URL;
 const PROJECT_API_URL = import.meta.env.VITE_PROJECT_API_URL;

@@ -70,7 +70,6 @@
     "callEnded": "This call has ended.",
     "callWith": "Call With",
     "durationPrefix": "Duration: ",
-    "durationSuffix": " minutes.",
     "goToDashboard": "Go to Dashboard"
   },
   "profile": {
@@ -88,7 +87,8 @@
       "ms": "Ms",
       "nurse": "Nurse"
     },
-    "update": "Update"
+    "update": "Update",
+    "updateSuccess": "Profile updated successfully!"
   },
   "register": {
     "checkboxes": {

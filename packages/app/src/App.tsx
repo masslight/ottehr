@@ -4,9 +4,9 @@ import { ScrollToTop, PrivateRoute } from './components';
 import {
   VideoSettings,
   CheckIn,
-  PostCall,
+  PatientPostCall,
+  ProviderPostCall,
   Dashboard,
-  Register,
   Profile,
   VideoChatPage,
   WaitingRoom,
@@ -42,16 +42,14 @@ export default function App(): JSX.Element {
               <Route
                 element={
                   <PrivateRoute>
-                    <PostCall />
+                    <ProviderPostCall />
                   </PrivateRoute>
                 }
                 path={'/provider-post-call'}
               />
             </Route>
             <Route element={<ParticipantProvider />}>
-              <Route element={<CheckIn />} path={'/check-in'} />;
-              <Route element={<PostCall />} path={'/patient-post-call'} />;
-              <Route element={<Register />} path={'/register'} />;
+              <Route element={<PatientPostCall />} path={'/patient-post-call'} />;
               <Route element={<VideoChatPage />} path={'/video-call'} />;
               <Route element={<VideoSettings />} path={'/video-settings'} />;
               <Route element={<WaitingRoom />} path={'/waiting-room'} />;
