@@ -13,4 +13,3 @@ export * from './VideoParticipant';
 export * from './VideoRoom';
 export * from './ZapEHRLogo';
 export * from './ProviderRoute';
-export * from './PostCallRoute';
