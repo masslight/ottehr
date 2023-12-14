@@ -74,9 +74,13 @@ To proceed with this setup guide, it is assumed that you have access to a ZapEHR
    Visit [https://github.com/masslight/ottehr/fork](https://github.com/masslight/ottehr/fork) and fork the repository.
 
 2. **Clone Your Fork:**
-   Copy the SSH clone link of your fork and execute the following command in your preferred folder:
+   Copy the HTTPS or SSH clone link of your fork and execute the following command in your preferred folder:
    ```bash
    git clone https://github.com/{{your-git-user-name}}/{{ottehr-fork-name}}.git
+   ```
+   OR
+   ```bash
+   git clone git@github.com:{your_profile}/ottehr.git
    ```
 
 3. (Optional) **Add Ottehr as Upstream:**
