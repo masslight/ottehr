@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { OttehrThemeProvider } from './OttehrThemeProvider';
-import { ScrollToTop, PrivateRoute, PostCallRoute } from './components';
+import { ScrollToTop, PrivateRoute } from './components';
 import { VideoSettings, CheckIn, PostCall, Dashboard, Profile, VideoChatPage, WaitingRoom, Version } from './pages';
 import { ParticipantProvider, VideoParticipantProvider, PractitionerProvider } from './store';
 
@@ -36,18 +36,19 @@ export default function App(): JSX.Element {
               <Route element={<WaitingRoom />} path={'/waiting-room'} />;
               <Route element={<CheckIn />} path={'/:slug'} />;
             </Route>
-
-            <PostCallRoute>
-              <Route element={<PostCall />} path={'/patient-post-call'} />;
-              <Route
-                element={
-                  <PrivateRoute>
-                    <PostCall />
-                  </PrivateRoute>
-                }
-                path={'/provider-post-call'}
-              />
-            </PostCallRoute>
+            <Route element={<ParticipantProvider />}>
+              <Route element={<PractitionerProvider />}>
+                <Route element={<PostCall />} path={'/patient-post-call'} />;
+                <Route
+                  element={
+                    <PrivateRoute>
+                      <PostCall />
+                    </PrivateRoute>
+                  }
+                  path={'/provider-post-call'}
+                />
+              </Route>
+            </Route>
           </Routes>
         </VideoParticipantProvider>
       </Router>
