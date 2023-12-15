@@ -1,3 +1,11 @@
+<p align="center">
+   <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://assets-global.website-files.com/653fce065d76f84cf31488ae/6543bdda5daec299834a748e_otter%20logo%20white.svg">
+      <source media="(prefers-color-scheme: light)" srcset="https://assets-global.website-files.com/653fce065d76f84cf31488ae/65438838a5f9308ca9498887_otter%20logo%20dark.svg">
+      <img alt="Ottehr Logo.">
+   </picture>
+</p>
+
 # Ottehr
 
 The production-ready, open-source EHR.
