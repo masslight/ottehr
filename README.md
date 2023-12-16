@@ -12,6 +12,18 @@
     <a href="https://www.ottehr.com/"><b>Ottehr.com</b></a>
 </p>
 
+<div align="center">
+
+[![Last Commit](https://badgen.net/github/last-commit/masslight/ottehr)](https://github.com/masslight/ottehr/commits/develop)
+[![Code Size](https://img.shields.io/github/languages/code-size/masslight/ottehr)](https://github.com/masslight/ottehr)
+[![Contributors](https://badgen.net/github/contributors/masslight/ottehr)](https://github.com/masslight/ottehr/graphs/contributors)
+[![GitHub Issues](https://badgen.net/github/issues/masslight/ottehr)](https://github.com/masslight/ottehr/issues)
+[![GitHub Stars](https://badgen.net/github/stars/masslight/ottehr)](https://github.com/masslight/ottehr/stargazers)
+[![GitHub Pull Requests](https://badgen.net/github/prs/masslight/ottehr)](https://github.com/masslight/ottehr/pulls)
+![GitHub Pull Requests Closed](https://img.shields.io/github/issues-pr-closed/masslight/ottehr)
+
+</div>
+
 # Ottehr
 
 This monorepo contains code for [Ottehr telehealth](https://www.ottehr.com/).
