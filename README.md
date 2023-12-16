@@ -6,9 +6,13 @@
    </picture>
 </p>
 
-# Ottehr
+<p align="center">The production-ready, open-source EHR.</p>
 
-The production-ready, open-source EHR.
+<p align="center">
+    <a href="https://www.ottehr.com/"><b>Ottehr.com</b></a>
+</p>
+
+# Ottehr
 
 This monorepo contains code for [Ottehr telehealth](https://www.ottehr.com/).
 
