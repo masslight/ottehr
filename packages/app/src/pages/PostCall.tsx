@@ -1,19 +1,19 @@
 import { Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { CustomButton, CustomContainer, LoadingSpinner } from '../components';
 import { createPatientName, getRelativeTime } from '../helpers';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useParticipant, useVideoParticipant } from '../store';
 
-// TODO: Merge 2 post call pages in one
 export const PostCall = (): JSX.Element => {
   const { isAuthenticated } = useAuth0();
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { callStart } = useVideoParticipant();
   const { providerName } = useParticipant();
-  const isProvider = window.location.pathname === '/provider-post-call';
+  const location = useLocation();
+  const isProvider = location.state?.isProvider || false;
 
   const goToDashboard = (): void => {
     navigate('/dashboard');
