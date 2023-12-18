@@ -1,0 +1,11 @@
+{
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "buildCommand": "pnpm build:production",
+  "outputDirectory": "dist",
+  "installCommand": "pnpm install"
+}
