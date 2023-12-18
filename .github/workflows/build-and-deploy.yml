@@ -136,6 +136,6 @@ jobs:
             [{ "title": "Service", "value": "${env.SLACK_NOTIFICATION_SERVICE_NAME}", "short": true },
             { "title": "Action URL", "value": "${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}"},
             { "title": "Branch", "value": "${env.BRANCH}", "short": true },
-            { "title": "Environment", "value": "${vars.ENVIRONMENT}", "short": true },
+            { "title": "Environment", "value": "${env.ENVIRONMENT}", "short": true },
             { "title": "Version", "value": "${env.PACKAGE_VERSION}", "short": true }]
 
