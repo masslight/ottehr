@@ -4,6 +4,7 @@ import {
   ReactNode,
   SetStateAction,
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useReducer,
@@ -174,6 +175,7 @@ export const useVideoParticipant = (): VideoParticipantContextProps => {
 type PractitionerContextProps = {
   practitionerProfile: Practitioner | null | undefined;
   provider: ProviderData | undefined;
+  setUserProfile: () => void;
 };
 
 const PractitionerContext = createContext<PractitionerContextProps | undefined>(undefined);
@@ -198,28 +200,29 @@ export const PractitionerProvider: FC = () => {
     });
   }, [dispatch, getAccessTokenSilently, isAuthenticated]);
 
+  const setUserProfile = useCallback(async (): Promise<void> => {
+    const user = await getUser(accessToken);
+    const [resourceType, userId] = user.profile.split('/');
+    const fhirClient = state.fhirClient;
+    const profile = await fhirClient?.readResource<Practitioner>({
+      resourceId: userId,
+      resourceType: resourceType,
+    });
+    const provider = createProvider(profile);
+    setProvider(provider);
+    setPractitionerProfile(profile);
+  }, [accessToken, state.fhirClient]);
+
   useEffect(() => {
-    async function setUserProfile(): Promise<void> {
-      const user = await getUser(accessToken);
-      const [resourceType, userId] = user.profile.split('/');
-      const fhirClient = state.fhirClient;
-      const profile = await fhirClient?.readResource<Practitioner>({
-        resourceId: userId,
-        resourceType: resourceType,
-      });
-      const provider = createProvider(profile);
-      setProvider(provider);
-      setPractitionerProfile(profile);
-    }
     if (state.fhirClient) {
       setUserProfile().catch((error) => {
         console.log(error);
       });
     }
-  }, [accessToken, state.fhirClient]);
+  }, [accessToken, setUserProfile, state.fhirClient]);
 
   return (
-    <PractitionerContext.Provider value={{ practitionerProfile, provider }}>
+    <PractitionerContext.Provider value={{ practitionerProfile, provider, setUserProfile }}>
       <Outlet />
     </PractitionerContext.Provider>
   );

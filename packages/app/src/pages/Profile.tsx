@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Snackbar } from '@mui/material';
 
 export const Profile = (): JSX.Element => {
-  const { provider, practitionerProfile } = usePractitioner();
+  const { provider, practitionerProfile, setUserProfile } = usePractitioner();
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [updateSuccess, setUpdateSuccess] = useState(false);
 
@@ -43,6 +43,7 @@ export const Profile = (): JSX.Element => {
     updateProvider(input)
       .then(() => {
         setUpdateSuccess(true);
+        setUserProfile();
       })
       .catch((error) => {
         console.log(error);
