@@ -55,29 +55,28 @@ const performUpdate = async (input: ZambdaFunctionInput): Promise<ZambdaFunction
 
   const available = await availability(data.slug, fhirClient);
 
-  if (available) {
-    try {
-      const updatedPractitioner = await fhirClient.patchResource({
-        operations: patchOperations,
-        resourceId: practitionerId,
-        resourceType: 'Practitioner',
-      });
-
-      return {
-        response: {
-          success: true,
-          updatedPractitioner,
-        },
-      };
-    } catch (error) {
-      console.error('Error updating practitioner:', error);
-      return {
-        response: {
-          success: false,
-        },
-      };
+  try {
+    if (!available) {
+      return { error: ErrorCodes.duplicate };
     }
-  } else {
-    return { error: ErrorCodes.duplicate };
+    const updatedPractitioner = await fhirClient.patchResource({
+      operations: patchOperations,
+      resourceId: practitionerId,
+      resourceType: 'Practitioner',
+    });
+
+    return {
+      response: {
+        success: true,
+        updatedPractitioner,
+      },
+    };
+  } catch (error) {
+    console.error('Error updating practitioner:', error);
+    return {
+      response: {
+        success: false,
+      },
+    };
   }
 };

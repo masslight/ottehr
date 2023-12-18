@@ -51,7 +51,11 @@ export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom, localPartici
         .catch((err) => {
           console.error(err);
         });
-      navigate('/provider-post-call');
+      navigate('/provider-post-call', {
+        state: {
+          isProvider: true,
+        },
+      });
     } else {
       navigate('/patient-post-call');
     }
