@@ -1,0 +1,96 @@
+name: Deploy Production
+
+jobs:
+  deploy:
+    env:
+      PACKAGE_LOCATION: packages/app
+      ZAMBDAS_LOCATION: packages/zambdas
+      SLACK_NOTIFICATION_SERVICE_NAME: zapehr-telehealth
+
+    runs-on: ubuntu-latest
+    environment: production
+
+    strategy:
+      matrix:
+        node-version: [18.18.0]
+
+    steps:
+      - name: Install SSH Client
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: |
+            ${{ secrets.OTTEHR_PRIVATE_SSH_KEY }}
+            ${{ secrets.BUMP_VERSION }}
+
+      - uses: actions/checkout@v3
+        with:
+          ssh-key: ${{ secrets.BUMP_VERSION }}
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install Vercel CLI
+        run: pnpm install --global vercel@latest
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }} --scope=ottehr --cwd=${{ env.PACKAGE_LOCATION }}
+      - name: Copy vercel env config file to vercel.json
+        run: cp ${{ env.PACKAGE_LOCATION }}/vercel/vercel-production.json ${{ env.PACKAGE_LOCATION }}/vercel.json
+      - name: Build Project Artifacts
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }} --scope=ottehr --cwd=packages/app
+
+      - name: Create secrets file from github secrets
+        id: create-json
+        uses: jsdaniell/create-json@v1.2.2
+        with:
+          name: 'secrets.json'
+          json: ${{ secrets.OTTEHR_SECRETS_JSON }}
+
+      - name: Move env file into .env folder
+        run: mkdir -p ${{ env.ZAMBDAS_LOCATION }}/.env/ && mv secrets.json ${{ env.ZAMBDAS_LOCATION }}/.env/production.json
+
+      - name: Copy env file to local.env to support serverless package command
+        run: cp ${{ env.ZAMBDAS_LOCATION }}/.env/production.json ${{ env.ZAMBDAS_LOCATION }}/.env/local.json
+
+      - name: Get Version Number from package.json for build notifications.
+        id: package-version
+        uses: martinbeentjes/npm-get-version-action@v1.3.1
+        with:
+          path: ${{ env.PACKAGE_LOCATION }}
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Deploy app
+        run: |
+          url="$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} --scope=ottehr --cwd=${{ env.PACKAGE_LOCATION }})"
+          vercel alias --token=${{ secrets.VERCEL_TOKEN }} --scope=ottehr --cwd=${{ env.PACKAGE_LOCATION }} set "$url" app.ottehr.com
+      - name: Setup zapehr secrets
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm setup-zapehr-secrets:production
+      - name: Deploy zambdas
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm deploy-zambdas:production
+
+      - name: Notify Slack
+        if: always()
+        uses: edge/simple-slack-notify@v1.1.2
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          BRANCH: ${{ github.ref }}
+          PACKAGE_VERSION: ${{ steps.package-version.outputs.current-version }}
+        with:
+          channel: '#zapehr-notifications'
+          status: ${{ job.status }}
+          success_text: '${env.GITHUB_WORKFLOW} (${env.GITHUB_RUN_NUMBER}) deploy completed successfully'
+          failure_text: '${env.GITHUB_WORKFLOW} (${env.GITHUB_RUN_NUMBER}) deploy failed'
+          cancelled_text: '${env.GITHUB_WORKFLOW} (${env.GITHUB_RUN_NUMBER}) deploy was cancelled'
+          fields: |
+            [{ "title": "Service", "value": "${env.SLACK_NOTIFICATION_SERVICE_NAME}", "short": true },
+            { "title": "Action URL", "value": "${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}"},
+            { "title": "Branch", "value": "${env.BRANCH}", "short": true },
+            { "title": "Environment", "value": "${env.ENVIRONMENT}", "short": true },
+            { "title": "Version", "value": "${env.PACKAGE_VERSION}", "short": true }]
+
