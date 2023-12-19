@@ -1,5 +1,8 @@
 name: Deploy Production
 
+on:
+  workflow_dispatch:
+
 jobs:
   deploy:
     env:
