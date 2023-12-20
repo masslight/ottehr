@@ -1,30 +1,7 @@
-name: Deploy
+name: Deploy Production
 
 on:
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Environment name'
-        required: true
-        type: choice
-        default: 'dev'
-        options:
-          - dev
-          - dev2
-          - testing
-          - staging
-      incrementVersion:
-        description: 'Bump Version?'
-        type: boolean
-        required: false
-      versionType:
-        description: 'Version to bump (major.minor.patch)'
-        type: choice
-        default: 'patch'
-        options:
-          - patch
-          - minor
-          - major
 
 jobs:
   deploy:
@@ -34,7 +11,7 @@ jobs:
       SLACK_NOTIFICATION_SERVICE_NAME: zapehr-telehealth
 
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}
+    environment: production
 
     strategy:
       matrix:
@@ -65,7 +42,7 @@ jobs:
       - name: Pull Vercel Environment Information
         run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }} --scope=ottehr --cwd=${{ env.PACKAGE_LOCATION }}
       - name: Copy vercel env config file to vercel.json
-        run: cp ${{ env.PACKAGE_LOCATION }}/vercel/vercel-${{ github.event.inputs.environment }}.json ${{ env.PACKAGE_LOCATION }}/vercel.json
+        run: cp ${{ env.PACKAGE_LOCATION }}/vercel/vercel-production.json ${{ env.PACKAGE_LOCATION }}/vercel.json
       - name: Build Project Artifacts
         run: vercel build --token=${{ secrets.VERCEL_TOKEN }} --scope=ottehr --cwd=packages/app
 
@@ -77,24 +54,10 @@ jobs:
           json: ${{ secrets.OTTEHR_SECRETS_JSON }}
 
       - name: Move env file into .env folder
-        run: mkdir -p ${{ env.ZAMBDAS_LOCATION }}/.env/ && mv secrets.json ${{ env.ZAMBDAS_LOCATION }}/.env/${{ github.event.inputs.environment }}.json
+        run: mkdir -p ${{ env.ZAMBDAS_LOCATION }}/.env/ && mv secrets.json ${{ env.ZAMBDAS_LOCATION }}/.env/production.json
 
       - name: Copy env file to local.env to support serverless package command
-        run: cp ${{ env.ZAMBDAS_LOCATION }}/.env/${{ github.event.inputs.environment }}.json ${{ env.ZAMBDAS_LOCATION }}/.env/local.json
-
-      - name: Increase version if input dictates.
-        if: ${{ github.event.inputs.incrementVersion == 'true' }}
-        run: >
-          git config --local user.email "ngreene+ottehrghaction@masslight.com"
-          git config --local user.name "GitHub Action Bump Version"
-          pnpm version ${{ github.event.inputs.versionType }}
-
-      - name: Push increased version if input dictates.
-        if: ${{ github.event.inputs.incrementVersion == 'true' }}
-        uses: ad-m/github-push-action@master
-        with:
-          ssh: true
-          branch: ${{ github.ref }}
+        run: cp ${{ env.ZAMBDAS_LOCATION }}/.env/production.json ${{ env.ZAMBDAS_LOCATION }}/.env/local.json
 
       - name: Get Version Number from package.json for build notifications.
         id: package-version
@@ -108,11 +71,11 @@ jobs:
       - name: Deploy app
         run: |
           url="$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} --scope=ottehr --cwd=${{ env.PACKAGE_LOCATION }})"
-          vercel alias --token=${{ secrets.VERCEL_TOKEN }} --scope=ottehr --cwd=${{ env.PACKAGE_LOCATION }} set "$url" ${{ github.event.inputs.environment }}.ottehr.com
+          vercel alias --token=${{ secrets.VERCEL_TOKEN }} --scope=ottehr --cwd=${{ env.PACKAGE_LOCATION }} set "$url" app.ottehr.com
       - name: Setup zapehr secrets
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm setup-zapehr-secrets:${{ github.event.inputs.environment }}
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm setup-zapehr-secrets:production
       - name: Deploy zambdas
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm deploy-zambdas:${{ github.event.inputs.environment }}
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm deploy-zambdas:production
 
       - name: Notify Slack
         if: always()
