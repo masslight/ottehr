@@ -7,6 +7,7 @@ import { CustomButton, CustomContainer, LoadingSpinner } from '../components';
 import { useParticipant } from '../store';
 import { getProvider } from '../api';
 import { createProviderName } from '../helpers';
+import NotFoundPage from '../components/NotFound';
 
 export const CheckIn = (): JSX.Element => {
   const navigate = useNavigate();
@@ -88,11 +89,7 @@ export const CheckIn = (): JSX.Element => {
           </form>
         </>
       ) : (
-        <Box alignItems="center" display="flex" justifyContent="center" style={{ height: '100%', width: '100%' }}>
-          <Typography component="h2" style={{ textAlign: 'center' }} variant="h4">
-            Provider not found
-          </Typography>
-        </Box>
+        <NotFoundPage />
       )}
     </CustomContainer>
   );
