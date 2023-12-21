@@ -42,7 +42,7 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
 
   //TODO: slugavailability immediately after update checks wrong
   const debouncedUpdateSlug = useDebounce(async () => {
-    const { error, response } = await getSlugAvailability(slug);
+    const { error, response } = await getSlugAvailability(slug, provider?.email);
     let errorMessage: string | undefined;
     if (error) {
       errorMessage = getErrorMessage(error);
@@ -61,6 +61,7 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
     } else if (slug === provider?.slug) {
       setSlugError('');
     } else {
+      console.log('hehreh');
       debouncedUpdateSlug();
     }
   }, [debouncedUpdateSlug, provider?.slug, slug]);

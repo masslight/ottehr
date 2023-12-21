@@ -12,6 +12,7 @@ export const Profile = (): JSX.Element => {
   const { provider, practitionerProfile, setUserProfile } = usePractitioner();
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [updateSuccess, setUpdateSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const {
     control,
@@ -36,6 +37,7 @@ export const Profile = (): JSX.Element => {
   }, [provider, reset]);
 
   const onSubmit = (data: FormData): void => {
+    setIsLoading(true);
     const input = {
       data: data,
       practitionerId: practitionerProfile?.id,
@@ -48,6 +50,9 @@ export const Profile = (): JSX.Element => {
       .catch((error) => {
         console.log(error);
         setOpenSnackbar(true);
+      })
+      .finally(() => {
+        setIsLoading(false);
       });
   };
 
@@ -61,6 +66,7 @@ export const Profile = (): JSX.Element => {
 
   return (
     <CustomContainer isProvider={true} subtitle={createProviderName(provider)} title={t('profile.myProfile')}>
+      {isLoading && <LoadingSpinner transparent={false} />}
       <ProviderFields
         buttonText={t('profile.update')}
         control={control}

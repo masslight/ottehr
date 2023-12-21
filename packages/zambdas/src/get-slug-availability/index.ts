@@ -8,11 +8,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 };
 
 interface getSlugAvailabilityInput {
+  email: string;
   slug: string;
 }
 
 const getSlugAvailability = async (input: ZambdaFunctionInput): Promise<ZambdaFunctionResponse> => {
-  const { slug } = input.body as getSlugAvailabilityInput;
+  const { slug, email } = input.body as getSlugAvailabilityInput;
   const { secrets } = input;
   if (slug == null || typeof slug !== 'string') {
     console.error('"slug" must be provided and be a string.');
@@ -30,7 +31,7 @@ const getSlugAvailability = async (input: ZambdaFunctionInput): Promise<ZambdaFu
 
   const fhirClient = await createFhirClient(secrets);
 
-  const available = await availability(potentialSlug, fhirClient);
+  const available = await availability(email, potentialSlug, fhirClient);
 
   return {
     response: {

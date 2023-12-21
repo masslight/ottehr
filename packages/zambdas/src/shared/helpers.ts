@@ -121,7 +121,7 @@ export const createRoomEncounter = (
   },
 });
 
-export const availability = async (slug: string, fhirClient: FhirClient): Promise<boolean> => {
+export const availability = async (email: string, slug: string, fhirClient: FhirClient): Promise<boolean> => {
   const practitioners: Practitioner[] = await fhirClient.searchResources({
     resourceType: 'Practitioner',
     searchParams: [
@@ -132,8 +132,10 @@ export const availability = async (slug: string, fhirClient: FhirClient): Promis
     ],
   });
 
-  const available = !practitioners.some((practitioner) =>
-    practitioner.identifier?.some((identifier) => identifier.value === slug)
+  const available = !practitioners.some(
+    (practitioner) =>
+      practitioner.telecom?.[0].value !== email &&
+      practitioner.identifier?.some((identifier) => identifier.value === slug)
   );
 
   return available;
