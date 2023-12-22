@@ -58,9 +58,9 @@ export const CheckIn = (): JSX.Element => {
   }
 
   return (
-    <CustomContainer isProvider={false} subtitle={providerName || ''} title={t('general.waitingRoom')}>
+    <>
       {providerName ? (
-        <>
+        <CustomContainer isProvider={false} subtitle={providerName || ''} title={t('general.waitingRoom')}>
           <Typography variant="h5">{t('checkIn.checkIn')}</Typography>
           <Typography sx={{ pb: 2 }} variant="body1">
             {t('checkIn.enterNamePrefix')}
@@ -87,10 +87,10 @@ export const CheckIn = (): JSX.Element => {
               <CustomButton submit>{t('checkIn.checkIn')}</CustomButton>
             </Box>
           </form>
-        </>
+        </CustomContainer>
       ) : (
         <NotFoundPage />
       )}
-    </CustomContainer>
+    </>
   );
 };
