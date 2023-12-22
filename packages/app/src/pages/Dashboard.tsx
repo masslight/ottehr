@@ -30,8 +30,8 @@ export const Dashboard = (): JSX.Element => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [showCheckIcon, setShowCheckIcon] = useState(false);
 
-  const { practitionerProfile, provider } = usePractitioner();
-  const providerId = practitionerProfile?.id;
+  const { provider } = usePractitioner();
+  const providerId = provider?.id;
   const theme = useTheme();
 
   const hour = DateTime.now().get('hour');

@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Snackbar } from '@mui/material';
 
 export const Profile = (): JSX.Element => {
-  const { provider, practitionerProfile, setUserProfile } = usePractitioner();
+  const { provider, setUserProfile } = usePractitioner();
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [updateSuccess, setUpdateSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -40,7 +40,7 @@ export const Profile = (): JSX.Element => {
     setIsLoading(true);
     const input = {
       data: data,
-      practitionerId: practitionerProfile?.id,
+      practitionerId: provider?.id,
     };
     updateProvider(input)
       .then(() => {
