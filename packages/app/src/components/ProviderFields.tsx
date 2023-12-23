@@ -60,7 +60,6 @@ export const ProviderFields: FC<ProviderFieldsProps> = ({ buttonText, control, e
     } else if (slug === provider?.slug) {
       setSlugError('');
     } else {
-      console.log('hehreh');
       debouncedUpdateSlug();
     }
   }, [debouncedUpdateSlug, provider?.slug, slug]);
