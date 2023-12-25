@@ -53,7 +53,7 @@ const performUpdate = async (input: ZambdaFunctionInput): Promise<ZambdaFunction
 
   const fhirClient = await createFhirClient(secrets);
 
-  const available = await availability(data.slug, fhirClient);
+  const available = await availability(practitionerId, data.slug, fhirClient);
 
   try {
     if (!available) {

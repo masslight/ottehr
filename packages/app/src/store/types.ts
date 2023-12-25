@@ -43,6 +43,7 @@ export type ProviderInfo = {
 export type ProviderData = {
   email: string;
   firstName: string;
+  id: string;
   lastName: string;
   slug: string;
   title: string;

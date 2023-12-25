@@ -44,10 +44,12 @@ export const createProvider = (providerProfile: Practitioner | undefined): Provi
   const lastName = getProviderProperty(providerProfile, 'name.0.family', '');
   const slug = getProviderProperty(providerProfile, 'identifier.0.value', '');
   const title = getProviderProperty(providerProfile, 'name.0.prefix.0', '');
+  const id = getProviderProperty(providerProfile, 'id', '');
 
   return {
     email: email,
     firstName: firstName,
+    id: id,
     lastName: lastName,
     slug: slug,
     title: title,

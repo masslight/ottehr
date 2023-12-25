@@ -3,6 +3,7 @@ import { OttehrThemeProvider } from './OttehrThemeProvider';
 import { ScrollToTop, PrivateRoute } from './components';
 import { VideoSettings, CheckIn, PostCall, Dashboard, Profile, VideoChatPage, WaitingRoom, Version } from './pages';
 import { ParticipantProvider, VideoParticipantProvider, PractitionerProvider } from './store';
+import NotFoundPage from './components/NotFound';
 
 export default function App(): JSX.Element {
   return (
@@ -45,6 +46,7 @@ export default function App(): JSX.Element {
                 <Route element={<PostCall />} path={'/patient-post-call'} />;
               </Route>
             </Route>
+            <Route element={<NotFoundPage />} path={'*'} />;
           </Routes>
         </VideoParticipantProvider>
       </Router>

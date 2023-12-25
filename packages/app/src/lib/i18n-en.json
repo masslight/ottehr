@@ -44,6 +44,8 @@
     "mustMatchList": "Must be a valid selection.",
     "mustPassPasswordChecks": "Password must contain: x, y, and z.",
     "notFound": "Could not find resource.",
+    "notFound404Header": "Oops! The page you're looking for doesn't exist.",
+    "notFound404Message": "Please double-check the URL.",
     "reload": "Please try reloading the page.",
     "slugUnavailable": "This slug is already taken, please use another one.",
     "timedOut": "The operation timed out. Please try again.",

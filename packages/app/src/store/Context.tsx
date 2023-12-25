@@ -178,7 +178,6 @@ export const useVideoParticipant = (): VideoParticipantContextProps => {
 // Provider
 
 type PractitionerContextProps = {
-  practitionerProfile: Practitioner | null | undefined;
   provider: ProviderData | undefined;
   setUserProfile: () => void;
 };
@@ -187,7 +186,6 @@ const PractitionerContext = createContext<PractitionerContextProps | undefined>(
 
 export const PractitionerProvider: FC = () => {
   const [accessToken, setAccessToken] = useState<string>('');
-  const [practitionerProfile, setPractitionerProfile] = useState<Practitioner | null | undefined>(null);
   const [provider, setProvider] = useState<ProviderData | undefined>();
   const { state, dispatch } = useContext(DataContext);
   const { isAuthenticated, getAccessTokenSilently } = useAuth0();
@@ -215,7 +213,6 @@ export const PractitionerProvider: FC = () => {
     });
     const provider = createProvider(profile);
     setProvider(provider);
-    setPractitionerProfile(profile);
   }, [accessToken, state.fhirClient]);
 
   useEffect(() => {
@@ -227,7 +224,7 @@ export const PractitionerProvider: FC = () => {
   }, [accessToken, setUserProfile, state.fhirClient]);
 
   return (
-    <PractitionerContext.Provider value={{ practitionerProfile, provider, setUserProfile }}>
+    <PractitionerContext.Provider value={{ provider, setUserProfile }}>
       <Outlet />
     </PractitionerContext.Provider>
   );
