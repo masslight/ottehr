@@ -10,7 +10,7 @@ async function runCLI(): Promise<void> {
     { name: 'firstName', message: 'Enter first name:', type: 'input' },
     { name: 'lastName', message: 'Enter last name:', type: 'input' },
     { name: 'secretsPath', message: 'Enter secrets path (default is ../.env/dev.json):', type: 'input' },
-    { name: 'applicationId', message: 'Enter zapEHR application ID:', type: 'input' },
+    { name: 'applicationId', message: 'Enter ZapEHR application ID:', type: 'input' },
   ];
   const answers = await inquirer.prompt(questions);
   // TODO: add check that slug is available, if slug unavailable, prompt user to enter a new slug

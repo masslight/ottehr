@@ -6,15 +6,14 @@ import { otherColors } from '../OttehrThemeProvider';
 import { CustomContainer, VideoControls } from '../components';
 import { useLocalVideo } from '../hooks';
 import { useParticipant, useVideoParticipant } from '../store';
-
 export const WaitingRoom = (): JSX.Element => {
   const navigate = useNavigate();
+
   const videoRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
-  const { cleanup, room, localTracks } = useVideoParticipant();
+  const { room, localTracks, setRemoteParticipantName } = useVideoParticipant();
   const { providerName } = useParticipant();
   const inVideoCallWorkflowRef = useRef(false);
-
   useLocalVideo(videoRef, localTracks);
   // localParticipant is not counted so we start with 1
   const [numParticipants, setNumParticipants] = useState<number>(1);
@@ -32,8 +31,9 @@ export const WaitingRoom = (): JSX.Element => {
       room.on('participantConnected', participantConnected);
       room.on('participantDisconnected', participantDisconnected);
       room.participants.forEach(participantConnected);
+      setRemoteParticipantName(providerName);
     }
-  }, [room, participantConnected, participantDisconnected]);
+  }, [room, participantConnected, participantDisconnected, setRemoteParticipantName, providerName]);
 
   // navigate to video call when provider joins
   useEffect(() => {
@@ -42,15 +42,6 @@ export const WaitingRoom = (): JSX.Element => {
       navigate(`/video-call/`);
     }
   }, [navigate, numParticipants, inVideoCallWorkflowRef]);
-
-  // cleanup when leaving page e.g. navigating backwards
-  useEffect(() => {
-    return () => {
-      if (!inVideoCallWorkflowRef.current) {
-        cleanup();
-      }
-    };
-  }, [cleanup]);
 
   return (
     <CustomContainer isProvider={false} subtitle={providerName} title={t('general.waitingRoom')}>

@@ -1,7 +1,7 @@
 import { Box } from '@mui/material';
 import { Dispatch, FC, SetStateAction, useState, useEffect, useCallback, useRef } from 'react';
 import { Participant, Room } from 'twilio-video';
-import { LoadingSpinner, VideoControls, VideoParticipant } from '../components';
+import { Footer, LoadingSpinner, VideoControls, VideoParticipant } from '../components';
 import { useLocalVideo } from '../hooks';
 import { useVideoParticipant } from '../store';
 
@@ -98,6 +98,7 @@ export const VideoRoom: FC<RoomProps> = ({ room, participants, setParticipants }
           <VideoControls inCallRoom={true} localParticipant={room?.localParticipant} />
         </Box>
       </Box>
+      <Footer />
     </Box>
   );
 };

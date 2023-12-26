@@ -1,10 +1,34 @@
+<p align="center">
+   <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://assets-global.website-files.com/653fce065d76f84cf31488ae/6543bdda5daec299834a748e_otter%20logo%20white.svg">
+      <source media="(prefers-color-scheme: light)" srcset="https://assets-global.website-files.com/653fce065d76f84cf31488ae/65438838a5f9308ca9498887_otter%20logo%20dark.svg">
+      <img alt="Ottehr Logo.">
+   </picture>
+</p>
+
+<p align="center">The production-ready, open-source EHR.</p>
+
+<p align="center">
+    <a href="https://www.ottehr.com/"><b>Ottehr.com</b></a>
+</p>
+
+<div align="center">
+
+[![Last Commit](https://badgen.net/github/last-commit/masslight/ottehr)](https://github.com/masslight/ottehr/commits/develop)
+[![Code Size](https://img.shields.io/github/languages/code-size/masslight/ottehr)](https://github.com/masslight/ottehr)
+[![Contributors](https://badgen.net/github/contributors/masslight/ottehr)](https://github.com/masslight/ottehr/graphs/contributors)
+[![GitHub Issues](https://badgen.net/github/issues/masslight/ottehr)](https://github.com/masslight/ottehr/issues)
+[![GitHub Stars](https://badgen.net/github/stars/masslight/ottehr)](https://github.com/masslight/ottehr/stargazers)
+[![GitHub Pull Requests](https://badgen.net/github/prs/masslight/ottehr)](https://github.com/masslight/ottehr/pulls)
+![GitHub Pull Requests Closed](https://img.shields.io/github/issues-pr-closed/masslight/ottehr)
+
+</div>
+
 # Ottehr
 
-The production-ready, open-source EHR.
+This monorepo contains code for [Ottehr telehealth](https://www.ottehr.com/).
 
-This monorepo contains code for the entire Ottehr telehealth platform.
-
-Ottehr is modern, modular EHR started as a reference implementation for [ZapEHR](https://zapehr.com).  It quickly outgrew "sample EHR" status and became the foundation for large-scale production EHR installations.  Ottehr uses ZapEHR for back-end service endpoints, and requires a free ZapEHR account to run as-is, but you are welcome to modify and use a third-party service vendor or build your own service architecture.  Ottehr is designed for developers, hopefully making it easy to fork, white-label, and build entire new classes of EHRs and health-tech products with a fraction of the effort of starting from scratch.   
+Ottehr is a modern, modular EHR that began as a reference implementation for [ZapEHR](https://zapehr.com). It quickly outgrew "sample EHR" status and became the foundation for large-scale production EHR installations. Ottehr uses ZapEHR for back-end service endpoints, and requires a free ZapEHR account to run as-is, but you are welcome to modify and use a third-party service vendor or build your own service architecture. Ottehr is designed for developers, hopefully making it easy to fork, white-label, and build entire new classes of EHRs and health-tech products with a fraction of the effort of starting from scratch.
 
 ## First Time Setup
 
@@ -55,16 +79,16 @@ npm install -g pnpm
 
 Alternatively, you can install `pnpm` using the [official documentation](https://pnpm.io/installation).
 
-### Joining zapEHR
+### Joining ZapEHR
 
-You'll need a free zapEHR account to run Ottehr.  Register for access at [zapehr.com](https://zapehr.com). Follow these simple steps:
+You'll need a free ZapEHR account to run Ottehr. Register for access at [zapehr.com](https://zapehr.com). Follow these simple steps:
 
 1. Visit [zapehr.com](https://zapehr.com).
 2. Click on **Free Access** to initiate your early access request.
 
-Once your request is received, the zapEHR team will promptly reach out to you via email, providing the credentials you need to kickstart your zapEHR journey.
+Once your request is received, the ZapEHR team will promptly reach out to you via email, providing the credentials you need to kickstart your ZapEHR journey.
 
-For comprehensive guidance on getting started with zapEHR, explore our technical documentation available at [https://docs.zapehr.com/docs/welcome](https://docs.zapehr.com/docs/welcome).
+For comprehensive guidance on getting started with ZapEHR, explore our technical documentation available at [https://docs.zapehr.com/docs/welcome](https://docs.zapehr.com/docs/welcome).
 
 ## Setup Procedure
 
@@ -75,18 +99,21 @@ To proceed with this setup guide, it is assumed that you have access to a ZapEHR
 
 2. **Clone Your Fork:**
    Copy the HTTPS clone link of your fork and execute the following command in your preferred folder:
+   
    ```bash
    git clone https://github.com/{{your-git-user-name}}/{{ottehr-fork-name}}.git
    ```
    
 3. (Optional) **Add Ottehr as Upstream:**
    If desired, add the original Ottehr repository as an upstream remote:
+
    ```bash
    git remote add upstream git@github.com:masslight/ottehr.git
    ```
 
 4. **Open Repository in Your Editor:**
    Open the repository in your chosen editor; for example, in VSCode:
+
    ```bash
    code .vscode/Ottehr.code-workspace
    ```
@@ -120,7 +147,7 @@ You should now be in a video call with yourself.
 This repository uses a monorepo structure. Each package has its own code in its respective folder in [`packages/`](./packages/).
 
 - `app` - The static frontend website that patients use to join their telehealth visit and providers use to answer.
-- `zambdas` - The application's backend endpoints, deployed on the zapEHR platform.
+- `zambdas` - The application's backend endpoints, deployed on the ZapEHR platform.
 
 Each package has its own README explaining in more detail its purpose, as well as how to run locally and deploy (if applicable).
 

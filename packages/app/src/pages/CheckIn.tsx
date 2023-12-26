@@ -7,6 +7,7 @@ import { CustomButton, CustomContainer, LoadingSpinner } from '../components';
 import { useParticipant } from '../store';
 import { getProvider } from '../api';
 import { createProviderName } from '../helpers';
+import NotFoundPage from '../components/NotFound';
 
 export const CheckIn = (): JSX.Element => {
   const navigate = useNavigate();
@@ -57,9 +58,9 @@ export const CheckIn = (): JSX.Element => {
   }
 
   return (
-    <CustomContainer isProvider={false} subtitle={providerName || ''} title={t('general.waitingRoom')}>
+    <>
       {providerName ? (
-        <>
+        <CustomContainer isProvider={false} subtitle={providerName || ''} title={t('general.waitingRoom')}>
           <Typography variant="h5">{t('checkIn.checkIn')}</Typography>
           <Typography sx={{ pb: 2 }} variant="body1">
             {t('checkIn.enterNamePrefix')}
@@ -86,14 +87,10 @@ export const CheckIn = (): JSX.Element => {
               <CustomButton submit>{t('checkIn.checkIn')}</CustomButton>
             </Box>
           </form>
-        </>
+        </CustomContainer>
       ) : (
-        <Box alignItems="center" display="flex" justifyContent="center" style={{ height: '100%', width: '100%' }}>
-          <Typography component="h2" style={{ textAlign: 'center' }} variant="h4">
-            Provider not found
-          </Typography>
-        </Box>
+        <NotFoundPage />
       )}
-    </CustomContainer>
+    </>
   );
 };

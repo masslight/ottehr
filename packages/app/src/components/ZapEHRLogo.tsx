@@ -7,7 +7,7 @@ interface LogoProps {
 export function ZapEHRLogo(props: LogoProps): JSX.Element {
   return (
     <svg style={{ width: props.width }} viewBox="0 0 104 21" xmlns="http://www.w3.org/2000/svg">
-      <title>zapEHR Logo</title>
+      <title>ZapEHR Logo</title>
       <path
         d="M18.0176 15.3176V13.2752L23.1698 7.33386L24.4927 6.01098L22.5664 6.0574H18.064V3.71335H28.0204V5.75569L22.8913 11.6738L21.5685 13.0199L23.6804 12.9735H28.2061V15.3176H18.0176Z"
         fill="white"

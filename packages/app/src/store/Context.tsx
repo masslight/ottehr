@@ -4,6 +4,7 @@ import {
   ReactNode,
   SetStateAction,
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useReducer,
@@ -102,12 +103,14 @@ type VideoParticipantContextProps = {
   isMicOpen: boolean;
   isVideoOpen: boolean;
   localTracks: (LocalAudioTrack | LocalVideoTrack)[];
+  remoteParticipantName: string;
   room: Room | null;
   selectedSpeaker: string | null;
   setCallStart: Dispatch<SetStateAction<string>>;
   setIsMicOpen: Dispatch<SetStateAction<boolean>>;
   setIsVideoOpen: Dispatch<SetStateAction<boolean>>;
   setLocalTracks: Dispatch<SetStateAction<(LocalAudioTrack | LocalVideoTrack)[]>>;
+  setRemoteParticipantName: Dispatch<SetStateAction<string>>;
   setRoom: Dispatch<SetStateAction<Room | null>>;
   setSelectedSpeaker: Dispatch<SetStateAction<string | null>>;
 };
@@ -124,6 +127,7 @@ export const VideoParticipantProvider: FC<VideoParticipantProviderProps> = ({ ch
   const [localTracks, setLocalTracks] = useState<(LocalAudioTrack | LocalVideoTrack)[]>([]);
   const [room, setRoom] = useState<Room | null>(null);
   const [selectedSpeaker, setSelectedSpeaker] = useState<string | null>(null);
+  const [remoteParticipantName, setRemoteParticipantName] = useState<string>('');
   const [callStart, setCallStart] = useState<string>('');
 
   const cleanup = (): void => {
@@ -146,12 +150,14 @@ export const VideoParticipantProvider: FC<VideoParticipantProviderProps> = ({ ch
         isMicOpen,
         isVideoOpen,
         localTracks,
+        remoteParticipantName,
         room,
         selectedSpeaker,
         setCallStart,
         setIsMicOpen,
         setIsVideoOpen,
         setLocalTracks,
+        setRemoteParticipantName,
         setRoom,
         setSelectedSpeaker,
       }}
@@ -172,15 +178,14 @@ export const useVideoParticipant = (): VideoParticipantContextProps => {
 // Provider
 
 type PractitionerContextProps = {
-  practitionerProfile: Practitioner | null | undefined;
   provider: ProviderData | undefined;
+  setUserProfile: () => void;
 };
 
 const PractitionerContext = createContext<PractitionerContextProps | undefined>(undefined);
 
 export const PractitionerProvider: FC = () => {
   const [accessToken, setAccessToken] = useState<string>('');
-  const [practitionerProfile, setPractitionerProfile] = useState<Practitioner | null | undefined>(null);
   const [provider, setProvider] = useState<ProviderData | undefined>();
   const { state, dispatch } = useContext(DataContext);
   const { isAuthenticated, getAccessTokenSilently } = useAuth0();
@@ -198,28 +203,28 @@ export const PractitionerProvider: FC = () => {
     });
   }, [dispatch, getAccessTokenSilently, isAuthenticated]);
 
+  const setUserProfile = useCallback(async (): Promise<void> => {
+    const user = await getUser(accessToken);
+    const [resourceType, userId] = user.profile.split('/');
+    const fhirClient = state.fhirClient;
+    const profile = await fhirClient?.readResource<Practitioner>({
+      resourceId: userId,
+      resourceType: resourceType,
+    });
+    const provider = createProvider(profile);
+    setProvider(provider);
+  }, [accessToken, state.fhirClient]);
+
   useEffect(() => {
-    async function setUserProfile(): Promise<void> {
-      const user = await getUser(accessToken);
-      const [resourceType, userId] = user.profile.split('/');
-      const fhirClient = state.fhirClient;
-      const profile = await fhirClient?.readResource<Practitioner>({
-        resourceId: userId,
-        resourceType: resourceType,
-      });
-      const provider = createProvider(profile);
-      setProvider(provider);
-      setPractitionerProfile(profile);
-    }
     if (state.fhirClient) {
       setUserProfile().catch((error) => {
         console.log(error);
       });
     }
-  }, [accessToken, state.fhirClient]);
+  }, [accessToken, setUserProfile, state.fhirClient]);
 
   return (
-    <PractitionerContext.Provider value={{ practitionerProfile, provider }}>
+    <PractitionerContext.Provider value={{ provider, setUserProfile }}>
       <Outlet />
     </PractitionerContext.Provider>
   );
