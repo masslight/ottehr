@@ -1,0 +1,19 @@
+{
+  "name": "ottehr-urgent-care-zambdas",
+  "version": "1.2.7",
+  "private": true,
+  "scripts": {
+    "start": "npm run start:local",
+    "start:local": "ENV=local pnpm run start-skeleton",
+    "start-skeleton": "sls offline --stage ${ENV} --httpPort 3000",
+    "build": "tsc && sls package --stage dev",
+    "test": "jest"
+  },
+  "engines": {
+    "npm": ">=8.0.0",
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "utils": "file:../../utils"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "utils",
+  "private": true,
+  "version": "0.0.1",
+  "main": "lib/main.ts",
+  "types": "lib/main.ts",
+  "scripts": {
+    "start": "vite",
+    "build": "tsc && vite build",
+    "lint": "eslint lib --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview",
+    "test": "vitest",
+    "coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "vite": "^4.3.9"
+  },
+  "dependencies": {
+    "axios": "1.6.2"
+  }
+}

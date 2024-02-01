@@ -1,0 +1,449 @@
+{
+  "general": {
+    "button": {
+      "book": "Reservar una cita",
+      "submit": "Enviar",
+      "continue": "Continuar",
+      "back": "Atrás",
+      "close": "Cerrar",
+      "tryAgain": "Intente de nuevo",
+      "checked": "Marcado",
+      "unchecked": "Sin marcar"
+    },
+    "dateOfBirth": "Fecha de nacimiento",
+    "dropdownPlaceholder": "Seleccione",
+    "datePlaceholder": "MM/DD/AAAA",
+    "errors": {
+      "validation": {
+        "firstName": "El nombre es obligatorio",
+        "lastName": "El apellido es obligatorio",
+        "dateOfBirth": {
+          "format": "La fecha debe tener el formato MM/DD/AAAA",
+          "required": "La fecha de nacimiento es obligatoria"
+        },
+        "zip": {
+          "number": "El código postal debe tener cinco dígitos",
+          "required": "El código postal es obligatorio"
+        }
+      }
+    },
+    "firstName": "Nombre",
+    "footer": "Si cree que usted o su hijo tienen una emergencia médica, llame al 911 o vaya a la sala de emergencias más cercana.",
+    "lastName": "Apellido",
+    "required": "campo obligatorio",
+    "stateFullNames": {
+      "AK": "Alaska",
+      "AL": "Alabama",
+      "AR": "Arkansas",
+      "AZ": "Arizona",
+      "CA": "California",
+      "CO": "Colorado",
+      "CT": "Connecticut",
+      "DC": "Distrito de Columbia",
+      "DE": "Delaware",
+      "FL": "Florida",
+      "GA": "Georgia",
+      "HI": "Hawái",
+      "IA": "Iowa",
+      "ID": "Idaho",
+      "IL": "Illinois",
+      "IN": "Indiana",
+      "KS": "Kansas",
+      "KY": "Kentucky",
+      "LA": "Luisiana",
+      "MA": "Massachusetts",
+      "MD": "Maryland",
+      "ME": "Maine",
+      "MI": "Michigan",
+      "MN": "Minnesota",
+      "MO": "Misuri",
+      "MS": "Misisipi",
+      "MT": "Montana",
+      "NC": "Carolina del Norte",
+      "ND": "Dakota del Norte",
+      "NE": "Nebraska",
+      "NH": "Nuevo Hampshire",
+      "NJ": "Nueva Jersey",
+      "NM": "Nuevo México",
+      "NV": "Nevada",
+      "NY": "Nueva York",
+      "OH": "Ohio",
+      "OK": "Oklahoma",
+      "OR": "Oregón",
+      "PA": "Pensilvania",
+      "RI": "Rhode Island",
+      "SC": "Carolina del Sur",
+      "SD": "Dakota del Sur",
+      "TN": "Tennessee",
+      "TX": "Texas",
+      "UT": "Utah",
+      "VA": "Virginia",
+      "VT": "Vermont",
+      "WA": "Washington",
+      "WI": "Wisconsin",
+      "WV": "Virginia Occidental",
+      "WY": "Wyoming"
+    },
+    "sunAlt": "Icono de sol amarillo",
+    "weekdays": ["D", "L", "M", "X", "J", "V", "S"],
+    "zip": "Código postal"
+  },
+
+  "welcome": {
+    "title": "Bienvenido(a) a Ottehr",
+    "subtitle": "Programación en línea",
+    "support": "Estamos aquí para apoyarlos a usted y a su familia.",
+    "availability": "Introduzca su código postal para determinar la disponibilidad de los servicios en su área: terapia, administración de medicamentos, psiquiatría o asesoramiento para padres o sobre el sueño. Las consultas presenciales ahora están disponibles en ubicaciones seleccionadas.",
+    "inputHelperText": "Utilice el código postal en el que se ubicará el paciente mientras recibe los servicios.",
+    "submitLabel": "Empezar",
+    "errors": {
+      "zip": {
+        "title": "No se encontró un estado con ese código postal",
+        "description": "No se encontró un estado con ese código postal. Si el código postal es válido, comuníquese con nosotros."
+      },
+      "availability": {
+        "title": "No se encontró ninguna disponibilidad para consultas virtuales",
+        "description": "Lamentablemente no encontramos ninguna cita virtual disponible. Inténtelo de nuevo más tarde o seleccione otra opción de cita."
+      }
+    }
+  },
+
+  "availableServices": {
+    "title": "Servicios disponibles en",
+    "descriptionNY": "¡Ahora aceptamos los seguros Healthfirst y Fidelis Care en Nueva York!",
+    "description": "Ofrecemos terapia, psiquiatría, administración de medicamentos, asesoramiento para padres y asesoramiento sobre el sueño en su área.",
+    "descriptionPayment": "Si su seguro aún no se encuentra en nuestra red, al reservar una cita, se le solicitará su información de pago, pero no se cobrará ningún monto en su tarjeta de crédito hasta el día de su consulta. Su recibo puede utilizarse para enviarlo a su compañía de seguros o cuenta de ahorros para la salud (Health Savings Account, HSA) para obtener un posible reembolso.",
+    "descriptionOnlyCoaching": "Nos complace ofrecer asesoramiento para padres y sobre el sueño en su estado. Los servicios de terapia y psiquiatría estarán disponibles en el futuro.",
+    "label": "Seleccione una de las siguientes opciones",
+    "virtual": {
+      "title": "Consulta virtual",
+      "description": "Programe su primera visita con un administrador de atención médica conductual para evaluar las necesidades de su hijo y relacionarlas con uno de nuestros pediatras expertos.",
+      "alt": "Icono de computadora portátil",
+      "nextAvailable": "Próxima cita disponible:"
+    },
+    "inPerson": {
+      "title": "Consulta presencial",
+      "description": "Consulte a uno de nuestros coordinadores para hablar sobre las necesidades de su hijo y programar la cita con un pediatra experto en la zona que prefiera. Disponible en:",
+      "alt": "Icono de comillas"
+    },
+    "coaching": {
+      "title": "Asesoramiento para padres o sobre el sueño",
+      "description": "Programe una cita para analizar sus necesidades o las necesidades de su hijo y concertar una cita con un entrenador que pueda ayudarle mejor. Por lo general, estas visitas no están cubiertas por su seguro médico, pero pueden enviarse a su HSA para obtener un posible reembolso.",
+      "alt": "Icono de personas agarrándose las manos"
+    },
+    "errors": {
+      "selection": "Se debe seleccionar un tipo de servicio"
+    }
+  },
+
+  "inPerson": {
+    "title": "Ubicaciones para asistir presencialmente en",
+    "description": "Haga clic en \"Reservar una cita\" para entrar en nuestra pantalla de pago seguro con tarjeta de crédito, después de lo cual podrá reservar una consulta al instante.",
+    "label": "Seleccione una de las siguientes opciones",
+    "therapyOnly": {
+      "title": "Terapia",
+      "description": "Programe una cita con uno de nuestros administradores de atención médica conductual que lo guiará por nuestro proceso."
+    },
+    "therapyPsychiatry": {
+      "title": "Terapia, psiquiatría",
+      "description": "Programe una cita con uno de nuestros administradores de atención médica conductual que lo guiará por nuestro proceso y determinará qué servicio satisface mejor sus necesidades: Terapia, psiquiatría."
+    },
+    "therapyMedicationPsychiatry": {
+      "title": "Terapia, administración de medicamentos y psiquiatría",
+      "description": "Programe una cita con uno de nuestros administradores de atención médica conductual que lo guiará por nuestro proceso y determinará qué servicio satisface mejor sus necesidades: Terapia, administración de medicamentos, psiquiatría."
+    },
+    "errors": {
+      "location": "Se debe seleccionar una ubicación"
+    }
+  },
+
+  "coaching": {
+    "title": "Asesoramiento para padres o sobre el sueño",
+    "description": "Si está interesado en el asesoramiento para padres o sobre el sueño, le ofrecemos una cita gratuita de 15 minutos con uno de nuestros asesores."
+  },
+
+  "whatToExpect": {
+    "title": "Admisión virtual de salud conductual inicial",
+    "subtitle": "Esto es lo que puede prever",
+    "appointment": "Una cita con uno de nuestros administradores de atención.",
+    "services": "Determinación de los servicios que les beneficiarían a usted y a su hijo(a): terapia, administración de medicamentos o evaluación psiquiátrica.",
+    "licensed": "Terapia en curso por parte de un grupo experimentado de psicólogos y terapeutas certificados con formación especializada.",
+    "medication": "Administración de medicamentos (si es necesario) o evaluación con un psiquiatra infantil/adolescente certificado (en estados limitados)."
+  },
+
+  "patientInfo": {
+    "title": "Primero, cuéntenos un poco sobre el paciente",
+    "description": "Utilizamos esta información para asegurarnos de que podemos proporcionarle atención. Toda la información se mantiene de forma confidencial.",
+    "firstName": "Nombre legal del paciente",
+    "lastName": "Apellido legal del paciente",
+    "dateOfBirth": {
+      "label": "Fecha de nacimiento del paciente",
+      "helperText": "Tenga en cuenta que ofrecemos servicios para pacientes de entre 5 y 26 años."
+    },
+    "sex": {
+      "label": "Sexo del paciente",
+      "male": "Hombre",
+      "female": "Mujer",
+      "other": "Otro"
+    },
+    "reasonForVisit": {
+      "label": "Motivo de la consulta",
+      "placeholder": "Escriba o seleccione todas las opciones que correspondan...",
+      "options": [
+        "Terapia",
+        "Administración de medicamentos",
+        "Ansiedad",
+        "Depresión",
+        "ADD/TDAH",
+        "TOC",
+        "TEPT (Trastorno por estrés postraumático)",
+        "TND (Trastorno negativista desafiante)",
+        "Trastornos de la conducta",
+        "Deserción escolar",
+        "Problemas familiares",
+        "Apoyo para padres",
+        "Apoyo para el duelo"
+      ]
+    },
+    "email": {
+      "label": "Correo electrónico",
+      "helperText": "Proporcione el correo electrónico para obtener el mejor punto de contacto con respecto a esta cita."
+    },
+    "marketing": "¡Sí! Me gustaría recibir comunicaciones útiles por correo electrónico, incluso información sobre recursos, herramientas y eventos educativos gratuitos para ayudarme a mí y a mi hijo(a).",
+    "errors": {
+      "age": {
+        "title": "Edad fuera del intervalo",
+        "description": "Estos servicios están disponibles para pacientes de entre 5 y 26 años únicamente."
+      },
+      "validation": {
+        "sex": "El sexo del paciente es obligatorio",
+        "reasonForVisit": "El motivo de la visita es obligatorio",
+        "email": "El correo electrónico es obligatorio",
+        "emailValidity": "El correo electrónico debe ser un correo electrónico válido"
+      }
+    }
+  },
+
+  "paymentOption": {
+    "title": "¿Cómo le gustaría pagar su sesión",
+    "description": "Estamos trabajando con esmero para asegurar otros contratos de seguro pronto. Si su seguro no aparece en la lista, utilice nuestra opción de pago por cuenta propia.",
+    "label": "Seleccionar opción de pago",
+    "self": {
+      "description": "Pagaré por cuenta propia o presentaré reclamos de seguros fuera de la red con mi proveedor de seguros."
+    },
+    "errors": {
+      "selection": "Debe seleccionarse un tipo de pago"
+    }
+  },
+
+  "insurance": {
+    "title": "detalles del seguro",
+    "description": "Utilizamos esta información para confirmar su cobertura.",
+    "firstName": "Nombre del tutor legal *",
+    "lastName": "Apellido del tutor legal *",
+    "dateOfBirth": "Fecha de nacimiento del tutor legal",
+    "idNumber": {
+      "label": "Número de identificación del paciente *",
+      "placeholder": "El número de identificación"
+    },
+    "memberId": {
+      "paragraph": "Introducir el ID de miembro para",
+      "label": "ID de miembro"
+    },
+    "errors": {
+      "age": {
+        "title": "Edad fuera del intervalo",
+        "description": "El tutor legal debe ser mayor de 18 años."
+      },
+      "coverage": {
+        "title": "No se encontró la cobertura",
+        "description": "Compruebe los datos de su tarjeta de seguro e intente de nuevo. Si sigue sin funcionar, póngase en contacto con nuestro equipo de asistencia llamando al 516-738-5600."
+      },
+      "other": {
+        "title": "Error",
+        "description": "Se produjo un error, intente de nuevo. Si sigue sin funcionar, póngase en contacto con nuestro equipo de asistencia llamando al 516-738-5600."
+      },
+      "validation": {
+        "idNumber": "El número de identificación es obligatorio",
+        "alphanumeric": "El número de identificación debe tener solo letras o números"
+      }
+    }
+  },
+
+  "schedule": {
+    "title": "Reservar una cita",
+    "description": {
+      "prefix": "Programemos su primera consulta, que durará unos ",
+      "suffix": "minutos."
+    },
+    "dateAndTime": "Seleccione fecha y hora",
+    "timezone": "Zona horaria",
+    "firstAvailable": {
+      "label": "Primer horario disponible",
+      "calculating": "Cálculo del primer horario disponible"
+    },
+    "tabAriaLabel": "Pestañas de citas para cambiar entre las vistas de hoy, mañana y otras fechas.",
+    "loading": "Cargando",
+    "otherDates": "Otras fechas",
+    "submitLabel": "Seleccionar",
+    "errors": {
+      "selection": {
+        "title": "Seleccione la fecha y el horario",
+        "description": "Para continuar, seleccione una cita disponible."
+      },
+      "availability": {
+        "title": "No se ha podido encontrar ninguna disponibilidad",
+        "description": "Lamentablemente no encontramos ninguna cita disponible. Intente de nuevo más tarde."
+      },
+      "noneToday": "No hay citas disponibles para este día, intente otro día."
+    }
+  },
+
+  "forms": {
+    "title": "Complete los formularios previos a la consulta",
+    "termsAndPrivacy": {
+      "prefix": "He revisado y acepto la atención de Ottehr Urgent Care",
+      "terms": "Términos y condiciones",
+      "and": "y",
+      "privacy": "Política de privacidad"
+    },
+    "consentAndPaymentGuarantee": {
+      "text": "He revisado y acepto la",
+      "link": "Consentimiento para el tratamiento y la garantía de pago"
+    },
+    "hipaaAcknowledgement": {
+      "prefix": "Reconozco que he recibido, revisado y comprendido el",
+      "link": "Aviso de prácticas de privacidad",
+      "suffix": "que describe cómo se puede utilizar y divulgar la información médica protegida."
+    },
+    "financialAgreement": {
+      "text": "He revisado y acepto la",
+      "link": "Política financiera"
+    },
+    "signature": {
+      "label": "Firma",
+      "placeholder": "Su nombre",
+      "helperText": "Escriba su nombre y apellido legales."
+    },
+    "relationship": {
+      "label": "Relación con el paciente",
+      "option": {
+        "parent": "Progenitor/tutor legal",
+        "self": "Yo mismo",
+        "other": "Otro"
+      }
+    },
+    "errors": {
+      "selection": "Todas las casillas de verificación son obligatorias",
+      "validation": {
+        "signature": "La firma es obligatoria",
+        "relationship": "La relación con el paciente es obligatoria"
+      }
+    }
+  },
+
+  "contactInfo": {
+    "title": "Información de contacto",
+    "description": "Proporcione la información para obtener el mejor punto de contacto con respecto a esta cita.",
+    "phone": {
+      "label": "Número de teléfono",
+      "helperText": "Proporcione el mejor número de teléfono móvil de su familia."
+    },
+    "address": "Dirección",
+    "apartment": {
+      "label": "Apartamento, suite, etc.",
+      "placeholder": "Apartamento"
+    },
+    "city": "Ciudad",
+    "state": "Estado",
+    "errors": {
+      "title": "Error al crear la franja horaria de la cita",
+      "default": "Se produjo un error al crear su cita. Intente de nuevo y, si el problema persiste, póngase en contacto con nosotros.",
+      "unavailable": "La franja horaria de la cita ya no está libre, regrese y seleccione una diferente.",
+      "missing": "Faltan algunos datos. Regrese y proporcione cualquier información que falte.",
+      "validation": {
+        "phone": {
+          "number": "El número de teléfono debe tener 10 dígitos",
+          "required": "El número de teléfono es obligatorio"
+        },
+        "address": "La dirección es obligatoria",
+        "city": "La ciudad es obligatoria",
+        "state": "El estado es obligatorio"
+      }
+    }
+  },
+
+  "creditCard": {
+    "title": "Información de su tarjeta de crédito",
+    "description": "Su tarjeta de crédito se preautorizará ahora y se conservará en nuestros archivos para el día de su cita. En ese momento, cualquier cargo, copago o deducible adeudado se cargará a esta tarjeta y no excederá el costo de pago por cuenta propia de su tipo de consulta. Para obtener una lista de tipos de consultas y tarifas, haga clic",
+    "link": "aquí",
+    "number": {
+      "label": "Número de tarjeta de crédito",
+      "placeholder": "1234567890123456"
+    },
+    "expiration": {
+      "label": "Fecha de caducidad",
+      "placeholder": "MM / AA"
+    },
+    "security": "Código de seguridad",
+    "cardHolderName": {
+      "label": "Nombre del titular de la tarjeta",
+      "placeholder": "1234567890123456"
+    },
+    "cardHolderZip": {
+      "label": "Código postal del titular de la tarjeta",
+      "placeholder": "1234567890123456",
+      "helperText": "Utilice el código postal asociado con la dirección de facturación de esta tarjeta."
+    },
+    "errors": {
+      "availability": {
+        "title": "Error al crear la franja horaria de la cita",
+        "description": "La franja horaria de la cita ya no está libre, regrese y seleccione una diferente."
+      },
+      "cardpointe": {
+        "title": "Error al validar la tarjeta de crédito",
+        "description": "Se produjo un error al validar su tarjeta de crédito."
+      },
+      "slot": {
+        "title": "Error al crear la franja horaria de la cita",
+        "description": "Se produjo un error al crear su cita. Intente de nuevo y, si el problema persiste, póngase en contacto con nosotros."
+      },
+      "validation": {
+        "number": {
+          "format": "El número de tarjeta debe ser un número",
+          "required": "El número de tarjeta es obligatorio"
+        },
+        "expiration": {
+          "format": "Debe estar en formato MM/AA",
+          "required": "El vencimiento de la tarjeta es obligatorio"
+        },
+        "security": {
+          "format": "El código debe ser un número",
+          "required": "El código de seguridad de la tarjeta es obligatorio"
+        },
+        "cardHolder": {
+          "name": "El nombre del titular de la tarjeta es obligatorio",
+          "zip": "El código postal del titular de la tarjeta es obligatorio"
+        }
+      },
+      "validationResponse": {
+        "number": "Su número de tarjeta de crédito no era válido",
+        "expiration": "Su fecha de caducidad no era válida",
+        "security": "Su CVV no era válido",
+        "other": "Compruebe los datos de su tarjeta e intente de nuevo."
+      }
+    }
+  },
+
+  "thanks": {
+    "title": "Gracias por elegir Ottehr",
+    "description": "¡Esperamos brindarle el apoyo de salud conductual que se merece!",
+    "scheduled": "Su cita está programada para:",
+    "reminders": "En breve, recibirá un correo electrónico de confirmación para su próxima cita. Si necesita realizar algún cambio, siga las instrucciones del correo electrónico. También recibirá recordatorios de citas 72 y 24 horas antes de su llamada. Su enlace a la videoconferencia se enviará a su correo electrónico el día de la cita. Si tiene alguna pregunta o necesita más asistencia, llámenos al (888) 764-4161.",
+    "cancellation": {
+      "title": "Política de cancelación:",
+      "paragraph": "Las citas canceladas menos de 24 horas antes del horario programado estarán sujetas a un cargo por cancelación de $50. Las faltas de asistencia se cobrarán con la tarifa completa de la cita programada. Tenga en cuenta que esta política de cancelación solo se aplica a los pacientes que utilizan nuestra opción de pago por cuenta propia o un plan de seguro comercial. Esta política no se aplica a pacientes con Medicaid ni planes gestionados de Medicaid."
+    },
+    "submitLabel": "Volver a Ottehr"
+  }
+}

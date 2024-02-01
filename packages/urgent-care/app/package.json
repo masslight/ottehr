@@ -1,0 +1,39 @@
+{
+  "name": "ottehr-urgent-care-intake-ui",
+  "version": "1.2.7",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "pnpm run start:local",
+    "start:local": "ENV=default pnpm start-skeleton",
+    "start-skeleton": "vite --mode ${ENV}",
+    "build": "pnpm run build:local",
+    "build:local": "ENV=default ROBOTS_FILE=lowers pnpm run build-skeleton",
+    "build-skeleton": "tsc && vite build --mode ${ENV} && cp src/assets/robots-${ROBOTS_FILE}.txt build/robots.txt",
+    "lint": "eslint",
+    "prettier": "prettier --write ."
+  },
+  "engines": {
+    "pnpm": ">=8.0.0",
+    "node": ">=18.0.0"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "dependencies": {
+    "@mui/icons-material": "^5.11.16",
+    "react-markdown": "^9.0.0",
+    "tsconfig": "*",
+    "utils": "file:../../utils",
+    "ui-components": "file:../../ui-components"
+  }
+}

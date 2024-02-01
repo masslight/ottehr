@@ -34,8 +34,11 @@ jobs:
           name: 'secrets.json'
           json: ${{ secrets.OTTEHR_SECRETS_JSON }}
 
-      - name: Move env file into .env folder
-        run: mkdir -p packages/zambdas/.env/ && cp secrets.json packages/zambdas/.env/${{ vars.ENVIRONMENT }}.json
+      #- name: Move env file into .env folder
+      #  run: mkdir -p packages/ehr/zambdas/.env/ && cp secrets.json packages/ehr/zambdas/.env/${{ vars.ENVIRONMENT }}.json
+
+      - name: Set the zambdas/.env/dev.json
+        run: cp packages/ehr/zambdas/.env/local.template.json packages/ehr/zambdas/.env/dev.json
 
       - id: get-store-path
         run: echo STORE_PATH=$(pnpm store path) >> $GITHUB_OUTPUT

@@ -1,0 +1,21 @@
+{
+  "WEBSITE_URL": "http://localhost:3002",
+  "AUTH0_ENDPOINT": "https://auth.zapehr.com/oauth/token",
+  "AUTH0_CLIENT": "",
+  "AUTH0_SECRET": "",
+  "PROJECT_ID": "",
+  "MESSAGING_DEVICE_ID": "",
+  "MESSAGING_M2M_CLIENT": "",
+  "MESSAGING_M2M_SECRET": "",
+  "AUTH0_AUDIENCE": "",
+  "FHIR_API": "",
+  "PROJECT_API": "",
+  "ENVIRONMENT": "local",
+  "ORGANIZATION_ID": "",
+  "SENDGRID_API_KEY" : "",
+  "SENDGRID_EMAIL" : "",
+  "SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID" : "",
+  "SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID" : "",
+  "SENDGRID_ERROR_EMAIL_TEMPLATE_ID" : "",
+  "SLACK_CHANNEL_HOOK_URL": ""
+}

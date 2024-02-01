@@ -1,13 +1,13 @@
 {
   "compilerOptions": {
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "dom"],
     "target": "ES2022",
     "module": "ES2022",
     "moduleResolution": "node",
     "newLine": "lf",
     "strict": true,
     "sourceMap": true,
-    "declaration": true,
+    "declaration": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
@@ -25,10 +25,8 @@
     "noUnusedParameters": false,
     "noUnusedLocals": false,
     "resolveJsonModule": true,
-    "noEmit": true,
+    "noEmit": true
   },
   "exclude": ["node_modules"],
-  "include": [
-    ".eslintrc.js",
-  ]
+  "include": [".eslintrc.js"]
 }
