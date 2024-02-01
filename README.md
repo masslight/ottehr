@@ -36,7 +36,7 @@ Ottehr currently has a few components:
 
 * A patient-facing registration website for creating appointments, with features including rescheduling, checking in, sending text messages and emails, and listing appointments for an account
 * A staff-facing EHR for managing appointments created through the patient website, with features including checking appointments, texting patients, updating a location's slots, and setting a location's schedule
-* A telemed website for creating appointments with patients and hosting calls
+* A telemedicine website for creating appointments with patients and creating calls
 * A components React library for creating healthcare applications
 
 To set up the first two components, we have a setup program you can run.
