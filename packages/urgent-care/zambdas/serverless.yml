@@ -1,0 +1,235 @@
+service: zambdas
+
+frameworkVersion: '3'
+
+package:
+  individually: true
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  stage: ${opt:stage, self:custom.defaultStage}
+
+custom:
+  defaultStage: local
+  serverless-offline:
+    reloadHandler: true
+    httpPort: 3000
+    lambdaPort: 3001
+
+functions:
+  check-in:
+    handler: src/check-in/index.index
+    events:
+      - http:
+          path: zambda/check-in/execute-public
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
+      AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
+      MESSAGING_DEVICE_ID: ${file(./.env/${self:provider.stage}.json):MESSAGING_DEVICE_ID}
+      MESSAGING_M2M_CLIENT: ${file(./.env/${self:provider.stage}.json):MESSAGING_M2M_CLIENT}
+      MESSAGING_M2M_SECRET: ${file(./.env/${self:provider.stage}.json):MESSAGING_M2M_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
+      SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
+  create-appointment:
+    handler: src/create-appointment/index.index
+    events:
+      - http:
+          path: zambda/create-appointment/execute
+          method: POST
+    timeout: 25
+    environment:
+      WEBSITE_URL: ${file(./.env/${self:provider.stage}.json):WEBSITE_URL}
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
+      AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
+      MESSAGING_DEVICE_ID: ${file(./.env/${self:provider.stage}.json):MESSAGING_DEVICE_ID}
+      MESSAGING_M2M_CLIENT: ${file(./.env/${self:provider.stage}.json):MESSAGING_M2M_CLIENT}
+      MESSAGING_M2M_SECRET: ${file(./.env/${self:provider.stage}.json):MESSAGING_M2M_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
+      SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID}
+      SENDGRID_EMAIL: ${file(./.env/${self:provider.stage}.json):SENDGRID_EMAIL}
+      SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
+      ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+  get-location:
+    handler: src/get-location/index.index
+    events:
+      - http:
+          path: zambda/get-location/execute-public
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
+      AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
+      SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
+  update-appointment:
+    handler: src/update-appointment/index.index
+    events:
+      - http:
+          path: zambda/update-appointment/execute-public
+          method: POST
+    timeout: 25
+    environment:
+      WEBSITE_URL: ${file(./.env/${self:provider.stage}.json):WEBSITE_URL}
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
+      AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
+      MESSAGING_DEVICE_ID: ${file(./.env/${self:provider.stage}.json):MESSAGING_DEVICE_ID}
+      MESSAGING_M2M_CLIENT: ${file(./.env/${self:provider.stage}.json):MESSAGING_M2M_CLIENT}
+      MESSAGING_M2M_SECRET: ${file(./.env/${self:provider.stage}.json):MESSAGING_M2M_SECRET}
+      SENDGRID_EMAIL: ${file(./.env/${self:provider.stage}.json):SENDGRID_EMAIL}
+      SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID}
+      SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
+  update-paperwork:
+    handler: src/update-paperwork/index.index
+    events:
+      - http:
+          path: zambda/update-paperwork/execute-public
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
+      AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
+      ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+      SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
+  cancel-appointment:
+    handler: src/cancel-appointment/index.index
+    events:
+      - http:
+          path: zambda/cancel-appointment/execute-public
+          method: POST
+    timeout: 25
+    environment:
+      WEBSITE_URL: ${file(./.env/${self:provider.stage}.json):WEBSITE_URL}
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
+      AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
+      MESSAGING_DEVICE_ID: ${file(./.env/${self:provider.stage}.json):MESSAGING_DEVICE_ID}
+      MESSAGING_M2M_CLIENT: ${file(./.env/${self:provider.stage}.json):MESSAGING_M2M_CLIENT}
+      MESSAGING_M2M_SECRET: ${file(./.env/${self:provider.stage}.json):MESSAGING_M2M_SECRET}
+      SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID}
+      SENDGRID_EMAIL: ${file(./.env/${self:provider.stage}.json):SENDGRID_EMAIL}
+      SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
+  get-patients:
+    handler: src/get-patients/index.index
+    events:
+      - http:
+          path: zambda/get-patients/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
+      AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
+      SLACK_CHANNEL_HOOK_URL: ${file(./.env/${self:provider.stage}.json):SLACK_CHANNEL_HOOK_URL}
+      MESSAGING_DEVICE_ID: ${file(./.env/${self:provider.stage}.json):MESSAGING_DEVICE_ID}
+      MESSAGING_M2M_CLIENT: ${file(./.env/${self:provider.stage}.json):MESSAGING_M2M_CLIENT}
+      MESSAGING_M2M_SECRET: ${file(./.env/${self:provider.stage}.json):MESSAGING_M2M_SECRET}
+      SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID}
+      SENDGRID_EMAIL: ${file(./.env/${self:provider.stage}.json):SENDGRID_EMAIL}
+      SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
+  get-appointments:
+    handler: src/get-appointments/index.index
+    events:
+      - http:
+          path: zambda/get-appointments/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
+      AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
+      SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
+  get-paperwork:
+    handler: src/get-paperwork/index.index
+    events:
+      - http:
+          path: zambda/get-paperwork/execute-public
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
+      AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
+      SLACK_CHANNEL_HOOK_URL: ${file(./.env/${self:provider.stage}.json):SLACK_CHANNEL_HOOK_URL}
+      MESSAGING_DEVICE_ID: ${file(./.env/${self:provider.stage}.json):MESSAGING_DEVICE_ID}
+      MESSAGING_M2M_CLIENT: ${file(./.env/${self:provider.stage}.json):MESSAGING_M2M_CLIENT}
+      MESSAGING_M2M_SECRET: ${file(./.env/${self:provider.stage}.json):MESSAGING_M2M_SECRET}
+      SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID}
+      SENDGRID_EMAIL: ${file(./.env/${self:provider.stage}.json):SENDGRID_EMAIL}
+      SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
+  get-presigned-file-url:
+    handler: src/get-presigned-file-url/index.index
+    events:
+      - http:
+          path: zambda/get-presigned-file-url/execute-public
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
+      AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      PROJECT_ID: ${file(./.env/${self:provider.stage}.json):PROJECT_ID}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
+      SLACK_CHANNEL_HOOK_URL: ${file(./.env/${self:provider.stage}.json):SLACK_CHANNEL_HOOK_URL}
+      MESSAGING_DEVICE_ID: ${file(./.env/${self:provider.stage}.json):MESSAGING_DEVICE_ID}
+      MESSAGING_M2M_CLIENT: ${file(./.env/${self:provider.stage}.json):MESSAGING_M2M_CLIENT}
+      MESSAGING_M2M_SECRET: ${file(./.env/${self:provider.stage}.json):MESSAGING_M2M_SECRET}
+      SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID}
+      SENDGRID_EMAIL: ${file(./.env/${self:provider.stage}.json):SENDGRID_EMAIL}
+      SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
+plugins:
+  - serverless-offline
+  - serverless-esbuild
+  # - serverless-custom-packaging-plugin

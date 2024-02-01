@@ -1,0 +1,33 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "pipeline": {
+    "start": {
+      "cache": false,
+      "persistent": true
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["build/**"]
+    },
+    "ci-deploy": {
+      "dependsOn": ["build", "lint"]
+    },
+    "ci-deploy:dev": {
+      "dependsOn": ["build", "lint"]
+    },
+    "ci-deploy:testing": {
+      "dependsOn": ["build", "lint"]
+    },
+    "ci-deploy:staging": {
+      "dependsOn": ["build", "lint"]
+    },
+    "ci-deploy:production": {
+      "dependsOn": ["build", "lint"]
+    },
+    "test": {
+      "dependsOn": ["build"],
+      "inputs": ["apps/**/*.tsx", "apps/**/*.ts", "packages/**/*.ts", "packages/**/*.tsx"]
+    },
+    "lint": {}
+  }
+}

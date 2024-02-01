@@ -20,16 +20,28 @@ echo "pnpm version: $(pnpm --version)"
 echo "Installing dependencies..."
 pnpm install
 
-# Build the project
-echo "Building package: zambdas"
-pushd "packages/zambdas"
+# Build the EHR/front-end
+echo "Building package: ehr/front-end"
+pushd "packages/ehr/front-end"
 pnpm build
 popd
 
-echo "Building package: app"
-pushd "packages/app"
+# Build the EHR/zambdas
+echo "Building package: ehr/zambdas"
+pushd "packages/ehr/zambdas"
 pnpm build
 popd
+
+# Build the project
+#echo "Building package: zambdas"
+#pushd "packages/zambdas"
+#pnpm build
+#popd
+
+#echo "Building package: app"
+#pushd "packages/app"
+#pnpm build
+#popd
 
 # Lint the project
 echo "Linting the project..."
