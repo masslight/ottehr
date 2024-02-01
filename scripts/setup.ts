@@ -70,8 +70,8 @@ async function createM2M(accessToken: string, projectId: string): Promise<[strin
               effect: 'Allow',
             },
             {
-              resource: ['Z3:PutObject', 'Z3:GetObject'],
-              action: ['Z3:*'],
+              resource: [`Z3:${projectId}-id-cards/*`, `Z3:${projectId}-insurance-cards/*`],
+              action: ['Z3:PutObject', 'Z3:GetObject'],
               effect: 'Allow',
             },
           ],

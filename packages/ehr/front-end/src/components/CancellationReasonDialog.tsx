@@ -157,10 +157,6 @@ export default function CancellationReasonDialog({
         </DialogTitle>
         <DialogContent>
           <div>
-            <Typography>
-              Canceling this visit will not update anything in eClinicalWorks. As per protocol, take steps in
-              eClinicalWorks to cancel this visit.
-            </Typography>
             <FormControl required sx={{ mt: 2, width: '100%' }}>
               <InputLabel id="select-label">Cancelation reason</InputLabel>
               <Select

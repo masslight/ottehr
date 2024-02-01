@@ -38,6 +38,7 @@ functions:
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
       SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
+      ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
   create-appointment:
     handler: src/create-appointment/index.index
     events:
@@ -101,6 +102,7 @@ functions:
       SENDGRID_EMAIL: ${file(./.env/${self:provider.stage}.json):SENDGRID_EMAIL}
       SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID}
       SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
+      ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
   update-paperwork:
     handler: src/update-paperwork/index.index
     events:
@@ -117,8 +119,8 @@ functions:
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
-      ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
       SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
+      ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
   cancel-appointment:
     handler: src/cancel-appointment/index.index
     events:
@@ -142,6 +144,7 @@ functions:
       SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID}
       SENDGRID_EMAIL: ${file(./.env/${self:provider.stage}.json):SENDGRID_EMAIL}
       SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
+      ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
   get-patients:
     handler: src/get-patients/index.index
     events:

@@ -161,6 +161,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       },
       visitType: visitType,
     };
+
     console.group('sendCancellationEmail');
     await sendCancellationEmail({
       email,
