@@ -30,9 +30,20 @@ This monorepo contains code for [Ottehr telehealth](https://www.ottehr.com/).
 
 Ottehr is a modern, modular EHR that began as a reference implementation for [ZapEHR](https://zapehr.com). It quickly outgrew "sample EHR" status and became the foundation for large-scale production EHR installations. Ottehr uses ZapEHR for back-end service endpoints, and requires a free ZapEHR account to run as-is, but you are welcome to modify and use a third-party service vendor or build your own service architecture. Ottehr is designed for developers, hopefully making it easy to fork, white-label, and build entire new classes of EHRs and health-tech products with a fraction of the effort of starting from scratch.
 
+## Setup
+
+Ottehr currently has a few components:
+
+* A patient-facing registration website for creating appointments, with features including rescheduling, checking in, sending text messages and emails, and listing appointments for an account
+* A staff-facing EHR for managing appointments created through the patient website, with features including checking appointments, texting patients, updating a location's slots, and setting a location's schedule
+* A telemed website for creating appointments with patients and hosting calls
+* A components React library for creating healthcare applications
+
+To set up the first two components, we have a setup program you can run.
+
 ## First Time Setup
 
-For a video walkthrough, please see this [getting started with ottehr video](https://youtu.be/NJzF9Nzhbeo).
+For a sample guide of setting up Ottehr Telemedicine, please check [getting started with ottehr](https://youtu.be/NJzF9Nzhbeo).
 
 ### Node Installation
 
@@ -75,7 +86,7 @@ OR
 npm install -g pnpm
 ```
 
-#### Manual Installation:
+#### Manual Installation
 
 Alternatively, you can install `pnpm` using the [official documentation](https://pnpm.io/installation).
 
@@ -120,7 +131,15 @@ To proceed with this setup guide, it is assumed that you have access to a ZapEHR
 
 Before proceeding, ensure that you have [Node.js](#node) v18.x and [pnpm](#installing-pnpm) installed on your machine.
 
-Once these dependencies are in place, execute the setup script from the root directory:
+Once these dependencies are in place, execute the setup script from the root directory.
+
+If you would like to set up Ottehr Intake and Ottehr EHR:
+
+```bash
+sh scripts/interactive-setup.sh
+```
+
+If you would like to set up Ottehr telehealth:
 
 ```bash
 sh scripts/setup.sh
@@ -128,30 +147,26 @@ sh scripts/setup.sh
 
 The script will prompt you for the following information:
 
-- Your access token: Log in to your [ZapEHR project](https://console.zapehr.com), and copy the access token from the dashboard.
-- Your project ID: Find this on the [ZapEHR project details page](https://console.zapehr.com/project).
-- Your first provider email: This can be your email address.
+* Your access token: Log in to your [ZapEHR project](https://console.zapehr.com), and copy the access token from the dashboard.
+* Your project ID: Find this on the [ZapEHR project details page](https://console.zapehr.com/project).
+* Your first provider email: This can be your email address.
 
-Upon completion, the script will generate important links highlighted in magenta. Follow these steps:
+Upon completion, the script will generate important links. Follow these steps:
+
+### Ottehr Intake and Ottehr EHR
+
+1. The Intake and EHR websites will open.
+1. To log in to the EHR, locate the reset password link in the console output and visit the provided URL in your browser to set a password. You might be redirected to a page that does not load, if so change the URL to <http://localhost:3200> and it should load. If you prefer to use the website, you can click `Forgot password?` on the website that loads and set a password.
+
+### Ottehr telehealth
 
 1. Locate the reset password link in the console output and visit the provided URL in your browser to set a password.
-2. Go to `http://localhost:5173/dashboard` and log in using the email provided to the script and the chosen password.
-3. Open a new tab and visit the waiting room URL, as output in the script logs (e.g., `http://localhost:5173/{uuid}`).
-4. Enter your name as the patient, initiate the call, and grant video/audio permissions.
-5. Accept the call from your provider tab.
+1. Go to `http://localhost:5173/dashboard` and log in using the email provided to the script and the chosen password.
+1. Open a new tab and visit the waiting room URL, as output in the script logs (e.g., `http://localhost:5173/{uuid}`).
+1. Enter your name as the patient, initiate the call, and grant video/audio permissions.
+1. Accept the call from your provider tab.
 
 You should now be in a video call with yourself.
-
-## Repository Structure
-
-This repository uses a monorepo structure. Each package has its own code in its respective folder in [`packages/`](./packages/).
-
-- `app` - The static frontend website that patients use to join their telehealth visit and providers use to answer.
-- `zambdas` - The application's backend endpoints, deployed on the ZapEHR platform.
-
-Each package has its own README explaining in more detail its purpose, as well as how to run locally and deploy (if applicable).
-
-Run `pnpm i` at the root level to install dependencies for all packages in the monorepo. Then run `pnpm start` to start all packages locally.
 
 ## Scripts
 
