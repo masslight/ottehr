@@ -93,6 +93,10 @@ async function sendEmail(
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   const environmentSubjectPrepend = ENVIRONMENT === 'production' ? '' : `[${ENVIRONMENT}] `;
   subject = `${environmentSubjectPrepend}${subject}`;
+  if (!SENDGRID_API_KEY) {
+    console.log('API key not set not sending email');
+    return;
+  }
 
   const emailConfiguration = {
     to: email,
@@ -129,6 +133,10 @@ export async function sendMessage(
   zapehrMessagingToken: string,
   secrets: Secrets | null,
 ): Promise<void> {
+  if (!conversationSID) {
+    console.log('conversationSID not set not sending text message');
+    return;
+  }
   console.log(`Sending message "${message}" to conversation ${conversationSID} using twilio`);
   const PROJECT_API_URL = getSecret(SecretsKeys.PROJECT_API, secrets);
 

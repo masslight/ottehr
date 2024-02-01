@@ -808,7 +808,6 @@ export default function AppointmentPage(): ReactElement {
                   </MenuItem>
                 ))}
               </Select>
-              <FormHelperText>Changing a status will not update anything in eClinicalWorks.</FormHelperText>
             </FormControl>
             {statusLoading && <CircularProgress size="20px" sx={{ marginTop: 2.8, marginLeft: 1 }} />}
           </div>
