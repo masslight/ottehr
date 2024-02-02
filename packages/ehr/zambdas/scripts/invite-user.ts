@@ -46,7 +46,7 @@ const updateUserRoles = async (projectApiUrl: string, accessToken: string, proje
     throw new Error('Error searching for existing roles');
   }
 
-  let staffUserRole = undefined;
+  let adminUserRole = undefined;
 
   for (const role of roles) {
     const roleName = role.name;
@@ -83,17 +83,17 @@ const updateUserRoles = async (projectApiUrl: string, accessToken: string, proje
       console.log(`${roleName} role: `, roleResJson, JSON.stringify(roleResJson.accessPolicy));
     }
 
-    if (roleResJson.name === RoleType.Staff) {
-      staffUserRole = roleResJson;
+    if (roleResJson.name === RoleType.Administrator) {
+      adminUserRole = roleResJson;
     }
   }
 
-  console.group(`Setting defaultSSOUserRole for project to Staff user role ${staffUserRole.id}`);
+  console.group(`Setting defaultSSOUserRole for project to Administrator user role ${adminUserRole.id}`);
   const endpoint = `${projectApiUrl}/project`;
   const response = await fetch(endpoint, {
     method: 'PATCH',
     headers: httpHeaders,
-    body: JSON.stringify({ defaultSSOUserRoleId: staffUserRole.id }),
+    body: JSON.stringify({ defaultSSOUserRoleId: adminUserRole.id }),
   });
   const responseJSON = await response.json();
   console.log('response', responseJSON);
@@ -101,7 +101,7 @@ const updateUserRoles = async (projectApiUrl: string, accessToken: string, proje
     throw new Error(`Failed to set defaultSSOUserRole`);
   }
 
-  return  staffUserRole;
+  return  adminUserRole;
 };
 
 
