@@ -23,6 +23,7 @@ export function validateRequestParameters(input: ZambdaInput): UpdateUserInput {
     selectedRole !== RoleType.Manager &&
     selectedRole !== RoleType.FrontDesk &&
     selectedRole !== RoleType.Provider &&
+    selectedRole !== RoleType.Administrator &&
     selectedRole !== RoleType.Staff
   ) {
     throw new Error(

@@ -42,6 +42,7 @@ export const enum RoleType {
   FrontDesk = 'FrontDesk',
   Staff = 'Staff',
   Provider = 'Provider',
+  Administrator = 'Administrator',
 }
 
 export enum CancellationReasonOptions {

@@ -152,7 +152,7 @@ export default function EmployeeInformationForm({
             }}
           >
             <FormControlLabel
-              value={RoleType.FrontDesk}
+              value={RoleType.Administrator}
               control={<Radio />}
               disabled={!isActive}
               label="Administrator"
