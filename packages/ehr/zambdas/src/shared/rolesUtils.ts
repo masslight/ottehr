@@ -4,6 +4,7 @@ export const enum RoleType {
   FrontDesk = 'FrontDesk',
   Staff = 'Staff',
   Provider = 'Provider',
+  Administrator = 'Administrator',
 }
 
 export async function getRoleId(roleName: string, token: string, projectApiUrl: string): Promise<string> {

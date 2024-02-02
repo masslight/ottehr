@@ -1,6 +1,6 @@
 import fetch from 'node-fetch';
 import { Practitioner } from 'fhir/r4';
-import { MANAGER_RULES } from '../src/shared';
+import { ADMINISTRATOR_RULES, MANAGER_RULES, STAFF_RULES, FRONT_DESK_RULES } from '../src/shared';
 import { RoleType } from '../src/shared/rolesUtils';
 
 const DEFAULTS = {
@@ -8,57 +8,102 @@ const DEFAULTS = {
   lastName: 'Doctor',
 };
 
-async function createRole(projectApiUrl: string, accessToken: string, projectId: string): Promise<{ id: string }> {
-  console.log('building access policies');
+const updateUserRoles = async (projectApiUrl: string, accessToken: string, projectId: string): Promise<{ id: string }> => {
+  console.log('Updating user roles.');
+
   const zambdaRule = {
     resource: ['Zambda:Function:*'],
     action: ['Zambda:InvokeFunction'],
     effect: 'Allow',
   };
-
+  const administratorAccessPolicy = { rule: [...ADMINISTRATOR_RULES, zambdaRule] };
   const managerAccessPolicy = { rule: [...MANAGER_RULES, zambdaRule] };
+  const staffAccessPolicy = { rule: [...STAFF_RULES, zambdaRule] };
+  const frontDeskAccessPolicy = { rule: [...FRONT_DESK_RULES, zambdaRule] };
 
-  const response = await fetch(`${projectApiUrl}/iam/role`, {
-    method: 'POST',
-    headers: {
-      accept: 'application/json',
-      authorization: `Bearer ${accessToken}`,
-      'content-type': 'application/json',
-      'x-zapehr-project-id': `${projectId}`,
-    },
-    body: JSON.stringify({
-      name: RoleType.Manager,
-      accessPolicy: managerAccessPolicy,
-    }),
+  const roles = [
+    { name: RoleType.Administrator, accessPolicy: administratorAccessPolicy },
+    { name: RoleType.Manager, accessPolicy: managerAccessPolicy },
+    { name: RoleType.Staff, accessPolicy: staffAccessPolicy },
+    { name: RoleType.FrontDesk, accessPolicy: frontDeskAccessPolicy },
+  ];
+
+  const httpHeaders = {
+    accept: 'application/json',
+    authorization: `Bearer ${accessToken}`,
+    'content-type': 'application/json',
+    'x-zapehr-project-id': `${projectId}`,
+  };
+
+  console.log('searching for exisiting roles for the project');
+  const existingRolesResponse = await fetch(`${projectApiUrl}/iam/role`, {
+    method: 'GET',
+    headers: httpHeaders,
   });
+  const existingRoles = await existingRolesResponse.json();
+  console.log('existingRoles: ', existingRoles);
+  if (!existingRolesResponse.ok) {
+    throw new Error('Error searching for existing roles');
+  }
 
-  if (!response.ok) {
-    const body = await response.json();
-    if (body.code === '4006') {
-      console.log('Role already exists. Fetching all roles...');
+  let staffUserRole = undefined;
 
-      const getResponse = await fetch(`${projectApiUrl}/iam/role`, {
-        method: 'GET',
-        headers: {
-          accept: 'application/json',
-          authorization: `Bearer ${accessToken}`,
-          'content-type': 'application/json',
-          'x-zapehr-project-id': `${projectId}`,
-        },
-      });
-
-      const roles = await getResponse.json();
-      return roles.find((r: any) => r.name === RoleType.Manager);
+  for (const role of roles) {
+    const roleName = role.name;
+    let foundRole;
+    let roleResJson = undefined;
+    if (existingRoles.length > 0) {
+      foundRole = existingRoles.find((existingRole: any) => existingRole.name === roleName);
     }
-    else {
-      console.log(body);
-      throw new Error('Failed to create a role.');
+    if (foundRole) {
+      console.log(`${roleName} role found: `, foundRole);
+      const roleRes = await fetch(`${projectApiUrl}/iam/role/${foundRole.id}`, {
+        method: 'PATCH',
+        headers: httpHeaders,
+        body: JSON.stringify({ accessPolicy: role.accessPolicy }),
+      });
+      roleResJson = await roleRes.json();
+      if (!roleRes.ok) {
+        console.log(roleResJson);
+        throw new Error(`Failed to patch role ${roleName}`);
+      }
+      console.log(`${roleName} role accessPolicy patched: `, roleResJson, JSON.stringify(roleResJson.accessPolicy));
+    } else {
+      console.log(`creating ${roleName} role`);
+      const roleRes = await fetch(`${projectApiUrl}/iam/role`, {
+        method: 'POST',
+        headers: httpHeaders,
+        body: JSON.stringify({ name: roleName, accessPolicy: role.accessPolicy }),
+      });
+      roleResJson = await roleRes.json();
+      if (!roleRes.ok) {
+        console.log(roleResJson);
+        throw new Error(`Failed to create role ${roleName}`);
+      }
+      console.log(`${roleName} role: `, roleResJson, JSON.stringify(roleResJson.accessPolicy));
+    }
+
+    if (roleResJson.name === RoleType.Staff) {
+      staffUserRole = roleResJson;
     }
   }
 
-  const role = await response.json();
-  return role;
-}
+  console.group(`Setting defaultSSOUserRole for project to Staff user role ${staffUserRole.id}`);
+  const endpoint = `${projectApiUrl}/project`;
+  const response = await fetch(endpoint, {
+    method: 'PATCH',
+    headers: httpHeaders,
+    body: JSON.stringify({ defaultSSOUserRoleId: staffUserRole.id }),
+  });
+  const responseJSON = await response.json();
+  console.log('response', responseJSON);
+  if (!response.ok) {
+    throw new Error(`Failed to set defaultSSOUserRole`);
+  }
+
+  return  staffUserRole;
+};
+
 
 export async function inviteUser(
   projectApiUrl: string,
@@ -69,7 +114,7 @@ export async function inviteUser(
   accessToken: string,
   projectId: string
 ): Promise<string> {
-  const role = await createRole(projectApiUrl, accessToken, projectId);
+  const defaultRole = await updateUserRoles(projectApiUrl, accessToken, projectId);
 
   const practitioner: Practitioner = {
     resourceType: 'Practitioner',
@@ -96,7 +141,7 @@ export async function inviteUser(
       applicationId: applicationId,
       resource: practitioner,
       roles: [
-        role.id
+        defaultRole.id
       ]
     }),
   });
