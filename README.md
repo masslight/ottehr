@@ -34,16 +34,16 @@ Ottehr is a modern, modular EHR that began as a reference implementation for [Za
 
 Ottehr currently has a few components:
 
-* A patient-facing registration website for creating appointments, with features including rescheduling, checking in, sending text messages and emails, and listing appointments for an account
-* A staff-facing EHR for managing appointments created through the patient website, with features including checking appointments, texting patients, updating a location's slots, and setting a location's schedule
-* A telemedicine website for creating appointments with patients and creating calls
-* A components React library for creating healthcare applications
+* **Ottehr Intake:** A patient-facing registration website for creating appointments, with features including rescheduling, checking in, sending text messages and emails, and listing appointments for an account
+* **Ottehr EHR:**  A staff-facing EHR for managing appointments created through the patient website, with features including checking appointments, texting patients, updating a location's slots, and setting a location's schedule
+* **Ottehr Telemedicine:**  A telemedicine website for creating appointments with patients and creating calls
+* **Ottehr Elements:**  A components React library for creating healthcare applications
 
 To set up the first two components, we have a setup program you can run.
 
 ## First Time Setup
 
-For a sample guide of setting up Ottehr Telemedicine, please check [getting started with ottehr](https://youtu.be/NJzF9Nzhbeo).
+To run Ottehr for the first time, you need to set up the project.
 
 ### Node Installation
 
@@ -78,10 +78,13 @@ To manage Node.js packages, we recommend using [pnpm](https://pnpm.io/).
 #### Using Homebrew or NPM (macOS/Linux):
 
 The easiest way to get started is to use the [brew](https://brew.sh/) or [npm](https://www.npmjs.com/) command:
+
 ```bash
 brew install pnpm
 ```
+
 OR
+
 ```bash
 npm install -g pnpm
 ```
@@ -145,18 +148,20 @@ If you would like to set up Ottehr telehealth:
 sh scripts/setup.sh
 ```
 
+For a sample guide of setting up Ottehr Telemedicine, please check [getting started with ottehr](https://youtu.be/NJzF9Nzhbeo).
+
 The script will prompt you for the following information:
 
 * Your access token: Log in to your [ZapEHR project](https://console.zapehr.com), and copy the access token from the dashboard.
 * Your project ID: Find this on the [ZapEHR project details page](https://console.zapehr.com/project).
 * Your first provider email: This can be your email address.
 
-Upon completion, the script will generate important links. Follow these steps:
+Once the program finishes running:
 
 ### Ottehr Intake and Ottehr EHR
 
 1. The Intake and EHR websites will open.
-1. To log in to the EHR, locate the reset password link in the console output and visit the provided URL in your browser to set a password. You might be redirected to a page that does not load, if so change the URL to <http://localhost:3200> and it should load. If you prefer to use the website, you can click `Forgot password?` on the website that loads and set a password.
+1. To log in to the EHR, enter the email you input during the setup program. Click `Forgot password?` and set a password then log in.
 
 ### Ottehr telehealth
 
