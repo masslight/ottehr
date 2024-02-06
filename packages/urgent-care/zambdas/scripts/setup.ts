@@ -4,8 +4,8 @@ import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { FhirClient } from '@zapehr/sdk';
-import { Location, Organization, Questionnaire } from 'fhir/r4';
-import { defaultLocation, defaultQuestionnaire } from '../src/shared/other-ehr';
+import { Organization } from 'fhir/r4';
+import { defaultLocation, defaultQuestionnaire } from './shared';
 
 async function createApplication(
   projectApiUrl: string,
