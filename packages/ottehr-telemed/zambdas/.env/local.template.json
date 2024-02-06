@@ -1,0 +1,10 @@
+{
+  "AUTH0_AUDIENCE": "https://dev.api.zapehr.com",
+  "AUTH0_CLIENT": "TODO",
+  "AUTH0_ENDPOINT": "https://dev-auth.zapehr.com/oauth/token",
+  "AUTH0_SECRET": "TODO",
+  "ENVIRONMENT": "local",
+  "FHIR_API": "https://dev.fhir-api.zapehr.com/r4",
+  "PROJECT_API": "https://dev.project-api.zapehr.com/v1",
+  "PROJECT_ID": "2bea9e93-fd66-45d5-904a-568f1eebef37"
+}
