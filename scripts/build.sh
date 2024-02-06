@@ -32,16 +32,17 @@ pushd "packages/ehr/zambdas"
 pnpm build
 popd
 
-# Build the project
-#echo "Building package: zambdas"
-#pushd "packages/zambdas"
-#pnpm build
-#popd
+# Build the urgent-care/app
+echo "Building package: urgent-care/app"
+pushd "packages/urgent-care/app"
+pnpm build
+popd
 
-#echo "Building package: app"
-#pushd "packages/app"
-#pnpm build
-#popd
+# Build the urgent-care/zambdas
+echo "Building package: urgent-care/zambdas"
+pushd "packages/urgent-care/zambdas"
+pnpm build
+popd
 
 # Lint the project
 echo "Linting the project..."

@@ -154,7 +154,7 @@ function createZambdaEnv(projectId: string, m2mClientId: string, m2mSecret: stri
     PROJECT_ID: projectId,
   };
 
-  const envFolderPath = 'packages/ottehr-telemed/zambdas/.env';
+  const envFolderPath = path.join(__dirname, '../.env/');
   const envPath = path.join(envFolderPath, 'local.json');
 
   if (!fs.existsSync(envFolderPath)) {
@@ -164,8 +164,8 @@ function createZambdaEnv(projectId: string, m2mClientId: string, m2mSecret: stri
 }
 
 function duplicateEnvTemplate(clientId: string, projectId: string): void {
-  const envTemplatePath = 'packages/ottehr-telemed/app/env/.env.local-template';
-  const envPath = 'packages/ottehr-telemed/app/env/.env.local';
+  const envTemplatePath = path.join(__dirname, '../../app/env/.env.local-template');
+  const envPath = path.join(__dirname, '../../app/env/.env.local');
 
   const templateData = fs.readFileSync(envTemplatePath, 'utf8');
 
