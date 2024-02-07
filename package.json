@@ -8,14 +8,14 @@
     "lint": "eslint packages/",
     "start": "pnpm start:local",
     "ehr:start": "pnpm --filter 'ottehr-ehr-*' --stream=true start:local",
+    "uc:start": "turbo start --filter=ottehr-urgent-care-zambdas --filter=ottehr-urgent-care-intake-ui",
+    "telemed:start": "pnpm --filter 'ottehr-telemed-*' --stream=true start:local",
     "start:local": "pnpm --filter 'ottehr-*' --stream=true start:local",
     "start:dev": "pnpm recursive run start:dev",
     "start:dev2": "pnpm recursive run start:dev2",
     "start:testing": "pnpm recursive run start:testing",
     "start:staging": "pnpm recursive run start:staging",
-    "update": "pnpm recursive up -L -i",
-    "uc:start": "turbo start --filter=ottehr-urgent-care-zambdas --filter=ottehr-urgent-care-intake-ui",
-    "telemed:start": "pnpm --filter 'ottehr-telemed-*' --stream=true start:local"
+    "update": "pnpm recursive up -L -i"
   },
   "packageManager": "pnpm@8.7.6",
   "engines": {

@@ -15,6 +15,7 @@ custom:
   serverless-offline:
     reloadHandler: true
     httpPort: 3301
+    host: 0.0.0.0
 
 functions:
   create-telemed-room:

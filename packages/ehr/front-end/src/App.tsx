@@ -45,7 +45,9 @@ function App(): ReactElement {
       const accessToken = await getAccessTokenSilently();
       const user = await getUser(accessToken);
       setUser(user, dispatch);
-      if (compareRoles((user as any).roles[0].name, RoleType.Manager)) {
+      if (compareRoles((user as any).roles[0].name, RoleType.Administrator)) {
+        setRole(RoleType.Administrator);
+      } else if (compareRoles((user as any).roles[0].name, RoleType.Manager)) {
         setRole(RoleType.Manager);
       } else if (compareRoles((user as any).roles[0].name, RoleType.FrontDesk)) {
         setRole(RoleType.FrontDesk);
@@ -94,7 +96,7 @@ function App(): ReactElement {
               </Route>
             </Routes>
           )}
-          {(role === RoleType.Manager || role === RoleType.FrontDesk) && (
+          {(role === RoleType.Administrator || role === RoleType.Manager || role === RoleType.FrontDesk) && (
             <Routes>
               <Route path="/" element={<IntakeFlow />}>
                 <Route path="/" element={<Navigate to="/appointments" />} />

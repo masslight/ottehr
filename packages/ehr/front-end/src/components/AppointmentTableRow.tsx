@@ -91,7 +91,7 @@ export const CHIP_STATUS_MAP: {
       primary: '#FFFFFF',
     },
     color: {
-      primary: '#546E7A',
+      primary: '#555555',
     },
   },
   ARRIVED: {
@@ -105,19 +105,19 @@ export const CHIP_STATUS_MAP: {
   },
   READY: {
     background: {
-      primary: '#C8E6C9',
+      primary: '#CEF9BA',
       secondary: '#43A047',
     },
     color: {
-      primary: '#1B5E20',
+      primary: '#446F30',
     },
   },
   INTAKE: {
     background: {
-      primary: '#e0b6fc',
+      primary: '#fddef0',
     },
     color: {
-      primary: '#412654',
+      primary: '#684e5d',
     },
   },
   'PROVIDER-READY': {
@@ -131,10 +131,10 @@ export const CHIP_STATUS_MAP: {
   },
   PROVIDER: {
     background: {
-      primary: '#B3E5FC',
+      primary: '#FDFCB7',
     },
     color: {
-      primary: '#01579B',
+      primary: '#6F6D1A',
     },
   },
   DISCHARGE: {
@@ -150,7 +150,7 @@ export const CHIP_STATUS_MAP: {
       primary: '#FFFFFF',
     },
     color: {
-      primary: '#546E7A',
+      primary: '#555555',
     },
   },
   CANCELLED: {

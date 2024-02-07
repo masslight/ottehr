@@ -14,6 +14,7 @@ custom:
   defaultStage: local
   serverless-offline:
     reloadHandler: true
+    host: 0.0.0.0
     httpPort: 3000
     lambdaPort: 3001
 
@@ -39,6 +40,7 @@ functions:
       SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
       SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
       ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+      SLACK_CHANNEL_HOOK_URL: ${file(./.env/${self:provider.stage}.json):SLACK_CHANNEL_HOOK_URL}
   create-appointment:
     handler: src/create-appointment/index.index
     events:
@@ -63,6 +65,7 @@ functions:
       SENDGRID_EMAIL: ${file(./.env/${self:provider.stage}.json):SENDGRID_EMAIL}
       SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
       ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+      SLACK_CHANNEL_HOOK_URL: ${file(./.env/${self:provider.stage}.json):SLACK_CHANNEL_HOOK_URL}
   get-location:
     handler: src/get-location/index.index
     events:
@@ -79,6 +82,7 @@ functions:
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
       SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
+      SLACK_CHANNEL_HOOK_URL: ${file(./.env/${self:provider.stage}.json):SLACK_CHANNEL_HOOK_URL}
   update-appointment:
     handler: src/update-appointment/index.index
     events:
@@ -103,6 +107,7 @@ functions:
       SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID}
       SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
       ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+      SLACK_CHANNEL_HOOK_URL: ${file(./.env/${self:provider.stage}.json):SLACK_CHANNEL_HOOK_URL}
   update-paperwork:
     handler: src/update-paperwork/index.index
     events:
@@ -121,6 +126,7 @@ functions:
       SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
       SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
       ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+      SLACK_CHANNEL_HOOK_URL: ${file(./.env/${self:provider.stage}.json):SLACK_CHANNEL_HOOK_URL}
   cancel-appointment:
     handler: src/cancel-appointment/index.index
     events:
@@ -145,6 +151,7 @@ functions:
       SENDGRID_EMAIL: ${file(./.env/${self:provider.stage}.json):SENDGRID_EMAIL}
       SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
       ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+      SLACK_CHANNEL_HOOK_URL: ${file(./.env/${self:provider.stage}.json):SLACK_CHANNEL_HOOK_URL}
   get-patients:
     handler: src/get-patients/index.index
     events:
@@ -185,6 +192,7 @@ functions:
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
       SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
+      SLACK_CHANNEL_HOOK_URL: ${file(./.env/${self:provider.stage}.json):SLACK_CHANNEL_HOOK_URL}
   get-paperwork:
     handler: src/get-paperwork/index.index
     events:
