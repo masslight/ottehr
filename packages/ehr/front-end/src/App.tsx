@@ -9,7 +9,6 @@ import { IntakeDataContext } from './store/IntakeContext';
 import { setUser } from './store/IntakeActions';
 import { getUser } from './api/api';
 import { RoleType } from './types/types';
-import { compareRoles } from './helpers/compareRoles';
 import Navbar from './components/navigation/Navbar';
 import Footer from './components/Footer';
 import AppointmentsPage from './pages/Appointments';
@@ -42,19 +41,26 @@ function App(): ReactElement {
 
   useEffect(() => {
     async function getUserRole(): Promise<void> {
-      const accessToken = await getAccessTokenSilently();
-      const user = await getUser(accessToken);
-      setUser(user, dispatch);
-      if (compareRoles((user as any).roles[0].name, RoleType.Administrator)) {
-        setRole(RoleType.Administrator);
-      } else if (compareRoles((user as any).roles[0].name, RoleType.Manager)) {
-        setRole(RoleType.Manager);
-      } else if (compareRoles((user as any).roles[0].name, RoleType.FrontDesk)) {
-        setRole(RoleType.FrontDesk);
-      } else if (compareRoles((user as any).roles[0].name, RoleType.Staff)) {
-        setRole(RoleType.Staff);
-      } else if (compareRoles((user as any).roles[0].name, RoleType.Provider)) {
-        setRole(RoleType.Provider);
+      try {
+        const accessToken = await getAccessTokenSilently();
+        const user = await getUser(accessToken);
+        setUser(user, dispatch);
+        const userRole = (user as any).roles[0].name;
+
+        switch (userRole) {
+          case RoleType.Administrator:
+          case RoleType.Manager:
+          case RoleType.FrontDesk:
+          case RoleType.Staff:
+          case RoleType.Provider:
+            setRole(userRole);
+            break;
+          default:
+            // Handle unknown roles here if needed
+            break;
+        }
+      } catch (error) {
+        console.error('Error while fetching user role:', error);
       }
     }
 
