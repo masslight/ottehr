@@ -16,7 +16,7 @@ import { getConversationSIDForRelatedPersons, sendMessages } from '../create-app
 import { formatDate } from '../shared/dateUtils';
 import { getRelatedPersonForPatient } from '../shared/auth';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../shared/userAuditLog';
-import { Secrets, ZambdaInput, getPatientContactEmail, getPatientFirstName, topLevelCatch } from 'utils';
+import { Secrets, ZambdaInput, getPatientContactEmail, getPatientFirstName, topLevelCatch } from 'ottehr-utils';
 
 export interface UpdateAppointmentInput {
   appointmentID: string;

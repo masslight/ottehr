@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { IntakeFlowPageRoute } from '../App';
 import { ottehrWelcome } from '../assets/icons';
 import { CustomContainer } from '../components';
-import { PageForm } from 'ui-components';
+import { PageForm } from 'ottehr-components';
 import { updatePatient } from '../store/IntakeActions';
 import { IntakeDataContext } from '../store/IntakeContext';
 

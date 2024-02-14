@@ -3,7 +3,7 @@ import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { FORM_PAGES, IntakeFlowPageRoute } from '../App';
 import { IntakeDataContext } from '../store';
 import { updateNetworkError } from '../store/IntakeActions';
-import { ErrorDialog } from 'ui-components';
+import { ErrorDialog } from 'ottehr-components';
 
 function IntakeFlow(): JSX.Element {
   const location = useLocation();

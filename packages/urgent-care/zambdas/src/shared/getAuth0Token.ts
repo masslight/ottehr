@@ -1,5 +1,5 @@
 import fetch from 'node-fetch';
-import { Secrets } from 'utils';
+import { Secrets } from 'ottehr-utils';
 import { getSecret, SecretsKeys } from './secrets';
 
 // Throws if it can't get a token because this is a fatal error

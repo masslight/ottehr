@@ -2,7 +2,7 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import { Box, Grid, Typography } from '@mui/material';
 import React, { ReactElement } from 'react';
 import { FieldValues, FormProvider, useForm } from 'react-hook-form';
-import { emailRegex, emojiRegex, phoneRegex, yupDateTransform, yupFHIRDateRegex, zipRegex } from 'utils';
+import { emailRegex, emojiRegex, phoneRegex, yupDateTransform, yupFHIRDateRegex, zipRegex } from 'ottehr-utils';
 import * as Yup from 'yup';
 import { checkEnable } from '../helpers';
 import { ControlButtonsProps, FormInputType } from '../types';

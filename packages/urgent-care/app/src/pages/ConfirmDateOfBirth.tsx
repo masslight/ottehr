@@ -1,6 +1,6 @@
 import { CustomContainer } from '../components';
 import { IntakeFlowPageRoute } from '../App';
-import { PageForm } from 'ui-components';
+import { PageForm } from 'ottehr-components';
 import React from 'react';
 import { IntakeDataContext } from '../store';
 import { useNavigate } from 'react-router-dom';

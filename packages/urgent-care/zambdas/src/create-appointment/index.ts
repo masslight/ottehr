@@ -19,7 +19,7 @@ import {
   SecretsKeys,
   getSecret,
   removeTimeFromDate,
-} from 'utils';
+} from 'ottehr-utils';
 import { Operation } from 'fast-json-patch';
 import { sendConfirmationEmail, sendMessage } from '../shared/communication';
 import { formatDate } from '../shared/dateUtils';

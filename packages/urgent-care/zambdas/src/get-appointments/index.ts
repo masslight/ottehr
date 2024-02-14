@@ -4,7 +4,7 @@ import { createFhirClient } from '../shared/helpers';
 import { DateTime } from 'luxon';
 import { Encounter, Appointment as FhirAppointment, Location, Patient, QuestionnaireResponse, Resource } from 'fhir/r4';
 import { getAccessToken, getPatientsForUser, getUser } from '../shared/auth';
-import { Secrets, ZambdaInput, topLevelCatch } from 'utils';
+import { Secrets, ZambdaInput, topLevelCatch } from 'ottehr-utils';
 
 export interface GetPatientsInput {
   secrets: Secrets | null;

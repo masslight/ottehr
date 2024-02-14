@@ -1,7 +1,7 @@
 import { ottehrLogo as logo } from '../assets';
 import Footer from './Footer';
 import { IntakeFlowPageRoute } from '../App';
-import { CustomContainerFactory } from 'ui-components';
+import { CustomContainerFactory } from 'ottehr-components';
 
 const CustomContainer = CustomContainerFactory(logo, 'Ottehr Urgent Care', <Footer />);
 

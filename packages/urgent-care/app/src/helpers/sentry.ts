@@ -1,1 +1,1 @@
-export { safelyCaptureException } from 'ui-components';
+export { safelyCaptureException } from 'ottehr-components';

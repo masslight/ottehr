@@ -1,5 +1,5 @@
 import { Dispatch, SetStateAction } from 'react';
-import { FileUpload } from 'utils';
+import { FileUpload } from 'ottehr-utils';
 
 export interface FileUploadOptions {
   description: string;

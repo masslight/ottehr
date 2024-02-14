@@ -10,7 +10,7 @@ import {
 } from '../shared/dateUtils';
 import { DateTime } from 'luxon';
 import { SearchParam } from '@zapehr/sdk';
-import { Secrets, ZambdaInput, topLevelCatch } from 'utils';
+import { Secrets, ZambdaInput, topLevelCatch } from 'ottehr-utils';
 import { getAccessToken } from '../shared';
 
 export interface AvailableLocationInformation {

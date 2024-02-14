@@ -3,7 +3,7 @@ import { PaperworkResponse, UpdatePaperworkInput } from '.';
 import { questionnaireItemToInputType } from '../get-paperwork';
 import { emailRegex, phoneRegex, zipRegex } from '../shared';
 import { dateRegex } from '../shared/validation';
-import { ZambdaInput, parseFiletype } from 'utils';
+import { ZambdaInput, parseFiletype } from 'ottehr-utils';
 
 function checkRequire(item: any, values: any): boolean {
   if (item.required && !item.requireWhen) {

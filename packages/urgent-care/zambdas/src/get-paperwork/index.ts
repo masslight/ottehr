@@ -18,7 +18,7 @@ import { getEncounterForAppointment } from '../shared/getEncounterDetails';
 import { createFhirClient } from '../shared/helpers';
 import { FileURLs, FormItemType, PaperworkPage, Question, QuestionOperator, VisitType } from '../types';
 import { validateRequestParameters } from './validateRequestParameters';
-import { Secrets, ZambdaInput, topLevelCatch } from 'utils';
+import { Secrets, ZambdaInput, topLevelCatch } from 'ottehr-utils';
 
 export interface GetPaperworkInput {
   appointmentID: string; // passed for appointment visits

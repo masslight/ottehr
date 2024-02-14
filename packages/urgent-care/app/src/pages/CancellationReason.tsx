@@ -1,7 +1,7 @@
 import mixpanel from 'mixpanel-browser';
 import { useContext, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useZambdaClient, PageForm } from 'ui-components';
+import { useZambdaClient, PageForm } from 'ottehr-components';
 import { IntakeFlowPageRoute } from '../App';
 import zapehrApi from '../api/zapehrApi';
 import { CustomContainer } from '../components';

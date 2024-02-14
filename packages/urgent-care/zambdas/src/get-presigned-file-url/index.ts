@@ -3,7 +3,7 @@ import { validateRequestParameters } from './validateRequestParameters';
 import { createFhirClient } from '../shared/helpers';
 import { getAccessToken } from '../shared';
 import { getAppointmentResource } from '../shared/fhir';
-import { Secrets, ZambdaInput, SecretsKeys, getSecret, topLevelCatch } from 'utils';
+import { Secrets, ZambdaInput, SecretsKeys, getSecret, topLevelCatch } from 'ottehr-utils';
 
 export interface GetPresignedFileURLInput {
   appointmentID: string;

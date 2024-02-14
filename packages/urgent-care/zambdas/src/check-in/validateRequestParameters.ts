@@ -1,4 +1,4 @@
-import { ZambdaInput } from 'utils';
+import { ZambdaInput } from 'ottehr-utils';
 import { CheckInInput } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): CheckInInput {

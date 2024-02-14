@@ -4,7 +4,7 @@ import { PersonSex, VisitType } from '../types';
 import { isISODateTime } from '../shared/dateUtils';
 import { checkValidBookingTime } from '../shared/helpers';
 import { phoneRegex } from '../shared';
-import { ZambdaInput } from 'utils';
+import { ZambdaInput } from 'ottehr-utils';
 
 export function validateCreateAppointmentParams(input: ZambdaInput, isEHRUser: boolean): CreateAppointmentInput {
   if (!input.body) {

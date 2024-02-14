@@ -16,7 +16,7 @@ import {
   UpdatePaperworkParams,
   UpdatePaperworkResponse,
   isoStringFromMDYString,
-} from 'utils';
+} from 'ottehr-utils';
 import { ApiError, GetZapEHRAPIParams } from '../types/data';
 
 enum ZambdaNames {

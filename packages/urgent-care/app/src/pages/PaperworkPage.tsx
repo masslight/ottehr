@@ -5,7 +5,7 @@ import { IntakeDataContext } from '../store/IntakeContext';
 import { useTheme } from '@mui/material';
 import mixpanel from 'mixpanel-browser';
 import { useContext, useEffect, useState } from 'react';
-import { ErrorDialog, useZambdaClient, StringFormat, PageForm } from 'ui-components';
+import { ErrorDialog, useZambdaClient, StringFormat, PageForm } from 'ottehr-components';
 import { IntakeFlowPageRoute } from '../App';
 import { useTranslation } from 'react-i18next';
 import { otherColors } from '../IntakeThemeProvider';

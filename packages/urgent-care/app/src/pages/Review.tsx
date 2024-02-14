@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import mixpanel from 'mixpanel-browser';
 import { useContext, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useZambdaClient, PageForm } from 'ui-components';
+import { useZambdaClient, PageForm } from 'ottehr-components';
 import { IntakeFlowPageRoute } from '../App';
 import { CustomContainer } from '../components';
 import { DATETIME_FULL_NO_YEAR } from '../helpers';

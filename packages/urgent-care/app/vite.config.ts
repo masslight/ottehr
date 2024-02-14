@@ -8,7 +8,7 @@ export default (env) => {
   const envDir = './env';
   const appEnv = loadEnv(mode, path.join(process.cwd(), envDir), '');
 
-  const shouldUploadSentrySourceMaps = mode === 'testing' || mode === 'staging' || mode === 'dev';
+  const shouldUploadSentrySourceMaps = mode === 'staging';
   console.log(mode);
 
   return mergeConfig(

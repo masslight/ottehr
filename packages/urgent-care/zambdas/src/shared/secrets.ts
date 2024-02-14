@@ -1,4 +1,4 @@
-import { Secrets } from 'utils';
+import { Secrets } from 'ottehr-utils';
 
 // Throws if secret could not be found
 export const getSecret = (secretKey: string, secrets: Secrets | null): string => {

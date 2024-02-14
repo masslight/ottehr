@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import mixpanel from 'mixpanel-browser';
 import { useContext, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useZambdaClient } from 'ui-components';
+import { useZambdaClient } from 'ottehr-components';
 import { IntakeFlowPageRoute } from '../App';
 import { otherColors, palette } from '../IntakeThemeProvider';
 import zapehrApi from '../api/zapehrApi';

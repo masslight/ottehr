@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import { AppClient, FhirClient, ClientConfig, MessagingClient, Z3Client } from '@zapehr/sdk';
 import { Appointment } from 'fhir/r4';
-import { Secrets, getSecret, SecretsKeys } from 'utils';
+import { Secrets, getSecret, SecretsKeys } from 'ottehr-utils';
 
 export function formatDate(date: DateTime): string {
   return `${date.toISO()}`;

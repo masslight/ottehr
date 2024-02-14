@@ -9,7 +9,7 @@ import { CustomContainer } from '../components';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { safelyCaptureException } from '../helpers/sentry';
-import { PageForm } from 'ui-components';
+import { PageForm } from 'ottehr-components';
 import { WaitingEstimateCard } from '../components/WaitingEstimateCard';
 
 const GetReadyForVisit = (): JSX.Element => {

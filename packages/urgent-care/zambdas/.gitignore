@@ -1,4 +1,4 @@
 .serverless
 .esbuild
 consent-forms-*.pdf
-.env/local.json
+.env
