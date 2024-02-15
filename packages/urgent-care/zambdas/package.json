@@ -20,7 +20,8 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "ottehr-utils": "*"
+    "ottehr-utils": "*",
+    "@zapehr/sdk": "1.0.15"
   },
   "devDependencies": {
     "serverless-esbuild": "^1.51.0"

@@ -741,6 +741,9 @@ importers:
 
   packages/urgent-care/zambdas:
     dependencies:
+      '@zapehr/sdk':
+        specifier: 1.0.15
+        version: 1.0.15
       ottehr-utils:
         specifier: '*'
         version: link:../../utils
@@ -13309,7 +13312,7 @@ packages:
       pretty-format: 29.7.0
       slash: 3.0.0
       strip-json-comments: 3.1.1
-      ts-node: 10.9.1(@types/node@18.19.8)(typescript@4.9.5)
+      ts-node: 10.9.1(@types/node@16.18.53)(typescript@4.9.5)
     transitivePeerDependencies:
       - babel-plugin-macros
       - supports-color
@@ -19436,7 +19439,6 @@ packages:
       typescript: 4.9.5
       v8-compile-cache-lib: 3.0.1
       yn: 3.1.1
-    dev: true
 
   /ts-node@10.9.1(@types/node@18.19.8)(typescript@4.9.5):
     resolution: {integrity: sha512-NtVysVPkxxrwFGUUxGYhfux8k78pQB3JqYBXlLRZgdGUqTO5wU/UyHop5p70iEbGhB7q5KmiZiU0Y3KlJrScEw==}
