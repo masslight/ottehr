@@ -4,9 +4,15 @@
   "private": true,
   "scripts": {
     "start": "npm run start:local",
-    "start:local": "ENV=local pnpm run start-skeleton",
-    "start-skeleton": "sls offline --stage ${ENV} --httpPort 3000",
+    "start:local": "ENV=local pnpm run start-help",
+    "start-help": "sls offline --stage ${ENV} --httpPort 3000",
     "build": "tsc && sls package --stage dev",
+    "deploy-zambdas:dev": "ENV=dev pnpm deploy-zambdas-help",
+    "deploy-zambdas-help": "pnpm package && ts-node scripts/deploy-zambdas.ts ${ENV}",
+    "package": "tsc && sls package && npm run rebundle",
+    "setup-zapehr-secrets:dev": "ENV=dev pnpm setup-zapehr-secrets-help",
+    "setup-zapehr-secrets-help": "ts-node scripts/configure-zapehr-secrets.ts ${ENV}",
+    "rebundle": "bash scripts/package-for-release.sh",
     "test": "jest"
   },
   "engines": {
@@ -14,6 +20,10 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "utils": "file:../../utils"
+    "ottehr-utils": "*",
+    "@zapehr/sdk": "1.0.17"
+  },
+  "devDependencies": {
+    "serverless-esbuild": "^1.51.0"
   }
 }

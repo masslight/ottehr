@@ -11,8 +11,8 @@ import { Box, CircularProgress, Divider, Grid, Typography } from '@mui/material'
 import { DateTime } from 'luxon';
 import mixpanel from 'mixpanel-browser';
 import { useContext, useEffect, useState } from 'react';
-import { useZambdaClient } from 'ui-components';
-import { VisitType } from 'utils';
+import { useZambdaClient } from 'ottehr-components';
+import { VisitType } from 'ottehr-utils';
 import { IntakeFlowPageRoute } from '../App';
 import { otherColors, palette } from '../IntakeThemeProvider';
 import { zapehrApi } from '../api';

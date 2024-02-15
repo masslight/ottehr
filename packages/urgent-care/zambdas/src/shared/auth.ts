@@ -1,7 +1,7 @@
 import { FhirClient, User } from '@zapehr/sdk';
 import { Patient, Person, RelatedPerson, Resource } from 'fhir/r4';
 import { createAppClient } from './helpers';
-import { PRIVATE_EXTENSION_BASE_URL, Secrets, SecretsKeys, getAuth0Token } from 'utils';
+import { PRIVATE_EXTENSION_BASE_URL, Secrets, SecretsKeys, getAuth0Token } from 'ottehr-utils';
 
 // Return true if a new user
 export async function createUserResourcesForPatient(

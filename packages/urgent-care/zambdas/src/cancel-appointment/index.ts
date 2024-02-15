@@ -10,7 +10,7 @@ import {
   SecretsKeys,
   getSecret,
   topLevelCatch,
-} from 'utils';
+} from 'ottehr-utils';
 import { cancelAppointmentResource } from '../shared/fhir';
 import { createFhirClient, getParticipantFromAppointment } from '../shared/helpers';
 import { BatchInputGetRequest, FhirClient } from '@zapehr/sdk';

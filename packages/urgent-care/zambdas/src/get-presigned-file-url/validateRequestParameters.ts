@@ -1,4 +1,4 @@
-import { ZambdaInput } from 'utils';
+import { ZambdaInput } from 'ottehr-utils';
 import { GetPresignedFileURLInput } from '.';
 
 const fileTypes = ['id-front', 'id-back', 'insurance-card-front', 'insurance-card-back'];

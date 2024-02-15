@@ -4,7 +4,7 @@ import mixpanel from 'mixpanel-browser';
 import { FormEvent, ReactNode, SyntheticEvent, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { breakpoints, useZambdaClient, ControlButtons, ErrorDialog } from 'ui-components';
+import { breakpoints, useZambdaClient, ControlButtons, ErrorDialog } from 'ottehr-components';
 import { IntakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
 import zapehrApi from '../api/zapehrApi';

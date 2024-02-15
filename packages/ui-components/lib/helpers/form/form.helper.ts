@@ -1,4 +1,4 @@
-import { Question } from 'utils';
+import { Question } from 'ottehr-utils';
 import { FieldValues } from 'react-hook-form';
 import { FormInputType } from '../../types';
 

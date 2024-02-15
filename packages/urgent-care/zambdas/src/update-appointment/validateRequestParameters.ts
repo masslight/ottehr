@@ -1,4 +1,4 @@
-import { ZambdaInput } from 'utils';
+import { ZambdaInput } from 'ottehr-utils';
 import { UpdateAppointmentInput } from '.';
 import { isISODateTime } from '../shared/dateUtils';
 

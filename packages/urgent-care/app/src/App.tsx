@@ -1,6 +1,6 @@
 import { ReactElement } from 'react';
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
-import { MixpanelContextProps, setupMixpanel, setupSentry, ScrollToTop } from 'ui-components';
+import { MixpanelContextProps, setupMixpanel, setupSentry, ScrollToTop } from 'ottehr-components';
 import { IntakeThemeProvider } from './IntakeThemeProvider';
 import { IntakeFlow } from './components';
 import { GetReadyForVisit, NewUser, Version, Welcome } from './pages';

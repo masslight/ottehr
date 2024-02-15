@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import mixpanel from 'mixpanel-browser';
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useZambdaClient, PageForm } from 'ui-components';
+import { useZambdaClient, PageForm } from 'ottehr-components';
 import { IntakeFlowPageRoute } from '../App';
 import zapehrApi, { AvailableLocationInformation } from '../api/zapehrApi';
 import { ottehrWelcome } from '../assets/icons';
@@ -160,11 +160,10 @@ const Welcome = (): JSX.Element => {
   const { title, subtext } = getCustomContainerText();
 
   if (pageNotFound) {
-    window.location.href = 'http://localhost:3015/location/testing/prebook';
     return (
       <CustomContainer title="Not Found" bgVariant={IntakeFlowPageRoute.Welcome.path}>
         <Typography variant="body1">
-          You have navigated to a page that is not found. To find a Ottehr location,{' '}
+          You have navigated to a page that is not found. To find an Ottehr location,{' '}
           <Link to="https://ottehr.com">please visit our website</Link>.
         </Typography>
       </CustomContainer>

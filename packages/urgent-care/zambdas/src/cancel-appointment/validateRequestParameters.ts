@@ -1,4 +1,4 @@
-import { ZambdaInput } from 'utils';
+import { ZambdaInput } from 'ottehr-utils';
 import { CancelAppointmentInput } from '.';
 import { CancellationReasonOptions } from '../types';
 

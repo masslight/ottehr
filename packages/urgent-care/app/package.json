@@ -5,11 +5,14 @@
   "type": "module",
   "scripts": {
     "start": "pnpm run start:local",
-    "start:local": "ENV=default pnpm start-skeleton",
-    "start-skeleton": "vite --mode ${ENV}",
+    "start:local": "ENV=default pnpm start-help",
+    "start-help": "vite --mode ${ENV}",
     "build": "pnpm run build:local",
-    "build:local": "ENV=default ROBOTS_FILE=lowers pnpm run build-skeleton",
-    "build-skeleton": "tsc && vite build --mode ${ENV} && cp src/assets/robots-${ROBOTS_FILE}.txt build/robots.txt",
+    "build:local": "ENV=default ROBOTS_FILE=lowers pnpm run build-help",
+    "build:dev": "ENV=dev ROBOTS_FILE=lowers pnpm run build-help",
+    "build-help": "tsc && vite build --mode ${ENV} && cp src/assets/robots-${ROBOTS_FILE}.txt build/robots.txt",
+    "deploy:dev": "ENV=dev PREFIX=dev npm run deploy-help",
+    "deploy-help": "VITE_APP_ENV=${ENV} VITE_APP_SHA=$(git rev-parse --short HEAD) VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') npm run build:${ENV} && aws s3 sync build/ s3://patient.ottehr.com --profile ottehr --delete && aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_ID} --paths '/*' --profile ottehr --region us-east-1",
     "lint": "eslint",
     "prettier": "prettier --write ."
   },
@@ -30,10 +33,11 @@
     ]
   },
   "dependencies": {
-    "@mui/icons-material": "^5.11.16",
+    "@mui/icons-material": "^5.14.10",
+    "@zapehr/sdk": "1.0.15",
+    "ottehr-components": "*",
+    "ottehr-utils": "*",
     "react-markdown": "^9.0.0",
-    "tsconfig": "*",
-    "utils": "file:../../utils",
-    "ui-components": "file:../../ui-components"
+    "tsconfig": "*"
   }
 }

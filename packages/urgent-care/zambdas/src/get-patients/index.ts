@@ -3,7 +3,7 @@ import { validateRequestParameters } from './validateRequestParameters';
 import { createFhirClient } from '../shared/helpers';
 import { getAccessToken } from '../shared';
 import { getPatientsForUser, getUser } from '../shared/auth';
-import { PRIVATE_EXTENSION_BASE_URL, Secrets, ZambdaInput, topLevelCatch } from 'utils';
+import { PRIVATE_EXTENSION_BASE_URL, Secrets, ZambdaInput, topLevelCatch } from 'ottehr-utils';
 
 export interface GetPatientsInput {
   secrets: Secrets | null;

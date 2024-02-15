@@ -1,8 +1,7 @@
 {
   "compilerOptions": {
-    "lib": ["ES2022", "dom"],
-    "target": "ES2022",
-    "module": "ES2022",
+    "target": "es6",
+    "module": "commonjs",
     "moduleResolution": "node",
     "newLine": "lf",
     "strict": true,

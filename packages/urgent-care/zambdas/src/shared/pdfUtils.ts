@@ -5,7 +5,7 @@ import { Patient } from 'fhir/r4';
 import { ConsentSigner } from '../types';
 import { createConsentResource, createDocumentReference, getLocationResource } from './fhir';
 import { FhirClient } from '@zapehr/sdk';
-import { Secrets, SecretsKeys, getSecret } from 'utils';
+import { Secrets, SecretsKeys, getSecret } from 'ottehr-utils';
 
 export async function drawConsentFormsPDF(
   patient: Patient,

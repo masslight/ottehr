@@ -1,5 +1,5 @@
 {
-  "name": "utils",
+  "name": "ottehr-utils",
   "private": true,
   "version": "0.0.1",
   "main": "lib/main.ts",
@@ -16,6 +16,7 @@
     "vite": "^4.3.9"
   },
   "dependencies": {
+    "@zapehr/sdk": "1.0.15",
     "axios": "1.6.2"
   }
 }

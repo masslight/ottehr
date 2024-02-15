@@ -3,7 +3,7 @@ import { DateTime } from 'luxon';
 import mixpanel from 'mixpanel-browser';
 import { useContext, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useZambdaClient, ErrorDialog, PageForm } from 'ui-components';
+import { useZambdaClient, ErrorDialog, PageForm } from 'ottehr-components';
 import { IntakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
 import zapehrApi from '../api/zapehrApi';

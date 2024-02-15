@@ -11,7 +11,7 @@ import {
   getPatchOperationForNewMetaTag,
   getPatientFirstName,
   topLevelCatch,
-} from 'utils';
+} from 'ottehr-utils';
 import { Operation } from 'fast-json-patch';
 import { getAccessToken, getRelatedPersonForPatient } from '../shared/auth';
 import { getConversationSIDForRelatedPersons } from '../create-appointment';

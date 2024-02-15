@@ -1,7 +1,7 @@
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, Location, Period, Questionnaire } from 'fhir/r4';
 import { DateTime } from 'luxon';
-import { Secrets, SecretsKeys, getSecret } from 'utils';
+import { Secrets, SecretsKeys, getSecret } from 'ottehr-utils';
 
 export const ZAPEHR_ID_TYPE = 'ZapEHR ID';
 

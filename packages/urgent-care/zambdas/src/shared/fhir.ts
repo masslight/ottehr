@@ -14,7 +14,7 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4';
-import { getPatchOperationForNewMetaTag, removeTimeFromDate } from 'utils';
+import { getPatchOperationForNewMetaTag, removeTimeFromDate } from 'ottehr-utils';
 import { CancellationReasonCodes, CancellationReasonOptions, PatientInfo } from '../types';
 import { getPatchOperationsToUpdateVisitStatus } from './other-ehr';
 

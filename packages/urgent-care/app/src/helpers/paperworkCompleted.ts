@@ -1,5 +1,5 @@
 import { FileURLs, PaperworkPage, Question } from '../types/types';
-import { FormInputType, checkEnable } from 'ui-components';
+import { FormInputType, checkEnable } from 'ottehr-components';
 
 interface CompletedPaperwork {
   [fieldName: string]: any;

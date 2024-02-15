@@ -25,7 +25,7 @@ import {
   ZambdaInput,
   topLevelCatch,
   PersonSex,
-} from 'utils';
+} from 'ottehr-utils';
 
 // Lifting the token out of the handler function allows it to persist across warm lambda invocations.
 export let token: string;

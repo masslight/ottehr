@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Secrets, getSecret, SecretsKeys } from 'utils';
+import { SecretsKeys, Secrets, getSecret } from '../secrets';
 
 export interface GetAuthTokenInput {
   clientIdKey: SecretsKeys;

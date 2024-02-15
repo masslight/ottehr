@@ -1,5 +1,5 @@
 {
-  "name": "ui-components",
+  "name": "ottehr-components",
   "private": true,
   "version": "0.0.1",
   "main": "lib/main.ts",
@@ -13,7 +13,9 @@
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "tsconfig": "*",
-    "utils": "file:../utils"
+    "@mui/icons-material": "5.15.10",
+    "@zapehr/sdk": "1.0.15",
+    "ottehr-utils": "*",
+    "tsconfig": "*"
   }
 }

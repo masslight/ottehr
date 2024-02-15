@@ -8,6 +8,12 @@
     "start-skeleton": "sls offline --stage ${ENV}",
     "debug": "export SLS_DEBUG=* && node --inspect ../../../node_modules/serverless/bin/serverless offline --stage=local",
     "build": "tsc && sls package --stage dev",
+    "deploy-zambdas:dev": "ENV=dev pnpm deploy-zambdas-help",
+    "deploy-zambdas-help": "pnpm package && ts-node scripts/deploy-zambdas.ts ${ENV}",
+    "package": "tsc && sls package && npm run rebundle",
+    "setup-zapehr-secrets:dev": "ENV=dev pnpm setup-zapehr-secrets-help",
+    "setup-zapehr-secrets-help": "ts-node scripts/configure-zapehr-secrets.ts ${ENV}",
+    "rebundle": "bash scripts/package-for-release.sh",
     "test": "jest"
   },
   "engines": {

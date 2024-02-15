@@ -1,7 +1,7 @@
 import { FhirClient } from '@zapehr/sdk';
 import { AuditEvent } from 'fhir/r4';
 import { DateTime } from 'luxon';
-import { Secrets, SecretsKeys, getSecret, ZambdaInput } from 'utils';
+import { Secrets, SecretsKeys, getSecret, ZambdaInput } from 'ottehr-utils';
 
 export enum AuditableZambdaEndpoints {
   appointmentCancel = 'cancel-appointment',

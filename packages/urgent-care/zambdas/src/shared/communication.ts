@@ -1,6 +1,6 @@
 import sendgrid from '@sendgrid/mail';
 import { Location } from 'fhir/r4';
-import { Secrets, SecretsKeys, getSecret, topLevelCatch } from 'utils';
+import { Secrets, SecretsKeys, getSecret, topLevelCatch } from 'ottehr-utils';
 
 export interface ConfirmationEmailInput {
   email: string;
