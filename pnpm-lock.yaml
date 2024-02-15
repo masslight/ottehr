@@ -742,8 +742,8 @@ importers:
   packages/urgent-care/zambdas:
     dependencies:
       '@zapehr/sdk':
-        specifier: 1.0.15
-        version: 1.0.15
+        specifier: 1.0.17
+        version: 1.0.17
       ottehr-utils:
         specifier: '*'
         version: link:../../utils
