@@ -108,6 +108,8 @@ export default function Appointments(): ReactElement {
     return () => clearInterval(appointmentInterval);
   }, [editingComment, queryParams, updateAppointments]);
 
+  console.log(1, preBookedAppointments);
+
   return (
     <ChatProvider appointments={[...preBookedAppointments, ...completedAppointments, ...inOfficeAppointments]}>
       <AppointmentsBody

@@ -11,7 +11,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const response: any = {};
     const AUTH0_ENDPOINT = getSecret(SecretsKeys.AUTH0_ENDPOINT, secrets);
     const AUTH0_AUDIENCE = getSecret(SecretsKeys.AUTH0_AUDIENCE, secrets);
-    if (!zapehrMessagingToken) {
+    if (true) {
       console.log('getting messaging token first');
       zapehrMessagingToken = await getAuth0Token(secrets, 'messaging');
       const twilioTokenRequest = await fetch(
@@ -23,6 +23,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         },
       );
       const twilioTokenRequestJson = (await twilioTokenRequest.json()) as { token: string };
+      console.log(twilioTokenRequestJson);
       twilioMessagingToken = twilioTokenRequestJson.token;
     } else {
       console.log('already have messaging token first');
