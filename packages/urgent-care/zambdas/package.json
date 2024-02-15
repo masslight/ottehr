@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "ottehr-utils": "*",
-    "@zapehr/sdk": "1.0.15"
+    "@zapehr/sdk": "1.0.17"
   },
   "devDependencies": {
     "serverless-esbuild": "^1.51.0"
