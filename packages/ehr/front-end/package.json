@@ -17,7 +17,7 @@
   "scripts": {
     "start": "pnpm run start:local",
     "start:local": "vite --host 0.0.0.0 --mode dev",
-    "build": "npm run build:development",
+    "build": "npm run build:dev",
     "build:local": "ENV=local npm run build-skeleton",
     "build:dev": "ENV=dev npm run build-skeleton",
     "build:testing": "ENV=testing npm run build-skeleton",
