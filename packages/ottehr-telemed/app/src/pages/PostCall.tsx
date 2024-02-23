@@ -22,7 +22,8 @@ export const PostCall = (): JSX.Element => {
   // TODO hard-coded data #Post-Call ticket
   const patient = {
     encounterId: '0b669dc1-ad4c-43c2-84f1-c010400889e2',
-    name: 'John Doe',
+    firstName: 'John',
+    lastName: 'Doe',
     queuedTime: '2023-09-29T08:15:00Z',
   };
 
