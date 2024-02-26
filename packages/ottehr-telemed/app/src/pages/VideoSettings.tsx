@@ -4,84 +4,87 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useNavigationType, NavigationType } from 'react-router-dom';
 import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
 import { otherColors } from '../OttehrThemeProvider';
-import { createTelemedRoom, getTelemedToken } from '../api';
+import { createTelemedMeeting, createTelemedRoom, getTelemedToken, joinTelemedMeeting } from '../api';
 import { CustomButton, CustomContainer, LoadingSpinner } from '../components';
 import { useDevices } from '../hooks';
 import { useParticipant, useVideoParticipant } from '../store';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+
+// chime SDK
+import { DeviceLabels, useMeetingManager } from 'amazon-chime-sdk-component-library-react';
+import { MeetingSessionConfiguration } from 'amazon-chime-sdk-js';
+import { join } from 'path';
+
 
 export const VideoSettings = (): JSX.Element => {
   const navigate = useNavigate();
-  const navType = useNavigationType();
   const theme = useTheme();
   const { t } = useTranslation();
-  const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom, cleanup } = useVideoParticipant();
+  // const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom, cleanup } = useVideoParticipant();
   const hasVideoDevice = useDevices().videoInputDevices.length > 0;
   const { patientName, providerId, providerName } = useParticipant();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const { setCallStart } = useVideoParticipant();
 
+  const meetingManager = useMeetingManager();
+
   const toggleMicAndCam = async (userInput: boolean): Promise<void> => {
     try {
       setIsLoading(true);
-      setIsMicOpen(userInput);
-      setIsVideoOpen(userInput);
+      // setIsMicOpen(userInput);
+      // setIsVideoOpen(userInput);
 
-      const encounter = await createTelemedRoom(patientName, providerId, providerName);
+      const encounter = await createTelemedMeeting(patientName, providerId, providerName);
+
       if (encounter === null) {
-        console.error('Failed to create telemed room');
+        console.error('Failed to create telemed meeting');
         return;
       }
+
       setCallStart(encounter?.period.start);
-      const roomSID = encounter?.extension
+
+      const meetingID = encounter?.extension
         ?.find((ext: any) => ext.url === 'https://extensions.fhir.zapehr.com/encounter-virtual-service-pre-release')
         ?.extension?.find((innerExt: any) => innerExt.url === 'addressString')?.valueString;
 
-      if (roomSID) {
-        console.log('RoomSID:', roomSID);
+      if (meetingID) {
+        console.log('meetingId:', meetingID);
       } else {
-        console.log('RoomSID not found');
+        console.log('meetingId not found');
       }
 
       const encounterId = encounter?.id || '';
       console.log('Encounter ID:', encounterId);
-      const twilioToken = await getTelemedToken(encounterId);
+
+      // join the meeting
+      const joinInfo = await joinTelemedMeeting(encounterId);
 
       // TODO: add snackbar for error
-      if (twilioToken === null) {
-        console.error('Failed to fetch token');
+      if (joinInfo === null) {
+        console.error('Failed to fetch meeting and attendee info');
         return;
       }
 
-      const tracks = await Video.createLocalTracks({
-        audio: true,
-        video: hasVideoDevice,
-      });
+      console.log('joinInfo: ', joinInfo);
 
-      const localTracks = tracks.filter((track) => track.kind === 'audio' || track.kind === 'video') as (
-        | LocalAudioTrack
-        | LocalVideoTrack
-      )[];
-      setLocalTracks(localTracks);
+      const meetingSessionConfiguration = new MeetingSessionConfiguration(joinInfo?.Meeting, joinInfo?.Attendee);
+      const options = {
+        deviceLabels: DeviceLabels.AudioAndVideo,
+      };
 
-      const connectedRoom = await Video.connect(twilioToken, {
-        audio: true,
-        tracks: localTracks,
-        video: hasVideoDevice,
-      });
+      await meetingManager.join(meetingSessionConfiguration, options);
+      console.log(meetingManager);
+
+
       setIsLoading(false);
-      setRoom(connectedRoom);
+      console.log('navigating to waiting room and starting call');
+      await meetingManager.start();
       navigate('/waiting-room');
     } catch (error) {
       console.error('An error occurred:', error);
     }
   };
 
-  useEffect(() => {
-    if (navType === NavigationType.Pop) {
-      cleanup();
-    }
-  }, [cleanup, navType]);
 
   return (
     <CustomContainer isProvider={false} subtitle={providerName} title={t('general.waitingRoom')}>

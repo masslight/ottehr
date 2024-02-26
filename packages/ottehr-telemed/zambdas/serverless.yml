@@ -116,6 +116,37 @@ functions:
       AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
       FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
       PROJECT_ID: ${file(./.env/${self:provider.stage}.json):PROJECT_ID}
+
+  create-telemed-meeting:
+    handler: src/create-telemedv2-meeting/index.index
+    events:
+      - http:
+          path: zambda/create-telemed-meeting/execute-public
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
+      AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      PROJECT_ID: ${file(./.env/${self:provider.stage}.json):PROJECT_ID}
+
+  join-telemed-meeting:
+    handler: src/join-telemedv2-meeting/index.index
+    events:
+      - http:
+          path: zambda/join-telemed-meeting/execute-public
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
+      AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      PROJECT_ID: ${file(./.env/${self:provider.stage}.json):PROJECT_ID}
 plugins:
   - serverless-offline
   - serverless-esbuild

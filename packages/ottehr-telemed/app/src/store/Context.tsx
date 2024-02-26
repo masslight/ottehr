@@ -131,15 +131,15 @@ export const VideoParticipantProvider: FC<VideoParticipantProviderProps> = ({ ch
   const [callStart, setCallStart] = useState<string>('');
 
   const cleanup = (): void => {
-    localTracks.forEach((track) => {
-      if (track.kind === 'audio' || track.kind === 'video') {
-        track.stop();
-      }
-    });
+    // localTracks.forEach((track) => {
+    //   if (track.kind === 'audio' || track.kind === 'video') {
+    //     track.stop();
+    //   }
+    // });
 
-    if (room) {
-      room.disconnect();
-    }
+    // if (room) {
+    //   room.disconnect();
+    // }
   };
 
   return (

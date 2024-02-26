@@ -4,44 +4,53 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { otherColors } from '../OttehrThemeProvider';
 import { CustomContainer, VideoControls } from '../components';
-import { useLocalVideo } from '../hooks';
 import { useParticipant, useVideoParticipant } from '../store';
+import {
+  useLocalVideo,
+  VideoTile,
+  useMeetingManager,
+  LocalVideo,
+} from 'amazon-chime-sdk-component-library-react';
+
+
 export const WaitingRoom = (): JSX.Element => {
   const navigate = useNavigate();
 
+  const meetingManager = useMeetingManager();
+  const { isVideoEnabled, toggleVideo } = useLocalVideo();
+
   const videoRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
-  const { room, localTracks, setRemoteParticipantName } = useVideoParticipant();
   const { providerName } = useParticipant();
   const inVideoCallWorkflowRef = useRef(false);
-  useLocalVideo(videoRef, localTracks);
   // localParticipant is not counted so we start with 1
   const [numParticipants, setNumParticipants] = useState<number>(1);
 
-  const participantConnected = useCallback(() => {
-    setNumParticipants((prevNumParticipants: number) => prevNumParticipants + 1);
-  }, []);
-
-  const participantDisconnected = useCallback(() => {
-    setNumParticipants((prevNumParticipants: number) => prevNumParticipants - 1);
-  }, []);
-
   useEffect(() => {
-    if (room) {
-      room.on('participantConnected', participantConnected);
-      room.on('participantDisconnected', participantDisconnected);
-      room.participants.forEach(participantConnected);
-      setRemoteParticipantName(providerName);
+    const startLocalVideo = async () => {
+      if (!isVideoEnabled) {
+        await toggleVideo();
+      }
     }
-  }, [room, participantConnected, participantDisconnected, setRemoteParticipantName, providerName]);
 
-  // navigate to video call when provider joins
-  useEffect(() => {
-    if (numParticipants > 1) {
-      inVideoCallWorkflowRef.current = true;
-      navigate(`/video-call/`);
-    }
-  }, [navigate, numParticipants, inVideoCallWorkflowRef]);
+    startLocalVideo();
+
+    // cleanup
+    return () => {
+      if (isVideoEnabled) {
+        toggleVideo();
+      }
+    };
+
+  }, [isVideoEnabled, toggleVideo]);
+
+  // // navigate to video call when provider joins
+  // useEffect(() => {
+  //   if (numParticipants > 1) {
+  //     inVideoCallWorkflowRef.current = true;
+  //     navigate(`/video-call/`);
+  //   }
+  // }, [navigate, numParticipants, inVideoCallWorkflowRef]);
 
   return (
     <CustomContainer isProvider={false} subtitle={providerName} title={t('general.waitingRoom')}>
@@ -83,9 +92,14 @@ export const WaitingRoom = (): JSX.Element => {
             zIndex: 2,
           }}
         >
-          <VideoControls inCallRoom={false} localParticipant={room?.localParticipant} />
+          {/* TODO: add video controls for local video chime and persist settings for meeting */}
         </Box>
-        <Box
+        {isVideoEnabled && (
+          <LocalVideo />
+        )}
+        <button onClick={toggleVideo}>Toggle video</button>
+
+        {/* <Box
           ref={videoRef}
           sx={{
             height: '100%',
@@ -94,7 +108,7 @@ export const WaitingRoom = (): JSX.Element => {
             top: 0,
             width: '100%',
           }}
-        />
+        /> */}
       </Box>
     </CustomContainer>
   );
