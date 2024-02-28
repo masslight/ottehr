@@ -82,7 +82,7 @@ export const palette = {
   },
   background: {
     default: '#15376A',
-    paper: '#FFFFFF', // here
+    paper: '#FFFFFF',
   },
   divider: '#C3C9D2',
 };
