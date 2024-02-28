@@ -20,7 +20,7 @@ const CancellationConfirmation = (): JSX.Element => {
         <>
           If you have any questions or concerns, please call our team at: &nbsp; Ottehr
           {/* TODO: add number instead of placeholder */}
-          <strong>Placeholder number</strong>
+          <strong>+1 2027139680</strong>
         </>
       }
       bgVariant={IntakeFlowPageRoute.CancellationConfirmation.path}

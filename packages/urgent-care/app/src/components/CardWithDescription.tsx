@@ -35,7 +35,7 @@ const CardWithDescription: FC<CardWithDescriptionProps> = ({
             <img src={icon} alt={iconAlt} height={iconHeight} />
           </Grid>
           <Grid item xs={12} md={10} textAlign={{ xs: 'center', md: 'start' }} sx={{ marginTop: '0 !important' }}>
-            <Typography sx={{ fontSize: '16px', fontWeight: '700' }} color="primary.contrast">
+            <Typography sx={{ fontSize: '16px', fontWeight: '600' }} color="primary.contrast">
               {mainText}
             </Typography>
             <Typography sx={{ fontSize: '16px' }} color="primary.contrast">

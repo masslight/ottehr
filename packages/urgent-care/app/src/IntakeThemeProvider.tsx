@@ -50,7 +50,7 @@ export const palette = {
   },
   primary: {
     main: '#061B74',
-    contrast: '#061B74',
+    contrast: '#FFFFFF',
   },
   secondary: {
     main: '#2169F5',

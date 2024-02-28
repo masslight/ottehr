@@ -238,7 +238,7 @@ const ThankYou = (): JSX.Element => {
           <Typography variant="body2" marginTop={2}>
             If you have any questions or concerns, please call our team at:{' '}
             {/* TODO: add number instead of placeholder */}
-            <strong>Placeholder number</strong>
+            <strong>+1 2027139680</strong>
           </Typography>
           <Grid container alignItems="center" justifyContent="space-between" marginTop={2} marginBottom={2}>
             <Grid item>
