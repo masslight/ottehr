@@ -4,22 +4,21 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { otherColors } from '../OttehrThemeProvider';
 import { CustomContainer, VideoControls } from '../components';
-import { useParticipant, useVideoParticipant } from '../store';
+import { useParticipant } from '../store';
 import {
   useLocalVideo,
-  VideoTile,
-  useMeetingManager,
+  useRosterState,
   LocalVideo,
+  useMeetingManager,
 } from 'amazon-chime-sdk-component-library-react';
 
 
 export const WaitingRoom = (): JSX.Element => {
   const navigate = useNavigate();
 
-  const meetingManager = useMeetingManager();
+  const { roster } = useRosterState();
   const { isVideoEnabled, toggleVideo } = useLocalVideo();
 
-  const videoRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
   const { providerName } = useParticipant();
   const inVideoCallWorkflowRef = useRef(false);
@@ -27,30 +26,25 @@ export const WaitingRoom = (): JSX.Element => {
   const [numParticipants, setNumParticipants] = useState<number>(1);
 
   useEffect(() => {
+    console.log('start local vid')
     const startLocalVideo = async () => {
       if (!isVideoEnabled) {
         await toggleVideo();
       }
     }
-
     startLocalVideo();
+  }, []);
 
-    // cleanup
-    return () => {
-      if (isVideoEnabled) {
-        toggleVideo();
-      }
-    };
-
-  }, [isVideoEnabled, toggleVideo]);
-
-  // // navigate to video call when provider joins
-  // useEffect(() => {
-  //   if (numParticipants > 1) {
-  //     inVideoCallWorkflowRef.current = true;
-  //     navigate(`/video-call/`);
-  //   }
-  // }, [navigate, numParticipants, inVideoCallWorkflowRef]);
+  // navigate to video call when provider joins
+  useEffect(() => {
+    console.log('check if provider joined roster');
+    console.log('roster len', Object.keys(roster).length);
+    setNumParticipants(Object.keys(roster).length);
+    if (numParticipants > 1) {
+      inVideoCallWorkflowRef.current = true;
+      navigate(`/video-call/`);
+    }
+  }, [navigate, numParticipants, inVideoCallWorkflowRef, roster]);
 
   return (
     <CustomContainer isProvider={false} subtitle={providerName} title={t('general.waitingRoom')}>
@@ -95,10 +89,24 @@ export const WaitingRoom = (): JSX.Element => {
           {/* TODO: add video controls for local video chime and persist settings for meeting */}
         </Box>
         {isVideoEnabled && (
-          <LocalVideo />
+          <Box
+            sx={{
+              height: '100%',
+              left: 0,
+              position: 'absolute',
+              top: 0,
+              width: '100%',
+              '& video': {
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover', // This ensures the video covers the full area, adjust as needed
+              },
+            }}
+          >
+            <LocalVideo />
+          </Box>
         )}
-        <button onClick={toggleVideo}>Toggle video</button>
-
+        <VideoControls inCallRoom={false} />
         {/* <Box
           ref={videoRef}
           sx={{

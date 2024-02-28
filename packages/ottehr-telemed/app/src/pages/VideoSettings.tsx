@@ -1,10 +1,9 @@
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import { Box, Typography, useTheme } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useNavigationType, NavigationType } from 'react-router-dom';
-import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
+import { useNavigate } from 'react-router-dom';
 import { otherColors } from '../OttehrThemeProvider';
-import { createTelemedMeeting, createTelemedRoom, getTelemedToken, joinTelemedMeeting } from '../api';
+import { createTelemedMeeting, joinTelemedMeeting } from '../api';
 import { CustomButton, CustomContainer, LoadingSpinner } from '../components';
 import { useDevices } from '../hooks';
 import { useParticipant, useVideoParticipant } from '../store';
@@ -13,21 +12,19 @@ import { useState } from 'react';
 // chime SDK
 import { DeviceLabels, useMeetingManager } from 'amazon-chime-sdk-component-library-react';
 import { MeetingSessionConfiguration } from 'amazon-chime-sdk-js';
-import { join } from 'path';
 
 
 export const VideoSettings = (): JSX.Element => {
   const navigate = useNavigate();
   const theme = useTheme();
   const { t } = useTranslation();
-  // const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom, cleanup } = useVideoParticipant();
   const hasVideoDevice = useDevices().videoInputDevices.length > 0;
   const { patientName, providerId, providerName } = useParticipant();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const { setCallStart } = useVideoParticipant();
 
   const meetingManager = useMeetingManager();
-
+  console.log('meetingManager', meetingManager);
   const toggleMicAndCam = async (userInput: boolean): Promise<void> => {
     try {
       setIsLoading(true);
@@ -57,24 +54,20 @@ export const VideoSettings = (): JSX.Element => {
       console.log('Encounter ID:', encounterId);
 
       // join the meeting
-      const joinInfo = await joinTelemedMeeting(encounterId);
+      const telemedMeetingResponse = await joinTelemedMeeting(encounterId);
 
       // TODO: add snackbar for error
-      if (joinInfo === null) {
+      if (telemedMeetingResponse === null) {
         console.error('Failed to fetch meeting and attendee info');
         return;
       }
 
-      console.log('joinInfo: ', joinInfo);
-
-      const meetingSessionConfiguration = new MeetingSessionConfiguration(joinInfo?.Meeting, joinInfo?.Attendee);
+      console.log('joinInfo: ', telemedMeetingResponse?.joinInfo);
+      const meetingSessionConfiguration = new MeetingSessionConfiguration(telemedMeetingResponse?.joinInfo?.Meeting, telemedMeetingResponse?.joinInfo?.Attendee);
       const options = {
         deviceLabels: DeviceLabels.AudioAndVideo,
       };
-
       await meetingManager.join(meetingSessionConfiguration, options);
-      console.log(meetingManager);
-
 
       setIsLoading(false);
       console.log('navigating to waiting room and starting call');

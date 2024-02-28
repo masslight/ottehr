@@ -22,7 +22,7 @@ export const joinTelemedMeeting = async (input: ZambdaFunctionInput): Promise<Za
   const token = await getAuth0Token(secrets);
   console.log('token', token);
 
-  const response = await fetch(`${PROJECT_API}/telemed/v2/meeeting/${encounterId}/join`, {
+  const response = await fetch(`${PROJECT_API}/telemed/v2/meeting/${encounterId}/join`, {
     headers: {
       Authorization: `Bearer ${token}`,
       'content-type': 'application/json',

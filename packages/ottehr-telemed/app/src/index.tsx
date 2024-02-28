@@ -5,6 +5,9 @@ import App from './App';
 import './index.css';
 import './lib/i18n';
 import { DataProvider } from './store';
+window.global = window.global || window;
+
+
 
 const root = createRoot(document.getElementById('root') as HTMLElement);
 root.render(

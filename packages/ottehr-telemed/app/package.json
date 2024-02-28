@@ -63,6 +63,8 @@
     "react-i18next": "^12.2.0",
     "react-imask": "^6.4.3",
     "react-router-dom": "^6.3.0",
+    "styled-components": "6.1.8",
+    "styled-system": "5.1.5",
     "twilio-video": "2.28.1",
     "yup": "^0.32.11"
   },
