@@ -40,7 +40,7 @@ const Footer: FC = () => {
         alignItems="center"
       >
         <ErrorOutlineIcon color="warning" sx={{ pl: 1.25 }} />
-        <Typography variant="body2" color={otherColors.white} sx={{ m: 1.25, maxWidth: 850 }}>
+        <Typography variant="body2" color={otherColors.white} sx={{ m: 1.25 }}>
           {t('general.footer')}
         </Typography>
       </Box>

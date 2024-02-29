@@ -58,8 +58,8 @@ export const IntakeThemeProviderBase: FC<IntakeThemeProviderProps> = (props) => 
     palette,
     otherColors,
     i18n,
-    textFonts = ['Nunito Sans'],
-    headerFonts = ['Nunito Sans'],
+    textFonts = ['Rubik'],
+    headerFonts = ['Rubik'],
     customTypographyOverrides,
     customComponentsOverrides,
   } = props;
