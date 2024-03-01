@@ -107,16 +107,7 @@ export const WaitingRoom = (): JSX.Element => {
           </Box>
         )}
         <VideoControls inCallRoom={false} />
-        {/* <Box
-          ref={videoRef}
-          sx={{
-            height: '100%',
-            left: 0,
-            position: 'absolute',
-            top: 0,
-            width: '100%',
-          }}
-        /> */}
+
       </Box>
     </CustomContainer>
   );

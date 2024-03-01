@@ -10,13 +10,9 @@ export const VideoChatPage: FC = () => {
 
   const [participants, setParticipants] = useState<Participant[]>([]);
 
-  if (!room) {
-    return <div>{t('video.missingRoom')}</div>;
-  }
-
   return (
     <div>
-      <VideoRoom participants={participants} room={room} setParticipants={setParticipants} />
+      <VideoRoom />
     </div>
   );
 };

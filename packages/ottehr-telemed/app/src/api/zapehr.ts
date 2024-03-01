@@ -138,7 +138,6 @@ export async function getTelemedToken(encounterId: string): Promise<string | nul
   }
 }
 
-// Will probably need to change output type
 export async function joinAsProviderTelemedMeeting(encounterId: string, accessToken: string): Promise<ZambdaFunctionResponse['response']> {
   try {
     const response = await fetch(`${PROJECT_API_URL}/telemed/v2/meeting/${encounterId}/join`, {
@@ -168,7 +167,7 @@ export async function joinTelemedMeeting(encounterId: string): Promise<ZambdaFun
 
     const responseBody = await callZambda({
       body: { encounterId },
-      zambdaId: JOIN_TELEMED_MEETING_ZAMBDA_ID ,
+      zambdaId: JOIN_TELEMED_MEETING_ZAMBDA_ID,
     });
 
     const response = responseBody.response;
@@ -247,10 +246,10 @@ async function callZambda({ accessToken, body, zambdaId }: CallZambdaProps): Pro
     headers:
       accessToken != null
         ? {
-            ...headers,
-            // Putting the ternary here annoys TS
-            Authorization: `Bearer ${accessToken}`,
-          }
+          ...headers,
+          // Putting the ternary here annoys TS
+          Authorization: `Bearer ${accessToken}`,
+        }
         : headers,
     method: 'POST',
   });

@@ -18,18 +18,16 @@ export const VideoSettings = (): JSX.Element => {
   const navigate = useNavigate();
   const theme = useTheme();
   const { t } = useTranslation();
-  const hasVideoDevice = useDevices().videoInputDevices.length > 0;
+  // const hasVideoDevice = useDevices().videoInputDevices.length > 0;
   const { patientName, providerId, providerName } = useParticipant();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const { setCallStart } = useVideoParticipant();
 
   const meetingManager = useMeetingManager();
-  console.log('meetingManager', meetingManager);
+  const videoInputDevices = meetingManager.audioVideo?.listVideoInputDevices();
   const toggleMicAndCam = async (userInput: boolean): Promise<void> => {
     try {
       setIsLoading(true);
-      // setIsMicOpen(userInput);
-      // setIsVideoOpen(userInput);
 
       const encounter = await createTelemedMeeting(patientName, providerId, providerName);
 
@@ -70,7 +68,7 @@ export const VideoSettings = (): JSX.Element => {
       await meetingManager.join(meetingSessionConfiguration, options);
 
       setIsLoading(false);
-      console.log('navigating to waiting room and starting call');
+      console.log('navigating to waiting room and starting meeting');
       await meetingManager.start();
       navigate('/waiting-room');
     } catch (error) {

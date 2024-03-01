@@ -11,7 +11,7 @@ import { otherColors } from '../OttehrThemeProvider';
 import { DataContext, useVideoParticipant } from '../store';
 import { CallSettings } from './CallSettings';
 import { useAuth0 } from '@auth0/auth0-react';
-import { useLocalVideo, useAudioVideo, useMeetingManager } from 'amazon-chime-sdk-component-library-react';
+import { useLocalVideo, useAudioVideo, useMeetingManager, useToggleLocalMute } from 'amazon-chime-sdk-component-library-react';
 
 interface VideoControlsProps {
   inCallRoom: boolean;
@@ -23,13 +23,13 @@ export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom }) => {
   const { state } = useContext(DataContext);
   const { isAuthenticated } = useAuth0();
 
-  const [isMicMuted, setIsMicMuted] = useState(false);
+  // const [isMicMuted, setIsMicMuted] = useState(false);
 
   const { toggleVideo, isVideoEnabled } = useLocalVideo();
-  const audioVideo = useAudioVideo();
+  const { muted, toggleMute } = useToggleLocalMute();
+  // const audioVideo = useAudioVideo();
 
   const meetingManager = useMeetingManager();
-  console.log('meetingManager', meetingManager);
 
   const openSettings = (): void => {
     setIsSettingsOpen(true);
@@ -39,21 +39,15 @@ export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom }) => {
     setIsSettingsOpen(false);
   };
 
-  const toggleMic = () => {
-    if (!audioVideo) return;
-    if (isMicMuted) {
-      audioVideo.realtimeUnmuteLocalAudio();
-    } else {
-      audioVideo.realtimeMuteLocalAudio();
-    }
-    setIsMicMuted(!isMicMuted);
-  };
-
-  const handleVideoToggle = () => {
-    toggleVideo();
-    console.log('meetingManager toggle', meetingManager);
-  };
-
+  // const toggleMic = () => {
+  //   if (!audioVideo) return;
+  //   if (isMicMuted) {
+  //     audioVideo.realtimeUnmuteLocalAudio();
+  //   } else {
+  //     audioVideo.realtimeMuteLocalAudio();
+  //   }
+  //   setIsMicMuted(!isMicMuted);
+  // };
 
   const disconnect = (): void => {
     if (isAuthenticated) {
@@ -103,14 +97,14 @@ export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom }) => {
         }}
       >
         {isVideoEnabled ? (
-          <VideocamIcon onClick={handleVideoToggle} sx={{ color: 'white' }} />
+          <VideocamIcon onClick={toggleVideo} sx={{ color: 'white' }} />
         ) : (
-          <VideocamOffIcon onClick={handleVideoToggle} sx={{ color: 'white' }} />
+          <VideocamOffIcon onClick={toggleVideo} sx={{ color: 'white' }} />
         )}
-        {isMicMuted ? (
-          <MicOffIcon onClick={toggleMic} sx={{ color: 'white' }} />
+        {muted ? (
+          <MicOffIcon onClick={toggleMute} sx={{ color: 'white' }} />
         ) : (
-          <MicIcon onClick={toggleMic} sx={{ color: 'white' }} />
+          <MicIcon onClick={toggleMute} sx={{ color: 'white' }} />
         )}
         <SettingsIcon onClick={openSettings} sx={{ color: 'white' }} />
         {inCallRoom && (

@@ -1,28 +1,43 @@
-import { FC, ReactNode, useEffect, useRef, useState, ChangeEvent } from 'react';
+import { FC, useEffect, useRef, useState } from 'react';
 import {
-  useLocalVideo,
   useMeetingManager,
-  VideoTile,
   useAudioVideo
 } from 'amazon-chime-sdk-component-library-react';
 import { Select, MenuItem, FormControl, InputLabel, Dialog, DialogTitle, DialogContent, DialogActions, Button, SelectChangeEvent, Box, Grid } from '@mui/material';
+import { useTranslation } from 'react-i18next';
+import { ConsoleLogger, DefaultDeviceController } from 'amazon-chime-sdk-js';
 
 interface CallSettingsProps {
   onClose: () => void;
   open: boolean;
 }
 
-
 export const CallSettings: FC<CallSettingsProps> = ({ onClose, open }) => {
   const meetingManager = useMeetingManager();
   const audioVideo = useAudioVideo();
-
+  const { t } = useTranslation();
 
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedVideoDevice, setSelectedVideoDevice] = useState('');
   const [selectedAudioDevice, setSelectedAudioDevice] = useState('');
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
+
+  // device controller for video preview only
+  const logger = new ConsoleLogger('preview');
+  const previewDeviceController = new DefaultDeviceController(logger);
+
+  const handleSave = async () => {
+    if (selectedVideoDevice) {
+      await audioVideo?.startVideoInput(selectedVideoDevice);
+    }
+
+    if (selectedAudioDevice) {
+      await audioVideo?.startAudioInput(selectedAudioDevice);
+    }
+
+    onClose();
+  };
 
   useEffect(() => {
     const observer = {
@@ -58,39 +73,33 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose, open }) => {
     };
   }, [meetingManager.audioVideo]);
 
-  useEffect(() => {
-    console.log('useeffect selectedVideoDevice', selectedVideoDevice)
-    if (selectedVideoDevice && videoPreviewRef.current) {
-      console.log('start preview')
-      // Start the video preview when a device is selected and the component mounts
-      // audioVideo?.startVideoPreviewForVideoInput(videoPreviewRef.current);
-      audioVideo?.startVideoInput(selectedVideoDevice).then(() => {
-        console.log('trying')
-        audioVideo?.startVideoPreviewForVideoInput(videoPreviewRef.current!);
-      });
+  const startVideoPreview = async (deviceId: string) => {
+    if (previewDeviceController && videoPreviewRef.current) {
+      await previewDeviceController.startVideoInput(deviceId);
+      previewDeviceController.startVideoPreviewForVideoInput(videoPreviewRef.current);
     }
-
-    // return () => {
-    //   if (videoPreviewRef.current) {
-    //     audioVideo?.stopVideoPreviewForVideoInput(videoPreviewRef.current);
-    //     audioVideo?.stopVideoInput(); // If we also want to stop sending the video stream - need to TEST if needed
-    //   }
-    // };
-  }, [selectedVideoDevice, audioVideo]);
-
-  const handleVideoDeviceChange = async (event: SelectChangeEvent<string>) => {
-    console.log('video device change', event.target.value)
-    const deviceId = event.target.value;
-    setSelectedVideoDevice(deviceId);
-    console.log('videoPreviewRef', videoPreviewRef);
-    await audioVideo?.startVideoInput(deviceId);
   };
 
+  const handleVideoDeviceChange = async (event: SelectChangeEvent<string>) => {
+    const deviceId = event.target.value;
+    setSelectedVideoDevice(deviceId);
+
+    await startVideoPreview(deviceId);
+  }
   const handleAudioDeviceChange = async (event: SelectChangeEvent<string>) => {
     const deviceId = event.target.value;
     setSelectedAudioDevice(deviceId);
     await audioVideo?.startAudioInput(deviceId);
   };
+
+  useEffect(() => {
+    if (open && selectedVideoDevice) {
+      // delay untill camera is ready
+      setTimeout(() => {
+        startVideoPreview(selectedVideoDevice);
+      }, 200);
+    }
+  }, [open]);
 
   return (
     <Dialog open={open} onClose={onClose}>
@@ -123,8 +132,13 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose, open }) => {
           </Select>
         </FormControl>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+      <DialogActions sx={{ alignItems: 'center', justifyContent: 'flex-end', padding: '16px 24px' }}>
+        <Button onClick={onClose} sx={{ marginRight: 1 }} variant="text">
+          {t('callSettings.cancel')}
+        </Button>
+        <Button onClick={handleSave} variant="contained">
+          {t('callSettings.save')}
+        </Button>
       </DialogActions>
     </Dialog>
   );

@@ -3,12 +3,14 @@ import { FC, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
-import { getProviderTelemedToken } from '../api';
+import { getProviderTelemedToken, joinAsProviderTelemedMeeting } from '../api';
 import { callButtonMobile, defaultPatient } from '../assets/icons';
 import { getRelativeTime } from '../helpers';
 import { useVideoParticipant } from '../store';
 import { CustomButton } from './CustomButton';
 import { useAuth0 } from '@auth0/auth0-react';
+import { MeetingSessionConfiguration } from 'amazon-chime-sdk-js';
+import { DeviceLabels, useMeetingManager } from 'amazon-chime-sdk-component-library-react';
 
 export interface PatientQueueProps {
   encounterId: string;
@@ -23,13 +25,18 @@ export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, patientName, 
   const [relativeQueuedTime, setRelativeQueuedTime] = useState(getRelativeTime(queuedTime));
   const { getAccessTokenSilently } = useAuth0();
   const [telemedToken, setTelemedToken] = useState<string | null>(null);
+  const [meetingConfig, setMeetingConfig] = useState<Record<string, any> | undefined>();
   const [openSnackbar, setOpenSnackbar] = useState(false); // new state for Snackbar
   const { setCallStart } = useVideoParticipant();
+  const meetingManager = useMeetingManager();
 
   useEffect(() => {
     async function getZapEHRUser(): Promise<void> {
       const accessToken = await getAccessTokenSilently();
-      setTelemedToken(await getProviderTelemedToken(encounterId, accessToken));
+      const joinInfo = await joinAsProviderTelemedMeeting(encounterId, accessToken);
+      console.log('got join info', joinInfo);
+      setMeetingConfig(joinInfo);
+      // setTelemedToken(await getProviderTelemedToken(encounterId, accessToken));
     }
 
     getZapEHRUser().catch((error) => {
@@ -40,35 +47,25 @@ export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, patientName, 
   const startCall = async (): Promise<void> => {
     setCallStart(queuedTime);
     try {
-      setIsMicOpen(true);
-      setIsVideoOpen(true);
+      // setIsMicOpen(true);
+      // setIsVideoOpen(true);
 
-      if (telemedToken === null) {
-        console.error('Failed to fetch token');
+      if (meetingConfig === null) {
+        console.error('Failed to fetch join info');
         setOpenSnackbar(true); // open Snackbar if token is null
         return;
       }
 
-      const tracks = await Video.createLocalTracks({
-        audio: true,
-        video: true,
-      });
+      const meetingSessionConfiguration = new MeetingSessionConfiguration(meetingConfig?.Meeting, meetingConfig?.Attendee);
+      console.log('meetingSessionConfiguration', meetingSessionConfiguration);
+      const options = {
+        deviceLabels: DeviceLabels.AudioAndVideo,
+      };
 
-      const localTracks = tracks.filter((track) => track.kind === 'audio' || track.kind === 'video') as (
-        | LocalAudioTrack
-        | LocalVideoTrack
-      )[];
+      await meetingManager.join(meetingSessionConfiguration, options);
 
-      setLocalTracks(localTracks);
-
-      const connectedRoom = await Video.connect(telemedToken, {
-        audio: true,
-        tracks: localTracks,
-        video: true,
-      });
-
-      setRoom(connectedRoom);
       setRemoteParticipantName(patientName);
+      await meetingManager.start();
       navigate(`/video-call`);
     } catch (error) {
       console.error('An error occurred:', error);
