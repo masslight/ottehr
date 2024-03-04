@@ -4,10 +4,7 @@ import { ScrollToTop, PrivateRoute } from './components';
 import { VideoSettings, CheckIn, PostCall, Dashboard, Profile, VideoChatPage, WaitingRoom, Version } from './pages';
 import { ParticipantProvider, VideoParticipantProvider, PractitionerProvider } from './store';
 import { ThemeProvider } from 'styled-components';
-import {
-  MeetingProvider, lightTheme,
-  GlobalStyles
-} from 'amazon-chime-sdk-component-library-react';
+import { MeetingProvider, lightTheme, GlobalStyles } from 'amazon-chime-sdk-component-library-react';
 export default function App(): JSX.Element {
   return (
     <OttehrThemeProvider>
@@ -57,6 +54,6 @@ export default function App(): JSX.Element {
           </Router>
         </MeetingProvider>
       </ThemeProvider>
-    </OttehrThemeProvider >
+    </OttehrThemeProvider>
   );
 }

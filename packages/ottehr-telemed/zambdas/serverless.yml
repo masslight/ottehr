@@ -18,21 +18,6 @@ custom:
     host: 0.0.0.0
 
 functions:
-  create-telemed-room:
-    handler: src/create-telemed-room/index.index
-    events:
-      - http:
-          path: zambda/create-telemed-room/execute-public
-          method: POST
-    timeout: 25
-    environment:
-      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
-      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
-      AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
-      AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
-      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
-      PROJECT_ID: ${file(./.env/${self:provider.stage}.json):PROJECT_ID}
-
   get-slug-availability:
     handler: src/get-slug-availability/index.index
     events:
@@ -49,21 +34,6 @@ functions:
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       PROJECT_ID: ${file(./.env/${self:provider.stage}.json):PROJECT_ID}
 
-  get-telemed-token:
-    handler: src/get-telemed-token/index.index
-    events:
-      - http:
-          path: zambda/get-telemed-token/execute-public
-          method: POST
-    timeout: 25
-    environment:
-      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
-      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
-      AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
-      AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
-      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
-      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
-      PROJECT_ID: ${file(./.env/${self:provider.stage}.json):PROJECT_ID}
   version:
     handler: src/version/index.index
     events:

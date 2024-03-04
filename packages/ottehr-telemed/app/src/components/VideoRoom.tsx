@@ -1,29 +1,51 @@
 import { Box } from '@mui/material';
 import { FC } from 'react';
 import { Footer, VideoControls } from '.';
+import { otherColors } from '../OttehrThemeProvider';
 import {
   useLocalVideo,
   useRemoteVideoTileState,
   RemoteVideo,
   LocalVideo,
 } from 'amazon-chime-sdk-component-library-react';
+import { useVideoParticipant } from '../store';
 
 export const VideoRoom: FC = () => {
   const { tiles } = useRemoteVideoTileState();
-  const { isVideoEnabled, toggleVideo } = useLocalVideo();
-
+  const { isVideoEnabled } = useLocalVideo();
+  const { remoteParticipantName } = useVideoParticipant();
 
   // Render remote participants
-  const remoteParticipants = tiles.map(tileId => (
-    <Box key={tileId} sx={{ position: 'relative', height: '100vh' }}>
+  const remoteParticipants = tiles.map((tileId) => (
+    <Box
+      key={tileId}
+      sx={{
+        height: '100%',
+        overflow: 'hidden',
+        position: 'relative',
+        width: '100%',
+      }}
+    >
       <RemoteVideo tileId={tileId} />
+      <Box
+        sx={{
+          backgroundColor: otherColors.blackTransparent,
+          bottom: 0,
+          color: 'white',
+          left: 0,
+          padding: '0.5rem',
+          position: 'absolute',
+        }}
+      >
+        {remoteParticipantName}
+      </Box>
     </Box>
   ));
 
   return (
     // for now only speaker view for two participants
-    <Box sx={{ height: '100vh', position: 'relative', width: '100vw' }}>
-      <Box key="video-room">
+    <Box sx={{ height: '100vh', position: 'relative' }}>
+      <Box key="video-meeting">
         <Box
           sx={{
             backgroundColor: 'gray',
@@ -62,5 +84,3 @@ export const VideoRoom: FC = () => {
     </Box>
   );
 };
-
-

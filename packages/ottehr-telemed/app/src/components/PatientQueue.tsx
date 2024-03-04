@@ -2,8 +2,7 @@ import { Box, Typography, Snackbar, Alert } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import Video, { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
-import { getProviderTelemedToken, joinAsProviderTelemedMeeting } from '../api';
+import { joinAsProviderTelemedMeeting } from '../api';
 import { callButtonMobile, defaultPatient } from '../assets/icons';
 import { getRelativeTime } from '../helpers';
 import { useVideoParticipant } from '../store';
@@ -21,10 +20,9 @@ export interface PatientQueueProps {
 export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, patientName, queuedTime }) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { setIsMicOpen, setIsVideoOpen, setLocalTracks, setRoom, setRemoteParticipantName } = useVideoParticipant();
+  const { setRemoteParticipantName } = useVideoParticipant();
   const [relativeQueuedTime, setRelativeQueuedTime] = useState(getRelativeTime(queuedTime));
   const { getAccessTokenSilently } = useAuth0();
-  const [telemedToken, setTelemedToken] = useState<string | null>(null);
   const [meetingConfig, setMeetingConfig] = useState<Record<string, any> | undefined>();
   const [openSnackbar, setOpenSnackbar] = useState(false); // new state for Snackbar
   const { setCallStart } = useVideoParticipant();
@@ -34,9 +32,7 @@ export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, patientName, 
     async function getZapEHRUser(): Promise<void> {
       const accessToken = await getAccessTokenSilently();
       const joinInfo = await joinAsProviderTelemedMeeting(encounterId, accessToken);
-      console.log('got join info', joinInfo);
       setMeetingConfig(joinInfo);
-      // setTelemedToken(await getProviderTelemedToken(encounterId, accessToken));
     }
 
     getZapEHRUser().catch((error) => {
@@ -47,17 +43,16 @@ export const PatientQueue: FC<PatientQueueProps> = ({ encounterId, patientName, 
   const startCall = async (): Promise<void> => {
     setCallStart(queuedTime);
     try {
-      // setIsMicOpen(true);
-      // setIsVideoOpen(true);
-
       if (meetingConfig === null) {
         console.error('Failed to fetch join info');
-        setOpenSnackbar(true); // open Snackbar if token is null
+        setOpenSnackbar(true); // open Snackbar if joinInfo  is null
         return;
       }
 
-      const meetingSessionConfiguration = new MeetingSessionConfiguration(meetingConfig?.Meeting, meetingConfig?.Attendee);
-      console.log('meetingSessionConfiguration', meetingSessionConfiguration);
+      const meetingSessionConfiguration = new MeetingSessionConfiguration(
+        meetingConfig?.Meeting,
+        meetingConfig?.Attendee,
+      );
       const options = {
         deviceLabels: DeviceLabels.AudioAndVideo,
       };

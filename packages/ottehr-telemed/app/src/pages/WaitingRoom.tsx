@@ -1,17 +1,11 @@
 import { Box, Typography } from '@mui/material';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { otherColors } from '../OttehrThemeProvider';
 import { CustomContainer, VideoControls } from '../components';
-import { useParticipant } from '../store';
-import {
-  useLocalVideo,
-  useRosterState,
-  LocalVideo,
-  useMeetingManager,
-} from 'amazon-chime-sdk-component-library-react';
-
+import { useParticipant, useVideoParticipant } from '../store';
+import { useLocalVideo, useRosterState, LocalVideo } from 'amazon-chime-sdk-component-library-react';
 
 export const WaitingRoom = (): JSX.Element => {
   const navigate = useNavigate();
@@ -21,30 +15,30 @@ export const WaitingRoom = (): JSX.Element => {
 
   const { t } = useTranslation();
   const { providerName } = useParticipant();
+  const { setRemoteParticipantName } = useVideoParticipant();
+
   const inVideoCallWorkflowRef = useRef(false);
-  // localParticipant is not counted so we start with 1
-  const [numParticipants, setNumParticipants] = useState<number>(1);
+  const [numParticipants, setNumParticipants] = useState<number>(0);
 
   useEffect(() => {
-    console.log('start local vid')
-    const startLocalVideo = async () => {
+    const startLocalVideo = async (): Promise<void> => {
       if (!isVideoEnabled) {
         await toggleVideo();
       }
-    }
-    startLocalVideo();
-  }, []);
+    };
+    void startLocalVideo();
+  }, [isVideoEnabled, toggleVideo]);
 
   // navigate to video call when provider joins
   useEffect(() => {
     console.log('check if provider joined roster');
-    console.log('roster len', Object.keys(roster).length);
     setNumParticipants(Object.keys(roster).length);
     if (numParticipants > 1) {
+      setRemoteParticipantName(providerName);
       inVideoCallWorkflowRef.current = true;
       navigate(`/video-call/`);
     }
-  }, [navigate, numParticipants, inVideoCallWorkflowRef, roster]);
+  }, [navigate, numParticipants, inVideoCallWorkflowRef, roster, setRemoteParticipantName, providerName]);
 
   return (
     <CustomContainer isProvider={false} subtitle={providerName} title={t('general.waitingRoom')}>
@@ -85,9 +79,7 @@ export const WaitingRoom = (): JSX.Element => {
             transform: 'translate(-50%, 0)',
             zIndex: 2,
           }}
-        >
-          {/* TODO: add video controls for local video chime and persist settings for meeting */}
-        </Box>
+        ></Box>
         {isVideoEnabled && (
           <Box
             sx={{
@@ -99,7 +91,7 @@ export const WaitingRoom = (): JSX.Element => {
               '& video': {
                 width: '100%',
                 height: '100%',
-                objectFit: 'cover', // This ensures the video covers the full area, adjust as needed
+                objectFit: 'cover',
               },
             }}
           >
@@ -107,7 +99,6 @@ export const WaitingRoom = (): JSX.Element => {
           </Box>
         )}
         <VideoControls inCallRoom={false} />
-
       </Box>
     </CustomContainer>
   );

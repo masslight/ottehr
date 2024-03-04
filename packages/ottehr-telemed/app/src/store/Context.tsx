@@ -11,13 +11,13 @@ import {
   useState,
 } from 'react';
 import { Outlet } from 'react-router-dom';
-import { LocalAudioTrack, LocalVideoTrack, Room } from 'twilio-video';
 import { Action, ProviderData, State } from './types';
 import { useAuth0 } from '@auth0/auth0-react';
 import { setFhirClient } from './Actions';
 import { getUser } from '../api';
 import { Practitioner } from 'fhir/r4';
 import { createProvider } from '../helpers';
+import { useMeetingManager } from 'amazon-chime-sdk-component-library-react';
 
 const initialState = {};
 
@@ -100,19 +100,9 @@ export const useParticipant = (): ParticipantContextProps => {
 type VideoParticipantContextProps = {
   callStart: string;
   cleanup: () => void;
-  isMicOpen: boolean;
-  isVideoOpen: boolean;
-  localTracks: (LocalAudioTrack | LocalVideoTrack)[];
   remoteParticipantName: string;
-  room: Room | null;
-  selectedSpeaker: string | null;
   setCallStart: Dispatch<SetStateAction<string>>;
-  setIsMicOpen: Dispatch<SetStateAction<boolean>>;
-  setIsVideoOpen: Dispatch<SetStateAction<boolean>>;
-  setLocalTracks: Dispatch<SetStateAction<(LocalAudioTrack | LocalVideoTrack)[]>>;
   setRemoteParticipantName: Dispatch<SetStateAction<string>>;
-  setRoom: Dispatch<SetStateAction<Room | null>>;
-  setSelectedSpeaker: Dispatch<SetStateAction<string | null>>;
 };
 
 const VideoParticipantContext = createContext<VideoParticipantContextProps | undefined>(undefined);
@@ -122,24 +112,13 @@ type VideoParticipantProviderProps = {
 };
 
 export const VideoParticipantProvider: FC<VideoParticipantProviderProps> = ({ children }) => {
-  const [isMicOpen, setIsMicOpen] = useState(false);
-  const [isVideoOpen, setIsVideoOpen] = useState(false);
-  const [localTracks, setLocalTracks] = useState<(LocalAudioTrack | LocalVideoTrack)[]>([]);
-  const [room, setRoom] = useState<Room | null>(null);
-  const [selectedSpeaker, setSelectedSpeaker] = useState<string | null>(null);
   const [remoteParticipantName, setRemoteParticipantName] = useState<string>('');
   const [callStart, setCallStart] = useState<string>('');
-
-  const cleanup = (): void => {
-    // localTracks.forEach((track) => {
-    //   if (track.kind === 'audio' || track.kind === 'video') {
-    //     track.stop();
-    //   }
-    // });
-
-    // if (room) {
-    //   room.disconnect();
-    // }
+  const meetingManager = useMeetingManager();
+  const cleanup = async (): Promise<void> => {
+    console.log('cleanup: destroying device controller & leaving meeting');
+    await meetingManager.meetingSession?.deviceController.destroy().catch((error) => console.error(error));
+    await meetingManager.leave().catch((error) => console.error(error));
   };
 
   return (
@@ -147,19 +126,9 @@ export const VideoParticipantProvider: FC<VideoParticipantProviderProps> = ({ ch
       value={{
         callStart,
         cleanup,
-        isMicOpen,
-        isVideoOpen,
-        localTracks,
         remoteParticipantName,
-        room,
-        selectedSpeaker,
         setCallStart,
-        setIsMicOpen,
-        setIsVideoOpen,
-        setLocalTracks,
         setRemoteParticipantName,
-        setRoom,
-        setSelectedSpeaker,
       }}
     >
       {children}

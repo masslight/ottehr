@@ -5,14 +5,12 @@ import { useNavigate } from 'react-router-dom';
 import { otherColors } from '../OttehrThemeProvider';
 import { createTelemedMeeting, joinTelemedMeeting } from '../api';
 import { CustomButton, CustomContainer, LoadingSpinner } from '../components';
-import { useDevices } from '../hooks';
 import { useParticipant, useVideoParticipant } from '../store';
 import { useState } from 'react';
 
 // chime SDK
 import { DeviceLabels, useMeetingManager } from 'amazon-chime-sdk-component-library-react';
 import { MeetingSessionConfiguration } from 'amazon-chime-sdk-js';
-
 
 export const VideoSettings = (): JSX.Element => {
   const navigate = useNavigate();
@@ -24,7 +22,6 @@ export const VideoSettings = (): JSX.Element => {
   const { setCallStart } = useVideoParticipant();
 
   const meetingManager = useMeetingManager();
-  const videoInputDevices = meetingManager.audioVideo?.listVideoInputDevices();
   const toggleMicAndCam = async (userInput: boolean): Promise<void> => {
     try {
       setIsLoading(true);
@@ -61,7 +58,10 @@ export const VideoSettings = (): JSX.Element => {
       }
 
       console.log('joinInfo: ', telemedMeetingResponse?.joinInfo);
-      const meetingSessionConfiguration = new MeetingSessionConfiguration(telemedMeetingResponse?.joinInfo?.Meeting, telemedMeetingResponse?.joinInfo?.Attendee);
+      const meetingSessionConfiguration = new MeetingSessionConfiguration(
+        telemedMeetingResponse?.joinInfo?.Meeting,
+        telemedMeetingResponse?.joinInfo?.Attendee,
+      );
       const options = {
         deviceLabels: DeviceLabels.AudioAndVideo,
       };
@@ -75,7 +75,6 @@ export const VideoSettings = (): JSX.Element => {
       console.error('An error occurred:', error);
     }
   };
-
 
   return (
     <CustomContainer isProvider={false} subtitle={providerName} title={t('general.waitingRoom')}>

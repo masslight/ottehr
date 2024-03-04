@@ -65,7 +65,6 @@
     "react-router-dom": "^6.3.0",
     "styled-components": "6.1.8",
     "styled-system": "5.1.5",
-    "twilio-video": "2.28.1",
     "yup": "^0.32.11"
   },
   "devDependencies": {

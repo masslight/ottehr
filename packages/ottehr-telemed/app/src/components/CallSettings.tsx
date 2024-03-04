@@ -1,9 +1,17 @@
-import { FC, useEffect, useRef, useState } from 'react';
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMeetingManager, useAudioVideo } from 'amazon-chime-sdk-component-library-react';
 import {
-  useMeetingManager,
-  useAudioVideo
-} from 'amazon-chime-sdk-component-library-react';
-import { Select, MenuItem, FormControl, InputLabel, Dialog, DialogTitle, DialogContent, DialogActions, Button, SelectChangeEvent, Box, Grid } from '@mui/material';
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  SelectChangeEvent,
+} from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { ConsoleLogger, DefaultDeviceController } from 'amazon-chime-sdk-js';
 
@@ -23,15 +31,15 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose, open }) => {
   const [selectedAudioDevice, setSelectedAudioDevice] = useState('');
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
 
-  // device controller for video preview only
-  const logger = new ConsoleLogger('preview');
-  const previewDeviceController = new DefaultDeviceController(logger);
+  const previewDeviceController = useMemo(() => {
+    const logger = new ConsoleLogger('preview');
+    return new DefaultDeviceController(logger);
+  }, []);
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<void> => {
     if (selectedVideoDevice) {
       await audioVideo?.startVideoInput(selectedVideoDevice);
     }
-
     if (selectedAudioDevice) {
       await audioVideo?.startAudioInput(selectedAudioDevice);
     }
@@ -51,9 +59,9 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose, open }) => {
 
     meetingManager.audioVideo?.addDeviceChangeObserver(observer);
 
-    const initDevices = async () => {
-      const videoInputDevices = await meetingManager.audioVideo?.listVideoInputDevices() ?? [];
-      const audioInputDevices = await meetingManager.audioVideo?.listAudioInputDevices() ?? [];
+    const initDevices = async (): Promise<void> => {
+      const videoInputDevices = (await meetingManager.audioVideo?.listVideoInputDevices()) ?? [];
+      const audioInputDevices = (await meetingManager.audioVideo?.listAudioInputDevices()) ?? [];
 
       setVideoDevices(videoInputDevices);
       setAudioDevices(audioInputDevices);
@@ -66,27 +74,30 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose, open }) => {
       }
     };
 
-    initDevices();
+    void initDevices();
 
     return () => {
       meetingManager.audioVideo?.removeDeviceChangeObserver(observer);
     };
   }, [meetingManager.audioVideo]);
 
-  const startVideoPreview = async (deviceId: string) => {
-    if (previewDeviceController && videoPreviewRef.current) {
-      await previewDeviceController.startVideoInput(deviceId);
-      previewDeviceController.startVideoPreviewForVideoInput(videoPreviewRef.current);
-    }
-  };
+  const startVideoPreview = useCallback(
+    async (deviceId: string): Promise<void> => {
+      if (previewDeviceController && videoPreviewRef.current) {
+        await previewDeviceController.startVideoInput(deviceId);
+        previewDeviceController.startVideoPreviewForVideoInput(videoPreviewRef.current);
+      }
+    },
+    [previewDeviceController],
+  );
 
-  const handleVideoDeviceChange = async (event: SelectChangeEvent<string>) => {
+  const handleVideoDeviceChange = async (event: SelectChangeEvent<string>): Promise<void> => {
     const deviceId = event.target.value;
     setSelectedVideoDevice(deviceId);
 
     await startVideoPreview(deviceId);
-  }
-  const handleAudioDeviceChange = async (event: SelectChangeEvent<string>) => {
+  };
+  const handleAudioDeviceChange = async (event: SelectChangeEvent<string>): Promise<void> => {
     const deviceId = event.target.value;
     setSelectedAudioDevice(deviceId);
     await audioVideo?.startAudioInput(deviceId);
@@ -96,23 +107,29 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose, open }) => {
     if (open && selectedVideoDevice) {
       // delay untill camera is ready
       setTimeout(() => {
-        startVideoPreview(selectedVideoDevice);
+        void startVideoPreview(selectedVideoDevice);
       }, 200);
     }
-  }, [open]);
+  }, [open, selectedVideoDevice, startVideoPreview]);
 
   return (
     <Dialog open={open} onClose={onClose}>
       <DialogTitle>Call Settings</DialogTitle>
       <DialogContent>
         {/* Camera preview */}
-        <video ref={videoPreviewRef} autoPlay muted playsInline style={{
-          height: '100%',
-          width: '100%',
-        }}></video>
-        <FormControl fullWidth margin='normal'>
+        <video
+          ref={videoPreviewRef}
+          autoPlay
+          muted
+          playsInline
+          style={{
+            height: '100%',
+            width: '100%',
+          }}
+        ></video>
+        <FormControl fullWidth margin="normal">
           <InputLabel>Camera</InputLabel>
-          <Select value={selectedVideoDevice} onChange={handleVideoDeviceChange}>
+          <Select value={selectedVideoDevice} onChange={handleVideoDeviceChange} label="Camera">
             {videoDevices.map((device) => (
               <MenuItem key={device.deviceId} value={device.deviceId}>
                 {device.label}
@@ -121,9 +138,9 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose, open }) => {
           </Select>
         </FormControl>
 
-        <FormControl fullWidth margin='normal'>
+        <FormControl fullWidth margin="normal">
           <InputLabel>Microphone</InputLabel>
-          <Select value={selectedAudioDevice} onChange={handleAudioDeviceChange}>
+          <Select value={selectedAudioDevice} onChange={handleAudioDeviceChange} label="Microphone">
             {audioDevices.map((device) => (
               <MenuItem key={device.deviceId} value={device.deviceId}>
                 {device.label}

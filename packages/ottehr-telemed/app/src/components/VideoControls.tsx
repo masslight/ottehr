@@ -5,13 +5,13 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import Box from '@mui/material/Box';
-import { Dispatch, FC, SetStateAction, useContext, useState } from 'react';
+import { FC, useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { otherColors } from '../OttehrThemeProvider';
 import { DataContext, useVideoParticipant } from '../store';
 import { CallSettings } from './CallSettings';
 import { useAuth0 } from '@auth0/auth0-react';
-import { useLocalVideo, useAudioVideo, useMeetingManager, useToggleLocalMute } from 'amazon-chime-sdk-component-library-react';
+import { useLocalVideo, useMeetingManager, useToggleLocalMute } from 'amazon-chime-sdk-component-library-react';
 
 interface VideoControlsProps {
   inCallRoom: boolean;
@@ -22,12 +22,10 @@ export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom }) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { state } = useContext(DataContext);
   const { isAuthenticated } = useAuth0();
-
-  // const [isMicMuted, setIsMicMuted] = useState(false);
+  const { cleanup } = useVideoParticipant();
 
   const { toggleVideo, isVideoEnabled } = useLocalVideo();
   const { muted, toggleMute } = useToggleLocalMute();
-  // const audioVideo = useAudioVideo();
 
   const meetingManager = useMeetingManager();
 
@@ -39,18 +37,9 @@ export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom }) => {
     setIsSettingsOpen(false);
   };
 
-  // const toggleMic = () => {
-  //   if (!audioVideo) return;
-  //   if (isMicMuted) {
-  //     audioVideo.realtimeUnmuteLocalAudio();
-  //   } else {
-  //     audioVideo.realtimeMuteLocalAudio();
-  //   }
-  //   setIsMicMuted(!isMicMuted);
-  // };
-
   const disconnect = (): void => {
     if (isAuthenticated) {
+      console.log('disconnecting', meetingManager.meetingSession?.configuration.externalMeetingId);
       state.fhirClient
         ?.patchResource({
           operations: [
@@ -66,16 +55,17 @@ export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom }) => {
         .catch((err) => {
           console.error(err);
         });
+      cleanup();
       navigate('/provider-post-call', {
         state: {
           isProvider: true,
         },
       });
     } else {
+      cleanup();
       navigate('/patient-post-call');
     }
   };
-
 
   return (
     <>
