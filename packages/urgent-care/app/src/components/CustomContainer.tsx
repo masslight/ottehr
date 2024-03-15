@@ -1,8 +1,12 @@
-import { ottehrLogo as logo } from '../assets';
-import Footer from './Footer';
-import { IntakeFlowPageRoute } from '../App';
 import { CustomContainerFactory } from 'ottehr-components';
+import { ottehrLogo } from '../assets';
+import Footer from './Footer';
 
-const CustomContainer = CustomContainerFactory(logo, 'Ottehr Urgent Care', <Footer />);
-
+const imageForBackground = (page: string): string => {
+  switch (page) {
+    default:
+      return ottehrLogo;
+  }
+};
+const CustomContainer = CustomContainerFactory(imageForBackground, ottehrLogo, 'Ottehr Telemedicine', <Footer />);
 export default CustomContainer;

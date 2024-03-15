@@ -118,7 +118,6 @@ export default function Navbar({ setCurrentTab }: NavbarProps): ReactElement {
                 marginRight: 20,
                 marginTop: 10,
                 width: 158,
-                height: 35,
               }}
             />
           </Link>

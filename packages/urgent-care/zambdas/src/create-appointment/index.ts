@@ -444,7 +444,7 @@ export async function createAppointment(
                   {
                     url: 'reference',
                     valueReference: {
-                      reference: `Device/${getSecret(SecretsKeys.MESSAGING_DEVICE_ID, secrets)}`,
+                      reference: `Device/${getSecret(SecretsKeys.URGENT_CARE_MESSAGING_DEVICE_ID, secrets)}`,
                     },
                   },
                 ],

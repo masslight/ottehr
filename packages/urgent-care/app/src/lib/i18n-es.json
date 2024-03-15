@@ -400,10 +400,6 @@
         "title": "Error al crear la franja horaria de la cita",
         "description": "La franja horaria de la cita ya no está libre, regrese y seleccione una diferente."
       },
-      "cardpointe": {
-        "title": "Error al validar la tarjeta de crédito",
-        "description": "Se produjo un error al validar su tarjeta de crédito."
-      },
       "slot": {
         "title": "Error al crear la franja horaria de la cita",
         "description": "Se produjo un error al crear su cita. Intente de nuevo y, si el problema persiste, póngase en contacto con nosotros."

@@ -7,7 +7,7 @@ export const getSelectors = <
   K extends keyof T,
 >(
   store: S,
-  stateKeys: K[],
+  stateKeys: K[]
 ) => {
   const selectors: Pick<T, K> = {} as any;
 

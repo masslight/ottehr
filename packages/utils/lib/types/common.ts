@@ -13,6 +13,7 @@ export interface FileURLs {
     localUrl?: string;
     presignedUrl?: string;
     z3Url?: string;
+    imgBase64?: string;
   };
 }
 export interface AvailableLocationInformation {
@@ -24,7 +25,20 @@ export interface AvailableLocationInformation {
   telecom: ContactPoint[] | undefined;
   hoursOfOperation: LocationHoursOfOperation[] | undefined;
   timezone: string | undefined;
+  otherOffices: { display: string; url: string }[];
 }
+
+export const getSlugAndStateFromLocation = (
+  location: AvailableLocationInformation | undefined
+): { slug: string | undefined; state: string | undefined } => {
+  if (location == undefined) {
+    return { slug: undefined, state: undefined };
+  }
+  const { slug } = location;
+  const state = location.address?.state?.toLowerCase();
+
+  return { slug, state };
+};
 
 export type FormItemType =
   | 'Text'
@@ -33,10 +47,18 @@ export type FormItemType =
   | 'Radio List'
   | 'Free Select'
   | 'Date'
+  | 'Year'
   | 'File'
   | 'Checkbox'
   | 'Header 3'
+  | 'Header 4'
   | 'Description'
+  | 'Button'
+  | 'Date Year'
+  | 'Date Month'
+  | 'Date Day'
+  | 'Group'
+  | 'Form list'
   | undefined;
 
 export type PromiseReturnType<T> = T extends Promise<infer R> ? R : never;
@@ -44,6 +66,11 @@ export type PromiseReturnType<T> = T extends Promise<infer R> ? R : never;
 export interface ConsentInfo {
   HIPAA: boolean;
   consentToTreat: boolean;
+  signature: string;
+  fullName: string;
+  relationship: string;
+}
+export interface ConsentSigner {
   signature: string;
   fullName: string;
   relationship: string;
@@ -129,6 +156,21 @@ export interface ValuePair {
   label: string;
 }
 
+export const months = [
+  { value: '01', label: 'Jan' },
+  { value: '02', label: 'Feb' },
+  { value: '03', label: 'Mar' },
+  { value: '04', label: 'Apr' },
+  { value: '05', label: 'May' },
+  { value: '06', label: 'Jun' },
+  { value: '07', label: 'Jul' },
+  { value: '08', label: 'Aug' },
+  { value: '09', label: 'Sep' },
+  { value: '10', label: 'Oct' },
+  { value: '11', label: 'Nov' },
+  { value: '12', label: 'Dec' },
+];
+
 export const AllStates: ValuePair[] = [
   { value: 'AL', label: 'AL' }, // Alabama
   { value: 'AK', label: 'AK' }, // Alaska
@@ -183,3 +225,9 @@ export const AllStates: ValuePair[] = [
   { value: 'WI', label: 'WI' }, // Wisconsin
   { value: 'WY', label: 'WY' }, // Wyoming
 ];
+
+export interface DateComponents {
+  day: string;
+  month: string;
+  year: string;
+}

@@ -1,7 +1,6 @@
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Box, Button, CircularProgress, Grid, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import mixpanel from 'mixpanel-browser';
 import { useContext, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useZambdaClient } from 'ottehr-components';
@@ -29,10 +28,6 @@ const CheckIn = (): JSX.Element => {
   const { id: appointmentID } = useParams();
   const [checkIn, setCheckIn] = useState<CheckInInformation | undefined>(undefined);
   const [notFound, setNotFound] = useState(false);
-
-  useEffect(() => {
-    mixpanel.track('Check In');
-  }, []);
 
   useEffect(() => {
     async function updateAppointment(): Promise<void> {
