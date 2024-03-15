@@ -8,6 +8,7 @@ export interface WaitingRoomInput {
 
 export interface WaitingRoomResponse {
   status: 'not_started' | 'started' | 'finished';
+  estimatedTime?: number;
   encounterId?: string;
   videoRoomId?: string;
 }

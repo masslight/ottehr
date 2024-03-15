@@ -122,7 +122,7 @@ async function runCLI(): Promise<void> {
   console.log('Starting setup...');
 
   const [m2mDeviceId, m2mClientId, m2mSecret] = await createM2M(accessToken, projectId);
-  console.log('Created m2m:', m2mClientId, m2mSecret);
+  console.log('Created m2m:', m2mClientId);
 
   try {
     await setupEHR(projectApiUrl, accessToken, projectId, providerEmail, m2mDeviceId, m2mClientId, m2mSecret);

@@ -6,15 +6,18 @@ export interface Question {
   id: string;
   text: string;
   type: FormItemType;
+  item?: Question[];
   multiline?: boolean;
   minRows?: number;
   placeholder?: string;
   infoText?: string;
+  infoTextSecondary?: string;
   required?: boolean;
   width?: number;
   options?: string[];
   attachmentText?: string;
   format?: string;
+  docType?: string;
   enableWhen?: {
     question: string;
     operator: QuestionOperator;

@@ -1,0 +1,200 @@
+service: zambdas
+
+frameworkVersion: '3'
+
+package:
+  individually: true
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  stage: ${opt:stage, self:custom.defaultStage}
+
+custom:
+  defaultStage: local
+  serverless-offline:
+    reloadHandler: true
+    httpPort: 4000
+    lambdaPort: 4001
+  esbuild:
+    minify: false
+    sourcemap: linked
+    keepNames: true
+
+functions:
+  get-appointments:
+    handler: src/get-appointments/index.index
+    events:
+      - http:
+          path: zambda/get-appointments/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      URGENT_CARE_AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_CLIENT}
+      URGENT_CARE_AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
+      URGENT_CARE_SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
+  get-telemed-appointments:
+    handler: src/get-telemed-appointments/index.index
+    events:
+      - http:
+          path: zambda/get-telemed-appointments/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      URGENT_CARE_AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_CLIENT}
+      URGENT_CARE_AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+  change-telemed-appointment-status:
+    handler: src/change-telemed-appointment-status/index.index
+    events:
+      - http:
+          path: zambda/change-telemed-appointment-status/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      URGENT_CARE_AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_CLIENT}
+      URGENT_CARE_AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+  get-token-for-conversation:
+    handler: src/get-token-for-conversation/index.index
+    events:
+      - http:
+          path: zambda/get-token-for-conversation/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      URGENT_CARE_AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_CLIENT}
+      URGENT_CARE_AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_SECRET}
+      URGENT_CARE_MESSAGING_DEVICE_ID: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_MESSAGING_DEVICE_ID}
+      URGENT_CARE_MESSAGING_M2M_CLIENT: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_MESSAGING_M2M_CLIENT}
+      URGENT_CARE_MESSAGING_M2M_SECRET: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_MESSAGING_M2M_SECRET}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
+      URGENT_CARE_SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
+  update-user:
+    handler: src/update-user/index.index
+    events:
+      - http:
+          path: zambda/update-user/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      URGENT_CARE_AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_CLIENT}
+      URGENT_CARE_AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
+      URGENT_CARE_SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
+  get-user:
+    handler: src/get-user/index.index
+    events:
+      - http:
+          path: zambda/get-user/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      URGENT_CARE_AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_CLIENT}
+      URGENT_CARE_AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+  deactivate-user:
+    handler: src/deactivate-user/index.index
+    events:
+      - http:
+          path: zambda/deactivate-user/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      URGENT_CARE_AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_CLIENT}
+      URGENT_CARE_AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
+      URGENT_CARE_SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
+  init-telemed-session:
+    handler: src/init-telemed-session/index.index
+    events:
+      - http:
+          path: zambda/init-telemed-session/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      URGENT_CARE_AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_CLIENT}
+      URGENT_CARE_AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+  save-chart-data:
+    handler: src/save-chart-data/index.index
+    events:
+      - http:
+          path: zambda/save-chart-data/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      URGENT_CARE_AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_CLIENT}
+      URGENT_CARE_AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}      
+  get-chart-data:
+    handler: src/get-chart-data/index.index
+    events:
+      - http:
+          path: zambda/get-chart-data/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      URGENT_CARE_AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_CLIENT}
+      URGENT_CARE_AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+  delete-chart-data:
+    handler: src/delete-chart-data/index.index
+    events:
+      - http:
+          path: zambda/delete-chart-data/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      URGENT_CARE_AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_CLIENT}
+      URGENT_CARE_AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+plugins:
+  - serverless-offline
+  - serverless-esbuild
+  # - serverless-custom-packaging-plugin
+  

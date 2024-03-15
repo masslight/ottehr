@@ -40,7 +40,7 @@
     "@mui/x-date-pickers": "^5.0.20",
     "@mui/x-date-pickers-pro": "^5.0.20",
     "@twilio/conversations": "^2.4.1",
-    "@zapehr/sdk": "^1.0.15",
+    
     "chart.js": "^4.4.1",
     "fast-json-patch": "^3.1.1",
     "luxon": "^3.2.1",

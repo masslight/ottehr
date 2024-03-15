@@ -1,0 +1,61 @@
+{
+  "name": "telemed-ehrzambdas",
+  "version": "1.6.2",
+  "private": true,
+  "scripts": {
+    "start": "npm run start:local",
+    "start:local": "ENV=local npm run start-skeleton",
+    "start:dev": "ENV=dev npm run start-skeleton",
+    "start:tests": "ENV=tests npm run start-skeleton",
+    "start:dev2": "ENV=dev2 npm run start-skeleton",
+    "start:testing": "ENV=testing npm run start-skeleton",
+    "start:staging": "ENV=staging npm run start-skeleton",
+    "start-skeleton": "sls offline --stage ${ENV}",
+    "debug": "export SLS_DEBUG=* && node --inspect ../../../node_modules/serverless/bin/serverless offline --stage=local",
+    "create-subscription:dev": "ENV=dev npm run create-subscription-skeleton",
+    "create-subscription:dev2": "ENV=dev2 npm run create-subscription-skeleton",
+    "create-subscription:testing": "ENV=testing npm run create-subscription-skeleton",
+    "create-subscription:staging": "ENV=staging npm run create-subscription-skeleton",
+    "create-subscription:production": "ENV=production npm run create-subscription-skeleton",
+    "create-subscription-skeleton": "env-cmd -f ./.env/${ENV}.json ts-node scripts/create-subscription.ts",
+    "create-location:placeholder": "env-cmd -f ./.env/local.json ts-node scripts/create-location.ts",
+    "setup-zapehr-secrets": "ts-node scripts/configure-zapehr-secrets.ts",
+    "deploy-zambdas": "npm run package && ts-node scripts/deploy-zambdas.ts",
+    "update-user-roles": "ts-node scripts/update-user-roles.ts",
+    "build": "tsc && sls package --stage dev",
+    "package": "tsc && sls package && npm run rebundle",
+    "rebundle": "bash scripts/package-for-release.sh",
+    "import-locations:local": "ts-node scripts/import-locations.ts local",
+    "import-locations:dev": "ts-node scripts/import-locations.ts dev",
+    "import-locations:testing": "ts-node scripts/import-locations.ts testing",
+    "import-locations:staging": "ts-node scripts/import-locations.ts staging",
+    "import-locations:training": "ts-node scripts/import-locations.ts training",
+    "import-locations:production": "ts-node scripts/import-locations.ts production",
+    "update-directors:local": "ts-node scripts/update-directors.ts local",
+    "update-directors:dev": "ts-node scripts/update-directors.ts dev",
+    "update-directors:testing": "ts-node scripts/update-directors.ts testing",
+    "update-directors:staging": "ts-node scripts/update-directors.ts staging",
+    "update-directors:training": "ts-node scripts/update-directors.ts training",
+    "update-directors:production": "ts-node scripts/update-directors.ts production",
+    "test": "vitest"
+  },
+  "engines": {
+    "npm": ">=8.0.0",
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.272.0",
+    "@sendgrid/mail": "^7.7.0",
+    "@zapehr/sdk": "^1.0.15",
+    "fast-json-patch": "^3.1.1",
+    "luxon": "^3.4.3",
+    "query-string": "^8.1.0",
+    "short-uuid": "^4.2.2",
+    "ehr-utils": "*"
+  },
+  "devDependencies": {
+    "@types/luxon": "^3.3.2",
+    "esbuild": "^0.18.14",
+    "serverless-esbuild": "^1.48.0"
+  }
+}

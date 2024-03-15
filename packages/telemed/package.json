@@ -1,0 +1,17 @@
+{
+  "name": "ottehr-telemed-qrs",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "start": "vite",
+    "build": "tsc && vite build"
+  },
+  "dependencies": {
+    "@mui/icons-material": "^5.11.0",
+    "ottehr-components": "*",
+    "ottehr-utils": "*",
+    "tsconfig": "*",
+    "twilio-video": "^2.28.1"
+  }
+}

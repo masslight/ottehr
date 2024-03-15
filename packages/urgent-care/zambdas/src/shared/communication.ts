@@ -15,7 +15,7 @@ export const sendConfirmationEmail = async (input: ConfirmationEmailInput): Prom
   const { email, startTime, appointmentID, secrets, location, appointmentType } = input;
   const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
   const SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID = getSecret(
-    SecretsKeys.SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID,
+    SecretsKeys.TELEMED_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID,
     secrets,
   );
 
@@ -55,7 +55,7 @@ export const sendCancellationEmail = async (input: CancellationEmail): Promise<v
   const { email, startTime, secrets, location, visitType } = input;
   const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
   const SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID = getSecret(
-    SecretsKeys.SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID,
+    SecretsKeys.TELEMED_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID,
     secrets,
   );
   const subject = 'Urgent Care: Your Visit Has Been Canceled';
@@ -89,7 +89,7 @@ async function sendEmail(
   console.log(`Sending email confirmation to ${email}`);
   const SENDGRID_API_KEY = getSecret(SecretsKeys.SENDGRID_API_KEY, secrets);
   sendgrid.setApiKey(SENDGRID_API_KEY);
-  const SENDGRID_EMAIL = getSecret(SecretsKeys.SENDGRID_EMAIL, secrets).split(',');
+  const SENDGRID_EMAIL = getSecret(SecretsKeys.SENDGRID_EMAIL_BCC, secrets).split(',');
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   const environmentSubjectPrepend = ENVIRONMENT === 'production' ? '' : `[${ENVIRONMENT}] `;
   subject = `${environmentSubjectPrepend}${subject}`;
@@ -140,7 +140,7 @@ export async function sendMessage(
   console.log(`Sending message "${message}" to conversation ${conversationSID} using twilio`);
   const PROJECT_API_URL = getSecret(SecretsKeys.PROJECT_API, secrets);
 
-  const messagingDeviceSenderID = getSecret(SecretsKeys.MESSAGING_DEVICE_ID, secrets);
+  const messagingDeviceSenderID = getSecret(SecretsKeys.URGENT_CARE_MESSAGING_DEVICE_ID, secrets);
 
   const attributes = {
     senderName: 'Automated Message',

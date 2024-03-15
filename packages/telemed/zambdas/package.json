@@ -1,0 +1,35 @@
+{
+  "name": "telemed-zambdas",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "start": "npm run start:local",
+    "start:local": "ENV=local npm run start-skeleton",
+    "start:dev": "ENV=dev npm run start-skeleton",
+    "start:tests": "ENV=tests npm run start-skeleton",
+    "start:dev2": "ENV=dev2 npm run start-skeleton",
+    "start:testing": "ENV=testing npm run start-skeleton",
+    "start:staging": "ENV=staging npm run start-skeleton",
+    "start-skeleton": "sls offline --stage ${ENV} --httpPort 3000",
+    "setup-zapehr-secrets": "ts-node scripts/configure-zapehr-secrets.ts",
+    "deploy-zambdas": "npm run package && ts-node scripts/deploy-zambdas.ts",
+    "setup-default-locations": "ts-node scripts/setup-default-locations.ts",
+    "update-permissions-for-users": "ts-node scripts/update-permissions-for-users.ts",
+    "build": "tsc && sls package --stage dev",
+    "package": "tsc && sls package && npm run rebundle",
+    "rebundle": "bash scripts/package-for-release.sh",
+    "test": "jest",
+    "debug": "export SLS_DEBUG=* && node --inspect ../../../node_modules/serverless/bin/serverless offline --stage=local --httpPort 3000"
+  },
+  "engines": {
+    "npm": ">=8.0.0",
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@zapehr/sdk": "^1.0.15",
+    "ottehr-utils": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.3"
+  }
+}

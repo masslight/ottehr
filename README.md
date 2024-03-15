@@ -145,6 +145,12 @@ sh scripts/interactive-setup.sh
 If you would like to set up Ottehr telehealth:
 
 ```bash
+sh scripts/telemed-setup.sh
+```
+
+If you would like to set up the first Ottehr telehealth:
+
+```bash
 sh scripts/setup.sh
 ```
 

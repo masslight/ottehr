@@ -15,20 +15,18 @@ export interface CreateAppointmentUCTelemedResponse {
 export enum VisitType {
   WalkIn = 'walkin',
   PreBook = 'prebook',
-  Reschedule = 'reschedule',
-  Virtual = 'virtual',
 }
 
 export type PatientInfo = {
   id?: string;
   newPatient?: boolean;
-  pointOfDiscovery: boolean; // if this info has been obtained, true & 'How did you hear about us' will not show
   firstName?: string;
   lastName?: string;
   dateOfBirth?: string;
   sex?: Patient['gender'];
   email?: string;
-  emailUser: UserType;
+  emailUser?: UserType;
   reasonForVisit?: string[];
   phoneNumber?: string;
+  pointOfDiscovery?: boolean;
 };

@@ -1,5 +1,4 @@
 import { Button } from '@mui/material';
-import mixpanel from 'mixpanel-browser';
 import { useContext, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { IntakeFlowPageRoute } from '../App';
@@ -8,10 +7,6 @@ import { IntakeDataContext } from '../store';
 
 const CancellationConfirmation = (): JSX.Element => {
   const { state } = useContext(IntakeDataContext);
-
-  useEffect(() => {
-    mixpanel.track('Cancellation Confirmation');
-  }, []);
 
   return (
     <CustomContainer

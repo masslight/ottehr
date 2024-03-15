@@ -1,8 +1,42 @@
-import { Appointment, Coding, Encounter, Patient, Resource, Location } from 'fhir/r4';
+import {
+  Appointment,
+  Coding,
+  Encounter,
+  Patient,
+  Resource,
+  Location,
+  CodeableConcept,
+  DocumentReference,
+  Consent,
+  Practitioner,
+  RelatedPerson,
+  Person,
+} from 'fhir/r4';
 import { PRIVATE_EXTENSION_BASE_URL } from './constants';
+import { FhirClient } from '@zapehr/sdk';
+import { OTTEHR_MODULE } from './moduleIdentification';
+import { VisitType } from '../types';
 
 export function getPatientFirstName(patient: Patient): string | undefined {
-  return patient.name?.[0]?.given?.[0];
+  return getFirstName(patient);
+}
+
+export function getPatientLastName(patient: Patient): string | undefined {
+  return getLastName(patient);
+}
+
+export function getFirstName(individual: Patient | Practitioner | RelatedPerson | Person): string | undefined {
+  return individual.name?.[0]?.given?.[0];
+}
+
+export function getLastName(individual: Patient | Practitioner | RelatedPerson | Person): string | undefined {
+  return individual.name?.[0]?.family;
+}
+
+export function getPractitionerNPI(practitioner: Practitioner): string | undefined {
+  return practitioner.identifier?.find((ident) => {
+    return ident.system === 'http://hl7.org.fhir/sid/us-npi';
+  })?.value;
 }
 
 export const codingsEqual = (coding1: Coding, coding2: Coding): boolean => {
@@ -64,7 +98,7 @@ export const findLocationForAppointment = (appointment: Appointment, locations: 
 
 export const findEncounterForAppointment = (
   appointment: Appointment,
-  encounters: Encounter[],
+  encounters: Encounter[]
 ): Encounter | undefined => {
   // Go through encounters and find the one with appointment
   return encounters.find(
@@ -76,7 +110,7 @@ export const findEncounterForAppointment = (
         }
         const [_, refId] = reference.split('/');
         return refId && refId === appointment.id;
-      }),
+      })
   );
 };
 
@@ -88,17 +122,12 @@ export const resourceHasTag = (resource: Resource, tag: Coding): boolean => {
 };
 
 export const isPrebookAppointment = (appointment: Appointment): boolean => {
-  const typeCoding = appointment.appointmentType?.coding ?? [];
-  return typeCoding.some((codable) => {
-    return codable.code === 'PREBOOK';
-  });
+  const typeCoding = appointment.appointmentType?.text;
+  return typeCoding === VisitType.PreBook;
 };
 
 export function getPatientContactEmail(patient: Patient): string | undefined {
   const formUser = patient.extension?.find((ext) => ext.url === `${PRIVATE_EXTENSION_BASE_URL}/form-user`)?.valueString;
-  if (formUser === 'Patient') {
-    return patient.telecom?.find((telecomTemp) => telecomTemp.system === 'email')?.value;
-  }
   if (formUser === 'Parent/Guardian') {
     return patient.contact
       ?.find(
@@ -106,12 +135,129 @@ export function getPatientContactEmail(patient: Patient): string | undefined {
           contactTemp.relationship?.find(
             (relationshipTemp) =>
               relationshipTemp.coding?.find(
-                (codingTemp) => codingTemp.system === `${PRIVATE_EXTENSION_BASE_URL}/relationship`,
-              ),
-          ),
+                (codingTemp) => codingTemp.system === `${PRIVATE_EXTENSION_BASE_URL}/relationship`
+              )
+          )
       )
       ?.telecom?.find((telecomTemp) => telecomTemp.system === 'email')?.value;
+  } else {
+    return patient.telecom?.find((telecomTemp) => telecomTemp.system === 'email')?.value;
+  }
+}
+
+export function getOtherOfficesForLocation(location: Location): { display: string; url: string }[] {
+  const rawExtensionValue = location?.extension?.find(
+    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/other-offices'
+  )?.valueString;
+  if (!rawExtensionValue) {
+    console.log("Location doesn't have other-offices extension");
+    return [];
   }
 
-  return undefined;
+  let parsedExtValue: { display: string; url: string }[] = [];
+  try {
+    parsedExtValue = JSON.parse(rawExtensionValue);
+  } catch (_) {
+    console.log('Location other-offices extension is formatted incorrectly');
+    return [];
+  }
+
+  return parsedExtValue;
 }
+
+export async function createDocumentReference(
+  docInfo: { contentURL: string; title: string; mimeType: string }[],
+  type: CodeableConcept,
+  dateCreated: string,
+  references: object,
+  fhirClient: FhirClient,
+  ottehrModule: OTTEHR_MODULE
+): Promise<DocumentReference> {
+  try {
+    console.log('creating new document reference resource');
+    const documentReference = await fhirClient.createResource<DocumentReference>({
+      resourceType: 'DocumentReference',
+      meta: {
+        tag: [{ code: ottehrModule }],
+      },
+      date: dateCreated,
+      status: 'current',
+      type: type,
+      content: docInfo.map((tempInfo) => {
+        return { attachment: { url: tempInfo.contentURL, contentType: tempInfo.mimeType, title: tempInfo.title } };
+      }),
+      ...references,
+    });
+
+    return documentReference;
+  } catch (error: unknown) {
+    throw new Error(`Failed to create DocumentReference resource: ${JSON.stringify(error)}`);
+  }
+}
+
+export async function createConsentResource(
+  patientID: string,
+  documentReferenceID: string,
+  dateTime: string,
+  fhirClient: FhirClient
+): Promise<Consent> {
+  try {
+    console.log('creating new consent resource');
+    const createdConsent = await fhirClient.createResource<Consent>({
+      resourceType: 'Consent',
+      dateTime: dateTime,
+      status: 'active',
+      patient: {
+        reference: `Patient/${patientID}`,
+      },
+      category: [
+        {
+          coding: [
+            {
+              system: 'http://terminology.hl7.org/CodeSystem/consentcategorycodes',
+              code: 'hipaa-ack',
+            },
+          ],
+        },
+        {
+          coding: [
+            {
+              system: 'http://terminology.hl7.org/CodeSystem/consentcategorycodes',
+              code: 'treat-guarantee',
+            },
+          ],
+        },
+      ],
+      policy: [
+        {
+          uri: 'https://ottehr.com',
+        },
+        {
+          uri: 'https://ottehr.com',
+        },
+      ],
+      sourceReference: {
+        reference: `DocumentReference/${documentReferenceID}`,
+      },
+      scope: {
+        coding: [
+          {
+            system: 'http://terminology.hl7.org/CodeSystem/consentscope',
+            code: 'patient-privacy',
+            display: 'Privacy Consent',
+          },
+          {
+            system: 'http://terminology.hl7.org/CodeSystem/consentscope',
+            code: 'treatment',
+            display: 'Treatment',
+          },
+        ],
+      },
+    });
+
+    return createdConsent;
+  } catch (error: unknown) {
+    throw new Error(`Failed to create Consent resource: ${JSON.stringify(error)}`);
+  }
+}
+

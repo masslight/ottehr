@@ -9,7 +9,6 @@ import {
 } from '@mui/icons-material';
 import { Box, CircularProgress, Divider, Grid, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import mixpanel from 'mixpanel-browser';
 import { useContext, useEffect, useState } from 'react';
 import { useZambdaClient } from 'ottehr-components';
 import { VisitType } from 'ottehr-utils';
@@ -37,10 +36,6 @@ const Appointments = (): JSX.Element => {
   const { state, dispatch } = useContext(IntakeDataContext);
   const [appointments, setAppointments] = useState<Appointment[] | undefined>(undefined);
   const zambdaClient = useZambdaClient({ tokenless: false });
-
-  useEffect(() => {
-    mixpanel.track('Appointments');
-  }, []);
 
   useEffect(() => {
     const updateState = (): void => {
