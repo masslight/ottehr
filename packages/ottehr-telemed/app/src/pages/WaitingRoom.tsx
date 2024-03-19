@@ -1,47 +1,44 @@
 import { Box, Typography } from '@mui/material';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { otherColors } from '../OttehrThemeProvider';
 import { CustomContainer, VideoControls } from '../components';
-import { useLocalVideo } from '../hooks';
 import { useParticipant, useVideoParticipant } from '../store';
+import { useLocalVideo, useRosterState, LocalVideo } from 'amazon-chime-sdk-component-library-react';
+
 export const WaitingRoom = (): JSX.Element => {
   const navigate = useNavigate();
 
-  const videoRef = useRef<HTMLDivElement | null>(null);
+  const { roster } = useRosterState();
+  const { isVideoEnabled, toggleVideo } = useLocalVideo();
+
   const { t } = useTranslation();
-  const { room, localTracks, setRemoteParticipantName } = useVideoParticipant();
   const { providerName } = useParticipant();
+  const { setRemoteParticipantName } = useVideoParticipant();
+
   const inVideoCallWorkflowRef = useRef(false);
-  useLocalVideo(videoRef, localTracks);
-  // localParticipant is not counted so we start with 1
-  const [numParticipants, setNumParticipants] = useState<number>(1);
-
-  const participantConnected = useCallback(() => {
-    setNumParticipants((prevNumParticipants: number) => prevNumParticipants + 1);
-  }, []);
-
-  const participantDisconnected = useCallback(() => {
-    setNumParticipants((prevNumParticipants: number) => prevNumParticipants - 1);
-  }, []);
+  const [numParticipants, setNumParticipants] = useState<number>(0);
 
   useEffect(() => {
-    if (room) {
-      room.on('participantConnected', participantConnected);
-      room.on('participantDisconnected', participantDisconnected);
-      room.participants.forEach(participantConnected);
-      setRemoteParticipantName(providerName);
-    }
-  }, [room, participantConnected, participantDisconnected, setRemoteParticipantName, providerName]);
+    const startLocalVideo = async (): Promise<void> => {
+      if (!isVideoEnabled) {
+        await toggleVideo();
+      }
+    };
+    void startLocalVideo();
+  }, [isVideoEnabled, toggleVideo]);
 
   // navigate to video call when provider joins
   useEffect(() => {
+    console.log('check if provider joined roster');
+    setNumParticipants(Object.keys(roster).length);
     if (numParticipants > 1) {
+      setRemoteParticipantName(providerName);
       inVideoCallWorkflowRef.current = true;
       navigate(`/video-call/`);
     }
-  }, [navigate, numParticipants, inVideoCallWorkflowRef]);
+  }, [navigate, numParticipants, inVideoCallWorkflowRef, roster, setRemoteParticipantName, providerName]);
 
   return (
     <CustomContainer isProvider={false} subtitle={providerName} title={t('general.waitingRoom')}>
@@ -82,19 +79,26 @@ export const WaitingRoom = (): JSX.Element => {
             transform: 'translate(-50%, 0)',
             zIndex: 2,
           }}
-        >
-          <VideoControls inCallRoom={false} localParticipant={room?.localParticipant} />
-        </Box>
-        <Box
-          ref={videoRef}
-          sx={{
-            height: '100%',
-            left: 0,
-            position: 'absolute',
-            top: 0,
-            width: '100%',
-          }}
-        />
+        ></Box>
+        {isVideoEnabled && (
+          <Box
+            sx={{
+              height: '100%',
+              left: 0,
+              position: 'absolute',
+              top: 0,
+              width: '100%',
+              '& video': {
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+              },
+            }}
+          >
+            <LocalVideo />
+          </Box>
+        )}
+        <VideoControls inCallRoom={false} />
       </Box>
     </CustomContainer>
   );

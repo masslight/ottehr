@@ -1,240 +1,153 @@
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMeetingManager, useAudioVideo } from 'amazon-chime-sdk-component-library-react';
 import {
-  Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControl,
-  Grid,
-  InputLabel,
-  MenuItem,
   Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
   SelectChangeEvent,
-  Typography,
 } from '@mui/material';
-import { FC, ReactNode, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  createLocalAudioTrack,
-  createLocalVideoTrack,
-  LocalAudioTrack,
-  LocalVideoTrack,
-  LocalParticipant,
-} from 'twilio-video';
-import { useDevices } from '../hooks';
-import { useVideoParticipant } from '../store';
-import MicIcon from '@mui/icons-material/Mic';
-import MicOffIcon from '@mui/icons-material/MicOff';
-import VideocamIcon from '@mui/icons-material/Videocam';
-import VideocamOffIcon from '@mui/icons-material/VideocamOff';
-import RestartAlt from '@mui/icons-material/RestartAlt';
+import { ConsoleLogger, DefaultDeviceController } from 'amazon-chime-sdk-js';
 
 interface CallSettingsProps {
-  localParticipant: LocalParticipant | undefined;
   onClose: () => void;
   open: boolean;
 }
 
-interface Device {
-  deviceId: string;
-  label: string;
-}
-
-interface DeviceSelectorProps {
-  devices: Device[];
-  handleChange: (e: SelectChangeEvent<string>) => void;
-  isOn?: boolean;
-  label: string;
-  selectedDevice: string;
-}
-
-const getDeviceIcon = (deviceType: string, isOn: boolean): ReactNode => {
-  switch (deviceType) {
-    case 'Camera':
-      return isOn ? <VideocamIcon fontSize="large" /> : <VideocamOffIcon fontSize="large" />;
-    case 'Microphone':
-      return isOn ? <MicIcon fontSize="large" /> : <MicOffIcon fontSize="large" />;
-    default:
-      return null;
-  }
-};
-
-const DeviceSelector: FC<DeviceSelectorProps> = ({ devices, selectedDevice, handleChange, label, isOn }) => (
-  <Grid container>
-    <Grid item xs={10}>
-      <FormControl fullWidth margin="normal" variant="outlined">
-        <InputLabel>{label}</InputLabel>
-        <Select label={label} onChange={handleChange} value={selectedDevice}>
-          {devices.map((device) => (
-            <MenuItem key={device.deviceId} value={device.deviceId}>
-              {device.label}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-    </Grid>
-    <Grid alignItems="center" container item justifyContent="flex-end" xs={2}>
-      {getDeviceIcon(label, isOn || false)}
-    </Grid>
-  </Grid>
-);
-
-export const CallSettings: FC<CallSettingsProps> = ({ localParticipant, onClose, open }) => {
-  const { audioInputDevices, videoInputDevices, audioOutputDevices } = useDevices();
-  const videoRef = useRef<HTMLDivElement | null>(null);
+export const CallSettings: FC<CallSettingsProps> = ({ onClose, open }) => {
+  const meetingManager = useMeetingManager();
+  const audioVideo = useAudioVideo();
   const { t } = useTranslation();
-  const { localTracks, setLocalTracks, selectedSpeaker, setSelectedSpeaker, isMicOpen, isVideoOpen } =
-    useVideoParticipant();
 
-  useEffect(() => {
-    let localVideoTrackCleanup: LocalVideoTrack | null = null;
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedVideoDevice, setSelectedVideoDevice] = useState('');
+  const [selectedAudioDevice, setSelectedAudioDevice] = useState('');
+  const videoPreviewRef = useRef<HTMLVideoElement>(null);
 
-    const attachVideo = (newTrack: LocalVideoTrack): void => {
-      if (videoRef.current) {
-        const videoElement = newTrack.attach();
-        videoElement.style.width = '100%';
-        videoElement.style.height = '100%';
-        videoRef.current.appendChild(videoElement);
-      }
-    };
-
-    const detachVideo = (): void => {
-      if (videoRef.current) {
-        videoRef.current.querySelectorAll('video').forEach((v) => v.remove());
-      }
-    };
-
-    if (open) {
-      createLocalVideoTrack()
-        .then((newTrack) => {
-          attachVideo(newTrack);
-          localVideoTrackCleanup = newTrack;
-        })
-        .catch((error) => console.error('Failed to create video track:', error));
-    }
-
-    return () => {
-      detachVideo();
-      if (localVideoTrackCleanup) {
-        localVideoTrackCleanup.stop();
-      }
-    };
-  }, [open]);
-
-  const [camera, setCamera] = useState<string>('');
-  const [microphone, setMicrophone] = useState<string>('');
-  const [speakers, setSpeakers] = useState<string>(selectedSpeaker || '');
-
-  const updateDevice = async (type: string, deviceId: string): Promise<void> => {
-    if (!localParticipant) return;
-
-    let newTrack;
-    switch (type) {
-      case 'audioInput':
-        newTrack = await createLocalAudioTrack({ deviceId: { exact: deviceId } });
-        break;
-      case 'videoInput':
-        newTrack = await createLocalVideoTrack({ deviceId: { exact: deviceId } });
-        break;
-      default:
-        return;
-    }
-
-    // Find the existing track of the same type and replace it
-    const existingTrackIndex = localTracks.findIndex((track) => track.kind === type.slice(0, -5));
-    if (existingTrackIndex !== -1) {
-      const existingTrack = localTracks[existingTrackIndex];
-      localParticipant.unpublishTrack(existingTrack);
-      existingTrack.stop();
-      localTracks.splice(existingTrackIndex, 1, newTrack as LocalAudioTrack | LocalVideoTrack);
-    } else {
-      localTracks.push(newTrack as LocalAudioTrack | LocalVideoTrack);
-    }
-
-    localParticipant.publishTrack(newTrack).catch((error) => console.error('Failed to publish track', error));
-    setLocalTracks([...localTracks]);
-  };
-
-  const handleCameraChange = (e: SelectChangeEvent<string>): void => {
-    const selectedCamera = e.target.value;
-    setCamera(selectedCamera);
-  };
-
-  const handleMicrophoneChange = (e: SelectChangeEvent<string>): void => {
-    const selectedMicrophone = e.target.value;
-    setMicrophone(selectedMicrophone);
-  };
-
-  const handleSpeakersChange = (e: SelectChangeEvent<string>): void => {
-    const selectedSpeakers = e.target.value;
-    setSpeakers(selectedSpeakers);
-  };
-
-  // TODO device labels translated without breaking video call functionality/back end submission
-  const deviceConfigs = [
-    {
-      devices: videoInputDevices,
-      handleChange: handleCameraChange,
-      isOn: isVideoOpen,
-      label: 'Camera',
-      selectedDevice: camera,
-    },
-    {
-      devices: audioInputDevices,
-      handleChange: handleMicrophoneChange,
-      isOn: isMicOpen,
-      label: 'Microphone',
-      selectedDevice: microphone,
-    },
-    {
-      devices: audioOutputDevices,
-      handleChange: handleSpeakersChange,
-      label: 'Speakers',
-      selectedDevice: speakers,
-    },
-  ];
+  const previewDeviceController = useMemo(() => {
+    const logger = new ConsoleLogger('preview');
+    return new DefaultDeviceController(logger);
+  }, []);
 
   const handleSave = async (): Promise<void> => {
-    if (camera) {
-      await updateDevice('videoInput', String(camera));
+    if (selectedVideoDevice) {
+      await audioVideo?.startVideoInput(selectedVideoDevice);
     }
-    if (microphone) {
-      await updateDevice('audioInput', String(microphone));
+    if (selectedAudioDevice) {
+      await audioVideo?.startAudioInput(selectedAudioDevice);
     }
-    if (speakers) {
-      setSelectedSpeaker(String(speakers));
-    }
+
     onClose();
   };
 
+  useEffect(() => {
+    const observer = {
+      audioInputsChanged: (freshAudioInputDevices: MediaDeviceInfo[]) => {
+        setAudioDevices(freshAudioInputDevices);
+      },
+      videoInputsChanged: (freshVideoInputDevices: MediaDeviceInfo[]) => {
+        setVideoDevices(freshVideoInputDevices);
+      },
+    };
+
+    meetingManager.audioVideo?.addDeviceChangeObserver(observer);
+
+    const initDevices = async (): Promise<void> => {
+      const videoInputDevices = (await meetingManager.audioVideo?.listVideoInputDevices()) ?? [];
+      const audioInputDevices = (await meetingManager.audioVideo?.listAudioInputDevices()) ?? [];
+
+      setVideoDevices(videoInputDevices);
+      setAudioDevices(audioInputDevices);
+
+      if (videoInputDevices.length > 0) {
+        setSelectedVideoDevice(videoInputDevices[0].deviceId);
+      }
+      if (audioInputDevices.length > 0) {
+        setSelectedAudioDevice(audioInputDevices[0].deviceId);
+      }
+    };
+
+    void initDevices();
+
+    return () => {
+      meetingManager.audioVideo?.removeDeviceChangeObserver(observer);
+    };
+  }, [meetingManager.audioVideo]);
+
+  const startVideoPreview = useCallback(
+    async (deviceId: string): Promise<void> => {
+      if (previewDeviceController && videoPreviewRef.current) {
+        await previewDeviceController.startVideoInput(deviceId);
+        previewDeviceController.startVideoPreviewForVideoInput(videoPreviewRef.current);
+      }
+    },
+    [previewDeviceController],
+  );
+
+  const handleVideoDeviceChange = async (event: SelectChangeEvent<string>): Promise<void> => {
+    const deviceId = event.target.value;
+    setSelectedVideoDevice(deviceId);
+
+    await startVideoPreview(deviceId);
+  };
+  const handleAudioDeviceChange = async (event: SelectChangeEvent<string>): Promise<void> => {
+    const deviceId = event.target.value;
+    setSelectedAudioDevice(deviceId);
+    await audioVideo?.startAudioInput(deviceId);
+  };
+
+  useEffect(() => {
+    if (open && selectedVideoDevice) {
+      // delay untill camera is ready
+      setTimeout(() => {
+        void startVideoPreview(selectedVideoDevice);
+      }, 200);
+    }
+  }, [open, selectedVideoDevice, startVideoPreview]);
+
   return (
-    <Dialog maxWidth="sm" onClose={onClose} open={open}>
-      <DialogTitle>{t('callSettings.callSettings')}</DialogTitle>
+    <Dialog open={open} onClose={onClose}>
+      <DialogTitle>Call Settings</DialogTitle>
       <DialogContent>
         {/* Camera preview */}
-        <Box
-          ref={videoRef}
-          sx={{
+        <video
+          ref={videoPreviewRef}
+          autoPlay
+          muted
+          playsInline
+          style={{
             height: '100%',
             width: '100%',
           }}
-        />
-        {/* Device selectors */}
-        {deviceConfigs.map((config, index) => (
-          <DeviceSelector
-            key={index}
-            devices={config.devices}
-            handleChange={config.handleChange}
-            isOn={config.isOn}
-            label={config.label}
-            selectedDevice={config.selectedDevice}
-          />
-        ))}
-        <Typography sx={{ mt: 2 }}>{t('callSettings.technicalIssues')}</Typography>
-        <Button startIcon={<RestartAlt />} variant="text">
-          {t('callSettings.restartCall')}
-        </Button>
+        ></video>
+        <FormControl fullWidth margin="normal">
+          <InputLabel>Camera</InputLabel>
+          <Select value={selectedVideoDevice} onChange={handleVideoDeviceChange} label="Camera">
+            {videoDevices.map((device) => (
+              <MenuItem key={device.deviceId} value={device.deviceId}>
+                {device.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl fullWidth margin="normal">
+          <InputLabel>Microphone</InputLabel>
+          <Select value={selectedAudioDevice} onChange={handleAudioDeviceChange} label="Microphone">
+            {audioDevices.map((device) => (
+              <MenuItem key={device.deviceId} value={device.deviceId}>
+                {device.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </DialogContent>
       <DialogActions sx={{ alignItems: 'center', justifyContent: 'flex-end', padding: '16px 24px' }}>
         <Button onClick={onClose} sx={{ marginRight: 1 }} variant="text">

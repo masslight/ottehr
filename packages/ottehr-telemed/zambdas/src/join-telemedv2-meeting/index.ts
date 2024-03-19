@@ -5,15 +5,15 @@ import fetch from 'node-fetch';
 import { createZambdaFromSkeleton } from '../shared/zambdaSkeleton';
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  return createZambdaFromSkeleton(input, getTelemedToken);
+  return createZambdaFromSkeleton(input, joinTelemedMeeting);
 };
-interface getTelemedTokenInput {
+interface joinTelemedMeetingInput {
   encounterId: string;
 }
 
-export const getTelemedToken = async (input: ZambdaFunctionInput): Promise<ZambdaFunctionResponse> => {
+export const joinTelemedMeeting = async (input: ZambdaFunctionInput): Promise<ZambdaFunctionResponse> => {
   const { body, secrets } = input;
-  const { encounterId } = body as getTelemedTokenInput;
+  const { encounterId } = body as joinTelemedMeetingInput;
   console.log('body', body);
 
   const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
@@ -22,7 +22,7 @@ export const getTelemedToken = async (input: ZambdaFunctionInput): Promise<Zambd
   const token = await getAuth0Token(secrets);
   console.log('token', token);
 
-  const response = await fetch(`${PROJECT_API}/telemed/token?encounterId=${encounterId}`, {
+  const response = await fetch(`${PROJECT_API}/telemed/v2/meeting/${encounterId}/join`, {
     headers: {
       Authorization: `Bearer ${token}`,
       'content-type': 'application/json',
@@ -35,12 +35,11 @@ export const getTelemedToken = async (input: ZambdaFunctionInput): Promise<Zambd
   }
 
   const responseData = await response.json();
-  const twilioToken = responseData.token;
   console.log('responseData', responseData);
 
   return {
     response: {
-      token: twilioToken,
+      joinInfo: responseData,
     },
   };
 };

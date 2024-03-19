@@ -42,8 +42,7 @@ export async function getM2MUserProfile(token: string, secrets: Secrets | null):
   }
 }
 
-// Hard coded for testing until authentication is ready
-export const createRoomEncounter = (
+export const createTelemedEncounter = (
   providerProfile: string,
   providerName: string,
   deviceProfile: string,

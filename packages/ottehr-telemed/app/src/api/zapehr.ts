@@ -43,6 +43,27 @@ export async function createTelemedRoom(
   }
 }
 
+export async function createTelemedMeeting(
+  patientName: string,
+  practitionerId: string,
+  practitionerName: string,
+): Promise<ZambdaFunctionResponse['response']> {
+  try {
+    const CREATE_TELEMED_MEETING_ZAMBDA_ID = import.meta.env.VITE_CREATE_TELEMED_MEETING_ZAMBDA_ID;
+    const responseBody = await callZambda({
+      body: { patientName, practitionerId, practitionerName },
+      zambdaId: CREATE_TELEMED_MEETING_ZAMBDA_ID,
+    });
+
+    const encounter: Encounter | undefined = responseBody.response?.encounter;
+
+    return encounter;
+  } catch (error) {
+    console.error('Error fetching encounter:', error);
+    return { error: 10_001 };
+  }
+}
+
 export async function getSlugAvailability(slug: string | undefined): Promise<ZambdaFunctionResponse> {
   try {
     const GET_SLUG_AVAILABILITY_ZAMBDA_ID = import.meta.env.VITE_GET_SLUG_AVAILABILITY_ZAMBDA_ID;
@@ -76,9 +97,12 @@ export async function getPatientQueue(
   }
 }
 
-export async function getProviderTelemedToken(encounterId: string, accessToken: string): Promise<string | null> {
+export async function joinAsProviderTelemedMeeting(
+  encounterId: string,
+  accessToken: string,
+): Promise<ZambdaFunctionResponse['response']> {
   try {
-    const response = await fetch(`${PROJECT_API_URL}/telemed/token?encounterId=${encounterId}`, {
+    const response = await fetch(`${PROJECT_API_URL}/telemed/v2/meeting/${encounterId}/join`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         'content-type': 'application/json',
@@ -92,28 +116,27 @@ export async function getProviderTelemedToken(encounterId: string, accessToken: 
 
     const responseData = await response.json();
     console.log('responseData', responseData);
-    const twilioToken = responseData.token;
-    return twilioToken;
+    return responseData;
   } catch (error) {
-    console.error('Error fetching token:', error);
-    return null;
+    console.error('Error joining meeting:', error);
+    return { error: 10_001 };
   }
 }
 
-export async function getTelemedToken(encounterId: string): Promise<string | null> {
+export async function joinTelemedMeeting(encounterId: string): Promise<ZambdaFunctionResponse['response']> {
   try {
-    const GET_TELEMED_TOKEN_ZAMBDA_ID = import.meta.env.VITE_GET_TELEMED_TOKEN_ZAMBDA_ID;
+    const JOIN_TELEMED_MEETING_ZAMBDA_ID = import.meta.env.VITE_JOIN_TELEMED_MEETING_ZAMBDA_ID;
 
     const responseBody = await callZambda({
       body: { encounterId },
-      zambdaId: GET_TELEMED_TOKEN_ZAMBDA_ID,
+      zambdaId: JOIN_TELEMED_MEETING_ZAMBDA_ID,
     });
 
-    const token = responseBody.response?.token;
-    return token;
+    const response = responseBody.response;
+    return response;
   } catch (error) {
-    console.error('Error fetching token:', error);
-    return null;
+    console.error('Error joining meeting:', error);
+    return { error: 10_001 };
   }
 }
 

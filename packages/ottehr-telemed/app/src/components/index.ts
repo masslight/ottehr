@@ -9,7 +9,6 @@ export * from './ProviderFields';
 export * from './ScrollToTop';
 export * from './TopAppBar';
 export * from './VideoControls';
-export * from './VideoParticipant';
 export * from './VideoRoom';
 export * from './ZapEHRLogo';
 export * from './ProviderRoute';

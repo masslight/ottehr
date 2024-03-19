@@ -5,25 +5,29 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import Box from '@mui/material/Box';
-import { Dispatch, FC, SetStateAction, useContext, useState } from 'react';
+import { FC, useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LocalParticipant } from 'twilio-video';
 import { otherColors } from '../OttehrThemeProvider';
 import { DataContext, useVideoParticipant } from '../store';
 import { CallSettings } from './CallSettings';
 import { useAuth0 } from '@auth0/auth0-react';
+import { useLocalVideo, useMeetingManager, useToggleLocalMute } from 'amazon-chime-sdk-component-library-react';
 
 interface VideoControlsProps {
   inCallRoom: boolean;
-  localParticipant: LocalParticipant | undefined;
 }
 
-export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom, localParticipant }) => {
+export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom }) => {
   const navigate = useNavigate();
-  const { cleanup, isMicOpen, isVideoOpen, localTracks, room, setIsMicOpen, setIsVideoOpen } = useVideoParticipant();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { state } = useContext(DataContext);
   const { isAuthenticated } = useAuth0();
+  const { cleanup } = useVideoParticipant();
+
+  const { toggleVideo, isVideoEnabled } = useLocalVideo();
+  const { muted, toggleMute } = useToggleLocalMute();
+
+  const meetingManager = useMeetingManager();
 
   const openSettings = (): void => {
     setIsSettingsOpen(true);
@@ -34,8 +38,8 @@ export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom, localPartici
   };
 
   const disconnect = (): void => {
-    cleanup();
     if (isAuthenticated) {
+      console.log('disconnecting', meetingManager.meetingSession?.configuration.externalMeetingId);
       state.fhirClient
         ?.patchResource({
           operations: [
@@ -45,40 +49,23 @@ export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom, localPartici
               value: 'finished',
             },
           ],
-          resourceId: room?.name || '',
+          resourceId: meetingManager.meetingSession?.configuration.externalMeetingId || '',
           resourceType: 'Encounter',
         })
         .catch((err) => {
           console.error(err);
         });
+      cleanup();
       navigate('/provider-post-call', {
         state: {
           isProvider: true,
         },
       });
     } else {
+      cleanup();
       navigate('/patient-post-call');
     }
   };
-
-  const toggleTrack = (kind: 'audio' | 'video', setState: Dispatch<SetStateAction<boolean>>): void => {
-    if (!localParticipant) return;
-
-    const tracks = localTracks.filter((track) => track.kind === kind);
-
-    tracks.forEach((localTrack) => {
-      if (localTrack.isEnabled) {
-        localTrack.disable();
-        setState(false);
-      } else {
-        localTrack.enable();
-        setState(true);
-      }
-    });
-  };
-
-  const toggleMic = (): void => toggleTrack('audio', setIsMicOpen);
-  const toggleVideo = (): void => toggleTrack('video', setIsVideoOpen);
 
   return (
     <>
@@ -99,15 +86,15 @@ export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom, localPartici
           transform: 'translate(-50%, 0)',
         }}
       >
-        {isVideoOpen ? (
+        {isVideoEnabled ? (
           <VideocamIcon onClick={toggleVideo} sx={{ color: 'white' }} />
         ) : (
           <VideocamOffIcon onClick={toggleVideo} sx={{ color: 'white' }} />
         )}
-        {isMicOpen ? (
-          <MicIcon onClick={toggleMic} sx={{ color: 'white' }} />
+        {muted ? (
+          <MicOffIcon onClick={toggleMute} sx={{ color: 'white' }} />
         ) : (
-          <MicOffIcon onClick={toggleMic} sx={{ color: 'white' }} />
+          <MicIcon onClick={toggleMute} sx={{ color: 'white' }} />
         )}
         <SettingsIcon onClick={openSettings} sx={{ color: 'white' }} />
         {inCallRoom && (
@@ -126,7 +113,7 @@ export const VideoControls: FC<VideoControlsProps> = ({ inCallRoom, localPartici
           </Box>
         )}
       </Box>
-      <CallSettings localParticipant={localParticipant} onClose={closeSettings} open={isSettingsOpen} />
+      <CallSettings onClose={closeSettings} open={isSettingsOpen} />
     </>
   );
 };

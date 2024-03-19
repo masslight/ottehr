@@ -1,22 +1,22 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { createRoomEncounter, SecretsKeys, getAuth0Token, getM2MUserProfile, getSecret } from '../shared';
+import { createTelemedEncounter, SecretsKeys, getAuth0Token, getM2MUserProfile, getSecret } from '../shared';
 import { createZambdaFromSkeleton } from '../shared/zambdaSkeleton';
 import fetch from 'node-fetch';
 import { ZambdaFunctionInput, ZambdaFunctionResponse, ZambdaInput } from '../types';
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  return createZambdaFromSkeleton(input, createTelemedRoom);
+  return createZambdaFromSkeleton(input, createTelemedMeeting);
 };
 
-interface createTelemedRoomInput {
+interface createTelemedMeetingInput {
   patientName: string;
   practitionerId: string;
   practitionerName: string;
 }
 
-const createTelemedRoom = async (input: ZambdaFunctionInput): Promise<ZambdaFunctionResponse> => {
+const createTelemedMeeting = async (input: ZambdaFunctionInput): Promise<ZambdaFunctionResponse> => {
   const { body, secrets } = input;
-  const { patientName, practitionerId, practitionerName } = body as createTelemedRoomInput;
+  const { patientName, practitionerId, practitionerName } = body as createTelemedMeetingInput;
 
   const providerProfile = `Practitioner/${practitionerId}`;
   const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
@@ -27,9 +27,9 @@ const createTelemedRoom = async (input: ZambdaFunctionInput): Promise<ZambdaFunc
 
   const m2mUserProfile = await getM2MUserProfile(token, secrets);
 
-  const encounter = createRoomEncounter(providerProfile, practitionerName, m2mUserProfile, patientName);
+  const encounter = createTelemedEncounter(providerProfile, practitionerName, m2mUserProfile, patientName);
 
-  const response = await fetch(`${PROJECT_API}/telemed/room`, {
+  const response = await fetch(`${PROJECT_API}/telemed/v2/meeting`, {
     body: JSON.stringify(encounter),
     headers: {
       Authorization: `Bearer ${token}`,
