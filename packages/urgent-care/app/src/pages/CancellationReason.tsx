@@ -1,4 +1,3 @@
-import mixpanel from 'mixpanel-browser';
 import { useContext, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useZambdaClient, PageForm } from 'ottehr-components';
@@ -18,10 +17,6 @@ const CancellationReason = (): JSX.Element => {
   const [loading, setLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const { id: appointmentID } = useParams();
-
-  useEffect(() => {
-    mixpanel.track('Cancellation Reason');
-  }, []);
 
   const onSubmit = async (data: { cancellationReason: string }): Promise<void> => {
     if (!zambdaClient) {

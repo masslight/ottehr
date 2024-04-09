@@ -15,6 +15,7 @@ export function getPatchBinary(input: GetPatchBinaryInput): BatchInputRequest {
     url: `/${resourceType}/${resourceId}`,
     resource: {
       resourceType: 'Binary',
+      // data is handled due to bug with non latin1 characters
       data: btoa(unescape(encodeURIComponent(JSON.stringify(patchOperations)))),
       contentType: 'application/json-patch+json',
     },
@@ -62,4 +63,33 @@ export const getPatchOperationForNewMetaTag = (resource: Resource, newTag: Codin
       value: newTag,
     };
   }
+};
+
+export const getPatchOperationToRemoveMetaTags = (resource: Resource, tagsToRemove: Coding[]): Operation => {
+  if (resource.meta == undefined) {
+    return {
+      op: 'add',
+      path: '/meta',
+      value: {
+        tag: [],
+      },
+    };
+  } else if (resource.meta?.tag == undefined) {
+    return {
+      op: 'add',
+      path: '/meta/tag',
+      value: [],
+    };
+  }
+  const currentTags = resource.meta?.tag ?? [];
+  const filtered = currentTags.filter((coding) => {
+    return !tagsToRemove.some((ttr) => {
+      return ttr.code === coding.code && ttr.system === coding.system;
+    });
+  });
+  return {
+    op: 'replace',
+    path: '/meta/tag',
+    value: filtered,
+  };
 };

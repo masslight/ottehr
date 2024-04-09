@@ -51,7 +51,7 @@ const Welcome = (): JSX.Element => {
     if (appointmentID) {
       updateAppointmentID(appointmentID, dispatch);
     }
-    if (visitType === VisitType.WalkIn || visitType === VisitType.PreBook || visitType === VisitType.Reschedule) {
+    if (visitType === VisitType.WalkIn || visitType === VisitType.PreBook) {
       localStorage.setItem('visitType', visitType);
       localStorage.setItem('slug', locationSlug ?? '');
     } else if (!localStorage.getItem('visitType')) {
@@ -148,7 +148,7 @@ const Welcome = (): JSX.Element => {
   }, [checkInIfAppointmentBooked, visitType]);
 
   const getCustomContainerText = (): CustomContainerText => {
-    if (state.appointmentID && visitType === VisitType.Reschedule) {
+    if (state.appointmentID) {
       return { title: 'Modify check-in time', subtext: 'Please select a new check-in time.' };
     } else if (visitType === VisitType.PreBook) {
       return { title: 'Welcome to Ottehr' };
@@ -223,17 +223,6 @@ const Welcome = (): JSX.Element => {
             </Link>
             .
           </Typography>
-        </>
-      )}
-      {visitType === VisitType.Reschedule && (
-        <>
-          <Schedule
-            slotData={slotData}
-            slotsLoading={locationLoading}
-            backButton={true}
-            submitLabelAdjective={'Modify to'}
-            timezone={locObjJson?.timezone || 'America/New_York'}
-          />
         </>
       )}
       {visitType === VisitType.WalkIn &&

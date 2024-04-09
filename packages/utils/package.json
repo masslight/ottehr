@@ -12,11 +12,11 @@
     "test": "vitest",
     "coverage": "vitest run --coverage"
   },
+  "dependencies": {
+    "@zapehr/sdk": "^1.0.15",
+    "axios": "1.6.2"
+  },
   "devDependencies": {
     "vite": "^4.3.9"
-  },
-  "dependencies": {
-    "@zapehr/sdk": "1.0.15",
-    "axios": "1.6.2"
   }
 }
