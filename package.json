@@ -10,7 +10,7 @@
     "ehr:start": "pnpm --filter 'ottehr-ehr-*' --stream=true start:local",
     "uc:start": "turbo start --filter=ottehr-urgent-care-zambdas --filter=ottehr-urgent-care-intake-ui",
     "telemed-v1:start": "pnpm --filter 'ottehr-telemed-*' --stream=true start:local",
-    "telemed:start": "pnpm --filter 'ottehr-urgent-care-*' --filter 'ottehr-ehr-*' --stream=true start:local",
+    "telemed:start": "pnpm --filter 'telemed-*' --stream=true start:local",
     "start:local": "pnpm --filter 'ottehr-*' --stream=true start:local",
     "start:telemed-ehr": "pnpm --filter 'telemed-ehr*' --stream=true start:local",
     "start:dev": "pnpm recursive run start:dev",
