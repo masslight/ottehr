@@ -17,7 +17,6 @@ import { Operation } from 'fast-json-patch';
 import { DateTime } from 'luxon';
 import { getRelatedPersonForPatient } from '../shared/auth';
 import { getEncounterForAppointment } from '../shared/getEncounterDetails';
-import { createConsentItems } from '../shared/pdfUtils';
 import {
   PRIVATE_EXTENSION_BASE_URL,
   getPatchOperationForNewMetaTag,

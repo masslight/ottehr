@@ -134,18 +134,10 @@ To proceed with this setup guide, it is assumed that you have access to a ZapEHR
 
 Before proceeding, ensure that you have [Node.js](#node) v18.x and [pnpm](#installing-pnpm) installed on your machine.
 
-Once these dependencies are in place, execute the setup script from the root directory.
-
-If you would like to set up Ottehr Intake and Ottehr EHR:
+Once these dependencies are in place, enter the following command from the root directory.
 
 ```bash
-sh scripts/interactive-setup.sh
-```
-
-If you would like to set up Ottehr telehealth:
-
-```bash
-sh scripts/setup.sh
+sh scripts/telemed-setup.sh
 ```
 
 For a sample guide of setting up Ottehr Telemedicine, please check [getting started with ottehr](https://youtu.be/NJzF9Nzhbeo).
@@ -156,22 +148,12 @@ The script will prompt you for the following information:
 * Your project ID: Find this on the [ZapEHR project details page](https://console.zapehr.com/project).
 * Your first provider email: This can be your email address.
 
-Once the program finishes running:
-
-### Ottehr Intake and Ottehr EHR
+Once the program finishes running,
 
 1. The Intake and EHR websites will open.
 1. To log in to the EHR, enter the email you input during the setup program. Click `Forgot password?` and set a password then log in.
 
-### Ottehr telehealth
-
-1. Locate the reset password link in the console output and visit the provided URL in your browser to set a password.
-1. Go to `http://localhost:5173/dashboard` and log in using the email provided to the script and the chosen password.
-1. Open a new tab and visit the waiting room URL, as output in the script logs (e.g., `http://localhost:5173/{uuid}`).
-1. Enter your name as the patient, initiate the call, and grant video/audio permissions.
-1. Accept the call from your provider tab.
-
-You should now be in a video call with yourself.
+The URL for a test location is http://localhost:3015/location/testing/prebook.
 
 ## Scripts
 

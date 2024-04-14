@@ -2,10 +2,6 @@ import { AppClient, ClientConfig, FhirClient, MessagingClient, Z3Client } from '
 import { Appointment, Extension } from 'fhir/r4';
 import { DateTime } from 'luxon';
 
-export function formatDate(date: DateTime): string {
-  return `${date.toISO()}`;
-}
-
 export function createFhirClient(token: string, fhirAPI: string): FhirClient {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
   const CLIENT_CONFIG: ClientConfig = {
@@ -59,9 +55,9 @@ export function getAppointmentConfirmationMessage(
   appointmentID: string,
   locationName: string,
   startTime: string,
-  websiteURL: string,
+  websiteURL: string
 ): string {
-  return `You're confirmed! Thanks for choosing Ottehr Urgent Care! Your check-in time at ${locationName} is on ${startTime}. To edit your paperwork or modify/cancel your check-in, please visit: ${websiteURL}/appointment/${appointmentID}`;
+  return `You're confirmed! Thanks for choosing Ottehr Urgent Care! Your check-in time at ${locationName} is on ${startTime}. Please complete your paperwork in advance to save time at check-in. To complete paperwork or modify/cancel your check-in, visit: ${websiteURL}/appointment/${appointmentID}`;
 }
 
 export function checkValidBookingTime(slotTime: string): boolean {
@@ -90,6 +86,17 @@ export function formatPhoneNumber(phoneNumber: string): string {
   } else {
     throw new Error('Failed to format phone number');
   }
+}
+
+export function formatPhoneNumberDisplay(phoneNumber: string): string {
+  const cleaned = ('' + phoneNumber).replace(/\D/g, '');
+  const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+
+  if (match) {
+    return `(${match[1]}) ${match[2]}-${match[3]}`;
+  }
+
+  return phoneNumber;
 }
 
 const getExtensionStartTimeValue = (extension: Extension): string | undefined =>

@@ -1,0 +1,4 @@
+.serverless
+.esbuild
+.env
+consent-forms-*.pdf

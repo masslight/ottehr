@@ -1,0 +1,20 @@
+{
+  "WEBSITE_URL": "http://localhost:3002",
+  "AUTH0_ENDPOINT": "https://auth.zapehr.com/oauth/token",
+  "URGENT_CARE_AUTH0_CLIENT": "",
+  "URGENT_CARE_AUTH0_SECRET": "",
+  "URGENT_CARE_MESSAGING_DEVICE_ID": "",
+  "URGENT_CARE_MESSAGING_M2M_CLIENT": "",
+  "URGENT_CARE_MESSAGING_M2M_SECRET": "",
+  "AUTH0_AUDIENCE": "https://api.zapehr.com",
+  "FHIR_API": "https://fhir-api.zapehr.com/r4",
+  "PROJECT_API": "https://project-api.zapehr.com/v1",
+  "ENVIRONMENT": "local",
+  "SENDGRID_API_KEY": "",
+  "SENDGRID_EMAIL_BCC": "pmp-support@masslight.com",
+  "SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID": "",
+  "SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID": "",
+  "URGENT_CARE_SENDGRID_ERROR_EMAIL_TEMPLATE_ID": "",
+  "PM_PEDIATRIC_CARE_ORGANIZATION_ID": ""
+}
+
