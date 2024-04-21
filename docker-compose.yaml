@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  ottehr:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3015:3015"
+    environment:
+      ZAP_EHR_TOKEN: $eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlRRc2xGbWlRX01ZTzg4Z3BRUnlvRCJ9.eyJpc3MiOiJodHRwczovL2F1dGguemFwZWhyLmNvbS8iLCJzdWIiOiJhdXRoMHw2NjE2YWU0NGNmNjhjZTBjMTVjMDIwOTciLCJhdWQiOlsiaHR0cHM6Ly9hcGkuemFwZWhyLmNvbSIsImh0dHBzOi8vemFwZWhyLnVzLmF1dGgwLmNvbS91c2VyaW5mbyJdLCJpYXQiOjE3MTM3MjkzNzgsImV4cCI6MTcxMzgxNTc3OCwic2NvcGUiOiJvcGVuaWQgcHJvZmlsZSBlbWFpbCIsImF6cCI6Im8zcnN6bDJuS0k2STFhSDZzYmw4ZEZyRmdNVkcyaU1jIn0.ok1ngIyWE2cvAL1I-1_69Xq7HEVWlm6kD9EGEmCitlpk6H0wKNcUXqB5_4PBPOncVCSTS7ZYxB26xKE1pmAdRaa41DvIWl1umN_SBfT-3T1aQHweKzr0KYdgkGEbMZPOfEceuG__hKpaOK3JtRzI6V84QTTimt1UxrdoFvd-9wRiBCrZC-8ozkjpS1i6TvOb4isrFXReUhtfK5Q2T04cFRsfHIOmSy5TKGoHsETmxhuB39T1PuXDm2B3-lPs_g4JhdupoqnUa2ph3nLDryXmWDXRMcBG3qDRLpnYrf34bd2Os8O4dNhJ8hyjs6aZfus4omfF2izfiH3-wb6BnSC1wQ
+      PROJECT_ID: $b9808160-d811-44a0-9ac4-d42e618af478
+    volumes:
+      - .:/app
+    command: pnpm start
