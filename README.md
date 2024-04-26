@@ -34,8 +34,8 @@ Ottehr is a modern, modular EHR that began as a reference implementation for [Za
 
 Ottehr currently has a few components. Two, **Ottehr Urgent Care Intake** and **Ottehr Telemedicine Intake**, are for patients to make appointments. Another is **Ottehr EHR**, for staff to work with appointments. **Ottehr Elements** includes components for building health software.
 
-* **[Ottehr Urgent Care Intake](packages/urgent-care):** A patient-facing registration website for creating appointments, with features including rescheduling, checking in, sending text messages and emails, and listing appointments for an account
-* **[Ottehr Telemedicine Intake](packages/telemed/):** Another registration website for patients made for telemedicine, with features including creating appointments and joining a call
+* **[Ottehr Urgent Care Intake](packages/urgent-care-intake):** A patient-facing registration website for creating appointments, with features including rescheduling, checking in, sending text messages and emails, and listing appointments for an account
+* **[Ottehr Telemedicine Intake](packages/telemed-intake):** Another registration website for patients made for telemedicine, with features including creating appointments and joining a call
 * **[Ottehr EHR](packages/telemed-ehr/):**  A staff-facing EHR for managing appointments created through the patient website, with features including checking appointments, texting patients, updating a location's slots, and setting a location's schedule
 * **[Ottehr Elements](packages/ottehr-components/):**  A components React library for creating healthcare applications
 
