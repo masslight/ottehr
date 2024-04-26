@@ -152,7 +152,7 @@ function createZambdaLocalEnvFile(
     ORGANIZATION_ID: organizationId,
   };
 
-  const envFolderPath = 'packages/telemed/zambdas/.env';
+  const envFolderPath = 'packages/telemed-intake/zambdas/.env';
   const envPath = path.join(envFolderPath, 'local.json');
   const envTemplatePath = path.join(envFolderPath, 'local.template.json');
 
@@ -169,8 +169,8 @@ function createZambdaLocalEnvFile(
 }
 
 function createAppLocalEnvFile(clientId: string): string {
-  const envTemplatePath = 'packages/telemed/app/env/.env.local-template';
-  const envPath = 'packages/telemed/app/env/.env.local';
+  const envTemplatePath = 'packages/telemed-intake/app/env/.env.local-template';
+  const envPath = 'packages/telemed-intake/app/env/.env.local';
 
   // Read the template file
   const templateData = fs.readFileSync(envTemplatePath, 'utf8');

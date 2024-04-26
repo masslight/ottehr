@@ -1,0 +1,22 @@
+{
+  "name": "ehr-utils",
+  "private": true,
+  "version": "0.0.1",
+  "main": "lib/main.ts",
+  "types": "lib/main.ts",
+  "scripts": {
+    "start": "vite",
+    "build": "tsc && vite build",
+    "lint": "eslint lib --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview",
+    "test": "vitest",
+    "coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "ottehr-utils": "*"
+  },
+  "devDependencies": {
+    "@types/fhir": "^0.0.37",
+    "vite": "^4.3.9"
+  }
+}

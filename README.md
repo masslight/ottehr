@@ -39,8 +39,6 @@ Ottehr currently has a few components. Two, **Ottehr Urgent Care Intake** and **
 * **[Ottehr EHR](packages/telemed-ehr/):**  A staff-facing EHR for managing appointments created through the patient website, with features including checking appointments, texting patients, updating a location's slots, and setting a location's schedule
 * **[Ottehr Elements](packages/ottehr-components/):**  A components React library for creating healthcare applications
 
-To set up the first two components, we have a setup program you can run.
-
 ## First Time Setup
 
 To run Ottehr for the first time, you need to set up the project.

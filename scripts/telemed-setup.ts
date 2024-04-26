@@ -1,7 +1,7 @@
 import inquirer from 'inquirer';
 import fetch from 'node-fetch';
 import { setupEHR } from '../packages/telemed-ehr/zambdas/scripts/setup';
-import { setupIntake } from '../packages/telemed/zambdas/scripts/setup';
+import { setupIntake } from '../packages/telemed-intake/zambdas/scripts/setup';
 
 const projectApiUrl = 'https://project-api.zapehr.com/v1';
 

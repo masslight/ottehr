@@ -38,7 +38,7 @@ jobs:
         run: cp packages/ehr/zambdas/.env/local.template.json packages/ehr/zambdas/.env/dev.json
 
       - name: Set the urgent-care/zambdas/.env/dev.json
-        run: cp packages/urgent-care/zambdas/.env/local.template.json packages/urgent-care/zambdas/.env/dev.json
+        run: cp packages/urgent-care-intake/zambdas/.env/local.template.json packages/urgent-care-intake/zambdas/.env/dev.json
 
       - id: get-store-path
         run: echo STORE_PATH=$(pnpm store path) >> $GITHUB_OUTPUT

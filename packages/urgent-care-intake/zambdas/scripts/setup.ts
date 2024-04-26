@@ -153,7 +153,7 @@ function createZambdaLocalEnvFile(
     PROJECT_ID: projectId,
   };
 
-  const envFolderPath = 'packages/urgent-care/zambdas/.env';
+  const envFolderPath = 'packages/urgent-care-intake/zambdas/.env';
   const envPath = path.join(envFolderPath, 'local.json');
   const envTemplatePath = path.join(envFolderPath, 'local.template.json');
 
@@ -170,8 +170,8 @@ function createZambdaLocalEnvFile(
 }
 
 function createAppLocalEnvFile(clientId: string): string {
-  const envTemplatePath = 'packages/urgent-care/app/env/.env.local-template';
-  const envPath = 'packages/urgent-care/app/env/.env.local';
+  const envTemplatePath = 'packages/urgent-care-intake/app/env/.env.local-template';
+  const envPath = 'packages/urgent-care-intake/app/env/.env.local';
 
   // Read the template file
   const templateData = fs.readFileSync(envTemplatePath, 'utf8');
