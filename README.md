@@ -32,7 +32,7 @@ Ottehr is a modern, modular EHR that began as a reference implementation for [Za
 
 ## Setup
 
-Ottehr currently has a few components. Two, **Ottehr Urgent Care Intake** and **Ottehr Telemedicine Intake**, are for patients to make appointments. Another is **Ottehr EHR**, for staff to work with appointments. **Ottehr Elements** includes components for building health software.
+Ottehr currently has a few components. Two, **Ottehr Scheduled In-Person Intake** and **Ottehr Unscheduled Telemedicine Intake**, are for patients to make appointments. Another is **Ottehr EHR**, for staff to work with appointments. **Ottehr Elements** includes components for building health software.
 
 * **[Ottehr Scheduled In-Person Intake](packages/urgent-care-intake):** A patient-facing registration website for creating appointments, with features including rescheduling, checking in, sending text messages and emails, and listing appointments for an account
 * **[Ottehr Unscheduled Telemedicine Intake](packages/telemed-intake):** Another registration website for patients made for telemedicine to help patients join calls with providers
