@@ -146,7 +146,7 @@ The script will prompt you for the following information:
 
 * Your access token: Log in to your [ZapEHR project](https://console.zapehr.com), and copy the access token from the dashboard.
 * Your project ID: Find this on the [ZapEHR project details page](https://console.zapehr.com/project).
-* Your first provider email: This can be your email address.
+* Your first provider email: Tporthis can be your email address.
 
 Once the program finishes running,
 
