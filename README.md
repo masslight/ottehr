@@ -32,14 +32,12 @@ Ottehr is a modern, modular EHR that began as a reference implementation for [Za
 
 ## Setup
 
-Ottehr currently has a few components:
+Ottehr currently has a few components. Two, **Ottehr Scheduled In-Person Intake** and **Ottehr Unscheduled Telemedicine Intake**, are for patients to make appointments. Another is **Ottehr EHR**, for staff to work with appointments. **Ottehr Elements** includes components for building health software.
 
-* **Ottehr Intake:** A patient-facing registration website for creating appointments, with features including rescheduling, checking in, sending text messages and emails, and listing appointments for an account
-* **Ottehr EHR:**  A staff-facing EHR for managing appointments created through the patient website, with features including checking appointments, texting patients, updating a location's slots, and setting a location's schedule
-* **Ottehr Telemedicine:**  A telemedicine website for creating appointments with patients and creating calls
-* **Ottehr Elements:**  A components React library for creating healthcare applications
-
-To set up the first two components, we have a setup program you can run.
+* **[Ottehr Scheduled In-Person Intake](packages/urgent-care-intake):** A patient-facing registration website for creating appointments, with features including rescheduling, checking in, sending text messages and emails, and listing appointments for an account
+* **[Ottehr Unscheduled Telemedicine Intake](packages/telemed-intake):** Another registration website for patients made for telemedicine to help patients join calls with providers
+* **[Ottehr EHR](packages/telemed-ehr/):** A staff-facing EHR for managing appointments created through the In-Person or Telemedicine intake websites, with features including checking appointments, managing patient queues, texting patients, updating a location's slots, setting a location's schedule, joining telemedicine calls, HPI and medical history, exam charting, eRx and Assessment, patient plan, coming soon: RCM and claims submission
+* **[Ottehr Elements](packages/ottehr-components/):**  A components React library for creating healthcare applications
 
 ## First Time Setup
 

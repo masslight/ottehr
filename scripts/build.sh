@@ -34,13 +34,13 @@ popd
 
 # Build the urgent-care/app
 echo "Building package: urgent-care/app"
-pushd "packages/urgent-care/app"
+pushd "packages/urgent-care-intake/app"
 pnpm build
 popd
 
 # Build the urgent-care/zambdas
 echo "Building package: urgent-care/zambdas"
-pushd "packages/urgent-care/zambdas"
+pushd "packages/urgent-care-intake/zambdas"
 pnpm build
 popd
 

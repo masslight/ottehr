@@ -22,13 +22,13 @@ pnpm install
 
 # Build the intake/front-end
 echo "Building package: urgent-care/app"
-pushd "packages/urgent-care/app"
+pushd "packages/urgent-care-intake/app"
 pnpm build
 popd
 
 # Build the intake/zambdas
 echo "Building package: urgent-care/zambdas"
-pushd "packages/urgent-care/zambdas"
+pushd "packages/urgent-care-intake/zambdas"
 pnpm build
 popd
 

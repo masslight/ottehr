@@ -121,7 +121,7 @@ export async function inviteUser(
   applicationId: string,
   accessToken: string,
   projectId: string
-): Promise<string> {
+): Promise<undefined | string> {
   const defaultRole = await updateUserRoles(projectApiUrl, accessToken, projectId);
 
   const practitioner: Practitioner = {
@@ -136,29 +136,46 @@ export async function inviteUser(
     ],
   };
 
-  const invitedUserResponse = await fetch(`${projectApiUrl}/user/invite`, {
-    method: 'POST',
+  const activeUsersRequest = await fetch(`${projectApiUrl}/user`, {
     headers: {
       accept: 'application/json',
       authorization: `Bearer ${accessToken}`,
       'content-type': 'application/json',
       'x-zapehr-project-id': `${projectId}`,
-    },
-    body: JSON.stringify({
-      email: email,
-      applicationId: applicationId,
-      resource: practitioner,
-      roles: [
-        defaultRole.id
-      ]
-    }),
+    }
   });
-
-  if (!invitedUserResponse.ok) {
-    console.log(await invitedUserResponse.json());
-    throw new Error('Failed to create user');
+  const activeUsers = await activeUsersRequest.json()
+  if (activeUsers.find((user: any) => user.email === email)) {
+    console.log('User is already invited to project');
+    return undefined;
   }
+  else {
+    console.log('Inviting user to project');
+    const invitedUserResponse = await fetch(`${projectApiUrl}/user/invite`, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        authorization: `Bearer ${accessToken}`,
+        'content-type': 'application/json',
+        'x-zapehr-project-id': `${projectId}`,
+      },
+      body: JSON.stringify({
+        email: email,
+        applicationId: applicationId,
+        resource: practitioner,
+        roles: [
+          defaultRole.id
+        ]
+      }),
+    });
 
-  const invitedUser = await invitedUserResponse.json();
-  return invitedUser.invitationUrl;
+
+    if (!invitedUserResponse.ok) {
+      console.log(await invitedUserResponse.json());
+      throw new Error('Failed to create user');
+    }
+
+    const invitedUser = await invitedUserResponse.json();
+    return invitedUser.invitationUrl;
+  }
 }

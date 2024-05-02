@@ -167,11 +167,12 @@ export async function setupEHR(
   const invitationUrl = await inviteUser(projectApiUrl, providerEmail, firstName, lastName, applicationId, accessToken, projectId);
   await createZ3(projectApiUrl, projectId, accessToken, ['id-cards', 'insurance-cards']);
 
+  if (invitationUrl) {
+    console.log(
+      `User with email \x1b[35m${providerEmail}\x1b[0m can gain access to their account by navigating to URL \x1b[35m${invitationUrl}\x1b[0m`
+    );
+  }
   console.log(
-    `User with email \x1b[35m${providerEmail}\x1b[0m can gain access to their account by navigating to URL \x1b[35m${invitationUrl}\x1b[0m`
+    `Login to the provider dashboard by navigating to URL \x1b[35mhttp://localhost:4002\x1b[0m`
   );
-  console.log(
-    `Login to the provider dashboard by navigating to URL \x1b[35mhttp://localhost:3200/dashboard\x1b[0m`
-  );
-  console.log(`Join the waiting room by navigating to URL \x1b[35mhttp://localhost:3200/${slug}\x1b[0m`);
 }
