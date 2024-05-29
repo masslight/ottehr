@@ -5,12 +5,28 @@
       "path": "../"
     },
     {
-      "name": "App",
-      "path": "../packages/app"
+      "name": "Shared UI components",
+      "path": "../packages/ottehr-components"
+    },    
+    {
+      "name": "Staff EHR: Web Site",
+      "path": "../packages/telemed-ehr"
     },
     {
-      "name": "Zambdas",
-      "path": "../packages/zambdas"
+      "name": "Staff EHR: Shared Libraries",
+      "path": "../packages/ehr-utils"
+    },
+    {
+      "name": "Patient Portal: Telemed Scheduling & Calling",
+      "path": "../packages/telemed-intake"
+    },
+    {
+      "name": "Patient Portal: In-Person Visit Scheduling",
+      "path": "../packages/urgent-care-intake"
+    },
+    {
+      "name": "Patient Portal: Shared Libraries",
+      "path": "../packages/utils"
     },
   ],
   "settings": {
