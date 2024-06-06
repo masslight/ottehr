@@ -18,9 +18,9 @@ import {
 import { MouseEvent, ReactElement, SyntheticEvent, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import logo from '../../assets/logo-4x.png';
-import { useUserRole } from '../../hooks/useUserRole';
-import { useCommonStore } from '../../state/common.store';
+import useOttehrUser from '../../hooks/useOttehrUser';
 import { AppTab, useNavStore } from '../../state/nav.store';
+import { isLocalOrDevOrTestingOrTrainingEnv } from '../../telemed/utils/env.helper';
 import { RoleType } from '../../types/types';
 import { otherColors } from '../../CustomThemeProvider';
 
@@ -38,7 +38,6 @@ const administratorNavbarItems: NavbarItems = {
   Offices: { urls: ['/offices', '/office'] },
   Patients: { urls: ['/patients', '/patient'] },
   Employees: { urls: ['/employees', '/employee'] },
-  Telemed: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
 };
 
 const managerNavbarItems: NavbarItems = {
@@ -46,7 +45,6 @@ const managerNavbarItems: NavbarItems = {
   Offices: { urls: ['/offices', '/office'] },
   Patients: { urls: ['/patients', '/patient'] },
   Employees: { urls: ['/employees', '/employee'] },
-  Telemed: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
 };
 
 const staffNavbarItems: NavbarItems = {
@@ -55,34 +53,44 @@ const staffNavbarItems: NavbarItems = {
 };
 
 const providerNavbarItems: NavbarItems = {
-  Telemed: { urls: ['/telemed/appointments', '/telemed'] },
   'Urgent Care': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
 };
+
+if (isLocalOrDevOrTestingOrTrainingEnv) {
+  administratorNavbarItems['Telemedicine:Admin'] = { urls: ['/telemed-admin'] };
+  administratorNavbarItems['Telemedicine'] = { urls: ['/telemed/appointments', '/telemed', '/video-call'] };
+  managerNavbarItems['Telemedicine:Admin'] = { urls: ['/telemed-admin'] };
+  providerNavbarItems['Telemedicine'] = { urls: ['/telemed/appointments', '/telemed', '/video-call'] };
+  providerNavbarItems['Employees'] = { urls: ['/employees', '/employee'] };
+}
 
 export default function Navbar(): ReactElement {
   const theme = useTheme();
   const location = useLocation();
   const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
-  const user = useCommonStore((state) => state.user);
-  const role = useUserRole();
   const currentTab = useNavStore((state) => state.currentTab);
+  const user = useOttehrUser();
 
   const navbarItems: NavbarItems = useMemo(() => {
     let navItems = {};
 
-    if (role === RoleType.Administrator) {
-      navItems = administratorNavbarItems;
-    } else if (role === RoleType.Manager) {
-      navItems = managerNavbarItems;
-    } else if (role === RoleType.Staff) {
-      navItems = staffNavbarItems;
-    } else if (role === RoleType.Provider) {
-      navItems = providerNavbarItems;
+    if (user) {
+      if (user.hasRole([RoleType.Administrator])) {
+        navItems = { ...navItems, ...administratorNavbarItems };
+      }
+      if (user.hasRole([RoleType.Manager])) {
+        navItems = { ...navItems, ...managerNavbarItems };
+      }
+      if (user.hasRole([RoleType.Staff])) {
+        navItems = { ...navItems, ...staffNavbarItems };
+      }
+      if (user.hasRole([RoleType.Provider])) {
+        navItems = { ...navItems, ...providerNavbarItems };
+      }
     }
-
     return navItems;
-  }, [role]);
+  }, [user]);
 
   // on page load set the tab to the opened page
   const currentUrl = '/' + location.pathname.substring(1).split('/')[0];
@@ -122,6 +130,7 @@ export default function Navbar(): ReactElement {
                 marginRight: 20,
                 marginTop: 10,
                 width: 158,
+                height: 35,
               }}
             />
           </Link>

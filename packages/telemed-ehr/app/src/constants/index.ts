@@ -20,3 +20,5 @@ export const ReasonForVisitOptions = [
 export const phoneNumberRegex = /^\d{10}$/;
 
 export const MAXIMUM_CHARACTER_LIMIT = 160;
+
+export const HOP_QUEUE_URI = 'hop-queue';

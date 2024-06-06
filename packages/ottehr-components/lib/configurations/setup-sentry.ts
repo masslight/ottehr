@@ -5,7 +5,7 @@ export function setupSentry(
     dsn: Exclude<Sentry.BrowserOptions['dsn'], undefined>;
     environment: Exclude<Sentry.BrowserOptions['environment'], undefined>;
     networkDetailAllowUrls?: string[];
-  },
+  }
 ): void {
   Sentry.init({
     integrations: [

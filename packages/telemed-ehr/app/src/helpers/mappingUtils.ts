@@ -18,7 +18,7 @@ export const STATI = [
   'UNKNOWN',
 ] as const;
 type STATI_LIST = typeof STATI;
-export type OtherEHRVisitStatus = STATI_LIST[number];
+export type VisitStatus = STATI_LIST[number];
 export type VISIT_STATUS_LABEL_TYPE = typeof STATI;
 export type StatusLabel = VISIT_STATUS_LABEL_TYPE[number];
 
@@ -45,18 +45,18 @@ type EncounterStatus =
   | 'entered-in-error'
   | 'unknown';
 
-const otherEHRVisitStatusExtensionUrl = 'https://fhir.zapehr.com/r4/StructureDefinitions/visit-history';
-export type OtherEHRVisitStatusExtensionEntry = {
+const VisitStatusExtensionUrl = 'https://fhir.zapehr.com/r4/StructureDefinitions/visit-history';
+export type VisitStatusExtensionEntry = {
   url: 'status';
-  extension: [{ url: 'status'; valueString: OtherEHRVisitStatus }, { url: 'period'; valuePeriod: Period }];
+  extension: [{ url: 'status'; valueString: VisitStatus }, { url: 'period'; valuePeriod: Period }];
 };
-export type OtherEHRVisitStatusExtension = {
+export type VisitStatusExtension = {
   url: string;
-  extension: OtherEHRVisitStatusExtensionEntry[];
+  extension: VisitStatusExtensionEntry[];
 };
 
-export type OtherEHRVisitStatusWithoutUnknown = Exclude<OtherEHRVisitStatus, 'UNKNOWN'>;
-const otherEHRToFhirAppointmentStatusMap: Record<OtherEHRVisitStatusWithoutUnknown, AppointmentStatus> = {
+export type VisitStatusWithoutUnknown = Exclude<VisitStatus, 'UNKNOWN'>;
+const otherEHRToFhirAppointmentStatusMap: Record<VisitStatusWithoutUnknown, AppointmentStatus> = {
   PENDING: 'booked',
   ARRIVED: 'arrived',
   READY: 'checked-in',
@@ -69,10 +69,10 @@ const otherEHRToFhirAppointmentStatusMap: Record<OtherEHRVisitStatusWithoutUnkno
   'NO-SHOW': 'noshow',
 };
 
-export function makeOtherEHRVisitStatusExtensionEntry(
-  statusCode: OtherEHRVisitStatus,
+export function makeVisitStatusExtensionEntry(
+  statusCode: VisitStatus,
   dateTimeISO?: string,
-): OtherEHRVisitStatusExtensionEntry {
+): VisitStatusExtensionEntry {
   return {
     url: 'status',
     extension: [
@@ -85,13 +85,13 @@ export function makeOtherEHRVisitStatusExtensionEntry(
   };
 }
 
-export const mapOtherEHRVisitStatusToFhirAppointmentStatus = (
-  apptStatus: OtherEHRVisitStatusWithoutUnknown,
+export const mapVisitStatusToFhirAppointmentStatus = (
+  apptStatus: VisitStatusWithoutUnknown,
 ): AppointmentStatus => {
   return otherEHRToFhirAppointmentStatusMap[apptStatus] ?? 'proposed'; // 'fulfilled' maybe?
 };
 
-const otherEHRToFhirEncounterStatusMap: Record<OtherEHRVisitStatusWithoutUnknown, EncounterStatus> = {
+const otherEHRToFhirEncounterStatusMap: Record<VisitStatusWithoutUnknown, EncounterStatus> = {
   PENDING: 'planned',
   ARRIVED: 'arrived',
   READY: 'arrived',
@@ -104,8 +104,8 @@ const otherEHRToFhirEncounterStatusMap: Record<OtherEHRVisitStatusWithoutUnknown
   'NO-SHOW': 'cancelled',
 };
 
-export const mapOtherEHRVisitStatusToFhirEncounterStatus = (
-  apptStatus: OtherEHRVisitStatusWithoutUnknown,
+export const mapVisitStatusToFhirEncounterStatus = (
+  apptStatus: VisitStatusWithoutUnknown,
 ): EncounterStatus => {
   return otherEHRToFhirEncounterStatusMap[apptStatus] ?? 'unknown';
 };
@@ -113,7 +113,7 @@ export const mapOtherEHRVisitStatusToFhirEncounterStatus = (
 type AppOrEncounter = Appointment | Encounter;
 export const getPatchOperationsToUpdateVisitStatus = <T extends AppOrEncounter>(
   resource: T,
-  statusCode: OtherEHRVisitStatus,
+  statusCode: VisitStatus,
   dateTimeISO?: string,
 ): Operation[] => {
   if (resource.extension == undefined) {
@@ -121,29 +121,29 @@ export const getPatchOperationsToUpdateVisitStatus = <T extends AppOrEncounter>(
       {
         op: 'add',
         path: '/extension',
-        value: [makeOtherEHRVisitStatusExtensionEntry(statusCode, dateTimeISO)],
+        value: [makeVisitStatusExtensionEntry(statusCode, dateTimeISO)],
       },
     ];
   }
   const extensions = resource.extension ?? [];
-  const existingVisitStatusExtIdx = extensions.findIndex((ext) => ext.url === otherEHRVisitStatusExtensionUrl);
+  const existingVisitStatusExtIdx = extensions.findIndex((ext) => ext.url === VisitStatusExtensionUrl);
   if (existingVisitStatusExtIdx === -1) {
     return [
       {
         op: 'add',
         path: '/extension/-',
-        value: makeOtherEHRVisitStatusExtensionEntry(statusCode, dateTimeISO),
+        value: makeVisitStatusExtensionEntry(statusCode, dateTimeISO),
       },
     ];
   }
-  const existingVisitStatusExt = extensions[existingVisitStatusExtIdx] as OtherEHRVisitStatusExtension;
+  const existingVisitStatusExt = extensions[existingVisitStatusExtIdx] as VisitStatusExtension;
   const statusList = existingVisitStatusExt.extension;
   if (statusList == undefined) {
     return [
       {
         op: 'add',
         path: `/extension/${existingVisitStatusExtIdx}/extension`,
-        value: makeOtherEHRVisitStatusExtensionEntry(statusCode, dateTimeISO).extension,
+        value: makeVisitStatusExtensionEntry(statusCode, dateTimeISO).extension,
       },
     ];
   }
@@ -172,14 +172,14 @@ export const getPatchOperationsToUpdateVisitStatus = <T extends AppOrEncounter>(
     operations.push({
       op: 'add',
       path: `/extension/${existingVisitStatusExtIdx}/extension/-`,
-      value: makeOtherEHRVisitStatusExtensionEntry(statusCode, dateTimeISO),
+      value: makeVisitStatusExtensionEntry(statusCode, dateTimeISO),
     });
   }
   return operations;
 };
 export interface VisitStatusHistoryEntry {
-  status: OtherEHRVisitStatus;
-  label: OtherEHRVisitStatus;
+  status: VisitStatus;
+  label: VisitStatus;
   period: Period;
 }
 const PRIVATE_EXTENSION_BASE_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions';
@@ -192,7 +192,7 @@ export const getVisitStatusHistory = <T extends AppOrEncounter>(resource: T): Vi
     const reduced: VisitStatusHistoryEntry = (ext.extension ?? []).reduce(
       (accum, currentExt) => {
         if (currentExt.url === 'status') {
-          accum.status = currentExt.valueString as OtherEHRVisitStatus;
+          accum.status = currentExt.valueString as VisitStatus;
           accum.label = accum.status ?? 'unknown';
         } else {
           accum.period = currentExt.valuePeriod as Period;

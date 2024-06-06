@@ -2,7 +2,7 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { FC, useRef } from 'react';
 import { Navigate } from 'react-router-dom';
 import { IntakeFlowPageRoute } from '../App';
-import { LoadingScreen, ErrorFallbackScreen } from '../features/common';
+import { ErrorFallbackScreen, LoadingScreen } from '../features/common';
 
 const AuthPage: FC = () => {
   const { isAuthenticated, loginWithRedirect, isLoading, error } = useAuth0();

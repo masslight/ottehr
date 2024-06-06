@@ -1,10 +1,11 @@
 import { Appointment, Encounter } from 'fhir/r4';
 import { PUBLIC_EXTENSION_BASE_URL } from '../../fhir';
+import { TELEMED_VIDEO_ROOM_CODE } from '../../telemed/constants';
 import { EncounterVirtualServiceExtension } from '../../types';
 
 export const getVirtualServiceResourceExtension = (
   resource: Appointment | Encounter,
-  code: 'twilio-video-group-rooms' | 'twilio-conversations'
+  code: typeof TELEMED_VIDEO_ROOM_CODE | 'twilio-conversations'
 ): EncounterVirtualServiceExtension | null => {
   let resourcePrefix: string;
   if (resource.resourceType === 'Appointment') {

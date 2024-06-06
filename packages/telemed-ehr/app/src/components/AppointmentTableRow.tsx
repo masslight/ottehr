@@ -6,6 +6,7 @@ import EditNoteIcon from '@mui/icons-material/EditNote';
 import HealthAndSafetyOutlinedIcon from '@mui/icons-material/HealthAndSafetyOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PriorityHighRoundedIcon from '@mui/icons-material/PriorityHighRounded';
+import RememberMeOutlinedIcon from '@mui/icons-material/RememberMeOutlined';
 import { LoadingButton } from '@mui/lab';
 import {
   Badge,
@@ -24,30 +25,36 @@ import {
 } from '@mui/material';
 import { Location } from 'fhir/r4';
 import { DateTime } from 'luxon';
-import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { ReactElement, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { UCAppointmentInformation } from 'ehr-utils';
 import { otherColors } from '../CustomThemeProvider';
 import { PriorityIconWithBorder } from '../components/PriorityIconWithBorder';
-import { useChat, useHasUnreadMessage } from '../contexts/ChatContext';
-import { checkinPatient } from '../helpers';
-import { VisitStatusHistoryEntry, StatusLabel } from '../helpers/mappingUtils';
+import ChatModal from '../features/chat/ChatModal';
+import { checkinPatient, getUpdateTagOperation } from '../helpers';
 import { flagDateOfBirth } from '../helpers/flagDateOfBirth';
 import { formatDateUsingSlashes, getTimezone } from '../helpers/formatDateTime';
+import {
+  formatMinutes,
+  getDurationOfStatus,
+  getStatiForVisitTimeCalculation,
+  getVisitTotalTime,
+} from '../helpers/visitDurationUtils';
 import { useApiClients } from '../hooks/useAppClients';
-import { AppointmentInformation } from '../types/types';
+import useOttehrUser from '../hooks/useOttehrUser';
 import { ApptTab } from './AppointmentTabs';
 import CustomChip from './CustomChip';
 import { GenericToolTip, PaperworkToolTipContent } from './GenericToolTip';
-import { VisitStatus } from '../../../../ehr/zambdas/src/shared/fhirStatusMappingUtils';
+import { VisitStatus, StatusLabel } from '../helpers/mappingUtils';
 
 interface AppointmentTableProps {
-  appointment: AppointmentInformation;
+  appointment: UCAppointmentInformation;
   location: Location;
   actionButtons: boolean;
   showTime: boolean;
   now: DateTime;
   tab: ApptTab;
-  updateAppointments: () => Promise<void>;
+  updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
 }
 
@@ -191,16 +198,17 @@ const linkStyle = {
   color: otherColors.tableRow,
 };
 
-const filterVisitStatusHistory = (
-  statuses: VisitStatusHistoryEntry[],
-  appointmentStart: string,
-): VisitStatusHistoryEntry[] => {
-  return statuses?.filter(
-    (statusEvent: VisitStatusHistoryEntry) =>
-      (statusEvent.label !== 'PENDING' && statusEvent.label !== 'DISCHARGE') ||
-      (statusEvent.period.end &&
-        DateTime.fromISO(statusEvent.period.end).diff(DateTime.fromISO(appointmentStart), 'minutes').minutes >= 0),
-  );
+const longWaitTimeFlag = (appointment: UCAppointmentInformation, statusTime: number): boolean => {
+  if (
+    appointment.status === 'ready for provider' ||
+    appointment.status === 'intake' ||
+    (appointment.status === 'ready' && appointment.appointmentType !== 'walk-in')
+  ) {
+    if (statusTime > 45) {
+      return true;
+    }
+  }
+  return false;
 };
 
 export default function AppointmentTableRow({
@@ -220,6 +228,9 @@ export default function AppointmentTableRow({
   const [statusTime, setStatusTime] = useState<string>('');
   const [noteSaving, setNoteSaving] = useState<boolean>(false);
   const [arrivedStatusSaving, setArrivedStatusSaving] = useState<boolean>(false);
+  const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
+  const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
+  const user = useOttehrUser();
 
   const patientName = `${appointment.patient.lastName}, ${appointment.patient.firstName}` || 'Unknown';
   let start;
@@ -228,15 +239,26 @@ export default function AppointmentTableRow({
     const dateTime = DateTime.fromISO(appointment.start).setZone(locationTimeZone);
     start = dateTime.toFormat('h:mm a');
   }
-  const { openChat, getConversation } = useChat();
-  const hasUnread = useHasUnreadMessage(appointment.conversationModel?.conversationSID ?? '');
-  const showChatIcon: boolean = useMemo(() => {
-    const convoId = appointment.conversationModel?.conversationSID;
-    if (convoId) {
-      return getConversation(convoId) !== undefined;
-    }
-    return false;
-  }, [getConversation, appointment.conversationModel]);
+
+  // ovrp indicator icon logic
+  const ovrpResons = [
+    'throat pain',
+    'rash or skin issue',
+    'urinary problem',
+    'eye concern',
+    'vomiting and/or diarrhea',
+  ];
+  const isOvrpReason = ovrpResons.some((reason) => appointment.reasonForVisit.toLocaleLowerCase().includes(reason));
+  const ageIsGoodForOVRP =
+    DateTime.now().diff(
+      DateTime.fromISO(
+        appointment.needsDOBConfirmation ? appointment.unconfirmedDOB : appointment.patient?.dateOfBirth,
+      ),
+      'years',
+    ).years >= 3;
+
+  const showChatIcon = appointment.smsModel !== undefined;
+  // console.log('sms model', appointment.smsModel);
 
   const saveNote = async (_event: React.MouseEvent<HTMLElement>): Promise<void> => {
     if (!fhirClient) {
@@ -256,6 +278,12 @@ export default function AppointmentTableRow({
         patchOp = 'remove';
         patchOperations.push({ op: patchOp, path: '/comment' });
       }
+      const fhirAppointment = await fhirClient.readResource({
+        resourceType: 'Appointment',
+        resourceId: appointment.id,
+      });
+      const staffUpdateTagOp = getUpdateTagOperation(fhirAppointment, 'comment', user);
+      patchOperations.push(staffUpdateTagOp);
       await fhirClient.patchResource({
         resourceType: 'Appointment',
         resourceId: appointment.id,
@@ -276,6 +304,10 @@ export default function AppointmentTableRow({
     setApptComment(appointment.comment || '');
   }, [appointment]);
 
+  useEffect(() => {
+    setHasUnread(appointment.smsModel?.hasUnreadMessages || false);
+  }, [appointment.smsModel?.hasUnreadMessages]);
+
   const handleArrivedClick = async (_event: React.MouseEvent<HTMLElement>): Promise<void> => {
     if (!fhirClient) {
       throw new Error('error getting fhir client');
@@ -289,67 +321,19 @@ export default function AppointmentTableRow({
     await updateAppointments();
   };
 
-  const getDurationOfStatus = useCallback(
-    (statusEntry: VisitStatusHistoryEntry): number => {
-      if (statusEntry.label === 'PENDING') {
-        if (statusEntry.period.end) {
-          // if the appointment status is not currently pending, the duration is the difference
-          // between the end of the status period and the start of the appointment time
-          return DateTime.fromISO(statusEntry.period.end).diff(DateTime.fromISO(appointment.start), 'minutes').minutes;
-        } else if (statusEntry.period.start) {
-          // otherwise, the pending time is the difference between the start of the
-          // appointment time and the current time.
-          return now.diff(DateTime.fromISO(appointment.start), 'minutes').minutes;
-        }
-      }
-
-      if (statusEntry.period.start && statusEntry.period.end) {
-        return DateTime.fromISO(statusEntry.period.end).diff(DateTime.fromISO(statusEntry.period.start), 'minutes')
-          .minutes;
-      } else if (statusEntry.period.start) {
-        const stopCountingForStatus = ['canceled', 'no show', 'checked out'];
-        // stop counting once appointments move to the 'completed' tab.
-        if (stopCountingForStatus.includes(statusEntry.label)) {
-          // if the appointment status is one of `stopCountingForStatus`, the
-          // duration is the difference between start of the current status and
-          // the end of the previous status
-          const prevStatusHistoryIdx = appointment.visitStatusHistory.length - 2;
-          const prevEntry = appointment.visitStatusHistory[prevStatusHistoryIdx];
-          if (prevEntry === undefined) {
-            return 0;
-          }
-          return DateTime.fromISO(statusEntry.period.start).diff(
-            DateTime.fromISO(prevEntry.period.end ?? ''),
-            'minutes',
-          ).minutes;
-        } else {
-          // otherwise, the duration is the difference betweeen now and the start of the status entry
-          return now.diff(DateTime.fromISO(statusEntry.period.start), 'minutes').minutes;
-        }
-      } else {
-        return 0;
-      }
-    },
-    [appointment.start, appointment.visitStatusHistory, now],
-  );
-
   const recentStatus = appointment?.visitStatusHistory[appointment.visitStatusHistory.length - 1];
-  const totalMinutes = useMemo(() => {
-    if (appointment) {
-      // console.log('appointment', appointment.id);
-      return filterVisitStatusHistory(appointment.visitStatusHistory, appointment.start).reduce(
-        (accumulator, statusTemp) => accumulator + getDurationOfStatus(statusTemp),
-        0,
-      );
-    }
-    return 0;
-  }, [appointment, getDurationOfStatus]);
+  const { totalMinutes } = useMemo(() => {
+    const totalMinutes = getVisitTotalTime(appointment, appointment.visitStatusHistory, now);
+    // will surface this waiting estimate to staff in the future
+    // const waitingMinutesEstimate = appointment?.waitingMinutes;
+    return { totalMinutes };
+  }, [appointment, now]);
 
   if (recentStatus && recentStatus.period) {
-    const currentStatusTime = getDurationOfStatus(recentStatus);
+    const currentStatusTime = getDurationOfStatus(recentStatus, appointment, appointment.visitStatusHistory, now);
 
     let statusTimeTemp =
-      tab === ApptTab.cancelled || tab === ApptTab.completed || recentStatus.label === 'DISCHARGE'
+      tab === ApptTab.cancelled || tab === ApptTab.completed || recentStatus.label === 'ready for discharge'
         ? `${formatMinutes(totalMinutes)}m`
         : `${formatMinutes(currentStatusTime)}m`;
 
@@ -357,7 +341,7 @@ export default function AppointmentTableRow({
       tab !== ApptTab.cancelled &&
       tab !== ApptTab.completed &&
       statusTimeTemp !== `${formatMinutes(totalMinutes)}m` &&
-      recentStatus.label !== 'DISCHARGE' &&
+      recentStatus.label !== 'ready for discharge' &&
       appointment.visitStatusHistory &&
       appointment?.visitStatusHistory.length > 1
     ) {
@@ -369,9 +353,21 @@ export default function AppointmentTableRow({
     }
   }
 
-  function formatMinutes(minutes: number): string {
-    return minutes.toLocaleString('en', { maximumFractionDigits: 0 });
-  }
+  const flagDOB = flagDateOfBirth(
+    appointment.needsDOBConfirmation ? appointment.unconfirmedDOB : appointment.patient?.dateOfBirth,
+  );
+  const patientDateOfBirth = (warning: boolean): ReactElement => (
+    <Typography variant="body2" sx={{ color: warning ? otherColors.priorityHighText : theme.palette.text.secondary }}>
+      DOB:{' '}
+      {formatDateUsingSlashes(
+        appointment.needsDOBConfirmation ? appointment.unconfirmedDOB : appointment.patient?.dateOfBirth,
+      )}
+    </Typography>
+  );
+
+  const isLongWaitingTime = useMemo(() => {
+    return longWaitTimeFlag(appointment, parseInt(statusTime) || 0);
+  }, [appointment, statusTime]);
 
   function displayReasonsForVisit(reasonsForVisit: string[]): ReactElement {
     const flaggedReasons: string[] = [];
@@ -384,17 +380,7 @@ export default function AppointmentTableRow({
       <span>
         {flaggedReasons.length > 0 && (
           <>
-            <PriorityHighRoundedIcon
-              style={{
-                height: '14px',
-                width: '14px',
-                padding: '2px',
-                color: theme.palette.primary.contrastText,
-                backgroundColor: otherColors.priorityHighIcon,
-                borderRadius: '4px',
-                marginTop: '2px',
-              }}
-            />
+            {formattedPriorityHighIcon}
             <Typography
               sx={{ fontSize: '14px', color: otherColors.priorityHighText, paddingLeft: '5px', display: 'inline' }}
             >
@@ -415,6 +401,75 @@ export default function AppointmentTableRow({
       reasonForVisitReactElement
     );
   }
+
+  const formattedPriorityHighIcon = (
+    <PriorityHighRoundedIcon
+      style={{
+        height: '14px',
+        width: '14px',
+        padding: '2px',
+        color: theme.palette.primary.contrastText,
+        backgroundColor: otherColors.priorityHighIcon,
+        borderRadius: '4px',
+        marginRight: '3px',
+      }}
+    />
+  );
+
+  const longWaitFlag = (
+    <Box
+      sx={{
+        display: 'flex',
+        gap: 1,
+        alignItems: 'center',
+      }}
+    >
+      <PriorityIconWithBorder fill={theme.palette.warning.main} />
+      <Typography
+        variant="body2"
+        color={theme.palette.getContrastText(theme.palette.background.default)}
+        style={{ display: 'inline', fontWeight: 700 }}
+      >
+        Long wait: Please check on patient
+      </Typography>
+    </Box>
+  );
+
+  const timeToolTip = (
+    <Grid container sx={{ width: '100%' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+        }}
+      >
+        {isLongWaitingTime && longWaitFlag}
+        {getStatiForVisitTimeCalculation(appointment.visitStatusHistory, appointment.start).map((statusTemp) => {
+          return (
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Typography
+                variant="body2"
+                color={theme.palette.getContrastText(theme.palette.background.default)}
+                style={{ display: 'inline', fontWeight: 700, marginTop: 1 }}
+              >
+                {formatMinutes(getDurationOfStatus(statusTemp, appointment, appointment.visitStatusHistory, now))} mins
+              </Typography>
+              {getAppointmentStatusChip(statusTemp.label)}
+            </Box>
+          );
+        })}
+
+        <Typography
+          variant="body2"
+          color={theme.palette.getContrastText(theme.palette.background.default)}
+          style={{ display: 'inline' }}
+        >
+          Total waiting: {formatMinutes(totalMinutes)} mins
+        </Typography>
+      </Box>
+    </Grid>
+  );
 
   return (
     <TableRow
@@ -461,22 +516,30 @@ export default function AppointmentTableRow({
           </Box>
         )}
         <Box>
-          {/* <Link to={`/visit/${appointment.id}`} style={linkStyle}> */}
-          <Box sx={{ display: 'flex' }}>
-            <CustomChip
-              type={'status bullet'}
-              fill={
-                appointment.appointmentType === 'pre-booked' ? theme.palette.primary.main : theme.palette.secondary.main
-              }
-            ></CustomChip>
-            {/* status will either be booked or walked in - pending finalization of how we track walk ins */}
-            <Typography variant="body1">
-              {capitalize(appointment.appointmentType)}
-              &nbsp;&nbsp;<strong>{start}</strong>
-            </Typography>
-          </Box>
-          <Box mt={1}>{getAppointmentStatusChip(appointment.status)}</Box>
-          {/* </Link> */}
+          <Link to={`/visit/${appointment.id}`} style={linkStyle}>
+            <Box sx={{ display: 'flex' }}>
+              <CustomChip
+                type={'status bullet'}
+                fill={
+                  appointment.appointmentType === 'pre-booked'
+                    ? theme.palette.primary.main
+                    : appointment.appointmentType === 'post-telemed'
+                      ? theme.palette.warning.light
+                      : theme.palette.secondary.main
+                }
+              ></CustomChip>
+              {/* status will either be booked or walked in - pending finalization of how we track walk ins */}
+              <Typography variant="body1">
+                {capitalize?.(
+                  appointment.appointmentType === 'post-telemed'
+                    ? 'Post Telemed'
+                    : (appointment.appointmentType || '').toString(),
+                )}
+                &nbsp;&nbsp;<strong>{start}</strong>
+              </Typography>
+            </Box>
+            <Box mt={1}>{getAppointmentStatusChip(appointment.status)}</Box>
+          </Link>
         </Box>
       </TableCell>
       {/* placeholder until time stamps for waiting and in exam or something comparable are made */}
@@ -489,7 +552,7 @@ export default function AppointmentTableRow({
               componentsProps={{
                 tooltip: {
                   sx: {
-                    width: '70%',
+                    width: '100%',
                     marginLeft: 'auto',
                     marginRight: 'auto',
                     padding: 2,
@@ -500,72 +563,35 @@ export default function AppointmentTableRow({
                   },
                 },
               }}
-              title={
-                <Grid container>
-                  {filterVisitStatusHistory(appointment.visitStatusHistory, appointment.start).map((statusTemp) => (
-                    <span
-                      // todo this is a potential point for bugs, can we get a more unique key to set
-                      key={`${appointment.id}-${statusTemp.status}-${statusTemp.period.start}-${statusTemp.period.end}`}
-                      style={{ display: 'contents' }}
-                    >
-                      <Grid
-                        item
-                        xs={6}
-                        textAlign="center"
-                        marginTop={0.5}
-                        marginBottom={0.5}
-                        sx={{ display: 'inline' }}
-                      >
-                        <Typography
-                          variant="body1"
-                          color={theme.palette.getContrastText(theme.palette.background.default)}
-                          style={{ display: 'inline' }}
-                        >
-                          {`${formatMinutes(getDurationOfStatus(statusTemp))} ${
-                            getDurationOfStatus(statusTemp) === 1 ? 'min' : 'mins'
-                          }`}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={6} textAlign="center" marginTop={0.5} marginBottom={0.5}>
-                        {getAppointmentStatusChip(statusTemp.label)}
-                      </Grid>
-                    </span>
-                  ))}
-                  <Grid item xs={12}>
-                    <Typography
-                      variant="body1"
-                      textAlign="center"
-                      color={theme.palette.getContrastText(theme.palette.background.default)}
-                      marginTop={2}
-                      sx={{ fontWeight: 'bold' }}
-                    >
-                      Total: {formatMinutes(totalMinutes)} {totalMinutes === 1 ? 'min' : 'mins'}
-                    </Typography>
-                  </Grid>
-                </Grid>
-              }
+              title={timeToolTip}
               placement="top"
               arrow
             >
-              <Box sx={{ display: 'flex' }}>
-                <Typography variant="body1" sx={{ display: 'inline' }}>
-                  {statusTime}
-                </Typography>
-                {appointment.visitStatusHistory && appointment.visitStatusHistory.length > 1 && (
-                  <span style={{ color: 'rgba(0, 0, 0, 0.6)', alignItems: 'center' }}>
-                    <InfoOutlinedIcon
-                      style={{
-                        height: '20px',
-                        width: '20px',
-                        padding: '2px',
-                        borderRadius: '4px',
-                        marginLeft: '2px',
-                        marginTop: '1px',
-                      }}
-                    />
-                  </span>
-                )}
-              </Box>
+              <Grid sx={{ display: 'flex', alignItems: 'center' }} gap={1}>
+                <Grid item>{isLongWaitingTime && <PriorityIconWithBorder fill={theme.palette.warning.main} />}</Grid>
+                <Grid item sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Typography
+                    variant="body1"
+                    sx={{ display: 'inline', fontWeight: `${isLongWaitingTime ? '700' : ''}` }}
+                  >
+                    {statusTime}
+                  </Typography>
+                  {appointment.visitStatusHistory && appointment.visitStatusHistory.length > 1 && (
+                    <span style={{ color: 'rgba(0, 0, 0, 0.6)', display: 'flex', alignItems: 'center' }}>
+                      <InfoOutlinedIcon
+                        style={{
+                          height: '20px',
+                          width: '20px',
+                          padding: '2px',
+                          borderRadius: '4px',
+                          marginLeft: '2px',
+                          marginTop: '1px',
+                        }}
+                      />
+                    </span>
+                  )}
+                </Grid>
+              </Grid>
             </Tooltip>
           </Link>
         </TableCell>
@@ -575,9 +601,22 @@ export default function AppointmentTableRow({
           <Typography variant="subtitle2" sx={{ fontSize: '16px' }}>
             <>{patientName}</>
           </Typography>
-          <Typography variant="subtitle2" sx={{ fontSize: '16px' }}>
-            {formatDateUsingSlashes(appointment.patient?.dateOfBirth)}
-          </Typography>
+          {flagDOB || appointment.needsDOBConfirmation ? (
+            <GenericToolTip
+              title={`${flagDOB ? 'Expedited intake indicated' : ''}
+                ${flagDOB && appointment.needsDOBConfirmation ? '&' : ''}
+                ${appointment.needsDOBConfirmation ? 'Date of birth for returning patient was not confirmed' : ''}`}
+              customWidth={flagDOB ? '150px' : '170px'}
+            >
+              <span style={{ display: 'flex', maxWidth: '150px', alignItems: 'center' }}>
+                {flagDOB && formattedPriorityHighIcon}
+                {patientDateOfBirth(flagDOB)}
+                {appointment.needsDOBConfirmation && <PriorityIconWithBorder fill={theme.palette.warning.main} />}
+              </span>
+            </GenericToolTip>
+          ) : (
+            <>{patientDateOfBirth(false)}</>
+          )}
         </Link>
       </TableCell>
       <TableCell sx={{ verticalAlign: 'top', wordWrap: 'break-word' }}>
@@ -587,7 +626,16 @@ export default function AppointmentTableRow({
       </TableCell>
       <TableCell sx={{ verticalAlign: 'top' }}>
         <Link to={`/visit/${appointment.id}`} style={linkStyle}>
-          <GenericToolTip title={<PaperworkToolTipContent appointment={appointment} />} customWidth="none">
+          <GenericToolTip
+            title={
+              <PaperworkToolTipContent
+                appointment={appointment}
+                isOvrpReason={isOvrpReason}
+                ageIsGoodForOVRP={ageIsGoodForOVRP}
+              />
+            }
+            customWidth="none"
+          >
             <Box sx={{ display: 'flex', gap: 1 }}>
               <AccountCircleOutlinedIcon
                 sx={{ ml: 0, mr: 0.75, color: appointment.paperwork.demographics ? '#43A047' : '#BFC2C6' }}
@@ -608,6 +656,38 @@ export default function AppointmentTableRow({
                 sx={{ mx: 0.75, color: appointment.paperwork.consent ? '#43A047' : '#BFC2C6' }}
                 fill={otherColors.cardChip}
               ></AssignmentTurnedInOutlinedIcon>
+
+              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                <RememberMeOutlinedIcon
+                  sx={{
+                    mx: 0.75,
+                    color:
+                      ageIsGoodForOVRP && isOvrpReason && appointment.paperwork.ovrpInterest ? '#43A047' : '#BFC2C6',
+                  }}
+                  fill={otherColors.cardChip}
+                ></RememberMeOutlinedIcon>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      fontSize: '16px',
+                      marginRight: 0.5,
+                      color: appointment.paperwork.ovrpInterest ? '#43A047' : '#BFC2C6',
+                    }}
+                  >
+                    +
+                  </Typography>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      fontSize: '16px',
+                      color: ageIsGoodForOVRP && isOvrpReason ? '#43A047' : '#BFC2C6',
+                    }}
+                  >
+                    +
+                  </Typography>
+                </Box>
+              </Box>
             </Box>
           </GenericToolTip>
         </Link>
@@ -654,7 +734,7 @@ export default function AppointmentTableRow({
               },
             }}
             onClick={(_event) => {
-              openChat(appointment.id);
+              setChatModalOpen(true);
             }}
             aria-label={hasUnread ? 'unread messages chat icon' : 'chat icon, no unread messages'}
           >
@@ -710,6 +790,14 @@ export default function AppointmentTableRow({
             Arrived
           </LoadingButton>
         </TableCell>
+      )}
+      {chatModalOpen && (
+        <ChatModal
+          appointment={appointment}
+          currentLocation={location}
+          onClose={() => setChatModalOpen(false)}
+          onMarkAllRead={() => setHasUnread(false)}
+        />
       )}
     </TableRow>
   );

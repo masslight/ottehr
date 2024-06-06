@@ -2,17 +2,30 @@ import { ZambdaClient } from '@zapehr/sdk';
 
 import {
   CancelAppointmentRequestParams,
+  CancelInviteParticipantRequestParameters,
+  CancelInviteParticipantResponse,
   CreateAppointmentUCTelemedParams,
   CreateAppointmentUCTelemedResponse,
+  CreatePaperworkInput,
+  CreatePaperworkResponse,
   GetLocationRequestParams,
   GetLocationResponse,
   GetPaperworkRequestParams,
+  GetTelemedAppointmentsRequest,
+  GetTelemedAppointmentsResponse,
+  GetTelemedLocationsResponse,
+  InviteParticipantRequestParameters,
+  JoinCallRequestParameters,
+  JoinCallResponse,
+  ListInvitedParticipantsRequestParameters,
+  ListInvitedParticipantsResponse,
   PaperworkResponseWithResponses,
   PaperworkResponseWithoutResponses,
   PatientInfo,
   UpdateAppointmentRequestParams,
-  UpdatePaperworkParams,
+  UpdatePaperworkInput,
   UpdatePaperworkResponse,
+  VideoChatCreateInviteResponse,
   WaitingRoomInput,
   WaitingRoomResponse,
   isoStringFromMDYString,
@@ -24,26 +37,38 @@ enum ZambdaNames {
   'create appointment' = 'create appointment',
   'cancel appointment' = 'cancel appointment',
   'update appointment' = 'update appointment',
-  'get paperwork' = 'get paperwork',
   'get appointments' = 'get appointments',
+  'get telemed states' = 'get telemed states',
   'get patients' = 'get patients',
+  'get paperwork' = 'get paperwork',
+  'create paperwork' = 'create paperwork',
   'update paperwork' = 'update paperwork',
   'get location' = 'get location',
   'get wait status' = 'get wait status',
+  'join call' = 'join call',
+  'video chat create invite' = 'video chat create invite',
+  'video chat cancel invite' = 'video chat cancel invite',
+  'video chat list invites' = 'video chat list invites',
   'get presigned file url' = 'get presigned file url',
 }
 
 const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'check in': true,
   'create appointment': false,
-  'cancel appointment': true,
-  'update appointment': true,
-  'get paperwork': true,
+  'cancel appointment': false,
+  'update appointment': false,
   'get appointments': false,
+  'get telemed states': true,
   'get patients': false,
-  'update paperwork': true,
+  'get paperwork': false,
+  'create paperwork': false,
+  'update paperwork': false,
   'get location': true,
-  'get wait status': false,
+  'get wait status': true,
+  'join call': true,
+  'video chat create invite': false,
+  'video chat cancel invite': false,
+  'video chat list invites': false,
   'get presigned file url': true,
 };
 
@@ -51,19 +76,25 @@ export type ZapEHRAPIClient = ReturnType<typeof getZapEHRAPI>;
 
 export const getZapEHRAPI = (
   params: GetZapEHRAPIParams,
-  zambdaClient: ZambdaClient,
+  zambdaClient: ZambdaClient
 ): {
   checkIn: typeof checkIn;
   createAppointment: typeof createAppointment;
   cancelAppointment: typeof cancelAppointment;
   updateAppointment: typeof updateAppointment;
   getPatients: typeof getPatients;
+  createPaperwork: typeof createPaperwork;
   updatePaperwork: typeof updatePaperwork;
   getLocation: typeof getLocation;
   getAppointments: typeof getAppointments;
+  getTelemedStates: typeof getTelemedStates;
   getPaperwork: typeof getPaperwork;
   getPaperworkPublic: typeof getPaperworkPublic;
   getWaitStatus: typeof getWaitStatus;
+  joinCall: typeof joinCall;
+  videoChatCreateInvite: typeof videoChatCreateInvite;
+  videoChatCancelInvite: typeof videoChatCancelInvite;
+  videoChatListInvites: typeof videoChatListInvites;
   createZ3Object: typeof createZ3Object;
 } => {
   const {
@@ -71,12 +102,18 @@ export const getZapEHRAPI = (
     createAppointmentZambdaID,
     cancelAppointmentZambdaID,
     updateAppointmentZambdaID,
-    getPaperworkZambdaID,
     getAppointmentsZambdaID,
+    getTelemedStatesZambdaID,
     getPatientsZambdaID,
+    getPaperworkZambdaID,
+    createPaperworkZambdaID,
     updatePaperworkZambdaID,
     getLocationZambdaID,
     getWaitStatusZambdaID,
+    joinCallZambdaID,
+    videoChatCreateInviteZambdaID,
+    videoChatCancelInviteZambdaID,
+    videoChatListInvitesZambdaID,
     getPresignedFileURLZambdaID,
   } = params;
 
@@ -85,12 +122,18 @@ export const getZapEHRAPI = (
     'create appointment': createAppointmentZambdaID,
     'cancel appointment': cancelAppointmentZambdaID,
     'update appointment': updateAppointmentZambdaID,
-    'get paperwork': getPaperworkZambdaID,
     'get appointments': getAppointmentsZambdaID,
+    'get telemed states': getTelemedStatesZambdaID,
     'get patients': getPatientsZambdaID,
+    'get paperwork': getPaperworkZambdaID,
+    'create paperwork': createPaperworkZambdaID,
     'update paperwork': updatePaperworkZambdaID,
     'get location': getLocationZambdaID,
     'get wait status': getWaitStatusZambdaID,
+    'join call': joinCallZambdaID,
+    'video chat create invite': videoChatCreateInviteZambdaID,
+    'video chat cancel invite': videoChatCancelInviteZambdaID,
+    'video chat list invites': videoChatListInvitesZambdaID,
     'get presigned file url': getPresignedFileURLZambdaID,
   };
   const isAppLocalProvided = params.isAppLocal != null;
@@ -98,7 +141,7 @@ export const getZapEHRAPI = (
 
   const verifyZambdaProvidedAndNotLocalThrowErrorOtherwise = (
     zambdaID: string | undefined,
-    zambdaName: keyof typeof zambdasToIdsMap,
+    zambdaName: keyof typeof zambdasToIdsMap
   ): zambdaID is Exclude<typeof zambdaID, undefined> => {
     if (zambdaID === undefined || !isAppLocalProvided) {
       throw new Error(`${zambdaName} zambda environment variable could not be loaded`);
@@ -113,7 +156,7 @@ export const getZapEHRAPI = (
   const makeZapRequest = async <TResponse, TPayload>(
     zambdaName: keyof typeof ZambdaNames,
     payload?: TPayload,
-    additionalErrorHandler?: (error: unknown) => void,
+    additionalErrorHandler?: (error: unknown) => void
   ): Promise<TResponse> => {
     const zambdaId = zambdasToIdsMap[zambdaName];
 
@@ -150,7 +193,7 @@ export const getZapEHRAPI = (
   };
 
   const createAppointment = async (
-    parameters: CreateAppointmentUCTelemedParams,
+    parameters: CreateAppointmentUCTelemedParams
   ): Promise<CreateAppointmentUCTelemedResponse> => {
     const fhirParams = fhirifyAppointmentInputs({ ...parameters });
     return await makeZapRequest('create appointment', fhirParams);
@@ -168,12 +211,26 @@ export const getZapEHRAPI = (
     return await makeZapRequest('get patients');
   };
 
-  const updatePaperwork = async (parameters: UpdatePaperworkParams): Promise<UpdatePaperworkResponse> => {
+  const createPaperwork = async (
+    parameters: Pick<CreatePaperworkInput, 'appointmentID' | 'files' | 'paperwork' | 'paperworkComplete' | 'timezone'>
+  ): Promise<CreatePaperworkResponse> => {
     const payload = Object.fromEntries(
       Object.entries(parameters).filter(
         ([_parameterKey, parameterValue]) =>
-          parameterValue && !Object.values(parameterValue).every((tempValue) => tempValue === undefined),
-      ),
+          parameterValue && !Object.values(parameterValue).every((tempValue) => tempValue === undefined)
+      )
+    );
+    return await makeZapRequest('create paperwork', payload);
+  };
+
+  const updatePaperwork = async (
+    parameters: Pick<UpdatePaperworkInput, 'appointmentID' | 'files' | 'paperwork' | 'timezone'>
+  ): Promise<UpdatePaperworkResponse> => {
+    const payload = Object.fromEntries(
+      Object.entries(parameters).filter(
+        ([_parameterKey, parameterValue]) =>
+          parameterValue && !Object.values(parameterValue).every((tempValue) => tempValue === undefined)
+      )
     );
     return await makeZapRequest('update paperwork', payload);
   };
@@ -182,8 +239,14 @@ export const getZapEHRAPI = (
     return await makeZapRequest('get location', parameters);
   };
 
-  const getAppointments = async (): Promise<any> => {
-    return await makeZapRequest('get appointments');
+  const getAppointments = async (
+    parameters?: GetTelemedAppointmentsRequest
+  ): Promise<GetTelemedAppointmentsResponse> => {
+    return await makeZapRequest('get appointments', parameters);
+  };
+
+  const getTelemedStates = async (): Promise<GetTelemedLocationsResponse> => {
+    return await makeZapRequest('get telemed states');
   };
 
   const getPaperwork = async (parameters: GetPaperworkRequestParams): Promise<PaperworkResponseWithResponses> => {
@@ -191,22 +254,44 @@ export const getZapEHRAPI = (
   };
 
   const getPaperworkPublic = async (
-    parameters: GetPaperworkRequestParams,
+    parameters: GetPaperworkRequestParams
   ): Promise<PaperworkResponseWithoutResponses> => {
     return await makeZapRequest('get paperwork', parameters, NotFoundApointmentErrorHandler);
   };
 
   const getWaitStatus = async (
-    parameters: Omit<WaitingRoomInput, 'secrets' | 'authorization'>,
+    parameters: Omit<WaitingRoomInput, 'secrets' | 'authorization'>
   ): Promise<WaitingRoomResponse> => {
     return await makeZapRequest('get wait status', parameters);
+  };
+
+  const joinCall = async (parameters: JoinCallRequestParameters): Promise<JoinCallResponse> => {
+    return await makeZapRequest('join call', parameters);
+  };
+
+  const videoChatCreateInvite = async (
+    parameters: InviteParticipantRequestParameters
+  ): Promise<VideoChatCreateInviteResponse> => {
+    return await makeZapRequest('video chat create invite', parameters);
+  };
+
+  const videoChatCancelInvite = async (
+    parameters: CancelInviteParticipantRequestParameters
+  ): Promise<CancelInviteParticipantResponse> => {
+    return await makeZapRequest('video chat cancel invite', parameters);
+  };
+
+  const videoChatListInvites = async (
+    parameters: ListInvitedParticipantsRequestParameters
+  ): Promise<ListInvitedParticipantsResponse> => {
+    return await makeZapRequest('video chat list invites', parameters);
   };
 
   const createZ3Object = async (
     appointmentID: string,
     fileType: string,
     fileFormat: string,
-    file: File,
+    file: File
   ): Promise<any> => {
     try {
       const presignedURLRequest = await getPresignedFileURL(appointmentID, fileType, fileFormat);
@@ -246,13 +331,19 @@ export const getZapEHRAPI = (
     cancelAppointment,
     updateAppointment,
     getPaperwork,
+    createPaperwork,
+    updatePaperwork,
     getPaperworkPublic,
     getPatients,
     getAppointments,
+    getTelemedStates,
     createZ3Object,
     getLocation,
     getWaitStatus,
-    updatePaperwork,
+    joinCall,
+    videoChatCreateInvite,
+    videoChatCancelInvite,
+    videoChatListInvites,
   };
 };
 

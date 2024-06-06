@@ -8,10 +8,10 @@ type ElementType<T extends ReadonlyArray<unknown>> = T extends ReadonlyArray<inf
 
 export const useChartDataArrayValue = <
   T extends keyof ChartDataArrayValueType,
-  K extends NonNullable<ChartDataArrayValueType[T]>,
+  K extends NonNullable<ChartDataArrayValueType[T]>
 >(
   name: T,
-  reset: () => void,
+  reset: () => void
 ): {
   isLoading: boolean;
   onSubmit: (data: ElementType<K>) => void;
@@ -35,7 +35,7 @@ export const useChartDataArrayValue = <
             [name]: [...values, ...(data[name] as K)],
           });
         },
-      },
+      }
     );
     reset();
   };
@@ -52,7 +52,7 @@ export const useChartDataArrayValue = <
             [name]: (values as K & SaveableDTO[]).filter((value) => value.resourceId !== resourceId),
           });
         },
-      },
+      }
     );
   };
 

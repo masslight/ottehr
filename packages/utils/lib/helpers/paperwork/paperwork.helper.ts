@@ -1,5 +1,11 @@
-import { QuestionnaireItem } from 'fhir/r4';
+import { Questionnaire, QuestionnaireItem, ValueSet } from 'fhir/r4';
 import { FormItemType, Question, QuestionOperator } from '../../types';
+import { FhirClient } from '@zapehr/sdk';
+
+export interface OptionConfig {
+  label: string;
+  value: string;
+}
 
 export const oldToCurrentOptionMappings: { [linkId: string]: { [oldValue: string]: string } } = {
   'patient-pronouns': {
@@ -19,7 +25,67 @@ export function getCorrectInputOption(itemId: string, currentValue: string): str
   return itemOptionMapping && itemOptionMapping[currentValue] ? itemOptionMapping[currentValue] : currentValue;
 }
 
-export function questionnaireItemToInputType(item: QuestionnaireItem): Question {
+export async function getQuestionnaireAndValueSets(
+  questionnaireName: string,
+  valueSetRef: string,
+  fhirClient: FhirClient
+): Promise<{ questionnaire: Questionnaire; valueSets: ValueSet[] }> {
+  console.log(`searching for a questionnaire with name ${questionnaireName}`);
+  const questionnaireSearch: Questionnaire[] = await fhirClient.searchResources({
+    resourceType: 'Questionnaire',
+    searchParams: [
+      {
+        name: 'name',
+        value: questionnaireName,
+      },
+    ],
+  });
+
+  // if we do not get exactly one result, throw an error
+  if (questionnaireSearch.length < 1) {
+    throw new Error('Could not find questionnaire with provided name');
+  } else if (questionnaireSearch.length > 1) {
+    throw new Error('Found multiple questionnaires with the provided name');
+  }
+
+  // otherwise, take the one result
+  const questionnaire: Questionnaire = questionnaireSearch[0];
+
+  console.log(`searching for value sets with reference ${valueSetRef}`);
+  const valueSets: ValueSet[] = await fhirClient.searchResources({
+    resourceType: 'ValueSet',
+    searchParams: [
+      {
+        name: 'reference',
+        value: valueSetRef,
+      },
+    ],
+  });
+  console.log(`${valueSets.length} value sets found`);
+  return { questionnaire, valueSets };
+}
+
+export function getOptionsArray(item: QuestionnaireItem, valueSets?: ValueSet[]): OptionConfig[] | undefined {
+  let options;
+  if (item.answerValueSet && valueSets) {
+    const valueSetId = item.answerValueSet.replace('ValueSet/', '');
+    const valueSetFound = valueSets.find((valueSet) => valueSet.id === valueSetId);
+    options = valueSetFound?.compose?.include
+      .find((included) => included.system === 'uc-questionnaire-item-value-set') // make this a const somewhere
+      ?.concept?.reduce((acc: OptionConfig[], val) => {
+        acc.push({ label: val.display || 'Unknown', value: val.code || 'Unknown' });
+        return acc;
+      }, []);
+  } else {
+    options = item.answerOption?.map((option) => {
+      const formatOption = { label: option.valueString || 'Unknown', value: option.valueString || 'Unknown' };
+      return formatOption;
+    });
+  }
+  return options;
+}
+
+export function questionnaireItemToInputType(item: QuestionnaireItem, valueSets?: ValueSet[]): Question {
   const questionItemType = item.type;
   let formItemType: FormItemType = undefined;
   let subitem: Question[] | undefined = undefined;
@@ -46,6 +112,11 @@ export function questionnaireItemToInputType(item: QuestionnaireItem): Question 
     ) {
       formItemType = 'Radio List';
     }
+    if (
+      attributes?.find((attributeTemp) => attributeTemp.name === 'select-type' && attributeTemp.value == 'Free select')
+    ) {
+      formItemType = 'Free Select';
+    }
   } else if (questionItemType === 'display') {
     const textType = item.extension?.find(
       (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/text-type'
@@ -69,7 +140,13 @@ export function questionnaireItemToInputType(item: QuestionnaireItem): Question 
     formItemType = 'Text';
     multiline = true;
   } else if (questionItemType === 'attachment') {
-    formItemType = 'File';
+    if (
+      attributes?.find((attributeTemp) => attributeTemp.name === 'attachment-type' && attributeTemp.value === 'photos')
+    ) {
+      formItemType = 'Photos';
+    } else {
+      formItemType = 'File';
+    }
   } else if (questionItemType === 'boolean') {
     formItemType = 'Checkbox';
   } else if (questionItemType === 'group') {
@@ -82,7 +159,7 @@ export function questionnaireItemToInputType(item: QuestionnaireItem): Question 
     } else {
       formItemType = 'Group';
     }
-    subitem = item.item?.map((innerItem) => questionnaireItemToInputType(innerItem));
+    subitem = item.item?.map((innerItem) => questionnaireItemToInputType(innerItem, valueSets));
   }
 
   const customLinkId = attributes?.find((attributeTemp) => attributeTemp.name === 'custom-link-id');
@@ -108,8 +185,26 @@ export function questionnaireItemToInputType(item: QuestionnaireItem): Question 
     (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer'
   )?.valueString;
 
+  const disableWhen = item.extension?.find(
+    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/disable-when'
+  )?.extension;
+  const disableWhenQuestion = disableWhen?.find(
+    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/disable-when-question'
+  )?.valueString;
+  const disableWhenOperator: QuestionOperator = disableWhen?.find(
+    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/disable-when-operator'
+  )?.valueString as QuestionOperator;
+  const disableWhenAnswer = disableWhen?.find(
+    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/disable-when-answer'
+  )?.valueString;
+  const disableWhenValue = disableWhen?.find(
+    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/disable-when-value'
+  )?.valueString;
+
   const minRows = attributes?.find((attributeTemp) => attributeTemp.name === 'input-multiline-minimum-rows')
     ?.value as number;
+
+  const options = getOptionsArray(item, valueSets);
 
   return {
     id: linkId,
@@ -121,6 +216,12 @@ export function questionnaireItemToInputType(item: QuestionnaireItem): Question 
     placeholder: item.extension?.find(
       (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/placeholder'
     )?.valueString,
+    helperText: item.extension?.find(
+      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/helper-text'
+    )?.valueString,
+    showHelperTextIcon: item.extension?.find(
+      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/show-helper-text-icon'
+    )?.valueBoolean,
     infoText: item.extension?.find(
       (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/information-text'
     )?.valueString,
@@ -132,7 +233,7 @@ export function questionnaireItemToInputType(item: QuestionnaireItem): Question 
     width: item.extension?.find(
       (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/text-width'
     )?.valuePositiveInt,
-    options: item.answerOption?.map((option) => option.valueString || 'Unknown'),
+    options,
     attachmentText: item.extension?.find(
       (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text'
     )?.valueString,
@@ -154,6 +255,14 @@ export function questionnaireItemToInputType(item: QuestionnaireItem): Question 
           question: requireWhenQuestion || 'Unknown',
           operator: requireWhenOperator,
           answer: requireWhenAnswer || 'Unknown',
+        }
+      : undefined,
+    disableWhen: disableWhen
+      ? {
+          question: disableWhenQuestion || 'Unknown',
+          operator: disableWhenOperator,
+          answer: disableWhenAnswer || 'Unknown',
+          value: disableWhenValue,
         }
       : undefined,
   };

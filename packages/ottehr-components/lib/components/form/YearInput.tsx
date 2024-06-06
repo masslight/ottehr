@@ -5,6 +5,7 @@ interface DateInputFieldProps {
   required?: boolean;
   label?: string;
   helperText?: string;
+  showHelperTextIcon?: boolean;
   placeholder?: string;
   infoTextSecondary?: string;
   defaultValue: string | undefined;
@@ -26,6 +27,7 @@ const CoalescedDateInput = ({
   defaultValue,
   label,
   helperText,
+  showHelperTextIcon,
   placeholder,
   infoTextSecondary,
   setCurrentValue,
@@ -35,6 +37,7 @@ const CoalescedDateInput = ({
       name={name}
       label={label || 'No label'}
       helperText={helperText}
+      showHelperTextIcon={showHelperTextIcon}
       placeholder={placeholder}
       defaultValue={defaultValue}
       required={required}

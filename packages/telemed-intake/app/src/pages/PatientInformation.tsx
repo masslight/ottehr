@@ -1,46 +1,47 @@
 import { Typography } from '@mui/material';
 import { DateTime } from 'luxon';
+import mixpanel from 'mixpanel-browser';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ErrorDialog, PageForm, safelyCaptureException } from 'ottehr-components';
-import {
-  PatientInfo,
-  PersonSex,
-  ageIsInRange,
-  getSelectors,
-  mdyStringFromISOString,
-  yupDateTransform,
-} from 'ottehr-utils';
+import { PatientInfo, PersonSex, ageIsInRange, getSelectors, mdyStringFromISOString, yupDateTransform } from 'ottehr-utils';
 import { IntakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
 import { useAppointmentStore, useCreateAppointmentMutation } from '../features/appointments';
 import { CustomContainer } from '../features/common';
-import { usePaperworkStore, useGetPaperwork } from '../features/paperwork';
+import { useFilesStore } from '../features/files';
+import { useGetPaperwork, usePaperworkStore } from '../features/paperwork';
 import { usePatientInfoStore } from '../features/patient-info';
-import { ReasonForVisitOptions } from '../features/patient-info';
-import { MAXIMUM_AGE, MINIMUM_AGE } from '../utils';
-import { useZapEHRAPIClient } from '../utils';
+import { MAXIMUM_AGE, MINIMUM_AGE, useZapEHRAPIClient } from '../utils';
 
 const PatientInformation = (): JSX.Element => {
   const apiClient = useZapEHRAPIClient();
-
+  const [getPaperworkEnabled, setGetPaperworkEnabled] = useState(false);
   const createAppointment = useCreateAppointmentMutation();
-  const getPaperworkQuery = useGetPaperwork(apiClient, (data) => {
-    paperworkState.patchCompletedPaperwork(data.paperwork);
-    paperworkState.setQuestions(data.questions);
-    navigate(`/paperwork/${data.questions[0].slug}`);
-  });
+  const getPaperworkQuery = useGetPaperwork(
+    (data) => {
+      paperworkState.patchCompletedPaperwork(data.paperwork);
+      paperworkState.setQuestions(data.questions);
+      useFilesStore.setState({ fileURLs: data.files });
+      navigate(`/paperwork/${data.questions[0].slug}`);
+    },
+    { staleTime: 0, enabled: getPaperworkEnabled }
+  );
   const navigate = useNavigate();
   const [ageErrorDialogOpen, setAgeErrorDialogOpen] = useState<boolean>(false);
   const { patientInfo } = getSelectors(usePatientInfoStore, ['patientInfo']);
   const paperworkState = getSelectors(usePaperworkStore, ['patchCompletedPaperwork', 'setQuestions']);
+
+  useEffect(() => {
+    //mixpanel.track('Patient Information page opened');
+  }, []);
 
   const onSubmit = async (data: PatientInfo): Promise<void> => {
     // Store DOB in yyyy-mm-dd format for backend validation
     const dateOfBirth = mdyStringFromISOString(data.dateOfBirth || patientInfo.dateOfBirth || '');
     data.dateOfBirth = dateOfBirth || 'Unknown';
 
-    if (!ageIsInRange(dateOfBirth ?? '', MINIMUM_AGE, MAXIMUM_AGE)) {
+    if (!ageIsInRange(dateOfBirth ?? '', MINIMUM_AGE, MAXIMUM_AGE).result) {
       setAgeErrorDialogOpen(true);
       return;
     }
@@ -56,11 +57,17 @@ const PatientInformation = (): JSX.Element => {
     paperworkState.patchCompletedPaperwork(paperwork);
 
     data.id = patientInfo.id === 'new-patient' ? undefined : patientInfo.id;
+
     if (patientInfo.id === 'new-patient') {
       data.newPatient = patientInfo.newPatient;
     }
 
     usePatientInfoStore.setState(() => ({ patientInfo: data }));
+
+    if (patientInfo.id !== 'new-patient') {
+      navigate(IntakeFlowPageRoute.ConfirmDateOfBirth.path);
+      return;
+    }
 
     if (!apiClient) {
       throw new Error('apiClient is not defined');
@@ -76,17 +83,17 @@ const PatientInformation = (): JSX.Element => {
               patientInfo: { ...state.patientInfo, id: response.fhirPatientId },
             }));
           }
-          await getPaperworkQuery.refetch();
+          setGetPaperworkEnabled(true);
         },
         onError: (error) => {
           safelyCaptureException(error);
         },
-      },
+      }
     );
   };
 
   const formattedBirthday = DateTime.fromFormat(yupDateTransform(patientInfo.dateOfBirth) || '', 'yyyy-MM-dd').toFormat(
-    'dd MMMM, yyyy',
+    'dd MMMM, yyyy'
   );
 
   return (
@@ -181,18 +188,6 @@ const PatientInformation = (): JSX.Element => {
                 value: 'Patient',
               },
             ],
-          },
-          {
-            type: 'Free Select',
-            name: 'reasonForVisit',
-            label: 'Reason for visit',
-            placeholder: 'Type whatever you want or select...',
-            defaultValue: patientInfo.reasonForVisit,
-            required: true,
-            multiline: true,
-            minRows: 4,
-            characterLimit: 160,
-            freeSelectOptions: ReasonForVisitOptions,
           },
         ]}
         controlButtons={{

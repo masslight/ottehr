@@ -36,7 +36,7 @@ export async function userHasAccessToPatient(user: User, patientID: string, fhir
 
 export async function getRelatedPersonForPatient(
   patientID: string,
-  fhirClient: FhirClient,
+  fhirClient: FhirClient
 ): Promise<RelatedPerson | undefined> {
   console.log(`getting user-relatedperson for patient with id ${patientID}`);
   const resources: Resource[] = await fhirClient.searchResources({
@@ -61,7 +61,7 @@ export async function getRelatedPersonForPatient(
 
 export async function getPersonForPatient(
   patientID: string,
-  fhirClient: FhirClient,
+  fhirClient: FhirClient
 ): Promise<RelatedPerson | undefined> {
   const resources: Resource[] = await fhirClient.searchResources({
     resourceType: 'Patient',

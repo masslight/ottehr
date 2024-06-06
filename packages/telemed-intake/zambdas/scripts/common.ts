@@ -32,4 +32,3 @@ export const createZambdaClient = async (config: any): Promise<ZambdaClient> => 
 
   return zambdaClient;
 };
-

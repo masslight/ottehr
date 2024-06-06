@@ -1,6 +1,8 @@
-import { Autocomplete, TextField } from '@mui/material';
-import { Location } from 'fhir/r4';
+import { Autocomplete, AutocompleteRenderInputParams, TextField } from '@mui/material';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
+
+import { FhirClient } from '@zapehr/sdk';
+import { Location } from 'fhir/r4';
 import { useNavigate } from 'react-router-dom';
 import { sortLocationsByLabel } from '../helpers';
 import { useApiClients } from '../hooks/useAppClients';
@@ -15,6 +17,13 @@ interface LocationSelectProps {
   required?: boolean;
   queryParams?: URLSearchParams;
   handleSubmit?: CustomFormEventHandler;
+  renderInputProps?: Partial<AutocompleteRenderInputParams>;
+}
+
+enum LoadingState {
+  initial,
+  loading,
+  loaded,
 }
 
 export default function LocationSelect({
@@ -25,9 +34,11 @@ export default function LocationSelect({
   updateURL,
   storeLocationInLocalStorage,
   required,
+  renderInputProps,
 }: LocationSelectProps): ReactElement {
   const { fhirClient } = useApiClients();
   const [locations, setLocations] = useState<Location[]>([]);
+  const [loadingState, setLoadingState] = useState(LoadingState.initial);
   const navigate = useNavigate();
   useEffect(() => {
     if (updateURL && localStorage.getItem('selectedLocation')) {
@@ -36,20 +47,30 @@ export default function LocationSelect({
     }
   }, [navigate, queryParams, updateURL]);
   useEffect(() => {
-    async function locationsResults(): Promise<void> {
+    async function getLocationsResults(fhirClient: FhirClient): Promise<void> {
       if (!fhirClient) {
         return;
       }
 
-      const locationsResults = await fhirClient.searchResources<Location>({
-        resourceType: 'Location',
-        searchParams: [{ name: '_count', value: '1000' }],
-      });
-      setLocations(locationsResults);
+      setLoadingState(LoadingState.loading);
+
+      try {
+        const locationsResults = await fhirClient.searchResources<Location>({
+          resourceType: 'Location',
+          searchParams: [{ name: '_count', value: '1000' }],
+        });
+        setLocations(locationsResults);
+      } catch (e) {
+        console.error('error loading locations', e);
+      } finally {
+        setLoadingState(LoadingState.loaded);
+      }
     }
 
-    locationsResults().catch((error) => console.log(error));
-  }, [fhirClient]);
+    if (fhirClient && loadingState === LoadingState.initial) {
+      void getLocationsResults(fhirClient);
+    }
+  }, [fhirClient, loadingState]);
 
   const options = useMemo(() => {
     const allLocations = locations.map((location) => {
@@ -63,6 +84,7 @@ export default function LocationSelect({
     const selectedLocation = newValue
       ? locations.find((locationTemp) => locationTemp.id === newValue.value)
       : undefined;
+    console.log('selected location in handle location change', selectedLocation);
     setLocation(selectedLocation);
 
     if (storeLocationInLocalStorage) {
@@ -80,6 +102,7 @@ export default function LocationSelect({
 
   return (
     <Autocomplete
+      disabled={renderInputProps?.disabled}
       value={
         location ? { label: `${location.address?.state?.toUpperCase()} - ${location.name}`, value: location?.id } : null
       }

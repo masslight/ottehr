@@ -15,6 +15,6 @@ export const usePatientsStore = create<PatientsState>()(
     () => ({
       ...PATIENTS_INITIAL,
     }),
-    { name: 'telemed-patients-storage' },
-  ),
+    { name: 'telemed-patients-storage' }
+  )
 );

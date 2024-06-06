@@ -1,73 +1,100 @@
 import { ZambdaClient } from '@zapehr/sdk';
-import { GetZapEHRTelemedAPIParams, ApiError } from './types';
-import { GetAppointmentsRequestParams } from '../utils';
-import { StateType } from '../../types/types';
 import {
-  GetChartDataResponse,
-  GetChartDataRequest,
-  GetTelemedAppointmentsResponse,
-  InitTelemedSessionRequestParams,
-  InitTelemedSessionResponse,
-  SaveChartDataResponse,
-  SaveChartDataRequest,
+  ChangeTelemedAppointmentStatusInput,
+  ChangeTelemedAppointmentStatusResponse,
+  CommunicationDTO,
   DeleteChartDataRequest,
   DeleteChartDataResponse,
+  DeletePatientInstructionInput,
+  GetChartDataRequest,
+  GetChartDataResponse,
+  GetPatientInstructionsInput,
+  GetTelemedAppointmentsResponse,
+  IcdSearchRequestParams,
+  IcdSearchResponse,
+  InitTelemedSessionRequestParams,
+  InitTelemedSessionResponse,
+  SaveChartDataRequest,
+  SaveChartDataResponse,
+  SavePatientInstructionInput,
 } from 'ehr-utils';
+import { GetAppointmentsRequestParams } from '../utils';
+import { ApiError, GetZapEHRTelemedAPIParams } from './types';
 
 enum ZambdaNames {
   'get telemed appointments' = 'get telemed appointments',
   'init telemed session' = 'init telemed session',
-  'get user' = 'get user',
   'get chart data' = 'get chart data',
   'save chart data' = 'save chart data',
   'delete chart data' = 'delete chart data',
+  'change telemed appointment status' = 'change telemed appointment status',
+  'get patient instructions' = 'get patient instructions',
+  'save patient instruction' = 'save patient instruction',
+  'delete patient instruction' = 'delete patient instruction',
+  'icd search' = 'icd search',
 }
 
 const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'get telemed appointments': false,
   'init telemed session': false,
-  'get user': false,
   'get chart data': false,
   'save chart data': false,
   'delete chart data': false,
+  'change telemed appointment status': false,
+  'get patient instructions': false,
+  'save patient instruction': false,
+  'delete patient instruction': false,
+  'icd search': false,
 };
 
 export type ZapEHRTelemedAPIClient = ReturnType<typeof getZapEHRTelemedAPI>;
 
 export const getZapEHRTelemedAPI = (
   params: GetZapEHRTelemedAPIParams,
-  zambdaClient: ZambdaClient,
+  zambdaClient: ZambdaClient
 ): {
   getTelemedAppointments: typeof getTelemedAppointments;
   initTelemedSession: typeof initTelemedSession;
-  getUser: typeof getUser;
   getChartData: typeof getChartData;
   saveChartData: typeof saveChartData;
   deleteChartData: typeof deleteChartData;
+  changeTelemedAppointmentStatus: typeof changeTelemedAppointmentStatus;
+  getPatientInstructions: typeof getPatientInstructions;
+  savePatientInstruction: typeof savePatientInstruction;
+  deletePatientInstruction: typeof deletePatientInstruction;
+  icdSearch: typeof icdSearch;
 } => {
   const {
     getTelemedAppointmentsZambdaID,
     initTelemedSessionZambdaID,
-    getUserZambdaID,
     getChartDataZambdaID,
     saveChartDataZambdaID,
     deleteChartDataZambdaID,
+    changeTelemedAppointmentStatusZambdaID,
+    getPatientInstructionsZambdaID,
+    savePatientInstructionZambdaID,
+    deletePatientInstructionZambdaID,
+    icdSearchZambdaId,
   } = params;
 
   const zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined> = {
     'get telemed appointments': getTelemedAppointmentsZambdaID,
     'init telemed session': initTelemedSessionZambdaID,
-    'get user': getUserZambdaID,
     'get chart data': getChartDataZambdaID,
     'save chart data': saveChartDataZambdaID,
     'delete chart data': deleteChartDataZambdaID,
+    'change telemed appointment status': changeTelemedAppointmentStatusZambdaID,
+    'get patient instructions': getPatientInstructionsZambdaID,
+    'save patient instruction': savePatientInstructionZambdaID,
+    'delete patient instruction': deletePatientInstructionZambdaID,
+    'icd search': icdSearchZambdaId,
   };
   const isAppLocalProvided = params.isAppLocal != null;
   const isAppLocal = params.isAppLocal === 'true';
 
   const verifyZambdaProvidedAndNotLocalThrowErrorOtherwise = (
     zambdaID: string | undefined,
-    zambdaName: keyof typeof zambdasToIdsMap,
+    zambdaName: keyof typeof zambdasToIdsMap
   ): zambdaID is Exclude<typeof zambdaID, undefined> => {
     if (zambdaID === undefined || !isAppLocalProvided) {
       throw new Error(`${zambdaName} zambda environment variable could not be loaded`);
@@ -82,7 +109,7 @@ export const getZapEHRTelemedAPI = (
   const makeZapRequest = async <TResponse, TPayload>(
     zambdaName: keyof typeof ZambdaNames,
     payload?: TPayload,
-    additionalErrorHandler?: (error: unknown) => void,
+    additionalErrorHandler?: (error: unknown) => void
   ): Promise<TResponse> => {
     const zambdaId = zambdasToIdsMap[zambdaName];
 
@@ -115,26 +142,15 @@ export const getZapEHRTelemedAPI = (
   };
 
   const getTelemedAppointments = async (
-    parameters: GetAppointmentsRequestParams,
+    parameters: GetAppointmentsRequestParams
   ): Promise<GetTelemedAppointmentsResponse> => {
     return await makeZapRequest('get telemed appointments', parameters, NotFoundApointmentErrorHandler);
   };
 
   const initTelemedSession = async (
-    parameters: InitTelemedSessionRequestParams,
+    parameters: InitTelemedSessionRequestParams
   ): Promise<InitTelemedSessionResponse> => {
     return await makeZapRequest('init telemed session', parameters);
-  };
-
-  const getUser = async (parameters: {
-    userId: string;
-  }): Promise<{
-    message: string;
-    user: {
-      licenses: { state: StateType; licenseId: string }[];
-    };
-  }> => {
-    return await makeZapRequest('get user', parameters, NotFoundApointmentErrorHandler);
   };
 
   const getChartData = async (parameters: GetChartDataRequest): Promise<GetChartDataResponse> => {
@@ -149,13 +165,39 @@ export const getZapEHRTelemedAPI = (
     return await makeZapRequest('delete chart data', parameters);
   };
 
+  const changeTelemedAppointmentStatus = async (
+    parameters: Omit<ChangeTelemedAppointmentStatusInput, 'secrets'>
+  ): Promise<ChangeTelemedAppointmentStatusResponse> => {
+    return await makeZapRequest('change telemed appointment status', parameters);
+  };
+
+  const getPatientInstructions = async (parameters: GetPatientInstructionsInput): Promise<CommunicationDTO[]> => {
+    return await makeZapRequest('get patient instructions', parameters);
+  };
+
+  const savePatientInstruction = async (parameters: SavePatientInstructionInput): Promise<CommunicationDTO> => {
+    return await makeZapRequest('save patient instruction', parameters);
+  };
+
+  const deletePatientInstruction = async (parameters: DeletePatientInstructionInput): Promise<void> => {
+    return await makeZapRequest('delete patient instruction', parameters);
+  };
+
+  const icdSearch = async (parameters: IcdSearchRequestParams): Promise<IcdSearchResponse> => {
+    return await makeZapRequest('icd search', parameters);
+  };
+
   return {
     getTelemedAppointments,
     initTelemedSession,
-    getUser,
     getChartData,
     saveChartData,
     deleteChartData,
+    changeTelemedAppointmentStatus,
+    getPatientInstructions,
+    savePatientInstruction,
+    deletePatientInstruction,
+    icdSearch,
   };
 };
 

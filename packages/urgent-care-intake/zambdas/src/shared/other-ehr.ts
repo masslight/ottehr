@@ -18,7 +18,7 @@ const STATI = [
   'PROVIDER-READY',
 ];
 type STATI_LIST = typeof STATI;
-export type OtherEHRVisitStatus = STATI_LIST[number];
+export type VisitStatus = STATI_LIST[number];
 
 type AppointmentStatus =
   | 'proposed'
@@ -43,16 +43,16 @@ type EncounterStatus =
   | 'entered-in-error'
   | 'unknown';
 
-export type OtherEHRVisitStatusExtensionEntry = {
+export type VisitStatusExtensionEntry = {
   url: 'status';
-  extension: [{ url: 'status'; valueString: OtherEHRVisitStatus }, { url: 'period'; valuePeriod: Period }];
+  extension: [{ url: 'status'; valueString: VisitStatus }, { url: 'period'; valuePeriod: Period }];
 };
-export type OtherEHRVisitStatusExtension = {
+export type VisitStatusExtension = {
   url: string;
-  extension: OtherEHRVisitStatusExtensionEntry[];
+  extension: VisitStatusExtensionEntry[];
 };
 
-const otherEHRToFhirAppointmentStatusMap: Record<OtherEHRVisitStatus, AppointmentStatus> = {
+const otherEHRToFhirAppointmentStatusMap: Record<VisitStatus, AppointmentStatus> = {
   PENDING: 'booked',
   ARRIVED: 'arrived',
   READY: 'checked-in',
@@ -65,10 +65,10 @@ const otherEHRToFhirAppointmentStatusMap: Record<OtherEHRVisitStatus, Appointmen
   'NO-SHOW': 'noshow',
 };
 
-export function makeOtherEHRVisitStatusExtensionEntry(
-  statusCode: OtherEHRVisitStatus,
+export function makeVisitStatusExtensionEntry(
+  statusCode: VisitStatus,
   dateTimeISO?: string,
-): OtherEHRVisitStatusExtensionEntry {
+): VisitStatusExtensionEntry {
   return {
     url: 'status',
     extension: [
@@ -81,22 +81,22 @@ export function makeOtherEHRVisitStatusExtensionEntry(
   };
 }
 
-const otherEHRVisitStatusExtensionUrl = `https://fhir.zapehr.com/r4/StructureDefinitions/visit-history`;
-export const makeOtherEHRVisitStatusExtension = (
-  statusCode: OtherEHRVisitStatus,
+const VisitStatusExtensionUrl = `https://fhir.zapehr.com/r4/StructureDefinitions/visit-history`;
+export const makeVisitStatusExtension = (
+  statusCode: VisitStatus,
   dateTimeISO?: string,
-): OtherEHRVisitStatusExtension => {
+): VisitStatusExtension => {
   return {
-    url: otherEHRVisitStatusExtensionUrl,
-    extension: [makeOtherEHRVisitStatusExtensionEntry(statusCode, dateTimeISO)],
+    url: VisitStatusExtensionUrl,
+    extension: [makeVisitStatusExtensionEntry(statusCode, dateTimeISO)],
   };
 };
 
-export const mapOtherEHRVisitStatusToFhirAppointmentStatus = (apptStatus: OtherEHRVisitStatus): AppointmentStatus => {
+export const mapVisitStatusToFhirAppointmentStatus = (apptStatus: VisitStatus): AppointmentStatus => {
   return otherEHRToFhirAppointmentStatusMap[apptStatus] ?? 'proposed'; // 'fulfilled' maybe?
 };
 
-const otherEHRToFhirEncounterStatusMap: Record<OtherEHRVisitStatus, EncounterStatus> = {
+const otherEHRToFhirEncounterStatusMap: Record<VisitStatus, EncounterStatus> = {
   PENDING: 'planned',
   ARRIVED: 'arrived',
   READY: 'arrived',
@@ -109,14 +109,14 @@ const otherEHRToFhirEncounterStatusMap: Record<OtherEHRVisitStatus, EncounterSta
   'NO-SHOW': 'cancelled',
 };
 
-export const mapOtherEHRVisitStatusToFhirEncounterStatus = (apptStatus: OtherEHRVisitStatus): EncounterStatus => {
+export const mapVisitStatusToFhirEncounterStatus = (apptStatus: VisitStatus): EncounterStatus => {
   return otherEHRToFhirEncounterStatusMap[apptStatus] ?? 'unknown';
 };
 
 type AppOrEncounter = Appointment | Encounter;
 export const getPatchOperationsToUpdateVisitStatus = <T extends AppOrEncounter>(
   resource: T,
-  statusCode: OtherEHRVisitStatus,
+  statusCode: VisitStatus,
   dateTimeISO?: string,
 ): Operation[] => {
   if (resource.extension == undefined) {
@@ -124,29 +124,29 @@ export const getPatchOperationsToUpdateVisitStatus = <T extends AppOrEncounter>(
       {
         op: 'add',
         path: '/extension',
-        value: [makeOtherEHRVisitStatusExtensionEntry(statusCode, dateTimeISO)],
+        value: [makeVisitStatusExtensionEntry(statusCode, dateTimeISO)],
       },
     ];
   }
   const extensions = resource.extension ?? [];
-  const existingVisitStatusExtIdx = extensions.findIndex((ext) => ext.url === otherEHRVisitStatusExtensionUrl);
+  const existingVisitStatusExtIdx = extensions.findIndex((ext) => ext.url === VisitStatusExtensionUrl);
   if (existingVisitStatusExtIdx === -1) {
     return [
       {
         op: 'add',
         path: '/extension/-',
-        value: makeOtherEHRVisitStatusExtensionEntry(statusCode, dateTimeISO),
+        value: makeVisitStatusExtensionEntry(statusCode, dateTimeISO),
       },
     ];
   }
-  const existingVisitStatusExt = extensions[existingVisitStatusExtIdx] as OtherEHRVisitStatusExtension;
+  const existingVisitStatusExt = extensions[existingVisitStatusExtIdx] as VisitStatusExtension;
   const statusList = existingVisitStatusExt.extension;
   if (statusList == undefined) {
     return [
       {
         op: 'add',
         path: `/extension/${existingVisitStatusExtIdx}/extension`,
-        value: makeOtherEHRVisitStatusExtensionEntry(statusCode, dateTimeISO).extension,
+        value: makeVisitStatusExtensionEntry(statusCode, dateTimeISO).extension,
       },
     ];
   }
@@ -175,16 +175,16 @@ export const getPatchOperationsToUpdateVisitStatus = <T extends AppOrEncounter>(
     operations.push({
       op: 'add',
       path: `/extension/${existingVisitStatusExtIdx}/extension/-`,
-      value: makeOtherEHRVisitStatusExtensionEntry(statusCode, dateTimeISO),
+      value: makeVisitStatusExtensionEntry(statusCode, dateTimeISO),
     });
   }
   return operations;
 };
 
-export const validateOtherEHRVisitStatus = (
+export const validateVisitStatus = (
   visitStatus: string | undefined,
   secrets: Secrets | null,
-): OtherEHRVisitStatus => {
+): VisitStatus => {
   console.log('validating otherehr visit status', visitStatus);
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
 
@@ -198,8 +198,8 @@ export const validateOtherEHRVisitStatus = (
   }
 
   // Translation variables
-  if (!STATI.includes(visitStatus as OtherEHRVisitStatus)) {
+  if (!STATI.includes(visitStatus as VisitStatus)) {
     throw new Error(`Unrecognized value found for Visit.status on visit record: ${visitStatus}`);
   }
-  return visitStatus as OtherEHRVisitStatus;
+  return visitStatus as VisitStatus;
 };

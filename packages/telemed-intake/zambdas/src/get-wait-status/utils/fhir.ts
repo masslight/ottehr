@@ -4,7 +4,7 @@ import { isLocationVirtual } from './helpers';
 
 export const getAllAppointmentsByLocations = async (
   fhirClient: FhirClient,
-  locationsIds: string[],
+  locationsIds: string[]
 ): Promise<Appointment[]> => {
   const allResources = await fhirClient.searchResources({
     resourceType: 'Appointment',
@@ -24,7 +24,7 @@ export const getAllAppointmentsByLocations = async (
 
 export const convertStatesAbbreviationsToLocationIds = async (
   fhirClient: FhirClient,
-  statesAbbreviations: string[],
+  statesAbbreviations: string[]
 ): Promise<string[]> => {
   const statesLocationIds: string[] = [];
   const searchParams = {

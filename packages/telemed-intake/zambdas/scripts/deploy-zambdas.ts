@@ -1,11 +1,29 @@
+import { BatchInputDeleteRequest, BatchInputPostRequest } from '@zapehr/sdk';
+import { Subscription } from 'fhir/r4';
 import fs from 'fs';
-import { projectApiUrlFromAuth0Audience, createZambdaClient, performEffectWithEnvFile } from './common';
 import { getM2MClientToken } from '../src/shared';
+import {
+  createFhirClient,
+  createZambdaClient,
+  performEffectWithEnvFile,
+  projectApiUrlFromAuth0Audience,
+} from './common';
+
+interface SubscriptionDetils {
+  criteria: string;
+  reason: string;
+  event?: 'create' | 'update';
+}
 
 interface DeployZambda {
-  type: 'http_open' | 'http_auth' | 'subscription';
-  event?: 'create' | 'update';
-  criteria?: string;
+  type: 'http_open' | 'http_auth' | 'subscription' | 'cron';
+  subscriptionDetils?: SubscriptionDetils[];
+  schedule?: {
+    start?: string;
+    end?: string;
+    expression: string;
+  };
+  environments?: string[];
 }
 
 const ZAMBDAS: { [name: string]: DeployZambda } = {
@@ -13,10 +31,13 @@ const ZAMBDAS: { [name: string]: DeployZambda } = {
     type: 'http_auth',
   },
   'GET-PAPERWORK': {
-    type: 'http_open',
+    type: 'http_auth',
+  },
+  'CREATE-PAPERWORK': {
+    type: 'http_auth',
   },
   'UPDATE-PAPERWORK': {
-    type: 'http_open',
+    type: 'http_auth',
   },
   'CREATE-APPOINTMENT': {
     type: 'http_auth',
@@ -24,10 +45,28 @@ const ZAMBDAS: { [name: string]: DeployZambda } = {
   'GET-APPOINTMENTS': {
     type: 'http_auth',
   },
-  'CANCEL-APPOINTMENT': {
+  'GET-TELEMED-STATES': {
     type: 'http_open',
   },
+  'CANCEL-APPOINTMENT': {
+    type: 'http_auth',
+  },
   'GET-WAIT-STATUS': {
+    type: 'http_open',
+  },
+  'JOIN-CALL': {
+    type: 'http_open',
+  },
+  'VIDEO-CHAT-INVITES-CREATE': {
+    type: 'http_auth',
+  },
+  'VIDEO-CHAT-INVITES-CANCEL': {
+    type: 'http_auth',
+  },
+  'VIDEO-CHAT-INVITES-LIST': {
+    type: 'http_auth',
+  },
+  'GET-PRESIGNED-FILE-URL': {
     type: 'http_open',
   },
 };
@@ -75,12 +114,118 @@ async function updateProjectZambda(zambdaId: string, zambda: DeployZambda, confi
     },
     body: JSON.stringify({
       triggerMethod: zambda.type,
+      schedule: zambda.schedule,
     }),
   });
   if (updateZambda.status !== 200) {
     throw new Error(`Error updating the zambda ${JSON.stringify(await updateZambda.json())}`);
   }
   console.log('Updated zambda');
+
+  if (zambda.type === 'subscription') {
+    if (zambda.subscriptionDetils === undefined) {
+      console.log('Zambda is subscription type but does not have details on the subscription');
+      return;
+    }
+    const endpoint = `zapehr-lambda:${zambdaId}`;
+
+    const fhirClient = await createFhirClient(config);
+    const subscriptionsSearch: Subscription[] = await fhirClient.searchResources({
+      resourceType: 'Subscription',
+      searchParams: [
+        {
+          name: 'url',
+          value: endpoint,
+        },
+        {
+          name: 'status',
+          value: 'active',
+        },
+      ],
+    });
+    console.log(`${subscriptionsSearch.length} existing subscriptions found`);
+
+    const EXTENSION_URL = 'http://zapehr.com/fhir/extension/SubscriptionTriggerEvent';
+
+    const createSubscriptionRequests: BatchInputPostRequest[] = [];
+    const deleteSubscriptionRequests: BatchInputDeleteRequest[] = [];
+
+    // check existing subscriptions against current subscription details to determin if any should be deleted
+    // if any events are changing, delete
+    // if any existing criteria doesn't exist in the details array defined above, delete
+    const subscriptionsNotChanging = subscriptionsSearch.reduce((acc: Subscription[], existingSubscription) => {
+      const existingSubscriptionEvent = existingSubscription.extension?.find((ext) => ext.url === EXTENSION_URL)
+        ?.valueString;
+      const subscriptionMatch = zambda.subscriptionDetils?.find((zambdaSubscritionDetail) => {
+        const eventMatch = existingSubscriptionEvent === zambdaSubscritionDetail.event;
+        const criteriaMatch = zambdaSubscritionDetail.criteria === existingSubscription.criteria;
+        return eventMatch && criteriaMatch;
+      });
+      if (subscriptionMatch) {
+        console.log(
+          `subscription with criteria: '${subscriptionMatch.criteria}' and event: '${subscriptionMatch.event}' is not changing`
+        );
+        acc.push(existingSubscription);
+      } else {
+        console.log(
+          `subscription with criteria: '${existingSubscription.criteria}' and event: '${existingSubscriptionEvent}' is being deleted since the criteria/event is not contained in the updated subscription details array`
+        );
+        const deleteRequest: BatchInputDeleteRequest = {
+          method: 'DELETE',
+          url: `/Subscription/${existingSubscription.id}`,
+        };
+        deleteSubscriptionRequests.push(deleteRequest);
+      }
+      return acc;
+    }, []);
+
+    // check current subscription details again existing subscriptions to determin if any should be created
+    zambda.subscriptionDetils.forEach((subscriptionDetail) => {
+      // if the subscription detail is found in subscriptions not chaning, do nothing
+      const foundSubscription = subscriptionsNotChanging.find(
+        (subscription) => subscription.criteria === subscriptionDetail.criteria
+      );
+      // else create it
+      if (!foundSubscription) {
+        console.log(
+          `Creating subscription with criteria: '${subscriptionDetail.criteria}' and event: '${subscriptionDetail.event}'`
+        );
+        const extension = [];
+        if (subscriptionDetail?.event) {
+          extension.push({
+            url: EXTENSION_URL,
+            valueString: subscriptionDetail.event,
+          });
+        }
+        const subscriptionResource: Subscription = {
+          resourceType: 'Subscription',
+          status: 'active',
+          reason: subscriptionDetail.reason,
+          criteria: subscriptionDetail.criteria,
+          channel: {
+            type: 'rest-hook',
+            endpoint: endpoint,
+          },
+          extension: extension,
+        };
+        const subscriptionRequest: BatchInputPostRequest = {
+          method: 'POST',
+          url: '/Subscription',
+          resource: subscriptionResource,
+        };
+        createSubscriptionRequests.push(subscriptionRequest);
+      }
+    });
+    if (createSubscriptionRequests.length > 0 || deleteSubscriptionRequests.length > 0) {
+      console.log('making subscription transaction request');
+      await fhirClient.transactionRequest({
+        requests: [...createSubscriptionRequests, ...deleteSubscriptionRequests],
+      });
+    }
+    console.log(`Created ${createSubscriptionRequests.length} subscriptions`);
+    console.log(`Deleted ${deleteSubscriptionRequests.length} subscriptions`);
+    console.log(`${subscriptionsNotChanging.length} subscriptions are not changing`);
+  }
 }
 
 if (process.argv.length < 3) {

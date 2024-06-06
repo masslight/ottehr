@@ -23,6 +23,7 @@ export const checkTelemedVirtualLocations = async (fhirClient: FhirClient) => {
 const createTelemedLocation = async (state: { value: string; label: string }, fhirClient: FhirClient) => {
   const location: Location = {
     resourceType: 'Location',
+    status: 'active',
     address: {
       state: state.value,
     },

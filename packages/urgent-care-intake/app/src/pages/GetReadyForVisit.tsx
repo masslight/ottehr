@@ -32,7 +32,7 @@ const GetReadyForVisit = (): JSX.Element => {
   };
 
   useEffect(() => {
-    mixpanel.track('GetReadyForVisit');
+    //mixpanel.track('GetReadyForVisit');
   }, []);
 
   const bgVariant = IntakeFlowPageRoute.WelcomeType.path;

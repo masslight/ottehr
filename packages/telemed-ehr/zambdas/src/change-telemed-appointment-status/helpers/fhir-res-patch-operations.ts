@@ -46,6 +46,16 @@ export const addStatusHistoryRecordOp = (statusHistoryIndex: number, status: str
   };
 };
 
+export const addPeriodEndOp = (time: string): Operation => {
+  return {
+    op: 'add',
+    path: `/period`,
+    value: {
+      end: time,
+    },
+  };
+};
+
 export const deleteStatusHistoryRecordOp = (statusHistoryIndex: number): Operation => {
   return {
     op: 'remove',
@@ -56,7 +66,7 @@ export const deleteStatusHistoryRecordOp = (statusHistoryIndex: number): Operati
 export const changeStatusRecordPeriodValueOp = (
   statusHistoryIndex: number,
   periodElement: 'start' | 'end',
-  value: string,
+  value: string
 ): Operation => {
   return {
     op: 'add',

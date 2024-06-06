@@ -1,6 +1,13 @@
 import { Address, ContactPoint, LocationHoursOfOperation } from 'fhir/r4';
 import { Secrets } from '../secrets';
 
+export interface PatientBaseInfo {
+  firstName?: string;
+  id?: string;
+  middleName?: string;
+  lastName?: string;
+  dateOfBirth?: string;
+}
 export interface FileUpload {
   [key: string]: {
     fileData: File | null;
@@ -24,9 +31,24 @@ export interface AvailableLocationInformation {
   address: Address | undefined;
   telecom: ContactPoint[] | undefined;
   hoursOfOperation: LocationHoursOfOperation[] | undefined;
+  closures: Closure[];
   timezone: string | undefined;
   otherOffices: { display: string; url: string }[];
 }
+
+// Closure start/end format: 'M/d/yyyy'
+export interface Closure {
+  start: string;
+  end: string;
+  type: ClosureType;
+}
+export enum ClosureType {
+  OneDay = 'one-day',
+  Period = 'period',
+}
+
+export const OVERRIDE_DATE_FORMAT = 'M/d/yyyy';
+export const HOURS_OF_OPERATION_FORMAT = 'TT';
 
 export const getSlugAndStateFromLocation = (
   location: AvailableLocationInformation | undefined
@@ -49,6 +71,7 @@ export type FormItemType =
   | 'Date'
   | 'Year'
   | 'File'
+  | 'Photos'
   | 'Checkbox'
   | 'Header 3'
   | 'Header 4'
@@ -59,6 +82,7 @@ export type FormItemType =
   | 'Date Day'
   | 'Group'
   | 'Form list'
+  | 'Photos'
   | undefined;
 
 export type PromiseReturnType<T> = T extends Promise<infer R> ? R : never;

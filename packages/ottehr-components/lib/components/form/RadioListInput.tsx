@@ -11,6 +11,7 @@ type RadioInputProps = {
   options: RadioOption[];
   required?: boolean;
   helperText?: string;
+  showHelperTextIcon?: boolean;
   borderColor?: string;
   centerImages?: boolean;
   onChange: (event: SyntheticEvent) => void;
@@ -25,6 +26,7 @@ const RadioInput: FC<RadioInputProps> = ({
   required,
   options,
   helperText,
+  showHelperTextIcon,
   onChange,
 }) => {
   const {
@@ -63,7 +65,14 @@ const RadioInput: FC<RadioInputProps> = ({
                 );
               })}
             </RadioGroup>
-            {!value && <InputHelperText name={name} errors={errors} helperText={helperText} />}
+            {!value && (
+              <InputHelperText
+                name={name}
+                errors={errors}
+                helperText={helperText}
+                showHelperTextIcon={showHelperTextIcon}
+              />
+            )}
           </FormControl>
         );
       }}

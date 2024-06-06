@@ -7,10 +7,17 @@ type InputHelperTextProps = {
   name: string;
   errors: FieldErrors;
   helperText?: string;
+  showHelperTextIcon?: boolean;
   textColor?: string;
 };
 
-export const InputHelperText: FC<InputHelperTextProps> = ({ name, errors, helperText, textColor }) => {
+export const InputHelperText: FC<InputHelperTextProps> = ({
+  name,
+  errors,
+  helperText,
+  showHelperTextIcon = true,
+  textColor,
+}) => {
   return (
     <Box>
       <FormHelperText id={`${name}-helper-text`} sx={{ color: textColor, gap: 0, mt: 1 }}>
@@ -18,9 +25,11 @@ export const InputHelperText: FC<InputHelperTextProps> = ({ name, errors, helper
       </FormHelperText>
       {helperText && (
         <Box display="flex">
-          <InfoOutlinedIcon
-            sx={{ fontSize: '18px', color: 'info.main', verticalAlign: 'bottom', paddingRight: '4px' }}
-          />
+          {showHelperTextIcon && (
+            <InfoOutlinedIcon
+              sx={{ fontSize: '18px', color: 'info.main', verticalAlign: 'bottom', paddingRight: '4px' }}
+            />
+          )}
           <Typography variant="caption" color="text.primary">
             {helperText}
           </Typography>

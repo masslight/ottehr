@@ -1,165 +1,163 @@
-import React, { FC, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { Box, Container } from '@mui/material';
+import { GlobalStyles, MeetingProvider, lightTheme } from 'amazon-chime-sdk-component-library-react';
 import {
+  Appointment,
+  DocumentReference,
+  Encounter,
+  FhirResource,
+  Location,
+  Patient,
+  QuestionnaireResponse,
+} from 'fhir/r4';
+import { FC, useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { ThemeProvider } from 'styled-components';
+import { PATIENT_PHOTO_CODE, getQuestionnaireResponseByLinkId } from 'ehr-utils';
+import { getSelectors } from '../../shared/store/getSelectors';
+import HearingRelayPopup from '../components/HearingRelayPopup';
+import PreferredLanguagePopup from '../components/PreferredLanguagePopup';
+import { AppointmentFooter, AppointmentHeader, AppointmentTabs, VideoChatContainer } from '../features/appointment';
+import {
+  EXAM_OBSERVATIONS_INITIAL,
   useAppointmentStore,
+  useExamObservationsStore,
   useGetTelemedAppointment,
-  useGetVideoToken,
-  useInitTelemedSessionMutation,
   useVideoCallStore,
 } from '../state';
-import { getSelectors } from '../../shared/store/getSelectors';
-import { Appointment, Encounter, FhirResource, Location, Patient, QuestionnaireResponse } from 'fhir/r4';
-import { Box, Button, Card, Container, Divider, Typography, useTheme } from '@mui/material';
-import { AppointmentHeader, AppointmentTabs, VideoChatContainer } from '../components';
-import { LoadingButton } from '@mui/lab';
-import { useZapEHRTelemedAPIClient } from '../hooks/useZapEHRAPIClient';
-import { useCommonStore } from '../../state/common.store';
-import { useAuth0 } from '@auth0/auth0-react';
-import { ApptStatus, mapStatusToTelemed } from '../utils';
+import { useIsReadOnly } from '../hooks';
+import { EXAM_CARDS_INITIAL, useExamCardsStore } from '../state/appointment/exam-cards.store';
 
 export const AppointmentPage: FC = () => {
-  const theme = useTheme();
   const { id } = useParams();
-  const { getAccessTokenSilently } = useAuth0();
 
-  const { appointment, encounter } = getSelectors(useAppointmentStore, [
-    'appointment',
-    'patient',
-    'location',
-    'encounter',
-    'questionnaireResponse',
-  ]);
-  const { videoToken } = getSelectors(useVideoCallStore, ['videoToken']);
+  const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
+  useIsReadOnly();
+
+  const [wasHearingRelayPopupOpen, setWasHearingRelayPopupOpen] = useState(false);
+  const [shouldHearingRelayPopupBeOpened, setShouldHearingRelayPopupBeOpened] = useState(false);
+  const [wasPreferredLanguagePopupOpen, setWasPreferredLanguagePopupOpen] = useState(false);
+  const [shouldPreferredLanguagePopupBeOpened, setShouldPreferredLanguagePopupBeOpened] = useState(false);
+  const [preferredLanguage, setPreferredLanguage] = useState<string | undefined>(undefined);
+  const isPreferredLanguagePopupOpen = shouldPreferredLanguagePopupBeOpened && !wasPreferredLanguagePopupOpen;
+  const isHearingRelayPopupOpen =
+    shouldHearingRelayPopupBeOpened && !wasHearingRelayPopupOpen && !isPreferredLanguagePopupOpen;
+
+  const closeHearingRelayPopup = (): void => {
+    setWasHearingRelayPopupOpen(true);
+  };
+
+  const closePreferredLanguagePopup = (): void => {
+    setWasPreferredLanguagePopupOpen(true);
+  };
 
   const { isFetching } = useGetTelemedAppointment(
     {
       appointmentId: id,
     },
     (data) => {
+      const questionnaireResponse = data?.find(
+        (resource: FhirResource) => resource.resourceType === 'QuestionnaireResponse'
+      ) as unknown as QuestionnaireResponse;
       useAppointmentStore.setState({
         appointment: data?.find(
-          (resource: FhirResource) => resource.resourceType === 'Appointment',
-        ) as any as Appointment,
-        patient: data?.find((resource: FhirResource) => resource.resourceType === 'Patient') as any as Patient,
-        location: data?.find((resource: FhirResource) => resource.resourceType === 'Location') as any as Location,
-        encounter: data?.find((resource: FhirResource) => resource.resourceType === 'Encounter') as any as Encounter,
-        questionnaireResponse: data?.find(
-          (resource: FhirResource) => resource.resourceType === 'QuestionnaireResponse',
-        ) as any as QuestionnaireResponse,
+          (resource: FhirResource) => resource.resourceType === 'Appointment'
+        ) as unknown as Appointment,
+        patient: data?.find((resource: FhirResource) => resource.resourceType === 'Patient') as unknown as Patient,
+        location: data?.find((resource: FhirResource) => resource.resourceType === 'Location') as unknown as Location,
+        encounter: data?.find(
+          (resource: FhirResource) => resource.resourceType === 'Encounter'
+        ) as unknown as Encounter,
+        questionnaireResponse,
+        patientPhotoUrls:
+          (data
+            ?.filter(
+              (resource: FhirResource) =>
+                resource.resourceType === 'DocumentReference' &&
+                resource.status === 'current' &&
+                resource.type?.coding?.[0].code === PATIENT_PHOTO_CODE
+            )
+            .flatMap((docRef: FhirResource) => (docRef as DocumentReference).content.map((cnt) => cnt.attachment.url))
+            .filter(Boolean) as string[]) || [],
       });
-    },
+
+      const relayPhone = getQuestionnaireResponseByLinkId('relay-phone', questionnaireResponse)?.answer.find(
+        Boolean
+      )?.valueString;
+      if (relayPhone?.toLowerCase() === 'yes') {
+        setShouldHearingRelayPopupBeOpened(true);
+      }
+      const preferredLanguage = getQuestionnaireResponseByLinkId('preferred-language', questionnaireResponse)?.answer[0]
+        .valueString;
+      setPreferredLanguage(preferredLanguage);
+      if (preferredLanguage !== 'English') {
+        setShouldPreferredLanguagePopupBeOpened(true);
+      }
+    }
   );
+
+  useEffect(() => {
+    useAppointmentStore.setState({
+      appointment: undefined,
+      patient: undefined,
+      location: undefined,
+      encounter: {} as Encounter,
+      questionnaireResponse: undefined,
+      patientPhotoUrls: [],
+      chartData: undefined,
+      currentTab: 'hpi',
+    });
+    useExamObservationsStore.setState(EXAM_OBSERVATIONS_INITIAL);
+    useVideoCallStore.setState({ meetingData: null });
+    useExamCardsStore.setState(EXAM_CARDS_INITIAL);
+  }, []);
 
   useEffect(() => {
     useAppointmentStore.setState({ isAppointmentLoading: isFetching });
   }, [isFetching]);
 
-  const commonState = useCommonStore.getState();
-  const apiClient = useZapEHRTelemedAPIClient();
-  const initTelemedSession = useInitTelemedSessionMutation();
-  const getVideoToken = useGetVideoToken(getAccessTokenSilently, (data) => {
-    useVideoCallStore.setState({ videoToken: data.token });
-  });
-
-  const onClick = (): void => {
-    if (mapStatusToTelemed(encounter.status, appointment?.status) === ApptStatus['on-video']) {
-      loadVideoToken();
-    } else {
-      initVideo();
-    }
-  };
-
-  const initVideo = (): void => {
-    if (!apiClient || !commonState.user || !appointment?.id) {
-      throw new Error('api client not defined or userId not provided');
-    }
-    initTelemedSession.mutate(
-      { apiClient, appointmentId: appointment.id, userId: commonState.user?.id },
-      {
-        onSuccess: async (response) => {
-          useVideoCallStore.setState({
-            videoToken: response.videoToken,
-            videoRoomId: response.videoRoomId,
-            encounterId: response.encounterId,
-          });
-          useAppointmentStore.setState({
-            encounter: { ...encounter, status: 'in-progress' },
-          });
-        },
-        onError: (error) => {
-          throw error;
-        },
-      },
-    );
-  };
-
-  const loadVideoToken = (): void => {
-    void getVideoToken.refetch();
-  };
-
   return (
-    <Box>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        minHeight: '100vh',
+      }}
+    >
       <AppointmentHeader />
 
-      {videoToken && <VideoChatContainer />}
+      <PreferredLanguagePopup
+        isOpen={isPreferredLanguagePopupOpen}
+        onClose={closePreferredLanguagePopup}
+        preferredLanguage={preferredLanguage}
+      />
 
-      <Container maxWidth="xl" sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <Card sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2, backgroundColor: '#4D15B714' }}>
-          {!videoToken && (
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Box>
-                <Typography variant="h4" color="primary.dark">
-                  Patient waiting
-                </Typography>
-                <Typography variant="body2" color={theme.palette.secondary.light}>
-                  11 mins
-                </Typography>
-              </Box>
-              <LoadingButton
-                loading={initTelemedSession.isLoading || getVideoToken.isLoading}
-                onClick={onClick}
-                variant="contained"
-                sx={{ textTransform: 'none', fontSize: '15px', fontWeight: 700, borderRadius: 10 }}
-              >
-                Connect to Patient
-              </LoadingButton>
-            </Box>
-          )}
+      <HearingRelayPopup isOpen={isHearingRelayPopupOpen} onClose={closeHearingRelayPopup} />
 
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Box sx={{ display: 'flex', gap: 3 }}>
-              <Box>
-                <Typography color="primary.dark" sx={{ fontSize: '12px', fontWeight: 700 }}>
-                  Preferred Language
-                </Typography>
-                <Typography>English</Typography>
-              </Box>
-              <Divider orientation="vertical" variant="fullWidth" flexItem sx={{ borderColor: '#4D15B74D' }} />
-              <Box>
-                <Typography color="primary.dark" sx={{ fontSize: '12px', fontWeight: 700 }}>
-                  Hearing Impaired Relay Service? (711)
-                </Typography>
-                <Typography>No</Typography>
-              </Box>
-              <Divider orientation="vertical" variant="fullWidth" flexItem sx={{ borderColor: '#4D15B74D' }} />
-              <Box>
-                <Typography color="primary.dark" sx={{ fontSize: '12px', fontWeight: 700 }}>
-                  Patient number
-                </Typography>
-                <Typography>(123) 456-7890</Typography>
-              </Box>
-            </Box>
-            <Button
-              variant="outlined"
-              sx={{ textTransform: 'none', fontSize: '14px', fontWeight: 700, borderRadius: 10 }}
-            >
-              Invite participant
-            </Button>
-          </Box>
-        </Card>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          flex: 1,
+          width: '100%',
+        }}
+      >
+        {meetingData && (
+          <ThemeProvider theme={lightTheme}>
+            <GlobalStyles />
+            <MeetingProvider>
+              <VideoChatContainer />
+            </MeetingProvider>
+          </ThemeProvider>
+        )}
 
-        <AppointmentTabs />
-      </Container>
+        <Container maxWidth="xl" sx={{ my: 3 }}>
+          <AppointmentTabs />
+        </Container>
+      </Box>
+
+      <AppointmentFooter />
     </Box>
   );
 };

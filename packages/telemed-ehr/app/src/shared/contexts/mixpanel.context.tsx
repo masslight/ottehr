@@ -11,7 +11,7 @@ export interface MixpanelContextProps {
 export const MixpanelContext = createContext<MixpanelContextProps>({ token: '' });
 
 export const MixpanelContextProvider = (
-  props: PropsWithChildren<MixpanelContextProps>,
+  props: PropsWithChildren<MixpanelContextProps>
 ): ReactElement<ProviderExoticComponent<Provider<MixpanelContextProps>>> => {
   const isMixpanelInited = useRef(false);
   const { token, config, registerProps } = props;

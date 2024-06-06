@@ -4,7 +4,11 @@ export interface InitTelemedSessionRequestParams {
 }
 
 export interface InitTelemedSessionResponse {
-  videoToken: string;
-  videoRoomId: string;
+  meetingData: MeetingData;
   encounterId: string;
+}
+
+export interface MeetingData {
+  Attendee: object;
+  Meeting: object;
 }

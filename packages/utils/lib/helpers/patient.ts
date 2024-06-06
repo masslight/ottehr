@@ -1,5 +1,5 @@
 import { FhirClient } from '@zapehr/sdk';
-import { RelatedPerson, Person, Resource } from 'fhir/r4';
+import { Patient, Person, RelatedPerson, Resource } from 'fhir/r4';
 import { PRIVATE_EXTENSION_BASE_URL } from '../fhir';
 
 // Return true if a new user
@@ -21,7 +21,10 @@ export async function createUserResourcesForPatient(
         ],
       },
     ],
-    telecom: [{ system: 'phone', value: phoneNumber }],
+    telecom: [
+      { system: 'phone', value: phoneNumber },
+      { system: 'sms', value: phoneNumber },
+    ],
     patient: {
       reference: `Patient/${patientID}`,
     },
@@ -113,4 +116,54 @@ export async function getRelatedPersonsForPhoneNumber(
   });
   const resourcesTemp = resources.filter((resourceTemp) => resourceTemp.resourceType === 'RelatedPerson');
   return resourcesTemp as RelatedPerson[];
+}
+
+export async function getPatientResourceWithVerifiedPhoneNumber(
+  patientID: string,
+  fhirClient: FhirClient
+): Promise<{
+  patient: Patient | undefined;
+  verifiedPhoneNumber: string | undefined;
+  relatedPerson: RelatedPerson | undefined;
+}> {
+  const response: (Patient | RelatedPerson | Person)[] = await fhirClient.searchResources({
+    resourceType: 'Patient',
+    searchParams: [
+      {
+        name: '_id',
+        value: patientID,
+      },
+      {
+        name: '_revinclude',
+        value: 'RelatedPerson:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Person:link:RelatedPerson',
+      },
+    ],
+  });
+
+  const patient = response.find((res) => {
+    return res.resourceType === 'Patient';
+  }) as Patient;
+
+  const person = response.find((res) => {
+    return res.resourceType === 'Person';
+  }) as Person;
+
+  const relatedPerson = response.find((res) => {
+    return res.resourceType === 'RelatedPerson';
+  }) as RelatedPerson;
+
+  const contacts = person?.telecom ?? [];
+
+  const verifiedPhoneNumber = contacts.find((contact) => {
+    if (contact.system === 'phone' && contact.value) {
+      return contact.period?.end == undefined;
+    }
+    return false;
+  })?.value;
+
+  return { patient, verifiedPhoneNumber, relatedPerson };
 }

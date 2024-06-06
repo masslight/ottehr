@@ -18,7 +18,7 @@ const ConfirmDateOfBirth = (): JSX.Element => {
 
   useEffect(() => {
     if (REACT_APP_MIXPANEL_TOKEN) {
-      mixpanel.track('Confirm Date of Birth');
+      //mixpanel.track('Confirm Date of Birth');
     }
   });
 

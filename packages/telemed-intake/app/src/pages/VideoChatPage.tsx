@@ -1,71 +1,46 @@
-import { useEffect } from 'react';
-import Video, { LocalAudioTrack, LocalVideoTrack, Room } from 'twilio-video';
-import { getSelectors } from 'ottehr-utils';
-import { CallSideCard, LoadingSpinner, VideoRoom } from '../components';
-import { useVideoCallStore } from '../features/video-call';
-import { useDevices } from '../hooks';
-import { useGetVideoToken } from '../features/video-call';
-import { useAuth0 } from '@auth0/auth0-react';
-import { IntakeFlowPageRoute } from '../App';
-import { CustomContainer } from '../features/common';
+window.global ||= window; // https://stackoverflow.com/questions/72795666/how-to-fix-vite-build-parser-error-unexpected-token-in-third-party-dependenc
+
+import { FC } from 'react';
 import { Container } from '@mui/material';
+import { useSearchParams } from 'react-router-dom';
+import { getSelectors } from 'ottehr-utils';
+import { IntakeFlowPageRoute } from '../App';
+import { CallSideCard, LoadingSpinner, VideoRoom } from '../components';
+import { useAppointmentStore } from '../features/appointments';
+import { CustomContainer } from '../features/common';
+import { useJoinCall, useVideoCallStore } from '../features/video-call';
+import { useZapEHRAPIClient } from '../utils';
+import { DeviceLabels, useMeetingManager } from 'amazon-chime-sdk-component-library-react';
+import { MeetingSessionConfiguration } from 'amazon-chime-sdk-js';
+import { ThemeProvider } from 'styled-components';
+import { MeetingProvider, lightTheme, GlobalStyles } from 'amazon-chime-sdk-component-library-react';
 
-const VideoChatPage = (): JSX.Element => {
-  const hasVideoDevice = useDevices().videoInputDevices.length > 0;
-  const videoCallState = getSelectors(useVideoCallStore, ['room', 'localTracks', 'videoToken']);
+const VideoChatPage: FC = () => {
+  const videoCallState = getSelectors(useVideoCallStore, ['meetingData']);
+  const meetingManager = useMeetingManager();
 
-  const { getAccessTokenSilently } = useAuth0();
+  const apiClient = useZapEHRAPIClient();
+  const [searchParams] = useSearchParams();
+  const urlAppointmentID = searchParams.get('appointmentID');
 
-  useGetVideoToken(getAccessTokenSilently, (data) => {
-    useVideoCallStore.setState({ videoToken: data.token });
+  if (urlAppointmentID) {
+    useAppointmentStore.setState(() => ({ appointmentID: urlAppointmentID }));
+  }
+
+  useJoinCall(apiClient, async (response) => {
+    useVideoCallStore.setState({ meetingData: response });
+
+    const meetingSessionConfiguration = new MeetingSessionConfiguration(response.Meeting, response.Attendee);
+    const options = {
+      deviceLabels: DeviceLabels.AudioAndVideo,
+    };
+
+    await meetingManager.join(meetingSessionConfiguration, options);
+
+    await meetingManager.start();
   });
 
-  useEffect(() => {
-    let ignore = false;
-    let connectedRoom: Room | null = null;
-
-    const loadVideo = async (): Promise<void> => {
-      if (videoCallState.videoToken) {
-        const tracks = await Video.createLocalTracks({
-          audio: true,
-          video: hasVideoDevice,
-        });
-
-        const localTracks = tracks.filter((track) => track.kind === 'audio' || track.kind === 'video') as (
-          | LocalAudioTrack
-          | LocalVideoTrack
-        )[];
-
-        localTracks.forEach((track) => track.disable());
-
-        connectedRoom = await Video.connect(videoCallState.videoToken, {
-          audio: true,
-          tracks: localTracks,
-          video: hasVideoDevice,
-        });
-
-        if (!ignore) {
-          useVideoCallStore.setState({ localTracks, room: connectedRoom });
-        }
-      }
-    };
-
-    void loadVideo();
-
-    return () => {
-      ignore = true;
-      if (connectedRoom) {
-        connectedRoom.localParticipant.tracks.forEach((trackPub) => {
-          if (trackPub.track.kind === 'audio' || trackPub.track.kind === 'video') {
-            (trackPub.track as LocalAudioTrack | LocalVideoTrack).stop();
-          }
-        });
-        connectedRoom.disconnect();
-      }
-    };
-  }, [hasVideoDevice, videoCallState.videoToken]);
-
-  if (!videoCallState.room) {
+  if (!videoCallState.meetingData) {
     return (
       <CustomContainer useEmptyBody title="" bgVariant={IntakeFlowPageRoute.VideoCall.path}>
         <LoadingSpinner transparent />
@@ -83,4 +58,15 @@ const VideoChatPage = (): JSX.Element => {
   );
 };
 
-export default VideoChatPage;
+const VideoChatPageContainer: FC = () => {
+  return (
+    <ThemeProvider theme={lightTheme}>
+      <GlobalStyles />
+      <MeetingProvider>
+        <VideoChatPage />
+      </MeetingProvider>
+    </ThemeProvider>
+  );
+};
+
+export default VideoChatPageContainer;

@@ -1,15 +1,13 @@
-import React from 'react';
-import { ReactElement } from 'react';
+import FmdBadOutlinedIcon from '@mui/icons-material/FmdBadOutlined';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Grid, Tab, Typography } from '@mui/material';
-import { useState } from 'react';
-import FmdBadOutlinedIcon from '@mui/icons-material/FmdBadOutlined';
+import { Location } from 'fhir/r4';
+import { DateTime } from 'luxon';
+import React, { ReactElement, useState } from 'react';
+import { UCAppointmentInformation } from 'ehr-utils';
 import { otherColors } from '../CustomThemeProvider';
 import AppointmentTable from './AppointmentTable';
-import { AppointmentInformation } from '../types/types';
-import { DateTime } from 'luxon';
 import Loading from './Loading';
-import { Location } from 'fhir/r4';
 
 export enum ApptTab {
   'prebooked' = 'prebooked',
@@ -20,12 +18,12 @@ export enum ApptTab {
 
 interface AppointmentsTabProps {
   location: Location | undefined;
-  preBookedAppointments: AppointmentInformation[];
-  completedAppointments: AppointmentInformation[];
-  cancelledAppointments: AppointmentInformation[];
-  inOfficeAppointments: AppointmentInformation[];
+  preBookedAppointments: UCAppointmentInformation[];
+  completedAppointments: UCAppointmentInformation[];
+  cancelledAppointments: UCAppointmentInformation[];
+  inOfficeAppointments: UCAppointmentInformation[];
   loading: boolean;
-  updateAppointments: () => Promise<void>;
+  updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
 }
 

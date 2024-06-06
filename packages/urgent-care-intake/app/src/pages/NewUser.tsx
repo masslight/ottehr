@@ -14,7 +14,7 @@ const NewUser = (): JSX.Element => {
   const { state, dispatch } = useContext(IntakeDataContext);
 
   useEffect(() => {
-    mixpanel.track('New User');
+    //mixpanel.track('New User');
   }, []);
 
   const onSubmit = async (): Promise<void> => {

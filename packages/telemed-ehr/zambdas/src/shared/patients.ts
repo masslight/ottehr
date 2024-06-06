@@ -4,7 +4,7 @@ import { convertFhirNameToDisplayName } from 'ehr-utils';
 
 export async function getRelatedPersonForPatient(
   patientID: string,
-  fhirClient: FhirClient,
+  fhirClient: FhirClient
 ): Promise<RelatedPerson | undefined> {
   console.log(`getting user-relatedperson for patient with id ${patientID}`);
   const resources: Resource[] = await fhirClient.searchResources({

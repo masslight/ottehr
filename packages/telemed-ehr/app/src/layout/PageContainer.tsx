@@ -3,7 +3,7 @@ import { Container, Tooltip, Typography } from '@mui/material';
 import { ReactElement, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Sidebar, SidebarItem } from '../components/navigation/Sidebar';
-import { useUserRole } from '../hooks/useUserRole';
+import useOttehrUser from '../hooks/useOttehrUser';
 import { RoleType } from '../types/types';
 
 const { VITE_APP_ORGANIZATION_NAME_LONG: ORGANIZATION_NAME_LONG } = import.meta.env;
@@ -20,7 +20,7 @@ interface PageContainerProps {
 
 export default function PageContainer({ sidebarItems, tabTitle, title, children }: PageContainerProps): ReactElement {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const role = useUserRole();
+  const user = useOttehrUser();
 
   if (title != null || tabTitle != null) {
     document.title = `${tabTitle != null ? tabTitle : title} | ${ORGANIZATION_NAME_LONG} EHR`;
@@ -37,7 +37,7 @@ export default function PageContainer({ sidebarItems, tabTitle, title, children 
       <br />
       <Typography variant="subtitle2">
         Environment: {import.meta.env.VITE_APP_ENV}, Version: {import.meta.env.VITE_APP_VERSION}
-        {(role! === RoleType.Manager || role === RoleType.Administrator) && (
+        {user?.hasRole([RoleType.Administrator]) && (
           <Tooltip title="Please remember this is not fully tested :)">
             <Link to="/data" style={{ verticalAlign: 'middle' }}>
               <Assessment />

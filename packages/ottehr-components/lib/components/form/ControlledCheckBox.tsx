@@ -30,7 +30,6 @@ const ControlledCheckBox: FC<ControlledCheckBoxProps> = ({ name, label, defaultV
             return (
               <Checkbox
                 {...props}
-                // eslint-disable-next-line react/prop-types
                 checked={(props.value as boolean | undefined) ?? false}
                 color="primary"
                 style={{ borderRadius: '4px' }}

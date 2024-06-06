@@ -1,4 +1,4 @@
-import { BatchInputRequest } from '@zapehr/sdk';
+import { BatchInputPatchRequest } from '@zapehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Coding, Resource } from 'fhir/r4';
 
@@ -8,7 +8,7 @@ export interface GetPatchBinaryInput {
   patchOperations: Operation[];
 }
 
-export function getPatchBinary(input: GetPatchBinaryInput): BatchInputRequest {
+export function getPatchBinary(input: GetPatchBinaryInput): BatchInputPatchRequest {
   const { resourceId, resourceType, patchOperations } = input;
   return {
     method: 'PATCH',

@@ -44,7 +44,7 @@ const Welcome = (): JSX.Element => {
   const [officeOpen, setOfficeOpen] = useState<boolean>(false);
 
   useEffect(() => {
-    mixpanel.track('Welcome');
+    //mixpanel.track('Welcome');
   }, []);
 
   useEffect(() => {

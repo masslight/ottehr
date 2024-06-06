@@ -1,6 +1,7 @@
-import { APPT_STATUS_MAP, ApptStatus } from './appointments';
+import { APPT_STATUS_MAP } from './appointments';
 import React, { ReactElement } from 'react';
 import { Chip } from '@mui/material';
+import { ApptStatus } from 'ehr-utils';
 
 export function getAppointmentStatusChip(status?: ApptStatus, count?: number): ReactElement {
   if (!status) {

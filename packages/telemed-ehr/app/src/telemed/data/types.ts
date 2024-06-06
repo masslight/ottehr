@@ -1,11 +1,15 @@
 export type GetZapEHRTelemedAPIParams = {
   isAppLocal?: 'true' | 'false';
   getTelemedAppointmentsZambdaID?: string;
-  getUserZambdaID?: string;
   initTelemedSessionZambdaID?: string;
   getChartDataZambdaID?: string;
   saveChartDataZambdaID?: string;
   deleteChartDataZambdaID?: string;
+  changeTelemedAppointmentStatusZambdaID?: string;
+  getPatientInstructionsZambdaID?: string;
+  savePatientInstructionZambdaID?: string;
+  deletePatientInstructionZambdaID?: string;
+  icdSearchZambdaId?: string;
 };
 
 export interface ApiError {

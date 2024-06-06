@@ -29,7 +29,7 @@ const PatientInformation = (): JSX.Element => {
   const zambdaClient = useZambdaClient({ tokenless: false });
 
   useEffect(() => {
-    mixpanel.track('Patient Information');
+    //mixpanel.track('Patient Information');
   }, []);
 
   const onSubmit = async (data: PatientInfo): Promise<void> => {

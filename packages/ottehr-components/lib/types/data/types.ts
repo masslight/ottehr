@@ -9,10 +9,16 @@ export type GetZapEHRAPIParams = {
   cancelAppointmentZambdaID?: string;
   updateAppointmentZambdaID?: string;
   getPatientsZambdaID?: string;
-  updatePaperworkZambdaID?: string;
   getLocationZambdaID?: string;
   getAppointmentsZambdaID?: string;
+  getTelemedStatesZambdaID?: string;
   getPaperworkZambdaID?: string;
+  createPaperworkZambdaID?: string;
+  updatePaperworkZambdaID?: string;
   getWaitStatusZambdaID?: string;
+  joinCallZambdaID?: string;
+  videoChatCreateInviteZambdaID?: string;
+  videoChatCancelInviteZambdaID?: string;
+  videoChatListInvitesZambdaID?: string;
   getPresignedFileURLZambdaID?: string;
 };

@@ -21,7 +21,6 @@ const BLANK_PATIENT_INFO: PatientInfo = {
   sex: undefined,
   email: undefined,
   emailUser: 'Patient',
-  reasonForVisit: undefined,
 };
 
 const NEW_PATIENT_INFO: PatientInfo = {
@@ -49,6 +48,6 @@ export const usePatientInfoStore = create<PatientInfoState & PatientInfoActions>
           patientInfo: { ...NEW_PATIENT_INFO },
         }),
     }),
-    { name: 'telemed-patient-info-storage' },
-  ),
+    { name: 'telemed-patient-info-storage' }
+  )
 );

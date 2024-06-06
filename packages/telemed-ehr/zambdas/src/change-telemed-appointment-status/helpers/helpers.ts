@@ -1,37 +1,59 @@
-import { BatchInputRequest, FhirClient } from '@zapehr/sdk';
+import { AppClient, BatchInputRequest, FhirClient } from '@zapehr/sdk';
+import { Operation } from 'fast-json-patch';
+import { Encounter, EncounterStatusHistory } from 'fhir/r4';
+import { DateTime } from 'luxon';
 import { TelemedCallStatuses } from 'ehr-utils';
-import { AppointmentPackage } from './types';
+import { getPatchBinary } from '../../../../app/src/helpers/fhir';
+import { telemedStatusToEncounter } from '../../shared/appointment/helpers';
+import { getMyPractitionerId } from '../../shared/practitioners';
 import {
+  addPeriodEndOp,
   addStatusHistoryRecordOp,
   changeStatusOp,
   changeStatusRecordPeriodValueOp,
   deleteStatusHistoryRecordOp,
   handleEmptyEncounterStatusHistoryOp,
 } from './fhir-res-patch-operations';
-import { getPatchBinary } from '../../../../app/src/helpers/fhir';
-import { Operation } from 'fast-json-patch';
-import { telemedStatusToEncounter } from '../../shared/appointment/helpers';
-import { DateTime } from 'luxon';
-import { EncounterStatusHistory } from 'fhir/r4';
+import { AppointmentPackage } from './types';
 
 export const changeStatusIfPossible = async (
   fhirClient: FhirClient,
+  appClient: AppClient,
   resourcesToUpdate: AppointmentPackage,
   currentStatus: TelemedCallStatuses,
-  newStatus: TelemedCallStatuses,
+  newStatus: TelemedCallStatuses
 ): Promise<void> => {
   let appointmentPatchOp: Operation[] = [];
   let encounterPatchOp: Operation[] = [];
 
   switch (true) {
-    case currentStatus === 'ready' && newStatus === 'pre-video':
+    case currentStatus === 'ready' && newStatus === 'pre-video': {
       encounterPatchOp = defaultEncounterOperations(newStatus, resourcesToUpdate);
+      const addPractitionerOp = await getAddPractitionerToEncounterOperation(
+        fhirClient,
+        appClient,
+        resourcesToUpdate.encounter
+      );
+      if (addPractitionerOp) {
+        encounterPatchOp.push(addPractitionerOp);
+      }
       break;
-    case currentStatus === 'pre-video' && newStatus === 'ready':
+    }
+    case currentStatus === 'pre-video' && newStatus === 'ready': {
       encounterPatchOp = defaultEncounterOperations(newStatus, resourcesToUpdate);
+      const removePractitionerOr = await getRemovePractitionerFromEncounterOperation(
+        fhirClient,
+        appClient,
+        resourcesToUpdate.encounter
+      );
+      if (removePractitionerOr) {
+        encounterPatchOp.push(removePractitionerOr);
+      }
       break;
+    }
     case currentStatus === 'on-video' && newStatus === 'unsigned':
       encounterPatchOp = defaultEncounterOperations(newStatus, resourcesToUpdate);
+      encounterPatchOp.push(addPeriodEndOp(now()));
       break;
     case currentStatus === 'unsigned' && newStatus === 'complete':
       encounterPatchOp = encounterOperationsWrapper(
@@ -48,7 +70,7 @@ export const changeStatusIfPossible = async (
           } else {
             return [changeStatusRecordPeriodValueOp(statusHistoryLength - 1, 'end', now())];
           }
-        },
+        }
       );
       appointmentPatchOp = [changeStatusOp('fulfilled')];
       break;
@@ -61,13 +83,16 @@ export const changeStatusIfPossible = async (
             addStatusHistoryRecordOp(statusHistoryLength, newEncounterStatus, now()),
             changeStatusOp(newEncounterStatus),
           ];
-        },
+        }
       );
       appointmentPatchOp = [changeStatusOp('arrived')];
       break;
     default:
+      console.error(
+        `Status change between current status: '${currentStatus}', and desired status: '${newStatus}', is not possible.`
+      );
       throw new Error(
-        `Status change between current status: '${currentStatus}', and desired status: '${newStatus}', is not possible.`,
+        `Status change between current status: '${currentStatus}', and desired status: '${newStatus}', is not possible.`
       );
   }
   const patchOperationsBinaries: BatchInputRequest[] = [];
@@ -78,7 +103,7 @@ export const changeStatusIfPossible = async (
         resourceType: 'Appointment',
         resourceId: resourcesToUpdate.appointment.id,
         patchOperations: appointmentPatchOp,
-      }),
+      })
     );
   }
   patchOperationsBinaries.push(
@@ -86,7 +111,7 @@ export const changeStatusIfPossible = async (
       resourceType: 'Encounter',
       resourceId: resourcesToUpdate.encounter.id!,
       patchOperations: encounterPatchOp,
-    }),
+    })
   );
 
   await fhirClient.transactionRequest({ requests: patchOperationsBinaries });
@@ -137,7 +162,7 @@ const mergeUnsignedStatusesTimesOp = (statusHistory: EncounterStatusHistory[]): 
 
 const defaultEncounterOperations = (
   newTelemedStatus: TelemedCallStatuses,
-  resourcesToUpdate: AppointmentPackage,
+  resourcesToUpdate: AppointmentPackage
 ): Operation[] => {
   return encounterOperationsWrapper(newTelemedStatus, resourcesToUpdate, (newEncounterStatus, statusHistoryLength) => {
     return [
@@ -151,16 +176,68 @@ const defaultEncounterOperations = (
 const encounterOperationsWrapper = (
   newTelemedStatus: TelemedCallStatuses,
   resourcesToUpdate: AppointmentPackage,
-  callback: (newEncounterStatus: string, statusHistoryLength: number) => Operation[],
+  callback: (newEncounterStatus: string, statusHistoryLength: number) => Operation[]
 ): Operation[] => {
   const newEncounterStatus = telemedStatusToEncounter(newTelemedStatus);
   const statusHistoryLength = resourcesToUpdate.encounter.statusHistory?.length || 1;
 
   return handleEmptyEncounterStatusHistoryOp(resourcesToUpdate).concat(
-    callback(newEncounterStatus, statusHistoryLength),
+    callback(newEncounterStatus, statusHistoryLength)
   );
 };
 
 const now = (): string => {
   return DateTime.utc().toISO()!;
+};
+
+const getAddPractitionerToEncounterOperation = async (
+  fhirClient: FhirClient,
+  appClient: AppClient,
+  encounter: Encounter
+): Promise<Operation | undefined> => {
+  const practitionerId = await getMyPractitionerId(fhirClient, appClient);
+
+  const existingParticipant = encounter.participant?.find(
+    (participant) => participant.individual?.reference === `Practitioner/${practitionerId}`
+  );
+  if (existingParticipant) return undefined;
+
+  let participants = encounter.participant;
+
+  participants ??= [];
+
+  participants.push({ individual: { reference: `Practitioner/${practitionerId}` } });
+
+  if (!existingParticipant) {
+    return {
+      op: encounter.participant ? 'replace' : 'add',
+      path: '/participant',
+      value: participants,
+    };
+  }
+  return undefined;
+};
+
+const getRemovePractitionerFromEncounterOperation = async (
+  fhirClient: FhirClient,
+  appClient: AppClient,
+  encounter: Encounter
+): Promise<Operation | undefined> => {
+  const practitionerId = await getMyPractitionerId(fhirClient, appClient);
+
+  const existingParticipant = encounter.participant?.find(
+    (participant) => participant.individual?.reference === `Practitioner/${practitionerId}`
+  );
+  if (!existingParticipant || !encounter.participant) return undefined;
+
+  const participants = encounter.participant.filter(
+    (participant) =>
+      participant.individual?.reference && participant.individual.reference !== `Practitioner/${practitionerId}`
+  );
+
+  return {
+    op: 'replace',
+    path: '/participant',
+    value: participants,
+  };
 };
