@@ -32,7 +32,7 @@ const Footer: FC = () => {
         alignItems="center"
       >
         <ErrorOutlineIcon color="warning" sx={{ pl: 1.25, marginTop: '10px', marginBottom: 'auto' }} />
-        <Typography variant="body2" color="primary.contrast" sx={{ m: 1.25, maxWidth: 850 }}>
+        <Typography variant="body2" color="primary.contrast" sx={{ m: 1.25 }}>
           {t('general.footer')}
         </Typography>
       </Box>

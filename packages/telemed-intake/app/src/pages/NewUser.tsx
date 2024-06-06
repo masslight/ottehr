@@ -16,7 +16,7 @@ const NewUser = (): JSX.Element => {
 
   return (
     <CustomContainer
-      title="Thanks for choosing Ottehr Urgent Care!"
+      title="Thanks for choosing Ottehr!"
       img={clockFullColor}
       imgAlt="Clock icon"
       imgWidth={100}

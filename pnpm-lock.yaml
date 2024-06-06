@@ -137,6 +137,9 @@ importers:
       turbo:
         specifier: ^1.11.3
         version: 1.11.3
+      typeface-rubik:
+        specifier: 1.1.13
+        version: 1.1.13
       typescript:
         specifier: ^4.9.5
         version: 4.9.5
@@ -18830,6 +18833,10 @@ packages:
     resolution: {integrity: sha512-zdu8XMNEDepKKR+XYOXAVPtWui0ly0NtohUscw+UmaHiAWT8hrV1rr//H6V+0DvJ3OQ19S979M0laLfX8rm82Q==}
     dependencies:
       is-typedarray: 1.0.0
+    dev: false
+
+  /typeface-rubik@1.1.13:
+    resolution: {integrity: sha512-mMWgn3bYfT6V4WWA3yvdEM3AkTA7iK1XwhlOX3+vWfqHc6O9I2RUsi9krEXzNdQ1UE/eoEFBRigMtu30PsdEDg==}
     dev: false
 
   /typescript@4.9.5:
