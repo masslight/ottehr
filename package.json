@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "test": "pnpm recursive run test",
-    "build": "sh ./scripts/build-uc.sh",
+    "build": "sh ./scripts/build.sh",
     "lint": "eslint packages/",
     "start": "pnpm start:local",
     "ehr:start": "pnpm --filter 'ottehr-ehr-*' --stream=true start:local",
