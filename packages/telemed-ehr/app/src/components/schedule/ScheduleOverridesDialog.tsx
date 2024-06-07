@@ -73,7 +73,7 @@ export default function ScheduleOverridesDialog({
           display="flex"
         >
           <WarningAmberIcon sx={{ marginTop: 1, color: otherColors.warningIcon }} />
-          <Typography variant="body2" color="#212130" sx={{ m: 1.25, maxWidth: 850 }}>
+          <Typography variant="body2" color="#212130" sx={{ m: 1.25 }}>
             If there are conflicts in booked visits and new schedule, please contact patients to move their visits.
           </Typography>
         </Box>

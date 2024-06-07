@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "test": "pnpm recursive run test",
-    "build": "sh ./scripts/build-uc.sh",
+    "build": "sh ./scripts/build.sh",
     "lint": "eslint packages/",
     "start": "pnpm start:local",
     "ehr:start": "pnpm --filter 'ottehr-ehr-*' --stream=true start:local",
@@ -134,6 +134,7 @@
     "serverless-plugin-typescript": "^2.1.5",
     "ts-node": "^10.9.1",
     "turbo": "^1.11.3",
+    "typeface-rubik": "1.1.13",
     "typescript": "^4.9.5",
     "vite-plugin-node-polyfills": "^0.16.0",
     "vitest": "^0.34.6",

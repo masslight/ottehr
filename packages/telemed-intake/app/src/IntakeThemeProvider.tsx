@@ -52,7 +52,7 @@ export const palette = {
     cancelled: '#D91B1B',
   },
   primary: {
-    main: '#4D15B7',
+    main: '#061B74',
     contrast: '#FFFFFF',
   },
   secondary: {

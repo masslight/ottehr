@@ -50,7 +50,7 @@ export const palette = {
   },
   primary: {
     main: '#061B74',
-    contrast: '#061B74',
+    contrast: '#FFFFFF',
   },
   secondary: {
     main: '#2169F5',
@@ -82,7 +82,7 @@ export const palette = {
   },
   background: {
     default: '#15376A',
-    paper: '#FFFFFF', // here
+    paper: '#FFFFFF',
   },
   divider: '#C3C9D2',
 };

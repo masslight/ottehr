@@ -34,10 +34,13 @@ jobs:
           name: 'secrets.json'
           json: ${{ secrets.OTTEHR_SECRETS_JSON }}
 
-      - name: Set the ehr/zambdas/.env/dev.json
-        run: cp packages/ehr/zambdas/.env/local.template.json packages/ehr/zambdas/.env/dev.json
+      - name: Set the telemed-ehr/zambdas/.env/dev.json
+        run: cp packages/telemed-ehr/zambdas/.env/local.template.json packages/telemed-ehr/zambdas/.env/dev.json
 
-      - name: Set the urgent-care/zambdas/.env/dev.json
+      - name: Set the telemed-intake/zambdas/.env/dev.json
+        run: cp packages/telemed-intake/zambdas/.env/local.template.json packages/telemed-intake/zambdas/.env/dev.json
+
+      - name: Set the urgent-care-intake/zambdas/.env/dev.json
         run: cp packages/urgent-care-intake/zambdas/.env/local.template.json packages/urgent-care-intake/zambdas/.env/dev.json
 
       - id: get-store-path
