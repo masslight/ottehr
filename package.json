@@ -13,6 +13,7 @@
     "telemed:start": "pnpm --filter 'telemed-*' --stream=true start:local",
     "start:local": "pnpm --filter 'ottehr-*' --stream=true start:local",
     "start:telemed-ehr": "pnpm --filter 'telemed-ehr*' --stream=true start:local",
+    "start:telemed-intake": "pnpm --filter 'telemed-intake*' --stream=true start:local",
     "start:dev": "pnpm recursive run start:dev",
     "start:dev2": "pnpm recursive run start:dev2",
     "start:testing": "pnpm recursive run start:testing",
