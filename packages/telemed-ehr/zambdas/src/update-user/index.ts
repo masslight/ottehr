@@ -1,56 +1,59 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Resource } from 'fhir/r4';
-import { PractitionerLicense, PractitionerQualificationCodesLabels } from 'ehr-utils';
+import { Practitioner, HumanName } from 'fhir/r4';
+import { PractitionerLicense, Secrets } from 'ehr-utils';
 import { RoleType } from '../../../app/src/types/types';
-import { getAuth0Token, getSecret } from '../shared';
+import { getSecret } from '../shared';
 import { topLevelCatch } from '../shared/errors';
-import { createAppClient, createFhirClient } from '../shared/helpers';
+import { checkOrCreateM2MClientToken, createAppClient, createFhirClient } from '../shared/helpers';
 import { getRoleId } from '../shared/rolesUtils';
-import { Secrets, ZambdaInput } from '../types';
+import { ZambdaInput } from '../types';
 import { validateRequestParameters } from './validateRequestParameters';
+import { makeQualificationForPractitioner } from '../shared/practitioners';
 
 export interface UpdateUserInput {
   secrets: Secrets | null;
   userId: string;
-  selectedRole?: RoleType;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  nameSuffix?: string;
+  selectedRoles?: RoleType[];
   licenses?: PractitionerLicense[];
 }
 
-let zapehrToken: string;
+let m2mtoken: string;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { secrets, userId, selectedRole, licenses } = validatedParameters;
+    console.log('validatedParameters:', JSON.stringify(validatedParameters, null, 4));
+    const { secrets, userId, firstName, middleName, lastName, nameSuffix, selectedRoles, licenses } =
+      validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
     const PROJECT_API = getSecret('PROJECT_API', secrets);
-    if (!zapehrToken) {
-      console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
+    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const headers = {
       accept: 'application/json',
       'content-type': 'application/json',
-      Authorization: `Bearer ${zapehrToken}`,
+      Authorization: `Bearer ${m2mtoken}`,
     };
-    const appClient = createAppClient(zapehrToken, secrets);
-    const fhirClient = createFhirClient(zapehrToken, secrets);
+    const appClient = createAppClient(m2mtoken, secrets);
+    const fhirClient = createFhirClient(m2mtoken, secrets);
     const user = await appClient.getUser(userId);
     const userProfile = user.profile;
     const userProfileString = userProfile.split('/');
 
     const practitionerId = userProfileString[1];
     // Update user's zapEHR roles
-    // If there is a selectedRole, the user is currently active. Update their role to the selected one.
-    // If there is no selectedRole, the user is currently deactivated. Re-activate them with zero roles.
+    // calling update user on an inactive user, reactivates them
     let roles: string[] = [];
 
-    if (selectedRole) {
-      const roleId = await getRoleId(selectedRole, zapehrToken, PROJECT_API);
-      roles = [roleId];
+    if (selectedRoles && selectedRoles.length > 0) {
+      const promises = selectedRoles
+        .filter((roleName) => roleName !== 'Inactive')
+        .map((roleName) => getRoleId(roleName, m2mtoken, PROJECT_API));
+      roles = await Promise.all(promises);
     }
     const updatedUserResponse = await fetch(`${PROJECT_API}/user/${userId}`, {
       method: 'PATCH',
@@ -62,45 +65,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     try {
       const practitionerQualificationExtension: any = [];
       licenses?.forEach((license) => {
-        const qualificationEntry = {
-          code: {
-            coding: [
-              {
-                system: 'http://terminology.hl7.org/CodeSystem/v2-0360|2.7',
-                code: license.code,
-                display: PractitionerQualificationCodesLabels[license.code],
-              },
-            ],
-            text: 'License state',
-          },
-          extension: [
-            {
-              url: 'http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification',
-              extension: [
-                {
-                  url: 'status',
-                  valueCode: 'active',
-                },
-                {
-                  url: 'whereValid',
-                  valueCodeableConcept: {
-                    coding: [
-                      {
-                        code: license.state,
-                        system: 'http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state',
-                      },
-                    ],
-                  },
-                },
-              ],
-            },
-          ],
-        };
-        practitionerQualificationExtension.push(qualificationEntry);
+        practitionerQualificationExtension.push(makeQualificationForPractitioner(license));
       });
-      let existingPractitionerResource: Resource | null = null;
+      let existingPractitionerResource: Practitioner | null = null;
       try {
-        existingPractitionerResource = await fhirClient.readResource({
+        existingPractitionerResource = <Practitioner>await fhirClient.readResource({
           resourceType: 'Practitioner',
           resourceId: practitionerId,
         });
@@ -115,16 +84,27 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           throw new Error(`Failed to get Practitioner: ${JSON.stringify(error)}`);
         }
       }
+
+      let name: HumanName | undefined = {};
+      if (firstName) name.given = [firstName];
+      if (middleName) (name.given ??= []).push(middleName);
+      if (lastName) name.family = lastName;
+      if (nameSuffix) name.suffix = [nameSuffix];
+      if (Object.keys(name).length === 0) name = undefined;
+
       if (!existingPractitionerResource) {
         await fhirClient.createResource({
           resourceType: 'Practitioner',
           id: practitionerId,
+          name: name ? [name] : undefined,
           qualification: practitionerQualificationExtension,
         });
       } else {
         await fhirClient.updateResource({
-          resourceType: 'Practitioner',
-          id: practitionerId ?? '',
+          ...existingPractitionerResource,
+          identifier: existingPractitionerResource.identifier,
+          photo: existingPractitionerResource.photo,
+          name: name ? [name] : undefined,
           qualification: practitionerQualificationExtension,
         });
       }

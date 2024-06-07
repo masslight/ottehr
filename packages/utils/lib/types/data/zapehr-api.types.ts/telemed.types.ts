@@ -2,10 +2,10 @@ import { Extension } from 'fhir/r4';
 
 export interface OtherParticipantsExtension extends Extension {
   url: 'https://extensions.fhir.zapehr.com/encounter-other-participants';
-  extension: OtherParitipantExtension[];
+  extension: OtherParticipantExtension[];
 }
 
-export interface OtherParitipantExtension extends Extension {
+export interface OtherParticipantExtension extends Extension {
   url: 'https://extensions.fhir.zapehr.com/encounter-other-participant';
   extension: [
     {

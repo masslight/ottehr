@@ -1,22 +1,24 @@
-import { Box, Dialog, DialogContent, DialogTitle, IconButton, useTheme } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
-import CircleIcon from '@mui/icons-material/Circle';
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
+import CircleIcon from '@mui/icons-material/Circle';
+import CloseIcon from '@mui/icons-material/Close';
+import { Box, Dialog, DialogContent, DialogTitle, IconButton, useTheme } from '@mui/material';
 import React from 'react';
 
+export interface ImageCarouselObject {
+  alt: string;
+  url: string;
+}
 interface ImageCarouselProps {
-  images: string[]; // list of pre-signed URLs
-  imageAlts: string[]; // list of alt tags for images
+  imagesObj: ImageCarouselObject[]; // list of image objects
   imageIndex: number; // index of the starting image
-  setImageIndex: React.Dispatch<React.SetStateAction<number>>; // used to switch between images using the arrows
+  setImageIndex: React.Dispatch<React.SetStateAction<number>>; // used to switch between imagesObj using the arrows
   open: boolean; // if true the dialog is open
   setOpen: React.Dispatch<React.SetStateAction<boolean>>; // used to control the dialog
 }
 
 export default function ImageCarousel({
-  images,
-  imageAlts,
+  imagesObj,
   imageIndex,
   setImageIndex,
   open,
@@ -32,7 +34,7 @@ export default function ImageCarousel({
   };
 
   const handleRightArrowClick = (): void => {
-    if (imageIndex === images.length - 1) {
+    if (imageIndex === imagesObj.length - 1) {
       return;
     }
     setImageIndex(imageIndex + 1);
@@ -90,7 +92,7 @@ export default function ImageCarousel({
           },
         }}
       >
-        <img src={images[imageIndex]} alt={imageAlts[imageIndex]} />
+        <img src={imagesObj[imageIndex]?.url} alt={imagesObj[imageIndex]?.alt} />
       </Box>
 
       <DialogContent style={{ overflow: 'hidden' }}>
@@ -99,12 +101,15 @@ export default function ImageCarousel({
             <ArrowBackIosIcon sx={{ color: imageIndex === 0 ? 'transparent' : 'white' }} />
           </IconButton>
 
-          {images.map((image, index) => (
-            <CircleIcon key={image} sx={{ fontSize: index === imageIndex ? 10 : 6, color: 'white', marginRight: 1 }} />
+          {imagesObj.map((image, index) => (
+            <CircleIcon
+              key={image.alt}
+              sx={{ fontSize: index === imageIndex ? 10 : 6, color: 'white', marginRight: 1 }}
+            />
           ))}
 
           <IconButton onClick={handleRightArrowClick}>
-            <ArrowForwardIosIcon style={{ color: imageIndex === images.length - 1 ? 'transparent' : 'white' }} />
+            <ArrowForwardIosIcon style={{ color: imageIndex === imagesObj.length - 1 ? 'transparent' : 'white' }} />
           </IconButton>
         </Box>
       </DialogContent>

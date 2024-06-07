@@ -5,8 +5,7 @@ import { PromiseReturnType } from 'ottehr-utils';
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetPatients = (
   apiClient: ZapEHRAPIClient | null,
-  onSuccess: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['getPatients']>>) => void,
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+  onSuccess: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['getPatients']>>) => void
 ) => {
   return useQuery(
     ['patients'],
@@ -22,6 +21,6 @@ export const useGetPatients = (
       onError: (err) => {
         console.error('Error during fetching get patients: ', err);
       },
-    },
+    }
   );
 };

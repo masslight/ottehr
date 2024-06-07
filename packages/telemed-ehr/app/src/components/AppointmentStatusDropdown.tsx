@@ -38,7 +38,7 @@ export default function AppointmentStatusDropdown({
       setAppointmentStatus &&
       setAppointmentStatus(
         // On autofill we get a stringified value.
-        typeof value === 'string' ? value.split(',') : value,
+        typeof value === 'string' ? value.split(',') : value
       );
   };
 

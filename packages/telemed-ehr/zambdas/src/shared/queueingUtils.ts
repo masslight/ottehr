@@ -1,8 +1,8 @@
 import { Appointment } from 'fhir/r4';
-import { AppointmentType } from '../types';
 import { DateTime } from 'luxon';
 import { getTimeSpentInCurrentStatus, getWaitingTimeForAppointment } from './waitTimeUtils';
 import { getStatusLabelForAppointmentAndEncounter } from './fhirStatusMappingUtils';
+import { AppointmentType } from 'ehr-utils';
 
 const FHIR_APPOINTMENT_TYPE_MAP: Record<string, AppointmentType> = {
   walkin: 'walk-in',
@@ -13,11 +13,31 @@ const ARRIVED_PREBOOKED_EARLY_ARRIVAL_LIMIT = 15;
 const READY_PREBOOKED_EARLY_ARRIVAL_LIMIT = 10;
 const R4P_PREBOOKED_EARLY_ARRIVAL_LIMIT = 5;
 const READY_WALKIN_MAX_WAIT_THRESHOLD = 75;
-const R4P_WALKIN_MAX_WAIT_THRESHOLD = 75;
+// const R4P_WALKIN_MAX_WAIT_THRESHOLD = 75;
 
 export const appointmentTypeForAppointment = (appointment: Appointment): AppointmentType => {
   // might as well default to walkin here
+  // console.log('FHIR_APPOINTMENT_TYPE_MAP', FHIR_APPOINTMENT_TYPE_MAP, appointment.appointmentType?.text);
   return appointment.appointmentType?.text ? FHIR_APPOINTMENT_TYPE_MAP[appointment.appointmentType?.text] : 'walk-in';
+};
+
+const checkForHop = (app1: Appointment, app2: Appointment): number | undefined => {
+  const appt1Hopped = app1.meta?.tag?.find((tag) => tag.system === 'hop-queue')?.code;
+  const appt2Hopped = app2.meta?.tag?.find((tag) => tag.system === 'hop-queue')?.code;
+
+  if (appt1Hopped && appt2Hopped) {
+    return DateTime.fromISO(appt2Hopped).diff(DateTime.fromISO(appt1Hopped), 'milliseconds').milliseconds;
+  }
+
+  if (appt1Hopped && !appt2Hopped) {
+    return -1;
+  }
+
+  if (appt2Hopped && !appt1Hopped) {
+    return 1;
+  }
+
+  return;
 };
 
 type WaitingRoomKey = 'arrived' | 'ready';
@@ -72,18 +92,31 @@ const arrivedSorter = (app1: Appointment, app2: Appointment): number => {
   const app1Type = appointmentTypeForAppointment(app1);
   const app2Type = appointmentTypeForAppointment(app2);
 
+  const hopped = checkForHop(app1, app2);
+  if (hopped) return hopped;
+
+  if (app1Type === 'post-telemed' && app2Type === 'post-telemed') {
+    return prebookedSorter(app1, app2);
+  }
+
+  if (app1Type === 'post-telemed' && app2Type !== 'post-telemed') {
+    return -1;
+  }
+
+  if (app2Type === 'post-telemed' && app1Type !== 'post-telemed') {
+    return 1;
+  }
+
   if (app1Type === 'pre-booked' && app2Type === 'pre-booked') {
     return prebookedSorter(app1, app2);
   }
   if (app1Type === 'pre-booked') {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const minutesUntilApptOneStart = DateTime.fromISO(app1.start!).diffNow('minutes').minutes;
     if (minutesUntilApptOneStart <= ARRIVED_PREBOOKED_EARLY_ARRIVAL_LIMIT) {
       return -1;
     }
   }
   if (app2Type === 'pre-booked') {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const minutesUntilApptTwoStart = DateTime.fromISO(app2.start!).diffNow('minutes').minutes;
     if (minutesUntilApptTwoStart <= ARRIVED_PREBOOKED_EARLY_ARRIVAL_LIMIT) {
       return 1;
@@ -96,18 +129,31 @@ const readySorter = (app1: Appointment, app2: Appointment): number => {
   const app1Type = appointmentTypeForAppointment(app1);
   const app2Type = appointmentTypeForAppointment(app2);
 
+  const hopped = checkForHop(app1, app2);
+  if (hopped) return hopped;
+
+  if (app1Type === 'post-telemed' && app2Type === 'post-telemed') {
+    return prebookedSorter(app1, app2);
+  }
+
+  if (app1Type === 'post-telemed' && app2Type !== 'post-telemed') {
+    return -1;
+  }
+
+  if (app2Type === 'post-telemed' && app1Type !== 'post-telemed') {
+    return 1;
+  }
+
   if (app1Type === 'pre-booked' && app2Type === 'pre-booked') {
     return prebookedSorter(app1, app2);
   }
   if (app1Type === 'pre-booked') {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const minutesUntilApptOneStart = DateTime.fromISO(app1.start!).diffNow('minutes').minutes;
     if (minutesUntilApptOneStart <= 0) {
       return -1;
     }
   }
   if (app2Type === 'pre-booked') {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const minutesUntilApptTwoStart = DateTime.fromISO(app2.start!).diffNow('minutes').minutes;
     if (minutesUntilApptTwoStart <= 0) {
       return 1;
@@ -124,14 +170,12 @@ const readySorter = (app1: Appointment, app2: Appointment): number => {
   }
 
   if (app1Type === 'pre-booked') {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const minutesUntilApptOneStart = DateTime.fromISO(app1.start!).diffNow('minutes').minutes;
     if (minutesUntilApptOneStart <= READY_PREBOOKED_EARLY_ARRIVAL_LIMIT) {
       return -1;
     }
   }
   if (app2Type === 'pre-booked') {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const minutesUntilApptTwoStart = DateTime.fromISO(app2.start!).diffNow('minutes').minutes;
     if (minutesUntilApptTwoStart <= READY_PREBOOKED_EARLY_ARRIVAL_LIMIT) {
       return 1;
@@ -143,6 +187,7 @@ const readySorter = (app1: Appointment, app2: Appointment): number => {
 const intakeSorter = (app1: Appointment, app2: Appointment): number => {
   const app1WaitingTime = getWaitingTimeForAppointment(app1);
   const app2WaitingTime = getWaitingTimeForAppointment(app2);
+
   return app2WaitingTime - app1WaitingTime;
 };
 
@@ -151,6 +196,21 @@ const r4ProviderSorter = (app1: Appointment, app2: Appointment): number => {
   const app2Type = appointmentTypeForAppointment(app2);
   const app1WaitingTime = getWaitingTimeForAppointment(app1);
   const app2WaitingTime = getWaitingTimeForAppointment(app2);
+
+  const hopped = checkForHop(app1, app2);
+  if (hopped) return hopped;
+
+  if (app1Type === 'post-telemed' && app2Type === 'post-telemed') {
+    return prebookedSorter(app1, app2);
+  }
+
+  if (app1Type === 'post-telemed' && app2Type !== 'post-telemed') {
+    return -1;
+  }
+
+  if (app2Type === 'post-telemed' && app1Type !== 'post-telemed') {
+    return 1;
+  }
   /*
     Walk-in, has waiting time of 75+ mins 
     Pre-booked, current time + 5mins >= appointment time
@@ -160,17 +220,15 @@ const r4ProviderSorter = (app1: Appointment, app2: Appointment): number => {
     return app2WaitingTime - app1WaitingTime;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const minutesUntilApptOneStart = DateTime.fromISO(app1.start!).diffNow('minutes').minutes;
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const minutesUntilApptTwoStart = DateTime.fromISO(app2.start!).diffNow('minutes').minutes;
 
-  if (app1Type === 'walk-in' && app1WaitingTime >= R4P_WALKIN_MAX_WAIT_THRESHOLD) {
-    return -1;
-  }
-  if (app2Type === 'walk-in' && app2WaitingTime >= R4P_WALKIN_MAX_WAIT_THRESHOLD) {
-    return 1;
-  }
+  // if (app1Type === 'walk-in' && app1WaitingTime >= R4P_WALKIN_MAX_WAIT_THRESHOLD) {
+  //   return -1;
+  // }
+  // if (app2Type === 'walk-in' && app2WaitingTime >= R4P_WALKIN_MAX_WAIT_THRESHOLD) {
+  //   return 1;
+  // }
 
   if (
     app1Type === 'pre-booked' &&
@@ -181,13 +239,11 @@ const r4ProviderSorter = (app1: Appointment, app2: Appointment): number => {
     return prebookedSorter(app1, app2);
   }
   if (app1Type === 'pre-booked') {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     if (minutesUntilApptOneStart <= R4P_PREBOOKED_EARLY_ARRIVAL_LIMIT) {
       return -1;
     }
   }
   if (app2Type === 'pre-booked') {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     if (minutesUntilApptTwoStart <= R4P_PREBOOKED_EARLY_ARRIVAL_LIMIT) {
       return 1;
     }
@@ -248,8 +304,7 @@ class QueueBuilder {
     appointments.forEach((appointment) => {
       const status = getStatusLabelForAppointmentAndEncounter(appointment);
       const appointmentType = appointmentTypeForAppointment(appointment);
-
-      if (status === 'pending' && appointmentType === 'pre-booked') {
+      if (status === 'pending' && (appointmentType === 'pre-booked' || appointmentType === 'post-telemed')) {
         this.insertNew(appointment, this.queues.prebooked);
       } else if (status === 'arrived') {
         this.insertNew(appointment, this.queues.inOffice.waitingRoom.arrived);

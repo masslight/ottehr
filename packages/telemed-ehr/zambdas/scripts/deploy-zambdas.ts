@@ -1,15 +1,18 @@
-import { FhirClient, ZambdaClient } from '@zapehr/sdk';
-import { Operation } from 'fast-json-patch';
+import { BatchInputDeleteRequest, BatchInputPostRequest, FhirClient, ZambdaClient } from '@zapehr/sdk';
 import { Subscription } from 'fhir/r4';
 import fs from 'fs';
-import devConfig from '../.env/dev.json';
-// import testingConfig from '../.env/testing.json';
+import { COMMUNICATION_ISSUE_REPORT_CODE } from 'ehr-utils';
 import { getAuth0Token } from '../src/shared';
+import { fhirApiUrlFromAuth0Audience, projectApiUrlFromAuth0Audience } from './helpers';
 
+interface SubscriptionDetils {
+  criteria: string;
+  reason: string;
+  event?: 'create' | 'update';
+}
 interface DeployZambda {
   type: 'http_open' | 'http_auth' | 'subscription';
-  event?: 'create' | 'update';
-  criteria?: string;
+  subscriptionDetils?: SubscriptionDetils[];
 }
 
 const ZAMBDAS: { [name: string]: DeployZambda } = {
@@ -25,7 +28,13 @@ const ZAMBDAS: { [name: string]: DeployZambda } = {
   'CHANGE-TELEMED-APPOINTMENT-STATUS': {
     type: 'http_auth',
   },
-  'GET-TOKEN-FOR-CONVERSATION': {
+  'GET-CHART-DATA': {
+    type: 'http_auth',
+  },
+  'SAVE-CHART-DATA': {
+    type: 'http_auth',
+  },
+  'DELETE-CHART-DATA': {
     type: 'http_auth',
   },
   'UPDATE-USER': {
@@ -36,7 +45,25 @@ const ZAMBDAS: { [name: string]: DeployZambda } = {
   },
   'GET-USER': {
     type: 'http_auth',
-  }
+  },
+  'SAVE-PATIENT-INSTRUCTION': {
+    type: 'http_auth',
+  },
+  'GET-PATIENT-INSTRUCTIONS': {
+    type: 'http_auth',
+  },
+  'GET-CONVERSATION': {
+    type: 'http_auth',
+  },
+  'GET-EMPLOYEES': {
+    type: 'http_auth',
+  },
+  'SYNC-USER': {
+    type: 'http_auth',
+  },
+  'ICD-SEARCH': {
+    type: 'http_auth',
+  },
 };
 
 const updateZambdas = async (config: any): Promise<void> => {
@@ -46,11 +73,15 @@ const updateZambdas = async (config: any): Promise<void> => {
     throw new Error('Failed to fetch auth token.');
   }
   const fhirClient = new FhirClient({
-    apiUrl: 'https://fhir-api.zapehr.com/r4',
+    apiUrl: fhirApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
     accessToken: token,
   });
   const zambdaClient = new ZambdaClient({
-    apiUrl: 'https://project-api.zapehr.com/v1',
+    apiUrl: projectApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
+    accessToken: token,
+  });
+  console.log({
+    apiUrl: fhirApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
     accessToken: token,
   });
 
@@ -80,7 +111,7 @@ const updateZambdas = async (config: any): Promise<void> => {
         zambda,
         currentZambda,
         config,
-        'https://project-api.zapehr.com/v1',
+        projectApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
         token,
         fhirClient
       );
@@ -144,7 +175,7 @@ async function updateProjectZambda(
   console.log('Uploaded zip file to S3');
 
   console.log('Updating zambda');
-  const updateZambda = await fetch(`https://project-api.zapehr.com/v1/zambda/${zambdaId}`, {
+  const updateZambda = await fetch(`${projectApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE)}/zambda/${zambdaId}`, {
     method: 'PATCH',
     headers: {
       authorization: `Bearer ${auth0Token}`,
@@ -159,105 +190,107 @@ async function updateProjectZambda(
   console.log('Updated zambda');
 
   if (zambda.type === 'subscription') {
-    // if (!zambda.criteria) {
-    //   console.log('Zambda is subscription type but does not have criteria');
-    // }
+    if (zambda.subscriptionDetils === undefined) {
+      console.log('Zambda is subscription type but does not have details on the subscription');
+      return;
+    }
     const endpoint = `zapehr-lambda:${zambdaId}`;
-    const subscriptions: Subscription[] = await fhirClient.searchResources({
+    const subscriptionsSearch: Subscription[] = await fhirClient.searchResources({
       resourceType: 'Subscription',
       searchParams: [
         {
           name: 'url',
           value: endpoint,
         },
+        {
+          name: 'status',
+          value: 'active',
+        },
       ],
     });
+    console.log(`${subscriptionsSearch.length} existing subscriptions found`);
+
     const EXTENSION_URL = 'http://zapehr.com/fhir/r4/extension/SubscriptionTriggerEvent';
-    let subscription: Subscription | null = null;
-    if (subscriptions.length === 0) {
-      console.log('Subscription not found, creating one');
-      const extension = [];
-      if (zambda.event) {
-        extension.push({
-          url: EXTENSION_URL,
-          valueString: zambda.event,
-        });
-      }
-      subscription = await fhirClient.createResource<Subscription>({
-        resourceType: 'Subscription',
-        status: 'active',
-        reason: 'Urgent Care',
-        criteria: zambda.criteria || '',
-        channel: {
-          type: 'rest-hook',
-          endpoint: endpoint,
-        },
-        extension: extension,
+
+    const createSubscriptionRequests: BatchInputPostRequest[] = [];
+    const deleteSubscriptionRequests: BatchInputDeleteRequest[] = [];
+
+    // check existing subscriptions against current subscription details to determin if any should be deleted
+    // if any events are changing, delete
+    // if any existing criteria doesn't exist in the details array defined above, delete
+    const subscriptionsNotChanging = subscriptionsSearch.reduce((acc: Subscription[], existingSubscription) => {
+      const existingSubscriptionEvent = existingSubscription.extension?.find(
+        (ext) => ext.url === EXTENSION_URL
+      )?.valueString;
+      const subscriptionMatch = zambda.subscriptionDetils?.find((zambdaSubscritionDetail) => {
+        const eventMatch = existingSubscriptionEvent === zambdaSubscritionDetail.event;
+        const criteriaMatch = zambdaSubscritionDetail.criteria === existingSubscription.criteria;
+        return eventMatch && criteriaMatch;
       });
-      console.log(`Created subscription with ID ${subscription.id}`);
-    } else {
-      subscription = subscriptions[0];
-      console.log(`Got subscription with ID ${subscription.id}`);
-      const patchOperations: Operation[] = [];
-
-      if (subscription.criteria !== zambda.criteria) {
-        console.log(`criteria was ${subscription.criteria}, is now ${zambda.criteria}`);
-        patchOperations.push({
-          op: 'replace',
-          path: '/criteria',
-          value: zambda.criteria,
-        });
+      if (subscriptionMatch) {
+        console.log(
+          `subscription with criteria: '${subscriptionMatch.criteria}' and event: '${subscriptionMatch.event}' is not changing`
+        );
+        acc.push(existingSubscription);
+      } else {
+        console.log(
+          `subscription with criteria: '${existingSubscription.criteria}' and event: '${existingSubscriptionEvent}' is being deleted since the criteria/event is not contained in the updated subscription details array`
+        );
+        const deleteRequest: BatchInputDeleteRequest = {
+          method: 'DELETE',
+          url: `/Subscription/${existingSubscription.id}`,
+        };
+        deleteSubscriptionRequests.push(deleteRequest);
       }
-      let extension = subscription.extension || [];
-      const extensionIndex = subscription.extension?.findIndex((tempExtension) => tempExtension.url === EXTENSION_URL);
-      let extensionUpdated = false;
-      if (extension.length > 0 && extensionIndex !== undefined && extensionIndex !== -1) {
-        const event = extension[extensionIndex];
-        if (event.valueString && !zambda.event) {
-          console.log(`event was ${event.valueString}, is now undefined`);
-          extension.splice(extensionIndex, 1);
-          extensionUpdated = true;
-        } else if (event.valueString !== zambda.event) {
-          console.log(`event was ${event.valueString}, is now ${zambda.event}`);
-          extension[extensionIndex].valueString = zambda.event;
-          extensionUpdated = true;
-        }
-      } else if (extension.length === 0 && zambda.event) {
-        console.log(`subscription did not have extension, event is now ${zambda.event}`);
-        extension = [
-          {
+      return acc;
+    }, []);
+
+    // check current subscription details again existing subscriptions to determin if any should be created
+    zambda.subscriptionDetils.forEach((subscriptionDetail) => {
+      // if the subscription detail is found in subscriptions not chaning, do nothing
+      const foundSubscription = subscriptionsNotChanging.find(
+        (subscription) => subscription.criteria === subscriptionDetail.criteria
+      );
+      // else create it
+      if (!foundSubscription) {
+        console.log(
+          `Creating subscription with criteria: '${subscriptionDetail.criteria}' and event: '${subscriptionDetail.event}'`
+        );
+        const extension = [];
+        if (subscriptionDetail?.event) {
+          extension.push({
             url: EXTENSION_URL,
-            valueString: zambda.event,
-          },
-        ];
-        extensionUpdated = true;
-      } else if (extension.length > 0 && zambda.event) {
-        console.log(`subscription had extension but not event, event is now ${zambda.event}`);
-        extension.push({
-          url: EXTENSION_URL,
-          valueString: zambda.event,
-        });
-        extensionUpdated = true;
-      }
-
-      if (extensionUpdated) {
-        console.log('extension changed');
-        patchOperations.push({
-          op: subscription.extension ? 'replace' : 'add',
-          path: '/extension',
-          value: extension,
-        });
-      }
-
-      if (patchOperations.length > 0) {
-        console.log('Patching Subscription');
-        await fhirClient.patchResource({
+            valueString: subscriptionDetail.event,
+          });
+        }
+        const subscriptionResource: Subscription = {
           resourceType: 'Subscription',
-          resourceId: subscription.id || '',
-          operations: patchOperations,
-        });
+          status: 'active',
+          reason: subscriptionDetail.reason,
+          criteria: subscriptionDetail.criteria,
+          channel: {
+            type: 'rest-hook',
+            endpoint: endpoint,
+          },
+          extension: extension,
+        };
+        const subscriptionRequest: BatchInputPostRequest = {
+          method: 'POST',
+          url: '/Subscription',
+          resource: subscriptionResource,
+        };
+        createSubscriptionRequests.push(subscriptionRequest);
       }
+    });
+    if (createSubscriptionRequests.length > 0 || deleteSubscriptionRequests.length > 0) {
+      console.log('making subscription transaction request');
+      await fhirClient.transactionRequest({
+        requests: [...createSubscriptionRequests, ...deleteSubscriptionRequests],
+      });
     }
+    console.log(`Created ${createSubscriptionRequests.length} subscriptions`);
+    console.log(`Deleted ${deleteSubscriptionRequests.length} subscriptions`);
+    console.log(`${subscriptionsNotChanging.length} subscriptions are not changing`);
   }
 }
 
@@ -271,17 +304,8 @@ if (process.argv.length < 3) {
 // So we can use await
 const main = async (): Promise<void> => {
   const env = process.argv[2];
-
-  switch (env) {
-    case 'dev':
-      await updateZambdas(devConfig);
-      break;
-    // case 'testing':
-    //   await updateZambdas(testingConfig);
-    //   break;
-    default:
-      throw new Error('¯\\_(ツ)_/¯ environment must match a valid zapEHR environment.');
-  }
+  const secrets = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  await updateZambdas(secrets);
 };
 
 main().catch((error) => {

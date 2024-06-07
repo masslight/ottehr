@@ -1,7 +1,16 @@
 import { AppClient, FhirClient, BatchInputRequest } from '@zapehr/sdk';
-import { Resource, Practitioner, Location, Appointment, Bundle, FhirResource } from 'fhir/r4';
+import {
+  Resource,
+  Practitioner,
+  Location,
+  Appointment,
+  Bundle,
+  FhirResource,
+  RelatedPerson,
+  Communication,
+} from 'fhir/r4';
 import { DateTime } from 'luxon';
-import { GetTelemedAppointmentsInput, PatientFilterType } from 'ehr-utils';
+import { allLicensesForPractitioner, GetTelemedAppointmentsInput, PatientFilterType, ZAP_SMS_MEDIUM_CODE } from 'ehr-utils';
 import { mapTelemedStatusToEncounter, mapStatesToLocationIds } from './mappers';
 import { isLocationVirtual, joinLocationsIdsForFhirSearch } from './helpers';
 import { LocationIdToAbbreviationMap } from './types';
@@ -10,7 +19,7 @@ export const getAllResourcesFromFhir = async (
   fhirClient: FhirClient,
   searchDate: DateTime,
   locationIds: string[],
-  encounterStatusesToSearchWith: string[],
+  encounterStatusesToSearchWith: string[]
 ): Promise<Resource[]> => {
   const fhirSearchParams = {
     resourceType: 'Appointment',
@@ -18,6 +27,10 @@ export const getAllResourcesFromFhir = async (
       {
         name: 'date',
         value: `ge${searchDate.startOf('day')}`,
+      },
+      {
+        name: 'status',
+        value: `fulfilled,arrived`,
       },
       {
         name: 'date',
@@ -71,9 +84,23 @@ export const getAllResourcesFromFhir = async (
   return await fhirClient?.searchResources(fhirSearchParams);
 };
 
+export const getCommunicationsAndSenders = async (
+  fhirClient: FhirClient,
+  uniqueNumbers: string[]
+): Promise<(Communication | RelatedPerson)[]> => {
+  return await fhirClient.searchResources<Communication | RelatedPerson>({
+    resourceType: 'Communication',
+    searchParams: [
+      { name: 'medium', value: `${ZAP_SMS_MEDIUM_CODE}` },
+      { name: 'sender:RelatedPerson.telecom', value: uniqueNumbers.join(',') },
+      { name: '_include', value: 'Communication:sender' },
+    ],
+  });
+};
+
 export const getPractLicensesLocationsAbbreviations = async (
   fhirClient: FhirClient,
-  appClient: AppClient,
+  appClient: AppClient
 ): Promise<string[]> => {
   const practitionerId = (await appClient.getMe()).profile.replace('Practitioner/', '');
 
@@ -84,15 +111,7 @@ export const getPractLicensesLocationsAbbreviations = async (
     })) ?? null;
   console.log('Me as practitioner: ' + JSON.stringify(practitioner));
 
-  const allLicensesStates: string[] = [];
-  if (practitioner?.qualification) {
-    practitioner?.qualification.forEach((qualification: any) => {
-      const licenseState = qualification.extension[0].extension[1].valueCodeableConcept.coding[0].code;
-      allLicensesStates.push(licenseState);
-    });
-  }
-
-  return allLicensesStates;
+  return allLicensesForPractitioner(practitioner).map((license) => license.state);
 };
 
 export const locationIdsForAppointmentsSearch = async (
@@ -100,7 +119,7 @@ export const locationIdsForAppointmentsSearch = async (
   patientFilter: PatientFilterType,
   virtualLocationsMap: LocationIdToAbbreviationMap,
   fhirClient: FhirClient,
-  appClient: AppClient,
+  appClient: AppClient
 ): Promise<string[] | undefined> => {
   let resultStatesAbbreviations: string[] = [];
 
@@ -152,7 +171,7 @@ export const getAllPrefilteredFhirResources = async (
   fhirClient: FhirClient,
   appClient: AppClient,
   params: GetTelemedAppointmentsInput,
-  virtualLocationsMap: LocationIdToAbbreviationMap,
+  virtualLocationsMap: LocationIdToAbbreviationMap
 ): Promise<Resource[] | undefined> => {
   const { dateFilter, stateFilter, statusesFilter, patientFilter } = params;
   let allResources: Resource[] = [];
@@ -162,7 +181,7 @@ export const getAllPrefilteredFhirResources = async (
     patientFilter,
     virtualLocationsMap,
     fhirClient,
-    appClient,
+    appClient
   );
   if (!locationsIdsToSearchWith) return undefined;
   const encounterStatusesToSearchWith = mapTelemedStatusToEncounter(statusesFilter);
@@ -173,7 +192,7 @@ export const getAllPrefilteredFhirResources = async (
     fhirClient,
     dateFilterConverted,
     locationsIdsToSearchWith,
-    encounterStatusesToSearchWith,
+    encounterStatusesToSearchWith
   );
   console.log('Received resources from fhir with all filters applied.');
   return allResources;
@@ -206,7 +225,7 @@ export const getAllVirtualLocationsMap = async (fhirClient: FhirClient): Promise
 
 export const getOldestAppointmentForEachLocationsGroup = async (
   fhirClient: FhirClient,
-  locationsIdsGroups: string[][],
+  locationsIdsGroups: string[][]
 ): Promise<Appointment[]> => {
   const requests: BatchInputRequest[] = [];
   // we wanna sort appointments by creation date but in fhir we can only sort by 'start' and 'end' dates

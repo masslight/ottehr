@@ -26,7 +26,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@zapehr/sdk": "^1.0.15",
+    "@zapehr/sdk": "1.0.15",
     "ottehr-utils": "*"
   },
   "devDependencies": {

@@ -11,9 +11,13 @@ interface DateInputFieldProps {
   name: string;
   required?: boolean;
   label?: string;
+  helperText?: string;
+  showHelperTextIcon?: boolean;
   currentValue: string | undefined;
   defaultValue: string | undefined;
+  readOnlyValue: string | undefined;
   setCurrentValue: (newVal: string | undefined) => void;
+  disabled: boolean;
 }
 
 const currentDate = new Date();
@@ -35,20 +39,29 @@ const CoalescedDateInput = ({
   required,
   currentValue,
   defaultValue,
+  readOnlyValue,
   label,
   setCurrentValue,
+  disabled,
+  helperText,
+  showHelperTextIcon,
 }: DateInputFieldProps): JSX.Element => {
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [selectedDay, setSelectedDay] = useState<string>('');
   const [selectedYear, setSelectedYear] = useState<string>('');
 
   useEffect(() => {
-    // console.log('current value, default value', currentValue, defaultValue);
-    const [year, month, day] = (currentValue ?? defaultValue ?? '--').split('-');
-    setSelectedDay(day);
-    setSelectedMonth(month);
-    setSelectedYear(year);
-  }, [currentValue, defaultValue]);
+    if (currentValue === '') {
+      setSelectedDay('');
+      setSelectedMonth('');
+      setSelectedYear('');
+    } else {
+      const [year, month, day] = (readOnlyValue ?? currentValue ?? defaultValue ?? '--').split('-');
+      setSelectedDay(day);
+      setSelectedMonth(month);
+      setSelectedYear(year);
+    }
+  }, [currentValue, defaultValue, readOnlyValue]);
 
   const {
     formState: { errors },
@@ -68,7 +81,10 @@ const CoalescedDateInput = ({
   }, [selectedDay, selectedMonth, selectedYear]);
 
   useEffect(() => {
-    if (coalescedDate !== '--' && currentValue !== coalescedDate) {
+    if (coalescedDate === '--' && currentValue === '--') {
+      setCurrentValue('');
+    }
+    if (coalescedDate !== '--' && currentValue !== coalescedDate && currentValue !== '--') {
       setCurrentValue(coalescedDate);
     }
   }, [currentValue, coalescedDate, setCurrentValue]);
@@ -81,7 +97,12 @@ const CoalescedDateInput = ({
       <div style={{ width: '100%', display: 'flex', gap: '10px' }}>
         <FormControl required={required} sx={{ width: '150px' }}>
           <InputLabel>Month</InputLabel>
-          <Select label="Month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)}>
+          <Select
+            disabled={disabled || !!readOnlyValue}
+            label="Month"
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+          >
             {months.map((month) => (
               <MenuItem key={month.value} value={month.value}>
                 {month.label}
@@ -92,7 +113,12 @@ const CoalescedDateInput = ({
 
         <FormControl required={required} sx={{ width: '150px' }}>
           <InputLabel>Day</InputLabel>
-          <Select label="Day" value={selectedDay} onChange={(e) => setSelectedDay(e.target.value)}>
+          <Select
+            disabled={disabled || !!readOnlyValue}
+            label="Day"
+            value={selectedDay}
+            onChange={(e) => setSelectedDay(e.target.value)}
+          >
             {days.map((day) => (
               <MenuItem key={day.value} value={day.value}>
                 {day.label}
@@ -103,7 +129,12 @@ const CoalescedDateInput = ({
 
         <FormControl required={required} sx={{ width: '150px' }}>
           <InputLabel>Year</InputLabel>
-          <Select label="Year" value={selectedYear} onChange={(e: any) => setSelectedYear?.(e.target.value)}>
+          <Select
+            disabled={disabled || !!readOnlyValue}
+            label="Year"
+            value={selectedYear}
+            onChange={(e: any) => setSelectedYear?.(e.target.value)}
+          >
             {years.map((year) => (
               <MenuItem key={year.value} value={year.value}>
                 {year.label}
@@ -112,7 +143,13 @@ const CoalescedDateInput = ({
           </Select>
         </FormControl>
       </div>
-      <InputHelperText textColor={otherColors.cancel} name={name} errors={errors} />
+      <InputHelperText
+        textColor={otherColors.cancel}
+        name={name}
+        errors={errors}
+        helperText={helperText}
+        showHelperTextIcon={showHelperTextIcon}
+      />
     </Box>
   );
 };

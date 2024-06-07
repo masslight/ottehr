@@ -1,10 +1,11 @@
 import { CustomTooltip } from './CustomTooltip';
-import { Box, ClickAwayListener, Typography, useTheme, Link } from '@mui/material';
+import { Box, ClickAwayListener, Typography, useTheme } from '@mui/material';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { AppointmentStatusChip } from './AppointmentStatusChip';
-import { ApptStatus, diffInMinutes } from '../utils';
+import { diffInMinutes, getAppointmentWaitingTime } from '../utils';
 import React, { FC, useState } from 'react';
 import { DateTime } from 'luxon';
-import { TelemedStatusHistoryElement } from 'ehr-utils';
+import { TelemedStatusHistoryElement, ApptStatus } from 'ehr-utils';
 
 type StatusHistoryTooltipProps = {
   history: TelemedStatusHistoryElement[];
@@ -34,15 +35,15 @@ export const StatusHistory: FC<StatusHistoryTooltipProps> = (props) => {
       : diffInMinutes(currentTime, startTime);
 
   return (
-    <>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
       <Typography>
         {[ApptStatus.ready, ApptStatus.complete].includes(ApptStatus[currentStatus]) ? (
-          <>{total}m</>
+          <>{getAppointmentWaitingTime(history)}m</>
         ) : (
           <>
             {diffInMinutes(
               DateTime.fromISO(history.at(-1)!.end || currentTimeISO),
-              DateTime.fromISO(history.at(-1)!.start!),
+              DateTime.fromISO(history.at(-1)!.start!)
             )}
             m / {total}m
           </>
@@ -61,8 +62,8 @@ export const StatusHistory: FC<StatusHistoryTooltipProps> = (props) => {
             disableTouchListener
             title={
               <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {history.map((element) => (
-                  <Box sx={{ display: 'flex', gap: 1 }} key={element.status}>
+                {history.map((element, index) => (
+                  <Box sx={{ display: 'flex', gap: 1 }} key={`${element.status}-${index}`}>
                     <Typography sx={{ minWidth: '60px' }}>
                       {diffInMinutes(DateTime.fromISO(element.end || currentTimeISO), DateTime.fromISO(element.start!))}{' '}
                       mins
@@ -74,18 +75,16 @@ export const StatusHistory: FC<StatusHistoryTooltipProps> = (props) => {
               </Box>
             }
           >
-            <Box>
-              <Link
-                underline="hover"
-                sx={{ color: theme.palette.text.secondary, cursor: 'pointer' }}
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <InfoOutlinedIcon
                 onClick={handleTooltipOpen}
-              >
-                See details
-              </Link>
+                fontSize="small"
+                sx={{ color: theme.palette.text.secondary, cursor: 'pointer' }}
+              />
             </Box>
           </CustomTooltip>
         </div>
       </ClickAwayListener>
-    </>
+    </Box>
   );
 };

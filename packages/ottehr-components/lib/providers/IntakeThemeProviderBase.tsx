@@ -26,9 +26,17 @@ export const breakpoints: BreakpointsOptions = {
 declare module '@mui/material/styles' {
   interface Palette {
     tertiary: PaletteColor;
+    destructive: PaletteColor;
   }
   interface PaletteOptions {
     tertiary: PaletteColor;
+    destructive: PaletteColor;
+  }
+}
+
+declare module '@mui/material/Button' {
+  interface ButtonPropsColorOverrides {
+    destructive: true;
   }
 }
 
@@ -245,7 +253,7 @@ export const IntakeThemeProviderBase: FC<IntakeThemeProviderProps> = (props) => 
       lineHeight: '140%',
     },
     overline: {
-      fontSize: 16,
+      fontSize: 12,
       fontWeight: 700,
       fontFamily: textFonts.join(','),
       lineHeight: '140%',

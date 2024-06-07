@@ -1,5 +1,7 @@
 export const ADMINISTRATOR_RULES = [
   {
+    action: ['FHIR:Search', 'FHIR:Read'],
+    effect: 'Allow',
     resource: [
       'FHIR:Consent',
       'FHIR:Coverage',
@@ -9,27 +11,59 @@ export const ADMINISTRATOR_RULES = [
       'FHIR:DocumentReference',
       'FHIR:Person',
     ],
-    action: ['FHIR:Search', 'FHIR:Read'],
-    effect: 'Allow',
   },
   {
-    resource: 'Telemed:*',
-    action: 'Telemed:GetRoomToken',
-    effect: 'Allow',
-  },
-  {
-    resource: 'App:User',
     action: ['App:ListAllUsers', 'App:GetUser'],
     effect: 'Allow',
+    resource: 'App:User',
   },
   {
-    resource: ['FHIR:Patient', 'FHIR:Appointment', 'FHIR:Encounter', 'FHIR:Location'],
+    action: ['IAM:ListAllRoles', 'IAM:GetRole'],
+    effect: 'Allow',
+    resource: 'IAM:Role',
+  },
+  {
     action: ['FHIR:Search', 'FHIR:Read', 'FHIR:Update'],
     effect: 'Allow',
+    resource: [
+      'FHIR:Patient',
+      'FHIR:Appointment',
+      'FHIR:Encounter',
+      'FHIR:Location',
+      'FHIR:Communication',
+      'FHIR:Flag',
+    ],
   },
   {
-    resource: 'Z3:*',
     action: 'Z3:GetObject',
+    effect: 'Allow',
+    resource: 'Z3:*',
+  },
+  {
+    action: ['Zambda:InvokeFunction'],
+    effect: 'Allow',
+    resource: ['Zambda:Function:*'],
+  },
+  // Needed for ottehr user to get their own fhir profile. this is overbroad and should be restricted when/if zap adds some sort of SELF token
+  {
+    action: ['FHIR:Read', 'FHIR:Update'],
+    effect: 'Allow',
+    resource: ['FHIR:Practitioner'],
+  },
+  // Needed for ottehr chat message sending
+  {
+    action: ['FHIR:Search', 'FHIR:Read', 'FHIR:Update', 'FHIR:Create'],
+    effect: 'Allow',
+    resource: ['FHIR:Communication'],
+  },
+  {
+    action: ['Messaging:SendTransactionalSMS'],
+    effect: 'Allow',
+    resource: ['*'],
+  },
+  {
+    action: ['FHIR:Search', 'FHIR:Read', 'FHIR:Update', 'FHIR:Create'],
+    resource: 'FHIR:InsurancePlan:*',
     effect: 'Allow',
   },
 ];

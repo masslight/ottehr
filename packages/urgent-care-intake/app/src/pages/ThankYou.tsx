@@ -43,7 +43,7 @@ const ThankYou = (): JSX.Element => {
   const { id: appointmentID } = useParams();
 
   useEffect(() => {
-    mixpanel.track('Thank You');
+    //mixpanel.track('Thank You');
   }, []);
 
   useEffect(() => {

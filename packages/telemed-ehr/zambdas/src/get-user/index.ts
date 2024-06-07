@@ -1,14 +1,16 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { PractitionerLicense } from 'ehr-utils';
-import { getAuth0Token } from '../shared';
-import { createAppClient, createFhirClient } from '../shared/helpers';
-import { Secrets, ZambdaInput } from '../types';
+import { PractitionerLicense, Secrets } from 'ehr-utils';
+import { checkOrCreateM2MClientToken, createAppClient, createFhirClient } from '../shared/helpers';
+import { ZambdaInput } from '../types';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetUserInput {
   secrets: Secrets | null;
   userId: string;
 }
+
+// Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
+let m2mtoken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -17,9 +19,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const { secrets, userId } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
-    const token = await getAuth0Token(secrets);
-    const fhirClient = createFhirClient(token, secrets);
-    const appClient = createAppClient(token, secrets);
+    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
+    const fhirClient = createFhirClient(m2mtoken, secrets);
+    const appClient = createAppClient(m2mtoken, secrets);
     let response = null;
     try {
       const getUserResponse = await appClient.getUser(userId);
@@ -61,6 +63,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         message: `Successfully got user ${userId}`,
         user: {
           ...getUserResponse,
+          profileResource: existingPractitionerResource,
           licenses: allLicenses ?? [],
         },
       };

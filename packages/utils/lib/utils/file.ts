@@ -3,6 +3,6 @@ export function parseFiletype(fileUrl: string): string {
   if (filetype) {
     return filetype;
   } else {
-    throw new Error('Failed to parse filetype from url');
+    throw new Error(`Failed to parse filetype from url ${fileUrl}`);
   }
 }

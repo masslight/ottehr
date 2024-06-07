@@ -21,6 +21,7 @@ export interface ContainerProps {
   backgroundImage: string;
   footer?: JSX.Element;
   logoutHandler?: () => void;
+  patientFullName?: string;
 }
 
 type WrappedContainerProps = Omit<ContainerProps, 'logo' | 'backgroundImage' | 'footer' | 'logoutHandler' | 'alt'>;
@@ -30,7 +31,7 @@ export const CustomContainerFactory = (
   logo: string,
   alt: string,
   footer?: JSX.Element,
-  logoutHandler?: () => void,
+  logoutHandler?: () => void
 ): FC<WrappedContainerProps> => {
   const CustomContainerWrapped: FC<WrappedContainerProps> = (props) => {
     const backgroundImage = imageForBackground(props.bgVariant);
@@ -64,6 +65,7 @@ export const CustomContainer: FC<ContainerProps> = ({
   alt,
   footer,
   logoutHandler,
+  patientFullName,
 }) => {
   const theme = useTheme();
   const { isAuthenticated, logout } = useAuth0();
@@ -159,6 +161,11 @@ export const CustomContainer: FC<ContainerProps> = ({
                       >
                         {title}
                       </Typography>
+                      {patientFullName && (
+                        <Typography variant="body2" color={theme.palette.secondary.main} fontSize={'18px'}>
+                          {patientFullName}
+                        </Typography>
+                      )}
                       {subtitle && (
                         <Typography variant="h2" color="primary.main" mt={1}>
                           {subtitle}

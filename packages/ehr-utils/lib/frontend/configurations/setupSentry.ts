@@ -4,7 +4,7 @@ export function setupSentry(
   options: Partial<Sentry.BrowserOptions> & {
     dsn: Exclude<Sentry.BrowserOptions['dsn'], undefined>;
     environment: Exclude<Sentry.BrowserOptions['environment'], undefined>;
-  },
+  }
 ): void {
   Sentry.init({
     integrations: [

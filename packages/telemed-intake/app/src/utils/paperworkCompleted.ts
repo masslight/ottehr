@@ -76,6 +76,16 @@ function isAdditionalComplete(completedPaperwork: CompletedPaperwork, questions:
   });
 }
 
+function isPatientConditionComplete(completedPaperwork: CompletedPaperwork, questions: Question[]): boolean {
+  return questions
+    .filter((question) => {
+      return question.required;
+    })
+    .every((question) => {
+      return valueExists(completedPaperwork[question.id]);
+    });
+}
+
 function isCurrentMedicationsComplete(completedPaperwork: CompletedPaperwork, questions: Question[]): boolean {
   return questions.every((question) => {
     return valueExists(completedPaperwork[question.id]);
@@ -103,7 +113,7 @@ function isSurgicalHistoryComplete(completedPaperwork: CompletedPaperwork, quest
 export function isPaperworkComplete(
   completedPaperwork: CompletedPaperwork,
   paperworkPages: PaperworkPage[],
-  fileURLs?: FileURLs,
+  fileURLs?: FileURLs
 ): boolean {
   return paperworkPages.every((page) => {
     return isPaperworkPageComplete(completedPaperwork, page, fileURLs);
@@ -113,7 +123,7 @@ export function isPaperworkComplete(
 export function isPaperworkPageComplete(
   completedPaperwork: CompletedPaperwork,
   paperworkPage: PaperworkPage,
-  fileURLs?: FileURLs,
+  fileURLs?: FileURLs
 ): boolean {
   const questions = paperworkPage.questions
     .filter((itemTemp) => itemTemp.type !== 'Description' && itemTemp.type !== 'Header 3')
@@ -137,6 +147,8 @@ export function isPaperworkPageComplete(
       return isAdditionalComplete(completedPaperwork, questions);
     case 'primary-care-physician':
       return isAdditionalComplete(completedPaperwork, questions);
+    case 'patient-condition':
+      return isPatientConditionComplete(completedPaperwork, questions);
     case 'current-medications':
       return isCurrentMedicationsComplete(completedPaperwork, questions);
     case 'allergies':

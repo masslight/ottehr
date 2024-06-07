@@ -1,5 +1,5 @@
-import { DeleteChartDataRequest } from 'ehr-utils';
 import { ZambdaInput } from '../types';
+import { DeleteChartDataRequest } from 'ehr-utils';
 
 export function validateRequestParameters(input: ZambdaInput): DeleteChartDataRequest & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {

@@ -1,12 +1,10 @@
 import { FhirClient, User } from '@zapehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Location } from 'fhir/r4';
-import { DateTime } from 'luxon';
+import { decodeJwt, jwtVerify } from 'jose';
 import {
-  FHIR_EXTENSION,
-  PUBLIC_EXTENSION_BASE_URL,
   SecretsKeys,
-  WaitingRoomResponse,
+  TELEMED_VIDEO_ROOM_CODE,
   ZambdaInput,
   createFhirClient,
   getAppointmentResourceById,
@@ -19,6 +17,7 @@ import { getUser } from '../shared/auth';
 import { getVideoEncounterForAppointment } from '../shared/encounters';
 import { convertStatesAbbreviationsToLocationIds, getAllAppointmentsByLocations } from './utils/fhir';
 import { validateRequestParameters } from './validateRequestParameters';
+import { mapStatusToTelemed } from '../shared/appointment/helpers';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
@@ -26,6 +25,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
+    console.log(JSON.stringify(validatedParameters, null, 4));
     const { appointmentID, secrets, authorization } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
@@ -40,9 +40,33 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       };
     }
 
-    console.log('getting user');
-    const user = await getUser(authorization.replace('Bearer ', ''), secrets);
-    console.log(`user: ${user.name}`);
+    const websiteUrl = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+    const telemedClientSecret = getSecret(SecretsKeys.TELEMED_CLIENT_SECRET, secrets);
+
+    const jwt = authorization.replace('Bearer ', '');
+    let claims;
+    let user: User | undefined;
+    try {
+      claims = decodeJwt(jwt);
+      console.log('JWT claims:', claims);
+      // invited participant case
+      if (claims.iss === 'https://ottehr.com') {
+        const secret = new TextEncoder().encode(telemedClientSecret);
+        await jwtVerify(jwt, secret, {
+          audience: `${websiteUrl}/waiting-room/appointment/${appointmentID}`,
+        });
+      } else {
+        console.log('getting user');
+        user = await getUser(jwt);
+        console.log(`user: ${user.name}`);
+      }
+    } catch (error) {
+      console.log('User verification error:', error);
+      return {
+        statusCode: 401,
+        body: JSON.stringify({ message: 'Unauthorized' }),
+      };
+    }
 
     if (!zapehrToken) {
       console.log('getting m2m token for service calls');
@@ -70,39 +94,33 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     let videoEncounter: Encounter | undefined = undefined;
     videoEncounter = await getVideoEncounterForAppointment(appointment.id || 'Unknown', fhirClient);
-    const estimatedTime = await calculateEstimatedTime(fhirClient, appointment);
-
-    console.log('building get waiting room status response');
-    const defaultResponse: WaitingRoomResponse = {
-      status: 'not_started',
-      estimatedTime: estimatedTime,
-    };
 
     if (
       !videoEncounter ||
       videoEncounter.status !== 'in-progress' ||
-      !getVirtualServiceResourceExtension(videoEncounter, 'twilio-video-group-rooms')
+      !getVirtualServiceResourceExtension(videoEncounter, TELEMED_VIDEO_ROOM_CODE)
     ) {
-      return {
+      const estimatedTime = await calculateEstimatedTime(fhirClient, appointment);
+      const response = {
         statusCode: 200,
-        body: JSON.stringify(defaultResponse),
+        body: JSON.stringify({
+          status: 'ready',
+          estimatedTime: estimatedTime,
+        }),
       };
+      console.log(JSON.stringify(response, null, 4));
+      return response;
     } else {
-      videoEncounter = await AddUserToVideoEncounter(videoEncounter, user, fhirClient);
-      const videoResponse: WaitingRoomResponse = {
-        status: 'started',
-        encounterId: videoEncounter.id,
-        videoRoomId: videoEncounter.extension
-          ?.find(
-            (extensionTemp) =>
-              extensionTemp.url === `${PUBLIC_EXTENSION_BASE_URL}/encounter-virtual-service-pre-release`,
-          )
-          ?.extension?.find((extensionTemp) => extensionTemp.url === 'addressString')?.valueString,
-      };
-      return {
+      console.log(videoEncounter.status, appointment.status);
+      const response = {
         statusCode: 200,
-        body: JSON.stringify(videoResponse),
+        body: JSON.stringify({
+          status: mapStatusToTelemed(videoEncounter.status, appointment.status),
+          encounterId: videoEncounter?.id,
+        }),
       };
+      console.log(JSON.stringify(response, null, 4));
+      return response;
     }
   } catch (error: any) {
     console.log(error);
@@ -113,55 +131,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   }
 };
 
-async function AddUserToVideoEncounter(encounter: Encounter, user: User, fhirClient: FhirClient): Promise<Encounter> {
-  let updated: Encounter = {
-    ...encounter,
-  };
-  try {
-    const extension = [...(encounter.extension ?? [])];
-    const otherParticipantExt = extension!.find((ext) => ext.url === FHIR_EXTENSION.Encounter.otherParticipants.url);
-
-    otherParticipantExt?.extension?.push({
-      url: FHIR_EXTENSION.Encounter.otherParticipants.extension.otherParticipant.url,
-      extension: [
-        {
-          url: 'period',
-          valuePeriod: {
-            start: DateTime.now().toUTC().toISO(),
-          },
-        },
-        {
-          url: 'reference',
-          valueReference: {
-            reference: user.profile,
-          },
-        },
-      ],
-    });
-
-    const updatedEncounter = await fhirClient.patchResource<Encounter>({
-      resourceType: 'Encounter',
-      resourceId: encounter.id ?? '',
-      operations: [
-        {
-          op: 'replace',
-          path: '/extension',
-          value: extension,
-        },
-      ],
-    });
-    updated.extension = updatedEncounter.extension;
-  } catch (err) {
-    console.error('Error while trying to update video encounter with user participant', err);
-    updated = encounter;
-  }
-
-  return updated;
-}
-
 const calculateEstimatedTime = async (
   fhirClient: FhirClient,
-  appointment: Appointment,
+  appointment: Appointment
 ): Promise<number | undefined> => {
   const locationId = appointment.participant
     .find((appointment) => appointment.actor?.reference?.startsWith('Location/'))

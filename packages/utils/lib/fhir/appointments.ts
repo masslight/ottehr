@@ -1,11 +1,10 @@
 import { FhirClient } from '@zapehr/sdk';
-import { Appointment } from 'fhir/r4';
-import { CancellationReasonCodes, CancellationReasonOptions } from '../types/urgent-care';
+import { Appointment, CodeableConcept } from 'fhir/r4';
 
 export async function cancelAppointmentResource(
   appointment: Appointment,
-  cancellationReason: CancellationReasonOptions,
-  fhirClient: FhirClient,
+  cancellationReasonCoding: NonNullable<CodeableConcept['coding']>,
+  fhirClient: FhirClient
 ): Promise<Appointment> {
   if (!appointment.id) {
     throw Error('Appointment resource missing id');
@@ -25,14 +24,7 @@ export async function cancelAppointmentResource(
           op: 'add',
           path: '/cancelationReason',
           value: {
-            coding: [
-              {
-                // todo reassess codes and reasons, just using custom codes atm
-                system: 'http://terminology.hl7.org/CodeSystem/appointment-cancellation-reason',
-                code: CancellationReasonCodes[cancellationReason],
-                display: cancellationReason,
-              },
-            ],
+            coding: cancellationReasonCoding,
           },
         },
       ],

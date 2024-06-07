@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 
 interface AppointmentState {
   appointmentID?: string;
+  appointmentDate?: string;
   // appointmentSlot?: string;
 }
 
@@ -15,5 +16,11 @@ interface AppointmentStateActions {
 export const useAppointmentStore = create<AppointmentState & AppointmentStateActions>()(
   persist((set) => ({ ...APOINTMENT_STATE_INITIAL, setState: (state) => set({ ...state }) }), {
     name: 'telemed-appointment-storage',
-  }),
+  })
+);
+
+export const usePastVisitsStore = create<AppointmentState & AppointmentStateActions>()(
+  persist((set) => ({ ...APOINTMENT_STATE_INITIAL, setState: (state) => set({ ...state }) }), {
+    name: 'telemed-past-visits-storage',
+  })
 );

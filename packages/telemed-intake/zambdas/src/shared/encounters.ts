@@ -1,9 +1,10 @@
 import { FhirClient } from '@zapehr/sdk';
 import { Appointment, Encounter, Location } from 'fhir/r4';
 import {
+  TELEMED_VIDEO_ROOM_CODE,
+  getEncounterForAppointment,
   getParticipantFromAppointment,
   getVirtualServiceResourceExtension,
-  getEncounterForAppointment,
 } from 'ottehr-utils';
 
 interface EncounterDetails {
@@ -17,7 +18,7 @@ interface EncounterDetails {
 
 export const getVideoEncounterForAppointment = async (
   appointmentID: string,
-  fhirClient: FhirClient,
+  fhirClient: FhirClient
 ): Promise<Encounter | undefined> => {
   let encounter: Encounter | undefined = undefined;
 
@@ -32,7 +33,7 @@ export const getVideoEncounterForAppointment = async (
   });
 
   encounter = (encounters ?? []).find((encounterTemp) =>
-    Boolean(getVirtualServiceResourceExtension(encounterTemp, 'twilio-video-group-rooms')),
+    Boolean(getVirtualServiceResourceExtension(encounterTemp, TELEMED_VIDEO_ROOM_CODE))
   );
   return encounter;
 };

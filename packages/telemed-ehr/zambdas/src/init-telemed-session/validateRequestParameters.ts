@@ -2,7 +2,7 @@ import { InitTelemedSessionRequestParams } from 'ehr-utils';
 import { ZambdaInput } from '../types';
 
 export function validateRequestParameters(
-  input: ZambdaInput,
+  input: ZambdaInput
 ): InitTelemedSessionRequestParams & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {
     throw new Error('No request body provided');

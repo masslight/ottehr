@@ -19,20 +19,17 @@ export const mapPaperworkResponseItem = (item: QuestionnaireResponseItem): Quest
           valueArray: item.extension
             .filter((extension) => extension.url === `${PRIVATE_EXTENSION_BASE_URL}/form-list-values`)
             .map((extension) => {
-              return extension.extension!.reduce(
-                (accumulator, currentValue) => {
-                  const key = currentValue.extension!.find((extension) => extension.url === 'code')!.valueCode!;
-                  const value = currentValue.extension!.find((extension) => extension.url === 'value')!.valueString!;
-                  accumulator[key] = value;
-                  return accumulator;
-                },
-                {} as Record<string, string>,
-              );
+              return extension.extension!.reduce((accumulator, currentValue) => {
+                const key = currentValue.extension!.find((extension) => extension.url === 'code')!.valueCode!;
+                const value = currentValue.extension!.find((extension) => extension.url === 'value')!.valueString!;
+                accumulator[key] = value;
+                return accumulator;
+              }, {} as Record<string, string>);
             }),
         },
       ],
       extension: item.extension.filter(
-        (extension) => extension.url != `${PRIVATE_EXTENSION_BASE_URL}/form-list-values`,
+        (extension) => extension.url != `${PRIVATE_EXTENSION_BASE_URL}/form-list-values`
       ),
     };
   }
@@ -41,7 +38,7 @@ export const mapPaperworkResponseItem = (item: QuestionnaireResponseItem): Quest
 
 export const getQuestionnaireResponseByLinkId = (
   linkId: string,
-  questionnaireResponse?: QuestionnaireResponse,
+  questionnaireResponse?: QuestionnaireResponse
 ): QuestionnaireResponseItemWithValueArray | undefined => {
   const item = questionnaireResponse?.item && questionnaireResponse.item.find((item) => item.linkId === linkId);
   return item && mapPaperworkResponseItem(item);

@@ -14,7 +14,6 @@ export function getPatchBinary(input: GetPatchBinaryInput): BatchInputRequest {
     url: `/${resourceType}/${resourceId}`,
     resource: {
       resourceType: 'Binary',
-      // data is handled due to bug with non latin1 characters
       data: btoa(unescape(encodeURIComponent(JSON.stringify(patchOperations)))),
       contentType: 'application/json-patch+json',
     },

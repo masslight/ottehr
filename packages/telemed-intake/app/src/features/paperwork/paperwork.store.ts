@@ -35,6 +35,6 @@ export const usePaperworkStore = create<PaperworkState & PaperworkStoreActions>(
         }));
       },
     }),
-    { name: 'telemed-paperwork-storage' },
-  ),
+    { name: 'telemed-paperwork-storage' }
+  )
 );

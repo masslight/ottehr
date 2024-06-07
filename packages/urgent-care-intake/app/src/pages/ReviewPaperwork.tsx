@@ -40,7 +40,7 @@ const ReviewPaperwork = (): JSX.Element => {
   }, [state.appointmentSlot, state.selectedLocation?.timezone]);
 
   useEffect(() => {
-    mixpanel.track('Review Paperwork');
+    //mixpanel.track('Review Paperwork');
   }, []);
 
   const onSubmit = async (): Promise<void> => {

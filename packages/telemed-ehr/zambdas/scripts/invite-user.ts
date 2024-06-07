@@ -109,7 +109,7 @@ const updateUserRoles = async (projectApiUrl: string, accessToken: string, proje
     // throw new Error(`Failed to set defaultSSOUserRole`);
   // }
 
-  return  adminUserRole;
+  return adminUserRole;
 };
 
 

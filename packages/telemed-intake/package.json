@@ -1,17 +1,26 @@
 {
-  "name": "ottehr-telemed-qrs",
+  "name": "ottehr-telemed",
   "private": true,
   "version": "0.0.1",
   "type": "module",
   "scripts": {
     "start": "vite",
-    "build": "tsc && vite build"
+    "build": "tsc && vite build",
+    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview",
+    "test": "vitest",
+    "coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@mui/icons-material": "^5.11.0",
-    "ottehr-components": "*",
-    "ottehr-utils": "*",
+    "amazon-chime-sdk-component-library-react": "^3.7.0",
+    "amazon-chime-sdk-js": "^3.20.0",
+    "styled-components": "^5.3.11",
+    "styled-system": "^5.1.5",
     "tsconfig": "*",
-    "twilio-video": "^2.28.1"
+    "ottehr-components": "*",
+    "ottehr-utils": "*"
+  },
+  "devDependencies": {
+    "@types/styled-components": "^5.1.34"
   }
 }

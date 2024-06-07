@@ -1,35 +1,61 @@
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
-import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined';
-import MedicationOutlinedIcon from '@mui/icons-material/MedicationOutlined';
-import PhotoLibraryOutlinedIcon from '@mui/icons-material/PhotoLibraryOutlined';
 import { Box, List, Typography, useTheme } from '@mui/material';
 import { Duration } from 'luxon';
-import { useContext, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { IntakeThemeContext, StyledListItemWithButton } from 'ottehr-components';
+import { useContext, useEffect, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { IntakeThemeContext, StyledListItemWithButton, safelyCaptureException } from 'ottehr-components';
 import { getSelectors } from 'ottehr-utils';
 import { IntakeFlowPageRoute } from '../App';
 import { clockFullColor } from '../assets';
-import { ManageParticipantsDialog, PatientPhotosDialog } from '../components';
+import { CancelVisitDialog } from '../components';
+import { useAppointmentStore } from '../features/appointments';
 import { CustomContainer } from '../features/common';
+import { InvitedParticipantListItemButton, ManageParticipantsDialog } from '../features/invited-participants';
+import { createIOSMesssageCallStarted, sendIOSAppMessage } from '../features/ios-communication';
+import { useIOSAppSync } from '../features/ios-communication/useIOSAppSync';
+import { UploadPhotosDialog, UploadPhotosListItemButton } from '../features/upload-photos';
 import { useGetWaitStatus, useWaitingRoomStore } from '../features/waiting-room';
-import { useZapEHRAPIClient } from '../utils';
 
 const WaitingRoom = (): JSX.Element => {
   const navigate = useNavigate();
   const theme = useTheme();
-  const apiClient = useZapEHRAPIClient();
   const { otherColors } = useContext(IntakeThemeContext);
   const { estimatedTime } = getSelectors(useWaitingRoomStore, ['estimatedTime']);
+  const [searchParams, _] = useSearchParams();
+  const urlAppointmentID = searchParams.get('appointment_id');
+  const location = useLocation();
+  const isInvitedParticipant = location.pathname === IntakeFlowPageRoute.InvitedWaitingRoom.path;
+  const appointmentID = useAppointmentStore((state) => state.appointmentID);
 
+  useEffect(() => {
+    if (urlAppointmentID) {
+      useAppointmentStore.setState(() => ({ appointmentID: urlAppointmentID }));
+    }
+  }, [urlAppointmentID]);
+
+  const { isIOSApp } = useIOSAppSync();
   const [isManageParticipantsDialogOpen, setManageParticipantsDialogOpen] = useState<boolean>(false);
   const [isUploadPhotosDialogOpen, setUploadPhotosDialogOpen] = useState<boolean>(false);
+  const [isCancelVisitDialogOpen, setCancelVisitDialogOpen] = useState<boolean>(false);
 
-  useGetWaitStatus(apiClient, (data) => {
+  useGetWaitStatus((data) => {
     useWaitingRoomStore.setState(data);
-    if (data.encounterId) {
-      navigate(IntakeFlowPageRoute.VideoCall.path);
+    if (data.status == 'on-video') {
+      if (isIOSApp && appointmentID) {
+        try {
+          sendIOSAppMessage(createIOSMesssageCallStarted({ appointmentID }));
+          return;
+        } catch (error) {
+          safelyCaptureException(error);
+        }
+      }
+      if (isInvitedParticipant) {
+        const url = new URL(window.location.href);
+        navigate(IntakeFlowPageRoute.InvitedVideoCall.path + url.search);
+      } else {
+        navigate(IntakeFlowPageRoute.VideoCall.path);
+      }
     }
   });
 
@@ -57,54 +83,46 @@ const WaitingRoom = (): JSX.Element => {
         </Typography>
       </Box>
 
-      <List sx={{ p: 0 }}>
-        <StyledListItemWithButton
-          primaryText="View visit details"
-          secondaryText="Review and edit patient information and paperwork"
-        >
-          <AssignmentOutlinedIcon sx={{ color: otherColors.purple }} />
-        </StyledListItemWithButton>
+      {isInvitedParticipant ? (
+        <List sx={{ p: 0 }}>
+          <StyledListItemWithButton
+            primaryText="Call settings & Test"
+            secondaryText="Audio, video, microphone"
+            noDivider
+          >
+            <AssignmentOutlinedIcon sx={{ color: otherColors.purple }} />
+          </StyledListItemWithButton>
+        </List>
+      ) : (
+        <List sx={{ p: 0 }}>
+          <InvitedParticipantListItemButton onClick={() => setManageParticipantsDialogOpen(true)} hideText={false} />
 
-        <StyledListItemWithButton primaryText="View pharmacy information" secondaryText="Green pharmacy">
-          <MedicationOutlinedIcon sx={{ color: otherColors.purple }} />
-        </StyledListItemWithButton>
+          <UploadPhotosListItemButton onClick={() => setUploadPhotosDialogOpen(true)} hideText={false} />
 
-        <StyledListItemWithButton
-          onClick={() => setManageParticipantsDialogOpen(true)}
-          primaryText="Manage participants"
-          secondaryText="Oliver Black, Jerome Black"
-        >
-          <ManageAccountsOutlinedIcon sx={{ color: otherColors.purple }} />
-        </StyledListItemWithButton>
+          <StyledListItemWithButton
+            onClick={() => navigate('/home')}
+            primaryText="Leave waiting room"
+            secondaryText="We will notify you once the call starts"
+          >
+            <img alt="Clock icon" src={clockFullColor} width={24} />
+          </StyledListItemWithButton>
 
-        <StyledListItemWithButton
-          onClick={() => setUploadPhotosDialogOpen(true)}
-          primaryText="Upload photos"
-          secondaryText="2 photos attached"
-        >
-          <PhotoLibraryOutlinedIcon sx={{ color: otherColors.purple }} />
-        </StyledListItemWithButton>
-
-        <StyledListItemWithButton
-          primaryText="Leave waiting room"
-          secondaryText="We will notify you one the call starts"
-        >
-          <img alt="Clock icon" src={clockFullColor} width={24} />
-        </StyledListItemWithButton>
-
-        <StyledListItemWithButton
-          primaryText="Cancel visit"
-          secondaryText="You will not be charged if you cancel the visit"
-          noDivider
-        >
-          <CancelOutlinedIcon sx={{ color: otherColors.clearImage }} />
-        </StyledListItemWithButton>
-      </List>
+          <StyledListItemWithButton
+            onClick={() => setCancelVisitDialogOpen(true)}
+            primaryText="Cancel visit"
+            secondaryText="You will not be charged if you cancel the visit"
+            noDivider
+          >
+            <CancelOutlinedIcon sx={{ color: otherColors.clearImage }} />
+          </StyledListItemWithButton>
+        </List>
+      )}
 
       {isManageParticipantsDialogOpen ? (
         <ManageParticipantsDialog onClose={() => setManageParticipantsDialogOpen(false)} />
       ) : null}
-      {isUploadPhotosDialogOpen ? <PatientPhotosDialog onClose={() => setUploadPhotosDialogOpen(false)} /> : null}
+      {isUploadPhotosDialogOpen ? <UploadPhotosDialog onClose={() => setUploadPhotosDialogOpen(false)} /> : null}
+      {isCancelVisitDialogOpen ? <CancelVisitDialog onClose={() => setCancelVisitDialogOpen(false)} /> : null}
     </CustomContainer>
   );
 };

@@ -8,7 +8,6 @@ interface InputMaskProps {
   blocks: any;
 }
 
-// eslint-disable-next-line react/display-name
 const InputMask = forwardRef<HTMLElement, InputMaskProps>(({ onChange, name, mask, blocks, ...other }, ref) => {
   return (
     <IMaskInput

@@ -1,29 +1,18 @@
-import { useLocation, useNavigate } from 'react-router-dom';
-import { IntakeFlowPageRoute } from '../App';
-import { CustomContainer } from '../features/common';
-import { otherColors } from '../IntakeThemeProvider';
-import { FileUpload, FileURLs, getSelectors, Question } from 'ottehr-utils';
-import { usePaperworkStore } from '../features/paperwork';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  formInputStringToBoolean,
-  getFileTypeFromFile,
-  filterObject,
-  PageForm,
-  StringFormat,
-  FormInputType,
-} from 'ottehr-components';
-import { useTheme } from '@mui/material';
-import { usePatientInfoStore } from '../features/patient-info';
-import { useFilesStore, useCreateZ3ObjectMutation } from '../features/files';
-import { useAppointmentStore } from '../features/appointments';
 import { FieldValues } from 'react-hook-form';
-import { deepClone } from 'fast-json-patch';
-import { useZapEHRAPIClient } from '../utils';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { PageForm, filterObject, formInputStringToBoolean, getFileTypeFromFile } from 'ottehr-components';
+import { FileURLs, FileUpload, getSelectors } from 'ottehr-utils';
+import { IntakeFlowPageRoute } from '../App';
+import { useAppointmentStore } from '../features/appointments';
+import { CustomContainer } from '../features/common';
+import { useCreateZ3ObjectMutation, useFilesStore } from '../features/files';
+import { usePaperworkStore } from '../features/paperwork';
+import { usePatientInfoStore } from '../features/patient-info';
+import { useMapQuestionsToFormInputFields, usePaperworkPageInfo, useZapEHRAPIClient } from '../utils';
 
 const PaperworkPage = (): JSX.Element => {
   const location = useLocation();
-  const theme = useTheme();
   const navigate = useNavigate();
 
   const apiClient = useZapEHRAPIClient();
@@ -38,26 +27,15 @@ const PaperworkPage = (): JSX.Element => {
   const { appointmentID } = getSelectors(useAppointmentStore, ['appointmentID']);
   const { fileURLs, patchFileURLs } = getSelectors(useFilesStore, ['fileURLs', 'patchFileURLs']); // use FilesStore.setState(...) and NOT filesStore.setState(...)
 
-  const { items, nextPage, pageName, currentPage, currentIndex } = useMemo(() => {
-    const slug = deepClone(location).pathname.replace('/paperwork/', '');
-    if (!paperworkQuestions) {
-      throw new Error('paperworkQuestions is not defined');
-    }
-    const currentPage = paperworkQuestions.find((pageTemp) => pageTemp.slug === slug);
-    if (!currentPage) {
-      throw new Error('currentPage is not defined');
-    }
-    const pageName = currentPage.page;
-    const items = currentPage.questions;
-
-    const currentIndex = paperworkQuestions.findIndex((pageTemp) => pageTemp.page === pageName);
-    const nextPage = paperworkQuestions[currentIndex + 1];
-    return { slug, items, nextPage, pageName, currentPage, currentIndex };
-  }, [location, paperworkQuestions]);
+  const { items, nextPage, pageName, currentPage, currentIndex } = usePaperworkPageInfo({
+    location,
+    paperworkQuestions,
+  });
 
   // File upload variables
   const fileItems = items.filter((item) => item.type === 'File');
   const [fileUploads, setFileUploads] = useState<FileUpload>({});
+  const allFileKeys = Object.keys(fileUploads);
 
   // Create object keys for each file input using the input name if the key doesn't already exist
   useEffect(() => {
@@ -99,7 +77,7 @@ const PaperworkPage = (): JSX.Element => {
                 onError: (error) => {
                   throw error;
                 },
-              },
+              }
             );
           }
 
@@ -122,7 +100,7 @@ const PaperworkPage = (): JSX.Element => {
             // Reset state for files because upload blob url overwrites Front and Back Url data
             // Only when cards are not being cleared
             if (data[fileId]) {
-              data[fileId] = fileURLs?.[fileId].z3Url;
+              data[fileId] = fileURLs?.[fileId]?.z3Url;
             }
           }
         }
@@ -146,7 +124,6 @@ const PaperworkPage = (): JSX.Element => {
       // Update completed paperwork state
       // Filter out file data
       formInputStringToBoolean(data, items);
-      const allFileKeys = Object.keys(fileUploads);
       const paperworkData = filterObject(data, (key) => !allFileKeys.includes(key));
       patchCompletedPaperwork(paperworkData);
       useFilesStore.setState({});
@@ -154,107 +131,61 @@ const PaperworkPage = (): JSX.Element => {
       if (currentIndex === paperworkQuestions.length - 1) {
         navigate(IntakeFlowPageRoute.ReviewPaperwork.path);
       } else {
-        navigate(`/paperwork/${nextPage.slug}`);
+        navigate(`/paperwork/${nextPage?.slug || ''}`);
       }
     },
     [
-      appointmentID,
-      fileItems,
-      fileURLs,
-      fileUploads,
-      items,
-      navigate,
-      nextPage,
       paperworkQuestions,
+      fileItems,
+      items,
       patchCompletedPaperwork,
-      createZ3Object,
       currentIndex,
-      patchFileURLs,
+      fileUploads,
       patientInfo.id,
+      createZ3Object,
       apiClient,
-    ],
+      appointmentID,
+      fileURLs,
+      patchFileURLs,
+      allFileKeys,
+      navigate,
+      nextPage?.slug,
+    ]
   );
 
-  const mapQuestionsToFormInputFields = useCallback(
-    (items: Question[]): FormInputType[] =>
-      items
-        .filter((item, index: number) => !(item.type === 'Description' && index === 0))
-        .map((item) => ({
-          type: item.type,
-          name: item.id,
-          item: item.item && mapQuestionsToFormInputFields(item.item),
-          // todo don't hardcode specific item
-          label: item.text.replace('{patientFirstName}', patientInfo?.firstName || 'Patient'),
-          defaultValue:
-            completedPaperwork[item.id] || fileURLs?.[item.id]?.localUrl || fileURLs?.[item.id]?.presignedUrl,
-          required: item.required,
-          enableWhen: item.enableWhen,
-          requireWhen: item.requireWhen,
-          width: item.width,
-          placeholder: item.placeholder,
-          fileOptions: {
-            description: item.attachmentText,
-            onUpload: setFileUploads,
-            uploadFile: (fileType: string, tempURL: string) =>
-              patchFileURLs({ [fileType]: { ...fileURLs?.[fileType], localUrl: tempURL } }),
-            uploadFailed: fileUploads[item.id]?.uploadFailed,
-            resetUploadFailed: () =>
-              setFileUploads((prev) => ({
-                ...prev,
-                [item.id]: { ...prev[item.id], uploadFailed: false },
-              })),
-            onClear: () => {
-              setFileUploads((prev) => ({
-                ...prev,
-                [item.id]: { ...prev[item.id], fileData: null },
-              }));
-              patchFileURLs({
-                [item.id]: { localUrl: undefined, presignedUrl: undefined, z3Url: undefined },
-              });
-            },
-            fileType: item.id,
-          },
-          multiline: item.multiline,
-          minRows: item.minRows,
-          infoText: item.infoText,
-          selectOptions: item.options?.map((itemTemp) => ({
-            label: itemTemp,
-            value: itemTemp,
-          })),
-          radioOptions: item.options?.map((itemTemp) => ({
-            label: itemTemp,
-            value: itemTemp,
-          })),
-          format: item.format as StringFormat,
-          borderColor: otherColors.borderGray,
-          backgroundSelected: otherColors.lightPurpleAlt,
-          radioStyling: {
-            radio: {
-              alignSelf: 'center',
-              marginY: 'auto',
-            },
-            label: {
-              ...theme.typography.body2,
-              color: theme.palette.text.primary,
-            },
-          },
+  const mapQuestionsToFormInputFields = useMapQuestionsToFormInputFields({
+    getLabel: (item) => item.text.replace('{patientFirstName}', patientInfo?.firstName || 'Patient'),
+    getDefaultValue: (item) =>
+      completedPaperwork[item.id] || fileURLs?.[item.id]?.localUrl || fileURLs?.[item.id]?.presignedUrl,
+    getFileOptions: (item) => ({
+      description: item.attachmentText,
+      onUpload: setFileUploads,
+      uploadFile: (fileType: string, tempURL: string) =>
+        patchFileURLs({ [fileType]: { ...fileURLs?.[fileType], localUrl: tempURL } }),
+      uploadFailed: fileUploads[item.id]?.uploadFailed,
+      resetUploadFailed: () =>
+        setFileUploads((prev) => ({
+          ...prev,
+          [item.id]: { ...prev[item.id], uploadFailed: false },
         })),
-    [
-      completedPaperwork,
-      fileURLs,
-      fileUploads,
-      patientInfo?.firstName,
-      theme.palette.text.primary,
-      theme.typography.body2,
-      patchFileURLs,
-    ],
-  );
+      onClear: () => {
+        setFileUploads((prev) => ({
+          ...prev,
+          [item.id]: { ...prev[item.id], fileData: null },
+        }));
+        patchFileURLs({
+          [item.id]: { localUrl: undefined, presignedUrl: undefined, z3Url: undefined },
+        });
+      },
+      fileType: item.id,
+    }),
+  });
 
   const onFormValuesChange = useCallback(
     (formValues: FieldValues): void => {
-      patchCompletedPaperwork(formValues);
+      patchCompletedPaperwork(filterObject(formValues, (key) => !allFileKeys.includes(key)));
     },
-    [patchCompletedPaperwork],
+    [allFileKeys, patchCompletedPaperwork]
   );
 
   const formElements = useMemo(() => mapQuestionsToFormInputFields(items), [mapQuestionsToFormInputFields, items]);
@@ -272,8 +203,10 @@ const PaperworkPage = (): JSX.Element => {
         controlButtons={useMemo(
           () => ({
             loading: createZ3Object.isLoading,
+            onBack:
+              currentIndex === 0 ? () => navigate(IntakeFlowPageRoute.PatientInformation.path) : () => navigate(-1),
           }),
-          [createZ3Object.isLoading],
+          [createZ3Object.isLoading, navigate, currentIndex]
         )}
       />
     </CustomContainer>

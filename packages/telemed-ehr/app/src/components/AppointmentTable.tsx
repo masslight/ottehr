@@ -1,3 +1,4 @@
+import ArrowDropDownCircleOutlinedIcon from '@mui/icons-material/ArrowDropDownCircleOutlined';
 import {
   Box,
   IconButton,
@@ -12,21 +13,20 @@ import {
   alpha,
   useTheme,
 } from '@mui/material';
+import { Location } from 'fhir/r4';
+import { DateTime } from 'luxon';
+import { ReactElement, useState } from 'react';
+import { UCAppointmentInformation } from 'ehr-utils';
+import { AppointmentsStatusChipsCount } from './AppointmentStatusChipsCount';
 import AppointmentTableRow from './AppointmentTableRow';
 import { ApptTab } from './AppointmentTabs';
-import ArrowDropDownCircleOutlinedIcon from '@mui/icons-material/ArrowDropDownCircleOutlined';
-import { useState, ReactElement } from 'react';
-import { AppointmentInformation } from '../types/types';
-import { DateTime } from 'luxon';
-import { AppointmentsStatusChipsCount } from './AppointmentStatusChipsCount';
-import { Location } from 'fhir/r4';
 
 interface AppointmentTableProps {
-  appointments: AppointmentInformation[];
+  appointments: UCAppointmentInformation[];
   location: Location | undefined;
   tab: ApptTab;
   now: DateTime;
-  updateAppointments: () => Promise<void>;
+  updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
 }
 
@@ -56,13 +56,13 @@ export default function AppointmentTable({
             {/* column widths must add up to the table width ^ */}
             <TableHead>
               <TableRow>
-                <TableCell style={{ width: '16%' }}>
+                <TableCell style={{ width: '20%' }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                     Type & Status
                   </Typography>
                 </TableCell>
                 {showTime && (
-                  <TableCell style={{ width: '10%' }}>
+                  <TableCell style={{ width: '13%' }}>
                     <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                       Time
                     </Typography>
@@ -78,7 +78,7 @@ export default function AppointmentTable({
                     Reason
                   </Typography>
                 </TableCell>
-                <TableCell style={{ width: '15%' }}>
+                <TableCell style={{ width: '19%' }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                     Visit Components
                   </Typography>
@@ -121,7 +121,7 @@ export default function AppointmentTable({
                           Waiting Room (
                           {
                             appointments.filter((appointmentTemp) => {
-                              return appointmentTemp.status === 'ARRIVED' || appointmentTemp.status === 'READY';
+                              return appointmentTemp.status === 'arrived' || appointmentTemp.status === 'ready';
                             }).length
                           }
                           )
@@ -133,7 +133,7 @@ export default function AppointmentTable({
                     // todo add logic to filter out appointments that are not waiting
                     appointments
                       .filter((appointmentTemp) => {
-                        return appointmentTemp.status === 'ARRIVED' || appointmentTemp.status === 'READY';
+                        return appointmentTemp.status === 'arrived' || appointmentTemp.status === 'ready';
                       })
                       .map((appointment, idx) => {
                         return (
@@ -166,7 +166,7 @@ export default function AppointmentTable({
                           In Exam (
                           {
                             appointments.filter((appointmentTemp) => {
-                              return appointmentTemp.status !== 'ARRIVED' && appointmentTemp.status !== 'READY';
+                              return appointmentTemp.status !== 'arrived' && appointmentTemp.status !== 'ready';
                             }).length
                           }
                           )
@@ -178,7 +178,7 @@ export default function AppointmentTable({
                     // todo add logic to filter out appointments that are not in exam
                     appointments
                       .filter((appointmentTemp) => {
-                        return appointmentTemp.status !== 'ARRIVED' && appointmentTemp.status !== 'READY';
+                        return appointmentTemp.status !== 'arrived' && appointmentTemp.status !== 'ready';
                       })
                       .map((appointment, idx) => {
                         return (

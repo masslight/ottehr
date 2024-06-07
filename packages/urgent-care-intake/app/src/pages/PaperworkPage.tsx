@@ -61,7 +61,7 @@ const PaperworkPage = (): JSX.Element => {
   const items = currentPage.questions;
 
   useEffect(() => {
-    mixpanel.track(pageName);
+    //mixpanel.track(pageName);
   }, [pageName]);
 
   const navigate = useNavigate();

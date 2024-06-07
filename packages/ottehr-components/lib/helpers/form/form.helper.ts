@@ -1,6 +1,6 @@
 import { Question } from 'ottehr-utils';
 import { FieldValues } from 'react-hook-form';
-import { FormInputType, FormInputTypeField, FormInputTypeGroup } from '../../types';
+import { FormInputType, FormInputTypeField, FormInputTypeGroup, OverrideValues } from '../../types';
 import { ReactElement } from 'react';
 import { getFormInputField, getFormInputGroup } from './getFormInput';
 
@@ -48,13 +48,14 @@ export const filterFormInputFields = (
   formInputFields: FormInputType[],
   values: FieldValues,
   methods: any,
+  overrideValues?: OverrideValues
 ): ReactElement[] => {
   return formInputFields
     .filter((formInput) => checkEnable(formInput, values))
     .filter((formInput) => !formInput.hidden)
     .map((formInput) => {
       if ((formInput as any).fields === undefined) {
-        return getFormInputField(formInput as FormInputTypeField, values, methods);
+        return getFormInputField(formInput as FormInputTypeField, values, methods, overrideValues);
       } else {
         return getFormInputGroup(formInput as FormInputTypeGroup);
       }

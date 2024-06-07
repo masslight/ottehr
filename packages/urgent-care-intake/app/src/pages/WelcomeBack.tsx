@@ -32,7 +32,7 @@ const WelcomeBack = (): JSX.Element => {
   const [appointmentsLoading, setAppointmentsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    mixpanel.track('Welcome Back');
+    //mixpanel.track('Welcome Back');
   }, []);
 
   useEffect(() => {

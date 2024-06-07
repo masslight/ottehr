@@ -1,9 +1,12 @@
 import { useAuth0 } from '@auth0/auth0-react';
-import { FC } from 'react';
-import { Outlet } from 'react-router-dom';
+import { FC, ReactElement } from 'react';
 import { LoadingScreen } from '../LoadingScreen';
 
-export const ProtectedRoute: FC = () => {
+interface ProtectedRouteProps {
+  showWhenAuthenticated: ReactElement;
+}
+
+export const ProtectedRoute: FC<ProtectedRouteProps> = (props: ProtectedRouteProps) => {
   const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
 
   if (!isAuthenticated && isLoading) {
@@ -16,5 +19,5 @@ export const ProtectedRoute: FC = () => {
     });
   }
 
-  return <Outlet />;
+  return props.showWhenAuthenticated;
 };

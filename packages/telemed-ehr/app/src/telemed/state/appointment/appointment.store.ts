@@ -1,6 +1,6 @@
-import { create } from 'zustand';
 import { Appointment, Encounter, Location, Patient, QuestionnaireResponse } from 'fhir/r4';
 import { GetChartDataResponse } from 'ehr-utils';
+import { create } from 'zustand';
 
 type AppointmentState = {
   appointment: Appointment | undefined;
@@ -8,9 +8,13 @@ type AppointmentState = {
   location: Location | undefined;
   encounter: Encounter;
   questionnaireResponse: QuestionnaireResponse | undefined;
+  patientPhotoUrls: string[];
   isAppointmentLoading: boolean;
   isChartDataLoading: boolean;
+  isExamObservationsLoading: boolean;
+  isReadOnly: boolean;
   chartData: GetChartDataResponse | undefined;
+  currentTab: string;
 };
 
 interface AppointmentStoreActions {
@@ -23,9 +27,13 @@ const APPOINTMENT_INITIAL: AppointmentState = {
   location: undefined,
   encounter: {} as Encounter,
   questionnaireResponse: undefined,
+  patientPhotoUrls: [],
   isAppointmentLoading: false,
   isChartDataLoading: false,
+  isExamObservationsLoading: false,
+  isReadOnly: true,
   chartData: undefined,
+  currentTab: 'hpi',
 };
 
 export const useAppointmentStore = create<AppointmentState & AppointmentStoreActions>()((set) => ({

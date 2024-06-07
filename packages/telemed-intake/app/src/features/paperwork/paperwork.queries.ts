@@ -1,38 +1,73 @@
-import { useMutation, useQuery } from 'react-query';
-import { useAppointmentStore } from '../appointments/appointment.store';
+import { DateTime } from 'luxon';
+import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { ZapEHRAPIClient } from 'ottehr-components';
-import { FileURLs, PromiseReturnType } from 'ottehr-utils';
+import { FileURLs, PromiseReturnType, isNullOrUndefined } from 'ottehr-utils';
+import { useZapEHRAPIClient } from '../../utils';
+import { useAppointmentStore } from '../appointments';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetPaperwork = (
-  apiClient: ZapEHRAPIClient | null,
-  onSuccess: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['getPaperwork']>>) => void,
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-) =>
-  useQuery(
-    ['paperwork'],
-    () => {
-      const appointment = useAppointmentStore.getState();
+  onSuccess?: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['getPaperwork']>>) => void,
+  params?: {
+    enabled?: boolean;
+    staleTime?: number;
+  }
+) => {
+  const apiClient = useZapEHRAPIClient();
+  const appointmentID = useAppointmentStore((state) => state.appointmentID);
 
-      if (apiClient && appointment.appointmentID) {
+  return useQuery(
+    ['paperwork', appointmentID],
+    () => {
+      if (apiClient && appointmentID) {
         return apiClient.getPaperwork({
-          appointmentID: appointment.appointmentID,
+          appointmentID: appointmentID,
         });
       }
 
       throw new Error('api client not defined or appointmentID is not provided');
     },
     {
-      enabled: false,
+      enabled:
+        (params?.enabled && Boolean(apiClient && appointmentID)) ||
+        (isNullOrUndefined(params?.enabled) && Boolean(apiClient && appointmentID)),
+      staleTime: params?.staleTime,
       onSuccess,
       onError: (err) => {
         console.error('Error during fetching get paperwork: ', err);
       },
-    },
+    }
   );
+};
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useUpdatePaperworkMutation = () =>
+export const useUpdatePaperworkMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      apiClient,
+      appointmentID,
+      paperwork,
+      files,
+    }: {
+      apiClient: ZapEHRAPIClient;
+      appointmentID: string;
+      paperwork?: any;
+      files?: FileURLs;
+    }) => {
+      await apiClient.updatePaperwork({
+        appointmentID,
+        paperwork: paperwork ? paperwork : [],
+        files: files || ({} as FileURLs),
+        timezone: DateTime.now().zoneName,
+      });
+      return queryClient.invalidateQueries(['paperwork']);
+    },
+  });
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useCreatePaperworkMutation = () =>
   useMutation({
     mutationFn: ({
       apiClient,
@@ -45,10 +80,11 @@ export const useUpdatePaperworkMutation = () =>
       paperwork: any;
       files?: FileURLs;
     }) => {
-      return apiClient.updatePaperwork({
-        appointmentID: appointmentID,
+      return apiClient.createPaperwork({
+        appointmentID,
         paperwork,
-        files,
+        files: files || ({} as FileURLs),
+        timezone: DateTime.now().zoneName,
       });
     },
   });

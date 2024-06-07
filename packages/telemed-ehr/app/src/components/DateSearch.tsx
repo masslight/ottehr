@@ -1,9 +1,9 @@
-import { LocalizationProvider } from '@mui/x-date-pickers-pro';
-import { DatePicker } from '@mui/x-date-pickers';
-import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { TextField } from '@mui/material';
-import { ReactElement, useEffect, useState } from 'react';
+import { DatePicker } from '@mui/x-date-pickers';
+import { LocalizationProvider } from '@mui/x-date-pickers-pro';
+import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DateTime } from 'luxon';
+import { ReactElement, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 type CustomFormEventHandler = (event: React.FormEvent<HTMLFormElement>, value: any, field: string) => void;
@@ -17,10 +17,13 @@ interface DateSearchProps {
   label?: string;
   queryParams?: URLSearchParams;
   required?: boolean;
+  disabled?: boolean;
+  disableDates?: (day: DateTime) => boolean;
+  closeOnSelect?: boolean;
   handleSubmit?: CustomFormEventHandler;
   small?: boolean;
   ageRange?: { min: number; max: number };
-  setValidDate?: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsValidDate?: (isValid: boolean) => void;
 }
 
 export default function DateSearch({
@@ -32,14 +35,18 @@ export default function DateSearch({
   label,
   queryParams,
   required,
+  disabled,
+  disableDates,
+  closeOnSelect,
   handleSubmit,
   small,
   ageRange,
-  setValidDate,
+  setIsValidDate: setValidDate,
 }: DateSearchProps): ReactElement {
   const [error, setError] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
-  const searchDate = queryParams?.get('searchDate') || typeof date === 'object' ? date?.toISODate() : date;
+  const formatDate = typeof date === 'object' ? date?.toISODate() : date;
+  const searchDate = queryParams?.get('searchDate') || formatDate;
   const navigate = useNavigate();
   useEffect(() => {
     if (updateURL && localStorage.getItem('selectedDate')) {
@@ -94,6 +101,12 @@ export default function DateSearch({
         label={label ?? 'Date'}
         onChange={handleDatePickerChange}
         inputFormat="MM/dd/yyyy"
+        closeOnSelect={closeOnSelect}
+        componentsProps={{
+          actionBar: { actions: ['today'] },
+        }}
+        disabled={disabled}
+        shouldDisableDate={disableDates}
         value={storeDateInLocalStorage ? (searchDate ? DateTime.fromISO(searchDate) : defaultValue) : date}
         renderInput={(params) => (
           <TextField

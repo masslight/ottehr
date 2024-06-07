@@ -1,8 +1,8 @@
 import { LoadingButton } from '@mui/lab';
 import { Box, Chip, Grid, Paper, Skeleton, Typography } from '@mui/material';
-import { User } from '@zapehr/sdk';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { allLicensesForPractitioner, PractitionerLicense, User } from 'ehr-utils';
 import { deactivateUser, getUserDetails, updateUser } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import EmployeeInformationForm from '../components/EmployeeInformationForm';
@@ -18,8 +18,34 @@ export default function EditEmployeePage(): JSX.Element {
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState({ submit: '' });
 
+  const userLicenses: PractitionerLicense[] = useMemo(() => {
+    if (user?.profileResource?.qualification) {
+      return allLicensesForPractitioner(user.profileResource);
+    }
+    return [];
+  }, [user]);
+
   // get the user id from the url
   const { id } = useParams();
+
+  // const medallionLicensesMock: PractitionerLicense[] = [
+  //   {
+  //     state: 'CA',
+  //     code: 'MD',
+  //   },
+  //   {
+  //     state: 'FL',
+  //     code: 'MD',
+  //   },
+  //   {
+  //     state: 'TX',
+  //     code: 'MD',
+  //   },
+  //   {
+  //     state: 'NY',
+  //     code: 'MD',
+  //   },
+  // ];
 
   // get the user from the database, wait for the response before continuing
   useEffect(() => {
@@ -39,7 +65,7 @@ export default function EditEmployeePage(): JSX.Element {
         });
         if (loading) {
           const zapEHRUser = res.user;
-          setUser(zapEHRUser);
+          setUser(zapEHRUser as User);
           setIsActive(checkUserIsActive(zapEHRUser));
           loading = false;
         }
@@ -60,11 +86,12 @@ export default function EditEmployeePage(): JSX.Element {
     if (!zambdaClient) {
       throw new Error('Zambda Client not found');
     }
+    setErrors({ submit: '' });
     let apiErr = false;
     try {
       mode === 'deactivate'
         ? await deactivateUser(zambdaClient, { user: user })
-        : await updateUser(zambdaClient, { userId: user?.id });
+        : await updateUser(zambdaClient, { userId: user?.id, selectedRoles: user?.roles.map((role) => role.name) });
     } catch (error) {
       setErrors((prev) => ({ ...prev, submit: `Failed to ${mode} user. Please try again` }));
       apiErr = true;
@@ -109,7 +136,12 @@ export default function EditEmployeePage(): JSX.Element {
 
             {/* Page Content */}
             <Box>
-              <EmployeeInformationForm submitLabel="Save changes" existingUser={user} isActive={isActive} />
+              <EmployeeInformationForm
+                submitLabel="Save changes"
+                existingUser={user}
+                isActive={isActive}
+                licenses={userLicenses}
+              />
 
               {/* Activate or Deactivate Profile */}
               {isActive === undefined ? (

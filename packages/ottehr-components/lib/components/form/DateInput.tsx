@@ -16,10 +16,11 @@ type DateInputProps = {
   fieldMap: DateFieldMap;
   label?: string;
   helperText?: string;
+  showHelperTextIcon?: boolean;
   required?: boolean;
 } & InputProps;
 
-const DateInput: FC<DateInputProps> = ({ name, label, required, fieldMap }) => {
+const DateInput: FC<DateInputProps> = ({ name, label, helperText, showHelperTextIcon, required, fieldMap }) => {
   const {
     formState: { errors },
     watch,
@@ -48,8 +49,16 @@ const DateInput: FC<DateInputProps> = ({ name, label, required, fieldMap }) => {
         setSelectedYear={(year) => {
           setValue(fieldMap.year, year);
         }}
+        key={'DateInput'}
       />
-      <InputHelperText textColor={otherColors.cancel} name={name} errors={errors} />
+      <InputHelperText
+        textColor={otherColors.cancel}
+        name={name}
+        errors={errors}
+        helperText={helperText}
+        showHelperTextIcon={showHelperTextIcon}
+        key={'helpertext'}
+      />
     </Box>
   );
 };

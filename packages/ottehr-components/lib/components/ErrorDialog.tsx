@@ -7,9 +7,28 @@ import {
   DialogContentText,
   DialogTitle,
   IconButton,
+  useMediaQuery,
   useTheme,
 } from '@mui/material';
 import { FC, ReactElement } from 'react';
+import { Link } from 'react-router-dom';
+
+export interface ErrorDialogConfig {
+  title: string;
+  description: string | ReactElement;
+  closeButtonText?: string;
+  id?: string;
+}
+
+export const UnexpectedErrorDescription: ReactElement = (
+  <>
+    There was an unexpected error. Please try again and if the error persists{' '}
+    <Link to="https://ottehr.com" target="_blank">
+      contact us
+    </Link>
+    .
+  </>
+);
 
 interface ErrorDialogProps {
   open: boolean;
@@ -18,6 +37,8 @@ interface ErrorDialogProps {
   description: string | ReactElement;
   closeButtonText: string;
   afterOpen?: () => void;
+  actionButtonText?: string;
+  handleContinue?: () => void;
 }
 
 export const ErrorDialog: FC<ErrorDialogProps> = ({
@@ -25,11 +46,13 @@ export const ErrorDialog: FC<ErrorDialogProps> = ({
   handleClose,
   title,
   description,
+  actionButtonText = 'Continue',
   closeButtonText,
   afterOpen,
+  handleContinue,
 }) => {
   const theme = useTheme();
-
+  const isMobile = useMediaQuery(`(max-width: 480px)`);
   if (open) {
     afterOpen?.();
   }
@@ -68,17 +91,37 @@ export const ErrorDialog: FC<ErrorDialogProps> = ({
           {description}
         </DialogContentText>
       </DialogContent>
-      <DialogActions>
+      <DialogActions
+        sx={{
+          justifyContent: `${handleContinue ? 'space-between' : 'end'}`,
+          display: isMobile ? 'contents' : 'flex',
+          marginLeft: isMobile ? 0 : 'initial',
+        }}
+      >
         <Button
-          variant="contained"
+          variant={handleContinue ? 'outlined' : 'contained'}
           onClick={handleClose}
-          size="large"
+          size={isMobile ? 'small' : 'large'}
           sx={{
             fontWeight: '700',
           }}
         >
           {closeButtonText}
         </Button>
+        {handleContinue && (
+          <Button
+            variant="contained"
+            onClick={handleContinue}
+            size={isMobile ? 'small' : 'large'}
+            sx={{
+              fontWeight: '700',
+              marginTop: isMobile ? 1 : 0,
+              marginLeft: isMobile ? '0 !important' : 1,
+            }}
+          >
+            {actionButtonText}
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );

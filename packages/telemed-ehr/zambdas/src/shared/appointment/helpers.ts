@@ -12,7 +12,7 @@ export function getPatientFromAppointment(appointment: Appointment): string | un
 export async function patchAppointmentResource(
   apptId: string,
   patchOperations: Operation[],
-  fhirClient: FhirClient,
+  fhirClient: FhirClient
 ): Promise<Appointment> {
   try {
     const response: Appointment = await fhirClient.patchResource({
@@ -29,7 +29,7 @@ export async function patchAppointmentResource(
 export async function patchEncounterResource(
   encId: string,
   patchOperations: Operation[],
-  fhirClient: FhirClient,
+  fhirClient: FhirClient
 ): Promise<Encounter> {
   try {
     const response: Encounter = await fhirClient.patchResource({
@@ -61,6 +61,4 @@ export const telemedStatusToEncounter = (telemedStatus: TelemedCallStatuses): st
   }
 };
 
-export const removePrefix = (prefix: string, text: string): string | undefined => {
-  return text.includes(prefix) ? text.replace(prefix, '') : undefined;
-};
+export { removePrefix } from 'ehr-utils';

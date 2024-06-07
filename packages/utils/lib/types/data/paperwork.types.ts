@@ -1,4 +1,5 @@
 import { AvailableLocationInformation, FileURLs, FormItemType } from '../common';
+import { OptionConfig } from '../../helpers';
 
 export type QuestionOperator = 'exists' | '=' | '!=' | '>' | '<' | '>=' | '<=' | undefined;
 
@@ -11,10 +12,12 @@ export interface Question {
   minRows?: number;
   placeholder?: string;
   infoText?: string;
+  helperText?: string;
+  showHelperTextIcon?: boolean;
   infoTextSecondary?: string;
   required?: boolean;
   width?: number;
-  options?: string[];
+  options?: OptionConfig[];
   attachmentText?: string;
   format?: string;
   docType?: string;
@@ -27,6 +30,12 @@ export interface Question {
     question: string;
     operator: QuestionOperator;
     answer: string;
+  };
+  disableWhen?: {
+    question: string;
+    operator: QuestionOperator;
+    answer: string;
+    value?: string;
   };
 }
 
@@ -72,12 +81,8 @@ export enum Insurance {
   // 'United Healthcare' = 'United Healthcare',
 }
 
-export interface UpdatePaperworkParams {
-  appointmentID: string;
-  paperwork: any;
-  files?: FileURLs;
-}
-
-export interface UpdatePaperworkResponse {
-  message: string;
+export interface PaperworkResponse {
+  linkId: string;
+  response: any;
+  type: string;
 }

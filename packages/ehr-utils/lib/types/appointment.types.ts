@@ -1,3 +1,5 @@
+export type AppointmentType = 'walk-in' | 'pre-booked' | 'post-telemed';
+
 export enum ApptStatus {
   'ready' = 'ready',
   'pre-video' = 'pre-video',
@@ -11,7 +13,7 @@ export const TelemedCallStatusesArr = ['ready', 'pre-video', 'on-video', 'unsign
 
 export const mapStatusToTelemed = (
   encounterStatus: string,
-  appointmentStatus: string | undefined,
+  appointmentStatus: string | undefined
 ): ApptStatus | undefined => {
   switch (encounterStatus) {
     case 'planned':

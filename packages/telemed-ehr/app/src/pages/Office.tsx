@@ -7,7 +7,7 @@ import { otherColors } from '../CustomThemeProvider';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import Schedule from './Schedule';
+import Schedule from '../components/schedule/Schedule';
 
 export default function LocationPage(): ReactElement {
   // Define variables to interact w database and navigate to other pages

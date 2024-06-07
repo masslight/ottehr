@@ -20,7 +20,7 @@ export const FormList: React.FC<{ formInput: FormInputTypeField; values: FieldVa
 
   const onAdd = (data: FieldValues): void => {
     const filtered = Object.fromEntries(
-      Object.entries(data).filter(([key]) => !key.endsWith('-form-header') && !key.endsWith('-form-button')),
+      Object.entries(data).filter(([key]) => !key.endsWith('-form-header') && !key.endsWith('-form-button'))
     );
     const values = methods.watch()[formInput.name];
     methods.setValue(formInput.name, values ? [...values, filtered] : [filtered]);
@@ -45,7 +45,7 @@ export const FormList: React.FC<{ formInput: FormInputTypeField; values: FieldVa
           name: `${formInput.name}`,
         },
         values,
-        methods,
+        methods
       )}
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 3 }}>
@@ -80,7 +80,7 @@ export const FormList: React.FC<{ formInput: FormInputTypeField; values: FieldVa
               <PageForm formElements={formInput.item} onSubmit={onAdd} hideControls innerForm />
               {error && <Typography color={theme.palette.error.main}>{error.message}</Typography>}
             </Card>,
-            innerForm,
+            innerForm
           )}
       </>
     </Grid>

@@ -1,23 +1,20 @@
-import { ReactElement } from 'react';
-import { ChatProvider } from '../../contexts/ChatContext';
-import { TrackingBoardBody } from '../components';
-import { useTrackingBoardStore, useGetUser } from '../state';
-import { useZapEHRTelemedAPIClient } from '../hooks/useZapEHRAPIClient';
-import { useCommonStore } from '../../state/common.store';
+import { ReactElement, useEffect } from 'react';
+import useOttehrUser from '../../hooks/useOttehrUser';
+import { TrackingBoardBody } from '../features';
+import { useTrackingBoardStore } from '../state';
+import { allLicensesForPractitioner } from 'ehr-utils';
 
 export function TrackingBoardPage(): ReactElement {
-  const commonStore = useCommonStore.getState();
-  const apiClient = useZapEHRTelemedAPIClient();
-  useGetUser({ apiClient, userId: commonStore.user?.id }, (data) => {
-    useTrackingBoardStore.setState((prevState) => ({
-      ...prevState,
-      availableStates: data.user.licenses.map((license) => license.state),
-    }));
-  });
+  const user = useOttehrUser();
 
-  return (
-    <ChatProvider appointments={[]}>
-      <TrackingBoardBody />
-    </ChatProvider>
-  );
+  useEffect(() => {
+    const availableStates =
+      user?.profileResource && allLicensesForPractitioner(user.profileResource).map((item) => item.state);
+
+    if (availableStates) {
+      useTrackingBoardStore.setState({ availableStates });
+    }
+  }, [user]);
+
+  return <TrackingBoardBody />;
 }

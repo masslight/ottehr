@@ -29,7 +29,7 @@ const Review = (): JSX.Element => {
   }, [state.appointmentSlot, state.selectedLocation?.timezone]);
 
   useEffect(() => {
-    mixpanel.track('Review');
+    //mixpanel.track('Review');
   }, []);
 
   const onSubmit = async (): Promise<void> => {

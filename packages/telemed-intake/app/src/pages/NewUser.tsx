@@ -1,4 +1,5 @@
 import { Typography } from '@mui/material';
+import mixpanel from 'mixpanel-browser';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageForm } from 'ottehr-components';
@@ -9,6 +10,10 @@ import { CustomContainer } from '../features/common';
 
 const NewUser = (): JSX.Element => {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    //mixpanel.track('New User');
+  }, []);
 
   const onSubmit = async (): Promise<void> => {
     navigate(IntakeFlowPageRoute.PatientInformation.path);
@@ -23,8 +28,8 @@ const NewUser = (): JSX.Element => {
       bgVariant={IntakeFlowPageRoute.NewUser.path}
     >
       <Typography variant="body1">
-        We&apos;re pleased to offer this new technology for accessing care. You will need to enter your information
-        again just once. Next time you return, it will all be here for you!
+        We're pleased to offer this new technology for accessing care. You will need to enter your information again
+        just once. Next time you return, it will all be here for you!
       </Typography>
       <PageForm onSubmit={onSubmit} controlButtons={{ backButton: false }} />
     </CustomContainer>

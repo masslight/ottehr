@@ -1,11 +1,11 @@
 import { Appointment } from 'fhir/r4';
 import { DateTime } from 'luxon';
-import { VisitStatusHistoryEntry, VisitStatus, getVisitStatusHistory } from './fhirStatusMappingUtils';
 import { appointmentTypeForAppointment } from './queueingUtils';
+import { VisitStatus, VisitStatusHistoryEntry, getVisitStatusHistory } from 'ehr-utils';
 
 const startTimeOfMostRecentInstanceOfStatus = (
   status: VisitStatus,
-  history: VisitStatusHistoryEntry[],
+  history: VisitStatusHistoryEntry[]
 ): number | null => {
   const matchedStati = history.filter((item) => {
     if (item.label === status && item.period.start !== undefined) {
@@ -15,15 +15,12 @@ const startTimeOfMostRecentInstanceOfStatus = (
   });
 
   if (matchedStati.length === 1) {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     return DateTime.fromISO(matchedStati[0].period.start!).toSeconds();
   } else if (matchedStati.length > 1) {
     const sorted = matchedStati.sort((a1, a2) => {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       return DateTime.fromISO(a1.period.start!).toSeconds() - DateTime.fromISO(a2.period.start!).toSeconds();
     });
     const mostRecent = sorted.pop();
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     return DateTime.fromISO(mostRecent!.period.start!).toSeconds();
   } else {
     return null;
@@ -42,7 +39,6 @@ const getLastUnterminatedStatusEntry = (history: VisitStatusHistoryEntry[]): Vis
     return matchedStati[0];
   } else if (matchedStati.length > 1) {
     const sorted = matchedStati.sort((a1, a2) => {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       return DateTime.fromISO(a1.period.start!).toSeconds() - DateTime.fromISO(a2.period.start!).toSeconds();
     });
     return sorted[sorted.length - 1];
@@ -81,7 +77,6 @@ const getWaitingTimeEndRange = (statusHistory: VisitStatusHistoryEntry[]): numbe
   if (stopTime == null) {
     const lastUnterminated = getLastUnterminatedStatusEntry(statusHistory);
     if (lastUnterminated && lastUnterminated.label === 'canceled') {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       stopTime = DateTime.fromISO(lastUnterminated.period.start!).toSeconds();
     }
   }
@@ -112,7 +107,6 @@ export const getTimeSpentInCurrentStatus = (appointment: Appointment): number =>
   }
   return (
     -1.0 *
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     (Math.round((DateTime.fromISO(current.period.start!).diffNow('minutes').minutes + Number.EPSILON) * 100) / 100)
   );
 };

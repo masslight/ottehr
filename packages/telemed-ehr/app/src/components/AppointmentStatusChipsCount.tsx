@@ -1,11 +1,11 @@
 import { Box } from '@mui/material';
 import { ReactElement } from 'react';
+import { UCAppointmentInformation } from 'ehr-utils';
 import { classifyAppointments } from '../helpers';
-import { AppointmentInformation } from '../types/types';
 import { getAppointmentStatusChip } from './AppointmentTableRow';
 
 export interface AppointmentChip {
-  appointments: AppointmentInformation[];
+  appointments: UCAppointmentInformation[];
 }
 
 const ORDER_STATUS = [
@@ -30,7 +30,7 @@ export const AppointmentsStatusChipsCount = ({ appointments }: AppointmentChip):
       {Array.from(statusCounts)
         .sort(
           ([statusOne, _countOne], [statusTwo, _countTwo]) =>
-            ORDER_STATUS.indexOf(statusOne) - ORDER_STATUS.indexOf(statusTwo),
+            ORDER_STATUS.indexOf(statusOne) - ORDER_STATUS.indexOf(statusTwo)
         )
         .map(([status, count]) => (
           <Box key={status}>{getAppointmentStatusChip(status, count)}</Box>

@@ -1,6 +1,6 @@
-import React from 'react';
 import { createTheme, ThemeProvider } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
+import React from 'react';
 
 const palette = {
   background: {
@@ -47,14 +47,16 @@ const palette = {
 
 export const otherColors = {
   headerBackground: '#202A3E',
-  footerBackground: '#202A3E',
+  blackTransparent: 'rgba(0, 0, 0, 0.5)',
   disabled: 'rgba(0,0,0,0.38)',
   tableRow: 'rgba(0,0,0,0.87)',
+  consentBorder: 'rgba(77, 21, 183, 0.5)',
   ratingActive: '#FFB400',
   focusRingColor: '#005FCC',
   dottedLine: '#BFC2C6',
   solidLine: '#DFE5E9',
   orange700: '#F57C00',
+  orange800: '#EF6C00',
   orange100: '#FFE0B2',
   locationGeneralBlue: '#CFF5FF',
   insuranceChip: '#43A047',
@@ -62,8 +64,16 @@ export const otherColors = {
   cardChip: '#7CB342',
   idChip: '#00ACC1',
   badgeDot: '#FB8C00',
+  closeCross: '#773602CC',
   apptHover: '#F4F6F8',
+  infoIcon: '#0288D1',
+  infoText: 'linear-gradient(0deg, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), linear-gradient(0deg, #0288D1, #0288D1)',
+  infoBackground:
+    'linear-gradient(0deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)), linear-gradient(0deg, #0288D1, #0288D1)',
   warningIcon: '#ED6C02',
+  warningText: '#5F2B00',
+  warningBackground:
+    'linear-gradient(0deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)), linear-gradient(0deg, #ED6C02, #ED6C02)',
   noteText: '#00000099',
   none: '#00000061',
   dialogNote: '#FCD29973',
@@ -72,7 +82,13 @@ export const otherColors = {
   priorityHighIcon: '#F44336',
   endCallButton: '#EB5757',
   lightIconButton: '#EDE8FF',
-  zapEHRBlue: '#1BCDFF',
+  formCardBg: '#F7F8F9',
+  employeeActiveChip: '#C8E6C9',
+  employeeDeactivatedChip: '#FECDD2',
+  employeeActiveText: '#1B5E20',
+  employeeDeactivatedText: '#B71C1C',
+  employeeBeenSeenChip: '#D1C4E9',
+  employeeBeenSeenText: '#311B92',
 };
 
 const textFonts = ['Work Sans'];

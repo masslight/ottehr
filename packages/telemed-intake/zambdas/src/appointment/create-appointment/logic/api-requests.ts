@@ -5,7 +5,7 @@ import { PatientInfo } from 'ottehr-utils';
 export const createEncounterForConversation = async (
   fhirClient: FhirClient,
   relatedPerson: RelatedPerson,
-  deviceID: string,
+  deviceID: string
 ): Promise<Encounter> => {
   return await fhirClient.createResource<Encounter>({
     resourceType: 'Encounter',
@@ -45,7 +45,7 @@ export const createEncounterForConversation = async (
 export const createConversation = async (
   projectApiURL: string,
   zapehrToken: string,
-  encounter: Encounter,
+  encounter: Encounter
 ): Promise<Response> => {
   return await fetch(`${projectApiURL}/messaging/conversation`, {
     method: 'POST',
@@ -66,7 +66,7 @@ export const addParticipantsToConversation = async (
   deviceID: string,
   person: Person,
   user: User,
-  patient: PatientInfo,
+  patient: PatientInfo
 ): Promise<Response> => {
   return await fetch(`${projectApiURL}/messaging/conversation/${conversationSID}/participant`, {
     method: 'POST',
@@ -94,7 +94,7 @@ export const addParticipantsToConversation = async (
 
 export const getEncountersForRelatedPersons = async (
   fhirClient: FhirClient,
-  relatedPersonIDs: string[],
+  relatedPersonIDs: string[]
 ): Promise<Resource[]> => {
   return await fhirClient.searchResources({
     resourceType: 'Encounter',
@@ -114,7 +114,7 @@ export const getEncountersForRelatedPersons = async (
 export const addRelatedPersonToEncounter = async (
   fhirClient: FhirClient,
   encounterId: string,
-  relatedPerson: RelatedPerson,
+  relatedPerson: RelatedPerson
 ): Promise<Encounter> => {
   return await fhirClient.patchResource<Encounter>({
     resourceType: 'Encounter',

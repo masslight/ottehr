@@ -234,3 +234,31 @@ export function formatDateTimeToLocaleString(datetime: string, format: 'date' | 
     return datetimeWithTimezone.toLocaleString({ ...DateTime.DATETIME_SHORT, timeZoneName: 'short' });
   }
 }
+
+export const formatVisitDate = (dateString: string, format: string): string => {
+  if (format == 'birth') {
+    const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+    return new Date(dateString).toLocaleDateString('en-US', options);
+  } else if (format == 'visit') {
+    const options: Intl.DateTimeFormatOptions = {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: true,
+    };
+    return new Date(dateString).toLocaleDateString('en-US', options);
+  }
+  return dateString;
+};
+
+export function isHoliday(date: DateTime, federalHolidays: Record<string, Set<string>>): boolean {
+  const dateString = date.toISODate();
+  const year = date.year;
+  if (!dateString) {
+    console.log(dateString, 'dateString is not defined');
+    throw new Error('dateString is not defined');
+  }
+  return federalHolidays[year]?.has(dateString) ?? false;
+}

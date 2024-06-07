@@ -4,7 +4,7 @@ import { styled } from '@mui/material/styles';
 export const LightToolTip = styled(
   ({ className, ...props }: TooltipProps & { backgroundColor: string; color: string }) => (
     <Tooltip {...props} classes={{ popper: className }} />
-  ),
+  )
 )(({ backgroundColor, color }) => ({
   [`& .${tooltipClasses.tooltip}`]: {
     backgroundColor: backgroundColor,

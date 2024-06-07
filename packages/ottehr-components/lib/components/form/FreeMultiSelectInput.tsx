@@ -8,6 +8,7 @@ import { InputHelperText } from './InputHelperText';
 type FreeMultiSelectInputProps = {
   name: string;
   helperText?: string;
+  showHelperTextIcon?: boolean;
   label: string;
   options: string[];
   defaultValue: any[];
@@ -17,6 +18,7 @@ type FreeMultiSelectInputProps = {
 const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
   name,
   helperText,
+  showHelperTextIcon,
   label,
   defaultValue,
   options,
@@ -113,7 +115,12 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
                 },
               }}
             />
-            <InputHelperText name={name} errors={errors} helperText={helperText} />
+            <InputHelperText
+              name={name}
+              errors={errors}
+              helperText={helperText}
+              showHelperTextIcon={showHelperTextIcon}
+            />
           </FormControl>
         );
       }}

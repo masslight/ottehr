@@ -1,27 +1,18 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { validateRequestParameters } from './validateRequestParameters';
 import { createFhirClient } from '../../../../../utils/lib/helpers/helpers';
-import { DateTime } from 'luxon';
-import { Encounter, Appointment as FhirAppointment, Location, Patient, QuestionnaireResponse, Resource } from 'fhir/r4';
-import { getUser } from '../../shared/auth';
-import { getPatientsForUser } from '../../shared/patients';
+import { Appointment, Patient } from 'fhir/r4';
 import { checkOrCreateToken } from '../lib/utils';
-import { Secrets, ZambdaInput, SecretsKeys, getSecret } from 'ottehr-utils';
-
-export interface GetPatientsInput {
-  secrets: Secrets | null;
-}
-
-interface Appointment {
-  id: string;
-  firstName: string;
-  lastName: string;
-  start: string;
-  location: { name: string; slug: string; timezone: string };
-  paperworkComplete: boolean;
-  checkedIn: boolean;
-  visitType: string;
-}
+import {
+  getSecret,
+  GetTelemedAppointmentsResponse,
+  SecretsKeys,
+  TelemedAppointmentInformation,
+  ZambdaInput,
+} from 'ottehr-utils';
+import { filterTelemedVideoEncounters, getFhirResources } from './helpers';
+import { mapStatusToTelemed } from '../../shared/appointment/helpers';
+import { getPatientsForUser, getUser } from '../../shared';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
@@ -30,118 +21,60 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { secrets } = validatedParameters;
+    const { patientId, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
-    const now = DateTime.now().setZone('UTC');
 
     zapehrToken = await checkOrCreateToken(zapehrToken, secrets);
-
     const fhirAPI = getSecret(SecretsKeys.FHIR_API, secrets);
     const fhirClient = createFhirClient(zapehrToken, fhirAPI);
     console.log('getting user');
+
     const user = await getUser(input.headers.Authorization.replace('Bearer ', ''), secrets);
     console.log('getting patients for user');
     const patients = await getPatientsForUser(user, fhirClient);
-    console.log('getting all appointment resources');
-    const allResources: Resource[] = await fhirClient?.searchResources({
-      resourceType: 'Appointment',
-      searchParams: [
-        {
-          name: 'patient',
-          value: patients.map((patient) => `Patient/${patient.id}`).join(','),
-        },
-        {
-          name: 'date',
-          value: `ge${now.setZone('UTC').startOf('day').toISO()}`,
-        },
-        {
-          name: '_include',
-          value: 'Appointment:slot',
-        },
-        {
-          name: '_include',
-          value: 'Appointment:patient',
-        },
-        {
-          name: '_include',
-          value: 'Appointment:location',
-        },
-        {
-          name: '_revinclude',
-          value: 'Encounter:appointment',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'QuestionnaireResponse:encounter',
-        },
-        {
-          name: 'status:not',
-          value: 'cancelled',
-        },
-        {
-          name: 'status:not',
-          value: 'noshow',
-        },
-        {
-          name: '_sort',
-          value: 'date',
-        },
-        {
-          name: '_count',
-          value: '1000',
-        },
-      ],
-    });
-    console.log('successfully retrieved appointment resources');
-    const appointments: Appointment[] = allResources
+    const patientIDs = patients.map((patient) => `Patient/${patient.id}`);
+    if (patientId && !patientIDs.includes(`Patient/${patientId}`)) {
+      throw new Error('Not authorized to get this patient');
+    }
+
+    const allResources = await getFhirResources(fhirClient, patientIDs, patientId);
+    const encountersMap = filterTelemedVideoEncounters(allResources);
+    const appointments: TelemedAppointmentInformation[] = [];
+    allResources
       .filter((resourceTemp) => resourceTemp.resourceType === 'Appointment')
-      .map((appointmentTemp) => {
-        const fhirAppointment = appointmentTemp as FhirAppointment;
-        const patientID = fhirAppointment.participant
-          .find((participantTemp) => participantTemp.actor?.reference?.startsWith('Patient/'))
-          ?.actor?.reference?.split('/')[1];
-        const locationID = fhirAppointment.participant
-          .find((participantTemp) => participantTemp.actor?.reference?.startsWith('Location/'))
-          ?.actor?.reference?.split('/')[1];
-        const encounter = allResources
-          .filter((resourceTemp) => resourceTemp.resourceType === 'Encounter')
-          .find(
-            (resource) => (resource as Encounter).appointment?.[0].reference === `Appointment/${appointmentTemp.id}`,
-          ) as Encounter;
-        const questionnaireResponse = allResources
-          .filter((resourceTemp) => resourceTemp.resourceType === 'QuestionnaireResponse')
-          .find(
-            (resource) => (resource as QuestionnaireResponse).encounter?.reference === `Encounter/${encounter?.id}`,
-          ) as QuestionnaireResponse;
-        const patient = allResources.find((resourceTemp) => resourceTemp.id === patientID) as Patient;
-        const location = allResources.find((resourceTemp) => resourceTemp.id === locationID) as Location;
+      .forEach((appointmentTemp) => {
+        const fhirAppointment = appointmentTemp as Appointment;
+        if (!fhirAppointment.id) return;
+        const patient = allResources.find((resourceTemp) => resourceTemp.id === patientId) as Patient;
+        const encounter = encountersMap[fhirAppointment.id];
+        if (!encounter) {
+          console.log('No encounter for appointment: ' + fhirAppointment.id);
+          return;
+        }
+        const telemedStatus = mapStatusToTelemed(encounter.status, fhirAppointment.status);
+        if (!telemedStatus) {
+          console.log('No telemed status for appointment');
+          return;
+        }
+
         console.log(`build appointment resource for appointment with id ${fhirAppointment.id}`);
-        const appointment: Appointment = {
+        const appointment: TelemedAppointmentInformation = {
           id: fhirAppointment.id || 'Unknown',
-          firstName: patient?.name?.[0]?.given?.[0] || 'Unknown',
-          lastName: patient?.name?.[0].family || 'Unknown',
-          start: fhirAppointment.start || 'Unknown',
-          location: {
-            name: location?.name || 'Unknown',
-            slug:
-              location.identifier?.find((identifierTemp) => identifierTemp.system === 'https://fhir.ottehr.com/r4/slug')
-                ?.value || 'Unknown',
-            timezone:
-              location.extension?.find((extTemp) => extTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone')
-                ?.valueString || 'Unknown',
+          start: fhirAppointment.start,
+          patient: {
+            id: patient?.id,
+            firstName: patient?.name?.[0]?.given?.[0],
+            lastName: patient?.name?.[0].family,
           },
-          paperworkComplete:
-            questionnaireResponse?.status === 'completed' || questionnaireResponse?.status === 'amended',
-          checkedIn: fhirAppointment.status !== 'booked',
-          visitType: fhirAppointment.appointmentType?.text || 'Unknown',
+          appointmentStatus: fhirAppointment.status,
+          telemedStatus: telemedStatus,
         };
-        return appointment;
+        appointments.push(appointment);
       });
 
-    const response = {
-      message: 'Successfully retrieved all appointments',
-      appointments: appointments,
+    const response: GetTelemedAppointmentsResponse = {
+      appointments,
     };
 
     return {
