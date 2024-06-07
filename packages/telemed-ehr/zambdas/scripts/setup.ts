@@ -4,8 +4,15 @@ import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { inviteUser } from './invite-user';
+import { FhirClient } from '@zapehr/sdk';
+import { Organization } from 'fhir/r4';
 
-async function createApplication(projectApiUrl: string, applicationName: string, accessToken: string, projectId: string): Promise<[string, string]> {
+async function createApplication(
+  projectApiUrl: string,
+  applicationName: string,
+  accessToken: string,
+  projectId: string,
+): Promise<[string, string]> {
   return new Promise((resolve, reject) => {
     fetch(`${projectApiUrl}/application`, {
       headers: {
@@ -38,8 +45,23 @@ async function createApplication(projectApiUrl: string, applicationName: string,
   });
 }
 
+const createOrganization = async (fhirClient: FhirClient): Promise<Organization> => {
+  const organization: Organization = {
+    resourceType: 'Organization',
+    active: true,
+    name: 'Example Organization',
+  };
 
-function createZambdaLocalEnvFile(projectId: string, m2mDeviceId: string, m2mClientId: string, m2mSecret: string): string {
+  return await fhirClient.createResource(organization);
+};
+
+function createZambdaLocalEnvFile(
+  projectId: string,
+  m2mDeviceId: string,
+  m2mClientId: string,
+  m2mSecret: string,
+  organizationId: string,
+): string {
   const overrideData = {
     AUTH0_ENDPOINT: 'https://auth.zapehr.com/oauth/token',
     AUTH0_AUDIENCE: 'https://api.zapehr.com',
@@ -51,6 +73,7 @@ function createZambdaLocalEnvFile(projectId: string, m2mDeviceId: string, m2mCli
     FHIR_API: 'https://fhir-api.zapehr.com/r4',
     PROJECT_API: 'https://project-api.zapehr.com/v1',
     PROJECT_ID: projectId,
+    ORGANIZATION_ID: organizationId,
   };
 
   const envFolderPath = 'packages/telemed-ehr/zambdas/.env';
@@ -61,7 +84,7 @@ function createZambdaLocalEnvFile(projectId: string, m2mDeviceId: string, m2mCli
   const templateDataString = fs.readFileSync(envTemplatePath, 'utf8');
   const templateData = JSON.parse(fs.readFileSync(envTemplatePath, 'utf8'));
 
-  const envData = {...templateData, ...overrideData};
+  const envData = { ...templateData, ...overrideData };
 
   if (!fs.existsSync(envFolderPath)) {
     fs.mkdirSync(envFolderPath, { recursive: true });
@@ -78,8 +101,10 @@ function createFrontEndLocalEnvFile(clientId: string, projectId: string): string
   const templateData = fs.readFileSync(envTemplatePath, 'utf8');
 
   // Replace the placeholders with the actual values
-  const updatedData = templateData
-    .replace('VITE_APP_ZAPEHR_APPLICATION_CLIENT_ID=', `VITE_APP_ZAPEHR_APPLICATION_CLIENT_ID=${clientId}`);
+  const updatedData = templateData.replace(
+    'VITE_APP_ZAPEHR_APPLICATION_CLIENT_ID=',
+    `VITE_APP_ZAPEHR_APPLICATION_CLIENT_ID=${clientId}`,
+  );
 
   // Write the updated data to the new file
   fs.writeFileSync(envPath, updatedData);
@@ -104,36 +129,36 @@ async function createZ3(projectApiUrl: string, projectId: string, accessToken: s
 
   const existingBuckets = await getResponse.json();
 
-  const promises = bucketNames.map((bucketName) => {
-    const fqBucketName = `${projectId}-${bucketName}`;
+  const promises = bucketNames
+    .map((bucketName) => {
+      const fqBucketName = `${projectId}-${bucketName}`;
 
-    const foundBucket  = existingBuckets.find((eb: { name: string }) => eb.name === fqBucketName);
-    if (foundBucket !== undefined) {
-      console.log(`Bucket ${fqBucketName} already exists.`);
-      return null;
-    }
-
-    console.log(`Creating bucket ${fqBucketName}.`);
-
-    return fetch(`${projectApiUrl}/z3/${fqBucketName}`, {
-      headers: {
-        accept: 'application/json',
-        authorization: `Bearer ${accessToken}`,
-        'content-type': 'application/json',
-        'x-zapehr-project-id': `${projectId}`,
-      },
-      method: 'PUT',
-    })
-    .then(async (response) => {
-      if (response.status === 200) {
-        return response.json();
-      } else {
-        console.log(`Failed to create bucket`, await response.json());
-        throw new Error('Failed to create bucket');
+      const foundBucket = existingBuckets.find((eb: { name: string }) => eb.name === fqBucketName);
+      if (foundBucket !== undefined) {
+        console.log(`Bucket ${fqBucketName} already exists.`);
+        return null;
       }
-    });
-  })
-  .filter(promiseOrNull => promiseOrNull !== null);
+
+      console.log(`Creating bucket ${fqBucketName}.`);
+
+      return fetch(`${projectApiUrl}/z3/${fqBucketName}`, {
+        headers: {
+          accept: 'application/json',
+          authorization: `Bearer ${accessToken}`,
+          'content-type': 'application/json',
+          'x-zapehr-project-id': `${projectId}`,
+        },
+        method: 'PUT',
+      }).then(async (response) => {
+        if (response.status === 200) {
+          return response.json();
+        } else {
+          console.log(`Failed to create bucket`, await response.json());
+          throw new Error('Failed to create bucket');
+        }
+      });
+    })
+    .filter((promiseOrNull) => promiseOrNull !== null);
 
   await Promise.all(promises);
 }
@@ -145,17 +170,28 @@ export async function setupEHR(
   providerEmail: string,
   m2mDeviceId: string,
   m2mClientId: string,
-  m2mSecret: string): Promise<void>
-{
+  m2mSecret: string,
+): Promise<void> {
   console.log('Starting setup of EHR...');
   const slug = uuidv4().replace(/-/g, '');
+
+  const fhirClient = new FhirClient({
+    apiUrl: 'https://fhir-api.zapehr.com',
+    projectId: projectId,
+    accessToken: accessToken,
+  });
 
   const applicationName = 'Starter EHR Application';
   const [applicationId, clientId] = await createApplication(projectApiUrl, applicationName, accessToken, projectId);
   console.log(`Created application "${applicationName}".`);
   console.log(applicationId, clientId);
 
-  const envPath1 = createZambdaLocalEnvFile(projectId, m2mDeviceId, m2mClientId, m2mSecret);
+  const organizationId = (await createOrganization(fhirClient)).id;
+  if (!organizationId) {
+    throw new Error('Organization ID is not defined');
+  }
+
+  const envPath1 = createZambdaLocalEnvFile(projectId, m2mDeviceId, m2mClientId, m2mSecret, organizationId);
   console.log('Created environment file:', envPath1);
 
   const envPath2 = createFrontEndLocalEnvFile(clientId, projectId);
@@ -164,15 +200,21 @@ export async function setupEHR(
   console.log('Starting to create sample provider.');
   const firstName = undefined;
   const lastName = undefined;
-  const invitationUrl = await inviteUser(projectApiUrl, providerEmail, firstName, lastName, applicationId, accessToken, projectId);
+  const invitationUrl = await inviteUser(
+    projectApiUrl,
+    providerEmail,
+    firstName,
+    lastName,
+    applicationId,
+    accessToken,
+    projectId,
+  );
   await createZ3(projectApiUrl, projectId, accessToken, ['id-cards', 'insurance-cards']);
 
   if (invitationUrl) {
     console.log(
-      `User with email \x1b[35m${providerEmail}\x1b[0m can gain access to their account by navigating to URL \x1b[35m${invitationUrl}\x1b[0m`
+      `User with email \x1b[35m${providerEmail}\x1b[0m can gain access to their account by navigating to URL \x1b[35m${invitationUrl}\x1b[0m`,
     );
   }
-  console.log(
-    `Login to the provider dashboard by navigating to URL \x1b[35mhttp://localhost:4002\x1b[0m`
-  );
+  console.log(`Login to the provider dashboard by navigating to URL \x1b[35mhttp://localhost:4002\x1b[0m`);
 }
