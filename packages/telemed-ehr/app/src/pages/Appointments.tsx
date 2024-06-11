@@ -143,7 +143,7 @@ export default function Appointments(): ReactElement {
     ) {
       const timezone =
         locationSelected.extension?.find(
-          (extTemp) => extTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
+          (extTemp) => extTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone',
         )?.valueString ?? 'America/New_York';
       const searchDateToUse =
         (searchDate && DateTime.fromISO(searchDate, { zone: timezone })) || appointmentDate || undefined;
@@ -293,9 +293,8 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                       borderRadius: 100,
                       textTransform: 'none',
                       fontWeight: 600,
-                      marginBottom: '20px',
                     }}
-                    color="primary"
+                    color="secondary"
                     variant="contained"
                   >
                     <AddIcon />

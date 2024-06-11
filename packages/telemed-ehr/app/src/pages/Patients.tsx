@@ -15,7 +15,7 @@ import PageContainer from '../layout/PageContainer';
 async function getPatientsAndRelatedPersons(
   searchParams: SearchParam[],
   submittedPhone: string | null,
-  fhirClient: FhirClient
+  fhirClient: FhirClient,
 ): Promise<{
   patients: Patient[] | null;
   relatedPersons: RelatedPerson[] | null;
@@ -41,7 +41,7 @@ async function getPatientsAndRelatedPersons(
       return {
         method: 'GET',
         url: encodePlusSign(
-          `/RelatedPerson?patient=Patient/${patient.id}&relationship=user-relatedperson&${phoneSearch}`
+          `/RelatedPerson?patient=Patient/${patient.id}&relationship=user-relatedperson&${phoneSearch}`,
         ),
       };
     });
@@ -183,7 +183,7 @@ export default function PatientsPage(): ReactElement {
                 />
               </Grid>
               <Grid item xs={12} sm={2}>
-                <Button type="submit" variant="contained" fullWidth>
+                <Button type="submit" variant="contained" fullWidth color="secondary">
                   Submit
                 </Button>
               </Grid>

@@ -54,7 +54,7 @@ export default function Insurances(): ReactElement {
           })
         : data) || [],
 
-    [data, searchText, statusFilter]
+    [data, searchText, statusFilter],
   );
 
   // For pagination, only include the rows that are on the current page
@@ -62,9 +62,9 @@ export default function Insurances(): ReactElement {
     () =>
       filteredInsurances.slice(
         pageNumber * rowsPerPage, // skip over the rows from previous pages
-        (pageNumber + 1) * rowsPerPage // only show the rows from the current page
+        (pageNumber + 1) * rowsPerPage, // only show the rows from the current page
       ),
-    [pageNumber, filteredInsurances, rowsPerPage]
+    [pageNumber, filteredInsurances, rowsPerPage],
   );
 
   // Handle pagination
@@ -140,7 +140,7 @@ export default function Insurances(): ReactElement {
                   width: '100%',
                   fontWeight: 600,
                 }}
-                color="primary"
+                color="secondary"
                 variant="contained"
               >
                 <AddIcon />
