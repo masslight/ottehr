@@ -114,7 +114,7 @@ const CheckIn = (): JSX.Element => {
                 sx={{
                   fontWeight: 700,
                   fontSize: '16px',
-                  color: otherColors.darkPurple,
+                  color: otherColors.brightPurple,
                 }}
                 variant="body1"
                 marginTop={2}
@@ -152,7 +152,7 @@ const CheckIn = (): JSX.Element => {
                 sx={{
                   fontWeight: 700,
                   fontSize: '16px',
-                  color: otherColors.darkPurple,
+                  color: otherColors.brightPurple,
                 }}
                 variant="body1"
               >

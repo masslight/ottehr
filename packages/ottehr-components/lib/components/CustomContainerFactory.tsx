@@ -31,7 +31,7 @@ export const CustomContainerFactory = (
   logo: string,
   alt: string,
   footer?: JSX.Element,
-  logoutHandler?: () => void
+  logoutHandler?: () => void,
 ): FC<WrappedContainerProps> => {
   const CustomContainerWrapped: FC<WrappedContainerProps> = (props) => {
     const backgroundImage = imageForBackground(props.bgVariant);
@@ -60,12 +60,10 @@ export const CustomContainer: FC<ContainerProps> = ({
   outsideCardComponent,
   useEmptyBody,
   children,
-  backgroundImage,
   logo,
   alt,
   footer,
   logoutHandler,
-  patientFullName,
 }) => {
   const theme = useTheme();
   const { isAuthenticated, logout } = useAuth0();
@@ -85,7 +83,6 @@ export const CustomContainer: FC<ContainerProps> = ({
       maxWidth={false}
       disableGutters
       sx={{
-        backgroundImage: `url(${backgroundImage})`,
         backgroundRepeat: 'no-repeat',
         backgroundSize: 'cover',
         backgroundColor: theme.palette.background.default,
@@ -161,11 +158,6 @@ export const CustomContainer: FC<ContainerProps> = ({
                       >
                         {title}
                       </Typography>
-                      {patientFullName && (
-                        <Typography variant="body2" color={theme.palette.secondary.main} fontSize={'18px'}>
-                          {patientFullName}
-                        </Typography>
-                      )}
                       {subtitle && (
                         <Typography variant="h2" color="primary.main" mt={1}>
                           {subtitle}

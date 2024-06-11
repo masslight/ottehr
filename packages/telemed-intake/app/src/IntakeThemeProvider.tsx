@@ -5,6 +5,7 @@ import i18n from './lib/i18n';
 
 export const otherColors = {
   appointmentInfoBackground: '#8F66EF',
+  appbarBackground: '#0A2143',
   background: '#5324BE',
   borderGray: '#D6D8DF',
   borderLightBlue: '#4294F3',
@@ -13,7 +14,7 @@ export const otherColors = {
   coachingVisit: '#EDE8FF',
   lightBlue: '#CFF5FF',
   darkPurple: '#301367',
-  brightPurple: '#7045F1',
+  brightPurple: '#2169F5',
   darkGreen: '#0F5A4C',
   lightGreen: '#C1FBEA',
   purple: '#4D15B7',
@@ -46,7 +47,7 @@ const { palette: p } = createTheme(); // TODO: once https://github.com/mui/mater
 
 export const palette = {
   text: {
-    primary: '#212130',
+    primary: '#061B74',
     secondary: '#4F4F4F',
     disabled: '#C3C9D2',
     cancelled: '#D91B1B',
@@ -56,7 +57,7 @@ export const palette = {
     contrast: '#FFFFFF',
   },
   secondary: {
-    main: '#301367',
+    main: '#2169F5',
     contrast: '#FFFFFF',
   },
   tertiary: p.augmentColor({ color: { main: '#ECE4FB' } }),
@@ -85,7 +86,7 @@ export const palette = {
     focus: 'rgba(0, 0, 0, 0.12)',
   },
   background: {
-    default: '#FFFFFF',
+    default: '#15376A',
     paper: '#FFFFFF',
     cancelled: '#FCBDBD',
   },

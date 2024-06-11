@@ -181,7 +181,7 @@ const ReviewPaperwork = (): JSX.Element => {
                     paddingBottom: 2,
                     paddingLeft: 0,
                     paddingRight: 0,
-                    color: otherColors.darkPurple,
+                    color: otherColors.brightPurple,
                   }}
                 >
                   {reviewItem.name}

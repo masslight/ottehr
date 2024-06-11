@@ -19,14 +19,14 @@ const PastVisits = (): JSX.Element => {
   const { data: appointmentsData, isFetching } = useGetAppointments(
     apiClient,
     Boolean(apiClient) && Boolean(currentPatientInfo?.id),
-    currentPatientInfo?.id
+    currentPatientInfo?.id,
   );
 
   const pastAppointments = appointmentsData?.appointments.filter(
     (appointment) =>
       appointment.telemedStatus === 'complete' ||
       appointment.telemedStatus === 'unsigned' ||
-      appointment.telemedStatus === 'cancelled'
+      appointment.telemedStatus === 'cancelled',
   );
   const handleVisitDetails = (appointment: TelemedAppointmentInformation): void => {
     usePastVisitsStore.setState({
@@ -74,7 +74,7 @@ const PastVisits = (): JSX.Element => {
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Box sx={{ display: 'flex', flexDirection: 'column ', alignItems: 'flex-start', gap: 1 }}>
-                  <Typography variant="subtitle1" color={otherColors.darkPurple}>
+                  <Typography variant="subtitle1" color={otherColors.brightPurple}>
                     {formatVisitDate(appointment.start || '', 'visit')}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">

@@ -49,7 +49,7 @@ export const palette = {
     disabled: '#C3C9D2',
   },
   primary: {
-    main: '#061B74',
+    main: '#212130',
     contrast: '#FFFFFF',
   },
   secondary: {

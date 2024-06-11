@@ -85,7 +85,7 @@ const Welcome = (): JSX.Element => {
   const sortedStates = useMemo(
     () =>
       [...telemedStates].sort((a, b) => (statesAvailabilityMap[a.state] === statesAvailabilityMap[b.state] ? 0 : -1)),
-    [telemedStates, statesAvailabilityMap]
+    [telemedStates, statesAvailabilityMap],
   );
 
   return (
@@ -93,7 +93,7 @@ const Welcome = (): JSX.Element => {
       title="Ottehr Telemedicine"
       img={clockFullColor}
       imgAlt="Clock icon"
-      imgWidth={300}
+      imgWidth={120}
       bgVariant={IntakeFlowPageRoute.NewUser.path}
       isFirstPage={true}
     >
