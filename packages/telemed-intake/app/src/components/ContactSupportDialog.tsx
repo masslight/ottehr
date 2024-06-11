@@ -12,7 +12,8 @@ export const ContactSupportDialog: FC<ContactSupportDialogProps> = ({ onClose })
       </Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Typography variant="body2">
-          Call us: <span style={{ fontWeight: 700 }}>1-516-207-7950</span>
+          {/* Remember to replace placeholder number */}
+          Call us: <span style={{ fontWeight: 700 }}>1-234-567-8900</span>
         </Typography>
         <Typography variant="body2" sx={{ mt: -1.5 }}>
           Sunday-Saturday 10am-10pm ET.
