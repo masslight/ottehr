@@ -66,8 +66,8 @@ export const IntakeThemeProviderBase: FC<IntakeThemeProviderProps> = (props) => 
     palette,
     otherColors,
     i18n,
-    textFonts = ['Arial', 'Rubik'],
-    headerFonts = ['Arial', 'Rubik'],
+    textFonts = ['Rubik'],
+    headerFonts = ['Rubik'],
     customTypographyOverrides,
     customComponentsOverrides,
   } = props;
