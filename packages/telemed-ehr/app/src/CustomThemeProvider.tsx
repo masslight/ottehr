@@ -91,8 +91,8 @@ export const otherColors = {
   employeeBeenSeenText: '#311B92',
 };
 
-const textFonts = ['Rubik'];
-const headerFonts = ['Rubik'];
+const textFonts = ['Rubik', 'sans-serif'];
+const headerFonts = ['Rubik', 'sans-serif'];
 
 const typography: TypographyOptions = {
   fontFamily: textFonts.join(','),
