@@ -1,10 +1,16 @@
 import { Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import mixpanel from 'mixpanel-browser';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ErrorDialog, PageForm, safelyCaptureException } from 'ottehr-components';
-import { PatientInfo, PersonSex, ageIsInRange, getSelectors, mdyStringFromISOString, yupDateTransform } from 'ottehr-utils';
+import {
+  PatientInfo,
+  PersonSex,
+  ageIsInRange,
+  getSelectors,
+  mdyStringFromISOString,
+  yupDateTransform,
+} from 'ottehr-utils';
 import { IntakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
 import { useAppointmentStore, useCreateAppointmentMutation } from '../features/appointments';
@@ -25,7 +31,7 @@ const PatientInformation = (): JSX.Element => {
       useFilesStore.setState({ fileURLs: data.files });
       navigate(`/paperwork/${data.questions[0].slug}`);
     },
-    { staleTime: 0, enabled: getPaperworkEnabled }
+    { staleTime: 0, enabled: getPaperworkEnabled },
   );
   const navigate = useNavigate();
   const [ageErrorDialogOpen, setAgeErrorDialogOpen] = useState<boolean>(false);
@@ -88,12 +94,12 @@ const PatientInformation = (): JSX.Element => {
         onError: (error) => {
           safelyCaptureException(error);
         },
-      }
+      },
     );
   };
 
   const formattedBirthday = DateTime.fromFormat(yupDateTransform(patientInfo.dateOfBirth) || '', 'yyyy-MM-dd').toFormat(
-    'dd MMMM, yyyy'
+    'dd MMMM, yyyy',
   );
 
   return (

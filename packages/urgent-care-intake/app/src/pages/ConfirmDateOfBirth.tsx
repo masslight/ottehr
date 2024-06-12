@@ -5,7 +5,6 @@ import React from 'react';
 import { IntakeDataContext } from '../store';
 import { useNavigate } from 'react-router-dom';
 import { Box, Button, Dialog, Paper, Typography } from '@mui/material';
-import mixpanel from 'mixpanel-browser';
 import { useEffect } from 'react';
 import { mdyStringFromISOString } from '../helpers';
 

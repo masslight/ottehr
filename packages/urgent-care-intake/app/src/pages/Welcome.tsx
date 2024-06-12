@@ -1,7 +1,6 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { Box, CircularProgress, Divider, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
-import mixpanel from 'mixpanel-browser';
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useZambdaClient, PageForm } from 'ottehr-components';

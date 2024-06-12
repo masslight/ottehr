@@ -2,7 +2,6 @@ import { CheckCircle, EditOutlined } from '@mui/icons-material';
 import CancelIcon from '@mui/icons-material/Cancel';
 import { Chip, IconButton, Table, TableBody, TableCell, TableRow, Tooltip, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import mixpanel from 'mixpanel-browser';
 import { ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useZambdaClient, PageForm } from 'ottehr-components';
