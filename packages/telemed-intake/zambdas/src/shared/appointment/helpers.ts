@@ -37,7 +37,7 @@ export const getVideoRoomResourceExtension = (resource: Resource): EncounterVirt
 
 export const mapStatusToTelemed = (
   encounterStatus: string,
-  appointmentStatus: string | undefined
+  appointmentStatus: string | undefined,
 ): TelemedAppointmentStatus | undefined => {
   switch (encounterStatus) {
     case 'planned':

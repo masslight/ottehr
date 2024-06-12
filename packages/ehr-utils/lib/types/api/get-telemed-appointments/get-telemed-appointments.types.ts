@@ -1,6 +1,7 @@
 import { Encounter, QuestionnaireResponse } from 'fhir/r4';
 import { TelemedCallStatuses } from '../../appointment.types';
 import { AppointmentMessaging } from '../../messaging.types';
+import { Secrets, VisitStatusHistoryEntry } from '../../../../lib/main';
 export type PatientFilterType = 'my-patients' | 'all-patients';
 
 export interface GetTelemedAppointmentsInput {

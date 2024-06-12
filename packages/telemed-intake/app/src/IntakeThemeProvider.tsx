@@ -47,7 +47,7 @@ const { palette: p } = createTheme(); // TODO: once https://github.com/mui/mater
 
 export const palette = {
   text: {
-    primary: '#061B74',
+    primary: '#212130',
     secondary: '#4F4F4F',
     disabled: '#C3C9D2',
     cancelled: '#D91B1B',

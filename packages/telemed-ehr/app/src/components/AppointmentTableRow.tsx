@@ -455,7 +455,7 @@ export default function AppointmentTableRow({
               >
                 {formatMinutes(getDurationOfStatus(statusTemp, appointment, appointment.visitStatusHistory, now))} mins
               </Typography>
-              {getAppointmentStatusChip(statusTemp.label)}
+              {getAppointmentStatusChip(statusTemp.label as keyof typeof CHIP_STATUS_MAP)}
             </Box>
           );
         })}
