@@ -65,6 +65,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^0.34.6
         version: 0.34.6(vitest@0.34.6)
+      '@zapehr/sdk':
+        specifier: 1.0.15
+        version: 1.0.15
       aws-lambda:
         specifier: ^1.0.7
         version: 1.0.7

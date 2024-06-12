@@ -111,6 +111,7 @@
     "@typescript-eslint/eslint-plugin": "^7.1.1",
     "@typescript-eslint/parser": "^7.1.1",
     "@vitest/coverage-v8": "^0.34.6",
+    "@zapehr/sdk": "1.0.15",
     "aws-lambda": "^1.0.7",
     "axios": "1.5.1",
     "env-cmd": "^10.1.0",
