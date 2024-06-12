@@ -16,7 +16,7 @@
     "ottehr-utils": "*"
   },
   "devDependencies": {
-    "@types/fhir": "^0.0.37",
+    "@types/fhir": "^0.0.35",
     "vite": "^4.3.9"
   }
 }

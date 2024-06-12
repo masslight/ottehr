@@ -1,7 +1,7 @@
 import { User } from '@zapehr/sdk';
 import { Appointment, Period } from 'fhir/r4';
 import { DateTime } from 'luxon';
-import { ExamFieldsNames, PractitionerLicense, VisitStatus, VisitStatusHistoryEntry } from 'ehr-utils';
+import { ExamFieldsNames, PractitionerLicense, VisitStatus } from 'ehr-utils';
 
 export interface GetAppointmentsParameters {
   searchDate?: DateTime | undefined;
@@ -317,7 +317,7 @@ export enum FhirAppointmentType {
 }
 
 export const getFhirAppointmentTypeForVisitType = (
-  visitType: VisitType | undefined
+  visitType: VisitType | undefined,
 ): FhirAppointmentType | undefined => {
   if (visitType === VisitType.WalkIn) {
     return FhirAppointmentType.walkin;

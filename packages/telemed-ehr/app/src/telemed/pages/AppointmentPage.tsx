@@ -56,16 +56,16 @@ export const AppointmentPage: FC = () => {
     },
     (data) => {
       const questionnaireResponse = data?.find(
-        (resource: FhirResource) => resource.resourceType === 'QuestionnaireResponse'
+        (resource: FhirResource) => resource.resourceType === 'QuestionnaireResponse',
       ) as unknown as QuestionnaireResponse;
       useAppointmentStore.setState({
         appointment: data?.find(
-          (resource: FhirResource) => resource.resourceType === 'Appointment'
+          (resource: FhirResource) => resource.resourceType === 'Appointment',
         ) as unknown as Appointment,
         patient: data?.find((resource: FhirResource) => resource.resourceType === 'Patient') as unknown as Patient,
         location: data?.find((resource: FhirResource) => resource.resourceType === 'Location') as unknown as Location,
         encounter: data?.find(
-          (resource: FhirResource) => resource.resourceType === 'Encounter'
+          (resource: FhirResource) => resource.resourceType === 'Encounter',
         ) as unknown as Encounter,
         questionnaireResponse,
         patientPhotoUrls:
@@ -74,14 +74,14 @@ export const AppointmentPage: FC = () => {
               (resource: FhirResource) =>
                 resource.resourceType === 'DocumentReference' &&
                 resource.status === 'current' &&
-                resource.type?.coding?.[0].code === PATIENT_PHOTO_CODE
+                resource.type?.coding?.[0].code === PATIENT_PHOTO_CODE,
             )
             .flatMap((docRef: FhirResource) => (docRef as DocumentReference).content.map((cnt) => cnt.attachment.url))
             .filter(Boolean) as string[]) || [],
       });
 
       const relayPhone = getQuestionnaireResponseByLinkId('relay-phone', questionnaireResponse)?.answer.find(
-        Boolean
+        Boolean,
       )?.valueString;
       if (relayPhone?.toLowerCase() === 'yes') {
         setShouldHearingRelayPopupBeOpened(true);
@@ -92,7 +92,7 @@ export const AppointmentPage: FC = () => {
       if (preferredLanguage !== 'English') {
         setShouldPreferredLanguagePopupBeOpened(true);
       }
-    }
+    },
   );
 
   useEffect(() => {
