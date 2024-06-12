@@ -32,6 +32,7 @@ import {
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
 } from '../shared/chart-data/chart-data-helpers';
+import { createWorkSchoolNotePDF } from '../shared/pdf/pdf';
 // import { PdfDocumentReferencePublishedStatuses } from '../shared/pdf/pdfUtils';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -281,10 +282,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     // 14 convert work-school note to pdf file, upload it to z3 bucket and create DocumentReference (FHIR) for it
     if (newWorkSchoolNote) {
-      // const pdfInfo = await createWorkSchoolNotePDF(newWorkSchoolNote, patient, secrets, m2mtoken);
+      const pdfInfo = await createWorkSchoolNotePDF(newWorkSchoolNote, patient, secrets, m2mtoken);
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(
-          makeDocumentReferenceResource(patient.id, encounterId, newWorkSchoolNote.type, 'work-school-note'),
+          makeDocumentReferenceResource(pdfInfo, patient.id, encounterId, newWorkSchoolNote.type, 'work-school-note'),
         ),
       );
     }

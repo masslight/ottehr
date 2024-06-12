@@ -12,11 +12,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
+    const apiKey = getSecret(SecretsKeys.NLM_API_KEY, secrets);
+
     const response: IcdSearchResponse = { codes: [] };
     // search codes
     try {
       const icdResponse = await fetch(
-        `https://uts-ws.nlm.nih.gov/rest/search/current?apiKey=${apiKey}&pageSize=50&returnIdType=code&inputType=sourceUi&string=${search}&sabs=ICD10CM`
+        `https://uts-ws.nlm.nih.gov/rest/search/current?apiKey=${apiKey}&pageSize=50&returnIdType=code&inputType=sourceUi&string=${search}&sabs=ICD10CM`,
       );
       if (!icdResponse.ok) {
         throw new Error(icdResponse.statusText);

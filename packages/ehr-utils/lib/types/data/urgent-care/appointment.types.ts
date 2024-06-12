@@ -30,7 +30,7 @@ import { DateTime } from 'luxon';
 const STATI = [
   'ARRIVED',
   'CANCELLED',
-  'CHECKED-IN',
+  'CHECKED-OUT',
   'INTAKE',
   'NO-SHOW',
   'PENDING',

@@ -18,11 +18,14 @@ export default ({ mode }) => {
       port: env.PORT ? parseInt(env.PORT) : undefined,
     },
     optimizeDeps: {
-      exclude: ['js-big-decimal'],
+      exclude: ['js-big-decimal', 'jsonpath-plus'],
     },
     build: {
       outDir: './build',
       target: browserslistToEsbuild(),
+      rollupOptions: {
+        external: ['jsonpath-plus'],
+      },
     },
   });
 };

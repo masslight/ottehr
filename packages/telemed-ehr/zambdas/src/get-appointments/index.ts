@@ -23,6 +23,7 @@ import {
   getUnconfirmedDOBForAppointment,
   isTruthy,
   getVisitStatusHistory,
+  getStatusLabelForAppointmentAndEncounter,
 } from 'ehr-utils';
 import { SecretsKeys, getSecret } from '../shared';
 import { topLevelCatch } from '../shared/errors';
@@ -67,7 +68,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           resourceType: 'Location',
         });
         timezone = fhirLocation?.extension?.find(
-          (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
+          (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone',
         )?.valueString;
         if (timezone) {
           timezoneMap.set(locationId, timezone);
@@ -218,7 +219,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     if (searchResultsForSelectedDate?.length == 0) {
       const response = {
         activeApptDatesBeforeToday: activeAppointmentDatesBeforeToday.filter(
-          (value, index, array) => array.indexOf(value) === index
+          (value, index, array) => array.indexOf(value) === index,
         ), // remove duplicate dates
         message: 'Successfully retrieved all appointments',
         preBooked,
@@ -342,7 +343,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     // this cuts around 3 seconds off the execution time for this zambda, or more when there are no results
     if (communications && communications.length > 0) {
       const commSenders: RelatedPerson[] = communications.filter(
-        (resource) => resource.resourceType === 'RelatedPerson'
+        (resource) => resource.resourceType === 'RelatedPerson',
       ) as RelatedPerson[];
       commSenders.forEach((resource) => {
         rpIdToResourceMap[`RelatedPerson/${resource.id}`] = resource as RelatedPerson;
@@ -355,7 +356,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         }
       });
       const comms: Communication[] = communications.filter(
-        (resource) => resource.resourceType === 'Communication'
+        (resource) => resource.resourceType === 'Communication',
       ) as Communication[];
 
       comms.forEach((comm) => {
@@ -469,7 +470,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const response = {
       activeApptDatesBeforeToday: activeAppointmentDatesBeforeToday.filter(
-        (value, index, array) => array.indexOf(value) === index
+        (value, index, array) => array.indexOf(value) === index,
       ), // remove duplicate dates
       message: 'Successfully retrieved all appointments',
       preBooked,
@@ -578,7 +579,7 @@ const makeAppointmentInformation = (input: AppointmentInformationInputs): UCAppo
     const docFound = allDocRefs.find(
       (document) =>
         document.context?.related?.find((related) => related.reference === `Patient/${patient?.id}`) &&
-        document.type?.text === type
+        document.type?.text === type,
     );
     const front = docFound?.content.find((content) => content.attachment.title === frontTitle);
     const back = docFound?.content.find((content) => content.attachment.title === backTitle);
@@ -595,7 +596,7 @@ const makeAppointmentInformation = (input: AppointmentInformationInputs): UCAppo
   const waitingMinutes = waitingMinutesString ? parseInt(waitingMinutesString) : undefined;
 
   const ovrpInterest = questionnaireResponse?.item?.find(
-    (response: QuestionnaireResponseItem) => response.linkId === 'ovrp-interest'
+    (response: QuestionnaireResponseItem) => response.linkId === 'ovrp-interest',
   )?.answer?.[0]?.valueString;
 
   return {

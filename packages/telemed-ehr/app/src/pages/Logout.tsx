@@ -9,7 +9,8 @@ export default function Logout(): ReactElement {
     redirect('/');
   }
   void logout({
-    logoutParams: { returnTo: import.meta.env.VITE_APP_ZAPEHR_APPLICATION_REDIRECT_URL, federated: true },
+    returnTo: import.meta.env.VITE_APP_ZAPEHR_APPLICATION_REDIRECT_URL,
+    federated: true,
   });
 
   return <></>;

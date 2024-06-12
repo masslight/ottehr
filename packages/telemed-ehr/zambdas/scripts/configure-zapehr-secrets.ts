@@ -1,4 +1,4 @@
-import devConfig from '../.env/dev.json';
+// import devConfig from '../.env/dev.json';
 // import testingConfig from '../.env/testing.json';
 import { getAuth0Token } from '../src/shared';
 import { ZambdaClient } from '@zapehr/sdk';
@@ -34,9 +34,9 @@ const main = async (): Promise<void> => {
   const env = process.argv[2];
 
   switch (env) {
-    case 'dev':
-      await setupSecrets(devConfig);
-      break;
+    // case 'dev':
+    //   await setupSecrets(devConfig);
+    //   break;
     // case 'testing':
     //   await setupSecrets(testingConfig);
     //   break;

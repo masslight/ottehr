@@ -47,6 +47,7 @@ import {
 } from 'ehr-utils/lib/types';
 import { followUpToPerformerMap } from '../../save-chart-data/helpers';
 import { removePrefix } from '../appointment/helpers';
+import { PdfInfo } from '../pdf/pdfUtils';
 
 const getMetaWFieldName = (fieldName: ProviderChartDataFieldsNames): Meta => {
   return fillMeta(fieldName, fieldName);
@@ -572,6 +573,7 @@ export function makeDiagnosisDTO(resource: Condition, isPrimary: boolean): Diagn
 }
 
 export function makeDocumentReferenceResource(
+  pdfInfo: PdfInfo,
   patientId: string,
   encounterId: string,
   type: WorkSchoolNoteType,

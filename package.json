@@ -38,7 +38,7 @@
     ]
   },
   "devDependencies": {
-    "@auth0/auth0-react": "^1.12.0",
+    "@auth0/auth0-react": "^1.12.1",
     "@aws-sdk/client-s3": "^3.272.0",
     "@changesets/cli": "2.26.2",
     "@emotion/react": "^11.10.5",
@@ -46,6 +46,8 @@
     "@hookform/resolvers": "^2.9.10",
     "@sendgrid/mail": "^7.7.0",
     "@sentry/react": "^7.80.1",
+    "@testing-library/jest-dom": "6.4.6",
+    "@testing-library/react": "16.0.0",
     "@twilio/conversations": "^2.4.1",
     "@types/fhir": "^0.0.35",
     "@types/jsonpath-plus": "5.0.5",
@@ -127,6 +129,7 @@
     "jose": "5.2.0",
     "jsonwebtoken": "9.0.2",
     "lint-staged": "^15.0.2",
+    "pdf-lib": "1.17.1",
     "prettier": "^3.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

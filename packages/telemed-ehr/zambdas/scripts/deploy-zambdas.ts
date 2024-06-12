@@ -93,7 +93,7 @@ const updateZambdas = async (config: any): Promise<void> => {
     for await (const zambda of Object.keys(ZAMBDAS)) {
       const currentZambda = ZAMBDAS[zambda];
       let currentDeployedZambda = currentZambdas.find(
-        (tempZambda) => tempZambda.name === `admin-${zambda.toLowerCase()}`
+        (tempZambda) => tempZambda.name === `admin-${zambda.toLowerCase()}`,
       );
 
       if (currentDeployedZambda) {
@@ -113,7 +113,7 @@ const updateZambdas = async (config: any): Promise<void> => {
         config,
         projectApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
         token,
-        fhirClient
+        fhirClient,
       );
     }
   } catch (e) {
@@ -128,7 +128,7 @@ async function updateProjectZambda(
   config: any,
   projectApiUrl: string,
   auth0Token: string,
-  fhirClient: FhirClient
+  fhirClient: FhirClient,
 ): Promise<void> {
   // todo use zambda client https://github.com/masslight/zapehr/issues/2586
   const endpoint = `${projectApiUrl}/zambda/${zambdaId}/s3-upload`;
@@ -147,7 +147,7 @@ async function updateProjectZambda(
     console.log(
       `status, ${zapehrResponse.status}, status text, ${
         zapehrResponse.statusText
-      }, zapehrResponseJson, ${JSON.stringify(zapehrResponseJson)}`
+      }, zapehrResponseJson, ${JSON.stringify(zapehrResponseJson)}`,
     );
     throw Error('An error occurred during the zapEHR Zambda S3 URL request');
   }
@@ -167,8 +167,8 @@ async function updateProjectZambda(
     const awsResponseJson = await awsResponse.json();
     console.log(
       `status, ${awsResponse.status}, status text, ${awsResponse.statusText}, awsResponseJson, ${JSON.stringify(
-        awsResponseJson
-      )}`
+        awsResponseJson,
+      )}`,
     );
     throw Error('An error occurred during the AWS upload zip file request');
   }
@@ -220,7 +220,7 @@ async function updateProjectZambda(
     // if any existing criteria doesn't exist in the details array defined above, delete
     const subscriptionsNotChanging = subscriptionsSearch.reduce((acc: Subscription[], existingSubscription) => {
       const existingSubscriptionEvent = existingSubscription.extension?.find(
-        (ext) => ext.url === EXTENSION_URL
+        (ext) => ext.url === EXTENSION_URL,
       )?.valueString;
       const subscriptionMatch = zambda.subscriptionDetils?.find((zambdaSubscritionDetail) => {
         const eventMatch = existingSubscriptionEvent === zambdaSubscritionDetail.event;
@@ -229,12 +229,12 @@ async function updateProjectZambda(
       });
       if (subscriptionMatch) {
         console.log(
-          `subscription with criteria: '${subscriptionMatch.criteria}' and event: '${subscriptionMatch.event}' is not changing`
+          `subscription with criteria: '${subscriptionMatch.criteria}' and event: '${subscriptionMatch.event}' is not changing`,
         );
         acc.push(existingSubscription);
       } else {
         console.log(
-          `subscription with criteria: '${existingSubscription.criteria}' and event: '${existingSubscriptionEvent}' is being deleted since the criteria/event is not contained in the updated subscription details array`
+          `subscription with criteria: '${existingSubscription.criteria}' and event: '${existingSubscriptionEvent}' is being deleted since the criteria/event is not contained in the updated subscription details array`,
         );
         const deleteRequest: BatchInputDeleteRequest = {
           method: 'DELETE',
@@ -249,12 +249,12 @@ async function updateProjectZambda(
     zambda.subscriptionDetils.forEach((subscriptionDetail) => {
       // if the subscription detail is found in subscriptions not chaning, do nothing
       const foundSubscription = subscriptionsNotChanging.find(
-        (subscription) => subscription.criteria === subscriptionDetail.criteria
+        (subscription) => subscription.criteria === subscriptionDetail.criteria,
       );
       // else create it
       if (!foundSubscription) {
         console.log(
-          `Creating subscription with criteria: '${subscriptionDetail.criteria}' and event: '${subscriptionDetail.event}'`
+          `Creating subscription with criteria: '${subscriptionDetail.criteria}' and event: '${subscriptionDetail.event}'`,
         );
         const extension = [];
         if (subscriptionDetail?.event) {
@@ -296,7 +296,7 @@ async function updateProjectZambda(
 
 if (process.argv.length < 3) {
   console.log(
-    'You must provide an environment and an api as command-line arguments, e.g.: npm run deploy-zambdas testing'
+    'You must provide an environment and an api as command-line arguments, e.g.: npm run deploy-zambdas testing',
   );
   process.exit();
 }

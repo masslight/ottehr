@@ -19,7 +19,7 @@ export function saveOrUpdateResourceRequest(resource: FhirResource): BatchInputP
 export const validateBundleAndExtractSavedChartData = (
   bundle: Bundle,
   patientId: string,
-  additionResourcesForResponse: FhirResource[]
+  additionResourcesForResponse: FhirResource[],
 ): SaveChartDataResponse => {
   const entries = bundle.entry ?? [];
 
@@ -61,7 +61,7 @@ export const followUpToPerformerMap: { [field in DispositionFollowUpType]: Codea
 
 export async function getEncounterAndRelatedResources(
   fhirClient: FhirClient,
-  encounterId: string
+  encounterId: string,
 ): Promise<Resource[]> {
   return await fhirClient.searchResources({
     resourceType: 'Encounter',
@@ -89,7 +89,7 @@ export async function getEncounterAndRelatedResources(
 export function filterServiceRequestsFromFhir(
   allResources: Resource[],
   metaTag?: DispositionMetaFieldsNames,
-  performer?: Coding
+  performer?: Coding,
 ): ServiceRequest[] {
   return allResources.filter((resource) => {
     if (!(resource.resourceType === 'ServiceRequest')) return false;
@@ -106,6 +106,6 @@ function findCodingInCode(code: CodeableConcept | undefined, coding: Coding): bo
   return Boolean(
     code?.coding?.find((element) => {
       return element.code === coding.code && element.system === coding.system;
-    })
+    }),
   );
 }

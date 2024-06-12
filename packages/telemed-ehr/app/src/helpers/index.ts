@@ -5,7 +5,7 @@ import { Appointment, Location, Resource } from 'fhir/r4';
 import { DateTime } from 'luxon';
 import { formatDateUsingSlashes, getTimezone } from '../helpers/formatDateTime';
 import { lastModifiedCode } from '../types/types';
-import { UCAppointmentInformation, getPatchOperationForNewMetaTag } from 'ehr-utils';
+import { UCAppointmentInformation, User, getPatchOperationForNewMetaTag } from 'ehr-utils';
 
 export const classifyAppointments = (appointments: UCAppointmentInformation[]): Map<any, any> => {
   const statusCounts = new Map();
@@ -42,7 +42,7 @@ export const checkinPatient = async (fhirClient: FhirClient, appointmentId: stri
 };
 
 export const sortLocationsByLabel = (
-  locations: { label: string; value: string }[]
+  locations: { label: string; value: string }[],
 ): { label: string; value: string }[] => {
   function compare(a: { label: string; value: string }, b: { label: string; value: string }): number {
     const labelA = a.label.toUpperCase();
@@ -65,7 +65,7 @@ export const sortLocationsByLabel = (
 export const formatLastModifiedTag = (
   field: string,
   resource: Resource | undefined,
-  location: Location
+  location: Location,
 ): string | undefined => {
   if (!resource) return;
   const codeString = resource?.meta?.tag?.find((tag) => tag.system === `staff-update-history-${field}`)?.code;

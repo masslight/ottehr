@@ -228,7 +228,7 @@ const ChatModal = memo(
 
     const quickTexts = [
       // todo need to make url dynamic or pull from location
-      `Please complete the paperwork and sign consent forms to avoid a delay in check-in. For ${currentOpenChat?.patientParticipant.firstName}, click here: ${VITE_APP_QRS_URL}/visit/${currentOpenChat?.patientParticipant.appointmentId}`,
+      `Please complete the paperwork and sign consent forms to avoid a delay in check-in. For ${patientParticipant?.firstName}, click here: ${VITE_APP_QRS_URL}/visit/${patientParticipant?.appointmentId}`,
       'We are now ready to check you in. Please head to the front desk to complete the process.',
       'We are ready for the patient to be seen, please enter the facility.',
       `OttEHR is trying to get ahold of you. Please call us at ${officePhoneNumber} or respond to this text message.`,

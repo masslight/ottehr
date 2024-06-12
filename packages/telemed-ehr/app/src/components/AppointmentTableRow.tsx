@@ -65,11 +65,11 @@ const FLAGGED_REASONS_FOR_VISIT: string[] = [
   'Allergic reaction',
 ];
 
-export function getAppointmentStatusChip(status: StatusLabel, count?: number): ReactElement {
+export function getAppointmentStatusChip(status: string, count?: number): ReactElement {
   if (!status) {
     return <span>todo1</span>;
   }
-  if (!CHIP_STATUS_MAP[status]) {
+  if (!CHIP_STATUS_MAP[status as keyof typeof CHIP_STATUS_MAP]) {
     return <span>todo2</span>;
   }
 
@@ -80,8 +80,8 @@ export function getAppointmentStatusChip(status: StatusLabel, count?: number): R
       sx={{
         borderRadius: '4px',
         textTransform: 'uppercase',
-        background: CHIP_STATUS_MAP[status].background.primary,
-        color: CHIP_STATUS_MAP[status].color.primary,
+        background: CHIP_STATUS_MAP[status as keyof typeof CHIP_STATUS_MAP].background.primary,
+        color: CHIP_STATUS_MAP[status as keyof typeof CHIP_STATUS_MAP].color.primary,
       }}
       variant="outlined"
     />
@@ -481,7 +481,7 @@ export default function AppointmentTableRow({
         position: 'relative',
         ...(appointment.next && {
           // borderTop: '2px solid #43A047',
-          boxShadow: `inset 0 0 0 1px ${CHIP_STATUS_MAP[appointment.status].background.secondary}`,
+          boxShadow: `inset 0 0 0 1px ${theme.palette.secondary.main}`,
         }),
       }}
     >
@@ -489,7 +489,7 @@ export default function AppointmentTableRow({
         {appointment.next && (
           <Box
             sx={{
-              backgroundColor: CHIP_STATUS_MAP[appointment.status].background.secondary,
+              backgroundColor: theme.palette.secondary.main,
               position: 'absolute',
               width: '25px',
               bottom: 0,
