@@ -113,7 +113,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
 function findParticipantByEmail(participants: RelatedPerson[], matchingEmail: string): RelatedPerson | undefined {
   return participants.find((p) => {
-    const email = JSONPath({ path: '$.telecom[?(@.system == "email")].value', json: p })[0];
+    const emailResult = JSONPath({ path: '$.telecom[?(@.system == "email")].value', json: p });
+    const email = Array.isArray(emailResult) ? emailResult[0] : undefined;
     return email === matchingEmail;
   });
 }

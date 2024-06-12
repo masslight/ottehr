@@ -88,7 +88,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const emailAddresses: string[] = JSONPath({
       path: '$..telecom[?(@.system == "email")].value',
       json: relatedPersons,
-    });
+    }) as string[];
     console.log('Email addresses invited so far:', emailAddresses);
     if (emailAddresses.includes(emailAddress)) {
       console.log(`Email address '${emailAddress}' is already invited.`);

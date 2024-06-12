@@ -48,6 +48,7 @@
     "@sentry/react": "^7.80.1",
     "@twilio/conversations": "^2.4.1",
     "@types/fhir": "^0.0.35",
+    "@types/jsonpath-plus": "5.0.5",
     "@types/jsonwebtoken": "9.0.4",
     "@types/luxon": "^3.1.0",
     "@types/node": "^18.11.18",

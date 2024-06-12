@@ -79,8 +79,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const participants = relatedPersons.map((r) => ({
       firstName: (r.name?.[0].given ?? []).join(' '),
       lastName: r.name?.[0].family ?? '',
-      emailAddress: JSONPath({ path: '$.telecom[?(@.system == "email")].value', json: r })[0],
-      phoneNumber: JSONPath({ path: '$.telecom[?(@.system == "phone")].value', json: r })[0],
+      emailAddress: (JSONPath({ path: '$.telecom[?(@.system == "email")].value', json: r }) as string[])[0],
+      phoneNumber: (JSONPath({ path: '$.telecom[?(@.system == "phone")].value', json: r }) as string[])[0],
     }));
 
     const result: ListInvitedParticipantsResponse = { invites: participants };

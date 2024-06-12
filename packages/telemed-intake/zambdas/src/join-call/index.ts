@@ -155,7 +155,7 @@ async function addUserToVideoEncounterIfNeeded(
   encounter: Encounter,
   fhirParticipantRef: string,
   fhirRelatedPersonRef: string | undefined,
-  fhirClient: FhirClient
+  fhirClient: FhirClient,
 ): Promise<Encounter> {
   try {
     const extension = [...(encounter.extension ?? [])];
@@ -239,7 +239,7 @@ async function addUserToVideoEncounterIfNeeded(
 async function isParticipantInvited(
   emailAddress: string,
   encounterId: string,
-  fhirClient: FhirClient
+  fhirClient: FhirClient,
 ): Promise<boolean> {
   const relatedPersons = await searchInvitedParticipantResourcesByEncounterId(encounterId, fhirClient);
   const emailAddresses: string[] = JSONPath({ path: '$..telecom[?(@.system == "email")].value', json: relatedPersons });
@@ -250,7 +250,7 @@ async function isParticipantInvited(
 async function joinTelemedMeeting(
   projectApiURL: string,
   userToken: string,
-  encounterId: string
+  encounterId: string,
 ): Promise<JoinCallResponse> {
   const response = await fetch(`${projectApiURL}/telemed/v2/meeting/${encounterId}/join`, {
     headers: {
