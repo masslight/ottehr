@@ -4,6 +4,7 @@ interface ImportMetaEnv {
   readonly VITE_APP_IS_LOCAL?: 'true' | 'false';
   readonly VITE_APP_CLIENT_ID: string;
   readonly VITE_APP_AUTH0_AUDIENCE: string;
+  readonly VITE_APP_CONNECTION_NAME: string;
   readonly VITE_APP_FHIR_API_URL: string;
   readonly VITE_APP_PROJECT_API_URL: string;
   readonly VITE_APP_CHECK_IN_ZAMBDA_ID: string;
