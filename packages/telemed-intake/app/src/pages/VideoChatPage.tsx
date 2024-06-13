@@ -1,5 +1,3 @@
-window.global ||= window; // https://stackoverflow.com/questions/72795666/how-to-fix-vite-build-parser-error-unexpected-token-in-third-party-dependenc
-
 import { FC } from 'react';
 import { Container } from '@mui/material';
 import { useSearchParams } from 'react-router-dom';
