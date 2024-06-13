@@ -10,11 +10,11 @@
     "start:dev2": "ENV=dev2 npm run start-skeleton",
     "start:testing": "ENV=testing npm run start-skeleton",
     "start:staging": "ENV=staging npm run start-skeleton",
-    "start-skeleton": "sls offline --stage ${ENV}",
+    "start-skeleton": "sls offline --stage dev",
     "debug": "export SLS_DEBUG=* && node --inspect ../../../node_modules/serverless/bin/serverless offline --stage=local",
     "setup-zapehr-secrets": "ts-node scripts/configure-zapehr-secrets.ts",
     "deploy-zambdas": "npm run package && ts-node scripts/deploy-zambdas.ts",
-    "build": "tsc && sls package --stage ${ENV}",
+    "build": "tsc && sls package --stage dev",
     "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
     "package": "tsc && sls package && npm run rebundle",
     "rebundle": "bash scripts/package-for-release.sh"

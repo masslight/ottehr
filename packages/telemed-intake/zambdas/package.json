@@ -15,7 +15,7 @@
     "deploy-zambdas": "npm run package && ts-node scripts/deploy-zambdas.ts",
     "setup-default-locations": "ts-node scripts/setup-default-locations.ts",
     "update-permissions-for-users": "ts-node scripts/update-permissions-for-users.ts",
-    "build": "tsc && sls package --stage ${ENV}",
+    "build": "tsc && sls package --stage dev",
     "package": "tsc && sls package && npm run rebundle",
     "rebundle": "bash scripts/package-for-release.sh",
     "test": "jest",
