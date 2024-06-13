@@ -1,7 +1,6 @@
 import fetch from 'node-fetch';
 import { Practitioner } from 'fhir/r4';
-import { ADMINISTRATOR_RULES, MANAGER_RULES, STAFF_RULES, PROVIDER_RULES } from '../src/shared';
-
+import { ADMINISTRATOR_RULES, INACTIVE_RULES, MANAGER_RULES, STAFF_RULES, PROVIDER_RULES } from '../src/shared';
 
 const DEFAULTS = {
   firstName: 'Example',
@@ -9,6 +8,7 @@ const DEFAULTS = {
 };
 export const enum RoleType {
   NewUser = 'NewUser',
+  Inactive = 'Inactive',
   Manager = 'Manager',
   FrontDesk = 'FrontDesk',
   Staff = 'Staff',
@@ -24,16 +24,18 @@ const updateUserRoles = async (projectApiUrl: string, accessToken: string, proje
     action: ['Zambda:InvokeFunction'],
     effect: 'Allow',
   };
+  const inactiveAccessPolicy = { rule: [...INACTIVE_RULES, zambdaRule] };
   const administratorAccessPolicy = { rule: [...ADMINISTRATOR_RULES, zambdaRule] };
   const managerAccessPolicy = { rule: [...MANAGER_RULES, zambdaRule] };
   const staffAccessPolicy = { rule: [...STAFF_RULES, zambdaRule] };
-  const frontDeskAccessPolicy = { rule: [...PROVIDER_RULES, zambdaRule] };
+  const providerAccessPolicy = { rule: [...PROVIDER_RULES, zambdaRule] };
 
   const roles = [
+    { name: RoleType.Inactive, accessPolicy: inactiveAccessPolicy },
     { name: RoleType.Administrator, accessPolicy: administratorAccessPolicy },
     { name: RoleType.Manager, accessPolicy: managerAccessPolicy },
     { name: RoleType.Staff, accessPolicy: staffAccessPolicy },
-    { name: RoleType.FrontDesk, accessPolicy: frontDeskAccessPolicy },
+    { name: RoleType.Provider, accessPolicy: providerAccessPolicy },
   ];
 
   const httpHeaders = {

@@ -55,7 +55,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const [allEmployees, existingRoles] = await Promise.all(promises);
 
     console.log(`Fetched ${allEmployees.length} employees and ${existingRoles.length} roles.`);
-
+    
     const inactiveRoleId = existingRoles.find((role: any) => role.name === 'Inactive')?.id;
     const providerRoleId = existingRoles.find((role: any) => role.name === 'Provider')?.id;
     if (!inactiveRoleId || !providerRoleId) {
@@ -181,8 +181,8 @@ async function getRoles(zapehrToken: string, secrets: Secrets | null): Promise<a
     headers: headers,
   });
   if (!existingRolesResponse.ok) {
-    //throw new Error('Error searching for existing roles');
-    return [];
+    console.log('Error searching for existing roles', await existingRolesResponse.json());
+    throw new Error('Error searching for existing roles');
   }
   return existingRolesResponse.json();
 }

@@ -56,7 +56,7 @@ async function createM2M(accessToken: string, projectId: string): Promise<[strin
             },
             {
               resource: ['App:User'],
-              action: ['App:CreateUser', 'App:GetUser'],
+              action: ['App:CreateUser', 'App:GetUser', 'App:UpdateUser', 'App:ListAllUsers'],
               effect: 'Allow',
             },
             {
@@ -67,6 +67,11 @@ async function createM2M(accessToken: string, projectId: string): Promise<[strin
             {
               resource: ['IAM:M2MClient:*'],
               action: ['IAM:ListAllM2MClients', 'IAM:GetM2MClient'],
+              effect: 'Allow',
+            },
+            {
+              resource: ['IAM:GetRole', 'IAM:ListAllRoles'],
+              action: ['IAM:Role'],
               effect: 'Allow',
             },
             {

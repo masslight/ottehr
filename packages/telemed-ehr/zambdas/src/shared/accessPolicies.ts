@@ -104,6 +104,14 @@ export const MANAGER_RULES = [
   },
 ];
 
+export const INACTIVE_RULES = [
+  {
+    resource: '*',
+    action: '*',
+    effect: 'Deny',
+  },
+];
+
 export const STAFF_RULES = [
   {
     resource: [

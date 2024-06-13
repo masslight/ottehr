@@ -158,7 +158,7 @@ export const AppointmentFooterButton: FC<AppointmentFooterButtonProps> = (props)
                 '&:hover': { backgroundColor: darken(theme.palette.primary.light, 0.125) },
               }}
             >
-              Assing to me
+              Assign to me
             </LoadingButton>
           )}
         </ConfirmationDialog>
