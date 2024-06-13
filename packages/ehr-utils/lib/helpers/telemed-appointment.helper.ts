@@ -3,7 +3,7 @@ import { mapStatusToTelemed, TelemedStatusHistoryElement } from '../types';
 
 export const mapEncounterStatusHistory = (
   statusHistory: EncounterStatusHistory[],
-  appointmentStatus: string
+  appointmentStatus: string,
 ): TelemedStatusHistoryElement[] => {
   const result: TelemedStatusHistoryElement[] = [];
 

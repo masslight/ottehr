@@ -61,11 +61,11 @@ export const DispositionCard: FC = () => {
                 setPartialChartData({ disposition });
               }
             },
-          }
+          },
         );
       });
     },
-    [debounce, mutate, setPartialChartData]
+    [debounce, mutate, setPartialChartData],
   );
 
   useEffect(() => {

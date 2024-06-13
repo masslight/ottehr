@@ -53,7 +53,7 @@ export const PatientInstructionsCard: FC = () => {
             });
           }
         },
-      }
+      },
     );
 
     setInstruction('');

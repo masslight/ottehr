@@ -1,4 +1,3 @@
-
 import { Appointment, Encounter, Period } from 'fhir/r4';
 import { DateTime } from 'luxon';
 

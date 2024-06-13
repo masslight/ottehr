@@ -18,7 +18,7 @@ enum nameToTypeEnum {
 }
 
 export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
-  name: T
+  name: T,
 ): { onValueChange: (text: string) => void; isLoading: boolean } => {
   const { mutate: saveChartData, isLoading: isSaveLoading } = useSaveChartData();
   const { mutate: deleteChartData, isLoading: isDeleteLoading } = useDeleteChartData();

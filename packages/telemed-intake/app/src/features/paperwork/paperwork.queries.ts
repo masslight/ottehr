@@ -11,7 +11,7 @@ export const useGetPaperwork = (
   params?: {
     enabled?: boolean;
     staleTime?: number;
-  }
+  },
 ) => {
   const apiClient = useZapEHRAPIClient();
   const appointmentID = useAppointmentStore((state) => state.appointmentID);
@@ -36,7 +36,7 @@ export const useGetPaperwork = (
       onError: (err) => {
         console.error('Error during fetching get paperwork: ', err);
       },
-    }
+    },
   );
 };
 

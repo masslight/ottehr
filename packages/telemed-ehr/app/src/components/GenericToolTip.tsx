@@ -26,7 +26,7 @@ export const GenericToolTip = styled(
         },
       }}
     />
-  )
+  ),
 )(({ theme }) => ({
   [`& .${tooltipClasses.tooltip}`]: {
     boxShadow: theme.shadows[1],

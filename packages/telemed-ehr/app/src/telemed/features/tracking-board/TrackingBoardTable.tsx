@@ -28,7 +28,7 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
   const theme = useTheme();
   const { appointments, state, availableStates, isAppointmentsLoading, unsignedFor } = getSelectors(
     useTrackingBoardStore,
-    ['appointments', 'state', 'unsignedFor', 'availableStates', 'isAppointmentsLoading']
+    ['appointments', 'state', 'unsignedFor', 'availableStates', 'isAppointmentsLoading'],
   );
 
   const filteredAppointments = filterAppointments(appointments, unsignedFor, tab);

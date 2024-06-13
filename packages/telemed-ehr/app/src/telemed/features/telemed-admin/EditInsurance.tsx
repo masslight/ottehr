@@ -102,7 +102,7 @@ export default function EditInsurance(): JSX.Element {
   const [payerNameInputValue, setPayerNameInputValue] = useState('');
 
   const settingsMap = Object.fromEntries(
-    Object.entries(INSURANCE_SETTINGS_MAP).map(([key, _]) => [key as keyof typeof INSURANCE_SETTINGS_MAP, false])
+    Object.entries(INSURANCE_SETTINGS_MAP).map(([key, _]) => [key as keyof typeof INSURANCE_SETTINGS_MAP, false]),
   ) as InsuranceSettingsBooleans;
 
   insuranceDetails?.extension

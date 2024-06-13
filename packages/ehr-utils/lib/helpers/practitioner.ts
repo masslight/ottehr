@@ -12,17 +12,17 @@ export function allLicensesForPractitioner(practitioner: Practitioner): Practiti
   if (practitioner?.qualification) {
     practitioner.qualification.forEach((qualification) => {
       const qualificationExt = qualification.extension?.find(
-        (ext) => ext.url === PRACTITIONER_QUALIFICATION_EXTENSION_URL
+        (ext) => ext.url === PRACTITIONER_QUALIFICATION_EXTENSION_URL,
       );
 
       if (qualificationExt) {
         const qualificationCode = qualification.code.coding?.find(
-          (code) => code.system === PRACTITIONER_QUALIFICATION_CODE_SYSTEM
+          (code) => code.system === PRACTITIONER_QUALIFICATION_CODE_SYSTEM,
         )?.code as PractitionerQualificationCode;
 
         const stateExtension = qualificationExt.extension?.find((ext) => ext.url === 'whereValid');
         const qualificationState = stateExtension?.valueCodeableConcept?.coding?.find(
-          (coding) => coding.system === PRACTITIONER_QUALIFICATION_STATE_SYSTEM
+          (coding) => coding.system === PRACTITIONER_QUALIFICATION_STATE_SYSTEM,
         )?.code;
 
         if (qualificationCode && qualificationState)
@@ -42,7 +42,7 @@ export const checkIsEncounterForPractitioner = (encounter: Encounter, practition
   const practitionerId = practitioner?.id;
 
   const encounterPractitioner = encounter.participant?.find((item) =>
-    item.individual?.reference?.startsWith('Practitioner/')
+    item.individual?.reference?.startsWith('Practitioner/'),
   )?.individual?.reference;
   const encounterPractitionerId = encounterPractitioner && removePrefix('Practitioner/', encounterPractitioner);
 

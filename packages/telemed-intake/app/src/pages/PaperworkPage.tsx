@@ -77,7 +77,7 @@ const PaperworkPage = (): JSX.Element => {
                 onError: (error) => {
                   throw error;
                 },
-              }
+              },
             );
           }
 
@@ -150,7 +150,7 @@ const PaperworkPage = (): JSX.Element => {
       allFileKeys,
       navigate,
       nextPage?.slug,
-    ]
+    ],
   );
 
   const mapQuestionsToFormInputFields = useMapQuestionsToFormInputFields({
@@ -185,7 +185,7 @@ const PaperworkPage = (): JSX.Element => {
     (formValues: FieldValues): void => {
       patchCompletedPaperwork(filterObject(formValues, (key) => !allFileKeys.includes(key)));
     },
-    [allFileKeys, patchCompletedPaperwork]
+    [allFileKeys, patchCompletedPaperwork],
   );
 
   const formElements = useMemo(() => mapQuestionsToFormInputFields(items), [mapQuestionsToFormInputFields, items]);
@@ -206,7 +206,7 @@ const PaperworkPage = (): JSX.Element => {
             onBack:
               currentIndex === 0 ? () => navigate(IntakeFlowPageRoute.PatientInformation.path) : () => navigate(-1),
           }),
-          [createZ3Object.isLoading, navigate, currentIndex]
+          [createZ3Object.isLoading, navigate, currentIndex],
         )}
       />
     </CustomContainer>

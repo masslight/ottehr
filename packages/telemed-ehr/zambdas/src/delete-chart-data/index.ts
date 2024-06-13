@@ -169,7 +169,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     if (workSchoolNotes) {
       for (const workSchoolNote of workSchoolNotes) {
         const documentReference = allResources.find(
-          (resource) => resource.id === workSchoolNote.id
+          (resource) => resource.id === workSchoolNote.id,
         ) as DocumentReference;
         const fileUrl = documentReference.content[0].attachment.url;
         if (fileUrl) await deleteZ3Object(fileUrl, m2mtoken);

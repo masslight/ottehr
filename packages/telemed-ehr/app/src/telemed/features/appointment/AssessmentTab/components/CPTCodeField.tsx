@@ -31,7 +31,7 @@ export const CPTCodeField: FC = () => {
               setPartialChartData({ cptCodes: [saved] });
             }
           },
-        }
+        },
       );
       setPartialChartData({ cptCodes: [value] });
     }

@@ -34,7 +34,7 @@ export const AppointmentHeader: FC = () => {
 
   const { appointment, encounter, patient, location, isReadOnly, questionnaireResponse } = getSelectors(
     useAppointmentStore,
-    ['appointment', 'patient', 'encounter', 'location', 'isReadOnly', 'questionnaireResponse']
+    ['appointment', 'patient', 'encounter', 'location', 'isReadOnly', 'questionnaireResponse'],
   );
 
   const patientPhotonId = patient?.identifier?.find((id) => id.system === PHOTON_PATIENT_IDENTIFIER_SYSTEM)?.value;

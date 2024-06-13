@@ -32,8 +32,8 @@ export function IOSVideoCallMenu(): JSX.Element {
     // location.href = `${window.location.origin}${IntakeFlowPageRoute.IOSPatientManageParticipants.path}?appointment_id=${appointmentId}`;
     sendIOSAppMessage(
       createIOSMesssageOpenPage(
-        `${window.location.origin}${IntakeFlowPageRoute.IOSPatientManageParticipants.path}?appointment_id=${appointmentId}`
-      )
+        `${window.location.origin}${IntakeFlowPageRoute.IOSPatientManageParticipants.path}?appointment_id=${appointmentId}`,
+      ),
     );
   };
 
@@ -41,8 +41,8 @@ export function IOSVideoCallMenu(): JSX.Element {
     // location.href = `${window.location.origin}${IntakeFlowPageRoute.IOSPatientPhotosEdit.path}?appointment_id=${appointmentId}`;
     sendIOSAppMessage(
       createIOSMesssageOpenPage(
-        `${window.location.origin}${IntakeFlowPageRoute.IOSPatientPhotosEdit.path}?appointment_id=${appointmentId}`
-      )
+        `${window.location.origin}${IntakeFlowPageRoute.IOSPatientPhotosEdit.path}?appointment_id=${appointmentId}`,
+      ),
     );
   };
 

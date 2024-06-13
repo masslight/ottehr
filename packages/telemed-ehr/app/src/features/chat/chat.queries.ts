@@ -10,7 +10,7 @@ import { MessageModel } from './ChatModal';
 export const useFetchChatMessagesQuery = (
   timezone: string,
   numbersToSendTo?: string[],
-  onSuccess?: (data: ConversationMessage[]) => void
+  onSuccess?: (data: ConversationMessage[]) => void,
 ) => {
   const { zambdaClient } = useApiClients();
   return useQuery(
@@ -21,7 +21,7 @@ export const useFetchChatMessagesQuery = (
     {
       onSuccess,
       enabled: Boolean(zambdaClient && numbersToSendTo?.length && timezone),
-    }
+    },
   );
 };
 
@@ -30,7 +30,7 @@ export const useSendMessagesMutation = (
   recipients: SMSRecipient[],
   message: string,
   onSuccess: (data: MessageModel) => void,
-  onError: (error: any) => void
+  onError: (error: any) => void,
 ) => {
   const messagingClient = useMessagingClient();
   return useMutation(
@@ -45,7 +45,7 @@ export const useSendMessagesMutation = (
             message,
             resource: `RelatedPerson/${recip.relatedPersonId}`,
             phoneNumber: recip.smsNumber,
-          })
+          }),
       );
       const outputs = await Promise.allSettled(messageSends);
       const firstSuccess = outputs.find((result) => {
@@ -72,6 +72,6 @@ export const useSendMessagesMutation = (
         }
       }
     },
-    { onSuccess, onError }
+    { onSuccess, onError },
   );
 };

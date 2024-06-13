@@ -10,7 +10,7 @@ describe('ScrollToTop', () => {
     const wrapper = render(
       <MemoryRouter initialEntries={['/']}>
         <ScrollToTop />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     expect(wrapper).toBeTruthy();
@@ -30,7 +30,7 @@ describe('ScrollToTop', () => {
     render(
       <MemoryRouter initialEntries={['/new-path']}>
         <ScrollToTop />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     await waitFor(() => expect(window.pageYOffset).toBe(0));

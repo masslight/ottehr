@@ -5,7 +5,7 @@ import { PersonSex } from '../../types';
 
 // Note that this file is copied from BH and needs significant changes
 export function validateCreateAppointmentParams(
-  input: ZambdaInput
+  input: ZambdaInput,
 ): RequiredAllProps<CreateAppointmentUCTelemedParams> & { secrets: Secrets | null } {
   console.group('validateRequestParameters');
 
@@ -35,7 +35,7 @@ export function validateCreateAppointmentParams(
     patient.emailUser === ''
   ) {
     throw new Error(
-      'These fields are required and may not be empty: "patient.firstName", "patient.lastName", "patient.sex", "patient.dateOfBirth", "patient.email", "patient.emailUser"'
+      'These fields are required and may not be empty: "patient.firstName", "patient.lastName", "patient.sex", "patient.dateOfBirth", "patient.email", "patient.emailUser"',
     );
   }
 
@@ -51,7 +51,7 @@ export function validateCreateAppointmentParams(
   const patientUser = ['Patient', 'Parent/Guardian'];
   if (!patientUser.includes(patient.emailUser)) {
     throw new Error(
-      `"patient.emailUser" must be one of the following values: ${JSON.stringify(Object.values(patientUser))}`
+      `"patient.emailUser" must be one of the following values: ${JSON.stringify(Object.values(patientUser))}`,
     );
   }
 

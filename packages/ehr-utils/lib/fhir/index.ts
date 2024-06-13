@@ -13,7 +13,7 @@ export function getLastName(individual: Patient | Practitioner | RelatedPerson |
 }
 
 export const getFullestAvailableName = (
-  individual: Patient | Practitioner | RelatedPerson | Person
+  individual: Patient | Practitioner | RelatedPerson | Person,
 ): string | undefined => {
   const firstName = getFirstName(individual);
   const lastName = getLastName(individual);
@@ -91,7 +91,7 @@ export function getPatchBinary(input: GetPatchBinaryInput): BatchInputRequest {
 
 export async function getRelatedPersonsForPhoneNumber(
   phoneNumber: string,
-  fhirClient: FhirClient
+  fhirClient: FhirClient,
 ): Promise<RelatedPerson[] | undefined> {
   const resources: RelatedPerson[] = await fhirClient.searchResources<RelatedPerson>({
     resourceType: 'RelatedPerson',

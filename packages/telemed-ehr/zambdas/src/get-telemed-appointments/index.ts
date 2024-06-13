@@ -56,7 +56,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 export const performEffect = async (
   params: GetTelemedAppointmentsInput,
   fhirClient: FhirClient,
-  appClient: AppClient
+  appClient: AppClient,
 ): Promise<GetTelemedAppointmentsResponse> => {
   const { statusesFilter } = params;
   const virtualLocationsMap = await getAllVirtualLocationsMap(fhirClient);
@@ -141,7 +141,7 @@ export const calculateEstimatedTimeForLocations = async (
   allPackages: AppointmentPackage[],
   virtualLocationsMap: LocationIdToAbbreviationMap,
   statusesFilter: TelemedCallStatuses[],
-  estimatedDeltaMinutes: number
+  estimatedDeltaMinutes: number,
 ): Promise<EstimatedTimeToLocationIdMap> => {
   if (!statusesFilter.includes('ready')) return {};
 
@@ -149,7 +149,7 @@ export const calculateEstimatedTimeForLocations = async (
   const locationsIdsGroups = groupAppointmentsLocations(
     readyStatusPackages,
     virtualLocationsMap,
-    sameEstimatedTimeStatesGroups
+    sameEstimatedTimeStatesGroups,
   );
   const oldestAppointments = await getOldestAppointmentForEachLocationsGroup(fhirClient, locationsIdsGroups);
   const locationToAppointmentMap = mapAppointmentToLocationId(oldestAppointments);

@@ -38,7 +38,7 @@ export const DiagnosesContainer: FC = () => {
             });
           }
         },
-      }
+      },
     );
     setPartialChartData({ diagnosis: [...diagnoses, preparedValue] });
   };
@@ -63,7 +63,7 @@ export const DiagnosesContainer: FC = () => {
         });
 
         localDiagnoses = localDiagnoses.map((item) =>
-          item.resourceId === otherDiagnosis.resourceId ? otherDiagnosis : item
+          item.resourceId === otherDiagnosis.resourceId ? otherDiagnosis : item,
         );
       }
     }

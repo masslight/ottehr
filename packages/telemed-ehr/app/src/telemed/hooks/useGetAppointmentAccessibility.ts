@@ -14,6 +14,6 @@ export const useGetAppointmentAccessibility = (): GetAppointmentAccessibilityDat
 
   return useMemo(
     () => getAppointmentAccessibilityData({ location, encounter, appointment, user }),
-    [location, encounter, appointment, user]
+    [location, encounter, appointment, user],
   );
 };

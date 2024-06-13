@@ -16,7 +16,7 @@ export const useGetTelemedAppointments = (
   }: {
     apiClient: ZapEHRTelemedAPIClient | null;
   } & GetAppointmentsRequestParams,
-  onSuccess: (data: PromiseReturnType<ReturnType<ZapEHRTelemedAPIClient['getTelemedAppointments']>>) => void
+  onSuccess: (data: PromiseReturnType<ReturnType<ZapEHRTelemedAPIClient['getTelemedAppointments']>>) => void,
 ) => {
   return useQuery(
     ['telemed-appointments', { apiClient, stateFilter, dateFilter, patientFilter, statusesFilter }],
@@ -37,7 +37,7 @@ export const useGetTelemedAppointments = (
       onError: (err) => {
         console.error('Error during fetching get telemed appointments: ', err);
       },
-    }
+    },
   );
 };
 

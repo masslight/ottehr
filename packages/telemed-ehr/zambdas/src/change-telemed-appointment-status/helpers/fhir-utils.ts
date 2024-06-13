@@ -5,7 +5,7 @@ import { getVideoRoomResourceExtension } from '../../shared/helpers';
 
 export const getVideoResources = async (
   fhirClient: FhirClient,
-  appointmentId: string
+  appointmentId: string,
 ): Promise<AppointmentPackage | undefined> => {
   //
   // Attempting to get three items: Encounter, Appointment and charge Item

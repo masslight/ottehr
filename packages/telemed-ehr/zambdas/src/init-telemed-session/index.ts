@@ -43,7 +43,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       fhirClient,
       userId,
       secrets,
-      appClient
+      appClient,
     );
     console.log(`Encounter for video room id: ${encounterResource.id}`);
 
@@ -95,7 +95,7 @@ async function getAppointmentWithEncounters({
   const encounters = resources.filter(
     (resourceTemp) =>
       resourceTemp.resourceType === 'Encounter' &&
-      (resourceTemp as Encounter).appointment?.[0].reference === `Appointment/${fhirAppointment.id}`
+      (resourceTemp as Encounter).appointment?.[0].reference === `Appointment/${fhirAppointment.id}`,
   ) as Encounter[];
   return { appointment: fhirAppointment, encounters };
 }
@@ -103,7 +103,7 @@ async function getAppointmentWithEncounters({
 const execJoinVideoRoomRequest = async (
   secrets: Secrets | null,
   encounterId: Encounter['id'],
-  userToken: string
+  userToken: string,
 ): Promise<MeetingData> => {
   /** HINT: for this request to work - user should have the role with access policy rules as described in
    * https://docs.zapehr.com/reference/get_telemed-token
@@ -116,7 +116,7 @@ const execJoinVideoRoomRequest = async (
         Authorization: `Bearer ${userToken}`,
       },
       method: 'GET',
-    }
+    },
   );
   if (!response.ok) {
     throw new Error(`Getting telemed token call failed: ${response.statusText}`);

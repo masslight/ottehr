@@ -51,7 +51,7 @@ export type ZapEHRTelemedAPIClient = ReturnType<typeof getZapEHRTelemedAPI>;
 
 export const getZapEHRTelemedAPI = (
   params: GetZapEHRTelemedAPIParams,
-  zambdaClient: ZambdaClient
+  zambdaClient: ZambdaClient,
 ): {
   getTelemedAppointments: typeof getTelemedAppointments;
   initTelemedSession: typeof initTelemedSession;
@@ -94,7 +94,7 @@ export const getZapEHRTelemedAPI = (
 
   const verifyZambdaProvidedAndNotLocalThrowErrorOtherwise = (
     zambdaID: string | undefined,
-    zambdaName: keyof typeof zambdasToIdsMap
+    zambdaName: keyof typeof zambdasToIdsMap,
   ): zambdaID is Exclude<typeof zambdaID, undefined> => {
     if (zambdaID === undefined || !isAppLocalProvided) {
       throw new Error(`${zambdaName} zambda environment variable could not be loaded`);
@@ -109,7 +109,7 @@ export const getZapEHRTelemedAPI = (
   const makeZapRequest = async <TResponse, TPayload>(
     zambdaName: keyof typeof ZambdaNames,
     payload?: TPayload,
-    additionalErrorHandler?: (error: unknown) => void
+    additionalErrorHandler?: (error: unknown) => void,
   ): Promise<TResponse> => {
     const zambdaId = zambdasToIdsMap[zambdaName];
 
@@ -142,13 +142,13 @@ export const getZapEHRTelemedAPI = (
   };
 
   const getTelemedAppointments = async (
-    parameters: GetAppointmentsRequestParams
+    parameters: GetAppointmentsRequestParams,
   ): Promise<GetTelemedAppointmentsResponse> => {
     return await makeZapRequest('get telemed appointments', parameters, NotFoundApointmentErrorHandler);
   };
 
   const initTelemedSession = async (
-    parameters: InitTelemedSessionRequestParams
+    parameters: InitTelemedSessionRequestParams,
   ): Promise<InitTelemedSessionResponse> => {
     return await makeZapRequest('init telemed session', parameters);
   };
@@ -166,7 +166,7 @@ export const getZapEHRTelemedAPI = (
   };
 
   const changeTelemedAppointmentStatus = async (
-    parameters: Omit<ChangeTelemedAppointmentStatusInput, 'secrets'>
+    parameters: Omit<ChangeTelemedAppointmentStatusInput, 'secrets'>,
   ): Promise<ChangeTelemedAppointmentStatusResponse> => {
     return await makeZapRequest('change telemed appointment status', parameters);
   };

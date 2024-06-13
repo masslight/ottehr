@@ -43,7 +43,7 @@ export const KnownAllergiesProviderColumn: FC = () => {
       console.log(data);
       setDebouncedSearchTerm(data);
     }, 800),
-    []
+    [],
   );
 
   const handleSubmitWrapper = (data: { value: AllergiesSearchResponse['allergens'][number] | null }): void => {

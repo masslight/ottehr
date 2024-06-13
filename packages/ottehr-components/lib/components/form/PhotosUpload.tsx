@@ -29,7 +29,7 @@ export const PhotosUpload: FC<PatientPhotoUploadProps> = ({ name, label, default
         }
         return prev;
       },
-      {} as Record<string, string>
+      {} as Record<string, string>,
     );
   });
 

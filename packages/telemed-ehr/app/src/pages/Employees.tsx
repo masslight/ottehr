@@ -54,7 +54,7 @@ export default function EmployeesPage(): ReactElement {
         setEmployees(response?.employees ?? []);
       },
       enabled: !!zambdaClient,
-    }
+    },
   );
 
   return (
@@ -118,7 +118,7 @@ function EmployeesTable({ employees, isProviderLayout }: EmployeesTableProps): R
           lastLoginFilter
         );
       }),
-    [employees, searchText, isProviderLayout, selectedState, lastLoginFilterChecked]
+    [employees, searchText, isProviderLayout, selectedState, lastLoginFilterChecked],
   );
 
   // For pagination, only include the rows that are on the current page
@@ -126,9 +126,9 @@ function EmployeesTable({ employees, isProviderLayout }: EmployeesTableProps): R
     () =>
       filteredEmployees.slice(
         pageNumber * rowsPerPage, // skip over the rows from previous pages
-        (pageNumber + 1) * rowsPerPage // only show the rows from the current page
+        (pageNumber + 1) * rowsPerPage, // only show the rows from the current page
       ),
-    [filteredEmployees, pageNumber, rowsPerPage]
+    [filteredEmployees, pageNumber, rowsPerPage],
   );
 
   // Handle pagination

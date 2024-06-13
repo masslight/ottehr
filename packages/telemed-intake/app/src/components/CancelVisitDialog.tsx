@@ -48,7 +48,7 @@ export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose }) => {
         onError: (error) => {
           safelyCaptureException(error);
         },
-      }
+      },
     );
 
     handleClose();

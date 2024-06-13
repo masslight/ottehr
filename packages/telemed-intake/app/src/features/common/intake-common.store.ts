@@ -17,6 +17,6 @@ export const useIntakeCommonStore = create<IntakeCommonState>()(
     }),
     {
       name: 'telemed-intake-common-storage',
-    }
-  )
+    },
+  ),
 );

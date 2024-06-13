@@ -75,7 +75,7 @@ export function getTimezone(location: Location | undefined): string {
   let timezone = 'America/New_York';
   if (location) {
     const timezoneTemp = location.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
+      (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone',
     )?.valueString;
     if (timezoneTemp) timezone = timezoneTemp;
   }

@@ -84,7 +84,7 @@ const EditPatientDialog = ({ modalOpen, onClose }: EditPatientDialogProps): Reac
             });
             onClose();
           },
-        }
+        },
       );
     } catch (error) {
       setError(true);

@@ -16,7 +16,7 @@ export function updateResourceRequest(resource: FhirResource): BatchInputPutRequ
 
 export async function getEncounterAndRelatedResources(
   fhirClient: FhirClient,
-  encounterId: string
+  encounterId: string,
 ): Promise<Resource[]> {
   return await fhirClient.searchResources({
     resourceType: 'Encounter',

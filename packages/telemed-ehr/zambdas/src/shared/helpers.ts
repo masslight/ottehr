@@ -56,7 +56,7 @@ export async function updateApptAndEncounterStatus(
   fhirClient: FhirClient,
   appointmentId: string,
   appointmentStatus: string,
-  encounterStatus: string
+  encounterStatus: string,
 ): Promise<void> {
   let arrivedIdx = 0;
   await fhirClient.patchResource({
@@ -172,7 +172,7 @@ export const getRelatedPersonsFromResourceList = (resources: Resource[]): Record
       }
       return accum;
     },
-    mapToReturn
+    mapToReturn,
   );
 };
 
@@ -212,7 +212,7 @@ export const getCurrentTimeDifference = (startDateTime: string): number =>
 
 export const getDurationOfStatus = (
   statusEntry: VisitStatusHistoryEntry,
-  appointment: UCAppointmentInformation
+  appointment: UCAppointmentInformation,
 ): number => {
   const { label, period } = statusEntry;
   const { start, visitStatusHistory } = appointment;

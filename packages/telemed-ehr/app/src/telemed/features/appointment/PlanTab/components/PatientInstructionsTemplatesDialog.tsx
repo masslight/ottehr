@@ -42,7 +42,7 @@ export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (p
         onSuccess: () => {
           void queryClient.invalidateQueries({ queryKey: ['telemed-get-patient-instructions'] });
         },
-      }
+      },
     );
     setPatientInstructions((prevState) => prevState.filter((instruction) => instruction.resourceId !== id));
   };

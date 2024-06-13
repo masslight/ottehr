@@ -1,7 +1,7 @@
 export async function createPresignedUrl(
   token: string,
   baseUploadURL: string,
-  action: 'upload' | 'download'
+  action: 'upload' | 'download',
 ): Promise<string> {
   const presignedURLRequest = await fetch(baseUploadURL, {
     method: 'POST',

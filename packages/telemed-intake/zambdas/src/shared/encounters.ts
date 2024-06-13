@@ -18,7 +18,7 @@ interface EncounterDetails {
 
 export const getVideoEncounterForAppointment = async (
   appointmentID: string,
-  fhirClient: FhirClient
+  fhirClient: FhirClient,
 ): Promise<Encounter | undefined> => {
   let encounter: Encounter | undefined = undefined;
 
@@ -33,7 +33,7 @@ export const getVideoEncounterForAppointment = async (
   });
 
   encounter = (encounters ?? []).find((encounterTemp) =>
-    Boolean(getVirtualServiceResourceExtension(encounterTemp, TELEMED_VIDEO_ROOM_CODE))
+    Boolean(getVirtualServiceResourceExtension(encounterTemp, TELEMED_VIDEO_ROOM_CODE)),
   );
   return encounter;
 };

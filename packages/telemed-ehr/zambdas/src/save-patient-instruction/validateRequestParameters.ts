@@ -2,7 +2,7 @@ import { ZambdaInput } from '../types';
 import { SavePatientInstructionInput } from 'ehr-utils';
 
 export function validateRequestParameters(
-  input: ZambdaInput
+  input: ZambdaInput,
 ): SavePatientInstructionInput & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {
     throw new Error('No request body provided');

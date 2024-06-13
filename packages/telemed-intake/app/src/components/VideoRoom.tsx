@@ -28,7 +28,8 @@ export const VideoRoom: FC = () => {
   const participants = useMemo<Participant[]>(() => {
     return Object.keys(roster)
       .filter(
-        (participantId) => (videoCallState.meetingData?.Attendee as { AttendeeId: string }).AttendeeId !== participantId
+        (participantId) =>
+          (videoCallState.meetingData?.Attendee as { AttendeeId: string }).AttendeeId !== participantId,
       )
       .map((participantId) => ({
         ...roster[participantId],

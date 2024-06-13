@@ -53,7 +53,7 @@ export default function LocationsPage(): ReactElement {
   const [searchText, setSearchText] = React.useState('');
   const filteredLocations = React.useMemo(() => {
     const filtered = locations.filter(
-      (location) => location.name && location.name.toLowerCase().includes(searchText.toLowerCase())
+      (location) => location.name && location.name.toLowerCase().includes(searchText.toLowerCase()),
     );
 
     const combinedLocations = filtered.map((location) => ({
@@ -71,9 +71,9 @@ export default function LocationsPage(): ReactElement {
     () =>
       filteredLocations.slice(
         pageNumber * rowsPerPage, // skip over the rows from previous pages
-        (pageNumber + 1) * rowsPerPage // only show the rows from the current page
+        (pageNumber + 1) * rowsPerPage, // only show the rows from the current page
       ),
-    [pageNumber, filteredLocations, rowsPerPage]
+    [pageNumber, filteredLocations, rowsPerPage],
   );
 
   const handleChangePage = (event: unknown, newPageNumber: number): void => {
@@ -112,7 +112,7 @@ export default function LocationsPage(): ReactElement {
       const endDate = DateTime.fromFormat(closure.end, OVERRIDE_DATE_FORMAT);
       if (startDate >= today || endDate >= today) {
         closureDates.push(
-          `${startDate.toFormat(SCHEDULE_CHANGES_FORMAT)} - ${endDate.toFormat(SCHEDULE_CHANGES_FORMAT)}`
+          `${startDate.toFormat(SCHEDULE_CHANGES_FORMAT)} - ${endDate.toFormat(SCHEDULE_CHANGES_FORMAT)}`,
         );
       }
     }
@@ -122,7 +122,7 @@ export default function LocationsPage(): ReactElement {
   function getLocationOverrideInformation(location: Location): string | undefined {
     const extensionTemp = location.extension;
     const extensionSchedule = extensionTemp?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule'
+      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule',
     )?.valueString;
 
     if (extensionSchedule) {
@@ -158,7 +158,7 @@ export default function LocationsPage(): ReactElement {
     }
     const scheduleObject = JSON.parse(
       location?.extension?.find((ext) => ext.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule')
-        ?.valueString ?? ''
+        ?.valueString ?? '',
     );
     const scheduleOverrides = scheduleObject.scheduleOverrides;
     if (scheduleObject.scheduleOverrides) {
@@ -169,11 +169,11 @@ export default function LocationsPage(): ReactElement {
           if (date === todayDate) {
             if (time === 'open') {
               return DateTime.fromFormat(scheduleOverrides[dateKey].open.toString(), 'H').toLocaleString(
-                DateTime.TIME_SIMPLE
+                DateTime.TIME_SIMPLE,
               );
             } else {
               return DateTime.fromFormat(scheduleOverrides[dateKey].close.toString(), 'H').toLocaleString(
-                DateTime.TIME_SIMPLE
+                DateTime.TIME_SIMPLE,
               );
             }
           }

@@ -2596,10 +2596,13 @@ export const rashesFields = examObservationFieldsDetailsArray
   .filter((details) => details.card === 'skin' && details.group === 'form')
   .map((details) => details.field);
 
-export const rashesOptions = rashesFields.reduce((previousValue, currentValue) => {
-  previousValue[currentValue] = ExamObservationFieldsDetails[currentValue].label;
-  return previousValue;
-}, {} as Record<ExamFieldsNames, string>);
+export const rashesOptions = rashesFields.reduce(
+  (previousValue, currentValue) => {
+    previousValue[currentValue] = ExamObservationFieldsDetails[currentValue].label;
+    return previousValue;
+  },
+  {} as Record<ExamFieldsNames, string>,
+);
 
 export const parseRashesFieldToName = (fieldName: string, fields: ExamObservationDTO[]): string => {
   const resultArr: string[] = [];

@@ -86,13 +86,13 @@ export default function PatientInformationPage(): JSX.Element {
       const appointmentsTemp: Appointment[] = resourcesTemp.filter(
         (resource) =>
           resource.resourceType === 'Appointment' &&
-          resource.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.UC || tag.code === OTTEHR_MODULE.TM)
+          resource.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.UC || tag.code === OTTEHR_MODULE.TM),
       ) as Appointment[];
       const locations: Location[] = resourcesTemp.filter(
-        (resource) => resource.resourceType === 'Location'
+        (resource) => resource.resourceType === 'Location',
       ) as Location[];
       const relatedPersonTemp: RelatedPerson = resourcesTemp.find(
-        (resource) => resource.resourceType === 'RelatedPerson'
+        (resource) => resource.resourceType === 'RelatedPerson',
       ) as RelatedPerson;
 
       appointmentsTemp.sort((a, b) => {

@@ -15,7 +15,7 @@ export const createVideoRoom = async (
   fhirClient: FhirClient,
   userId: User['id'],
   secrets: Secrets | null,
-  appClient: AppClient
+  appClient: AppClient,
 ): Promise<CreateTelemedVideoRoomResponse['encounter']> => {
   const patientId = getPatientFromAppointment(appointment);
   if (!patientId) {
@@ -33,7 +33,7 @@ export const createVideoRoom = async (
 
 const execCreateVideoRoomRequest = async (
   secrets: Secrets | null,
-  encounter: Encounter
+  encounter: Encounter,
 ): Promise<CreateTelemedVideoRoomResponse['encounter']> => {
   const token = await getAuth0Token(secrets);
   const response = await fetch(`${getSecret(SecretsKeys.PROJECT_API, secrets)}/telemed/v2/meeting`, {
@@ -54,7 +54,7 @@ const updateVideoRoomEncounter = (
   encounter: Encounter,
   practitionerId: string,
   relatedPerson?: RelatedPerson,
-  startTime: DateTime = DateTime.now()
+  startTime: DateTime = DateTime.now(),
 ): Encounter => {
   encounter.status = 'in-progress';
   const startTimeIso = startTime.toUTC().toISO()!;

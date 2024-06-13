@@ -69,7 +69,7 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
             });
           }
         },
-      }
+      },
     );
     onClose();
   };

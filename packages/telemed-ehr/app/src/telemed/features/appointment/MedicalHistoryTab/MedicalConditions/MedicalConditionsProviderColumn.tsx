@@ -30,7 +30,7 @@ export const MedicalConditionsProviderColumn: FC = () => {
       console.log(data);
       setDebouncedSearchTerm(data);
     }, 800),
-    []
+    [],
   );
 
   const handleSubmitWrapper = (data: { value: IcdSearchResponse['codes'][number] | null }): void => {

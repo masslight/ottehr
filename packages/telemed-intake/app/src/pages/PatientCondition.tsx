@@ -116,7 +116,7 @@ const PatientCondition: FC = () => {
       allFileKeys,
       navigate,
       nextPage?.slug,
-    ]
+    ],
   );
   const mapQuestionsToFormInputFields = useMapQuestionsToFormInputFields({
     getLabel: (item) => item.text.replace('{patientFirstName}', patientInfo?.firstName || 'Patient'),
@@ -136,7 +136,7 @@ const PatientCondition: FC = () => {
             prev[curr.name] = curr.uploadFailed;
             return prev;
           },
-          {} as Record<string, boolean>
+          {} as Record<string, boolean>,
         ),
       resetUploadFailed: (fileType: string) =>
         setFileUploads((prev) => ({
@@ -164,7 +164,7 @@ const PatientCondition: FC = () => {
     (formValues: FieldValues): void => {
       patchCompletedPaperwork(filterObject(formValues, (key) => !allFileKeys.includes(key)));
     },
-    [allFileKeys, patchCompletedPaperwork]
+    [allFileKeys, patchCompletedPaperwork],
   );
 
   const formElements = useMemo(() => mapQuestionsToFormInputFields(items), [mapQuestionsToFormInputFields, items]);
@@ -183,7 +183,7 @@ const PatientCondition: FC = () => {
           () => ({
             loading: createZ3Object.isLoading,
           }),
-          [createZ3Object.isLoading]
+          [createZ3Object.isLoading],
         )}
       />
     </CustomContainer>

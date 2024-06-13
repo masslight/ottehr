@@ -60,7 +60,7 @@ export default function CancellationReasonDialog({
     setCancelLoading(true);
     if (!(cancellationReason && encounter && encounter.id && encounter.statusHistory)) {
       console.error(
-        'one of cancellationReason, encounter, encounter.id, or encounter.statusHistory is null or undefined'
+        'one of cancellationReason, encounter, encounter.id, or encounter.statusHistory is null or undefined',
       );
       return;
     }

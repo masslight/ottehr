@@ -40,11 +40,11 @@ export default function EditStatePage(): JSX.Element {
       onSuccess: (location) => {
         setIsOperateInStateChecked(Boolean(location && location.status === 'active'));
       },
-    }
+    },
   );
 
   const mutation = useMutation(({ location, newStatus }: { location: Location; newStatus: string }) =>
-    updateStateLocationStatus(fhirClient, location, newStatus)
+    updateStateLocationStatus(fhirClient, location, newStatus),
   );
 
   const onSwitchChange = (value: boolean): void => {
@@ -179,14 +179,14 @@ async function getStateLocation(fhirClient: FhirClient, state: StateType): Promi
   return resources.find(
     (loca) =>
       loca.extension?.find((ext) => ext.url === 'https://extensions.fhir.zapehr.com/location-form-pre-release')
-        ?.valueCoding?.code === 'vi'
+        ?.valueCoding?.code === 'vi',
   );
 }
 
 async function updateStateLocationStatus(
   fhirClient: FhirClient,
   location: Location,
-  status: string
+  status: string,
 ): Promise<Location | undefined> {
   const updatedLocation = await fhirClient.patchResource<Location>({
     resourceType: 'Location',

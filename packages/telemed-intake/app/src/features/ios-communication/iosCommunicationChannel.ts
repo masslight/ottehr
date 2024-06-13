@@ -27,7 +27,7 @@ interface IOSMessageOpenPage {
 
 // message creators
 export const createIOSMesssageCallStarted = (
-  payload: IOSMessageWWaitingRoomStatus['payload']
+  payload: IOSMessageWWaitingRoomStatus['payload'],
 ): IOSMessageWWaitingRoomStatus => ({
   type: 'CALL_STARTED',
   payload,

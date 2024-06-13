@@ -54,7 +54,7 @@ export const useMapQuestionsToFormInputFields = ({
             },
           },
         })),
-    [getLabel, getDefaultValue, getFileOptions, theme.palette.text.primary, theme.typography.body2]
+    [getLabel, getDefaultValue, getFileOptions, theme.palette.text.primary, theme.typography.body2],
   );
 
   return mapQuestionsToFormInputFields;

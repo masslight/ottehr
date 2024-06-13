@@ -31,7 +31,7 @@ export enum UnsignedFor {
 export const filterAppointments = (
   appointments: TelemedAppointmentInformation[],
   unsignedFor: UnsignedFor,
-  tab: ApptTab
+  tab: ApptTab,
 ): TelemedAppointmentInformation[] => {
   if (tab !== ApptTab['not-signed']) {
     return appointments;
@@ -50,17 +50,18 @@ export const filterAppointments = (
   switch (unsignedFor) {
     case UnsignedFor.under12:
       return appointments.filter(
-        (appointment) => DateTime.fromISO(getUnsignedTime(appointment.telemedStatusHistory)) > now.minus({ hours: 12 })
+        (appointment) => DateTime.fromISO(getUnsignedTime(appointment.telemedStatusHistory)) > now.minus({ hours: 12 }),
       );
     case UnsignedFor['12to24']:
       return appointments.filter(
         (appointment) =>
           DateTime.fromISO(getUnsignedTime(appointment.telemedStatusHistory)) < now.minus({ hours: 12 }) &&
-          DateTime.fromISO(getUnsignedTime(appointment.telemedStatusHistory)) >= now.minus({ hours: 24 })
+          DateTime.fromISO(getUnsignedTime(appointment.telemedStatusHistory)) >= now.minus({ hours: 24 }),
       );
     case UnsignedFor.more24:
       return appointments.filter(
-        (appointment) => DateTime.fromISO(getUnsignedTime(appointment.telemedStatusHistory)) <= now.minus({ hours: 24 })
+        (appointment) =>
+          DateTime.fromISO(getUnsignedTime(appointment.telemedStatusHistory)) <= now.minus({ hours: 24 }),
       );
     default:
       return appointments;

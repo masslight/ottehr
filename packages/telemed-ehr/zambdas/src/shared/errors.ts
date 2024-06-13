@@ -32,12 +32,12 @@ const sendErrors = async (zambda: string, error: any, secrets: Secrets | null): 
       [email],
       email,
       ENVIRONMENT,
-      errorMessage
+      errorMessage,
     );
     console.log(
       `Details of successful sendgrid send: statusCode, ${sendResult[0].statusCode}. body, ${JSON.stringify(
-        sendResult[0].body
-      )}`
+        sendResult[0].body,
+      )}`,
     );
   } catch (error) {
     console.error(`Error sending email to ${email}: ${JSON.stringify(error)}`);
@@ -47,10 +47,7 @@ const sendErrors = async (zambda: string, error: any, secrets: Secrets | null): 
 };
 
 export const sendSlackNotification = async (message: string, env: string): Promise<void> => {
-  const url =
-    env === 'production'
-      ? 'https://hooks.slack.com/services/todo'
-      : 'https://hooks.slack.com/services/todo';
+  const url = env === 'production' ? 'https://hooks.slack.com/services/todo' : 'https://hooks.slack.com/services/todo';
 
   await fetch(url, {
     method: 'POST',
@@ -67,7 +64,7 @@ export const sendgridEmail = async (
   toEmail: string[],
   fromEmail: string,
   env: string,
-  message: string
+  message: string,
 ): Promise<[ClientResponse, unknown]> => {
   const SENDGRID_API_KEY = getSecret(SecretsKeys.SENDGRID_API_KEY, secrets);
   sendgrid.setApiKey(SENDGRID_API_KEY);

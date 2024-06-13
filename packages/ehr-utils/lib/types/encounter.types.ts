@@ -20,7 +20,7 @@ export interface OtherParitipantExtension extends Extension {
         reference: string;
         display: string;
       };
-    }
+    },
   ];
 }
 
@@ -38,6 +38,6 @@ export interface EncounterVirtualServiceExtension {
     {
       url: 'addressString';
       valueString: string;
-    }
+    },
   ];
 }

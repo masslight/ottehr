@@ -45,11 +45,11 @@ export const VitalsComponent: FC<VitalsComponentProps> = (props) => {
             onSuccess: () => {
               updateQuestionnaireResponse(questionnaireResponse, name, value[name] || 'N/A');
             },
-          }
+          },
         );
       });
     },
-    [questionnaireResponse, debounce, mutate, appointment, name]
+    [questionnaireResponse, debounce, mutate, appointment, name],
   );
 
   useEffect(() => {

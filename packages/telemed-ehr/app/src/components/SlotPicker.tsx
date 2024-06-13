@@ -37,7 +37,7 @@ const TabPanel = (props: TabPanelProps): JSX.Element => {
 };
 
 const tabProps = (
-  index: number
+  index: number,
 ): {
   id: string;
   'aria-controls': string;
@@ -87,16 +87,19 @@ const SlotPicker = ({
       const slots = [...slotData];
 
       // This maps days to an array of slots
-      const map: { [ord: number]: string[] } = slots.reduce((accumulator, current) => {
-        const dateOfCurrent = DateTime.fromISO(current, { zone: timezone });
-        const existing = accumulator[dateOfCurrent.ordinal];
-        if (existing) {
-          existing.push(current);
-        } else {
-          accumulator[dateOfCurrent.ordinal] = [current];
-        }
-        return accumulator;
-      }, {} as { [ord: number]: string[] });
+      const map: { [ord: number]: string[] } = slots.reduce(
+        (accumulator, current) => {
+          const dateOfCurrent = DateTime.fromISO(current, { zone: timezone });
+          const existing = accumulator[dateOfCurrent.ordinal];
+          if (existing) {
+            existing.push(current);
+          } else {
+            accumulator[dateOfCurrent.ordinal] = [current];
+          }
+          return accumulator;
+        },
+        {} as { [ord: number]: string[] },
+      );
 
       return [slots, map];
     }
@@ -162,7 +165,7 @@ const SlotPicker = ({
       }
       return daySlotsMap[date.ordinal] ?? [];
     },
-    [daySlotsMap]
+    [daySlotsMap],
   );
 
   const slotsExist = getSlotsForDate(firstAvailableDay).length > 0 || getSlotsForDate(secondAvailableDay).length > 0;

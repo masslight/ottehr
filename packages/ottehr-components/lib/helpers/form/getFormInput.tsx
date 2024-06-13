@@ -66,7 +66,7 @@ export const getFormInputField = (
   formInput: FormInputTypeField,
   values: FieldValues,
   methods: any,
-  overrideValues?: OverrideValues
+  overrideValues?: OverrideValues,
 ): ReactElement => {
   return (
     <Grid item xs={12} md={formInput.width} key={formInput.name}>
@@ -175,7 +175,7 @@ export const getFormInputField = (
                 required={formInput.required}
                 defaultValue={formInput.defaultValue as string[]}
                 options={formInput.freeSelectOptions.map((option) =>
-                  typeof option === 'object' ? option.value : option
+                  typeof option === 'object' ? option.value : option,
                 )}
               />
             );

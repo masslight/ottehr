@@ -4,13 +4,13 @@ export async function postPaymentMethodSetupRequest(
   apiUrl: string,
   token: string,
   beneficiaryPatientId: string,
-  payorProfile: string
+  payorProfile: string,
 ): Promise<any> {
   const serviceUrl = `${apiUrl}/payment/payment-method/setup`;
   const payorPatientId = payorProfile.replace('Patient/', '');
 
   console.debug(
-    `Posting to payment setup service at ${serviceUrl} for beneficiary patient ${beneficiaryPatientId} and payor ${payorPatientId}`
+    `Posting to payment setup service at ${serviceUrl} for beneficiary patient ${beneficiaryPatientId} and payor ${payorPatientId}`,
   );
 
   return fetch(serviceUrl, {
@@ -33,13 +33,13 @@ export async function postPaymentMethodSetDefaultRequest(
   token: string,
   beneficiaryPatientId: string,
   payorProfile: string,
-  paymentMethodId: string
+  paymentMethodId: string,
 ): Promise<any> {
   const serviceUrl = `${apiUrl}/payment/payment-method/set-default`;
   const payorPatientId = payorProfile.replace('Patient/', '');
 
   console.debug(
-    `Posting to payment set-default service at ${serviceUrl} for beneficiary patient ${beneficiaryPatientId} and payor ${payorPatientId}`
+    `Posting to payment set-default service at ${serviceUrl} for beneficiary patient ${beneficiaryPatientId} and payor ${payorPatientId}`,
   );
 
   return fetch(serviceUrl, {
@@ -66,13 +66,13 @@ export async function deletePaymentMethodRequest(
   token: string,
   beneficiaryPatientId: string,
   payorProfile: string,
-  paymentMethodId: string
+  paymentMethodId: string,
 ): Promise<any> {
   const serviceUrl = `${apiUrl}/payment/payment-method`;
   const payorPatientId = payorProfile.replace('Patient/', '');
 
   console.debug(
-    `Posting to payment delete service at ${serviceUrl} for beneficiary patient ${beneficiaryPatientId} and payor ${payorPatientId}`
+    `Posting to payment delete service at ${serviceUrl} for beneficiary patient ${beneficiaryPatientId} and payor ${payorPatientId}`,
   );
 
   return fetch(serviceUrl, {
@@ -98,13 +98,13 @@ export async function postPaymentMethodListRequest(
   apiUrl: string,
   token: string,
   beneficiaryPatientId: string,
-  payorProfile: string
+  payorProfile: string,
 ): Promise<any> {
   const serviceUrl = `${apiUrl}/payment/payment-method/list`;
   const payorPatientId = payorProfile.replace('Patient/', '');
 
   console.debug(
-    `Posting to payment method list service at ${serviceUrl} for beneficiary patient ${beneficiaryPatientId} and payor ${payorPatientId}`
+    `Posting to payment method list service at ${serviceUrl} for beneficiary patient ${beneficiaryPatientId} and payor ${payorPatientId}`,
   );
 
   return fetch(serviceUrl, {

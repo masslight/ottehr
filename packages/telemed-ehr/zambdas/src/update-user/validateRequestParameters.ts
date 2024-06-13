@@ -21,7 +21,7 @@ export function validateRequestParameters(input: ZambdaInput): UpdateUserInput {
     for (const role of selectedRoles) {
       if (!Object.keys(RoleType).includes(role))
         throw new Error(
-          `Invalid roles selected. Role must be one of "${Object.keys(RoleType).join('", "')}". Received "${role}"`
+          `Invalid roles selected. Role must be one of "${Object.keys(RoleType).join('", "')}". Received "${role}"`,
         );
     }
   }

@@ -33,5 +33,5 @@ root.render(
         <App />
       </Auth0Provider>
     </QueryClientProvider>
-  </StrictMode>
+  </StrictMode>,
 );

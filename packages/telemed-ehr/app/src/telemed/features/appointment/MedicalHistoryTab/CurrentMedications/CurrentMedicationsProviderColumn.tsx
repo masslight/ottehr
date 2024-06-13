@@ -27,7 +27,7 @@ export const CurrentMedicationsProviderColumn: FC = () => {
       console.log(data);
       setDebouncedSearchTerm(data);
     }, 800),
-    []
+    [],
   );
 
   const handleSubmitWrapper = (data: { value: MedicationSearchResponse['medications'][number] | null }): void => {

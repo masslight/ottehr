@@ -5,7 +5,7 @@ import { Communication } from 'fhir/r4';
 export async function getCommunicationResources(
   fhirClient: FhirClient,
   type: InstructionType,
-  ownerId: string
+  ownerId: string,
 ): Promise<Communication[]> {
   return await fhirClient.searchResources<Communication>({
     resourceType: 'Communication',

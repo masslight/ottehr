@@ -460,14 +460,14 @@ export const examFieldsMap: { [field in ExamFieldsNames]: SNOMEDCodeConceptInter
     code: createCodingCode('163133003', 'Abdomen examined - no abnormality detected (finding)'),
     bodySite: createCodingCode(
       '818983003',
-      'Structure of abdominopelvic cavity and/or content of abdominopelvic cavity and/or anterior abdominal wall (body structure)'
+      'Structure of abdominopelvic cavity and/or content of abdominopelvic cavity and/or anterior abdominal wall (body structure)',
     ),
   },
   'non-tender-on-parental-exam': {
     code: createCodingCode('297125009', 'Abdominal tenderness absent (situation)'),
     bodySite: createCodingCode(
       '818983003',
-      'Structure of abdominopelvic cavity and/or content of abdominopelvic cavity and/or anterior abdominal wall (body structure)'
+      'Structure of abdominopelvic cavity and/or content of abdominopelvic cavity and/or anterior abdominal wall (body structure)',
     ),
   },
   'able-to-jump-up-down-without-abdominal-pain': {

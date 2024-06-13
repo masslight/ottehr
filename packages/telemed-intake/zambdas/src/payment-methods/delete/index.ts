@@ -51,7 +51,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       zapehrM2MClientToken,
       beneficiaryPatientId,
       user.profile,
-      paymentMethodId
+      paymentMethodId,
     );
 
     return lambdaResponse(200, response);

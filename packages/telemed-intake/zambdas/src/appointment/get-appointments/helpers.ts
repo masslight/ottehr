@@ -21,7 +21,7 @@ export function filterTelemedVideoEncounters(allResources: Resource[]): Encounte
 export async function getFhirResources(
   fhirClient: FhirClient,
   patientIDs: string[],
-  patientID?: string
+  patientID?: string,
 ): Promise<Resource[]> {
   const fhirSearchParams = {
     resourceType: 'Appointment',

@@ -66,7 +66,7 @@ export const deleteStatusHistoryRecordOp = (statusHistoryIndex: number): Operati
 export const changeStatusRecordPeriodValueOp = (
   statusHistoryIndex: number,
   periodElement: 'start' | 'end',
-  value: string
+  value: string,
 ): Operation => {
   return {
     op: 'add',

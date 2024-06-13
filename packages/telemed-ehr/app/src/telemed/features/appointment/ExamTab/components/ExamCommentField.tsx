@@ -39,7 +39,7 @@ export const ExamCommentField: FC<ExamCommentFieldProps> = (props) => {
             onSuccess: (data) => {
               data.examObservations?.forEach((exam) => useExamObservationsStore.setState({ [exam.field]: exam }));
             },
-          }
+          },
         );
       } else {
         deleteChartData(
@@ -50,7 +50,7 @@ export const ExamCommentField: FC<ExamCommentFieldProps> = (props) => {
             onSuccess: (_data) => {
               useExamObservationsStore.setState({ [name]: EXAM_OBSERVATIONS_CARDS[name] });
             },
-          }
+          },
         );
       }
     });

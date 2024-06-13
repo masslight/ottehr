@@ -21,7 +21,7 @@ export const ControlledExamCheckboxDropdown: FC<ControlledExamCheckboxDropdownPr
   const [selectedOption, setSelectedOption] = useState<ExamCheckboxDropdownOptionType | null>(
     fields
       .filter((field) => field.value === true)
-      .map((field) => options.find((option) => option.name === field.field))[0] || null
+      .map((field) => options.find((option) => option.name === field.field))[0] || null,
   );
   const [booleanValue, setBooleanValue] = useState(!!selectedOption);
 

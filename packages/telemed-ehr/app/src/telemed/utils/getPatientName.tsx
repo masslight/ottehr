@@ -1,7 +1,7 @@
 import { Patient } from 'fhir/r4';
 
 export const getPatientName = (
-  name?: Patient['name']
+  name?: Patient['name'],
 ): {
   firstName: string | undefined;
   lastName: string | undefined;

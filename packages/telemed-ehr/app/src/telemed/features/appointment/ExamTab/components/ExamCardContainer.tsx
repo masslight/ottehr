@@ -25,12 +25,12 @@ export const ExamCardContainer: FC<ExamCardContainerProps> = (props) => {
         subNodes.push(
           <ExamCell key={cellName} label={cellName}>
             {cell}
-          </ExamCell>
+          </ExamCell>,
         );
       }
 
       nodes.push(
-        subNodes.reduce((prev, curr, index) => [prev, <Divider key={index} orientation="vertical" flexItem />, curr])
+        subNodes.reduce((prev, curr, index) => [prev, <Divider key={index} orientation="vertical" flexItem />, curr]),
       );
     }
 

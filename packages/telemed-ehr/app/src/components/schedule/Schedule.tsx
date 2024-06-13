@@ -353,7 +353,7 @@ export default function Schedule({ location, setLocation }: ScheduleProps): Reac
     event.preventDefault();
     const extensionTemp = location.extension;
     const extensionSchedule = extensionTemp?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule'
+      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule',
     );
 
     try {
@@ -409,7 +409,7 @@ export default function Schedule({ location, setLocation }: ScheduleProps): Reac
 
   React.useEffect(() => {
     const scheduleExtension = location.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule'
+      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule',
     )?.valueString;
 
     if (scheduleExtension) {

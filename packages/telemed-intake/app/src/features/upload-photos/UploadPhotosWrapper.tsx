@@ -58,7 +58,7 @@ export const UploadPhotosWrapper = ({ onClose }: { onClose: () => void }): JSX.E
                 prev[curr.name] = curr.uploadFailed;
                 return prev;
               },
-              {} as Record<string, boolean>
+              {} as Record<string, boolean>,
             ),
           resetUploadFailed: (fileType: string) =>
             setFileUploads((prev) => ({
@@ -80,7 +80,7 @@ export const UploadPhotosWrapper = ({ onClose }: { onClose: () => void }): JSX.E
         },
       },
     ],
-    [fileURLs, fileUploads, requestPending]
+    [fileURLs, fileUploads, requestPending],
   );
 
   const onSubmit = useCallback(async (): Promise<void> => {
@@ -146,7 +146,7 @@ export const UploadPhotosWrapper = ({ onClose }: { onClose: () => void }): JSX.E
         onError: (error) => {
           safelyCaptureException(error);
         },
-      }
+      },
     );
   }, [fileURLs, apiClient, appointmentID, updatePaperwork, fileUploads, createZ3Object, onClose]);
   return (

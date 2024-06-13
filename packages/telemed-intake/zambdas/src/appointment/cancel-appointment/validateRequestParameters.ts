@@ -1,4 +1,8 @@
-import { CancellationReasonOptionsProviderSideTelemed, CancellationReasonOptionsTelemed, ZambdaInput } from 'ottehr-utils';
+import {
+  CancellationReasonOptionsProviderSideTelemed,
+  CancellationReasonOptionsTelemed,
+  ZambdaInput,
+} from 'ottehr-utils';
 import { CancelAppointmentInput } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): CancelAppointmentInput {
@@ -23,8 +27,8 @@ export function validateRequestParameters(input: ZambdaInput): CancelAppointment
     throw new Error(
       `"cancellationReason" must be one of the following values: ${JSON.stringify(
         Object.values(CancellationReasonOptionsTelemed),
-        Object.values(CancellationReasonOptionsProviderSideTelemed)
-      )}`
+        Object.values(CancellationReasonOptionsProviderSideTelemed),
+      )}`,
     );
   }
 

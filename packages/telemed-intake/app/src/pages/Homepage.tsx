@@ -38,6 +38,8 @@ const Homepage = (): JSX.Element => {
     useIntakeCommonStore.setState({ supportDialogOpen: true });
   };
 
+  console.log(11);
+
   return (
     <CustomContainer
       title="Welcome to Ottehr Telemedicine"

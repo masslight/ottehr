@@ -118,7 +118,7 @@ export default function PatientsTable({
           phone: standardizePhoneNumber(
             relatedPersons
               ?.find((rp) => rp.patient.reference === `Patient/${fhirPatient.id}`)
-              ?.telecom?.find((telecom) => telecom.system === 'phone')?.value
+              ?.telecom?.find((telecom) => telecom.system === 'phone')?.value,
           ),
         });
 

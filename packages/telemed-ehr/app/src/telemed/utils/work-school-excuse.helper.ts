@@ -101,19 +101,19 @@ const mapCompositeExcuseFieldsToLabels: {
 } = {
   excusedFromWorkFromTo: (values: ExcuseFormValues) =>
     `excuse from work from ${values.excusedFromWorkFromDate!.toFormat(
-      'MM/dd/yyyy'
+      'MM/dd/yyyy',
     )} to ${values.excusedFromWorkToDate!.toFormat('MM/dd/yyyy')}`,
   excusedFromWorkOn: (values: ExcuseFormValues) =>
     `excuse from work on ${values.excusedFromWorkOnDate!.toFormat('MM/dd/yyyy')}`,
   excusedFromSchoolFromTo: (values: ExcuseFormValues) =>
     `excuse from school from ${values.excusedFromSchoolFromDate!.toFormat(
-      'MM/dd/yyyy'
+      'MM/dd/yyyy',
     )} to ${values.excusedFromSchoolToDate!.toFormat('MM/dd/yyyy')}`,
   excusedFromSchoolOn: (values: ExcuseFormValues) =>
     `excuse from school on ${values.excusedFromSchoolOnDate!.toFormat('MM/dd/yyyy')}`,
   excusedFromGymActivitiesFromTo: (values: ExcuseFormValues) =>
     `excuse from gym/activities from ${values.excusedFromGymActivitiesFromDate!.toFormat(
-      'MM/dd/yyyy'
+      'MM/dd/yyyy',
     )} to ${values.excusedFromGymActivitiesToDate!.toFormat('MM/dd/yyyy')}`,
   otherRestrictions: (values: ExcuseFormValues) => values.otherRestrictionsNote,
   other: (values: ExcuseFormValues) => values.otherNote,
@@ -173,7 +173,7 @@ export const mapValuesToExcuse = (
     patientName?: string;
     providerName?: string;
     suffix?: string;
-  }
+  },
 ): WorkSchoolNoteExcuseDocDTO => {
   const excuse: WorkSchoolNoteExcuseDocDTO = {
     type: params.isSchool ? 'school' : 'work',

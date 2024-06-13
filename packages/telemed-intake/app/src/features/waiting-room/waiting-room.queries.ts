@@ -1,12 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { ZapEHRAPIClient } from 'ottehr-components';
-import { CancelInviteParticipantRequestParameters, InviteParticipantRequestParameters, PromiseReturnType } from 'ottehr-utils';
+import {
+  CancelInviteParticipantRequestParameters,
+  InviteParticipantRequestParameters,
+  PromiseReturnType,
+} from 'ottehr-utils';
 import { useZapEHRAPIClient } from '../../utils';
 import { useAppointmentStore } from '../appointments';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetWaitStatus = (
-  onSuccess: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['getWaitStatus']>>) => void
+  onSuccess: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['getWaitStatus']>>) => void,
 ) => {
   const apiClient = useZapEHRAPIClient();
   const appointmentID = useAppointmentStore((state) => state.appointmentID);
@@ -26,7 +30,7 @@ export const useGetWaitStatus = (
       onError: (err) => {
         console.error('Error during fetching get waiting room: ', err);
       },
-    }
+    },
   );
 };
 
@@ -46,7 +50,7 @@ export const useGetVideoChatInvites = () => {
     {
       enabled: Boolean(apiClient && appointmentID),
       staleTime: 60000,
-    }
+    },
   );
 };
 

@@ -34,7 +34,7 @@ export function TrackingBoardTabs(): ReactElement {
     },
     (data) => {
       setAppointments(data.appointments);
-    }
+    },
   );
 
   useEffect(() => {

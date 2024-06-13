@@ -1,7 +1,7 @@
 import { PaymentMethodListParameters, Secrets, ZambdaInput } from 'ottehr-utils';
 
 export function validateRequestParameters(
-  input: ZambdaInput
+  input: ZambdaInput,
 ): PaymentMethodListParameters & { secrets: Secrets | null } {
   if (!input.body) {
     throw new Error('No request body provided');

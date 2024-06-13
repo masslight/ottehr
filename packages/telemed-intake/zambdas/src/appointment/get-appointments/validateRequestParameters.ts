@@ -1,7 +1,7 @@
 import { GetTelemedAppointmentsRequest, ZambdaInput } from 'ottehr-utils';
 
 export function validateRequestParameters(
-  input: ZambdaInput
+  input: ZambdaInput,
 ): GetTelemedAppointmentsRequest & Pick<ZambdaInput, 'secrets'> {
   const { patientId } = input.body ? JSON.parse(input.body) : { patientId: undefined };
 

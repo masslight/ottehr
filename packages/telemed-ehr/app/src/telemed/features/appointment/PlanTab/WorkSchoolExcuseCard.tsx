@@ -54,7 +54,7 @@ export const WorkSchoolExcuseCard: FC = () => {
             workSchoolNotes: workSchoolNotes.map((note) => (note.id === id ? { ...note, published: true } : note)),
           });
         },
-      }
+      },
     );
   };
 

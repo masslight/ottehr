@@ -5,7 +5,7 @@ import { removePrefix } from '../shared/appointment/helpers';
 export async function checkIfProvidersInstruction(
   communicationId: string,
   myPractitionerId: string,
-  fhirClient: FhirClient
+  fhirClient: FhirClient,
 ): Promise<void> {
   const resource: Communication = await fhirClient.readResource({
     resourceType: 'Communication',
@@ -21,7 +21,7 @@ export async function checkIfProvidersInstruction(
 export async function createCommunicationResource(
   text: string,
   practitionerId: string,
-  fhirClient: FhirClient
+  fhirClient: FhirClient,
 ): Promise<Communication> {
   const communicationResource: Communication = {
     resourceType: 'Communication',
@@ -39,7 +39,7 @@ export async function createCommunicationResource(
 export async function updateCommunicationResource(
   communicationId: string,
   text: string,
-  fhirClient: FhirClient
+  fhirClient: FhirClient,
 ): Promise<Communication> {
   return await fhirClient.patchResource<Communication>({
     resourceId: communicationId,

@@ -87,7 +87,7 @@ const SelectPatient = (): JSX.Element => {
                 return {
                   label: `${patient.firstName} ${patient.lastName}`,
                   description: `Birthday: ${DateTime.fromFormat(patient.dateOfBirth || '', 'yyyy-MM-dd').toFormat(
-                    'MMMM dd, yyyy'
+                    'MMMM dd, yyyy',
                   )}`,
                   value: patient.id,
                   color: otherColors.lightPurpleAlt,

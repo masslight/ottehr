@@ -21,7 +21,7 @@ export const changeStatusIfPossible = async (
   appClient: AppClient,
   resourcesToUpdate: AppointmentPackage,
   currentStatus: TelemedCallStatuses,
-  newStatus: TelemedCallStatuses
+  newStatus: TelemedCallStatuses,
 ): Promise<void> => {
   let appointmentPatchOp: Operation[] = [];
   let encounterPatchOp: Operation[] = [];
@@ -32,7 +32,7 @@ export const changeStatusIfPossible = async (
       const addPractitionerOp = await getAddPractitionerToEncounterOperation(
         fhirClient,
         appClient,
-        resourcesToUpdate.encounter
+        resourcesToUpdate.encounter,
       );
       if (addPractitionerOp) {
         encounterPatchOp.push(addPractitionerOp);
@@ -44,7 +44,7 @@ export const changeStatusIfPossible = async (
       const removePractitionerOr = await getRemovePractitionerFromEncounterOperation(
         fhirClient,
         appClient,
-        resourcesToUpdate.encounter
+        resourcesToUpdate.encounter,
       );
       if (removePractitionerOr) {
         encounterPatchOp.push(removePractitionerOr);
@@ -70,7 +70,7 @@ export const changeStatusIfPossible = async (
           } else {
             return [changeStatusRecordPeriodValueOp(statusHistoryLength - 1, 'end', now())];
           }
-        }
+        },
       );
       appointmentPatchOp = [changeStatusOp('fulfilled')];
       break;
@@ -83,16 +83,16 @@ export const changeStatusIfPossible = async (
             addStatusHistoryRecordOp(statusHistoryLength, newEncounterStatus, now()),
             changeStatusOp(newEncounterStatus),
           ];
-        }
+        },
       );
       appointmentPatchOp = [changeStatusOp('arrived')];
       break;
     default:
       console.error(
-        `Status change between current status: '${currentStatus}', and desired status: '${newStatus}', is not possible.`
+        `Status change between current status: '${currentStatus}', and desired status: '${newStatus}', is not possible.`,
       );
       throw new Error(
-        `Status change between current status: '${currentStatus}', and desired status: '${newStatus}', is not possible.`
+        `Status change between current status: '${currentStatus}', and desired status: '${newStatus}', is not possible.`,
       );
   }
   const patchOperationsBinaries: BatchInputRequest[] = [];
@@ -103,7 +103,7 @@ export const changeStatusIfPossible = async (
         resourceType: 'Appointment',
         resourceId: resourcesToUpdate.appointment.id,
         patchOperations: appointmentPatchOp,
-      })
+      }),
     );
   }
   patchOperationsBinaries.push(
@@ -111,7 +111,7 @@ export const changeStatusIfPossible = async (
       resourceType: 'Encounter',
       resourceId: resourcesToUpdate.encounter.id!,
       patchOperations: encounterPatchOp,
-    })
+    }),
   );
 
   await fhirClient.transactionRequest({ requests: patchOperationsBinaries });
@@ -162,7 +162,7 @@ const mergeUnsignedStatusesTimesOp = (statusHistory: EncounterStatusHistory[]): 
 
 const defaultEncounterOperations = (
   newTelemedStatus: TelemedCallStatuses,
-  resourcesToUpdate: AppointmentPackage
+  resourcesToUpdate: AppointmentPackage,
 ): Operation[] => {
   return encounterOperationsWrapper(newTelemedStatus, resourcesToUpdate, (newEncounterStatus, statusHistoryLength) => {
     return [
@@ -176,13 +176,13 @@ const defaultEncounterOperations = (
 const encounterOperationsWrapper = (
   newTelemedStatus: TelemedCallStatuses,
   resourcesToUpdate: AppointmentPackage,
-  callback: (newEncounterStatus: string, statusHistoryLength: number) => Operation[]
+  callback: (newEncounterStatus: string, statusHistoryLength: number) => Operation[],
 ): Operation[] => {
   const newEncounterStatus = telemedStatusToEncounter(newTelemedStatus);
   const statusHistoryLength = resourcesToUpdate.encounter.statusHistory?.length || 1;
 
   return handleEmptyEncounterStatusHistoryOp(resourcesToUpdate).concat(
-    callback(newEncounterStatus, statusHistoryLength)
+    callback(newEncounterStatus, statusHistoryLength),
   );
 };
 
@@ -193,12 +193,12 @@ const now = (): string => {
 const getAddPractitionerToEncounterOperation = async (
   fhirClient: FhirClient,
   appClient: AppClient,
-  encounter: Encounter
+  encounter: Encounter,
 ): Promise<Operation | undefined> => {
   const practitionerId = await getMyPractitionerId(fhirClient, appClient);
 
   const existingParticipant = encounter.participant?.find(
-    (participant) => participant.individual?.reference === `Practitioner/${practitionerId}`
+    (participant) => participant.individual?.reference === `Practitioner/${practitionerId}`,
   );
   if (existingParticipant) return undefined;
 
@@ -221,18 +221,18 @@ const getAddPractitionerToEncounterOperation = async (
 const getRemovePractitionerFromEncounterOperation = async (
   fhirClient: FhirClient,
   appClient: AppClient,
-  encounter: Encounter
+  encounter: Encounter,
 ): Promise<Operation | undefined> => {
   const practitionerId = await getMyPractitionerId(fhirClient, appClient);
 
   const existingParticipant = encounter.participant?.find(
-    (participant) => participant.individual?.reference === `Practitioner/${practitionerId}`
+    (participant) => participant.individual?.reference === `Practitioner/${practitionerId}`,
   );
   if (!existingParticipant || !encounter.participant) return undefined;
 
   const participants = encounter.participant.filter(
     (participant) =>
-      participant.individual?.reference && participant.individual.reference !== `Practitioner/${practitionerId}`
+      participant.individual?.reference && participant.individual.reference !== `Practitioner/${practitionerId}`,
   );
 
   return {

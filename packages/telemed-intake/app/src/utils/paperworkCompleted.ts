@@ -113,7 +113,7 @@ function isSurgicalHistoryComplete(completedPaperwork: CompletedPaperwork, quest
 export function isPaperworkComplete(
   completedPaperwork: CompletedPaperwork,
   paperworkPages: PaperworkPage[],
-  fileURLs?: FileURLs
+  fileURLs?: FileURLs,
 ): boolean {
   return paperworkPages.every((page) => {
     return isPaperworkPageComplete(completedPaperwork, page, fileURLs);
@@ -123,7 +123,7 @@ export function isPaperworkComplete(
 export function isPaperworkPageComplete(
   completedPaperwork: CompletedPaperwork,
   paperworkPage: PaperworkPage,
-  fileURLs?: FileURLs
+  fileURLs?: FileURLs,
 ): boolean {
   const questions = paperworkPage.questions
     .filter((itemTemp) => itemTemp.type !== 'Description' && itemTemp.type !== 'Header 3')

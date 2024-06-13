@@ -69,7 +69,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     ).map((recip) => `RelatedPerson/${recip.id}`);
     console.timeEnd('sms-query');
     console.log(
-      `found ${allRecipients.length} related persons with the sms number ${smsQuery}; searching messages for all those recipients`
+      `found ${allRecipients.length} related persons with the sms number ${smsQuery}; searching messages for all those recipients`,
     );
 
     console.time('get_sent_and_received_messages');
@@ -148,7 +148,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         const dateTime = DateTime.fromISO(sentWhen).setZone(timezone);
         const sentDay = dateTime.toLocaleString(
           { day: 'numeric', month: 'numeric', year: '2-digit' },
-          { locale: 'en-us' }
+          { locale: 'en-us' },
         );
         const sentTime = dateTime.toLocaleString({ timeStyle: 'short' }, { locale: 'en-us' });
         return {
@@ -220,7 +220,7 @@ function validateRequestParameters(input: ZambdaInput): GetConversationInput {
 const getPatientSenderNameFromComm = (
   communication: Communication,
   rpMap: Record<string, RelatedPerson>,
-  patientMap: Record<string, Patient>
+  patientMap: Record<string, Patient>,
 ): string => {
   const senderRef = communication.sender?.reference;
   if (senderRef && rpMap[senderRef]) {
@@ -250,7 +250,7 @@ const getPatientSenderNameFromComm = (
 
 const getOttehrSenderNameFromComm = (
   communication: Communication,
-  ottehrMap: Record<string, Device | Practitioner>
+  ottehrMap: Record<string, Device | Practitioner>,
 ): string => {
   const senderRef = communication.sender?.reference;
   if (senderRef && ottehrMap[senderRef]) {
@@ -272,7 +272,7 @@ const getOttehrSenderNameFromComm = (
 
 const getReceivedMessages = async (
   relatedPersonRefs: string[],
-  fhirClient: FhirClient
+  fhirClient: FhirClient,
 ): Promise<(Communication | RelatedPerson | Patient)[]> => {
   if (relatedPersonRefs.length <= CHUNK_SIZE) {
     return fhirClient.searchResources<Communication | RelatedPerson | Patient>({
@@ -291,7 +291,7 @@ const getReceivedMessages = async (
   const searchRequests: BatchInputGetRequest[] = batchGroups.map((ids) => {
     return {
       url: `Communication?sender=${ids.join(
-        ','
+        ',',
       )}&medium=http://terminology.hl7.org/CodeSystem/v3-ParticipationMode|SMSWRIT&_sort=sent&sent:missing=false&_include=Communication:sender:RelatedPerson&_include:iterate=RelatedPerson:patient`,
       method: 'GET',
     };
@@ -335,7 +335,7 @@ const getReceivedMessages = async (
 
 const getSentMessages = async (
   relatedPersonRefs: string[],
-  fhirClient: FhirClient
+  fhirClient: FhirClient,
 ): Promise<(Communication | Device | Practitioner)[]> => {
   console.time('get_sent_messages');
   if (relatedPersonRefs.length <= CHUNK_SIZE) {
@@ -357,7 +357,7 @@ const getSentMessages = async (
   const searchRequests: BatchInputGetRequest[] = batchGroups.map((ids) => {
     return {
       url: `Communication?recipient=${ids.join(
-        ','
+        ',',
       )}&medium=http://terminology.hl7.org/CodeSystem/v3-ParticipationMode|SMSWRIT&_sort=sent&sent:missing=false&_include=Communication:sender:Practitioner&_include=Communication:sender:Device`,
       method: 'GET',
     };

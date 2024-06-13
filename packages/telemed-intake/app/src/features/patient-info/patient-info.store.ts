@@ -48,6 +48,6 @@ export const usePatientInfoStore = create<PatientInfoState & PatientInfoActions>
           patientInfo: { ...NEW_PATIENT_INFO },
         }),
     }),
-    { name: 'telemed-patient-info-storage' }
-  )
+    { name: 'telemed-patient-info-storage' },
+  ),
 );

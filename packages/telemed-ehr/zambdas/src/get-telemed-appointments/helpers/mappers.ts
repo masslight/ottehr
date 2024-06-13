@@ -86,7 +86,7 @@ export const mapAppointmentToLocationId = (appointments: Appointment[]): Appoint
 
 export const mapStatesToLocationIds = (
   statesAbbreviations: string[],
-  virtualLocationsMap: LocationIdToAbbreviationMap
+  virtualLocationsMap: LocationIdToAbbreviationMap,
 ): string[] => {
   const resultIds: string[] = [];
   statesAbbreviations.forEach((abbreviation) => {
@@ -98,7 +98,7 @@ export const mapStatesToLocationIds = (
 
 export const relatedPersonAndCommunicationMaps = async (
   fhirClient: FhirClient,
-  inputResources: Resource[]
+  inputResources: Resource[],
 ): Promise<RelatedPersonMaps> => {
   const allRelatedPersons = filterResources(inputResources, 'RelatedPerson') as RelatedPerson[];
 
@@ -162,7 +162,7 @@ function mapRelatedPersonsRefsToPhoneNumber(allRps: RelatedPerson[]): Record<str
 function mapCommunicationsToRelatedPersonRef(
   allCommunications: Communication[],
   rpToIdMap: Record<string, RelatedPerson>,
-  rpsRefsToPhoneNumberMap: Record<string, string[]>
+  rpsRefsToPhoneNumberMap: Record<string, string[]>,
 ): Record<string, Communication[]> {
   const commsToRpRefMap: Record<string, Communication[]> = {};
 

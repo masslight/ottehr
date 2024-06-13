@@ -23,7 +23,7 @@ export const useGetTelemedAppointment = (
   }: {
     appointmentId: string | undefined;
   },
-  onSuccess: (data: Bundle<FhirResource>[]) => void
+  onSuccess: (data: Bundle<FhirResource>[]) => void,
 ) => {
   const { fhirClient } = useApiClients();
   return useQuery(
@@ -61,7 +61,7 @@ export const useGetTelemedAppointment = (
       onError: (err) => {
         console.error('Error during fetching get telemed appointment: ', err);
       },
-    }
+    },
   );
 };
 
@@ -69,7 +69,7 @@ export const useGetTelemedAppointment = (
 export const useGetMeetingData = (
   getAccessTokenSilently: () => Promise<string>,
   onSuccess: (data: MeetingData) => void,
-  onError: (error: Error) => void
+  onError: (error: Error) => void,
 ) => {
   return useQuery(
     ['meeting-data'],
@@ -85,7 +85,7 @@ export const useGetMeetingData = (
               Authorization: `Bearer ${token}`,
             },
             method: 'GET',
-          }
+          },
         );
         const data = await videoTokenResp.json();
         if (!videoTokenResp.ok) {
@@ -100,14 +100,14 @@ export const useGetMeetingData = (
       enabled: false,
       onSuccess,
       onError,
-    }
+    },
   );
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetChartData = (
   { apiClient, encounterId }: { apiClient: ZapEHRTelemedAPIClient | null; encounterId?: string },
-  onSuccess: (data: PromiseReturnType<ReturnType<ZapEHRTelemedAPIClient['getChartData']>>) => void
+  onSuccess: (data: PromiseReturnType<ReturnType<ZapEHRTelemedAPIClient['getChartData']>>) => void,
 ) => {
   const user = useOttehrUser();
   const { isReadOnly, isAppointmentLoading } = getSelectors(useAppointmentStore, [
@@ -131,7 +131,7 @@ export const useGetChartData = (
         console.error('Error during fetching get telemed appointments: ', err);
       },
       enabled: !!apiClient && !!encounterId && !!user && !isAppointmentLoading,
-    }
+    },
   );
 };
 
@@ -216,7 +216,7 @@ export const useGetMedicationsSearch = (medicationSearchTerm: string) => {
         {
           method: 'GET',
           headers: headers,
-        }
+        },
       );
       return resp.json() as Promise<MedicationSearchResponse>;
     },
@@ -225,7 +225,7 @@ export const useGetMedicationsSearch = (medicationSearchTerm: string) => {
         console.error('Error during fetching medications: ', err);
       },
       enabled: Boolean(medicationSearchTerm),
-    }
+    },
   );
 };
 
@@ -255,7 +255,7 @@ export const useGetAllergiesSearch = (allergiesSearchTerm: string) => {
         {
           method: 'GET',
           headers: headers,
-        }
+        },
       );
       return resp.json() as Promise<AllergiesSearchResponse>;
     },
@@ -264,7 +264,7 @@ export const useGetAllergiesSearch = (allergiesSearchTerm: string) => {
         console.error('Error during fetching allergies: ', err);
       },
       enabled: Boolean(allergiesSearchTerm),
-    }
+    },
   );
 };
 
@@ -282,7 +282,7 @@ export const useGetIcd10Search = (searchTerm: string) => {
         console.error('Error during fetching icd-10 codes: ', err);
       },
       enabled: Boolean(apiClient && searchTerm),
-    }
+    },
   );
 };
 
@@ -323,7 +323,7 @@ export const useUpdatePaperwork = () => {
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetPatientInstructions = (
   { type }: { type: InstructionType },
-  onSuccess?: (data: PromiseReturnType<ReturnType<ZapEHRTelemedAPIClient['getPatientInstructions']>>) => void
+  onSuccess?: (data: PromiseReturnType<ReturnType<ZapEHRTelemedAPIClient['getPatientInstructions']>>) => void,
 ) => {
   const apiClient = useZapEHRAPIClient();
 
@@ -343,7 +343,7 @@ export const useGetPatientInstructions = (
         console.error('Error during fetching get patient instructions: ', err);
       },
       enabled: !!apiClient,
-    }
+    },
   );
 };
 

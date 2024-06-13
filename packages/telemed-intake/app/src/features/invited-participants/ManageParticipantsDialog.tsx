@@ -19,8 +19,8 @@ export const ManageParticipantsDialog: FC<ManageParticipantsDialogProps> = ({ on
     isLoading || isFetching
       ? 'Loading...'
       : (invitesData?.invites?.length || 0) > 0
-      ? 'Manage participants'
-      : 'Invite participant';
+        ? 'Manage participants'
+        : 'Invite participant';
 
   return (
     <CustomDialog PaperProps={{ sx: { maxWidth: '560px' } }} open={true} onClose={handleClose}>

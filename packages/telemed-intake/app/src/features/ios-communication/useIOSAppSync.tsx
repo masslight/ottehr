@@ -25,7 +25,7 @@ export function useIOSAppSync(): { isIOSApp: boolean } {
         }
       }
     },
-    [setIsIOSApp]
+    [setIsIOSApp],
   );
 
   useEffect(() => {

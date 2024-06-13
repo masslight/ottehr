@@ -13,7 +13,7 @@ export const TelemedCallStatusesArr = ['ready', 'pre-video', 'on-video', 'unsign
 
 export const mapStatusToTelemed = (
   encounterStatus: string,
-  appointmentStatus: string | undefined
+  appointmentStatus: string | undefined,
 ): ApptStatus | undefined => {
   switch (encounterStatus) {
     case 'planned':

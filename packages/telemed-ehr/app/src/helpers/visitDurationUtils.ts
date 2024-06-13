@@ -4,13 +4,13 @@ import { UCAppointmentInformation, VisitStatusHistoryEntry } from 'ehr-utils';
 
 export const getStatiForVisitTimeCalculation = (
   statuses: VisitStatusHistoryEntry[],
-  appointmentStart: string
+  appointmentStart: string,
 ): VisitStatusHistoryEntry[] => {
   return statuses?.filter(
     (statusEvent: VisitStatusHistoryEntry) =>
       (statusEvent.label !== 'pending' && statusEvent.label !== 'ready for discharge') ||
       (statusEvent.period.end &&
-        DateTime.fromISO(statusEvent.period.end).diff(DateTime.fromISO(appointmentStart), 'minutes').minutes >= 0)
+        DateTime.fromISO(statusEvent.period.end).diff(DateTime.fromISO(appointmentStart), 'minutes').minutes >= 0),
   );
 };
 
@@ -18,7 +18,7 @@ export const getDurationOfStatus = (
   statusEntry: VisitStatusHistoryEntry,
   appointment: UCAppointmentInformation | Appointment,
   visitStatusHistory: VisitStatusHistoryEntry[],
-  dateTimeNow: DateTime
+  dateTimeNow: DateTime,
 ): number => {
   if (!appointment.start) {
     return 0;
@@ -64,14 +64,14 @@ export const getDurationOfStatus = (
 export const getVisitTotalTime = (
   appointment: UCAppointmentInformation | Appointment,
   visitStatusHistory: VisitStatusHistoryEntry[],
-  dateTimeNow: DateTime
+  dateTimeNow: DateTime,
 ): number => {
   if (appointment.start) {
     // console.log('appointment', appointment.id);
     return getStatiForVisitTimeCalculation(visitStatusHistory, appointment.start).reduce(
       (accumulator, statusTemp) =>
         accumulator + getDurationOfStatus(statusTemp, appointment, visitStatusHistory, dateTimeNow),
-      0
+      0,
     );
   }
   return 0;

@@ -13,7 +13,7 @@ export const sendConfirmationEmail = async (input: ConfirmationEmailInput): Prom
   const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
   const SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID = getSecret(
     SecretsKeys.TELEMED_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID,
-    secrets
+    secrets,
   );
 
   // Translation variables
@@ -35,7 +35,7 @@ export const sendCancellationEmail = async (input: CancellationEmail): Promise<v
   const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
   const SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID = getSecret(
     SecretsKeys.TELEMED_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID,
-    secrets
+    secrets,
   );
   const subject = 'Ottehr Telemedicine';
   const templateId = SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID;
@@ -57,7 +57,7 @@ export const sendVideoChatInvititationEmail = async (input: VideoChatInvitationE
   const { toAddress, inviteUrl, patientName, secrets } = input;
   const SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID = getSecret(
     SecretsKeys.TELEMED_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID,
-    secrets
+    secrets,
   );
   const subject = 'Invitation to Join a Visit - Ottehr Telemedicine';
   const templateId = SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID;
@@ -73,7 +73,7 @@ async function sendEmail(
   templateID: string,
   subject: string,
   templateInformation: any,
-  secrets: Secrets | null
+  secrets: Secrets | null,
 ): Promise<void> {
   console.log(`Sending email confirmation to ${email}`);
   const SENDGRID_API_KEY = getSecret(SecretsKeys.SENDGRID_API_KEY, secrets);
@@ -102,8 +102,8 @@ async function sendEmail(
     const sendResult = await sendgrid.send(emailConfiguration);
     console.log(
       `Details of successful sendgrid send: statusCode, ${sendResult[0].statusCode}. body, ${JSON.stringify(
-        sendResult[0].body
-      )}`
+        sendResult[0].body,
+      )}`,
     );
   } catch (error) {
     console.error(`Error sending email confirmation to ${email}: ${error}`);
@@ -122,7 +122,7 @@ export async function sendConfirmationMessages(
   appointmentID: string,
   appointmentType: string,
   verifiedPhoneNumber: string | undefined,
-  token: string
+  token: string,
 ): Promise<void> {
   if (email) {
     await sendConfirmationEmail({ toAddress: email, appointmentID, secrets });
@@ -144,7 +144,7 @@ export async function sendSms(
   token: string,
   messageRecipient: string,
   verifiedPhoneNumber: string | undefined,
-  secrets: Secrets | null
+  secrets: Secrets | null,
 ): Promise<void> {
   const messagingClient = createMessagingClient(token, getSecret(SecretsKeys.PROJECT_API, secrets));
   try {

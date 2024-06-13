@@ -21,7 +21,7 @@ type ExamFieldsFactoryProps = { radio?: boolean } & (
 export const ExamFieldsFactory: FC<ExamFieldsFactoryProps> = (props) => {
   const { fields, card, group, radio } = props;
 
-  let values: typeof ExamObservationFieldsDetails[keyof typeof ExamObservationFieldsDetails][];
+  let values: (typeof ExamObservationFieldsDetails)[keyof typeof ExamObservationFieldsDetails][];
 
   if (card && group) {
     values = examObservationFieldsDetailsArray.filter((details) => details.group === group && details.card === card);
@@ -44,7 +44,7 @@ export const ExamFieldsFactory: FC<ExamFieldsFactoryProps> = (props) => {
         label={details.label}
         abnormal={details.abnormal}
       />
-    )
+    ),
   );
 
   return <>{array}</>;

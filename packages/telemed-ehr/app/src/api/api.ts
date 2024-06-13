@@ -49,7 +49,7 @@ if (!VITE_APP_IS_LOCAL) {
 
 export const getAppointments = async (
   zambdaClient: ZambdaClient,
-  parameters: GetAppointmentsParameters
+  parameters: GetAppointmentsParameters,
 ): Promise<any> => {
   try {
     if (GET_APPOINTMENTS_ZAMBDA_ID == null) {
@@ -68,7 +68,7 @@ export const getAppointments = async (
 
 export const createAppointment = async (
   zambdaClient: ZambdaClient,
-  parameters: CreateAppointmentParameters
+  parameters: CreateAppointmentParameters,
 ): Promise<any> => {
   try {
     if (CREATE_APPOINTMENT_ZAMBDA_ID == null) {
@@ -98,7 +98,7 @@ export const cancelTelemedAppointment = async (
     appointmentID: string;
     cancellationReason: string;
     cancellationReasonAdditional?: string | undefined;
-  }
+  },
 ): Promise<any> => {
   try {
     if (CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID == null) {
@@ -124,7 +124,7 @@ export const inviteParticipant = async (
     lastName: string;
     emailAddress: string;
     phoneNumber: string;
-  }
+  },
 ): Promise<void> => {
   try {
     if (INVITE_PARTICIPANT_ZAMBDA_ID == null) {
@@ -176,7 +176,7 @@ export const getUserDetails = async (zambdaClient: ZambdaClient, parameters: Get
 
 export const deactivateUser = async (
   zambdaClient: ZambdaClient,
-  parameters: DeactivateUserParameters
+  parameters: DeactivateUserParameters,
 ): Promise<any> => {
   try {
     if (DEACTIVATE_USER_ZAMBDA_ID == null) {
@@ -199,7 +199,7 @@ interface GetConversationParams {
 }
 export const getConversation = async (
   zambdaClient: ZambdaClient,
-  parameters: GetConversationParams
+  parameters: GetConversationParams,
 ): Promise<ConversationMessage[]> => {
   try {
     if (GET_CONVERSATION_ZAMBDA_ID == null) {
@@ -244,7 +244,7 @@ export interface GetLocationParameters {
 
 export const getLocations = async (
   zambdaClient: ZambdaClient,
-  parameters: GetLocationParameters
+  parameters: GetLocationParameters,
 ): Promise<GetLocationResponse> => {
   try {
     if (GET_LOCATION_ZAMBDA_ID == null || VITE_APP_IS_LOCAL == null) {
@@ -264,7 +264,7 @@ export const getLocations = async (
 
 export const cancelAppointment = async (
   zambdaClient: ZambdaClient,
-  parameters: CancelAppointmentParameters
+  parameters: CancelAppointmentParameters,
 ): Promise<any> => {
   try {
     if (CANCEL_APPOINTMENT_ZAMBDA_ID == null) {

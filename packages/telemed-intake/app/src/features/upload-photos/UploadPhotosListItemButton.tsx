@@ -25,8 +25,8 @@ export const UploadPhotosListItemButton: FC<UploadPhotosListItemButtonProps> = (
         isLoading || isFetching
           ? 'Loading...'
           : Object.keys(photos).length > 0
-          ? `${Object.keys(photos).length} photos attached`
-          : 'No photos uploaded'
+            ? `${Object.keys(photos).length} photos attached`
+            : 'No photos uploaded'
       }
       hideText={hideText}
       onClick={onClick}

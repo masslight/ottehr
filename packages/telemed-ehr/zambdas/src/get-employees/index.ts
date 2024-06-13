@@ -55,7 +55,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const [allEmployees, existingRoles] = await Promise.all(promises);
 
     console.log(`Fetched ${allEmployees.length} employees and ${existingRoles.length} roles.`);
-    
+
     const inactiveRoleId = existingRoles.find((role: any) => role.name === 'Inactive')?.id;
     const providerRoleId = existingRoles.find((role: any) => role.name === 'Provider')?.id;
     if (!inactiveRoleId || !providerRoleId) {
@@ -94,7 +94,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     );
 
     console.log(
-      `Fetched ${inactiveRoleMembers.length} Inactive and ${providerRoleMembers.length} Provider role members.`
+      `Fetched ${inactiveRoleMembers.length} Inactive and ${providerRoleMembers.length} Provider role members.`,
     );
     const inactiveMemberIds = inactiveRoleMembers.map((member: { id: string }) => member.id);
     const providerMemberIds = providerRoleMembers.map((member: { id: string }) => member.id);
@@ -103,7 +103,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       new Set<string>([
         ...extractParticipantsFromBunle(<Bundle>fhirBundle.entry![1].resource!),
         ...extractParticipantsFromBunle(<Bundle>fhirBundle.entry![2].resource!),
-      ])
+      ]),
     );
 
     console.log('recentlyActivePractitioners.length:', recentlyActivePractitioners.length);
@@ -113,7 +113,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       const practitionerId = employee.profile.split('/')[1];
       const bundle = <Bundle>fhirBundle.entry![0].resource;
       const practitioner = bundle.entry!.find(
-        (entry: any) => entry.resource?.resourceType === 'Practitioner' && entry.resource.id === practitionerId
+        (entry: any) => entry.resource?.resourceType === 'Practitioner' && entry.resource.id === practitionerId,
       )?.resource as Practitioner | undefined;
 
       const phone = practitioner?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
@@ -125,7 +125,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           ({
             state: qualification.extension[0].extension[1].valueCodeableConcept.coding[0].code,
             code: qualification.code.coding[0].code,
-          })
+          }),
         );
       }
 
@@ -162,7 +162,7 @@ async function getEmployees(zapehrToken: string, secrets: Secrets | null): Promi
   console.log('Getting all employees..');
   const appClient = createAppClient(zapehrToken, secrets);
   const allEmployees = (await appClient.getAllUsers()).filter(
-    (user) => !user.name.startsWith('+') && user.profile.includes('Practitioner')
+    (user) => !user.name.startsWith('+') && user.profile.includes('Practitioner'),
   );
   return allEmployees;
 }

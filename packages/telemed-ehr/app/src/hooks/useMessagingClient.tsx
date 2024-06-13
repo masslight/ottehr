@@ -24,7 +24,7 @@ export const useMessagingClient = (): MessagingClient | undefined => {
       });
       return resp.json() as Promise<SendSMSOutput>;
     },
-    [getAccessTokenSilently]
+    [getAccessTokenSilently],
   );
 
   return useMemo(() => {

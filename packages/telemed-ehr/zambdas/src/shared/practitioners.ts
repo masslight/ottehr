@@ -10,7 +10,7 @@ import {
 export async function getPractitionerResourceForUser(
   userId: User['id'],
   fhirClient: FhirClient,
-  appClient: AppClient
+  appClient: AppClient,
 ): Promise<Practitioner> {
   const user = await appClient.getUser(userId);
   if (!user) {

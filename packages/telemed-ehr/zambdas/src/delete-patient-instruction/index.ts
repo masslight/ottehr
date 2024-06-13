@@ -42,7 +42,7 @@ async function deleteCommunication(fhirClient: FhirClient, id: string): Promise<
 async function checkIfBelongsToProvider(
   fhirClient: FhirClient,
   appClient: AppClient,
-  resourceId: string
+  resourceId: string,
 ): Promise<boolean> {
   const [resource, practitionerId] = await Promise.all([
     fhirClient.readResource({ resourceType: 'Communication', resourceId }),

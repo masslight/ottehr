@@ -38,9 +38,9 @@ export default function StatesPage(): ReactElement {
       AllStates.filter((state: State) =>
         `${state.label} - ${AllStatesToNames[state.value as StateType]}`
           .toLowerCase()
-          .includes(searchText.toLowerCase())
+          .includes(searchText.toLowerCase()),
       ),
-    [searchText]
+    [searchText],
   );
 
   // For pagination, only include the rows that are on the current page
@@ -48,9 +48,9 @@ export default function StatesPage(): ReactElement {
     () =>
       filteredStates.slice(
         pageNumber * rowsPerPage, // skip over the rows from previous pages
-        (pageNumber + 1) * rowsPerPage // only show the rows from the current page
+        (pageNumber + 1) * rowsPerPage, // only show the rows from the current page
       ),
-    [pageNumber, filteredStates, rowsPerPage]
+    [pageNumber, filteredStates, rowsPerPage],
   );
 
   // Handle pagination

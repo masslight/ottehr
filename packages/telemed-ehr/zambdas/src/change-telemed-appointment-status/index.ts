@@ -45,7 +45,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 export const performEffect = async (
   fhirClient: FhirClient,
   appClient: AppClient,
-  params: ChangeTelemedAppointmentStatusInput
+  params: ChangeTelemedAppointmentStatusInput,
 ): Promise<ChangeTelemedAppointmentStatusResponse> => {
   const { appointmentId, newStatus } = params;
 
@@ -61,7 +61,7 @@ export const performEffect = async (
   }
 
   console.log(
-    `appointment and encounter statuses: ${visitResources.appointment.status}, ${visitResources.encounter.status}`
+    `appointment and encounter statuses: ${visitResources.appointment.status}, ${visitResources.encounter.status}`,
   );
   const currentStatus = mapStatusToTelemed(visitResources.encounter.status, visitResources.appointment.status);
   if (currentStatus) await changeStatusIfPossible(fhirClient, appClient, visitResources, currentStatus, newStatus);
@@ -113,7 +113,7 @@ export const performEffect = async (
       });
       if (chargeItem === undefined) {
         throw new Error(
-          `Unable to create a charge item for appointment ${appointmentId}, encounter ${visitResources.encounter.id}`
+          `Unable to create a charge item for appointment ${appointmentId}, encounter ${visitResources.encounter.id}`,
         );
       }
       console.log(`Charge item ${(chargeItem as ChargeItem).id} has been created.`);
@@ -123,7 +123,7 @@ export const performEffect = async (
     const chargeOutcome = await postChargeIssueRequest(
       getSecret(SecretsKeys.PROJECT_API, params.secrets),
       m2mtoken,
-      visitResources.encounter.id
+      visitResources.encounter.id,
     );
     console.log(`Charge outcome: ${JSON.stringify(chargeOutcome)}`);
   }

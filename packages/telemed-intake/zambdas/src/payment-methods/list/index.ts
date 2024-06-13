@@ -49,7 +49,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       getSecret(SecretsKeys.PROJECT_API, secrets),
       zapehrM2MClientToken,
       beneficiaryPatientId,
-      user.profile
+      user.profile,
     );
 
     return lambdaResponse(200, response);

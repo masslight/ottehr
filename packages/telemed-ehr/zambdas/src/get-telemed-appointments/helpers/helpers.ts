@@ -20,7 +20,7 @@ export const getPhoneNumberFromQuestionnaire = (questionnaire: QuestionnaireResp
 
 export const convertStatesGroupsToIdsGroups = (
   estimatedTimeStatesGroups: string[][],
-  virtualLocationsMap: LocationIdToAbbreviationMap
+  virtualLocationsMap: LocationIdToAbbreviationMap,
 ): string[][] => {
   const resultIdsGroups: string[][] = [];
 
@@ -49,7 +49,7 @@ export const getAppointmentWaitingTime = (appointment: Appointment): number | un
 
 export const getLocationIdFromAppointment = (appointment: Appointment): string | undefined => {
   const locationParticipant = appointment.participant.find((appointment) =>
-    appointment.actor?.reference?.startsWith('Location/')
+    appointment.actor?.reference?.startsWith('Location/'),
   );
   const locationId = locationParticipant?.actor?.reference || '';
   return removePrefix('Location/', locationId);
@@ -58,7 +58,7 @@ export const getLocationIdFromAppointment = (appointment: Appointment): string |
 export const groupAppointmentsLocations = (
   appointmentsPackages: AppointmentPackage[],
   virtualLocationsMap: LocationIdToAbbreviationMap,
-  existedStatesGroups: string[][]
+  existedStatesGroups: string[][],
 ): string[][] => {
   const estimatedLocationsIdsGroups = convertStatesGroupsToIdsGroups(existedStatesGroups, virtualLocationsMap);
   const resultLocationsIdsGroups: string[][] = [];
@@ -70,7 +70,7 @@ export const groupAppointmentsLocations = (
       const locationInResult = resultLocationsIdsGroups.find((idsGroup) => idsGroup.includes(apptLocationId));
       if (!locationInResult) {
         const locationInExistedGroup = estimatedLocationsIdsGroups.find((idsGroup) =>
-          idsGroup.includes(apptLocationId)
+          idsGroup.includes(apptLocationId),
         );
         if (locationInExistedGroup) resultLocationsIdsGroups.push([...locationInExistedGroup]);
         else resultLocationsIdsGroups.push([apptLocationId]);

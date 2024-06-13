@@ -122,7 +122,7 @@ export default function AddPatient(): JSX.Element {
       }
     };
     const locationSlug = selectedLocation?.identifier?.find(
-      (identifierTemp) => identifierTemp.system === 'https://fhir.ottehr.com/r4/slug'
+      (identifierTemp) => identifierTemp.system === 'https://fhir.ottehr.com/r4/slug',
     )?.value;
     const locationState = selectedLocation?.address?.state;
     if (!locationSlug || !locationState) {
@@ -130,7 +130,7 @@ export default function AddPatient(): JSX.Element {
         'show some toast: location is missing slug or address.state',
         selectedLocation,
         locationSlug,
-        locationState
+        locationState,
       );
       return;
     }
@@ -172,14 +172,14 @@ export default function AddPatient(): JSX.Element {
       let selectedPatientEmail, selectedPatientEmailUser;
       if (selectedPatient) {
         selectedPatientEmailUser = selectedPatient.extension?.find(
-          (ext) => ext.url === `${PRIVATE_EXTENSION_BASE_URL}/form-user`
+          (ext) => ext.url === `${PRIVATE_EXTENSION_BASE_URL}/form-user`,
         )?.valueString as any;
         if (selectedPatientEmailUser) {
           if (selectedPatientEmailUser !== 'Parent/Guardian') {
             selectedPatientEmail = selectedPatient.telecom?.find((telecom) => telecom.system === 'email')?.value;
           } else if (selectedPatientEmailUser === 'Parent/Guardian') {
             const guardianContact = selectedPatient.contact?.find((contact) =>
-              contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian')
+              contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
             );
             selectedPatientEmail = guardianContact?.telecom?.find((telecom) => telecom.system === 'email')?.value;
           }
@@ -294,7 +294,7 @@ export default function AddPatient(): JSX.Element {
     if (emailUser) {
       if (emailUser === 'Parent/Guardian') {
         const guardianContact = patient.contact?.find((contact) =>
-          contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian')
+          contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
         );
         email = guardianContact?.telecom?.find((telecom) => telecom.system === 'email')?.value;
       } else {

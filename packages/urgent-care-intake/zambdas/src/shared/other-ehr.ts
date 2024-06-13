@@ -82,10 +82,7 @@ export function makeVisitStatusExtensionEntry(
 }
 
 const VisitStatusExtensionUrl = `https://fhir.zapehr.com/r4/StructureDefinitions/visit-history`;
-export const makeVisitStatusExtension = (
-  statusCode: VisitStatus,
-  dateTimeISO?: string,
-): VisitStatusExtension => {
+export const makeVisitStatusExtension = (statusCode: VisitStatus, dateTimeISO?: string): VisitStatusExtension => {
   return {
     url: VisitStatusExtensionUrl,
     extension: [makeVisitStatusExtensionEntry(statusCode, dateTimeISO)],
@@ -181,10 +178,7 @@ export const getPatchOperationsToUpdateVisitStatus = <T extends AppOrEncounter>(
   return operations;
 };
 
-export const validateVisitStatus = (
-  visitStatus: string | undefined,
-  secrets: Secrets | null,
-): VisitStatus => {
+export const validateVisitStatus = (visitStatus: string | undefined, secrets: Secrets | null): VisitStatus => {
   console.log('validating otherehr visit status', visitStatus);
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
 

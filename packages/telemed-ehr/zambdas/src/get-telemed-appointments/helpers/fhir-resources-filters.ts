@@ -8,7 +8,7 @@ import { getLocationIdFromAppointment } from './helpers';
 
 export const filterLocationForAppointment = (
   appointment: Appointment,
-  virtualLocationsMap: LocationIdToAbbreviationMap
+  virtualLocationsMap: LocationIdToAbbreviationMap,
 ): AppointmentLocation | undefined => {
   const locationId = getLocationIdFromAppointment(appointment);
   if (locationId) {
@@ -31,7 +31,7 @@ export const filterPatientForAppointment = (appointment: Appointment, allResourc
 export const filterAppointmentsFromResources = (
   allResources: Resource[],
   statusesFilter: TelemedCallStatuses[],
-  virtualLocationsMap: LocationIdToAbbreviationMap
+  virtualLocationsMap: LocationIdToAbbreviationMap,
 ): AppointmentPackage[] => {
   const resultAppointments: AppointmentPackage[] = [];
   const appointmentEncounterMap: { [key: string]: Encounter } = mapEncountersToAppointmentsIds(allResources);

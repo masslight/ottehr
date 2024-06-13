@@ -46,7 +46,7 @@ export const AppointmentFooterButton: FC<AppointmentFooterButtonProps> = (props)
     },
     () => {
       setError('Error trying to connect to a patient.');
-    }
+    },
   );
 
   const [buttonType, setButtonType] = useState<string | null>(null);
@@ -80,7 +80,7 @@ export const AppointmentFooterButton: FC<AppointmentFooterButtonProps> = (props)
     }
     await changeTelemedAppointmentStatus.mutateAsync(
       { apiClient, appointmentId: appointment.id, newStatus: ApptStatus['pre-video'] },
-      {}
+      {},
     );
     await queryClient.invalidateQueries({ queryKey: ['telemed-appointment'] });
   };
@@ -106,7 +106,7 @@ export const AppointmentFooterButton: FC<AppointmentFooterButtonProps> = (props)
           onError: () => {
             setError('Error trying to connect to a patient.');
           },
-        }
+        },
       );
     }
   }, [apiClient, appointment?.id, appointment?.status, encounter, getMeetingData, initTelemedSession, setError, user]);
@@ -126,7 +126,7 @@ export const AppointmentFooterButton: FC<AppointmentFooterButtonProps> = (props)
     }
     await changeTelemedAppointmentStatus.mutateAsync(
       { apiClient, appointmentId: appointment.id, newStatus: ApptStatus.ready },
-      {}
+      {},
     );
     navigate('/telemed/appointments');
   };

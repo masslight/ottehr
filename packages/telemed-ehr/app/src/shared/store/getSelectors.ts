@@ -4,10 +4,10 @@ import { StoreApi, UseBoundStore } from 'zustand';
 export const getSelectors = <
   S extends UseBoundStore<StoreApi<object>>,
   T extends S extends { getState: () => infer R } ? R : never,
-  K extends keyof T
+  K extends keyof T,
 >(
   store: S,
-  stateKeys: K[]
+  stateKeys: K[],
 ) => {
   const selectors: Pick<T, K> = {} as any;
 

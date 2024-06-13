@@ -21,7 +21,7 @@ export const useZapEHRAPIClient = (): ReturnType<typeof getZapEHRTelemedAPI> | n
           icdSearchZambdaId: import.meta.env.VITE_APP_ICD_SEARCH_ZAMBDA_ID,
           isAppLocal: import.meta.env.VITE_APP_IS_LOCAL,
         },
-        zambdaClient
+        zambdaClient,
       );
     return null;
   }, [zambdaClient]);

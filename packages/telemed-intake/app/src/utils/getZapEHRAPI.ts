@@ -8,7 +8,7 @@ export const useZapEHRAPIClient = (
     tokenless,
   }: {
     tokenless: boolean;
-  } = { tokenless: false }
+  } = { tokenless: false },
 ): ReturnType<typeof getZapEHRAPI> | null => {
   const zambdaClient = useZambdaClient({ tokenless });
   const [apiClient, setApiClient] = useState<typeof _apiClient>(_apiClient);
@@ -32,7 +32,7 @@ export const useZapEHRAPIClient = (
         getPresignedFileURLZambdaID: import.meta.env.VITE_APP_GET_PRESIGNED_FILE_URL_ZAMBDA_ID,
         isAppLocal: import.meta.env.VITE_APP_IS_LOCAL,
       },
-      zambdaClient
+      zambdaClient,
     );
     _apiClient = client;
     setApiClient(client);

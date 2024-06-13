@@ -48,7 +48,7 @@ export const filterFormInputFields = (
   formInputFields: FormInputType[],
   values: FieldValues,
   methods: any,
-  overrideValues?: OverrideValues
+  overrideValues?: OverrideValues,
 ): ReactElement[] => {
   return formInputFields
     .filter((formInput) => checkEnable(formInput, values))

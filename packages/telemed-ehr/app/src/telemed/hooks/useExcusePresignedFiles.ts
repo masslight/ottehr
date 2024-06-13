@@ -6,7 +6,7 @@ import { WorkSchoolNoteExcuseDocFileDTO } from 'ehr-utils';
 type WorkSchoolNoteExcuseDocFilePresigned = WorkSchoolNoteExcuseDocFileDTO & { presignedUrl?: string };
 
 export const useExcusePresignedFiles = (
-  workSchoolNotes?: WorkSchoolNoteExcuseDocFileDTO[]
+  workSchoolNotes?: WorkSchoolNoteExcuseDocFileDTO[],
 ): WorkSchoolNoteExcuseDocFilePresigned[] => {
   const { getAccessTokenSilently } = useAuth0();
   const [presignedFiles, setPresignedFiles] = useState<WorkSchoolNoteExcuseDocFilePresigned[]>([]);

@@ -17,7 +17,7 @@ export const VideoChatContainer: FC = () => {
       if (videoCallState.meetingData) {
         const meetingSessionConfiguration = new MeetingSessionConfiguration(
           videoCallState.meetingData.Meeting,
-          videoCallState.meetingData.Attendee
+          videoCallState.meetingData.Attendee,
         );
         const options = {
           deviceLabels: DeviceLabels.AudioAndVideo,

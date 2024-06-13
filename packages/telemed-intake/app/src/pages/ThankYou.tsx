@@ -49,7 +49,7 @@ const ThankYou = (): JSX.Element => {
           <Typography variant="body2" marginTop={2}>
             All patients that present with commercial insurance will be required to leave a credit card on file. More
             details on our financial policy can be found{' '}
-            <a target="_blank" href="https://ottehr.com">
+            <a target="_blank" href="https://ottehr.com" rel="noreferrer">
               here
             </a>
             .

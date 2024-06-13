@@ -28,12 +28,12 @@ export const useStatesQuery = () => {
       return (resources as Location[]).filter(
         (loca) =>
           loca.extension?.find((ext) => ext.url === 'https://extensions.fhir.zapehr.com/location-form-pre-release')
-            ?.valueCoding?.code === 'vi'
+            ?.valueCoding?.code === 'vi',
       );
     },
     {
       enabled: !!fhirClient,
-    }
+    },
   );
 };
 
@@ -61,7 +61,7 @@ export const useInsurancesQuery = (id?: string, enabled?: boolean) => {
     {
       enabled: (enabled !== undefined ? enabled : true) && !!fhirClient,
       cacheTime: 0,
-    }
+    },
   );
 };
 
@@ -117,6 +117,6 @@ export const useInsuranceOrganizationsQuery = () => {
     },
     {
       enabled: !!fhirClient,
-    }
+    },
   );
 };

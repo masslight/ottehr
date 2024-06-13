@@ -5,7 +5,7 @@ import { useAppointmentStore } from '../state';
 export const updateQuestionnaireResponse = (
   questionnaireResponse: QuestionnaireResponse | undefined,
   name: string,
-  value: string
+  value: string,
 ): void => {
   if (questionnaireResponse) {
     if (questionnaireResponse.item?.find((item) => item.linkId === name)) {
@@ -13,7 +13,7 @@ export const updateQuestionnaireResponse = (
         questionnaireResponse: {
           ...questionnaireResponse,
           item: questionnaireResponse?.item?.map((item) =>
-            item.linkId === name ? { ...item, answer: [{ valueString: value }] } : item
+            item.linkId === name ? { ...item, answer: [{ valueString: value }] } : item,
           ),
         },
       });

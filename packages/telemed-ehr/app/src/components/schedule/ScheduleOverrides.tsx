@@ -193,7 +193,7 @@ export function ScheduleOverrides({
                                 if (dateFormatted) {
                                   const scheduleExtension = location.extension?.find(
                                     (extensionTemp) =>
-                                      extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule'
+                                      extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule',
                                   )?.valueString;
                                   if (scheduleExtension) {
                                     const { schedule } = JSON.parse(scheduleExtension) as ScheduleExtension;

@@ -5,7 +5,7 @@ import { VisitStatus, VisitStatusHistoryEntry, getVisitStatusHistory } from 'ehr
 
 const startTimeOfMostRecentInstanceOfStatus = (
   status: VisitStatus,
-  history: VisitStatusHistoryEntry[]
+  history: VisitStatusHistoryEntry[],
 ): number | null => {
   const matchedStati = history.filter((item) => {
     if (item.label === status && item.period.start !== undefined) {

@@ -13,5 +13,5 @@ export const NumberInput = styled((props: TextFieldProps) => <TextField type="nu
       top: '100%',
       marginTop: 0,
     },
-  })
+  }),
 );

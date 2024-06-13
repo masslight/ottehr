@@ -24,6 +24,6 @@ export const useFilesStore = create<FilesState & FilesStateActions>()(
     }),
     {
       name: 'telemed-files-storage',
-    }
-  )
+    },
+  ),
 );

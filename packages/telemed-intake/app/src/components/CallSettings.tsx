@@ -86,7 +86,7 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose, open }) => {
         previewDeviceController.startVideoPreviewForVideoInput(videoPreviewRef.current);
       }
     },
-    [previewDeviceController]
+    [previewDeviceController],
   );
 
   const handleVideoDeviceChange = async (event: SelectChangeEvent<string>): Promise<void> => {

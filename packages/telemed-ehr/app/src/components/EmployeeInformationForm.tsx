@@ -95,7 +95,7 @@ if (import.meta.env.MODE === 'default' || import.meta.env.MODE === 'development'
       value: RoleType.Billing,
       label: 'Billing',
       hint: 'Todo description',
-    }
+    },
   );
 }
 

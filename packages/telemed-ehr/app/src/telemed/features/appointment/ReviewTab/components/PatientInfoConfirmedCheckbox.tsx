@@ -24,7 +24,7 @@ export const PatientInfoConfirmedCheckbox: FC = () => {
             setPartialChartData({ patientInfoConfirmed: patientInfoConfirmedUpdated });
           }
         },
-      }
+      },
     );
   };
 

@@ -43,7 +43,7 @@ export const StatusHistory: FC<StatusHistoryTooltipProps> = (props) => {
           <>
             {diffInMinutes(
               DateTime.fromISO(history.at(-1)!.end || currentTimeISO),
-              DateTime.fromISO(history.at(-1)!.start!)
+              DateTime.fromISO(history.at(-1)!.start!),
             )}
             m / {total}m
           </>

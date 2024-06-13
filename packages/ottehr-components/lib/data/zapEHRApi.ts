@@ -76,7 +76,7 @@ export type ZapEHRAPIClient = ReturnType<typeof getZapEHRAPI>;
 
 export const getZapEHRAPI = (
   params: GetZapEHRAPIParams,
-  zambdaClient: ZambdaClient
+  zambdaClient: ZambdaClient,
 ): {
   checkIn: typeof checkIn;
   createAppointment: typeof createAppointment;
@@ -141,7 +141,7 @@ export const getZapEHRAPI = (
 
   const verifyZambdaProvidedAndNotLocalThrowErrorOtherwise = (
     zambdaID: string | undefined,
-    zambdaName: keyof typeof zambdasToIdsMap
+    zambdaName: keyof typeof zambdasToIdsMap,
   ): zambdaID is Exclude<typeof zambdaID, undefined> => {
     if (zambdaID === undefined || !isAppLocalProvided) {
       throw new Error(`${zambdaName} zambda environment variable could not be loaded`);
@@ -156,7 +156,7 @@ export const getZapEHRAPI = (
   const makeZapRequest = async <TResponse, TPayload>(
     zambdaName: keyof typeof ZambdaNames,
     payload?: TPayload,
-    additionalErrorHandler?: (error: unknown) => void
+    additionalErrorHandler?: (error: unknown) => void,
   ): Promise<TResponse> => {
     const zambdaId = zambdasToIdsMap[zambdaName];
 
@@ -193,7 +193,7 @@ export const getZapEHRAPI = (
   };
 
   const createAppointment = async (
-    parameters: CreateAppointmentUCTelemedParams
+    parameters: CreateAppointmentUCTelemedParams,
   ): Promise<CreateAppointmentUCTelemedResponse> => {
     const fhirParams = fhirifyAppointmentInputs({ ...parameters });
     return await makeZapRequest('create appointment', fhirParams);
@@ -212,25 +212,25 @@ export const getZapEHRAPI = (
   };
 
   const createPaperwork = async (
-    parameters: Pick<CreatePaperworkInput, 'appointmentID' | 'files' | 'paperwork' | 'paperworkComplete' | 'timezone'>
+    parameters: Pick<CreatePaperworkInput, 'appointmentID' | 'files' | 'paperwork' | 'paperworkComplete' | 'timezone'>,
   ): Promise<CreatePaperworkResponse> => {
     const payload = Object.fromEntries(
       Object.entries(parameters).filter(
         ([_parameterKey, parameterValue]) =>
-          parameterValue && !Object.values(parameterValue).every((tempValue) => tempValue === undefined)
-      )
+          parameterValue && !Object.values(parameterValue).every((tempValue) => tempValue === undefined),
+      ),
     );
     return await makeZapRequest('create paperwork', payload);
   };
 
   const updatePaperwork = async (
-    parameters: Pick<UpdatePaperworkInput, 'appointmentID' | 'files' | 'paperwork' | 'timezone'>
+    parameters: Pick<UpdatePaperworkInput, 'appointmentID' | 'files' | 'paperwork' | 'timezone'>,
   ): Promise<UpdatePaperworkResponse> => {
     const payload = Object.fromEntries(
       Object.entries(parameters).filter(
         ([_parameterKey, parameterValue]) =>
-          parameterValue && !Object.values(parameterValue).every((tempValue) => tempValue === undefined)
-      )
+          parameterValue && !Object.values(parameterValue).every((tempValue) => tempValue === undefined),
+      ),
     );
     return await makeZapRequest('update paperwork', payload);
   };
@@ -240,7 +240,7 @@ export const getZapEHRAPI = (
   };
 
   const getAppointments = async (
-    parameters?: GetTelemedAppointmentsRequest
+    parameters?: GetTelemedAppointmentsRequest,
   ): Promise<GetTelemedAppointmentsResponse> => {
     return await makeZapRequest('get appointments', parameters);
   };
@@ -254,13 +254,13 @@ export const getZapEHRAPI = (
   };
 
   const getPaperworkPublic = async (
-    parameters: GetPaperworkRequestParams
+    parameters: GetPaperworkRequestParams,
   ): Promise<PaperworkResponseWithoutResponses> => {
     return await makeZapRequest('get paperwork', parameters, NotFoundApointmentErrorHandler);
   };
 
   const getWaitStatus = async (
-    parameters: Omit<WaitingRoomInput, 'secrets' | 'authorization'>
+    parameters: Omit<WaitingRoomInput, 'secrets' | 'authorization'>,
   ): Promise<WaitingRoomResponse> => {
     return await makeZapRequest('get wait status', parameters);
   };
@@ -270,19 +270,19 @@ export const getZapEHRAPI = (
   };
 
   const videoChatCreateInvite = async (
-    parameters: InviteParticipantRequestParameters
+    parameters: InviteParticipantRequestParameters,
   ): Promise<VideoChatCreateInviteResponse> => {
     return await makeZapRequest('video chat create invite', parameters);
   };
 
   const videoChatCancelInvite = async (
-    parameters: CancelInviteParticipantRequestParameters
+    parameters: CancelInviteParticipantRequestParameters,
   ): Promise<CancelInviteParticipantResponse> => {
     return await makeZapRequest('video chat cancel invite', parameters);
   };
 
   const videoChatListInvites = async (
-    parameters: ListInvitedParticipantsRequestParameters
+    parameters: ListInvitedParticipantsRequestParameters,
   ): Promise<ListInvitedParticipantsResponse> => {
     return await makeZapRequest('video chat list invites', parameters);
   };
@@ -291,7 +291,7 @@ export const getZapEHRAPI = (
     appointmentID: string,
     fileType: string,
     fileFormat: string,
-    file: File
+    file: File,
   ): Promise<any> => {
     try {
       const presignedURLRequest = await getPresignedFileURL(appointmentID, fileType, fileFormat);

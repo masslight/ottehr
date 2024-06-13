@@ -47,14 +47,14 @@ export const VitalsTemperature: FC<VitalsTemperatureProps> = (props) => {
               updateQuestionnaireResponse(
                 questionnaireResponse,
                 'vitals-temperature',
-                value['vitals-temperature'] || 'N/A'
+                value['vitals-temperature'] || 'N/A',
               );
             },
-          }
+          },
         );
       });
     },
-    [debounce, mutate, appointment, questionnaireResponse]
+    [debounce, mutate, appointment, questionnaireResponse],
   );
 
   useEffect(() => {

@@ -20,7 +20,7 @@ import { handleCustomDTOExtractions, mapResourceToChartDataResponse } from '../s
 export function createFindResourceRequest<
   TResource extends AllergyIntolerance,
   RType extends TResource['resourceType'],
-  TProp extends GetPropName<TResource, 'patient'>
+  TProp extends GetPropName<TResource, 'patient'>,
 >(patientId: Patient['id'], resourceType: RType, field: TProp): BatchInputGetRequest;
 export function createFindResourceRequest<
   TResource extends
@@ -33,12 +33,12 @@ export function createFindResourceRequest<
     | ServiceRequest
     | DocumentReference,
   RType extends TResource['resourceType'],
-  TProp extends GetPropName<TResource, 'subject'>
+  TProp extends GetPropName<TResource, 'subject'>,
 >(patientId: Patient['id'], resourceType: RType, field: TProp): BatchInputGetRequest;
 export function createFindResourceRequest<
   TResource extends DomainResource,
   RType extends TResource['resourceType'],
-  TProp extends string
+  TProp extends string,
 >(patientId: Patient['id'], resourceType: RType, field: TProp): BatchInputGetRequest {
   return {
     method: 'GET',
@@ -49,7 +49,7 @@ export function createFindResourceRequest<
 export function createFindResourceRequestEncounterField(
   encounterId: string,
   resourceType: string,
-  field?: string
+  field?: string,
 ): BatchInputGetRequest {
   return {
     method: 'GET',

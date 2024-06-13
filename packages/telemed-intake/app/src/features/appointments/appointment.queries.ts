@@ -63,7 +63,7 @@ export const useGetAppointments = (apiClient: ZapEHRAPIClient | null, enabled = 
         console.error('Error during fetching appointments: ', err);
       },
       staleTime: 1000 * 60 * 5,
-    }
+    },
   );
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -81,5 +81,5 @@ export const useGetTelemedStates = (apiClient: ZapEHRAPIClient | null, enabled =
       onError: (err) => {
         console.error('Error during fetching telemed states: ', err);
       },
-    }
+    },
   );

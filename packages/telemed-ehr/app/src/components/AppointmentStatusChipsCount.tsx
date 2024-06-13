@@ -30,7 +30,7 @@ export const AppointmentsStatusChipsCount = ({ appointments }: AppointmentChip):
       {Array.from(statusCounts)
         .sort(
           ([statusOne, _countOne], [statusTwo, _countTwo]) =>
-            ORDER_STATUS.indexOf(statusOne) - ORDER_STATUS.indexOf(statusTwo)
+            ORDER_STATUS.indexOf(statusOne) - ORDER_STATUS.indexOf(statusTwo),
         )
         .map(([status, count]) => (
           <Box key={status}>{getAppointmentStatusChip(status, count)}</Box>

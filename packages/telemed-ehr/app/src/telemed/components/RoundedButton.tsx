@@ -20,7 +20,7 @@ export const RoundedButton = styled(
         {props.children}
       </Typography>
     </Button>
-  )
+  ),
 )(() => ({
   whiteSpace: 'nowrap',
   minWidth: 'auto',
