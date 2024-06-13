@@ -127,6 +127,7 @@
     "inquirer": "^8.0.0",
     "jest": "^29.6.2",
     "jose": "5.2.0",
+    "jsonpath-plus": "9.0.0",
     "jsonwebtoken": "9.0.2",
     "lint-staged": "^15.0.2",
     "pdf-lib": "1.17.1",
