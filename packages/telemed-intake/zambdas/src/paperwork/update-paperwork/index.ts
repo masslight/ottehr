@@ -45,7 +45,8 @@ export let token: string;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
-    const nowISO = DateTime.now().setZone('UTC').toISO();
+    const now = DateTime.now().setZone('UTC');
+    const nowISO = now.isValid ? now.toISO() : 'fallback-ISO-string';
     const secrets = input.secrets;
     if (!token) {
       console.log('getting token');
@@ -54,7 +55,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       console.log('already have token');
     }
 
-    const fhirClient = createFhirClient(token, getSecret(SecretsKeys.FHIR_API, secrets));
+    const fhirClient = createFhirClient(token);
     const questionnaireSearch: Questionnaire[] = await fhirClient.searchResources({
       resourceType: 'Questionnaire',
       searchParams: [

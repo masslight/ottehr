@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { Box, Button, Dialog, Paper, Typography } from '@mui/material';
 import { useEffect } from 'react';
 import { mdyStringFromISOString } from '../helpers';
+import { FieldValues } from 'react-hook-form';
 
 const REACT_APP_MIXPANEL_TOKEN = import.meta.env.REACT_APP_MIXPANEL_TOKEN;
 
@@ -21,7 +22,7 @@ const ConfirmDateOfBirth = (): JSX.Element => {
     }
   });
 
-  const handleSubmit = (data: { dateOfBirth: string }): void => {
+  const handleSubmit = (data: FieldValues): void => {
     // if the date's of birth match, send the patient to PatientInformation
     if (data.dateOfBirth === state.patientInfo?.dateOfBirth?.split('T')[0]) {
       // in case the user initially set the wrong birthday, but then clicked 'back' and fixed it

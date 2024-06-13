@@ -9,6 +9,7 @@ import { safelyCaptureException } from '../helpers/sentry';
 import { IntakeDataContext } from '../store';
 import { updateSelectedLocation, updateVisitType } from '../store/IntakeActions';
 import { CancellationReasonOptions } from '../store/types';
+import { useForm, SubmitHandler, FieldValues } from 'react-hook-form';
 
 const CancellationReason = (): JSX.Element => {
   const navigate = useNavigate();
@@ -18,7 +19,7 @@ const CancellationReason = (): JSX.Element => {
   const [notFound, setNotFound] = useState(false);
   const { id: appointmentID } = useParams();
 
-  const onSubmit = async (data: { cancellationReason: string }): Promise<void> => {
+  const onSubmit: SubmitHandler<FieldValues> = async (data) => {
     if (!zambdaClient) {
       throw new Error('zambdaClient is not defined');
     }

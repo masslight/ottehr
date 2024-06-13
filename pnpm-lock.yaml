@@ -38,9 +38,6 @@ importers:
       '@types/inquirer':
         specifier: ^8.0.0
         version: 8.2.10
-      '@types/jest':
-        specifier: ^27.5.2
-        version: 27.5.2
       '@types/luxon':
         specifier: ^3.1.0
         version: 3.4.2
@@ -74,6 +71,9 @@ importers:
       axios:
         specifier: 1.5.1
         version: 1.5.1
+      dotenv:
+        specifier: 16.4.5
+        version: 16.4.5
       env-cmd:
         specifier: ^10.1.0
         version: 10.1.0
@@ -99,7 +99,7 @@ importers:
         specifier: ^8.0.0
         version: 8.2.6
       jest:
-        specifier: ^29.6.2
+        specifier: ^29.7.0
         version: 29.7.0(@types/node@18.19.34)(ts-node@10.9.2)
       jose:
         specifier: 5.2.0
@@ -195,6 +195,9 @@ importers:
       '@twilio/conversations':
         specifier: ^2.4.1
         version: 2.5.0
+      '@types/jest':
+        specifier: ^27.5.2
+        version: 27.5.2
       '@types/jsonpath-plus':
         specifier: 5.0.5
         version: 5.0.5
@@ -7028,6 +7031,7 @@ packages:
     dependencies:
       jest-matcher-utils: 27.5.1
       pretty-format: 27.5.1
+    dev: true
 
   /@types/json-schema@7.0.15:
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}

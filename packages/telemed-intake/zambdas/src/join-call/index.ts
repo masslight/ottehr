@@ -88,7 +88,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       console.log('already have a token, no need to update');
     }
 
-    const fhirClient = createFhirClient(zapehrToken, getSecret(SecretsKeys.FHIR_API, secrets));
+    const fhirClient = createFhirClient(zapehrToken);
 
     let appointment: Appointment | undefined = undefined;
 

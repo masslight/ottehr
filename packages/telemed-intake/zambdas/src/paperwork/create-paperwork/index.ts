@@ -56,7 +56,8 @@ export let token: string;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
-    const nowISO = DateTime.now().setZone('UTC').toISO();
+    const now = DateTime.now().setZone('UTC');
+    const nowISO = now.isValid ? now.toISO() : 'fallback-ISO-string';
     const secrets = input.secrets;
     if (!token) {
       console.log('getting token');
@@ -65,7 +66,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       console.log('already have token');
     }
 
-    const fhirClient = createFhirClient(token, getSecret(SecretsKeys.FHIR_API, secrets));
+    const fhirClient = createFhirClient(token);
     const questionnaireSearch: Questionnaire[] = await fhirClient.searchResources({
       resourceType: 'Questionnaire',
       searchParams: [
@@ -163,8 +164,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     await createAuditEvent(AuditableZambdaEndpoints.paperworkUpdate, fhirClient, input, patientID, secrets);
 
     const { patient, verifiedPhoneNumber } = await getPatientResourceWithVerifiedPhoneNumber(patientID, fhirClient);
-    let startTime = DateTime.utc().toISO();
-    startTime = DateTime.fromISO(startTime).setZone('UTC').toISO();
+    const startTime = DateTime.utc().setZone('UTC').toISO();
+    if (!startTime) {
+      throw new Error('startTime is currently undefined');
+    }
     const originalDate = DateTime.fromISO(startTime).setZone('UTC');
     const appointment = await getAppointmentResourceById(appointmentID, fhirClient);
     const location = await getLocationResource(locationID, fhirClient);

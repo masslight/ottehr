@@ -70,11 +70,10 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
   const { locationState: location, patient, timezone, unconfirmedDateOfBirth } = params;
   const { secrets } = input;
   let locationState = location;
-  const fhirAPI = getSecret(SecretsKeys.FHIR_API, secrets);
-  const fhirClient = createFhirClient(zapehrToken, fhirAPI);
+  const fhirClient = createFhirClient(zapehrToken);
   console.log('getting user');
 
-  const user = await getUser(input.headers.Authorization.replace('Bearer ', ''), secrets);
+  const user = await getUser(input.headers.Authorization.replace('Bearer ', ''));
 
   // If it's a returning patient, check if the user has
   // access to create appointments for this patient
@@ -164,11 +163,7 @@ export async function createAppointment(
    * cause the "Estimated waiting time" calulations are based on this,
    * and we can't search appointments by "created" prop
    **/
-  let startTime = DateTime.utc().toISO();
-  if (!startTime) {
-    throw new Error('startTime is currently undefined');
-  }
-  startTime = DateTime.fromISO(startTime).setZone('UTC').toISO();
+  const startTime = DateTime.utc().setZone('UTC').toISO();
   if (!startTime) {
     throw new Error('startTime is currently undefined');
   }

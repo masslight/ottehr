@@ -6,7 +6,7 @@
     "start": "npm run start:local",
     "start:local": "ENV=local pnpm run start-help",
     "start-help": "sls offline --stage ${ENV} --httpPort 3000",
-    "build": "tsc && sls package --stage dev",
+    "build": "tsc && sls package --stage local",
     "deploy-zambdas:dev": "ENV=dev pnpm deploy-zambdas-help",
     "deploy-zambdas-help": "pnpm package && ts-node scripts/deploy-zambdas.ts ${ENV}",
     "package": "tsc && sls package && npm run rebundle",

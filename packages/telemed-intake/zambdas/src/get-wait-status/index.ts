@@ -76,7 +76,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       // TODO: wonder if we need to check if it's expired at some point?
     }
 
-    const fhirClient = createFhirClient(zapehrToken, getSecret(SecretsKeys.FHIR_API, secrets));
+    const fhirClient = createFhirClient(zapehrToken);
 
     let appointment: Appointment | undefined = undefined;
     // let location: Location | undefined = undefined;
@@ -133,7 +133,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
 const calculateEstimatedTime = async (
   fhirClient: FhirClient,
-  appointment: Appointment
+  appointment: Appointment,
 ): Promise<number | undefined> => {
   const locationId = appointment.participant
     .find((appointment) => appointment.actor?.reference?.startsWith('Location/'))

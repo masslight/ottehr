@@ -7,7 +7,10 @@ export const getSecret = (secretKey: string, secrets: Secrets | null): string =>
   if (secrets != null) {
     value = secrets[secretKey];
   } else {
-    value = process.env[secretKey];
+    if (process) {
+      console.log(process);
+      value = process.env[secretKey];
+    }
   }
 
   if (value == null) {
@@ -24,6 +27,7 @@ export enum SecretsKeys {
   AUTH0_AUDIENCE = 'AUTH0_AUDIENCE',
   FHIR_API = 'FHIR_API',
   PROJECT_API = 'PROJECT_API',
+  PROJECT_ID = 'PROJECT_ID',
   ENVIRONMENT = 'ENVIRONMENT',
   SENDGRID_API_KEY = 'SENDGRID_API_KEY',
   URGENT_CARE_SENDGRID_EMAIL_BCC = 'URGENT_CARE_SENDGRID_EMAIL_BCC',
@@ -33,6 +37,9 @@ export enum SecretsKeys {
   URGENT_CARE_URG_VISIT_TYPE = 'URGENT_CARE_URG_VISIT_TYPE',
   URGENT_CARE_ONLINE_VISIT_TYPE = 'URGENT_CARE_ONLINE_VISIT_TYPE',
   URGENT_CARE_TESTING_VISIT_TYPE = 'URGENT_CARE_TESTING_VISIT_TYPE',
+  URGENT_CARE_MESSAGING_DEVICE_ID = 'URGENT_CARE_MESSAGING_DEVICE_ID',
+  URGENT_CARE_MESSAGING_M2M_CLIENT = 'URGENT_CARE_MESSAGING_M2M_CLIENT',
+  URGENT_CARE_MESSAGING_M2M_SECRET = 'URGENT_CARE_MESSAGING_M2M_SECRET',
   ORGANIZATION_ID = 'ORGANIZATION_ID',
   WEBSITE_URL = 'WEBSITE_URL',
   MIXPANEL_TOKEN = 'MIXPANEL_TOKEN',

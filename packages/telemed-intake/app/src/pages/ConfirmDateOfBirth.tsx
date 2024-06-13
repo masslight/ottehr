@@ -34,7 +34,7 @@ const ConfirmDateOfBirth = (): JSX.Element => {
       useFilesStore.setState({ fileURLs: data.files });
       navigate(`/paperwork/${data.questions[0].slug}`);
     },
-    { staleTime: 0, enabled: getPaperworkEnabled }
+    { staleTime: 0, enabled: getPaperworkEnabled },
   );
 
   const [openModal, setOpenModal] = useState(false);

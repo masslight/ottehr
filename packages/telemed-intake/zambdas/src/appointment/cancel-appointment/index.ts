@@ -75,8 +75,7 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
   const { input } = props;
   const { secrets, appointmentID, cancellationReason, cancellationReasonAdditional } = props.params;
 
-  const fhirAPI = getSecret(SecretsKeys.FHIR_API, secrets);
-  const fhirClient = createFhirClient(zapehrToken, fhirAPI);
+  const fhirClient = createFhirClient(zapehrToken);
 
   console.group('gettingEmailProps');
 

@@ -24,7 +24,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       console.log('already have a token, no need to update');
     }
 
-    const fhirClient = createFhirClient(zapehrToken, fhirAPI);
+    const fhirClient = createFhirClient(zapehrToken);
 
     const telemedLocations = await getTelemedLocations(fhirClient);
 

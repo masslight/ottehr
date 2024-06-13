@@ -72,6 +72,12 @@ export const palette = {
   error: {
     main: '#EC6930',
   },
+  destructive: {
+    main: '#212130',
+    light: '#FFFFFF',
+    dark: '#000000',
+    contrastText: '#66BA70',
+  },
   action: {
     active: 'rgba(0, 0, 0, 0.54)',
     hover: 'rgba(0, 0, 0, 0.04)',

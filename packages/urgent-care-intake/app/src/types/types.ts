@@ -156,3 +156,9 @@ export interface FileURLs {
     z3Url?: string;
   };
 }
+
+export interface PatientInfoInProgress extends Omit<PatientInfo, 'patientDateOfBirth'> {
+  dobYear: string | undefined;
+  dobMonth: string | undefined;
+  dobDay: string | undefined;
+}

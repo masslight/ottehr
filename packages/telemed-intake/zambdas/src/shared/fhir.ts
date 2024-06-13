@@ -49,6 +49,8 @@ export async function createConsentItems(
   locationID: string,
   ipAddress: string,
   fhirClient: FhirClient,
+  token: string,
+  secrets: Secrets | null,
   ottehrModule: OTTEHR_MODULE,
 ): Promise<void> {
   console.log('Creating consent PDFs');

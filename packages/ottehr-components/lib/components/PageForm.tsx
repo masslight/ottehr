@@ -270,7 +270,7 @@ const PageForm: React.FC<PageFormProps> = memo(
         </form>
       </FormProvider>
     );
-  }
+  },
 );
 
 export default PageForm;

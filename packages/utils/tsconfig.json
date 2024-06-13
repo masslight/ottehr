@@ -7,9 +7,9 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "types": ["node"]
   },
   "include": ["lib", "test", "env"],
-  "references": [{ "path": "./tsconfig.node.json" }],
-  "types": ["node"]
+  "references": [{ "path": "./tsconfig.node.json" }]
 }

@@ -21,6 +21,7 @@ import {
 } from '../store/IntakeActions';
 import { VisitType } from '../store/types';
 import { Appointment } from './Appointments';
+import { FieldValues } from 'react-hook-form';
 
 const WelcomeBack = (): JSX.Element => {
   const { state, dispatch } = useContext(IntakeDataContext);
@@ -81,7 +82,7 @@ const WelcomeBack = (): JSX.Element => {
     }
   }, [dispatch, isAuthenticated, isLoading, navigate, zambdaClient]);
 
-  const onSubmit = (data: { patientID: string }): void => {
+  const onSubmit = (data: FieldValues): void => {
     let foundPatient = false;
     const currentInfo = state.patientInfo;
     if (!data.patientID) {

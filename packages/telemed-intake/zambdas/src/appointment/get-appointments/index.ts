@@ -26,11 +26,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.debug('validateRequestParameters success');
 
     zapehrToken = await checkOrCreateToken(zapehrToken, secrets);
-    const fhirAPI = getSecret(SecretsKeys.FHIR_API, secrets);
-    const fhirClient = createFhirClient(zapehrToken, fhirAPI);
+    const fhirClient = createFhirClient(zapehrToken);
     console.log('getting user');
 
-    const user = await getUser(input.headers.Authorization.replace('Bearer ', ''), secrets);
+    const user = await getUser(input.headers.Authorization.replace('Bearer ', ''));
     console.log('getting patients for user');
     const patients = await getPatientsForUser(user, fhirClient);
     const patientIDs = patients.map((patient) => `Patient/${patient.id}`);

@@ -39,9 +39,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     // const user = await appClient.getMe();
     // console.log(user);
 
-    const fhirClient = createFhirClient(zapehrToken, getSecret(SecretsKeys.FHIR_API, secrets));
+    const fhirClient = createFhirClient(zapehrToken);
     console.log('getting user');
-    const user = await getUser(input.headers.Authorization.replace('Bearer ', ''), secrets);
+    const user = await getUser(input.headers.Authorization.replace('Bearer ', ''));
     console.log('getting patients for user: ' + user.name);
     const patients = await getPatientsForUser(user, fhirClient);
 
@@ -56,9 +56,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           email = patientTemp.telecom?.find((telecom) => telecom.system === 'email')?.value;
         }
         if (emailUser === 'Parent/Guardian') {
-          const guardianContact = patientTemp.contact?.find(
-            (contact) =>
-              contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian')
+          const guardianContact = patientTemp.contact?.find((contact) =>
+            contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
           );
           email = guardianContact?.telecom?.find((telecom) => telecom.system === 'email')?.value;
         }
@@ -66,7 +65,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       const patient: PatientInfo = {
         id: patientTemp.id,
         pointOfDiscovery: patientTemp.extension?.find(
-          (ext) => ext.url === `${PRIVATE_EXTENSION_BASE_URL}/point-of-discovery`
+          (ext) => ext.url === `${PRIVATE_EXTENSION_BASE_URL}/point-of-discovery`,
         )
           ? true
           : false,
