@@ -10,5 +10,6 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["lib", "test", "env"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "references": [{ "path": "./tsconfig.node.json" }],
+  "types": ["node"]
 }

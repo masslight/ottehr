@@ -202,7 +202,7 @@ importers:
         specifier: 9.0.4
         version: 9.0.4
       '@types/node':
-        specifier: ^18.11.18
+        specifier: ^18.19.34
         version: 18.19.34
       '@types/uuid':
         specifier: 9.0.7
