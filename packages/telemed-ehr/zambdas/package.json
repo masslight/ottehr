@@ -10,7 +10,7 @@
     "start:dev2": "ENV=dev2 npm run start-skeleton",
     "start:testing": "ENV=testing npm run start-skeleton",
     "start:staging": "ENV=staging npm run start-skeleton",
-    "start-skeleton": "sls offline --stage dev",
+    "start-skeleton": "sls offline --stage ${ENV}",
     "debug": "export SLS_DEBUG=* && node --inspect ../../../node_modules/serverless/bin/serverless offline --stage=local",
     "setup-zapehr-secrets": "ts-node scripts/configure-zapehr-secrets.ts",
     "deploy-zambdas": "npm run package && ts-node scripts/deploy-zambdas.ts",
