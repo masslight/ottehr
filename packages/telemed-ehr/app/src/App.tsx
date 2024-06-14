@@ -52,7 +52,7 @@ if (MUI_X_LICENSE_KEY != null) {
 function App(): ReactElement {
   useApiClients();
   const currentUser = useOttehrUser();
-  const currentTab = useNavStore((state) => state.currentTab) || 'Urgent Care';
+  const currentTab = useNavStore((state) => state.currentTab) || 'In Person';
 
   const roleUnknown =
     !currentUser || !currentUser.hasRole([RoleType.Administrator, RoleType.Staff, RoleType.Manager, RoleType.Provider]);

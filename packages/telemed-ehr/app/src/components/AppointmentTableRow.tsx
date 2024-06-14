@@ -202,7 +202,7 @@ const longWaitTimeFlag = (appointment: UCAppointmentInformation, statusTime: num
   if (
     appointment.status === 'ready for provider' ||
     appointment.status === 'intake' ||
-    (appointment.status === 'ready' && appointment.appointmentType !== 'walk-in')
+    (appointment.status === 'ready' && appointment.appointmentType !== 'now')
   ) {
     if (statusTime > 45) {
       return true;
@@ -521,20 +521,12 @@ export default function AppointmentTableRow({
               <CustomChip
                 type={'status bullet'}
                 fill={
-                  appointment.appointmentType === 'pre-booked'
-                    ? theme.palette.primary.main
-                    : appointment.appointmentType === 'post-telemed'
-                      ? theme.palette.warning.light
-                      : theme.palette.secondary.main
+                  appointment.appointmentType === 'prebook' ? theme.palette.primary.main : theme.palette.secondary.main
                 }
               ></CustomChip>
               {/* status will either be booked or walked in - pending finalization of how we track walk ins */}
               <Typography variant="body1">
-                {capitalize?.(
-                  appointment.appointmentType === 'post-telemed'
-                    ? 'Post Telemed'
-                    : (appointment.appointmentType || '').toString(),
-                )}
+                {appointment.appointmentType}
                 &nbsp;&nbsp;<strong>{start}</strong>
               </Typography>
             </Box>
