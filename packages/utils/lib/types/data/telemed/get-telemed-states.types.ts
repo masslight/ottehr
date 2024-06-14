@@ -1,5 +1,6 @@
 export interface TelemedLocation {
   state: string;
+  name: string;
   slug: string;
   availableSlots: string[];
   available: boolean;
