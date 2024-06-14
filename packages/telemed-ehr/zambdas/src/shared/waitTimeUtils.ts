@@ -50,7 +50,7 @@ const getLastUnterminatedStatusEntry = (history: VisitStatusHistoryEntry[]): Vis
 // returns the arrived time as an epoch time in seconds
 const getArrivedTime = (statusHistory: VisitStatusHistoryEntry[], appointment: Appointment): number | null => {
   const appointmentType = appointmentTypeForAppointment(appointment);
-  if (appointmentType === 'walk-in' && appointment.start) {
+  if (appointmentType === 'now' && appointment.start) {
     const startTime = DateTime.fromISO(appointment.start ?? '');
     if (startTime.isValid) {
       return startTime.toSeconds();
