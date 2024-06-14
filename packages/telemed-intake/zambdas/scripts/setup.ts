@@ -22,6 +22,20 @@ async function createApplication(
           action: ['Zambda:InvokeFunction'],
           effect: 'Allow',
         },
+        {
+          "action": [
+            "Telemed:JoinMeeting"
+          ],
+          "effect": "Allow",
+          "resource": "Telemed:Meeting"
+        },
+        {
+          "action": [
+            "FHIR:Read"
+          ],
+          "effect": "Allow",
+          "resource": "FHIR:Encounter"
+        },
       ],
     };
     const existingRoles = await fetch(`${projectApiUrl}/iam/roles`, {

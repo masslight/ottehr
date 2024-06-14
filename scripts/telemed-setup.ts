@@ -70,8 +70,8 @@ async function createM2M(accessToken: string, projectId: string): Promise<[strin
               effect: 'Allow',
             },
             {
-              resource: ['IAM:GetRole', 'IAM:ListAllRoles'],
-              action: ['IAM:Role'],
+              resource: ['IAM:Role'],
+              action: ['IAM:GetRole', 'IAM:ListAllRoles'],
               effect: 'Allow',
             },
             {

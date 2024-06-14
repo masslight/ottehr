@@ -10,7 +10,7 @@ export async function getPatientsForUser(user: User, fhirClient: FhirClient): Pr
     searchParams: [
       {
         name: 'telecom',
-        value: user.name,
+        value: user.phoneNumber ?? user.name,
       },
       {
         name: '_include',
