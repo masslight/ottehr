@@ -34,26 +34,26 @@ type NavbarItems = {
 };
 
 const administratorNavbarItems: NavbarItems = {
-  'Urgent Care': { urls: ['/visits', '/visit'] },
+  'In Person': { urls: ['/visits', '/visit'] },
   Offices: { urls: ['/offices', '/office'] },
   Patients: { urls: ['/patients', '/patient'] },
   Employees: { urls: ['/employees', '/employee'] },
 };
 
 const managerNavbarItems: NavbarItems = {
-  'Urgent Care': { urls: ['/visits', '/visit'] },
+  'In Person': { urls: ['/visits', '/visit'] },
   Offices: { urls: ['/offices', '/office'] },
   Patients: { urls: ['/patients', '/patient'] },
   Employees: { urls: ['/employees', '/employee'] },
 };
 
 const staffNavbarItems: NavbarItems = {
-  'Urgent Care': { urls: ['/visits', '/visit'] },
+  'In Person': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
 };
 
 const providerNavbarItems: NavbarItems = {
-  'Urgent Care': { urls: ['/visits', '/visit'] },
+  'In Person': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
 };
 
@@ -97,7 +97,7 @@ export default function Navbar(): ReactElement {
 
   useEffect(() => {
     if (!currentTab) {
-      useNavStore.setState({ currentTab: 'Urgent Care' });
+      useNavStore.setState({ currentTab: 'In Person' });
     }
 
     (Object.keys(navbarItems) as AppTab[]).forEach((navbarItem) => {

@@ -316,7 +316,7 @@ export default function AddPatient(): JSX.Element {
         <Grid item xs={5}>
           <CustomBreadcrumbs
             chain={[
-              { link: '/visits', children: 'Urgent Care' },
+              { link: '/visits', children: 'In Person' },
               { link: '#', children: 'Add Patient' },
             ]}
           />
@@ -633,8 +633,8 @@ export default function AddPatient(): JSX.Element {
                             setVisitType(event.target.value as VisitType);
                           }}
                         >
-                          <MenuItem value={VisitType.Now}>Now Urgent Care Visit</MenuItem>
-                          <MenuItem value={VisitType.Prebook}>Pre-booked Urgent Care Visit</MenuItem>
+                          <MenuItem value={VisitType.Now}>Now</MenuItem>
+                          <MenuItem value={VisitType.Prebook}>Pre-booked visit</MenuItem>
                         </Select>
                       </FormControl>
                     </Box>
