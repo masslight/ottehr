@@ -1,4 +1,4 @@
-export type AppointmentType = 'walk-in' | 'pre-booked' | 'post-telemed';
+export type AppointmentType = 'now' | 'prebook';
 
 export enum ApptStatus {
   'ready' = 'ready',

@@ -100,7 +100,7 @@ export const CHIP_STATUS_MAP: {
     };
   };
 } = {
-  PENDING: {
+  pending: {
     background: {
       primary: '#FFFFFF',
     },
@@ -108,7 +108,7 @@ export const CHIP_STATUS_MAP: {
       primary: '#555555',
     },
   },
-  ARRIVED: {
+  arrived: {
     background: {
       primary: '#EEEEE',
       secondary: '#444444',
@@ -117,7 +117,7 @@ export const CHIP_STATUS_MAP: {
       primary: '#444444',
     },
   },
-  READY: {
+  ready: {
     background: {
       primary: '#CEF9BA',
       secondary: '#43A047',
@@ -126,7 +126,7 @@ export const CHIP_STATUS_MAP: {
       primary: '#446F30',
     },
   },
-  INTAKE: {
+  intake: {
     background: {
       primary: '#fddef0',
     },
@@ -134,7 +134,7 @@ export const CHIP_STATUS_MAP: {
       primary: '#684e5d',
     },
   },
-  'PROVIDER-READY': {
+  'provider-ready': {
     background: {
       primary: '#EEEEEE',
       secondary: '#444444',
@@ -143,7 +143,7 @@ export const CHIP_STATUS_MAP: {
       primary: '#444444',
     },
   },
-  PROVIDER: {
+  provider: {
     background: {
       primary: '#FDFCB7',
     },
@@ -151,7 +151,7 @@ export const CHIP_STATUS_MAP: {
       primary: '#6F6D1A',
     },
   },
-  DISCHARGE: {
+  discharge: {
     background: {
       primary: '#B2EBF2',
     },
@@ -159,7 +159,7 @@ export const CHIP_STATUS_MAP: {
       primary: '#006064',
     },
   },
-  'CHECKED-OUT': {
+  'checked-out': {
     background: {
       primary: '#FFFFFF',
     },
@@ -167,7 +167,7 @@ export const CHIP_STATUS_MAP: {
       primary: '#555555',
     },
   },
-  CANCELLED: {
+  cancelled: {
     background: {
       primary: '#FECDD2',
     },
@@ -175,7 +175,7 @@ export const CHIP_STATUS_MAP: {
       primary: '#B71C1C',
     },
   },
-  'NO-SHOW': {
+  'no-show': {
     background: {
       primary: '#DFE5E9',
     },
@@ -183,7 +183,7 @@ export const CHIP_STATUS_MAP: {
       primary: '#212121',
     },
   },
-  UNKNOWN: {
+  unknown: {
     background: {
       primary: '#FFFFFF',
     },

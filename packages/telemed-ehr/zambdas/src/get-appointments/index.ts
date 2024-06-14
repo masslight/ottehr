@@ -123,10 +123,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       resourceType: 'Appointment',
       searchParams: [
         {
-          name: '_tag',
-          value: OTTEHR_MODULE.UC,
-        },
-        {
           name: 'date',
           value: `ge${searchDateWithTimezone.startOf('day')}`,
         },
@@ -177,6 +173,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     });
     const [activeEncounters, searchResultsForSelectedDate] = await Promise.all([encounterSearch, appointmentSearch]);
     console.timeEnd('get_active_encounters + get_appointment_data');
+    // console.log(searchResultsForSelectedDate);
 
     const encounterIds: string[] = [];
 
@@ -380,8 +377,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.time('structure_appointment_data');
     let appointments: Appointment[] = [];
     if (visitType?.length > 0) {
+      console.log(1, allAppointments.length);
       appointments = allAppointments?.filter((appointment) => {
-        return visitType?.includes(appointmentTypeForAppointment(appointment));
+        return visitType?.includes(appointment.appointmentType?.text || '');
       });
     } else {
       appointments = allAppointments;

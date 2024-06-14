@@ -38,6 +38,10 @@ export const getAllResourcesFromFhir = async (
         value: `fulfilled,arrived`,
       },
       {
+        name: 'appointment-type',
+        value: 'http://terminology.hl7.org/CodeSystem/v2-0276|telemedicine',
+      },
+      {
         name: 'date',
         value: `le${searchDate.endOf('day')}`,
       },

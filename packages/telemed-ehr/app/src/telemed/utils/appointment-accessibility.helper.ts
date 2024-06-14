@@ -45,8 +45,12 @@ export const getAppointmentAccessibilityData = ({
   const isStatusEditable = !!status && ![ApptStatus.complete, ApptStatus.ready].includes(status);
 
   const isAppointmentAvailable = isStateAvailable && (status === ApptStatus.ready || isEncounterForPractitioner);
-  const isAppointmentReadOnly =
+  let isAppointmentReadOnly =
     !state || !isStateAvailable || !status || !isStatusEditable || !isEncounterForPractitioner;
+
+  if (appointment?.serviceType?.some((serviceTypeTemp) => serviceTypeTemp.text === 'in-person')) {
+    isAppointmentReadOnly = false;
+  }
 
   return {
     allLicenses,

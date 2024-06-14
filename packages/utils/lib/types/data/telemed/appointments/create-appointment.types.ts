@@ -6,6 +6,7 @@ export interface CreateAppointmentUCTelemedParams {
   locationState?: string;
   slot?: string;
   visitType?: string;
+  visitService?: string;
   timezone: string;
   unconfirmedDateOfBirth?: string | undefined;
 }
@@ -17,10 +18,8 @@ export interface CreateAppointmentUCTelemedResponse {
 }
 
 export enum VisitType {
-  WalkIn = 'walkin',
-  PreBook = 'prebook',
-  Reschedule = 'reschedule',
-  Virtual = 'virtual',
+  Now = 'now',
+  Prebook = 'prebook',
 }
 
 export type PatientInfo = PatientBaseInfo & {

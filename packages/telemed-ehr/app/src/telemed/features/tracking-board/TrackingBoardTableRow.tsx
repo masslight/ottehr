@@ -18,7 +18,7 @@ import { FC, ReactElement, useMemo, useState } from 'react';
 import { ApptStatus, TelemedAppointmentInformation } from 'ehr-utils';
 import { otherColors } from '../../../CustomThemeProvider';
 import ChatModal from '../../../features/chat/ChatModal';
-import { DATETIME_FULL_NO_YEAR, DATE_FORMAT, DATE_FULL_NO_YEAR, calculatePatientAge, formatDateUsingSlashes } from '../../../helpers/formatDateTime';
+import { calculatePatientAge, formatDateUsingSlashes } from '../../../helpers/formatDateTime';
 import { AppointmentStatusChip, StatusHistory } from '../../components';
 import { TrackingBoardTableButton } from './TrackingBoardTableButton';
 

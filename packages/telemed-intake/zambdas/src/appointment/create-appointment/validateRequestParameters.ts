@@ -20,7 +20,9 @@ export function validateCreateAppointmentParams(
     throw new Error('No request body provided');
   }
 
-  const { patient, locationState, slot, visitType, unconfirmedDateOfBirth, timezone } = JSON.parse(input.body);
+  const { patient, locationState, slot, visitType, visitService, unconfirmedDateOfBirth, timezone } = JSON.parse(
+    input.body,
+  );
 
   // Check existence of necessary fields
   if (patient === undefined || visitType === undefined) {
@@ -31,6 +33,7 @@ export function validateCreateAppointmentParams(
     throw new Error(`"slot" must be in ISO date and time format (YYYY-MM-DDTHH:MM:SS+zz:zz)`);
   }
   const VISIT_TYPES = ['now', 'prebook'];
+  const SERVICE_TYPES = ['in-person', 'telemedicine'];
   if (!VISIT_TYPES.includes(visitType)) {
     throw new Error(`visitType must be one of the following values ${VISIT_TYPES}`);
   }
@@ -40,6 +43,9 @@ export function validateCreateAppointmentParams(
   let start = slot;
   if (visitType === 'now') {
     start = DateTime.now();
+  }
+  if (!SERVICE_TYPES.includes(visitService)) {
+    throw new Error(`visitService must be one of the following values ${SERVICE_TYPES}`);
   }
 
   // Patient details
@@ -96,6 +102,7 @@ export function validateCreateAppointmentParams(
     locationState,
     slot: start,
     visitType,
+    visitService,
     unconfirmedDateOfBirth,
     timezone,
     secrets: input.secrets,

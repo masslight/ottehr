@@ -6,7 +6,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { TelemedLocation, isHoliday } from 'ottehr-utils';
 import { IntakeFlowPageRoute } from '../App';
 import { clockFullColor } from '../assets/icons';
-import { useGetTelemedStates, useSlotsStore } from '../features/appointments';
+import { useAppointmentStore, useGetTelemedStates } from '../features/appointments';
 import { CustomContainer, useIntakeCommonStore } from '../features/common';
 import { useZapEHRAPIClient } from '../utils';
 import { federalHolidays, stateWorkingHours } from '../utils/constants';
@@ -16,8 +16,8 @@ const Welcome = (): JSX.Element => {
   const navigate = useNavigate();
   const apiClient = useZapEHRAPIClient({ tokenless: true });
   const theme = useTheme();
-  const { slug, 'visit-type': visitType } = useParams();
-  const { selectedSlot, setSlotAndVisitType } = useSlotsStore((state) => state);
+  const { slug, 'visit-type': visitType, 'visit-service': visitService } = useParams();
+  const { selectedSlot, setAppointment } = useAppointmentStore((state) => state);
 
   if (!slug) {
     throw new Error('Slug is not defined');
@@ -30,11 +30,11 @@ const Welcome = (): JSX.Element => {
   const state = telemedStatesData?.locations.find((stateTemp) => stateTemp.slug == slug);
 
   useEffect(() => {
-    setSlotAndVisitType({ visitType });
+    setAppointment({ visitType, visitService });
     if (visitType === 'now') {
-      setSlotAndVisitType({ selectedSlot: DateTime.now().toISO() });
+      setAppointment({ selectedSlot: DateTime.now().toISO() });
     }
-  }, [setSlotAndVisitType, visitType]);
+  }, [visitService, setAppointment, visitType]);
 
   useEffect(() => {
     if (telemedStatesData) {
@@ -93,7 +93,7 @@ const Welcome = (): JSX.Element => {
 
   return (
     <CustomContainer
-      title="Ottehr Telemedicine"
+      title={`Ottehr ${visitService}`}
       subtitle={state?.state}
       img={clockFullColor}
       imgAlt="Clock icon"
@@ -106,7 +106,10 @@ const Welcome = (): JSX.Element => {
       {state && !state.available && (
         <Typography variant="body1">The location &quot;{slug}&quot; is not available</Typography>
       )}
-      {!isFetching && state && state.available && (
+      {state && !['in-person', 'telemedicine'].includes(visitService || '') && (
+        <Typography variant="body1">The service &quot;{visitService}&quot; is not available</Typography>
+      )}
+      {!isFetching && state && state.available && ['in-person', 'telemedicine'].includes(visitService || '') && (
         <>
           <Typography variant="body1">
             We&apos;re pleased to offer this new technology for accessing care. You will need to enter your information

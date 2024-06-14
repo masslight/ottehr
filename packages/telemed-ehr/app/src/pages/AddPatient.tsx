@@ -155,7 +155,7 @@ export default function AddPatient(): JSX.Element {
       setErrors({});
     }
 
-    if (visitType === VisitType.PreBook && slot === undefined) {
+    if (visitType === VisitType.Prebook && slot === undefined) {
       setSelectSlotDialogOpen(true);
       return;
     }
@@ -633,12 +633,12 @@ export default function AddPatient(): JSX.Element {
                             setVisitType(event.target.value as VisitType);
                           }}
                         >
-                          <MenuItem value={VisitType.WalkIn}>Walk-in Urgent Care Visit (1UrgCare)</MenuItem>
-                          <MenuItem value={VisitType.PreBook}>Pre-booked Urgent Care Visit (4Online)</MenuItem>
+                          <MenuItem value={VisitType.Now}>Now Urgent Care Visit</MenuItem>
+                          <MenuItem value={VisitType.Prebook}>Pre-booked Urgent Care Visit</MenuItem>
                         </Select>
                       </FormControl>
                     </Box>
-                    {visitType === VisitType.PreBook && (
+                    {visitType === VisitType.Prebook && (
                       <SlotPicker
                         slotData={locationWithSlotData?.available}
                         slotsLoading={loadingSlotState.status === 'loading'}

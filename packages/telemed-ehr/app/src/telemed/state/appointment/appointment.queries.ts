@@ -16,7 +16,7 @@ import { useAppointmentStore } from './appointment.store';
 import useOttehrUser from '../../../hooks/useOttehrUser';
 import { getSelectors } from '../../../shared/store/getSelectors';
 
-export const useGetTelemedAppointment = (
+export const useGetAppointmentInformation = (
   {
     appointmentId,
   }: {

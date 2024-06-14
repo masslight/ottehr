@@ -67,7 +67,7 @@ interface PerformEffectInputProps {
 
 async function performEffect(props: PerformEffectInputProps): Promise<APIGatewayProxyResult> {
   const { input, params } = props;
-  const { locationState: location, slot, patient, timezone, unconfirmedDateOfBirth } = params;
+  const { locationState: location, slot, patient, visitType, visitService, timezone, unconfirmedDateOfBirth } = params;
   const { secrets } = input;
   let locationState = location;
   const fhirClient = createFhirClient(zapehrToken);
@@ -97,10 +97,12 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
   }
 
   const { message, appointmentId, fhirPatientId } = await createAppointment(
-    locationState,
     patient,
-    slot,
     fhirClient,
+    locationState,
+    slot,
+    visitService,
+    visitType,
     user,
     timezone,
     unconfirmedDateOfBirth,
@@ -118,10 +120,12 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
 }
 
 export async function createAppointment(
-  locationState: string,
   patient: PatientInfo,
-  slot: string,
   fhirClient: FhirClient,
+  locationState: string,
+  slot: string,
+  visitService: string,
+  visitType: string,
   user: User,
   timezone: string,
   unconfirmedDateOfBirth: string,
@@ -178,12 +182,14 @@ export async function createAppointment(
 
   console.log('performing Transactional Fhir Requests for new appointment');
   const { appointment, patient: fhirPatient } = await performTransactionalFhirRequests({
+    fhirClient,
     patient: maybeFhirPatient,
     startTime: originalDate,
     endTime,
-    fhirClient,
-    updatePatientRequest,
+    visitType,
+    visitService,
     createPatientRequest,
+    updatePatientRequest,
     locationId,
     unconfirmedDateOfBirth,
   });
@@ -440,11 +446,13 @@ function validateInternalInformation(patient: PatientInfo): void {
 }
 
 interface TransactionInput {
+  fhirClient: FhirClient;
+  patient?: Patient;
   startTime: DateTime;
   endTime: DateTime;
-  fhirClient: FhirClient;
+  visitType?: string;
+  visitService?: string;
   additionalInfo?: string;
-  patient?: Patient;
   createPatientRequest?: BatchInputPostRequest;
   updatePatientRequest?: BatchInputRequest;
   locationId: string;
@@ -463,6 +471,8 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     patient,
     startTime,
     endTime,
+    visitType,
+    visitService,
     additionalInfo,
     createPatientRequest,
     updatePatientRequest,
@@ -512,6 +522,11 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     });
   }
 
+  apptExtensions.push({
+    url: FHIR_EXTENSION.Appointment.visitHistory.url,
+    extension: [makeVisitStatusExtensionEntry('pending')],
+  });
+
   const startTimeToISO = startTime.toISO();
   const endTimeToISO = endTime.toISO();
 
@@ -547,15 +562,27 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     ],
     start: startTimeToISO,
     end: endTimeToISO,
+    serviceType: [
+      {
+        coding: [
+          {
+            system: 'http://terminology.hl7.org/CodeSystem/service-type',
+            code: visitService,
+            display: visitService,
+          },
+        ],
+        text: visitService,
+      },
+    ],
     appointmentType: {
       coding: [
         {
           system: 'http://terminology.hl7.org/CodeSystem/v2-0276',
-          code: VisitType.Virtual,
-          display: VisitType.Virtual,
+          code: visitType,
+          display: visitType,
         },
       ],
-      text: VisitType.Virtual,
+      text: visitType,
     },
     status: 'proposed',
     created: nowIso,
@@ -650,6 +677,19 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   const bundle = await fhirClient.transactionRequest(transactionInput);
   return extractResourcesFromBundle(bundle, patient);
 };
+
+export function makeVisitStatusExtensionEntry(statusCode: string): any {
+  return {
+    url: 'status',
+    extension: [
+      { url: 'status', valueString: statusCode },
+      {
+        url: 'period',
+        valuePeriod: { start: DateTime.now().setZone('UTC').toISO() },
+      },
+    ],
+  };
+}
 
 const extractResourcesFromBundle = (bundle: Bundle<Resource>, maybePatient?: Patient): TransactionOutput => {
   console.log('getting resources from bundle');
