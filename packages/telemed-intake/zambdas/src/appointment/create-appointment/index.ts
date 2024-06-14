@@ -194,7 +194,7 @@ export async function createAppointment(
 
   // if the patient does not have a phone number, try to use the user's phone number
   if (patient.phoneNumber === undefined || patient.phoneNumber === null) {
-    patient.phoneNumber = user.phoneNumber;
+    patient.phoneNumber = (user as any).phoneNumber;
   }
 
   await createUpdateUserRelatedResources(fhirClient, patient, fhirPatient, user);
