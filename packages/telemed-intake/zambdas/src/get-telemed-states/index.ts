@@ -66,6 +66,9 @@ async function getTelemedLocations(fhirClient: FhirClient): Promise<TelemedLocat
 
   return telemedLocations.map((location) => ({
     state: location.address?.state || '',
+    slug:
+      location.identifier?.find((identifierTemp) => identifierTemp.system === 'https://fhir.ottehr.com/r4/slug')
+        ?.value || 'Unknown',
     // available: location.status === 'active',
     available: true,
   }));

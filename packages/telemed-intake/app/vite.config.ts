@@ -43,6 +43,9 @@ export default (env) => {
       build: {
         sourcemap: mode === 'default' || shouldUploadSentrySourceMaps,
       },
+      server: {
+        open: '/location/nj/telemedicine'
+      },
       plugins,
     })
   );

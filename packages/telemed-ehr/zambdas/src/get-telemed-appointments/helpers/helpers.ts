@@ -90,12 +90,12 @@ export function filterResources(allResources: Resource[], resourceType: string):
 
 export function getUniquePhonesNumbers(allRps: RelatedPerson[]): string[] {
   const uniquePhoneNumbers: string[] = [];
-
+  console.log(allRps);
   allRps.forEach((rp) => {
     const phone = getSMSNumberForIndividual(rp);
     if (phone && !uniquePhoneNumbers.includes(phone)) uniquePhoneNumbers.push(phone);
   });
-
+  console.log(uniquePhoneNumbers);
   return uniquePhoneNumbers;
 }
 

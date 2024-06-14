@@ -1,5 +1,6 @@
 export interface TelemedLocation {
   state: string;
+  slug: string;
   available: boolean;
 }
 
