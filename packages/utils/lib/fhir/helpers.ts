@@ -142,7 +142,7 @@ export const resourceHasTag = (resource: Resource, tag: Coding): boolean => {
 
 export const isPrebookAppointment = (appointment: Appointment): boolean => {
   const typeCoding = appointment.appointmentType?.text;
-  return typeCoding === VisitType.PreBook;
+  return typeCoding === VisitType.Prebook;
 };
 
 export function getPatientContactEmail(patient: Patient): string | undefined {

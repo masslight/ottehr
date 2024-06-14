@@ -21,7 +21,7 @@ import {
   EXAM_OBSERVATIONS_INITIAL,
   useAppointmentStore,
   useExamObservationsStore,
-  useGetTelemedAppointment,
+  useGetAppointmentInformation,
   useVideoCallStore,
 } from '../state';
 import { useIsReadOnly } from '../hooks';
@@ -50,7 +50,7 @@ export const AppointmentPage: FC = () => {
     setWasPreferredLanguagePopupOpen(true);
   };
 
-  const { isFetching } = useGetTelemedAppointment(
+  const { isFetching } = useGetAppointmentInformation(
     {
       appointmentId: id,
     },

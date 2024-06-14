@@ -5,17 +5,17 @@ import { DateTime } from 'luxon';
 export const ZAPEHR_ID_TYPE = 'ZapEHR ID';
 
 export const STATI = [
-  'ARRIVED',
-  'CANCELLED',
-  'INTAKE',
-  'NO-SHOW',
-  'PENDING',
-  'PROVIDER',
-  'READY',
-  'CHECKED-OUT',
-  'DISCHARGE',
-  'PROVIDER-READY',
-  'UNKNOWN',
+  'arrived',
+  'cancelled',
+  'intake',
+  'no-show',
+  'pending',
+  'provider',
+  'ready',
+  'checked-out',
+  'discharge',
+  'provider-ready',
+  'unknown',
 ] as const;
 type STATI_LIST = typeof STATI;
 export type VisitStatus = STATI_LIST[number];
@@ -55,18 +55,18 @@ export type VisitStatusExtension = {
   extension: VisitStatusExtensionEntry[];
 };
 
-export type VisitStatusWithoutUnknown = Exclude<VisitStatus, 'UNKNOWN'>;
+export type VisitStatusWithoutUnknown = Exclude<VisitStatus, 'unknown'>;
 const otherEHRToFhirAppointmentStatusMap: Record<VisitStatusWithoutUnknown, AppointmentStatus> = {
-  PENDING: 'booked',
-  ARRIVED: 'arrived',
-  READY: 'checked-in',
-  INTAKE: 'checked-in',
-  'PROVIDER-READY': 'fulfilled',
-  PROVIDER: 'fulfilled',
-  DISCHARGE: 'fulfilled',
-  'CHECKED-OUT': 'fulfilled',
-  CANCELLED: 'cancelled',
-  'NO-SHOW': 'noshow',
+  pending: 'booked',
+  arrived: 'arrived',
+  ready: 'checked-in',
+  intake: 'checked-in',
+  'provider-ready': 'fulfilled',
+  provider: 'fulfilled',
+  discharge: 'fulfilled',
+  'checked-out': 'fulfilled',
+  cancelled: 'cancelled',
+  'no-show': 'noshow',
 };
 
 export function makeVisitStatusExtensionEntry(
@@ -90,16 +90,16 @@ export const mapVisitStatusToFhirAppointmentStatus = (apptStatus: VisitStatusWit
 };
 
 const otherEHRToFhirEncounterStatusMap: Record<VisitStatusWithoutUnknown, EncounterStatus> = {
-  PENDING: 'planned',
-  ARRIVED: 'arrived',
-  READY: 'arrived',
-  INTAKE: 'arrived',
-  'PROVIDER-READY': 'arrived',
-  PROVIDER: 'in-progress',
-  DISCHARGE: 'in-progress',
-  'CHECKED-OUT': 'finished',
-  CANCELLED: 'cancelled',
-  'NO-SHOW': 'cancelled',
+  pending: 'planned',
+  arrived: 'arrived',
+  ready: 'arrived',
+  intake: 'arrived',
+  'provider-ready': 'arrived',
+  provider: 'in-progress',
+  discharge: 'in-progress',
+  'checked-out': 'finished',
+  cancelled: 'cancelled',
+  'no-show': 'cancelled',
 };
 
 export const mapVisitStatusToFhirEncounterStatus = (apptStatus: VisitStatusWithoutUnknown): EncounterStatus => {

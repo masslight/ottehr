@@ -295,13 +295,13 @@ export const appointmentTypeLabels: { [type in FhirAppointmentType]: string } = 
 };
 
 export enum VisitType {
-  WalkIn = 'walk-in',
-  PreBook = 'pre-booked',
+  Now = 'now',
+  Prebook = 'prebook',
 }
 
 export const VisitTypeToLabel: { [visittype in VisitType]: string } = {
-  'walk-in': 'Walk-in Urgent Care Visit (1UrgCare)',
-  'pre-booked': 'Pre-booked Urgent Care Visit (4Online)',
+  now: 'now',
+  prebook: 'prebook',
 };
 
 export enum PersonSex {
@@ -319,9 +319,9 @@ export enum FhirAppointmentType {
 export const getFhirAppointmentTypeForVisitType = (
   visitType: VisitType | undefined,
 ): FhirAppointmentType | undefined => {
-  if (visitType === VisitType.WalkIn) {
+  if (visitType === VisitType.Now) {
     return FhirAppointmentType.walkin;
-  } else if (visitType === VisitType.PreBook) {
+  } else if (visitType === VisitType.Prebook) {
     return FhirAppointmentType.prebook;
   } else {
     return undefined;
@@ -332,7 +332,7 @@ export const getVisitTypeLabelForAppointment = (appointment: Appointment): strin
   const fhirAppointmentType = appointment?.appointmentType?.text as FhirAppointmentType;
 
   if (fhirAppointmentType === FhirAppointmentType.walkin) {
-    return 'Walk-in Urgent Care Visit (1UrgCare)';
+    return 'Now Urgent Care Visit';
   } else if (fhirAppointmentType === FhirAppointmentType.prebook) {
     return 'Pre-booked Urgent Care Visit (4Online)';
   } else if (fhirAppointmentType === FhirAppointmentType.virtual) {

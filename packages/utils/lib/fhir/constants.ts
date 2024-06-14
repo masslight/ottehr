@@ -11,6 +11,9 @@ export const FHIR_EXTENSION = {
     unconfirmedDateOfBirth: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/date-of-birth-not-confirmed`,
     },
+    visitHistory: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/visit-history`,
+    }
   },
   Encounter: {
     otherParticipants: {

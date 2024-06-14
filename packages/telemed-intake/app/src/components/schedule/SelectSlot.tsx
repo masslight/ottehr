@@ -1,8 +1,6 @@
 import { Button, Grid, styled, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
-import { useContext } from 'react';
-import { useSlotsStore } from '../../features/appointments';
-import React from 'react';
+import { useAppointmentStore } from '../../features/appointments';
 
 const AppointmentSlotButton = styled(Button)({
   borderRadius: '8px',
@@ -15,7 +13,7 @@ interface SelectSlotProps {
 }
 
 export function SelectSlot({ slots, timezone }: SelectSlotProps): JSX.Element {
-  const { selectedSlot, setSlotAndVisitType } = useSlotsStore((state) => state);
+  const { selectedSlot, setAppointment } = useAppointmentStore((state) => state);
   const theme = useTheme();
 
   if (slots.length === 0) {
@@ -38,7 +36,7 @@ export function SelectSlot({ slots, timezone }: SelectSlotProps): JSX.Element {
               sx={{ width: '110px', borderColor: theme.palette.divider, fontWeight: isSelected ? 700 : 400 }}
               variant={isSelected ? 'contained' : 'outlined'}
               color="primary"
-              onClick={() => setSlotAndVisitType({ selectedSlot: slot })}
+              onClick={() => setAppointment({ selectedSlot: slot })}
             >
               {startDateTimezoneAdjusted.toFormat('h:mm a')}
             </AppointmentSlotButton>

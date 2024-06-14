@@ -3,7 +3,7 @@ import { DateTime } from 'luxon';
 import { ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { breakpoints, ErrorDialog } from 'ottehr-components';
 import { otherColors } from '../IntakeThemeProvider';
-import { useSlotsStore } from '../features/appointments';
+import { useAppointmentStore } from '../features/appointments';
 import { SelectSlot } from './schedule/SelectSlot';
 import { DATETIME_FULL_NO_YEAR, DATE_FULL_NO_YEAR, createLocalDateTime } from 'ottehr-utils';
 
@@ -63,7 +63,7 @@ interface ScheduleProps {
 }
 
 const Schedule = ({ slotData, timezone }: ScheduleProps): JSX.Element => {
-  const { selectedSlot, setSlotAndVisitType } = useSlotsStore((state) => state);
+  const { selectedSlot, setAppointment } = useAppointmentStore((state) => state);
   const theme = useTheme();
   const [currentTab, setCurrentTab] = useState(0);
   const [nextDay, setNextDay] = useState<boolean>(false);
@@ -205,7 +205,7 @@ const Schedule = ({ slotData, timezone }: ScheduleProps): JSX.Element => {
             fontWeight: 400,
             display: { xs: 'block', md: 'inline' },
           }}
-          onClick={() => setSlotAndVisitType({ selectedSlot: slotsList[0] })}
+          onClick={() => setAppointment({ selectedSlot: slotsList[0] })}
           type="button"
         >
           <span style={{ fontWeight: 700 }}>First available time:&nbsp;</span>

@@ -3,7 +3,7 @@ import { useMutation, useQuery } from 'react-query';
 import { ZapEHRAPIClient } from 'ottehr-components';
 import { useIntakeCommonStore } from '../common';
 import { usePatientInfoStore } from '../patient-info';
-import { useSlotsStore } from './appointment.store';
+import { useAppointmentStore } from './appointment.store';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useCreateAppointmentMutation = () =>
@@ -18,15 +18,16 @@ export const useCreateAppointmentMutation = () =>
       // const appointment = AppointmentStore.getState();
       const patientInfo = usePatientInfoStore.getState();
       const intakeCommon = useIntakeCommonStore.getState();
-      const slot = useSlotsStore.getState();
+      const appointment = useAppointmentStore.getState();
 
       return apiClient.createAppointment({
         // slot: intakeCommon.visitType === VisitType.WalkIn ? undefined : appointment.appointmentSlot,
         patient: patientInfo.patientInfo,
         timezone: DateTime.now().zoneName,
         locationState: intakeCommon.selectedLocationState,
-        slot: slot.visitType === 'prebook' ? slot.selectedSlot : undefined,
-        visitType: slot.visitType,
+        slot: appointment.visitType === 'prebook' ? appointment.selectedSlot : undefined,
+        visitType: appointment.visitType,
+        visitService: appointment.visitService,
         ...(unconfirmedDateOfBirth && { unconfirmedDateOfBirth }),
       });
     },
