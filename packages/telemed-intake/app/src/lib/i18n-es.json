@@ -257,11 +257,11 @@
       },
       "coverage": {
         "title": "No se encontró la cobertura",
-        "description": "Compruebe los datos de su tarjeta de seguro e intente de nuevo. Si sigue sin funcionar, póngase en contacto con nuestro equipo de asistencia llamando al 516-738-5600."
+        "description": "Compruebe los datos de su tarjeta de seguro e intente de nuevo. Si sigue sin funcionar, póngase en contacto con nuestro equipo de asistencia llamando al 123-456-7980."
       },
       "other": {
         "title": "Error",
-        "description": "Se produjo un error, intente de nuevo. Si sigue sin funcionar, póngase en contacto con nuestro equipo de asistencia llamando al 516-738-5600."
+        "description": "Se produjo un error, intente de nuevo. Si sigue sin funcionar, póngase en contacto con nuestro equipo de asistencia llamando al 123-456-7980."
       },
       "validation": {
         "idNumber": "El número de identificación es obligatorio",

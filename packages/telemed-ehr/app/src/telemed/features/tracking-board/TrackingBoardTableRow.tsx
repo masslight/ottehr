@@ -13,12 +13,12 @@ import {
   useTheme,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { Duration } from 'luxon';
+import { DateTime, Duration } from 'luxon';
 import { FC, ReactElement, useMemo, useState } from 'react';
 import { ApptStatus, TelemedAppointmentInformation } from 'ehr-utils';
 import { otherColors } from '../../../CustomThemeProvider';
 import ChatModal from '../../../features/chat/ChatModal';
-import { calculatePatientAge, formatDateUsingSlashes } from '../../../helpers/formatDateTime';
+import { DATETIME_FULL_NO_YEAR, DATE_FORMAT, DATE_FULL_NO_YEAR, calculatePatientAge, formatDateUsingSlashes } from '../../../helpers/formatDateTime';
 import { AppointmentStatusChip, StatusHistory } from '../../components';
 import { TrackingBoardTableButton } from './TrackingBoardTableButton';
 
@@ -132,6 +132,9 @@ export function TrackingBoardTableRow({
             ID: {appointment.id}
           </Typography>
         </Tooltip>
+      </TableCell>
+      <TableCell sx={{ verticalAlign: 'top', cursor: 'pointer' }} onClick={goToAppointment}>
+        <Typography>{DateTime.fromISO(appointment.start || '').toLocaleString(DateTime.DATETIME_SHORT)}</Typography>
       </TableCell>
       <TableCell sx={{ verticalAlign: 'top' }}>
         <StatusHistory history={appointment.telemedStatusHistory} currentStatus={appointment.telemedStatus} />

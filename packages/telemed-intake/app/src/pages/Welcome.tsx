@@ -6,16 +6,18 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { TelemedLocation, isHoliday } from 'ottehr-utils';
 import { IntakeFlowPageRoute } from '../App';
 import { clockFullColor } from '../assets/icons';
-import { useGetTelemedStates } from '../features/appointments';
+import { useGetTelemedStates, useSlotsStore } from '../features/appointments';
 import { CustomContainer, useIntakeCommonStore } from '../features/common';
 import { useZapEHRAPIClient } from '../utils';
 import { federalHolidays, stateWorkingHours } from '../utils/constants';
+import Schedule from '../components/Schedule';
 
 const Welcome = (): JSX.Element => {
   const navigate = useNavigate();
   const apiClient = useZapEHRAPIClient({ tokenless: true });
   const theme = useTheme();
-  const { slug } = useParams();
+  const { slug, 'visit-type': visitType } = useParams();
+  const { selectedSlot, setSlotAndVisitType } = useSlotsStore((state) => state);
 
   if (!slug) {
     throw new Error('Slug is not defined');
@@ -26,6 +28,13 @@ const Welcome = (): JSX.Element => {
   const { data: telemedStatesData, isFetching } = useGetTelemedStates(apiClient, Boolean(apiClient));
 
   const state = telemedStatesData?.locations.find((stateTemp) => stateTemp.slug == slug);
+
+  useEffect(() => {
+    setSlotAndVisitType({ visitType });
+    if (visitType === 'now') {
+      setSlotAndVisitType({ selectedSlot: DateTime.now().toISO() });
+    }
+  }, [setSlotAndVisitType, visitType]);
 
   useEffect(() => {
     if (telemedStatesData) {
@@ -109,21 +118,24 @@ const Welcome = (): JSX.Element => {
           </Typography>
 
           {statesAvailabilityMap[state.state] ? (
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button
-                variant="contained"
-                color="primary"
-                size="large"
-                className="next-button"
-                type="submit"
-                sx={{
-                  mt: 2,
-                }}
-                onClick={onSubmit}
-              >
-                Continue
-              </Button>
-            </Box>
+            <>
+              {visitType === 'prebook' && <Schedule slotData={state.availableSlots} timezone={'America/New_York'} />}
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="large"
+                  className="next-button"
+                  type="submit"
+                  sx={{
+                    mt: 2,
+                  }}
+                  onClick={onSubmit}
+                >
+                  Continue
+                </Button>
+              </Box>
+            </>
           ) : (
             <Typography variant="body1">This location is not currently open</Typography>
           )}

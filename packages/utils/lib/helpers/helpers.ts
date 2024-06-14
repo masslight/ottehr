@@ -70,6 +70,15 @@ export function getAppointmentConfirmationMessage(
   return `You're confirmed! Thanks for choosing Ottehr Urgent Care! Your check-in time at ${locationName} is on ${startTime}. Please complete your paperwork in advance to save time at check-in. To complete paperwork or modify/cancel your check-in, visit: ${websiteURL}/appointment/${appointmentID}`;
 }
 
+export const isISODateTime = (dateTimeString: string): boolean => {
+  const test = DateTime.fromISO(dateTimeString);
+  if (!test?.invalidReason) {
+    return true;
+  } else {
+    return false;
+  }
+};
+
 export function checkValidBookingTime(slotTime: string): boolean {
   const slotDate = DateTime.fromISO(slotTime);
 

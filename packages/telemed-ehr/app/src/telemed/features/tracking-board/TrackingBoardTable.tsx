@@ -78,6 +78,11 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
               </TableCell>
               <TableCell>
                 <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
+                  Start time
+                </Typography>
+              </TableCell>
+              <TableCell>
+                <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                   Waiting time
                 </Typography>
               </TableCell>
@@ -147,7 +152,7 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
                   <TableRow>
                     <TableCell
                       sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }}
-                      colSpan={7 + +showEstimated + +showProvider}
+                      colSpan={8 + +showEstimated + +showProvider}
                     >
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>

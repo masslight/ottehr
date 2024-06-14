@@ -198,7 +198,7 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
   if (relatedPerson?.id && patient.id) {
     // send message
     const { verifiedPhoneNumber } = await getPatientResourceWithVerifiedPhoneNumber(patient.id, fhirClient);
-    const message = 'Sorry to see you go. Questions? Call 516-207-7950';
+    const message = 'Sorry to have you go. Questions? Call 123-456-7890';
     const recipient = `RelatedPerson/${relatedPerson.id}`;
 
     await sendSms(message, zapehrToken, recipient, verifiedPhoneNumber, secrets);
