@@ -646,11 +646,6 @@ async function updateResourcesFromPaperwork(
           path: '/status',
           value: 'arrived',
         },
-        {
-          op: 'replace',
-          path: '/start',
-          value: nowISO,
-        },
       ],
       fhirClient,
     ),

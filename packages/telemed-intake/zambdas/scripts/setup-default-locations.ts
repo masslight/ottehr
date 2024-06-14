@@ -24,6 +24,11 @@ const createTelemedLocation = async (state: { value: string; label: string }, fh
   const location: Location = {
     resourceType: 'Location',
     status: 'active',
+    identifier: [{
+      use: "usual",
+      system: "https://fhir.ottehr.com/r4/slug",
+      value: state.value.toLocaleLowerCase(),
+    }],
     address: {
       state: state.value,
     },
@@ -36,6 +41,10 @@ const createTelemedLocation = async (state: { value: string; label: string }, fh
           display: 'Virtual',
         },
       },
+      {
+        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule',
+        valueString: "{\"schedule\":{\"monday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"tuesday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"wednesday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"thursday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"friday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"saturday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"sunday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]}},\"scheduleOverrides\":{}}"
+      }
     ],
     name: `${state.label} virtual`,
   };

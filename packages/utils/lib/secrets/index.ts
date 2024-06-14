@@ -8,7 +8,6 @@ export const getSecret = (secretKey: string, secrets: Secrets | null): string =>
     value = secrets[secretKey];
   } else {
     if (process) {
-      console.log(process);
       value = process.env[secretKey];
     }
   }

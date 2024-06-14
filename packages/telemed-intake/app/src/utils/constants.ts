@@ -12,7 +12,7 @@ export const stateWorkingHours: {
   MD: { weekdays: '6 AM – 12 AM', weekends: '8 AM – 12 AM', holidays: '8 AM – 12 AM', timeZone: 'America/New_York' },
   DC: { weekdays: '6 AM – 12 AM', weekends: '8 AM – 12 AM', holidays: '8 AM – 12 AM', timeZone: 'America/New_York' },
   MA: { weekdays: '6 AM – 10 PM', weekends: '8 AM – 10 PM', holidays: '8 AM – 10 PM', timeZone: 'America/New_York' },
-  NC: { weekdays: '6 AM – 10 PM', weekends: '6 AM – 10 PM', holidays: '6 AM – 10 PM', timeZone: 'America/New_York' },
+  NC: { weekdays: '12 AM – 12 AM', weekends: '6 AM – 10 PM', holidays: '6 AM – 10 PM', timeZone: 'America/New_York' },
   FL: { weekdays: '6 AM – 10 PM', weekends: '6 AM – 10 PM', holidays: '6 AM – 10 PM', timeZone: 'America/New_York' },
   TN: { weekdays: '6 AM – 10 PM', weekends: '6 AM – 10 PM', holidays: '6 AM – 10 PM', timeZone: 'America/Chicago' },
   AK: { weekdays: '8 AM – 12 AM', weekends: '8 AM – 12 AM', holidays: '8 AM – 12 AM', timeZone: 'America/Anchorage' },

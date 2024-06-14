@@ -1,5 +1,12 @@
 import { DateTime } from 'luxon';
-import { CreateAppointmentUCTelemedParams, RequiredAllProps, Secrets, ZambdaInput } from 'ottehr-utils';
+import {
+  CreateAppointmentUCTelemedParams,
+  RequiredAllProps,
+  Secrets,
+  ZambdaInput,
+  checkValidBookingTime,
+  isISODateTime,
+} from 'ottehr-utils';
 import { phoneRegex } from '../../shared';
 import { PersonSex } from '../../types';
 
@@ -13,11 +20,26 @@ export function validateCreateAppointmentParams(
     throw new Error('No request body provided');
   }
 
-  const { patient, locationState, unconfirmedDateOfBirth, timezone } = JSON.parse(input.body);
+  const { patient, locationState, slot, visitType, unconfirmedDateOfBirth, timezone } = JSON.parse(input.body);
 
   // Check existence of necessary fields
-  if (patient === undefined) {
-    throw new Error('These fields are required: "patient"');
+  if (patient === undefined || visitType === undefined) {
+    throw new Error('These fields are required: "patient", "visitType"');
+  }
+
+  if (!slot && isISODateTime(slot)) {
+    throw new Error(`"slot" must be in ISO date and time format (YYYY-MM-DDTHH:MM:SS+zz:zz)`);
+  }
+  const VISIT_TYPES = ['now', 'prebook'];
+  if (!VISIT_TYPES.includes(visitType)) {
+    throw new Error(`visitType must be one of the following values ${VISIT_TYPES}`);
+  }
+  if (visitType === 'prebook' && !checkValidBookingTime(slot)) {
+    throw new Error('"slot" cannot be in the past for appointment with visit type prebook');
+  }
+  let start = slot;
+  if (visitType === 'now') {
+    start = DateTime.now();
   }
 
   // Patient details
@@ -72,6 +94,8 @@ export function validateCreateAppointmentParams(
   return {
     patient,
     locationState,
+    slot: start,
+    visitType,
     unconfirmedDateOfBirth,
     timezone,
     secrets: input.secrets,

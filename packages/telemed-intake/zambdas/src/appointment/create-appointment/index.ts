@@ -67,7 +67,7 @@ interface PerformEffectInputProps {
 
 async function performEffect(props: PerformEffectInputProps): Promise<APIGatewayProxyResult> {
   const { input, params } = props;
-  const { locationState: location, patient, timezone, unconfirmedDateOfBirth } = params;
+  const { locationState: location, slot, patient, timezone, unconfirmedDateOfBirth } = params;
   const { secrets } = input;
   let locationState = location;
   const fhirClient = createFhirClient(zapehrToken);
@@ -99,6 +99,7 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
   const { message, appointmentId, fhirPatientId } = await createAppointment(
     locationState,
     patient,
+    slot,
     fhirClient,
     user,
     timezone,
@@ -119,6 +120,7 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
 export async function createAppointment(
   locationState: string,
   patient: PatientInfo,
+  slot: string,
   fhirClient: FhirClient,
   user: User,
   timezone: string,
@@ -163,15 +165,8 @@ export async function createAppointment(
    * cause the "Estimated waiting time" calulations are based on this,
    * and we can't search appointments by "created" prop
    **/
-  const startTime = DateTime.utc().setZone('UTC').toISO();
-  if (!startTime) {
-    throw new Error('startTime is currently undefined');
-  }
-  const originalDate = DateTime.fromISO(startTime).setZone('UTC');
-  const endTime = originalDate.plus({ minutes: 15 }).toISO(); // todo: should this be scraped from the Appointment?
-  if (!endTime) {
-    throw new Error('endTime is currently undefined');
-  }
+  const originalDate = DateTime.fromISO(slot);
+  const endTime = originalDate.plus({ minutes: 15 });
 
   const location = await getTelemedLocation(fhirClient, locationState);
   const locationId = location?.id;
@@ -179,11 +174,12 @@ export async function createAppointment(
   if (!locationId) {
     throw new Error(`Couldn't find telemed location for state ${locationState}`);
   }
+  console.log(slot, endTime);
 
   console.log('performing Transactional Fhir Requests for new appointment');
   const { appointment, patient: fhirPatient } = await performTransactionalFhirRequests({
     patient: maybeFhirPatient,
-    startTime,
+    startTime: originalDate,
     endTime,
     fhirClient,
     updatePatientRequest,
@@ -449,8 +445,8 @@ function validateInternalInformation(patient: PatientInfo): void {
 }
 
 interface TransactionInput {
-  startTime: string;
-  endTime: string;
+  startTime: DateTime;
+  endTime: DateTime;
   fhirClient: FhirClient;
   additionalInfo?: string;
   patient?: Patient;
@@ -521,6 +517,18 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     });
   }
 
+  const startTimeToISO = startTime.toISO();
+  const endTimeToISO = endTime.toISO();
+
+  if (startTimeToISO == null) {
+    console.log('startTimeToISO is not defined', startTime);
+    throw new Error('startTimeToISO is not defined');
+  }
+  if (endTimeToISO == null) {
+    console.log('endTimeToISO is not defined', endTime);
+    throw new Error('endTimeToISO is not defined');
+  }
+
   const apptUrl = `urn:uuid:${uuid()}`;
 
   const apptResource: Appointment = {
@@ -542,8 +550,8 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
         status: 'accepted',
       },
     ],
-    start: startTime,
-    end: endTime,
+    start: startTimeToISO,
+    end: endTimeToISO,
     appointmentType: {
       coding: [
         {

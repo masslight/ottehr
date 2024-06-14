@@ -4,6 +4,8 @@ import { UserType, PatientBaseInfo } from '../../../common';
 export interface CreateAppointmentUCTelemedParams {
   patient?: PatientInfo;
   locationState?: string;
+  slot?: string;
+  visitType?: string;
   timezone: string;
   unconfirmedDateOfBirth?: string | undefined;
 }

@@ -1,27 +1,40 @@
-import LoadingButton from '@mui/lab/LoadingButton';
-import { Autocomplete, Skeleton, TextField, Typography } from '@mui/material';
+import { Button, Typography } from '@mui/material';
 import { Box, useTheme } from '@mui/system';
 import { DateTime } from 'luxon';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { BoldPurpleInputLabel } from 'ottehr-components';
+import { useNavigate, useParams } from 'react-router-dom';
 import { TelemedLocation, isHoliday } from 'ottehr-utils';
 import { IntakeFlowPageRoute } from '../App';
-import { otherColors } from '../IntakeThemeProvider';
 import { clockFullColor } from '../assets/icons';
-import { useGetTelemedStates } from '../features/appointments';
+import { useGetTelemedStates, useSlotsStore } from '../features/appointments';
 import { CustomContainer, useIntakeCommonStore } from '../features/common';
 import { useZapEHRAPIClient } from '../utils';
 import { federalHolidays, stateWorkingHours } from '../utils/constants';
+import Schedule from '../components/Schedule';
 
 const Welcome = (): JSX.Element => {
   const navigate = useNavigate();
   const apiClient = useZapEHRAPIClient({ tokenless: true });
   const theme = useTheme();
+  const { slug, 'visit-type': visitType } = useParams();
+  const { selectedSlot, setSlotAndVisitType } = useSlotsStore((state) => state);
+
+  if (!slug) {
+    throw new Error('Slug is not defined');
+  }
+
   const [telemedStates, setTelemedStates] = useState<TelemedLocation[]>([]);
-  const [selectedState, setSelectedState] = useState<TelemedLocation | null>(null);
 
   const { data: telemedStatesData, isFetching } = useGetTelemedStates(apiClient, Boolean(apiClient));
+
+  const state = telemedStatesData?.locations.find((stateTemp) => stateTemp.slug == slug);
+
+  useEffect(() => {
+    setSlotAndVisitType({ visitType });
+    if (visitType === 'now') {
+      setSlotAndVisitType({ selectedSlot: DateTime.now().toISO() });
+    }
+  }, [setSlotAndVisitType, visitType]);
 
   useEffect(() => {
     if (telemedStatesData) {
@@ -29,13 +42,9 @@ const Welcome = (): JSX.Element => {
     }
   }, [telemedStatesData]);
 
-  const handleStateChange = (_e: any, newValue: TelemedLocation | null): void => {
-    setSelectedState(newValue);
-  };
-
   const onSubmit = (): void => {
     navigate(IntakeFlowPageRoute.AuthPage.path);
-    useIntakeCommonStore.setState({ selectedLocationState: selectedState?.state });
+    useIntakeCommonStore.setState({ selectedLocationState: state?.state });
   };
 
   const checkStateAvailability = (option: TelemedLocation): boolean => {
@@ -82,115 +91,56 @@ const Welcome = (): JSX.Element => {
     return availabilityMap;
   }, [telemedStates]);
 
-  const sortedStates = useMemo(
-    () =>
-      [...telemedStates].sort((a, b) => (statesAvailabilityMap[a.state] === statesAvailabilityMap[b.state] ? 0 : -1)),
-    [telemedStates, statesAvailabilityMap],
-  );
-
   return (
     <CustomContainer
       title="Ottehr Telemedicine"
+      subtitle={state?.state}
       img={clockFullColor}
       imgAlt="Clock icon"
       imgWidth={120}
       bgVariant={IntakeFlowPageRoute.NewUser.path}
       isFirstPage={true}
     >
-      <Typography variant="body1">
-        We&apos;re pleased to offer this new technology for accessing care. You will need to enter your information
-        again just once. Next time you return, it will all be here for you!
-      </Typography>
-      <Typography variant="body1" sx={{ py: 2 }}>
-        You can view states in which we operate and their hours here.
-      </Typography>
-      {isFetching ? (
-        <Skeleton
-          sx={{
-            borderRadius: 2,
-            backgroundColor: otherColors.coachingVisit,
-            p: 6,
-          }}
-        />
-      ) : (
-        <Autocomplete
-          id="states-autocomplete"
-          options={sortedStates}
-          getOptionLabel={(option) => option.state}
-          onChange={handleStateChange}
-          isOptionEqualToValue={(option, value) => option.state === value.state}
-          renderOption={(props, option) => {
-            const workingHours = stateWorkingHours[option.state];
-            return (
-              <li {...props}>
-                <Box>
-                  <Typography sx={{ pt: 1 }} variant="body2">
-                    {option.state}
-                  </Typography>
-                  {!statesAvailabilityMap[option.state] && (
-                    <Typography variant="body2" color="text.secondary">
-                      Unavailable
-                    </Typography>
-                  )}
-                  {option.available && (
-                    <>
-                      <Typography variant="body2" color="text.secondary">
-                        {workingHours?.weekdays}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Weekends & Federal Holidays: {workingHours?.weekends}
-                      </Typography>
-                    </>
-                  )}
-                </Box>
-              </li>
-            );
-          }}
-          renderInput={(params) => (
-            <>
-              <BoldPurpleInputLabel required shrink sx={{ whiteSpace: 'pre-wrap' }}>
-                Current location (State)
-              </BoldPurpleInputLabel>
-              <TextField
-                {...params}
-                placeholder="Select states"
-                variant="outlined"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '8px',
-                    backgroundColor: theme.palette.background.paper,
-                    borderColor: otherColors.lightGray,
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: otherColors.lightGray,
-                    },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: otherColors.lightGray,
-                    },
-                  },
-                }}
-              />
-            </>
-          )}
-          getOptionDisabled={(option) => !statesAvailabilityMap[option.state]}
-        />
+      {isFetching && <Typography variant="body1">Loading...</Typography>}
+      {!isFetching && !state && <Typography variant="body1">The location &quot;{slug}&quot; is not found</Typography>}
+      {state && !state.available && (
+        <Typography variant="body1">The location &quot;{slug}&quot; is not available</Typography>
       )}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <LoadingButton
-          loading={isFetching}
-          variant="contained"
-          color="primary"
-          disabled={!selectedState}
-          size="large"
-          className="next-button"
-          type="submit"
-          sx={{
-            mt: 2,
-          }}
-          onClick={onSubmit}
-        >
-          Continue
-        </LoadingButton>
-      </Box>
+      {!isFetching && state && state.available && (
+        <>
+          <Typography variant="body1">
+            We&apos;re pleased to offer this new technology for accessing care. You will need to enter your information
+            again just once. Next time you return, it will all be here for you!
+          </Typography>
+
+          <Typography variant="body1" marginTop={2}>
+            Hours: {stateWorkingHours[state.state].weekdays}
+          </Typography>
+
+          {statesAvailabilityMap[state.state] ? (
+            <>
+              {visitType === 'prebook' && <Schedule slotData={state.availableSlots} timezone={'America/New_York'} />}
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="large"
+                  className="next-button"
+                  type="submit"
+                  sx={{
+                    mt: 2,
+                  }}
+                  onClick={onSubmit}
+                >
+                  Continue
+                </Button>
+              </Box>
+            </>
+          ) : (
+            <Typography variant="body1">This location is not currently open</Typography>
+          )}
+        </>
+      )}
     </CustomContainer>
   );
 };

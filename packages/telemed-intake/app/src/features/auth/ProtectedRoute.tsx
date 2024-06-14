@@ -8,7 +8,7 @@ export const ProtectedRoute: FC<{
   unauthorizedFallback: JSX.Element;
 }> = ({ loadingFallback, errorFallback, unauthorizedFallback }) => {
   const { isAuthenticated, isLoading, error } = useAuth0();
-
+  console.log(1, isAuthenticated, error, isLoading);
   if (error) {
     return errorFallback;
   }
