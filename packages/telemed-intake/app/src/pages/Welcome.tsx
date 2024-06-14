@@ -94,7 +94,7 @@ const Welcome = (): JSX.Element => {
   return (
     <CustomContainer
       title={`Ottehr ${visitService}`}
-      subtitle={state?.state}
+      subtitle={state?.name || 'Unknown'}
       img={clockFullColor}
       imgAlt="Clock icon"
       imgWidth={120}

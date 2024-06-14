@@ -152,6 +152,7 @@ async function getTelemedLocations(fhirClient: FhirClient): Promise<TelemedLocat
 
   return telemedLocations.map((location) => ({
     state: location.address?.state || '',
+    name: location.name || 'Unknown',
     slug:
       location.identifier?.find((identifierTemp) => identifierTemp.system === 'https://fhir.ottehr.com/r4/slug')
         ?.value || 'Unknown',
