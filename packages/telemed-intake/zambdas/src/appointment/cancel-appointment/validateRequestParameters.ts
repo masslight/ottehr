@@ -1,6 +1,9 @@
-import { ZambdaInput } from 'ottehr-utils';
+import {
+  CancellationReasonOptionsProviderSideTelemed,
+  CancellationReasonOptionsTelemed,
+  ZambdaInput,
+} from 'ottehr-utils';
 import { CancelAppointmentInput } from '.';
-import { CancellationReasonOptions } from '../../types';
 
 export function validateRequestParameters(input: ZambdaInput): CancelAppointmentInput {
   console.group('validateRequestParameters');
@@ -9,16 +12,22 @@ export function validateRequestParameters(input: ZambdaInput): CancelAppointment
     throw new Error('No request body provided');
   }
 
-  const { appointmentID, cancellationReason } = JSON.parse(input.body);
+  const { appointmentID, cancellationReason, cancellationReasonAdditional } = JSON.parse(input.body);
 
   if (appointmentID === undefined || cancellationReason === undefined) {
     throw new Error('These fields are required: "appointmentID", "cancellationReason"');
   }
 
-  if (!Object.values(CancellationReasonOptions).includes(cancellationReason)) {
+  if (
+    !(
+      Object.values(CancellationReasonOptionsTelemed).includes(cancellationReason) ||
+      Object.values(CancellationReasonOptionsProviderSideTelemed).includes(cancellationReason)
+    )
+  ) {
     throw new Error(
       `"cancellationReason" must be one of the following values: ${JSON.stringify(
-        Object.values(CancellationReasonOptions),
+        Object.values(CancellationReasonOptionsTelemed),
+        Object.values(CancellationReasonOptionsProviderSideTelemed),
       )}`,
     );
   }
@@ -29,6 +38,7 @@ export function validateRequestParameters(input: ZambdaInput): CancelAppointment
   return {
     appointmentID,
     cancellationReason,
+    cancellationReasonAdditional,
     secrets: input.secrets,
   };
 }

@@ -49,23 +49,28 @@ const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, options })
   }, [defaultValue, fileUrl, loading, name, previewUrl, setValue]);
 
   const handleFileUpload = (event: ChangeEvent<HTMLInputElement>): string | null => {
-    const { files } = event.target;
+    try {
+      const { files } = event.target;
 
-    if (files && files.length > 0) {
-      // Even though files is an array we know there is always only one file because we don't set the `multiple` attribute on the file input
-      const file = files[0];
+      if (files && files.length > 0) {
+        // Even though files is an array we know there is always only one file because we don't set the `multiple` attribute on the file input
+        const file = files[0];
 
-      const tempURL = URL.createObjectURL(file);
-      setPreviewUrl(tempURL); // Use this as a temporary image url until the insurance info form is submitted
-      uploadFile(fileType, tempURL);
-      onUpload((prev) => ({ ...prev, [fileType]: { ...prev[fileType], fileData: file } }));
-      resetUploadFailed();
-      return file.name;
-    } else {
-      console.log('something undefined', files, files?.length);
+        const tempURL = URL.createObjectURL(file);
+        setPreviewUrl(tempURL); // Use this as a temporary image URL until the insurance info form is submitted
+        uploadFile(fileType, tempURL);
+        onUpload((prev) => ({ ...prev, [fileType]: { ...prev[fileType], fileData: file } }));
+        resetUploadFailed();
+        return file.name;
+      } else {
+        console.log('No files selected');
+        return null;
+      }
+    } catch (error) {
+      console.error('Error occurred during file upload:', error);
+      safelyCaptureException(error);
+      return null;
     }
-
-    return null;
   };
 
   const showCard = (): JSX.Element => {

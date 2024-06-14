@@ -1,4 +1,4 @@
-import { Secrets } from '../../main';
+import { Secrets, TelemedAppointmentStatus } from '../../main';
 
 export interface WaitingRoomInput {
   appointmentID: string;
@@ -7,8 +7,7 @@ export interface WaitingRoomInput {
 }
 
 export interface WaitingRoomResponse {
-  status: 'not_started' | 'started' | 'finished';
+  status: TelemedAppointmentStatus;
   estimatedTime?: number;
   encounterId?: string;
-  videoRoomId?: string;
 }

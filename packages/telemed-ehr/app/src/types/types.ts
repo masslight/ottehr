@@ -1,19 +1,19 @@
 import { User } from '@zapehr/sdk';
-import { Period } from 'fhir/r4';
+import { Appointment, Period } from 'fhir/r4';
 import { DateTime } from 'luxon';
-import { OtherEHRVisitStatus } from '../helpers/mappingUtils';
-import { PractitionerLicense } from 'ehr-utils';
+import { ExamFieldsNames, PractitionerLicense, VisitStatus } from 'ehr-utils';
 
 export interface GetAppointmentsParameters {
   searchDate?: DateTime | undefined;
   locationId: string | undefined;
+  visitType?: string[];
 }
 
 export interface CreateAppointmentParameters {
   slot?: string | undefined;
   patient: PatientInfo | undefined;
   location?: string | undefined;
-  visitType: VisitType | undefined;
+  visitType: FhirAppointmentType | undefined;
 }
 
 export interface UpdateAppointmentAndEncounterParameters {
@@ -28,112 +28,22 @@ export interface GetPatientParameters {
 
 export interface UpdateUserParameters {
   userId: string | undefined;
-  selectedRole?: RoleType | undefined;
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  nameSuffix?: string;
+  selectedRoles?: string[] | undefined;
   licenses?: PractitionerLicense[];
   // locations: Location[];
 }
 
-export interface DeactivateUserParameters {
-  user: User | undefined;
-  // locations: Location[];
+export interface GetUserParameters {
+  userId: string | undefined;
 }
 
-export const enum RoleType {
-  NewUser = 'NewUser',
-  Manager = 'Manager',
-  FrontDesk = 'FrontDesk',
-  Staff = 'Staff',
-  Provider = 'Provider',
-  Administrator = 'Administrator',
-}
-
-export enum CancellationReasonOptions {
-  'Patient improved' = 'Patient improved',
-  'Wait time too long' = 'Wait time too long',
-  'Prefer another urgent care provider' = 'Prefer another urgent care provider',
-  'Changing location' = 'Changing location',
-  'Changing to telemedicine' = 'Changing to telemedicine',
-  'Financial responsibility concern' = 'Financial responsibility concern',
-  'Insurance issue' = 'Insurance issue',
-  'Service not offered at' = 'Service not offered at',
-  'Duplicate visit or account error' = 'Duplicate visit or account error',
-}
-
-export const CancellationReasonCodes = {
-  'Patient improved': 'patient-improved',
-  'Wait time too long': 'wait-time',
-  'Prefer another urgent care provider': 'prefer-another-provider',
-  'Changing location': 'changing-location',
-  'Changing to telemedicine': 'changing-telemedicine',
-  'Financial responsibility concern': 'financial-concern',
-  'Insurance issue': 'insurance-issue',
-  'Service not offered at': 'service-not-offered',
-  'Duplicate visit or account error': 'duplicate-visit-or-account-error',
-};
-
-export interface TwilioConversationModel {
-  conversationSID: string;
-  encounterId: string;
-  relatedPersonParticipants: string[];
-  clientPairing: number;
-}
-
-export interface VisitStatusHistoryEntry {
-  status: OtherEHRVisitStatus;
-  label: OtherEHRVisitStatus;
-  period: Period;
-}
-export interface AppointmentInformation {
-  id: string;
-  start: string;
-  // unreadMessage: boolean;
-  conversationModel?: TwilioConversationModel;
-  patient: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    dateOfBirth: string;
-  };
-  reasonForVisit: string;
-  comment: string | undefined;
-  personID: string;
-  appointmentType: string;
-  appointmentStatus: string;
-  status: OtherEHRVisitStatus;
-  cancellationReason: string | undefined;
-  paperwork: {
-    demographics: boolean;
-    photoID: boolean;
-    insuranceCard: boolean;
-    consent: boolean;
-  };
-  next: boolean;
-  visitStatusHistory: VisitStatusHistoryEntry[];
-  unconfirmedDateOfBirth: boolean | undefined;
-}
-
-export type PatientInfo = {
-  id: string | undefined;
-  newPatient: boolean;
-  firstName: string | undefined;
-  lastName: string | undefined;
-  dateOfBirth: string | undefined;
-  sex: PersonSex | undefined;
-  phoneNumber: string | undefined;
-  email: string | undefined;
-  emailUser: 'Patient' | 'Parent/Guardian' | undefined;
-  reasonForVisit: string[] | undefined;
-};
-
-export enum VisitType {
-  WalkIn = 'walkin',
-  PreBook = 'prebook',
-}
-
-export enum PersonSex {
-  Male = 'male',
-  Female = 'female',
-  Intersex = 'other',
+export interface License {
+  label: string;
+  value: string;
 }
 
 export interface State {
@@ -255,7 +165,313 @@ export const AllStatesToNames: {
   WY: 'Wyoming',
 };
 
-export const VisitTypeLabel = {
-  walkin: 'Walk-in Urgent Care Visit (1UrgCare)',
-  prebook: 'Pre-booked Urgent Care Visit (4Online)',
+export interface DeactivateUserParameters {
+  user: User | undefined;
+  // locations: Location[];
+}
+
+export interface CancelAppointmentParameters {
+  appointmentID: string;
+  cancellationReason: CancellationReasonOptions;
+}
+
+export interface EmployeeDetails {
+  id: string;
+  profile: string;
+  name: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  status: 'Active' | 'Deactivated';
+  lastLogin?: string;
+  licenses: PractitionerLicense[];
+  seenPatientRecently: boolean;
+  isProvider: boolean;
+}
+
+export interface GetEmployeesResponse {
+  message: string;
+  employees: EmployeeDetails[];
+}
+
+export enum RoleType {
+  NewUser = 'NewUser',
+  Administrator = 'Administrator',
+  AssistantAdmin = 'AssistantAdmin',
+  RegionalTelemedLead = 'RegionalTelemedLead',
+  CallCentre = 'CallCentre',
+  Billing = 'Billing',
+  Manager = 'Manager',
+  Staff = 'Staff',
+  Provider = 'Provider',
+  FrontDesk = 'Front Desk',
+  Inactive = 'Inactive',
+}
+
+export interface AccessPolicy {
+  rule: {
+    action: string | string[];
+    resource: string | string[];
+    effect: 'Allow' | 'Deny';
+  }[];
+}
+
+export enum CancellationReasonOptions {
+  'Patient improved' = 'Patient improved',
+  'Wait time too long' = 'Wait time too long',
+  'Prefer another urgent care provider' = 'Prefer another urgent care provider',
+  'Changing location' = 'Changing location',
+  'Changing to telemedicine' = 'Changing to telemedicine',
+  'Financial responsibility concern' = 'Financial responsibility concern',
+  'Insurance issue' = 'Insurance issue',
+  'Service not offered at' = 'Service not offered at',
+  'Duplicate visit or account error' = 'Duplicate visit or account error',
+}
+
+export interface SMSRecipient {
+  relatedPersonId: string;
+  smsNumber: string;
+}
+export interface SMSModel {
+  recipients: SMSRecipient[];
+  hasUnreadMessages: boolean;
+}
+
+export interface VisitStatusHistoryEntry {
+  status: VisitStatus;
+  label: VisitStatus;
+  period: Period;
+}
+
+export type EmailUserValue = 'Patient (Self)' | 'Parent/Guardian';
+
+export interface AppointmentInformation {
+  id: string;
+  start: string;
+  // unreadMessage: boolean;
+  patient: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    dateOfBirth: string;
+  };
+  reasonForVisit: string;
+  comment: string | undefined;
+  personID: string;
+  appointmentType: string;
+  appointmentStatus: string;
+  status: VisitStatus;
+  cancellationReason: string | undefined;
+  paperwork: {
+    demographics: boolean;
+    photoID: boolean;
+    insuranceCard: boolean;
+    consent: boolean;
+  };
+  next: boolean;
+  visitStatusHistory: VisitStatusHistoryEntry[];
+  unconfirmedDateOfBirth: boolean | undefined;
+}
+
+export type PatientInfo = {
+  id: string | undefined;
+  newPatient: boolean;
+  // pointOfDiscovery: boolean; // if this info has been obtained, true & 'How did you hear about us' will not show
+  firstName: string | undefined;
+  lastName: string | undefined;
+  dateOfBirth: string | undefined;
+  sex: PersonSex | undefined;
+  phoneNumber: string | undefined;
+  email: string | undefined;
+  emailUser: EmailUserValue | undefined;
+  reasonForVisit: string[] | undefined;
 };
+
+export const appointmentTypeLabels: { [type in FhirAppointmentType]: string } = {
+  prebook: 'Pre-booked',
+  walkin: 'Walk-in',
+  virtual: 'Telemed',
+};
+
+export enum VisitType {
+  WalkIn = 'walk-in',
+  PreBook = 'pre-booked',
+}
+
+export const VisitTypeToLabel: { [visittype in VisitType]: string } = {
+  'walk-in': 'Walk-in Urgent Care Visit (1UrgCare)',
+  'pre-booked': 'Pre-booked Urgent Care Visit (4Online)',
+};
+
+export enum PersonSex {
+  Male = 'male',
+  Female = 'female',
+  Intersex = 'other',
+}
+
+export enum FhirAppointmentType {
+  walkin = 'walkin',
+  prebook = 'prebook',
+  virtual = 'virtual',
+}
+
+export const getFhirAppointmentTypeForVisitType = (
+  visitType: VisitType | undefined,
+): FhirAppointmentType | undefined => {
+  if (visitType === VisitType.WalkIn) {
+    return FhirAppointmentType.walkin;
+  } else if (visitType === VisitType.PreBook) {
+    return FhirAppointmentType.prebook;
+  } else {
+    return undefined;
+  }
+};
+
+export const getVisitTypeLabelForAppointment = (appointment: Appointment): string => {
+  const fhirAppointmentType = appointment?.appointmentType?.text as FhirAppointmentType;
+
+  if (fhirAppointmentType === FhirAppointmentType.walkin) {
+    return 'Walk-in Urgent Care Visit (1UrgCare)';
+  } else if (fhirAppointmentType === FhirAppointmentType.prebook) {
+    return 'Pre-booked Urgent Care Visit (4Online)';
+  } else if (fhirAppointmentType === FhirAppointmentType.virtual) {
+    return 'Telemed';
+  }
+  return '-';
+};
+
+export type DOW = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+export type HourOfDay =
+  | 0
+  | 1
+  | 2
+  | 3
+  | 4
+  | 5
+  | 6
+  | 7
+  | 8
+  | 9
+  | 10
+  | 11
+  | 12
+  | 13
+  | 14
+  | 15
+  | 16
+  | 17
+  | 18
+  | 19
+  | 20
+  | 21
+  | 22
+  | 23;
+
+export interface Capacity {
+  hour: HourOfDay;
+  capacity: number;
+}
+
+export interface ScheduleDay {
+  open: HourOfDay;
+  close: HourOfDay;
+  openingBuffer: number;
+  closingBuffer: number;
+  workingDay: boolean;
+  hours: Capacity[];
+}
+export interface Weekdays {
+  [day: string]: Weekday;
+}
+
+export interface Overrides {
+  [day: string]: Day;
+}
+
+export interface Day {
+  open: number;
+  close: number;
+  openingBuffer: number;
+  closingBuffer: number;
+  hours: Capacity[];
+}
+
+export interface Weekday extends Day {
+  workingDay: boolean;
+}
+
+export enum ClosureType {
+  OneDay = 'one-day',
+  Period = 'period',
+}
+export interface Closure {
+  start: string;
+  end: string;
+  type: ClosureType;
+}
+
+export interface ScheduleExtension {
+  schedule: DailySchedule | undefined;
+  scheduleOverrides: ScheduleOverrides | undefined;
+  closures: Closure[] | undefined;
+}
+
+export type DailySchedule = Record<DOW, ScheduleDay>;
+export type ScheduleOverrides = Record<string, ScheduleDay>;
+
+export interface lastModifiedCode {
+  lastModifiedDate: DateTime;
+  lastModifiedBy: string | undefined;
+  lastModifiedByID: string | undefined;
+}
+
+export type ExamTabCardNames =
+  | 'vitals'
+  | 'general'
+  | 'head'
+  | 'eyes'
+  | 'nose'
+  | 'ears'
+  | 'mouth'
+  | 'neck'
+  | 'chest'
+  | 'back'
+  | 'skin'
+  | 'abdomen'
+  | 'musculoskeletal'
+  | 'neurological'
+  | 'psych';
+
+export type ExamTabProviderCardNames = Exclude<ExamTabCardNames, 'vitals'>;
+
+export type ExamTabGroupNames =
+  | 'normal'
+  | 'abnormal'
+  | 'rightEye'
+  | 'leftEye'
+  | 'rightEar'
+  | 'leftEar'
+  | 'form'
+  | 'dropdown';
+
+export type ExamObservationFieldItem = {
+  field: ExamFieldsNames;
+  defaultValue: boolean;
+  abnormal: boolean;
+  group: ExamTabGroupNames;
+  card: ExamTabProviderCardNames;
+  label: string;
+};
+
+export enum CardType {
+  InsuranceFront = 'insurance-card-front',
+  InsuranceBack = 'insurance-card-back',
+  PhotoIdFront = 'photo-id-front',
+  PhotoIdBack = 'photo-id-back',
+}
+export interface CardInfo {
+  type: CardType;
+  z3Url: string;
+  presignedUrl: string | undefined;
+}

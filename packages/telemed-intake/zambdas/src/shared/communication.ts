@@ -1,18 +1,15 @@
 import sendgrid from '@sendgrid/mail';
+import { Secrets, SecretsKeys, getSecret, createMessagingClient } from 'ottehr-utils';
 import { Location } from 'fhir/r4';
-import { Secrets, getSecret, SecretsKeys } from 'ottehr-utils';
-import { Client as TwilioClient } from '@twilio/conversations';
 
 export interface ConfirmationEmailInput {
-  email: string;
-  startTime: string;
+  toAddress: string;
   appointmentID: string;
   secrets: Secrets | null;
-  location: Location;
 }
 
 export const sendConfirmationEmail = async (input: ConfirmationEmailInput): Promise<void> => {
-  const { email, startTime, appointmentID, secrets, location } = input;
+  const { toAddress, appointmentID, secrets } = input;
   const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
   const SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID = getSecret(
     SecretsKeys.TELEMED_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID,
@@ -20,57 +17,55 @@ export const sendConfirmationEmail = async (input: ConfirmationEmailInput): Prom
   );
 
   // Translation variables
-  const subject = 'Your visit confirmation at Ottehr Telemedicine';
+  const subject = 'Ottehr Telemedicine';
   const templateId = SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID;
-  const address = `${location?.address?.line?.[0]}${
-    location?.address?.line?.[1] ? `,&nbsp;${location.address.line[1]}` : ''
-  } `;
-  const phone = location.telecom?.find((el) => el.system === 'phone')?.value;
   const templateInformation = {
-    appointmentTime: startTime,
-    locationName: location.name,
-    locationAddress: address,
-    locationPhone: phone,
-    paperworkUrl: `${WEBSITE_URL}/appointment/${appointmentID}`,
-    rescheduleUrl: `${WEBSITE_URL}/appointment/${appointmentID}`,
-    cancelUrl: `${WEBSITE_URL}/appointment/${appointmentID}/cancellation-reason`,
+    url: `${WEBSITE_URL}/waiting-room?appointment_id=${appointmentID}`,
   };
-  await sendEmail(email, templateId, subject, templateInformation, secrets);
+  await sendEmail(toAddress, templateId, subject, templateInformation, secrets);
 };
 
 export interface CancellationEmail {
-  email: string;
-  startTime: string;
+  toAddress: string;
   secrets: Secrets | null;
-  location: Location;
-  visitType: string;
 }
 
 export const sendCancellationEmail = async (input: CancellationEmail): Promise<void> => {
-  const { email, startTime, secrets, location, visitType } = input;
+  const { toAddress, secrets } = input;
   const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
   const SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID = getSecret(
     SecretsKeys.TELEMED_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID,
     secrets,
   );
-  const subject = 'Urgent Care: Your Visit Has Been Canceled';
+  const subject = 'Ottehr Telemedicine';
   const templateId = SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID;
-  const address = `${location?.address?.line?.[0]}${
-    location?.address?.line?.[1] ? `,&nbsp;${location.address.line[1]}` : ''
-  } `;
-  const phone = location.telecom?.find((el) => el.system === 'phone')?.value;
-  const slug =
-    location.identifier?.find((identifierTemp) => identifierTemp.system === 'https://fhir.ottehr.com/r4/slug')?.value ||
-    'Unknown';
 
   const templateInformation = {
-    appointmentTime: startTime,
-    locationName: location.name,
-    locationAddress: address,
-    locationPhone: phone,
-    bookAgainUrl: `${WEBSITE_URL}/location/${slug}/${visitType}`,
+    url: `${WEBSITE_URL}/welcome`,
   };
-  await sendEmail(email, templateId, subject, templateInformation, secrets);
+  await sendEmail(toAddress, templateId, subject, templateInformation, secrets);
+};
+
+export interface VideoChatInvitationEmailInput {
+  toAddress: string;
+  inviteUrl: string;
+  patientName: string;
+  secrets: Secrets | null;
+}
+
+export const sendVideoChatInvititationEmail = async (input: VideoChatInvitationEmailInput): Promise<void> => {
+  const { toAddress, inviteUrl, patientName, secrets } = input;
+  const SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID = getSecret(
+    SecretsKeys.TELEMED_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID,
+    secrets,
+  );
+  const subject = 'Invitation to Join a Visit - Ottehr Telemedicine';
+  const templateId = SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID;
+  const templateInformation = {
+    inviteUrl: inviteUrl,
+    patientName: patientName,
+  };
+  await sendEmail(toAddress, templateId, subject, templateInformation, secrets);
 };
 
 async function sendEmail(
@@ -92,7 +87,7 @@ async function sendEmail(
     to: email,
     from: {
       email: 'no-reply@ottehr.com',
-      name: 'Ottehr',
+      name: 'Ottehr Urgent Care',
     },
     bcc: SENDGRID_EMAIL_BCC,
     replyTo: 'no-reply@ottehr.com',
@@ -117,54 +112,49 @@ async function sendEmail(
   }
 }
 
-export async function sendMessage(
-  message: string,
-  conversationSID: string,
-  zapehrMessagingToken: string,
+export async function sendConfirmationMessages(
+  email: string | undefined,
+  firstName: string | undefined,
+  messageRecipient: string,
+  startTime: string,
   secrets: Secrets | null,
+  location: Location,
+  appointmentID: string,
+  appointmentType: string,
+  verifiedPhoneNumber: string | undefined,
+  token: string,
 ): Promise<void> {
-  console.log(`Sending message "${message}" to conversation ${conversationSID} using twilio`);
-  const PROJECT_API_URL = getSecret(SecretsKeys.PROJECT_API, secrets);
-  const twilioTokenRequest = await fetch(`${PROJECT_API_URL}/messaging/conversation/token`, {
-    headers: {
-      Authorization: `Bearer ${zapehrMessagingToken}`,
-    },
-  });
-  const twilioTokenResponse = await twilioTokenRequest.json();
-  const twilioToken = twilioTokenResponse.token;
-  const twilioClient = new TwilioClient(twilioToken);
-  const messagingDeviceSenderID = getSecret(SecretsKeys.TELEMED_MESSAGING_DEVICE_ID, secrets);
-  console.log(twilioToken);
-  await twilioClientSendMessage(twilioClient, conversationSID, message, messagingDeviceSenderID);
-  console.log('Response from the promise');
+  if (email) {
+    await sendConfirmationEmail({ toAddress: email, appointmentID, secrets });
+  } else {
+    console.log('email undefined');
+  }
+
+  const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+  const message = `You're confirmed! Thanks for choosing Ottehr! Your check-in time for ${firstName} at ${
+    location.name
+  } is on ${startTime}. Please complete your paperwork in advance to save time at check-in. To complete paperwork visit: ${WEBSITE_URL}/paperwork/${appointmentID}. ${
+    appointmentType === 'walkin' ? '' : ` To modify/cancel your check-in, visit: ${WEBSITE_URL}/visit/${appointmentID}`
+  }`;
+  await sendSms(message, token, messageRecipient, verifiedPhoneNumber, secrets);
 }
 
-async function twilioClientSendMessage(
-  twilioClient: TwilioClient,
-  conversationSID: string,
+export async function sendSms(
   message: string,
-  messagingDeviceSenderID: string,
+  token: string,
+  messageRecipient: string,
+  verifiedPhoneNumber: string | undefined,
+  secrets: Secrets | null,
 ): Promise<void> {
-  return new Promise((resolve, reject) => {
-    try {
-      twilioClient.on('initialized', async () => {
-        const twilioConversation = await twilioClient.getConversationBySid(conversationSID);
-        const messageRequest = await twilioConversation.sendMessage(message, {
-          senderName: 'Intake Message',
-          senderID: messagingDeviceSenderID,
-        });
-        // if the most recently sent message was read mark all messages as read
-        console.log(twilioConversation.lastReadMessageIndex, twilioConversation.lastMessage?.index);
-        if (twilioConversation.lastReadMessageIndex === twilioConversation.lastMessage?.index) {
-          await twilioConversation.setAllMessagesRead();
-        }
-        console.log(`Message sent ${messageRequest}`);
-        await twilioClient.shutdown();
-        resolve();
-      });
-    } catch (error) {
-      console.log('Error sending twilio message', error);
-      reject(error);
-    }
-  });
+  const messagingClient = createMessagingClient(token, getSecret(SecretsKeys.PROJECT_API, secrets));
+  try {
+    const commid = await messagingClient.sendSMS({
+      message,
+      resource: messageRecipient,
+      phoneNumber: verifiedPhoneNumber ?? '',
+    });
+    console.log('message send res: ', commid);
+  } catch (e) {
+    console.log('message send error: ', JSON.stringify(e));
+  }
 }

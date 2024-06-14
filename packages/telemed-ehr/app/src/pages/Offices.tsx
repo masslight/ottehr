@@ -18,10 +18,13 @@ import { DateTime } from 'luxon';
 import React, { ReactElement, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { otherColors } from '../CustomThemeProvider';
+import { Closure, ClosureType, ScheduleExtension } from '../types/types';
+import { OVERRIDE_DATE_FORMAT } from '../helpers/formatDateTime';
 import Loading from '../components/Loading';
-import { datesCompareFn } from '../helpers/formatDateTime';
-import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
+import { useApiClients } from '../hooks/useAppClients';
+
+const SCHEDULE_CHANGES_FORMAT = 'MMM d';
 
 export default function LocationsPage(): ReactElement {
   // connect to FHIR database
@@ -48,12 +51,20 @@ export default function LocationsPage(): ReactElement {
   const [rowsPerPage, setRowsPerPage] = React.useState(5);
   const [pageNumber, setPageNumber] = React.useState(0);
   const [searchText, setSearchText] = React.useState('');
+  const filteredLocations = React.useMemo(() => {
+    const filtered = locations.filter(
+      (location) => location.name && location.name.toLowerCase().includes(searchText.toLowerCase()),
+    );
 
-  const filteredLocations = React.useMemo(
-    () =>
-      locations.filter((location) => location.name && location.name.toLowerCase().includes(searchText.toLowerCase())),
-    [locations, searchText],
-  );
+    const combinedLocations = filtered.map((location) => ({
+      ...location,
+      combined: `${location?.address?.state} - ${location.name}`,
+    }));
+
+    combinedLocations.sort((a, b) => a.combined.localeCompare(b.combined));
+
+    return combinedLocations;
+  }, [locations, searchText]);
 
   // For pagination, only include the rows that are on the current page
   const pageLocations = React.useMemo(
@@ -78,20 +89,58 @@ export default function LocationsPage(): ReactElement {
     setSearchText(event.target.value);
   };
 
+  const validateOverrideDates = (overrideDates: string[], date: string): string[] => {
+    const luxonDate = DateTime.fromFormat(date, OVERRIDE_DATE_FORMAT);
+    if (luxonDate.isValid && luxonDate >= DateTime.now().startOf('day')) {
+      overrideDates.push(luxonDate.toFormat(SCHEDULE_CHANGES_FORMAT));
+    }
+    return overrideDates;
+  };
+
+  const validateClosureDates = (closureDates: string[], closure: Closure): string[] => {
+    const today = DateTime.now().startOf('day');
+    const startDate = DateTime.fromFormat(closure.start, OVERRIDE_DATE_FORMAT);
+    if (!startDate.isValid) {
+      return closureDates;
+    }
+
+    if (closure.type === ClosureType.OneDay) {
+      if (startDate >= today) {
+        closureDates.push(startDate.toFormat(SCHEDULE_CHANGES_FORMAT));
+      }
+    } else if (closure.type === ClosureType.Period) {
+      const endDate = DateTime.fromFormat(closure.end, OVERRIDE_DATE_FORMAT);
+      if (startDate >= today || endDate >= today) {
+        closureDates.push(
+          `${startDate.toFormat(SCHEDULE_CHANGES_FORMAT)} - ${endDate.toFormat(SCHEDULE_CHANGES_FORMAT)}`,
+        );
+      }
+    }
+    return closureDates;
+  };
+
   function getLocationOverrideInformation(location: Location): string | undefined {
     const extensionTemp = location.extension;
     const extensionSchedule = extensionTemp?.find(
       (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule',
     )?.valueString;
+
     if (extensionSchedule) {
-      const scheduleTemp = JSON.parse(extensionSchedule);
-      const dates = Object.keys(scheduleTemp?.scheduleOverrides)
-        .sort(datesCompareFn)
-        .map((date) => {
-          return DateTime.fromFormat(date, 'D').toFormat('MMMM dd');
-        });
-      const dateTimeObj = dates?.join(', ') || undefined;
-      return dateTimeObj;
+      const { scheduleOverrides, closures } = JSON.parse(extensionSchedule) as ScheduleExtension;
+      const overrideDates = scheduleOverrides ? Object.keys(scheduleOverrides).reduce(validateOverrideDates, []) : [];
+      const closureDates = closures ? closures.reduce(validateClosureDates, []) : [];
+      const allDates = [...overrideDates, ...closureDates].sort((d1: string, d2: string): number => {
+        // compare the single day or the first day in the period
+        const startDateOne = d1.split('-')[0];
+        const startDateTwo = d2.split('-')[0];
+        return (
+          DateTime.fromFormat(startDateOne, SCHEDULE_CHANGES_FORMAT).toSeconds() -
+          DateTime.fromFormat(startDateTwo, SCHEDULE_CHANGES_FORMAT).toSeconds()
+        );
+      });
+      const scheduleChangesSet = new Set(allDates);
+      const scheduleChanges = Array.from(scheduleChangesSet);
+      return scheduleChanges.length ? scheduleChanges.join(', ') : undefined;
     }
     return undefined;
   }
@@ -115,7 +164,7 @@ export default function LocationsPage(): ReactElement {
     if (scheduleObject.scheduleOverrides) {
       for (const dateKey in scheduleOverrides) {
         if (Object.hasOwnProperty.call(scheduleOverrides, dateKey)) {
-          const date = DateTime.fromFormat(dateKey, 'M/d/yyyy').toISODate();
+          const date = DateTime.fromFormat(dateKey, OVERRIDE_DATE_FORMAT).toISODate();
           const todayDate = DateTime.local().toISODate();
           if (date === todayDate) {
             if (time === 'open') {
@@ -182,7 +231,7 @@ export default function LocationsPage(): ReactElement {
                 <TableRow key={location.id}>
                   <TableCell>
                     <Link to={`/office/${location.id}`} style={{ textDecoration: 'none' }}>
-                      <Typography color="primary">{location.name}</Typography>
+                      <Typography color="primary">{`${location?.address?.state} - ${location.name}`}</Typography>
                     </Link>
                   </TableCell>
                   <TableCell align="left">

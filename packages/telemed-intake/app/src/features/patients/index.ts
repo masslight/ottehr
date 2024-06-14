@@ -1,2 +1,2 @@
-export * from './patients.store';
 export * from './patients.queries';
+export * from './patients.store';

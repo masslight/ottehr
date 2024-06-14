@@ -5,29 +5,33 @@ import { Operation } from 'fast-json-patch';
 import { Appointment, Location, Patient } from 'fhir/r4';
 import { DateTime } from 'luxon';
 import {
+  CancellationReasonOptionsTelemed,
+  DATETIME_FULL_NO_YEAR,
+  FHIR_ZAPEHR_URL,
   Secrets,
   SecretsKeys,
   ZambdaInput,
-  getPatchBinary,
-  getSecret,
   cancelAppointmentResource,
   createFhirClient,
   getParticipantFromAppointment,
+  getPatchBinary,
+  getSecret,
+  getPatientFirstName,
+  getPatientResourceWithVerifiedPhoneNumber,
 } from 'ottehr-utils';
-import { AuditableZambdaEndpoints, createAuditEvent, getVideoEncounterForAppointment } from '../../shared';
+import { AuditableZambdaEndpoints, createAuditEvent, getVideoEncounterForAppointment, sendSms } from '../../shared';
 import { sendCancellationEmail } from '../../shared/communication';
 import { getPatientResource } from '../../shared/fhir';
 import { getRelatedPersonForPatient } from '../../shared/patients';
 import { validateBundleAndExtractAppointment } from '../../shared/validateBundleAndExtractAppointment';
-import { CancellationReasonOptions } from '../../types';
 import { getPatientContactEmail } from '../create-appointment';
 import { checkOrCreateToken } from '../lib/utils';
 import { validateRequestParameters } from './validateRequestParameters';
-import { getConversationSIDForRelatedPersons } from '../create-appointment/logic/conversation';
 
 export interface CancelAppointmentInput {
   appointmentID: string;
-  cancellationReason: CancellationReasonOptions;
+  cancellationReason: CancellationReasonOptionsTelemed;
+  cancellationReasonAdditional?: string;
   secrets: Secrets | null;
 }
 
@@ -69,10 +73,9 @@ interface PerformEffectInput {
 
 async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxyResult> {
   const { input } = props;
-  const { secrets, appointmentID, cancellationReason } = props.params;
+  const { secrets, appointmentID, cancellationReason, cancellationReasonAdditional } = props.params;
 
-  const fhirAPI = getSecret(SecretsKeys.FHIR_API, secrets);
-  const fhirClient = createFhirClient(zapehrToken, fhirAPI);
+  const fhirClient = createFhirClient(zapehrToken);
 
   console.group('gettingEmailProps');
 
@@ -156,7 +159,18 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
   console.debug('gettingEmailProps success');
 
   console.log(`canceling appointment with id ${appointmentID}`);
-  const cancelledAppointment = await cancelAppointmentResource(appointment, cancellationReason, fhirClient);
+  const cancelledAppointment = await cancelAppointmentResource(
+    appointment,
+    [
+      {
+        // todo reassess codes and reasons, just using custom codes atm
+        system: `${FHIR_ZAPEHR_URL}/CodeSystem/appointment-cancellation-reason`,
+        code: CancellationReasonOptionsTelemed[cancellationReason],
+        display: cancellationReasonAdditional || cancellationReason,
+      },
+    ],
+    fhirClient,
+  );
 
   const response = {
     message: 'Successfully canceled an appointment',
@@ -170,22 +184,25 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
     visitType: visitType,
   };
   console.group('sendCancellationEmail');
-  await sendCancellationEmail({
-    email,
-    startTime,
-    secrets,
-    location,
-    visitType,
-  });
+  if (getSecret(SecretsKeys.SENDGRID_API_KEY, secrets)) {
+    await sendCancellationEmail({
+      toAddress: email,
+      secrets,
+    });
+  }
   console.groupEnd();
 
   console.log('Send cancel message request');
-  const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
-  const message = `Your visit with Ottehr Urgent Care ${location.name} has been canceled. Tap ${WEBSITE_URL}/location/${response.location.slug}/${response.visitType} to book a new visit.`;
 
   const relatedPerson = await getRelatedPersonForPatient(patient.id || '', fhirClient);
-  if (relatedPerson) {
-    const conversationSID = await getConversationSIDForRelatedPersons([relatedPerson], fhirClient);
+  if (relatedPerson?.id && patient.id) {
+    // send message
+    const { verifiedPhoneNumber } = await getPatientResourceWithVerifiedPhoneNumber(patient.id, fhirClient);
+    const message = 'Sorry to see you go. Questions? Call 516-207-7950';
+    const recipient = `RelatedPerson/${relatedPerson.id}`;
+
+    await sendSms(message, zapehrToken, recipient, verifiedPhoneNumber, secrets);
+    // const conversationSID = await getConversationSIDForRelatedPersons([relatedPerson], fhirClient);
     // await sendMessage(message, conversationSID || '', zapehrMessagingToken, secrets);
   } else {
     console.log(`No RelatedPerson found for patient ${patient.id} not sending text message`);
@@ -231,7 +248,7 @@ const getCancellationEmailDetails = async (
       appointment.appointmentType?.coding
         ?.find((codingTemp) => codingTemp.system === 'http://terminology.hl7.org/CodeSystem/v2-0276')
         ?.code?.toLowerCase() || 'Unknown';
-    const DATETIME_FULL_NO_YEAR = 'MMMM d, h:mm a ZZZZ';
+
     return {
       startTime: DateTime.fromISO(appointment.start).setZone(timezone).toFormat(DATETIME_FULL_NO_YEAR),
       email,

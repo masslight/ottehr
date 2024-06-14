@@ -1,3 +1,5 @@
+export type AppointmentType = 'walk-in' | 'pre-booked' | 'post-telemed';
+
 export enum ApptStatus {
   'ready' = 'ready',
   'pre-video' = 'pre-video',

@@ -2,6 +2,7 @@ import { StringFormat } from '../string-format';
 import { SelectInputOption } from './select-input-option';
 import { RadioOption, RadioStyling } from './radio.types';
 import { TextFieldProps } from '@mui/material';
+import { ReactElement } from 'react';
 import { FormItemType } from 'ottehr-utils';
 
 export type FormInputTypeField = {
@@ -12,10 +13,12 @@ export type FormInputTypeField = {
   label?: string;
   enableWhen?: any;
   requireWhen?: any;
+  disableWhen?: any;
+  readOnlyValue?: string;
   infoTextSecondary?: string;
   width?: number;
   infoText?: string;
-  freeSelectOptions?: string[];
+  freeSelectOptions?: SelectInputOption[] | string[];
   selectOptions?: SelectInputOption[];
   radioOptions?: RadioOption[];
   radioStyling?: RadioStyling;
@@ -28,10 +31,12 @@ export type FormInputTypeField = {
   hidden?: boolean;
   mask?: string;
   helperText?: string;
+  showHelperTextIcon?: boolean;
   onChange?: any;
   validationRegex?: RegExp;
   validationRegexError?: string;
   characterLimit?: number;
+  description?: ReactElement;
 } & TextFieldProps;
 
 export type FormInputTypeGroup = {
@@ -42,6 +47,7 @@ export type FormInputTypeGroup = {
   hidden?: boolean;
   required?: boolean;
   helperText?: string;
+  showHelperTextIcon?: boolean;
   enableWhen?: any;
   requireWhen?: any;
   fieldMap: Record<string, string>;
@@ -49,3 +55,5 @@ export type FormInputTypeGroup = {
 };
 
 export type FormInputType = FormInputTypeField | FormInputTypeGroup;
+
+export type OverrideValues = Record<string, string | undefined>;

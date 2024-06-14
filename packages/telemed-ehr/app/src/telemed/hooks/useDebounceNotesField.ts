@@ -4,21 +4,28 @@ import { useAppointmentStore, useDeleteChartData, useSaveChartData } from '../st
 import { getSelectors } from '../../shared/store/getSelectors';
 import { useRef } from 'react';
 
-type ChartDataTextValueType = Pick<ChartDataFields, 'chiefComplaint' | 'ros' | 'proceduresNote' | 'observations'>;
+type ChartDataTextValueType = Pick<
+  ChartDataFields,
+  'chiefComplaint' | 'ros' | 'proceduresNote' | 'observations' | 'medicalDecision' | 'addendumNote'
+>;
 
 enum nameToTypeEnum {
-  'chiefComplaint' = 'description',
-  'ros' = 'description',
+  'chiefComplaint' = 'text',
+  'ros' = 'text',
   'proceduresNote' = 'text',
   'observations' = 'text',
+  'medicalDecision' = 'text',
+  'addendumNote' = 'text',
 }
 
 export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
   name: T,
-): { onValueChange: (text: string) => void } => {
-  const { mutate: saveChartData } = useSaveChartData();
-  const { mutate: deleteChartData } = useDeleteChartData();
+): { onValueChange: (text: string) => void; isLoading: boolean } => {
+  const { mutate: saveChartData, isLoading: isSaveLoading } = useSaveChartData();
+  const { mutate: deleteChartData, isLoading: isDeleteLoading } = useDeleteChartData();
   const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
+
+  const isLoading = isSaveLoading || isDeleteLoading;
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -51,5 +58,5 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
     }, 500);
   };
 
-  return { onValueChange };
+  return { onValueChange, isLoading };
 };

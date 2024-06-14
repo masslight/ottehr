@@ -1,4 +1,4 @@
-import { Secrets } from 'ottehr-utils';
+import { Secrets } from '../../common.types';
 import { TelemedCallStatuses } from '../../appointment.types';
 
 export interface ChangeTelemedAppointmentStatusInput {

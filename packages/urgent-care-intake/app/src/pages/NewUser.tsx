@@ -1,5 +1,4 @@
 import { Typography } from '@mui/material';
-import mixpanel from 'mixpanel-browser';
 import { useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { IntakeFlowPageRoute } from '../App';
@@ -14,7 +13,7 @@ const NewUser = (): JSX.Element => {
   const { state, dispatch } = useContext(IntakeDataContext);
 
   useEffect(() => {
-    mixpanel.track('New User');
+    //mixpanel.track('New User');
   }, []);
 
   const onSubmit = async (): Promise<void> => {

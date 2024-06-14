@@ -61,6 +61,7 @@ export const filterAppointmentsFromResources = (
           appointment,
           paperwork,
           location,
+          encounter,
           telemedStatus,
           telemedStatusHistory: encounter.statusHistory
             ? mapEncounterStatusHistory(encounter.statusHistory, appointment.status)

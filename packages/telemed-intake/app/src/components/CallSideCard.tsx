@@ -1,12 +1,8 @@
 import EastIcon from '@mui/icons-material/East';
-import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined';
-import PhotoLibraryOutlinedIcon from '@mui/icons-material/PhotoLibraryOutlined';
 import { Card, IconButton, List } from '@mui/material';
 import { FC, useState } from 'react';
-import { StyledListItemWithButton } from 'ottehr-components';
-import { otherColors } from '../IntakeThemeProvider';
-import { ManageParticipantsDialog } from './ManageParticipantsDialog';
-import { PatientPhotosDialog } from './PatientPhotosDialog';
+import { InvitedParticipantListItemButton, ManageParticipantsDialog } from '../features/invited-participants';
+import { UploadPhotosDialog, UploadPhotosListItemButton } from '../features/upload-photos';
 
 export const CallSideCard: FC = () => {
   const [isCardExpanded, setIsCardExpanded] = useState(true);
@@ -26,8 +22,8 @@ export const CallSideCard: FC = () => {
         borderRadius: 2,
         boxShadow: 0,
         position: 'relative',
-        minWidth: isCardExpanded ? '256px' : '56px',
-        width: isCardExpanded ? '256px' : '56px',
+        minWidth: isCardExpanded ? '347px' : '86px',
+        width: isCardExpanded ? '347px' : '86px',
         transition: 'all 0.5s',
       }}
     >
@@ -40,29 +36,18 @@ export const CallSideCard: FC = () => {
         />
       </IconButton>
       <List sx={{ p: 0 }}>
-        <StyledListItemWithButton
-          primaryText="Manage participants"
-          secondaryText="Oliver Black, Jerome Black"
-          hideText={!isCardExpanded}
+        <InvitedParticipantListItemButton
           onClick={() => setManageParticipantsDialogOpen(true)}
-        >
-          <ManageAccountsOutlinedIcon sx={{ color: otherColors.purple }} />
-        </StyledListItemWithButton>
-        <StyledListItemWithButton
-          primaryText="Upload photos"
-          secondaryText="2 photos attached"
-          noDivider
           hideText={!isCardExpanded}
-          onClick={() => setUploadPhotosDialogOpen(true)}
-        >
-          <PhotoLibraryOutlinedIcon sx={{ color: otherColors.purple }} />
-        </StyledListItemWithButton>
+        />
+
+        <UploadPhotosListItemButton onClick={() => setUploadPhotosDialogOpen(true)} hideText={false} />
       </List>
 
       {isManageParticipantsDialogOpen ? (
         <ManageParticipantsDialog onClose={() => setManageParticipantsDialogOpen(false)} />
       ) : null}
-      {isUploadPhotosDialogOpen ? <PatientPhotosDialog onClose={() => setUploadPhotosDialogOpen(false)} /> : null}
+      {isUploadPhotosDialogOpen ? <UploadPhotosDialog onClose={() => setUploadPhotosDialogOpen(false)} /> : null}
     </Card>
   );
 };

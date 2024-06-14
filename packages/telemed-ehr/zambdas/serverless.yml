@@ -14,6 +14,7 @@ custom:
   defaultStage: local
   serverless-offline:
     reloadHandler: true
+    host: 0.0.0.0
     httpPort: 4000
     lambdaPort: 4001
   esbuild:
@@ -44,7 +45,7 @@ functions:
       - http:
           path: zambda/get-telemed-appointments/execute
           method: POST
-    timeout: 25
+    timeout: 250
     environment:
       AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
@@ -68,25 +69,7 @@ functions:
       AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
       FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
-  get-token-for-conversation:
-    handler: src/get-token-for-conversation/index.index
-    events:
-      - http:
-          path: zambda/get-token-for-conversation/execute
-          method: POST
-    timeout: 25
-    environment:
-      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
-      URGENT_CARE_AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_CLIENT}
-      URGENT_CARE_AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_SECRET}
-      URGENT_CARE_MESSAGING_DEVICE_ID: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_MESSAGING_DEVICE_ID}
-      URGENT_CARE_MESSAGING_M2M_CLIENT: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_MESSAGING_M2M_CLIENT}
-      URGENT_CARE_MESSAGING_M2M_SECRET: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_MESSAGING_M2M_SECRET}
-      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
-      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
-      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
-      SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
-      URGENT_CARE_SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
+      ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
   update-user:
     handler: src/update-user/index.index
     events:
@@ -164,6 +147,7 @@ functions:
       URGENT_CARE_AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_SECRET}
       AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
       FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}      
   get-chart-data:
     handler: src/get-chart-data/index.index
@@ -193,6 +177,97 @@ functions:
       AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
       FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+  save-patient-instruction:
+    handler: src/save-patient-instruction/index.index
+    events:
+      - http:
+          path: zambda/save-patient-instruction/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      URGENT_CARE_AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_CLIENT}
+      URGENT_CARE_AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+  get-patient-instructions:
+    handler: src/get-patient-instructions/index.index
+    events:
+      - http:
+          path: zambda/get-patient-instructions/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      URGENT_CARE_AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_CLIENT}
+      URGENT_CARE_AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+  delete-patient-instruction:
+    handler: src/delete-patient-instruction/index.index
+    events:
+      - http:
+          path: zambda/delete-patient-instruction/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      URGENT_CARE_AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_CLIENT}
+      URGENT_CARE_AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+  get-conversation:
+      handler: src/get-conversation/index.index
+      events:
+        - http:
+            path: zambda/uc-get-conversation/execute
+            method: POST
+      timeout: 25
+      environment:
+        AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+        URGENT_CARE_AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_CLIENT}
+        URGENT_CARE_AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_SECRET}
+        AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+        FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+        ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+        SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
+        URGENT_CARE_SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
+  get-employees:
+      handler: src/get-employees/index.index
+      events:
+        - http:
+            path: zambda/get-employees/execute
+            method: POST
+      timeout: 25
+      environment:
+        AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+        AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+        URGENT_CARE_AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_CLIENT}
+        URGENT_CARE_AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_SECRET}
+        FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+        PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+        ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+  icd-search:
+    handler: src/icd-search/index.index
+    events:
+      - http:
+          path: zambda/icd-search/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      URGENT_CARE_AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_CLIENT}
+      URGENT_CARE_AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+
 plugins:
   - serverless-offline
   - serverless-esbuild

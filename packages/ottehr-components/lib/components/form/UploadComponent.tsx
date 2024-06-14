@@ -47,11 +47,25 @@ const UploadComponent: FC<UploadComponentProps> = ({ name, uploadDescription, ha
         variant="contained"
         sx={{ textTransform: 'none', mt: 2 }}
         onKeyDown={(event) => {
-          if (['Enter', 'Space'].includes(event.code)) {
-            inputRef.current?.click();
+          try {
+            if (['Enter', 'Space'].includes(event.code)) {
+              inputRef.current?.click();
+            }
+          } catch (error) {
+            console.error(error);
           }
         }}
-        onClick={() => inputRef.current?.click()}
+        onClick={() => {
+          try {
+            if (inputRef?.current) {
+              inputRef?.current?.click();
+            } else {
+              throw new Error('inputRef is not defined');
+            }
+          } catch (error) {
+            console.error(error);
+          }
+        }}
       >
         Upload
         <Controller

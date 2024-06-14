@@ -2,12 +2,12 @@ import { useQuery } from 'react-query';
 import { ZapEHRAPIClient } from 'ottehr-components';
 import { PromiseReturnType } from 'ottehr-utils';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetPatients = (
   apiClient: ZapEHRAPIClient | null,
   onSuccess: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['getPatients']>>) => void,
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
+  console.log(100);
   return useQuery(
     ['patients'],
     () => {

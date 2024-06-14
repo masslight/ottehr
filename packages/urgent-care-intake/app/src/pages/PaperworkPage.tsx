@@ -3,7 +3,6 @@ import { CustomContainer } from '../components';
 import { IntakeDataContext } from '../store/IntakeContext';
 // import { ContactInfo } from '../types';
 import { useTheme } from '@mui/material';
-import mixpanel from 'mixpanel-browser';
 import { useContext, useEffect, useState } from 'react';
 import { ErrorDialog, useZambdaClient, StringFormat, PageForm } from 'ottehr-components';
 import { IntakeFlowPageRoute } from '../App';
@@ -61,7 +60,7 @@ const PaperworkPage = (): JSX.Element => {
   const items = currentPage.questions;
 
   useEffect(() => {
-    mixpanel.track(pageName);
+    //mixpanel.track(pageName);
   }, [pageName]);
 
   const navigate = useNavigate();

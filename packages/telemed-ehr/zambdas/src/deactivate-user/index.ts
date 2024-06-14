@@ -1,9 +1,10 @@
-import { APIGatewayProxyResult } from 'aws-lambda';
-import { Secrets, ZambdaInput } from '../types';
-import { validateRequestParameters } from './validateRequestParameters';
-import { getAuth0Token, getSecret } from '../shared';
 import { User } from '@zapehr/sdk';
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { Secrets } from 'ehr-utils';
+import { getAuth0Token, getSecret } from '../shared';
 import { topLevelCatch } from '../shared/errors';
+import { ZambdaInput } from '../types';
+import { validateRequestParameters } from './validateRequestParameters';
 export interface DeactivateUserInput {
   secrets: Secrets | null;
   user: User;
@@ -19,8 +20,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    // Deactivate zapEHR user by removing roles
-    if ((user as any).roles.length > 0) {
+    // Deactivate zapEHR user by assigning Inactive role
+    const userRoles = (user as any).roles;
+    const userRoleIds = userRoles.map((role: any) => role.id);
+    const userInactive = userRoles.find((role: any) => role.name === 'Inactive');
+    if (!userInactive) {
       if (!zapehrToken) {
         console.log('getting token');
         zapehrToken = await getAuth0Token(secrets);
@@ -34,11 +38,28 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         'content-type': 'application/json',
         Authorization: `Bearer ${zapehrToken}`,
       };
+
+      console.log('searching for Inactive role in the the project');
+      const existingRolesResponse = await fetch(`${PROJECT_API}/iam/role`, {
+        method: 'GET',
+        headers: headers,
+      });
+      const existingRoles = await existingRolesResponse.json();
+      if (!existingRolesResponse.ok) {
+        throw new Error('Error searching for existing roles');
+      }
+
+      const inactiveRole = existingRoles.find((role: any) => role.name === 'Inactive');
+      if (!inactiveRole) {
+        throw new Error('Error searching for Inactive role');
+      }
+
+      console.log('deactivating user');
       const updatedUserResponse = await fetch(`${PROJECT_API}/user/${user.id}`, {
         method: 'PATCH',
         headers: headers,
         body: JSON.stringify({
-          roles: [],
+          roles: [...userRoleIds, inactiveRole.id],
         }),
       });
       console.log(await updatedUserResponse.json());

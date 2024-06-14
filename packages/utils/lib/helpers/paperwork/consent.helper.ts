@@ -1,13 +1,35 @@
 import { FhirClient } from '@zapehr/sdk';
 import { Consent, DocumentReference, Patient, QuestionnaireResponse } from 'fhir/r4';
-import { PaperworkResponse } from '../../types/data/paperwork';
+import { OTTEHR_MODULE } from '../../fhir';
+import { Secrets } from '../../secrets';
+import { ConsentSigner, PaperworkResponse } from '../../types';
 
 export async function checkAndCreateConsent(
   questionnaireResponseResource: QuestionnaireResponse | undefined,
   paperwork: PaperworkResponse[],
   patientResource: Patient,
   appointmentID: string,
+  locationID: string,
+  createdDate: string,
+  ipAddress: string,
   fhirClient: FhirClient,
+  secrets: Secrets | null,
+  token: string,
+  ottehrModule: OTTEHR_MODULE,
+  createConsentItems: (
+    dateTime: string,
+    patient: Patient,
+    consentSigner: ConsentSigner,
+    appointmentID: string,
+    locationID: string,
+    ipAddress: string,
+    fhirClient: FhirClient,
+    token: string,
+    secrets: Secrets | null,
+    ottehrModule: OTTEHR_MODULE,
+    timezone?: string
+  ) => Promise<void>,
+  timezone?: string
 ): Promise<void> {
   console.log('Checking DocumentReferences for consent forms');
   const oldConsentResponse = {
@@ -69,6 +91,24 @@ export async function checkAndCreateConsent(
     oldConsentResponse.fullName !== newConsentResponse.fullName ||
     oldConsentResponse.relationship !== newConsentResponse.relationship
   ) {
+    await createConsentItems(
+      createdDate,
+      patientResource,
+      {
+        signature: newConsentResponse.signature,
+        fullName: newConsentResponse.fullName,
+        relationship: newConsentResponse.relationship,
+      },
+      appointmentID,
+      locationID,
+      ipAddress,
+      fhirClient,
+      token,
+      secrets,
+      ottehrModule,
+      timezone
+    );
+
     // Update prior consent DocumentReferences statuses to superseded
     if (oldConsentDocRefs?.length) {
       for (const oldDocRef of oldConsentDocRefs) {

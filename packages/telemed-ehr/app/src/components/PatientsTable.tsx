@@ -4,11 +4,11 @@ import { BatchInputGetRequest } from '@zapehr/sdk';
 import { Appointment, Bundle, Location, Patient, RelatedPerson } from 'fhir/r4';
 import { ReactElement, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { convertFhirNameToDisplayName } from 'ehr-utils';
+import { OTTEHR_MODULE, convertFhirNameToDisplayName } from 'ehr-utils';
 import { formatDateUsingSlashes } from '../helpers/formatDateTime';
-import { standardizePhoneNumber } from '../helpers/formatPhoneNumber';
+import { standardizePhoneNumber } from 'ehr-utils';
+import { MAX_RESULTS } from '../helpers/patientSearch';
 import { useApiClients } from '../hooks/useAppClients';
-import { MAX_RESULTS } from '../pages/Patients';
 import CustomTable, { dateTimeEqualsOperator } from './CustomTable';
 
 interface PatientsTableProps {
@@ -100,13 +100,15 @@ export default function PatientsTable({
         return;
       }
 
+      setRowsLoading(true);
       const appointmentRequests: BatchInputGetRequest[] = [];
 
       // Get patient name, DOB
       const patientInfo = fhirPatients.reduce((accumulator: PatientRow[], fhirPatient) => {
+        const selectedTags = [OTTEHR_MODULE.UC, OTTEHR_MODULE.TM].join(',');
         appointmentRequests.push({
           method: 'GET',
-          url: `/Appointment?_tag=OTTEHR-UC&actor=Patient/${fhirPatient.id}&status=fulfilled&_elements=participant,start&_sort=date&_count=1`,
+          url: `/Appointment?_tag=${selectedTags}&actor=Patient/${fhirPatient.id}&_has:Encounter:appointment:status=finished&_elements=participant,start&_sort=-date&_count=1`,
         });
 
         accumulator.push({
@@ -125,7 +127,6 @@ export default function PatientsTable({
 
       // Search for last appointments
       const appointments: Appointment[] = [];
-      setRowsLoading(true);
 
       const bundle = await fhirClient?.batchRequest({
         requests: appointmentRequests,
@@ -166,15 +167,14 @@ export default function PatientsTable({
       setPatientRows(patientInfo);
     }
 
-    setPatientRowInfo(fhirPatients).catch((error) => {
-      console.log(error);
-      setRowsLoading(false);
-    });
+    setPatientRowInfo(fhirPatients)
+      .catch((error) => console.log(error))
+      .finally(() => setRowsLoading(false));
   }, [fhirClient, fhirPatients, locations, relatedPersons]);
 
   return (
     <>
-      {patientRows && patientRows.length > 0 && patientRows.length < total && (
+      {patientRows && patientRows.length === MAX_RESULTS && patientRows.length < total && (
         <Box
           sx={{
             width: '100%',

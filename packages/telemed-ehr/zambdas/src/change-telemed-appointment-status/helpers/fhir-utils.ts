@@ -1,5 +1,5 @@
 import { FhirClient } from '@zapehr/sdk';
-import { Appointment, Encounter } from 'fhir/r4';
+import { Account, Appointment, ChargeItem, Encounter, Patient, Resource } from 'fhir/r4';
 import { AppointmentPackage } from './types';
 import { getVideoRoomResourceExtension } from '../../shared/helpers';
 
@@ -7,30 +7,74 @@ export const getVideoResources = async (
   fhirClient: FhirClient,
   appointmentId: string,
 ): Promise<AppointmentPackage | undefined> => {
-  const allResources = await fhirClient.searchResources({
-    resourceType: 'Appointment',
+  //
+  // Attempting to get three items: Encounter, Appointment and charge Item
+  // FHIR API Query looks something like this:
+  // Encounter?appointment=Appointment/d2d0f76d-5bc5-4d99-a5b4-8e16ebfe7e47
+  //          &_include=Encounter:appointment
+  //          &_revinclude=ChargeItem:context
+  //          &_include=Encounter:subject
+  //          &_revinclude:iterate=Account:patient
+  //
+  // Given an appointment ID, find an Encounter for this appointment, a Charge Item for which the Encounter
+  // is its context, a patient that's the subject of the encounter, and the Accocunt for this patient
+  //
+
+  const items: Array<Appointment | Encounter | ChargeItem | Patient | Account> = await fhirClient.searchResources<
+    Appointment | Encounter | ChargeItem | Patient | Account
+  >({
+    resourceType: 'Encounter',
     searchParams: [
       {
-        name: '_id',
-        value: appointmentId,
+        name: 'appointment',
+        value: `Appointment/${appointmentId}`,
+      },
+      {
+        name: '_include',
+        value: 'Encounter:appointment',
+      },
+      {
+        name: '_revinclude',
+        value: 'ChargeItem:context',
+      },
+      {
+        name: '_include',
+        value: 'Encounter:subject',
       },
       {
         name: '_revinclude:iterate',
-        value: 'Encounter:appointment',
+        value: 'Account:patient',
       },
     ],
   });
 
-  const appointment = allResources.find((resource) => resource.resourceType === 'Appointment');
+  const appointment: Appointment | undefined = items.find((item: Resource) => {
+    return item.resourceType === 'Appointment';
+  }) as Appointment;
   if (!appointment) return undefined;
-  if (!getVideoRoomResourceExtension(appointment)) return undefined;
-  const encounter = allResources.find(
-    (resource) => resource.resourceType === 'Encounter' && getVideoRoomResourceExtension(resource),
-  );
+
+  const encounter: Encounter | undefined = items.find((item: Resource) => {
+    return item.resourceType === 'Encounter' && getVideoRoomResourceExtension(item);
+  }) as Encounter;
   if (!encounter) return undefined;
 
+  const chargeItem: ChargeItem | undefined = items.find((item: Resource) => {
+    return item.resourceType === 'ChargeItem';
+  }) as ChargeItem;
+
+  const patient: Patient | undefined = items.find((item: Resource) => {
+    return item.resourceType === 'Patient';
+  }) as Patient;
+
+  const account: Account | undefined = items.find((item: Resource) => {
+    return item.resourceType === 'Account';
+  }) as Account;
+
   return {
-    appointment: appointment as Appointment,
-    encounter: encounter as Encounter,
+    appointment,
+    encounter,
+    chargeItem,
+    patient,
+    account,
   };
 };

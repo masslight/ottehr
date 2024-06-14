@@ -1,9 +1,10 @@
+import { Patient } from 'fhir/r4';
 import { useMutation, useQuery } from 'react-query';
+import { ChangeTelemedAppointmentStatusInput, InitTelemedSessionRequestParams } from 'ehr-utils';
+import { useApiClients } from '../../../hooks/useAppClients';
 import { PromiseReturnType, ZapEHRTelemedAPIClient } from '../../data';
 import { GetAppointmentsRequestParams } from '../../utils';
-import { InitTelemedSessionRequestParams } from 'ehr-utils';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetTelemedAppointments = (
   {
     apiClient,
@@ -15,7 +16,8 @@ export const useGetTelemedAppointments = (
     apiClient: ZapEHRTelemedAPIClient | null;
   } & GetAppointmentsRequestParams,
   onSuccess: (data: PromiseReturnType<ReturnType<ZapEHRTelemedAPIClient['getTelemedAppointments']>>) => void,
-): any => {
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+) => {
   return useQuery(
     ['telemed-appointments', { apiClient, stateFilter, dateFilter, patientFilter, statusesFilter }],
     () => {
@@ -40,34 +42,6 @@ export const useGetTelemedAppointments = (
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetUser = (
-  {
-    apiClient,
-    userId,
-  }: {
-    apiClient: ZapEHRTelemedAPIClient | null;
-    userId?: string;
-  },
-  onSuccess: (data: PromiseReturnType<ReturnType<ZapEHRTelemedAPIClient['getUser']>>) => void,
-): any => {
-  return useQuery(
-    ['telemed-appointments', { apiClient }],
-    () => {
-      if (apiClient && userId) {
-        return apiClient.getUser({ userId });
-      }
-      throw new Error('api client not defined or userId not provided');
-    },
-    {
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching get telemed appointments: ', err);
-      },
-    },
-  );
-};
-
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useInitTelemedSessionMutation = () =>
   useMutation({
     mutationFn: ({
@@ -83,3 +57,51 @@ export const useInitTelemedSessionMutation = () =>
       });
     },
   });
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useChangeTelemedAppointmentStatusMutation = () =>
+  useMutation({
+    mutationFn: ({
+      apiClient,
+      appointmentId,
+      newStatus,
+    }: {
+      apiClient: ZapEHRTelemedAPIClient;
+    } & Omit<ChangeTelemedAppointmentStatusInput, 'secrets'>) => {
+      return apiClient.changeTelemedAppointmentStatus({
+        appointmentId,
+        newStatus,
+      });
+    },
+  });
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useEditPatientInformationMutation = () => {
+  const { fhirClient } = useApiClients();
+  return useMutation({
+    mutationFn: ({ patientData }: { patientData: Patient }) => {
+      if (!fhirClient) {
+        throw new Error('fhirClient not found');
+      }
+      return fhirClient.patchResource<Patient>({
+        resourceType: 'Patient',
+        resourceId: patientData.id ?? '',
+        operations: [
+          {
+            op: 'replace',
+            path: '/name',
+            value: patientData.name,
+          },
+          {
+            op: 'replace',
+            path: '/birthDate',
+            value: patientData.birthDate,
+          },
+        ],
+      });
+    },
+    onError: (err) => {
+      console.error('Error during editing patient information: ', err);
+    },
+  });
+};

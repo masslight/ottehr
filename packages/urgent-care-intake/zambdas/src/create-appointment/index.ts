@@ -35,10 +35,10 @@ import {
 import { DATETIME_FULL_NO_YEAR } from '../shared';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../shared/userAuditLog';
 import {
-  makeOtherEHRVisitStatusExtension,
-  makeOtherEHRVisitStatusExtensionEntry,
-  mapOtherEHRVisitStatusToFhirAppointmentStatus,
-  mapOtherEHRVisitStatusToFhirEncounterStatus,
+  makeVisitStatusExtension,
+  makeVisitStatusExtensionEntry,
+  mapVisitStatusToFhirAppointmentStatus,
+  mapVisitStatusToFhirEncounterStatus,
 } from '../shared/other-ehr';
 
 export interface CreateAppointmentInput {
@@ -675,9 +675,9 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
 
   const now: string = DateTime.now().setZone('UTC').toISO() || '';
   const initialStatus = visitType === VisitType.PreBook ? 'PENDING' : 'ARRIVED';
-  const initialAppointmentStatus = mapOtherEHRVisitStatusToFhirAppointmentStatus(initialStatus);
-  const initialEncounterStatus = mapOtherEHRVisitStatusToFhirEncounterStatus(initialStatus);
-  const extension: Extension[] = [makeOtherEHRVisitStatusExtension(initialStatus, now)];
+  const initialAppointmentStatus = mapVisitStatusToFhirAppointmentStatus(initialStatus);
+  const initialEncounterStatus = mapVisitStatusToFhirEncounterStatus(initialStatus);
+  const extension: Extension[] = [makeVisitStatusExtension(initialStatus, now)];
 
   if (unconfirmedDateOfBirth) {
     extension.push({

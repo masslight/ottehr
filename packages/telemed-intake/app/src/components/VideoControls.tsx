@@ -1,30 +1,22 @@
 import { FC, useState } from 'react';
-import { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
-import { useNavigate } from 'react-router-dom';
 import { Box } from '@mui/material';
 import MicIcon from '@mui/icons-material/Mic';
 import MicOffIcon from '@mui/icons-material/MicOff';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import CallEndIcon from '@mui/icons-material/CallEnd';
-import { getSelectors } from 'ottehr-utils';
+import { useLocalVideo, useMeetingManager, useToggleLocalMute } from 'amazon-chime-sdk-component-library-react';
 import { CallSettings } from './CallSettings';
-import { useVideoCallStore } from '../features/video-call';
-import { otherColors } from '../IntakeThemeProvider';
 import { IconButtonContained } from './IconButtonContained';
 import { CallSettingsTooltip } from './CallSettingsTooltip';
+import { useVideoCallStore } from '../features/video-call';
+import { otherColors } from '../IntakeThemeProvider';
 
 export const VideoControls: FC = () => {
-  const { room, localTracks, isVideoOpen, isMicOpen, setIsMicOpen, setIsVideoOpen } = getSelectors(useVideoCallStore, [
-    'room',
-    'localTracks',
-    'isVideoOpen',
-    'isMicOpen',
-    'setIsMicOpen',
-    'setIsVideoOpen',
-  ]);
+  const { toggleVideo, isVideoEnabled } = useLocalVideo();
+  const { muted, toggleMute } = useToggleLocalMute();
 
-  const navigate = useNavigate();
+  const meetingManager = useMeetingManager();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
 
@@ -44,59 +36,42 @@ export const VideoControls: FC = () => {
     setIsSettingsOpen(false);
   };
 
-  const disconnect = (): void => {
-    room?.localParticipant.tracks.forEach((trackPub) => {
-      if (trackPub.track.kind === 'audio' || trackPub.track.kind === 'video') {
-        (trackPub.track as LocalAudioTrack | LocalVideoTrack).stop();
-      }
-    });
-    room?.disconnect();
-    navigate('/post-call');
+  const cleanup = async (): Promise<void> => {
+    if (meetingManager) {
+      await meetingManager.meetingSession?.deviceController.destroy().catch((error) => console.error(error));
+      await meetingManager.leave().catch((error) => console.error(error));
+    }
   };
 
-  const toggleTrack = (kind: 'audio' | 'video', setState: (value: boolean) => void): void => {
-    if (!room?.localParticipant) return;
-
-    const tracks = localTracks.filter((track) => track.kind === kind);
-
-    tracks.forEach((localTrack) => {
-      if (localTrack.isEnabled) {
-        localTrack.disable();
-        setState(false);
-      } else {
-        localTrack.enable();
-        setState(true);
-      }
-    });
+  const disconnect = async (): Promise<void> => {
+    await cleanup();
+    useVideoCallStore.setState({ meetingData: null });
   };
-
-  const toggleMic = (): void => toggleTrack('audio', setIsMicOpen);
-  const toggleVideo = (): void => toggleTrack('video', setIsVideoOpen);
 
   return (
     <>
       <Box
         sx={{
           alignItems: 'center',
-          backgroundColor: otherColors.darkPurple,
+          backgroundColor: otherColors.brightPurple,
           display: 'flex',
           gap: 3,
           justifyContent: 'center',
           py: 2,
         }}
       >
-        <IconButtonContained onClick={toggleVideo} variant={isVideoOpen ? undefined : 'disabled'}>
-          {isVideoOpen ? (
+        <IconButtonContained onClick={toggleVideo} variant={isVideoEnabled ? undefined : 'disabled'}>
+          {isVideoEnabled ? (
             <VideocamIcon sx={{ color: otherColors.white }} />
           ) : (
-            <VideocamOffIcon sx={{ color: otherColors.darkPurple }} />
+            <VideocamOffIcon sx={{ color: otherColors.brightPurple }} />
           )}
         </IconButtonContained>
-        <IconButtonContained onClick={toggleMic} variant={isMicOpen ? undefined : 'disabled'}>
-          {isMicOpen ? (
+        <IconButtonContained onClick={toggleMute} variant={!muted ? undefined : 'disabled'}>
+          {!muted ? (
             <MicIcon sx={{ color: otherColors.white }} />
           ) : (
-            <MicOffIcon sx={{ color: otherColors.darkPurple }} />
+            <MicOffIcon sx={{ color: otherColors.brightPurple }} />
           )}
         </IconButtonContained>
         <CallSettingsTooltip

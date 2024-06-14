@@ -23,6 +23,7 @@ type RadioInputProps = {
   options: RadioOption[];
   required?: boolean;
   helperText?: string;
+  showHelperTextIcon?: boolean;
   borderColor?: string;
   borderSelected?: string;
   backgroundSelected?: string;
@@ -39,6 +40,7 @@ const RadioInput: FC<RadioInputProps> = ({
   required,
   options,
   helperText,
+  showHelperTextIcon,
   borderColor = 'primary.contrast',
   borderSelected = 'primary.main',
   backgroundSelected,
@@ -216,7 +218,12 @@ const RadioInput: FC<RadioInputProps> = ({
                 );
               })}
             </RadioGroup>
-            <InputHelperText name={name} errors={errors} helperText={helperText} />
+            <InputHelperText
+              name={name}
+              errors={errors}
+              helperText={helperText}
+              showHelperTextIcon={showHelperTextIcon}
+            />
           </FormControl>
         );
       }}

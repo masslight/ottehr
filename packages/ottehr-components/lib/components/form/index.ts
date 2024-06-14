@@ -18,3 +18,4 @@ export * from './LinkRenderer';
 export * from './DescriptionRenderer';
 export * from './LightToolTip';
 export * from './FormList';
+export * from './VisuallyHiddenInput';

@@ -1,17 +1,17 @@
 import { EditOutlined } from '@mui/icons-material';
 import { IconButton, Table, TableBody, TableCell, TableRow, Tooltip, Typography } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
-import { getValueBoolean, PageForm, ReviewItem, safelyCaptureException } from 'ottehr-components';
+import { PageForm, ReviewItem, getValueBoolean, safelyCaptureException } from 'ottehr-components';
 import { deepCopy, getSelectors, yupDateTransform, yupFHIRDateRegex } from 'ottehr-utils';
 import { IntakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
 import { useAppointmentStore } from '../features/appointments';
-import { useFilesStore } from '../features/files';
-import { usePaperworkStore, useUpdatePaperworkMutation } from '../features/paperwork';
-import { usePatientInfoStore } from '../features/patient-info';
 import { CustomContainer } from '../features/common';
-import { isPaperworkPageComplete } from '../utils/paperworkCompleted';
+import { useFilesStore } from '../features/files';
+import { useCreatePaperworkMutation, usePaperworkStore } from '../features/paperwork';
+import { usePatientInfoStore } from '../features/patient-info';
 import { useZapEHRAPIClient } from '../utils';
+import { isPaperworkPageComplete } from '../utils/paperworkCompleted';
 
 const ReviewPaperwork = (): JSX.Element => {
   const navigate = useNavigate();
@@ -22,7 +22,7 @@ const ReviewPaperwork = (): JSX.Element => {
     'paperworkQuestions',
   ]);
   const { patientInfo } = usePatientInfoStore.getState();
-  const updatePaperwork = useUpdatePaperworkMutation();
+  const createPaperwork = useCreatePaperworkMutation();
   const apiClient = useZapEHRAPIClient();
 
   const onSubmit = async (): Promise<void> => {
@@ -74,7 +74,7 @@ const ReviewPaperwork = (): JSX.Element => {
       }
     });
 
-    updatePaperwork.mutate(
+    createPaperwork.mutate(
       {
         apiClient,
         appointmentID,
@@ -83,7 +83,9 @@ const ReviewPaperwork = (): JSX.Element => {
       },
       {
         onSuccess: async () => {
-          navigate(IntakeFlowPageRoute.WaitingRoom.path);
+          usePaperworkStore.setState({ paperworkQuestions: undefined, completedPaperwork: undefined });
+          useFilesStore.setState({ fileURLs: undefined });
+          navigate(`${IntakeFlowPageRoute.WaitingRoom.path}?appointment_id=${appointmentID}`);
         },
         onError: (error) => {
           safelyCaptureException(error);
@@ -148,7 +150,7 @@ const ReviewPaperwork = (): JSX.Element => {
                     paddingBottom: 2,
                     paddingLeft: 0,
                     paddingRight: 0,
-                    color: otherColors.darkPurple,
+                    color: otherColors.brightPurple,
                   }}
                 >
                   {reviewItem.name}
@@ -175,7 +177,7 @@ const ReviewPaperwork = (): JSX.Element => {
       <PageForm
         controlButtons={{
           submitLabel: 'Save',
-          loading: updatePaperwork.isLoading,
+          loading: createPaperwork.isLoading,
         }}
         onSubmit={onSubmit}
       />

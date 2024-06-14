@@ -18,7 +18,6 @@ interface ImportMetaEnv {
   readonly VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID: string;
   readonly VITE_APP_UPDATE_USER_ZAMBDA_ID: string;
   readonly VITE_APP_DEACTIVATE_USER_ZAMBDA_ID: string;
-  readonly VITE_APP_GET_TOKEN_FOR_CONVERSATION_ZAMBDA_ID: string;
   readonly VITE_APP_CHECK_IN_ZAMBDA_ID?: string;
   readonly VITE_APP_GET_TELEMED_APPOINTMENTS_ZAMBDA_ID?: string;
   readonly VITE_APP_GET_USER_ZAMBDA_ID?: string;
@@ -26,7 +25,12 @@ interface ImportMetaEnv {
   readonly VITE_APP_GET_CHART_DATA_ZAMBDA_ID?: string;
   readonly VITE_APP_SAVE_CHART_DATA_ZAMBDA_ID?: string;
   readonly VITE_APP_DELETE_CHART_DATA_ZAMBDA_ID?: string;
+  readonly VITE_APP_CHANGE_TELEMED_APPOINTMENT_STATUS_ZAMBDA_ID?: string;
   readonly VITE_APP_QRS_URL?: string;
+  readonly VITE_APP_GET_PATIENT_INSTRUCTIONS_ZAMBDA_ID?: string;
+  readonly VITE_APP_SAVE_PATIENT_INSTRUCTION_ZAMBDA_ID?: string;
+  readonly VITE_APP_DELETE_PATIENT_INSTRUCTION_ZAMBDA_ID?: string;
+  readonly VITE_APP_ICD_SEARCH_ZAMBDA_ID?: string;
 }
 
 interface ImportMeta {

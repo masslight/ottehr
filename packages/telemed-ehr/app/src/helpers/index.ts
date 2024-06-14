@@ -1,10 +1,13 @@
 import { Message } from '@twilio/conversations';
 import { FhirClient } from '@zapehr/sdk';
-import { Appointment } from 'fhir/r4';
-import { AppointmentInformation } from '../types/types';
-import { getPatchOperationsToUpdateVisitStatus } from './mappingUtils';
+import { Operation } from 'fast-json-patch';
+import { Appointment, Location, Resource } from 'fhir/r4';
+import { DateTime } from 'luxon';
+import { formatDateUsingSlashes, getTimezone } from '../helpers/formatDateTime';
+import { lastModifiedCode } from '../types/types';
+import { UCAppointmentInformation, User, getPatchOperationForNewMetaTag } from 'ehr-utils';
 
-export const classifyAppointments = (appointments: AppointmentInformation[]): Map<any, any> => {
+export const classifyAppointments = (appointments: UCAppointmentInformation[]): Map<any, any> => {
   const statusCounts = new Map();
 
   appointments.forEach((appointment) => {
@@ -24,7 +27,6 @@ export const checkinPatient = async (fhirClient: FhirClient, appointmentId: stri
     resourceType: 'Appointment',
     resourceId: appointmentId,
   });
-  const statusOperations = getPatchOperationsToUpdateVisitStatus(appointmentToUpdate, 'ARRIVED');
 
   await fhirClient.patchResource({
     resourceType: 'Appointment',
@@ -35,7 +37,6 @@ export const checkinPatient = async (fhirClient: FhirClient, appointmentId: stri
         path: '/status',
         value: 'arrived',
       },
-      ...statusOperations,
     ],
   });
 };
@@ -59,4 +60,36 @@ export const sortLocationsByLabel = (
   locations.sort(compare);
 
   return locations;
+};
+
+export const formatLastModifiedTag = (
+  field: string,
+  resource: Resource | undefined,
+  location: Location,
+): string | undefined => {
+  if (!resource) return;
+  const codeString = resource?.meta?.tag?.find((tag) => tag.system === `staff-update-history-${field}`)?.code;
+  if (codeString) {
+    const locationTimeZone = getTimezone(location);
+    const codeJson = JSON.parse(codeString) as any;
+    const date = DateTime.fromISO(codeJson.lastModifiedDate).setZone(locationTimeZone);
+    const timeFormatted = date.toLocaleString(DateTime.TIME_SIMPLE);
+    const dateFormatted = formatDateUsingSlashes(date.toISO() || '');
+    const timezone = date.offsetNameShort;
+    return `${dateFormatted} ${timeFormatted} ${timezone ?? ''} By ${codeJson.lastModifiedBy}`;
+  }
+  return;
+};
+
+export const getUpdateTagOperation = (resource: Resource, field: string, user: User | undefined): Operation => {
+  const updateCode: lastModifiedCode = {
+    lastModifiedDate: DateTime.now(),
+    lastModifiedBy: user?.name || 'PM Team Member',
+    lastModifiedByID: user?.id,
+  };
+  const staffUpdateTagOp = getPatchOperationForNewMetaTag(resource, {
+    system: `staff-update-history-${field}`,
+    code: JSON.stringify(updateCode),
+  });
+  return staffUpdateTagOp;
 };

@@ -1,4 +1,4 @@
-import devConfig from '../.env/dev.json';
+// import devConfig from '../.env/dev.json';
 // import testingConfig from '../.env/testing.json';
 import { FhirClient, ZambdaClient } from '@zapehr/sdk';
 import { getM2MClientToken } from '../src/shared';
@@ -7,9 +7,9 @@ export const performEffectWithEnvFile = async (callback: (config: any) => void) 
   const env = process.argv[2];
 
   switch (env) {
-    case 'dev':
-      await callback(devConfig);
-      break;
+    // case 'dev':
+    //   await callback(devConfig);
+    //   break;
     // case 'testing':
     //   await callback(testingConfig);
     //   break;
@@ -32,4 +32,3 @@ export const createZambdaClient = async (config: any): Promise<ZambdaClient> => 
 
   return zambdaClient;
 };
-

@@ -1,19 +1,19 @@
 import { DateTime } from 'luxon';
-import { CreateAppointmentUCTelemedParams, RequiredAllProps, ZambdaInput } from 'ottehr-utils';
+import { CreateAppointmentUCTelemedParams, RequiredAllProps, Secrets, ZambdaInput } from 'ottehr-utils';
 import { phoneRegex } from '../../shared';
 import { PersonSex } from '../../types';
 
 // Note that this file is copied from BH and needs significant changes
 export function validateCreateAppointmentParams(
   input: ZambdaInput,
-): RequiredAllProps<CreateAppointmentUCTelemedParams> {
+): RequiredAllProps<CreateAppointmentUCTelemedParams> & { secrets: Secrets | null } {
   console.group('validateRequestParameters');
 
   if (!input.body) {
     throw new Error('No request body provided');
   }
 
-  const { patient, location } = JSON.parse(input.body);
+  const { patient, locationState, unconfirmedDateOfBirth, timezone } = JSON.parse(input.body);
 
   // Check existence of necessary fields
   if (patient === undefined) {
@@ -26,18 +26,16 @@ export function validateCreateAppointmentParams(
     patient.lastName === undefined ||
     patient.sex === undefined ||
     patient.dateOfBirth === undefined ||
-    patient.reasonForVisit === undefined ||
     patient.email === undefined ||
     patient.emailUser === undefined ||
     patient.firstName === '' ||
     patient.lastName === '' ||
     patient.sex === '' ||
-    patient.reasonForVisit === '' ||
     patient.email === '' ||
     patient.emailUser === ''
   ) {
     throw new Error(
-      'These fields are required and may not be empty: "patient.firstName", "patient.lastName", "patient.sex", "patient.dateOfBirth", "patient.reasonForVisit", "patient.email", "patient.emailUser"',
+      'These fields are required and may not be empty: "patient.firstName", "patient.lastName", "patient.sex", "patient.dateOfBirth", "patient.email", "patient.emailUser"',
     );
   }
 
@@ -73,6 +71,9 @@ export function validateCreateAppointmentParams(
 
   return {
     patient,
-    locationState: location,
+    locationState,
+    unconfirmedDateOfBirth,
+    timezone,
+    secrets: input.secrets,
   };
 }

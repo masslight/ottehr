@@ -2,7 +2,6 @@ import { CheckCircle, EditOutlined } from '@mui/icons-material';
 import CancelIcon from '@mui/icons-material/Cancel';
 import { Chip, IconButton, Table, TableBody, TableCell, TableRow, Tooltip, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import mixpanel from 'mixpanel-browser';
 import { ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useZambdaClient, PageForm } from 'ottehr-components';
@@ -40,7 +39,7 @@ const ReviewPaperwork = (): JSX.Element => {
   }, [state.appointmentSlot, state.selectedLocation?.timezone]);
 
   useEffect(() => {
-    mixpanel.track('Review Paperwork');
+    //mixpanel.track('Review Paperwork');
   }, []);
 
   const onSubmit = async (): Promise<void> => {
@@ -181,7 +180,7 @@ const ReviewPaperwork = (): JSX.Element => {
                     paddingBottom: 2,
                     paddingLeft: 0,
                     paddingRight: 0,
-                    color: otherColors.darkPurple,
+                    color: otherColors.brightPurple,
                   }}
                 >
                   {reviewItem.name}

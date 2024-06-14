@@ -1,4 +1,4 @@
 export * from './consent.helper';
-export * from './insurance.helper';
-export * from './paperwork.helper';
+export * from './files-docs.helper';
 export * from './paperwork-response.hepler';
+export * from './paperwork.helper';

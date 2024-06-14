@@ -1,6 +1,7 @@
-import { Secrets } from 'ottehr-utils';
-import { VisitStatusHistoryEntry } from '../../../../../ehr/zambdas/src/shared/fhirStatusMappingUtils';
+import { Encounter, QuestionnaireResponse } from 'fhir/r4';
 import { TelemedCallStatuses } from '../../appointment.types';
+import { AppointmentMessaging } from '../../messaging.types';
+import { Secrets, VisitStatusHistoryEntry } from '../../../../lib/main';
 export type PatientFilterType = 'my-patients' | 'all-patients';
 
 export interface GetTelemedAppointmentsInput {
@@ -27,23 +28,16 @@ export interface AppointmentLocation {
   state?: string;
 }
 
-export interface TelemedAppointmentInformation {
+export interface TelemedAppointmentInformation extends AppointmentMessaging {
   id: string;
   start?: string;
-  patient: {
-    id?: string;
-    firstName?: string;
-    lastName?: string;
-    dateOfBirth?: string;
-    sex?: string;
-    phone?: string;
-  };
   reasonForVisit?: string;
   comment: string | undefined;
   appointmentStatus: string;
   location: AppointmentLocation;
   estimated?: number;
-  paperwork?: object;
+  paperwork?: QuestionnaireResponse;
+  encounter: Encounter;
   telemedStatus: TelemedCallStatuses;
   telemedStatusHistory: TelemedStatusHistoryElement[];
   cancellationReason: string | undefined;

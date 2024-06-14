@@ -1,4 +1,5 @@
-import { ApptStatus, ApptStatusToPalette } from '../utils';
+import { ApptStatusToPalette } from '../utils';
+import { ApptStatus } from 'ehr-utils';
 import React, { ReactElement } from 'react';
 import { Chip } from '@mui/material';
 

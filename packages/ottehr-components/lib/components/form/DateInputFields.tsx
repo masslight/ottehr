@@ -40,8 +40,10 @@ const DateInputFields = ({
 }: DateInputFieldProps): JSX.Element => {
   return (
     <FormControl required={required} sx={{ width: '100%' }}>
-      <BoldPurpleInputLabel shrink>{label}</BoldPurpleInputLabel>
-      <Grid container mt={1} spacing={1}>
+      <BoldPurpleInputLabel shrink key="input_label">
+        {label}
+      </BoldPurpleInputLabel>
+      <Grid container mt={1} spacing={1} key="input_grid">
         <Grid item md={4} xs={12}>
           <FormControl required={required} sx={{ width: '100%' }}>
             <InputLabel>Month</InputLabel>

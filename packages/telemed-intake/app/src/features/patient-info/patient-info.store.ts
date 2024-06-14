@@ -21,7 +21,6 @@ const BLANK_PATIENT_INFO: PatientInfo = {
   sex: undefined,
   email: undefined,
   emailUser: 'Patient',
-  reasonForVisit: undefined,
 };
 
 const NEW_PATIENT_INFO: PatientInfo = {

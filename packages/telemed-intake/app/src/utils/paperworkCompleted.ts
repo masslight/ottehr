@@ -76,6 +76,16 @@ function isAdditionalComplete(completedPaperwork: CompletedPaperwork, questions:
   });
 }
 
+function isPatientConditionComplete(completedPaperwork: CompletedPaperwork, questions: Question[]): boolean {
+  return questions
+    .filter((question) => {
+      return question.required;
+    })
+    .every((question) => {
+      return valueExists(completedPaperwork[question.id]);
+    });
+}
+
 function isCurrentMedicationsComplete(completedPaperwork: CompletedPaperwork, questions: Question[]): boolean {
   return questions.every((question) => {
     return valueExists(completedPaperwork[question.id]);
@@ -137,6 +147,8 @@ export function isPaperworkPageComplete(
       return isAdditionalComplete(completedPaperwork, questions);
     case 'primary-care-physician':
       return isAdditionalComplete(completedPaperwork, questions);
+    case 'patient-condition':
+      return isPatientConditionComplete(completedPaperwork, questions);
     case 'current-medications':
       return isCurrentMedicationsComplete(completedPaperwork, questions);
     case 'allergies':

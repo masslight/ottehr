@@ -1,10 +1,15 @@
 import { BatchInputGetRequest } from '@zapehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle, FhirResource } from 'fhir/r4';
-import { getAuth0Token as getM2MClientToken, getPatientEncounter } from '../shared';
-import { createFhirClient } from '../shared/helpers';
+import { getPatientEncounter } from '../shared';
+import { checkOrCreateM2MClientToken, createFhirClient } from '../shared/helpers';
 import { ZambdaInput } from '../types';
-import { convertSearchResultsToResponse, createFindResourceRequest } from './helpers';
+import {
+  convertSearchResultsToResponse,
+  createFindResourceRequest,
+  createFindResourceRequestById,
+  createFindResourceRequestEncounterField,
+} from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -15,16 +20,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.log(`Input: ${JSON.stringify(input)}`);
     console.log('Validating input');
     const { encounterId, secrets } = validateRequestParameters(input);
-
-    console.log('Getting token');
-    if (!m2mtoken) {
-      console.log('getting m2m token for service calls...');
-      m2mtoken = await getM2MClientToken(secrets); // keeping token externally for reuse
-    } else {
-      console.log('already have a token, no need to update');
-    }
-    console.debug('token (sans signature)', m2mtoken.substring(0, m2mtoken.lastIndexOf('.')));
-
+    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const fhirClient = createFhirClient(m2mtoken, secrets);
 
     // 0. get encounter
@@ -42,9 +38,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const chartDataRequests: BatchInputGetRequest[] = [];
     chartDataRequests.push(createFindResourceRequest(patient.id!, 'AllergyIntolerance', 'patient'));
     chartDataRequests.push(createFindResourceRequest(patient.id!, 'Condition', 'subject'));
-    chartDataRequests.push(createFindResourceRequest(patient.id!, 'MedicationAdministration', 'subject'));
+    chartDataRequests.push(createFindResourceRequest(patient.id!, 'MedicationStatement', 'subject'));
     chartDataRequests.push(createFindResourceRequest(patient.id!, 'Procedure', 'subject'));
-    chartDataRequests.push(createFindResourceRequest(patient.id!, 'Observation', 'subject'));
+    chartDataRequests.push(createFindResourceRequestEncounterField(encounter.id!, 'Observation'));
+    chartDataRequests.push(createFindResourceRequestEncounterField(encounter.id!, 'ClinicalImpression'));
+    chartDataRequests.push(createFindResourceRequestEncounterField(encounter.id!, 'Communication'));
+    chartDataRequests.push(createFindResourceRequestEncounterField(encounter.id!, 'ServiceRequest'));
+    chartDataRequests.push(createFindResourceRequestById(encounter.id!, 'Encounter'));
+    chartDataRequests.push(createFindResourceRequestEncounterField(encounter.id!, 'DocumentReference'));
 
     console.log('Starting a transaction to retrieve chart data...');
     let result: Bundle<FhirResource> | undefined;

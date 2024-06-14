@@ -1,3 +1,5 @@
 .serverless
 .esbuild
-.env
+.env/*
+!.env/local.template.json
+

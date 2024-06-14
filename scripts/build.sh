@@ -20,15 +20,27 @@ echo "pnpm version: $(pnpm --version)"
 echo "Installing dependencies..."
 pnpm install
 
-# Build the EHR/front-end
-echo "Building package: ehr/front-end"
-pushd "packages/ehr/front-end"
+# Build the telemed-ehr/app
+echo "Building package: telemed-ehr/app"
+pushd "packages/telemed-ehr/app"
 pnpm build
 popd
 
-# Build the EHR/zambdas
-echo "Building package: ehr/zambdas"
-pushd "packages/ehr/zambdas"
+# Build the telemed-ehr/zambdas
+echo "Building package: telemed-ehr/zambdas"
+pushd "packages/telemed-ehr/zambdas"
+pnpm build
+popd
+
+# Build the telemed-intake/app
+echo "Building package: telemed-intake/app"
+pushd "packages/telemed-intake/app"
+pnpm build
+popd
+
+# Build the telemed-intake/zambdas
+echo "Building package: telemed-intake/zambdas"
+pushd "packages/telemed-intake/zambdas"
 pnpm build
 popd
 

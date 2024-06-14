@@ -38,7 +38,5 @@ export const IconButtonContained = styled(IconButton)<{ variant?: string }>(({ v
 
   return {
     ...colors,
-    width: '36px',
-    height: '36px',
   };
 });

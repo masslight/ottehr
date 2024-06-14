@@ -7,8 +7,10 @@ interface HomepageOptionsProps {
   title: string;
   icon: string;
   handleClick: () => void;
+  subtitle?: string;
+  subSlot?: JSX.Element;
 }
-const HomepageOption: FC<HomepageOptionsProps> = ({ title, icon, handleClick }) => {
+const HomepageOption: FC<HomepageOptionsProps> = ({ title, icon, handleClick, subtitle, subSlot }) => {
   return (
     <Button
       sx={{
@@ -28,9 +30,19 @@ const HomepageOption: FC<HomepageOptionsProps> = ({ title, icon, handleClick }) 
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
         <img src={icon} alt="" style={{ minWidth: '90px' }} />
-        <Typography variant="h3" color="primary.main" sx={{ py: 2 }}>
-          {title}
-        </Typography>
+        <Box
+          sx={{ display: 'flex', flexDirection: 'column ', alignItems: 'flex-start', justifyContent: 'center', gap: 1 }}
+        >
+          <Typography variant="h3" color="primary.main">
+            {title}
+          </Typography>
+          {subtitle && (
+            <Typography variant="caption" color="primary.main">
+              {subtitle}
+            </Typography>
+          )}
+          {subSlot}
+        </Box>
       </Box>
       <Box
         sx={{

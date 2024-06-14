@@ -1,6 +1,5 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { Box, List, ListItem, Typography, useTheme } from '@mui/material';
-import mixpanel from 'mixpanel-browser';
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { IntakeFlowPageRoute } from '../App';
@@ -32,7 +31,7 @@ const GetReadyForVisit = (): JSX.Element => {
   };
 
   useEffect(() => {
-    mixpanel.track('GetReadyForVisit');
+    //mixpanel.track('GetReadyForVisit');
   }, []);
 
   const bgVariant = IntakeFlowPageRoute.WelcomeType.path;

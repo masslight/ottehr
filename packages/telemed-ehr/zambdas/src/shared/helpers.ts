@@ -1,11 +1,18 @@
-import { AppClient, ClientConfig, FhirClient } from '@zapehr/sdk';
+import { AppClient, BatchInputRequest, ClientConfig, FhirClient } from '@zapehr/sdk';
+import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, Person, RelatedPerson, Resource } from 'fhir/r4';
 import { DateTime } from 'luxon';
-import { EncounterVirtualServiceExtension, PUBLIC_EXTENSION_BASE_URL } from 'ehr-utils';
-import { AppointmentInformation, Secrets } from '../types';
+import {
+  EncounterVirtualServiceExtension,
+  PUBLIC_EXTENSION_BASE_URL,
+  Secrets,
+  TELEMED_VIDEO_ROOM_CODE,
+  UCAppointmentInformation,
+  VisitStatusHistoryEntry,
+} from 'ehr-utils';
 import { ENCOUNTER_VS_EXTENSION_CONVO_RELATIVE_URL, ENCOUNTER_VS_EXTENSION_URL } from './constants';
+import { getAuth0Token as getM2MClientToken } from './getAuth0Token';
 import { SecretsKeys, getSecret } from './secrets';
-import { VisitStatusHistoryEntry } from './fhirStatusMappingUtils';
 
 export function createFhirClient(token: string, secrets: Secrets | null): FhirClient {
   const FHIR_API = getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, '');
@@ -25,13 +32,24 @@ export function createAppClient(token: string, secrets: Secrets | null): AppClie
   return new AppClient(CLIENT_CONFIG);
 }
 
+export async function checkOrCreateM2MClientToken(token: string, secrets: Secrets | null): Promise<string> {
+  if (!token) {
+    console.log('getting m2m token for service calls...');
+    return await getM2MClientToken(secrets);
+  } else {
+    console.log('already have a token, no need to update');
+  }
+  return token;
+}
+
 export const CancellationReasonCodes = {
   'Patient improved': 'patient-improved',
   'Wait time too long': 'wait-time',
   'Prefer another urgent care provider': 'prefer-another-provider',
+  'Changing location': 'changing-location',
+  'Changing to telemedicine': 'changing-telemedicine',
   'Financial responsibility concern': 'financial-concern',
   'Insurance issue': 'insurance-issue',
-  'Duplicate visit or account error': 'duplicate-visit-or-account-error',
 };
 
 export async function updateApptAndEncounterStatus(
@@ -127,74 +145,35 @@ export const isConversationEncounter = (resource: Resource): boolean => {
   return getTwilioConversationIdFromEncounter(encounter) !== undefined;
 };
 
-export interface TwilioConversationModel {
-  conversationSID: string;
-  encounterId: string;
-  relatedPersonParticipants: Set<string>;
-  clientPairing: number;
-  //practitionerParticipants: Set<string>;
-  //deviceParticipants: Set<string>;
+export interface SMSModel {
+  // eventually we won't need both of these but it might be useful to have the smsNumber extracted out as a handy key anyway
+  relatedPersonParticipant: string;
+  smsNumber: string;
+  hasUnreadMessages: boolean;
 }
-
-const getMessagingNumberForEncounter = (persons: Person[], relatedPersonIds: string[]): number | undefined => {
-  console.log('relatedpersons', relatedPersonIds);
-  const matchingPerson = persons.find((person) => {
-    const links = (person.link ?? [])
-      .map((link) => {
-        return link.target.reference;
-      })
-      .filter((ref) => ref != undefined && ref.startsWith('RelatedPerson'));
-    return relatedPersonIds.some((id) => {
-      return links.some((link) => link === `RelatedPerson/${id}`);
-    });
-  });
-  if (matchingPerson?.id) {
-    return (parseInt(matchingPerson.id.replace('-', ''), 16) % 20) + 1;
-  }
-  return undefined;
-};
-
-export const getConversationModelsFromResourceList = (resources: Resource[]): TwilioConversationModel[] => {
-  const encounters = resources.filter((r) => isConversationEncounter(r)) as Encounter[];
-  const persons = getPersonsFromResourceList(resources);
-
-  const mapped = encounters.map((encounter) => {
-    const convoId = getTwilioConversationIdFromEncounter(encounter) as string;
-    const participants = encounter.participant ?? [];
-    const relatedPersonParticipants = new Set<string>();
-
-    participants.forEach((p) => {
-      const participant = p.individual;
-      const reference = participant?.reference;
-      if (reference) {
-        const [type, id] = reference.split('/');
-        /*if (type === 'Device' && id) {
-          deviceParticipants.add(id);
-        }
-        if (type === 'Practitioner' && id) {
-          practitionerParticipants.add(id);
-        }*/
-        if (type === 'RelatedPerson' && id) {
-          relatedPersonParticipants.add(id);
-        }
-      }
-    });
-    return {
-      conversationSID: convoId,
-      encounterId: encounter.id,
-      clientPairing: getMessagingNumberForEncounter(persons, Array.from(relatedPersonParticipants)),
-      relatedPersonParticipants,
-    } as TwilioConversationModel;
-  });
-  return mapped.filter((model) => model.relatedPersonParticipants.size > 0 && model.clientPairing !== undefined);
-};
 
 export const getPersonsFromResourceList = (resources: Resource[]): Person[] => {
   return resources.filter((res) => res.resourceType === 'Person') as Person[];
 };
 
-export const getRelatedPersonsFromResourceList = (resources: Resource[]): RelatedPerson[] => {
-  return resources.filter((res) => res.resourceType === 'RelatedPerson') as RelatedPerson[];
+// returns a map from a patient reference to all related persons linked to that patient
+export const getRelatedPersonsFromResourceList = (resources: Resource[]): Record<string, RelatedPerson[]> => {
+  const mapToReturn: Record<string, RelatedPerson[]> = {};
+  return (resources.filter((res) => res.resourceType === 'RelatedPerson') as RelatedPerson[]).reduce(
+    (accum, current) => {
+      const patientref = current.patient.reference;
+      if (!patientref) {
+        return accum;
+      }
+      if (accum[patientref] === undefined) {
+        accum[patientref] = [current];
+      } else {
+        accum[patientref].push(current);
+      }
+      return accum;
+    },
+    mapToReturn,
+  );
 };
 
 export const getVideoRoomResourceExtension = (resource: Resource): EncounterVirtualServiceExtension | null => {
@@ -217,10 +196,7 @@ export const getVideoRoomResourceExtension = (resource: Resource): EncounterVirt
     }
     for (let j = 0; j < (extension?.extension?.length ?? 0); j++) {
       const internalExtension = extension.extension![j];
-      if (
-        internalExtension.url === 'channelType' &&
-        internalExtension.valueCoding?.code === 'twilio-video-group-rooms'
-      ) {
+      if (internalExtension.url === 'channelType' && internalExtension.valueCoding?.code === TELEMED_VIDEO_ROOM_CODE) {
         return extension as EncounterVirtualServiceExtension;
       }
     }
@@ -236,7 +212,7 @@ export const getCurrentTimeDifference = (startDateTime: string): number =>
 
 export const getDurationOfStatus = (
   statusEntry: VisitStatusHistoryEntry,
-  appointment: AppointmentInformation,
+  appointment: UCAppointmentInformation,
 ): number => {
   const { label, period } = statusEntry;
   const { start, visitStatusHistory } = appointment;
@@ -265,3 +241,22 @@ export const getDurationOfStatus = (
     return 0;
   }
 };
+
+export interface GetPatchBinaryInput {
+  resourceId: string;
+  resourceType: string;
+  patchOperations: Operation[];
+}
+
+export function getPatchBinary(input: GetPatchBinaryInput): BatchInputRequest {
+  const { resourceId, resourceType, patchOperations } = input;
+  return {
+    method: 'PATCH',
+    url: `/${resourceType}/${resourceId}`,
+    resource: {
+      resourceType: 'Binary',
+      data: btoa(unescape(encodeURIComponent(JSON.stringify(patchOperations)))),
+      contentType: 'application/json-patch+json',
+    },
+  };
+}

@@ -22,6 +22,16 @@ async function createApplication(
           action: ['Zambda:InvokeFunction'],
           effect: 'Allow',
         },
+        {
+          action: ['Telemed:JoinMeeting'],
+          effect: 'Allow',
+          resource: 'Telemed:Meeting',
+        },
+        {
+          action: ['FHIR:Read'],
+          effect: 'Allow',
+          resource: 'FHIR:Encounter',
+        },
       ],
     };
     const existingRoles = await fetch(`${projectApiUrl}/iam/roles`, {
@@ -176,10 +186,7 @@ function createAppLocalEnvFile(clientId: string): string {
   const templateData = fs.readFileSync(envTemplatePath, 'utf8');
 
   // Replace the placeholders with the actual values
-  const updatedData = templateData.replace(
-    'VITE_APP_CLIENT_ID=',
-    `VITE_APP_CLIENT_ID=${clientId}`,
-  );
+  const updatedData = templateData.replace('VITE_APP_CLIENT_ID=', `VITE_APP_CLIENT_ID=${clientId}`);
 
   // Write the updated data to the new file
   fs.writeFileSync(envPath, updatedData);
@@ -251,7 +258,7 @@ export async function setupIntake(
   m2mClientId: string,
   m2mSecret: string,
 ): Promise<void> {
-  console.log('Starting setup of Ottehr Urgent Care Intake...');
+  console.log('Starting setup of Ottehr Telemed Intake...');
 
   const fhirClient = new FhirClient({
     apiUrl: 'https://fhir-api.zapehr.com',
@@ -259,7 +266,7 @@ export async function setupIntake(
     accessToken: accessToken,
   });
 
-  const applicationName = 'Ottehr Urgent Care Intake';
+  const applicationName = 'Ottehr Telemed Intake';
   const [applicationId, clientId] = await createApplication(projectApiUrl, applicationName, accessToken, projectId);
   console.log(`Created application "${applicationName}".`);
   console.log(applicationId, clientId);
@@ -277,5 +284,5 @@ export async function setupIntake(
 
   const envPath2 = createAppLocalEnvFile(clientId);
   console.log('Created environment file:', envPath2);
-  console.log('Setup of urgent care testing');
+  console.log('Setup of telemed intake testing');
 }

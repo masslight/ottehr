@@ -1,33 +1,43 @@
-import { AppClient, ClientConfig, FhirClient, MessagingClient, Z3Client } from '@zapehr/sdk';
+import { AppClient, ClientConfig, FhirClient, SendSMSInput, SendSMSOutput, Z3Client } from '@zapehr/sdk';
 import { Appointment, Extension } from 'fhir/r4';
 import { DateTime } from 'luxon';
 
-export function createFhirClient(token: string, fhirAPI: string): FhirClient {
-  const FHIR_API = fhirAPI.replace(/\/r4/g, '');
+export function createFhirClient(token: string): FhirClient {
   const CLIENT_CONFIG: ClientConfig = {
-    apiUrl: FHIR_API,
     accessToken: token,
   };
   console.log('creating fhir client');
   return new FhirClient(CLIENT_CONFIG);
 }
 
-export function createAppClient(token: string, projectAPI: string): AppClient {
+export function createAppClient(token: string): AppClient {
   const CLIENT_CONFIG: ClientConfig = {
-    apiUrl: projectAPI,
     accessToken: token,
   };
   console.log('creating app client', JSON.stringify(CLIENT_CONFIG));
   return new AppClient(CLIENT_CONFIG);
 }
 
-export function createMessagingClient(token: string, projectAPI: string): MessagingClient {
-  const CLIENT_CONFIG: ClientConfig = {
-    apiUrl: projectAPI,
-    accessToken: token,
+interface SMSClient {
+  sendSMS: (input: SendSMSInput) => Promise<SendSMSOutput>;
+}
+export function createMessagingClient(token: string, projectAPI: string): SMSClient {
+  const sendSMS = async (input: SendSMSInput): Promise<SendSMSOutput> => {
+    const headers = {
+      accept: 'application/json',
+      'content-type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    };
+    const resp = await fetch(`${projectAPI}/messaging/transactional-sms/send`, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(input),
+    });
+    return resp.json() as Promise<SendSMSOutput>;
   };
-  console.log('creating messaging client');
-  return new MessagingClient(CLIENT_CONFIG);
+  return {
+    sendSMS,
+  };
 }
 
 export function createZ3Client(token: string, projectAPI: string): Z3Client {
@@ -138,3 +148,10 @@ export const isValidUUID = (maybeUUID: string): boolean => {
 export const deepCopy = <T extends object>(source: T): T => {
   return JSON.parse(JSON.stringify(source));
 };
+
+function timeout(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+export async function sleep(period: number): Promise<void> {
+  await timeout(period);
+}

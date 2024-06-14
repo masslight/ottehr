@@ -1,7 +1,6 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import mixpanel from 'mixpanel-browser';
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useZambdaClient, PageForm } from 'ottehr-components';
@@ -22,6 +21,7 @@ import {
 } from '../store/IntakeActions';
 import { VisitType } from '../store/types';
 import { Appointment } from './Appointments';
+import { FieldValues } from 'react-hook-form';
 
 const WelcomeBack = (): JSX.Element => {
   const { state, dispatch } = useContext(IntakeDataContext);
@@ -32,7 +32,7 @@ const WelcomeBack = (): JSX.Element => {
   const [appointmentsLoading, setAppointmentsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    mixpanel.track('Welcome Back');
+    //mixpanel.track('Welcome Back');
   }, []);
 
   useEffect(() => {
@@ -82,7 +82,7 @@ const WelcomeBack = (): JSX.Element => {
     }
   }, [dispatch, isAuthenticated, isLoading, navigate, zambdaClient]);
 
-  const onSubmit = (data: { patientID: string }): void => {
+  const onSubmit = (data: FieldValues): void => {
     let foundPatient = false;
     const currentInfo = state.patientInfo;
     if (!data.patientID) {

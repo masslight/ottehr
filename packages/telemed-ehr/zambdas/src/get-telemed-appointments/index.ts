@@ -1,43 +1,41 @@
 import { AppClient, FhirClient } from '@zapehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ZambdaInput } from '../types';
-import { validateRequestParameters } from './validateRequestParameters';
-import {
-  createFhirClient,
-  getConversationModelsFromResourceList,
-  getRelatedPersonsFromResourceList,
-} from '../shared/helpers';
-import { getAuth0Token } from '../shared';
-import { createAppClient } from '../shared/helpers';
 import {
   GetTelemedAppointmentsInput,
   GetTelemedAppointmentsResponse,
   TelemedAppointmentInformation,
   TelemedCallStatuses,
+  getVisitStatusHistory,
 } from 'ehr-utils';
+import { sameEstimatedTimeStatesGroups } from '../shared/appointment/constants';
+import { checkOrCreateM2MClientToken, createAppClient, createFhirClient } from '../shared/helpers';
+import { ZambdaInput } from '../types';
 import { filterAppointmentsFromResources, filterPatientForAppointment } from './helpers/fhir-resources-filters';
 import {
   getAllPrefilteredFhirResources,
   getAllVirtualLocationsMap,
   getOldestAppointmentForEachLocationsGroup,
 } from './helpers/fhir-utils';
-import { mapAppointmentInformationToConversationModel, mapAppointmentToLocationId } from './helpers/mappers';
 import {
-  getPhoneNumberFromQuestionnaire,
+  createSmsModel,
   getAppointmentWaitingTime,
+  getPhoneNumberFromQuestionnaire,
   groupAppointmentsLocations,
 } from './helpers/helpers';
-import { getVisitStatusHistory } from '../shared/fhirStatusMappingUtils';
-import { AppointmentPackage, LocationIdToAbbreviationMap, EstimatedTimeToLocationIdMap } from './helpers/types';
-import { sameEstimatedTimeStatesGroups } from '../shared/appointment/constants';
+import { mapAppointmentToLocationId, relatedPersonAndCommunicationMaps } from './helpers/mappers';
+import { AppointmentPackage, EstimatedTimeToLocationIdMap, LocationIdToAbbreviationMap } from './helpers/types';
+import { validateRequestParameters } from './validateRequestParameters';
+
+// Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
+let m2mtoken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
     console.log('Parameters: ' + JSON.stringify(validatedParameters));
 
-    const token = await getAuth0Token(validatedParameters.secrets);
-    const fhirClient = createFhirClient(token, validatedParameters.secrets);
+    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, validatedParameters.secrets);
+    const fhirClient = createFhirClient(m2mtoken, validatedParameters.secrets);
     const appClient = createAppClient(input.headers.Authorization.replace('Bearer ', ''), validatedParameters.secrets);
     console.log('Created zapToken, fhir and app clients.');
 
@@ -73,65 +71,68 @@ export const performEffect = async (
   }
 
   const allPackages = filterAppointmentsFromResources(allResources, statusesFilter, virtualLocationsMap);
-  console.log('Received all appointments with type "virtual".');
-
-  const estimatedTimeMap = await calculateEstimatedTimeForLocations(
-    fhirClient,
-    allPackages,
-    virtualLocationsMap,
-    statusesFilter,
-    15,
-  );
+  console.log('Received all appointments with type "virtual":', allPackages.length);
 
   const resultAppointments: TelemedAppointmentInformation[] = [];
-  allPackages.forEach((appointmentPackage) => {
-    const { appointment, telemedStatus, telemedStatusHistory, location } = appointmentPackage;
 
-    const patient = filterPatientForAppointment(appointment, allResources);
-    const patientPhone = appointmentPackage.paperwork
-      ? getPhoneNumberFromQuestionnaire(appointmentPackage.paperwork)
-      : undefined;
-    const cancellationReason = appointment.cancelationReason?.coding?.[0].code;
-    const estimatedTime = location?.locationId ? estimatedTimeMap[location?.locationId] : undefined;
+  if (allResources.length > 0) {
+    const [allRelatedPersonMaps, estimatedTimeMap] = await Promise.all([
+      relatedPersonAndCommunicationMaps(fhirClient, allResources),
+      calculateEstimatedTimeForLocations(fhirClient, allPackages, virtualLocationsMap, statusesFilter, 15),
+    ]);
 
-    const appointmentTemp: TelemedAppointmentInformation = {
-      id: appointment.id!,
-      start: appointment.start,
-      patient: {
-        id: patient.id,
-        firstName: patient?.name?.[0].given?.[0],
-        lastName: patient?.name?.[0].family,
-        dateOfBirth: patient.birthDate,
-        sex: patient.gender,
-        phone: patientPhone,
-      },
-      reasonForVisit: appointment.description,
-      comment: appointment.comment,
-      appointmentStatus: appointment.status,
-      location: {
-        locationId: location?.locationId ? `Location/${location.locationId}` : undefined,
-        state: location?.state,
-      },
-      estimated: estimatedTime,
-      paperwork: appointmentPackage.paperwork,
-      telemedStatus: telemedStatus,
-      telemedStatusHistory: telemedStatusHistory,
-      cancellationReason: cancellationReason,
-      next: false,
-      visitStatusHistory: getVisitStatusHistory(appointment),
-    };
+    allPackages.forEach((appointmentPackage) => {
+      const { appointment, telemedStatus, telemedStatusHistory, location, encounter } = appointmentPackage;
 
-    resultAppointments.push(appointmentTemp);
-  });
-  console.log('Appointments parsed and filtered from all resources.');
+      const patient = filterPatientForAppointment(appointment, allResources);
+      const patientPhone = appointmentPackage.paperwork
+        ? getPhoneNumberFromQuestionnaire(appointmentPackage.paperwork)
+        : undefined;
+      const cancellationReason = appointment.cancelationReason?.coding?.[0].code;
+      const estimatedTime = location?.locationId ? estimatedTimeMap[location?.locationId] : undefined;
+      const smsModel = createSmsModel(patient.id!, allRelatedPersonMaps);
 
-  const conversationModels = getConversationModelsFromResourceList(allResources);
-  const relatedPersons = getRelatedPersonsFromResourceList(allResources);
-  console.log('Got conversation models and related persons from all resources.');
+      const appointmentTemp: TelemedAppointmentInformation = {
+        id: appointment.id!,
+        start: appointment.start,
+        patient: {
+          id: patient.id!,
+          firstName: patient?.name?.[0].given?.[0],
+          lastName: patient?.name?.[0].family,
+          dateOfBirth: patient.birthDate!,
+          sex: patient.gender,
+          phone: patientPhone,
+        },
+        smsModel,
+        reasonForVisit: appointment.description,
+        comment: appointment.comment,
+        appointmentStatus: appointment.status,
+        location: {
+          locationId: location?.locationId ? `Location/${location.locationId}` : undefined,
+          state: location?.state,
+        },
+        encounter,
+        estimated: estimatedTime,
+        paperwork: appointmentPackage.paperwork,
+        telemedStatus: telemedStatus,
+        telemedStatusHistory: telemedStatusHistory,
+        cancellationReason: cancellationReason,
+        next: false,
+        visitStatusHistory: getVisitStatusHistory(appointment),
+      };
 
+      resultAppointments.push(appointmentTemp);
+    });
+    console.log('Appointments parsed and filtered from all resources.');
+
+    // const conversationModels = getConversationModelsFromResourceList(allResources);
+    // const relatedPersons = getRelatedPersonsFromResourceList(allResources);
+    console.log('Got conversation models and related persons from all resources.');
+  }
   return {
     message: 'Successfully retrieved all appointments',
-    appointments: mapAppointmentInformationToConversationModel(resultAppointments, relatedPersons, conversationModels),
+    appointments: resultAppointments,
+    // appointments: mapAppointmentInformationToConversationModel(resultAppointments, relatedPersons, []),
   };
 };
 
@@ -168,3 +169,10 @@ export const calculateEstimatedTimeForLocations = async (
   });
   return estimatedTimeToLocationIdMap;
 };
+// function mapAppointmentInformationToConversationModel(
+//   resultAppointments: TelemedAppointmentInformation[],
+//   relatedPersons: Record<string, import('fhir/r4').RelatedPerson[]>,
+//   arg2: never[]
+// ): TelemedAppointmentInformation[] {
+//   throw new Error('Function not implemented.');
+// }

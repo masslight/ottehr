@@ -1,3 +1,5 @@
+import CloseIcon from '@mui/icons-material/Close';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import {
   Box,
   Grid,
@@ -11,98 +13,138 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { SearchParam } from '@zapehr/sdk';
+import { OTTEHR_MODULE, getVisitStatusHistory } from 'ehr-utils';
 import { Appointment, Location, Patient, RelatedPerson, Resource } from 'fhir/r4';
+import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { getFirstName, getLastName } from 'ehr-utils';
+import { otherColors } from '../CustomThemeProvider';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import PatientInformation from '../components/PatientInformation';
 import { PriorityIconWithBorder } from '../components/PriorityIconWithBorder';
 import {
-  calculateDuration,
   formatDateUsingSlashes,
   formatISODateToLocaleDate,
   formatISOStringToDateAndTime,
 } from '../helpers/formatDateTime';
-import { standardizePhoneNumber } from '../helpers/formatPhoneNumber';
+import { standardizePhoneNumber } from 'ehr-utils';
+import { getPatientNameSearchParams } from '../helpers/patientSearch';
+import { formatMinutes, getVisitTotalTime } from '../helpers/visitDurationUtils';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import { VisitType, VisitTypeLabel } from '../types/types';
+import { getVisitTypeLabelForAppointment } from '../types/types';
 
-interface AppointmentWithLocation extends Appointment {
-  location: string | undefined;
+interface AppointmentRow {
+  id: string | undefined;
+  type: string | undefined;
+  office: string | undefined;
+  dateTime: string | undefined;
+  length: number;
 }
 
 export default function PatientInformationPage(): JSX.Element {
   const { fhirClient } = useApiClients();
 
   const [patient, setPatient] = useState<Patient>();
-  const [appointments, setAppointments] = useState<AppointmentWithLocation[]>();
+  const [appointments, setAppointments] = useState<AppointmentRow[]>();
   const [relatedPerson, setRelatedPerson] = useState<RelatedPerson>();
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [otherPatientsWithSameName, setOtherPatientsWithSameName] = useState<boolean>(false);
   const theme = useTheme();
 
   const { id } = useParams();
 
   useEffect(() => {
     async function getPatient(): Promise<void> {
-      const resourcesTemp = await fhirClient?.searchResources<Resource>({
-        resourceType: 'Appointment',
+      if (!fhirClient || !id) {
+        throw new Error('fhirClient or patient ID is not defined');
+      }
+
+      setLoading(true);
+      const resourcesTemp = await fhirClient.searchResources<Resource>({
+        resourceType: 'Patient',
         searchParams: [
-          { name: 'patient', value: id ?? '' },
+          { name: '_id', value: id },
           {
-            name: '_include',
+            name: '_revinclude',
             value: 'Appointment:patient',
           },
           {
-            name: '_include',
+            name: '_include:iterate',
             value: 'Appointment:location',
           },
           {
             name: '_revinclude:iterate',
             value: 'RelatedPerson:patient',
           },
-          {
-            name: '_sort',
-            value: '-date',
-          },
         ],
       });
 
-      const patientTemp: Patient = resourcesTemp?.find((resource) => resource.resourceType === 'Patient') as Patient;
-      const appointmentsTemp: Appointment[] = resourcesTemp?.filter(
-        (resource) => resource.resourceType === 'Appointment',
+      const patientTemp: Patient = resourcesTemp.find((resource) => resource.resourceType === 'Patient') as Patient;
+      const appointmentsTemp: Appointment[] = resourcesTemp.filter(
+        (resource) =>
+          resource.resourceType === 'Appointment' &&
+          resource.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.UC || tag.code === OTTEHR_MODULE.TM),
       ) as Appointment[];
-      const locations: Location[] = resourcesTemp?.filter(
+      const locations: Location[] = resourcesTemp.filter(
         (resource) => resource.resourceType === 'Location',
       ) as Location[];
-      const relatedPersonTemp: RelatedPerson = resourcesTemp?.find(
+      const relatedPersonTemp: RelatedPerson = resourcesTemp.find(
         (resource) => resource.resourceType === 'RelatedPerson',
       ) as RelatedPerson;
 
-      const appointmentsFiltered: AppointmentWithLocation[] = appointmentsTemp?.map((appointment: Appointment) => {
+      appointmentsTemp.sort((a, b) => {
+        const createdA = DateTime.fromISO(a.start ?? '');
+        const createdB = DateTime.fromISO(b.start ?? '');
+        return createdB.diff(createdA).milliseconds;
+      });
+
+      const first = getFirstName(patientTemp);
+      const last = getLastName(patientTemp);
+      const otherPatientParams: SearchParam[] = getPatientNameSearchParams({
+        firstLast: { first, last },
+        narrowByRelatedPersonAndAppointment: false,
+        maxResultOverride: 2,
+      });
+      const otherPatientsWithSameNameTemp = await fhirClient.searchResources<Resource>({
+        resourceType: 'Patient',
+        searchParams: otherPatientParams,
+      });
+
+      if (otherPatientsWithSameNameTemp?.length > 1) {
+        setOtherPatientsWithSameName(true);
+      } else {
+        setOtherPatientsWithSameName(false);
+      }
+
+      const appointmentRows: AppointmentRow[] = appointmentsTemp.map((appointment: Appointment) => {
         const appointmentLocationID = appointment.participant
           .find((participant) => participant.actor?.reference?.startsWith('Location/'))
           ?.actor?.reference?.replace('Location/', '');
         const location = locations.find((location) => location.id === appointmentLocationID);
+
         return {
-          ...appointment,
-          location:
+          id: appointment.id,
+          type: getVisitTypeLabelForAppointment(appointment),
+          office:
             location?.address?.state &&
             location?.name &&
             `${location?.address?.state?.toUpperCase()} - ${location?.name}`,
+          dateTime: appointment.start,
+          length: getVisitTotalTime(appointment, getVisitStatusHistory(appointment), DateTime.now()),
         };
       });
 
-      setAppointments(appointmentsFiltered);
+      setAppointments(appointmentRows);
       setPatient(patientTemp);
       setRelatedPerson(relatedPersonTemp);
     }
-    setLoading(true);
 
-    getPatient().catch((error) => {
-      console.log(error);
-    });
-    setLoading(false);
+    getPatient()
+      .catch((error) => console.log(error))
+      .finally(() => setLoading(false));
   }, [fhirClient, id]);
 
   return (
@@ -116,14 +158,21 @@ export default function PatientInformationPage(): JSX.Element {
                 { link: '/patients', children: 'Patients' },
                 {
                   link: '#',
-                  children: `${patient?.name?.[0]?.family}, ${patient?.name?.[0]?.given?.[0]}` || (
+                  children: loading ? (
                     <Skeleton width={150} />
+                  ) : (
+                    `${patient?.name?.[0]?.family}, ${patient?.name?.[0]?.given?.[0]}`
                   ),
                 },
               ]}
             />
             <Typography variant="h2" color="primary.dark">
-              {`${patient?.name?.[0]?.family}, ${patient?.name?.[0]?.given?.[0]}`}
+              {loading ? (
+                <Skeleton aria-busy="true" width={200} height="" />
+              ) : (
+                `${patient?.name?.[0]?.family}, ${patient?.name?.[0]?.given?.[0]}`
+              )}
+              {}
             </Typography>
             <Grid container direction="row" marginTop={1}>
               {loading ? (
@@ -134,7 +183,8 @@ export default function PatientInformationPage(): JSX.Element {
                     Last visit:
                   </Typography>
                   <Typography sx={{ alignSelf: 'center', marginLeft: 1 }} fontWeight="bold">
-                    Jan 16, 2024
+                    {formatISODateToLocaleDate(appointments?.find((appointment) => appointment.length > 0)?.dateTime) ||
+                      'N/A'}
                   </Typography>
                 </>
               )}
@@ -152,6 +202,32 @@ export default function PatientInformationPage(): JSX.Element {
                 </>
               )}
             </Grid>
+            {otherPatientsWithSameName && (
+              <Box
+                sx={{
+                  marginTop: 1,
+                  padding: 1,
+                  background: otherColors.dialogNote,
+                  borderRadius: '4px',
+                }}
+                display="flex"
+              >
+                <WarningAmberIcon sx={{ marginTop: 1, color: otherColors.warningIcon }} />
+                <Typography
+                  variant="body2"
+                  color={otherColors.closeCross}
+                  sx={{ m: 1.25, maxWidth: 850, fontWeight: 700 }}
+                >
+                  There are other patients with this name in our database. Please check the patient&apos;s DOB to
+                  confirm you are viewing the right patient.
+                </Typography>
+                <CloseIcon
+                  onClick={() => setOtherPatientsWithSameName(false)}
+                  sx={{ marginLeft: 'auto', marginRight: 0, marginTop: 1, color: otherColors.closeCross }}
+                />
+              </Box>
+            )}
+
             <Box>
               <PatientInformation
                 title="Patient information"
@@ -201,17 +277,17 @@ export default function PatientInformationPage(): JSX.Element {
                     {appointments?.map((appointment, idx) => (
                       <TableRow key={idx}>
                         <TableCell>
-                          <Link to={`/visit/${appointment?.id}`}>{appointment?.id || '-'}</Link>
+                          <Link to={`/visit/${appointment.id}`}>{appointment.id || '-'}</Link>
+                        </TableCell>
+                        <TableCell align="left">{appointment.type || '-'}</TableCell>
+                        <TableCell align="left">{appointment.office || '-'}</TableCell>
+                        <TableCell align="left">
+                          {appointment.dateTime ? formatISOStringToDateAndTime(appointment.dateTime) : '-'}
                         </TableCell>
                         <TableCell align="left">
-                          {VisitTypeLabel[appointment?.appointmentType?.text as VisitType] || '-'}
-                        </TableCell>
-                        <TableCell align="left">{appointment?.location || '-'}</TableCell>
-                        <TableCell align="left">
-                          {formatISOStringToDateAndTime(appointment?.start ?? '') || '-'}
-                        </TableCell>
-                        <TableCell align="left">
-                          {`${calculateDuration(appointment?.start ?? '', appointment?.end ?? '')} mins` || '-'}
+                          {appointment.length !== undefined
+                            ? `${formatMinutes(appointment.length)} ${appointment.length === 1 ? 'min' : 'mins'}`
+                            : '-'}
                         </TableCell>
                       </TableRow>
                     ))}

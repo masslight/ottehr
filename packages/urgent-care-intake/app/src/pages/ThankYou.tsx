@@ -2,7 +2,6 @@ import { EditCalendarOutlined, EventBusyOutlined } from '@mui/icons-material';
 import CreateOutlinedIcon from '@mui/icons-material/CreateOutlined';
 import { Button, CircularProgress, Divider, Grid, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
-import mixpanel from 'mixpanel-browser';
 import { useContext, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useZambdaClient } from 'ottehr-components';
@@ -43,7 +42,7 @@ const ThankYou = (): JSX.Element => {
   const { id: appointmentID } = useParams();
 
   useEffect(() => {
-    mixpanel.track('Thank You');
+    //mixpanel.track('Thank You');
   }, []);
 
   useEffect(() => {

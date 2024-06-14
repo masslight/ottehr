@@ -1,6 +1,5 @@
 import { Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import mixpanel from 'mixpanel-browser';
 import { useContext, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useZambdaClient, ErrorDialog, PageForm } from 'ottehr-components';
@@ -20,6 +19,7 @@ import {
 import { IntakeDataContext } from '../store/IntakeContext';
 import { PatientInfo, VisitType } from '../store/types';
 import { ReasonForVisitOptions } from '../types/types';
+import { FieldValues } from 'react-hook-form';
 
 const PatientInformation = (): JSX.Element => {
   const navigate = useNavigate();
@@ -29,10 +29,10 @@ const PatientInformation = (): JSX.Element => {
   const zambdaClient = useZambdaClient({ tokenless: false });
 
   useEffect(() => {
-    mixpanel.track('Patient Information');
+    //mixpanel.track('Patient Information');
   }, []);
 
-  const onSubmit = async (data: PatientInfo): Promise<void> => {
+  const onSubmit = async (data: FieldValues): Promise<void> => {
     setLoading(true);
     // Store DOB in yyyy-mm-dd format for backend validation
     const dateOfBirth = ymdStringFromDateString(data.dateOfBirth || state.patientInfo?.dateOfBirth || '');
@@ -53,11 +53,17 @@ const PatientInformation = (): JSX.Element => {
     }
     updateCompletedPaperwork(paperwork, dispatch);
 
-    if (state.patientInfo) {
-      state.patientInfo.id = state.patientInfo.id === 'new-patient' ? undefined : state.patientInfo.id;
-      data.newPatient = state.patientInfo.newPatient;
-    }
-    const fullPatientInfo = { ...state.patientInfo, ...data };
+    const fullPatientInfo: PatientInfo = {
+      id: state.patientInfo?.id ?? 'new-patient',
+      newPatient: state.patientInfo?.newPatient ?? false,
+      firstName: data.firstName ?? state.patientInfo?.firstName ?? '',
+      lastName: data.lastName ?? state.patientInfo?.lastName ?? '',
+      dateOfBirth: data.dateOfBirth ?? state.patientInfo?.dateOfBirth ?? '',
+      sex: data.sex ?? state.patientInfo?.sex ?? 'Unknown',
+      email: data.email ?? state.patientInfo?.email ?? '',
+      emailUser: data.emailUser ?? state.patientInfo?.emailUser ?? 'Parent/Guardian',
+      reasonForVisit: data.reasonForVisit ?? state.patientInfo?.reasonForVisit ?? [],
+    };
     updatePatient(fullPatientInfo, dispatch);
     if (!zambdaClient) {
       throw new Error('zambdaClient is not defined');

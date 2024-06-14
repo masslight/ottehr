@@ -15,6 +15,7 @@ type FormInputProps = {
   format?: string;
   infoText?: string;
   helperText?: string;
+  showHelperTextIcon?: boolean;
   mask?: string;
 } & InputProps;
 
@@ -24,6 +25,7 @@ const FormInput: FC<FormInputProps> = ({
   format,
   defaultValue,
   helperText,
+  showHelperTextIcon,
   infoText,
   mask,
   ...otherProps
@@ -115,7 +117,12 @@ const FormInput: FC<FormInputProps> = ({
             // todo remove code duplication with DateInput
             sx={format === 'Signature' ? { ...styles.inputStyles, ...styles.signatureStyles } : styles.inputStyles}
           />
-          <InputHelperText name={name} errors={errors} helperText={helperText} />
+          <InputHelperText
+            name={name}
+            errors={errors}
+            helperText={helperText}
+            showHelperTextIcon={showHelperTextIcon}
+          />
         </FormControl>
       )}
     />

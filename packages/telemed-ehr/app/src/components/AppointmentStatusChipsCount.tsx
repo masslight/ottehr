@@ -1,11 +1,11 @@
 import { Box } from '@mui/material';
 import { ReactElement } from 'react';
+import { UCAppointmentInformation } from 'ehr-utils';
 import { classifyAppointments } from '../helpers';
-import { AppointmentInformation } from '../types/types';
 import { getAppointmentStatusChip } from './AppointmentTableRow';
 
 export interface AppointmentChip {
-  appointments: AppointmentInformation[];
+  appointments: UCAppointmentInformation[];
 }
 
 const ORDER_STATUS = [

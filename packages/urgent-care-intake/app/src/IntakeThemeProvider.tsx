@@ -49,8 +49,8 @@ export const palette = {
     disabled: '#C3C9D2',
   },
   primary: {
-    main: '#061B74',
-    contrast: '#061B74',
+    main: '#212130',
+    contrast: '#FFFFFF',
   },
   secondary: {
     main: '#2169F5',
@@ -72,6 +72,12 @@ export const palette = {
   error: {
     main: '#EC6930',
   },
+  destructive: {
+    main: '#212130',
+    light: '#FFFFFF',
+    dark: '#000000',
+    contrastText: '#66BA70',
+  },
   action: {
     active: 'rgba(0, 0, 0, 0.54)',
     hover: 'rgba(0, 0, 0, 0.04)',
@@ -82,7 +88,7 @@ export const palette = {
   },
   background: {
     default: '#15376A',
-    paper: '#FFFFFF', // here
+    paper: '#FFFFFF',
   },
   divider: '#C3C9D2',
 };

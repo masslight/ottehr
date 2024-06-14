@@ -1,13 +1,13 @@
 import { AppClient, FhirClient, User } from '@zapehr/sdk';
 import { Appointment, Encounter, RelatedPerson } from 'fhir/r4';
 import { DateTime } from 'luxon';
+import { Secrets } from 'ehr-utils';
 import { SecretsKeys, getAuth0Token, getSecret } from '../shared';
 import { getPatientFromAppointment } from '../shared/appointment/helpers';
 import { getVideoRoomResourceExtension } from '../shared/helpers';
 import { getRelatedPersonForPatient } from '../shared/patients';
 import { getPractitionerResourceForUser } from '../shared/practitioners';
 import { CreateTelemedVideoRoomResponse } from '../shared/types/telemed/video-room.types';
-import { Secrets } from '../types';
 
 export const createVideoRoom = async (
   appointment: Appointment,
@@ -36,7 +36,7 @@ const execCreateVideoRoomRequest = async (
   encounter: Encounter,
 ): Promise<CreateTelemedVideoRoomResponse['encounter']> => {
   const token = await getAuth0Token(secrets);
-  const response = await fetch(`${getSecret(SecretsKeys.PROJECT_API, secrets)}/telemed/room`, {
+  const response = await fetch(`${getSecret(SecretsKeys.PROJECT_API, secrets)}/telemed/v2/meeting`, {
     body: JSON.stringify({ encounter: encounter }),
     headers: {
       Authorization: `Bearer ${token}`,

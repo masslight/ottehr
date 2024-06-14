@@ -11,10 +11,9 @@
   "PROJECT_API": "https://project-api.zapehr.com/v1",
   "ENVIRONMENT": "local",
   "SENDGRID_API_KEY": "",
-  "SENDGRID_EMAIL_BCC": "pmp-support@masslight.com",
+  "SENDGRID_EMAIL_BCC": "support@masslight.com",
   "SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID": "",
   "SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID": "",
   "URGENT_CARE_SENDGRID_ERROR_EMAIL_TEMPLATE_ID": "",
-  "PM_PEDIATRIC_CARE_ORGANIZATION_ID": ""
+  "ORGANIZATION_ID": ""
 }
-

@@ -61,6 +61,4 @@ export const telemedStatusToEncounter = (telemedStatus: TelemedCallStatuses): st
   }
 };
 
-export const removePrefix = (prefix: string, text: string): string | undefined => {
-  return text.includes(prefix) ? text.replace(prefix, '') : undefined;
-};
+export { removePrefix } from 'ehr-utils';

@@ -18,19 +18,24 @@ const UserFlowRoot = (): JSX.Element => {
   }, [navigate]);
 
   const getPatients = useGetPatients(apiClient, (data) => {
+    console.log(10);
     usePatientsStore.setState({ patients: data.patients });
     if (data?.patients.length > 0) {
+      console.log(10);
       navigate(IntakeFlowPageRoute.Homepage.path);
     } else {
+      console.log(20);
       usePatientInfoStore.getState().setNewPatient();
       navigate(IntakeFlowPageRoute.NewUser.path);
     }
   });
 
   useEffect(() => {
+    console.log(1);
     if (apiClient) {
       getPatients.refetch().catch(console.error);
     }
+    console.log(2);
   }, [apiClient, getPatients]);
 
   if (getPatients.isLoading || !apiClient) {

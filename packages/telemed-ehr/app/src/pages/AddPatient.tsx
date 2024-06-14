@@ -19,24 +19,54 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { ZambdaClient } from '@zapehr/sdk';
 import { Location, Patient, Resource } from 'fhir/r4';
 import { DateTime } from 'luxon';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { PatternFormat } from 'react-number-format';
 import { useNavigate } from 'react-router-dom';
-import { createAppointment } from '../api/api';
+import { GetLocationParameters, GetLocationResponse, createAppointment, getLocations } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
+import { CustomDialog } from '../components/dialogs/CustomDialog';
 import DateSearch from '../components/DateSearch';
 import LocationSelect from '../components/LocationSelect';
 import { MAXIMUM_CHARACTER_LIMIT, ReasonForVisitOptions } from '../constants';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import { CreateAppointmentParameters, PersonSex, VisitType } from '../types/types';
+import {
+  CreateAppointmentParameters,
+  EmailUserValue,
+  PersonSex,
+  VisitType,
+  getFhirAppointmentTypeForVisitType,
+} from '../types/types';
 import { PRIVATE_EXTENSION_BASE_URL } from 'ehr-utils';
+import SlotPicker from '../components/SlotPicker';
+
+const mapSelectedPatientEmailUser = (selectedPatientEmailUser: string | undefined): EmailUserValue | undefined => {
+  if (!selectedPatientEmailUser) {
+    return undefined;
+  }
+
+  const EmailUserMapper = {
+    Patient: 'Patient (Self)',
+    'Parent/Guardian': 'Parent/Guardian',
+  };
+
+  if (Object.keys(EmailUserMapper).includes(selectedPatientEmailUser)) {
+    const key = selectedPatientEmailUser as keyof typeof EmailUserMapper;
+    return EmailUserMapper[key] as EmailUserValue;
+  }
+  return undefined;
+};
+
+type SlotLoadingState =
+  | { status: 'initial'; input: undefined }
+  | { status: 'loading'; input: undefined }
+  | { status: 'loaded'; input: string };
 
 export default function AddPatient(): JSX.Element {
-  // state variables
-  const [locationSelected, setLocationSelected] = useState<Location | undefined>(undefined);
+  const [selectedLocation, setSelectedLocation] = useState<Location | undefined>(undefined);
   const [firstName, setFirstName] = useState<string>('');
   const [lastName, setLastName] = useState<string>('');
   const [birthDate, setBirthDate] = useState<DateTime | null>(null);
@@ -44,6 +74,8 @@ export default function AddPatient(): JSX.Element {
   const [mobilePhone, setMobilePhone] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [reasonForVisit, setReasonForVisit] = useState<string[]>([]);
+  const [visitType, setVisitType] = useState<VisitType>();
+  const [slot, setSlot] = useState<string | undefined>();
   const [loading, setLoading] = useState<boolean>(false);
   const [searching, setSearching] = useState<boolean>(false);
   const [errors, setErrors] = useState<{ submit?: boolean; phone?: boolean; search?: boolean }>({
@@ -51,8 +83,11 @@ export default function AddPatient(): JSX.Element {
     phone: false,
     search: false,
   });
+  const [loadingSlotState, setLoadingSlotState] = useState<SlotLoadingState>({ status: 'initial', input: undefined });
+  const [locationWithSlotData, setLocationWithSlotData] = useState<GetLocationResponse | undefined>(undefined);
   const [inputValue, setInputValue] = useState<string>('');
   const [validDate, setValidDate] = useState<boolean>(true);
+  const [selectSlotDialogOpen, setSelectSlotDialogOpen] = useState<boolean>(false);
   const [validReasonForVisit, setValidReasonForVisit] = useState<boolean>(true);
   const [openSearchResults, setOpenSearchResults] = useState<boolean>(false);
   const [patients, setPatients] = useState<Patient[] | undefined>(undefined);
@@ -74,6 +109,41 @@ export default function AddPatient(): JSX.Element {
     setReasonForVisit(newValues);
   };
 
+  useEffect(() => {
+    const fetchLocationWithSlotData = async (params: GetLocationParameters, client: ZambdaClient): Promise<void> => {
+      setLoadingSlotState({ status: 'loading', input: undefined });
+      try {
+        const locationResponse = await getLocations(client, params);
+        setLocationWithSlotData(locationResponse);
+      } catch (e) {
+        console.error('error loading location with slot data', e);
+      } finally {
+        setLoadingSlotState({ status: 'loaded', input: `${params.locationState}-${params.locationSlug}` });
+      }
+    };
+    const locationSlug = selectedLocation?.identifier?.find(
+      (identifierTemp) => identifierTemp.system === 'https://fhir.ottehr.com/r4/slug',
+    )?.value;
+    const locationState = selectedLocation?.address?.state;
+    if (!locationSlug || !locationState) {
+      console.log(
+        'show some toast: location is missing slug or address.state',
+        selectedLocation,
+        locationSlug,
+        locationState,
+      );
+      return;
+    }
+    if (
+      !zambdaIntakeClient ||
+      loadingSlotState.status === 'loading' ||
+      (loadingSlotState.status === 'loaded' && loadingSlotState.input === `${locationState}-${locationSlug}`)
+    ) {
+      return;
+    }
+    void fetchLocationWithSlotData({ locationSlug, locationState }, zambdaIntakeClient);
+  }, [selectedLocation, loadingSlotState, zambdaIntakeClient]);
+
   // handle functions
   const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
@@ -85,6 +155,10 @@ export default function AddPatient(): JSX.Element {
       setErrors({});
     }
 
+    if (visitType === VisitType.PreBook && slot === undefined) {
+      setSelectSlotDialogOpen(true);
+      return;
+    }
     if (showFields.forcePatientSearch) {
       setErrors({ search: true });
       return;
@@ -101,7 +175,7 @@ export default function AddPatient(): JSX.Element {
           (ext) => ext.url === `${PRIVATE_EXTENSION_BASE_URL}/form-user`,
         )?.valueString as any;
         if (selectedPatientEmailUser) {
-          if (selectedPatientEmailUser === 'Patient') {
+          if (selectedPatientEmailUser !== 'Parent/Guardian') {
             selectedPatientEmail = selectedPatient.telecom?.find((telecom) => telecom.system === 'email')?.value;
           } else if (selectedPatientEmailUser === 'Parent/Guardian') {
             const guardianContact = selectedPatient.contact?.find((contact) =>
@@ -110,6 +184,12 @@ export default function AddPatient(): JSX.Element {
             selectedPatientEmail = guardianContact?.telecom?.find((telecom) => telecom.system === 'email')?.value;
           }
         }
+      }
+
+      const emailToUse = selectedPatientEmail || email;
+      let emailUser = mapSelectedPatientEmailUser(selectedPatientEmailUser);
+      if (emailUser == undefined && emailToUse) {
+        emailUser = 'Parent/Guardian';
       }
 
       if (!zambdaIntakeClient) throw new Error('Zambda client not found');
@@ -122,12 +202,13 @@ export default function AddPatient(): JSX.Element {
           dateOfBirth: selectedPatient?.birthDate || birthDate?.toISODate() || undefined,
           sex: (selectedPatient?.gender as PersonSex) || sex || undefined,
           phoneNumber: mobilePhone,
-          email: selectedPatientEmail || email,
-          emailUser: selectedPatientEmailUser || 'Patient',
+          email: emailToUse,
+          emailUser,
           reasonForVisit: reasonForVisit,
         },
-        visitType: VisitType.WalkIn,
-        location: locationSelected?.id,
+        slot: slot,
+        visitType: getFhirAppointmentTypeForVisitType(visitType),
+        location: selectedLocation?.id,
       };
 
       let response;
@@ -135,7 +216,7 @@ export default function AddPatient(): JSX.Element {
       try {
         response = await createAppointment(zambdaIntakeClient, zambdaParams);
       } catch (error) {
-        console.log(`Failed to add patient: ${error}`);
+        console.error(`Failed to add patient: ${error}`);
         apiErr = true;
       } finally {
         setLoading(false);
@@ -147,6 +228,7 @@ export default function AddPatient(): JSX.Element {
       }
     }
   };
+  // console.log(slot);
 
   const handlePatientSearch = async (e: any): Promise<void> => {
     e.preventDefault();
@@ -210,13 +292,13 @@ export default function AddPatient(): JSX.Element {
     const emailUser = patient.extension?.find((ext) => ext.url === `${PRIVATE_EXTENSION_BASE_URL}/form-user`)
       ?.valueString as any;
     if (emailUser) {
-      if (emailUser === 'Patient') {
-        email = patient.telecom?.find((telecom) => telecom.system === 'email')?.value;
-      } else if (emailUser === 'Parent/Guardian') {
+      if (emailUser === 'Parent/Guardian') {
         const guardianContact = patient.contact?.find((contact) =>
           contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
         );
         email = guardianContact?.telecom?.find((telecom) => telecom.system === 'email')?.value;
+      } else {
+        email = patient.telecom?.find((telecom) => telecom.system === 'email')?.value;
       }
     }
     return email || 'not found';
@@ -256,7 +338,13 @@ export default function AddPatient(): JSX.Element {
 
                 {/* location search */}
                 <Box sx={{ marginTop: 2 }}>
-                  <LocationSelect location={locationSelected} setLocation={setLocationSelected} required />
+                  <LocationSelect
+                    location={selectedLocation}
+                    setLocation={setSelectedLocation}
+                    updateURL={false}
+                    required
+                    renderInputProps={{ disabled: false }}
+                  />
                 </Box>
 
                 {/* Patient information */}
@@ -431,8 +519,7 @@ export default function AddPatient(): JSX.Element {
                               defaultValue={null}
                               label="Date of birth"
                               required
-                              ageRange={{ min: 0, max: 26 }}
-                              setValidDate={setValidDate}
+                              setIsValidDate={setValidDate}
                             ></DateSearch>
                           </Grid>
                           <Grid item xs={5.85}>
@@ -442,7 +529,7 @@ export default function AddPatient(): JSX.Element {
                                 labelId="sex-at-birth-label"
                                 id="sex-at-birth-select"
                                 value={sex}
-                                label="Sex at birth*"
+                                label="Sex at birth *"
                                 required
                                 onChange={(event) => {
                                   setSex(event.target.value as PersonSex);
@@ -532,6 +619,34 @@ export default function AddPatient(): JSX.Element {
                         }}
                       />
                     </Box>
+                    <Box marginTop={2}>
+                      <FormControl fullWidth>
+                        <InputLabel id="visit-type-label">Visit type *</InputLabel>
+                        <Select
+                          labelId="visit-type-label"
+                          id="visit-type-select"
+                          value={visitType || ''}
+                          label="Visit type *"
+                          required
+                          onChange={(event) => {
+                            setSlot(undefined);
+                            setVisitType(event.target.value as VisitType);
+                          }}
+                        >
+                          <MenuItem value={VisitType.WalkIn}>Walk-in Urgent Care Visit (1UrgCare)</MenuItem>
+                          <MenuItem value={VisitType.PreBook}>Pre-booked Urgent Care Visit (4Online)</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Box>
+                    {visitType === VisitType.PreBook && (
+                      <SlotPicker
+                        slotData={locationWithSlotData?.available}
+                        slotsLoading={loadingSlotState.status === 'loading'}
+                        timezone={locationWithSlotData?.location.timezone || 'Undefined'}
+                        selectedSlot={slot}
+                        setSelectedSlot={setSlot}
+                      />
+                    )}
                   </Box>
                 )}
 
@@ -552,7 +667,7 @@ export default function AddPatient(): JSX.Element {
                   )}
                   {errors.search && (
                     <Typography color="error" variant="body2" mb={2}>
-                      Please search for patients before adding walk-in
+                      Please search for patients before adding
                     </Typography>
                   )}
                   <LoadingButton
@@ -566,7 +681,7 @@ export default function AddPatient(): JSX.Element {
                       marginRight: 1,
                     }}
                   >
-                    Add walk-in
+                    Add {visitType}
                   </LoadingButton>
                   <Button
                     sx={{
@@ -583,6 +698,13 @@ export default function AddPatient(): JSX.Element {
                 </Box>
               </Box>
             </form>
+            <CustomDialog
+              open={selectSlotDialogOpen}
+              title="Please select a date and time"
+              description="To continue, please select an available appointment."
+              closeButtonText="Close"
+              handleClose={() => setSelectSlotDialogOpen(false)}
+            />
           </Paper>
         </Grid>
 

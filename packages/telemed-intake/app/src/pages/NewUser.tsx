@@ -10,13 +10,17 @@ import { CustomContainer } from '../features/common';
 const NewUser = (): JSX.Element => {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    //mixpanel.track('New User');
+  }, []);
+
   const onSubmit = async (): Promise<void> => {
     navigate(IntakeFlowPageRoute.PatientInformation.path);
   };
 
   return (
     <CustomContainer
-      title="Thanks for choosing Ottehr Urgent Care!"
+      title="Thanks for choosing Ottehr!"
       img={clockFullColor}
       imgAlt="Clock icon"
       imgWidth={100}

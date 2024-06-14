@@ -1,21 +1,24 @@
+import { BatchInputPostRequest, FhirClient } from '@zapehr/sdk';
 import {
   Appointment,
-  Coding,
-  Encounter,
-  Patient,
-  Resource,
-  Location,
   CodeableConcept,
-  DocumentReference,
+  Coding,
   Consent,
-  Practitioner,
-  RelatedPerson,
+  DocumentReference,
+  Encounter,
+  Location,
+  Patient,
   Person,
+  Practitioner,
+  QuestionnaireResponse,
+  RelatedPerson,
+  Resource,
 } from 'fhir/r4';
-import { PRIVATE_EXTENSION_BASE_URL } from './constants';
-import { FhirClient } from '@zapehr/sdk';
+import { DateTime } from 'luxon';
+import { UserType, VisitType } from '../types';
+import { FHIR_EXTENSION, PRIVATE_EXTENSION_BASE_URL } from './constants';
 import { OTTEHR_MODULE } from './moduleIdentification';
-import { VisitType } from '../types';
+import { PatientInfo } from '../types';
 
 export function getPatientFirstName(patient: Patient): string | undefined {
   return getFirstName(patient);
@@ -29,8 +32,24 @@ export function getFirstName(individual: Patient | Practitioner | RelatedPerson 
   return individual.name?.[0]?.given?.[0];
 }
 
+export function getMiddleName(individual: Patient | Practitioner | RelatedPerson | Person): string | undefined {
+  return individual.name?.[0].given?.[1];
+}
+
 export function getLastName(individual: Patient | Practitioner | RelatedPerson | Person): string | undefined {
   return individual.name?.[0]?.family;
+}
+
+export function getFullName(individual: Patient | Practitioner | RelatedPerson | Person): string {
+  const firstName = getFirstName(individual);
+  const middleName = getMiddleName(individual);
+  const lastName = getLastName(individual);
+  return `${firstName}${middleName ? ` ${middleName}` : ''} ${lastName}`;
+}
+
+export function getPatientInfoFullName(patient: PatientInfo): string {
+  const { firstName, middleName, lastName } = patient;
+  return `${firstName}${middleName ? ` ${middleName}` : ''} ${lastName}`;
 }
 
 export function getPractitionerNPI(practitioner: Practitioner): string | undefined {
@@ -65,7 +84,7 @@ export const findPatientForAppointment = (appointment: Appointment, patients: Pa
         if (type !== 'Patient') {
           return false;
         }
-        console.log('appPatientId', appPatientId);
+        // console.log('appPatientId', appPatientId);
         return appPatientId === pat.id;
       }
       return false;
@@ -86,7 +105,7 @@ export const findLocationForAppointment = (appointment: Appointment, locations: 
         if (type !== 'Location') {
           return false;
         }
-        console.log('appLocationId', appLocationId);
+        // console.log('appLocationId', appLocationId);
         return appLocationId === loc.id;
       } else {
         console.log('no actor?', JSON.stringify(actor));
@@ -165,31 +184,46 @@ export function getOtherOfficesForLocation(location: Location): { display: strin
   return parsedExtValue;
 }
 
-export async function createDocumentReference(
-  docInfo: { contentURL: string; title: string; mimeType: string }[],
-  type: CodeableConcept,
-  dateCreated: string,
-  references: object,
-  fhirClient: FhirClient,
-  ottehrModule: OTTEHR_MODULE
-): Promise<DocumentReference> {
+export interface CreateDocumentReferenceInput {
+  docInfo: { contentURL: string; title: string; mimeType: string }[];
+  type: CodeableConcept;
+  dateCreated: string;
+  references: object;
+  fhirClient: FhirClient;
+  ottehrModule: OTTEHR_MODULE;
+  generateUUID?: () => string;
+}
+
+export async function createDocumentReference(input: CreateDocumentReferenceInput): Promise<DocumentReference> {
+  const { docInfo, type, dateCreated, references, fhirClient, ottehrModule, generateUUID } = input;
   try {
     console.log('creating new document reference resource');
-    const documentReference = await fhirClient.createResource<DocumentReference>({
-      resourceType: 'DocumentReference',
-      meta: {
-        tag: [{ code: ottehrModule }],
+    const writeDRFullUrl = generateUUID ? generateUUID() : undefined;
+    const writeDocRefReq: BatchInputPostRequest = {
+      method: 'POST',
+      fullUrl: writeDRFullUrl,
+      url: '/DocumentReference',
+      resource: {
+        resourceType: 'DocumentReference',
+        meta: {
+          tag: [{ code: ottehrModule }],
+        },
+        date: dateCreated,
+        status: 'current',
+        type: type,
+        content: docInfo.map((tempInfo) => {
+          return { attachment: { url: tempInfo.contentURL, contentType: tempInfo.mimeType, title: tempInfo.title } };
+        }),
+        ...references,
       },
-      date: dateCreated,
-      status: 'current',
-      type: type,
-      content: docInfo.map((tempInfo) => {
-        return { attachment: { url: tempInfo.contentURL, contentType: tempInfo.mimeType, title: tempInfo.title } };
-      }),
-      ...references,
-    });
+    };
 
-    return documentReference;
+    const results = await fhirClient.transactionRequest({ requests: [writeDocRefReq] });
+    const docRef = results.entry?.[0]?.resource;
+    if (docRef?.resourceType !== 'DocumentReference') {
+      throw 'failed';
+    }
+    return docRef;
   } catch (error: unknown) {
     throw new Error(`Failed to create DocumentReference resource: ${JSON.stringify(error)}`);
   }
@@ -199,7 +233,7 @@ export async function createConsentResource(
   patientID: string,
   documentReferenceID: string,
   dateTime: string,
-  fhirClient: FhirClient
+  fhirClient: FhirClient,
 ): Promise<Consent> {
   try {
     console.log('creating new consent resource');
@@ -261,3 +295,157 @@ export async function createConsentResource(
   }
 }
 
+type MightReceiveTexts = RelatedPerson | Patient | Person | Practitioner;
+export const getSMSNumberForIndividual = (individual: MightReceiveTexts): string | undefined => {
+  const { telecom } = individual;
+  return (telecom ?? []).find((cp) => {
+    // format starts with +1; this is some lazy but probably good enough validation
+    return cp.system === 'sms' && cp.value?.startsWith('+');
+  })?.value;
+};
+
+//FHIR_EXTENSION.Patient.formUser.url
+
+export const getFormUser = (patient: Patient): UserType | undefined => {
+  const extensions = patient.extension ?? [];
+
+  const stringVal = extensions.find((ext) => {
+    return ext.url == FHIR_EXTENSION.Patient.formUser.url;
+  })?.valueString;
+
+  if (stringVal) {
+    return stringVal as UserType;
+  }
+  return undefined;
+};
+
+interface ContactInfoPhoneNumebr {
+  type: UserType;
+  key: 'patient-email' | 'guardian-email';
+  value: string;
+}
+
+export const getContactInfoSuppliedEmailForPatient = (patient: Patient): ContactInfoPhoneNumebr | undefined => {
+  const formUser = getFormUser(patient);
+  let value: string | undefined;
+  let key: 'patient-email' | 'guardian-email' | undefined;
+
+  if (formUser && formUser === 'Parent/Guardian') {
+    key = 'guardian-email';
+    const contacts = patient.contact ?? [];
+    const contactToUse = contacts.find((cont) => {
+      return cont.relationship?.find((relationship) => {
+        return relationship?.coding?.[0].code === 'Parent/Guardian';
+      });
+    });
+    if (contactToUse) {
+      value = contactToUse.telecom?.find((tc) => tc.system === 'email')?.value;
+    }
+  } else if (formUser) {
+    key = 'patient-email';
+    const telecom = patient.telecom ?? [];
+    const emailTel = telecom.find((tc) => {
+      tc.system;
+    });
+    if (emailTel) {
+      value = emailTel.value;
+    }
+  }
+  if (value && formUser && key) {
+    return {
+      type: formUser,
+      value,
+      key,
+    };
+  } else {
+    return undefined;
+  }
+};
+
+export const getUnconfirmedDOBForAppointment = (appointment: Appointment): string | undefined => {
+  const extensions = appointment.extension ?? [];
+  return extensions.find((ext) => {
+    return ext.url.replace('http:', 'https:') === FHIR_EXTENSION.Appointment.unconfirmedDateOfBirth.url;
+  })?.valueString;
+};
+
+export const getLastUpdateTimestampForResource = (resource: Resource): number | undefined => {
+  if (!resource) {
+    return undefined;
+  }
+  const metaTimeStamp = resource.meta?.lastUpdated;
+
+  if (metaTimeStamp) {
+    const updateTime = DateTime.fromISO(metaTimeStamp);
+
+    if (updateTime.isValid) {
+      return updateTime.toSeconds();
+    }
+  }
+  return undefined;
+};
+
+export async function getQuestionnaireResponse(
+  questionnaireID: string,
+  encounterID: string,
+  fhirClient: FhirClient
+): Promise<QuestionnaireResponse | undefined> {
+  const questionnaireResponse: QuestionnaireResponse[] = await fhirClient.searchResources({
+    resourceType: 'QuestionnaireResponse',
+    searchParams: [
+      {
+        name: 'questionnaire',
+        value: `Questionnaire/${questionnaireID}`,
+      },
+      {
+        name: 'encounter',
+        value: `Encounter/${encounterID}`,
+      },
+    ],
+  });
+
+  if (questionnaireResponse.length === 1) {
+    return questionnaireResponse[0];
+  }
+  return undefined;
+}
+
+export async function getRecentQuestionnaireResponse(
+  questionnaireID: string,
+  patientID: string,
+  fhirClient: FhirClient
+): Promise<QuestionnaireResponse | undefined> {
+  console.log('questionnaireID', questionnaireID);
+  const questionnaireResponse: QuestionnaireResponse[] = await fhirClient.searchResources({
+    resourceType: 'QuestionnaireResponse',
+    searchParams: [
+      {
+        name: 'questionnaire',
+        value: `Questionnaire/${questionnaireID}`,
+      },
+      {
+        name: 'subject',
+        value: `Patient/${patientID}`,
+      },
+      {
+        name: 'source:missing',
+        value: 'false',
+      },
+      {
+        name: '_sort',
+        value: '-_lastUpdated',
+      },
+      {
+        name: '_count',
+        value: '1',
+      },
+    ],
+  });
+
+  console.log('questionnaireResponse found', questionnaireResponse);
+
+  if (questionnaireResponse.length === 1) {
+    return questionnaireResponse[0];
+  }
+  return undefined;
+}

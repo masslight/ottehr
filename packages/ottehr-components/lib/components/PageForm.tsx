@@ -1,4 +1,3 @@
-/* eslint-disable react/prop-types */
 import { yupResolver } from '@hookform/resolvers/yup';
 import { Grid } from '@mui/material';
 import { DateTime } from 'luxon';
@@ -15,18 +14,18 @@ import {
 } from 'ottehr-utils';
 import * as Yup from 'yup';
 import { checkEnable, filterFormInputFields } from '../helpers';
-import { ControlButtonsProps, FormInputType, FormInputTypeField, FormInputTypeGroup } from '../types';
+import { ControlButtonsProps, FormInputType, FormInputTypeField, FormInputTypeGroup, OverrideValues } from '../types';
 import { ControlButtons } from './form';
 
 interface PageFormProps {
   formElements?: FormInputType[];
-  // onSubmit?: SubmitHandler<FieldValues>;
-  onSubmit?: any;
+  onSubmit?: SubmitHandler<FieldValues>;
   controlButtons?: ControlButtonsProps;
   bottomComponent?: ReactElement;
   onFormValuesChange?: (values: FieldValues) => void;
   hideControls?: boolean;
   innerForm?: boolean;
+  overrideValues?: OverrideValues;
 }
 
 // eslint-disable-next-line react/display-name
@@ -39,7 +38,8 @@ const PageForm: React.FC<PageFormProps> = memo(
     onFormValuesChange,
     hideControls,
     innerForm,
-  }): JSX.Element => {
+    overrideValues,
+  }: PageFormProps): JSX.Element => {
     // todo do in one line?
     // todo use more specific type
     // const validation: any = {
@@ -131,6 +131,12 @@ const PageForm: React.FC<PageFormProps> = memo(
               ? schema.required(`At least one record is required`).min(1, `At least one record is required`)
               : schema;
           });
+        } else if (formInput.type === 'Photos') {
+          validationTemp[formInput.name] = Yup.object().when('$required', (_required, schema) => {
+            return formInput.required
+              ? schema.required(`At least one record is required`).min(1, `At least one record is required`)
+              : schema;
+          });
         } else {
           validationTemp[formInput.name] = Yup.string()
             .when('$validationRegex', (_validationRegex, schema) => {
@@ -209,13 +215,30 @@ const PageForm: React.FC<PageFormProps> = memo(
     }, [flattenedElements, formElements, formValues, groups, methods]);
 
     const values = methods.watch();
+    const { setValue } = methods;
+
     React.useEffect(() => {
+      if (values['responsible-party-relationship'] !== formValues['responsible-party-relationship'] && overrideValues) {
+        if (values['responsible-party-relationship'] === 'Self') {
+          setValue('responsible-party-first-name', overrideValues['patient-first-name']);
+          setValue('responsible-party-last-name', overrideValues['patient-last-name']);
+          setValue('responsible-party-date-of-birth', overrideValues['patient-dob']);
+          setValue('responsible-party-birth-sex', overrideValues['patient-birth-sex']);
+          setValue('responsible-party-number', overrideValues['account-phone-number']);
+        } else if (formValues['responsible-party-relationship'] === 'Self') {
+          setValue('responsible-party-first-name', '');
+          setValue('responsible-party-last-name', '');
+          setValue('responsible-party-date-of-birth', '--');
+          setValue('responsible-party-birth-sex', '');
+          setValue('responsible-party-number', '');
+        }
+      }
+
       if (JSON.stringify(values) !== JSON.stringify(formValues)) {
-        // console.log('setting values', values);
         setFormValues(values);
         onFormValuesChange && onFormValuesChange(values);
       }
-    }, [formValues, values, onFormValuesChange]);
+    }, [formValues, values, onFormValuesChange, setValue, overrideValues]);
 
     const createSubmitHandler = (): any => {
       const callback =
@@ -239,7 +262,7 @@ const PageForm: React.FC<PageFormProps> = memo(
         <form onSubmit={createSubmitHandler()} style={{ width: '100%' }}>
           {formElements && (
             <Grid container spacing={1}>
-              {filterFormInputFields(formElements, values, methods)}
+              {filterFormInputFields(formElements, values, methods, overrideValues)}
             </Grid>
           )}
           <div id="page-form-inner-form" />

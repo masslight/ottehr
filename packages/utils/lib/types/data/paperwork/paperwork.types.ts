@@ -1,15 +1,14 @@
 import { FileURLs } from '../../common';
+import { PaperworkResponse } from '../paperwork.types';
 
 export interface UpdatePaperworkInput {
   appointmentID: string;
-  paperwork: PaperworkResponse[];
+  paperwork?: PaperworkResponse[];
+  inProgress?: string;
   files: FileURLs;
-  paperworkComplete: boolean;
-  ipAddress: string;
+  timezone: string;
 }
 
-export interface PaperworkResponse {
-  linkId: string;
-  response: any;
-  type: string;
+export interface UpdatePaperworkResponse {
+  message: string;
 }

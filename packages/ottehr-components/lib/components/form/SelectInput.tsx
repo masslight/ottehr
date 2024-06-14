@@ -1,4 +1,4 @@
-import { FC, useContext, useEffect } from 'react';
+import { FC, useContext, useEffect, useRef, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { FormControl, SelectProps, MenuItem, Select, useTheme, Box, Typography } from '@mui/material';
 import { ExpandMore } from '@mui/icons-material';
@@ -16,6 +16,7 @@ type SelectInputProps = {
   label: string;
   options: SelectInputOption[];
   helperText?: string;
+  showHelperTextIcon?: boolean;
   placeholder?: string;
   infoTextSecondary?: string;
 } & SelectProps;
@@ -26,6 +27,7 @@ const SelectInput: FC<SelectInputProps> = ({
   defaultValue,
   options,
   helperText,
+  showHelperTextIcon,
   placeholder,
   infoTextSecondary,
   ...otherProps
@@ -38,6 +40,18 @@ const SelectInput: FC<SelectInputProps> = ({
   } = useFormContext();
   const theme = useTheme();
   const { otherColors } = useContext(IntakeThemeContext);
+
+  const labelRef = useRef<HTMLLabelElement>(null);
+  const [labelHeight, setLabelHeight] = useState<number | undefined>(undefined);
+  const [lineHeight, setLineHeight] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (labelRef.current) {
+      const lineHeightParsed = parseInt(window.getComputedStyle(labelRef.current).getPropertyValue('line-height'));
+      setLineHeight(lineHeightParsed);
+      setLabelHeight(labelRef.current.clientHeight);
+    }
+  }, [label]);
 
   useEffect(() => {
     const value = getValues(name);
@@ -60,7 +74,13 @@ const SelectInput: FC<SelectInputProps> = ({
             width: '100%',
           }}
         >
-          <BoldPurpleInputLabel id={`${name}-label`} htmlFor={name} shrink>
+          <BoldPurpleInputLabel
+            id={`${name}-label`}
+            htmlFor={name}
+            shrink
+            sx={{ whiteSpace: 'pre-wrap' }}
+            ref={labelRef}
+          >
             {label}
           </BoldPurpleInputLabel>
           <Select
@@ -77,6 +97,7 @@ const SelectInput: FC<SelectInputProps> = ({
             // To stop it adding a padding-right on the main element, shifting the background image
             MenuProps={{ disableScrollLock: true, PaperProps: { style: { maxHeight: 400 } } }}
             sx={{
+              marginTop: lineHeight !== labelHeight ? `${labelHeight ? labelHeight - 8 : lineHeight}px !important` : '',
               '& .MuiInputBase-input': {
                 borderRadius: '8px',
                 backgroundColor: theme.palette.background.paper,
@@ -137,7 +158,12 @@ const SelectInput: FC<SelectInputProps> = ({
               </Box>
             </LightToolTip>
           ) : null}
-          <InputHelperText name={name} errors={errors} helperText={helperText} />
+          <InputHelperText
+            name={name}
+            errors={errors}
+            helperText={helperText}
+            showHelperTextIcon={showHelperTextIcon}
+          />
         </FormControl>
       )}
     />

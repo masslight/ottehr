@@ -15,7 +15,7 @@ root.render(
     <Auth0Provider
       domain={import.meta.env.VITE_APP_AUTH_URL}
       clientId={import.meta.env.VITE_APP_APPLICATION_CLIENT_ID}
-      connection="sms"
+      connection={import.meta.env.VITE_APP_CONNECTION_NAME}
       redirectUri={`${window.location.origin}/patients`}
       audience={import.meta.env.VITE_APP_AUTH0_AUDIENCE}
     >
