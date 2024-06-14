@@ -115,7 +115,7 @@ export default function CancellationReasonDialog({
     >
       <form onSubmit={(e) => handleCancel(e)}>
         <DialogTitle variant="h4" color="primary.dark" sx={{ width: '100%' }}>
-          Patient's cancelation reason
+          Patient&apos;s cancelation reason
         </DialogTitle>
         <DialogContent>
           <div>

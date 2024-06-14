@@ -5,7 +5,6 @@ import { useApiClients } from '../../../hooks/useAppClients';
 import { PromiseReturnType, ZapEHRTelemedAPIClient } from '../../data';
 import { GetAppointmentsRequestParams } from '../../utils';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetTelemedAppointments = (
   {
     apiClient,
@@ -17,6 +16,7 @@ export const useGetTelemedAppointments = (
     apiClient: ZapEHRTelemedAPIClient | null;
   } & GetAppointmentsRequestParams,
   onSuccess: (data: PromiseReturnType<ReturnType<ZapEHRTelemedAPIClient['getTelemedAppointments']>>) => void,
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   return useQuery(
     ['telemed-appointments', { apiClient, stateFilter, dateFilter, patientFilter, statusesFilter }],

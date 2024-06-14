@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-duplicate-enum-values */
 import { ChartDataFields } from 'ehr-utils';
 import { useAppointmentStore, useDeleteChartData, useSaveChartData } from '../state';
 import { getSelectors } from '../../shared/store/getSelectors';

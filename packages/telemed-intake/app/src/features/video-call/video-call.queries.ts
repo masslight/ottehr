@@ -3,10 +3,10 @@ import { useAppointmentStore } from '../appointments';
 import { ZapEHRAPIClient } from 'ottehr-components';
 import { PromiseReturnType } from 'ottehr-utils';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useJoinCall = (
   apiClient: ZapEHRAPIClient | null,
   onSuccess: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['joinCall']>>) => void,
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   return useQuery(
     ['join-call', apiClient],

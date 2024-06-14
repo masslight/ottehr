@@ -46,7 +46,7 @@ export const AdditionalQuestionsPatientColumn: FC = () => {
           justifyContent: 'space-between',
         }}
       >
-        <Typography>Are your or your child's vaccines up to date?</Typography>
+        <Typography>Are your or your child&apos;s vaccines up to date?</Typography>
         {isAppointmentLoading ? (
           <Skeleton>
             <Typography>Yes</Typography>

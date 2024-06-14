@@ -16,7 +16,6 @@ import { useAppointmentStore } from './appointment.store';
 import useOttehrUser from '../../../hooks/useOttehrUser';
 import { getSelectors } from '../../../shared/store/getSelectors';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetTelemedAppointment = (
   {
     appointmentId,
@@ -24,6 +23,7 @@ export const useGetTelemedAppointment = (
     appointmentId: string | undefined;
   },
   onSuccess: (data: Bundle<FhirResource>[]) => void,
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const { fhirClient } = useApiClients();
   return useQuery(
@@ -65,11 +65,11 @@ export const useGetTelemedAppointment = (
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetMeetingData = (
   getAccessTokenSilently: () => Promise<string>,
   onSuccess: (data: MeetingData) => void,
   onError: (error: Error) => void,
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   return useQuery(
     ['meeting-data'],
@@ -104,10 +104,10 @@ export const useGetMeetingData = (
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetChartData = (
   { apiClient, encounterId }: { apiClient: ZapEHRTelemedAPIClient | null; encounterId?: string },
   onSuccess: (data: PromiseReturnType<ReturnType<ZapEHRTelemedAPIClient['getChartData']>>) => void,
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const user = useOttehrUser();
   const { isReadOnly, isAppointmentLoading } = getSelectors(useAppointmentStore, [
@@ -320,10 +320,10 @@ export const useUpdatePaperwork = () => {
   });
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetPatientInstructions = (
   { type }: { type: InstructionType },
   onSuccess?: (data: PromiseReturnType<ReturnType<ZapEHRTelemedAPIClient['getPatientInstructions']>>) => void,
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const apiClient = useZapEHRAPIClient();
 

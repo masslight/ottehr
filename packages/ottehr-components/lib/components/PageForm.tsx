@@ -28,6 +28,7 @@ interface PageFormProps {
   overrideValues?: OverrideValues;
 }
 
+// eslint-disable-next-line react/display-name
 const PageForm: React.FC<PageFormProps> = memo(
   ({
     formElements,
@@ -38,7 +39,7 @@ const PageForm: React.FC<PageFormProps> = memo(
     hideControls,
     innerForm,
     overrideValues,
-  }): JSX.Element => {
+  }: PageFormProps): JSX.Element => {
     // todo do in one line?
     // todo use more specific type
     // const validation: any = {

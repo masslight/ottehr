@@ -43,8 +43,8 @@ const ThankYou = (): JSX.Element => {
           }}
         >
           <Typography variant="body2">
-            Please click the "Proceed to paperwork" button below to complete your paperwork prior to your visit. If this
-            is not completed in advance, your care may be delayed.
+            Please click the &quot;Proceed to paperwork&quot; button below to complete your paperwork prior to your
+            visit. If this is not completed in advance, your care may be delayed.
           </Typography>
           <Typography variant="body2" marginTop={2}>
             All patients that present with commercial insurance will be required to leave a credit card on file. More

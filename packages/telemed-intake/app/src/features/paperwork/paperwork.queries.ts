@@ -5,13 +5,13 @@ import { FileURLs, PromiseReturnType, isNullOrUndefined } from 'ottehr-utils';
 import { useZapEHRAPIClient } from '../../utils';
 import { useAppointmentStore } from '../appointments';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetPaperwork = (
   onSuccess?: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['getPaperwork']>>) => void,
   params?: {
     enabled?: boolean;
     staleTime?: number;
   },
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const apiClient = useZapEHRAPIClient();
   const appointmentID = useAppointmentStore((state) => state.appointmentID);

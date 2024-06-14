@@ -19,7 +19,7 @@ export const AdditionalQuestionsContainer: FC = () => {
         Additional questions
       </Typography>
       <Typography>Have you or your child had your flu vaccine? - {fluVaccine || 'Not provided'}</Typography>
-      <Typography>Are your or your child's vaccines up to date? - {vaccinesUpToDate || 'Not provided'}</Typography>
+      <Typography>Are your or your child&apos;s vaccines up to date? - {vaccinesUpToDate || 'Not provided'}</Typography>
       <Typography>Have you traveled out of the USA in the last 2 weeks? - {travelUsa || 'Not provided'}</Typography>
       <Typography>Has the patient been hospitalized in the past 6 months? - {hospitalize || 'Not provided'}</Typography>
     </Box>

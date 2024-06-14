@@ -98,8 +98,8 @@ const Welcome = (): JSX.Element => {
       isFirstPage={true}
     >
       <Typography variant="body1">
-        We're pleased to offer this new technology for accessing care. You will need to enter your information again
-        just once. Next time you return, it will all be here for you!
+        We&apos;re pleased to offer this new technology for accessing care. You will need to enter your information
+        again just once. Next time you return, it will all be here for you!
       </Typography>
       <Typography variant="body1" sx={{ py: 2 }}>
         You can view states in which we operate and their hours here.

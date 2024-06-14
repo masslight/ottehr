@@ -27,8 +27,8 @@ const NewUser = (): JSX.Element => {
       bgVariant={IntakeFlowPageRoute.NewUser.path}
     >
       <Typography variant="body1">
-        We're pleased to offer this new technology for accessing care. You will need to enter your information again
-        just once. Next time you return, it will all be here for you!
+        We&apos;re pleased to offer this new technology for accessing care. You will need to enter your information
+        again just once. Next time you return, it will all be here for you!
       </Typography>
       <PageForm onSubmit={onSubmit} controlButtons={{ backButton: false }} />
     </CustomContainer>

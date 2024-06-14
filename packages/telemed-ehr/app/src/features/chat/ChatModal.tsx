@@ -72,6 +72,7 @@ const makePendingSentMessage = (text: string, timezone: string, sender: OttehrUs
   };
 };
 
+// eslint-disable-next-line react/display-name
 const ChatModal = memo(
   ({
     appointment,
@@ -416,7 +417,7 @@ interface MessageBodyProps {
   contentKey: string;
   showDaySent: boolean;
 }
-const MessageBody: React.FC<MessageBodyProps> = (props) => {
+const MessageBody: React.FC<MessageBodyProps> = (props: MessageBodyProps) => {
   const { isPending, message, contentKey, hasNewMessageLine, showDaySent } = props;
   const theme = useTheme();
   const authorInitials = useMemo(() => {

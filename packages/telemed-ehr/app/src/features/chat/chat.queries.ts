@@ -6,11 +6,11 @@ import { useApiClients } from '../../hooks/useAppClients';
 import { useMessagingClient } from '../../hooks/useMessagingClient';
 import { MessageModel } from './ChatModal';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useFetchChatMessagesQuery = (
   timezone: string,
   numbersToSendTo?: string[],
   onSuccess?: (data: ConversationMessage[]) => void,
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const { zambdaClient } = useApiClients();
   return useQuery(
@@ -25,12 +25,12 @@ export const useFetchChatMessagesQuery = (
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useSendMessagesMutation = (
   recipients: SMSRecipient[],
   message: string,
   onSuccess: (data: MessageModel) => void,
   onError: (error: any) => void,
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const messagingClient = useMessagingClient();
   return useMutation(

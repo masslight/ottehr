@@ -1,6 +1,5 @@
 import { StoreApi, UseBoundStore } from 'zustand';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const getSelectors = <
   S extends UseBoundStore<StoreApi<object>>,
   T extends S extends { getState: () => infer R } ? R : never,
@@ -8,6 +7,7 @@ export const getSelectors = <
 >(
   store: S,
   stateKeys: K[],
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const selectors: Pick<T, K> = {} as any;
 

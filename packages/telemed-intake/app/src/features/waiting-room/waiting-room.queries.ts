@@ -8,9 +8,9 @@ import {
 import { useZapEHRAPIClient } from '../../utils';
 import { useAppointmentStore } from '../appointments';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetWaitStatus = (
   onSuccess: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['getWaitStatus']>>) => void,
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const apiClient = useZapEHRAPIClient();
   const appointmentID = useAppointmentStore((state) => state.appointmentID);

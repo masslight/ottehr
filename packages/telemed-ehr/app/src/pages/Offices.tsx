@@ -219,7 +219,7 @@ export default function LocationsPage(): ReactElement {
                   Address
                 </TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }} align="left">
-                  Today's hours
+                  Today&apos;s hours
                 </TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }} align="left">
                   Upcoming schedule changes

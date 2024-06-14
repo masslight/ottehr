@@ -218,8 +218,8 @@ export default function PatientInformationPage(): JSX.Element {
                   color={otherColors.closeCross}
                   sx={{ m: 1.25, maxWidth: 850, fontWeight: 700 }}
                 >
-                  There are other patients with this name in our database. Please check the patient's DOB to confirm you
-                  are viewing the right patient.
+                  There are other patients with this name in our database. Please check the patient&apos;s DOB to
+                  confirm you are viewing the right patient.
                 </Typography>
                 <CloseIcon
                   onClick={() => setOtherPatientsWithSameName(false)}
