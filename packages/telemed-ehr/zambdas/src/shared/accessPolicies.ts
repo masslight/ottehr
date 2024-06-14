@@ -171,6 +171,11 @@ export const PROVIDER_RULES = [
     resource: 'Telemed:Room',
   },
   {
+    action: ['Telemed:CreateMeeting', 'Telemed:JoinMeeting'],
+    effect: 'Allow',
+    resource: 'Telemed:Meeting',
+  },
+  {
     resource: 'Z3:*',
     action: 'Z3:GetObject',
     effect: 'Allow',

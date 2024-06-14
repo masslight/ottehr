@@ -192,6 +192,11 @@ export async function createAppointment(
     unconfirmedDateOfBirth,
   });
 
+  // if the patient does not have a phone number, try to use the user's phone number
+  if (patient.phoneNumber === undefined || patient.phoneNumber === null) {
+    patient.phoneNumber = user.phoneNumber;
+  }
+
   await createUpdateUserRelatedResources(fhirClient, patient, fhirPatient, user);
 
   console.log('success, here is the id: ', appointment.id);
