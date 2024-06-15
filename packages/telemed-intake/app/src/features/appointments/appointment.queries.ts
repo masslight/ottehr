@@ -75,16 +75,31 @@ export const useGetAppointments = (apiClient: ZapEHRAPIClient | null, enabled = 
 export const useGetLocation = (apiClient: ZapEHRAPIClient | null, slug: string, enabled = true) =>
   useQuery(
     ['location'],
-    () => {
+    async () => {
       if (!apiClient) {
         throw new Error('API client not defined');
       }
-      return apiClient.getLocation({ slug });
+      let response;
+      try {
+        response = await apiClient.getLocation({ slug });
+      } catch (error: any) {
+        if (error.message === 'Location is not found') {
+          return undefined;
+        }
+        throw error;
+      }
+      return response;
     },
     {
       enabled,
-      onError: (err) => {
-        console.error('Error during fetching telemed states: ', err);
+      onError: (error: any) => {
+        console.error('Error getting a location: ', error);
+      },
+      retry: (failureCount, error: any) => {
+        if (error.message === 'Location is not found') {
+          return false;
+        }
+        return failureCount < 1;
       },
     },
   );

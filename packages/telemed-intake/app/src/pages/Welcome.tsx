@@ -6,7 +6,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { IntakeFlowPageRoute } from '../App';
 import { clockFullColor } from '../assets/icons';
 import { useAppointmentStore, useGetLocation } from '../features/appointments';
-import { CustomContainer, useIntakeCommonStore } from '../features/common';
+import { CustomContainer } from '../features/common';
 import { useZapEHRAPIClient } from '../utils';
 import Schedule from '../components/Schedule';
 import { ErrorDialog } from 'ottehr-components';
@@ -14,7 +14,6 @@ import { ErrorDialog } from 'ottehr-components';
 const Welcome = (): JSX.Element => {
   const navigate = useNavigate();
   const apiClient = useZapEHRAPIClient({ tokenless: true });
-  const theme = useTheme();
   const { slug, 'visit-type': visitType, 'visit-service': visitService } = useParams();
   const [choiceErrorDialogOpen, setChoiceErrorDialogOpen] = useState(false);
   const { selectedSlot, setAppointment } = useAppointmentStore((state) => state);
@@ -23,7 +22,7 @@ const Welcome = (): JSX.Element => {
     throw new Error('Slug is not defined');
   }
 
-  const { data: location, isFetching } = useGetLocation(apiClient, slug, Boolean(apiClient));
+  const { data: location, isFetching, isError } = useGetLocation(apiClient, slug, Boolean(apiClient));
 
   useEffect(() => {
     setAppointment({ visitType, visitService });
@@ -43,7 +42,7 @@ const Welcome = (): JSX.Element => {
   return (
     <CustomContainer
       title={`Ottehr ${visitService}`}
-      subtitle={location?.name || 'Loading...'}
+      subtitle={isFetching ? 'Loading...' : location?.name}
       img={clockFullColor}
       imgAlt="Clock icon"
       imgWidth={120}
@@ -51,7 +50,7 @@ const Welcome = (): JSX.Element => {
       isFirstPage={true}
     >
       {isFetching && <Typography variant="body1">Loading...</Typography>}
-      {!isFetching && !location && (
+      {!isFetching && !isError && !location && (
         <Typography variant="body1">The location &quot;{slug}&quot; is not found</Typography>
       )}
       {location && !location.available && (
@@ -59,6 +58,11 @@ const Welcome = (): JSX.Element => {
       )}
       {location && !['in-person', 'telemedicine'].includes(visitService || '') && (
         <Typography variant="body1">The service &quot;{visitService}&quot; is not available</Typography>
+      )}
+      {isError && (
+        <Typography variant="body1">
+          There was an error getting the location. Please refresh and if you still get errors contact us.
+        </Typography>
       )}
       {!isFetching && location && location.available && ['in-person', 'telemedicine'].includes(visitService || '') && (
         <>
