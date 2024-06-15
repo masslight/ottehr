@@ -4,15 +4,15 @@ import { Appointment, AppointmentParticipant, Location } from 'fhir/r4';
 import {
   createFhirClient,
   getDateTimeFromDateAndTime,
+  GetLocationResponse,
   getSecret,
-  GetTelemedLocationsResponse,
-  PUBLIC_EXTENSION_BASE_URL,
+  Secrets,
   SecretsKeys,
-  TelemedLocation,
   ZambdaInput,
 } from 'ottehr-utils';
 import { getM2MClientToken } from '../shared';
 import { DateTime } from 'luxon';
+import { validateRequestParameters } from './validateRequestParameters';
 
 export interface Weekdays {
   [day: string]: Weekday;
@@ -39,10 +39,18 @@ export interface Capacity {
   capacity: number;
 }
 
+export interface GetLocationInput {
+  slug: string;
+  secrets: Secrets | null;
+}
+
 let zapehrToken: string;
+const NUM_DAYS = 7;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const fhirAPI = getSecret(SecretsKeys.FHIR_API, input.secrets);
+    const validatedParameters = validateRequestParameters(input);
+    const { slug } = validatedParameters;
 
     if (!zapehrToken) {
       console.log('getting m2m token for service calls');
@@ -53,113 +61,110 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const fhirClient = createFhirClient(zapehrToken);
 
-    const telemedLocations = await getTelemedLocations(fhirClient);
+    const location = await getLocation(fhirClient, slug);
 
-    if (!telemedLocations) {
+    if (!location) {
       return {
-        statusCode: 200,
-        body: JSON.stringify({ locations: [] }),
+        statusCode: 404,
+        body: JSON.stringify({ message: 'Location is not found' }),
       };
     }
 
-    const response: GetTelemedLocationsResponse = {
-      locations: telemedLocations,
-    };
-
     return {
       statusCode: 200,
-      body: JSON.stringify(response),
+      body: JSON.stringify(location),
     };
   } catch (error: any) {
     console.error('Failed to get telemed states', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error while fetching telemed states' }),
+      body: JSON.stringify({ error: 'Internal error while fetching location' }),
     };
   }
 };
 
-async function getTelemedLocations(fhirClient: FhirClient): Promise<TelemedLocation[] | undefined> {
-  const resources = await fhirClient.searchResources({
+async function getLocation(fhirClient: FhirClient, slug: string): Promise<GetLocationResponse | undefined> {
+  const availableLocations = await fhirClient.searchResources({
     resourceType: 'Location',
-    searchParams: [],
+    searchParams: [
+      // { name: 'status', value: 'active' },
+      { name: 'identifier', value: slug },
+    ],
   });
 
-  const telemedLocations = (resources as Location[]).filter((location) =>
-    location.extension?.some(
-      (ext) => ext.url === `${PUBLIC_EXTENSION_BASE_URL}/location-form-pre-release` && ext.valueCoding?.code === 'vi',
-    ),
-  );
+  if (availableLocations.length === 0) {
+    return undefined;
+  }
 
+  const location: Location = availableLocations[0] as Location;
   // todo do not assume zone
   const now = DateTime.now().setZone('US/Eastern');
 
-  const locationIDs = telemedLocations.map((location) => location.id);
-  const { minimum: today, maximum: tomorrow } = createMinimumAndMaximumTime(now);
-  console.log(`searching for appointments based on locations ${locationIDs} and dates`);
+  const { minimum: startTime, maximum: finishTime } = createMinimumAndMaximumTime(now);
+  console.log(`searching for appointments based on location ${location.id} and date`);
   const appointmentResources: Appointment[] = await fhirClient?.searchResources({
     resourceType: 'Appointment',
     searchParams: [
       {
         name: 'location',
-        value: locationIDs.map((location) => `Location/${location}`).join(','),
+        value: `Location/${location.id}`,
       },
       {
         name: 'status:not',
         value: 'cancelled',
       },
-      { name: 'date', value: `ge${today}` },
-      { name: 'date', value: `le${tomorrow}` },
+      { name: 'date', value: `ge${startTime}` },
+      { name: 'date', value: `le${finishTime}` },
       { name: '_count', value: '1000' },
     ],
   });
-  const locationAvailability: { [key: string]: string[] } = {};
-  telemedLocations.forEach((location) => {
-    console.log('Getting slots for', location.id);
-    if (!location.id) {
-      console.log('location id is not defined', location);
-      throw new Error('location id is not defined');
-    }
 
-    const scheduleExtension = location?.extension?.find(function (extensionTemp) {
-      return extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule';
-    })?.valueString;
-    if (!scheduleExtension) {
-      console.log('location does not have schedule');
-      return;
-    }
+  console.log('Getting slots for', location.id);
+  if (!location.id) {
+    console.log('location id is not defined', location);
+    throw new Error('location id is not defined');
+  }
 
-    const scheduleTemp = JSON.parse(scheduleExtension);
-    const schedule: Weekdays = scheduleTemp.schedule;
-    const scheduleOverrides: Overrides = scheduleTemp.scheduleOverrides;
+  const scheduleExtension = location?.extension?.find(function (extensionTemp) {
+    return extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule';
+  })?.valueString;
+  if (!scheduleExtension) {
+    console.log('location does not have schedule');
+    return;
+  }
 
-    // get appointments at location
-    const appointmentResourcesInLocation = appointmentResources.filter((appointment) => {
-      return appointment.participant.some(
-        (participant: AppointmentParticipant) => participant.actor === `Location/${location.id}`,
-      );
-    });
-    console.log("getting today's slots");
-    const todaySlots = getSlotsForDay(now, schedule, scheduleOverrides, appointmentResourcesInLocation);
-    console.log("getting tomorrows's slots");
-    const tomorrowSlots = getSlotsForDay(now.plus({ day: 1 }), schedule, scheduleOverrides, appointmentResources);
+  const scheduleTemp = JSON.parse(scheduleExtension);
+  const schedule: Weekdays = scheduleTemp.schedule;
+  const scheduleOverrides: Overrides = scheduleTemp.scheduleOverrides;
 
-    const slots = [...todaySlots, ...tomorrowSlots];
-    console.log('getting available slots');
-    const availableSlots = getAvailableSlots(slots, 'US/Eastern');
-    locationAvailability[location.id] = availableSlots;
+  // get appointments at location
+  const appointmentResourcesInLocation = appointmentResources.filter((appointment) => {
+    return appointment.participant.some(
+      (participant: AppointmentParticipant) => participant.actor === `Location/${location.id}`,
+    );
   });
 
-  return telemedLocations.map((location) => ({
+  let currentDayTemp = now;
+  const slots = [];
+  const finishDate = DateTime.fromISO(finishTime);
+  while (currentDayTemp < finishDate) {
+    console.log(currentDayTemp);
+    const slotsTemp = getSlotsForDay(currentDayTemp, schedule, scheduleOverrides, appointmentResourcesInLocation);
+    slots.push(...slotsTemp);
+    currentDayTemp = currentDayTemp.plus({ days: 1 });
+  }
+
+  return {
+    message: 'Successful reply',
     state: location.address?.state || '',
-    name: location.name || 'Unknown',
+    name: location.name || 'Unkno wn',
     slug:
       location.identifier?.find((identifierTemp) => identifierTemp.system === 'https://fhir.ottehr.com/r4/slug')
         ?.value || 'Unknown',
-    availableSlots: locationAvailability[location.id || 'unknown'],
+    availableSlots: slots,
     // available: location.status === 'active',
     available: true,
-  }));
+  };
 }
 
 function getSlotsForDay(
@@ -224,30 +229,11 @@ function getSlotsForDay(
 }
 
 export function createMinimumAndMaximumTime(date: DateTime, buffer?: number): { minimum: string; maximum: string } {
-  const minimum = date.toISO();
-  const tomorrow = date.plus({ days: buffer ?? 1 });
-  const maximum = tomorrow.endOf('day').toISO();
-  return { minimum: minimum, maximum: maximum };
+  const startTime = date.toISO();
+  const finishTime = date.plus({ days: NUM_DAYS });
+  const maximum = finishTime.endOf('day').toISO();
+  return { minimum: startTime, maximum: finishTime };
 }
-
-export const getAvailableSlots = (dateStrings: string[], timezone: string): string[] => {
-  const CUTOFF_HOUR = 17;
-  const currentTime = DateTime.now().setZone(timezone);
-  const cutoffTime = currentTime.set({ hour: CUTOFF_HOUR, minute: 0, second: 0, millisecond: 0 });
-  const isAfterCutoff = currentTime >= cutoffTime;
-
-  const availableSlots = dateStrings.filter((dateString) => {
-    const date = DateTime.fromISO(dateString).setZone(timezone);
-
-    if (isAfterCutoff) {
-      return date >= cutoffTime;
-    } else {
-      return date.toISODate() === currentTime.toISODate();
-    }
-  });
-
-  return availableSlots;
-};
 
 export const distributeTimeSlots = (
   startTime: DateTime,

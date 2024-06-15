@@ -19,7 +19,7 @@ export function SelectSlot({ slots, timezone }: SelectSlotProps): JSX.Element {
   if (slots.length === 0) {
     return (
       <Typography variant="body2" sx={{ marginTop: 1, textAlign: 'center' }}>
-        There are no slots available
+        There are no slots available for this option
       </Typography>
     );
   }

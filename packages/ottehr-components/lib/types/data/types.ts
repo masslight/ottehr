@@ -11,7 +11,6 @@ export type GetZapEHRAPIParams = {
   getPatientsZambdaID?: string;
   getLocationZambdaID?: string;
   getAppointmentsZambdaID?: string;
-  getTelemedStatesZambdaID?: string;
   getPaperworkZambdaID?: string;
   createPaperworkZambdaID?: string;
   updatePaperworkZambdaID?: string;

@@ -30,11 +30,11 @@ custom:
     keepNames: true
 
 functions:
-  get-telemed-states:
-    handler: src/get-telemed-states/index.index
+  get-location:
+    handler: src/get-location/index.index
     events:
       - http:
-          path: zambda/get-telemed-states/execute-public
+          path: zambda/get-location/execute-public
           method: POST
     timeout: 25
     environment:

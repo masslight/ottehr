@@ -72,14 +72,14 @@ export const useGetAppointments = (apiClient: ZapEHRAPIClient | null, enabled = 
   );
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetTelemedStates = (apiClient: ZapEHRAPIClient | null, enabled = true) =>
+export const useGetLocation = (apiClient: ZapEHRAPIClient | null, slug: string, enabled = true) =>
   useQuery(
-    ['telemed-states'],
+    ['location'],
     () => {
       if (!apiClient) {
         throw new Error('API client not defined');
       }
-      return apiClient.getTelemedStates();
+      return apiClient.getLocation({ slug });
     },
     {
       enabled,

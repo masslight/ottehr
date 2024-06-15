@@ -1,11 +1,23 @@
-import { Box, Button, Tab, Tabs, Typography, useMediaQuery, useTheme } from '@mui/material';
+import {
+  Box,
+  Button,
+  FormControl,
+  MenuItem,
+  Select,
+  Tab,
+  Tabs,
+  Typography,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material';
 import { DateTime } from 'luxon';
 import { ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { breakpoints, ErrorDialog } from 'ottehr-components';
-import { otherColors } from '../IntakeThemeProvider';
+import { breakpoints, findLabelFromOptions, RenderLabelFromSelect } from 'ottehr-components';
 import { useAppointmentStore } from '../features/appointments';
 import { SelectSlot } from './schedule/SelectSlot';
-import { DATETIME_FULL_NO_YEAR, DATE_FULL_NO_YEAR, createLocalDateTime } from 'ottehr-utils';
+import { DATETIME_FULL_NO_YEAR, availableTimezones, createLocalDateTime, getBestTimezone } from 'ottehr-utils';
+import { LocalizationProvider, StaticDatePicker } from '@mui/x-date-pickers';
+import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 
 interface TabPanelProps {
   children?: ReactNode;
@@ -63,11 +75,9 @@ interface ScheduleProps {
 }
 
 const Schedule = ({ slotData, timezone }: ScheduleProps): JSX.Element => {
-  const { selectedSlot, setAppointment } = useAppointmentStore((state) => state);
   const theme = useTheme();
+  const { selectedSlot, setAppointment } = useAppointmentStore((state) => state);
   const [currentTab, setCurrentTab] = useState(0);
-  const [nextDay, setNextDay] = useState<boolean>(false);
-  const [choiceErrorDialogOpen, setChoiceErrorDialogOpen] = useState(false);
   // const [slotsErrorDialogOpen, setSlotsErrorDialogOpen] = useState(false);
 
   const [slotsList, daySlotsMap] = useMemo(() => {
@@ -94,35 +104,29 @@ const Schedule = ({ slotData, timezone }: ScheduleProps): JSX.Element => {
     return [[], {}];
   }, [timezone, slotData]);
 
-  const { firstAvailableDay, secondAvailableDay } = useMemo(() => {
+  const [formTimezone, setTimezone] = useState(getBestTimezone());
+
+  const { firstAvailableDay, secondAvailableDay, lastSlotDate } = useMemo(() => {
     let firstAvailableDay: DateTime | undefined = undefined;
     let secondAvailableDay: DateTime | undefined = undefined;
-    const currentTime = DateTime.now().setZone(timezone);
-    if (slotsList == null || slotsList.length === 0) {
+
+    if (slotData == null || slotData.length === 0) {
       return { firstAvailableDay, secondAvailableDay, lastSlot: undefined };
     }
 
-    firstAvailableDay = createLocalDateTime(DateTime.fromISO(slotsList[0]), timezone);
-    const firstSlot = slotsList[0];
-    const firstTime = DateTime.fromISO(firstSlot)?.setZone(timezone).toISODate();
-    const currentExistingTime = currentTime?.setZone(timezone)?.toISODate();
-    if (!firstTime || !currentExistingTime) {
-      return { firstAvailableDay, secondAvailableDay, lastSlot: undefined };
-    } else if (firstTime > currentExistingTime) {
-      setNextDay(true);
-    }
+    firstAvailableDay = createLocalDateTime(DateTime.fromISO(slotData[0]), formTimezone);
     if (firstAvailableDay) {
-      secondAvailableDay = nextAvailableFrom(firstAvailableDay, slotsList, timezone);
-      if (secondAvailableDay) {
-        setNextDay(false);
-      }
+      secondAvailableDay = nextAvailableFrom(firstAvailableDay, slotData, formTimezone);
     }
-    return { firstAvailableDay, secondAvailableDay };
-  }, [slotsList, timezone]);
+
+    const lastSlotDate = DateTime.fromISO(slotData[slotData.length - 1]);
+
+    return { firstAvailableDay, secondAvailableDay, lastSlotDate };
+  }, [formTimezone, slotData]);
 
   const isFirstAppointment = useMemo(() => {
-    return slotsList && slotsList[0] ? selectedSlot === slotsList[0] : false;
-  }, [selectedSlot, slotsList]);
+    return slotData && slotData[0] ? selectedSlot === slotData[0] : false;
+  }, [selectedSlot, slotData]);
 
   const handleChange = (_: SyntheticEvent, newCurrentTab: number): void => {
     setCurrentTab(newCurrentTab);
@@ -131,29 +135,23 @@ const Schedule = ({ slotData, timezone }: ScheduleProps): JSX.Element => {
   const [selectedOtherDate, setSelectedOtherDate] = useState<DateTime | undefined>();
 
   useEffect(() => {
-    if (selectedOtherDate === undefined && secondAvailableDay != undefined) {
-      setSelectedOtherDate(nextAvailableFrom(secondAvailableDay, slotsList, timezone));
+    if (selectedOtherDate === undefined && secondAvailableDay != undefined && slotData) {
+      setSelectedOtherDate(nextAvailableFrom(secondAvailableDay, slotData, formTimezone));
     }
-  }, [secondAvailableDay, selectedOtherDate, slotsList, timezone]);
+  }, [formTimezone, secondAvailableDay, selectedOtherDate, slotData]);
 
   const selectedDate = useMemo(() => {
     if (currentTab === 0) {
       return firstAvailableDay;
-    } else if (currentTab === 1) {
+    } else if (secondAvailableDay && currentTab === 1) {
       return secondAvailableDay;
     } else {
-      return selectedOtherDate;
+      if (selectedOtherDate) {
+        return selectedOtherDate;
+      }
+      return firstAvailableDay;
     }
   }, [currentTab, firstAvailableDay, secondAvailableDay, selectedOtherDate]);
-
-  const selectedSlotTimezoneAdjusted = useMemo(() => {
-    const selectedAppointmentStart = selectedSlot;
-    if (selectedAppointmentStart) {
-      return createLocalDateTime(DateTime.fromISO(selectedAppointmentStart), timezone);
-    }
-
-    return undefined;
-  }, [selectedSlot, timezone]);
 
   const getSlotsForDate = useCallback(
     (date: DateTime | undefined): string[] => {
@@ -167,7 +165,11 @@ const Schedule = ({ slotData, timezone }: ScheduleProps): JSX.Element => {
 
   // Cause TS thinks breakpoints.values may be undefined and won't let me use a non-null assertion.
   const isMobile = useMediaQuery(`(max-width: ${breakpoints.values?.sm}px)`);
-  const slotsExist = getSlotsForDate(firstAvailableDay).length > 0 || getSlotsForDate(secondAvailableDay).length > 0;
+
+  if (slotsList.length === 0) {
+    return <Typography variant="body1">There are no slots available</Typography>;
+  }
+
   return (
     <>
       <Box
@@ -179,16 +181,41 @@ const Schedule = ({ slotData, timezone }: ScheduleProps): JSX.Element => {
           mt: 3,
         }}
       >
-        <Typography variant="h3" color="primary">
-          Select check-in date and time
+        <Typography variant="h3" color="secondary">
+          Select date and time
         </Typography>
-        {selectedDate?.offsetNameShort && (
-          <Typography color="otherColors.textGray" sx={{ pt: { xs: 1.5, md: 0.5 } }}>
-            Time Zone: {selectedDate?.offsetNameShort}
-          </Typography>
-        )}
+        <FormControl sx={{ pt: { xs: 1, md: 0 }, width: '150px' }}>
+          <Select
+            variant="standard"
+            labelId="select-timezone-label"
+            id="select-timezone"
+            value={formTimezone}
+            label="Timezone"
+            sx={{ height: '25px' }}
+            MenuProps={{ disableScrollLock: true }}
+            onChange={(event) => {
+              setTimezone(event.target.value);
+            }}
+            renderValue={(selected) => {
+              return (
+                <RenderLabelFromSelect styles={{ color: theme.palette.text.secondary }}>
+                  Time zone: {findLabelFromOptions(selected, availableTimezones(selectedDate))}
+                </RenderLabelFromSelect>
+              );
+            }}
+          >
+            {availableTimezones(selectedDate).map((timezone) => {
+              const { value, label } = timezone;
+              return (
+                <MenuItem key={value} value={value}>
+                  {label}
+                </MenuItem>
+              );
+            })}
+          </Select>
+        </FormControl>
       </Box>
-      {slotsList && selectedDate != undefined && slotsExist ? (
+      {slotsList && selectedDate != undefined ? (
         <Button
           variant={isFirstAppointment ? 'contained' : 'outlined'}
           sx={{
@@ -220,75 +247,111 @@ const Schedule = ({ slotData, timezone }: ScheduleProps): JSX.Element => {
             borderRadius: '8px',
             textAlign: 'center',
             mt: 1,
-            display: slotsExist ? 'inherit' : 'none',
           }}
         >
-          <Typography variant="body2">Calculating...</Typography>
+          <Typography variant="body2">Calculating first available time...</Typography>
         </Box>
       )}
-      <>
-        {firstAvailableDay ? (
-          <Box>
-            <Box sx={{ width: '100%' }}>
-              <Tabs
-                value={currentTab}
-                onChange={handleChange}
-                TabIndicatorProps={{
-                  style: {
-                    background: otherColors.lightBlue,
-                    height: '5px',
-                    borderRadius: '2.5px',
-                  },
+      {firstAvailableDay != undefined ? (
+        <Box>
+          <Box sx={{ width: '100%' }}>
+            <Tabs
+              value={currentTab}
+              onChange={handleChange}
+              TabIndicatorProps={{
+                style: {
+                  background: theme.palette.info.main,
+                  height: '5px',
+                  borderRadius: '2.5px',
+                },
+              }}
+              textColor="inherit"
+              variant="fullWidth"
+              aria-label="Appointment tabs for switching between views of today, tomorrow, and other dates."
+            >
+              <Tab
+                label={firstAvailableDay.toLocaleString(DateTime.DATE_MED)}
+                {...tabProps(0)}
+                sx={{
+                  color: currentTab == 0 ? theme.palette.secondary.main : theme.palette.text.secondary,
+                  opacity: 1,
                 }}
-                textColor="inherit"
-                variant="fullWidth"
-                aria-label="Appointment tabs for switching between appointments slots for today and tomorrow"
-              >
+              />
+              {secondAvailableDay && (
                 <Tab
-                  label={nextDay ? 'Tomorrow' : 'Today'}
-                  {...tabProps(0)}
+                  label={secondAvailableDay.toLocaleString(DateTime.DATE_MED)}
+                  {...tabProps(1)}
                   sx={{
-                    color: currentTab == 0 ? theme.palette.text.secondary : theme.palette.primary.main,
+                    color: currentTab == 1 ? theme.palette.secondary.main : theme.palette.text.secondary,
                     opacity: 1,
                   }}
                 />
-                {secondAvailableDay && (
-                  <Tab
-                    label="Tomorrow"
-                    {...tabProps(1)}
-                    sx={{
-                      color: currentTab == 1 ? theme.palette.text.secondary : theme.palette.primary.main,
-                      opacity: 1,
-                    }}
-                  />
-                )}
-              </Tabs>
-            </Box>
-            <Box>
-              <TabPanel value={currentTab} index={0} dir={theme.direction}>
-                <SelectSlot slots={getSlotsForDate(firstAvailableDay)} currentTab={currentTab} timezone={timezone} />
-              </TabPanel>
-              <TabPanel value={currentTab} index={1} dir={theme.direction}>
-                <Typography variant="h3" color="#FFFFFF" sx={{ textAlign: 'center' }}>
-                  {secondAvailableDay?.toFormat(DATE_FULL_NO_YEAR)}
-                </Typography>
-                <SelectSlot slots={getSlotsForDate(secondAvailableDay)} currentTab={currentTab} timezone={timezone} />
-              </TabPanel>
-            </Box>
+              )}
+              <Tab
+                label="Other dates"
+                {...tabProps(2)}
+                sx={{
+                  color: currentTab == 2 ? theme.palette.secondary.main : theme.palette.text.secondary,
+                  opacity: 1,
+                }}
+              />
+            </Tabs>
           </Box>
-        ) : (
-          <Typography variant="body2" sx={{ textAlign: 'center', marginTop: '30px' }}>
-            There are no slots available
-          </Typography>
-        )}
-      </>
-      <ErrorDialog
-        open={choiceErrorDialogOpen}
-        title="Please select a date and time"
-        description="To continue, please select an available appointment."
-        closeButtonText="Close"
-        handleClose={() => setChoiceErrorDialogOpen(false)}
-      />
+          <Box>
+            <TabPanel value={currentTab} index={0} dir={theme.direction}>
+              <Typography variant="h3" color="#000000" sx={{ textAlign: 'center' }}>
+                {firstAvailableDay.toLocaleString(DateTime.DATE_HUGE)}
+              </Typography>
+              <SelectSlot slots={getSlotsForDate(firstAvailableDay)} timezone={formTimezone} />
+            </TabPanel>
+            {secondAvailableDay && (
+              <TabPanel value={currentTab} index={1} dir={theme.direction}>
+                <Typography variant="h3" color="#000000" sx={{ textAlign: 'center' }}>
+                  {secondAvailableDay.toLocaleString(DateTime.DATE_HUGE)}
+                </Typography>
+                <SelectSlot slots={getSlotsForDate(secondAvailableDay)} timezone={formTimezone} />
+              </TabPanel>
+            )}
+
+            {firstAvailableDay && lastSlotDate && (
+              <TabPanel value={currentTab} index={secondAvailableDay ? 2 : 1} dir={theme.direction}>
+                <LocalizationProvider dateAdapter={AdapterLuxon}>
+                  <StaticDatePicker
+                    displayStaticWrapperAs="desktop"
+                    // openTo="day"
+                    // disablePast
+                    views={['month', 'day']}
+                    value={selectedDate ?? null}
+                    onChange={(newDate) => {
+                      if (newDate != null) {
+                        setSelectedOtherDate(newDate);
+                      }
+                    }}
+                    // renderInput={(params) => <TextField {...params} />}
+                    shouldDisableDate={(date) =>
+                      // date.ordinal < firstAvailableDay.ordinal ||
+                      // date.ordinal > lastSlotDate.ordinal ||
+                      daySlotsMap[date.ordinal] == null
+                    }
+                    // Minus one day for timezone shenanigans
+                    minDate={firstAvailableDay.minus({ days: 1 })}
+                    // Plus one month for month picker dropdown
+                    maxDate={lastSlotDate.plus({ months: 1 })}
+                  />
+                </LocalizationProvider>
+                <Typography variant="h3" color="#000000" sx={{ textAlign: 'center' }}>
+                  {selectedDate ? selectedDate.toLocaleString(DateTime.DATE_HUGE) : 'Unknown date'}
+                </Typography>
+                <SelectSlot slots={getSlotsForDate(selectedDate)} timezone={formTimezone} />
+              </TabPanel>
+            )}
+          </Box>
+        </Box>
+      ) : (
+        <Typography variant="body2" m={1} textAlign={'center'}>
+          Loading...
+        </Typography>
+      )}
       {/* <ErrorDialog
           open={slotsErrorDialogOpen}
           title={t('schedule.errors.availability.title')}
