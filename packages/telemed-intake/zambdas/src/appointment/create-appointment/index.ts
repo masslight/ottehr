@@ -1,7 +1,17 @@
 import { BatchInputPostRequest, BatchInputRequest, FhirClient, User } from '@zapehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Bundle, Encounter, Extension, Location, Patient, Resource } from 'fhir/r4';
+import {
+  Appointment,
+  AppointmentParticipant,
+  Bundle,
+  Encounter,
+  Extension,
+  Location,
+  Patient,
+  Practitioner,
+  Resource,
+} from 'fhir/r4';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
@@ -16,7 +26,6 @@ import {
   Secrets,
   SecretsKeys,
   TELEMED_VIDEO_ROOM_CODE,
-  VisitType,
   ZambdaInput,
   ageIsInRange,
   createFhirClient,
@@ -67,9 +76,18 @@ interface PerformEffectInputProps {
 
 async function performEffect(props: PerformEffectInputProps): Promise<APIGatewayProxyResult> {
   const { input, params } = props;
-  const { locationState: location, slot, patient, visitType, visitService, timezone, unconfirmedDateOfBirth } = params;
+  const {
+    slot,
+    patient,
+    scheduleType,
+    visitType,
+    visitService,
+    locationID,
+    providerID,
+    timezone,
+    unconfirmedDateOfBirth,
+  } = params;
   const { secrets } = input;
-  let locationState = location;
   const fhirClient = createFhirClient(zapehrToken);
   console.log('getting user');
 
@@ -90,17 +108,13 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
   }
   console.log('creating appointment');
 
-  // if no location provided - set it to be "CA"
-  // only for draft implementation!!!
-  if (!locationState) {
-    locationState = 'CA';
-  }
-
   const { message, appointmentId, fhirPatientId } = await createAppointment(
     patient,
     fhirClient,
-    locationState,
+    scheduleType,
     slot,
+    locationID,
+    providerID,
     visitService,
     visitType,
     user,
@@ -122,10 +136,12 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
 export async function createAppointment(
   patient: PatientInfo,
   fhirClient: FhirClient,
-  locationState: string,
+  scheduleType: 'location' | 'provider',
   slot: string,
-  visitService: string,
-  visitType: string,
+  locationID: string,
+  providerID: string,
+  visitService: 'in-person' | 'telemedicine',
+  visitType: 'prebook' | 'now',
   user: User,
   timezone: string,
   unconfirmedDateOfBirth: string,
@@ -172,11 +188,20 @@ export async function createAppointment(
   const originalDate = DateTime.fromISO(slot);
   const endTime = originalDate.plus({ minutes: 15 });
 
-  const location = await getTelemedLocation(fhirClient, locationState);
-  const locationId = location?.id;
+  if (scheduleType === 'location') {
+    const location = await getLocation(fhirClient, locationID);
+    const locationId = location?.id;
 
-  if (!locationId) {
-    throw new Error(`Couldn't find telemed location for state ${locationState}`);
+    if (!locationId) {
+      throw new Error(`Couldn't find location for id ${locationID}`);
+    }
+  } else if (scheduleType === 'provider') {
+    const provider = await getProvider(fhirClient, providerID);
+    const providerId = provider?.id;
+
+    if (!providerId) {
+      throw new Error(`Couldn't find provider for id ${providerID}`);
+    }
   }
   console.log(slot, endTime);
 
@@ -190,7 +215,9 @@ export async function createAppointment(
     visitService,
     createPatientRequest,
     updatePatientRequest,
-    locationId,
+    scheduleType,
+    locationID,
+    providerID,
     unconfirmedDateOfBirth,
   });
 
@@ -455,12 +482,14 @@ interface TransactionInput {
   patient?: Patient;
   startTime: DateTime;
   endTime: DateTime;
-  visitType?: string;
-  visitService?: string;
+  visitType?: 'prebook' | 'now';
+  visitService?: 'in-person' | 'telemedicine';
   additionalInfo?: string;
   createPatientRequest?: BatchInputPostRequest;
   updatePatientRequest?: BatchInputRequest;
-  locationId: string;
+  scheduleType: 'location' | 'provider';
+  locationID: string;
+  providerID: string;
   unconfirmedDateOfBirth?: string | undefined;
 }
 
@@ -481,7 +510,9 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     additionalInfo,
     createPatientRequest,
     updatePatientRequest,
-    locationId,
+    scheduleType,
+    locationID,
+    providerID,
     unconfirmedDateOfBirth,
   } = input;
 
@@ -511,7 +542,35 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     url: 'https://extensions.fhir.zapehr.com/encounter-virtual-service-pre-release',
   };
 
-  const apptExtensions: Extension[] = [apptVirtualServiceExt];
+  const apptExtensions: Extension[] = [];
+  const encounterExtensions: Extension[] = [];
+
+  if (visitService === 'telemedicine') {
+    apptExtensions.push(apptVirtualServiceExt);
+    encounterExtensions.push(encounterVirtualServiceExt);
+    encounterExtensions.push({
+      url: 'https://extensions.fhir.zapehr.com/encounter-other-participants',
+      extension: [
+        {
+          url: 'https://extensions.fhir.zapehr.com/encounter-other-participant',
+          extension: [
+            {
+              url: 'period',
+              valuePeriod: {
+                start: nowIso,
+              },
+            },
+            {
+              url: 'reference',
+              valueReference: {
+                reference: patientRef,
+              },
+            },
+          ],
+        },
+      ],
+    } as OtherParticipantsExtension);
+  }
 
   if (additionalInfo) {
     apptExtensions.push({
@@ -545,26 +604,36 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   }
 
   const apptUrl = `urn:uuid:${uuid()}`;
+  const participants: AppointmentParticipant[] = [];
+  participants.push({
+    actor: {
+      reference: patientRef,
+    },
+    status: 'accepted',
+  });
+  if (scheduleType === 'location') {
+    participants.push({
+      actor: {
+        reference: `Location/${locationID}`,
+      },
+      status: 'accepted',
+    });
+  }
+  if (scheduleType === 'provider') {
+    participants.push({
+      actor: {
+        reference: `Practitioner/${providerID}`,
+      },
+      status: 'accepted',
+    });
+  }
 
   const apptResource: Appointment = {
     resourceType: 'Appointment',
     meta: {
       tag: [{ code: OTTEHR_MODULE.TM }],
     },
-    participant: [
-      {
-        actor: {
-          reference: patientRef,
-        },
-        status: 'accepted',
-      },
-      {
-        actor: {
-          reference: `Location/${locationId}`,
-        },
-        status: 'accepted',
-      },
-    ],
+    participant: participants,
     start: startTimeToISO,
     end: endTimeToISO,
     serviceType: [
@@ -620,38 +689,17 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
         reference: apptUrl,
       },
     ],
-    location: [
-      {
-        location: {
-          reference: `Location/${locationId}`,
-        },
-      },
-    ],
-    extension: [
-      encounterVirtualServiceExt,
-      {
-        url: 'https://extensions.fhir.zapehr.com/encounter-other-participants',
-        extension: [
-          {
-            url: 'https://extensions.fhir.zapehr.com/encounter-other-participant',
-            extension: [
-              {
-                url: 'period',
-                valuePeriod: {
-                  start: nowIso,
-                },
+    location:
+      scheduleType === 'location'
+        ? [
+            {
+              location: {
+                reference: `Location/${locationID}`,
               },
-              {
-                url: 'reference',
-                valueReference: {
-                  reference: patientRef,
-                },
-              },
-            ],
-          },
-        ],
-      } as OtherParticipantsExtension,
-    ],
+            },
+          ]
+        : [],
+    extension: encounterExtensions,
   };
 
   const postApptReq: BatchInputRequest = {
@@ -749,22 +797,24 @@ export function getPatientContactEmail(patient: Patient): string | undefined {
 }
 
 // Just for testing
-async function getTelemedLocation(fhirClient: FhirClient, state: string): Promise<Location | undefined> {
-  const resources = await fhirClient.searchResources({
+async function getLocation(fhirClient: FhirClient, locationID: string): Promise<Location | undefined> {
+  console.log('Searching for location with id', locationID);
+  const location: Location = await fhirClient.readResource({
     resourceType: 'Location',
-    searchParams: [
-      {
-        name: 'address-state',
-        value: state,
-      },
-    ],
+    resourceId: locationID,
   });
 
-  return (resources as Location[]).find(
-    (loca) =>
-      loca.extension?.find((ext) => ext.url === 'https://extensions.fhir.zapehr.com/location-form-pre-release')
-        ?.valueCoding?.code === 'vi',
-  );
+  return location;
+}
+
+async function getProvider(fhirClient: FhirClient, providerID: string): Promise<Practitioner | undefined> {
+  console.log('Searching for provider with id', providerID);
+  const provider: Practitioner = await fhirClient.readResource({
+    resourceType: 'Practitioner',
+    resourceId: providerID,
+  });
+
+  return provider;
 }
 
 /***

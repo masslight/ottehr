@@ -20,7 +20,7 @@ export const useZapEHRAPIClient = (
         createAppointmentZambdaID: import.meta.env.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID,
         cancelAppointmentZambdaID: import.meta.env.VITE_APP_CANCEL_APPOINTMENT_ZAMBDA_ID,
         getAppointmentsZambdaID: import.meta.env.VITE_APP_GET_APPOINTMENTS_ZAMBDA_ID,
-        getLocationZambdaID: import.meta.env.VITE_APP_GET_LOCATION_ZAMBDA_ID,
+        getScheduleZambdaID: import.meta.env.VITE_APP_GET_SCHEDULE_ZAMBDA_ID,
         getPaperworkZambdaID: import.meta.env.VITE_APP_GET_PAPERWORK_ZAMBDA_ID,
         createPaperworkZambdaID: import.meta.env.VITE_APP_CREATE_PAPERWORK_ZAMBDA_ID,
         updatePaperworkZambdaID: import.meta.env.VITE_APP_UPDATE_PAPERWORK_ZAMBDA_ID,

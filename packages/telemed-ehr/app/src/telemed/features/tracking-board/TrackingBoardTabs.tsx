@@ -9,9 +9,10 @@ import { useZapEHRAPIClient } from '../../hooks/useZapEHRAPIClient';
 import Loading from '../../../components/Loading';
 
 export function TrackingBoardTabs(): ReactElement {
-  const { alignment, state, date, setAppointments } = getSelectors(useTrackingBoardStore, [
+  const { alignment, state, date, providers, setAppointments } = getSelectors(useTrackingBoardStore, [
     'alignment',
     'state',
+    'providers',
     'date',
     'setAppointments',
   ]);
@@ -28,6 +29,7 @@ export function TrackingBoardTabs(): ReactElement {
     {
       apiClient,
       stateFilter: state || undefined,
+      providersFilter: providers || undefined,
       patientFilter: alignment,
       statusesFilter: ApptTabToStatus[value],
       dateFilter: (typeof date === 'object' ? date?.toISODate() : date) as string,

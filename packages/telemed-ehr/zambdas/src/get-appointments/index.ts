@@ -6,6 +6,7 @@ import {
   Encounter,
   Location,
   Patient,
+  Practitioner,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   RelatedPerson,
@@ -31,10 +32,12 @@ import { checkOrCreateM2MClientToken, createFhirClient, getRelatedPersonsFromRes
 import { appointmentTypeForAppointment, sortAppointments } from '../shared/queueingUtils';
 import { ZambdaInput } from '../types';
 import { validateRequestParameters } from './validateRequestParameters';
+import { formatHumanName } from '@zapehr/sdk';
 
 export interface GetAppointmentsInput {
   searchDate: string;
-  locationId: string;
+  locationID?: string;
+  providerIDs?: string[];
   visitType: string[];
   secrets: Secrets | null;
 }
@@ -49,7 +52,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { visitType, searchDate, secrets, locationId } = validatedParameters;
+    const { visitType, searchDate, secrets, locationID, providerIDs } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
@@ -57,30 +60,33 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const fhirClient = createFhirClient(m2mtoken, secrets);
     let activeAppointmentDatesBeforeToday: string[] = [];
     let fhirLocation: Location | undefined = undefined;
-    let timezone: string | undefined = timezoneMap.get(locationId);
-    console.log('timezone, map', timezone, JSON.stringify(timezoneMap));
-    console.time('get-timezone');
-    if (!timezone) {
-      try {
-        console.log(`reading location ${locationId}`);
-        fhirLocation = await fhirClient.readResource<Location>({
-          resourceId: locationId,
-          resourceType: 'Location',
-        });
-        timezone = fhirLocation?.extension?.find(
-          (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone',
-        )?.valueString;
-        if (timezone) {
-          timezoneMap.set(locationId, timezone);
+    let timezone: string | undefined;
+    if (locationID) {
+      timezone = timezoneMap.get(locationID);
+      console.log('timezone, map', timezone, JSON.stringify(timezoneMap));
+      console.time('get-timezone');
+      if (!timezone) {
+        try {
+          console.log(`reading location ${locationID}`);
+          fhirLocation = await fhirClient.readResource<Location>({
+            resourceId: locationID,
+            resourceType: 'Location',
+          });
+          timezone = fhirLocation?.extension?.find(
+            (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone',
+          )?.valueString;
+          if (timezone) {
+            timezoneMap.set(locationID, timezone);
+          }
+          console.log('found location: ', fhirLocation.name);
+        } catch (e) {
+          console.log('error getting location', JSON.stringify(e));
+          throw new Error('location is not found');
         }
-        console.log('found location: ', fhirLocation.name);
-      } catch (e) {
-        console.log('error getting location', JSON.stringify(e));
-        throw new Error('location is not found');
       }
+      console.timeEnd('get-timezone');
+      console.log('timezone2, map2', timezone, timezoneMap);
     }
-    console.timeEnd('get-timezone');
-    console.log('timezone2, map2', timezone, timezoneMap);
 
     console.time('get_active_encounters + get_appointment_data');
 
@@ -88,21 +94,31 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       { name: '_count', value: '1000' },
       { name: '_include', value: 'Encounter:appointment' },
       { name: 'appointment._tag', value: OTTEHR_MODULE.UC },
-      { name: 'appointment.date', value: `lt${DateTime.now().setZone(timezone).startOf('day')}` },
-      { name: 'appointment.location', value: `Location/${locationId}` },
       { name: 'status:not', value: 'planned' },
       { name: 'status:not', value: 'finished' },
       { name: 'status:not', value: 'cancelled' },
     ];
-    const idMapKey = `${locationId}|${DateTime.now().setZone(timezone).startOf('day').toISODate()}`;
-    const cachedEncounterIds = encounterIdMap.get(idMapKey);
 
-    // if we have cached encounter ids, add them to the search for a big optimization boost
-    if (cachedEncounterIds && cachedEncounterIds !== SKIP) {
-      encounterSearchParams.push({
-        name: '_id',
-        value: cachedEncounterIds,
-      });
+    if (locationID) {
+      encounterSearchParams.push({ name: 'appointment.location', value: `Location/${locationID}` });
+    }
+    encounterSearchParams.push({
+      name: 'appointment.date',
+      value: `lt${DateTime.now().setZone(timezone).startOf('day')}`,
+    });
+    let cachedEncounterIds;
+    const idMapKey = `${locationID}|${DateTime.now().setZone(timezone).startOf('day').toISODate()}`;
+
+    if (locationID) {
+      cachedEncounterIds = encounterIdMap.get(idMapKey);
+
+      // if we have cached encounter ids, add them to the search for a big optimization boost
+      if (cachedEncounterIds && cachedEncounterIds !== SKIP) {
+        encounterSearchParams.push({
+          name: '_id',
+          value: cachedEncounterIds,
+        });
+      }
     }
     // if we know previous search turned up no problem encounters, skip this search entirely and
     // return an empty array. see note below where the rationale for this behavior is explained.
@@ -119,62 +135,73 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     const searchDateWithTimezone = DateTime.fromISO(searchDate).setZone(timezone);
+    const appointmentSearchParams = [
+      {
+        name: 'date',
+        value: `ge${searchDateWithTimezone.startOf('day')}`,
+      },
+      {
+        name: 'date',
+        value: `le${searchDateWithTimezone.endOf('day')}`,
+      },
+      {
+        name: 'date:missing',
+        value: 'false',
+      },
+      {
+        name: '_sort',
+        value: 'date',
+      },
+      { name: '_count', value: '1000' },
+      {
+        name: '_include',
+        value: 'Appointment:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'RelatedPerson:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Person:link',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Encounter:participant',
+      },
+      {
+        name: '_include',
+        value: 'Appointment:location',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Encounter:appointment',
+      },
+      { name: '_revinclude:iterate', value: 'DocumentReference:patient' },
+      { name: '_revinclude:iterate', value: 'QuestionnaireResponse:encounter' },
+      { name: '_include', value: 'Appointment:actor' },
+    ];
+    if (locationID) {
+      appointmentSearchParams.push({
+        name: 'location',
+        value: `Location/${locationID}`,
+      });
+    }
+    if (providerIDs) {
+      appointmentSearchParams.push({
+        name: 'actor',
+        value: providerIDs.map((providerID) => `Practitioner/${providerID}`).join(','),
+      });
+    }
     const appointmentSearch = fhirClient?.searchResources({
       resourceType: 'Appointment',
-      searchParams: [
-        {
-          name: 'date',
-          value: `ge${searchDateWithTimezone.startOf('day')}`,
-        },
-        {
-          name: 'date',
-          value: `le${searchDateWithTimezone.endOf('day')}`,
-        },
-        {
-          name: 'date:missing',
-          value: 'false',
-        },
-        {
-          name: 'location',
-          value: `Location/${locationId}`,
-        },
-        {
-          name: '_sort',
-          value: 'date',
-        },
-        { name: '_count', value: '1000' },
-        {
-          name: '_include',
-          value: 'Appointment:patient',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'RelatedPerson:patient',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Person:link',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Encounter:participant',
-        },
-        {
-          name: '_include',
-          value: 'Appointment:location',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Encounter:appointment',
-        },
-        { name: '_revinclude:iterate', value: 'DocumentReference:patient' },
-        { name: '_revinclude:iterate', value: 'QuestionnaireResponse:encounter' },
-      ],
+      searchParams: appointmentSearchParams,
     });
     const [activeEncounters, searchResultsForSelectedDate] = await Promise.all([encounterSearch, appointmentSearch]);
     console.timeEnd('get_active_encounters + get_appointment_data');
     // console.log(searchResultsForSelectedDate);
-
+    // console.log(appointmentSearchParams);
+    // console.log(1, searchResultsForSelectedDate);
     const encounterIds: string[] = [];
 
     const tempAppointmentDates = activeEncounters
@@ -259,6 +286,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const rpPhoneNumbers = new Set<string>();
     const phoneNumberToRpMap: Record<string, string[]> = {};
     const rpIdToResourceMap: Record<string, RelatedPerson> = {};
+    const practitionerIdToResourceMap: Record<string, Practitioner> = {};
 
     searchResultsForSelectedDate.forEach((resource) => {
       if (resource.resourceType === 'Appointment') {
@@ -299,6 +327,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           mapVal.push(`RelatedPerson/${resource.id}`);
           phoneNumberToRpMap[pn] = mapVal;
         }
+      } else if (resource.resourceType === 'Practitioner' && resource.id) {
+        practitionerIdToResourceMap[`Practitioner/${resource.id}`] = resource as Practitioner;
       }
     });
     console.timeEnd('parse_search_results');
@@ -396,6 +426,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         apptRefToEncounterMap,
         patientIdMap,
         rpToCommMap,
+        practitionerIdToResourceMap,
         next: false,
       };
 
@@ -499,6 +530,7 @@ interface AppointmentInformationInputs {
   patientRefToQRMap: Record<string, QuestionnaireResponse>;
   patientToRPMap: Record<string, RelatedPerson[]>;
   rpToCommMap: Record<string, Communication[]>;
+  practitionerIdToResourceMap: Record<string, Practitioner>;
   allDocRefs: DocumentReference[];
   timezone: string | undefined;
   next: boolean;
@@ -513,6 +545,7 @@ const makeAppointmentInformation = (input: AppointmentInformationInputs): UCAppo
     encounterRefToQRMap,
     allDocRefs,
     rpToCommMap,
+    practitionerIdToResourceMap,
     next,
     patientToRPMap,
   } = input;
@@ -596,6 +629,22 @@ const makeAppointmentInformation = (input: AppointmentInformationInputs): UCAppo
   const ovrpInterest = questionnaireResponse?.item?.find(
     (response: QuestionnaireResponseItem) => response.linkId === 'ovrp-interest',
   )?.answer?.[0]?.valueString;
+  console.log(101, appointment.participant);
+  const provider = appointment.participant
+    .filter((participant) => participant.actor?.reference?.startsWith('Practitioner/'))
+    .map(function (practitionerTemp) {
+      if (!practitionerTemp.actor?.reference) {
+        return;
+      }
+      const practitioner = practitionerIdToResourceMap[practitionerTemp.actor.reference];
+      console.log(1, practitionerIdToResourceMap);
+
+      if (!practitioner.name) {
+        return;
+      }
+      return formatHumanName(practitioner.name[0]);
+    })
+    .join(', ');
 
   return {
     id: appointment.id!,
@@ -614,6 +663,7 @@ const makeAppointmentInformation = (input: AppointmentInformationInputs): UCAppo
     appointmentStatus: appointment.status,
     status: status,
     cancellationReason: cancellationReason,
+    provider: provider,
     paperwork: {
       demographics: questionnaireResponse ? true : false,
       photoID: idCard,

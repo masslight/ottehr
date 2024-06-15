@@ -1,8 +1,8 @@
 import { Error as ErrorIcon } from '@mui/icons-material';
 import AddIcon from '@mui/icons-material/Add';
 import { Autocomplete, Button, Grid, Paper, TextField, Typography } from '@mui/material';
-import { ZambdaClient } from '@zapehr/sdk';
-import { Location } from 'fhir/r4';
+import { FhirClient, ZambdaClient, formatHumanName } from '@zapehr/sdk';
+import { Location, Practitioner } from 'fhir/r4';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useEffect, useMemo, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
@@ -16,6 +16,7 @@ import LocationSelect from '../components/LocationSelect';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 import { VisitType, VisitTypeToLabel } from '../types/types';
+import ProvidersSelect from '../components/inputs/ProvidersSelect';
 
 type LoadingState = { status: 'loading' | 'initial'; id?: string | undefined } | { status: 'loaded'; id: string };
 
@@ -38,9 +39,10 @@ interface StructuredAppointmentData {
 type CustomFormEventHandler = (event: React.FormEvent<HTMLFormElement>, value: any, field: string) => void;
 
 export default function Appointments(): ReactElement {
-  const { zambdaClient } = useApiClients();
+  const { fhirClient, zambdaClient } = useApiClients();
   const [locationSelected, setLocationSelected] = useState<Location | undefined>(undefined);
   const [loadingState, setLoadingState] = useState<LoadingState>({ status: 'initial' });
+  const [practitioners, setPractitioners] = useState<Practitioner[] | undefined>(undefined);
   const [appointmentDate, setAppointmentDate] = useState<DateTime | null>(DateTime.local());
   const [editingComment, setEditingComment] = useState<boolean>(false);
   const [searchResults, setSearchResults] = useState<AppointmentSearchResultData | null>(null);
@@ -56,6 +58,9 @@ export default function Appointments(): ReactElement {
     } else if (field === 'visittypes') {
       const appointmentTypesString = value.join(',');
       queryParams.set('visitType', appointmentTypesString);
+    } else if (field === 'providers') {
+      const providersString = value.join(',');
+      queryParams.set('providers', providersString);
     }
 
     setEditingComment(false);
@@ -66,13 +71,17 @@ export default function Appointments(): ReactElement {
     return new URLSearchParams(location.search);
   }, [location.search]);
 
-  const { locationId, searchDate, visitType, queryId } = useMemo(() => {
+  const { locationId, searchDate, visitType, providers, queryId } = useMemo(() => {
     const locationId = queryParams.get('locationId') || '';
     const searchDate = queryParams.get('searchDate') || '';
     const appointmentTypesString = queryParams.get('visitType') || '';
-    const queryId = `${locationId}-${searchDate}-${appointmentTypesString}`;
+    let providers = queryParams.get('providers')?.split(',') || [];
+    if (providers.length === 1 && providers[0] === '') {
+      providers = [];
+    }
+    const queryId = `${locationId}-${providers}-${searchDate}-${appointmentTypesString}`;
     const visitType = appointmentTypesString ? appointmentTypesString.split(',') : [];
-    return { locationId, searchDate, visitType, queryId };
+    return { locationId, searchDate, visitType, providers, queryId };
   }, [queryParams]);
 
   const {
@@ -107,6 +116,13 @@ export default function Appointments(): ReactElement {
   }, [navigate, queryParams]);
 
   useEffect(() => {
+    if (localStorage.getItem('selectedProviders')) {
+      queryParams?.set('providers', JSON.parse(localStorage.getItem('selectedProviders') ?? '') ?? '');
+      navigate(`?${queryParams?.toString()}`);
+    }
+  }, [navigate, queryParams]);
+
+  useEffect(() => {
     const locationStore = localStorage?.getItem('selectedLocation');
     if (locationStore && !locationSelected) {
       setLocationSelected(JSON.parse(locationStore));
@@ -118,14 +134,44 @@ export default function Appointments(): ReactElement {
   }, [appointmentDate, locationSelected, queryParams]);
 
   useEffect(() => {
+    async function getPractitioners(fhirClient: FhirClient): Promise<void> {
+      if (!fhirClient) {
+        return;
+      }
+
+      try {
+        const practitionersTemp: Practitioner[] = await fhirClient.searchResources({
+          resourceType: 'Practitioner',
+          searchParams: [
+            { name: '_count', value: '1000' },
+            // { name: 'name:missing', value: 'false' },
+          ],
+        });
+        setPractitioners(practitionersTemp);
+      } catch (e) {
+        console.error('error loading practitioners', e);
+      }
+    }
+
+    if (fhirClient) {
+      void getPractitioners(fhirClient);
+    }
+  }, [fhirClient]);
+
+  useEffect(() => {
     const fetchStuff = async (zambdaClient: ZambdaClient, searchDate: DateTime | undefined): Promise<void> => {
       setLoadingState({ status: 'loading' });
 
-      if ((locationId || locationSelected?.id) && (searchDate || appointmentDate) && Array.isArray(visitType)) {
+      if (
+        (locationId || locationSelected?.id || providers.length > 0) &&
+        (searchDate || appointmentDate) &&
+        Array.isArray(visitType)
+      ) {
         const searchResults = await getAppointments(zambdaClient, {
           locationId: locationId || locationSelected?.id || undefined,
           searchDate,
           visitType: visitType || [],
+          providerIDs: providers,
         });
 
         setSearchResults(searchResults || []);
@@ -134,7 +180,7 @@ export default function Appointments(): ReactElement {
       }
     };
     if (
-      locationSelected &&
+      (locationSelected || providers.length > 0) &&
       zambdaClient &&
       !editingComment &&
       loadingState.id !== queryId &&
@@ -142,7 +188,7 @@ export default function Appointments(): ReactElement {
       pageIsVisible
     ) {
       const timezone =
-        locationSelected.extension?.find(
+        locationSelected?.extension?.find(
           (extTemp) => extTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone',
         )?.valueString ?? 'America/New_York';
       const searchDateToUse =
@@ -159,6 +205,7 @@ export default function Appointments(): ReactElement {
     searchDate,
     appointmentDate,
     visitType,
+    providers,
     queryParams,
     pageIsVisible,
   ]);
@@ -176,6 +223,7 @@ export default function Appointments(): ReactElement {
       queryParams={queryParams}
       handleSubmit={handleSubmit}
       visitType={visitType}
+      providers={providers}
       activeApptDatesBeforeToday={activeApptDatesBeforeToday}
       preBookedAppointments={preBookedAppointments}
       completedAppointments={completedAppointments}
@@ -183,6 +231,7 @@ export default function Appointments(): ReactElement {
       inOfficeAppointments={inOfficeAppointments}
       locationSelected={locationSelected}
       setLocationSelected={setLocationSelected}
+      practitioners={practitioners}
       appointmentDate={appointmentDate}
       setAppointmentDate={setAppointmentDate}
       updateAppointments={() => setLoadingState({ status: 'initial' })}
@@ -203,7 +252,9 @@ interface AppointmentsBodyProps {
   handleSubmit: CustomFormEventHandler;
   queryParams?: URLSearchParams;
   visitType: string[];
+  providers: string[];
   setLocationSelected: (location: Location | undefined) => void;
+  practitioners: Practitioner[] | undefined;
   setAppointmentDate: (date: DateTime | null) => void;
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
@@ -220,6 +271,8 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
     setLocationSelected,
     appointmentDate,
     visitType,
+    providers,
+    practitioners,
     setAppointmentDate,
     queryParams,
     handleSubmit,
@@ -233,7 +286,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
         <>
           <Paper sx={{ padding: 2 }}>
             <Grid container sx={{ justifyContent: 'center' }} spacing={1}>
-              <Grid item xs={2.8}>
+              <Grid item xs={2}>
                 <LocationSelect
                   queryParams={queryParams}
                   handleSubmit={handleSubmit}
@@ -243,15 +296,22 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                   setLocation={setLocationSelected}
                 ></LocationSelect>
               </Grid>
-              <Grid item xs={4.7}>
+              <Grid item xs={2}>
+                <DateSearch
+                  label="Date"
+                  queryParams={queryParams}
+                  handleSubmit={handleSubmit}
+                  date={appointmentDate}
+                  setDate={setAppointmentDate}
+                  updateURL={true}
+                  storeDateInLocalStorage={true}
+                  defaultValue={DateTime.now().toLocaleString(DateTime.DATE_SHORT)}
+                ></DateSearch>
+              </Grid>
+              <Grid item xs={1}></Grid>
+              <Grid item xs={2.5}>
                 <Autocomplete
                   id="visittypes"
-                  sx={{
-                    '.MuiButtonBase-root.MuiChip-root': {
-                      width: '120px',
-                      textAlign: 'start',
-                    },
-                  }}
                   value={visitType?.length > 0 ? [...visitType] : Object.keys(VisitTypeToLabel)}
                   options={Object.keys(VisitTypeToLabel)}
                   getOptionLabel={(option) => {
@@ -263,7 +323,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                     } else {
                       localStorage.removeItem('selectedVisitTypes');
                     }
-
+                    console.log(1, value);
                     if (handleSubmit) {
                       handleSubmit(event as any, value, 'visittypes');
                     }
@@ -274,19 +334,14 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                   )}
                 />
               </Grid>
-              <Grid item xs={2.8}>
-                <DateSearch
-                  label="Select Date"
-                  queryParams={queryParams}
+              <Grid item xs={2.5}>
+                <ProvidersSelect
+                  providers={providers}
+                  practitioners={practitioners}
                   handleSubmit={handleSubmit}
-                  date={appointmentDate}
-                  setDate={setAppointmentDate}
-                  updateURL={true}
-                  storeDateInLocalStorage={true}
-                  defaultValue={DateTime.now().toLocaleString(DateTime.DATE_SHORT)}
-                ></DateSearch>
+                ></ProvidersSelect>
               </Grid>
-              <Grid item xs={1.4} sx={{ alignSelf: 'center' }}>
+              <Grid item xs={2} sx={{ alignSelf: 'center' }}>
                 <Link to="/visits/add">
                   <Button
                     sx={{
@@ -324,6 +379,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
           )}
           <AppointmentTabs
             location={locationSelected}
+            providers={providers}
             preBookedAppointments={preBookedAppointments}
             cancelledAppointments={cancelledAppointments}
             completedAppointments={completedAppointments}

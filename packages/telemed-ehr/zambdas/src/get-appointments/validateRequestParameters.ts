@@ -6,10 +6,10 @@ export function validateRequestParameters(input: ZambdaInput): GetAppointmentsIn
     throw new Error('No request body provided');
   }
 
-  const { searchDate, locationId, visitType } = JSON.parse(input.body);
+  const { searchDate, locationID, providerIDs, visitType } = JSON.parse(input.body);
 
-  if (locationId === undefined) {
-    throw new Error('These fields are required: "locationId"');
+  if (locationID === undefined && providerIDs === undefined) {
+    throw new Error('Either "locationID" or "providerIDs" is required');
   }
 
   if (searchDate === undefined) {
@@ -18,7 +18,8 @@ export function validateRequestParameters(input: ZambdaInput): GetAppointmentsIn
 
   return {
     searchDate,
-    locationId,
+    locationID,
+    providerIDs,
     visitType,
     secrets: input.secrets,
   };

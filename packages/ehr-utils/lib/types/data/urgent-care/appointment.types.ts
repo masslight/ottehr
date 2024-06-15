@@ -11,6 +11,7 @@ export interface UCAppointmentInformation extends AppointmentMessaging {
   appointmentStatus: string;
   status: VisitStatus;
   cancellationReason: string | undefined;
+  provider: string | undefined;
   paperwork: {
     demographics: boolean;
     photoID: boolean;

@@ -69,7 +69,6 @@ export const performEffect = async (
       appointments: [],
     };
   }
-
   const allPackages = filterAppointmentsFromResources(allResources, statusesFilter, virtualLocationsMap);
   console.log('Received all appointments with type "virtual":', allPackages.length);
 
@@ -82,7 +81,7 @@ export const performEffect = async (
     ]);
 
     allPackages.forEach((appointmentPackage) => {
-      const { appointment, telemedStatus, telemedStatusHistory, location, encounter } = appointmentPackage;
+      const { appointment, telemedStatus, providers, telemedStatusHistory, location, encounter } = appointmentPackage;
 
       const patient = filterPatientForAppointment(appointment, allResources);
       const patientPhone = appointmentPackage.paperwork
@@ -107,6 +106,7 @@ export const performEffect = async (
         reasonForVisit: appointment.description,
         comment: appointment.comment,
         appointmentStatus: appointment.status,
+        provider: providers,
         location: {
           locationId: location?.locationId ? `Location/${location.locationId}` : undefined,
           state: location?.state,

@@ -69,7 +69,7 @@ export class IntakeFlowPageRoute {
   static readonly PatientInformation = new IntakeFlowPageRoute('/about-patient', <PatientInformation />);
   static readonly ConfirmDateOfBirth = new IntakeFlowPageRoute('/confirm-date-of-birth', <ConfirmDateOfBirth />);
   static readonly AuthPage = new IntakeFlowPageRoute('/auth', <AuthPage />);
-  static readonly Welcome = new IntakeFlowPageRoute('/location/:slug/:visit-service/:visit-type', <Welcome />);
+  static readonly Welcome = new IntakeFlowPageRoute('/:schedule-type/:slug/:visit-service/:visit-type', <Welcome />);
   static readonly NewUser = new IntakeFlowPageRoute('/new-user', <NewUser />);
   static readonly PatientCondition = new IntakeFlowPageRoute('/paperwork/patient-condition', <PatientCondition />);
   static readonly PaperworkPage = new IntakeFlowPageRoute('/paperwork/:slug', <PaperworkPage />);

@@ -9,6 +9,7 @@ type TrackingBoardState = {
   alignment: PatientFilterType;
   date: DateTime | null;
   state: string | null;
+  providers: string[] | null;
   unsignedFor: UnsignedFor;
   availableStates: string[];
 };
@@ -24,6 +25,7 @@ const TRACKING_BOARD_INITIAL: TrackingBoardState = {
   alignment: 'my-patients',
   date: DateTime.local(),
   state: null,
+  providers: null,
   unsignedFor: UnsignedFor.under12,
   availableStates: [],
 };

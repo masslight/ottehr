@@ -9,6 +9,7 @@ import {
 } from 'ottehr-utils';
 import { phoneRegex } from '../../shared';
 import { PersonSex } from '../../types';
+import { SCHEDULE_TYPES } from '../../get-schedule/validateRequestParameters';
 
 // Note that this file is copied from BH and needs significant changes
 export function validateCreateAppointmentParams(
@@ -20,16 +21,28 @@ export function validateCreateAppointmentParams(
     throw new Error('No request body provided');
   }
 
-  const { patient, locationState, slot, visitType, visitService, unconfirmedDateOfBirth, timezone } = JSON.parse(
-    input.body,
-  );
+  const {
+    patient,
+    slot,
+    scheduleType,
+    visitType,
+    visitService,
+    locationID,
+    providerID,
+    unconfirmedDateOfBirth,
+    timezone,
+  } = JSON.parse(input.body);
 
   // Check existence of necessary fields
-  if (patient === undefined || visitType === undefined) {
-    throw new Error('These fields are required: "patient", "visitType"');
+  if (patient === undefined || scheduleType === undefined || visitType === undefined) {
+    throw new Error('These fields are required: "patient", "scheduleType", ""visitType"');
   }
 
-  if (!slot && isISODateTime(slot)) {
+  if (!SCHEDULE_TYPES.includes(scheduleType)) {
+    throw new Error(`scheduleType must be either ${SCHEDULE_TYPES}`);
+  }
+
+  if (slot && !isISODateTime(slot)) {
     throw new Error(`"slot" must be in ISO date and time format (YYYY-MM-DDTHH:MM:SS+zz:zz)`);
   }
   const VISIT_TYPES = ['now', 'prebook'];
@@ -46,6 +59,12 @@ export function validateCreateAppointmentParams(
   }
   if (!SERVICE_TYPES.includes(visitService)) {
     throw new Error(`visitService must be one of the following values ${SERVICE_TYPES}`);
+  }
+  if (scheduleType === 'location' && !locationID) {
+    throw new Error('If scheduleType is "location", locationID is required');
+  }
+  if (scheduleType === 'provider' && !providerID) {
+    throw new Error('If scheduleType is "provider", providerID is required');
   }
 
   // Patient details
@@ -99,10 +118,12 @@ export function validateCreateAppointmentParams(
 
   return {
     patient,
-    locationState,
     slot: start,
+    scheduleType,
     visitType,
     visitService,
+    locationID,
+    providerID,
     unconfirmedDateOfBirth,
     timezone,
     secrets: input.secrets,

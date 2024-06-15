@@ -131,8 +131,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const locationId = appointment.participant
       .find((appt) => appt.actor?.reference?.startsWith('Location/'))
       ?.actor?.reference?.replace('Location/', '');
-    if (!appointment.start || !locationId) {
-      throw new Error('Error getting appointment start time or location details');
+    if (!appointment.start) {
+      throw new Error('Error getting appointment start time');
     }
     appointmentPatient = appointment.participant
       .find((appt) => appt.actor?.reference?.startsWith('Patient/'))
@@ -140,8 +140,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     if (!appointmentPatient) {
       throw new Error('appointmentPatient is not defined');
     }
-    console.log(`getting location resource where id is ${locationId}`);
-    location = (await fhirClient.readResource({ resourceType: 'Location', resourceId: locationId })) as Location;
+    if (locationId) {
+      console.log(`getting location resource where id is ${locationId}`);
+      location = (await fhirClient.readResource({ resourceType: 'Location', resourceId: locationId })) as Location;
+    }
 
     const encounter = await getVideoEncounterForAppointment(appointment.id || 'Unknown', fhirClient);
     if (!encounter || !encounter.id) {

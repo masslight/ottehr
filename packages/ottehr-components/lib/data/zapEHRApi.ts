@@ -8,8 +8,8 @@ import {
   CreateAppointmentUCTelemedResponse,
   CreatePaperworkInput,
   CreatePaperworkResponse,
-  GetLocationRequestParams,
-  GetLocationResponse,
+  GetScheduleRequestParams,
+  GetScheduleResponse,
   GetPaperworkRequestParams,
   GetTelemedAppointmentsRequest,
   GetTelemedAppointmentsResponse,
@@ -41,7 +41,7 @@ enum ZambdaNames {
   'get paperwork' = 'get paperwork',
   'create paperwork' = 'create paperwork',
   'update paperwork' = 'update paperwork',
-  'get location' = 'get location',
+  'get schedule' = 'get schedule',
   'get wait status' = 'get wait status',
   'join call' = 'join call',
   'video chat create invite' = 'video chat create invite',
@@ -60,7 +60,7 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'get paperwork': false,
   'create paperwork': false,
   'update paperwork': false,
-  'get location': true,
+  'get schedule': true,
   'get wait status': true,
   'join call': true,
   'video chat create invite': false,
@@ -82,7 +82,7 @@ export const getZapEHRAPI = (
   getPatients: typeof getPatients;
   createPaperwork: typeof createPaperwork;
   updatePaperwork: typeof updatePaperwork;
-  getLocation: typeof getLocation;
+  getSchedule: typeof getSchedule;
   getAppointments: typeof getAppointments;
   getPaperwork: typeof getPaperwork;
   getPaperworkPublic: typeof getPaperworkPublic;
@@ -103,7 +103,7 @@ export const getZapEHRAPI = (
     getPaperworkZambdaID,
     createPaperworkZambdaID,
     updatePaperworkZambdaID,
-    getLocationZambdaID,
+    getScheduleZambdaID,
     getWaitStatusZambdaID,
     joinCallZambdaID,
     videoChatCreateInviteZambdaID,
@@ -122,7 +122,7 @@ export const getZapEHRAPI = (
     'get paperwork': getPaperworkZambdaID,
     'create paperwork': createPaperworkZambdaID,
     'update paperwork': updatePaperworkZambdaID,
-    'get location': getLocationZambdaID,
+    'get schedule': getScheduleZambdaID,
     'get wait status': getWaitStatusZambdaID,
     'join call': joinCallZambdaID,
     'video chat create invite': videoChatCreateInviteZambdaID,
@@ -229,8 +229,8 @@ export const getZapEHRAPI = (
     return await makeZapRequest('update paperwork', payload);
   };
 
-  const getLocation = async (parameters: GetLocationRequestParams): Promise<GetLocationResponse> => {
-    return await makeZapRequest('get location', parameters);
+  const getSchedule = async (parameters: GetScheduleRequestParams): Promise<GetScheduleResponse> => {
+    return await makeZapRequest('get schedule', parameters);
   };
 
   const getAppointments = async (
@@ -327,7 +327,7 @@ export const getZapEHRAPI = (
     getPatients,
     getAppointments,
     createZ3Object,
-    getLocation,
+    getSchedule,
     getWaitStatus,
     joinCall,
     videoChatCreateInvite,
