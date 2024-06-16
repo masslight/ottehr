@@ -19,6 +19,7 @@ export enum ApptTab {
 interface AppointmentsTabProps {
   location: Location | undefined;
   providers: string[] | undefined;
+  groups: string[] | undefined;
   preBookedAppointments: UCAppointmentInformation[];
   completedAppointments: UCAppointmentInformation[];
   cancelledAppointments: UCAppointmentInformation[];
@@ -31,6 +32,7 @@ interface AppointmentsTabProps {
 export default function AppointmentTabs({
   location,
   providers,
+  groups,
   preBookedAppointments,
   completedAppointments,
   cancelledAppointments,
@@ -58,7 +60,7 @@ export default function AppointmentTabs({
     return () => clearInterval(timeInterval);
   }, []);
 
-  const selectLocationMsg = !location && providers?.length === 0 && (
+  const selectLocationMsg = !location && providers?.length === 0 && groups?.length === 0 && (
     <Grid container sx={{ width: '40%' }} padding={4}>
       <Grid item xs={2}>
         <FmdBadOutlinedIcon
@@ -81,8 +83,8 @@ export default function AppointmentTabs({
           justifyContent: 'center',
         }}
       >
-        <Typography sx={{ fontWeight: 'bold' }}>Please select an office or a provider</Typography>
-        <Typography>Please select an office or a provider to get reservations</Typography>
+        <Typography sx={{ fontWeight: 'bold' }}>Please select an office, provider, or group</Typography>
+        <Typography>Please select an office, provider, or group to get appointments</Typography>
       </Grid>
     </Grid>
   );

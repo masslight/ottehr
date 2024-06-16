@@ -142,6 +142,9 @@ export function TrackingBoardTableRow({
       <TableCell sx={{ verticalAlign: 'top' }}>
         <Typography>{appointment.provider?.join(', ')}</Typography>
       </TableCell>
+      <TableCell sx={{ verticalAlign: 'top' }}>
+        <Typography>{appointment.group?.join(', ')}</Typography>
+      </TableCell>
       {showEstimated && (
         <TableCell sx={{ verticalAlign: 'top', cursor: 'pointer' }} onClick={goToAppointment}>
           <Typography>

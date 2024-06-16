@@ -29,6 +29,7 @@ export function validateCreateAppointmentParams(
     visitService,
     locationID,
     providerID,
+    groupID,
     unconfirmedDateOfBirth,
     timezone,
   } = JSON.parse(input.body);
@@ -65,6 +66,9 @@ export function validateCreateAppointmentParams(
   }
   if (scheduleType === 'provider' && !providerID) {
     throw new Error('If scheduleType is "provider", providerID is required');
+  }
+  if (scheduleType === 'group' && !groupID) {
+    throw new Error('If scheduleType is "group", groupID is required');
   }
 
   // Patient details
@@ -124,6 +128,7 @@ export function validateCreateAppointmentParams(
     visitService,
     locationID,
     providerID,
+    groupID,
     unconfirmedDateOfBirth,
     timezone,
     secrets: input.secrets,

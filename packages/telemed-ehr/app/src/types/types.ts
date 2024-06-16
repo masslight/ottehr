@@ -8,6 +8,7 @@ export interface GetAppointmentsParameters {
   locationId: string | undefined;
   visitType?: string[];
   providerIDs?: string[];
+  groupIDs?: string[];
 }
 
 export interface CreateAppointmentParameters {

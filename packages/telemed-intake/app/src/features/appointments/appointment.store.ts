@@ -7,9 +7,10 @@ interface AppointmentState {
   visitType?: 'prebook' | 'now';
   visitService?: 'in-person' | 'telemedicine';
   selectedSlot?: string;
-  scheduleType?: 'location' | 'provider';
   locationID?: string;
   providerID?: string;
+  groupID?: string;
+  scheduleType?: 'location' | 'provider';
 }
 
 const APOINTMENT_STATE_INITIAL: AppointmentState = {};

@@ -24,6 +24,7 @@ export const useCreateAppointmentMutation = () =>
         timezone: DateTime.now().zoneName,
         locationID: appointment.locationID,
         providerID: appointment.providerID,
+        groupID: appointment.groupID,
         slot: appointment.visitType === 'prebook' ? appointment.selectedSlot : undefined,
         scheduleType: appointment.scheduleType,
         visitType: appointment.visitType,

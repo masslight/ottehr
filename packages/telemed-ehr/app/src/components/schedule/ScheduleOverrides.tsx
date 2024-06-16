@@ -20,7 +20,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { DateTime } from 'luxon';
 import DateSearch from '../DateSearch';
-import { Location, Practitioner } from 'fhir/r4';
+import { HealthcareService, Location, Practitioner } from 'fhir/r4';
 import OfficeClosures from './OfficeClosures';
 import ScheduleOverridesDialog from './ScheduleOverridesDialog';
 import { ScheduleCapacity } from './ScheduleCapacity';
@@ -28,11 +28,11 @@ import { OVERRIDE_DATE_FORMAT, datesCompareFn } from '../../helpers/formatDateTi
 import { Closure, ScheduleExtension, DOW, Day, Overrides, ClosureType } from '../../types/types';
 
 interface ScheduleOverridesProps {
-  item: Location | Practitioner;
+  item: Location | Practitioner | HealthcareService;
   dayOfWeek: string;
   overrides: Overrides | undefined;
   closures: Closure[] | undefined;
-  setItem: React.Dispatch<React.SetStateAction<Location | Practitioner | undefined>>;
+  setItem: React.Dispatch<React.SetStateAction<Location | Practitioner | HealthcareService | undefined>>;
   setOverrides: React.Dispatch<React.SetStateAction<Overrides | undefined>>;
   setClosures: (closures: Closure[] | undefined) => void;
   updateItem: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;

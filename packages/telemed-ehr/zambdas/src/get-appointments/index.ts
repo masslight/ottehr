@@ -4,6 +4,7 @@ import {
   Communication,
   DocumentReference,
   Encounter,
+  HealthcareService,
   Location,
   Patient,
   Practitioner,
@@ -38,6 +39,7 @@ export interface GetAppointmentsInput {
   searchDate: string;
   locationID?: string;
   providerIDs?: string[];
+  groupIDs?: string[];
   visitType: string[];
   secrets: Secrets | null;
 }
@@ -52,7 +54,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { visitType, searchDate, secrets, locationID, providerIDs } = validatedParameters;
+    const { visitType, searchDate, locationID, providerIDs, groupIDs, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
@@ -187,12 +189,19 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         value: `Location/${locationID}`,
       });
     }
-    if (providerIDs) {
+    if (providerIDs && providerIDs?.length > 0) {
       appointmentSearchParams.push({
         name: 'actor',
         value: providerIDs.map((providerID) => `Practitioner/${providerID}`).join(','),
       });
     }
+    if (groupIDs && groupIDs?.length > 0) {
+      appointmentSearchParams.push({
+        name: 'actor',
+        value: groupIDs.map((groupID) => `HealthcareService/${groupID}`).join(','),
+      });
+    }
+    console.log(1, appointmentSearchParams);
     const appointmentSearch = fhirClient?.searchResources({
       resourceType: 'Appointment',
       searchParams: appointmentSearchParams,
@@ -287,6 +296,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const phoneNumberToRpMap: Record<string, string[]> = {};
     const rpIdToResourceMap: Record<string, RelatedPerson> = {};
     const practitionerIdToResourceMap: Record<string, Practitioner> = {};
+    const healthcareServiceIdToResourceMap: Record<string, HealthcareService> = {};
 
     searchResultsForSelectedDate.forEach((resource) => {
       if (resource.resourceType === 'Appointment') {
@@ -329,6 +339,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         }
       } else if (resource.resourceType === 'Practitioner' && resource.id) {
         practitionerIdToResourceMap[`Practitioner/${resource.id}`] = resource as Practitioner;
+      } else if (resource.resourceType === 'HealthcareService' && resource.id) {
+        healthcareServiceIdToResourceMap[`HealthcareService/${resource.id}`] = resource as HealthcareService;
       }
     });
     console.timeEnd('parse_search_results');
@@ -427,6 +439,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         patientIdMap,
         rpToCommMap,
         practitionerIdToResourceMap,
+        healthcareServiceIdToResourceMap,
         next: false,
       };
 
@@ -531,6 +544,7 @@ interface AppointmentInformationInputs {
   patientToRPMap: Record<string, RelatedPerson[]>;
   rpToCommMap: Record<string, Communication[]>;
   practitionerIdToResourceMap: Record<string, Practitioner>;
+  healthcareServiceIdToResourceMap: Record<string, HealthcareService>;
   allDocRefs: DocumentReference[];
   timezone: string | undefined;
   next: boolean;
@@ -546,6 +560,7 @@ const makeAppointmentInformation = (input: AppointmentInformationInputs): UCAppo
     allDocRefs,
     rpToCommMap,
     practitionerIdToResourceMap,
+    healthcareServiceIdToResourceMap,
     next,
     patientToRPMap,
   } = input;
@@ -645,6 +660,21 @@ const makeAppointmentInformation = (input: AppointmentInformationInputs): UCAppo
       return formatHumanName(practitioner.name[0]);
     })
     .join(', ');
+  const group = appointment.participant
+    .filter((participant) => participant.actor?.reference?.startsWith('HealthcareService/'))
+    .map(function (groupTemp) {
+      if (!groupTemp.actor?.reference) {
+        return;
+      }
+      const group = healthcareServiceIdToResourceMap[groupTemp.actor.reference];
+      console.log(1, healthcareServiceIdToResourceMap);
+
+      if (!group.name) {
+        return;
+      }
+      return group.name;
+    })
+    .join(', ');
 
   return {
     id: appointment.id!,
@@ -664,6 +694,7 @@ const makeAppointmentInformation = (input: AppointmentInformationInputs): UCAppo
     status: status,
     cancellationReason: cancellationReason,
     provider: provider,
+    group: group,
     paperwork: {
       demographics: questionnaireResponse ? true : false,
       photoID: idCard,

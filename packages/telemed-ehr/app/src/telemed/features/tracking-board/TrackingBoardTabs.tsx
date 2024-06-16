@@ -9,10 +9,11 @@ import { useZapEHRAPIClient } from '../../hooks/useZapEHRAPIClient';
 import Loading from '../../../components/Loading';
 
 export function TrackingBoardTabs(): ReactElement {
-  const { alignment, state, date, providers, setAppointments } = getSelectors(useTrackingBoardStore, [
+  const { alignment, state, date, providers, groups, setAppointments } = getSelectors(useTrackingBoardStore, [
     'alignment',
     'state',
     'providers',
+    'groups',
     'date',
     'setAppointments',
   ]);
@@ -24,12 +25,14 @@ export function TrackingBoardTabs(): ReactElement {
   };
 
   const apiClient = useZapEHRAPIClient();
+  console.log(1, providers, groups, 4);
 
   const { isFetching, isFetchedAfterMount } = useGetTelemedAppointments(
     {
       apiClient,
       stateFilter: state || undefined,
       providersFilter: providers || undefined,
+      groupsFilter: groups || undefined,
       patientFilter: alignment,
       statusesFilter: ApptTabToStatus[value],
       dateFilter: (typeof date === 'object' ? date?.toISODate() : date) as string,

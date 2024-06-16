@@ -688,6 +688,11 @@ export default function AppointmentTableRow({
         </Link>
       </TableCell>
       <TableCell sx={{ verticalAlign: 'top' }}>
+        <Link to={`/visit/${appointment.id}`} style={linkStyle}>
+          <Typography sx={{ fontSize: 14, display: 'inline' }}>{appointment.group}</Typography>
+        </Link>
+      </TableCell>
+      <TableCell sx={{ verticalAlign: 'top' }}>
         <Input
           placeholder={'Add internal note...'}
           value={apptComment}

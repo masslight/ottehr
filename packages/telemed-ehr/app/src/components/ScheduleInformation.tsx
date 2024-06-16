@@ -11,6 +11,7 @@ import {
   TableRow,
   TextField,
   Typography,
+  capitalize,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import { formatAddress, formatHumanName } from '@zapehr/sdk';
@@ -18,13 +19,13 @@ import { otherColors } from '../CustomThemeProvider';
 import { Link } from 'react-router-dom';
 
 import Loading from './Loading';
-import { Location, Practitioner, Resource } from 'fhir/r4';
+import { HealthcareService, Location, Practitioner, Resource } from 'fhir/r4';
 import { DateTime } from 'luxon';
 import { OVERRIDE_DATE_FORMAT } from '../helpers/formatDateTime';
 import { Closure, ClosureType, ScheduleExtension } from '../types/types';
 import { useApiClients } from '../hooks/useAppClients';
 
-export type ScheduleType = 'office' | 'provider';
+export type ScheduleType = 'office' | 'provider' | 'group';
 
 interface ScheduleInformationProps {
   scheduleType: ScheduleType;
@@ -40,6 +41,8 @@ export function getName(item: Resource): string {
     if (nameTemp) {
       name = formatHumanName(nameTemp[0]);
     }
+  } else if (item.resourceType === 'HealthcareService') {
+    name = (item as HealthcareService)?.name;
   } else {
     console.log('getName called with unavailable resource', item);
     throw Error('getName called with unavailable resource');
@@ -60,7 +63,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
   const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
-    async function getItems(schedule: 'Location' | 'Practitioner'): Promise<void> {
+    async function getItems(schedule: 'Location' | 'Practitioner' | 'HealthcareService'): Promise<void> {
       if (!fhirClient) {
         return;
       }
@@ -76,6 +79,8 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
       void getItems('Location');
     } else if (scheduleType === 'provider') {
       void getItems('Practitioner');
+    } else if (scheduleType === 'group') {
+      void getItems('HealthcareService');
     }
   }, [fhirClient, scheduleType]);
 
@@ -234,16 +239,10 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
         <Table sx={{ minWidth: 650 }} aria-label={`${scheduleType}sTable`}>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ fontWeight: 'bold' }}>Office name</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }} align="left">
-                Address
-              </TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }} align="left">
-                Today&apos;s hours
-              </TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }} align="left">
-                Upcoming schedule changes
-              </TableCell>
+              <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>{capitalize(scheduleType)} name</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>Address</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>Today&apos;s hours</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>Upcoming schedule changes</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -270,10 +269,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
                   </Typography>
                 </TableCell>
                 <TableCell align="left">
-                  <Typography
-                    variant="body2"
-                    style={{ color: getItemOverrideInformation(item) ? 'inherit' : otherColors.none }}
-                  >
+                  <Typography style={{ color: getItemOverrideInformation(item) ? 'inherit' : otherColors.none }}>
                     {getItemOverrideInformation(item) ? getItemOverrideInformation(item) : 'None Scheduled'}
                   </Typography>
                 </TableCell>

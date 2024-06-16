@@ -53,8 +53,14 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
         }
         accumulator[appointment.provider.join(',')].push(appointment);
         return accumulator;
+      } else if (appointment.group) {
+        if (!accumulator[appointment.group.join(',')]) {
+          accumulator[appointment.group.join(',')] = [];
+        }
+        accumulator[appointment.group.join(',')].push(appointment);
+        return accumulator;
       } else {
-        throw Error('missing location and provider');
+        throw Error('missing location and provider and group');
       }
     }, {});
   }, [filteredAppointments, state]);
@@ -96,6 +102,11 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
               <TableCell>
                 <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                   Provider
+                </Typography>
+              </TableCell>
+              <TableCell>
+                <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
+                  Group
                 </Typography>
               </TableCell>
               {showEstimated && (
@@ -164,7 +175,7 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
                   <TableRow>
                     <TableCell
                       sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }}
-                      colSpan={9 + +showEstimated + +showProvider}
+                      colSpan={10 + +showEstimated + +showProvider}
                     >
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>

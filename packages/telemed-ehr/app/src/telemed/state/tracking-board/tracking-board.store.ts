@@ -10,6 +10,7 @@ type TrackingBoardState = {
   date: DateTime | null;
   state: string | null;
   providers: string[] | null;
+  groups: string[] | null;
   unsignedFor: UnsignedFor;
   availableStates: string[];
 };
@@ -26,6 +27,7 @@ const TRACKING_BOARD_INITIAL: TrackingBoardState = {
   date: DateTime.local(),
   state: null,
   providers: null,
+  groups: null,
   unsignedFor: UnsignedFor.under12,
   availableStates: [],
 };

@@ -5,6 +5,7 @@ export interface GetScheduleResponse {
   slug: string;
   locationID?: string;
   providerID?: string;
+  groupID?: string;
   availableSlots: string[];
   available: boolean;
 }

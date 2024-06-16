@@ -87,6 +87,11 @@ export default function AppointmentTable({
                 </TableCell>
                 <TableCell style={{ width: '14%' }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
+                    Group
+                  </Typography>
+                </TableCell>
+                <TableCell style={{ width: '14%' }}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                     Notes
                   </Typography>
                 </TableCell>

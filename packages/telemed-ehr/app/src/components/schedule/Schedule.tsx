@@ -17,7 +17,7 @@ import Alert, { AlertColor } from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import React, { ReactElement } from 'react';
 import { ScheduleCapacity } from './ScheduleCapacity';
-import { Location, LocationHoursOfOperation, Practitioner } from 'fhir/r4';
+import { HealthcareService, Location, LocationHoursOfOperation, Practitioner } from 'fhir/r4';
 import { ScheduleOverrides } from './ScheduleOverrides';
 import { otherColors } from '../../CustomThemeProvider';
 import { DateTime } from 'luxon';
@@ -290,9 +290,9 @@ function InfoForDay({ day, setDay, updateItem, loading }: InfoForDayProps): Reac
 }
 
 interface ScheduleProps {
-  item: Location | Practitioner;
+  item: Location | Practitioner | HealthcareService;
   id: string;
-  setItem: React.Dispatch<React.SetStateAction<Location | Practitioner | undefined>>;
+  setItem: React.Dispatch<React.SetStateAction<Location | Practitioner | HealthcareService | undefined>>;
 }
 
 export default function Schedule({ item, setItem }: ScheduleProps): ReactElement {
