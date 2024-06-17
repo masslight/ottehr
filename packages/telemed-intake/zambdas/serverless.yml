@@ -30,11 +30,11 @@ custom:
     keepNames: true
 
 functions:
-  get-location:
-    handler: src/get-location/index.index
+  get-schedule:
+    handler: src/get-schedule/index.index
     events:
       - http:
-          path: zambda/get-location/execute-public
+          path: zambda/get-schedule/execute-public
           method: POST
     timeout: 25
     environment:

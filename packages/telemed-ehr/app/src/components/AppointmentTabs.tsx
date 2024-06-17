@@ -1,7 +1,7 @@
 import FmdBadOutlinedIcon from '@mui/icons-material/FmdBadOutlined';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Grid, Tab, Typography } from '@mui/material';
-import { Location } from 'fhir/r4';
+import { Location, Practitioner } from 'fhir/r4';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useState } from 'react';
 import { UCAppointmentInformation } from 'ehr-utils';
@@ -18,6 +18,7 @@ export enum ApptTab {
 
 interface AppointmentsTabProps {
   location: Location | undefined;
+  providers: string[] | undefined;
   preBookedAppointments: UCAppointmentInformation[];
   completedAppointments: UCAppointmentInformation[];
   cancelledAppointments: UCAppointmentInformation[];
@@ -29,6 +30,7 @@ interface AppointmentsTabProps {
 
 export default function AppointmentTabs({
   location,
+  providers,
   preBookedAppointments,
   completedAppointments,
   cancelledAppointments,
@@ -56,7 +58,7 @@ export default function AppointmentTabs({
     return () => clearInterval(timeInterval);
   }, []);
 
-  const selectLocationMsg = !location && (
+  const selectLocationMsg = !location && providers?.length === 0 && (
     <Grid container sx={{ width: '40%' }} padding={4}>
       <Grid item xs={2}>
         <FmdBadOutlinedIcon
@@ -79,8 +81,8 @@ export default function AppointmentTabs({
           justifyContent: 'center',
         }}
       >
-        <Typography sx={{ fontWeight: 'bold' }}>Select office</Typography>
-        <Typography>Please select an office to get reservations</Typography>
+        <Typography sx={{ fontWeight: 'bold' }}>Please select an office or a provider</Typography>
+        <Typography>Please select an office or a provider to get reservations</Typography>
       </Grid>
     </Grid>
   );

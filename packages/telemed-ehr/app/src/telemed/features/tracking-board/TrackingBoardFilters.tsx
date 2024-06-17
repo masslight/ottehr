@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 import { FormControl, Grid, InputLabel, MenuItem, Select } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ApptTab, UnsignedFor } from '../../utils';
@@ -6,6 +6,10 @@ import { useTrackingBoardStore } from '../../state';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { StateSelect } from './StateSelect';
 import DateSearch from '../../../components/DateSearch';
+import { useApiClients } from '../../../hooks/useAppClients';
+import { Practitioner } from 'fhir/r4';
+import { FhirClient } from '@zapehr/sdk';
+import ProvidersSelect from '../../../components/inputs/ProvidersSelect';
 
 const selectOptions = [
   {
@@ -28,16 +32,56 @@ const selectOptions = [
 
 export const TrackingBoardFilters: FC<{ tab: ApptTab }> = (props) => {
   const { tab } = props;
+  const { fhirClient } = useApiClients();
+  const [practitioners, setPractitioners] = useState<Practitioner[] | undefined>(undefined);
+  const [providers, setProviders] = useState<string[] | undefined>(undefined);
+
+  useEffect(() => {
+    async function getPractitioners(fhirClient: FhirClient): Promise<void> {
+      if (!fhirClient) {
+        return;
+      }
+
+      try {
+        const practitionersTemp: Practitioner[] = await fhirClient.searchResources({
+          resourceType: 'Practitioner',
+          searchParams: [
+            { name: '_count', value: '1000' },
+            // { name: 'name:missing', value: 'false' },
+          ],
+        });
+        setPractitioners(practitionersTemp);
+      } catch (e) {
+        console.error('error loading practitioners', e);
+      }
+    }
+
+    if (fhirClient) {
+      void getPractitioners(fhirClient);
+    }
+  }, [fhirClient]);
 
   const { date, unsignedFor } = getSelectors(useTrackingBoardStore, ['date', 'unsignedFor']);
 
   const useDate = tab === ApptTab.complete;
   const useUnsigned = tab === ApptTab['not-signed'];
+  const handleProviderChange = (_e: any, value: string[]): void => {
+    console.log(10, value);
+    setProviders(value);
+    useTrackingBoardStore.setState({ providers: value });
+  };
 
   return (
     <Grid container spacing={2} sx={{ padding: 2, paddingTop: 0 }}>
       <Grid item xs={6}>
         <StateSelect />
+      </Grid>
+      <Grid item xs={6}>
+        <ProvidersSelect
+          providers={providers ? providers : []}
+          practitioners={practitioners}
+          handleSubmit={handleProviderChange}
+        ></ProvidersSelect>
       </Grid>
       {useDate && (
         <Grid item xs={6}>

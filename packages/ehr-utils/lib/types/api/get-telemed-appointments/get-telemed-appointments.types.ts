@@ -7,6 +7,7 @@ export type PatientFilterType = 'my-patients' | 'all-patients';
 export interface GetTelemedAppointmentsInput {
   dateFilter: string;
   stateFilter?: string;
+  providersFilter?: string[];
   patientFilter: PatientFilterType;
   statusesFilter: TelemedCallStatuses[];
   secrets: Secrets | null;
@@ -35,6 +36,7 @@ export interface TelemedAppointmentInformation extends AppointmentMessaging {
   comment: string | undefined;
   appointmentStatus: string;
   location: AppointmentLocation;
+  provider?: string[];
   estimated?: number;
   paperwork?: QuestionnaireResponse;
   encounter: Encounter;

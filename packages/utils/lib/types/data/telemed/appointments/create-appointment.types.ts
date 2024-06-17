@@ -3,12 +3,14 @@ import { UserType, PatientBaseInfo } from '../../../common';
 
 export interface CreateAppointmentUCTelemedParams {
   patient?: PatientInfo;
-  locationState?: string;
   slot?: string;
-  visitType?: string;
-  visitService?: string;
-  timezone: string;
+  scheduleType?: "location" | "provider";
+  visitType?: "prebook" | "now";
+  visitService?: "in-person" | "telemedicine";
+  locationID?: string;
+  providerID?: string;
   unconfirmedDateOfBirth?: string | undefined;
+  timezone: string;
 }
 
 export interface CreateAppointmentUCTelemedResponse {

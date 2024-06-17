@@ -139,6 +139,9 @@ export function TrackingBoardTableRow({
       <TableCell sx={{ verticalAlign: 'top' }}>
         <StatusHistory history={appointment.telemedStatusHistory} currentStatus={appointment.telemedStatus} />
       </TableCell>
+      <TableCell sx={{ verticalAlign: 'top' }}>
+        <Typography>{appointment.provider?.join(', ')}</Typography>
+      </TableCell>
       {showEstimated && (
         <TableCell sx={{ verticalAlign: 'top', cursor: 'pointer' }} onClick={goToAppointment}>
           <Typography>

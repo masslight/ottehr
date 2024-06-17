@@ -1,7 +1,7 @@
 import { LoadingButton } from '@mui/lab';
-import { Box, Chip, Grid, Paper, Skeleton, Typography } from '@mui/material';
+import { Box, Button, Chip, Grid, Paper, Skeleton, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { allLicensesForPractitioner, PractitionerLicense, User } from 'ehr-utils';
 import { deactivateUser, getUserDetails, updateUser } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
@@ -9,6 +9,7 @@ import EmployeeInformationForm from '../components/EmployeeInformationForm';
 import { checkUserIsActive } from '../helpers/checkUserIsActive';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
+import Loading from '../components/Loading';
 
 export default function EditEmployeePage(): JSX.Element {
   const { appClient, zambdaClient } = useApiClients();
@@ -142,6 +143,21 @@ export default function EditEmployeePage(): JSX.Element {
                 isActive={isActive}
                 licenses={userLicenses}
               />
+
+              {isActive === undefined ? (
+                <Skeleton height={300} sx={{ marginTop: -8 }} />
+              ) : (
+                <Paper sx={{ padding: 3, marginTop: 3 }}>
+                  <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
+                    Provider schedule
+                  </Typography>
+                  <Link to={`/schedule/provider/${user?.profileResource?.id}`}>
+                    <Button variant="contained" sx={{ marginTop: 1 }}>
+                      Edit schedule
+                    </Button>
+                  </Link>
+                </Paper>
+              )}
 
               {/* Activate or Deactivate Profile */}
               {isActive === undefined ? (

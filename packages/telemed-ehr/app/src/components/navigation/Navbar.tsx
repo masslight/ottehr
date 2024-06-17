@@ -35,14 +35,14 @@ type NavbarItems = {
 
 const administratorNavbarItems: NavbarItems = {
   'In Person': { urls: ['/visits', '/visit'] },
-  Offices: { urls: ['/offices', '/office'] },
+  Schedules: { urls: ['/schedules', '/schedule'] },
   Patients: { urls: ['/patients', '/patient'] },
   Employees: { urls: ['/employees', '/employee'] },
 };
 
 const managerNavbarItems: NavbarItems = {
   'In Person': { urls: ['/visits', '/visit'] },
-  Offices: { urls: ['/offices', '/office'] },
+  Schedules: { urls: ['/schedules', '/schedule'] },
   Patients: { urls: ['/patients', '/patient'] },
   Employees: { urls: ['/employees', '/employee'] },
 };

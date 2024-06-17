@@ -1,4 +1,12 @@
-import { Appointment, Communication, Encounter, QuestionnaireResponse, RelatedPerson, Resource } from 'fhir/r4';
+import {
+  Appointment,
+  Communication,
+  Encounter,
+  Practitioner,
+  QuestionnaireResponse,
+  RelatedPerson,
+  Resource,
+} from 'fhir/r4';
 import { getSMSNumberForIndividual, TelemedCallStatuses } from 'ehr-utils';
 import { removePrefix, telemedStatusToEncounter } from '../../shared/appointment/helpers';
 import { getVideoRoomResourceExtension } from '../../shared/helpers';
@@ -46,6 +54,18 @@ export const mapQuestionnaireToEncountersIds = (allResources: Resource[]): { [ke
     }
   });
   return questionnaireAppointmentsMap;
+};
+
+export const mapIDToPractitioner = (allResources: Resource[]): { [key: string]: Practitioner } => {
+  const practitionerIDs: { [key: string]: Practitioner } = {};
+
+  allResources.forEach((resource) => {
+    if (resource.resourceType === 'Practitioner' && resource.id) {
+      const practitioner = resource as Practitioner;
+      practitionerIDs[`Practitioner/${resource.id}`] = practitioner;
+    }
+  });
+  return practitionerIDs;
 };
 
 // export const mapAppointmentInformationToConversationModel = (

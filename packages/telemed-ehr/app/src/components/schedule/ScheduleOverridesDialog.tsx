@@ -11,23 +11,23 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { Location } from 'fhir/r4';
+import { Location, Practitioner } from 'fhir/r4';
 import React, { Dispatch, MouseEventHandler, ReactElement, SetStateAction, useState } from 'react';
 import { otherColors } from '../../CustomThemeProvider';
 
 interface ScheduleOverridesDialogProps {
-  location: Location;
-  setLocation: React.Dispatch<React.SetStateAction<Location>>;
+  item: Location | Practitioner;
+  setItem: React.Dispatch<React.SetStateAction<Location | Practitioner | undefined>>;
   handleClose: MouseEventHandler<HTMLButtonElement>;
   open: boolean;
   setIsScheduleOverridesDialogOpen: Dispatch<SetStateAction<boolean>>;
-  updateLocation: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
+  updateItem: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
 }
 
 export default function ScheduleOverridesDialog({
   handleClose,
   open,
-  updateLocation,
+  updateItem,
   setIsScheduleOverridesDialogOpen,
 }: ScheduleOverridesDialogProps): ReactElement {
   const buttonSx = {
@@ -82,7 +82,7 @@ export default function ScheduleOverridesDialog({
         <form
           onSubmit={async (event) => {
             setLoading(true);
-            await updateLocation(event);
+            await updateItem(event);
             setIsScheduleOverridesDialogOpen(false);
             setLoading(false);
           }}

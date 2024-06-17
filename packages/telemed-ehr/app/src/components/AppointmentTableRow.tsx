@@ -49,7 +49,7 @@ import { VisitStatus, StatusLabel } from '../helpers/mappingUtils';
 
 interface AppointmentTableProps {
   appointment: UCAppointmentInformation;
-  location: Location;
+  location?: Location;
   actionButtons: boolean;
   showTime: boolean;
   now: DateTime;
@@ -630,29 +630,28 @@ export default function AppointmentTableRow({
           >
             <Box sx={{ display: 'flex', gap: 1 }}>
               <AccountCircleOutlinedIcon
-                sx={{ ml: 0, mr: 0.75, color: appointment.paperwork.demographics ? '#43A047' : '#BFC2C6' }}
+                sx={{ ml: 0, color: appointment.paperwork.demographics ? '#43A047' : '#BFC2C6' }}
                 fill={otherColors.cardChip}
               ></AccountCircleOutlinedIcon>
 
               <HealthAndSafetyOutlinedIcon
-                sx={{ mx: 0.75, color: appointment.paperwork.insuranceCard ? '#43A047' : '#BFC2C6' }}
+                sx={{ color: appointment.paperwork.insuranceCard ? '#43A047' : '#BFC2C6' }}
                 fill={otherColors.cardChip}
               ></HealthAndSafetyOutlinedIcon>
 
               <BadgeOutlinedIcon
-                sx={{ mx: 0.75, color: appointment.paperwork.photoID ? '#43A047' : '#BFC2C6' }}
+                sx={{ color: appointment.paperwork.photoID ? '#43A047' : '#BFC2C6' }}
                 fill={otherColors.cardChip}
               ></BadgeOutlinedIcon>
 
               <AssignmentTurnedInOutlinedIcon
-                sx={{ mx: 0.75, color: appointment.paperwork.consent ? '#43A047' : '#BFC2C6' }}
+                sx={{ color: appointment.paperwork.consent ? '#43A047' : '#BFC2C6' }}
                 fill={otherColors.cardChip}
               ></AssignmentTurnedInOutlinedIcon>
 
               <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                 <RememberMeOutlinedIcon
                   sx={{
-                    mx: 0.75,
                     color:
                       ageIsGoodForOVRP && isOvrpReason && appointment.paperwork.ovrpInterest ? '#43A047' : '#BFC2C6',
                   }}
@@ -663,7 +662,6 @@ export default function AppointmentTableRow({
                     variant="subtitle2"
                     sx={{
                       fontSize: '16px',
-                      marginRight: 0.5,
                       color: appointment.paperwork.ovrpInterest ? '#43A047' : '#BFC2C6',
                     }}
                   >
@@ -682,6 +680,11 @@ export default function AppointmentTableRow({
               </Box>
             </Box>
           </GenericToolTip>
+        </Link>
+      </TableCell>
+      <TableCell sx={{ verticalAlign: 'top' }}>
+        <Link to={`/visit/${appointment.id}`} style={linkStyle}>
+          <Typography sx={{ fontSize: 14, display: 'inline' }}>{appointment.provider}</Typography>
         </Link>
       </TableCell>
       <TableCell sx={{ verticalAlign: 'top' }}>

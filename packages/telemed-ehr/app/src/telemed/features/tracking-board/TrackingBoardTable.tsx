@@ -41,14 +41,21 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
       return {};
     }
     return filteredAppointments.reduce<Record<string, TelemedAppointmentInformation[]>>((accumulator, appointment) => {
-      if (!appointment.location.state) {
-        throw new Error('No location state provided');
+      if (appointment.location.locationId) {
+        if (!accumulator[appointment.location.locationId]) {
+          accumulator[appointment.location.locationId] = [];
+        }
+        accumulator[appointment.location.locationId].push(appointment);
+        return accumulator;
+      } else if (appointment.provider) {
+        if (!accumulator[appointment.provider.join(',')]) {
+          accumulator[appointment.provider.join(',')] = [];
+        }
+        accumulator[appointment.provider.join(',')].push(appointment);
+        return accumulator;
+      } else {
+        throw Error('missing location and provider');
       }
-      if (!accumulator[appointment.location.state]) {
-        accumulator[appointment.location.state] = [];
-      }
-      accumulator[appointment.location.state].push(appointment);
-      return accumulator;
     }, {});
   }, [filteredAppointments, state]);
 
@@ -84,6 +91,11 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
               <TableCell>
                 <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                   Waiting time
+                </Typography>
+              </TableCell>
+              <TableCell>
+                <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
+                  Provider
                 </Typography>
               </TableCell>
               {showEstimated && (
@@ -152,7 +164,7 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
                   <TableRow>
                     <TableCell
                       sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }}
-                      colSpan={8 + +showEstimated + +showProvider}
+                      colSpan={9 + +showEstimated + +showProvider}
                     >
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>

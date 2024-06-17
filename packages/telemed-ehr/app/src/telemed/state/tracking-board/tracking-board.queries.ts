@@ -10,6 +10,7 @@ export const useGetTelemedAppointments = (
     apiClient,
     stateFilter,
     dateFilter = '2023-02-13T13:00:00.000-05:00',
+    providersFilter,
     patientFilter,
     statusesFilter,
   }: {
@@ -19,11 +20,12 @@ export const useGetTelemedAppointments = (
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   return useQuery(
-    ['telemed-appointments', { apiClient, stateFilter, dateFilter, patientFilter, statusesFilter }],
+    ['telemed-appointments', { apiClient, stateFilter, providersFilter, dateFilter, patientFilter, statusesFilter }],
     () => {
       if (apiClient) {
         return apiClient.getTelemedAppointments({
           stateFilter,
+          providersFilter,
           dateFilter,
           patientFilter,
           statusesFilter,

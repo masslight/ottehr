@@ -7,6 +7,7 @@ export interface GetAppointmentsParameters {
   searchDate?: DateTime | undefined;
   locationId: string | undefined;
   visitType?: string[];
+  providerIDs?: string[];
 }
 
 export interface CreateAppointmentParameters {

@@ -1,10 +1,16 @@
-import { Appointment, Patient, Resource, Encounter, QuestionnaireResponse } from 'fhir/r4';
+import { Appointment, Patient, Resource, Encounter, QuestionnaireResponse, Practitioner } from 'fhir/r4';
 import { AppointmentLocation, TelemedCallStatuses } from 'ehr-utils';
-import { mapEncountersToAppointmentsIds, mapEncounterStatusHistory, mapQuestionnaireToEncountersIds } from './mappers';
+import {
+  mapEncountersToAppointmentsIds,
+  mapEncounterStatusHistory,
+  mapQuestionnaireToEncountersIds,
+  mapIDToPractitioner,
+} from './mappers';
 import { mapStatusToTelemed } from '../../shared/appointment/helpers';
 import { AppointmentPackage, LocationIdToAbbreviationMap } from './types';
 import { getVideoRoomResourceExtension } from '../../shared/helpers';
 import { getLocationIdFromAppointment } from './helpers';
+import { formatHumanName } from '@zapehr/sdk';
 
 export const filterLocationForAppointment = (
   appointment: Appointment,
@@ -37,6 +43,7 @@ export const filterAppointmentsFromResources = (
   const appointmentEncounterMap: { [key: string]: Encounter } = mapEncountersToAppointmentsIds(allResources);
   const encounterQuestionnaireMap: { [key: string]: QuestionnaireResponse } =
     mapQuestionnaireToEncountersIds(allResources);
+  const practitionerIDs: { [key: string]: Practitioner } = mapIDToPractitioner(allResources);
 
   allResources.forEach((resource: Resource) => {
     const appointment = resource as Appointment;
@@ -50,6 +57,21 @@ export const filterAppointmentsFromResources = (
     }
 
     const encounter = appointmentEncounterMap[appointment.id!];
+    const providers = appointment.participant
+      .filter((participant) => participant.actor?.reference?.startsWith('Practitioner/'))
+      .map(function (practitionerTemp) {
+        if (!practitionerTemp.actor?.reference) {
+          return;
+        }
+        const practitioner = practitionerIDs[practitionerTemp.actor.reference];
+        console.log(1, practitionerTemp, practitionerIDs);
+        if (!practitioner.name) {
+          return;
+        }
+        console.log(2);
+        return formatHumanName(practitioner.name[0]);
+      })
+      .filter((participant) => participant != undefined) as string[];
     if (encounter) {
       const telemedStatus = mapStatusToTelemed(encounter.status, appointment.status);
       const paperwork = encounterQuestionnaireMap[encounter.id!];
@@ -61,6 +83,7 @@ export const filterAppointmentsFromResources = (
           appointment,
           paperwork,
           location,
+          providers: providers,
           encounter,
           telemedStatus,
           telemedStatusHistory: encounter.statusHistory

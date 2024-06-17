@@ -1,7 +1,6 @@
 import { DateTime } from 'luxon';
 import { useMutation, useQuery } from 'react-query';
 import { ZapEHRAPIClient } from 'ottehr-components';
-import { useIntakeCommonStore } from '../common';
 import { usePatientInfoStore } from '../patient-info';
 import { useAppointmentStore } from './appointment.store';
 
@@ -17,15 +16,16 @@ export const useCreateAppointmentMutation = () =>
     }) => {
       // const appointment = AppointmentStore.getState();
       const patientInfo = usePatientInfoStore.getState();
-      const intakeCommon = useIntakeCommonStore.getState();
       const appointment = useAppointmentStore.getState();
 
       return apiClient.createAppointment({
         // slot: intakeCommon.visitType === VisitType.WalkIn ? undefined : appointment.appointmentSlot,
         patient: patientInfo.patientInfo,
         timezone: DateTime.now().zoneName,
-        locationState: intakeCommon.selectedLocationState,
+        locationID: appointment.locationID,
+        providerID: appointment.providerID,
         slot: appointment.visitType === 'prebook' ? appointment.selectedSlot : undefined,
+        scheduleType: appointment.scheduleType,
         visitType: appointment.visitType,
         visitService: appointment.visitService,
         ...(unconfirmedDateOfBirth && { unconfirmedDateOfBirth }),
@@ -72,18 +72,18 @@ export const useGetAppointments = (apiClient: ZapEHRAPIClient | null, enabled = 
   );
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetLocation = (apiClient: ZapEHRAPIClient | null, slug: string, enabled = true) =>
+export const useGetSchedule = (apiClient: ZapEHRAPIClient | null, scheduleType: string, slug: string, enabled = true) =>
   useQuery(
-    ['location'],
+    ['schedule'],
     async () => {
       if (!apiClient) {
         throw new Error('API client not defined');
       }
       let response;
       try {
-        response = await apiClient.getLocation({ slug });
+        response = await apiClient.getSchedule({ scheduleType, slug });
       } catch (error: any) {
-        if (error.message === 'Location is not found') {
+        if (error.message === 'Schedule is not found') {
           return undefined;
         }
         throw error;
@@ -93,10 +93,10 @@ export const useGetLocation = (apiClient: ZapEHRAPIClient | null, slug: string, 
     {
       enabled,
       onError: (error: any) => {
-        console.error('Error getting a location: ', error);
+        console.error('Error getting a schedule: ', error);
       },
       retry: (failureCount, error: any) => {
-        if (error.message === 'Location is not found') {
+        if (error.message === 'Schedule is not found') {
           return false;
         }
         return failureCount < 1;

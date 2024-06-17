@@ -17,7 +17,7 @@ import Alert, { AlertColor } from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import React, { ReactElement } from 'react';
 import { ScheduleCapacity } from './ScheduleCapacity';
-import { Location, LocationHoursOfOperation } from 'fhir/r4';
+import { Location, LocationHoursOfOperation, Practitioner } from 'fhir/r4';
 import { ScheduleOverrides } from './ScheduleOverrides';
 import { otherColors } from '../../CustomThemeProvider';
 import { DateTime } from 'luxon';
@@ -29,7 +29,7 @@ interface InfoForDayProps {
   day: Weekday;
   setDay: (day: Day) => void;
   dayOfWeek: string;
-  updateLocation: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
+  updateItem: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
   loading: boolean;
 }
 
@@ -55,7 +55,7 @@ export function getTimeFromString(time: string): number {
   return Number(timeHour);
 }
 
-function InfoForDay({ day, setDay, updateLocation, loading }: InfoForDayProps): ReactElement {
+function InfoForDay({ day, setDay, updateItem, loading }: InfoForDayProps): ReactElement {
   const [open, setOpen] = React.useState<number>(day.open);
   const [openingBuffer, setOpeningBuffer] = React.useState<number>(day.openingBuffer);
   const [close, setClose] = React.useState<number>(day.close ?? 24);
@@ -219,7 +219,7 @@ function InfoForDay({ day, setDay, updateLocation, loading }: InfoForDayProps): 
         </Box>
 
         {/* Capacity */}
-        <form onSubmit={updateLocation}>
+        <form onSubmit={updateItem}>
           {workingDay && (
             <Box>
               <Box sx={{ display: 'inline-flex', alignItems: 'center' }} marginBottom={3} marginTop={6}>
@@ -290,12 +290,12 @@ function InfoForDay({ day, setDay, updateLocation, loading }: InfoForDayProps): 
 }
 
 interface ScheduleProps {
-  location: Location;
+  item: Location | Practitioner;
   id: string;
-  setLocation: React.Dispatch<React.SetStateAction<Location>>;
+  setItem: React.Dispatch<React.SetStateAction<Location | Practitioner | undefined>>;
 }
 
-export default function Schedule({ location, setLocation }: ScheduleProps): ReactElement {
+export default function Schedule({ item, setItem }: ScheduleProps): ReactElement {
   const today = DateTime.now().toLocaleString({ weekday: 'long' }).toLowerCase();
   const [dayOfWeek, setDayOfWeek] = React.useState(today);
   const [days, setDays] = React.useState<Weekdays | undefined>(undefined);
@@ -340,25 +340,31 @@ export default function Schedule({ location, setLocation }: ScheduleProps): Reac
       newHoursOfOperation.push(dayHours);
     });
 
-    return newHoursOfOperation.length === 0
-      ? undefined
-      : {
-          op: location.hoursOfOperation ? 'replace' : 'add',
-          path: '/hoursOfOperation',
-          value: newHoursOfOperation,
-        };
+    if (newHoursOfOperation.length === 0) {
+      return undefined;
+    }
+
+    if (item.resourceType === 'Location') {
+      return {
+        op: item.hoursOfOperation ? 'replace' : 'add',
+        path: '/hoursOfOperation',
+        value: newHoursOfOperation,
+      };
+    } else {
+      return undefined;
+    }
   }
 
-  async function updateLocation(event: React.FormEvent<HTMLFormElement>): Promise<void> {
+  async function updateItem(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    const extensionTemp = location.extension;
+    const extensionTemp = item.extension;
     const extensionSchedule = extensionTemp?.find(
       (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule',
     );
 
     try {
       if (!fhirClient || !extensionSchedule) {
-        throw new Error('Failed to update Location');
+        throw new Error('Failed to update item');
       }
 
       // Get patch operation for schedule extension that includes schedule/capacities, scheduleOverrides, and closures
@@ -377,15 +383,15 @@ export default function Schedule({ location, setLocation }: ScheduleProps): Reac
         },
       ];
 
-      // Get patch operation for Location.hoursOfOperation
+      // Get patch operation for item hoursOfOperation
       const workingHoursOperation = getWorkingHoursOperation();
       if (workingHoursOperation) {
         operations.push(workingHoursOperation);
       }
 
       await fhirClient.patchResource({
-        resourceType: 'Location',
-        resourceId: location.id || '',
+        resourceType: item.resourceType,
+        resourceId: item.id || '',
         operations: operations,
       });
 
@@ -408,7 +414,7 @@ export default function Schedule({ location, setLocation }: ScheduleProps): Reac
   };
 
   React.useEffect(() => {
-    const scheduleExtension = location.extension?.find(
+    const scheduleExtension = item.extension?.find(
       (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule',
     )?.valueString;
 
@@ -418,7 +424,7 @@ export default function Schedule({ location, setLocation }: ScheduleProps): Reac
       setOverrides(scheduleOverrides);
       setClosures(closures);
     }
-  }, [location.extension]);
+  }, [item.extension]);
 
   return (
     <>
@@ -481,7 +487,7 @@ export default function Schedule({ location, setLocation }: ScheduleProps): Reac
                       setDays(daysTemp);
                     }}
                     dayOfWeek={dayOfWeek}
-                    updateLocation={updateLocation}
+                    updateItem={updateItem}
                     loading={loading}
                   ></InfoForDay>
                 </TabPanel>
@@ -491,7 +497,7 @@ export default function Schedule({ location, setLocation }: ScheduleProps): Reac
         <Snackbar
           // anchorOrigin={{ vertical: snackbarOpen.vertical, horizontal: snackbarOpen.horizontal }}
           open={snackbarOpen}
-          autoHideDuration={6000}
+          // autoHideDuration={6000}
           onClose={handleSnackBarClose}
           message={toastMessage}
         >
@@ -503,12 +509,12 @@ export default function Schedule({ location, setLocation }: ScheduleProps): Reac
       <ScheduleOverrides
         overrides={overrides}
         closures={closures}
-        location={location}
+        item={item}
         dayOfWeek={dayOfWeek}
-        setLocation={setLocation}
+        setItem={setItem}
         setOverrides={setOverrides}
         setClosures={setClosures}
-        updateLocation={updateLocation}
+        updateItem={updateItem}
         setToastMessage={setToastMessage}
         setToastType={setToastType}
         setSnackbarOpen={setSnackbarOpen}

@@ -1,12 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 interface IntakeCommonState {
-  selectedLocationState: string;
   supportDialogOpen: boolean;
 }
 
 const initialIntakeCommonState: IntakeCommonState = {
-  selectedLocationState: '',
   supportDialogOpen: false,
 };
 

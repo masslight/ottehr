@@ -44,9 +44,6 @@ export default function AppointmentTable({
   const [collapseWaiting, setCollapseWaiting] = useState<boolean>(false);
   const [collapseExam, setCollapseExam] = useState<boolean>(false);
 
-  // cannt load appointment info without location
-  if (!location) return <></>;
-
   return (
     <>
       <AppointmentsStatusChipsCount appointments={appointments} />
@@ -56,7 +53,7 @@ export default function AppointmentTable({
             {/* column widths must add up to the table width ^ */}
             <TableHead>
               <TableRow>
-                <TableCell style={{ width: '20%' }}>
+                <TableCell style={{ width: '15%' }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                     Type & Status
                   </Typography>
@@ -73,17 +70,22 @@ export default function AppointmentTable({
                     Patient
                   </Typography>
                 </TableCell>
-                <TableCell style={{ width: '20%' }}>
+                <TableCell style={{ width: '15%' }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                     Reason
                   </Typography>
                 </TableCell>
-                <TableCell style={{ width: '19%' }}>
+                <TableCell style={{ width: '14%' }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                     Visit Components
                   </Typography>
                 </TableCell>
-                <TableCell style={{ width: '19%' }}>
+                <TableCell style={{ width: '14%' }}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
+                    Provider
+                  </Typography>
+                </TableCell>
+                <TableCell style={{ width: '14%' }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                     Notes
                   </Typography>
@@ -106,7 +108,7 @@ export default function AppointmentTable({
               {tab === ApptTab['in-office'] ? (
                 <>
                   <TableRow>
-                    <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={7}>
+                    <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={8}>
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <IconButton onClick={() => setCollapseWaiting(!collapseWaiting)} sx={{ mr: 0.75, p: 0 }}>
                           <ArrowDropDownCircleOutlinedIcon
@@ -151,7 +153,7 @@ export default function AppointmentTable({
                         );
                       })}
                   <TableRow>
-                    <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={7}>
+                    <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={8}>
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <IconButton onClick={() => setCollapseExam(!collapseExam)} sx={{ mr: 0.75, p: 0 }}>
                           <ArrowDropDownCircleOutlinedIcon

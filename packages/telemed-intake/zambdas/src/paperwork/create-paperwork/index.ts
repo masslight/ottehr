@@ -226,10 +226,7 @@ async function updateResourcesFromPaperwork(
     appointmentDetails.participant
       ?.find((participantTemp) => participantTemp.actor?.reference?.includes('Location'))
       ?.actor?.reference?.split('/')[1] || '';
-  if (!locationID) {
-    throw new Error('No location id found');
-  }
-  console.log(`location id successfully retrieved: ${locationID}`);
+  console.log(`location id is currently ${locationID}`);
 
   console.log('getting patient id from appointment');
   const patientID =

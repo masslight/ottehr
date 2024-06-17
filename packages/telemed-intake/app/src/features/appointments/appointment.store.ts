@@ -4,9 +4,12 @@ import { persist } from 'zustand/middleware';
 interface AppointmentState {
   appointmentID?: string;
   appointmentDate?: string;
-  visitType?: string;
-  visitService?: string;
+  visitType?: 'prebook' | 'now';
+  visitService?: 'in-person' | 'telemedicine';
   selectedSlot?: string;
+  scheduleType?: 'location' | 'provider';
+  locationID?: string;
+  providerID?: string;
 }
 
 const APOINTMENT_STATE_INITIAL: AppointmentState = {};

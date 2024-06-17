@@ -1,10 +1,10 @@
-import { FhirClient } from '@zapehr/sdk';
+import { FhirClient, formatHumanName } from '@zapehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, AppointmentParticipant, Location } from 'fhir/r4';
+import { Appointment, AppointmentParticipant, Location, Practitioner } from 'fhir/r4';
 import {
   createFhirClient,
   getDateTimeFromDateAndTime,
-  GetLocationResponse,
+  GetScheduleResponse,
   getSecret,
   Secrets,
   SecretsKeys,
@@ -39,7 +39,8 @@ export interface Capacity {
   capacity: number;
 }
 
-export interface GetLocationInput {
+export interface GetScheduleInput {
+  scheduleType: 'location' | 'provider';
   slug: string;
   secrets: Secrets | null;
 }
@@ -50,7 +51,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   try {
     const fhirAPI = getSecret(SecretsKeys.FHIR_API, input.secrets);
     const validatedParameters = validateRequestParameters(input);
-    const { slug } = validatedParameters;
+    const { slug, scheduleType } = validatedParameters;
 
     if (!zapehrToken) {
       console.log('getting m2m token for service calls');
@@ -61,54 +62,71 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const fhirClient = createFhirClient(zapehrToken);
 
-    const location = await getLocation(fhirClient, slug);
+    const schedule = await getSchedule(fhirClient, slug, scheduleType);
 
-    if (!location) {
+    if (!schedule) {
       return {
         statusCode: 404,
-        body: JSON.stringify({ message: 'Location is not found' }),
+        body: JSON.stringify({ message: 'Schedule is not found' }),
       };
     }
 
     return {
       statusCode: 200,
-      body: JSON.stringify(location),
+      body: JSON.stringify(schedule),
     };
   } catch (error: any) {
     console.error('Failed to get telemed states', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error while fetching location' }),
+      body: JSON.stringify({ error: 'Internal error while fetching schedule' }),
     };
   }
 };
 
-async function getLocation(fhirClient: FhirClient, slug: string): Promise<GetLocationResponse | undefined> {
-  const availableLocations = await fhirClient.searchResources({
-    resourceType: 'Location',
+async function getSchedule(
+  fhirClient: FhirClient,
+  slug: string,
+  scheduleType: 'location' | 'provider',
+): Promise<GetScheduleResponse | undefined> {
+  const resourceType = scheduleType === 'location' ? 'Location' : 'Practitioner';
+  const availableItems = await fhirClient.searchResources({
+    resourceType,
     searchParams: [
       // { name: 'status', value: 'active' },
       { name: 'identifier', value: slug },
     ],
   });
 
-  if (availableLocations.length === 0) {
+  if (availableItems.length === 0) {
     return undefined;
   }
 
-  const location: Location = availableLocations[0] as Location;
+  const item: Location | Practitioner = availableItems[0] as Location | Practitioner;
   // todo do not assume zone
   const now = DateTime.now().setZone('US/Eastern');
 
   const { minimum: startTime, maximum: finishTime } = createMinimumAndMaximumTime(now);
-  console.log(`searching for appointments based on location ${location.id} and date`);
+  console.log(`searching for appointments based on ${resourceType} ${item.id} and date`);
   const appointmentResources: Appointment[] = await fhirClient?.searchResources({
     resourceType: 'Appointment',
     searchParams: [
-      {
-        name: 'location',
-        value: `Location/${location.id}`,
-      },
+      ...(scheduleType === 'location'
+        ? [
+            {
+              name: 'location',
+              value: `Location/${item.id}`,
+            },
+          ]
+        : []),
+      ...(scheduleType === 'provider'
+        ? [
+            {
+              name: 'actor',
+              value: `Practitioner/${item.id}`,
+            },
+          ]
+        : []),
       {
         name: 'status:not',
         value: 'cancelled',
@@ -119,17 +137,17 @@ async function getLocation(fhirClient: FhirClient, slug: string): Promise<GetLoc
     ],
   });
 
-  console.log('Getting slots for', location.id);
-  if (!location.id) {
-    console.log('location id is not defined', location);
-    throw new Error('location id is not defined');
+  console.log(`Getting slots for ${resourceType}`, item.id);
+  if (!item.id) {
+    console.log('id is not defined', item);
+    throw new Error('id is not defined');
   }
 
-  const scheduleExtension = location?.extension?.find(function (extensionTemp) {
+  const scheduleExtension = item?.extension?.find(function (extensionTemp) {
     return extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule';
   })?.valueString;
   if (!scheduleExtension) {
-    console.log('location does not have schedule');
+    console.log('item does not have schedule');
     return;
   }
 
@@ -137,10 +155,10 @@ async function getLocation(fhirClient: FhirClient, slug: string): Promise<GetLoc
   const schedule: Weekdays = scheduleTemp.schedule;
   const scheduleOverrides: Overrides = scheduleTemp.scheduleOverrides;
 
-  // get appointments at location
-  const appointmentResourcesInLocation = appointmentResources.filter((appointment) => {
+  // get appointments at schedule
+  const appointmentResourcesInSchedule = appointmentResources.filter((appointment) => {
     return appointment.participant.some(
-      (participant: AppointmentParticipant) => participant.actor === `Location/${location.id}`,
+      (participant: AppointmentParticipant) => participant.actor === `${resourceType}/${item.id}`,
     );
   });
 
@@ -149,18 +167,20 @@ async function getLocation(fhirClient: FhirClient, slug: string): Promise<GetLoc
   const finishDate = DateTime.fromISO(finishTime);
   while (currentDayTemp < finishDate) {
     console.log(currentDayTemp);
-    const slotsTemp = getSlotsForDay(currentDayTemp, schedule, scheduleOverrides, appointmentResourcesInLocation);
+    const slotsTemp = getSlotsForDay(currentDayTemp, schedule, scheduleOverrides, appointmentResourcesInSchedule);
     slots.push(...slotsTemp);
     currentDayTemp = currentDayTemp.plus({ days: 1 });
   }
 
   return {
     message: 'Successful reply',
-    state: location.address?.state || '',
-    name: location.name || 'Unkno wn',
+    state: scheduleType === 'location' ? item.address?.state : '',
+    name: getName(item),
     slug:
-      location.identifier?.find((identifierTemp) => identifierTemp.system === 'https://fhir.ottehr.com/r4/slug')
-        ?.value || 'Unknown',
+      item.identifier?.find((identifierTemp) => identifierTemp.system === 'https://fhir.ottehr.com/r4/slug')?.value ||
+      'Unknown',
+    locationID: scheduleType === 'location' ? item.id : undefined,
+    providerID: scheduleType === 'provider' ? item.id : undefined,
     availableSlots: slots,
     // available: location.status === 'active',
     available: true,
@@ -233,6 +253,16 @@ export function createMinimumAndMaximumTime(date: DateTime, buffer?: number): { 
   const finishTime = date.plus({ days: NUM_DAYS });
   const maximum = finishTime.endOf('day').toISO();
   return { minimum: startTime, maximum: finishTime };
+}
+
+function getName(item: Location | Practitioner): string {
+  if (!item.name) {
+    return 'Unknown';
+  }
+  if (item.resourceType === 'Location') {
+    return item.name;
+  }
+  return formatHumanName(item.name[0]);
 }
 
 export const distributeTimeSlots = (

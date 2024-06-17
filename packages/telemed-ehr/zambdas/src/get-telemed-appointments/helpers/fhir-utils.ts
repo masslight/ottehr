@@ -24,6 +24,7 @@ export const getAllResourcesFromFhir = async (
   fhirClient: FhirClient,
   searchDate: DateTime,
   locationIds: string[],
+  providerIDs: string[],
   encounterStatusesToSearchWith: string[],
 ): Promise<Resource[]> => {
   const fhirSearchParams = {
@@ -38,8 +39,8 @@ export const getAllResourcesFromFhir = async (
         value: `fulfilled,arrived`,
       },
       {
-        name: 'appointment-type',
-        value: 'http://terminology.hl7.org/CodeSystem/v2-0276|telemedicine',
+        name: 'service-type',
+        value: 'http://terminology.hl7.org/CodeSystem/service-type|telemedicine',
       },
       {
         name: 'date',
@@ -82,12 +83,19 @@ export const getAllResourcesFromFhir = async (
         name: '_revinclude:iterate',
         value: 'QuestionnaireResponse:encounter',
       },
+      { name: '_include', value: 'Appointment:actor' },
     ],
   };
   if (locationIds.length > 0) {
     fhirSearchParams.searchParams.push({
       name: 'location',
       value: joinLocationsIdsForFhirSearch(locationIds),
+    });
+  }
+  if (providerIDs.length > 0) {
+    fhirSearchParams.searchParams.push({
+      name: 'actor',
+      value: providerIDs.map((providerID) => `Practitioner/${providerID}`).join(','),
     });
   }
   return await fhirClient?.searchResources(fhirSearchParams);
@@ -182,7 +190,7 @@ export const getAllPrefilteredFhirResources = async (
   params: GetTelemedAppointmentsInput,
   virtualLocationsMap: LocationIdToAbbreviationMap,
 ): Promise<Resource[] | undefined> => {
-  const { dateFilter, stateFilter, statusesFilter, patientFilter } = params;
+  const { dateFilter, providersFilter, stateFilter, statusesFilter, patientFilter } = params;
   let allResources: Resource[] = [];
 
   const locationsIdsToSearchWith = await locationIdsForAppointmentsSearch(
@@ -201,6 +209,7 @@ export const getAllPrefilteredFhirResources = async (
     fhirClient,
     dateFilterConverted,
     locationsIdsToSearchWith,
+    providersFilter || [],
     encounterStatusesToSearchWith,
   );
   console.log('Received resources from fhir with all filters applied.');

@@ -141,7 +141,7 @@ export const ApptStatusToPalette: {
 
 export type GetAppointmentsRequestParams = Pick<
   GetTelemedAppointmentsInput,
-  'stateFilter' | 'dateFilter' | 'patientFilter' | 'statusesFilter'
+  'stateFilter' | 'providersFilter' | 'dateFilter' | 'patientFilter' | 'statusesFilter'
 >;
 
 export const APPT_STATUS_MAP: {

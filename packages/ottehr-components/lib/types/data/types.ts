@@ -9,7 +9,7 @@ export type GetZapEHRAPIParams = {
   cancelAppointmentZambdaID?: string;
   updateAppointmentZambdaID?: string;
   getPatientsZambdaID?: string;
-  getLocationZambdaID?: string;
+  getScheduleZambdaID?: string;
   getAppointmentsZambdaID?: string;
   getPaperworkZambdaID?: string;
   createPaperworkZambdaID?: string;

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { IntakeFlowPageRoute } from '../App';
-import { useIntakeCommonStore, LoadingScreen } from '../features/common';
+import { LoadingScreen } from '../features/common';
 import { usePatientInfoStore } from '../features/patient-info';
 import { useZapEHRAPIClient } from '../utils';
 import { useGetPatients, usePatientsStore } from '../features/patients';
@@ -9,13 +9,6 @@ import { useGetPatients, usePatientsStore } from '../features/patients';
 const UserFlowRoot = (): JSX.Element => {
   const apiClient = useZapEHRAPIClient();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const currentState = useIntakeCommonStore.getState();
-    if (!currentState?.selectedLocationState) {
-      navigate(IntakeFlowPageRoute.Welcome.path);
-    }
-  }, [navigate]);
 
   const getPatients = useGetPatients(apiClient, (data) => {
     console.log(10);

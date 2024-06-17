@@ -20,7 +20,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { DateTime } from 'luxon';
 import DateSearch from '../DateSearch';
-import { Location } from 'fhir/r4';
+import { Location, Practitioner } from 'fhir/r4';
 import OfficeClosures from './OfficeClosures';
 import ScheduleOverridesDialog from './ScheduleOverridesDialog';
 import { ScheduleCapacity } from './ScheduleCapacity';
@@ -28,27 +28,27 @@ import { OVERRIDE_DATE_FORMAT, datesCompareFn } from '../../helpers/formatDateTi
 import { Closure, ScheduleExtension, DOW, Day, Overrides, ClosureType } from '../../types/types';
 
 interface ScheduleOverridesProps {
-  location: Location;
+  item: Location | Practitioner;
   dayOfWeek: string;
   overrides: Overrides | undefined;
   closures: Closure[] | undefined;
-  setLocation: React.Dispatch<React.SetStateAction<Location>>;
+  setItem: React.Dispatch<React.SetStateAction<Location | Practitioner | undefined>>;
   setOverrides: React.Dispatch<React.SetStateAction<Overrides | undefined>>;
   setClosures: (closures: Closure[] | undefined) => void;
-  updateLocation: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
+  updateItem: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
   setToastMessage: React.Dispatch<React.SetStateAction<string | undefined>>;
   setToastType: React.Dispatch<React.SetStateAction<AlertColor | undefined>>;
   setSnackbarOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export function ScheduleOverrides({
-  location,
-  setLocation,
+  item,
+  setItem,
   overrides,
   closures,
   setOverrides,
   setClosures,
-  updateLocation,
+  updateItem,
   setToastMessage,
   setToastType,
   setSnackbarOpen,
@@ -191,7 +191,7 @@ export function ScheduleOverrides({
                                 const overridesTemp = { ...overrides };
                                 const dateFormatted = date?.toLocaleString(DateTime.DATE_SHORT);
                                 if (dateFormatted) {
-                                  const scheduleExtension = location.extension?.find(
+                                  const scheduleExtension = item.extension?.find(
                                     (extensionTemp) =>
                                       extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule',
                                   )?.valueString;
@@ -393,12 +393,12 @@ export function ScheduleOverrides({
           </Box>
         </form>
         <ScheduleOverridesDialog
-          location={location}
-          setLocation={setLocation}
+          item={item}
+          setItem={setItem}
           setIsScheduleOverridesDialogOpen={setIsScheduleOverridesDialogOpen}
           handleClose={() => setIsScheduleOverridesDialogOpen(false)}
           open={isScheduleOverridesDialogOpen}
-          updateLocation={updateLocation}
+          updateItem={updateItem}
         />
       </Paper>
     </>

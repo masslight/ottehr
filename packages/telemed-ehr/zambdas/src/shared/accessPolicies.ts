@@ -30,6 +30,8 @@ export const ADMINISTRATOR_RULES = [
       'FHIR:Appointment',
       'FHIR:Encounter',
       'FHIR:Location',
+      // Needed for ottehr user to get their own fhir profile. this is overbroad and should be restricted when/if zap adds some sort of SELF token
+      'FHIR:Practitioner',
       'FHIR:Communication',
       'FHIR:Flag',
     ],
@@ -43,12 +45,6 @@ export const ADMINISTRATOR_RULES = [
     action: ['Zambda:InvokeFunction'],
     effect: 'Allow',
     resource: ['Zambda:Function:*'],
-  },
-  // Needed for ottehr user to get their own fhir profile. this is overbroad and should be restricted when/if zap adds some sort of SELF token
-  {
-    action: ['FHIR:Read', 'FHIR:Update'],
-    effect: 'Allow',
-    resource: ['FHIR:Practitioner'],
   },
   // Needed for ottehr chat message sending
   {
