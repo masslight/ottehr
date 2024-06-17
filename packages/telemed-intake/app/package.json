@@ -8,13 +8,14 @@
     "build": "tsc && vite build"
   },
   "dependencies": {
+    "@mui/x-date-pickers": "^7.7.0",
     "amazon-chime-sdk-component-library-react": "^3.7.0",
     "amazon-chime-sdk-js": "^3.20.0",
+    "ottehr-components": "*",
+    "ottehr-utils": "*",
     "styled-components": "^5.3.11",
     "styled-system": "^5.1.5",
-    "tsconfig": "*",
-    "ottehr-components": "*",
-    "ottehr-utils": "*"
+    "tsconfig": "*"
   },
   "devDependencies": {
     "@types/styled-components": "^5.1.34"

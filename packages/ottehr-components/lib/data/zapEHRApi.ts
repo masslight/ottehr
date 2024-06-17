@@ -13,7 +13,6 @@ import {
   GetPaperworkRequestParams,
   GetTelemedAppointmentsRequest,
   GetTelemedAppointmentsResponse,
-  GetTelemedLocationsResponse,
   InviteParticipantRequestParameters,
   JoinCallRequestParameters,
   JoinCallResponse,
@@ -38,7 +37,6 @@ enum ZambdaNames {
   'cancel appointment' = 'cancel appointment',
   'update appointment' = 'update appointment',
   'get appointments' = 'get appointments',
-  'get telemed states' = 'get telemed states',
   'get patients' = 'get patients',
   'get paperwork' = 'get paperwork',
   'create paperwork' = 'create paperwork',
@@ -58,7 +56,6 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'cancel appointment': false,
   'update appointment': false,
   'get appointments': false,
-  'get telemed states': true,
   'get patients': false,
   'get paperwork': false,
   'create paperwork': false,
@@ -87,7 +84,6 @@ export const getZapEHRAPI = (
   updatePaperwork: typeof updatePaperwork;
   getLocation: typeof getLocation;
   getAppointments: typeof getAppointments;
-  getTelemedStates: typeof getTelemedStates;
   getPaperwork: typeof getPaperwork;
   getPaperworkPublic: typeof getPaperworkPublic;
   getWaitStatus: typeof getWaitStatus;
@@ -103,7 +99,6 @@ export const getZapEHRAPI = (
     cancelAppointmentZambdaID,
     updateAppointmentZambdaID,
     getAppointmentsZambdaID,
-    getTelemedStatesZambdaID,
     getPatientsZambdaID,
     getPaperworkZambdaID,
     createPaperworkZambdaID,
@@ -123,7 +118,6 @@ export const getZapEHRAPI = (
     'cancel appointment': cancelAppointmentZambdaID,
     'update appointment': updateAppointmentZambdaID,
     'get appointments': getAppointmentsZambdaID,
-    'get telemed states': getTelemedStatesZambdaID,
     'get patients': getPatientsZambdaID,
     'get paperwork': getPaperworkZambdaID,
     'create paperwork': createPaperworkZambdaID,
@@ -245,10 +239,6 @@ export const getZapEHRAPI = (
     return await makeZapRequest('get appointments', parameters);
   };
 
-  const getTelemedStates = async (): Promise<GetTelemedLocationsResponse> => {
-    return await makeZapRequest('get telemed states');
-  };
-
   const getPaperwork = async (parameters: GetPaperworkRequestParams): Promise<PaperworkResponseWithResponses> => {
     return await makeZapRequest('get paperwork', parameters, NotFoundApointmentErrorHandler);
   };
@@ -336,7 +326,6 @@ export const getZapEHRAPI = (
     getPaperworkPublic,
     getPatients,
     getAppointments,
-    getTelemedStates,
     createZ3Object,
     getLocation,
     getWaitStatus,

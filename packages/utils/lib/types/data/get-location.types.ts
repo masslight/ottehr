@@ -1,12 +1,12 @@
-import { AvailableLocationInformation } from '..';
-
 export interface GetLocationResponse {
   message: string;
-  location: AvailableLocationInformation;
-  available: string[];
-  waitingMinutes: number;
+  state: string;
+  name: string;
+  slug: string;
+  availableSlots: string[];
+  available: boolean;
 }
 
 export interface GetLocationRequestParams {
-  locationSlug?: string;
+  slug?: string;
 }
