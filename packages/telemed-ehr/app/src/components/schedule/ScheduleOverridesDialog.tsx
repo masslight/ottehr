@@ -11,13 +11,13 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { Location, Practitioner } from 'fhir/r4';
+import { HealthcareService, Location, Practitioner } from 'fhir/r4';
 import React, { Dispatch, MouseEventHandler, ReactElement, SetStateAction, useState } from 'react';
 import { otherColors } from '../../CustomThemeProvider';
 
 interface ScheduleOverridesDialogProps {
-  item: Location | Practitioner;
-  setItem: React.Dispatch<React.SetStateAction<Location | Practitioner | undefined>>;
+  item: Location | Practitioner | HealthcareService;
+  setItem: React.Dispatch<React.SetStateAction<Location | Practitioner | HealthcareService | undefined>>;
   handleClose: MouseEventHandler<HTMLButtonElement>;
   open: boolean;
   setIsScheduleOverridesDialogOpen: Dispatch<SetStateAction<boolean>>;

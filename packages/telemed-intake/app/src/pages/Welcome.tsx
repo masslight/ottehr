@@ -43,8 +43,8 @@ const Welcome = (): JSX.Element => {
   }, [visitService, setAppointment, visitType, scheduleType]);
 
   useEffect(() => {
-    setAppointment({ locationID: schedule?.locationID, providerID: schedule?.providerID });
-  }, [schedule?.locationID, schedule?.providerID, setAppointment]);
+    setAppointment({ locationID: schedule?.locationID, providerID: schedule?.providerID, groupID: schedule?.groupID });
+  }, [schedule?.groupID, schedule?.locationID, schedule?.providerID, setAppointment]);
 
   const onSubmit = (): void => {
     if (!selectedSlot) {

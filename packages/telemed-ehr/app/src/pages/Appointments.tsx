@@ -2,7 +2,7 @@ import { Error as ErrorIcon } from '@mui/icons-material';
 import AddIcon from '@mui/icons-material/Add';
 import { Autocomplete, Button, Grid, Paper, TextField, Typography } from '@mui/material';
 import { FhirClient, ZambdaClient, formatHumanName } from '@zapehr/sdk';
-import { Location, Practitioner } from 'fhir/r4';
+import { HealthcareService, Location, Practitioner } from 'fhir/r4';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useEffect, useMemo, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
@@ -17,6 +17,7 @@ import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 import { VisitType, VisitTypeToLabel } from '../types/types';
 import ProvidersSelect from '../components/inputs/ProvidersSelect';
+import GroupSelect from '../components/inputs/GroupSelect';
 
 type LoadingState = { status: 'loading' | 'initial'; id?: string | undefined } | { status: 'loaded'; id: string };
 
@@ -43,6 +44,7 @@ export default function Appointments(): ReactElement {
   const [locationSelected, setLocationSelected] = useState<Location | undefined>(undefined);
   const [loadingState, setLoadingState] = useState<LoadingState>({ status: 'initial' });
   const [practitioners, setPractitioners] = useState<Practitioner[] | undefined>(undefined);
+  const [healthcareServicess, setHealthcareServices] = useState<HealthcareService[] | undefined>(undefined);
   const [appointmentDate, setAppointmentDate] = useState<DateTime | null>(DateTime.local());
   const [editingComment, setEditingComment] = useState<boolean>(false);
   const [searchResults, setSearchResults] = useState<AppointmentSearchResultData | null>(null);
@@ -54,13 +56,16 @@ export default function Appointments(): ReactElement {
     if (field === 'date') {
       queryParams?.set('searchDate', value?.toISODate() ?? appointmentDate?.toISODate() ?? '');
     } else if (field === 'location') {
-      queryParams?.set('locationId', value?.id ?? locationSelected?.id ?? '');
+      queryParams?.set('locationID', value?.id ?? locationSelected?.id ?? '');
     } else if (field === 'visittypes') {
       const appointmentTypesString = value.join(',');
       queryParams.set('visitType', appointmentTypesString);
     } else if (field === 'providers') {
       const providersString = value.join(',');
       queryParams.set('providers', providersString);
+    } else if (field === 'groups') {
+      const groupsString = value.join(',');
+      queryParams.set('groups', groupsString);
     }
 
     setEditingComment(false);
@@ -71,17 +76,21 @@ export default function Appointments(): ReactElement {
     return new URLSearchParams(location.search);
   }, [location.search]);
 
-  const { locationId, searchDate, visitType, providers, queryId } = useMemo(() => {
-    const locationId = queryParams.get('locationId') || '';
+  const { locationID, searchDate, visitType, providers, groups, queryId } = useMemo(() => {
+    const locationID = queryParams.get('locationID') || '';
     const searchDate = queryParams.get('searchDate') || '';
     const appointmentTypesString = queryParams.get('visitType') || '';
     let providers = queryParams.get('providers')?.split(',') || [];
     if (providers.length === 1 && providers[0] === '') {
       providers = [];
     }
-    const queryId = `${locationId}-${providers}-${searchDate}-${appointmentTypesString}`;
+    let groups = queryParams.get('groups')?.split(',') || [];
+    if (groups.length === 1 && groups[0] === '') {
+      groups = [];
+    }
+    const queryId = `${locationID}-${providers}-${groups}-${searchDate}-${appointmentTypesString}`;
     const visitType = appointmentTypesString ? appointmentTypesString.split(',') : [];
-    return { locationId, searchDate, visitType, providers, queryId };
+    return { locationID, searchDate, visitType, providers, groups, queryId };
   }, [queryParams]);
 
   const {
@@ -123,6 +132,13 @@ export default function Appointments(): ReactElement {
   }, [navigate, queryParams]);
 
   useEffect(() => {
+    if (localStorage.getItem('selectedGroups')) {
+      queryParams?.set('groups', JSON.parse(localStorage.getItem('selectedGroups') ?? '') ?? '');
+      navigate(`?${queryParams?.toString()}`);
+    }
+  }, [navigate, queryParams]);
+
+  useEffect(() => {
     const locationStore = localStorage?.getItem('selectedLocation');
     if (locationStore && !locationSelected) {
       setLocationSelected(JSON.parse(locationStore));
@@ -152,9 +168,28 @@ export default function Appointments(): ReactElement {
         console.error('error loading practitioners', e);
       }
     }
+    async function getHealthcareServices(fhirClient: FhirClient): Promise<void> {
+      if (!fhirClient) {
+        return;
+      }
+
+      try {
+        const healthcareServicesTemp: HealthcareService[] = await fhirClient.searchResources({
+          resourceType: 'HealthcareService',
+          searchParams: [
+            { name: '_count', value: '1000' },
+            // { name: 'name:missing', value: 'false' },
+          ],
+        });
+        setHealthcareServices(healthcareServicesTemp);
+      } catch (e) {
+        console.error('error loading practitioners', e);
+      }
+    }
 
     if (fhirClient) {
       void getPractitioners(fhirClient);
+      void getHealthcareServices(fhirClient);
     }
   }, [fhirClient]);
 
@@ -163,15 +198,16 @@ export default function Appointments(): ReactElement {
       setLoadingState({ status: 'loading' });
 
       if (
-        (locationId || locationSelected?.id || providers.length > 0) &&
+        (locationID || locationSelected?.id || providers.length > 0 || groups.length > 0) &&
         (searchDate || appointmentDate) &&
         Array.isArray(visitType)
       ) {
         const searchResults = await getAppointments(zambdaClient, {
-          locationId: locationId || locationSelected?.id || undefined,
+          locationID: locationID || locationSelected?.id || undefined,
           searchDate,
           visitType: visitType || [],
           providerIDs: providers,
+          groupIDs: groups,
         });
 
         setSearchResults(searchResults || []);
@@ -180,7 +216,7 @@ export default function Appointments(): ReactElement {
       }
     };
     if (
-      (locationSelected || providers.length > 0) &&
+      (locationSelected || providers.length > 0 || groups.length > 0) &&
       zambdaClient &&
       !editingComment &&
       loadingState.id !== queryId &&
@@ -201,11 +237,12 @@ export default function Appointments(): ReactElement {
     editingComment,
     loadingState,
     queryId,
-    locationId,
+    locationID,
     searchDate,
     appointmentDate,
     visitType,
     providers,
+    groups,
     queryParams,
     pageIsVisible,
   ]);
@@ -224,6 +261,7 @@ export default function Appointments(): ReactElement {
       handleSubmit={handleSubmit}
       visitType={visitType}
       providers={providers}
+      groups={groups}
       activeApptDatesBeforeToday={activeApptDatesBeforeToday}
       preBookedAppointments={preBookedAppointments}
       completedAppointments={completedAppointments}
@@ -232,6 +270,7 @@ export default function Appointments(): ReactElement {
       locationSelected={locationSelected}
       setLocationSelected={setLocationSelected}
       practitioners={practitioners}
+      healthcareServices={healthcareServicess}
       appointmentDate={appointmentDate}
       setAppointmentDate={setAppointmentDate}
       updateAppointments={() => setLoadingState({ status: 'initial' })}
@@ -253,8 +292,10 @@ interface AppointmentsBodyProps {
   queryParams?: URLSearchParams;
   visitType: string[];
   providers: string[];
+  groups: string[];
   setLocationSelected: (location: Location | undefined) => void;
   practitioners: Practitioner[] | undefined;
+  healthcareServices: HealthcareService[] | undefined;
   setAppointmentDate: (date: DateTime | null) => void;
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
@@ -272,7 +313,9 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
     appointmentDate,
     visitType,
     providers,
+    groups,
     practitioners,
+    healthcareServices,
     setAppointmentDate,
     queryParams,
     handleSubmit,
@@ -308,8 +351,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                   defaultValue={DateTime.now().toLocaleString(DateTime.DATE_SHORT)}
                 ></DateSearch>
               </Grid>
-              <Grid item xs={1}></Grid>
-              <Grid item xs={2.5}>
+              <Grid item xs={2}>
                 <Autocomplete
                   id="visittypes"
                   value={visitType?.length > 0 ? [...visitType] : Object.keys(VisitTypeToLabel)}
@@ -334,12 +376,19 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                   )}
                 />
               </Grid>
-              <Grid item xs={2.5}>
+              <Grid item xs={2}>
                 <ProvidersSelect
                   providers={providers}
                   practitioners={practitioners}
                   handleSubmit={handleSubmit}
                 ></ProvidersSelect>
+              </Grid>
+              <Grid item xs={2}>
+                <GroupSelect
+                  groups={groups}
+                  healthcareServices={healthcareServices}
+                  handleSubmit={handleSubmit}
+                ></GroupSelect>
               </Grid>
               <Grid item xs={2} sx={{ alignSelf: 'center' }}>
                 <Link to="/visits/add">
@@ -380,6 +429,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
           <AppointmentTabs
             location={locationSelected}
             providers={providers}
+            groups={groups}
             preBookedAppointments={preBookedAppointments}
             cancelledAppointments={cancelledAppointments}
             completedAppointments={completedAppointments}

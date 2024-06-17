@@ -21,6 +21,9 @@ export default function LocationsPage(): ReactElement {
           <TabList
             onChange={(event, tabTemp) => setTab(tabTemp)}
             aria-label="Switch between different schedule options"
+            sx={{
+              paddingX: 3,
+            }}
           >
             <Tab label="Offices" value="0" />
             <Tab label="Providers" value="1" />
@@ -31,6 +34,9 @@ export default function LocationsPage(): ReactElement {
           </TabPanel>
           <TabPanel value="1">
             <ScheduleInformation scheduleType="provider"></ScheduleInformation>
+          </TabPanel>
+          <TabPanel value="2">
+            <ScheduleInformation scheduleType="group"></ScheduleInformation>
           </TabPanel>
         </TabContext>
       </>

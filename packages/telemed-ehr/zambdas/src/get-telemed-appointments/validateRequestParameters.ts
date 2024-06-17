@@ -8,7 +8,9 @@ export function validateRequestParameters(input: ZambdaInput): GetTelemedAppoint
     throw new Error('No request body provided');
   }
 
-  const { dateFilter, providersFilter, stateFilter, statusesFilter, patientFilter } = JSON.parse(input.body);
+  const { dateFilter, providersFilter, stateFilter, statusesFilter, groupsFilter, patientFilter } = JSON.parse(
+    input.body,
+  );
 
   if (dateFilter === undefined) {
     throw new Error('These fields are required: "dateFilter"');
@@ -29,6 +31,7 @@ export function validateRequestParameters(input: ZambdaInput): GetTelemedAppoint
     dateFilter,
     providersFilter,
     stateFilter,
+    groupsFilter,
     patientFilter,
     statusesFilter,
     secrets: input.secrets,

@@ -51,8 +51,8 @@ export const getLocationIdFromAppointment = (appointment: Appointment): string |
   const locationParticipant = appointment.participant.find((appointment) =>
     appointment.actor?.reference?.startsWith('Location/'),
   );
-  const locationId = locationParticipant?.actor?.reference || '';
-  return removePrefix('Location/', locationId);
+  const locationID = locationParticipant?.actor?.reference || '';
+  return removePrefix('Location/', locationID);
 };
 
 export const groupAppointmentsLocations = (
@@ -64,7 +64,7 @@ export const groupAppointmentsLocations = (
   const resultLocationsIdsGroups: string[][] = [];
 
   appointmentsPackages.forEach((pkg) => {
-    const apptLocationId = pkg.location?.locationId;
+    const apptLocationId = pkg.location?.locationID;
 
     if (apptLocationId) {
       const locationInResult = resultLocationsIdsGroups.find((idsGroup) => idsGroup.includes(apptLocationId));

@@ -7,9 +7,10 @@ import { getSelectors } from '../../../shared/store/getSelectors';
 import { StateSelect } from './StateSelect';
 import DateSearch from '../../../components/DateSearch';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { Practitioner } from 'fhir/r4';
+import { HealthcareService, Practitioner } from 'fhir/r4';
 import { FhirClient } from '@zapehr/sdk';
 import ProvidersSelect from '../../../components/inputs/ProvidersSelect';
+import GroupSelect from '../../../components/inputs/GroupSelect';
 
 const selectOptions = [
   {
@@ -34,7 +35,9 @@ export const TrackingBoardFilters: FC<{ tab: ApptTab }> = (props) => {
   const { tab } = props;
   const { fhirClient } = useApiClients();
   const [practitioners, setPractitioners] = useState<Practitioner[] | undefined>(undefined);
+  const [healthcareServices, setHealthcareServices] = useState<HealthcareService[] | undefined>(undefined);
   const [providers, setProviders] = useState<string[] | undefined>(undefined);
+  const [groups, setGroups] = useState<string[] | undefined>(undefined);
 
   useEffect(() => {
     async function getPractitioners(fhirClient: FhirClient): Promise<void> {
@@ -55,9 +58,25 @@ export const TrackingBoardFilters: FC<{ tab: ApptTab }> = (props) => {
         console.error('error loading practitioners', e);
       }
     }
+    async function getHealthcareServices(fhirClient: FhirClient): Promise<void> {
+      if (!fhirClient) {
+        return;
+      }
+
+      try {
+        const healthcareServicessTemp: HealthcareService[] = await fhirClient.searchResources({
+          resourceType: 'HealthcareService',
+          searchParams: [{ name: '_count', value: '1000' }],
+        });
+        setHealthcareServices(healthcareServicessTemp);
+      } catch (e) {
+        console.error('error loading healthcare services', e);
+      }
+    }
 
     if (fhirClient) {
       void getPractitioners(fhirClient);
+      void getHealthcareServices(fhirClient);
     }
   }, [fhirClient]);
 
@@ -69,6 +88,11 @@ export const TrackingBoardFilters: FC<{ tab: ApptTab }> = (props) => {
     console.log(10, value);
     setProviders(value);
     useTrackingBoardStore.setState({ providers: value });
+  };
+  const handleGroupChange = (_e: any, value: string[]): void => {
+    console.log(10, value);
+    setGroups(value);
+    useTrackingBoardStore.setState({ groups: value });
   };
 
   return (
@@ -82,6 +106,13 @@ export const TrackingBoardFilters: FC<{ tab: ApptTab }> = (props) => {
           practitioners={practitioners}
           handleSubmit={handleProviderChange}
         ></ProvidersSelect>
+      </Grid>
+      <Grid item xs={6}>
+        <GroupSelect
+          groups={groups ? groups : []}
+          healthcareServices={healthcareServices}
+          handleSubmit={handleGroupChange}
+        ></GroupSelect>
       </Grid>
       {useDate && (
         <Grid item xs={6}>

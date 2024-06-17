@@ -5,9 +5,10 @@ import { ExamFieldsNames, PractitionerLicense, VisitStatus } from 'ehr-utils';
 
 export interface GetAppointmentsParameters {
   searchDate?: DateTime | undefined;
-  locationId: string | undefined;
+  locationID: string | undefined;
   visitType?: string[];
   providerIDs?: string[];
+  groupIDs?: string[];
 }
 
 export interface CreateAppointmentParameters {

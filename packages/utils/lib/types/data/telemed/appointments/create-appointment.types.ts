@@ -9,6 +9,7 @@ export interface CreateAppointmentUCTelemedParams {
   visitService?: "in-person" | "telemedicine";
   locationID?: string;
   providerID?: string;
+  groupID?: string;
   unconfirmedDateOfBirth?: string | undefined;
   timezone: string;
 }

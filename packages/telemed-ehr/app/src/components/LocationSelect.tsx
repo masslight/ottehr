@@ -42,7 +42,7 @@ export default function LocationSelect({
   const navigate = useNavigate();
   useEffect(() => {
     if (updateURL && localStorage.getItem('selectedLocation')) {
-      queryParams?.set('locationId', JSON.parse(localStorage.getItem('selectedLocation') ?? '')?.id ?? '');
+      queryParams?.set('locationID', JSON.parse(localStorage.getItem('selectedLocation') ?? '')?.id ?? '');
       navigate(`?${queryParams?.toString()}`);
     }
   }, [navigate, queryParams, updateURL]);
@@ -74,7 +74,7 @@ export default function LocationSelect({
 
   const options = useMemo(() => {
     const allLocations = locations.map((location) => {
-      return { label: `${location.address?.state?.toUpperCase()} - ${location.name}`, value: location.id };
+      return { label: location.name, value: location.id };
     });
 
     return sortLocationsByLabel(allLocations as { label: string; value: string }[]);
@@ -104,7 +104,7 @@ export default function LocationSelect({
     <Autocomplete
       disabled={renderInputProps?.disabled}
       value={
-        location ? { label: `${location.address?.state?.toUpperCase()} - ${location.name}`, value: location?.id } : null
+        location ? { label: location.name, value: location?.id } : null
       }
       onChange={handleLocationChange}
       isOptionEqualToValue={(option, tempValue) => option.value === tempValue.value}

@@ -1,6 +1,6 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Button, Grid, Paper, Skeleton, Tab, Typography } from '@mui/material';
-import { Address, Extension, Location, Practitioner } from 'fhir/r4';
+import { Address, Extension, HealthcareService, Location, Practitioner } from 'fhir/r4';
 import { ReactElement, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { otherColors } from '../CustomThemeProvider';
@@ -10,6 +10,7 @@ import PageContainer from '../layout/PageContainer';
 import Schedule from '../components/schedule/Schedule';
 import { getName } from '../components/ScheduleInformation';
 import Loading from '../components/Loading';
+import GroupSchedule from '../components/schedule/GroupSchedule';
 
 const START_SCHEDULE =
   '{"schedule":{"monday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"tuesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"wednesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"thursday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"friday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"saturday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"sunday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]}},"scheduleOverrides":{}}';
@@ -20,13 +21,17 @@ export default function SchedulePage(): ReactElement {
   const scheduleType = useParams()['schedule-type'];
   const id = useParams().id as string;
 
+  if (!scheduleType) {
+    throw new Error('scheduleType is not defined');
+  }
+
   // state variables
   const [tabName, setTabName] = useState('schedule');
-  const [item, setItem] = useState<Location | Practitioner | undefined>(undefined);
+  const [item, setItem] = useState<Location | Practitioner | HealthcareService | undefined>(undefined);
 
   // get the location from the database
   useEffect(() => {
-    async function getItem(schedule: 'Location' | 'Practitioner'): Promise<void> {
+    async function getItem(schedule: 'Location' | 'Practitioner' | 'HealthcareService'): Promise<void> {
       if (!fhirClient) {
         return;
       }
@@ -40,6 +45,8 @@ export default function SchedulePage(): ReactElement {
       void getItem('Location');
     } else if (scheduleType === 'provider') {
       void getItem('Practitioner');
+    } else if (scheduleType === 'group') {
+      void getItem('HealthcareService');
     }
   }, [fhirClient, id, scheduleType]);
 
@@ -113,7 +120,7 @@ export default function SchedulePage(): ReactElement {
             {/* Breadcrumbs */}
             <CustomBreadcrumbs
               chain={[
-                { link: '/offices', children: 'Offices' },
+                { link: '/schedules', children: 'Schedules' },
                 { link: '#', children: getName(item) || <Skeleton width={150} /> },
               ]}
             />
@@ -123,11 +130,13 @@ export default function SchedulePage(): ReactElement {
               {getName(item)}
             </Typography>
             {/* Address line */}
-            <Typography marginBottom={1} fontWeight={400}>
-              {item.resourceType === 'Location'
-                ? item.address && addressStringFromAddress(item.address)
-                : item.address && addressStringFromAddress(item.address[0])}
-            </Typography>
+            {(item.resourceType === 'Location' || item.resourceType === 'Practitioner') && (
+              <Typography marginBottom={1} fontWeight={400}>
+                {item.resourceType === 'Location'
+                  ? item.address && addressStringFromAddress(item.address)
+                  : item.address && addressStringFromAddress(item.address[0])}
+              </Typography>
+            )}
             {/* Tabs */}
             <TabContext value={tabName}>
               <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
@@ -147,18 +156,21 @@ export default function SchedulePage(): ReactElement {
                 }}
               >
                 <TabPanel value="schedule">
-                  {item.extension?.find(
-                    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule',
-                  )?.valueString ? (
-                    <Schedule id={id} item={item} setItem={setItem}></Schedule>
-                  ) : (
-                    <Typography variant="body1">
-                      This {scheduleType} doesn&apos;t have a schedule.{' '}
-                      <Button type="button" variant="contained" onClick={createSchedule}>
-                        Create a new schedule
-                      </Button>
-                    </Typography>
-                  )}
+                  {scheduleType === 'group' && <GroupSchedule groupID={item.id || ''} />}
+                  {['office', 'provider'].includes(scheduleType) &&
+                    (item.extension?.find(
+                      (extensionTemp) =>
+                        extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule',
+                    )?.valueString ? (
+                      <Schedule id={id} item={item} setItem={setItem}></Schedule>
+                    ) : (
+                      <Typography variant="body1">
+                        This {scheduleType} doesn&apos;t have a schedule.{' '}
+                        <Button type="button" variant="contained" onClick={createSchedule}>
+                          Create a new schedule
+                        </Button>
+                      </Typography>
+                    ))}
                 </TabPanel>
                 {/* General tab */}
                 <TabPanel value="general">

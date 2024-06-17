@@ -7,6 +7,7 @@ import {
   Bundle,
   Encounter,
   Extension,
+  HealthcareService,
   Location,
   Patient,
   Practitioner,
@@ -84,6 +85,7 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
     visitService,
     locationID,
     providerID,
+    groupID,
     timezone,
     unconfirmedDateOfBirth,
   } = params;
@@ -115,6 +117,7 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
     slot,
     locationID,
     providerID,
+    groupID,
     visitService,
     visitType,
     user,
@@ -136,10 +139,11 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
 export async function createAppointment(
   patient: PatientInfo,
   fhirClient: FhirClient,
-  scheduleType: 'location' | 'provider',
+  scheduleType: 'location' | 'provider' | 'group',
   slot: string,
   locationID: string,
   providerID: string,
+  groupID: string,
   visitService: 'in-person' | 'telemedicine',
   visitType: 'prebook' | 'now',
   user: User,
@@ -202,6 +206,13 @@ export async function createAppointment(
     if (!providerId) {
       throw new Error(`Couldn't find provider for id ${providerID}`);
     }
+  } else if (scheduleType === 'group') {
+    const group = await getGroup(fhirClient, groupID);
+    const groupId = group?.id;
+
+    if (!groupId) {
+      throw new Error(`Couldn't find group for id ${groupID}`);
+    }
   }
   console.log(slot, endTime);
 
@@ -218,6 +229,7 @@ export async function createAppointment(
     scheduleType,
     locationID,
     providerID,
+    groupID,
     unconfirmedDateOfBirth,
   });
 
@@ -487,9 +499,10 @@ interface TransactionInput {
   additionalInfo?: string;
   createPatientRequest?: BatchInputPostRequest;
   updatePatientRequest?: BatchInputRequest;
-  scheduleType: 'location' | 'provider';
+  scheduleType: 'location' | 'provider' | 'group';
   locationID: string;
   providerID: string;
+  groupID: string;
   unconfirmedDateOfBirth?: string | undefined;
 }
 
@@ -513,6 +526,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     scheduleType,
     locationID,
     providerID,
+    groupID,
     unconfirmedDateOfBirth,
   } = input;
 
@@ -623,6 +637,14 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     participants.push({
       actor: {
         reference: `Practitioner/${providerID}`,
+      },
+      status: 'accepted',
+    });
+  }
+  if (scheduleType === 'group') {
+    participants.push({
+      actor: {
+        reference: `HealthcareService/${groupID}`,
       },
       status: 'accepted',
     });
@@ -815,6 +837,16 @@ async function getProvider(fhirClient: FhirClient, providerID: string): Promise<
   });
 
   return provider;
+}
+
+async function getGroup(fhirClient: FhirClient, groupID: string): Promise<HealthcareService | undefined> {
+  console.log('Searching for group with id', groupID);
+  const group: HealthcareService = await fhirClient.readResource({
+    resourceType: 'HealthcareService',
+    resourceId: groupID,
+  });
+
+  return group;
 }
 
 /***

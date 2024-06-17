@@ -32,6 +32,7 @@ export const ADMINISTRATOR_RULES = [
       'FHIR:Location',
       // Needed for ottehr user to get their own fhir profile. this is overbroad and should be restricted when/if zap adds some sort of SELF token
       'FHIR:Practitioner',
+      'FHIR:HealthcareService',
       'FHIR:Communication',
       'FHIR:Flag',
     ],
@@ -50,7 +51,7 @@ export const ADMINISTRATOR_RULES = [
   {
     action: ['FHIR:Search', 'FHIR:Read', 'FHIR:Update', 'FHIR:Create'],
     effect: 'Allow',
-    resource: ['FHIR:Communication'],
+    resource: ['FHIR:Communication', 'FHIR:PractitionerRole'],
   },
   {
     action: ['Messaging:SendTransactionalSMS'],

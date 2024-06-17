@@ -2,6 +2,7 @@ import {
   Appointment,
   Communication,
   Encounter,
+  HealthcareService,
   Practitioner,
   QuestionnaireResponse,
   RelatedPerson,
@@ -66,6 +67,18 @@ export const mapIDToPractitioner = (allResources: Resource[]): { [key: string]: 
     }
   });
   return practitionerIDs;
+};
+
+export const mapIDToHealthcareService = (allResources: Resource[]): { [key: string]: HealthcareService } => {
+  const healthcareServiceIDs: { [key: string]: HealthcareService } = {};
+
+  allResources.forEach((resource) => {
+    if (resource.resourceType === 'HealthcareService' && resource.id) {
+      const healthcareService = resource as HealthcareService;
+      healthcareServiceIDs[`HealthcareService/${resource.id}`] = healthcareService;
+    }
+  });
+  return healthcareServiceIDs;
 };
 
 // export const mapAppointmentInformationToConversationModel = (

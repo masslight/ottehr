@@ -23,8 +23,9 @@ import { LocationIdToAbbreviationMap } from './types';
 export const getAllResourcesFromFhir = async (
   fhirClient: FhirClient,
   searchDate: DateTime,
-  locationIds: string[],
+  locationIDs: string[],
   providerIDs: string[],
+  groupIDs: string[],
   encounterStatusesToSearchWith: string[],
 ): Promise<Resource[]> => {
   const fhirSearchParams = {
@@ -86,16 +87,23 @@ export const getAllResourcesFromFhir = async (
       { name: '_include', value: 'Appointment:actor' },
     ],
   };
-  if (locationIds.length > 0) {
+  if (locationIDs.length > 0) {
     fhirSearchParams.searchParams.push({
       name: 'location',
-      value: joinLocationsIdsForFhirSearch(locationIds),
+      value: joinLocationsIdsForFhirSearch(locationIDs),
     });
   }
   if (providerIDs.length > 0) {
     fhirSearchParams.searchParams.push({
       name: 'actor',
       value: providerIDs.map((providerID) => `Practitioner/${providerID}`).join(','),
+    });
+  }
+  console.log(1, groupIDs);
+  if (groupIDs.length > 0) {
+    fhirSearchParams.searchParams.push({
+      name: 'actor',
+      value: groupIDs.map((groupID) => `HealthcareService/${groupID}`).join(','),
     });
   }
   return await fhirClient?.searchResources(fhirSearchParams);
@@ -190,7 +198,7 @@ export const getAllPrefilteredFhirResources = async (
   params: GetTelemedAppointmentsInput,
   virtualLocationsMap: LocationIdToAbbreviationMap,
 ): Promise<Resource[] | undefined> => {
-  const { dateFilter, providersFilter, stateFilter, statusesFilter, patientFilter } = params;
+  const { dateFilter, providersFilter, stateFilter, statusesFilter, groupsFilter, patientFilter } = params;
   let allResources: Resource[] = [];
 
   const locationsIdsToSearchWith = await locationIdsForAppointmentsSearch(
@@ -203,13 +211,13 @@ export const getAllPrefilteredFhirResources = async (
   if (!locationsIdsToSearchWith) return undefined;
   const encounterStatusesToSearchWith = mapTelemedStatusToEncounter(statusesFilter);
   console.log('Received all location ids and encounter statuses to search with.');
-
   const dateFilterConverted = DateTime.fromISO(dateFilter);
   allResources = await getAllResourcesFromFhir(
     fhirClient,
     dateFilterConverted,
     locationsIdsToSearchWith,
     providersFilter || [],
+    groupsFilter || [],
     encounterStatusesToSearchWith,
   );
   console.log('Received resources from fhir with all filters applied.');

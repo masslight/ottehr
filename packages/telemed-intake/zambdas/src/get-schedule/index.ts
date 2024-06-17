@@ -1,6 +1,6 @@
 import { FhirClient, formatHumanName } from '@zapehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, AppointmentParticipant, Location, Practitioner } from 'fhir/r4';
+import { Appointment, AppointmentParticipant, HealthcareService, Location, Practitioner } from 'fhir/r4';
 import {
   createFhirClient,
   getDateTimeFromDateAndTime,
@@ -76,7 +76,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify(schedule),
     };
   } catch (error: any) {
-    console.error('Failed to get telemed states', error);
+    console.log(JSON.stringify(error));
+    console.error('Failed to get telemed schedule', error);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: 'Internal error while fetching schedule' }),
@@ -87,14 +88,39 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 async function getSchedule(
   fhirClient: FhirClient,
   slug: string,
-  scheduleType: 'location' | 'provider',
+  scheduleType: 'location' | 'provider' | 'group',
 ): Promise<GetScheduleResponse | undefined> {
-  const resourceType = scheduleType === 'location' ? 'Location' : 'Practitioner';
+  let resourceType;
+  if (scheduleType === 'location') {
+    resourceType = 'Location';
+  } else if (scheduleType === 'provider') {
+    resourceType = 'Practitioner';
+  } else if (scheduleType === 'group') {
+    resourceType = 'HealthcareService';
+  } else {
+    throw new Error('resourceType is not expected');
+  }
   const availableItems = await fhirClient.searchResources({
     resourceType,
     searchParams: [
       // { name: 'status', value: 'active' },
       { name: 'identifier', value: slug },
+      ...(scheduleType === 'group'
+        ? [
+            {
+              name: '_include',
+              value: 'HealthcareService:location',
+            },
+            {
+              name: '_revinclude',
+              value: 'PractitionerRole:service',
+            },
+            {
+              name: '_include:iterate',
+              value: 'PractitionerRole:practitioner',
+            },
+          ]
+        : []),
     ],
   });
 
@@ -102,7 +128,10 @@ async function getSchedule(
     return undefined;
   }
 
-  const item: Location | Practitioner = availableItems[0] as Location | Practitioner;
+  const item: Location | Practitioner | HealthcareService = availableItems[0] as
+    | Location
+    | Practitioner
+    | HealthcareService;
   // todo do not assume zone
   const now = DateTime.now().setZone('US/Eastern');
 
@@ -127,6 +156,14 @@ async function getSchedule(
             },
           ]
         : []),
+      ...(scheduleType === 'group'
+        ? [
+            {
+              name: 'actor',
+              value: `HealthcareService/${item.id}`,
+            },
+          ]
+        : []),
       {
         name: 'status:not',
         value: 'cancelled',
@@ -143,35 +180,58 @@ async function getSchedule(
     throw new Error('id is not defined');
   }
 
-  const scheduleExtension = item?.extension?.find(function (extensionTemp) {
-    return extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule';
-  })?.valueString;
-  if (!scheduleExtension) {
-    console.log('item does not have schedule');
-    return;
+  const schedules = [];
+
+  if (['location', 'provider'].includes(scheduleType)) {
+    const scheduleExtension = item?.extension?.find(function (extensionTemp) {
+      return extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule';
+    })?.valueString;
+    if (!scheduleExtension) {
+      console.log('item does not have schedule');
+      return undefined;
+    }
+    schedules.push(scheduleExtension)
+  } else if (scheduleType === 'group') {
+    const locations: Location[] = availableItems.filter((item) => item.resourceType === 'Location') as Location[];
+    const practitioners: Practitioner[] = availableItems.filter(
+      (item) => item.resourceType === 'Practitioner',
+    ) as Practitioner[];
+
+    [...locations, ...practitioners].forEach((itemTemp) => {
+      const scheduleExtension = itemTemp?.extension?.find(function (extensionTemp) {
+        return extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule';
+      })?.valueString;
+      if (!scheduleExtension) {
+        console.log(`${itemTemp.resourceType} ${itemTemp.id} does not have schedule`);
+        return;
+      }
+      schedules.push(scheduleExtension);
+    });
   }
 
-  const scheduleTemp = JSON.parse(scheduleExtension);
-  const schedule: Weekdays = scheduleTemp.schedule;
-  const scheduleOverrides: Overrides = scheduleTemp.scheduleOverrides;
+  const slots: string[] = [];
+  schedules.forEach((scheduleExtension) => {
+    const scheduleTemp = JSON.parse(scheduleExtension);
+    const schedule: Weekdays = scheduleTemp.schedule;
+    const scheduleOverrides: Overrides = scheduleTemp.scheduleOverrides;
 
-  // get appointments at schedule
-  const appointmentResourcesInSchedule = appointmentResources.filter((appointment) => {
-    return appointment.participant.some(
-      (participant: AppointmentParticipant) => participant.actor === `${resourceType}/${item.id}`,
-    );
+    // get appointments at schedule
+    const appointmentResourcesInSchedule = appointmentResources.filter((appointment) => {
+      return appointment.participant.some(
+        (participant: AppointmentParticipant) => participant.actor === `${resourceType}/${item.id}`,
+      );
+    });
+
+    let currentDayTemp = now;
+    const finishDate = DateTime.fromISO(finishTime);
+    while (currentDayTemp < finishDate) {
+      console.log(currentDayTemp);
+      const slotsTemp = getSlotsForDay(currentDayTemp, schedule, scheduleOverrides, appointmentResourcesInSchedule);
+      slots.push(...slotsTemp);
+      currentDayTemp = currentDayTemp.plus({ days: 1 });
+    }
   });
-
-  let currentDayTemp = now;
-  const slots = [];
-  const finishDate = DateTime.fromISO(finishTime);
-  while (currentDayTemp < finishDate) {
-    console.log(currentDayTemp);
-    const slotsTemp = getSlotsForDay(currentDayTemp, schedule, scheduleOverrides, appointmentResourcesInSchedule);
-    slots.push(...slotsTemp);
-    currentDayTemp = currentDayTemp.plus({ days: 1 });
-  }
-
+console.log(1, slots);
   return {
     message: 'Successful reply',
     state: scheduleType === 'location' ? item.address?.state : '',
@@ -181,7 +241,8 @@ async function getSchedule(
       'Unknown',
     locationID: scheduleType === 'location' ? item.id : undefined,
     providerID: scheduleType === 'provider' ? item.id : undefined,
-    availableSlots: slots,
+    groupID: scheduleType === 'group' ? item.id : undefined,
+    availableSlots: [...new Set(slots)], // remove duplicates,
     // available: location.status === 'active',
     available: true,
   };
@@ -255,11 +316,14 @@ export function createMinimumAndMaximumTime(date: DateTime, buffer?: number): { 
   return { minimum: startTime, maximum: finishTime };
 }
 
-function getName(item: Location | Practitioner): string {
+function getName(item: Location | Practitioner | HealthcareService): string {
   if (!item.name) {
     return 'Unknown';
   }
   if (item.resourceType === 'Location') {
+    return item.name;
+  }
+  if (item.resourceType === 'HealthcareService') {
     return item.name;
   }
   return formatHumanName(item.name[0]);

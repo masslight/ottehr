@@ -81,14 +81,15 @@ export const performEffect = async (
     ]);
 
     allPackages.forEach((appointmentPackage) => {
-      const { appointment, telemedStatus, providers, telemedStatusHistory, location, encounter } = appointmentPackage;
+      const { appointment, telemedStatus, providers, groups, telemedStatusHistory, location, encounter } =
+        appointmentPackage;
 
       const patient = filterPatientForAppointment(appointment, allResources);
       const patientPhone = appointmentPackage.paperwork
         ? getPhoneNumberFromQuestionnaire(appointmentPackage.paperwork)
         : undefined;
       const cancellationReason = appointment.cancelationReason?.coding?.[0].code;
-      const estimatedTime = location?.locationId ? estimatedTimeMap[location?.locationId] : undefined;
+      const estimatedTime = location?.locationID ? estimatedTimeMap[location?.locationID] : undefined;
       const smsModel = createSmsModel(patient.id!, allRelatedPersonMaps);
 
       const appointmentTemp: TelemedAppointmentInformation = {
@@ -107,8 +108,9 @@ export const performEffect = async (
         comment: appointment.comment,
         appointmentStatus: appointment.status,
         provider: providers,
+        group: groups,
         location: {
-          locationId: location?.locationId ? `Location/${location.locationId}` : undefined,
+          locationID: location?.locationID ? `Location/${location.locationID}` : undefined,
           state: location?.state,
         },
         encounter,
@@ -156,9 +158,9 @@ export const calculateEstimatedTimeForLocations = async (
 
   const estimatedTimeToLocationIdMap: EstimatedTimeToLocationIdMap = {};
   locationsIdsGroups.forEach((locationsIdsGroup) => {
-    const locationId = locationsIdsGroup.find((locationId) => locationToAppointmentMap[locationId]);
-    if (locationId) {
-      const oldestApptInGroup = locationToAppointmentMap[locationId];
+    const locationID = locationsIdsGroup.find((locationID) => locationToAppointmentMap[locationID]);
+    if (locationID) {
+      const oldestApptInGroup = locationToAppointmentMap[locationID];
       const timeDifference = getAppointmentWaitingTime(oldestApptInGroup);
       if (timeDifference) {
         locationsIdsGroup.forEach((id) => {

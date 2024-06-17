@@ -8,6 +8,7 @@ export interface GetTelemedAppointmentsInput {
   dateFilter: string;
   stateFilter?: string;
   providersFilter?: string[];
+  groupsFilter?: string[];
   patientFilter: PatientFilterType;
   statusesFilter: TelemedCallStatuses[];
   secrets: Secrets | null;
@@ -25,7 +26,7 @@ export interface TelemedStatusHistoryElement {
 }
 
 export interface AppointmentLocation {
-  locationId?: string;
+  locationID?: string;
   state?: string;
 }
 
@@ -37,6 +38,7 @@ export interface TelemedAppointmentInformation extends AppointmentMessaging {
   appointmentStatus: string;
   location: AppointmentLocation;
   provider?: string[];
+  group?: string[];
   estimated?: number;
   paperwork?: QuestionnaireResponse;
   encounter: Encounter;
