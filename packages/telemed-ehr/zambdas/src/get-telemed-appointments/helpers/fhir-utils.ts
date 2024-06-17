@@ -23,7 +23,7 @@ import { LocationIdToAbbreviationMap } from './types';
 export const getAllResourcesFromFhir = async (
   fhirClient: FhirClient,
   searchDate: DateTime,
-  locationIds: string[],
+  locationIDs: string[],
   providerIDs: string[],
   groupIDs: string[],
   encounterStatusesToSearchWith: string[],
@@ -87,10 +87,10 @@ export const getAllResourcesFromFhir = async (
       { name: '_include', value: 'Appointment:actor' },
     ],
   };
-  if (locationIds.length > 0) {
+  if (locationIDs.length > 0) {
     fhirSearchParams.searchParams.push({
       name: 'location',
-      value: joinLocationsIdsForFhirSearch(locationIds),
+      value: joinLocationsIdsForFhirSearch(locationIDs),
     });
   }
   if (providerIDs.length > 0) {

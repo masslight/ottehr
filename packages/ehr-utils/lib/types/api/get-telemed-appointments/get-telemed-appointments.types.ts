@@ -26,7 +26,7 @@ export interface TelemedStatusHistoryElement {
 }
 
 export interface AppointmentLocation {
-  locationId?: string;
+  locationID?: string;
   state?: string;
 }
 

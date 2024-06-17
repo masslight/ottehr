@@ -25,12 +25,12 @@ export const filterLocationForAppointment = (
   appointment: Appointment,
   virtualLocationsMap: LocationIdToAbbreviationMap,
 ): AppointmentLocation | undefined => {
-  const locationId = getLocationIdFromAppointment(appointment);
-  if (locationId) {
+  const locationID = getLocationIdFromAppointment(appointment);
+  if (locationID) {
     const abbreviation = Object.keys(virtualLocationsMap).find((abbreviation) => {
-      return virtualLocationsMap[abbreviation] === locationId;
+      return virtualLocationsMap[abbreviation] === locationID;
     });
-    return { locationId: locationId, state: abbreviation };
+    return { locationID: locationID, state: abbreviation };
   }
   return undefined;
 };

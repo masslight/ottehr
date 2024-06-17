@@ -113,7 +113,7 @@ export default function AppointmentTable({
               {tab === ApptTab['in-office'] ? (
                 <>
                   <TableRow>
-                    <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={8}>
+                    <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={9}>
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <IconButton onClick={() => setCollapseWaiting(!collapseWaiting)} sx={{ mr: 0.75, p: 0 }}>
                           <ArrowDropDownCircleOutlinedIcon
@@ -158,7 +158,7 @@ export default function AppointmentTable({
                         );
                       })}
                   <TableRow>
-                    <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={8}>
+                    <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={9}>
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <IconButton onClick={() => setCollapseExam(!collapseExam)} sx={{ mr: 0.75, p: 0 }}>
                           <ArrowDropDownCircleOutlinedIcon

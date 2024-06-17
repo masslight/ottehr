@@ -56,7 +56,7 @@ export default function Appointments(): ReactElement {
     if (field === 'date') {
       queryParams?.set('searchDate', value?.toISODate() ?? appointmentDate?.toISODate() ?? '');
     } else if (field === 'location') {
-      queryParams?.set('locationId', value?.id ?? locationSelected?.id ?? '');
+      queryParams?.set('locationID', value?.id ?? locationSelected?.id ?? '');
     } else if (field === 'visittypes') {
       const appointmentTypesString = value.join(',');
       queryParams.set('visitType', appointmentTypesString);
@@ -76,8 +76,8 @@ export default function Appointments(): ReactElement {
     return new URLSearchParams(location.search);
   }, [location.search]);
 
-  const { locationId, searchDate, visitType, providers, groups, queryId } = useMemo(() => {
-    const locationId = queryParams.get('locationId') || '';
+  const { locationID, searchDate, visitType, providers, groups, queryId } = useMemo(() => {
+    const locationID = queryParams.get('locationID') || '';
     const searchDate = queryParams.get('searchDate') || '';
     const appointmentTypesString = queryParams.get('visitType') || '';
     let providers = queryParams.get('providers')?.split(',') || [];
@@ -88,9 +88,9 @@ export default function Appointments(): ReactElement {
     if (groups.length === 1 && groups[0] === '') {
       groups = [];
     }
-    const queryId = `${locationId}-${providers}-${groups}-${searchDate}-${appointmentTypesString}`;
+    const queryId = `${locationID}-${providers}-${groups}-${searchDate}-${appointmentTypesString}`;
     const visitType = appointmentTypesString ? appointmentTypesString.split(',') : [];
-    return { locationId, searchDate, visitType, providers, groups, queryId };
+    return { locationID, searchDate, visitType, providers, groups, queryId };
   }, [queryParams]);
 
   const {
@@ -198,12 +198,12 @@ export default function Appointments(): ReactElement {
       setLoadingState({ status: 'loading' });
 
       if (
-        (locationId || locationSelected?.id || providers.length > 0 || groups.length > 0) &&
+        (locationID || locationSelected?.id || providers.length > 0 || groups.length > 0) &&
         (searchDate || appointmentDate) &&
         Array.isArray(visitType)
       ) {
         const searchResults = await getAppointments(zambdaClient, {
-          locationId: locationId || locationSelected?.id || undefined,
+          locationID: locationID || locationSelected?.id || undefined,
           searchDate,
           visitType: visitType || [],
           providerIDs: providers,
@@ -237,7 +237,7 @@ export default function Appointments(): ReactElement {
     editingComment,
     loadingState,
     queryId,
-    locationId,
+    locationID,
     searchDate,
     appointmentDate,
     visitType,
