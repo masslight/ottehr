@@ -5,7 +5,7 @@ import { DateTime } from 'luxon';
 import { useContext, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useZambdaClient } from 'ottehr-components';
-import { VisitType } from 'ottehr-utils';
+import { VisitType } from '../store/types';
 import { IntakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
 import zapehrApi from '../api/zapehrApi';

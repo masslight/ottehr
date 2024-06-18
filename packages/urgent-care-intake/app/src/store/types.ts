@@ -37,6 +37,7 @@ export type PatientInfo = {
 export enum VisitType {
   WalkIn = 'walkin',
   PreBook = 'prebook',
+  Now = 'now',
 }
 
 export enum PersonSex {

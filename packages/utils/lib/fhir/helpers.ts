@@ -117,19 +117,18 @@ export const findLocationForAppointment = (appointment: Appointment, locations: 
 
 export const findEncounterForAppointment = (
   appointment: Appointment,
-  encounters: Encounter[]
+  encounters: Encounter[],
 ): Encounter | undefined => {
   // Go through encounters and find the one with appointment
-  return encounters.find(
-    (encounter) =>
-      encounter.appointment?.find((appRef) => {
-        const { reference } = appRef;
-        if (!reference) {
-          return false;
-        }
-        const [_, refId] = reference.split('/');
-        return refId && refId === appointment.id;
-      })
+  return encounters.find((encounter) =>
+    encounter.appointment?.find((appRef) => {
+      const { reference } = appRef;
+      if (!reference) {
+        return false;
+      }
+      const [_, refId] = reference.split('/');
+      return refId && refId === appointment.id;
+    }),
   );
 };
 
@@ -149,14 +148,12 @@ export function getPatientContactEmail(patient: Patient): string | undefined {
   const formUser = patient.extension?.find((ext) => ext.url === `${PRIVATE_EXTENSION_BASE_URL}/form-user`)?.valueString;
   if (formUser === 'Parent/Guardian') {
     return patient.contact
-      ?.find(
-        (contactTemp) =>
-          contactTemp.relationship?.find(
-            (relationshipTemp) =>
-              relationshipTemp.coding?.find(
-                (codingTemp) => codingTemp.system === `${PRIVATE_EXTENSION_BASE_URL}/relationship`
-              )
-          )
+      ?.find((contactTemp) =>
+        contactTemp.relationship?.find((relationshipTemp) =>
+          relationshipTemp.coding?.find(
+            (codingTemp) => codingTemp.system === `${PRIVATE_EXTENSION_BASE_URL}/relationship`,
+          ),
+        ),
       )
       ?.telecom?.find((telecomTemp) => telecomTemp.system === 'email')?.value;
   } else {
@@ -166,7 +163,7 @@ export function getPatientContactEmail(patient: Patient): string | undefined {
 
 export function getOtherOfficesForLocation(location: Location): { display: string; url: string }[] {
   const rawExtensionValue = location?.extension?.find(
-    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/other-offices'
+    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/other-offices',
   )?.valueString;
   if (!rawExtensionValue) {
     console.log("Location doesn't have other-offices extension");
@@ -388,7 +385,7 @@ export const getLastUpdateTimestampForResource = (resource: Resource): number | 
 export async function getQuestionnaireResponse(
   questionnaireID: string,
   encounterID: string,
-  fhirClient: FhirClient
+  fhirClient: FhirClient,
 ): Promise<QuestionnaireResponse | undefined> {
   const questionnaireResponse: QuestionnaireResponse[] = await fhirClient.searchResources({
     resourceType: 'QuestionnaireResponse',
@@ -413,7 +410,7 @@ export async function getQuestionnaireResponse(
 export async function getRecentQuestionnaireResponse(
   questionnaireID: string,
   patientID: string,
-  fhirClient: FhirClient
+  fhirClient: FhirClient,
 ): Promise<QuestionnaireResponse | undefined> {
   console.log('questionnaireID', questionnaireID);
   const questionnaireResponse: QuestionnaireResponse[] = await fhirClient.searchResources({

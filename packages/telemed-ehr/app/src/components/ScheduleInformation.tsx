@@ -88,14 +88,31 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
     if (!items) {
       return [];
     }
-    const filtered = items?.filter((item) => getName(item).toLowerCase().includes(searchText.toLowerCase()));
 
-    const combinedItems = filtered.map((item) => ({
+    // Type guard to check if the array is of type Location[]
+    const isLocationArray = (items: any[]): items is Location[] => {
+      return items.length > 0 && items[0].resourceType === 'Location';
+    };
+
+    // Type guard to check if the array is of type Practitioner[]
+    const isPractitionerArray = (items: any[]): items is Practitioner[] => {
+      return items.length > 0 && items[0].resourceType === 'Practitioner';
+    };
+
+    let filtered: (Location | Practitioner)[] = [];
+
+    if (isLocationArray(items)) {
+      filtered = items.filter((item: Location) => getName(item).toLowerCase().includes(searchText.toLowerCase()));
+    } else if (isPractitionerArray(items)) {
+      filtered = items.filter((item: Practitioner) => getName(item).toLowerCase().includes(searchText.toLowerCase()));
+    }
+
+    const combinedItems = filtered.map((item: Location | Practitioner) => ({
       ...item,
       combined: getName(item),
     }));
 
-    combinedItems.sort((a, b) => a.combined.localeCompare(b.combined));
+    combinedItems.sort((a: { combined: string }, b: { combined: string }) => a.combined.localeCompare(b.combined));
 
     return combinedItems;
   }, [items, searchText]);
@@ -246,7 +263,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
             </TableRow>
           </TableHead>
           <TableBody>
-            {pageItems.map((item) => (
+            {pageItems.map((item: Location | Practitioner) => (
               <TableRow key={item.id}>
                 <TableCell>
                   <Link to={`/schedule/${scheduleType}/${item.id}`} style={{ textDecoration: 'none' }}>

@@ -103,9 +103,7 @@ export default function LocationSelect({
   return (
     <Autocomplete
       disabled={renderInputProps?.disabled}
-      value={
-        location ? { label: location.name, value: location?.id } : null
-      }
+      value={location ? { label: location.name, value: location?.id } : null}
       onChange={handleLocationChange}
       isOptionEqualToValue={(option, tempValue) => option.value === tempValue.value}
       options={options}

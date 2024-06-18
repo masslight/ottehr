@@ -18,6 +18,7 @@ env/*
 .env.development.local
 .env.test.local
 .env.production.
+.env.dev
 
 !.env/env.local-template
 
