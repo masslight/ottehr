@@ -28,7 +28,7 @@
 
 This monorepo contains code for [Ottehr telehealth](https://www.ottehr.com/).
 
-Ottehr is a modern, modular EHR that began as a reference implementation for [ZapEHR](https://zapehr.com). It quickly outgrew "sample EHR" status and became the foundation for large-scale production EHR installations. Ottehr uses ZapEHR for back-end service endpoints, and requires a free ZapEHR account to run as-is, but you are welcome to modify and use a third-party service vendor or build your own service architecture. Ottehr is designed for developers, hopefully making it easy to fork, white-label, and build entire new classes of EHRs and health-tech products with a fraction of the effort of starting from scratch.
+Ottehr is a modern, modular EHR that began as a reference implementation for [Oystehr](https://oystehr.com). It quickly outgrew "sample EHR" status and became the foundation for large-scale production EHR installations. Ottehr uses Oystehr for back-end service endpoints, and requires a free Oystehr account to run as-is, but you are welcome to modify and use a third-party service vendor or build your own service architecture. Ottehr is designed for developers, hopefully making it easy to fork, white-label, and build entire new classes of EHRs and health-tech products with a fraction of the effort of starting from scratch.
 
 ## Setup
 
@@ -91,20 +91,20 @@ npm install -g pnpm
 
 Alternatively, you can install `pnpm` using the [official documentation](https://pnpm.io/installation).
 
-### Joining ZapEHR
+### Joining Oystehr
 
-You'll need a free ZapEHR account to run Ottehr. Register for access at [zapehr.com](https://zapehr.com). Follow these simple steps:
+You'll need a free Oystehr account to run Ottehr. Register for access at [oystehr.com](https://oystehr.com). Follow these simple steps:
 
-1. Visit [zapehr.com](https://zapehr.com).
+1. Visit [oystehr.com](https://oystehr.com).
 2. Click on **Free Access** to initiate your early access request.
 
-Once your request is received, the ZapEHR team will promptly reach out to you via email, providing the credentials you need to kickstart your ZapEHR journey.
+Once your request is received, the Oystehr team will promptly reach out to you via email, providing the credentials you need to kickstart your Oystehr journey.
 
-For comprehensive guidance on getting started with ZapEHR, explore our technical documentation available at [https://docs.zapehr.com/docs/welcome](https://docs.zapehr.com/docs/welcome).
+For comprehensive guidance on getting started with Oystehr, explore our technical documentation available at [https://docs.oystehr.com/docs/welcome](https://docs.oystehr.com/docs/welcome).
 
 ## Setup Procedure
 
-To proceed with this setup guide, it is assumed that you have access to a ZapEHR project. If you have done so, please follow these steps:
+To proceed with this setup guide, it is assumed that you have access to a Oystehr project. If you have done so, please follow these steps:
 
 1. **Fork Ottehr:**
    Visit [https://github.com/masslight/ottehr/fork](https://github.com/masslight/ottehr/fork) and fork the repository.
@@ -142,8 +142,8 @@ For a sample guide of setting up Ottehr Telemedicine, please check [getting star
 
 The script will prompt you for the following information:
 
-* Your access token: Log in to your [ZapEHR project](https://console.zapehr.com), and copy the access token from the dashboard.
-* Your project ID: Find this on the [ZapEHR project details page](https://console.zapehr.com/project).
+* Your access token: Log in to your [Oystehr project](https://console.oystehr.com), and copy the access token from the dashboard.
+* Your project ID: Find this on the [Oystehr project details page](https://console.oystehr.com/project).
 * Your first provider email: This can be your email address.
 
 Once the program finishes running,
