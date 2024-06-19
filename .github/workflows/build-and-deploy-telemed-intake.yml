@@ -112,7 +112,7 @@ jobs:
 
       - name: Deploy to AWS S3
         run: |
-          aws s3 sync ./build s3://telemed.ottehr.com --delete
+          aws s3 sync ./packages/telemed-intake/app/build s3://telemed.ottehr.com --delete
 
       # - name: Notify Slack
       #   if: always()
