@@ -113,7 +113,7 @@ jobs:
         run: pnpm build:telemed-ehr
 
       - name: Deploy App
-        run: pnpm telemed-ehr:deploy
+        run: pnpm telemed-ehr-deploy::${{ github.event.inputs.environment }}
 
       - name: Setup zapehr secrets
         run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm setup-zapehr-secrets:${{ github.event.inputs.environment }}
