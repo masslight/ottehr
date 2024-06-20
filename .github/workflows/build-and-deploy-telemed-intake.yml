@@ -71,7 +71,7 @@ jobs:
           version: 8
 
       - name: Deploy App
-        run: pnpm telemed:deploy:${{ github.event.inputs.environment }}
+        run: pnpm telemed:deploy
 
       - name: Check out secrets repo to grab the env file.
         uses: actions/checkout@v3
