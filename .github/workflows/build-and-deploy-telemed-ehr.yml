@@ -109,9 +109,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build app
-        run: pnpm build:telemed-ehr
-
       - name: Deploy App
         run: pnpm telemed-ehr-deploy::${{ github.event.inputs.environment }}
 
