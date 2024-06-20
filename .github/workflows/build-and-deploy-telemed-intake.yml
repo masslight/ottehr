@@ -80,7 +80,7 @@ jobs:
       - name: Move zambda secrets file into the .env directory.
         run: mkdir -p ${{ env.ZAMBDAS_LOCATION }}/.env/ && cp secrets/telemed-intake-zambdas/* ${{ env.ZAMBDAS_LOCATION }}/.env/
 
-      - name: Move app secrets file into the .env directory.
+      - name: Move app secrets file into the env directory.
         run: mkdir -p ${{ env.PACKAGE_LOCATION }}/env/ && cp secrets/telemed-intake-app/* ${{ env.PACKAGE_LOCATION }}/env/
 
       - name: Copy env file to local.env to support serverless package command
