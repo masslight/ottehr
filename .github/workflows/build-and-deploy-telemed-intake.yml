@@ -77,6 +77,12 @@ jobs:
           ssh-key: ${{ secrets.OTTEHR_DEMO_PRIVATE_KEY }}
           path: 'secrets'
 
+      - name: List secrets directory.
+        run: ls secrets
+
+      - name: List all files in secrets directory.
+        run: ls .
+
       - name: Move app secrets file into the env directory.
         run: mkdir -p ${{ env.PACKAGE_LOCATION }}/env/ && cp secrets/telemed-intake-app/* ${{ env.PACKAGE_LOCATION }}/env/
 
