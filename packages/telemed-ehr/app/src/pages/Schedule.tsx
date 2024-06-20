@@ -130,7 +130,6 @@ export default function SchedulePage(): ReactElement {
   async function updateSlug(event: any): Promise<void> {
     event.preventDefault();
     setSlugLoading(true);
-    console.log(1, item);
     const identifiers = item?.identifier || [];
     // make a copy of identifier
     let identifiersTemp: Identifier[] | undefined = [...identifiers];
@@ -168,7 +167,6 @@ export default function SchedulePage(): ReactElement {
         identifiersTemp[identifierIndex] = updatedSlugIdentifier;
       }
     }
-    // console.log(1, !identifiers, identifiers);
     const operation: Operation = {
       op: !hasIdentifiers ? 'add' : 'replace',
       path: '/identifier',
@@ -180,7 +178,6 @@ export default function SchedulePage(): ReactElement {
       resourceId: id,
       operations: [operation],
     });
-    console.log(11, itemTemp);
     setItem(itemTemp as Location | Practitioner | HealthcareService);
     setSlugLoading(false);
   }
@@ -247,7 +244,7 @@ export default function SchedulePage(): ReactElement {
                 </TabPanel>
                 {/* General tab */}
                 <TabPanel value="general">
-                  <Paper sx={{ padding: 3 }}>
+                  <Paper sx={{ marginBottom: 2, padding: 3 }}>
                     <form onSubmit={(event) => updateSlug(event)}>
                       <TextField label="Slug" value={slug} onChange={(event) => setSlug(event.target.value)} />
                       <br />
