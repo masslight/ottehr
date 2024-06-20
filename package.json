@@ -19,7 +19,8 @@
     "start:dev2": "pnpm recursive run start:dev2",
     "start:testing": "pnpm recursive run start:testing",
     "start:staging": "pnpm recursive run start:staging",
-    "update": "pnpm recursive up -L -i"
+    "update": "pnpm recursive up -L -i",
+    "telemed:deploy": "pnpm --filter=telemed-intake-app deploy:dev"
   },
   "packageManager": "pnpm@8.7.6",
   "engines": {
