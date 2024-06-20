@@ -78,7 +78,7 @@ jobs:
           path: 'secrets'
 
       - name: Move zambda secrets file into the .env directory.
-        run: mkdir -p ${{ env.ZAMBDAS_LOCATION }}/.env/ && cp -r secrets/telemed-intake-zambdas ${{ env.ZAMBDAS_LOCATION }}/.env/
+        run: mkdir -p ${{ env.ZAMBDAS_LOCATION }}/.env/ && cp -r secrets/telemed-intake-zambdas/* ${{ env.ZAMBDAS_LOCATION }}/.env/
 
       - name: Move app secrets file into the env directory.
         run: mkdir -p ${{ env.PACKAGE_LOCATION }}/env/ && cp -r secrets/telemed-intake-app/. ${{ env.PACKAGE_LOCATION }}/env/
