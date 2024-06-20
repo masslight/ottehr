@@ -21,8 +21,8 @@
     "start:testing": "pnpm recursive run start:testing",
     "start:staging": "pnpm recursive run start:staging",
     "update": "pnpm recursive up -L -i",
-    "telemed-intake:deploy": "pnpm --filter=telemed-intake-app deploy:dev",
-    "telemed-ehr:deploy": "pnpm --filter=telemed-ehr-app deploy:dev"
+    "telemed-intake-deploy:dev": "pnpm --filter=telemed-intake-app deploy:dev",
+    "telemed-ehr-deploy:dev": "pnpm --filter=telemed-ehr-app deploy:dev"
   },
   "packageManager": "pnpm@8.7.6",
   "engines": {
