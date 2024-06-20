@@ -41,9 +41,6 @@ const ZAMBDAS: { [name: string]: DeployZambda } = {
   'GET-APPOINTMENTS': {
     type: 'http_auth',
   },
-  'GET-TELEMED-STATES': {
-    type: 'http_open',
-  },
   'CANCEL-APPOINTMENT': {
     type: 'http_auth',
   },
