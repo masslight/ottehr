@@ -4,7 +4,6 @@ import { FhirClient, ZambdaClient } from '@zapehr/sdk';
 import { getM2MClientToken } from '../src/shared';
 
 export const performEffectWithEnvFile = async (callback: (config: any) => void) => {
-  console.log(process.argv, 'process.argv');
   const env = process.env.ENV;
 
   console.log(env, 'env');
@@ -22,7 +21,6 @@ export const performEffectWithEnvFile = async (callback: (config: any) => void) 
 };
 
 export const createZambdaClient = async (config: any): Promise<ZambdaClient> => {
-  console.log(config, 'config');
   const token = await getM2MClientToken(config);
 
   if (!token) {

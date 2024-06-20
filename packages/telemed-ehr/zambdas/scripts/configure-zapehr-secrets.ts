@@ -31,7 +31,7 @@ const setupSecrets = async (config: any): Promise<void> => {
 
 // So we can use await
 const main = async (): Promise<void> => {
-  const env = process.argv[2];
+  const env = process.env.ENV;
 
   switch (env) {
     case 'dev':
