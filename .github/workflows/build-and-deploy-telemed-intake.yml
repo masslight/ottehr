@@ -83,6 +83,9 @@ jobs:
       - name: Move app secrets file into the env directory.
         run: mkdir -p ${{ env.PACKAGE_LOCATION }}/env/ && cp -r secrets/telemed-intake-app/. ${{ env.PACKAGE_LOCATION }}/env/
 
+      - name: Move app secrets file into the env directory.
+        run: ls -a ${{ env.PACKAGE_LOCATION }}/env/
+
       - name: Copy env file to local.env to support serverless package command
         run: cp ${{ env.ZAMBDAS_LOCATION }}/.env/${{ github.event.inputs.environment }}.json ${{ env.ZAMBDAS_LOCATION }}/.env/local.json
 
