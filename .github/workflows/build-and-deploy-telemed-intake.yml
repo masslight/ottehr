@@ -70,9 +70,6 @@ jobs:
         with:
           version: 8
 
-      - name: Deploy App
-        run: pnpm telemed:deploy
-
       - name: Check out secrets repo to grab the env file.
         uses: actions/checkout@v3
         with:
@@ -108,6 +105,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
+
+      - name: Deploy App
+        run: pnpm telemed:deploy
 
       - name: Build app
         run: pnpm build:telemed-intake
