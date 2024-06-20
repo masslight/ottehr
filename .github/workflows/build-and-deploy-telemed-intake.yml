@@ -84,7 +84,7 @@ jobs:
         run: ls .
 
       - name: List all files in secrets directory.
-        run: ls secrets/telemed-intake-app/*
+        run: ls secrets/telemed-intake-app
 
       - name: Move app secrets file into the env directory.
         run: mkdir -p ${{ env.PACKAGE_LOCATION }}/env/ && cp secrets/telemed-intake-app/* ${{ env.PACKAGE_LOCATION }}/env/
