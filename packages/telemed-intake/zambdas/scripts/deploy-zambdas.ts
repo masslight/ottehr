@@ -41,6 +41,9 @@ const ZAMBDAS: { [name: string]: DeployZambda } = {
   'GET-APPOINTMENTS': {
     type: 'http_auth',
   },
+  'GET-SCHEDULE': {
+    type: 'http_open',
+  },
   'CANCEL-APPOINTMENT': {
     type: 'http_auth',
   },
