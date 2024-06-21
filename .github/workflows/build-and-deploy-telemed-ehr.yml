@@ -1,4 +1,4 @@
-name: Deploy Ehr
+name: Deploy EHR
 
 env:
   CI: false

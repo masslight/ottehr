@@ -1,4 +1,4 @@
-name: Deploy Telemed Intake
+name: Deploy Intake
 
 on:
   workflow_dispatch:
