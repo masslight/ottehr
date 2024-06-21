@@ -1,4 +1,4 @@
-name: Deploy
+name: Deploy EHR
 
 env:
   CI: false
@@ -77,8 +77,11 @@ jobs:
           ssh-key: ${{ secrets.OTTEHR_DEMO_PRIVATE_KEY }}
           path: 'secrets'
 
-      - name: Move secrets file into the .env directory.
-        run: mkdir -p ${{ env.ZAMBDAS_LOCATION }}/.env/ && cp secrets/telemed-ehr/* ${{ env.ZAMBDAS_LOCATION }}/.env/
+      - name: Move zambda secrets file into the .env directory.
+        run: mkdir -p ${{ env.ZAMBDAS_LOCATION }}/.env/ && cp -r secrets/telemed-ehr-zambdas/* ${{ env.ZAMBDAS_LOCATION }}/.env/
+
+      - name: Move app secrets file into the env directory.
+        run: mkdir -p ${{ env.PACKAGE_LOCATION }}/env/ && cp -r secrets/telemed-ehr-app/. ${{ env.PACKAGE_LOCATION }}/env/
 
       - name: Copy env file to local.env to support serverless package command
         run: cp ${{ env.ZAMBDAS_LOCATION }}/.env/${{ github.event.inputs.environment }}.json ${{ env.ZAMBDAS_LOCATION }}/.env/local.json
@@ -106,17 +109,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build app
-        run: pnpm build:telemed-ehr
-
       - name: Deploy App
-        run: pnpm telemed-ehr:deploy
+        run: pnpm telemed-ehr-deploy ${{ github.event.inputs.environment }}
 
       - name: Setup zapehr secrets
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm setup-zapehr-secrets:${{ github.event.inputs.environment }}
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm setup-zapehr-secrets ${{ github.event.inputs.environment }}
 
       - name: Deploy zambdas
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm deploy-zambdas:${{ github.event.inputs.environment }}
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm deploy-zambdas ${{ github.event.inputs.environment }}
 
       - name: Notify Slack
         if: always()

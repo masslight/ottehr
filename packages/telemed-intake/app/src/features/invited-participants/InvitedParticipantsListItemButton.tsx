@@ -1,7 +1,7 @@
 import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined';
 import { StyledListItemWithButton } from 'ottehr-components';
-import { otherColors } from '../../IntakeThemeProvider';
 import { useGetVideoChatInvites } from '../waiting-room';
+import { useTheme } from '@mui/system';
 
 export function InvitedParticipantListItemButton({
   onClick,
@@ -17,6 +17,7 @@ export function InvitedParticipantListItemButton({
   } = useGetVideoChatInvites();
   const invitedParticipants = invitesData?.invites ?? [];
   const invitedParticipantsLoading = isGetInvitesFetching || isGetInvitesLoading;
+  const theme = useTheme();
 
   return (
     <StyledListItemWithButton
@@ -31,7 +32,7 @@ export function InvitedParticipantListItemButton({
       hideText={hideText}
       onClick={onClick}
     >
-      <ManageAccountsOutlinedIcon sx={{ color: otherColors.purple }} />
+      <ManageAccountsOutlinedIcon sx={{ color: theme.palette.primary.main }} />
     </StyledListItemWithButton>
   );
 }

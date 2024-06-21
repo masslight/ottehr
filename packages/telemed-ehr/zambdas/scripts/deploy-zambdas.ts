@@ -1,11 +1,10 @@
-import { BatchInputDeleteRequest, BatchInputPostRequest } from '@zapehr/sdk';
+import { BatchInputDeleteRequest, BatchInputPostRequest, FhirClient, ZambdaClient } from '@zapehr/sdk';
 import { Subscription } from 'fhir/r4';
 import fs from 'fs';
-import { getM2MClientToken } from '../src/shared';
-import { createZambdaClient, performEffectWithEnvFile } from './common';
-import { createFhirClient } from 'ottehr-utils';
+import { COMMUNICATION_ISSUE_REPORT_CODE } from 'ehr-utils';
+import { getAuth0Token } from '../src/shared';
 
-interface SubscriptionDetils {
+interface SubscriptionDetails {
   criteria: string;
   reason: string;
   event?: 'create' | 'update';
@@ -13,7 +12,7 @@ interface SubscriptionDetils {
 
 interface DeployZambda {
   type: 'http_open' | 'http_auth' | 'subscription' | 'cron';
-  subscriptionDetils?: SubscriptionDetils[];
+  subscriptionDetails?: SubscriptionDetails[];
   schedule?: {
     start?: string;
     end?: string;
@@ -23,80 +22,138 @@ interface DeployZambda {
 }
 
 const ZAMBDAS: { [name: string]: DeployZambda } = {
-  'GET-PATIENTS': {
-    type: 'http_auth',
-  },
-  'GET-PAPERWORK': {
-    type: 'http_auth',
-  },
-  'CREATE-PAPERWORK': {
-    type: 'http_auth',
-  },
-  'UPDATE-PAPERWORK': {
-    type: 'http_auth',
-  },
-  'CREATE-APPOINTMENT': {
+  'DEACTIVATE-USER': {
     type: 'http_auth',
   },
   'GET-APPOINTMENTS': {
     type: 'http_auth',
   },
-  'GET-SCHEDULE': {
-    type: 'http_open',
-  },
-  'CANCEL-APPOINTMENT': {
+  'GET-TELEMED-APPOINTMENTS': {
     type: 'http_auth',
   },
-  'GET-WAIT-STATUS': {
-    type: 'http_open',
-  },
-  'JOIN-CALL': {
-    type: 'http_open',
-  },
-  'VIDEO-CHAT-INVITES-CREATE': {
+  'CHANGE-TELEMED-APPOINTMENT-STATUS': {
     type: 'http_auth',
   },
-  'VIDEO-CHAT-INVITES-CANCEL': {
+  'GET-CHART-DATA': {
     type: 'http_auth',
   },
-  'VIDEO-CHAT-INVITES-LIST': {
+  'SAVE-CHART-DATA': {
     type: 'http_auth',
   },
-  'GET-PRESIGNED-FILE-URL': {
-    type: 'http_open',
+  'DELETE-CHART-DATA': {
+    type: 'http_auth',
+  },
+  'UPDATE-USER': {
+    type: 'http_auth',
+  },
+  'INIT-TELEMED-SESSION': {
+    type: 'http_auth',
+  },
+  'GET-USER': {
+    type: 'http_auth',
+  },
+  'SAVE-PATIENT-INSTRUCTION': {
+    type: 'http_auth',
+  },
+  'GET-PATIENT-INSTRUCTIONS': {
+    type: 'http_auth',
+  },
+  'DELETE-PATIENT-INSTRUCTION': {
+    type: 'http_auth',
+  },
+  'GET-CONVERSATION': {
+    type: 'http_auth',
+  },
+  'GET-EMPLOYEES': {
+    type: 'http_auth',
+  },
+  'NOTIFICATIONS-UPDATER': {
+    type: 'cron',
+    schedule: {
+      expression: 'cron(*/5 * * * ? *)', // every 3 minutes
+    },
+    environments: ['dev', 'testing', 'staging', 'training'],
+  },
+  'SYNC-USER': {
+    type: 'http_auth',
+  },
+  'ICD-SEARCH': {
+    type: 'http_auth',
+  },
+  'COMMUNICATION-SUBSCRIPTION': {
+    type: 'subscription',
+    subscriptionDetails: [
+      {
+        criteria: `Communication?category=${COMMUNICATION_ISSUE_REPORT_CODE.system}|${COMMUNICATION_ISSUE_REPORT_CODE.code}&status=in-progress`,
+        reason: 'PM - ML internal communication',
+        event: 'create',
+      },
+    ],
   },
 };
 
 const updateZambdas = async (config: any): Promise<void> => {
-  const token = await getM2MClientToken(config);
-  const zambdaClient = await createZambdaClient(config);
+  const token = await getAuth0Token(config);
 
-  console.log('Getting list of zambdas');
-  const currentZambdas = await zambdaClient.getAllZambdas();
+  if (!token) {
+    throw new Error('Failed to fetch auth token.');
+  }
+  const fhirClient = new FhirClient({
+    apiUrl: 'https://fhir-api.zapehr.com/r4',
+    accessToken: token,
+  });
+  const zambdaClient = new ZambdaClient({
+    apiUrl: 'https://project-api.zapehr.com/v1',
+    accessToken: token,
+  });
+  console.log({
+    apiUrl: 'https://fhir-api.zapehr.com/r4',
+    accessToken: token,
+  });
 
-  // First check if any zambdas are not found
-  for await (const zambda of Object.keys(ZAMBDAS)) {
-    const currentZambda = ZAMBDAS[zambda];
-    if (currentZambda.environments && !currentZambda.environments.includes(config.ENVIRONMENT)) {
-      console.log(`\nZambda ${zambda} is not run in ${config.ENVIRONMENT}`);
-      continue;
+  try {
+    console.log('Getting list of zambdas');
+    const currentZambdas = await zambdaClient.getAllZambdas();
+
+    // First check if any zambdas are not found
+    for await (const zambda of Object.keys(ZAMBDAS)) {
+      const currentZambda = ZAMBDAS[zambda];
+
+      if (currentZambda.environments && !currentZambda.environments.includes(config.ENVIRONMENT)) {
+        console.log(`\nZambda ${zambda} is not run in ${config.ENVIRONMENT}`);
+        continue;
+      }
+
+      let currentDeployedZambda = currentZambdas.find(
+        (tempZambda) => tempZambda.name === `admin-${zambda.toLowerCase()}`,
+      );
+
+      if (currentDeployedZambda) {
+        console.log(`\nZambda ${zambda} is found with ID ${currentDeployedZambda.id}`);
+      } else {
+        console.log(`\nZambda ${zambda} is not found, creating it`);
+        currentDeployedZambda = await zambdaClient.createZambda({
+          name: `admin-${zambda.toLowerCase()}`,
+        });
+        console.log(`Zambda ${zambda} with ID ${currentDeployedZambda.id}`);
+      }
+
+      try {
+        await updateProjectZambda(
+          currentDeployedZambda.id,
+          zambda,
+          currentZambda,
+          config,
+          'https://project-api.zapehr.com/v1',
+          token,
+          fhirClient,
+        );
+      } catch (err) {
+        console.log(`Error trying to update project zambda ${zambda}`, err);
+      }
     }
-
-    let currentDeployedZambda = currentZambdas.find(
-      (tempZambda) => tempZambda.name === `telemed-${zambda.toLowerCase()}`,
-    );
-
-    if (currentDeployedZambda) {
-      console.log(`\nZambda ${zambda} is found with ID ${currentDeployedZambda.id}`);
-    } else {
-      console.log(`\nZambda ${zambda} is not found, creating it`);
-      currentDeployedZambda = await zambdaClient.createZambda({
-        name: `telemed-${zambda.toLowerCase()}`,
-      });
-      console.log(`Zambda ${zambda} with ID ${currentDeployedZambda.id}`);
-    }
-
-    await updateProjectZambda(currentDeployedZambda.id, zambda, currentZambda, config, token);
+  } catch (e) {
+    console.log('error deploying zambdas', JSON.stringify(e));
   }
 };
 
@@ -105,9 +162,10 @@ async function updateProjectZambda(
   zambdaName: string,
   zambda: DeployZambda,
   config: any,
-  token: string,
+  projectApiUrl: string,
+  auth0Token: string,
+  fhirClient: FhirClient,
 ): Promise<void> {
-  const projectApiUrl = 'https://project-api.zapehr.com/v1';
   // todo use zambda client https://github.com/masslight/zapehr/issues/2586
   const endpoint = `${projectApiUrl}/zambda/${zambdaId}/s3-upload`;
 
@@ -115,7 +173,7 @@ async function updateProjectZambda(
   const zapehrResponse = await fetch(endpoint, {
     method: 'post',
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${auth0Token}`,
       'x-zapehr-project-id': config.PROJECT_ID,
     },
   });
@@ -153,11 +211,10 @@ async function updateProjectZambda(
   console.log('Uploaded zip file to S3');
 
   console.log('Updating zambda');
-  //TODO: change this code back to zambdaClient.updateZambda() function, this is temporary fix
-  const updateZambda = await fetch(`${projectApiUrl}/zambda/${zambdaId}`, {
+  const updateZambda = await fetch(`https://project-api.zapehr.com/v1/zambda/${zambdaId}`, {
     method: 'PATCH',
     headers: {
-      authorization: `Bearer ${token}`,
+      authorization: `Bearer ${auth0Token}`,
     },
     body: JSON.stringify({
       triggerMethod: zambda.type,
@@ -170,12 +227,11 @@ async function updateProjectZambda(
   console.log('Updated zambda');
 
   if (zambda.type === 'subscription') {
-    if (zambda.subscriptionDetils === undefined) {
+    if (zambda.subscriptionDetails === undefined) {
       console.log('Zambda is subscription type but does not have details on the subscription');
       return;
     }
     const endpoint = `zapehr-lambda:${zambdaId}`;
-    const fhirClient = await createFhirClient(config);
     const subscriptionsSearch: Subscription[] = await fhirClient.searchResources({
       resourceType: 'Subscription',
       searchParams: [
@@ -191,7 +247,7 @@ async function updateProjectZambda(
     });
     console.log(`${subscriptionsSearch.length} existing subscriptions found`);
 
-    const EXTENSION_URL = 'http://zapehr.com/fhir/extension/SubscriptionTriggerEvent';
+    const EXTENSION_URL = 'http://zapehr.com/fhir/r4/extension/SubscriptionTriggerEvent';
 
     const createSubscriptionRequests: BatchInputPostRequest[] = [];
     const deleteSubscriptionRequests: BatchInputDeleteRequest[] = [];
@@ -203,7 +259,7 @@ async function updateProjectZambda(
       const existingSubscriptionEvent = existingSubscription.extension?.find(
         (ext) => ext.url === EXTENSION_URL,
       )?.valueString;
-      const subscriptionMatch = zambda.subscriptionDetils?.find((zambdaSubscritionDetail) => {
+      const subscriptionMatch = zambda.subscriptionDetails?.find((zambdaSubscritionDetail) => {
         const eventMatch = existingSubscriptionEvent === zambdaSubscritionDetail.event;
         const criteriaMatch = zambdaSubscritionDetail.criteria === existingSubscription.criteria;
         return eventMatch && criteriaMatch;
@@ -227,7 +283,7 @@ async function updateProjectZambda(
     }, []);
 
     // check current subscription details again existing subscriptions to determin if any should be created
-    zambda.subscriptionDetils.forEach((subscriptionDetail) => {
+    zambda.subscriptionDetails.forEach((subscriptionDetail) => {
       // if the subscription detail is found in subscriptions not chaning, do nothing
       const foundSubscription = subscriptionsNotChanging.find(
         (subscription) => subscription.criteria === subscriptionDetail.criteria,
@@ -284,10 +340,12 @@ if (process.argv.length < 3) {
 
 // So we can use await
 const main = async (): Promise<void> => {
-  await performEffectWithEnvFile(updateZambdas);
+  const env = process.argv[2];
+  const secrets = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  await updateZambdas(secrets);
 };
 
 main().catch((error) => {
-  console.log('error', error);
+  console.log('error', error, error.issue);
   throw error;
 });

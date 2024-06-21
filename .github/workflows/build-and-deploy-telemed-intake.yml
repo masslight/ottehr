@@ -1,4 +1,4 @@
-name: Deploy
+name: Deploy Intake
 
 on:
   workflow_dispatch:
@@ -48,6 +48,10 @@ jobs:
             ${{ secrets.OTTEHR_DEMO_PRIVATE_KEY }}
             ${{ secrets.BUMP_VERSION }}
 
+      - name: If environment is production, ensure keys are coming in through input parameters.
+        if: ${{ github.event.inputs.environment == 'production' && !(github.event.inputs.confirmProduction == 'Yes') }}
+        run: echo 'Please confirm you want to deploy to production.' && exit 1
+
       - uses: actions/checkout@v3
         with:
           ssh-key: ${{ secrets.BUMP_VERSION }}
@@ -68,8 +72,11 @@ jobs:
           ssh-key: ${{ secrets.OTTEHR_DEMO_PRIVATE_KEY }}
           path: 'secrets'
 
-      - name: Move secrets file into the .env directory.
-        run: mkdir -p ${{ env.ZAMBDAS_LOCATION }}/.env/ && cp secrets/telemed-intake/* ${{ env.ZAMBDAS_LOCATION }}/.env/
+      - name: Move zambda secrets file into the .env directory.
+        run: mkdir -p ${{ env.ZAMBDAS_LOCATION }}/.env/ && cp -r secrets/telemed-intake-zambdas/* ${{ env.ZAMBDAS_LOCATION }}/.env/
+
+      - name: Move app secrets file into the env directory.
+        run: mkdir -p ${{ env.PACKAGE_LOCATION }}/env/ && cp -r secrets/telemed-intake-app/. ${{ env.PACKAGE_LOCATION }}/env/
 
       - name: Copy env file to local.env to support serverless package command
         run: cp ${{ env.ZAMBDAS_LOCATION }}/.env/${{ github.event.inputs.environment }}.json ${{ env.ZAMBDAS_LOCATION }}/.env/local.json
@@ -97,18 +104,25 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build app
-        run: pnpm build:telemed-intake
+      - name: Deploy App
+        run: pnpm telemed-intake-deploy ${{ github.event.inputs.environment }}
 
       - name: Setup zapehr secrets
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm setup-zapehr-secrets:${{ github.event.inputs.environment }}
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm setup-zapehr-secrets ${{ github.event.inputs.environment }}
 
       - name: Deploy zambdas
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm deploy-zambdas:${{ github.event.inputs.environment }}
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm deploy-zambdas ${{ github.event.inputs.environment }}
 
-      - name: Configure AWS CLI
-        uses: aws-actions/configure-aws-credentials@v1
+      - name: Notify Slack
+        if: always()
+        uses: edge/simple-slack-notify@v1.1.2
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          BRANCH: ${{ github.ref }}
+          PACKAGE_VERSION: ${{ steps.package-version.outputs.current-version }}
         with:
+<<<<<<< HEAD
+<<<<<<< HEAD
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
@@ -136,6 +150,10 @@ jobs:
           BRANCH: ${{ github.ref }}
           PACKAGE_VERSION: ${{ steps.package-version.outputs.current-version }}
         with:
+=======
+>>>>>>> dbbf36e (complete build for telemed intake)
+=======
+>>>>>>> 9dc5508 (refactor deploy scripts)
           channel: '#ottehr-notifications'
           status: ${{ job.status }}
           success_text: '${{ env.GITHUB_WORKFLOW }} (Run #${{ env.GITHUB_RUN_NUMBER }}) deploy completed successfully'
@@ -147,6 +165,8 @@ jobs:
             { "title": "Branch", "value": "${{ env.BRANCH }}", "short": true },
             { "title": "Environment", "value": "${{ env.ENVIRONMENT }}", "short": true },
             { "title": "Version", "value": "${{ env.PACKAGE_VERSION }}", "short": true }]
+<<<<<<< HEAD
+<<<<<<< HEAD
 =======
       # - name: Notify Slack
       #   if: always()
@@ -168,3 +188,7 @@ jobs:
       #       { "title": "Environment", "value": "${{ env.ENVIRONMENT }}", "short": true },
       #       { "title": "Version", "value": "${{ env.PACKAGE_VERSION }}", "short": true }]
 >>>>>>> bf2b1b4 (checkout the env variables from secrets repo)
+=======
+>>>>>>> dbbf36e (complete build for telemed intake)
+=======
+>>>>>>> 9dc5508 (refactor deploy scripts)

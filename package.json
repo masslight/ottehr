@@ -6,6 +6,7 @@
     "test": "pnpm recursive run test",
     "build": "sh ./scripts/build.sh",
     "build:telemed-intake": "sh ./scripts/build-telemed-intake.sh",
+    "build:telemed-ehr": "sh ./scripts/build-telemed-ehr.sh",
     "lint": "eslint packages/",
     "start": "pnpm start:local",
     "ehr:start": "pnpm --filter 'ottehr-ehr-*' --stream=true start:local",
@@ -19,7 +20,9 @@
     "start:dev2": "pnpm recursive run start:dev2",
     "start:testing": "pnpm recursive run start:testing",
     "start:staging": "pnpm recursive run start:staging",
-    "update": "pnpm recursive up -L -i"
+    "update": "pnpm recursive up -L -i",
+    "telemed-intake-deploy": "pnpm --filter=telemed-intake-app deploy ${ENV}",
+    "telemed-ehr-deploy": "pnpm --filter=telemed-ehr-app deploy ${ENV}"
   },
   "packageManager": "pnpm@8.7.6",
   "engines": {

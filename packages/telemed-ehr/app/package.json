@@ -1,5 +1,5 @@
 {
-  "name": "telemed-ehr",
+  "name": "telemed-ehr-app",
   "version": "1.10.10",
   "private": true,
   "browserslist": {
@@ -19,7 +19,7 @@
     "start:local": "npm run start",
     "preview": "vite preview --port 4002",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "build": "npm run build:development",
+    "build": "tsc && vite build",
     "build:development": "ENV=development npm run build-skeleton",
     "build:testing": "ENV=testing npm run build-skeleton",
     "build:staging": "ENV=staging npm run build-skeleton",
@@ -27,7 +27,9 @@
     "build:production": "ENV=production npm run build-skeleton",
     "build-skeleton": "tsc && vite build --mode ${ENV}",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "deploy": " PREFIX=development CLOUDFRONT_ID=E10TA6FN58D1OS pnpm run ci-deploy-skeleton ENV=${ENV}",
+    "ci-deploy-skeleton": "ENV=${ENV} VITE_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') pnpm run build && aws s3 sync build/ s3://ehr.ottehr.com --region us-east-1 --delete && aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_ID} --paths '/*' --region us-east-1"
   },
   "dependencies": {
     "@mui/icons-material": "^5.14.9",
