@@ -1,7 +1,7 @@
 {
   "name": "ottehr-components",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.1",
   "main": "lib/main.ts",
   "types": "lib/main.ts",
   "scripts": {
