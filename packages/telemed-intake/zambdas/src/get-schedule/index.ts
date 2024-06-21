@@ -90,7 +90,7 @@ async function getSchedule(
   slug: string,
   scheduleType: 'location' | 'provider' | 'group',
 ): Promise<GetScheduleResponse | undefined> {
-  let resourceType: 'Location' | 'Practitioner' | 'HealthcareService' = 'Location';
+  let resourceType;
   if (scheduleType === 'location') {
     resourceType = 'Location';
   } else if (scheduleType === 'provider') {
@@ -190,7 +190,7 @@ async function getSchedule(
       console.log('item does not have schedule');
       return undefined;
     }
-    schedules.push(scheduleExtension);
+    schedules.push(scheduleExtension)
   } else if (scheduleType === 'group') {
     const locations: Location[] = availableItems.filter((item) => item.resourceType === 'Location') as Location[];
     const practitioners: Practitioner[] = availableItems.filter(
@@ -231,11 +231,10 @@ async function getSchedule(
       currentDayTemp = currentDayTemp.plus({ days: 1 });
     }
   });
-  console.log(1, slots);
+console.log(1, slots);
   return {
     message: 'Successful reply',
-    // reminder to fix item adress
-    state: scheduleType === 'location' ? 'testState' : '',
+    state: scheduleType === 'location' ? item.address?.state : '',
     name: getName(item),
     slug:
       item.identifier?.find((identifierTemp) => identifierTemp.system === 'https://fhir.ottehr.com/r4/slug')?.value ||
@@ -310,14 +309,11 @@ function getSlotsForDay(
   return slots;
 }
 
-export function createMinimumAndMaximumTime(date: DateTime): { minimum: string; maximum: string } {
+export function createMinimumAndMaximumTime(date: DateTime, buffer?: number): { minimum: string; maximum: string } {
   const startTime = date.toISO();
   const finishTime = date.plus({ days: NUM_DAYS });
   const maximum = finishTime.endOf('day').toISO();
-  if (!startTime || !maximum) {
-    throw Error('error getting minimum and maximum time');
-  }
-  return { minimum: startTime, maximum: maximum };
+  return { minimum: startTime, maximum: finishTime };
 }
 
 function getName(item: Location | Practitioner | HealthcareService): string {

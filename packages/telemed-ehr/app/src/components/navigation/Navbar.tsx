@@ -57,11 +57,13 @@ const providerNavbarItems: NavbarItems = {
   Patients: { urls: ['/patients', '/patient'] },
 };
 
-administratorNavbarItems['Telemedicine:Admin'] = { urls: ['/telemed-admin'] };
-administratorNavbarItems['Telemedicine'] = { urls: ['/telemed/appointments', '/telemed', '/video-call'] };
-managerNavbarItems['Telemedicine:Admin'] = { urls: ['/telemed-admin'] };
-providerNavbarItems['Telemedicine'] = { urls: ['/telemed/appointments', '/telemed', '/video-call'] };
-providerNavbarItems['Employees'] = { urls: ['/employees', '/employee'] };
+if (isLocalOrDevOrTestingOrTrainingEnv) {
+  administratorNavbarItems['Telemedicine:Admin'] = { urls: ['/telemed-admin'] };
+  administratorNavbarItems['Telemedicine'] = { urls: ['/telemed/appointments', '/telemed', '/video-call'] };
+  managerNavbarItems['Telemedicine:Admin'] = { urls: ['/telemed-admin'] };
+  providerNavbarItems['Telemedicine'] = { urls: ['/telemed/appointments', '/telemed', '/video-call'] };
+  providerNavbarItems['Employees'] = { urls: ['/employees', '/employee'] };
+}
 
 export default function Navbar(): ReactElement {
   const theme = useTheme();

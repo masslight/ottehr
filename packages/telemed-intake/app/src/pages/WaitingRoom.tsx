@@ -70,7 +70,7 @@ const WaitingRoom = (): JSX.Element => {
     >
       <Box
         sx={{
-          backgroundColor: otherColors.lightBlue,
+          backgroundColor: otherColors.lightPurpleAlt,
           color: theme.palette.secondary.main,
           padding: 2,
           marginBottom: 3,

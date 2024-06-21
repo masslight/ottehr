@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
 # Exit immediately if a command exits with a non-zero status.
 set -e
 
@@ -21,39 +22,39 @@ pnpm install
 
 # Build the telemed-ehr/app
 echo "Building package: telemed-ehr/app"
-cd "packages/telemed-ehr/app"
+pushd "packages/telemed-ehr/app"
 pnpm build
-cd ../../../
+popd
 
 # Build the telemed-ehr/zambdas
 echo "Building package: telemed-ehr/zambdas"
-cd "packages/telemed-ehr/zambdas"
+pushd "packages/telemed-ehr/zambdas"
 pnpm build
-cd ../../../
+popd
 
 # Build the telemed-intake/app
 echo "Building package: telemed-intake/app"
-cd "packages/telemed-intake/app"
+pushd "packages/telemed-intake/app"
 pnpm build
-cd ../../../
+popd
 
 # Build the telemed-intake/zambdas
 echo "Building package: telemed-intake/zambdas"
-cd "packages/telemed-intake/zambdas"
+pushd "packages/telemed-intake/zambdas"
 pnpm build
-cd ../../../
+popd
 
 # Build the urgent-care/app
 echo "Building package: urgent-care/app"
-cd "packages/urgent-care-intake/app"
+pushd "packages/urgent-care-intake/app"
 pnpm build
-cd ../../../
+popd
 
 # Build the urgent-care/zambdas
 echo "Building package: urgent-care/zambdas"
-cd "packages/urgent-care-intake/zambdas"
+pushd "packages/urgent-care-intake/zambdas"
 pnpm build
-cd ../../../
+popd
 
 # Lint the project
 echo "Linting the project..."
