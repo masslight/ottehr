@@ -54,6 +54,8 @@ export function getName(item: Resource): string {
   return name;
 }
 
+type Item = Location | Practitioner;
+
 export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps): ReactElement => {
   const { fhirClient } = useApiClients();
   const [rowsPerPage, setRowsPerPage] = useState(5);
@@ -68,7 +70,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
         return;
       }
       setLoading(true);
-      const itemsTemp = (await fhirClient.searchResources<Location | Practitioner>({
+      const itemsTemp = (await fhirClient.searchResources<Item>({
         resourceType: schedule,
         searchParams: [{ name: '_count', value: '1000' }],
       })) as any;
@@ -88,31 +90,16 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
     if (!items) {
       return [];
     }
+    const filtered = (items as Item[]).filter((item: Item) =>
+      getName(item).toLowerCase().includes(searchText.toLowerCase()),
+    );
 
-    // Type guard to check if the array is of type Location[]
-    const isLocationArray = (items: any[]): items is Location[] => {
-      return items.length > 0 && items[0].resourceType === 'Location';
-    };
-
-    // Type guard to check if the array is of type Practitioner[]
-    const isPractitionerArray = (items: any[]): items is Practitioner[] => {
-      return items.length > 0 && items[0].resourceType === 'Practitioner';
-    };
-
-    let filtered: (Location | Practitioner)[] = [];
-
-    if (isLocationArray(items)) {
-      filtered = items.filter((item: Location) => getName(item).toLowerCase().includes(searchText.toLowerCase()));
-    } else if (isPractitionerArray(items)) {
-      filtered = items.filter((item: Practitioner) => getName(item).toLowerCase().includes(searchText.toLowerCase()));
-    }
-
-    const combinedItems = filtered.map((item: Location | Practitioner) => ({
+    const combinedItems = filtered.map((item: Item) => ({
       ...item,
       combined: getName(item),
     }));
 
-    combinedItems.sort((a: { combined: string }, b: { combined: string }) => a.combined.localeCompare(b.combined));
+    combinedItems.sort((a: any, b: any) => a.combined.localeCompare(b.combined));
 
     return combinedItems;
   }, [items, searchText]);
@@ -140,7 +127,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
     setSearchText(event.target.value);
   };
 
-  const getHoursOfOperationForToday = (item: Location | Practitioner, time: 'open' | 'close'): any => {
+  const getHoursOfOperationForToday = (item: Item, time: 'open' | 'close'): any => {
     const dayOfWeek = DateTime.now().toLocaleString({ weekday: 'long' }).toLowerCase();
     const extensionSchedule = item.extension?.find(
       (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule',
@@ -206,7 +193,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
     return overrideDates;
   };
 
-  function getItemOverrideInformation(item: Location | Practitioner): string | undefined {
+  function getItemOverrideInformation(item: Item): string | undefined {
     const extensionTemp = item.extension;
     const extensionSchedule = extensionTemp?.find(
       (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule',
@@ -263,7 +250,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
             </TableRow>
           </TableHead>
           <TableBody>
-            {pageItems.map((item: Location | Practitioner) => (
+            {pageItems.map((item: Item) => (
               <TableRow key={item.id}>
                 <TableCell>
                   <Link to={`/schedule/${scheduleType}/${item.id}`} style={{ textDecoration: 'none' }}>
