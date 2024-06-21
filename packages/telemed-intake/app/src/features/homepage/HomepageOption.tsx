@@ -1,5 +1,5 @@
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import { Box, Button, Typography } from '@mui/material';
+import { Box, Button, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { otherColors } from '../../IntakeThemeProvider';
 
@@ -11,6 +11,7 @@ interface HomepageOptionsProps {
   subSlot?: JSX.Element;
 }
 const HomepageOption: FC<HomepageOptionsProps> = ({ title, icon, handleClick, subtitle, subSlot }) => {
+  const theme = useTheme();
   return (
     <Button
       sx={{
@@ -22,7 +23,7 @@ const HomepageOption: FC<HomepageOptionsProps> = ({ title, icon, handleClick, su
         px: 3,
         py: 3,
         mb: 3,
-        backgroundColor: otherColors.coachingVisit,
+        backgroundColor: otherColors.lightBlue,
         cursor: 'pointer',
         '&:hover': { backgroundColor: otherColors.coachingVisit },
       }}
@@ -48,7 +49,7 @@ const HomepageOption: FC<HomepageOptionsProps> = ({ title, icon, handleClick, su
         sx={{
           display: 'flex',
           alignItems: 'center',
-          backgroundColor: otherColors.purple,
+          backgroundColor: theme.palette.primary.main,
           color: 'white',
           borderRadius: '50%',
           p: 1,

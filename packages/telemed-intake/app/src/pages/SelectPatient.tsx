@@ -23,7 +23,7 @@ const DIFFERENT_FAMILY_MEMBER_DATA = {
   label: 'Different family member',
   description: 'Select this option if this reservation is for a different family member',
   value: 'new-patient',
-  color: otherColors.lightPurpleAlt,
+  color: otherColors.lightBlue,
 };
 
 const SelectPatient = (): JSX.Element => {
@@ -90,7 +90,7 @@ const SelectPatient = (): JSX.Element => {
                     'MMMM dd, yyyy',
                   )}`,
                   value: patient.id,
-                  color: otherColors.lightPurpleAlt,
+                  color: otherColors.lightBlue,
                 };
               })
               .concat(DIFFERENT_FAMILY_MEMBER_DATA),

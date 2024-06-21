@@ -2,11 +2,11 @@ import { Skeleton, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { IntakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
-import { clockFullColor } from '../assets';
 import { useGetAppointments } from '../features/appointments';
 import { CustomContainer, useIntakeCommonStore } from '../features/common';
 import HomepageOption from '../features/homepage/HomepageOption';
 import { useZapEHRAPIClient } from '../utils';
+import { requestVisit, pastVisits, contactSupport } from '../assets/icons';
 
 const Homepage = (): JSX.Element => {
   const apiClient = useZapEHRAPIClient();
@@ -61,7 +61,7 @@ const Homepage = (): JSX.Element => {
           {isAppointmentStatusReady && (
             <HomepageOption
               title="Return to Call"
-              icon={clockFullColor}
+              icon={requestVisit}
               handleClick={handleReturnToCall}
               subSlot={
                 <Typography
@@ -84,17 +84,17 @@ const Homepage = (): JSX.Element => {
             <HomepageOption title="Request Visit" icon={requestVisit} handleClick={handleRequestVisit} />
           )} */}
 
-          <HomepageOption title="Request Visit" icon={clockFullColor} handleClick={handleRequestVisit} />
+          <HomepageOption title="Request Visit" icon={requestVisit} handleClick={handleRequestVisit} />
 
           <HomepageOption
             title="Past Visits"
-            icon={clockFullColor}
+            icon={pastVisits}
             handleClick={handlePastVisits}
             subtitle="School/Work Notes and Prescriptions"
           />
         </>
       )}
-      <HomepageOption title="Contact Support" icon={clockFullColor} handleClick={handleContactSupport} />
+      <HomepageOption title="Contact Support" icon={contactSupport} handleClick={handleContactSupport} />
     </CustomContainer>
   );
 };
