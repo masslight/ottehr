@@ -54,6 +54,8 @@ export function getName(item: Resource): string {
   return name;
 }
 
+type Item = Location | Practitioner;
+
 export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps): ReactElement => {
   const { fhirClient } = useApiClients();
   const [rowsPerPage, setRowsPerPage] = useState(5);
@@ -68,7 +70,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
         return;
       }
       setLoading(true);
-      const itemsTemp = (await fhirClient.searchResources<Location | Practitioner>({
+      const itemsTemp = (await fhirClient.searchResources<Item>({
         resourceType: schedule,
         searchParams: [{ name: '_count', value: '1000' }],
       })) as any;
@@ -88,14 +90,16 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
     if (!items) {
       return [];
     }
-    const filtered = items?.filter((item) => getName(item).toLowerCase().includes(searchText.toLowerCase()));
+    const filtered = (items as Item[]).filter((item: Item) =>
+      getName(item).toLowerCase().includes(searchText.toLowerCase()),
+    );
 
-    const combinedItems = filtered.map((item) => ({
+    const combinedItems = filtered.map((item: Item) => ({
       ...item,
       combined: getName(item),
     }));
 
-    combinedItems.sort((a, b) => a.combined.localeCompare(b.combined));
+    combinedItems.sort((a: any, b: any) => a.combined.localeCompare(b.combined));
 
     return combinedItems;
   }, [items, searchText]);
@@ -123,7 +127,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
     setSearchText(event.target.value);
   };
 
-  const getHoursOfOperationForToday = (item: Location | Practitioner, time: 'open' | 'close'): any => {
+  const getHoursOfOperationForToday = (item: Item, time: 'open' | 'close'): any => {
     const dayOfWeek = DateTime.now().toLocaleString({ weekday: 'long' }).toLowerCase();
     const extensionSchedule = item.extension?.find(
       (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule',
@@ -189,7 +193,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
     return overrideDates;
   };
 
-  function getItemOverrideInformation(item: Location | Practitioner): string | undefined {
+  function getItemOverrideInformation(item: Item): string | undefined {
     const extensionTemp = item.extension;
     const extensionSchedule = extensionTemp?.find(
       (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule',
@@ -246,7 +250,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
             </TableRow>
           </TableHead>
           <TableBody>
-            {pageItems.map((item) => (
+            {pageItems.map((item: Item) => (
               <TableRow key={item.id}>
                 <TableCell>
                   <Link to={`/schedule/${scheduleType}/${item.id}`} style={{ textDecoration: 'none' }}>
