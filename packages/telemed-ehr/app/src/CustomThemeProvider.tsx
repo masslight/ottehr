@@ -8,13 +8,13 @@ const palette = {
     paper: '#FFFFFF',
   },
   primary: {
-    main: '#4AC0F2',
+    main: '#2169F5',
     light: '#4AC0F2',
     dark: '#3B98BF',
     contrast: '#FFFFFF',
   },
   secondary: {
-    main: '#4294F3',
+    main: '#2169F5',
     light: '#0000009A',
     dark: '#377DCE',
     contrast: '#FFFFFF',
