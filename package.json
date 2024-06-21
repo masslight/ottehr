@@ -5,6 +5,7 @@
   "scripts": {
     "test": "pnpm recursive run test",
     "build": "sh ./scripts/build.sh",
+    "build:telemed-intake": "sh ./scripts/build-telemed-intake.sh",
     "lint": "eslint packages/",
     "start": "pnpm start:local",
     "ehr:start": "pnpm --filter 'ottehr-ehr-*' --stream=true start:local",
