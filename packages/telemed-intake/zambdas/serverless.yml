@@ -1,0 +1,336 @@
+service: zambdas
+
+frameworkVersion: '3'
+
+package:
+  individually: true
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  stage: ${opt:stage, self:custom.defaultStage}
+  environment:
+    SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
+    TELEMED_SENDGRID_EMAIL_BCC: ${file(./.env/${self:provider.stage}.json):TELEMED_SENDGRID_EMAIL_BCC}
+    TELEMED_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID}
+    TELEMED_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID}
+    TELEMED_SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
+    TELEMED_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID}
+
+custom:
+  defaultStage: local
+  serverless-offline:
+    reloadHandler: true
+    host: 0.0.0.0
+    httpPort: 3000
+    lambdaPort: 3001
+  esbuild:
+    minify: false
+    sourcemap: linked
+    keepNames: true
+
+functions:
+  get-schedule:
+    handler: src/get-schedule/index.index
+    events:
+      - http:
+          path: zambda/get-schedule/execute-public
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      TELEMED_CLIENT_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_ID}
+      TELEMED_CLIENT_SECRET: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+  get-patients:
+    handler: src/get-patients/index.index
+    events:
+      - http:
+          path: zambda/get-patients/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      TELEMED_CLIENT_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_ID}
+      TELEMED_CLIENT_SECRET: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+  get-paperwork:
+    handler: src/paperwork/get-paperwork/index.index
+    events:
+      - http:
+          path: zambda/paperwork/get-paperwork/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      TELEMED_CLIENT_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_ID}
+      TELEMED_CLIENT_SECRET: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+  get-presigned-file-url:
+    handler: src/get-presigned-file-url/index.index
+    events:
+      - http:
+          path: zambda/get-presigned-file-url/execute-public
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      TELEMED_CLIENT_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_ID}
+      TELEMED_CLIENT_SECRET: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+  create-paperwork:
+    handler: src/paperwork/create-paperwork/index.index
+    events:
+      - http:
+          path: zambda/paperwork/create-paperwork/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      TELEMED_CLIENT_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_ID}
+      TELEMED_CLIENT_SECRET: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      TELEMED_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID}
+      TELEMED_SENDGRID_EMAIL_BCC: ${file(./.env/${self:provider.stage}.json):TELEMED_SENDGRID_EMAIL_BCC}
+      WEBSITE_URL: ${file(./.env/${self:provider.stage}.json):WEBSITE_URL}
+      ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+  update-paperwork:
+    handler: src/paperwork/update-paperwork/index.index
+    events:
+      - http:
+          path: zambda/paperwork/update-paperwork/execute
+          method: POST
+    timeout: 250
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      TELEMED_CLIENT_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_ID}
+      TELEMED_CLIENT_SECRET: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+  get-wait-status:
+    handler: src/get-wait-status/index.index
+    events:
+      - http:
+          path: zambda/get-wait-status/execute-public
+          method: POST
+    timeout: 25
+    environment:
+      WEBSITE_URL: ${file(./.env/${self:provider.stage}.json):WEBSITE_URL}
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      TELEMED_CLIENT_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_ID}
+      TELEMED_CLIENT_SECRET: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+
+  join-call:
+    handler: src/join-call/index.index
+    events:
+      - http:
+          path: zambda/join-call/execute-public
+          method: POST
+    timeout: 25
+    environment:
+      WEBSITE_URL: ${file(./.env/${self:provider.stage}.json):WEBSITE_URL}
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      TELEMED_CLIENT_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_ID}
+      TELEMED_CLIENT_SECRET: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+
+  video-chat-invites-create:
+    handler: src/video-chat-invites/create-invite/index.index
+    events:
+      - http:
+          path: zambda/video-chat-invites-create/execute
+          method: POST
+    timeout: 25
+    environment:
+      WEBSITE_URL: ${file(./.env/${self:provider.stage}.json):WEBSITE_URL}
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      TELEMED_CLIENT_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_ID}
+      TELEMED_CLIENT_SECRET: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+
+  video-chat-invites-cancel:
+    handler: src/video-chat-invites/cancel-invite/index.index
+    events:
+      - http:
+          path: zambda/video-chat-invites-cancel/execute
+          method: POST
+    timeout: 25
+    environment:
+      WEBSITE_URL: ${file(./.env/${self:provider.stage}.json):WEBSITE_URL}
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      TELEMED_CLIENT_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_ID}
+      TELEMED_CLIENT_SECRET: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+
+  video-chat-invites-list:
+    handler: src/video-chat-invites/list-invites/index.index
+    events:
+      - http:
+          path: zambda/video-chat-invites-list/execute
+          method: POST
+    timeout: 25
+    environment:
+      WEBSITE_URL: ${file(./.env/${self:provider.stage}.json):WEBSITE_URL}
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      TELEMED_CLIENT_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_ID}
+      TELEMED_CLIENT_SECRET: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+
+  create-appointment:
+    handler: src/appointment/create-appointment/index.index
+    events:
+      - http:
+          path: zambda/create-appointment/execute
+          method: POST
+    timeout: 25
+    environment:
+      WEBSITE_URL: ${file(./.env/${self:provider.stage}.json):WEBSITE_URL}
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      TELEMED_CLIENT_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_ID}
+      TELEMED_CLIENT_SECRET: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+  cancel-appointment:
+    handler: src/appointment/cancel-appointment/index.index
+    events:
+      - http:
+          path: zambda/cancel-appointment/execute
+          method: POST
+    timeout: 25
+    environment:
+      WEBSITE_URL: ${file(./.env/${self:provider.stage}.json):WEBSITE_URL}
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      TELEMED_CLIENT_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_ID}
+      TELEMED_CLIENT_SECRET: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+  get-appointments:
+    handler: src/appointment/get-appointments/index.index
+    events:
+      - http:
+          path: zambda/get-appointments/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      TELEMED_CLIENT_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_ID}
+      TELEMED_CLIENT_SECRET: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+
+  payment-methods-setup:
+    handler: src/payment-methods/setup/index.index
+    events:
+      - http:
+          path: zambda/payment-methods-setup/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      TELEMED_CLIENT_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_ID}
+      TELEMED_CLIENT_SECRET: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+
+  payment-methods-list:
+    handler: src/payment-methods/list/index.index
+    events:
+      - http:
+          path: zambda/payment-methods-list/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      TELEMED_CLIENT_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_ID}
+      TELEMED_CLIENT_SECRET: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+
+  payment-methods-set-default:
+    handler: src/payment-methods/set-default/index.index
+    events:
+      - http:
+          path: zambda/payment-methods-set-default/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      TELEMED_CLIENT_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_ID}
+      TELEMED_CLIENT_SECRET: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+
+  payment-methods-delete:
+    handler: src/payment-methods/delete/index.index
+    events:
+      - http:
+          path: zambda/payment-methods-delete/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      TELEMED_CLIENT_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_ID}
+      TELEMED_CLIENT_SECRET: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+
+plugins:
+  - serverless-offline
+  - serverless-esbuild
+  # - serverless-custom-packaging-plugin

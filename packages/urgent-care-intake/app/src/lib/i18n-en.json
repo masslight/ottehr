@@ -1,0 +1,140 @@
+{
+  "general": {
+    "button": {
+      "book": "Book an appointment",
+      "submit": "Submit",
+      "continue": "Continue",
+      "back": "Back",
+      "close": "Close",
+      "tryAgain": "Try again",
+      "checked": "Checked",
+      "unchecked": "Unchecked"
+    },
+    "dateOfBirth": "Date of birth",
+    "dropdownPlaceholder": "Please select",
+    "datePlaceholder": "MM/DD/YYYY",
+    "errors": {
+      "validation": {
+        "firstName": "First name is required",
+        "lastName": "Last name is required",
+        "dateOfBirth": {
+          "format": "Date must be in the format MM/DD/YYYY",
+          "required": "Birth date is required"
+        },
+        "zip": {
+          "number": "Zip code must be 5 digits",
+          "required": "ZIP is required"
+        }
+      },
+      "submit": {
+        "title": "There was an issue booking an appointment"
+      },
+      "schedule": {
+        "noneToday": "There are no slots available, please come in when we are open or click the tomorrow button for available slots.",
+        "noneTomorrow": "There are no slots available, please come in when we are open.",
+        "noSlots": "There are no slots available, please come in when we are open."
+      }
+    },
+    "firstName": "First name",
+    "footer": "If you believe that you or your child is having a medical emergency, please dial 911 or go to the nearest emergency room.",
+    "lastName": "Last name",
+    "required": "required field",
+    "stateFullNames": {
+      "AK": "Alaska",
+      "AL": "Alabama",
+      "AR": "Arkansas",
+      "AZ": "Arizona",
+      "CA": "California",
+      "CO": "Colorado",
+      "CT": "Connecticut",
+      "DC": "District of Columbia",
+      "DE": "Delaware",
+      "FL": "Florida",
+      "GA": "Georgia",
+      "HI": "Hawaii",
+      "IA": "Iowa",
+      "ID": "Idaho",
+      "IL": "Illinois",
+      "IN": "Indiana",
+      "KS": "Kansas",
+      "KY": "Kentucky",
+      "LA": "Louisiana",
+      "MA": "Massachusetts",
+      "MD": "Maryland",
+      "ME": "Maine",
+      "MI": "Michigan",
+      "MN": "Minnesota",
+      "MO": "Missouri",
+      "MS": "Mississippi",
+      "MT": "Montana",
+      "NC": "North Carolina",
+      "ND": "North Dakota",
+      "NE": "Nebraska",
+      "NH": "New Hampshire",
+      "NJ": "New Jersey",
+      "NM": "New Mexico",
+      "NV": "Nevada",
+      "NY": "New York",
+      "OH": "Ohio",
+      "OK": "Oklahoma",
+      "OR": "Oregon",
+      "PA": "Pennsylvania",
+      "RI": "Rhode Island",
+      "SC": "South Carolina",
+      "SD": "South Dakota",
+      "TN": "Tennessee",
+      "TX": "Texas",
+      "UT": "Utah",
+      "VA": "Virginia",
+      "VT": "Vermont",
+      "WA": "Washington",
+      "WI": "Wisconsin",
+      "WV": "West Virginia",
+      "WY": "Wyoming"
+    },
+    "sunAlt": "Yellow sun icon",
+    "weekdays": ["S", "M", "T", "W", "T", "F", "S"],
+    "zip": "ZIP"
+  },
+  "patientInfo": {
+    "errors": {
+      "": {
+        "title": "Age not in range",
+        "description": "These services are only available for patients between the ages of 0 and 26."
+      },
+      "validation": {
+        "firstName": "First name is required",
+        "lastName": "Last name is required",
+        "dateOfBirth": {
+          "format": "Date must be in the format MM/DD/YYYY",
+          "required": "Birth date is required"
+        },
+        "zip": {
+          "number": "Zip code must be 5 digits",
+          "required": "ZIP is required"
+        }
+      }
+    }
+  },
+  "welcome": {
+    "title": "Welcome to Ottehr",
+    "subtitle": "Online Scheduling",
+    "support": "We are here to support you and your family.",
+    "availability": "Please, enter your mobile phone number. We'll verify if we have your information already. If we do, we'll pre-fill your past information for a faster booking."
+  },
+  "paperwork": {
+    "errors": {
+      "file": {
+        "title": "File type not supported",
+        "description": "Please select a .jpg, .png, or .jpeg file types.",
+        "close": "Close"
+      }
+    }
+  },
+  "readyForVisit": {
+    "bookingConfirmation": {
+      "descriptionBodyOne": "Please click on Continue to proceed to a page where you will enter your phone number. We'll verify if we have your information already. If we do, we will pre-fill your past information for a faster booking.",
+      "descriptionBodyTwo": "Please note that your family's information may be registered under a phone number owned by your partner, spouse, or child's guardian."
+    }
+  }
+}

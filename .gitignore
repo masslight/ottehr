@@ -1,8 +1,9 @@
 node_modules
+.pnpm-store
 .eslintcache
 build
 .DS_Store
-
+.turbo
 # Packages for zambda deployment
 .dist
 

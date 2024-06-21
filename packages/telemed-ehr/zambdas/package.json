@@ -1,0 +1,41 @@
+{
+  "name": "telemed-ehrzambdas",
+  "version": "0.1",
+  "private": true,
+  "scripts": {
+    "start": "npm run start:local",
+    "start:local": "ENV=local npm run start-skeleton",
+    "start:dev": "ENV=dev npm run start-skeleton",
+    "start:tests": "ENV=tests npm run start-skeleton",
+    "start:dev2": "ENV=dev2 npm run start-skeleton",
+    "start:testing": "ENV=testing npm run start-skeleton",
+    "start:staging": "ENV=staging npm run start-skeleton",
+    "start-skeleton": "sls offline --stage ${ENV}",
+    "debug": "export SLS_DEBUG=* && node --inspect ../../../node_modules/serverless/bin/serverless offline --stage=local",
+    "setup-zapehr-secrets": "ts-node scripts/configure-zapehr-secrets.ts ${ENV}",
+    "deploy-zambdas": "pnpm run package && ts-node scripts/deploy-zambdas.ts ${ENV}",
+    "build": "tsc && sls package --stage dev",
+    "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
+    "package": "tsc && sls package && npm run rebundle",
+    "rebundle": "bash scripts/package-for-release.sh"
+  },
+  "engines": {
+    "npm": ">=8.0.0",
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.272.0",
+    "@sendgrid/mail": "^7.7.0",
+    "@zapehr/sdk": "1.0.15",
+    "fast-json-patch": "^3.1.1",
+    "luxon": "^3.4.3",
+    "query-string": "^8.1.0",
+    "short-uuid": "^4.2.2",
+    "ehr-utils": "*"
+  },
+  "devDependencies": {
+    "@types/luxon": "^3.3.2",
+    "esbuild": "^0.18.14",
+    "serverless-esbuild": "^1.48.0"
+  }
+}
