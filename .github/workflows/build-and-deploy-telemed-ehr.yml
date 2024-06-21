@@ -1,4 +1,4 @@
-name: Deploy Telemed Ehr
+name: Deploy Ehr
 
 env:
   CI: false
