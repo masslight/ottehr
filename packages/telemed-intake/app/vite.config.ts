@@ -44,7 +44,7 @@ export default (env) => {
         sourcemap: mode === 'default' || shouldUploadSentrySourceMaps,
       },
       server: {
-        open: '/location/nj/telemedicine'
+        open: 'location/ak/in-person/prebook',
       },
       plugins,
     })
