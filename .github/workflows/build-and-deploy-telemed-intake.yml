@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 name: Deploy Telemed Intake
+=======
+name: Deploy
+>>>>>>> 722ec45 (fix build errors and create deploy file)
 
 on:
   workflow_dispatch:
@@ -131,6 +135,13 @@ jobs:
         run: |
           aws s3 sync ./build s3://telemed.ottehr.com --delete
 
+<<<<<<< HEAD
+=======
+      - name: Deploy to AWS Lambda
+        run: |
+          aws lambda update-function-code --function-name ottehr-telemed-intake-dev --zip-file fileb://function.zip
+
+>>>>>>> 722ec45 (fix build errors and create deploy file)
       - name: Notify Slack
         if: always()
         uses: edge/simple-slack-notify@v1.1.2
