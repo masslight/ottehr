@@ -11,7 +11,7 @@
     "start:testing": "ENV=testing npm run start-skeleton",
     "start:staging": "ENV=staging npm run start-skeleton",
     "start-skeleton": "sls offline --stage ${ENV} --httpPort 3000",
-    "setup-zapehr-secrets": "ts-node scripts/configure-zapehr-secrets.ts",
+    "setup-zapehr-secrets:dev": "ENV=dev ts-node scripts/configure-zapehr-secrets.ts",
     "deploy-zambdas": "npm run package && ts-node scripts/deploy-zambdas.ts",
     "setup-default-locations": "ts-node scripts/setup-default-locations.ts",
     "update-permissions-for-users": "ts-node scripts/update-permissions-for-users.ts",

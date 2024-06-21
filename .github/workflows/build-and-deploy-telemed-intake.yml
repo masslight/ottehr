@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-name: Deploy Telemed Intake
-=======
 name: Deploy
->>>>>>> 722ec45 (fix build errors and create deploy file)
 
 on:
   workflow_dispatch:
@@ -65,18 +61,6 @@ jobs:
         with:
           version: 8
 
-      - name: Install Vercel CLI
-        run: pnpm install --global vercel@latest
-
-      - name: Pull Vercel Environment Information
-        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }} --scope=ottehr --cwd=${{ env.PACKAGE_LOCATION }}
-
-      - name: Copy vercel env config file to vercel.json
-        run: cp ${{ env.PACKAGE_LOCATION }}/vercel/vercel-${{ github.event.inputs.environment }}.json ${{ env.PACKAGE_LOCATION }}/vercel.json
-
-      - name: Build Project Artifacts
-        run: vercel build --token=${{ secrets.VERCEL_TOKEN }} --scope=ottehr --cwd=packages/app
-
       - name: Create secrets file from github secrets
         id: create-json
         uses: jsdaniell/create-json@v1.2.2
@@ -113,11 +97,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Deploy app
-        run: |
-          url="$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} --scope=ottehr --cwd=${{ env.PACKAGE_LOCATION }})"
-          vercel alias --token=${{ secrets.VERCEL_TOKEN }} --scope=ottehr --cwd=${{ env.PACKAGE_LOCATION }} set "$url" ${{ github.event.inputs.environment }}.ottehr.com
-
       - name: Setup zapehr secrets
         run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm setup-zapehr-secrets:${{ github.event.inputs.environment }}
 
@@ -136,12 +115,15 @@ jobs:
           aws s3 sync ./build s3://telemed.ottehr.com --delete
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
       - name: Deploy to AWS Lambda
         run: |
           aws lambda update-function-code --function-name ottehr-telemed-intake-dev --zip-file fileb://function.zip
 
 >>>>>>> 722ec45 (fix build errors and create deploy file)
+=======
+>>>>>>> 358b140 (remove vercel from deploy yml)
       - name: Notify Slack
         if: always()
         uses: edge/simple-slack-notify@v1.1.2
