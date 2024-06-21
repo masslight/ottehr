@@ -18,9 +18,8 @@ export const otherColors = {
   lightGreen: '#C1FBEA',
   brown: '#604203',
   white: '#FFFFFF',
-  lightPurpleAlt: '#2896C6', //changed color
+  lightBlue: '#2896C6', //changed color
   languageIcon: 'rgba(15, 229, 189, 1)',
-  lightBlue: '#E2F0FF',
   lightGray: '#CED4DA',
   placeholder: '#A9A9A9',
   primaryBackground: '#F5F2FF',

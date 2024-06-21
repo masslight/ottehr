@@ -42,7 +42,7 @@ export const useMapQuestionsToFormInputFields = ({
           freeSelectOptions: item.options,
           format: item.format as StringFormat,
           borderColor: otherColors.borderGray,
-          backgroundSelected: otherColors.lightPurpleAlt,
+          backgroundSelected: otherColors.lightBlue,
           radioStyling: {
             radio: {
               alignSelf: 'center',

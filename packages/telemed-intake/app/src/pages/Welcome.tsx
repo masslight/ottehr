@@ -1,5 +1,5 @@
 import { Button, Typography } from '@mui/material';
-import { Box, useTheme } from '@mui/system';
+import { Box } from '@mui/system';
 import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';

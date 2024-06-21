@@ -1,12 +1,8 @@
 import { BatchInputDeleteRequest, BatchInputPostRequest, FhirClient, ZambdaClient } from '@zapehr/sdk';
 import { Subscription } from 'fhir/r4';
 import fs from 'fs';
-import devConfig from '../.env/dev.json';
-// import productionConfig from '../.env/production.json';
-// import stagingConfig from '../.env/staging.json';
-// import testingConfig from '../.env/testing.json';
-// import trainingConfig from '../.env/training.json';
-import { getAccessToken } from '../src/shared/auth';
+import { COMMUNICATION_ISSUE_REPORT_CODE } from 'ehr-utils';
+import { getAuth0Token } from '../src/shared';
 
 interface SubscriptionDetails {
   criteria: string;
@@ -26,157 +22,138 @@ interface DeployZambda {
 }
 
 const ZAMBDAS: { [name: string]: DeployZambda } = {
-  'TASK-SUBSCRIPTION': {
-    type: 'subscription',
-    subscriptionDetails: [
-      {
-        criteria: 'Task?code=urgent-care-email|&status=requested',
-        reason: 'urgent care communication',
-        event: 'create',
-      },
-      {
-        criteria: 'Task?code=urgent-care-text|&status=requested',
-        reason: 'urgent care communication',
-        event: 'create',
-      },
-      {
-        criteria: 'Task?code=urgent-care-update-appointment|&status=requested',
-        reason: 'urgent care appointment update',
-        event: 'create',
-      },
-    ],
-  },
-  'CANCEL-APPOINTMENT': {
-    type: 'http_open',
-  },
-  'CHECK-IN': {
-    type: 'http_open',
-  },
-  'GET-LOCATION': {
-    type: 'http_open',
-  },
-  'UPDATE-PAPERWORK': {
-    type: 'http_open',
-  },
-  'CREATE-APPOINTMENT': {
+  'DEACTIVATE-USER': {
     type: 'http_auth',
   },
   'GET-APPOINTMENTS': {
     type: 'http_auth',
   },
-  'GET-PATIENTS': {
+  'GET-TELEMED-APPOINTMENTS': {
     type: 'http_auth',
   },
-  'GET-PAPERWORK': {
-    type: 'http_open',
+  'CHANGE-TELEMED-APPOINTMENT-STATUS': {
+    type: 'http_auth',
   },
-  'UPDATE-APPOINTMENT': {
-    type: 'http_open',
+  'GET-CHART-DATA': {
+    type: 'http_auth',
   },
-  'GET-PRESIGNED-FILE-URL': {
-    type: 'http_open',
+  'SAVE-CHART-DATA': {
+    type: 'http_auth',
   },
-  'SEND-MESSAGE-CRON': {
+  'DELETE-CHART-DATA': {
+    type: 'http_auth',
+  },
+  'UPDATE-USER': {
+    type: 'http_auth',
+  },
+  'INIT-TELEMED-SESSION': {
+    type: 'http_auth',
+  },
+  'GET-USER': {
+    type: 'http_auth',
+  },
+  'SAVE-PATIENT-INSTRUCTION': {
+    type: 'http_auth',
+  },
+  'GET-PATIENT-INSTRUCTIONS': {
+    type: 'http_auth',
+  },
+  'DELETE-PATIENT-INSTRUCTION': {
+    type: 'http_auth',
+  },
+  'GET-CONVERSATION': {
+    type: 'http_auth',
+  },
+  'GET-EMPLOYEES': {
+    type: 'http_auth',
+  },
+  'NOTIFICATIONS-UPDATER': {
     type: 'cron',
     schedule: {
-      expression: 'cron(0,15,30,45 * * * ? *)', // every 0, 15, 30 and 45 minute mark
-      // expression: 'cron(* * * * ? *)', // for testing, sends every minute
+      expression: 'cron(*/5 * * * ? *)', // every 3 minutes
     },
-    environments: ['dev', 'testing', 'staging', 'training', 'production'],
+    environments: ['dev', 'testing', 'staging', 'training'],
   },
-  'GET-APPOINTMENT-DETAILS': {
-    type: 'http_open',
+  'SYNC-USER': {
+    type: 'http_auth',
   },
-};
-
-const fhirApiUrlFromAuth0Audience = (auth0Audience: string): string => {
-  switch (auth0Audience) {
-    case 'https://dev.api.zapehr.com':
-      return 'https://dev.fhir-api.zapehr.com';
-    case 'https://dev2.api.zapehr.com':
-      return 'https://dev2.fhir-api.zapehr.com';
-    case 'https://testing.api.zapehr.com':
-      return 'https://testing.fhir-api.zapehr.com';
-    case 'https://staging.api.zapehr.com':
-      return 'https://staging.fhir-api.zapehr.com';
-    case 'https://api.zapehr.com':
-      return 'https://fhir-api.zapehr.com';
-    default:
-      throw `Unexpected auth0 audience value, could not map to a projectApiUrl. auth0Audience was: ${auth0Audience}`;
-  }
-};
-
-// todo remove code duplication with configure-zapehr-secrets
-const projectApiUrlFromAuth0Audience = (auth0Audience: string): string => {
-  switch (auth0Audience) {
-    case 'https://dev.api.zapehr.com':
-      return 'https://dev.project-api.zapehr.com/v1';
-    case 'https://dev2.api.zapehr.com':
-      return 'https://dev2.project-api.zapehr.com/v1';
-    case 'https://testing.api.zapehr.com':
-      return 'https://testing.project-api.zapehr.com/v1';
-    case 'https://staging.api.zapehr.com':
-      return 'https://staging.project-api.zapehr.com/v1';
-    case 'https://api.zapehr.com':
-      return 'https://project-api.zapehr.com/v1';
-    default:
-      throw `Unexpected auth0 audience value, could not map to a projectApiUrl. auth0Audience was: ${auth0Audience}`;
-  }
+  'ICD-SEARCH': {
+    type: 'http_auth',
+  },
+  'COMMUNICATION-SUBSCRIPTION': {
+    type: 'subscription',
+    subscriptionDetails: [
+      {
+        criteria: `Communication?category=${COMMUNICATION_ISSUE_REPORT_CODE.system}|${COMMUNICATION_ISSUE_REPORT_CODE.code}&status=in-progress`,
+        reason: 'PM - ML internal communication',
+        event: 'create',
+      },
+    ],
+  },
 };
 
 const updateZambdas = async (config: any): Promise<void> => {
-  const token = await getAccessToken(config);
+  const token = await getAuth0Token(config);
 
   if (!token) {
     throw new Error('Failed to fetch auth token.');
   }
   const fhirClient = new FhirClient({
-    apiUrl: fhirApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
+    apiUrl: 'https://fhir-api.zapehr.com/r4',
     accessToken: token,
   });
   const zambdaClient = new ZambdaClient({
-    apiUrl: projectApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
+    apiUrl: 'https://project-api.zapehr.com/v1',
     accessToken: token,
   });
   console.log({
-    apiUrl: fhirApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
+    apiUrl: 'https://fhir-api.zapehr.com/r4',
     accessToken: token,
   });
 
-  console.log('Getting list of zambdas');
-  const currentZambdas = await zambdaClient.getAllZambdas();
+  try {
+    console.log('Getting list of zambdas');
+    const currentZambdas = await zambdaClient.getAllZambdas();
 
-  // First check if any zambdas are not found
-  for await (const zambda of Object.keys(ZAMBDAS)) {
-    const currentZambda = ZAMBDAS[zambda];
-    if (currentZambda.environments && !currentZambda.environments.includes(config.ENVIRONMENT)) {
-      console.log(`\nZambda ${zambda} is not run in ${config.ENVIRONMENT}`);
-      continue;
+    // First check if any zambdas are not found
+    for await (const zambda of Object.keys(ZAMBDAS)) {
+      const currentZambda = ZAMBDAS[zambda];
+
+      if (currentZambda.environments && !currentZambda.environments.includes(config.ENVIRONMENT)) {
+        console.log(`\nZambda ${zambda} is not run in ${config.ENVIRONMENT}`);
+        continue;
+      }
+
+      let currentDeployedZambda = currentZambdas.find(
+        (tempZambda) => tempZambda.name === `admin-${zambda.toLowerCase()}`,
+      );
+
+      if (currentDeployedZambda) {
+        console.log(`\nZambda ${zambda} is found with ID ${currentDeployedZambda.id}`);
+      } else {
+        console.log(`\nZambda ${zambda} is not found, creating it`);
+        currentDeployedZambda = await zambdaClient.createZambda({
+          name: `admin-${zambda.toLowerCase()}`,
+        });
+        console.log(`Zambda ${zambda} with ID ${currentDeployedZambda.id}`);
+      }
+
+      try {
+        await updateProjectZambda(
+          currentDeployedZambda.id,
+          zambda,
+          currentZambda,
+          config,
+          'https://project-api.zapehr.com/v1',
+          token,
+          fhirClient,
+        );
+      } catch (err) {
+        console.log(`Error trying to update project zambda ${zambda}`, err);
+      }
     }
-
-    let currentDeployedZambda = currentZambdas.find(
-      (tempZambda) => tempZambda.name === `urgent-care-${zambda.toLowerCase()}`,
-    );
-
-    if (currentDeployedZambda) {
-      console.log(`\nZambda ${zambda} is found with ID ${currentDeployedZambda.id}`);
-    } else {
-      console.log(`\nZambda ${zambda} is not found, creating it`);
-      currentDeployedZambda = await zambdaClient.createZambda({
-        name: `urgent-care-${zambda.toLowerCase()}`,
-      });
-      console.log(`Zambda ${zambda} with ID ${currentDeployedZambda.id}`);
-    }
-
-    await updateProjectZambda(
-      currentDeployedZambda.id,
-      zambda,
-      currentZambda,
-      config,
-      projectApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
-      token,
-      fhirClient,
-    );
+  } catch (e) {
+    console.log('error deploying zambdas', JSON.stringify(e));
   }
 };
 
@@ -234,7 +211,7 @@ async function updateProjectZambda(
   console.log('Uploaded zip file to S3');
 
   console.log('Updating zambda');
-  const updateZambda = await fetch(`${projectApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE)}/zambda/${zambdaId}`, {
+  const updateZambda = await fetch(`https://project-api.zapehr.com/v1/zambda/${zambdaId}`, {
     method: 'PATCH',
     headers: {
       authorization: `Bearer ${auth0Token}`,
@@ -270,7 +247,7 @@ async function updateProjectZambda(
     });
     console.log(`${subscriptionsSearch.length} existing subscriptions found`);
 
-    const EXTENSION_URL = 'http://zapehr.com/fhir/extension/SubscriptionTriggerEvent';
+    const EXTENSION_URL = 'http://zapehr.com/fhir/r4/extension/SubscriptionTriggerEvent';
 
     const createSubscriptionRequests: BatchInputPostRequest[] = [];
     const deleteSubscriptionRequests: BatchInputDeleteRequest[] = [];
@@ -282,9 +259,9 @@ async function updateProjectZambda(
       const existingSubscriptionEvent = existingSubscription.extension?.find(
         (ext) => ext.url === EXTENSION_URL,
       )?.valueString;
-      const subscriptionMatch = zambda.subscriptionDetails?.find((zambdaSubscriptionDetail) => {
-        const eventMatch = existingSubscriptionEvent === zambdaSubscriptionDetail.event;
-        const criteriaMatch = zambdaSubscriptionDetail.criteria === existingSubscription.criteria;
+      const subscriptionMatch = zambda.subscriptionDetails?.find((zambdaSubscritionDetail) => {
+        const eventMatch = existingSubscriptionEvent === zambdaSubscritionDetail.event;
+        const criteriaMatch = zambdaSubscritionDetail.criteria === existingSubscription.criteria;
         return eventMatch && criteriaMatch;
       });
       if (subscriptionMatch) {
@@ -364,29 +341,11 @@ if (process.argv.length < 3) {
 // So we can use await
 const main = async (): Promise<void> => {
   const env = process.argv[2];
-
-  switch (env) {
-    case 'dev':
-      await updateZambdas(devConfig);
-      break;
-    // case 'testing':
-    //   await updateZambdas(testingConfig);
-    //   break;
-    // case 'staging':
-    //   await updateZambdas(stagingConfig);
-    //   break;
-    // case 'training':
-    //   await updateZambdas(trainingConfig);
-    //   break;
-    // case 'production':
-    //   await updateZambdas(productionConfig);
-    //   break;
-    default:
-      throw new Error('¯\\_(ツ)_/¯ environment must match a valid zapEHR environment.');
-  }
+  const secrets = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  await updateZambdas(secrets);
 };
 
 main().catch((error) => {
-  console.log('error', error);
+  console.log('error', error, error.issue);
   throw error;
 });

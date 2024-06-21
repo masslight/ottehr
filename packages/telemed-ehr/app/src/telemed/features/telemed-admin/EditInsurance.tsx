@@ -192,7 +192,7 @@ export default function EditInsurance(): JSX.Element {
                 <FormLabel
                   sx={{
                     ...theme.typography.h4,
-                    color: theme.palette.primary.dark,
+                    color: theme.palette.primary.main,
                     mb: 2,
                     fontWeight: '600 !important',
                     display: 'block',
@@ -278,7 +278,7 @@ export default function EditInsurance(): JSX.Element {
 
                 <LoadingButton
                   variant="contained"
-                  color="primary"
+                  color="secondary"
                   loading={mutationPending}
                   sx={{
                     textTransform: 'none',
@@ -296,7 +296,7 @@ export default function EditInsurance(): JSX.Element {
                 <Link to={INSURANCES_PATH}>
                   <Button
                     variant="text"
-                    color="primary"
+                    color="secondary"
                     sx={{
                       textTransform: 'none',
                       borderRadius: 28,

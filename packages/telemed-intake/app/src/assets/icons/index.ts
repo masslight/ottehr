@@ -1,2 +1,6 @@
 export { default as ottehrWelcome } from './ottehrWelcome.svg';
 export { default as clockFullColor } from './clockFullColor.svg';
+export { default as requestVisit } from './requestVisit.svg';
+export { default as contactSupport } from './contactSupport.svg';
+export { default as pastVisits } from './pastVisits.svg';
+export { default as urgentCareVisit } from './urgentCareVisit.svg';
