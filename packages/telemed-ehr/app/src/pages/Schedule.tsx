@@ -48,21 +48,6 @@ export default function SchedulePage(): ReactElement {
   const [slug, setSlug] = useState<string | undefined>(undefined);
   const [slugLoading, setSlugLoading] = useState<boolean>(false);
 
-  function getResource(
-    scheduleType: 'office' | 'provider' | 'group',
-  ): 'Location' | 'Practitioner' | 'HealthcareService' {
-    if (scheduleType === 'office') {
-      return 'Location';
-    } else if (scheduleType === 'provider') {
-      return 'Practitioner';
-    } else if (scheduleType === 'group') {
-      return 'HealthcareService';
-    }
-
-    console.log(`'scheduleType unknown ${scheduleType}`);
-    throw new Error('scheduleType unknown');
-  }
-
   // get the location from the database
   useEffect(() => {
     async function getItem(schedule: 'Location' | 'Practitioner' | 'HealthcareService'): Promise<void> {
