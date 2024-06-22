@@ -286,8 +286,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       fhirClient,
     );
 
-    console.log(`presignedURLs: ${presignedURLs}`)
-
     console.log('building get paperwork response');
     const response: PaperworkResponseWithResponses = {
       ...partialAppointment,
