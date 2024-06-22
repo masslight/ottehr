@@ -75,6 +75,7 @@ export type FormItemType =
   | 'Checkbox'
   | 'Header 3'
   | 'Header 4'
+  | 'HTML'
   | 'Description'
   | 'Button'
   | 'Date Year'
