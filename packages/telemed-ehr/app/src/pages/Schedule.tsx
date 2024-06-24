@@ -1,6 +1,6 @@
-import { TabContext, TabList, TabPanel } from '@mui/lab';
-import { Box, Button, Grid, Paper, Skeleton, Tab, Typography } from '@mui/material';
-import { Address, Extension, HealthcareService, Location, Practitioner } from 'fhir/r4';
+import { LoadingButton, TabContext, TabList, TabPanel } from '@mui/lab';
+import { Box, Button, Grid, Paper, Skeleton, Tab, TextField, Typography } from '@mui/material';
+import { Address, Extension, HealthcareService, Identifier, Location, Practitioner } from 'fhir/r4';
 import { ReactElement, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { otherColors } from '../CustomThemeProvider';
@@ -11,14 +11,31 @@ import Schedule from '../components/schedule/Schedule';
 import { getName } from '../components/ScheduleInformation';
 import Loading from '../components/Loading';
 import GroupSchedule from '../components/schedule/GroupSchedule';
+import { Operation } from 'fast-json-patch';
 
 const START_SCHEDULE =
   '{"schedule":{"monday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"tuesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"wednesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"thursday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"friday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"saturday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"sunday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]}},"scheduleOverrides":{}}';
+const IDENTIFIER_SLUG = 'https://fhir.ottehr.com/r4/slug';
+
+export function getResource(
+  scheduleType: 'office' | 'provider' | 'group',
+): 'Location' | 'Practitioner' | 'HealthcareService' {
+  if (scheduleType === 'office') {
+    return 'Location';
+  } else if (scheduleType === 'provider') {
+    return 'Practitioner';
+  } else if (scheduleType === 'group') {
+    return 'HealthcareService';
+  }
+
+  console.log(`'scheduleType unknown ${scheduleType}`);
+  throw new Error('scheduleType unknown');
+}
 
 export default function SchedulePage(): ReactElement {
   // Define variables to interact w database and navigate to other pages
   const { fhirClient } = useApiClients();
-  const scheduleType = useParams()['schedule-type'];
+  const scheduleType = useParams()['schedule-type'] as 'office' | 'provider' | 'group';
   const id = useParams().id as string;
 
   if (!scheduleType) {
@@ -28,6 +45,8 @@ export default function SchedulePage(): ReactElement {
   // state variables
   const [tabName, setTabName] = useState('schedule');
   const [item, setItem] = useState<Location | Practitioner | HealthcareService | undefined>(undefined);
+  const [slug, setSlug] = useState<string | undefined>(undefined);
+  const [slugLoading, setSlugLoading] = useState<boolean>(false);
 
   // get the location from the database
   useEffect(() => {
@@ -35,19 +54,15 @@ export default function SchedulePage(): ReactElement {
       if (!fhirClient) {
         return;
       }
-      const itemTemp = (await fhirClient.readResource({
+      const itemTemp: Location | Practitioner | HealthcareService = (await fhirClient.readResource({
         resourceType: schedule,
         resourceId: id,
       })) as any;
       setItem(itemTemp);
+      const slugTemp = itemTemp?.identifier?.find((identifierTemp) => identifierTemp.system === IDENTIFIER_SLUG);
+      setSlug(slugTemp?.value);
     }
-    if (scheduleType === 'office') {
-      void getItem('Location');
-    } else if (scheduleType === 'provider') {
-      void getItem('Practitioner');
-    } else if (scheduleType === 'group') {
-      void getItem('HealthcareService');
-    }
+    void getItem(getResource(scheduleType));
   }, [fhirClient, id, scheduleType]);
 
   // utility functions
@@ -112,6 +127,61 @@ export default function SchedulePage(): ReactElement {
     setItem(patchedResource);
   }
 
+  async function updateSlug(event: any): Promise<void> {
+    event.preventDefault();
+    setSlugLoading(true);
+    const identifiers = item?.identifier || [];
+    // make a copy of identifier
+    let identifiersTemp: Identifier[] | undefined = [...identifiers];
+    const hasIdentifiers = identifiersTemp.length > 0;
+    const hasSlug = item?.identifier?.find((identifierTemp) => identifierTemp.system === IDENTIFIER_SLUG);
+    const removingSlug = !slug || slug === '';
+    const updatedSlugIdentifier: Identifier = {
+      system: IDENTIFIER_SLUG,
+      value: slug,
+    };
+
+    if (removingSlug && !hasSlug) {
+      console.log('Removing slug but none set');
+      setSlugLoading(false);
+      return;
+    } else if (removingSlug && hasSlug) {
+      console.log('Removing slug from identifiers');
+      const identifiersUpdated = item?.identifier?.filter(
+        (identifierTemp) => identifierTemp.system !== IDENTIFIER_SLUG,
+      );
+      identifiersTemp = identifiersUpdated;
+    } else if (!hasIdentifiers) {
+      console.log('No identifiers, adding one');
+      identifiersTemp = [updatedSlugIdentifier];
+    } else if (hasIdentifiers && !hasSlug) {
+      console.log('Has identifiers without a slug, adding one');
+      identifiersTemp.push(updatedSlugIdentifier);
+    } else if (hasIdentifiers && hasSlug) {
+      console.log('Has identifiers with a slug, replacing one');
+      const identifierIndex = item?.identifier?.findIndex(
+        (identifierTemp) => identifierTemp.system === IDENTIFIER_SLUG,
+      );
+
+      if (identifierIndex !== undefined && identifiers) {
+        identifiersTemp[identifierIndex] = updatedSlugIdentifier;
+      }
+    }
+    const operation: Operation = {
+      op: !hasIdentifiers ? 'add' : 'replace',
+      path: '/identifier',
+      value: identifiersTemp,
+    };
+
+    const itemTemp = await fhirClient?.patchResource({
+      resourceType: getResource(scheduleType),
+      resourceId: id,
+      operations: [operation],
+    });
+    setItem(itemTemp as Location | Practitioner | HealthcareService);
+    setSlugLoading(false);
+  }
+
   return (
     <PageContainer>
       <>
@@ -174,6 +244,15 @@ export default function SchedulePage(): ReactElement {
                 </TabPanel>
                 {/* General tab */}
                 <TabPanel value="general">
+                  <Paper sx={{ marginBottom: 2, padding: 3 }}>
+                    <form onSubmit={(event) => updateSlug(event)}>
+                      <TextField label="Slug" value={slug} onChange={(event) => setSlug(event.target.value)} />
+                      <br />
+                      <LoadingButton type="submit" loading={slugLoading} variant="contained" sx={{ marginTop: 2 }}>
+                        Save
+                      </LoadingButton>
+                    </form>
+                  </Paper>
                   <Paper sx={{ padding: 3 }}>
                     <Grid container direction="row" justifyContent="flex-start" alignItems="flex-start">
                       <Grid item xs={6}>

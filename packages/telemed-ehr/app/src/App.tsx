@@ -25,6 +25,7 @@ import EditStatePage from './telemed/features/telemed-admin/EditState';
 import { isLocalOrDevOrTestingOrTrainingEnv } from './telemed/utils/env.helper';
 import { RoleType } from './types/types';
 import { AppointmentPage } from './pages/AppointmentPage';
+import AddSchedulePage from './pages/AddSchedulePage';
 
 const enablePhoton = false && isLocalOrDevOrTestingOrTrainingEnv;
 
@@ -102,6 +103,7 @@ function App(): ReactElement {
                   <Route path="/visits/add" element={<AddPatient />} />
                   <Route path="/visit/:id" element={<AppointmentPage />} />
                   <Route path="/schedules" element={<SchedulesPage />} />
+                  <Route path="/schedule/:schedule-type/add" element={<AddSchedulePage />} />
                   <Route path="/schedule/:schedule-type/:id" element={<SchedulePage />} />
                   <Route path="/employees" element={<EmployeesPage />} />
                   <Route path="/employee/:id" element={<EditEmployeePage />} />

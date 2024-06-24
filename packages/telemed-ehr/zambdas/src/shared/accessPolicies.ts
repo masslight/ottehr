@@ -54,6 +54,11 @@ export const ADMINISTRATOR_RULES = [
     resource: ['FHIR:Communication', 'FHIR:PractitionerRole'],
   },
   {
+    action: ['FHIR:Create'],
+    effect: 'Allow',
+    resource: ['FHIR:Location', 'FHIR:Practitioner', 'FHIR:HealthcareService'],
+  },
+  {
     action: ['Messaging:SendTransactionalSMS'],
     effect: 'Allow',
     resource: ['*'],
