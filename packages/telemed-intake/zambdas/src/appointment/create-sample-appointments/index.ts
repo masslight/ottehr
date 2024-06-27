@@ -16,8 +16,24 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     input.body = JSON.stringify(randomPatientInfo);
 
-    const response = await createAppointment(input);
-    return response;
+    const response = await fetch(
+      'https://project-api.zapehr.com/v1/zambda/5213a4d7-aea0-4f14-ac9a-e7dc9aa58702/execute',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${zapehrToken}`,
+        },
+        body: input.body,
+      },
+    );
+
+    const responseData = await response.json();
+
+    return {
+      statusCode: response.status,
+      body: JSON.stringify(responseData),
+    };
   } catch (error: any) {
     console.error('Error creating appointment:', error);
     return {
