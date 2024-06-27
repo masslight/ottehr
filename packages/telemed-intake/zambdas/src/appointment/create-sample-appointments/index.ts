@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { v4 as uuidv4 } from 'uuid';
 import { DateTime } from 'luxon';
-import { CreateAppointmentUCTelemedParams, ZambdaInput, createFhirClient } from 'ottehr-utils';
+import { CreateAppointmentUCTelemedParams, SecretsKeys, ZambdaInput, createFhirClient, getSecret } from 'ottehr-utils';
 import { index as createAppointment } from '../create-appointment';
 import { checkOrCreateToken } from '../lib/utils';
 import { FhirClient, SearchParam } from '@zapehr/sdk';
@@ -16,8 +16,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     input.body = JSON.stringify(randomPatientInfo);
 
+    const TELEMED_CREATE_APPOINTMENT_ZAMBDA_ID = getSecret(SecretsKeys.TELEMED_SENDGRID_EMAIL_BCC, input.secrets);
+
     const response = await fetch(
-      'https://project-api.zapehr.com/v1/zambda/5213a4d7-aea0-4f14-ac9a-e7dc9aa58702/execute',
+      `https://project-api.zapehr.com/v1/zambda/${TELEMED_CREATE_APPOINTMENT_ZAMBDA_ID}/execute`,
       {
         method: 'POST',
         headers: {
@@ -44,23 +46,25 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 };
 
 const generateRandomPatientInfo = async (fhirClient: FhirClient): Promise<CreateAppointmentUCTelemedParams> => {
-  const randomFirstName = `TestFirstName${uuidv4().slice(0, 5)}`;
-  const randomLastName = `TestLastName${uuidv4().slice(0, 5)}`;
-  const randomEmail = `${randomFirstName.toLowerCase()}.${randomLastName.toLowerCase()}@example.com`;
-  const randomDateOfBirth = DateTime.now()
-    .minus({ years: Math.floor(Math.random() * 26) })
-    .toISODate();
-
+  const firstNames = ['Alice', 'Bob', 'Charlie', 'Diana', 'Ethan'];
+  const lastNames = ['Smith', 'Johnson', 'Williams', 'Jones', 'Brown'];
+  const sexes: ('male' | 'female' | 'other' | 'unknown')[] = ['male', 'female', 'other', 'unknown'];
   const visitTypes: ('prebook' | 'now')[] = ['prebook', 'now'];
   const visitServices: ('in-person' | 'telemedicine')[] = ['in-person', 'telemedicine'];
 
   const searchParams: SearchParam[] = [{ name: 'status', value: 'active' }];
-
   const availableLocations: any[] = await fhirClient?.searchResources({
     resourceType: 'Location',
     searchParams: searchParams,
   });
 
+  const randomFirstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+  const randomLastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+  const randomEmail = `${randomFirstName.toLowerCase()}.${randomLastName.toLowerCase()}@example.com`;
+  const randomDateOfBirth = DateTime.now()
+    .minus({ years: Math.floor(Math.random() * 26) })
+    .toISODate();
+  const randomSex = sexes[Math.floor(Math.random() * sexes.length)];
   const randomLocationIndex = Math.floor(Math.random() * availableLocations.length);
   const randomLocationId = availableLocations[randomLocationIndex].id;
 
@@ -70,7 +74,7 @@ const generateRandomPatientInfo = async (fhirClient: FhirClient): Promise<Create
       firstName: randomFirstName,
       lastName: randomLastName,
       dateOfBirth: randomDateOfBirth,
-      sex: 'male',
+      sex: randomSex,
       email: randomEmail,
       emailUser: 'Patient',
     },

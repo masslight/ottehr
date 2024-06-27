@@ -217,10 +217,6 @@ functions:
       ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
   create-sample-appointments:
     handler: src/appointment/create-sample-appointments/index.index
-    events:
-      - schedule:
-          rate: cron(0 0 * * ? *)
-          enabled: true
     timeout: 25
     environment:
       WEBSITE_URL: ${file(./.env/${self:provider.stage}.json):WEBSITE_URL}
@@ -232,6 +228,7 @@ functions:
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+      TELEMED_CREATE_APPOINTMENT_ZAMBDA_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_CREATE_APPOINTMENT_ZAMBDA_ID}
   create-appointment:
     handler: src/appointment/create-appointment/index.index
     events:
