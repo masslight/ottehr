@@ -66,6 +66,5 @@ const generateRandomPatientInfo = async (fhirClient: FhirClient): Promise<Create
     visitService: visitServices[Math.floor(Math.random() * visitServices.length)],
     locationID: randomLocationId,
     timezone: 'UTC',
-    unconfirmedDateOfBirth: randomDateOfBirth,
   };
 };

@@ -75,20 +75,14 @@ const ZAMBDAS: { [name: string]: DeployZambda } = {
 
 const updateZambdas = async (config: any): Promise<void> => {
   const token = await getM2MClientToken(config);
-  console.log('token', token);
   const zambdaClient = await createZambdaClient(config);
-
-  console.log(config, 'config');
 
   console.log('Getting list of zambdas');
   const currentZambdas = await zambdaClient.getAllZambdas();
-  console.log('currentZambdas', currentZambdas);
 
   // First check if any zambdas are not found
   for await (const zambda of Object.keys(ZAMBDAS)) {
     const currentZambda = ZAMBDAS[zambda];
-    console.log(config.ENVIRONMENT, 'config.ENVIRONMENT');
-    console.log(currentZambda.environments, 'currentZambda.environments');
     if (currentZambda.environments && !currentZambda.environments.includes(config.ENVIRONMENT)) {
       console.log(`\nZambda ${zambda} is not run in ${config.ENVIRONMENT}`);
       continue;
