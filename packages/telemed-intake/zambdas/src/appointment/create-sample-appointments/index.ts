@@ -12,29 +12,33 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   try {
     zapehrToken = await checkOrCreateToken(zapehrToken, input.secrets);
     const fhirClient = createFhirClient(zapehrToken);
-    const randomPatientInfo = await generateRandomPatientInfo(fhirClient);
 
-    input.body = JSON.stringify(randomPatientInfo);
+    const responses = [];
 
-    const TELEMED_CREATE_APPOINTMENT_ZAMBDA_ID = getSecret(SecretsKeys.TELEMED_SENDGRID_EMAIL_BCC, input.secrets);
+    for (let i = 0; i < 5; i++) {
+      const randomPatientInfo = await generateRandomPatientInfo(fhirClient);
+      const inputBody = JSON.stringify(randomPatientInfo);
+      const TELEMED_CREATE_APPOINTMENT_ZAMBDA_ID = getSecret(SecretsKeys.TELEMED_SENDGRID_EMAIL_BCC, input.secrets);
 
-    const response = await fetch(
-      `https://project-api.zapehr.com/v1/zambda/${TELEMED_CREATE_APPOINTMENT_ZAMBDA_ID}/execute`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${zapehrToken}`,
+      const response = await fetch(
+        `https://project-api.zapehr.com/v1/zambda/${TELEMED_CREATE_APPOINTMENT_ZAMBDA_ID}/execute`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${zapehrToken}`,
+          },
+          body: inputBody,
         },
-        body: input.body,
-      },
-    );
+      );
 
-    const responseData = await response.json();
+      const responseData = await response.json();
+      responses.push(responseData);
+    }
 
     return {
-      statusCode: response.status,
-      body: JSON.stringify(responseData),
+      statusCode: 200,
+      body: JSON.stringify(responses),
     };
   } catch (error: any) {
     console.error('Error creating appointment:', error);
