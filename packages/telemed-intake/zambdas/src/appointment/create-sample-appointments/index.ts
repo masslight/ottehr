@@ -18,7 +18,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     for (let i = 0; i < 5; i++) {
       const randomPatientInfo = await generateRandomPatientInfo(fhirClient);
       const inputBody = JSON.stringify(randomPatientInfo);
-      const TELEMED_CREATE_APPOINTMENT_ZAMBDA_ID = getSecret(SecretsKeys.TELEMED_SENDGRID_EMAIL_BCC, input.secrets);
+      const TELEMED_CREATE_APPOINTMENT_ZAMBDA_ID = getSecret(
+        SecretsKeys.TELEMED_CREATE_APPOINTMENT_ZAMBDA_ID,
+        input.secrets,
+      );
 
       const response = await fetch(
         `https://project-api.zapehr.com/v1/zambda/${TELEMED_CREATE_APPOINTMENT_ZAMBDA_ID}/execute`,
@@ -26,7 +29,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${zapehrToken}`,
+            Authorization: `Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlRRc2xGbWlRX01ZTzg4Z3BRUnlvRCJ9.eyJodHRwczovL2FwaS56YXBlaHIuY29tL3Byb2plY3RfaWQiOiI4OTFhZTQwYi04Y2E1LTRkZTgtYTEzMS0zZTU5ZjI4NDZhMTciLCJpc3MiOiJodHRwczovL2F1dGguemFwZWhyLmNvbS8iLCJzdWIiOiJzbXN8NjU3MGFiN2RiMTZkMjYyOWE3MDI2OTgwIiwiYXVkIjpbImh0dHBzOi8vYXBpLnphcGVoci5jb20iLCJodHRwczovL3phcGVoci51cy5hdXRoMC5jb20vdXNlcmluZm8iXSwiaWF0IjoxNzE5NjA2NDg1LCJleHAiOjE3MTk2OTI4ODUsInNjb3BlIjoib3BlbmlkIHByb2ZpbGUgZW1haWwiLCJhenAiOiI1a0ZrM3NoN0hEZENaMFF4ejA5a1dSMGFmSzBQRTQxZSJ9.DIJmJ-C7n19tWkO4A7u3zjMyFfNbBo5i_aNxRlDeaah4Jre5IIGOnlAGN5g09zqctZGZNqJJFrTXOCMy9svVgOSdb5LQr0sAlQGn_gqVeE16UH-ACpSbkNOeJZLt408JtVPltXrfZ4_Rf3jmxyWn3Kj4AxlILFztrS6b8j5Bvaww44qMn2o0eVK-jrKVgBDTAVH5dth7RiKcGS89h6arNsd5IvPAfpzFESkKvkblfnsZbOPiWMHtd0F-wsexALjfNf9yV1zPQNvZff-svCEFHqD-IzRJQFu9dBDDAlgyNAIlkvFJKuXLl9TTevP-mp1LfZ5jJZNASU7rZ2agzKz8Aw`,
           },
           body: inputBody,
         },
