@@ -1,6 +1,7 @@
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 import {
   Box,
+  Button,
   Paper,
   Table,
   TableBody,
@@ -24,6 +25,7 @@ import { DateTime } from 'luxon';
 import { OVERRIDE_DATE_FORMAT } from '../helpers/formatDateTime';
 import { Closure, ClosureType, ScheduleExtension } from '../types/types';
 import { useApiClients } from '../hooks/useAppClients';
+import { Add } from '@mui/icons-material';
 
 export type ScheduleType = 'office' | 'provider' | 'group';
 
@@ -221,6 +223,11 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
 
   return (
     <Paper sx={{ padding: 2 }}>
+      <Link to={`/schedule/${scheduleType}/add`}>
+        <Button variant="contained" startIcon={<Add />}>
+          Add {scheduleType}
+        </Button>
+      </Link>
       <TableContainer>
         {/* Items Search Box */}
         <Box sx={{ display: 'flex' }}>
