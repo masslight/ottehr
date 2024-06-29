@@ -100,7 +100,7 @@ You'll need a free ZapEHR account to run Ottehr. Register for access at [zapehr.
 
 Once your request is received, the ZapEHR team will promptly reach out to you via email, providing the credentials you need to kickstart your ZapEHR journey.
 
-For comprehensive guidance on getting started with ZapEHR, explore our technical documentation available at [https://docs.zapehr.com/docs/welcome](https://docs.zapehr.com/docs/welcome).
+For comprehensive guidance on getting started with ZapEHR, explore our technical documentation available at [https://docs.zapehr.com/](https://docs.zapehr.com/).
 
 ## Setup Procedure
 
@@ -138,8 +138,6 @@ Once these dependencies are in place, enter the following command from the root 
 sh scripts/telemed-setup.sh
 ```
 
-For a sample guide of setting up Ottehr Telemedicine, please check [getting started with ottehr](https://youtu.be/NJzF9Nzhbeo).
-
 The script will prompt you for the following information:
 
 * Your access token: Log in to your [ZapEHR project](https://console.zapehr.com), and copy the access token from the dashboard.
@@ -149,7 +147,7 @@ The script will prompt you for the following information:
 Once the program finishes running,
 
 1. The Intake and EHR websites will open.
-1. To log in to the EHR, enter the email you input during the setup program. Click `Forgot password?` and set a password then log in.
+2. To log in to the EHR, enter the email you input during the setup program. Click `Forgot password?` and set a password then log in.
 
 The URL for a test location is http://localhost:3015/location/testing/prebook.
 
