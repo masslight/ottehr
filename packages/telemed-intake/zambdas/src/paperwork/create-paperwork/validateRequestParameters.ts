@@ -217,6 +217,7 @@ export function validateCreatePaperworkParams(input: ZambdaInput, questionnaire:
       files,
     )}\nisConsentFormsComplete ${isConsentFormsComplete(paperwork)}`,
   );
+
   const paperworkComplete =
     isContactInformationComplete(paperwork) &&
     isPatientDetailsComplete(paperwork) &&
@@ -364,7 +365,7 @@ function isResponsiblePartyComplete(paperwork: any): boolean {
 }
 
 function isPhotoIdComplete(files: any): boolean {
-  return valueExists(files[PHOTO_ID_FRONT_ID]?.z3Url) && valueExists(files[PHOTO_ID_BACK_ID]?.z3Url);
+  return valueExists(files?.[PHOTO_ID_FRONT_ID]?.z3Url) && valueExists(files?.[PHOTO_ID_BACK_ID]?.z3Url);
 }
 
 function isConsentFormsComplete(paperwork: any): boolean {
