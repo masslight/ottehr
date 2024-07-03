@@ -57,9 +57,9 @@ const providerNavbarItems: NavbarItems = {
   Patients: { urls: ['/patients', '/patient'] },
 };
 
-administratorNavbarItems['Telemedicine:Admin'] = { urls: ['/telemed-admin'] };
+administratorNavbarItems['Admin'] = { urls: ['/telemed-admin'] };
 administratorNavbarItems['Telemedicine'] = { urls: ['/telemed/appointments', '/telemed', '/video-call'] };
-managerNavbarItems['Telemedicine:Admin'] = { urls: ['/telemed-admin'] };
+managerNavbarItems['Admin'] = { urls: ['/telemed-admin'] };
 providerNavbarItems['Telemedicine'] = { urls: ['/telemed/appointments', '/telemed', '/video-call'] };
 providerNavbarItems['Employees'] = { urls: ['/employees', '/employee'] };
 
