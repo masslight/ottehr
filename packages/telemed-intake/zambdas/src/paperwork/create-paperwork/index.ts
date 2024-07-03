@@ -94,7 +94,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       throw new Error('Encounter does not have ID');
     }
 
-    console.log('updateResourcesFromPaperwork')
     const { patientID, patientResource, locationID } = await updateResourcesFromPaperwork(
       fhirClient,
       appointmentID,
@@ -570,7 +569,10 @@ async function updateResourcesFromPaperwork(
 
   const questionnaireBirthSex = paperwork.find((responseTemp) => responseTemp.linkId === 'patient-birth-sex')?.response;
   const questionnaireBirthSexValue = PersonSex[questionnaireBirthSex as keyof typeof PersonSex];
-  if (questionnaireBirthSexValue && (!patientResource.gender || patientResource.gender !== questionnaireBirthSexValue)) {
+  if (
+    questionnaireBirthSexValue &&
+    (!patientResource.gender || patientResource.gender !== questionnaireBirthSexValue)
+  ) {
     patientPatchOps.push({
       op: patientResource.gender ? 'replace' : 'add',
       path: '/gender',

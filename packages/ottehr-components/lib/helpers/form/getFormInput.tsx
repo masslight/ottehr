@@ -286,7 +286,11 @@ export const getFormInputField = (
             );
           case 'Description':
             if (formInput.label) {
-              return <Typography variant="body1"><Markdown>{formInput.label}</Markdown></Typography>;
+              return (
+                <Typography variant="body1">
+                  <Markdown>{formInput.label}</Markdown>
+                </Typography>
+              );
             } else if (formInput.description) {
               return <Markdown>{`${formInput.description}`}</Markdown>;
             } else {
