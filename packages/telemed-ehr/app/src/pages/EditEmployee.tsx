@@ -69,11 +69,7 @@ export default function EditEmployeePage(): JSX.Element {
           const zapEHRUser = res.user;
           setUser(zapEHRUser as User);
           setUserName(
-            ''.concat(
-              (zapEHRUser as User).profileResource?.name?.[0].given?.[0] || '',
-              ' ',
-              (zapEHRUser as User).profileResource?.name?.[0].family || '',
-            ),
+            `${(zapEHRUser as User).profileResource?.name?.[0].given?.[0]} ${(zapEHRUser as User).profileResource?.name?.[0].family}`,
           );
           setIsActive(checkUserIsActive(zapEHRUser));
           loading = false;
