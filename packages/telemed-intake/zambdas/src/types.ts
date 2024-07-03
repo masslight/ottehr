@@ -19,6 +19,7 @@ export enum PersonSex {
   male = 'male',
   female = 'female',
   other = 'other',
+  unknown = 'unknown',
 }
 
 export enum PatientEthnicity {
