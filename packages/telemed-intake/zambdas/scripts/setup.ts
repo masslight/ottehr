@@ -24,7 +24,7 @@ async function createApplication(
             'Zambda:Function:todo-telemed-create-appointment',
             'Zambda:Function:todo-telemed-get-paperwork',
             'Zambda:Function:todo-telemed-create-paperwork',
-            'Zambda:Function:todo-telemed-get-schedule',
+            'Zambda:Function:todo-telemed-cancel-appointment',
           ],
           action: ['Zambda:InvokeFunction'],
           effect: 'Allow',
