@@ -1,5 +1,9 @@
 import { LoadingButton } from '@mui/lab';
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Autocomplete,
   Box,
   Button,
   Checkbox,
@@ -21,14 +25,21 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import CancelIcon from '@mui/icons-material/Cancel';
 import { useEffect, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { Link } from 'react-router-dom';
-import { FHIR_IDENTIFIER_NPI, PractitionerLicense, User } from 'ehr-utils';
+import { FHIR_IDENTIFIER_NPI, PractitionerLicense, PractitionerQualificationCode, User } from 'ehr-utils';
 import { otherColors } from '../CustomThemeProvider';
 import { updateUser } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { RoleType } from '../types/types';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import AddIcon from '@mui/icons-material/Add';
+import { AllStates } from '../types/types';
+import { PractitionerQualificationCodesLabels } from 'ehr-utils';
+
+const displaystates = AllStates.map((state) => state.value);
 
 interface EditEmployeeInformationProps {
   submitLabel: string;
@@ -109,6 +120,9 @@ export default function EmployeeInformationForm({
   const theme = useTheme();
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState({ submit: false, roles: false });
+  const [newLicenses, setNewLicenses] = useState<PractitionerLicense[]>([]);
+  const [newLicenseState, setNewLicenseState] = useState<string | undefined>(undefined);
+  const [newLicenseCode, setNewLicenseCode] = useState<string | undefined>(undefined);
 
   // Form should have its own user state so it doesn't override page title when title is user name
   const [user, setUser] = useState<User>({
@@ -203,7 +217,7 @@ export default function EmployeeInformationForm({
         lastName: data.lastName,
         nameSuffix: data.nameSuffix,
         selectedRoles: data.roles,
-        licenses: licenses.filter((license) => data.enabledLicenses[license.state]),
+        licenses: licenses.filter((license) => data.enabledLicenses[license.state]).concat(newLicenses),
       });
     } catch (error) {
       console.log(`Failed to update user: ${error}`);
@@ -402,9 +416,87 @@ export default function EmployeeInformationForm({
                         </TableCell>
                       </TableRow>
                     ))}
+                    {newLicenses.map((license, index) => (
+                      <TableRow key={index} style={{ backgroundColor: otherColors.orange100 }}>
+                        <TableCell>{license.state}</TableCell>
+                        <TableCell align="left">{license.code}</TableCell>
+                        <TableCell align="left">
+                          <Button
+                            startIcon={<CancelIcon />}
+                            sx={{
+                              textTransform: 'none',
+                              fontWeight: 'bold',
+                              borderRadius: 28,
+                              color: theme.palette.error.dark,
+                              ':hover': {
+                                backgroundColor: theme.palette.error.light,
+                                color: theme.palette.error.contrastText,
+                              },
+                            }}
+                            onClick={() => setNewLicenses(newLicenses.filter((_, i) => i !== index))}
+                          >
+                            Remove
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </TableContainer>
+              <Accordion>
+                <AccordionSummary
+                  expandIcon={<ExpandMoreIcon />}
+                  sx={{
+                    marginTop: '20px',
+                    fontWeight: 'bold',
+                    color: theme.palette.primary.main,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Add New State Qualification
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Grid container direction={'row'} spacing={1}>
+                    <Grid item xs={4}>
+                      <Autocomplete
+                        options={displaystates}
+                        getOptionLabel={(option: string) => option}
+                        renderInput={(params) => <TextField {...params} label="State" />}
+                        onChange={(event, value) => setNewLicenseState(value || undefined)}
+                      />
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Autocomplete
+                        options={Object.keys(PractitionerQualificationCodesLabels)}
+                        getOptionLabel={(option: string) => option}
+                        renderInput={(params) => <TextField {...params} label="Qualification" />}
+                        onChange={(event, value) => setNewLicenseCode(value || undefined)}
+                      />
+                    </Grid>
+                    <Grid item xs={4} alignContent={'center'}>
+                      <Button
+                        variant="contained"
+                        endIcon={<AddIcon />}
+                        sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 28 }}
+                        onClick={() => {
+                          if (newLicenseState && newLicenseCode) {
+                            setNewLicenses([
+                              ...newLicenses,
+                              {
+                                state: newLicenseState,
+                                code: newLicenseCode as PractitionerQualificationCode,
+                              },
+                            ]);
+                          }
+                        }}
+                        fullWidth
+                      >
+                        Add
+                      </Button>
+                    </Grid>
+                  </Grid>
+                </AccordionDetails>
+              </Accordion>
             </Box>
           </>
         )}
