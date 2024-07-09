@@ -218,7 +218,7 @@ async function getSchedule(
     // get appointments at schedule
     const appointmentResourcesInSchedule = appointmentResources.filter((appointment) => {
       return appointment.participant.some(
-        (participant: AppointmentParticipant) => participant.actor === `${resourceType}/${item.id}`,
+        (participant: AppointmentParticipant) => participant.actor?.reference === `${resourceType}/${item.id}`,
       );
     });
 
@@ -399,11 +399,14 @@ export const distributeTimeSlots = (
     const numSlots = timeSlots[timeSlot];
     let numAppointments = 0;
     currentAppointments.forEach((appointmentTemp) => {
-      if (appointmentTemp.start && appointmentTemp.start === DateTime.fromISO(timeSlot).setZone('UTC').toISO()) {
+      if (
+        appointmentTemp.start &&
+        DateTime.fromISO(appointmentTemp.start).setZone('UTC').toISO() ===
+          DateTime.fromISO(timeSlot).setZone('UTC').toISO()
+      ) {
         numAppointments++;
       }
     });
-
     return numSlots > numAppointments;
   });
   // console.log(4, availableSlots);
