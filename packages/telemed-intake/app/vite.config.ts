@@ -44,7 +44,7 @@ export default (env) => {
         sourcemap: mode === 'default' || shouldUploadSentrySourceMaps,
       },
       server: {
-        open: 'location/ak/in-person/prebook',
+        open: appEnv.VITE_APP_INTAKE_LAUNCH_URL ?? '/:schedule-type/:slug/:visit-service/gilad',
       },
       plugins,
     })

@@ -116,7 +116,7 @@ function App(): JSX.Element {
                 <ProtectedRoute
                   loadingFallback={<LoadingScreen />}
                   errorFallback={<ErrorFallbackScreen />}
-                  unauthorizedFallback={<Navigate to={IntakeFlowPageRoute.Welcome.path} />}
+                  unauthorizedFallback={<Navigate to={import.meta.env.VITE_APP_INTAKE_LAUNCH_URL} />}
                 />
               }
             >
