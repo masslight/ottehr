@@ -24,9 +24,9 @@ import {
   TextField,
   Typography,
   useTheme,
+  IconButton,
 } from '@mui/material';
-import CancelIcon from '@mui/icons-material/Cancel';
-import ReplayIcon from '@mui/icons-material/Replay';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { useEffect, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { Link } from 'react-router-dom';
@@ -110,8 +110,6 @@ if (import.meta.env.MODE === 'default' || import.meta.env.MODE === 'development'
   );
 }
 
-type PractitionerLicenseWithDelete = PractitionerLicense & { delete: boolean };
-
 export default function EmployeeInformationForm({
   submitLabel,
   existingUser,
@@ -123,19 +121,11 @@ export default function EmployeeInformationForm({
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState({ submit: false, roles: false });
 
-  const [newLicenses, setNewLicenses] = useState<PractitionerLicense[]>([]);
   const [newLicenseState, setNewLicenseState] = useState<string | undefined>(undefined);
   const [newLicenseCode, setNewLicenseCode] = useState<string | undefined>(undefined);
-  const [comparisonLicenses, setComparisonLicenses] = useState<PractitionerLicense[]>([]);
-  const [currentLicenses, setCurrentLicenses] = useState<PractitionerLicenseWithDelete[]>([]);
+  const [currentLicenses, setCurrentLicenses] = useState<PractitionerLicense[]>([]);
   useEffect(() => {
-    setCurrentLicenses(
-      licenses.map((license) => ({
-        ...license,
-        delete: false,
-      })),
-    );
-    setComparisonLicenses(licenses);
+    setCurrentLicenses(licenses);
   }, [licenses]);
 
   // Form should have its own user state so it doesn't override page title when title is user name
@@ -214,10 +204,6 @@ export default function EmployeeInformationForm({
 
     // Update the user
     try {
-      const userLicenses = (currentLicenses.filter((license) => !license.delete) as PractitionerLicense[]).concat(
-        newLicenses,
-      );
-      console.log('userLicenses', userLicenses);
       await updateUser(zambdaClient, {
         userId: user.id,
         firstName: data.firstName,
@@ -225,15 +211,8 @@ export default function EmployeeInformationForm({
         lastName: data.lastName,
         nameSuffix: data.nameSuffix,
         selectedRoles: data.roles,
-        licenses: userLicenses,
+        licenses: currentLicenses,
       });
-
-      setComparisonLicenses(userLicenses);
-      setCurrentLicenses(
-        userLicenses.map((license) => ({ ...license, delete: false })) as PractitionerLicenseWithDelete[],
-      );
-      console.log('currentLicenses', currentLicenses);
-      setNewLicenses([]);
     } catch (error) {
       console.log(`Failed to update user: ${error}`);
       setErrors((prev) => ({ ...prev, submit: true }));
@@ -242,16 +221,30 @@ export default function EmployeeInformationForm({
     }
   };
 
-  const hasLicenseChanged = (license: PractitionerLicenseWithDelete): boolean => {
-    const originalLicense = comparisonLicenses.find((l) => l.state === license.state && l.code === license.code);
-    if (!originalLicense) {
-      return true;
-    }
-    return (
-      originalLicense.code !== license.code || originalLicense.active !== license.active || license.delete !== false
-    );
-  };
+  useEffect(() => {
+    async function updateLicenses(data: EmployeeForm): Promise<void> {
+      if (!zambdaClient) {
+        throw new Error('Zambda Client not found');
+      }
 
+      await updateUser(zambdaClient, {
+        userId: user.id,
+        firstName: data.firstName,
+        middleName: data.middleName,
+        lastName: data.lastName,
+        nameSuffix: data.nameSuffix,
+        selectedRoles: data.roles,
+        licenses: currentLicenses,
+      });
+    }
+
+    const data = getValues();
+    updateLicenses(data).catch((error) => {
+      console.error(error);
+    });
+  }, [currentLicenses, getValues, user.id, zambdaClient]);
+
+  // every time currentLicenses changes, update the user
   return isActive === undefined ? (
     <Skeleton height={300} sx={{ marginY: -5 }} />
   ) : (
@@ -409,10 +402,62 @@ export default function EmployeeInformationForm({
                   />
                 )}
               />
-              <label style={{ margin: '15px 0' }}>NPI: {npiText}</label>
+              <label style={{ marginTop: '15px' }}>NPI: {npiText}</label>
             </FormControl>
+          </>
+        )}
 
-            <Box mt={2}>
+        {/* Error on submit if request fails */}
+        {errors.submit && (
+          <Typography color="error" variant="body2" mt={0}>{`Failed to update user. Please try again.`}</Typography>
+        )}
+
+        {/* Update Employee and Cancel Buttons */}
+        <Grid sx={{ marginTop: 4, marginBottom: 2 }}>
+          <LoadingButton
+            variant="contained"
+            color="primary"
+            sx={{
+              textTransform: 'none',
+              borderRadius: 28,
+              fontWeight: 'bold',
+              marginRight: 1,
+            }}
+            type="submit"
+            loading={loading}
+            disabled={!isActive}
+          >
+            {submitLabel}
+          </LoadingButton>
+
+          <Link to="/employees">
+            <Button
+              variant="text"
+              color="primary"
+              sx={{
+                textTransform: 'none',
+                borderRadius: 28,
+                fontWeight: 'bold',
+              }}
+            >
+              Cancel
+            </Button>
+          </Link>
+        </Grid>
+        {isProviderRoleSelected && (
+          <>
+            <hr />
+            <Typography
+              sx={{
+                ...theme.typography.h5,
+                color: theme.palette.primary.dark,
+                fontWeight: '600',
+                marginTop: 4,
+              }}
+            >
+              Provider Qualifications
+            </Typography>
+            <Box mt={1}>
               <TableContainer>
                 <Table>
                   <TableHead>
@@ -425,16 +470,13 @@ export default function EmployeeInformationForm({
                   </TableHead>
                   <TableBody>
                     {currentLicenses.map((license, index) => (
-                      <TableRow
-                        key={index}
-                        style={{ backgroundColor: hasLicenseChanged(license) ? otherColors.orange100 : '' }}
-                      >
+                      <TableRow key={index}>
                         <TableCell>{license.state}</TableCell>
                         <TableCell align="left">{license.code}</TableCell>
-                        <TableCell align="left">
+                        <TableCell align="center">
                           <Switch
                             checked={license.active}
-                            onChange={() =>
+                            onChange={async () =>
                               setCurrentLicenses((prev) => {
                                 const updatedLicenses = [...prev];
                                 updatedLicenses[index].active = !updatedLicenses[index].active;
@@ -443,90 +485,25 @@ export default function EmployeeInformationForm({
                             }
                           />
                         </TableCell>
-                        <TableCell align="left">
-                          {!license.delete ? (
-                            <Button
-                              startIcon={<CancelIcon />}
-                              sx={{
-                                textTransform: 'none',
-                                fontWeight: 'bold',
-                                borderRadius: 28,
-                                color: theme.palette.error.dark,
-                                ':hover': {
-                                  backgroundColor: theme.palette.error.light,
-                                  color: theme.palette.error.contrastText,
-                                },
-                              }}
-                              onClick={() =>
-                                setCurrentLicenses((prev) => {
-                                  const updatedLicenses = [...prev];
-                                  updatedLicenses[index].delete = true;
-                                  return updatedLicenses;
-                                })
-                              }
-                            >
-                              Delete
-                            </Button>
-                          ) : (
-                            <Button
-                              startIcon={<ReplayIcon />}
-                              sx={{
-                                textTransform: 'none',
-                                fontWeight: 'bold',
-                                borderRadius: 28,
-                                color: theme.palette.success.dark,
-                                ':hover': {
-                                  backgroundColor: theme.palette.success.light,
-                                  color: theme.palette.error.contrastText,
-                                },
-                              }}
-                              onClick={() =>
-                                setCurrentLicenses((prev) => {
-                                  const updatedLicenses = [...prev];
-                                  updatedLicenses[index].delete = false;
-                                  return updatedLicenses;
-                                })
-                              }
-                            >
-                              Restore
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {newLicenses.map((license, index) => (
-                      <TableRow key={index} style={{ backgroundColor: otherColors.orange100 }}>
-                        <TableCell>{license.state}</TableCell>
-                        <TableCell align="left">{license.code}</TableCell>
-                        <TableCell align="left">
-                          <Switch
-                            checked={license.active}
-                            onChange={() =>
-                              setNewLicenses((prev) => {
-                                const updatedLicenses = [...prev];
-                                updatedLicenses[index].active = !updatedLicenses[index].active;
-                                return updatedLicenses;
-                              })
-                            }
-                          />
-                        </TableCell>
-                        <TableCell align="left">
-                          <Button
-                            startIcon={<CancelIcon />}
+                        <TableCell align="center">
+                          <IconButton
                             sx={{
-                              textTransform: 'none',
-                              fontWeight: 'bold',
-                              borderRadius: 28,
                               color: theme.palette.error.dark,
                               ':hover': {
                                 backgroundColor: theme.palette.error.light,
                                 color: theme.palette.error.contrastText,
                               },
                             }}
-                            onClick={() => setNewLicenses(newLicenses.filter((_, i) => i !== index))}
+                            onClick={async () =>
+                              setCurrentLicenses((prev) => {
+                                const updatedLicenses = [...prev];
+                                updatedLicenses.splice(index, 1);
+                                return updatedLicenses;
+                              })
+                            }
                           >
-                            Remove
-                          </Button>
+                            <DeleteIcon />
+                          </IconButton>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -568,16 +545,17 @@ export default function EmployeeInformationForm({
                         variant="contained"
                         endIcon={<AddIcon />}
                         sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 28 }}
-                        onClick={() => {
+                        onClick={async () => {
                           if (newLicenseState && newLicenseCode) {
-                            setNewLicenses([
-                              ...newLicenses,
-                              {
+                            setCurrentLicenses((prev) => {
+                              const updatedLicenses = [...prev];
+                              updatedLicenses.push({
                                 state: newLicenseState,
                                 code: newLicenseCode as PractitionerQualificationCode,
                                 active: true,
-                              },
-                            ]);
+                              });
+                              return updatedLicenses;
+                            });
                           }
                         }}
                         fullWidth
@@ -591,44 +569,6 @@ export default function EmployeeInformationForm({
             </Box>
           </>
         )}
-
-        {/* Error on submit if request fails */}
-        {errors.submit && (
-          <Typography color="error" variant="body2" mt={1}>{`Failed to update user. Please try again.`}</Typography>
-        )}
-
-        {/* Update Employee and Cancel Buttons */}
-        <Grid sx={{ marginTop: 4, marginBottom: 2 }}>
-          <LoadingButton
-            variant="contained"
-            color="primary"
-            sx={{
-              textTransform: 'none',
-              borderRadius: 28,
-              fontWeight: 'bold',
-              marginRight: 1,
-            }}
-            type="submit"
-            loading={loading}
-            disabled={!isActive}
-          >
-            {submitLabel}
-          </LoadingButton>
-
-          <Link to="/employees">
-            <Button
-              variant="text"
-              color="primary"
-              sx={{
-                textTransform: 'none',
-                borderRadius: 28,
-                fontWeight: 'bold',
-              }}
-            >
-              Cancel
-            </Button>
-          </Link>
-        </Grid>
       </form>
     </Paper>
   );
