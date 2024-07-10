@@ -26,6 +26,7 @@ import {
   useTheme,
 } from '@mui/material';
 import CancelIcon from '@mui/icons-material/Cancel';
+import ReplayIcon from '@mui/icons-material/Replay';
 import { useEffect, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { Link } from 'react-router-dom';
@@ -53,7 +54,6 @@ interface EmployeeForm {
   middleName: string;
   lastName: string;
   nameSuffix: string;
-  enabledLicenses: { [key: string]: boolean };
   roles: string[];
 }
 
@@ -110,6 +110,8 @@ if (import.meta.env.MODE === 'default' || import.meta.env.MODE === 'development'
   );
 }
 
+type PractitionerLicenseWithDelete = PractitionerLicense & { delete: boolean };
+
 export default function EmployeeInformationForm({
   submitLabel,
   existingUser,
@@ -120,9 +122,21 @@ export default function EmployeeInformationForm({
   const theme = useTheme();
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState({ submit: false, roles: false });
+
   const [newLicenses, setNewLicenses] = useState<PractitionerLicense[]>([]);
   const [newLicenseState, setNewLicenseState] = useState<string | undefined>(undefined);
   const [newLicenseCode, setNewLicenseCode] = useState<string | undefined>(undefined);
+  const [comparisonLicenses, setComparisonLicenses] = useState<PractitionerLicense[]>([]);
+  const [currentLicenses, setCurrentLicenses] = useState<PractitionerLicenseWithDelete[]>([]);
+  useEffect(() => {
+    setCurrentLicenses(
+      licenses.map((license) => ({
+        ...license,
+        delete: false,
+      })),
+    );
+    setComparisonLicenses(licenses);
+  }, [licenses]);
 
   // Form should have its own user state so it doesn't override page title when title is user name
   const [user, setUser] = useState<User>({
@@ -179,16 +193,6 @@ export default function EmployeeInformationForm({
       setValue('middleName', middleName);
       setValue('lastName', lastName);
       setValue('nameSuffix', nameSuffix);
-
-      let enabledLicenses = {};
-      if (existingUser.profileResource?.qualification) {
-        enabledLicenses = existingUser.profileResource.qualification.reduce((result, qualification) => {
-          const state = qualification.extension?.[0].extension?.[1].valueCodeableConcept?.coding?.[0].code;
-          return state ? { ...result, ...{ [state]: true } } : result;
-        }, {});
-      }
-
-      setValue('enabledLicenses', enabledLicenses);
     }
   }, [existingUser, setValue]);
 
@@ -210,6 +214,10 @@ export default function EmployeeInformationForm({
 
     // Update the user
     try {
+      const userLicenses = (currentLicenses.filter((license) => !license.delete) as PractitionerLicense[]).concat(
+        newLicenses,
+      );
+      console.log('userLicenses', userLicenses);
       await updateUser(zambdaClient, {
         userId: user.id,
         firstName: data.firstName,
@@ -217,14 +225,31 @@ export default function EmployeeInformationForm({
         lastName: data.lastName,
         nameSuffix: data.nameSuffix,
         selectedRoles: data.roles,
-        licenses: licenses.filter((license) => data.enabledLicenses[license.state]).concat(newLicenses),
+        licenses: userLicenses,
       });
+
+      setComparisonLicenses(userLicenses);
+      setCurrentLicenses(
+        userLicenses.map((license) => ({ ...license, delete: false })) as PractitionerLicenseWithDelete[],
+      );
+      console.log('currentLicenses', currentLicenses);
+      setNewLicenses([]);
     } catch (error) {
       console.log(`Failed to update user: ${error}`);
       setErrors((prev) => ({ ...prev, submit: true }));
     } finally {
       setLoading(false);
     }
+  };
+
+  const hasLicenseChanged = (license: PractitionerLicenseWithDelete): boolean => {
+    const originalLicense = comparisonLicenses.find((l) => l.state === license.state && l.code === license.code);
+    if (!originalLicense) {
+      return true;
+    }
+    return (
+      originalLicense.code !== license.code || originalLicense.active !== license.active || license.delete !== false
+    );
   };
 
   return isActive === undefined ? (
@@ -395,24 +420,77 @@ export default function EmployeeInformationForm({
                       <TableCell>State</TableCell>
                       <TableCell align="left">Qualification</TableCell>
                       <TableCell align="left">Operate in state</TableCell>
+                      <TableCell align="left">Delete License</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {licenses.map((license, index) => (
-                      <TableRow key={index}>
+                    {currentLicenses.map((license, index) => (
+                      <TableRow
+                        key={index}
+                        style={{ backgroundColor: hasLicenseChanged(license) ? otherColors.orange100 : '' }}
+                      >
                         <TableCell>{license.state}</TableCell>
                         <TableCell align="left">{license.code}</TableCell>
                         <TableCell align="left">
-                          <Controller
-                            render={({ field: { onChange, value } }) => (
-                              <FormControlLabel
-                                control={<Switch checked={value || false} onChange={(event) => onChange(event)} />}
-                                label="Operate in state"
-                              />
-                            )}
-                            name={`enabledLicenses.${license.state}`}
-                            control={control}
+                          <Switch
+                            checked={license.active}
+                            onChange={() =>
+                              setCurrentLicenses((prev) => {
+                                const updatedLicenses = [...prev];
+                                updatedLicenses[index].active = !updatedLicenses[index].active;
+                                return updatedLicenses;
+                              })
+                            }
                           />
+                        </TableCell>
+                        <TableCell align="left">
+                          {!license.delete ? (
+                            <Button
+                              startIcon={<CancelIcon />}
+                              sx={{
+                                textTransform: 'none',
+                                fontWeight: 'bold',
+                                borderRadius: 28,
+                                color: theme.palette.error.dark,
+                                ':hover': {
+                                  backgroundColor: theme.palette.error.light,
+                                  color: theme.palette.error.contrastText,
+                                },
+                              }}
+                              onClick={() =>
+                                setCurrentLicenses((prev) => {
+                                  const updatedLicenses = [...prev];
+                                  updatedLicenses[index].delete = true;
+                                  return updatedLicenses;
+                                })
+                              }
+                            >
+                              Delete
+                            </Button>
+                          ) : (
+                            <Button
+                              startIcon={<ReplayIcon />}
+                              sx={{
+                                textTransform: 'none',
+                                fontWeight: 'bold',
+                                borderRadius: 28,
+                                color: theme.palette.success.dark,
+                                ':hover': {
+                                  backgroundColor: theme.palette.success.light,
+                                  color: theme.palette.error.contrastText,
+                                },
+                              }}
+                              onClick={() =>
+                                setCurrentLicenses((prev) => {
+                                  const updatedLicenses = [...prev];
+                                  updatedLicenses[index].delete = false;
+                                  return updatedLicenses;
+                                })
+                              }
+                            >
+                              Restore
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -420,6 +498,18 @@ export default function EmployeeInformationForm({
                       <TableRow key={index} style={{ backgroundColor: otherColors.orange100 }}>
                         <TableCell>{license.state}</TableCell>
                         <TableCell align="left">{license.code}</TableCell>
+                        <TableCell align="left">
+                          <Switch
+                            checked={license.active}
+                            onChange={() =>
+                              setNewLicenses((prev) => {
+                                const updatedLicenses = [...prev];
+                                updatedLicenses[index].active = !updatedLicenses[index].active;
+                                return updatedLicenses;
+                              })
+                            }
+                          />
+                        </TableCell>
                         <TableCell align="left">
                           <Button
                             startIcon={<CancelIcon />}
@@ -485,6 +575,7 @@ export default function EmployeeInformationForm({
                               {
                                 state: newLicenseState,
                                 code: newLicenseCode as PractitionerQualificationCode,
+                                active: true,
                               },
                             ]);
                           }

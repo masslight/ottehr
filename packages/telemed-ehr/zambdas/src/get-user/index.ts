@@ -54,6 +54,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           const newLicense: PractitionerLicense = {
             state: qualification.extension[0].extension[1].valueCodeableConcept.coding[0].code,
             code: qualification.code.coding[0].code,
+            active: qualification.extension[0].extension[0].valueCode === 'active',
           };
           allLicenses.push(newLicense);
         });
