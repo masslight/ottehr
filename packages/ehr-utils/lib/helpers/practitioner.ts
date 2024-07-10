@@ -26,7 +26,6 @@ export function allLicensesForPractitioner(practitioner: Practitioner): Practiti
         )?.code;
 
         const statusExtension = qualificationExt.extension?.find((ext) => ext.url === 'status')?.valueCode;
-        console.log('statusExtension', statusExtension);
 
         if (qualificationCode && qualificationState)
           allLicenses.push({

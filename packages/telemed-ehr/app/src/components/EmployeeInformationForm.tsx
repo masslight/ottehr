@@ -240,7 +240,7 @@ export default function EmployeeInformationForm({
 
     const data = getValues();
     updateLicenses(data).catch((error) => {
-      console.error(error);
+      console.log(`Failed to update provider licenses: ${error}`);
     });
   }, [currentLicenses, getValues, user.id, zambdaClient]);
 
@@ -407,13 +407,16 @@ export default function EmployeeInformationForm({
           </>
         )}
 
-        {/* Error on submit if request fails */}
-        {errors.submit && (
-          <Typography color="error" variant="body2" mt={0}>{`Failed to update user. Please try again.`}</Typography>
-        )}
-
         {/* Update Employee and Cancel Buttons */}
         <Grid sx={{ marginTop: 4, marginBottom: 2 }}>
+          {/* Error on submit if request fails */}
+          {errors.submit && (
+            <Typography
+              color="error"
+              variant="body2"
+              marginBottom={1}
+            >{`Failed to update user. Please try again.`}</Typography>
+          )}
           <LoadingButton
             variant="contained"
             color="primary"
