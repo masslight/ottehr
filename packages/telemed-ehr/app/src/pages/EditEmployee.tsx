@@ -16,6 +16,7 @@ export default function EditEmployeePage(): JSX.Element {
   const navigate = useNavigate();
   const [isActive, setIsActive] = useState<boolean>();
   const [user, setUser] = useState<User>();
+  const [userName, setUserName] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState({ submit: '' });
 
@@ -67,6 +68,9 @@ export default function EditEmployeePage(): JSX.Element {
         if (loading) {
           const zapEHRUser = res.user;
           setUser(zapEHRUser as User);
+          setUserName(
+            `${(zapEHRUser as User).profileResource?.name?.[0].given?.[0]} ${(zapEHRUser as User).profileResource?.name?.[0].family}`,
+          );
           setIsActive(checkUserIsActive(zapEHRUser));
           loading = false;
         }
@@ -115,7 +119,7 @@ export default function EditEmployeePage(): JSX.Element {
             <CustomBreadcrumbs
               chain={[
                 { link: '/employees', children: 'Employees' },
-                { link: '#', children: user?.name || <Skeleton width={150} /> },
+                { link: '#', children: userName || <Skeleton width={150} /> },
               ]}
             />
 
@@ -126,7 +130,7 @@ export default function EditEmployeePage(): JSX.Element {
               marginTop={2}
               sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', fontWeight: '600 !important' }}
             >
-              {user?.name || <Skeleton width={250} />}
+              {userName || <Skeleton width={250} />}
               {isActive !== undefined && !isActive && (
                 <Chip label="Deactivated" color="error" size="small" sx={{ marginLeft: 3 }} />
               )}
