@@ -14,7 +14,7 @@ const palette = {
     contrast: '#FFFFFF',
   },
   secondary: {
-    main: '#2169F5',
+    main: '#4AC0F2',
     light: '#0000009A',
     dark: '#377DCE',
     contrast: '#FFFFFF',

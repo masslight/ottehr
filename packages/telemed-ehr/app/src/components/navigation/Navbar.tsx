@@ -57,9 +57,9 @@ const providerNavbarItems: NavbarItems = {
   Patients: { urls: ['/patients', '/patient'] },
 };
 
-administratorNavbarItems['Telemedicine:Admin'] = { urls: ['/telemed-admin'] };
+administratorNavbarItems['Admin'] = { urls: ['/telemed-admin'] };
 administratorNavbarItems['Telemedicine'] = { urls: ['/telemed/appointments', '/telemed', '/video-call'] };
-managerNavbarItems['Telemedicine:Admin'] = { urls: ['/telemed-admin'] };
+managerNavbarItems['Admin'] = { urls: ['/telemed-admin'] };
 providerNavbarItems['Telemedicine'] = { urls: ['/telemed/appointments', '/telemed', '/video-call'] };
 providerNavbarItems['Employees'] = { urls: ['/employees', '/employee'] };
 
@@ -141,6 +141,8 @@ export default function Navbar(): ReactElement {
               minHeight: 60,
               flexGrow: 1,
             }}
+            textColor="secondary"
+            indicatorColor="secondary"
           >
             {currentTab &&
               (Object.keys(navbarItems) as AppTab[]).map((navbarItem, index) => (
@@ -168,7 +170,7 @@ export default function Navbar(): ReactElement {
             {user?.name || <Skeleton width={100} aria-busy="true" />}
           </Typography>
           <Button
-            color="primary"
+            color="secondary"
             aria-label="open user account menu"
             aria-controls="user-menu"
             aria-haspopup="true"
@@ -192,7 +194,7 @@ export default function Navbar(): ReactElement {
             <Divider />
             <Link to="/logout" style={{ textDecoration: 'none' }}>
               <MenuItem>
-                <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold' }}>
+                <Typography variant="body1" color="secondary" sx={{ fontWeight: 'bold' }}>
                   Log out
                 </Typography>
               </MenuItem>
