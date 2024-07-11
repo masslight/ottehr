@@ -103,7 +103,7 @@ export default function SchedulePage(): ReactElement {
     setTabName(newTabName);
   };
 
-  const getStatusOperationJSON = (resourceType: 'Location' | 'Practitioner'): Operation => {
+  const getStatusOperationJSON = (resourceType: 'Location' | 'Practitioner' | 'HealthcareService'): Operation => {
     // get the status operation json, account for cases where it exists already or does not
     let operation: Operation;
     if (resourceType === 'Location') {
@@ -112,7 +112,7 @@ export default function SchedulePage(): ReactElement {
         path: '/status',
         value: 'active',
       };
-    } else if (resourceType === 'Practitioner') {
+    } else if (resourceType === 'Practitioner' || resourceType === 'HealthcareService') {
       operation = {
         op: 'add',
         path: '/active',
@@ -214,9 +214,13 @@ export default function SchedulePage(): ReactElement {
     setSlugLoading(false);
   }
 
-  const setActive = async (item: Location | Practitioner | HealthcareService, isActive: boolean): Promise<void> => {
+  const setStatus = async (item: Location | Practitioner | HealthcareService, isActive: boolean): Promise<void> => {
     if (!fhirClient) {
       throw new Error('error getting fhir client');
+    }
+
+    if (!item.id) {
+      throw new Error('item id is not defined');
     }
 
     if (item.resourceType === 'Location') {
@@ -227,8 +231,10 @@ export default function SchedulePage(): ReactElement {
     setItem(item);
     setIsItemActive(isActive);
 
-    await fhirClient.updateResource({
-      ...item,
+    await fhirClient.patchResource({
+      resourceType: item.resourceType,
+      resourceId: item.id,
+      operations: [getStatusOperationJSON(item.resourceType)],
     });
   };
 
@@ -296,7 +302,7 @@ export default function SchedulePage(): ReactElement {
                 <TabPanel value="general">
                   <Paper sx={{ marginBottom: 2, padding: 3 }}>
                     <Box display={'flex'} alignItems={'center'}>
-                      <Switch checked={isItemActive} onClick={() => setActive(item, !isItemActive)} />
+                      <Switch checked={isItemActive} onClick={() => setStatus(item, !isItemActive)} />
                       <Typography>{isItemActive ? 'Active' : 'Inactive'}</Typography>
                     </Box>
                     <hr />
