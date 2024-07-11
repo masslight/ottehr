@@ -199,6 +199,11 @@ export async function createAppointment(
     if (!locationId) {
       throw new Error(`Couldn't find location for id ${locationID}`);
     }
+
+    // if the location schedule is not active, return an error
+    if (location.status !== 'active') {
+      throw new Error(`Location ${locationId} is not active`);
+    }
   } else if (scheduleType === 'provider') {
     const provider = await getProvider(fhirClient, providerID);
     const providerId = provider?.id;
@@ -206,12 +211,22 @@ export async function createAppointment(
     if (!providerId) {
       throw new Error(`Couldn't find provider for id ${providerID}`);
     }
+
+    // if the provider schedule is not active, return an error
+    if (!provider.active) {
+      throw new Error(`Provider ${providerId} is not active`);
+    }
   } else if (scheduleType === 'group') {
     const group = await getGroup(fhirClient, groupID);
     const groupId = group?.id;
 
     if (!groupId) {
       throw new Error(`Couldn't find group for id ${groupID}`);
+    }
+
+    // if the group schedule is not active, return an error
+    if (!group.active) {
+      throw new Error(`Group ${groupId} is not active`);
     }
   }
   console.log(slot, endTime);
