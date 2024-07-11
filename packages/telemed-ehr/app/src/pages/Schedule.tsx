@@ -103,20 +103,23 @@ export default function SchedulePage(): ReactElement {
     setTabName(newTabName);
   };
 
-  const getStatusOperationJSON = (resourceType: 'Location' | 'Practitioner' | 'HealthcareService'): Operation => {
+  const getStatusOperationJSON = (
+    resourceType: 'Location' | 'Practitioner' | 'HealthcareService',
+    active: boolean,
+  ): Operation => {
     // get the status operation json, account for cases where it exists already or does not
     let operation: Operation;
     if (resourceType === 'Location') {
       operation = {
         op: 'add',
         path: '/status',
-        value: 'active',
+        value: active ? 'active' : 'inactive',
       };
     } else if (resourceType === 'Practitioner' || resourceType === 'HealthcareService') {
       operation = {
         op: 'add',
         path: '/active',
-        value: true,
+        value: active,
       };
     } else {
       throw new Error('resourceType is not defined');
@@ -153,7 +156,7 @@ export default function SchedulePage(): ReactElement {
           path: '/extension',
           value: scheduleExtension,
         },
-        getStatusOperationJSON(resourceType as 'Location' | 'Practitioner'),
+        getStatusOperationJSON(resourceType as 'Location' | 'Practitioner', true),
       ],
     })) as Location;
     setItem(patchedResource);
@@ -234,7 +237,7 @@ export default function SchedulePage(): ReactElement {
     await fhirClient.patchResource({
       resourceType: item.resourceType,
       resourceId: item.id,
-      operations: [getStatusOperationJSON(item.resourceType)],
+      operations: [getStatusOperationJSON(item.resourceType, isActive)],
     });
   };
 
