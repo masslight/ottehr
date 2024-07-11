@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { DateTime } from 'luxon';
 import { CreateAppointmentUCTelemedParams, SecretsKeys, ZambdaInput, createFhirClient, getSecret } from 'ottehr-utils';
 import { index as createAppointment } from '../create-appointment';
-import { checkOrCreateToken } from '../lib/utils';
+import { checkOrCreateToken, login } from '../lib/utils';
 import { FhirClient, SearchParam } from '@zapehr/sdk';
 
 let zapehrToken: string;
@@ -12,6 +12,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   try {
     zapehrToken = await checkOrCreateToken(zapehrToken, input.secrets);
     const fhirClient = createFhirClient(zapehrToken);
+
+    // configure how to get page phone and username and password
+    const authToken = await login(input.page, input.phone, input.text_username, input.text_password);
 
     const responses = [];
 
