@@ -123,9 +123,9 @@ export default function EmployeeInformationForm({
 
   const [newLicenseState, setNewLicenseState] = useState<string | undefined>(undefined);
   const [newLicenseCode, setNewLicenseCode] = useState<string | undefined>(undefined);
-  const [currentLicenses, setCurrentLicenses] = useState<PractitionerLicense[]>([]);
+  const [newLicenses, setNewLicenses] = useState<PractitionerLicense[]>([]);
   useEffect(() => {
-    setCurrentLicenses(licenses);
+    setNewLicenses(licenses);
   }, [licenses]);
 
   // Form should have its own user state so it doesn't override page title when title is user name
@@ -211,7 +211,7 @@ export default function EmployeeInformationForm({
         lastName: data.lastName,
         nameSuffix: data.nameSuffix,
         selectedRoles: data.roles,
-        licenses: currentLicenses,
+        licenses: newLicenses,
       });
     } catch (error) {
       console.log(`Failed to update user: ${error}`);
@@ -234,7 +234,7 @@ export default function EmployeeInformationForm({
         lastName: data.lastName,
         nameSuffix: data.nameSuffix,
         selectedRoles: data.roles,
-        licenses: currentLicenses,
+        licenses: newLicenses,
       });
     }
 
@@ -242,9 +242,9 @@ export default function EmployeeInformationForm({
     updateLicenses(data).catch((error) => {
       console.log(`Failed to update provider licenses: ${error}`);
     });
-  }, [currentLicenses, getValues, user.id, zambdaClient]);
+  }, [newLicenses, getValues, user.id, zambdaClient]);
 
-  // every time currentLicenses changes, update the user
+  // every time newLicenses changes, update the user
   return isActive === undefined ? (
     <Skeleton height={300} sx={{ marginY: -5 }} />
   ) : (
@@ -472,7 +472,7 @@ export default function EmployeeInformationForm({
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {currentLicenses.map((license, index) => (
+                    {newLicenses.map((license, index) => (
                       <TableRow key={index}>
                         <TableCell>{license.state}</TableCell>
                         <TableCell align="left">{license.code}</TableCell>
@@ -480,7 +480,7 @@ export default function EmployeeInformationForm({
                           <Switch
                             checked={license.active}
                             onChange={async () =>
-                              setCurrentLicenses((prev) => {
+                              setNewLicenses((prev) => {
                                 const updatedLicenses = [...prev];
                                 updatedLicenses[index].active = !updatedLicenses[index].active;
                                 return updatedLicenses;
@@ -498,7 +498,7 @@ export default function EmployeeInformationForm({
                               },
                             }}
                             onClick={async () =>
-                              setCurrentLicenses((prev) => {
+                              setNewLicenses((prev) => {
                                 const updatedLicenses = [...prev];
                                 updatedLicenses.splice(index, 1);
                                 return updatedLicenses;
@@ -550,7 +550,7 @@ export default function EmployeeInformationForm({
                         sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 28 }}
                         onClick={async () => {
                           if (newLicenseState && newLicenseCode) {
-                            setCurrentLicenses((prev) => {
+                            setNewLicenses((prev) => {
                               const updatedLicenses = [...prev];
                               updatedLicenses.push({
                                 state: newLicenseState,
