@@ -23,3 +23,7 @@ env/*
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
