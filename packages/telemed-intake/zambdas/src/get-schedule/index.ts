@@ -100,7 +100,7 @@ async function getSchedule(
   } else {
     throw new Error('resourceType is not expected');
   }
-  const availableItems = await fhirClient.searchResources({
+  let availableItems = await fhirClient.searchResources({
     resourceType,
     searchParams: [
       // { name: 'status', value: 'active' },
@@ -121,8 +121,26 @@ async function getSchedule(
             },
           ]
         : []),
+      ...(scheduleType === 'location' ? [{ name: 'status', value: 'active' }] : []),
+      ...(scheduleType === 'provider' ? [{ name: 'active', value: 'true' }] : []),
     ],
   });
+
+  const isActive = (item: Location | Practitioner | HealthcareService): boolean => {
+    if (item.resourceType === 'Location') {
+      return item.status === 'active';
+    } else {
+      return item.active === true;
+    }
+  };
+
+  if (resourceType === 'HealthcareService') {
+    const groupItem = availableItems.find((item) => item.resourceType === 'HealthcareService');
+    if (!groupItem || !isActive(groupItem as HealthcareService)) {
+      return undefined;
+    }
+    availableItems = availableItems.filter((item) => isActive(item as Location | Practitioner | HealthcareService));
+  }
 
   if (availableItems.length === 0) {
     return undefined;
