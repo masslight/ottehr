@@ -13,7 +13,7 @@
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "ottehr-utils": "*"
+    "ottehr-utils": "workspace:*"
   },
   "devDependencies": {
     "@types/fhir": "^0.0.35",
