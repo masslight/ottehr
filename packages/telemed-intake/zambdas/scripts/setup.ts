@@ -18,7 +18,14 @@ async function createApplication(
     const accessPolicy = {
       rule: [
         {
-          resource: 'Zambda:Function:todo',
+          resource: [
+            'Zambda:Function:todo-telemed-get-patients',
+            'Zambda:Function:todo-telemed-get-appointments',
+            'Zambda:Function:todo-telemed-create-appointment',
+            'Zambda:Function:todo-telemed-get-paperwork',
+            'Zambda:Function:todo-telemed-create-paperwork',
+            'Zambda:Function:todo-telemed-cancel-appointment',
+          ],
           action: ['Zambda:InvokeFunction'],
           effect: 'Allow',
         },

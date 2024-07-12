@@ -14,10 +14,7 @@
 # misc
 .DS_Store
 env/*
-.env.local
-.env.test.local
-.env.production.
-
+app/env/*
 !.env/env.local-template
 
 npm-debug.log*

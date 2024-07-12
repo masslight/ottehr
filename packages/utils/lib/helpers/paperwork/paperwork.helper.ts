@@ -129,6 +129,8 @@ export function questionnaireItemToInputType(item: QuestionnaireItem, valueSets?
       formItemType = 'Button';
     } else if (textType === 'p') {
       formItemType = 'Description';
+    } else if (textType === 'html') {
+      formItemType = 'HTML';
     }
   } else if (questionItemType === 'date') {
     if (attributes?.find((attributeTemp) => attributeTemp.name === 'date-type' && attributeTemp.value === 'year')) {

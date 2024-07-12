@@ -158,6 +158,7 @@ export function isPaperworkPageComplete(
     case 'surgical-history':
       return isSurgicalHistoryComplete(completedPaperwork, questions);
     default:
-      throw new Error('Unknown paperwork page: ' + (paperworkPage?.reviewPageName || paperworkPage.page));
+      console.warn('Unknown paperwork page: ' + (paperworkPage?.reviewPageName || paperworkPage.page));
+      return true;
   }
 }
