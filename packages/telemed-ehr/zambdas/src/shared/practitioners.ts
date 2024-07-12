@@ -53,7 +53,7 @@ export function makeQualificationForPractitioner(license: PractitionerLicense): 
         extension: [
           {
             url: 'status',
-            valueCode: 'active',
+            valueCode: license.active ? 'active' : 'inactive',
           },
           {
             url: 'whereValid',
