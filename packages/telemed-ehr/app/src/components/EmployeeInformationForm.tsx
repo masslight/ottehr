@@ -221,28 +221,23 @@ export default function EmployeeInformationForm({
     }
   };
 
-  useEffect(() => {
-    async function updateLicenses(data: EmployeeForm): Promise<void> {
-      if (!zambdaClient) {
-        throw new Error('Zambda Client not found');
-      }
-
-      await updateUser(zambdaClient, {
-        userId: user.id,
-        firstName: data.firstName,
-        middleName: data.middleName,
-        lastName: data.lastName,
-        nameSuffix: data.nameSuffix,
-        selectedRoles: data.roles,
-        licenses: newLicenses,
-      });
+  const updateLicenses = async (licenses: PractitionerLicense[]): Promise<void> => {
+    if (!zambdaClient) {
+      throw new Error('Zambda Client not found');
     }
 
     const data = getValues();
-    updateLicenses(data).catch((error) => {
-      console.log(`Failed to update provider licenses: ${error}`);
+
+    await updateUser(zambdaClient, {
+      userId: user.id,
+      firstName: data.firstName,
+      middleName: data.middleName,
+      lastName: data.lastName,
+      nameSuffix: data.nameSuffix,
+      selectedRoles: data.roles,
+      licenses: licenses,
     });
-  }, [newLicenses, getValues, user.id, zambdaClient]);
+  };
 
   // every time newLicenses changes, update the user
   return isActive === undefined ? (
@@ -479,13 +474,14 @@ export default function EmployeeInformationForm({
                         <TableCell align="center">
                           <Switch
                             checked={license.active}
-                            onChange={async () =>
-                              setNewLicenses((prev) => {
-                                const updatedLicenses = [...prev];
-                                updatedLicenses[index].active = !updatedLicenses[index].active;
-                                return updatedLicenses;
-                              })
-                            }
+                            onChange={async () => {
+                              const updatedLicenses = [...newLicenses];
+                              updatedLicenses[index].active = !updatedLicenses[index].active;
+
+                              setNewLicenses(updatedLicenses);
+
+                              await updateLicenses(updatedLicenses);
+                            }}
                           />
                         </TableCell>
                         <TableCell align="center">
@@ -497,13 +493,13 @@ export default function EmployeeInformationForm({
                                 color: theme.palette.error.contrastText,
                               },
                             }}
-                            onClick={async () =>
-                              setNewLicenses((prev) => {
-                                const updatedLicenses = [...prev];
-                                updatedLicenses.splice(index, 1);
-                                return updatedLicenses;
-                              })
-                            }
+                            onClick={async () => {
+                              const updatedLicenses = [...newLicenses];
+                              updatedLicenses.splice(index, 1);
+
+                              setNewLicenses(updatedLicenses);
+                              await updateLicenses(updatedLicenses);
+                            }}
                           >
                             <DeleteIcon />
                           </IconButton>
@@ -550,15 +546,15 @@ export default function EmployeeInformationForm({
                         sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 28 }}
                         onClick={async () => {
                           if (newLicenseState && newLicenseCode) {
-                            setNewLicenses((prev) => {
-                              const updatedLicenses = [...prev];
-                              updatedLicenses.push({
-                                state: newLicenseState,
-                                code: newLicenseCode as PractitionerQualificationCode,
-                                active: true,
-                              });
-                              return updatedLicenses;
+                            const updatedLicenses = [...newLicenses];
+                            updatedLicenses.push({
+                              state: newLicenseState,
+                              code: newLicenseCode as PractitionerQualificationCode,
+                              active: true,
                             });
+
+                            setNewLicenses(updatedLicenses);
+                            await updateLicenses(updatedLicenses);
                           }
                         }}
                         fullWidth
