@@ -14,12 +14,13 @@
 # misc
 .DS_Store
 env/*
-.env.local
-.env.test.local
-.env.production.
-
+app/env/*
 !.env/env.local-template
 
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

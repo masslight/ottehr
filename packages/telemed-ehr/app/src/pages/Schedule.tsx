@@ -1,5 +1,5 @@
 import { LoadingButton, TabContext, TabList, TabPanel } from '@mui/lab';
-import { Box, Button, Grid, Paper, Skeleton, Tab, TextField, Typography } from '@mui/material';
+import { Box, Button, FormLabel, Grid, Paper, Skeleton, Switch, Tab, TextField, Typography } from '@mui/material';
 import { Address, Extension, HealthcareService, Identifier, Location, Practitioner } from 'fhir/r4';
 import { ReactElement, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
@@ -45,8 +45,17 @@ export default function SchedulePage(): ReactElement {
   // state variables
   const [tabName, setTabName] = useState('schedule');
   const [item, setItem] = useState<Location | Practitioner | HealthcareService | undefined>(undefined);
+  const [isItemActive, setIsItemActive] = useState<boolean>(false);
   const [slug, setSlug] = useState<string | undefined>(undefined);
   const [slugLoading, setSlugLoading] = useState<boolean>(false);
+
+  const isActive = (item: Location | Practitioner | HealthcareService): boolean => {
+    if (item.resourceType === 'Location') {
+      return item.status === 'active';
+    } else {
+      return item.active || false;
+    }
+  };
 
   // get the location from the database
   useEffect(() => {
@@ -61,6 +70,7 @@ export default function SchedulePage(): ReactElement {
       setItem(itemTemp);
       const slugTemp = itemTemp?.identifier?.find((identifierTemp) => identifierTemp.system === IDENTIFIER_SLUG);
       setSlug(slugTemp?.value);
+      setIsItemActive(isActive(itemTemp));
     }
     void getItem(getResource(scheduleType));
   }, [fhirClient, id, scheduleType]);
@@ -93,6 +103,30 @@ export default function SchedulePage(): ReactElement {
     setTabName(newTabName);
   };
 
+  const getStatusOperationJSON = (
+    resourceType: 'Location' | 'Practitioner' | 'HealthcareService',
+    active: boolean,
+  ): Operation => {
+    // get the status operation json, account for cases where it exists already or does not
+    let operation: Operation;
+    if (resourceType === 'Location') {
+      operation = {
+        op: 'add',
+        path: '/status',
+        value: active ? 'active' : 'inactive',
+      };
+    } else if (resourceType === 'Practitioner' || resourceType === 'HealthcareService') {
+      operation = {
+        op: 'add',
+        path: '/active',
+        value: active,
+      };
+    } else {
+      throw new Error('resourceType is not defined');
+    }
+    return operation;
+  };
+
   async function createSchedule(): Promise<void> {
     let resourceType;
     if (!fhirClient) {
@@ -122,6 +156,7 @@ export default function SchedulePage(): ReactElement {
           path: '/extension',
           value: scheduleExtension,
         },
+        getStatusOperationJSON(resourceType as 'Location' | 'Practitioner', true),
       ],
     })) as Location;
     setItem(patchedResource);
@@ -181,6 +216,30 @@ export default function SchedulePage(): ReactElement {
     setItem(itemTemp as Location | Practitioner | HealthcareService);
     setSlugLoading(false);
   }
+
+  const setStatus = async (item: Location | Practitioner | HealthcareService, isActive: boolean): Promise<void> => {
+    if (!fhirClient) {
+      throw new Error('error getting fhir client');
+    }
+
+    if (!item.id) {
+      throw new Error('item id is not defined');
+    }
+
+    if (item.resourceType === 'Location') {
+      item.status = isActive ? 'active' : 'inactive';
+    } else {
+      item.active = isActive;
+    }
+    setItem(item);
+    setIsItemActive(isActive);
+
+    await fhirClient.patchResource({
+      resourceType: item.resourceType,
+      resourceId: item.id,
+      operations: [getStatusOperationJSON(item.resourceType, isActive)],
+    });
+  };
 
   return (
     <PageContainer>
@@ -245,6 +304,13 @@ export default function SchedulePage(): ReactElement {
                 {/* General tab */}
                 <TabPanel value="general">
                   <Paper sx={{ marginBottom: 2, padding: 3 }}>
+                    <Box display={'flex'} alignItems={'center'}>
+                      <Switch checked={isItemActive} onClick={() => setStatus(item, !isItemActive)} />
+                      <Typography>{isItemActive ? 'Active' : 'Inactive'}</Typography>
+                    </Box>
+                    <hr />
+                    <br />
+
                     <form onSubmit={(event) => updateSlug(event)}>
                       <TextField label="Slug" value={slug} onChange={(event) => setSlug(event.target.value)} />
                       <br />
