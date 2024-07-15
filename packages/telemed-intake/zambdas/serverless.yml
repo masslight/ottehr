@@ -126,6 +126,23 @@ functions:
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+  update-appointment:
+    handler: src/appointment/update-appointment/index.index
+    events:
+      - http:
+          path: zambda/update-appointment/execute
+          method: POST
+    timeout: 25
+    environment:
+      WEBSITE_URL: ${file(./.env/${self:provider.stage}.json):WEBSITE_URL}
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      TELEMED_CLIENT_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_ID}
+      TELEMED_CLIENT_SECRET: ${file(./.env/${self:provider.stage}.json):TELEMED_CLIENT_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      PM_PEDIATRIC_CARE_ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):PM_PEDIATRIC_CARE_ORGANIZATION_ID}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
   get-wait-status:
     handler: src/get-wait-status/index.index
     events:

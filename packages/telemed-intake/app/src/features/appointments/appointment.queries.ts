@@ -13,7 +13,7 @@ export const useCreateAppointmentMutation = () =>
       patientInfo,
     }: {
       apiClient: ZapEHRAPIClient;
-      unconfirmedDateOfBirth?: string;
+      unconfirmedDateOfBirth?: boolean;
       patientInfo: PatientInfo;
     }) => {
       // const appointment = AppointmentStore.getState();

@@ -12,7 +12,6 @@ import {
   useUpdateAppointmentMutation,
 } from '../features/appointments';
 import { CustomContainer } from '../features/common';
-import { useFilesStore } from '../features/files';
 import { useGetPaperwork, usePaperworkStore } from '../features/paperwork';
 import { usePatientInfoStore } from '../features/patient-info';
 import { useZapEHRAPIClient } from '../utils';
@@ -42,7 +41,6 @@ const ConfirmDateOfBirth = (): JSX.Element => {
     (data) => {
       patchCompletedPaperwork(data.paperwork);
       setQuestions(data.questions);
-      useFilesStore.setState({ fileURLs: data.files, fileUploads: {} });
       updateResourcesOrNavigateNext();
     },
     { staleTime: 0, enabled: getPaperworkEnabled },
