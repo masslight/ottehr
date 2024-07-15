@@ -1,7 +1,7 @@
 {
   "name": "ottehr-telemed",
   "private": true,
-  "version": "0.2",
+  "version": "0.0.1",
   "type": "module",
   "scripts": {
     "start": "vite",
@@ -14,15 +14,13 @@
   "dependencies": {
     "amazon-chime-sdk-component-library-react": "^3.7.0",
     "amazon-chime-sdk-js": "^3.20.0",
-    "ottehr-components": "*",
-    "ottehr-utils": "*",
     "styled-components": "^5.3.11",
     "styled-system": "^5.1.5",
-    "tsconfig": "*"
+    "tsconfig": "*",
+    "ottehr-components": "*",
+    "ottehr-utils": "*"
   },
   "devDependencies": {
-    "@playwright/test": "^1.45.1",
-    "@types/node": "^20.14.10",
     "@types/styled-components": "^5.1.34"
   }
 }
