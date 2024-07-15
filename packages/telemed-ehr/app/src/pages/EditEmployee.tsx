@@ -141,12 +141,14 @@ export default function EditEmployeePage(): JSX.Element {
 
             {/* Page Content */}
             <Box>
-              <EmployeeInformationForm
-                submitLabel="Save changes"
-                existingUser={user}
-                isActive={isActive}
-                licenses={userLicenses}
-              />
+              {user != undefined && (
+                <EmployeeInformationForm
+                  submitLabel="Save changes"
+                  existingUser={user}
+                  isActive={isActive}
+                  licenses={userLicenses}
+                />
+              )}
 
               {isActive === undefined ? (
                 <Skeleton height={300} sx={{ marginTop: -8 }} />
