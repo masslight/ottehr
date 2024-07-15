@@ -1,16 +1,21 @@
 import { Box, Button, Dialog, Paper, Typography } from '@mui/material';
-import { IntakeFlowPageRoute } from '../App';
-import { CustomContainer } from '../features/common';
-import { FormInputType, PageForm, safelyCaptureException } from 'ottehr-components';
-import { useNavigate } from 'react-router-dom';
+import { DateTime } from 'luxon';
 import { useCallback, useMemo, useState } from 'react';
-import { usePatientInfoStore } from '../features/patient-info';
-import { getSelectors } from 'ottehr-utils';
 import { FieldValues } from 'react-hook-form';
-import { useCreateAppointmentMutation, useAppointmentStore } from '../features/appointments';
-import { useZapEHRAPIClient } from '../utils';
+import { useNavigate } from 'react-router-dom';
+import { ErrorDialog, FormInputType, PageForm, safelyCaptureException } from 'ottehr-components';
+import { UpdateAppointmentResponse, getSelectors, yupDateTransform } from 'ottehr-utils';
+import { IntakeFlowPageRoute } from '../App';
+import {
+  useAppointmentStore,
+  useCreateAppointmentMutation,
+  useUpdateAppointmentMutation,
+} from '../features/appointments';
+import { CustomContainer } from '../features/common';
 import { useFilesStore } from '../features/files';
 import { useGetPaperwork, usePaperworkStore } from '../features/paperwork';
+import { usePatientInfoStore } from '../features/patient-info';
+import { useZapEHRAPIClient } from '../utils';
 
 const FORM_ELEMENTS_FIELDS = {
   challengeDay: { label: 'Date of birth day', name: 'challengeDay' },
@@ -23,23 +28,34 @@ const { challengeDay, challengeMonth, challengeYear } = FORM_ELEMENTS_FIELDS;
 const ConfirmDateOfBirth = (): JSX.Element => {
   const navigate = useNavigate();
   const apiClient = useZapEHRAPIClient();
+  const updateAppointment = useUpdateAppointmentMutation();
+  const [requestErrorDialogOpen, setRequestErrorDialogOpen] = useState<boolean>(false);
   const createAppointment = useCreateAppointmentMutation();
   const [getPaperworkEnabled, setGetPaperworkEnabled] = useState<boolean>(false);
-  const paperworkState = getSelectors(usePaperworkStore, ['patchCompletedPaperwork', 'setQuestions']);
+  const { appointmentID } = getSelectors(useAppointmentStore, ['appointmentID']);
+  const { patchCompletedPaperwork, setQuestions } = getSelectors(usePaperworkStore, [
+    'patchCompletedPaperwork',
+    'setQuestions',
+  ]);
 
   const getPaperworkQuery = useGetPaperwork(
     (data) => {
-      paperworkState.patchCompletedPaperwork(data.paperwork);
-      paperworkState.setQuestions(data.questions);
-      useFilesStore.setState({ fileURLs: data.files });
-      navigate(`/paperwork/${data.questions[0].slug}`);
+      patchCompletedPaperwork(data.paperwork);
+      setQuestions(data.questions);
+      useFilesStore.setState({ fileURLs: data.files, fileUploads: {} });
+      updateResourcesOrNavigateNext();
     },
     { staleTime: 0, enabled: getPaperworkEnabled },
   );
 
   const [openModal, setOpenModal] = useState(false);
 
-  const { patientInfo } = getSelectors(usePatientInfoStore, ['patientInfo']);
+  const { pendingPatientInfoUpdates, patientInfo: currentPatientInfo } = getSelectors(usePatientInfoStore, [
+    'pendingPatientInfoUpdates',
+    'patientInfo',
+  ]);
+
+  const patientInfo = { ...currentPatientInfo, ...pendingPatientInfoUpdates };
 
   const [formValuesCopy, setFormValuesCopy] = useState<FieldValues | undefined>();
 
@@ -89,43 +105,85 @@ const ConfirmDateOfBirth = (): JSX.Element => {
     return undefined;
   }, [formValuesCopy]);
 
-  const handleAppointmentCreation = (unconfirmedDateOfBirth = false): void => {
+  const createOrUpdateAppointment = (unconfirmedDateOfBirth = false): void => {
     if (!apiClient) {
       throw new Error('apiClient is not defined');
     }
 
-    const params = {
-      apiClient,
-      ...(unconfirmedDateOfBirth && { unconfirmedDateOfBirth: 'true' }),
-    };
+    // if we have appointment ID here - means that the appointment was already created
+    // either before or in this request a visit flow, so we can just update the existing appointment
+    if (appointmentID) {
+      updateAppointment.mutate(
+        { appointmentID: appointmentID, apiClient, patientInfo },
+        {
+          onSuccess: (response: UpdateAppointmentResponse) => {
+            console.log('Appointment updated successfully', response);
+            usePatientInfoStore.setState(() => ({
+              patientInfo: patientInfo,
+              pendingPatientInfoUpdates: undefined,
+            }));
+            // just for the navigateNext to have the latest state values
+            void Promise.resolve().then(() => updateResourcesOrNavigateNext());
+          },
+          onError: (error) => {
+            setRequestErrorDialogOpen(true);
+            safelyCaptureException(error);
+          },
+        },
+      );
+    } else {
+      createAppointment.mutate(
+        { apiClient, patientInfo, unconfirmedDateOfBirth },
+        {
+          onSuccess: async (response) => {
+            useAppointmentStore.setState(() => ({ appointmentID: response.appointmentId }));
+            const newPatientInfo = { ...patientInfo, id: response.patientId || patientInfo.id };
+            usePatientInfoStore.setState(() => ({
+              pendingPatientInfoUpdates: undefined,
+              patientInfo: newPatientInfo,
+            }));
 
-    createAppointment.mutate(params, {
-      onSuccess: (response) => {
-        useAppointmentStore.setState(() => ({ appointmentID: response.appointmentId }));
-        if (response.fhirPatientId) {
-          usePatientInfoStore.setState((state) => ({
-            patientInfo: { ...state.patientInfo, id: response.fhirPatientId },
-          }));
-        }
-        setGetPaperworkEnabled(true);
-      },
-      onError: (error) => {
-        safelyCaptureException(error);
-      },
-    });
+            // just for the navigateNext to have the latest state values
+            void Promise.resolve().then(() => updateResourcesOrNavigateNext());
+          },
+          onError: (error) => {
+            // setRequestErrorDialogOpen(true);
+            safelyCaptureException(error);
+          },
+        },
+      );
+    }
   };
 
   const handleSubmit = (): void => {
-    if (formattedDOB !== patientInfo?.dateOfBirth) {
+    const firstDate = DateTime.fromFormat(yupDateTransform(formattedDOB) || '', 'yyyy-MM-dd');
+    const secondDate = DateTime.fromFormat(yupDateTransform(patientInfo.dateOfBirth) || '', 'yyyy-MM-dd');
+    if (!firstDate.equals(secondDate)) {
       setOpenModal(true);
     } else {
-      handleAppointmentCreation();
+      updateResourcesOrNavigateNext();
     }
   };
 
   const handleContinueAnyway = (): void => {
-    handleAppointmentCreation(true);
+    updateResourcesOrNavigateNext();
     setOpenModal(false);
+  };
+
+  const updateResourcesOrNavigateNext = (): void => {
+    const { pendingPatientInfoUpdates } = usePatientInfoStore.getState();
+    const { appointmentID } = useAppointmentStore.getState();
+    const { paperworkQuestions } = usePaperworkStore.getState();
+    if (pendingPatientInfoUpdates || !appointmentID) {
+      createOrUpdateAppointment(formattedDOB !== patientInfo?.dateOfBirth);
+      return;
+    }
+
+    if (getPaperworkEnabled && paperworkQuestions && paperworkQuestions.length > 0) {
+      navigate(`/paperwork/${paperworkQuestions?.[0].slug}`);
+    } else {
+      setGetPaperworkEnabled(true);
+    }
   };
 
   return (
@@ -149,7 +207,7 @@ const ConfirmDateOfBirth = (): JSX.Element => {
           sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <Paper>
-            <Box sx={{ m: 5, maxWidth: 'sm' }}>
+            <Box sx={{ m: { md: 5, xs: 3 }, maxWidth: 'sm' }}>
               <Typography sx={{ width: '100%' }} variant="h2" color="primary.main">
                 Unfortunately, this patient record is not confirmed.
               </Typography>
@@ -162,6 +220,7 @@ const ConfirmDateOfBirth = (): JSX.Element => {
                 display="flex"
                 flexDirection={{ xs: 'column', md: 'row' }}
                 sx={{ justifyContent: 'space-between', mt: 4.125 }}
+                gap={{ xs: 2 }}
               >
                 <Button variant="outlined" onClick={handleContinueAnyway} color="primary" size="large" type="submit">
                   Continue anyway
@@ -173,6 +232,13 @@ const ConfirmDateOfBirth = (): JSX.Element => {
             </Box>
           </Paper>
         </Dialog>
+        <ErrorDialog
+          open={requestErrorDialogOpen}
+          title="Error"
+          description="An error occured. Please, try again in a moment."
+          closeButtonText="Close"
+          handleClose={() => setRequestErrorDialogOpen(false)}
+        />
       </>
     </CustomContainer>
   );
