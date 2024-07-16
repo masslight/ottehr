@@ -51,7 +51,6 @@ export function validateCreateAppointmentParams(
   if (!VISIT_TYPES.includes(visitType)) {
     throw new Error(`visitType must be one of the following values ${VISIT_TYPES}`);
   }
-  console.log('slot', slot);
   if (visitType === 'prebook' && !checkValidBookingTime(slot)) {
     throw new Error('"slot" cannot be in the past for appointment with visit type prebook');
   }

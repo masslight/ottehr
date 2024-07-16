@@ -58,11 +58,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     zapehrToken = await checkOrCreateToken(zapehrToken, input.secrets);
 
-    console.log('zapehrToken', zapehrToken);
-
     const response = await performEffect({ input, params: validatedParameters });
-
-    console.log('response', response);
 
     return response;
   } catch (error: any) {
