@@ -176,3 +176,6 @@ Lints all packages using [ESLint](https://eslint.org/).
 ### `update`
 
 Interactively updates all dependencies to their latest versions, respecting ranges specified in `package.json`.
+
+## Contribute to Ottehr!
+We love it when you contribute to Ottehr! By submitting to this project, you agree to adopt the [Developer Certificate of Origin (DCO)](https://developercertificate.org/) for your contributions.
