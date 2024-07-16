@@ -19,6 +19,7 @@ import {
   getPatientFirstName,
   getPatientResourceWithVerifiedPhoneNumber,
 } from 'ottehr-utils';
+import i18n from '../../shared/i18n';
 import { AuditableZambdaEndpoints, createAuditEvent, getVideoEncounterForAppointment, sendSms } from '../../shared';
 import { sendCancellationEmail } from '../../shared/communication';
 import { TIMEZONE_EXTENSION_URL, getPatientResource } from '../../shared/fhir';
@@ -41,6 +42,7 @@ interface CancellationDetails {
   patient: Patient;
   location: Location;
   visitType: string;
+  visitService: string;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -154,7 +156,10 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
 
   // todo: this could be done in the same request to get the appointment
 
-  const { startTime, email, patient, location, visitType } = await getCancellationEmailDetails(appointment, fhirClient);
+  const { startTime, email, patient, location, visitType, visitService } = await getCancellationEmailDetails(
+    appointment,
+    fhirClient,
+  );
   console.groupEnd();
   console.debug('gettingEmailProps success');
 
@@ -184,10 +189,23 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
     visitType: visitType,
   };
   console.group('sendCancellationEmail');
+  const firstName = getPatientFirstName(patient);
+
+  const slug = location.identifier?.find((i) => i.system === 'https://fhir.ottehr.com/r4/slug')?.value;
+  const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+  let locationUrl = `${WEBSITE_URL}/welcome`;
+  if (slug) {
+    locationUrl = `${WEBSITE_URL}/location/${slug}/${visitService}/${visitType}`;
+  }
+
   if (getSecret(SecretsKeys.SENDGRID_API_KEY, secrets)) {
     await sendCancellationEmail({
-      toAddress: email,
+      email,
+      firstName,
+      startTime,
       secrets,
+      location,
+      locationUrl,
     });
   }
   console.groupEnd();
@@ -198,7 +216,13 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
   if (relatedPerson?.id && patient.id) {
     // send message
     const { verifiedPhoneNumber } = await getPatientResourceWithVerifiedPhoneNumber(patient.id, fhirClient);
-    const message = 'Sorry to have you go. Questions? Call 123-456-7890';
+    const message = i18n.t('appointment.sms.cancellation', {
+      firstName,
+      startTime,
+      locationName: location.name,
+      locationUrl,
+      interpolation: { escapeValue: false },
+    });
     const recipient = `RelatedPerson/${relatedPerson.id}`;
 
     await sendSms(message, zapehrToken, recipient, verifiedPhoneNumber, secrets);
@@ -245,7 +269,13 @@ const getCancellationEmailDetails = async (
     const visitType =
       appointment.appointmentType?.coding
         ?.find((codingTemp) => codingTemp.system === 'http://terminology.hl7.org/CodeSystem/v2-0276')
-        ?.code?.toLowerCase() || 'Unknown';
+        ?.code?.toLowerCase() || 'prebook';
+
+    const visitService =
+      appointment.serviceType
+        ?.flatMap((serviceTypeEntry) => serviceTypeEntry.coding)
+        .find((codingTemp) => codingTemp?.system === 'http://terminology.hl7.org/CodeSystem/service-type')
+        ?.code?.toLowerCase() || 'in-person';
 
     return {
       startTime: DateTime.fromISO(appointment.start).setZone(timezone).toFormat(DATETIME_FULL_NO_YEAR),
@@ -253,6 +283,7 @@ const getCancellationEmailDetails = async (
       patient,
       location,
       visitType,
+      visitService,
     };
   } catch (error: any) {
     throw new Error(`error getting cancellation email details: ${error}, ${JSON.stringify(error)}`);

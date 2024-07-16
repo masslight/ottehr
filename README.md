@@ -177,5 +177,71 @@ Lints all packages using [ESLint](https://eslint.org/).
 
 Interactively updates all dependencies to their latest versions, respecting ranges specified in `package.json`.
 
+## SendGrid Email Configuration
+
+### Required Environment / Secrets
+- SENDGRID_API_KEY
+- TELEMED_SENDGRID_EMAIL_BCC
+- TELEMED_SENDGRID_EMAIL_FROM
+- TELEMED_SENDGRID_EMAIL_FROM_NAME
+- TELEMED_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID
+- TELEMED_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID
+- TELEMED_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID
+
+**Example Confirmation Template:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+</head>
+<body>
+    <h2>You're confirmed!</h2>
+    <p>Thanks for choosing Ottehr!</p><br>
+    <p>Your check-in time for {{ firstName }} at {{ locationName }} is on {{ startTime }}.</p><br>
+    <p>Please complete your paperwork in advance to save time at check-in. <a href="{{ paperworkUrl }}">Click here to complete paperwork</a></p><br>
+    {{#notEquals appointmentType "walkin"}}
+        <p><a href="{{ checkInUrl }}">Click here to modify/cancel your check-in</a></p><br>
+    {{/notEquals}}
+    <hr>
+    <p>Thank you for choosing Ottehr. We look forward to partnering with you and your family.</p><br>
+    <small>For questions or feedback, please <a target="_blank" href="https://www.ottehr.com/">Check out Ottehr</a></small>
+</body>
+</html>
+```
+
+**Example Cancellation Template:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+</head>
+<body>
+    <h2>Sorry to have you go!</h2>
+    <p>Your appointment for {{firstName}} at {{locationName}} on {{startTime}} has been cancelled.</p><br>
+    <p><a href="{{ locationUrl }}">Click here to book again</a></p><br>
+    <hr>
+    <p>Thank you for choosing Ottehr. We look forward to partnering with you and your family.</p><br>
+    <small>For questions or feedback, please <a target="_blank" href="https://www.ottehr.com/">Check out Ottehr</a></small>
+</body>
+</html>
+```
+
+**Example Invitation Template:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+</head>
+<body>
+    <h2>You're Invited!</h2>
+    <p>You have been invited to join an Ottehr visit with {{patientName}}.</p><br>
+    <p><a href="{{ inviteUrl }}">Click here to join</a></p><br>
+    <hr>
+    <p>Thank you for choosing Ottehr. We look forward to partnering with you and your family.</p><br>
+    <small>For questions or feedback, please <a target="_blank" href="https://www.ottehr.com/">Check out Ottehr</a></small>
+</body>
+</html>
+```
+
 ## Contribute to Ottehr!
 We love it when you contribute to Ottehr! By submitting to this project, you agree to adopt the [Developer Certificate of Origin (DCO)](https://developercertificate.org/) for your contributions.

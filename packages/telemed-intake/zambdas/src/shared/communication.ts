@@ -1,71 +1,86 @@
 import sendgrid from '@sendgrid/mail';
-import { Secrets, SecretsKeys, getSecret, createMessagingClient } from 'ottehr-utils';
+import { Secrets, SecretsKeys, getSecret, createMessagingClient, getOptionalSecret } from 'ottehr-utils';
+import i18n from './i18n';
 import { Location } from 'fhir/r4';
 
 export interface ConfirmationEmailInput {
-  toAddress: string;
+  email: string;
+  firstName: string | undefined;
+  startTime: string;
   appointmentID: string;
   secrets: Secrets | null;
+  location: Location;
+  appointmentType: string;
 }
 
 export const sendConfirmationEmail = async (input: ConfirmationEmailInput): Promise<void> => {
-  const { toAddress, appointmentID, secrets } = input;
+  const { email, firstName, startTime, appointmentID, secrets, location, appointmentType } = input;
   const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
   const SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID = getSecret(
     SecretsKeys.TELEMED_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID,
     secrets,
   );
 
-  // Translation variables
-  const subject = 'Ottehr Telemedicine';
+  const subject = i18n.t('appointment.email.confirmation');
   const templateId = SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID;
   const templateInformation = {
-    url: `${WEBSITE_URL}/waiting-room?appointment_id=${appointmentID}`,
+    firstName,
+    startTime,
+    locationName: location.name,
+    appointmentType,
+    paperworkUrl: `${WEBSITE_URL}/paperwork/${appointmentID}`,
+    checkInUrl: `${WEBSITE_URL}/waiting-room?appointment_id=${appointmentID}`,
   };
-  await sendEmail(toAddress, templateId, subject, templateInformation, secrets);
+  await sendEmail(email, templateId, subject, templateInformation, secrets);
 };
 
 export interface CancellationEmail {
-  toAddress: string;
+  email: string;
+  firstName: string | undefined;
+  startTime: string;
   secrets: Secrets | null;
+  location: Location;
+  locationUrl: string;
 }
 
 export const sendCancellationEmail = async (input: CancellationEmail): Promise<void> => {
-  const { toAddress, secrets } = input;
-  const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+  const { email, firstName, startTime, secrets, location, locationUrl } = input;
   const SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID = getSecret(
     SecretsKeys.TELEMED_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID,
     secrets,
   );
-  const subject = 'Ottehr Telemedicine';
-  const templateId = SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID;
 
+  const subject = i18n.t('appointment.email.cancellation');
+  const templateId = SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID;
   const templateInformation = {
-    url: `${WEBSITE_URL}/welcome`,
+    firstName,
+    locationName: location.name,
+    startTime,
+    locationUrl,
   };
-  await sendEmail(toAddress, templateId, subject, templateInformation, secrets);
+  await sendEmail(email, templateId, subject, templateInformation, secrets);
 };
 
 export interface VideoChatInvitationEmailInput {
-  toAddress: string;
+  email: string;
   inviteUrl: string;
   patientName: string;
   secrets: Secrets | null;
 }
 
-export const sendVideoChatInvititationEmail = async (input: VideoChatInvitationEmailInput): Promise<void> => {
-  const { toAddress, inviteUrl, patientName, secrets } = input;
+export const sendVideoChatInvitationEmail = async (input: VideoChatInvitationEmailInput): Promise<void> => {
+  const { email, inviteUrl, patientName, secrets } = input;
   const SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID = getSecret(
     SecretsKeys.TELEMED_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID,
     secrets,
   );
-  const subject = 'Invitation to Join a Visit - Ottehr Telemedicine';
+  const subject = i18n.t('appointment.email.invitation');
   const templateId = SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID;
   const templateInformation = {
-    inviteUrl: inviteUrl,
-    patientName: patientName,
+    inviteUrl,
+    patientName,
   };
-  await sendEmail(toAddress, templateId, subject, templateInformation, secrets);
+  await sendEmail(email, templateId, subject, templateInformation, secrets);
 };
 
 async function sendEmail(
@@ -78,6 +93,16 @@ async function sendEmail(
   console.log(`Sending email confirmation to ${email}`);
   const SENDGRID_API_KEY = getSecret(SecretsKeys.SENDGRID_API_KEY, secrets);
   sendgrid.setApiKey(SENDGRID_API_KEY);
+  const TELEMED_SENDGRID_EMAIL_FROM = getOptionalSecret(
+    SecretsKeys.TELEMED_SENDGRID_EMAIL_FROM,
+    secrets,
+    'no-reply@ottehr.com',
+  );
+  const TELEMED_SENDGRID_EMAIL_FROM_NAME = getOptionalSecret(
+    SecretsKeys.TELEMED_SENDGRID_EMAIL_FROM_NAME,
+    secrets,
+    'Ottehr Urgent Care',
+  );
   const SENDGRID_EMAIL_BCC = getSecret(SecretsKeys.TELEMED_SENDGRID_EMAIL_BCC, secrets).split(',');
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   const environmentSubjectPrepend = ENVIRONMENT === 'production' ? '' : `[${ENVIRONMENT}] `;
@@ -86,13 +111,13 @@ async function sendEmail(
   const emailConfiguration = {
     to: email,
     from: {
-      email: 'no-reply@ottehr.com',
-      name: 'Ottehr Urgent Care',
+      email: TELEMED_SENDGRID_EMAIL_FROM,
+      name: TELEMED_SENDGRID_EMAIL_FROM_NAME,
     },
     bcc: SENDGRID_EMAIL_BCC,
-    replyTo: 'no-reply@ottehr.com',
+    replyTo: TELEMED_SENDGRID_EMAIL_FROM,
     templateId: templateID,
-    dynamic_template_data: {
+    dynamicTemplateData: {
       subject,
       ...templateInformation,
     },
@@ -125,17 +150,33 @@ export async function sendConfirmationMessages(
   token: string,
 ): Promise<void> {
   if (email) {
-    await sendConfirmationEmail({ toAddress: email, appointmentID, secrets });
+    await sendConfirmationEmail({
+      email,
+      firstName,
+      startTime,
+      appointmentID,
+      secrets,
+      location,
+      appointmentType,
+    });
   } else {
     console.log('email undefined');
   }
 
   const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
-  const message = `You're confirmed! Thanks for choosing Ottehr! Your check-in time for ${firstName} at ${
-    location.name
-  } is on ${startTime}. Please complete your paperwork in advance to save time at check-in. To complete paperwork visit: ${WEBSITE_URL}/paperwork/${appointmentID}. ${
-    appointmentType === 'walkin' ? '' : ` To modify/cancel your check-in, visit: ${WEBSITE_URL}/visit/${appointmentID}`
-  }`;
+  let message = i18n.t('appointment.sms.confirmation', {
+    firstName,
+    locationName: location.name,
+    startTime,
+    paperworkUrl: `${WEBSITE_URL}/paperwork/${appointmentID}`,
+    interpolation: { escapeValue: false },
+  });
+  if (appointmentType === 'walkin') {
+    message = `${message} ${i18n.t('appointment.sms.modify', {
+      checkInUrl: `${WEBSITE_URL}/visit/${appointmentID}`,
+      interpolation: { escapeValue: false },
+    })}`;
+  }
   await sendSms(message, token, messageRecipient, verifiedPhoneNumber, secrets);
 }
 

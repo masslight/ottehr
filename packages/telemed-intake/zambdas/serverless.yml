@@ -14,8 +14,9 @@ provider:
     TELEMED_SENDGRID_EMAIL_BCC: ${file(./.env/${self:provider.stage}.json):TELEMED_SENDGRID_EMAIL_BCC}
     TELEMED_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID}
     TELEMED_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID}
-    TELEMED_SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
     TELEMED_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID}
+    TELEMED_SENDGRID_EMAIL_FROM: ${file(./.env/${self:provider.stage}.json):TELEMED_SENDGRID_EMAIL_FROM}
+    TELEMED_SENDGRID_EMAIL_FROM_NAME: ${file(./.env/${self:provider.stage}.json):TELEMED_SENDGRID_EMAIL_FROM_NAME}
 
 custom:
   defaultStage: local
@@ -45,6 +46,8 @@ functions:
       FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      TELEMED_SCHEDULE_NUMBER_OF_DAYS_AVAILABLE: ${file(./.env/${self:provider.stage}.json):TELEMED_SCHEDULE_NUMBER_OF_DAYS_AVAILABLE}
+      TELEMED_SCHEDULE_SLOT_LENGTH: ${file(./.env/${self:provider.stage}.json):TELEMED_SCHEDULE_SLOT_LENGTH}
   get-patients:
     handler: src/get-patients/index.index
     events:
@@ -106,8 +109,6 @@ functions:
       FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
-      TELEMED_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):TELEMED_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID}
-      TELEMED_SENDGRID_EMAIL_BCC: ${file(./.env/${self:provider.stage}.json):TELEMED_SENDGRID_EMAIL_BCC}
       WEBSITE_URL: ${file(./.env/${self:provider.stage}.json):WEBSITE_URL}
       ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
   update-paperwork:
