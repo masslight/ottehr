@@ -23,7 +23,7 @@ import { Operation } from 'fast-json-patch';
 import { MAXIMUM_AGE, MINIMUM_AGE } from '../../shared';
 import { createUpdateUserRelatedResources, creatingPatientUpdateRequest } from '../../shared/appointment/helpers';
 import { checkOrCreateToken } from '../lib/utils';
-import { validateUpdateAppointmentParams } from './validaterequestparameters';
+import { validateUpdateAppointmentParams } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
