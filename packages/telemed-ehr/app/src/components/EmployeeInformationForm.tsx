@@ -123,10 +123,7 @@ export default function EmployeeInformationForm({
 
   const [newLicenseState, setNewLicenseState] = useState<string | undefined>(undefined);
   const [newLicenseCode, setNewLicenseCode] = useState<string | undefined>(undefined);
-  const [newLicenses, setNewLicenses] = useState<PractitionerLicense[]>([]);
-  useEffect(() => {
-    setNewLicenses(licenses);
-  }, [licenses]);
+  const [newLicenses, setNewLicenses] = useState<PractitionerLicense[]>(licenses);
 
   // Form should have its own user state so it doesn't override page title when title is user name
   const [user, setUser] = useState<User>({

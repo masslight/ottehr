@@ -43,8 +43,8 @@ pnpm install
 display_progress "Dependencies installed"
 
 # Execute ./setup.ts with ts-node
-display_progress "Executing ./telemed-setup.ts with ts-node..."
-pnpx ts-node --project tsconfig.base.json ./scripts/telemed-setup.ts
+display_progress "Executing ./ottehr-setup.ts with ts-node..."
+pnpx ts-node --project tsconfig.base.json ./scripts/ottehr-setup.ts
 
 # Display progress messages
 display_progress "Starting the app/zambdas locally..."
