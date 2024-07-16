@@ -183,7 +183,7 @@ export default function PatientsPage(): ReactElement {
                 />
               </Grid>
               <Grid item xs={12} sm={2}>
-                <Button type="submit" variant="contained" fullWidth color="secondary">
+                <Button type="submit" variant="contained" fullWidth>
                   Submit
                 </Button>
               </Grid>

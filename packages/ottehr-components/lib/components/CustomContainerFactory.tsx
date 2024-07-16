@@ -120,7 +120,12 @@ export const CustomContainer: FC<ContainerProps> = ({
             }}
           >
             {isAuthenticated && (
-              <Button variant="text" onClick={handleLogout} sx={{ '&:hover': { backgroundColor: 'transparent' } }}>
+              <Button
+                variant="text"
+                color="secondary"
+                onClick={handleLogout}
+                sx={{ '&:hover': { backgroundColor: 'transparent' } }}
+              >
                 Logout
               </Button>
             )}

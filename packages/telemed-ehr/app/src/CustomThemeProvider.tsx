@@ -9,12 +9,12 @@ const palette = {
   },
   primary: {
     main: '#2169F5',
-    light: '#4AC0F2',
+    light: '#2169F5',
     dark: '#3B98BF',
     contrast: '#FFFFFF',
   },
   secondary: {
-    main: '#4AC0F2',
+    main: '#2169F5',
     light: '#0000009A',
     dark: '#377DCE',
     contrast: '#FFFFFF',
@@ -46,7 +46,7 @@ const palette = {
 };
 
 export const otherColors = {
-  headerBackground: '#202A3E',
+  headerBackground: '#15376a',
   blackTransparent: 'rgba(0, 0, 0, 0.5)',
   disabled: 'rgba(0,0,0,0.38)',
   tableRow: 'rgba(0,0,0,0.87)',

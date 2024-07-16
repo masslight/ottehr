@@ -398,7 +398,6 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                       textTransform: 'none',
                       fontWeight: 600,
                     }}
-                    color="secondary"
                     variant="contained"
                   >
                     <AddIcon />
