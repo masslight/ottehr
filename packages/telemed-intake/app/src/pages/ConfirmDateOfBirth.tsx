@@ -111,6 +111,7 @@ const ConfirmDateOfBirth = (): JSX.Element => {
     // if we have appointment ID here - means that the appointment was already created
     // either before or in this request a visit flow, so we can just update the existing appointment
     if (appointmentID) {
+      console.log('Updating appointment');
       updateAppointment.mutate(
         { appointmentID: appointmentID, apiClient, patientInfo },
         {
@@ -130,6 +131,7 @@ const ConfirmDateOfBirth = (): JSX.Element => {
         },
       );
     } else {
+      console.log('Creating appointment');
       createAppointment.mutate(
         { apiClient, patientInfo, unconfirmedDateOfBirth },
         {

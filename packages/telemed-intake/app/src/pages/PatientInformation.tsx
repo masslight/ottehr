@@ -106,9 +106,9 @@ const PatientInformation = (): JSX.Element => {
     },
   );
 
-  useEffect(() => {
-    mixpanel.track('Patient Information page opened');
-  }, []);
+  // useEffect(() => {
+  //   mixpanel.track('Patient Information page opened');
+  // }, []);
 
   const onSubmit = async (data: PatientInfo): Promise<void> => {
     // Store DOB in yyyy-mm-dd format for backend validation
