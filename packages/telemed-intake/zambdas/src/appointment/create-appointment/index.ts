@@ -826,6 +826,10 @@ async function getLocation(fhirClient: FhirClient, locationID: string): Promise<
     resourceId: locationID,
   });
 
+  // if the location schedule is not active, return an error
+  if (location.status !== 'active') {
+    throw new Error(`Location ${locationID} is not active`);
+  }
   return location;
 }
 
@@ -836,6 +840,10 @@ async function getProvider(fhirClient: FhirClient, providerID: string): Promise<
     resourceId: providerID,
   });
 
+  // if the provider schedule is not active, return an error
+  if (!provider.active) {
+    throw new Error(`Provider ${providerID} is not active`);
+  }
   return provider;
 }
 
@@ -846,6 +854,10 @@ async function getGroup(fhirClient: FhirClient, groupID: string): Promise<Health
     resourceId: groupID,
   });
 
+  // if the group schedule is not active, return an error
+  if (!group.active) {
+    throw new Error(`Group ${groupID} is not active`);
+  }
   return group;
 }
 
