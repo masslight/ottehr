@@ -147,6 +147,19 @@ export default function SchedulePage(): ReactElement {
         valueString: START_SCHEDULE,
       },
     ];
+
+    // if there is no timezone extension, add it. The default timezone is America/New_York
+    if (
+      !item?.extension?.find((ext) => {
+        return ext.url === 'http://hl7.org/fhir/StructureDefinition/timezone';
+      })
+    ) {
+      scheduleExtension.push({
+        url: 'http://hl7.org/fhir/StructureDefinition/timezone',
+        valueString: 'America/New_York',
+      });
+    }
+
     const patchedResource = (await fhirClient.patchResource({
       resourceType,
       resourceId: id,
@@ -156,6 +169,7 @@ export default function SchedulePage(): ReactElement {
           path: '/extension',
           value: scheduleExtension,
         },
+
         getStatusOperationJSON(resourceType as 'Location' | 'Practitioner', true),
       ],
     })) as Location;
