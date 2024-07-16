@@ -25,8 +25,14 @@ export function allLicensesForPractitioner(practitioner: Practitioner): Practiti
           (coding) => coding.system === PRACTITIONER_QUALIFICATION_STATE_SYSTEM,
         )?.code;
 
+        const statusExtension = qualificationExt.extension?.find((ext) => ext.url === 'status')?.valueCode;
+
         if (qualificationCode && qualificationState)
-          allLicenses.push({ state: qualificationState, code: qualificationCode });
+          allLicenses.push({
+            state: qualificationState,
+            code: qualificationCode,
+            active: statusExtension === 'active',
+          });
       }
     });
   }

@@ -6,7 +6,7 @@
    </picture>
 </p>
 
-<p align="center">The production-ready, open-source EHR.</p>
+<p align="center">The production-ready, open-source EHR</p>
 
 <p align="center">
     <a href="https://www.ottehr.com/"><b>Ottehr.com</b></a>
@@ -28,16 +28,14 @@
 
 This monorepo contains code for [Ottehr telehealth](https://www.ottehr.com/).
 
-Ottehr is a modern, modular EHR that began as a reference implementation for [ZapEHR](https://zapehr.com). It quickly outgrew "sample EHR" status and became the foundation for large-scale production EHR installations. Ottehr uses ZapEHR for back-end service endpoints, and requires a free ZapEHR account to run as-is, but you are welcome to modify and use a third-party service vendor or build your own service architecture. Ottehr is designed for developers, hopefully making it easy to fork, white-label, and build entire new classes of EHRs and health-tech products with a fraction of the effort of starting from scratch.
+Ottehr is a modern, modular EHR that began as a reference implementation for [Oystehr](https://oystehr.com). It quickly outgrew "sample EHR" status and became the foundation for large-scale production EHR installations. Ottehr uses Oystehr for back-end service endpoints, and requires a free Oystehr account to run as-is, but you are welcome to modify and use a third-party service vendor or build your own service architecture. Ottehr is designed for developers, hopefully making it easy to fork, white-label, and build entire new classes of EHRs and health-tech products with a fraction of the effort of starting from scratch.
 
 ## Setup
 
-Ottehr currently has a few components. Two, **Ottehr Scheduled In-Person Intake** and **Ottehr Unscheduled Telemedicine Intake**, are for patients to make appointments. Another is **Ottehr EHR**, for staff to work with appointments. **Ottehr Elements** includes components for building health software.
+Ottehr currently has two websites. One is for patients -- **Ottehr Intake** -- and one is for staff -- **Ottehr EHR**.
 
-* **[Ottehr Scheduled In-Person Intake](packages/urgent-care-intake):** A patient-facing registration website for creating appointments, with features including rescheduling, checking in, sending text messages and emails, and listing appointments for an account
-* **[Ottehr Unscheduled Telemedicine Intake](packages/telemed-intake):** Another registration website for patients made for telemedicine to help patients join calls with providers
-* **[Ottehr EHR](packages/telemed-ehr/):** A staff-facing EHR for managing appointments created through the In-Person or Telemedicine intake websites, with features including checking appointments, managing patient queues, texting patients, updating a location's slots, setting a location's schedule, joining telemedicine calls, HPI and medical history, exam charting, eRx and Assessment, patient plan, coming soon: RCM and claims submission
-* **[Ottehr Elements](packages/ottehr-components/):**  A components React library for creating healthcare applications
+* **[Ottehr Intake](packages/telemed-intake):** A patient-facing registration website for creating appointments, with features including rescheduling, checking in, text messages and emails, and listing appointments for an account
+* **[Ottehr EHR](packages/telemed-ehr/):** A staff-facing EHR for managing appointments created, with features including checking appointments, managing patient queues, texting patients, updating a location's slots, setting a location's schedule, joining telemedicine calls, HPI and medical history, exam charting, eRx and Assessment, patient plan, coming soon: RCM and claims submission
 
 ## First Time Setup
 
@@ -91,20 +89,20 @@ npm install -g pnpm
 
 Alternatively, you can install `pnpm` using the [official documentation](https://pnpm.io/installation).
 
-### Joining ZapEHR
+### Joining Oystehr
 
-You'll need a free ZapEHR account to run Ottehr. Register for access at [zapehr.com](https://zapehr.com). Follow these simple steps:
+You'll need a free Oystehr account to run Ottehr. Register for access at [oystehr.com](https://oystehr.com). Follow these simple steps:
 
-1. Visit [zapehr.com](https://zapehr.com).
+1. Visit [oystehr.com](https://oystehr.com).
 2. Click on **Free Access** to initiate your early access request.
 
-Once your request is received, the ZapEHR team will promptly reach out to you via email, providing the credentials you need to kickstart your ZapEHR journey.
+Once your request is received, the Oystehr team will promptly reach out to you via email, providing the credentials you need to kickstart your Oystehr journey.
 
-For comprehensive guidance on getting started with ZapEHR, explore our technical documentation available at [https://docs.zapehr.com/docs/welcome](https://docs.zapehr.com/docs/welcome).
+For comprehensive guidance on getting started with Oystehr, explore our technical documentation available at [https://docs.oystehr.com](https://docs.oystehr.com).
 
 ## Setup Procedure
 
-To proceed with this setup guide, it is assumed that you have access to a ZapEHR project. If you have done so, please follow these steps:
+To proceed with this setup guide, it is assumed that you have access to a Oystehr project. If you have done so, please follow these steps:
 
 1. **Fork Ottehr:**
    Visit [https://github.com/masslight/ottehr/fork](https://github.com/masslight/ottehr/fork) and fork the repository.
@@ -130,28 +128,26 @@ To proceed with this setup guide, it is assumed that you have access to a ZapEHR
    code .vscode/Ottehr.code-workspace
    ```
 
-Before proceeding, ensure that you have [Node.js](#node) v18.x and [pnpm](#installing-pnpm) installed on your machine.
+Before proceeding, ensure that you have Node.js v18.x and pnpm installed on your machine.
 
 Once these dependencies are in place, enter the following command from the root directory.
 
 ```bash
-sh scripts/telemed-setup.sh
+sh scripts/ottehr-setup.sh
 ```
-
-For a sample guide of setting up Ottehr Telemedicine, please check [getting started with ottehr](https://youtu.be/NJzF9Nzhbeo).
 
 The script will prompt you for the following information:
 
-* Your access token: Log in to your [ZapEHR project](https://console.zapehr.com), and copy the access token from the dashboard.
-* Your project ID: Find this on the [ZapEHR project details page](https://console.zapehr.com/project).
-* Your first provider email: This can be your email address.
+* Your access token: Log in to your Oystehr project on the [Oystehr Console](https://console.oystehr.com), and copy the access token from the dashboard
+* Your project ID: Listed on the Oystehr Console next to the access token
+* Your first provider email: This can be your email address
 
 Once the program finishes running,
 
 1. The Intake and EHR websites will open.
 1. To log in to the EHR, enter the email you input during the setup program. Click `Forgot password?` and set a password then log in.
 
-The URL for a test location is http://localhost:3015/location/testing/prebook.
+The URL for a test location is http://localhost:3002/location/ak/in-person/prebook.
 
 ## Scripts
 
@@ -165,6 +161,10 @@ If a script is environment specific, use:
 pnpm <script name>:<env>
 ```
 
+### `telemed:start`
+
+Starts Intake and EHR
+
 ### `build`
 
 Builds all packages using the [build script](./scripts/build.sh).
@@ -172,12 +172,6 @@ Builds all packages using the [build script](./scripts/build.sh).
 ### `lint`
 
 Lints all packages using [ESLint](https://eslint.org/).
-
-### `start`
-
-Environment specific: `local`, `dev`, `dev2`, `testing`, `staging`.
-
-Starts all packages. If the env is excluded, [defaults to local](#getting-started).
 
 ### `update`
 

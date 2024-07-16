@@ -363,6 +363,11 @@ async function getPresignedURLsfromDocRefURLs(
   // z3Client: Z3Client,
   // projectAPI: string
 ): Promise<FileURLs | undefined> {
+  // If questionnaire does not include docTypes return undefined
+  if (docTypes.length === 0) {
+    return undefined;
+  }
+
   const docRefResources = await fhirClient.searchResources<DocumentReference>({
     resourceType: 'DocumentReference',
     searchParams: [

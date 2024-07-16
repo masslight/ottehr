@@ -329,11 +329,15 @@ async function updateResourcesFromPaperwork(
     if (city) address['city'] = city;
     if (state) address['state'] = state;
     if (zip) address['postalCode'] = zip;
-    patientPatchOps.push({
-      op: 'add',
-      path: '/address',
-      value: [address],
-    });
+
+    if (Object.keys(address).length > 0) {
+      // only add address if there is information to add
+      patientPatchOps.push({
+        op: 'add',
+        path: '/address',
+        value: [address],
+      });
+    }
   }
 
   console.log('reviewing patient telecom');
@@ -565,7 +569,10 @@ async function updateResourcesFromPaperwork(
 
   const questionnaireBirthSex = paperwork.find((responseTemp) => responseTemp.linkId === 'patient-birth-sex')?.response;
   const questionnaireBirthSexValue = PersonSex[questionnaireBirthSex as keyof typeof PersonSex];
-  if (!patientResource.gender || patientResource.gender !== questionnaireBirthSexValue) {
+  if (
+    questionnaireBirthSexValue &&
+    (!patientResource.gender || patientResource.gender !== questionnaireBirthSexValue)
+  ) {
     patientPatchOps.push({
       op: patientResource.gender ? 'replace' : 'add',
       path: '/gender',
@@ -585,7 +592,7 @@ async function updateResourcesFromPaperwork(
     valueString: formUser === 'Patient (Self)' ? 'Patient' : formUser, // update Patient (self) to be stored as Patient
   };
 
-  if (patientFormUser !== formUser) {
+  if (formUser && patientFormUser !== formUser) {
     console.log('building extension patch: form user');
     if (patientFormUserIdx !== undefined && patientFormUserIdx > -1) {
       patientExtension[patientFormUserIdx] = patientFormUserExt;

@@ -100,7 +100,7 @@ async function getSchedule(
   } else {
     throw new Error('resourceType is not expected');
   }
-  const availableItems = await fhirClient.searchResources({
+  let availableItems = await fhirClient.searchResources({
     resourceType,
     searchParams: [
       // { name: 'status', value: 'active' },
@@ -121,8 +121,26 @@ async function getSchedule(
             },
           ]
         : []),
+      ...(scheduleType === 'location' ? [{ name: 'status', value: 'active' }] : []),
+      ...(scheduleType === 'provider' ? [{ name: 'active', value: 'true' }] : []),
     ],
   });
+
+  const isActive = (item: Location | Practitioner | HealthcareService): boolean => {
+    if (item.resourceType === 'Location') {
+      return item.status === 'active';
+    } else {
+      return item.active === true;
+    }
+  };
+
+  if (resourceType === 'HealthcareService') {
+    const groupItem = availableItems.find((item) => item.resourceType === 'HealthcareService');
+    if (!groupItem || !isActive(groupItem as HealthcareService)) {
+      return undefined;
+    }
+    availableItems = availableItems.filter((item) => isActive(item as Location | Practitioner | HealthcareService));
+  }
 
   if (availableItems.length === 0) {
     return undefined;
@@ -218,7 +236,7 @@ async function getSchedule(
     // get appointments at schedule
     const appointmentResourcesInSchedule = appointmentResources.filter((appointment) => {
       return appointment.participant.some(
-        (participant: AppointmentParticipant) => participant.actor === `${resourceType}/${item.id}`,
+        (participant: AppointmentParticipant) => participant.actor?.reference === `${resourceType}/${item.id}`,
       );
     });
 
@@ -399,11 +417,14 @@ export const distributeTimeSlots = (
     const numSlots = timeSlots[timeSlot];
     let numAppointments = 0;
     currentAppointments.forEach((appointmentTemp) => {
-      if (appointmentTemp.start && appointmentTemp.start === DateTime.fromISO(timeSlot).setZone('UTC').toISO()) {
+      if (
+        appointmentTemp.start &&
+        DateTime.fromISO(appointmentTemp.start).setZone('UTC').toISO() ===
+          DateTime.fromISO(timeSlot).setZone('UTC').toISO()
+      ) {
         numAppointments++;
       }
     });
-
     return numSlots > numAppointments;
   });
   // console.log(4, availableSlots);
