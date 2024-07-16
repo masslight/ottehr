@@ -1,7 +1,6 @@
 import { Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import mixpanel from 'mixpanel-browser';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ErrorDialog, PageForm, safelyCaptureException } from 'ottehr-components';
 import {
