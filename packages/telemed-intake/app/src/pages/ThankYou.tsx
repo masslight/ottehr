@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Button, Divider, Grid, Typography } from '@mui/material';
+import { Button, Divider, Grid, Typography, useTheme } from '@mui/material';
 import { EventBusyOutlined } from '@mui/icons-material';
 import { IntakeFlowPageRoute } from '../App';
 import { CustomContainer } from '../features/common';
@@ -7,8 +7,12 @@ import { otherColors } from '../IntakeThemeProvider';
 import { getSelectors } from 'ottehr-utils';
 import { useAppointmentStore } from '../features/appointments';
 import { DateTime } from 'luxon';
+import { FinancialPolicyDialog } from '../components/FinancialPolicyDialog';
+import { useState } from 'react';
 
 const ThankYou = (): JSX.Element => {
+  const theme = useTheme();
+  const [isPolicyDialogOpen, setIsPolicyDialogOpen] = useState(false);
   const { selectedSlot } = getSelectors(useAppointmentStore, ['selectedSlot']);
   console.log('selectedSlot', selectedSlot);
 
@@ -53,16 +57,20 @@ const ThankYou = (): JSX.Element => {
           <Typography variant="body2">
             All patients that present with commercial insurance will be required to leave a credit card on file. More
             details on our financial policy can be found{' '}
-            <a target="_blank" href="https://ottehr.com" rel="noreferrer">
+            <span
+              style={{ cursor: 'pointer', color: theme.palette.primary.main, textDecoration: 'underline' }}
+              onClick={() => setIsPolicyDialogOpen(true)}
+            >
               here
-            </a>
+            </span>
             .
           </Typography>
         </div>
 
         <Typography variant="body2" marginTop={2}>
-          If you have any questions or concerns, please call our team at: <strong>(XXX) XXX-XXXX</strong>.
+          If you have any questions or concerns, please call our team at: <strong>(123) 456-7890</strong>.
         </Typography>
+        {isPolicyDialogOpen && <FinancialPolicyDialog onClose={() => setIsPolicyDialogOpen(false)} />}
       </>
     </CustomContainer>
   );
