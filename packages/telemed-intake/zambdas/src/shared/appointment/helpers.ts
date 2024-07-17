@@ -71,13 +71,8 @@ export const removePrefix = (prefix: string, text: string): string | undefined =
 export function checkUserPhoneNumber(patient: PatientInfo, user: User): string {
   let patientNumberToText: string | undefined = undefined;
 
-  // If the user is the pm staff, which happens when using the add-patient page,
-  // user.name will not be a phone number, like it would be for a patient. In this
-  // case, we must insert the patient's phone number using patient.phoneNumber
-  // we use .startsWith('+') because the user's phone number will start with "+"
   const isEHRUser = !user.name.startsWith('+');
   if (isEHRUser) {
-    // User is pm staff
     if (!patient.phoneNumber) {
       throw new Error('No phone number found for patient');
     }
