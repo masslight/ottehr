@@ -151,11 +151,7 @@ export default function SchedulePage(): ReactElement {
     ];
 
     // if there is no timezone extension, add it. The default timezone is America/New_York
-    if (
-      !item?.extension?.find((ext) => {
-        return ext.url === TIMEZONE_EXTENSION;
-      })
-    ) {
+    if (!item?.extension?.some((ext) => ext.url === TIMEZONE_EXTENSION)) {
       scheduleExtension.push({
         url: TIMEZONE_EXTENSION,
         valueString: 'America/New_York',
