@@ -1,50 +1,117 @@
 import { Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import { useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ErrorDialog, PageForm, safelyCaptureException } from 'ottehr-components';
 import {
   PatientInfo,
   PersonSex,
+  UpdateAppointmentResponse,
   ageIsInRange,
+  getPatientInfoFullName,
   getSelectors,
-  mdyStringFromISOString,
+  isoStringFromMDYString,
   yupDateTransform,
 } from 'ottehr-utils';
 import { IntakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
-import { useAppointmentStore, useCreateAppointmentMutation } from '../features/appointments';
+import {
+  useAppointmentStore,
+  useCreateAppointmentMutation,
+  useUpdateAppointmentMutation,
+} from '../features/appointments';
 import { CustomContainer } from '../features/common';
 import { useFilesStore } from '../features/files';
 import { useGetPaperwork, usePaperworkStore } from '../features/paperwork';
 import { usePatientInfoStore } from '../features/patient-info';
 import { MAXIMUM_AGE, MINIMUM_AGE, useZapEHRAPIClient } from '../utils';
 
+const UPDATEABLE_PATIENT_INFO_FIELDS: (keyof Omit<PatientInfo, 'id'>)[] = [
+  'firstName',
+  'lastName',
+  'middleName',
+  'chosenName',
+  'dateOfBirth',
+  'sex',
+  'weight',
+  'email',
+  'emailUser',
+];
+
+const isPatientInfoEqual = (firstInfo: PatientInfo, newInfo: PatientInfo): boolean => {
+  for (const key of UPDATEABLE_PATIENT_INFO_FIELDS) {
+    if (key === 'dateOfBirth' || key === 'weightLastUpdated') {
+      const firstDate = DateTime.fromFormat(yupDateTransform(firstInfo[key]) || '', 'yyyy-MM-dd');
+      const secondDate = DateTime.fromFormat(yupDateTransform(newInfo[key]) || '', 'yyyy-MM-dd');
+      if (!firstDate.equals(secondDate)) return false;
+    }
+    if (firstInfo[key] !== newInfo[key]) return false;
+  }
+
+  return true;
+};
+
+const createPatientInfoWithChangedFields = (source: PatientInfo, newInfo: Omit<PatientInfo, 'id'>): PatientInfo => {
+  const newPatienInfo = { ...source };
+  for (const key of UPDATEABLE_PATIENT_INFO_FIELDS) {
+    newPatienInfo[key] = newInfo[key] as any;
+  }
+  return newPatienInfo;
+};
+
 const PatientInformation = (): JSX.Element => {
   const apiClient = useZapEHRAPIClient();
   const [getPaperworkEnabled, setGetPaperworkEnabled] = useState(false);
+
+  const navigate = useNavigate();
+  const [ageErrorDialogOpen, setAgeErrorDialogOpen] = useState<boolean>(false);
+  const [requestErrorDialogOpen, setRequestErrorDialogOpen] = useState<boolean>(false);
+  const { patientInfo: currentPatientInfo, pendingPatientInfoUpdates } = getSelectors(usePatientInfoStore, [
+    'patientInfo',
+    'pendingPatientInfoUpdates',
+  ]);
+  const patientInfo = { ...currentPatientInfo, ...pendingPatientInfoUpdates, id: currentPatientInfo.id };
+  const initialPatientInfoRef = useRef(currentPatientInfo);
+  const { appointmentID } = getSelectors(useAppointmentStore, ['appointmentID']);
+  const { patchCompletedPaperwork, setQuestions } = getSelectors(usePaperworkStore, [
+    'patchCompletedPaperwork',
+    'setQuestions',
+  ]);
+
   const createAppointment = useCreateAppointmentMutation();
+  const updateAppointment = useUpdateAppointmentMutation();
   const getPaperworkQuery = useGetPaperwork(
     (data) => {
-      paperworkState.patchCompletedPaperwork(data.paperwork);
-      paperworkState.setQuestions(data.questions);
+      const paperwork: any = {};
+      if (patientInfo.emailUser === 'Patient') {
+        paperwork['patient-email'] = patientInfo.email;
+      }
+      if (patientInfo.emailUser === 'Parent/Guardian') {
+        paperwork['guardian-email'] = patientInfo.email;
+      }
+
+      patchCompletedPaperwork({ ...data.paperwork, ...paperwork });
+      setQuestions(data.questions);
       useFilesStore.setState({ fileURLs: data.files });
       navigate(`/paperwork/${data.questions[0].slug}`);
     },
-    { staleTime: 0, enabled: getPaperworkEnabled },
+    {
+      staleTime: 0,
+      enabled: getPaperworkEnabled,
+      onError: (error) => {
+        safelyCaptureException(error);
+        setRequestErrorDialogOpen(true);
+      },
+    },
   );
-  const navigate = useNavigate();
-  const [ageErrorDialogOpen, setAgeErrorDialogOpen] = useState<boolean>(false);
-  const { patientInfo } = getSelectors(usePatientInfoStore, ['patientInfo']);
-  const paperworkState = getSelectors(usePaperworkStore, ['patchCompletedPaperwork', 'setQuestions']);
 
-  useEffect(() => {
-    //mixpanel.track('Patient Information page opened');
-  }, []);
+  // useEffect(() => {
+  //   mixpanel.track('Patient Information page opened');
+  // }, []);
 
   const onSubmit = async (data: PatientInfo): Promise<void> => {
     // Store DOB in yyyy-mm-dd format for backend validation
-    const dateOfBirth = mdyStringFromISOString(data.dateOfBirth || patientInfo.dateOfBirth || '');
+    const dateOfBirth = isoStringFromMDYString(yupDateTransform(data.dateOfBirth || patientInfo.dateOfBirth || ''));
     data.dateOfBirth = dateOfBirth || 'Unknown';
 
     if (!ageIsInRange(dateOfBirth ?? '', MINIMUM_AGE, MAXIMUM_AGE).result) {
@@ -52,25 +119,22 @@ const PatientInformation = (): JSX.Element => {
       return;
     }
 
-    const paperwork: any = {};
-    if (data.emailUser === 'Patient') {
-      paperwork['patient-email'] = data.email;
-    }
-    if (data.emailUser === 'Parent/Guardian') {
-      paperwork['guardian-email'] = data.email;
-    }
-
-    paperworkState.patchCompletedPaperwork(paperwork);
-
-    data.id = patientInfo.id === 'new-patient' ? undefined : patientInfo.id;
-
-    if (patientInfo.id === 'new-patient') {
+    if (!patientInfo.id) {
       data.newPatient = patientInfo.newPatient;
     }
 
-    usePatientInfoStore.setState(() => ({ patientInfo: data }));
+    let pendingUpdates: PatientInfo | undefined = undefined;
 
-    if (patientInfo.id !== 'new-patient') {
+    if (!isPatientInfoEqual(initialPatientInfoRef.current, data)) {
+      pendingUpdates = createPatientInfoWithChangedFields(patientInfo, data);
+      usePatientInfoStore.setState(() => ({
+        pendingPatientInfoUpdates: pendingUpdates,
+      }));
+    }
+
+    // if it's a known patient (and it's not the case when
+    // patientInfo has 'id' property that was already set by create-appointment success callback)
+    if (patientInfo.id && !data.newPatient && !appointmentID) {
       navigate(IntakeFlowPageRoute.ConfirmDateOfBirth.path);
       return;
     }
@@ -79,27 +143,74 @@ const PatientInformation = (): JSX.Element => {
       throw new Error('apiClient is not defined');
     }
 
-    createAppointment.mutate(
-      { apiClient },
-      {
-        onSuccess: async (response) => {
-          useAppointmentStore.setState(() => ({ appointmentID: response.appointmentId }));
-          if (response.fhirPatientId) {
-            usePatientInfoStore.setState((state) => ({
-              patientInfo: { ...state.patientInfo, id: response.fhirPatientId },
+    // if we have appointment ID here - means that the appointment was already created
+    // either before or in this request a visit flow, so we can just update the existing appointment
+    // if some patient info data changed
+    if (appointmentID) {
+      if (pendingUpdates) {
+        updateAppointment.mutate(
+          { appointmentID: appointmentID, apiClient, patientInfo: pendingUpdates },
+          {
+            onSuccess: (response: UpdateAppointmentResponse) => {
+              console.log('Appointment updated successfully', response);
+              usePatientInfoStore.setState(() => ({
+                patientInfo: pendingUpdates,
+                pendingPatientInfoUpdates: undefined,
+              }));
+              initialPatientInfoRef.current = { ...pendingUpdates };
+              updateResourcesOrNavigateNext();
+            },
+            onError: (error) => {
+              setRequestErrorDialogOpen(true);
+              safelyCaptureException(error);
+            },
+          },
+        );
+      } else {
+        updateResourcesOrNavigateNext();
+      }
+    } else {
+      if (!pendingUpdates) {
+        console.error('No pending patientInfo updates, something went wrong');
+        return;
+      }
+      createAppointment.mutate(
+        { apiClient, patientInfo: pendingUpdates },
+        {
+          onSuccess: async (response) => {
+            useAppointmentStore.setState(() => ({ appointmentID: response.appointmentId }));
+            const newPatientInfo = createPatientInfoWithChangedFields(
+              { ...patientInfo, id: response.patientId || patientInfo.id },
+              data,
+            );
+            usePatientInfoStore.setState(() => ({
+              pendingPatientInfoUpdates: undefined,
+              patientInfo: newPatientInfo,
             }));
-          }
-          setGetPaperworkEnabled(true);
+            initialPatientInfoRef.current = newPatientInfo;
+            updateResourcesOrNavigateNext();
+          },
+          onError: (error) => {
+            setRequestErrorDialogOpen(true);
+            safelyCaptureException(error);
+          },
         },
-        onError: (error) => {
-          safelyCaptureException(error);
-        },
-      },
-    );
+      );
+    }
+  };
+
+  const updateResourcesOrNavigateNext = (): void => {
+    const { paperworkQuestions } = usePaperworkStore.getState();
+    // if paperwork was loaded already - just proceed to the next page
+    if (paperworkQuestions && paperworkQuestions.length > 0) {
+      navigate(`/paperwork/${paperworkQuestions[0].slug}`);
+    } else {
+      setGetPaperworkEnabled(true);
+    }
   };
 
   const formattedBirthday = DateTime.fromFormat(yupDateTransform(patientInfo.dateOfBirth) || '', 'yyyy-MM-dd').toFormat(
-    'dd MMMM, yyyy',
+    'MMM dd, yyyy',
   );
 
   return (
@@ -111,14 +222,20 @@ const PatientInformation = (): JSX.Element => {
       {!patientInfo.newPatient && (
         <>
           <Typography variant="h3" color="secondary.main">
-            {patientInfo.firstName} {patientInfo.lastName}
+            {getPatientInfoFullName(patientInfo)}
           </Typography>
           <Typography variant="body2" sx={{ fontSize: '14px' }} color="secondary.main">
             Birthday: {formattedBirthday || patientInfo.dateOfBirth}
           </Typography>
+          <Typography variant="body2" sx={{ fontSize: '14px' }} color="secondary.main">
+            Birth sex: {patientInfo.sex}
+          </Typography>
           <Typography variant="body1" color={otherColors.wrongPatient} marginTop={2} marginBottom={4}>
             Wrong patient? Please{' '}
-            <Link style={{ color: otherColors.wrongPatient }} to={IntakeFlowPageRoute.Homepage.path}>
+            <Link
+              style={{ color: otherColors.wrongPatient }}
+              to={`${IntakeFlowPageRoute.SelectPatient.path}?flow=requestVisit`}
+            >
               go back
             </Link>{' '}
             for a new patient or different existing patient record.
@@ -130,22 +247,35 @@ const PatientInformation = (): JSX.Element => {
           {
             type: 'Text',
             name: 'firstName',
-            label: "Patient's legal first name",
+            label: 'First name (legal)',
             placeholder: 'First name',
             defaultValue: patientInfo.firstName,
             required: patientInfo.newPatient,
-            width: 6,
+            hidden: !patientInfo.newPatient,
+          },
+          {
+            type: 'Text',
+            name: 'middleName',
+            label: 'Middle name (legal)',
+            placeholder: 'Middle name',
+            defaultValue: patientInfo.middleName,
             hidden: !patientInfo.newPatient,
           },
           {
             type: 'Text',
             name: 'lastName',
-            label: "Patient's legal last name",
+            label: 'Last name (legal)',
             placeholder: 'Last name',
             defaultValue: patientInfo.lastName,
             required: patientInfo.newPatient,
-            width: 6,
             hidden: !patientInfo.newPatient,
+          },
+          {
+            type: 'Text',
+            name: 'chosenName',
+            label: 'Chosen or preferred name (optional)',
+            placeholder: 'Chosen name',
+            defaultValue: patientInfo.chosenName,
           },
           {
             type: 'Date',
@@ -161,6 +291,7 @@ const PatientInformation = (): JSX.Element => {
             label: "Patient's birth sex",
             defaultValue: patientInfo.sex,
             required: true,
+            hidden: !patientInfo.newPatient,
             infoTextSecondary:
               'Our care team uses this to inform treatment recommendations and share helpful information regarding potential medication side effects, as necessary.',
             selectOptions: Object.entries(PersonSex).map(([key, value]) => {
@@ -169,6 +300,22 @@ const PatientInformation = (): JSX.Element => {
                 value: value,
               };
             }),
+          },
+          {
+            type: 'Text',
+            format: 'Decimal',
+            name: 'weight',
+            label: 'Patient weight (lbs)',
+            infoTextSecondary: 'Entering correct information in this box will help us with prescription dosing.',
+            defaultValue: patientInfo.weight,
+            helperText: patientInfo.newPatient
+              ? undefined
+              : `Weight last updated: ${
+                  patientInfo.weightLastUpdated
+                    ? DateTime.fromFormat(patientInfo.weightLastUpdated, 'yyyy-LL-dd').toFormat('MM/dd/yyyy')
+                    : 'N/A'
+                }`,
+            showHelperTextIcon: false,
           },
           {
             type: 'Text',
@@ -197,7 +344,8 @@ const PatientInformation = (): JSX.Element => {
           },
         ]}
         controlButtons={{
-          loading: createAppointment.isLoading || getPaperworkQuery.isLoading,
+          onBack: () => navigate(IntakeFlowPageRoute.Homepage.path),
+          loading: createAppointment.isLoading || getPaperworkQuery.isLoading || updateAppointment.isLoading,
           submitLabel: 'Continue',
         }}
         onSubmit={onSubmit}
@@ -208,6 +356,13 @@ const PatientInformation = (): JSX.Element => {
         description="These services are only available for patients between the ages of 0 and 26."
         closeButtonText="Close"
         handleClose={() => setAgeErrorDialogOpen(false)}
+      />
+      <ErrorDialog
+        open={requestErrorDialogOpen}
+        title="Error"
+        description="An error occurred. Please, try again in a moment."
+        closeButtonText="Close"
+        handleClose={() => setRequestErrorDialogOpen(false)}
       />
     </CustomContainer>
   );
