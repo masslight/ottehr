@@ -555,7 +555,7 @@ export async function createAppointment(
 
   if (conversationSID) {
     const timezone = fhirLocation.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone',
+      (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION,
     )?.valueString;
     await sendMessages(
       getPatientContactEmail(fhirPatient),

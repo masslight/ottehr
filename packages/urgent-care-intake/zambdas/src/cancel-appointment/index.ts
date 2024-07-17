@@ -231,7 +231,7 @@ const getCancellationEmailDetails = async (
       resourceId: locationId,
     });
     const timezone = location.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone',
+      (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION,
     )?.valueString;
 
     const visitType =
