@@ -26,6 +26,7 @@ import VisitDetails from './pages/VisitDetails';
 import WaitingRoom from './pages/WaitingRoom';
 import Welcome from './pages/Welcome';
 import ConfirmDateOfBirth from './pages/ConfirmDateOfBirth';
+import ThankYou from './pages/ThankYou';
 
 const isLowerEnvs =
   import.meta.env.MODE === 'dev' ||
@@ -78,6 +79,7 @@ export class IntakeFlowPageRoute {
   static readonly ReviewPaperwork = new IntakeFlowPageRoute('/review-paperwork', <ReviewPaperwork />);
   static readonly VideoCall = new IntakeFlowPageRoute('/video-call', <VideoChatPage />);
   static readonly InvitedVideoCall = new IntakeFlowPageRoute('/invited-video-call', <VideoChatPage />);
+  static readonly ThankYou = new IntakeFlowPageRoute('/thank-you', <ThankYou />);
 
   static readonly IOSPatientPhotosEdit = new IntakeFlowPageRoute('/ios-patient-photos', <IOSPatientPhotosEditPage />);
   static readonly IOSPatientManageParticipants = new IntakeFlowPageRoute(
@@ -160,6 +162,7 @@ function App(): JSX.Element {
               path={IntakeFlowPageRoute.IOSVideoCallMenu.path}
               element={IntakeFlowPageRoute.IOSVideoCallMenu.page}
             />
+            <Route path={IntakeFlowPageRoute.ThankYou.path} element={IntakeFlowPageRoute.ThankYou.page} />
             <Route path="*" element={<Navigate to={IntakeFlowPageRoute.Welcome.path} />} />
           </Routes>
         </Router>
