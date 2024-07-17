@@ -347,7 +347,6 @@ async function creatingPatientUpdateRequest(
             relationship: [
               {
                 coding: [
-                  // todo: this does not look like valid fhir...
                   {
                     system: `${PRIVATE_EXTENSION_BASE_URL}/relationship`,
                     code: patient.emailUser,
@@ -434,7 +433,6 @@ async function creatingPatientCreateRequest(
         relationship: [
           {
             coding: [
-              // todo: this does not look like valid fhir...
               {
                 system: `${PRIVATE_EXTENSION_BASE_URL}/relationship`,
                 code: patient.emailUser,
