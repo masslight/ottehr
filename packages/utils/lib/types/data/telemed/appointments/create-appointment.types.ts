@@ -17,7 +17,7 @@ export interface CreateAppointmentUCTelemedParams {
 export interface CreateAppointmentUCTelemedResponse {
   message: string;
   appointmentId: string;
-  fhirPatientId: string;
+  patientId: string;
 }
 
 export enum VisitType {
@@ -27,7 +27,10 @@ export enum VisitType {
 
 export type PatientInfo = PatientBaseInfo & {
   newPatient?: boolean;
+  chosenName?: string;
   sex?: Patient['gender'];
+  weight?: number;
+  weightLastUpdated?: string;
   email?: string;
   emailUser?: UserType;
   reasonForVisit?: string[];

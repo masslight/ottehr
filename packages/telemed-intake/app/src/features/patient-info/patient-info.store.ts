@@ -4,10 +4,10 @@ import { persist } from 'zustand/middleware';
 
 type PatientInfoState = {
   patientInfo: PatientInfo;
+  pendingPatientInfoUpdates?: PatientInfo;
 };
 
 type PatientInfoActions = {
-  clearPatientInfo: () => void;
   setNewPatient: () => void;
 };
 
@@ -25,7 +25,6 @@ const BLANK_PATIENT_INFO: PatientInfo = {
 
 const NEW_PATIENT_INFO: PatientInfo = {
   ...BLANK_PATIENT_INFO,
-  id: 'new-patient',
   newPatient: true,
   emailUser: undefined,
 };
@@ -38,14 +37,10 @@ export const usePatientInfoStore = create<PatientInfoState & PatientInfoActions>
   persist(
     (set) => ({
       ...PATIENT_INFO_INITIAL,
-      clearPatientInfo: () => {
-        set(() => ({
-          patientInfo: { ...BLANK_PATIENT_INFO },
-        }));
-      },
       setNewPatient: () =>
         set({
           patientInfo: { ...NEW_PATIENT_INFO },
+          pendingPatientInfoUpdates: undefined,
         }),
     }),
     { name: 'telemed-patient-info-storage' },

@@ -1,8 +1,8 @@
 import { DateTime } from 'luxon';
 import { useMutation, useQuery } from 'react-query';
 import { ZapEHRAPIClient } from 'ottehr-components';
-import { usePatientInfoStore } from '../patient-info';
 import { useAppointmentStore } from './appointment.store';
+import { PatientInfo } from 'ottehr-utils';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useCreateAppointmentMutation = () =>
@@ -10,17 +10,18 @@ export const useCreateAppointmentMutation = () =>
     mutationFn: ({
       apiClient,
       unconfirmedDateOfBirth,
+      patientInfo,
     }: {
       apiClient: ZapEHRAPIClient;
-      unconfirmedDateOfBirth?: string;
+      unconfirmedDateOfBirth?: boolean;
+      patientInfo: PatientInfo;
     }) => {
       // const appointment = AppointmentStore.getState();
-      const patientInfo = usePatientInfoStore.getState();
       const appointment = useAppointmentStore.getState();
 
       return apiClient.createAppointment({
         // slot: intakeCommon.visitType === VisitType.WalkIn ? undefined : appointment.appointmentSlot,
-        patient: patientInfo.patientInfo,
+        patient: patientInfo,
         timezone: DateTime.now().zoneName,
         locationID: appointment.locationID,
         providerID: appointment.providerID,
@@ -29,10 +30,30 @@ export const useCreateAppointmentMutation = () =>
         scheduleType: appointment.scheduleType,
         visitType: appointment.visitType,
         visitService: appointment.visitService,
-        ...(unconfirmedDateOfBirth && { unconfirmedDateOfBirth }),
+        ...(unconfirmedDateOfBirth && { unconfirmedDateOfBirth: String(unconfirmedDateOfBirth) }),
       });
     },
   });
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useUpdateAppointmentMutation = () => {
+  return useMutation({
+    mutationFn: ({
+      apiClient,
+      appointmentID,
+      patientInfo,
+    }: {
+      apiClient: ZapEHRAPIClient;
+      patientInfo: PatientInfo;
+      appointmentID: string;
+    }) => {
+      return apiClient.updateAppointment({
+        appointmentId: appointmentID,
+        patient: patientInfo,
+      });
+    },
+  });
+};
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useCancelAppointmentMutation = () =>

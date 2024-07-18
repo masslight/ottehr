@@ -1,3 +1,5 @@
+import { PatientInfo } from './create-appointment.types';
+
 export interface CancelAppointmentRequestParams {
   appointmentID: string;
   cancellationReason: string;
@@ -5,7 +7,12 @@ export interface CancelAppointmentRequestParams {
 
 export interface UpdateAppointmentRequestParams {
   appointmentId: string;
-  slot: string | undefined;
+  patient: PatientInfo;
+  unconfirmedDateOfBirth?: boolean;
+}
+
+export interface UpdateAppointmentResponse {
+  appointmentId: string;
 }
 
 export interface GetTelemedAppointmentsRequest {

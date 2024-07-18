@@ -110,7 +110,7 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
   }
   console.log('creating appointment');
 
-  const { message, appointmentId, fhirPatientId } = await createAppointment(
+  const { message, appointmentId, patientId } = await createAppointment(
     patient,
     fhirClient,
     scheduleType,
@@ -126,7 +126,7 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
     secrets,
   );
 
-  await createAuditEvent(AuditableZambdaEndpoints.appointmentCreate, fhirClient, input, fhirPatientId, secrets);
+  await createAuditEvent(AuditableZambdaEndpoints.appointmentCreate, fhirClient, input, patientId, secrets);
 
   const response = { message, appointmentId };
   console.log(`fhirAppointment = ${JSON.stringify(response)}`, 'Telemed visit');
@@ -244,7 +244,7 @@ export async function createAppointment(
   const response: CreateAppointmentUCTelemedResponse = {
     message: 'Successfully created an appointment and encounter',
     appointmentId: appointment.id || '',
-    fhirPatientId: fhirPatient.id || '',
+    patientId: fhirPatient.id || '',
   };
 
   return response;
@@ -347,7 +347,6 @@ async function creatingPatientUpdateRequest(
             relationship: [
               {
                 coding: [
-                  // todo: this does not look like valid fhir...
                   {
                     system: `${PRIVATE_EXTENSION_BASE_URL}/relationship`,
                     code: patient.emailUser,
@@ -434,7 +433,6 @@ async function creatingPatientCreateRequest(
         relationship: [
           {
             coding: [
-              // todo: this does not look like valid fhir...
               {
                 system: `${PRIVATE_EXTENSION_BASE_URL}/relationship`,
                 code: patient.emailUser,
