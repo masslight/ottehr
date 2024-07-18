@@ -5,7 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import { getResource } from './Schedule';
+import { TIMEZONE_EXTENSION, getResource } from './Schedule';
 import { Resource } from 'fhir/r4';
 
 export default function AddSchedulePage(): ReactElement {
@@ -33,6 +33,15 @@ export default function AddSchedulePage(): ReactElement {
     const resource: Resource = await fhirClient.createResource({
       resourceType: getResource(scheduleType),
       name: scheduleType === 'provider' ? [{ given: [firstName], family: lastName }] : name,
+      // if it is a group, must add a default time zone extension
+      ...(scheduleType === 'group' && {
+        extension: [
+          {
+            url: TIMEZONE_EXTENSION,
+            valueString: 'America/New_York',
+          },
+        ],
+      }),
     });
     navigate(`/schedule/${scheduleType}/${resource.id}`);
     setLoading(false);
