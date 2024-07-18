@@ -192,24 +192,22 @@ export default function SchedulePage(): ReactElement {
       value: slug,
     };
 
-    let slugChanged = false;
+    let slugChanged = true;
     if (removingSlug && !hasSlug) {
       console.log('Removing slug but none set');
+      slugChanged = false;
     } else if (removingSlug && hasSlug) {
       console.log('Removing slug from identifiers');
       const identifiersUpdated = item?.identifier?.filter(
         (identifierTemp) => identifierTemp.system !== IDENTIFIER_SLUG,
       );
       identifiersTemp = identifiersUpdated;
-      slugChanged = true;
     } else if (!hasIdentifiers) {
       console.log('No identifiers, adding one');
       identifiersTemp = [updatedSlugIdentifier];
-      slugChanged = true;
     } else if (hasIdentifiers && !hasSlug) {
       console.log('Has identifiers without a slug, adding one');
       identifiersTemp.push(updatedSlugIdentifier);
-      slugChanged = true;
     } else if (hasIdentifiers && hasSlug) {
       console.log('Has identifiers with a slug, replacing one');
       const identifierIndex = item?.identifier?.findIndex(
@@ -218,7 +216,6 @@ export default function SchedulePage(): ReactElement {
 
       if (identifierIndex !== undefined && identifiers) {
         identifiersTemp[identifierIndex] = updatedSlugIdentifier;
-        slugChanged = true;
       }
     }
     const operation: Operation | undefined = slugChanged
