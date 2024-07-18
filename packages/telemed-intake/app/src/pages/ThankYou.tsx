@@ -1,14 +1,26 @@
 import { Link } from 'react-router-dom';
-import { Button, Divider, Grid, Typography } from '@mui/material';
+import { Button, Divider, Grid, Typography, useTheme } from '@mui/material';
 import { EventBusyOutlined } from '@mui/icons-material';
 import { IntakeFlowPageRoute } from '../App';
 import { CustomContainer } from '../features/common';
 import { otherColors } from '../IntakeThemeProvider';
+import { getSelectors } from 'ottehr-utils';
+import { useAppointmentStore } from '../features/appointments';
+import { DateTime } from 'luxon';
+import { FinancialPolicyDialog } from '../components/FinancialPolicyDialog';
+import { useState } from 'react';
 
 const ThankYou = (): JSX.Element => {
+  const theme = useTheme();
+  const [isPolicyDialogOpen, setIsPolicyDialogOpen] = useState(false);
+  const { selectedSlot } = getSelectors(useAppointmentStore, ['selectedSlot']);
+  console.log('selectedSlot', selectedSlot);
+
+  const formattedDate = selectedSlot ? DateTime.fromISO(selectedSlot).toFormat('d MMMM HH:mm') : '';
+
   return (
     <CustomContainer
-      title="Thank you for choosing Ottehr Urgent Care"
+      title="Thank you for choosing Ottehr Telemedicine"
       description="We look forward to helping you soon!"
       bgVariant={IntakeFlowPageRoute.Homepage.path}
     >
@@ -17,7 +29,7 @@ const ThankYou = (): JSX.Element => {
         <Grid container alignItems="center" marginTop={2} marginBottom={2}>
           <Grid item xs={12} md={9.5}>
             <Typography variant="subtitle1" color="text.primary">
-              Your check-in time is booked for:
+              Your check-in time is booked for: {formattedDate}
             </Typography>
           </Grid>
         </Grid>
@@ -43,22 +55,22 @@ const ThankYou = (): JSX.Element => {
           }}
         >
           <Typography variant="body2">
-            Please click the &quot;Proceed to paperwork&quot; button below to complete your paperwork prior to your
-            visit. If this is not completed in advance, your care may be delayed.
-          </Typography>
-          <Typography variant="body2" marginTop={2}>
             All patients that present with commercial insurance will be required to leave a credit card on file. More
             details on our financial policy can be found{' '}
-            <a target="_blank" href="https://ottehr.com" rel="noreferrer">
+            <span
+              style={{ cursor: 'pointer', color: theme.palette.primary.main, textDecoration: 'underline' }}
+              onClick={() => setIsPolicyDialogOpen(true)}
+            >
               here
-            </a>
+            </span>
             .
           </Typography>
         </div>
 
         <Typography variant="body2" marginTop={2}>
-          If you have any questions or concerns, please call our team at: <strong>(888) 764-4161</strong>.
+          If you have any questions or concerns, please call our team at: <strong>(123) 456-7890</strong>.
         </Typography>
+        {isPolicyDialogOpen && <FinancialPolicyDialog onClose={() => setIsPolicyDialogOpen(false)} />}
       </>
     </CustomContainer>
   );

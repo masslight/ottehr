@@ -22,6 +22,7 @@ import {
   PaperworkResponseWithoutResponses,
   PatientInfo,
   UpdateAppointmentRequestParams,
+  UpdateAppointmentResponse,
   UpdatePaperworkInput,
   UpdatePaperworkResponse,
   VideoChatCreateInviteResponse,
@@ -197,7 +198,7 @@ export const getZapEHRAPI = (
     return await makeZapRequest('cancel appointment', parameters, NotFoundApointmentErrorHandler);
   };
 
-  const updateAppointment = async (parameters: UpdateAppointmentRequestParams): Promise<any> => {
+  const updateAppointment = async (parameters: UpdateAppointmentRequestParams): Promise<UpdateAppointmentResponse> => {
     return await makeZapRequest('update appointment', parameters);
   };
 

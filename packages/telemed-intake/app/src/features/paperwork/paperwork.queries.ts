@@ -10,6 +10,7 @@ export const useGetPaperwork = (
   params?: {
     enabled?: boolean;
     staleTime?: number;
+    onError?: (error: any) => void;
   },
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
@@ -33,9 +34,11 @@ export const useGetPaperwork = (
         (isNullOrUndefined(params?.enabled) && Boolean(apiClient && appointmentID)),
       staleTime: params?.staleTime,
       onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching get paperwork: ', err);
-      },
+      onError:
+        params?.onError ||
+        ((err) => {
+          console.error('Error during fetching get paperwork: ', err);
+        }),
     },
   );
 };
