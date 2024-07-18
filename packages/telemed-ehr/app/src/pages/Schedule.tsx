@@ -178,12 +178,10 @@ export default function SchedulePage(): ReactElement {
     setItem(patchedResource);
   }
 
-  // todo: stop slug from exiting sometimes
   async function onSave(event: any): Promise<void> {
     event.preventDefault();
     setSaveLoading(true);
     const identifiers = item?.identifier || [];
-    const changed = false; // todo work with this. THis is so we do not make an api call unless we have to
     // make a copy of identifier
     let identifiersTemp: Identifier[] | undefined = [...identifiers];
     const hasIdentifiers = identifiersTemp.length > 0;
@@ -194,6 +192,7 @@ export default function SchedulePage(): ReactElement {
       value: slug,
     };
 
+    let slugChanged = false;
     if (removingSlug && !hasSlug) {
       console.log('Removing slug but none set');
     } else if (removingSlug && hasSlug) {
@@ -202,12 +201,15 @@ export default function SchedulePage(): ReactElement {
         (identifierTemp) => identifierTemp.system !== IDENTIFIER_SLUG,
       );
       identifiersTemp = identifiersUpdated;
+      slugChanged = true;
     } else if (!hasIdentifiers) {
       console.log('No identifiers, adding one');
       identifiersTemp = [updatedSlugIdentifier];
+      slugChanged = true;
     } else if (hasIdentifiers && !hasSlug) {
       console.log('Has identifiers without a slug, adding one');
       identifiersTemp.push(updatedSlugIdentifier);
+      slugChanged = true;
     } else if (hasIdentifiers && hasSlug) {
       console.log('Has identifiers with a slug, replacing one');
       const identifierIndex = item?.identifier?.findIndex(
@@ -216,16 +218,16 @@ export default function SchedulePage(): ReactElement {
 
       if (identifierIndex !== undefined && identifiers) {
         identifiersTemp[identifierIndex] = updatedSlugIdentifier;
+        slugChanged = true;
       }
     }
-    const operation: Operation | undefined =
-      identifiersTemp === undefined
-        ? undefined
-        : {
-            op: !hasIdentifiers ? 'add' : 'replace',
-            path: '/identifier',
-            value: identifiersTemp,
-          };
+    const operation: Operation | undefined = slugChanged
+      ? {
+          op: !hasIdentifiers ? 'add' : 'replace',
+          path: '/identifier',
+          value: identifiersTemp,
+        }
+      : undefined;
 
     // update timezone
     let timezoneOperation: Operation | undefined;
