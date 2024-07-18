@@ -1,5 +1,17 @@
 import { LoadingButton, TabContext, TabList, TabPanel } from '@mui/lab';
-import { Box, Button, FormLabel, Grid, Paper, Skeleton, Switch, Tab, TextField, Typography } from '@mui/material';
+import {
+  Autocomplete,
+  Box,
+  Button,
+  FormLabel,
+  Grid,
+  Paper,
+  Skeleton,
+  Switch,
+  Tab,
+  TextField,
+  Typography,
+} from '@mui/material';
 import { Address, Extension, HealthcareService, Identifier, Location, Practitioner } from 'fhir/r4';
 import { ReactElement, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
@@ -49,6 +61,7 @@ export default function SchedulePage(): ReactElement {
   const [item, setItem] = useState<Location | Practitioner | HealthcareService | undefined>(undefined);
   const [isItemActive, setIsItemActive] = useState<boolean>(false);
   const [slug, setSlug] = useState<string | undefined>(undefined);
+  const [timezone, setTimezone] = useState<string | undefined>(undefined);
   const [slugLoading, setSlugLoading] = useState<boolean>(false);
 
   const isActive = (item: Location | Practitioner | HealthcareService): boolean => {
@@ -325,6 +338,12 @@ export default function SchedulePage(): ReactElement {
 
                     <form onSubmit={(event) => updateSlug(event)}>
                       <TextField label="Slug" value={slug} onChange={(event) => setSlug(event.target.value)} />
+                      <br />
+                      <Autocomplete
+                        options={['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles']}
+                        renderInput={(params) => <TextField {...params} label="Timezone" />}
+                        sx={{ marginTop: 2 }}
+                      />
                       <br />
                       <LoadingButton type="submit" loading={slugLoading} variant="contained" sx={{ marginTop: 2 }}>
                         Save
