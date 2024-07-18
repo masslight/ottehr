@@ -26,7 +26,13 @@ import {
   mapPaperworkResponseItem,
   questionnaireItemToInputType,
 } from 'ottehr-utils';
-import { getM2MClientToken, getUser, getVideoEncounterForAppointment, userHasAccessToPatient } from '../../shared';
+import {
+  TIMEZONE_EXTENSION,
+  getM2MClientToken,
+  getUser,
+  getVideoEncounterForAppointment,
+  userHasAccessToPatient,
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetPaperworkInput {
@@ -328,9 +334,7 @@ function getPaperworkForUserWithoutAccess(
         address: location?.address,
         telecom: location?.telecom,
         hoursOfOperation: location?.hoursOfOperation,
-        timezone: location?.extension?.find(
-          (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION,
-        )?.valueString,
+        timezone: location?.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION)?.valueString,
         otherOffices: location ? getOtherOfficesForLocation(location) : [],
       },
     },
