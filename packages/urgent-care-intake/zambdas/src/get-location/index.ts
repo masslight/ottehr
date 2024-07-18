@@ -98,7 +98,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
     console.log(`successfully retrieved location with id ${location.id}`);
     const timezone = location.extension?.find(
-      (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION,
+      (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL,
     )?.valueString;
 
     if (!timezone) {

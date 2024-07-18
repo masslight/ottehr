@@ -27,7 +27,7 @@ import {
   questionnaireItemToInputType,
 } from 'ottehr-utils';
 import {
-  TIMEZONE_EXTENSION,
+  TIMEZONE_EXTENSION_URL,
   getM2MClientToken,
   getUser,
   getVideoEncounterForAppointment,
@@ -334,7 +334,7 @@ function getPaperworkForUserWithoutAccess(
         address: location?.address,
         telecom: location?.telecom,
         hoursOfOperation: location?.hoursOfOperation,
-        timezone: location?.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION)?.valueString,
+        timezone: location?.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL)?.valueString,
         otherOffices: location ? getOtherOfficesForLocation(location) : [],
       },
     },

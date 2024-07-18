@@ -34,7 +34,7 @@ import { appointmentTypeForAppointment, sortAppointments } from '../shared/queue
 import { ZambdaInput } from '../types';
 import { validateRequestParameters } from './validateRequestParameters';
 import { formatHumanName } from '@zapehr/sdk';
-import { TIMEZONE_EXTENSION } from '../shared/constants';
+import { TIMEZONE_EXTENSION_URL } from '../shared/constants';
 
 export interface GetAppointmentsInput {
   searchDate: string;
@@ -76,7 +76,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             resourceType: 'Location',
           });
           timezone = fhirLocation?.extension?.find(
-            (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION,
+            (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL,
           )?.valueString;
           if (timezone) {
             timezoneMap.set(locationID, timezone);
