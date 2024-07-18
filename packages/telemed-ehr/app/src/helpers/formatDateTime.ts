@@ -1,5 +1,6 @@
 import { Location } from 'fhir/r4';
 import { DateTime } from 'luxon';
+import { TIMEZONE_EXTENSION } from '../pages/Schedule';
 
 export const OVERRIDE_DATE_FORMAT = 'M/d/yyyy';
 
@@ -75,7 +76,7 @@ export function getTimezone(location: Location | undefined): string {
   let timezone = 'America/New_York';
   if (location) {
     const timezoneTemp = location.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone',
+      (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION,
     )?.valueString;
     if (timezoneTemp) timezone = timezoneTemp;
   }

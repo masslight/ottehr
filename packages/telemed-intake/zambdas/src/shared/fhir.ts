@@ -12,6 +12,8 @@ import {
   getSecret,
 } from 'ottehr-utils';
 
+export const TIMEZONE_EXTENSION = 'http://hl7.org/fhir/StructureDefinition/timezone';
+
 export async function getPatientResource(patientID: string, fhirClient: FhirClient): Promise<Patient> {
   const response: Patient = await fhirClient.readResource({
     resourceType: 'Patient',
@@ -67,7 +69,7 @@ export async function createConsentItems(
     )?.valueCoding?.code === 'vi';
 
   const timezone = locationResource.extension?.find(
-    (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone',
+    (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION,
   )?.valueString;
 
   const facilityName = isVirtualLocation
