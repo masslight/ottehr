@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { Button, Divider, Grid, Typography, useTheme } from '@mui/material';
 import { EventBusyOutlined } from '@mui/icons-material';
 import { IntakeFlowPageRoute } from '../App';
@@ -9,12 +8,13 @@ import { useAppointmentStore } from '../features/appointments';
 import { DateTime } from 'luxon';
 import { FinancialPolicyDialog } from '../components/FinancialPolicyDialog';
 import { useState } from 'react';
+import { CancelVisitDialog } from '../components';
 
 const ThankYou = (): JSX.Element => {
   const theme = useTheme();
   const [isPolicyDialogOpen, setIsPolicyDialogOpen] = useState(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const { selectedSlot } = getSelectors(useAppointmentStore, ['selectedSlot']);
-  console.log('selectedSlot', selectedSlot);
 
   const formattedDate = selectedSlot ? DateTime.fromISO(selectedSlot).toFormat('d MMMM HH:mm') : '';
 
@@ -35,11 +35,10 @@ const ThankYou = (): JSX.Element => {
         </Grid>
         <Divider sx={{ marginBottom: 2 }} />
 
-        <Link to="cancellation-reason">
-          <Button startIcon={<EventBusyOutlined />} sx={{ marginLeft: 1.5 }}>
-            Cancel
-          </Button>
-        </Link>
+        {isCancelDialogOpen && <CancelVisitDialog onClose={() => setIsCancelDialogOpen(false)} />}
+        <Button startIcon={<EventBusyOutlined />} sx={{ marginLeft: 1.5 }} onClick={() => setIsCancelDialogOpen(true)}>
+          Cancel
+        </Button>
 
         <Typography variant="body2" marginTop={2}>
           You will receive a confirmation email and SMS for your upcoming check-in time shortly. If you need to make any
