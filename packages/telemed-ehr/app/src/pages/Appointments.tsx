@@ -18,7 +18,7 @@ import PageContainer from '../layout/PageContainer';
 import { VisitType, VisitTypeToLabel } from '../types/types';
 import ProvidersSelect from '../components/inputs/ProvidersSelect';
 import GroupSelect from '../components/inputs/GroupSelect';
-import { TIMEZONE_EXTENSION_URL } from './Schedule';
+import { TIMEZONE_EXTENSION_URL } from '../constants';
 
 type LoadingState = { status: 'loading' | 'initial'; id?: string | undefined } | { status: 'loaded'; id: string };
 

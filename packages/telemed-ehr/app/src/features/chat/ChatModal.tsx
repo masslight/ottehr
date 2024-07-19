@@ -28,7 +28,7 @@ import {
 import { useApiClients } from '../../hooks/useAppClients';
 import useOttehrUser, { OttehrUser } from '../../hooks/useOttehrUser';
 import { useFetchChatMessagesQuery, useSendMessagesMutation } from './chat.queries';
-import { TIMEZONE_EXTENSION_URL } from '../../pages/Schedule';
+import { TIMEZONE_EXTENSION_URL } from '../../constants';
 
 interface PatientParticipant {
   firstName: string;
