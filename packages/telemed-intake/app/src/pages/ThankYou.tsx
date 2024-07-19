@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { Button, Divider, Grid, Typography, useTheme } from '@mui/material';
 import { EventBusyOutlined } from '@mui/icons-material';
 import { IntakeFlowPageRoute } from '../App';
@@ -16,7 +15,6 @@ const ThankYou = (): JSX.Element => {
   const [isPolicyDialogOpen, setIsPolicyDialogOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const { selectedSlot } = getSelectors(useAppointmentStore, ['selectedSlot']);
-  console.log('selectedSlot', selectedSlot);
 
   const formattedDate = selectedSlot ? DateTime.fromISO(selectedSlot).toFormat('d MMMM HH:mm') : '';
 
