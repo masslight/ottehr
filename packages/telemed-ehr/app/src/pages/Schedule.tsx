@@ -1,5 +1,5 @@
 import { LoadingButton, TabContext, TabList, TabPanel } from '@mui/lab';
-import { Box, Button, FormLabel, Grid, Paper, Skeleton, Switch, Tab, TextField, Typography } from '@mui/material';
+import { Autocomplete, Box, Button, Grid, Paper, Skeleton, Switch, Tab, TextField, Typography } from '@mui/material';
 import { Address, Extension, HealthcareService, Identifier, Location, Practitioner } from 'fhir/r4';
 import { ReactElement, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
@@ -12,27 +12,13 @@ import { getName } from '../components/ScheduleInformation';
 import Loading from '../components/Loading';
 import GroupSchedule from '../components/schedule/GroupSchedule';
 import { Operation } from 'fast-json-patch';
+import { getTimezone } from '../helpers/formatDateTime';
+import { getResource } from '../helpers/schedule';
+import { TIMEZONES, TIMEZONE_EXTENSION_URL } from '../constants';
 
 const START_SCHEDULE =
   '{"schedule":{"monday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"tuesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"wednesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"thursday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"friday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"saturday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"sunday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]}},"scheduleOverrides":{}}';
 const IDENTIFIER_SLUG = 'https://fhir.ottehr.com/r4/slug';
-
-export const TIMEZONE_EXTENSION = 'http://hl7.org/fhir/StructureDefinition/timezone';
-
-export function getResource(
-  scheduleType: 'office' | 'provider' | 'group',
-): 'Location' | 'Practitioner' | 'HealthcareService' {
-  if (scheduleType === 'office') {
-    return 'Location';
-  } else if (scheduleType === 'provider') {
-    return 'Practitioner';
-  } else if (scheduleType === 'group') {
-    return 'HealthcareService';
-  }
-
-  console.log(`'scheduleType unknown ${scheduleType}`);
-  throw new Error('scheduleType unknown');
-}
 
 export default function SchedulePage(): ReactElement {
   // Define variables to interact w database and navigate to other pages
@@ -49,7 +35,8 @@ export default function SchedulePage(): ReactElement {
   const [item, setItem] = useState<Location | Practitioner | HealthcareService | undefined>(undefined);
   const [isItemActive, setIsItemActive] = useState<boolean>(false);
   const [slug, setSlug] = useState<string | undefined>(undefined);
-  const [slugLoading, setSlugLoading] = useState<boolean>(false);
+  const [timezone, setTimezone] = useState<string | undefined>(undefined);
+  const [saveLoading, setSaveLoading] = useState<boolean>(false);
 
   const isActive = (item: Location | Practitioner | HealthcareService): boolean => {
     if (item.resourceType === 'Location') {
@@ -72,6 +59,7 @@ export default function SchedulePage(): ReactElement {
       setItem(itemTemp);
       const slugTemp = itemTemp?.identifier?.find((identifierTemp) => identifierTemp.system === IDENTIFIER_SLUG);
       setSlug(slugTemp?.value);
+      setTimezone(getTimezone(itemTemp));
       setIsItemActive(isActive(itemTemp));
     }
     void getItem(getResource(scheduleType));
@@ -151,9 +139,9 @@ export default function SchedulePage(): ReactElement {
     ];
 
     // if there is no timezone extension, add it. The default timezone is America/New_York
-    if (!item?.extension?.some((ext) => ext.url === TIMEZONE_EXTENSION)) {
+    if (!item?.extension?.some((ext) => ext.url === TIMEZONE_EXTENSION_URL)) {
       scheduleExtension.push({
-        url: TIMEZONE_EXTENSION,
+        url: TIMEZONE_EXTENSION_URL,
         valueString: 'America/New_York',
       });
     }
@@ -174,9 +162,9 @@ export default function SchedulePage(): ReactElement {
     setItem(patchedResource);
   }
 
-  async function updateSlug(event: any): Promise<void> {
+  async function onSave(event: any): Promise<void> {
     event.preventDefault();
-    setSlugLoading(true);
+    setSaveLoading(true);
     const identifiers = item?.identifier || [];
     // make a copy of identifier
     let identifiersTemp: Identifier[] | undefined = [...identifiers];
@@ -188,10 +176,10 @@ export default function SchedulePage(): ReactElement {
       value: slug,
     };
 
+    let slugChanged = true;
     if (removingSlug && !hasSlug) {
       console.log('Removing slug but none set');
-      setSlugLoading(false);
-      return;
+      slugChanged = false;
     } else if (removingSlug && hasSlug) {
       console.log('Removing slug from identifiers');
       const identifiersUpdated = item?.identifier?.filter(
@@ -214,19 +202,65 @@ export default function SchedulePage(): ReactElement {
         identifiersTemp[identifierIndex] = updatedSlugIdentifier;
       }
     }
-    const operation: Operation = {
-      op: !hasIdentifiers ? 'add' : 'replace',
-      path: '/identifier',
-      value: identifiersTemp,
-    };
+    const operation: Operation | undefined = slugChanged
+      ? {
+          op: !hasIdentifiers ? 'add' : 'replace',
+          path: '/identifier',
+          value: identifiersTemp,
+        }
+      : undefined;
+
+    // update timezone
+    let timezoneOperation: Operation | undefined;
+    const timezoneExtensionIndex = item?.extension?.findIndex((ext) => ext.url === TIMEZONE_EXTENSION_URL);
+    if (timezoneExtensionIndex !== undefined && timezoneExtensionIndex >= 0) {
+      // if there is no change in timezone, do nothing
+      if (item?.extension?.[timezoneExtensionIndex]?.valueString === timezone) {
+        console.log('No change in timezone');
+      }
+      // if there is an existing timezone, replace it
+      else {
+        console.log('Replacing existing timezone');
+        timezoneOperation = {
+          op: 'replace',
+          path: `/extension/${timezoneExtensionIndex}/valueString`,
+          value: timezone,
+        };
+      }
+    }
+    // if there is no timezone, add one
+    else {
+      console.log('Adding new timezone');
+      timezoneOperation = {
+        op: 'add',
+        path: '/extension',
+        value: [
+          {
+            url: TIMEZONE_EXTENSION_URL,
+            valueString: timezone,
+          },
+        ],
+      };
+    }
+
+    const patchOperations: Operation[] = [operation, timezoneOperation].filter(
+      (operation) => operation !== undefined,
+    ) as Operation[];
+
+    if (patchOperations.length === 0) {
+      console.log('No operations to save');
+      setSaveLoading(false);
+      return;
+    }
 
     const itemTemp = await fhirClient?.patchResource({
       resourceType: getResource(scheduleType),
       resourceId: id,
-      operations: [operation],
+      operations: patchOperations,
     });
+
     setItem(itemTemp as Location | Practitioner | HealthcareService);
-    setSlugLoading(false);
+    setSaveLoading(false);
   }
 
   const setStatus = async (item: Location | Practitioner | HealthcareService, isActive: boolean): Promise<void> => {
@@ -323,10 +357,27 @@ export default function SchedulePage(): ReactElement {
                     <hr />
                     <br />
 
-                    <form onSubmit={(event) => updateSlug(event)}>
-                      <TextField label="Slug" value={slug} onChange={(event) => setSlug(event.target.value)} />
+                    <form onSubmit={(event) => onSave(event)}>
+                      <TextField
+                        label="Slug"
+                        value={slug}
+                        onChange={(event) => setSlug(event.target.value)}
+                        sx={{ width: '250px' }}
+                      />
                       <br />
-                      <LoadingButton type="submit" loading={slugLoading} variant="contained" sx={{ marginTop: 2 }}>
+                      <Autocomplete
+                        options={TIMEZONES}
+                        renderInput={(params) => <TextField {...params} label="Timezone" />}
+                        sx={{ marginTop: 2, width: '250px' }}
+                        value={timezone}
+                        onChange={(event, newValue) => {
+                          if (newValue) {
+                            setTimezone(newValue);
+                          }
+                        }}
+                      />
+                      <br />
+                      <LoadingButton type="submit" loading={saveLoading} variant="contained" sx={{ marginTop: 2 }}>
                         Save
                       </LoadingButton>
                     </form>

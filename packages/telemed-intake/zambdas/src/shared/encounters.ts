@@ -6,7 +6,7 @@ import {
   getParticipantFromAppointment,
   getVirtualServiceResourceExtension,
 } from 'ottehr-utils';
-import { TIMEZONE_EXTENSION } from './fhir';
+import { TIMEZONE_EXTENSION_URL } from './fhir';
 
 interface EncounterDetails {
   encounter: Encounter;
@@ -62,7 +62,8 @@ export const getEncounterDetails = async (appointmentID: string, fhirClient: Fhi
       slug:
         fhirLocation.identifier?.find((identifierTemp) => identifierTemp.system === 'https://fhir.ottehr.com/r4/slug')
           ?.value || 'Unknown',
-      timezone: fhirLocation.extension?.find((extTemp) => extTemp.url === TIMEZONE_EXTENSION)?.valueString || 'Unknown',
+      timezone:
+        fhirLocation.extension?.find((extTemp) => extTemp.url === TIMEZONE_EXTENSION_URL)?.valueString || 'Unknown',
     };
   } catch (error: any) {
     throw new Error('Error getting location details');

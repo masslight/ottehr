@@ -1,6 +1,6 @@
-import { Location } from 'fhir/r4';
+import { HealthcareService, Location, Practitioner } from 'fhir/r4';
 import { DateTime } from 'luxon';
-import { TIMEZONE_EXTENSION } from '../pages/Schedule';
+import { TIMEZONE_EXTENSION_URL } from '../constants';
 
 export const OVERRIDE_DATE_FORMAT = 'M/d/yyyy';
 
@@ -72,11 +72,11 @@ export function formatISOStringToDateAndTime(isoString: string): string {
   return formattedDateTime;
 }
 
-export function getTimezone(location: Location | undefined): string {
+export function getTimezone(resource: Location | Practitioner | HealthcareService | undefined): string {
   let timezone = 'America/New_York';
-  if (location) {
-    const timezoneTemp = location.extension?.find(
-      (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION,
+  if (resource) {
+    const timezoneTemp = resource.extension?.find(
+      (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL,
     )?.valueString;
     if (timezoneTemp) timezone = timezoneTemp;
   }

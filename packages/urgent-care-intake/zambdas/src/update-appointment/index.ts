@@ -96,7 +96,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     if (relatedPerson) {
       const conversationSID = await getConversationSIDForRelatedPersons([relatedPerson], fhirClient);
       const timezone = fhirLocation.extension?.find(
-        (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION,
+        (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL,
       )?.valueString;
       await sendMessages(
         getPatientContactEmail(fhirPatient), // todo use the right email

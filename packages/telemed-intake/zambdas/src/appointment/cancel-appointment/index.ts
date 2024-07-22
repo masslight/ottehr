@@ -21,7 +21,7 @@ import {
 } from 'ottehr-utils';
 import { AuditableZambdaEndpoints, createAuditEvent, getVideoEncounterForAppointment, sendSms } from '../../shared';
 import { sendCancellationEmail } from '../../shared/communication';
-import { TIMEZONE_EXTENSION, getPatientResource } from '../../shared/fhir';
+import { TIMEZONE_EXTENSION_URL, getPatientResource } from '../../shared/fhir';
 import { getRelatedPersonForPatient } from '../../shared/patients';
 import { validateBundleAndExtractAppointment } from '../../shared/validateBundleAndExtractAppointment';
 import { getPatientContactEmail } from '../create-appointment';
@@ -240,7 +240,7 @@ const getCancellationEmailDetails = async (
       resourceType: 'Location',
       resourceId: locationId,
     });
-    const timezone = location.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION)?.valueString;
+    const timezone = location.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL)?.valueString;
 
     const visitType =
       appointment.appointmentType?.coding

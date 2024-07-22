@@ -426,7 +426,7 @@ function getPaperworkForUserWithoutAccess(
         telecom: location?.telecom,
         hoursOfOperation: location?.hoursOfOperation,
         timezone: location?.extension?.find(
-          (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION,
+          (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL,
         )?.valueString,
       },
       visitType: appointment?.appointmentType?.text as VisitType,

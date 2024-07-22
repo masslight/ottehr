@@ -133,7 +133,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
                   identifierTemp.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/location',
               )?.value || 'Unknown',
             timezone:
-              location.extension?.find((extTemp) => extTemp.url === TIMEZONE_EXTENSION)
+              location.extension?.find((extTemp) => extTemp.url === TIMEZONE_EXTENSION_URL)
                 ?.valueString || 'Unknown',
           },
           paperworkComplete:
