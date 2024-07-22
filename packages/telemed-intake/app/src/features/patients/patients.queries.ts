@@ -7,7 +7,6 @@ export const useGetPatients = (
   onSuccess: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['getPatients']>>) => void,
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
-  console.log(100);
   return useQuery(
     ['patients'],
     () => {

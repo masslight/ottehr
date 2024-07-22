@@ -18,6 +18,7 @@ import PageContainer from '../layout/PageContainer';
 import { VisitType, VisitTypeToLabel } from '../types/types';
 import ProvidersSelect from '../components/inputs/ProvidersSelect';
 import GroupSelect from '../components/inputs/GroupSelect';
+import { TIMEZONE_EXTENSION_URL } from '../constants';
 
 type LoadingState = { status: 'loading' | 'initial'; id?: string | undefined } | { status: 'loaded'; id: string };
 
@@ -224,9 +225,8 @@ export default function Appointments(): ReactElement {
       pageIsVisible
     ) {
       const timezone =
-        locationSelected?.extension?.find(
-          (extTemp) => extTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone',
-        )?.valueString ?? 'America/New_York';
+        locationSelected?.extension?.find((extTemp) => extTemp.url === TIMEZONE_EXTENSION_URL)?.valueString ??
+        'America/New_York';
       const searchDateToUse =
         (searchDate && DateTime.fromISO(searchDate, { zone: timezone })) || appointmentDate || undefined;
       void fetchStuff(zambdaClient, searchDateToUse);
@@ -398,7 +398,6 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                       textTransform: 'none',
                       fontWeight: 600,
                     }}
-                    color="secondary"
                     variant="contained"
                   >
                     <AddIcon />

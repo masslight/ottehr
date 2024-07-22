@@ -1,1 +1,1 @@
-export type StringFormat = 'Phone Number' | 'Email' | 'State' | 'ZIP' | 'Signature';
+export type StringFormat = 'Phone Number' | 'Decimal' | 'Email' | 'State' | 'ZIP' | 'Signature';

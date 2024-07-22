@@ -121,39 +121,6 @@ jobs:
           BRANCH: ${{ github.ref }}
           PACKAGE_VERSION: ${{ steps.package-version.outputs.current-version }}
         with:
-<<<<<<< HEAD
-<<<<<<< HEAD
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Deploy to AWS S3
-        run: |
-          aws s3 sync ./packages/telemed-intake/app/build s3://telemed.ottehr.com --delete
-
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-      - name: Deploy to AWS Lambda
-        run: |
-          aws lambda update-function-code --function-name ottehr-telemed-intake-dev --zip-file fileb://function.zip
-
->>>>>>> 722ec45 (fix build errors and create deploy file)
-=======
->>>>>>> 358b140 (remove vercel from deploy yml)
-      - name: Notify Slack
-        if: always()
-        uses: edge/simple-slack-notify@v1.1.2
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          BRANCH: ${{ github.ref }}
-          PACKAGE_VERSION: ${{ steps.package-version.outputs.current-version }}
-        with:
-=======
->>>>>>> dbbf36e (complete build for telemed intake)
-=======
->>>>>>> 9dc5508 (refactor deploy scripts)
           channel: '#ottehr-notifications'
           status: ${{ job.status }}
           success_text: '${{ env.GITHUB_WORKFLOW }} (Run #${{ env.GITHUB_RUN_NUMBER }}) deploy completed successfully'
@@ -165,30 +132,3 @@ jobs:
             { "title": "Branch", "value": "${{ env.BRANCH }}", "short": true },
             { "title": "Environment", "value": "${{ env.ENVIRONMENT }}", "short": true },
             { "title": "Version", "value": "${{ env.PACKAGE_VERSION }}", "short": true }]
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-      # - name: Notify Slack
-      #   if: always()
-      #   uses: edge/simple-slack-notify@v1.1.2
-      #   env:
-      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      #     BRANCH: ${{ github.ref }}
-      #     PACKAGE_VERSION: ${{ steps.package-version.outputs.current-version }}
-      #   with:
-      #     channel: '#ottehr-notifications'
-      #     status: ${{ job.status }}
-      #     success_text: '${{ env.GITHUB_WORKFLOW }} (Run #${{ env.GITHUB_RUN_NUMBER }}) deploy completed successfully'
-      #     failure_text: '${{ env.GITHUB_WORKFLOW }} (Run #${{ env.GITHUB_RUN_NUMBER }}) deploy failed'
-      #     cancelled_text: '${{ env.GITHUB_WORKFLOW }} (Run #${{ env.GITHUB_RUN_NUMBER }}) deploy was cancelled'
-      #     fields: |
-      #       [{ "title": "Service", "value": "${{ env.SLACK_NOTIFICATION_SERVICE_NAME }}", "short": true },
-      #       { "title": "Action URL", "value": "${{ env.GITHUB_SERVER_URL }}/${{ env.GITHUB_REPOSITORY }}/actions/runs/${{ env.GITHUB_RUN_ID }}"},
-      #       { "title": "Branch", "value": "${{ env.BRANCH }}", "short": true },
-      #       { "title": "Environment", "value": "${{ env.ENVIRONMENT }}", "short": true },
-      #       { "title": "Version", "value": "${{ env.PACKAGE_VERSION }}", "short": true }]
->>>>>>> bf2b1b4 (checkout the env variables from secrets repo)
-=======
->>>>>>> dbbf36e (complete build for telemed intake)
-=======
->>>>>>> 9dc5508 (refactor deploy scripts)

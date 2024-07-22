@@ -2,8 +2,6 @@ import { ClientConfig, FhirClient } from '@zapehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Coding, Encounter, Meta, Patient, RelatedPerson, Resource } from 'fhir/r4';
 import {
-  CancellationReasonCodesTelemed,
-  CancellationReasonOptionsTelemed,
   ConsentSigner,
   OTTEHR_MODULE,
   Secrets,
@@ -13,6 +11,8 @@ import {
   getLocationResource,
   getSecret,
 } from 'ottehr-utils';
+
+export const TIMEZONE_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/timezone';
 
 export async function getPatientResource(patientID: string, fhirClient: FhirClient): Promise<Patient> {
   const response: Patient = await fhirClient.readResource({
@@ -69,7 +69,7 @@ export async function createConsentItems(
     )?.valueCoding?.code === 'vi';
 
   const timezone = locationResource.extension?.find(
-    (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone',
+    (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL,
   )?.valueString;
 
   const facilityName = isVirtualLocation
@@ -168,47 +168,6 @@ export async function updateEncounterResource(
     return response;
   } catch (error: unknown) {
     throw new Error(`Failed to update encounter: ${JSON.stringify(error)}`);
-  }
-}
-
-export async function cancelAppointmentResource(
-  appointment: Appointment,
-  cancellationReason: CancellationReasonOptionsTelemed,
-  fhirClient: FhirClient,
-): Promise<Appointment> {
-  if (!appointment.id) {
-    throw Error('Appointment resource missing id');
-  }
-
-  try {
-    const response: Appointment = await fhirClient.patchResource({
-      resourceType: 'Appointment',
-      resourceId: appointment.id,
-      operations: [
-        {
-          op: 'replace',
-          path: '/status',
-          value: 'cancelled',
-        },
-        {
-          op: 'add',
-          path: '/cancelationReason',
-          value: {
-            coding: [
-              {
-                // todo reassess codes and reasons, just using custom codes atm
-                system: 'http://terminology.hl7.org/CodeSystem/appointment-cancellation-reason',
-                code: CancellationReasonCodesTelemed[cancellationReason],
-                display: cancellationReason,
-              },
-            ],
-          },
-        },
-      ],
-    });
-    return response;
-  } catch (error: unknown) {
-    throw new Error(`Failed to cancel Appointment: ${JSON.stringify(error)}`);
   }
 }
 

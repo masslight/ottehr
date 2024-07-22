@@ -76,7 +76,7 @@ export default function EditStatePage(): JSX.Element {
             {/* Page Title */}
             <Typography
               variant="h3"
-              color="primary.dark"
+              color="primary.main"
               marginTop={2}
               sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', fontWeight: '600 !important' }}
             >
@@ -86,7 +86,7 @@ export default function EditStatePage(): JSX.Element {
             {/* Page Content */}
             <Paper sx={{ padding: 3 }}>
               <FormLabel
-                sx={{ ...theme.typography.h4, color: theme.palette.primary.dark, mb: 1, fontWeight: '600 !important' }}
+                sx={{ ...theme.typography.h4, color: theme.palette.primary.main, mb: 1, fontWeight: '600 !important' }}
               >
                 State information
               </FormLabel>

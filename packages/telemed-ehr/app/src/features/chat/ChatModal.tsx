@@ -28,6 +28,7 @@ import {
 import { useApiClients } from '../../hooks/useAppClients';
 import useOttehrUser, { OttehrUser } from '../../hooks/useOttehrUser';
 import { useFetchChatMessagesQuery, useSendMessagesMutation } from './chat.queries';
+import { TIMEZONE_EXTENSION_URL } from '../../constants';
 
 interface PatientParticipant {
   firstName: string;
@@ -99,7 +100,7 @@ const ChatModal = memo(
       // const state = currentLocation?.address?.state;
       return (
         currentLocation?.extension?.find((ext) => {
-          return ext.url === 'http://hl7.org/fhir/StructureDefinition/timezone';
+          return ext.url === TIMEZONE_EXTENSION_URL;
         })?.valueString ?? 'America/New_York'
       );
     }, [currentLocation]);

@@ -249,7 +249,6 @@ export async function createAppointment(
               relationship: [
                 {
                   coding: [
-                    // todo: this does not look like valid fhir...
                     {
                       system: `${PRIVATE_EXTENSION_BASE_URL}/relationship`,
                       code: patient.emailUser,
@@ -319,7 +318,6 @@ export async function createAppointment(
           relationship: [
             {
               coding: [
-                // todo: this does not look like valid fhir...
                 {
                   system: `${PRIVATE_EXTENSION_BASE_URL}/relationship`,
                   code: patient.emailUser,
@@ -555,7 +553,7 @@ export async function createAppointment(
 
   if (conversationSID) {
     const timezone = fhirLocation.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone',
+      (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL,
     )?.valueString;
     await sendMessages(
       getPatientContactEmail(fhirPatient),

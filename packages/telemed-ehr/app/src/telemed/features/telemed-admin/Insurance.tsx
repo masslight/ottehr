@@ -140,7 +140,6 @@ export default function Insurances(): ReactElement {
                   width: '100%',
                   fontWeight: 600,
                 }}
-                color="secondary"
                 variant="contained"
               >
                 <AddIcon />

@@ -1,6 +1,6 @@
 import { BatchInputPatchRequest } from '@zapehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Coding, Resource } from 'fhir/r4';
+import { Coding, Extension, Resource } from 'fhir/r4';
 
 export interface GetPatchBinaryInput {
   resourceId: string;
@@ -92,4 +92,77 @@ export const getPatchOperationToRemoveMetaTags = (resource: Resource, tagsToRemo
     path: '/meta/tag',
     value: filtered,
   };
+};
+
+export const getPatchOperationToUpdateExtension = (
+  resource: { extension?: Extension[] },
+  newExtension: { url: Extension['url']; valueString: Extension['valueString'] },
+): Operation | undefined => {
+  if (!resource.extension) {
+    return {
+      op: 'add',
+      path: '/extension',
+      value: [newExtension],
+    };
+  }
+
+  const extension = resource.extension;
+  let requiresUpdate = false;
+
+  if (extension.length > 0) {
+    const existingExtIndex = extension.findIndex((ext) => ext.url === newExtension.url);
+    // check if formUser exists and needs to be updated and if so, update
+    if (existingExtIndex >= 0 && extension[existingExtIndex].valueString !== newExtension.valueString) {
+      extension[existingExtIndex] = newExtension;
+      requiresUpdate = true;
+    } else if (existingExtIndex < 0) {
+      // if form user does not exist within the extension
+      // push to patientExtension array
+      extension.push(newExtension);
+      requiresUpdate = true;
+    }
+  } else {
+    // since no extensions exist, it must be added via patch operations
+    extension.push(newExtension);
+    requiresUpdate = true;
+  }
+
+  if (requiresUpdate) {
+    return {
+      op: 'replace',
+      path: '/extension',
+      value: extension,
+    };
+  }
+
+  return undefined;
+};
+
+export const getPatchOperationToRemoveExtension = (
+  resource: { extension?: Extension[] },
+  extensionToRemove: { url: Extension['url'] },
+): Operation | undefined => {
+  if (!resource.extension || resource.extension.length === 0) {
+    return undefined;
+  }
+
+  const extension = resource.extension;
+
+  const existingExtIndex = extension.findIndex((ext) => ext.url === extensionToRemove.url);
+  // check if formUser exists and needs to be updated and if so, update
+  if (existingExtIndex < 0) {
+    return undefined;
+  }
+
+  if (extension.length > 1) {
+    return {
+      op: 'remove',
+      path: `/extension/${existingExtIndex}`,
+    };
+  } else {
+    return {
+      op: 'remove',
+      path: '/extension',
+    };
+  }
 };

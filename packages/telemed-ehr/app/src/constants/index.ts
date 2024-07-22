@@ -22,3 +22,6 @@ export const phoneNumberRegex = /^\d{10}$/;
 export const MAXIMUM_CHARACTER_LIMIT = 160;
 
 export const HOP_QUEUE_URI = 'hop-queue';
+
+export const TIMEZONE_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/timezone';
+export const TIMEZONES = ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles'];
