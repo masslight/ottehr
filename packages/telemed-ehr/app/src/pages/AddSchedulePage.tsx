@@ -5,7 +5,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import { TIMEZONE_EXTENSION_URL, getResource } from './Schedule';
+import { getResource } from '../helpers/schedule';
+import { TIMEZONE_EXTENSION_URL } from '../constants';
 import { Resource } from 'fhir/r4';
 
 export default function AddSchedulePage(): ReactElement {
