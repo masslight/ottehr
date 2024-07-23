@@ -74,7 +74,6 @@ export const filterAppointmentsFromResources = (
           return;
         }
         const practitioner = practitionerIDs[practitionerTemp.actor.reference];
-        console.log(1, practitionerTemp, practitionerIDs);
         if (!practitioner.name) {
           return;
         }
@@ -89,7 +88,6 @@ export const filterAppointmentsFromResources = (
           return;
         }
         const healthcareService = healthcareServiceIDs[healthcareServiceTemp.actor.reference];
-        console.log(1, healthcareServiceTemp, healthcareServiceIDs);
         if (!healthcareService.name) {
           return;
         }

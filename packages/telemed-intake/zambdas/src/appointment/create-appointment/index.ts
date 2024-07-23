@@ -671,7 +671,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     appointmentType: {
       coding: [
         {
-          system: 'http://terminology.hl7.org/CodeSystem/v2-0276',
+          system: 'http://terminology.hl7.org/CodeSystem/v2-0277',
           code: visitType,
           display: visitType,
         },

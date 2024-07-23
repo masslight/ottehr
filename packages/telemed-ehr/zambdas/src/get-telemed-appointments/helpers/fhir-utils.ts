@@ -99,7 +99,6 @@ export const getAllResourcesFromFhir = async (
       value: providerIDs.map((providerID) => `Practitioner/${providerID}`).join(','),
     });
   }
-  console.log(1, groupIDs);
   if (groupIDs.length > 0) {
     fhirSearchParams.searchParams.push({
       name: 'actor',

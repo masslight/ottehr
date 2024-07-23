@@ -31,6 +31,8 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
     ['appointments', 'state', 'unsignedFor', 'availableStates', 'isAppointmentsLoading'],
   );
 
+  console.log('appointments', appointments);
+
   const filteredAppointments = filterAppointments(appointments, unsignedFor, tab);
 
   const showEstimated = tab === ApptTab.ready;

@@ -202,7 +202,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         value: groupIDs.map((groupID) => `HealthcareService/${groupID}`).join(','),
       });
     }
-    console.log(1, appointmentSearchParams);
     const appointmentSearch = fhirClient?.searchResources({
       resourceType: 'Appointment',
       searchParams: appointmentSearchParams,
@@ -645,7 +644,6 @@ const makeAppointmentInformation = (input: AppointmentInformationInputs): UCAppo
   const ovrpInterest = questionnaireResponse?.item?.find(
     (response: QuestionnaireResponseItem) => response.linkId === 'ovrp-interest',
   )?.answer?.[0]?.valueString;
-  console.log(101, appointment.participant);
   const provider = appointment.participant
     .filter((participant) => participant.actor?.reference?.startsWith('Practitioner/'))
     .map(function (practitionerTemp) {
@@ -653,7 +651,6 @@ const makeAppointmentInformation = (input: AppointmentInformationInputs): UCAppo
         return;
       }
       const practitioner = practitionerIdToResourceMap[practitionerTemp.actor.reference];
-      console.log(1, practitionerIdToResourceMap);
 
       if (!practitioner.name) {
         return;
@@ -668,7 +665,6 @@ const makeAppointmentInformation = (input: AppointmentInformationInputs): UCAppo
         return;
       }
       const group = healthcareServiceIdToResourceMap[groupTemp.actor.reference];
-      console.log(1, healthcareServiceIdToResourceMap);
 
       if (!group.name) {
         return;

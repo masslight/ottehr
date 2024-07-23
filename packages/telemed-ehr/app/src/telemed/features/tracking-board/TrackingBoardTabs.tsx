@@ -25,7 +25,6 @@ export function TrackingBoardTabs(): ReactElement {
   };
 
   const apiClient = useZapEHRAPIClient();
-  console.log(1, providers, groups, 4);
 
   const { isFetching, isFetchedAfterMount } = useGetTelemedAppointments(
     {

@@ -4,19 +4,31 @@ import { IntakeFlowPageRoute } from '../App';
 import { CustomContainer } from '../features/common';
 import { otherColors } from '../IntakeThemeProvider';
 import { getSelectors } from 'ottehr-utils';
-import { useAppointmentStore } from '../features/appointments';
+import { useAppointmentStore, useGetAppointments } from '../features/appointments';
 import { DateTime } from 'luxon';
 import { FinancialPolicyDialog } from '../components/FinancialPolicyDialog';
 import { useState } from 'react';
 import { CancelVisitDialog } from '../components';
+import { useZapEHRAPIClient } from '../utils';
+import { usePatientInfoStore } from '../features/patient-info';
 
 const ThankYou = (): JSX.Element => {
   const theme = useTheme();
+  const apiClient = useZapEHRAPIClient();
   const [isPolicyDialogOpen, setIsPolicyDialogOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const { selectedSlot } = getSelectors(useAppointmentStore, ['selectedSlot']);
+  const { patientInfo: currentPatientInfo } = usePatientInfoStore.getState();
 
   const formattedDate = selectedSlot ? DateTime.fromISO(selectedSlot).toFormat('d MMMM HH:mm') : '';
+
+  const { data: appointmentsData, isFetching } = useGetAppointments(
+    apiClient,
+    Boolean(apiClient) && Boolean(currentPatientInfo?.id),
+    currentPatientInfo?.id,
+  );
+
+  console.log('appointmentsData', appointmentsData);
 
   return (
     <CustomContainer
