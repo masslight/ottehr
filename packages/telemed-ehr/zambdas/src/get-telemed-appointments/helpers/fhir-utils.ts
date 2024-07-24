@@ -43,10 +43,10 @@ export const getAllResourcesFromFhir = async (
         name: 'service-type',
         value: 'http://terminology.hl7.org/CodeSystem/service-type|telemedicine',
       },
-      {
-        name: 'date',
-        value: `le${searchDate.endOf('day')}`,
-      },
+      // {
+      //   name: 'date',
+      //   value: `le${searchDate.endOf('day')}`,
+      // },
       {
         name: '_has:Encounter:appointment:status',
         value: encounterStatusesToSearchWith.join(','),
@@ -87,6 +87,7 @@ export const getAllResourcesFromFhir = async (
       { name: '_include', value: 'Appointment:actor' },
     ],
   };
+
   if (locationIDs.length > 0) {
     fhirSearchParams.searchParams.push({
       name: 'location',

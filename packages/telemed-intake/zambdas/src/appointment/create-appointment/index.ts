@@ -202,7 +202,6 @@ export async function createAppointment(
   } else if (scheduleType === 'provider') {
     const provider = await getProvider(fhirClient, providerID);
     const providerId = provider?.id;
-
     if (!providerId) {
       throw new Error(`Couldn't find provider for id ${providerID}`);
     }
@@ -217,6 +216,9 @@ export async function createAppointment(
   console.log(slot, endTime);
 
   console.log('performing Transactional Fhir Requests for new appointment');
+
+  console.log('visitType', visitType);
+  console.log('visitService', visitService);
   const { appointment, patient: fhirPatient } = await performTransactionalFhirRequests({
     fhirClient,
     patient: maybeFhirPatient,
@@ -232,6 +234,8 @@ export async function createAppointment(
     groupID,
     unconfirmedDateOfBirth,
   });
+
+  console.log('appointment', appointment);
 
   // if the patient does not have a phone number, try to use the user's phone number
   if (patient.phoneNumber === undefined || patient.phoneNumber === null) {
