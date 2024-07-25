@@ -24,9 +24,9 @@
     "telemed-intake-deploy": "pnpm --filter=telemed-intake-app deploy ${ENV}",
     "telemed-ehr-deploy": "pnpm --filter=telemed-ehr-app deploy ${ENV}"
   },
-  "packageManager": "pnpm@8.7.6",
+  "packageManager": "pnpm@9.6.0",
   "engines": {
-    "pnpm": ">=8.0.0",
+    "pnpm": ">=9.0.0 <10",
     "node": ">=18.0.0"
   },
   "browserslist": {
