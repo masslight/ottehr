@@ -105,7 +105,6 @@
     "@mui/material": "^5.14.18",
     "@mui/system": "^5.10.16",
     "@mui/x-date-pickers": "^5.0.10",
-    "@playwright/test": "^1.39.0",
     "@sentry/vite-plugin": "^2.10.2",
     "@types/aws-lambda": "^8.10.109",
     "@types/fhir": "^0.0.35",
