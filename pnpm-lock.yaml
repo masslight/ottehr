@@ -454,9 +454,6 @@ importers:
       '@playwright/test':
         specifier: ^1.45.1
         version: 1.45.3
-      '@types/node':
-        specifier: ^20.14.10
-        version: 20.14.12
       '@types/styled-components':
         specifier: ^5.1.34
         version: 5.1.34
@@ -500,10 +497,6 @@ importers:
       ottehr-utils:
         specifier: '*'
         version: link:../../utils
-    devDependencies:
-      '@types/node':
-        specifier: ^20.10.3
-        version: 20.14.12
 
   packages/telemed-intake/zambdas/src:
     dependencies:
@@ -514,9 +507,6 @@ importers:
       '@playwright/test':
         specifier: ^1.45.1
         version: 1.45.3
-      '@types/node':
-        specifier: ^20.14.10
-        version: 20.14.12
 
   packages/tsconfig: {}
 
