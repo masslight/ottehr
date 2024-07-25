@@ -69,25 +69,9 @@ This command should display the installed Node.js version.
 
 ### Installing `pnpm`
 
-To manage Node.js packages, we recommend using [pnpm](https://pnpm.io/).
-
-#### Using Homebrew or NPM (macOS/Linux):
-
-The easiest way to get started is to use the [brew](https://brew.sh/) or [npm](https://www.npmjs.com/) command:
-
 ```bash
-brew install pnpm
+npm install -g pnpm@9
 ```
-
-OR
-
-```bash
-npm install -g pnpm
-```
-
-#### Manual Installation
-
-Alternatively, you can install `pnpm` using the [official documentation](https://pnpm.io/installation).
 
 ### Joining Oystehr
 
@@ -147,7 +131,7 @@ Once the program finishes running,
 1. The Intake and EHR websites will open.
 1. To log in to the EHR, enter the email you input during the setup program. Click `Forgot password?` and set a password then log in.
 
-The URL for a test location is http://localhost:3002/location/ak/in-person/prebook.
+The URL for a test location is <http://localhost:3002/location/ak/in-person/prebook>.
 
 ## Scripts
 
@@ -177,5 +161,6 @@ Lints all packages using [ESLint](https://eslint.org/).
 
 Interactively updates all dependencies to their latest versions, respecting ranges specified in `package.json`.
 
-## Contribute to Ottehr!
+## Contribute to Ottehr
+
 We love it when you contribute to Ottehr! By submitting to this project, you agree to adopt the [Developer Certificate of Origin (DCO)](https://developercertificate.org/) for your contributions.
