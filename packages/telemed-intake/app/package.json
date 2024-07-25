@@ -13,8 +13,8 @@
     "@mui/x-date-pickers": "^5.0.20",
     "amazon-chime-sdk-component-library-react": "^3.7.0",
     "amazon-chime-sdk-js": "^3.20.0",
-    "ottehr-components": "../../ottehr-components",
-    "ottehr-utils": "../../utils",
+    "ottehr-components": "*",
+    "ottehr-utils": "*",
     "styled-components": "^5.3.11",
     "styled-system": "^5.1.5",
     "tsconfig": "*"
