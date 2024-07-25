@@ -21,10 +21,6 @@
     "test": "jest",
     "debug": "export SLS_DEBUG=* && node --inspect ../../../node_modules/serverless/bin/serverless offline --stage=local --httpPort 3000"
   },
-  "engines": {
-    "npm": ">=8.0.0",
-    "node": ">=18.0.0"
-  },
   "dependencies": {
     "@zapehr/sdk": "1.0.15",
     "ottehr-utils": "*"
