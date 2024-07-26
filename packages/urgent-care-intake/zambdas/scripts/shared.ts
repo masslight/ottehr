@@ -1,7 +1,7 @@
 import { ZambdaClient } from '@zapehr/sdk';
 import { Questionnaire, Location } from 'fhir/r4';
 import { SecretsKeys, getAuth0Token, getSecret } from '../src/shared';
-import { Secrets } from 'ottehr-utils';
+import { Secrets, TIMEZONE_EXTENSION_URL } from 'ottehr-utils';
 
 enum environment {
   dev = 'dev',
