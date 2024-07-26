@@ -134,7 +134,7 @@ function InfoForDay({ day, setDay, updateItem, loading }: InfoForDayProps): Reac
   function createOpenCloseBufferSelectField(type: 'Open' | 'Close', day: Day): ReactElement {
     const typeVerb = type === 'Close' ? 'Closing' : 'Opening';
     const typeLowercase = typeVerb.toLocaleLowerCase();
-    const bufferValue = type === 'Open' ? openingBuffer ?? '' : closingBuffer ?? '';
+    const bufferValue = type === 'Open' ? (openingBuffer ?? '') : (closingBuffer ?? '');
 
     return (
       <FormControl sx={{ marginRight: 2 }}>
