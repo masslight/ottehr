@@ -18,7 +18,7 @@ import { getEncounterForAppointment } from '../shared/getEncounterDetails';
 import { createFhirClient } from '../shared/helpers';
 import { FileURLs, FormItemType, PaperworkPage, Question, QuestionOperator, VisitType } from '../types';
 import { validateRequestParameters } from './validateRequestParameters';
-import { Secrets, ZambdaInput, topLevelCatch } from 'ottehr-utils';
+import { Secrets, TIMEZONE_EXTENSION_URL, ZambdaInput, topLevelCatch } from 'ottehr-utils';
 
 export interface GetPaperworkInput {
   appointmentID: string; // passed for appointment visits
@@ -425,9 +425,8 @@ function getPaperworkForUserWithoutAccess(
         address: location?.address,
         telecom: location?.telecom,
         hoursOfOperation: location?.hoursOfOperation,
-        timezone: location?.extension?.find(
-          (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL,
-        )?.valueString,
+        timezone: location?.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL)
+          ?.valueString,
       },
       visitType: appointment?.appointmentType?.text as VisitType,
       status: appointment?.status,

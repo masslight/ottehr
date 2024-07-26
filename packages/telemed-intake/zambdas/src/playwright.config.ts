@@ -4,10 +4,10 @@ import { defineConfig, devices } from '@playwright/test';
  * Read environment variables from file.
  * https://github.com/motdotla/dotenv
  */
-import dotenvJSON from 'dotenv-json';
+// import dotenvJSON from 'dotenv-json';
 import path from 'path';
 console.log(path.resolve(__dirname, '../.env/local.json'));
-dotenvJSON({ path: path.resolve(__dirname, '../.env/local.json') });
+// dotenvJSON({ path: path.resolve(__dirname, '../.env/local.json') });
 
 /**
  * See https://playwright.dev/docs/test-configuration.
