@@ -6,6 +6,7 @@ import {
   Select,
   Tab,
   Tabs,
+  TextField,
   Typography,
   useMediaQuery,
   useTheme,
@@ -327,7 +328,7 @@ const Schedule = ({ slotData, timezone }: ScheduleProps): JSX.Element => {
                         setSelectedOtherDate(newDate);
                       }
                     }}
-                    // renderInput={(params) => <TextField {...params} />}
+                    renderInput={(params) => <TextField {...params} />}
                     shouldDisableDate={(date) =>
                       // date.ordinal < firstAvailableDay.ordinal ||
                       // date.ordinal > lastSlotDate.ordinal ||
