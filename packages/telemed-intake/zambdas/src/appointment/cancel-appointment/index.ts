@@ -240,7 +240,9 @@ const getCancellationEmailDetails = async (
       resourceType: 'Location',
       resourceId: locationId,
     });
-    const timezone = location.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL)?.valueString;
+    const timezone = location.extension?.find(
+      (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL,
+    )?.valueString;
 
     const visitType =
       appointment.appointmentType?.coding
