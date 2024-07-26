@@ -73,7 +73,6 @@ export const getVisitStatusHistory = <T extends AppOrEncounter>(resource: T): Vi
     console.log(2, ext);
     const reduced: VisitStatusHistoryEntry = (ext.extension ?? []).reduce(
       (accum, currentExt) => {
-        console.log(1, currentExt);
         if (currentExt.url === 'status') {
           accum.status = currentExt.valueString as VisitStatus;
           accum.label = accum.status ?? 'unknown';
