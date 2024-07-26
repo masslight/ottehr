@@ -63,7 +63,7 @@ jobs:
 
       - uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 9
 
       - name: Check out secrets repo to grab the env file.
         uses: actions/checkout@v3
