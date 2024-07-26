@@ -4,7 +4,7 @@ import { createFhirClient } from '../shared/helpers';
 import { DateTime } from 'luxon';
 import { Encounter, Appointment as FhirAppointment, Location, Patient, QuestionnaireResponse, Resource } from 'fhir/r4';
 import { getAccessToken, getPatientsForUser, getUser } from '../shared/auth';
-import { Secrets, ZambdaInput, topLevelCatch } from 'ottehr-utils';
+import { Secrets, TIMEZONE_EXTENSION_URL, ZambdaInput, topLevelCatch } from 'ottehr-utils';
 
 export interface GetPatientsInput {
   secrets: Secrets | null;
@@ -133,8 +133,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
                   identifierTemp.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/location',
               )?.value || 'Unknown',
             timezone:
-              location.extension?.find((extTemp) => extTemp.url === TIMEZONE_EXTENSION_URL)
-                ?.valueString || 'Unknown',
+              location.extension?.find((extTemp) => extTemp.url === TIMEZONE_EXTENSION_URL)?.valueString || 'Unknown',
           },
           paperworkComplete:
             questionnaireResponse?.status === 'completed' || questionnaireResponse?.status === 'amended',
