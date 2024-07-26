@@ -4,7 +4,7 @@ import { IntakeFlowPageRoute } from '../App';
 import { CustomContainer } from '../features/common';
 import { otherColors } from '../IntakeThemeProvider';
 import { getSelectors } from 'ottehr-utils';
-import { useAppointmentStore, useGetAppointments } from '../features/appointments';
+import { useAppointmentStore } from '../features/appointments';
 import { DateTime } from 'luxon';
 import { FinancialPolicyDialog } from '../components/FinancialPolicyDialog';
 import { useState } from 'react';
