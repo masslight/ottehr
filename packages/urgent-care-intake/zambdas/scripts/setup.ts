@@ -243,7 +243,7 @@ const createLocation = async (fhirClient: FhirClient) => {
   }
 };
 
-export async function setupIntake(
+export async function setupUrgentCareIntake(
   projectApiUrl: string,
   accessToken: string,
   projectId: string,
