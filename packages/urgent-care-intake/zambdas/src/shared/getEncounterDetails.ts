@@ -1,6 +1,7 @@
 import { FhirClient } from '@zapehr/sdk';
 import { Appointment, Encounter, Location } from 'fhir/r4';
 import { getParticipantFromAppointment } from './helpers';
+import { TIMEZONE_EXTENSION_URL } from 'ottehr-utils';
 
 interface EncounterDetails {
   encounter: Encounter;
@@ -67,8 +68,7 @@ export const getEncounterDetails = async (appointmentID: string, fhirClient: Fhi
           (identifierTemp) => identifierTemp.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/location',
         )?.value || 'Unknown',
       timezone:
-        fhirLocation.extension?.find((extTemp) => extTemp.url === TIMEZONE_EXTENSION_URL)
-          ?.valueString || 'Unknown',
+        fhirLocation.extension?.find((extTemp) => extTemp.url === TIMEZONE_EXTENSION_URL)?.valueString || 'Unknown',
     };
   } catch (error: any) {
     throw new Error('Error getting location details');

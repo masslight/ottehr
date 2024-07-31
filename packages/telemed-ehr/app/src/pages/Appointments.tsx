@@ -365,7 +365,6 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                     } else {
                       localStorage.removeItem('selectedVisitTypes');
                     }
-                    console.log(1, value);
                     if (handleSubmit) {
                       handleSubmit(event as any, value, 'visittypes');
                     }
