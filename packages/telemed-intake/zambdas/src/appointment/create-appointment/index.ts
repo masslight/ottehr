@@ -202,7 +202,6 @@ export async function createAppointment(
   } else if (scheduleType === 'provider') {
     const provider = await getProvider(fhirClient, providerID);
     const providerId = provider?.id;
-
     if (!providerId) {
       throw new Error(`Couldn't find provider for id ${providerID}`);
     }
@@ -217,6 +216,7 @@ export async function createAppointment(
   console.log(slot, endTime);
 
   console.log('performing Transactional Fhir Requests for new appointment');
+
   const { appointment, patient: fhirPatient } = await performTransactionalFhirRequests({
     fhirClient,
     patient: maybeFhirPatient,

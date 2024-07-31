@@ -14,7 +14,7 @@ import {
   RelatedPerson,
 } from 'fhir/r4';
 import { removeTimeFromDate } from 'ottehr-utils';
-import { PatientInfo } from '../types';
+import { CancellationReasonCodes, CancellationReasonOptions, PatientInfo } from '../types';
 import { getPatchOperationsToUpdateVisitStatus } from './other-ehr';
 
 export async function createPatientResource(parameters: PatientInfo, fhirClient: FhirClient): Promise<any> {
@@ -48,6 +48,46 @@ export async function getPatientResource(patientID: string, fhirClient: FhirClie
   });
 
   return response;
+}
+
+export async function cancelAppointmentResource(
+  appointment: Appointment,
+  cancellationReason: CancellationReasonOptions,
+  fhirClient: FhirClient,
+): Promise<Appointment> {
+  if (!appointment.id) {
+    throw Error('Appointment resource missing id');
+  }
+
+  try {
+    const response: Appointment = await fhirClient.patchResource({
+      resourceType: 'Appointment',
+      resourceId: appointment.id,
+      operations: [
+        {
+          op: 'replace',
+          path: '/status',
+          value: 'cancelled',
+        },
+        {
+          op: 'add',
+          path: '/cancelationReason',
+          value: {
+            coding: [
+              {
+                system: 'http://terminology.hl7.org/CodeSystem/appointment-cancellation-reason',
+                code: CancellationReasonCodes[cancellationReason],
+                display: cancellationReason,
+              },
+            ],
+          },
+        },
+      ],
+    });
+    return response;
+  } catch (error: unknown) {
+    throw new Error(`Failed to cancel Appointment: ${JSON.stringify(error)}`);
+  }
 }
 
 export async function getPatientResourceWithVerifiedPhoneNumber(

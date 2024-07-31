@@ -10,6 +10,7 @@ import {
   SecretsKeys,
   getSecret,
   topLevelCatch,
+  TIMEZONE_EXTENSION_URL,
 } from 'ottehr-utils';
 import { cancelAppointmentResource } from '../shared/fhir';
 import { createFhirClient, getParticipantFromAppointment } from '../shared/helpers';

@@ -157,7 +157,7 @@ export async function getUser(
 async function getCode(
   authenticationBegin: DateTime,
   text_username: string,
-  text_password: string
+  text_password: string,
 ): Promise<string | undefined> {
   const basicAuthorization = btoa(`${text_username}:${text_password}`);
   const inboundSMS = await axios({

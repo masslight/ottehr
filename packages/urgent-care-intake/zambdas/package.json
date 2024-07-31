@@ -15,10 +15,6 @@
     "rebundle": "bash scripts/package-for-release.sh",
     "test": "jest"
   },
-  "engines": {
-    "npm": ">=8.0.0",
-    "node": ">=18.0.0"
-  },
   "dependencies": {
     "ottehr-utils": "*",
     "@zapehr/sdk": "1.0.15"

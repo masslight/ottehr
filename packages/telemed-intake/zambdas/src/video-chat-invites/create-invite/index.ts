@@ -18,9 +18,10 @@ import {
   getM2MClientToken,
   getVideoEncounterForAppointment,
   getUser,
-  sendVideoChatInvititationEmail,
+  sendVideoChatInvitationEmail,
   sendSms,
 } from '../../shared';
+import i18n from '../../shared/i18n';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -128,17 +129,21 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       .sign(secret);
 
     const inviteUrl = `${websiteUrl}/invited-waiting-room?appointment_id=${appointmentId}&token=${jwt}`;
-
-    await sendVideoChatInvititationEmail({
-      toAddress: emailAddress,
-      inviteUrl: inviteUrl,
-      patientName: patientResource.name?.[0].given?.join(' ') ?? '',
-      secrets: secrets,
+    const patientName = patientResource.name?.[0].given?.join(' ') ?? '';
+    await sendVideoChatInvitationEmail({
+      email: emailAddress,
+      inviteUrl,
+      patientName,
+      secrets,
     });
 
     if (relatedPerson.id && patientResource.id) {
       const { verifiedPhoneNumber } = await getPatientResourceWithVerifiedPhoneNumber(patientResource.id, fhirClient);
-      const message = `You have been invited to join an Ottehr visit with ${firstName}. Please click here${inviteUrl}.`;
+      const message = i18n.t('appointment.sms.invitation', {
+        patientName,
+        inviteUrl,
+        interpolation: { escapeValue: false },
+      });
       console.log(`Sms data: recipient: ${relatedPersonRef}; verifiedPhoneNumber: ${verifiedPhoneNumber};`);
 
       await sendSms(message, zapehrToken, relatedPersonRef, verifiedPhoneNumber, secrets);
