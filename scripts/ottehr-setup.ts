@@ -79,6 +79,11 @@ async function createM2M(accessToken: string, projectId: string): Promise<[strin
               action: ['Z3:PutObject', 'Z3:GetObject'],
               effect: 'Allow',
             },
+            {
+              action: ['Messaging:SendTransactionalSMS'],
+              effect: 'Allow',
+              resource: ['*'],
+            },
           ],
         },
       }),

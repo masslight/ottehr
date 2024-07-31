@@ -35,6 +35,7 @@ import {
   getQuestionnaireResponse,
   getSecret,
   topLevelCatch,
+  getOptionalSecret,
 } from 'ottehr-utils';
 import { getPatientContactEmail } from '../../appointment/create-appointment';
 import { getM2MClientToken, getVideoEncounterForAppointment, sendConfirmationMessages } from '../../shared';
@@ -164,13 +165,18 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     await createAuditEvent(AuditableZambdaEndpoints.paperworkUpdate, fhirClient, input, patientID, secrets);
 
     const { patient, verifiedPhoneNumber } = await getPatientResourceWithVerifiedPhoneNumber(patientID, fhirClient);
-    const startTime = DateTime.utc().setZone('UTC').toISO();
+    const appointment = await getAppointmentResourceById(appointmentID, fhirClient);
+
+    const startTime = appointment?.start;
     if (!startTime) {
       throw new Error('startTime is currently undefined');
     }
-    const originalDate = DateTime.fromISO(startTime).setZone('UTC');
-    const appointment = await getAppointmentResourceById(appointmentID, fhirClient);
+
     const location = await getLocationResource(locationID, fhirClient);
+    const timezone =
+      location?.extension?.find(
+        (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone',
+      )?.valueString ?? 'UTC';
 
     if (relatedPerson?.id && location && patient && appointment) {
       const relatedPersonRef = `RelatedPerson/${relatedPerson.id}`;
@@ -181,7 +187,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           getPatientContactEmail(patient),
           getPatientFirstName(patient),
           relatedPersonRef,
-          originalDate.toFormat(DATETIME_FULL_NO_YEAR), // what should i do with timezone??
+          DateTime.fromISO(startTime).setZone(timezone).toFormat(DATETIME_FULL_NO_YEAR),
           secrets,
           location,
           appointmentID,

@@ -19,6 +19,25 @@ export const getSecret = (secretKey: string, secrets: Secrets | null): string =>
   return value;
 };
 
+export const getOptionalSecret = (secretKey: string, secrets: Secrets | null, fallback: string): string => {
+  let value: string | undefined;
+  if (secrets != null) {
+    value = secrets[secretKey];
+  } else {
+    if (process) {
+      value = process.env[secretKey];
+    }
+  }
+
+  if (value == null) {
+    console.warn(process.env);
+    console.warn(`Secret or Environment Variable with key ${secretKey} was not set. Using fallback ${fallback}`);
+    return fallback;
+  }
+
+  return value;
+};
+
 export enum SecretsKeys {
   AUTH0_ENDPOINT = 'AUTH0_ENDPOINT',
   URGENT_CARE_AUTH0_CLIENT = 'URGENT_CARE_AUTH0_CLIENT',
@@ -51,11 +70,14 @@ export enum SecretsKeys {
   TELEMED_CLIENT_ID = 'TELEMED_CLIENT_ID',
   TELEMED_CLIENT_SECRET = 'TELEMED_CLIENT_SECRET',
   TELEMED_SENDGRID_EMAIL_BCC = 'TELEMED_SENDGRID_EMAIL_BCC',
+  TELEMED_SENDGRID_EMAIL_FROM = 'TELEMED_SENDGRID_EMAIL_FROM',
+  TELEMED_SENDGRID_EMAIL_FROM_NAME = 'TELEMED_SENDGRID_EMAIL_FROM_NAME',
   TELEMED_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID = 'TELEMED_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID',
   TELEMED_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID = 'TELEMED_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID',
-  TELEMED_SENDGRID_ERROR_EMAIL_TEMPLATE_ID = 'TELEMED_SENDGRID_ERROR_EMAIL_TEMPLATE_ID',
   TELEMED_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID = 'TELEMED_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID',
   TELEMED_CREATE_APPOINTMENT_ZAMBDA_ID = 'TELEMED_CREATE_APPOINTMENT_ZAMBDA_ID',
+  TELEMED_SCHEDULE_NUMBER_OF_DAYS_AVAILABLE = 'TELEMED_SCHEDULE_NUMBER_OF_DAYS_AVAILABLE',
+  TELEMED_SCHEDULE_SLOT_LENGTH = 'TELEMED_SCHEDULE_SLOT_LENGTH',
 
   // bh
 

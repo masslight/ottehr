@@ -27,12 +27,6 @@ export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose }) => {
       throw new Error('apiClient is not defined');
     }
 
-    cancelAppointment.mutate({
-      apiClient: apiClient,
-      appointmentID: appointmentID,
-      cancellationReason: data.cancellationReason,
-    });
-
     navigate(IntakeFlowPageRoute.Homepage.path);
     cancelAppointment.mutate(
       {

@@ -4,6 +4,7 @@ import { Appointment, AppointmentParticipant, HealthcareService, Location, Pract
 import {
   createFhirClient,
   getDateTimeFromDateAndTime,
+  getOptionalSecret,
   GetScheduleResponse,
   getSecret,
   Secrets,
@@ -46,10 +47,13 @@ export interface GetScheduleInput {
 }
 
 let zapehrToken: string;
-const NUM_DAYS = 7;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const fhirAPI = getSecret(SecretsKeys.FHIR_API, input.secrets);
+    const daysAvailable = Number(
+      getOptionalSecret(SecretsKeys.TELEMED_SCHEDULE_NUMBER_OF_DAYS_AVAILABLE, input.secrets, '7'),
+    );
+    const slotLength = Number(getOptionalSecret(SecretsKeys.TELEMED_SCHEDULE_SLOT_LENGTH, input.secrets, '15'));
     const validatedParameters = validateRequestParameters(input);
     const { slug, scheduleType } = validatedParameters;
 
@@ -62,7 +66,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const fhirClient = createFhirClient(zapehrToken);
 
-    const schedule = await getSchedule(fhirClient, slug, scheduleType);
+    const schedule = await getSchedule(fhirClient, slug, scheduleType, daysAvailable, slotLength);
 
     if (!schedule) {
       return {
@@ -89,6 +93,8 @@ async function getSchedule(
   fhirClient: FhirClient,
   slug: string,
   scheduleType: 'location' | 'provider' | 'group',
+  daysAvailable: number,
+  slotLength: number,
 ): Promise<GetScheduleResponse | undefined> {
   let resourceType: 'Location' | 'Practitioner' | 'HealthcareService' = 'Location';
   if (scheduleType === 'location') {
@@ -153,7 +159,7 @@ async function getSchedule(
   // todo do not assume zone
   const now = DateTime.now().setZone('US/Eastern');
 
-  const { minimum: startTime, maximum: finishTime } = createMinimumAndMaximumTime(now);
+  const { minimum: startTime, maximum: finishTime } = createMinimumAndMaximumTime(now, daysAvailable);
   console.log(`searching for appointments based on ${resourceType} ${item.id} and date`);
   const appointmentResources: Appointment[] = await fhirClient?.searchResources({
     resourceType: 'Appointment',
@@ -244,7 +250,13 @@ async function getSchedule(
     const finishDate = DateTime.fromISO(finishTime);
     while (currentDayTemp < finishDate) {
       console.log(currentDayTemp);
-      const slotsTemp = getSlotsForDay(currentDayTemp, schedule, scheduleOverrides, appointmentResourcesInSchedule);
+      const slotsTemp = getSlotsForDay(
+        currentDayTemp,
+        schedule,
+        scheduleOverrides,
+        appointmentResourcesInSchedule,
+        slotLength,
+      );
       slots.push(...slotsTemp);
       currentDayTemp = currentDayTemp.plus({ days: 1 });
     }
@@ -272,6 +284,7 @@ function getSlotsForDay(
   schedule: Weekdays,
   scheduleOverrides: Overrides,
   appointments: Appointment[],
+  slotLength: number,
 ): string[] {
   let openingTime = null;
   let closingTime = null;
@@ -321,16 +334,26 @@ function getSlotsForDay(
       tempDateTime = tempDateTime.set({ minute: openingDateAndTime.minute });
     }
     slots.push(
-      ...distributeTimeSlots(tempDateTime, slot.capacity, openingDateAndTime, closingDateAndTime, appointments),
+      ...distributeTimeSlots(
+        tempDateTime,
+        slot.capacity,
+        openingDateAndTime,
+        closingDateAndTime,
+        appointments,
+        slotLength,
+      ),
     );
   });
 
   return slots;
 }
 
-export function createMinimumAndMaximumTime(date: DateTime): { minimum: string; maximum: string } {
+export function createMinimumAndMaximumTime(
+  date: DateTime,
+  daysAvailable: number,
+): { minimum: string; maximum: string } {
   const startTime = date.toISO();
-  const finishTime = date.plus({ days: NUM_DAYS });
+  const finishTime = date.plus({ days: daysAvailable });
   const maximum = finishTime.endOf('day').toISO();
   if (!startTime || !maximum) {
     throw Error('error getting minimum and maximum time');
@@ -357,10 +380,9 @@ export const distributeTimeSlots = (
   openingTime: DateTime,
   closingTime: DateTime,
   currentAppointments: Appointment[],
+  slotLength: number,
 ): string[] => {
   // console.log(1, startTime, capacity, openingTime, closingTime);
-  const ROUND_MINUTES = 15;
-
   // const minutesToDistributeInHour = Math.min(
   //   60,
   //   startTime.diff(openingTime, 'minutes').minutes,
@@ -385,10 +407,10 @@ export const distributeTimeSlots = (
   let tempTime = startTime;
   // console.log(startTime.toISO(), capacity);
   for (let i = 0; i < capacity; i++) {
-    let tempUpdatedRoundedMinute = Math.round(tempTime.minute / ROUND_MINUTES) * ROUND_MINUTES;
+    let tempUpdatedRoundedMinute = Math.round(tempTime.minute / slotLength) * slotLength;
     // todo check if this is right
     if (tempUpdatedRoundedMinute === 60) {
-      tempUpdatedRoundedMinute = 60 - ROUND_MINUTES;
+      tempUpdatedRoundedMinute = 60 - slotLength;
     }
     const tempRoundedTime = tempTime.set({ minute: tempUpdatedRoundedMinute, second: 0, millisecond: 0 });
     tempTime = tempTime.plus({ minutes: minutesPerSlot });
