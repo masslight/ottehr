@@ -2,7 +2,6 @@ import inquirer from 'inquirer';
 import fetch from 'node-fetch';
 import { setupEHR } from '../packages/telemed-ehr/zambdas/scripts/setup';
 import { setupIntake } from '../packages/telemed-intake/zambdas/scripts/setup';
-import { setupUrgentCareIntake } from '../packages/urgent-care-intake/zambdas/scripts/setup';
 
 const projectApiUrl = 'https://project-api.zapehr.com/v1';
 
@@ -138,15 +137,6 @@ async function runCLI(): Promise<void> {
   try {
     await setupEHR(projectApiUrl, accessToken, projectId, providerEmail, m2mDeviceId, m2mClientId, m2mSecret);
     await setupIntake(projectApiUrl, accessToken, projectId, providerEmail, m2mDeviceId, m2mClientId, m2mSecret);
-    await setupUrgentCareIntake(
-      projectApiUrl,
-      accessToken,
-      projectId,
-      providerEmail,
-      m2mDeviceId,
-      m2mClientId,
-      m2mSecret,
-    );
   } catch (e) {
     console.log(e);
     throw e;
