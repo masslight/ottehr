@@ -19,12 +19,12 @@ async function createApplication(
       rule: [
         {
           resource: [
-            'Zambda:Function:todo-telemed-get-patients',
-            'Zambda:Function:todo-telemed-get-appointments',
-            'Zambda:Function:todo-telemed-create-appointment',
-            'Zambda:Function:todo-telemed-get-paperwork',
-            'Zambda:Function:todo-telemed-create-paperwork',
-            'Zambda:Function:todo-telemed-cancel-appointment',
+            'Zambda:Function:telemed-get-patients',
+            'Zambda:Function:telemed-get-appointments',
+            'Zambda:Function:telemed-create-appointment',
+            'Zambda:Function:telemed-get-paperwork',
+            'Zambda:Function:telemed-create-paperwork',
+            'Zambda:Function:telemed-cancel-appointment',
           ],
           action: ['Zambda:InvokeFunction'],
           effect: 'Allow',
