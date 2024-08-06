@@ -1,5 +1,10 @@
 name: Deploy Intake
 
+env:
+  CI: false
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
 on:
   workflow_dispatch:
     inputs:
@@ -105,7 +110,7 @@ jobs:
         run: pnpm install
 
       - name: Deploy App
-        run: pnpm telemed-intake-deploy ${{ github.event.inputs.environment }}
+        run: cd ${{ env.PACKAGE_LOCATION }} && pnpm run deploy:${{ github.event.inputs.environment }}
 
       - name: Setup zapehr secrets
         run: cd ${{ env.ZAMBDAS_LOCATION }} && pnpm setup-zapehr-secrets ${{ github.event.inputs.environment }}
