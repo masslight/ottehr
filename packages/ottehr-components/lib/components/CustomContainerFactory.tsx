@@ -73,7 +73,9 @@ export const CustomContainer: FC<ContainerProps> = ({
     if (logoutHandler !== undefined) {
       logoutHandler();
     } else {
-      logout({ returnTo: 'https://telemed.ottehr.com/location/ak/in-person/prebook' });
+      logout({
+        returnTo: window.location.origin,
+      });
     }
   }, [logout, logoutHandler]);
 
