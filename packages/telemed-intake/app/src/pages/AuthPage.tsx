@@ -7,7 +7,6 @@ import { ErrorFallbackScreen, LoadingScreen } from '../features/common';
 const AuthPage: FC = () => {
   const { isAuthenticated, loginWithRedirect, isLoading, error } = useAuth0();
   const authRef = useRef<Promise<void> | null>(null);
-
   if (error) {
     return <ErrorFallbackScreen />;
   }
@@ -22,7 +21,10 @@ const AuthPage: FC = () => {
     }
     return <LoadingScreen />;
   }
-
+  if (localStorage.getItem('fromHome') === 'true') {
+    localStorage.removeItem('fromHome');
+    return <Navigate to={IntakeFlowPageRoute.PatientPortal.path} />;
+  }
   return <Navigate to={`${IntakeFlowPageRoute.SelectPatient.path}?flow=requestVisit`} />;
 };
 

@@ -1,6 +1,7 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { FC } from 'react';
 import { Outlet } from 'react-router-dom';
+import { IntakeFlowPageRoute } from '../../App';
 
 export const ProtectedRoute: FC<{
   loadingFallback: JSX.Element;
@@ -17,6 +18,9 @@ export const ProtectedRoute: FC<{
   }
 
   if (!isAuthenticated) {
+    if (location.pathname === IntakeFlowPageRoute.PatientPortal.path) {
+      localStorage.setItem('fromHome', 'true');
+    }
     return unauthorizedFallback;
   }
 

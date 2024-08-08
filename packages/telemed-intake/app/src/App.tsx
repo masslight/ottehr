@@ -118,13 +118,23 @@ function App(): JSX.Element {
                 <ProtectedRoute
                   loadingFallback={<LoadingScreen />}
                   errorFallback={<ErrorFallbackScreen />}
+                  unauthorizedFallback={<Navigate to={IntakeFlowPageRoute.AuthPage.path} />}
+                />
+              }
+            >
+              <Route path={IntakeFlowPageRoute.PatientPortal.path} element={IntakeFlowPageRoute.PatientPortal.page} />
+            </Route>
+            <Route
+              element={
+                <ProtectedRoute
+                  loadingFallback={<LoadingScreen />}
+                  errorFallback={<ErrorFallbackScreen />}
                   unauthorizedFallback={<Navigate to={IntakeFlowPageRoute.Welcome.path} />}
                 />
               }
             >
               <Route path="/" element={<UserFlowRoot />} />
               <Route path={IntakeFlowPageRoute.NewUser.path} element={IntakeFlowPageRoute.NewUser.page} />
-              <Route path={IntakeFlowPageRoute.PatientPortal.path} element={IntakeFlowPageRoute.PatientPortal.page} />
               <Route path={IntakeFlowPageRoute.SelectPatient.path} element={IntakeFlowPageRoute.SelectPatient.page} />
               <Route path={IntakeFlowPageRoute.PastVisits.path} element={IntakeFlowPageRoute.PastVisits.page} />
               <Route path={IntakeFlowPageRoute.VisitDetails.path} element={IntakeFlowPageRoute.VisitDetails.page} />
@@ -163,7 +173,7 @@ function App(): JSX.Element {
               element={IntakeFlowPageRoute.IOSVideoCallMenu.page}
             />
             <Route path={IntakeFlowPageRoute.ThankYou.path} element={IntakeFlowPageRoute.ThankYou.page} />
-            <Route path="*" element={<Navigate to={IntakeFlowPageRoute.Welcome.path} />} />
+            {/* <Route path="*" element={<Navigate to={IntakeFlowPageRoute.Welcome.path} />} /> */}
           </Routes>
         </Router>
       </IntakeThemeProvider>
