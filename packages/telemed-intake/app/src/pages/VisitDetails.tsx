@@ -19,7 +19,7 @@ const VisitDetails = (): JSX.Element => {
       title={patientFullName}
       subtext={`Birthday: ${formattedPatientBirthDay}`}
       description=""
-      bgVariant={IntakeFlowPageRoute.Homepage.path}
+      bgVariant={IntakeFlowPageRoute.PatientPortal.path}
       isFirstPage={true}
     >
       <Typography variant="h2" color="primary.main" sx={{ mb: 2 }}>

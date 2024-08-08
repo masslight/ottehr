@@ -14,7 +14,7 @@ export const ErrorFallbackScreen = (): JSX.Element => {
     <CustomContainer
       title="Error occurred"
       description="Something went wrong during authorization process. Please, try again."
-      bgVariant={IntakeFlowPageRoute.Homepage.path}
+      bgVariant={IntakeFlowPageRoute.PatientPortal.path}
     >
       <PageForm onSubmit={onSubmit} controlButtons={{ submitLabel: 'Login', backButton: false }} />
     </CustomContainer>

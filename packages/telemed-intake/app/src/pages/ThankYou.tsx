@@ -22,7 +22,7 @@ const ThankYou = (): JSX.Element => {
     <CustomContainer
       title="Thank you for choosing Ottehr Telemedicine"
       description="We look forward to helping you soon!"
-      bgVariant={IntakeFlowPageRoute.Homepage.path}
+      bgVariant={IntakeFlowPageRoute.PatientPortal.path}
     >
       <>
         <Divider />
