@@ -18,17 +18,12 @@ const AuthPage: FC = () => {
 
   if (!isAuthenticated) {
     if (!authRef.current) {
-      authRef.current = loginWithRedirect({
-        appState: { returnTo: location.pathname + location.search },
-      });
+      authRef.current = loginWithRedirect();
     }
     return <LoadingScreen />;
   }
 
-  const redirectPath =
-    window.history.state?.state?.returnTo || `${IntakeFlowPageRoute.SelectPatient.path}?flow=requestVisit`;
-
-  return <Navigate to={redirectPath} />;
+  return <Navigate to={`${IntakeFlowPageRoute.SelectPatient.path}?flow=requestVisit`} />;
 };
 
 export default AuthPage;
