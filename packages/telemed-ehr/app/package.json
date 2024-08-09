@@ -20,6 +20,7 @@
     "preview": "vite preview --port 4002",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "build": "tsc && vite build",
+    "build:dev": "tsc && vite build --mode dev",
     "build:development": "ENV=development npm run build-skeleton",
     "build:testing": "ENV=testing npm run build-skeleton",
     "build:staging": "ENV=staging npm run build-skeleton",
@@ -29,7 +30,7 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "deploy:dev": " PREFIX=development CLOUDFRONT_ID=E10TA6FN58D1OS ENV=dev pnpm run ci-deploy-skeleton",
-    "ci-deploy-skeleton": "ENV=${ENV} VITE_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') pnpm run build && aws s3 sync build/ s3://ehr.ottehr.com --region us-east-1 --delete && aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_ID} --paths '/*' --region us-east-1"
+    "ci-deploy-skeleton": "ENV=${ENV} VITE_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') pnpm run build:dev && aws s3 sync build/ s3://ehr.ottehr.com --region us-east-1 --delete && aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_ID} --paths '/*' --region us-east-1"
   },
   "dependencies": {
     "@mui/icons-material": "^5.14.9",
