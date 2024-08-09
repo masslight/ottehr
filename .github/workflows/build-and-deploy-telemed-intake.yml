@@ -86,6 +86,15 @@ jobs:
       - name: Copy env file to local.env to support serverless package command
         run: cp ${{ env.ZAMBDAS_LOCATION }}/.env/${{ github.event.inputs.environment }}.json ${{ env.ZAMBDAS_LOCATION }}/.env/local.json
 
+      - name: List contents of secrets directory
+        run: ls -la secrets/telemed-intake-app/
+
+      - name: List contents of app env directory
+        run: ls -la ${{ env.PACKAGE_LOCATION }}/env/
+
+      - name: List contents of zambdas env directory
+        run: ls -la ${{ env.ZAMBDAS_LOCATION }}/.env/
+
       - name: Increase version if input dictates.
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
         run: |
