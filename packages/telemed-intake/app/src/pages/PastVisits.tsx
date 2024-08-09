@@ -40,7 +40,7 @@ const PastVisits = (): JSX.Element => {
       title={patientFullName}
       subtext={`Birthday: ${formattedPatientBirthDay}`}
       description=""
-      bgVariant={IntakeFlowPageRoute.Homepage.path}
+      bgVariant={IntakeFlowPageRoute.PatientPortal.path}
       isFirstPage={true}
     >
       <Typography variant="h2" color="primary.main">
@@ -126,7 +126,7 @@ const PastVisits = (): JSX.Element => {
           mt: 2,
         }}
         onClick={() => {
-          navigate(IntakeFlowPageRoute.Homepage.path);
+          navigate(IntakeFlowPageRoute.PatientPortal.path);
         }}
       >
         Back to homepage

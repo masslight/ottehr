@@ -8,7 +8,7 @@ import HomepageOption from '../features/homepage/HomepageOption';
 import { useZapEHRAPIClient } from '../utils';
 import { requestVisit, pastVisits, contactSupport } from '../assets/icons';
 
-const Homepage = (): JSX.Element => {
+const PatientPortal = (): JSX.Element => {
   const apiClient = useZapEHRAPIClient();
   const navigate = useNavigate();
 
@@ -42,7 +42,7 @@ const Homepage = (): JSX.Element => {
     <CustomContainer
       title="Welcome to Ottehr Telemedicine"
       description=""
-      bgVariant={IntakeFlowPageRoute.Homepage.path}
+      bgVariant={IntakeFlowPageRoute.PatientPortal.path}
       isFirstPage={true}
     >
       {isFetching ? (
@@ -97,4 +97,4 @@ const Homepage = (): JSX.Element => {
   );
 };
 
-export default Homepage;
+export default PatientPortal;

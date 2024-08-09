@@ -5,7 +5,7 @@ import { CustomContainer } from './CustomContainer';
 
 export const LoadingScreen = (): JSX.Element => {
   return (
-    <CustomContainer title="" description="" bgVariant={IntakeFlowPageRoute.Homepage.path}>
+    <CustomContainer title="" description="" bgVariant={IntakeFlowPageRoute.PatientPortal.path}>
       <Box sx={{ display: 'flex', justifyContent: 'center' }}>
         <CircularProgress />
       </Box>
