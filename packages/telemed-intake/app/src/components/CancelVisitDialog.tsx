@@ -27,7 +27,7 @@ export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose }) => {
       throw new Error('apiClient is not defined');
     }
 
-    navigate(IntakeFlowPageRoute.Homepage.path);
+    navigate(IntakeFlowPageRoute.PatientPortal.path);
     cancelAppointment.mutate(
       {
         apiClient: apiClient,
@@ -36,7 +36,7 @@ export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose }) => {
       },
       {
         onSuccess: () => {
-          navigate(IntakeFlowPageRoute.Homepage.path);
+          navigate(IntakeFlowPageRoute.PatientPortal.path);
           handleClose();
         },
         onError: (error) => {

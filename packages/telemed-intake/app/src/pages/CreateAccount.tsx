@@ -18,7 +18,7 @@ const CreateAccount = (): JSX.Element => {
   };
 
   return (
-    <CustomContainer title="Create account" description="" bgVariant={IntakeFlowPageRoute.Homepage.path}>
+    <CustomContainer title="Create account" description="" bgVariant={IntakeFlowPageRoute.PatientPortal.path}>
       <PageForm
         formElements={[
           {

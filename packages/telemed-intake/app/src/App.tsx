@@ -9,7 +9,7 @@ import { useIOSAppSync } from './features/ios-communication/useIOSAppSync';
 import './lib/i18n';
 import AuthPage from './pages/AuthPage';
 import CreateAccount from './pages/CreateAccount';
-import Homepage from './pages/Homepage';
+import PatientPortal from './pages/PatientPortal';
 import { IOSPatientManageParticipantsPage } from './pages/IOS/IOSManageParticipantsPage';
 import { IOSPatientPhotosEditPage } from './pages/IOS/IOSPatientPhotosEditPage';
 import { IOSVideoCallMenu } from './pages/IOS/IOSVideoCallMenu';
@@ -62,7 +62,7 @@ const queryClient = new QueryClient({
 });
 
 export class IntakeFlowPageRoute {
-  static readonly Homepage = new IntakeFlowPageRoute('/home', <Homepage />);
+  static readonly PatientPortal = new IntakeFlowPageRoute('/home', <PatientPortal />);
   static readonly SelectPatient = new IntakeFlowPageRoute('/select-patient', <SelectPatient />);
   static readonly PastVisits = new IntakeFlowPageRoute('/past-visits', <PastVisits />);
   static readonly VisitDetails = new IntakeFlowPageRoute('/visit-details', <VisitDetails />);
@@ -118,13 +118,23 @@ function App(): JSX.Element {
                 <ProtectedRoute
                   loadingFallback={<LoadingScreen />}
                   errorFallback={<ErrorFallbackScreen />}
+                  unauthorizedFallback={<Navigate to={IntakeFlowPageRoute.AuthPage.path} />}
+                />
+              }
+            >
+              <Route path={IntakeFlowPageRoute.PatientPortal.path} element={IntakeFlowPageRoute.PatientPortal.page} />
+            </Route>
+            <Route
+              element={
+                <ProtectedRoute
+                  loadingFallback={<LoadingScreen />}
+                  errorFallback={<ErrorFallbackScreen />}
                   unauthorizedFallback={<Navigate to={IntakeFlowPageRoute.Welcome.path} />}
                 />
               }
             >
               <Route path="/" element={<UserFlowRoot />} />
               <Route path={IntakeFlowPageRoute.NewUser.path} element={IntakeFlowPageRoute.NewUser.page} />
-              <Route path={IntakeFlowPageRoute.Homepage.path} element={IntakeFlowPageRoute.Homepage.page} />
               <Route path={IntakeFlowPageRoute.SelectPatient.path} element={IntakeFlowPageRoute.SelectPatient.page} />
               <Route path={IntakeFlowPageRoute.PastVisits.path} element={IntakeFlowPageRoute.PastVisits.page} />
               <Route path={IntakeFlowPageRoute.VisitDetails.path} element={IntakeFlowPageRoute.VisitDetails.page} />
@@ -163,7 +173,7 @@ function App(): JSX.Element {
               element={IntakeFlowPageRoute.IOSVideoCallMenu.page}
             />
             <Route path={IntakeFlowPageRoute.ThankYou.path} element={IntakeFlowPageRoute.ThankYou.page} />
-            <Route path="*" element={<Navigate to={IntakeFlowPageRoute.Welcome.path} />} />
+            {/* <Route path="*" element={<Navigate to={IntakeFlowPageRoute.Welcome.path} />} /> */}
           </Routes>
         </Router>
       </IntakeThemeProvider>

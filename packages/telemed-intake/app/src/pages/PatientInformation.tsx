@@ -344,7 +344,7 @@ const PatientInformation = (): JSX.Element => {
           },
         ]}
         controlButtons={{
-          onBack: () => navigate(IntakeFlowPageRoute.Homepage.path),
+          onBack: () => navigate(IntakeFlowPageRoute.PatientPortal.path),
           loading: createAppointment.isLoading || getPaperworkQuery.isLoading || updateAppointment.isLoading,
           submitLabel: 'Continue',
         }}

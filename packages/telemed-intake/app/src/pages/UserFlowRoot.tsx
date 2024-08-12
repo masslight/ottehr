@@ -13,7 +13,12 @@ const UserFlowRoot = (): JSX.Element => {
   const getPatients = useGetPatients(apiClient, (data) => {
     usePatientsStore.setState({ patients: data.patients });
     if (data?.patients.length > 0) {
-      navigate(IntakeFlowPageRoute.Homepage.path);
+      if (localStorage.getItem('fromHome') === 'true') {
+        localStorage.removeItem('fromHome');
+        navigate(IntakeFlowPageRoute.PatientPortal.path);
+      } else {
+        navigate(`${IntakeFlowPageRoute.SelectPatient.path}?flow=requestVisit`);
+      }
     } else {
       usePatientInfoStore.getState().setNewPatient();
       navigate(IntakeFlowPageRoute.NewUser.path);

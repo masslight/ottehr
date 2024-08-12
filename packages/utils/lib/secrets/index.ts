@@ -29,7 +29,7 @@ export const getOptionalSecret = (secretKey: string, secrets: Secrets | null, fa
     }
   }
 
-  if (value == null) {
+  if (!value) {
     console.warn(process.env);
     console.warn(`Secret or Environment Variable with key ${secretKey} was not set. Using fallback ${fallback}`);
     return fallback;

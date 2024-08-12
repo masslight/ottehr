@@ -82,12 +82,12 @@ const SelectPatient = (): JSX.Element => {
   };
 
   const onBack = (): void => {
-    navigate(IntakeFlowPageRoute.Homepage.path);
+    navigate(IntakeFlowPageRoute.PatientPortal.path);
   };
 
   if (location.state?.patientId) {
     return (
-      <CustomContainer title="Loading patient" description="" bgVariant={IntakeFlowPageRoute.Homepage.path}>
+      <CustomContainer title="Loading patient" description="" bgVariant={IntakeFlowPageRoute.PatientPortal.path}>
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
           <CircularProgress />
         </Box>
@@ -96,7 +96,7 @@ const SelectPatient = (): JSX.Element => {
   }
 
   return (
-    <CustomContainer title="Select patient" description="" bgVariant={IntakeFlowPageRoute.Homepage.path}>
+    <CustomContainer title="Select patient" description="" bgVariant={IntakeFlowPageRoute.PatientPortal.path}>
       {isFetching ? (
         <Box sx={{ pt: 2 }}>
           <BoldPurpleInputLabel shrink>Select patient *</BoldPurpleInputLabel>
