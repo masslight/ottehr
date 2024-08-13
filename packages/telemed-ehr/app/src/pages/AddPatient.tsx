@@ -43,23 +43,6 @@ import {
 import { PRIVATE_EXTENSION_BASE_URL } from 'ehr-utils';
 import SlotPicker from '../components/SlotPicker';
 
-const mapSelectedPatientEmailUser = (selectedPatientEmailUser: string | undefined): EmailUserValue | undefined => {
-  if (!selectedPatientEmailUser) {
-    return undefined;
-  }
-
-  const EmailUserMapper = {
-    Patient: 'Patient (Self)',
-    'Parent/Guardian': 'Parent/Guardian',
-  };
-
-  if (Object.keys(EmailUserMapper).includes(selectedPatientEmailUser)) {
-    const key = selectedPatientEmailUser as keyof typeof EmailUserMapper;
-    return EmailUserMapper[key] as EmailUserValue;
-  }
-  return undefined;
-};
-
 type SlotLoadingState =
   | { status: 'initial'; input: undefined }
   | { status: 'loading'; input: undefined }
@@ -187,7 +170,7 @@ export default function AddPatient(): JSX.Element {
       }
 
       const emailToUse = selectedPatientEmail || email;
-      let emailUser = mapSelectedPatientEmailUser(selectedPatientEmailUser);
+      let emailUser = selectedPatientEmailUser;
       if (emailUser == undefined && emailToUse) {
         emailUser = 'Parent/Guardian';
       }
@@ -207,8 +190,10 @@ export default function AddPatient(): JSX.Element {
           reasonForVisit: reasonForVisit,
         },
         slot: slot,
-        visitType: getFhirAppointmentTypeForVisitType(visitType),
-        location: selectedLocation?.id,
+        visitType: visitType,
+        locationID: selectedLocation?.id,
+        scheduleType: 'location',
+        visitService: 'in-person',
       };
 
       let response;
