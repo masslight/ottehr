@@ -123,7 +123,6 @@ export default function AddPatient(): JSX.Element {
     ) {
       return;
     }
-    console.log(`fetching location with slot data for ${locationSlug} in ${locationState} 87ytgfvbji87ytgf`);
     void fetchLocationWithSlotData({ slug: locationSlug, locationState, scheduleType: 'location' }, zambdaIntakeClient);
   }, [selectedLocation, loadingSlotState, zambdaIntakeClient]);
 
