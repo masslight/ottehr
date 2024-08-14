@@ -243,7 +243,7 @@ export interface GetLocationResponse {
 
 export interface GetLocationParameters {
   slug?: string;
-  scheduleType?: "location" | "provider" | "group";
+  scheduleType?: 'location' | 'provider' | 'group';
   locationState?: string;
   fetchAll?: boolean;
 }

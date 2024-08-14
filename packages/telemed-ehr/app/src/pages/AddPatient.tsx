@@ -33,11 +33,7 @@ import LocationSelect from '../components/LocationSelect';
 import { MAXIMUM_CHARACTER_LIMIT, ReasonForVisitOptions } from '../constants';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import {
-  CreateAppointmentParameters,
-  PersonSex,
-  VisitType,
-} from '../types/types';
+import { CreateAppointmentParameters, PersonSex, VisitType } from '../types/types';
 import { PRIVATE_EXTENSION_BASE_URL } from 'ehr-utils';
 import SlotPicker from '../components/SlotPicker';
 
@@ -95,8 +91,8 @@ export default function AddPatient(): JSX.Element {
       setLoadingSlotState({ status: 'loading', input: undefined });
       try {
         if (!zambdaIntakeClient) throw new Error('Zambda client not found');
-        const locationResponse = await getLocations(zambdaIntakeClient, params);        
-        setLocationWithSlotData(locationResponse);     
+        const locationResponse = await getLocations(zambdaIntakeClient, params);
+        setLocationWithSlotData(locationResponse);
       } catch (e) {
         console.error('error loading location with slot data', e);
       } finally {

@@ -16,8 +16,8 @@ export interface CreateAppointmentParameters {
   patient: PatientInfo | undefined;
   locationID?: string | undefined;
   visitType: VisitType | undefined;
-  scheduleType: "location" | "provider" | "group" | undefined;
-  visitService: "in-person" | "telemedicine" |  undefined;
+  scheduleType: 'location' | 'provider' | 'group' | undefined;
+  visitService: 'in-person' | 'telemedicine' | undefined;
 }
 
 export interface UpdateAppointmentAndEncounterParameters {
