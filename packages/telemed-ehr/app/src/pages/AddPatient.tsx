@@ -95,8 +95,7 @@ export default function AddPatient(): JSX.Element {
       setLoadingSlotState({ status: 'loading', input: undefined });
       try {
         if (!zambdaIntakeClient) throw new Error('Zambda client not found');
-        const locationResponse = await getLocations(zambdaIntakeClient, params);
-        console.log('locationResponse 87ygbjiuy', locationResponse);
+        const locationResponse = await getLocations(zambdaIntakeClient, params);        
         setLocationWithSlotData(locationResponse);     
       } catch (e) {
         console.error('error loading location with slot data', e);
