@@ -35,10 +35,8 @@ import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 import {
   CreateAppointmentParameters,
-  EmailUserValue,
   PersonSex,
   VisitType,
-  getFhirAppointmentTypeForVisitType,
 } from '../types/types';
 import { PRIVATE_EXTENSION_BASE_URL } from 'ehr-utils';
 import SlotPicker from '../components/SlotPicker';
@@ -96,12 +94,14 @@ export default function AddPatient(): JSX.Element {
     const fetchLocationWithSlotData = async (params: GetLocationParameters, client: ZambdaClient): Promise<void> => {
       setLoadingSlotState({ status: 'loading', input: undefined });
       try {
-        const locationResponse = await getLocations(client, params);
-        setLocationWithSlotData(locationResponse);
+        if (!zambdaIntakeClient) throw new Error('Zambda client not found');
+        const locationResponse = await getLocations(zambdaIntakeClient, params);
+        console.log('locationResponse 87ygbjiuy', locationResponse);
+        setLocationWithSlotData(locationResponse);     
       } catch (e) {
         console.error('error loading location with slot data', e);
       } finally {
-        setLoadingSlotState({ status: 'loaded', input: `${params.locationState}-${params.locationSlug}` });
+        setLoadingSlotState({ status: 'loaded', input: `${params.locationState}-${params.slug}` });
       }
     };
     const locationSlug = selectedLocation?.identifier?.find(
@@ -124,7 +124,8 @@ export default function AddPatient(): JSX.Element {
     ) {
       return;
     }
-    void fetchLocationWithSlotData({ locationSlug, locationState }, zambdaIntakeClient);
+    console.log(`fetching location with slot data for ${locationSlug} in ${locationState} 87ytgfvbji87ytgf`);
+    void fetchLocationWithSlotData({ slug: locationSlug, locationState, scheduleType: 'location' }, zambdaIntakeClient);
   }, [selectedLocation, loadingSlotState, zambdaIntakeClient]);
 
   // handle functions
@@ -625,9 +626,9 @@ export default function AddPatient(): JSX.Element {
                     </Box>
                     {visitType === VisitType.Prebook && (
                       <SlotPicker
-                        slotData={locationWithSlotData?.available}
+                        slotData={locationWithSlotData?.availableSlots}
                         slotsLoading={loadingSlotState.status === 'loading'}
-                        timezone={locationWithSlotData?.location.timezone || 'Undefined'}
+                        timezone={locationWithSlotData?.timezone || 'Undefined'}
                         selectedSlot={slot}
                         setSelectedSlot={setSlot}
                       />
