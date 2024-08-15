@@ -19,8 +19,7 @@ import { VisitType, VisitTypeToLabel } from '../types/types';
 import ProvidersSelect from '../components/inputs/ProvidersSelect';
 import GroupSelect from '../components/inputs/GroupSelect';
 import { TIMEZONE_EXTENSION_URL } from '../constants';
-import { createSampleAppointments } from '../helpers/create-sample-appointments';
-import { useAuth0 } from '@auth0/auth0-react';
+import CreateDemoVisitsButton from '../telemed/features/tracking-board/CreateDemoVisitsButton';
 
 type LoadingState = { status: 'loading' | 'initial'; id?: string | undefined } | { status: 'loaded'; id: string };
 
@@ -325,16 +324,6 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
     setEditingComment,
   } = props;
 
-  const { fhirClient } = useApiClients();
-
-  const { getAccessTokenSilently } = useAuth0();
-
-  const handleCreateSampleAppointments = async (): Promise<void> => {
-    const authToken = await getAccessTokenSilently();
-    const response = await createSampleAppointments(fhirClient, 'in-person', authToken);
-    console.log('response', response);
-  };
-
   return (
     <form>
       <PageContainer>
@@ -448,7 +437,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
             updateAppointments={updateAppointments}
             setEditingComment={setEditingComment}
           />
-          <Button onClick={() => handleCreateSampleAppointments()}>Create Sample Appointments</Button>
+          <CreateDemoVisitsButton />
         </>
       </PageContainer>
     </form>

@@ -1,15 +1,13 @@
 import React, { useEffect, ReactElement, useState } from 'react';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
-import { Box, Button, Paper, Tab } from '@mui/material';
+import { Box, Button, Paper, Tab, Typography } from '@mui/material';
 import { TrackingBoardTable } from './TrackingBoardTable';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useGetTelemedAppointments, useTrackingBoardStore } from '../../state';
 import { ApptTab, ApptTabToStatus } from '../../utils';
 import { useZapEHRAPIClient } from '../../hooks/useZapEHRAPIClient';
 import Loading from '../../../components/Loading';
-import { createSampleAppointments } from '../../../helpers/create-sample-appointments';
-import { useApiClients } from '../../../hooks/useAppClients';
-import { useAuth0 } from '@auth0/auth0-react';
+import CreateDemoVisitsButton from './CreateDemoVisitsButton';
 
 export function TrackingBoardTabs(): ReactElement {
   const { alignment, state, date, providers, groups, setAppointments } = getSelectors(useTrackingBoardStore, [
@@ -20,27 +18,14 @@ export function TrackingBoardTabs(): ReactElement {
     'date',
     'setAppointments',
   ]);
-  const { getAccessTokenSilently } = useAuth0();
 
   const [value, setValue] = useState<ApptTab>(ApptTab.ready);
-  const { fhirClient } = useApiClients();
 
   const handleChange = (_: any, newValue: ApptTab): any => {
     setValue(newValue);
   };
 
   const apiClient = useZapEHRAPIClient();
-
-  const getMeMyToken = async (): Promise<void> => {
-    const authToken = await getAccessTokenSilently();
-    console.log('authToken', authToken);
-  };
-
-  const handleCreateSampleAppointments = async (): Promise<void> => {
-    const authToken = await getAccessTokenSilently();
-    const response = await createSampleAppointments(fhirClient, 'telemedicine', authToken);
-    console.log('response', response);
-  };
 
   const { isFetching, isFetchedAfterMount } = useGetTelemedAppointments(
     {
@@ -78,8 +63,7 @@ export function TrackingBoardTabs(): ReactElement {
             <TrackingBoardTable tab={value} />
           </TabPanel>
         </Paper>
-        <Button onClick={() => handleCreateSampleAppointments()}>Create Sample Appointments</Button>
-        <Button onClick={() => getMeMyToken()}>Get Me My Token</Button>
+        <CreateDemoVisitsButton />
       </TabContext>
     </Box>
   );
