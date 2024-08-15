@@ -20,6 +20,7 @@ export const useZapEHRAPIClient = (): ReturnType<typeof getZapEHRTelemedAPI> | n
           deletePatientInstructionZambdaID: import.meta.env.VITE_APP_DELETE_PATIENT_INSTRUCTION_ZAMBDA_ID,
           icdSearchZambdaId: import.meta.env.VITE_APP_ICD_SEARCH_ZAMBDA_ID,
           isAppLocal: import.meta.env.VITE_APP_IS_LOCAL,
+          createSampleAppointmentsZambdaId: import.meta.env.VITE_APP_CREATE_SAMPLE_APPOINTMENTS_ZAMBDA_ID,
         },
         zambdaClient,
       );

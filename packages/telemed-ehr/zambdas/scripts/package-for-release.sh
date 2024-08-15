@@ -12,7 +12,7 @@ SLS_DIR=$(realpath $SCRIPTS_DIR/../.serverless)
 DIST_DIR=$(realpath $SCRIPTS_DIR/../.dist)
 
 # Zip
-ZIP_ORDER=("deactivate-user" "get-appointments" "get-telemed-appointments" "change-telemed-appointment-status" "get-conversation" "get-employees" "update-user" "get-user" "init-telemed-session" "save-chart-data" "get-chart-data" "delete-chart-data" "save-patient-instruction" "get-patient-instructions" "sync-user" "icd-search")
+ZIP_ORDER=("deactivate-user" "get-appointments" "get-telemed-appointments" "change-telemed-appointment-status" "get-conversation" "get-employees" "update-user" "get-user" "init-telemed-session" "save-chart-data" "get-chart-data" "delete-chart-data" "save-patient-instruction" "get-patient-instructions" "sync-user" "icd-search" "create-sample-appointments")
 
 for ZAMBDA in ${ZIP_ORDER[@]}; do
   # Set up temp directory for the zip

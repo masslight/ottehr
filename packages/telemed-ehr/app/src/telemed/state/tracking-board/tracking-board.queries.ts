@@ -83,6 +83,21 @@ export const useChangeTelemedAppointmentStatusMutation = () =>
   });
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useCreateSampleAppointments = () => {
+  return useMutation({
+    mutationFn: ({ apiClient }: { apiClient: ZapEHRTelemedAPIClient }) => {
+      return apiClient.createSampleAppointments();
+    },
+    onSuccess: () => {
+      console.log('Sample appointments created successfully');
+    },
+    onError: (err) => {
+      console.error('Error during creating sample appointments: ', err);
+    },
+  });
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useEditPatientInformationMutation = () => {
   const { fhirClient } = useApiClients();
   return useMutation({

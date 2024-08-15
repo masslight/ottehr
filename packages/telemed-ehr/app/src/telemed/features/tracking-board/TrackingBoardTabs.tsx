@@ -1,12 +1,14 @@
 import React, { useEffect, ReactElement, useState } from 'react';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
-import { Box, Paper, Tab } from '@mui/material';
+import { Box, Button, Paper, Tab } from '@mui/material';
 import { TrackingBoardTable } from './TrackingBoardTable';
 import { getSelectors } from '../../../shared/store/getSelectors';
-import { useGetTelemedAppointments, useTrackingBoardStore } from '../../state';
+import { useCreateSampleAppointments, useGetTelemedAppointments, useTrackingBoardStore } from '../../state';
 import { ApptTab, ApptTabToStatus } from '../../utils';
 import { useZapEHRAPIClient } from '../../hooks/useZapEHRAPIClient';
 import Loading from '../../../components/Loading';
+import { createSampleAppointments } from '../../../helpers/create-sample-appointments';
+import { useApiClients } from '../../../hooks/useAppClients';
 
 export function TrackingBoardTabs(): ReactElement {
   const { alignment, state, date, providers, groups, setAppointments } = getSelectors(useTrackingBoardStore, [
@@ -19,12 +21,18 @@ export function TrackingBoardTabs(): ReactElement {
   ]);
 
   const [value, setValue] = useState<ApptTab>(ApptTab.ready);
+  const { fhirClient } = useApiClients();
 
   const handleChange = (_: any, newValue: ApptTab): any => {
     setValue(newValue);
   };
 
   const apiClient = useZapEHRAPIClient();
+
+  const handleCreateSampleAppointments = async (): Promise<void> => {
+    const response = await createSampleAppointments(fhirClient);
+    console.log('response', response);
+  };
 
   const { isFetching, isFetchedAfterMount } = useGetTelemedAppointments(
     {
@@ -62,6 +70,7 @@ export function TrackingBoardTabs(): ReactElement {
             <TrackingBoardTable tab={value} />
           </TabPanel>
         </Paper>
+        <Button onClick={() => handleCreateSampleAppointments()}>Create Sample Appointments</Button>
       </TabContext>
     </Box>
   );
