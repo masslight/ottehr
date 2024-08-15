@@ -48,13 +48,9 @@ export const createSampleAppointments = async (
   authToken: string,
 ): Promise<APIGatewayProxyResult> => {
   try {
-    console.log('Creating sample appointments');
-
     if (!fhirClient) {
       throw new Error('FHIR client not initialized');
     }
-    console.log('authToken', authToken);
-
     const responses: any[] = [];
 
     for (let i = 0; i < 5; i++) {
@@ -72,7 +68,7 @@ export const createSampleAppointments = async (
           body: inputBody,
         },
       );
-      console.log('response', response);
+      responses.push(response);
     }
 
     return {
@@ -118,7 +114,6 @@ const generateRandomPatientInfo = async (
     .toISODate();
   const randomSex = sexes[Math.floor(Math.random() * sexes.length)];
   const randomLocationIndex = Math.floor(Math.random() * availableLocations.length);
-  console.log('randomLoc', availableLocations);
   const randomLocationId = availableLocations[randomLocationIndex].id;
   const randomProviderId = practitionersTemp[Math.floor(Math.random() * practitionersTemp.length)].id;
 
