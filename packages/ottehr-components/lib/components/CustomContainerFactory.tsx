@@ -139,7 +139,7 @@ export const CustomContainer: FC<ContainerProps> = ({
                 },
               }}
               onClick={() => {
-                navigate('/home');
+                navigate('/patient-portal');
               }}
             >
               <img src={portal} alt="portal" />
