@@ -3,7 +3,7 @@ import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Button, Paper, Tab } from '@mui/material';
 import { TrackingBoardTable } from './TrackingBoardTable';
 import { getSelectors } from '../../../shared/store/getSelectors';
-import { useCreateSampleAppointments, useGetTelemedAppointments, useTrackingBoardStore } from '../../state';
+import { useGetTelemedAppointments, useTrackingBoardStore } from '../../state';
 import { ApptTab, ApptTabToStatus } from '../../utils';
 import { useZapEHRAPIClient } from '../../hooks/useZapEHRAPIClient';
 import Loading from '../../../components/Loading';
@@ -30,7 +30,7 @@ export function TrackingBoardTabs(): ReactElement {
   const apiClient = useZapEHRAPIClient();
 
   const handleCreateSampleAppointments = async (): Promise<void> => {
-    const response = await createSampleAppointments(fhirClient);
+    const response = await createSampleAppointments(fhirClient, 'telemedicine');
     console.log('response', response);
   };
 

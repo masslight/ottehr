@@ -1,13 +1,8 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { v4 as uuidv4 } from 'uuid';
 import { DateTime } from 'luxon';
-// import { CreateAppointmentUCTelemedParams, SecretsKeys, ZambdaInput, createFhirClient, getSecret } from 'ottehr-utils';
 import { FhirClient, SearchParam } from '@zapehr/sdk';
 import { PersonSex } from '../../../app/src/types/types';
 import { Patient, Practitioner } from 'fhir/r4';
-import { useApiClients } from '../hooks/useAppClients';
-
-let zapehrToken: string;
 
 interface PatientBaseInfo {
   firstName?: string;
@@ -43,9 +38,13 @@ interface CreateAppointmentUCTelemedParams {
   groupID?: string;
   unconfirmedDateOfBirth?: string | undefined;
   timezone: string;
+  isDemo?: boolean;
 }
 
-export const createSampleAppointments = async (fhirClient: FhirClient | undefined): Promise<APIGatewayProxyResult> => {
+export const createSampleAppointments = async (
+  fhirClient: FhirClient | undefined,
+  visitService: 'in-person' | 'telemedicine',
+): Promise<APIGatewayProxyResult> => {
   try {
     console.log('Creating sample appointments');
 
@@ -57,8 +56,8 @@ export const createSampleAppointments = async (fhirClient: FhirClient | undefine
 
     console.log('FHIR client created');
 
-    for (let i = 0; i < 25; i++) {
-      const randomPatientInfo = await generateRandomPatientInfo(fhirClient);
+    for (let i = 0; i < 5; i++) {
+      const randomPatientInfo = await generateRandomPatientInfo(fhirClient, visitService);
       const inputBody = JSON.stringify(randomPatientInfo);
 
       const response = await fetch(
@@ -88,12 +87,14 @@ export const createSampleAppointments = async (fhirClient: FhirClient | undefine
   }
 };
 
-const generateRandomPatientInfo = async (fhirClient: FhirClient): Promise<CreateAppointmentUCTelemedParams> => {
-  const firstNames = ['Alice', 'Bob', 'Charlie', 'Diana', 'Ethan'];
-  const lastNames = ['Smith', 'Johnson', 'Williams', 'Jones', 'Brown'];
+const generateRandomPatientInfo = async (
+  fhirClient: FhirClient,
+  visitService: 'in-person' | 'telemedicine',
+): Promise<CreateAppointmentUCTelemedParams> => {
+  const firstNames = ['Alice', 'Bob', 'Charlie', 'Diana', 'Ethan', 'Fatima', 'Gabriel', 'Hannah', 'Ibrahim', 'Jake'];
+  const lastNames = ['Smith', 'Johnson', 'Williams', 'Jones', 'Brown', 'Clark', 'Davis', 'Elliott', 'Foster', 'Garcia'];
   const sexes: PersonSex[] = [PersonSex.Male, PersonSex.Female, PersonSex.Intersex];
   const visitTypes: ('prebook' | 'now')[] = ['prebook', 'now'];
-  const visitServices = Math.random() < 0.5 ? 'in-person' : 'telemedicine';
 
   const searchParams: SearchParam[] = [{ name: 'status', value: 'active' }];
   const availableLocations: any[] = await fhirClient?.searchResources({
@@ -108,20 +109,20 @@ const generateRandomPatientInfo = async (fhirClient: FhirClient): Promise<Create
       { name: 'active', value: 'true' },
     ],
   });
-  console.log('practitionersTemp', practitionersTemp);
 
   const randomFirstName = firstNames[Math.floor(Math.random() * firstNames.length)];
   const randomLastName = lastNames[Math.floor(Math.random() * lastNames.length)];
   const randomEmail = `${randomFirstName.toLowerCase()}.${randomLastName.toLowerCase()}@example.com`;
   const randomDateOfBirth = DateTime.now()
-    .minus({ years: Math.floor(Math.random() * 26) })
+    .minus({ years: 7 + Math.floor(Math.random() * 16) })
     .toISODate();
   const randomSex = sexes[Math.floor(Math.random() * sexes.length)];
   const randomLocationIndex = Math.floor(Math.random() * availableLocations.length);
+  console.log('randomLoc', availableLocations);
   const randomLocationId = availableLocations[randomLocationIndex].id;
   const randomProviderId = practitionersTemp[Math.floor(Math.random() * practitionersTemp.length)].id;
 
-  if (visitServices === 'telemedicine') {
+  if (visitService === 'telemedicine') {
     return {
       patient: {
         newPatient: true,
@@ -137,9 +138,10 @@ const generateRandomPatientInfo = async (fhirClient: FhirClient): Promise<Create
       //     .toISO(),
       scheduleType: 'provider',
       visitType: 'now',
-      visitService: 'telemedicine',
+      visitService: visitService,
       providerID: randomProviderId,
       timezone: 'UTC',
+      isDemo: true,
     };
   }
 
@@ -157,9 +159,10 @@ const generateRandomPatientInfo = async (fhirClient: FhirClient): Promise<Create
       .plus({ days: Math.floor(Math.random() * 30) })
       .toISO(),
     scheduleType: 'location',
-    visitType: visitTypes[Math.floor(Math.random() * visitTypes.length)],
-    visitService: visitServices,
+    visitType: 'prebook',
+    visitService: visitService,
     locationID: randomLocationId,
     timezone: 'UTC',
+    isDemo: true,
   };
 };

@@ -65,9 +65,6 @@ const ZAMBDAS: { [name: string]: DeployZambda } = {
   'GET-PRESIGNED-FILE-URL': {
     type: 'http_open',
   },
-  'CREATE-SAMPLE-APPOINTMENTS': {
-    type: 'http_open',
-  },
 };
 
 const updateZambdas = async (config: any): Promise<void> => {
