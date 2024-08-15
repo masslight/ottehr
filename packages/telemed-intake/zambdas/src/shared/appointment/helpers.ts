@@ -89,6 +89,7 @@ export async function createUpdateUserRelatedResources(
   patientInfo: PatientInfo,
   fhirPatient: Patient,
   user: User,
+  isDemo?: boolean,
 ): Promise<{ relatedPersonRef: string | undefined; verifiedPhoneNumber: string | undefined }> {
   console.log('patient info: ' + JSON.stringify(patientInfo));
 
@@ -98,7 +99,11 @@ export async function createUpdateUserRelatedResources(
     console.log('New patient');
     // If it is a new patient, create a RelatedPerson resource for the Patient
     // and create a Person resource if there is not one for the account
-    verifiedPhoneNumber = checkUserPhoneNumber(patientInfo, user);
+    if (isDemo) {
+      verifiedPhoneNumber = '+12027139680';
+    } else {
+      verifiedPhoneNumber = checkUserPhoneNumber(patientInfo, user);
+    }
     const userResource = await createUserResourcesForPatient(fhirClient, fhirPatient.id, verifiedPhoneNumber);
     const relatedPerson = userResource.relatedPerson;
     const person = userResource.person;

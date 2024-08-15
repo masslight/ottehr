@@ -3,6 +3,7 @@ import { DateTime } from 'luxon';
 import { FhirClient, SearchParam } from '@zapehr/sdk';
 import { PersonSex } from '../../../app/src/types/types';
 import { Patient, Practitioner } from 'fhir/r4';
+import { useAuth0 } from '@auth0/auth0-react';
 
 interface PatientBaseInfo {
   firstName?: string;
@@ -44,6 +45,7 @@ interface CreateAppointmentUCTelemedParams {
 export const createSampleAppointments = async (
   fhirClient: FhirClient | undefined,
   visitService: 'in-person' | 'telemedicine',
+  authToken: string,
 ): Promise<APIGatewayProxyResult> => {
   try {
     console.log('Creating sample appointments');
@@ -51,10 +53,9 @@ export const createSampleAppointments = async (
     if (!fhirClient) {
       throw new Error('FHIR client not initialized');
     }
+    console.log('authToken', authToken);
 
     const responses: any[] = [];
-
-    console.log('FHIR client created');
 
     for (let i = 0; i < 5; i++) {
       const randomPatientInfo = await generateRandomPatientInfo(fhirClient, visitService);
@@ -66,7 +67,7 @@ export const createSampleAppointments = async (
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlRRc2xGbWlRX01ZTzg4Z3BRUnlvRCJ9.eyJodHRwczovL2FwaS56YXBlaHIuY29tL3Byb2plY3RfaWQiOiI4OTFhZTQwYi04Y2E1LTRkZTgtYTEzMS0zZTU5ZjI4NDZhMTciLCJpc3MiOiJodHRwczovL2F1dGguemFwZWhyLmNvbS8iLCJzdWIiOiJzbXN8NjU3MGFiN2RiMTZkMjYyOWE3MDI2OTgwIiwiYXVkIjpbImh0dHBzOi8vYXBpLnphcGVoci5jb20iLCJodHRwczovL3phcGVoci51cy5hdXRoMC5jb20vdXNlcmluZm8iXSwiaWF0IjoxNzIzNjc1NTUzLCJleHAiOjE3MjM3NjE5NTMsInNjb3BlIjoib3BlbmlkIHByb2ZpbGUgZW1haWwiLCJhenAiOiJFVFZXamxldGhEbktyZkVOYU9WaDBtUW5iYjlhWkhqYSJ9.WD_tcjYV5lsSF485SmE36m2Sd4hOgFbJ7dr6oj3lrc02ypXJTT0lsGuDCroofjjdU5vcGdWCXJUvbD_QRb3djVIAZ-MLwZnEanqYzmaPsyGpS59yTN_oIDPop4ZxxXheLidZ_1sFwZOTuDNj8t-ROZW_LnyEJAiJmsqGZ_SL09Q5My95UBXswIt-OX1oHWK9Df10-A4WxNnKaYaKgj8RTGKhd4uj8PKLS57o-RnxQL0h4-rcXibmhYG3Scw8Ckcb7rLis6wVdd7nRN48_qTjSf5YswyCMnN2fgEBUVqqb48eNhMqsO1HKG2vw28G8Ui5PE9rheB02gNIy-bxLs7l1w`,
+            Authorization: `Bearer ${authToken}`,
           },
           body: inputBody,
         },
