@@ -22,7 +22,6 @@ import { GetAppointmentsRequestParams } from '../utils';
 import { ApiError, GetZapEHRTelemedAPIParams } from './types';
 
 enum ZambdaNames {
-  'create sample appointments' = 'create sample appointments',
   'get telemed appointments' = 'get telemed appointments',
   'init telemed session' = 'init telemed session',
   'get chart data' = 'get chart data',
@@ -46,7 +45,6 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'save patient instruction': false,
   'delete patient instruction': false,
   'icd search': false,
-  'create sample appointments': false,
 };
 
 export type ZapEHRTelemedAPIClient = ReturnType<typeof getZapEHRTelemedAPI>;
@@ -65,7 +63,6 @@ export const getZapEHRTelemedAPI = (
   savePatientInstruction: typeof savePatientInstruction;
   deletePatientInstruction: typeof deletePatientInstruction;
   icdSearch: typeof icdSearch;
-  createSampleAppointments: typeof createSampleAppointments;
 } => {
   const {
     getTelemedAppointmentsZambdaID,
@@ -78,7 +75,6 @@ export const getZapEHRTelemedAPI = (
     savePatientInstructionZambdaID,
     deletePatientInstructionZambdaID,
     icdSearchZambdaId,
-    createSampleAppointmentsZambdaId,
   } = params;
 
   const zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined> = {
@@ -92,7 +88,6 @@ export const getZapEHRTelemedAPI = (
     'save patient instruction': savePatientInstructionZambdaID,
     'delete patient instruction': deletePatientInstructionZambdaID,
     'icd search': icdSearchZambdaId,
-    'create sample appointments': createSampleAppointmentsZambdaId,
   };
   const isAppLocalProvided = params.isAppLocal != null;
   const isAppLocal = params.isAppLocal === 'true';
@@ -192,10 +187,6 @@ export const getZapEHRTelemedAPI = (
     return await makeZapRequest('icd search', parameters);
   };
 
-  const createSampleAppointments = async (): Promise<void> => {
-    return await makeZapRequest('create sample appointments');
-  };
-
   return {
     getTelemedAppointments,
     initTelemedSession,
@@ -207,7 +198,6 @@ export const getZapEHRTelemedAPI = (
     savePatientInstruction,
     deletePatientInstruction,
     icdSearch,
-    createSampleAppointments,
   };
 };
 

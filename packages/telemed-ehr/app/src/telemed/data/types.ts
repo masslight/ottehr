@@ -10,7 +10,6 @@ export type GetZapEHRTelemedAPIParams = {
   savePatientInstructionZambdaID?: string;
   deletePatientInstructionZambdaID?: string;
   icdSearchZambdaId?: string;
-  createSampleAppointmentsZambdaId?: string;
 };
 
 export interface ApiError {

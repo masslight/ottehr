@@ -87,23 +87,6 @@ functions:
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
       URGENT_CARE_SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
-  create-sample-appointments:
-    handler: src/create-sample-appointments/index.index
-    events:
-      - http:
-          path: zambda/create-sample-appointments/execute
-          method: POST
-    timeout: 25
-    environment:
-      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
-      URGENT_CARE_AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_CLIENT}
-      URGENT_CARE_AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_AUTH0_SECRET}
-      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
-      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
-      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
-      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
-      SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
-      URGENT_CARE_SENDGRID_ERROR_EMAIL_TEMPLATE_ID: ${file(./.env/${self:provider.stage}.json):URGENT_CARE_SENDGRID_ERROR_EMAIL_TEMPLATE_ID}
   get-user:
     handler: src/get-user/index.index
     events:

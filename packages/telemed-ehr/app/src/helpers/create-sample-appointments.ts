@@ -94,7 +94,6 @@ const generateRandomPatientInfo = async (
   const firstNames = ['Alice', 'Bob', 'Charlie', 'Diana', 'Ethan', 'Fatima', 'Gabriel', 'Hannah', 'Ibrahim', 'Jake'];
   const lastNames = ['Smith', 'Johnson', 'Williams', 'Jones', 'Brown', 'Clark', 'Davis', 'Elliott', 'Foster', 'Garcia'];
   const sexes: PersonSex[] = [PersonSex.Male, PersonSex.Female, PersonSex.Intersex];
-  const visitTypes: ('prebook' | 'now')[] = ['prebook', 'now'];
 
   const searchParams: SearchParam[] = [{ name: 'status', value: 'active' }];
   const availableLocations: any[] = await fhirClient?.searchResources({
@@ -133,9 +132,6 @@ const generateRandomPatientInfo = async (
         email: randomEmail,
         emailUser: 'Patient',
       },
-      //   slot: DateTime.now()
-      //     .plus({ days: Math.floor(Math.random() * 30) })
-      //     .toISO(),
       scheduleType: 'provider',
       visitType: 'now',
       visitService: visitService,
