@@ -6,13 +6,21 @@ import { createSampleAppointments } from '../../../helpers/create-sample-appoint
 import { useApiClients } from '../../../hooks/useAppClients';
 import { useAuth0 } from '@auth0/auth0-react';
 
-const CreateDemoVisitsButton = (): ReactElement => {
+interface CreateDemoVisitsButtonProps {
+  visitService: string;
+}
+
+const CreateDemoVisitsButton = ({ visitService }: CreateDemoVisitsButtonProps): ReactElement => {
   const { fhirClient } = useApiClients();
   const { getAccessTokenSilently } = useAuth0();
 
   const handleCreateSampleAppointments = async (): Promise<void> => {
     const authToken = await getAccessTokenSilently();
-    const response = await createSampleAppointments(fhirClient, 'telemedicine', authToken);
+    const response = await createSampleAppointments(
+      fhirClient,
+      visitService as 'in-person' | 'telemedicine',
+      authToken,
+    );
     console.log('response', response);
   };
 

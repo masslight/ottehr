@@ -63,7 +63,7 @@ export function TrackingBoardTabs(): ReactElement {
             <TrackingBoardTable tab={value} />
           </TabPanel>
         </Paper>
-        <CreateDemoVisitsButton />
+        <CreateDemoVisitsButton visitService="telemedicine" />
       </TabContext>
     </Box>
   );
