@@ -3,7 +3,6 @@ import { DateTime } from 'luxon';
 import { FhirClient, SearchParam } from '@zapehr/sdk';
 import { PersonSex } from '../../../app/src/types/types';
 import { Patient, Practitioner } from 'fhir/r4';
-import { useAuth0 } from '@auth0/auth0-react';
 
 interface PatientBaseInfo {
   firstName?: string;
@@ -53,21 +52,22 @@ export const createSampleAppointments = async (
     }
     const responses: any[] = [];
 
-    for (let i = 0; i < 5; i++) {
+    const createAppointmentZambdaId = import.meta.env.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID;
+
+    const intakeZambdaUrl = import.meta.env.VITE_APP_INTAKE_ZAMBDAS_URL;
+
+    for (let i = 0; i < 1; i++) {
       const randomPatientInfo = await generateRandomPatientInfo(fhirClient, visitService);
       const inputBody = JSON.stringify(randomPatientInfo);
 
-      const response = await fetch(
-        `https://project-api.zapehr.com/v1/zambda/5213a4d7-aea0-4f14-ac9a-e7dc9aa58702/execute`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${authToken}`,
-          },
-          body: inputBody,
+      const response = await fetch(`${intakeZambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
         },
-      );
+        body: inputBody,
+      });
       responses.push(response);
     }
 
