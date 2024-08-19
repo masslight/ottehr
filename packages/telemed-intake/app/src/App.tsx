@@ -62,7 +62,7 @@ const queryClient = new QueryClient({
 });
 
 export class IntakeFlowPageRoute {
-  static readonly PatientPortal = new IntakeFlowPageRoute('/home', <PatientPortal />);
+  static readonly PatientPortal = new IntakeFlowPageRoute('/patient-portal', <PatientPortal />);
   static readonly SelectPatient = new IntakeFlowPageRoute('/select-patient', <SelectPatient />);
   static readonly PastVisits = new IntakeFlowPageRoute('/past-visits', <PastVisits />);
   static readonly VisitDetails = new IntakeFlowPageRoute('/visit-details', <VisitDetails />);
