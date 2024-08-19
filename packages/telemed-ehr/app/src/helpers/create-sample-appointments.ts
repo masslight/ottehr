@@ -4,17 +4,14 @@ import { FhirClient, SearchParam } from '@zapehr/sdk';
 import { PersonSex } from '../../../app/src/types/types';
 import { Patient, Practitioner } from 'fhir/r4';
 
-interface PatientBaseInfo {
-  firstName?: string;
+type UserType = 'Patient' | 'Parent/Guardian';
+
+interface PatientInfo {
   id?: string;
+  firstName?: string;
   middleName?: string;
   lastName?: string;
   dateOfBirth?: string;
-}
-
-type UserType = 'Patient' | 'Parent/Guardian';
-
-type PatientInfo = PatientBaseInfo & {
   newPatient?: boolean;
   chosenName?: string;
   sex?: Patient['gender'];
@@ -25,9 +22,9 @@ type PatientInfo = PatientBaseInfo & {
   reasonForVisit?: string[];
   phoneNumber?: string;
   pointOfDiscovery?: boolean;
-};
+}
 
-interface CreateAppointmentUCTelemedParams {
+interface CreateAppointmentParams {
   patient?: PatientInfo;
   slot?: string;
   scheduleType?: 'location' | 'provider';
@@ -45,7 +42,7 @@ export const createSampleAppointments = async (
   fhirClient: FhirClient | undefined,
   visitService: 'in-person' | 'telemedicine',
   authToken: string,
-): Promise<APIGatewayProxyResult> => {
+): Promise<void> => {
   try {
     if (!fhirClient) {
       throw new Error('FHIR client not initialized');
@@ -71,23 +68,16 @@ export const createSampleAppointments = async (
       responses.push(response);
     }
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(responses),
-    };
+    console.log('Succesfully created appointments', responses);
   } catch (error: any) {
-    console.error('Error creating appointment:', error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error' }),
-    };
+    console.error('Error creating appointments:', error);
   }
 };
 
 const generateRandomPatientInfo = async (
   fhirClient: FhirClient,
   visitService: 'in-person' | 'telemedicine',
-): Promise<CreateAppointmentUCTelemedParams> => {
+): Promise<CreateAppointmentParams> => {
   const firstNames = ['Alice', 'Bob', 'Charlie', 'Diana', 'Ethan', 'Fatima', 'Gabriel', 'Hannah', 'Ibrahim', 'Jake'];
   const lastNames = ['Smith', 'Johnson', 'Williams', 'Jones', 'Brown', 'Clark', 'Davis', 'Elliott', 'Foster', 'Garcia'];
   const sexes: PersonSex[] = [PersonSex.Male, PersonSex.Female, PersonSex.Intersex];
@@ -147,11 +137,12 @@ const generateRandomPatientInfo = async (
       email: randomEmail,
       emailUser: 'Patient',
     },
-    slot: DateTime.now()
-      .plus({ days: Math.floor(Math.random() * 30) })
-      .toISO(),
+    // In fututre we might want to generate future date appointments for the patients
+    // slot: DateTime.now()
+    //   .plus({ days: Math.floor(Math.random() * 30) })
+    //   .toISO(),
     scheduleType: 'location',
-    visitType: 'prebook',
+    visitType: 'now',
     visitService: visitService,
     locationID: '6c167a9d-14f5-4693-96e1-174584e5ebee',
     timezone: 'UTC',
