@@ -8,6 +8,7 @@ export interface GetScheduleResponse {
   groupID?: string;
   availableSlots: string[];
   available: boolean;
+  timezone: string;
 }
 
 export interface GetScheduleRequestParams {

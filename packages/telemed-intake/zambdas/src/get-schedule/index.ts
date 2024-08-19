@@ -276,6 +276,7 @@ async function getSchedule(
     availableSlots: [...new Set(slots)], // remove duplicates,
     // available: location.status === 'active',
     available: true,
+    timezone: getTimezone(item),
   };
 }
 
@@ -372,6 +373,20 @@ function getName(item: Location | Practitioner | HealthcareService): string {
     return item.name;
   }
   return formatHumanName(item.name[0]);
+}
+
+export const TIMEZONE_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/timezone';
+
+export function getTimezone(resource: Location | Practitioner | HealthcareService | undefined): string {
+  let timezone = 'America/New_York';
+  if (resource) {
+    const timezoneTemp = resource.extension?.find(
+      (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL,
+    )?.valueString;
+    if (timezoneTemp) timezone = timezoneTemp;
+  }
+
+  return timezone;
 }
 
 export const distributeTimeSlots = (

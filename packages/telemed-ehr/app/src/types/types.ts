@@ -14,8 +14,10 @@ export interface GetAppointmentsParameters {
 export interface CreateAppointmentParameters {
   slot?: string | undefined;
   patient: PatientInfo | undefined;
-  location?: string | undefined;
-  visitType: FhirAppointmentType | undefined;
+  locationID?: string | undefined;
+  visitType: VisitType | undefined;
+  scheduleType: 'location' | 'provider' | 'group' | undefined;
+  visitService: 'in-person' | 'telemedicine' | undefined;
 }
 
 export interface UpdateAppointmentAndEncounterParameters {

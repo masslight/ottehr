@@ -94,12 +94,13 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
   console.log('getting user');
 
   const user = await getUser(input.headers.Authorization.replace('Bearer ', ''));
+  const isEHRUser = !user.name.startsWith('+');
 
   // If it's a returning patient, check if the user has
   // access to create appointments for this patient
   if (patient.id) {
     const userAccess = await userHasAccessToPatient(user, patient.id, fhirClient);
-    if (!userAccess) {
+    if (!userAccess && !isEHRUser) {
       return {
         statusCode: 403,
         body: JSON.stringify({
