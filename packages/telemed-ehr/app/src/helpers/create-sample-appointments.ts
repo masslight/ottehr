@@ -53,7 +53,7 @@ export const createSampleAppointments = async (
 
     const intakeZambdaUrl = import.meta.env.VITE_APP_INTAKE_ZAMBDAS_URL;
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 1; i++) {
       const randomPatientInfo = await generateRandomPatientInfo(fhirClient, visitService);
       const inputBody = JSON.stringify(randomPatientInfo);
 
@@ -107,6 +107,13 @@ const generateRandomPatientInfo = async (
   const randomLocationId = availableLocations[randomLocationIndex].id;
   const randomProviderId = practitionersTemp[Math.floor(Math.random() * practitionersTemp.length)].id;
 
+  const selectedLocationID = localStorage.getItem('selectedLocationID');
+
+  console.log('availableLocations', availableLocations);
+
+  console.log('selectedLocationID', selectedLocationID);
+  console.log('randomLocationId', randomLocationId);
+
   if (visitService === 'telemedicine') {
     return {
       patient: {
@@ -144,7 +151,7 @@ const generateRandomPatientInfo = async (
     scheduleType: 'location',
     visitType: 'now',
     visitService: visitService,
-    locationID: '6c167a9d-14f5-4693-96e1-174584e5ebee',
+    locationID: selectedLocationID || randomLocationId,
     timezone: 'UTC',
     isDemo: true,
   };
