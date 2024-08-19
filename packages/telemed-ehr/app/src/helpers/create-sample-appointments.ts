@@ -56,7 +56,7 @@ export const createSampleAppointments = async (
 
     const intakeZambdaUrl = import.meta.env.VITE_APP_INTAKE_ZAMBDAS_URL;
 
-    for (let i = 0; i < 1; i++) {
+    for (let i = 0; i < 5; i++) {
       const randomPatientInfo = await generateRandomPatientInfo(fhirClient, visitService);
       const inputBody = JSON.stringify(randomPatientInfo);
 
@@ -153,7 +153,7 @@ const generateRandomPatientInfo = async (
     scheduleType: 'location',
     visitType: 'prebook',
     visitService: visitService,
-    locationID: randomLocationId,
+    locationID: '6c167a9d-14f5-4693-96e1-174584e5ebee',
     timezone: 'UTC',
     isDemo: true,
   };
