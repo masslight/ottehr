@@ -40,6 +40,11 @@ import {
 } from 'ottehr-utils';
 import { getUser } from '../../shared/auth';
 import { userHasAccessToPatient } from '../../shared/patients';
+import {
+  checkUserPhoneNumber,
+  createUpdateUserRelatedResources,
+  creatingPatientUpdateRequest,
+} from '../../shared/appointment/helpers';
 
 import { AuditableZambdaEndpoints, MAXIMUM_AGE, MINIMUM_AGE, createAuditEvent } from '../../shared';
 import { checkOrCreateToken } from '../lib/utils';
@@ -88,18 +93,20 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
     groupID,
     timezone,
     unconfirmedDateOfBirth,
+    isDemo,
   } = params;
   const { secrets } = input;
   const fhirClient = createFhirClient(zapehrToken);
   console.log('getting user');
 
   const user = await getUser(input.headers.Authorization.replace('Bearer ', ''));
+  const isEHRUser = !user.name.startsWith('+');
 
   // If it's a returning patient, check if the user has
   // access to create appointments for this patient
   if (patient.id) {
     const userAccess = await userHasAccessToPatient(user, patient.id, fhirClient);
-    if (!userAccess) {
+    if (!userAccess && !isEHRUser) {
       return {
         statusCode: 403,
         body: JSON.stringify({
@@ -124,6 +131,7 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
     timezone,
     unconfirmedDateOfBirth,
     secrets,
+    isDemo,
   );
 
   await createAuditEvent(AuditableZambdaEndpoints.appointmentCreate, fhirClient, input, patientId, secrets);
@@ -150,6 +158,7 @@ export async function createAppointment(
   timezone: string,
   unconfirmedDateOfBirth: string,
   secrets: Secrets | null,
+  isDemo?: boolean,
 ): Promise<CreateAppointmentUCTelemedResponse> {
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
 
@@ -231,6 +240,7 @@ export async function createAppointment(
     providerID,
     groupID,
     unconfirmedDateOfBirth,
+    isDemo,
   });
 
   // if the patient does not have a phone number, try to use the user's phone number
@@ -238,7 +248,7 @@ export async function createAppointment(
     patient.phoneNumber = (user as any).phoneNumber;
   }
 
-  await createUpdateUserRelatedResources(fhirClient, patient, fhirPatient, user);
+  await createUpdateUserRelatedResources(fhirClient, patient, fhirPatient, user, isDemo);
 
   console.log('success, here is the id: ', appointment.id);
   const response: CreateAppointmentUCTelemedResponse = {
@@ -248,155 +258,6 @@ export async function createAppointment(
   };
 
   return response;
-}
-
-async function creatingPatientUpdateRequest(
-  patient: PatientInfo,
-  maybeFhirPatient: Patient,
-): Promise<BatchInputRequest | undefined> {
-  if (!patient.id) return undefined;
-  console.log(`Have patient.id, ${patient.id} fetching Patient and building PATCH request`);
-
-  let updatePatientRequest: BatchInputRequest | undefined = undefined;
-
-  const patientPatchOperations: Operation[] = [];
-
-  // store form user (aka emailUser)
-  const formUser = {
-    url: FHIR_EXTENSION.Patient.formUser.url,
-    valueString: patient.emailUser,
-  };
-  const patientExtension = maybeFhirPatient.extension || [];
-  if (patientExtension.length > 0) {
-    const formUserExt = patientExtension.find((ext) => ext.url === FHIR_EXTENSION.Patient.formUser.url);
-    // check if formUser exists and needs to be updated and if so, update
-    if (formUserExt && formUserExt.valueString !== patient.emailUser) {
-      const formUserExtIndex = patientExtension.findIndex((ext) => ext.url === FHIR_EXTENSION.Patient.formUser.url);
-      patientExtension[formUserExtIndex] = formUser;
-    } else if (!formUserExt) {
-      // if form user does not exist within the extension
-      // push to patientExtension array
-      patientExtension.push(formUser);
-    }
-  } else {
-    // since no extensions exist, it must be added via patch operations
-    patientExtension.push(formUser);
-  }
-
-  console.log('patient extension', patientExtension);
-
-  patientPatchOperations.push({
-    op: maybeFhirPatient.extension ? 'replace' : 'add',
-    path: '/extension',
-    value: patientExtension,
-  });
-
-  // update email
-  if (patient.emailUser === 'Patient') {
-    const telecom = maybeFhirPatient.telecom;
-    const curEmail = telecom?.find((tele) => tele.system === 'email');
-    const curEmailidx = telecom?.findIndex((tele) => tele.system === 'email');
-    // check email exists in telecom but is different
-    if (telecom && curEmailidx && curEmailidx > -1 && patient.email !== curEmail) {
-      telecom[curEmailidx] = {
-        system: 'email',
-        value: patient.email,
-      };
-      patientPatchOperations.push({
-        op: 'replace',
-        path: '/telecom',
-        value: telecom,
-      });
-    }
-    // check if telecom exists but without email
-    if (telecom && !curEmail) {
-      telecom.push({
-        system: 'email',
-        value: patient.email,
-      });
-      patientPatchOperations.push({
-        op: 'replace',
-        path: '/telecom',
-        value: telecom,
-      });
-    }
-    // add if no telecom
-    if (!telecom) {
-      patientPatchOperations.push({
-        op: 'add',
-        path: '/telecom',
-        value: [
-          {
-            system: 'email',
-            value: patient.email,
-          },
-        ],
-      });
-    }
-  }
-
-  if (patient.emailUser === 'Parent/Guardian') {
-    const patientContacts = maybeFhirPatient.contact;
-    if (!patientContacts) {
-      // no existing contacts, add email
-      patientPatchOperations.push({
-        op: 'add',
-        path: '/contact',
-        value: [
-          {
-            relationship: [
-              {
-                coding: [
-                  {
-                    system: `${PRIVATE_EXTENSION_BASE_URL}/relationship`,
-                    code: patient.emailUser,
-                    display: patient.emailUser,
-                  },
-                ],
-              },
-            ],
-            telecom: [{ system: 'email', value: patient.email }],
-          },
-        ],
-      });
-    } else {
-      // check if different
-      const guardianContact = patientContacts.find((contact) =>
-        contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
-      );
-      const guardianContactIdx = patientContacts.findIndex((contact) =>
-        contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
-      );
-      const guardianEmail = guardianContact?.telecom?.find((telecom) => telecom.system === 'email')?.value;
-      const guardianEmailIdx = guardianContact?.telecom?.findIndex((telecom) => telecom.system === 'email');
-      if (patient.email !== guardianEmail) {
-        patientPatchOperations.push({
-          op: 'replace',
-          path: `/contact/${guardianContactIdx}/telecom/${guardianEmailIdx}`,
-          value: { system: 'email', value: patient.email },
-        });
-      }
-    }
-  }
-
-  if (patient.sex !== maybeFhirPatient.gender) {
-    patientPatchOperations.push({
-      op: maybeFhirPatient.gender ? 'replace' : 'add',
-      path: '/gender',
-      value: patient.sex,
-    });
-  }
-
-  if (patientPatchOperations.length >= 1) {
-    console.log('getting patch binary for patient operations');
-    updatePatientRequest = getPatchBinary({
-      resourceType: 'Patient',
-      resourceId: patient.id,
-      patchOperations: patientPatchOperations,
-    });
-  }
-
-  return updatePatientRequest;
 }
 
 async function creatingPatientCreateRequest(
@@ -502,6 +363,7 @@ interface TransactionInput {
   providerID: string;
   groupID: string;
   unconfirmedDateOfBirth?: string | undefined;
+  isDemo?: boolean;
 }
 
 interface TransactionOutput {
@@ -526,6 +388,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     providerID,
     groupID,
     unconfirmedDateOfBirth,
+    isDemo,
   } = input;
 
   if (!patient && !createPatientRequest?.fullUrl) {
@@ -678,7 +541,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       ],
       text: visitType,
     },
-    status: 'proposed',
+    status: isDemo ? 'arrived' : 'proposed',
     created: nowIso,
     extension: apptExtensions,
   };
@@ -857,62 +720,4 @@ async function getGroup(fhirClient: FhirClient, groupID: string): Promise<Health
     throw new Error(`Group ${groupID} is not active`);
   }
   return group;
-}
-
-/***
-Three cases:
-New user, new patient, create a conversation and add the participants including M2M Device and RelatedPerson
-Returning user, new patient, get the user's conversation and add the participant RelatedPerson
-Returning user, returning patient, get the user's conversation
- */
-export async function createUpdateUserRelatedResources(
-  fhirClient: FhirClient,
-  patientInfo: PatientInfo,
-  fhirPatient: Patient,
-  user: User,
-): Promise<{ relatedPersonRef: string | undefined; verifiedPhoneNumber: string | undefined }> {
-  console.log('patient info: ' + JSON.stringify(patientInfo));
-
-  let verifiedPhoneNumber: string | undefined = undefined;
-
-  if (!patientInfo.id && fhirPatient.id) {
-    console.log('New patient');
-    // If it is a new patient, create a RelatedPerson resource for the Patient
-    // and create a Person resource if there is not one for the account
-    verifiedPhoneNumber = checkUserPhoneNumber(patientInfo, user);
-    const userResource = await createUserResourcesForPatient(fhirClient, fhirPatient.id, verifiedPhoneNumber);
-    const relatedPerson = userResource.relatedPerson;
-    const person = userResource.person;
-
-    console.log(5, person.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value);
-
-    if (!person.id) {
-      throw new Error('Person resource does not have an ID');
-    }
-
-    return { relatedPersonRef: `RelatedPerson/${relatedPerson.id}`, verifiedPhoneNumber: verifiedPhoneNumber };
-  }
-
-  return { relatedPersonRef: undefined, verifiedPhoneNumber: verifiedPhoneNumber };
-}
-
-export function checkUserPhoneNumber(patient: PatientInfo, user: User): string {
-  let patientNumberToText: string | undefined = undefined;
-
-  // If the user is the staff, which happens when using the add-patient page,
-  // user.name will not be a phone number, like it would be for a patient. In this
-  // case, we must insert the patient's phone number using patient.phoneNumber
-  // we use .startsWith('+') because the user's phone number will start with "+"
-  const isEHRUser = !user.name.startsWith('+');
-  if (isEHRUser) {
-    // User is the staff
-    if (!patient.phoneNumber) {
-      throw new Error('No phone number found for patient');
-    }
-    patientNumberToText = formatPhoneNumber(patient.phoneNumber);
-  } else {
-    // User is patient and auth0 already appends a +1 to the phone number
-    patientNumberToText = user.name;
-  }
-  return patientNumberToText;
 }

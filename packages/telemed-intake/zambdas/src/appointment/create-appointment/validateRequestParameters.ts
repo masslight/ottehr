@@ -32,6 +32,7 @@ export function validateCreateAppointmentParams(
     groupID,
     unconfirmedDateOfBirth,
     timezone,
+    isDemo,
   } = JSON.parse(input.body);
 
   // Check existence of necessary fields
@@ -132,5 +133,6 @@ export function validateCreateAppointmentParams(
     unconfirmedDateOfBirth,
     timezone,
     secrets: input.secrets,
+    isDemo,
   };
 }

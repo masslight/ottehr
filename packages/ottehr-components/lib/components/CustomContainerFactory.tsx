@@ -2,6 +2,8 @@ import { FC, ReactElement, useCallback, useContext } from 'react';
 import { AppBar, Box, Button, Card, Container, Grid, Typography, useTheme } from '@mui/material';
 import { useAuth0 } from '@auth0/auth0-react';
 import { IntakeThemeContext } from '../contexts';
+import { portal } from '../assets/icons';
+import { useNavigate } from 'react-router-dom';
 
 export interface ContainerProps {
   title: string;
@@ -66,6 +68,7 @@ export const CustomContainer: FC<ContainerProps> = ({
   logoutHandler,
 }) => {
   const theme = useTheme();
+  const navigate = useNavigate();
   const { isAuthenticated, logout } = useAuth0();
   const { otherColors } = useContext(IntakeThemeContext);
 
@@ -116,11 +119,32 @@ export const CustomContainer: FC<ContainerProps> = ({
           <Grid
             item
             sx={{
-              display: isAuthenticated ? 'flex' : 'none',
+              display: 'flex',
               alignItems: 'center',
               mx: { xs: 'auto', md: 2 },
             }}
           >
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                cursor: 'pointer',
+                mr: 1,
+                backgroundColor: 'rgba(226, 240, 255, 0.2)',
+                padding: '12px',
+                border: 'none',
+                borderRadius: '50%',
+                '&:hover': {
+                  backgroundColor: 'rgba(226, 240, 255, 0.5)',
+                },
+              }}
+              onClick={() => {
+                navigate('/patient-portal');
+              }}
+            >
+              <img src={portal} alt="portal" />
+            </Box>
+
             {isAuthenticated && (
               <Button
                 variant="text"

@@ -230,14 +230,20 @@ export interface AvailableLocationInformation {
 
 export interface GetLocationResponse {
   message: string;
-  location: AvailableLocationInformation;
-  available: string[];
-  telemedAvailable: string[];
-  waitingMinutes: number;
+  state: string;
+  name: string;
+  slug: string;
+  locationID?: string;
+  providerID?: string;
+  groupID?: string;
+  availableSlots: string[];
+  available: boolean;
+  timezone: string;
 }
 
 export interface GetLocationParameters {
-  locationSlug?: string;
+  slug?: string;
+  scheduleType?: 'location' | 'provider' | 'group';
   locationState?: string;
   fetchAll?: boolean;
 }

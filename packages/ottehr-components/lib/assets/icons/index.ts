@@ -1,3 +1,4 @@
 export { default as customRadioButtonUncheckedIcon } from './custom-radio-button-unchecked-icon.svg';
 export { default as customRadioButtonCheckedIcon } from './custom-radio-button-checked-icon.svg';
 export { default as deleteIcon } from './delete.svg';
+export { default as portal } from './portal-button.svg';
