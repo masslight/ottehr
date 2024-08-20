@@ -57,7 +57,10 @@ export default function LocationSelect({
       try {
         const locationsResults = await fhirClient.searchResources<Location>({
           resourceType: 'Location',
-          searchParams: [{ name: '_count', value: '1000' }],
+          searchParams: [
+            { name: '_count', value: '1000' },
+            { name: 'status', value: 'active' },
+          ],
         });
         setLocations(locationsResults);
       } catch (e) {
@@ -85,6 +88,9 @@ export default function LocationSelect({
       ? locations.find((locationTemp) => locationTemp.id === newValue.value)
       : undefined;
     console.log('selected location in handle location change', selectedLocation);
+    if (selectedLocation?.id) {
+      localStorage.setItem('selectedLocationID', selectedLocation.id);
+    }
     setLocation(selectedLocation);
 
     if (storeLocationInLocalStorage) {

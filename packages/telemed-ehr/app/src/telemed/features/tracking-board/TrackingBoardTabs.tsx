@@ -1,12 +1,13 @@
 import React, { useEffect, ReactElement, useState } from 'react';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
-import { Box, Paper, Tab } from '@mui/material';
+import { Box, Button, Paper, Tab, Typography } from '@mui/material';
 import { TrackingBoardTable } from './TrackingBoardTable';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useGetTelemedAppointments, useTrackingBoardStore } from '../../state';
 import { ApptTab, ApptTabToStatus } from '../../utils';
 import { useZapEHRAPIClient } from '../../hooks/useZapEHRAPIClient';
 import Loading from '../../../components/Loading';
+import CreateDemoVisitsButton from './CreateDemoVisitsButton';
 
 export function TrackingBoardTabs(): ReactElement {
   const { alignment, state, date, providers, groups, setAppointments } = getSelectors(useTrackingBoardStore, [
@@ -62,6 +63,7 @@ export function TrackingBoardTabs(): ReactElement {
             <TrackingBoardTable tab={value} />
           </TabPanel>
         </Paper>
+        <CreateDemoVisitsButton visitService="telemedicine" />
       </TabContext>
     </Box>
   );
