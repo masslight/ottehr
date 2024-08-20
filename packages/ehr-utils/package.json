@@ -1,7 +1,7 @@
 {
   "name": "ehr-utils",
   "private": true,
-  "version": "0.6.0",
+  "version": "0.7.0",
   "main": "lib/main.ts",
   "types": "lib/main.ts",
   "scripts": {
