@@ -100,7 +100,7 @@ export async function createUpdateUserRelatedResources(
     // If it is a new patient, create a RelatedPerson resource for the Patient
     // and create a Person resource if there is not one for the account
     if (isDemo) {
-      verifiedPhoneNumber = '+12027139680';
+      verifiedPhoneNumber = '+1234567890';
     } else {
       verifiedPhoneNumber = checkUserPhoneNumber(patientInfo, user);
     }

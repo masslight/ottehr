@@ -36,10 +36,12 @@ export const filterLocationForAppointment = (
 };
 
 export const filterPatientForAppointment = (appointment: Appointment, allResources: Resource[]): Patient => {
+  console.log('filtering patient for appointment', appointment);
   const patientId = appointment.participant
     .find((appt) => appt.actor?.reference?.startsWith('Patient/'))
     ?.actor?.reference?.replace('Patient/', '');
   const patient = allResources.find((resourceTemp) => resourceTemp.id === patientId) as Patient;
+  console.log('patient', patient);
   return patient;
 };
 

@@ -85,10 +85,12 @@ export const performEffect = async (
         appointmentPackage;
 
       const patient = filterPatientForAppointment(appointment, allResources);
+      console.log('patienttt', patient);
       const patientPhone = appointmentPackage.paperwork
         ? getPhoneNumberFromQuestionnaire(appointmentPackage.paperwork)
         : undefined;
       const cancellationReason = appointment.cancelationReason?.coding?.[0].code;
+      console.log('location?.locationID', location?.locationID);
       const estimatedTime = location?.locationID ? estimatedTimeMap[location?.locationID] : undefined;
       const smsModel = createSmsModel(patient.id!, allRelatedPersonMaps);
 
