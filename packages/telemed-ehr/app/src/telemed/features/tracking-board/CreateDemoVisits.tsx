@@ -26,7 +26,7 @@ const CreateDemoVisits = (): ReactElement => {
   const { getAccessTokenSilently } = useAuth0();
 
   const handleCreateSampleAppointments = async (phoneNumber: string): Promise<void> => {
-    if (!phoneNumber || phoneNumber.length < 10) {
+    if (!phoneNumber || phoneNumber.length < 10 || !phoneNumber.startsWith('+1')) {
       setInputError(true);
       return;
     }
@@ -53,20 +53,18 @@ const CreateDemoVisits = (): ReactElement => {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    setPhoneNumber(e.target.value);
-    if (e.target.value.length >= 10 && e.target.value.length <= 15 && e.target.value.startsWith('+1')) {
-      setInputError(false);
-    } else {
-      setInputError(true);
-    }
-  };
-
   const handleCloseSnackbar = (event?: React.SyntheticEvent | Event, reason?: string): void => {
     if (reason === 'clickaway') {
       return;
     }
     setSnackbar((prev) => ({ ...prev, open: false }));
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    setPhoneNumber(e.target.value);
+    if (e.target.value.length >= 10 && e.target.value.length <= 15 && e.target.value.startsWith('+1')) {
+      setInputError(false);
+    }
   };
 
   return (
@@ -98,18 +96,18 @@ const CreateDemoVisits = (): ReactElement => {
           size="small"
           sx={{
             flexGrow: 1,
-            backgroundColor: 'white',
-            '& .MuiInputBase-root': {
-              backgroundColor: 'white',
-            },
             '& .MuiOutlinedInput-root': {
               '& fieldset': {
                 borderColor: inputError ? 'error.main' : 'rgba(0, 0, 0, 0.23)',
+              },
+              '& input': {
+                backgroundColor: 'white',
               },
             },
           }}
           required
           error={inputError}
+          helperText={inputError ? 'Please enter a valid phone number' : ''}
         />
         <LoadingButton
           loading={loading}

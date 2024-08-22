@@ -252,10 +252,10 @@ export async function createAppointment(
   }
 
   if (isDemo) {
-    patient.phoneNumber = phoneNumber || '+1239293922';
+    patient.phoneNumber = phoneNumber || '+1234567890';
   }
 
-  await createUpdateUserRelatedResources(fhirClient, patient, fhirPatient, user, isDemo);
+  await createUpdateUserRelatedResources(fhirClient, patient, fhirPatient, user);
 
   console.log('success, here is the id: ', appointment.id);
   const response: CreateAppointmentUCTelemedResponse = {
