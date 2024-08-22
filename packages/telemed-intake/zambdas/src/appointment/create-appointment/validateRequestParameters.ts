@@ -33,6 +33,7 @@ export function validateCreateAppointmentParams(
     unconfirmedDateOfBirth,
     timezone,
     isDemo,
+    phoneNumber,
   } = JSON.parse(input.body);
 
   // Check existence of necessary fields
@@ -134,5 +135,6 @@ export function validateCreateAppointmentParams(
     timezone,
     secrets: input.secrets,
     isDemo,
+    phoneNumber,
   };
 }
