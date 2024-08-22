@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { breakpoints, findLabelFromOptions, RenderLabelFromSelect } from 'ottehr-components';
 import { useAppointmentStore } from '../features/appointments';
 import { SelectSlot } from './schedule/SelectSlot';
@@ -76,6 +77,7 @@ interface ScheduleProps {
 
 const Schedule = ({ slotData, timezone }: ScheduleProps): JSX.Element => {
   const theme = useTheme();
+  const { t } = useTranslation();
   const { selectedSlot, setAppointment } = useAppointmentStore((state) => state);
   const [currentTab, setCurrentTab] = useState(0);
   // const [slotsErrorDialogOpen, setSlotsErrorDialogOpen] = useState(false);
@@ -167,7 +169,7 @@ const Schedule = ({ slotData, timezone }: ScheduleProps): JSX.Element => {
   const isMobile = useMediaQuery(`(max-width: ${breakpoints.values?.sm}px)`);
 
   if (slotsList.length === 0) {
-    return <Typography variant="body1">There are no slots available</Typography>;
+    return <Typography variant="body1">{t('schedule.noSlotsAvailable')}</Typography>;
   }
 
   return (
@@ -182,7 +184,7 @@ const Schedule = ({ slotData, timezone }: ScheduleProps): JSX.Element => {
         }}
       >
         <Typography variant="h3" color="secondary">
-          Select date and time
+          {t('schedule.selectDate')}
         </Typography>
         <FormControl sx={{ pt: { xs: 1, md: 0 }, width: '150px' }}>
           <Select
@@ -199,7 +201,9 @@ const Schedule = ({ slotData, timezone }: ScheduleProps): JSX.Element => {
             renderValue={(selected) => {
               return (
                 <RenderLabelFromSelect styles={{ color: theme.palette.text.secondary }}>
-                  Time zone: {findLabelFromOptions(selected, availableTimezones(selectedDate))}
+                  {t('schedule.timezone', {
+                    timezone: findLabelFromOptions(selected, availableTimezones(selectedDate)),
+                  })}
                 </RenderLabelFromSelect>
               );
             }}
@@ -235,7 +239,7 @@ const Schedule = ({ slotData, timezone }: ScheduleProps): JSX.Element => {
           onClick={() => setAppointment({ selectedSlot: slotsList[0] })}
           type="button"
         >
-          <span style={{ fontWeight: 700 }}>First available time:&nbsp;</span>
+          <span style={{ fontWeight: 700 }}>{t('schedule.firstAvailableTime')}&nbsp;</span>
           {isMobile && <br />}
           {firstAvailableDay?.toFormat(DATETIME_FULL_NO_YEAR)}
         </Button>
@@ -249,7 +253,7 @@ const Schedule = ({ slotData, timezone }: ScheduleProps): JSX.Element => {
             mt: 1,
           }}
         >
-          <Typography variant="body2">Calculating first available time...</Typography>
+          <Typography variant="body2">{t('schedule.calculatingFirstAvailableTime')}</Typography>
         </Box>
       )}
       {firstAvailableDay != undefined ? (
@@ -267,7 +271,7 @@ const Schedule = ({ slotData, timezone }: ScheduleProps): JSX.Element => {
               }}
               textColor="inherit"
               variant="fullWidth"
-              aria-label="Appointment tabs for switching between views of today, tomorrow, and other dates."
+              aria-label={t('schedule.tabsArialLabel')}
             >
               <Tab
                 label={firstAvailableDay.toLocaleString(DateTime.DATE_MED)}
@@ -343,7 +347,7 @@ const Schedule = ({ slotData, timezone }: ScheduleProps): JSX.Element => {
                   />
                 </LocalizationProvider>
                 <Typography variant="h3" color="#000000" sx={{ textAlign: 'center' }}>
-                  {selectedDate ? selectedDate.toLocaleString(DateTime.DATE_HUGE) : 'Unknown date'}
+                  {selectedDate ? selectedDate.toLocaleString(DateTime.DATE_HUGE) : t('schedule.unknownDate')}
                 </Typography>
                 <SelectSlot slots={getSlotsForDate(selectedDate)} timezone={formTimezone} />
               </TabPanel>
@@ -352,7 +356,7 @@ const Schedule = ({ slotData, timezone }: ScheduleProps): JSX.Element => {
         </Box>
       ) : (
         <Typography variant="body2" m={1} textAlign={'center'}>
-          Loading...
+          {t('general.loading')}
         </Typography>
       )}
       {/* <ErrorDialog

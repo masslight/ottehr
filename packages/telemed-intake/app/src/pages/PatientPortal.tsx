@@ -1,5 +1,6 @@
 import { Skeleton, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { IntakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
 import { useGetAppointments } from '../features/appointments';
@@ -11,6 +12,7 @@ import { requestVisit, pastVisits, contactSupport } from '../assets/icons';
 const PatientPortal = (): JSX.Element => {
   const apiClient = useZapEHRAPIClient();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const { data: appointmentsData, isFetching } = useGetAppointments(apiClient, Boolean(apiClient));
 
@@ -42,8 +44,8 @@ const PatientPortal = (): JSX.Element => {
 
   return (
     <CustomContainer
-      title="Welcome to Ottehr Telemedicine"
-      description=""
+      title={t('patientPortal.title')}
+      description={t('patientPortal.description')}
       bgVariant={IntakeFlowPageRoute.PatientPortal.path}
       isFirstPage={true}
     >
@@ -60,7 +62,7 @@ const PatientPortal = (): JSX.Element => {
         <>
           {isAppointmentStatusReady && (
             <HomepageOption
-              title="Return to Call"
+              title={t('patientPortal.returnToCall')}
               icon={requestVisit}
               handleClick={handleReturnToCall}
               subSlot={
@@ -75,26 +77,31 @@ const PatientPortal = (): JSX.Element => {
                     px: 1,
                   }}
                 >
-                  Active call
+                  {t('patientPortal.activeCall')}
                 </Typography>
               }
             />
           )}
-          {/* {!isAppointmentStatusReady && (
-            <HomepageOption title="Request Visit" icon={requestVisit} handleClick={handleRequestVisit} />
-          )} */}
-
-          <HomepageOption title="Request Visit" icon={requestVisit} handleClick={handleRequestVisit} />
 
           <HomepageOption
-            title="Past Visits"
+            title={t('patientPortal.requestVisit')}
+            icon={requestVisit}
+            handleClick={handleRequestVisit}
+          />
+
+          <HomepageOption
+            title={t('patientPortal.pastVisits')}
             icon={pastVisits}
             handleClick={handlePastVisits}
-            subtitle="School/Work Notes and Prescriptions"
+            subtitle={t('patientPortal.pastVisitsSubtitle')}
           />
         </>
       )}
-      <HomepageOption title="Contact Support" icon={contactSupport} handleClick={handleContactSupport} />
+      <HomepageOption
+        title={t('patientPortal.contactSupport')}
+        icon={contactSupport}
+        handleClick={handleContactSupport}
+      />
     </CustomContainer>
   );
 };

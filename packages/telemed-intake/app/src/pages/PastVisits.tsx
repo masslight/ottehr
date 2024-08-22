@@ -1,4 +1,5 @@
 import { Box, Button, Skeleton, Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { IntakeFlowPageRoute } from '../App';
 import { CustomContainer } from '../features/common';
 import { useGetAppointments, usePastVisitsStore } from '../features/appointments';
@@ -12,6 +13,7 @@ import { formatVisitDate } from 'ottehr-utils';
 const PastVisits = (): JSX.Element => {
   const apiClient = useZapEHRAPIClient();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { patientInfo: currentPatientInfo } = usePatientInfoStore.getState();
   const patientFullName = currentPatientInfo ? `${currentPatientInfo.firstName} ${currentPatientInfo.lastName}` : '';
   const formattedPatientBirthDay = formatVisitDate(currentPatientInfo.dateOfBirth || '', 'birth');
@@ -38,13 +40,13 @@ const PastVisits = (): JSX.Element => {
   return (
     <CustomContainer
       title={patientFullName}
-      subtext={`Birthday: ${formattedPatientBirthDay}`}
+      subtext={t('general.patientBirthday', { formattedPatientBirthDay })}
       description=""
       bgVariant={IntakeFlowPageRoute.PatientPortal.path}
       isFirstPage={true}
     >
       <Typography variant="h2" color="primary.main">
-        Visits
+        {t('pastVisits.visits')}
       </Typography>
       {isFetching && (
         <Skeleton
@@ -86,7 +88,7 @@ const PastVisits = (): JSX.Element => {
                       color="text.secondary"
                       sx={{ backgroundColor: 'background.cancelled', color: 'text.cancelled', borderRadius: 1, px: 1 }}
                     >
-                      Cancelled
+                      {t('general.button.cancelled')}
                     </Typography>
                   )}
                 </Box>
@@ -106,7 +108,7 @@ const PastVisits = (): JSX.Element => {
                   }}
                   onClick={() => handleVisitDetails(appointment)}
                 >
-                  Visit Details
+                  {t('pastVisits.visitDetails')}
                 </Button>
               )}
             </Box>
@@ -129,7 +131,7 @@ const PastVisits = (): JSX.Element => {
           navigate(IntakeFlowPageRoute.PatientPortal.path);
         }}
       >
-        Back to homepage
+        {t('pastVisits.backToHome')}
       </Button>
     </CustomContainer>
   );

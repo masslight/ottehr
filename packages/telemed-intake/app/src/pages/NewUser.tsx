@@ -1,6 +1,7 @@
 import { Typography } from '@mui/material';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { PageForm } from 'ottehr-components';
 import { IntakeFlowPageRoute } from '../App';
 import { clockFullColor } from '../assets/icons';
@@ -9,6 +10,7 @@ import { CustomContainer } from '../features/common';
 
 const NewUser = (): JSX.Element => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   useEffect(() => {
     //mixpanel.track('New User');
@@ -20,16 +22,14 @@ const NewUser = (): JSX.Element => {
 
   return (
     <CustomContainer
-      title="Thanks for choosing Ottehr!"
+      title={t('newUser.title')}
       img={clockFullColor}
-      imgAlt="Clock icon"
+      imgAlt={t('newUser.imgAlt')}
       imgWidth={100}
       bgVariant={IntakeFlowPageRoute.NewUser.path}
     >
-      <Typography variant="body1">
-        We&apos;re pleased to offer this new technology for accessing care. You will need to enter your information
-        again just once. Next time you return, it will all be here for you!
-      </Typography>
+      <Typography variant="body1">{t('newUser.message')}</Typography>
+      <div dangerouslySetInnerHTML={{ __html: t('newUser.html') }} />
       <PageForm onSubmit={onSubmit} controlButtons={{ backButton: false }} />
     </CustomContainer>
   );

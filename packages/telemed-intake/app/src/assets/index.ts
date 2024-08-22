@@ -1,3 +1,3 @@
-export { default as bg1 } from './bg1.png';
-export { default as ottehrLogo } from './ottehrUcLogo.svg';
+export { default as bg } from './bg.png';
+export { default as Logo } from './Logo.svg';
 export * from './icons';

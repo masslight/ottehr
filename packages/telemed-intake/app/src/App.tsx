@@ -1,4 +1,4 @@
-import { ReactElement } from 'react';
+import { ReactElement, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import { MixpanelContextProps, ScrollToTop, setupMixpanel, setupSentry } from 'ottehr-components';
@@ -27,6 +27,7 @@ import WaitingRoom from './pages/WaitingRoom';
 import Welcome from './pages/Welcome';
 import ConfirmDateOfBirth from './pages/ConfirmDateOfBirth';
 import ThankYou from './pages/ThankYou';
+import { useTranslation } from 'react-i18next';
 
 const isLowerEnvs =
   import.meta.env.MODE === 'dev' ||
@@ -96,6 +97,11 @@ export class IntakeFlowPageRoute {
 
 function App(): JSX.Element {
   useIOSAppSync();
+  const { t } = useTranslation();
+
+  useEffect(() => {
+    document.title = t('general.appName');
+  }, [t]);
 
   return (
     <QueryClientProvider client={queryClient}>

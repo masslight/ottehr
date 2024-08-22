@@ -5,6 +5,7 @@ import { usePastVisitsStore } from '../features/appointments';
 import { usePatientInfoStore } from '../features/patient-info';
 import { otherColors } from '../IntakeThemeProvider';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { formatVisitDate } from 'ottehr-utils';
 
 const VisitDetails = (): JSX.Element => {
@@ -13,11 +14,12 @@ const VisitDetails = (): JSX.Element => {
   const appointment = usePastVisitsStore.getState();
   const patientFullName = currentPatientInfo ? `${currentPatientInfo.firstName} ${currentPatientInfo.lastName}` : '';
   const formattedPatientBirthDay = formatVisitDate(currentPatientInfo.dateOfBirth || '', 'birth');
+  const { t } = useTranslation();
 
   return (
     <CustomContainer
       title={patientFullName}
-      subtext={`Birthday: ${formattedPatientBirthDay}`}
+      subtext={t('general.patientBirthday', { formattedPatientBirthDay })}
       description=""
       bgVariant={IntakeFlowPageRoute.PatientPortal.path}
       isFirstPage={true}
@@ -26,7 +28,7 @@ const VisitDetails = (): JSX.Element => {
         {appointment.appointmentDate}
       </Typography>
       <Typography variant="caption" color="text.secondary">
-        Visit ID: {appointment.appointmentID}
+        {t('visitDetails.visitId', { visitId: appointment.appointmentID })}
       </Typography>
       <Button
         sx={{
@@ -45,7 +47,7 @@ const VisitDetails = (): JSX.Element => {
           navigate(IntakeFlowPageRoute.PastVisits.path);
         }}
       >
-        Back to visits list
+        {t('visitDetails.backToVisitsList')}
       </Button>
     </CustomContainer>
   );
