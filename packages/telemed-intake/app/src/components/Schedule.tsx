@@ -260,7 +260,7 @@ const Schedule = ({ slotData, timezone }: ScheduleProps): JSX.Element => {
               onChange={handleChange}
               TabIndicatorProps={{
                 style: {
-                  background: theme.palette.info.main,
+                  background: theme.palette.secondary.main,
                   height: '5px',
                   borderRadius: '2.5px',
                 },
@@ -273,8 +273,9 @@ const Schedule = ({ slotData, timezone }: ScheduleProps): JSX.Element => {
                 label={firstAvailableDay.toLocaleString(DateTime.DATE_MED)}
                 {...tabProps(0)}
                 sx={{
-                  color: currentTab == 0 ? theme.palette.secondary.main : theme.palette.text.secondary,
+                  color: currentTab == 0 ? theme.palette.secondary.main : theme.palette.primary.main,
                   opacity: 1,
+                  fontWeight: currentTab == 0 ? 700 : 400,
                 }}
               />
               {secondAvailableDay && (
@@ -282,8 +283,9 @@ const Schedule = ({ slotData, timezone }: ScheduleProps): JSX.Element => {
                   label={secondAvailableDay.toLocaleString(DateTime.DATE_MED)}
                   {...tabProps(1)}
                   sx={{
-                    color: currentTab == 1 ? theme.palette.secondary.main : theme.palette.text.secondary,
+                    color: currentTab == 1 ? theme.palette.secondary.main : theme.palette.primary.main,
                     opacity: 1,
+                    fontWeight: currentTab == 1 ? 700 : 400,
                   }}
                 />
               )}
@@ -291,8 +293,9 @@ const Schedule = ({ slotData, timezone }: ScheduleProps): JSX.Element => {
                 label="Other dates"
                 {...tabProps(2)}
                 sx={{
-                  color: currentTab == 2 ? theme.palette.secondary.main : theme.palette.text.secondary,
+                  color: currentTab == 2 ? theme.palette.secondary.main : theme.palette.primary.main,
                   opacity: 1,
+                  fontWeight: currentTab == 2 ? 700 : 400,
                 }}
               />
             </Tabs>

@@ -1,4 +1,4 @@
-import { Button, Divider, Grid, Typography, useTheme } from '@mui/material';
+import { Box, Button, Divider, Typography, useTheme } from '@mui/material';
 import { EventBusyOutlined } from '@mui/icons-material';
 import { IntakeFlowPageRoute } from '../App';
 import { CustomContainer } from '../features/common';
@@ -9,6 +9,7 @@ import { DateTime } from 'luxon';
 import { FinancialPolicyDialog } from '../components/FinancialPolicyDialog';
 import { useState } from 'react';
 import { CancelVisitDialog } from '../components';
+import { ottehrThankYou } from '../assets';
 
 const ThankYou = (): JSX.Element => {
   const theme = useTheme();
@@ -16,8 +17,7 @@ const ThankYou = (): JSX.Element => {
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const { selectedSlot } = getSelectors(useAppointmentStore, ['selectedSlot']);
 
-  const formattedDate = selectedSlot ? DateTime.fromISO(selectedSlot).toFormat('d MMMM HH:mm') : '';
-
+  const formattedDate = selectedSlot ? DateTime.fromISO(selectedSlot).toFormat('MMMM d, h:mm a') : '';
   return (
     <CustomContainer
       title="Thank you for choosing Ottehr Telemedicine"
@@ -26,13 +26,19 @@ const ThankYou = (): JSX.Element => {
     >
       <>
         <Divider />
-        <Grid container alignItems="center" marginTop={2} marginBottom={2}>
-          <Grid item xs={12} md={9.5}>
+        <Box sx={{ display: 'flex', alignItems: 'center', marginTop: 2, marginBottom: 2, gap: 2 }}>
+          <Box>
+            <img src={ottehrThankYou} alt="Clock icon" width="90px" />
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             <Typography variant="subtitle1" color="text.primary">
-              Your check-in time is booked for: {formattedDate}
+              Your check-in time is booked for:
             </Typography>
-          </Grid>
-        </Grid>
+            <Typography variant="h3" color="secondary" mt={0.5}>
+              {formattedDate}
+            </Typography>
+          </Box>
+        </Box>
         <Divider sx={{ marginBottom: 2 }} />
 
         {isCancelDialogOpen && <CancelVisitDialog onClose={() => setIsCancelDialogOpen(false)} />}

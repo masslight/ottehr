@@ -291,7 +291,7 @@ export default function SchedulePage(): ReactElement {
     <PageContainer>
       <>
         {item ? (
-          <Box marginX={12}>
+          <Box>
             {/* Breadcrumbs */}
             <CustomBreadcrumbs
               chain={[

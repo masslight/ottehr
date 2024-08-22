@@ -128,7 +128,7 @@ export default function Navbar(): ReactElement {
                 marginRight: 20,
                 marginTop: 10,
                 width: 158,
-                height: 35,
+                height: 40,
               }}
             />
           </Link>

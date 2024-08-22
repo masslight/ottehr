@@ -1984,225 +1984,225 @@ export const defaultQuestionnaire: Questionnaire = {
       ],
     },
     {
-      linkId: "school-work-note-page",
-      text: "Do you need a school or work note?",
-      type: "group",
+      linkId: 'school-work-note-page',
+      text: 'Do you need a school or work note?',
+      type: 'group',
       item: [
         {
-          linkId: "school-work-note-choice",
-          text: "Select option:",
-          type: "choice",
+          linkId: 'school-work-note-choice',
+          text: 'Select option:',
+          type: 'choice',
           required: true,
           answerOption: [
-            { valueString: "Neither" },
-            { valueString: "School only" },
-            { valueString: "Work only" },
-            { valueString: "Both school and work notes" }
+            { valueString: 'Neither' },
+            { valueString: 'School only' },
+            { valueString: 'Work only' },
+            { valueString: 'Both school and work notes' },
           ],
           extension: [
             {
-              url: "https://fhir.zapehr.com/r4/StructureDefinitions/select-type",
-              valueString: "Radio"
-            }
-          ]
+              url: 'https://fhir.zapehr.com/r4/StructureDefinitions/select-type',
+              valueString: 'Radio',
+            },
+          ],
         },
         {
-          linkId: "school-work-note-template-school-only",
-          text: "I have a template",
-          type: "display",
+          linkId: 'school-work-note-template-school-only',
+          text: 'I have a template',
+          type: 'display',
           enableWhen: [
             {
-              question: "school-work-note-choice",
-              operator: "=",
-              answerString: "School only"
-            }
+              question: 'school-work-note-choice',
+              operator: '=',
+              answerString: 'School only',
+            },
           ],
           extension: [
             {
-              url: "https://fhir.zapehr.com/r4/StructureDefinitions/text-type",
-              valueString: "h3"
-            }
-          ]
+              url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-type',
+              valueString: 'h3',
+            },
+          ],
         },
         {
-          linkId: "school-work-note-template-work-only",
-          text: "I have a template",
-          type: "display",
+          linkId: 'school-work-note-template-work-only',
+          text: 'I have a template',
+          type: 'display',
           enableWhen: [
             {
-              question: "school-work-note-choice",
-              operator: "=",
-              answerString: "Work only"
-            }
+              question: 'school-work-note-choice',
+              operator: '=',
+              answerString: 'Work only',
+            },
           ],
           extension: [
             {
-              url: "https://fhir.zapehr.com/r4/StructureDefinitions/text-type",
-              valueString: "h3"
-            }
-          ]
+              url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-type',
+              valueString: 'h3',
+            },
+          ],
         },
         {
-          linkId: "school-work-note-template-both",
-          text: "I have a template",
-          type: "display",
+          linkId: 'school-work-note-template-both',
+          text: 'I have a template',
+          type: 'display',
           enableWhen: [
             {
-              question: "school-work-note-choice",
-              operator: "=",
-              answerString: "Both school and work notes"
-            }
+              question: 'school-work-note-choice',
+              operator: '=',
+              answerString: 'Both school and work notes',
+            },
           ],
           extension: [
             {
-              url: "https://fhir.zapehr.com/r4/StructureDefinitions/text-type",
-              valueString: "h3"
-            }
-          ]
+              url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-type',
+              valueString: 'h3',
+            },
+          ],
         },
         {
-          linkId: "school-work-note-template-text-school-only",
-          text: "Most institutions accept standard healthcare notes. If you require a specific form please upload it here and discuss it with your provider during the visit.",
-          type: "display",
+          linkId: 'school-work-note-template-text-school-only',
+          text: 'Most institutions accept standard healthcare notes. If you require a specific form please upload it here and discuss it with your provider during the visit.',
+          type: 'display',
           enableWhen: [
             {
-              question: "school-work-note-choice",
-              operator: "=",
-              answerString: "School only"
-            }
+              question: 'school-work-note-choice',
+              operator: '=',
+              answerString: 'School only',
+            },
           ],
           extension: [
             {
-              url: "https://fhir.zapehr.com/r4/StructureDefinitions/text-type",
-              valueString: "p"
-            }
-          ]
+              url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-type',
+              valueString: 'p',
+            },
+          ],
         },
         {
-          linkId: "school-work-note-template-text-work-only",
-          text: "Most institutions accept standard healthcare notes. If you require a specific form please upload it here and discuss it with your provider during the visit.",
-          type: "display",
+          linkId: 'school-work-note-template-text-work-only',
+          text: 'Most institutions accept standard healthcare notes. If you require a specific form please upload it here and discuss it with your provider during the visit.',
+          type: 'display',
           enableWhen: [
             {
-              question: "school-work-note-choice",
-              operator: "=",
-              answerString: "Work only"
-            }
+              question: 'school-work-note-choice',
+              operator: '=',
+              answerString: 'Work only',
+            },
           ],
           extension: [
             {
-              url: "https://fhir.zapehr.com/r4/StructureDefinitions/text-type",
-              valueString: "p"
-            }
-          ]
+              url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-type',
+              valueString: 'p',
+            },
+          ],
         },
         {
-          linkId: "school-work-note-template-text-both",
-          text: "Most institutions accept standard healthcare notes. If you require a specific form please upload it here and discuss it with your provider during the visit.",
-          type: "display",
+          linkId: 'school-work-note-template-text-both',
+          text: 'Most institutions accept standard healthcare notes. If you require a specific form please upload it here and discuss it with your provider during the visit.',
+          type: 'display',
           enableWhen: [
             {
-              question: "school-work-note-choice",
-              operator: "=",
-              answerString: "Both school and work notes"
-            }
+              question: 'school-work-note-choice',
+              operator: '=',
+              answerString: 'Both school and work notes',
+            },
           ],
           extension: [
             {
-              url: "https://fhir.zapehr.com/r4/StructureDefinitions/text-type",
-              valueString: "p"
-            }
-          ]
+              url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-type',
+              valueString: 'p',
+            },
+          ],
         },
         {
-          linkId: "school-work-note-template-school-only-attachment",
-          text: "School Template",
-          type: "attachment",
+          linkId: 'school-work-note-template-school-only-attachment',
+          text: 'School Template',
+          type: 'attachment',
           enableWhen: [
             {
-              question: "school-work-note-choice",
-              operator: "=",
-              answerString: "School only"
-            }
+              question: 'school-work-note-choice',
+              operator: '=',
+              answerString: 'School only',
+            },
           ],
           extension: [
             {
-              url: "https://fhir.zapehr.com/r4/StructureDefinitions/file-upload-type",
-              valueString: "application/pdf"
+              url: 'https://fhir.zapehr.com/r4/StructureDefinitions/file-upload-type',
+              valueString: 'application/pdf',
             },
             {
-              url: "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
-              valueString: "47420-5"
-            }
-          ]
+              url: 'https://fhir.zapehr.com/r4/StructureDefinitions/document-type',
+              valueString: '47420-5',
+            },
+          ],
         },
         {
-          linkId: "school-work-note-template-school-both-attachment",
-          text: "School Template",
-          type: "attachment",
+          linkId: 'school-work-note-template-school-both-attachment',
+          text: 'School Template',
+          type: 'attachment',
           enableWhen: [
             {
-              question: "school-work-note-choice",
-              operator: "=",
-              answerString: "Both school and work notes"
-            }
+              question: 'school-work-note-choice',
+              operator: '=',
+              answerString: 'Both school and work notes',
+            },
           ],
           extension: [
             {
-              url: "https://fhir.zapehr.com/r4/StructureDefinitions/file-upload-type",
-              valueString: "application/pdf"
+              url: 'https://fhir.zapehr.com/r4/StructureDefinitions/file-upload-type',
+              valueString: 'application/pdf',
             },
             {
-              url: "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
-              valueString: "47420-5"
-            }
-          ]
+              url: 'https://fhir.zapehr.com/r4/StructureDefinitions/document-type',
+              valueString: '47420-5',
+            },
+          ],
         },
         {
-          linkId: "school-work-note-template-work-only-attachment",
-          text: "Work Template",
-          type: "attachment",
+          linkId: 'school-work-note-template-work-only-attachment',
+          text: 'Work Template',
+          type: 'attachment',
           enableWhen: [
             {
-              question: "school-work-note-choice",
-              operator: "=",
-              answerString: "Work only"
-            }
+              question: 'school-work-note-choice',
+              operator: '=',
+              answerString: 'Work only',
+            },
           ],
           extension: [
             {
-              url: "https://fhir.zapehr.com/r4/StructureDefinitions/file-upload-type",
-              valueString: "application/pdf"
+              url: 'https://fhir.zapehr.com/r4/StructureDefinitions/file-upload-type',
+              valueString: 'application/pdf',
             },
             {
-              url: "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
-              valueString: "47420-5"
-            }
-          ]
+              url: 'https://fhir.zapehr.com/r4/StructureDefinitions/document-type',
+              valueString: '47420-5',
+            },
+          ],
         },
         {
-          linkId: "school-work-note-template-work-both-attachment",
-          text: "Work Template",
-          type: "attachment",
+          linkId: 'school-work-note-template-work-both-attachment',
+          text: 'Work Template',
+          type: 'attachment',
           enableWhen: [
             {
-              question: "school-work-note-choice",
-              operator: "=",
-              answerString: "Both school and work notes"
-            }
+              question: 'school-work-note-choice',
+              operator: '=',
+              answerString: 'Both school and work notes',
+            },
           ],
           extension: [
             {
-              url: "https://fhir.zapehr.com/r4/StructureDefinitions/file-upload-type",
-              valueString: "application/pdf"
+              url: 'https://fhir.zapehr.com/r4/StructureDefinitions/file-upload-type',
+              valueString: 'application/pdf',
             },
             {
-              url: "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
-              valueString: "47420-5"
-            }
-          ]
-        }
-      ]
+              url: 'https://fhir.zapehr.com/r4/StructureDefinitions/document-type',
+              valueString: '47420-5',
+            },
+          ],
+        },
+      ],
     },
     {
       linkId: 'consent-forms-page',

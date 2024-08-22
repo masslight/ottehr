@@ -222,29 +222,29 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
   }
 
   return (
-    <Paper sx={{ padding: 2 }}>
-      <Link to={`/schedule/${scheduleType}/add`}>
-        <Button variant="contained" startIcon={<Add />}>
-          Add {scheduleType}
-        </Button>
-      </Link>
+    <Paper>
       <TableContainer>
         {/* Items Search Box */}
-        <Box sx={{ display: 'flex' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, m: 2 }}>
           <TextField
             id={`search-${scheduleType}`}
             label={`Search ${scheduleType}s`}
             variant="outlined"
             onChange={handleChangeSearchText}
             InputProps={{ endAdornment: <SearchIcon /> }}
-            sx={{ marginBottom: 2 }}
             margin="dense"
+            size="small"
           />
           {loading && (
             <Box sx={{ marginTop: 2, marginLeft: 'auto', marginRight: 0 }}>
               <Loading />
             </Box>
           )}
+          <Link to={`/schedule/${scheduleType}/add`}>
+            <Button variant="contained" startIcon={<Add />}>
+              Add {scheduleType}
+            </Button>
+          </Link>
         </Box>
 
         <Table sx={{ minWidth: 650 }} aria-label={`${scheduleType}sTable`}>
