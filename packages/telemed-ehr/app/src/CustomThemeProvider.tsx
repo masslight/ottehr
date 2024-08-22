@@ -84,6 +84,7 @@ export const otherColors = {
   endCallButton: '#EB5757',
   lightIconButton: '#EDE8FF',
   formCardBg: '#F7F8F9',
+  lightBlue: '#E2F0FF',
   employeeActiveChip: '#C8E6C9',
   employeeDeactivatedChip: '#FECDD2',
   employeeActiveText: '#1B5E20',
@@ -131,7 +132,7 @@ const typography: TypographyOptions = {
   },
   h6: {
     fontSize: 16,
-    fontWeight: '500 !important',
+    fontWeight: '600 !important',
     fontFamily: headerFonts.join(','),
     lineHeight: '140%',
   },
@@ -169,6 +170,12 @@ const typography: TypographyOptions = {
   overline: {
     fontSize: 12,
     fontWeight: 400,
+    fontFamily: textFonts.join(','),
+    lineHeight: '140%',
+  },
+  button: {
+    fontSize: 14,
+    fontWeight: 700,
     fontFamily: textFonts.join(','),
     lineHeight: '140%',
   },

@@ -56,7 +56,7 @@ export const createSampleAppointments = async (
 
     const appointmentTypes = ['telemedicine', 'in-person'] as const;
 
-    for (let i = 0; i < 1; i++) {
+    for (let i = 0; i < 10; i++) {
       const visitService = appointmentTypes[i % 2];
       const randomPatientInfo = await generateRandomPatientInfo(fhirClient, visitService, phoneNumber);
       const inputBody = JSON.stringify(randomPatientInfo);
