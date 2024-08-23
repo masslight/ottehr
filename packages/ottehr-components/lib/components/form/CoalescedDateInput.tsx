@@ -6,6 +6,7 @@ import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
 import { useFormContext } from 'react-hook-form';
 import { InputHelperText } from './InputHelperText';
 import { IntakeThemeContext } from '../../contexts';
+import { KeyboardArrowDown } from '@mui/icons-material';
 
 interface DateInputFieldProps {
   name: string;
@@ -102,6 +103,7 @@ const CoalescedDateInput = ({
             label="Month"
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
+            IconComponent={KeyboardArrowDown}
             sx={{
               borderRadius: '8px',
               '& .MuiOutlinedInput-notchedOutline': {
@@ -130,6 +132,7 @@ const CoalescedDateInput = ({
             label="Day"
             value={selectedDay}
             onChange={(e) => setSelectedDay(e.target.value)}
+            IconComponent={KeyboardArrowDown}
             sx={{
               borderRadius: '8px',
               '& .MuiOutlinedInput-notchedOutline': {
@@ -158,6 +161,7 @@ const CoalescedDateInput = ({
             label="Year"
             value={selectedYear}
             onChange={(e: any) => setSelectedYear?.(e.target.value)}
+            IconComponent={KeyboardArrowDown}
             sx={{
               borderRadius: '8px',
               '& .MuiOutlinedInput-notchedOutline': {

@@ -235,16 +235,16 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
             margin="dense"
             size="small"
           />
-          {loading && (
-            <Box sx={{ marginTop: 2, marginLeft: 'auto', marginRight: 0 }}>
-              <Loading />
-            </Box>
-          )}
           <Link to={`/schedule/${scheduleType}/add`}>
             <Button variant="contained" startIcon={<Add />}>
               Add {scheduleType}
             </Button>
           </Link>
+          {loading && (
+            <Box sx={{ marginTop: 2, marginLeft: 'auto', marginRight: 0 }}>
+              <Loading />
+            </Box>
+          )}
         </Box>
 
         <Table sx={{ minWidth: 650 }} aria-label={`${scheduleType}sTable`}>
