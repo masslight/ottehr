@@ -36,12 +36,13 @@ interface CreateAppointmentParams {
   unconfirmedDateOfBirth?: string | undefined;
   timezone: string;
   isDemo?: boolean;
+  phoneNumber?: string;
 }
 
 export const createSampleAppointments = async (
   fhirClient: FhirClient | undefined,
-  visitService: 'in-person' | 'telemedicine',
   authToken: string,
+  phoneNumber: string,
 ): Promise<void> => {
   try {
     if (!fhirClient) {
@@ -53,8 +54,11 @@ export const createSampleAppointments = async (
 
     const intakeZambdaUrl = import.meta.env.VITE_APP_INTAKE_ZAMBDAS_URL;
 
-    for (let i = 0; i < 5; i++) {
-      const randomPatientInfo = await generateRandomPatientInfo(fhirClient, visitService);
+    const appointmentTypes = ['telemedicine', 'in-person'] as const;
+
+    for (let i = 0; i < 10; i++) {
+      const visitService = appointmentTypes[i % 2];
+      const randomPatientInfo = await generateRandomPatientInfo(fhirClient, visitService, phoneNumber);
       const inputBody = JSON.stringify(randomPatientInfo);
 
       const response = await fetch(`${intakeZambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
@@ -77,6 +81,7 @@ export const createSampleAppointments = async (
 const generateRandomPatientInfo = async (
   fhirClient: FhirClient,
   visitService: 'in-person' | 'telemedicine',
+  phoneNumber?: string,
 ): Promise<CreateAppointmentParams> => {
   const firstNames = ['Alice', 'Bob', 'Charlie', 'Diana', 'Ethan', 'Fatima', 'Gabriel', 'Hannah', 'Ibrahim', 'Jake'];
   const lastNames = ['Smith', 'Johnson', 'Williams', 'Jones', 'Brown', 'Clark', 'Davis', 'Elliott', 'Foster', 'Garcia'];
@@ -106,6 +111,8 @@ const generateRandomPatientInfo = async (
   const randomLocationIndex = Math.floor(Math.random() * availableLocations.length);
   const randomLocationId = availableLocations[randomLocationIndex].id;
   const randomProviderId = practitionersTemp[Math.floor(Math.random() * practitionersTemp.length)].id;
+  console.log('availableLocations', availableLocations);
+  console.log('randomLocationId', randomLocationId);
 
   const selectedLocationID = localStorage.getItem('selectedLocationID');
 
@@ -126,6 +133,7 @@ const generateRandomPatientInfo = async (
       providerID: randomProviderId,
       timezone: 'UTC',
       isDemo: true,
+      phoneNumber: phoneNumber,
     };
   }
 
@@ -146,8 +154,9 @@ const generateRandomPatientInfo = async (
     scheduleType: 'location',
     visitType: 'now',
     visitService: visitService,
-    locationID: selectedLocationID || randomLocationId,
+    locationID: randomLocationId,
     timezone: 'UTC',
     isDemo: true,
+    phoneNumber: phoneNumber,
   };
 };

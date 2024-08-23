@@ -13,6 +13,7 @@ export interface CreateAppointmentUCTelemedParams {
   unconfirmedDateOfBirth?: string | undefined;
   timezone: string;
   isDemo?: boolean;
+  phoneNumber?: string;
 }
 
 export interface CreateAppointmentUCTelemedResponse {
