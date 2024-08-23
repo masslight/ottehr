@@ -19,6 +19,7 @@ import { useTrackingBoardStore } from '../../state';
 import { TrackingBoardFilters } from './TrackingBoardFilters';
 import { TrackingBoardTableRow, TrackingBoardTableRowSkeleton } from './TrackingBoardTableRow';
 import { AllStatesToNames, StateType } from '../../../types/types';
+import { otherColors } from '../../../CustomThemeProvider';
 
 interface AppointmentTableProps {
   tab: ApptTab;
@@ -174,7 +175,7 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
                 <React.Fragment key={state}>
                   <TableRow>
                     <TableCell
-                      sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }}
+                      sx={{ backgroundColor: otherColors.lightBlue }}
                       colSpan={10 + +showEstimated + +showProvider}
                     >
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>

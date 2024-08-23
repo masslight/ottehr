@@ -7,6 +7,7 @@ import { useGetAppointmentAccessibility } from '../../hooks';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore, useVideoCallStore } from '../../state';
 import { getAppointmentWaitingTime } from '../../utils';
+import { otherColors } from '../../../CustomThemeProvider';
 
 export const AppointmentFooter: FC = () => {
   const theme = useTheme();
@@ -54,7 +55,7 @@ export const AppointmentFooter: FC = () => {
           flexDirection: 'column',
           gap: 2,
           color: 'white',
-          backgroundColor: theme.palette.primary.dark,
+          backgroundColor: otherColors.headerBackground,
         }}
       >
         {((appointmentAccessibility.status &&

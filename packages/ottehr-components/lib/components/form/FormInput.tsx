@@ -93,7 +93,7 @@ const FormInput: FC<FormInputProps> = ({
                 <Box>
                   {label}
                   <IconButton>
-                    <InfoOutlinedIcon sx={{ fontSize: '18px', color: 'secondary.main' }} />
+                    <InfoOutlinedIcon sx={{ fontSize: '18px', color: 'primary.main' }} />
                   </IconButton>
                 </Box>
               </Tooltip>

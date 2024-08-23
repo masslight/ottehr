@@ -38,13 +38,14 @@ const ControlButtons: FC<ControlButtonsProps> = ({
           }}
           size="large"
           type="button"
+          color="secondary"
         >
           {backButtonLabel || t('general.button.back')}
         </Button>
       )}
       <LoadingButton
         variant="contained"
-        color="primary"
+        color="secondary"
         disabled={submitDisabled}
         loading={loading}
         sx={{

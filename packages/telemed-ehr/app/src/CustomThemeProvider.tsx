@@ -10,7 +10,7 @@ const palette = {
   primary: {
     main: '#2169F5',
     light: '#2169F5',
-    dark: '##0A2143',
+    dark: '#0A2143',
     contrast: '#FFFFFF',
   },
   secondary: {
@@ -83,6 +83,7 @@ export const otherColors = {
   priorityHighIcon: '#F44336',
   endCallButton: '#EB5757',
   lightIconButton: '#EDE8FF',
+  lightBlue: '#E2F0FF',
   formCardBg: '#F7F8F9',
   lightBlue: '#E2F0FF',
   employeeActiveChip: '#C8E6C9',

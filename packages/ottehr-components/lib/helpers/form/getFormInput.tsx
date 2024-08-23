@@ -18,7 +18,6 @@ import CoalescedDateInput from '../../components/form/CoalescedDateInput';
 import { DateFieldMap } from '../../components/form/DateInput';
 import { PhotosUpload } from '../../components/form/PhotosUpload';
 import { FileURLs } from 'ottehr-utils';
-import Markdown from 'react-markdown';
 
 function checkRequire(item: FormInputTypeField, values: FieldValues): boolean {
   if (item.required && !item.requireWhen) {
@@ -286,13 +285,9 @@ export const getFormInputField = (
             );
           case 'Description':
             if (formInput.label) {
-              return (
-                <Typography variant="body1">
-                  <Markdown>{formInput.label}</Markdown>
-                </Typography>
-              );
+              return <Typography variant="body1">{formInput.label}</Typography>;
             } else if (formInput.description) {
-              return <Markdown>{`${formInput.description}`}</Markdown>;
+              return <Typography variant="body1">{formInput.description}</Typography>;
             } else {
               return <></>;
             }

@@ -221,13 +221,13 @@ const PatientInformation = (): JSX.Element => {
     >
       {!patientInfo.newPatient && (
         <>
-          <Typography variant="h3" color="secondary.main">
+          <Typography variant="h3" color="primary.main">
             {getPatientInfoFullName(patientInfo)}
           </Typography>
-          <Typography variant="body2" sx={{ fontSize: '14px' }} color="secondary.main">
+          <Typography variant="body2" sx={{ fontSize: '14px' }} color="primary.main">
             Birthday: {formattedBirthday || patientInfo.dateOfBirth}
           </Typography>
-          <Typography variant="body2" sx={{ fontSize: '14px' }} color="secondary.main">
+          <Typography variant="body2" sx={{ fontSize: '14px' }} color="primary.main">
             Birth sex: {patientInfo.sex}
           </Typography>
           <Typography variant="body1" color={otherColors.wrongPatient} marginTop={2} marginBottom={4}>
