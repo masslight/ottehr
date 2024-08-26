@@ -1,30 +1,32 @@
 import { Box, Link, Typography } from '@mui/material';
 import { FC } from 'react';
+import { useTranslation, Trans } from 'react-i18next';
 import { CustomDialog, PageForm } from 'ottehr-components';
 
 type ContactSupportDialogProps = { onClose: () => void };
 
 export const ContactSupportDialog: FC<ContactSupportDialogProps> = ({ onClose }) => {
+  const { t } = useTranslation();
+
   return (
     <CustomDialog open={true} onClose={onClose}>
       <Typography variant="h2" color="primary.main" sx={{ mb: 2 }}>
-        Need help?
+        {t('contactSupport.needHelp')}
       </Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Typography variant="body2">
-          {/* Remember to replace placeholder number */}
-          Call us: <span style={{ fontWeight: 700 }}>1-234-567-8900</span>
+          <Trans i18nKey="contactSupport.callUs" />
         </Typography>
         <Typography variant="body2" sx={{ mt: -1.5 }}>
-          Sunday-Saturday 10am-10pm ET.
+          {t('contactSupport.hours')}
         </Typography>
         <Typography variant="body2">
-          For wait times or more information:&nbsp;
-          <Link href="https://ottehr.com" target="_blank">
-            Click Here
+          {t('contactSupport.moreInfo')}&nbsp;
+          <Link href={t('contactSupport.moreInfoLink')} target="_blank">
+            {t('contactSupport.moreInfoLinkText')}
           </Link>
         </Typography>
-        <Typography variant="body2">If this is an emergency, please call 911.</Typography>
+        <Typography variant="body2">{t('contactSupport.emergency')}</Typography>
       </Box>
       <PageForm
         onSubmit={onClose}

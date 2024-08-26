@@ -1,6 +1,7 @@
 import { CircularProgress, Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PageForm, filterObject, getFileTypeFromFile, safelyCaptureException } from 'ottehr-components';
 import { FileURLs, FileUpload, FormItemType, PaperworkResponseWithResponses, getSelectors } from 'ottehr-utils';
 import { useZapEHRAPIClient } from '../../utils';
@@ -19,6 +20,7 @@ export const UploadPhotosWrapper = ({ onClose }: { onClose: () => void }): JSX.E
   const createZ3Object = useCreateZ3ObjectMutation();
   const updatePaperwork = useUpdatePaperworkMutation();
   const apiClient = useZapEHRAPIClient();
+  const { t } = useTranslation();
   const {
     data: paperworkData,
     isLoading,
@@ -152,7 +154,7 @@ export const UploadPhotosWrapper = ({ onClose }: { onClose: () => void }): JSX.E
   return (
     <>
       <Typography variant="h2" color="primary.main" sx={{ pb: 3 }}>
-        Patient condition photos
+        {t('uploadPhotos.patientConditionPhotos')}
       </Typography>
       {isLoading || !apiClient ? (
         <Box sx={{ justifyContent: 'center', display: 'flex' }}>
@@ -163,8 +165,8 @@ export const UploadPhotosWrapper = ({ onClose }: { onClose: () => void }): JSX.E
           formElements={formElements}
           onSubmit={onSubmit}
           controlButtons={{
-            submitLabel: 'Save',
-            backButtonLabel: 'Close',
+            submitLabel: t('general.button.save'),
+            backButtonLabel: t('general.button.close'),
             onBack: onClose,
             loading: isLoading || isFetching || updatePaperwork.isLoading || createZ3Object.isLoading,
           }}

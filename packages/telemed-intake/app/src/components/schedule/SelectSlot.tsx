@@ -1,5 +1,6 @@
 import { Button, Grid, styled, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
+import { useTranslation } from 'react-i18next';
 import { useAppointmentStore } from '../../features/appointments';
 
 const AppointmentSlotButton = styled(Button)({
@@ -15,11 +16,12 @@ interface SelectSlotProps {
 export function SelectSlot({ slots, timezone }: SelectSlotProps): JSX.Element {
   const { selectedSlot, setAppointment } = useAppointmentStore((state) => state);
   const theme = useTheme();
+  const { t } = useTranslation();
 
   if (slots.length === 0) {
     return (
       <Typography variant="body2" sx={{ marginTop: 1, textAlign: 'center' }}>
-        There are no slots available for this option
+        {t('schedule.noSlotsAvailableForOption')}
       </Typography>
     );
   }

@@ -2,6 +2,7 @@ import LoadingButton from '@mui/lab/LoadingButton';
 import { Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { FC, useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import { IntakeThemeContext } from 'ottehr-components';
 import { InvitedParticipantInfo } from 'ottehr-utils';
 import { useCancelInviteMutation } from '../waiting-room';
@@ -13,6 +14,7 @@ type InvitedParticipantListProps = {
 
 export const InvitedParticipantList: FC<InvitedParticipantListProps> = ({ items, onInviteCancelled }) => {
   const { otherColors } = useContext(IntakeThemeContext);
+  const { t } = useTranslation();
   const cancelInviteMutation = useCancelInviteMutation();
   const invite = items[0]; // for this release we take only one invite.
 
@@ -71,7 +73,7 @@ export const InvitedParticipantList: FC<InvitedParticipantListProps> = ({ items,
             submitCancelInvite(invite.emailAddress);
           }}
         >
-          {'Cancel invite'}
+          {t('participants.cancelInvite')}
         </LoadingButton>
       </Box>
     </Box>

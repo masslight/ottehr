@@ -1,5 +1,6 @@
 import { FC } from 'react'; // Import useState for managing the select value
 import { Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { CustomDialog, PageForm, safelyCaptureException } from 'ottehr-components';
 import { useZapEHRAPIClient } from '../utils';
 import { useCancelAppointmentMutation } from '../features/appointments';
@@ -14,6 +15,7 @@ type CancelVisitDialogProps = { onClose: () => void };
 export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose }) => {
   const apiClient = useZapEHRAPIClient();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { appointmentID } = getSelectors(useAppointmentStore, ['appointmentID']);
 
   const cancelAppointment = useCancelAppointmentMutation();
@@ -55,14 +57,14 @@ export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose }) => {
   return (
     <CustomDialog open={true} onClose={handleClose}>
       <Typography variant="h2" color="primary.main" sx={{ pb: 3 }}>
-        Why are you cancelling?
+        {t('cancelVisit.title')}
       </Typography>
       <PageForm
         formElements={[
           {
             type: 'Select',
             name: 'cancellationReason',
-            label: 'Cancelation reason',
+            label: t('cancelVisit.formElement.labels.cancellationReason'),
             required: true,
             selectOptions: Object.keys(CancellationReasonOptionsTelemed).map((value: string) => ({
               label: value,
@@ -71,7 +73,7 @@ export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose }) => {
           },
         ]}
         controlButtons={{
-          submitLabel: 'Cancel visit',
+          submitLabel: t('cancelVisit.cancelVisitButton'),
           loading: cancelAppointment.isLoading,
           submitDisabled: cancelAppointment.isLoading,
           onBack: handleClose,

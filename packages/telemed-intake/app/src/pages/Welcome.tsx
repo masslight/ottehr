@@ -3,6 +3,7 @@ import { Box } from '@mui/system';
 import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { IntakeFlowPageRoute } from '../App';
 import { clockFullColor } from '../assets/icons';
 import { useAppointmentStore, useGetSchedule } from '../features/appointments';
@@ -25,6 +26,7 @@ const Welcome = (): JSX.Element => {
   const { 'schedule-type': scheduleType, slug, 'visit-type': visitType, 'visit-service': visitService } = parameters;
   const [choiceErrorDialogOpen, setChoiceErrorDialogOpen] = useState(false);
   const { selectedSlot, setAppointment } = useAppointmentStore((state) => state);
+  const { t } = useTranslation();
 
   if (!slug) {
     throw new Error('slug is not defined');
@@ -56,35 +58,29 @@ const Welcome = (): JSX.Element => {
 
   return (
     <CustomContainer
-      title={`Ottehr ${visitService}`}
-      subtitle={isFetching ? 'Loading...' : schedule?.name}
+      title={`${t('welcome.title', { visitService })}`}
+      subtitle={isFetching ? t('general.loading') : schedule?.name}
       img={clockFullColor}
-      imgAlt="Clock icon"
+      imgAlt={t('welcome.imgAlt')}
       imgWidth={120}
       bgVariant={IntakeFlowPageRoute.NewUser.path}
       isFirstPage={true}
     >
-      {isFetching && <Typography variant="body1">Loading...</Typography>}
+      {isFetching && <Typography variant="body1">{t('general.loading')}</Typography>}
       {!isFetching && !isError && !schedule && (
-        <Typography variant="body1">The schedule &quot;{slug}&quot; is not found</Typography>
+        <Typography variant="body1">{t('welcome.scheduleNotFound', { slug })}</Typography>
       )}
       {schedule && !schedule.available && (
-        <Typography variant="body1">The schedule &quot;{slug}&quot; is not available</Typography>
+        <Typography variant="body1">{t('welcome.scheduleNotAvailable', { slug })}</Typography>
       )}
       {schedule && !['in-person', 'telemedicine'].includes(visitService || '') && (
-        <Typography variant="body1">The service &quot;{visitService}&quot; is not available</Typography>
+        <Typography variant="body1">{t('visitServiceNotAvailable', { visitService })}</Typography>
       )}
-      {isError && (
-        <Typography variant="body1">
-          There was an error getting the schedule. Please refresh and if you still get errors contact us.
-        </Typography>
-      )}
+      {isError && <Typography variant="body1">{t('welcome.scheduleError')}</Typography>}
       {!isFetching && schedule && schedule.available && ['in-person', 'telemedicine'].includes(visitService || '') && (
         <>
-          <Typography variant="body1">
-            We&apos;re pleased to offer this new technology for accessing care. You will need to enter your information
-            again just once. Next time you return, it will all be here for you!
-          </Typography>
+          <Typography variant="body1">{t('welcome.message')}</Typography>
+          <div dangerouslySetInnerHTML={{ __html: t('welcome.html') }} />
 
           {visitType === 'prebook' && <Schedule slotData={schedule.availableSlots} timezone={'America/New_York'} />}
           <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -99,16 +95,16 @@ const Welcome = (): JSX.Element => {
               }}
               onClick={onSubmit}
             >
-              Continue
+              {t('general.button.continue')}
             </Button>
           </Box>
         </>
       )}
       <ErrorDialog
         open={choiceErrorDialogOpen}
-        title="Please select a date and time"
-        description="To continue, please select an available appointment."
-        closeButtonText="Close"
+        title={t('welcome.dateError.title')}
+        description={t('welcome.dateError.description')}
+        closeButtonText={t('general.button.close')}
         handleClose={() => setChoiceErrorDialogOpen(false)}
       />
     </CustomContainer>

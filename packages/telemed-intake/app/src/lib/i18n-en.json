@@ -1,124 +1,240 @@
 {
   "general": {
+    "appName": "Ottehr Telemedicine",
     "button": {
-      "book": "Book an appointment",
-      "submit": "Submit",
-      "continue": "Continue",
       "back": "Back",
+      "continue": "Continue",
+      "continueAnyway": "Continue anyway",
       "close": "Close",
-      "tryAgain": "Try again",
       "checked": "Checked",
-      "unchecked": "Unchecked"
+      "unchecked": "Unchecked",
+      "cancel": "Cancel",
+      "cancelled": "Cancelled",
+      "save": "Save",
+      "saveChanges": "Save Changes",
+      "edit": "Edit",
+      "tryAgain": "Try again",
+      "login": "Login"
     },
-    "dateOfBirth": "Date of birth",
-    "dropdownPlaceholder": "Please select",
-    "datePlaceholder": "MM/DD/YYYY",
-    "errors": {
-      "validation": {
-        "firstName": "First name is required",
-        "lastName": "Last name is required",
-        "dateOfBirth": {
-          "format": "Date must be in the format MM/DD/YYYY",
-          "required": "Birth date is required"
-        },
-        "zip": {
-          "number": "Zip code must be 5 digits",
-          "required": "ZIP is required"
-        }
-      },
-      "submit": {
-        "title": "There was an issue booking an appointment"
-      },
-      "schedule": {
-        "noneToday": "There are no slots available today, please walk-in or click the tomorrow button for available slots",
-        "noneTomorrow": "There are no slots available, please walk-in."
+    "formElement": {
+      "labels": {
+        "firstName": "First name",
+        "lastName": "Last name",
+        "phoneNumber": "Phone number",
+        "dateOfBirth": "Date of birth",
+        "email": "Email Address"
       }
     },
-    "firstName": "First name",
-    "footer": "If you believe that you or your child is having a medical emergency, please dial 911 or go to the nearest emergency room.",
-    "lastName": "Last name",
-    "required": "required field",
-    "stateFullNames": {
-      "AK": "Alaska",
-      "AL": "Alabama",
-      "AR": "Arkansas",
-      "AZ": "Arizona",
-      "CA": "California",
-      "CO": "Colorado",
-      "CT": "Connecticut",
-      "DC": "District of Columbia",
-      "DE": "Delaware",
-      "FL": "Florida",
-      "GA": "Georgia",
-      "HI": "Hawaii",
-      "IA": "Iowa",
-      "ID": "Idaho",
-      "IL": "Illinois",
-      "IN": "Indiana",
-      "KS": "Kansas",
-      "KY": "Kentucky",
-      "LA": "Louisiana",
-      "MA": "Massachusetts",
-      "MD": "Maryland",
-      "ME": "Maine",
-      "MI": "Michigan",
-      "MN": "Minnesota",
-      "MO": "Missouri",
-      "MS": "Mississippi",
-      "MT": "Montana",
-      "NC": "North Carolina",
-      "ND": "North Dakota",
-      "NE": "Nebraska",
-      "NH": "New Hampshire",
-      "NJ": "New Jersey",
-      "NM": "New Mexico",
-      "NV": "Nevada",
-      "NY": "New York",
-      "OH": "Ohio",
-      "OK": "Oklahoma",
-      "OR": "Oregon",
-      "PA": "Pennsylvania",
-      "RI": "Rhode Island",
-      "SC": "South Carolina",
-      "SD": "South Dakota",
-      "TN": "Tennessee",
-      "TX": "Texas",
-      "UT": "Utah",
-      "VA": "Virginia",
-      "VT": "Vermont",
-      "WA": "Washington",
-      "WI": "Wisconsin",
-      "WV": "West Virginia",
-      "WY": "Wyoming"
-    },
-    "sunAlt": "Yellow sun icon",
-    "weekdays": ["S", "M", "T", "W", "T", "F", "S"],
-    "zip": "ZIP"
+    "loading": "loading...",
+    "patientBirthday": "Birthday: {{formattedPatientBirthDay}}",
+    "footer": "If you believe that you or your child is having a medical emergency, please dial 911 or go to the nearest emergency room."
   },
-  "patientInfo": {
-    "errors": {
-      "": {
-        "title": "Age not in range",
-        "description": "These services are only available for patients between the ages of 0 and 26."
-      },
-      "validation": {
-        "firstName": "First name is required",
-        "lastName": "Last name is required",
-        "dateOfBirth": {
-          "format": "Date must be in the format MM/DD/YYYY",
-          "required": "Birth date is required"
-        },
-        "zip": {
-          "number": "Zip code must be 5 digits",
-          "required": "ZIP is required"
-        }
+  "callSettings": {
+    "callSettings": "Call Settings",
+    "camera": "Camera",
+    "microphone": "Microphone",
+    "reportProblem": "Report problem",
+    "reportProblemDescription": "Send error report",
+    "reportProblemImgAlt": "Clock icon",
+    "setting": "Setting",
+    "audioVideo": "Audio, video"
+  },
+  "cancelVisit": {
+    "title": "Why are you cancelling?",
+    "cancelVisitButton": "Cancel visit",
+    "formElement": {
+      "labels": {
+        "cancellationReason": "Cancelation reason"
       }
     }
   },
+  "contactSupport": {
+    "needHelp": "Need help?",
+    "support": "Support",
+    "callUs": "Call us: <strong>(123) 456-7890</strong>",
+    "hours": "Sunday-Saturday 10am-10pm ET.",
+    "moreInfo": "For wait times or more information:",
+    "moreInfoLink": "https://ottehr.com",
+    "moreInfoLinkText": "Click Here",
+    "emergency": "If this is an emergency, please call 911."
+  },
+  "financialPolicy": {
+    "title": "Financial Policy",
+    "paymentPolicy": "Our facility is committed to making payment as convenient as possible for our patients. Our policy is to<br /><br />collect payments via credit card, flexible spending card, cash, or check at the time of service. If you have<br />insurance, our verification system will indicate whether you have an unmet deductible and determine your<br />expected payment.<br /><br />At the time of your visit, you will be asked to review and sign our Card on File form. Afterwards, we keep<br />your payment method on file with our HIPAA-compliant, secure credit card processor in the event there is<br />additional patient responsibility. For your protection, only a portion of your card will be visible in our<br />computer system.<br /><br />Once your insurance company has processed your claims, they will send an Explanation of Benefits (EOB) to both<br />you and our office, showing your total patient responsibility. Upon receipt of the EOB, our billing department<br />will determine if there is a remaining balance based on your insurance company’s adjustment/payment. If there<br />is an additional balance, you will receive an email with the amount due. We will charge the card on file 5<br />days after this initial email. If you disagree with the patient amount owed, please contact your insurance<br />carrier immediately.<br /><br />If you do not pay in full at the time of service and/or provide a payment method to be placed on file,<br />you/your child may not be seen. Please contact our billing department should you have any questions."
+  },
+  "schedule": {
+    "noSlotsAvailable": "There are no slots available",
+    "noSlotsAvailableForOption": "There are no slots available for this option",
+    "selectDate": "Select date and time",
+    "timezone": "Time zone: {{timezone}}",
+    "firstAvailableTime": "First available time:",
+    "calculatingFirstAvailableTime": "Calculating first available time...",
+    "tabsArialLabel": "Appointment tabs for switching between views of today, tomorrow, and other dates.",
+    "unknownDate": "Unknown date"
+  },
+  "participants": {
+    "manageParticipants": "Manage participants",
+    "inviteParticipant": "Invite participant",
+    "cancelInvite": "Cancel invite",
+    "noInvitedParticipants": "No invited participants",
+    "sendInvite": "Send invite",
+    "inviteError": {
+      "title": "Error",
+      "description": "An error occurred. Please, try again in a moment."
+    }
+  },
+  "uploadPhotos": {
+    "button": "Upload photos",
+    "patientConditionPhotos": "Patient condition photos",
+    "photosAttached": "{{count}} photos attached",
+    "noPhotosAttached": "No photos uploaded"
+  },
+  "confirmDateOfBirth": {
+    "title": "Confirm {{patientFirstName}}'s date of birth",
+    "patientFirstNameFallback": "patient",
+    "notConfirmed": "Unfortunately, this patient record is not confirmed.",
+    "dateOfBirthErrorMessage": "This date of birth {{formattedDOB}} doesn't match the selected patient profile {{patientFirstName}}.",
+    "tryAgain": "You can try again or continue and verify DOB at check-in.",
+    "formElement": {
+      "types": {
+        "challengeDay": "Date Day",
+        "challengeMonth": "Date Month",
+        "challengeYear": "Date Year"
+      },
+      "labels": {
+        "challengeDateOfBirth": "Date of birth",
+        "challengeDay": "Patient's day of birth",
+        "challengeMonth": "Patient's month of birth",
+        "challengeYear": "Patient's year of birth"
+      }
+    },
+    "requestError": {
+      "title": "Error",
+      "description": "An error occurred. Please, try again in a moment."
+    }
+  },
+  "createAccount": {
+    "title": "Create account",
+    "description": ""
+  },
+  "newUser": {
+    "title": "Thanks for choosing Ottehr!",
+    "imgAlt": "Clock icon",
+    "message": "We're pleased to offer this new technology for accessing care. You will need to enter your information again just once. Next time you return, it will all be here for you!",
+    "html": ""
+  },
+  "pastVisits": {
+    "visits": "Visits",
+    "visitDetails": "Visit Details",
+    "backToHome": "Back to homepage"
+  },
+  "patientInfo": {
+    "title": "About the patient",
+    "description": "We use this information to ensure we're able to provide you with care. All information is kept confidential.",
+    "birthSex": "Birth sex: {{birthSex}}",
+    "wrongPatient": "Wrong patient? Please ",
+    "wrongPatientGoBack": "go back",
+    "wrongPatientBackFor": "for a new patient or different existing patient record.",
+    "formElement": {
+      "labels": {
+        "firstName": "Patient's legal first name",
+        "middleName": "Patient's legal middle name",
+        "lastName": "Patient's legal last name",
+        "chosenName": "Patient's chosen or preferred name (optional)",
+        "dateOfBirth": "Patient's date of birth",
+        "sex": "Patient's birth sex",
+        "weight": "Patient's weight (lbs)",
+        "email": "Email Address",
+        "emailOwner": "This email belongs to",
+        "emailOwnerPatient": "Patient",
+        "emailOwnerParent": "Parent/Guardian"
+      },
+      "placeholder": {
+        "firstName": "First name",
+        "middleName": "Middle name",
+        "lastName": "Last name",
+        "chosenName": "Chosen name"
+      },
+      "infoTexts": {
+        "sex": "Our care team uses this to inform treatment recommendations and share helpful information regarding potential medication side effects, as necessary.",
+        "weight": "Entering correct information in this box will help us with prescription dosing."
+      },
+      "helperTexts": {
+        "weight": "Weight last updated: {{lastUpdated}}"
+      }
+    },
+    "ageError": {
+      "title": "Age not in range",
+      "description": "These services are only available for patients between the ages of 0 and 26."
+    },
+    "requestError": {
+      "title": "Error",
+      "description": "An error occurred. Please, try again in a moment."
+    }
+  },
+  "patientPortal": {
+    "title": "Welcome to Ottehr Telemedicine",
+    "description": "",
+    "returnToCall": "Return to Call",
+    "activeCall": "Active Call",
+    "requestVisit": "Request Visit",
+    "pastVisits": "Past Visits",
+    "pastVisitsSubtitle": "School/Work Notes and Prescriptions",
+    "contactSupport": "Contact Support"
+  },
+  "reviewPaperwork": {
+    "title": "Review and submit",
+    "description": "Review and confirm all details below.",
+    "visitDetails": "Visit details"
+  },
+  "selectPatient": {
+    "selectPatient": "Select patient",
+    "differentFamilyMember": "Different family member",
+    "differentFamilyMemberDescription": "Select this option if this reservation is for a different family member",
+    "loadingPatient": "Loading patient"
+  },
+  "thankYou": {
+    "title": "Thank you for choosing Ottehr Telemedicine",
+    "description": "We look forward to helping you soon!",
+    "checkInBookedTime": "Your check-in time is booked for:",
+    "confirmationMessage": "You will receive a confirmation email and SMS for your upcoming check-in time shortly. If you need to make any changes, please follow the instructions in the email.",
+    "insurancePolicy": "All patients that present with commercial insurance will be required to leave a credit card on file. More details on our financial policy can be found ",
+    "insurancePolicyLinkText": "here",
+    "contactUs": "If you have any questions or concerns, please call our team at: <strong>(123) 456-7890</strong>."
+  },
+  "visitDetails": {
+    "visitId": "Visit ID: {{visitId}}",
+    "backToVisitsList": "Back to visits list"
+  },
+  "waitingRoom": {
+    "title": "Waiting Room",
+    "imgAlt": "Clock icon",
+    "subtext": "Please wait, call will start automatically. A pediatric expert will connect with you soon.",
+    "approxWaitTime": "Approx. wait time - {{estimatedTime}}",
+    "fallbackWaitTime": "...mins",
+    "callSettingsTitle": "Call settings & Test",
+    "callSettingsSubtext": "Audio, video, microphone",
+    "leaveRoomTitle": "Leave waiting room",
+    "leaveRoomSubtext": "We will notify you once the call starts",
+    "cancelVisitTitle": "Cancel visit",
+    "cancelVisitSubtext": "You will not be charged if you cancel the visit"
+  },
   "welcome": {
-    "title": "Welcome to Ottehr Urgent Care",
-    "subtitle": "Online Scheduling",
-    "support": "We are here to support you and your family.",
-    "availability": "Please, enter your mobile phone number. We'll verify if we have your information already. If we do, we'll pre-fill your past information for a faster booking."
+    "title": "Ottehr {{visitService}}",
+    "imgAlt": "Clock icon",
+    "scheduleNotFound": "The schedule \"{{slug}}\" is not found",
+    "scheduleNotAvailable": "The schedule \"{{slug}}\" is not available",
+    "visitServiceNotAvailable": "The service \"{{visitService}}\" is not available",
+    "scheduleError": "There was an error getting the schedule. Please refresh and if you still get errors contact us.",
+    "message": "We're pleased to offer this new technology for accessing care. You will need to enter your information again just once. Next time you return, it will all be here for you!",
+    "html": "",
+    "dateError": {
+      "title": "Please select a date and time",
+      "description": "To continue, please select an available appointment."
+    }
+  },
+  "errorFallbackScreen": {
+    "title": "Error occurred",
+    "description": "Something went wrong during authorization process. Please, try again."
   }
 }

@@ -11,6 +11,7 @@ import {
   Select,
   SelectChangeEvent,
 } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { useAudioVideo, useMeetingManager } from 'amazon-chime-sdk-component-library-react';
 import { ConsoleLogger, DefaultDeviceController } from 'amazon-chime-sdk-js';
 
@@ -22,6 +23,7 @@ interface CallSettingsProps {
 export const CallSettings: FC<CallSettingsProps> = ({ onClose, open }) => {
   const meetingManager = useMeetingManager();
   const audioVideo = useAudioVideo();
+  const { t } = useTranslation();
 
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
@@ -117,7 +119,7 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose, open }) => {
 
   return (
     <Dialog open={open} onClose={onClose}>
-      <DialogTitle>Call Settings</DialogTitle>
+      <DialogTitle>{t('callSettings.callSettings')}</DialogTitle>
       <DialogContent>
         <video
           ref={videoPreviewRef}
@@ -130,8 +132,8 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose, open }) => {
           }}
         ></video>
         <FormControl fullWidth margin="normal">
-          <InputLabel>Camera</InputLabel>
-          <Select value={selectedVideoDevice} onChange={handleVideoDeviceChange} label="Camera">
+          <InputLabel>{t('callSettings.camera')}</InputLabel>
+          <Select value={selectedVideoDevice} onChange={handleVideoDeviceChange} label={t('callSettings.camera')}>
             {videoDevices.map((device) => (
               <MenuItem key={device.deviceId} value={device.deviceId}>
                 {device.label}
@@ -141,8 +143,8 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose, open }) => {
         </FormControl>
 
         <FormControl fullWidth margin="normal">
-          <InputLabel>Microphone</InputLabel>
-          <Select value={selectedAudioDevice} onChange={handleAudioDeviceChange} label="Microphone">
+          <InputLabel>{t('callSettings.microphone')}</InputLabel>
+          <Select value={selectedAudioDevice} onChange={handleAudioDeviceChange} label={t('callSettings.microphone')}>
             {audioDevices.map((device) => (
               <MenuItem key={device.deviceId} value={device.deviceId}>
                 {device.label}
@@ -153,10 +155,10 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose, open }) => {
       </DialogContent>
       <DialogActions sx={{ alignItems: 'center', justifyContent: 'flex-end', padding: '16px 24px' }}>
         <Button onClick={onClose} sx={{ marginRight: 1 }} variant="text">
-          Cancel
+          {t('general.button.cancel')}
         </Button>
         <Button onClick={handleSave} variant="contained">
-          Save Changes
+          {t('general.button.saveChanges')}
         </Button>
       </DialogActions>
     </Dialog>

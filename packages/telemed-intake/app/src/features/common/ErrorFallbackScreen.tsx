@@ -2,9 +2,11 @@ import { PageForm } from 'ottehr-components';
 import { IntakeFlowPageRoute } from '../../App';
 import { CustomContainer } from './CustomContainer';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export const ErrorFallbackScreen = (): JSX.Element => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const onSubmit = async (): Promise<void> => {
     navigate(IntakeFlowPageRoute.AuthPage.path);
@@ -12,11 +14,11 @@ export const ErrorFallbackScreen = (): JSX.Element => {
 
   return (
     <CustomContainer
-      title="Error occurred"
-      description="Something went wrong during authorization process. Please, try again."
+      title={t('errorFallbackScreen.title')}
+      description={t('errorFallbackScreen.description')}
       bgVariant={IntakeFlowPageRoute.PatientPortal.path}
     >
-      <PageForm onSubmit={onSubmit} controlButtons={{ submitLabel: 'Login', backButton: false }} />
+      <PageForm onSubmit={onSubmit} controlButtons={{ submitLabel: t('general.button.login'), backButton: false }} />
     </CustomContainer>
   );
 };

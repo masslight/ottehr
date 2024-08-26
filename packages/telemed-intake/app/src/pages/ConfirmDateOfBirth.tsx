@@ -3,6 +3,7 @@ import { DateTime } from 'luxon';
 import { useCallback, useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ErrorDialog, FormInputType, PageForm, safelyCaptureException } from 'ottehr-components';
 import { UpdateAppointmentResponse, getSelectors, yupDateTransform } from 'ottehr-utils';
 import { IntakeFlowPageRoute } from '../App';
@@ -16,16 +17,9 @@ import { useGetPaperwork, usePaperworkStore } from '../features/paperwork';
 import { usePatientInfoStore } from '../features/patient-info';
 import { useZapEHRAPIClient } from '../utils';
 
-const FORM_ELEMENTS_FIELDS = {
-  challengeDay: { label: 'Date of birth day', name: 'challengeDay' },
-  challengeMonth: { label: 'Date of birth month', name: 'challengeMonth' },
-  challengeYear: { label: 'Date of birth year', name: 'challengeYear' },
-};
-
-const { challengeDay, challengeMonth, challengeYear } = FORM_ELEMENTS_FIELDS;
-
 const ConfirmDateOfBirth = (): JSX.Element => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const apiClient = useZapEHRAPIClient();
   const updateAppointment = useUpdateAppointmentMutation();
   const [requestErrorDialogOpen, setRequestErrorDialogOpen] = useState<boolean>(false);
@@ -36,6 +30,23 @@ const ConfirmDateOfBirth = (): JSX.Element => {
     'patchCompletedPaperwork',
     'setQuestions',
   ]);
+
+  const FORM_ELEMENTS_FIELDS = {
+    challengeDay: {
+      label: t('confirmDateOfBirth.formElement.labels.challengeDay'),
+      name: 'challengeDay',
+    },
+    challengeMonth: {
+      label: t('confirmDateOfBirth.formElement.labels.challengeMonth'),
+      name: 'challengeMonth',
+    },
+    challengeYear: {
+      label: t('confirmDateOfBirth.formElement.labels.challengeYear'),
+      name: 'challengeYear',
+    },
+  };
+
+  const { challengeDay, challengeMonth, challengeYear } = FORM_ELEMENTS_FIELDS;
 
   const getPaperworkQuery = useGetPaperwork(
     (data) => {
@@ -61,7 +72,7 @@ const ConfirmDateOfBirth = (): JSX.Element => {
     {
       type: 'Date',
       name: 'challengeDateOfBirth',
-      label: 'Date of birth',
+      label: t('confirmDateOfBirth.formElement.labels.challengeDateOfBirth'),
       required: true,
       fieldMap: {
         day: challengeDay.name,
@@ -72,17 +83,17 @@ const ConfirmDateOfBirth = (): JSX.Element => {
         {
           type: 'Date Year',
           name: challengeYear.name,
-          label: "Patient's year of birth",
+          label: challengeYear.label,
         },
         {
           type: 'Date Month',
           name: challengeMonth.name,
-          label: "Patient's month of birth",
+          label: challengeMonth.label,
         },
         {
           type: 'Date Day',
           name: challengeDay.name,
-          label: "Patient's day of birth",
+          label: challengeDay.label,
         },
       ],
     },
@@ -101,7 +112,7 @@ const ConfirmDateOfBirth = (): JSX.Element => {
       return `${month}/${day}/${year}`;
     }
     return undefined;
-  }, [formValuesCopy]);
+  }, [challengeDay.name, challengeMonth.name, challengeYear.name, formValuesCopy]);
 
   const createOrUpdateAppointment = (unconfirmedDateOfBirth = false): void => {
     if (!apiClient) {
@@ -186,14 +197,16 @@ const ConfirmDateOfBirth = (): JSX.Element => {
 
   return (
     <CustomContainer
-      title={`Confirm ${patientInfo?.firstName ? `${patientInfo?.firstName}'s` : 'patient’s'} date of birth`}
+      title={t('confirmDateOfBirth.title', {
+        patientFirstName: patientInfo?.firstName ?? t('confirmDateOfBirth.patientFirstNameFallback'),
+      })}
       bgVariant={IntakeFlowPageRoute.ConfirmDateOfBirth.path}
     >
       <>
         <PageForm
           formElements={formElements}
           controlButtons={{
-            submitLabel: 'Continue',
+            submitLabel: t('general.button.continue'),
             loading: getPaperworkQuery.isLoading || createAppointment.isLoading,
           }}
           onSubmit={handleSubmit}
@@ -207,13 +220,15 @@ const ConfirmDateOfBirth = (): JSX.Element => {
           <Paper>
             <Box sx={{ m: { md: 5, xs: 3 }, maxWidth: 'sm' }}>
               <Typography sx={{ width: '100%' }} variant="h2" color="primary.main">
-                Unfortunately, this patient record is not confirmed.
+                {t('confirmDateOfBirth.notConfirmed')}
               </Typography>
               <Typography sx={{ mt: 2 }}>
-                This date of birth{formattedDOB ? ` (${formattedDOB})` : ''} doesn’t match the selected patient profile
-                {patientInfo?.firstName ? ` (${patientInfo?.firstName})` : ''}.
+                {t('dateOfBirthErrorMessage', {
+                  formattedDOB: formattedDOB ? `(${formattedDOB})` : '',
+                  patientFirstName: patientInfo?.firstName ? `(${patientInfo?.firstName})` : '',
+                })}
               </Typography>
-              <Typography sx={{ mt: 1 }}>You can try again or continue and verify DOB at check-in.</Typography>
+              <Typography sx={{ mt: 1 }}>{t('confirmDateOfBirth.tryAgain')}</Typography>
               <Box
                 display="flex"
                 flexDirection={{ xs: 'column', md: 'row' }}
@@ -221,7 +236,7 @@ const ConfirmDateOfBirth = (): JSX.Element => {
                 gap={{ xs: 2 }}
               >
                 <Button variant="outlined" onClick={handleContinueAnyway} color="secondary" size="large" type="submit">
-                  Continue anyway
+                  {t('general.button.continueAnyway')}
                 </Button>
                 <Button
                   variant="contained"
@@ -230,7 +245,7 @@ const ConfirmDateOfBirth = (): JSX.Element => {
                   type="button"
                   color="secondary"
                 >
-                  Try again
+                  {t('general.button.tryAgain')}
                 </Button>
               </Box>
             </Box>
@@ -238,9 +253,9 @@ const ConfirmDateOfBirth = (): JSX.Element => {
         </Dialog>
         <ErrorDialog
           open={requestErrorDialogOpen}
-          title="Error"
-          description="An error occured. Please, try again in a moment."
-          closeButtonText="Close"
+          title={t('confirmDateOfBirth.requestError.title')}
+          description={t('confirmDateOfBirth.requestError.description')}
+          closeButtonText={t('general.button.close')}
           handleClose={() => setRequestErrorDialogOpen(false)}
         />
       </>

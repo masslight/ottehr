@@ -9,8 +9,9 @@ interface HomepageOptionsProps {
   handleClick: () => void;
   subtitle?: string;
   subSlot?: JSX.Element;
+  className?: string;
 }
-const HomepageOption: FC<HomepageOptionsProps> = ({ title, icon, handleClick, subtitle, subSlot }) => {
+const HomepageOption: FC<HomepageOptionsProps> = ({ title, icon, handleClick, subtitle, subSlot, className }) => {
   const theme = useTheme();
   return (
     <Button
@@ -28,17 +29,20 @@ const HomepageOption: FC<HomepageOptionsProps> = ({ title, icon, handleClick, su
         '&:hover': { backgroundColor: otherColors.coachingVisit },
       }}
       onClick={handleClick}
+      className={className}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <img src={icon} alt="" style={{ height: '70px', width: '70px' }} />
+        <Box sx={{ display: 'block', width: '70px' }}>
+          <img src={icon} alt="" style={{ width: '70px' }} />
+        </Box>
         <Box
           sx={{ display: 'flex', flexDirection: 'column ', alignItems: 'flex-start', justifyContent: 'center', gap: 1 }}
         >
-          <Typography variant="h3" color="primary.main">
+          <Typography variant="h3" color="primary.main" sx={{ textAlign: 'left' }}>
             {title}
           </Typography>
           {subtitle && (
-            <Typography variant="caption" color="primary.main">
+            <Typography variant="caption" color="primary.main" sx={{ textAlign: 'left' }}>
               {subtitle}
             </Typography>
           )}

@@ -4,6 +4,7 @@ import { Box, List, Typography, useTheme } from '@mui/material';
 import { Duration } from 'luxon';
 import { useContext, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { IntakeThemeContext, StyledListItemWithButton, safelyCaptureException } from 'ottehr-components';
 import { getSelectors } from 'ottehr-utils';
 import { IntakeFlowPageRoute } from '../App';
@@ -27,6 +28,7 @@ const WaitingRoom = (): JSX.Element => {
   const location = useLocation();
   const isInvitedParticipant = location.pathname === IntakeFlowPageRoute.InvitedWaitingRoom.path;
   const appointmentID = useAppointmentStore((state) => state.appointmentID);
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (urlAppointmentID) {
@@ -61,11 +63,11 @@ const WaitingRoom = (): JSX.Element => {
 
   return (
     <CustomContainer
-      title="Waiting room"
+      title={t('waitingRoom.title')}
       img={clockFullColor}
-      imgAlt="Clock icon"
+      imgAlt={t('waitingRoom.imgAlt')}
       imgWidth={80}
-      subtext="Please wait, call will start automatically. A pediatric expert will connect with you soon."
+      subtext={t('waitingRoom.subtext')}
       bgVariant={IntakeFlowPageRoute.WaitingRoom.path}
     >
       <Box
@@ -79,15 +81,19 @@ const WaitingRoom = (): JSX.Element => {
         }}
       >
         <Typography variant="subtitle1" color={theme.palette.primary.main}>
-          Approx. wait time - {estimatedTime ? Duration.fromMillis(estimatedTime).toFormat("mm'mins'") : '...mins'}
+          {t('waitingRoom.approxWaitTime', {
+            estimatedTime: estimatedTime
+              ? Duration.fromMillis(estimatedTime).toFormat("mm'mins'")
+              : t('waitingRoom.fallbackWaitTime'),
+          })}
         </Typography>
       </Box>
 
       {isInvitedParticipant ? (
         <List sx={{ p: 0 }}>
           <StyledListItemWithButton
-            primaryText="Call settings & Test"
-            secondaryText="Audio, video, microphone"
+            primaryText={t('waitingRoom.callSettingsTitle')}
+            secondaryText={t('waitingRoom.callSettingsSubtext')}
             noDivider
           >
             <AssignmentOutlinedIcon sx={{ color: otherColors.purple }} />
@@ -101,16 +107,16 @@ const WaitingRoom = (): JSX.Element => {
 
           <StyledListItemWithButton
             onClick={() => navigate('/home')}
-            primaryText="Leave waiting room"
-            secondaryText="We will notify you once the call starts"
+            primaryText={t('waitingRoom.leaveRoomTitle')}
+            secondaryText={t('waitingRoom.leaveRoomSubtext')}
           >
             <img alt="Clock icon" src={clockFullColor} width={24} />
           </StyledListItemWithButton>
 
           <StyledListItemWithButton
             onClick={() => setCancelVisitDialogOpen(true)}
-            primaryText="Cancel visit"
-            secondaryText="You will not be charged if you cancel the visit"
+            primaryText={t('waitingRoom.cancelVisitTitle')}
+            secondaryText={t('waitingRoom.cancelVisitSubtext')}
             noDivider
           >
             <CancelOutlinedIcon sx={{ color: otherColors.clearImage }} />
