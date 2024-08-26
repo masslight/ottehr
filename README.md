@@ -228,7 +228,7 @@ Interactively updates all dependencies to their latest versions, respecting rang
 ```
 
 ## Theming & Localization
-_At this time, dynamic theming and localization is only supported for the `telemed-intake` application. Hopefully in the near future we will make the changes necessary to theme the EHR portal as well._
+_At this time, dynamic theming and localization is only supported for the `telemed-intake` application._
 
 ### To theme your Ottehr `telemed-intake` app follow the following steps:
 - Copy the files in `telemed-intake/app/src/assets/` into a new folder ex; `telemed-intake/app/src/assets/mytheme`
