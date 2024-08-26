@@ -236,7 +236,7 @@ _At this time, dynamic theming and localization is only supported for the `telem
 - Update the theme environment variables to point to your new folders:
     ```bash
     ASSETS_PATH='/src/assets/mytheme'
-    THEME_PATH='/src/assets/theme/mytheme'
+    THEME_PATH='/src/assets/myTheme/theme'
     TRANSLATIONS_PATH='/src/lib/mytheme'
     ```
 - Modify the images, svgs, colors and translation files as needed
