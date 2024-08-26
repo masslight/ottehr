@@ -231,7 +231,7 @@ Interactively updates all dependencies to their latest versions, respecting rang
 _At this time, dynamic theming and localization is only supported for the `telemed-intake` application._
 
 ### To theme your Ottehr `telemed-intake` app follow the following steps:
-- Copy the files in `telemed-intake/app/src/assets/` into a new folder ex; `telemed-intake/app/src/assets/mytheme`
+- Copy the files in `telemed-intake/app/src/assets/` into a new folder, for example `telemed-intake/app/src/assets/myTheme`
 - Copy the files in `telemed-intake/app/src/lib/` into a new folder ex; `telemed-intake/app/src/lib/mytheme`
 - Update the theme env vars to point to your new folders
     ```bash
