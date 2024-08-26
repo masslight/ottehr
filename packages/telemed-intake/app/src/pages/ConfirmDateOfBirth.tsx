@@ -112,7 +112,7 @@ const ConfirmDateOfBirth = (): JSX.Element => {
       return `${month}/${day}/${year}`;
     }
     return undefined;
-  }, [formValuesCopy]);
+  }, [challengeDay.name, challengeMonth.name, challengeYear.name, formValuesCopy]);
 
   const createOrUpdateAppointment = (unconfirmedDateOfBirth = false): void => {
     if (!apiClient) {
