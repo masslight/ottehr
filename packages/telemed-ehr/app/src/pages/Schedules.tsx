@@ -1,4 +1,4 @@
-import { Tab } from '@mui/material';
+import { Box, Tab } from '@mui/material';
 import { ReactElement, useState } from 'react';
 import PageContainer from '../layout/PageContainer';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
@@ -18,17 +18,16 @@ export default function LocationsPage(): ReactElement {
     <PageContainer>
       <>
         <TabContext value={tab}>
-          <TabList
-            onChange={(event, tabTemp) => setTab(tabTemp)}
-            aria-label="Switch between different schedule options"
-            sx={{
-              paddingX: 3,
-            }}
-          >
-            <Tab label="Offices" value="0" />
-            <Tab label="Providers" value="1" />
-            <Tab label="Groups" value="2" />
-          </TabList>
+          <Box sx={{ borderBottom: 1, borderColor: 'divider', mx: 3 }}>
+            <TabList
+              onChange={(event, tabTemp) => setTab(tabTemp)}
+              aria-label="Switch between different schedule options"
+            >
+              <Tab label="Offices" value="0" sx={{ textTransform: 'none', fontWeight: 700 }} />
+              <Tab label="Providers" value="1" sx={{ textTransform: 'none', fontWeight: 700 }} />
+              <Tab label="Groups" value="2" sx={{ textTransform: 'none', fontWeight: 700 }} />
+            </TabList>
+          </Box>
           <TabPanel value="0">
             <ScheduleInformation scheduleType="office"></ScheduleInformation>
           </TabPanel>

@@ -220,10 +220,16 @@ const ConfirmDateOfBirth = (): JSX.Element => {
                 sx={{ justifyContent: 'space-between', mt: 4.125 }}
                 gap={{ xs: 2 }}
               >
-                <Button variant="outlined" onClick={handleContinueAnyway} color="primary" size="large" type="submit">
+                <Button variant="outlined" onClick={handleContinueAnyway} color="secondary" size="large" type="submit">
                   Continue anyway
                 </Button>
-                <Button variant="contained" onClick={() => setOpenModal(false)} size="large" type="button">
+                <Button
+                  variant="contained"
+                  onClick={() => setOpenModal(false)}
+                  size="large"
+                  type="button"
+                  color="secondary"
+                >
                   Try again
                 </Button>
               </Box>

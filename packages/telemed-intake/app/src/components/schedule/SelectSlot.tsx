@@ -35,8 +35,8 @@ export function SelectSlot({ slots, timezone }: SelectSlotProps): JSX.Element {
             <AppointmentSlotButton
               sx={{ width: '110px', borderColor: theme.palette.divider, fontWeight: isSelected ? 700 : 400 }}
               variant={isSelected ? 'contained' : 'outlined'}
-              color="primary"
               onClick={() => setAppointment({ selectedSlot: slot })}
+              color="primary"
             >
               {startDateTimezoneAdjusted.toFormat('h:mm a')}
             </AppointmentSlotButton>

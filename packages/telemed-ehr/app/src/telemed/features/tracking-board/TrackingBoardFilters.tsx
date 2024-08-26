@@ -97,22 +97,18 @@ export const TrackingBoardFilters: FC<{ tab: ApptTab }> = (props) => {
 
   return (
     <Grid container spacing={2} sx={{ padding: 2, paddingTop: 0 }}>
-      <Grid item xs={6}>
+      <Grid item xs={4}>
         <StateSelect />
       </Grid>
-      <Grid item xs={6}>
+      <Grid item xs={4}>
         <ProvidersSelect
-          providers={providers ? providers : []}
+          providers={providers ?? []}
           practitioners={practitioners}
           handleSubmit={handleProviderChange}
-        ></ProvidersSelect>
+        />
       </Grid>
-      <Grid item xs={6}>
-        <GroupSelect
-          groups={groups ? groups : []}
-          healthcareServices={healthcareServices}
-          handleSubmit={handleGroupChange}
-        ></GroupSelect>
+      <Grid item xs={4}>
+        <GroupSelect groups={groups ?? []} healthcareServices={healthcareServices} handleSubmit={handleGroupChange} />
       </Grid>
       {useDate && (
         <Grid item xs={6}>

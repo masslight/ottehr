@@ -291,7 +291,7 @@ export default function SchedulePage(): ReactElement {
     <PageContainer>
       <>
         {item ? (
-          <Box marginX={12}>
+          <Box>
             {/* Breadcrumbs */}
             <CustomBreadcrumbs
               chain={[
@@ -330,7 +330,7 @@ export default function SchedulePage(): ReactElement {
                   background: 'none',
                 }}
               >
-                <TabPanel value="schedule">
+                <TabPanel value="schedule" sx={{ padding: 0 }}>
                   {scheduleType === 'group' && <GroupSchedule groupID={item.id || ''} />}
                   {['office', 'provider'].includes(scheduleType) &&
                     (item.extension?.find(

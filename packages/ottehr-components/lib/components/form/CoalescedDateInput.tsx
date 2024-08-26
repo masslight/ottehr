@@ -6,6 +6,7 @@ import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
 import { useFormContext } from 'react-hook-form';
 import { InputHelperText } from './InputHelperText';
 import { IntakeThemeContext } from '../../contexts';
+import { KeyboardArrowDown } from '@mui/icons-material';
 
 interface DateInputFieldProps {
   name: string;
@@ -102,6 +103,19 @@ const CoalescedDateInput = ({
             label="Month"
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
+            IconComponent={KeyboardArrowDown}
+            sx={{
+              borderRadius: '8px',
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor: otherColors.lightGray,
+              },
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: otherColors.lightGray,
+              },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                borderColor: otherColors.lightGray,
+              },
+            }}
           >
             {months.map((month) => (
               <MenuItem key={month.value} value={month.value}>
@@ -118,6 +132,19 @@ const CoalescedDateInput = ({
             label="Day"
             value={selectedDay}
             onChange={(e) => setSelectedDay(e.target.value)}
+            IconComponent={KeyboardArrowDown}
+            sx={{
+              borderRadius: '8px',
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor: otherColors.lightGray,
+              },
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: otherColors.lightGray,
+              },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                borderColor: otherColors.lightGray,
+              },
+            }}
           >
             {days.map((day) => (
               <MenuItem key={day.value} value={day.value}>
@@ -134,6 +161,19 @@ const CoalescedDateInput = ({
             label="Year"
             value={selectedYear}
             onChange={(e: any) => setSelectedYear?.(e.target.value)}
+            IconComponent={KeyboardArrowDown}
+            sx={{
+              borderRadius: '8px',
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor: otherColors.lightGray,
+              },
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: otherColors.lightGray,
+              },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                borderColor: otherColors.lightGray,
+              },
+            }}
           >
             {years.map((year) => (
               <MenuItem key={year.value} value={year.value}>

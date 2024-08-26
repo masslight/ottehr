@@ -7,7 +7,7 @@ import { useGetTelemedAppointments, useTrackingBoardStore } from '../../state';
 import { ApptTab, ApptTabToStatus } from '../../utils';
 import { useZapEHRAPIClient } from '../../hooks/useZapEHRAPIClient';
 import Loading from '../../../components/Loading';
-import CreateDemoVisitsButton from './CreateDemoVisitsButton';
+import CreateDemoVisits from './CreateDemoVisits';
 
 export function TrackingBoardTabs(): ReactElement {
   const { alignment, state, date, providers, groups, setAppointments } = getSelectors(useTrackingBoardStore, [
@@ -63,7 +63,7 @@ export function TrackingBoardTabs(): ReactElement {
             <TrackingBoardTable tab={value} />
           </TabPanel>
         </Paper>
-        <CreateDemoVisitsButton visitService="telemedicine" />
+        <CreateDemoVisits />
       </TabContext>
     </Box>
   );

@@ -94,6 +94,7 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
     timezone,
     unconfirmedDateOfBirth,
     isDemo,
+    phoneNumber,
   } = params;
   const { secrets } = input;
   const fhirClient = createFhirClient(zapehrToken);
@@ -132,6 +133,7 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
     unconfirmedDateOfBirth,
     secrets,
     isDemo,
+    phoneNumber,
   );
 
   await createAuditEvent(AuditableZambdaEndpoints.appointmentCreate, fhirClient, input, patientId, secrets);
@@ -159,6 +161,7 @@ export async function createAppointment(
   unconfirmedDateOfBirth: string,
   secrets: Secrets | null,
   isDemo?: boolean,
+  phoneNumber?: string,
 ): Promise<CreateAppointmentUCTelemedResponse> {
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
 
@@ -248,7 +251,11 @@ export async function createAppointment(
     patient.phoneNumber = (user as any).phoneNumber;
   }
 
-  await createUpdateUserRelatedResources(fhirClient, patient, fhirPatient, user, isDemo);
+  if (isDemo) {
+    patient.phoneNumber = phoneNumber || '+1234567890';
+  }
+
+  await createUpdateUserRelatedResources(fhirClient, patient, fhirPatient, user);
 
   console.log('success, here is the id: ', appointment.id);
   const response: CreateAppointmentUCTelemedResponse = {

@@ -19,7 +19,7 @@ import { VisitType, VisitTypeToLabel } from '../types/types';
 import ProvidersSelect from '../components/inputs/ProvidersSelect';
 import GroupSelect from '../components/inputs/GroupSelect';
 import { TIMEZONE_EXTENSION_URL } from '../constants';
-import CreateDemoVisitsButton from '../telemed/features/tracking-board/CreateDemoVisitsButton';
+import CreateDemoVisits from '../telemed/features/tracking-board/CreateDemoVisits';
 
 type LoadingState = { status: 'loading' | 'initial'; id?: string | undefined } | { status: 'loaded'; id: string };
 
@@ -437,7 +437,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
             updateAppointments={updateAppointments}
             setEditingComment={setEditingComment}
           />
-          <CreateDemoVisitsButton visitService="in-person" />
+          <CreateDemoVisits />
         </>
       </PageContainer>
     </form>
