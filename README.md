@@ -233,7 +233,7 @@ _At this time, dynamic theming and localization is only supported for the `telem
 ### To theme your Ottehr `telemed-intake` app follow the following steps:
 - Copy the files in `telemed-intake/app/src/assets/` into a new folder, for example `telemed-intake/app/src/assets/myTheme`
 - Copy the files in `telemed-intake/app/src/lib/` into a new folder, for example `telemed-intake/app/src/lib/myTheme`
-- Update the theme env vars to point to your new folders
+- Update the theme environment variables to point to your new folders:
     ```bash
     ASSETS_PATH='/src/assets/mytheme'
     THEME_PATH='/src/assets/theme/mytheme'
