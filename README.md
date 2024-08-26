@@ -237,7 +237,7 @@ _At this time, dynamic theming and localization is only supported for the `telem
     ```bash
     ASSETS_PATH='/src/assets/myTheme'
     THEME_PATH='/src/assets/myTheme/theme'
-    TRANSLATIONS_PATH='/src/lib/mytheme'
+    TRANSLATIONS_PATH='/src/lib/myTheme'
     ```
 - Modify the images, svgs, colors and translation files as needed
 - Restart the app
