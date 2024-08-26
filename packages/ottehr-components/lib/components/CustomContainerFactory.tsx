@@ -140,7 +140,7 @@ export const CustomContainer: FC<ContainerProps> = ({
                     },
                   }}
                 >
-                  <img src={portal} alt="portal" />
+                  <img src={portal} alt="Access Patient Portal" />
                 </Box>
               </Link>
             </Tooltip>
