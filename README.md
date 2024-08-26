@@ -235,7 +235,7 @@ _At this time, dynamic theming and localization is only supported for the `telem
 - Copy the files in `telemed-intake/app/src/lib/` into a new folder, for example `telemed-intake/app/src/lib/myTheme`
 - Update the theme environment variables to point to your new folders:
     ```bash
-    ASSETS_PATH='/src/assets/mytheme'
+    ASSETS_PATH='/src/assets/myTheme'
     THEME_PATH='/src/assets/myTheme/theme'
     TRANSLATIONS_PATH='/src/lib/mytheme'
     ```
