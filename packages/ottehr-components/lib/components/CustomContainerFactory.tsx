@@ -1,8 +1,8 @@
 import { FC, ReactElement, useCallback } from 'react';
-import { AppBar, Box, Button, Card, Container, Grid, Typography, useTheme } from '@mui/material';
+import { AppBar, Box, Button, Card, Container, Grid, Typography, Tooltip, useTheme } from '@mui/material';
 import { useAuth0 } from '@auth0/auth0-react';
 import { portal } from '../assets/icons';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 export interface ContainerProps {
   title: string;
@@ -67,7 +67,6 @@ export const CustomContainer: FC<ContainerProps> = ({
   logoutHandler,
 }) => {
   const theme = useTheme();
-  const navigate = useNavigate();
   const { isAuthenticated, logout } = useAuth0();
 
   const handleLogout = useCallback(() => {
@@ -122,26 +121,27 @@ export const CustomContainer: FC<ContainerProps> = ({
               mx: { xs: 'auto', md: 2 },
             }}
           >
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                cursor: 'pointer',
-                mr: 1,
-                backgroundColor: 'rgba(226, 240, 255, 0.2)',
-                padding: '12px',
-                border: 'none',
-                borderRadius: '50%',
-                '&:hover': {
-                  backgroundColor: 'rgba(226, 240, 255, 0.5)',
-                },
-              }}
-              onClick={() => {
-                navigate('/patient-portal');
-              }}
-            >
-              <img src={portal} alt="portal" />
-            </Box>
+            <Tooltip title="Patient Portal" arrow>
+              <Link to="/patient-portal">
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                    mr: 1,
+                    backgroundColor: 'rgba(226, 240, 255, 0.2)',
+                    padding: '12px',
+                    border: 'none',
+                    borderRadius: '50%',
+                    '&:hover': {
+                      backgroundColor: 'rgba(226, 240, 255, 0.5)',
+                    },
+                  }}
+                >
+                  <img src={portal} alt="Profile icon" />
+                </Box>
+              </Link>
+            </Tooltip>
 
             {isAuthenticated && (
               <Button
