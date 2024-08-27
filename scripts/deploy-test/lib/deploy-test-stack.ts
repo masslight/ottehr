@@ -19,7 +19,8 @@ export class DeployTestStack extends cdk.Stack {
     let domain = "domain" in projectConfig ? projectConfig.domain : "ottehr.com";
     let intakeSubdomain = "intake_subdomain" in projectConfig ? projectConfig.intake_subdomain : "intake";
     let ehrSubdomain = "ehr_subdomain" in projectConfig ? projectConfig.ehr_subdomain : "ehr";
-    
+    deployWebsite(this, "intake", projectIdentifier, domain, intakeSubdomain);
+    deployWebsite(this, "ehr", projectIdentifier, domain, ehrSubdomain);
 
     // The code that defines your stack goes here
 
@@ -27,22 +28,25 @@ export class DeployTestStack extends cdk.Stack {
     // const queue = new sqs.Queue(this, 'DeployTestQueue', {
     //   visibilityTimeout: cdk.Duration.seconds(300)
     // });
-    const intakeBucket = new s3.Bucket(this, "create-intake-s3-bucket", {
-      publicReadAccess: true,
-      websiteIndexDocument: 'index.html',
-      blockPublicAccess: {
-        blockPublicAcls: true,
-        blockPublicPolicy: false,
-        ignorePublicAcls: true,
-        restrictPublicBuckets: false,
-      },
-      // websiteErrorDocument: ''
-      bucketName: `ottehr-${projectIdentifier}-${intakeSubdomain}.${domain}`
-    });
-
-    new s3deploy.BucketDeployment(this, "upload-intake-to-s3-bucket", {
-      destinationBucket: intakeBucket,
-      sources: [s3deploy.Source.asset("../../packages/telemed-intake/app/build")]
-    })
+    
   }
+}
+function deployWebsite(scope: Construct, website: "intake" | "ehr", projectIdentifier: string, domain: string, subdomain: string) {
+  const bucketTemp = new s3.Bucket(scope, `create-${website}-s3-bucket`, {
+    publicReadAccess: true,
+    websiteIndexDocument: 'index.html',
+    blockPublicAccess: {
+      blockPublicAcls: true,
+      blockPublicPolicy: false,
+      ignorePublicAcls: true,
+      restrictPublicBuckets: false,
+    },
+    // websiteErrorDocument: ''
+    bucketName: `ottehr-${projectIdentifier}-${subdomain}.${domain}`
+  });
+
+  new s3deploy.BucketDeployment(scope, `upload-${website}-to-s3-bucket`, {
+    destinationBucket: bucketTemp,
+    sources: [s3deploy.Source.asset(`../../packages/telemed-${website}/app/build`)]
+  });
 }
