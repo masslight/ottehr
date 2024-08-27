@@ -85,7 +85,6 @@ export const otherColors = {
   lightIconButton: '#EDE8FF',
   lightBlue: '#E2F0FF',
   formCardBg: '#F7F8F9',
-  lightBlue: '#E2F0FF',
   employeeActiveChip: '#C8E6C9',
   employeeDeactivatedChip: '#FECDD2',
   employeeActiveText: '#1B5E20',

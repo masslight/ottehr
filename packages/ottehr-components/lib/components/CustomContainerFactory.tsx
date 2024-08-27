@@ -1,7 +1,6 @@
-import { FC, ReactElement, useCallback, useContext } from 'react';
-import { AppBar, Box, Button, Card, Container, Grid, Tooltip, Typography, useTheme } from '@mui/material';
+import { FC, ReactElement, useCallback } from 'react';
+import { AppBar, Box, Button, Card, Container, Grid, Typography, Tooltip, useTheme } from '@mui/material';
 import { useAuth0 } from '@auth0/auth0-react';
-import { IntakeThemeContext } from '../contexts';
 import { portal } from '../assets/icons';
 import { Link } from 'react-router-dom';
 
@@ -69,7 +68,6 @@ export const CustomContainer: FC<ContainerProps> = ({
 }) => {
   const theme = useTheme();
   const { isAuthenticated, logout } = useAuth0();
-  const { otherColors } = useContext(IntakeThemeContext);
 
   const handleLogout = useCallback(() => {
     if (logoutHandler !== undefined) {
@@ -98,7 +96,7 @@ export const CustomContainer: FC<ContainerProps> = ({
         justifyContent: 'space-between',
       }}
     >
-      <AppBar position="static" sx={{ backgroundColor: otherColors.appbarBackground }}>
+      <AppBar position="static">
         <Grid container justifyContent="space-between">
           <Grid item></Grid>
           <Grid
@@ -170,10 +168,7 @@ export const CustomContainer: FC<ContainerProps> = ({
         ) : (
           <Container maxWidth="md" sx={{ mb: 5 }}>
             <>
-              <Card
-                variant="outlined"
-                sx={{ boxShadow: 1, mt: 0, pt: 0, borderRadius: 2, [theme.breakpoints.down('md')]: { mx: 2 } }}
-              >
+              <Card variant="outlined" sx={{ boxShadow: 1, mt: 0, pt: 0, borderRadius: 2 }}>
                 <Box sx={{ m: 0, p: { xs: 3, md: 5 } }}>
                   <Grid
                     container

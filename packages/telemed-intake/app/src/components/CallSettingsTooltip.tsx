@@ -1,4 +1,5 @@
 import { FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ClickAwayListener, IconButton, List, Box } from '@mui/material';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -17,6 +18,7 @@ type CallSettingsTooltipProps = {
 
 export const CallSettingsTooltip: FC<CallSettingsTooltipProps> = (props) => {
   const { isTooltipOpen, handleTooltipOpen, handleTooltipClose, openSettings } = props;
+  const { t } = useTranslation();
 
   return (
     <ClickAwayListener onClickAway={handleTooltipClose}>
@@ -33,12 +35,15 @@ export const CallSettingsTooltip: FC<CallSettingsTooltipProps> = (props) => {
           title={
             <Box sx={{ p: 3, width: '300px', position: 'relative' }}>
               <List sx={{ p: 0 }}>
-                <StyledListItemWithButton primaryText="Report problem" secondaryText="Send error report">
-                  <img alt="Clock icon" src={clockFullColor} width={24} />
+                <StyledListItemWithButton
+                  primaryText={t('callSettings.reportProblem')}
+                  secondaryText={t('callSettings.reportProblemDescription')}
+                >
+                  <img alt={t('callSettings.reportProblemImgAlt')} src={clockFullColor} width={24} />
                 </StyledListItemWithButton>
                 <StyledListItemWithButton
-                  primaryText="Setting"
-                  secondaryText="Audio, video"
+                  primaryText={t('callSettings.setting')}
+                  secondaryText={t('callSettings.audioVideo')}
                   onClick={() => {
                     handleTooltipClose();
                     openSettings();

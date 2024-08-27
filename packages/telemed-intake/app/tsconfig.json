@@ -1,4 +1,14 @@
 {
   "extends": "../../tsconfig/react.json",
-  "include": ["src", "test"]
+  "include": ["src", "test"],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@assets/*": ["src/assets/*"],
+      "@theme/*": ["src/assets/theme/*"],
+      "@defaultTheme/*": ["src/assets/theme/*"],
+      "@translations/*": ["src/lib/*"],
+      "@defaultTranslations/*": ["src/lib/*"]
+    },
+  }
 }

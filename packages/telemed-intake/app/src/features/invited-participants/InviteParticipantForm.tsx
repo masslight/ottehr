@@ -1,6 +1,7 @@
 import { Box } from '@mui/system';
 import { FC, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { ErrorDialog, PageForm } from 'ottehr-components';
 import { useCreateInviteMutation } from '../waiting-room';
 
@@ -12,6 +13,7 @@ type InviteParticipantsFormProps = {
 export const InviteParticipantForm: FC<InviteParticipantsFormProps> = ({ onInviteSuccess }) => {
   const [inviteErrorDialogOpen, setInviteErrorDialogOpen] = useState<boolean>(false);
   const createInviteMutation = useCreateInviteMutation();
+  const { t } = useTranslation();
 
   const submitInviteParticipantForm = (data: FieldValues): void => {
     const inviteParams = {
@@ -38,28 +40,28 @@ export const InviteParticipantForm: FC<InviteParticipantsFormProps> = ({ onInvit
           {
             type: 'Text',
             name: 'firstName',
-            label: 'First name',
+            label: t('general.formElement.labels.firstName'),
             required: true,
             width: 6,
           },
           {
             type: 'Text',
             name: 'lastName',
-            label: 'Last name',
+            label: t('general.formElement.labels.lastName'),
             required: true,
             width: 6,
           },
           {
             type: 'Text',
             name: 'phoneNumber',
-            label: 'Phone number',
+            label: t('general.formElement.labels.phoneNumber'),
             format: 'Phone Number',
             required: true,
           },
           {
             type: 'Text',
             name: 'email',
-            label: 'Email',
+            label: t('general.formElement.labels.email'),
             format: 'Email',
             required: true,
           },
@@ -67,15 +69,15 @@ export const InviteParticipantForm: FC<InviteParticipantsFormProps> = ({ onInvit
         onSubmit={submitInviteParticipantForm}
         controlButtons={{
           loading: createInviteMutation.isLoading,
-          submitLabel: 'Send invite',
-          backButtonLabel: 'Close',
+          submitLabel: t('participants.sendInvite'),
+          backButtonLabel: t('general.button.close'),
         }}
       />
       <ErrorDialog
         open={inviteErrorDialogOpen}
-        title={'Error'}
-        description={'todo'}
-        closeButtonText={'Close'}
+        title={t('participants.inviteError.title')}
+        description={t('participants.inviteError.description')}
+        closeButtonText={t('general.button.close')}
         handleClose={() => setInviteErrorDialogOpen(false)}
       />
     </Box>

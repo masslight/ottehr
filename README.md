@@ -41,6 +41,15 @@ Ottehr currently has two websites. One is for patients -- **Ottehr Intake** -- a
 
 To run Ottehr for the first time, you need to set up the project.
 
+
+#### For Windows users:
+
+We recommend using the Windows Subsystem for Linux (WSL) to run Ottehr on Windows. Follow these steps to set up WSL and install Node.js:
+
+1.   Install **WSL** by following the official Microsoft guide: [Install WSL](https://learn.microsoft.com/en-us/windows/wsl/install)
+
+2. Open your **WSL** terminal and follow the instructions below to install nvm and Node.js.
+
 ### Node Installation
 
 To manage Node.js versions efficiently, we recommend using [Node Version Manager (nvm)](https://github.com/nvm-sh/nvm#installing-and-updating).
@@ -114,10 +123,17 @@ To proceed with this setup guide, it is assumed that you have access to a Oysteh
 
 Before proceeding, ensure that you have Node.js v18.x and pnpm installed on your machine.
 
+**For Windows users, make sure you have WSL set up and are running these commands in your WSL terminal.**
+
 Once these dependencies are in place, enter the following command from the root directory.
 
 ```bash
 sh scripts/ottehr-setup.sh
+```
+
+**note**: If you encounter an error on WSL/Ubuntu, try using bash instead of sh:
+```bash
+bash scripts/ottehr-setup.sh
 ```
 
 The script will prompt you for the following information:
@@ -227,71 +243,21 @@ Interactively updates all dependencies to their latest versions, respecting rang
 </html>
 ```
 
-## SendGrid Email Configuration
+## Theming & Localization
+_At this time, dynamic theming and localization is only supported for the `telemed-intake` application._
 
-### Required Environment / Secrets
-- SENDGRID_API_KEY
-- TELEMED_SENDGRID_EMAIL_BCC
-- TELEMED_SENDGRID_EMAIL_FROM
-- TELEMED_SENDGRID_EMAIL_FROM_NAME
-- TELEMED_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID
-- TELEMED_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID
-- TELEMED_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID
+### To theme your Ottehr `telemed-intake` app:
+- Copy the files in `telemed-intake/app/src/assets/` into a new folder, for example `telemed-intake/app/src/assets/myTheme`
+- Copy the files in `telemed-intake/app/src/lib/` into a new folder, for example `telemed-intake/app/src/lib/myTheme`
+- Update the theme environment variables to point to your new folders:
+    ```bash
+    ASSETS_PATH='/src/assets/myTheme'
+    THEME_PATH='/src/assets/myTheme/theme'
+    TRANSLATIONS_PATH='/src/lib/myTheme'
+    ```
+- Modify the images, svgs, colors and translation files as needed
+- Restart the app
 
-**Example Confirmation Template:**
-```html
-<!DOCTYPE html>
-<html>
-<head>
-</head>
-<body>
-    <h2>You're confirmed!</h2>
-    <p>Thanks for choosing Ottehr!</p><br>
-    <p>Your check-in time for {{ firstName }} at {{ locationName }} is on {{ startTime }}.</p><br>
-    <p>Please complete your paperwork in advance to save time at check-in. <a href="{{ paperworkUrl }}">Click here to complete paperwork</a></p><br>
-    {{#notEquals appointmentType "walkin"}}
-        <p><a href="{{ checkInUrl }}">Click here to modify/cancel your check-in</a></p><br>
-    {{/notEquals}}
-    <hr>
-    <p>Thank you for choosing Ottehr. We look forward to partnering with you and your family.</p><br>
-    <small>For questions or feedback, please <a target="_blank" href="https://www.ottehr.com/">Check out Ottehr</a></small>
-</body>
-</html>
-```
-
-**Example Cancellation Template:**
-```html
-<!DOCTYPE html>
-<html>
-<head>
-</head>
-<body>
-    <h2>Sorry to have you go!</h2>
-    <p>Your appointment for {{firstName}} at {{locationName}} on {{startTime}} has been cancelled.</p><br>
-    <p><a href="{{ locationUrl }}">Click here to book again</a></p><br>
-    <hr>
-    <p>Thank you for choosing Ottehr. We look forward to partnering with you and your family.</p><br>
-    <small>For questions or feedback, please <a target="_blank" href="https://www.ottehr.com/">Check out Ottehr</a></small>
-</body>
-</html>
-```
-
-**Example Invitation Template:**
-```html
-<!DOCTYPE html>
-<html>
-<head>
-</head>
-<body>
-    <h2>You're Invited!</h2>
-    <p>You have been invited to join an Ottehr visit with {{patientName}}.</p><br>
-    <p><a href="{{ inviteUrl }}">Click here to join</a></p><br>
-    <hr>
-    <p>Thank you for choosing Ottehr. We look forward to partnering with you and your family.</p><br>
-    <small>For questions or feedback, please <a target="_blank" href="https://www.ottehr.com/">Check out Ottehr</a></small>
-</body>
-</html>
-```
 
 ## Contribute to Ottehr
 We love it when you contribute to Ottehr! By submitting to this project, you agree to adopt the [Developer Certificate of Origin (DCO)](https://developercertificate.org/) for your contributions.
