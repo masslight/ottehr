@@ -23,7 +23,7 @@ const NewUser = (): JSX.Element => {
   return (
     <CustomContainer
       title={t('newUser.title')}
-      img={clockFullColor}
+      img={t('newUser.imgAlt') ? clockFullColor : undefined}
       imgAlt={t('newUser.imgAlt')}
       imgWidth={100}
       bgVariant={IntakeFlowPageRoute.NewUser.path}

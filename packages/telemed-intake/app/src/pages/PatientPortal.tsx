@@ -7,7 +7,7 @@ import { useGetAppointments } from '../features/appointments';
 import { CustomContainer, useIntakeCommonStore } from '../features/common';
 import HomepageOption from '../features/homepage/HomepageOption';
 import { useZapEHRAPIClient } from '../utils';
-import { requestVisit, pastVisits, contactSupport } from '../assets/icons';
+import { requestVisit, pastVisits, contactSupport } from '@assets/icons';
 
 const PatientPortal = (): JSX.Element => {
   const apiClient = useZapEHRAPIClient();

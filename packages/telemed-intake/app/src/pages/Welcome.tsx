@@ -60,7 +60,7 @@ const Welcome = (): JSX.Element => {
     <CustomContainer
       title={`${t('welcome.title', { visitService })}`}
       subtitle={isFetching ? t('general.loading') : schedule?.name}
-      img={clockFullColor}
+      img={t('welcome.imgAlt') ? clockFullColor : undefined}
       imgAlt={t('welcome.imgAlt')}
       imgWidth={120}
       bgVariant={IntakeFlowPageRoute.NewUser.path}

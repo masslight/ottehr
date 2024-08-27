@@ -29,12 +29,19 @@ const ControlButtons: FC<ControlButtonsProps> = ({
   const { t } = useTranslation();
 
   return (
-    <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} sx={{ justifyContent: 'space-between', mt: 4.125 }}>
+    <Box
+      display="flex"
+      flexDirection={{ xs: 'column-reverse', md: 'row' }}
+      sx={{ justifyContent: 'space-between', mt: 4.125 }}
+    >
       {backButton && (
         <Button
           variant="outlined"
           onClick={() => {
             onBack ? onBack() : navigate(-1);
+          }}
+          sx={{
+            mt: { xs: 1, md: 'auto' },
           }}
           size="large"
           type="button"
@@ -50,13 +57,12 @@ const ControlButtons: FC<ControlButtonsProps> = ({
         loading={loading}
         sx={{
           // align button to right if no back button
-          mt: { xs: 1, md: 0 },
           ml: { xs: 0, md: 'auto' },
         }}
         size="large"
         type="submit"
       >
-        {submitLabel ?? 'Continue'}
+        {submitLabel ?? t('general.button.continue')}
       </LoadingButton>
     </Box>
   );

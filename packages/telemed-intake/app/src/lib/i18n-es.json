@@ -1,6 +1,8 @@
 {
   "general": {
     "appName": "Ottehr Telemedicine",
+    "maximumAge": 26,
+    "minimumAge": 0,
     "button": {
       "back": "Atrás",
       "continue": "Continuar",
@@ -149,7 +151,7 @@
         "emailOwnerPatient": "Paciente",
         "emailOwnerParent": "Padre/Guardían"
       },
-      "placeholder": {
+      "placeholders": {
         "firstName": "Nombre",
         "middleName": "Segundo nombre",
         "lastName": "Apellido",

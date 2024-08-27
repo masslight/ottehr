@@ -14,8 +14,6 @@ export function useIOSAppSync(): { isIOSApp: boolean } {
   const { isAuthenticated, getAccessTokenSilently } = useAuth0();
   const [isIOSApp, setIsIOSApp] = useState(Boolean(bodyNode.getAttribute(IOS_ATTRIBUTE)));
 
-  // const iOSAppCookie = useCookie(IOSAppCookieName);
-
   const bodyMutationCallback: MutationCallback = useCallback(
     (mutations, observer) => {
       for (const mutation of mutations) {

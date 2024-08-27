@@ -64,7 +64,7 @@ const WaitingRoom = (): JSX.Element => {
   return (
     <CustomContainer
       title={t('waitingRoom.title')}
-      img={clockFullColor}
+      img={t('waitingRoom.imgAlt') ? clockFullColor : undefined}
       imgAlt={t('waitingRoom.imgAlt')}
       imgWidth={80}
       subtext={t('waitingRoom.subtext')}
