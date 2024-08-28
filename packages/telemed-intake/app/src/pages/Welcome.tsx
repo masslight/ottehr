@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { IntakeFlowPageRoute } from '../App';
-import { clockFullColor } from '../assets/icons';
+import { clockFullColor } from '@theme';
 import { useAppointmentStore, useGetSchedule } from '../features/appointments';
 import { CustomContainer } from '../features/common';
 import { useZapEHRAPIClient } from '../utils';

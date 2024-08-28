@@ -39,11 +39,10 @@ export default (env) => {
       //   },
       resolve: {
         alias: {
-          '@assets': path.resolve(__dirname, appEnv.ASSETS_PATH || '/src/assets'),
           '@theme': path.resolve(__dirname, appEnv.THEME_PATH || '/src/assets/theme'),
-          '@defaultTheme': path.resolve(__dirname, '/src/assets/theme'),
+          '@defaultTheme': path.resolve(__dirname, '/src/theme/ottehr'),
           '@translations': path.resolve(__dirname, appEnv.TRANSLATIONS_PATH || '/src/lib'),
-          '@defaultTranslations': path.resolve(__dirname, '/src/lib'),
+          '@defaultTranslations': path.resolve(__dirname, '/src/theme/ottehr'),
         },
       },
       optimizeDeps: {

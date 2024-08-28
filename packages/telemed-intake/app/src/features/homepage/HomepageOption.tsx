@@ -33,7 +33,7 @@ const HomepageOption: FC<HomepageOptionsProps> = ({ title, icon, handleClick, su
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
         <Box sx={{ display: 'block', width: '70px' }}>
-          <img src={icon} alt="" style={{ width: '70px' }} />
+          <img src={icon} alt="" style={{ width: '70px', maxHeight: '70px' }} />
         </Box>
         <Box
           sx={{ display: 'flex', flexDirection: 'column ', alignItems: 'flex-start', justifyContent: 'center', gap: 1 }}

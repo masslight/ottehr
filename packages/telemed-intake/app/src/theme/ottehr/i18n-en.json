@@ -223,7 +223,7 @@
   },
   "welcome": {
     "title": "Ottehr {{visitService}}",
-    "imgAlt": "",
+    "imgAlt": "Clock icon",
     "scheduleNotFound": "The schedule \"{{slug}}\" is not found",
     "scheduleNotAvailable": "The schedule \"{{slug}}\" is not available",
     "visitServiceNotAvailable": "The service \"{{visitService}}\" is not available",
