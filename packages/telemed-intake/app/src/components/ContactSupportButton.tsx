@@ -27,7 +27,6 @@ export const ContactSupportButton = ({ onClick }: ContactSupportButtonProps): JS
         boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.25)',
       }}
       onClick={onClick}
-      className="CustomerSupportFeature"
     >
       <HelpOutlineIcon fontSize="small" />
       <Typography variant="body2">{t('contactSupport.support')}</Typography>

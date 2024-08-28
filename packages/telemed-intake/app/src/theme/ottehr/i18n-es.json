@@ -136,7 +136,7 @@
     "birthSex": "Sexo al nacer: {{birthSex}}",
     "wrongPatient": "¿Paciente incorrecto? Por favor ",
     "wrongPatientGoBack": "regresa",
-    "wrongPatientBackFor": "para un nuevo paciente o un registro de paciente existente diferente.",
+    "wrongPatientGoBackFor": "para un nuevo paciente o un registro de paciente existente diferente.",
     "formElement": {
       "labels": {
         "firstName": "Nombre legal del paciente",
