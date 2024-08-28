@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { IntakeThemeContext, StyledListItemWithButton, safelyCaptureException } from 'ottehr-components';
 import { getSelectors } from 'ottehr-utils';
 import { IntakeFlowPageRoute } from '../App';
-import { clockFullColor } from '@theme';
+import { clockFullColor } from '@theme/icons';
 import { CancelVisitDialog } from '../components';
 import { useAppointmentStore } from '../features/appointments';
 import { CustomContainer } from '../features/common';

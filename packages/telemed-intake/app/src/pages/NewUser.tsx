@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageForm } from 'ottehr-components';
 import { IntakeFlowPageRoute } from '../App';
-import { clockFullColor } from '@theme';
+import { clockFullColor } from '@theme/icons';
 
 import { CustomContainer } from '../features/common';
 
