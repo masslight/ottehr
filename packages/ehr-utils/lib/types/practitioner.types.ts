@@ -281,3 +281,6 @@ export interface PractitionerLicense {
   code: PractitionerQualificationCode;
   active: boolean;
 }
+
+export const PHOTON_PRESCRIBER_SYSTEM_URL = 'http://api.zapehr.com/photon-prescriber-id';
+export const PHOTON_PRACTITIONER_ENROLLED = 'http://api.zapehr.com/photon-practitioner-enrolled';

@@ -3,8 +3,16 @@ import { ClientConfig, FhirClient } from '@zapehr/sdk';
 import { Practitioner } from 'fhir/r4';
 import { DateTime, Duration } from 'luxon';
 import { useEffect, useMemo } from 'react';
-import { useQuery } from 'react-query';
-import { User, getFullestAvailableName, getPatchOperationForNewMetaTag, initialsFromName } from 'ehr-utils';
+import { useMutation, useQuery } from 'react-query';
+import {
+  PHOTON_PRACTITIONER_ENROLLED,
+  PHOTON_PRESCRIBER_SYSTEM_URL,
+  User,
+  getFullestAvailableName,
+  getPatchOperationForNewMetaTag,
+  getPractitionerNPIIdentitifier,
+  initialsFromName,
+} from 'ehr-utils';
 import { create } from 'zustand';
 import { getUser } from '../api/api';
 import { useZapEHRAPIClient } from '../telemed/hooks/useZapEHRAPIClient';
@@ -17,6 +25,8 @@ export interface OttehrUser extends User {
   userInitials: string;
   lastLogin: string | undefined;
   hasRole: (role: RoleType[]) => boolean;
+  isPhotonPrescriber?: boolean;
+  isPractitionerEnrolledInPhoton?: boolean;
 }
 
 interface OttehrUserState {
@@ -37,12 +47,19 @@ enum LoadingState {
 let _profileLoadingState = LoadingState.initial;
 let _lastLoginUpdating = LoadingState.initial;
 let _userLoading = LoadingState.initial;
+let _practitionerERXEnrollmentStarted = false;
 
 export default function useOttehrUser(): OttehrUser | undefined {
   const { fhirClient } = useApiClients();
   const { isAuthenticated, getAccessTokenSilently, user: auth0User } = useAuth0();
   const user = useOttehrUserStore((state) => state.user);
   const profile = useOttehrUserStore((state) => state.profile);
+  const isPhotonPrescriber = profile?.identifier?.some(
+    (x) => x.system === PHOTON_PRESCRIBER_SYSTEM_URL && Boolean(x.value),
+  );
+  const isPractitionerEnrolledInPhoton = profile?.extension?.some(
+    (x) => x.url === PHOTON_PRACTITIONER_ENROLLED && Boolean(x.valueBoolean),
+  );
 
   useEffect(() => {
     async function getUserRequest(): Promise<void> {
@@ -153,3 +170,65 @@ export default function useOttehrUser(): OttehrUser | undefined {
 
 const MINUTE = 1000 * 60;
 const DAY = MINUTE * 60 * 24;
+
+interface StreetAddress {
+  street1: string;
+  street2?: string;
+  city: string;
+  state: string;
+  postal_code: string;
+}
+
+interface ERXEnrollmentProps {
+  providerId: Required<Practitioner['id']>;
+  address: StreetAddress;
+  npi?: string;
+  phone: string;
+  given_name: string;
+  family_name: string;
+}
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+const useEnrollPractitionerInERX = () => {
+  const token = useAuthToken();
+  const profile = useOttehrUserStore((state) => state.profile);
+
+  return useMutation(
+    ['enroll-provider-erx'],
+    async (): Promise<void> => {
+      try {
+        const address: StreetAddress = {
+          street1: '1 Hollow Lane',
+          street2: 'Ste 301',
+          city: 'Lake Success',
+          postal_code: '11042',
+          state: 'NY',
+        };
+        const payload: ERXEnrollmentProps = {
+          providerId: profile?.id,
+          address,
+          phone: profile?.telecom?.find((phone) => phone.system === 'sms' || phone.system === 'phone')?.value || '',
+          npi: profile && getPractitionerNPIIdentitifier(profile)?.value,
+          given_name: profile?.name?.[0]?.given?.[0] || '',
+          family_name: profile?.name?.[0]?.family || '',
+        };
+        _practitionerERXEnrollmentStarted = true;
+
+        const response = await fetch(`${import.meta.env.VITE_APP_PROJECT_API_URL}/erx/enrollment`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+          method: 'POST',
+        });
+        if (!response.ok) {
+          throw new Error(`ERX practitioner enrollment call failed: ${response.statusText}`);
+        }
+      } catch (error) {
+        console.error(error);
+        throw error;
+      }
+    },
+    { retry: 2 },
+  );
+};

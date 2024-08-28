@@ -8,6 +8,11 @@ declare namespace JSX {
       'redirect-uri': string;
       children: Element;
     };
-    'photon-prescribe-workflow': { 'enable-order': string; 'patient-id'?: string };
+    'photon-prescribe-workflow': {
+      'enable-order': string;
+      'patient-id'?: string;
+      weight?: number;
+      'weight-unit'?: 'lbs' | 'kg';
+    };
   }
 }

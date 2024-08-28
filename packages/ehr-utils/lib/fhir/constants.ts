@@ -7,4 +7,9 @@ export const FHIR_EXTENSION = {
       url: `${PRIVATE_EXTENSION_BASE_URL}/date-of-birth-not-confirmed`,
     },
   },
+  Patient: {
+    weight: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/weight`,
+    },
+  },
 };

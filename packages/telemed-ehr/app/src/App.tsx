@@ -71,7 +71,7 @@ function App(): ReactElement {
                 <ProtectedRoute
                   showWhenAuthenticated={
                     <>
-                      {currentUser?.hasRole([RoleType.Provider]) && enablePhoton ? (
+                      {currentUser?.hasRole([RoleType.Provider]) && currentUser.isPractitionerEnrolledInPhoton ? (
                         <photon-client
                           id={import.meta.env.VITE_APP_PHOTON_CLIENT_ID}
                           org={import.meta.env.VITE_APP_PHOTON_ORG_ID}
