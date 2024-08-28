@@ -105,7 +105,10 @@ const WaitingRoom = (): JSX.Element => {
             </List>
           ) : (
             <List sx={{ p: 0 }}>
-              <InvitedParticipantListItemButton onClick={() => setManageParticipantsDialogOpen(true)} hideText={false} />
+              <InvitedParticipantListItemButton
+                onClick={() => setManageParticipantsDialogOpen(true)}
+                hideText={false}
+              />
 
               <UploadPhotosListItemButton onClick={() => setUploadPhotosDialogOpen(true)} hideText={false} />
 
