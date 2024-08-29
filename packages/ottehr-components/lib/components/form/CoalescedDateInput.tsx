@@ -1,5 +1,6 @@
 import { useContext, useEffect, useMemo, useState } from 'react';
 import { Select, MenuItem, InputLabel, FormControl, Box } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { months } from 'ottehr-utils';
 import { DateTime } from 'luxon';
 import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
@@ -21,20 +22,6 @@ interface DateInputFieldProps {
   disabled: boolean;
 }
 
-const currentDate = new Date();
-const currentYear = currentDate.getFullYear();
-const startYear = 1900;
-
-const days = Array.from({ length: 31 }, (_, index) => {
-  const day: number = index + 1;
-  return { value: day < 10 ? `0${day}` : `${day}`, label: `${day}` };
-});
-
-const years = Array.from({ length: currentYear - startYear + 1 }, (_, index) => {
-  const year: number = startYear + index;
-  return { value: `${year}`, label: `${year}` };
-}).reverse();
-
 const CoalescedDateInput = ({
   name,
   required,
@@ -50,6 +37,7 @@ const CoalescedDateInput = ({
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [selectedDay, setSelectedDay] = useState<string>('');
   const [selectedYear, setSelectedYear] = useState<string>('');
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (currentValue === '') {
@@ -63,6 +51,21 @@ const CoalescedDateInput = ({
       setSelectedYear(year);
     }
   }, [currentValue, defaultValue, readOnlyValue]);
+
+  const currentDate = new Date();
+  const maximumAge = t('general.maximumAge') as unknown as number;
+  const currentYear = currentDate.getFullYear();
+  const startYear = currentYear - maximumAge + 1;
+
+  const days = Array.from({ length: 31 }, (_, index) => {
+    const day: number = index + 1;
+    return { value: day < 10 ? `0${day}` : `${day}`, label: `${day}` };
+  });
+
+  const years = Array.from({ length: currentYear - startYear + 1 }, (_, index) => {
+    const year: number = startYear + index;
+    return { value: `${year}`, label: `${year}` };
+  }).reverse();
 
   const {
     formState: { errors },

@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { IntakeThemeContext, StyledListItemWithButton, safelyCaptureException } from 'ottehr-components';
 import { getSelectors } from 'ottehr-utils';
 import { IntakeFlowPageRoute } from '../App';
-import { clockFullColor } from '../assets';
+import { clockFullColor } from '@theme/icons';
 import { CancelVisitDialog } from '../components';
 import { useAppointmentStore } from '../features/appointments';
 import { CustomContainer } from '../features/common';
@@ -17,6 +17,8 @@ import { createIOSMesssageCallStarted, sendIOSAppMessage } from '../features/ios
 import { useIOSAppSync } from '../features/ios-communication/useIOSAppSync';
 import { UploadPhotosDialog, UploadPhotosListItemButton } from '../features/upload-photos';
 import { useGetWaitStatus, useWaitingRoomStore } from '../features/waiting-room';
+
+const waitingRoomDisabled = import.meta.env.VITE_APP_WAITING_ROOM_DISABLED == 'true';
 
 const WaitingRoom = (): JSX.Element => {
   const navigate = useNavigate();
@@ -64,64 +66,71 @@ const WaitingRoom = (): JSX.Element => {
   return (
     <CustomContainer
       title={t('waitingRoom.title')}
-      img={clockFullColor}
+      img={t('waitingRoom.imgAlt') ? clockFullColor : undefined}
       imgAlt={t('waitingRoom.imgAlt')}
       imgWidth={80}
       subtext={t('waitingRoom.subtext')}
       bgVariant={IntakeFlowPageRoute.WaitingRoom.path}
     >
-      <Box
-        sx={{
-          backgroundColor: otherColors.lightBlue,
-          color: theme.palette.secondary.main,
-          padding: 2,
-          marginBottom: 3,
-          marginTop: 3,
-          borderRadius: '8px',
-        }}
-      >
-        <Typography variant="subtitle1" color={theme.palette.primary.main}>
-          {t('waitingRoom.approxWaitTime', {
-            estimatedTime: estimatedTime
-              ? Duration.fromMillis(estimatedTime).toFormat("mm'mins'")
-              : t('waitingRoom.fallbackWaitTime'),
-          })}
-        </Typography>
-      </Box>
-
-      {isInvitedParticipant ? (
-        <List sx={{ p: 0 }}>
-          <StyledListItemWithButton
-            primaryText={t('waitingRoom.callSettingsTitle')}
-            secondaryText={t('waitingRoom.callSettingsSubtext')}
-            noDivider
+      {!waitingRoomDisabled && (
+        <>
+          <Box
+            sx={{
+              backgroundColor: otherColors.lightBlue,
+              color: theme.palette.secondary.main,
+              padding: 2,
+              marginBottom: 3,
+              marginTop: 3,
+              borderRadius: '8px',
+            }}
           >
-            <AssignmentOutlinedIcon sx={{ color: otherColors.purple }} />
-          </StyledListItemWithButton>
-        </List>
-      ) : (
-        <List sx={{ p: 0 }}>
-          <InvitedParticipantListItemButton onClick={() => setManageParticipantsDialogOpen(true)} hideText={false} />
+            <Typography variant="subtitle1" color={theme.palette.primary.main}>
+              {t('waitingRoom.approxWaitTime', {
+                estimatedTime: estimatedTime
+                  ? Duration.fromMillis(estimatedTime).toFormat("mm'mins'")
+                  : t('waitingRoom.fallbackWaitTime'),
+              })}
+            </Typography>
+          </Box>
 
-          <UploadPhotosListItemButton onClick={() => setUploadPhotosDialogOpen(true)} hideText={false} />
+          {isInvitedParticipant ? (
+            <List sx={{ p: 0 }}>
+              <StyledListItemWithButton
+                primaryText={t('waitingRoom.callSettingsTitle')}
+                secondaryText={t('waitingRoom.callSettingsSubtext')}
+                noDivider
+              >
+                <AssignmentOutlinedIcon sx={{ color: otherColors.purple }} />
+              </StyledListItemWithButton>
+            </List>
+          ) : (
+            <List sx={{ p: 0 }}>
+              <InvitedParticipantListItemButton
+                onClick={() => setManageParticipantsDialogOpen(true)}
+                hideText={false}
+              />
 
-          <StyledListItemWithButton
-            onClick={() => navigate('/home')}
-            primaryText={t('waitingRoom.leaveRoomTitle')}
-            secondaryText={t('waitingRoom.leaveRoomSubtext')}
-          >
-            <img alt="Clock icon" src={clockFullColor} width={24} />
-          </StyledListItemWithButton>
+              <UploadPhotosListItemButton onClick={() => setUploadPhotosDialogOpen(true)} hideText={false} />
 
-          <StyledListItemWithButton
-            onClick={() => setCancelVisitDialogOpen(true)}
-            primaryText={t('waitingRoom.cancelVisitTitle')}
-            secondaryText={t('waitingRoom.cancelVisitSubtext')}
-            noDivider
-          >
-            <CancelOutlinedIcon sx={{ color: otherColors.clearImage }} />
-          </StyledListItemWithButton>
-        </List>
+              <StyledListItemWithButton
+                onClick={() => navigate('/home')}
+                primaryText={t('waitingRoom.leaveRoomTitle')}
+                secondaryText={t('waitingRoom.leaveRoomSubtext')}
+              >
+                <img alt="Clock icon" src={clockFullColor} width={24} />
+              </StyledListItemWithButton>
+
+              <StyledListItemWithButton
+                onClick={() => setCancelVisitDialogOpen(true)}
+                primaryText={t('waitingRoom.cancelVisitTitle')}
+                secondaryText={t('waitingRoom.cancelVisitSubtext')}
+                noDivider
+              >
+                <CancelOutlinedIcon sx={{ color: otherColors.clearImage }} />
+              </StyledListItemWithButton>
+            </List>
+          )}
+        </>
       )}
 
       {isManageParticipantsDialogOpen ? (

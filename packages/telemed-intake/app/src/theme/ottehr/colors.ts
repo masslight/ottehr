@@ -8,10 +8,12 @@ export const palette = {
   primary: {
     main: '#061B74',
     contrast: '#FFFFFF',
+    contrastText: '#FFFFFF',
   },
   secondary: {
     main: '#2169F5',
     contrast: '#FFFFFF',
+    contrastText: '#D5D8DE',
   },
   tertiary: { main: '#ECE4FB' },
   step: {

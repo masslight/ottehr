@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { IntakeFlowPageRoute } from '../App';
-import { clockFullColor } from '../assets/icons';
+import { clockFullColor } from '@theme/icons';
 import { useAppointmentStore, useGetSchedule } from '../features/appointments';
 import { CustomContainer } from '../features/common';
 import { useZapEHRAPIClient } from '../utils';
@@ -60,7 +60,7 @@ const Welcome = (): JSX.Element => {
     <CustomContainer
       title={`${t('welcome.title', { visitService })}`}
       subtitle={isFetching ? t('general.loading') : schedule?.name}
-      img={clockFullColor}
+      img={t('welcome.imgAlt') ? clockFullColor : undefined}
       imgAlt={t('welcome.imgAlt')}
       imgWidth={120}
       bgVariant={IntakeFlowPageRoute.NewUser.path}
