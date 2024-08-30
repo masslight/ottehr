@@ -14,6 +14,7 @@ import {
   initialsFromName,
 } from 'ehr-utils';
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { getUser } from '../api/api';
 import { useZapEHRAPIClient } from '../telemed/hooks/useZapEHRAPIClient';
 import { RoleType } from '../types/types';
@@ -42,6 +43,10 @@ enum LoadingState {
   idle,
 }
 
+export const useProviderPhotonStateStore = create<{
+  wasEnrolledInphoton?: boolean;
+}>()(persist(() => ({}), { name: 'ottehr-ehr-provider-photon-store' }));
+
 // extracting it here, cause even if we use store - it will still initiate requests as much as we have usages of this hook,
 // so just to use this var as a synchronization mechanism - lifted it here
 let _profileLoadingState = LoadingState.initial;
@@ -59,6 +64,20 @@ export default function useOttehrUser(): OttehrUser | undefined {
   );
   const isPractitionerEnrolledInPhoton = profile?.extension?.some(
     (x) => x.url === PHOTON_PRACTITIONER_ENROLLED && Boolean(x.valueBoolean),
+  );
+
+  useEffect(() => {
+    if (isPractitionerEnrolledInPhoton) {
+      useProviderPhotonStateStore.setState({ wasEnrolledInphoton: true });
+    }
+  }, [isPractitionerEnrolledInPhoton]);
+
+  const isProviderHasEverythingToBeEnrolled = Boolean(
+    profile?.id &&
+      profile?.telecom?.find((phone) => phone.system === 'sms' || phone.system === 'phone')?.value &&
+      getPractitionerNPIIdentitifier(profile)?.value &&
+      profile?.name?.[0]?.given?.[0] &&
+      profile?.name?.[0]?.family,
   );
 
   useEffect(() => {

@@ -89,7 +89,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       fhirClient.batchRequest({ requests: batchRequests }),
     ];
 
-    const [inactiveRoleMembers, providerRoleMembers, fhirBundle] = <[User[], User[], Bundle]>(
+    console.log(`*** grabbed the roles for ${inactiveRoleId} and ${providerRoleId}`);
+
+    const [inactiveRoleMembers, providerRoleMembers, fhirBundle] = <[{ id: string }[], { id: string }[], Bundle]>(
       await Promise.all(mixedPromises)
     );
 
@@ -188,22 +190,45 @@ async function getRoles(zapehrToken: string, secrets: Secrets | null): Promise<a
   return existingRolesResponse.json();
 }
 
-async function getRoleMembers(roleId: string, zapehrToken: string, secrets: Secrets | null): Promise<User[]> {
+export async function getRoleMembers(
+  roleId: string,
+  zapehrToken: string,
+  secrets: Secrets | null,
+): Promise<{ id: string }[]> {
   const PROJECT_API = getSecret('PROJECT_API', secrets);
   const headers = {
     accept: 'application/json',
     'content-type': 'application/json',
     Authorization: `Bearer ${zapehrToken}`,
   };
-  const response = await fetch(`${PROJECT_API}/iam/role/${roleId}`, {
-    method: 'GET',
-    headers: headers,
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to get role.id=${roleId} details.`);
-  }
-  const data = await response.json();
-  return data.members.user;
+
+  let cursor = '';
+  let page = 0;
+  const COUNT = 100;
+  const members = [];
+
+  console.log(`search limit: ${COUNT}`);
+
+  do {
+    const response = await fetch(
+      `${PROJECT_API}/user/v2/list?limit=${COUNT}&sort=name&cursor=${cursor}&roleId=${roleId}`,
+      {
+        method: 'GET',
+        headers: headers,
+      },
+    );
+    if (!response.ok) {
+      throw new Error(
+        `Failed to get role.id=${roleId} members at ${cursor ? `page ${page} with cursor ${cursor}` : `page ${page}`}.`,
+      );
+    }
+    const responseJSON = await response.json();
+    members.push(...responseJSON.data);
+    cursor = responseJSON.metadata.nextCursor;
+    page += 1;
+  } while (cursor !== null);
+
+  return members;
 }
 
 function extractParticipantsFromBunle(bundle: Bundle): string[] {
