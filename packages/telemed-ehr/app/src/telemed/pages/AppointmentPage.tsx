@@ -12,7 +12,7 @@ import {
 import { FC, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
-import { PATIENT_PHOTO_CODE, getQuestionnaireResponseByLinkId } from 'ehr-utils';
+import { PATIENT_PHOTO_CODE, getQuestionnaireResponseByLinkId, SCHOOL_WORK_NOTE_CODE } from 'ehr-utils';
 import { getSelectors } from '../../shared/store/getSelectors';
 import HearingRelayPopup from '../components/HearingRelayPopup';
 import PreferredLanguagePopup from '../components/PreferredLanguagePopup';
@@ -78,6 +78,16 @@ export const AppointmentPage: FC = () => {
             )
             .flatMap((docRef: FhirResource) => (docRef as DocumentReference).content.map((cnt) => cnt.attachment.url))
             .filter(Boolean) as string[]) || [],
+        schoolWorkNoteUrls:
+          (data
+            ?.filter(
+              (resource: FhirResource) =>
+                resource.resourceType === 'DocumentReference' &&
+                resource.status === 'current' &&
+                resource.type?.coding?.[0].code === SCHOOL_WORK_NOTE_CODE,
+            )
+            .flatMap((docRef: FhirResource) => (docRef as DocumentReference).content.map((cnt) => cnt.attachment.url))
+            .filter(Boolean) as string[]) || [],
       });
 
       const relayPhone = getQuestionnaireResponseByLinkId('relay-phone', questionnaireResponse)?.answer.find(
@@ -103,6 +113,7 @@ export const AppointmentPage: FC = () => {
       encounter: {} as Encounter,
       questionnaireResponse: undefined,
       patientPhotoUrls: [],
+      schoolWorkNoteUrls: [],
       chartData: undefined,
       currentTab: 'hpi',
     });

@@ -2,13 +2,13 @@ import React, { FC, useState } from 'react';
 import { Box, Popover, Typography } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { DateTime } from 'luxon';
-import { WorkSchoolNoteExcuseDocFileDTO } from 'ehr-utils';
+import { SchoolWorkNoteExcuseDocFileDTO } from 'ehr-utils';
 import { RoundedButton, UppercaseCaptionTypography } from '../../../../components';
 import { ExcuseLink } from './ExcuseLink';
 
 type ExcuseCardProps = {
   label: string;
-  excuse?: WorkSchoolNoteExcuseDocFileDTO & { presignedUrl?: string };
+  excuse?: SchoolWorkNoteExcuseDocFileDTO & { presignedUrl?: string };
   isLoading: boolean;
   onDelete: (id: string) => void;
   onPublish: (id: string) => void;

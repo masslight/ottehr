@@ -1,5 +1,5 @@
 import { CodeableConcept } from 'fhir/r4';
-import { ChartDataFields, WorkSchoolNoteExcuseDocDTO, WorkSchoolNoteExcuseDocFileDTO } from './chart-data.types';
+import { ChartDataFields, SchoolWorkNoteExcuseDocDTO, SchoolWorkNoteExcuseDocFileDTO } from './chart-data.types';
 import { GetChartDataResponse } from './get-chart-data.types';
 
 export interface SaveChartDataRequest extends ChartDataFields {
@@ -11,8 +11,8 @@ export interface SaveChartDataRequest extends ChartDataFields {
    * Calm and Fussy
    * if calm is true - front mush send Fussy = false AND Calm = true
    */
-  newWorkSchoolNote?: WorkSchoolNoteExcuseDocDTO;
-  workSchoolNotes?: Pick<WorkSchoolNoteExcuseDocFileDTO, 'id' | 'published'>[];
+  newschoolWorkNote?: SchoolWorkNoteExcuseDocDTO;
+  schoolWorkNotes?: Pick<SchoolWorkNoteExcuseDocFileDTO, 'id' | 'published'>[];
 }
 
 export type SaveChartDataResponse = GetChartDataResponse;
