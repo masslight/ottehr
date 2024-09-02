@@ -1,6 +1,7 @@
 import { EditOutlined } from '@mui/icons-material';
 import { IconButton, Table, TableBody, TableCell, TableRow, Tooltip, Typography } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { PageForm, ReviewItem, getValueBoolean, safelyCaptureException } from 'ottehr-components';
 import { deepCopy, getSelectors, yupDateTransform, yupFHIRDateRegex } from 'ottehr-utils';
 import { IntakeFlowPageRoute } from '../App';
@@ -28,6 +29,7 @@ const ReviewPaperwork = (): JSX.Element => {
   const { patientInfo } = usePatientInfoStore.getState();
   const createPaperwork = useCreatePaperworkMutation();
   const apiClient = useZapEHRAPIClient();
+  const { t } = useTranslation();
 
   const onSubmit = async (): Promise<void> => {
     if (!apiClient) {
@@ -125,12 +127,12 @@ const ReviewPaperwork = (): JSX.Element => {
 
   return (
     <CustomContainer
-      title="Review and submit"
-      description="Review and confirm all details below."
+      title={t('reviewPaperwork.title')}
+      description={t('reviewPaperwork.description')}
       bgVariant={IntakeFlowPageRoute.ReviewPaperwork.path}
     >
       <Typography variant="h3" color="primary" marginTop={2} marginBottom={0}>
-        Visit details
+        {t('reviewPaperwork.visitDetails')}
       </Typography>
       <Table
         sx={{
@@ -169,7 +171,7 @@ const ReviewPaperwork = (): JSX.Element => {
                 </TableCell>
                 <TableCell padding="none" sx={{ paddingLeft: 1 }}>
                   {reviewItem.path && (
-                    <Tooltip title="Edit" placement="right">
+                    <Tooltip title={t('general.button.edit')} placement="right">
                       <Link to={reviewItem.path}>
                         <IconButton aria-label="edit" color="primary">
                           <EditOutlined />
@@ -184,7 +186,7 @@ const ReviewPaperwork = (): JSX.Element => {
       </Table>
       <PageForm
         controlButtons={{
-          submitLabel: 'Save',
+          submitLabel: t('general.button.save'),
           loading: createPaperwork.isLoading,
         }}
         onSubmit={onSubmit}

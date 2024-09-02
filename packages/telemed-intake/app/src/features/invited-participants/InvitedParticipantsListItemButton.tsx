@@ -1,4 +1,5 @@
 import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined';
+import { useTranslation } from 'react-i18next';
 import { StyledListItemWithButton } from 'ottehr-components';
 import { useGetVideoChatInvites } from '../waiting-room';
 import { useTheme } from '@mui/system';
@@ -15,19 +16,20 @@ export function InvitedParticipantListItemButton({
     isLoading: isGetInvitesLoading,
     isFetching: isGetInvitesFetching,
   } = useGetVideoChatInvites();
+  const { t } = useTranslation();
   const invitedParticipants = invitesData?.invites ?? [];
   const invitedParticipantsLoading = isGetInvitesFetching || isGetInvitesLoading;
   const theme = useTheme();
 
   return (
     <StyledListItemWithButton
-      primaryText="Manage participants"
+      primaryText={t('participants.manageParticipants')}
       secondaryText={
         invitedParticipantsLoading
-          ? 'Loading...'
+          ? t('general.loading')
           : invitedParticipants.length > 0
             ? [invitedParticipants[0].firstName, invitedParticipants[0].lastName].join(' ')
-            : 'No invited participants'
+            : t('participants.noInvitedParticipants')
       }
       hideText={hideText}
       onClick={onClick}

@@ -1,0 +1,242 @@
+{
+  "general": {
+    "appName": "Ottehr Telemedicine",
+    "maximumAge": 26,
+    "minimumAge": 0,
+    "button": {
+      "back": "Atrás",
+      "continue": "Continuar",
+      "continueAnyway": "Continuar de todos modos",
+      "close": "Cerrar",
+      "checked": "Marcado",
+      "unchecked": "Desmarcado",
+      "cancel": "Cancelar",
+      "cancelled": "Cancelado",
+      "save": "Guardar",
+      "saveChanges": "Guardar cambios",
+      "edit": "Editar",
+      "tryAgain": "Inténtalo de nuevo",
+      "login": "Iniciar sesión"
+    },
+    "formElement": {
+      "labels": {
+        "firstName": "Nombre",
+        "lastName": "Apellido",
+        "phoneNumber": "Número de teléfono",
+        "dateOfBirth": "Fecha de nacimiento",
+        "email": "Correo electrónico"
+      }
+    },
+    "loading": "cargando...",
+    "patientBirthday": "Cumpleaños: {{formattedPatientBirthDay}}",
+    "footer": "Si crees que tú o tu hijo están teniendo una emergencia médica, por favor marca 911 o ve al hospital más cercano."
+  },
+  "callSettings": {
+    "callSettings": "Configuración de llamada",
+    "camera": "Cámara",
+    "microphone": "Micrófono",
+    "reportProblem": "Reportar problema",
+    "reportProblemDescription": "Enviar reporte de error",
+    "reportProblemImgAlt": "Ícono de reloj",
+    "setting": "Configuración",
+    "audioVideo": "Audio, video"
+  },
+  "cancelVisit": {
+    "title": "¿Por qué estás cancelando?",
+    "cancelVisitButton": "Cancelar visita",
+    "formElement": {
+      "labels": {
+        "cancellationReason": "Razón de la cancelación"
+      }
+    }
+  },
+  "contactSupport": {
+    "needHelp": "¿Necesitas ayuda?",
+    "support": "Soporte",
+    "callUs": "Llámanos: <strong>(123) 456-7890</strong>",
+    "hours": "Domingo-Sábado 10am-10pm ET.",
+    "moreInfo": "Para tiempos de espera o más información:",
+    "moreInfoLink": "https://ottehr.com",
+    "moreInfoLinkText": "Haz clic aquí",
+    "emergency": "Si es una emergencia, por favor llama al 911."
+  },
+  "financialPolicy": {
+    "title": "Política Financiera",
+    "paymentPolicy": "Nuestra instalación está comprometida a hacer que el pago sea lo más conveniente posible para nuestros pacientes. Nuestra política es<br /><br />recoger pagos a través de tarjeta de crédito, tarjeta de gasto flexible, efectivo o cheque en el momento del servicio. Si tienes<br />seguro, nuestro sistema de verificación indicará si tienes un deducible no cumplido y determinará tu<br />pago esperado.<br /><br />En el momento de tu visita, se te pedirá que revises y firmes nuestro formulario de Tarjeta en Archivo. Luego, mantenemos<br />tu método de pago en archivo con nuestro procesador de tarjetas de crédito seguro y compatible con HIPAA en caso de que haya<br />responsabilidad adicional del paciente. Para tu protección, solo una parte de tu tarjeta será visible en nuestro<br />sistema informático.<br /><br />Una vez que tu compañía de seguros haya procesado tus reclamaciones, enviarán una Explicación de Beneficios (EOB) tanto a<br />ti como a nuestra oficina, mostrando tu responsabilidad total del paciente. Al recibir el EOB, nuestro departamento de facturación<br />determinará si hay un saldo restante basado en el ajuste/pago de tu compañía de seguros. Si hay un saldo adicional, recibirás un<br />correo electrónico con el monto adeudado. Cargaremos la tarjeta en archivo 5 días después de este correo electrónico inicial. Si no<br />estás de acuerdo con el monto que el paciente debe, por favor contacta a tu aseguradora inmediatamente.<br /><br />Si no pagas en su totalidad en el momento del servicio y/o proporcionas un método de pago para ser colocado en archivo,<br />tú/tu hijo pueden no ser vistos. Por favor contacta a nuestro departamento de facturación si tienes alguna pregunta."
+  },
+  "schedule": {
+    "noSlotsAvailable": "No hay espacios disponibles",
+    "noSlotsAvailableForOption": "No hay espacios disponibles para esta opción",
+    "selectDate": "Seleccionar fecha y hora",
+    "timezone": "Zona horaria: {{timezone}}",
+    "firstAvailableTime": "Primera hora disponible:",
+    "calculatingFirstAvailableTime": "Calculando la primera hora disponible...",
+    "tabsArialLabel": "Pestañas de cita para cambiar entre vistas de hoy, mañana y otras fechas.",
+    "unknownDate": "Fecha desconocida"
+  },
+  "participants": {
+    "manageParticipants": "Gestionar participantes",
+    "inviteParticipant": "Invitar participante",
+    "cancelInvite": "Cancelar invitación",
+    "noInvitedParticipants": "No hay participantes invitados",
+    "sendInvite": "Enviar invitación",
+    "inviteError": {
+      "title": "Error",
+      "description": "Ocurrió un error. Por favor, inténtalo de nuevo en un momento."
+    }
+  },
+  "uploadPhotos": {
+    "button": "Subir fotos",
+    "patientConditionPhotos": "Fotos del estado del paciente",
+    "photosAttached": "{{count}} fotos adjuntas",
+    "noPhotosAttached": "No se han subido fotos"
+  },
+  "confirmDateOfBirth": {
+    "title": "Confirmar la fecha de nacimiento de {{patientFirstName}}",
+    "patientFirstNameFallback": "paciente",
+    "notConfirmed": "Desafortunadamente, este registro de paciente no está confirmado.",
+    "dateOfBirthErrorMessage": "Esta fecha de nacimiento {{formattedDOB}} no coincide con el perfil del paciente seleccionado {{patientFirstName}}.",
+    "tryAgain": "Puedes intentarlo de nuevo o continuar y verificar la fecha de nacimiento en el check-in.",
+    "formElement": {
+      "types": {
+        "challengeDay": "Día de la fecha",
+        "challengeMonth": "Mes de la fecha",
+        "challengeYear": "Año de la fecha"
+      },
+      "labels": {
+        "challengeDateOfBirth": "Fecha de nacimiento",
+        "challengeDay": "Día de nacimiento del paciente",
+        "challengeMonth": "Mes de nacimiento del paciente",
+        "challengeYear": "Año de nacimiento del paciente"
+      }
+    },
+    "requestError": {
+      "title": "Error",
+      "description": "Ocurrió un error. Por favor, inténtalo de nuevo en un momento."
+    }
+  },
+  "createAccount": {
+    "title": "Crear cuenta",
+    "description": ""
+  },
+  "newUser": {
+    "title": "¡Gracias por elegir Ottehr!",
+    "imgAlt": "Ícono de reloj",
+    "message": "Estamos encantados de ofrecer esta nueva tecnología para acceder a la atención. Tendrás que ingresar tu información nuevamente solo una vez. ¡La próxima vez que regreses, estará todo aquí para ti!",
+    "html": ""
+  },
+  "pastVisits": {
+    "visits": "Visitas",
+    "visitDetails": "Detalles de la visita",
+    "backToHome": "Volver a la página principal"
+  },
+  "patientInfo": {
+    "title": "Sobre el paciente",
+    "description": "Utilizamos esta información para asegurarnos de que podamos proporcionarte atención. Toda la información se mantiene confidencial.",
+    "birthSex": "Sexo al nacer: {{birthSex}}",
+    "wrongPatient": "¿Paciente incorrecto? Por favor ",
+    "wrongPatientGoBack": "regresa",
+    "wrongPatientGoBackFor": "para un nuevo paciente o un registro de paciente existente diferente.",
+    "formElement": {
+      "labels": {
+        "firstName": "Nombre legal del paciente",
+        "middleName": "Segundo nombre legal del paciente",
+        "lastName": "Apellido legal del paciente",
+        "chosenName": "Nombre elegido o preferido del paciente (opcional)",
+        "dateOfBirth": "Fecha de nacimiento del paciente",
+        "sex": "Sexo al nacer del paciente",
+        "weight": "Peso del paciente (lbs)",
+        "email": "Correo electrónico",
+        "emailOwner": "Este correo electrónico pertenece a",
+        "emailOwnerPatient": "Paciente",
+        "emailOwnerParent": "Padre/Guardían"
+      },
+      "placeholders": {
+        "firstName": "Nombre",
+        "middleName": "Segundo nombre",
+        "lastName": "Apellido",
+        "chosenName": "Nombre elegido"
+      },
+      "infoTexts": {
+        "sex": "Nuestro equipo de atención utiliza esto para informar recomendaciones de tratamiento y compartir información útil sobre posibles efectos secundarios de medicamentos, si es necesario.",
+        "weight": "Ingresar la información correcta en este campo nos ayudará con la dosificación de recetas."
+      },
+      "helperTexts": {
+        "weight": "Peso actualizado por última vez: {{lastUpdated}}"
+      }
+    },
+    "ageError": {
+      "title": "Edad no en rango",
+      "description": "Estos servicios solo están disponibles para pacientes entre las edades de 0 y 26 años."
+    },
+    "requestError": {
+      "title": "Error",
+      "description": "Ocurrió un error. Por favor, inténtalo de nuevo en un momento."
+    }
+  },
+  "patientPortal": {
+    "title": "Bienvenido a Ottehr Telemedicine",
+    "description": "",
+    "returnToCall": "Regresar a la llamada",
+    "activeCall": "Llamada activa",
+    "requestVisit": "Solicitar visita",
+    "pastVisits": "Visitas pasadas",
+    "pastVisitsSubtitle": "Notas escolares/laborales y recetas",
+    "contactSupport": "Contactar soporte"
+  },
+  "reviewPaperwork": {
+    "title": "Revisar y enviar",
+    "description": "Revisa y confirma todos los detalles a continuación.",
+    "visitDetails": "Detalles de la visita"
+  },
+  "selectPatient": {
+    "selectPatient": "Seleccionar paciente",
+    "differentFamilyMember": "Miembro de la familia diferente",
+    "differentFamilyMemberDescription": "Selecciona esta opción si esta reserva es para un miembro de la familia diferente",
+    "loadingPatient": "Cargando paciente"
+  },
+  "thankYou": {
+    "title": "Gracias por elegir Ottehr Telemedicine",
+    "description": "¡Esperamos poder ayudarte pronto!",
+    "checkInBookedTime": "Tu hora de check-in está reservada para:",
+    "confirmationMessage": "Recibirás un correo electrónico y un SMS de confirmación para tu próxima hora de check-in en breve. Si necesitas hacer algún cambio, por favor sigue las instrucciones en el correo electrónico.",
+    "insurancePolicy": "Todos los pacientes que presenten un seguro comercial deberán dejar una tarjeta de crédito en archivo. Más detalles sobre nuestra política financiera se pueden encontrar ",
+    "insurancePolicyLinkText": "aquí",
+    "contactUs": "Si tienes alguna pregunta o inquietud, por favor llama a nuestro equipo al: <strong>(123) 456-7890</strong>."
+  },
+  "visitDetails": {
+    "visitId": "ID de la visita: {{visitId}}",
+    "backToVisitsList": "Volver a la lista de visitas"
+  },
+  "waitingRoom": {
+    "title": "Sala de espera",
+    "imgAlt": "Ícono de reloj",
+    "subtext": "Por favor espera, la llamada comenzará automáticamente. Un experto pediátrico se conectará contigo pronto.",
+    "approxWaitTime": "Tiempo de espera aproximado - {{estimatedTime}}",
+    "fallbackWaitTime": "...mins",
+    "callSettingsTitle": "Configuración de llamada y prueba",
+    "callSettingsSubtext": "Audio, video, micrófono",
+    "leaveRoomTitle": "Salir de la sala de espera",
+    "leaveRoomSubtext": "Te notificaremos una vez que comience la llamada",
+    "cancelVisitTitle": "Cancelar visita",
+    "cancelVisitSubtext": "No se te cobrará si cancelas la visita"
+  },
+  "welcome": {
+    "title": "Ottehr {{visitService}}",
+    "imgAlt": "Ícono de reloj",
+    "scheduleNotFound": "El horario \"{{slug}}\" no se encuentra",
+    "scheduleNotAvailable": "El horario \"{{slug}}\" no está disponible",
+    "visitServiceNotAvailable": "El servicio \"{{visitService}}\" no está disponible",
+    "scheduleError": "Hubo un error al obtener el horario. Por favor, actualiza y si aún recibes errores, contáctanos.",
+    "message": "Estamos encantados de ofrecer esta nueva tecnología para acceder a la atención. Tendrás que ingresar tu información nuevamente solo una vez. ¡La próxima vez que regreses, estará todo aquí para ti!",
+    "html": "",
+    "dateError": {
+      "title": "Por favor selecciona una fecha y hora",
+      "description": "Para continuar, por favor selecciona una cita disponible."
+    }
+  },
+  "errorFallbackScreen": {
+    "title": "Ocurrió un error",
+    "description": "Algo salió mal durante el proceso de autorización. Por favor, inténtalo de nuevo."
+  }
+}

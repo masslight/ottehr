@@ -73,6 +73,14 @@ export const IntakeThemeProviderBase: FC<IntakeThemeProviderProps> = (props) => 
   } = props;
 
   const defaultComponentsOverrides: Components = {
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          display: 'flex',
+          backgroundColor: otherColors.appbarBackground,
+        },
+      },
+    },
     MuiButton: {
       styleOverrides: {
         root: {

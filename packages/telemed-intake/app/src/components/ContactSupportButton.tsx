@@ -1,14 +1,17 @@
 import { Button, Typography } from '@mui/material';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import { useTranslation } from 'react-i18next';
 
 interface ContactSupportButtonProps {
   onClick: () => void;
 }
 
 export const ContactSupportButton = ({ onClick }: ContactSupportButtonProps): JSX.Element => {
+  const { t } = useTranslation();
+
   return (
     <Button
-      aria-label="Help button"
+      aria-label={t('contactSupport.needHelp')}
       color="primary"
       sx={{
         display: 'flex',
@@ -26,7 +29,7 @@ export const ContactSupportButton = ({ onClick }: ContactSupportButtonProps): JS
       onClick={onClick}
     >
       <HelpOutlineIcon fontSize="small" />
-      <Typography variant="body2">Support</Typography>
+      <Typography variant="body2">{t('contactSupport.support')}</Typography>
     </Button>
   );
 };

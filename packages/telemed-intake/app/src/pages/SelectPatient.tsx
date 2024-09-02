@@ -3,6 +3,7 @@ import { Box, CircularProgress, Skeleton } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FieldValues } from 'react-hook-form';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { BoldPurpleInputLabel, PageForm } from 'ottehr-components';
 import { getSelectors, getPatientInfoFullName } from 'ottehr-utils';
 import { IntakeFlowPageRoute } from '../App';
@@ -14,25 +15,12 @@ import { usePatientInfoStore } from '../features/patient-info';
 import { useGetPatients, usePatientsStore } from '../features/patients';
 import { useZapEHRAPIClient } from '../utils';
 
-const FORM_PATIENT_ID_ELEMENT_BASE = {
-  name: 'patientId',
-  label: 'Select patient',
-  defaultValue: '',
-  required: true,
-};
-
-const DIFFERENT_FAMILY_MEMBER_DATA = {
-  label: 'Different family member',
-  description: 'Select this option if this reservation is for a different family member',
-  value: 'new-patient',
-  color: otherColors.lightBlue,
-};
-
 const SelectPatient = (): JSX.Element => {
   const { patientInfo: currentPatientInfo, setNewPatient } = usePatientInfoStore.getState();
   const apiClient = useZapEHRAPIClient();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
 
   const urlParams = new URLSearchParams(window.location.search);
   const flow = urlParams.get('flow');
@@ -44,6 +32,20 @@ const SelectPatient = (): JSX.Element => {
       onSubmit({ patientId: location.state.patientId });
     }
   });
+
+  const FORM_PATIENT_ID_ELEMENT_BASE = {
+    name: 'patientId',
+    label: t('selectPatient.selectPatient'),
+    defaultValue: '',
+    required: true,
+  };
+
+  const DIFFERENT_FAMILY_MEMBER_DATA = {
+    label: t('selectPatient.differentFamilyMember'),
+    description: t('selectPatient.differentFamilyMemberDescription'),
+    value: 'new-patient',
+    color: otherColors.lightBlue,
+  };
 
   useEffect(() => {
     if (apiClient) {
@@ -87,7 +89,11 @@ const SelectPatient = (): JSX.Element => {
 
   if (location.state?.patientId) {
     return (
-      <CustomContainer title="Loading patient" description="" bgVariant={IntakeFlowPageRoute.PatientPortal.path}>
+      <CustomContainer
+        title={t('selectPatient.loadingPatient')}
+        description=""
+        bgVariant={IntakeFlowPageRoute.PatientPortal.path}
+      >
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
           <CircularProgress />
         </Box>
@@ -96,10 +102,14 @@ const SelectPatient = (): JSX.Element => {
   }
 
   return (
-    <CustomContainer title="Select patient" description="" bgVariant={IntakeFlowPageRoute.PatientPortal.path}>
+    <CustomContainer
+      title={t('selectPatient.selectPatient')}
+      description=""
+      bgVariant={IntakeFlowPageRoute.PatientPortal.path}
+    >
       {isFetching ? (
         <Box sx={{ pt: 2 }}>
-          <BoldPurpleInputLabel shrink>Select patient *</BoldPurpleInputLabel>
+          <BoldPurpleInputLabel shrink>{t('selectPatient.selectPatient')} *</BoldPurpleInputLabel>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             {Array(3)
               .fill(0)
@@ -130,9 +140,11 @@ const SelectPatient = (): JSX.Element => {
                   }
                   return {
                     label: getPatientInfoFullName(patient),
-                    description: `Birthday: ${DateTime.fromFormat(patient.dateOfBirth || '', 'yyyy-MM-dd').toFormat(
-                      'MMMM dd, yyyy',
-                    )}`,
+                    description: t('general.patientBirthday', {
+                      formattedPatientBirthDay: DateTime.fromFormat(patient.dateOfBirth || '', 'yyyy-MM-dd').toFormat(
+                        'MMMM dd, yyyy',
+                      ),
+                    }),
                     value: patient.id,
                     color: otherColors.lightBlue,
                   };

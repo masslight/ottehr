@@ -1,4 +1,11 @@
 {
   "extends": "../../tsconfig/react.json",
-  "include": ["src", "test"]
+  "include": ["src", "test"],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@theme/*": ["src/theme/ottehr/*"],
+      "@defaultTheme/*": ["src/theme/ottehr/*"],
+    },
+  }
 }

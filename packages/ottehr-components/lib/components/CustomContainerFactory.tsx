@@ -1,9 +1,8 @@
-import { FC, ReactElement, useCallback, useContext } from 'react';
-import { AppBar, Box, Button, Card, Container, Grid, Typography, useTheme } from '@mui/material';
+import { FC, ReactElement, useCallback } from 'react';
+import { AppBar, Box, Button, Card, Container, Grid, Typography, Tooltip, useTheme } from '@mui/material';
 import { useAuth0 } from '@auth0/auth0-react';
-import { IntakeThemeContext } from '../contexts';
 import { portal } from '../assets/icons';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 export interface ContainerProps {
   title: string;
@@ -68,9 +67,7 @@ export const CustomContainer: FC<ContainerProps> = ({
   logoutHandler,
 }) => {
   const theme = useTheme();
-  const navigate = useNavigate();
   const { isAuthenticated, logout } = useAuth0();
-  const { otherColors } = useContext(IntakeThemeContext);
 
   const handleLogout = useCallback(() => {
     if (logoutHandler !== undefined) {
@@ -99,7 +96,7 @@ export const CustomContainer: FC<ContainerProps> = ({
         justifyContent: 'space-between',
       }}
     >
-      <AppBar position="static" sx={{ backgroundColor: otherColors.appbarBackground }}>
+      <AppBar position="static">
         <Grid container justifyContent="space-between">
           <Grid item></Grid>
           <Grid
@@ -124,26 +121,27 @@ export const CustomContainer: FC<ContainerProps> = ({
               mx: { xs: 'auto', md: 2 },
             }}
           >
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                cursor: 'pointer',
-                mr: 1,
-                backgroundColor: 'rgba(226, 240, 255, 0.2)',
-                padding: '12px',
-                border: 'none',
-                borderRadius: '50%',
-                '&:hover': {
-                  backgroundColor: 'rgba(226, 240, 255, 0.5)',
-                },
-              }}
-              onClick={() => {
-                navigate('/patient-portal');
-              }}
-            >
-              <img src={portal} alt="portal" />
-            </Box>
+            <Tooltip title="Patient Portal" arrow>
+              <Link to="/patient-portal">
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                    mr: 1,
+                    backgroundColor: 'rgba(226, 240, 255, 0.2)',
+                    padding: '12px',
+                    border: 'none',
+                    borderRadius: '50%',
+                    '&:hover': {
+                      backgroundColor: 'rgba(226, 240, 255, 0.5)',
+                    },
+                  }}
+                >
+                  <img src={portal} alt="Profile icon" />
+                </Box>
+              </Link>
+            </Tooltip>
 
             {isAuthenticated && (
               <Button
@@ -170,10 +168,7 @@ export const CustomContainer: FC<ContainerProps> = ({
         ) : (
           <Container maxWidth="md" sx={{ mb: 5 }}>
             <>
-              <Card
-                variant="outlined"
-                sx={{ boxShadow: 1, mt: 0, pt: 0, borderRadius: 2, [theme.breakpoints.down('md')]: { mx: 2 } }}
-              >
+              <Card variant="outlined" sx={{ boxShadow: 1, mt: 0, pt: 0, borderRadius: 2 }}>
                 <Box sx={{ m: 0, p: { xs: 3, md: 5 } }}>
                   <Grid
                     container

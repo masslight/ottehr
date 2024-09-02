@@ -1,7 +1,9 @@
 import { Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth0 } from '@auth0/auth0-react';
+import { useTranslation } from 'react-i18next';
 import { ErrorDialog, PageForm, safelyCaptureException } from 'ottehr-components';
 import {
   PatientInfo,
@@ -24,7 +26,7 @@ import { CustomContainer } from '../features/common';
 import { useFilesStore } from '../features/files';
 import { useGetPaperwork, usePaperworkStore } from '../features/paperwork';
 import { usePatientInfoStore } from '../features/patient-info';
-import { MAXIMUM_AGE, MINIMUM_AGE, useZapEHRAPIClient } from '../utils';
+import { useZapEHRAPIClient } from '../utils';
 
 const UPDATEABLE_PATIENT_INFO_FIELDS: (keyof Omit<PatientInfo, 'id'>)[] = [
   'firstName',
@@ -64,6 +66,7 @@ const PatientInformation = (): JSX.Element => {
   const [getPaperworkEnabled, setGetPaperworkEnabled] = useState(false);
 
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [ageErrorDialogOpen, setAgeErrorDialogOpen] = useState<boolean>(false);
   const [requestErrorDialogOpen, setRequestErrorDialogOpen] = useState<boolean>(false);
   const { patientInfo: currentPatientInfo, pendingPatientInfoUpdates } = getSelectors(usePatientInfoStore, [
@@ -105,6 +108,26 @@ const PatientInformation = (): JSX.Element => {
     },
   );
 
+  const { getIdTokenClaims } = useAuth0();
+  const [isLoading, setIsLoading] = useState(true);
+  const [userEmail, setUserEmail] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    const getUserEmail = async (): Promise<void> => {
+      try {
+        const idTokenClaims = await getIdTokenClaims();
+        setUserEmail(idTokenClaims?.email);
+      } catch (error) {
+        console.error('Error getting id token claims:', error);
+      }
+    };
+
+    if (patientInfo.email === undefined) {
+      void getUserEmail();
+    }
+    setIsLoading(false);
+  }, [getIdTokenClaims, patientInfo.email]);
+
   // useEffect(() => {
   //   mixpanel.track('Patient Information page opened');
   // }, []);
@@ -114,7 +137,10 @@ const PatientInformation = (): JSX.Element => {
     const dateOfBirth = isoStringFromMDYString(yupDateTransform(data.dateOfBirth || patientInfo.dateOfBirth || ''));
     data.dateOfBirth = dateOfBirth || 'Unknown';
 
-    if (!ageIsInRange(dateOfBirth ?? '', MINIMUM_AGE, MAXIMUM_AGE).result) {
+    const maximumAge = t('general.maximumAge') as unknown as number;
+    const minimumAge = t('general.minimumAge') as unknown as number;
+
+    if (!ageIsInRange(dateOfBirth ?? '', minimumAge, maximumAge).result) {
       setAgeErrorDialogOpen(true);
       return;
     }
@@ -213,10 +239,14 @@ const PatientInformation = (): JSX.Element => {
     'MMM dd, yyyy',
   );
 
+  if (isLoading) {
+    return <></>;
+  }
+
   return (
     <CustomContainer
-      title="About the patient"
-      description="We use this information to ensure we're able to provide you with care. All information is kept confidential."
+      title={t('patientInfo.title')}
+      description={t('patientInfo.description')}
       bgVariant={IntakeFlowPageRoute.PatientInformation.path}
     >
       {!patientInfo.newPatient && (
@@ -225,20 +255,20 @@ const PatientInformation = (): JSX.Element => {
             {getPatientInfoFullName(patientInfo)}
           </Typography>
           <Typography variant="body2" sx={{ fontSize: '14px' }} color="primary.main">
-            Birthday: {formattedBirthday || patientInfo.dateOfBirth}
+            {t('general.patientBirthday', { formattedPatientBirthDay: formattedBirthday || patientInfo.dateOfBirth })}
           </Typography>
           <Typography variant="body2" sx={{ fontSize: '14px' }} color="primary.main">
-            Birth sex: {patientInfo.sex}
+            {t('patientInfo.birthSex', { birthSex: patientInfo.sex })}
           </Typography>
           <Typography variant="body1" color={otherColors.wrongPatient} marginTop={2} marginBottom={4}>
-            Wrong patient? Please{' '}
+            {t('patientInfo.wrongPatient')}
             <Link
               style={{ color: otherColors.wrongPatient }}
               to={`${IntakeFlowPageRoute.SelectPatient.path}?flow=requestVisit`}
             >
-              go back
+              {t('patientInfo.wrongPatientGoBack')}
             </Link>{' '}
-            for a new patient or different existing patient record.
+            {t('patientInfo.wrongPatientGoBackFor')}
           </Typography>
         </>
       )}
@@ -247,8 +277,8 @@ const PatientInformation = (): JSX.Element => {
           {
             type: 'Text',
             name: 'firstName',
-            label: 'First name (legal)',
-            placeholder: 'First name',
+            label: t('patientInfo.formElement.labels.firstName'),
+            placeholder: t('patientInfo.formElement.placeholders.firstName'),
             defaultValue: patientInfo.firstName,
             required: patientInfo.newPatient,
             hidden: !patientInfo.newPatient,
@@ -256,16 +286,16 @@ const PatientInformation = (): JSX.Element => {
           {
             type: 'Text',
             name: 'middleName',
-            label: 'Middle name (legal)',
-            placeholder: 'Middle name',
+            label: t('patientInfo.formElement.labels.middleName'),
+            placeholder: t('patientInfo.formElement.placeholders.middleName'),
             defaultValue: patientInfo.middleName,
             hidden: !patientInfo.newPatient,
           },
           {
             type: 'Text',
             name: 'lastName',
-            label: 'Last name (legal)',
-            placeholder: 'Last name',
+            label: t('patientInfo.formElement.labels.lastName'),
+            placeholder: t('patientInfo.formElement.placeholders.lastName'),
             defaultValue: patientInfo.lastName,
             required: patientInfo.newPatient,
             hidden: !patientInfo.newPatient,
@@ -273,14 +303,14 @@ const PatientInformation = (): JSX.Element => {
           {
             type: 'Text',
             name: 'chosenName',
-            label: 'Chosen or preferred name (optional)',
-            placeholder: 'Chosen name',
+            label: t('patientInfo.formElement.labels.chosenName'),
+            placeholder: t('patientInfo.formElement.placeholders.chosenName'),
             defaultValue: patientInfo.chosenName,
           },
           {
             type: 'Date',
             name: 'dateOfBirth',
-            label: "Patient's date of birth",
+            label: t('patientInfo.formElement.labels.dateOfBirth'),
             defaultValue: patientInfo.dateOfBirth,
             required: patientInfo.newPatient,
             hidden: !patientInfo.newPatient,
@@ -288,12 +318,11 @@ const PatientInformation = (): JSX.Element => {
           {
             type: 'Select',
             name: 'sex',
-            label: "Patient's birth sex",
+            label: t('patientInfo.formElement.labels.sex'),
             defaultValue: patientInfo.sex,
             required: true,
             hidden: !patientInfo.newPatient,
-            infoTextSecondary:
-              'Our care team uses this to inform treatment recommendations and share helpful information regarding potential medication side effects, as necessary.',
+            infoTextSecondary: t('patientInfo.formElement.infoTexts.sex'),
             selectOptions: Object.entries(PersonSex).map(([key, value]) => {
               return {
                 label: key,
@@ -305,63 +334,63 @@ const PatientInformation = (): JSX.Element => {
             type: 'Text',
             format: 'Decimal',
             name: 'weight',
-            label: 'Patient weight (lbs)',
-            infoTextSecondary: 'Entering correct information in this box will help us with prescription dosing.',
+            label: t('patientInfo.formElement.labels.weight'),
+            infoTextSecondary: t('patientInfo.formElement.infoTexts.weight'),
             defaultValue: patientInfo.weight,
             helperText: patientInfo.newPatient
               ? undefined
-              : `Weight last updated: ${
-                  patientInfo.weightLastUpdated
+              : t('patientInfo.formElement.helperTexts.weight', {
+                  lastUpdated: patientInfo.weightLastUpdated
                     ? DateTime.fromFormat(patientInfo.weightLastUpdated, 'yyyy-LL-dd').toFormat('MM/dd/yyyy')
-                    : 'N/A'
-                }`,
+                    : 'N/A',
+                }),
             showHelperTextIcon: false,
           },
           {
             type: 'Text',
             name: 'email',
-            label: 'Email',
+            label: t('patientInfo.formElement.labels.email'),
             format: 'Email',
-            defaultValue: patientInfo.email,
+            defaultValue: patientInfo.email ?? userEmail,
             required: true,
           },
           {
             type: 'Radio List',
             name: 'emailUser',
-            label: 'This email belongs to',
-            defaultValue: patientInfo.emailUser || 'Parent/Guardian',
+            label: t('patientInfo.formElement.labels.emailOwner'),
+            defaultValue: patientInfo.emailUser || t('patientInfo.formElement.labels.emailOwnerParent'),
             required: true,
             radioOptions: [
               {
-                label: 'Parent/Guardian',
-                value: 'Parent/Guardian',
+                label: t('patientInfo.formElement.labels.emailOwnerParent'),
+                value: t('patientInfo.formElement.labels.emailOwnerParent'),
               },
               {
-                label: 'Patient',
-                value: 'Patient',
+                label: t('patientInfo.formElement.labels.emailOwnerPatient'),
+                value: t('patientInfo.formElement.labels.emailOwnerPatient'),
               },
             ],
           },
         ]}
         controlButtons={{
-          onBack: () => navigate(IntakeFlowPageRoute.PatientPortal.path),
+          onBack: () => navigate(`${IntakeFlowPageRoute.SelectPatient.path}?flow=requestVisit`),
           loading: createAppointment.isLoading || getPaperworkQuery.isLoading || updateAppointment.isLoading,
-          submitLabel: 'Continue',
+          submitLabel: t('general.button.continue'),
         }}
         onSubmit={onSubmit}
       />
       <ErrorDialog
         open={ageErrorDialogOpen}
-        title="Age not in range"
-        description="These services are only available for patients between the ages of 0 and 26."
-        closeButtonText="Close"
+        title={t('patientInfo.ageError.title')}
+        description={t('patientInfo.ageError.description')}
+        closeButtonText={t('general.button.close')}
         handleClose={() => setAgeErrorDialogOpen(false)}
       />
       <ErrorDialog
         open={requestErrorDialogOpen}
-        title="Error"
-        description="An error occurred. Please, try again in a moment."
-        closeButtonText="Close"
+        title={t('patientInfo.requestError.title')}
+        description={t('patientInfo.requestError.description')}
+        closeButtonText={t('general.button.close')}
         handleClose={() => setRequestErrorDialogOpen(false)}
       />
     </CustomContainer>

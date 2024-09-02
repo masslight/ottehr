@@ -37,6 +37,12 @@ export default (env) => {
       //   optimizeDeps: {
       //     include: ['playwright'],
       //   },
+      resolve: {
+        alias: {
+          '@theme': path.resolve(__dirname, appEnv.THEME_PATH || '/src/theme/ottehr'),
+          '@defaultTheme': path.resolve(__dirname, '/src/theme/ottehr'),
+        },
+      },
       optimizeDeps: {
         include: ['@mui/icons-material', '@mui/material', '@emotion/react', '@emotion/styled'],
       },
@@ -44,7 +50,7 @@ export default (env) => {
         sourcemap: mode === 'default' || shouldUploadSentrySourceMaps,
       },
       server: {
-        open: 'location/ak/in-person/prebook',
+        open: appEnv.DEFAULT_PATH ?? 'location/ak/in-person/prebook',
       },
       plugins,
     })

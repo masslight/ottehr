@@ -1,5 +1,6 @@
 import { Typography } from '@mui/material';
 import { FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CustomDialog } from 'ottehr-components';
 import { useGetVideoChatInvites } from '../waiting-room';
 import { ManageParticipants } from './ManageParticipants';
@@ -10,6 +11,7 @@ type ManageParticipantsDialogProps = {
 
 export const ManageParticipantsDialog: FC<ManageParticipantsDialogProps> = ({ onClose }) => {
   const { data: invitesData, isLoading, isFetching } = useGetVideoChatInvites();
+  const { t } = useTranslation();
 
   const handleClose = (): void => {
     onClose();
@@ -17,10 +19,10 @@ export const ManageParticipantsDialog: FC<ManageParticipantsDialogProps> = ({ on
 
   const title =
     isLoading || isFetching
-      ? 'Loading...'
+      ? t('general.loading')
       : (invitesData?.invites?.length || 0) > 0
-        ? 'Manage participants'
-        : 'Invite participant';
+        ? t('participants.manageParticipants')
+        : t('participants.inviteParticipant');
 
   return (
     <CustomDialog PaperProps={{ sx: { maxWidth: '560px' } }} open={true} onClose={handleClose}>

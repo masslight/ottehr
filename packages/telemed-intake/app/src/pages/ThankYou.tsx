@@ -1,5 +1,6 @@
 import { Box, Button, Divider, Typography, useTheme } from '@mui/material';
 import { EventBusyOutlined } from '@mui/icons-material';
+import { useTranslation, Trans } from 'react-i18next';
 import { IntakeFlowPageRoute } from '../App';
 import { CustomContainer } from '../features/common';
 import { otherColors } from '../IntakeThemeProvider';
@@ -9,10 +10,11 @@ import { DateTime } from 'luxon';
 import { FinancialPolicyDialog } from '../components/FinancialPolicyDialog';
 import { useState } from 'react';
 import { CancelVisitDialog } from '../components';
-import { ottehrThankYou } from '../assets';
+import { ottehrThankYou } from '@theme/icons';
 
 const ThankYou = (): JSX.Element => {
   const theme = useTheme();
+  const { t } = useTranslation();
   const [isPolicyDialogOpen, setIsPolicyDialogOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const { selectedSlot } = getSelectors(useAppointmentStore, ['selectedSlot']);
@@ -20,8 +22,8 @@ const ThankYou = (): JSX.Element => {
   const formattedDate = selectedSlot ? DateTime.fromISO(selectedSlot).toFormat('MMMM d, h:mm a') : '';
   return (
     <CustomContainer
-      title="Thank you for choosing Ottehr Telemedicine"
-      description="We look forward to helping you soon!"
+      title={t('thankYou.title')}
+      description={t('thankYou.description')}
       bgVariant={IntakeFlowPageRoute.PatientPortal.path}
     >
       <>
@@ -32,7 +34,7 @@ const ThankYou = (): JSX.Element => {
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             <Typography variant="subtitle1" color="text.primary">
-              Your check-in time is booked for:
+              {t('thankYou.checkInBookedTime')}
             </Typography>
             <Typography variant="h3" color="secondary" mt={0.5}>
               {formattedDate}
@@ -47,12 +49,11 @@ const ThankYou = (): JSX.Element => {
           sx={{ marginLeft: 1.5, color: theme.palette.secondary.main }}
           onClick={() => setIsCancelDialogOpen(true)}
         >
-          Cancel
+          {t('general.button.cancel')}
         </Button>
 
         <Typography variant="body2" marginTop={2}>
-          You will receive a confirmation email and SMS for your upcoming check-in time shortly. If you need to make any
-          changes, please follow the instructions in the email.
+          {t('thankYou.confirmationMessage')}
         </Typography>
         <div
           style={{
@@ -64,21 +65,18 @@ const ThankYou = (): JSX.Element => {
           }}
         >
           <Typography variant="body2">
-            All patients that present with commercial insurance will be required to leave a credit card on file. More
-            details on our financial policy can be found{' '}
+            {t('thankYou.insurancePolicy')}
             <span
               style={{ cursor: 'pointer', color: theme.palette.primary.main, textDecoration: 'underline' }}
               onClick={() => setIsPolicyDialogOpen(true)}
             >
-              here
+              {t('thankYou.insurancePolicyLinkText')}
             </span>
             .
           </Typography>
         </div>
 
-        <Typography variant="body2" marginTop={2}>
-          If you have any questions or concerns, please call our team at: <strong>(123) 456-7890</strong>.
-        </Typography>
+        <Trans i18nKey="thankYou.contactUs" />
         {isPolicyDialogOpen && <FinancialPolicyDialog onClose={() => setIsPolicyDialogOpen(false)} />}
       </>
     </CustomContainer>

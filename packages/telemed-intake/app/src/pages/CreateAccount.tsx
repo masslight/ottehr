@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PageForm } from 'ottehr-components';
 import { IntakeFlowPageRoute } from '../App';
 import { CustomContainer } from '../features/common';
@@ -11,6 +12,7 @@ type AccountInfo = {
 };
 
 const CreateAccount = (): JSX.Element => {
+  const { t } = useTranslation();
   const [accountInfo] = useState<AccountInfo>({});
 
   const onSubmit = (data: AccountInfo): void => {
@@ -18,13 +20,17 @@ const CreateAccount = (): JSX.Element => {
   };
 
   return (
-    <CustomContainer title="Create account" description="" bgVariant={IntakeFlowPageRoute.PatientPortal.path}>
+    <CustomContainer
+      title={t('createAccount.title')}
+      description={t('createAccount.description')}
+      bgVariant={IntakeFlowPageRoute.PatientPortal.path}
+    >
       <PageForm
         formElements={[
           {
             type: 'Text',
             name: 'firstName',
-            label: 'First name',
+            label: t('general.formElement.labels.firstName'),
             defaultValue: accountInfo?.firstName,
             required: true,
             width: 6,
@@ -32,7 +38,7 @@ const CreateAccount = (): JSX.Element => {
           {
             type: 'Text',
             name: 'lastName',
-            label: 'Last name',
+            label: t('general.formElement.labels.lastName'),
             defaultValue: accountInfo?.lastName,
             required: true,
             width: 6,
@@ -40,14 +46,14 @@ const CreateAccount = (): JSX.Element => {
           {
             type: 'Date',
             name: 'dateOfBirth',
-            label: 'Date of birth',
+            label: t('general.formElement.labels.dateOfBirth'),
             defaultValue: accountInfo?.dateOfBirth,
             required: true,
           },
           {
             type: 'Text',
             name: 'email',
-            label: 'Email Address',
+            label: t('general.formElement.labels.email'),
             format: 'Email',
             defaultValue: accountInfo?.email,
             required: true,
@@ -55,7 +61,7 @@ const CreateAccount = (): JSX.Element => {
         ]}
         controlButtons={{
           loading: false,
-          submitLabel: 'Create account',
+          submitLabel: t('createAccount.title'),
           backButton: false,
         }}
         onSubmit={onSubmit}
