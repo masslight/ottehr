@@ -13,7 +13,7 @@ const CustomRadioButtonIcon: FC<CustomRadioIconProps> = ({
   alt,
 }: CustomRadioIconProps): JSX.Element => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label={alt}>
-    <circle cx="12" cy="12" r="12" fill={checked ? color.main : color.contrastText} />
+    <circle cx="12" cy="12" r="12" fill={checked ? color.main : color.contrast} />
     <circle cx="12" cy="12" r="4" fill="white" />
   </svg>
 );

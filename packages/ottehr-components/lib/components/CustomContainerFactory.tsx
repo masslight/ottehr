@@ -119,6 +119,7 @@ export const CustomContainer: FC<ContainerProps> = ({
               display: 'flex',
               alignItems: 'center',
               mx: { xs: 'auto', md: 2 },
+              gap: 2,
             }}
           >
             <Tooltip title="Patient Portal" arrow>
@@ -128,7 +129,6 @@ export const CustomContainer: FC<ContainerProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     cursor: 'pointer',
-                    mr: 1,
                     backgroundColor: 'rgba(226, 240, 255, 0.2)',
                     padding: '12px',
                     border: 'none',
