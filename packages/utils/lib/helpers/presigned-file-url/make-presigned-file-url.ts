@@ -8,6 +8,11 @@ import {
   PATIENT_PHOTO_ID_PREFIX,
   PHOTO_ID_BACK_ID,
   PHOTO_ID_FRONT_ID,
+  SCHOOL_WORK_NOTE_BOTH_ID,
+  SCHOOL_WORK_NOTE_BOTH_ID2,
+  SCHOOL_WORK_NOTE_PREFIX,
+  SCHOOL_WORK_NOTE_SCHOOL_ID,
+  SCHOOL_WORK_NOTE_WORK_ID,
   ZambdaInput,
 } from '../../types';
 import { validateRequestParameters } from './validate-request-parameters';
@@ -16,7 +21,7 @@ export const makePresignedFileURL = async (
   input: ZambdaInput,
   createFhirClient: (token: string, secrets: Secrets | null) => FhirClient,
   getAppointmentResource: (appointmentID: string, fhirClient: FhirClient) => Promise<Appointment | undefined>,
-  zapehrToken: string
+  zapehrToken: string,
 ): Promise<{ presignedURL: string; z3URL: string }> => {
   console.group('validateRequestParameters');
   const validatedParameters = validateRequestParameters(input);
@@ -31,8 +36,8 @@ export const makePresignedFileURL = async (
   if (!appointment) {
     throw APPOINTMENT_NOT_FOUND_ERROR;
   }
-  const patient = appointment?.participant.find(
-    (participantTemp) => participantTemp.actor?.reference?.startsWith('Patient/')
+  const patient = appointment?.participant.find((participantTemp) =>
+    participantTemp.actor?.reference?.startsWith('Patient/'),
   )?.actor?.reference;
   if (!patient) {
     throw new Error('Patient is not found');
@@ -50,6 +55,14 @@ export const makePresignedFileURL = async (
     bucketName = 'insurance-cards';
   } else if ((fileType as string).startsWith(PATIENT_PHOTO_ID_PREFIX)) {
     bucketName = 'patient-photos';
+  } else if (fileType === SCHOOL_WORK_NOTE_SCHOOL_ID) {
+    bucketName = `${SCHOOL_WORK_NOTE_PREFIX}-templates`;
+  } else if (fileType === SCHOOL_WORK_NOTE_WORK_ID) {
+    bucketName = `${SCHOOL_WORK_NOTE_PREFIX}-templates`;
+  } else if (fileType === SCHOOL_WORK_NOTE_BOTH_ID) {
+    bucketName = `${SCHOOL_WORK_NOTE_PREFIX}-templates`;
+  } else if (fileType === SCHOOL_WORK_NOTE_BOTH_ID2) {
+    bucketName = `${SCHOOL_WORK_NOTE_PREFIX}-templates`;
   } else {
     throw Error('Unknown bucket');
   }
@@ -91,7 +104,7 @@ export const makeZ3Url = (input: Z3UrlInput): string => {
   // const presignedURL = await z3Client.createPresignedUrl(`${environment}-${bucketName}/`, `test`);
   const fileURL = `${getSecret(
     SecretsKeys.PROJECT_API,
-    secrets
+    secrets,
   )}/z3/${environment}-${bucketName}/${patientID}/${Date.now()}-${fileType}.${fileFormat}`;
   console.log('created z3 url: ', fileURL);
   return fileURL;

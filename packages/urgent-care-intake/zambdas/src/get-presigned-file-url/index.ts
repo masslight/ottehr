@@ -20,6 +20,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
+    console.log('validatedParameters in urgent care', validatedParameters);
     const { appointmentID, fileType, fileFormat, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
