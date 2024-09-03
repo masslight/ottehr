@@ -135,7 +135,7 @@ function App(): JSX.Element {
                 <ProtectedRoute
                   loadingFallback={<LoadingScreen />}
                   errorFallback={<ErrorFallbackScreen />}
-                  unauthorizedFallback={<Navigate to={IntakeFlowPageRoute.Welcome.path} />}
+                  unauthorizedFallback={<Navigate to={IntakeFlowPageRoute.PatientPortal.path} />}
                 />
               }
             >
