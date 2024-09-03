@@ -86,7 +86,7 @@ const Welcome = (): JSX.Element => {
           <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
             <Button
               variant="contained"
-              color="primary"
+              color="secondary"
               size="large"
               className="next-button"
               type="submit"

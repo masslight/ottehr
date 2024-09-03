@@ -13,7 +13,7 @@ export const palette = {
   secondary: {
     main: '#2169F5',
     contrast: '#FFFFFF',
-    contrastText: '#D5D8DE',
+    contrastText: '#FFFFFF',
   },
   tertiary: { main: '#ECE4FB' },
   step: {

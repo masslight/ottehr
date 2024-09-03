@@ -58,7 +58,6 @@ const ControlButtons: FC<ControlButtonsProps> = ({
         sx={{
           // align button to right if no back button
           ml: { xs: 0, md: 'auto' },
-          color: 'primary.contrast',
         }}
         size="large"
         type="submit"
