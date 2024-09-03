@@ -213,9 +213,24 @@ const createOrganization = async (fhirClient: FhirClient): Promise<Organization>
 const createQuestionnaire = async (fhirClient: FhirClient) => {
   const newQuestionnaire = defaultQuestionnaire;
 
+  const prevQuestionnaire = await fhirClient.searchResources({
+    resourceType: 'Questionnaire',
+    searchParams: [
+      {
+        name: 'name',
+        value: newQuestionnaire.name || 'paperwork',
+      },
+    ],
+  });
+
   console.log('Received questionnaires from fhir.');
 
-  return await fhirClient.createResource(newQuestionnaire);
+  if (!prevQuestionnaire.length) {
+    return await fhirClient.createResource(newQuestionnaire);
+  } else {
+    console.log('Questionnaire already exists.');
+    return null;
+  }
 };
 
 const createLocation = async (fhirClient: FhirClient) => {

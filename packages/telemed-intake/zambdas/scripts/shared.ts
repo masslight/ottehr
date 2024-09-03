@@ -2138,7 +2138,7 @@ export const defaultQuestionnaire: Questionnaire = {
         },
         {
           linkId: 'school-work-note-template-school-both-attachment',
-          text: 'School Template',
+          text: 'Both School and Work Template',
           type: 'attachment',
           enableWhen: [
             {
@@ -2167,28 +2167,6 @@ export const defaultQuestionnaire: Questionnaire = {
               question: 'school-work-note-choice',
               operator: '=',
               answerString: 'Work only',
-            },
-          ],
-          extension: [
-            {
-              url: 'https://fhir.zapehr.com/r4/StructureDefinitions/file-upload-type',
-              valueString: 'application/pdf',
-            },
-            {
-              url: 'https://fhir.zapehr.com/r4/StructureDefinitions/document-type',
-              valueString: '47420-5',
-            },
-          ],
-        },
-        {
-          linkId: 'school-work-note-template-work-both-attachment',
-          text: 'Work Template',
-          type: 'attachment',
-          enableWhen: [
-            {
-              question: 'school-work-note-choice',
-              operator: '=',
-              answerString: 'Both school and work notes',
             },
           ],
           extension: [

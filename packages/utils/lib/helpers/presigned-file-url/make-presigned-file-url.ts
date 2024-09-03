@@ -9,7 +9,6 @@ import {
   PHOTO_ID_BACK_ID,
   PHOTO_ID_FRONT_ID,
   SCHOOL_WORK_NOTE_BOTH_ID,
-  SCHOOL_WORK_NOTE_BOTH_ID2,
   SCHOOL_WORK_NOTE_PREFIX,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_WORK_ID,
@@ -60,8 +59,6 @@ export const makePresignedFileURL = async (
   } else if (fileType === SCHOOL_WORK_NOTE_WORK_ID) {
     bucketName = `${SCHOOL_WORK_NOTE_PREFIX}-templates`;
   } else if (fileType === SCHOOL_WORK_NOTE_BOTH_ID) {
-    bucketName = `${SCHOOL_WORK_NOTE_PREFIX}-templates`;
-  } else if (fileType === SCHOOL_WORK_NOTE_BOTH_ID2) {
     bucketName = `${SCHOOL_WORK_NOTE_PREFIX}-templates`;
   } else {
     throw Error('Unknown bucket');
