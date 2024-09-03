@@ -69,7 +69,6 @@ export const IntakeThemeProviderBase: FC<IntakeThemeProviderProps> = (props) => 
     textFonts = ['Rubik'],
     headerFonts = ['Rubik'],
     customTypographyOverrides,
-    customComponentsOverrides,
   } = props;
 
   const defaultComponentsOverrides: Components = {
@@ -270,7 +269,7 @@ export const IntakeThemeProviderBase: FC<IntakeThemeProviderProps> = (props) => 
 
   const theme = createTheme({
     palette: palette,
-    components: { ...defaultComponentsOverrides, ...customComponentsOverrides },
+    components: { ...defaultComponentsOverrides },
     direction: 'ltr',
     breakpoints: breakpoints,
     typography: { ...defaultTypographyOverrides, ...customTypographyOverrides },
