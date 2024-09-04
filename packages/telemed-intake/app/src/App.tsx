@@ -28,6 +28,7 @@ import Welcome from './pages/Welcome';
 import ConfirmDateOfBirth from './pages/ConfirmDateOfBirth';
 import ThankYou from './pages/ThankYou';
 import { useTranslation } from 'react-i18next';
+import ScheduleSelect from './pages/ScheduleSelect';
 
 const isLowerEnvs =
   import.meta.env.MODE === 'dev' ||
@@ -64,6 +65,7 @@ const queryClient = new QueryClient({
 
 export class IntakeFlowPageRoute {
   static readonly PatientPortal = new IntakeFlowPageRoute('/patient-portal', <PatientPortal />);
+  static readonly ScheduleSelect = new IntakeFlowPageRoute('/schedule-select', <ScheduleSelect />);
   static readonly SelectPatient = new IntakeFlowPageRoute('/select-patient', <SelectPatient />);
   static readonly PastVisits = new IntakeFlowPageRoute('/past-visits', <PastVisits />);
   static readonly VisitDetails = new IntakeFlowPageRoute('/visit-details', <VisitDetails />);
@@ -141,6 +143,7 @@ function App(): JSX.Element {
             >
               <Route path="/" element={<UserFlowRoot />} />
               <Route path={IntakeFlowPageRoute.NewUser.path} element={IntakeFlowPageRoute.NewUser.page} />
+              <Route path={IntakeFlowPageRoute.ScheduleSelect.path} element={IntakeFlowPageRoute.ScheduleSelect.page} />
               <Route path={IntakeFlowPageRoute.SelectPatient.path} element={IntakeFlowPageRoute.SelectPatient.page} />
               <Route path={IntakeFlowPageRoute.PastVisits.path} element={IntakeFlowPageRoute.PastVisits.page} />
               <Route path={IntakeFlowPageRoute.VisitDetails.path} element={IntakeFlowPageRoute.VisitDetails.page} />
