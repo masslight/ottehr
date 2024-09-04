@@ -20,7 +20,6 @@ import PatientCondition from './pages/PatientCondition';
 import PatientInformation from './pages/PatientInformation';
 import ReviewPaperwork from './pages/ReviewPaperwork';
 import SelectPatient from './pages/SelectPatient';
-import UserFlowRoot from './pages/UserFlowRoot';
 import VideoChatPage from './pages/VideoChatPage';
 import VisitDetails from './pages/VisitDetails';
 import WaitingRoom from './pages/WaitingRoom';
@@ -139,7 +138,7 @@ function App(): JSX.Element {
                 />
               }
             >
-              <Route path="/" element={<UserFlowRoot />} />
+              <Route path="/" element={<PatientPortal />} />
               <Route path={IntakeFlowPageRoute.NewUser.path} element={IntakeFlowPageRoute.NewUser.page} />
               <Route path={IntakeFlowPageRoute.SelectPatient.path} element={IntakeFlowPageRoute.SelectPatient.page} />
               <Route path={IntakeFlowPageRoute.PastVisits.path} element={IntakeFlowPageRoute.PastVisits.page} />
