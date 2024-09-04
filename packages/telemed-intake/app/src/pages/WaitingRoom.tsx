@@ -1,6 +1,6 @@
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
-import { CallSettings } from '../components';
+import { CallSettings } from '../components/CallSettingsDialog';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import { Box, List, Typography, useTheme } from '@mui/material';
 import { Duration } from 'luxon';
@@ -152,9 +152,7 @@ const WaitingRoom = (): JSX.Element => {
       ) : null}
       {isUploadPhotosDialogOpen ? <UploadPhotosDialog onClose={() => setUploadPhotosDialogOpen(false)} /> : null}
       {isCancelVisitDialogOpen ? <CancelVisitDialog onClose={() => setCancelVisitDialogOpen(false)} /> : null}
-      {isCallSettingsOpen ? (
-        <CallSettings onClose={() => setIsCallSettingsOpen(false)} open={isCallSettingsOpen} />
-      ) : null}
+      {isCallSettingsOpen ? <CallSettings onClose={() => setIsCallSettingsOpen(false)} /> : null}
     </CustomContainer>
   );
 };
