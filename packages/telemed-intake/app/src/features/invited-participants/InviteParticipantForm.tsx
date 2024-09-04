@@ -71,6 +71,7 @@ export const InviteParticipantForm: FC<InviteParticipantsFormProps> = ({ onInvit
           loading: createInviteMutation.isLoading,
           submitLabel: t('participants.sendInvite'),
           backButtonLabel: t('general.button.close'),
+          onBack: () => setInviteErrorDialogOpen(false),
         }}
       />
       <ErrorDialog

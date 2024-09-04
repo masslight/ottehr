@@ -1,4 +1,6 @@
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import { CallSettings } from '../components';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import { Box, List, Typography, useTheme } from '@mui/material';
 import { Duration } from 'luxon';
@@ -42,6 +44,7 @@ const WaitingRoom = (): JSX.Element => {
   const [isManageParticipantsDialogOpen, setManageParticipantsDialogOpen] = useState<boolean>(false);
   const [isUploadPhotosDialogOpen, setUploadPhotosDialogOpen] = useState<boolean>(false);
   const [isCancelVisitDialogOpen, setCancelVisitDialogOpen] = useState<boolean>(false);
+  const [isCallSettingsOpen, setIsCallSettingsOpen] = useState(false);
 
   useGetWaitStatus((data) => {
     useWaitingRoomStore.setState(data);
@@ -93,6 +96,17 @@ const WaitingRoom = (): JSX.Element => {
             </Typography>
           </Box>
 
+          {!isIOSApp && (
+            <StyledListItemWithButton
+              onClick={() => setIsCallSettingsOpen(true)}
+              primaryText="Call settings & testing"
+              secondaryText="Setup audio, video, microphone to avoid technical issues now"
+              noDivider={isInvitedParticipant}
+            >
+              <SettingsOutlinedIcon sx={{ color: otherColors.purple }} />
+            </StyledListItemWithButton>
+          )}
+
           {isInvitedParticipant ? (
             <List sx={{ p: 0 }}>
               <StyledListItemWithButton
@@ -113,7 +127,7 @@ const WaitingRoom = (): JSX.Element => {
               <UploadPhotosListItemButton onClick={() => setUploadPhotosDialogOpen(true)} hideText={false} />
 
               <StyledListItemWithButton
-                onClick={() => navigate('/home')}
+                onClick={() => navigate('/patient-portal')}
                 primaryText={t('waitingRoom.leaveRoomTitle')}
                 secondaryText={t('waitingRoom.leaveRoomSubtext')}
               >
@@ -138,6 +152,9 @@ const WaitingRoom = (): JSX.Element => {
       ) : null}
       {isUploadPhotosDialogOpen ? <UploadPhotosDialog onClose={() => setUploadPhotosDialogOpen(false)} /> : null}
       {isCancelVisitDialogOpen ? <CancelVisitDialog onClose={() => setCancelVisitDialogOpen(false)} /> : null}
+      {isCallSettingsOpen ? (
+        <CallSettings onClose={() => setIsCallSettingsOpen(false)} open={isCallSettingsOpen} />
+      ) : null}
     </CustomContainer>
   );
 };
