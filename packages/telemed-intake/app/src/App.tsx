@@ -20,7 +20,6 @@ import PatientCondition from './pages/PatientCondition';
 import PatientInformation from './pages/PatientInformation';
 import ReviewPaperwork from './pages/ReviewPaperwork';
 import SelectPatient from './pages/SelectPatient';
-import UserFlowRoot from './pages/UserFlowRoot';
 import VideoChatPage from './pages/VideoChatPage';
 import VisitDetails from './pages/VisitDetails';
 import WaitingRoom from './pages/WaitingRoom';
@@ -137,11 +136,11 @@ function App(): JSX.Element {
                 <ProtectedRoute
                   loadingFallback={<LoadingScreen />}
                   errorFallback={<ErrorFallbackScreen />}
-                  unauthorizedFallback={<Navigate to={IntakeFlowPageRoute.Welcome.path} />}
+                  unauthorizedFallback={<Navigate to={IntakeFlowPageRoute.PatientPortal.path} />}
                 />
               }
             >
-              <Route path="/" element={<UserFlowRoot />} />
+              <Route path="/" element={<PatientPortal />} />
               <Route path={IntakeFlowPageRoute.NewUser.path} element={IntakeFlowPageRoute.NewUser.page} />
               <Route path={IntakeFlowPageRoute.ScheduleSelect.path} element={IntakeFlowPageRoute.ScheduleSelect.page} />
               <Route path={IntakeFlowPageRoute.SelectPatient.path} element={IntakeFlowPageRoute.SelectPatient.page} />
