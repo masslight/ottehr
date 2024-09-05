@@ -184,6 +184,10 @@
     "pastVisitsSubtitle": "School/Work Notes and Prescriptions",
     "contactSupport": "Contact Support"
   },
+  "selectSchedule": {
+    "title": "Select Visit Details",
+    "description": "Select a schedule to continue"
+  },
   "reviewPaperwork": {
     "title": "Review and submit",
     "description": "Review and confirm all details below.",

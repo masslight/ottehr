@@ -25,9 +25,7 @@ const PatientPortal = (): JSX.Element => {
   const appointmentID = activeAppointment?.id || '';
 
   const handleRequestVisit = (): void => {
-    navigate(
-      `${IntakeFlowPageRoute.Welcome.path.replace(':schedule-type', 'provider').replace(':slug', 'daniel').replace(':visit-service', 'in-person').replace(':visit-type', 'prebook')}`,
-    );
+    navigate(IntakeFlowPageRoute.ScheduleSelect.path);
   };
 
   const handleReturnToCall = (): void => {
