@@ -1,9 +1,11 @@
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import { CallSettings } from '../components/CallSettingsDialog';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import { Box, List, Typography, useTheme } from '@mui/material';
 import { Duration } from 'luxon';
 import { useContext, useEffect, useState } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { IntakeThemeContext, StyledListItemWithButton, safelyCaptureException } from 'ottehr-components';
 import { getSelectors } from 'ottehr-utils';
@@ -42,6 +44,7 @@ const WaitingRoom = (): JSX.Element => {
   const [isManageParticipantsDialogOpen, setManageParticipantsDialogOpen] = useState<boolean>(false);
   const [isUploadPhotosDialogOpen, setUploadPhotosDialogOpen] = useState<boolean>(false);
   const [isCancelVisitDialogOpen, setCancelVisitDialogOpen] = useState<boolean>(false);
+  const [isCallSettingsOpen, setIsCallSettingsOpen] = useState(false);
 
   useGetWaitStatus((data) => {
     useWaitingRoomStore.setState(data);
@@ -93,6 +96,17 @@ const WaitingRoom = (): JSX.Element => {
             </Typography>
           </Box>
 
+          {!isIOSApp && (
+            <StyledListItemWithButton
+              onClick={() => setIsCallSettingsOpen(true)}
+              primaryText="Call settings & testing"
+              secondaryText="Setup audio, video, microphone to avoid technical issues now"
+              noDivider={isInvitedParticipant}
+            >
+              <SettingsOutlinedIcon sx={{ color: otherColors.purple }} />
+            </StyledListItemWithButton>
+          )}
+
           {isInvitedParticipant ? (
             <List sx={{ p: 0 }}>
               <StyledListItemWithButton
@@ -112,13 +126,17 @@ const WaitingRoom = (): JSX.Element => {
 
               <UploadPhotosListItemButton onClick={() => setUploadPhotosDialogOpen(true)} hideText={false} />
 
-              <StyledListItemWithButton
-                onClick={() => navigate('/home')}
-                primaryText={t('waitingRoom.leaveRoomTitle')}
-                secondaryText={t('waitingRoom.leaveRoomSubtext')}
+              <Link
+                to={IntakeFlowPageRoute.PatientPortal.path}
+                style={{ textDecoration: 'none', color: 'var(--text-primary)' }}
               >
-                <img alt="Clock icon" src={clockFullColor} width={24} />
-              </StyledListItemWithButton>
+                <StyledListItemWithButton
+                  primaryText={t('waitingRoom.leaveRoomTitle')}
+                  secondaryText={t('waitingRoom.leaveRoomSubtext')}
+                >
+                  <img alt="Clock icon" src={clockFullColor} width={24} />
+                </StyledListItemWithButton>
+              </Link>
 
               <StyledListItemWithButton
                 onClick={() => setCancelVisitDialogOpen(true)}
@@ -138,6 +156,7 @@ const WaitingRoom = (): JSX.Element => {
       ) : null}
       {isUploadPhotosDialogOpen ? <UploadPhotosDialog onClose={() => setUploadPhotosDialogOpen(false)} /> : null}
       {isCancelVisitDialogOpen ? <CancelVisitDialog onClose={() => setCancelVisitDialogOpen(false)} /> : null}
+      {isCallSettingsOpen ? <CallSettings onClose={() => setIsCallSettingsOpen(false)} /> : null}
     </CustomContainer>
   );
 };

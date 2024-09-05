@@ -19,6 +19,6 @@ export const ManageParticipants: FC<ManageParticipantsProps> = ({ onClose }) => 
   ) : invitedParticipants.length > 0 ? (
     <InvitedParticipantList items={invitedParticipants} onInviteCancelled={() => onClose?.()} />
   ) : (
-    <InviteParticipantForm isGetInvitesFetching={isFetching} onInviteSuccess={() => onClose?.()} />
+    <InviteParticipantForm isGetInvitesFetching={isFetching} onInviteSuccess={() => onClose?.()} onBack={onClose} />
   );
 };
