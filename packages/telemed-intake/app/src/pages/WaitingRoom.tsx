@@ -127,7 +127,7 @@ const WaitingRoom = (): JSX.Element => {
               <UploadPhotosListItemButton onClick={() => setUploadPhotosDialogOpen(true)} hideText={false} />
 
               <StyledListItemWithButton
-                onClick={() => navigate('/patient-portal')}
+                onClick={() => navigate(IntakeFlowPageRoute.PatientPortal.path)}
                 primaryText={t('waitingRoom.leaveRoomTitle')}
                 secondaryText={t('waitingRoom.leaveRoomSubtext')}
               >
