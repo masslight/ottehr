@@ -5,7 +5,7 @@ import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import { Box, List, Typography, useTheme } from '@mui/material';
 import { Duration } from 'luxon';
 import { useContext, useEffect, useState } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { IntakeThemeContext, StyledListItemWithButton, safelyCaptureException } from 'ottehr-components';
 import { getSelectors } from 'ottehr-utils';
@@ -126,13 +126,17 @@ const WaitingRoom = (): JSX.Element => {
 
               <UploadPhotosListItemButton onClick={() => setUploadPhotosDialogOpen(true)} hideText={false} />
 
-              <StyledListItemWithButton
-                onClick={() => navigate(IntakeFlowPageRoute.PatientPortal.path)}
-                primaryText={t('waitingRoom.leaveRoomTitle')}
-                secondaryText={t('waitingRoom.leaveRoomSubtext')}
+              <Link
+                to={IntakeFlowPageRoute.PatientPortal.path}
+                style={{ textDecoration: 'none', color: 'var(--text-primary)' }}
               >
-                <img alt="Clock icon" src={clockFullColor} width={24} />
-              </StyledListItemWithButton>
+                <StyledListItemWithButton
+                  primaryText={t('waitingRoom.leaveRoomTitle')}
+                  secondaryText={t('waitingRoom.leaveRoomSubtext')}
+                >
+                  <img alt="Clock icon" src={clockFullColor} width={24} />
+                </StyledListItemWithButton>
+              </Link>
 
               <StyledListItemWithButton
                 onClick={() => setCancelVisitDialogOpen(true)}
