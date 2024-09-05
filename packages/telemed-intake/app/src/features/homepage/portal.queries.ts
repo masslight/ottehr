@@ -9,7 +9,6 @@ export const useGetProviders = (apiClient: ZapEHRAPIClient | null, enabled = fal
       if (!apiClient) {
         throw new Error('API client not defined');
       }
-      console.log('getting providers');
       return apiClient.getProviders();
     },
     {
@@ -43,7 +42,6 @@ export const useGetGroups = (apiClient: ZapEHRAPIClient | null, enabled = false)
   useQuery(
     ['groups'],
     () => {
-      console.log('getting groups');
       if (!apiClient) {
         throw new Error('API client not defined');
       }

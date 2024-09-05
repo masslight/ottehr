@@ -28,13 +28,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const fhirClient = createFhirClient(zapehrToken);
 
-    console.log('getting active locations');
+    console.log('getting active groups');
 
     const getGroups = async (): Promise<HealthcareService[]> => {
-      console.log('getting groups');
       try {
         const searchParams: SearchParam[] = [{ name: 'active', value: 'true' }];
-        const availableGroups: any[] = await fhirClient?.searchResources({
+        const availableGroups: HealthcareService[] = await fhirClient?.searchResources({
           resourceType: 'HealthcareService',
           searchParams: searchParams,
         });
@@ -53,7 +52,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       statusCode: 200,
       body: JSON.stringify(groups),
     };
-  } catch (error: any) {
+  } catch (error) {
     console.log(error, error.issue);
     return {
       statusCode: 500,

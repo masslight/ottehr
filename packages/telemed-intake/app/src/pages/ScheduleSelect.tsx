@@ -6,7 +6,7 @@ import { otherColors } from '../IntakeThemeProvider';
 import { CustomContainer } from '../features/common';
 import { useZapEHRAPIClient } from '../utils';
 import { useGetGroups, useGetLocations, useGetProviders } from '../features/homepage';
-import { FormProvider, useForm } from 'react-hook-form';
+import { FieldValues, FormProvider, useForm } from 'react-hook-form';
 import { FormInputType, PageForm } from 'ottehr-components';
 import { useState } from 'react';
 import { HealthcareService, HumanName, Location, Practitioner } from 'fhir/r4';
@@ -29,12 +29,12 @@ const ScheduleSelect = (): JSX.Element => {
   const filterResourcesWithSlug = (
     resources: Location[] | Practitioner[] | HealthcareService[],
   ): (Location | Practitioner | HealthcareService)[] => {
-    return resources.filter((resource) => {
+    return resources.filter((resource: Location | Practitioner | HealthcareService) => {
       return resource.identifier?.[0]?.value;
     });
   };
 
-  const handleRequestVisit = (data: any): void => {
+  const handleRequestVisit = (data: FieldValues): void => {
     navigate(
       `${IntakeFlowPageRoute.Welcome.path
         .replace(':schedule-type', data['Schedule Type'].toLowerCase())
