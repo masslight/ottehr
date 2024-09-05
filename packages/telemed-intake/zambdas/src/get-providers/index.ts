@@ -32,8 +32,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const fhirClient = createFhirClient(zapehrToken);
 
-    console.log('getting active providers');
-
     const getProviders = async (): Promise<Practitioner[]> => {
       try {
         const practitionersTemp: Practitioner[] = await fhirClient.searchResources({
@@ -51,8 +49,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
 
     const providers = await getProviders();
-
-    console.log('providers', providers);
 
     return {
       statusCode: 200,

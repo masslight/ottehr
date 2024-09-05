@@ -37,3 +37,22 @@ export const useGetLocations = (apiClient: ZapEHRAPIClient | null, enabled = fal
       },
     },
   );
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useGetGroups = (apiClient: ZapEHRAPIClient | null, enabled = false) =>
+  useQuery(
+    ['groups'],
+    () => {
+      console.log('getting groups');
+      if (!apiClient) {
+        throw new Error('API client not defined');
+      }
+      return apiClient.getGroups();
+    },
+    {
+      enabled,
+      onError: (err) => {
+        console.error('Error during fetching groups: ', err);
+      },
+    },
+  );

@@ -22,4 +22,5 @@ export type GetZapEHRAPIParams = {
   getPresignedFileURLZambdaID?: string;
   getProvidersZambdaID?: string;
   getLocationsZambdaID?: string;
+  getGroupsZambdaID?: string;
 };

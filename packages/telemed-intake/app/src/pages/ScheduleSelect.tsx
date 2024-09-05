@@ -5,10 +5,11 @@ import { IntakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
 import { CustomContainer } from '../features/common';
 import { useZapEHRAPIClient } from '../utils';
-import { useGetLocations, useGetProviders } from '../features/homepage';
+import { useGetGroups, useGetLocations, useGetProviders } from '../features/homepage';
 import { FormProvider, useForm } from 'react-hook-form';
 import { FormInputType, PageForm } from 'ottehr-components';
 import { useState } from 'react';
+import { HealthcareService, HumanName, Location, Practitioner } from 'fhir/r4';
 
 const ScheduleSelect = (): JSX.Element => {
   const methods = useForm();
@@ -16,20 +17,28 @@ const ScheduleSelect = (): JSX.Element => {
   const navigate = useNavigate();
   const { t } = useTranslation();
 
-  const [scheduleType, setScheduleType] = useState<'provider' | 'location' | ''>('');
-
+  const [scheduleType, setScheduleType] = useState<'Provider' | 'Location' | 'Group' | ''>('');
   const { data: providersData, isFetching: isFetchingProviders } = useGetProviders(apiClient, Boolean(apiClient));
   const { data: locationsData, isFetching: isFetchingLocations } = useGetLocations(apiClient, Boolean(apiClient));
+  const { data: groupsData, isFetching: isFetchingGroups } = useGetGroups(apiClient, Boolean(apiClient));
 
-  console.log('providersData', providersData);
-  console.log('locationsData', locationsData);
+  const convertFhirNameToDisplayName = (name: HumanName[]): string => {
+    return `${name?.[0]?.given?.[0]} ${name?.[0]?.family}`;
+  };
+
+  const filterResourcesWithSlug = (
+    resources: Location[] | Practitioner[] | HealthcareService[],
+  ): (Location | Practitioner | HealthcareService)[] => {
+    return resources.filter((resource) => {
+      return resource.identifier?.[0]?.value;
+    });
+  };
 
   const handleRequestVisit = (data: any): void => {
-    console.log('Form data:', data);
     navigate(
       `${IntakeFlowPageRoute.Welcome.path
-        .replace(':schedule-type', data['Schedule Type'])
-        .replace(':slug', data['Provider'])
+        .replace(':schedule-type', data['Schedule Type'].toLowerCase())
+        .replace(':slug', data[data['Schedule Type']])
         .replace(':visit-service', data['Visit Service'])
         .replace(':visit-type', data['Visit Type'])}`,
     );
@@ -42,40 +51,52 @@ const ScheduleSelect = (): JSX.Element => {
       label: 'Schedule Type',
       required: true,
       selectOptions: [
-        { label: 'Provider', value: 'provider' },
-        { label: 'Location', value: 'location' },
+        { label: 'Provider', value: 'Provider' },
+        { label: 'Location', value: 'Location' },
+        { label: 'Group', value: 'Group' },
       ],
       onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
-        setScheduleType(event.target.value as 'provider' | 'location');
+        setScheduleType(event.target.value as 'Provider' | 'Location' | 'Group');
       },
     },
     {
       type: 'Select',
       name: 'Provider',
       label: 'Provider',
-      required: scheduleType == 'provider',
+      required: scheduleType === 'Provider',
       selectOptions: providersData
-        ? providersData.map((provider) => ({
-            label:
-              provider.name?.[0]?.text ||
-              `${provider.name?.[0]?.given?.[0] || ''} ${provider.name?.[0]?.family || ''}`.trim(),
+        ? filterResourcesWithSlug(providersData).map((provider) => ({
+            label: convertFhirNameToDisplayName(provider.name as HumanName[]),
             value: provider.identifier?.[0]?.value || '',
           }))
         : [],
-      hidden: scheduleType !== 'provider',
+      hidden: scheduleType !== 'Provider',
     },
     {
       type: 'Select',
       name: 'Location',
       label: 'Location',
-      required: scheduleType == 'location',
+      required: scheduleType === 'Location',
       selectOptions: locationsData
-        ? locationsData.map((location) => ({
-            label: location.name || '',
+        ? filterResourcesWithSlug(locationsData).map((location) => ({
+            label: location.name as string,
             value: location.identifier?.[0]?.value || '',
           }))
         : [],
-      hidden: scheduleType !== 'location',
+      hidden: scheduleType !== 'Location',
+    },
+    {
+      type: 'Select',
+      name: 'Group',
+      label: 'Group',
+      required: scheduleType === 'Group',
+      selectOptions: groupsData
+        ? filterResourcesWithSlug(groupsData).map((group) => ({
+            label: group.name as string,
+            value: group.identifier?.[0]?.value || '',
+          }))
+        : [],
+      hidden: scheduleType !== 'Group',
     },
     {
       type: 'Select',
@@ -119,7 +140,7 @@ const ScheduleSelect = (): JSX.Element => {
         bgVariant={IntakeFlowPageRoute.PatientPortal.path}
         isFirstPage={true}
       >
-        {isFetchingProviders || isFetchingLocations ? (
+        {isFetchingProviders || isFetchingLocations || isFetchingGroups ? (
           <Skeleton
             sx={{
               borderRadius: 2,
@@ -133,8 +154,8 @@ const ScheduleSelect = (): JSX.Element => {
             <PageForm
               formElements={formElements}
               controlButtons={{
-                loading: isFetchingProviders || isFetchingLocations,
-                submitDisabled: isFetchingProviders || isFetchingLocations,
+                loading: isFetchingProviders || isFetchingLocations || isFetchingGroups,
+                submitDisabled: isFetchingProviders || isFetchingLocations || isFetchingGroups,
               }}
               onSubmit={handleRequestVisit}
             />
