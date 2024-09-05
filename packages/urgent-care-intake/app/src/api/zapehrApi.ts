@@ -261,6 +261,7 @@ class API {
         zambdaClient,
         dispatch,
       );
+      console.log('presignedURLRequest', presignedURLRequest);
 
       // const presignedURLResponse = await presignedURLRequest.json();
       // Upload the file to S3

@@ -5,6 +5,7 @@ import {
   PHOTO_ID_BACK_ID,
   PHOTO_ID_FRONT_ID,
   SCHOOL_WORK_NOTE_BOTH_ID,
+  SCHOOL_WORK_NOTE_BOTH_ID2,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_WORK_ID,
   ZambdaInput,
@@ -19,6 +20,7 @@ const fileTypes = [
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_WORK_ID,
   SCHOOL_WORK_NOTE_BOTH_ID,
+  SCHOOL_WORK_NOTE_BOTH_ID2,
 ];
 const fileFormats = ['jpg', 'jpeg', 'png'];
 
@@ -28,6 +30,7 @@ export function validateRequestParameters(input: ZambdaInput): GetPresignedFileU
   }
 
   const { appointmentID, fileType, fileFormat } = JSON.parse(input.body);
+  console.log('fileType', fileType);
 
   if (appointmentID === undefined || appointmentID === '') {
     throw new Error('"appointmentID" is required');
