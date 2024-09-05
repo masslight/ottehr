@@ -38,7 +38,7 @@ const ScheduleSelect = (): JSX.Element => {
   const formElements: FormInputType[] = [
     {
       type: 'Select',
-      name: 'scheduleType',
+      name: 'Schedule Type',
       label: 'Schedule Type',
       required: true,
       selectOptions: [
@@ -53,13 +53,13 @@ const ScheduleSelect = (): JSX.Element => {
       type: 'Select',
       name: 'Provider',
       label: 'Provider',
-      required: true,
+      required: scheduleType == 'provider',
       selectOptions: providersData
         ? providersData.map((provider) => ({
             label:
               provider.name?.[0]?.text ||
               `${provider.name?.[0]?.given?.[0] || ''} ${provider.name?.[0]?.family || ''}`.trim(),
-            value: provider.id || '',
+            value: provider.identifier?.[0]?.value || '',
           }))
         : [],
       hidden: scheduleType !== 'provider',
@@ -68,11 +68,11 @@ const ScheduleSelect = (): JSX.Element => {
       type: 'Select',
       name: 'Location',
       label: 'Location',
-      required: true,
+      required: scheduleType == 'location',
       selectOptions: locationsData
         ? locationsData.map((location) => ({
             label: location.name || '',
-            value: location.id || '',
+            value: location.identifier?.[0]?.value || '',
           }))
         : [],
       hidden: scheduleType !== 'location',
