@@ -29,7 +29,7 @@ const ScheduleSelect = (): JSX.Element => {
   const filterResourcesWithSlug = (
     resources: Location[] | Practitioner[] | HealthcareService[],
   ): (Location | Practitioner | HealthcareService)[] => {
-    return resources.filter((resource: Location | Practitioner | HealthcareService) => {
+    return (resources as (Location | Practitioner | HealthcareService)[]).filter((resource) => {
       return resource.identifier?.[0]?.value;
     });
   };

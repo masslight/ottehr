@@ -52,7 +52,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       statusCode: 200,
       body: JSON.stringify(groups),
     };
-  } catch (error) {
+  } catch (error: any) {
     console.log(error, error.issue);
     return {
       statusCode: 500,
