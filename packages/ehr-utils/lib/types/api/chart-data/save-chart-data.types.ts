@@ -11,7 +11,7 @@ export interface SaveChartDataRequest extends ChartDataFields {
    * Calm and Fussy
    * if calm is true - front mush send Fussy = false AND Calm = true
    */
-  newschoolWorkNote?: SchoolWorkNoteExcuseDocDTO;
+  newSchoolWorkNote?: SchoolWorkNoteExcuseDocDTO;
   schoolWorkNotes?: Pick<SchoolWorkNoteExcuseDocFileDTO, 'id' | 'published'>[];
 }
 

@@ -59,7 +59,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       instructions,
       disposition,
       diagnosis,
-      newschoolWorkNote,
+      newSchoolWorkNote,
       schoolWorkNotes,
       patientInfoConfirmed,
       addendumNote,
@@ -281,11 +281,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     // 14 convert work-school note to pdf file, upload it to z3 bucket and create DocumentReference (FHIR) for it
-    if (newschoolWorkNote) {
-      const pdfInfo = await createSchoolWorkNotePDF(newschoolWorkNote, patient, secrets, m2mtoken);
+    if (newSchoolWorkNote) {
+      const pdfInfo = await createSchoolWorkNotePDF(newSchoolWorkNote, patient, secrets, m2mtoken);
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(
-          makeDocumentReferenceResource(pdfInfo, patient.id, encounterId, newschoolWorkNote.type, SCHOOL_WORK_NOTE),
+          makeDocumentReferenceResource(pdfInfo, patient.id, encounterId, newSchoolWorkNote.type, SCHOOL_WORK_NOTE),
         ),
       );
     }

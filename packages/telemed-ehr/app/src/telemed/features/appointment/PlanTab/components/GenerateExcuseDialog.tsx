@@ -59,7 +59,7 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
       suffix: user?.profileResource?.name?.[0]?.suffix?.join(' '),
     });
     generate(
-      { newschoolWorkNote: excuse },
+      { newSchoolWorkNote: excuse },
       {
         onSuccess: (data) => {
           const savedExcuses = data?.schoolWorkNotes;

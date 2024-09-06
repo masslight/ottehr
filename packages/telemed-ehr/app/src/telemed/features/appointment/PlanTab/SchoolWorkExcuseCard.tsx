@@ -111,13 +111,11 @@ export const SchoolWorkExcuseCard: FC = () => {
               <Grid container columnSpacing={3} sx={{ position: 'relative' }}>
                 {patientSchoolPresignedUrl && (
                   <Grid item xs={6}>
-                    {/* TODO extension should match extension uploaded */}
                     <ExcuseLink label={`School excuse note template${'.pdf'}`} to={patientSchoolPresignedUrl} />
                   </Grid>
                 )}
                 {patientWorkPresignedUrl && (
                   <Grid item xs={6}>
-                    {/* TODO extension should match extension uploaded */}
                     <ExcuseLink label={`Work excuse note template${'.pdf'}`} to={patientWorkPresignedUrl} />
                   </Grid>
                 )}
