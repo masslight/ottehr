@@ -6,6 +6,7 @@
   "AUTH0_AUDIENCE": "",
   "FHIR_API": "",
   "PROJECT_API": "",
+  "PROJECT_ID": "",
   "ENVIRONMENT": "local",
   "TELEMED_MESSAGING_DEVICE_ID": "",
   "SENDGRID_API_KEY": "",

@@ -23,7 +23,6 @@ export const makePresignedFileURL = async (
   getAppointmentResource: (appointmentID: string, fhirClient: FhirClient) => Promise<Appointment | undefined>,
   zapehrToken: string,
 ): Promise<{ presignedURL: string; z3URL: string }> => {
-  console.log('zapehrToken', zapehrToken);
   console.group('validateRequestParameters');
   const validatedParameters = validateRequestParameters(input);
   const { appointmentID, fileType, fileFormat, secrets } = validatedParameters;
@@ -48,9 +47,9 @@ export const makePresignedFileURL = async (
 
   let bucketName = '';
   if (fileType === PHOTO_ID_FRONT_ID) {
-    bucketName = 'photo-id-cards';
+    bucketName = 'id-cards';
   } else if (fileType === PHOTO_ID_BACK_ID) {
-    bucketName = 'photo-id-cards';
+    bucketName = 'id-cards';
   } else if (fileType === INSURANCE_CARD_FRONT_ID) {
     bucketName = 'insurance-cards';
   } else if (fileType === INSURANCE_CARD_BACK_ID) {
@@ -63,12 +62,12 @@ export const makePresignedFileURL = async (
     bucketName = `${SCHOOL_WORK_NOTE_PREFIX}-templates`;
   } else if (fileType === SCHOOL_WORK_NOTE_BOTH_ID) {
     bucketName = `${SCHOOL_WORK_NOTE_PREFIX}-templates`;
+  } else if (fileType === SCHOOL_WORK_NOTE_BOTH_ID2) {
+    bucketName = `${SCHOOL_WORK_NOTE_PREFIX}-templates`;
   } else {
     throw Error('Unknown bucket');
   }
 
-  // console.log(await z3Client.getObjectsInBucket(`${environment}-${bucketName}`));
-  // const presignedURL = await z3Client.createPresignedUrl(`${environment}-${bucketName}/`, `test`);
   const fileURL = makeZ3Url({
     secrets,
     bucketName,
@@ -83,22 +82,7 @@ export const makePresignedFileURL = async (
     },
     body: JSON.stringify({ action: 'upload' }),
   });
-  console.log('presigned URL request successfully made');
   const presignedURLResponse = await presignedURLRequest.json();
-  console.log('presignedURLResponse', presignedURLResponse);
-  console.log('fileURL', fileURL);
-
-  const url = 'https://project-api.zapehr.com/v1/z3';
-  const options = {
-    method: 'GET',
-    headers: { accept: 'application/json', authorization: `Bearer ${zapehrToken}` },
-  };
-
-  fetch(url, options)
-    .then((res) => res.json())
-    .then((json) => console.log('Debug Z3 API response:', json))
-    .catch((err) => console.error('Error in debug Z3 API call:', err));
-
   return { presignedURL: presignedURLResponse.signedUrl, z3URL: fileURL };
 };
 
@@ -117,15 +101,10 @@ export const makeZ3Url = (input: Z3UrlInput): string => {
     SecretsKeys.PROJECT_API,
     secrets,
   )}/z3/${PROJECT_ID}-${bucketName}/${patientID}/${Date.now()}-${fileType}.${fileFormat}`;
-  console.log('created z3 url: ', fileURL);
-  console.log('fileURL', fileURL);
   return fileURL;
 };
 
 export async function getPresignedURL(url: string, zapehrToken: string): Promise<string> {
-  console.log('getting presigned url');
-  // const { bucket, object } = getBucketAndObjectFromZ3URL(url, projectAPI);
-  // const presignedUrl = (await z3Client.createPresignedUrl(bucket, object)).signedUrl;
   const presignedURLRequest = await fetch(url, {
     method: 'POST',
     headers: {
