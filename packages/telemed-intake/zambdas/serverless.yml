@@ -67,7 +67,7 @@ functions:
     handler: src/get-locations/index.index
     events:
       - http:
-          path: zambda/get-locations/execute
+          path: zambda/get-locations/execute-public
           method: POST
     timeout: 25
     environment:
@@ -82,7 +82,7 @@ functions:
     handler: src/get-providers/index.index
     events:
       - http:
-          path: zambda/get-providers/execute
+          path: zambda/get-providers/execute-public
           method: POST
     timeout: 25
     environment:
@@ -97,7 +97,7 @@ functions:
     handler: src/get-groups/index.index
     events:
       - http:
-          path: zambda/get-groups/execute
+          path: zambda/get-groups/execute-public
           method: POST
     timeout: 25
     environment:

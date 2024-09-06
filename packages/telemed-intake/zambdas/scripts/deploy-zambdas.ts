@@ -51,13 +51,13 @@ const ZAMBDAS: { [name: string]: DeployZambda } = {
     type: 'http_auth',
   },
   'GET-LOCATIONS': {
-    type: 'http_auth',
+    type: 'http_open',
   },
   'GET-PROVIDERS': {
-    type: 'http_auth',
+    type: 'http_open',
   },
   'GET-GROUPS': {
-    type: 'http_auth',
+    type: 'http_open',
   },
   'UPDATE-APPOINTMENT': {
     type: 'http_auth',
