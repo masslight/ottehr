@@ -72,9 +72,9 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'video chat cancel invite': false,
   'video chat list invites': false,
   'get presigned file url': true,
-  'get providers': true,
-  'get locations': true,
-  'get groups': true,
+  'get providers': false,
+  'get locations': false,
+  'get groups': false,
 };
 
 export type ZapEHRAPIClient = ReturnType<typeof getZapEHRAPI>;
