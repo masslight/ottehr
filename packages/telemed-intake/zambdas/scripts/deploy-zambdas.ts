@@ -48,7 +48,7 @@ const ZAMBDAS: { [name: string]: DeployZambda } = {
     type: 'http_auth',
   },
   'GET-WAIT-STATUS': {
-    type: 'http_auth',
+    type: 'http_open',
   },
   'GET-LOCATIONS': {
     type: 'http_open',
