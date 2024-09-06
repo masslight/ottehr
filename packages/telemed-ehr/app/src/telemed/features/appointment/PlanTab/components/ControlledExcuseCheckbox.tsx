@@ -5,7 +5,7 @@ import { SchoolExcuseFields, WorkExcuseFields } from '../../../../utils';
 
 type ControlledExcuseCheckboxProps = {
   label: string;
-  name: WorkExcuseFields | SchoolExcuseFields;
+  name: SchoolExcuseFields | WorkExcuseFields;
   onChange?: (newValue: boolean) => void;
 };
 

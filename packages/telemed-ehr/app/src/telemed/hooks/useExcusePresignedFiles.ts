@@ -1,26 +1,26 @@
 import { useEffect, useState } from 'react';
 import { getPresignedFileUrl } from '../../helpers/files.helper';
 import { useAuth0 } from '@auth0/auth0-react';
-import { WorkSchoolNoteExcuseDocFileDTO } from 'ehr-utils';
+import { SchoolWorkNoteExcuseDocFileDTO } from 'ehr-utils';
 
-type WorkSchoolNoteExcuseDocFilePresigned = WorkSchoolNoteExcuseDocFileDTO & { presignedUrl?: string };
+type schoolWorkNoteExcuseDocFilePresigned = SchoolWorkNoteExcuseDocFileDTO & { presignedUrl?: string };
 
 export const useExcusePresignedFiles = (
-  workSchoolNotes?: WorkSchoolNoteExcuseDocFileDTO[],
-): WorkSchoolNoteExcuseDocFilePresigned[] => {
+  schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[],
+): schoolWorkNoteExcuseDocFilePresigned[] => {
   const { getAccessTokenSilently } = useAuth0();
-  const [presignedFiles, setPresignedFiles] = useState<WorkSchoolNoteExcuseDocFilePresigned[]>([]);
+  const [presignedFiles, setPresignedFiles] = useState<schoolWorkNoteExcuseDocFilePresigned[]>([]);
 
   useEffect(() => {
     const fetch = async (): Promise<void> => {
-      if (!workSchoolNotes) {
+      if (!schoolWorkNotes) {
         return;
       }
 
       const authToken = await getAccessTokenSilently();
       const urls = [];
 
-      for (const item of workSchoolNotes) {
+      for (const item of schoolWorkNotes) {
         const presignedUrl = await getPresignedFileUrl(item.url!, authToken);
         urls.push({ ...item, presignedUrl });
       }
@@ -29,7 +29,7 @@ export const useExcusePresignedFiles = (
     };
 
     void fetch();
-  }, [workSchoolNotes, getAccessTokenSilently]);
+  }, [schoolWorkNotes, getAccessTokenSilently]);
 
   return presignedFiles;
 };

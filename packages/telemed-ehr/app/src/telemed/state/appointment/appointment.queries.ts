@@ -7,7 +7,7 @@ import {
   InstructionType,
   MeetingData,
   SaveChartDataRequest,
-  WorkSchoolNoteExcuseDocFileDTO,
+  SchoolWorkNoteExcuseDocFileDTO,
 } from 'ehr-utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { PromiseReturnType, ZapEHRTelemedAPIClient } from '../../data';
@@ -50,7 +50,7 @@ export const useGetAppointmentInformation = (
               name: '_revinclude:iterate',
               value: 'QuestionnaireResponse:encounter',
             },
-            { name: '_revinclude:iterate', value: 'DocumentReference:patient' },
+            { name: '_revinclude', value: 'DocumentReference:related' },
           ],
         });
       }
@@ -163,7 +163,7 @@ export const useDeleteChartData = () => {
   const { encounter } = useAppointmentStore.getState();
 
   return useMutation({
-    mutationFn: (chartDataFields: ChartDataFields & { workSchoolNotes?: WorkSchoolNoteExcuseDocFileDTO[] }) => {
+    mutationFn: (chartDataFields: ChartDataFields & { schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[] }) => {
       if (apiClient && encounter.id) {
         return apiClient.deleteChartData({
           encounterId: encounter.id,

@@ -738,7 +738,7 @@ async function createImagesAndDocsResources(
   };
 
   // work/school notes
-  const workSchoolNotesDocToSave: DocToSaveData = {
+  const schoolWorkNotesDocToSave: DocToSaveData = {
     code: SCHOOL_WORK_NOTE_CODE,
     display: 'Functional status assessment note',
     text: 'Patient work/school notes',
@@ -784,7 +784,7 @@ async function createImagesAndDocsResources(
       }
 
       if (key.startsWith(SCHOOL_WORK_NOTE_PREFIX) && files[key]?.z3Url) {
-        workSchoolNotesDocToSave.files.push({
+        schoolWorkNotesDocToSave.files.push({
           // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           url: files[key].z3Url!,
           title: key,
@@ -793,7 +793,7 @@ async function createImagesAndDocsResources(
     });
   }
 
-  docsToSave.push(insuranceDocToSave, photoIdDocToSave, patientPhotosDocToSave, workSchoolNotesDocToSave);
+  docsToSave.push(insuranceDocToSave, photoIdDocToSave, patientPhotosDocToSave, schoolWorkNotesDocToSave);
 
   docsToSave.forEach(async (d) => {
     // Update insurance cards DocumentReferences

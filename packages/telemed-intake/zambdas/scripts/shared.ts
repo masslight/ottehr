@@ -2138,7 +2138,7 @@ export const defaultQuestionnaire: Questionnaire = {
         },
         {
           linkId: 'school-work-note-template-school-both-attachment',
-          text: 'School Template',
+          text: 'Both School and Work Template',
           type: 'attachment',
           enableWhen: [
             {
@@ -2182,7 +2182,7 @@ export const defaultQuestionnaire: Questionnaire = {
         },
         {
           linkId: 'school-work-note-template-work-both-attachment',
-          text: 'Work Template',
+          text: 'Both School and Work Template',
           type: 'attachment',
           enableWhen: [
             {

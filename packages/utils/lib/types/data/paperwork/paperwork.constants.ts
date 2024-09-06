@@ -8,5 +8,10 @@ export const PATIENT_PHOTO_ID_PREFIX = 'patient-photo';
 export const PATIENT_PHOTOS_MAX_COUNT_TELEMED = 4;
 export const PATIENT_PHOTO_CODE = '72170-4';
 
-export const SCHOOL_WORK_NOTE_PREFIX = 'work-school-note';
+export const SCHOOL_WORK_NOTE_PREFIX = 'school-work-note';
+export const SCHOOL_WORK_NOTE_SCHOOL_ID = 'school-work-note-template-school-only-attachment';
+export const SCHOOL_WORK_NOTE_BOTH_ID = 'school-work-note-template-school-both-attachment';
+export const SCHOOL_WORK_NOTE_WORK_ID = 'school-work-note-template-work-only-attachment';
+export const SCHOOL_WORK_NOTE_BOTH_ID2 = 'school-work-note-template-work-both-attachment';
+
 export const SCHOOL_WORK_NOTE_CODE = '47420-5';
