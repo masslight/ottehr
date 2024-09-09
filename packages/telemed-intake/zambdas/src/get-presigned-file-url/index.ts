@@ -5,6 +5,7 @@ import { createFhirClient, getM2MClientToken } from '../shared';
 let zapehrToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.log('get-presigned-file-url');
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     if (!zapehrToken) {
@@ -14,6 +15,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       console.log('already have token');
     }
     const result = await makePresignedFileURL(input, createFhirClient, getAppointmentResourceById, zapehrToken);
+
+    console.log('result', result);
+    console.log('result.presignedURL', result.presignedURL);
+    console.log('result json', JSON.stringify(result));
 
     return {
       statusCode: 200,

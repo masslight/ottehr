@@ -15,7 +15,7 @@ import { GenerateExcuseDialogContainer } from './GenerateExcuseDialogContainer';
 import { ControlledExcuseDatePicker } from './ControlledExcuseDatePicker';
 import { ControlledExcuseCheckbox } from './ControlledExcuseCheckbox';
 import { ControlledExcuseTextField } from './ControlledExcuseTextField';
-import { mapExcuseFieldsToLabels } from '../../../../utils/work-school-excuse.helper';
+import { mapExcuseFieldsToLabels } from '../../../../utils/school-work-excuse.helper';
 
 type GenerateExcuseDialogExtendedProps = {
   open: boolean;
@@ -59,13 +59,13 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
       suffix: user?.profileResource?.name?.[0]?.suffix?.join(' '),
     });
     generate(
-      { newWorkSchoolNote: excuse },
+      { newSchoolWorkNote: excuse },
       {
         onSuccess: (data) => {
-          const savedExcuses = data?.workSchoolNotes;
+          const savedExcuses = data?.schoolWorkNotes;
           if (savedExcuses) {
             setPartialChartData({
-              workSchoolNotes: [...(chartData?.workSchoolNotes || []), ...savedExcuses],
+              schoolWorkNotes: [...(chartData?.schoolWorkNotes || []), ...savedExcuses],
             });
           }
         },

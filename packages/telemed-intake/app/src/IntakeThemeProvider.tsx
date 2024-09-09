@@ -27,7 +27,6 @@ export const IntakeThemeProvider: FC<PropsWithChildren> = (props) => {
       palette={palette}
       otherColors={otherColors}
       i18n={i18n}
-      customComponentsOverrides={customTheme.componentStyles}
       customTypographyOverrides={customTheme.typography}
     >
       {children}

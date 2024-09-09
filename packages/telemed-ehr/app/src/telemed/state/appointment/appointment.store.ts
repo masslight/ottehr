@@ -9,6 +9,7 @@ type AppointmentState = {
   encounter: Encounter;
   questionnaireResponse: QuestionnaireResponse | undefined;
   patientPhotoUrls: string[];
+  schoolWorkNoteUrls: string[];
   isAppointmentLoading: boolean;
   isChartDataLoading: boolean;
   isExamObservationsLoading: boolean;
@@ -28,6 +29,7 @@ const APPOINTMENT_INITIAL: AppointmentState = {
   encounter: {} as Encounter,
   questionnaireResponse: undefined,
   patientPhotoUrls: [],
+  schoolWorkNoteUrls: [],
   isAppointmentLoading: false,
   isChartDataLoading: false,
   isExamObservationsLoading: false,

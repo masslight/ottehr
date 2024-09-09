@@ -1,4 +1,4 @@
-import { WorkSchoolNoteExcuseDocDTO, Secrets, PdfBulletPointItem } from 'ehr-utils';
+import { SchoolWorkNoteExcuseDocDTO, Secrets, PdfBulletPointItem } from 'ehr-utils';
 import { Patient } from 'fhir/r4';
 import { getSecret, SecretsKeys } from '../secrets';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
@@ -11,7 +11,7 @@ export async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl
   await uploadObjectToZ3(pdfBytes, presignedUrl);
 }
 
-async function createPdfBytes(data: WorkSchoolNoteExcuseDocDTO): Promise<Uint8Array> {
+async function createPdfBytes(data: SchoolWorkNoteExcuseDocDTO): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage();
   page.setSize(PageSizes.A4[0], PageSizes.A4[1]);
@@ -131,8 +131,8 @@ async function createPdfBytes(data: WorkSchoolNoteExcuseDocDTO): Promise<Uint8Ar
   return await pdfDoc.save();
 }
 
-export async function createWorkSchoolNotePDF(
-  input: WorkSchoolNoteExcuseDocDTO,
+export async function createSchoolWorkNotePDF(
+  input: SchoolWorkNoteExcuseDocDTO,
   patient: Patient,
   secrets: Secrets | null,
   token: string,
@@ -147,7 +147,7 @@ export async function createWorkSchoolNotePDF(
   });
   const environment = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   const bucket = `${environment}-work-school-note`;
-  const fileName = 'WorkSchoolNote.pdf';
+  const fileName = 'schoolWorkNote.pdf';
   const baseFileUrl = createBaseFileUrl(secrets, fileName, bucket);
   await uploadPDF(pdfBytes, token, baseFileUrl).catch((error) => {
     throw new Error('failed uploading pdf to z3: ' + error.message);
