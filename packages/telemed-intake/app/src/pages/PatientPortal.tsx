@@ -1,5 +1,5 @@
 import { Skeleton, Typography } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { IntakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
@@ -24,18 +24,6 @@ const PatientPortal = (): JSX.Element => {
 
   const appointmentID = activeAppointment?.id || '';
 
-  const handleRequestVisit = (): void => {
-    navigate(IntakeFlowPageRoute.ScheduleSelect.path);
-  };
-
-  const handleReturnToCall = (): void => {
-    navigate(`${IntakeFlowPageRoute.WaitingRoom.path}?appointment_id=${appointmentID}`);
-  };
-
-  const handlePastVisits = (): void => {
-    navigate(`${IntakeFlowPageRoute.SelectPatient.path}?flow=pastVisits`);
-  };
-
   const handleContactSupport = (): void => {
     useIntakeCommonStore.setState({ supportDialogOpen: true });
   };
@@ -59,40 +47,49 @@ const PatientPortal = (): JSX.Element => {
       ) : (
         <>
           {isAppointmentStatusReady && (
-            <HomepageOption
-              title={t('patientPortal.returnToCall')}
-              icon={requestVisit}
-              handleClick={handleReturnToCall}
-              subSlot={
-                <Typography
-                  variant="overline"
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    backgroundColor: '#FFD271',
-                    color: '#A67100',
-                    borderRadius: 1,
-                    px: 1,
-                  }}
-                >
-                  {t('patientPortal.activeCall')}
-                </Typography>
-              }
-            />
+            <Link
+              to={`${IntakeFlowPageRoute.WaitingRoom.path}?appointment_id=${appointmentID}`}
+              style={{ textDecoration: 'none', color: 'var(--text-primary)' }}
+            >
+              <HomepageOption
+                title={t('patientPortal.returnToCall')}
+                icon={requestVisit}
+                subSlot={
+                  <Typography
+                    variant="overline"
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'center',
+                      backgroundColor: '#FFD271',
+                      color: '#A67100',
+                      borderRadius: 1,
+                      px: 1,
+                    }}
+                  >
+                    {t('patientPortal.activeCall')}
+                  </Typography>
+                }
+              />
+            </Link>
           )}
 
-          <HomepageOption
-            title={t('patientPortal.requestVisit')}
-            icon={requestVisit}
-            handleClick={handleRequestVisit}
-          />
+          <Link
+            to={IntakeFlowPageRoute.ScheduleSelect.path}
+            style={{ textDecoration: 'none', color: 'var(--text-primary)' }}
+          >
+            <HomepageOption title={t('patientPortal.requestVisit')} icon={requestVisit} />
+          </Link>
 
-          <HomepageOption
-            title={t('patientPortal.pastVisits')}
-            icon={pastVisits}
-            handleClick={handlePastVisits}
-            subtitle={t('patientPortal.pastVisitsSubtitle')}
-          />
+          <Link
+            to={`${IntakeFlowPageRoute.SelectPatient.path}?flow=pastVisits`}
+            style={{ textDecoration: 'none', color: 'var(--text-primary)' }}
+          >
+            <HomepageOption
+              title={t('patientPortal.pastVisits')}
+              icon={pastVisits}
+              subtitle={t('patientPortal.pastVisitsSubtitle')}
+            />
+          </Link>
         </>
       )}
       <HomepageOption

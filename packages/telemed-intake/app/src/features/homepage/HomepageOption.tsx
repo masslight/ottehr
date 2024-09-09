@@ -6,7 +6,7 @@ import { otherColors } from '../../IntakeThemeProvider';
 interface HomepageOptionsProps {
   title: string;
   icon: string;
-  handleClick: () => void;
+  handleClick?: () => void;
   subtitle?: string;
   subSlot?: JSX.Element;
   className?: string;
