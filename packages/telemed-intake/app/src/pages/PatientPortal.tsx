@@ -1,5 +1,5 @@
 import { Skeleton, Typography } from '@mui/material';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { IntakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
@@ -11,7 +11,6 @@ import { requestVisit, pastVisits, contactSupport } from '@theme/icons';
 
 const PatientPortal = (): JSX.Element => {
   const apiClient = useZapEHRAPIClient();
-  const navigate = useNavigate();
   const { t } = useTranslation();
 
   const { data: appointmentsData, isFetching } = useGetAppointments(apiClient, Boolean(apiClient));
