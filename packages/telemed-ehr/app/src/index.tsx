@@ -27,7 +27,7 @@ root.render(
         domain={import.meta.env.VITE_APP_ZAPEHR_APPLICATION_DOMAIN || ''}
         clientId={import.meta.env.VITE_APP_ZAPEHR_APPLICATION_CLIENT_ID || ''}
         audience={import.meta.env.VITE_APP_ZAPEHR_APPLICATION_AUDIENCE}
-        redirectUri={AUTH0_REDIRECT_URI}
+        redirectUri={`${window.location.origin}`}
         connection={import.meta.env.VITE_APP_ZAPEHR_CONNECTION_NAME}
       >
         <App />

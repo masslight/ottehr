@@ -16,7 +16,7 @@
     "setup-default-locations": "ts-node scripts/setup-default-locations.ts",
     "update-permissions-for-users": "ts-node scripts/update-permissions-for-users.ts",
     "build": "tsc && sls package --stage dev",
-    "package": "tsc && sls package && npm run rebundle",
+    "package": "sls package && npm run rebundle",
     "rebundle": "bash scripts/package-for-release.sh",
     "test": "jest",
     "debug": "export SLS_DEBUG=* && node --inspect ../../../node_modules/serverless/bin/serverless offline --stage=local --httpPort 3000"

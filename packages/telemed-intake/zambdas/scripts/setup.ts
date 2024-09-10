@@ -148,8 +148,9 @@ async function createApplication(
   });
 }
 
-function createZambdaLocalEnvFile(
+function createZambdaEnvFile(
   projectId: string,
+  environment: string,
   m2mDeviceId: string,
   m2mClientId: string,
   m2mSecret: string,
@@ -170,7 +171,7 @@ function createZambdaLocalEnvFile(
   };
 
   const envFolderPath = 'packages/telemed-intake/zambdas/.env';
-  const envPath = path.join(envFolderPath, 'local.json');
+  const envPath = path.join(envFolderPath, `${environment}.json`);
   const envTemplatePath = path.join(envFolderPath, 'local.template.json');
 
   // Read the template file
@@ -185,9 +186,9 @@ function createZambdaLocalEnvFile(
   return envPath;
 }
 
-function createAppLocalEnvFile(clientId: string): string {
+function createAppEnvFile(clientId: string, environment: string): string {
   const envTemplatePath = 'packages/telemed-intake/app/env/.env.local-template';
-  const envPath = 'packages/telemed-intake/app/env/.env.local';
+  const envPath = `packages/telemed-intake/app/env/.env.${environment}`;
 
   // Read the template file
   const templateData = fs.readFileSync(envTemplatePath, 'utf8');
@@ -258,6 +259,7 @@ const createLocation = async (fhirClient: FhirClient) => {
 
 export async function setupIntake(
   projectApiUrl: string,
+  environment: string,
   accessToken: string,
   projectId: string,
   providerEmail: string,
@@ -286,10 +288,10 @@ export async function setupIntake(
   await createLocation(fhirClient);
   await checkTelemedVirtualLocations(fhirClient);
 
-  const envPath1 = createZambdaLocalEnvFile(projectId, m2mDeviceId, m2mClientId, m2mSecret, organizationID);
+  const envPath1 = createZambdaEnvFile(projectId, environment, m2mDeviceId, m2mClientId, m2mSecret, organizationID);
   console.log('Created environment file:', envPath1);
 
-  const envPath2 = createAppLocalEnvFile(clientId);
+  const envPath2 = createAppEnvFile(clientId, environment);
   console.log('Created environment file:', envPath2);
   console.log('Setup of telemed intake testing');
 }

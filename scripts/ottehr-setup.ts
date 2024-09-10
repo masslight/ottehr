@@ -6,6 +6,9 @@ import { setupIntake } from '../packages/telemed-intake/zambdas/scripts/setup';
 const projectApiUrl = 'https://project-api.zapehr.com/v1';
 
 async function getUserInput(): Promise<{ accessToken: string; projectId: string; providerEmail: string }> {
+  if (process.argv.length > 2) {
+    return { projectId: process.argv[2], accessToken: process.argv[3], providerEmail: process.argv[4] };
+  }
   const { accessToken, projectId, providerEmail } = await inquirer.prompt([
     {
       message: 'Please enter your access token:',
@@ -128,6 +131,10 @@ async function createM2M(accessToken: string, projectId: string): Promise<[strin
 
 async function runCLI(): Promise<void> {
   const { accessToken, projectId, providerEmail } = await getUserInput();
+  let environment = "local";
+  if (process.argv.length >= 6) {
+    environment = process.argv[5];
+  }
 
   console.log('Starting setup...');
 
@@ -135,8 +142,8 @@ async function runCLI(): Promise<void> {
   console.log('Created m2m:', m2mClientId);
 
   try {
-    await setupEHR(projectApiUrl, accessToken, projectId, providerEmail, m2mDeviceId, m2mClientId, m2mSecret);
-    await setupIntake(projectApiUrl, accessToken, projectId, providerEmail, m2mDeviceId, m2mClientId, m2mSecret);
+    await setupEHR(projectApiUrl, environment, accessToken, projectId, providerEmail, m2mDeviceId, m2mClientId, m2mSecret);
+    await setupIntake(projectApiUrl, environment, accessToken, projectId, providerEmail, m2mDeviceId, m2mClientId, m2mSecret);
   } catch (e) {
     console.log(e);
     throw e;

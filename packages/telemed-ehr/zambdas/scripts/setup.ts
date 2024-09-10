@@ -55,8 +55,9 @@ const createOrganization = async (fhirClient: FhirClient): Promise<Organization>
   return await fhirClient.createResource(organization);
 };
 
-function createZambdaLocalEnvFile(
+function createZambdaEnvFile(
   projectId: string,
+  environment: string,
   m2mDeviceId: string,
   m2mClientId: string,
   m2mSecret: string,
@@ -77,7 +78,7 @@ function createZambdaLocalEnvFile(
   };
 
   const envFolderPath = 'packages/telemed-ehr/zambdas/.env';
-  const envPath = path.join(envFolderPath, 'local.json');
+  const envPath = path.join(envFolderPath, `${environment}.json`);
   const envTemplatePath = path.join(envFolderPath, 'local.template.json');
 
   // Read the template file
@@ -93,9 +94,9 @@ function createZambdaLocalEnvFile(
   return envPath;
 }
 
-function createFrontEndLocalEnvFile(clientId: string, projectId: string): string {
+function createFrontEndEnvFile(clientId: string, environment: string, projectId: string): string {
   const envTemplatePath = 'packages/telemed-ehr/app/env/.env.local-template';
-  const envPath = 'packages/telemed-ehr/app/env/.env.local';
+  const envPath = `packages/telemed-ehr/app/env/.env.${environment}`;
 
   // Read the template file
   const templateData = fs.readFileSync(envTemplatePath, 'utf8');
@@ -165,6 +166,7 @@ async function createZ3(projectApiUrl: string, projectId: string, accessToken: s
 
 export async function setupEHR(
   projectApiUrl: string,
+  environment: string,
   accessToken: string,
   projectId: string,
   providerEmail: string,
@@ -191,10 +193,10 @@ export async function setupEHR(
     throw new Error('Organization ID is not defined');
   }
 
-  const envPath1 = createZambdaLocalEnvFile(projectId, m2mDeviceId, m2mClientId, m2mSecret, organizationId);
+  const envPath1 = createZambdaEnvFile(projectId, environment, m2mDeviceId, m2mClientId, m2mSecret, organizationId);
   console.log('Created environment file:', envPath1);
 
-  const envPath2 = createFrontEndLocalEnvFile(clientId, projectId);
+  const envPath2 = createFrontEndEnvFile(clientId, environment, projectId);
   console.log('Created environment file:', envPath2);
 
   console.log('Starting to create sample provider.');
