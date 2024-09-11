@@ -441,30 +441,6 @@ export const defaultQuestionnaire: Questionnaire = {
           ],
         },
         {
-          linkId: 'patient-birth-sex',
-          text: "Patient's birth sex",
-          type: 'choice',
-          required: true,
-          answerOption: [
-            {
-              valueString: 'Male',
-            },
-            {
-              valueString: 'Female',
-            },
-            {
-              valueString: 'Intersex',
-            },
-          ],
-          extension: [
-            {
-              url: 'https://fhir.zapehr.com/r4/StructureDefinitions/information-text-secondary',
-              valueString:
-                'Our care team uses this to inform treatment recommendations and share helpful information regarding potential medication side effects, as necessary.',
-            },
-          ],
-        },
-        {
           linkId: 'patient-pronouns',
           text: 'Preferred pronouns',
           type: 'choice',
