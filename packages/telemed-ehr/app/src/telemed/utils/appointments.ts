@@ -3,9 +3,11 @@ import {
   ApptStatus,
   TelemedAppointmentInformation,
   TelemedStatusHistoryElement,
+  PATIENT_PHOTO_CODE,
 } from 'ehr-utils';
 import { DateTime } from 'luxon';
 import { diffInMinutes } from './diffInMinutes';
+import { Bundle, FhirResource, DocumentReference, EncounterStatusHistory } from 'fhir/r4';
 
 export enum ApptTab {
   'ready' = 'ready',
@@ -27,6 +29,46 @@ export enum UnsignedFor {
   'more24' = 'more24',
   'all' = 'all',
 }
+
+export const updateEncounterStatusHistory = (
+  newStatus:
+    | 'planned'
+    | 'arrived'
+    | 'triaged'
+    | 'in-progress'
+    | 'onleave'
+    | 'finished'
+    | 'cancelled'
+    | 'entered-in-error'
+    | 'unknown',
+  history?: EncounterStatusHistory[],
+): EncounterStatusHistory[] => {
+  const now = DateTime.now().toString();
+  const newItem = { status: newStatus, period: { start: now } };
+
+  if (!history || history.length === 0) {
+    return [newItem];
+  }
+
+  history.at(-1)!.period.end = now;
+  history.push(newItem);
+
+  return history;
+};
+
+export const extractPhotoUrlsFromAppointmentData = (appointment: Bundle<FhirResource>[]): string[] => {
+  return (
+    (appointment
+      ?.filter(
+        (resource: FhirResource) =>
+          resource.resourceType === 'DocumentReference' &&
+          resource.status === 'current' &&
+          resource.type?.coding?.[0].code === PATIENT_PHOTO_CODE,
+      )
+      .flatMap((docRef: FhirResource) => (docRef as DocumentReference).content.map((cnt) => cnt.attachment.url))
+      .filter(Boolean) as string[]) || []
+  );
+};
 
 export const filterAppointments = (
   appointments: TelemedAppointmentInformation[],
@@ -197,3 +239,10 @@ export const APPT_STATUS_MAP: {
     },
   },
 };
+
+export const quickTexts: string[] = [
+  'Hello from Ottehr Telemedicine. A provider will see you soon. Please have your child with you, seated & in a quiet room. Please be in an area where you have strong wifi connection sufficient for video use. Have your video turned on. Questions? Call <phone>516-207-7950</phone>',
+  'Hello from Ottehr Telemedicine. Due to high volumes our providers are busier than usual. A provider will message you when they have an update or are ready to see you. We apologize for the delay. Questions? Call <phone>516-207-7950</phone>',
+  'Hello from Ottehr Telemedicine. We tried connecting, you seem to be having trouble connecting. If you still want a visit, log out then log back in. Click “Return to call” and we will connect with you in 5-10 minutes. If you are still having trouble, call <phone>516-207-7950</phone>',
+  'Hello from Ottehr Telemedicine. We are sorry you canceled your visit. If accidental, please request a new visit. We will be sure to see you. If you are experiencing technical difficulties, call <phone>516-207-7950</phone>',
+];

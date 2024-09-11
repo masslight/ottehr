@@ -1,4 +1,4 @@
-import { Box, Container } from '@mui/material';
+import { Box } from '@mui/material';
 import { GlobalStyles, MeetingProvider, lightTheme } from 'amazon-chime-sdk-component-library-react';
 import {
   Appointment,
@@ -12,26 +12,37 @@ import {
 import { FC, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
-import { PATIENT_PHOTO_CODE, getQuestionnaireResponseByLinkId, SCHOOL_WORK_NOTE_CODE } from 'ehr-utils';
+import { SCHOOL_WORK_NOTE_CODE, getQuestionnaireResponseByLinkId } from 'ehr-utils';
 import { getSelectors } from '../../shared/store/getSelectors';
 import HearingRelayPopup from '../components/HearingRelayPopup';
 import PreferredLanguagePopup from '../components/PreferredLanguagePopup';
-import { AppointmentFooter, AppointmentHeader, AppointmentTabs, VideoChatContainer } from '../features/appointment';
+import {
+  AppointmentFooter,
+  AppointmentHeader,
+  AppointmentSidePanel,
+  AppointmentTabs,
+  VideoChatContainer,
+} from '../features/appointment';
+import { useIsReadOnly } from '../hooks';
 import {
   EXAM_OBSERVATIONS_INITIAL,
+  RefreshableAppointmentData,
   useAppointmentStore,
   useExamObservationsStore,
-  useGetAppointmentInformation,
+  useGetTelemedAppointment,
+  useRefreshableAppointmentData,
   useVideoCallStore,
 } from '../state';
-import { useIsReadOnly } from '../hooks';
 import { EXAM_CARDS_INITIAL, useExamCardsStore } from '../state/appointment/exam-cards.store';
+import { arraysEqual, extractPhotoUrlsFromAppointmentData } from '../utils';
 
 export const AppointmentPage: FC = () => {
   const { id } = useParams();
 
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
   useIsReadOnly();
+
+  const { patientPhotoUrls: currentPatientPhotosUrls } = getSelectors(useAppointmentStore, ['patientPhotoUrls']);
 
   const [wasHearingRelayPopupOpen, setWasHearingRelayPopupOpen] = useState(false);
   const [shouldHearingRelayPopupBeOpened, setShouldHearingRelayPopupBeOpened] = useState(false);
@@ -50,7 +61,22 @@ export const AppointmentPage: FC = () => {
     setWasPreferredLanguagePopupOpen(true);
   };
 
-  const { isFetching } = useGetAppointmentInformation(
+  useRefreshableAppointmentData(
+    {
+      appointmentId: id,
+    },
+    (refreshedData: RefreshableAppointmentData) => {
+      const updatedPatientConditionPhotoUrs = refreshedData.patientConditionPhotoUrs;
+      const hasPhotosUpdates = !arraysEqual(currentPatientPhotosUrls, updatedPatientConditionPhotoUrs);
+      if (hasPhotosUpdates) {
+        useAppointmentStore.setState({
+          patientPhotoUrls: updatedPatientConditionPhotoUrs,
+        });
+      }
+    },
+  );
+
+  const { isFetching } = useGetTelemedAppointment(
     {
       appointmentId: id,
     },
@@ -68,16 +94,7 @@ export const AppointmentPage: FC = () => {
           (resource: FhirResource) => resource.resourceType === 'Encounter',
         ) as unknown as Encounter,
         questionnaireResponse,
-        patientPhotoUrls:
-          (data
-            ?.filter(
-              (resource: FhirResource) =>
-                resource.resourceType === 'DocumentReference' &&
-                resource.status === 'current' &&
-                resource.type?.coding?.[0].code === PATIENT_PHOTO_CODE,
-            )
-            .flatMap((docRef: FhirResource) => (docRef as DocumentReference).content.map((cnt) => cnt.attachment.url))
-            .filter(Boolean) as string[]) || [],
+        patientPhotoUrls: extractPhotoUrlsFromAppointmentData(data),
         schoolWorkNoteUrls:
           (data
             ?.filter(
@@ -99,7 +116,7 @@ export const AppointmentPage: FC = () => {
       const preferredLanguage = getQuestionnaireResponseByLinkId('preferred-language', questionnaireResponse)?.answer[0]
         .valueString;
       setPreferredLanguage(preferredLanguage);
-      if (preferredLanguage !== 'English') {
+      if (preferredLanguage && preferredLanguage !== 'English') {
         setShouldPreferredLanguagePopupBeOpened(true);
       }
     },
@@ -120,6 +137,8 @@ export const AppointmentPage: FC = () => {
     useExamObservationsStore.setState(EXAM_OBSERVATIONS_INITIAL);
     useVideoCallStore.setState({ meetingData: null });
     useExamCardsStore.setState(EXAM_CARDS_INITIAL);
+
+    return () => useAppointmentStore.setState({ patientPhotoUrls: [] });
   }, []);
 
   useEffect(() => {
@@ -131,7 +150,6 @@ export const AppointmentPage: FC = () => {
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
         minHeight: '100vh',
       }}
     >
@@ -145,27 +163,31 @@ export const AppointmentPage: FC = () => {
 
       <HearingRelayPopup isOpen={isHearingRelayPopupOpen} onClose={closeHearingRelayPopup} />
 
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          flex: 1,
-          width: '100%',
-        }}
-      >
-        {meetingData && (
-          <ThemeProvider theme={lightTheme}>
-            <GlobalStyles />
-            <MeetingProvider>
-              <VideoChatContainer />
-            </MeetingProvider>
-          </ThemeProvider>
-        )}
+      <Box sx={{ display: 'flex', flex: 1 }}>
+        <AppointmentSidePanel />
 
-        <Container maxWidth="xl" sx={{ my: 3 }}>
-          <AppointmentTabs />
-        </Container>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            m: 3,
+            width: '100%',
+          }}
+        >
+          {meetingData && (
+            <ThemeProvider theme={lightTheme}>
+              <GlobalStyles />
+              <MeetingProvider>
+                <VideoChatContainer />
+              </MeetingProvider>
+            </ThemeProvider>
+          )}
+
+          <Box sx={{ width: '100%' }}>
+            <AppointmentTabs />
+          </Box>
+        </Box>
       </Box>
 
       <AppointmentFooter />

@@ -74,11 +74,11 @@ export const performEffect = async (
 
   const resultAppointments: TelemedAppointmentInformation[] = [];
 
+  console.log('allResources', allResources.length);
+
   if (allResources.length > 0) {
-    const [allRelatedPersonMaps, estimatedTimeMap] = await Promise.all([
-      relatedPersonAndCommunicationMaps(fhirClient, allResources),
-      calculateEstimatedTimeForLocations(fhirClient, allPackages, virtualLocationsMap, statusesFilter, 15),
-    ]);
+    const allRelatedPersonMaps = await relatedPersonAndCommunicationMaps(fhirClient, allResources);
+    console.log('allRelatedPersonMaps', allRelatedPersonMaps);
 
     allPackages.forEach((appointmentPackage) => {
       const { appointment, telemedStatus, providers, groups, telemedStatusHistory, location, encounter } =
@@ -91,7 +91,6 @@ export const performEffect = async (
         : undefined;
       const cancellationReason = appointment.cancelationReason?.coding?.[0].code;
       console.log('location?.locationID', location?.locationID);
-      const estimatedTime = location?.locationID ? estimatedTimeMap[location?.locationID] : undefined;
       const smsModel = createSmsModel(patient.id!, allRelatedPersonMaps);
 
       const appointmentTemp: TelemedAppointmentInformation = {
@@ -116,7 +115,6 @@ export const performEffect = async (
           state: location?.state,
         },
         encounter,
-        estimated: estimatedTime,
         paperwork: appointmentPackage.paperwork,
         telemedStatus: telemedStatus,
         telemedStatusHistory: telemedStatusHistory,
@@ -149,20 +147,27 @@ export const calculateEstimatedTimeForLocations = async (
 ): Promise<EstimatedTimeToLocationIdMap> => {
   if (!statusesFilter.includes('ready')) return {};
 
+  console.log('statusesFilter', statusesFilter);
+
   const readyStatusPackages = allPackages.filter((apptPackage) => apptPackage.telemedStatus === 'ready');
+  console.log('readyStatusPackages', readyStatusPackages.length);
   const locationsIdsGroups = groupAppointmentsLocations(
     readyStatusPackages,
     virtualLocationsMap,
     sameEstimatedTimeStatesGroups,
   );
+  console.log('locationsIdsGroups', locationsIdsGroups.length);
   const oldestAppointments = await getOldestAppointmentForEachLocationsGroup(fhirClient, locationsIdsGroups);
+  console.log('oldestAppointments', oldestAppointments.length);
   const locationToAppointmentMap = mapAppointmentToLocationId(oldestAppointments);
-
+  console.log('locationToAppointmentMap', locationToAppointmentMap);
   const estimatedTimeToLocationIdMap: EstimatedTimeToLocationIdMap = {};
   locationsIdsGroups.forEach((locationsIdsGroup) => {
     const locationID = locationsIdsGroup.find((locationID) => locationToAppointmentMap[locationID]);
+    console.log('locationID', locationID);
     if (locationID) {
       const oldestApptInGroup = locationToAppointmentMap[locationID];
+      console.log('oldestApptInGroup', oldestApptInGroup);
       const timeDifference = getAppointmentWaitingTime(oldestApptInGroup);
       if (timeDifference) {
         locationsIdsGroup.forEach((id) => {
@@ -171,6 +176,7 @@ export const calculateEstimatedTimeForLocations = async (
       }
     }
   });
+  console.log('estimatedTimeToLocationIdMap', estimatedTimeToLocationIdMap);
   return estimatedTimeToLocationIdMap;
 };
 // function mapAppointmentInformationToConversationModel(

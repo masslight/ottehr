@@ -117,8 +117,8 @@ export const getCommunicationsAndSenders = async (
     resourceType: 'Communication',
     searchParams: [
       { name: 'medium', value: `${ZAP_SMS_MEDIUM_CODE}` },
-      { name: 'sender:RelatedPerson.telecom', value: uniqueNumbers.join(',') },
-      { name: '_include', value: 'Communication:sender' },
+      // { name: 'sender:RelatedPerson.telecom', value: uniqueNumbers.join(',') },
+      // { name: '_include', value: 'Communication:sender' },
     ],
   });
 };
