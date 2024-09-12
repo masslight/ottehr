@@ -27,13 +27,14 @@ export const validateBundleAndExtractAppointment = (bundle: Bundle): ValidateBun
     throw new Error('Appointment could not be found');
   }
 
-  const location: Location = entry.find((appt) => {
-    return appt.resource && appt.resource.resourceType === 'Location';
-  })?.resource as Location;
+  // todo: add better validation for different schedule types
+  // const location: Location = entry.find((appt) => {
+  //   return appt.resource && appt.resource.resourceType === 'Location';
+  // })?.resource as Location;
 
-  if (!location) {
-    throw new Error('Location could not be found');
-  }
+  // if (!location) {
+  //   throw new Error('Location could not be found');
+  // }
 
   const questionnaireResponse: QuestionnaireResponse = entry.find((appt) => {
     return appt.resource && appt.resource.resourceType === 'QuestionnaireResponse';
@@ -43,5 +44,5 @@ export const validateBundleAndExtractAppointment = (bundle: Bundle): ValidateBun
   // questionnaireResponse associated with the encounter, but it is still
   // valid for them to check-in.
 
-  return { appointment, location, questionnaireResponse };
+  return { appointment, location: undefined as unknown as Location, questionnaireResponse };
 };

@@ -1,7 +1,7 @@
 import sendgrid from '@sendgrid/mail';
 import { Secrets, SecretsKeys, getSecret, createMessagingClient, getOptionalSecret } from 'ottehr-utils';
 import i18n from './i18n';
-import { Location } from 'fhir/r4';
+import { HealthcareService, Location, Practitioner } from 'fhir/r4';
 
 export interface ConfirmationEmailInput {
   email: string;
@@ -39,12 +39,12 @@ export interface CancellationEmail {
   firstName: string | undefined;
   startTime: string;
   secrets: Secrets | null;
-  location: Location;
-  locationUrl: string;
+  resource: Location | Practitioner | HealthcareService;
+  resourceUrl: string;
 }
 
 export const sendCancellationEmail = async (input: CancellationEmail): Promise<void> => {
-  const { email, firstName, startTime, secrets, location, locationUrl } = input;
+  const { email, firstName, startTime, secrets, resource, resourceUrl } = input;
   const SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID = getSecret(
     SecretsKeys.TELEMED_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID,
     secrets,
@@ -54,9 +54,9 @@ export const sendCancellationEmail = async (input: CancellationEmail): Promise<v
   const templateId = SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID;
   const templateInformation = {
     firstName,
-    locationName: location.name,
+    resourceName: resource.name,
     startTime,
-    locationUrl,
+    resourceUrl,
   };
   await sendEmail(email, templateId, subject, templateInformation, secrets);
 };
