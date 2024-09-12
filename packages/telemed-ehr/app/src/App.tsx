@@ -27,7 +27,7 @@ import { RoleType } from './types/types';
 import { AppointmentPage } from './pages/AppointmentPage';
 import AddSchedulePage from './pages/AddSchedulePage';
 
-const enablePhoton = false && isLocalOrDevOrTestingOrTrainingEnv;
+const enablePhoton = true; // false && isLocalOrDevOrTestingOrTrainingEnv;
 
 if (enablePhoton) {
   import('@photonhealth/elements').catch(console.log);

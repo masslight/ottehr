@@ -2,11 +2,12 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { ClientConfig, FhirClient } from '@zapehr/sdk';
 import { Practitioner } from 'fhir/r4';
 import { DateTime, Duration } from 'luxon';
-import { useEffect, useMemo } from 'react';
-import { useMutation, useQuery } from 'react-query';
+import { useCallback, useEffect, useMemo } from 'react';
+import { useMutation, useQuery, useQueryClient } from 'react-query';
 import {
   PHOTON_PRACTITIONER_ENROLLED,
   PHOTON_PRESCRIBER_SYSTEM_URL,
+  SyncUserResponse,
   User,
   getFullestAvailableName,
   getPatchOperationForNewMetaTag,
@@ -52,6 +53,8 @@ export const useProviderPhotonStateStore = create<{
 let _profileLoadingState = LoadingState.initial;
 let _lastLoginUpdating = LoadingState.initial;
 let _userLoading = LoadingState.initial;
+let _practitionerSyncStarted = false;
+let _practitionerSyncFinished = false;
 let _practitionerERXEnrollmentStarted = false;
 
 export default function useOttehrUser(): OttehrUser | undefined {
@@ -79,6 +82,20 @@ export default function useOttehrUser(): OttehrUser | undefined {
       profile?.name?.[0]?.given?.[0] &&
       profile?.name?.[0]?.family,
   );
+
+  const userRoles = user?.roles;
+  const hasRole = useCallback(
+    (role: RoleType[]): boolean => {
+      return userRoles?.find((r) => role.includes(r.name as RoleType)) != undefined;
+    },
+    [userRoles],
+  );
+  useGetUser();
+  useSyncPractitioner((data) => {
+    if (data.updated) {
+      console.log('Practitioner sync success');
+    }
+  });
 
   useEffect(() => {
     async function getUserRequest(): Promise<void> {
@@ -249,5 +266,57 @@ const useEnrollPractitionerInERX = () => {
       }
     },
     { retry: 2 },
+  );
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+const useGetUser = () => {
+  const token = useAuthToken();
+  const user = useOttehrUserStore((state) => state.user);
+
+  return useQuery(
+    ['get-user'],
+    async (): Promise<void> => {
+      try {
+        const user = await getUser(token!);
+        useOttehrUserStore.setState({ user: user as User });
+      } catch (error) {
+        console.error(error);
+      }
+    },
+    {
+      enabled: Boolean(token && !user),
+    },
+  );
+};
+
+const useSyncPractitioner = (onSuccess: (data: SyncUserResponse) => void) => {
+  const client = useZapEHRAPIClient();
+  const token = useAuthToken();
+  const { zambdaClient } = useApiClients();
+  const queryClient = useQueryClient();
+  return useQuery(
+    ['sync-user', zambdaClient],
+    async () => {
+      console.log('zambdaClient: ', zambdaClient);
+      if (!client) return undefined;
+      _practitionerSyncStarted = true;
+      const result = await client?.syncUser();
+      _practitionerSyncFinished = true;
+      if (result.updated) {
+        void queryClient.refetchQueries('get-practitioner-profile');
+      } else {
+        useOttehrUserStore.setState((state) => ({ profile: { ...(state.profile! || {}) } }));
+      }
+      return result;
+    },
+    {
+      onSuccess,
+      cacheTime: DAY,
+      staleTime: DAY,
+      enabled: Boolean(
+        token && zambdaClient && (zambdaClient as unknown as ClientConfig).accessToken && !_practitionerSyncStarted
+      ),
+    },
   );
 };

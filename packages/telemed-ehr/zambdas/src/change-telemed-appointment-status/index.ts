@@ -49,12 +49,17 @@ export const performEffect = async (
 ): Promise<ChangeTelemedAppointmentStatusResponse> => {
   const { appointmentId, newStatus } = params;
 
+  console.log(`Changing status for appointment ${appointmentId} to ${newStatus}`);
+
   const visitResources = await getVideoResources(fhirClient, appointmentId);
   if (!visitResources) {
     {
+      console.error('No visit resources found');
       throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);
     }
   }
+
+  console.log(`Visit resources: ${JSON.stringify(visitResources)}`);
 
   if (visitResources.encounter?.subject?.reference === undefined) {
     throw new Error(`No subject reference defined for encoutner ${visitResources.encounter?.id}`);
