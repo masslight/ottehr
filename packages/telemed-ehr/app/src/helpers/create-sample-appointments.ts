@@ -134,6 +134,7 @@ const generateRandomPatientInfo = async (
       timezone: 'UTC',
       isDemo: true,
       phoneNumber: phoneNumber,
+      locationID: randomLocationId,
     };
   }
 

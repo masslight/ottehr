@@ -30,6 +30,7 @@ export const AppointmentPage: FC = () => {
       appointmentId: id,
     },
     (data) => {
+      console.log('data', data);
       const questionnaireResponse = data?.find(
         (resource: FhirResource) => resource.resourceType === 'QuestionnaireResponse',
       ) as unknown as QuestionnaireResponse;

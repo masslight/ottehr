@@ -81,6 +81,15 @@ export const AppointmentPage: FC = () => {
       appointmentId: id,
     },
     (data) => {
+      console.log('data', data);
+      console.log(
+        'patient',
+        data?.find((resource: FhirResource) => resource.resourceType === 'Patient'),
+      );
+      console.log(
+        'location',
+        data?.find((resource: FhirResource) => resource.resourceType === 'Location'),
+      );
       const questionnaireResponse = data?.find(
         (resource: FhirResource) => resource.resourceType === 'QuestionnaireResponse',
       ) as unknown as QuestionnaireResponse;
@@ -163,7 +172,7 @@ export const AppointmentPage: FC = () => {
 
       <HearingRelayPopup isOpen={isHearingRelayPopupOpen} onClose={closeHearingRelayPopup} />
 
-      <Box sx={{ display: 'flex', flex: 1 }}>
+      <Box sx={{ display: 'flex', flex: 1 }} id="qeribe">
         <AppointmentSidePanel />
 
         <Box

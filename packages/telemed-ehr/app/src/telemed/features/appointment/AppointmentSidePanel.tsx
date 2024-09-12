@@ -31,7 +31,7 @@ import EditPatientDialog from '../../components/EditPatientDialog';
 import InviteParticipant from '../../components/InviteParticipant';
 import { useGetAppointmentAccessibility } from '../../hooks';
 import { useAppointmentStore } from '../../state';
-import { getAppointmentStatusChip, getPatientName, quickTexts } from '../../utils';
+import { getAppointmentStatusChip, getPatientName } from '../../utils';
 // import { ERX } from './ERX';
 import { PastVisits } from './PastVisits';
 import { addSpacesAfterCommas } from '../../../helpers/formatString';
@@ -101,7 +101,7 @@ export const AppointmentSidePanel: FC = () => {
 
   // const [hasUnread, setHasUnread] = useState<boolean>(appointmentMessaging?.smsModel?.hasUnreadMessages || false);
 
-  if (!patient || !location) {
+  if (!patient) {
     return null;
   }
 
@@ -211,7 +211,7 @@ export const AppointmentSidePanel: FC = () => {
             </Typography>
           )}
 
-          <Typography variant="body2">Location: {location.address?.state}</Typography>
+          {/* <Typography variant="body2">Location: {location.address?.state}</Typography> */}
 
           <Typography variant="body2">Address: {address}</Typography>
 
