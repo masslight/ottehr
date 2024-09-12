@@ -62,7 +62,7 @@ const CreateDemoVisits = (): ReactElement => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     setPhoneNumber(e.target.value);
-    if (e.target.value.length >= 10 && e.target.value.length <= 15 && e.target.value.startsWith('+1')) {
+    if (e.target.value.length === 11 && e.target.value.startsWith('+1')) {
       setInputError(false);
     }
   };
@@ -93,6 +93,7 @@ const CreateDemoVisits = (): ReactElement => {
           label="Phone Number"
           value={phoneNumber}
           onChange={handleChange}
+          placeholder="+1"
           size="small"
           sx={{
             flexGrow: 1,
@@ -107,7 +108,7 @@ const CreateDemoVisits = (): ReactElement => {
           }}
           required
           error={inputError}
-          helperText={inputError ? 'Please enter a valid phone number' : ''}
+          helperText={inputError ? 'Please enter a valid phone number in the format +1234567890' : ''}
         />
         <LoadingButton
           loading={loading}
