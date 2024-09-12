@@ -179,6 +179,14 @@ export const ApptStatusToPalette: {
       primary: '#1B5E20',
     },
   },
+  cancelled: {
+    background: {
+      primary: '#E0E0E0',
+    },
+    color: {
+      primary: '#757575',
+    },
+  },
 };
 
 export type GetAppointmentsRequestParams = Pick<
@@ -236,6 +244,14 @@ export const APPT_STATUS_MAP: {
     },
     color: {
       primary: '#1B5E20',
+    },
+  },
+  cancelled: {
+    background: {
+      primary: '#E0E0E0',
+    },
+    color: {
+      primary: '#757575',
     },
   },
 };
