@@ -28,7 +28,7 @@ export function getCorrectInputOption(itemId: string, currentValue: string): str
 export async function getQuestionnaireAndValueSets(
   questionnaireName: string,
   valueSetRef: string,
-  fhirClient: FhirClient
+  fhirClient: FhirClient,
 ): Promise<{ questionnaire: Questionnaire; valueSets: ValueSet[] }> {
   console.log(`searching for a questionnaire with name ${questionnaireName}`);
   const questionnaireSearch: Questionnaire[] = await fhirClient.searchResources({
@@ -119,7 +119,7 @@ export function questionnaireItemToInputType(item: QuestionnaireItem, valueSets?
     }
   } else if (questionItemType === 'display') {
     const textType = item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/text-type'
+      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/text-type',
     )?.valueString;
     if (textType === 'h3') {
       formItemType = 'Header 3';
@@ -154,7 +154,7 @@ export function questionnaireItemToInputType(item: QuestionnaireItem, valueSets?
   } else if (questionItemType === 'group') {
     if (
       attributes?.find(
-        (attributeTemp) => attributeTemp.name === 'group-type' && attributeTemp.value === 'list-with-form'
+        (attributeTemp) => attributeTemp.name === 'group-type' && attributeTemp.value === 'list-with-form',
       )
     ) {
       formItemType = 'Form list';
@@ -175,32 +175,32 @@ export function questionnaireItemToInputType(item: QuestionnaireItem, valueSets?
   const enableWhenAnswer = item.enableWhen?.[0].answerString;
 
   const requireWhen = item.extension?.find(
-    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when'
+    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when',
   )?.extension;
   const requireWhenQuestion = requireWhen?.find(
-    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question'
+    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question',
   )?.valueString;
   const requireWhenOperator: QuestionOperator = requireWhen?.find(
-    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator'
+    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator',
   )?.valueString as QuestionOperator;
   const requireWhenAnswer = requireWhen?.find(
-    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer'
+    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer',
   )?.valueString;
 
   const disableWhen = item.extension?.find(
-    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/disable-when'
+    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/disable-when',
   )?.extension;
   const disableWhenQuestion = disableWhen?.find(
-    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/disable-when-question'
+    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/disable-when-question',
   )?.valueString;
   const disableWhenOperator: QuestionOperator = disableWhen?.find(
-    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/disable-when-operator'
+    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/disable-when-operator',
   )?.valueString as QuestionOperator;
   const disableWhenAnswer = disableWhen?.find(
-    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/disable-when-answer'
+    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/disable-when-answer',
   )?.valueString;
   const disableWhenValue = disableWhen?.find(
-    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/disable-when-value'
+    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/disable-when-value',
   )?.valueString;
 
   const minRows = attributes?.find((attributeTemp) => attributeTemp.name === 'input-multiline-minimum-rows')
@@ -216,34 +216,40 @@ export function questionnaireItemToInputType(item: QuestionnaireItem, valueSets?
     multiline,
     minRows,
     placeholder: item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/placeholder'
+      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/placeholder',
     )?.valueString,
     helperText: item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/helper-text'
+      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/helper-text',
     )?.valueString,
     showHelperTextIcon: item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/show-helper-text-icon'
+      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/show-helper-text-icon',
     )?.valueBoolean,
     infoText: item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/information-text'
+      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/information-text',
     )?.valueString,
     infoTextSecondary: item.extension?.find(
       (extensionTemp) =>
-        extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/information-text-secondary'
+        extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/information-text-secondary',
     )?.valueString,
     required: item.required,
+    submitOnChange: item.extension?.find(
+      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/submit-on-change',
+    )?.valueBoolean,
+    disableError: item.extension?.find(
+      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/disable-error',
+    )?.valueBoolean,
     width: item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/text-width'
+      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/text-width',
     )?.valuePositiveInt,
     options,
     attachmentText: item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text'
+      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text',
     )?.valueString,
     format: item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/input-format'
+      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/input-format',
     )?.valueString,
     docType: item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/document-type'
+      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/document-type',
     )?.valueString,
     enableWhen: enableWhen
       ? {

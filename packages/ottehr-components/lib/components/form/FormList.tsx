@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { FormInputTypeField } from '../../types';
 import { FieldValues } from 'react-hook-form';
-import { Box, Card, Grid, IconButton, Typography, useTheme } from '@mui/material';
+import { Box, Card, Grid, IconButton, Typography } from '@mui/material';
 import { deleteIcon } from '../../assets';
 import { createPortal } from 'react-dom';
 import PageForm from '../PageForm';
@@ -11,7 +11,6 @@ export const FormList: React.FC<{ formInput: FormInputTypeField; values: FieldVa
   const { formInput, values, methods } = props;
 
   const [innerForm, setInnerForm] = useState<HTMLElement | null>();
-  const theme = useTheme();
 
   useEffect(() => {
     setInnerForm(document.getElementById('page-form-inner-form'));
@@ -33,8 +32,6 @@ export const FormList: React.FC<{ formInput: FormInputTypeField; values: FieldVa
   };
 
   const fieldValue = methods.watch()[formInput.name];
-
-  const error = methods?.formState.errors[formInput.name];
 
   return (
     <Grid>
@@ -78,7 +75,6 @@ export const FormList: React.FC<{ formInput: FormInputTypeField; values: FieldVa
               }}
             >
               <PageForm formElements={formInput.item} onSubmit={onAdd} hideControls innerForm />
-              {error && <Typography color={theme.palette.error.main}>{error.message}</Typography>}
             </Card>,
             innerForm,
           )}
