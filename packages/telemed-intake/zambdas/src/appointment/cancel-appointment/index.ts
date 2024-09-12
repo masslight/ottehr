@@ -153,7 +153,6 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
   const transactionBundle = await fhirClient.transactionRequest({ requests: requests });
   console.log('getting appointment from transaction bundle');
   const { appointment } = validateBundleAndExtractAppointment(transactionBundle);
-  console.log(1);
 
   // todo: this could be done in the same request to get the appointment
 
