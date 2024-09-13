@@ -145,7 +145,7 @@ export const AppointmentFooterButton: FC = () => {
           response={onAssignMe}
           actionButtons={{
             proceed: {
-              text: 'Assign me',
+              text: 'Assign to me',
             },
             back: { text: 'Cancel' },
           }}
