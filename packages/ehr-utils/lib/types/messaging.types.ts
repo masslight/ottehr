@@ -1,4 +1,4 @@
-import { Appointment, Coding } from 'fhir/r4';
+import { Appointment, Coding, Communication, RelatedPerson } from 'fhir/r4';
 
 export const OTTEHR_PATIENT_MESSAGE_SYSTEM = 'ottehr-patient-message-status';
 export const OTTEHR_PATIENT_MESSAGE_CODE = 'read-by-ottehr';
@@ -16,6 +16,11 @@ export interface ConversationMessage {
   isRead: boolean;
   isFromPatient: boolean;
 }
+
+export type RelatedPersonMaps = {
+  rpsToPatientIdMap: Record<string, RelatedPerson[]>;
+  commsToRpRefMap: Record<string, Communication[]>;
+};
 
 export interface SMSRecipient {
   relatedPersonId: string;

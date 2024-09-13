@@ -28,7 +28,6 @@ export function formInputStringToBoolean(data: any, questions: Question[]): any 
 export function checkEnable(item: FormInputType, values: FieldValues): boolean {
   if (item.enableWhen) {
     const value = values[item.enableWhen.question];
-    // console.log(item.name, item.enableWhen.answer, value);
     if (item.enableWhen.operator === '=') {
       const test = value === item.enableWhen.answer;
       // handle validatiation item field

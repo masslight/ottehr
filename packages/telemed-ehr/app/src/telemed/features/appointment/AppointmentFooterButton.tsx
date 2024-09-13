@@ -1,11 +1,14 @@
-import { FC, useCallback, useEffect, useState } from 'react';
-import { LoadingButton } from '@mui/lab';
-import { Box, darken, useTheme } from '@mui/material';
-import { useQueryClient } from 'react-query';
 import { useAuth0 } from '@auth0/auth0-react';
+import { LoadingButton } from '@mui/lab';
+import { Box, darken, styled, useTheme } from '@mui/material';
+import { FC, useCallback, useEffect, useState } from 'react';
+import { useQueryClient } from 'react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ApptStatus, mapStatusToTelemed } from 'ehr-utils';
 import { getSelectors } from '../../../shared/store/getSelectors';
+import { ConfirmationDialog } from '../../components';
+import { useGetAppointmentAccessibility } from '../../hooks';
+import { useZapEHRAPIClient } from '../../hooks/useZapEHRAPIClient';
 import {
   useAppointmentStore,
   useChangeTelemedAppointmentStatusMutation,
@@ -13,24 +16,31 @@ import {
   useInitTelemedSessionMutation,
   useVideoCallStore,
 } from '../../state';
+import { updateEncounterStatusHistory } from '../../utils';
 import useOttehrUser from '../../../hooks/useOttehrUser';
-import { useZapEHRAPIClient } from '../../hooks/useZapEHRAPIClient';
-import { ConfirmationDialog } from '../../components';
-import { useGetAppointmentAccessibility } from '../../hooks';
 
-type AppointmentFooterButtonProps = {
-  setError: (error: string) => void;
-};
+const FooterButton = styled(LoadingButton)(({ theme }) => ({
+  textTransform: 'none',
+  fontSize: '15px',
+  fontWeight: 700,
+  borderRadius: 20,
+  backgroundColor: theme.palette.primary.light,
+  '&:hover': { backgroundColor: darken(theme.palette.primary.light, 0.125) },
+  '&.MuiLoadingButton-loading': {
+    backgroundColor: darken(theme.palette.primary.light, 0.25),
+  },
+  '& .MuiLoadingButton-loadingIndicator': {
+    color: darken(theme.palette.primary.contrastText, 0.25),
+  },
+}));
 
-export const AppointmentFooterButton: FC<AppointmentFooterButtonProps> = (props) => {
-  const { setError } = props;
-
+export const AppointmentFooterButton: FC = () => {
   const { encounter, appointment, isAppointmentLoading } = getSelectors(useAppointmentStore, [
     'encounter',
     'appointment',
     'isAppointmentLoading',
   ]);
-  const user = useOttehrUser();
+  const ottehrUser = useOttehrUser();
   const { getAccessTokenSilently } = useAuth0();
   const navigate = useNavigate();
   const location = useLocation();
@@ -45,31 +55,22 @@ export const AppointmentFooterButton: FC<AppointmentFooterButtonProps> = (props)
       useVideoCallStore.setState({ meetingData: data });
     },
     () => {
-      setError('Error trying to connect to a patient.');
+      throw new Error('Error trying to connect to a patient.');
     },
   );
 
-  const [buttonType, setButtonType] = useState<string | null>(null);
+  const [buttonType, setButtonType] = useState<'assignMe' | 'connectUnassign' | 'reconnect' | null>(null);
 
   const appointmentAccessibility = useGetAppointmentAccessibility();
 
   useEffect(() => {
     if (appointmentAccessibility.status !== ApptStatus.ready && !appointmentAccessibility.isStatusEditable) {
       setButtonType(null);
-    } else if (
-      appointmentAccessibility.isAppointmentAvailable &&
-      appointmentAccessibility.status === ApptStatus.ready
-    ) {
+    } else if (appointmentAccessibility.status === ApptStatus.ready) {
       setButtonType('assignMe');
-    } else if (
-      appointmentAccessibility.isAppointmentAvailable &&
-      appointmentAccessibility.status === ApptStatus['pre-video']
-    ) {
+    } else if (appointmentAccessibility.status === ApptStatus['pre-video']) {
       setButtonType('connectUnassign');
-    } else if (
-      appointmentAccessibility.isAppointmentAvailable &&
-      appointmentAccessibility.status === ApptStatus['on-video']
-    ) {
+    } else if (appointmentAccessibility.status === ApptStatus['on-video']) {
       setButtonType('reconnect');
     }
   }, [appointmentAccessibility]);
@@ -82,6 +83,7 @@ export const AppointmentFooterButton: FC<AppointmentFooterButtonProps> = (props)
       { apiClient, appointmentId: appointment.id, newStatus: ApptStatus['pre-video'] },
       {},
     );
+
     await queryClient.invalidateQueries({ queryKey: ['telemed-appointment'] });
   };
 
@@ -89,36 +91,40 @@ export const AppointmentFooterButton: FC<AppointmentFooterButtonProps> = (props)
     if (mapStatusToTelemed(encounter.status, appointment?.status) === ApptStatus['on-video']) {
       void getMeetingData.refetch({ throwOnError: true });
     } else {
-      if (!apiClient || !user || !appointment?.id) {
+      if (!apiClient || !appointment?.id) {
         throw new Error('api client not defined or userId not provided');
       }
       initTelemedSession.mutate(
-        { apiClient, appointmentId: appointment.id, userId: user?.id },
+        { apiClient, appointmentId: appointment.id, userId: ottehrUser?.id || '' },
         {
           onSuccess: async (response) => {
             useVideoCallStore.setState({
               meetingData: response.meetingData,
             });
             useAppointmentStore.setState({
-              encounter: { ...encounter, status: 'in-progress' },
+              encounter: {
+                ...encounter,
+                status: 'in-progress',
+                statusHistory: updateEncounterStatusHistory('in-progress', encounter.statusHistory),
+              },
             });
           },
           onError: () => {
-            setError('Error trying to connect to a patient.');
+            throw new Error('Error trying to connect to a patient.');
           },
         },
       );
     }
-  }, [apiClient, appointment?.id, appointment?.status, encounter, getMeetingData, initTelemedSession, setError, user]);
+  }, [apiClient, appointment?.id, appointment?.status, encounter, getMeetingData, initTelemedSession, ottehrUser]);
 
   useEffect(() => {
-    if (appointmentAccessibility.isAppointmentAvailable && appointmentAccessibility.status === ApptStatus['on-video']) {
+    if (appointmentAccessibility.status === ApptStatus['on-video']) {
       if (location.state?.reconnect) {
         navigate(location.pathname, {});
         onConnect();
       }
     }
-  }, [appointmentAccessibility.isAppointmentAvailable, appointmentAccessibility.status, location, navigate, onConnect]);
+  }, [appointmentAccessibility.status, location, navigate, onConnect]);
 
   const onUnassign = async (): Promise<void> => {
     if (!apiClient || !appointment?.id) {
@@ -145,21 +151,13 @@ export const AppointmentFooterButton: FC<AppointmentFooterButtonProps> = (props)
           }}
         >
           {(showDialog) => (
-            <LoadingButton
+            <FooterButton
               loading={changeTelemedAppointmentStatus.isLoading || isAppointmentLoading}
               onClick={showDialog}
               variant="contained"
-              sx={{
-                textTransform: 'none',
-                fontSize: '15px',
-                fontWeight: 700,
-                borderRadius: 10,
-                backgroundColor: theme.palette.primary.light,
-                '&:hover': { backgroundColor: darken(theme.palette.primary.light, 0.125) },
-              }}
             >
               Assign to me
-            </LoadingButton>
+            </FooterButton>
           )}
         </ConfirmationDialog>
       );
@@ -179,21 +177,13 @@ export const AppointmentFooterButton: FC<AppointmentFooterButtonProps> = (props)
             }}
           >
             {(showDialog) => (
-              <LoadingButton
+              <FooterButton
                 loading={initTelemedSession.isLoading || getMeetingData.isLoading}
                 onClick={showDialog}
                 variant="contained"
-                sx={{
-                  textTransform: 'none',
-                  fontSize: '15px',
-                  fontWeight: 700,
-                  borderRadius: 10,
-                  backgroundColor: theme.palette.primary.light,
-                  '&:hover': { backgroundColor: darken(theme.palette.primary.light, 0.125) },
-                }}
               >
                 Connect to Patient
-              </LoadingButton>
+              </FooterButton>
             )}
           </ConfirmationDialog>
 
@@ -209,21 +199,23 @@ export const AppointmentFooterButton: FC<AppointmentFooterButtonProps> = (props)
             }}
           >
             {(showDialog) => (
-              <LoadingButton
+              <FooterButton
                 loading={changeTelemedAppointmentStatus.isLoading}
                 onClick={showDialog}
                 variant="contained"
                 sx={{
-                  textTransform: 'none',
-                  fontSize: '15px',
-                  fontWeight: 700,
-                  borderRadius: 10,
                   backgroundColor: theme.palette.error.main,
                   '&:hover': { backgroundColor: darken(theme.palette.error.main, 0.125) },
+                  '&.MuiLoadingButton-loading': {
+                    backgroundColor: darken(theme.palette.error.main, 0.25),
+                  },
+                  '& .MuiLoadingButton-loadingIndicator': {
+                    color: darken(theme.palette.error.contrastText, 0.25),
+                  },
                 }}
               >
                 Unassign
-              </LoadingButton>
+              </FooterButton>
             )}
           </ConfirmationDialog>
         </Box>
@@ -231,21 +223,13 @@ export const AppointmentFooterButton: FC<AppointmentFooterButtonProps> = (props)
     }
     case 'reconnect': {
       return (
-        <LoadingButton
+        <FooterButton
           loading={initTelemedSession.isLoading || getMeetingData.isLoading}
           onClick={onConnect}
           variant="contained"
-          sx={{
-            textTransform: 'none',
-            fontSize: '15px',
-            fontWeight: 700,
-            borderRadius: 10,
-            backgroundColor: theme.palette.primary.light,
-            '&:hover': { backgroundColor: darken(theme.palette.primary.light, 0.125) },
-          }}
         >
           Reconnect
-        </LoadingButton>
+        </FooterButton>
       );
     }
     default: {
