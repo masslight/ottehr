@@ -258,7 +258,6 @@ export default function AppointmentTableRow({
     ).years >= 3;
 
   const showChatIcon = appointment.smsModel !== undefined;
-  // console.log('sms model', appointment.smsModel);
 
   const saveNote = async (_event: React.MouseEvent<HTMLElement>): Promise<void> => {
     if (!fhirClient) {
