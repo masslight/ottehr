@@ -1,7 +1,7 @@
 import { yupResolver } from '@hookform/resolvers/yup';
 import { Grid } from '@mui/material';
 import { DateTime } from 'luxon';
-import React, { ReactElement, memo, useMemo } from 'react';
+import React, { ReactElement, memo, useMemo, useRef } from 'react';
 import { FieldValues, FormProvider, SubmitHandler, useForm } from 'react-hook-form';
 import {
   DATE_ERROR_MESSAGE,
@@ -16,6 +16,7 @@ import * as Yup from 'yup';
 import { checkEnable, filterFormInputFields } from '../helpers';
 import { ControlButtonsProps, FormInputType, FormInputTypeField, FormInputTypeGroup, OverrideValues } from '../types';
 import { ControlButtons } from './form';
+import { PageFormContext } from '../contexts';
 
 interface PageFormProps {
   formElements?: FormInputType[];
@@ -257,19 +258,23 @@ const PageForm: React.FC<PageFormProps> = memo(
       };
     };
 
+    const formRef = useRef<HTMLFormElement | null>(null);
+
     return (
-      <FormProvider {...methods}>
-        <form onSubmit={createSubmitHandler()} style={{ width: '100%' }}>
-          {formElements && (
-            <Grid container spacing={1}>
-              {filterFormInputFields(formElements, values, methods, overrideValues)}
-            </Grid>
-          )}
-          <div id="page-form-inner-form" />
-          {bottomComponent}
-          {!hideControls && <ControlButtons {...controlButtons} />}
-        </form>
-      </FormProvider>
+      <PageFormContext.Provider value={{ formRef }}>
+        <FormProvider {...methods}>
+          <form onSubmit={createSubmitHandler()} style={{ width: '100%' }}>
+            {formElements && (
+              <Grid container spacing={1}>
+                {filterFormInputFields(formElements, values, methods, overrideValues)}
+              </Grid>
+            )}
+            <div id="page-form-inner-form" />
+            {bottomComponent}
+            {!hideControls && <ControlButtons {...controlButtons} />}
+          </form>
+        </FormProvider>
+      </PageFormContext.Provider>
     );
   },
 );

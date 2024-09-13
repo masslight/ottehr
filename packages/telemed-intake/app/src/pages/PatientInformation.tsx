@@ -239,6 +239,11 @@ const PatientInformation = (): JSX.Element => {
     'MMM dd, yyyy',
   );
 
+  const weightLastUpdated =
+    patientInfo.weightLastUpdated && DateTime.fromFormat(patientInfo.weightLastUpdated, 'yyyy-LL-dd').isValid
+      ? DateTime.fromFormat(patientInfo.weightLastUpdated, 'yyyy-LL-dd').toFormat('MM/dd/yyyy')
+      : null;
+
   if (isLoading) {
     return <></>;
   }
@@ -337,13 +342,12 @@ const PatientInformation = (): JSX.Element => {
             label: t('patientInfo.formElement.labels.weight'),
             infoTextSecondary: t('patientInfo.formElement.infoTexts.weight'),
             defaultValue: patientInfo.weight,
-            helperText: patientInfo.newPatient
-              ? undefined
-              : t('patientInfo.formElement.helperTexts.weight', {
-                  lastUpdated: patientInfo.weightLastUpdated
-                    ? DateTime.fromFormat(patientInfo.weightLastUpdated, 'yyyy-LL-dd').toFormat('MM/dd/yyyy')
-                    : 'N/A',
-                }),
+            helperText:
+              patientInfo.newPatient || !patientInfo.weight || !weightLastUpdated
+                ? undefined
+                : t('patientInfo.formElement.helperTexts.weight', {
+                    lastUpdated: weightLastUpdated,
+                  }),
             showHelperTextIcon: false,
           },
           {

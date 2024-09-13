@@ -173,6 +173,8 @@ export const getFormInputField = (
                 helperText={formInput.helperText}
                 showHelperTextIcon={formInput.showHelperTextIcon}
                 required={formInput.required}
+                submitOnChange={formInput.submitOnChange}
+                disableError={formInput.disableError}
                 defaultValue={formInput.defaultValue as string[]}
                 options={formInput.freeSelectOptions.map((option) =>
                   typeof option === 'object' ? option.value : option,
