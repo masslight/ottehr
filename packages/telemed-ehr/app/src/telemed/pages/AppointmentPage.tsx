@@ -172,7 +172,7 @@ export const AppointmentPage: FC = () => {
 
       <HearingRelayPopup isOpen={isHearingRelayPopupOpen} onClose={closeHearingRelayPopup} />
 
-      <Box sx={{ display: 'flex', flex: 1 }} id="qeribe">
+      <Box sx={{ display: 'flex', flex: 1 }}>
         <AppointmentSidePanel />
 
         <Box

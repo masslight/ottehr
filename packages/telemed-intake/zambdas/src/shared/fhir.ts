@@ -204,3 +204,7 @@ export async function searchInvitedParticipantResourcesByEncounterId(
   );
   return relatedPersons.filter((r) => r.relationship?.[0].coding?.[0].code === 'WIT');
 }
+
+export function filterResources(allResources: Resource[], resourceType: string): Resource[] {
+  return allResources.filter((res) => res.resourceType === resourceType && res.id);
+}

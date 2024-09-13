@@ -8,6 +8,7 @@ import {
   MeetingData,
   SaveChartDataRequest,
   SchoolWorkNoteExcuseDocFileDTO,
+  TelemedAppointmentInformation,
 } from 'ehr-utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { PromiseReturnType, ZapEHRTelemedAPIClient } from '../../data';

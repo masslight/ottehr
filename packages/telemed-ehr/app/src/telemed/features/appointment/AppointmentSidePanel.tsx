@@ -21,7 +21,13 @@ import {
 import { DateTime } from 'luxon';
 import { FC, useCallback, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { getQuestionnaireResponseByLinkId, mapStatusToTelemed, ApptStatus } from 'ehr-utils';
+import {
+  getQuestionnaireResponseByLinkId,
+  mapStatusToTelemed,
+  ApptStatus,
+  AppointmentMessaging,
+  UCAppointmentInformation,
+} from 'ehr-utils';
 import ChatModal from '../../../features/chat/ChatModal';
 import { calculatePatientAge } from '../../../helpers/formatDateTime';
 import useOttehrUser from '../../../hooks/useOttehrUser';
@@ -89,17 +95,9 @@ export const AppointmentSidePanel: FC = () => {
     // appointmentAccessibility.isEncounterAssignedToCurrentPractitioner &&
     isCancellableStatus;
 
-  // const { data: appointmentMessaging, isFetching } = useGetTelemedAppointmentWithSMSModel(
-  //   {
-  //     appointmentId: appointment?.id,
-  //     patientId: patient?.id,
-  //   },
-  //   (data) => {
-  //     setHasUnread(data.smsModel?.hasUnreadMessages || false);
-  //   },
-  // );
-
-  // const [hasUnread, setHasUnread] = useState<boolean>(appointmentMessaging?.smsModel?.hasUnreadMessages || false);
+  const [hasUnread, setHasUnread] = useState<boolean>(
+    (appointment as unknown as UCAppointmentInformation)?.smsModel?.hasUnreadMessages || false,
+  );
 
   if (!patient) {
     return null;
@@ -229,30 +227,29 @@ export const AppointmentSidePanel: FC = () => {
                 m: 0,
               },
             }}
-            // startIcon={
-            //   hasUnread ? (
-            //     <Badge
-            //       variant="dot"
-            //       color="warning"
-            //       sx={{
-            //         '& .MuiBadge-badge': {
-            //           width: '14px',
-            //           height: '14px',
-            //           borderRadius: '10px',
-            //           border: '2px solid white',
-            //           top: '-4px',
-            //           right: '-4px',
-            //         },
-            //       }}
-            //     >
-            //       <ChatOutlineIcon />
-            //     </Badge>
-            //   ) : (
-            //     <ChatOutlineIcon />
-            //   )
-            // }
+            startIcon={
+              hasUnread ? (
+                <Badge
+                  variant="dot"
+                  color="warning"
+                  sx={{
+                    '& .MuiBadge-badge': {
+                      width: '14px',
+                      height: '14px',
+                      borderRadius: '10px',
+                      border: '2px solid white',
+                      top: '-4px',
+                      right: '-4px',
+                    },
+                  }}
+                >
+                  <ChatOutlineIcon />
+                </Badge>
+              ) : (
+                <ChatOutlineIcon />
+              )
+            }
             onClick={() => setChatModalOpen(true)}
-            // loading={isFetching && !appointmentMessaging}
           />
 
           <Button
@@ -359,15 +356,14 @@ export const AppointmentSidePanel: FC = () => {
         {isEditDialogOpen && (
           <EditPatientDialog modalOpen={isEditDialogOpen} onClose={() => setIsEditDialogOpen(false)} />
         )}
-        {/* {chatModalOpen && appointmentMessaging && (
+        {chatModalOpen && (
           <ChatModal
-            appointment={appointmentMessaging}
+            appointment={appointment as unknown as UCAppointmentInformation}
+            currentLocation={location}
             onClose={() => setChatModalOpen(false)}
             onMarkAllRead={() => setHasUnread(false)}
-            // patient={patient}
-            quickTexts={quickTexts}
           />
-        )} */}
+        )}
         {isInviteParticipantOpen && (
           <InviteParticipant modalOpen={isInviteParticipantOpen} onClose={() => setIsInviteParticipantOpen(false)} />
         )}
