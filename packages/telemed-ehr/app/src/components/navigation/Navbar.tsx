@@ -105,7 +105,7 @@ export default function Navbar(): ReactElement {
     });
   }, [currentTab, currentUrl, location.pathname, navbarItems]);
 
-  if (location.pathname.match(/^\/telemed\/appointments\//)) {
+  if (location.pathname.match(/^\/telemed\/appointments\//) || location.pathname.match(/^\/visit\//)) {
     return <></>;
   }
 

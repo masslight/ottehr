@@ -1,6 +1,5 @@
 import { useContext, useEffect, useMemo, useState } from 'react';
 import { Select, MenuItem, InputLabel, FormControl, Box } from '@mui/material';
-import { useTranslation } from 'react-i18next';
 import { months } from 'ottehr-utils';
 import { DateTime } from 'luxon';
 import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
@@ -37,7 +36,6 @@ const CoalescedDateInput = ({
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [selectedDay, setSelectedDay] = useState<string>('');
   const [selectedYear, setSelectedYear] = useState<string>('');
-  const { t } = useTranslation();
 
   useEffect(() => {
     if (currentValue === '') {
@@ -53,9 +51,8 @@ const CoalescedDateInput = ({
   }, [currentValue, defaultValue, readOnlyValue]);
 
   const currentDate = new Date();
-  const maximumAge = t('general.maximumAge') as unknown as number;
   const currentYear = currentDate.getFullYear();
-  const startYear = currentYear - maximumAge + 1;
+  const startYear = 1900;
 
   const days = Array.from({ length: 31 }, (_, index) => {
     const day: number = index + 1;

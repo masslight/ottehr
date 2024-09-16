@@ -6,6 +6,7 @@ export enum ApptStatus {
   'on-video' = 'on-video',
   'unsigned' = 'unsigned',
   'complete' = 'complete',
+  'cancelled' = 'cancelled',
 }
 
 export type TelemedCallStatuses = `${ApptStatus}`;

@@ -21,6 +21,8 @@ export interface Question {
   attachmentText?: string;
   format?: string;
   docType?: string;
+  submitOnChange?: boolean;
+  disableError?: boolean;
   enableWhen?: {
     question: string;
     operator: QuestionOperator;

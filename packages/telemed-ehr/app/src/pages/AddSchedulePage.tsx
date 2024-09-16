@@ -66,7 +66,7 @@ export default function AddSchedulePage(): ReactElement {
             </Typography>
             <form onSubmit={createSchedule}>
               {scheduleType === 'provider' ? (
-                <>
+                <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
                   <TextField
                     label="First name"
                     required
@@ -79,7 +79,7 @@ export default function AddSchedulePage(): ReactElement {
                     value={lastName}
                     onChange={(event) => setLastName(event.target.value)}
                   />
-                </>
+                </Box>
               ) : (
                 <TextField label="Name" required value={name} onChange={(event) => setName(event.target.value)} />
               )}
