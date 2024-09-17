@@ -315,7 +315,7 @@ const useSyncPractitioner = (onSuccess: (data: SyncUserResponse) => void) => {
       cacheTime: DAY,
       staleTime: DAY,
       enabled: Boolean(
-        token && zambdaClient && (zambdaClient as unknown as ClientConfig).accessToken && !_practitionerSyncStarted
+        token && zambdaClient && (zambdaClient as unknown as ClientConfig).accessToken && !_practitionerSyncStarted,
       ),
     },
   );

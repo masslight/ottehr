@@ -9,7 +9,7 @@ import {
   allLicensesForPractitioner,
   getPractitionerNPIIdentitifier,
 } from 'ehr-utils';
-import { SecretsKeys, getSecret } from '../shared';
+// import { SecretsKeys, getSecret } from '../shared';
 import { checkOrCreateM2MClientToken, createAppClient, createFhirClient } from '../shared/helpers';
 import { makeQualificationForPractitioner } from '../shared/practitioners';
 import { ZambdaInput } from '../types';
@@ -37,7 +37,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.log(JSON.stringify(error));
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: 'Error synchronizing user' }),
+      body: JSON.stringify({ message: 'Error synchronizing practitioner with remote credentialing authority.' }),
     };
   }
 };
@@ -47,43 +47,45 @@ async function performEffect(
   fhirClient: FhirClient,
   secrets: Secrets | null,
 ): Promise<SyncUserResponse> {
-  return { message: 'Medallion provider not found for current user.', updated: false };
+  const [remotePractitioner, localPractitioner] = await Promise.all([
+    getRemotePractitionerAndCredentials(appClient, secrets),
+    getLocalEHRPractitioner(appClient, fhirClient),
+  ]);
+  if (!remotePractitioner) {
+    return {
+      message: 'Remote provider licenses and qualifications not found for current practitioner.',
+      updated: false,
+    };
+  }
 
-  // const [mPractitioner, ePractitioner] = await Promise.all([
-  //   // getMedallionPractitionerAndLicenses(appClient, secrets),
-  //   getEhrPractitioner(appClient, fhirClient),
-  // ]);
-  // if (!mPractitioner) {
-  //   // adding CA license for everyone who doesn't have medallion provider account
-  //   // ONLY FOR LOWER ENVS
-  //   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-  //   if (ePractitioner && ENVIRONMENT !== 'production') {
-  //     ePractitioner.qualification ??= [];
-  //     const licenses = allLicensesForPractitioner(ePractitioner);
-  //     if (licenses.length === 0) {
-  //       ePractitioner.qualification.push(makeQualificationForPractitioner({ state: 'CA', code: 'MD', active: true }));
-  //     }
-  //     await fhirClient.updateResource(ePractitioner);
-  //   }
-  //   return { message: 'Medallion provider not found for current user.', updated: false };
-  // }
-  // let ehrPractitioner = { ...ePractitioner };
-  // console.log('mPractitioner: ' + JSON.stringify(mPractitioner));
-  // console.log('ehrPractitioner: ' + JSON.stringify(ehrPractitioner));
-  // ehrPractitioner = updatePractitionerName(ehrPractitioner, mPractitioner);
-  // ehrPractitioner.birthDate = mPractitioner.date_of_birth; // may be i should convert it to iso or it's just fine
-  // ehrPractitioner = updatePractitionerPhone(ehrPractitioner, mPractitioner);
-  // ehrPractitioner = updatePractitionerPhoto(ehrPractitioner, mPractitioner);
-  // ehrPractitioner = updatePractitionerQualification(ehrPractitioner, mPractitioner);
-  // ehrPractitioner = updatePractitionerCredentials(ehrPractitioner, mPractitioner);
-  // ehrPractitioner = updatePractitionerNPI(ehrPractitioner, mPractitioner);
-  // const result = await updatePractitioner(fhirClient, ehrPractitioner);
-  // console.log('updated practitioner: ' + JSON.stringify(result));
-  // if (result) return { message: 'User has been synced successfully.', updated: true };
-  // throw new Error('Ehr practitioner update failed');
+  // TODO: As it stands, practitioner will never get synchronized with the remote, as we have not
+  //       implemented the logic to update the remote authority.
+  //       This code will never get called
+  //
+  //       We will also need to properly handle how data from remote authoirity is reconciled with
+  //       the local EHR data that already exists.
+  //
+  let ehrPractitioner = { ...localPractitioner };
+  console.log(`remotePractitioner: ${JSON.stringify(remotePractitioner)}`);
+  console.log(`localPractitioner:  ${JSON.stringify(ehrPractitioner)}`);
+  ehrPractitioner = updatePractitionerName(ehrPractitioner, remotePractitioner);
+  ehrPractitioner.birthDate = remotePractitioner.date_of_birth;
+  ehrPractitioner = updatePractitionerPhone(ehrPractitioner, remotePractitioner);
+  ehrPractitioner = updatePractitionerPhoto(ehrPractitioner, remotePractitioner);
+  ehrPractitioner = updatePractitionerQualification(ehrPractitioner, remotePractitioner);
+  ehrPractitioner = updatePractitionerCredentials(ehrPractitioner, remotePractitioner);
+  ehrPractitioner = updatePractitionerNPI(ehrPractitioner, remotePractitioner);
+  const result = await updatePractitioner(fhirClient, ehrPractitioner);
+  console.log(`Practitioner updated successfully:  ${JSON.stringify(result)}`);
+  if (result)
+    return {
+      message: 'Practitioner credentials have been synchronized with remote credentials authority successfully.',
+      updated: true,
+    };
+  throw new Error('Failed updating practitioner...');
 }
 
-interface MedallionPractitionerData {
+interface RemotePractitionerData {
   id: string;
   first_name?: string;
   middle_name?: string;
@@ -99,48 +101,57 @@ interface MedallionPractitionerData {
   npi?: string;
 }
 
-// async function getMedallionPractitionerAndLicenses(
-//   appClient: AppClient,
-//   secrets: Secrets | null,
-// ): Promise<MedallionPractitionerData | undefined> {
-//   console.log(`Getting "me" user`);
-//   const myEhrUser = await appClient.getMe();
-//   const myEmail = myEhrUser.email.toLocaleLowerCase();
-//   console.log(`User email: ${myEmail}`);
+async function getRemotePractitionerAndCredentials(
+  appClient: AppClient,
+  secrets: Secrets | null,
+): Promise<RemotePractitionerData | undefined> {
+  console.log('Preparing search parameters for remote practitioner');
+  const myEhrUser = await appClient.getMe();
+  const myEmail = myEhrUser.email.toLocaleLowerCase();
+  console.log(`Preparing search for local ractitioner email: ${myEmail}`);
 
-//   console.log(`Searching medallion for providers with same email`);
-//   const medallionProviders: MedallionPractitionerData[] = await getFromMedallion(
-//     `https://app.medallion.co/api/v1/org/providers/?search=${myEmail}`,
-//     secrets,
-//   );
+  const clinicianSearchResults: RemotePractitionerData[] = [];
 
-//   console.log(`Response: ${JSON.stringify(medallionProviders)}`);
-//   if (medallionProviders) {
-//     const provider = medallionProviders.find((provider: any) => provider.email === myEmail);
-//     if (provider?.id) {
-//       const licensesResponse = await getFromMedallion(
-//         `https://app.medallion.co/api/v1/org/licenses/?provider=${provider.id}`,
-//         secrets,
-//       );
-//       const licenses: PractitionerLicense[] = [];
-//       if (licensesResponse) {
-//         licensesResponse?.forEach((license: any) => {
-//           const code = license.certificate_type;
-//           const state = license.state;
-//           if (code && state) licenses.push({ code, state, active: true });
-//         });
-//       }
+  // TODO: this is where you could handle provider search results
+  //       from a remote credentialing authority
+  //
+  // const searchResults: RemotePractitionerData[] = await searchRemoteCredentialsAuthority(
+  //   `/api/v1/org/providers/?search=${myEmail}`,
+  //   secrets,
+  // );
 
-//       return {
-//         ...provider,
-//         licenses,
-//       };
-//     }
-//   }
-//   return undefined;
-// }
+  console.log(`Response: ${JSON.stringify(clinicianSearchResults)}`);
 
-async function getEhrPractitioner(appClient: AppClient, fhirClient: FhirClient): Promise<Practitioner> {
+  if (clinicianSearchResults) {
+    const provider = clinicianSearchResults.find((provider: any) => provider.email === myEmail);
+    if (provider?.id) {
+      // TODO: this is where you could handle provider credentials and licenses
+      //       from a remote credentialing authority
+      //
+      // const licensesResponse = await searchRemoteCredentialsAuthority(
+      //   `api/v1/org/licenses/?provider=${provider.id}`,
+      //   secrets,
+      // );
+      // const licenses: PractitionerLicense[] = [];
+      // if (licensesResponse) {
+      //   licensesResponse?.forEach((license: any) => {
+      //     const code = license.certificate_type;
+      //     const state = license.state;
+      //     if (code && state) licenses.push({ code, state, active: true });
+      //   });
+      // }
+
+      return undefined;
+      // {
+      // ...provider,
+      // licenses,
+      // };
+    }
+  }
+  return undefined;
+}
+
+async function getLocalEHRPractitioner(appClient: AppClient, fhirClient: FhirClient): Promise<Practitioner> {
   const practitionerId = (await appClient.getMe()).profile.replace('Practitioner/', '');
   return await fhirClient.readResource<Practitioner>({
     resourceType: 'Practitioner',
@@ -148,46 +159,46 @@ async function getEhrPractitioner(appClient: AppClient, fhirClient: FhirClient):
   });
 }
 
-// async function getFromMedallion(path: string, secrets: Secrets | null): Promise<any> {
-//   const apiKey = getSecret(SecretsKeys.MEDALLION_API_KEY, secrets);
-//   return await fetch(path, {
-//     method: 'GET',
-//     headers: {
-//       accept: 'application/json',
-//       'x-api-key': apiKey,
-//     },
-//   })
-//     .then((res) => res.json())
-//     .then((res) => res.results)
-//     .catch(console.error);
-// }
+async function searchRemoteCredentialsAuthority(path: string, secrets: Secrets | null): Promise<any> {
+  // const url = getSecret(SecretsKeys.REMOT_AUTHORITY_URL, secrets);
+  // const apiKey = getSecret(SecretsKeys.REMOT_AUTHORITY_API_KEY, secrets);
+  // return await fetch(`{url}{path}`, {
+  //   method: 'GET',
+  //   headers: {
+  //     accept: 'application/json',
+  //     'x-api-key': apiKey,
+  //   },
+  // })
+  //   .then((res) => res.json())
+  //   .then((res) => res.results)
+  //   .catch(console.error);
+}
 
-function updatePractitionerName(ePractitioner: Practitioner, mPractitioner: MedallionPractitionerData): Practitioner {
-  if (!(mPractitioner.first_name || mPractitioner.middle_name || mPractitioner.last_name)) return ePractitioner;
-  const firstName = mPractitioner.first_name;
-  const secondName = mPractitioner.middle_name;
-  const lastName = mPractitioner.last_name;
+function updatePractitionerName(localClinician: Practitioner, remoteClinician: RemotePractitionerData): Practitioner {
+  if (!(remoteClinician.first_name || remoteClinician.middle_name || remoteClinician.last_name)) return localClinician;
+  const firstName = remoteClinician.first_name;
+  const secondName = remoteClinician.middle_name;
+  const lastName = remoteClinician.last_name;
   if (firstName || secondName || lastName) {
-    if (!ePractitioner.name) ePractitioner.name = [{}];
+    if (!localClinician.name) localClinician.name = [{}];
     const given = [];
-    if (!ePractitioner.name[0].given) {
+    if (!localClinician.name[0].given) {
       if (firstName) given.push(firstName);
       if (secondName) given.push(secondName);
       if (given.length > 0) {
-        ePractitioner.name[0].given = given;
+        localClinician.name[0].given = given;
       }
     }
-
-    if (lastName) ePractitioner.name[0].family = lastName;
+    if (lastName) localClinician.name[0].family = lastName;
   }
-  return ePractitioner;
+  return localClinician;
 }
 
-function updatePractitionerPhone(ePractitioner: Practitioner, mPractitioner: MedallionPractitionerData): Practitioner {
-  if (!mPractitioner.primary_phone) return ePractitioner;
-  ePractitioner = findTelecomAndUpdateOrAddNew('phone', ePractitioner, mPractitioner.primary_phone);
-  ePractitioner = findTelecomAndUpdateOrAddNew('sms', ePractitioner, mPractitioner.primary_phone);
-  return ePractitioner;
+function updatePractitionerPhone(localClinician: Practitioner, remoteClinician: RemotePractitionerData): Practitioner {
+  if (!remoteClinician.primary_phone) return localClinician;
+  localClinician = findTelecomAndUpdateOrAddNew('phone', localClinician, remoteClinician.primary_phone);
+  localClinician = findTelecomAndUpdateOrAddNew('sms', localClinician, remoteClinician.primary_phone);
+  return localClinician;
 }
 
 function findTelecomAndUpdateOrAddNew(
@@ -217,71 +228,71 @@ function findTelecomAndUpdateOrAddNew(
   return newPractitioner;
 }
 
-function updatePractitionerPhoto(ePractitioner: Practitioner, mPractitioner: MedallionPractitionerData): Practitioner {
-  if (!mPractitioner.photoUrl) return ePractitioner;
-  if (ePractitioner?.photo) {
-    if (ePractitioner.photo[0]) {
-      ePractitioner.photo[0] = { url: mPractitioner.photoUrl };
+function updatePractitionerPhoto(localClinician: Practitioner, remoteClinician: RemotePractitionerData): Practitioner {
+  if (!remoteClinician.photoUrl) return localClinician;
+  if (localClinician?.photo) {
+    if (localClinician.photo[0]) {
+      localClinician.photo[0] = { url: remoteClinician.photoUrl };
     }
   } else {
-    ePractitioner.photo = [{ url: mPractitioner.photoUrl }];
+    localClinician.photo = [{ url: remoteClinician.photoUrl }];
   }
-  return ePractitioner;
+  return localClinician;
 }
 
 function updatePractitionerQualification(
-  ePractitioner: Practitioner,
-  mPractitioner: MedallionPractitionerData,
+  localPractitioner: Practitioner,
+  remotePractitioner: RemotePractitionerData,
 ): Practitioner {
-  if (!mPractitioner.licenses) return ePractitioner;
-  if (ePractitioner.qualification) {
-    const existedLicenses = allLicensesForPractitioner(ePractitioner);
+  if (!remotePractitioner.licenses) return localPractitioner;
+  if (localPractitioner.qualification) {
+    const existedLicenses = allLicensesForPractitioner(localPractitioner);
     const missingLicenses: PractitionerLicense[] = [];
-    mPractitioner.licenses?.forEach((license) => {
+    remotePractitioner.licenses?.forEach((license) => {
       if (!existedLicenses.find((existed) => existed.state === license.state && existed.code === license.code))
         missingLicenses.push(license);
     });
     missingLicenses?.forEach((license) => {
-      ePractitioner.qualification?.push(makeQualificationForPractitioner(license));
+      localPractitioner.qualification?.push(makeQualificationForPractitioner(license));
     });
   } else {
-    ePractitioner.qualification = [];
-    mPractitioner.licenses.forEach((license) =>
-      ePractitioner.qualification!.push(makeQualificationForPractitioner(license)),
+    localPractitioner.qualification = [];
+    remotePractitioner.licenses.forEach((license) =>
+      localPractitioner.qualification!.push(makeQualificationForPractitioner(license)),
     );
   }
-  return ePractitioner;
+  return localPractitioner;
 }
 
-function updatePractitionerNPI(ePractitioner: Practitioner, mPractitioner: MedallionPractitionerData): Practitioner {
-  if (!mPractitioner.npi) return ePractitioner;
+function updatePractitionerNPI(localClinician: Practitioner, remoteClinician: RemotePractitionerData): Practitioner {
+  if (!remoteClinician.npi) return localClinician;
   const identifier: Identifier = {
     system: FHIR_IDENTIFIER_NPI,
-    value: `${mPractitioner.npi}`,
+    value: `${remoteClinician.npi}`,
   };
 
-  if (ePractitioner.identifier) {
-    const foundIdentifier = getPractitionerNPIIdentitifier(ePractitioner);
+  if (localClinician.identifier) {
+    const foundIdentifier = getPractitionerNPIIdentitifier(localClinician);
     if (foundIdentifier && foundIdentifier.value !== identifier.value) {
       foundIdentifier.value = identifier.value;
-    } else if (!foundIdentifier) ePractitioner.identifier.push(identifier);
+    } else if (!foundIdentifier) localClinician.identifier.push(identifier);
   } else {
-    ePractitioner.identifier = [identifier];
+    localClinician.identifier = [identifier];
   }
-  return ePractitioner;
+  return localClinician;
 }
 
 function updatePractitionerCredentials(
-  ePractitioner: Practitioner,
-  mPractitioner: MedallionPractitionerData,
+  localClinician: Practitioner,
+  remoteClinician: RemotePractitionerData,
 ): Practitioner {
-  if (!mPractitioner.profession) return ePractitioner;
-  if (!ePractitioner.name) ePractitioner.name = [{}];
-  if (!ePractitioner.name[0].suffix?.includes(mPractitioner.profession)) {
-    if (!ePractitioner.name[0].suffix) ePractitioner.name[0].suffix = [];
-    ePractitioner.name[0].suffix.push(mPractitioner.profession);
+  if (!remoteClinician.profession) return localClinician;
+  if (!localClinician.name) localClinician.name = [{}];
+  if (!localClinician.name[0].suffix?.includes(remoteClinician.profession)) {
+    if (!localClinician.name[0].suffix) localClinician.name[0].suffix = [];
+    localClinician.name[0].suffix.push(remoteClinician.profession);
   }
-  return ePractitioner;
+  return localClinician;
 }
 
 async function updatePractitioner(fhirClient: FhirClient, practitioner: Practitioner): Promise<Practitioner> {
