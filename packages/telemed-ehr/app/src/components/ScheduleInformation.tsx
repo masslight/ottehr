@@ -237,7 +237,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
           />
           <Link to={`/schedule/${scheduleType}/add`}>
             <Button variant="contained" startIcon={<Add />}>
-              Add {scheduleType}
+              {scheduleType === 'provider' ? 'Add Employee' : `Add ${scheduleType}`}
             </Button>
           </Link>
           {loading && (
