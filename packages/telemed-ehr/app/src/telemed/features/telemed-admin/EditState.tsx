@@ -27,7 +27,7 @@ export default function EditStatePage(): JSX.Element {
   const theme = useTheme();
   const [isOperateInStateChecked, setIsOperateInStateChecked] = useState<boolean>(false);
   const { state } = useParams();
-  const fullLabel = `${state} - ${AllStatesToNames[state as StateType]}`;
+  const [fullLabel, setFullLabel] = useState<string>(`${state} - ${AllStatesToNames[state as StateType]}`);
 
   if (!fhirClient || !state) {
     throw new Error('fhirClient or state is not initialized.');
@@ -93,14 +93,11 @@ export default function EditStatePage(): JSX.Element {
 
               <Box sx={{ marginTop: '10px' }}>
                 <TextField
-                  id="outlined-read-only-input"
+                  id="outlined-input"
                   label="State name"
                   value={fullLabel}
                   sx={{ marginBottom: 2 }}
                   margin="dense"
-                  InputProps={{
-                    readOnly: true,
-                  }}
                 />
               </Box>
               <Box>
