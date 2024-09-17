@@ -96,7 +96,7 @@ export default function StatesPage(): ReactElement {
           {/* Label Row */}
           <TableHead>
             <TableRow>
-              <TableCell sx={{ fontWeight: 'bold', width: '50%' }}>State name</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', width: '50%' }}>State</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }} align="left">
                 Operate in state
               </TableCell>
