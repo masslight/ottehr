@@ -14,7 +14,7 @@
     "debug": "export SLS_DEBUG=* && node --inspect ../../../node_modules/serverless/bin/serverless offline --stage=local",
     "setup-zapehr-secrets": "ts-node scripts/configure-zapehr-secrets.ts ${ENV}",
     "deploy-zambdas": "pnpm run package && ts-node scripts/deploy-zambdas.ts ${ENV}",
-    "build": "tsc && sls package --stage dev",
+    "build": "tsc && sls package --stage development",
     "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
     "package": "tsc && sls package && npm run rebundle",
     "rebundle": "bash scripts/package-for-release.sh"
