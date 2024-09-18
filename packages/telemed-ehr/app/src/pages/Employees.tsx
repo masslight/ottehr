@@ -3,6 +3,7 @@ import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Autocomplete,
   Box,
+  Button,
   Checkbox,
   Chip,
   FormControlLabel,
@@ -31,6 +32,7 @@ import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 import { isLocalOrDevOrTestingOrTrainingEnv } from '../telemed/utils/env.helper';
 import { AllStates, EmployeeDetails, State } from '../types/types';
+import { Add } from '@mui/icons-material';
 
 enum PageTab {
   employees = 'employees',
@@ -160,15 +162,22 @@ function EmployeesTable({ employees, isProviderLayout }: EmployeesTableProps): R
         <TableContainer>
           <Grid container direction="row" justifyContent="start" alignItems="center">
             {/* Employee Name Search Box */}
-            <Box sx={{ display: 'flex', flex: 2, margin: '10px 0' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, m: 2 }}>
               <TextField
                 id="outlined-basic"
                 label="Search by name"
                 variant="outlined"
                 onChange={handleChangeSearchText}
                 InputProps={{ endAdornment: <SearchIcon /> }}
-                sx={{ width: '100%', paddingRight: 2 }}
+                sx={{ flexGrow: 1 }}
               />
+              {!isProviderLayout && (
+                <Link to={`/schedule/provider/add`}>
+                  <Button variant="contained" startIcon={<Add />}>
+                    Add Employee
+                  </Button>
+                </Link>
+              )}
             </Box>
             {/* States drop-down */}
             {isProviderLayout && (
