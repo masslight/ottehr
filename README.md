@@ -161,6 +161,10 @@ Lints all packages using [ESLint](https://eslint.org/).
 
 Interactively updates all dependencies to their latest versions, respecting ranges specified in `package.json`.
 
+### `deploy`
+
+Deploys Ottehr, for more information please refer to [the documentation](https://docs.oystehr.com/ottehr/deploying/).
+
 ## SendGrid Email Configuration
 
 ### Required Environment / Secrets

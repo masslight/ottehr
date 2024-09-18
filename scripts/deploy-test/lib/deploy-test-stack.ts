@@ -44,51 +44,6 @@ export class DeployTestStack extends cdk.Stack {
   }
 }
 
-export async function updateZambdas(environment: string, projectID: string, accessToken: string) {
-  const zambdasRequest = await fetch('https://project-api.zapehr.com/v1/zambda', {
-    headers: {
-      'x-zapehr-project-id': projectID,
-      'Authorization': `Bearer ${accessToken}`
-    }
-  });
-  const zambdas = await zambdasRequest.json();
-  let intakeEnvFile = fs.readFileSync(`../../packages/telemed-intake/app/env/.env.${environment}`, 'utf8');
-  let ehrEnvFile = fs.readFileSync(`../../packages/telemed-ehr/app/env/.env.${environment}`, 'utf8');
-  intakeEnvFile = intakeEnvFile.replace(/paperwork\//g, '');
-  intakeEnvFile = intakeEnvFile.replace("http://localhost:3000/local", "https://project-api.zapehr.com/v1");
-  ehrEnvFile = ehrEnvFile.replace("http://localhost:3000/local", "https://project-api.zapehr.com/v1");
-  ehrEnvFile = ehrEnvFile.replace("http://localhost:4000/local", "https://project-api.zapehr.com/v1");
-  intakeEnvFile = intakeEnvFile.replace('VITE_APP_IS_LOCAL=true', 'VITE_APP_IS_LOCAL=false');
-  ehrEnvFile = ehrEnvFile.replace('VITE_APP_IS_LOCAL=true', 'VITE_APP_IS_LOCAL=false');
-  const distributionsRequest = await getCloudFrontDistributions();
-  const intakeDistribution = distributionsRequest.DistributionList?.Items?.find((distribution) => distribution.Comment === 'ottehr-intake');
-  const ehrDistribution = distributionsRequest.DistributionList?.Items?.find((distribution) => distribution.Comment === 'ottehr-ehr');
-  if (intakeDistribution) {
-    ehrEnvFile = ehrEnvFile.replace('VITE_APP_QRS_URL=http://localhost:3002', `VITE_APP_QRS_URL=${`https://${intakeDistribution.DomainName}`}`);
-  }
-  if (ehrDistribution) {
-    ehrEnvFile = ehrEnvFile.replace('VITE_APP_ZAPEHR_APPLICATION_REDIRECT_URL=http://localhost:4002', `VITE_APP_ZAPEHR_APPLICATION_REDIRECT_URL=https://${ehrDistribution.DomainName}`)
-  }
-  zambdas.forEach((zambda: any) => {
-    // remove prefix from zambda name
-    let zambdaName = zambda.name.split('-').slice(1).join('-');
-    if (zambda.name.startsWith('telemed-')) {
-      intakeEnvFile = intakeEnvFile.replace(zambdaName, zambda.id);
-    } else if (zambda.name.startsWith('admin-')) {
-      ehrEnvFile = ehrEnvFile.replace(zambdaName, zambda.id);
-    }
-
-    if (zambda.name === 'telemed-create-appointment') {
-      ehrEnvFile = ehrEnvFile.replace('create-appointment', zambda.id);
-    }
-    if (zambda.name === 'telemed-check-in') {
-      ehrEnvFile = ehrEnvFile.replace('check-in', zambda.id);
-    }
-  });
-  fs.writeFileSync(`../../packages/telemed-intake/app/env/.env.${environment}`, intakeEnvFile);
-  fs.writeFileSync(`../../packages/telemed-ehr/app/env/.env.${environment}`, ehrEnvFile);
-}
-
 function deployWebsite(scope: Construct, website: "intake" | "ehr", projectIdentifier: string, domain: string, subdomain: string) {
   const bucketTemp = new s3.Bucket(scope, `create-${website}-s3-bucket`, {
     publicReadAccess: true,
