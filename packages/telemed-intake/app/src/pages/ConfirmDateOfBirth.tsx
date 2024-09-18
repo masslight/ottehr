@@ -226,7 +226,7 @@ const ConfirmDateOfBirth = (): JSX.Element => {
               <Typography sx={{ mt: 2 }}>
                 {decode(
                   t('confirmDateOfBirth.dateOfBirthErrorMessage', {
-                    formattedDOB: formattedDOB ? formattedDOB : '',
+                    formattedDOB: formattedDOB ?? '',
                     patientFirstName: patientInfo?.firstName || '',
                   }),
                 )}
