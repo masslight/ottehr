@@ -21,16 +21,16 @@ if $first_setup; then
 fi
 
 cd packages/telemed-intake/zambdas
-pnpm run deploy-zambdas $environment
-pnpm run setup-zapehr-secrets $environment
+ENV=$environment pnpm run deploy-zambdas $environment
+ENV=$environment pnpm run setup-zapehr-secrets $environment
 cd ../app
 pnpm run build:$environment
 
 cd ../../../
 
 cd packages/telemed-ehr/zambdas
-pnpm run deploy-zambdas $environment
-pnpm run setup-zapehr-secrets $environment
+ENV=$environment pnpm run deploy-zambdas $environment
+ENV=$environment pnpm run setup-zapehr-secrets $environment
 cd ../app
 pnpm run build:$environment
 

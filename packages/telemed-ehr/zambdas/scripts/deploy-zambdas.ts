@@ -74,21 +74,8 @@ const ZAMBDAS: { [name: string]: DeployZambda } = {
     },
     environments: ['dev', 'testing', 'staging', 'training'],
   },
-  'SYNC-USER': {
-    type: 'http_auth',
-  },
   'ICD-SEARCH': {
     type: 'http_auth',
-  },
-  'COMMUNICATION-SUBSCRIPTION': {
-    type: 'subscription',
-    subscriptionDetails: [
-      {
-        criteria: `Communication?category=${COMMUNICATION_ISSUE_REPORT_CODE.system}|${COMMUNICATION_ISSUE_REPORT_CODE.code}&status=in-progress`,
-        reason: 'PM - ML internal communication',
-        event: 'create',
-      },
-    ],
   },
 };
 
