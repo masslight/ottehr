@@ -40,8 +40,8 @@ jobs:
       - name: Set the telemed-intake/zambdas/.env/development.json
         run: cp packages/telemed-intake/zambdas/.env/local.template.json packages/telemed-intake/zambdas/.env/development.json
 
-      - name: Set the urgent-care-intake/zambdas/.env/development.json
-        run: cp packages/urgent-care-intake/zambdas/.env/local.template.json packages/urgent-care-intake/zambdas/.env/development.json
+      - name: Set the urgent-care-intake/zambdas/.env/dev.json
+        run: cp packages/urgent-care-intake/zambdas/.env/local.template.json packages/urgent-care-intake/zambdas/.env/dev.json
 
       - id: get-store-path
         run: echo STORE_PATH=$(pnpm store path) >> $GITHUB_OUTPUT

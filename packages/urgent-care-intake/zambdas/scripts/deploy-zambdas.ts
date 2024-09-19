@@ -1,7 +1,7 @@
 import { BatchInputDeleteRequest, BatchInputPostRequest, FhirClient, ZambdaClient } from '@zapehr/sdk';
 import { Subscription } from 'fhir/r4';
 import fs from 'fs';
-import devConfig from '../.env/development.json';
+import devConfig from '../.env/dev.json';
 // import productionConfig from '../.env/production.json';
 // import stagingConfig from '../.env/staging.json';
 // import testingConfig from '../.env/testing.json';
