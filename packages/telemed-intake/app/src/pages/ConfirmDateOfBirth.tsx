@@ -16,6 +16,7 @@ import { CustomContainer } from '../features/common';
 import { useGetPaperwork, usePaperworkStore } from '../features/paperwork';
 import { usePatientInfoStore } from '../features/patient-info';
 import { useZapEHRAPIClient } from '../utils';
+import { decode } from 'html-entities';
 
 const ConfirmDateOfBirth = (): JSX.Element => {
   const navigate = useNavigate();
@@ -223,10 +224,12 @@ const ConfirmDateOfBirth = (): JSX.Element => {
                 {t('confirmDateOfBirth.notConfirmed')}
               </Typography>
               <Typography sx={{ mt: 2 }}>
-                {t('dateOfBirthErrorMessage', {
-                  formattedDOB: formattedDOB ? `(${formattedDOB})` : '',
-                  patientFirstName: patientInfo?.firstName ? `(${patientInfo?.firstName})` : '',
-                })}
+                {decode(
+                  t('confirmDateOfBirth.dateOfBirthErrorMessage', {
+                    formattedDOB: formattedDOB ?? '',
+                    patientFirstName: patientInfo?.firstName || '',
+                  }),
+                )}
               </Typography>
               <Typography sx={{ mt: 1 }}>{t('confirmDateOfBirth.tryAgain')}</Typography>
               <Box

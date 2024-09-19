@@ -26,6 +26,7 @@ export default function EditStatePage(): JSX.Element {
   const { fhirClient } = useApiClients();
   const theme = useTheme();
   const [isOperateInStateChecked, setIsOperateInStateChecked] = useState<boolean>(false);
+  const [stateName, setStateName] = useState<string | undefined>(undefined);
   const { state } = useParams();
   const fullLabel = `${state} - ${AllStatesToNames[state as StateType]}`;
 
@@ -39,12 +40,13 @@ export default function EditStatePage(): JSX.Element {
     {
       onSuccess: (location) => {
         setIsOperateInStateChecked(Boolean(location && location.status === 'active'));
+        setStateName(location?.name);
       },
     },
   );
 
   const mutation = useMutation(({ location, newStatus }: { location: Location; newStatus: string }) =>
-    updateStateLocationStatus(fhirClient, location, newStatus),
+    updateStateLocationStatusAndName(fhirClient, location, newStatus, stateName ?? ''),
   );
 
   const onSwitchChange = (value: boolean): void => {
@@ -68,7 +70,7 @@ export default function EditStatePage(): JSX.Element {
             {/* Breadcrumbs */}
             <CustomBreadcrumbs
               chain={[
-                { link: '/states', children: 'States' },
+                { link: '/telemed-admin/states', children: 'States' },
                 { link: '#', children: fullLabel || <Skeleton width={150} /> },
               ]}
             />
@@ -92,16 +94,19 @@ export default function EditStatePage(): JSX.Element {
               </FormLabel>
 
               <Box sx={{ marginTop: '10px' }}>
-                <TextField
-                  id="outlined-read-only-input"
-                  label="State name"
-                  value={fullLabel}
-                  sx={{ marginBottom: 2 }}
-                  margin="dense"
-                  InputProps={{
-                    readOnly: true,
-                  }}
-                />
+                {isFetching ? (
+                  <Skeleton width={195} height={75} sx={{ marginBottom: 1 }} />
+                ) : (
+                  <TextField
+                    id="outlined-input"
+                    label="State name"
+                    value={stateName}
+                    onChange={(e) => setStateName(e.target.value)}
+                    sx={{ marginBottom: 2 }}
+                    margin="dense"
+                    required
+                  />
+                )}
               </Box>
               <Box>
                 {isFetching ? (
@@ -169,10 +174,10 @@ async function getStateLocation(fhirClient: FhirClient, state: StateType): Promi
         name: 'address-state',
         value: state,
       },
-      {
-        name: 'name:contains',
-        value: 'virtual',
-      },
+      // {
+      //   name: 'name:contains',
+      //   value: 'virtual',
+      // },
     ],
   })) as Location[];
 
@@ -183,10 +188,11 @@ async function getStateLocation(fhirClient: FhirClient, state: StateType): Promi
   );
 }
 
-async function updateStateLocationStatus(
+async function updateStateLocationStatusAndName(
   fhirClient: FhirClient,
   location: Location,
   status: string,
+  name: string,
 ): Promise<Location | undefined> {
   const updatedLocation = await fhirClient.patchResource<Location>({
     resourceType: 'Location',
@@ -196,6 +202,11 @@ async function updateStateLocationStatus(
         op: location.status ? 'replace' : 'add',
         path: '/status',
         value: status,
+      },
+      {
+        op: location.name ? 'replace' : 'add',
+        path: '/name',
+        value: name,
       },
     ],
   });

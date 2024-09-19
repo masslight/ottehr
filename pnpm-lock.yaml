@@ -92,6 +92,9 @@ importers:
       happy-dom:
         specifier: ^12.10.3
         version: 12.10.3
+      html-entities:
+        specifier: 2.5.2
+        version: 2.5.2
       husky:
         specifier: ^8.0.0
         version: 8.0.3

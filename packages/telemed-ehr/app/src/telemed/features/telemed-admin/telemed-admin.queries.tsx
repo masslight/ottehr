@@ -18,10 +18,10 @@ export const useStatesQuery = () => {
             name: 'address-state:missing',
             value: 'false',
           },
-          {
-            name: 'name:contains',
-            value: 'virtual',
-          },
+          // {
+          //   name: 'name:contains',
+          //   value: 'virtual',
+          // },
         ],
       });
 
