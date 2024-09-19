@@ -72,7 +72,7 @@ const ZAMBDAS: { [name: string]: DeployZambda } = {
     schedule: {
       expression: 'cron(*/5 * * * ? *)', // every 3 minutes
     },
-    environments: ['dev', 'testing', 'staging', 'training'],
+    environments: ['development', 'testing', 'staging', 'training'],
   },
   'SYNC-USER': {
     type: 'http_auth',
