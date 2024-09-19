@@ -104,6 +104,7 @@ export default function EditStatePage(): JSX.Element {
                     onChange={(e) => setStateName(e.target.value)}
                     sx={{ marginBottom: 2 }}
                     margin="dense"
+                    required
                   />
                 )}
               </Box>
