@@ -1,4 +1,4 @@
-import devConfig from '../.env/dev.json';
+import devConfig from '../.env/development.json';
 // import testingConfig from '../.env/testing.json';
 import { getAuth0Token } from '../src/shared';
 import { ZambdaClient } from '@zapehr/sdk';
