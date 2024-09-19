@@ -12,9 +12,9 @@ on:
         description: 'Environment name'
         required: true
         type: choice
-        default: 'dev'
+        default: 'development'
         options:
-          - dev
+          - development
           - dev2
           - testing
           - staging
