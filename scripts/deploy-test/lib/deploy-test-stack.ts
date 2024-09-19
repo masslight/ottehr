@@ -1,7 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
-import fs from 'fs';
 import { Construct } from 'constructs';
-import fetch from 'node-fetch';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';

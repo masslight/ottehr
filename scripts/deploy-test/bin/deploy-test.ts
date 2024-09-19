@@ -6,7 +6,6 @@ import config from "../config.json";
 import { DeployTestStack } from '../lib/deploy-test-stack';
 import { CloudFrontClient, ListDistributionsCommand } from '@aws-sdk/client-cloudfront';
 import { fromIni } from '@aws-sdk/credential-providers';
-import process from 'child_process';
 
 const app = new cdk.App();
 const projectConfig: any = config;
