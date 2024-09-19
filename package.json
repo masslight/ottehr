@@ -5,7 +5,7 @@
   "scripts": {
     "test": "pnpm recursive run test",
     "build": "sh ./scripts/build.sh",
-    "deploy": "ts-node ./scripts/deploy.ts",
+    "deploy": "cd scripts/deploy-test; npm run deploy",
     "build:telemed-intake": "sh ./scripts/build-telemed-intake.sh",
     "build:telemed-ehr": "sh ./scripts/build-telemed-ehr.sh",
     "lint": "eslint packages/",
