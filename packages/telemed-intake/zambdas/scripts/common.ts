@@ -7,7 +7,7 @@ export const performEffectWithEnvFile = async (callback: (config: any) => void) 
   const env = process.argv[2];
 
   switch (env) {
-    case 'dev':
+    case 'development':
       await callback(devConfig);
       break;
     // case 'testing':

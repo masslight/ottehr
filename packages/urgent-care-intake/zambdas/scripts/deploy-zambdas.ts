@@ -366,7 +366,7 @@ const main = async (): Promise<void> => {
   const env = process.argv[2];
 
   switch (env) {
-    case 'dev':
+    case 'development':
       await updateZambdas(devConfig);
       break;
     // case 'testing':
