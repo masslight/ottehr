@@ -134,6 +134,7 @@ const generateRandomPatientInfo = async (
       timezone: 'UTC',
       isDemo: true,
       phoneNumber: phoneNumber,
+      locationID: randomLocationId,
     };
   }
 
@@ -154,7 +155,7 @@ const generateRandomPatientInfo = async (
     scheduleType: 'location',
     visitType: 'now',
     visitService: visitService,
-    locationID: randomLocationId,
+    locationID: selectedLocationID || randomLocationId,
     timezone: 'UTC',
     isDemo: true,
     phoneNumber: phoneNumber,

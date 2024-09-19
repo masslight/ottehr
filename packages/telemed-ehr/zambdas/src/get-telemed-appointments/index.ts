@@ -75,23 +75,17 @@ export const performEffect = async (
   const resultAppointments: TelemedAppointmentInformation[] = [];
 
   if (allResources.length > 0) {
-    const [allRelatedPersonMaps, estimatedTimeMap] = await Promise.all([
-      relatedPersonAndCommunicationMaps(fhirClient, allResources),
-      calculateEstimatedTimeForLocations(fhirClient, allPackages, virtualLocationsMap, statusesFilter, 15),
-    ]);
+    const allRelatedPersonMaps = await relatedPersonAndCommunicationMaps(fhirClient, allResources);
 
     allPackages.forEach((appointmentPackage) => {
       const { appointment, telemedStatus, providers, groups, telemedStatusHistory, location, encounter } =
         appointmentPackage;
 
       const patient = filterPatientForAppointment(appointment, allResources);
-      console.log('patienttt', patient);
       const patientPhone = appointmentPackage.paperwork
         ? getPhoneNumberFromQuestionnaire(appointmentPackage.paperwork)
         : undefined;
       const cancellationReason = appointment.cancelationReason?.coding?.[0].code;
-      console.log('location?.locationID', location?.locationID);
-      const estimatedTime = location?.locationID ? estimatedTimeMap[location?.locationID] : undefined;
       const smsModel = createSmsModel(patient.id!, allRelatedPersonMaps);
 
       const appointmentTemp: TelemedAppointmentInformation = {
@@ -116,7 +110,6 @@ export const performEffect = async (
           state: location?.state,
         },
         encounter,
-        estimated: estimatedTime,
         paperwork: appointmentPackage.paperwork,
         telemedStatus: telemedStatus,
         telemedStatusHistory: telemedStatusHistory,
@@ -157,7 +150,6 @@ export const calculateEstimatedTimeForLocations = async (
   );
   const oldestAppointments = await getOldestAppointmentForEachLocationsGroup(fhirClient, locationsIdsGroups);
   const locationToAppointmentMap = mapAppointmentToLocationId(oldestAppointments);
-
   const estimatedTimeToLocationIdMap: EstimatedTimeToLocationIdMap = {};
   locationsIdsGroups.forEach((locationsIdsGroup) => {
     const locationID = locationsIdsGroup.find((locationID) => locationToAppointmentMap[locationID]);

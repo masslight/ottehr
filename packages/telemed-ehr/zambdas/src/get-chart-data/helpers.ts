@@ -102,7 +102,7 @@ export function convertSearchResultsToResponse(bundle: Bundle, patientId: string
     cptCodes: [],
     instructions: [],
     diagnosis: [],
-    workSchoolNotes: [],
+    schoolWorkNotes: [],
   };
 
   const resources = parseBundleResources(bundle);

@@ -18,6 +18,7 @@ import {
 import { DateTime } from 'luxon';
 import {
   AllergyDTO,
+  BooleanValueDTO,
   CPTCodeDTO,
   ChartDataFields,
   ClinicalImpressionDTO,
@@ -32,18 +33,18 @@ import {
   ExamFieldsNames,
   ExamObservationDTO,
   FreeTextNoteDTO,
+  GetChartDataResponse,
   MedicalConditionDTO,
   MedicationDTO,
   PRIVATE_EXTENSION_BASE_URL,
   ProcedureDTO,
   ProviderChartDataFieldsNames,
+  SCHOOL_WORK_NOTE,
+  SCHOOL_WORK_NOTE_TYPE_META_SYSTEM,
   SNOMEDCodeConceptInterface,
-  WORK_SCHOOL_NOTE_TYPE_META_SYSTEM,
-  WorkSchoolNoteExcuseDocFileDTO,
-  WorkSchoolNoteType,
-  BooleanValueDTO,
   SaveChartDataResponse,
-  GetChartDataResponse,
+  SchoolWorkNoteExcuseDocFileDTO,
+  SchoolWorkNoteType,
 } from 'ehr-utils/lib/types';
 import { followUpToPerformerMap } from '../../save-chart-data/helpers';
 import { removePrefix } from '../appointment/helpers';
@@ -576,7 +577,7 @@ export function makeDocumentReferenceResource(
   pdfInfo: PdfInfo,
   patientId: string,
   encounterId: string,
-  type: WorkSchoolNoteType,
+  type: SchoolWorkNoteType,
   metaTag: ProviderChartDataFieldsNames,
 ): DocumentReference {
   return {
@@ -585,7 +586,7 @@ export function makeDocumentReferenceResource(
       tag: [
         { code: 'OTTEHR-TM' },
         { code: metaTag, system: `${PRIVATE_EXTENSION_BASE_URL}/${metaTag}` },
-        { code: type, system: WORK_SCHOOL_NOTE_TYPE_META_SYSTEM },
+        { code: type, system: SCHOOL_WORK_NOTE_TYPE_META_SYSTEM },
       ],
     },
     date: DateTime.now().setZone('UTC').toISO() ?? '',
@@ -618,11 +619,11 @@ export function makeDocumentReferenceResource(
   };
 }
 
-export function makeWorkSchoolNoteDTO(resource: DocumentReference): WorkSchoolNoteExcuseDocFileDTO {
+export function makeschoolWorkNoteDTO(resource: DocumentReference): SchoolWorkNoteExcuseDocFileDTO {
   const documentBaseUrl = resource.content?.[0].attachment.url;
   if (!documentBaseUrl) throw new Error("Attached DocumentReference don't have attached base file URL");
-  const type = resource.meta?.tag?.find((tag) => tag.system === WORK_SCHOOL_NOTE_TYPE_META_SYSTEM)
-    ?.code as WorkSchoolNoteType;
+  const type = resource.meta?.tag?.find((tag) => tag.system === SCHOOL_WORK_NOTE_TYPE_META_SYSTEM)
+    ?.code as SchoolWorkNoteType;
   return {
     id: resource.id!,
     name: documentBaseUrl.split('/').reverse()[0],
@@ -710,11 +711,8 @@ export function mapResourceToChartDataResponse(
 ): SaveChartDataResponse | GetChartDataResponse {
   saveChartDataResponse = mapResourceToChartDataFields(saveChartDataResponse, resource) as SaveChartDataResponse;
 
-  if (
-    resource.resourceType === 'DocumentReference' &&
-    chartDataResourceHasMetaTagByCode(resource, 'work-school-note')
-  ) {
-    saveChartDataResponse.workSchoolNotes?.push(makeWorkSchoolNoteDTO(resource));
+  if (resource.resourceType === 'DocumentReference' && chartDataResourceHasMetaTagByCode(resource, SCHOOL_WORK_NOTE)) {
+    saveChartDataResponse.schoolWorkNotes?.push(makeschoolWorkNoteDTO(resource));
   }
   return saveChartDataResponse;
 }

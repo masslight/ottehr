@@ -33,7 +33,7 @@ export const validateBundleAndExtractSavedChartData = (
     cptCodes: [],
     instructions: [],
     diagnosis: [],
-    workSchoolNotes: [],
+    schoolWorkNotes: [],
   };
 
   let resources: FhirResource[] = entries

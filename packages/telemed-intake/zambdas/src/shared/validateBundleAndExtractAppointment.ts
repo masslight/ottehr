@@ -1,8 +1,8 @@
-import { Appointment, Bundle, Location, QuestionnaireResponse } from 'fhir/r4';
+import { Appointment, Bundle, HealthcareService, Location, Practitioner, QuestionnaireResponse } from 'fhir/r4';
 
 interface ValidateBundleOutput {
   appointment: Appointment;
-  location: Location;
+  appointmentResource: Location | Practitioner | HealthcareService;
   questionnaireResponse: QuestionnaireResponse;
 }
 
@@ -27,12 +27,19 @@ export const validateBundleAndExtractAppointment = (bundle: Bundle): ValidateBun
     throw new Error('Appointment could not be found');
   }
 
-  const location: Location = entry.find((appt) => {
-    return appt.resource && appt.resource.resourceType === 'Location';
-  })?.resource as Location;
+  const appointmentResources = ['Location', 'Practitioner', 'HealthcareService'];
+  let appointmentResource: Location | Practitioner | HealthcareService | undefined = undefined;
+  for (const aptResource of appointmentResources) {
+    appointmentResource = entry.find((appt) => {
+      return appt.resource && appt.resource.resourceType === aptResource;
+    })?.resource as Location | Practitioner | HealthcareService;
 
-  if (!location) {
-    throw new Error('Location could not be found');
+    if (appointmentResource) {
+      break;
+    }
+  }
+  if (!appointmentResource) {
+    throw new Error('Resource could not be found');
   }
 
   const questionnaireResponse: QuestionnaireResponse = entry.find((appt) => {
@@ -43,5 +50,5 @@ export const validateBundleAndExtractAppointment = (bundle: Bundle): ValidateBun
   // questionnaireResponse associated with the encounter, but it is still
   // valid for them to check-in.
 
-  return { appointment, location, questionnaireResponse };
+  return { appointment, appointmentResource, questionnaireResponse };
 };

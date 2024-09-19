@@ -1,6 +1,6 @@
 import { BatchInputPostRequest, BatchInputPutRequest } from '@zapehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ExamCardsNames, ExamFieldsNames, SNOMEDCodeConceptInterface } from 'ehr-utils';
+import { ExamCardsNames, ExamFieldsNames, SNOMEDCodeConceptInterface, SCHOOL_WORK_NOTE } from 'ehr-utils';
 import { examCardsMap, examFieldsMap } from 'ehr-utils/lib/types/api/chart-data/exam-fields-map';
 import { checkOrCreateM2MClientToken, createFhirClient } from '../shared/helpers';
 import { ZambdaInput } from '../types';
@@ -13,7 +13,7 @@ import {
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 import { CodeableConcept, DocumentReference, Encounter, FhirResource, Patient } from 'fhir/r4';
-// import { createWorkSchoolNotePDF } from '../shared/pdf/pdf';
+// import { createschoolWorkNotePDF } from '../shared/pdf/pdf';
 import {
   createCodingCode,
   makeAllergyResource,
@@ -32,7 +32,7 @@ import {
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
 } from '../shared/chart-data/chart-data-helpers';
-import { createWorkSchoolNotePDF } from '../shared/pdf/pdf';
+import { createSchoolWorkNotePDF } from '../shared/pdf/pdf';
 // import { PdfDocumentReferencePublishedStatuses } from '../shared/pdf/pdfUtils';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -59,8 +59,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       instructions,
       disposition,
       diagnosis,
-      newWorkSchoolNote,
-      workSchoolNotes,
+      newSchoolWorkNote,
+      schoolWorkNotes,
       patientInfoConfirmed,
       addendumNote,
     } = validateRequestParameters(input);
@@ -281,26 +281,26 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     // 14 convert work-school note to pdf file, upload it to z3 bucket and create DocumentReference (FHIR) for it
-    if (newWorkSchoolNote) {
-      const pdfInfo = await createWorkSchoolNotePDF(newWorkSchoolNote, patient, secrets, m2mtoken);
+    if (newSchoolWorkNote) {
+      const pdfInfo = await createSchoolWorkNotePDF(newSchoolWorkNote, patient, secrets, m2mtoken);
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(
-          makeDocumentReferenceResource(pdfInfo, patient.id, encounterId, newWorkSchoolNote.type, 'work-school-note'),
+          makeDocumentReferenceResource(pdfInfo, patient.id, encounterId, newSchoolWorkNote.type, SCHOOL_WORK_NOTE),
         ),
       );
     }
-    // updating workSchool note DocumentReference status 'published' | 'unpublished'
-    if (workSchoolNotes) {
+    // updating schoolWork note DocumentReference status 'published' | 'unpublished'
+    if (schoolWorkNotes) {
       const documentReferences = allResources.filter(
         (resource) => resource.resourceType === 'DocumentReference',
       ) as DocumentReference[];
-      workSchoolNotes.forEach((element) => {
-        const workSchoolDR = documentReferences.find((dr) => dr.id === element.id);
-        // if (workSchoolDR) {
-        //   workSchoolDR.docStatus = element.published
+      schoolWorkNotes.forEach((element) => {
+        const schoolWorkDR = documentReferences.find((dr) => dr.id === element.id);
+        // if (schoolWorkDR) {
+        //   schoolWorkDR.docStatus = element.published
         //     ? PdfDocumentReferencePublishedStatuses.published
         //     : PdfDocumentReferencePublishedStatuses.unpublished;
-        //   saveOrUpdateRequests.push(saveOrUpdateResourceRequest(workSchoolDR));
+        //   saveOrUpdateRequests.push(saveOrUpdateResourceRequest(schoolWorkDR));
         // }
       });
     }

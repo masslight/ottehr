@@ -27,9 +27,7 @@ export const SurgicalHistoryPatientColumn: FC = () => {
       ) : surgicalHistory ? (
         surgicalHistory.map((answer, index, arr) => (
           <Box key={index}>
-            <Typography>
-              {answer['surgical-history-form-type']} | {answer['surgical-history-form-date']}
-            </Typography>
+            <Typography>{answer['surgical-history-form-type']}</Typography>
             {index + 1 !== arr.length && <Divider sx={{ pt: 1 }} />}
           </Box>
         ))

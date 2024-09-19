@@ -96,30 +96,30 @@ export interface DiagnosisDTO extends SaveableDTO {
   isPrimary: boolean;
 }
 
-export type WorkSchoolNoteType = 'work' | 'school';
+export type SchoolWorkNoteType = 'work' | 'school';
 
-export interface WorkSchoolNoteExcuseDocDTO {
+export interface SchoolWorkNoteExcuseDocDTO {
   documentHeader: string;
   parentGuardianName: string;
   headerNote: string;
   bulletItems?: PdfBulletPointItem[];
   footerNote: string;
-  providerDetails: WorkSchoolNoteExcuseDocProviderDetails;
-  type: WorkSchoolNoteType;
+  providerDetails: SchoolWorkNoteExcuseDocProviderDetails;
+  type: SchoolWorkNoteType;
 }
 
-export interface WorkSchoolNoteExcuseDocProviderDetails {
+export interface SchoolWorkNoteExcuseDocProviderDetails {
   name: string;
   credentials: string;
 }
 
-export interface WorkSchoolNoteExcuseDocFileDTO {
+export interface SchoolWorkNoteExcuseDocFileDTO {
   id: string;
   published?: boolean;
   date?: string;
   name?: string;
   url?: string;
-  type: WorkSchoolNoteType;
+  type: SchoolWorkNoteType;
 }
 
 export interface PdfBulletPointItem {

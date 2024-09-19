@@ -8,9 +8,10 @@ import { useCreateInviteMutation } from '../waiting-room';
 type InviteParticipantsFormProps = {
   isGetInvitesFetching: boolean;
   onInviteSuccess?: () => void;
+  onBack?: () => void;
 };
 
-export const InviteParticipantForm: FC<InviteParticipantsFormProps> = ({ onInviteSuccess }) => {
+export const InviteParticipantForm: FC<InviteParticipantsFormProps> = ({ onInviteSuccess, onBack }) => {
   const [inviteErrorDialogOpen, setInviteErrorDialogOpen] = useState<boolean>(false);
   const createInviteMutation = useCreateInviteMutation();
   const { t } = useTranslation();
@@ -71,6 +72,7 @@ export const InviteParticipantForm: FC<InviteParticipantsFormProps> = ({ onInvit
           loading: createInviteMutation.isLoading,
           submitLabel: t('participants.sendInvite'),
           backButtonLabel: t('general.button.close'),
+          onBack: onBack ?? undefined,
         }}
       />
       <ErrorDialog

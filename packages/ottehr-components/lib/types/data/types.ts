@@ -20,4 +20,7 @@ export type GetZapEHRAPIParams = {
   videoChatCancelInviteZambdaID?: string;
   videoChatListInvitesZambdaID?: string;
   getPresignedFileURLZambdaID?: string;
+  getProvidersZambdaID?: string;
+  getLocationsZambdaID?: string;
+  getGroupsZambdaID?: string;
 };

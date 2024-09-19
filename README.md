@@ -41,6 +41,15 @@ Ottehr currently has two websites. One is for patients -- **Ottehr Intake** -- a
 
 To run Ottehr for the first time, you need to set up the project.
 
+
+#### For Windows users:
+
+We recommend using the Windows Subsystem for Linux (WSL) to run Ottehr on Windows. Follow these steps to set up WSL and install Node.js:
+
+1.   Install **WSL** by following the official Microsoft guide: [Install WSL](https://learn.microsoft.com/en-us/windows/wsl/install)
+
+2. Open your **WSL** terminal and follow the instructions below to install nvm and Node.js.
+
 ### Node Installation
 
 To manage Node.js versions efficiently, we recommend using [Node Version Manager (nvm)](https://github.com/nvm-sh/nvm#installing-and-updating).
@@ -114,10 +123,17 @@ To proceed with this setup guide, it is assumed that you have access to a Oysteh
 
 Before proceeding, ensure that you have Node.js v18.x and pnpm installed on your machine.
 
+**For Windows users, make sure you have WSL set up and are running these commands in your WSL terminal.**
+
 Once these dependencies are in place, enter the following command from the root directory.
 
 ```bash
 sh scripts/ottehr-setup.sh
+```
+
+**note**: If you encounter an error on WSL/Ubuntu, try using bash instead of sh:
+```bash
+bash scripts/ottehr-setup.sh
 ```
 
 The script will prompt you for the following information:
@@ -235,13 +251,10 @@ Deploys Ottehr, for more information please refer to [the documentation](https:/
 _At this time, dynamic theming and localization is only supported for the `telemed-intake` application._
 
 ### To theme your Ottehr `telemed-intake` app:
-- Copy the files in `telemed-intake/app/src/assets/` into a new folder, for example `telemed-intake/app/src/assets/myTheme`
-- Copy the files in `telemed-intake/app/src/lib/` into a new folder, for example `telemed-intake/app/src/lib/myTheme`
+- Copy the files in `telemed-intake/app/src/theme/ottehr/` into a new folder, for example `telemed-intake/app/src/theme/myTheme`
 - Update the theme environment variables to point to your new folders:
     ```bash
-    ASSETS_PATH='/src/assets/myTheme'
-    THEME_PATH='/src/assets/myTheme/theme'
-    TRANSLATIONS_PATH='/src/lib/myTheme'
+    THEME_PATH='/src/theme/myTheme'
     ```
 - Modify the images, svgs, colors and translation files as needed
 - Restart the app

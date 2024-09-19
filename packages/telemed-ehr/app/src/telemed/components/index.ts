@@ -1,6 +1,5 @@
 export * from './ContainedPrimaryToggleButton';
 export * from './LoadingSpinner';
-export * from './IconButtonWithLabel';
 export * from './CustomTooltip';
 export * from './AppointmentStatusChip';
 export * from './BooleanStateChip';

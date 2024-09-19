@@ -1,8 +1,8 @@
 import { i18nextCreator } from 'ottehr-utils';
-import * as englishStrings from '@translations/i18n-en.json';
-import * as defaultEnglishStrings from '@defaultTranslations/i18n-en.json';
-import * as spanishStrings from '@translations/i18n-es.json';
-import * as defaultSpanishStrings from '@defaultTranslations/i18n-es.json';
+import * as englishStrings from '@theme/i18n-en.json';
+import * as defaultEnglishStrings from '@defaultTheme/i18n-en.json';
+import * as spanishStrings from '@theme/i18n-es.json';
+import * as defaultSpanishStrings from '@defaultTheme/i18n-es.json';
 
 const englishTranslation = JSON.stringify({ ...defaultEnglishStrings, ...englishStrings });
 const spanishTranslation = JSON.stringify({ ...defaultSpanishStrings, ...spanishStrings });

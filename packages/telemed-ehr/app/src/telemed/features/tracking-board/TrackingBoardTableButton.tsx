@@ -72,7 +72,7 @@ export const TrackingBoardTableButton: FC<{ appointment: TelemedAppointmentInfor
         >
           {(showDialog) => (
             <LoadingButton onClick={showDialog} loading={mutation.isLoading} variant="contained" sx={baseStyles}>
-              Assign me
+              Assign to me
             </LoadingButton>
           )}
         </ConfirmationDialog>

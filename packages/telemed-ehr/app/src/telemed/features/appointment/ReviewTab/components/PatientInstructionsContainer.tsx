@@ -12,7 +12,7 @@ export const PatientInstructionsContainer: FC = () => {
 
   const instructions = chartData?.instructions;
   const disposition = chartData?.disposition;
-  const workSchoolExcuses = useExcusePresignedFiles(chartData?.workSchoolNotes);
+  const schoolWorkExcuses = useExcusePresignedFiles(chartData?.schoolWorkNotes);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, width: '100%' }}>
@@ -80,8 +80,8 @@ export const PatientInstructionsContainer: FC = () => {
 
       <AssessmentTitle>Work / School Excuse</AssessmentTitle>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        {workSchoolExcuses.length > 0 ? (
-          workSchoolExcuses.map((excuse) => (
+        {schoolWorkExcuses.length > 0 ? (
+          schoolWorkExcuses.map((excuse) => (
             <Link component={RouterLink} to={excuse.presignedUrl!} target="_blank" key={excuse.id}>
               {excuse.name}
             </Link>

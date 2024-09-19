@@ -17,6 +17,9 @@ export const useZapEHRAPIClient = (
     const client = getZapEHRAPI(
       {
         getPatientsZambdaID: import.meta.env.VITE_APP_GET_PATIENTS_ZAMBDA_ID,
+        getProvidersZambdaID: import.meta.env.VITE_APP_GET_PROVIDERS_ZAMBDA_ID,
+        getLocationsZambdaID: import.meta.env.VITE_APP_GET_LOCATIONS_ZAMBDA_ID,
+        getGroupsZambdaID: import.meta.env.VITE_APP_GET_GROUPS_ZAMBDA_ID,
         createAppointmentZambdaID: import.meta.env.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID,
         updateAppointmentZambdaID: import.meta.env.VITE_APP_UPDATE_APPOINTMENT_ZAMBDA_ID,
         cancelAppointmentZambdaID: import.meta.env.VITE_APP_CANCEL_APPOINTMENT_ZAMBDA_ID,

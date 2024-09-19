@@ -46,7 +46,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       instructions,
       disposition,
       diagnosis,
-      workSchoolNotes,
+      schoolWorkNotes,
       addendumNote,
     } = validateRequestParameters(input);
 
@@ -152,7 +152,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     // 14. delete work-school excuse note DocumentReference resource
-    workSchoolNotes?.forEach((element) => {
+    schoolWorkNotes?.forEach((element) => {
       const documentReference = allResources.find((resource) => resource.id === element.id);
       if (documentReference)
         deleteOrUpdateRequests.push(deleteResourceRequest('DocumentReference', documentReference.id!));
@@ -166,10 +166,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.log('Updated chart data as a transaction');
 
     // perform deleting z3 pdf objects after deleting all fhir resources
-    if (workSchoolNotes) {
-      for (const workSchoolNote of workSchoolNotes) {
+    if (schoolWorkNotes) {
+      for (const schoolWorkNote of schoolWorkNotes) {
         const documentReference = allResources.find(
-          (resource) => resource.id === workSchoolNote.id,
+          (resource) => resource.id === schoolWorkNote.id,
         ) as DocumentReference;
         const fileUrl = documentReference.content[0].attachment.url;
         if (fileUrl) await deleteZ3Object(fileUrl, m2mtoken);
