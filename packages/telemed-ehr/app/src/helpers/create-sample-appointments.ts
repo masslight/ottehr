@@ -75,6 +75,8 @@ export const createSampleAppointments = async (
     console.log('Succesfully created appointments', responses);
   } catch (error: any) {
     console.error('Error creating appointments:', error);
+  } finally {
+    localStorage.removeItem('selectedLocationID');
   }
 };
 
