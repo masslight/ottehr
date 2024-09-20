@@ -11,6 +11,7 @@ import { CustomContainer } from '../features/common';
 import { useZapEHRAPIClient } from '../utils';
 import Schedule from '../components/Schedule';
 import { ErrorDialog } from 'ottehr-components';
+import { useAuth0 } from '@auth0/auth0-react';
 
 interface Parameters {
   'schedule-type': 'location' | 'provider';
@@ -27,6 +28,8 @@ const Welcome = (): JSX.Element => {
   const [choiceErrorDialogOpen, setChoiceErrorDialogOpen] = useState(false);
   const { selectedSlot, setAppointment } = useAppointmentStore((state) => state);
   const { t } = useTranslation();
+
+  const { isAuthenticated } = useAuth0();
 
   if (!slug) {
     throw new Error('slug is not defined');
@@ -51,8 +54,10 @@ const Welcome = (): JSX.Element => {
   const onSubmit = (): void => {
     if (!selectedSlot) {
       setChoiceErrorDialogOpen(true);
-    } else {
+    } else if (!isAuthenticated) {
       navigate(IntakeFlowPageRoute.AuthPage.path);
+    } else {
+      navigate(`${IntakeFlowPageRoute.SelectPatient.path}?flow=requestVisit`);
     }
   };
 
