@@ -22,16 +22,10 @@ import { TelemedAdminPage } from './pages/TelemedAdminPage';
 import { useNavStore } from './state/nav.store';
 import EditInsurance from './telemed/features/telemed-admin/EditInsurance';
 import EditStatePage from './telemed/features/telemed-admin/EditState';
-import { isLocalOrDevOrTestingOrTrainingEnv } from './telemed/utils/env.helper';
 import { RoleType } from './types/types';
 import { AppointmentPage } from './pages/AppointmentPage';
 import AddSchedulePage from './pages/AddSchedulePage';
-
-const enablePhoton = true; // false && isLocalOrDevOrTestingOrTrainingEnv;
-
-if (enablePhoton) {
-  import('@photonhealth/elements').catch(console.log);
-}
+import('@photonhealth/elements').catch(console.log);
 
 const TelemedTrackingBoardPageLazy = lazy(async () => {
   const TrackingBoardPage = await import('./telemed/pages/TrackingBoardPage');
@@ -75,7 +69,7 @@ function App(): ReactElement {
                         <photon-client
                           id={import.meta.env.VITE_APP_PHOTON_CLIENT_ID}
                           org={import.meta.env.VITE_APP_PHOTON_ORG_ID}
-                          dev-mode="true"
+                          dev-mode={import.meta.env.MODE === 'production' ? 'false' : 'true'}
                           auto-login="true"
                           redirect-uri={window.location.origin}
                         >

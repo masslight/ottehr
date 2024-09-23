@@ -11,7 +11,7 @@ import {
   SyncUserResponse,
   User,
   getFullestAvailableName,
-  getPatchOperationForNewMetaTag,
+  getPatchOperationToUpdateExtension,
   getPractitionerNPIIdentitifier,
   initialsFromName,
 } from 'ehr-utils';
@@ -46,13 +46,9 @@ enum LoadingState {
 }
 
 export const useProviderERXStateStore = create<{
-  wasEnrolledInphoton?: boolean;
+  wasEnrolledInERX?: boolean;
 }>()(persist(() => ({}), { name: 'ottehr-ehr-provider-erx-store' }));
-
-// extracting it here, cause even if we use store - it will still initiate requests as much as we have usages of this hook,
-// so just to use this var as a synchronization mechanism - lifted it here
 let _profileLoadingState = LoadingState.initial;
-let _lastLoginUpdating = LoadingState.initial;
 let _userLoading = LoadingState.initial;
 let _practitionerSyncStarted = false;
 let _practitionerSyncFinished = false;
@@ -70,11 +66,11 @@ export default function useOttehrUser(): OttehrUser | undefined {
 
   useEffect(() => {
     if (isPractitionerEnrolledInERX) {
-      useProviderERXStateStore.setState({ wasEnrolledInphoton: true });
+      useProviderERXStateStore.setState({ wasEnrolledInERX: true });
     }
   }, [isPractitionerEnrolledInERX]);
 
-  const isProviderHasEverythingToBeEnrolled = Boolean(
+  const isProviderHasEverythingToBeEnrolledInErx = Boolean(
     profile?.id &&
       profile?.telecom?.find((phone) => phone.system === 'sms' || phone.system === 'phone')?.value &&
       getPractitionerNPIIdentitifier(profile)?.value &&
@@ -95,6 +91,9 @@ export default function useOttehrUser(): OttehrUser | undefined {
       console.log('Practitioner sync success');
     }
   });
+  const { refetch: refetchProfile } = useGetProfile();
+  const { mutateAsync: mutatePractitionerAsync } = useUpdatePractitioner();
+  const { mutateAsync: mutateEnrollPractitionerInERX } = useEnrollPractitionerInERX();
 
   useEffect(() => {
     async function getUserRequest(): Promise<void> {
@@ -140,32 +139,6 @@ export default function useOttehrUser(): OttehrUser | undefined {
   }, [fhirClient, profile, user]);
 
   useEffect(() => {
-    async function updateLastLogin(user: User, fhirClient: FhirClient): Promise<void> {
-      _lastLoginUpdating = LoadingState.pending;
-      try {
-        await fhirClient.patchResource({
-          resourceType: 'Practitioner',
-          resourceId: user.profile.replace('Practitioner/', ''),
-          operations: [
-            getPatchOperationForNewMetaTag(profile!, {
-              system: 'last-login',
-              code: DateTime.now().toISO() ?? 'Unknown',
-            }),
-          ],
-        });
-      } catch (error) {
-        console.log(error);
-      } finally {
-        _lastLoginUpdating = LoadingState.idle;
-      }
-    }
-
-    if (user && fhirClient && profile && _lastLoginUpdating !== LoadingState.pending) {
-      void updateLastLogin(user, fhirClient);
-    }
-  }, [fhirClient, profile, user]);
-
-  useEffect(() => {
     const lastLogin = auth0User?.updated_at;
     if (lastLogin) {
       const loginTime = DateTime.fromISO(lastLogin);
@@ -174,6 +147,40 @@ export default function useOttehrUser(): OttehrUser | undefined {
       }
     }
   }, [auth0User?.updated_at]);
+
+  useEffect(() => {
+    if (
+      !isPractitionerEnrolledInERX &&
+      hasRole([RoleType.Provider]) &&
+      _practitionerSyncFinished &&
+      isProviderHasEverythingToBeEnrolledInErx &&
+      !_practitionerERXEnrollmentStarted
+    ) {
+      _practitionerERXEnrollmentStarted = true;
+      mutateEnrollPractitionerInERX()
+        .then(async () => {
+          if (profile) {
+            const op = getPatchOperationToUpdateExtension(profile, {
+              url: ERX_PRACTITIONER_ENROLLED,
+              valueBoolean: true,
+            });
+            if (op) {
+              await mutatePractitionerAsync([op]);
+              void refetchProfile();
+            }
+          }
+        })
+        .catch(console.error);
+    }
+  }, [
+    hasRole,
+    isPractitionerEnrolledInERX,
+    isProviderHasEverythingToBeEnrolledInErx,
+    mutateEnrollPractitionerInERX,
+    mutatePractitionerAsync,
+    profile,
+    refetchProfile,
+  ]);
 
   const { userName, userInitials, lastLogin } = useMemo(() => {
     if (profile) {
@@ -194,13 +201,15 @@ export default function useOttehrUser(): OttehrUser | undefined {
         userInitials,
         lastLogin,
         profileResource: profile,
+        isERXPrescriber,
+        isPractitionerEnrolledInERX,
         hasRole: (role: RoleType[]) => {
           return userRoles.find((r) => role.includes(r.name as RoleType)) != undefined;
         },
       };
     }
     return undefined;
-  }, [lastLogin, profile, user, userInitials, userName]);
+  }, [lastLogin, isERXPrescriber, isPractitionerEnrolledInERX, profile, user, userInitials, userName]);
 }
 
 const MINUTE = 1000 * 60;
