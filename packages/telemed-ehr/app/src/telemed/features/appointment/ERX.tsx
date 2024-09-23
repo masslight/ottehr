@@ -1,7 +1,7 @@
 import { Patient } from 'fhir/r4';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useState } from 'react';
-import { PHOTON_PATIENT_IDENTIFIER_SYSTEM } from 'ehr-utils';
+import { ERX_PATIENT_IDENTIFIER_SYSTEM } from 'ehr-utils';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore, useSyncPhotonPatient } from '../../state';
 import { ERXDialog } from './ERXDialog';
@@ -16,7 +16,7 @@ export const ERX: FC<{
 
   const { isLoading: isSyncingPatient, mutateAsync: syncPatient, isError } = useSyncPhotonPatient();
 
-  const photonPatientId = patient?.identifier?.find((id) => id.system === PHOTON_PATIENT_IDENTIFIER_SYSTEM)?.value;
+  const photonPatientId = patient?.identifier?.find((id) => id.system === ERX_PATIENT_IDENTIFIER_SYSTEM)?.value;
 
   const syncPatientFn = useCallback(async () => {
     try {
@@ -29,7 +29,7 @@ export const ERX: FC<{
               ...oldPatient,
               identifier: [
                 ...(oldPatient?.identifier || []),
-                { system: PHOTON_PATIENT_IDENTIFIER_SYSTEM, value: response.photonPatientId },
+                { system: ERX_PATIENT_IDENTIFIER_SYSTEM, value: response.photonPatientId },
               ],
             },
           };

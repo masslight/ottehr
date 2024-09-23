@@ -2,11 +2,12 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { ClientConfig, FhirClient } from '@zapehr/sdk';
 import { Practitioner } from 'fhir/r4';
 import { DateTime, Duration } from 'luxon';
+import { Operation } from 'fast-json-patch';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
 import {
-  PHOTON_PRACTITIONER_ENROLLED,
-  PHOTON_PRESCRIBER_SYSTEM_URL,
+  ERX_PRACTITIONER_ENROLLED,
+  ERX_PRESCRIBER_SYSTEM_URL,
   SyncUserResponse,
   User,
   getFullestAvailableName,
@@ -27,8 +28,8 @@ export interface OttehrUser extends User {
   userInitials: string;
   lastLogin: string | undefined;
   hasRole: (role: RoleType[]) => boolean;
-  isPhotonPrescriber?: boolean;
-  isPractitionerEnrolledInPhoton?: boolean;
+  isERXPrescriber?: boolean;
+  isPractitionerEnrolledInERX?: boolean;
 }
 
 interface OttehrUserState {
@@ -44,9 +45,9 @@ enum LoadingState {
   idle,
 }
 
-export const useProviderPhotonStateStore = create<{
+export const useProviderERXStateStore = create<{
   wasEnrolledInphoton?: boolean;
-}>()(persist(() => ({}), { name: 'ottehr-ehr-provider-photon-store' }));
+}>()(persist(() => ({}), { name: 'ottehr-ehr-provider-erx-store' }));
 
 // extracting it here, cause even if we use store - it will still initiate requests as much as we have usages of this hook,
 // so just to use this var as a synchronization mechanism - lifted it here
@@ -62,18 +63,16 @@ export default function useOttehrUser(): OttehrUser | undefined {
   const { isAuthenticated, getAccessTokenSilently, user: auth0User } = useAuth0();
   const user = useOttehrUserStore((state) => state.user);
   const profile = useOttehrUserStore((state) => state.profile);
-  const isPhotonPrescriber = profile?.identifier?.some(
-    (x) => x.system === PHOTON_PRESCRIBER_SYSTEM_URL && Boolean(x.value),
-  );
-  const isPractitionerEnrolledInPhoton = profile?.extension?.some(
-    (x) => x.url === PHOTON_PRACTITIONER_ENROLLED && Boolean(x.valueBoolean),
+  const isERXPrescriber = profile?.identifier?.some((x) => x.system === ERX_PRESCRIBER_SYSTEM_URL && Boolean(x.value));
+  const isPractitionerEnrolledInERX = profile?.extension?.some(
+    (x) => x.url === ERX_PRACTITIONER_ENROLLED && Boolean(x.valueBoolean),
   );
 
   useEffect(() => {
-    if (isPractitionerEnrolledInPhoton) {
-      useProviderPhotonStateStore.setState({ wasEnrolledInphoton: true });
+    if (isPractitionerEnrolledInERX) {
+      useProviderERXStateStore.setState({ wasEnrolledInphoton: true });
     }
-  }, [isPractitionerEnrolledInPhoton]);
+  }, [isPractitionerEnrolledInERX]);
 
   const isProviderHasEverythingToBeEnrolled = Boolean(
     profile?.id &&
@@ -290,6 +289,40 @@ const useGetUser = () => {
   );
 };
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+const useGetProfile = () => {
+  const token = useAuthToken();
+  const user = useOttehrUserStore((state) => state.user);
+  const profile = useOttehrUserStore((state) => state.profile);
+  const { fhirClient } = useApiClients();
+
+  return useQuery(
+    ['get-practitioner-profile'],
+    async (): Promise<void> => {
+      try {
+        if (!user?.profile) {
+          useOttehrUserStore.setState({ profile: undefined });
+          return;
+        }
+
+        const [resourceType, resourceId] = (user?.profile || '').split('/');
+        if (resourceType && resourceId && resourceType === 'Practitioner') {
+          const practitioner = await fhirClient?.readResource<Practitioner>({ resourceType, resourceId });
+          useOttehrUserStore.setState({ profile: practitioner });
+          console.log('practitioner', practitioner);
+        }
+      } catch (e) {
+        console.error(`error fetching user's fhir profile: ${JSON.stringify(e)}`);
+        useOttehrUserStore.setState({ profile: undefined });
+      }
+    },
+    {
+      enabled: Boolean(token && fhirClient && user?.profile && !profile),
+    },
+  );
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const useSyncPractitioner = (onSuccess: (data: SyncUserResponse) => void) => {
   const client = useZapEHRAPIClient();
   const token = useAuthToken();
@@ -318,5 +351,30 @@ const useSyncPractitioner = (onSuccess: (data: SyncUserResponse) => void) => {
         token && zambdaClient && (zambdaClient as unknown as ClientConfig).accessToken && !_practitionerSyncStarted,
       ),
     },
+  );
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+const useUpdatePractitioner = () => {
+  const user = useOttehrUserStore((state) => state.user);
+  const { fhirClient } = useApiClients();
+
+  return useMutation(
+    ['update-practitioner'],
+    async (patchOps: Operation[]): Promise<void> => {
+      try {
+        if (!fhirClient || !user) return;
+
+        await fhirClient.patchResource({
+          resourceType: 'Practitioner',
+          resourceId: user.profile.replace('Practitioner/', ''),
+          operations: [...patchOps],
+        });
+      } catch (error) {
+        console.error(error);
+        throw error;
+      }
+    },
+    { retry: 3 },
   );
 };

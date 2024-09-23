@@ -282,5 +282,5 @@ export interface PractitionerLicense {
   active: boolean;
 }
 
-export const PHOTON_PRESCRIBER_SYSTEM_URL = 'http://api.zapehr.com/photon-prescriber-id';
-export const PHOTON_PRACTITIONER_ENROLLED = 'http://api.zapehr.com/photon-practitioner-enrolled';
+export const ERX_PRESCRIBER_SYSTEM_URL = 'http://api.zapehr.com/photon-prescriber-id';
+export const ERX_PRACTITIONER_ENROLLED = 'http://api.zapehr.com/photon-practitioner-enrolled';

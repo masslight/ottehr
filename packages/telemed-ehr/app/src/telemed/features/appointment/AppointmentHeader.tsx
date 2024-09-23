@@ -6,7 +6,7 @@ import MedicationOutlinedIcon from '@mui/icons-material/MedicationOutlined';
 import { AppBar, Box, Container, IconButton, Skeleton, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC, useState } from 'react';
-import { PHOTON_PATIENT_IDENTIFIER_SYSTEM, mapStatusToTelemed, getQuestionnaireResponseByLinkId } from 'ehr-utils';
+import { ERX_PATIENT_IDENTIFIER_SYSTEM, mapStatusToTelemed, getQuestionnaireResponseByLinkId } from 'ehr-utils';
 import CustomBreadcrumbs from '../../../components/CustomBreadcrumbs';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { IconButtonWithLabel } from '../../components';
@@ -37,7 +37,7 @@ export const AppointmentHeader: FC = () => {
     ['appointment', 'patient', 'encounter', 'location', 'isReadOnly', 'questionnaireResponse'],
   );
 
-  const patientPhotonId = patient?.identifier?.find((id) => id.system === PHOTON_PATIENT_IDENTIFIER_SYSTEM)?.value;
+  const patientPhotonId = patient?.identifier?.find((id) => id.system === ERX_PATIENT_IDENTIFIER_SYSTEM)?.value;
   const reasonForVisit = getQuestionnaireResponseByLinkId('reason-for-visit', questionnaireResponse)?.answer?.[0]
     .valueString;
 
