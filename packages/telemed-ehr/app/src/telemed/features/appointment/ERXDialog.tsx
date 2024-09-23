@@ -105,7 +105,7 @@ export const ERXDialog = ({
           <CloseIcon fontSize="small" />
         </IconButton>
       </Box>
-      <photon-prescribe-workflow weight={weight} weight-unit="lbs" patient-id={patientPhotonId} enable-order="true" />
+      <photon-prescribe-workflow weight={weight} weight-unit="kg" patient-id={patientPhotonId} enable-order="true" />
     </Dialog>
   );
 };
