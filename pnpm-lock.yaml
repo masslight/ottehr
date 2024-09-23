@@ -327,7 +327,7 @@ importers:
         version: 5.0.20(@emotion/react@11.13.0(@types/react@18.3.3)(react@18.3.1))(@emotion/styled@11.13.0(@emotion/react@11.13.0(@types/react@18.3.3)(react@18.3.1))(@types/react@18.3.3)(react@18.3.1))(@mui/material@5.16.5(@emotion/react@11.13.0(@types/react@18.3.3)(react@18.3.1))(@emotion/styled@11.13.0(@emotion/react@11.13.0(@types/react@18.3.3)(react@18.3.1))(@types/react@18.3.3)(react@18.3.1))(@types/react@18.3.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@mui/system@5.16.5(@emotion/react@11.13.0(@types/react@18.3.3)(react@18.3.1))(@emotion/styled@11.13.0(@emotion/react@11.13.0(@types/react@18.3.3)(react@18.3.1))(@types/react@18.3.3)(react@18.3.1))(@types/react@18.3.3)(react@18.3.1))(@types/react@18.3.3)(date-fns@2.30.0)(dayjs@1.11.12)(luxon@3.4.4)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@photonhealth/elements':
         specifier: ^0.11.0-rc.2
-        version: 0.11.0-rc.3(@types/react@18.3.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(solid-js@1.8.19)(ts-node@10.9.2(@types/node@18.19.42)(typescript@4.9.5))
+        version: 0.11.0-rc.4(@types/react@18.3.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(solid-js@1.8.19)(ts-node@10.9.2(@types/node@20.14.12)(typescript@4.9.5))
       '@twilio/conversations':
         specifier: ^2.4.1
         version: 2.5.0
@@ -2573,8 +2573,8 @@ packages:
     resolution: {integrity: sha512-SQa/6mJky63OkZw/gcA1N1SnprugqiP9VsTtE1VD2j4inqePlhD9xe4mU3WLlGtcbSBdlWbkuEpj2JexQ/cLDQ==}
     engines: {node: '>=16'}
 
-  '@photonhealth/elements@0.11.0-rc.3':
-    resolution: {integrity: sha512-3qT3ekh5INMo93BsVlkpYuyWHbAhGo52c2NFwPOhd9lPYfT5bOHovKp7+XtqKFr5rexIqCO/Sg6cbteLS/OQWQ==}
+  '@photonhealth/elements@0.11.0-rc.4':
+    resolution: {integrity: sha512-X1nAnelLv3vBgK9BDwRVneuVq6ssliJN+gm2IjrMqXfdUQlBL2pbD570yXaHNC0Loj39E6mXi8Nfnw5VDgch0w==}
 
   '@photonhealth/sdk@1.3.3':
     resolution: {integrity: sha512-YNEICmz+nvwfOnYJlHsEqNjiXhLbnS0utcROv1iyfTVmAPQQVaAmZNPzmxbBTb2egX56JU/DKdGeGjkpRfT2hg==}
@@ -14239,17 +14239,17 @@ snapshots:
     dependencies:
       pako: 1.0.11
 
-  '@photonhealth/components@0.0.0(@types/react@18.3.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(ts-node@10.9.2(@types/node@18.19.42)(typescript@4.9.5))':
+  '@photonhealth/components@0.0.0(@types/react@18.3.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(ts-node@10.9.2(@types/node@20.14.12)(typescript@4.9.5))':
     dependencies:
       '@photonhealth/sdk': 1.3.3(@types/react@18.3.3)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@tailwindcss/typography': 0.5.13(tailwindcss@3.4.7(ts-node@10.9.2(@types/node@18.19.42)(typescript@4.9.5)))
+      '@tailwindcss/typography': 0.5.13(tailwindcss@3.4.7(ts-node@10.9.2(@types/node@20.14.12)(typescript@4.9.5)))
       clsx: 1.2.1
       graphql: 16.9.0
       graphql-tag: 2.12.6(graphql@16.9.0)
       jwt-decode: 3.1.2
       solid-js: 1.8.19
       superstruct: 1.0.4
-      tailwindcss: 3.4.7(ts-node@10.9.2(@types/node@18.19.42)(typescript@4.9.5))
+      tailwindcss: 3.4.7(ts-node@10.9.2(@types/node@20.14.12)(typescript@4.9.5))
     transitivePeerDependencies:
       - '@types/react'
       - graphql-ws
@@ -14258,9 +14258,9 @@ snapshots:
       - subscriptions-transport-ws
       - ts-node
 
-  '@photonhealth/elements@0.11.0-rc.3(@types/react@18.3.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(solid-js@1.8.19)(ts-node@10.9.2(@types/node@18.19.42)(typescript@4.9.5))':
+  '@photonhealth/elements@0.11.0-rc.4(@types/react@18.3.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(solid-js@1.8.19)(ts-node@10.9.2(@types/node@20.14.12)(typescript@4.9.5))':
     dependencies:
-      '@photonhealth/components': 0.0.0(@types/react@18.3.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(ts-node@10.9.2(@types/node@18.19.42)(typescript@4.9.5))
+      '@photonhealth/components': 0.0.0(@types/react@18.3.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(ts-node@10.9.2(@types/node@20.14.12)(typescript@4.9.5))
       '@photonhealth/sdk': 1.3.3(@types/react@18.3.3)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@shoelace-style/shoelace': 2.15.1(@types/react@18.3.3)
       '@solid-primitives/scheduled': 1.4.3(solid-js@1.8.19)
@@ -15227,13 +15227,13 @@ snapshots:
     dependencies:
       defer-to-connect: 2.0.1
 
-  '@tailwindcss/typography@0.5.13(tailwindcss@3.4.7(ts-node@10.9.2(@types/node@18.19.42)(typescript@4.9.5)))':
+  '@tailwindcss/typography@0.5.13(tailwindcss@3.4.7(ts-node@10.9.2(@types/node@20.14.12)(typescript@4.9.5)))':
     dependencies:
       lodash.castarray: 4.4.0
       lodash.isplainobject: 4.0.6
       lodash.merge: 4.6.2
       postcss-selector-parser: 6.0.10
-      tailwindcss: 3.4.7(ts-node@10.9.2(@types/node@18.19.42)(typescript@4.9.5))
+      tailwindcss: 3.4.7(ts-node@10.9.2(@types/node@20.14.12)(typescript@4.9.5))
 
   '@tanstack/solid-virtual@3.8.3(solid-js@1.8.19)':
     dependencies:
@@ -21755,6 +21755,14 @@ snapshots:
       postcss: 8.4.40
       ts-node: 10.9.2(@types/node@18.19.42)(typescript@4.9.5)
 
+  postcss-load-config@4.0.2(postcss@8.4.40)(ts-node@10.9.2(@types/node@20.14.12)(typescript@4.9.5)):
+    dependencies:
+      lilconfig: 3.1.2
+      yaml: 2.5.0
+    optionalDependencies:
+      postcss: 8.4.40
+      ts-node: 10.9.2(@types/node@20.14.12)(typescript@4.9.5)
+
   postcss-loader@6.2.1(postcss@8.4.40)(webpack@5.93.0(esbuild@0.18.20)):
     dependencies:
       cosmiconfig: 7.1.0
@@ -23606,6 +23614,33 @@ snapshots:
     transitivePeerDependencies:
       - ts-node
 
+  tailwindcss@3.4.7(ts-node@10.9.2(@types/node@20.14.12)(typescript@4.9.5)):
+    dependencies:
+      '@alloc/quick-lru': 5.2.0
+      arg: 5.0.2
+      chokidar: 3.6.0
+      didyoumean: 1.2.2
+      dlv: 1.1.3
+      fast-glob: 3.3.2
+      glob-parent: 6.0.2
+      is-glob: 4.0.3
+      jiti: 1.21.6
+      lilconfig: 2.1.0
+      micromatch: 4.0.7
+      normalize-path: 3.0.0
+      object-hash: 3.0.0
+      picocolors: 1.0.1
+      postcss: 8.4.40
+      postcss-import: 15.1.0(postcss@8.4.40)
+      postcss-js: 4.0.1(postcss@8.4.40)
+      postcss-load-config: 4.0.2(postcss@8.4.40)(ts-node@10.9.2(@types/node@20.14.12)(typescript@4.9.5))
+      postcss-nested: 6.2.0(postcss@8.4.40)
+      postcss-selector-parser: 6.1.1
+      resolve: 1.22.8
+      sucrase: 3.35.0
+    transitivePeerDependencies:
+      - ts-node
+
   tapable@1.1.3: {}
 
   tapable@2.2.1: {}
@@ -23799,6 +23834,25 @@ snapshots:
       typescript: 4.9.5
       v8-compile-cache-lib: 3.0.1
       yn: 3.1.1
+
+  ts-node@10.9.2(@types/node@20.14.12)(typescript@4.9.5):
+    dependencies:
+      '@cspotcode/source-map-support': 0.8.1
+      '@tsconfig/node10': 1.0.11
+      '@tsconfig/node12': 1.0.11
+      '@tsconfig/node14': 1.0.3
+      '@tsconfig/node16': 1.0.4
+      '@types/node': 20.14.12
+      acorn: 8.12.1
+      acorn-walk: 8.3.3
+      arg: 4.1.3
+      create-require: 1.1.1
+      diff: 4.0.2
+      make-error: 1.3.6
+      typescript: 4.9.5
+      v8-compile-cache-lib: 3.0.1
+      yn: 3.1.1
+    optional: true
 
   tsconfck@3.1.1(typescript@4.9.5):
     optionalDependencies:

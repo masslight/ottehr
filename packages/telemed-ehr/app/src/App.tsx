@@ -8,7 +8,7 @@ import { LoadingScreen } from './components/LoadingScreen';
 import Navbar from './components/navigation/Navbar';
 import { ProtectedRoute } from './components/routing/ProtectedRoute';
 import { useApiClients } from './hooks/useAppClients';
-import useOttehrUser from './hooks/useOttehrUser';
+import useOttehrUser, { useProviderERXStateStore } from './hooks/useOttehrUser';
 import AddPatient from './pages/AddPatient';
 import AppointmentsPage from './pages/Appointments';
 import EditEmployeePage from './pages/EditEmployee';
@@ -49,6 +49,8 @@ function App(): ReactElement {
   const currentUser = useOttehrUser();
   const currentTab = useNavStore((state: any) => state.currentTab) || 'In Person';
 
+  const wasEnrolledInERX = useProviderERXStateStore((state) => state.wasEnrolledInERX);
+
   const roleUnknown =
     !currentUser || !currentUser.hasRole([RoleType.Administrator, RoleType.Staff, RoleType.Manager, RoleType.Provider]);
 
@@ -65,7 +67,8 @@ function App(): ReactElement {
                 <ProtectedRoute
                   showWhenAuthenticated={
                     <>
-                      {currentUser?.hasRole([RoleType.Provider]) && currentUser.isPractitionerEnrolledInERX ? (
+                      {(currentUser?.hasRole([RoleType.Provider]) && currentUser.isPractitionerEnrolledInERX) ||
+                      wasEnrolledInERX ? (
                         <photon-client
                           id={import.meta.env.VITE_APP_PHOTON_CLIENT_ID}
                           org={import.meta.env.VITE_APP_PHOTON_ORG_ID}
