@@ -3,7 +3,7 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useState } from 'react';
 import { ERX_PATIENT_IDENTIFIER_SYSTEM } from 'ehr-utils';
 import { getSelectors } from '../../../shared/store/getSelectors';
-import { useAppointmentStore, useSyncPhotonPatient } from '../../state';
+import { useAppointmentStore, useSyncERXPatient } from '../../state';
 import { ERXDialog } from './ERXDialog';
 
 export const ERX: FC<{
@@ -14,7 +14,7 @@ export const ERX: FC<{
   const phoneNumber = patient?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
   const [syncedPatient, setSyncedPatient] = useState(false);
 
-  const { isLoading: isSyncingPatient, mutateAsync: syncPatient, isError } = useSyncPhotonPatient();
+  const { isLoading: isSyncingPatient, mutateAsync: syncPatient, isError } = useSyncERXPatient();
 
   const photonPatientId = patient?.identifier?.find((id) => id.system === ERX_PATIENT_IDENTIFIER_SYSTEM)?.value;
 

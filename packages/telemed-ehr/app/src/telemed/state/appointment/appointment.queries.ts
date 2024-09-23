@@ -377,14 +377,14 @@ export const useDeletePatientInstruction = () => {
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useSyncPhotonPatient = () => {
+export const useSyncERXPatient = () => {
   const token = useAuthToken();
 
   return useMutation(
-    ['sync-photon-patient'],
+    ['sync-erx-patient'],
     async (patient: Patient) => {
       if (token) {
-        console.log(`Start syncing patient with photon patient ${patient.id}`);
+        console.log(`Start syncing eRx patient ${patient.id}`);
         const resp = await fetch(`${import.meta.env.VITE_APP_PROJECT_API_URL}/erx/sync-patient/${patient.id}`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -394,7 +394,7 @@ export const useSyncPhotonPatient = () => {
         if (!resp.ok) {
           throw { ...(await resp.json()), status: resp.status };
         }
-        console.log('Successfuly synced photon patient');
+        console.log('Successfuly synced eRx patient');
         return (await resp.json()) as { photonPatientId: string };
       }
       throw new Error('auth token is not defined');
