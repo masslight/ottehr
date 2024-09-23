@@ -548,7 +548,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       ],
       text: visitType,
     },
-    status: isDemo ? 'arrived' : 'proposed',
+    status: isDemo && visitService === 'telemedicine' ? 'arrived' : 'proposed',
     created: nowIso,
     extension: apptExtensions,
   };
