@@ -338,8 +338,8 @@ importers:
         specifier: ^5.0.20
         version: 5.0.20(@emotion/react@11.13.0(@types/react@18.3.3)(react@18.3.1))(@emotion/styled@11.13.0(@emotion/react@11.13.0(@types/react@18.3.3)(react@18.3.1))(@types/react@18.3.3)(react@18.3.1))(@mui/material@5.16.5(@emotion/react@11.13.0(@types/react@18.3.3)(react@18.3.1))(@emotion/styled@11.13.0(@emotion/react@11.13.0(@types/react@18.3.3)(react@18.3.1))(@types/react@18.3.3)(react@18.3.1))(@types/react@18.3.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@mui/system@5.16.5(@emotion/react@11.13.0(@types/react@18.3.3)(react@18.3.1))(@emotion/styled@11.13.0(@emotion/react@11.13.0(@types/react@18.3.3)(react@18.3.1))(@types/react@18.3.3)(react@18.3.1))(@types/react@18.3.3)(react@18.3.1))(@types/react@18.3.3)(date-fns@2.30.0)(dayjs@1.11.12)(luxon@3.4.4)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@photonhealth/elements':
-        specifier: ^0.11.0-rc.2
-        version: 0.11.0-rc.4(@types/react@18.3.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(solid-js@1.8.19)(ts-node@10.9.2(@types/node@20.14.12)(typescript@4.9.5))
+        specifier: ^0.12.2
+        version: 0.12.3(@types/react@18.3.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(solid-js@1.8.19)(ts-node@10.9.2(@types/node@20.14.12)(typescript@4.9.5))
       '@twilio/conversations':
         specifier: ^2.4.1
         version: 2.5.0
@@ -2585,8 +2585,8 @@ packages:
     resolution: {integrity: sha512-SQa/6mJky63OkZw/gcA1N1SnprugqiP9VsTtE1VD2j4inqePlhD9xe4mU3WLlGtcbSBdlWbkuEpj2JexQ/cLDQ==}
     engines: {node: '>=16'}
 
-  '@photonhealth/elements@0.11.0-rc.4':
-    resolution: {integrity: sha512-X1nAnelLv3vBgK9BDwRVneuVq6ssliJN+gm2IjrMqXfdUQlBL2pbD570yXaHNC0Loj39E6mXi8Nfnw5VDgch0w==}
+  '@photonhealth/elements@0.12.3':
+    resolution: {integrity: sha512-ASNHp/nVENOfGI6izFD+2YqzTH1biRusblIJTJTFLu8V2Hbw8CblUW6NJ142Tcrgp3FtuxhxGYTYUwbZp99xrg==}
 
   '@photonhealth/sdk@1.3.3':
     resolution: {integrity: sha512-YNEICmz+nvwfOnYJlHsEqNjiXhLbnS0utcROv1iyfTVmAPQQVaAmZNPzmxbBTb2egX56JU/DKdGeGjkpRfT2hg==}
@@ -14292,7 +14292,7 @@ snapshots:
       - subscriptions-transport-ws
       - ts-node
 
-  '@photonhealth/elements@0.11.0-rc.4(@types/react@18.3.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(solid-js@1.8.19)(ts-node@10.9.2(@types/node@20.14.12)(typescript@4.9.5))':
+  '@photonhealth/elements@0.12.3(@types/react@18.3.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(solid-js@1.8.19)(ts-node@10.9.2(@types/node@20.14.12)(typescript@4.9.5))':
     dependencies:
       '@photonhealth/components': 0.0.0(@types/react@18.3.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(ts-node@10.9.2(@types/node@20.14.12)(typescript@4.9.5))
       '@photonhealth/sdk': 1.3.3(@types/react@18.3.3)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
