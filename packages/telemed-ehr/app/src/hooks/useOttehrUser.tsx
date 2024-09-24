@@ -77,6 +77,18 @@ export default function useOttehrUser(): OttehrUser | undefined {
       profile?.name?.[0]?.given?.[0] &&
       profile?.name?.[0]?.family,
   );
+  // console.log(
+  //   `profile id: ${profile?.id}
+  //    & NPI: ${getPractitionerNPIIdentitifier(profile)?.value}
+  //    & phone: ${profile?.telecom?.find((phone) => phone.system === 'sms' || phone.system === 'phone')?.value}
+  //    & given name: ${profile?.name?.[0]?.given?.[0]}
+  //    & family name: ${profile?.name?.[0]?.family}`,
+  // );
+  // console.log(
+  //   isProviderHasEverythingToBeEnrolledInErx
+  //     ? 'Provider has everything to be enrolled in ERX'
+  //     : 'Provider NOT ready to be enrolled in ERX',
+  // );
 
   const userRoles = user?.roles;
   const hasRole = useCallback(
