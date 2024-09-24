@@ -28,6 +28,7 @@ import ConfirmDateOfBirth from './pages/ConfirmDateOfBirth';
 import ThankYou from './pages/ThankYou';
 import { useTranslation } from 'react-i18next';
 import ScheduleSelect from './pages/ScheduleSelect';
+import Version from './pages/Version';
 
 const isLowerEnvs =
   import.meta.env.MODE === 'dev' ||
@@ -83,6 +84,8 @@ export class IntakeFlowPageRoute {
   static readonly InvitedVideoCall = new IntakeFlowPageRoute('/invited-video-call', <VideoChatPage />);
   static readonly ThankYou = new IntakeFlowPageRoute('/thank-you', <ThankYou />);
 
+  static readonly Version = new IntakeFlowPageRoute('/version', <Version />);
+
   static readonly IOSPatientPhotosEdit = new IntakeFlowPageRoute('/ios-patient-photos', <IOSPatientPhotosEditPage />);
   static readonly IOSPatientManageParticipants = new IntakeFlowPageRoute(
     '/ios-manage-participants',
@@ -110,6 +113,7 @@ function App(): JSX.Element {
         <Router>
           <ScrollToTop />
           <Routes>
+            <Route path={IntakeFlowPageRoute.Version.path} element={IntakeFlowPageRoute.Version.page} />
             <Route path={IntakeFlowPageRoute.AuthPage.path} element={IntakeFlowPageRoute.AuthPage.page} />
             <Route path={IntakeFlowPageRoute.Welcome.path} element={IntakeFlowPageRoute.Welcome.page} />
             <Route
