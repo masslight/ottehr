@@ -15,7 +15,11 @@ import ReviewPaperwork from './pages/ReviewPaperwork';
 import ThankYou from './pages/ThankYou';
 import WelcomeBack from './pages/WelcomeBack';
 
-if (import.meta.env.MODE === 'dev' || import.meta.env.MODE === 'staging' || import.meta.env.MODE === 'testing') {
+if (
+  import.meta.env.MODE === 'development' ||
+  import.meta.env.MODE === 'staging' ||
+  import.meta.env.MODE === 'testing'
+) {
   setupSentry({
     dsn: import.meta.env.VITE_SENTRY_DSN,
     environment: import.meta.env.MODE,

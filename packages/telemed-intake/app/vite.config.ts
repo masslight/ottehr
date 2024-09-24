@@ -9,7 +9,7 @@ export default (env) => {
   const appEnv = loadEnv(mode, path.join(process.cwd(), envDir), '');
 
   const shouldUploadSentrySourceMaps =
-    mode === 'testing' || mode === 'staging' || mode === 'dev' || mode === 'production' || mode === 'training';
+    mode === 'testing' || mode === 'staging' || mode === 'development' || mode === 'production' || mode === 'training';
   console.log(mode);
 
   const plugins: PluginOption[] = [
