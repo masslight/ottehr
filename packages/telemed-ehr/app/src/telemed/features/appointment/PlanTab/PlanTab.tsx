@@ -5,7 +5,7 @@ import { useAppointmentStore } from '../../../state';
 import { PatientInstructionsCard } from './PatientInstructionsCard';
 import { HealthwiseDocumentsCard } from './HealthwiseDocumentsCard';
 import { DispositionCard } from './DispositionCard';
-import { WorkSchoolExcuseCard } from './WorkSchoolExcuseCard';
+import { SchoolWorkExcuseCard } from './SchoolWorkExcuseCard';
 
 export const PlanTab: FC = () => {
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
@@ -29,7 +29,7 @@ export const PlanTab: FC = () => {
       <PatientInstructionsCard />
       <HealthwiseDocumentsCard />
       <DispositionCard />
-      <WorkSchoolExcuseCard />
+      <SchoolWorkExcuseCard />
     </Box>
   );
 };

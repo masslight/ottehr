@@ -39,11 +39,8 @@ export default (env) => {
       //   },
       resolve: {
         alias: {
-          '@assets': path.resolve(__dirname, appEnv.ASSETS_PATH || '/src/assets'),
-          '@theme': path.resolve(__dirname, appEnv.THEME_PATH || '/src/assets/theme'),
-          '@defaultTheme': path.resolve(__dirname, '/src/assets/theme'),
-          '@translations': path.resolve(__dirname, appEnv.TRANSLATIONS_PATH || '/src/lib'),
-          '@defaultTranslations': path.resolve(__dirname, '/src/lib'),
+          '@theme': path.resolve(__dirname, appEnv.THEME_PATH || '/src/theme/ottehr'),
+          '@defaultTheme': path.resolve(__dirname, '/src/theme/ottehr'),
         },
       },
       optimizeDeps: {
@@ -53,7 +50,7 @@ export default (env) => {
         sourcemap: mode === 'default' || shouldUploadSentrySourceMaps,
       },
       server: {
-        open: 'location/ak/in-person/prebook',
+        open: appEnv.DEFAULT_PATH ?? 'location/ak/in-person/prebook',
       },
       plugins,
     })

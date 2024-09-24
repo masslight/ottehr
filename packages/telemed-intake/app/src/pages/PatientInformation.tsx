@@ -26,7 +26,7 @@ import { CustomContainer } from '../features/common';
 import { useFilesStore } from '../features/files';
 import { useGetPaperwork, usePaperworkStore } from '../features/paperwork';
 import { usePatientInfoStore } from '../features/patient-info';
-import { MAXIMUM_AGE, MINIMUM_AGE, useZapEHRAPIClient } from '../utils';
+import { useZapEHRAPIClient } from '../utils';
 
 const UPDATEABLE_PATIENT_INFO_FIELDS: (keyof Omit<PatientInfo, 'id'>)[] = [
   'firstName',
@@ -137,7 +137,10 @@ const PatientInformation = (): JSX.Element => {
     const dateOfBirth = isoStringFromMDYString(yupDateTransform(data.dateOfBirth || patientInfo.dateOfBirth || ''));
     data.dateOfBirth = dateOfBirth || 'Unknown';
 
-    if (!ageIsInRange(dateOfBirth ?? '', MINIMUM_AGE, MAXIMUM_AGE).result) {
+    const maximumAge = t('general.maximumAge') as unknown as number;
+    const minimumAge = t('general.minimumAge') as unknown as number;
+
+    if (!ageIsInRange(dateOfBirth ?? '', minimumAge, maximumAge).result) {
       setAgeErrorDialogOpen(true);
       return;
     }
@@ -235,6 +238,11 @@ const PatientInformation = (): JSX.Element => {
   const formattedBirthday = DateTime.fromFormat(yupDateTransform(patientInfo.dateOfBirth) || '', 'yyyy-MM-dd').toFormat(
     'MMM dd, yyyy',
   );
+
+  const weightLastUpdated =
+    patientInfo.weightLastUpdated && DateTime.fromFormat(patientInfo.weightLastUpdated, 'yyyy-LL-dd').isValid
+      ? DateTime.fromFormat(patientInfo.weightLastUpdated, 'yyyy-LL-dd').toFormat('MM/dd/yyyy')
+      : null;
 
   if (isLoading) {
     return <></>;
@@ -334,13 +342,12 @@ const PatientInformation = (): JSX.Element => {
             label: t('patientInfo.formElement.labels.weight'),
             infoTextSecondary: t('patientInfo.formElement.infoTexts.weight'),
             defaultValue: patientInfo.weight,
-            helperText: patientInfo.newPatient
-              ? undefined
-              : t('patientInfo.formElement.helperTexts.weight', {
-                  lastUpdated: patientInfo.weightLastUpdated
-                    ? DateTime.fromFormat(patientInfo.weightLastUpdated, 'yyyy-LL-dd').toFormat('MM/dd/yyyy')
-                    : 'N/A',
-                }),
+            helperText:
+              patientInfo.newPatient || !patientInfo.weight || !weightLastUpdated
+                ? undefined
+                : t('patientInfo.formElement.helperTexts.weight', {
+                    lastUpdated: weightLastUpdated,
+                  }),
             showHelperTextIcon: false,
           },
           {

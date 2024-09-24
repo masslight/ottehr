@@ -43,6 +43,8 @@ export const useMapQuestionsToFormInputFields = ({
           format: item.format as StringFormat,
           borderColor: otherColors.borderGray,
           backgroundSelected: otherColors.lightBlue,
+          submitOnChange: item.submitOnChange,
+          disableError: item.disableError,
           radioStyling: {
             radio: {
               alignSelf: 'center',

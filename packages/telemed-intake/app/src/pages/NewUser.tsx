@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageForm } from 'ottehr-components';
 import { IntakeFlowPageRoute } from '../App';
-import { clockFullColor } from '../assets/icons';
+import { clockFullColor } from '@theme/icons';
 
 import { CustomContainer } from '../features/common';
 
@@ -23,7 +23,7 @@ const NewUser = (): JSX.Element => {
   return (
     <CustomContainer
       title={t('newUser.title')}
-      img={clockFullColor}
+      img={t('newUser.imgAlt') ? clockFullColor : undefined}
       imgAlt={t('newUser.imgAlt')}
       imgWidth={100}
       bgVariant={IntakeFlowPageRoute.NewUser.path}

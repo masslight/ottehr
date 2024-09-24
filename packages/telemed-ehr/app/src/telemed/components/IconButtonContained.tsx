@@ -1,4 +1,4 @@
-import { IconButton, styled, alpha, useTheme } from '@mui/material';
+import { IconButton, styled, alpha, useTheme, darken } from '@mui/material';
 import { otherColors } from '../../CustomThemeProvider';
 
 export const IconButtonContained = styled(IconButton)<{ variant?: string }>(({ variant }) => {
@@ -8,7 +8,7 @@ export const IconButtonContained = styled(IconButton)<{ variant?: string }>(({ v
   switch (variant) {
     case 'disabled': {
       colors = {
-        backgroundColor: theme.palette.primary.contrastText,
+        backgroundColor: darken(theme.palette.primary.contrastText, 0.125),
         '&:hover': { backgroundColor: alpha(theme.palette.primary.contrastText, 0.9) },
       };
       break;

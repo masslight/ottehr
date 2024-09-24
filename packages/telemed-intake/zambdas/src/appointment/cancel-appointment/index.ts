@@ -2,7 +2,7 @@
 import { BatchInputGetRequest, FhirClient } from '@zapehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Location, Patient } from 'fhir/r4';
+import { Appointment, HealthcareService, Location, Patient, Practitioner } from 'fhir/r4';
 import { DateTime } from 'luxon';
 import {
   CancellationReasonOptionsTelemed,
@@ -40,7 +40,7 @@ interface CancellationDetails {
   startTime: string;
   email: string;
   patient: Patient;
-  location: Location;
+  resource: Location | Practitioner | HealthcareService;
   visitType: string;
   visitService: string;
 }
@@ -156,7 +156,7 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
 
   // todo: this could be done in the same request to get the appointment
 
-  const { startTime, email, patient, location, visitType, visitService } = await getCancellationEmailDetails(
+  const { startTime, email, patient, resource, visitType, visitService } = await getCancellationEmailDetails(
     appointment,
     fhirClient,
   );
@@ -180,10 +180,10 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
   const response = {
     message: 'Successfully canceled an appointment',
     appointment: cancelledAppointment.id ?? null,
-    location: {
-      name: location?.name || 'Unknown',
+    resource: {
+      name: resource?.name || 'Unknown',
       slug:
-        location.identifier?.find((identifierTemp) => identifierTemp.system === 'https://fhir.ottehr.com/r4/slug')
+        resource.identifier?.find((identifierTemp) => identifierTemp.system === 'https://fhir.ottehr.com/r4/slug')
           ?.value || 'Unknown',
     },
     visitType: visitType,
@@ -191,11 +191,11 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
   console.group('sendCancellationEmail');
   const firstName = getPatientFirstName(patient);
 
-  const slug = location.identifier?.find((i) => i.system === 'https://fhir.ottehr.com/r4/slug')?.value;
+  const slug = resource.identifier?.find((i) => i.system === 'https://fhir.ottehr.com/r4/slug')?.value;
   const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
-  let locationUrl = `${WEBSITE_URL}/welcome`;
+  let resourceUrl = `${WEBSITE_URL}/welcome`;
   if (slug) {
-    locationUrl = `${WEBSITE_URL}/location/${slug}/${visitService}/${visitType}`;
+    resourceUrl = `${WEBSITE_URL}/${resource.resourceType}/${slug}/${visitService}/${visitType}`;
   }
 
   if (getSecret(SecretsKeys.SENDGRID_API_KEY, secrets)) {
@@ -204,8 +204,8 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
       firstName,
       startTime,
       secrets,
-      location,
-      locationUrl,
+      resource,
+      resourceUrl,
     });
   }
   console.groupEnd();
@@ -219,8 +219,8 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
     const message = i18n.t('appointment.sms.cancellation', {
       firstName,
       startTime,
-      locationName: location.name,
-      locationUrl,
+      resourceName: resource.name,
+      resourceUrl,
       interpolation: { escapeValue: false },
     });
     const recipient = `RelatedPerson/${relatedPerson.id}`;
@@ -250,21 +250,31 @@ const getCancellationEmailDetails = async (
     const patient: Patient = await getPatientResource(patientID, fhirClient);
     const email = getPatientContactEmail(patient);
 
-    const locationId = appointment.participant
-      .find((appt) => appt.actor?.reference?.startsWith('Location/'))
-      ?.actor?.reference?.replace('Location/', '');
-    console.log('got location id', locationId);
+    const appointmentResources = ['Location', 'Practitioner', 'HealthcareService'];
+    let appointmentResource: string | undefined = undefined;
+    let resourceId: string | undefined = undefined;
+    for (const aptResource of appointmentResources) {
+      appointmentResource = aptResource;
+      resourceId = appointment.participant
+        .find((appt) => appt.actor?.reference?.startsWith(`${aptResource}/`))
+        ?.actor?.reference?.replace(`${aptResource}/`, '');
+
+      if (resourceId) {
+        break;
+      }
+    }
+
     // todo: wouldn't it be better to cancel the appointment and not send an email if the only thing missing here is email??
-    if (!locationId || !email || !appointment.start) {
+    if (!resourceId || !appointmentResource || !email || !appointment.start) {
       throw new Error(`These fields are required for the cancelation email: locationId, email, appointment.start`);
     }
 
-    console.log(`getting location resource for ${locationId}`);
-    const location: Location = await fhirClient.readResource({
-      resourceType: 'Location',
-      resourceId: locationId,
+    console.log(`getting location resource for ${resourceId}`);
+    const resource: Location | Practitioner | HealthcareService = await fhirClient.readResource({
+      resourceType: appointmentResource,
+      resourceId: resourceId,
     });
-    const timezone = location.extension?.find(
+    const timezone = resource.extension?.find(
       (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL,
     )?.valueString;
 
@@ -283,7 +293,7 @@ const getCancellationEmailDetails = async (
       startTime: DateTime.fromISO(appointment.start).setZone(timezone).toFormat(DATETIME_FULL_NO_YEAR),
       email,
       patient,
-      location,
+      resource,
       visitType,
       visitService,
     };

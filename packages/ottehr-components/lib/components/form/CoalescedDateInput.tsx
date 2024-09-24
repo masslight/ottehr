@@ -21,20 +21,6 @@ interface DateInputFieldProps {
   disabled: boolean;
 }
 
-const currentDate = new Date();
-const currentYear = currentDate.getFullYear();
-const startYear = 1900;
-
-const days = Array.from({ length: 31 }, (_, index) => {
-  const day: number = index + 1;
-  return { value: day < 10 ? `0${day}` : `${day}`, label: `${day}` };
-});
-
-const years = Array.from({ length: currentYear - startYear + 1 }, (_, index) => {
-  const year: number = startYear + index;
-  return { value: `${year}`, label: `${year}` };
-}).reverse();
-
 const CoalescedDateInput = ({
   name,
   required,
@@ -63,6 +49,20 @@ const CoalescedDateInput = ({
       setSelectedYear(year);
     }
   }, [currentValue, defaultValue, readOnlyValue]);
+
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const startYear = 1900;
+
+  const days = Array.from({ length: 31 }, (_, index) => {
+    const day: number = index + 1;
+    return { value: day < 10 ? `0${day}` : `${day}`, label: `${day}` };
+  });
+
+  const years = Array.from({ length: currentYear - startYear + 1 }, (_, index) => {
+    const year: number = startYear + index;
+    return { value: `${year}`, label: `${year}` };
+  }).reverse();
 
   const {
     formState: { errors },

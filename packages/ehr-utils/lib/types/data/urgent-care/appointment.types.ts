@@ -47,7 +47,6 @@ export type VisitStatus = VISIT_STATUS_LABEL_TYPE[number];
 
 export const getStatusLabelForAppointmentAndEncounter = (appointment: Appointment): VisitStatus => {
   const statusToMap = getStatusFromExtension(appointment);
-  console.log('statusToMap', statusToMap);
   if (statusToMap == undefined) {
     console.log(
       `Unable to derive Visit status from ${
@@ -98,7 +97,6 @@ type AppOrEncounter = Appointment | Encounter;
 export const getVisitStatusHistory = <T extends AppOrEncounter>(resource: T): VisitStatusHistoryEntry[] => {
   const extensions = (resource.extension ?? []).find((ext) => ext.url === visitStatusExtensionUrl)?.extension ?? [];
   const history = extensions.map((ext) => {
-    console.log(2, ext);
     const reduced: VisitStatusHistoryEntry = (ext.extension ?? []).reduce(
       (accum, currentExt) => {
         if (currentExt.url === 'status') {

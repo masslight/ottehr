@@ -28,7 +28,7 @@ export const UploadPhotosListItemButton: FC<UploadPhotosListItemButtonProps> = (
           ? t('general.loading')
           : Object.keys(photos).length > 0
             ? t('photosAttached', { count: Object.keys(photos).length })
-            : t('noPhotosAttached')
+            : t('uploadPhotos.noPhotosAttached')
       }
       hideText={hideText}
       onClick={onClick}

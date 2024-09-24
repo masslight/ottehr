@@ -3,6 +3,7 @@ export * from './AppointmentFooterButton';
 export * from './AppointmentTabsHeader';
 export * from './AppointmentTabs';
 export * from './AppointmentHeader';
+export * from './AppointmentSidePanel';
 export * from './VideoRoom';
 export * from './VideoChatLayout';
 export * from './VideoControls';

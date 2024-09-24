@@ -31,6 +31,7 @@ import {
   isoStringFromMDYString,
 } from 'ottehr-utils';
 import { ApiError, GetZapEHRAPIParams } from '../types/data';
+import { HealthcareService, Location, Practitioner } from 'fhir/r4';
 
 enum ZambdaNames {
   'check in' = 'check in',
@@ -40,6 +41,7 @@ enum ZambdaNames {
   'get appointments' = 'get appointments',
   'get patients' = 'get patients',
   'get paperwork' = 'get paperwork',
+  'get groups' = 'get groups',
   'create paperwork' = 'create paperwork',
   'update paperwork' = 'update paperwork',
   'get schedule' = 'get schedule',
@@ -49,6 +51,8 @@ enum ZambdaNames {
   'video chat cancel invite' = 'video chat cancel invite',
   'video chat list invites' = 'video chat list invites',
   'get presigned file url' = 'get presigned file url',
+  'get providers' = 'get providers',
+  'get locations' = 'get locations',
 }
 
 const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
@@ -68,6 +72,9 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'video chat cancel invite': false,
   'video chat list invites': false,
   'get presigned file url': true,
+  'get providers': true,
+  'get locations': true,
+  'get groups': true,
 };
 
 export type ZapEHRAPIClient = ReturnType<typeof getZapEHRAPI>;
@@ -81,6 +88,9 @@ export const getZapEHRAPI = (
   cancelAppointment: typeof cancelAppointment;
   updateAppointment: typeof updateAppointment;
   getPatients: typeof getPatients;
+  getGroups: typeof getGroups;
+  getProviders: typeof getProviders;
+  getLocations: typeof getLocations;
   createPaperwork: typeof createPaperwork;
   updatePaperwork: typeof updatePaperwork;
   getSchedule: typeof getSchedule;
@@ -111,6 +121,9 @@ export const getZapEHRAPI = (
     videoChatCancelInviteZambdaID,
     videoChatListInvitesZambdaID,
     getPresignedFileURLZambdaID,
+    getProvidersZambdaID,
+    getLocationsZambdaID,
+    getGroupsZambdaID,
   } = params;
 
   const zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined> = {
@@ -120,6 +133,9 @@ export const getZapEHRAPI = (
     'update appointment': updateAppointmentZambdaID,
     'get appointments': getAppointmentsZambdaID,
     'get patients': getPatientsZambdaID,
+    'get providers': getProvidersZambdaID,
+    'get locations': getLocationsZambdaID,
+    'get groups': getGroupsZambdaID,
     'get paperwork': getPaperworkZambdaID,
     'create paperwork': createPaperworkZambdaID,
     'update paperwork': updatePaperworkZambdaID,
@@ -206,6 +222,18 @@ export const getZapEHRAPI = (
     return await makeZapRequest('get patients');
   };
 
+  const getProviders = async (): Promise<Practitioner[]> => {
+    return await makeZapRequest('get providers');
+  };
+
+  const getGroups = async (): Promise<HealthcareService[]> => {
+    return await makeZapRequest('get groups');
+  };
+
+  const getLocations = async (): Promise<Location[]> => {
+    return await makeZapRequest('get locations');
+  };
+
   const createPaperwork = async (
     parameters: Pick<CreatePaperworkInput, 'appointmentID' | 'files' | 'paperwork' | 'paperworkComplete' | 'timezone'>,
   ): Promise<CreatePaperworkResponse> => {
@@ -287,8 +315,6 @@ export const getZapEHRAPI = (
     try {
       const presignedURLRequest = await getPresignedFileURL(appointmentID, fileType, fileFormat);
 
-      // const presignedURLResponse = await presignedURLRequest.json();
-      // Upload the file to S3
       const uploadResponse = await fetch(presignedURLRequest.presignedURL, {
         method: 'PUT',
         headers: {
@@ -327,6 +353,9 @@ export const getZapEHRAPI = (
     getPaperworkPublic,
     getPatients,
     getAppointments,
+    getProviders,
+    getLocations,
+    getGroups,
     createZ3Object,
     getSchedule,
     getWaitStatus,

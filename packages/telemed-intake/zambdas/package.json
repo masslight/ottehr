@@ -1,6 +1,6 @@
 {
   "name": "telemed-intake-zambdas",
-  "version": "0.8.0",
+  "version": "0.12.0",
   "private": true,
   "scripts": {
     "start": "npm run start:local",
@@ -15,7 +15,7 @@
     "deploy-zambdas": "pnpm run package && ts-node scripts/deploy-zambdas.ts ${ENV}",
     "setup-default-locations": "ts-node scripts/setup-default-locations.ts",
     "update-permissions-for-users": "ts-node scripts/update-permissions-for-users.ts",
-    "build": "tsc && sls package --stage dev",
+    "build": "tsc && sls package --stage development",
     "package": "tsc && sls package && npm run rebundle",
     "rebundle": "bash scripts/package-for-release.sh",
     "test": "jest",

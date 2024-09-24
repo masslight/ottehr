@@ -13,17 +13,10 @@ import { IconButtonWithLabel } from '../../components';
 import CancelVisitDialog from '../../components/CancelVisitDialog';
 import { useAppointmentStore } from '../../state';
 import { getAppointmentStatusChip, getPatientName } from '../../utils';
+import { AppBar, Box, IconButton, useTheme } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
+import { useNavigate } from 'react-router-dom';
 import { AppointmentTabsHeader } from './AppointmentTabsHeader';
-import { ERXDialog } from './ERXDialog';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import EditPatientDialog from '../../components/EditPatientDialog';
-
-enum Gender {
-  'male' = 'Male',
-  'female' = 'Female',
-  'other' = 'Other',
-  'unknown' = 'Unknown',
-}
 
 export const AppointmentHeader: FC = () => {
   const theme = useTheme();
@@ -40,6 +33,7 @@ export const AppointmentHeader: FC = () => {
   const patientPhotonId = patient?.identifier?.find((id) => id.system === ERX_PATIENT_IDENTIFIER_SYSTEM)?.value;
   const reasonForVisit = getQuestionnaireResponseByLinkId('reason-for-visit', questionnaireResponse)?.answer?.[0]
     .valueString;
+  const navigate = useNavigate();
 
   return (
     <AppBar
@@ -47,66 +41,16 @@ export const AppointmentHeader: FC = () => {
       color="transparent"
       sx={{
         backgroundColor: theme.palette.background.paper,
+        zIndex: (theme) => theme.zIndex.drawer + 1,
       }}
     >
-      <Container maxWidth="xl" sx={{ display: 'flex', flexDirection: 'column', mt: 2, gap: 1 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <CustomBreadcrumbs
-              chain={[
-                { link: '/telemed/appointments', children: 'Tracking Board' },
-                { link: '#', children: appointment?.id || <Skeleton width={150} /> },
-              ]}
-            />
-            {!patient ? (
-              <Skeleton aria-busy="true" width={200} />
-            ) : (
-              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                <Typography variant="h4" color="primary.dark">
-                  {getPatientName(patient.name).lastFirstName}
-
-                  {!isReadOnly && (
-                    <IconButton onClick={() => setIsEditDialogOpen(true)}>
-                      <EditOutlinedIcon sx={{ color: theme.palette.primary.main }} />
-                    </IconButton>
-                  )}
-                </Typography>
-
-                {getAppointmentStatusChip(mapStatusToTelemed(encounter.status, appointment?.status))}
-              </Box>
-            )}
-            {!patient || !location || !appointment ? (
-              <Skeleton aria-busy="true" width={300} />
-            ) : (
-              <Typography variant="body2" color="secondary.light">
-                New patient | {Gender[patient.gender!]} | Age:{' '}
-                {Math.floor(DateTime.now().diff(DateTime.fromFormat(patient.birthDate!, 'yyyy-MM-dd'), 'years').years)}{' '}
-                | DOB: {DateTime.fromFormat(patient.birthDate!, 'yyyy-MM-dd').toFormat('MM.dd.yyyy')} | Wt: 41 kg
-                (updated 11/19/2023) | Location: {location.address?.state} | {reasonForVisit}
-              </Typography>
-            )}
-          </Box>
-
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <IconButtonWithLabel SvgIcon={AssignmentIndOutlinedIcon} label="Patient Record" />
-            <IconButtonWithLabel SvgIcon={ChatOutlineIcon} label="Chat" />
-            <IconButtonWithLabel SvgIcon={MedicationOutlinedIcon} label="Pharmacy" onClick={() => setIsERXOpen(true)} />
-            <IconButtonWithLabel SvgIcon={DateRangeOutlinedIcon} label="Book visit" />
-            <IconButtonWithLabel
-              SvgIcon={DisabledByDefaultOutlinedIcon}
-              label="Cancel"
-              variant="error"
-              onClick={() => setIsCancelDialogOpen(true)}
-            />
-          </Box>
-        </Box>
+      <Box sx={{ display: 'flex', mt: 1, mx: 3, justifyContent: 'space-between', alignItems: 'start' }}>
         <AppointmentTabsHeader />
-        {isCancelDialogOpen && <CancelVisitDialog onClose={() => setIsCancelDialogOpen(false)} />}
-        {isERXOpen && <ERXDialog patientPhotonId={patientPhotonId} onClose={() => setIsERXOpen(false)} />}
-        {isEditDialogOpen && (
-          <EditPatientDialog modalOpen={isEditDialogOpen} onClose={() => setIsEditDialogOpen(false)} />
-        )}
-      </Container>
+
+        <IconButton onClick={() => navigate('/telemed/appointments')}>
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      </Box>
     </AppBar>
   );
 };

@@ -25,6 +25,8 @@ export type FormInputTypeField = {
   // fileOptions?: FileUploadOptions;
   // todo use type FileUploadOptions
   fileOptions?: any;
+  submitOnChange?: boolean;
+  disableError?: boolean;
   borderColor?: string;
   borderSelected?: string;
   backgroundSelected?: string;

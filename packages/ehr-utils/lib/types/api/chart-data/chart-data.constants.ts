@@ -1,7 +1,10 @@
+import { SCHOOL_WORK_NOTE } from '../../paperwork.constants';
+
 export type ProviderChartDataFieldsNames =
   | 'chief-complaint'
   | 'ros'
   | 'current-medication'
+  | 'prescribed-medication'
   | 'known-allergy'
   | 'medical-condition'
   | 'surgical-history'
@@ -11,10 +14,10 @@ export type ProviderChartDataFieldsNames =
   | 'cpt-code'
   | 'patient-instruction'
   | 'diagnosis'
-  | 'work-school-note'
+  | typeof SCHOOL_WORK_NOTE
   | 'patient-info-confirmed'
   | 'addendum-note';
 
 export type DispositionMetaFieldsNames = 'disposition-follow-up' | 'sub-follow-up';
 
-export const WORK_SCHOOL_NOTE_TYPE_META_SYSTEM = 'work-school-note/type';
+export const SCHOOL_WORK_NOTE_TYPE_META_SYSTEM = `${SCHOOL_WORK_NOTE}/type`;

@@ -106,7 +106,15 @@ const RadioInput: FC<RadioInputProps> = ({
                     control={
                       <Radio
                         icon={
-                          <Icon sx={{ display: 'flex', justifyContent: 'center', scale: '100%', mx: 0.5 }}>
+                          <Icon
+                            sx={{
+                              display: 'flex',
+                              justifyContent: 'center',
+                              alignItems: 'center',
+                              scale: '100%',
+                              mx: 0.5,
+                            }}
+                          >
                             <CustomRadioButtonIcon
                               color={theme.palette.secondary}
                               checked={false}
@@ -125,7 +133,6 @@ const RadioInput: FC<RadioInputProps> = ({
                         }
                         sx={{
                           alignSelf: 'center',
-                          mt: '8px',
                           // If screen is smaller than small breakpoint
                           [theme.breakpoints.down('md')]: {
                             mt: 0,

@@ -7,3 +7,5 @@ export const PRACTITIONER_QUALIFICATION_EXTENSION_URL =
 export const PRACTITIONER_QUALIFICATION_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-0360|2.7';
 
 export const PRACTITIONER_QUALIFICATION_STATE_SYSTEM = 'http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state';
+
+export const INTERPRETER_PHONE_NUMBER = '(123) 456-7890';

@@ -46,7 +46,7 @@ export async function patchEncounterResource(
 
 export { mapStatusToTelemed };
 
-export const telemedStatusToEncounter = (telemedStatus: TelemedCallStatuses): string => {
+export const telemedStatusToEncounter = (telemedStatus: TelemedCallStatuses): Encounter['status'] => {
   switch (telemedStatus) {
     case 'ready':
       return 'planned';
@@ -58,6 +58,8 @@ export const telemedStatusToEncounter = (telemedStatus: TelemedCallStatuses): st
       return 'finished';
     case 'complete':
       return 'finished';
+    case 'cancelled':
+      return 'cancelled';
   }
 };
 

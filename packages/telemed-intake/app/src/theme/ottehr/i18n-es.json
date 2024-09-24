@@ -1,6 +1,8 @@
 {
   "general": {
     "appName": "Ottehr Telemedicine",
+    "maximumAge": 26,
+    "minimumAge": 0,
     "button": {
       "back": "Atrás",
       "continue": "Continuar",
@@ -134,7 +136,7 @@
     "birthSex": "Sexo al nacer: {{birthSex}}",
     "wrongPatient": "¿Paciente incorrecto? Por favor ",
     "wrongPatientGoBack": "regresa",
-    "wrongPatientBackFor": "para un nuevo paciente o un registro de paciente existente diferente.",
+    "wrongPatientGoBackFor": "para un nuevo paciente o un registro de paciente existente diferente.",
     "formElement": {
       "labels": {
         "firstName": "Nombre legal del paciente",
@@ -149,7 +151,7 @@
         "emailOwnerPatient": "Paciente",
         "emailOwnerParent": "Padre/Guardían"
       },
-      "placeholder": {
+      "placeholders": {
         "firstName": "Nombre",
         "middleName": "Segundo nombre",
         "lastName": "Apellido",

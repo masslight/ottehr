@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { WorkSchoolNoteExcuseDocDTO } from 'ehr-utils';
+import { SchoolWorkNoteExcuseDocDTO } from 'ehr-utils';
 import { ArrayElement } from '../../shared/types';
 
 export const mapExcuseTypeToFields = {
@@ -174,8 +174,8 @@ export const mapValuesToExcuse = (
     providerName?: string;
     suffix?: string;
   },
-): WorkSchoolNoteExcuseDocDTO => {
-  const excuse: WorkSchoolNoteExcuseDocDTO = {
+): SchoolWorkNoteExcuseDocDTO => {
+  const excuse: SchoolWorkNoteExcuseDocDTO = {
     type: params.isSchool ? 'school' : 'work',
     documentHeader: params.isSchool
       ? `School note for ${params.patientName || 'Unknown'}`

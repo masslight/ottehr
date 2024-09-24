@@ -10,7 +10,7 @@ import { DateTime } from 'luxon';
 import { FinancialPolicyDialog } from '../components/FinancialPolicyDialog';
 import { useState } from 'react';
 import { CancelVisitDialog } from '../components';
-import { ottehrThankYou } from '../assets';
+import { ottehrThankYou } from '@theme/icons';
 
 const ThankYou = (): JSX.Element => {
   const theme = useTheme();

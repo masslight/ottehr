@@ -26,7 +26,7 @@ const CreateDemoVisits = (): ReactElement => {
   const { getAccessTokenSilently } = useAuth0();
 
   const handleCreateSampleAppointments = async (phoneNumber: string): Promise<void> => {
-    if (!phoneNumber || phoneNumber.length < 10 || !phoneNumber.startsWith('+1')) {
+    if (!phoneNumber || phoneNumber.length !== 12 || !phoneNumber.startsWith('+1')) {
       setInputError(true);
       return;
     }
@@ -34,7 +34,8 @@ const CreateDemoVisits = (): ReactElement => {
       setLoading(true);
       setInputError(false);
       const authToken = await getAccessTokenSilently();
-      const response = await createSampleAppointments(fhirClient, authToken, phoneNumber);
+      const formattedPhoneNumber = phoneNumber.slice(2);
+      const response = await createSampleAppointments(fhirClient, authToken, formattedPhoneNumber);
       console.log('response', response);
       setSnackbar({
         open: true,
@@ -62,7 +63,7 @@ const CreateDemoVisits = (): ReactElement => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     setPhoneNumber(e.target.value);
-    if (e.target.value.length >= 10 && e.target.value.length <= 15 && e.target.value.startsWith('+1')) {
+    if (e.target.value.length === 12 && e.target.value.startsWith('+1')) {
       setInputError(false);
     }
   };
@@ -93,6 +94,7 @@ const CreateDemoVisits = (): ReactElement => {
           label="Phone Number"
           value={phoneNumber}
           onChange={handleChange}
+          placeholder="+1"
           size="small"
           sx={{
             flexGrow: 1,
@@ -107,7 +109,7 @@ const CreateDemoVisits = (): ReactElement => {
           }}
           required
           error={inputError}
-          helperText={inputError ? 'Please enter a valid phone number' : ''}
+          helperText={inputError ? 'Please enter a valid phone number in the format +12345678900' : ''}
         />
         <LoadingButton
           loading={loading}

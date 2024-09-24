@@ -5,12 +5,13 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { IntakeFlowPageRoute } from '../App';
-import { clockFullColor } from '../assets/icons';
+import { clockFullColor } from '@theme/icons';
 import { useAppointmentStore, useGetSchedule } from '../features/appointments';
 import { CustomContainer } from '../features/common';
 import { useZapEHRAPIClient } from '../utils';
 import Schedule from '../components/Schedule';
 import { ErrorDialog } from 'ottehr-components';
+import { useAuth0 } from '@auth0/auth0-react';
 
 interface Parameters {
   'schedule-type': 'location' | 'provider';
@@ -27,6 +28,8 @@ const Welcome = (): JSX.Element => {
   const [choiceErrorDialogOpen, setChoiceErrorDialogOpen] = useState(false);
   const { selectedSlot, setAppointment } = useAppointmentStore((state) => state);
   const { t } = useTranslation();
+
+  const { isAuthenticated } = useAuth0();
 
   if (!slug) {
     throw new Error('slug is not defined');
@@ -51,8 +54,10 @@ const Welcome = (): JSX.Element => {
   const onSubmit = (): void => {
     if (!selectedSlot) {
       setChoiceErrorDialogOpen(true);
-    } else {
+    } else if (!isAuthenticated) {
       navigate(IntakeFlowPageRoute.AuthPage.path);
+    } else {
+      navigate(`${IntakeFlowPageRoute.SelectPatient.path}?flow=requestVisit`);
     }
   };
 
@@ -60,7 +65,7 @@ const Welcome = (): JSX.Element => {
     <CustomContainer
       title={`${t('welcome.title', { visitService })}`}
       subtitle={isFetching ? t('general.loading') : schedule?.name}
-      img={clockFullColor}
+      img={t('welcome.imgAlt') ? clockFullColor : undefined}
       imgAlt={t('welcome.imgAlt')}
       imgWidth={120}
       bgVariant={IntakeFlowPageRoute.NewUser.path}
@@ -86,7 +91,7 @@ const Welcome = (): JSX.Element => {
           <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
             <Button
               variant="contained"
-              color="primary"
+              color="secondary"
               size="large"
               className="next-button"
               type="submit"

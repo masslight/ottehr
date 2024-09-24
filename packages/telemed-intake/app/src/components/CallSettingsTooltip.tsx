@@ -4,7 +4,7 @@ import { ClickAwayListener, IconButton, List, Box } from '@mui/material';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import SettingsIcon from '@mui/icons-material/Settings';
 import CloseIcon from '@mui/icons-material/Close';
-import { clockFullColor } from '../assets';
+import { clockFullColor } from '@theme/icons';
 import { StyledListItemWithButton, CustomTooltip } from 'ottehr-components';
 import { otherColors } from '../IntakeThemeProvider';
 import { IconButtonContained } from './IconButtonContained';

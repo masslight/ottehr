@@ -7,7 +7,8 @@ import {
   InstructionType,
   MeetingData,
   SaveChartDataRequest,
-  WorkSchoolNoteExcuseDocFileDTO,
+  SchoolWorkNoteExcuseDocFileDTO,
+  TelemedAppointmentInformation,
 } from 'ehr-utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { PromiseReturnType, ZapEHRTelemedAPIClient } from '../../data';
@@ -16,6 +17,131 @@ import { useAppointmentStore } from './appointment.store';
 import useOttehrUser from '../../../hooks/useOttehrUser';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAuthToken } from '../../../hooks/useAuthToken';
+import { CHAT_REFETCH_INTERVAL } from '../../../constants';
+import { extractPhotoUrlsFromAppointmentData } from '../../utils';
+
+export type RefreshableAppointmentData = {
+  patientConditionPhotoUrs: string[];
+};
+
+const createRefreshableAppointmentData = (originalData: Bundle<FhirResource>[]): RefreshableAppointmentData => {
+  const photoUrls = extractPhotoUrlsFromAppointmentData(originalData);
+  return {
+    patientConditionPhotoUrs: photoUrls,
+  };
+};
+
+const APPOINTMENT_REFRESH_INTERVAL = 15000;
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useRefreshableAppointmentData = (
+  {
+    appointmentId,
+  }: {
+    appointmentId: string | undefined;
+  },
+  onSuccess: (data: RefreshableAppointmentData) => void,
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+) => {
+  return useGetTelemedAppointmentPeriodicRefresh(
+    {
+      appointmentId: appointmentId,
+      refreshIntervalMs: APPOINTMENT_REFRESH_INTERVAL,
+    },
+    (originalData) => {
+      const refreshedData = createRefreshableAppointmentData(originalData);
+      onSuccess(refreshedData);
+    },
+  );
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useGetTelemedAppointmentPeriodicRefresh = (
+  {
+    appointmentId,
+    refreshIntervalMs,
+  }: {
+    appointmentId: string | undefined;
+    refreshIntervalMs: number | undefined;
+  },
+  onSuccess: (data: Bundle<FhirResource>[]) => void,
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+) => {
+  const { fhirClient } = useApiClients();
+  const refetchOptions = refreshIntervalMs ? { refetchInterval: refreshIntervalMs } : {};
+  return useQuery(
+    ['telemed-appointment-periodic-refresh', { appointmentId }],
+    () => {
+      if (fhirClient && appointmentId) {
+        return fhirClient.searchResources<Bundle>({
+          resourceType: 'Appointment',
+          searchParams: [
+            { name: '_id', value: appointmentId },
+            { name: '_revinclude', value: 'DocumentReference:related' },
+          ],
+        });
+      }
+      throw new Error('fhir client not defined or appointmentId not provided');
+    },
+    {
+      ...refetchOptions,
+      onSuccess,
+      onError: (err) => {
+        console.error('Error during fetching get telemed appointment periodic: ', err);
+      },
+    },
+  );
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useGetTelemedAppointment = (
+  {
+    appointmentId,
+  }: {
+    appointmentId: string | undefined;
+  },
+  onSuccess: (data: Bundle<FhirResource>[]) => void,
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+) => {
+  const { fhirClient } = useApiClients();
+  return useQuery(
+    ['telemed-appointment', { appointmentId }],
+    () => {
+      if (fhirClient && appointmentId) {
+        return fhirClient.searchResources<Bundle>({
+          resourceType: 'Appointment',
+          searchParams: [
+            { name: '_id', value: appointmentId },
+            {
+              name: '_include',
+              value: 'Appointment:patient',
+            },
+            {
+              name: '_include',
+              value: 'Appointment:location',
+            },
+            {
+              name: '_revinclude:iterate',
+              value: 'Encounter:appointment',
+            },
+            {
+              name: '_revinclude:iterate',
+              value: 'QuestionnaireResponse:encounter',
+            },
+            { name: '_revinclude', value: 'DocumentReference:related' },
+          ],
+        });
+      }
+      throw new Error('fhir client not defined or appointmentId not provided');
+    },
+    {
+      onSuccess,
+      onError: (err) => {
+        console.error('Error during fetching get telemed appointment: ', err);
+      },
+    },
+  );
+};
 
 export const useGetAppointmentInformation = (
   {
@@ -51,7 +177,7 @@ export const useGetAppointmentInformation = (
               name: '_revinclude:iterate',
               value: 'QuestionnaireResponse:encounter',
             },
-            { name: '_revinclude:iterate', value: 'DocumentReference:patient' },
+            { name: '_revinclude', value: 'DocumentReference:related' },
           ],
         });
       }
@@ -164,7 +290,7 @@ export const useDeleteChartData = () => {
   const { encounter } = useAppointmentStore.getState();
 
   return useMutation({
-    mutationFn: (chartDataFields: ChartDataFields & { workSchoolNotes?: WorkSchoolNoteExcuseDocFileDTO[] }) => {
+    mutationFn: (chartDataFields: ChartDataFields & { schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[] }) => {
       if (apiClient && encounter.id) {
         return apiClient.deleteChartData({
           encounterId: encounter.id,
