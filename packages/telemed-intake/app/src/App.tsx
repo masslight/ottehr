@@ -31,7 +31,7 @@ import ScheduleSelect from './pages/ScheduleSelect';
 import Version from './pages/Version';
 
 const isLowerEnvs =
-  import.meta.env.MODE === 'development' ||
+  import.meta.env.MODE === 'dev' ||
   import.meta.env.MODE === 'staging' ||
   import.meta.env.MODE === 'testing' ||
   import.meta.env.MODE === 'training';

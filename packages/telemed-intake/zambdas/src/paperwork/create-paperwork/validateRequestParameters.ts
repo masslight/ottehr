@@ -254,7 +254,7 @@ export function validateCreatePaperworkParams(input: ZambdaInput, questionnaire:
     case 'local':
       ipAddress = input?.requestContext?.identity?.sourceIp ? input.requestContext.identity.sourceIp : 'Unknown';
       break;
-    case 'development':
+    case 'dev':
     case 'testing':
     case 'staging':
     case 'production':
