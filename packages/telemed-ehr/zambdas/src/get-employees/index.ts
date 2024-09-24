@@ -88,7 +88,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       getRoleMembers(providerRoleId, zapehrToken, secrets),
       fhirClient.batchRequest({ requests: batchRequests }),
     ];
-    
+
     const [inactiveRoleMembers, providerRoleMembers, fhirBundle] = <[{ id: string }[], { id: string }[], Bundle]>(
       await Promise.all(mixedPromises)
     );
