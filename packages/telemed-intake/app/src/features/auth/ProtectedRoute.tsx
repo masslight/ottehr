@@ -1,7 +1,6 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { FC } from 'react';
 import { Outlet } from 'react-router-dom';
-import { IntakeFlowPageRoute } from '../../App';
 
 export const ProtectedRoute: FC<{
   loadingFallback: JSX.Element;
