@@ -54,6 +54,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const promises = [getEmployees(zapehrToken, secrets), getRoles(zapehrToken, secrets)];
     const [allEmployees, existingRoles] = await Promise.all(promises);
 
+    console.log('allEmployees', allEmployees);
+    console.log('existingRoles', existingRoles);
+
     console.log(`Fetched ${allEmployees.length} employees and ${existingRoles.length} roles.`);
 
     const inactiveRoleId = existingRoles.find((role: any) => role.name === 'Inactive')?.id;

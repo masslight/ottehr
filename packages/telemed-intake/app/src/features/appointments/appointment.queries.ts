@@ -82,6 +82,7 @@ export const useGetAppointments = (apiClient: ZapEHRAPIClient | null, enabled = 
       if (!apiClient) {
         throw new Error('API client not defined');
       }
+      console.log('patientId', patientId);
       return patientId ? apiClient.getAppointments({ patientId }) : apiClient.getAppointments();
     },
     {

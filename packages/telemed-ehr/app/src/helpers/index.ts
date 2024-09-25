@@ -34,8 +34,13 @@ export const checkinPatient = async (fhirClient: FhirClient, appointmentId: stri
     operations: [
       {
         op: 'replace',
-        path: '/status',
+        path: '/extension/0/extension/0/extension/0/valueString',
         value: 'arrived',
+      },
+      {
+        op: 'replace',
+        path: '/extension/0/extension/0/extension/1/valuePeriod/start',
+        value: new Date().toISOString(),
       },
     ],
   });

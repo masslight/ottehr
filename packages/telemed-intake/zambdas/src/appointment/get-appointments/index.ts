@@ -28,6 +28,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     zapehrToken = await checkOrCreateToken(zapehrToken, secrets);
     const fhirClient = createFhirClient(zapehrToken);
     console.log('getting user');
+    console.log('input', input);
 
     const user = await getUser(input.headers.Authorization.replace('Bearer ', ''));
     console.log('getting patients for user');

@@ -443,6 +443,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         next: false,
       };
 
+      console.log('appointmentQueues', appointmentQueues);
+
       preBooked = appointmentQueues.prebooked
         .map((appointment) => {
           return makeAppointmentInformation({

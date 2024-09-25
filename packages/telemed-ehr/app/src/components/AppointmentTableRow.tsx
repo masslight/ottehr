@@ -20,7 +20,6 @@ import {
   TableRow,
   Tooltip,
   Typography,
-  capitalize,
   useTheme,
 } from '@mui/material';
 import { Location } from 'fhir/r4';
@@ -315,9 +314,10 @@ export default function AppointmentTableRow({
       throw new Error('error getting appointment id');
     }
     setArrivedStatusSaving(true);
+    console.log('handleArrivedClick', appointment.id);
     await checkinPatient(fhirClient, appointment.id);
     setArrivedStatusSaving(false);
-    await updateAppointments();
+    updateAppointments();
   };
 
   const recentStatus = appointment?.visitStatusHistory[appointment.visitStatusHistory.length - 1];
