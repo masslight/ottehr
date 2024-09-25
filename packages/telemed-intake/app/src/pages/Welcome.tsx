@@ -28,6 +28,7 @@ const Welcome = (): JSX.Element => {
   const [choiceErrorDialogOpen, setChoiceErrorDialogOpen] = useState(false);
   const { selectedSlot, setAppointment } = useAppointmentStore((state) => state);
   const { t } = useTranslation();
+  localStorage.setItem('welcomePath', location.pathname);
 
   const { isAuthenticated } = useAuth0();
 
