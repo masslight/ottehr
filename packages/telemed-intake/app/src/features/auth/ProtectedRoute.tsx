@@ -18,9 +18,6 @@ export const ProtectedRoute: FC<{
   }
 
   if (!isAuthenticated) {
-    if (location.pathname === IntakeFlowPageRoute.PatientPortal.path) {
-      localStorage.setItem('fromHome', 'true');
-    }
     return unauthorizedFallback;
   }
 
