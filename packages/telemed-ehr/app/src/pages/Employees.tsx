@@ -51,7 +51,6 @@ export default function EmployeesPage(): ReactElement {
     () => (zambdaClient ? getEmployees(zambdaClient) : null),
     {
       onSuccess: (response) => {
-        console.log('response', response?.employees);
         setEmployees(response?.employees ?? []);
       },
       enabled: !!zambdaClient,
@@ -121,8 +120,6 @@ function EmployeesTable({ employees, isProviderLayout }: EmployeesTableProps): R
       }),
     [employees, searchText, isProviderLayout, selectedState, lastLoginFilterChecked],
   );
-
-  console.log('filteredEmployees', filteredEmployees);
 
   // For pagination, only include the rows that are on the current page
   const pageEmployees: EmployeeDetails[] = React.useMemo(

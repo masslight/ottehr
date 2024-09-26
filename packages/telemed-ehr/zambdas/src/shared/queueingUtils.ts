@@ -266,11 +266,8 @@ class QueueBuilder {
   sortAppointments(appointments: Appointment[]): SortedAppointmentQueues {
     appointments.forEach((appointment) => {
       const status = getStatusLabelForAppointmentAndEncounter(appointment);
-      console.log(appointment.id, status);
       const appointmentType = appointmentTypeForAppointment(appointment);
       if (status === 'pending' && appointmentType === 'prebook') {
-        this.insertNew(appointment, this.queues.prebooked);
-      } else if (status === 'pending') {
         this.insertNew(appointment, this.queues.prebooked);
       } else if (status === 'arrived') {
         this.insertNew(appointment, this.queues.inOffice.waitingRoom.arrived);

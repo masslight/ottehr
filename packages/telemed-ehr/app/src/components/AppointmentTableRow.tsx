@@ -295,7 +295,7 @@ export default function AppointmentTableRow({
     setNoteSaving(false);
     setEditingRow(false);
     setEditingComment(false);
-    await updateAppointments();
+    updateAppointments();
   };
 
   useEffect(() => {
@@ -314,7 +314,6 @@ export default function AppointmentTableRow({
       throw new Error('error getting appointment id');
     }
     setArrivedStatusSaving(true);
-    console.log('handleArrivedClick', appointment.id);
     await checkinPatient(fhirClient, appointment.id);
     setArrivedStatusSaving(false);
     updateAppointments();

@@ -212,8 +212,6 @@ export default function Appointments(): ReactElement {
           groupIDs: groups,
         });
 
-        console.log('searchResults', searchResults);
-
         setSearchResults(searchResults || []);
 
         setLoadingState({ status: 'loaded', id: queryId });

@@ -14,12 +14,8 @@ export async function getM2MClientToken(secrets: Secrets | null): Promise<string
 }
 
 export async function getUser(token: string): Promise<User> {
-  console.log('token', token);
-
   const appClient = createAppClient(token);
 
-  console.log('appClient', appClient);
   const user = await appClient.getMe();
-  console.log('user', user);
   return user;
 }
