@@ -84,7 +84,12 @@ const SelectPatient = (): JSX.Element => {
   };
 
   const onBack = (): void => {
-    navigate(IntakeFlowPageRoute.PatientPortal.path);
+    const redirectPath = localStorage.getItem('welcomePath');
+    if (redirectPath) {
+      navigate(redirectPath);
+    } else {
+      navigate(IntakeFlowPageRoute.PatientPortal.path);
+    }
   };
 
   if (location.state?.patientId) {

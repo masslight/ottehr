@@ -26,6 +26,8 @@ import { RoleType } from './types/types';
 import { AppointmentPage } from './pages/AppointmentPage';
 import AddSchedulePage from './pages/AddSchedulePage';
 import('@photonhealth/elements').catch(console.log);
+import Version from './pages/Version';
+
 
 const TelemedTrackingBoardPageLazy = lazy(async () => {
   const TrackingBoardPage = await import('./telemed/pages/TrackingBoardPage');
@@ -87,6 +89,7 @@ function App(): ReactElement {
                 />
               }
             >
+              <Route path="/version" element={<Version />} />
               {roleUnknown && (
                 <>
                   <Route path="/logout" element={<Logout />} />
