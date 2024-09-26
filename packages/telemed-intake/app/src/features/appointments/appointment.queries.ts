@@ -118,10 +118,14 @@ export const useGetSchedule = (apiClient: ZapEHRAPIClient | null, scheduleType: 
         console.error('Error getting a schedule: ', error);
       },
       retry: (failureCount, error: any) => {
+        if (failureCount < 3) {
+          return true;
+        }
         if (error.message === 'Schedule is not found') {
           return false;
         }
-        return failureCount < 1;
+        return false;
       },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     },
   );
