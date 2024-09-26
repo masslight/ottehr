@@ -1,4 +1,3 @@
-export * from './CallSettings';
 export * from './CallSettingsTooltip';
 export * from './CallSideCard';
 export * from './CancelVisitDialog';
