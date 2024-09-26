@@ -579,7 +579,7 @@ const makeAppointmentInformation = (input: AppointmentInformationInputs): UCAppo
   }
   const encounter = apptRefToEncounterMap[`Appointment/${appointment.id}`];
   const questionnaireResponse = encounterRefToQRMap[`Encounter/${encounter?.id}`];
-
+  const encounterId = encounter?.id;
   let smsModel: SMSModel | undefined;
 
   if (patientRef) {
@@ -703,5 +703,6 @@ const makeAppointmentInformation = (input: AppointmentInformationInputs): UCAppo
     visitStatusHistory: getVisitStatusHistory(appointment),
     needsDOBConfirmation: !!unconfirmedDOB,
     waitingMinutes,
+    encounterId: encounterId || '',
   };
 };
