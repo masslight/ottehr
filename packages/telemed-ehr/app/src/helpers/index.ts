@@ -23,11 +23,6 @@ export const messageIsFromPatient = (message: Message): boolean => {
 };
 
 export const checkinPatient = async (fhirClient: FhirClient, appointmentId: string): Promise<void> => {
-  const appointmentToUpdate = await fhirClient.readResource<Appointment>({
-    resourceType: 'Appointment',
-    resourceId: appointmentId,
-  });
-
   await fhirClient.patchResource({
     resourceType: 'Appointment',
     resourceId: appointmentId,
@@ -36,11 +31,6 @@ export const checkinPatient = async (fhirClient: FhirClient, appointmentId: stri
         op: 'replace',
         path: '/extension/0/extension/0/extension/0/valueString',
         value: 'arrived',
-      },
-      {
-        op: 'replace',
-        path: '/extension/0/extension/0/extension/1/valuePeriod/start',
-        value: new Date().toISOString(),
       },
     ],
   });
