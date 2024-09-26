@@ -314,7 +314,7 @@ export default function AppointmentTableRow({
       throw new Error('error getting appointment id');
     }
     setArrivedStatusSaving(true);
-    await checkinPatient(fhirClient, appointment.id);
+    await checkinPatient(fhirClient, appointment.id, appointment.encounterId);
     setArrivedStatusSaving(false);
     updateAppointments();
   };
