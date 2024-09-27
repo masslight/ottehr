@@ -50,7 +50,7 @@ export default (env) => {
         sourcemap: mode === 'default' || shouldUploadSentrySourceMaps,
       },
       server: {
-        open: true,
+        open: 'patient-portal',
       },
       plugins,
     }),
