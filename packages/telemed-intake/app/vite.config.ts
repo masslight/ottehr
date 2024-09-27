@@ -28,7 +28,7 @@ export default (env) => {
         sourcemaps: {
           assets: ['./build/**/*'],
         },
-      })
+      }),
     );
 
   return mergeConfig(
@@ -50,9 +50,9 @@ export default (env) => {
         sourcemap: mode === 'default' || shouldUploadSentrySourceMaps,
       },
       server: {
-        open: appEnv.DEFAULT_PATH ?? 'location/ak/in-person/prebook',
+        open: true,
       },
       plugins,
-    })
+    }),
   );
 };
