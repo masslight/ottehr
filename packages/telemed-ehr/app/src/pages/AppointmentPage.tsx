@@ -1,6 +1,6 @@
 import { Box, Container } from '@mui/material';
 import { FC, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   AppointmentFooter,
   AppointmentHeader,
@@ -30,6 +30,8 @@ import {
 export const AppointmentPage: FC = () => {
   const { id } = useParams();
   useIsReadOnly();
+
+  const navigate = useNavigate();
 
   const { isFetching } = useGetAppointmentInformation(
     {
@@ -91,7 +93,7 @@ export const AppointmentPage: FC = () => {
         minHeight: '100vh',
       }}
     >
-      <AppointmentHeader />
+      <AppointmentHeader onClose={() => navigate('/')} />
 
       <Box sx={{ display: 'flex', flex: 1, width: '100%' }}>
         <AppointmentSidePanel />

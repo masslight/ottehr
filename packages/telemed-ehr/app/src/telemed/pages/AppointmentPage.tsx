@@ -10,7 +10,7 @@ import {
   QuestionnaireResponse,
 } from 'fhir/r4';
 import { FC, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
 import { SCHOOL_WORK_NOTE_CODE, getQuestionnaireResponseByLinkId } from 'ehr-utils';
 import { getSelectors } from '../../shared/store/getSelectors';
@@ -38,6 +38,7 @@ import { arraysEqual, extractPhotoUrlsFromAppointmentData } from '../utils';
 
 export const AppointmentPage: FC = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
 
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
   useIsReadOnly();
@@ -153,7 +154,7 @@ export const AppointmentPage: FC = () => {
         minHeight: '100vh',
       }}
     >
-      <AppointmentHeader />
+      <AppointmentHeader onClose={() => navigate('/telemed/appointments')} />
 
       <PreferredLanguagePopup
         isOpen={isPreferredLanguagePopupOpen}

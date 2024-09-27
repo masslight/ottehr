@@ -4,7 +4,11 @@ import CloseIcon from '@mui/icons-material/Close';
 import { useNavigate } from 'react-router-dom';
 import { AppointmentTabsHeader } from './AppointmentTabsHeader';
 
-export const AppointmentHeader: FC = () => {
+interface AppointmentHeaderProps {
+  onClose: () => void;
+}
+
+export const AppointmentHeader: FC<AppointmentHeaderProps> = ({ onClose }) => {
   const theme = useTheme();
   const navigate = useNavigate();
 
@@ -20,7 +24,7 @@ export const AppointmentHeader: FC = () => {
       <Box sx={{ display: 'flex', mt: 1, mx: 3, justifyContent: 'space-between', alignItems: 'start' }}>
         <AppointmentTabsHeader />
 
-        <IconButton onClick={() => navigate('/telemed/appointments')}>
+        <IconButton onClick={onClose}>
           <CloseIcon fontSize="small" />
         </IconButton>
       </Box>
