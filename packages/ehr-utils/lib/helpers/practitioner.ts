@@ -1,6 +1,5 @@
-import { Encounter, Identifier, Practitioner } from 'fhir/r4';
+import { Encounter, Practitioner } from 'fhir/r4';
 import {
-  FHIR_IDENTIFIER_NPI,
   PRACTITIONER_QUALIFICATION_CODE_SYSTEM,
   PRACTITIONER_QUALIFICATION_EXTENSION_URL,
   PRACTITIONER_QUALIFICATION_STATE_SYSTEM,
@@ -54,8 +53,4 @@ export const checkIsEncounterForPractitioner = (encounter: Encounter, practition
   const encounterPractitionerId = encounterPractitioner && removePrefix('Practitioner/', encounterPractitioner);
 
   return !!practitioner && !!encounterPractitioner && practitionerId === encounterPractitionerId;
-};
-
-export const getPractitionerNPIIdentitifier = (practitioner: Practitioner | undefined): Identifier | undefined => {
-  return practitioner?.identifier?.find((existIdentifier) => existIdentifier.system === FHIR_IDENTIFIER_NPI);
 };
