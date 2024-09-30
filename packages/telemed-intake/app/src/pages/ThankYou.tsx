@@ -20,6 +20,7 @@ const ThankYou = (): JSX.Element => {
   const { selectedSlot } = getSelectors(useAppointmentStore, ['selectedSlot']);
 
   const formattedDate = selectedSlot ? DateTime.fromISO(selectedSlot).toFormat('MMMM d, h:mm a') : '';
+  localStorage.removeItem('welcomePath');
   return (
     <CustomContainer
       title={t('thankYou.title')}
