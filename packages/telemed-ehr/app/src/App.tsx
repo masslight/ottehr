@@ -48,7 +48,6 @@ if (MUI_X_LICENSE_KEY != null) {
 function App(): ReactElement {
   useApiClients();
   const currentUser = useOttehrUser();
-  // console.log(currentUser);
   const currentTab = useNavStore((state: any) => state.currentTab) || 'In Person';
 
   const wasEnrolledInERX = useProviderERXStateStore((state) => state.wasEnrolledInERX);
