@@ -29,8 +29,6 @@ root.render(
         audience={import.meta.env.VITE_APP_ZAPEHR_APPLICATION_AUDIENCE}
         redirectUri={AUTH0_REDIRECT_URI}
         connection={import.meta.env.VITE_APP_ZAPEHR_CONNECTION_NAME}
-        cacheLocation="localstorage"
-        skipRedirectCallback={window.location.href.includes('photon=true')}
       >
         <App />
       </Auth0Provider>

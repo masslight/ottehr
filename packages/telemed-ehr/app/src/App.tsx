@@ -8,7 +8,7 @@ import { LoadingScreen } from './components/LoadingScreen';
 import Navbar from './components/navigation/Navbar';
 import { ProtectedRoute } from './components/routing/ProtectedRoute';
 import { useApiClients } from './hooks/useAppClients';
-import useOttehrUser, { useProviderERXStateStore } from './hooks/useOttehrUser';
+import useOttehrUser from './hooks/useOttehrUser';
 import AddPatient from './pages/AddPatient';
 import AppointmentsPage from './pages/Appointments';
 import EditEmployeePage from './pages/EditEmployee';
@@ -22,11 +22,17 @@ import { TelemedAdminPage } from './pages/TelemedAdminPage';
 import { useNavStore } from './state/nav.store';
 import EditInsurance from './telemed/features/telemed-admin/EditInsurance';
 import EditStatePage from './telemed/features/telemed-admin/EditState';
+import { isLocalOrDevOrTestingOrTrainingEnv } from './telemed/utils/env.helper';
 import { RoleType } from './types/types';
 import { AppointmentPage } from './pages/AppointmentPage';
 import AddSchedulePage from './pages/AddSchedulePage';
-import('@photonhealth/elements').catch(console.log);
 import Version from './pages/Version';
+
+const enablePhoton = false && isLocalOrDevOrTestingOrTrainingEnv;
+
+if (enablePhoton) {
+  import('@photonhealth/elements').catch(console.log);
+}
 
 const TelemedTrackingBoardPageLazy = lazy(async () => {
   const TrackingBoardPage = await import('./telemed/pages/TrackingBoardPage');
@@ -50,8 +56,6 @@ function App(): ReactElement {
   const currentUser = useOttehrUser();
   const currentTab = useNavStore((state: any) => state.currentTab) || 'In Person';
 
-  const wasEnrolledInERX = useProviderERXStateStore((state) => state.wasEnrolledInERX);
-
   const roleUnknown =
     !currentUser || !currentUser.hasRole([RoleType.Administrator, RoleType.Staff, RoleType.Manager, RoleType.Provider]);
 
@@ -68,12 +72,11 @@ function App(): ReactElement {
                 <ProtectedRoute
                   showWhenAuthenticated={
                     <>
-                      {(currentUser?.hasRole([RoleType.Provider]) && currentUser.isPractitionerEnrolledInERX) ||
-                      wasEnrolledInERX ? (
+                      {currentUser?.hasRole([RoleType.Provider]) && enablePhoton ? (
                         <photon-client
                           id={import.meta.env.VITE_APP_PHOTON_CLIENT_ID}
                           org={import.meta.env.VITE_APP_PHOTON_ORG_ID}
-                          dev-mode={import.meta.env.MODE === 'production' ? 'false' : 'true'}
+                          dev-mode="true"
                           auto-login="true"
                           redirect-uri={window.location.origin}
                         >
