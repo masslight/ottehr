@@ -28,6 +28,7 @@ import ConfirmDateOfBirth from './pages/ConfirmDateOfBirth';
 import ThankYou from './pages/ThankYou';
 import { useTranslation } from 'react-i18next';
 import ScheduleSelect from './pages/ScheduleSelect';
+import Version from './pages/Version';
 
 const isLowerEnvs =
   import.meta.env.MODE === 'dev' ||
@@ -83,6 +84,8 @@ export class IntakeFlowPageRoute {
   static readonly InvitedVideoCall = new IntakeFlowPageRoute('/invited-video-call', <VideoChatPage />);
   static readonly ThankYou = new IntakeFlowPageRoute('/thank-you', <ThankYou />);
 
+  static readonly Version = new IntakeFlowPageRoute('/version', <Version />);
+
   static readonly IOSPatientPhotosEdit = new IntakeFlowPageRoute('/ios-patient-photos', <IOSPatientPhotosEditPage />);
   static readonly IOSPatientManageParticipants = new IntakeFlowPageRoute(
     '/ios-manage-participants',
@@ -110,6 +113,7 @@ function App(): JSX.Element {
         <Router>
           <ScrollToTop />
           <Routes>
+            <Route path={IntakeFlowPageRoute.Version.path} element={IntakeFlowPageRoute.Version.page} />
             <Route path={IntakeFlowPageRoute.AuthPage.path} element={IntakeFlowPageRoute.AuthPage.page} />
             <Route path={IntakeFlowPageRoute.Welcome.path} element={IntakeFlowPageRoute.Welcome.page} />
             <Route
@@ -129,18 +133,8 @@ function App(): JSX.Element {
                 />
               }
             >
+              <Route path="/" element={<AuthPage />} />
               <Route path={IntakeFlowPageRoute.PatientPortal.path} element={IntakeFlowPageRoute.PatientPortal.page} />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute
-                  loadingFallback={<LoadingScreen />}
-                  errorFallback={<ErrorFallbackScreen />}
-                  unauthorizedFallback={<Navigate to={IntakeFlowPageRoute.PatientPortal.path} />}
-                />
-              }
-            >
-              <Route path="/" element={<PatientPortal />} />
               <Route path={IntakeFlowPageRoute.NewUser.path} element={IntakeFlowPageRoute.NewUser.page} />
               <Route path={IntakeFlowPageRoute.ScheduleSelect.path} element={IntakeFlowPageRoute.ScheduleSelect.page} />
               <Route path={IntakeFlowPageRoute.SelectPatient.path} element={IntakeFlowPageRoute.SelectPatient.page} />
@@ -181,7 +175,7 @@ function App(): JSX.Element {
               element={IntakeFlowPageRoute.IOSVideoCallMenu.page}
             />
             <Route path={IntakeFlowPageRoute.ThankYou.path} element={IntakeFlowPageRoute.ThankYou.page} />
-            {/* <Route path="*" element={<Navigate to={IntakeFlowPageRoute.Welcome.path} />} /> */}
+            <Route path="*" element={<Navigate to={IntakeFlowPageRoute.PatientPortal.path} />} />
           </Routes>
         </Router>
       </IntakeThemeProvider>

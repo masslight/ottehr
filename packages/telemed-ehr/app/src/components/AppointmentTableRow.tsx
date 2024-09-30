@@ -20,7 +20,6 @@ import {
   TableRow,
   Tooltip,
   Typography,
-  capitalize,
   useTheme,
 } from '@mui/material';
 import { Location } from 'fhir/r4';
@@ -296,7 +295,7 @@ export default function AppointmentTableRow({
     setNoteSaving(false);
     setEditingRow(false);
     setEditingComment(false);
-    await updateAppointments();
+    updateAppointments();
   };
 
   useEffect(() => {
@@ -315,9 +314,9 @@ export default function AppointmentTableRow({
       throw new Error('error getting appointment id');
     }
     setArrivedStatusSaving(true);
-    await checkinPatient(fhirClient, appointment.id);
+    await checkinPatient(fhirClient, appointment.id, appointment.encounterId);
     setArrivedStatusSaving(false);
-    await updateAppointments();
+    updateAppointments();
   };
 
   const recentStatus = appointment?.visitStatusHistory[appointment.visitStatusHistory.length - 1];

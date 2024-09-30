@@ -36,7 +36,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     if (patientId && !patientIDs.includes(`Patient/${patientId}`)) {
       throw new Error('Not authorized to get this patient');
     }
-
     const allResources = await getFhirResources(fhirClient, patientIDs, patientId);
     const encountersMap = filterTelemedVideoEncounters(allResources);
     const appointments: TelemedAppointmentInformation[] = [];

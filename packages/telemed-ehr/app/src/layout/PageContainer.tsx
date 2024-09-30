@@ -1,7 +1,5 @@
-import { Assessment } from '@mui/icons-material';
 import { Container, Tooltip, Typography } from '@mui/material';
 import { ReactElement, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { Sidebar, SidebarItem } from '../components/navigation/Sidebar';
 import useOttehrUser from '../hooks/useOttehrUser';
 import { RoleType } from '../types/types';
@@ -34,17 +32,6 @@ export default function PageContainer({ sidebarItems, tabTitle, title, children 
         </Typography>
       )}
       {children}
-      <br />
-      <Typography variant="subtitle2">
-        Environment: {import.meta.env.VITE_APP_ENV}, Version: {import.meta.env.VITE_APP_VERSION}
-        {user?.hasRole([RoleType.Administrator]) && (
-          <Tooltip title="Please remember this is not fully tested :)">
-            <Link to="/data" style={{ verticalAlign: 'middle' }}>
-              <Assessment />
-            </Link>
-          </Tooltip>
-        )}
-      </Typography>
     </Container>
   );
 
