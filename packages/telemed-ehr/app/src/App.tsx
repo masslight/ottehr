@@ -40,6 +40,9 @@ const TelemedAppointmentPageLazy = lazy(async () => {
 
 export const INSURANCES_PATH = '/telemed-admin/insurances';
 
+const isERXEnabled =
+  import.meta.env.VITE_APP_PHOTON_CLIENT_ID?.lenght > 0 && import.meta.env.VITE_APP_PHOTON_ORG_ID?.lenght > 0;
+
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
 if (MUI_X_LICENSE_KEY != null) {
   LicenseInfo.setLicenseKey(MUI_X_LICENSE_KEY);
@@ -55,6 +58,13 @@ function App(): ReactElement {
   const roleUnknown =
     !currentUser || !currentUser.hasRole([RoleType.Administrator, RoleType.Staff, RoleType.Manager, RoleType.Provider]);
 
+  console.log(
+    `User: ${JSON.stringify(currentUser)}, 
+    is provider: ${currentUser?.hasRole([RoleType.Provider])}, 
+    is practitioner: ${currentUser?.isPractitionerEnrolledInERX} 
+    was enrolled: ${wasEnrolledInERX}`,
+  );
+
   return (
     <CustomThemeProvider>
       <CssBaseline />
@@ -68,8 +78,9 @@ function App(): ReactElement {
                 <ProtectedRoute
                   showWhenAuthenticated={
                     <>
-                      {(currentUser?.hasRole([RoleType.Provider]) && currentUser.isPractitionerEnrolledInERX) ||
-                      wasEnrolledInERX ? (
+                      {isERXEnabled &&
+                      ((currentUser?.hasRole([RoleType.Provider]) && currentUser.isPractitionerEnrolledInERX) ||
+                        wasEnrolledInERX) ? (
                         <photon-client
                           id={import.meta.env.VITE_APP_PHOTON_CLIENT_ID}
                           org={import.meta.env.VITE_APP_PHOTON_ORG_ID}
