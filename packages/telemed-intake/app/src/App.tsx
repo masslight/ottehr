@@ -133,18 +133,8 @@ function App(): JSX.Element {
                 />
               }
             >
-              <Route path={IntakeFlowPageRoute.PatientPortal.path} element={IntakeFlowPageRoute.PatientPortal.page} />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute
-                  loadingFallback={<LoadingScreen />}
-                  errorFallback={<ErrorFallbackScreen />}
-                  unauthorizedFallback={<Navigate to={IntakeFlowPageRoute.AuthPage.path} />}
-                />
-              }
-            >
               <Route path="/" element={<AuthPage />} />
+              <Route path={IntakeFlowPageRoute.PatientPortal.path} element={IntakeFlowPageRoute.PatientPortal.page} />
               <Route path={IntakeFlowPageRoute.NewUser.path} element={IntakeFlowPageRoute.NewUser.page} />
               <Route path={IntakeFlowPageRoute.ScheduleSelect.path} element={IntakeFlowPageRoute.ScheduleSelect.page} />
               <Route path={IntakeFlowPageRoute.SelectPatient.path} element={IntakeFlowPageRoute.SelectPatient.page} />
@@ -185,7 +175,7 @@ function App(): JSX.Element {
               element={IntakeFlowPageRoute.IOSVideoCallMenu.page}
             />
             <Route path={IntakeFlowPageRoute.ThankYou.path} element={IntakeFlowPageRoute.ThankYou.page} />
-            {/* <Route path="*" element={<Navigate to={IntakeFlowPageRoute.Welcome.path} />} /> */}
+            <Route path="*" element={<Navigate to={IntakeFlowPageRoute.PatientPortal.path} />} />
           </Routes>
         </Router>
       </IntakeThemeProvider>

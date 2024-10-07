@@ -9,6 +9,7 @@ export interface UCAppointmentInformation extends AppointmentMessaging {
   comment: string | undefined;
   appointmentType?: AppointmentType;
   appointmentStatus: string;
+  encounterId: string;
   status: VisitStatus;
   cancellationReason: string | undefined;
   provider: string | undefined;

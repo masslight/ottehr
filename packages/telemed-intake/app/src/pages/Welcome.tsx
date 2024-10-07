@@ -28,7 +28,6 @@ const Welcome = (): JSX.Element => {
   const [choiceErrorDialogOpen, setChoiceErrorDialogOpen] = useState(false);
   const { selectedSlot, setAppointment } = useAppointmentStore((state) => state);
   const { t } = useTranslation();
-  localStorage.setItem('welcomePath', location.pathname);
 
   const { isAuthenticated } = useAuth0();
 
@@ -56,8 +55,10 @@ const Welcome = (): JSX.Element => {
     if (!selectedSlot) {
       setChoiceErrorDialogOpen(true);
     } else if (!isAuthenticated) {
+      localStorage.setItem('welcomePath', location.pathname);
       navigate(IntakeFlowPageRoute.AuthPage.path);
     } else {
+      localStorage.setItem('welcomePath', location.pathname);
       navigate(`${IntakeFlowPageRoute.SelectPatient.path}?flow=requestVisit`);
     }
   };

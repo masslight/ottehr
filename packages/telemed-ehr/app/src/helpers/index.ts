@@ -5,7 +5,8 @@ import { Appointment, Location, Resource } from 'fhir/r4';
 import { DateTime } from 'luxon';
 import { formatDateUsingSlashes, getTimezone } from '../helpers/formatDateTime';
 import { lastModifiedCode } from '../types/types';
-import { UCAppointmentInformation, User, getPatchOperationForNewMetaTag } from 'ehr-utils';
+import { UCAppointmentInformation, User, getPatchBinary, getPatchOperationForNewMetaTag } from 'ehr-utils';
+import { getPatchOperationsToUpdateVisitStatus } from './mappingUtils';
 
 export const classifyAppointments = (appointments: UCAppointmentInformation[]): Map<any, any> => {
   const statusCounts = new Map();
@@ -22,21 +23,35 @@ export const messageIsFromPatient = (message: Message): boolean => {
   return message.author?.startsWith('+') ?? false;
 };
 
-export const checkinPatient = async (fhirClient: FhirClient, appointmentId: string): Promise<void> => {
+export const checkinPatient = async (
+  fhirClient: FhirClient,
+  appointmentId: string,
+  encounterId: string,
+): Promise<void> => {
   const appointmentToUpdate = await fhirClient.readResource<Appointment>({
     resourceType: 'Appointment',
     resourceId: appointmentId,
   });
+  const statusOperations = getPatchOperationsToUpdateVisitStatus(appointmentToUpdate, 'arrived');
 
-  await fhirClient.patchResource({
-    resourceType: 'Appointment',
-    resourceId: appointmentId,
-    operations: [
-      {
-        op: 'replace',
-        path: '/status',
-        value: 'arrived',
-      },
+  const patchOp: Operation = {
+    op: 'replace',
+    path: '/status',
+    value: 'arrived',
+  };
+
+  await fhirClient?.batchRequest({
+    requests: [
+      getPatchBinary({
+        resourceId: appointmentId,
+        resourceType: 'Appointment',
+        patchOperations: [patchOp, ...statusOperations],
+      }),
+      getPatchBinary({
+        resourceId: encounterId,
+        resourceType: 'Encounter',
+        patchOperations: [patchOp],
+      }),
     ],
   });
 };

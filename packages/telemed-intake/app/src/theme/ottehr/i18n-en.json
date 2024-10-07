@@ -127,6 +127,7 @@
   },
   "pastVisits": {
     "visits": "Visits",
+    "noVisits": "There are no past visits yet",
     "visitDetails": "Visit Details",
     "backToHome": "Back to homepage"
   },
