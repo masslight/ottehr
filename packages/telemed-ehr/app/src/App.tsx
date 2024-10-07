@@ -45,6 +45,9 @@ if (MUI_X_LICENSE_KEY != null) {
   LicenseInfo.setLicenseKey(MUI_X_LICENSE_KEY);
 }
 
+const isERXEnabled =
+  import.meta.env.VITE_APP_PHOTON_CLIENT_ID?.lenght > 0 && import.meta.env.VITE_APP_PHOTON_ORG_ID?.lenght > 0;
+
 function App(): ReactElement {
   useApiClients();
   const currentUser = useOttehrUser();
@@ -68,8 +71,9 @@ function App(): ReactElement {
                 <ProtectedRoute
                   showWhenAuthenticated={
                     <>
-                      {(currentUser?.hasRole([RoleType.Provider]) && currentUser.isPractitionerEnrolledInERX) ||
-                      wasEnrolledInERX ? (
+                      {isERXEnabled &&
+                      ((currentUser?.hasRole([RoleType.Provider]) && currentUser.isPractitionerEnrolledInERX) ||
+                        wasEnrolledInERX) ? (
                         <photon-client
                           id={import.meta.env.VITE_APP_PHOTON_CLIENT_ID}
                           org={import.meta.env.VITE_APP_PHOTON_ORG_ID}
