@@ -184,7 +184,6 @@ export async function setupEHR(
   const applicationName = 'Starter EHR Application';
   const [applicationId, clientId] = await createApplication(projectApiUrl, applicationName, accessToken, projectId);
   console.log(`Created application "${applicationName}".`);
-  console.log(applicationId, clientId);
 
   const organizationId = (await createOrganization(fhirClient)).id;
   if (!organizationId) {

@@ -276,7 +276,6 @@ export async function setupIntake(
   const applicationName = 'Ottehr Telemed Intake';
   const [applicationId, clientId] = await createApplication(projectApiUrl, applicationName, accessToken, projectId);
   console.log(`Created application "${applicationName}".`);
-  console.log(applicationId, clientId);
 
   const organizationID = (await createOrganization(fhirClient)).id;
   if (!organizationID) {
