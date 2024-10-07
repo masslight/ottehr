@@ -7,7 +7,7 @@ export async function getAuth0Token(secrets: Secrets | null): Promise<string> {
   const AUTH0_SECRET = getSecret(SecretsKeys.URGENT_CARE_AUTH0_SECRET, secrets);
   const AUTH0_AUDIENCE = getSecret(SecretsKeys.AUTH0_AUDIENCE, secrets);
 
-  console.group(`Fetch from ${AUTH0_ENDPOINT} ${AUTH0_CLIENT} ${AUTH0_SECRET}`);
+  console.group(`Fetch from ${AUTH0_ENDPOINT}`);
   return await fetch(AUTH0_ENDPOINT, {
     method: 'POST',
     headers: {

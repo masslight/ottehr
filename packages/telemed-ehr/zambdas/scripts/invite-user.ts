@@ -45,7 +45,7 @@ const updateUserRoles = async (projectApiUrl: string, accessToken: string, proje
     'x-zapehr-project-id': `${projectId}`,
   };
 
-  console.log('searching for exisiting roles for the project');
+  console.log('searching for existing roles for the project');
   const existingRolesResponse = await fetch(`${projectApiUrl}/iam/role`, {
     method: 'GET',
     headers: httpHeaders,
@@ -99,7 +99,7 @@ const updateUserRoles = async (projectApiUrl: string, accessToken: string, proje
   }
 
   console.group(`Setting defaultSSOUserRole for project to Administrator user role ${adminUserRole.id}`);
-  const endpoint = `${projectApiUrl}/project`;
+  // const endpoint = `${projectApiUrl}/project`;
   // const response = await fetch(endpoint, {
   //   method: 'PATCH',
   //   headers: httpHeaders,

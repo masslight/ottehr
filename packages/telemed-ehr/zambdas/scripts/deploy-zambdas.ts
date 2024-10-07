@@ -106,10 +106,6 @@ const updateZambdas = async (config: any): Promise<void> => {
     apiUrl: 'https://project-api.zapehr.com/v1',
     accessToken: token,
   });
-  console.log({
-    apiUrl: 'https://fhir-api.zapehr.com/r4',
-    accessToken: token,
-  });
 
   try {
     console.log('Getting list of zambdas');
