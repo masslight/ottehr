@@ -8,11 +8,10 @@ type TrackingBoardState = {
   isAppointmentsLoading: boolean;
   alignment: PatientFilterType;
   date: DateTime | null;
-  state: string | null;
-  providers: string[] | null;
-  groups: string[] | null;
+  selectedStates: string[] | null;
   unsignedFor: UnsignedFor;
   availableStates: string[];
+  showOnlyNext: boolean;
 };
 
 type TrackingBoardStoreActions = {
@@ -25,11 +24,10 @@ const TRACKING_BOARD_INITIAL: TrackingBoardState = {
   isAppointmentsLoading: false,
   alignment: 'my-patients',
   date: DateTime.local(),
-  state: null,
-  providers: null,
-  groups: null,
+  selectedStates: null,
   unsignedFor: UnsignedFor.under12,
   availableStates: [],
+  showOnlyNext: false,
 };
 
 export const useTrackingBoardStore = create<TrackingBoardState & TrackingBoardStoreActions>()((set) => ({
