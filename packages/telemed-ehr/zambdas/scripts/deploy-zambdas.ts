@@ -72,7 +72,7 @@ const ZAMBDAS: { [name: string]: DeployZambda } = {
     schedule: {
       expression: 'cron(*/5 * * * ? *)', // every 3 minutes
     },
-    environments: ['dev', 'testing', 'staging', 'training'],
+    environments: ['development', 'testing', 'staging', 'training'],
   },
   'ICD-SEARCH': {
     type: 'http_auth',
@@ -91,10 +91,6 @@ const updateZambdas = async (config: any): Promise<void> => {
   });
   const zambdaClient = new ZambdaClient({
     apiUrl: 'https://project-api.zapehr.com/v1',
-    accessToken: token,
-  });
-  console.log({
-    apiUrl: 'https://fhir-api.zapehr.com/r4',
     accessToken: token,
   });
 

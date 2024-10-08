@@ -6,11 +6,11 @@ import VideocamIcon from '@mui/icons-material/Videocam';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import CallEndIcon from '@mui/icons-material/CallEnd';
 import { useLocalVideo, useMeetingManager, useToggleLocalMute } from 'amazon-chime-sdk-component-library-react';
-import { CallSettings } from './CallSettings';
 import { IconButtonContained } from './IconButtonContained';
 import { CallSettingsTooltip } from './CallSettingsTooltip';
 import { useVideoCallStore } from '../features/video-call';
 import { otherColors } from '../IntakeThemeProvider';
+import { CallSettings } from './CallSettingsDialog';
 
 export const VideoControls: FC = () => {
   const { toggleVideo, isVideoEnabled } = useLocalVideo();
@@ -84,7 +84,7 @@ export const VideoControls: FC = () => {
           <CallEndIcon sx={{ color: otherColors.white }} />
         </IconButtonContained>
       </Box>
-      <CallSettings onClose={closeSettings} open={isSettingsOpen} />
+      {isSettingsOpen && <CallSettings onClose={closeSettings} />}
     </>
   );
 };

@@ -26,6 +26,7 @@ import { isLocalOrDevOrTestingOrTrainingEnv } from './telemed/utils/env.helper';
 import { RoleType } from './types/types';
 import { AppointmentPage } from './pages/AppointmentPage';
 import AddSchedulePage from './pages/AddSchedulePage';
+import Version from './pages/Version';
 
 const enablePhoton = false && isLocalOrDevOrTestingOrTrainingEnv;
 
@@ -89,6 +90,7 @@ function App(): ReactElement {
                 />
               }
             >
+              <Route path="/version" element={<Version />} />
               {roleUnknown && (
                 <>
                   <Route path="/logout" element={<Logout />} />

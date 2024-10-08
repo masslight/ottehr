@@ -10,6 +10,7 @@ import { useZapEHRAPIClient } from '../utils';
 import { requestVisit, pastVisits, contactSupport } from '@theme/icons';
 
 const PatientPortal = (): JSX.Element => {
+  localStorage.removeItem('welcomePath');
   const apiClient = useZapEHRAPIClient();
   const { t } = useTranslation();
 

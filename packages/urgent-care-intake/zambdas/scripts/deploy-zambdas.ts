@@ -82,7 +82,7 @@ const ZAMBDAS: { [name: string]: DeployZambda } = {
       expression: 'cron(0,15,30,45 * * * ? *)', // every 0, 15, 30 and 45 minute mark
       // expression: 'cron(* * * * ? *)', // for testing, sends every minute
     },
-    environments: ['dev', 'testing', 'staging', 'training', 'production'],
+    environments: ['development', 'testing', 'staging', 'training', 'production'],
   },
   'GET-APPOINTMENT-DETAILS': {
     type: 'http_open',
@@ -366,7 +366,7 @@ const main = async (): Promise<void> => {
   const env = process.argv[2];
 
   switch (env) {
-    case 'dev':
+    case 'development':
       await updateZambdas(devConfig);
       break;
     // case 'testing':

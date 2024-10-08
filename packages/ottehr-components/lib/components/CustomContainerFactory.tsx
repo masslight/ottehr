@@ -70,6 +70,7 @@ export const CustomContainer: FC<ContainerProps> = ({
   const { isAuthenticated, logout } = useAuth0();
 
   const handleLogout = useCallback(() => {
+    localStorage.removeItem('welcomePath');
     if (logoutHandler !== undefined) {
       logoutHandler();
     } else {
@@ -137,6 +138,7 @@ export const CustomContainer: FC<ContainerProps> = ({
                       backgroundColor: 'rgba(226, 240, 255, 0.5)',
                     },
                   }}
+                  onClick={() => localStorage.removeItem('welcomePath')}
                 >
                   <img src={portal} alt="Profile icon" />
                 </Box>

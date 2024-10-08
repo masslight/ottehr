@@ -82,6 +82,7 @@ export const useGetAppointments = (apiClient: ZapEHRAPIClient | null, enabled = 
       if (!apiClient) {
         throw new Error('API client not defined');
       }
+
       return patientId ? apiClient.getAppointments({ patientId }) : apiClient.getAppointments();
     },
     {
@@ -117,11 +118,8 @@ export const useGetSchedule = (apiClient: ZapEHRAPIClient | null, scheduleType: 
       onError: (error: any) => {
         console.error('Error getting a schedule: ', error);
       },
-      retry: (failureCount, error: any) => {
-        if (error.message === 'Schedule is not found') {
-          return false;
-        }
-        return failureCount < 1;
+      retry: (failureCount) => {
+        return failureCount < 3;
       },
     },
   );
