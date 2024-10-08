@@ -14,17 +14,17 @@ export const DiagnosesField: FC<DiagnosesFieldProps> = (props) => {
   const { onChange, disabled, disableForPrimary } = props;
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const [isManualSearching, setIsManualSearching] = useState(false);
+  const [isLoading, setisLoading] = useState(false);
   const { isFetching: isSearching, data } = useGetIcd10Search(debouncedSearchTerm);
   const icdSearchOptions = data?.codes || [];
 
   const { debounce } = useDebounce(800);
 
   const debouncedHandleInputChange = (data: string): void => {
-    setIsManualSearching(true);
+    setisLoading(true);
     debounce(() => {
       setDebouncedSearchTerm(data);
-      setIsManualSearching(false);
+      setisLoading(false);
     });
   };
 
@@ -41,7 +41,7 @@ export const DiagnosesField: FC<DiagnosesFieldProps> = (props) => {
       options={icdSearchOptions}
       value={null}
       isOptionEqualToValue={(option, value) => value.code === option.code}
-      loading={isSearching || isManualSearching}
+      loading={isSearching || isLoading}
       onChange={onInternalChange}
       getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} ${option.display}`)}
       getOptionDisabled={(option) => disableForPrimary && option.code.startsWith('W')}

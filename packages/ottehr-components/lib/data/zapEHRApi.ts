@@ -154,8 +154,6 @@ export const getZapEHRAPI = (
     zambdaID: string | undefined,
     zambdaName: keyof typeof zambdasToIdsMap,
   ): zambdaID is Exclude<typeof zambdaID, undefined> => {
-    console.log('zambdaID', zambdaID);
-    console.log('isAppLocalProvided', isAppLocalProvided);
     if (zambdaID === undefined || !isAppLocalProvided) {
       throw new Error(`${zambdaName} zambda environment variable could not be loaded`);
     }

@@ -13,7 +13,7 @@ export const MedicalConditionsProviderColumn: FC = () => {
   const methods = useForm<{ value: IcdSearchResponse['codes'][number] | null }>({
     values: { value: null },
   });
-  const [isManualSearching, setIsManualSearching] = useState(false);
+  const [isLooking, setisLooking] = useState(false);
 
   const { isChartDataLoading, isReadOnly } = getSelectors(useAppointmentStore, ['isChartDataLoading', 'isReadOnly']);
 
@@ -31,13 +31,13 @@ export const MedicalConditionsProviderColumn: FC = () => {
     debounce((data) => {
       console.log(data);
       setDebouncedSearchTerm(data);
-      setIsManualSearching(false);
+      setisLooking(false);
     }, 800),
     [],
   );
 
   const handleInputChange = (value: string): void => {
-    setIsManualSearching(true);
+    setisLooking(true);
     debouncedHandleInputChange(value);
   };
 
@@ -104,7 +104,7 @@ export const MedicalConditionsProviderColumn: FC = () => {
                   }
                   fullWidth
                   isOptionEqualToValue={(option, value) => value.code === option.code}
-                  loading={isManualSearching || isSearching}
+                  loading={isLooking || isSearching}
                   size="small"
                   disablePortal
                   disabled={isLoading || isChartDataLoading}
