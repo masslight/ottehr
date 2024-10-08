@@ -13,6 +13,8 @@ export const MedicalConditionsProviderColumn: FC = () => {
   const methods = useForm<{ value: IcdSearchResponse['codes'][number] | null }>({
     values: { value: null },
   });
+  const [isManualSearching, setIsManualSearching] = useState(false);
+
   const { isChartDataLoading, isReadOnly } = getSelectors(useAppointmentStore, ['isChartDataLoading', 'isReadOnly']);
 
   const { control, handleSubmit, reset } = methods;
@@ -29,9 +31,15 @@ export const MedicalConditionsProviderColumn: FC = () => {
     debounce((data) => {
       console.log(data);
       setDebouncedSearchTerm(data);
+      setIsManualSearching(false);
     }, 800),
     [],
   );
+
+  const handleInputChange = (value: string): void => {
+    setIsManualSearching(true);
+    debouncedHandleInputChange(value);
+  };
 
   const handleSubmitWrapper = (data: { value: IcdSearchResponse['codes'][number] | null }): void => {
     if (data.value) {
@@ -96,7 +104,7 @@ export const MedicalConditionsProviderColumn: FC = () => {
                   }
                   fullWidth
                   isOptionEqualToValue={(option, value) => value.code === option.code}
-                  loading={isSearching}
+                  loading={isManualSearching || isSearching}
                   size="small"
                   disablePortal
                   disabled={isLoading || isChartDataLoading}
@@ -109,7 +117,7 @@ export const MedicalConditionsProviderColumn: FC = () => {
                       {...params}
                       helperText={error ? error.message : null}
                       error={!!error}
-                      onChange={(e) => debouncedHandleInputChange(e.target.value)}
+                      onChange={(e) => handleInputChange(e.target.value)}
                       label="Medical condition"
                       placeholder="Start typing to see results"
                     />
