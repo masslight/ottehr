@@ -25,33 +25,48 @@ const CreateDemoVisits = (): ReactElement => {
   const { fhirClient } = useApiClients();
   const { getAccessTokenSilently } = useAuth0();
 
-  const handleCreateSampleAppointments = async (phoneNumber: string): Promise<void> => {
-    if (!phoneNumber || phoneNumber.length !== 12 || !phoneNumber.startsWith('+1')) {
+  const handleCreateSampleAppointments = async (
+    event: React.MouseEvent<HTMLButtonElement> | React.FormEvent<HTMLFormElement>,
+  ): Promise<void> => {
+    event.preventDefault();
+    const formattedPhoneNumber = formatPhoneNumber(phoneNumber);
+    if (!formattedPhoneNumber) {
       setInputError(true);
       return;
+    } else {
+      setInputError(false);
     }
     try {
       setLoading(true);
       setInputError(false);
       const authToken = await getAccessTokenSilently();
-      const formattedPhoneNumber = phoneNumber.slice(2);
       const response = await createSampleAppointments(fhirClient, authToken, formattedPhoneNumber);
-      console.log('response', response);
       setSnackbar({
         open: true,
         message: 'Appointments created successfully!',
         severity: 'success',
       });
     } catch (error) {
-      console.error('Error creating appointments:', error);
       setSnackbar({
         open: true,
-        message: 'Failed to create appointments. Please try again.',
+        message: 'Error creating appointments',
         severity: 'error',
       });
+      console.error(error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const formatPhoneNumber = (phone: string): string | null => {
+    const digitsOnly = phone.replace(/\D/g, '');
+
+    if (digitsOnly.length === 10) {
+      return digitsOnly;
+    } else if (digitsOnly.length === 11 && digitsOnly.startsWith('1')) {
+      return digitsOnly.slice(1);
+    }
+    return null;
   };
 
   const handleCloseSnackbar = (event?: React.SyntheticEvent | Event, reason?: string): void => {
@@ -62,10 +77,8 @@ const CreateDemoVisits = (): ReactElement => {
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    setPhoneNumber(e.target.value);
-    if (e.target.value.length === 12 && e.target.value.startsWith('+1')) {
-      setInputError(false);
-    }
+    const input = e.target.value;
+    setPhoneNumber(input);
   };
 
   return (
@@ -94,7 +107,6 @@ const CreateDemoVisits = (): ReactElement => {
           label="Phone Number"
           value={phoneNumber}
           onChange={handleChange}
-          placeholder="+1"
           size="small"
           sx={{
             flexGrow: 1,
@@ -109,12 +121,13 @@ const CreateDemoVisits = (): ReactElement => {
           }}
           required
           error={inputError}
-          helperText={inputError ? 'Please enter a valid phone number in the format +12345678900' : ''}
+          helperText={inputError ? 'Please enter a valid phone number' : ''}
         />
         <LoadingButton
           loading={loading}
-          onClick={() => handleCreateSampleAppointments(phoneNumber)}
+          onClick={handleCreateSampleAppointments}
           size="small"
+          type="submit"
           sx={{
             borderRadius: 10,
             border: '1px solid #2169F5',
