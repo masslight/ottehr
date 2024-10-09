@@ -8,6 +8,7 @@ import { CustomContainer, useIntakeCommonStore } from '../features/common';
 import HomepageOption from '../features/homepage/HomepageOption';
 import { useZapEHRAPIClient } from '../utils';
 import { requestVisit, pastVisits, contactSupport } from '@theme/icons';
+import { useGetPatients, usePatientsStore } from 'src/features/patients';
 
 const PatientPortal = (): JSX.Element => {
   localStorage.removeItem('welcomePath');
@@ -19,6 +20,10 @@ const PatientPortal = (): JSX.Element => {
   const activeAppointment = appointmentsData?.appointments.find((appointment) =>
     ['ready', 'pre-video', 'on-video'].includes(appointment.telemedStatus),
   );
+
+  const { data: patientsData } = useGetPatients(apiClient, (data) => {
+    usePatientsStore.setState({ patients: data?.patients });
+  });
 
   const isAppointmentStatusReady = Boolean(activeAppointment);
 
@@ -80,16 +85,18 @@ const PatientPortal = (): JSX.Element => {
             <HomepageOption title={t('patientPortal.requestVisit')} icon={requestVisit} />
           </Link>
 
-          <Link
-            to={`${IntakeFlowPageRoute.SelectPatient.path}?flow=pastVisits`}
-            style={{ textDecoration: 'none', color: 'var(--text-primary)' }}
-          >
-            <HomepageOption
-              title={t('patientPortal.pastVisits')}
-              icon={pastVisits}
-              subtitle={t('patientPortal.pastVisitsSubtitle')}
-            />
-          </Link>
+          {patientsData?.patients?.length && (
+            <Link
+              to={`${IntakeFlowPageRoute.SelectPatient.path}?flow=pastVisits`}
+              style={{ textDecoration: 'none', color: 'var(--text-primary)' }}
+            >
+              <HomepageOption
+                title={t('patientPortal.pastVisits')}
+                icon={pastVisits}
+                subtitle={t('patientPortal.pastVisitsSubtitle')}
+              />
+            </Link>
+          )}
         </>
       )}
       <HomepageOption
