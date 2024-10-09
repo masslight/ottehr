@@ -1,5 +1,5 @@
 import { useAuth0 } from '@auth0/auth0-react';
-import { Bundle, FhirResource } from 'fhir/r4';
+import { Bundle, FhirResource, Patient } from 'fhir/r4';
 import { DateTime } from 'luxon';
 import { useMutation, useQuery } from 'react-query';
 import {
@@ -18,6 +18,7 @@ import useOttehrUser from '../../../hooks/useOttehrUser';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { CHAT_REFETCH_INTERVAL } from '../../../constants';
 import { extractPhotoUrlsFromAppointmentData } from '../../utils';
+import { useAuthToken } from '../../../hooks/useAuthToken';
 
 export type RefreshableAppointmentData = {
   patientConditionPhotoUrs: string[];
@@ -499,4 +500,33 @@ export const useDeletePatientInstruction = () => {
       throw new Error('api client not defined');
     },
   });
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useSyncERXPatient = () => {
+  const token = useAuthToken();
+
+  return useMutation(
+    ['sync-erx-patient'],
+    async (patient: Patient) => {
+      if (token) {
+        console.log(`Start syncing eRx patient ${patient.id}`);
+        const resp = await fetch(`${import.meta.env.VITE_APP_PROJECT_API_URL}/erx/sync-patient/${patient.id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          method: 'POST',
+        });
+        if (!resp.ok) {
+          throw { ...(await resp.json()), status: resp.status };
+        }
+        console.log('Successfuly synced eRx patient');
+        return (await resp.json()) as { photonPatientId: string };
+      }
+      throw new Error('auth token is not defined');
+    },
+    {
+      retry: 2,
+    },
+  );
 };
