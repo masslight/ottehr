@@ -89,8 +89,8 @@ export const makeVisitStatusExtension = (statusCode: VisitStatus, dateTimeISO?: 
   };
 };
 
-export const mapVisitStatusToFhirAppointmentStatus = (apptStatus: VisitStatus): AppointmentStatus => {
-  return otherEHRToFhirAppointmentStatusMap[apptStatus] ?? 'proposed'; // 'fulfilled' maybe?
+export const mapVisitStatusToFhirAppointmentStatus = (TelemedAppointmentStatus: VisitStatus): AppointmentStatus => {
+  return otherEHRToFhirAppointmentStatusMap[TelemedAppointmentStatus] ?? 'proposed'; // 'fulfilled' maybe?
 };
 
 const otherEHRToFhirEncounterStatusMap: Record<VisitStatus, EncounterStatus> = {
@@ -106,8 +106,8 @@ const otherEHRToFhirEncounterStatusMap: Record<VisitStatus, EncounterStatus> = {
   'NO-SHOW': 'cancelled',
 };
 
-export const mapVisitStatusToFhirEncounterStatus = (apptStatus: VisitStatus): EncounterStatus => {
-  return otherEHRToFhirEncounterStatusMap[apptStatus] ?? 'unknown';
+export const mapVisitStatusToFhirEncounterStatus = (TelemedAppointmentStatus: VisitStatus): EncounterStatus => {
+  return otherEHRToFhirEncounterStatusMap[TelemedAppointmentStatus] ?? 'unknown';
 };
 
 type AppOrEncounter = Appointment | Encounter;

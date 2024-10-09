@@ -1,7 +1,13 @@
 import { Location, QuestionnaireResponse, Appointment, RelatedPerson, Resource } from 'fhir/r4';
 import { AppointmentPackage, LocationIdToAbbreviationMap, RelatedPersonMaps } from './types';
 import { removePrefix } from '../../shared/appointment/helpers';
-import { getChatContainsUnreadMessages, getSMSNumberForIndividual, SMSModel, SMSRecipient } from 'ehr-utils';
+import {
+  getChatContainsUnreadMessages,
+  getSMSNumberForIndividual,
+  SMSModel,
+  SMSRecipient,
+  TelemedCallStatuses,
+} from 'ehr-utils';
 
 export const isLocationVirtual = (location: Location): boolean => {
   return location.extension?.[0].valueCoding?.code === 'vi';
@@ -131,4 +137,21 @@ function filterValidRecipients(relatedPersons: RelatedPerson[]): SMSRecipient[] 
       };
     })
     .filter((rec) => rec.relatedPersonId !== undefined && rec.smsNumber !== undefined) as SMSRecipient[];
+}
+
+export function telemedStatusToAppointment(telemedStatus: TelemedCallStatuses): string {
+  switch (telemedStatus) {
+    case 'ready':
+      return 'arrived';
+    case 'pre-video':
+      return 'arrived';
+    case 'on-video':
+      return 'arrived';
+    case 'unsigned':
+      return 'arrived';
+    case 'complete':
+      return 'fulfilled';
+    case 'cancelled':
+      return 'cancelled';
+  }
 }

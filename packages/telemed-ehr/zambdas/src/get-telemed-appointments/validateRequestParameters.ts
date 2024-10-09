@@ -12,10 +12,6 @@ export function validateRequestParameters(input: ZambdaInput): GetTelemedAppoint
     input.body,
   );
 
-  if (dateFilter === undefined) {
-    throw new Error('These fields are required: "dateFilter"');
-  }
-
   if (statusesFilter === undefined) {
     throw new Error('These fields are required: "statusesFilter"');
   }
@@ -30,7 +26,6 @@ export function validateRequestParameters(input: ZambdaInput): GetTelemedAppoint
   return {
     dateFilter,
     providersFilter,
-    stateFilter,
     groupsFilter,
     patientFilter,
     statusesFilter,

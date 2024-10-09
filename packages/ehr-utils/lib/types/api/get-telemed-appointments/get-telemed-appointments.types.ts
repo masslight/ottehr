@@ -1,14 +1,14 @@
-import { Encounter, QuestionnaireResponse } from 'fhir/r4';
+import { Encounter, Practitioner, QuestionnaireResponse } from 'fhir/r4';
 import { TelemedCallStatuses } from '../../appointment.types';
 import { AppointmentMessaging } from '../../messaging.types';
 import { Secrets, VisitStatusHistoryEntry } from '../../../../lib/main';
 export type PatientFilterType = 'my-patients' | 'all-patients';
 
 export interface GetTelemedAppointmentsInput {
-  dateFilter: string;
-  stateFilter?: string;
+  dateFilter?: string;
   providersFilter?: string[];
   groupsFilter?: string[];
+  usStatesFilter?: string[];
   patientFilter: PatientFilterType;
   statusesFilter: TelemedCallStatuses[];
   secrets: Secrets | null;
@@ -36,10 +36,10 @@ export interface TelemedAppointmentInformation extends AppointmentMessaging {
   reasonForVisit?: string;
   comment: string | undefined;
   appointmentStatus: string;
-  location: AppointmentLocation;
   provider?: string[];
   group?: string[];
   estimated?: number;
+  location: AppointmentLocation;
   paperwork?: QuestionnaireResponse;
   encounter: Encounter;
   telemedStatus: TelemedCallStatuses;
@@ -47,4 +47,6 @@ export interface TelemedAppointmentInformation extends AppointmentMessaging {
   cancellationReason: string | undefined;
   next: boolean;
   visitStatusHistory: VisitStatusHistoryEntry[];
+  practitioner?: Practitioner;
+  encounterId: string;
 }

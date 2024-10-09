@@ -11,7 +11,12 @@ import {
 import { getSMSNumberForIndividual, TelemedCallStatuses } from 'ehr-utils';
 import { removePrefix, telemedStatusToEncounter } from '../../shared/appointment/helpers';
 import { getVideoRoomResourceExtension } from '../../shared/helpers';
-import { filterResources, getLocationIdFromAppointment, getUniquePhonesNumbers } from './helpers';
+import {
+  filterResources,
+  getLocationIdFromAppointment,
+  getUniquePhonesNumbers,
+  telemedStatusToAppointment,
+} from './helpers';
 import { AppointmentToLocationIdMap, LocationIdToAbbreviationMap, RelatedPersonMaps } from './types';
 import { FhirClient } from '@zapehr/sdk';
 import { getCommunicationsAndSenders } from './fhir-utils';
@@ -20,6 +25,24 @@ export const mapTelemedStatusToEncounter = (telemedStatuses: TelemedCallStatuses
   const statuses = telemedStatuses.map((status) => telemedStatusToEncounter(status));
   // removing duplications before returning
   return statuses.filter((status, index) => statuses.lastIndexOf(status) === index);
+};
+
+export const mapTelemedStatusToEncounterAndAppointment = (
+  telemedStatuses: TelemedCallStatuses[],
+): { encounterStatuses: string[]; appointmentStatuses: string[] } => {
+  const encounterStatuses: string[] = [];
+  const appointmentStatuses: string[] = [];
+  telemedStatuses.forEach((status) => {
+    encounterStatuses.push(telemedStatusToEncounter(status));
+    appointmentStatuses.push(telemedStatusToAppointment(status));
+  });
+  // removing duplications before returning
+  return {
+    encounterStatuses: encounterStatuses.filter((status, index) => encounterStatuses.lastIndexOf(status) === index),
+    appointmentStatuses: appointmentStatuses.filter(
+      (status, index) => appointmentStatuses.lastIndexOf(status) === index,
+    ),
+  };
 };
 
 export { mapEncounterStatusHistory } from 'ehr-utils';

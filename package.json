@@ -122,6 +122,7 @@
     "@zapehr/sdk": "1.0.15",
     "aws-lambda": "^1.0.7",
     "axios": "1.5.1",
+    "console-stamp": "3.1.2",
     "dotenv": "16.4.5",
     "env-cmd": "^10.1.0",
     "eslint": "^8.51.0",

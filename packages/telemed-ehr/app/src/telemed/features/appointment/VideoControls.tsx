@@ -12,7 +12,7 @@ import { useZapEHRAPIClient } from '../../hooks/useZapEHRAPIClient';
 import { useAppointmentStore, useChangeTelemedAppointmentStatusMutation, useVideoCallStore } from '../../state';
 import { CallSettings } from './CallSettings';
 import { useParams } from 'react-router-dom';
-import { ApptStatus } from 'ehr-utils';
+import { TelemedAppointmentStatus } from 'ehr-utils';
 import { getSelectors } from '../../../shared/store/getSelectors';
 
 export const VideoControls: FC = () => {
@@ -48,7 +48,7 @@ export const VideoControls: FC = () => {
 
   const disconnect = async (): Promise<void> => {
     if (apiClient && appointmentId) {
-      await mutateAsync({ apiClient, appointmentId, newStatus: ApptStatus.unsigned }, {});
+      await mutateAsync({ apiClient, appointmentId, newStatus: TelemedAppointmentStatus.unsigned }, {});
       useAppointmentStore.setState({
         encounter: { ...encounter, status: 'finished' },
       });

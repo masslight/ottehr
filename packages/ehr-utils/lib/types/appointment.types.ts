@@ -1,6 +1,6 @@
 export type AppointmentType = 'now' | 'prebook';
 
-export enum ApptStatus {
+export enum TelemedAppointmentStatus {
   'ready' = 'ready',
   'pre-video' = 'pre-video',
   'on-video' = 'on-video',
@@ -9,23 +9,23 @@ export enum ApptStatus {
   'cancelled' = 'cancelled',
 }
 
-export type TelemedCallStatuses = `${ApptStatus}`;
+export type TelemedCallStatuses = `${TelemedAppointmentStatus}`;
 export const TelemedCallStatusesArr = ['ready', 'pre-video', 'on-video', 'unsigned', 'complete'];
 
 export const mapStatusToTelemed = (
   encounterStatus: string,
   appointmentStatus: string | undefined,
-): ApptStatus | undefined => {
+): TelemedAppointmentStatus | undefined => {
   switch (encounterStatus) {
     case 'planned':
-      return ApptStatus.ready;
+      return TelemedAppointmentStatus.ready;
     case 'arrived':
-      return ApptStatus['pre-video'];
+      return TelemedAppointmentStatus['pre-video'];
     case 'in-progress':
-      return ApptStatus['on-video'];
+      return TelemedAppointmentStatus['on-video'];
     case 'finished':
-      if (appointmentStatus === 'fulfilled') return ApptStatus.complete;
-      else return ApptStatus.unsigned;
+      if (appointmentStatus === 'fulfilled') return TelemedAppointmentStatus.complete;
+      else return TelemedAppointmentStatus.unsigned;
   }
   return undefined;
 };

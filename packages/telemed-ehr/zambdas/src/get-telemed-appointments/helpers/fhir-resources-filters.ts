@@ -52,44 +52,58 @@ export const filterAppointmentsFromResources = (
 ): AppointmentPackage[] => {
   const resultAppointments: AppointmentPackage[] = [];
   const appointmentEncounterMap: { [key: string]: Encounter } = mapEncountersToAppointmentsIds(allResources);
+  console.log('1');
   const encounterQuestionnaireMap: { [key: string]: QuestionnaireResponse } =
     mapQuestionnaireToEncountersIds(allResources);
+  console.log('2');
   const practitionerIDs: { [key: string]: Practitioner } = mapIDToPractitioner(allResources);
+  console.log('3');
   const healthcareServiceIDs: { [key: string]: HealthcareService } = mapIDToHealthcareService(allResources);
-
+  console.log('4');
   allResources.forEach((resource: Resource) => {
     const appointment = resource as Appointment;
 
     if (!(resource.resourceType === 'Appointment' && getVideoRoomResourceExtension(resource) && appointment.id)) {
       return;
     }
+    console.log('5');
     if (!appointment.start) {
       console.log('No start time for appointment');
       return;
     }
-
+    console.log('6');
     const encounter = appointmentEncounterMap[appointment.id!];
+    console.log('7');
     const providers = appointment.participant
       .filter((participant) => participant.actor?.reference?.startsWith('Practitioner/'))
       .map(function (practitionerTemp) {
+        console.log('8');
         if (!practitionerTemp.actor?.reference) {
           return;
         }
         const practitioner = practitionerIDs[practitionerTemp.actor.reference];
+        console.log('9');
+        console.log('practitioner', practitioner);
+        console.log('practitioner.name', practitioner.name);
+        if (!practitioner) {
+          return;
+        }
         if (!practitioner.name) {
           return;
         }
-        console.log(2);
+        console.log('10');
         return formatHumanName(practitioner.name[0]);
       })
       .filter((participant) => participant != undefined) as string[];
     const groups = appointment.participant
       .filter((participant) => participant.actor?.reference?.startsWith('HealthcareService/'))
       .map(function (healthcareServiceTemp) {
+        console.log('11');
         if (!healthcareServiceTemp.actor?.reference) {
           return;
         }
         const healthcareService = healthcareServiceIDs[healthcareServiceTemp.actor.reference];
+        console.log('12');
         if (!healthcareService.name) {
           return;
         }
@@ -97,6 +111,7 @@ export const filterAppointmentsFromResources = (
         return healthcareService.name;
       })
       .filter((participant) => participant != undefined) as string[];
+    console.log('13');
     if (encounter) {
       const telemedStatus = mapStatusToTelemed(encounter.status, appointment.status);
       const paperwork = encounterQuestionnaireMap[encounter.id!];

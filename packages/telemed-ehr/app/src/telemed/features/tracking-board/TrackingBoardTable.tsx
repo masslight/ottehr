@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { TelemedAppointmentInformation } from 'ehr-utils';
 import { DateTime } from 'luxon';
-import { ApptTab, filterAppointments } from '../../utils';
+import { ApptTab, compareAppointments, compareLuxonDates, filterAppointments } from '../../utils';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useTrackingBoardStore } from '../../state';
 import { TrackingBoardFilters } from './TrackingBoardFilters';
@@ -27,51 +27,65 @@ interface AppointmentTableProps {
 
 export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement {
   const theme = useTheme();
-  const { appointments, state, availableStates, isAppointmentsLoading, unsignedFor } = getSelectors(
-    useTrackingBoardStore,
-    ['appointments', 'state', 'unsignedFor', 'availableStates', 'isAppointmentsLoading'],
-  );
+  const { appointments, selectedStates, availableStates, isAppointmentsLoading, unsignedFor, showOnlyNext } =
+    getSelectors(useTrackingBoardStore, [
+      'appointments',
+      'selectedStates',
+      'unsignedFor',
+      'availableStates',
+      'isAppointmentsLoading',
+      'showOnlyNext',
+    ]);
 
-  const filteredAppointments = filterAppointments(appointments, unsignedFor, tab);
+  const filteredAppointments = filterAppointments(appointments, unsignedFor, tab, showOnlyNext, availableStates);
 
-  const showEstimated = tab === ApptTab.ready;
   const showProvider = tab !== ApptTab.ready;
 
-  const groups = useMemo(() => {
-    if (state) {
-      return {};
-    }
-    return filteredAppointments.reduce<Record<string, TelemedAppointmentInformation[]>>((accumulator, appointment) => {
-      if (appointment.location.locationID) {
-        if (!accumulator[appointment.location.locationID]) {
-          accumulator[appointment.location.locationID] = [];
-        }
-        accumulator[appointment.location.locationID].push(appointment);
-        return accumulator;
-      } else if (appointment.provider) {
-        if (!accumulator[appointment.provider.join(',')]) {
-          accumulator[appointment.provider.join(',')] = [];
-        }
-        accumulator[appointment.provider.join(',')].push(appointment);
-        return accumulator;
-      } else if (appointment.group) {
-        if (!accumulator[appointment.group.join(',')]) {
-          accumulator[appointment.group.join(',')] = [];
-        }
-        accumulator[appointment.group.join(',')].push(appointment);
-        return accumulator;
-      } else {
-        throw Error('missing location and provider and group');
-      }
-    }, {});
-  }, [filteredAppointments, state]);
+  const groupsSortedByState: Record<string, TelemedAppointmentInformation[]> = useMemo(() => {
+    const createGroups = (): Record<string, TelemedAppointmentInformation[]> => {
+      return filteredAppointments.reduce<Record<string, TelemedAppointmentInformation[]>>(
+        (accumulator, appointment) => {
+          const appointmentState = appointment.location.state;
+          if (!appointmentState) {
+            console.error('No location state provided');
+            return accumulator;
+          }
 
-  const groupCollapse = Object.keys(groups).reduce<Record<string, boolean>>((accumulator, state) => {
+          if (selectedStates && !selectedStates.includes(appointmentState)) {
+            return accumulator;
+          }
+
+          if (!accumulator[appointmentState]) {
+            accumulator[appointmentState] = [];
+          }
+          accumulator[appointmentState].push(appointment);
+          return accumulator;
+        },
+        {},
+      );
+    };
+
+    const groups = createGroups();
+
+    const states = selectedStates || [];
+    if (!states || states.length === 0) {
+      return groups;
+    }
+    // Rebuild the record with a sorted states as keys
+    const sortedGroups: Record<string, TelemedAppointmentInformation[]> = {};
+    states.forEach((usState) => {
+      if (usState in groups) {
+        sortedGroups[usState] = groups[usState];
+      }
+    });
+
+    return sortedGroups;
+  }, [filteredAppointments, selectedStates]);
+
+  const groupCollapse = Object.keys(groupsSortedByState).reduce<Record<string, boolean>>((accumulator, state) => {
     accumulator[state] = false;
     return accumulator;
   }, {});
-
-  const compareLuxonDates = (a: DateTime, b: DateTime): number => a.toMillis() - b.toMillis();
 
   const oldestId = filteredAppointments
     .filter((appointment) => availableStates.includes(appointment.location.state!))
@@ -92,31 +106,9 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
               </TableCell>
               <TableCell>
                 <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                  Start time
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                   Waiting time
                 </Typography>
               </TableCell>
-              <TableCell>
-                <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                  Provider
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                  Group
-                </Typography>
-              </TableCell>
-              {showEstimated && (
-                <TableCell>
-                  <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                    Estimated
-                  </Typography>
-                </TableCell>
-              )}
               <TableCell>
                 <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                   Patient
@@ -153,46 +145,29 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
           </TableHead>
           <TableBody>
             {isAppointmentsLoading ? (
-              <TrackingBoardTableRowSkeleton
-                showEstimated={showEstimated}
-                showProvider={showProvider}
-                isState={!!state}
-              />
-            ) : state ? (
-              filteredAppointments
-                .sort((a, b) => compareLuxonDates(DateTime.fromISO(a.start!), DateTime.fromISO(b.start!)))
-                .map((appointment) => (
-                  <TrackingBoardTableRow
-                    key={appointment.id}
-                    appointment={appointment}
-                    showEstimated={showEstimated}
-                    showProvider={showProvider}
-                    next={appointment.id === oldestId && showNext}
-                  />
-                ))
+              <TrackingBoardTableRowSkeleton showProvider={showProvider} isState={false} />
             ) : (
-              Object.keys(groups).map((state) => (
+              Object.keys(groupsSortedByState).map((state) => (
                 <React.Fragment key={state}>
                   <TableRow>
                     <TableCell
-                      sx={{ backgroundColor: otherColors.lightBlue }}
-                      colSpan={10 + +showEstimated + +showProvider}
+                      sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }}
+                      colSpan={7 + +showProvider}
                     >
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                          {state} - {AllStatesToNames[state as StateType]}
+                          {state} - {AllStatesToNames[state as keyof typeof AllStatesToNames]}
                         </Typography>
                       </Box>
                     </TableCell>
                   </TableRow>
                   {!groupCollapse[state] &&
-                    groups[state]
-                      .sort((a, b) => compareLuxonDates(DateTime.fromISO(a.start!), DateTime.fromISO(b.start!)))
+                    groupsSortedByState[state]
+                      .sort((a, b) => compareAppointments(tab === ApptTab['not-signed'], a, b))
                       .map((appointment) => (
                         <TrackingBoardTableRow
                           key={appointment.id}
                           appointment={appointment}
-                          showEstimated={showEstimated}
                           showProvider={showProvider}
                           next={appointment.id === oldestId && showNext}
                         />

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ApptStatus, checkIsEncounterForPractitioner, TelemedAppointmentInformation } from 'ehr-utils';
+import { TelemedAppointmentStatus, checkIsEncounterForPractitioner, TelemedAppointmentInformation } from 'ehr-utils';
 import { getSelectors } from '../../shared/store/getSelectors';
 import { useTrackingBoardStore } from '../state';
 import useOttehrUser from '../../hooks/useOttehrUser';
@@ -21,12 +21,16 @@ export const useTrackingBoardTableButtonType = ({
     if (
       !appointment.location.state ||
       !availableStates.includes(appointment.location.state) ||
-      [ApptStatus.complete, ApptStatus.unsigned].includes(appointment.telemedStatus as ApptStatus) ||
-      ([ApptStatus['pre-video'], ApptStatus['on-video']].includes(appointment.telemedStatus as ApptStatus) &&
+      [TelemedAppointmentStatus.complete, TelemedAppointmentStatus.unsigned].includes(
+        appointment.telemedStatus as TelemedAppointmentStatus,
+      ) ||
+      ([TelemedAppointmentStatus['pre-video'], TelemedAppointmentStatus['on-video']].includes(
+        appointment.telemedStatus as TelemedAppointmentStatus,
+      ) &&
         !isEncounterForPractitioner)
     ) {
       if (
-        appointment.telemedStatus === ApptStatus.unsigned &&
+        appointment.telemedStatus === TelemedAppointmentStatus.unsigned &&
         appointment.location.state &&
         availableStates.includes(appointment.location.state) &&
         isEncounterForPractitioner
@@ -35,11 +39,11 @@ export const useTrackingBoardTableButtonType = ({
       } else {
         setType('viewOutlined');
       }
-    } else if (appointment.telemedStatus === ApptStatus.ready) {
+    } else if (appointment.telemedStatus === TelemedAppointmentStatus.ready) {
       setType('assignMe');
-    } else if (appointment.telemedStatus === ApptStatus['pre-video']) {
+    } else if (appointment.telemedStatus === TelemedAppointmentStatus['pre-video']) {
       setType('unassign');
-    } else if (appointment.telemedStatus === ApptStatus['on-video']) {
+    } else if (appointment.telemedStatus === TelemedAppointmentStatus['on-video']) {
       setType('reconnect');
     } else {
       setType('');

@@ -7,6 +7,7 @@ export interface AppointmentPackage {
   location?: AppointmentLocation;
   providers?: string[];
   groups?: string[];
+  practitioner?: Practitioner;
   telemedStatus: TelemedCallStatuses;
   telemedStatusHistory: TelemedStatusHistoryElement[];
   paperwork?: QuestionnaireResponse;

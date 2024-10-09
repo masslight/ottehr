@@ -15,7 +15,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { DateTime, Duration } from 'luxon';
 import { FC, ReactElement, useMemo, useState } from 'react';
-import { ApptStatus, TelemedAppointmentInformation } from 'ehr-utils';
+import { TelemedAppointmentStatus, TelemedAppointmentInformation } from 'ehr-utils';
 import { otherColors } from '../../../CustomThemeProvider';
 import ChatModal from '../../../features/chat/ChatModal';
 import { calculatePatientAge, formatDateUsingSlashes } from '../../../helpers/formatDateTime';
@@ -24,37 +24,76 @@ import { TrackingBoardTableButton } from './TrackingBoardTableButton';
 
 interface AppointmentTableProps {
   appointment: TelemedAppointmentInformation;
-  showEstimated: boolean;
   showProvider: boolean;
   next?: boolean;
 }
 
-export function TrackingBoardTableRow({
-  appointment,
-  showEstimated,
-  showProvider,
-  next,
-}: AppointmentTableProps): ReactElement {
+export function TrackingBoardTableRow({ appointment, showProvider, next }: AppointmentTableProps): ReactElement {
   const theme = useTheme();
   const navigate = useNavigate();
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
-  const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
+  const [hasUnread, setHasUnread] = useState<boolean>(appointment?.smsModel?.hasUnreadMessages || false);
 
-  const patientName = `${appointment.patient.lastName}, ${appointment.patient.firstName}` || 'Unknown';
-  const showChatIcon = appointment.smsModel !== undefined;
+  const patientName =
+    [appointment?.patient?.lastName, appointment?.patient?.firstName].filter(Boolean).join(', ') || 'Unknown';
 
-  const patientInfo = useMemo((): string => {
-    const dob = formatDateUsingSlashes(appointment.patient?.dateOfBirth);
-    const age = calculatePatientAge(appointment.patient?.dateOfBirth);
-    const sex = appointment?.paperwork?.item?.find((item) => item.linkId === 'patient-birth-sex')?.answer?.[0]
-      .valueString;
-    const number = appointment?.paperwork?.item?.find((item) => item.linkId === 'guardian-number')?.answer?.[0]
-      .valueString;
+  const practitionerFamilyName = appointment?.practitioner?.name?.at(0)?.family;
+  const displayedPractitionerName = practitionerFamilyName ? `Dr. ${practitionerFamilyName}` : '';
 
-    const dobAge = dob && age && `${dob} ${age}`;
+  const showChatIcon = appointment?.smsModel !== undefined;
 
-    return [sex, dobAge, number].filter((item) => !!item).join(' | ');
-  }, [appointment?.paperwork?.item, appointment.patient?.dateOfBirth]);
+  const patientInfo = useMemo((): React.ReactNode => {
+    const dob = formatDateUsingSlashes(appointment?.patient?.dateOfBirth);
+    const age = calculatePatientAge(appointment?.patient?.dateOfBirth);
+    const sex = appointment?.patient?.sex?.replace?.(/^[a-z]/i, (str) => str.toUpperCase());
+    const dobAge = dob && age && `DOB: ${dob} (${age})`;
+
+    const parsedAnswers: { phone?: string; language?: string } = {};
+    const isParentGuardian =
+      appointment?.paperwork?.item?.find((item) => item.linkId === 'patient-filling-out-as')?.answer?.[0]
+        .valueString === 'Parent/Guardian';
+    const { phone, language } =
+      appointment?.paperwork?.item?.reduce?.((acc, val) => {
+        if (!val?.linkId || typeof val?.answer?.[0]?.valueString !== 'string') {
+          return acc;
+        }
+        const { linkId } = val;
+        const answer = val.answer[0].valueString;
+        if (isParentGuardian && linkId === 'guardian-number') {
+          acc.phone = answer as string;
+        } else if (linkId === 'patient-number') {
+          acc.phone = answer as string;
+        }
+        if (linkId === 'preferred-language' && (answer as string)?.toLowerCase?.() === 'spanish') {
+          acc.language = 'Español';
+        }
+        return acc;
+      }, parsedAnswers) ?? parsedAnswers;
+
+    const baseInfo = [sex, dobAge, phone].filter(Boolean).join(' | ');
+
+    return (
+      <>
+        <Typography variant="subtitle2" sx={{ fontSize: '16px' }}>
+          {patientName}
+        </Typography>
+        <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>
+          {baseInfo}
+        </Typography>
+        {language && (
+          <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>
+            {language}
+          </Typography>
+        )}
+      </>
+    );
+  }, [
+    appointment?.paperwork?.item,
+    appointment?.patient?.dateOfBirth,
+    appointment?.patient?.sex,
+    theme.palette.text.secondary,
+    patientName,
+  ]);
 
   const reasonForVisit = useMemo((): string => {
     const reasonForVisit = appointment?.paperwork?.item
@@ -117,6 +156,25 @@ export function TrackingBoardTableRow({
           </Box>
         )}
         <AppointmentStatusChip status={appointment.telemedStatus} />
+        {appointment.telemedStatus == TelemedAppointmentStatus.cancelled ? (
+          <Tooltip title={appointment.cancellationReason}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: theme.palette.text.primary,
+                textOverflow: 'ellipsis',
+                width: '80px',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                pt: '6px',
+              }}
+            >
+              {appointment.cancellationReason}
+            </Typography>
+          </Tooltip>
+        ) : (
+          <></>
+        )}
         <Tooltip title={appointment.id}>
           <Typography
             variant="body2"
@@ -133,32 +191,11 @@ export function TrackingBoardTableRow({
           </Typography>
         </Tooltip>
       </TableCell>
-      <TableCell sx={{ verticalAlign: 'top', cursor: 'pointer' }} onClick={goToAppointment}>
-        <Typography>{DateTime.fromISO(appointment.start || '').toLocaleString(DateTime.DATETIME_SHORT)}</Typography>
-      </TableCell>
       <TableCell sx={{ verticalAlign: 'top' }}>
         <StatusHistory history={appointment.telemedStatusHistory} currentStatus={appointment.telemedStatus} />
       </TableCell>
-      <TableCell sx={{ verticalAlign: 'top' }}>
-        <Typography>{appointment.provider?.join(', ')}</Typography>
-      </TableCell>
-      <TableCell sx={{ verticalAlign: 'top' }}>
-        <Typography>{appointment.group?.join(', ')}</Typography>
-      </TableCell>
-      {showEstimated && (
-        <TableCell sx={{ verticalAlign: 'top', cursor: 'pointer' }} onClick={goToAppointment}>
-          <Typography>
-            {appointment.estimated ? Duration.fromMillis(appointment.estimated).toFormat("mm'm'") : '...m'}
-          </Typography>
-        </TableCell>
-      )}
       <TableCell sx={{ verticalAlign: 'top', cursor: 'pointer' }} onClick={goToAppointment}>
-        <Typography variant="subtitle2" sx={{ fontSize: '16px' }}>
-          {patientName}
-        </Typography>
-        <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>
-          {patientInfo}
-        </Typography>
+        {patientInfo}
       </TableCell>
       <TableCell sx={{ verticalAlign: 'top', cursor: 'pointer' }} onClick={goToAppointment}>
         <Typography sx={{ fontSize: '16px' }}>{appointment.location.state}</Typography>
@@ -181,7 +218,7 @@ export function TrackingBoardTableRow({
       </TableCell>
       {showProvider && (
         <TableCell sx={{ verticalAlign: 'top' }}>
-          <Box>Dr. Smith</Box>
+          <Box>{displayedPractitionerName}</Box>
         </TableCell>
       )}
       <TableCell sx={{ verticalAlign: 'top' }}>
@@ -256,20 +293,16 @@ export function TrackingBoardTableRow({
 }
 
 export const TrackingBoardTableRowSkeleton: FC<{
-  showEstimated: boolean;
   showProvider: boolean;
   isState: boolean;
-}> = ({ showEstimated, showProvider, isState }) => {
+}> = ({ showProvider, isState }) => {
   const theme = useTheme();
 
   return (
     <>
       {!isState && (
         <TableRow>
-          <TableCell
-            sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }}
-            colSpan={7 + +showEstimated + +showProvider}
-          >
+          <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={7 + +showProvider}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Skeleton>
                 <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
@@ -284,7 +317,7 @@ export const TrackingBoardTableRowSkeleton: FC<{
         <TableRow key={index} sx={{}}>
           <TableCell>
             <Skeleton variant="rounded">
-              <AppointmentStatusChip status={ApptStatus.ready} />
+              <AppointmentStatusChip status={TelemedAppointmentStatus.ready} />
             </Skeleton>
             <Skeleton width="100%">
               <Typography
@@ -302,13 +335,6 @@ export const TrackingBoardTableRowSkeleton: FC<{
               <Typography>time</Typography>
             </Skeleton>
           </TableCell>
-          {showEstimated && (
-            <TableCell sx={{ verticalAlign: 'top' }}>
-              <Skeleton width="100%">
-                <Typography>time</Typography>
-              </Skeleton>
-            </TableCell>
-          )}
           <TableCell sx={{ verticalAlign: 'top' }}>
             <Skeleton>
               <Typography variant="subtitle2" sx={{ fontSize: '16px' }}>

@@ -25,13 +25,19 @@ import {
 import { mapAppointmentToLocationId, relatedPersonAndCommunicationMaps } from './helpers/mappers';
 import { AppointmentPackage, EstimatedTimeToLocationIdMap, LocationIdToAbbreviationMap } from './helpers/types';
 import { validateRequestParameters } from './validateRequestParameters';
+import { Appointment } from 'fhir/r4';
+
+if (process.env.IS_OFFLINE === 'true') {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  require('console-stamp')(console, { pattern: 'HH:MM:ss.l' });
+}
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    const validatedParameters = validateRequestParameters(input);
+    const validatedParameters: GetTelemedAppointmentsInput = validateRequestParameters(input);
     console.log('Parameters: ' + JSON.stringify(validatedParameters));
 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, validatedParameters.secrets);
@@ -69,6 +75,7 @@ export const performEffect = async (
       appointments: [],
     };
   }
+
   const allPackages = filterAppointmentsFromResources(allResources, statusesFilter, virtualLocationsMap);
   console.log('Received all appointments with type "virtual":', allPackages.length);
 
@@ -77,25 +84,26 @@ export const performEffect = async (
   if (allResources.length > 0) {
     const allRelatedPersonMaps = await relatedPersonAndCommunicationMaps(fhirClient, allResources);
 
-    allPackages.forEach((appointmentPackage) => {
-      const { appointment, telemedStatus, providers, groups, telemedStatusHistory, location, encounter } =
+    allPackages.forEach((appointmentPackage: AppointmentPackage) => {
+      const { appointment, telemedStatus, telemedStatusHistory, location, practitioner, encounter } =
         appointmentPackage;
 
       const patient = filterPatientForAppointment(appointment, allResources);
       const patientPhone = appointmentPackage.paperwork
         ? getPhoneNumberFromQuestionnaire(appointmentPackage.paperwork)
         : undefined;
-      const cancellationReason = appointment.cancelationReason?.coding?.[0].code;
+      const cancellationReason = extractCancellationReason(appointment);
       const smsModel = createSmsModel(patient.id!, allRelatedPersonMaps);
 
       const appointmentTemp: TelemedAppointmentInformation = {
-        id: appointment.id!,
+        id: appointment.id || 'Unknown',
         start: appointment.start,
         patient: {
-          id: patient.id!,
+          id: patient.id || 'Unknown',
           firstName: patient?.name?.[0].given?.[0],
           lastName: patient?.name?.[0].family,
-          dateOfBirth: patient.birthDate!,
+          // suffix: patient?.name?.[0].suffix?.[0] || '',
+          dateOfBirth: patient.birthDate || 'Unknown',
           sex: patient.gender,
           phone: patientPhone,
         },
@@ -103,8 +111,6 @@ export const performEffect = async (
         reasonForVisit: appointment.description,
         comment: appointment.comment,
         appointmentStatus: appointment.status,
-        provider: providers,
-        group: groups,
         location: {
           locationID: location?.locationID ? `Location/${location.locationID}` : undefined,
           state: location?.state,
@@ -116,59 +122,29 @@ export const performEffect = async (
         cancellationReason: cancellationReason,
         next: false,
         visitStatusHistory: getVisitStatusHistory(appointment),
+        practitioner,
+        encounterId: encounter.id || 'Unknown',
       };
 
       resultAppointments.push(appointmentTemp);
     });
     console.log('Appointments parsed and filtered from all resources.');
-
-    // const conversationModels = getConversationModelsFromResourceList(allResources);
-    // const relatedPersons = getRelatedPersonsFromResourceList(allResources);
-    console.log('Got conversation models and related persons from all resources.');
   }
   return {
     message: 'Successfully retrieved all appointments',
     appointments: resultAppointments,
-    // appointments: mapAppointmentInformationToConversationModel(resultAppointments, relatedPersons, []),
   };
 };
 
-export const calculateEstimatedTimeForLocations = async (
-  fhirClient: FhirClient,
-  allPackages: AppointmentPackage[],
-  virtualLocationsMap: LocationIdToAbbreviationMap,
-  statusesFilter: TelemedCallStatuses[],
-  estimatedDeltaMinutes: number,
-): Promise<EstimatedTimeToLocationIdMap> => {
-  if (!statusesFilter.includes('ready')) return {};
+const extractCancellationReason = (appointment: Appointment): string | undefined => {
+  const codingClause = appointment.cancelationReason?.coding?.[0];
+  const cancellationReasonOptionOne = codingClause?.code;
+  if ((cancellationReasonOptionOne ?? '').toLowerCase() === 'other') {
+    return codingClause?.display;
+  }
+  if (cancellationReasonOptionOne) {
+    return cancellationReasonOptionOne;
+  }
 
-  const readyStatusPackages = allPackages.filter((apptPackage) => apptPackage.telemedStatus === 'ready');
-  const locationsIdsGroups = groupAppointmentsLocations(
-    readyStatusPackages,
-    virtualLocationsMap,
-    sameEstimatedTimeStatesGroups,
-  );
-  const oldestAppointments = await getOldestAppointmentForEachLocationsGroup(fhirClient, locationsIdsGroups);
-  const locationToAppointmentMap = mapAppointmentToLocationId(oldestAppointments);
-  const estimatedTimeToLocationIdMap: EstimatedTimeToLocationIdMap = {};
-  locationsIdsGroups.forEach((locationsIdsGroup) => {
-    const locationID = locationsIdsGroup.find((locationID) => locationToAppointmentMap[locationID]);
-    if (locationID) {
-      const oldestApptInGroup = locationToAppointmentMap[locationID];
-      const timeDifference = getAppointmentWaitingTime(oldestApptInGroup);
-      if (timeDifference) {
-        locationsIdsGroup.forEach((id) => {
-          estimatedTimeToLocationIdMap[id] = timeDifference + estimatedDeltaMinutes * 60_000;
-        });
-      }
-    }
-  });
-  return estimatedTimeToLocationIdMap;
+  return codingClause?.display;
 };
-// function mapAppointmentInformationToConversationModel(
-//   resultAppointments: TelemedAppointmentInformation[],
-//   relatedPersons: Record<string, import('fhir/r4').RelatedPerson[]>,
-//   arg2: never[]
-// ): TelemedAppointmentInformation[] {
-//   throw new Error('Function not implemented.');
-// }

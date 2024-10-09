@@ -24,7 +24,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import {
   getQuestionnaireResponseByLinkId,
   mapStatusToTelemed,
-  ApptStatus,
+  TelemedAppointmentStatus,
   AppointmentMessaging,
   UCAppointmentInformation,
 } from 'ehr-utils';
@@ -86,9 +86,9 @@ export const AppointmentSidePanel: FC = () => {
   const appointmentAccessibility = useGetAppointmentAccessibility();
 
   const isCancellableStatus =
-    appointmentAccessibility.status !== ApptStatus.complete &&
-    appointmentAccessibility.status !== ApptStatus.cancelled &&
-    appointmentAccessibility.status !== ApptStatus.unsigned;
+    appointmentAccessibility.status !== TelemedAppointmentStatus.complete &&
+    appointmentAccessibility.status !== TelemedAppointmentStatus.cancelled &&
+    appointmentAccessibility.status !== TelemedAppointmentStatus.unsigned;
 
   const isPractitionerAllowedToCancelThisVisit =
     // appointmentAccessibility.isPractitionerLicensedInState &&
@@ -318,7 +318,9 @@ export const AppointmentSidePanel: FC = () => {
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'start' }}>
           {appointmentAccessibility.status &&
-            [ApptStatus['pre-video'], ApptStatus['on-video']].includes(appointmentAccessibility.status) && (
+            [TelemedAppointmentStatus['pre-video'], TelemedAppointmentStatus['on-video']].includes(
+              appointmentAccessibility.status,
+            ) && (
               <Button
                 size="small"
                 sx={{

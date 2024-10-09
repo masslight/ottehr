@@ -2,7 +2,7 @@ import { Appointment, Encounter, Location } from 'fhir/r4';
 import { OttehrUser } from '../../hooks/useOttehrUser';
 import {
   allLicensesForPractitioner,
-  ApptStatus,
+  TelemedAppointmentStatus,
   checkIsEncounterForPractitioner,
   mapStatusToTelemed,
   PractitionerLicense,
@@ -21,7 +21,7 @@ export type GetAppointmentAccessibilityDataResult = {
   availableStates?: string[];
   state?: string;
   isStateAvailable: boolean;
-  status?: ApptStatus;
+  status?: TelemedAppointmentStatus;
   isEncounterForPractitioner: boolean;
   isStatusEditable: boolean;
   isAppointmentReadOnly: boolean;
@@ -42,9 +42,11 @@ export const getAppointmentAccessibilityData = ({
   const status = mapStatusToTelemed(encounter.status, appointment?.status);
   const isEncounterForPractitioner =
     !!user?.profileResource && checkIsEncounterForPractitioner(encounter, user.profileResource);
-  const isStatusEditable = !!status && ![ApptStatus.complete, ApptStatus.ready].includes(status);
+  const isStatusEditable =
+    !!status && ![TelemedAppointmentStatus.complete, TelemedAppointmentStatus.ready].includes(status);
 
-  const isAppointmentAvailable = isStateAvailable && (status === ApptStatus.ready || isEncounterForPractitioner);
+  const isAppointmentAvailable =
+    isStateAvailable && (status === TelemedAppointmentStatus.ready || isEncounterForPractitioner);
   let isAppointmentReadOnly =
     !state || !isStateAvailable || !status || !isStatusEditable || !isEncounterForPractitioner;
 

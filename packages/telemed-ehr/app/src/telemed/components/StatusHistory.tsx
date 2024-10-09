@@ -5,11 +5,11 @@ import { AppointmentStatusChip } from './AppointmentStatusChip';
 import { diffInMinutes, getAppointmentWaitingTime } from '../utils';
 import React, { FC, useState } from 'react';
 import { DateTime } from 'luxon';
-import { TelemedStatusHistoryElement, ApptStatus } from 'ehr-utils';
+import { TelemedStatusHistoryElement, TelemedAppointmentStatus } from 'ehr-utils';
 
 type StatusHistoryTooltipProps = {
   history: TelemedStatusHistoryElement[];
-  currentStatus: keyof typeof ApptStatus;
+  currentStatus: keyof typeof TelemedAppointmentStatus;
 };
 
 export const StatusHistory: FC<StatusHistoryTooltipProps> = (props) => {
@@ -30,14 +30,16 @@ export const StatusHistory: FC<StatusHistoryTooltipProps> = (props) => {
   const startTime = DateTime.fromISO(history[0].start!);
 
   const total =
-    currentStatus === ApptStatus.complete
+    currentStatus === TelemedAppointmentStatus.complete
       ? diffInMinutes(DateTime.fromISO(history.at(-1)!.end!), DateTime.fromISO(history[0].start!))
       : diffInMinutes(currentTime, startTime);
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
       <Typography>
-        {[ApptStatus.ready, ApptStatus.complete].includes(ApptStatus[currentStatus]) ? (
+        {[TelemedAppointmentStatus.ready, TelemedAppointmentStatus.complete].includes(
+          TelemedAppointmentStatus[currentStatus],
+        ) ? (
           <>{getAppointmentWaitingTime(history)}m</>
         ) : (
           <>

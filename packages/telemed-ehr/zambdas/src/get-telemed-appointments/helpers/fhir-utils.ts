@@ -13,40 +13,36 @@ import { DateTime } from 'luxon';
 import {
   allLicensesForPractitioner,
   GetTelemedAppointmentsInput,
+  OTTEHR_MODULE,
   PatientFilterType,
   ZAP_SMS_MEDIUM_CODE,
 } from 'ehr-utils';
-import { mapTelemedStatusToEncounter, mapStatesToLocationIds } from './mappers';
+import {
+  mapTelemedStatusToEncounter,
+  mapStatesToLocationIds,
+  mapTelemedStatusToEncounterAndAppointment,
+} from './mappers';
 import { isLocationVirtual, joinLocationsIdsForFhirSearch } from './helpers';
 import { LocationIdToAbbreviationMap } from './types';
 
 export const getAllResourcesFromFhir = async (
   fhirClient: FhirClient,
-  searchDate: DateTime,
-  locationIDs: string[],
-  providerIDs: string[],
-  groupIDs: string[],
+  locationIds: string[],
   encounterStatusesToSearchWith: string[],
+  appointmentStatusesToSearchWith: string[],
+  searchDate?: DateTime,
 ): Promise<Resource[]> => {
   const fhirSearchParams = {
     resourceType: 'Appointment',
     searchParams: [
       {
-        name: 'date',
-        value: `ge${searchDate.startOf('day')}`,
+        name: '_tag',
+        value: OTTEHR_MODULE.TM,
       },
       {
         name: 'status',
-        value: `fulfilled,arrived`,
+        value: appointmentStatusesToSearchWith.join(','),
       },
-      {
-        name: 'service-type',
-        value: 'http://terminology.hl7.org/CodeSystem/service-type|telemedicine',
-      },
-      // {
-      //   name: 'date',
-      //   value: `le${searchDate.endOf('day')}`,
-      // },
       {
         name: '_has:Encounter:appointment:status',
         value: encounterStatusesToSearchWith.join(','),
@@ -69,6 +65,10 @@ export const getAllResourcesFromFhir = async (
         value: 'Encounter:participant',
       },
       {
+        name: '_include:iterate',
+        value: 'Encounter:participant:Practitioner',
+      },
+      {
         name: '_include',
         value: 'Appointment:location',
       },
@@ -84,26 +84,24 @@ export const getAllResourcesFromFhir = async (
         name: '_revinclude:iterate',
         value: 'QuestionnaireResponse:encounter',
       },
-      { name: '_include', value: 'Appointment:actor' },
     ],
   };
-
-  if (locationIDs.length > 0) {
+  if (searchDate) {
+    fhirSearchParams.searchParams.push(
+      {
+        name: 'date',
+        value: `ge${searchDate.startOf('day')}`,
+      },
+      {
+        name: 'date',
+        value: `le${searchDate.endOf('day')}`,
+      },
+    );
+  }
+  if (locationIds.length > 0) {
     fhirSearchParams.searchParams.push({
       name: 'location',
-      value: joinLocationsIdsForFhirSearch(locationIDs),
-    });
-  }
-  if (providerIDs.length > 0) {
-    fhirSearchParams.searchParams.push({
-      name: 'actor',
-      value: providerIDs.map((providerID) => `Practitioner/${providerID}`).join(','),
-    });
-  }
-  if (groupIDs.length > 0) {
-    fhirSearchParams.searchParams.push({
-      name: 'actor',
-      value: groupIDs.map((groupID) => `HealthcareService/${groupID}`).join(','),
+      value: joinLocationsIdsForFhirSearch(locationIds),
     });
   }
   return await fhirClient?.searchResources(fhirSearchParams);
@@ -139,15 +137,13 @@ export const getPractLicensesLocationsAbbreviations = async (
   return allLicensesForPractitioner(practitioner).map((license) => license.state);
 };
 
-export const locationIdsForAppointmentsSearch = async (
-  stateFilter: string | undefined,
+const locationIdsForAppointmentsSearch = async (
+  usStatesFilter: string[] | undefined,
   patientFilter: PatientFilterType,
   virtualLocationsMap: LocationIdToAbbreviationMap,
   fhirClient: FhirClient,
   appClient: AppClient,
 ): Promise<string[] | undefined> => {
-  let resultStatesAbbreviations: string[] = [];
-
   // Little explanation what patientFilter = 'my-patients' means:
   // It means that practitioner wanna see appointments with locations that match
   // with his licenses registration locations.
@@ -169,27 +165,40 @@ export const locationIdsForAppointmentsSearch = async (
   // 5. patientFilter = 'all-patients' and stateFilter = /exists/
   //      In this case we want to return appointments with location == stateFilter
 
-  if (patientFilter === 'my-patients') {
-    const practitionerStates = await getPractLicensesLocationsAbbreviations(fhirClient, appClient);
-    console.log('Practitioner states: ' + JSON.stringify(practitionerStates));
-    if (!stateFilter) {
-      resultStatesAbbreviations = practitionerStates;
-    } else {
-      if (practitionerStates.find((state) => state === stateFilter)) {
-        resultStatesAbbreviations = [stateFilter];
-      } else {
-        return undefined;
-      }
-    }
-  } else {
-    if (!stateFilter) {
-      resultStatesAbbreviations = [];
-    } else {
-      resultStatesAbbreviations = [stateFilter];
-    }
+  const intersect = (arr1: string[], arr2: string[]): string[] => {
+    const buffer = new Set(arr2);
+    return arr1.filter((element) => buffer.has(element));
+  };
+
+  const usStatesFilterOrEmpty = usStatesFilter || [];
+  const hasNoUsStatesFiltersSet = usStatesFilterOrEmpty.length === 0;
+
+  console.log('Requested US_states filter: ' + JSON.stringify(usStatesFilter));
+
+  if (patientFilter !== 'my-patients') {
+    const statesAbbreviations = hasNoUsStatesFiltersSet ? [] : [...usStatesFilterOrEmpty];
+    return mapStatesToLocationIds(statesAbbreviations, virtualLocationsMap);
   }
 
-  return mapStatesToLocationIds(resultStatesAbbreviations, virtualLocationsMap);
+  if (patientFilter === 'my-patients') {
+    const licensedPractitionerStates = await getPractLicensesLocationsAbbreviations(fhirClient, appClient);
+    console.log('Licensed Practitioner US_states: ' + JSON.stringify(licensedPractitionerStates));
+
+    if (hasNoUsStatesFiltersSet) {
+      return mapStatesToLocationIds(licensedPractitionerStates, virtualLocationsMap);
+    }
+
+    const allowedUsStates = intersect(licensedPractitionerStates, usStatesFilterOrEmpty);
+    console.log('Licensed Practitioner US_states + Applied US_states filter: ' + JSON.stringify(allowedUsStates));
+
+    if (allowedUsStates.length === 0) {
+      return undefined;
+    }
+
+    return mapStatesToLocationIds(allowedUsStates, virtualLocationsMap);
+  }
+
+  return mapStatesToLocationIds([], virtualLocationsMap);
 };
 
 export const getAllPrefilteredFhirResources = async (
@@ -198,27 +207,31 @@ export const getAllPrefilteredFhirResources = async (
   params: GetTelemedAppointmentsInput,
   virtualLocationsMap: LocationIdToAbbreviationMap,
 ): Promise<Resource[] | undefined> => {
-  const { dateFilter, providersFilter, stateFilter, statusesFilter, groupsFilter, patientFilter } = params;
+  const { dateFilter, usStatesFilter, statusesFilter, patientFilter } = params;
   let allResources: Resource[] = [];
 
   const locationsIdsToSearchWith = await locationIdsForAppointmentsSearch(
-    stateFilter,
+    usStatesFilter,
     patientFilter,
     virtualLocationsMap,
     fhirClient,
     appClient,
   );
   if (!locationsIdsToSearchWith) return undefined;
-  const encounterStatusesToSearchWith = mapTelemedStatusToEncounter(statusesFilter);
+  const { encounterStatuses: encounterStatusesToSearchWith, appointmentStatuses: appointmentStatusesToSearchWith } =
+    mapTelemedStatusToEncounterAndAppointment(statusesFilter);
   console.log('Received all location ids and encounter statuses to search with.');
-  const dateFilterConverted = DateTime.fromISO(dateFilter);
+  if (locationsIdsToSearchWith.length === 0 && patientFilter === 'my-patients') {
+    return [];
+  }
+
+  const dateFilterConverted = dateFilter ? DateTime.fromISO(dateFilter) : undefined;
   allResources = await getAllResourcesFromFhir(
     fhirClient,
-    dateFilterConverted,
     locationsIdsToSearchWith,
-    providersFilter || [],
-    groupsFilter || [],
     encounterStatusesToSearchWith,
+    appointmentStatusesToSearchWith,
+    dateFilterConverted,
   );
   console.log('Received resources from fhir with all filters applied.');
   return allResources;

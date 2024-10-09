@@ -4,7 +4,7 @@ import { Box, darken, styled, useTheme } from '@mui/material';
 import { FC, useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from 'react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ApptStatus, mapStatusToTelemed } from 'ehr-utils';
+import { TelemedAppointmentStatus, mapStatusToTelemed } from 'ehr-utils';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { ConfirmationDialog } from '../../components';
 import { useGetAppointmentAccessibility } from '../../hooks';
@@ -64,13 +64,16 @@ export const AppointmentFooterButton: FC = () => {
   const appointmentAccessibility = useGetAppointmentAccessibility();
 
   useEffect(() => {
-    if (appointmentAccessibility.status !== ApptStatus.ready && !appointmentAccessibility.isStatusEditable) {
+    if (
+      appointmentAccessibility.status !== TelemedAppointmentStatus.ready &&
+      !appointmentAccessibility.isStatusEditable
+    ) {
       setButtonType(null);
-    } else if (appointmentAccessibility.status === ApptStatus.ready) {
+    } else if (appointmentAccessibility.status === TelemedAppointmentStatus.ready) {
       setButtonType('assignMe');
-    } else if (appointmentAccessibility.status === ApptStatus['pre-video']) {
+    } else if (appointmentAccessibility.status === TelemedAppointmentStatus['pre-video']) {
       setButtonType('connectUnassign');
-    } else if (appointmentAccessibility.status === ApptStatus['on-video']) {
+    } else if (appointmentAccessibility.status === TelemedAppointmentStatus['on-video']) {
       setButtonType('reconnect');
     }
   }, [appointmentAccessibility]);
@@ -80,7 +83,7 @@ export const AppointmentFooterButton: FC = () => {
       throw new Error('api client not defined or appointment id not provided');
     }
     await changeTelemedAppointmentStatus.mutateAsync(
-      { apiClient, appointmentId: appointment.id, newStatus: ApptStatus['pre-video'] },
+      { apiClient, appointmentId: appointment.id, newStatus: TelemedAppointmentStatus['pre-video'] },
       {},
     );
 
@@ -88,7 +91,7 @@ export const AppointmentFooterButton: FC = () => {
   };
 
   const onConnect = useCallback((): void => {
-    if (mapStatusToTelemed(encounter.status, appointment?.status) === ApptStatus['on-video']) {
+    if (mapStatusToTelemed(encounter.status, appointment?.status) === TelemedAppointmentStatus['on-video']) {
       void getMeetingData.refetch({ throwOnError: true });
     } else {
       if (!apiClient || !appointment?.id) {
@@ -118,7 +121,7 @@ export const AppointmentFooterButton: FC = () => {
   }, [apiClient, appointment?.id, appointment?.status, encounter, getMeetingData, initTelemedSession, ottehrUser]);
 
   useEffect(() => {
-    if (appointmentAccessibility.status === ApptStatus['on-video']) {
+    if (appointmentAccessibility.status === TelemedAppointmentStatus['on-video']) {
       if (location.state?.reconnect) {
         navigate(location.pathname, {});
         onConnect();
@@ -131,7 +134,7 @@ export const AppointmentFooterButton: FC = () => {
       throw new Error('api client not defined or appointment id not provided');
     }
     await changeTelemedAppointmentStatus.mutateAsync(
-      { apiClient, appointmentId: appointment.id, newStatus: ApptStatus.ready },
+      { apiClient, appointmentId: appointment.id, newStatus: TelemedAppointmentStatus.ready },
       {},
     );
     navigate('/telemed/appointments');

@@ -1,6 +1,6 @@
 import { AppBar, Box, Typography, useTheme } from '@mui/material';
 import { FC, useState } from 'react';
-import { ApptStatus, mapEncounterStatusHistory } from 'ehr-utils';
+import { TelemedAppointmentStatus, mapEncounterStatusHistory } from 'ehr-utils';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import InviteParticipant from '../../components/InviteParticipant';
 import { useGetAppointmentAccessibility } from '../../hooks';
@@ -36,9 +36,11 @@ export const AppointmentFooter: FC = () => {
         <InviteParticipant modalOpen={isInviteParticipantOpen} onClose={() => setIsInviteParticipantOpen(false)} />
       )}
       {((appointmentAccessibility.status &&
-        [ApptStatus.ready, ApptStatus['pre-video']].includes(appointmentAccessibility.status)) ||
+        [TelemedAppointmentStatus.ready, TelemedAppointmentStatus['pre-video']].includes(
+          appointmentAccessibility.status,
+        )) ||
         (appointmentAccessibility.status &&
-          appointmentAccessibility.status === ApptStatus['on-video'] &&
+          appointmentAccessibility.status === TelemedAppointmentStatus['on-video'] &&
           !meetingData)) && (
         <Box
           sx={{

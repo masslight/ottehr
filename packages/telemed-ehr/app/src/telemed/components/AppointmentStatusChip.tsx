@@ -1,10 +1,10 @@
 import { ApptStatusToPalette } from '../utils';
-import { ApptStatus } from 'ehr-utils';
+import { TelemedAppointmentStatus } from 'ehr-utils';
 import React, { ReactElement } from 'react';
 import { Chip } from '@mui/material';
 
 interface AppointmentStatusChip {
-  status?: keyof typeof ApptStatus;
+  status?: keyof typeof TelemedAppointmentStatus;
 }
 
 export function AppointmentStatusChip({ status }: AppointmentStatusChip): ReactElement {

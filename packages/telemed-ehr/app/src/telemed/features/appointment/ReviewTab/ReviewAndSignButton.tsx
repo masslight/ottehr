@@ -1,6 +1,6 @@
 import React, { FC, useMemo, useState } from 'react';
 import { Box, Typography, Tooltip } from '@mui/material';
-import { ApptStatus } from 'ehr-utils';
+import { TelemedAppointmentStatus } from 'ehr-utils';
 import { ConfirmationDialog, RoundedButton } from '../../../components';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore, useChangeTelemedAppointmentStatusMutation } from '../../../state';
@@ -31,7 +31,7 @@ export const ReviewAndSignButton: FC = () => {
   const errorMessage = useMemo(() => {
     const messages = [];
 
-    if (appointmentAccessibility.status !== ApptStatus.unsigned) {
+    if (appointmentAccessibility.status !== TelemedAppointmentStatus.unsigned) {
       messages.push('You need to finish a video call with the patient');
     }
 
@@ -59,7 +59,7 @@ export const ReviewAndSignButton: FC = () => {
       throw new Error('api client not defined or appointmentId not provided');
     }
 
-    await mutateAsync({ apiClient, appointmentId: appointment.id, newStatus: ApptStatus.complete });
+    await mutateAsync({ apiClient, appointmentId: appointment.id, newStatus: TelemedAppointmentStatus.complete });
     useAppointmentStore.setState({
       encounter: { ...encounter, status: 'finished' },
       appointment: { ...appointment, status: 'fulfilled' },

@@ -2,7 +2,7 @@ import React, { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LoadingButton } from '@mui/lab';
 import { useQueryClient } from 'react-query';
-import { ApptStatus, TelemedAppointmentInformation } from 'ehr-utils';
+import { TelemedAppointmentStatus, TelemedAppointmentInformation } from 'ehr-utils';
 import { useZapEHRAPIClient } from '../../hooks/useZapEHRAPIClient';
 import { useChangeTelemedAppointmentStatusMutation } from '../../state';
 import { ConfirmationDialog } from '../../components';
@@ -27,7 +27,7 @@ export const TrackingBoardTableButton: FC<{ appointment: TelemedAppointmentInfor
     navigate(`/telemed/appointments/${appointment.id}`, { state });
   };
 
-  const changeStatus = async (newStatus: ApptStatus, invalidate?: boolean): Promise<void> => {
+  const changeStatus = async (newStatus: TelemedAppointmentStatus, invalidate?: boolean): Promise<void> => {
     if (!apiClient) {
       throw new Error('api client not defined');
     }
@@ -38,7 +38,7 @@ export const TrackingBoardTableButton: FC<{ appointment: TelemedAppointmentInfor
     }
   };
 
-  const changeStatusAndGoTo = async (newStatus: ApptStatus): Promise<void> => {
+  const changeStatusAndGoTo = async (newStatus: TelemedAppointmentStatus): Promise<void> => {
     await changeStatus(newStatus);
     goToAppointment();
   };
@@ -62,7 +62,7 @@ export const TrackingBoardTableButton: FC<{ appointment: TelemedAppointmentInfor
       return (
         <ConfirmationDialog
           title="Do you want to assign this appointment?"
-          response={() => changeStatusAndGoTo(ApptStatus['pre-video'])}
+          response={() => changeStatusAndGoTo(TelemedAppointmentStatus['pre-video'])}
           actionButtons={{
             proceed: {
               text: 'Assign to me',
@@ -82,7 +82,7 @@ export const TrackingBoardTableButton: FC<{ appointment: TelemedAppointmentInfor
       return (
         <ConfirmationDialog
           title="Do you want to unassign this appointment?"
-          response={() => changeStatus(ApptStatus.ready, true)}
+          response={() => changeStatus(TelemedAppointmentStatus.ready, true)}
           actionButtons={{
             proceed: {
               text: 'Unassign',

@@ -4,7 +4,7 @@ import { ChargeItem } from 'fhir/r4';
 import {
   ChangeTelemedAppointmentStatusInput,
   ChangeTelemedAppointmentStatusResponse,
-  ApptStatus,
+  TelemedAppointmentStatus,
   mapStatusToTelemed,
 } from 'ehr-utils';
 import { SecretsKeys, getSecret } from '../shared';
@@ -69,7 +69,7 @@ export const performEffect = async (
   console.debug(`Status has been changed.`);
 
   // if we are changing from unsiged to complete only, check these things...
-  if (newStatus === ApptStatus.complete && currentStatus === ApptStatus.unsigned) {
+  if (newStatus === TelemedAppointmentStatus.complete && currentStatus === TelemedAppointmentStatus.unsigned) {
     console.debug(`Status change detected from ${currentStatus} to ${newStatus}`);
 
     if (visitResources.account?.id === undefined) {

@@ -1,9 +1,9 @@
 import {
   GetTelemedAppointmentsInput,
-  ApptStatus,
   TelemedAppointmentInformation,
   TelemedStatusHistoryElement,
   PATIENT_PHOTO_CODE,
+  TelemedAppointmentStatus,
 } from 'ehr-utils';
 import { DateTime } from 'luxon';
 import { diffInMinutes } from './diffInMinutes';
@@ -16,11 +16,11 @@ export enum ApptTab {
   'complete' = 'complete',
 }
 
-export const ApptTabToStatus: Record<ApptTab, ApptStatus[]> = {
-  [ApptTab.ready]: [ApptStatus.ready],
-  [ApptTab.provider]: [ApptStatus['pre-video'], ApptStatus['on-video']],
-  [ApptTab['not-signed']]: [ApptStatus.unsigned],
-  [ApptTab.complete]: [ApptStatus.complete],
+export const ApptTabToStatus: Record<ApptTab, TelemedAppointmentStatus[]> = {
+  [ApptTab.ready]: [TelemedAppointmentStatus.ready],
+  [ApptTab.provider]: [TelemedAppointmentStatus['pre-video'], TelemedAppointmentStatus['on-video']],
+  [ApptTab['not-signed']]: [TelemedAppointmentStatus.unsigned],
+  [ApptTab.complete]: [TelemedAppointmentStatus.complete],
 };
 
 export enum UnsignedFor {
@@ -29,6 +29,8 @@ export enum UnsignedFor {
   'more24' = 'more24',
   'all' = 'all',
 }
+
+export const compareLuxonDates = (a: DateTime, b: DateTime): number => a.toMillis() - b.toMillis();
 
 export const updateEncounterStatusHistory = (
   newStatus:
@@ -74,13 +76,27 @@ export const filterAppointments = (
   appointments: TelemedAppointmentInformation[],
   unsignedFor: UnsignedFor,
   tab: ApptTab,
+  showOnlyNext: boolean,
+  availableStates: string[],
 ): TelemedAppointmentInformation[] => {
-  if (tab !== ApptTab['not-signed']) {
+  if (![ApptTab['not-signed'], ApptTab.ready].includes(tab)) {
     return appointments;
   }
 
+  if (tab === ApptTab.ready) {
+    if (showOnlyNext) {
+      const oldest = appointments
+        .filter((appointment) => availableStates.includes(appointment.location.state!))
+        .sort((a, b) => compareLuxonDates(DateTime.fromISO(a.start!), DateTime.fromISO(b.start!)))?.[0];
+
+      return oldest ? [oldest] : [];
+    } else {
+      return appointments;
+    }
+  }
+
   const getUnsignedTime = (history: TelemedStatusHistoryElement[]): string => {
-    const unsigned = history.find((element) => element.status === ApptStatus.unsigned);
+    const unsigned = history.find((element) => element.status === TelemedAppointmentStatus.unsigned);
     if (!unsigned || !unsigned.start) {
       return DateTime.now().toISO()!;
     }
@@ -94,12 +110,7 @@ export const filterAppointments = (
       return appointments.filter(
         (appointment) => DateTime.fromISO(getUnsignedTime(appointment.telemedStatusHistory)) > now.minus({ hours: 12 }),
       );
-    case UnsignedFor['12to24']:
-      return appointments.filter(
-        (appointment) =>
-          DateTime.fromISO(getUnsignedTime(appointment.telemedStatusHistory)) < now.minus({ hours: 12 }) &&
-          DateTime.fromISO(getUnsignedTime(appointment.telemedStatusHistory)) >= now.minus({ hours: 24 }),
-      );
+
     case UnsignedFor.more24:
       return appointments.filter(
         (appointment) =>
@@ -110,12 +121,37 @@ export const filterAppointments = (
   }
 };
 
+export const getAppointmentUnsignedLengthTime = (history: TelemedStatusHistoryElement[]): number => {
+  const lastHistoryRecord = history.at(-1);
+  const currentTimeISO = new Date().toISOString();
+
+  return compareLuxonDates(
+    DateTime.fromISO(lastHistoryRecord?.end || currentTimeISO),
+    DateTime.fromISO(lastHistoryRecord?.start || currentTimeISO),
+  );
+};
+
+export const compareAppointments = (
+  isNotSignedTab: boolean,
+  appointmentA: TelemedAppointmentInformation,
+  appointmentB: TelemedAppointmentInformation,
+): number => {
+  if (isNotSignedTab) {
+    return (
+      getAppointmentUnsignedLengthTime(appointmentB.telemedStatusHistory) -
+      getAppointmentUnsignedLengthTime(appointmentA.telemedStatusHistory)
+    );
+  } else {
+    return compareLuxonDates(DateTime.fromISO(appointmentA.start!), DateTime.fromISO(appointmentB.start!));
+  }
+};
+
 export const getAppointmentWaitingTime = (statuses?: TelemedStatusHistoryElement[]): number | string => {
   if (!statuses) {
     return '...';
   }
 
-  const onVideoIndex = statuses?.findIndex((status) => status.status === ApptStatus['on-video']);
+  const onVideoIndex = statuses?.findIndex((status) => status.status === TelemedAppointmentStatus['on-video']);
 
   const statusesToWait = onVideoIndex === -1 ? statuses : statuses.slice(0, onVideoIndex);
 
@@ -128,7 +164,7 @@ export const getAppointmentWaitingTime = (statuses?: TelemedStatusHistoryElement
 };
 
 export const ApptStatusToPalette: {
-  [status in ApptStatus]: {
+  [status in TelemedAppointmentStatus]: {
     background: {
       primary: string;
       secondary?: string;
@@ -191,11 +227,11 @@ export const ApptStatusToPalette: {
 
 export type GetAppointmentsRequestParams = Pick<
   GetTelemedAppointmentsInput,
-  'stateFilter' | 'providersFilter' | 'dateFilter' | 'groupsFilter' | 'patientFilter' | 'statusesFilter'
+  'usStatesFilter' | 'dateFilter' | 'patientFilter' | 'statusesFilter'
 >;
 
 export const APPT_STATUS_MAP: {
-  [status in ApptStatus]: {
+  [status in TelemedAppointmentStatus]: {
     background: {
       primary: string;
       secondary?: string;
