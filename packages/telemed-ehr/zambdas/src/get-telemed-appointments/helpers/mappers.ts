@@ -83,6 +83,11 @@ export const mapQuestionnaireToEncountersIds = (allResources: Resource[]): { [ke
 export const mapIDToPractitioner = (allResources: Resource[]): { [key: string]: Practitioner } => {
   const practitionerIDs: { [key: string]: Practitioner } = {};
 
+  console.log(
+    'allResources in mapIDToPractitioner',
+    allResources.filter((resource) => resource.resourceType === 'Practitioner'),
+  );
+
   allResources.forEach((resource) => {
     if (resource.resourceType === 'Practitioner' && resource.id) {
       const practitioner = resource as Practitioner;

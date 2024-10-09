@@ -208,6 +208,10 @@ export const getAllPrefilteredFhirResources = async (
   virtualLocationsMap: LocationIdToAbbreviationMap,
 ): Promise<Resource[] | undefined> => {
   const { dateFilter, usStatesFilter, statusesFilter, patientFilter } = params;
+  console.log('dateFilter', dateFilter);
+  console.log('usStatesFilter', usStatesFilter);
+  console.log('statusesFilter', statusesFilter);
+  console.log('patientFilter', patientFilter);
   let allResources: Resource[] = [];
 
   const locationsIdsToSearchWith = await locationIdsForAppointmentsSearch(

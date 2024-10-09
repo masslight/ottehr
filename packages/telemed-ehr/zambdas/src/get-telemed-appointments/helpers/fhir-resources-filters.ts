@@ -52,28 +52,23 @@ export const filterAppointmentsFromResources = (
 ): AppointmentPackage[] => {
   const resultAppointments: AppointmentPackage[] = [];
   const appointmentEncounterMap: { [key: string]: Encounter } = mapEncountersToAppointmentsIds(allResources);
-  console.log('1');
   const encounterQuestionnaireMap: { [key: string]: QuestionnaireResponse } =
     mapQuestionnaireToEncountersIds(allResources);
-  console.log('2');
   const practitionerIDs: { [key: string]: Practitioner } = mapIDToPractitioner(allResources);
-  console.log('3');
+  console.log('practitionerIDs', practitionerIDs);
   const healthcareServiceIDs: { [key: string]: HealthcareService } = mapIDToHealthcareService(allResources);
-  console.log('4');
   allResources.forEach((resource: Resource) => {
     const appointment = resource as Appointment;
 
     if (!(resource.resourceType === 'Appointment' && getVideoRoomResourceExtension(resource) && appointment.id)) {
       return;
     }
-    console.log('5');
     if (!appointment.start) {
       console.log('No start time for appointment');
       return;
     }
-    console.log('6');
+    console.log('appointment', appointment.participant);
     const encounter = appointmentEncounterMap[appointment.id!];
-    console.log('7');
     const providers = appointment.participant
       .filter((participant) => participant.actor?.reference?.startsWith('Practitioner/'))
       .map(function (practitionerTemp) {
