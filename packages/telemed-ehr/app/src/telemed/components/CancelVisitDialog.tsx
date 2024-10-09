@@ -15,14 +15,16 @@ import {
 } from '@mui/material';
 import React, { ReactElement, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { cancelTelemedAppointment } from '../../api/api';
+import { cancelInPersonAppointment, cancelTelemedAppointment } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
+import { CancellationReasonOptions } from '../../types/types';
 
 interface CancelVisitDialogProps {
   onClose: () => void;
+  appointmentType: 'telemed' | 'in-person';
 }
 
-const CancelVisitDialog = ({ onClose }: CancelVisitDialogProps): ReactElement => {
+const CancelVisitDialog = ({ onClose, appointmentType }: CancelVisitDialogProps): ReactElement => {
   const [reason, setReason] = useState('');
   const [error, setError] = useState<boolean>(false);
   const [otherReason, setOtherReason] = useState('');
@@ -31,12 +33,15 @@ const CancelVisitDialog = ({ onClose }: CancelVisitDialogProps): ReactElement =>
   const { id: appointmentID } = useParams();
   const navigate = useNavigate();
 
-  const cancellationReasons = [
+  const telemedCancellationReasons = [
     'Patient did not answer after multiple attempts',
     'Wrong patient name on chart',
     'Technical issues connecting and/ or with video',
     'Other',
   ];
+
+  const cancellationReasons =
+    appointmentType === 'telemed' ? telemedCancellationReasons : Object.values(CancellationReasonOptions);
 
   const handleReasonChange = (event: SelectChangeEvent<string>): void => {
     setReason(event.target.value);
@@ -58,11 +63,21 @@ const CancelVisitDialog = ({ onClose }: CancelVisitDialogProps): ReactElement =>
     setIsCancelling(true);
     if (!zambdaIntakeClient) throw new Error('Zambda client not found');
     try {
-      const response = await cancelTelemedAppointment(zambdaIntakeClient, {
-        appointmentID: appointmentID || '',
-        cancellationReason: reason,
-        cancellationReasonAdditional: otherReason,
-      });
+      let response;
+      if (appointmentType === 'telemed') {
+        console.log('canceling telemed appointment', appointmentID, reason, otherReason);
+        response = await cancelTelemedAppointment(zambdaIntakeClient, {
+          appointmentID: appointmentID || '',
+          cancellationReason: reason,
+          cancellationReasonAdditional: otherReason,
+        });
+      }
+      if (appointmentType === 'in-person') {
+        response = await cancelInPersonAppointment(zambdaIntakeClient, {
+          appointmentID: appointmentID || '',
+          cancellationReason: reason as CancellationReasonOptions,
+        });
+      }
       console.log('Appointment cancelled successfully', response);
     } catch (error) {
       setError(true);
@@ -110,6 +125,7 @@ const CancelVisitDialog = ({ onClose }: CancelVisitDialogProps): ReactElement =>
               label="Cancellation Reason"
               onChange={handleReasonChange}
             >
+              {appointmentType}
               {cancellationReasons.map((reason) => (
                 <MenuItem key={reason} value={reason}>
                   {reason}

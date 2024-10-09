@@ -96,7 +96,7 @@ export const AppointmentPage: FC = () => {
       <AppointmentHeader onClose={() => navigate('/')} />
 
       <Box sx={{ display: 'flex', flex: 1, width: '100%' }}>
-        <AppointmentSidePanel />
+        <AppointmentSidePanel appointmentType="in-person" />
 
         <Container maxWidth="xl" sx={{ my: 3 }}>
           <AppointmentTabs />

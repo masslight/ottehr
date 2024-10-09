@@ -15,7 +15,7 @@ import {
 } from '@mui/material';
 import { Appointment, Encounter } from 'fhir/r4';
 import React, { ReactElement, useState } from 'react';
-import { cancelAppointment } from '../../api/api';
+import { cancelInPersonAppointment } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import { CancelAppointmentParameters, CancellationReasonOptions } from '../../types/types';
 
@@ -74,7 +74,7 @@ export default function CancellationReasonDialog({
     let apiErr = false;
     try {
       if (!zambdaIntakeClient) throw new Error('Zambda client not found');
-      response = await cancelAppointment(zambdaIntakeClient, zambdaParams);
+      response = await cancelInPersonAppointment(zambdaIntakeClient, zambdaParams);
     } catch (error) {
       console.log(`Failed to cancel appointment: ${error}`);
       apiErr = true;
