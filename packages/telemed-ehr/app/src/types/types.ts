@@ -1,7 +1,7 @@
 import { User } from '@zapehr/sdk';
 import { Appointment, Period } from 'fhir/r4';
 import { DateTime } from 'luxon';
-import { ExamFieldsNames, PractitionerLicense, VisitStatus } from 'ehr-utils';
+import { ExamFieldsNames, PractitionerLicense, Secrets, VisitStatus } from 'ehr-utils';
 
 export interface GetAppointmentsParameters {
   searchDate?: DateTime | undefined;

@@ -44,7 +44,9 @@ const ThankYou = (): JSX.Element => {
         </Box>
         <Divider sx={{ marginBottom: 2 }} />
 
-        {isCancelDialogOpen && <CancelVisitDialog onClose={() => setIsCancelDialogOpen(false)} />}
+        {isCancelDialogOpen && (
+          <CancelVisitDialog onClose={() => setIsCancelDialogOpen(false)} appointmentType="in-person" />
+        )}
         <Button
           startIcon={<EventBusyOutlined color="secondary" />}
           sx={{ marginLeft: 1.5, color: theme.palette.secondary.main }}

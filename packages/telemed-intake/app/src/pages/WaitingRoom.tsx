@@ -155,7 +155,9 @@ const WaitingRoom = (): JSX.Element => {
         <ManageParticipantsDialog onClose={() => setManageParticipantsDialogOpen(false)} />
       ) : null}
       {isUploadPhotosDialogOpen ? <UploadPhotosDialog onClose={() => setUploadPhotosDialogOpen(false)} /> : null}
-      {isCancelVisitDialogOpen ? <CancelVisitDialog onClose={() => setCancelVisitDialogOpen(false)} /> : null}
+      {isCancelVisitDialogOpen ? (
+        <CancelVisitDialog appointmentType="in-person" onClose={() => setCancelVisitDialogOpen(false)} />
+      ) : null}
       {isCallSettingsOpen ? <CallSettings onClose={() => setIsCallSettingsOpen(false)} /> : null}
     </CustomContainer>
   );

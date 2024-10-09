@@ -279,10 +279,11 @@ export const cancelInPersonAppointment = async (
 
     console.log('canceling in-person appointment', parameters);
     console.log('zambda id', CANCEL_IN_PERSON_APPOINTMENT_ZAMBDA_ID);
-    const response = await zambdaClient?.invokePublicZambda({
+    const response = await zambdaClient?.invokeZambda({
       zambdaId: CANCEL_IN_PERSON_APPOINTMENT_ZAMBDA_ID,
       payload: parameters,
     });
+    console.log('response', response);
     return chooseJson(response, VITE_APP_IS_LOCAL);
   } catch (error: unknown) {
     console.log(error);
