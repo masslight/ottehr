@@ -27,6 +27,7 @@ import { RoleType } from './types/types';
 import { AppointmentPage } from './pages/AppointmentPage';
 import AddSchedulePage from './pages/AddSchedulePage';
 import Version from './pages/Version';
+import { isErxEnabled } from './helpers/erx';
 import('@photonhealth/elements').catch(console.log);
 
 const TelemedTrackingBoardPageLazy = lazy(async () => {
@@ -46,8 +47,7 @@ if (MUI_X_LICENSE_KEY != null) {
   LicenseInfo.setLicenseKey(MUI_X_LICENSE_KEY);
 }
 
-const isERXEnabled =
-  import.meta.env.VITE_APP_PHOTON_CLIENT_ID?.lenght > 0 && import.meta.env.VITE_APP_PHOTON_ORG_ID?.lenght > 0;
+const isERXEnabled = isErxEnabled();
 
 function App(): ReactElement {
   useApiClients();
@@ -58,6 +58,10 @@ function App(): ReactElement {
 
   const roleUnknown =
     !currentUser || !currentUser.hasRole([RoleType.Administrator, RoleType.Staff, RoleType.Manager, RoleType.Provider]);
+
+  console.log(
+    `Photon Client: ${import.meta.env.VITE_APP_PHOTON_CLIENT_ID}, Photon Org: ${import.meta.env.VITE_APP_PHOTON_ORG_ID}`,
+  );
 
   return (
     <CustomThemeProvider>

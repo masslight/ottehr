@@ -5,6 +5,7 @@ import { AccordionCard, RoundedButton } from '../../../components';
 import { useAppointmentStore } from '../../../state';
 import { ERX } from '../ERX';
 import { PrescribedMedicationReviewItem } from '../ReviewTab/components/PrescribedMedicationReviewItem';
+import { isErxEnabled } from '../../../../helpers/erx';
 
 export const ERxCard: FC = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -12,6 +13,7 @@ export const ERxCard: FC = () => {
 
   const [isERXOpen, setIsERXOpen] = useState(false);
   const [isERXLoading, setIsERXLoading] = useState(false);
+  const isERXDisabled = !isErxEnabled();
 
   const handleERXLoadingStatusChange = useCallback<(status: boolean) => void>(
     (status) => setIsERXLoading(status),
@@ -28,7 +30,11 @@ export const ERxCard: FC = () => {
             ))}
           </Box>
         )}
-        <RoundedButton disabled={isReadOnly || isERXLoading} variant="contained" onClick={() => setIsERXOpen(true)}>
+        <RoundedButton
+          disabled={isReadOnly || isERXLoading || isERXDisabled}
+          variant="contained"
+          onClick={() => setIsERXOpen(true)}
+        >
           Add RX
         </RoundedButton>
       </Box>
