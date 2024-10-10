@@ -84,7 +84,11 @@ const CancelVisitDialog = ({ onClose, appointmentType }: CancelVisitDialogProps)
       console.error('Failed to cancel appointment', error);
     } finally {
       setIsCancelling(false);
-      navigate('/telemed/appointments');
+      if (appointmentType === 'telemed') {
+        navigate('/telemed/appointments');
+      } else if (appointmentType === 'in-person') {
+        navigate('/in-person/appointments');
+      }
       onClose();
     }
   };
