@@ -113,8 +113,6 @@ const generateRandomPatientInfo = async (
   const randomLocationIndex = Math.floor(Math.random() * availableLocations.length);
   const randomLocationId = availableLocations[randomLocationIndex].id;
   const randomProviderId = practitionersTemp[Math.floor(Math.random() * practitionersTemp.length)].id;
-  console.log('availableLocations', availableLocations);
-  console.log('randomLocationId', randomLocationId);
 
   const selectedLocationID = localStorage.getItem('selectedLocationID');
 
