@@ -17,6 +17,7 @@ import {
   SaveChartDataRequest,
   SaveChartDataResponse,
   SavePatientInstructionInput,
+  SyncUserResponse,
 } from 'ehr-utils';
 import { GetAppointmentsRequestParams } from '../utils';
 import { ApiError, GetZapEHRTelemedAPIParams } from './types';
@@ -28,6 +29,7 @@ enum ZambdaNames {
   'save chart data' = 'save chart data',
   'delete chart data' = 'delete chart data',
   'change telemed appointment status' = 'change telemed appointment status',
+  'sync user' = 'sync user',
   'get patient instructions' = 'get patient instructions',
   'save patient instruction' = 'save patient instruction',
   'delete patient instruction' = 'delete patient instruction',
@@ -41,6 +43,7 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'save chart data': false,
   'delete chart data': false,
   'change telemed appointment status': false,
+  'sync user': false,
   'get patient instructions': false,
   'save patient instruction': false,
   'delete patient instruction': false,
@@ -59,6 +62,7 @@ export const getZapEHRTelemedAPI = (
   saveChartData: typeof saveChartData;
   deleteChartData: typeof deleteChartData;
   changeTelemedAppointmentStatus: typeof changeTelemedAppointmentStatus;
+  syncUser: typeof syncUser;
   getPatientInstructions: typeof getPatientInstructions;
   savePatientInstruction: typeof savePatientInstruction;
   deletePatientInstruction: typeof deletePatientInstruction;
@@ -71,6 +75,7 @@ export const getZapEHRTelemedAPI = (
     saveChartDataZambdaID,
     deleteChartDataZambdaID,
     changeTelemedAppointmentStatusZambdaID,
+    syncUserZambdaID,
     getPatientInstructionsZambdaID,
     savePatientInstructionZambdaID,
     deletePatientInstructionZambdaID,
@@ -84,6 +89,7 @@ export const getZapEHRTelemedAPI = (
     'save chart data': saveChartDataZambdaID,
     'delete chart data': deleteChartDataZambdaID,
     'change telemed appointment status': changeTelemedAppointmentStatusZambdaID,
+    'sync user': syncUserZambdaID,
     'get patient instructions': getPatientInstructionsZambdaID,
     'save patient instruction': savePatientInstructionZambdaID,
     'delete patient instruction': deletePatientInstructionZambdaID,
@@ -171,6 +177,10 @@ export const getZapEHRTelemedAPI = (
     return await makeZapRequest('change telemed appointment status', parameters);
   };
 
+  const syncUser = async (): Promise<SyncUserResponse> => {
+    return await makeZapRequest('sync user');
+  };
+
   const getPatientInstructions = async (parameters: GetPatientInstructionsInput): Promise<CommunicationDTO[]> => {
     return await makeZapRequest('get patient instructions', parameters);
   };
@@ -194,6 +204,7 @@ export const getZapEHRTelemedAPI = (
     saveChartData,
     deleteChartData,
     changeTelemedAppointmentStatus,
+    syncUser,
     getPatientInstructions,
     savePatientInstruction,
     deletePatientInstruction,

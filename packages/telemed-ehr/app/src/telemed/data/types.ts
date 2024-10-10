@@ -6,6 +6,7 @@ export type GetZapEHRTelemedAPIParams = {
   saveChartDataZambdaID?: string;
   deleteChartDataZambdaID?: string;
   changeTelemedAppointmentStatusZambdaID?: string;
+  syncUserZambdaID?: string;
   getPatientInstructionsZambdaID?: string;
   savePatientInstructionZambdaID?: string;
   deletePatientInstructionZambdaID?: string;

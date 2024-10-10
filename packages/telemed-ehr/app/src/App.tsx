@@ -8,7 +8,7 @@ import { LoadingScreen } from './components/LoadingScreen';
 import Navbar from './components/navigation/Navbar';
 import { ProtectedRoute } from './components/routing/ProtectedRoute';
 import { useApiClients } from './hooks/useAppClients';
-import useOttehrUser from './hooks/useOttehrUser';
+import useOttehrUser, { useProviderERXStateStore } from './hooks/useOttehrUser';
 import AddPatient from './pages/AddPatient';
 import AppointmentsPage from './pages/Appointments';
 import EditEmployeePage from './pages/EditEmployee';
@@ -27,12 +27,8 @@ import { RoleType } from './types/types';
 import { AppointmentPage } from './pages/AppointmentPage';
 import AddSchedulePage from './pages/AddSchedulePage';
 import Version from './pages/Version';
-
-const enablePhoton = false && isLocalOrDevOrTestingOrTrainingEnv;
-
-if (enablePhoton) {
-  import('@photonhealth/elements').catch(console.log);
-}
+import { isErxEnabled } from './helpers/erx';
+import('@photonhealth/elements').catch(console.log);
 
 const TelemedTrackingBoardPageLazy = lazy(async () => {
   const TrackingBoardPage = await import('./telemed/pages/TrackingBoardPage');
@@ -51,13 +47,21 @@ if (MUI_X_LICENSE_KEY != null) {
   LicenseInfo.setLicenseKey(MUI_X_LICENSE_KEY);
 }
 
+const isERXEnabled = isErxEnabled();
+
 function App(): ReactElement {
   useApiClients();
   const currentUser = useOttehrUser();
   const currentTab = useNavStore((state: any) => state.currentTab) || 'In Person';
 
+  const wasEnrolledInERX = useProviderERXStateStore((state) => state.wasEnrolledInERX);
+
   const roleUnknown =
     !currentUser || !currentUser.hasRole([RoleType.Administrator, RoleType.Staff, RoleType.Manager, RoleType.Provider]);
+
+  console.log(
+    `Photon Client: ${import.meta.env.VITE_APP_PHOTON_CLIENT_ID}, Photon Org: ${import.meta.env.VITE_APP_PHOTON_ORG_ID}`,
+  );
 
   return (
     <CustomThemeProvider>
@@ -72,7 +76,9 @@ function App(): ReactElement {
                 <ProtectedRoute
                   showWhenAuthenticated={
                     <>
-                      {currentUser?.hasRole([RoleType.Provider]) && enablePhoton ? (
+                      {isERXEnabled &&
+                      ((currentUser?.hasRole([RoleType.Provider]) && currentUser.isPractitionerEnrolledInERX) ||
+                        wasEnrolledInERX) ? (
                         <photon-client
                           id={import.meta.env.VITE_APP_PHOTON_CLIENT_ID}
                           org={import.meta.env.VITE_APP_PHOTON_ORG_ID}
