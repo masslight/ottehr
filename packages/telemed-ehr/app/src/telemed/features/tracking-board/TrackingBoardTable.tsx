@@ -132,13 +132,6 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
                   Reason
                 </Typography>
               </TableCell>
-              {showProvider && (
-                <TableCell>
-                  <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                    Provider
-                  </Typography>
-                </TableCell>
-              )}
               <TableCell>
                 <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                   Chat

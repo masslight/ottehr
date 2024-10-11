@@ -179,11 +179,7 @@ export function TrackingBoardTableRow({
           </Typography>
         </Tooltip>
       </TableCell>
-      {showProvider && (
-        <TableCell sx={{ verticalAlign: 'top' }}>
-          <Box>Dr. Smith</Box>
-        </TableCell>
-      )}
+
       <TableCell sx={{ verticalAlign: 'top' }}>
         {showChatIcon && (
           <IconButton
