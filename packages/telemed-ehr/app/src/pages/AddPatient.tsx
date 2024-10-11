@@ -200,7 +200,6 @@ export default function AddPatient(): JSX.Element {
         console.error(`Failed to add patient: ${error}`);
         apiErr = true;
       } finally {
-        console.log('here 2', response);
         setLoading(false);
         if (!response.error && !apiErr) {
           navigate('/visits');
