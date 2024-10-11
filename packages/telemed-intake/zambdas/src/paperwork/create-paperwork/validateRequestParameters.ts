@@ -242,8 +242,8 @@ export function validateCreatePaperworkParams(input: ZambdaInput, questionnaire:
 
   cardsArr.forEach((cardUrl) => {
     const fileType = cardUrl && parseFiletype(cardUrl);
-    if (fileType && fileType !== 'png' && fileType !== 'jpg' && fileType !== 'jpeg') {
-      throw new Error('Unsupported file type. File type must be one of: "png", "jpg", "jpeg"');
+    if (fileType && fileType !== 'png' && fileType !== 'jpg' && fileType !== 'jpeg' && fileType !== 'pdf') {
+      throw new Error('Unsupported file type. File type must be one of: "png", "jpg", "jpeg", "pdf"');
     }
   });
 

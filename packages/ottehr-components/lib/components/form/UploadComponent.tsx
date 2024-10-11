@@ -78,7 +78,7 @@ const UploadComponent: FC<UploadComponentProps> = ({ name, uploadDescription, ha
                 ref={inputRef}
                 value={value?.filename}
                 type="file"
-                accept="image/png, image/jpeg, image/jpg"
+                accept="image/png, image/jpeg, image/jpg, application/pdf"
                 hidden
                 disabled={false}
                 onChange={(e) => onChange(handleFileUpload(e))}
