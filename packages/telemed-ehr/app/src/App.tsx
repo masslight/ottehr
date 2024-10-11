@@ -59,10 +59,6 @@ function App(): ReactElement {
   const roleUnknown =
     !currentUser || !currentUser.hasRole([RoleType.Administrator, RoleType.Staff, RoleType.Manager, RoleType.Provider]);
 
-  console.log(
-    `Photon Client: ${import.meta.env.VITE_APP_PHOTON_CLIENT_ID}, Photon Org: ${import.meta.env.VITE_APP_PHOTON_ORG_ID}`,
-  );
-
   return (
     <CustomThemeProvider>
       <CssBaseline />

@@ -332,7 +332,6 @@ const useSyncPractitioner = (onSuccess: (data: SyncUserResponse) => void) => {
   return useQuery(
     ['sync-user', zambdaClient],
     async () => {
-      console.log('zambdaClient: ', zambdaClient);
       if (!client) return undefined;
       _practitionerSyncStarted = true;
       const result = await client?.syncUser();

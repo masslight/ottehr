@@ -1,5 +1,5 @@
 export const MINIMUM_AGE = 0;
-export const MAXIMUM_AGE = 26;
+export const MAXIMUM_AGE = 120;
 export const MAXIMUM_CHARACTER_LIMIT = 160;
 
 // Phone number regex

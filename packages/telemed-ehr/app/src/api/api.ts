@@ -89,6 +89,7 @@ export const createAppointment = async (
     return chooseJson(response, VITE_APP_IS_LOCAL);
   } catch (error: unknown) {
     console.log(error);
+    return error;
   }
 };
 
