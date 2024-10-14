@@ -1,6 +1,6 @@
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import { Box, IconButton, Link } from '@mui/material';
-import React, { FC, useContext } from 'react';
+import { FC, useContext } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { IntakeThemeContext } from '../../contexts';
 
