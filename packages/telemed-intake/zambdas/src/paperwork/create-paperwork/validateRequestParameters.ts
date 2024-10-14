@@ -32,26 +32,6 @@ function checkRequire(item: any, values: any): boolean {
   return false;
 }
 
-function checkEnable(item: any, values: any): boolean {
-  if (item.hidden && !item.enableWhen) {
-    return false;
-  }
-
-  if (item.enableWhen) {
-    const value = values[item.enableWhen.question];
-    // console.log(item.name, item.enableWhen.answer, value);
-    if (item.enableWhen.operator === '=') {
-      const test = value === item.enableWhen.answer;
-      if (!test) {
-        item.hidden = true;
-      }
-      return test;
-    }
-  }
-
-  return true;
-}
-
 export function validateCreatePaperworkParams(input: ZambdaInput, questionnaire: Questionnaire): CreatePaperworkInput {
   if (!input.body) {
     throw new Error('No request body provided');
@@ -71,10 +51,6 @@ export function validateCreatePaperworkParams(input: ZambdaInput, questionnaire:
         questionnaireItemInputTemp.type === 'Header 3' ||
         questionnaireItemInputTemp.type === 'Photos'
       ) {
-        return;
-      }
-
-      if (!checkEnable(questionnaireItemInputTemp, paperwork)) {
         return;
       }
 

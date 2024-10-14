@@ -85,6 +85,29 @@ export function getOptionsArray(item: QuestionnaireItem, valueSets?: ValueSet[])
   return options;
 }
 
+export function checkEnable(item: Pick<Question, 'enableWhen' | 'hidden'>, values: Record<string, any>): boolean {
+  if (item.hidden && !item.enableWhen) {
+    return false;
+  }
+
+  if (item.enableWhen) {
+    const value = values[item.enableWhen.question];
+    if (item.enableWhen.operator === '=') {
+      let test = value === item.enableWhen.answer;
+
+      if (item.enableWhen.answer.includes('|')) {
+        const answerArray = item.enableWhen.answer.split('|');
+        test = answerArray.includes(value);
+      }
+
+      item.hidden = !test;
+      return test;
+    }
+  }
+
+  return true;
+}
+
 export function questionnaireItemToInputType(item: QuestionnaireItem, valueSets?: ValueSet[]): Question {
   const questionItemType = item.type;
   let formItemType: FormItemType = undefined;
@@ -250,6 +273,9 @@ export function questionnaireItemToInputType(item: QuestionnaireItem, valueSets?
     )?.valueString,
     docType: item.extension?.find(
       (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/document-type',
+    )?.valueString,
+    fileUploadType: item.extension?.find(
+      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/file-upload-type',
     )?.valueString,
     enableWhen: enableWhen
       ? {

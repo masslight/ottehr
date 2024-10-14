@@ -3,7 +3,7 @@ import { PaperworkResponse, UpdatePaperworkInput } from '.';
 import { questionnaireItemToInputType } from '../get-paperwork';
 import { emailRegex, phoneRegex, zipRegex } from '../shared';
 import { dateRegex } from '../shared/validation';
-import { ZambdaInput, parseFiletype } from 'ottehr-utils';
+import { ZambdaInput, checkEnable, parseFiletype } from 'ottehr-utils';
 
 function checkRequire(item: any, values: any): boolean {
   if (item.required && !item.requireWhen) {
@@ -19,26 +19,6 @@ function checkRequire(item: any, values: any): boolean {
   }
 
   return false;
-}
-
-function checkEnable(item: any, values: any): boolean {
-  if (item.hidden && !item.enableWhen) {
-    return false;
-  }
-
-  if (item.enableWhen) {
-    const value = values[item.enableWhen.question];
-    // console.log(item.name, item.enableWhen.answer, value);
-    if (item.enableWhen.operator === '=') {
-      const test = value === item.enableWhen.answer;
-      if (!test) {
-        item.hidden = true;
-      }
-      return test;
-    }
-  }
-
-  return true;
 }
 
 export function validateUpdatePaperworkParams(input: ZambdaInput, questionnaire: Questionnaire): UpdatePaperworkInput {

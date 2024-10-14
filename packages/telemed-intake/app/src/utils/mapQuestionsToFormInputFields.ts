@@ -34,6 +34,7 @@ export const useMapQuestionsToFormInputFields = ({
           helperText: item.helperText,
           showHelperTextIcon: item.showHelperTextIcon,
           fileOptions: getFileOptions && getFileOptions(item),
+          fileUploadType: item.fileUploadType,
           multiline: item.multiline,
           minRows: item.minRows,
           infoText: item.infoText,

@@ -5,6 +5,7 @@ import {
   PaperworkResponse,
   UpdatePaperworkInput,
   ZambdaInput,
+  checkEnable,
   dateRegex,
   emailRegex,
   parseFiletype,
@@ -12,26 +13,6 @@ import {
   questionnaireItemToInputType,
   zipRegex,
 } from 'ottehr-utils';
-
-function checkEnable(item: any, values: any): boolean {
-  if (item.hidden && !item.enableWhen) {
-    return false;
-  }
-
-  if (item.enableWhen) {
-    const value = values[item.enableWhen.question];
-    // console.log(item.name, item.enableWhen.answer, value);
-    if (item.enableWhen.operator === '=') {
-      const test = value === item.enableWhen.answer;
-      if (!test) {
-        item.hidden = true;
-      }
-      return test;
-    }
-  }
-
-  return true;
-}
 
 export function validateUpdatePaperworkParams(
   input: ZambdaInput,
