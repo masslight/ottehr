@@ -7,6 +7,7 @@ import {
   PHOTO_ID_FRONT_ID,
   PaperworkResponse,
   ZambdaInput,
+  checkEnable,
   dateRegex,
   emailRegex,
   parseFiletype,
@@ -51,6 +52,10 @@ export function validateCreatePaperworkParams(input: ZambdaInput, questionnaire:
         questionnaireItemInputTemp.type === 'Header 3' ||
         questionnaireItemInputTemp.type === 'Photos'
       ) {
+        return;
+      }
+
+      if (!checkEnable(questionnaireItemInputTemp, paperwork)) {
         return;
       }
 
