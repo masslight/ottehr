@@ -1,10 +1,13 @@
 import React, { FC } from 'react';
 import { TabContext, TabList } from '@mui/lab';
 import { Box, Tab, Typography } from '@mui/material';
-import AssignmentIndOutlinedIcon from '@mui/icons-material/AssignmentIndOutlined';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../state';
-import { ContractEditIcon, DiagnosisIcon, PatientListIcon, StethoscopeIcon } from '../../assets';
+import {
+  ContractEditIcon,
+  DiagnosisIcon,
+  StethoscopeIcon,
+} from '../../assets';
 
 export const AppointmentTabsHeader: FC = () => {
   const { currentTab } = getSelectors(useAppointmentStore, ['currentTab']);
@@ -16,17 +19,6 @@ export const AppointmentTabsHeader: FC = () => {
   return (
     <TabContext value={currentTab}>
       <TabList onChange={handleTabChange}>
-        <Tab
-          label={
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <AssignmentIndOutlinedIcon />
-              <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>
-                HPI and Medical history
-              </Typography>
-            </Box>
-          }
-          value="hpi"
-        />
         <Tab
           label={
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
@@ -46,15 +38,6 @@ export const AppointmentTabsHeader: FC = () => {
             </Box>
           }
           value="erx"
-        />
-        <Tab
-          label={
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <PatientListIcon />
-              <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>Plan</Typography>
-            </Box>
-          }
-          value="plan"
         />
         <Tab
           label={

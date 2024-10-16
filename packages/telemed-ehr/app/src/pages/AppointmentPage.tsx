@@ -74,7 +74,7 @@ export const AppointmentPage: FC = () => {
       questionnaireResponse: undefined,
       patientPhotoUrls: [],
       chartData: undefined,
-      currentTab: 'hpi',
+      currentTab: 'exam',
     });
     useExamObservationsStore.setState(EXAM_OBSERVATIONS_INITIAL);
     useExamCardsStore.setState(EXAM_CARDS_INITIAL);

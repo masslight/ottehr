@@ -133,7 +133,7 @@ export const AppointmentPage: FC = () => {
       patientPhotoUrls: [],
       schoolWorkNoteUrls: [],
       chartData: undefined,
-      currentTab: 'hpi',
+      currentTab: 'exam',
     });
     useExamObservationsStore.setState(EXAM_OBSERVATIONS_INITIAL);
     useVideoCallStore.setState({ meetingData: null });
