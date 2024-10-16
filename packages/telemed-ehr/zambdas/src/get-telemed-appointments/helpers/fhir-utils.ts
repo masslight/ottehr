@@ -23,7 +23,6 @@ import { LocationIdToAbbreviationMap } from './types';
 export const getAllResourcesFromFhir = async (
   fhirClient: FhirClient,
   searchDate: DateTime,
-  locationIDs: string[],
   providerIDs: string[],
   groupIDs: string[],
   encounterStatusesToSearchWith: string[],
@@ -43,10 +42,6 @@ export const getAllResourcesFromFhir = async (
         name: 'service-type',
         value: 'http://terminology.hl7.org/CodeSystem/service-type|telemedicine',
       },
-      // {
-      //   name: 'date',
-      //   value: `le${searchDate.endOf('day')}`,
-      // },
       {
         name: '_has:Encounter:appointment:status',
         value: encounterStatusesToSearchWith.join(','),
@@ -87,13 +82,6 @@ export const getAllResourcesFromFhir = async (
       { name: '_include', value: 'Appointment:actor' },
     ],
   };
-
-  if (locationIDs.length > 0) {
-    fhirSearchParams.searchParams.push({
-      name: 'location',
-      value: joinLocationsIdsForFhirSearch(locationIDs),
-    });
-  }
   if (providerIDs.length > 0) {
     fhirSearchParams.searchParams.push({
       name: 'actor',
@@ -106,6 +94,7 @@ export const getAllResourcesFromFhir = async (
       value: groupIDs.map((groupID) => `HealthcareService/${groupID}`).join(','),
     });
   }
+
   return await fhirClient?.searchResources(fhirSearchParams);
 };
 
@@ -210,17 +199,36 @@ export const getAllPrefilteredFhirResources = async (
   );
   if (!locationsIdsToSearchWith) return undefined;
   const encounterStatusesToSearchWith = mapTelemedStatusToEncounter(statusesFilter);
-  console.log('Received all location ids and encounter statuses to search with.');
   const dateFilterConverted = DateTime.fromISO(dateFilter);
   allResources = await getAllResourcesFromFhir(
     fhirClient,
     dateFilterConverted,
-    locationsIdsToSearchWith,
     providersFilter || [],
     groupsFilter || [],
     encounterStatusesToSearchWith,
   );
-  console.log('Received resources from fhir with all filters applied.');
+
+  if (patientFilter === 'my-patients') {
+    const resourcesWithLocations = allResources
+      .map((resource) => {
+        if (resource.resourceType === 'Appointment') {
+          const appointment = resource as Appointment;
+          const hasDesiredLocation = appointment.participant.some((participant) => {
+            const actorReference = participant?.actor?.reference;
+            return (
+              actorReference?.startsWith('Location/') &&
+              locationsIdsToSearchWith.includes(actorReference?.split('/')[1])
+            );
+          });
+
+          return hasDesiredLocation ? appointment : null;
+        }
+        return resource;
+      })
+      .filter(Boolean) as Resource[];
+    return resourcesWithLocations;
+  }
+
   return allResources;
 };
 
