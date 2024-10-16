@@ -11,10 +11,13 @@ import { TIMEZONE_EXTENSION_URL } from './fhir';
 interface EncounterDetails {
   encounter: Encounter;
   plannedHistoryIdx: number;
+  canceledHistoryIdx: number;
+  arrivedHistoryIdx: number;
   location: { name: string; slug: string; timezone: string };
   visitType: string;
   appointmentStart: string | undefined;
   patientID: string | undefined;
+  appointment: Appointment | undefined;
 }
 
 export const getVideoEncounterForAppointment = async (
@@ -41,12 +44,18 @@ export const getVideoEncounterForAppointment = async (
 };
 
 export const getEncounterDetails = async (appointmentID: string, fhirClient: FhirClient): Promise<EncounterDetails> => {
-  let plannedIdx, location, visitType, appointmentStart, patientID;
+  let plannedIdx, location, visitType, appointmentStart, patientID, arrivedHistoryIdx, canceledHistoryIdx;
   const encounter = await getEncounterForAppointment(appointmentID, fhirClient);
+  let appointment: Appointment | undefined = undefined;
   console.log('Got encounter with id', encounter.id);
   if (encounter.statusHistory) {
-    const plannedHistory = encounter.statusHistory?.find((history) => history.status === 'planned');
-    plannedIdx = plannedHistory ? encounter.statusHistory.indexOf(plannedHistory) : -1;
+    plannedIdx = encounter.statusHistory.findIndex((history) => history.status === 'planned' && !history.period.end);
+    arrivedHistoryIdx = encounter.statusHistory.findIndex(
+      (history) => history.status === 'arrived' && !history.period.end,
+    );
+    canceledHistoryIdx = encounter.statusHistory.findIndex(
+      (history) => history.status === 'cancelled' && !history.period.end,
+    );
   } else {
     throw new Error('Encounter status history not found');
   }
@@ -60,8 +69,9 @@ export const getEncounterDetails = async (appointmentID: string, fhirClient: Fhi
     location = {
       name: fhirLocation?.name || 'Unknown',
       slug:
-        fhirLocation.identifier?.find((identifierTemp) => identifierTemp.system === 'https://fhir.ottehr.com/r4/slug')
-          ?.value || 'Unknown',
+        fhirLocation.identifier?.find(
+          (identifierTemp) => identifierTemp.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/location',
+        )?.value || 'Unknown',
       timezone:
         fhirLocation.extension?.find((extTemp) => extTemp.url === TIMEZONE_EXTENSION_URL)?.valueString || 'Unknown',
     };
@@ -69,10 +79,13 @@ export const getEncounterDetails = async (appointmentID: string, fhirClient: Fhi
     throw new Error('Error getting location details');
   }
   try {
-    const appointment: Appointment = await fhirClient.readResource({
+    appointment = (await fhirClient.readResource({
       resourceType: 'Appointment',
       resourceId: appointmentID,
-    });
+    })) as Appointment;
+    if (!appointment) {
+      throw new Error('error searching for appointment resource');
+    }
     patientID = getParticipantFromAppointment(appointment, 'Patient');
     appointmentStart = appointment.start;
     visitType =
@@ -83,5 +96,15 @@ export const getEncounterDetails = async (appointmentID: string, fhirClient: Fhi
     throw new Error('Error getting appointment details');
   }
 
-  return { encounter, plannedHistoryIdx: plannedIdx, location, visitType, appointmentStart, patientID };
+  return {
+    encounter,
+    plannedHistoryIdx: plannedIdx,
+    arrivedHistoryIdx,
+    canceledHistoryIdx,
+    location,
+    visitType,
+    appointmentStart,
+    appointment,
+    patientID,
+  };
 };

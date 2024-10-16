@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import { ZambdaInput, SecretsKeys, getSecret, Secrets } from 'ottehr-utils';
 
 export enum AuditableZambdaEndpoints {
-  appointmentCancel = 'cancel-appointment',
+  appointmentCancel = 'cancel-telemed-appointment',
   appointmentCheckIn = 'check-in',
   appointmentCreate = 'create-appointment',
   appointmentUpdate = 'update-appointment',

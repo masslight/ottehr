@@ -14,7 +14,7 @@ DIST_DIR=$(realpath $SCRIPTS_DIR/../.dist)
 # Every time we add a new endpoint in serverless.yml we should dublicate it's name here, otherwise it will not be deployed
 # Zip
 
-ZIP_ORDER=('get-patients' 'get-providers' 'get-groups' 'get-locations' 'get-paperwork' 'create-paperwork' 'update-paperwork' 'update-appointment' 'create-appointment' 'get-appointments' 'get-schedule' 'cancel-appointment' 'get-wait-status' 'join-call' 'video-chat-invites-create' 'video-chat-invites-cancel' 'video-chat-invites-list' 'get-presigned-file-url' 'payment-methods-setup' 'payment-methods-list' 'payment-methods-set-default' 'payment-methods-delete')
+ZIP_ORDER=('get-patients' 'get-providers' 'get-groups' 'get-locations' 'get-paperwork' 'create-paperwork' 'update-paperwork' 'update-appointment' 'create-appointment' 'get-appointments' 'get-schedule' 'cancel-telemed-appointment' 'cancel-in-person-appointment' 'get-wait-status' 'join-call' 'video-chat-invites-create' 'video-chat-invites-cancel' 'video-chat-invites-list' 'get-presigned-file-url' 'payment-methods-setup' 'payment-methods-list' 'payment-methods-set-default' 'payment-methods-delete')
 
 for ZAMBDA in ${ZIP_ORDER[@]}; do
   # Set up temp directory for the zip

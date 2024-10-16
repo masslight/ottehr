@@ -6,7 +6,8 @@ export type GetZapEHRAPIParams = {
   isAppLocal?: 'true' | 'false';
   checkInZambdaID?: string;
   createAppointmentZambdaID?: string;
-  cancelAppointmentZambdaID?: string;
+  cancelTelemedAppointmentZambdaID?: string;
+  cancelInPersonAppointmentZambdaID?: string;
   updateAppointmentZambdaID?: string;
   getPatientsZambdaID?: string;
   getScheduleZambdaID?: string;

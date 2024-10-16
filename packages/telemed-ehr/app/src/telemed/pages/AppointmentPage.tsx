@@ -165,7 +165,7 @@ export const AppointmentPage: FC = () => {
       <HearingRelayPopup isOpen={isHearingRelayPopupOpen} onClose={closeHearingRelayPopup} />
 
       <Box sx={{ display: 'flex', flex: 1 }}>
-        <AppointmentSidePanel />
+        <AppointmentSidePanel appointmentType="telemed" />
 
         <Box
           sx={{

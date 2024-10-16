@@ -93,10 +93,10 @@ export const AppointmentPage: FC = () => {
         minHeight: '100vh',
       }}
     >
-      <AppointmentHeader onClose={() => navigate('/')} />
+      <AppointmentHeader onClose={() => navigate('/visits')} />
 
       <Box sx={{ display: 'flex', flex: 1, width: '100%' }}>
-        <AppointmentSidePanel />
+        <AppointmentSidePanel appointmentType="in-person" />
 
         <Container maxWidth="xl" sx={{ my: 3 }}>
           <AppointmentTabs />
