@@ -19,7 +19,7 @@ export const AssessmentCard: FC = () => {
         rightColumn={
           <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <AssessmentTitle>Medical Decision Making</AssessmentTitle>
+              <AssessmentTitle>SOAP Note</AssessmentTitle>
               {isReadOnly ? (
                 mdm ? (
                   <Typography>{mdm}</Typography>
