@@ -35,7 +35,6 @@ interface StructuredAppointmentData {
   preBookedAppointments: UCAppointmentInformation[];
   completedAppointments: UCAppointmentInformation[];
   cancelledAppointments: UCAppointmentInformation[];
-  inOfficeAppointments: UCAppointmentInformation[];
   activeApptDatesBeforeToday: string[];
 }
 
@@ -99,21 +98,18 @@ export default function Appointments(): ReactElement {
     preBookedAppointments,
     completedAppointments,
     cancelledAppointments,
-    inOfficeAppointments,
     activeApptDatesBeforeToday,
   } = useMemo(() => {
     const structuredAppts: StructuredAppointmentData = {
       preBookedAppointments: [],
       completedAppointments: [],
       cancelledAppointments: [],
-      inOfficeAppointments: [],
       activeApptDatesBeforeToday: [],
     };
     if (searchResults !== null) {
       structuredAppts.preBookedAppointments = searchResults.preBooked ?? [];
       structuredAppts.completedAppointments = searchResults.completed ?? [];
       structuredAppts.cancelledAppointments = searchResults.cancelled ?? [];
-      structuredAppts.inOfficeAppointments = searchResults.inOffice ?? [];
       structuredAppts.activeApptDatesBeforeToday = searchResults.activeApptDatesBeforeToday ?? [];
     }
     return structuredAppts;
@@ -267,7 +263,6 @@ export default function Appointments(): ReactElement {
       preBookedAppointments={preBookedAppointments}
       completedAppointments={completedAppointments}
       cancelledAppointments={cancelledAppointments}
-      inOfficeAppointments={inOfficeAppointments}
       locationSelected={locationSelected}
       setLocationSelected={setLocationSelected}
       practitioners={practitioners}
@@ -286,7 +281,6 @@ interface AppointmentsBodyProps {
   preBookedAppointments: UCAppointmentInformation[];
   completedAppointments: UCAppointmentInformation[];
   cancelledAppointments: UCAppointmentInformation[];
-  inOfficeAppointments: UCAppointmentInformation[];
   appointmentDate: DateTime | null;
   locationSelected: Location | undefined;
   handleSubmit: CustomFormEventHandler;
@@ -308,7 +302,6 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
     preBookedAppointments,
     completedAppointments,
     cancelledAppointments,
-    inOfficeAppointments,
     locationSelected,
     setLocationSelected,
     appointmentDate,
@@ -432,7 +425,6 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
             preBookedAppointments={preBookedAppointments}
             cancelledAppointments={cancelledAppointments}
             completedAppointments={completedAppointments}
-            inOfficeAppointments={inOfficeAppointments}
             loading={loadingState.status === 'loading'}
             updateAppointments={updateAppointments}
             setEditingComment={setEditingComment}
