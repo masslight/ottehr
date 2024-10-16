@@ -213,7 +213,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     console.log('Send cancel message request');
     if (!zapehrMessagingToken) {
-      zapehrMessagingToken = await getAccessToken(secrets, 'messaging');
+      zapehrMessagingToken = await getAccessToken(secrets, 'regular');
     }
     const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
     const message = `Your visit for ${getPatientFirstName(patient)} with Ottehr Urgent Care ${
@@ -237,7 +237,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('cancel-appointment', error, input.secrets);
+    await topLevelCatch('cancel-in-person-appointment', error, input.secrets);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: 'Internal error' }),

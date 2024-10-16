@@ -102,7 +102,7 @@ export const cancelTelemedAppointment = async (
 ): Promise<any> => {
   try {
     if (CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID == null) {
-      throw new Error('cancel appointment environment variable could not be loaded');
+      throw new Error('cancel telemed appointment environment variable could not be loaded');
     }
 
     const response = await zambdaClient?.invokeZambda({
@@ -274,7 +274,7 @@ export const cancelInPersonAppointment = async (
 ): Promise<any> => {
   try {
     if (CANCEL_IN_PERSON_APPOINTMENT_ZAMBDA_ID == null) {
-      throw new Error('cancel appointment environment variable could not be loaded');
+      throw new Error('cancel in person appointment environment variable could not be loaded');
     }
 
     console.log('canceling in-person appointment', parameters);

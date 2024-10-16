@@ -1,7 +1,7 @@
 import { User } from '@zapehr/sdk';
 import { Appointment, Period } from 'fhir/r4';
 import { DateTime } from 'luxon';
-import { ExamFieldsNames, PractitionerLicense, Secrets, VisitStatus } from 'ehr-utils';
+import { ExamFieldsNames, PractitionerLicense, VisitStatus } from 'ehr-utils';
 
 export interface GetAppointmentsParameters {
   searchDate?: DateTime | undefined;
@@ -176,7 +176,7 @@ export interface DeactivateUserParameters {
 
 export interface CancelAppointmentParameters {
   appointmentID: string;
-  cancellationReason: CancellationReasonOptions;
+  cancellationReason: string;
 }
 
 export interface EmployeeDetails {
@@ -221,17 +221,24 @@ export interface AccessPolicy {
   }[];
 }
 
-export enum CancellationReasonOptions {
-  'Patient improved' = 'Patient improved',
-  'Wait time too long' = 'Wait time too long',
-  'Prefer another urgent care provider' = 'Prefer another urgent care provider',
-  'Changing location' = 'Changing location',
-  'Changing to telemedicine' = 'Changing to telemedicine',
-  'Financial responsibility concern' = 'Financial responsibility concern',
-  'Insurance issue' = 'Insurance issue',
-  'Service not offered at' = 'Service not offered at',
-  'Duplicate visit or account error' = 'Duplicate visit or account error',
-}
+export const inPersonCancellationReasons = [
+  'Patient improved',
+  'Wait time too long',
+  'Prefer another urgent care provider',
+  'Changing location',
+  'Changing to telemedicine',
+  'Financial responsibility concern',
+  'Insurance issue',
+  'Service not offered at',
+  'Duplicate visit or account error',
+];
+
+export const telemedCancellationReasons = [
+  'Patient did not answer after multiple attempts',
+  'Wrong patient name on chart',
+  'Technical issues connecting and/ or with video',
+  'Other',
+];
 
 export interface SMSRecipient {
   relatedPersonId: string;
