@@ -15,7 +15,6 @@ import EditEmployeePage from './pages/EditEmployee';
 import EmployeesPage from './pages/Employees';
 import Logout from './pages/Logout';
 import SchedulePage from './pages/Schedule';
-import SchedulesPage from './pages/Schedules';
 import PatientInformationPage from './pages/PatientInformationPage';
 import PatientsPage from './pages/Patients';
 import { TelemedAdminPage } from './pages/TelemedAdminPage';
@@ -106,7 +105,6 @@ function App(): ReactElement {
                   <Route path="/visits" element={<AppointmentsPage />} />
                   <Route path="/visits/add" element={<AddPatient />} />
                   <Route path="/visit/:id" element={<AppointmentPage />} />
-                  <Route path="/schedules" element={<SchedulesPage />} />
                   <Route path="/schedule/:schedule-type/add" element={<AddSchedulePage />} />
                   <Route path="/schedule/:schedule-type/:id" element={<SchedulePage />} />
                   <Route path="/employees" element={<EmployeesPage />} />
