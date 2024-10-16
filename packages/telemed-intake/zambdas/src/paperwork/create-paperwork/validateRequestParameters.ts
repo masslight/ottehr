@@ -7,6 +7,7 @@ import {
   PHOTO_ID_FRONT_ID,
   PaperworkResponse,
   ZambdaInput,
+  checkEnable,
   dateRegex,
   emailRegex,
   parseFiletype,
@@ -30,26 +31,6 @@ function checkRequire(item: any, values: any): boolean {
   }
 
   return false;
-}
-
-function checkEnable(item: any, values: any): boolean {
-  if (item.hidden && !item.enableWhen) {
-    return false;
-  }
-
-  if (item.enableWhen) {
-    const value = values[item.enableWhen.question];
-    // console.log(item.name, item.enableWhen.answer, value);
-    if (item.enableWhen.operator === '=') {
-      const test = value === item.enableWhen.answer;
-      if (!test) {
-        item.hidden = true;
-      }
-      return test;
-    }
-  }
-
-  return true;
 }
 
 export function validateCreatePaperworkParams(input: ZambdaInput, questionnaire: Questionnaire): CreatePaperworkInput {
@@ -242,8 +223,8 @@ export function validateCreatePaperworkParams(input: ZambdaInput, questionnaire:
 
   cardsArr.forEach((cardUrl) => {
     const fileType = cardUrl && parseFiletype(cardUrl);
-    if (fileType && fileType !== 'png' && fileType !== 'jpg' && fileType !== 'jpeg') {
-      throw new Error('Unsupported file type. File type must be one of: "png", "jpg", "jpeg"');
+    if (fileType && fileType !== 'png' && fileType !== 'jpg' && fileType !== 'jpeg' && fileType !== 'pdf') {
+      throw new Error('Unsupported file type. File type must be one of: "png", "jpg", "jpeg", "pdf"');
     }
   });
 

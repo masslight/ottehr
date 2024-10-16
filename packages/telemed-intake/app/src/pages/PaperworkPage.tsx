@@ -156,7 +156,7 @@ const PaperworkPage = (): JSX.Element => {
   const mapQuestionsToFormInputFields = useMapQuestionsToFormInputFields({
     getLabel: (item) => item.text.replace('{patientFirstName}', patientInfo?.firstName || 'Patient'),
     getDefaultValue: (item) =>
-      completedPaperwork[item.id] || fileURLs?.[item.id]?.localUrl || fileURLs?.[item.id]?.presignedUrl,
+      fileURLs?.[item.id]?.localUrl || fileURLs?.[item.id]?.presignedUrl || completedPaperwork[item.id],
     getFileOptions: (item) => ({
       description: item.attachmentText,
       onUpload: setFileUploads,
