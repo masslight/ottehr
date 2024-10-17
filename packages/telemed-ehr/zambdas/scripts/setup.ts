@@ -209,7 +209,7 @@ export async function setupEHR(
     projectId,
   );
 
-  const bucketNames = ['telemed-appointments', 'telemed-patients', 'telemed-paperwork'];
+  const bucketNames = ['id-cards', 'insurance-cards', 'school-work-note-templates'];
 
   await createZ3(projectApiUrl, projectId, accessToken, bucketNames);
 
