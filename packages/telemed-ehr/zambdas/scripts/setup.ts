@@ -208,7 +208,10 @@ export async function setupEHR(
     accessToken,
     projectId,
   );
-  await createZ3(projectApiUrl, projectId, accessToken, ['id-cards', 'insurance-cards']);
+
+  const bucketNames = ['telemed-appointments', 'telemed-patients', 'telemed-paperwork'];
+
+  await createZ3(projectApiUrl, projectId, accessToken, bucketNames);
 
   if (invitationUrl) {
     console.log(

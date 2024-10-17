@@ -168,6 +168,7 @@ function createZambdaLocalEnvFile(
     FHIR_API: 'https://fhir-api.zapehr.com/r4',
     PROJECT_API: 'https://project-api.zapehr.com/v1',
     ORGANIZATION_ID: organizationId,
+    PROJECT_ID: projectId,
   };
 
   const envFolderPath = 'packages/telemed-intake/zambdas/.env';
@@ -261,7 +262,6 @@ export async function setupIntake(
   projectApiUrl: string,
   accessToken: string,
   projectId: string,
-  providerEmail: string,
   m2mDeviceId: string,
   m2mClientId: string,
   m2mSecret: string,
