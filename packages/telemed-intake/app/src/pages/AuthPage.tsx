@@ -24,6 +24,7 @@ const AuthPage: FC = () => {
   if (!localStorage.getItem('welcomePath')) {
     return <Navigate to={IntakeFlowPageRoute.PatientPortal.path} />;
   }
+  localStorage.removeItem('welcomePath');
   return <Navigate to={`${IntakeFlowPageRoute.SelectPatient.path}?flow=requestVisit`} />;
 };
 
