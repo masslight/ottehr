@@ -19,7 +19,7 @@
     "start:local": "npm run start",
     "preview": "vite preview --port 4002",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "build:dev": "tsc && vite build --mode dev",
     "build:development": "ENV=development npm run build-skeleton",
     "build:testing": "ENV=testing npm run build-skeleton",
