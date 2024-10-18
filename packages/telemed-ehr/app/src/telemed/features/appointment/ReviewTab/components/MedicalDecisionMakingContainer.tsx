@@ -11,12 +11,12 @@ export const MedicalDecisionMakingContainer: FC = () => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
       <Typography variant="h5" color="primary.dark">
-        Medical Decision Making
+        SOAP Note
       </Typography>
       {medicalDecision ? (
         <Typography>{medicalDecision}</Typography>
       ) : (
-        <Typography color="secondary.light">No medical decision making provided</Typography>
+        <Typography color="secondary.light">No SOAP Note provided</Typography>
       )}
     </Box>
   );

@@ -9,5 +9,4 @@ export * from './VideoChatLayout';
 export * from './VideoControls';
 export * from './VideoChatContainer';
 export * from './CallSettings';
-export * from './MedicalHistoryTab';
 export * from './ExamTab';

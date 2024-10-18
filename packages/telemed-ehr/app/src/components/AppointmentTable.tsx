@@ -1,7 +1,4 @@
-import ArrowDropDownCircleOutlinedIcon from '@mui/icons-material/ArrowDropDownCircleOutlined';
 import {
-  Box,
-  IconButton,
   Paper,
   Table,
   TableBody,
@@ -10,7 +7,6 @@ import {
   TableHead,
   TableRow,
   Typography,
-  alpha,
   useTheme,
 } from '@mui/material';
 import { Location } from 'fhir/r4';
@@ -110,100 +106,7 @@ export default function AppointmentTable({
               </TableRow>
             </TableHead>
             <TableBody>
-              {tab === ApptTab['in-office'] ? (
-                <>
-                  <TableRow>
-                    <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={9}>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <IconButton onClick={() => setCollapseWaiting(!collapseWaiting)} sx={{ mr: 0.75, p: 0 }}>
-                          <ArrowDropDownCircleOutlinedIcon
-                            sx={{
-                              color: theme.palette.primary.main,
-                              rotate: collapseWaiting ? '' : '180deg',
-                            }}
-                          ></ArrowDropDownCircleOutlinedIcon>
-                        </IconButton>
-                        {/* todo add a count to the this title */}
-                        <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                          Waiting Room (
-                          {
-                            appointments.filter((appointmentTemp) => {
-                              return appointmentTemp.status === 'arrived' || appointmentTemp.status === 'ready';
-                            }).length
-                          }
-                          )
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                  {!collapseWaiting &&
-                    // todo add logic to filter out appointments that are not waiting
-                    appointments
-                      .filter((appointmentTemp) => {
-                        return appointmentTemp.status === 'arrived' || appointmentTemp.status === 'ready';
-                      })
-                      .map((appointment, idx) => {
-                        return (
-                          <AppointmentTableRow
-                            key={idx}
-                            appointment={appointment}
-                            location={location}
-                            actionButtons={actionButtons}
-                            showTime={showTime}
-                            now={now}
-                            updateAppointments={updateAppointments}
-                            setEditingComment={setEditingComment}
-                            tab={tab}
-                          ></AppointmentTableRow>
-                        );
-                      })}
-                  <TableRow>
-                    <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={9}>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <IconButton onClick={() => setCollapseExam(!collapseExam)} sx={{ mr: 0.75, p: 0 }}>
-                          <ArrowDropDownCircleOutlinedIcon
-                            sx={{
-                              color: theme.palette.primary.main,
-                              rotate: collapseExam ? '' : '180deg',
-                            }}
-                          ></ArrowDropDownCircleOutlinedIcon>
-                        </IconButton>
-                        {/* todo add a count to the this title */}
-                        <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                          In Exam (
-                          {
-                            appointments.filter((appointmentTemp) => {
-                              return appointmentTemp.status !== 'arrived' && appointmentTemp.status !== 'ready';
-                            }).length
-                          }
-                          )
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                  {!collapseExam &&
-                    // todo add logic to filter out appointments that are not in exam
-                    appointments
-                      .filter((appointmentTemp) => {
-                        return appointmentTemp.status !== 'arrived' && appointmentTemp.status !== 'ready';
-                      })
-                      .map((appointment, idx) => {
-                        return (
-                          <AppointmentTableRow
-                            key={idx}
-                            appointment={appointment}
-                            location={location}
-                            actionButtons={actionButtons}
-                            showTime={showTime}
-                            now={now}
-                            updateAppointments={updateAppointments}
-                            setEditingComment={setEditingComment}
-                            tab={tab}
-                          ></AppointmentTableRow>
-                        );
-                      })}
-                </>
-              ) : (
+              {
                 appointments?.map((appointment, idx) => {
                   return (
                     <AppointmentTableRow
@@ -219,7 +122,7 @@ export default function AppointmentTable({
                     ></AppointmentTableRow>
                   );
                 })
-              )}
+              }
             </TableBody>
           </Table>
         </TableContainer>

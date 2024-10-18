@@ -20,7 +20,6 @@ import { Link, useLocation } from 'react-router-dom';
 import logo from '../../assets/logo-4x.png';
 import useOttehrUser from '../../hooks/useOttehrUser';
 import { AppTab, useNavStore } from '../../state/nav.store';
-import { isLocalOrDevOrTestingOrTrainingEnv } from '../../telemed/utils/env.helper';
 import { RoleType } from '../../types/types';
 import { otherColors } from '../../CustomThemeProvider';
 
@@ -35,14 +34,12 @@ type NavbarItems = {
 
 const administratorNavbarItems: NavbarItems = {
   'In Person': { urls: ['/visits', '/visit'] },
-  Schedules: { urls: ['/schedules', '/schedule'] },
   Patients: { urls: ['/patients', '/patient'] },
   Employees: { urls: ['/employees', '/employee'] },
 };
 
 const managerNavbarItems: NavbarItems = {
   'In Person': { urls: ['/visits', '/visit'] },
-  Schedules: { urls: ['/schedules', '/schedule'] },
   Patients: { urls: ['/patients', '/patient'] },
   Employees: { urls: ['/employees', '/employee'] },
 };

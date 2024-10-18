@@ -35,7 +35,7 @@ const APPOINTMENT_INITIAL: AppointmentState = {
   isExamObservationsLoading: false,
   isReadOnly: true,
   chartData: undefined,
-  currentTab: 'hpi',
+  currentTab: 'exam',
 };
 
 export const useAppointmentStore = create<AppointmentState & AppointmentStoreActions>()((set) => ({

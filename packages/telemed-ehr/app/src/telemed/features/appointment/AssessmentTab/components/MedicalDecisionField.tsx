@@ -38,7 +38,7 @@ export const MedicalDecisionField: FC = () => {
             onValueChange(e.target.value);
           }}
           size="small"
-          label="Medical Decision Making *"
+          label="SOAP Note *"
           fullWidth
           multiline
         />

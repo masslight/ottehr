@@ -1,7 +1,7 @@
 import FmdBadOutlinedIcon from '@mui/icons-material/FmdBadOutlined';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Grid, Tab, Typography } from '@mui/material';
-import { Location, Practitioner } from 'fhir/r4';
+import { Location } from 'fhir/r4';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useState } from 'react';
 import { UCAppointmentInformation } from 'ehr-utils';
@@ -11,7 +11,6 @@ import Loading from './Loading';
 
 export enum ApptTab {
   'prebooked' = 'prebooked',
-  'in-office' = 'in-office',
   'completed' = 'completed',
   'cancelled' = 'cancelled',
 }
@@ -23,7 +22,6 @@ interface AppointmentsTabProps {
   preBookedAppointments: UCAppointmentInformation[];
   completedAppointments: UCAppointmentInformation[];
   cancelledAppointments: UCAppointmentInformation[];
-  inOfficeAppointments: UCAppointmentInformation[];
   loading: boolean;
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
@@ -36,12 +34,11 @@ export default function AppointmentTabs({
   preBookedAppointments,
   completedAppointments,
   cancelledAppointments,
-  inOfficeAppointments,
   loading,
   updateAppointments,
   setEditingComment,
 }: AppointmentsTabProps): ReactElement {
-  const [value, setValue] = useState<ApptTab>(ApptTab['in-office']);
+  const [value, setValue] = useState<ApptTab>(ApptTab.prebooked);
   const [now, setNow] = useState<DateTime>(DateTime.now());
 
   const handleChange = (event: any, newValue: ApptTab): any => {
@@ -101,11 +98,6 @@ export default function AppointmentTabs({
                 sx={{ textTransform: 'none', fontWeight: 700 }}
               />
               <Tab
-                label={`In Office${inOfficeAppointments ? ` – ${inOfficeAppointments?.length}` : ''}`}
-                value={ApptTab['in-office']}
-                sx={{ textTransform: 'none', fontWeight: 700 }}
-              />
-              <Tab
                 label={`Completed${completedAppointments ? ` – ${completedAppointments?.length}` : ''}`}
                 value={ApptTab.completed}
                 sx={{ textTransform: 'none', fontWeight: 700 }}
@@ -118,18 +110,6 @@ export default function AppointmentTabs({
             {selectLocationMsg || (
               <AppointmentTable
                 appointments={preBookedAppointments}
-                location={location}
-                tab={value}
-                now={now}
-                updateAppointments={updateAppointments}
-                setEditingComment={setEditingComment}
-              ></AppointmentTable>
-            )}
-          </TabPanel>
-          <TabPanel value={ApptTab['in-office']} sx={{ padding: 0 }}>
-            {selectLocationMsg || (
-              <AppointmentTable
-                appointments={inOfficeAppointments}
                 location={location}
                 tab={value}
                 now={now}
