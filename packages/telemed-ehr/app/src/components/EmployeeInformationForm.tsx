@@ -30,15 +30,15 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import { useEffect, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { Link } from 'react-router-dom';
-import { FHIR_IDENTIFIER_NPI, PractitionerLicense, PractitionerQualificationCode, User } from 'ehr-utils';
+import { FHIR_IDENTIFIER_NPI, PractitionerLicense, PractitionerQualificationCode, RoleType, User } from 'ehr-utils';
 import { otherColors } from '../CustomThemeProvider';
 import { updateUser } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
-import { RoleType } from '../types/types';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import AddIcon from '@mui/icons-material/Add';
 import { AllStates } from '../types/types';
 import { PractitionerQualificationCodesLabels } from 'ehr-utils';
+import useOttehrUser from '../hooks/useOttehrUser';
 
 const displaystates = AllStates.map((state) => state.value);
 
@@ -54,6 +54,7 @@ interface EmployeeForm {
   middleName: string;
   lastName: string;
   nameSuffix: string;
+  enabledLicenses: { [key: string]: boolean };
   roles: string[];
 }
 
@@ -65,13 +66,12 @@ const AVAILABLE_ROLES: {
   {
     value: RoleType.Administrator,
     label: 'Administrator',
-    hint: `Adjust/edit frequency/slots; all copy/message edits; invite users or inactivate users`,
+    hint: `Adjust full settings for entire system`,
   },
   {
     value: RoleType.Manager,
     label: 'Manager',
-    hint: `Grant existing users site/queue access; adjust operating hours or special hours/schedule overrides;
-           adjust # of providers (eventually provider level/type)`,
+    hint: `Adjust operating hours or schedule overrides; adjust pre-booked visits per hour`,
   },
   {
     value: RoleType.Staff,
@@ -118,8 +118,9 @@ export default function EmployeeInformationForm({
 }: EditEmployeeInformationProps): JSX.Element {
   const { zambdaClient } = useApiClients();
   const theme = useTheme();
+  const currentUser = useOttehrUser();
   const [loading, setLoading] = useState<boolean>(false);
-  const [errors, setErrors] = useState({ submit: false, roles: false });
+  const [errors, setErrors] = useState({ submit: false, roles: false, newLicense: false, duplicateLicense: false });
 
   const [newLicenseState, setNewLicenseState] = useState<string | undefined>(undefined);
   const [newLicenseCode, setNewLicenseCode] = useState<string | undefined>(undefined);
@@ -132,16 +133,26 @@ export default function EmployeeInformationForm({
     id: '',
     profile: '',
     accessPolicy: {},
-    phoneNumber: '',
     roles: [],
+    phoneNumber: '',
     profileResource: undefined,
   });
+
+  console.log('existingUser', existingUser);
 
   let npiText = 'n/a';
   if (existingUser?.profileResource?.identifier) {
     const npi = existingUser.profileResource.identifier.find((identifier) => identifier.system === FHIR_IDENTIFIER_NPI);
     if (npi && npi.value) {
       npiText = npi.value;
+    }
+  }
+
+  let phoneText = '';
+  if (existingUser?.profileResource?.telecom) {
+    const phone = existingUser.profileResource.telecom.find((tel) => tel.system === 'sms')?.value;
+    if (phone) {
+      phoneText = phone;
     }
   }
 
@@ -180,6 +191,16 @@ export default function EmployeeInformationForm({
       setValue('middleName', middleName);
       setValue('lastName', lastName);
       setValue('nameSuffix', nameSuffix);
+
+      let enabledLicenses = {};
+      if (existingUser.profileResource?.qualification) {
+        enabledLicenses = existingUser.profileResource.qualification.reduce((result, qualification) => {
+          const state = qualification.extension?.[0].extension?.[1].valueCodeableConcept?.coding?.[0].code;
+          return state ? { ...result, ...{ [state]: true } } : result;
+        }, {});
+      }
+
+      setValue('enabledLicenses', enabledLicenses);
     }
   }, [existingUser, setValue]);
 
@@ -208,7 +229,7 @@ export default function EmployeeInformationForm({
         lastName: data.lastName,
         nameSuffix: data.nameSuffix,
         selectedRoles: data.roles,
-        licenses: newLicenses,
+        licenses: licenses.filter((license) => data.enabledLicenses[license.state]),
       });
     } catch (error) {
       console.log(`Failed to update user: ${error}`);
@@ -310,7 +331,7 @@ export default function EmployeeInformationForm({
         <TextField
           id="outlined-read-only-input"
           label="Phone"
-          value={existingUser?.phoneNumber ?? ''}
+          value={phoneText}
           sx={{ marginBottom: 2, width: '100%' }}
           margin="dense"
           InputProps={{
@@ -350,7 +371,7 @@ export default function EmployeeInformationForm({
                       setValue('roles', newRoles);
                     }}
                     control={<Checkbox />}
-                    disabled={!isActive}
+                    disabled={!isActive || !currentUser?.hasRole([RoleType.Administrator])}
                     label={roleEntry.label}
                     sx={{ '.MuiFormControlLabel-asterisk': { display: 'none' } }}
                   />
@@ -372,7 +393,6 @@ export default function EmployeeInformationForm({
                 sx={{
                   ...theme.typography.h4,
                   color: theme.palette.primary.dark,
-                  mb: 2,
                   mt: 3,
                   fontWeight: '600 !important',
                 }}
@@ -394,21 +414,160 @@ export default function EmployeeInformationForm({
                   />
                 )}
               />
-              <label style={{ marginTop: '15px' }}>NPI: {npiText}</label>
+              <label style={{ margin: '15px 0' }}>NPI: {npiText}</label>
             </FormControl>
+            {isProviderRoleSelected && (
+              <>
+                <hr />
+                <Typography
+                  sx={{
+                    ...theme.typography.h5,
+                    color: theme.palette.primary.dark,
+                    fontWeight: '600',
+                    marginTop: 4,
+                  }}
+                >
+                  Provider Qualifications
+                </Typography>
+                <Box mt={1}>
+                  <TableContainer>
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>State</TableCell>
+                          <TableCell align="left">Qualification</TableCell>
+                          <TableCell align="left">Operate in state</TableCell>
+                          <TableCell align="left">Delete License</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {newLicenses.map((license, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{license.state}</TableCell>
+                            <TableCell align="left">{license.code}</TableCell>
+                            <TableCell align="center">
+                              <Switch
+                                checked={license.active}
+                                onChange={async () => {
+                                  const updatedLicenses = [...newLicenses];
+                                  updatedLicenses[index].active = !updatedLicenses[index].active;
+
+                                  setNewLicenses(updatedLicenses);
+
+                                  await updateLicenses(updatedLicenses);
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              <IconButton
+                                sx={{
+                                  color: theme.palette.error.dark,
+                                  ':hover': {
+                                    backgroundColor: theme.palette.error.light,
+                                    color: theme.palette.error.contrastText,
+                                  },
+                                }}
+                                onClick={async () => {
+                                  const updatedLicenses = [...newLicenses];
+                                  updatedLicenses.splice(index, 1);
+
+                                  setNewLicenses(updatedLicenses);
+                                  await updateLicenses(updatedLicenses);
+                                }}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                  <Accordion>
+                    <AccordionSummary
+                      expandIcon={<ExpandMoreIcon />}
+                      sx={{
+                        marginTop: '20px',
+                        fontWeight: 'bold',
+                        color: theme.palette.primary.main,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Add New State Qualification
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Grid container direction={'row'} spacing={1}>
+                        <Grid item xs={4}>
+                          <Autocomplete
+                            options={displaystates}
+                            getOptionLabel={(option: string) => option}
+                            renderInput={(params) => <TextField {...params} label="State" />}
+                            onChange={(event, value) => setNewLicenseState(value || undefined)}
+                          />
+                        </Grid>
+                        <Grid item xs={4}>
+                          <Autocomplete
+                            options={Object.keys(PractitionerQualificationCodesLabels)}
+                            getOptionLabel={(option: string) => option}
+                            renderInput={(params) => <TextField {...params} label="Qualification" />}
+                            onChange={(event, value) => setNewLicenseCode(value || undefined)}
+                          />
+                        </Grid>
+                        <Grid item xs={4} alignContent={'center'}>
+                          <Button
+                            variant="contained"
+                            endIcon={<AddIcon />}
+                            sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 28 }}
+                            onClick={async () => {
+                              console.log('newLicenseState', newLicenseState);
+                              console.log('newLicenseCode', newLicenseCode);
+                              if (
+                                licenses.find(
+                                  (license) => license.state === newLicenseState && license.code === newLicenseCode,
+                                )
+                              ) {
+                                setErrors((prev) => ({ ...prev, duplicateLicense: true }));
+                              } else if (newLicenseState && newLicenseCode) {
+                                const updatedLicenses = [...newLicenses];
+                                updatedLicenses.push({
+                                  state: newLicenseState,
+                                  code: newLicenseCode as PractitionerQualificationCode,
+                                  active: true,
+                                });
+                                setErrors((prev) => ({ ...prev, newLicense: false, duplicateLicense: false }));
+                                setNewLicenses(updatedLicenses);
+                                await updateLicenses(updatedLicenses);
+                              } else {
+                                setErrors((prev) => ({ ...prev, newLicense: true }));
+                              }
+                            }}
+                            fullWidth
+                          >
+                            Add
+                          </Button>
+                        </Grid>
+                      </Grid>
+                    </AccordionDetails>
+                  </Accordion>
+                </Box>
+              </>
+            )}
           </>
+        )}
+
+        {/* Error on submit if request fails */}
+        {errors.submit && (
+          <Typography color="error" variant="body2" mt={1}>{`Failed to update user. Please try again.`}</Typography>
+        )}
+        {errors.newLicense && (
+          <Typography color="error" variant="body2" mt={1}>{`Please select a state and qualification`}</Typography>
+        )}
+        {errors.duplicateLicense && (
+          <Typography color="error" variant="body2" mt={1}>{`License already exists`}</Typography>
         )}
 
         {/* Update Employee and Cancel Buttons */}
         <Grid sx={{ marginTop: 4, marginBottom: 2 }}>
-          {/* Error on submit if request fails */}
-          {errors.submit && (
-            <Typography
-              color="error"
-              variant="body2"
-              marginBottom={1}
-            >{`Failed to update user. Please try again.`}</Typography>
-          )}
           <LoadingButton
             variant="contained"
             color="primary"
@@ -439,132 +598,6 @@ export default function EmployeeInformationForm({
             </Button>
           </Link>
         </Grid>
-        {isProviderRoleSelected && (
-          <>
-            <hr />
-            <Typography
-              sx={{
-                ...theme.typography.h5,
-                color: theme.palette.primary.dark,
-                fontWeight: '600',
-                marginTop: 4,
-              }}
-            >
-              Provider Qualifications
-            </Typography>
-            <Box mt={1}>
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>State</TableCell>
-                      <TableCell align="left">Qualification</TableCell>
-                      <TableCell align="left">Operate in state</TableCell>
-                      <TableCell align="left">Delete License</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {newLicenses.map((license, index) => (
-                      <TableRow key={index}>
-                        <TableCell>{license.state}</TableCell>
-                        <TableCell align="left">{license.code}</TableCell>
-                        <TableCell align="center">
-                          <Switch
-                            checked={license.active}
-                            onChange={async () => {
-                              const updatedLicenses = [...newLicenses];
-                              updatedLicenses[index].active = !updatedLicenses[index].active;
-
-                              setNewLicenses(updatedLicenses);
-
-                              await updateLicenses(updatedLicenses);
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <IconButton
-                            sx={{
-                              color: theme.palette.error.dark,
-                              ':hover': {
-                                backgroundColor: theme.palette.error.light,
-                                color: theme.palette.error.contrastText,
-                              },
-                            }}
-                            onClick={async () => {
-                              const updatedLicenses = [...newLicenses];
-                              updatedLicenses.splice(index, 1);
-
-                              setNewLicenses(updatedLicenses);
-                              await updateLicenses(updatedLicenses);
-                            }}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-              <Accordion>
-                <AccordionSummary
-                  expandIcon={<ExpandMoreIcon />}
-                  sx={{
-                    marginTop: '20px',
-                    fontWeight: 'bold',
-                    color: theme.palette.primary.main,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Add New State Qualification
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Grid container direction={'row'} spacing={1}>
-                    <Grid item xs={4}>
-                      <Autocomplete
-                        options={displaystates}
-                        getOptionLabel={(option: string) => option}
-                        renderInput={(params) => <TextField {...params} label="State" />}
-                        onChange={(event, value) => setNewLicenseState(value || undefined)}
-                      />
-                    </Grid>
-                    <Grid item xs={4}>
-                      <Autocomplete
-                        options={Object.keys(PractitionerQualificationCodesLabels)}
-                        getOptionLabel={(option: string) => option}
-                        renderInput={(params) => <TextField {...params} label="Qualification" />}
-                        onChange={(event, value) => setNewLicenseCode(value || undefined)}
-                      />
-                    </Grid>
-                    <Grid item xs={4} alignContent={'center'}>
-                      <Button
-                        variant="contained"
-                        endIcon={<AddIcon />}
-                        sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 28 }}
-                        onClick={async () => {
-                          if (newLicenseState && newLicenseCode) {
-                            const updatedLicenses = [...newLicenses];
-                            updatedLicenses.push({
-                              state: newLicenseState,
-                              code: newLicenseCode as PractitionerQualificationCode,
-                              active: true,
-                            });
-
-                            setNewLicenses(updatedLicenses);
-                            await updateLicenses(updatedLicenses);
-                          }
-                        }}
-                        fullWidth
-                      >
-                        Add
-                      </Button>
-                    </Grid>
-                  </Grid>
-                </AccordionDetails>
-              </Accordion>
-            </Box>
-          </>
-        )}
       </form>
     </Paper>
   );

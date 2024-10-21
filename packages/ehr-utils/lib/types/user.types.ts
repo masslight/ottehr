@@ -6,3 +6,17 @@ export type User = ZapEHRUser & {
   roles: { name: string }[];
   profileResource?: Practitioner;
 };
+
+export enum RoleType {
+  NewUser = 'NewUser',
+  Administrator = 'Administrator',
+  AssistantAdmin = 'AssistantAdmin',
+  RegionalTelemedLead = 'RegionalTelemedLead',
+  CallCentre = 'CallCentre',
+  Billing = 'Billing',
+  Manager = 'Manager',
+  Staff = 'Staff',
+  Provider = 'Provider',
+  FrontDesk = 'Front Desk',
+  Inactive = 'Inactive',
+}
