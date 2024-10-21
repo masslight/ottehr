@@ -257,6 +257,32 @@ export default function EmployeeInformationForm({
     });
   };
 
+  const handleAddLicense = async (): Promise<void> => {
+    try {
+      setErrors((prev) => ({ ...prev, duplicateLicense: false, newLicense: false }));
+
+      if (newLicenses.find((license) => license.state === newLicenseState && license.code === newLicenseCode)) {
+        setErrors((prev) => ({ ...prev, duplicateLicense: true }));
+        return;
+      }
+      if (!newLicenseState || !newLicenseCode) {
+        setErrors((prev) => ({ ...prev, newLicense: true }));
+        return;
+      }
+      const updatedLicenses = [...newLicenses];
+      updatedLicenses.push({
+        state: newLicenseState,
+        code: newLicenseCode as PractitionerQualificationCode,
+        active: true,
+      });
+      setNewLicenses(updatedLicenses);
+      await updateLicenses(updatedLicenses);
+    } catch (error) {
+      console.error('Error adding license:', error);
+      setErrors((prev) => ({ ...prev, submit: true }));
+    }
+  };
+
   // every time newLicenses changes, update the user
   return isActive === undefined ? (
     <Skeleton height={300} sx={{ marginY: -5 }} />
@@ -518,29 +544,7 @@ export default function EmployeeInformationForm({
                             variant="contained"
                             endIcon={<AddIcon />}
                             sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 28 }}
-                            onClick={async () => {
-                              console.log('newLicenseState', newLicenseState);
-                              console.log('newLicenseCode', newLicenseCode);
-                              if (
-                                licenses.find(
-                                  (license) => license.state === newLicenseState && license.code === newLicenseCode,
-                                )
-                              ) {
-                                setErrors((prev) => ({ ...prev, duplicateLicense: true }));
-                              } else if (newLicenseState && newLicenseCode) {
-                                const updatedLicenses = [...newLicenses];
-                                updatedLicenses.push({
-                                  state: newLicenseState,
-                                  code: newLicenseCode as PractitionerQualificationCode,
-                                  active: true,
-                                });
-                                setErrors((prev) => ({ ...prev, newLicense: false, duplicateLicense: false }));
-                                setNewLicenses(updatedLicenses);
-                                await updateLicenses(updatedLicenses);
-                              } else {
-                                setErrors((prev) => ({ ...prev, newLicense: true }));
-                              }
-                            }}
+                            onClick={handleAddLicense}
                             fullWidth
                           >
                             Add
