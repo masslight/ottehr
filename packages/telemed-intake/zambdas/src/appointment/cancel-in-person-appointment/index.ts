@@ -19,7 +19,7 @@ import { getPatientResource } from '../../shared';
 import { DATETIME_FULL_NO_YEAR } from 'ottehr-utils';
 import { DateTime } from 'luxon';
 import { sendCancellationEmail } from '../../shared';
-import { getAccessToken } from 'ottehr-utils';
+import { getAuth0Token } from 'ottehr-utils';
 // import { sendMessage } from '../../shared';
 // import { getConversationSIDForRelatedPersons } from '../create-appointment';
 import { getRelatedPersonForPatient } from '../../shared';
@@ -87,6 +87,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!zapehrToken) {
       console.log('getting token');
+      console.log('location 1');
       zapehrToken = await getAccessToken(secrets, 'regular');
     } else {
       console.log('already have token');
@@ -213,6 +214,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     console.log('Send cancel message request');
     if (!zapehrMessagingToken) {
+      console.log('location 2');
       zapehrMessagingToken = await getAccessToken(secrets, 'messaging');
     }
     const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
@@ -289,3 +291,21 @@ const getCancellationEmailDetails = async (
     throw new Error(`error getting cancellation email details: ${error}, ${JSON.stringify(error)}`);
   }
 };
+
+export type AuthType = 'regular' | 'messaging';
+
+export async function getAccessToken(secrets: Secrets | null, type: AuthType = 'regular'): Promise<string> {
+  let clientIdKey: SecretsKeys.TELEMED_CLIENT_ID | SecretsKeys.MESSAGING_M2M_CLIENT;
+  let secretIdKey: SecretsKeys.TELEMED_CLIENT_SECRET | SecretsKeys.MESSAGING_M2M_SECRET;
+  if (type === 'regular') {
+    clientIdKey = SecretsKeys.TELEMED_CLIENT_ID;
+    secretIdKey = SecretsKeys.TELEMED_CLIENT_SECRET;
+  } else if (type === 'messaging') {
+    clientIdKey = SecretsKeys.MESSAGING_M2M_CLIENT;
+    secretIdKey = SecretsKeys.MESSAGING_M2M_SECRET;
+  } else {
+    console.log('unknown m2m token type');
+    throw Error('unknown m2m token type');
+  }
+  return getAuth0Token({ secretIdKey, clientIdKey, secrets });
+}
