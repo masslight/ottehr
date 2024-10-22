@@ -213,7 +213,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     console.log('Send cancel message request');
     if (!zapehrMessagingToken) {
-      zapehrMessagingToken = await getAccessToken(secrets, 'regular');
+      zapehrMessagingToken = await getAccessToken(secrets, 'messaging');
     }
     const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
     const message = `Your visit for ${getPatientFirstName(patient)} with Ottehr Urgent Care ${
