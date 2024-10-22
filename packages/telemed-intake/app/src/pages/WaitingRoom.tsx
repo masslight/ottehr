@@ -31,7 +31,8 @@ const WaitingRoom = (): JSX.Element => {
   const urlAppointmentID = searchParams.get('appointment_id');
   const location = useLocation();
   const isInvitedParticipant = location.pathname === IntakeFlowPageRoute.InvitedWaitingRoom.path;
-  const appointmentID = useAppointmentStore((state) => state.appointmentID);
+  const { appointmentID, visitService } = getSelectors(useAppointmentStore, ['appointmentID', 'visitService']);
+
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -155,7 +156,12 @@ const WaitingRoom = (): JSX.Element => {
         <ManageParticipantsDialog onClose={() => setManageParticipantsDialogOpen(false)} />
       ) : null}
       {isUploadPhotosDialogOpen ? <UploadPhotosDialog onClose={() => setUploadPhotosDialogOpen(false)} /> : null}
-      {isCancelVisitDialogOpen ? <CancelVisitDialog onClose={() => setCancelVisitDialogOpen(false)} /> : null}
+      {isCancelVisitDialogOpen ? (
+        <CancelVisitDialog
+          appointmentType={visitService as 'in-person' | 'telemed'}
+          onClose={() => setCancelVisitDialogOpen(false)}
+        />
+      ) : null}
       {isCallSettingsOpen ? <CallSettings onClose={() => setIsCallSettingsOpen(false)} /> : null}
     </CustomContainer>
   );

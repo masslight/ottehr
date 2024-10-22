@@ -46,7 +46,7 @@ const PastVisits = (): JSX.Element => {
       isFirstPage={true}
     >
       <Typography variant="h2" color="primary.main">
-        {t('pastVisits.visits')}
+        {!pastAppointments || pastAppointments.length > 0 ? t('pastVisits.visits') : t('pastVisits.noVisits')}
       </Typography>
       {isFetching && (
         <Skeleton

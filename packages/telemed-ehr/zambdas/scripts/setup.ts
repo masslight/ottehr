@@ -184,7 +184,6 @@ export async function setupEHR(
   const applicationName = 'Starter EHR Application';
   const [applicationId, clientId] = await createApplication(projectApiUrl, applicationName, accessToken, projectId);
   console.log(`Created application "${applicationName}".`);
-  console.log(applicationId, clientId);
 
   const organizationId = (await createOrganization(fhirClient)).id;
   if (!organizationId) {
@@ -209,7 +208,10 @@ export async function setupEHR(
     accessToken,
     projectId,
   );
-  await createZ3(projectApiUrl, projectId, accessToken, ['id-cards', 'insurance-cards']);
+
+  const bucketNames = ['id-cards', 'insurance-cards', 'school-work-note-templates'];
+
+  await createZ3(projectApiUrl, projectId, accessToken, bucketNames);
 
   if (invitationUrl) {
     console.log(

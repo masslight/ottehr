@@ -24,7 +24,8 @@ async function createApplication(
             'Zambda:Function:telemed-create-appointment',
             'Zambda:Function:telemed-get-paperwork',
             'Zambda:Function:telemed-create-paperwork',
-            'Zambda:Function:telemed-cancel-appointment',
+            'Zambda:Function:telemed-cancel-telemed-appointment',
+            'Zambda:Function:telemed-cancel-in-person-appointment',
           ],
           action: ['Zambda:InvokeFunction'],
           effect: 'Allow',
@@ -167,6 +168,7 @@ function createZambdaLocalEnvFile(
     FHIR_API: 'https://fhir-api.zapehr.com/r4',
     PROJECT_API: 'https://project-api.zapehr.com/v1',
     ORGANIZATION_ID: organizationId,
+    PROJECT_ID: projectId,
   };
 
   const envFolderPath = 'packages/telemed-intake/zambdas/.env';
@@ -260,7 +262,6 @@ export async function setupIntake(
   projectApiUrl: string,
   accessToken: string,
   projectId: string,
-  providerEmail: string,
   m2mDeviceId: string,
   m2mClientId: string,
   m2mSecret: string,
@@ -276,7 +277,6 @@ export async function setupIntake(
   const applicationName = 'Ottehr Telemed Intake';
   const [applicationId, clientId] = await createApplication(projectApiUrl, applicationName, accessToken, projectId);
   console.log(`Created application "${applicationName}".`);
-  console.log(applicationId, clientId);
 
   const organizationID = (await createOrganization(fhirClient)).id;
   if (!organizationID) {

@@ -255,6 +255,7 @@ export const getFormInputField = (
                 label={formInput.label || 'No label'}
                 defaultValue={formInput.defaultValue as string}
                 options={formInput.fileOptions}
+                fileUploadType={formInput.fileUploadType}
               />
             );
           case 'Photos':

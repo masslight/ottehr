@@ -140,9 +140,6 @@ export function TrackingBoardTableRow({
         <StatusHistory history={appointment.telemedStatusHistory} currentStatus={appointment.telemedStatus} />
       </TableCell>
       <TableCell sx={{ verticalAlign: 'top' }}>
-        <Typography>{appointment.provider?.join(', ')}</Typography>
-      </TableCell>
-      <TableCell sx={{ verticalAlign: 'top' }}>
         <Typography>{appointment.group?.join(', ')}</Typography>
       </TableCell>
       {showEstimated && (
@@ -179,11 +176,13 @@ export function TrackingBoardTableRow({
           </Typography>
         </Tooltip>
       </TableCell>
+
       {showProvider && (
         <TableCell sx={{ verticalAlign: 'top' }}>
-          <Box>Dr. Smith</Box>
+          <Box>{appointment.provider?.join(', ')}</Box>
         </TableCell>
       )}
+
       <TableCell sx={{ verticalAlign: 'top' }}>
         {showChatIcon && (
           <IconButton

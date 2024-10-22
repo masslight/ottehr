@@ -22,7 +22,7 @@ const fileTypes = [
   SCHOOL_WORK_NOTE_BOTH_ID,
   SCHOOL_WORK_NOTE_BOTH_ID2,
 ];
-const fileFormats = ['jpg', 'jpeg', 'png'];
+const fileFormats = ['jpg', 'jpeg', 'png', 'pdf'];
 
 export function validateRequestParameters(input: ZambdaInput): GetPresignedFileURLInput {
   if (!input.body) {
@@ -30,7 +30,6 @@ export function validateRequestParameters(input: ZambdaInput): GetPresignedFileU
   }
 
   const { appointmentID, fileType, fileFormat } = JSON.parse(input.body);
-  console.log('fileType', fileType);
 
   if (appointmentID === undefined || appointmentID === '') {
     throw new Error('"appointmentID" is required');

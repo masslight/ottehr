@@ -6,15 +6,17 @@ import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
 import UploadComponent from './UploadComponent';
 import CardComponent from './CardComponent';
 import { safelyCaptureException } from '../../helpers';
+import NonImageCardComponent from './NonImageCardComponent';
 
 interface FileUploadProps {
   name: string;
   label: string;
   defaultValue?: string;
+  fileUploadType?: string;
   options: FileUploadOptions;
 }
 
-const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, options }) => {
+const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, options, fileUploadType }) => {
   const { description, onUpload, uploadFile, uploadFailed, resetUploadFailed, onClear, fileType } = options;
   const theme = useTheme();
 
@@ -22,6 +24,7 @@ const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, options })
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [fileUrl, setFileUrl] = useState<string | undefined>(defaultValue);
+  const [fileName, setFileName] = useState<string | undefined>(undefined);
 
   // If default value exists get a presignedUrl from the defaultValue and assign it to previewUrl
   useEffect(() => {
@@ -45,8 +48,16 @@ const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, options })
     // unless you set its value because CardComponent does not render an <input />
     if (fileUrl && previewUrl !== 'Not Found' && previewUrl !== null && !loading) {
       setValue(name, defaultValue);
+      let fileTypeExtension = '';
+      switch (fileUploadType) {
+        case 'application/pdf':
+          fileTypeExtension = 'pdf';
+          break;
+      }
+      // TODO I hate this but I don't think we upload the existing file name
+      setFileName(`[Previously uploaded file].${fileTypeExtension}`);
     }
-  }, [defaultValue, fileUrl, loading, name, previewUrl, setValue]);
+  }, [defaultValue, fileUploadType, fileUrl, loading, name, previewUrl, setValue]);
 
   const handleFileUpload = (event: ChangeEvent<HTMLInputElement>): string | null => {
     try {
@@ -61,6 +72,7 @@ const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, options })
         uploadFile(fileType, tempURL);
         onUpload((prev) => ({ ...prev, [fileType]: { ...prev[fileType], fileData: file } }));
         resetUploadFailed();
+        setFileName(file.name);
         return file.name;
       } else {
         console.log('No files selected');
@@ -69,6 +81,7 @@ const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, options })
     } catch (error) {
       console.error('Error occurred during file upload:', error);
       safelyCaptureException(error);
+      setFileName(undefined);
       return null;
     }
   };
@@ -81,12 +94,24 @@ const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, options })
           name={name}
           uploadDescription="Failed to upload card. Please try again"
           handleFileUpload={handleFileUpload}
+          fileUploadType={fileUploadType}
         />
       );
     }
 
     // If no default value, check for a temporary previewUrl
     if (!fileUrl && previewUrl) {
+      if (fileUploadType) {
+        return (
+          <NonImageCardComponent
+            name={name}
+            fileName={fileName}
+            setFileUrl={setFileUrl}
+            setPreviewUrl={setPreviewUrl}
+            onClear={onClear}
+          />
+        );
+      }
       return (
         <CardComponent
           name={name}
@@ -108,10 +133,23 @@ const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, options })
             name={name}
             uploadDescription={`Failed to retrieve card. Please try again. ${description}`}
             handleFileUpload={handleFileUpload}
+            fileUploadType={fileUploadType}
           />
         );
       }
       if (previewUrl !== 'Not Found' && previewUrl !== null && !loading) {
+        if (fileUploadType) {
+          return (
+            <NonImageCardComponent
+              name={name}
+              fileName={fileName}
+              fileUrl={fileUrl}
+              setFileUrl={setFileUrl}
+              setPreviewUrl={setPreviewUrl}
+              onClear={onClear}
+            />
+          );
+        }
         // Show the image if the fetch succeeds
         return (
           <CardComponent
@@ -144,7 +182,14 @@ const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, options })
     }
 
     // Otherwise prompt to upload a file
-    return <UploadComponent name={name} uploadDescription={description} handleFileUpload={handleFileUpload} />;
+    return (
+      <UploadComponent
+        name={name}
+        uploadDescription={description}
+        handleFileUpload={handleFileUpload}
+        fileUploadType={fileUploadType}
+      />
+    );
   };
 
   return (

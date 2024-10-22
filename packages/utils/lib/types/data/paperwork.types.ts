@@ -20,9 +20,11 @@ export interface Question {
   options?: OptionConfig[];
   attachmentText?: string;
   format?: string;
+  hidden?: boolean;
   docType?: string;
   submitOnChange?: boolean;
   disableError?: boolean;
+  fileUploadType?: string;
   enableWhen?: {
     question: string;
     operator: QuestionOperator;

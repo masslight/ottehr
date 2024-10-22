@@ -10,9 +10,9 @@ import { useAppointmentStore } from '../features/appointments';
 import { useNavigate } from 'react-router-dom';
 import { IntakeFlowPageRoute } from '../App';
 
-type CancelVisitDialogProps = { onClose: () => void };
+type CancelVisitDialogProps = { onClose: () => void; appointmentType: 'telemed' | 'in-person' };
 
-export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose }) => {
+export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose, appointmentType }: CancelVisitDialogProps) => {
   const apiClient = useZapEHRAPIClient();
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -35,6 +35,7 @@ export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose }) => {
         apiClient: apiClient,
         appointmentID: appointmentID,
         cancellationReason: data.cancellationReason,
+        appointmentType: appointmentType,
       },
       {
         onSuccess: () => {

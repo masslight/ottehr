@@ -5,6 +5,7 @@ export interface ChartDataFields {
   ros?: FreeTextNoteDTO;
   conditions?: MedicalConditionDTO[];
   medications?: MedicationDTO[];
+  prescribedMedications?: PrescribedMedicationDTO[];
   allergies?: AllergyDTO[];
   procedures?: ProcedureDTO[];
   proceduresNote?: FreeTextNoteDTO;
@@ -40,7 +41,10 @@ export interface MedicationDTO extends SaveableDTO {
   name?: string;
   id?: string;
 }
-
+export interface PrescribedMedicationDTO extends SaveableDTO {
+  name?: string;
+  instructions?: string;
+}
 export interface ProcedureDTO extends SaveableDTO {
   name?: string;
 }
