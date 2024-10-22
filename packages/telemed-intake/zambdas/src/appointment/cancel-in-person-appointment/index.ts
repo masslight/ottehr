@@ -87,7 +87,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!zapehrToken) {
       console.log('getting token');
-      console.log('location 1');
       zapehrToken = await getAccessToken(secrets, 'regular');
     } else {
       console.log('already have token');
@@ -214,7 +213,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     console.log('Send cancel message request');
     if (!zapehrMessagingToken) {
-      console.log('location 2');
       zapehrMessagingToken = await getAccessToken(secrets, 'messaging');
     }
     const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
