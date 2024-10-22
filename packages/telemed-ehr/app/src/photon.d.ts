@@ -6,6 +6,7 @@ declare namespace JSX {
       'dev-mode': string;
       'auto-login': string;
       'redirect-uri': string;
+      connection: string;
       children: Element;
     };
     'photon-prescribe-workflow': {
