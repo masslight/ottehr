@@ -87,7 +87,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!zapehrToken) {
       console.log('getting token');
-      zapehrToken = await getAccessToken(secrets);
+      zapehrToken = await getAccessToken(secrets, 'regular');
     } else {
       console.log('already have token');
     }
