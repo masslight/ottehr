@@ -30,7 +30,7 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "deploy:development": " PREFIX=development CLOUDFRONT_ID=E10TA6FN58D1OS ENV=development pnpm run ci-deploy-skeleton",
-    "ci-deploy-skeleton": "ENV=${ENV} VITE_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') pnpm run build:development && aws s3 sync build/ s3://ehr.ottehr.com --region us-east-1 --delete --profile ottehr && aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_ID} --paths '/*' --region us-east-1"
+    "ci-deploy-skeleton": "ENV=${ENV} VITE_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') pnpm run build:${ENV} && aws s3 sync build/ s3://ehr.ottehr.com --region us-east-1 --delete --profile ottehr && aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_ID} --paths '/*' --region us-east-1"
   },
   "dependencies": {
     "@mui/icons-material": "^5.14.9",
