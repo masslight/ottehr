@@ -22,7 +22,8 @@
     "start:staging": "pnpm recursive run start:staging",
     "update": "pnpm recursive up -L -i",
     "telemed-intake-deploy": "pnpm --filter=telemed-intake-app deploy ${ENV}",
-    "telemed-ehr-deploy": "pnpm --filter=telemed-ehr-app deploy ${ENV}"
+    "telemed-ehr-deploy": "pnpm --filter=telemed-ehr-app deploy ${ENV}",
+    "deploy-telemed:development": "sh ./scripts/deploy-telemed.sh development"
   },
   "packageManager": "pnpm@9.6.0",
   "engines": {
