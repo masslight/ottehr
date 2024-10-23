@@ -8,6 +8,9 @@ import * as path from 'path';
 export default ({ mode }) => {
   const envDir = './env';
   const env = loadEnv(mode, path.join(process.cwd(), envDir), '');
+  const publicEnv = Object.fromEntries(
+    Object.entries(env).filter(([key]) => key.startsWith('VITE_'))
+  );
 
   return defineConfig({
     envDir: envDir,
@@ -20,6 +23,9 @@ export default ({ mode }) => {
     build: {
       outDir: './build',
       target: browserslistToEsbuild(),
+    },
+    define: {
+      'process.env': publicEnv,
     },
   });
 };

@@ -7,6 +7,9 @@ export default (env) => {
   const { mode } = env;
   const envDir = './env';
   const appEnv = loadEnv(mode, path.join(process.cwd(), envDir), '');
+  const publicEnv = Object.fromEntries(
+    Object.entries(appEnv).filter(([key]) => key.startsWith('VITE_'))
+  );
 
   const shouldUploadSentrySourceMaps =
     mode === 'testing' || mode === 'staging' || mode === 'dev' || mode === 'production' || mode === 'training';
@@ -51,6 +54,9 @@ export default (env) => {
       },
       server: {
         open: 'patient-portal',
+      },
+      define: {
+        'process.env': publicEnv,
       },
       plugins,
     }),
