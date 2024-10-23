@@ -13,6 +13,7 @@ import {
   getFullestAvailableName,
   getPatchOperationForNewMetaTag,
   getPractitionerNPIIdentitifier,
+  getPatchOperationToUpdateExtension,
   initialsFromName,
 } from 'ehr-utils';
 import { create } from 'zustand';
@@ -176,6 +177,40 @@ export default function useOttehrUser(): OttehrUser | undefined {
     }
   }, [auth0User?.updated_at]);
 
+  useEffect(() => {
+    if (
+      !isPractitionerEnrolledInERX &&
+      hasRole([RoleType.Provider]) &&
+      _practitionerSyncFinished &&
+      isProviderHasEverythingToBeEnrolledInErx &&
+      !_practitionerERXEnrollmentStarted
+    ) {
+      _practitionerERXEnrollmentStarted = true;
+      mutateEnrollPractitionerInERX()
+        .then(async () => {
+          if (profile) {
+            const op = getPatchOperationToUpdateExtension(profile, {
+              url: ERX_PRACTITIONER_ENROLLED,
+              valueBoolean: true,
+            });
+            if (op) {
+              await mutatePractitionerAsync([op]);
+              void refetchProfile();
+            }
+          }
+        })
+        .catch(console.error);
+    }
+  }, [
+    hasRole,
+    isPractitionerEnrolledInERX,
+    isProviderHasEverythingToBeEnrolledInErx,
+    mutateEnrollPractitionerInERX,
+    mutatePractitionerAsync,
+    profile,
+    refetchProfile,
+  ]);
+
   const { userName, userInitials, lastLogin } = useMemo(() => {
     if (profile) {
       const userName = getFullestAvailableName(profile) ?? 'Ottehr Team';
@@ -195,13 +230,15 @@ export default function useOttehrUser(): OttehrUser | undefined {
         userInitials,
         lastLogin,
         profileResource: profile,
+        isERXPrescriber,
+        isPractitionerEnrolledInERX,
         hasRole: (role: RoleType[]) => {
           return userRoles.find((r) => role.includes(r.name as RoleType)) != undefined;
         },
       };
     }
     return undefined;
-  }, [lastLogin, profile, user, userInitials, userName]);
+  }, [lastLogin, isERXPrescriber, isPractitionerEnrolledInERX, profile, user, userInitials, userName]);
 }
 
 const MINUTE = 1000 * 60;
