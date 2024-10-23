@@ -81,7 +81,7 @@ function App(): ReactElement {
                           dev-mode="true"
                           auto-login="true"
                           redirect-uri={window.location.origin}
-                          // connection={import.meta.env.VITE_APP_PHOTON_CONNECTION_NAME}
+                          connection={import.meta.env.VITE_APP_PHOTON_CONNECTION_NAME}
                         >
                           <Outlet />
                         </photon-client>
