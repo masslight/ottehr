@@ -220,7 +220,6 @@ export default function EmployeeInformationForm({
 
     setLoading(true);
 
-    // Update the user
     try {
       await updateUser(zambdaClient, {
         userId: user.id,
@@ -276,6 +275,8 @@ export default function EmployeeInformationForm({
         active: true,
       });
       setNewLicenses(updatedLicenses);
+      setNewLicenseState(undefined);
+      setNewLicenseCode(undefined);
       await updateLicenses(updatedLicenses);
     } catch (error) {
       console.error('Error adding license:', error);
@@ -528,6 +529,7 @@ export default function EmployeeInformationForm({
                             options={displaystates}
                             getOptionLabel={(option: string) => option}
                             renderInput={(params) => <TextField {...params} label="State" />}
+                            value={newLicenseState || null} // Set the value prop
                             onChange={(event, value) => setNewLicenseState(value || undefined)}
                           />
                         </Grid>
@@ -536,6 +538,7 @@ export default function EmployeeInformationForm({
                             options={Object.keys(PractitionerQualificationCodesLabels)}
                             getOptionLabel={(option: string) => option}
                             renderInput={(params) => <TextField {...params} label="Qualification" />}
+                            value={newLicenseCode || null} // Set the value prop
                             onChange={(event, value) => setNewLicenseCode(value || undefined)}
                           />
                         </Grid>
