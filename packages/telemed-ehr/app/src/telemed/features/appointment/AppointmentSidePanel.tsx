@@ -27,6 +27,7 @@ import {
   ApptStatus,
   AppointmentMessaging,
   UCAppointmentInformation,
+  QuestionnaireLinkIds,
 } from 'ehr-utils';
 import ChatModal from '../../../features/chat/ChatModal';
 import { calculatePatientAge } from '../../../helpers/formatDateTime';
@@ -71,17 +72,23 @@ export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmen
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
   const [isInviteParticipantOpen, setIsInviteParticipantOpen] = useState(false);
 
-  const reasonForVisit = getQuestionnaireResponseByLinkId('reason-for-visit', questionnaireResponse)?.answer?.[0]
-    .valueString;
-  const preferredLanguage = getQuestionnaireResponseByLinkId('preferred-language', questionnaireResponse)?.answer?.[0]
-    .valueString;
-  const relayPhone = getQuestionnaireResponseByLinkId('relay-phone', questionnaireResponse)?.answer?.[0].valueString;
+  const reasonForVisit = getQuestionnaireResponseByLinkId(QuestionnaireLinkIds.REASON_FOR_VISIT, questionnaireResponse)
+    ?.answer?.[0].valueString;
+  const preferredLanguage = getQuestionnaireResponseByLinkId(
+    QuestionnaireLinkIds.PREFERRED_LANGUAGE,
+    questionnaireResponse,
+  )?.answer?.[0].valueString;
+  const relayPhone = getQuestionnaireResponseByLinkId(QuestionnaireLinkIds.RELAY_PHONE, questionnaireResponse)
+    ?.answer?.[0].valueString;
   const number =
-    getQuestionnaireResponseByLinkId('patient-number', questionnaireResponse)?.answer?.[0].valueString ||
-    getQuestionnaireResponseByLinkId('guardian-number', questionnaireResponse)?.answer?.[0].valueString;
-  const knownAllergies = getQuestionnaireResponseByLinkId('allergies', questionnaireResponse)?.answer[0].valueArray;
-  const address = getQuestionnaireResponseByLinkId('patient-street-address', questionnaireResponse)?.answer?.[0]
-    .valueString;
+    getQuestionnaireResponseByLinkId(QuestionnaireLinkIds.PATIENT_NUMBER, questionnaireResponse)?.answer?.[0]
+      .valueString ||
+    getQuestionnaireResponseByLinkId(QuestionnaireLinkIds.GUARDIAN_NUMBER, questionnaireResponse)?.answer?.[0]
+      .valueString;
+  const knownAllergies = getQuestionnaireResponseByLinkId(QuestionnaireLinkIds.ALLERGIES, questionnaireResponse)
+    ?.answer[0].valueArray;
+  const address = getQuestionnaireResponseByLinkId(QuestionnaireLinkIds.PATIENT_STREET_ADDRESS, questionnaireResponse)
+    ?.answer?.[0].valueString;
 
   const handleERXLoadingStatusChange = useCallback<(status: boolean) => void>(
     (status) => setIsERXLoading(status),

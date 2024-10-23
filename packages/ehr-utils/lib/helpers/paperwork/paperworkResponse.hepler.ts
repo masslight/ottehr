@@ -39,6 +39,25 @@ export const mapPaperworkResponseItem = (item: QuestionnaireResponseItem): Quest
   return item as QuestionnaireResponseItemWithValueArray;
 };
 
+export enum QuestionnaireLinkIds {
+  PREFERRED_LANGUAGE = 'preferred-language',
+  ALLERGIES = 'allergies',
+  REASON_FOR_VISIT = 'reason-for-visit',
+  VITALS_TEMPERATURE = 'vitals-temperature',
+  VITALS_PULSE = 'vitals-pulse',
+  VITALS_HR = 'vitals-hr',
+  VITALS_RR = 'vitals-rr',
+  VITALS_BP = 'vitals-bp',
+  MEDICAL_HISTORY = 'medical-history',
+  SURGICAL_HISTORY = 'surgical-history',
+  CURRENT_MEDICATION = 'current-medications',
+  PATIENT_STREET_ADDRESS = 'patient-street-address',
+  PATIENT_NUMBER = 'patient-number',
+  GUARDIAN_NUMBER = 'guardian-number',
+  RELAY_PHONE = 'relay-phone',
+  CONSENT_FORMS = 'consent-forms',
+}
+
 export const getQuestionnaireResponseByLinkId = (
   linkId: string,
   questionnaireResponse?: QuestionnaireResponse,

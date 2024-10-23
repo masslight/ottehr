@@ -192,6 +192,41 @@ export const useGetAppointmentInformation = (
   );
 };
 
+export const useGetQuestionnaireDetails = (
+  {
+    questionnaireName,
+  }: {
+    questionnaireName: string | undefined;
+  },
+  onSuccess: (data: Bundle<FhirResource>[]) => void,
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+) => {
+  const { fhirClient } = useApiClients();
+  return useQuery(
+    ['telemed-questionnaire', { questionnaireName }],
+    () => {
+      if (fhirClient && questionnaireName) {
+        const questionnaireId = questionnaireName.split('/').pop();
+        if (questionnaireId) {
+          return fhirClient.searchResources<Bundle>({
+            resourceType: 'Questionnaire',
+            searchParams: [{ name: '_id', value: questionnaireId }],
+          });
+        }
+        throw new Error('questionnaireName not valid');
+      }
+      throw new Error('fhir client not defined or questionnaireName not provided');
+    },
+    {
+      onSuccess,
+      onError: (err) => {
+        console.error('Error during fetching get telemed appointment: ', err);
+      },
+      enabled: !!questionnaireName,
+    },
+  );
+};
+
 export const useGetMeetingData = (
   getAccessTokenSilently: () => Promise<string>,
   onSuccess: (data: MeetingData) => void,
