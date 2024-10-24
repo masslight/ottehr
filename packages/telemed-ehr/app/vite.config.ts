@@ -15,7 +15,7 @@ export default ({ mode }) => {
     plugins: [react(), viteTsconfigPaths(), svgr()],
     server: {
       open: true,
-      port: env.PORT ? parseInt(env.PORT) : undefined,
+      port: env.VITE_APP_PORT ? parseInt(env.VITE_APP_PORT) : undefined,
     },
     build: {
       outDir: './build',
