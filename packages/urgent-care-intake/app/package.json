@@ -30,7 +30,7 @@
   },
   "dependencies": {
     "@mui/icons-material": "^5.14.10",
-    "@zapehr/sdk": "1.0.15",
+    "@zapehr/sdk": "1.0.17",
     "ottehr-components": "*",
     "ottehr-utils": "*",
     "react-markdown": "^9.0.0",
