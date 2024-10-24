@@ -30,8 +30,5 @@ export default ({ mode }) => {
         external: ['jsonpath-plus'],
       },
     },
-    define: {
-      'process.env': process.env,
-    },
   });
 };
