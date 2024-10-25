@@ -36,7 +36,8 @@ import { HealthcareService, Location, Practitioner } from 'fhir/r4';
 enum ZambdaNames {
   'check in' = 'check in',
   'create appointment' = 'create appointment',
-  'cancel appointment' = 'cancel appointment',
+  'cancel telemed appointment' = 'cancel telemed appointment',
+  'cancel in person appointment' = 'cancel in person appointment',
   'update appointment' = 'update appointment',
   'get appointments' = 'get appointments',
   'get patients' = 'get patients',
@@ -58,7 +59,8 @@ enum ZambdaNames {
 const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'check in': true,
   'create appointment': false,
-  'cancel appointment': false,
+  'cancel telemed appointment': false,
+  'cancel in person appointment': false,
   'update appointment': false,
   'get appointments': false,
   'get patients': false,
@@ -85,7 +87,8 @@ export const getZapEHRAPI = (
 ): {
   checkIn: typeof checkIn;
   createAppointment: typeof createAppointment;
-  cancelAppointment: typeof cancelAppointment;
+  cancelTelemedAppointment: typeof cancelTelemedAppointment;
+  cancelInPersonAppointment: typeof cancelInPersonAppointment;
   updateAppointment: typeof updateAppointment;
   getPatients: typeof getPatients;
   getGroups: typeof getGroups;
@@ -107,7 +110,8 @@ export const getZapEHRAPI = (
   const {
     checkInZambdaID,
     createAppointmentZambdaID,
-    cancelAppointmentZambdaID,
+    cancelTelemedAppointmentZambdaID,
+    cancelInPersonAppointmentZambdaID,
     updateAppointmentZambdaID,
     getAppointmentsZambdaID,
     getPatientsZambdaID,
@@ -129,7 +133,8 @@ export const getZapEHRAPI = (
   const zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined> = {
     'check in': checkInZambdaID,
     'create appointment': createAppointmentZambdaID,
-    'cancel appointment': cancelAppointmentZambdaID,
+    'cancel telemed appointment': cancelTelemedAppointmentZambdaID,
+    'cancel in person appointment': cancelInPersonAppointmentZambdaID,
     'update appointment': updateAppointmentZambdaID,
     'get appointments': getAppointmentsZambdaID,
     'get patients': getPatientsZambdaID,
@@ -210,8 +215,12 @@ export const getZapEHRAPI = (
     return await makeZapRequest('create appointment', fhirParams);
   };
 
-  const cancelAppointment = async (parameters: CancelAppointmentRequestParams): Promise<any> => {
-    return await makeZapRequest('cancel appointment', parameters, NotFoundApointmentErrorHandler);
+  const cancelTelemedAppointment = async (parameters: CancelAppointmentRequestParams): Promise<any> => {
+    return await makeZapRequest('cancel telemed appointment', parameters, NotFoundApointmentErrorHandler);
+  };
+
+  const cancelInPersonAppointment = async (parameters: CancelAppointmentRequestParams): Promise<any> => {
+    return await makeZapRequest('cancel in person appointment', parameters, NotFoundApointmentErrorHandler);
   };
 
   const updateAppointment = async (parameters: UpdateAppointmentRequestParams): Promise<UpdateAppointmentResponse> => {
@@ -345,7 +354,8 @@ export const getZapEHRAPI = (
   return {
     checkIn,
     createAppointment,
-    cancelAppointment,
+    cancelTelemedAppointment,
+    cancelInPersonAppointment,
     updateAppointment,
     getPaperwork,
     createPaperwork,

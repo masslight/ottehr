@@ -17,7 +17,7 @@ const ThankYou = (): JSX.Element => {
   const { t } = useTranslation();
   const [isPolicyDialogOpen, setIsPolicyDialogOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
-  const { selectedSlot } = getSelectors(useAppointmentStore, ['selectedSlot']);
+  const { selectedSlot, visitService } = getSelectors(useAppointmentStore, ['selectedSlot', 'visitService']);
 
   const formattedDate = selectedSlot ? DateTime.fromISO(selectedSlot).toFormat('MMMM d, h:mm a') : '';
   localStorage.removeItem('welcomePath');
@@ -44,7 +44,12 @@ const ThankYou = (): JSX.Element => {
         </Box>
         <Divider sx={{ marginBottom: 2 }} />
 
-        {isCancelDialogOpen && <CancelVisitDialog onClose={() => setIsCancelDialogOpen(false)} />}
+        {isCancelDialogOpen && (
+          <CancelVisitDialog
+            onClose={() => setIsCancelDialogOpen(false)}
+            appointmentType={visitService as 'in-person' | 'telemed'}
+          />
+        )}
         <Button
           startIcon={<EventBusyOutlined color="secondary" />}
           sx={{ marginLeft: 1.5, color: theme.palette.secondary.main }}

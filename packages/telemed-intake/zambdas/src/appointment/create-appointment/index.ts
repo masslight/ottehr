@@ -68,6 +68,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     return response;
   } catch (error: any) {
     await topLevelCatch('create-appointment', error, input.secrets);
+    if (error.message.includes(`age not inside range of ${MINIMUM_AGE} to ${MAXIMUM_AGE}`)) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: `Patient age must be between ${MINIMUM_AGE} and ${MAXIMUM_AGE} years` }),
+      };
+    }
     return {
       statusCode: 500,
       body: JSON.stringify({ error: 'Internal error' }),

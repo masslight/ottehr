@@ -35,7 +35,10 @@ import {
   getQuestionnaireResponse,
   getSecret,
   topLevelCatch,
-  getOptionalSecret,
+  SCHOOL_WORK_NOTE_BOTH_ID,
+  SCHOOL_WORK_NOTE_WORK_ID,
+  SCHOOL_WORK_NOTE_SCHOOL_ID,
+  SCHOOL_WORK_NOTE_BOTH_ID2,
 } from 'ottehr-utils';
 import { getPatientContactEmail } from '../../appointment/create-appointment';
 import { getM2MClientToken, getVideoEncounterForAppointment, sendConfirmationMessages } from '../../shared';
@@ -890,6 +893,34 @@ async function createImagesAndDocsResources(
       photoIdDocToSave.files.push({
         url: files[PHOTO_ID_BACK_ID]?.z3Url,
         title: PHOTO_ID_BACK_ID,
+      });
+    }
+
+    if (files[SCHOOL_WORK_NOTE_SCHOOL_ID]?.z3Url) {
+      schoolWorkNotesDocToSave.files.push({
+        url: files[SCHOOL_WORK_NOTE_SCHOOL_ID]?.z3Url,
+        title: SCHOOL_WORK_NOTE_SCHOOL_ID,
+      });
+    }
+
+    if (files[SCHOOL_WORK_NOTE_WORK_ID]?.z3Url) {
+      schoolWorkNotesDocToSave.files.push({
+        url: files[SCHOOL_WORK_NOTE_WORK_ID]?.z3Url,
+        title: SCHOOL_WORK_NOTE_WORK_ID,
+      });
+    }
+
+    if (files[SCHOOL_WORK_NOTE_BOTH_ID]?.z3Url) {
+      schoolWorkNotesDocToSave.files.push({
+        url: files[SCHOOL_WORK_NOTE_BOTH_ID]?.z3Url,
+        title: SCHOOL_WORK_NOTE_BOTH_ID,
+      });
+    }
+
+    if (files[SCHOOL_WORK_NOTE_BOTH_ID2]?.z3Url) {
+      schoolWorkNotesDocToSave.files.push({
+        url: files[SCHOOL_WORK_NOTE_BOTH_ID2]?.z3Url,
+        title: SCHOOL_WORK_NOTE_BOTH_ID2,
       });
     }
 

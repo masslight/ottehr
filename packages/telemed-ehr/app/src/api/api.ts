@@ -28,7 +28,7 @@ const GET_USER_ZAMBDA_ID = import.meta.env.VITE_APP_GET_USER_ZAMBDA_ID;
 const DEACTIVATE_USER_ZAMBDA_ID = import.meta.env.VITE_APP_DEACTIVATE_USER_ZAMBDA_ID;
 const GET_CONVERSATION_ZAMBDA_ID = import.meta.env.VITE_APP_GET_CONVERSATION_ZAMBDA_ID;
 const GET_LOCATION_ZAMBDA_ID = import.meta.env.VITE_APP_GET_LOCATION_ZAMBDA_ID;
-const CANCEL_APPOINTMENT_ZAMBDA_ID = import.meta.env.VITE_APP_CANCEL_APPOINTMENT_ID;
+const CANCEL_IN_PERSON_APPOINTMENT_ZAMBDA_ID = import.meta.env.VITE_APP_CANCEL_IN_PERSON_APPOINTMENT_ZAMBDA_ID;
 const GET_EMPLOYEES_ZAMBDA_ID = import.meta.env.VITE_APP_GET_EMPLOYEES_ZAMBDA_ID;
 
 function chooseJson(json: any, isLocal: string): any {
@@ -89,6 +89,7 @@ export const createAppointment = async (
     return chooseJson(response, VITE_APP_IS_LOCAL);
   } catch (error: unknown) {
     console.log(error);
+    return error;
   }
 };
 
@@ -102,7 +103,7 @@ export const cancelTelemedAppointment = async (
 ): Promise<any> => {
   try {
     if (CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID == null) {
-      throw new Error('cancel appointment environment variable could not be loaded');
+      throw new Error('cancel telemed appointment environment variable could not be loaded');
     }
 
     const response = await zambdaClient?.invokeZambda({
@@ -268,19 +269,22 @@ export const getLocations = async (
   }
 };
 
-export const cancelAppointment = async (
+export const cancelInPersonAppointment = async (
   zambdaClient: ZambdaClient,
   parameters: CancelAppointmentParameters,
 ): Promise<any> => {
   try {
-    if (CANCEL_APPOINTMENT_ZAMBDA_ID == null) {
-      throw new Error('cancel appointment environment variable could not be loaded');
+    if (CANCEL_IN_PERSON_APPOINTMENT_ZAMBDA_ID == null) {
+      throw new Error('cancel in person appointment environment variable could not be loaded');
     }
 
-    const response = await zambdaClient?.invokePublicZambda({
-      zambdaId: CANCEL_APPOINTMENT_ZAMBDA_ID,
+    console.log('canceling in-person appointment', parameters);
+    console.log('zambda id', CANCEL_IN_PERSON_APPOINTMENT_ZAMBDA_ID);
+    const response = await zambdaClient?.invokeZambda({
+      zambdaId: CANCEL_IN_PERSON_APPOINTMENT_ZAMBDA_ID,
       payload: parameters,
     });
+    console.log('response', response);
     return chooseJson(response, VITE_APP_IS_LOCAL);
   } catch (error: unknown) {
     console.log(error);

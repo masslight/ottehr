@@ -102,11 +102,6 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
               </TableCell>
               <TableCell>
                 <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                  Provider
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                   Group
                 </Typography>
               </TableCell>

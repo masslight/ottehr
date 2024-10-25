@@ -55,7 +55,8 @@ export default function AddPatient(): JSX.Element {
   const [slot, setSlot] = useState<string | undefined>();
   const [loading, setLoading] = useState<boolean>(false);
   const [searching, setSearching] = useState<boolean>(false);
-  const [errors, setErrors] = useState<{ submit?: boolean; phone?: boolean; search?: boolean }>({
+  const [errors, setErrors] = useState<{ age?: boolean; submit?: boolean; phone?: boolean; search?: boolean }>({
+    age: false,
     submit: false,
     phone: false,
     search: false,
@@ -200,10 +201,14 @@ export default function AddPatient(): JSX.Element {
         apiErr = true;
       } finally {
         setLoading(false);
-        if (response && !apiErr) {
+        if (!response.error && !apiErr) {
           navigate('/visits');
         } else {
-          setErrors({ submit: true });
+          if (response.error.includes('Patient age must be between')) {
+            setErrors({ age: true });
+          } else {
+            setErrors({ submit: true });
+          }
         }
       }
     }
@@ -528,6 +533,7 @@ export default function AddPatient(): JSX.Element {
                         <Grid container direction="row" justifyContent="space-between">
                           <Grid item xs={12}>
                             <TextField
+                              required
                               label="Email"
                               variant="outlined"
                               fullWidth
@@ -648,6 +654,11 @@ export default function AddPatient(): JSX.Element {
                   {errors.search && (
                     <Typography color="error" variant="body2" mb={2}>
                       Please search for patients before adding
+                    </Typography>
+                  )}
+                  {errors.age && (
+                    <Typography color="error" variant="body2" mb={2}>
+                      Patient age must be between 0 and 120 years
                     </Typography>
                   )}
                   <LoadingButton

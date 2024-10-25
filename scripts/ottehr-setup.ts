@@ -147,7 +147,7 @@ async function runCLI(): Promise<void> {
 
   try {
     await setupEHR(projectApiUrl, environment, accessToken, projectId, providerEmail, m2mDeviceId, m2mClientId, m2mSecret);
-    await setupIntake(projectApiUrl, environment, accessToken, projectId, providerEmail, m2mDeviceId, m2mClientId, m2mSecret);
+    await setupIntake(projectApiUrl, environment, accessToken, projectId, m2mDeviceId, m2mClientId, m2mSecret);
   } catch (e) {
     console.log(e);
     throw e;

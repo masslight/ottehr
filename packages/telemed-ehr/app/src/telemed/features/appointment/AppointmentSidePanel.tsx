@@ -50,7 +50,11 @@ enum Gender {
   'unknown' = 'Unknown',
 }
 
-export const AppointmentSidePanel: FC = () => {
+interface AppointmentSidePanelProps {
+  appointmentType: 'telemed' | 'in-person';
+}
+
+export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmentType }) => {
   const theme = useTheme();
 
   const { appointment, encounter, patient, location, isReadOnly, questionnaireResponse } = getSelectors(
@@ -351,7 +355,9 @@ export const AppointmentSidePanel: FC = () => {
           )}
         </Box>
 
-        {isCancelDialogOpen && <CancelVisitDialog onClose={() => setIsCancelDialogOpen(false)} />}
+        {isCancelDialogOpen && (
+          <CancelVisitDialog onClose={() => setIsCancelDialogOpen(false)} appointmentType={appointmentType} />
+        )}
         {/* {isERXOpen && <ERX onClose={() => setIsERXOpen(false)} onLoadingStatusChange={handleERXLoadingStatusChange} />} */}
         {isEditDialogOpen && (
           <EditPatientDialog modalOpen={isEditDialogOpen} onClose={() => setIsEditDialogOpen(false)} />

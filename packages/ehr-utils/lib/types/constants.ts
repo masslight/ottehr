@@ -1,5 +1,5 @@
 export const TELEMED_VIDEO_ROOM_CODE = 'chime-video-meetings';
-export const PHOTON_PATIENT_IDENTIFIER_SYSTEM = 'http://api.zapehr.com/photon-patient-id';
+export const ERX_PATIENT_IDENTIFIER_SYSTEM = 'http://api.zapehr.com/photon-patient-id';
 
 export const PRACTITIONER_QUALIFICATION_EXTENSION_URL =
   'http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification';
