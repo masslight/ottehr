@@ -10,7 +10,7 @@ dotenv.config();
 
 export default ({ mode }) => {
   const envDir = './env';
-  const env = loadEnv(mode, path.join(process.cwd(), envDir), '');
+  const env = loadEnv(mode, path.join(process.cwd(), envDir));
 
   return defineConfig({
     envDir: envDir,
@@ -18,7 +18,7 @@ export default ({ mode }) => {
     plugins: [react(), viteTsconfigPaths(), svgr()],
     server: {
       open: true,
-      port: env.PORT ? parseInt(env.PORT) : undefined,
+      port: env.VITE_APP_PORT ? parseInt(env.VITE_APP_PORT) : undefined,
     },
     optimizeDeps: {
       exclude: ['js-big-decimal', 'jsonpath-plus'],
@@ -29,9 +29,6 @@ export default ({ mode }) => {
       rollupOptions: {
         external: ['jsonpath-plus'],
       },
-    },
-    define: {
-      'process.env': process.env,
     },
   });
 };
