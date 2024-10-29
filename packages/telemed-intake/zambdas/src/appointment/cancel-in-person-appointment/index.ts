@@ -142,7 +142,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       });
     }
     // why do we have two separate sets of batch requests here, with updates related to the cancelation spread between both?
-    const status = 'CANCELLED';
+    const status = 'cancelled';
     appointmentPatchOperations.push(...getPatchOperationsToUpdateVisitStatus(appointment, status, now || undefined));
     const appointmentPatchRequest = getPatchBinary({
       resourceType: 'Appointment',
@@ -213,7 +213,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     console.log('Send cancel message request');
     if (!zapehrMessagingToken) {
-      zapehrMessagingToken = await getAccessToken(secrets, 'messaging');
+      // zapehrMessagingToken = await getAccessToken(secrets, 'messaging');
     }
     const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
     const message = `Your visit for ${getPatientFirstName(patient)} with Ottehr Urgent Care ${
