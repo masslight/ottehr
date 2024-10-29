@@ -4,10 +4,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   AppointmentFooter,
   AppointmentHeader,
-  AppointmentSidePanel,
   AppointmentTabs,
   AppointmentTabsHeader,
 } from '../telemed/features/appointment';
+import { AppointmentSidePanel } from '../components/AppointmentSidePanel';
 import { PATIENT_PHOTO_CODE, getQuestionnaireResponseByLinkId } from 'ehr-utils';
 import {
   useAppointmentStore,

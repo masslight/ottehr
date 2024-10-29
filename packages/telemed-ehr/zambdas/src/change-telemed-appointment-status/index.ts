@@ -73,7 +73,7 @@ export const performEffect = async (
     console.debug(`Status change detected from ${currentStatus} to ${newStatus}`);
 
     if (visitResources.account?.id === undefined) {
-      throw new Error(`No account has been found associated with the encouter ${visitResources.encounter?.id}`);
+      throw new Error(`No account has been found associated with the encounter ${visitResources.encounter?.id}`);
     }
 
     // see if charge item already exists for the encounter and if not, create it
