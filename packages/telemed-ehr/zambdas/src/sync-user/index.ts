@@ -108,7 +108,7 @@ async function getRemotePractitionerAndCredentials(
   console.log('Preparing search parameters for remote practitioner');
   const myEhrUser = await appClient.getMe();
   const myEmail = myEhrUser.email.toLocaleLowerCase();
-  console.log(`Preparing search for local ractitioner email: ${myEmail}`);
+  console.log(`Preparing search for local practitioner email: ${myEmail}`);
 
   const clinicianSearchResults: RemotePractitionerData[] = [];
 
