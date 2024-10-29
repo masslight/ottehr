@@ -1,12 +1,8 @@
 import { Box, Container } from '@mui/material';
 import { FC, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import {
-  AppointmentFooter,
-  AppointmentHeader,
-  AppointmentTabs,
-  AppointmentTabsHeader,
-} from '../telemed/features/appointment';
+import { AppointmentHeader, AppointmentTabs, AppointmentTabsHeader } from '../telemed/features/appointment';
+import { AppointmentFooter } from '../components/AppointmentFooter';
 import { AppointmentSidePanel } from '../components/AppointmentSidePanel';
 import { PATIENT_PHOTO_CODE, getQuestionnaireResponseByLinkId } from 'ehr-utils';
 import {
@@ -102,6 +98,8 @@ export const AppointmentPage: FC = () => {
           <AppointmentTabs />
         </Container>
       </Box>
+
+      <AppointmentFooter />
     </Box>
   );
 };

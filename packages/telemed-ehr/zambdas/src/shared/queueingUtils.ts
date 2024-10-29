@@ -281,7 +281,7 @@ class QueueBuilder {
         this.insertNew(appointment, this.queues.inOffice.inExam.provider);
       } else if (status === 'ready for discharge') {
         this.insertNew(appointment, this.queues.inOffice.inExam['ready for discharge']);
-      } else if (status === 'canceled' || status === 'no show') {
+      } else if (status === 'cancelled' || status === 'no show') {
         this.insertNew(appointment, this.queues.canceled);
       } else if (status === 'checked out') {
         this.insertNew(appointment, this.queues.checkedOut);

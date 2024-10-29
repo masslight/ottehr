@@ -27,6 +27,7 @@ import {
   ApptStatus,
   AppointmentMessaging,
   UCAppointmentInformation,
+  getStatusFromExtension,
 } from 'ehr-utils';
 import ChatModal from '../features/chat/ChatModal';
 import { calculatePatientAge } from '../helpers/formatDateTime';
@@ -43,6 +44,7 @@ import { getPatientName } from '../telemed/utils';
 import { PastVisits } from '../telemed/features/appointment/PastVisits';
 import { addSpacesAfterCommas } from '../helpers/formatString';
 import { INTERPRETER_PHONE_NUMBER } from 'ehr-utils';
+import { Appointment } from 'fhir/r4';
 
 enum Gender {
   'male' = 'Male',
@@ -144,7 +146,7 @@ export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmen
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 3, overflow: 'auto' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            {getAppointmentStatusChip(appointment?.status ?? '')}
+            {getAppointmentStatusChip(getStatusFromExtension(appointment as Appointment) as ApptStatus)}
 
             {appointment?.id && (
               <Tooltip title={appointment.id}>
