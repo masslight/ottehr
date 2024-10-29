@@ -104,8 +104,6 @@ export async function createUpdateUserRelatedResources(
     const relatedPerson = userResource.relatedPerson;
     const person = userResource.person;
 
-    console.log(5, person.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value);
-
     if (!person.id) {
       throw new Error('Person resource does not have an ID');
     }
