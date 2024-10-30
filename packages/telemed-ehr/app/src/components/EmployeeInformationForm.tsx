@@ -120,7 +120,13 @@ export default function EmployeeInformationForm({
   const theme = useTheme();
   const currentUser = useOttehrUser();
   const [loading, setLoading] = useState<boolean>(false);
-  const [errors, setErrors] = useState({ submit: false, roles: false, newLicense: false, duplicateLicense: false });
+  const [errors, setErrors] = useState({
+    submit: false,
+    roles: false,
+    qualification: false,
+    state: false,
+    duplicateLicense: false,
+  });
 
   const [newLicenseState, setNewLicenseState] = useState<string | undefined>(undefined);
   const [newLicenseCode, setNewLicenseCode] = useState<string | undefined>(undefined);
@@ -228,7 +234,7 @@ export default function EmployeeInformationForm({
         lastName: data.lastName,
         nameSuffix: data.nameSuffix,
         selectedRoles: data.roles,
-        licenses: licenses.filter((license) => data.enabledLicenses[license.state]),
+        licenses: newLicenses,
       });
     } catch (error) {
       console.log(`Failed to update user: ${error}`);
@@ -238,53 +244,32 @@ export default function EmployeeInformationForm({
     }
   };
 
-  const updateLicenses = async (licenses: PractitionerLicense[]): Promise<void> => {
-    if (!zambdaClient) {
-      throw new Error('Zambda Client not found');
-    }
-
-    const data = getValues();
-
-    await updateUser(zambdaClient, {
-      userId: user.id,
-      firstName: data.firstName,
-      middleName: data.middleName,
-      lastName: data.lastName,
-      nameSuffix: data.nameSuffix,
-      selectedRoles: data.roles,
-      licenses: licenses,
-    });
-  };
-
   const handleAddLicense = async (): Promise<void> => {
-    try {
-      setErrors((prev) => ({ ...prev, duplicateLicense: false, newLicense: false }));
+    setErrors((prev) => ({ ...prev, state: false, qualification: false, duplicateLicense: false }));
 
-      if (newLicenses.find((license) => license.state === newLicenseState && license.code === newLicenseCode)) {
-        setErrors((prev) => ({ ...prev, duplicateLicense: true }));
-        return;
-      }
-      if (!newLicenseState || !newLicenseCode) {
-        setErrors((prev) => ({ ...prev, newLicense: true }));
-        return;
-      }
-      const updatedLicenses = [...newLicenses];
-      updatedLicenses.push({
-        state: newLicenseState,
-        code: newLicenseCode as PractitionerQualificationCode,
-        active: true,
-      });
-      setNewLicenses(updatedLicenses);
-      setNewLicenseState(undefined);
-      setNewLicenseCode(undefined);
-      await updateLicenses(updatedLicenses);
-    } catch (error) {
-      console.error('Error adding license:', error);
-      setErrors((prev) => ({ ...prev, submit: true }));
+    if (newLicenses.find((license) => license.state === newLicenseState && license.code === newLicenseCode)) {
+      setErrors((prev) => ({ ...prev, duplicateLicense: true }));
+      return;
     }
+    if (!newLicenseCode || !newLicenseState) {
+      setErrors((prev) => ({
+        ...prev,
+        qualification: !newLicenseCode,
+        state: !newLicenseState,
+      }));
+      return;
+    }
+    const updatedLicenses = [...newLicenses];
+    updatedLicenses.push({
+      state: newLicenseState,
+      code: newLicenseCode as PractitionerQualificationCode,
+      active: true,
+    });
+    setNewLicenses(updatedLicenses);
+    setNewLicenseState(undefined);
+    setNewLicenseCode(undefined);
   };
 
-  // every time newLicenses changes, update the user
   return isActive === undefined ? (
     <Skeleton height={300} sx={{ marginY: -5 }} />
   ) : (
@@ -446,117 +431,138 @@ export default function EmployeeInformationForm({
             {isProviderRoleSelected && (
               <>
                 <hr />
-                <Typography
-                  sx={{
-                    ...theme.typography.h5,
-                    color: theme.palette.primary.dark,
-                    fontWeight: '600',
-                    marginTop: 4,
-                  }}
-                >
-                  Provider Qualifications
-                </Typography>
-                <Box mt={1}>
-                  <TableContainer>
-                    <Table>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>State</TableCell>
-                          <TableCell align="left">Qualification</TableCell>
-                          <TableCell align="left">Operate in state</TableCell>
-                          <TableCell align="left">Delete License</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {newLicenses.map((license, index) => (
-                          <TableRow key={index}>
-                            <TableCell>{license.state}</TableCell>
-                            <TableCell align="left">{license.code}</TableCell>
-                            <TableCell align="center">
-                              <Switch
-                                checked={license.active}
-                                onChange={async () => {
-                                  const updatedLicenses = [...newLicenses];
-                                  updatedLicenses[index].active = !updatedLicenses[index].active;
-
-                                  setNewLicenses(updatedLicenses);
-
-                                  await updateLicenses(updatedLicenses);
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell align="center">
-                              <IconButton
-                                sx={{
-                                  color: theme.palette.error.dark,
-                                  ':hover': {
-                                    backgroundColor: theme.palette.error.light,
-                                    color: theme.palette.error.contrastText,
-                                  },
-                                }}
-                                onClick={async () => {
-                                  const updatedLicenses = [...newLicenses];
-                                  updatedLicenses.splice(index, 1);
-
-                                  setNewLicenses(updatedLicenses);
-                                  await updateLicenses(updatedLicenses);
-                                }}
-                              >
-                                <DeleteIcon />
-                              </IconButton>
-                            </TableCell>
+                <FormControl sx={{ width: '100%' }}>
+                  <FormLabel
+                    sx={{
+                      ...theme.typography.h4,
+                      color: theme.palette.primary.dark,
+                      mt: 3,
+                      fontWeight: '600 !important',
+                    }}
+                  >
+                    Provider Qualifications
+                  </FormLabel>
+                  <Box mt={1}>
+                    <TableContainer>
+                      <Table>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>State</TableCell>
+                            <TableCell align="left">Qualification</TableCell>
+                            <TableCell align="left">Operate in state</TableCell>
+                            <TableCell align="left">Delete License</TableCell>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                  <Accordion>
-                    <AccordionSummary
-                      expandIcon={<ExpandMoreIcon />}
-                      sx={{
-                        marginTop: '20px',
-                        fontWeight: 'bold',
-                        color: theme.palette.primary.main,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Add New State Qualification
-                    </AccordionSummary>
-                    <AccordionDetails>
-                      <Grid container direction={'row'} spacing={1}>
-                        <Grid item xs={4}>
-                          <Autocomplete
-                            options={displaystates}
-                            getOptionLabel={(option: string) => option}
-                            renderInput={(params) => <TextField {...params} label="State" />}
-                            value={newLicenseState || null} // Set the value prop
-                            onChange={(event, value) => setNewLicenseState(value || undefined)}
-                          />
+                        </TableHead>
+                        <TableBody>
+                          {newLicenses.map((license, index) => (
+                            <TableRow key={index}>
+                              <TableCell>{license.state}</TableCell>
+                              <TableCell align="left">{license.code}</TableCell>
+                              <TableCell align="center">
+                                <Switch
+                                  checked={license.active}
+                                  onChange={async () => {
+                                    const updatedLicenses = [...newLicenses];
+                                    updatedLicenses[index].active = !updatedLicenses[index].active;
+
+                                    setNewLicenses(updatedLicenses);
+                                  }}
+                                />
+                              </TableCell>
+                              <TableCell align="center">
+                                <IconButton
+                                  sx={{
+                                    color: theme.palette.error.dark,
+                                    ':hover': {
+                                      backgroundColor: theme.palette.error.light,
+                                      color: theme.palette.error.contrastText,
+                                    },
+                                  }}
+                                  onClick={async () => {
+                                    const updatedLicenses = [...newLicenses];
+                                    updatedLicenses.splice(index, 1);
+
+                                    setNewLicenses(updatedLicenses);
+                                  }}
+                                >
+                                  <DeleteIcon />
+                                </IconButton>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                    <Accordion>
+                      <AccordionSummary
+                        expandIcon={<ExpandMoreIcon />}
+                        sx={{
+                          marginTop: '20px',
+                          fontWeight: 'bold',
+                          color: theme.palette.primary.main,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Add New State Qualification
+                      </AccordionSummary>
+                      <AccordionDetails>
+                        <Grid container direction={'row'} spacing={1}>
+                          <Grid item xs={4}>
+                            <Autocomplete
+                              options={displaystates}
+                              getOptionLabel={(option: string) => option}
+                              renderInput={(params) => (
+                                <TextField
+                                  {...params}
+                                  label="State"
+                                  error={errors.state}
+                                  helperText={errors.state ? 'Please select a state' : null}
+                                />
+                              )}
+                              value={newLicenseState || null}
+                              onChange={(event, value) => setNewLicenseState(value || undefined)}
+                            />
+                          </Grid>
+                          <Grid item xs={4}>
+                            <Autocomplete
+                              options={Object.keys(PractitionerQualificationCodesLabels)}
+                              getOptionLabel={(option: string) => option}
+                              renderInput={(params) => (
+                                <TextField
+                                  {...params}
+                                  label="Qualification"
+                                  error={errors.qualification}
+                                  helperText={errors.qualification ? 'Please select a qualification' : null}
+                                />
+                              )}
+                              value={newLicenseCode || null}
+                              onChange={(event, value) => setNewLicenseCode(value || undefined)}
+                            />
+                          </Grid>
+                          <Grid item xs={4} alignContent={'center'}>
+                            <Button
+                              variant="contained"
+                              endIcon={<AddIcon />}
+                              sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 28 }}
+                              onClick={handleAddLicense}
+                              fullWidth
+                            >
+                              Add
+                            </Button>
+                          </Grid>
+                          {errors.duplicateLicense && (
+                            <Typography
+                              color="error"
+                              variant="body2"
+                              mt={1}
+                              mx={1}
+                            >{`License already exists.`}</Typography>
+                          )}
                         </Grid>
-                        <Grid item xs={4}>
-                          <Autocomplete
-                            options={Object.keys(PractitionerQualificationCodesLabels)}
-                            getOptionLabel={(option: string) => option}
-                            renderInput={(params) => <TextField {...params} label="Qualification" />}
-                            value={newLicenseCode || null} // Set the value prop
-                            onChange={(event, value) => setNewLicenseCode(value || undefined)}
-                          />
-                        </Grid>
-                        <Grid item xs={4} alignContent={'center'}>
-                          <Button
-                            variant="contained"
-                            endIcon={<AddIcon />}
-                            sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 28 }}
-                            onClick={handleAddLicense}
-                            fullWidth
-                          >
-                            Add
-                          </Button>
-                        </Grid>
-                      </Grid>
-                    </AccordionDetails>
-                  </Accordion>
-                </Box>
+                      </AccordionDetails>
+                    </Accordion>
+                  </Box>
+                </FormControl>
               </>
             )}
           </>
@@ -565,12 +571,6 @@ export default function EmployeeInformationForm({
         {/* Error on submit if request fails */}
         {errors.submit && (
           <Typography color="error" variant="body2" mt={1}>{`Failed to update user. Please try again.`}</Typography>
-        )}
-        {errors.newLicense && (
-          <Typography color="error" variant="body2" mt={1}>{`Please select a state and qualification`}</Typography>
-        )}
-        {errors.duplicateLicense && (
-          <Typography color="error" variant="body2" mt={1}>{`License already exists`}</Typography>
         )}
 
         {/* Update Employee and Cancel Buttons */}

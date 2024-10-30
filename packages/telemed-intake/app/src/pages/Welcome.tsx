@@ -75,7 +75,7 @@ const Welcome = (): JSX.Element => {
     localStorage.setItem('welcomePath', location.pathname);
 
     if (!isAuthenticated) {
-      navigate(IntakeFlowPageRoute.AuthPage.path);
+      navigate(`${IntakeFlowPageRoute.AuthPage.path}?flow=welcome`);
       return;
     }
 
