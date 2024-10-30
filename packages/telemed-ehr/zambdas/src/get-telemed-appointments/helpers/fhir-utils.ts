@@ -106,8 +106,8 @@ export const getCommunicationsAndSenders = async (
     resourceType: 'Communication',
     searchParams: [
       { name: 'medium', value: `${ZAP_SMS_MEDIUM_CODE}` },
-      // { name: 'sender:RelatedPerson.telecom', value: uniqueNumbers.join(',') },
-      // { name: '_include', value: 'Communication:sender' },
+      { name: 'sender:RelatedPerson.telecom', value: uniqueNumbers.join(',') },
+      { name: '_include', value: 'Communication:sender' },
     ],
   });
 };
@@ -116,9 +116,7 @@ export const getPractLicensesLocationsAbbreviations = async (
   fhirClient: FhirClient,
   appClient: AppClient,
 ): Promise<string[]> => {
-  console.log('Getting practitioner licenses locations abbreviations');
   const practitionerId = (await appClient.getMe()).profile.replace('Practitioner/', '');
-  console.log('My practitioner ID: ' + practitionerId);
 
   const practitioner: Practitioner =
     (await fhirClient.readResource({
@@ -161,7 +159,6 @@ export const locationIdsForAppointmentsSearch = async (
   //      In this case we want to return appointments with location == stateFilter
 
   if (patientFilter === 'my-patients') {
-    console.log('my patients');
     const practitionerStates = await getPractLicensesLocationsAbbreviations(fhirClient, appClient);
     console.log('Practitioner states: ' + JSON.stringify(practitionerStates));
     if (!stateFilter) {
@@ -193,7 +190,6 @@ export const getAllPrefilteredFhirResources = async (
   const { dateFilter, providersFilter, stateFilter, statusesFilter, groupsFilter, patientFilter } = params;
   let allResources: Resource[] = [];
 
-  console.log('######');
   const locationsIdsToSearchWith = await locationIdsForAppointmentsSearch(
     stateFilter,
     patientFilter,
@@ -201,7 +197,6 @@ export const getAllPrefilteredFhirResources = async (
     fhirClient,
     appClient,
   );
-  console.log('Locations IDs to search with: ' + JSON.stringify(locationsIdsToSearchWith));
   if (!locationsIdsToSearchWith) return undefined;
   const encounterStatusesToSearchWith = mapTelemedStatusToEncounter(statusesFilter);
   const dateFilterConverted = DateTime.fromISO(dateFilter);

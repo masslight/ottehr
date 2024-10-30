@@ -62,29 +62,20 @@ export const performEffect = async (
   const virtualLocationsMap = await getAllVirtualLocationsMap(fhirClient);
   console.log('Created virtual locations map.');
 
-  console.log(19879871);
   const allResources = await getAllPrefilteredFhirResources(fhirClient, appClient, params, virtualLocationsMap);
-  console.log(19879872);
 
   if (!allResources) {
-    console.log(19879873);
-
     return {
       message: 'Successfully retrieved all appointments',
       appointments: [],
     };
   }
-  console.log(19879874);
 
   const allPackages = filterAppointmentsFromResources(allResources, statusesFilter, virtualLocationsMap);
-  console.log(19879875);
 
   console.log('Received all appointments with type "virtual":', allPackages.length);
-  console.log(19879876);
 
   const resultAppointments: TelemedAppointmentInformation[] = [];
-
-  console.log(19879877);
 
   if (allResources.length > 0) {
     const allRelatedPersonMaps = await relatedPersonAndCommunicationMaps(fhirClient, allResources);

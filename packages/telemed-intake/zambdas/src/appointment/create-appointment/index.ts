@@ -105,7 +105,6 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
   const { secrets } = input;
   const fhirClient = createFhirClient(zapehrToken);
 
-  console.log('getting user');
   const user = await getUser(input.headers.Authorization.replace('Bearer ', ''));
   const isEHRUser = !user.name.startsWith('+');
 
