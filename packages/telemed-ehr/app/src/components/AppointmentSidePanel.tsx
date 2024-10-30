@@ -45,6 +45,7 @@ import { PastVisits } from '../telemed/features/appointment/PastVisits';
 import { addSpacesAfterCommas } from '../helpers/formatString';
 import { INTERPRETER_PHONE_NUMBER } from 'ehr-utils';
 import { Appointment } from 'fhir/r4';
+import AppointmentStatusSwitcher from './AppointmentStatusSwitcher';
 
 enum Gender {
   'male' = 'Male',
@@ -146,8 +147,6 @@ export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmen
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 3, overflow: 'auto' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            {getAppointmentStatusChip(getStatusFromExtension(appointment as Appointment) as ApptStatus)}
-
             {appointment?.id && (
               <Tooltip title={appointment.id}>
                 <Typography
@@ -163,6 +162,7 @@ export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmen
               </Tooltip>
             )}
           </Box>
+          {<AppointmentStatusSwitcher appointment={appointment as Appointment} encounter={encounter} />}
 
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Typography variant="h4" color="primary.dark">

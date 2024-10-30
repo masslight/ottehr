@@ -1,26 +1,14 @@
-import React, { Dispatch, ReactElement, SetStateAction } from 'react';
-import {
-  OutlinedInput,
-  InputLabel,
-  MenuItem,
-  FormControl,
-  ListItemText,
-  Checkbox,
-  Select,
-  SelectChangeEvent,
-  CircularProgress,
-} from '@mui/material';
+import React, { ReactElement } from 'react';
+import { MenuItem, FormControl, Select, SelectChangeEvent, CircularProgress } from '@mui/material';
 import { FhirClient } from '@zapehr/sdk';
 import { Appointment, Encounter } from 'fhir/r4';
-import { getPatchOperationsToUpdateVisitStatus } from '../helpers/mappingUtils';
+import { getPatchOperationsToUpdateVisitStatus, mapVisitStatusToFhirAppointmentStatus } from '../helpers/mappingUtils';
 import { Operation } from 'fast-json-patch';
-import { getPatchBinary } from 'ehr-utils';
+import { getPatchBinary, getStatusFromExtension } from 'ehr-utils';
 import { VisitStatus, STATI } from '../helpers/mappingUtils';
 import { useApiClients } from '../hooks/useAppClients';
-import { Label } from 'amazon-chime-sdk-component-library-react';
-import { AppointmentStatusChip } from '../telemed';
 import { getAppointmentStatusChip } from './AppointmentTableRow';
-import { set } from 'react-hook-form';
+import { Box } from '@mui/system';
 
 const statuses = STATI;
 
@@ -30,7 +18,9 @@ export const switchStatus = async (
   encounter: Encounter,
   status: VisitStatus,
 ): Promise<void> => {
-  const statusOperations = getPatchOperationsToUpdateVisitStatus(appointment, status);
+  if (status === 'unknown') {
+    throw new Error(`Invalid status: ${status}`);
+  }
 
   if (!fhirClient) {
     throw new Error('error getting fhir client');
@@ -40,10 +30,12 @@ export const switchStatus = async (
     throw new Error('Appointment or Encounter ID is missing');
   }
 
+  const statusOperations = getPatchOperationsToUpdateVisitStatus(appointment, status);
+
   const patchOp: Operation = {
     op: 'replace',
     path: '/status',
-    value: status,
+    value: mapVisitStatusToFhirAppointmentStatus(status),
   };
 
   await fhirClient?.batchRequest({
@@ -88,27 +80,47 @@ export default function AppointmentStatusSwitcher({
   };
 
   return (
-    <>
-      <FormControl sx={{ width: 300, backgroundColor: 'white', borderRadius: '20px' }}>
-        {statusLoading ? (
-          <CircularProgress sx={{ display: 'block', mx: 'auto', my: 1.1 }} />
-        ) : (
-          <Select
-            id="status-select"
-            labelId="status-select-label"
-            value={currentAppointment.status}
-            onChange={async (event) => await handleChange(event)}
-            renderValue={(selected) => getAppointmentStatusChip(selected)}
-            sx={{ borderRadius: '20px' }}
-          >
-            {statuses.map((status) => (
+    <FormControl
+      sx={{
+        borderRadius: '15px',
+        border: '1px solid #E0E0E0',
+        width: '100%',
+        height: '60px',
+
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      {statusLoading ? (
+        <CircularProgress sx={{ mx: 'auto' }} />
+      ) : (
+        <Select
+          id="status-select"
+          labelId="status-select-label"
+          value={getStatusFromExtension(currentAppointment)}
+          onChange={async (event) => await handleChange(event)}
+          renderValue={(selected) => getAppointmentStatusChip(selected)}
+          sx={{
+            boxShadow: 'none',
+            '.MuiOutlinedInput-notchedOutline': { border: 0 },
+            '&.MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': {
+              border: 0,
+            },
+            '&.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
+              border: 0,
+            },
+          }}
+        >
+          {statuses
+            .filter((status) => status !== 'unknown')
+            .map((status) => (
               <MenuItem key={status} value={status}>
                 {getAppointmentStatusChip(status)}
               </MenuItem>
             ))}
-          </Select>
-        )}
-      </FormControl>
-    </>
+        </Select>
+      )}
+    </FormControl>
   );
 }
