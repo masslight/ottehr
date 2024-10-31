@@ -1,4 +1,4 @@
-import { Button, Typography } from '@mui/material';
+import { Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
@@ -16,6 +16,7 @@ import { useGetPatients, usePatientsStore } from 'src/features/patients';
 import { useFilesStore } from 'src/features/files';
 import { usePaperworkStore } from 'src/features/paperwork';
 import { usePatientInfoStore } from 'src/features/patient-info';
+import LoadingButton from '@mui/lab/LoadingButton';
 
 interface Parameters {
   'schedule-type': 'location' | 'provider';
@@ -62,7 +63,7 @@ const Welcome = (): JSX.Element => {
     useFilesStore.setState({ fileURLs: undefined });
   };
 
-  const { refetch: refetchPatients } = useGetPatients(apiClient, (data) => {
+  const { refetch: refetchPatients, isFetching: isPatientsFetching } = useGetPatients(apiClient, (data) => {
     usePatientsStore.setState({ patients: data?.patients });
   });
 
@@ -121,7 +122,8 @@ const Welcome = (): JSX.Element => {
 
           {visitType === 'prebook' && <Schedule slotData={schedule.availableSlots} timezone={'America/New_York'} />}
           <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button
+            <LoadingButton
+              loading={isPatientsFetching}
               variant="contained"
               color="secondary"
               size="large"
@@ -133,7 +135,7 @@ const Welcome = (): JSX.Element => {
               onClick={onSubmit}
             >
               {t('general.button.continue')}
-            </Button>
+            </LoadingButton>
           </Box>
         </>
       )}

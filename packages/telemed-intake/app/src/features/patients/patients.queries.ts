@@ -16,7 +16,7 @@ export const useGetPatients = (
       throw new Error('api client not defined');
     },
     {
-      enabled: false,
+      enabled: !!apiClient,
       onSuccess,
       onError: (err) => {
         console.error('Error during fetching get patients: ', err);
