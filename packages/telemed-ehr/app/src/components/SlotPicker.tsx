@@ -170,7 +170,7 @@ const SlotPicker = ({
 
   const slotsExist = getSlotsForDate(firstAvailableDay).length > 0 || getSlotsForDate(secondAvailableDay).length > 0;
   return (
-    <Box sx={{ backgroundColor: theme.palette.background.default, padding: 2, borderRadius: 2, marginTop: 2 }}>
+    <Box sx={{ backgroundColor: theme.palette.background.paper, padding: 2, borderRadius: 2, marginTop: 2 }}>
       <Box
         sx={{
           display: 'flex',
@@ -237,14 +237,25 @@ const SlotPicker = ({
                   onChange={handleChange}
                   TabIndicatorProps={{
                     style: {
-                      // background: otherColors.borderLightBlue,
-                      background: theme.palette.secondary.main,
+                      background: theme.palette.primary.main,
                       height: '5px',
                       borderRadius: '2.5px',
                     },
                   }}
                   variant="fullWidth"
                   aria-label="Appointment tabs for switching between appointments slots for today and tomorrow"
+                  sx={{
+                    '& .MuiTabs-indicator': {
+                      height: '5px',
+                      borderRadius: '2.5px',
+                    },
+                    '& .MuiTab-root': {
+                      borderBottom: `1px solid ${theme.palette.divider}`,
+                      '&.Mui-selected': {
+                        borderBottom: 'none',
+                      },
+                    },
+                  }}
                 >
                   <Tab
                     label={nextDay ? 'Tomorrow' : 'Today'}
@@ -254,6 +265,7 @@ const SlotPicker = ({
                       opacity: 1,
                       textTransform: 'capitalize',
                       fontWeight: 700,
+                      fontSize: '16px',
                     }}
                   />
                   {secondAvailableDay && (
@@ -265,6 +277,7 @@ const SlotPicker = ({
                         opacity: 1,
                         textTransform: 'capitalize',
                         fontWeight: 700,
+                        fontSize: '16px',
                       }}
                     />
                   )}
@@ -272,11 +285,7 @@ const SlotPicker = ({
               </Box>
               <Box>
                 <TabPanel value={currentTab} index={0} dir={theme.direction}>
-                  <Typography
-                    variant="h3"
-                    color="#000000"
-                    sx={{ textAlign: 'center', fontSize: '20px', color: theme.palette.primary.main }}
-                  >
+                  <Typography variant="h3" sx={{ textAlign: 'center' }}>
                     {firstAvailableDay?.toFormat(DATE_FULL_NO_YEAR)}
                   </Typography>
                   <Slots
@@ -287,11 +296,7 @@ const SlotPicker = ({
                   />
                 </TabPanel>
                 <TabPanel value={currentTab} index={1} dir={theme.direction}>
-                  <Typography
-                    variant="h3"
-                    color="#000000"
-                    sx={{ textAlign: 'center', fontSize: '20px', color: theme.palette.primary.main }}
-                  >
+                  <Typography variant="h3" sx={{ textAlign: 'center' }}>
                     {secondAvailableDay?.toFormat(DATE_FULL_NO_YEAR)}
                   </Typography>
                   <Slots

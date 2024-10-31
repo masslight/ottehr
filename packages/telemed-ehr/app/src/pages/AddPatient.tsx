@@ -25,7 +25,7 @@ import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
 import { PatternFormat } from 'react-number-format';
 import { useNavigate } from 'react-router-dom';
-import { GetLocationParameters, GetLocationResponse, createAppointment, getLocations } from '../api/api';
+import { GetScheduleParameters, GetScheduleResponse, createAppointment, getSchedule } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { CustomDialog } from '../components/dialogs/CustomDialog';
 import DateSearch from '../components/DateSearch';
@@ -62,7 +62,7 @@ export default function AddPatient(): JSX.Element {
     search: false,
   });
   const [loadingSlotState, setLoadingSlotState] = useState<SlotLoadingState>({ status: 'initial', input: undefined });
-  const [locationWithSlotData, setLocationWithSlotData] = useState<GetLocationResponse | undefined>(undefined);
+  const [locationWithSlotData, setLocationWithSlotData] = useState<GetScheduleResponse | undefined>(undefined);
   const [inputValue, setInputValue] = useState<string>('');
   const [validDate, setValidDate] = useState<boolean>(true);
   const [selectSlotDialogOpen, setSelectSlotDialogOpen] = useState<boolean>(false);
@@ -88,12 +88,12 @@ export default function AddPatient(): JSX.Element {
   };
 
   useEffect(() => {
-    const fetchLocationWithSlotData = async (params: GetLocationParameters, client: ZambdaClient): Promise<void> => {
+    const fetchLocationWithSlotData = async (params: GetScheduleParameters, client: ZambdaClient): Promise<void> => {
       setLoadingSlotState({ status: 'loading', input: undefined });
       try {
         if (!zambdaIntakeClient) throw new Error('Zambda client not found');
-        const locationResponse = await getLocations(zambdaIntakeClient, params);
-        setLocationWithSlotData(locationResponse);
+        const scheduleResponse = await getSchedule(zambdaIntakeClient, { scheduleType: 'location', slug: params.slug });
+        setLocationWithSlotData(scheduleResponse);
       } catch (e) {
         console.error('error loading location with slot data', e);
       } finally {
@@ -645,7 +645,7 @@ export default function AddPatient(): JSX.Element {
                 )}
 
                 {/* form buttons */}
-                <Box marginTop={4}>
+                <Box marginTop={2}>
                   {errors.submit && (
                     <Typography color="error" variant="body2" mb={2}>
                       Failed to add patient. Please try again.
