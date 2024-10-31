@@ -5,12 +5,8 @@ import { IntakeFlowPageRoute } from '../App';
 import { ErrorFallbackScreen, LoadingScreen } from '../features/common';
 
 const AuthPage: FC = () => {
-  const { isAuthenticated, loginWithRedirect, isLoading, error, user } = useAuth0();
+  const { isAuthenticated, loginWithRedirect, isLoading, error } = useAuth0();
   const authRef = useRef<Promise<void> | null>(null);
-
-  const searchParams = new URLSearchParams(location.search);
-  const welcomePath = searchParams.get('flow') === 'welcome';
-
   if (error) {
     return <ErrorFallbackScreen />;
   }
@@ -21,23 +17,15 @@ const AuthPage: FC = () => {
 
   if (!isAuthenticated) {
     if (!authRef.current) {
-      authRef.current = loginWithRedirect({
-        appState: { welcomePath },
-      });
+      authRef.current = loginWithRedirect();
     }
     return <LoadingScreen />;
   }
-
-  console.log('user appState', user?.appState?.welcomePath);
-
-  const appState = user?.appState || {};
-  const redirectToWelcome = appState.welcomePath || welcomePath;
-
-  if (redirectToWelcome) {
-    return <Navigate to={`${IntakeFlowPageRoute.SelectPatient.path}?flow=requestVisit`} />;
+  if (!localStorage.getItem('welcomePath')) {
+    return <Navigate to={IntakeFlowPageRoute.PatientPortal.path} />;
   }
-
-  return <Navigate to={IntakeFlowPageRoute.PatientPortal.path} />;
+  localStorage.removeItem('welcomePath');
+  return <Navigate to={`${IntakeFlowPageRoute.SelectPatient.path}?flow=requestVisit`} />;
 };
 
 export default AuthPage;
