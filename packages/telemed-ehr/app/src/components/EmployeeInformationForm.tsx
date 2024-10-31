@@ -419,7 +419,6 @@ export default function EmployeeInformationForm({
             </FormControl>
             {isProviderRoleSelected && (
               <>
-                <hr />
                 <FormControl sx={{ width: '100%' }}>
                   <FormLabel
                     sx={{
