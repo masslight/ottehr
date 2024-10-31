@@ -27,7 +27,7 @@ const UPDATE_USER_ZAMBDA_ID = import.meta.env.VITE_APP_UPDATE_USER_ZAMBDA_ID;
 const GET_USER_ZAMBDA_ID = import.meta.env.VITE_APP_GET_USER_ZAMBDA_ID;
 const DEACTIVATE_USER_ZAMBDA_ID = import.meta.env.VITE_APP_DEACTIVATE_USER_ZAMBDA_ID;
 const GET_CONVERSATION_ZAMBDA_ID = import.meta.env.VITE_APP_GET_CONVERSATION_ZAMBDA_ID;
-const GET_LOCATION_ZAMBDA_ID = import.meta.env.VITE_APP_GET_LOCATION_ZAMBDA_ID;
+const GET_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_GET_SCHEDULE_ZAMBDA_ID;
 const CANCEL_IN_PERSON_APPOINTMENT_ZAMBDA_ID = import.meta.env.VITE_APP_CANCEL_IN_PERSON_APPOINTMENT_ZAMBDA_ID;
 const GET_EMPLOYEES_ZAMBDA_ID = import.meta.env.VITE_APP_GET_EMPLOYEES_ZAMBDA_ID;
 
@@ -229,7 +229,7 @@ export interface AvailableLocationInformation {
   otherOffices: { display: string; url: string }[];
 }
 
-export interface GetLocationResponse {
+export interface GetScheduleResponse {
   message: string;
   state: string;
   name: string;
@@ -242,24 +242,19 @@ export interface GetLocationResponse {
   timezone: string;
 }
 
-export interface GetLocationParameters {
-  slug?: string;
+export interface GetScheduleParameters {
   scheduleType?: 'location' | 'provider' | 'group';
+  slug?: string;
   locationState?: string;
-  fetchAll?: boolean;
 }
 
-export const getLocations = async (
-  zambdaClient: ZambdaClient,
-  parameters: GetLocationParameters,
-): Promise<GetLocationResponse> => {
+export const getSchedule = async (zambdaClient: ZambdaClient, parameters: GetScheduleParameters): Promise<any> => {
   try {
-    if (GET_LOCATION_ZAMBDA_ID == null || VITE_APP_IS_LOCAL == null) {
-      throw new Error('get location environment variable could not be loaded');
+    if (GET_SCHEDULE_ZAMBDA_ID == null || VITE_APP_IS_LOCAL == null) {
+      throw new Error('get schedule environment variable could not be loaded');
     }
-    console.log(import.meta.env);
     const response = await zambdaClient?.invokePublicZambda({
-      zambdaId: GET_LOCATION_ZAMBDA_ID,
+      zambdaId: GET_SCHEDULE_ZAMBDA_ID,
       payload: parameters,
     });
     return chooseJson(response, VITE_APP_IS_LOCAL);
