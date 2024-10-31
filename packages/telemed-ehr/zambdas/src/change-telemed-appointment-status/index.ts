@@ -69,64 +69,66 @@ export const performEffect = async (
   console.debug(`Status has been changed.`);
 
   // if we are changing from unsiged to complete only, check these things...
-  if (newStatus === ApptStatus.complete && currentStatus === ApptStatus.unsigned) {
-    console.debug(`Status change detected from ${currentStatus} to ${newStatus}`);
+  // if (newStatus === ApptStatus.complete && currentStatus === ApptStatus.unsigned) {
+  //   console.debug(`Status change detected from ${currentStatus} to ${newStatus}`);
 
-    if (visitResources.account?.id === undefined) {
-      throw new Error(`No account has been found associated with the encounter ${visitResources.encounter?.id}`);
-    }
+  //   if (visitResources.account?.id === undefined) {
+  //     throw new Error(`No account has been found associated with the encounter ${visitResources.encounter?.id}`);
+  //   }
 
-    // see if charge item already exists for the encounter and if not, create it
-    if (visitResources.chargeItem === undefined) {
-      console.debug(`There is no existing charge item for encounter ${visitResources.encounter.id}, so creating one.`);
+  //   // see if charge item already exists for the encounter and if not, create it
+  //   if (visitResources.chargeItem === undefined) {
+  //     console.debug(`There is no existing charge item for encounter ${visitResources.encounter.id}, so creating one.`);
 
-      const chargeItem = await fhirClient.createResource<ChargeItem>({
-        resourceType: 'ChargeItem',
-        status: 'billable',
-        code: {
-          coding: [
-            {
-              system: 'http://snomed.info/sct',
-              code: '448337001',
-              display: 'Telemedicine consultation with patient',
-              userSelected: false,
-            },
-          ],
-        },
-        account: [{ reference: `Account/${visitResources.account?.id}` }],
-        subject: {
-          type: 'Patient',
-          reference: visitResources.encounter.subject.reference,
-        },
-        context: {
-          type: 'Encounter',
-          reference: `Encounter/${visitResources.encounter.id}`,
-        },
-        priceOverride: {
-          currency: 'USD',
-          value: 100,
-        },
-        performingOrganization: {
-          type: 'Organization',
-          reference: `Organization/${getSecret(SecretsKeys.ORGANIZATION_ID, params.secrets)}`,
-        },
-      });
-      if (chargeItem === undefined) {
-        throw new Error(
-          `Unable to create a charge item for appointment ${appointmentId}, encounter ${visitResources.encounter.id}`,
-        );
-      }
-      console.log(`Charge item ${(chargeItem as ChargeItem).id} has been created.`);
-    }
+  //     const chargeItem = await fhirClient.createResource<ChargeItem>({
+  //       resourceType: 'ChargeItem',
+  //       status: 'billable',
+  //       code: {
+  //         coding: [
+  //           {
+  //             system: 'http://snomed.info/sct',
+  //             code: '448337001',
+  //             display: 'Telemedicine consultation with patient',
+  //             userSelected: false,
+  //           },
+  //         ],
+  //       },
+  //       account: [{ reference: `Account/${visitResources.account?.id}` }],
+  //       subject: {
+  //         type: 'Patient',
+  //         reference: visitResources.encounter.subject.reference,
+  //       },
+  //       context: {
+  //         type: 'Encounter',
+  //         reference: `Encounter/${visitResources.encounter.id}`,
+  //       },
+  //       priceOverride: {
+  //         currency: 'USD',
+  //         value: 100,
+  //       },
+  //       performingOrganization: {
+  //         type: 'Organization',
+  //         reference: `Organization/${getSecret(SecretsKeys.ORGANIZATION_ID, params.secrets)}`,
+  //       },
+  //     });
+  //     if (chargeItem === undefined) {
+  //       throw new Error(
+  //         `Unable to create a charge item for appointment ${appointmentId}, encounter ${visitResources.encounter.id}`,
+  //       );
+  //     }
+  //     console.log(`Charge item ${(chargeItem as ChargeItem).id} has been created.`);
+  //   }
 
-    // issue a call to payment service...
-    const chargeOutcome = await postChargeIssueRequest(
-      getSecret(SecretsKeys.PROJECT_API, params.secrets),
-      m2mtoken,
-      visitResources.encounter.id,
-    );
-    console.log(`Charge outcome: ${JSON.stringify(chargeOutcome)}`);
-  }
-
+  //   // issue a call to payment service...
+  //   console.log(8);
+  //   const chargeOutcome = await postChargeIssueRequest(
+  //     getSecret(SecretsKeys.PROJECT_API, params.secrets),
+  //     m2mtoken,
+  //     visitResources.encounter.id,
+  //   );
+  //   console.log(9);
+  //   console.log(`Charge outcome: ${JSON.stringify(chargeOutcome)}`);
+  // }
+  console.log(10);
   return { message: 'Appointment status successfully changed and charged issued.' };
 };
