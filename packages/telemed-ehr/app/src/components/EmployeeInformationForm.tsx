@@ -54,7 +54,6 @@ interface EmployeeForm {
   middleName: string;
   lastName: string;
   nameSuffix: string;
-  enabledLicenses: { [key: string]: boolean };
   roles: string[];
 }
 
@@ -197,16 +196,6 @@ export default function EmployeeInformationForm({
       setValue('middleName', middleName);
       setValue('lastName', lastName);
       setValue('nameSuffix', nameSuffix);
-
-      let enabledLicenses = {};
-      if (existingUser.profileResource?.qualification) {
-        enabledLicenses = existingUser.profileResource.qualification.reduce((result, qualification) => {
-          const state = qualification.extension?.[0].extension?.[1].valueCodeableConcept?.coding?.[0].code;
-          return state ? { ...result, ...{ [state]: true } } : result;
-        }, {});
-      }
-
-      setValue('enabledLicenses', enabledLicenses);
     }
   }, [existingUser, setValue]);
 
