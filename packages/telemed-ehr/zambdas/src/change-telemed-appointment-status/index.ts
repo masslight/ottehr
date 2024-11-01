@@ -129,6 +129,5 @@ export const performEffect = async (
   //   console.log(9);
   //   console.log(`Charge outcome: ${JSON.stringify(chargeOutcome)}`);
   // }
-  console.log(10);
   return { message: 'Appointment status successfully changed and charged issued.' };
 };

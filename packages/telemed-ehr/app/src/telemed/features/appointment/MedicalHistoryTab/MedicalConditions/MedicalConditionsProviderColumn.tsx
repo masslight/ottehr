@@ -75,9 +75,9 @@ export const MedicalConditionsProviderColumn: FC = () => {
         )}
       </Box>
 
-      {/* {conditions.length === 0 && isReadOnly && !isChartDataLoading && (
+      {conditions.length === 0 && isReadOnly && !isChartDataLoading && (
         <Typography color="secondary.light">Missing. Patient input must be reconciled by provider</Typography>
-      )} */}
+      )}
 
       {!isReadOnly && (
         <form onSubmit={handleSubmit(handleSubmitWrapper)}>
