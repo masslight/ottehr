@@ -42,6 +42,8 @@ import { getAppointmentStatusChip, getPatientName } from '../../utils';
 import { PastVisits } from './PastVisits';
 import { addSpacesAfterCommas } from '../../../helpers/formatString';
 import { INTERPRETER_PHONE_NUMBER } from 'ehr-utils';
+import { Appointment } from 'fhir/r4';
+import AppointmentStatusSwitcher from '../../../components/AppointmentStatusSwitcher';
 
 enum Gender {
   'male' = 'Male',
@@ -143,7 +145,8 @@ export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmen
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 3, overflow: 'auto' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            {getAppointmentStatusChip(mapStatusToTelemed(encounter.status, appointment?.status))}
+            {appointmentType === 'telemed' &&
+              getAppointmentStatusChip(mapStatusToTelemed(encounter.status, appointment?.status))}
 
             {appointment?.id && (
               <Tooltip title={appointment.id}>
@@ -160,6 +163,10 @@ export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmen
               </Tooltip>
             )}
           </Box>
+
+          {appointmentType === 'in-person' && (
+            <AppointmentStatusSwitcher appointment={appointment as Appointment} encounter={encounter} />
+          )}
 
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Typography variant="h4" color="primary.dark">

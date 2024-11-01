@@ -5,16 +5,16 @@ import { DateTime } from 'luxon';
 export const ZAPEHR_ID_TYPE = 'ZapEHR ID';
 
 export const STATI = [
-  'arrived',
-  'cancelled',
-  'intake',
-  'no-show',
   'pending',
-  'provider',
+  'arrived',
   'ready',
-  'checked-out',
-  'discharge',
-  'provider-ready',
+  'intake',
+  'ready for provider',
+  'provider',
+  'ready for discharge',
+  'checked out',
+  'cancelled',
+  'no show',
   'unknown',
 ] as const;
 type STATI_LIST = typeof STATI;
@@ -56,17 +56,18 @@ export type VisitStatusExtension = {
 };
 
 export type VisitStatusWithoutUnknown = Exclude<VisitStatus, 'unknown'>;
+// todo this should be customizable
 const otherEHRToFhirAppointmentStatusMap: Record<VisitStatusWithoutUnknown, AppointmentStatus> = {
   pending: 'booked',
   arrived: 'arrived',
   ready: 'checked-in',
   intake: 'checked-in',
-  'provider-ready': 'fulfilled',
+  'ready for provider': 'fulfilled',
   provider: 'fulfilled',
-  discharge: 'fulfilled',
-  'checked-out': 'fulfilled',
+  'ready for discharge': 'fulfilled',
+  'checked out': 'fulfilled',
   cancelled: 'cancelled',
-  'no-show': 'noshow',
+  'no show': 'noshow',
 };
 
 export function makeVisitStatusExtensionEntry(
@@ -94,12 +95,12 @@ const otherEHRToFhirEncounterStatusMap: Record<VisitStatusWithoutUnknown, Encoun
   arrived: 'arrived',
   ready: 'arrived',
   intake: 'arrived',
-  'provider-ready': 'arrived',
+  'ready for provider': 'arrived',
   provider: 'in-progress',
-  discharge: 'in-progress',
-  'checked-out': 'finished',
+  'ready for discharge': 'in-progress',
+  'checked out': 'finished',
   cancelled: 'cancelled',
-  'no-show': 'cancelled',
+  'no show': 'cancelled',
 };
 
 export const mapVisitStatusToFhirEncounterStatus = (apptStatus: VisitStatusWithoutUnknown): EncounterStatus => {

@@ -104,7 +104,6 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
   } = params;
   const { secrets } = input;
   const fhirClient = createFhirClient(zapehrToken);
-  console.log('getting user');
 
   const user = await getUser(input.headers.Authorization.replace('Bearer ', ''));
   const isEHRUser = !user.name.startsWith('+');
@@ -169,8 +168,6 @@ export async function createAppointment(
   isDemo?: boolean,
   phoneNumber?: string,
 ): Promise<CreateAppointmentUCTelemedResponse> {
-  const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-
   let maybeFhirPatient: Patient | undefined = undefined;
   let updatePatientRequest: BatchInputRequest | undefined = undefined;
   let createPatientRequest: BatchInputPostRequest | undefined = undefined;
@@ -204,7 +201,7 @@ export async function createAppointment(
   }
 
   /** !!! Start time should be the appointment creation time here,
-   * cause the "Estimated waiting time" calulations are based on this,
+   * cause the "Estimated waiting time" calculations are based on this,
    * and we can't search appointments by "created" prop
    **/
   const originalDate = DateTime.fromISO(slot);
