@@ -199,15 +199,6 @@ function mapCommunicationsToRelatedPersonRef(
 ): Record<string, Communication[]> {
   const commsToRpRefMap: Record<string, Communication[]> = {};
 
-  // // todo: remove temporary fix
-  // if (
-  //   allCommunications.length === 0 ||
-  //   Object.keys(rpToIdMap).length === 0 ||
-  //   Object.keys(rpsRefsToPhoneNumberMap).length === 0
-  // ) {
-  //   return commsToRpRefMap;
-  // }
-
   allCommunications.forEach((comm) => {
     const communication = comm as Communication;
     const rpRef = communication.sender?.reference;
