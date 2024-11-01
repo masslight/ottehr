@@ -27,6 +27,10 @@ export const getFullestAvailableName = (
   return undefined;
 };
 
+export function filterResources(allResources: Resource[], resourceType: string): Resource[] {
+  return allResources.filter((res) => res.resourceType === resourceType && res.id);
+}
+
 export const getPatchOperationForNewMetaTag = (resource: Resource, newTag: Coding): Operation => {
   if (resource.meta == undefined) {
     return {

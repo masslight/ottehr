@@ -36,8 +36,8 @@ import CancelVisitDialog from '../../components/CancelVisitDialog';
 import EditPatientDialog from '../../components/EditPatientDialog';
 import InviteParticipant from '../../components/InviteParticipant';
 import { useGetAppointmentAccessibility } from '../../hooks';
-import { useAppointmentStore } from '../../state';
-import { getAppointmentStatusChip, getPatientName } from '../../utils';
+import { useAppointmentStore, useGetTelemedAppointmentWithSMSModel } from '../../state';
+import { getAppointmentStatusChip, getPatientName, quickTexts } from '../../utils';
 // import { ERX } from './ERX';
 import { PastVisits } from './PastVisits';
 import { addSpacesAfterCommas } from '../../../helpers/formatString';
@@ -101,9 +101,17 @@ export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmen
     // appointmentAccessibility.isEncounterAssignedToCurrentPractitioner &&
     isCancellableStatus;
 
-  const [hasUnread, setHasUnread] = useState<boolean>(
-    (appointment as unknown as UCAppointmentInformation)?.smsModel?.hasUnreadMessages || false,
+  const { data: appointmentMessaging, isFetching } = useGetTelemedAppointmentWithSMSModel(
+    {
+      appointmentId: appointment?.id,
+      patientId: patient?.id,
+    },
+    (data) => {
+      setHasUnread(data.smsModel?.hasUnreadMessages || false);
+    },
   );
+
+  const [hasUnread, setHasUnread] = useState<boolean>(appointmentMessaging?.smsModel?.hasUnreadMessages || false);
 
   if (!patient) {
     return null;
@@ -261,6 +269,7 @@ export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmen
               )
             }
             onClick={() => setChatModalOpen(true)}
+            loading={isFetching && !appointmentMessaging}
           />
 
           <Button
@@ -369,12 +378,13 @@ export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmen
         {isEditDialogOpen && (
           <EditPatientDialog modalOpen={isEditDialogOpen} onClose={() => setIsEditDialogOpen(false)} />
         )}
-        {chatModalOpen && (
+        {chatModalOpen && appointmentMessaging && (
           <ChatModal
-            appointment={appointment as unknown as UCAppointmentInformation}
-            currentLocation={location}
+            appointment={appointmentMessaging}
             onClose={() => setChatModalOpen(false)}
             onMarkAllRead={() => setHasUnread(false)}
+            patient={patient}
+            quickTexts={quickTexts}
           />
         )}
         {isInviteParticipantOpen && (

@@ -45,6 +45,7 @@ import { ApptTab } from './AppointmentTabs';
 import CustomChip from './CustomChip';
 import { GenericToolTip, PaperworkToolTipContent } from './GenericToolTip';
 import { VisitStatus, StatusLabel } from '../helpers/mappingUtils';
+import { quickTexts } from '../telemed/utils';
 
 interface AppointmentTableProps {
   appointment: UCAppointmentInformation;
@@ -795,6 +796,7 @@ export default function AppointmentTableRow({
           currentLocation={location}
           onClose={() => setChatModalOpen(false)}
           onMarkAllRead={() => setHasUnread(false)}
+          quickTexts={quickTexts}
         />
       )}
     </TableRow>

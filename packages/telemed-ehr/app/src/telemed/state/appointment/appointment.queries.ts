@@ -4,8 +4,11 @@ import { DateTime } from 'luxon';
 import { useMutation, useQuery } from 'react-query';
 import {
   ChartDataFields,
+  createSmsModel,
+  filterResources,
   InstructionType,
   MeetingData,
+  relatedPersonAndCommunicationMaps,
   SaveChartDataRequest,
   SchoolWorkNoteExcuseDocFileDTO,
   TelemedAppointmentInformation,
@@ -51,6 +54,58 @@ export const useRefreshableAppointmentData = (
     (originalData) => {
       const refreshedData = createRefreshableAppointmentData(originalData);
       onSuccess(refreshedData);
+    },
+  );
+};
+
+export const useGetTelemedAppointmentWithSMSModel = (
+  {
+    appointmentId,
+    patientId,
+  }: {
+    appointmentId: string | undefined;
+    patientId: string | undefined;
+  },
+  onSuccess: (data: TelemedAppointmentInformation) => void,
+): { data: TelemedAppointmentInformation | undefined; isFetching: boolean } => {
+  const { fhirClient } = useApiClients();
+
+  return useQuery(
+    ['telemed-appointment-messaging', { appointmentId }],
+    async () => {
+      if (fhirClient && appointmentId) {
+        const appointmentResources = await fhirClient.searchResources<Bundle>({
+          resourceType: 'Appointment',
+          searchParams: [
+            { name: '_id', value: appointmentId },
+            {
+              name: '_include',
+              value: 'Appointment:patient',
+            },
+            {
+              name: '_revinclude:iterate',
+              value: 'RelatedPerson:patient',
+            },
+          ],
+        });
+
+        const appointment = filterResources(appointmentResources, 'Appointment')[0];
+
+        const allRelatedPersonMaps = await relatedPersonAndCommunicationMaps(fhirClient, appointmentResources);
+
+        const smsModel = createSmsModel(patientId!, allRelatedPersonMaps);
+
+        return { ...appointment, smsModel };
+      }
+      throw new Error('fhir client is not defined or appointmentId and patientId are not provided');
+    },
+    {
+      refetchInterval: CHAT_REFETCH_INTERVAL,
+      onSuccess,
+      onError: (err) => {
+        console.error('Error during fetching appointment or creating SMS model: ', err);
+      },
+      enabled: !!fhirClient && !!appointmentId,
     },
   );
 };

@@ -4,6 +4,9 @@ import {
   OTTEHR_PATIENT_MESSAGE_CODE,
   OTTEHR_PATIENT_MESSAGE_SYSTEM,
   OttehrPatientMessageStatus,
+  RelatedPersonMaps,
+  SMSModel,
+  SMSRecipient,
 } from '../types';
 import { BatchInputRequest, FhirClient, User } from '@zapehr/sdk';
 import { DateTime } from 'luxon';
@@ -39,6 +42,52 @@ export const getMessageHasBeenReadByOttehr = (communication: Communication): boo
 export const getChatContainsUnreadMessages = (chat: Communication[]): boolean => {
   const readStatusList = (chat ?? []).map((comm) => getMessageHasBeenReadByOttehr(comm));
   return readStatusList.find((stat) => stat === false) !== undefined;
+};
+
+export const getCommunicationsAndSenders = async (
+  fhirClient: FhirClient,
+  uniqueNumbers: string[],
+): Promise<(Communication | RelatedPerson)[]> => {
+  return await fhirClient.searchResources<Communication | RelatedPerson>({
+    resourceType: 'Communication',
+    searchParams: [
+      { name: 'medium', value: ZAP_SMS_MEDIUM_CODE },
+      { name: 'sender:RelatedPerson.telecom', value: uniqueNumbers.join(',') },
+      { name: '_include', value: 'Communication:sender:RelatedPerson' },
+    ],
+  });
+};
+
+export function getUniquePhonesNumbers(allRps: RelatedPerson[]): string[] {
+  const uniquePhoneNumbers: string[] = [];
+
+  allRps.forEach((rp) => {
+    const phone = getSMSNumberForIndividual(rp);
+    if (phone && !uniquePhoneNumbers.includes(phone)) uniquePhoneNumbers.push(phone);
+  });
+
+  return uniquePhoneNumbers;
+}
+
+export const createSmsModel = (patientId: string, allRelatedPersonMaps: RelatedPersonMaps): SMSModel | undefined => {
+  let rps: RelatedPerson[] = [];
+  try {
+    rps = allRelatedPersonMaps.rpsToPatientIdMap[patientId];
+    const recipients = filterValidRecipients(rps);
+    if (recipients.length) {
+      const allComs = recipients.flatMap((recip) => {
+        return allRelatedPersonMaps.commsToRpRefMap[recip.relatedPersonId] ?? [];
+      });
+      return {
+        hasUnreadMessages: getChatContainsUnreadMessages(allComs),
+        recipients,
+      };
+    }
+  } catch (e) {
+    console.log('error building sms model: ', e);
+    console.log('related persons value prior to error: ', rps);
+  }
+  return undefined;
 };
 
 export interface MakeOttehrMessageReadStatusInput {
@@ -148,3 +197,17 @@ export const initialsFromName = (name: string): string => {
   });
   return parts.join('');
 };
+
+function filterValidRecipients(relatedPersons: RelatedPerson[]): SMSRecipient[] {
+  // some slack alerts suggest this could be undefined, but that would mean there are patients with no RP
+  // or some bug preventing rp from being returned with the query
+  return relatedPersons
+    .map((rp) => {
+      return {
+        recipientResourceUri: rp.id ? `RelatedPerson/${rp.id}` : undefined,
+        smsNumber: getSMSNumberForIndividual(rp),
+        relatedPersonId: rp.id,
+      };
+    })
+    .filter((rec) => rec.recipientResourceUri !== undefined && rec.smsNumber !== undefined) as SMSRecipient[];
+}

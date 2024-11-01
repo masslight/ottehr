@@ -17,6 +17,11 @@ export const ReasonForVisitOptions = [
   'Eye concern',
 ];
 
+export enum LANGUAGES {
+  spanish = 'spanish',
+  english = 'english',
+}
+
 export const phoneNumberRegex = /^\d{10}$/;
 
 export const MAXIMUM_CHARACTER_LIMIT = 160;
