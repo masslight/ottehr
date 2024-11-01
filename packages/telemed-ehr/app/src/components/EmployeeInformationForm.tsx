@@ -504,6 +504,7 @@ export default function EmployeeInformationForm({
                                   {...params}
                                   label="State"
                                   error={errors.state}
+                                  required
                                   helperText={errors.state ? 'Please select a state' : null}
                                 />
                               )}
@@ -520,6 +521,7 @@ export default function EmployeeInformationForm({
                                   {...params}
                                   label="Qualification"
                                   error={errors.qualification}
+                                  required
                                   helperText={errors.qualification ? 'Please select a qualification' : null}
                                 />
                               )}
