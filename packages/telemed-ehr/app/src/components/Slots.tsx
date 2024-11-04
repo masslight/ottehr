@@ -26,15 +26,19 @@ export function Slots({ slots, timezone, selectedSlot, setSelectedSlot }: SlotsP
         const startDateTimezoneAdjusted = startDate.setZone(timezone);
         const isSelected = selectedSlot === slot;
         return (
-          <Grid key={idx} item>
+          <Grid key={idx} item sx={{ textAlign: 'center' }}>
             <Button
               sx={{
                 width: '110px',
                 borderColor: theme.palette.divider,
                 fontWeight: isSelected ? 700 : 400,
+                '&:hover': {
+                  backgroundColor: isSelected ? theme.palette.primary.main : undefined,
+                  borderColor: theme.palette.divider,
+                },
+                color: isSelected ? theme.palette.primary.contrastText : theme.palette.primary.dark,
               }}
               variant={isSelected ? 'contained' : 'outlined'}
-              color="primary"
               onClick={() => setSelectedSlot(slot)}
             >
               {startDateTimezoneAdjusted.toFormat('h:mm a')}

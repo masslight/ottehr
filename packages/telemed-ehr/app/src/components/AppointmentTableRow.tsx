@@ -45,6 +45,7 @@ import { ApptTab } from './AppointmentTabs';
 import CustomChip from './CustomChip';
 import { GenericToolTip, PaperworkToolTipContent } from './GenericToolTip';
 import { VisitStatus, StatusLabel } from '../helpers/mappingUtils';
+import { quickTexts } from '../telemed/utils';
 
 interface AppointmentTableProps {
   appointment: UCAppointmentInformation;
@@ -133,7 +134,7 @@ export const CHIP_STATUS_MAP: {
       primary: '#684e5d',
     },
   },
-  'provider-ready': {
+  'ready for provider': {
     background: {
       primary: '#EEEEEE',
       secondary: '#444444',
@@ -150,7 +151,7 @@ export const CHIP_STATUS_MAP: {
       primary: '#6F6D1A',
     },
   },
-  discharge: {
+  'ready for discharge': {
     background: {
       primary: '#B2EBF2',
     },
@@ -158,7 +159,7 @@ export const CHIP_STATUS_MAP: {
       primary: '#006064',
     },
   },
-  'checked-out': {
+  'checked out': {
     background: {
       primary: '#FFFFFF',
     },
@@ -174,7 +175,7 @@ export const CHIP_STATUS_MAP: {
       primary: '#B71C1C',
     },
   },
-  'no-show': {
+  'no show': {
     background: {
       primary: '#DFE5E9',
     },
@@ -795,6 +796,7 @@ export default function AppointmentTableRow({
           currentLocation={location}
           onClose={() => setChatModalOpen(false)}
           onMarkAllRead={() => setHasUnread(false)}
+          quickTexts={quickTexts}
         />
       )}
     </TableRow>

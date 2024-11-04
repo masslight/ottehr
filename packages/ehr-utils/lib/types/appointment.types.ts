@@ -26,6 +26,8 @@ export const mapStatusToTelemed = (
     case 'finished':
       if (appointmentStatus === 'fulfilled') return ApptStatus.complete;
       else return ApptStatus.unsigned;
+    case 'cancelled':
+      return ApptStatus.cancelled;
   }
   return undefined;
 };

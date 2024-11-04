@@ -1,4 +1,4 @@
-import { Appointment, Encounter, Location, Patient, QuestionnaireResponse } from 'fhir/r4';
+import { Appointment, Encounter, Location, Patient, Questionnaire, QuestionnaireResponse } from 'fhir/r4';
 import { GetChartDataResponse } from 'ehr-utils';
 import { create } from 'zustand';
 
@@ -8,6 +8,7 @@ type AppointmentState = {
   location: Location | undefined;
   encounter: Encounter;
   questionnaireResponse: QuestionnaireResponse | undefined;
+  questionnaire: Questionnaire | undefined;
   patientPhotoUrls: string[];
   schoolWorkNoteUrls: string[];
   isAppointmentLoading: boolean;
@@ -28,6 +29,7 @@ const APPOINTMENT_INITIAL: AppointmentState = {
   location: undefined,
   encounter: {} as Encounter,
   questionnaireResponse: undefined,
+  questionnaire: undefined,
   patientPhotoUrls: [],
   schoolWorkNoteUrls: [],
   isAppointmentLoading: false,

@@ -21,7 +21,7 @@ const PatientPortal = (): JSX.Element => {
     ['ready', 'pre-video', 'on-video'].includes(appointment.telemedStatus),
   );
 
-  const { data: patientsData } = useGetPatients(apiClient, (data) => {
+  const { data: patientsData, isFetching: isPatientsFetching } = useGetPatients(apiClient, (data) => {
     usePatientsStore.setState({ patients: data?.patients });
   });
 
@@ -40,7 +40,7 @@ const PatientPortal = (): JSX.Element => {
       bgVariant={IntakeFlowPageRoute.PatientPortal.path}
       isFirstPage={true}
     >
-      {isFetching ? (
+      {isFetching || isPatientsFetching ? (
         <Skeleton
           sx={{
             borderRadius: 2,

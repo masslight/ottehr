@@ -113,8 +113,8 @@ const typography: TypographyOptions = {
     lineHeight: '140%',
   },
   h3: {
-    fontSize: 32,
-    fontWeight: '500 !important',
+    fontSize: 20,
+    fontWeight: '600 !important',
     fontFamily: headerFonts.join(','),
     lineHeight: '140%',
   },

@@ -4,7 +4,7 @@ import { UserType, PatientBaseInfo } from '../../../common';
 export interface CreateAppointmentUCTelemedParams {
   patient?: PatientInfo;
   slot?: string;
-  scheduleType?: 'location' | 'provider';
+  scheduleType?: 'location' | 'provider' | 'group';
   visitType?: 'prebook' | 'now';
   visitService?: 'in-person' | 'telemedicine';
   locationID?: string;

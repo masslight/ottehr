@@ -30,13 +30,14 @@ const STATI = [
   'CANCELLED',
   'CHECKED-IN',
   'INTAKE',
-  'NO-SHOW',
+  'NO SHOW',
   'PENDING',
   'PROVIDER',
   'READY',
-  'DISCHARGE',
-  'PROVIDER-READY',
+  'READY FOR DISCHARGE',
+  'READY FOR PROVIDER',
 ];
+
 type STATI_LIST = typeof STATI;
 export type VisitStatus = STATI_LIST[number];
 

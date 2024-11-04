@@ -63,7 +63,7 @@ const PRIVATE_EXTENSION_BASE_URL = 'https://fhir.zapehr.com/r4/StructureDefiniti
 const visitStatusExtensionCode = 'visit-history';
 export const visitStatusExtensionUrl = `${PRIVATE_EXTENSION_BASE_URL}/${visitStatusExtensionCode}`;
 
-const getStatusFromExtension = (resource: Appointment): VisitStatus | undefined => {
+export const getStatusFromExtension = (resource: Appointment): VisitStatus | undefined => {
   const history = getVisitStatusHistory(resource);
   if (history) {
     const historySorted = [...history]

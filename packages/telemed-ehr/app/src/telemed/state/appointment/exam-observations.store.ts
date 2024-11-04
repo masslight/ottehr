@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { ExamCardsNames, ExamFieldsNames, ExamObservationDTO } from 'ehr-utils';
-import { ExamObservationCardsDetails, ExamObservationFieldsDetails } from '../../utils';
+import { ExamObservationCardsDetails, ExamObservationFieldsDetails } from '../../utils/exam-observations.helper';
 
 type ExamObservationsState = { [field in ExamFieldsNames | ExamCardsNames]: ExamObservationDTO };
 

@@ -27,6 +27,7 @@ import {
   ApptStatus,
   AppointmentMessaging,
   UCAppointmentInformation,
+  QuestionnaireLinkIds,
 } from 'ehr-utils';
 import ChatModal from '../../../features/chat/ChatModal';
 import { calculatePatientAge } from '../../../helpers/formatDateTime';
@@ -36,12 +37,14 @@ import CancelVisitDialog from '../../components/CancelVisitDialog';
 import EditPatientDialog from '../../components/EditPatientDialog';
 import InviteParticipant from '../../components/InviteParticipant';
 import { useGetAppointmentAccessibility } from '../../hooks';
-import { useAppointmentStore } from '../../state';
-import { getAppointmentStatusChip, getPatientName } from '../../utils';
+import { useAppointmentStore, useGetTelemedAppointmentWithSMSModel } from '../../state';
+import { getAppointmentStatusChip, getPatientName, quickTexts } from '../../utils';
 // import { ERX } from './ERX';
 import { PastVisits } from './PastVisits';
 import { addSpacesAfterCommas } from '../../../helpers/formatString';
 import { INTERPRETER_PHONE_NUMBER } from 'ehr-utils';
+import { Appointment } from 'fhir/r4';
+import AppointmentStatusSwitcher from '../../../components/AppointmentStatusSwitcher';
 
 enum Gender {
   'male' = 'Male',
@@ -71,17 +74,23 @@ export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmen
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
   const [isInviteParticipantOpen, setIsInviteParticipantOpen] = useState(false);
 
-  const reasonForVisit = getQuestionnaireResponseByLinkId('reason-for-visit', questionnaireResponse)?.answer?.[0]
-    .valueString;
-  const preferredLanguage = getQuestionnaireResponseByLinkId('preferred-language', questionnaireResponse)?.answer?.[0]
-    .valueString;
-  const relayPhone = getQuestionnaireResponseByLinkId('relay-phone', questionnaireResponse)?.answer?.[0].valueString;
+  const reasonForVisit = getQuestionnaireResponseByLinkId(QuestionnaireLinkIds.REASON_FOR_VISIT, questionnaireResponse)
+    ?.answer?.[0].valueString;
+  const preferredLanguage = getQuestionnaireResponseByLinkId(
+    QuestionnaireLinkIds.PREFERRED_LANGUAGE,
+    questionnaireResponse,
+  )?.answer?.[0].valueString;
+  const relayPhone = getQuestionnaireResponseByLinkId(QuestionnaireLinkIds.RELAY_PHONE, questionnaireResponse)
+    ?.answer?.[0].valueString;
   const number =
-    getQuestionnaireResponseByLinkId('patient-number', questionnaireResponse)?.answer?.[0].valueString ||
-    getQuestionnaireResponseByLinkId('guardian-number', questionnaireResponse)?.answer?.[0].valueString;
-  const knownAllergies = getQuestionnaireResponseByLinkId('allergies', questionnaireResponse)?.answer[0].valueArray;
-  const address = getQuestionnaireResponseByLinkId('patient-street-address', questionnaireResponse)?.answer?.[0]
-    .valueString;
+    getQuestionnaireResponseByLinkId(QuestionnaireLinkIds.PATIENT_NUMBER, questionnaireResponse)?.answer?.[0]
+      .valueString ||
+    getQuestionnaireResponseByLinkId(QuestionnaireLinkIds.GUARDIAN_NUMBER, questionnaireResponse)?.answer?.[0]
+      .valueString;
+  const knownAllergies = getQuestionnaireResponseByLinkId(QuestionnaireLinkIds.ALLERGIES, questionnaireResponse)
+    ?.answer[0].valueArray;
+  const address = getQuestionnaireResponseByLinkId(QuestionnaireLinkIds.PATIENT_STREET_ADDRESS, questionnaireResponse)
+    ?.answer?.[0].valueString;
 
   const handleERXLoadingStatusChange = useCallback<(status: boolean) => void>(
     (status) => setIsERXLoading(status),
@@ -99,9 +108,17 @@ export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmen
     // appointmentAccessibility.isEncounterAssignedToCurrentPractitioner &&
     isCancellableStatus;
 
-  const [hasUnread, setHasUnread] = useState<boolean>(
-    (appointment as unknown as UCAppointmentInformation)?.smsModel?.hasUnreadMessages || false,
+  const { data: appointmentMessaging, isFetching } = useGetTelemedAppointmentWithSMSModel(
+    {
+      appointmentId: appointment?.id,
+      patientId: patient?.id,
+    },
+    (data) => {
+      setHasUnread(data.smsModel?.hasUnreadMessages || false);
+    },
   );
+
+  const [hasUnread, setHasUnread] = useState<boolean>(appointmentMessaging?.smsModel?.hasUnreadMessages || false);
 
   if (!patient) {
     return null;
@@ -143,7 +160,8 @@ export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmen
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 3, overflow: 'auto' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            {getAppointmentStatusChip(mapStatusToTelemed(encounter.status, appointment?.status))}
+            {appointmentType === 'telemed' &&
+              getAppointmentStatusChip(mapStatusToTelemed(encounter.status, appointment?.status))}
 
             {appointment?.id && (
               <Tooltip title={appointment.id}>
@@ -160,6 +178,10 @@ export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmen
               </Tooltip>
             )}
           </Box>
+
+          {appointmentType === 'in-person' && (
+            <AppointmentStatusSwitcher appointment={appointment as Appointment} encounter={encounter} />
+          )}
 
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Typography variant="h4" color="primary.dark">
@@ -254,6 +276,7 @@ export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmen
               )
             }
             onClick={() => setChatModalOpen(true)}
+            loading={isFetching && !appointmentMessaging}
           />
 
           <Button
@@ -362,12 +385,13 @@ export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmen
         {isEditDialogOpen && (
           <EditPatientDialog modalOpen={isEditDialogOpen} onClose={() => setIsEditDialogOpen(false)} />
         )}
-        {chatModalOpen && (
+        {chatModalOpen && appointmentMessaging && (
           <ChatModal
-            appointment={appointment as unknown as UCAppointmentInformation}
-            currentLocation={location}
+            appointment={appointmentMessaging}
             onClose={() => setChatModalOpen(false)}
             onMarkAllRead={() => setHasUnread(false)}
+            patient={patient}
+            quickTexts={quickTexts}
           />
         )}
         {isInviteParticipantOpen && (
