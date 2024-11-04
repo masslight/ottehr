@@ -25,6 +25,8 @@ const PatientPortal = (): JSX.Element => {
     usePatientsStore.setState({ patients: data?.patients });
   });
 
+  const hasPatients = Boolean(patientsData?.patients?.length);
+
   const isAppointmentStatusReady = Boolean(activeAppointment);
 
   const appointmentID = activeAppointment?.id || '';
@@ -85,7 +87,7 @@ const PatientPortal = (): JSX.Element => {
             <HomepageOption title={t('patientPortal.requestVisit')} icon={requestVisit} />
           </Link>
 
-          {patientsData?.patients?.length && (
+          {hasPatients && (
             <Link
               to={`${IntakeFlowPageRoute.SelectPatient.path}?flow=pastVisits`}
               style={{ textDecoration: 'none', color: 'var(--text-primary)' }}
