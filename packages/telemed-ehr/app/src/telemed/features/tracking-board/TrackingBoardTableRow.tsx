@@ -21,6 +21,7 @@ import ChatModal from '../../../features/chat/ChatModal';
 import { calculatePatientAge, formatDateUsingSlashes } from '../../../helpers/formatDateTime';
 import { AppointmentStatusChip, StatusHistory } from '../../components';
 import { TrackingBoardTableButton } from './TrackingBoardTableButton';
+import { quickTexts } from '../../utils';
 
 interface AppointmentTableProps {
   appointment: TelemedAppointmentInformation;
@@ -248,6 +249,7 @@ export function TrackingBoardTableRow({
           appointment={appointment}
           onClose={() => setChatModalOpen(false)}
           onMarkAllRead={() => setHasUnread(false)}
+          quickTexts={quickTexts}
         />
       )}
     </TableRow>
