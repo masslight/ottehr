@@ -8,3 +8,4 @@ export * from './disposition.helper';
 export * from './exam-observations.helper';
 export * from './appointment-accessibility.helper';
 export * from './auxiliary';
+export * from './removeHtmlTags';

@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { Close } from '@mui/icons-material';
 import SendIcon from '@mui/icons-material/Send';
 import { LoadingButton } from '@mui/lab';
@@ -13,29 +14,20 @@ import {
   Modal,
   TextField,
   useTheme,
+  ToggleButtonGroup,
+  ToggleButton,
+  Box,
 } from '@mui/material';
 import Typography from '@mui/material/Typography';
-import { Location } from 'fhir/r4';
+import { Location, Patient } from 'fhir/r4';
 import { DateTime } from 'luxon';
 import { ChangeEvent, ReactElement, UIEvent, memo, useEffect, useMemo, useState } from 'react';
-import {
-  AppointmentMessaging,
-  ConversationMessage,
-  initialsFromName,
-  markAllMessagesRead,
-  standardizePhoneNumber,
-} from 'ehr-utils';
+import { LANGUAGES } from '../../constants';
+import { AppointmentMessaging, ConversationMessage, initialsFromName, markAllMessagesRead } from 'ehr-utils';
 import { useApiClients } from '../../hooks/useAppClients';
 import useOttehrUser, { OttehrUser } from '../../hooks/useOttehrUser';
 import { useFetchChatMessagesQuery, useSendMessagesMutation } from './chat.queries';
-import { TIMEZONE_EXTENSION_URL } from '../../constants';
-
-interface PatientParticipant {
-  firstName: string;
-  name: string;
-  initials: string;
-  appointmentId: string;
-}
+import { getPatientName, removeHtmlTags } from '../../telemed/utils';
 
 function scrollToBottomOfChat(): void {
   // this helps with the scroll working,
@@ -73,18 +65,21 @@ const makePendingSentMessage = (text: string, timezone: string, sender: OttehrUs
   };
 };
 
-// eslint-disable-next-line react/display-name
 const ChatModal = memo(
   ({
     appointment,
+    patient,
     currentLocation,
     onClose,
     onMarkAllRead,
+    quickTexts,
   }: {
     appointment: AppointmentMessaging;
+    patient?: Patient;
     currentLocation?: Location;
     onClose: () => void;
     onMarkAllRead: () => void;
+    quickTexts: { [key in LANGUAGES]: string }[] | string[];
   }): ReactElement => {
     const theme = useTheme();
     const { fhirClient } = useApiClients();
@@ -92,20 +87,23 @@ const ChatModal = memo(
     const [_messages, _setMessages] = useState<MessageModel[]>([]);
     const [messageText, setMessageText] = useState<string>('');
     const [quickTextsOpen, setQuickTextsOpen] = useState<boolean>(false);
+    const [language, setLanguage] = useState<LANGUAGES>(LANGUAGES.english);
 
     const [pendingMessageSend, setPendingMessageSend] = useState<MessageModel | undefined>();
 
-    const model = appointment?.smsModel;
+    const { patient: patientFromAppointment, smsModel: model } = appointment;
     const timezone = useMemo(() => {
       // const state = currentLocation?.address?.state;
       return (
         currentLocation?.extension?.find((ext) => {
-          return ext.url === TIMEZONE_EXTENSION_URL;
+          return ext.url === 'http://hl7.org/fhir/StructureDefinition/timezone';
         })?.valueString ?? 'America/New_York'
       );
     }, [currentLocation]);
 
-    const patientParticipant = getPatientParticipantFromAppointment(appointment);
+    let patientName;
+    if (patientFromAppointment?.firstName || patientFromAppointment?.lastName)
+      patientName = `${patientFromAppointment?.firstName || ''} ${patientFromAppointment?.lastName || ''}`;
 
     const numbersToSendTo = useMemo(() => {
       const numbers = (model?.recipients ?? []).map((recip) => recip.smsNumber);
@@ -159,13 +157,7 @@ const ChatModal = memo(
       })?.id;
     }, [messages]);
 
-    useEffect(() => {
-      if (messages.length) {
-        scrollToBottomOfChat();
-      }
-    }, [messages]);
-
-    const hasUnreadMessages = appointment?.smsModel?.hasUnreadMessages;
+    const hasUnreadMessages = model?.hasUnreadMessages;
 
     const markAllRead = async (): Promise<void> => {
       if (currentUser && fhirClient && hasUnreadMessages) {
@@ -218,24 +210,6 @@ const ChatModal = memo(
       p: '8px 16px',
     };
 
-    const locationInStorage = localStorage.getItem('selectedLocation');
-    let officePhoneNumber: string | undefined;
-    if (locationInStorage) {
-      const location: Location | undefined = JSON.parse(locationInStorage);
-      officePhoneNumber = location?.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value;
-      officePhoneNumber = standardizePhoneNumber(officePhoneNumber);
-    }
-
-    const VITE_APP_QRS_URL = import.meta.env.VITE_APP_QRS_URL;
-
-    const quickTexts = [
-      // todo need to make url dynamic or pull from location
-      `Please complete the paperwork and sign consent forms to avoid a delay in check-in. For ${patientParticipant?.firstName}, click here: ${VITE_APP_QRS_URL}/visit/${patientParticipant?.appointmentId}`,
-      'We are now ready to check you in. Please head to the front desk to complete the process.',
-      'We are ready for the patient to be seen, please enter the facility.',
-      `Ottehr is trying to get ahold of you. Please call us at ${officePhoneNumber} or respond to this text message.`,
-    ];
-
     const selectQuickText = (text: string): void => {
       setMessageText(text);
       setQuickTextsOpen(false);
@@ -245,6 +219,46 @@ const ChatModal = memo(
       void markAllRead();
       onClose();
     };
+
+    const hasQuickTextTranslations = (quickTexts: any): quickTexts is { [key in LANGUAGES]: string }[] => {
+      return typeof quickTexts[0] === 'object';
+    };
+
+    /* 
+      https://github.com/masslight/pmp-ehr/issues/1984
+      prior to memoizing this list of messages, the component was rerendering
+      the entire message list with each key stroke.
+
+      we might consider other scale-related changes in the future (limiting the messages that get
+      displayed by total number or some cut off date, with option to look back further, virtualizing the list so
+      that only immediately visible messages are rendered, etc.). for now this fairly simple change eliminates
+      the bad behavior. 
+    */
+    const MessageBodies: JSX.Element[] = useMemo(() => {
+      if (pendingMessageSend === undefined && isMessagesFetching) {
+        return [];
+      }
+      return messages.map((message) => {
+        const contentKey = message.resolvedId ?? message.id;
+        const isPending = message.id === pendingMessageSend?.id || message.id === pendingMessageSend?.resolvedId;
+        return (
+          <MessageBody
+            key={message.id}
+            isPending={isPending}
+            contentKey={contentKey}
+            message={message}
+            hasNewMessageLine={newMessagesStartId !== undefined && message.id === newMessagesStartId}
+            showDaySent={true} //keeping this config incase minds change again, YAGNI, I know
+          />
+        );
+      });
+    }, [isMessagesFetching, messages, newMessagesStartId, pendingMessageSend]);
+
+    useEffect(() => {
+      if (MessageBodies.length) {
+        scrollToBottomOfChat();
+      }
+    }, [MessageBodies.length]);
 
     return (
       <Dialog
@@ -259,7 +273,7 @@ const ChatModal = memo(
           <Grid container>
             <Grid item xs={12} sx={{ margin: '24px 24px 16px 24px' }}>
               <Typography id="modal-title" variant="h4" sx={{ fontWeight: 600, color: theme.palette.primary.dark }}>
-                Chat with {patientParticipant?.name}
+                Chat with {patientName || getPatientName(patient?.name).firstLastName}
               </Typography>
               <Typography
                 id="modal-description"
@@ -304,21 +318,7 @@ const ChatModal = memo(
                 <CircularProgress />
               </Grid>
             ) : (
-              messages.map((message) => {
-                const contentKey = message.resolvedId ?? message.id;
-                const isPending =
-                  message.id === pendingMessageSend?.id || message.id === pendingMessageSend?.resolvedId;
-                return (
-                  <MessageBody
-                    key={message.id}
-                    isPending={isPending}
-                    contentKey={contentKey}
-                    message={message}
-                    hasNewMessageLine={newMessagesStartId !== undefined && message.id === newMessagesStartId}
-                    showDaySent={true} //keeping this config incase minds change again, YAGNI, I know
-                  />
-                );
-              })
+              MessageBodies
             )}
           </Grid>
           <Divider />
@@ -375,30 +375,86 @@ const ChatModal = memo(
             }}
           >
             <Grid container sx={quickTextStyle}>
-              <Grid item sx={{ marginTop: '6px' }}>
-                <Typography
-                  variant="h6"
-                  sx={{ fontWeight: '600 !important', color: theme.palette.primary.main, marginBottom: '4px' }}
-                >
-                  Quick texts
-                </Typography>
+              <Grid item sx={{ marginTop: '6px', width: '100%' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography
+                    variant="h6"
+                    sx={{ fontWeight: '600 !important', color: theme.palette.primary.main, marginBottom: '4px' }}
+                  >
+                    Quick texts
+                  </Typography>
+                  {hasQuickTextTranslations(quickTexts) && (
+                    <ToggleButtonGroup
+                      sx={{
+                        '& .MuiToggleButton-sizeSmall': {
+                          textTransform: 'none',
+                          color: theme.palette.primary.main,
+                          fontSize: '13px',
+                          fontWeight: '700',
+                        },
+                        '& .MuiToggleButton-sizeSmall:hover': {
+                          color: theme.palette.primary.contrastText,
+                          backgroundColor: theme.palette.primary.light,
+                        },
+                        '& .Mui-selected': {
+                          color: `${theme.palette.primary.contrastText} !important`,
+                          backgroundColor: `${theme.palette.primary.main} !important`,
+                          textTransform: 'none',
+                        },
+                      }}
+                      size="small"
+                      exclusive
+                      value={language}
+                      onChange={(e: React.MouseEvent<HTMLElement>, value: LANGUAGES) => {
+                        setLanguage(value);
+                      }}
+                    >
+                      <ToggleButton value={LANGUAGES.english} sx={{ padding: '4px 10px 4px 10px' }}>
+                        English
+                      </ToggleButton>
+                      <ToggleButton value={LANGUAGES.spanish} sx={{ padding: '4px 10px 4px 10px' }}>
+                        Spanish
+                      </ToggleButton>
+                    </ToggleButtonGroup>
+                  )}
+                </Box>
                 <Typography variant="body2">Select the text to populate the message to the patient</Typography>
               </Grid>
               <Grid item>
                 <List sx={{ padding: 0 }}>
-                  {quickTexts.map((text) => {
-                    return (
-                      <ListItem
-                        key={`${text}`}
-                        sx={{ padding: 1, my: '12px', backgroundColor: 'rgba(77, 21, 183, 0.04)', cursor: 'pointer' }}
-                        onClick={() => selectQuickText(text)}
-                      >
-                        <Typography variant="body1" id={text}>
-                          {text}
-                        </Typography>
-                      </ListItem>
-                    );
-                  })}
+                  {hasQuickTextTranslations(quickTexts)
+                    ? quickTexts
+                        .filter((text) => text[language])
+                        .map((text) => (
+                          <ListItem
+                            key={text[language]}
+                            sx={{
+                              padding: 1,
+                              my: '12px',
+                              backgroundColor: 'rgba(77, 21, 183, 0.04)',
+                              cursor: 'pointer',
+                            }}
+                            onClick={() => selectQuickText(text[language])}
+                          >
+                            <Typography variant="body1">{text[language]}</Typography>
+                          </ListItem>
+                        ))
+                    : quickTexts.map((text) => {
+                        return (
+                          <ListItem
+                            key={text}
+                            sx={{
+                              padding: 1,
+                              my: '12px',
+                              backgroundColor: 'rgba(77, 21, 183, 0.04)',
+                              cursor: 'pointer',
+                            }}
+                            onClick={() => selectQuickText(removeHtmlTags(text))}
+                          >
+                            <Typography variant="body1">{parseTextToJSX(text)}</Typography>
+                          </ListItem>
+                        );
+                      })}
                 </List>
               </Grid>
             </Grid>
@@ -409,6 +465,8 @@ const ChatModal = memo(
   },
 );
 
+ChatModal.displayName = 'ChatModal';
+
 export default ChatModal;
 
 interface MessageBodyProps {
@@ -418,12 +476,14 @@ interface MessageBodyProps {
   contentKey: string;
   showDaySent: boolean;
 }
-const MessageBody: React.FC<MessageBodyProps> = (props: MessageBodyProps) => {
+
+const MessageBody: React.FC<MessageBodyProps> = (props) => {
   const { isPending, message, contentKey, hasNewMessageLine, showDaySent } = props;
   const theme = useTheme();
   const authorInitials = useMemo(() => {
     return initialsFromName(message.sender);
   }, [message.sender]);
+
   return (
     <Grid container item key={contentKey} spacing={3} sx={{ opacity: isPending ? '0.5' : '1.0' }}>
       {hasNewMessageLine && (
@@ -455,9 +515,9 @@ const MessageBody: React.FC<MessageBodyProps> = (props: MessageBodyProps) => {
         )}
         <Grid
           item
+          container
           xs={12}
           display={'table-row'}
-          spacing={1}
           sx={{
             opacity: isPending ? '0.5' : '1.0',
             display: 'flex',
@@ -468,6 +528,7 @@ const MessageBody: React.FC<MessageBodyProps> = (props: MessageBodyProps) => {
         >
           <Avatar
             sx={{
+              // eslint-disable-next-line react/prop-types
               backgroundColor: message.isFromPatient ? theme.palette.secondary.main : theme.palette.primary.main,
               fontSize: authorInitials.length > 3 ? '12px' : '16px',
               marginInlineEnd: '8px',
@@ -513,19 +574,23 @@ const MessageBody: React.FC<MessageBodyProps> = (props: MessageBodyProps) => {
   );
 };
 
-const getPatientParticipantFromAppointment = (appointment: AppointmentMessaging): PatientParticipant | undefined => {
-  if (!appointment.patient) {
-    return undefined;
-  }
-  const firstName = appointment.patient.firstName || '';
-  const lastName = appointment.patient.lastName || '';
-  const initials = `${firstName?.charAt(0) || ''} ${lastName?.charAt(0) || ''}`;
-  const name = `${firstName} ${lastName}`;
+function parseTextToJSX(text: string): JSX.Element[] {
+  // Split the string at the custom HTML tag
+  const parts = text.split(/(<phone.*?<\/phone>)/g).filter(Boolean);
 
-  return {
-    firstName,
-    name,
-    initials,
-    appointmentId: appointment.id,
-  };
-};
+  return parts.map((part, index) => {
+    if (part.startsWith('<phone')) {
+      // Extract the content inside the custom HTML tag
+      const match = part.match(/<phone[^>]*>(.*?)<\/phone>/);
+      if (match) {
+        return (
+          <span key={index} style={{ whiteSpace: 'nowrap' }}>
+            {match[1]}
+          </span>
+        );
+      }
+    }
+
+    return <span key={index}>{part}</span>;
+  });
+}
