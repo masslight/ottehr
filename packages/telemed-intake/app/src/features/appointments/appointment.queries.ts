@@ -67,9 +67,9 @@ export const useCancelAppointmentMutation = () =>
       apiClient: ZapEHRAPIClient;
       appointmentID: string;
       cancellationReason: string;
-      appointmentType: 'telemed' | 'in-person';
+      appointmentType: 'telemedicine' | 'in-person';
     }) => {
-      if (appointmentType === 'telemed') {
+      if (appointmentType === 'telemedicine') {
         return apiClient.cancelTelemedAppointment({
           appointmentID,
           cancellationReason,

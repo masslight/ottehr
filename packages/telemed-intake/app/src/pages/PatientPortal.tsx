@@ -3,19 +3,30 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { IntakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
-import { useGetAppointments } from '../features/appointments';
 import { CustomContainer, useIntakeCommonStore } from '../features/common';
 import HomepageOption from '../features/homepage/HomepageOption';
 import { useZapEHRAPIClient } from '../utils';
 import { requestVisit, pastVisits, contactSupport } from '@theme/icons';
 import { useGetPatients, usePatientsStore } from 'src/features/patients';
+import { useEffect, useState } from 'react';
+import { GetTelemedAppointmentsResponse } from 'ottehr-utils';
 
 const PatientPortal = (): JSX.Element => {
   localStorage.removeItem('welcomePath');
   const apiClient = useZapEHRAPIClient();
   const { t } = useTranslation();
 
-  const { data: appointmentsData, isFetching } = useGetAppointments(apiClient, Boolean(apiClient));
+  const [appointmentsData, setAppointmentsData] = useState<GetTelemedAppointmentsResponse | null>(null);
+  const [isFetching, setIsFetching] = useState(true);
+
+  useEffect(() => {
+    if (apiClient) {
+      void apiClient.getAppointments().then((data) => {
+        setAppointmentsData(data);
+        setIsFetching(false);
+      });
+    }
+  }, [apiClient]);
 
   const activeAppointment = appointmentsData?.appointments.find((appointment) =>
     ['ready', 'pre-video', 'on-video'].includes(appointment.telemedStatus),

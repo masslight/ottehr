@@ -10,7 +10,7 @@ import { useAppointmentStore } from '../features/appointments';
 import { useNavigate } from 'react-router-dom';
 import { IntakeFlowPageRoute } from '../App';
 
-type CancelVisitDialogProps = { onClose: () => void; appointmentType: 'telemed' | 'in-person' };
+type CancelVisitDialogProps = { onClose: () => void; appointmentType: 'telemedicine' | 'in-person' };
 
 export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose, appointmentType }: CancelVisitDialogProps) => {
   const apiClient = useZapEHRAPIClient();
@@ -29,7 +29,6 @@ export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose, appoint
       throw new Error('apiClient is not defined');
     }
 
-    navigate(IntakeFlowPageRoute.PatientPortal.path);
     cancelAppointment.mutate(
       {
         apiClient: apiClient,
@@ -47,8 +46,6 @@ export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose, appoint
         },
       },
     );
-
-    handleClose();
   };
 
   const handleClose = (): void => {

@@ -142,7 +142,7 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
     patchOperations: encounterPatchOperations,
   });
   const getAppointmentRequest: BatchInputGetRequest = {
-    url: `/Appointment?_id=${appointmentID}&_include=Appointment:patient&_include=Appointment:location`,
+    url: `/Appointment?_id=${appointmentID}&_include=Appointment:patient&_include=Appointment:location&_include=Appointment:practitioner&_include=Appointment:service-type`,
     method: 'GET',
   };
   console.log('making transaction request for getAppointmentRequest, appointmentPatchRequest, encounterPatchRequest');
