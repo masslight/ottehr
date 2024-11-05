@@ -5,6 +5,8 @@ import { ADMINISTRATOR_RULES, INACTIVE_RULES, MANAGER_RULES, STAFF_RULES, PROVID
 const DEFAULTS = {
   firstName: 'Example',
   lastName: 'Doctor',
+  phone: '+12125551212',
+  npi: '1234567890'
 };
 export const enum RoleType {
   NewUser = 'NewUser',
@@ -132,12 +134,25 @@ export async function inviteUser(
   const practitioner: Practitioner = {
     resourceType: 'Practitioner',
     active: true,
+    identifier: [
+      {
+        use: 'official',
+        value: DEFAULTS.npi,
+        system: 'http://hl7.org/fhir/sid/us-npi'
+      }
+    ],    
     name: [{ family: lastName, given: [firstName] }],
     telecom: [
       {
         system: 'email',
         value: email,
       },
+      {
+        use: 'mobile',
+        value: DEFAULTS.phone,
+        system: "sms"
+      }
+
     ],
   };
 
