@@ -209,6 +209,7 @@ export enum RoleType {
   Manager = 'Manager',
   Staff = 'Staff',
   Provider = 'Provider',
+  Prescriber = 'Prescriber',
   FrontDesk = 'Front Desk',
   Inactive = 'Inactive',
 }

@@ -80,7 +80,12 @@ const AVAILABLE_ROLES: {
   {
     value: RoleType.Provider,
     label: 'Provider',
-    hint: `No settings changes; essentially read-only`,
+    hint: `A clinician, such as a doctor, a PA or an NP`,
+  },
+  {
+    value: RoleType.Prescriber,
+    label: 'Prescriber',
+    hint: `A clinician that is allowed to prescribe`,
   },
 ];
 
@@ -93,12 +98,12 @@ if (import.meta.env.MODE === 'default' || import.meta.env.MODE === 'development'
     },
     {
       value: RoleType.RegionalTelemedLead,
-      label: 'Regional Telemed lead',
+      label: 'Regional Telemed Lead',
       hint: 'Todo description',
     },
     {
       value: RoleType.CallCentre,
-      label: 'Call Centre',
+      label: 'Call Center',
       hint: 'Todo description',
     },
     {
