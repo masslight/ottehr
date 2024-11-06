@@ -23,7 +23,7 @@ export async function getFhirResources(
   patientIDs: string[],
   patientID?: string,
 ): Promise<Resource[]> {
-  if (!patientID && patientIDs.length === 0) {
+  if (!patientID) {
     console.log('No patient ID is provided');
     return [];
   }
