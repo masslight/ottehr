@@ -179,9 +179,11 @@ export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmen
             )}
           </Box>
 
-          {appointmentType === 'in-person' && (
+          {appointmentType === 'in-person' && isPractitionerAllowedToCancelThisVisit && (
             <AppointmentStatusSwitcher appointment={appointment as Appointment} encounter={encounter} />
           )}
+          {!isPractitionerAllowedToCancelThisVisit &&
+            getAppointmentStatusChip(mapStatusToTelemed(encounter.status, appointment?.status))}
 
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Typography variant="h4" color="primary.dark">

@@ -8,7 +8,6 @@ import { getPatchBinary, getStatusFromExtension } from 'ehr-utils';
 import { VisitStatus, STATI } from '../helpers/mappingUtils';
 import { useApiClients } from '../hooks/useAppClients';
 import { getAppointmentStatusChip } from './AppointmentTableRow';
-import { Box } from '@mui/system';
 
 const statuses = STATI;
 
@@ -113,7 +112,7 @@ export default function AppointmentStatusSwitcher({
           }}
         >
           {statuses
-            .filter((status) => status !== 'unknown')
+            .filter((status) => status !== 'unknown' && status !== 'cancelled')
             .map((status) => (
               <MenuItem key={status} value={status}>
                 {getAppointmentStatusChip(status)}
