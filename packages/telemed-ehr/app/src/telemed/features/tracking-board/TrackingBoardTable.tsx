@@ -42,11 +42,11 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
       return {};
     }
     return filteredAppointments.reduce<Record<string, TelemedAppointmentInformation[]>>((accumulator, appointment) => {
-      if (appointment.location.locationID) {
-        if (!accumulator[appointment.location.locationID]) {
-          accumulator[appointment.location.locationID] = [];
+      if (appointment.location.state) {
+        if (!accumulator[appointment.location.state]) {
+          accumulator[appointment.location.state] = [];
         }
-        accumulator[appointment.location.locationID].push(appointment);
+        accumulator[appointment.location.state].push(appointment);
         return accumulator;
       } else if (appointment.provider) {
         if (!accumulator[appointment.provider.join(',')]) {

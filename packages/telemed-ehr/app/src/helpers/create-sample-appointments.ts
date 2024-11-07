@@ -114,7 +114,10 @@ const generateRandomPatientInfo = async (
   const randomLocationId = availableLocations[randomLocationIndex].id;
   const randomProviderId = practitionersTemp[Math.floor(Math.random() * practitionersTemp.length)].id;
 
-  const selectedLocationID = localStorage.getItem('selectedLocationID');
+  const selectedInPersonLocationID = localStorage.getItem('selectedInPersonLocationID');
+  const selectedState = localStorage.getItem('selectedState');
+  console.log('selectedState', selectedState);
+  console.log('availableLocations', availableLocations);
 
   if (visitService === 'telemedicine') {
     return {
@@ -155,7 +158,7 @@ const generateRandomPatientInfo = async (
     scheduleType: 'location',
     visitType: 'now',
     visitService: visitService,
-    locationID: selectedLocationID || randomLocationId,
+    locationID: selectedInPersonLocationID || randomLocationId,
     timezone: 'UTC',
     isDemo: true,
     phoneNumber: phoneNumber,

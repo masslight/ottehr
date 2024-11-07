@@ -9,7 +9,11 @@ import { otherColors } from '../../../CustomThemeProvider';
 import { LoadingButton } from '@mui/lab';
 import { Box } from '@mui/system';
 
-const CreateDemoVisits = (): ReactElement => {
+interface CreateDemoVisitsProps {
+  schedulePage?: 'telemedicine' | 'in-person';
+}
+
+const CreateDemoVisits = ({ schedulePage }: CreateDemoVisitsProps): ReactElement => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [inputError, setInputError] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -99,6 +103,10 @@ const CreateDemoVisits = (): ReactElement => {
         <Typography variant="h6" color="primary.main">
           Lack of test data? Create demo visits
         </Typography>
+        {/* <Typography variant="body2" color="text.secondary">
+          Please select {schedulePage === 'telemedicine' ? 'a state ' : 'an office '}
+          from above dropdown <br /> and enter a phone number to create visits for this user
+        </Typography> */}
         <Typography variant="body2" color="text.secondary">
           Please enter a phone number to create visits for this user
         </Typography>

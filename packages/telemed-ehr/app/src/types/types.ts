@@ -112,6 +112,8 @@ export const AllStates = [
 
 export type StateType = (typeof AllStates extends readonly (infer TElementType)[] ? TElementType : never)['value'];
 
+export const AllStatesValues: StateType[] = AllStates.map(({ value }) => value);
+
 export const AllStatesToNames: {
   [value in StateType]: string;
 } = {
