@@ -10,6 +10,7 @@ export function TrackingBoardPage(): ReactElement {
   useEffect(() => {
     const availableStates =
       user?.profileResource && allLicensesForPractitioner(user.profileResource).map((item) => item.state);
+    console.log(availableStates, 'availableStates');
 
     if (availableStates) {
       useTrackingBoardStore.setState({ availableStates });

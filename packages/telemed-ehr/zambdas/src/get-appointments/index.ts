@@ -208,9 +208,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     });
     const [activeEncounters, searchResultsForSelectedDate] = await Promise.all([encounterSearch, appointmentSearch]);
     console.timeEnd('get_active_encounters + get_appointment_data');
-    // console.log(searchResultsForSelectedDate);
-    // console.log(appointmentSearchParams);
-    // console.log(1, searchResultsForSelectedDate);
     const encounterIds: string[] = [];
 
     const tempAppointmentDates = activeEncounters
@@ -419,7 +416,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.time('structure_appointment_data');
     let appointments: Appointment[] = [];
     if (visitType?.length > 0) {
-      console.log(1, allAppointments.length);
       appointments = allAppointments?.filter((appointment) => {
         return visitType?.includes(appointment.appointmentType?.text || '');
       });

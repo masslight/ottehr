@@ -46,6 +46,7 @@ const CreateDemoVisits = (): ReactElement => {
         message: 'Appointments created successfully!',
         severity: 'success',
       });
+      return response;
     } catch (error) {
       setSnackbar({
         open: true,
