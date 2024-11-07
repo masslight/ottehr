@@ -6,6 +6,7 @@ import { PromiseReturnType } from 'ottehr-utils';
 export const useJoinCall = (
   apiClient: ZapEHRAPIClient | null,
   onSuccess: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['joinCall']>>) => void,
+  setError: (err: Error) => void,
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   return useQuery(
@@ -21,7 +22,8 @@ export const useJoinCall = (
     },
     {
       onSuccess,
-      onError: (err) => {
+      onError: (err: Error) => {
+        setError(err);
         console.error('Error during executing joinCall: ', err);
       },
     },

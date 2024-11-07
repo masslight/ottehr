@@ -16,9 +16,9 @@ import { isPaperworkPageComplete } from '../utils/paperworkCompleted';
 
 const ReviewPaperwork = (): JSX.Element => {
   const navigate = useNavigate();
-  const { appointmentID, scheduleType, visitType } = getSelectors(useAppointmentStore, [
+  const { appointmentID, visitService, visitType } = getSelectors(useAppointmentStore, [
     'appointmentID',
-    'scheduleType',
+    'visitService',
     'visitType',
   ]);
   const fileURLs = useFilesStore((state) => state.fileURLs);
@@ -91,7 +91,7 @@ const ReviewPaperwork = (): JSX.Element => {
         onSuccess: async () => {
           usePaperworkStore.setState({ paperworkQuestions: undefined, completedPaperwork: undefined });
           useFilesStore.setState({ fileURLs: undefined });
-          if (scheduleType === 'provider' && visitType === 'now') {
+          if (visitService === 'telemedicine' && visitType === 'now') {
             navigate(`${IntakeFlowPageRoute.WaitingRoom.path}?appointment_id=${appointmentID}`);
           } else {
             navigate(IntakeFlowPageRoute.ThankYou.path);
