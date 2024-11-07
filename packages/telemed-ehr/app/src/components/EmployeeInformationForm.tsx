@@ -494,7 +494,7 @@ export default function EmployeeInformationForm({
                         Add New State Qualification
                       </AccordionSummary>
                       <AccordionDetails>
-                        <form onSubmit={(e) => handleSubmit(handleAddLicense)(e)}>
+                        <form>
                           <Grid container direction={'row'} spacing={1}>
                             <Grid item xs={4}>
                               <Autocomplete
@@ -535,8 +535,8 @@ export default function EmployeeInformationForm({
                                 variant="contained"
                                 endIcon={<AddIcon />}
                                 sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 28 }}
-                                type="submit"
                                 fullWidth
+                                onClick={handleAddLicense}
                               >
                                 Add
                               </Button>
