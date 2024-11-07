@@ -10,7 +10,6 @@ export function StateSelect(): ReactElement {
   const options = [EMPTY_STATE, ...availableStates.map((state) => ({ label: state, value: state }))];
 
   const randomState = availableStates[Math.floor(Math.random() * availableStates.length)];
-  localStorage.setItem('selectedState', randomState);
 
   const handleStateChange = (_e: any, { value }: { label: string | null; value: string | null }): void => {
     localStorage.setItem('selectedState', value || '');
