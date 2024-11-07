@@ -1,5 +1,5 @@
 import { FC, useState } from 'react';
-import { Container, Typography, useTheme } from '@mui/material';
+import { Container, Typography } from '@mui/material';
 import { useSearchParams } from 'react-router-dom';
 import { getSelectors } from 'ottehr-utils';
 import { IntakeFlowPageRoute } from '../App';
@@ -16,8 +16,6 @@ import { MeetingProvider, lightTheme, GlobalStyles } from 'amazon-chime-sdk-comp
 const VideoChatPage: FC = () => {
   const videoCallState = getSelectors(useVideoCallStore, ['meetingData']);
   const meetingManager = useMeetingManager();
-
-  const theme = useTheme();
 
   const [error, setError] = useState<Error | null>(null);
 
@@ -49,7 +47,7 @@ const VideoChatPage: FC = () => {
   if (error) {
     return (
       <CustomContainer useEmptyBody title="" bgVariant={IntakeFlowPageRoute.VideoCall.path}>
-        <Typography sx={{ color: theme.palette.error.main }} variant="h6">
+        <Typography sx={{ color: 'primary.contrast' }} variant="h6">
           {error.message}
         </Typography>
       </CustomContainer>
