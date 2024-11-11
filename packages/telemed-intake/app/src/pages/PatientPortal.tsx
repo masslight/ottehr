@@ -8,25 +8,14 @@ import HomepageOption from '../features/homepage/HomepageOption';
 import { useZapEHRAPIClient } from '../utils';
 import { requestVisit, pastVisits, contactSupport } from '@theme/icons';
 import { useGetPatients, usePatientsStore } from 'src/features/patients';
-import { useEffect, useState } from 'react';
-import { GetTelemedAppointmentsResponse } from 'ottehr-utils';
+import { useGetAppointments } from 'src/features/appointments';
 
 const PatientPortal = (): JSX.Element => {
   localStorage.removeItem('welcomePath');
   const apiClient = useZapEHRAPIClient();
   const { t } = useTranslation();
 
-  const [appointmentsData, setAppointmentsData] = useState<GetTelemedAppointmentsResponse | null>(null);
-  const [isFetching, setIsFetching] = useState(true);
-
-  useEffect(() => {
-    if (apiClient) {
-      void apiClient.getAppointments().then((data) => {
-        setAppointmentsData(data);
-        setIsFetching(false);
-      });
-    }
-  }, [apiClient]);
+  const { data: appointmentsData, isFetching } = useGetAppointments(apiClient, Boolean(apiClient));
 
   const activeAppointment = appointmentsData?.appointments.find((appointment) =>
     ['ready', 'pre-video', 'on-video'].includes(appointment.telemedStatus),

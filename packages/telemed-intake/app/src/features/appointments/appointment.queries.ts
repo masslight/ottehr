@@ -101,7 +101,7 @@ export const useGetAppointments = (apiClient: ZapEHRAPIClient | null, enabled = 
       onError: (err) => {
         console.error('Error during fetching appointments: ', err);
       },
-      staleTime: 1000 * 60 * 5,
+      refetchOnMount: true,
     },
   );
 
