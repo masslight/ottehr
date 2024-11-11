@@ -54,7 +54,7 @@ enum Gender {
 }
 
 interface AppointmentSidePanelProps {
-  appointmentType: 'telemed' | 'in-person';
+  appointmentType: 'telemedicine' | 'in-person';
 }
 
 export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmentType }) => {
@@ -160,7 +160,7 @@ export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmen
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 3, overflow: 'auto' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            {appointmentType === 'telemed' &&
+            {appointmentType === 'telemedicine' &&
               getAppointmentStatusChip(mapStatusToTelemed(encounter.status, appointment?.status))}
 
             {appointment?.id && (
@@ -179,9 +179,11 @@ export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmen
             )}
           </Box>
 
-          {appointmentType === 'in-person' && (
+          {appointmentType === 'in-person' && isPractitionerAllowedToCancelThisVisit && (
             <AppointmentStatusSwitcher appointment={appointment as Appointment} encounter={encounter} />
           )}
+          {!isPractitionerAllowedToCancelThisVisit &&
+            getAppointmentStatusChip(mapStatusToTelemed(encounter.status, appointment?.status))}
 
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Typography variant="h4" color="primary.dark">

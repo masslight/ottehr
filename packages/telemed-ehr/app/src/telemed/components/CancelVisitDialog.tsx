@@ -21,7 +21,7 @@ import { telemedCancellationReasons, inPersonCancellationReasons } from '../../t
 
 interface CancelVisitDialogProps {
   onClose: () => void;
-  appointmentType: 'telemed' | 'in-person';
+  appointmentType: 'telemedicine' | 'in-person';
 }
 
 const CancelVisitDialog = ({ onClose, appointmentType }: CancelVisitDialogProps): ReactElement => {
@@ -33,7 +33,8 @@ const CancelVisitDialog = ({ onClose, appointmentType }: CancelVisitDialogProps)
   const { id: appointmentID } = useParams();
   const navigate = useNavigate();
 
-  const cancellationReasons = appointmentType === 'telemed' ? telemedCancellationReasons : inPersonCancellationReasons;
+  const cancellationReasons =
+    appointmentType === 'telemedicine' ? telemedCancellationReasons : inPersonCancellationReasons;
 
   const handleReasonChange = (event: SelectChangeEvent<string>): void => {
     setReason(event.target.value);
@@ -56,7 +57,7 @@ const CancelVisitDialog = ({ onClose, appointmentType }: CancelVisitDialogProps)
     if (!zambdaIntakeClient) throw new Error('Zambda client not found');
     try {
       let response;
-      if (appointmentType === 'telemed') {
+      if (appointmentType === 'telemedicine') {
         console.log('canceling telemed appointment', appointmentID, reason, otherReason);
         response = await cancelTelemedAppointment(zambdaIntakeClient, {
           appointmentID: appointmentID || '',
@@ -76,7 +77,7 @@ const CancelVisitDialog = ({ onClose, appointmentType }: CancelVisitDialogProps)
       console.error('Failed to cancel appointment', error);
     } finally {
       setIsCancelling(false);
-      if (appointmentType === 'telemed') {
+      if (appointmentType === 'telemedicine') {
         navigate('/telemed/appointments');
       } else if (appointmentType === 'in-person') {
         navigate('/in-person/appointments');

@@ -158,7 +158,7 @@ const WaitingRoom = (): JSX.Element => {
       {isUploadPhotosDialogOpen ? <UploadPhotosDialog onClose={() => setUploadPhotosDialogOpen(false)} /> : null}
       {isCancelVisitDialogOpen ? (
         <CancelVisitDialog
-          appointmentType={visitService as 'in-person' | 'telemed'}
+          appointmentType={visitService as 'in-person' | 'telemedicine'}
           onClose={() => setCancelVisitDialogOpen(false)}
         />
       ) : null}

@@ -3,12 +3,12 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { IntakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
-import { useGetAppointments } from '../features/appointments';
 import { CustomContainer, useIntakeCommonStore } from '../features/common';
 import HomepageOption from '../features/homepage/HomepageOption';
 import { useZapEHRAPIClient } from '../utils';
 import { requestVisit, pastVisits, contactSupport } from '@theme/icons';
 import { useGetPatients, usePatientsStore } from 'src/features/patients';
+import { useGetAppointments } from 'src/features/appointments';
 
 const PatientPortal = (): JSX.Element => {
   localStorage.removeItem('welcomePath');
