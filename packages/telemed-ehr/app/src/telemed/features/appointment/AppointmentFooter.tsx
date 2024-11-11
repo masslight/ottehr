@@ -12,7 +12,7 @@ export const AppointmentFooter: FC = () => {
   const theme = useTheme();
   const [isInviteParticipantOpen, setIsInviteParticipantOpen] = useState(false);
 
-  const appointmentAccessibility = useGetAppointmentAccessibility();
+  const appointmentAccessibility = useGetAppointmentAccessibility('telemedicine');
   const { appointment, encounter } = getSelectors(useAppointmentStore, ['appointment', 'encounter']);
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
 
@@ -36,7 +36,7 @@ export const AppointmentFooter: FC = () => {
         <InviteParticipant modalOpen={isInviteParticipantOpen} onClose={() => setIsInviteParticipantOpen(false)} />
       )}
       {((appointmentAccessibility.status &&
-        [ApptStatus.ready, ApptStatus['pre-video']].includes(appointmentAccessibility.status)) ||
+        [ApptStatus.ready, ApptStatus['pre-video']].includes(appointmentAccessibility.status as ApptStatus)) ||
         (appointmentAccessibility.status &&
           appointmentAccessibility.status === ApptStatus['on-video'] &&
           !meetingData)) && (

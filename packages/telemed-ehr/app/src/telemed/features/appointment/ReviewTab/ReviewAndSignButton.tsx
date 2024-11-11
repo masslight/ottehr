@@ -19,7 +19,7 @@ export const ReviewAndSignButton: FC = () => {
   const { mutateAsync, isLoading } = useChangeTelemedAppointmentStatusMutation();
   const [openTooltip, setOpenTooltip] = useState(false);
 
-  const appointmentAccessibility = useGetAppointmentAccessibility();
+  const appointmentAccessibility = useGetAppointmentAccessibility('telemedicine');
 
   const primaryDiagnosis = (chartData?.diagnosis || []).find((item) => item.isPrimary);
   const medicalDecision = chartData?.medicalDecision?.text;

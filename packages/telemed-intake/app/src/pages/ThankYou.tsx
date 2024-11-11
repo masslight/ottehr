@@ -47,7 +47,7 @@ const ThankYou = (): JSX.Element => {
         {isCancelDialogOpen && (
           <CancelVisitDialog
             onClose={() => setIsCancelDialogOpen(false)}
-            appointmentType={visitService as 'in-person' | 'telemed'}
+            appointmentType={visitService as 'in-person' | 'telemedicine'}
           />
         )}
         <Button

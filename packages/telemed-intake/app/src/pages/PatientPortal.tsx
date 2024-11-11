@@ -3,12 +3,12 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { IntakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
-import { useGetAppointments } from '../features/appointments';
 import { CustomContainer, useIntakeCommonStore } from '../features/common';
 import HomepageOption from '../features/homepage/HomepageOption';
 import { useZapEHRAPIClient } from '../utils';
 import { requestVisit, pastVisits, contactSupport } from '@theme/icons';
 import { useGetPatients, usePatientsStore } from 'src/features/patients';
+import { useGetAppointments } from 'src/features/appointments';
 
 const PatientPortal = (): JSX.Element => {
   localStorage.removeItem('welcomePath');
@@ -24,6 +24,8 @@ const PatientPortal = (): JSX.Element => {
   const { data: patientsData, isFetching: isPatientsFetching } = useGetPatients(apiClient, (data) => {
     usePatientsStore.setState({ patients: data?.patients });
   });
+
+  const hasPatients = Boolean(patientsData?.patients?.length);
 
   const isAppointmentStatusReady = Boolean(activeAppointment);
 
@@ -85,7 +87,7 @@ const PatientPortal = (): JSX.Element => {
             <HomepageOption title={t('patientPortal.requestVisit')} icon={requestVisit} />
           </Link>
 
-          {patientsData?.patients?.length && (
+          {hasPatients && (
             <Link
               to={`${IntakeFlowPageRoute.SelectPatient.path}?flow=pastVisits`}
               style={{ textDecoration: 'none', color: 'var(--text-primary)' }}

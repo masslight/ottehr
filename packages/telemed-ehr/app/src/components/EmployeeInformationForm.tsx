@@ -80,7 +80,12 @@ const AVAILABLE_ROLES: {
   {
     value: RoleType.Provider,
     label: 'Provider',
-    hint: `No settings changes; essentially read-only`,
+    hint: `A clinician, such as a doctor, a PA or an NP`,
+  },
+  {
+    value: RoleType.Prescriber,
+    label: 'Prescriber',
+    hint: `A clinician that is allowed to prescribe`,
   },
 ];
 
@@ -93,12 +98,12 @@ if (import.meta.env.MODE === 'default' || import.meta.env.MODE === 'development'
     },
     {
       value: RoleType.RegionalTelemedLead,
-      label: 'Regional Telemed lead',
+      label: 'Regional Telemed Lead',
       hint: 'Todo description',
     },
     {
       value: RoleType.CallCentre,
-      label: 'Call Centre',
+      label: 'Call Center',
       hint: 'Todo description',
     },
     {
@@ -494,61 +499,63 @@ export default function EmployeeInformationForm({
                         Add New State Qualification
                       </AccordionSummary>
                       <AccordionDetails>
-                        <Grid container direction={'row'} spacing={1}>
-                          <Grid item xs={4}>
-                            <Autocomplete
-                              options={displaystates}
-                              getOptionLabel={(option: string) => option}
-                              renderInput={(params) => (
-                                <TextField
-                                  {...params}
-                                  label="State"
-                                  error={errors.state}
-                                  required
-                                  helperText={errors.state ? 'Please select a state' : null}
-                                />
-                              )}
-                              value={newLicenseState || null}
-                              onChange={(event, value) => setNewLicenseState(value || undefined)}
-                            />
+                        <form>
+                          <Grid container direction={'row'} spacing={1}>
+                            <Grid item xs={4}>
+                              <Autocomplete
+                                options={displaystates}
+                                getOptionLabel={(option: string) => option}
+                                renderInput={(params) => (
+                                  <TextField
+                                    {...params}
+                                    label="State"
+                                    error={errors.state}
+                                    required
+                                    helperText={errors.state ? 'Please select a state' : null}
+                                  />
+                                )}
+                                value={newLicenseState || null}
+                                onChange={(event, value) => setNewLicenseState(value || undefined)}
+                              />
+                            </Grid>
+                            <Grid item xs={4}>
+                              <Autocomplete
+                                options={Object.keys(PractitionerQualificationCodesLabels)}
+                                getOptionLabel={(option: string) => option}
+                                renderInput={(params) => (
+                                  <TextField
+                                    {...params}
+                                    label="Qualification"
+                                    error={errors.qualification}
+                                    required
+                                    helperText={errors.qualification ? 'Please select a qualification' : null}
+                                  />
+                                )}
+                                value={newLicenseCode || null}
+                                onChange={(event, value) => setNewLicenseCode(value || undefined)}
+                              />
+                            </Grid>
+                            <Grid item xs={4} alignContent={'center'}>
+                              <Button
+                                variant="contained"
+                                endIcon={<AddIcon />}
+                                sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 28 }}
+                                fullWidth
+                                onClick={handleAddLicense}
+                              >
+                                Add
+                              </Button>
+                            </Grid>
+                            {errors.duplicateLicense && (
+                              <Typography
+                                color="error"
+                                variant="body2"
+                                mt={1}
+                                mx={1}
+                              >{`License already exists.`}</Typography>
+                            )}
                           </Grid>
-                          <Grid item xs={4}>
-                            <Autocomplete
-                              options={Object.keys(PractitionerQualificationCodesLabels)}
-                              getOptionLabel={(option: string) => option}
-                              renderInput={(params) => (
-                                <TextField
-                                  {...params}
-                                  label="Qualification"
-                                  error={errors.qualification}
-                                  required
-                                  helperText={errors.qualification ? 'Please select a qualification' : null}
-                                />
-                              )}
-                              value={newLicenseCode || null}
-                              onChange={(event, value) => setNewLicenseCode(value || undefined)}
-                            />
-                          </Grid>
-                          <Grid item xs={4} alignContent={'center'}>
-                            <Button
-                              variant="contained"
-                              endIcon={<AddIcon />}
-                              sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 28 }}
-                              onClick={handleAddLicense}
-                              fullWidth
-                            >
-                              Add
-                            </Button>
-                          </Grid>
-                          {errors.duplicateLicense && (
-                            <Typography
-                              color="error"
-                              variant="body2"
-                              mt={1}
-                              mx={1}
-                            >{`License already exists.`}</Typography>
-                          )}
-                        </Grid>
+                        </form>
                       </AccordionDetails>
                     </Accordion>
                   </Box>

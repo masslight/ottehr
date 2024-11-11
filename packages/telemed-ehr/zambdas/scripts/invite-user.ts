@@ -1,10 +1,12 @@
 import fetch from 'node-fetch';
 import { Practitioner } from 'fhir/r4';
-import { ADMINISTRATOR_RULES, INACTIVE_RULES, MANAGER_RULES, STAFF_RULES, PROVIDER_RULES } from '../src/shared';
+import { ADMINISTRATOR_RULES, INACTIVE_RULES, MANAGER_RULES, STAFF_RULES, PROVIDER_RULES, PRESCRIBER_RULES } from '../src/shared';
 
 const DEFAULTS = {
   firstName: 'Example',
   lastName: 'Doctor',
+  phone: '+12125551212',
+  npi: '1234567890'
 };
 export const enum RoleType {
   NewUser = 'NewUser',
@@ -13,6 +15,7 @@ export const enum RoleType {
   FrontDesk = 'FrontDesk',
   Staff = 'Staff',
   Provider = 'Provider',
+  Prescriber = 'Prescriber',
   Administrator = 'Administrator',
 }
 
@@ -29,6 +32,7 @@ const updateUserRoles = async (projectApiUrl: string, accessToken: string, proje
   const managerAccessPolicy = { rule: [...MANAGER_RULES, zambdaRule] };
   const staffAccessPolicy = { rule: [...STAFF_RULES, zambdaRule] };
   const providerAccessPolicy = { rule: [...PROVIDER_RULES, zambdaRule] };
+  const prescriberAccessPolicy = { rule: [...PRESCRIBER_RULES, zambdaRule] };
 
   const roles = [
     { name: RoleType.Inactive, accessPolicy: inactiveAccessPolicy },
@@ -36,6 +40,7 @@ const updateUserRoles = async (projectApiUrl: string, accessToken: string, proje
     { name: RoleType.Manager, accessPolicy: managerAccessPolicy },
     { name: RoleType.Staff, accessPolicy: staffAccessPolicy },
     { name: RoleType.Provider, accessPolicy: providerAccessPolicy },
+    { name: RoleType.Prescriber, accessPolicy: prescriberAccessPolicy },
   ];
 
   const httpHeaders = {
@@ -129,12 +134,25 @@ export async function inviteUser(
   const practitioner: Practitioner = {
     resourceType: 'Practitioner',
     active: true,
+    identifier: [
+      {
+        use: 'official',
+        value: DEFAULTS.npi,
+        system: 'http://hl7.org/fhir/sid/us-npi'
+      }
+    ],    
     name: [{ family: lastName, given: [firstName] }],
     telecom: [
       {
         system: 'email',
         value: email,
       },
+      {
+        use: 'mobile',
+        value: DEFAULTS.phone,
+        system: "sms"
+      }
+
     ],
   };
 

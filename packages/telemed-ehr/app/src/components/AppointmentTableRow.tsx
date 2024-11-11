@@ -65,7 +65,7 @@ const FLAGGED_REASONS_FOR_VISIT: string[] = [
   'Allergic reaction',
 ];
 
-export function getAppointmentStatusChip(status: string, count?: number): ReactElement {
+export function getInPersonAppointmentStatusChip(status: string, count?: number): ReactElement {
   if (!status) {
     return <span>todo1</span>;
   }
@@ -444,9 +444,9 @@ export default function AppointmentTableRow({
         }}
       >
         {isLongWaitingTime && longWaitFlag}
-        {getStatiForVisitTimeCalculation(appointment.visitStatusHistory, appointment.start).map((statusTemp) => {
+        {getStatiForVisitTimeCalculation(appointment.visitStatusHistory, appointment.start).map((statusTemp, index) => {
           return (
-            <Box sx={{ display: 'flex', gap: 1 }}>
+            <Box key={index} sx={{ display: 'flex', gap: 1 }}>
               <Typography
                 variant="body2"
                 color={theme.palette.getContrastText(theme.palette.background.default)}
@@ -454,7 +454,7 @@ export default function AppointmentTableRow({
               >
                 {formatMinutes(getDurationOfStatus(statusTemp, appointment, appointment.visitStatusHistory, now))} mins
               </Typography>
-              {getAppointmentStatusChip(statusTemp.label as keyof typeof CHIP_STATUS_MAP)}
+              {getInPersonAppointmentStatusChip(statusTemp.label as keyof typeof CHIP_STATUS_MAP)}
             </Box>
           );
         })}
@@ -529,7 +529,7 @@ export default function AppointmentTableRow({
                 &nbsp;&nbsp;<strong>{start}</strong>
               </Typography>
             </Box>
-            <Box mt={1}>{getAppointmentStatusChip(appointment.status)}</Box>
+            <Box mt={1}>{getInPersonAppointmentStatusChip(appointment.status)}</Box>
           </Link>
         </Box>
       </TableCell>

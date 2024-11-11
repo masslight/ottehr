@@ -7,8 +7,7 @@ import { Operation } from 'fast-json-patch';
 import { getPatchBinary, getStatusFromExtension } from 'ehr-utils';
 import { VisitStatus, STATI } from '../helpers/mappingUtils';
 import { useApiClients } from '../hooks/useAppClients';
-import { getAppointmentStatusChip } from './AppointmentTableRow';
-import { Box } from '@mui/system';
+import { getInPersonAppointmentStatusChip } from './AppointmentTableRow';
 
 const statuses = STATI;
 
@@ -17,6 +16,7 @@ export const switchStatus = async (
   appointment: Appointment,
   encounter: Encounter,
   status: VisitStatus,
+  onStatusChange: (status: VisitStatus) => void,
 ): Promise<void> => {
   if (status === 'unknown') {
     throw new Error(`Invalid status: ${status}`);
@@ -52,16 +52,20 @@ export const switchStatus = async (
       }),
     ],
   });
+
+  onStatusChange(status);
 };
 
 interface AppointmentStatusSwitcherProps {
   appointment: Appointment;
   encounter: Encounter;
+  onStatusChange: (status: VisitStatus) => void;
 }
 
 export default function AppointmentStatusSwitcher({
   appointment,
   encounter,
+  onStatusChange,
 }: AppointmentStatusSwitcherProps): ReactElement {
   const { fhirClient } = useApiClients();
   const [statusLoading, setStatusLoading] = React.useState<boolean>(false);
@@ -70,7 +74,7 @@ export default function AppointmentStatusSwitcher({
   const handleChange = async (event: SelectChangeEvent): Promise<void> => {
     const value = event.target.value;
     setStatusLoading(true);
-    await switchStatus(fhirClient, currentAppointment, encounter, value as VisitStatus);
+    await switchStatus(fhirClient, currentAppointment, encounter, value as VisitStatus, onStatusChange);
     const newAppointment = (await fhirClient?.readResource({
       resourceType: 'Appointment',
       resourceId: appointment.id || '',
@@ -100,7 +104,7 @@ export default function AppointmentStatusSwitcher({
           labelId="status-select-label"
           value={getStatusFromExtension(currentAppointment)}
           onChange={async (event) => await handleChange(event)}
-          renderValue={(selected) => getAppointmentStatusChip(selected)}
+          renderValue={(selected) => getInPersonAppointmentStatusChip(selected)}
           sx={{
             boxShadow: 'none',
             '.MuiOutlinedInput-notchedOutline': { border: 0 },
@@ -113,10 +117,10 @@ export default function AppointmentStatusSwitcher({
           }}
         >
           {statuses
-            .filter((status) => status !== 'unknown')
+            .filter((status) => status !== 'unknown' && status !== 'cancelled')
             .map((status) => (
               <MenuItem key={status} value={status}>
-                {getAppointmentStatusChip(status)}
+                {getInPersonAppointmentStatusChip(status)}
               </MenuItem>
             ))}
         </Select>
