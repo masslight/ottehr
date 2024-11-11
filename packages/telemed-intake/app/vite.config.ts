@@ -53,9 +53,6 @@ export default (env) => {
         open: 'patient-portal',
       },
       plugins,
-      define: {
-        global: 'window',
-      },
     }),
   );
 };

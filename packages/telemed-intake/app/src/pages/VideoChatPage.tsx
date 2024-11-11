@@ -1,5 +1,5 @@
-import { FC, useState } from 'react';
-import { Container, Typography } from '@mui/material';
+import { FC } from 'react';
+import { Container } from '@mui/material';
 import { useSearchParams } from 'react-router-dom';
 import { getSelectors } from 'ottehr-utils';
 import { IntakeFlowPageRoute } from '../App';
@@ -17,8 +17,6 @@ const VideoChatPage: FC = () => {
   const videoCallState = getSelectors(useVideoCallStore, ['meetingData']);
   const meetingManager = useMeetingManager();
 
-  const [error, setError] = useState<Error | null>(null);
-
   const apiClient = useZapEHRAPIClient();
   const [searchParams] = useSearchParams();
   const urlAppointmentID = searchParams.get('appointmentID');
@@ -27,32 +25,18 @@ const VideoChatPage: FC = () => {
     useAppointmentStore.setState(() => ({ appointmentID: urlAppointmentID }));
   }
 
-  useJoinCall(
-    apiClient,
-    async (response) => {
-      useVideoCallStore.setState({ meetingData: response });
+  useJoinCall(apiClient, async (response) => {
+    useVideoCallStore.setState({ meetingData: response });
 
-      const meetingSessionConfiguration = new MeetingSessionConfiguration(response.Meeting, response.Attendee);
-      const options = {
-        deviceLabels: DeviceLabels.AudioAndVideo,
-      };
+    const meetingSessionConfiguration = new MeetingSessionConfiguration(response.Meeting, response.Attendee);
+    const options = {
+      deviceLabels: DeviceLabels.AudioAndVideo,
+    };
 
-      await meetingManager.join(meetingSessionConfiguration, options);
+    await meetingManager.join(meetingSessionConfiguration, options);
 
-      await meetingManager.start();
-    },
-    setError,
-  );
-
-  if (error) {
-    return (
-      <CustomContainer useEmptyBody title="" bgVariant={IntakeFlowPageRoute.VideoCall.path}>
-        <Typography sx={{ color: 'primary.contrast' }} variant="h6">
-          {error.message}
-        </Typography>
-      </CustomContainer>
-    );
-  }
+    await meetingManager.start();
+  });
 
   if (!videoCallState.meetingData) {
     return (
