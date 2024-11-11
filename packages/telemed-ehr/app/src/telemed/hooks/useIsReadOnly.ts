@@ -3,7 +3,7 @@ import { useAppointmentStore } from '../state';
 import { useGetAppointmentAccessibility } from './useGetAppointmentAccessibility';
 
 export const useIsReadOnly = (): void => {
-  const appointmentAccessibility = useGetAppointmentAccessibility();
+  const appointmentAccessibility = useGetAppointmentAccessibility('telemedicine');
 
   useEffect(() => {
     useAppointmentStore.setState({

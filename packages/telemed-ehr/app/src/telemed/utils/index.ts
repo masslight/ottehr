@@ -1,5 +1,5 @@
 export * from './appointments';
-export * from './getAppointmentStatusChip';
+export * from './getTelemedAppointmentStatusChip';
 export * from './diffInMinutes';
 export * from './vitals-helper';
 export * from './school-work-excuse.helper';

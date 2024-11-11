@@ -99,7 +99,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     });
 
     console.log(`checking appointment with id ${appointmentID} is not checked in`);
-    if (appointment.status !== 'booked' && appointment.status !== 'proposed' && appointment.status !== 'arrived') {
+    if (
+      appointment.status !== 'booked' &&
+      appointment.status !== 'proposed' &&
+      appointment.status !== 'arrived' &&
+      appointment.status !== 'pending'
+    ) {
       throw new Error('You cannot cancelled a checked in appointment');
     }
 

@@ -3,7 +3,7 @@ import React, { ReactElement } from 'react';
 import { Chip } from '@mui/material';
 import { ApptStatus } from 'ehr-utils';
 
-export function getAppointmentStatusChip(status?: ApptStatus, count?: number): ReactElement {
+export function getTelemedAppointmentStatusChip(status?: ApptStatus, count?: number): ReactElement {
   if (!status) {
     return <span>todo1</span>;
   }

@@ -19,7 +19,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { DateTime } from 'luxon';
-import { FC, useCallback, useState } from 'react';
+import { FC, useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import {
   getQuestionnaireResponseByLinkId,
@@ -28,6 +28,7 @@ import {
   AppointmentMessaging,
   UCAppointmentInformation,
   QuestionnaireLinkIds,
+  getStatusFromExtension,
 } from 'ehr-utils';
 import ChatModal from '../../../features/chat/ChatModal';
 import { calculatePatientAge } from '../../../helpers/formatDateTime';
@@ -38,13 +39,15 @@ import EditPatientDialog from '../../components/EditPatientDialog';
 import InviteParticipant from '../../components/InviteParticipant';
 import { useGetAppointmentAccessibility } from '../../hooks';
 import { useAppointmentStore, useGetTelemedAppointmentWithSMSModel } from '../../state';
-import { getAppointmentStatusChip, getPatientName, quickTexts } from '../../utils';
+import { getPatientName, quickTexts } from '../../utils';
 // import { ERX } from './ERX';
 import { PastVisits } from './PastVisits';
 import { addSpacesAfterCommas } from '../../../helpers/formatString';
 import { INTERPRETER_PHONE_NUMBER } from 'ehr-utils';
 import { Appointment } from 'fhir/r4';
 import AppointmentStatusSwitcher from '../../../components/AppointmentStatusSwitcher';
+import { getTelemedAppointmentStatusChip } from '../../utils/getTelemedAppointmentStatusChip';
+import { getInPersonAppointmentStatusChip } from '../../../components/AppointmentTableRow';
 
 enum Gender {
   'male' = 'Male',
@@ -56,6 +59,17 @@ enum Gender {
 interface AppointmentSidePanelProps {
   appointmentType: 'telemedicine' | 'in-person';
 }
+
+const isInPersonStatusCancelable = (status: string | undefined): boolean => {
+  if (!status) {
+    return false;
+  }
+  return status === 'proposed' || status === 'pending' || status === 'booked' || status === 'arrived';
+};
+
+const isTelemedStatusCancelable = (status: ApptStatus): boolean => {
+  return status !== ApptStatus.complete && status !== ApptStatus.cancelled && status !== ApptStatus.unsigned;
+};
 
 export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmentType }) => {
   const theme = useTheme();
@@ -96,17 +110,32 @@ export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmen
     (status) => setIsERXLoading(status),
     [setIsERXLoading],
   );
-  const appointmentAccessibility = useGetAppointmentAccessibility();
 
-  const isCancellableStatus =
-    appointmentAccessibility.status !== ApptStatus.complete &&
-    appointmentAccessibility.status !== ApptStatus.cancelled &&
-    appointmentAccessibility.status !== ApptStatus.unsigned;
+  const appointmentAccessibility = useGetAppointmentAccessibility(appointmentType);
 
-  const isPractitionerAllowedToCancelThisVisit =
+  console.log('appointmentType', appointmentType);
+  let isCancellableStatus =
+    appointmentType === 'telemedicine'
+      ? isTelemedStatusCancelable(appointmentAccessibility.status as ApptStatus)
+      : isInPersonStatusCancelable(appointmentAccessibility.status as string);
+
+  console.log('isCancellableStatus', isCancellableStatus);
+  const [isPractitionerAllowedToCancelThisVisit, setIsPractitionerAllowedToCancelThisVisit] = useState<boolean>(
     // appointmentAccessibility.isPractitionerLicensedInState &&
     // appointmentAccessibility.isEncounterAssignedToCurrentPractitioner &&
-    isCancellableStatus;
+    isCancellableStatus || false,
+  );
+
+  console.log('isPractitionerAllowedToCancelThisVisit', isPractitionerAllowedToCancelThisVisit);
+
+  const onStatusChange = (status: string): void => {
+    isCancellableStatus = isInPersonStatusCancelable(status);
+    setIsPractitionerAllowedToCancelThisVisit(isCancellableStatus);
+  };
+
+  useEffect(() => {
+    setIsPractitionerAllowedToCancelThisVisit(isCancellableStatus);
+  }, [isCancellableStatus]);
 
   const { data: appointmentMessaging, isFetching } = useGetTelemedAppointmentWithSMSModel(
     {
@@ -161,7 +190,7 @@ export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmen
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
             {appointmentType === 'telemedicine' &&
-              getAppointmentStatusChip(mapStatusToTelemed(encounter.status, appointment?.status))}
+              getTelemedAppointmentStatusChip(mapStatusToTelemed(encounter.status, appointment?.status))}
 
             {appointment?.id && (
               <Tooltip title={appointment.id}>
@@ -179,11 +208,17 @@ export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmen
             )}
           </Box>
 
-          {appointmentType === 'in-person' && isPractitionerAllowedToCancelThisVisit && (
-            <AppointmentStatusSwitcher appointment={appointment as Appointment} encounter={encounter} />
+          {appointmentType === 'in-person' && appointmentAccessibility.isStatusEditable && (
+            <AppointmentStatusSwitcher
+              appointment={appointment as Appointment}
+              encounter={encounter}
+              onStatusChange={onStatusChange}
+            />
           )}
-          {!isPractitionerAllowedToCancelThisVisit &&
-            getAppointmentStatusChip(mapStatusToTelemed(encounter.status, appointment?.status))}
+          {appointmentType === 'in-person' &&
+            !appointmentAccessibility.isStatusEditable &&
+            !!appointment &&
+            getInPersonAppointmentStatusChip(getStatusFromExtension(appointment as Appointment) as ApptStatus)}
 
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Typography variant="h4" color="primary.dark">
@@ -346,8 +381,11 @@ export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmen
         </Box>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'start' }}>
-          {appointmentAccessibility.status &&
-            [ApptStatus['pre-video'], ApptStatus['on-video']].includes(appointmentAccessibility.status) && (
+          {appointmentType === 'telemedicine' &&
+            appointmentAccessibility.status &&
+            [ApptStatus['pre-video'], ApptStatus['on-video']].includes(
+              appointmentAccessibility.status as ApptStatus,
+            ) && (
               <Button
                 size="small"
                 sx={{
