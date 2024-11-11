@@ -4,7 +4,9 @@ import { getSelectors } from '../../shared/store/getSelectors';
 import { useAppointmentStore } from '../state';
 import useOttehrUser from '../../hooks/useOttehrUser';
 
-export const useGetAppointmentAccessibility = (): GetAppointmentAccessibilityDataResult => {
+export const useGetAppointmentAccessibility = (
+  appointmentType: 'telemedicine' | 'in-person',
+): GetAppointmentAccessibilityDataResult => {
   const { location, encounter, appointment } = getSelectors(useAppointmentStore, [
     'location',
     'encounter',
@@ -13,7 +15,7 @@ export const useGetAppointmentAccessibility = (): GetAppointmentAccessibilityDat
   const user = useOttehrUser();
 
   return useMemo(
-    () => getAppointmentAccessibilityData({ location, encounter, appointment, user }),
-    [location, encounter, appointment, user],
+    () => getAppointmentAccessibilityData({ location, encounter, appointment, user, appointmentType }),
+    [location, encounter, appointment, user, appointmentType],
   );
 };

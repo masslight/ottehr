@@ -61,7 +61,7 @@ export const AppointmentFooterButton: FC = () => {
 
   const [buttonType, setButtonType] = useState<'assignMe' | 'connectUnassign' | 'reconnect' | null>(null);
 
-  const appointmentAccessibility = useGetAppointmentAccessibility();
+  const appointmentAccessibility = useGetAppointmentAccessibility('telemedicine');
 
   useEffect(() => {
     if (appointmentAccessibility.status !== ApptStatus.ready && !appointmentAccessibility.isStatusEditable) {
