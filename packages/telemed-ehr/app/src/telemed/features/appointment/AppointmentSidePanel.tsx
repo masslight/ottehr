@@ -113,20 +113,16 @@ export const AppointmentSidePanel: FC<AppointmentSidePanelProps> = ({ appointmen
 
   const appointmentAccessibility = useGetAppointmentAccessibility(appointmentType);
 
-  console.log('appointmentType', appointmentType);
   let isCancellableStatus =
     appointmentType === 'telemedicine'
       ? isTelemedStatusCancelable(appointmentAccessibility.status as ApptStatus)
       : isInPersonStatusCancelable(appointmentAccessibility.status as string);
 
-  console.log('isCancellableStatus', isCancellableStatus);
   const [isPractitionerAllowedToCancelThisVisit, setIsPractitionerAllowedToCancelThisVisit] = useState<boolean>(
     // appointmentAccessibility.isPractitionerLicensedInState &&
     // appointmentAccessibility.isEncounterAssignedToCurrentPractitioner &&
     isCancellableStatus || false,
   );
-
-  console.log('isPractitionerAllowedToCancelThisVisit', isPractitionerAllowedToCancelThisVisit);
 
   const onStatusChange = (status: string): void => {
     isCancellableStatus = isInPersonStatusCancelable(status);
