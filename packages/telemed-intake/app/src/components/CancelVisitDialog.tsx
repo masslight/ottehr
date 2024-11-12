@@ -1,4 +1,4 @@
-import { FC } from 'react'; // Import useState for managing the select value
+import { FC, useState } from 'react'; // Import useState for managing the select value
 import { Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { CustomDialog, PageForm, safelyCaptureException } from 'ottehr-components';
@@ -19,6 +19,7 @@ export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose, appoint
   const { appointmentID } = getSelectors(useAppointmentStore, ['appointmentID']);
 
   const cancelAppointment = useCancelAppointmentMutation();
+  const [cancelVisitErrorMessage, setCancelVisitErrorMessage] = useState<string | null>(null);
 
   const onSubmit = async (data: FieldValues): Promise<void> => {
     if (!appointmentID) {
@@ -38,11 +39,13 @@ export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose, appoint
       },
       {
         onSuccess: () => {
+          setCancelVisitErrorMessage(null);
           navigate(IntakeFlowPageRoute.PatientPortal.path);
           handleClose();
         },
-        onError: (error) => {
+        onError: (error: Error) => {
           safelyCaptureException(error);
+          setCancelVisitErrorMessage(error.message);
         },
       },
     );
@@ -78,6 +81,11 @@ export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose, appoint
         }}
         onSubmit={onSubmit}
       />
+      {cancelVisitErrorMessage && (
+        <Typography color="error" sx={{ mt: 2, textAlign: 'center' }}>
+          {cancelVisitErrorMessage}
+        </Typography>
+      )}
     </CustomDialog>
   );
 };
