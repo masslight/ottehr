@@ -43,9 +43,14 @@ export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose, appoint
           navigate(IntakeFlowPageRoute.PatientPortal.path);
           handleClose();
         },
-        onError: (error: Error) => {
-          safelyCaptureException(error);
-          setCancelVisitErrorMessage(error.message);
+        onError: (error: unknown) => {
+          if (error instanceof Error) {
+            safelyCaptureException(error);
+            setCancelVisitErrorMessage(error.message);
+          } else {
+            safelyCaptureException(new Error('An unknown error occurred'));
+            setCancelVisitErrorMessage('An unknown error occurred');
+          }
         },
       },
     );
