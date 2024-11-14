@@ -261,6 +261,7 @@ async function getSchedule(
       currentDayTemp = currentDayTemp.plus({ days: 1 });
     }
   });
+  console.log(1, slots);
   return {
     message: 'Successful reply',
     // reminder to fix item adress
@@ -396,6 +397,13 @@ export const distributeTimeSlots = (
   currentAppointments: Appointment[],
   slotLength: number,
 ): string[] => {
+  // console.log(1, startTime, capacity, openingTime, closingTime);
+  // const minutesToDistributeInHour = Math.min(
+  //   60,
+  //   startTime.diff(openingTime, 'minutes').minutes,
+  //   startTime.diff(closingTime, 'minutes').minutes
+  // );
+
   // adjust startTime if minutes are not 00 to get an accurate minutesToDistributeInHour
   const adjustedStart: DateTime = startTime.minute !== 0 ? startTime.minus({ minutes: startTime.minute }) : startTime;
 
@@ -422,6 +430,7 @@ export const distributeTimeSlots = (
     const tempRoundedTime = tempTime.set({ minute: tempUpdatedRoundedMinute, second: 0, millisecond: 0 });
     tempTime = tempTime.plus({ minutes: minutesPerSlot });
     const timesSlotIndex = tempRoundedTime.toISO() || '';
+    // console.log(1, tempRoundedTime.toISO());
 
     // Appointments are bookable an hour away from the current time
     if (tempRoundedTime < DateTime.now().setZone('UTC').plus({ hours: 1 })) {

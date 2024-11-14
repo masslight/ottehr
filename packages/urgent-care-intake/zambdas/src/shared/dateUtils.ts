@@ -79,6 +79,7 @@ export const distributeTimeSlots = (
   closingTime: DateTime,
   currentAppointments: Appointment[],
 ): string[] => {
+  // console.log(1, startTime, capacity, openingTime, closingTime);
   const ROUND_MINUTES = 15;
 
   // const minutesToDistributeInHour = Math.min(
@@ -113,6 +114,7 @@ export const distributeTimeSlots = (
     const tempRoundedTime = tempTime.set({ minute: tempUpdatedRoundedMinute, second: 0, millisecond: 0 });
     tempTime = tempTime.plus({ minutes: minutesPerSlot });
     const timesSlotIndex = tempRoundedTime.toISO() || '';
+    // console.log(1, tempRoundedTime.toISO());
 
     // Appointments are bookable an hour away from the current time
     if (tempRoundedTime < DateTime.now().setZone('UTC').plus({ hours: 1 })) {

@@ -150,6 +150,7 @@ export async function getUser(
   await page.waitForTimeout(3000);
   expect(await page.getByText('Code is invalid').isVisible()).toBeFalsy();
   await page.waitForTimeout(500);
+  console.log(1, token);
   return token;
 }
 

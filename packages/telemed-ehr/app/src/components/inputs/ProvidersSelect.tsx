@@ -18,7 +18,6 @@ export default function ProvidersSelect({ providers, practitioners, handleSubmit
       practitionerIDToName[practitioner.id] = formatHumanName(practitioner.name[0]);
     }
   });
-
   return (
     <Autocomplete
       id="providers"
