@@ -3,10 +3,6 @@ import { DateTime } from 'luxon';
 import { FhirClient, SearchParam } from '@zapehr/sdk';
 import { PersonSex } from '../../../app/src/types/types';
 import { Patient, Practitioner } from 'fhir/r4';
-import { getSelectors } from '../shared/store/getSelectors';
-import { useTrackingBoardStore } from '../telemed';
-import { allLicensesForPractitioner, User } from 'ehr-utils';
-import useOttehrUser from '../hooks/useOttehrUser';
 
 type UserType = 'Patient' | 'Parent/Guardian';
 
@@ -47,7 +43,6 @@ export const createSampleAppointments = async (
   fhirClient: FhirClient | undefined,
   authToken: string,
   phoneNumber: string,
-  user: User | undefined,
 ): Promise<void> => {
   try {
     if (!fhirClient) {
@@ -63,7 +58,7 @@ export const createSampleAppointments = async (
 
     for (let i = 0; i < 10; i++) {
       const visitService = appointmentTypes[i % 2];
-      const randomPatientInfo = await generateRandomPatientInfo(fhirClient, visitService, user, phoneNumber);
+      const randomPatientInfo = await generateRandomPatientInfo(fhirClient, visitService, phoneNumber);
       const inputBody = JSON.stringify(randomPatientInfo);
 
       const response = await fetch(`${intakeZambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
@@ -88,7 +83,6 @@ export const createSampleAppointments = async (
 const generateRandomPatientInfo = async (
   fhirClient: FhirClient,
   visitService: 'in-person' | 'telemedicine',
-  user: User | undefined,
   phoneNumber?: string,
 ): Promise<CreateAppointmentParams> => {
   const firstNames = ['Alice', 'Bob', 'Charlie', 'Diana', 'Ethan', 'Fatima', 'Gabriel', 'Hannah', 'Ibrahim', 'Jake'];
@@ -96,13 +90,10 @@ const generateRandomPatientInfo = async (
   const sexes: PersonSex[] = [PersonSex.Male, PersonSex.Female, PersonSex.Intersex];
 
   const searchParams: SearchParam[] = [{ name: 'status', value: 'active' }];
-
-  const allOffices: any[] = await fhirClient?.searchResources({
+  const availableLocations: any[] = await fhirClient?.searchResources({
     resourceType: 'Location',
-    searchParams: [{ name: '_count', value: '1000' }],
+    searchParams: searchParams,
   });
-
-  const activeOffices = allOffices.filter((item) => item.status === 'active');
 
   const practitionersTemp: Practitioner[] = await fhirClient.searchResources({
     resourceType: 'Practitioner',
@@ -119,26 +110,11 @@ const generateRandomPatientInfo = async (
     .minus({ years: 7 + Math.floor(Math.random() * 16) })
     .toISODate();
   const randomSex = sexes[Math.floor(Math.random() * sexes.length)];
-  const randomLocationIndex = Math.floor(Math.random() * activeOffices.length);
-  const randomLocationId = activeOffices[randomLocationIndex].id;
+  const randomLocationIndex = Math.floor(Math.random() * availableLocations.length);
+  const randomLocationId = availableLocations[randomLocationIndex].id;
   const randomProviderId = practitionersTemp[Math.floor(Math.random() * practitionersTemp.length)].id;
 
-  const selectedInPersonLocationID = localStorage.getItem('selectedLocationID');
-  const selectedState = localStorage.getItem('selectedState');
-
-  const availableStates =
-    user?.profileResource &&
-    allLicensesForPractitioner(user.profileResource).map((item) => {
-      return item.state;
-    });
-
-  const randomState = availableStates?.[Math.floor(Math.random() * availableStates.length)] || '';
-
-  const locationId = getLocationIdFromState(selectedState || randomState, allOffices);
-
-  const isLocationActive = activeOffices.some((office) => office.id === locationId);
-
-  const telemedLocationId = isLocationActive ? locationId : randomLocationId;
+  const selectedLocationID = localStorage.getItem('selectedLocationID');
 
   if (visitService === 'telemedicine') {
     return {
@@ -151,14 +127,14 @@ const generateRandomPatientInfo = async (
         email: randomEmail,
         emailUser: 'Patient',
       },
-      scheduleType: 'location',
+      scheduleType: 'provider',
       visitType: 'now',
       visitService: visitService,
       providerID: randomProviderId,
       timezone: 'UTC',
       isDemo: true,
       phoneNumber: phoneNumber,
-      locationID: telemedLocationId,
+      locationID: randomLocationId,
     };
   }
 
@@ -179,14 +155,9 @@ const generateRandomPatientInfo = async (
     scheduleType: 'location',
     visitType: 'now',
     visitService: visitService,
-    locationID: selectedInPersonLocationID || randomLocationId,
+    locationID: selectedLocationID || randomLocationId,
     timezone: 'UTC',
     isDemo: true,
     phoneNumber: phoneNumber,
   };
-};
-
-const getLocationIdFromState = (state: string, allLocations: any[]): string | undefined => {
-  const location = allLocations.find((item) => item.address?.state === state);
-  return location?.id;
 };

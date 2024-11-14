@@ -125,6 +125,7 @@ export default function useOttehrUser(): OttehrUser | undefined {
         if (resourceType && resourceId && resourceType === 'Practitioner') {
           const practitioner = await client.readResource<Practitioner>({ resourceType, resourceId });
           useOttehrUserStore.setState({ profile: practitioner });
+          console.log('practitioner', practitioner);
         }
         _profileLoadingState = LoadingState.idle;
       } catch (e) {
@@ -346,6 +347,7 @@ const useGetProfile = () => {
         if (resourceType && resourceId && resourceType === 'Practitioner') {
           const practitioner = await fhirClient?.readResource<Practitioner>({ resourceType, resourceId });
           useOttehrUserStore.setState({ profile: practitioner });
+          console.log('practitioner', practitioner);
         }
       } catch (e) {
         console.error(`error fetching user's fhir profile: ${JSON.stringify(e)}`);
