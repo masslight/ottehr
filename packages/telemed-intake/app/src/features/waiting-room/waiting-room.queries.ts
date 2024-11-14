@@ -39,9 +39,6 @@ export const useGetVideoChatInvites = () => {
   const apiClient = useZapEHRAPIClient();
   const appointmentID = useAppointmentStore((state) => state.appointmentID);
 
-  console.log('appointmentID', appointmentID);
-  console.log('apiClient', apiClient);
-
   return useQuery(
     ['video-chat-list-invites', appointmentID],
     () => {
