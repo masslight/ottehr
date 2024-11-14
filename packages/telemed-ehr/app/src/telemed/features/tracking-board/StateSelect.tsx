@@ -9,7 +9,10 @@ export function StateSelect(): ReactElement {
   const { availableStates, state } = getSelectors(useTrackingBoardStore, ['availableStates', 'state']);
   const options = [EMPTY_STATE, ...availableStates.map((state) => ({ label: state, value: state }))];
 
+  const randomState = availableStates[Math.floor(Math.random() * availableStates.length)];
+
   const handleStateChange = (_e: any, { value }: { label: string | null; value: string | null }): void => {
+    localStorage.setItem('selectedState', value || '');
     useTrackingBoardStore.setState((prevState) => ({ ...prevState, state: value }));
   };
 
