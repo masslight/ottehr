@@ -47,7 +47,7 @@ jobs:
 
     steps:
       - name: Install SSH Client
-        uses: webfactory/ssh-agent@v0.7.0
+        uses: webfactory/ssh-agent@dc588b651fe13675774614f8e6a936a468676387 # v0.9.0
         with:
           ssh-private-key: |
             ${{ secrets.OTTEHR_DEMO_PRIVATE_KEY }}
@@ -57,21 +57,21 @@ jobs:
         if: ${{ github.event.inputs.environment == 'production' && !(github.event.inputs.confirmProduction == 'Yes') }}
         run: echo 'Please confirm you want to deploy to production.' && exit 1
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ssh-key: ${{ secrets.BUMP_VERSION }}
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: ${{ matrix.node-version }}
 
-      - uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # v4.0.0
         with:
           version: 9
 
       - name: Check out secrets repo to grab the env file.
-        uses: actions/checkout@v3
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: masslight/ottehr-secrets
           ssh-key: ${{ secrets.OTTEHR_DEMO_PRIVATE_KEY }}
@@ -95,14 +95,14 @@ jobs:
 
       - name: Push increased version if input dictates.
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
-        uses: ad-m/github-push-action@master
+        uses: ad-m/github-push-action@d91a481090679876dfc4178fef17f286781251df # v0.8.0
         with:
           ssh: true
           branch: ${{ github.ref }}
 
       - name: Get Version Number from package.json for build notifications.
         id: package-version
-        uses: martinbeentjes/npm-get-version-action@v1.3.1
+        uses: martinbeentjes/npm-get-version-action@3cf273023a0dda27efcd3164bdfb51908dd46a5b # v1.3.1
         with:
           path: ${{ env.PACKAGE_LOCATION }}
 
@@ -120,7 +120,7 @@ jobs:
 
       - name: Notify Slack
         if: always()
-        uses: edge/simple-slack-notify@v1.1.2
+        uses: edge/simple-slack-notify@d841831738af1d83ecc27186e722322145c21488 # v1.1.2
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           BRANCH: ${{ github.ref }}
