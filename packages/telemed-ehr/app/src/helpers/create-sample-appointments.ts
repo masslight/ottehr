@@ -150,6 +150,7 @@ const generateRandomPatientInfo = async (
         sex: randomSex,
         email: randomEmail,
         emailUser: 'Patient',
+        phoneNumber: phoneNumber,
       },
       scheduleType: 'location',
       visitType: 'now',
@@ -171,6 +172,7 @@ const generateRandomPatientInfo = async (
       sex: randomSex,
       email: randomEmail,
       emailUser: 'Patient',
+      phoneNumber: phoneNumber,
     },
     // In fututre we might want to generate future date appointments for the patients
     // slot: DateTime.now()
