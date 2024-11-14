@@ -123,7 +123,7 @@ const generateRandomPatientInfo = async (
   const randomLocationId = activeOffices[randomLocationIndex].id;
   const randomProviderId = practitionersTemp[Math.floor(Math.random() * practitionersTemp.length)].id;
 
-  const selectedInPersonLocationID = localStorage.getItem('selectedInPersonLocationID');
+  const selectedInPersonLocationID = localStorage.getItem('selectedLocationID');
   const selectedState = localStorage.getItem('selectedState');
 
   const availableStates =
