@@ -26,8 +26,6 @@ async function createApplication(
             'Zambda:Function:telemed-create-paperwork',
             'Zambda:Function:telemed-cancel-telemed-appointment',
             'Zambda:Function:telemed-cancel-in-person-appointment',
-            'Zambda:Function:telemed-video-chat-invites-list',
-            'Zambda:Function:telemed-video-chat-invites-create',
           ],
           action: ['Zambda:InvokeFunction'],
           effect: 'Allow',
