@@ -85,12 +85,10 @@ export const TrackingBoardFilters: FC<{ tab: ApptTab }> = (props) => {
   const useDate = tab === ApptTab.complete;
   const useUnsigned = tab === ApptTab['not-signed'];
   const handleProviderChange = (_e: any, value: string[]): void => {
-    console.log(10, value);
     setProviders(value);
     useTrackingBoardStore.setState({ providers: value });
   };
   const handleGroupChange = (_e: any, value: string[]): void => {
-    console.log(10, value);
     setGroups(value);
     useTrackingBoardStore.setState({ groups: value });
   };
