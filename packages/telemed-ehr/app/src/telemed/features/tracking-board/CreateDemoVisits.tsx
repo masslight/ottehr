@@ -8,8 +8,13 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { otherColors } from '../../../CustomThemeProvider';
 import { LoadingButton } from '@mui/lab';
 import { Box } from '@mui/system';
+import useOttehrUser from '../../../hooks/useOttehrUser';
 
-const CreateDemoVisits = (): ReactElement => {
+interface CreateDemoVisitsProps {
+  schedulePage?: 'telemedicine' | 'in-person';
+}
+
+const CreateDemoVisits = ({ schedulePage }: CreateDemoVisitsProps): ReactElement => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [inputError, setInputError] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -24,6 +29,7 @@ const CreateDemoVisits = (): ReactElement => {
   });
   const { fhirClient } = useApiClients();
   const { getAccessTokenSilently } = useAuth0();
+  const user = useOttehrUser();
 
   const handleCreateSampleAppointments = async (
     event: React.MouseEvent<HTMLButtonElement> | React.FormEvent<HTMLFormElement>,
@@ -40,12 +46,13 @@ const CreateDemoVisits = (): ReactElement => {
       setLoading(true);
       setInputError(false);
       const authToken = await getAccessTokenSilently();
-      const response = await createSampleAppointments(fhirClient, authToken, formattedPhoneNumber);
+      const response = await createSampleAppointments(fhirClient, authToken, formattedPhoneNumber, user);
       setSnackbar({
         open: true,
         message: 'Appointments created successfully!',
         severity: 'success',
       });
+      return response;
     } catch (error) {
       setSnackbar({
         open: true,

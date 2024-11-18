@@ -311,7 +311,6 @@ class API {
       if (GET_PRESIGNED_FILE_URL == null || REACT_APP_IS_LOCAL == null) {
         throw new Error('get presigned file url environment variable could not be loaded');
       }
-      console.log(1);
       const response = await zambdaClient?.invokePublicZambda({
         zambdaId: GET_PRESIGNED_FILE_URL,
         payload: {
@@ -320,7 +319,6 @@ class API {
           fileFormat,
         },
       });
-      console.log(1);
 
       const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
       return jsonToUse;

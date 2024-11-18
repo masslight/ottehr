@@ -524,7 +524,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   const apptResource: Appointment = {
     resourceType: 'Appointment',
     meta: {
-      tag: [{ code: OTTEHR_MODULE.TM }],
+      tag: [{ code: visitService === 'in-person' ? OTTEHR_MODULE.UC : OTTEHR_MODULE.TM }],
     },
     participant: participants,
     start: startTimeToISO,

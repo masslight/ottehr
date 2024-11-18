@@ -437,7 +437,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
             updateAppointments={updateAppointments}
             setEditingComment={setEditingComment}
           />
-          <CreateDemoVisits />
+          <CreateDemoVisits schedulePage="in-person" />
         </>
       </PageContainer>
     </form>
