@@ -176,7 +176,7 @@
     },
     "pastTimeError": {
       "title": "Error booking visit",
-      "description": "We are sorry, your selected check-in time is in the past. Please click below to select a different time slot.",
+      "description": "We are sorry, your selected check-in time has passed. Please click below to select a different time slot.",
       "button": "Select a time slot"
     }
   },
