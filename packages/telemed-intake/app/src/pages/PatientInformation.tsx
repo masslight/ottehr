@@ -27,6 +27,7 @@ import { useFilesStore } from '../features/files';
 import { useGetPaperwork, usePaperworkStore } from '../features/paperwork';
 import { usePatientInfoStore } from '../features/patient-info';
 import { useZapEHRAPIClient } from '../utils';
+import { handleClosePastTimeErrorDialog } from 'src/utils/checkSlotTime';
 
 const UPDATEABLE_PATIENT_INFO_FIELDS: (keyof Omit<PatientInfo, 'id'>)[] = [
   'firstName',
@@ -69,6 +70,7 @@ const PatientInformation = (): JSX.Element => {
   const { t } = useTranslation();
   const [ageErrorDialogOpen, setAgeErrorDialogOpen] = useState<boolean>(false);
   const [requestErrorDialogOpen, setRequestErrorDialogOpen] = useState<boolean>(false);
+  const [isPastTimeErrorDialogOpen, setIsPastTimeErrorDialogOpen] = useState<boolean>(false);
   const { patientInfo: currentPatientInfo, pendingPatientInfoUpdates } = getSelectors(usePatientInfoStore, [
     'patientInfo',
     'pendingPatientInfoUpdates',
@@ -396,6 +398,13 @@ const PatientInformation = (): JSX.Element => {
         description={t('patientInfo.requestError.description')}
         closeButtonText={t('general.button.close')}
         handleClose={() => setRequestErrorDialogOpen(false)}
+      />
+      <ErrorDialog
+        open={isPastTimeErrorDialogOpen}
+        title={t('patientInfo.pastTimeError.title')}
+        description={t('patientInfo.pastTimeError.description')}
+        closeButtonText={t('patientInfo.pastTimeError.button')}
+        handleClose={() => handleClosePastTimeErrorDialog(setIsPastTimeErrorDialogOpen, navigate)}
       />
     </CustomContainer>
   );
