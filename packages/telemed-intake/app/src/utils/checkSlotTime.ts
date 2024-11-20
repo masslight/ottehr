@@ -1,28 +1,27 @@
 import { DateTime } from 'luxon';
-import { getSelectors } from 'ottehr-utils';
 import { NavigateFunction } from 'react-router-dom';
 import { IntakeFlowPageRoute } from 'src/App';
-import { useAppointmentStore } from 'src/features/appointments';
 
-export const isSlotTimePassed = (): boolean => {
-  const selectedSlot = getSelectors(useAppointmentStore, ['selectedSlot']) as string;
+export const isSlotTimePassed = (selectedSlot: string | undefined, visitType: string | undefined): boolean => {
+  if (visitType === 'now') {
+    return false;
+  }
   if (!selectedSlot) return false;
   const slotDateTime = DateTime.fromISO(selectedSlot);
+  console.log('slotDateTime', slotDateTime);
   const now = DateTime.now();
+  console.log('now', now);
   return slotDateTime < now;
 };
 
 export const handleClosePastTimeErrorDialog = (
   setIsPastTimeErrorDialogOpen: (value: boolean) => void,
   navigate: NavigateFunction,
+  visitType: string | undefined,
+  visitService: string | undefined,
+  scheduleType: string | undefined,
+  slug: string | undefined,
 ): void => {
-  const { visitType, visitService, scheduleType, slug } = getSelectors(useAppointmentStore, [
-    'visitType',
-    'visitService',
-    'scheduleType',
-    'slug',
-  ]);
-
   if (!visitService || !visitType || !scheduleType || !slug) {
     console.error('One or more required parameters are missing');
     navigate(IntakeFlowPageRoute.PatientPortal.path);

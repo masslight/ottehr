@@ -15,9 +15,8 @@ import {
 import { CustomContainer } from '../features/common';
 import { useGetPaperwork, usePaperworkStore } from '../features/paperwork';
 import { usePatientInfoStore } from '../features/patient-info';
-import { useZapEHRAPIClient } from '../utils';
+import { handleClosePastTimeErrorDialog, isSlotTimePassed, useZapEHRAPIClient } from '../utils';
 import { decode } from 'html-entities';
-import { handleClosePastTimeErrorDialog, isSlotTimePassed } from 'src/utils/checkSlotTime';
 
 const ConfirmDateOfBirth = (): JSX.Element => {
   const navigate = useNavigate();
@@ -27,7 +26,10 @@ const ConfirmDateOfBirth = (): JSX.Element => {
   const [requestErrorDialogOpen, setRequestErrorDialogOpen] = useState<boolean>(false);
   const createAppointment = useCreateAppointmentMutation();
   const [getPaperworkEnabled, setGetPaperworkEnabled] = useState<boolean>(false);
-  const { appointmentID } = getSelectors(useAppointmentStore, ['appointmentID']);
+  const { appointmentID, selectedSlot, visitType, visitService, scheduleType, slug } = getSelectors(
+    useAppointmentStore,
+    ['appointmentID', 'selectedSlot', 'visitType', 'visitService', 'scheduleType', 'slug'],
+  );
   const [isPastTimeErrorDialogOpen, setIsPastTimeErrorDialogOpen] = useState<boolean>(false);
   const { patchCompletedPaperwork, setQuestions } = getSelectors(usePaperworkStore, [
     'patchCompletedPaperwork',
@@ -118,7 +120,7 @@ const ConfirmDateOfBirth = (): JSX.Element => {
   }, [challengeDay.name, challengeMonth.name, challengeYear.name, formValuesCopy]);
 
   const createOrUpdateAppointment = (unconfirmedDateOfBirth = false): void => {
-    if (isSlotTimePassed()) {
+    if (isSlotTimePassed(selectedSlot, visitType)) {
       setIsPastTimeErrorDialogOpen(true);
       return;
     }
@@ -273,7 +275,16 @@ const ConfirmDateOfBirth = (): JSX.Element => {
           title={t('patientInfo.pastTimeError.title')}
           description={t('patientInfo.pastTimeError.description')}
           closeButtonText={t('patientInfo.pastTimeError.button')}
-          handleClose={() => handleClosePastTimeErrorDialog(setIsPastTimeErrorDialogOpen, navigate)}
+          handleClose={() =>
+            handleClosePastTimeErrorDialog(
+              setIsPastTimeErrorDialogOpen,
+              navigate,
+              visitType,
+              visitService,
+              scheduleType,
+              slug,
+            )
+          }
         />
       </>
     </CustomContainer>
