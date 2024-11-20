@@ -26,7 +26,7 @@ import { CustomContainer } from '../features/common';
 import { useFilesStore } from '../features/files';
 import { useGetPaperwork, usePaperworkStore } from '../features/paperwork';
 import { usePatientInfoStore } from '../features/patient-info';
-import { useZapEHRAPIClient } from '../utils';
+import { handleClosePastTimeErrorDialog, isSlotTimePassed, useZapEHRAPIClient } from '../utils';
 
 const UPDATEABLE_PATIENT_INFO_FIELDS: (keyof Omit<PatientInfo, 'id'>)[] = [
   'firstName',
@@ -69,13 +69,17 @@ const PatientInformation = (): JSX.Element => {
   const { t } = useTranslation();
   const [ageErrorDialogOpen, setAgeErrorDialogOpen] = useState<boolean>(false);
   const [requestErrorDialogOpen, setRequestErrorDialogOpen] = useState<boolean>(false);
+  const [isPastTimeErrorDialogOpen, setIsPastTimeErrorDialogOpen] = useState<boolean>(false);
   const { patientInfo: currentPatientInfo, pendingPatientInfoUpdates } = getSelectors(usePatientInfoStore, [
     'patientInfo',
     'pendingPatientInfoUpdates',
   ]);
   const patientInfo = { ...currentPatientInfo, ...pendingPatientInfoUpdates, id: currentPatientInfo.id };
   const initialPatientInfoRef = useRef(currentPatientInfo);
-  const { appointmentID } = getSelectors(useAppointmentStore, ['appointmentID']);
+  const { appointmentID, visitType, visitService, scheduleType, slug, selectedSlot } = getSelectors(
+    useAppointmentStore,
+    ['appointmentID', 'visitType', 'visitService', 'scheduleType', 'slug', 'selectedSlot'],
+  );
   const { patchCompletedPaperwork, setQuestions } = getSelectors(usePaperworkStore, [
     'patchCompletedPaperwork',
     'setQuestions',
@@ -162,6 +166,11 @@ const PatientInformation = (): JSX.Element => {
     // patientInfo has 'id' property that was already set by create-appointment success callback)
     if (patientInfo.id && !data.newPatient && !appointmentID) {
       navigate(IntakeFlowPageRoute.ConfirmDateOfBirth.path);
+      return;
+    }
+
+    if (isSlotTimePassed(selectedSlot, visitType)) {
+      setIsPastTimeErrorDialogOpen(true);
       return;
     }
 
@@ -396,6 +405,22 @@ const PatientInformation = (): JSX.Element => {
         description={t('patientInfo.requestError.description')}
         closeButtonText={t('general.button.close')}
         handleClose={() => setRequestErrorDialogOpen(false)}
+      />
+      <ErrorDialog
+        open={isPastTimeErrorDialogOpen}
+        title={t('patientInfo.pastTimeError.title')}
+        description={t('patientInfo.pastTimeError.description')}
+        closeButtonText={t('patientInfo.pastTimeError.button')}
+        handleClose={() =>
+          handleClosePastTimeErrorDialog(
+            setIsPastTimeErrorDialogOpen,
+            navigate,
+            visitType,
+            visitService,
+            scheduleType,
+            slug,
+          )
+        }
       />
     </CustomContainer>
   );
