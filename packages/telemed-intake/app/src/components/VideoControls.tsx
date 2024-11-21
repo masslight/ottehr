@@ -11,13 +11,10 @@ import { CallSettingsTooltip } from './CallSettingsTooltip';
 import { useVideoCallStore } from '../features/video-call';
 import { otherColors } from '../IntakeThemeProvider';
 import { CallSettings } from './CallSettingsDialog';
-import { useNavigate } from 'react-router-dom';
-import { IntakeFlowPageRoute } from 'src/App';
 
 export const VideoControls: FC = () => {
   const { toggleVideo, isVideoEnabled } = useLocalVideo();
   const { muted, toggleMute } = useToggleLocalMute();
-  const navigate = useNavigate();
 
   const meetingManager = useMeetingManager();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -49,7 +46,6 @@ export const VideoControls: FC = () => {
   const disconnect = async (): Promise<void> => {
     await cleanup();
     useVideoCallStore.setState({ meetingData: null });
-    navigate(IntakeFlowPageRoute.PatientPortal.path);
   };
 
   return (
