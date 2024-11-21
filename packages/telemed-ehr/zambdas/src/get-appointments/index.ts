@@ -296,7 +296,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const healthcareServiceIdToResourceMap: Record<string, HealthcareService> = {};
 
     searchResultsForSelectedDate.forEach((resource) => {
-      if (resource.resourceType === 'Appointment') {
+      if (resource.resourceType === 'Appointment' && (resource as Appointment).serviceType?.[0]?.text === 'in-person') {
         allAppointments.push(resource as Appointment);
       } else if (resource.resourceType === 'Patient' && resource.id) {
         patientIdMap[resource.id] = resource as Patient;
