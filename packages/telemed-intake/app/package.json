@@ -6,6 +6,7 @@
   "scripts": {
     "start:local": "vite",
     "build:development": "tsc && vite build --mode development",
+    "build:testing": "tsc && vite build --mode testing",
     "build": "tsc && vite build",
     "deploy:development": "ENV=development PREFIX=development CLOUDFRONT_ID=EIYX001DGGQK8 pnpm run ci-deploy-skeleton",
     "deploy:testing": "ENV=testing PREFIX=testing CLOUDFRONT_ID=E2IMNWB48TKHJO pnpm run ci-deploy-skeleton",
