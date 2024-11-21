@@ -38,6 +38,8 @@ export interface UpdateUserParameters {
   nameSuffix?: string;
   selectedRoles?: string[] | undefined;
   licenses?: PractitionerLicense[];
+  phoneNumber?: string;
+  npi?: string;
   // locations: Location[];
 }
 
