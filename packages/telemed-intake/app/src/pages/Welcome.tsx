@@ -53,13 +53,8 @@ const Welcome = (): JSX.Element => {
   }, [visitService, setAppointment, visitType, scheduleType]);
 
   useEffect(() => {
-    setAppointment({
-      locationID: schedule?.locationID,
-      providerID: schedule?.providerID,
-      groupID: schedule?.groupID,
-      slug,
-    });
-  }, [schedule?.groupID, schedule?.locationID, schedule?.providerID, setAppointment, slug]);
+    setAppointment({ locationID: schedule?.locationID, providerID: schedule?.providerID, groupID: schedule?.groupID });
+  }, [schedule?.groupID, schedule?.locationID, schedule?.providerID, setAppointment]);
 
   const clearState = (): void => {
     useAppointmentStore.setState({ appointmentID: undefined, appointmentDate: undefined });
