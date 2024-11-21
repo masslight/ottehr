@@ -64,32 +64,32 @@ const AVAILABLE_ROLES: {
   label: string;
   hint: string;
 }[] = [
-  {
-    value: RoleType.Administrator,
-    label: 'Administrator',
-    hint: `Adjust full settings for entire system`,
-  },
-  {
-    value: RoleType.Manager,
-    label: 'Manager',
-    hint: `Adjust operating hours or schedule overrides; adjust pre-booked visits per hour`,
-  },
-  {
-    value: RoleType.Staff,
-    label: 'Staff',
-    hint: `No settings changes; essentially read-only`,
-  },
-  {
-    value: RoleType.Provider,
-    label: 'Provider',
-    hint: `A clinician, such as a doctor, a PA or an NP`,
-  },
-  {
-    value: RoleType.Prescriber,
-    label: 'Prescriber',
-    hint: `A clinician that is allowed to prescribe`,
-  },
-];
+    {
+      value: RoleType.Administrator,
+      label: 'Administrator',
+      hint: `Adjust full settings for entire system`,
+    },
+    {
+      value: RoleType.Manager,
+      label: 'Manager',
+      hint: `Adjust operating hours or schedule overrides; adjust pre-booked visits per hour`,
+    },
+    {
+      value: RoleType.Staff,
+      label: 'Staff',
+      hint: `No settings changes; essentially read-only`,
+    },
+    {
+      value: RoleType.Provider,
+      label: 'Provider',
+      hint: `A clinician, such as a doctor, a PA or an NP`,
+    },
+    {
+      value: RoleType.Prescriber,
+      label: 'Prescriber',
+      hint: `A clinician that is allowed to prescribe`,
+    },
+  ];
 
 if (import.meta.env.MODE === 'default' || import.meta.env.MODE === 'development') {
   AVAILABLE_ROLES.push(
