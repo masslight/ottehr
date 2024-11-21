@@ -15,9 +15,7 @@ on:
         default: 'development'
         options:
           - development
-          - dev2
           - testing
-          - staging
       incrementVersion:
         description: 'Bump Version?'
         type: boolean
