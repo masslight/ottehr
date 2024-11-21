@@ -11,7 +11,6 @@ interface AppointmentState {
   providerID?: string;
   groupID?: string;
   scheduleType?: 'location' | 'provider';
-  slug?: string;
 }
 
 const APOINTMENT_STATE_INITIAL: AppointmentState = {};
