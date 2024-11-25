@@ -14,10 +14,8 @@ on:
         type: choice
         default: 'development'
         options:
-          - development
-          - dev2
+          - development          
           - testing
-          - staging
       incrementVersion:
         description: 'Bump Version?'
         type: boolean
