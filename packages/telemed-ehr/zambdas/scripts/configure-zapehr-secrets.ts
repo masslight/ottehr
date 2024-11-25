@@ -1,5 +1,5 @@
 import devConfig from '../.env/development.json';
-// import testingConfig from '../.env/testing.json';
+import testingConfig from '../.env/testing.json';
 import { getAuth0Token } from '../src/shared';
 import { ZambdaClient } from '@zapehr/sdk';
 
@@ -37,9 +37,9 @@ const main = async (): Promise<void> => {
     case 'development':
       await setupSecrets(devConfig);
       break;
-    // case 'testing':
-    //   await setupSecrets(testingConfig);
-    //   break;
+    case 'testing':
+      await setupSecrets(testingConfig);
+      break;
     default:
       throw new Error('¯\\_(ツ)_/¯ environment must match a valid zapEHR environment.');
   }

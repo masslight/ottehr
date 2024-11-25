@@ -55,6 +55,8 @@ interface EmployeeForm {
   lastName: string;
   nameSuffix: string;
   roles: string[];
+  phoneNumber: string;
+  npi: string;
 }
 
 const AVAILABLE_ROLES: {
@@ -150,22 +152,6 @@ export default function EmployeeInformationForm({
 
   console.log('existingUser', existingUser);
 
-  let npiText = 'n/a';
-  if (existingUser?.profileResource?.identifier) {
-    const npi = existingUser.profileResource.identifier.find((identifier) => identifier.system === FHIR_IDENTIFIER_NPI);
-    if (npi && npi.value) {
-      npiText = npi.value;
-    }
-  }
-
-  let phoneText = '';
-  if (existingUser?.profileResource?.telecom) {
-    const phone = existingUser.profileResource.telecom.find((tel) => tel.system === 'sms')?.value;
-    if (phone) {
-      phoneText = phone;
-    }
-  }
-
   let photoSrc = '';
   if (existingUser?.profileResource?.photo) {
     const photo = existingUser.profileResource.photo[0];
@@ -201,6 +187,26 @@ export default function EmployeeInformationForm({
       setValue('middleName', middleName);
       setValue('lastName', lastName);
       setValue('nameSuffix', nameSuffix);
+
+      let phoneText = '';
+      if (existingUser?.profileResource?.telecom) {
+        const phone = existingUser.profileResource.telecom.find((tel) => tel.system === 'sms')?.value;
+        if (phone) {
+          phoneText = phone;
+        }
+      }
+      setValue('phoneNumber', phoneText);
+
+      let npiText = 'n/a';
+      if (existingUser?.profileResource?.identifier) {
+        const npi = existingUser.profileResource.identifier.find(
+          (identifier) => identifier.system === FHIR_IDENTIFIER_NPI,
+        );
+        if (npi && npi.value) {
+          npiText = npi.value;
+        }
+      }
+      setValue('npi', npiText);
     }
   }, [existingUser, setValue]);
 
@@ -229,6 +235,8 @@ export default function EmployeeInformationForm({
         nameSuffix: data.nameSuffix,
         selectedRoles: data.roles,
         licenses: newLicenses,
+        phoneNumber: data.phoneNumber,
+        npi: data.npi,
       });
     } catch (error) {
       console.log(`Failed to update user: ${error}`);
@@ -334,16 +342,19 @@ export default function EmployeeInformationForm({
             disabled: true,
           }}
         />
-        <TextField
-          id="outlined-read-only-input"
-          label="Phone"
-          value={phoneText}
-          sx={{ marginBottom: 2, width: '100%' }}
-          margin="dense"
-          InputProps={{
-            readOnly: true,
-            disabled: true,
-          }}
+        <Controller
+          name="phoneNumber"
+          control={control}
+          render={({ field: { onChange, value } }) => (
+            <TextField
+              id="phone-number-input"
+              label="Phone"
+              value={value || ''}
+              onChange={onChange}
+              sx={{ marginBottom: 2, width: '100%' }}
+              margin="dense"
+            />
+          )}
         />
 
         <FormControl sx={{ width: '100%' }} error={errors.roles}>
@@ -420,7 +431,21 @@ export default function EmployeeInformationForm({
                   />
                 )}
               />
-              <label style={{ margin: '15px 0' }}>NPI: {npiText}</label>
+              <Controller
+                name="npi"
+                control={control}
+                render={({ field: { onChange, value } }) => (
+                  <TextField
+                    id="npi-input"
+                    label="NPI"
+                    required={true}
+                    value={value || ''}
+                    onChange={onChange}
+                    sx={{ marginTop: 2, marginBottom: 2, width: '100%' }}
+                    margin="dense"
+                  />
+                )}
+              />
             </FormControl>
             {isProviderRoleSelected && (
               <>
