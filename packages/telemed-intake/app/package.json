@@ -1,7 +1,7 @@
 {
   "name": "telemed-intake-app",
   "private": true,
-  "version": "0.17.0",
+  "version": "0.18.0",
   "type": "module",
   "scripts": {
     "start:local": "vite",

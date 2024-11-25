@@ -7,7 +7,9 @@ export function validateRequestParameters(input: ZambdaInput): UpdateUserInput {
     throw new Error('No request body provided');
   }
 
-  const { userId, firstName, middleName, lastName, nameSuffix, selectedRoles, licenses } = JSON.parse(input.body);
+  const { userId, firstName, middleName, lastName, nameSuffix, selectedRoles, licenses, phoneNumber, npi } = JSON.parse(
+    input.body,
+  );
 
   if (
     userId === undefined
@@ -36,5 +38,7 @@ export function validateRequestParameters(input: ZambdaInput): UpdateUserInput {
     licenses,
     // locations,
     secrets: input.secrets,
+    phoneNumber: phoneNumber ? phoneNumber.trim() : phoneNumber,
+    npi: npi ? npi.trim() : npi,
   };
 }

@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Practitioner, HumanName } from 'fhir/r4';
-import { PractitionerLicense, Secrets } from 'ehr-utils';
+import { FHIR_IDENTIFIER_NPI, PractitionerLicense, Secrets } from 'ehr-utils';
 import { RoleType } from '../../../app/src/types/types';
 import { getSecret } from '../shared';
 import { topLevelCatch } from '../shared/errors';
@@ -19,6 +19,8 @@ export interface UpdateUserInput {
   nameSuffix?: string;
   selectedRoles?: RoleType[];
   licenses?: PractitionerLicense[];
+  phoneNumber?: string;
+  npi?: string;
 }
 
 let m2mtoken: string;
@@ -27,7 +29,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
     console.log('validatedParameters:', JSON.stringify(validatedParameters, null, 4));
-    const { secrets, userId, firstName, middleName, lastName, nameSuffix, selectedRoles, licenses } =
+    const { secrets, userId, firstName, middleName, lastName, nameSuffix, selectedRoles, licenses, phoneNumber, npi } =
       validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
@@ -98,14 +100,40 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           id: practitionerId,
           name: name ? [name] : undefined,
           qualification: practitionerQualificationExtension,
+          telecom: phoneNumber ? [{ system: 'sms', value: phoneNumber }] : undefined,
         });
       } else {
+        const existingTelecom = existingPractitionerResource.telecom || [];
+        const smsIndex = existingTelecom.findIndex((tel) => tel.system === 'sms');
+        const updatedTelecom = [...existingTelecom];
+        if (phoneNumber) {
+          if (smsIndex >= 0) {
+            updatedTelecom[smsIndex] = { system: 'sms', value: phoneNumber };
+          } else {
+            updatedTelecom.push({ system: 'sms', value: phoneNumber });
+          }
+        }
+        if (npi) {
+          if (!existingPractitionerResource.identifier) {
+            existingPractitionerResource.identifier = [];
+          }
+          const npiIndex = existingPractitionerResource.identifier.findIndex((id) => id.system === FHIR_IDENTIFIER_NPI);
+          if (npiIndex >= 0) {
+            existingPractitionerResource.identifier[npiIndex].value = npi;
+          } else {
+            existingPractitionerResource.identifier.push({
+              system: FHIR_IDENTIFIER_NPI,
+              value: npi,
+            });
+          }
+        }
         await fhirClient.updateResource({
           ...existingPractitionerResource,
           identifier: existingPractitionerResource.identifier,
           photo: existingPractitionerResource.photo,
           name: name ? [name] : undefined,
           qualification: practitionerQualificationExtension,
+          telecom: updatedTelecom,
         });
       }
     } catch (error: unknown) {
