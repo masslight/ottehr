@@ -31,8 +31,12 @@ on:
           - major
       confirmProduction:
         description: 'Confirm production deployment'
-        type: boolean
+        type: choice
+        default: 'No'
         required: false
+        options:
+          - Yes
+          - No
 
 jobs:
   deploy:
