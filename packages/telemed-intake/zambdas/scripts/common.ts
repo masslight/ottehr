@@ -1,5 +1,6 @@
 import devConfig from '../.env/development.json';
-// import testingConfig from '../.env/testing.json';
+import testingConfig from '../.env/testing.json';
+import productionConfig from '../.env/production.json';
 import { FhirClient, ZambdaClient } from '@zapehr/sdk';
 import { getM2MClientToken } from '../src/shared';
 
@@ -10,9 +11,12 @@ export const performEffectWithEnvFile = async (callback: (config: any) => void) 
     case 'development':
       await callback(devConfig);
       break;
-    // case 'testing':
-    //   await callback(testingConfig);
-    //   break;
+    case 'testing':
+      await callback(testingConfig);
+      break;
+      case 'production':
+        await callback(testingConfig);
+        break;
     default:
       throw new Error('¯\\_(ツ)_/¯ environment must match a valid zapEHR environment.');
   }
