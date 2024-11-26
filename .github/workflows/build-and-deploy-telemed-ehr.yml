@@ -16,6 +16,7 @@ on:
         options:
           - development          
           - testing
+          - production
       incrementVersion:
         description: 'Bump Version?'
         type: boolean
@@ -28,6 +29,14 @@ on:
           - patch
           - minor
           - major
+      confirmProduction:
+        description: 'Confirm production deployment'
+        type: choice
+        default: 'No'
+        required: false
+        options:
+          - 'Yes'
+          - 'No'
 
 jobs:
   deploy:
@@ -90,7 +99,7 @@ jobs:
           git config --local user.email "ngreene+ottehrghaction@masslight.com"
           git config --local user.name "GitHub Action Bump Version"
           pnpm version ${{ github.event.inputs.versionType }}
-
+          
       - name: Push increased version if input dictates.
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
         uses: ad-m/github-push-action@master
