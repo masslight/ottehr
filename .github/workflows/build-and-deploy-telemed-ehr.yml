@@ -16,19 +16,7 @@ on:
         options:
           - development          
           - testing
-          - production
-      incrementVersion:
-        description: 'Bump Version?'
-        type: boolean
-        required: false
-      versionType:
-        description: 'Version to bump (major.minor.patch)'
-        type: choice
-        default: 'patch'
-        options:
-          - patch
-          - minor
-          - major
+          - production    
       confirmProduction:
         description: 'Confirm production deployment'
         type: choice
@@ -92,20 +80,6 @@ jobs:
 
       - name: Copy env file to local.env to support serverless package command
         run: cp ${{ env.ZAMBDAS_LOCATION }}/.env/${{ github.event.inputs.environment }}.json ${{ env.ZAMBDAS_LOCATION }}/.env/local.json
-
-      - name: Increase version if input dictates.
-        if: ${{ github.event.inputs.incrementVersion == 'true' }}
-        run: |
-          git config --local user.email "ngreene+ottehrghaction@masslight.com"
-          git config --local user.name "GitHub Action Bump Version"
-          pnpm version ${{ github.event.inputs.versionType }}
-
-      - name: Push increased version if input dictates.
-        if: ${{ github.event.inputs.incrementVersion == 'true' }}
-        uses: ad-m/github-push-action@master
-        with:
-          ssh: true
-          branch: ${{ github.ref }}
 
       - name: Get Version Number from package.json for build notifications.
         id: package-version

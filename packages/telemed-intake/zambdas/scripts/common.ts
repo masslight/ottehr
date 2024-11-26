@@ -15,7 +15,7 @@ export const performEffectWithEnvFile = async (callback: (config: any) => void) 
       await callback(testingConfig);
       break;
       case 'production':
-        await callback(testingConfig);
+        await callback(productionConfig);
         break;
     default:
       throw new Error('¯\\_(ツ)_/¯ environment must match a valid zapEHR environment.');
