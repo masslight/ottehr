@@ -41,9 +41,9 @@ const main = async (): Promise<void> => {
     case 'testing':
       await setupSecrets(testingConfig);
       break;
-      case 'production':
-        await setupSecrets(productionConfig);
-        break;
+    case 'production':
+      await setupSecrets(productionConfig);
+      break;
     default:
       throw new Error('¯\\_(ツ)_/¯ environment must match a valid zapEHR environment.');
   }
