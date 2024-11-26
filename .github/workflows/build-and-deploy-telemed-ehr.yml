@@ -29,6 +29,10 @@ on:
           - patch
           - minor
           - major
+      confirmProduction:
+        description: 'Confirm production deployment'
+        type: boolean
+        required: false
 
 jobs:
   deploy:
