@@ -16,6 +16,7 @@ on:
         options:
           - development
           - testing
+          - production
       incrementVersion:
         description: 'Bump Version?'
         type: boolean

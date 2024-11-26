@@ -49,6 +49,12 @@ jobs:
       - name: Set the telemed-intake/zambdas/.env/testing.json
         run: cp packages/telemed-intake/zambdas/.env/local.template.json packages/telemed-intake/zambdas/.env/testing.json
 
+      - name: Set the telemed-ehr/zambdas/.env/production.json
+        run: cp packages/telemed-ehr/zambdas/.env/local.template.json packages/telemed-ehr/zambdas/.env/production.json
+
+      - name: Set the telemed-intake/zambdas/.env/production.json
+        run: cp packages/telemed-intake/zambdas/.env/local.template.json packages/telemed-intake/zambdas/.env/production.json
+
       - id: get-store-path
         run: echo STORE_PATH=$(pnpm store path) >> $GITHUB_OUTPUT
 
