@@ -35,8 +35,8 @@ on:
         default: 'No'
         required: false
         options:
-          - Yes
-          - No
+          - 'Yes'
+          - 'No'
 
 jobs:
   deploy:
