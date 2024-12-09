@@ -181,7 +181,7 @@ export async function setupEHR(
     accessToken: accessToken,
   });
 
-  const applicationName = 'Conjure';
+  const applicationName = 'ConjureEHR';
   const [applicationId, clientId] = await createApplication(projectApiUrl, applicationName, accessToken, projectId);
   console.log(`Created application "${applicationName}".`);
 
