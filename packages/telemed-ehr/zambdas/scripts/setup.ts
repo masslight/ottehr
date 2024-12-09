@@ -182,7 +182,8 @@ export async function setupEHR(
   });
 
   const applicationName = 'ConjureEHR';
-  const [applicationId, clientId] = await createApplication(projectApiUrl, applicationName, accessToken, projectId);
+  //const [applicationId, clientId] = await createApplication(projectApiUrl, applicationName, accessToken, projectId);
+  const [applicationId, clientId] = ['ef169623-ff50-4e1a-96d1-6553e1b8d00f', 'U26JaDCVt58juXYiJhdLsJSYZ03Kmma5'];
   console.log(`Created application "${applicationName}".`);
 
   const organizationId = (await createOrganization(fhirClient)).id;
