@@ -17,7 +17,7 @@ export const getPatientNameSearchParams = (input: {
   } = input;
   const hasParams = narrowByRelatedPersonAndAppointment
     ? [
-        { name: '_has:RelatedPerson:patient:relationship', value: 'user-relatedperson' }, // RelatedPerson referenced by the Person resource
+        //{ name: '_has:RelatedPerson:patient:relationship', value: 'user-relatedperson' }, // RelatedPerson referenced by the Person resource
         { name: '_has:Appointment:patient:_tag', value: [OTTEHR_MODULE.UC, OTTEHR_MODULE.TM].join(',') },
       ]
     : [];

@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 
 export const MINIMUM_AGE = 0;
-export const MAXIMUM_AGE = 26;
+export const MAXIMUM_AGE = 120;
 export const MAXIMUM_CHARACTER_LIMIT = 160;
 export const alphanumericRegex = /^[a-zA-Z0-9]+/;
 export const emailRegex = /^\S+@\S+\.\S+$/;

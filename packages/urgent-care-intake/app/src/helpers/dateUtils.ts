@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 
-export const MINIMUM_AGE = 5;
-export const MAXIMUM_AGE = 26;
+export const MINIMUM_AGE = 0;
+export const MAXIMUM_AGE = 120;
 export const DATETIME_FULL_NO_YEAR = 'MMMM d, h:mm a ZZZZ';
 export const DATE_FULL_NO_YEAR = 'EEEE, MMMM d';
 
