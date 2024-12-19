@@ -8,10 +8,10 @@
     "build:development": "tsc && vite build --mode development",
     "build:testing": "tsc && vite build --mode testing",
     "build": "tsc && vite build",
-    "deploy:development": "ENV=development PREFIX=development CLOUDFRONT_ID=EIYX001DGGQK8 pnpm run ci-deploy-skeleton",
-    "deploy:production": "ENV=development PREFIX=development CLOUDFRONT_ID=EIYX001DGGQK8 pnpm run ci-deploy-skeleton",
-    "deploy:testing": "ENV=testing PREFIX=testing CLOUDFRONT_ID=E2IMNWB48TKHJO pnpm run ci-deploy-skeleton",
-    "ci-deploy-skeleton": "ENV=${ENV} VITE_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') pnpm run build:${ENV} && aws s3 sync build/ s3://telemed.ottehr.com --region us-east-1 --delete && aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_ID} --paths '/*' --region us-east-1"
+    "deploy:development": "ENV=development PREFIX=development CLOUDFRONT_ID=E38DNMOERQHY24 S3_BUCKET=patient.dev.conjure.health pnpm run ci-deploy-skeleton",
+    "deploy:production": "ENV=development PREFIX=development CLOUDFRONT_ID=E38DNMOERQHY24 S3_BUCKET=patient.dev.conjure.health pnpm run ci-deploy-skeleton",
+    "deploy:testing": "ENV=testing PREFIX=testing CLOUDFRONT_ID=E38DNMOERQHY24 S3_BUCKET=patient.dev.conjure.health pnpm run ci-deploy-skeleton",
+    "ci-deploy-skeleton": "ENV=${ENV} VITE_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') pnpm run build:${ENV} && aws s3 sync build/ s3://${S3_BUCKET} --region us-east-1 --delete && aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_ID} --paths '/*' --region us-east-1"
   },
   "dependencies": {
     "@mui/x-date-pickers": "^7.7.0",
