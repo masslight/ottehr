@@ -29,10 +29,10 @@
     "build-skeleton": "tsc && vite build --mode ${ENV}",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "deploy:development": " PREFIX=development CLOUDFRONT_ID=d35ys1tvww654d ENV=development pnpm run ci-deploy-skeleton",
-    "deploy:production": " PREFIX=development CLOUDFRONT_ID=d35ys1tvww654d ENV=development pnpm run ci-deploy-skeleton",
-    "deploy:testing": " PREFIX=testing CLOUDFRONT_ID=ETFAEVC5V0490 ENV=testing pnpm run ci-deploy-skeleton",
-    "ci-deploy-skeleton": "ENV=${ENV} VITE_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') pnpm run build:${ENV} && aws s3 sync build/ s3://ehr.dev.conjure.health --region us-east-1 --delete && aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_ID} --paths '/*' --region us-east-1"
+    "deploy:development": " PREFIX=development CLOUDFRONT_ID=d35ys1tvww654d ENV=development S3_BUCKET=ehr.dev.conjure.health pnpm run ci-deploy-skeleton",
+    "deploy:production": " PREFIX=development CLOUDFRONT_ID=d35ys1tvww654d ENV=development S3_BUCKET=ehr.dev.conjure.health pnpm run ci-deploy-skeleton",
+    "deploy:testing": " PREFIX=testing CLOUDFRONT_ID=ETFAEVC5V0490 ENV=testing S3_BUCKET=ehr.dev.conjure.health pnpm run ci-deploy-skeleton",
+    "ci-deploy-skeleton": "ENV=${ENV} VITE_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') pnpm run build:${ENV} && aws s3 sync build/ s3://${S3_BUCKET} --region us-east-1 --delete && aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_ID} --paths '/*' --region us-east-1"
   },
   "dependencies": {
     "@mui/icons-material": "^5.14.9",

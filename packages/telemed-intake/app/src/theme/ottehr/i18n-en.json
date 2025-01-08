@@ -1,7 +1,7 @@
 {
   "general": {
     "appName": "Ottehr Telemedicine",
-    "maximumAge": 26,
+    "maximumAge": 120,
     "minimumAge": 0,
     "button": {
       "back": "Back",

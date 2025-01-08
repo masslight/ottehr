@@ -274,7 +274,7 @@ export async function setupIntake(
     accessToken: accessToken,
   });
 
-  const applicationName = 'Ottehr Telemed Intake';
+  const applicationName = 'Conjure Patient Portal';
   const [applicationId, clientId] = await createApplication(projectApiUrl, applicationName, accessToken, projectId);
   console.log(`Created application "${applicationName}".`);
 
