@@ -11,6 +11,10 @@ import { encodePlusSign } from '../helpers/encodePlusSign';
 import { getPatientNameSearchParams } from '../helpers/patientSearch';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
+import { Avatar, Box, Card, CardContent, Typography } from '@mui/material';
+import PersonIcon from '@mui/icons-material/Person';
+import { Button as ShadcnButton} from "@/components/ui/button"
+import {DataTableDemo, PatientTable} from "../shadcn/components/PatientsTable"
 
 async function getPatientsAndRelatedPersons(
   searchParams: SearchParam[],
@@ -83,6 +87,37 @@ export default function PatientsPage(): ReactElement {
   const [totalPatients, setTotalPatients] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
 
+   // Add new effect to fetch initial patients
+   useEffect(() => {
+    async function fetchInitialPatients(): Promise<void> {
+      if (!fhirClient) return;
+
+      setLoading(true);
+      
+      // Basic search params to get all patients with related persons
+      const fhirSearchParams: SearchParam[] = [
+        // Ensure we get patients with related persons
+        { name: '_has:RelatedPerson:patient:phone:missing', value: 'false' },
+        // You might want to add pagination params here
+        { name: '_count', value: '50' }, // Adjust the page size as needed
+        // Add any other default filters you need
+      ];
+
+      const resources = await getPatientsAndRelatedPersons(fhirSearchParams, null, fhirClient);
+
+      setPatients(resources.patients);
+      setRelatedPersons(resources.relatedPersons);
+      setTotalPatients(resources.total);
+    }
+
+    // Only fetch initial patients if no search is active
+    if (!submittedName && !submittedPhone) {
+      fetchInitialPatients()
+        .catch((error) => console.log(error))
+        .finally(() => setLoading(false));
+    }
+  }, [fhirClient]); // Only depend on fhirClient
+
   // Update query params in the url when filters change
   useEffect(() => {
     if (location.search && !submittedName && !submittedPhone) {
@@ -112,33 +147,77 @@ export default function PatientsPage(): ReactElement {
     }
   }, [submittedName, submittedPhone]);
 
+  // OLD
   // Fetch patients when filters change
+  // useEffect(() => {
+  //   async function setPatientsAndRelatedPersons(): Promise<void> {
+  //     if (
+  //       !fhirClient ||
+  //       (!submittedName && !submittedPhone) ||
+  //       (submittedName && submittedName?.length < 3) ||
+  //       (submittedPhone && submittedPhone?.length < 10)
+  //     ) {
+  //       return;
+  //     }
+
+  //     setLoading(true);
+
+  //     const fhirSearchParams: SearchParam[] = getPatientNameSearchParams({ submittedName: submittedName || undefined });
+  //     const digits = submittedPhone?.replace(/\D/g, '');
+  //     if (submittedPhone) {
+  //       fhirSearchParams.push({ name: '_has:RelatedPerson:patient:phone', value: `${digits},+1${digits}` });
+  //     } else {
+  //       fhirSearchParams.push({ name: '_has:RelatedPerson:patient:phone:missing', value: 'false' });
+  //     }
+
+  //     const resources = await getPatientsAndRelatedPersons(fhirSearchParams, submittedPhone, fhirClient);
+
+  //     setPatients(resources.patients);
+  //     setRelatedPersons(resources.relatedPersons);
+  //     setTotalPatients(resources.total);
+  //   }
+
+  //   setPatientsAndRelatedPersons()
+  //     .catch((error) => console.log(error))
+  //     .finally(() => setLoading(false));
+  // }, [fhirClient, submittedName, submittedPhone]);
+
+  // NEW - modified to work alongside initial fetching
   useEffect(() => {
     async function setPatientsAndRelatedPersons(): Promise<void> {
-      if (
-        !fhirClient ||
-        (!submittedName && !submittedPhone) ||
-        (submittedName && submittedName?.length < 3) ||
-        (submittedPhone && submittedPhone?.length < 10)
-      ) {
-        return;
+      if (!fhirClient) return;
+      
+      // Only proceed with search if there are search terms
+      if (submittedName || submittedPhone) {
+        setLoading(true);
+
+        const fhirSearchParams: SearchParam[] = getPatientNameSearchParams({ 
+          submittedName: submittedName || undefined 
+        });
+        
+        const digits = submittedPhone?.replace(/\D/g, '');
+        if (submittedPhone) {
+          fhirSearchParams.push({ 
+            name: '_has:RelatedPerson:patient:phone', 
+            value: `${digits},+1${digits}` 
+          });
+        } else {
+          fhirSearchParams.push({ 
+            name: '_has:RelatedPerson:patient:phone:missing', 
+            value: 'false' 
+          });
+        }
+
+        const resources = await getPatientsAndRelatedPersons(
+          fhirSearchParams, 
+          submittedPhone, 
+          fhirClient
+        );
+
+        setPatients(resources.patients);
+        setRelatedPersons(resources.relatedPersons);
+        setTotalPatients(resources.total);
       }
-
-      setLoading(true);
-
-      const fhirSearchParams: SearchParam[] = getPatientNameSearchParams({ submittedName: submittedName || undefined });
-      const digits = submittedPhone?.replace(/\D/g, '');
-      if (submittedPhone) {
-        fhirSearchParams.push({ name: '_has:RelatedPerson:patient:phone', value: `${digits},+1${digits}` });
-      } else {
-        fhirSearchParams.push({ name: '_has:RelatedPerson:patient:phone:missing', value: 'false' });
-      }
-
-      const resources = await getPatientsAndRelatedPersons(fhirSearchParams, submittedPhone, fhirClient);
-
-      setPatients(resources.patients);
-      setRelatedPersons(resources.relatedPersons);
-      setTotalPatients(resources.total);
     }
 
     setPatientsAndRelatedPersons()
@@ -152,51 +231,20 @@ export default function PatientsPage(): ReactElement {
     setSubmittedPhone(phoneFilter);
   };
 
+  // Initially - search is done through using url location
+  // Current - search is client side but doesnt automatically update the url
+  // Plan - search is client side and should update the url
+
   return (
-    <PageContainer>
-      <TabPanel value={'Patients'} sx={{ p: 0 }}>
-        <Paper sx={{ p: 2 }}>
-          <form onSubmit={(event) => handleFormSubmit(event)}>
-            <Grid container spacing={2} display="flex" alignItems="center">
-              <Grid item xs={12} sm={5} sx={{ marginTop: 2 }}>
-                <PatientSearch
-                  nameFilter={patientNameFilter}
-                  setNameFilter={setPatientNameFilter}
-                  onClear={() => {
-                    setPatients(null);
-                    setRelatedPersons(null);
-                    setTotalPatients(0);
-                    setSubmittedName(null);
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={5} sx={{ marginTop: 2.5 }}>
-                <PhoneSearch
-                  phoneFilter={phoneFilter}
-                  setPhoneFilter={setPhoneFilter}
-                  onClear={() => {
-                    setPatients(null);
-                    setRelatedPersons(null);
-                    setTotalPatients(0);
-                    setSubmittedPhone(null);
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={2}>
-                <Button type="submit" variant="contained" fullWidth>
-                  Submit
-                </Button>
-              </Grid>
-            </Grid>
-          </form>
-          <PatientsTable
-            fhirPatients={patients}
-            relatedPersons={relatedPersons}
-            total={totalPatients}
-            patientsLoading={loading}
-          />
-        </Paper>
-      </TabPanel>
+  <PageContainer>
+          <h1 className='text-3xl font-bold'>Patients</h1>
+   
+            <PatientTable
+              fhirPatients={patients}
+              relatedPersons={relatedPersons}
+              total={totalPatients}
+              patientsLoading={loading}
+            />
     </PageContainer>
   );
 }
