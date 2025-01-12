@@ -4,6 +4,7 @@ import viteTsconfigPaths from 'vite-tsconfig-paths';
 import browserslistToEsbuild from 'browserslist-to-esbuild';
 import svgr from 'vite-plugin-svgr';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 
 export default ({ mode }) => {
   const envDir = './env';
@@ -13,6 +14,11 @@ export default ({ mode }) => {
     envDir: envDir,
     publicDir: 'public',
     plugins: [react(), viteTsconfigPaths(), svgr()],
+    resolve: {
+      alias: {
+        "@": path.resolve(path.dirname(fileURLToPath(import.meta.url)), "./src"),
+      },
+    },
     server: {
       open: true,
       port: env.VITE_APP_PORT ? parseInt(env.VITE_APP_PORT) : undefined,
