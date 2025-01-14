@@ -4,7 +4,7 @@
   "version": "0.18.0",
   "type": "module",
   "scripts": {
-    "start:local": "vite",
+    "start:local": "vite --mode default",
     "build:development": "tsc && vite build --mode development",
     "build:testing": "tsc && vite build --mode testing",
     "build": "tsc && vite build",
