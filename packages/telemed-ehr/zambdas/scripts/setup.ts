@@ -186,7 +186,8 @@ export async function setupEHR(
   const [applicationId, clientId] = ['ef169623-ff50-4e1a-96d1-6553e1b8d00f', 'U26JaDCVt58juXYiJhdLsJSYZ03Kmma5'];
   console.log(`Created application "${applicationName}".`);
 
-  const organizationId = (await createOrganization(fhirClient)).id;
+  //const organizationId = (await createOrganization(fhirClient)).id;
+  const organizationId = '1f1af154-93d3-4ba1-bd7e-b3f9f2fd0aa6';
   if (!organizationId) {
     throw new Error('Organization ID is not defined');
   }
