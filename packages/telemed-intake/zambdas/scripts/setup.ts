@@ -276,11 +276,11 @@ export async function setupIntake(
 
   const applicationName = 'Conjure Patient Portal';
   //const [applicationId, clientId] = await createApplication(projectApiUrl, applicationName, accessToken, projectId);
-  const [applicationId, clientId] = ['a84b09c8-821a-46b4-8a75-f9868e17214a', 'aBDYYlEV01DuYFAzyM9L1UXcLDBDW4sU'];
+  const [applicationId, clientId] = ['', ''];  // lookup in Oystehr console
   console.log(`Created application "${applicationName}".`);
 
   //const organizationID = (await createOrganization(fhirClient)).id;
-  const organizationID = '1f1af154-93d3-4ba1-bd7e-b3f9f2fd0aa6';
+  const organizationID = '';  // lookup in Oystehr console
   if (!organizationID) {
     throw new Error('Organization ID is not defined');
   }
@@ -288,10 +288,10 @@ export async function setupIntake(
   await createLocation(fhirClient);
   await checkTelemedVirtualLocations(fhirClient);
 
-  const envPath1 = createZambdaLocalEnvFile(projectId, m2mDeviceId, m2mClientId, m2mSecret, organizationID);
-  console.log('Created environment file:', envPath1);
+  //const envPath1 = createZambdaLocalEnvFile(projectId, m2mDeviceId, m2mClientId, m2mSecret, organizationID);
+  //console.log('Created environment file:', envPath1);
 
-  const envPath2 = createAppLocalEnvFile(clientId);
-  console.log('Created environment file:', envPath2);
+  //const envPath2 = createAppLocalEnvFile(clientId);
+  //console.log('Created environment file:', envPath2);
   console.log('Setup of telemed intake testing');
 }
