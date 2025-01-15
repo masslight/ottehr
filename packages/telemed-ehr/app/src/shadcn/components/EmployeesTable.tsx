@@ -28,6 +28,7 @@ import {
 } from '@tanstack/react-table';
 import { Table, TableCell, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Link } from 'react-router-dom';
+import { Badge } from '@/components/ui/badge';
 
 // import { Employee } from '@/types/types';
 
@@ -96,15 +97,14 @@ export const columns: ColumnDef<Employee>[] = [
     accessorKey: 'email',
     header: 'Email',
     cell: ({ row }) => {
-      console.log(row);
       const email = row.getValue('email') as string;
       return <div>{email || '@'}</div>;
     },
   },
-  {
-    accessorKey: 'phone',
-    header: 'Phone',
-  },
+  // {
+  //   accessorKey: 'phone',
+  //   header: 'Phone',
+  // },
   {
     accessorKey: 'lastLogin',
     header: ({ column }) => {
@@ -122,7 +122,7 @@ export const columns: ColumnDef<Employee>[] = [
           <div>{formatISODateToLocaleDate(lastLogin)}</div>
         </div>
       ) : (
-        <div className="flex items-center justify-center text-black/40">Never logged in</div>
+        <div className="flex text-black/40">Never logged in</div>
       );
     },
   },
@@ -131,7 +131,11 @@ export const columns: ColumnDef<Employee>[] = [
     header: 'Status',
     cell: ({ row }) => {
       const status = row.getValue('status') as string;
-      return <div className={`capitalize ${status === 'active' ? 'text-green-600' : 'text-red-600'}`}>{status}</div>;
+      return (
+        <Badge className={status === 'Active' ? 'bg-teal-500 hover:bg-teal-500' : 'bg-red-500 hover:bg-red-500'}>
+          {status}
+        </Badge>
+      );
     },
   },
   {
@@ -169,14 +173,17 @@ const EmployeesTable = ({ employees }: { employees: any }) => {
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
 
-  const tableData = employees.map((employee) => ({
-    id: employee.id,
-    name: employee.name,
-    dob: employee.dob,
-    phone: employee.phone,
-    lastVisit: employee.lastVisit,
-    lastOffice: employee.lastOffice,
-  }));
+  const tableData = React.useMemo(() => {
+    if (!employees) return [];
+
+    return employees.map((employee) => ({
+      id: employee.id,
+      name: employee.name,
+      email: employee.email,
+      lastLogin: employee.lastLogin,
+      status: employee.status,
+    }));
+  }, [employees]);
 
   const table = useReactTable({
     data: tableData, // Use the transformed data instead of static data
@@ -220,7 +227,11 @@ const EmployeesTable = ({ employees }: { employees: any }) => {
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
-                  return <TableHead key={header.id}>{header.id}</TableHead>;
+                  return (
+                    <TableHead key={header.id}>
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
+                  );
                 })}
               </TableRow>
             ))}
@@ -247,6 +258,25 @@ const EmployeesTable = ({ employees }: { employees: any }) => {
             )}
           </TableBody>
         </Table>
+      </div>
+      <div className="flex items-center justify-end space-x-2 py-4">
+        <div className="flex-1 text-sm text-muted-foreground">
+          {table.getFilteredSelectedRowModel().rows.length} of {table.getFilteredRowModel().rows.length} row(s)
+          selected.
+        </div>
+        <div className="space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            Previous
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
+            Next
+          </Button>
+        </div>
       </div>
     </div>
   );
