@@ -1,22 +1,24 @@
 import SearchIcon from '@mui/icons-material/Search';
-import { TabContext, TabList, TabPanel } from '@mui/lab';
+import { TabContext as MuiTabContext, TabList as MuiTabList, TabPanel as MuiTabPanel } from '@mui/lab';
 import {
-  Autocomplete,
-  Box,
-  Checkbox,
-  Chip,
-  FormControlLabel,
-  Grid,
-  Paper,
-  Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
-  TextField,
+  Autocomplete as MuiAutocomplete,
+  Box as MuiBox,
+  Button as MuiButton,
+  Checkbox as MuiCheckbox,
+  Chip as MuiChip,
+  FormControlLabel as MuiFormControlLabel,
+  Grid as MuiGrid,
+  Paper as MuiPaper,
+  Tab as MuiTab,
+  Table as MuiTable,
+  TableBody as MuiTableBody,
+  TableCell as MuiTableCell,
+  TableContainer as MuiTableContainer,
+  TableHead as MuiTableHead,
+  TablePagination as MuiTablePagination,
+  TableRow as MuiTableRow,
+  Tabs as MuiTabs,
+  TextField as MuiTextField,
   useTheme,
 } from '@mui/material';
 import { DateTime } from 'luxon';
@@ -31,7 +33,15 @@ import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 import { isLocalOrDevOrTestingOrTrainingEnv } from '../telemed/utils/env.helper';
 import { AllStates, EmployeeDetails, State } from '../types/types';
-
+import PatientSearch from '@/components/PatientSearch';
+import PatientsTable from '@/components/PatientsTable';
+import PhoneSearch from '@/components/PhoneSearch';
+import { PatientTable } from '@/shadcn/components/PatientsTable';
+import { TabsDemo } from '@/shadcn/components/Tabs';
+import { Download, PlusIcon } from 'lucide-react';
+import { TabsList, TabsTrigger, TabsContent, Tabs } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import EmployeesTable from '@/shadcn/components/EmployeesTable';
 enum PageTab {
   employees = 'employees',
   providers = 'providers',
@@ -57,27 +67,81 @@ export default function EmployeesPage(): ReactElement {
     },
   );
 
+  /* TODO: Create own recyclable page container component */
   return (
-    <PageContainer>
-      <Box sx={{ width: '100%', marginTop: 3 }}>
-        <TabContext value={pageTab}>
-          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <TabList onChange={handleTabChange} aria-label="employees tabs">
-              <Tab label="Employees" value={PageTab.employees} sx={{ textTransform: 'none', fontWeight: 700 }} />
-              {isLocalOrDevOrTestingOrTrainingEnv && (
-                <Tab label="Providers" value={PageTab.providers} sx={{ textTransform: 'none', fontWeight: 700 }} />
-              )}
-              {isFetching && <Loading />}
-            </TabList>
-          </Box>
-          <Paper sx={{ marginTop: 5 }}>
-            <TabPanel value={pageTab} sx={{ padding: 0 }}>
-              <EmployeesTable employees={employees} isProviderLayout={pageTab === PageTab.providers} />
-            </TabPanel>
-          </Paper>
-        </TabContext>
-      </Box>
-    </PageContainer>
+    <>
+      <div className="flex flex-col max-w-7xl mx-auto my-16 px-4">
+        <div className="space-y-8">
+          {/* Heading */}
+          <div className="flex justify-between items-center">
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold">Employees</h1>
+              <p className="text-md text-muted-foreground">View and manage doctors and providers</p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="bg-white">
+                <Download className="w-4 h-4" /> Export
+              </Button>
+              <Link to="/employees/add">
+                <Button className="flex items-center bg-teal-500 hover:bg-teal-600 font-bold">
+                  <PlusIcon className="w-4 h-4" />
+                  Add Employee
+                </Button>
+              </Link>
+            </div>
+          </div>
+          <Tabs defaultValue="employees" className="w-full">
+            <TabsList className="w-full">
+              <TabsTrigger value="employees" className="flex justify-center text-center">
+                Employees
+              </TabsTrigger>
+              <TabsTrigger value="providers" className="flex justify-center text-center">
+                Providers
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="employees" className="my-8">
+              <EmployeesTable employees={employees} />
+            </TabsContent>
+            <TabsContent value="providers" className="my-8"></TabsContent>
+          </Tabs>
+          {/* <PatientTable
+              fhirPatients={patients}
+              relatedPersons={relatedPersons}
+              total={totalPatients}
+              patientsLoading={loading}
+            /> */}
+          <div className="py-36">
+            <h1 className="text-2xl font-bold">Other Employees</h1>
+            <MuiBox sx={{ width: '100%', marginTop: 3 }}>
+              <MuiTabContext value={pageTab}>
+                <MuiBox sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                  <MuiTabList onChange={handleTabChange} aria-label="employees tabs">
+                    <MuiTab
+                      label="Employees"
+                      value={PageTab.employees}
+                      sx={{ textTransform: 'none', fontWeight: 700 }}
+                    />
+                    {isLocalOrDevOrTestingOrTrainingEnv && (
+                      <MuiTab
+                        label="Providers"
+                        value={PageTab.providers}
+                        sx={{ textTransform: 'none', fontWeight: 700 }}
+                      />
+                    )}
+                    {isFetching && <Loading />}
+                  </MuiTabList>
+                </MuiBox>
+                <MuiPaper sx={{ marginTop: 5 }}>
+                  <MuiTabPanel value={pageTab} sx={{ padding: 0 }}>
+                    <MuiEmployeesTable employees={employees} isProviderLayout={pageTab === PageTab.providers} />
+                  </MuiTabPanel>
+                </MuiPaper>
+              </MuiTabContext>
+            </MuiBox>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -85,7 +149,7 @@ interface EmployeesTableProps {
   employees: EmployeeDetails[];
   isProviderLayout: boolean;
 }
-function EmployeesTable({ employees, isProviderLayout }: EmployeesTableProps): ReactElement {
+function MuiEmployeesTable({ employees, isProviderLayout }: EmployeesTableProps): ReactElement {
   const theme = useTheme();
 
   // set up the pagination states
@@ -156,12 +220,12 @@ function EmployeesTable({ employees, isProviderLayout }: EmployeesTableProps): R
 
   return (
     <>
-      <Paper sx={{ padding: 2 }}>
-        <TableContainer>
-          <Grid container direction="row" justifyContent="start" alignItems="center">
+      <MuiPaper sx={{ padding: 2 }}>
+        <MuiTableContainer>
+          <MuiGrid container direction="row" justifyContent="start" alignItems="center">
             {/* Employee Name Search Box */}
-            <Box sx={{ display: 'flex', flex: 2, margin: '10px 0' }}>
-              <TextField
+            <MuiBox sx={{ display: 'flex', flex: 2, margin: '10px 0' }}>
+              <MuiTextField
                 id="outlined-basic"
                 label="Search by name"
                 variant="outlined"
@@ -169,40 +233,40 @@ function EmployeesTable({ employees, isProviderLayout }: EmployeesTableProps): R
                 InputProps={{ endAdornment: <SearchIcon /> }}
                 sx={{ width: '100%', paddingRight: 2 }}
               />
-            </Box>
+            </MuiBox>
             {/* States drop-down */}
             {isProviderLayout && (
-              <Box sx={{ display: 'flex', flex: 2, paddingRight: 3 }}>
+              <MuiBox sx={{ display: 'flex', flex: 2, paddingRight: 3 }}>
                 <StateSelect onChange={handleChangeStateSelect} />
-              </Box>
+              </MuiBox>
             )}
-            <Box sx={{ display: 'flex', flex: 1, maxWidth: '260px' }}>
-              <FormControlLabel
+            <MuiBox sx={{ display: 'flex', flex: 1, maxWidth: '260px' }}>
+              <MuiFormControlLabel
                 value={true}
                 name="last_login_filter"
                 checked={lastLoginFilterChecked}
                 onChange={handleChangeLastLoginFilter}
-                control={<Checkbox />}
+                control={<MuiCheckbox />}
                 label="Hide last logins that occurred more than 90 days ago"
                 sx={{ '.MuiFormControlLabel-asterisk': { display: 'none' } }}
               />
-            </Box>
-          </Grid>
+            </MuiBox>
+          </MuiGrid>
 
           {/* Employees Table */}
-          <Table sx={{ minWidth: 650 }} aria-label="locationsTable">
-            <TableHead>
-              <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 'bold', textAlign: 'left' } }}>
-                <TableCell sx={{ width: '25%' }}>Name (Last, First)</TableCell>
-                <TableCell>Phone</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell>Last Login</TableCell>
-                <TableCell>Status</TableCell>
-                {isProviderLayout && <TableCell sx={{ width: '15%' }}>Seen patient last 30 mins</TableCell>}
-              </TableRow>
-            </TableHead>
+          <MuiTable sx={{ minWidth: 650 }} aria-label="locationsTable">
+            <MuiTableHead>
+              <MuiTableRow sx={{ '& .MuiTableCell-head': { fontWeight: 'bold', textAlign: 'left' } }}>
+                <MuiTableCell sx={{ width: '25%' }}>Name (Last, First)</MuiTableCell>
+                <MuiTableCell>Phone</MuiTableCell>
+                <MuiTableCell>Email</MuiTableCell>
+                <MuiTableCell>Last Login</MuiTableCell>
+                <MuiTableCell>Status</MuiTableCell>
+                {isProviderLayout && <MuiTableCell sx={{ width: '15%' }}>Seen patient last 30 mins</MuiTableCell>}
+              </MuiTableRow>
+            </MuiTableHead>
 
-            <TableBody>
+            <MuiTableBody>
               {pageEmployees.map((employee) => {
                 const name = (function () {
                   if (employee.firstName && employee.lastName)
@@ -212,8 +276,8 @@ function EmployeesTable({ employees, isProviderLayout }: EmployeesTableProps): R
                 })();
 
                 return (
-                  <TableRow key={employee.id} sx={{ '& .MuiTableCell-body': { textAlign: 'left' } }}>
-                    <TableCell>
+                  <MuiTableRow key={employee.id} sx={{ '& .MuiTableCell-body': { textAlign: 'left' } }}>
+                    <MuiTableCell>
                       <Link
                         to={`/employee/${employee.id}`}
                         style={{
@@ -223,30 +287,30 @@ function EmployeesTable({ employees, isProviderLayout }: EmployeesTableProps): R
                       >
                         {name}
                       </Link>
-                    </TableCell>
-                    <TableCell
+                    </MuiTableCell>
+                    <MuiTableCell
                       sx={{
                         color: otherColors.tableRow,
                       }}
                     >
                       {employee.phoneNumber ? employee.phoneNumber : '-'}
-                    </TableCell>
-                    <TableCell
+                    </MuiTableCell>
+                    <MuiTableCell
                       sx={{
                         color: otherColors.tableRow,
                       }}
                     >
                       {employee.email ? employee.email : '-'}
-                    </TableCell>
-                    <TableCell
+                    </MuiTableCell>
+                    <MuiTableCell
                       sx={{
                         color: otherColors.tableRow,
                       }}
                     >
                       {employee.lastLogin ? formatDateUsingSlashes(employee.lastLogin) : 'Never'}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
+                    </MuiTableCell>
+                    <MuiTableCell>
+                      <MuiChip
                         label={employee.status.toUpperCase()}
                         sx={{
                           backgroundColor:
@@ -265,15 +329,15 @@ function EmployeesTable({ employees, isProviderLayout }: EmployeesTableProps): R
                           ...theme.typography.subtitle2,
                         }}
                       />
-                    </TableCell>
+                    </MuiTableCell>
                     {isProviderLayout && (
-                      <TableCell
+                      <MuiTableCell
                         sx={{
                           color: otherColors.tableRow,
                         }}
                       >
                         {employee.seenPatientRecently && (
-                          <Chip
+                          <MuiChip
                             label="BEEN SEEN"
                             sx={{
                               backgroundColor: otherColors.employeeBeenSeenChip,
@@ -287,15 +351,15 @@ function EmployeesTable({ employees, isProviderLayout }: EmployeesTableProps): R
                             }}
                           />
                         )}
-                      </TableCell>
+                      </MuiTableCell>
                     )}
-                  </TableRow>
+                  </MuiTableRow>
                 );
               })}
-            </TableBody>
-          </Table>
+            </MuiTableBody>
+          </MuiTable>
 
-          <TablePagination
+          <MuiTablePagination
             rowsPerPageOptions={[5, 10, 25, 50]}
             component="div"
             count={filteredEmployees.length}
@@ -304,16 +368,12 @@ function EmployeesTable({ employees, isProviderLayout }: EmployeesTableProps): R
             onPageChange={handleChangePage}
             onRowsPerPageChange={handleChangeRowsPerPage}
           />
-        </TableContainer>
-      </Paper>
+        </MuiTableContainer>
+      </MuiPaper>
     </>
   );
 }
 
-/*
- * A general purpose US states select. Might be a good candidate for moving to a
- * separate file.
- */
 interface StateSelectProps {
   //onChange: (event: React.SyntheticEvent, value: Value | Array, reason: string, details?: string) => void;
   onChange: (event: any, value: any) => void;
@@ -330,7 +390,7 @@ function StateSelect({ onChange }: StateSelectProps): ReactElement {
   };
 
   return (
-    <Autocomplete
+    <MuiAutocomplete
       value={value ? value : EMPTY_STATE}
       onChange={handleChange}
       getOptionLabel={(state) => state.label || 'Unknown'}
@@ -344,7 +404,7 @@ function StateSelect({ onChange }: StateSelectProps): ReactElement {
         );
       }}
       fullWidth
-      renderInput={(params) => <TextField name="state" {...params} label="State" />}
+      renderInput={(params) => <MuiTextField name="state" {...params} label="State" />}
     />
   );
 }
