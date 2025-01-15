@@ -91,6 +91,7 @@ export default function AddPatient(): JSX.Element {
     const fetchLocationWithSlotData = async (params: GetScheduleParameters, client: ZambdaClient): Promise<void> => {
       setLoadingSlotState({ status: 'loading', input: undefined });
       try {
+        console.log('Debug fetchLocationWithSlotData', zambdaIntakeClient);
         if (!zambdaIntakeClient) throw new Error('Zambda client not found');
         const scheduleResponse = await getSchedule(zambdaIntakeClient, { scheduleType: 'location', slug: params.slug });
         setLocationWithSlotData(scheduleResponse);
@@ -196,6 +197,7 @@ export default function AddPatient(): JSX.Element {
       let apiErr = false;
       try {
         response = await createAppointment(zambdaIntakeClient, zambdaParams);
+        console.log('createAppointment response:', response);
       } catch (error) {
         console.error(`Failed to add patient: ${error}`);
         apiErr = true;

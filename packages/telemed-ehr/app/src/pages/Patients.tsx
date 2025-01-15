@@ -1,9 +1,8 @@
 import { TabPanel } from '@mui/lab';
-import { Button, Grid, Paper } from '@mui/material';
 import { BatchInputGetRequest, FhirClient, SearchParam } from '@zapehr/sdk';
 import { Bundle, Patient, RelatedPerson } from 'fhir/r4';
 import { FormEvent, ReactElement, useEffect, useState } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import PatientSearch from '../components/PatientSearch';
 import PatientsTable from '../components/PatientsTable';
 import PhoneSearch from '../components/PhoneSearch';
@@ -11,10 +10,11 @@ import { encodePlusSign } from '../helpers/encodePlusSign';
 import { getPatientNameSearchParams } from '../helpers/patientSearch';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import { Avatar, Box, Card, CardContent, Typography } from '@mui/material';
-import PersonIcon from '@mui/icons-material/Person';
-import { Button as ShadcnButton} from "@/components/ui/button"
-import {DataTableDemo, PatientTable} from "../shadcn/components/PatientsTable"
+import { PatientTable } from '../shadcn/components/PatientsTable';
+import { TabsDemo } from '@/shadcn/components/Tabs';
+import { Download, PlusIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Grid, Paper } from '@mui/material';
 
 async function getPatientsAndRelatedPersons(
   searchParams: SearchParam[],
@@ -87,13 +87,13 @@ export default function PatientsPage(): ReactElement {
   const [totalPatients, setTotalPatients] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
 
-   // Add new effect to fetch initial patients
-   useEffect(() => {
+  // Add new effect to fetch initial patients
+  useEffect(() => {
     async function fetchInitialPatients(): Promise<void> {
       if (!fhirClient) return;
 
       setLoading(true);
-      
+
       // Basic search params to get all patients with related persons
       const fhirSearchParams: SearchParam[] = [
         // Ensure we get patients with related persons
@@ -186,33 +186,29 @@ export default function PatientsPage(): ReactElement {
   useEffect(() => {
     async function setPatientsAndRelatedPersons(): Promise<void> {
       if (!fhirClient) return;
-      
+
       // Only proceed with search if there are search terms
       if (submittedName || submittedPhone) {
         setLoading(true);
 
-        const fhirSearchParams: SearchParam[] = getPatientNameSearchParams({ 
-          submittedName: submittedName || undefined 
+        const fhirSearchParams: SearchParam[] = getPatientNameSearchParams({
+          submittedName: submittedName || undefined,
         });
-        
+
         const digits = submittedPhone?.replace(/\D/g, '');
         if (submittedPhone) {
-          fhirSearchParams.push({ 
-            name: '_has:RelatedPerson:patient:phone', 
-            value: `${digits},+1${digits}` 
+          fhirSearchParams.push({
+            name: '_has:RelatedPerson:patient:phone',
+            value: `${digits},+1${digits}`,
           });
         } else {
-          fhirSearchParams.push({ 
-            name: '_has:RelatedPerson:patient:phone:missing', 
-            value: 'false' 
+          fhirSearchParams.push({
+            name: '_has:RelatedPerson:patient:phone:missing',
+            value: 'false',
           });
         }
 
-        const resources = await getPatientsAndRelatedPersons(
-          fhirSearchParams, 
-          submittedPhone, 
-          fhirClient
-        );
+        const resources = await getPatientsAndRelatedPersons(fhirSearchParams, submittedPhone, fhirClient);
 
         setPatients(resources.patients);
         setRelatedPersons(resources.relatedPersons);
@@ -236,15 +232,82 @@ export default function PatientsPage(): ReactElement {
   // Plan - search is client side and should update the url
 
   return (
-  <PageContainer>
-          <h1 className='text-3xl font-bold'>Patients</h1>
-   
-            <PatientTable
-              fhirPatients={patients}
-              relatedPersons={relatedPersons}
-              total={totalPatients}
-              patientsLoading={loading}
-            />
-    </PageContainer>
+    /* TODO: Create own recyclable page container component */
+    <div className="flex flex-col max-w-7xl mx-auto my-16 px-4">
+      <div>
+        <div className="space-y-8">
+          <div className="flex justify-between items-center">
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold">Patients</h1>
+              <p className="text-md text-muted-foreground">View and manage your patients</p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="bg-white">
+                <Download className="w-4 h-4" /> Export
+              </Button>
+              <Link to="/visits/add">
+                <Button className="flex items-center bg-teal-500 hover:bg-teal-600 font-bold">
+                  <PlusIcon className="w-4 h-4" />
+                  Add Patient
+                </Button>
+              </Link>
+            </div>
+          </div>
+          <TabsDemo />
+          <PatientTable
+            fhirPatients={patients}
+            relatedPersons={relatedPersons}
+            total={totalPatients}
+            patientsLoading={loading}
+          />
+        </div>
+        <div className="mt-10">
+          <h1 className="text-3xl font-bold pb-8">Otther Patients Page</h1>
+          <TabPanel value={'Patients'} sx={{ p: 0 }}>
+            <Paper sx={{ p: 2 }}>
+              <form onSubmit={(event) => handleFormSubmit(event)}>
+                <Grid container spacing={2} display="flex" alignItems="center">
+                  <Grid item xs={12} sm={5} sx={{ marginTop: 2 }}>
+                    <PatientSearch
+                      nameFilter={patientNameFilter}
+                      setNameFilter={setPatientNameFilter}
+                      onClear={() => {
+                        setPatients(null);
+                        setRelatedPersons(null);
+                        setTotalPatients(0);
+                        setSubmittedName(null);
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={5} sx={{ marginTop: 2.5 }}>
+                    <PhoneSearch
+                      phoneFilter={phoneFilter}
+                      setPhoneFilter={setPhoneFilter}
+                      onClear={() => {
+                        setPatients(null);
+                        setRelatedPersons(null);
+                        setTotalPatients(0);
+                        setSubmittedPhone(null);
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={2}>
+                    <Button type="submit" variant="contained" fullWidth>
+                      Submit
+                    </Button>
+                  </Grid>
+                </Grid>
+              </form>
+              <PatientsTable
+                fhirPatients={patients}
+                relatedPersons={relatedPersons}
+                total={totalPatients}
+                patientsLoading={loading}
+              />
+            </Paper>
+          </TabPanel>
+        </div>
+      </div>
+    </div>
   );
 }
