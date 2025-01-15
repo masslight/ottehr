@@ -1,9 +1,11 @@
 import { Error as ErrorIcon } from '@mui/icons-material';
 import AddIcon from '@mui/icons-material/Add';
-import { Autocomplete, Button, Grid, Paper, TextField, Typography } from '@mui/material';
+import { Button } from '@/components/ui/button';
+import { Autocomplete, Grid, Paper, TextField, Typography } from '@mui/material';
 import { FhirClient, ZambdaClient, formatHumanName } from '@zapehr/sdk';
 import { HealthcareService, Location, Practitioner } from 'fhir/r4';
 import { DateTime } from 'luxon';
+
 import React, { ReactElement, useEffect, useMemo, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -197,26 +199,32 @@ export default function Appointments(): ReactElement {
 
   useEffect(() => {
     const fetchStuff = async (zambdaClient: ZambdaClient, searchDate: DateTime | undefined): Promise<void> => {
-      setLoadingState({ status: 'loading' });
+      try {
+        setLoadingState({ status: 'loading' });
 
-      if (
-        (locationID || locationSelected?.id || providers.length > 0 || groups.length > 0) &&
-        (searchDate || appointmentDate) &&
-        Array.isArray(visitType)
-      ) {
-        const searchResults = await getAppointments(zambdaClient, {
-          locationID: locationID || locationSelected?.id || undefined,
-          searchDate,
-          visitType: visitType || [],
-          providerIDs: providers,
-          groupIDs: groups,
-        });
+        if (
+          (locationID || locationSelected?.id || providers.length > 0 || groups.length > 0) &&
+          (searchDate || appointmentDate) &&
+          Array.isArray(visitType)
+        ) {
+          const searchResults = await getAppointments(zambdaClient, {
+            locationID: locationID || locationSelected?.id || undefined,
+            searchDate,
+            visitType: visitType || [],
+            providerIDs: providers,
+            groupIDs: groups,
+          });
 
-        setSearchResults(searchResults || []);
-
+          setSearchResults(searchResults || []);
+          setLoadingState({ status: 'loaded', id: queryId });
+        }
+      } catch (error) {
+        console.error('Error fetching appointments:', error);
+        // Still set loaded state even if there's an error
         setLoadingState({ status: 'loaded', id: queryId });
       }
     };
+
     if (
       (locationSelected || providers.length > 0 || groups.length > 0) &&
       zambdaClient &&
@@ -254,6 +262,8 @@ export default function Appointments(): ReactElement {
     // getConversations().catch((error) => console.log(error));
     return () => clearInterval(appointmentInterval);
   }, []);
+
+  console.log('preBookedAppointments: ', preBookedAppointments);
 
   return (
     <AppointmentsBody
@@ -328,7 +338,17 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
     <form>
       <PageContainer>
         <>
-          <Paper sx={{ padding: 2 }}>
+          <div className="flex justify-between">
+            <h1 className="text-xl font-bold">Appointments</h1>
+            <Link to="/visits/add">
+              <Button className="font-bold flex gap-2 bg-teal-500 text-white hover:bg-teal-600 hover:text-white border-none">
+                <AddIcon className="h-4 w-4" />
+                New Appointment
+              </Button>
+            </Link>
+          </div>
+
+          {/* <Paper sx={{ padding: 2 }}>
             <Grid container sx={{ justifyContent: 'center' }} spacing={1}>
               <Grid item xs={2}>
                 <LocationSelect
@@ -406,7 +426,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                 </Link>
               </Grid>
             </Grid>
-          </Paper>
+          </Paper> */}
           {activeApptDatesBeforeToday.length === 0 ? null : (
             <Grid container spacing={1} justifyContent="center" paddingTop="20px">
               <Grid item>

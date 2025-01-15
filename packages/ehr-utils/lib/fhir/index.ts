@@ -3,7 +3,16 @@ import { Operation } from 'fast-json-patch';
 import { Coding, Patient, Person, Practitioner, RelatedPerson, Resource, Appointment, Extension } from 'fhir/r4';
 import { FHIR_EXTENSION } from './constants';
 export * from './chat';
+import { OTTEHR_MODULE } from '../../../ehr-utils';
+import { DateTime } from 'luxon';
 
+export interface SingleAppointmentRow {
+  id: string | undefined;
+  type: string | undefined;
+  office: string | undefined;
+  dateTime: string | undefined;
+  length: number;
+}
 export function getFirstName(individual: Patient | Practitioner | RelatedPerson | Person): string | undefined {
   return individual.name?.[0]?.given?.[0];
 }
@@ -173,3 +182,52 @@ export const getUnconfirmedDOBIdx = (appointment?: Appointment): number | undefi
     return ext.url.replace('http:', 'https:') === FHIR_EXTENSION.Appointment.unconfirmedDateOfBirth.url;
   });
 };
+
+// TODO: move to types file
+export interface LatestAppointment {
+  id: string | undefined;
+  type: string | undefined;
+  dateTime: string | undefined;
+  location?: {
+    state?: string;
+    city?: string;
+  };
+}
+
+export async function getLatestAppointment(
+  fhirClient: FhirClient,
+  patientId: string,
+): Promise<{ appointment: Appointment; includedResources: Resource[] } | null> {
+  try {
+    const resources = await fhirClient.searchResources<Resource>({
+      resourceType: 'Appointment',
+      searchParams: [
+        { name: 'patient', value: patientId },
+        { name: '_sort', value: '-date' },
+        { name: '_count', value: '1' },
+        { name: '_include', value: 'Appointment:location' },
+        { name: '_include', value: 'Appointment:practitioner' }, // Optional: include practitioner info
+        {
+          name: '_tag',
+          value: `${OTTEHR_MODULE.UC},${OTTEHR_MODULE.TM}`,
+        },
+      ],
+    });
+
+    const appointment = resources.find((r) => r.resourceType === 'Appointment') as Appointment;
+    if (!appointment) {
+      return null;
+    }
+
+    // All other included resources (Location, Practitioner, etc.)
+    const includedResources = resources.filter((r) => r.resourceType !== 'Appointment');
+
+    return {
+      appointment,
+      includedResources,
+    };
+  } catch (error) {
+    console.error('Error fetching latest appointment:', error);
+    return null;
+  }
+}
