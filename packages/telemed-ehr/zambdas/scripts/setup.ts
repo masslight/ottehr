@@ -183,19 +183,20 @@ export async function setupEHR(
 
   const applicationName = 'ConjureEHR';
   //const [applicationId, clientId] = await createApplication(projectApiUrl, applicationName, accessToken, projectId);
-  const [applicationId, clientId] = ['ef169623-ff50-4e1a-96d1-6553e1b8d00f', 'U26JaDCVt58juXYiJhdLsJSYZ03Kmma5'];
+  const [applicationId, clientId] = ['', '']; // lookup in Oystehr console
   console.log(`Created application "${applicationName}".`);
 
-  const organizationId = (await createOrganization(fhirClient)).id;
+  //const organizationId = (await createOrganization(fhirClient)).id;
+  const organizationId = '';  // lookup in Oystehr console
   if (!organizationId) {
     throw new Error('Organization ID is not defined');
   }
 
-  const envPath1 = createZambdaLocalEnvFile(projectId, m2mDeviceId, m2mClientId, m2mSecret, organizationId);
-  console.log('Created environment file:', envPath1);
+  //const envPath1 = createZambdaLocalEnvFile(projectId, m2mDeviceId, m2mClientId, m2mSecret, organizationId);
+  //console.log('Created environment file:', envPath1);
 
-  const envPath2 = createFrontEndLocalEnvFile(clientId, projectId);
-  console.log('Created environment file:', envPath2);
+  //const envPath2 = createFrontEndLocalEnvFile(clientId, projectId);
+  //console.log('Created environment file:', envPath2);
 
   console.log('Starting to create sample provider.');
   const firstName = undefined;

@@ -139,8 +139,8 @@ async function runCLI(): Promise<void> {
   console.log('Created m2m:', m2mClientId);
 
   try {
-    await setupEHR(projectApiUrl, accessToken, projectId, providerEmail, m2mDeviceId, m2mClientId, m2mSecret);
-    await setupIntake(projectApiUrl, accessToken, projectId, m2mDeviceId, m2mClientId, m2mSecret);
+    //await setupEHR(projectApiUrl, accessToken, projectId, providerEmail, m2mDeviceId, m2mClientId, m2mSecret);
+    //await setupIntake(projectApiUrl, accessToken, projectId, m2mDeviceId, m2mClientId, m2mSecret);
   } catch (e) {
     console.log(e);
     throw e;
