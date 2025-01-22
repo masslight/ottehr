@@ -144,7 +144,7 @@ export const useGetTelemedAppointmentPeriodicRefresh = (
     },
     {
       ...refetchOptions,
-      enabled: isEnabled,
+      enabled: isEnabled && appointmentId !== undefined && oystehr !== undefined,
       onSuccess,
       onError: (err) => {
         console.error('Error during fetching get telemed appointment periodic: ', err);
@@ -208,6 +208,7 @@ export const useGetTelemedAppointment = (
       throw new Error('fhir client not defined or appointmentId not provided');
     },
     {
+      enabled: oystehr !== undefined && appointmentId !== undefined,
       onSuccess,
       onError: (err) => {
         console.error('Error during fetching get telemed appointment: ', err);
@@ -241,9 +242,10 @@ export const useGetDocumentReferences = (
           ],
         });
       }
-      throw new Error('fhir client not defined or appointmentId and patientId not provided');
+      throw new Error('fhir client not defined or appointmentId and patientId not provided 3');
     },
     {
+      enabled: oystehr !== undefined && appointmentId !== undefined,
       onSuccess,
       onError: (err) => {
         console.error('Error during fetching get telemed appointment related documents: ', err);
@@ -725,6 +727,7 @@ export const useGetInsurancePlan = ({ id }: { id: string | undefined }) => {
       throw new Error('fhir client not defined or Insurance Plan ID not provided');
     },
     {
+      enabled: oystehr !== undefined && id !== undefined,
       onError: (err) => {
         console.error('Error during fetching get Insurance Plan: ', err);
       },
