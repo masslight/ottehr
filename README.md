@@ -26,139 +26,78 @@
 
 # Ottehr
 
-This monorepo contains code for [Ottehr telehealth](https://www.ottehr.com/).
+[Ottehr](https://www.ottehr.com/) is a modern, modular EHR that began as a reference implementation for [Oystehr](https://oystehr.com/). It quickly outgrew "sample EHR" status and became the foundation for large-scale production EHR installations. Ottehr uses Oystehr for back-end service endpoints, and requires a free Oystehr account to run as-is, but you are welcome to modify and use a third-party service vendor or build your own service architecture. Ottehr is designed for developers, hopefully making it easy to fork, white-label, and build entire new classes of EHRs and health-tech products with a fraction of the effort of starting from scratch.
 
-Ottehr is a modern, modular EHR that began as a reference implementation for [Oystehr](https://oystehr.com). It quickly outgrew "sample EHR" status and became the foundation for large-scale production EHR installations. Ottehr uses Oystehr for back-end service endpoints, and requires a free Oystehr account to run as-is, but you are welcome to modify and use a third-party service vendor or build your own service architecture. Ottehr is designed for developers, hopefully making it easy to fork, white-label, and build entire new classes of EHRs and health-tech products with a fraction of the effort of starting from scratch.
+Ottehr consists of two apps,
 
-## Repository Structure
+- **[Ottehr Intake](apps/intake)** &mdash; A patient-facing registration website for creating appointments, initiating telemedicine calls, with features including rescheduling, checking in, completing intake paperwork, text messages and emails, and listing appointments for an account.
+- **[Ottehr EHR](packages/ehr/)** &mdash; A staff-facing EHR for managing appointments created, with features including checking appointments, managing patient queues, texting patients, updating a location's slots, setting a location's schedule, joining telemedicine calls, HPI and medical history, exam charting, eRx and Assessment, patient plan, coming soon: RCM and claims submission.
 
-This repository uses a monorepo structure.
+## Run Ottehr Locally
 
-- `apps` - frontend web apps (intake and ehr web app)
-- `packages/{ehr|intake}/zambdas` - The application's backend endpoints
-- `packages/{other folders}` - other modules that are imported by apps like `utils`, `ui-components`
+### Prerequisites
 
-## Setup
+To run Ottehr, you'll need a free Oystehr account, and Node.js.
 
-Ottehr currently has two websites. One is for patients -- **Ottehr Intake** -- and one is for staff -- **Ottehr EHR**.
-
-- **[Ottehr Intake](apps/intake):** A patient-facing registration website for creating appointments, with features including rescheduling, checking in, text messages and emails, and listing appointments for an account
-- **[Ottehr EHR](packages/ehr/):** A staff-facing EHR for managing appointments created, with features including checking appointments, managing patient queues, texting patients, updating a location's slots, setting a location's schedule, joining telemedicine calls, HPI and medical history, exam charting, eRx and Assessment, patient plan, coming soon: RCM and claims submission
-
-## First Time Setup
-
-To run Ottehr for the first time, you need to set up the project.
-
-#### For Windows users:
-
-We recommend using the Windows Subsystem for Linux (WSL) to run Ottehr on Windows. Follow these steps to set up WSL and install Node.js:
-
-1.  Install **WSL** by following the official Microsoft guide: [Install WSL](https://learn.microsoft.com/en-us/windows/wsl/install)
-
-2.  Open your **WSL** terminal and follow the instructions below to install nvm and Node.js.
-
-### Node Installation
-
-To manage Node.js versions efficiently, we recommend using [Node Version Manager (nvm)](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-1. Install nvm by following the instructions provided [here](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-2. Use nvm to install Node.js version 18 with the following commands:
-
-   ```bash
-   nvm install 18
-   ```
-
-3. Set Node.js version 18 as the default with:
-
-   ```bash
-   nvm alias default 18
-   ```
-
-After successful installation, verify the setup by executing:
-
-```bash
-node -v
-```
-
-This command should display the installed Node.js version.
-
-### Joining Oystehr
-
-You'll need a free Oystehr account to run Ottehr. Register for access at [oystehr.com](https://oystehr.com). Follow these simple steps:
+#### Get Your Oystehr Account
 
 1. Visit [oystehr.com](https://oystehr.com).
 2. Click on **Free Access** to initiate your early access request.
 
-Once your request is received, the Oystehr team will promptly reach out to you via email, providing the credentials you need to kickstart your Oystehr journey.
+Once your request is received, the Oystehr team will promptly create your account and reach out to you via email.
 
-For comprehensive guidance on getting started with Oystehr, explore our technical documentation available at [https://docs.oystehr.com](https://docs.oystehr.com).
+Check out the [Oystehr Technical Documentation](https://docs.oystehr.com) to learn more about the Oystehr platform.
 
-## Setup Procedure
+#### Install Node.js
 
-To proceed with this setup guide, it is assumed that you have access to an Oystehr project. If you have done so, please follow these steps:
+If you do not already have it, install Node.js v18.x.
 
-1. **Fork Ottehr:**
-   Visit [https://github.com/masslight/ottehr/fork](https://github.com/masslight/ottehr/fork) and fork the repository.
+### Fork & Clone
 
-2. **Clone Your Fork:**
-   Copy the SSH clone link of your fork and execute the following command in your preferred folder:
+Fork &mdash;
+   Go to [https://github.com/masslight/ottehr/fork](https://github.com/masslight/ottehr/fork) and click 'Create fork' to fork the repository.
 
-   ```bash
-   git clone git@github.com:{your_profile}/ottehr.git
-   ```
+Clone  &mdash; Copy and run the clone script for your fork.
 
-3. (Optional) **Add Ottehr as Upstream:**
-   If desired, add the original Ottehr repository as an upstream remote:
+```bash
+git clone git@github.com:{your_profile}/ottehr.git
+```
 
-   ```bash
-   git remote add upstream git@github.com:masslight/ottehr.git
-   ```
-
-4. **Open Repository in Your Editor:**
-   Open the repository in your chosen editor; for example, in VSCode:
-
-   ```bash
-   code .vscode/Ottehr.code-workspace
-   ```
-
-Before proceeding, ensure that you have Node.js v18.x and pnpm installed on your machine.
-
-**For Windows users, make sure you have WSL set up and are running these commands in your WSL terminal.**
-
-Once these dependencies are in place, enter the following command from the root directory.
+### Run the Setup Script
 
 ```bash
 sh scripts/ottehr-setup.sh
 ```
 
-**note**: If you encounter an error on WSL/Ubuntu, try using bash instead of sh:
-
-```bash
-bash scripts/ottehr-setup.sh
-```
-
 The script will prompt you for the following information:
 
-- Your access token: Log in to your Oystehr project on the [Oystehr Console](https://console.oystehr.com), and copy the access token from the dashboard
-- Your project ID: Listed on the Oystehr Console next to the access token
-- Your first provider email: This can be your email address
+- Your access token &mdash; Log in to your Oystehr project on the [Oystehr Console](https://console.oystehr.com), and copy the access token from the dashboard.
+- Your project ID &mdash; Listed on the Oystehr Console next to the access token
+- An email address for your first Provider User of the EHR &mdash; Put your email here.
 
-Once the program finishes running,
+When the setup script finishes, the intake and EHR websites will open automatically.
 
-1. The Intake and EHR websites will open.
-1. To log in to the EHR, enter the email you input during the setup program. Click `Forgot password?` and set a password then log in.
+You only need to run the setup script once. To start the apps going forward, use `npm run apps:start`.
 
-The URL for a test location is <http://localhost:3002/prebook/in-person?bookingOn=testing2&scheduleType=group>.
+### Log in and explore the Patient app
 
-The setup script only has to be run once. After you have run it you can use the following command to launch the apps:
-`npm run apps:start`
+The Patient app starts up at <http://localhost:3002>
 
-### e2e Test Setup Procedure
+By default, the Patient app uses passwordless SMS for authentication. On the login screen, enter your mobile phone number followed by the one-time passcode which is sent to your device.
+
+### Log in and explore the EHR
+
+The EHR app starts up at <http://localhost:4002>
+
+To log into the EHR, enter the email you input during the setup program on the login screen. Click `Forgot password?`, follow the password reset workflow, then enter your password to complete login.
+
+## End to End Test Setup Procedure
+
+Ottehr includes a suite of end to end tests that can be used to maintain quality as you customize it for your use case.
 
 Ottehr uses the [ClickSend](https://www.clicksend.com/us/) api to send an sms with a confirmation code that is used to login before running the e2e tests. As such, you will need to [create a ClickSend account](https://dashboard.clicksend.com/signup/step1) in order to setup e2e testing.
 
-After you have created your ClickSend account, invite a test user to your EHR application by navigating to https://console.oystehr.com/app/users/new. Select your EHR application, input the user's email for both "User name" and "Email", set the access policy to
+After you have created your ClickSend account, invite a test user to your EHR application by navigating to <https://console.oystehr.com/app/users/new>. Select your EHR application, input the user's email for both "User name" and "Email", set the in-line access policy to
 
 ```
 {
@@ -193,19 +132,21 @@ npm run ehr:e2e:local
 npm run ehr:e2e:local:ui
 ```
 
-### npm install
+## Setting up Terminology Search
 
-run `npm ci` at the top level to install dependencies for all packages in the monorepo.
+Ottehr uses UMLS Terminology Services for searching for ICD-10 and CPT codes.
 
-### Set up env files
+To set up the terminology search service, please follow these instructions in the [Oystehr docs](https://docs.oystehr.com/services/zambda/examples/terminology-search/#1-get-a-national-library-of-medicine-api-key), and then save the API key as `NLM_API_KEY` in the Zambdas secrets.
 
-In each `packages/*/zambdas/` folder copy `.env` folder from corresponding folder in secrets repo (`ottehr-secrets` for now still)
+## Repository Structure
 
-To set up the terminology search service, please follow these instructions in the [Oystehr docs](https://docs.oystehr.com/services/zambda/examples/terminology-search/#1-get-a-national-library-of-medicine-api-key), and then paste the API key as the `NLM_API_KEY` in the Zambdas secrets.
+This repository uses a monorepo structure.
 
-### Start up the frontend or backend
-
-In the root directory you have some turborepo scripts that can be run to instantiate any app with one command, check the root `package.json` to know more. For example: `npm run ehr:start` will start UI app and zambdas for EHR part.
+- `apps` &mdash; Frontend web apps
+  - intake &mdash; The patient's side
+  - ehr &mdash; The provider's side
+- `packages/{ehr|intake}/zambdas` &mdash; The application's backend endpoints, deployed on [Oystehr Zambda](https://docs.oystehr.com/services/zambda/).
+- `packages/{other folders}` &mdash; Other modules that are imported by apps like `utils`, `ui-components`
 
 ## Apps
 
