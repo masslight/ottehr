@@ -1,0 +1,41 @@
+{
+  "folders": [
+    {
+      "name": "ROOT",
+      "path": "../",
+    },
+    {
+      "name": "EHR UI",
+      "path": "../apps/ehr",
+    },
+    {
+      "name": "EHR Zambdas",
+      "path": "../packages/ehr/zambdas",
+    },
+    {
+      "name": "Intake UI",
+      "path": "../apps/intake",
+    },
+    {
+      "name": "Intake Zambdas",
+      "path": "../packages/intake/zambdas",
+    },
+    {
+      "name": "UI Components",
+      "path": "../packages/ui-components",
+    },
+    {
+      "name": "Utilities",
+      "path": "../packages/utils",
+    },
+  ],
+  "settings": {
+    "files.exclude": {
+      "node_modules/": true,
+      "packages/": true,
+    },
+  },
+  "extensions": {
+    "recommendations": ["dbaeumer.vscode-eslint"],
+  },
+}

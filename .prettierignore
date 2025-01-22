@@ -1,0 +1,10 @@
+!packages/**/*.ts
+!packages/**/*.tsx
+!packages/**/*.js
+!packages/**/*.jsx
+!apps/**/*.ts
+!apps/**/*.tsx
+!apps/**/*.js
+!apps/**/*.jsx
+!/vite.config.ts
+.esbuild/

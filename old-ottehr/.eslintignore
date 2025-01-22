@@ -1,0 +1,9 @@
+node_modules
+packages/**/node_modules/
+package-lock.json
+packages/**/scripts/
+packages/**/build/
+packages/**/dist/
+packages/utils/
+vite.config.ts
+vitest.config.ts

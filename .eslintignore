@@ -1,0 +1,11 @@
+node_modules
+packages/**/node_modules/
+package-lock.json
+packages/**/scripts/
+packages/**/build/
+packages/**/.build/
+vite.config.ts
+vite-env.d.ts
+build/
+dist/
+.esbuild/

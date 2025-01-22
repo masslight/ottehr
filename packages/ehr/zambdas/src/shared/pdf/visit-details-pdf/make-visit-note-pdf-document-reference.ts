@@ -1,0 +1,50 @@
+import Oystehr from '@oystehr/sdk';
+import { randomUUID } from 'crypto';
+import { DocumentReference } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { createDocumentReference } from 'utils';
+import { PdfInfo } from '../pdf-utils';
+
+export async function makeVisitNotePdfDocumentReference(
+  oystehr: Oystehr,
+  pdfInfo: PdfInfo,
+  patientId: string,
+  appointmentId: string,
+  encounterId: string
+): Promise<DocumentReference> {
+  return await createDocumentReference({
+    docInfo: [
+      {
+        contentURL: pdfInfo.uploadURL,
+        title: pdfInfo.title,
+        mimeType: 'application/pdf',
+      },
+    ],
+    type: {
+      coding: [
+        {
+          system: 'http://loinc.org',
+          code: '75498-6',
+          display: 'Telehealth Summary note',
+        },
+      ],
+      text: 'Telemed document',
+    },
+    references: {
+      subject: {
+        reference: `Patient/${patientId}`,
+      },
+      context: {
+        related: [
+          {
+            reference: `Appointment/${appointmentId}`,
+          },
+        ],
+        encounter: [{ reference: `Encounter/${encounterId}` }],
+      },
+    },
+    dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
+    oystehr,
+    generateUUID: randomUUID,
+  });
+}

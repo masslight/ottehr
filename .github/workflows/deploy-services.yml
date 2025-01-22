@@ -1,0 +1,192 @@
+name: Deploy Services
+
+env:
+  CI: false
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to deploy'
+        required: true
+        type: choice
+        default: 'ehr'
+        options:
+          - ehr
+          - intake
+      environment:
+        description: 'Environment name'
+        required: true
+        type: choice
+        default: 'development'
+        options:
+          - demo
+          - development
+      incrementVersion:
+        description: 'Bump Version?'
+        type: boolean
+        required: false
+      versionType:
+        description: 'Version to bump (major.minor.patch)'
+        type: choice
+        default: 'patch'
+        options:
+          - patch
+          - minor
+          - major
+      confirmProduction:
+        description: 'If you are 100% sure you want to deploy to demo, type: Yes'
+        required: false
+
+jobs:
+  deploy:
+    env:
+      NODE_OPTIONS: '--max_old_space_size=4096'
+      ENVIRONMENT: ${{ github.event.inputs.environment }}
+
+    runs-on: ubuntu-latest-16-cores
+    timeout-minutes: 15
+
+    permissions:
+      id-token: write # Required for OIDC
+      contents: read
+
+    strategy:
+      matrix:
+        node-version: [18.14.0]
+
+    steps:
+      - name: Set Service-Specific Variables
+        id: vars
+        run: |
+          if [[ "${{ github.event.inputs.service }}" == "ehr" ]]; then
+            echo "PACKAGE_LOCATION=apps/ehr" >> $GITHUB_ENV
+            echo "ZAMBDAS_LOCATION=packages/ehr/zambdas" >> $GITHUB_ENV
+            echo "SLACK_NOTIFICATION_SERVICE_NAME=ehr" >> $GITHUB_ENV
+          elif [[ "${{ github.event.inputs.service }}" == "intake" ]]; then
+            echo "PACKAGE_LOCATION=apps/intake" >> $GITHUB_ENV
+            echo "ZAMBDAS_LOCATION=packages/intake/zambdas" >> $GITHUB_ENV
+            echo "SLACK_NOTIFICATION_SERVICE_NAME=intake-ui" >> $GITHUB_ENV
+          fi
+
+      - name: Install SSH Client
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: |
+            ${{ secrets.DEPLOY_OTTEHR_KEY }}
+            ${{ secrets.BUMP_VERSION_KEY }}
+
+      - name: If environment is demo, ensure keys are coming in through input parameters.
+        if: ${{ github.event.inputs.environment == 'demo' && !(github.event.inputs.confirmProduction == 'Yes') }}
+        run: echo 'Please confirm you want to deploy to demo.' && exit 1
+
+      - uses: actions/checkout@v3
+        with:
+          ssh-key: ${{ secrets.BUMP_VERSION_KEY }}
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Increase version if input dictates.
+        if: ${{ github.event.inputs.incrementVersion == 'true' }}
+        run: |
+          cd ${{ github.workspace }}/${{ env.PACKAGE_LOCATION }} && npm version ${{ github.event.inputs.versionType }}
+          cd ${{ github.workspace }}/${{ env.ZAMBDAS_LOCATION }} && npm version ${{ github.event.inputs.versionType }}
+
+      - name: Get Version Number from package.json for build notifications.
+        id: package-version
+        uses: martinbeentjes/npm-get-version-action@v1.1.0
+        with:
+          path: ${{ env.PACKAGE_LOCATION }}
+
+      - name: Commit version bump if input dictates.
+        if: ${{ github.event.inputs.incrementVersion == 'true' }}
+        run: |
+          git config --local user.email "deploy@ottehr.com"
+          git config --local user.name "GitHub Action Bump Version"
+          git add ${{ env.PACKAGE_LOCATION }}/package.json ${{ env.ZAMBDAS_LOCATION }}/package.json package-lock.json
+          git commit -m 'Version bump ${{steps.package-version.outputs.current-version}}'
+
+      - name: Push increased version if input dictates.
+        if: ${{ github.event.inputs.incrementVersion == 'true' }}
+        uses: ad-m/github-push-action@master
+        with:
+          ssh: true
+          branch: ${{ github.ref }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check out secrets repo to grab the env file.
+        uses: actions/checkout@v3
+        with:
+          repository: masslight/ottehr-secrets
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          path: 'secrets'
+
+      - name: Move zambda secrets file into service zambdas dir.
+        run: mkdir -p ${{ env.ZAMBDAS_LOCATION }}/.env; cp secrets/zambdas/* ${{ env.ZAMBDAS_LOCATION }}/.env
+
+      - name: Move app secrets file into service app dir.
+        run: mkdir -p ${{ env.PACKAGE_LOCATION }}/env; cp secrets/${{ github.event.inputs.service }}/app/.env.${{ github.event.inputs.environment }} ${{ env.PACKAGE_LOCATION }}/env
+
+      - name: Lint directories
+        run: |
+          if [[ "${{ github.event.inputs.service }}" == "ehr" ]]; then
+            npm run ehr:lint
+          elif [[ "${{ github.event.inputs.service }}" == "intake" ]]; then
+            npm run intake:lint
+          fi
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: arn:aws:iam::381491874541:role/deploy-ottehr
+          aws-region: us-east-1
+
+      - name: Deploy app
+        run: cd ${{ env.PACKAGE_LOCATION }} && npm run ci-deploy:${{ env.ENVIRONMENT }}
+
+      - name: Deploy zambdas
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run deploy-zambdas ${{ env.ENVIRONMENT }}
+
+      - name: Update user roles
+        if: ${{ github.event.inputs.service == 'ehr' }}
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run update-user-roles ${{ env.ENVIRONMENT }}
+
+      - name: Ensure insurance plans and payer orgs created from CSV
+        if: ${{ github.event.inputs.service == 'ehr' }}
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run update-insurances-and-payer-orgs ${{ env.ENVIRONMENT }}
+
+      - name: Setup secrets in Oystehr console
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run setup-zapehr-secrets ${{ env.ENVIRONMENT }}
+
+      - name: Ensure required Questionnaire resources are in place
+        if: ${{ github.event.inputs.service == 'intake' }}
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run setup-questionnaires ${{ env.ENVIRONMENT }}
+
+      - name: Create/update in-house medication resources
+        if: ${{ github.event.inputs.service == 'ehr' }}
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run create-update-in-house-medications-list --env=${{ env.ENVIRONMENT }}
+
+      - name: Notify Slack
+        if: always()
+        uses: edge/simple-slack-notify@v1.1.2
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          BRANCH: ${{ github.ref }}
+          PACKAGE_VERSION: ${{ steps.package-version.outputs.current-version }}
+        with:
+          channel: '#ottehr-notifications'
+          status: ${{ job.status }}
+          success_text: '${env.GITHUB_WORKFLOW} (${env.GITHUB_RUN_NUMBER}) build completed successfully'
+          failure_text: '${env.GITHUB_WORKFLOW} (${env.GITHUB_RUN_NUMBER}) build failed'
+          cancelled_text: '${env.GITHUB_WORKFLOW} (${env.GITHUB_RUN_NUMBER}) build was cancelled'
+          fields: |
+            [{ "title": "Service", "value": "${env.SLACK_NOTIFICATION_SERVICE_NAME}", "short": true },
+            { "title": "Action URL", "value": "${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}"},
+            { "title": "Branch", "value": "${env.BRANCH}", "short": true },
+            { "title": "Environment", "value": "${env.ENVIRONMENT}", "short": true },
+            { "title": "Version", "value": "${env.PACKAGE_VERSION}", "short": true }]

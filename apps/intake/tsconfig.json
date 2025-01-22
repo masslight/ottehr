@@ -1,0 +1,8 @@
+{
+  "extends": "tsconfig/react.json",
+  "compilerOptions": {
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  },
+  "include": ["src", "tests", "playwright.config.ts", "setup-test-deps.js"]
+}

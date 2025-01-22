@@ -1,0 +1,15 @@
+{
+    "appointment": {
+        "email": {
+            "confirmation": "Cita Confirmada - Ottehr Telemedicine",
+            "cancellation": "Cita Cancelada - Ottehr Telemedicine",
+            "invitation": "Invitación para Unirse a una Visita - Ottehr Telemedicine"
+        },
+        "sms": {
+            "confirmation": "¡Estás confirmado! ¡Gracias por elegir Ottehr! Tu hora de check-in para {{firstName}} en {{locationName}} es el {{startTime}}. Por favor, completa tu papeleo con anticipación para ahorrar tiempo en el check-in. Para completar el papeleo visita: {{paperworkUrl}}.",
+            "modify": "Para modificar/cancelar tu check-in, visita: {{checkInUrl}}",
+            "cancellation": "¡Lamentamos que te vayas! Tu cita para {{firstName}} en {{locationName}} el {{startTime}} ha sido cancelada. Para reservar de nuevo, visita: {{locationUrl}}. ¿Preguntas? Llama al 123-456-7890.",
+            "invitation": "Has sido invitado a unirte a una visita de Ottehr con {{patientName}}. Por favor, haz clic aquí: {{inviteUrl}}."
+        }
+    }
+}

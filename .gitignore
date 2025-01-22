@@ -1,0 +1,27 @@
+node_modules
+coverage
+.eslintcache
+build
+.DS_Store
+.idea
+.env
+
+# Packages for zambda deployment
+.dist
+
+.turbo
+test-results/
+playwright/
+playwright-report/
+playwright/.cache/
+.vscode/settings.json
+
+
+dist
+packages/ui-components/dist/*
+
+# Sentry Config File
+.env.sentry-build-plugin
+.idea
+
+ehr_e2e_ci_log.txt

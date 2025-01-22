@@ -1,0 +1,89 @@
+name: Build EHR
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/ehr/**'
+      - 'packages/ehr/**'
+      - 'packages/utils/**'
+      - 'packages/ui-components/**'
+      - 'scripts/build-ehr.sh'
+      - '.github/**'
+      - '.prettierignore'
+      - 'package.json'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'apps/ehr/**'
+      - 'packages/ehr/**'
+      - 'packages/utils/**'
+      - 'packages/ui-components/**'
+      - 'scripts/build-ehr.sh'
+      - '.github/**'
+      - '.prettierignore'
+      - 'package.json'
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest-8-cores
+    timeout-minutes: 15
+    
+    steps:
+      - name: Install SSH Client
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: Check out secrets repo to grab the secrets file.
+        uses: actions/checkout@v3
+        with:
+          repository: masslight/ottehr-secrets
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          path: 'secrets'
+      - name: Move zambda secrets file into ehr zambdas dir.
+        run: mkdir -p packages/ehr/zambdas/.env; cp secrets/zambdas/* packages/ehr/zambdas/.env
+      # - name: Move app secrets file into ehr app dir.
+      #   run: rm -rf apps/ehr/env; mkdir -p apps/ehr/env; cp secrets/ehr/app/* apps/ehr/env
+
+      - name: Cache node modules
+        uses: actions/cache@v2
+        env:
+          cache-name: cache-node-modules
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+      - name: Run build-ehr.sh
+        env:
+          NODE_OPTIONS: '--max-old-space-size=8192'
+        run: ./scripts/build-ehr.sh
+
+      - name: Report status - Success
+        if: ${{ always() }}
+        run: echo "::set-output name=build_status::success"
+
+      - name: Report status - Failure
+        if: ${{ failure() }}
+        run: echo "::set-output name=build_status::failure"
+
+      - name: Set status
+        if: ${{ env.build_status != '' }}
+        run: |
+          if [[ "${{ env.build_status }}" == "success" ]]; then
+            echo "Build successful - setting status"
+            gh pr status "$GITHUB_SHA" -s success -d "Build successful"
+          else
+            echo "Build failed - setting status"
+            gh pr status "$GITHUB_SHA" -s failure -d "Build failed"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

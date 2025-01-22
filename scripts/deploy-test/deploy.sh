@@ -1,0 +1,54 @@
+project_id=$(jq -r '.project_id' "$(dirname "$0")/deploy-config.json")
+access_token=$(jq -r '.access_token' "$(dirname "$0")/deploy-config.json")
+provider_email=$(jq -r '.provider_email' "$(dirname "$0")/deploy-config.json")
+environment=$(jq -r '.environment' "$(dirname "$0")/deploy-config.json")
+ENV=$environment
+
+if [ -f "apps/intake/env/.env.$environment" ]; then
+    first_setup=false
+else
+    first_setup=true
+fi
+
+echo $first_setup
+
+
+if $first_setup; then
+    sh scripts/ottehr-setup.sh $project_id $access_token $provider_email $environment
+else
+    npm install
+fi
+
+cd packages/intake/zambdas
+ENV=$environment npm run deploy-zambdas $environment
+ENV=$environment npm run setup-zapehr-secrets $environment
+
+cd ../../../apps/intake
+npm run build:env --env=$environment
+
+cd ../../packages/ehr/zambdas
+ENV=$environment npm run deploy-zambdas $environment
+ENV=$environment npm run setup-zapehr-secrets $environment
+
+cd ../../../apps/ehr
+npm run build:env --env=$environment
+
+cd ../../scripts/deploy-test
+if $first_setup; then
+    cdk bootstrap
+    cdk deploy
+fi
+
+cd ../../apps/intake
+npm run build:env --env=$environment
+cd ../ehr
+npm run build:env --env=$environment
+cd ../../scripts/deploy-test
+cdk deploy
+
+cd ../../apps/intake
+npm run build:env --env=$environment
+cd ../ehr
+npm run build:env --env=$environment
+cd ../../scripts/deploy-test
+cdk deploy
