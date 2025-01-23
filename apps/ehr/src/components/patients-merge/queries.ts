@@ -29,6 +29,7 @@ export const useGetPatientsForMerge = (
       throw new Error('fhir client not defined or patientIds not provided');
     },
     {
+      enabled: Boolean(oystehr) && patientIds !== undefined,
       onSuccess,
       onError: (err) => {
         console.error('Error during fetching get patients for merge: ', err);
@@ -72,7 +73,7 @@ export const useGetPatientForUpdate = (
       throw new Error('fhir client not defined or patientId not provided');
     },
     {
-      enabled: !!patientId,
+      enabled: Boolean(patientId) && Boolean(oystehr),
       onSuccess,
       onError: (err) => {
         console.error('Error during fetching get patient for update: ', err);
