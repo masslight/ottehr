@@ -1016,8 +1016,7 @@ export async function createDocumentResources(
         },
       ],
       referenceParam: {
-        subject: { reference: `Patient/${patientID}` },
-        context: { related: [{ reference: `Appointment/${appointmentID}` }, { reference: `Patient/${patientID}` }] },
+        context: { related: [{ reference: `Patient/${patientID}` }] },
       },
       oystehr,
       generateUUID: randomUUID,
