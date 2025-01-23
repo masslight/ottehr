@@ -223,6 +223,8 @@ export default function AppointmentTableRow({
   updateAppointments,
   setEditingComment,
 }: AppointmentTableProps): ReactElement {
+  console.log('87ytgfvbj87', appointment);
+
   const { oystehr } = useApiClients();
   const theme = useTheme();
   const navigate = useNavigate();
