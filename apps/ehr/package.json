@@ -31,7 +31,7 @@
     "e2e:manual-login": "node ./auth.setup.js",
     "e2e-skeleton": "env-cmd -f ./env/tests.${ENV}.json playwright test",
     "setup-test-deps": "node setup-test-deps.js",
-    "ci-deploy:development": "VITE_APP_ENV=development VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') npm run build:development && aws s3 sync build/ s3://ottehr-1ff3601f-ce3e-4ae0-9229-a44134ee30f3-ehr.ottehr.com --region us-east-1 --delete && aws cloudfront create-invalidation --distribution-id E32BZJ9BV9S9EY --paths '/*' --region us-east-1",
+    "ci-deploy:development": "VITE_APP_ENV=development VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') npm run build:development && aws s3 sync build/ s3://ottehr-dee6ce00-3e2f-45bc-bb3f-ab534e660109-ehr.ottehr.com --region us-east-1 --delete && aws cloudfront create-invalidation --distribution-id E32BZJ9BV9S9EY --paths '/*' --region us-east-1",
     "ci-deploy:demo": "VITE_APP_ENV=demo VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') npm run build:demo && aws s3 sync build/ s3://ehr.ottehr.com --region us-east-1 --delete && aws cloudfront create-invalidation --distribution-id E10TA6FN58D1OS --paths '/*' --region us-east-1",
     "ci-deploy-skeleton": "VITE_APP_ENV=${ENV} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') npm run build:env --env=${ENV} && aws s3 sync build/ s3://ehr-${PREFIX}.ottehr.com --region us-east-1 --delete && aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_ID} --paths '/*' --region us-east-1"
   },
