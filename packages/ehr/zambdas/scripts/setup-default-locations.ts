@@ -11,9 +11,9 @@ import {
   ELIGIBILITY_PRACTITIONER_TYPES,
   EligibilityPractitionerType,
   FHIR_IDENTIFIER_NPI,
+  filterVirtualLocations,
   getPatchBinary,
   getResourcesFromBatchInlineRequests,
-  isLocationVirtual,
   performEffectWithEnvFile,
   removeOperation,
   replaceOperation,
@@ -156,19 +156,6 @@ const createTelemedLocation = async (
   };
   const fhirResponse = await oystehr.fhir.create(location);
   console.log(`Created fhir location: state: ${fhirResponse.address?.state}, id: ${fhirResponse.id}`);
-};
-
-const filterVirtualLocations = (resources: Resource[]): Location[] => {
-  const resultLocations: Location[] = [];
-  resources.forEach((resource) => {
-    if (resource.resourceType === 'Location') {
-      const location = resource as Location;
-      if (location.id && isLocationVirtual(location)) {
-        resultLocations.push(location);
-      }
-    }
-  });
-  return resultLocations;
 };
 
 const createPractitionerForEligibilityCheck = async (config: any): Promise<void> => {

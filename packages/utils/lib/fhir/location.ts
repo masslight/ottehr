@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Location } from 'fhir/r4b';
+import { Location, Resource } from 'fhir/r4b';
 import { PUBLIC_EXTENSION_BASE_URL, TIMEZONE_EXTENSION_URL } from './constants';
 
 export const isLocationFacilityGroup = (location: Location): boolean => {
@@ -32,6 +32,16 @@ export const isLocationVirtual = (location: Location): boolean => {
     location.extension?.find((ext) => ext.url === `${PUBLIC_EXTENSION_BASE_URL}/location-form-pre-release`)?.valueCoding
       ?.code === 'vi'
   );
+};
+
+export const filterVirtualLocations = (resources: Resource[]): Location[] => {
+  const checkIfLocation = (resource: Resource): resource is Location => {
+    return Boolean(resource.id) && resource.resourceType === 'Location';
+  };
+
+  return resources.filter((resource): resource is Location => {
+    return checkIfLocation(resource) && isLocationVirtual(resource);
+  });
 };
 
 export const defaultLocation: Location = {

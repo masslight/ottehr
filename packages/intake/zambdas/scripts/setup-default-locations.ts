@@ -10,7 +10,7 @@ import {
   ELIGIBILITY_PRACTITIONER_TYPES,
   EligibilityPractitionerType,
   FHIR_IDENTIFIER_NPI,
-  isLocationVirtual,
+  filterVirtualLocations,
   PhysicalLocation,
   TIMEZONE_EXTENSION_URL,
   VirtualLocationBody,
@@ -25,7 +25,7 @@ export const checkLocations = async (fhirClient: FhirClient): Promise<void> => {
   console.log('Received all locations from fhir.');
 
   const telemedStates: string[] = [];
-  filterLocations(allLocations.entry as Resource[]).map((location) => {
+  filterVirtualLocations(allLocations.entry as Resource[]).map((location) => {
     if (location?.address && location.address.state) telemedStates.push(location.address.state);
   });
 
@@ -143,21 +143,6 @@ const createPhysicalLocation = async (
     console.log(`Location already exists.`);
     return null;
   }
-};
-
-const filterLocations = (resources: Resource[], physical = false): Location[] => {
-  const resultLocations: Location[] = [];
-  resources.forEach((resource) => {
-    if (resource.resourceType === 'Location') {
-      const location = resource as Location;
-      if (physical && location.id && isLocationVirtual(location)) {
-        resultLocations.push(location);
-      } else if (!physical && location.id && !isLocationVirtual(location)) {
-        resultLocations.push(location);
-      }
-    }
-  });
-  return resultLocations;
 };
 
 // Create Practitioners
