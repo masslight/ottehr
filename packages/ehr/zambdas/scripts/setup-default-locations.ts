@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Location, Practitioner, Resource } from 'fhir/r4b';
+import { Location, Practitioner } from 'fhir/r4b';
 import {
   addEmptyArrOperation,
   addOperation,
