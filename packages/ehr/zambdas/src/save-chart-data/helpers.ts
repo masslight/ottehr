@@ -1,18 +1,36 @@
 import {
   ChartDataWithResources,
   createCodingCode,
+  createReference,
   DispositionFollowUpType,
   DispositionMetaFieldsNames,
   GetChartDataResponse,
+  SaveChartDataResponse,
 } from 'utils';
 import Oystehr from '@oystehr/sdk';
-import { Bundle, CodeableConcept, Coding, Encounter, FhirResource, Resource, ServiceRequest } from 'fhir/r4b';
+import {
+  AuditEvent,
+  AuditEventEntity,
+  Bundle,
+  CodeableConcept,
+  Coding,
+  Encounter,
+  FhirResource,
+  Resource,
+  ServiceRequest,
+} from 'fhir/r4b';
 import { parseCreatedResourcesBundle } from '../shared';
 import {
   chartDataResourceHasMetaTagByCode,
   handleCustomDTOExtractions,
   mapResourceToChartDataResponse,
 } from '../shared/chart-data/chart-data-helpers';
+import { DateTime } from 'luxon';
+import { createAuditEventEntity, VersionEntity } from 'utils/lib/helpers/resources';
+import {
+  CHART_DATA_PATIENT_LOGS_AUDIT_EVENT_CODE,
+  CHART_DATA_PATIENT_LOGS_AUDIT_EVENT_SYSTEM,
+} from 'utils/lib/types/api/audit-event.constants';
 
 export const validateBundleAndExtractSavedChartData = (
   bundle: Bundle,
@@ -42,14 +60,23 @@ export const validateBundleAndExtractSavedChartData = (
   let resources = parseCreatedResourcesBundle(bundle);
   resources = resources.concat(additionResourcesForResponse);
 
-  const chartDataResources: Resource[] = [];
+  console.log('Bundle parsed');
+
+  let chartDataResources: Resource[] = [];
   resources.forEach((resource) => {
     const updatedChartData = mapResourceToChartDataResponse(chartDataResponse, resource, encounterId);
     chartDataResponse = updatedChartData.chartDataResponse;
     if (updatedChartData.resourceMapped) chartDataResources.push(resource);
   });
 
-  chartDataResponse = handleCustomDTOExtractions(chartDataResponse, resources) as GetChartDataResponse;
+  console.log('Resources mapped to regular chart data fields');
+
+  const customExtractions = handleCustomDTOExtractions(chartDataResponse, resources);
+  chartDataResponse = customExtractions.chartData as GetChartDataResponse;
+  if (customExtractions.chartResources)
+    chartDataResources = chartDataResources.concat(customExtractions.chartResources);
+
+  console.log('Custom dto extractions happened');
 
   return {
     chartData: chartDataResponse,
@@ -121,4 +148,83 @@ function findCodingInCode(code: CodeableConcept | undefined, coding: Coding): bo
       return element.code === coding.code && element.system === coding.system;
     })
   );
+}
+
+export function createAuditEvent(providerId: string, patientId: string, versionEntities: VersionEntity[]): AuditEvent {
+  const resourcesEntities: AuditEventEntity[] = [];
+
+  versionEntities.forEach((versionEntity) => {
+    resourcesEntities.push(createAuditEventEntity(versionEntity));
+  });
+  return {
+    resourceType: 'AuditEvent',
+    type: {
+      code: '110101',
+      system: 'http://dicom.nema.org/resources/ontology/DCM',
+      display: 'Audit Log Used\t',
+    },
+    subtype: [
+      {
+        code: CHART_DATA_PATIENT_LOGS_AUDIT_EVENT_CODE,
+        system: CHART_DATA_PATIENT_LOGS_AUDIT_EVENT_SYSTEM,
+      },
+    ],
+    agent: [
+      {
+        who: {
+          reference: `Practitioner/${providerId}`,
+        },
+        requestor: true,
+      },
+      {
+        who: {
+          reference: `Patient/${patientId}`,
+        },
+        requestor: false,
+      },
+    ],
+    recorded: DateTime.now().toISO() ?? '',
+    source: {
+      observer: {
+        reference: `Practitioner/${providerId}`,
+      },
+    },
+    entity: resourcesEntities,
+  };
+}
+
+export function createVersionEntitiesForChartResources(
+  oldResources: Resource[],
+  newResources: Resource[]
+): VersionEntity[] {
+  // this function is basically for merging old resources and new ones into one array
+  // with entities that contains old and new versions of resource
+  const resultEntities: { [key: string]: VersionEntity } = {};
+
+  oldResources.forEach((res) => {
+    const reference = createReference(res);
+    const versionId = res.meta?.versionId;
+    if (res.id && versionId) {
+      resultEntities[res.id] = {
+        resourceReference: reference,
+        name: 'name',
+        previousVersionId: versionId,
+      };
+    }
+  });
+
+  newResources.forEach((res) => {
+    const reference = createReference(res);
+    const versionId = res.meta?.versionId;
+    if (res.id) {
+      resultEntities[res.id] = {
+        resourceReference: reference,
+        name: 'name',
+        newVersionId: versionId,
+      };
+    }
+  });
+
+  const resultKeys = Object.keys(resultEntities);
+  return resultKeys.map((key) => resultEntities[key]);
 }

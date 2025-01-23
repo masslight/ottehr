@@ -2,6 +2,7 @@ import { expect, Page, test } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { ResourceHandler } from '../../e2e-utils/resource-handler';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
+import { RoleType } from 'utils';
 
 // We may create new instances for the tests with mutable operations, and keep parralel tests isolated
 const resourceHandler = new ResourceHandler();
@@ -80,6 +81,7 @@ test('Happy path: set up filters and navigate to visit page', async ({ page }) =
 
 test('CSS intake patient page is available', async ({ page }) => {
   await page.goto(`in-person/intake/${resourceHandler.appointment.id}/patient-info`);
+  console.log('role', RoleType.Provider);
   await awaitCSSHeaderInit(page);
 });
 

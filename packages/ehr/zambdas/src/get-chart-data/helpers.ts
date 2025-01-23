@@ -1,5 +1,5 @@
 import { BatchInputGetRequest } from '@oystehr/sdk';
-import { Bundle, Encounter, FhirResource, Patient, Resource } from 'fhir/r4b';
+import { Encounter, FhirResource, Patient, Resource } from 'fhir/r4b';
 import {
   addSearchParams,
   ChartDataFields,
@@ -143,35 +143,8 @@ export function createFindResourceRequestById(
   };
 }
 
-function parseBundleResources(bundle: Bundle<FhirResource>): FhirResource[] {
-  if (bundle.resourceType !== 'Bundle' || bundle.entry === undefined) {
-    console.error('Search response appears malformed: ', JSON.stringify(bundle));
-    throw new Error('Could not parse search response for chart data');
-  }
-
-  const resultResources: FhirResource[] = [];
-  for (const entry of bundle.entry) {
-    if (
-      entry.response?.outcome?.id === 'ok' &&
-      entry.resource &&
-      entry.resource.resourceType === 'Bundle' &&
-      entry.resource.type === 'searchset'
-    ) {
-      const innerBundle = entry.resource as Bundle<FhirResource>;
-      const innerEntries = innerBundle.entry;
-      if (innerEntries) {
-        for (const item of innerEntries) {
-          const resource = item.resource;
-          if (resource) resultResources.push(resource);
-        }
-      }
-    }
-  }
-  return resultResources;
-}
-
-export function convertSearchResultsToResponse(
-  bundle: Bundle<FhirResource>,
+export function convertChartResourcesToResponse(
+  resources: FhirResource[],
   patientId: string,
   encounterId: string,
   fields?: (keyof ChartDataFields)[]
@@ -199,9 +172,7 @@ export function convertSearchResultsToResponse(
         }),
   };
 
-  const resources = parseBundleResources(bundle);
-
-  const chartDataResources: Resource[] = [];
+  let chartDataResources: Resource[] = [];
   resources.forEach((resource) => {
     // handle additional get-chart-data related fields
     if (resource.resourceType === 'Practitioner') {
@@ -214,7 +185,10 @@ export function convertSearchResultsToResponse(
     if (updatedChartData.resourceMapped) chartDataResources.push(resource);
   });
 
-  getChartDataResponse = handleCustomDTOExtractions(getChartDataResponse, resources) as GetChartDataResponse;
+  const customExtractions = handleCustomDTOExtractions(getChartDataResponse, resources);
+  getChartDataResponse = customExtractions.chartData as GetChartDataResponse;
+  if (customExtractions.chartResources)
+    chartDataResources = chartDataResources.concat(customExtractions.chartResources);
 
   return {
     chartData: { ...getChartDataResponse },
