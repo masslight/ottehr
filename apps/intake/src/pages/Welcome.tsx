@@ -411,14 +411,20 @@ const BookingHome: FC = () => {
             service_mode: serviceTypeParam,
           });
           // if walkin is open or the base path contains prebook, redirect to new-user page
-          if ((visitTypeParam == 'walkin' && walkinOpen) || visitTypeParam == 'prebook') {
-            console.log('nav event 12');
-            navigate(`${basePath}/new-user`);
-          }
-          // if walkin is closed, redirect to the walkin closed page
-          else {
-            console.log('nav event 13', basePath);
-            navigate(basePath);
+          if (visitTypeParam == 'walkin') {
+            if (walkinOpen) {
+              console.log('nav event 12');
+              navigate(`${basePath}/new-user`);
+            } else {
+              // if walkin is closed, redirect to the walkin closed page
+              console.log('nav event 12.5', basePath);
+              navigate(basePath);
+            }
+          } else if (visitTypeParam == 'prebook') {
+            console.log('nav event 13', navState);
+            navigate(`${basePath}/new-user`, {
+              state: { slot: navState?.slot, scheduleType: navState?.scheduleType },
+            });
           }
         }
         // navigate to the root domain (localhost:3002 or welcome.ottehr.com) if either of stateParam or slugParam or visitTypeParam are undefined.
@@ -446,6 +452,9 @@ const BookingHome: FC = () => {
     walkinOpen,
     navigate,
     serviceTypeParam,
+    selectedSlot,
+    scheduleType,
+    navState,
   ]);
 
   useEffect(() => {
