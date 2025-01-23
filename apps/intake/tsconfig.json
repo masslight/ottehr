@@ -1,7 +1,6 @@
 {
   "extends": "tsconfig/react.json",
   "compilerOptions": {
-    "jsx": "react",
     "noUnusedLocals": false,
     "noUnusedParameters": false
   },
