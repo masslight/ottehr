@@ -17,9 +17,17 @@ import { getAuth0Token } from './auth/getAuth0Token';
 import { createRelatedPerson } from './resource/related-person';
 import { createDocumentReference } from './resource/insurance-document';
 import { createQuestionnaireResponse } from './resource/questionnaire-response';
+import {
+  inviteTestEmployeeUser,
+  removeUser,
+  TEST_EMPLOYEE_1,
+  TEST_EMPLOYEE_2,
+  TestEmployee,
+} from './resource/employees';
 
 export class ResourceHandler {
   private apiClient!: Oystehr;
+  private authToken!: string;
   public patient!: Patient;
   public appointment!: Appointment;
   public encounter!: Encounter;
@@ -27,10 +35,13 @@ export class ResourceHandler {
   public person!: Person;
   public documentReference!: DocumentReference;
   public questionnaireResponse!: QuestionnaireResponse;
+  public testEmployee1!: TestEmployee;
+  public testEmployee2!: TestEmployee;
 
   async initApi(): Promise<void> {
+    this.authToken = await getAuth0Token();
     this.apiClient = new Oystehr({
-      accessToken: await getAuth0Token(),
+      accessToken: this.authToken,
       fhirApiUrl: process.env.FHIR_API,
       projectApiUrl: process.env.AUTH0_AUDIENCE,
     });
@@ -162,6 +173,32 @@ export class ResourceHandler {
       } catch (error) {
         console.error('❌ QuestionnaireResponse not created', error);
       }
+    }
+  }
+
+  async setEmployees(): Promise<void> {
+    try {
+      await this.initApi();
+      const [employee1, employee2] = await Promise.all([
+        inviteTestEmployeeUser(TEST_EMPLOYEE_1, this.apiClient, this.authToken),
+        inviteTestEmployeeUser(TEST_EMPLOYEE_2, this.apiClient, this.authToken),
+      ]);
+      this.testEmployee1 = employee1!;
+      this.testEmployee2 = employee2!;
+    } catch (error) {
+      console.error('❌ New providers were not invited', error, JSON.stringify(error));
+    }
+  }
+
+  async deleteEmployees(): Promise<void> {
+    try {
+      // await tryToFindAndRemoveTestUsers(this.apiClient, this.authToken);
+      await Promise.all([
+        removeUser(this.testEmployee1.id, this.testEmployee1.profile.id!, this.apiClient, this.authToken),
+        removeUser(this.testEmployee2.id, this.testEmployee2.profile.id!, this.apiClient, this.authToken),
+      ]);
+    } catch (e) {
+      console.error('❌ Failed to delete users: ', e, JSON.stringify(e));
     }
   }
 

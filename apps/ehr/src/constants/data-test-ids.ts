@@ -1,3 +1,5 @@
+import { RoleType } from 'utils';
+
 export const dataTestIds = {
   header: {
     userName: 'header-user-name',
@@ -70,5 +72,27 @@ export const dataTestIds = {
   },
   statesPage: {
     statesSearch: 'states-search',
+  },
+  employeesPage: {
+    table: 'employees-providers-content-table',
+    providersTabButton: 'providers-tab-button',
+    searchByName: 'search-by-name-field',
+    providersStateFilter: 'providers-state-filter',
+    informationForm: 'employee-information-form',
+    firstName: 'employee-first-name',
+    middleName: 'employee-middle-name',
+    lastName: 'employee-last-name',
+    email: 'employee-email',
+    phone: 'employee-phone',
+    role: (employeeRole: RoleType): string => `employee-${employeeRole}-role`,
+    providerDetailsCredentials: 'employees-provider-details-credentials',
+    providerDetailsNPI: 'employees-provider-details-npi',
+    submitButton: 'employees-form-submit-button',
+    addQualificationAccordion: 'add-new-qualification-accordion',
+    newQualificationStateDropdown: 'new-qualification-state-dropdown',
+    newQualificationTypeDropdown: 'new-qualification-type-dropdown',
+    addQualificationButton: 'add-qualification-button',
+    deactivateUserButton: 'deactivate-user-button',
+    statusChip: 'employee-status-chip',
   },
 };

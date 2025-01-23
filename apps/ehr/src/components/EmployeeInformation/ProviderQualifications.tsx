@@ -25,6 +25,7 @@ import { Autocomplete, TextField } from '@mui/material';
 import { PractitionerLicense, PractitionerQualificationCodesLabels } from 'utils';
 import { AllStates } from '../../types/types';
 import { FormErrors } from './types';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 const displaystates = AllStates.map((state) => state.value);
 
@@ -98,6 +99,7 @@ export function ProviderQualifications({
         <Accordion>
           <AccordionSummary
             expandIcon={<ExpandMoreIcon />}
+            data-testid={dataTestIds.employeesPage.addQualificationAccordion}
             sx={{
               marginTop: '20px',
               fontWeight: 'bold',
@@ -122,6 +124,7 @@ export function ProviderQualifications({
                         <TextField
                           {...params}
                           label="State"
+                          data-testid={dataTestIds.employeesPage.newQualificationStateDropdown}
                           error={errors.state}
                           helperText={errors.state ? 'Please select a state' : null}
                         />
@@ -145,6 +148,7 @@ export function ProviderQualifications({
                         <TextField
                           {...params}
                           label="Qualification"
+                          data-testid={dataTestIds.employeesPage.newQualificationTypeDropdown}
                           error={errors.qualification}
                           helperText={errors.qualification ? 'Please select a qualification' : null}
                         />
@@ -159,6 +163,7 @@ export function ProviderQualifications({
                 <Button
                   variant="contained"
                   endIcon={<AddIcon />}
+                  data-testid={dataTestIds.employeesPage.addQualificationButton}
                   sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 28 }}
                   fullWidth
                   onClick={handleAddLicense}
