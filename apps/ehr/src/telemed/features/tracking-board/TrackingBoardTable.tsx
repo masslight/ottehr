@@ -18,6 +18,7 @@ import { useTrackingBoardStore } from '../../state';
 import { ApptTab, compareAppointments, compareLuxonDates, filterAppointments } from '../../utils';
 import { TrackingBoardFilters } from './TrackingBoardFilters';
 import { TrackingBoardTableRow, TrackingBoardTableRowSkeleton } from './TrackingBoardTableRow';
+import { dataTestIds } from '../../../constants/data-test-ids';
 
 interface AppointmentTableProps {
   tab: ApptTab;
@@ -100,7 +101,7 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
   return (
     <Box>
       <TrackingBoardFilters tab={tab} />
-      <TableContainer sx={{ overflow: 'inherit' }}>
+      <TableContainer sx={{ overflow: 'inherit' }} data-testid={dataTestIds.telemedEhrFlow.trackingBoardTable}>
         <Table>
           <TableHead>
             <TableRow>

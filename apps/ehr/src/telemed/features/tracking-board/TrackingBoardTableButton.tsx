@@ -7,6 +7,7 @@ import { ConfirmationDialog } from '../../components';
 import { useTrackingBoardTableButtonType } from '../../hooks';
 import { useZapEHRAPIClient } from '../../hooks/useOystehrAPIClient';
 import { useChangeTelemedAppointmentStatusMutation } from '../../state';
+import { dataTestIds } from '../../../constants/data-test-ids';
 
 const baseStyles = {
   borderRadius: 8,
@@ -53,6 +54,7 @@ export const TrackingBoardTableButton: FC<{ appointment: TelemedAppointmentInfor
           onClick={() => goToAppointment()}
           variant={type === 'viewContained' ? 'contained' : 'outlined'}
           sx={baseStyles}
+          data-testid={dataTestIds.telemedEhrFlow.trackingBoardViewButton}
         >
           View
         </LoadingButton>
@@ -71,7 +73,13 @@ export const TrackingBoardTableButton: FC<{ appointment: TelemedAppointmentInfor
           }}
         >
           {(showDialog) => (
-            <LoadingButton onClick={showDialog} loading={mutation.isLoading} variant="contained" sx={baseStyles}>
+            <LoadingButton
+              onClick={showDialog}
+              loading={mutation.isLoading}
+              variant="contained"
+              sx={baseStyles}
+              data-testid={dataTestIds.telemedEhrFlow.trackingBoardAssignButton}
+            >
               Assign me
             </LoadingButton>
           )}

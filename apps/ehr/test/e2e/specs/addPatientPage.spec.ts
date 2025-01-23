@@ -1,7 +1,7 @@
 import { test } from '@playwright/test';
-import { ResourceHandler } from '../../e2e-utils/resource-handler';
 import { expectAddPatientPage } from '../page/AddPatientPage';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
+import { ResourceHandler } from '../../e2e-utils/resource-handler';
 
 const PHONE_NUMBER = '2144985555';
 const PATIENT_NAME = 'Test_John Test_Doe';

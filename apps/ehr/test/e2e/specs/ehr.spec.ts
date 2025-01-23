@@ -1,7 +1,7 @@
 import { expect, Page, test } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { ResourceHandler } from '../../e2e-utils/resource-handler';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
+import { ResourceHandler } from '../../e2e-utils/resource-handler';
 
 // We may create new instances for the tests with mutable operations, and keep parralel tests isolated
 const resourceHandler = new ResourceHandler();
