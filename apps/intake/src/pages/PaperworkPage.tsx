@@ -431,6 +431,9 @@ export const PaperworkPage: FC = () => {
           });
         // console.log('responseItems', responseItems, data);
         try {
+          if (currentPage.linkId.includes('insurance')) {
+            // do the insurance check thing
+          }
           setLoading(true);
           const updatedPaperwork = await patchPaperwork(
             responseItems,

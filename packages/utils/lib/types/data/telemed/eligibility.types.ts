@@ -1,3 +1,4 @@
+import { Address, Location, Organization, Practitioner, QuestionnaireResponseItem, Reference } from 'fhir/r4b';
 import { Secrets } from '../../../secrets';
 
 interface LambdaSecrets {
@@ -17,24 +18,47 @@ export interface GetEligibilityPolicyHolder {
   lastName?: string;
   dob?: string;
   sex?: string;
-  addressSameAsPatient: boolean;
+  // addressSameAsPatient: boolean;
   address?: string;
+  addressLine2?: string;
   city?: string;
   state?: string;
   zip?: string;
   relationship?: string;
 }
 
+export type BillingProvideResource = Location | Practitioner | Organization;
+
+export interface BillingProviderData {
+  resourceType: BillingProvideResource['resourceType'];
+  id: string;
+  npi: string;
+  taxId: string;
+  address: Address;
+}
+interface BillingProviderResourceReference extends Omit<Reference, 'type'> {
+  type: BillingProvideResource['resourceType'];
+}
+export interface InsuranceEligibilityPrevalidationInput {
+  responseItems: QuestionnaireResponseItem[];
+  billingProviderResource: BillingProviderResourceReference;
+}
 export interface GetEligibilityParameters {
-  appointmentId: string;
-  primaryInsuranceData: GetEligibilityInsuranceData;
   patientId: string;
-  primaryPolicyHolder: GetEligibilityPolicyHolder;
+  appointmentId: string;
+  primaryInsuranceData?: GetEligibilityInsuranceData;
+  primaryPolicyHolder?: GetEligibilityPolicyHolder;
   secondaryInsuranceData?: GetEligibilityInsuranceData;
   secondaryPolicyHolder?: GetEligibilityPolicyHolder;
+  coveragePrevalidationInput?: InsuranceEligibilityPrevalidationInput;
 }
 
-export type GetEligibilityInput = GetEligibilityParameters & LambdaSecrets;
+export interface GetEligibilityInput
+  extends Omit<GetEligibilityParameters, 'primaryInsuranceData' | 'primaryPolicyHolder' | 'responseItems'>,
+    LambdaSecrets {
+  primaryInsuranceData: GetEligibilityInsuranceData;
+  primaryPolicyHolder: GetEligibilityPolicyHolder;
+}
 
 export type GetEligibilityResponse = {
   eligible: boolean;

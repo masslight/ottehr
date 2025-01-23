@@ -32,9 +32,11 @@ import {
   getSecret,
   lambdaResponse,
   removeTimeFromDate,
+  topLevelCatch,
 } from 'utils';
 import { createInsurancePlanDto, createOrUpdateRelatedPerson, getM2MClientToken } from '../shared';
 import { validateInsuranceRequirements, validateRequestParameters } from './validation';
+import { prevalidationHandler } from './prevalidation-handler';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
@@ -58,6 +60,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       secrets,
       secondaryInsuranceData,
       secondaryPolicyHolder,
+      coveragePrevalidationInput,
     } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
@@ -71,6 +74,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     console.group('createOystehrClient');
+    const apiUrl = getSecret(SecretsKeys.PROJECT_API, secrets);
     const oystehr = createOystehrClient(
       zapehrToken,
       getSecret(SecretsKeys.FHIR_API, secrets),
@@ -78,6 +82,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     );
     console.groupEnd();
     console.debug('createOystehrClient success');
+
+    if (coveragePrevalidationInput) {
+      await prevalidationHandler(
+        { ...validatedParameters, coveragePrevalidationInput, apiUrl, accessToken: zapehrToken },
+        oystehr
+      );
+    }
 
     console.group('getFhirResources');
     const fhirResources = await getFhirResources(
@@ -296,7 +307,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     return lambdaResponse(200, { eligible });
   } catch (error: any) {
     console.error(error, error.issue);
-    return lambdaResponse(500, { message: 'Internal error' });
+    return topLevelCatch('get-eligibility', error, input.secrets);
   }
 };
 
@@ -802,6 +813,7 @@ interface CreateCoverageEligibilityRequestParameters {
   payorId: string;
   providerId: string;
 }
+
 const createCoverageEligibilityRequest = async ({
   coverageId,
   oystehr,

@@ -21,6 +21,9 @@ export const TIMEZONE_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/t
 
 export const OTTEHR_BASE_URL = 'https://fhir.ottehr.com';
 
+export const FHIR_IDENTIFIER_NPI = 'http://hl7.org/fhir/sid/us-npi';
+export const FHIR_IDENTIFIER_TAX = `${PRIVATE_EXTENSION_BASE_URL}/TIN`;
+
 export const FHIR_EXTENSION = {
   Appointment: {
     additionalInfo: {

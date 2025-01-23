@@ -1,7 +1,13 @@
+import Oystehr from '@oystehr/sdk';
 import {
+  APIErrorCode,
+  BillingProviderData,
+  BillingProvideResource,
+  getBillingProviderDataFromResource,
   GetEligibilityInput,
   GetEligibilityInsuranceData,
   GetEligibilityPolicyHolder,
+  InsuranceEligibilityPrevalidationInput,
   InsurancePlanDTO,
   isValidUUID,
   ZambdaInput,
@@ -82,4 +88,32 @@ export const validateInsuranceRequirements = ({
   if (insurancePlanDto.requiresRelationshipToSubscriber && !policyHolder.relationship) {
     throw new Error(`${prefix('P')}olicy holder's relationship to the insured was not provided.`);
   }
+};
+
+export const complexBillingProviderValidation = async (
+  prevalidationInput: InsuranceEligibilityPrevalidationInput,
+  oystehrClient: Oystehr
+): Promise<BillingProviderData> => {
+  const { type, reference } = prevalidationInput.billingProviderResource;
+
+  const fetchedResources = await oystehrClient.fhir.search<BillingProvideResource>({
+    resourceType: type,
+    params: [
+      {
+        name: '_id',
+        value: reference?.split('/')[1] ?? '',
+      },
+    ],
+  });
+
+  const billingResource = fetchedResources?.unbundle()[0];
+  if (!billingResource) {
+    throw APIErrorCode.BILLING_PROVIDER_NOT_FOUND;
+  }
+  const providerData = getBillingProviderDataFromResource(billingResource);
+
+  if (providerData === undefined) {
+    throw APIErrorCode.MISSING_BILLING_PROVIDER_DETAILS;
+  }
+  return providerData;
 };
