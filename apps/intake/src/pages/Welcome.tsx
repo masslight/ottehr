@@ -385,15 +385,12 @@ const BookingHome: FC = () => {
           // if walkin is open or the base path contains prebook, redirect to new-user page
           if (visitTypeParam == 'walkin') {
             if (walkinOpen) {
-              console.log('nav event 12');
               navigate(`${basePath}/new-user`);
             } else {
               // if walkin is closed, redirect to the walkin closed page
-              console.log('nav event 12.5', basePath);
               navigate(basePath);
             }
           } else if (visitTypeParam == 'prebook') {
-            console.log('nav event 13', navState);
             navigate(`${basePath}/new-user`, {
               state: { slot: navState?.slot, scheduleType: navState?.scheduleType },
             });
@@ -401,7 +398,6 @@ const BookingHome: FC = () => {
         }
         // navigate to the root domain (localhost:3002 or welcome.ottehr.com) if either of stateParam or slugParam or visitTypeParam are undefined.
         else {
-          console.log('nav event 13fr23r2');
           navigate('');
         }
       }
@@ -503,7 +499,6 @@ const BookingHome: FC = () => {
       const shouldStartAtBeginning = isPostPatientSelectionPath(basePath, solvedPath) && !patientsLoading;
       console.log('basePath, solvedPath, shouldSAB', basePath, solvedPath, shouldStartAtBeginning);
       if (shouldStartAtBeginning) {
-        console.log('nav event 1.743535');
         return <Navigate to={basePath} replace={true} />;
       }
     } else {
