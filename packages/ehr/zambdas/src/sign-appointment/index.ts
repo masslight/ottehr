@@ -213,7 +213,7 @@ const createCandidCreateEncounterInput = async (
 ): Promise<CreateEncounterInput> => {
   const { encounter } = visitResources;
   const encounterId = encounter.id;
-  const coverage = assertDefined(visitResources.coverage, `Coverage on encounter ${encounterId}`);
+  const coverage = visitResources.coverage;
   return {
     encounter: encounter,
     patient: assertDefined(visitResources.patient, `Patient on encounter ${encounterId}`),
@@ -241,9 +241,6 @@ const createCandidCreateEncounterInput = async (
           encounter.diagnosis?.find((diagnosis) => diagnosis.condition?.reference === 'Condition/' + condition.id) !=
           null
       ),
-    subsriber: await resourceByReference(coverage.subscriber, 'Coverage.subscriber', oystehr),
-    coverage: coverage,
-    payor: await resourceByReference(coverage.payor[0], 'Coverage.payor[0]', oystehr),
     procedures: (
       await oystehr.fhir.search<Procedure>({
         resourceType: 'Procedure',
@@ -261,6 +258,13 @@ const createCandidCreateEncounterInput = async (
     )
       .unbundle()
       .filter((procedure) => chartDataResourceHasMetaTagByCode(procedure, 'cpt-code')),
+    insuranceResources: coverage
+      ? {
+          coverage: coverage,
+          subsriber: await resourceByReference(coverage.subscriber, 'Coverage.subscriber', oystehr),
+          payor: await resourceByReference(coverage.payor[0], 'Coverage.payor[0]', oystehr),
+        }
+      : undefined,
   };
 };
 

@@ -22,6 +22,7 @@ import {
   PatientRelationshipToInsuredCodeAll,
   ServiceLineUnits,
   State,
+  SubscriberCreate,
 } from 'candidhealth/api';
 import {
   BillableStatusType,
@@ -36,6 +37,12 @@ import { assertDefined } from './helpers';
 const CODE_SYSTEM_HL7_IDENTIFIER_TYPE = 'http://terminology.hl7.org/CodeSystem/v2-0203';
 const CODE_SYSTEM_HL7_SUBSCRIBER_RELATIONSHIP = 'http://terminology.hl7.org/CodeSystem/subscriber-relationship';
 
+export interface InsuranceResources {
+  coverage: Coverage;
+  subsriber: Patient | RelatedPerson;
+  payor: Organization;
+}
+
 export interface CreateEncounterInput {
   encounter: Encounter;
   patient: Patient;
@@ -43,19 +50,14 @@ export interface CreateEncounterInput {
   provider: Organization;
   location: Location;
   diagnoses: Condition[];
-  subsriber: Patient | RelatedPerson;
-  coverage: Coverage;
-  payor: Organization;
   procedures: Procedure[];
+  insuranceResources?: InsuranceResources;
 }
 
 export function candidCreateEncounterRequest(input: CreateEncounterInput): EncounterCreate {
-  const { encounter, patient, practitioner, location, provider, diagnoses, subsriber, coverage, payor, procedures } =
-    input;
+  const { encounter, patient, practitioner, provider, location, diagnoses, procedures, insuranceResources } = input;
   const patientName = assertDefined(patient.name?.[0], 'Patient official name');
   const patientAddress = assertDefined(patient.address?.[0], 'Patient address');
-  const subsriberName = assertDefined(subsriber.name?.[0], 'Subscriber official name');
-  const subsriberAddress = assertDefined(subsriber.address?.[0], 'Subscriber address');
   const providerAddress = assertDefined(provider.address?.[0], 'Provider address');
   const candidDiagnoses = createCandidDiagnoses(encounter, diagnoses);
   const primaryDiagnosisIndex = candidDiagnoses.findIndex(
@@ -67,7 +69,7 @@ export function candidCreateEncounterRequest(input: CreateEncounterInput): Encou
   return {
     externalId: EncounterExternalId(assertDefined(encounter.id, 'Encounter.id')),
     billableStatus: BillableStatusType.Billable,
-    responsibleParty: ResponsiblePartyType.InsurancePay,
+    responsibleParty: insuranceResources != null ? ResponsiblePartyType.InsurancePay : ResponsiblePartyType.SelfPay,
     benefitsAssignedToProvider: true,
     patientAuthorizedRelease: true,
     providerAcceptsAssignment: true,
@@ -82,24 +84,6 @@ export function candidCreateEncounterRequest(input: CreateEncounterInput): Encou
         city: assertDefined(patientAddress.city, 'Patient city'),
         state: assertDefined(patientAddress.state as State, 'Patient state'),
         zipCode: assertDefined(patientAddress.postalCode, 'Patient postal code'),
-      },
-    },
-    subscriberPrimary: {
-      firstName: assertDefined(subsriberName.given?.[0], 'Subsriber first name'),
-      lastName: assertDefined(subsriberName.family, 'Subsriber last name'),
-      gender: assertDefined(subsriber.gender as Gender, 'Subsriber gender'),
-      patientRelationshipToSubscriberCode: relationshipCode(coverage),
-      dateOfBirth: assertDefined(subsriber.birthDate, 'Subsriber birth date'),
-      address: {
-        address1: assertDefined(subsriberAddress.line?.[0], 'Subsriber address line'),
-        city: assertDefined(subsriberAddress.city, 'Subsriber city'),
-        state: assertDefined(subsriberAddress.state as State, 'Subsriber state'),
-        zipCode: assertDefined(subsriberAddress.postalCode, 'Subsriber postal code'),
-      },
-      insuranceCard: {
-        memberId: assertDefined(coverage.subscriberId, 'Subsriber member id'),
-        payerName: assertDefined(payor.name, 'Payor name'),
-        payerId: assertDefined(getIdentifierValue(payor.identifier, CODE_SYSTEM_HL7_IDENTIFIER_TYPE, 'XX'), 'Payor id'),
       },
     },
     billingProvider: {
@@ -145,6 +129,7 @@ export function candidCreateEncounterRequest(input: CreateEncounterInput): Encou
         },
       ];
     }),
+    subscriberPrimary: createSubscriberPrimary(insuranceResources),
   };
 }
 
@@ -197,4 +182,31 @@ function createCandidDiagnoses(encounter: Encounter, diagnoses: Condition[]): Di
       },
     ];
   });
+}
+
+function createSubscriberPrimary(insuranceResources: InsuranceResources | undefined): SubscriberCreate | undefined {
+  if (insuranceResources == null) {
+    return undefined;
+  }
+  const { coverage, subsriber, payor } = insuranceResources;
+  const subsriberName = assertDefined(subsriber.name?.[0], 'Subscriber official name');
+  const subsriberAddress = assertDefined(subsriber.address?.[0], 'Subscriber address');
+  return {
+    firstName: assertDefined(subsriberName.given?.[0], 'Subsriber first name'),
+    lastName: assertDefined(subsriberName.family, 'Subsriber last name'),
+    gender: assertDefined(subsriber.gender as Gender, 'Subsriber gender'),
+    patientRelationshipToSubscriberCode: relationshipCode(coverage),
+    dateOfBirth: assertDefined(subsriber.birthDate, 'Subsriber birth date'),
+    address: {
+      address1: assertDefined(subsriberAddress.line?.[0], 'Subsriber address line'),
+      city: assertDefined(subsriberAddress.city, 'Subsriber city'),
+      state: assertDefined(subsriberAddress.state as State, 'Subsriber state'),
+      zipCode: assertDefined(subsriberAddress.postalCode, 'Subsriber postal code'),
+    },
+    insuranceCard: {
+      memberId: assertDefined(coverage.subscriberId, 'Subsriber member id'),
+      payerName: assertDefined(payor.name, 'Payor name'),
+      payerId: assertDefined(getIdentifierValue(payor.identifier, CODE_SYSTEM_HL7_IDENTIFIER_TYPE, 'XX'), 'Payor id'),
+    },
+  };
 }
