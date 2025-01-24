@@ -12,16 +12,22 @@ import {
   visitStatusToFhirEncounterStatusMap,
   getCriticalUpdateTagOp,
   progressNoteChartDataRequestedFields,
+  Secrets,
 } from 'utils';
+import { CandidApiClient } from 'candidhealth';
 
 import { validateRequestParameters } from './validateRequestParameters';
 import { getChartData } from '../get-chart-data';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
+import { assertDefined, checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
 import { ZambdaInput } from '../types';
 import { VideoResourcesAppointmentPackage } from '../shared/pdf/visit-details-pdf/types';
 import { getVideoResources } from '../shared/pdf/visit-details-pdf/get-video-resources';
 import { composeAndCreateVisitNotePdf } from '../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { makeVisitNotePdfDocumentReference } from '../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
+import { getSecret, SecretsKeys } from '../shared';
+import { candidCreateEncounterRequest, CreateEncounterInput } from '../shared/candid';
+import { Condition, FhirResource, Procedure, Reference } from 'fhir/r4b';
+import { chartDataResourceHasMetaTagByCode } from '../shared/chart-data/chart-data-helpers';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -73,10 +79,12 @@ export const performEffect = async (
     throw new Error(`No subject reference defined for encounter ${encounter?.id}`);
   }
 
+  const candidEncounterId = await createCandidEncounter(visitResources, oystehr, secrets);
+
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getVisitStatus(appointment, encounter);
   if (currentStatus) {
-    await changeStatus(oystehr, oystehrCurrentUser, visitResources, newStatus);
+    await changeStatus(oystehr, oystehrCurrentUser, visitResources, newStatus, candidEncounterId);
   }
   console.debug(`Status has been changed.`);
 
@@ -111,7 +119,8 @@ const changeStatus = async (
   oystehr: Oystehr,
   oystehrCurrentUser: Oystehr,
   resourcesToUpdate: VideoResourcesAppointmentPackage,
-  status: VisitStatusLabel
+  status: VisitStatusLabel,
+  candidEncounterId: string
 ): Promise<void> => {
   if (!resourcesToUpdate.appointment || !resourcesToUpdate.appointment.id) {
     throw new Error('Appointment is not defined');
@@ -145,6 +154,14 @@ const changeStatus = async (
       path: '/status',
       value: encounterStatus,
     },
+    {
+      op: 'add',
+      path: '/identifier',
+      value: {
+        system: 'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id',
+        value: candidEncounterId,
+      },
+    },
   ];
 
   const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(
@@ -166,5 +183,95 @@ const changeStatus = async (
 
   await oystehr.fhir.transaction({
     requests: [appointmentPatch, encounterPatch],
+  });
+};
+
+const createCandidEncounter = async (
+  visitResources: VideoResourcesAppointmentPackage,
+  oystehr: Oystehr,
+  secrets: Secrets | null
+): Promise<string> => {
+  const apiClient = new CandidApiClient({
+    clientId: getSecret(SecretsKeys.CANDID_CLIENT_ID, secrets),
+    clientSecret: getSecret(SecretsKeys.CANDID_CLIENT_SECRET, secrets),
+  });
+  const createEncounterInput = await createCandidCreateEncounterInput(visitResources, oystehr);
+  const request = candidCreateEncounterRequest(createEncounterInput);
+  console.log('Candid request:' + JSON.stringify(request, null, 2));
+  const response = await apiClient.encounters.v4.create(request);
+  if (!response.ok) {
+    throw new Error(`Error creating a Candid encounter. Response body: ${JSON.stringify(response.error)}`);
+  }
+  const encounter = response.body;
+  console.log('Created Candid encounter:' + JSON.stringify(encounter));
+  return encounter.encounterId;
+};
+
+const createCandidCreateEncounterInput = async (
+  visitResources: VideoResourcesAppointmentPackage,
+  oystehr: Oystehr
+): Promise<CreateEncounterInput> => {
+  const { encounter } = visitResources;
+  const encounterId = encounter.id;
+  const coverage = assertDefined(visitResources.coverage, `Coverage on encounter ${encounterId}`);
+  return {
+    encounter: encounter,
+    patient: assertDefined(visitResources.patient, `Patient on encounter ${encounterId}`),
+    practitioner: assertDefined(visitResources.practitioner, `Practitioner on encounter ${encounterId}`),
+    provider: await resourceByReference(
+      visitResources.location?.managingOrganization,
+      'Location.managingOrganization',
+      oystehr
+    ),
+    location: assertDefined(visitResources.location, `Location on encounter ${encounterId}`),
+    diagnoses: (
+      await oystehr.fhir.search<Condition>({
+        resourceType: 'Condition',
+        params: [
+          {
+            name: 'encounter',
+            value: `Encounter/${encounterId}`,
+          },
+        ],
+      })
+    )
+      .unbundle()
+      .filter(
+        (condition) =>
+          encounter.diagnosis?.find((diagnosis) => diagnosis.condition?.reference === 'Condition/' + condition.id) !=
+          null
+      ),
+    subsriber: await resourceByReference(coverage.subscriber, 'Coverage.subscriber', oystehr),
+    coverage: coverage,
+    payor: await resourceByReference(coverage.payor[0], 'Coverage.payor[0]', oystehr),
+    procedures: (
+      await oystehr.fhir.search<Procedure>({
+        resourceType: 'Procedure',
+        params: [
+          {
+            name: 'subject',
+            value: assertDefined(encounter.subject?.reference, `Patient id on encounter ${encounterId}`),
+          },
+          {
+            name: 'encounter',
+            value: `Encounter/${encounterId}`,
+          },
+        ],
+      })
+    )
+      .unbundle()
+      .filter((procedure) => chartDataResourceHasMetaTagByCode(procedure, 'cpt-code')),
+  };
+};
+
+const resourceByReference = <T extends FhirResource>(
+  reference: Reference | undefined,
+  referencePath: string,
+  oystehr: Oystehr
+): Promise<T> => {
+  const [resourceType, id] = assertDefined(reference?.reference, referencePath + '.reference').split('/');
+  return oystehr.fhir.get<T>({
+    resourceType,
+    id,
   });
 };

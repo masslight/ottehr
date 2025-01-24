@@ -3,7 +3,6 @@ import {
   Condition,
   Coverage,
   Encounter,
-  HumanName,
   Identifier,
   Location,
   Organization,
@@ -12,8 +11,7 @@ import {
   Procedure,
   RelatedPerson,
 } from 'fhir/r4b';
-import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from './rcm';
-import { CandidApi, CandidApiClient } from 'candidhealth';
+import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm';
 import {
   Decimal,
   DiagnosisCreate,
@@ -25,18 +23,18 @@ import {
   ServiceLineUnits,
   State,
 } from 'candidhealth/api';
-import { BillableStatusType, ResponsiblePartyType } from 'candidhealth/api/resources/encounters/resources/v4';
+import {
+  BillableStatusType,
+  EncounterCreate,
+  ResponsiblePartyType,
+} from 'candidhealth/api/resources/encounters/resources/v4';
 import { ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resources/v2';
 import { DateTime } from 'luxon';
+import { FHIR_IDENTIFIER_NPI } from 'utils/lib/types';
+import { assertDefined } from './helpers';
 
 const CODE_SYSTEM_HL7_IDENTIFIER_TYPE = 'http://terminology.hl7.org/CodeSystem/v2-0203';
-const PAYER_ID_SYSTEM = 'payer-id';
-
-interface CandidClient {
-  createEncounter: (input: CreateEncounterInput) => Promise<string>;
-}
-
-export type FetchFunction = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+const CODE_SYSTEM_HL7_SUBSCRIBER_RELATIONSHIP = 'http://terminology.hl7.org/CodeSystem/subscriber-relationship';
 
 export interface CreateEncounterInput {
   encounter: Encounter;
@@ -51,29 +49,12 @@ export interface CreateEncounterInput {
   procedures: Procedure[];
 }
 
-export function createCandidClient(apiClient: CandidApiClient): CandidClient {
-  const createEncounter = async (input: CreateEncounterInput): Promise<string> => {
-    const request = createEncounterRequest(input);
-    console.log('Candid request:' + JSON.stringify(request, null, 2));
-    const response = await apiClient.encounters.v4.create(request);
-    if (!response.ok) {
-      throw new Error(`Error creating an encounter. Response body: ${JSON.stringify(response.error)}`);
-    }
-    const encounter = response.body;
-    console.log('Created candid encounter:' + JSON.stringify(encounter));
-    return encounter.encounterId;
-  };
-  return {
-    createEncounter,
-  };
-}
-
-function createEncounterRequest(input: CreateEncounterInput): CandidApi.encounters.v4.EncounterCreate {
-  const { patient, practitioner, location, encounter, provider, diagnoses, subsriber, coverage, payor, procedures } =
+export function candidCreateEncounterRequest(input: CreateEncounterInput): EncounterCreate {
+  const { encounter, patient, practitioner, location, provider, diagnoses, subsriber, coverage, payor, procedures } =
     input;
-  const patientName = assertDefined(officialNameOrUndefined(patient), 'Patient official name');
+  const patientName = assertDefined(patient.name?.[0], 'Patient official name');
   const patientAddress = assertDefined(patient.address?.[0], 'Patient address');
-  const subsriberName = assertDefined(officialNameOrUndefined(subsriber), 'Subscriber official name');
+  const subsriberName = assertDefined(subsriber.name?.[0], 'Subscriber official name');
   const subsriberAddress = assertDefined(subsriber.address?.[0], 'Subscriber address');
   const providerAddress = assertDefined(provider.address?.[0], 'Provider address');
   const candidDiagnoses = createCandidDiagnoses(encounter, diagnoses);
@@ -118,7 +99,7 @@ function createEncounterRequest(input: CreateEncounterInput): CandidApi.encounte
       insuranceCard: {
         memberId: assertDefined(coverage.subscriberId, 'Subsriber member id'),
         payerName: assertDefined(payor.name, 'Payor name'),
-        payerId: assertDefined(getIdentifierValueBySystem(payor.identifier, PAYER_ID_SYSTEM), 'Payor id'),
+        payerId: assertDefined(getIdentifierValue(payor.identifier, CODE_SYSTEM_HL7_IDENTIFIER_TYPE, 'XX'), 'Payor id'),
       },
     },
     billingProvider: {
@@ -167,12 +148,8 @@ function createEncounterRequest(input: CreateEncounterInput): CandidApi.encounte
   };
 }
 
-function officialNameOrUndefined(provider: Practitioner | Patient | RelatedPerson): HumanName | undefined {
-  return (provider.name ?? []).find((name) => name.use === 'official');
-}
-
 function getNpi(identifiers: Identifier[] | undefined): string | undefined {
-  return getIdentifierValue(identifiers, CODE_SYSTEM_HL7_IDENTIFIER_TYPE, 'NPI');
+  return getIdentifierValueBySystem(identifiers, FHIR_IDENTIFIER_NPI);
 }
 
 function getIdentifierValue(
@@ -191,15 +168,8 @@ function getCode(codeableConcept: CodeableConcept | undefined, system: string): 
   return codeableConcept?.coding?.find((coding) => coding.system === system)?.code;
 }
 
-function assertDefined<T>(value: T, name: string): NonNullable<T> {
-  if (value == null) {
-    throw `"${name}" is undefined`;
-  }
-  return value;
-}
-
 function relationshipCode(coverage: Coverage): PatientRelationshipToInsuredCodeAll {
-  const code = coverage.relationship?.coding?.[0].code;
+  const code = getCode(coverage.relationship, CODE_SYSTEM_HL7_SUBSCRIBER_RELATIONSHIP);
   if (code === 'self') {
     return PatientRelationshipToInsuredCodeAll.Self;
   }

@@ -3,6 +3,7 @@ import {
   Account,
   Appointment,
   ChargeItem,
+  Coverage,
   DocumentReference,
   Encounter,
   Location,
@@ -42,6 +43,7 @@ export const getVideoResources = async (
     | QuestionnaireResponse
     | Practitioner
     | DocumentReference
+    | Coverage
   > = (
     await oystehr.fhir.search<
       | Appointment
@@ -53,6 +55,7 @@ export const getVideoResources = async (
       | QuestionnaireResponse
       | Practitioner
       | DocumentReference
+      | Coverage
     >({
       resourceType: 'Encounter',
       params: [
@@ -138,6 +141,10 @@ export const getVideoResources = async (
     return item.resourceType === 'DocumentReference';
   }) as DocumentReference[];
 
+  const coverage: Coverage | undefined = items?.find((item: Resource) => {
+    return item.resourceType === 'Coverage';
+  }) as Coverage;
+
   return {
     appointment,
     encounter,
@@ -148,5 +155,6 @@ export const getVideoResources = async (
     questionnaireResponse,
     practitioner,
     documentReferences,
+    coverage,
   };
 };
