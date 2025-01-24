@@ -30,7 +30,7 @@
     "rebundle": "env-cmd --silent -f ./.env/demo.json bash scripts/package-for-release.sh",
     "paperwork-types": "tsx scripts/make-paperwork-types.ts",
     "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0 --fix",
-    "test": "jest",
+    "test": "jest --silent --verbose=false",
     "setup-questionnaires": "tsx scripts/setup-questionnaires.ts",
     "copy-ip-locations": "tsx scripts/copy-ip-locations.ts",
     "setup-intake": "tsx scripts/setup-intake.ts"
