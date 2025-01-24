@@ -658,14 +658,8 @@ export default function AppointmentPage(): ReactElement {
         const docRefBundle = await oystehr.fhir.batch<DocumentReference>({
           requests: [
             {
-              // Consent
               method: 'GET',
               url: `/DocumentReference?status=current&subject=Patient/${patientID}&related=Appointment/${appointmentID}`,
-            },
-            {
-              // Photo ID & Insurance Cards
-              method: 'GET',
-              url: `/DocumentReference?status=current&related=Patient/${patientID}`,
             },
           ],
         });
