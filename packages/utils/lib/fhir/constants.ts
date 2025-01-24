@@ -5,6 +5,7 @@ import {
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
   PHOTON_PRACTITIONER_ENROLLED,
+  PRIVACY_POLICY_CODE,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   VISIT_NOTE_SUMMARY_CODE,
 } from '../types';
@@ -265,6 +266,11 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: 'consent-forms',
     display: 'Consent Forms',
     documentTypeCode: [CONSENT_CODE, INSURANCE_CARD_CODE],
+  },
+  {
+    title: 'privacy-policy',
+    display: 'Privacy Policy',
+    documentTypeCode: PRIVACY_POLICY_CODE,
   },
   {
     title: 'insurance-cards',

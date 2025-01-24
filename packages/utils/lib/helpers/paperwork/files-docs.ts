@@ -19,9 +19,9 @@ export interface CreateFileDocReferenceInput extends Omit<CreateDocumentReferenc
 
 export async function createFilesDocumentReferences(input: CreateFileDocReferenceInput): Promise<DocumentReference[]> {
   const { files, type, dateCreated, referenceParam, oystehr, searchParams, generateUUID, listResources } = input;
-  console.log('files for doc refs', JSON.stringify(files));
+  console.log('files for doc refs', JSON.stringify(files, null, 2));
   try {
-    console.log('searching for current document references', JSON.stringify(searchParams));
+    console.log('searching for current document references', JSON.stringify(searchParams, null, 2));
     const docsJson = (
       await oystehr.fhir.search<DocumentReference>({
         resourceType: 'DocumentReference',
@@ -96,8 +96,8 @@ export async function createFilesDocumentReferences(input: CreateFileDocReferenc
       const docRefBundle = await oystehr.fhir.transaction<DocumentReference>({
         requests: [writeDocRefReq],
       });
-      console.log(`making DocumentReference results => `);
-      console.log(JSON.stringify(docRefBundle));
+      console.log('making DocumentReference results =>', JSON.stringify(docRefBundle, null, 2));
+
       const docRef = docRefBundle.entry?.[0]?.resource;
       // Collect document reference to list by type
       if (listResources && type.coding?.[0]?.code && docRef) {
@@ -122,6 +122,7 @@ export async function createFilesDocumentReferences(input: CreateFileDocReferenc
         const list = findExistingListByDocumentTypeCode(listResources, typeCode);
         if (!list?.id) {
           console.log(`default list for files with typeCode: ${typeCode} not found. Add typeCode to FOLDERS_CONFIG`);
+          // TODO: Create List with default config
         } else {
           const updatedFolderEntries = [...(list?.entry ?? []), ...newEntries];
           const patchListWithDocRefOperation: Operation =
