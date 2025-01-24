@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { vi } from 'vitest';
 import { PROJECT_API } from '../.env/local.json';
 
 export const patient: any = {
@@ -36,11 +37,15 @@ export const contact: any = {
 export const DEFAULT_TEST_TIMEOUT = 100000;
 describe('appointments validation tests', () => {
   let oystehr: Oystehr | null = null;
+
   const incompletePatientError =
     'These fields are required and may not be empty: "patient.firstName", "patient.lastName", "patient.sex", "patient.dateOfBirth", "patient.ethnicity", "patient.race", "patient.reasonForVisit"';
+
   const incompleteHealthcareContactsError =
     'These fields are required and may not be empty: "healthcareContacts.physicianFirstName", "healthcareContacts.physicianLastName", "healthcareContacts.physicianPhoneNumber", "healthcareContacts.pharmacyName ",  "healthcareContacts.pharmacyAddress"';
-  jest.setTimeout(DEFAULT_TEST_TIMEOUT);
+
+  vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });
+
   beforeAll(async () => {
     // token = await getAuth0Token({
     //   AUTH0_ENDPOINT: AUTH0_ENDPOINT,
