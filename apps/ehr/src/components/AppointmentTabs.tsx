@@ -113,7 +113,7 @@ export default function AppointmentTabs({
                 sx={{ textTransform: 'none', fontWeight: 700 }}
               />
               <Tab
-                label={`Completed${completedAppointments ? ` – ${completedAppointments?.length}` : ''}`}
+                label={`Discharged${completedAppointments ? ` – ${completedAppointments?.length}` : ''}`}
                 value={ApptTab.completed}
                 sx={{ textTransform: 'none', fontWeight: 700 }}
               />
