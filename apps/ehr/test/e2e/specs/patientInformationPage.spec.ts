@@ -1,14 +1,16 @@
 import { test } from '@playwright/test';
-import { ResourceHandler } from '../../e2e-utils/resource-handler';
+import {
+  PATIENT_FIRST_NAME,
+  PATIENT_GENDER,
+  PATIENT_LAST_NAME,
+  ResourceHandler,
+} from '../../e2e-utils/resource-handler';
 import { expectPatientInformationPage } from '../page/PatientInformationPage';
 
 const HEADER_PATIENT_BIRTHDAY = '01/01/2024 (12 mo)';
 const HEADER_PATIENT_GENDER = 'Male';
-const HEADER_PATIENT_NAME = 'Test_Doe, Test_John';
-const PATIENT_FIRSTNAME = 'Test_John';
-const PATIENT_LASTNAME = 'Test_Doe';
+const HEADER_PATIENT_NAME = PATIENT_LAST_NAME + ', ' + PATIENT_FIRST_NAME;
 const PATIENT_BIRTHDAY = '01/01/2024';
-const PATIENT_GENDER = 'male';
 
 const resourceHandler = new ResourceHandler();
 
@@ -36,8 +38,8 @@ test('Check header info', async ({ page }) => {
 
 test('Check patient info', async ({ page }) => {
   const patientInformationPage = await expectPatientInformationPage(page, resourceHandler.patient.id!);
-  await patientInformationPage.verifyPatientLastName(PATIENT_LASTNAME);
-  await patientInformationPage.verifyPatientFirstName(PATIENT_FIRSTNAME);
+  await patientInformationPage.verifyPatientLastName(PATIENT_LAST_NAME);
+  await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
   await patientInformationPage.verifyPatientDateOfBirth(PATIENT_BIRTHDAY);
   await patientInformationPage.verifyPatientBirthSex(PATIENT_GENDER);
 });
