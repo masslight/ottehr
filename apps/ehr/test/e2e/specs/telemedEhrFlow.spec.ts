@@ -225,21 +225,26 @@ test('Check appointment hpi fields are saved after editing', async ({ page }) =>
     .first()
     .fill(chiefComplaintRos);
 
+  await page.waitForTimeout(10000); // ensure resources are saved
   // RELOAD PAGE AND CHECK ALL FIELDS ARE SAVED
   await page.reload(DEFAULT_TIMEOUT);
 
   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsList)).toBeVisible(DEFAULT_TIMEOUT);
   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsList)).toHaveText(
-    medicalConditionsPattern
+    RegExp(medicalConditionsPattern)
   );
 
   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesList)).toBeVisible(DEFAULT_TIMEOUT);
-  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesList)).toHaveText(medicalConditionsPattern);
+  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesList)).toHaveText(
+    RegExp(knownAllergiePattern)
+  );
 
   // await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryList)).toBeVisible(DEFAULT_TIMEOUT);
   // await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryList)).toHaveText(surgicalHistoryPattern);
 
-  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryNote)).toHaveText(surgicalNote);
+  await expect(
+    page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryNote).locator('textarea').first()
+  ).toHaveText(surgicalNote);
 
   for (const question of ADDITIONAL_QUESTIONS) {
     await expect(
@@ -247,8 +252,12 @@ test('Check appointment hpi fields are saved after editing', async ({ page }) =>
     ).toBeChecked();
   }
 
-  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes)).toHaveText(chiefComplaintNotes);
-  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos)).toHaveText(chiefComplaintRos);
+  await expect(
+    page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes).locator('textarea').first()
+  ).toHaveText(chiefComplaintNotes);
+  await expect(
+    page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).locator('textarea').first()
+  ).toHaveText(chiefComplaintRos);
 });
 
 test('Check if connect to patient function is working', async ({ page }) => {
