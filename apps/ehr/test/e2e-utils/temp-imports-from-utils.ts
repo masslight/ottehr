@@ -1,11 +1,4 @@
 import { Location, Practitioner } from 'fhir/r4b';
-import {
-  AdditionalBooleanQuestion,
-  AdditionalBooleanQuestionsFieldsNames,
-  isLocationVirtual,
-  StateCode,
-  ValuePair,
-} from 'utils';
 import Oystehr from '@oystehr/sdk';
 
 export enum TelemedAppointmentStatusEnum {
@@ -21,6 +14,7 @@ export const PRACTITIONER_QUALIFICATION_CODE_SYSTEM = 'http://terminology.hl7.or
 export const PRACTITIONER_QUALIFICATION_EXTENSION_URL =
   'http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification';
 export const PRACTITIONER_QUALIFICATION_STATE_SYSTEM = 'http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state';
+export const PUBLIC_EXTENSION_BASE_URL = 'https://extensions.fhir.zapehr.com';
 
 export interface PractitionerLicense {
   state: string;
@@ -77,6 +71,17 @@ export async function getTelemedLocation(oystehr: Oystehr, state: string): Promi
   return resources.find((location) => isLocationVirtual(location));
 }
 
+export enum AdditionalBooleanQuestionsFieldsNames {
+  TestedPositiveCovid = 'tested-positive-covid',
+  TravelUsa = 'travel-usa',
+  CovidSymptoms = 'covid-symptoms',
+}
+
+export interface AdditionalBooleanQuestion {
+  label: string;
+  field: AdditionalBooleanQuestionsFieldsNames;
+}
+
 export const ADDITIONAL_QUESTIONS: AdditionalBooleanQuestion[] = [
   {
     label: 'Do you have any COVID symptoms?',
@@ -91,6 +96,13 @@ export const ADDITIONAL_QUESTIONS: AdditionalBooleanQuestion[] = [
     field: AdditionalBooleanQuestionsFieldsNames.TravelUsa,
   },
 ];
+
+export const isLocationVirtual = (location: Location): boolean => {
+  return Boolean(
+    location.extension?.find((ext) => ext.url === `${PUBLIC_EXTENSION_BASE_URL}/location-form-pre-release`)?.valueCoding
+      ?.code === 'vi'
+  );
+};
 
 export const AllStates: ValuePair[] = [
   { value: 'AL', label: 'AL' }, // Alabama
@@ -147,6 +159,8 @@ export const AllStates: ValuePair[] = [
   { value: 'WY', label: 'WY' }, // Wyoming
 ];
 
+export type StateCode = (typeof AllStates)[number]['value'];
+
 export const stateCodeToFullName: Readonly<Record<StateCode, string>> = {
   AL: 'Alabama',
   AK: 'Alaska',
@@ -201,3 +215,8 @@ export const stateCodeToFullName: Readonly<Record<StateCode, string>> = {
   WI: 'Wisconsin',
   WY: 'Wyoming',
 };
+
+export interface ValuePair {
+  value: string;
+  label: string;
+}

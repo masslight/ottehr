@@ -45,21 +45,20 @@ export const filterVirtualLocations = (resources: Resource[]): Location[] => {
 };
 
 export async function getTelemedLocation(oystehr: Oystehr, state: string): Promise<Location | undefined> {
-    const resources = (
-        await oystehr.fhir.search<Location>({
-            resourceType: 'Location',
-          params: [
-            {
-              name: 'address-state',
-              value: state,
-            },
-        ],
-      })
-    ).unbundle();
+  const resources = (
+    await oystehr.fhir.search<Location>({
+      resourceType: 'Location',
+      params: [
+        {
+          name: 'address-state',
+          value: state,
+        },
+      ],
+    })
+  ).unbundle();
 
-      return resources.find((location) => isLocationVirtual(location));
-  }
-
+  return resources.find((location) => isLocationVirtual(location));
+}
 
 export const defaultLocation: Location = {
   resourceType: 'Location',

@@ -15,10 +15,6 @@ test.afterAll(async () => {
   await resourceHandler.cleanupResources();
 });
 
-test.beforeEach(async ({ page }) => {
-  await page.waitForTimeout(2000); // ensure resources are ready
-});
-
 async function iterateThroughTable(tableLocator: Locator, callback: (row: Locator) => Promise<void>): Promise<void> {
   const rows = tableLocator.locator('tbody tr');
   const rowCount = await rows.count();

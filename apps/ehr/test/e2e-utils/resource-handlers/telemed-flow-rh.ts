@@ -223,7 +223,7 @@ export class TelemedFlowResourceHandler extends ResourceHandlerAbstract {
   }
 
   async fetchWithOystAuth(url: string, method: string, body?: any): Promise<Response | undefined> {
-    const oyst_proj_id = process.env.OYST_PROJECT_ID;
+    const oyst_proj_id = process.env.PROJECT_ID;
     if (!oyst_proj_id) throw new Error('secret OYST_PROJECT_ID is not set');
 
     console.log(`Project id: ${oyst_proj_id}, access token: ${this.accessToken}`);
