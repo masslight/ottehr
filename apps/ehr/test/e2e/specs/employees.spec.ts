@@ -7,6 +7,7 @@ import {
   TestEmployeeInviteParams,
 } from '../../e2e-utils/resource/employees';
 import { AVAILABLE_EMPLOYEE_ROLES, RoleType } from '../../e2e-utils/temp-imports-from-utils';
+import { PractitionerQualificationCode } from 'utils';
 
 // We may create new instances for the tests with mutable operations, and keep parralel tests isolated
 const resourceHandler = new ResourceHandler();
@@ -20,22 +21,21 @@ test.afterAll(async () => {
   await resourceHandler.deleteEmployees();
 });
 
-test.beforeEach(async ({ page }) => {
-  await page.waitForTimeout(2000); // ensure resources are ready
-});
-
 async function waitUntilEmployeeProviderTableLoaded(page: Page): Promise<void> {
-  await expect(page.getByTestId(dataTestIds.employeesPage.table)).toBeVisible({ timeout: 15000 });
-  await expect(page.getByTestId(dataTestIds.dashboard.loadingIndicator)).not.toBeVisible({ timeout: 15000 });
+  await expect(page.getByTestId(dataTestIds.employeesPage.table)).toBeVisible(DEFAULT_TIMEOUT);
+  await expect(page.getByTestId(dataTestIds.dashboard.loadingIndicator)).not.toBeVisible(DEFAULT_TIMEOUT);
 }
 
 async function goToTestEmployeePage(page: Page, employee: TestEmployee): Promise<void> {
-  await page.getByTestId(dataTestIds.employeesPage.searchByName).getByRole('textbox').fill(employee.givenName);
-  const tbody = page.locator('tbody');
-  const targetRow = tbody.locator(`tr:has-text("${employee.email}")`);
-  const link = targetRow.locator('a');
-  await link.click(DEFAULT_TIMEOUT);
+  await page.getByTestId(dataTestIds.employeesPage.searchByName).getByRole('textbox').fill(employee.familyName);
+  const targetLink = page.locator(`text=${employee.familyName}`);
+  await targetLink.click(DEFAULT_TIMEOUT);
   await expect(page.getByTestId(dataTestIds.employeesPage.informationForm)).toBeVisible(DEFAULT_TIMEOUT);
+}
+
+async function waitForSuccessSnackbar(page: Page): Promise<void> {
+  const snackbar = page.locator(`[data-key="${dataTestIds.employeesPage.snackbarSuccessKey}"]`);
+  await expect(snackbar).toBeVisible(DEFAULT_TIMEOUT);
 }
 
 async function checkEmployeeFields(page: Page, employee: TestEmployeeInviteParams): Promise<void> {
@@ -54,7 +54,7 @@ async function checkEmployeeFields(page: Page, employee: TestEmployeeInviteParam
 
   // CHECKING EMPLOYEE ROLES
   for (const emp_role of AVAILABLE_EMPLOYEE_ROLES) {
-    const roleCheckbox = page.getByTestId(dataTestIds.employeesPage.role(emp_role.value));
+    const roleCheckbox = page.getByTestId(dataTestIds.employeesPage.roleRow(emp_role.value));
     if (employee.roles.includes(emp_role.value)) {
       await expect(roleCheckbox.getByRole('checkbox')).toBeChecked();
     } else {
@@ -73,9 +73,12 @@ async function checkEmployeeFields(page: Page, employee: TestEmployeeInviteParam
 
   // CHECKING QUALIFICATION
   if (employee.qualification.length > 0) {
-    const tbody = page.locator('tbody');
-    const rows = tbody.locator('tr');
-    await expect(rows).toHaveText(employee.qualification.map((q) => new RegExp(q.code)));
+    for (const qualification of employee.qualification) {
+      const row = page.getByTestId(
+        dataTestIds.employeesPage.qualificationRow(qualification.code as PractitionerQualificationCode)
+      );
+      await expect(row).toBeVisible(DEFAULT_TIMEOUT);
+    }
   }
 }
 
@@ -93,7 +96,7 @@ async function updateEmployeesFields(page: Page, employee: TestEmployeeInvitePar
 
   // UPDATING EMPLOYEE ROLES
   for (const emp_role of AVAILABLE_EMPLOYEE_ROLES) {
-    const roleCheckbox = page.getByTestId(dataTestIds.employeesPage.role(emp_role.value));
+    const roleCheckbox = page.getByTestId(dataTestIds.employeesPage.roleRow(emp_role.value));
     if (employee.roles.includes(emp_role.value)) await roleCheckbox.getByRole('checkbox').check();
     else await roleCheckbox.getByRole('checkbox').uncheck();
   }
@@ -108,11 +111,13 @@ async function updateEmployeesFields(page: Page, employee: TestEmployeeInvitePar
   }
 
   // DELETING ALL QUALIFICATIONS BEFORE POPULATING
-  const rows = page.locator('table tbody tr');
-  const rowCount = await rows.count();
-  for (let i = 0; i < rowCount; i++) {
-    const deleteButton = rows.nth(0).getByRole('button');
-    await deleteButton.click(DEFAULT_TIMEOUT);
+  if (employee.qualification.length > 0) {
+    for (const qualification of employee.qualification) {
+      const rowDeleteButton = page
+        .getByTestId(dataTestIds.employeesPage.qualificationRow(qualification.code as PractitionerQualificationCode))
+        .getByTestId(dataTestIds.employeesPage.deleteQualificationButton);
+      await rowDeleteButton.click(DEFAULT_TIMEOUT);
+    }
   }
   // ADDING ALL QUALIFICATIONS IN EMPLOYEE OBJ
   await page.getByTestId(dataTestIds.employeesPage.addQualificationAccordion).click(DEFAULT_TIMEOUT);
@@ -145,16 +150,16 @@ test('CSS ehr Employees page is working', async ({ page }) => {
 test('CSS ehr Employees list is loading', async ({ page }) => {
   await page.goto(`employees`);
 
+  // WE GET ALL STATUS CHIPS FROM EMPLOYEES RECORDS, SO IF THERE ARE SOME WE HAVE EMPLOYEES
   await waitUntilEmployeeProviderTableLoaded(page);
-  const tbody = page.locator('tbody');
-  const rows = tbody.locator('tr');
+  const statusChips = page.getByTestId(dataTestIds.employeesPage.statusChip);
 
-  await expect(rows).not.toHaveCount(0);
+  await expect(statusChips).not.toHaveCount(0);
 });
 
 test('CSS ehr Providers tab on Employees page filters test', async ({ page }) => {
   await page.goto(`employees`);
-  await page.locator(`[data-testid="${dataTestIds.employeesPage.providersTabButton}"]`).click(DEFAULT_TIMEOUT);
+  await page.getByTestId(dataTestIds.employeesPage.providersTabButton).click(DEFAULT_TIMEOUT);
   await waitUntilEmployeeProviderTableLoaded(page);
 
   // WE SEARCHING FOR EMPLOYEES THAT CONTAINING 'ottehr-ehr-e2e' IN NAME
@@ -171,15 +176,9 @@ test('CSS ehr Providers tab on Employees page filters test', async ({ page }) =>
 
   // CHECKING IF WE ARE RECEIVING OUR TEST EMPLOYEES
   await waitUntilEmployeeProviderTableLoaded(page);
-  const rows = page.locator('tbody tr');
-  const count = await rows.count();
-  let allRowsText = '';
-  for (let i = 0; i < count; i++) {
-    const rowText = await rows.nth(i).innerText();
-    allRowsText += rowText;
-  }
-  expect(allRowsText.includes(resourceHandler.testEmployee1.givenName)).toBe(true);
-  expect(allRowsText.includes(resourceHandler.testEmployee2.givenName)).toBe(true);
+  const table = page.getByTestId(dataTestIds.employeesPage.table);
+  await expect(table.locator(`text=${resourceHandler.testEmployee1.givenName}`)).toBeVisible(DEFAULT_TIMEOUT);
+  await expect(table.locator(`text=${resourceHandler.testEmployee2.givenName}`)).toBeVisible(DEFAULT_TIMEOUT);
 });
 
 test('CSS ehr Employees editing user, and checking all fields are correct displayed', async ({ page }) => {
@@ -193,8 +192,7 @@ test('CSS ehr Employees editing user, and checking all fields are correct displa
   const submitButton = page.getByTestId(dataTestIds.employeesPage.submitButton);
   await submitButton.click(DEFAULT_TIMEOUT);
 
-  // WAIT FOR SNACKBAR TO BE VISIBLE
-  await expect(page.locator('div[id=notistack-snackbar]')).toBeVisible(DEFAULT_TIMEOUT);
+  await waitForSuccessSnackbar(page);
   await expect(submitButton).not.toBeDisabled(DEFAULT_TIMEOUT);
 
   // CHECKING IF ALL FIELDS WERE UPDATED
@@ -217,29 +215,17 @@ test('CSS ehr Employees editing user, and checking all fields are correct displa
 test('CSS ehr activate/deactivate employee test', async ({ page }) => {
   await page.goto(`employees`);
   await waitUntilEmployeeProviderTableLoaded(page);
-  await page
-    .getByTestId(dataTestIds.employeesPage.searchByName)
-    .getByRole('textbox')
-    .fill(resourceHandler.testEmployee2.givenName);
-  const tbody = page.locator('tbody');
-  const targetRow = tbody.locator(`tr:has-text("${resourceHandler.testEmployee2.email}")`);
-  const status = await targetRow.getByTestId(dataTestIds.employeesPage.statusChip).textContent();
 
-  if (status !== 'DEACTIVATED') {
-    await goToTestEmployeePage(page, resourceHandler.testEmployee2);
-    await expect(page.getByTestId(dataTestIds.employeesPage.deactivateUserButton)).toBeVisible(DEFAULT_TIMEOUT);
-    await page.getByTestId(dataTestIds.employeesPage.deactivateUserButton).click(DEFAULT_TIMEOUT);
-    // WAIT FOR SNACKBAR TO BE VISIBLE
-    await expect(page.locator('div[id=notistack-snackbar]')).toBeVisible(DEFAULT_TIMEOUT);
+  await goToTestEmployeePage(page, resourceHandler.testEmployee2);
+  const deactivateButton = page.getByTestId(dataTestIds.employeesPage.deactivateUserButton);
+  await expect(deactivateButton).toBeVisible(DEFAULT_TIMEOUT);
+  await deactivateButton.click(DEFAULT_TIMEOUT);
+  await waitForSuccessSnackbar(page);
 
-    await page.goto(`employees`);
-    await waitUntilEmployeeProviderTableLoaded(page);
-    await page
-      .getByTestId(dataTestIds.employeesPage.searchByName)
-      .getByRole('textbox')
-      .fill(resourceHandler.testEmployee2.givenName);
-    const tbody = page.locator('tbody');
-    const targetRow = tbody.locator(`tr:has-text("${resourceHandler.testEmployee2.email}")`);
-    await expect(targetRow.getByTestId(dataTestIds.employeesPage.statusChip)).toHaveText('DEACTIVATED');
-  }
+  await page.goto(`employees`);
+  await waitUntilEmployeeProviderTableLoaded(page);
+  await goToTestEmployeePage(page, resourceHandler.testEmployee2);
+  const table = page.getByTestId(dataTestIds.employeesPage.table);
+  const targetRow = table.locator(`tr:has-text("${resourceHandler.testEmployee2.email}")`);
+  await expect(targetRow.getByTestId(dataTestIds.employeesPage.statusChip)).toHaveText('DEACTIVATED');
 });

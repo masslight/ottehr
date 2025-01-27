@@ -1,4 +1,4 @@
-import { RoleType } from 'utils';
+import { PractitionerQualificationCode, RoleType } from 'utils';
 
 export const dataTestIds = {
   header: {
@@ -84,15 +84,20 @@ export const dataTestIds = {
     lastName: 'employee-last-name',
     email: 'employee-email',
     phone: 'employee-phone',
-    role: (employeeRole: RoleType): string => `employee-${employeeRole}-role`,
+    rolesSection: 'employee-roles-section',
+    roleRow: (employeeRole: RoleType): string => `employee-${employeeRole}-role`,
     providerDetailsCredentials: 'employees-provider-details-credentials',
     providerDetailsNPI: 'employees-provider-details-npi',
     submitButton: 'employees-form-submit-button',
+    qualificationsTable: 'employee-qualifications-table',
+    qualificationRow: (code: PractitionerQualificationCode): string => `employee-${code}-qualification`,
+    deleteQualificationButton: 'employee-delete-qualification-button',
     addQualificationAccordion: 'add-new-qualification-accordion',
     newQualificationStateDropdown: 'new-qualification-state-dropdown',
     newQualificationTypeDropdown: 'new-qualification-type-dropdown',
     addQualificationButton: 'add-qualification-button',
     deactivateUserButton: 'deactivate-user-button',
     statusChip: 'employee-status-chip',
+    snackbarSuccessKey: 'employee-success-submission-snackbar',
   },
 };

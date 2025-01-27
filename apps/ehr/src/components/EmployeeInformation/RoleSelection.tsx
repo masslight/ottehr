@@ -8,7 +8,7 @@ export function RoleSelection({ errors, isActive, getValues, setValue }: RoleSel
   const currentUser = useEvolveUser();
 
   return (
-    <FormControl sx={{ width: '100%' }} error={errors.roles}>
+    <FormControl sx={{ width: '100%' }} error={errors.roles} data-testid={dataTestIds.employeesPage.rolesSection}>
       <FormLabel sx={{ mb: 1, mt: 2, fontWeight: '600 !important' }}>Role</FormLabel>
       <FormLabel sx={{ fontWeight: 700, fontSize: '12px' }}>Select role *</FormLabel>
       <FormGroup>
@@ -20,7 +20,7 @@ export function RoleSelection({ errors, isActive, getValues, setValue }: RoleSel
               <FormControlLabel
                 value={roleEntry.value}
                 name="roles"
-                data-testid={dataTestIds.employeesPage.role(roleEntry.value)}
+                data-testid={dataTestIds.employeesPage.roleRow(roleEntry.value)}
                 checked={isChecked}
                 onChange={(e, checked) => {
                   const currentRoles = getValues('roles');

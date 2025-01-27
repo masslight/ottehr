@@ -49,7 +49,7 @@ export function ProviderQualifications({
       <FormLabel sx={{ mt: 3, fontWeight: '600 !important' }}>Provider Qualifications</FormLabel>
       <Box mt={1}>
         <TableContainer>
-          <Table>
+          <Table data-testid={dataTestIds.employeesPage.qualificationsTable}>
             <TableHead>
               <TableRow>
                 <TableCell>State</TableCell>
@@ -60,7 +60,7 @@ export function ProviderQualifications({
             </TableHead>
             <TableBody>
               {newLicenses.map((license, index) => (
-                <TableRow key={index}>
+                <TableRow key={index} data-testid={dataTestIds.employeesPage.qualificationRow(license.code)}>
                   <TableCell>{license.state}</TableCell>
                   <TableCell align="left">{license.code}</TableCell>
                   <TableCell align="center">
@@ -87,6 +87,7 @@ export function ProviderQualifications({
                         updatedLicenses.splice(index, 1);
                         setNewLicenses(updatedLicenses);
                       }}
+                      data-testid={dataTestIds.employeesPage.deleteQualificationButton}
                     >
                       <DeleteIcon />
                     </IconButton>
