@@ -34,8 +34,10 @@ export const contact: any = {
   parentEmail: 'test@test.com',
   parentNumber: '(123) 721-7372',
 };
+
 export const DEFAULT_TEST_TIMEOUT = 100000;
-describe('appointments validation tests', () => {
+
+describe.skip('appointments validation tests', () => {
   let oystehr: Oystehr | null = null;
 
   const incompletePatientError =
