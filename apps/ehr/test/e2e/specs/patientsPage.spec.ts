@@ -1,13 +1,6 @@
 import { test } from '@playwright/test';
-import {
-  PATIENT_FIRST_NAME,
-  PATIENT_GENDER,
-  PATIENT_LAST_NAME,
-  ResourceHandler,
-} from '../../e2e-utils/resource-handler';
-import { dataTestIds } from '../../../src/constants/data-test-ids';
+import { PATIENT_FIRST_NAME, PATIENT_LAST_NAME, ResourceHandler } from '../../e2e-utils/resource-handler';
 import { expectPatientsPage } from '../page/PatientsPage';
-import { ResourceHandler } from '../../e2e-utils/resource-handler';
 
 const resourceHandler = new ResourceHandler();
 
@@ -18,6 +11,23 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   await resourceHandler.cleanupResources();
 });
-test('Search by First name', async ({ page }) => {
+
+test.beforeEach(async ({ page }) => {
+  await page.waitForTimeout(2000);
+  await page.goto('/patients');
+});
+
+test('Search by Last name', async ({ page }) => {
   const patientsPage = await expectPatientsPage(page);
+  await patientsPage.searchByName(PATIENT_LAST_NAME);
+  await patientsPage.clickSearchButton();
+  await patientsPage.verifyPatientPresent(
+    resourceHandler.patient.id!,
+    PATIENT_FIRST_NAME,
+    PATIENT_LAST_NAME,
+    '01/01/2024',
+    'john.doe@example.com',
+    '+12144985555',
+    '-'
+  );
 });
