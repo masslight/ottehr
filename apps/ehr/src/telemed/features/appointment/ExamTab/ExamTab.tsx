@@ -1,6 +1,5 @@
 import React, { FC } from 'react';
 import { Box } from '@mui/material';
-import { VitalsCard } from './VitalsCard';
 import { GeneralCard } from './GeneralCard';
 import { HeadCard } from './HeadCard';
 import { EyesCard } from './EyesCard';
@@ -33,7 +32,7 @@ export const ExamTab: FC = () => {
         <ReadOnlyCard />
       ) : (
         <>
-          <VitalsCard />
+          {/*<VitalsCard />*/}
           <GeneralCard />
           <HeadCard />
           <EyesCard />

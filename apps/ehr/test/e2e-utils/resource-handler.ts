@@ -24,6 +24,13 @@ import {
   TEST_EMPLOYEE_2,
   TestEmployee,
 } from './resource/employees';
+import { randomUUID } from 'crypto';
+export const PATIENT_FIRST_NAME = 'Test_John';
+export const PATIENT_LAST_NAME = 'Test_Doe' + randomUUID();
+export const PATIENT_GENDER = 'male';
+export const PATIENT_BIRTHDAY = '2024-01-01';
+export const PATIENT_PHONE_NUMBER = '2144985555';
+export const PATIENT_EMAIL = 'john.doe@example.com';
 
 export class ResourceHandler {
   private apiClient!: Oystehr;
@@ -54,11 +61,20 @@ export class ResourceHandler {
       try {
         this.patient = (await this.apiClient.fhir.create(
           createPatient({
-            firstName: 'Test_John',
-            lastName: 'Test_Doe',
-            gender: 'male',
-            birthDate: '2024-01-01',
-            email: 'john.doe@example.com',
+            firstName: PATIENT_FIRST_NAME,
+            lastName: PATIENT_LAST_NAME,
+            gender: PATIENT_GENDER,
+            birthDate: PATIENT_BIRTHDAY,
+            telecom: [
+              {
+                system: 'email',
+                value: PATIENT_EMAIL,
+              },
+              {
+                system: 'phone',
+                value: '+1' + PATIENT_PHONE_NUMBER,
+              },
+            ],
             relationship: 'Parent/Guardian',
           }) as FhirResource
         )) as Patient;
@@ -208,34 +224,69 @@ export class ResourceHandler {
       console.log(`✅ patient deleted ${this.patient.id}`);
     }
 
-    if (this.appointment?.id) {
-      await this.apiClient.fhir.delete({ id: this.appointment.id, resourceType: 'Appointment' });
-      console.log(`✅ appointment deleted ${this.appointment.id}`);
-    }
+    if (this.patient?.id) {
+      await this.cleanupAppointments(this.patient.id);
+      console.log(`✅ appointments deleted`);
 
-    if (this.encounter?.id) {
-      await this.apiClient.fhir.delete({ id: this.encounter.id, resourceType: 'Encounter' });
-      console.log(`✅ encounter deleted ${this.encounter.id}`);
-    }
+      if (this.encounter?.id) {
+        await this.apiClient.fhir.delete({ id: this.encounter.id, resourceType: 'Encounter' });
+        console.log(`✅ encounter deleted ${this.encounter.id}`);
+      }
 
-    if (this.documentReference?.id) {
-      await this.apiClient.fhir.delete({ id: this.documentReference.id, resourceType: 'DocumentReference' });
-      console.log(`✅ document-reference deleted ${this.documentReference.id}`);
-    }
+      if (this.documentReference?.id) {
+        await this.apiClient.fhir.delete({ id: this.documentReference.id, resourceType: 'DocumentReference' });
+        console.log(`✅ document-reference deleted ${this.documentReference.id}`);
+      }
 
-    if (this.questionnaireResponse?.id) {
-      await this.apiClient.fhir.delete({ id: this.questionnaireResponse.id, resourceType: 'QuestionnaireResponse' });
-      console.log(`✅ questionnaire response deleted ${this.questionnaireResponse.id}`);
-    }
+      if (this.questionnaireResponse?.id) {
+        await this.apiClient.fhir.delete({ id: this.questionnaireResponse.id, resourceType: 'QuestionnaireResponse' });
+        console.log(`✅ questionnaire response deleted ${this.questionnaireResponse.id}`);
+      }
 
-    if (this.relatedPerson?.id) {
-      await this.apiClient.fhir.delete({ id: this.relatedPerson.id, resourceType: 'RelatedPerson' });
-      console.log(`✅ related person deleted ${this.relatedPerson.id}`);
-    }
+      if (this.relatedPerson?.id) {
+        await this.apiClient.fhir.delete({ id: this.relatedPerson.id, resourceType: 'RelatedPerson' });
+        console.log(`✅ related person deleted ${this.relatedPerson.id}`);
+      }
 
-    if (this.person?.id) {
-      await this.apiClient.fhir.delete({ id: this.person.id, resourceType: 'Person' });
-      console.log(`✅ person deleted ${this.person.id}`);
+      if (this.person?.id) {
+        await this.apiClient.fhir.delete({ id: this.person.id, resourceType: 'Person' });
+        console.log(`✅ person deleted ${this.person.id}`);
+      }
+    }
+  }
+
+  async cleanupNewPatientData(lastName: string): Promise<void> {
+    const patients = (
+      await this.apiClient.fhir.search({
+        resourceType: 'Patient',
+        params: [
+          {
+            name: 'name',
+            value: lastName,
+          },
+        ],
+      })
+    ).unbundle();
+    for (const patient of patients) {
+      await this.cleanupAppointments(patient.id!);
+      await this.apiClient.fhir.delete({ resourceType: patient.resourceType, id: patient.id! }).catch();
+    }
+  }
+
+  async cleanupAppointments(patientId: string): Promise<void> {
+    const appointments = (
+      await this.apiClient.fhir.search({
+        resourceType: 'Appointment',
+        params: [
+          {
+            name: 'actor',
+            value: 'Patient/' + patientId,
+          },
+        ],
+      })
+    ).unbundle();
+    for (const appointment of appointments) {
+      await this.apiClient.fhir.delete({ resourceType: appointment.resourceType, id: appointment.id! }).catch();
     }
   }
 }

@@ -16,6 +16,10 @@ export const dataTestIds = {
     loadingIndicator: 'loading-indicator',
     tableRowWrapper: (appointmentId: string) => `appointments-table-row-${appointmentId}`,
     tableRowStatus: (appointmentId: string) => `appointments-table-row-status-${appointmentId}`,
+    patientName: 'patient-name',
+    appointmentTime: 'appointment-time',
+    inOfficeTab: 'in-office-tab',
+    groupSelect: 'group-select',
   },
   appointmentPage: {
     patientFullName: 'patient-full-name',
@@ -69,6 +73,12 @@ export const dataTestIds = {
     patientsRace: 'patients-race',
     howDidYouHearAboutUs: 'how-did-you-hear-about-us',
     fullName: 'full-name',
+  },
+  slots: {
+    slot: 'slot',
+  },
+  dialog: {
+    closeButton: 'close-button',
   },
   statesPage: {
     statesSearch: 'states-search',
