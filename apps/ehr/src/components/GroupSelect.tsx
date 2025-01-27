@@ -1,6 +1,7 @@
 import { Autocomplete, TextField } from '@mui/material';
 import { ReactElement } from 'react';
 import { HealthcareService } from 'fhir/r4b';
+import { dataTestIds } from '../constants/data-test-ids';
 
 type CustomFormEventHandler = (event: React.FormEvent<HTMLFormElement>, value: any, field: string) => void;
 
@@ -20,6 +21,7 @@ export default function GroupSelect({ groups, healthcareServices, handleSubmit }
   return (
     <Autocomplete
       id="groups"
+      data-testid={dataTestIds.dashboard.groupSelect}
       value={groups.map((group) => ({
         value: group,
         label: healthcareServiceIDToName[group] == undefined ? 'Loading...' : healthcareServiceIDToName[group],

@@ -264,7 +264,7 @@ export const FOLDERS_CONFIG: ListConfig[] = [
   {
     title: 'consent-forms',
     display: 'Consent Forms',
-    documentTypeCode: [CONSENT_CODE, INSURANCE_CARD_CODE],
+    documentTypeCode: CONSENT_CODE,
   },
   {
     title: 'insurance-cards',
