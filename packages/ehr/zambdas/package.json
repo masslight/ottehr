@@ -30,7 +30,7 @@
     "import-locations:demo": "tsx scripts/import-locations.ts demo",
     "clear-tasks": "tsx scripts/clear-tasks.ts production",
     "stub-zambdas:prod": "tsx scripts/create-zambda-stubs.ts production",
-    "test": "vitest"
+    "test": "vitest --silent"
   },
   "engines": {
     "npm": ">=8.0.0",
