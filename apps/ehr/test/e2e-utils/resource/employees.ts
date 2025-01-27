@@ -18,7 +18,7 @@ export interface TestEmployeeInviteParams {
   email?: string;
   givenName: string;
   middleName: string;
-  familyName: string;
+  familyName?: string;
   telecomPhone: string;
   npi: string;
   credentials: string;
@@ -30,6 +30,7 @@ export interface TestEmployee extends TestEmployeeInviteParams {
   id: string;
   userName: string;
   email: string;
+  familyName: string;
   phoneNumber: string;
   authenticationMethod: string;
   profile: Practitioner;
@@ -49,11 +50,11 @@ export type UserResponse = {
 };
 
 const testEmployeeUsernamePattern = 'e2e-employee-';
+export const testEmployeeGivenNamePattern = 'employeeTestE2E'
 
 export const TEST_EMPLOYEE_1: TestEmployeeInviteParams = {
-  givenName: 'employeesTest1',
+  givenName: `${testEmployeeGivenNamePattern}1`,
   middleName: 'middle',
-  familyName: 'ottehr-ehr-e2e',
   telecomPhone: '0734324300',
   npi: '1111111111',
   credentials: 'credentials',
@@ -73,9 +74,8 @@ export const TEST_EMPLOYEE_1: TestEmployeeInviteParams = {
 };
 
 export const TEST_EMPLOYEE_1_UPDATED_INFO: TestEmployeeInviteParams = {
-  givenName: 'new employeesTest1',
+  givenName: `new ${testEmployeeGivenNamePattern}`,
   middleName: 'new middle',
-  familyName: 'new ottehr-ehr-e2e',
   telecomPhone: '0734324301',
   credentials: 'new credentials',
   npi: '2222222222',
@@ -100,9 +100,8 @@ export const TEST_EMPLOYEE_1_UPDATED_INFO: TestEmployeeInviteParams = {
 };
 
 export const TEST_EMPLOYEE_2: TestEmployeeInviteParams = {
-  givenName: 'employeesTest2',
+  givenName: `${testEmployeeGivenNamePattern}2`,
   middleName: 'middle2',
-  familyName: 'ottehr-ehr-e2e',
   telecomPhone: '0734324300',
   npi: '1111111111',
   credentials: 'credentials',
@@ -119,6 +118,7 @@ export const TEST_EMPLOYEE_2: TestEmployeeInviteParams = {
 export function invitationParamsForEmployee(employee: TestEmployeeInviteParams, roles: string[]): UserInviteParams {
   if (!process.env.EHR_APPLICATION_ID) throw new Error('EHR_APPLICATION_ID is not set');
   const uuid = randomUUID();
+  const uniqueLastName = randomUUID();
 
   return {
     username: employee.userName ?? `${testEmployeeUsernamePattern}${uuid}`,
@@ -136,7 +136,7 @@ export function invitationParamsForEmployee(employee: TestEmployeeInviteParams, 
       active: true,
       name: [
         {
-          family: employee.familyName,
+          family: employee.familyName ?? uniqueLastName,
           given: [employee.givenName, employee.middleName],
           suffix: [employee.credentials],
         },

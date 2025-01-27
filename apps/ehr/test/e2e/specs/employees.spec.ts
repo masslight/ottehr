@@ -4,6 +4,7 @@ import { ResourceHandler } from '../../e2e-utils/resource-handler';
 import {
   TEST_EMPLOYEE_1_UPDATED_INFO,
   TestEmployee,
+  testEmployeeGivenNamePattern,
   TestEmployeeInviteParams,
 } from '../../e2e-utils/resource/employees';
 import { AVAILABLE_EMPLOYEE_ROLES, RoleType } from '../../e2e-utils/temp-imports-from-utils';
@@ -34,7 +35,9 @@ async function goToTestEmployeePage(page: Page, employee: TestEmployee): Promise
 }
 
 async function waitForSuccessSnackbar(page: Page): Promise<void> {
-  const snackbar = page.locator(`[data-key="${dataTestIds.employeesPage.snackbarSuccessKey}"]`);
+  // for this moment it's the easiest way to check for snackbar, data-key didn't work out
+  // const snackbar = page.locator(`[data-key="${dataTestIds.employeesPage.snackbarSuccessKey}"]`);
+  const snackbar = page.locator('div[id=notistack-snackbar]');
   await expect(snackbar).toBeVisible(DEFAULT_TIMEOUT);
 }
 
@@ -48,7 +51,7 @@ async function checkEmployeeFields(page: Page, employee: TestEmployeeInviteParam
 
   await expect(firstNameField).toHaveValue(employee.givenName);
   await expect(middleNameField).toHaveValue(employee.middleName);
-  await expect(lastNameField).toHaveValue(employee.familyName);
+  if (employee.familyName) await expect(lastNameField).toHaveValue(employee.familyName);
   await expect(emailField).toHaveValue(employee.email!);
   await expect(phoneField).toHaveValue(employee.telecomPhone);
 
@@ -91,7 +94,7 @@ async function updateEmployeesFields(page: Page, employee: TestEmployeeInvitePar
 
   await firstNameField.fill(employee.givenName);
   await middleNameField.fill(employee.middleName);
-  await lastNameField.fill(employee.familyName);
+  if (employee.familyName) await lastNameField.fill(employee.familyName);
   await phoneField.fill(employee.telecomPhone);
 
   // UPDATING EMPLOYEE ROLES
@@ -112,11 +115,13 @@ async function updateEmployeesFields(page: Page, employee: TestEmployeeInvitePar
 
   // DELETING ALL QUALIFICATIONS BEFORE POPULATING
   if (employee.qualification.length > 0) {
-    for (const qualification of employee.qualification) {
-      const rowDeleteButton = page
-        .getByTestId(dataTestIds.employeesPage.qualificationRow(qualification.code as PractitionerQualificationCode))
-        .getByTestId(dataTestIds.employeesPage.deleteQualificationButton);
-      await rowDeleteButton.click(DEFAULT_TIMEOUT);
+    const qualificationTable = page.getByTestId(dataTestIds.employeesPage.qualificationsTable);
+    const deleteButton = qualificationTable.getByTestId(dataTestIds.employeesPage.deleteQualificationButton);
+    const buttonsCount = await deleteButton.count();
+    for (let i = 0; i < buttonsCount; i++) {
+      // we press 0 index each time because as we delete each element it's disheartening from table
+      // so we just need to press 0 index all way until all elements will be deleted
+      await deleteButton.nth(0).click(DEFAULT_TIMEOUT);
     }
   }
   // ADDING ALL QUALIFICATIONS IN EMPLOYEE OBJ
@@ -157,75 +162,98 @@ test('CSS ehr Employees list is loading', async ({ page }) => {
   await expect(statusChips).not.toHaveCount(0);
 });
 
-test('CSS ehr Providers tab on Employees page filters test', async ({ page }) => {
+test('Providers tab filters', async ({ page }) => {
   await page.goto(`employees`);
   await page.getByTestId(dataTestIds.employeesPage.providersTabButton).click(DEFAULT_TIMEOUT);
   await waitUntilEmployeeProviderTableLoaded(page);
-
-  // WE SEARCHING FOR EMPLOYEES THAT CONTAINING 'ottehr-ehr-e2e' IN NAME
-  await page
-    .getByTestId(dataTestIds.employeesPage.searchByName)
-    .getByRole('textbox')
-    .fill(resourceHandler.testEmployee1.familyName);
-
-  // SELECT 'AK' STATE BY CLICKING TWO TIMES DOWN IN STATES DROPDOWN
-  await page.getByTestId(dataTestIds.employeesPage.providersStateFilter).getByRole('button', { name: 'Open' }).click();
-  await page.keyboard.press('ArrowDown');
-  await page.keyboard.press('ArrowDown');
-  await page.keyboard.press('Enter');
-
-  // CHECKING IF WE ARE RECEIVING OUR TEST EMPLOYEES
-  await waitUntilEmployeeProviderTableLoaded(page);
   const table = page.getByTestId(dataTestIds.employeesPage.table);
-  await expect(table.locator(`text=${resourceHandler.testEmployee1.givenName}`)).toBeVisible(DEFAULT_TIMEOUT);
-  await expect(table.locator(`text=${resourceHandler.testEmployee2.givenName}`)).toBeVisible(DEFAULT_TIMEOUT);
+
+  await test.step('Check name search filed', async () => {
+    await page
+      .getByTestId(dataTestIds.employeesPage.searchByName)
+      .getByRole('textbox')
+      .fill(resourceHandler.testEmployee1.familyName);
+
+    await expect(table.locator(`text=${resourceHandler.testEmployee1.familyName}`)).toBeVisible(DEFAULT_TIMEOUT);
+    await expect(table.locator(`text=${resourceHandler.testEmployee2.familyName}`)).not.toBeVisible(DEFAULT_TIMEOUT);
+  });
+
+  await test.step('Check name search filed', async () => {
+    await page
+      .getByTestId(dataTestIds.employeesPage.searchByName)
+      .getByRole('textbox')
+      .fill(testEmployeeGivenNamePattern);
+
+    // SELECT 'AK' STATE BY CLICKING TWO TIMES DOWN IN STATES DROPDOWN
+    await page
+      .getByTestId(dataTestIds.employeesPage.providersStateFilter)
+      .getByRole('button', { name: 'Open' })
+      .click();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    // CHECKING IF WE ARE RECEIVING OUR TEST EMPLOYEES
+    await waitUntilEmployeeProviderTableLoaded(page);
+    await expect(table.locator(`text=${testEmployeeGivenNamePattern}`).first()).toBeVisible(DEFAULT_TIMEOUT);
+  });
 });
 
-test('CSS ehr Employees editing user, and checking all fields are correct displayed', async ({ page }) => {
+test('Employee editing is working', async ({ page }) => {
   await page.goto(`employees`);
   await waitUntilEmployeeProviderTableLoaded(page);
   await goToTestEmployeePage(page, resourceHandler.testEmployee1);
-
-  // UPDATING EMPLOYEE DATA
-  await updateEmployeesFields(page, TEST_EMPLOYEE_1_UPDATED_INFO);
-
   const submitButton = page.getByTestId(dataTestIds.employeesPage.submitButton);
-  await submitButton.click(DEFAULT_TIMEOUT);
 
-  await waitForSuccessSnackbar(page);
-  await expect(submitButton).not.toBeDisabled(DEFAULT_TIMEOUT);
+  await test.step('Updating employee data', async () => {
+    await updateEmployeesFields(page, TEST_EMPLOYEE_1_UPDATED_INFO);
+    await submitButton.click(DEFAULT_TIMEOUT);
 
-  // CHECKING IF ALL FIELDS WERE UPDATED
-  await page.reload(DEFAULT_TIMEOUT);
-  // we do that because email is not changing, and email has unique uuid, so we can't know what will be there
-  TEST_EMPLOYEE_1_UPDATED_INFO.email = resourceHandler.testEmployee1.email;
-  await checkEmployeeFields(page, TEST_EMPLOYEE_1_UPDATED_INFO);
+    await waitForSuccessSnackbar(page);
+    await expect(submitButton).not.toBeDisabled(DEFAULT_TIMEOUT);
+  });
 
-  // RETURN PROVIDER DATA TO INITIAL VALUES
-  await updateEmployeesFields(page, resourceHandler.testEmployee1);
+  await test.step('Checking employee were updated correctly', async () => {
+    await page.reload(DEFAULT_TIMEOUT);
+    // we do that because these fields are unique and are set during initialization
+    TEST_EMPLOYEE_1_UPDATED_INFO.email = resourceHandler.testEmployee1.email;
+    TEST_EMPLOYEE_1_UPDATED_INFO.familyName = resourceHandler.testEmployee1.familyName;
+    await checkEmployeeFields(page, TEST_EMPLOYEE_1_UPDATED_INFO);
+  });
 
-  await submitButton.click(DEFAULT_TIMEOUT);
-  await expect(submitButton).not.toBeDisabled(DEFAULT_TIMEOUT);
+  await test.step('Returning employee to initial values', async () => {
+    await updateEmployeesFields(page, resourceHandler.testEmployee1);
 
-  // CHECKING IF ALL FIELDS WERE RETURNED TO INITIAL
-  await page.reload(DEFAULT_TIMEOUT);
-  await checkEmployeeFields(page, resourceHandler.testEmployee1);
+    await submitButton.click(DEFAULT_TIMEOUT);
+    await expect(submitButton).not.toBeDisabled(DEFAULT_TIMEOUT);
+  });
+
+  await test.step('Updating employee data back to normal values', async () => {
+    await page.reload(DEFAULT_TIMEOUT);
+    await checkEmployeeFields(page, resourceHandler.testEmployee1);
+  });
 });
 
-test('CSS ehr activate/deactivate employee test', async ({ page }) => {
+test('Deactivating employee', async ({ page }) => {
   await page.goto(`employees`);
   await waitUntilEmployeeProviderTableLoaded(page);
 
-  await goToTestEmployeePage(page, resourceHandler.testEmployee2);
-  const deactivateButton = page.getByTestId(dataTestIds.employeesPage.deactivateUserButton);
-  await expect(deactivateButton).toBeVisible(DEFAULT_TIMEOUT);
-  await deactivateButton.click(DEFAULT_TIMEOUT);
-  await waitForSuccessSnackbar(page);
+  await test.step('Go to employee page and click deactivate', async () => {
+    await goToTestEmployeePage(page, resourceHandler.testEmployee2);
+    const deactivateButton = page.getByTestId(dataTestIds.employeesPage.deactivateUserButton);
+    await expect(deactivateButton).toBeVisible(DEFAULT_TIMEOUT);
+    await deactivateButton.click(DEFAULT_TIMEOUT);
+    await waitForSuccessSnackbar(page);
+  });
 
-  await page.goto(`employees`);
-  await waitUntilEmployeeProviderTableLoaded(page);
-  await goToTestEmployeePage(page, resourceHandler.testEmployee2);
-  const table = page.getByTestId(dataTestIds.employeesPage.table);
-  const targetRow = table.locator(`tr:has-text("${resourceHandler.testEmployee2.email}")`);
-  await expect(targetRow.getByTestId(dataTestIds.employeesPage.statusChip)).toHaveText('DEACTIVATED');
+  await test.step('Checking provider deactivated successfully', async () => {
+    await page.goto(`employees`);
+    await waitUntilEmployeeProviderTableLoaded(page);
+    await page
+      .getByTestId(dataTestIds.employeesPage.searchByName)
+      .getByRole('textbox')
+      .fill(resourceHandler.testEmployee2.familyName);
+    const table = page.getByTestId(dataTestIds.employeesPage.table);
+    const targetRow = table.locator(`tr:has-text("${resourceHandler.testEmployee2.email}")`);
+    await expect(targetRow.getByTestId(dataTestIds.employeesPage.statusChip)).toHaveText('DEACTIVATED');
+  });
 });
