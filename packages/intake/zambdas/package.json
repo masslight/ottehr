@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "start": "npm run start:local",
-    "start:local": "ENV=local npm run start-skeleton",
+    "start:local": "npm run setup-questionnaires local && ENV=local npm run start-skeleton",
     "start:dev": "ENV=dev npm run start-skeleton",
     "start:tests": "ENV=tests npm run start-skeleton",
     "start:dev2": "ENV=dev2 npm run start-skeleton",
