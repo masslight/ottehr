@@ -501,6 +501,7 @@ export default function AppointmentTableRow({
 
   return (
     <TableRow
+      id="appointments-table-row"
       data-testid={dataTestIds.dashboard.tableRowWrapper(appointment.id)}
       sx={{
         '&:last-child td, &:last-child th': { border: 0 },
@@ -568,7 +569,7 @@ export default function AppointmentTableRow({
                 )}
               </Typography>
               <Typography variant="body1">
-                <strong>{start}</strong>
+                <strong data-testid={dataTestIds.dashboard.appointmentTime}>{start}</strong>
               </Typography>
               {tab !== ApptTab.prebooked && <Box mt={1}>{getAppointmentStatusChip(appointment.status)}</Box>}
             </Box>
@@ -614,7 +615,7 @@ export default function AppointmentTableRow({
         onClick={isVisitPrebookedOrCancelledOrInWaitingRoom ? goToVisitDetails : goToCharts}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <Typography variant="subtitle2" sx={{ fontSize: '16px' }}>
+          <Typography variant="subtitle2" sx={{ fontSize: '16px' }} data-testid={dataTestIds.dashboard.patientName}>
             {patientName}
           </Typography>
           {appointment.needsDOBConfirmation ? (

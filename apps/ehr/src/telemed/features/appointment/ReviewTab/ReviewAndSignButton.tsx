@@ -57,17 +57,14 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   );
 
   const isLoading = isChangeLoading || isSignLoading || isPractitionerLoading;
+  const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
 
   const errorMessage = useMemo(() => {
     const messages = [];
 
-    if (css) {
-      if (appointment) {
-        const encounterStatus = getVisitStatus(appointment, encounter);
-
-        if (!['provider', 'ready for discharge'].includes(encounterStatus)) {
-          messages.push('The appointment must be in the status of provider or ready for discharge');
-        }
+    if (css && inPersonStatus) {
+      if (!['provider', 'ready for discharge'].includes(inPersonStatus)) {
+        messages.push('The appointment must be in the status of provider or ready for discharge');
       }
     } else {
       if (appointmentAccessibility.status !== TelemedAppointmentStatusEnum.unsigned) {
@@ -85,14 +82,13 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
 
     return messages;
   }, [
-    appointmentAccessibility.status,
+    css,
+    inPersonStatus,
     primaryDiagnosis,
     medicalDecision,
     emCode,
     patientInfoConfirmed,
-    css,
-    appointment,
-    encounter,
+    appointmentAccessibility.status,
   ]);
 
   const handleCloseTooltip = (): void => {
@@ -134,6 +130,11 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
 
     onSigned && onSigned();
   };
+
+  // TODO: remove after actualizing isAppointmentReadOnly logic
+  if (css && inPersonStatus === 'completed') {
+    return null;
+  }
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'end' }}>
