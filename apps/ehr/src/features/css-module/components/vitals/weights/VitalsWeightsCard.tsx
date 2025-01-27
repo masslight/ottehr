@@ -1,20 +1,17 @@
-import ErrorIcon from '@mui/icons-material/Error';
-import { Box, CircularProgress, Grid, InputAdornment, TextField, Typography, useTheme } from '@mui/material';
+import { Box, CircularProgress, Grid, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { JSX, useCallback, useMemo, useState } from 'react';
-import { VitalFieldNames, VitalsWeightObservationDTO, textToWeightNumber, kgToLb, weightPercentile } from 'utils';
+import { VitalFieldNames, VitalsWeightObservationDTO, textToWeightNumber, kgToLb } from 'utils';
 import { RoundedButton } from '../../../../../components/RoundedButton';
-import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
+import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
 import { useVitalsCardState } from '../hooks/useVitalsCardState';
-import { composeWeightVitalsHistoryEntries, PERCENTILE_THRESHOLD } from './helpers';
+import { composeWeightVitalsHistoryEntries } from './helpers';
 import VitalWeightHistoryElement from './VitalWeightHistoryElement';
 import { VitalWeightHistoryEntry } from './VitalWeightHistoryEntry';
 
 const VitalsWeightsCard: React.FC = (): JSX.Element => {
-  const appTheme = useTheme();
-
   const {
     isLoadingVitalsByEncounter,
     handleSaveVital,
@@ -43,12 +40,6 @@ const VitalsWeightsCard: React.FC = (): JSX.Element => {
     return kgToLb(weightKg);
   }, [weightValueText]);
 
-  const enteredWeightPercentile: number | undefined = useMemo(() => {
-    const weightKg = textToWeightNumber(weightValueText);
-    if (!weightKg) return;
-    return weightPercentile(weightKg);
-  }, [weightValueText]);
-
   const handleSaveWeightObservation = async (weightValueText: string): Promise<void> => {
     const weightValueNumber = textToWeightNumber(weightValueText);
     if (!weightValueNumber) return;
@@ -66,9 +57,6 @@ const VitalsWeightsCard: React.FC = (): JSX.Element => {
       setSavingCardData(false);
     }
   };
-
-  const isPercentileWarning = enteredWeightPercentile && enteredWeightPercentile > PERCENTILE_THRESHOLD;
-  const percentileColor = isPercentileWarning ? appTheme.palette.error.main : appTheme.palette.text.primary;
 
   return (
     <Box sx={{ mt: 3 }}>
@@ -94,7 +82,7 @@ const VitalsWeightsCard: React.FC = (): JSX.Element => {
               }}
             >
               {/* Weight Input Field column */}
-              <Grid item xs={12} sm={8} md={8} lg={8} order={{ xs: 1, sm: 1, md: 1 }}>
+              <Grid item xs={12} sm={6} md={6} lg={6} order={{ xs: 1, sm: 1, md: 1 }}>
                 <Box
                   sx={{
                     display: 'flex',
@@ -122,33 +110,6 @@ const VitalsWeightsCard: React.FC = (): JSX.Element => {
                     disabled
                     InputLabelProps={{ shrink: true }}
                     value={enteredWeightInLb ?? ''}
-                  />
-                  <Typography fontSize={25} sx={{ ml: 1 }}>
-                    /
-                  </Typography>
-
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Percentile"
-                    disabled
-                    sx={{
-                      '& .MuiInputBase-input.Mui-disabled': {
-                        color: 'red', // Desired color for disabled text
-                        fontWeight: 700,
-                      },
-                      '& fieldset': { border: 'none' },
-                      maxWidth: '110px',
-                    }}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start" sx={{ marginLeft: 1 }}>
-                          {isPercentileWarning && <ErrorIcon fontSize="small" sx={{ color: percentileColor, ml: 0 }} />}
-                        </InputAdornment>
-                      ),
-                    }}
-                    InputLabelProps={{ shrink: true }}
-                    value={enteredWeightPercentile ?? ''}
                   />
                 </Box>
               </Grid>
