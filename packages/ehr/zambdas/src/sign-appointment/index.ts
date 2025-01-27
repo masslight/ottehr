@@ -14,7 +14,7 @@ import {
   progressNoteChartDataRequestedFields,
   Secrets,
 } from 'utils';
-import { CandidApiClient } from 'candidhealth';
+import { CandidApiClient, CandidApiEnvironment } from 'candidhealth';
 
 import { validateRequestParameters } from './validateRequestParameters';
 import { getChartData } from '../get-chart-data';
@@ -194,6 +194,10 @@ const createCandidEncounter = async (
   const apiClient = new CandidApiClient({
     clientId: getSecret(SecretsKeys.CANDID_CLIENT_ID, secrets),
     clientSecret: getSecret(SecretsKeys.CANDID_CLIENT_SECRET, secrets),
+    environment:
+      getSecret(SecretsKeys.CANDID_ENV, secrets) === 'PROD'
+        ? CandidApiEnvironment.Production
+        : CandidApiEnvironment.Staging,
   });
   const createEncounterInput = await createCandidCreateEncounterInput(visitResources, oystehr);
   const request = candidCreateEncounterRequest(createEncounterInput);
