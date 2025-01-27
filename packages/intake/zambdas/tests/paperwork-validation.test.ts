@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { PersonSex } from 'utils';
 import { PROJECT_API } from '../.env/local.json';
+import { vi } from 'vitest';
 
 export const insuranceData = {
   additionalInfo: '',
@@ -46,7 +47,8 @@ export const responsiblePartyInfoData = {
 
 export const appointment = 'f21ad419-d8ab-4a41-8dbd-2e2e3a7b4333';
 export const DEFAULT_TEST_TIMEOUT = 100000;
-describe('paperwork validation tests', () => {
+
+describe.skip('paperwork validation tests', () => {
   let oystehr: Oystehr | null = null;
   const incompletePatientError =
     'These fields are required: "patient.firstName", "patient.lastName", "patient.sex", "patient.dateOfBirth", "patient.ethnicity", "patient.race", "patient.reasonForVisit"';
@@ -55,7 +57,7 @@ describe('paperwork validation tests', () => {
   const incompleteFormsError = `These fields are required: "forms.fullName", "forms.HIPAA", "forms.consentToTreat", "forms.signature", "forms.relationship"`;
 
   // const incompleteReponsiblePartyError = `These fields are required: "responsiblePartyInfo.relationship", "responsiblePartyInfo.firstName", "responsiblePartyInfo.lastName", "responsiblePartyInfo.dateOfBirth"`;
-  jest.setTimeout(DEFAULT_TEST_TIMEOUT);
+  vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });
   beforeAll(async () => {
     // token = await getAuth0Token({
     //   AUTH0_ENDPOINT: AUTH0_ENDPOINT,

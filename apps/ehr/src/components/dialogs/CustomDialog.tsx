@@ -12,6 +12,7 @@ import {
   Typography,
 } from '@mui/material';
 import { LoadingButton } from '@mui/lab';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 export interface CustomDialogProps {
   open: boolean;
@@ -107,6 +108,7 @@ export const CustomDialog: FC<CustomDialogProps> = ({
             borderRadius: '100px',
             textTransform: 'none',
           }}
+          data-testid={dataTestIds.dialog.closeButton}
         >
           {closeButtonText}
         </Button>
