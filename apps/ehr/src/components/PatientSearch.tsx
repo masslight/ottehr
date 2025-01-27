@@ -1,6 +1,7 @@
 import { Close, Search } from '@mui/icons-material';
 import { TextField, InputAdornment, IconButton } from '@mui/material';
 import { ChangeEvent, Dispatch, ReactElement, SetStateAction } from 'react';
+import { dataTestIds } from '../constants/data-test-ids';
 
 interface PatientSearchProps {
   nameFilter: string | null;
@@ -12,6 +13,7 @@ export default function PatientSearch({ nameFilter, setNameFilter, onClear }: Pa
   return (
     <TextField
       id="patient-name"
+      data-testid={dataTestIds.patients.searchNameField}
       label="Name"
       placeholder="Search patients by name (Last, First)"
       InputProps={{

@@ -81,4 +81,7 @@ export const dataTestIds = {
   statesPage: {
     statesSearch: 'states-search',
   },
+  patients: {
+    searchNameField: 'search-name-field',
+  }
 };
