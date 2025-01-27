@@ -44,7 +44,7 @@ jobs:
       # Checkout the main repository
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       # Set up Node.js environment
       - uses: actions/setup-node@v4
@@ -93,29 +93,15 @@ jobs:
           CI: true
           NODE_OPTIONS: '--max-old-space-size=8192'
 
-      - name: Set PR status
+      - uses: actions/github-script@v7
         if: always()
-        run: |
-          if [[ "${{ job.status }}" == "success" ]]; then
-            echo "Build successful - setting status"
-            gh api \
-              --method POST \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              /repos/${{ github.repository }}/statuses/${{ github.sha }} \
-              -f state="success" \
-              -f context="CI / Tests" \
-              -f description="Tests successful"
-          else
-            echo "Build failed - setting status"
-            gh api \
-              --method POST \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              /repos/${{ github.repository }}/statuses/${{ github.sha }} \
-              -f state="failure" \
-              -f context="CI / Tests" \
-              -f description="Tests failed"
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          script: |
+            const success = '${{ job.status }}' === 'success';
+            await github.rest.repos.createCommitStatus({
+              ...context.repo,
+              sha: context.sha,
+              state: success ? 'success' : 'failure',
+              context: 'CI / Tests',
+              description: success ? 'Tests successful' : 'Tests failed'
+            });
