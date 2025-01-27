@@ -35,23 +35,21 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      # Step 1: Install SSH client for accessing private repositories
       - name: Install SSH Client
         uses: webfactory/ssh-agent@v0.7.0
         with:
           ssh-private-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
 
-      # Step 2: Checkout the main repository
+      # Checkout the main repository
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # Step 3: Set up Node.js environment
+      # Set up Node.js environment
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # Step 4: Checkout the secrets repository
       - name: Check out secrets repo
         uses: actions/checkout@v4
         with:
@@ -59,7 +57,6 @@ jobs:
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
           path: 'secrets'
 
-      # Step 5: Set up environment secrets
       - name: Setup secrets
         run: |
           mkdir -p packages/ehr/zambdas/.env packages/intake/zambdas/.env
@@ -71,7 +68,6 @@ jobs:
           cp secrets/intake/app/.env.local apps/intake/env/
           cp secrets/intake/app/tests.*.json apps/intake/env/
 
-      # Step 6: Cache node_modules to speed up the build process
       - name: Cache node modules
         uses: actions/cache@v3
         with:
@@ -82,26 +78,18 @@ jobs:
             ${{ runner.os }}-build-
             ${{ runner.os }}-
 
-      # Step 7: Install dependencies using `npm ci`
       - name: Install dependencies
         run: npm ci
 
-      # Step 8: Run linting for the intake app
-      - name: Run intake linting
-        run: npm run intake:lint
+      - name: Run linting
+        run: npm run lint:eslint
 
-      # Step 9: Run linting for the EHR app
-      - name: Run EHR linting
-        run: npm run ehr:lint
-
-      # Step 10: Run unit tests
-      - name: Run tests
+      - name: Run unit tests
         run: npm run test
         env:
           CI: true
           NODE_OPTIONS: '--max-old-space-size=8192'
 
-      # Step 11: Set PR status based on the job result
       - name: Set PR status
         if: always()
         run: |

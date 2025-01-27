@@ -11,7 +11,6 @@ on:
       - 'packages/ehr/**'
       - 'packages/utils/**'
       - 'packages/ui-components/**'
-      - 'scripts/build-ehr.sh'
       - '.github/**'
       - '.prettierignore'
       - 'package.json'
