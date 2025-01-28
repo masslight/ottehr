@@ -22,7 +22,7 @@ const handleErrorResult = (errorResult: unknown): APIGatewayProxyResult => {
 export async function topLevelCatch(
   zambda: string,
   error: any,
-  secrets: Secrets | null,
+  secrets: Secrets | null
 ): Promise<APIGatewayProxyResult> {
   console.error(`Top level catch block in ${zambda}: \n ${error} \n Error stringified: ${JSON.stringify(error)}`);
   if (isApiError(error)) {
@@ -72,8 +72,8 @@ export const sendErrors = async (zambda: string, error: any, secrets: Secrets | 
     const sendResult = await sendgrid.send(emailConfiguration);
     console.log(
       `Details of successful sendgrid send: statusCode, ${sendResult[0].statusCode}. body, ${JSON.stringify(
-        sendResult[0].body,
-      )}`,
+        sendResult[0].body
+      )}`
     );
   } catch (error) {
     console.error(`Error sending email to ${email}: ${JSON.stringify(error)}`);
@@ -86,7 +86,9 @@ export const triggerSlackAlarm = async (message: string, secrets: Secrets | null
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   console.log('Sending error message to Slack');
   const url =
-    ENVIRONMENT === 'production' ? 'https://hooks.slack.com/services/todo' : 'https://hooks.slack.com/services/todo';
+    ENVIRONMENT === 'production'
+      ? 'https://hooks.slack.com/services/todo'
+      : 'https://hooks.slack.com/services/todo';
   await fetch(url, {
     method: 'POST',
     body: JSON.stringify({

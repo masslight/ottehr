@@ -108,8 +108,9 @@ export const AppointmentPage: FC = () => {
             .filter(Boolean) as string[]) || [],
       });
 
-      const relayPhone = getQuestionnaireResponseByLinkId('relay-phone', questionnaireResponse)?.answer.find(Boolean)
-        ?.valueString;
+      const relayPhone = getQuestionnaireResponseByLinkId('relay-phone', questionnaireResponse)?.answer.find(
+        Boolean,
+      )?.valueString;
       if (relayPhone?.toLowerCase() === 'yes') {
         setShouldHearingRelayPopupBeOpened(true);
       }

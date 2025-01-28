@@ -47,8 +47,8 @@ export const getAppointmentAccessibilityData = ({
     appointmentType === 'telemedicine'
       ? mapStatusToTelemed(encounter.status, appointment?.status)
       : appointment
-      ? getStatusFromExtension(appointment as Appointment)
-      : undefined;
+        ? getStatusFromExtension(appointment as Appointment)
+        : undefined;
 
   const isEncounterForPractitioner =
     !!user?.profileResource && checkIsEncounterForPractitioner(encounter, user.profileResource);

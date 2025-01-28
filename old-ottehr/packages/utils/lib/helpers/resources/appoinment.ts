@@ -5,7 +5,7 @@ import { DateTime } from 'luxon';
 
 export async function getAppointmentResourceById(
   appointmentID: string,
-  fhirClient: FhirClient,
+  fhirClient: FhirClient
 ): Promise<Appointment | undefined> {
   let response: Appointment | null = null;
   try {
@@ -23,6 +23,7 @@ export async function getAppointmentResourceById(
 
   return response;
 }
+
 
 const STATI = [
   'ARRIVED',

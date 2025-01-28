@@ -28,8 +28,8 @@ export function InvitedParticipantListItemButton({
         invitedParticipantsLoading
           ? t('general.loading')
           : invitedParticipants.length > 0
-          ? [invitedParticipants[0].firstName, invitedParticipants[0].lastName].join(' ')
-          : t('participants.noInvitedParticipants')
+            ? [invitedParticipants[0].firstName, invitedParticipants[0].lastName].join(' ')
+            : t('participants.noInvitedParticipants')
       }
       hideText={hideText}
       onClick={onClick}

@@ -159,13 +159,9 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
     }
     let returnTime;
     if (time === 'open') {
-      return `${(open % 12 === 0 ? 12 : open % 12).toString().padStart(2, '0')}:00 ${
-        open < 12 || open === 24 ? 'AM' : 'PM'
-      }`;
+      return `${(open % 12 === 0 ? 12 : open % 12).toString().padStart(2, '0')}:00 ${open < 12 || open === 24 ? 'AM' : 'PM'}`;
     } else {
-      return `${(close % 12 === 0 ? 12 : close % 12).toString().padStart(2, '0')}:00 ${
-        close < 12 || close == 24 ? 'AM' : 'PM'
-      }`;
+      return `${(close % 12 === 0 ? 12 : close % 12).toString().padStart(2, '0')}:00 ${close < 12 || close == 24 ? 'AM' : 'PM'}`;
     }
   };
 

@@ -160,9 +160,7 @@ async function getCode(
 ): Promise<string | undefined> {
   const basicAuthorization = btoa(`${text_username}:${text_password}`);
   const inboundSMS = await axios({
-    url: `https://rest.clicksend.com/v3/sms/history?date_from=${authenticationBegin
-      .minus({ seconds: 10 })
-      .toSeconds()}`,
+    url: `https://rest.clicksend.com/v3/sms/history?date_from=${authenticationBegin.minus({ seconds: 10 }).toSeconds()}`,
     method: 'get',
     headers: {
       Authorization: `Basic ${basicAuthorization}`,

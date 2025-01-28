@@ -44,7 +44,6 @@ To set up Ottehr locally and run tests, follow these steps:
    ```
 3. **Install Dependencies:**
    Navigate to the cloned repository and run:
-
    ```bash
    pnpm i
    ```
@@ -66,6 +65,7 @@ To get linting in VSCode:
 3. (Optional) Use the [VSCode workspace](./.vscode/Ottehr.code-workspace) for a helpful alternative organization of the project in the VSCode 'Explorer', which most developers find useful. This can be opened in 2 ways:
    1. Open [the file](./.vscode/Ottehr.code-workspace) in VS Code. Click on the "Open Workspace" button in the bottom-right.
    2. `code .vscode/Ottehr.code-workspace`
+
 
 ## Roadmap and Project Vision
 

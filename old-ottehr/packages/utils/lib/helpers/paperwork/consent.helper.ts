@@ -27,9 +27,9 @@ export async function checkAndCreateConsent(
     token: string,
     secrets: Secrets | null,
     ottehrModule: OTTEHR_MODULE,
-    timezone?: string,
+    timezone?: string
   ) => Promise<void>,
-  timezone?: string,
+  timezone?: string
 ): Promise<void> {
   console.log('Checking DocumentReferences for consent forms');
   const oldConsentResponse = {
@@ -38,7 +38,7 @@ export async function checkAndCreateConsent(
     fullName: questionnaireResponseResource?.item?.find((response) => response.linkId === 'full-name')?.answer?.[0]
       .valueString,
     relationship: questionnaireResponseResource?.item?.find(
-      (response) => response.linkId === 'consent-form-signer-relationship',
+      (response) => response.linkId === 'consent-form-signer-relationship'
     )?.answer?.[0].valueString,
   };
 
@@ -106,7 +106,7 @@ export async function checkAndCreateConsent(
       token,
       secrets,
       ottehrModule,
-      timezone,
+      timezone
     );
 
     // Update prior consent DocumentReferences statuses to superseded

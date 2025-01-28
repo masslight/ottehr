@@ -55,9 +55,9 @@ If you do not already have it, install Node.js v18.x.
 ### Fork & Clone
 
 Fork &mdash;
-Go to [https://github.com/masslight/ottehr/fork](https://github.com/masslight/ottehr/fork) and click 'Create fork' to fork the repository.
+   Go to [https://github.com/masslight/ottehr/fork](https://github.com/masslight/ottehr/fork) and click 'Create fork' to fork the repository.
 
-Clone &mdash; Copy and run the clone script for your fork.
+Clone  &mdash; Copy and run the clone script for your fork.
 
 ```bash
 git clone git@github.com:{your_profile}/ottehr.git

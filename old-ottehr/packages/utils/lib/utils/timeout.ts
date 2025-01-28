@@ -3,7 +3,7 @@ import { DateTime, Interval } from 'luxon';
 export async function makePromiseWithTimeout<T>(
   effect: Promise<T>,
   timeoutInMS: number,
-  promiseName?: string,
+  promiseName?: string
 ): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {

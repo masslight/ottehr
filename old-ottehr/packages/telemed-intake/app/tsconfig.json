@@ -5,7 +5,7 @@
     "baseUrl": ".",
     "paths": {
       "@theme/*": ["src/theme/ottehr/*"],
-      "@defaultTheme/*": ["src/theme/ottehr/*"]
-    }
+      "@defaultTheme/*": ["src/theme/ottehr/*"],
+    },
   }
 }

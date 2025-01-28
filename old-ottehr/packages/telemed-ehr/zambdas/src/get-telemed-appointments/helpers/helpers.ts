@@ -48,8 +48,8 @@ export const getAppointmentWaitingTime = (appointment: Appointment): number | un
 };
 
 export const getLocationIdFromAppointment = (appointment: Appointment): string | undefined => {
-  const locationParticipant = appointment.participant.find(
-    (appointment) => appointment.actor?.reference?.startsWith('Location/'),
+  const locationParticipant = appointment.participant.find((appointment) =>
+    appointment.actor?.reference?.startsWith('Location/'),
   );
   const locationID = locationParticipant?.actor?.reference || '';
   return removePrefix('Location/', locationID);

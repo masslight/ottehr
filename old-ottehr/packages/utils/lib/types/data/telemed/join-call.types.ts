@@ -1,4 +1,4 @@
-import { Secrets } from '../../../main';
+import { Secrets } from "../../../main";
 
 interface LambdaSecrets {
   secrets: Secrets | null;

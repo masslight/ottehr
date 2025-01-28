@@ -39,8 +39,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     if (!appointment) {
       throw new Error('Appointment is not found');
     }
-    const patient = appointment?.participant.find(
-      (participantTemp) => participantTemp.actor?.reference?.startsWith('Patient/'),
+    const patient = appointment?.participant.find((participantTemp) =>
+      participantTemp.actor?.reference?.startsWith('Patient/'),
     )?.actor?.reference;
     if (!patient) {
       throw new Error('Patient is not found');

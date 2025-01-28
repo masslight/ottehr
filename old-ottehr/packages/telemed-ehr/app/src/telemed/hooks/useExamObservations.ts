@@ -78,8 +78,8 @@ export function useExamObservations(param?: ExamFieldsNames | ExamCardsNames | (
       Array.isArray(param)
         ? arrayToObject(param)
         : Object.prototype.hasOwnProperty.call(param, 'field')
-        ? { [(param as ExamObservationDTO).field]: param }
-        : (param as ExamRecord),
+          ? { [(param as ExamObservationDTO).field]: param }
+          : (param as ExamRecord),
     );
 
     if (noFetch) {
@@ -91,8 +91,8 @@ export function useExamObservations(param?: ExamFieldsNames | ExamCardsNames | (
         examObservations: Array.isArray(param)
           ? param
           : Object.prototype.hasOwnProperty.call(param, 'field')
-          ? [param as ExamObservationDTO]
-          : objectToArray(param as ExamRecord),
+            ? [param as ExamObservationDTO]
+            : objectToArray(param as ExamRecord),
       },
       {
         onSuccess: (data) => {

@@ -4,7 +4,7 @@ import { Appointment, CodeableConcept } from 'fhir/r4';
 export async function cancelAppointmentResource(
   appointment: Appointment,
   cancellationReasonCoding: NonNullable<CodeableConcept['coding']>,
-  fhirClient: FhirClient,
+  fhirClient: FhirClient
 ): Promise<Appointment> {
   if (!appointment.id) {
     throw Error('Appointment resource missing id');

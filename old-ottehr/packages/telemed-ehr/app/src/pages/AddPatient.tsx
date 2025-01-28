@@ -157,9 +157,8 @@ export default function AddPatient(): JSX.Element {
           if (selectedPatientEmailUser !== 'Parent/Guardian') {
             selectedPatientEmail = selectedPatient.telecom?.find((telecom) => telecom.system === 'email')?.value;
           } else if (selectedPatientEmailUser === 'Parent/Guardian') {
-            const guardianContact = selectedPatient.contact?.find(
-              (contact) =>
-                contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
+            const guardianContact = selectedPatient.contact?.find((contact) =>
+              contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
             );
             selectedPatientEmail = guardianContact?.telecom?.find((telecom) => telecom.system === 'email')?.value;
           }
@@ -279,9 +278,8 @@ export default function AddPatient(): JSX.Element {
       ?.valueString as any;
     if (emailUser) {
       if (emailUser === 'Parent/Guardian') {
-        const guardianContact = patient.contact?.find(
-          (contact) =>
-            contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
+        const guardianContact = patient.contact?.find((contact) =>
+          contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
         );
         email = guardianContact?.telecom?.find((telecom) => telecom.system === 'email')?.value;
       } else {
@@ -405,8 +403,9 @@ export default function AddPatient(): JSX.Element {
                       <Box>
                         <RadioGroup onChange={(e) => handleSelectPatient(e)}>
                           {patients?.map((patient) => {
-                            const label = `${patient.name?.[0].family}, ${patient.name?.[0]
-                              .given} (DOB: ${DateTime.fromISO(patient?.birthDate || '').toFormat('MMMM dd, yyyy')})`;
+                            const label = `${patient.name?.[0].family}, ${
+                              patient.name?.[0].given
+                            } (DOB: ${DateTime.fromISO(patient?.birthDate || '').toFormat('MMMM dd, yyyy')})`;
                             return (
                               <FormControlLabel key={patient.id} value={patient.id} control={<Radio />} label={label} />
                             );

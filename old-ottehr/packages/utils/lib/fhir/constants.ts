@@ -13,7 +13,7 @@ export const FHIR_EXTENSION = {
     },
     visitHistory: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/visit-history`,
-    },
+    }
   },
   Encounter: {
     otherParticipants: {

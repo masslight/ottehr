@@ -48,8 +48,8 @@ export const removePrefix = (prefix: string, text: string): string | undefined =
 export const checkIsEncounterForPractitioner = (encounter: Encounter, practitioner: Practitioner): boolean => {
   const practitionerId = practitioner?.id;
 
-  const encounterPractitioner = encounter.participant?.find(
-    (item) => item.individual?.reference?.startsWith('Practitioner/'),
+  const encounterPractitioner = encounter.participant?.find((item) =>
+    item.individual?.reference?.startsWith('Practitioner/'),
   )?.individual?.reference;
   const encounterPractitionerId = encounterPractitioner && removePrefix('Practitioner/', encounterPractitioner);
 

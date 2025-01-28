@@ -14,9 +14,10 @@ export interface CreateFileDocReferenceInput extends Omit<CreateDocumentReferenc
 }
 
 export async function createFilesDocumentReference(
-  input: CreateFileDocReferenceInput,
+  input: CreateFileDocReferenceInput
 ): Promise<DocumentReference | null> {
-  const { files, type, dateCreated, referenceParam, fhirClient, ottehrModule, searchParams, generateUUID } = input;
+  const { files, type, dateCreated, referenceParam, fhirClient, ottehrModule, searchParams, generateUUID } =
+    input;
   try {
     console.log('searching for current document references');
     const docsResponse = fhirClient.searchResources<DocumentReference>({
@@ -36,8 +37,8 @@ export async function createFilesDocumentReference(
     if (docsJson.length > 0) {
       const oldDocsTitleUrlConcats = new Set(
         docsJson.flatMap((x) =>
-          x.content.map((content) => `${content.attachment.title || ''},${content.attachment.url || ''}`),
-        ),
+          x.content.map((content) => `${content.attachment.title || ''},${content.attachment.url || ''}`)
+        )
       );
       const newDocsTitleUrlConcats = new Set(files.map((x) => `${x.title || ''},${x.url || ''}`));
 
