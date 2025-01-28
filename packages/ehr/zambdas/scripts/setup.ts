@@ -6,6 +6,7 @@ import fetch from 'node-fetch';
 import path from 'path';
 import { ScheduleStrategyCoding, TIMEZONE_EXTENSION_URL } from 'utils';
 import { inviteUser } from './invite-user';
+import { promisify } from 'node:util';
 
 async function createApplication(
   projectApiUrl: string,
@@ -353,39 +354,34 @@ export async function setupEHR(
 
   await createZ3(projectApiUrl, projectId, accessToken, bucketNames);
 
-  console.log('Starting to update insurances and payer orgs');
-  exec(
-    'cd packages/ehr/zambdas && npm run update-insurances-and-payer-orgs local',
-    (error: Error | null, stdout: string, stderr: string) => {
-      if (error) {
-        console.log(`Error occurred while executing command: ${error.message}`);
-        return;
+  const execPromise = promisify(exec);
+  (async () => {
+    try {
+      console.log('Starting to update insurances and payer orgs...');
+      const { stdout: stdout1, stderr: stderr1 } = await execPromise(
+        `cd packages/ehr/zambdas && npm run update-insurances-and-payer-orgs ${environment}`
+      );
+      if (stderr1) {
+        console.log(`Command executed with warnings: ${stderr1}`);
+      } else {
+        console.log(`stdout: ${stdout1}`);
+        console.log('Update of insurances and payer orgs completed successfully.');
       }
-      if (stderr) {
-        console.log(`Command executed with warnings: ${stderr}`);
-        return;
-      }
-      console.log(`stdout: ${stdout}`);
-      console.log('Update of insurances and payer orgs completed successfully.');
-    }
-  );
 
-  console.log('Starting to update in-house medications list');
-  exec(
-    'cd packages/ehr/zambdas && npm run create-update-in-house-medications-list local',
-    (error: Error | null, stdout: string, stderr: string) => {
-      if (error) {
-        console.log(`Error occurred while executing command: ${error.message}`);
-        return;
+      console.log('Starting to update in-house medications list...');
+      const { stdout: stdout2, stderr: stderr2 } = await execPromise(
+        `cd packages/ehr/zambdas && npm run create-update-in-house-medications-list ${environment}`
+      );
+      if (stderr2) {
+        console.log(`Command executed with warnings: ${stderr2}`);
+      } else {
+        console.log(`stdout: ${stdout2}`);
+        console.log('Update of in-house medications list completed successfully.');
       }
-      if (stderr) {
-        console.log(`Command executed with warnings: ${stderr}`);
-        return;
-      }
-      console.log(`stdout: ${stdout}`);
-      console.log('Update of in-house medications list completed successfully.');
+    } catch (error: any) {
+      console.log(`Error occurred while executing command: ${error.message}`);
     }
-  );
+  })();
 
   if (invitationUrl1) {
     console.log(
