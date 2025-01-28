@@ -4,7 +4,7 @@ import { createOystehrClient } from '../src/shared/helpers';
 import { Questionnaire } from 'fhir/r4b';
 import { BatchInputPostRequest, BatchInputDeleteRequest } from '@oystehr/sdk';
 
-const writeQuestionnaires = async (envConfig: any, isLocal: boolean): Promise<void> => {
+const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> => {
   const token = await getAccessToken(envConfig);
 
   if (!token) {
@@ -68,11 +68,10 @@ const writeQuestionnaires = async (envConfig: any, isLocal: boolean): Promise<vo
       }
     });
 
-    if (isLocal) {
-      const newLocalEnv = { ...envConfig, ...newSecrets };
-      const envString = JSON.stringify(newLocalEnv, null, 2);
-      fs.writeFileSync('.env/local.json', envString);
-    }
+    const newLocalEnv = { ...envConfig, ...newSecrets };
+    const envString = JSON.stringify(newLocalEnv, null, 2);
+    fs.writeFileSync(`.env/${env}.json`, envString);
+  
     for await (const entry of Object.entries(newSecrets)) {
       const [key, value] = entry;
       if (typeof value !== 'string') {
@@ -96,7 +95,7 @@ const main = async (): Promise<void> => {
   const env = process.argv[2];
 
   const envConfig = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
-  await writeQuestionnaires(envConfig, env === 'local');
+  await writeQuestionnaires(envConfig, env);
 };
 
 main().catch((error) => {
