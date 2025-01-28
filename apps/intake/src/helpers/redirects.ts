@@ -38,7 +38,13 @@ export function getStartingPath(
     slug = possiblyLocation.slug || '';
   }
 
-  if (visitType === VisitType.PreBook && possiblyLocation?.scheduleType) {
+  if (visitType === VisitType.PreBook && possiblyLocation?.scheduleType && serviceType === ServiceMode.virtual) {
+    return `/prebook/virtual?bookingOn=${slug}&scheduleType=${possiblyLocation?.scheduleType}${
+      selectedSlot ? `&slot=${selectedSlot}` : ''
+    }`;
+  }
+
+  if (visitType === VisitType.PreBook && possiblyLocation?.scheduleType && serviceType !== ServiceMode.virtual) {
     return `/prebook/in-person?bookingOn=${slug}&scheduleType=${possiblyLocation?.scheduleType}${
       selectedSlot ? `&slot=${selectedSlot}` : ''
     }`;

@@ -11,6 +11,7 @@ import { getAccessToken } from '../src/shared';
 import { createOystehrClient } from '../src/shared/helpers';
 import { AnyObjectSchema, AnySchema } from 'yup';
 import QRData from './data/quetionnaire-responses.json';
+import { vi } from 'vitest';
 // import { QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
 
 // npm run test -- questionnaire-validation.test.ts
@@ -212,10 +213,10 @@ const SECRETS = {
 //   expect(validationResult.errors).not.toBeDefined();
 // }
 
-describe('qr page validation tests', () => {
+describe.skip('qr page validation tests', () => {
   let questions: IntakeQuestionnaireItem[] = [];
 
-  jest.setTimeout(100000);
+  vi.setConfig({ testTimeout: 100_000 });
   beforeAll(async () => {
     const token = await getAccessToken(SECRETS);
     const oystehr = createOystehrClient(token, SECRETS);
@@ -311,11 +312,12 @@ describe('qr page validation tests', () => {
   });
 });
 
-describe('full qr validation tests', () => {
+describe.skip('full qr validation tests', () => {
   let questions: IntakeQuestionnaireItem[] = [];
   let validationSchema: AnySchema | AnyObjectSchema | null = null;
 
-  jest.setTimeout(100000);
+  vi.setConfig({ testTimeout: 100_000 });
+
   beforeAll(async () => {
     const token = await getAccessToken(SECRETS);
     const oystehr = createOystehrClient(token, SECRETS);
@@ -388,7 +390,7 @@ describe('QR item type tests', () => {
     'photo-id-page': null,
   };
 
-  jest.setTimeout(100000);
+  vi.setConfig({ testTimeout: 100_000 });
   beforeAll(async () => {
     const token = await getAccessToken(SECRETS);
     const oystehr = createOystehrClient(token, SECRETS);

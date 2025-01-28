@@ -27,6 +27,7 @@ import {
 } from './test-data';
 import { filterAppointmentsFromResources } from '../helpers/fhir-resources-filters';
 import { mapEncounterStatusHistory } from 'utils';
+import { vi } from 'vitest';
 
 describe('Test "get-telemed-appointments" endpoint', () => {
   describe('Test "filterAppointmentsFromResources" function', () => {
@@ -89,7 +90,7 @@ describe('Test "get-telemed-appointments" endpoint', () => {
     };
     const oystehr = new Oystehr(CLIENT_CONFIG);
 
-    oystehr.user.me = jest.fn(() => {
+    oystehr.user.me = vi.fn(() => {
       return new Promise<User>((resolve) => {
         resolve({
           id: '',
@@ -104,12 +105,14 @@ describe('Test "get-telemed-appointments" endpoint', () => {
         });
       });
     });
-    oystehr.fhir.get = jest.fn(() => {
+
+    oystehr.fhir.get = vi.fn(() => {
       return new Promise((resolve) => {
         resolve(myPractitioner as any);
       });
     });
-    oystehr.fhir.search = jest.fn(() => {
+
+    oystehr.fhir.search = vi.fn(() => {
       return new Promise((resolve) => {
         resolve(allLocations as any);
       });

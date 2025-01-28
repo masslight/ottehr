@@ -1,5 +1,6 @@
 import { Button, Grid, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
+import { dataTestIds } from '../constants/data-test-ids';
 
 interface SlotsProps {
   slots: string[];
@@ -36,6 +37,7 @@ export function Slots({ slots, timezone, selectedSlot, setSelectedSlot }: SlotsP
               variant={isSelected ? 'contained' : 'outlined'}
               color="primary"
               onClick={() => setSelectedSlot(slot)}
+              data-testid={dataTestIds.slots.slot}
             >
               {startDateTimezoneAdjusted.toFormat('h:mm a')}
             </Button>
