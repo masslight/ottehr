@@ -39,10 +39,8 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
       },
     },
   };
-  console.log('1');
   const pdfClient = await createPdfClient(pdfClientStyles);
 
-  console.log('2');
   const RobotoFont = await pdfClient.embedFont(fs.readFileSync('./Roboto-Regular.otf'));
   const RobotoFontBold = await pdfClient.embedFont(fs.readFileSync('./Roboto-Bold.otf'));
   const tiemposFontRegular = await pdfClient.embedFont(fs.readFileSync('./TiemposHeadline-Regular.otf'));
@@ -50,7 +48,6 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   const redDot = await pdfClient.embedImage(fs.readFileSync('./red-dot.png'));
   const greenDot = await pdfClient.embedImage(fs.readFileSync('./green-dot.png'));
 
-  console.log('3');
   const textStyles: Record<string, TextStyle> = {
     header: {
       fontSize: 20,
@@ -168,35 +165,28 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     pdfClient.drawText(text, styles);
   };
 
-  console.log('5');
   const drawFieldLine = (fieldName: string, fieldValue: string): void => {
     pdfClient.drawText(fieldName, textStyles.fieldHeader);
     pdfClient.drawText(fieldValue, textStyles.fieldText);
   };
 
-  console.log('6');
   const separateLine = (): void => {
     pdfClient.drawSeparatedLine(separatedLineStyle);
   };
 
-  console.log('7');
   const regularText = (text?: string, alternativeText?: string): void => {
     if (text) pdfClient.drawText(text, textStyles.regularText);
     else if (alternativeText) pdfClient.drawText(alternativeText, textStyles.alternativeRegularText);
   };
 
-  console.log('8');
   const drawExaminationCard = (
     cardHeader: string,
     cardContent?: (ExamObservationFieldItem | InPersonExamObservationFieldItem)[],
     extraItems?: string[],
     cardComment?: string
   ): void => {
-    console.log('9');
     if ((cardContent && cardContent.length > 0) || cardComment) {
-      console.log('10');
       pdfClient.drawTextSequential(cardHeader, textStyles.examCardHeader);
-      console.log('11');
       if (cardContent && cardContent.length > 0) {
         const headerDims = pdfClient.getTextDimensions(cardHeader, textStyles.examCardHeader);
         pdfClient.setLeftBound(pdfClient.getLeftBound() + headerDims.width);
@@ -215,9 +205,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
         });
         pdfClient.setLeftBound(pdfClient.getLeftBound() - headerDims.width);
       }
-      console.log('12');
       if (extraItems || [].length > 0) {
-        console.log('13');
         pdfClient.newLine(
           pdfClient.getTextDimensions('A', textStyles.examRegularField).height + textStyles.examRegularField.spacing
         );
@@ -229,9 +217,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     }
   };
 
-  console.log('14');
   const drawExamProviderComment = (comment?: string): void => {
-    console.log('17');
     if (!comment) {
       pdfClient.setY(pdfClient.getY() - 16);
       return;
@@ -241,20 +227,15 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     pdfClient.drawText(comment, textStyles.examProviderComment);
   };
 
-  console.log('15');
   const drawExtraItems = (extraItems?: string[]): void => {
-    console.log('16');
     if (!extraItems) return;
     extraItems.forEach((item, index) => {
       pdfClient.drawText(item, textStyles.regularText);
-      console.log('18');
       if (index + 1 < extraItems.length) pdfClient.drawSeparatedLine(examExtraItemsSeparatedLineStyle);
     });
   };
 
-  console.log('20');
   const drawExaminationYesNoItems = (cardHeader: string, cardContent: ExamObservationFieldItem[]): void => {
-    console.log('19');
     pdfClient.drawTextSequential(cardHeader, textStyles.examCardHeader);
     const headerDims = pdfClient.getTextDimensions(cardHeader, textStyles.examCardHeader);
     pdfClient.setLeftBound(pdfClient.getLeftBound() + headerDims.width);
@@ -274,7 +255,6 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
 
   // This is headline of each line
   const drawHeadline = (): void => {
-    console.log('21');
     const imgStyles: ImageStyle = {
       width: 110,
       height: 28,
@@ -284,7 +264,6 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   };
   // We can't set this headline in initial styles, so we gonna draw it and add
   // it as headline for all next pages to set automatically
-  console.log('22');
   drawHeadline();
   const pageStylesWithHeadline: PageStyles = {
     ...pdfClientStyles.initialPage,
@@ -294,7 +273,6 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
 
   // --- add all sections to PDF ---
   // ===============================
-  console.log('23');
   drawBlockHeader('Patient information');
   drawFieldLine('Patient name', data.patientName);
   drawFieldLine('Date of birth', data.patientDOB);
@@ -324,10 +302,8 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   separateLine();
 
   if (data.chiefComplaint || data.providerTimeSpan) {
-    console.log('24');
     drawBlockHeader('Chief complaint & History of Present Illness');
     if (data.chiefComplaint && data.chiefComplaint.length > 0) {
-      console.log('25');
       regularText(data.chiefComplaint);
     }
     if (data.providerTimeSpan) {
@@ -339,17 +315,13 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     separateLine();
   }
 
-  console.log('26');
   if (data.reviewOfSystems) {
-    console.log('27');
     drawBlockHeader('Review of Systems');
     regularText(data.reviewOfSystems);
     separateLine();
   }
 
-  console.log('28');
   if (data.medications && data.medications.length > 0) {
-    console.log('29');
     drawBlockHeader('Medications');
     data.medications?.forEach((medication) => {
       pdfClient.drawText(medication, textStyles.regularText);
@@ -357,9 +329,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     separateLine();
   }
 
-  console.log('30');
   if (data.allergies && data.allergies.length > 0) {
-    console.log('31');
     drawBlockHeader('Allergies');
     data.allergies?.forEach((allergy) => {
       pdfClient.drawText(allergy, textStyles.regularText);
@@ -367,9 +337,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     separateLine();
   }
 
-  console.log('32');
   if (data.medicalConditions && data.medicalConditions.length > 0) {
-    console.log('33');
     drawBlockHeader('Medical Conditions');
     data.medicalConditions.forEach((medicalCondition) => {
       pdfClient.drawText(medicalCondition, textStyles.regularText);
@@ -377,9 +345,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     separateLine();
   }
 
-  console.log('34');
   if (data.surgicalHistory && data.surgicalHistory.length > 0) {
-    console.log('35');
     drawBlockHeader('Surgical history');
     data.surgicalHistory.forEach((record) => {
       regularText(record);
@@ -387,9 +353,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     separateLine();
   }
 
-  console.log('36');
   if (data.hospitalization && data.hospitalization.length > 0) {
-    console.log('37');
     drawBlockHeader('Hospitalization');
     data.hospitalization.forEach((record) => {
       regularText(record);
@@ -397,7 +361,6 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     separateLine();
   }
 
-  console.log('38');
   if (
     Object.values(data.additionalQuestions).some((value) => value !== '') ||
     data.screening?.seenInLastThreeYears ||
@@ -444,9 +407,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
       regularText(`ASQ - ${data.screening.currentASQ}`);
     }
 
-    console.log('39');
     if (data.screening?.notes && data.screening.notes.length > 0) {
-      console.log('40');
       drawBlockHeader('Screening notes', textStyles.blockSubHeader);
       data.screening.notes.forEach((record) => {
         regularText(record);
@@ -455,9 +416,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     separateLine();
   }
 
-  console.log('73');
   if (data.vitals && (Object.values(data.vitals).filter((arr) => arr && arr.length > 0) ?? []).length > 0) {
-    console.log('41');
     drawBlockHeader('Vitals');
 
     const vitalLabelMapper: { [value in VitalFieldNames]: string } & { notes: string } = {
@@ -472,7 +431,6 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
       notes: 'Vitals notes',
     };
 
-    console.log('42');
     Object.keys(vitalLabelMapper)
       .filter((name) => data.vitals?.[name as VitalFieldNames] && data.vitals?.[name as VitalFieldNames]!.length > 0)
       .forEach((vitalName) => {
@@ -485,7 +443,6 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     separateLine();
   }
 
-  console.log('43');
   drawBlockHeader('Examination');
 
   if (isInPersonAppointment) {
@@ -569,9 +526,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     separateLine();
   }
 
-  console.log('44');
   if (data.cptCodes && data.cptCodes.length > 0) {
-    console.log('45');
     drawBlockHeader('CPT codes');
     data.cptCodes.forEach((cptCode) => {
       regularText(cptCode);
@@ -579,9 +534,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     separateLine();
   }
 
-  console.log('46');
   if (data.prescriptions && data.prescriptions.length > 0) {
-    console.log('47');
     drawBlockHeader('Prescriptions');
     data.prescriptions.forEach((prescription) => {
       regularText(prescription);
@@ -593,7 +546,6 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   // regularText('To be implemented');
   // separateLine();
 
-  console.log('48');
   if (
     data.disposition.text ||
     data.disposition?.[NOTHING_TO_EAT_OR_DRINK_FIELD] ||
@@ -633,9 +585,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
       separateLine();
     }
 
-    console.log('49');
     if (data.subSpecialtyFollowUp && data.subSpecialtyFollowUp.length > 0) {
-      console.log('50');
       drawBlockHeader('Subspecialty follow-up', textStyles.blockSubHeader);
       data.subSpecialtyFollowUp.forEach((followUp) => {
         regularText(followUp);
@@ -643,9 +593,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
       separateLine();
     }
 
-    console.log('51');
     if (data.workSchoolExcuse && data.workSchoolExcuse.length > 0) {
-      console.log('52');
       drawBlockHeader('Work / School Excuse', textStyles.blockSubHeader);
       data.workSchoolExcuse.forEach((item) => {
         regularText(item);
