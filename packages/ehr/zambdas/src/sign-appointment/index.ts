@@ -29,6 +29,8 @@ import { candidCreateEncounterRequest, CreateEncounterInput } from '../shared/ca
 import { Condition, FhirResource, Procedure, Reference } from 'fhir/r4b';
 import { chartDataResourceHasMetaTagByCode } from '../shared/chart-data/chart-data-helpers';
 
+const CREATE_CANDID_ENCOUNTER = false;
+
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
 let candidApiClient: CandidApiClient;
@@ -121,7 +123,7 @@ const changeStatus = async (
   oystehrCurrentUser: Oystehr,
   resourcesToUpdate: VideoResourcesAppointmentPackage,
   status: VisitStatusLabel,
-  candidEncounterId: string
+  candidEncounterId: string | undefined
 ): Promise<void> => {
   if (!resourcesToUpdate.appointment || !resourcesToUpdate.appointment.id) {
     throw new Error('Appointment is not defined');
@@ -155,7 +157,10 @@ const changeStatus = async (
       path: '/status',
       value: encounterStatus,
     },
-    {
+  ];
+
+  if (candidEncounterId != null) {
+    encounterPatchOps.push({
       op: 'add',
       path: '/identifier',
       value: [
@@ -164,8 +169,8 @@ const changeStatus = async (
           value: candidEncounterId,
         },
       ],
-    },
-  ];
+    });
+  }
 
   const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(
     resourcesToUpdate.encounter,
@@ -193,7 +198,10 @@ const createCandidEncounter = async (
   visitResources: VideoResourcesAppointmentPackage,
   oystehr: Oystehr,
   secrets: Secrets | null
-): Promise<string> => {
+): Promise<string | undefined> => {
+  if (!CREATE_CANDID_ENCOUNTER) {
+    return undefined;
+  }
   const createEncounterInput = await createCandidCreateEncounterInput(visitResources, oystehr);
   const request = candidCreateEncounterRequest(createEncounterInput);
   console.log('Candid request:' + JSON.stringify(request, null, 2));
