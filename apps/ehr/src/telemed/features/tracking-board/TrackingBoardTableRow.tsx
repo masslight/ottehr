@@ -296,7 +296,7 @@ export const TrackingBoardTableRowSkeleton: FC<{
     <>
       {!isState && (
         <TableRow>
-          <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={7 + +showProvider}>
+          <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={8 + +showProvider}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Skeleton>
                 <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
@@ -327,6 +327,11 @@ export const TrackingBoardTableRowSkeleton: FC<{
           <TableCell sx={{ verticalAlign: 'top' }}>
             <Skeleton width="100%">
               <Typography>time</Typography>
+            </Skeleton>
+          </TableCell>
+          <TableCell sx={{ verticalAlign: 'top' }}>
+            <Skeleton width="100%">
+              <Typography>Group</Typography>
             </Skeleton>
           </TableCell>
           <TableCell sx={{ verticalAlign: 'top' }}>
