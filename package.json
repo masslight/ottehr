@@ -5,7 +5,7 @@
   "scripts": {
     "version": "npm version $npm_package_version --workspaces && git add **/package.json",
     "lint": "npm run lint:eslint && npm run lint:prettier",
-    "lint:eslint": "turbo lint",
+    "lint:eslint": "turbo lint",  
     "lint:prettier": "prettier --check .",
     "lint:fix": "npm run lint:eslint -- -- --fix & npm run lint:prettier -- --write",
     "intake:start": "turbo start --filter=intake-ui --filter=intake-zambdas",
@@ -22,7 +22,8 @@
     "ehr:build": "turbo build --filter=ehr-ui --filter=ehr-zambdas",
     "ehr:lint": "turbo lint --filter=ehr-ui... --filter=ehr-zambdas...",
     "ehr:start:ui": "turbo start --filter=ehr-ui",
-    "apps:start": "turbo start --filter=intake-ui --filter=intake-zambdas --filter=ehr-ui --filter=ehr-zambdas"
+    "apps:start": "turbo start --filter=intake-ui --filter=intake-zambdas --filter=ehr-ui --filter=ehr-zambdas",
+    "test": "turbo test"
   },
   "workspaces": [
     "packages/**/*",
