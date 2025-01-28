@@ -13,10 +13,10 @@ import Loading from '../components/Loading';
 import GroupSchedule from '../components/schedule/GroupSchedule';
 import { Operation } from 'fast-json-patch';
 import { getTimezone } from '../helpers/formatDateTime';
+import { SLUG_SYSTEM } from 'utils';
 
 const START_SCHEDULE =
   '{"schedule":{"monday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"tuesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"wednesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"thursday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"friday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"saturday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"sunday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]}},"scheduleOverrides":{}}';
-const IDENTIFIER_SLUG = 'https://fhir.ottehr.com/r4/slug';
 export const TIMEZONE_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/timezone';
 const TIMEZONES = ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles'];
 
@@ -72,7 +72,7 @@ export default function SchedulePage(): ReactElement {
         id: id,
       })) as any;
       setItem(itemTemp);
-      const slugTemp = itemTemp?.identifier?.find((identifierTemp) => identifierTemp.system === IDENTIFIER_SLUG);
+      const slugTemp = itemTemp?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM);
       setSlug(slugTemp?.value);
       setTimezone(getTimezone(itemTemp));
       setIsItemActive(isActive(itemTemp));
@@ -189,10 +189,10 @@ export default function SchedulePage(): ReactElement {
     // make a copy of identifier
     let identifiersTemp: Identifier[] | undefined = [...identifiers];
     const hasIdentifiers = identifiersTemp.length > 0;
-    const hasSlug = item?.identifier?.find((identifierTemp) => identifierTemp.system === IDENTIFIER_SLUG);
+    const hasSlug = item?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM);
     const removingSlug = !slug || slug === '';
     const updatedSlugIdentifier: Identifier = {
-      system: IDENTIFIER_SLUG,
+      system: SLUG_SYSTEM,
       value: slug,
     };
 
@@ -202,9 +202,7 @@ export default function SchedulePage(): ReactElement {
       slugChanged = false;
     } else if (removingSlug && hasSlug) {
       console.log('Removing slug from identifiers');
-      const identifiersUpdated = item?.identifier?.filter(
-        (identifierTemp) => identifierTemp.system !== IDENTIFIER_SLUG
-      );
+      const identifiersUpdated = item?.identifier?.filter((identifierTemp) => identifierTemp.system !== SLUG_SYSTEM);
       identifiersTemp = identifiersUpdated;
     } else if (!hasIdentifiers) {
       console.log('No identifiers, adding one');
@@ -214,9 +212,7 @@ export default function SchedulePage(): ReactElement {
       identifiersTemp.push(updatedSlugIdentifier);
     } else if (hasIdentifiers && hasSlug) {
       console.log('Has identifiers with a slug, replacing one');
-      const identifierIndex = item?.identifier?.findIndex(
-        (identifierTemp) => identifierTemp.system === IDENTIFIER_SLUG
-      );
+      const identifierIndex = item?.identifier?.findIndex((identifierTemp) => identifierTemp.system === SLUG_SYSTEM);
 
       if (identifierIndex !== undefined && identifiers) {
         identifiersTemp[identifierIndex] = updatedSlugIdentifier;

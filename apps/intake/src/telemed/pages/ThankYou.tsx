@@ -3,10 +3,14 @@ import { Button, Divider, Grid, Typography } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { otherColors } from '../../IntakeThemeProvider';
 import { CustomContainer } from '../features/common';
+import { PROJECT_NAME } from '../../helpers';
 
 const ThankYou = (): JSX.Element => {
   return (
-    <CustomContainer title="Thank you for choosing Ottehr" description="We look forward to helping you soon!">
+    <CustomContainer
+      title={`Thank you for choosing ${PROJECT_NAME}`}
+      description="We look forward to helping you soon!"
+    >
       <>
         <Divider />
         <Grid container alignItems="center" marginTop={2} marginBottom={2}>

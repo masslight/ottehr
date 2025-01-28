@@ -239,7 +239,7 @@
       "label": "Número de teléfono"
     },
     "primaryAddress": "'s dirección principal",
-    "receiveMessages": "¡Sí! Me gustaría recibir mensajes útiles de Ottehr sobre la educación del paciente y los eventos, así como información general sobre los consultorios. La frecuencia de los mensajes varía y pueden aplicarse tarifas por datos.",
+    "receiveMessages": "¡Sí! Me gustaría recibir mensajes útiles de {PROJECT_NAME} sobre la educación del paciente y los eventos, así como información general sobre los consultorios. La frecuencia de los mensajes varía y pueden aplicarse tarifas por datos.",
     "select": "Seleccionar…",
     "state": "Estado",
     "streetAddress": "Dirección",
@@ -256,18 +256,18 @@
       "title": "Su consulta ha sido cancelada"
     },
     "confirmed": {
-      "subject": "Confirmación de su consulta en Ottehr",
+      "subject": "Confirmación de su consulta en {PROJECT_NAME}",
       "cancel": "Cancelar",
       "modify": "Modificar",
       "paperworkButton": "Completar la documentación",
       "paperworkTitle": "Complete la siguiente documentación antes de su horario de registro. Si no está completa, se le pedirá que lo haga en el centro.",
-      "subtitle": "¡Gracias por elegir Ottehr!",
+      "subtitle": "¡Gracias por elegir {PROJECT_NAME}!",
       "subtitle2": "Esperamos poder ayudarle pronto.",
       "title": "Está confirmado."
     },
     "sincerely": "Atentamente",
-    "team": "Equipo de Ottehr",
-    "thankYou": "Gracias nuevamente por elegir Ottehr. Esperamos asociarnos con usted y su familia.",
+    "team": "Equipo de {PROJECT_NAME}",
+    "thankYou": "Gracias nuevamente por elegir {PROJECT_NAME}. Esperamos asociarnos con usted y su familia.",
     "inPerson": "Administrador de atención de urgencia",
     "visitDetails": "Detalles de la consulta: "
   },
@@ -363,7 +363,7 @@
         "title": "Lo sentimos, el horario seleccionado ya no está disponible."
       },
       "notFound": {
-        "description": "No se encontró la página a la que navegó. Para encontrar una ubicación de Ottehr,",
+        "description": "No se encontró la página a la que navegó. Para encontrar una ubicación de {PROJECT_NAME},",
         "link": "visite nuestro sitio web",
         "title": "No se encontró"
       },
@@ -380,7 +380,7 @@
   "newUser": {
     "body": "Nos complace ofrecer esta nueva tecnología para acceder a la atención. Deberá ingresar su información nuevamente solo una vez. Cuando regrese la próxima vez, todo estará aquí para usted.",
     "ok": "ACEPTAR",
-    "title": "¡Gracias por elegir Ottehr!"
+    "title": "¡Gracias por elegir {PROJECT_NAME}!"
   },
   "pageFormsErrors": {
     "characterLimit1": "La información no puede tener más de",
@@ -428,7 +428,7 @@
       "notFound": "No se encontró la cita",
       "wrongDob": {
         "wrongDob1": "Puede volver a intentarlo o iniciar sesión en la cuenta asociada con este paciente.",
-        "wrongDob2": "Acérquese a la recepción o comuníquese con Ottehr al",
+        "wrongDob2": "Acérquese a la recepción o comuníquese con {PROJECT_NAME} al",
         "wrongDob3": "para obtener asistencia."
       }
     },
@@ -495,7 +495,7 @@
     "Please provide the best mobile phone number for your family.": "Proporcione el mejor número de teléfono móvil de su familia.",
     "Phone number": "Número de teléfono",
     "s primary address": "'s dirección principal",
-    "Yes! I would like to receive helpful messages from Ottehr regarding patient education, events, and general information about our offices. Message frequency varies, and data rates may apply.": "¡Sí! Me gustaría recibir mensajes útiles de Ottehr sobre la educación del paciente y los eventos, así como información general sobre los consultorios. La frecuencia de los mensajes varía y pueden aplicarse tarifas por datos.",
+    "Yes! I would like to receive helpful messages from {PROJECT_NAME} regarding patient education, events, and general information about our offices. Message frequency varies, and data rates may apply.": "¡Sí! Me gustaría recibir mensajes útiles de {PROJECT_NAME} sobre la educación del paciente y los eventos, así como información general sobre los consultorios. La frecuencia de los mensajes varía y pueden aplicarse tarifas por datos.",
     "Select...": "Seleccionar…",
     "State": "Estado",
     "Street address": "Dirección",
@@ -773,8 +773,8 @@
       "title": "Lo sentimos, el horario seleccionado ya no está disponible."
     },
     "officeClosed": {
-      "today": "¡Lo sentimos! Debido a circunstancias imprevistas, este consultorio permanecerá cerrado hoy. Revise nuestra conveniente opción de telemedicina para conectarse con un experto en Ottehr desde la comodidad de su hogar O haga clic en el botón \"mañana\" (tomorrow) para ver las franjas horarias disponibles para mañana.",
-      "todayOrTomorrow": "¡Lo sentimos! Este consultorio no tiene ningún horario de reserva previo disponible para hoy ni mañana, pero tenemos todo lo que necesita. Revise nuestra conveniente opción de telemedicina para conectarse con un experto en Ottehr desde la comodidad del hogar."
+      "today": "¡Lo sentimos! Debido a circunstancias imprevistas, este consultorio permanecerá cerrado hoy. Revise nuestra conveniente opción de telemedicina para conectarse con un experto en {PROJECT_NAME} desde la comodidad de su hogar O haga clic en el botón \"mañana\" (tomorrow) para ver las franjas horarias disponibles para mañana.",
+      "todayOrTomorrow": "¡Lo sentimos! Este consultorio no tiene ningún horario de reserva previo disponible para hoy ni mañana, pero tenemos todo lo que necesita. Revise nuestra conveniente opción de telemedicina para conectarse con un experto en {PROJECT_NAME} desde la comodidad del hogar."
     },
     "selectAnother": "Seleccionar otro horario",
     "selectATime": "Seleccionar una hora",
@@ -787,13 +787,13 @@
   },
   "textComms": {
     "confirmation": "Está confirmado.",
-    "thanks": "¡Gracias por elegir Ottehr! Su hora de registro para",
+    "thanks": "¡Gracias por elegir {PROJECT_NAME}! Su hora de registro para",
     "at": "en",
     "isOn": "es el día",
     "newTech": "Nuestra nueva tecnología requiere que los pacientes nuevos Y los recurrentes completen los formularios y se aseguren de que los registros estén actualizados. Hágalo con anticipación para ahorrar tiempo en el registro.",
     "completePaperwork": "Para completar la documentación o modificar/cancelar su registro, visite:",
     "canceled1": "Su consulta para",
-    "canceled2": "con Ottehr",
+    "canceled2": "con {PROJECT_NAME}",
     "canceled3": "ha sido cancelada. Toque",
     "canceled4": "para reservar una nueva consulta.",
     "checkedIn1": "¡Le damos la bienvenida y le agradecemos por registrarse! Nuestro equipo de atención hará todo lo posible para ayudar",
@@ -802,8 +802,8 @@
     "checkIn2": "en",
     "byVisiting": "ES - by visiting",
     "checkIn3": ". Acérquese a la recepción y escanee el código QR para registrarse. ¡Nos vemos pronto!",
-    "readyStatus": "Configure (o confirme) el acceso a su portal para pacientes de Ottehr para que pueda ver los resultados de las pruebas y la información del alta: https://ottehr.com",
-    "verificationCode": "Su código de verificación de admisión a Ottehr es el siguiente: "
+    "readyStatus": "Configure (o confirme) el acceso a su portal para pacientes de {PROJECT_NAME} para que pueda ver los resultados de las pruebas y la información del alta: {PROJECT_WEBSITE}",
+    "verificationCode": "Su código de verificación de admisión a {PROJECT_NAME} es el siguiente: "
   },
   "thanks": {
     "body1": "Su hora de registro está reservada para la siguiente fecha:",
@@ -823,7 +823,7 @@
     "registerAnother": "Registrar a otro paciente",
     "subtitle": "Esperamos poder ayudarle pronto.",
     "survey": "Encuesta de 1 minuto",
-    "title": "¡Gracias por elegir Ottehr!"
+    "title": "¡Gracias por elegir {PROJECT_NAME}!"
   },
   "waitingEstimate": {
     "description": "Se ESTIMA que el tiempo de espera será de ",
@@ -850,12 +850,12 @@
         "title": "Considere visitar otro consultorio o realizar una consulta de telemedicina"
       },
       "notFound": {
-        "description": "No se encontró la página a la que navegó. Para encontrar una ubicación de Ottehr,",
+        "description": "No se encontró la página a la que navegó. Para encontrar una ubicación de {PROJECT_NAME},",
         "link": "visite nuestro sitio web",
         "title": "No se encontró"
       }
     },
-    "goToWebsite": "Visite el sitio web de Ottehr",
+    "goToWebsite": "Visite el sitio web de {PROJECT_NAME}",
     "loading": "Cargando…",
     "officeOpen": {
       "description": "¿No encuentra la opción que desea? Todo saldrá bien. Las visitas sin cita previa son bienvenidas. Siempre priorizamos las lesiones y enfermedades graves.",
@@ -867,8 +867,8 @@
     },
     "subtitleBranded": "Esperamos poder ayudarle pronto.",
     "title": "Seleccione el horario de registro",
-    "titleClosed": "Este consultorio de Ottehr está cerrado ahora",
-    "titleBranded": "Le damos la bienvenida a Ottehr"
+    "titleClosed": "Este consultorio de {PROJECT_NAME} está cerrado ahora",
+    "titleBranded": "Le damos la bienvenida a {PROJECT_NAME}"
   },
   "welcomeBack": {
     "alreadyReserved": "¿Ya reservó un horario de registro?",

@@ -793,7 +793,7 @@
     "checkIn2": "en",
     "byVisiting": "ES - by visiting",
     "checkIn3": ". Acérquese a la recepción y escanee el código QR para registrarse. ¡Nos vemos pronto!",
-    "readyStatus": "Configure (o confirme) el acceso a su portal para pacientes de {PROJECT_NAME} para que pueda ver los resultados de las pruebas y la información del alta: https://{PROJECT_NAME}.com/patient-portal",
+    "readyStatus": "Configure (o confirme) el acceso a su portal para pacientes de {PROJECT_NAME} para que pueda ver los resultados de las pruebas y la información del alta: {PROJECT_WEBSITE}/patient-portal",
     "verificationCode": "Su código de verificación de admisión a IP {PROJECT_NAME} es el siguiente: "
   },
   "thanks": {

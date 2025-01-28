@@ -802,7 +802,7 @@
     "isOn": "is on",
     "byVisiting": "by visiting",
     "newTech": "Our new technology requires both new AND returning patients to complete forms/ensure records are current. Please do so in advance to save time at check-in.",
-    "readyStatus": "Please set up access to your patient portal so you can view test results and discharge information: https://{PROJECT_NAME}.com/patient-portal",
+    "readyStatus": "Please set up access to your patient portal so you can view test results and discharge information: {PROJECT_WEBSITE}/patient-portal",
     "thanks": "Thanks for choosing {PROJECT_NAME}! Your check-in time for",
     "verificationCode": "Your {PROJECT_NAME} In Person verification code is: "
   },
