@@ -19,6 +19,11 @@ if (!isCI) {
         envsToCopy: ['tests.local.json', 'tests.demo.json'],
       },
       {
+        localEnvFolder: './playwright/',
+        repoEnvFolder: './ottehr-secrets/intake/app/',
+        envsToCopy: ['user.json'],
+      },
+      {
         localEnvFolder: '../../packages/intake/zambdas/.env',
         repoEnvFolder: './ottehr-secrets/zambdas/',
         envsToCopy: ['demo.json', 'local.json'],
