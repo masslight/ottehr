@@ -20,6 +20,8 @@ else
 fi
 
 cd packages/intake/zambdas
+
+ENV=$environment npm run setup-questionnaires $environment
 ENV=$environment npm run deploy-zambdas $environment
 ENV=$environment npm run setup-zapehr-secrets $environment
 

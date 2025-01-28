@@ -329,58 +329,6 @@ const createOrganization = async (fhirClient: FhirClient): Promise<Organization>
   return await fhirClient.fhir.create(organization);
 };
 
-const createQuestionnaires = async (fhirClient: FhirClient): Promise<void> => {
-  // for each questionnaire in /questionnaires, check if it exists, if not create it
-  console.log('Creating questionnaires...');
-  const folder = fs.readdirSync('packages/intake/zambdas/scripts/questionnaires');
-  const requests = await Promise.all(
-    folder.flatMap(async (file) => {
-      const questionnaireData = JSON.parse(
-        fs.readFileSync(`packages/intake/zambdas/scripts/questionnaires/${file}`, 'utf8')
-      );
-      const { resource: questionnaire } = questionnaireData;
-
-      const existingQuestionnaire = (
-        await fhirClient.fhir.search({
-          resourceType: 'Questionnaire',
-          params: [
-            {
-              name: 'url',
-              value: questionnaire.url,
-            },
-            {
-              name: 'version',
-              value: questionnaire.version,
-            },
-          ],
-        })
-      ).unbundle();
-
-      if (!existingQuestionnaire.length) {
-        const createRequest: BatchInputPostRequest<Questionnaire> = {
-          method: 'POST',
-          url: '/Questionnaire',
-          resource: questionnaire,
-        };
-        return createRequest;
-      } else {
-        console.log('Questionnaire already exists.', existingQuestionnaire[0].id);
-        const deleteRequest: BatchInputDeleteRequest = {
-          method: 'DELETE',
-          url: `/Questionnaire/${existingQuestionnaire[0].id}`,
-        };
-        const createRequest: BatchInputPostRequest<Questionnaire> = {
-          method: 'POST',
-          url: '/Questionnaire',
-          resource: questionnaire,
-        };
-        return [deleteRequest, createRequest];
-      }
-    })
-  );
-  await fhirClient.fhir.transaction({ requests: requests.flatMap((r) => r) });
-};
-
 export async function setupIntake(
   projectApiUrl: string,
   accessToken: string,
@@ -405,7 +353,6 @@ export async function setupIntake(
   if (!organizationID) {
     throw new Error('Organization ID is not defined');
   }
-  await createQuestionnaires(fhirClient);
   await checkLocations(fhirClient);
 
   const envPath1 = createZambdaEnvFile(projectId, m2mClientId, m2mSecret, organizationID, environment);
