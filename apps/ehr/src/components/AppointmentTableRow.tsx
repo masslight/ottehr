@@ -49,6 +49,9 @@ import { dataTestIds } from '../constants/data-test-ids';
 import { IntakeCheckmark } from './IntakeCheckmark';
 import { PatientDateOfBirth } from './PatientDateOfBirth';
 import { formatPatientName } from '../helpers/formatPatientName';
+import { usePractitionerActions } from '../features/css-module/hooks/usePractitioner';
+import { practitionerType } from '../helpers/practitionerUtils';
+import { enqueueSnackbar } from 'notistack';
 
 interface AppointmentTableProps {
   appointment: InPersonAppointmentInformation;
@@ -231,6 +234,25 @@ export default function AppointmentTableRow({
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
   const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
   const user = useEvolveUser();
+  const { isPractitionerLoading, handleUpdatePractitionerAndStatus } = usePractitionerActions(
+    appointment.id,
+    'start',
+    practitionerType.Admitter,
+    true,
+    'intake'
+  );
+
+  const handleCSSButton = async (e: React.MouseEvent): Promise<void> => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await handleUpdatePractitionerAndStatus();
+      navigate(`/in-person/${appointment.id}/patient-info`);
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+    }
+  };
 
   const officePhoneNumber = getOfficePhoneNumber(location);
 
@@ -652,7 +674,11 @@ export default function AppointmentTableRow({
         }}
       >
         {appointment.status === 'arrived' || appointment.status === 'pending' || appointment.status === 'intake' ? (
-          <CSSButton appointmentID={appointment.id} />
+          <CSSButton
+            isDisabled={!appointment.id || isPractitionerLoading}
+            handleCSSButton={handleCSSButton}
+            appointmentID={appointment.id}
+          />
         ) : (
           <IntakeCheckmark providerName={admitterName} />
         )}

@@ -1,6 +1,5 @@
 import { useMutation } from 'react-query';
 import { SelectChangeEvent } from '@mui/material';
-import { enqueueSnackbar } from 'notistack';
 import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser from '../../../hooks/useEvolveUser';
 import { useAppointment } from '../hooks/useAppointment';
@@ -23,7 +22,7 @@ export const usePractitionerActions = (
   practitionerType: Coding[],
   updateStatus?: boolean,
   selectedStatus?: VisitStatusLabel
-): { isPractitionerLoading: boolean; handleButtonClick: () => Promise<void> } => {
+): { isPractitionerLoading: boolean; handleUpdatePractitionerAndStatus: () => Promise<void> } => {
   const { oystehr, oystehrZambda } = useApiClients();
   const user = useEvolveUser();
   const { telemedData, refetch } = useAppointment(appointmentID);
@@ -100,28 +99,17 @@ export const usePractitionerActions = (
   const mutation = useMutation(async () => {
     try {
       await handleParticipantPeriod(oystehrZambda, encounter, user, action, practitionerType);
-      console.log('Successfully handled participant period');
 
       if (updateStatus) {
         await updateStatusForAppointment({ target: { value: selectedStatus } } as SelectChangeEvent);
-        console.log('Successfully updated appointment status');
       }
     } catch (error: any) {
       throw new Error(error.message);
     }
   });
 
-  const handleButtonClick = async (): Promise<void> => {
-    try {
-      await mutation.mutateAsync();
-    } catch (error) {
-      console.error('Error in usePractitioner handler:', error);
-      enqueueSnackbar('An error has occurred. Please try again.', { variant: 'error' });
-    }
-  };
-
   return {
     isPractitionerLoading: mutation.isLoading,
-    handleButtonClick,
+    handleUpdatePractitionerAndStatus: mutation.mutateAsync,
   };
 };

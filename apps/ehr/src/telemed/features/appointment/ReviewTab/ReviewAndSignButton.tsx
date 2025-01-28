@@ -1,11 +1,6 @@
 import { Box, Tooltip, Typography } from '@mui/material';
 import { FC, useMemo, useState } from 'react';
-import {
-  getVisitStatus,
-  TelemedAppointmentStatusEnum,
-  visitStatusToFhirAppointmentStatusMap,
-  visitStatusToFhirEncounterStatusMap,
-} from 'utils';
+import { getVisitStatus, TelemedAppointmentStatusEnum } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { ConfirmationDialog } from '../../../components';
@@ -21,6 +16,7 @@ import { useFeatureFlags } from '../../../../features/css-module/context/feature
 import { useAppointment } from '../../../../features/css-module/hooks/useAppointment';
 import { practitionerType } from '../../../../helpers/practitionerUtils';
 import { usePractitionerActions } from '../../../../features/css-module/hooks/usePractitioner';
+import { enqueueSnackbar } from 'notistack';
 
 type ReviewAndSignButtonProps = {
   onSigned?: () => void;
@@ -50,11 +46,20 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
 
   const patientName = getPatientName(patient?.name).firstLastName;
 
-  const { isPractitionerLoading, handleButtonClick } = usePractitionerActions(
+  const { isPractitionerLoading, handleUpdatePractitionerAndStatus } = usePractitionerActions(
     appointment?.id ?? '',
     'end',
     practitionerType.Attender
   );
+
+  const handleCompleteProvider = async (): Promise<void> => {
+    try {
+      await handleUpdatePractitionerAndStatus();
+    } catch (error: any) {
+      console.log(error.message);
+      enqueueSnackbar('An error occurred trying to complete intake. Please try again.', { variant: 'error' });
+    }
+  };
 
   const isLoading = isChangeLoading || isSignLoading || isPractitionerLoading;
   const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
@@ -106,12 +111,8 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
 
     if (css) {
       try {
+        await handleCompleteProvider();
         await signAppointment({ apiClient, appointmentId: appointment.id });
-        await handleButtonClick();
-        useAppointmentStore.setState({
-          encounter: { ...encounter, status: visitStatusToFhirEncounterStatusMap['completed'] },
-          appointment: { ...appointment, status: visitStatusToFhirAppointmentStatusMap['completed'] },
-        });
         await refetch();
       } catch (error: any) {
         console.log(error.message);

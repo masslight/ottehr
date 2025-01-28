@@ -7,6 +7,7 @@ import { practitionerType } from '../../../helpers/practitionerUtils';
 import { useParams } from 'react-router-dom';
 import { usePractitionerActions } from '../hooks/usePractitioner';
 import { LoadingButton } from '@mui/lab';
+import { enqueueSnackbar } from 'notistack';
 
 export const BottomNavigation = (): JSX.Element => {
   const { id: appointmentID } = useParams();
@@ -14,7 +15,7 @@ export const BottomNavigation = (): JSX.Element => {
   const { goToNext, goToPrevious, isNavigationHidden, isFirstPage, isLastPage, interactionMode, isNavigationDisabled } =
     useNavigationContext();
   const practitionerTypeFromMode = interactionMode === 'intake' ? practitionerType.Admitter : practitionerType.Attender;
-  const { isPractitionerLoading, handleButtonClick } = usePractitionerActions(
+  const { isPractitionerLoading, handleUpdatePractitionerAndStatus } = usePractitionerActions(
     appointmentID ?? '',
     'end',
     practitionerTypeFromMode
@@ -22,13 +23,18 @@ export const BottomNavigation = (): JSX.Element => {
   const [nextButtonLoading, setNextButtonLoading] = React.useState<boolean>(false);
 
   const handleNextPage = async (): Promise<void> => {
-    setNextButtonLoading(true);
-    if (isLastPage) {
-      await handleButtonClick();
+    try {
+      setNextButtonLoading(true);
+      if (isLastPage) {
+        await handleUpdatePractitionerAndStatus();
+        setNextButtonLoading(false);
+      }
+      goToNext();
       setNextButtonLoading(false);
+    } catch (error: any) {
+      console.log(error.message);
+      enqueueSnackbar('An error occurred trying to complete intake. Please try again.', { variant: 'error' });
     }
-    goToNext();
-    setNextButtonLoading(false);
   };
 
   if (isNavigationHidden) return <></>;
