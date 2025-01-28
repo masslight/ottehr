@@ -1,12 +1,19 @@
 import fetch from 'node-fetch';
 import { Practitioner } from 'fhir/r4';
-import { ADMINISTRATOR_RULES, INACTIVE_RULES, MANAGER_RULES, STAFF_RULES, PROVIDER_RULES, PRESCRIBER_RULES } from '../src/shared';
+import {
+  ADMINISTRATOR_RULES,
+  INACTIVE_RULES,
+  MANAGER_RULES,
+  STAFF_RULES,
+  PROVIDER_RULES,
+  PRESCRIBER_RULES,
+} from '../src/shared';
 
 const DEFAULTS = {
   firstName: 'Example',
   lastName: 'Doctor',
   phone: '+12125551212',
-  npi: '1234567890'
+  npi: '1234567890',
 };
 export const enum RoleType {
   NewUser = 'NewUser',
@@ -19,7 +26,11 @@ export const enum RoleType {
   Administrator = 'Administrator',
 }
 
-const updateUserRoles = async (projectApiUrl: string, accessToken: string, projectId: string): Promise<{ id: string }> => {
+const updateUserRoles = async (
+  projectApiUrl: string,
+  accessToken: string,
+  projectId: string,
+): Promise<{ id: string }> => {
   console.log('Updating user roles.');
 
   const zambdaRule = {
@@ -113,12 +124,11 @@ const updateUserRoles = async (projectApiUrl: string, accessToken: string, proje
   // const responseJSON = await response.json();
   // console.log('response', responseJSON);
   // if (!response.ok) {
-    // throw new Error(`Failed to set defaultSSOUserRole`);
+  // throw new Error(`Failed to set defaultSSOUserRole`);
   // }
 
   return adminUserRole;
 };
-
 
 export async function inviteUser(
   projectApiUrl: string,
@@ -127,7 +137,7 @@ export async function inviteUser(
   lastName = DEFAULTS.lastName,
   applicationId: string,
   accessToken: string,
-  projectId: string
+  projectId: string,
 ): Promise<undefined | string> {
   const defaultRole = await updateUserRoles(projectApiUrl, accessToken, projectId);
 
@@ -138,9 +148,9 @@ export async function inviteUser(
       {
         use: 'official',
         value: DEFAULTS.npi,
-        system: 'http://hl7.org/fhir/sid/us-npi'
-      }
-    ],    
+        system: 'http://hl7.org/fhir/sid/us-npi',
+      },
+    ],
     name: [{ family: lastName, given: [firstName] }],
     telecom: [
       {
@@ -150,9 +160,8 @@ export async function inviteUser(
       {
         use: 'mobile',
         value: DEFAULTS.phone,
-        system: "sms"
-      }
-
+        system: 'sms',
+      },
     ],
   };
 
@@ -162,14 +171,13 @@ export async function inviteUser(
       authorization: `Bearer ${accessToken}`,
       'content-type': 'application/json',
       'x-zapehr-project-id': `${projectId}`,
-    }
+    },
   });
-  const activeUsers = await activeUsersRequest.json()
+  const activeUsers = await activeUsersRequest.json();
   if (activeUsers.find((user: any) => user.email === email)) {
     console.log('User is already invited to project');
     return undefined;
-  }
-  else {
+  } else {
     console.log('Inviting user to project');
     const invitedUserResponse = await fetch(`${projectApiUrl}/user/invite`, {
       method: 'POST',
@@ -183,12 +191,9 @@ export async function inviteUser(
         email: email,
         applicationId: applicationId,
         resource: practitioner,
-        roles: [
-          defaultRole.id
-        ]
+        roles: [defaultRole.id],
       }),
     });
-
 
     if (!invitedUserResponse.ok) {
       console.log(await invitedUserResponse.json());

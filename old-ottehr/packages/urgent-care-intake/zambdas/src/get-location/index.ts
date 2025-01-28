@@ -97,9 +97,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       throw new Error('location id is not defined');
     }
     console.log(`successfully retrieved location with id ${location.id}`);
-    const timezone = location.extension?.find(
-      (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL,
-    )?.valueString;
+    const timezone = location.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL)
+      ?.valueString;
 
     if (!timezone) {
       throw new Error('location does not have timezone');

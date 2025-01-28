@@ -6,7 +6,7 @@ import { PRIVATE_EXTENSION_BASE_URL } from '../fhir';
 export async function createUserResourcesForPatient(
   fhirClient: FhirClient,
   patientID: string,
-  phoneNumber: string
+  phoneNumber: string,
 ): Promise<{ relatedPerson: RelatedPerson; person: Person; newUser: boolean }> {
   console.log(`Creating a RelatedPerson for Patient ${patientID}`);
   const relatedPerson = (await fhirClient.createResource({
@@ -61,13 +61,13 @@ export async function createUserResourcesForPatient(
     console.log(`For user with phone number ${phoneNumber} created a Person ${person.id}`);
   } else {
     console.log(
-      `Did find a Person with phone number ${phoneNumber} with ID ${personResults[0].id}, adding RelatedPerson ${relatedPerson.id} to link`
+      `Did find a Person with phone number ${phoneNumber} with ID ${personResults[0].id}, adding RelatedPerson ${relatedPerson.id} to link`,
     );
     person = personResults[0];
     const hasLink = person.link;
     if (hasLink) {
       console.log(
-        "Person does not have link, this shouldn't happen outside of test cases but is still possible - The account may not have patients"
+        "Person does not have link, this shouldn't happen outside of test cases but is still possible - The account may not have patients",
       );
     }
     const link = {
@@ -94,7 +94,7 @@ export async function createUserResourcesForPatient(
 
 export async function getRelatedPersonsForPhoneNumber(
   phoneNumber: string,
-  fhirClient: FhirClient
+  fhirClient: FhirClient,
 ): Promise<RelatedPerson[] | undefined> {
   const resources: Resource[] = await fhirClient.searchResources({
     resourceType: 'Person',
@@ -120,7 +120,7 @@ export async function getRelatedPersonsForPhoneNumber(
 
 export async function getPatientResourceWithVerifiedPhoneNumber(
   patientID: string,
-  fhirClient: FhirClient
+  fhirClient: FhirClient,
 ): Promise<{
   patient: Patient | undefined;
   verifiedPhoneNumber: string | undefined;

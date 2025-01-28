@@ -65,7 +65,7 @@ export function getAppointmentConfirmationMessage(
   appointmentID: string,
   locationName: string,
   startTime: string,
-  websiteURL: string
+  websiteURL: string,
 ): string {
   return `You're confirmed! Thanks for choosing Ottehr Urgent Care! Your check-in time at ${locationName} is on ${startTime}. Please complete your paperwork in advance to save time at check-in. To complete paperwork or modify/cancel your check-in, visit: ${websiteURL}/appointment/${appointmentID}`;
 }

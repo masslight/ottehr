@@ -51,7 +51,7 @@ export const OVERRIDE_DATE_FORMAT = 'M/d/yyyy';
 export const HOURS_OF_OPERATION_FORMAT = 'TT';
 
 export const getSlugAndStateFromLocation = (
-  location: AvailableLocationInformation | undefined
+  location: AvailableLocationInformation | undefined,
 ): { slug: string | undefined; state: string | undefined } => {
   if (location == undefined) {
     return { slug: undefined, state: undefined };

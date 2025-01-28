@@ -59,8 +59,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           email = patientTemp.telecom?.find((telecom) => telecom.system === 'email')?.value;
         }
         if (emailUser === 'Parent/Guardian') {
-          const guardianContact = patientTemp.contact?.find((contact) =>
-            contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
+          const guardianContact = patientTemp.contact?.find(
+            (contact) =>
+              contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
           );
           email = guardianContact?.telecom?.find((telecom) => telecom.system === 'email')?.value;
         }

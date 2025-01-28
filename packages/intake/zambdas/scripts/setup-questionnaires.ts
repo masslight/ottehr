@@ -15,7 +15,9 @@ const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> =
     const folder = fs.readdirSync('../../utils/lib/deployed-resources/questionnaires');
     const requests = await Promise.all(
       folder.flatMap(async (file) => {
-        const questionnaireData = JSON.parse(fs.readFileSync(`../../utils/lib/deployed-resources/questionnaires/${file}`, 'utf8'));
+        const questionnaireData = JSON.parse(
+          fs.readFileSync(`../../utils/lib/deployed-resources/questionnaires/${file}`, 'utf8')
+        );
         const { resource: questionnaire } = questionnaireData;
 
         const existingQuestionnaire = (
@@ -43,7 +45,9 @@ const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> =
           return createRequest;
         } else {
           console.log('existing Questionnaire id: ', existingQuestionnaire[0].id);
-          const existing = existingQuestionnaire.find((eq: Questionnaire) => eq.url === questionnaire.url && eq.version === questionnaire.version);
+          const existing = existingQuestionnaire.find(
+            (eq: Questionnaire) => eq.url === questionnaire.url && eq.version === questionnaire.version
+          );
           if (!existing) {
             throw new Error('Questionnaire missing unexpectedly');
           }
@@ -63,7 +67,9 @@ const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> =
 
     const newSecrets: any = {};
     folder.forEach((file) => {
-      const questionnaireData = JSON.parse(fs.readFileSync(`../../utils/lib/deployed-resources/questionnaires/${file}`, 'utf8'));
+      const questionnaireData = JSON.parse(
+        fs.readFileSync(`../../utils/lib/deployed-resources/questionnaires/${file}`, 'utf8')
+      );
       const { resource: questionnaire, envVarName } = questionnaireData;
       if (envVarName && questionnaire?.url && questionnaire?.version) {
         const canonical = `${questionnaire.url}|${questionnaire.version}`;
@@ -74,7 +80,7 @@ const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> =
     const newLocalEnv = { ...envConfig, ...newSecrets };
     const envString = JSON.stringify(newLocalEnv, null, 2);
     fs.writeFileSync(`.env/${env}.json`, envString);
-  
+
     for await (const entry of Object.entries(newSecrets)) {
       const [key, value] = entry;
       if (typeof value !== 'string') {

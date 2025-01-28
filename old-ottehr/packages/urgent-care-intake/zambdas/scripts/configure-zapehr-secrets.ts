@@ -1,4 +1,4 @@
-import { createZambdaClient, setupDeploy } from "./shared";
+import { createZambdaClient, setupDeploy } from './shared';
 
 const setupSecrets = async (config: any): Promise<void> => {
   const zambdaClient = await createZambdaClient(config);

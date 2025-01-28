@@ -32,7 +32,7 @@ export const mapPaperworkResponseItem = (item: QuestionnaireResponseItem): Quest
                     accumulator[key] = value ?? '';
                     return accumulator;
                   },
-                  {} as Record<string, string>
+                  {} as Record<string, string>,
                 ) || {}
               );
             }),

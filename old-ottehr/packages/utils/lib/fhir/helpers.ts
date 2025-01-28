@@ -120,15 +120,16 @@ export const findEncounterForAppointment = (
   encounters: Encounter[],
 ): Encounter | undefined => {
   // Go through encounters and find the one with appointment
-  return encounters.find((encounter) =>
-    encounter.appointment?.find((appRef) => {
-      const { reference } = appRef;
-      if (!reference) {
-        return false;
-      }
-      const [_, refId] = reference.split('/');
-      return refId && refId === appointment.id;
-    }),
+  return encounters.find(
+    (encounter) =>
+      encounter.appointment?.find((appRef) => {
+        const { reference } = appRef;
+        if (!reference) {
+          return false;
+        }
+        const [_, refId] = reference.split('/');
+        return refId && refId === appointment.id;
+      }),
   );
 };
 
@@ -148,12 +149,14 @@ export function getPatientContactEmail(patient: Patient): string | undefined {
   const formUser = patient.extension?.find((ext) => ext.url === `${PRIVATE_EXTENSION_BASE_URL}/form-user`)?.valueString;
   if (formUser === 'Parent/Guardian') {
     return patient.contact
-      ?.find((contactTemp) =>
-        contactTemp.relationship?.find((relationshipTemp) =>
-          relationshipTemp.coding?.find(
-            (codingTemp) => codingTemp.system === `${PRIVATE_EXTENSION_BASE_URL}/relationship`,
+      ?.find(
+        (contactTemp) =>
+          contactTemp.relationship?.find(
+            (relationshipTemp) =>
+              relationshipTemp.coding?.find(
+                (codingTemp) => codingTemp.system === `${PRIVATE_EXTENSION_BASE_URL}/relationship`,
+              ),
           ),
-        ),
       )
       ?.telecom?.find((telecomTemp) => telecomTemp.system === 'email')?.value;
   } else {

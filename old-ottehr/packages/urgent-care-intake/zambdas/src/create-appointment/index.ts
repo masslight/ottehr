@@ -264,11 +264,13 @@ export async function createAppointment(
         });
       } else {
         // check if different
-        const guardianContact = patientContacts.find((contact) =>
-          contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
+        const guardianContact = patientContacts.find(
+          (contact) =>
+            contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
         );
-        const guardianContactIdx = patientContacts.findIndex((contact) =>
-          contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
+        const guardianContactIdx = patientContacts.findIndex(
+          (contact) =>
+            contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
         );
         const guardianEmail = guardianContact?.telecom?.find((telecom) => telecom.system === 'email')?.value;
         const guardianEmailIdx = guardianContact?.telecom?.findIndex((telecom) => telecom.system === 'email');
@@ -553,9 +555,8 @@ export async function createAppointment(
   }
 
   if (conversationSID) {
-    const timezone = fhirLocation.extension?.find(
-      (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL,
-    )?.valueString;
+    const timezone = fhirLocation.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL)
+      ?.valueString;
     await sendMessages(
       getPatientContactEmail(fhirPatient),
       getPatientFirstName(fhirPatient),

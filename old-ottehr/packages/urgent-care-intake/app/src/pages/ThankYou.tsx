@@ -114,7 +114,9 @@ const ThankYou = (): JSX.Element => {
   const selectedSlotTimezoneAdjusted = useMemo(() => {
     const selectedAppointmentStart = state.appointmentSlot;
     if (selectedAppointmentStart) {
-      return DateTime.fromISO(selectedAppointmentStart).setZone(state.selectedLocation?.timezone).setLocale('en-us');
+      return DateTime.fromISO(selectedAppointmentStart)
+        .setZone(state.selectedLocation?.timezone)
+        .setLocale('en-us');
     }
 
     return undefined;

@@ -143,7 +143,9 @@ export function validateCreatePaperworkParams(input: ZambdaInput, questionnaire:
             throw new Error(
               `Error: Input ${
                 itemTemp.linkId
-              } with value "${paperworkItemValueTemp}" is not in the accepted list of values ${JSON.stringify(options)}`,
+              } with value "${paperworkItemValueTemp}" is not in the accepted list of values ${JSON.stringify(
+                options,
+              )}`,
             );
           }
         }

@@ -279,9 +279,8 @@ async function updateProjectZambda(
     // if any events are changing, delete
     // if any existing criteria doesn't exist in the details array defined above, delete
     const subscriptionsNotChanging = subscriptionsSearch.reduce((acc: Subscription[], existingSubscription) => {
-      const existingSubscriptionEvent = existingSubscription.extension?.find(
-        (ext) => ext.url === EXTENSION_URL,
-      )?.valueString;
+      const existingSubscriptionEvent = existingSubscription.extension?.find((ext) => ext.url === EXTENSION_URL)
+        ?.valueString;
       const subscriptionMatch = zambda.subscriptionDetails?.find((zambdaSubscriptionDetail) => {
         const eventMatch = existingSubscriptionEvent === zambdaSubscriptionDetail.event;
         const criteriaMatch = zambdaSubscriptionDetail.criteria === existingSubscription.criteria;

@@ -5,7 +5,7 @@ import { EncounterVirtualServiceExtension } from '../../types';
 
 export const getVirtualServiceResourceExtension = (
   resource: Appointment | Encounter,
-  code: typeof TELEMED_VIDEO_ROOM_CODE | 'twilio-conversations'
+  code: typeof TELEMED_VIDEO_ROOM_CODE | 'twilio-conversations',
 ): EncounterVirtualServiceExtension | null => {
   let resourcePrefix: string;
   if (resource.resourceType === 'Appointment') {

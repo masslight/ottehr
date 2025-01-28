@@ -116,7 +116,7 @@ functions:
       AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
-      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}      
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
   deactivate-user:
     handler: src/deactivate-user/index.index
     events:

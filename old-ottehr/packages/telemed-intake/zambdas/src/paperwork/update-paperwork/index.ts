@@ -198,9 +198,8 @@ async function updateResourcesFromPaperwork(
   const responsiblePartyLastName = paperwork.find(
     (responseTemp) => responseTemp.linkId === 'responsible-party-last-name',
   )?.response;
-  const responsiblePartyNumber = paperwork.find(
-    (responseTemp) => responseTemp.linkId === 'responsible-party-number',
-  )?.response;
+  const responsiblePartyNumber = paperwork.find((responseTemp) => responseTemp.linkId === 'responsible-party-number')
+    ?.response;
 
   if (responsiblePartyNumber && responsiblePartyFirstName && responsiblePartyLastName) {
     const rp: ResponsiblePartyContact = {
@@ -354,11 +353,11 @@ async function updateResourcesFromPaperwork(
   // if any information changes in contact telecom, flag to be added to the patient patch op array
   let updateGuardianTelecom;
   // find existing guardian contact info and it's index so that the contact array can be updated
-  const guardianContact = patientResource?.contact?.find((contact) =>
-    contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
+  const guardianContact = patientResource?.contact?.find(
+    (contact) => contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
   );
-  const guardianContactIdx = patientResource?.contact?.findIndex((contact) =>
-    contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
+  const guardianContactIdx = patientResource?.contact?.findIndex(
+    (contact) => contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
   );
   // within the guardian's contact, find the telecom array to compare against incoming information
   const guardianContactTelecom = guardianContact?.telecom || [];

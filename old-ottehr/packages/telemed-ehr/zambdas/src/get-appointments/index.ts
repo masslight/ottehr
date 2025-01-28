@@ -75,9 +75,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             resourceId: locationID,
             resourceType: 'Location',
           });
-          timezone = fhirLocation?.extension?.find(
-            (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL,
-          )?.valueString;
+          timezone = fhirLocation?.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL)
+            ?.valueString;
           if (timezone) {
             timezoneMap.set(locationID, timezone);
           }

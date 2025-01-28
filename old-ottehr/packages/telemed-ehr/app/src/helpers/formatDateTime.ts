@@ -75,9 +75,8 @@ export function formatISOStringToDateAndTime(isoString: string): string {
 export function getTimezone(resource: Location | Practitioner | HealthcareService | undefined): string {
   let timezone = 'America/New_York';
   if (resource) {
-    const timezoneTemp = resource.extension?.find(
-      (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL,
-    )?.valueString;
+    const timezoneTemp = resource.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL)
+      ?.valueString;
     if (timezoneTemp) timezone = timezoneTemp;
   }
 

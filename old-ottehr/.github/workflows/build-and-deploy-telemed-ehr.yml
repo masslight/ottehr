@@ -14,7 +14,7 @@ on:
         type: choice
         default: 'development'
         options:
-          - development          
+          - development
           - testing
       incrementVersion:
         description: 'Bump Version?'

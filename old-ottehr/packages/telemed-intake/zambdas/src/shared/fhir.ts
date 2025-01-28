@@ -68,9 +68,8 @@ export async function createConsentItems(
       (ext) => ext.url === 'https://extensions.fhir.zapehr.com/location-form-pre-release',
     )?.valueCoding?.code === 'vi';
 
-  const timezone = locationResource.extension?.find(
-    (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL,
-  )?.valueString;
+  const timezone = locationResource.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL)
+    ?.valueString;
 
   const facilityName = isVirtualLocation
     ? 'Ottehr'

@@ -72,10 +72,11 @@ export default function GroupSchedule({ groupID }: GroupScheduleProps): ReactEle
     // console.log(group);
     setSelectedLocations(selectedLocationsTemp);
 
-    const selectedPractitionerRolesTemp = practitionerRolesTemp?.filter((practitionerRoleTemp) =>
-      practitionerRoleTemp.healthcareService?.some(
-        (healthcareServiceTemp) => healthcareServiceTemp.reference === `HealthcareService/${groupTemp.id}`,
-      ),
+    const selectedPractitionerRolesTemp = practitionerRolesTemp?.filter(
+      (practitionerRoleTemp) =>
+        practitionerRoleTemp.healthcareService?.some(
+          (healthcareServiceTemp) => healthcareServiceTemp.reference === `HealthcareService/${groupTemp.id}`,
+        ),
     );
     const selectedPractitionersTemp = practitionersTemp.filter((practitionerTemp) =>
       selectedPractitionerRolesTemp.some(
