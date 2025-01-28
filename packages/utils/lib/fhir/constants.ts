@@ -6,6 +6,8 @@ import {
   PHOTO_ID_CARD_CODE,
   PHOTON_PRACTITIONER_ENROLLED,
   PRIVACY_POLICY_CODE,
+  RECEIPT_CODE,
+  SCHOOL_WORK_NOTE_CODE,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   VISIT_NOTE_SUMMARY_CODE,
 } from '../types';
@@ -265,7 +267,7 @@ export const FOLDERS_CONFIG: ListConfig[] = [
   {
     title: 'consent-forms',
     display: 'Consent Forms',
-    documentTypeCode: [CONSENT_CODE, INSURANCE_CARD_CODE],
+    documentTypeCode: CONSENT_CODE,
   },
   {
     title: 'privacy-policy',
@@ -274,18 +276,23 @@ export const FOLDERS_CONFIG: ListConfig[] = [
   },
   {
     title: 'insurance-cards',
-    display: 'Insurance Cards',
-    documentTypeCode: INSURANCE_CARD_CODE,
+    display: 'Ins Cards / Photo ID',
+    documentTypeCode: [INSURANCE_CARD_CODE, PHOTO_ID_CARD_CODE],
   },
   {
     title: 'patient-photos',
     display: 'Photos',
-    documentTypeCode: [PATIENT_PHOTO_CODE, PHOTO_ID_CARD_CODE],
+    documentTypeCode: PATIENT_PHOTO_CODE,
   },
   {
     title: 'school-work-note-templates',
     display: 'School/Work Notes',
-    documentTypeCode: SCHOOL_WORK_NOTE_TEMPLATE_CODE,
+    documentTypeCode: [SCHOOL_WORK_NOTE_TEMPLATE_CODE, SCHOOL_WORK_NOTE_CODE],
+  },
+  {
+    title: 'receipts',
+    display: 'Receipts',
+    documentTypeCode: RECEIPT_CODE,
   },
 ];
 

@@ -23,6 +23,7 @@ export const INSURANCE_CARD_CODE = '64290-0';
 export const PATIENT_PHOTO_CODE = '72170-4';
 export const PHOTO_ID_CARD_CODE = '55188-7';
 export const SCHOOL_WORK_NOTE_CODE = '47420-5';
+export const RECEIPT_CODE = '34105-7';
 export const SCHOOL_WORK_NOTE_TEMPLATE_CODE = 'school-work-note-template';
 
 export const CONSENT_CODE = '59284-0';
