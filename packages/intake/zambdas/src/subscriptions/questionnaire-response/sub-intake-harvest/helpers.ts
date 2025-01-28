@@ -75,6 +75,7 @@ import {
   consolidateOperations,
   RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL,
   PRIVACY_POLICY_CODE,
+  OTTEHR_MODULE,
 } from 'utils';
 import { v4 as uuid } from 'uuid';
 import { createOrUpdateFlags } from '../../../paperwork/sharedHelpers';
@@ -806,7 +807,7 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       type: pdfInfo.type,
       dateCreated: nowIso,
       oystehr,
-      referenceParam: {
+      references: {
         subject: {
           reference: `Patient/${patientResource.id}`,
         },
@@ -821,6 +822,10 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       generateUUID: randomUUID,
       listResources,
       searchParams: [],
+      meta: {
+        // for backward compatibility. TODO: remove this
+        tag: [{ code: OTTEHR_MODULE.IP }, { code: OTTEHR_MODULE.TM }],
+      },
     });
 
     if (!documentReferences?.[0]?.id) {
@@ -1013,13 +1018,17 @@ export async function createDocumentResources(
           value: d.code,
         },
       ],
-      referenceParam: {
+      references: {
         subject: { reference: `Patient/${patientID}` },
         context: { related: [{ reference: `Appointment/${appointmentID}` }, { reference: `Patient/${patientID}` }] },
       },
       oystehr,
       generateUUID: randomUUID,
       listResources,
+      meta: {
+        // for backward compatibility. TODO: remove this
+        tag: [{ code: OTTEHR_MODULE.IP }, { code: OTTEHR_MODULE.TM }],
+      },
     });
   }
 }
