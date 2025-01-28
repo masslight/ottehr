@@ -152,7 +152,6 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     },
   };
 
-  console.log('4');
   const drawBlockHeader = (text: string, styles = textStyles.blockHeader): void => {
     const headerTextDims = pdfClient.getTextDimensions(text, styles);
     const regularTextDims = pdfClient.getTextDimensions('a', textStyles.regularText);
