@@ -1,4 +1,4 @@
-name: Intake E2E Tests
+name: E2E Tests
 
 on:
   workflow_dispatch:
@@ -16,16 +16,12 @@ on:
       - 'package.json'
 
 jobs:
-  e2e-tests:
+  prepare:
     if: github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest-8-cores
-    timeout-minutes: 15
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -44,38 +40,44 @@ jobs:
             ${{ runner.os }}-build-
             ${{ runner.os }}-
 
-      - name: Check out secrets repo to grab the secrets file.
-        uses: actions/checkout@v3
+      - name: Check out secrets repo
+        uses: actions/checkout@v4
         with:
           repository: masslight/ottehr-secrets
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
           path: 'secrets'
 
-      - name: Move zambda secrets file into intake zambdas dir.
-        run: mkdir -p packages/intake/zambdas/.env; cp secrets/zambdas/* packages/intake/zambdas/.env
+      - name: Setup environment
+        run: |
+          setup_env() {
+            local app=$1
+            mkdir -p "packages/$app/zambdas/.env"
+            cp secrets/zambdas/* "packages/$app/zambdas/.env"
+            mkdir -p "apps/$app/env"
+            cp "secrets/$app/app/tests."*.json "apps/$app/env/"
+            cp "secrets/$app/app/.env.local" "apps/$app/env/"
+          }
 
-      - name: Move zambdas test secrets file into intake app dir to use in tests.
-        run: mkdir -p apps/intake/env && cp secrets/intake/app/tests.*.json apps/intake/env/
-
-      - name: Move app secrets file into intake app dir.
-        run: cp secrets/intake/app/.env.local apps/intake/env/
-
-      - name: Move zambda secrets file into ehr zambdas dir.
-        run: mkdir -p packages/ehr/zambdas/.env; cp secrets/zambdas/* packages/ehr/zambdas/.env
-
-      - name: Move zambdas test secrets file into ehr app dir to use in tests.
-        run: mkdir -p apps/ehr/env && cp secrets/ehr/app/tests.*.json apps/ehr/env/
-
-      - name: Move app secrets file into ehr app dir.
-        run: cp secrets/ehr/app/.env.local apps/ehr/env/
+          for app in ehr intake; do
+            setup_env "$app"
+          done
 
       - name: Install dependencies
         run: |
           npm ci
           npx playwright install --with-deps chromium
 
+  e2e-tests:
+    needs: prepare
+    strategy:
+      matrix:
+        app: [ehr, intake]
+      fail-fast: false
+    runs-on: ubuntu-latest-8-cores
+    timeout-minutes: 15
+    steps:
       - name: Run E2E tests
-        run: npm run intake:e2e:local
+        run: npm run ${{ matrix.app }}:e2e:local
         env:
           CI: true
 
@@ -83,8 +85,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.app }}
           path: |
-            apps/intake/playwright-report/
-            apps/intake/test-results/
+            apps/${{ matrix.app }}/playwright-report/
+            apps/${{ matrix.app }}/test-results/
           retention-days: 30
