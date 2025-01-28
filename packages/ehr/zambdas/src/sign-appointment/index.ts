@@ -31,6 +31,7 @@ import { chartDataResourceHasMetaTagByCode } from '../shared/chart-data/chart-da
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
+let candidApiClient: CandidApiClient;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -157,10 +158,12 @@ const changeStatus = async (
     {
       op: 'add',
       path: '/identifier',
-      value: {
-        system: 'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id',
-        value: candidEncounterId,
-      },
+      value: [
+        {
+          system: 'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id',
+          value: candidEncounterId,
+        },
+      ],
     },
   ];
 
@@ -191,17 +194,10 @@ const createCandidEncounter = async (
   oystehr: Oystehr,
   secrets: Secrets | null
 ): Promise<string> => {
-  const apiClient = new CandidApiClient({
-    clientId: getSecret(SecretsKeys.CANDID_CLIENT_ID, secrets),
-    clientSecret: getSecret(SecretsKeys.CANDID_CLIENT_SECRET, secrets),
-    environment:
-      getSecret(SecretsKeys.CANDID_ENV, secrets) === 'PROD'
-        ? CandidApiEnvironment.Production
-        : CandidApiEnvironment.Staging,
-  });
   const createEncounterInput = await createCandidCreateEncounterInput(visitResources, oystehr);
   const request = candidCreateEncounterRequest(createEncounterInput);
   console.log('Candid request:' + JSON.stringify(request, null, 2));
+  const apiClient = createCandidApiClient(secrets);
   const response = await apiClient.encounters.v4.create(request);
   if (!response.ok) {
     throw new Error(`Error creating a Candid encounter. Response body: ${JSON.stringify(response.error)}`);
@@ -222,12 +218,6 @@ const createCandidCreateEncounterInput = async (
     encounter: encounter,
     patient: assertDefined(visitResources.patient, `Patient on encounter ${encounterId}`),
     practitioner: assertDefined(visitResources.practitioner, `Practitioner on encounter ${encounterId}`),
-    provider: await resourceByReference(
-      visitResources.location?.managingOrganization,
-      'Location.managingOrganization',
-      oystehr
-    ),
-    location: assertDefined(visitResources.location, `Location on encounter ${encounterId}`),
     diagnoses: (
       await oystehr.fhir.search<Condition>({
         resourceType: 'Condition',
@@ -282,4 +272,18 @@ const resourceByReference = <T extends FhirResource>(
     resourceType,
     id,
   });
+};
+
+const createCandidApiClient = (secrets: Secrets | null): CandidApiClient => {
+  if (candidApiClient == null) {
+    candidApiClient = new CandidApiClient({
+      clientId: getSecret(SecretsKeys.CANDID_CLIENT_ID, secrets),
+      clientSecret: getSecret(SecretsKeys.CANDID_CLIENT_SECRET, secrets),
+      environment:
+        getSecret(SecretsKeys.CANDID_ENV, secrets) === 'PROD'
+          ? CandidApiEnvironment.Production
+          : CandidApiEnvironment.Staging,
+    });
+  }
+  return candidApiClient;
 };

@@ -37,6 +37,52 @@ import { assertDefined } from './helpers';
 const CODE_SYSTEM_HL7_IDENTIFIER_TYPE = 'http://terminology.hl7.org/CodeSystem/v2-0203';
 const CODE_SYSTEM_HL7_SUBSCRIBER_RELATIONSHIP = 'http://terminology.hl7.org/CodeSystem/subscriber-relationship';
 
+const BILLING_PROVIDER: Organization = {
+  resourceType: 'Organization',
+  name: 'BillingProviderName',
+  identifier: [
+    {
+      system: FHIR_IDENTIFIER_NPI,
+      value: 'BillingProviderNpi',
+    },
+    {
+      type: {
+        coding: [
+          {
+            system: CODE_SYSTEM_HL7_IDENTIFIER_TYPE,
+            code: 'TAX',
+          },
+        ],
+      },
+      value: '123456789',
+    },
+  ],
+  address: [
+    {
+      line: ['BillingProviderAddressLine'],
+      city: 'BillingProviderCity',
+      state: 'CA',
+      postalCode: '12345-1234',
+    },
+  ],
+};
+const SERVICE_FACILITY_LOCATION: Location = {
+  resourceType: 'Location',
+  name: 'ServiceFacilityName',
+  identifier: [
+    {
+      system: CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
+      value: '20',
+    },
+  ],
+  address: {
+    line: ['ServiceFacilityAddressLine'],
+    city: 'ServiceFacilityCity',
+    state: 'CA',
+    postalCode: '54321',
+  },
+};
+
 export interface InsuranceResources {
   coverage: Coverage;
   subsriber: Patient | RelatedPerson;
@@ -47,18 +93,26 @@ export interface CreateEncounterInput {
   encounter: Encounter;
   patient: Patient;
   practitioner: Practitioner;
-  provider: Organization;
-  location: Location;
   diagnoses: Condition[];
   procedures: Procedure[];
   insuranceResources?: InsuranceResources;
 }
 
 export function candidCreateEncounterRequest(input: CreateEncounterInput): EncounterCreate {
-  const { encounter, patient, practitioner, provider, location, diagnoses, procedures, insuranceResources } = input;
-  const patientName = assertDefined(patient.name?.[0], 'Patient official name');
+  const { encounter, patient, practitioner, diagnoses, procedures, insuranceResources } = input;
+  const patientName = assertDefined(patient.name?.[0], 'Patient name');
   const patientAddress = assertDefined(patient.address?.[0], 'Patient address');
-  const providerAddress = assertDefined(provider.address?.[0], 'Provider address');
+  const billingProviderAddress = assertDefined(BILLING_PROVIDER.address?.[0], 'Billing provider address');
+  const billingProviderPostalCodeTokens = assertDefined(
+    billingProviderAddress.postalCode,
+    'Billing provider postal code'
+  ).split('-');
+  const practitionerName = assertDefined(practitioner.name?.[0], 'Practitioner name');
+  const serviceFacilityAddress = assertDefined(SERVICE_FACILITY_LOCATION.address, 'Service facility address');
+  const serviceFacilityPostalCodeTokens = assertDefined(
+    serviceFacilityAddress.postalCode,
+    'Service facility postal code'
+  ).split('-');
   const candidDiagnoses = createCandidDiagnoses(encounter, diagnoses);
   const primaryDiagnosisIndex = candidDiagnoses.findIndex(
     (candidDiagnosis) => candidDiagnosis.codeType === DiagnosisTypeCode.Abk
@@ -87,24 +141,40 @@ export function candidCreateEncounterRequest(input: CreateEncounterInput): Encou
       },
     },
     billingProvider: {
-      npi: assertDefined(getNpi(provider.identifier), 'Provider NPI'),
+      organizationName: assertDefined(BILLING_PROVIDER.name, 'Billing provider name'),
+      npi: assertDefined(getNpi(BILLING_PROVIDER.identifier), 'Billing provider NPI'),
       taxId: assertDefined(
-        getIdentifierValue(provider.identifier, CODE_SYSTEM_HL7_IDENTIFIER_TYPE, 'TAX'),
-        'Provider TAX ID'
+        getIdentifierValue(BILLING_PROVIDER.identifier, CODE_SYSTEM_HL7_IDENTIFIER_TYPE, 'TAX'),
+        'Billing provider TAX ID'
       ),
       address: {
-        address1: assertDefined(providerAddress.line?.[0], 'Provider address line'),
-        city: assertDefined(providerAddress.city, 'Provider city'),
-        state: assertDefined(providerAddress.state as State, 'Provider state'),
-        zipCode: assertDefined(providerAddress.postalCode, 'Provider postal code'),
-        zipPlusFourCode: assertDefined(providerAddress.postalCode, 'Provider postal code'),
+        address1: assertDefined(billingProviderAddress.line?.[0], 'Billing provider address line'),
+        city: assertDefined(billingProviderAddress.city, 'Billing provider city'),
+        state: assertDefined(billingProviderAddress.state as State, 'Billing provider state'),
+        zipCode: billingProviderPostalCodeTokens[0],
+        zipPlusFourCode: billingProviderPostalCodeTokens[1],
       },
     },
     renderingProvider: {
+      firstName: assertDefined(practitionerName.given?.[0], 'Practitioner first name'),
+      lastName: assertDefined(practitionerName.family, 'Practitioner last name'),
       npi: assertDefined(getNpi(practitioner.identifier), 'Practitioner NPI'),
     },
+    serviceFacility: {
+      organizationName: assertDefined(SERVICE_FACILITY_LOCATION.name, 'Service facility name'),
+      address: {
+        address1: assertDefined(serviceFacilityAddress.line?.[0], 'Service facility address line'),
+        city: assertDefined(serviceFacilityAddress.city, 'Service facility city'),
+        state: assertDefined(serviceFacilityAddress.state as State, 'Service facility state'),
+        zipCode: serviceFacilityPostalCodeTokens[0],
+        zipPlusFourCode: serviceFacilityPostalCodeTokens[1] ?? '9998',
+      },
+    },
     placeOfServiceCode: assertDefined(
-      getIdentifierValueBySystem(location.identifier, CODE_SYSTEM_CMS_PLACE_OF_SERVICE) as FacilityTypeCode,
+      getIdentifierValueBySystem(
+        SERVICE_FACILITY_LOCATION.identifier,
+        CODE_SYSTEM_CMS_PLACE_OF_SERVICE
+      ) as FacilityTypeCode,
       'Location place of service code'
     ),
     diagnoses: candidDiagnoses,
@@ -120,10 +190,7 @@ export function candidCreateEncounterRequest(input: CreateEncounterInput): Encou
           units: ServiceLineUnits.Un,
           diagnosisPointers: [primaryDiagnosisIndex],
           dateOfService: assertDefined(
-            DateTime.fromFormat(
-              assertDefined(procedure.meta?.lastUpdated, 'Procedure date'),
-              'YYYY-MM-DDThh:mm:ss.sss+zz:zz'
-            ).toISODate(),
+            DateTime.fromISO(assertDefined(procedure.meta?.lastUpdated, 'Procedure date')).toISODate(),
             'Service line date'
           ),
         },
