@@ -4,6 +4,7 @@ import { useZapEHRAPIClient } from '../../utils';
 import { useIntakeCommonStore } from '../common';
 import { UpdateAppointmentFn, useAppointmentsData, useAppointmentUpdate, useGetTelemedStates } from '../appointments';
 import { usePatientInfoStore } from '../patient-info';
+import { PROJECT_WEBSITE } from '../../../helpers';
 
 type HookReturnType = CurrentLocation & {
   isValidationRunning: boolean;
@@ -133,7 +134,7 @@ export const useTelemedLocation = (): HookReturnType => {
 };
 
 export const getOutOfHoursMessage = (state: string): LocationError => {
-  const operatingHoursUrl = 'https://ottehr.com/find-care/virtual-visit/#view-wait-times';
+  const operatingHoursUrl = `${PROJECT_WEBSITE}/find-care/virtual-visit/#view-wait-times`;
 
   return {
     title: <>{state} state is closed now</>,

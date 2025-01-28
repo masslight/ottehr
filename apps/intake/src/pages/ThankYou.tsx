@@ -29,6 +29,7 @@ import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import i18n from '../lib/i18n';
+import { PROJECT_NAME } from '../helpers';
 
 type AppointmentState = { appointmentData: Partial<AppointmentData> };
 
@@ -257,7 +258,10 @@ const ThankYou = (): JSX.Element => {
   }
 
   return (
-    <PageContainer title={t('thanks.title')} description={visitType === VisitType.WalkIn ? '' : t('thanks.subtitle')}>
+    <PageContainer
+      title={t('thanks.title', { PROJECT_NAME })}
+      description={visitType === VisitType.WalkIn ? '' : t('thanks.subtitle')}
+    >
       {(!loading && (
         <>
           {visitType !== VisitType.WalkIn && <Divider />}

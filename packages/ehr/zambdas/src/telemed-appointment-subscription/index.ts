@@ -24,7 +24,7 @@ import {
   InPersonExamCardsNames,
   inPersonExamFieldsMap,
   InPersonExamFieldsNames,
-  OTTEHR_MODULE,
+  PROJECT_MODULE,
   Secrets,
   SNOMEDCodeConceptInterface,
 } from 'utils';
@@ -103,7 +103,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     ).unbundle();
     console.log('Got Appointment related resources');
 
-    const isInPersonAppointment = !!appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
+    const isInPersonAppointment = !!appointment.meta?.tag?.find((tag) => tag.code === PROJECT_MODULE.IP);
 
     const patient = resourceBundle?.find(
       (resource: FhirResource) => resource.resourceType === 'Patient'

@@ -7,7 +7,7 @@
 //   addOrReplaceOperation,
 //   createDocumentReference,
 //   getPatchOperationForNewMetaTag,
-//   OTTEHR_MODULE,
+//   PROJECT_MODULE,
 //   SCHOOL_NOTE_CODE,
 //   SCHOOL_WORK_NOTE_TYPE_META_SYSTEM,
 //   Secrets,
@@ -279,7 +279,7 @@
 //         text: 'Telemed document',
 //       },
 //       meta: {
-//         tag: [{ code: OTTEHR_MODULE.TM }],
+//         tag: [{ code: PROJECT_MODULE.TM }],
 //       },
 //       references: {
 //         subject: {

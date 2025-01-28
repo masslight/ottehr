@@ -1,5 +1,9 @@
 import { AdditionalBooleanQuestion, AdditionalBooleanQuestionsFieldsNames } from 'utils';
 
+export const PROJECT_NAME = import.meta.env.VITE_APP_NAME;
+export const PROJECT_NAME_UPPER = PROJECT_NAME.toUpperCase();
+export const PROJECT_NAME_LOWER = PROJECT_NAME.toLowerCase();
+
 export const REASON_FOR_VISIT_OPTIONS: string[] = [
   'Cough and/or congestion',
   'Throat pain',

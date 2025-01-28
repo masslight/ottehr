@@ -4,7 +4,7 @@ import { BatchInputGetRequest } from '@zapehr/sdk';
 import { Appointment, Bundle, Location, Patient, RelatedPerson } from 'fhir/r4';
 import { ReactElement, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { OTTEHR_MODULE, convertFhirNameToDisplayName } from 'ehr-utils';
+import { PROJECT_MODULE, convertFhirNameToDisplayName } from 'ehr-utils';
 import { formatDateUsingSlashes } from '../helpers/formatDateTime';
 import { standardizePhoneNumber } from 'ehr-utils';
 import { MAX_RESULTS } from '../helpers/patientSearch';
@@ -105,7 +105,7 @@ export default function PatientsTable({
 
       // Get patient name, DOB
       const patientInfo = fhirPatients.reduce((accumulator: PatientRow[], fhirPatient) => {
-        const selectedTags = [OTTEHR_MODULE.UC, OTTEHR_MODULE.TM].join(',');
+        const selectedTags = [PROJECT_MODULE.UC, PROJECT_MODULE.TM].join(',');
         appointmentRequests.push({
           method: 'GET',
           url: `/Appointment?_tag=${selectedTags}&actor=Patient/${fhirPatient.id}&_has:Encounter:appointment:status=finished&_elements=participant,start&_sort=-date&_count=1`,

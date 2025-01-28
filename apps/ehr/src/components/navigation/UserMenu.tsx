@@ -16,6 +16,7 @@ import { getFullestAvailableName, RoleType } from 'utils';
 import { ProviderNotifications } from '../../features';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { dataTestIds } from '../../constants/data-test-ids';
+import { PROJECT_NAME } from '../../constants';
 
 const { VITE_APP_ORGANIZATION_NAME_SHORT: ORGANIZATION_NAME_SHORT } = import.meta.env;
 
@@ -24,7 +25,7 @@ export const UserMenu: FC = () => {
   const user = useEvolveUser();
   const userIsProvider = user?.hasRole([RoleType.Provider]);
 
-  const name = user?.profileResource && (getFullestAvailableName(user.profileResource, true) ?? 'Ottehr Team');
+  const name = user?.profileResource && (getFullestAvailableName(user.profileResource, true) ?? `${PROJECT_NAME} Team`);
   const suffix = user?.profileResource?.name?.[0]?.suffix?.[0];
 
   return (

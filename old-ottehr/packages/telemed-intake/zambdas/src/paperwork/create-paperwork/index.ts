@@ -15,7 +15,7 @@ import {
   PHOTO_ID_BACK_ID,
   PHOTO_ID_CARD_CODE,
   PHOTO_ID_FRONT_ID,
-  OTTEHR_MODULE,
+  PROJECT_MODULE,
   PRIVATE_EXTENSION_BASE_URL,
   PaperworkResponse,
   PersonSex,
@@ -134,7 +134,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         fhirClient,
         secrets,
         token,
-        OTTEHR_MODULE.TM,
+        PROJECT_MODULE.TM,
         createConsentItems,
       );
     }
@@ -264,9 +264,8 @@ async function updateResourcesFromPaperwork(
   const responsiblePartyLastName = paperwork.find(
     (responseTemp) => responseTemp.linkId === 'responsible-party-last-name',
   )?.response;
-  const responsiblePartyNumber = paperwork.find(
-    (responseTemp) => responseTemp.linkId === 'responsible-party-number',
-  )?.response;
+  const responsiblePartyNumber = paperwork.find((responseTemp) => responseTemp.linkId === 'responsible-party-number')
+    ?.response;
 
   if (responsiblePartyNumber) {
     const rp: ResponsiblePartyContact = {
@@ -424,11 +423,11 @@ async function updateResourcesFromPaperwork(
   // if any information changes in contact telecom, flag to be added to the patient patch op array
   let updateGuardianTelecom;
   // find existing guardian contact info and it's index so that the contact array can be updated
-  const guardianContact = patientResource?.contact?.find((contact) =>
-    contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
+  const guardianContact = patientResource?.contact?.find(
+    (contact) => contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
   );
-  const guardianContactIdx = patientResource?.contact?.findIndex((contact) =>
-    contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
+  const guardianContactIdx = patientResource?.contact?.findIndex(
+    (contact) => contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian'),
   );
   // within the guardian's contact, find the telecom array to compare against incoming information
   const guardianContactTelecom = guardianContact?.telecom || [];
@@ -976,7 +975,7 @@ async function createImagesAndDocsResources(
         },
       ],
       fhirClient,
-      ottehrModule: OTTEHR_MODULE.TM,
+      ottehrModule: PROJECT_MODULE.TM,
     });
   });
 }

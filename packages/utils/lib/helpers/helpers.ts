@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import { Secrets } from '../secrets';
 import { getSecret } from '../secrets';
 import { SecretsKeys } from '../secrets';
-import { OTTEHR_MODULE } from '../fhir';
+import { PROJECT_MODULE } from '../fhir';
 import { UpdateQuestionnaireResponseParams } from '../types';
 import path from 'path';
 
@@ -186,7 +186,7 @@ export function standardizePhoneNumber(phoneNumber: string | undefined): string 
   return formatPhoneNumber(phoneNumberDigits);
 }
 
-export function resourceHasMetaTag(resource: Resource, metaTag: OTTEHR_MODULE): boolean {
+export function resourceHasMetaTag(resource: Resource, metaTag: PROJECT_MODULE): boolean {
   return Boolean(resource.meta?.tag?.find((coding) => coding.code === metaTag));
 }
 
@@ -412,4 +412,18 @@ export const performEffectWithEnvFile = async (
     console.error(e);
     throw new Error(`can't import config for the environment: '${env}'`);
   }
+};
+
+export const getAppName = (): {
+  regular: string;
+  lower: string;
+  upper: string;
+} => {
+  const appName = process.env.VITE_APP_NAME || 'Ottehr';
+  console.log('process.env.APP_NAME', process.env.VITE_APP_NAME);
+  return {
+    regular: appName,
+    lower: appName.toLowerCase(),
+    upper: appName.toUpperCase(),
+  };
 };

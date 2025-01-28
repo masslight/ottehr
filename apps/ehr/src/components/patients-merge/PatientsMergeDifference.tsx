@@ -20,6 +20,7 @@ import { RoundedButton } from '../RoundedButton';
 import { useGetPatientsForMerge } from './queries';
 import { ConfirmationDialog, ContainedPrimaryToggleButton } from '../../telemed';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
+import { PROJECT_NAME } from '../../constants';
 
 type PatientFormValues = {
   birthGender?: 'male' | 'female' | 'other' | 'unknown';
@@ -324,7 +325,7 @@ const rows: Row[] = [
     render: (patient) => patient.pcp || '-',
   },
   {
-    title: 'How did patient heard about Ottehr',
+    title: `How did patient heard about ${PROJECT_NAME}`,
     field: 'pointOfDiscovery',
     render: (patient) => patient.pointOfDiscovery || '-',
   },

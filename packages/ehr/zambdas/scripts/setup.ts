@@ -4,7 +4,7 @@ import { FhirResource, Organization } from 'fhir/r4b';
 import fs from 'fs';
 import fetch from 'node-fetch';
 import path from 'path';
-import { ScheduleStrategyCoding, TIMEZONE_EXTENSION_URL } from 'utils';
+import { FHIR_BASE_URL, ScheduleStrategyCoding, TIMEZONE_EXTENSION_URL } from 'utils';
 import { inviteUser } from './invite-user';
 
 async function createApplication(
@@ -252,7 +252,7 @@ export async function setupEHR(
     ],
     identifier: [
       {
-        system: 'https://fhir.ottehr.com/r4/slug',
+        system: FHIR_BASE_URL + '/r4/slug',
         value: 'SeldenNY',
       },
     ],

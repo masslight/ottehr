@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, FhirResource } from 'fhir/r4b';
 import fs from 'fs';
-import { OTTEHR_MODULE } from 'utils';
+import { PROJECT_MODULE } from 'utils';
 import { getAuth0Token } from '../src/shared';
 import { fhirApiUrlFromAuth0Audience, projectApiUrlFromAuth0Audience } from './helpers';
 
@@ -35,7 +35,7 @@ async function main(): Promise<void> {
         params: [
           {
             name: '_tag',
-            value: OTTEHR_MODULE.TM,
+            value: PROJECT_MODULE.TM,
           },
           {
             name: 'status',

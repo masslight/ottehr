@@ -19,7 +19,7 @@ const RCM_TERMINOLOGY_BASE_URL = 'https://terminology.zapehr.com/rcm/cms1500';
 
 export const TIMEZONE_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/timezone';
 
-export const OTTEHR_BASE_URL = 'https://fhir.ottehr.com';
+export const FHIR_BASE_URL = 'https://fhir.ottehr.com';
 
 export const FHIR_EXTENSION = {
   Appointment: {
@@ -159,7 +159,7 @@ export const PRACTITIONER_QUALIFICATION_CODE_SYSTEM = 'http://terminology.hl7.or
 
 export const PRACTITIONER_QUALIFICATION_STATE_SYSTEM = 'http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state';
 
-export const SLUG_SYSTEM = `${OTTEHR_BASE_URL}/r4/slug`;
+export const SLUG_SYSTEM = `${FHIR_BASE_URL}/r4/slug`;
 
 export const SERVICE_EXTENSION = 'http://extensions.ottehr.com';
 

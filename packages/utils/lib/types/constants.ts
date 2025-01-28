@@ -3,6 +3,11 @@ export const PHOTON_PATIENT_IDENTIFIER_SYSTEM = 'http://api.zapehr.com/photon-pa
 
 export const INTERPRETER_PHONE_NUMBER = '(866) 718-0099';
 
+export const PROJECT_NAME = 'Ottehr';
+export const PROJECT_NAME_LOWER = PROJECT_NAME.toLowerCase();
+export const PROJECT_NAME_UPPER = PROJECT_NAME.toUpperCase();
+export const PROJECT_WEBSITE = 'https://ottehr.com';
+
 export const PATIENT_INDIVIDUAL_PRONOUNS_URL = 'http://hl7.org/fhir/StructureDefinition/individual-pronouns';
 export const PATIENT_INDIVIDUAL_PRONOUNS_CUSTOM_URL =
   'https://fhir.zapehr.com/r4/StructureDefinitions/individual-pronouns-custom';
@@ -27,6 +32,5 @@ export const COVERAGE_ADDITIONAL_INFORMATION_URL =
   'https://fhir.zapehr.com/r4/StructureDefinitions/additional-information';
 export const RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL =
   'https://fhir.zapehr.com/r4/StructureDefinitions/related-person-same-as-patient-address';
-export const OTTEHR_SLUG_ID_SYSTEM = 'https://fhir.ottehr.com/r4/slug';
 export const PRACTICE_NAME_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/practice-name';
 export const DATE_OF_BIRTH_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/birth-date';

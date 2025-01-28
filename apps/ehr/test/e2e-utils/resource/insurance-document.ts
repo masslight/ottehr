@@ -1,5 +1,5 @@
 import { DocumentReference } from 'fhir/r4b';
-// import { INSURANCE_CARD_CODE, OTTEHR_MODULE } from 'utils';
+// import { INSURANCE_CARD_CODE, PROJECT_MODULE } from 'utils';
 
 interface DocumentReferenceParams {
   status?: DocumentReference['status'];

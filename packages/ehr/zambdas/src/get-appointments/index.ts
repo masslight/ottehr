@@ -17,7 +17,7 @@ import { DateTime } from 'luxon';
 import {
   INSURANCE_CARD_CODE,
   InPersonAppointmentInformation,
-  OTTEHR_MODULE,
+  PROJECT_MODULE,
   PHOTO_ID_CARD_CODE,
   SMSModel,
   SMSRecipient,
@@ -106,7 +106,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         name: '_include',
         value: 'Encounter:participant',
       },
-      { name: 'appointment._tag', value: OTTEHR_MODULE.IP }, // why is this restricted to in-person appointments
+      { name: 'appointment._tag', value: PROJECT_MODULE.IP }, // why is this restricted to in-person appointments
       { name: 'appointment.date', value: `lt${DateTime.now().setZone(timezone).startOf('day')}` },
       // { name: 'appointment.location', value: `Location/${locationId}` },
       { name: 'status:not', value: 'planned' },

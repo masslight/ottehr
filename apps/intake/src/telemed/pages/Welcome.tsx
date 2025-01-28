@@ -7,6 +7,7 @@ import { EmergencyBanner } from '../components/EmergencyBanner';
 import { CustomContainer } from '../features/common';
 import { ottehrLightBlue } from '../assets';
 import { dataTestIds } from '../../helpers/data-test-ids';
+import { PROJECT_NAME } from '../../helpers';
 
 const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean }): JSX.Element => {
   const navigate = useNavigate();
@@ -17,7 +18,7 @@ const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean
 
   return (
     <CustomContainer
-      title="Welcome to Ottehr"
+      title={`Welcome to ${PROJECT_NAME}`}
       img={ottehrLightBlue}
       imgAlt="Ottehr icon"
       imgWidth={150}

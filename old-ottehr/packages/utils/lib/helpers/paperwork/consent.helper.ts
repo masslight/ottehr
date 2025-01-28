@@ -1,6 +1,6 @@
 import { FhirClient } from '@zapehr/sdk';
 import { Consent, DocumentReference, Patient, QuestionnaireResponse } from 'fhir/r4';
-import { OTTEHR_MODULE } from '../../fhir';
+import { PROJECT_MODULE } from '../../fhir';
 import { Secrets } from '../../secrets';
 import { ConsentSigner, PaperworkResponse } from '../../types';
 
@@ -15,7 +15,7 @@ export async function checkAndCreateConsent(
   fhirClient: FhirClient,
   secrets: Secrets | null,
   token: string,
-  ottehrModule: OTTEHR_MODULE,
+  ottehrModule: PROJECT_MODULE,
   createConsentItems: (
     dateTime: string,
     patient: Patient,
@@ -26,10 +26,10 @@ export async function checkAndCreateConsent(
     fhirClient: FhirClient,
     token: string,
     secrets: Secrets | null,
-    ottehrModule: OTTEHR_MODULE,
-    timezone?: string
+    ottehrModule: PROJECT_MODULE,
+    timezone?: string,
   ) => Promise<void>,
-  timezone?: string
+  timezone?: string,
 ): Promise<void> {
   console.log('Checking DocumentReferences for consent forms');
   const oldConsentResponse = {
@@ -38,7 +38,7 @@ export async function checkAndCreateConsent(
     fullName: questionnaireResponseResource?.item?.find((response) => response.linkId === 'full-name')?.answer?.[0]
       .valueString,
     relationship: questionnaireResponseResource?.item?.find(
-      (response) => response.linkId === 'consent-form-signer-relationship'
+      (response) => response.linkId === 'consent-form-signer-relationship',
     )?.answer?.[0].valueString,
   };
 
@@ -106,7 +106,7 @@ export async function checkAndCreateConsent(
       token,
       secrets,
       ottehrModule,
-      timezone
+      timezone,
     );
 
     // Update prior consent DocumentReferences statuses to superseded

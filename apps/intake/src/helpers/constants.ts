@@ -1,6 +1,11 @@
 import { ErrorDialogConfig, UnexpectedErrorDescription } from 'ui-components';
 
-export const OTTEHR_WEBSITE = 'https://ottehr.com/';
+export const PROJECT_NAME = import.meta.env.VITE_APP_NAME;
+export const PROJECT_NAME_UPPER = PROJECT_NAME.toUpperCase();
+export const PROJECT_NAME_LOWER = PROJECT_NAME.toLowerCase();
+
+export const PROJECT_WEBSITE = 'https://ottehr.com';
+
 export const getParentAndPatientOption = (t: (key: string) => string): { value: string; label: string }[] => {
   return [
     {

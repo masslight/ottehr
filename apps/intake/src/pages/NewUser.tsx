@@ -6,7 +6,7 @@ import { ErrorDialog, ErrorDialogConfig, PageForm } from 'ui-components';
 import { intakeFlowPageRoute } from '../App';
 import { ottehrLightBlue } from '../assets/icons';
 import { PageContainer } from '../components';
-import { NO_LOCATION_ERROR } from '../helpers';
+import { NO_LOCATION_ERROR, PROJECT_NAME } from '../helpers';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import { useBookingContext } from './Welcome';
 
@@ -61,7 +61,12 @@ const NewUser = (): JSX.Element => {
   };
 
   return (
-    <PageContainer title={t('newUser.title')} img={ottehrLightBlue} imgAlt="ottehr icon" imgWidth={100}>
+    <PageContainer
+      title={t('newUser.title', { PROJECT_NAME })}
+      img={ottehrLightBlue}
+      imgAlt="ottehr icon"
+      imgWidth={100}
+    >
       <Typography variant="body1" className="user-description">
         {t('newUser.body')}
       </Typography>

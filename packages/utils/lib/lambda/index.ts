@@ -2,7 +2,7 @@ import { DateTime } from 'luxon';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import sendgrid from '@sendgrid/mail';
 import { Secrets, getSecret, SecretsKeys } from '../secrets';
-import { APIError, isApiError } from '../types';
+import { APIError, isApiError, PROJECT_NAME } from '../types';
 import { isFHIRError } from '../fhir';
 
 const handleErrorResult = (errorResult: unknown): APIGatewayProxyResult => {
@@ -70,7 +70,7 @@ export const sendErrors = async (
     to: email,
     from: {
       email: email,
-      name: 'Ottehr In Person',
+      name: `${PROJECT_NAME} In Person`,
     },
     replyTo: email,
     templateId: SENDGRID_ERROR_EMAIL_TEMPLATE_ID,

@@ -12,6 +12,7 @@ import i18n from '../lib/i18n';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { LocalizationProvider, StaticDatePicker } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+import { PROJECT_NAME } from '../helpers';
 
 interface TabPanelProps {
   children?: ReactNode;
@@ -291,7 +292,8 @@ const Schedule = ({
   }, [currentTab, secondAvailableDaySlots.length, slotsExist]);
 
   if (slotsList.length === 0) {
-    if (!slotsLoading) return <Alert severity="error">{t('schedule.officeClosed.todayOrTomorrow')}</Alert>;
+    if (!slotsLoading)
+      return <Alert severity="error">{t('schedule.officeClosed.todayOrTomorrow', { PROJECT_NAME })}</Alert>;
     return <></>;
   }
 
@@ -405,7 +407,9 @@ const Schedule = ({
                   currentSelectedSlot={locallySelectedSlot}
                   handleSlotSelected={setLocallySelectedSlot}
                   noSlotsMessage={
-                    slotsExist ? t('schedule.officeClosed.today') : t('schedule.officeClosed.todayOrTomorrow')
+                    slotsExist
+                      ? t('schedule.officeClosed.today', { PROJECT_NAME })
+                      : t('schedule.officeClosed.todayOrTomorrow', { PROJECT_NAME })
                   }
                 />
               </TabPanel>

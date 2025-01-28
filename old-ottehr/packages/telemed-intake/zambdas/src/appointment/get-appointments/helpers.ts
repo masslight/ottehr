@@ -1,7 +1,7 @@
 import { FhirClient } from '@zapehr/sdk';
 import { Encounter, Resource } from 'fhir/r4';
 import { getVideoRoomResourceExtension, removePrefix } from '../../shared/appointment/helpers';
-import { OTTEHR_MODULE } from 'ottehr-utils';
+import { PROJECT_MODULE } from 'ottehr-utils';
 
 export type EncounterToAppointmentIdMap = { [appointmentId: string]: Encounter };
 
@@ -31,7 +31,7 @@ export async function getFhirResources(
   const fhirSearchParams = {
     resourceType: 'Appointment',
     searchParams: [
-      { name: '_tag', value: OTTEHR_MODULE.TM },
+      { name: '_tag', value: PROJECT_MODULE.TM },
       {
         name: 'patient',
         value: patientID ? `Patient/${patientID}` : patientIDs.join(','),

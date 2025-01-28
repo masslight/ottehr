@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location } from 'fhir/r4b';
 import { decodeJwt, jwtVerify } from 'jose';
 import {
+  PROJECT_WEBSITE,
   SecretsKeys,
   TelemedAppointmentStatusEnum,
   ZambdaInput,
@@ -49,7 +50,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       claims = decodeJwt(jwt);
       console.log('JWT claims:', claims);
       // invited participant case
-      if (claims.iss === 'https://ottehr.com') {
+      if (claims.iss === PROJECT_WEBSITE) {
         const secret = new TextEncoder().encode(telemedClientSecret);
         await jwtVerify(jwt, secret, {
           audience: `${websiteUrl}/waiting-room/appointment/${appointmentID}`,

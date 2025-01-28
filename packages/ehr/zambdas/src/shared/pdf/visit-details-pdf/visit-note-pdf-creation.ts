@@ -27,7 +27,7 @@ import {
   IN_PERSON_EXAM_CARDS,
   InPersonExamTabProviderCardNames,
   inPersonExamObservationFieldsDetailsArray,
-  OTTEHR_MODULE,
+  PROJECT_MODULE,
   NOTE_TYPE,
   SEEN_IN_LAST_THREE_YEARS_FIELD,
   ObservationSeenInLastThreeYearsDTO,
@@ -58,7 +58,7 @@ export async function composeAndCreateVisitNotePdf(
   token: string
 ): Promise<PdfInfo> {
   const isInPersonAppointment = !!appointmentPackage.appointment.meta?.tag?.find(
-    (tag) => tag.code === OTTEHR_MODULE.IP
+    (tag) => tag.code === PROJECT_MODULE.IP
   );
 
   console.log('Start composing data for pdf');

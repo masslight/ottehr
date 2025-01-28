@@ -30,7 +30,7 @@ import {
   getVisitTotalTime,
   getDurationOfStatus,
 } from 'utils';
-import { LANGUAGES } from '../constants';
+import { PROJECT_NAME, LANGUAGES } from '../constants';
 import { otherColors } from '../CustomThemeProvider';
 import { PriorityIconWithBorder } from './PriorityIconWithBorder';
 import ChatModal from '../features/chat/ChatModal';
@@ -447,12 +447,12 @@ export default function AppointmentTableRow({
         spanish: 'Estamos listos para atender al paciente; ingrese al centro.',
       },
       {
-        english: `Ottehr is trying to get ahold of you. Please call us at ${officePhoneNumber} or respond to this text message.`,
-        spanish: `Ottehr está intentando comunicarse con usted. Llámenos al ${officePhoneNumber} o responda a este mensaje de texto.`,
+        english: `${PROJECT_NAME} is trying to get ahold of you. Please call us at ${officePhoneNumber} or respond to this text message.`,
+        spanish: `${PROJECT_NAME} está intentando comunicarse con usted. Llámenos al ${officePhoneNumber} o responda a este mensaje de texto.`,
       },
       {
-        english: `Ottehr hopes you are feeling better. Please call us with any questions at ${officePhoneNumber}.`,
-        spanish: `Ottehr espera que se sienta mejor. Llámenos si tiene alguna pregunta al ${officePhoneNumber}.`,
+        english: `${PROJECT_NAME} hopes you are feeling better. Please call us with any questions at ${officePhoneNumber}.`,
+        spanish: `${PROJECT_NAME} espera que se sienta mejor. Llámenos si tiene alguna pregunta al ${officePhoneNumber}.`,
       },
     ];
   }, [appointment.id, appointment.patient.firstName, officePhoneNumber]);

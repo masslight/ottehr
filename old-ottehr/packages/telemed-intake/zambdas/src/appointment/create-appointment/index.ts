@@ -20,7 +20,7 @@ import {
   CreateAppointmentUCTelemedResponse,
   FHIR_EXTENSION,
   OtherParticipantsExtension,
-  OTTEHR_MODULE,
+  PROJECT_MODULE,
   PRIVATE_EXTENSION_BASE_URL,
   PatientInfo,
   RequiredAllProps,
@@ -524,7 +524,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   const apptResource: Appointment = {
     resourceType: 'Appointment',
     meta: {
-      tag: [{ code: visitService === 'in-person' ? OTTEHR_MODULE.UC : OTTEHR_MODULE.TM }],
+      tag: [{ code: visitService === 'in-person' ? PROJECT_MODULE.UC : PROJECT_MODULE.TM }],
     },
     participant: participants,
     start: startTimeToISO,
@@ -676,12 +676,14 @@ export function getPatientContactEmail(patient: Patient): string | undefined {
   }
   if (formUser === 'Parent/Guardian') {
     return patient.contact
-      ?.find((contactTemp) =>
-        contactTemp.relationship?.find((relationshipTemp) =>
-          relationshipTemp.coding?.find(
-            (codingTemp) => codingTemp.system === `${PRIVATE_EXTENSION_BASE_URL}/relationship`,
+      ?.find(
+        (contactTemp) =>
+          contactTemp.relationship?.find(
+            (relationshipTemp) =>
+              relationshipTemp.coding?.find(
+                (codingTemp) => codingTemp.system === `${PRIVATE_EXTENSION_BASE_URL}/relationship`,
+              ),
           ),
-        ),
       )
       ?.telecom?.find((telecomTemp) => telecomTemp.system === 'email')?.value;
   }

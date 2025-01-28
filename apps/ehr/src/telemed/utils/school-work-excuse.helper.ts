@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
 import { SchoolWorkNoteExcuseDocDTO } from 'utils';
 import { ArrayElement } from '../../shared/types';
+import { PROJECT_NAME } from '../../constants';
 
 export const mapExcuseTypeToFields = {
   workTemplate: ['headerNote', 'workFields', 'footerNote'],
@@ -164,7 +165,7 @@ export const getDefaultExcuseFormValues = (params: {
     : `${params.patientName || '{Patient name}'},`;
 
   const headerNoteEnding = !params.isSchool && params.isTemplate ? 'They:' : 'They are:';
-  defaultFormValues.headerNote = `To whom it may concern:\n${headerNoteName} was treated by Ottehr on ${currentDate}. ${headerNoteEnding}`;
+  defaultFormValues.headerNote = `To whom it may concern:\n${headerNoteName} was treated by ${PROJECT_NAME} on ${currentDate}. ${headerNoteEnding}`;
 
   if (params.isTemplate) {
     if (params.phoneNumber) {

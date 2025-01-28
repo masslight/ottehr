@@ -10,6 +10,7 @@ import { getSelectors } from '../../../../shared/store/getSelectors';
 import { enqueueSnackbar } from 'notistack';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { useGetAppointmentAccessibility } from '../../../hooks';
+import { PROJECT_NAME } from '../../../../constants';
 
 export const PatientInstructionsCard: FC = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -110,7 +111,7 @@ export const PatientInstructionsCard: FC = () => {
                   onChange={(e) => setInstruction(e.target.value)}
                   size="small"
                   label="Instruction"
-                  placeholder="Enter a new instruction of select from own saved or Ottehr template"
+                  placeholder={`Enter a new instruction of select from own saved or ${PROJECT_NAME} template`}
                   multiline
                   fullWidth
                 />
@@ -127,7 +128,7 @@ export const PatientInstructionsCard: FC = () => {
               </Box>
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                 <RoundedButton onClick={() => setMyTemplatesOpen(true)}>My templates</RoundedButton>
-                <RoundedButton onClick={() => setOttehrTemplatesOpen(true)}>Ottehr templates</RoundedButton>
+                <RoundedButton onClick={() => setOttehrTemplatesOpen(true)}>{PROJECT_NAME} templates</RoundedButton>
               </Box>
             </>
           )}

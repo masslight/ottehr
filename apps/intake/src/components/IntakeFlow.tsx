@@ -4,7 +4,7 @@ import { Navigate, Outlet, useBeforeUnload, useLocation, useNavigate, useParams 
 import { ErrorDialog, UnexpectedErrorDescription } from 'ui-components';
 import { getSelectors } from 'utils';
 import { useIntakeCommonStore } from '../features/common';
-import { getRedirectPath } from '../helpers';
+import { getRedirectPath, PROJECT_WEBSITE } from '../helpers';
 import { t } from 'i18next';
 
 function IntakeFlow(): JSX.Element {
@@ -31,7 +31,7 @@ function IntakeFlow(): JSX.Element {
         if (lastUsedLocationPath) {
           navigate(lastUsedLocationPath);
         } else {
-          window.location.href = 'https://ottehr.com';
+          window.location.href = PROJECT_WEBSITE;
         }
       } else {
         if (!isAuthenticated && redirectDestination) {

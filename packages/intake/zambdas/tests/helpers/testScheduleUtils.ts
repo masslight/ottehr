@@ -8,7 +8,7 @@ import {
   DOW,
   HourOfDay,
   OVERRIDE_DATE_FORMAT,
-  OTTEHR_BASE_URL,
+  FHIR_BASE_URL,
   ScheduleExtension,
   ScheduleOverrides,
   SLUG_SYSTEM,
@@ -157,7 +157,7 @@ export const makeLocation = (schedule: string, operationHours: LocationHoursOfOp
       },
       {
         use: 'usual',
-        system: `${OTTEHR_BASE_URL}/r4/facility-name`,
+        system: `${FHIR_BASE_URL}/r4/facility-name`,
         value: 'TEST',
       },
     ],

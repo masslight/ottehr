@@ -3,7 +3,7 @@ import { Operation } from 'fast-json-patch';
 import { Attachment, DocumentReference, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { addOperation, replaceOperation } from 'utils';
-import { CreateDocumentReferenceInput, findExistingListByDocumentTypeCode, OTTEHR_MODULE } from '../../fhir';
+import { CreateDocumentReferenceInput, findExistingListByDocumentTypeCode, PROJECT_MODULE } from '../../fhir';
 
 export interface FileDocDataForDocReference {
   url: string;
@@ -74,7 +74,7 @@ export async function createFilesDocumentReferences(input: CreateFileDocReferenc
           resourceType: 'DocumentReference',
           meta: {
             // for backward compatibility. TODO: remove this
-            tag: [{ code: OTTEHR_MODULE.IP }, { code: OTTEHR_MODULE.TM }],
+            tag: [{ code: PROJECT_MODULE.IP }, { code: PROJECT_MODULE.TM }],
           },
           status: 'current',
           type: type,

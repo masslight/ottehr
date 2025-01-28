@@ -22,6 +22,7 @@ import { getUser } from '../api/api';
 import { useZapEHRAPIClient } from '../telemed/hooks/useOystehrAPIClient';
 import { useApiClients } from './useAppClients';
 import { useAuthToken } from './useAuthToken';
+import { PROJECT_NAME } from '../constants';
 
 export interface EvolveUser extends User {
   userName: string;
@@ -153,12 +154,12 @@ export default function useEvolveUser(): EvolveUser | undefined {
 
   const { userName, userInitials, lastLogin } = useMemo(() => {
     if (profile) {
-      const userName = getFullestAvailableName(profile) ?? 'Ottehr Team';
+      const userName = getFullestAvailableName(profile) ?? `${PROJECT_NAME} Team`;
       const userInitials = initialsFromName(userName);
       const lastLogin = profile.meta?.tag?.find((tag) => tag.system === 'last-login')?.code;
       return { userName, userInitials, lastLogin };
     }
-    return { userName: 'Ottehr team', userInitials: initialsFromName('Ottehr Team') };
+    return { userName: `${PROJECT_NAME} team`, userInitials: initialsFromName(`${PROJECT_NAME} Team`) };
   }, [profile]);
 
   return useMemo(() => {

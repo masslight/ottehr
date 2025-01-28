@@ -13,6 +13,7 @@ import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import i18n from '../lib/i18n';
 import { useVisitContext } from './ThankYou';
+import { PROJECT_NAME, PROJECT_WEBSITE } from '../helpers';
 
 const Reschedule = (): JSX.Element => {
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
@@ -145,7 +146,7 @@ const Reschedule = (): JSX.Element => {
             description: (
               <>
                 {t('modify.errors.unexpected.description')}{' '}
-                <Link to="https://ottehr.com/contact-us/" target="_blank">
+                <Link to={`${PROJECT_WEBSITE}/contact-us/`} target="_blank">
                   {t('modify.errors.unexpected.link')}
                 </Link>
                 .
@@ -165,8 +166,8 @@ const Reschedule = (): JSX.Element => {
     return (
       <PageContainer title={t('modify.errors.notFound.title')}>
         <Typography variant="body1">
-          {t('modify.errors.notFound.description')}{' '}
-          <a href="https://ottehr.com/find-care/">{t('modify.errors.notFound.link')}</a>.
+          {t('modify.errors.notFound.description', { PROJECT_NAME })}{' '}
+          <a href={`${PROJECT_WEBSITE}/find-care/`}>{t('modify.errors.notFound.link')}</a>.
         </Typography>
       </PageContainer>
     );

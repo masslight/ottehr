@@ -12,6 +12,7 @@ import { useUCZambdaClient } from 'ui-components';
 import { useVisitContext } from './ThankYou';
 import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
 import { useTranslation } from 'react-i18next';
+import { PROJECT_NAME } from '../helpers';
 
 // these are the options for a patient in the IP intake app and are a product requirement for that app
 // please don't attempt to extract this to a shared util. if another app has similar or even identical options
@@ -104,7 +105,7 @@ const CancellationReason = (): JSX.Element => {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const cancelReasonOptions = useMemo(() => {
     return Object.keys(CancelReasonOptions).map((key) => ({
-      label: t(`cancel.reasons.${key}`),
+      label: t(`cancel.reasons.${key}`, { PROJECT_NAME }),
       value: CancelReasonOptions[key as keyof typeof CancelReasonOptions],
     }));
   }, [t]);

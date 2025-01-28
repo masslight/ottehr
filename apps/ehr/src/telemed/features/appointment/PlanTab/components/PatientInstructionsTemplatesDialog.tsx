@@ -16,6 +16,7 @@ import { CommunicationDTO, InstructionType } from 'utils';
 import { useDeletePatientInstruction, useGetPatientInstructions } from '../../../../state';
 import { ActionsList, DeleteIconButton } from '../../../../components';
 import { RoundedButton } from '../../../../../components/RoundedButton';
+import { PROJECT_NAME } from '../../../../../constants';
 
 type MyTemplatesDialogProps = {
   open: boolean;
@@ -52,7 +53,7 @@ export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (p
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth scroll="paper">
       <DialogTitle component="div" sx={{ p: 3, pb: 2, display: 'flex', alignItems: 'flex-start' }}>
         <Typography variant="h4" color={theme.palette.primary.dark} sx={{ flex: 1 }}>
-          {isMyTemplates ? 'My instruction templates' : 'Ottehr instruction templates '}
+          {isMyTemplates ? 'My instruction templates' : `${PROJECT_NAME} instruction templates `}
         </Typography>
         <IconButton size="small" onClick={onClose}>
           <CloseIcon fontSize="small" />

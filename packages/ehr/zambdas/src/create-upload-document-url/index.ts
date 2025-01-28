@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
-import { addOperation, makeZ3Url, OTTEHR_MODULE, replaceOperation, Secrets } from 'utils';
+import { addOperation, makeZ3Url, PROJECT_MODULE, replaceOperation, Secrets } from 'utils';
 import { topLevelCatch } from '../shared/errors';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
 import { ZambdaInput } from '../types';
@@ -244,7 +244,7 @@ function createDocumentReferenceRequest(input: CreateDocRefInput): BatchInputPos
     resource: {
       resourceType: 'DocumentReference',
       meta: {
-        tag: [{ code: OTTEHR_MODULE.TM }],
+        tag: [{ code: PROJECT_MODULE.TM }],
       },
       date: DateTime.now().setZone('UTC').toISO() ?? '',
       status: 'current',

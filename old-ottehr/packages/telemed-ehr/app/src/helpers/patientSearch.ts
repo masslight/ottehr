@@ -1,5 +1,5 @@
 import { SearchParam } from '@zapehr/sdk';
-import { OTTEHR_MODULE } from 'ehr-utils';
+import { PROJECT_MODULE } from 'ehr-utils';
 
 export const MAX_RESULTS = 20;
 
@@ -18,7 +18,7 @@ export const getPatientNameSearchParams = (input: {
   const hasParams = narrowByRelatedPersonAndAppointment
     ? [
         { name: '_has:RelatedPerson:patient:relationship', value: 'user-relatedperson' }, // RelatedPerson referenced by the Person resource
-        { name: '_has:Appointment:patient:_tag', value: [OTTEHR_MODULE.UC, OTTEHR_MODULE.TM].join(',') },
+        { name: '_has:Appointment:patient:_tag', value: [PROJECT_MODULE.UC, PROJECT_MODULE.TM].join(',') },
       ]
     : [];
   const fhirSearchParams: SearchParam[] = [

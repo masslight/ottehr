@@ -20,6 +20,7 @@ import { CustomContainer, useIntakeCommonStore } from '../features/common';
 import HomepageOption from '../features/homepage/HomepageOption';
 import { useZapEHRAPIClient } from '../utils';
 import { dataTestIds } from '../../helpers/data-test-ids';
+import { PROJECT_NAME } from '../../helpers';
 
 const Homepage = (): JSX.Element => {
   const apiClient = useZapEHRAPIClient();
@@ -93,7 +94,7 @@ const Homepage = (): JSX.Element => {
   };
 
   return (
-    <CustomContainer title="Welcome to Ottehr" description="" isFirstPage={true}>
+    <CustomContainer title={`Welcome to ${PROJECT_NAME}`} description="" isFirstPage={true}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         {isAppointmentsFetching ? (
           <Skeleton
