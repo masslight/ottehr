@@ -1,9 +1,9 @@
 import fetch from 'node-fetch';
 import fs from 'fs';
 import path from 'path';
-import FhirClient, { BatchInputDeleteRequest, BatchInputPostRequest } from '@oystehr/sdk';
+import FhirClient from '@oystehr/sdk';
 import { TIMEZONE_EXTENSION_URL } from 'utils';
-import { FhirResource, Organization, Location, Questionnaire } from 'fhir/r4b';
+import { FhirResource, Organization, Location } from 'fhir/r4b';
 import { checkLocations } from './setup-default-locations';
 
 export const defaultLocation: Location = {
