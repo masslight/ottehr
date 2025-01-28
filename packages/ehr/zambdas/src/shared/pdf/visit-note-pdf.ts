@@ -456,7 +456,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   }
 
   console.log('73');
-  if (data.vitals && (Object.values(data.vitals).filter((arr) => arr.length > 0) ?? []).length > 0) {
+  if (data.vitals && (Object.values(data.vitals).filter((arr) => arr && arr.length > 0) ?? []).length > 0) {
     console.log('41');
     drawBlockHeader('Vitals');
 
