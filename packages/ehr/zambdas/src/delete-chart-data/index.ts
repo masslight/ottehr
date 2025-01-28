@@ -5,6 +5,7 @@ import { Operation } from 'fast-json-patch';
 
 import {
   AllergyIntolerance,
+  Bundle,
   ClinicalImpression,
   Communication,
   Condition,
@@ -28,6 +29,7 @@ import {
   ObservationDTO,
 } from 'utils';
 import { createFindResourceRequestByPatientField } from '../get-chart-data/helpers';
+import { parseCreatedResourcesBundle } from '../shared';
 import {
   chartDataResourceHasMetaTagByCode,
   deleteEncounterAddendumNote,
@@ -240,7 +242,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           requests: getRequests,
         })
         .then((results) => {
-          const resources = results.unbundle();
+          const resources = parseCreatedResourcesBundle(parseCreatedResourcesBundle(results as Bundle)[0] as Bundle);
           resources.forEach((res) => {
             if (res.resourceType === 'MedicationStatement') {
               // for medications from current encounter - remove entirely
@@ -276,10 +278,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     // perform deleting z3 pdf objects after deleting all fhir resources
     if (schoolWorkNotes) {
       for (const schoolWorkNote of schoolWorkNotes) {
-        const documentReference = allResources.find(
-          (resource) => resource.id === schoolWorkNote.id
-        ) as DocumentReference;
-        const fileUrl = documentReference.content[0].attachment.url;
+        const documentReference = allResources.find((resource) => resource.id === schoolWorkNote.id) as
+          | DocumentReference
+          | undefined;
+        const fileUrl = documentReference?.content?.[0]?.attachment.url;
         if (fileUrl) await deleteZ3Object(fileUrl, m2mtoken);
       }
     }
