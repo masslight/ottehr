@@ -13,7 +13,7 @@ export class PatientsPage {
   }
 
   async searchByDateOfBirth(dateOfBirth: string): Promise<void> {
-    const locator = this.#page.locator('[placeholder="MM/DD/YYYY"]');
+    const locator = this.#page.getByTestId(dataTestIds.patients.searchByDateOfBirthField).locator('input');
     await locator.click();
     await this.#page.waitForTimeout(2000);
     await locator.pressSequentially(dateOfBirth);
