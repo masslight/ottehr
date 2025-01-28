@@ -56,6 +56,10 @@ jobs:
             mkdir -p "apps/$app/env"
             cp "secrets/$app/app/tests."*.json "apps/$app/env/"
             cp "secrets/$app/app/.env.local" "apps/$app/env/"
+            if [ "$app" = "intake" ] && [ -f "secrets/$app/app/user.json" ]; then
+                mkdir -p "apps/$app/playwright"
+                cp "secrets/$app/app/user.json" "apps/$app/playwright/user.json"
+            fi
           }
 
           for app in ehr intake; do
@@ -90,3 +94,13 @@ jobs:
             apps/${{ matrix.app }}/playwright-report/
             apps/${{ matrix.app }}/test-results/
           retention-days: 30
+
+      - name: Save user.json files to secrets repo
+        if: matrix.app == 'intake' && always()
+        run: |
+          cd secrets
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          cp ../apps/intake/playwright/user.json intake/app/user.json
+          git add .
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update user.json files from CI" && git push)
