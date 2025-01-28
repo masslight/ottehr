@@ -144,7 +144,7 @@ async function updateEmployeesFields(page: Page, employee: TestEmployeeInvitePar
   }
 }
 
-test('CSS ehr Employees page is working', async ({ page }) => {
+test('Employee page is working', async ({ page }) => {
   await page.goto(`employees`);
   await expect(page.getByTestId('PersonIcon')).toBeVisible();
   await expect(page.getByTestId(dataTestIds.header.userName)).toBeAttached(DEFAULT_TIMEOUT);
@@ -152,7 +152,7 @@ test('CSS ehr Employees page is working', async ({ page }) => {
   await expect(page.getByTestId(dataTestIds.employeesPage.table)).toBeVisible(DEFAULT_TIMEOUT);
 });
 
-test('CSS ehr Employees list is loading', async ({ page }) => {
+test('Employees list is loading', async ({ page }) => {
   await page.goto(`employees`);
 
   // WE GET ALL STATUS CHIPS FROM EMPLOYEES RECORDS, SO IF THERE ARE SOME WE HAVE EMPLOYEES
@@ -162,7 +162,7 @@ test('CSS ehr Employees list is loading', async ({ page }) => {
   await expect(statusChips).not.toHaveCount(0);
 });
 
-test('Providers tab filters', async ({ page }) => {
+test('Providers tab filters are working', async ({ page }) => {
   await page.goto(`employees`);
   await page.getByTestId(dataTestIds.employeesPage.providersTabButton).click(DEFAULT_TIMEOUT);
   await waitUntilEmployeeProviderTableLoaded(page);
@@ -233,7 +233,7 @@ test('Employee editing is working', async ({ page }) => {
   });
 });
 
-test('Deactivating employee', async ({ page }) => {
+test('Deactivating employee success', async ({ page }) => {
   await page.goto(`employees`);
   await waitUntilEmployeeProviderTableLoaded(page);
 
