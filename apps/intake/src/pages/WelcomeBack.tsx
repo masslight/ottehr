@@ -24,7 +24,7 @@ import {
 import { intakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
 import { zapehrApi } from '../api';
-import { ottehrLightBlue } from '../assets/icons';
+import { ottehrLightBlue } from '../theme/ottehr/icons';
 import { CardWithDescriptionAndLink, PageContainer } from '../components';
 import { getStartingPath } from '../helpers';
 import { safelyCaptureException } from '../helpers/sentry';

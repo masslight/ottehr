@@ -7,7 +7,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ErrorDialog, ErrorDialogConfig, useUCZambdaClient } from 'ui-components';
 import { APIError, CANT_UPDATE_CANCELED_APT_ERROR, PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR, VisitType } from 'utils';
 import zapehrApi, { AppointmentBasicInfo, AvailableLocationInformation } from '../api/zapehrApi';
-import { ottehrLightBlue } from '../assets/icons';
+import { ottehrLightBlue } from '../theme/ottehr/icons';
 import { PageContainer, Schedule } from '../components';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';

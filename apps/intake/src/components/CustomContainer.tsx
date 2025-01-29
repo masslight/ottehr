@@ -2,7 +2,7 @@ import { useAuth0 } from '@auth0/auth0-react';
 import mixpanel from 'mixpanel-browser';
 import React, { useCallback } from 'react';
 import { ContainerProps, CustomContainer } from 'ui-components';
-import { ottehrLogo as logo } from '../assets';
+import { ottehrLogo as logo } from '../theme/ottehr';
 import { useClearStores } from '../features';
 import { useIntakeCommonStore } from '../features/common';
 import Footer from './Footer';

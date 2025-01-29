@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { generatePath, useNavigate, useParams } from 'react-router-dom';
 import { ErrorDialog, ErrorDialogConfig, PageForm } from 'ui-components';
 import { intakeFlowPageRoute } from '../App';
-import { ottehrLightBlue } from '../assets/icons';
+import { ottehrLightBlue } from '../theme/ottehr/icons';
 import { PageContainer } from '../components';
 import { NO_LOCATION_ERROR, PROJECT_NAME } from '../helpers';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';

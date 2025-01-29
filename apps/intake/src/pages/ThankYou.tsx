@@ -23,7 +23,7 @@ import { persist } from 'zustand/middleware';
 import { intakeFlowPageRoute, visitBasePath } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
 import zapehrApi from '../api/zapehrApi';
-import { ottehrLightBlue } from '../assets/icons';
+import { ottehrLightBlue } from '../theme/ottehr/icons';
 import { PageContainer } from '../components';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import useAppointmentNotFoundInformation from '../helpers/information';

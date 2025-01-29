@@ -25,7 +25,7 @@ import {
   bookingBasePath,
   intakeFlowPageRoute,
 } from '../App';
-import { ottehrLightBlue } from '../assets/icons';
+import { ottehrLightBlue } from '../theme/ottehr/icons';
 import { PageContainer, Schedule } from '../components';
 import { WaitingEstimateCard } from '../components/WaitingEstimateCard';
 import { PatientInfoInProgress } from '../features/patients/types';

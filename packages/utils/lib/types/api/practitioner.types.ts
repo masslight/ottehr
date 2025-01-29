@@ -1,4 +1,4 @@
-import { FHIR_BASE_URL, StateType } from 'utils';
+import { StateType } from 'utils';
 
 export type PractitionerQualificationCode =
   | 'MD'
@@ -294,6 +294,8 @@ export interface ProviderNotificationSettings {
   method: ProviderNotificationMethod;
   enabled: boolean;
 }
+
+const FHIR_BASE_URL = 'https://fhir.ottehr.com';
 
 export const PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL = `${FHIR_BASE_URL}/r4/provider-notifications-settings`;
 export const PROVIDER_NOTIFICATION_METHOD_URL = `${FHIR_BASE_URL}/r4/provider-notifications-method`;
