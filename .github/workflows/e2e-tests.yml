@@ -16,9 +16,14 @@ on:
       - 'package.json'
 
 jobs:
-  prepare:
+  e2e-tests:
     if: github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch'
+    strategy:
+      matrix:
+        app: [ehr, intake]
+      fail-fast: false
     runs-on: ubuntu-latest-8-cores
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -71,15 +76,6 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
-  e2e-tests:
-    needs: prepare
-    strategy:
-      matrix:
-        app: [ehr, intake]
-      fail-fast: false
-    runs-on: ubuntu-latest-8-cores
-    timeout-minutes: 15
-    steps:
       - name: Run E2E tests
         run: npm run ${{ matrix.app }}:e2e:local
         env:
@@ -97,32 +93,70 @@ jobs:
 
       - name: Save user.json files to secrets repo
         if: matrix.app == 'intake' && always()
+        env:
+          DEPLOY_OTTEHR_KEY: ${{ secrets.DEPLOY_OTTEHR_KEY }}
         run: |
           node -e '
           const fs = require("fs");
           const path = "apps/intake/playwright/user.json";
 
           try {
-            if (!fs.existsSync(path)) process.exit(0);
-
+            console.log("Starting user.json processing...");
+            
+            if (!fs.existsSync(path)) {
+              console.log(`File ${path} does not exist, exiting`);
+              process.exit(0);
+            }
+            
+            console.log("Reading user.json file...");
             const data = JSON.parse(fs.readFileSync(path, "utf8"));
+            console.log("Successfully parsed user.json");
+            
             const authOrigin = data.origins?.find(o => o.origin === "https://auth.ottehr.com");
-            const hasAuth0Token = authOrigin?.localStorage && 
+            console.log("Auth origin found:", !!authOrigin);
+            
+            const hasAuth0Token = authOrigin?.localStorage &&
               Object.keys(authOrigin.localStorage).some(key => key.includes("auth0"));
+            console.log("Has Auth0 token:", hasAuth0Token);
+            
+            if (!hasAuth0Token) {
+              console.log("No Auth0 token found, exiting");
+              process.exit(0);
+            }
 
-            if (!hasAuth0Token) process.exit(0);
-
+            console.log("Setting up SSH...");
             require("child_process").execSync(`
-              cd secrets && 
-              git config --global user.name "GitHub Actions" && 
-              git config --global user.email "actions@github.com" && 
-              cp ../apps/intake/playwright/user.json intake/app/user.json && 
-              git add . && 
-              (git diff --quiet && git diff --staged --quiet || (git commit -m "Update user.json files from CI" && git push))
+              mkdir -p ~/.ssh
+              chmod 700 ~/.ssh
+              echo "${process.env.DEPLOY_OTTEHR_KEY}" > ~/.ssh/id_rsa
+              chmod 600 ~/.ssh/id_rsa
+              ssh-keyscan github.com >> ~/.ssh/known_hosts
             `, {stdio: "inherit"});
 
+            console.log("Pushing to secrets repo...");
+            require("child_process").execSync(`
+              cd secrets
+              git config --global user.name "GitHub Actions"
+              git config --global user.email "actions@github.com"
+              git remote set-url origin git@github.com:masslight/ottehr-secrets.git
+              cp ../apps/intake/playwright/user.json intake/app/user.json
+              git add .
+              git diff --quiet && git diff --staged --quiet || (git commit -m "Update user.json files from CI" && git push)
+            `, {stdio: "inherit"});
+            
+            console.log("Push completed successfully");
+
           } catch (error) {
-            console.error("Error processing user.json:", error);
+            console.error("Error occurred:", error);
+            console.error("Error stack:", error.stack);
             process.exit(1);
+          } finally {
+            console.log("Cleaning up...");
+            try {
+              require("child_process").execSync("rm -f ~/.ssh/id_rsa", {stdio: "inherit"});
+              console.log("Cleanup completed");
+            } catch (e) {
+              console.error("Error cleaning up SSH key:", e);
+            }
           }
           '

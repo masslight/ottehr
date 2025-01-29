@@ -54,6 +54,10 @@ test('Should log in if not authorized', async ({ context, page }) => {
 });
 
 async function pushUserJsonToSecretsRepo(): Promise<void> {
+  if (process.env.CI) {
+    return;
+  }
+
   try {
     console.log('Pushing user.json to secrets repo');
     const repoUrl = 'git@github.com:masslight/ottehr-secrets.git';
