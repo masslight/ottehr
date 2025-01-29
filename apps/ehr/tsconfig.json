@@ -2,7 +2,12 @@
   "extends": "tsconfig/react.json",
   "compilerOptions": {
     "noUnusedLocals": false,
-    "noUnusedParameters": false
+    "noUnusedParameters": false,
+    "baseUrl": ".",
+    "paths": {
+      "@theme/*": ["src/theme/ottehr/*"],
+      "@defaultTheme/*": ["src/theme/ottehr/*"]
+    }
   },
   "include": ["src", "test", "playwright.config.ts", "setup-test-deps.js", "auth.setup.js", "test", "vitest.config.ts"]
 }

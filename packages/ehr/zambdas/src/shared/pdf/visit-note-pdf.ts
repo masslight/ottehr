@@ -41,9 +41,8 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   };
   const pdfClient = await createPdfClient(pdfClientStyles);
 
-  const RobotoFont = await pdfClient.embedFont(fs.readFileSync('./Roboto-Regular.otf'));
-  const RobotoFontBold = await pdfClient.embedFont(fs.readFileSync('./Roboto-Bold.otf'));
-  const tiemposFontRegular = await pdfClient.embedFont(fs.readFileSync('./TiemposHeadline-Regular.otf'));
+  const RubikFont = await pdfClient.embedFont(fs.readFileSync('./Rubik-Regular.otf'));
+  const RubikFontBold = await pdfClient.embedFont(fs.readFileSync('./Rubik-Bold.otf'));
   const ottehrLogo = await pdfClient.embedImage(fs.readFileSync('./ottehrLogo.png'));
   const redDot = await pdfClient.embedImage(fs.readFileSync('./red-dot.png'));
   const greenDot = await pdfClient.embedImage(fs.readFileSync('./green-dot.png'));
@@ -51,7 +50,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   const textStyles: Record<string, TextStyle> = {
     header: {
       fontSize: 20,
-      font: RobotoFontBold,
+      font: RubikFontBold,
       spacing: 17,
       side: 'right',
       newLineAfter: true,
@@ -59,76 +58,76 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     blockHeader: {
       fontSize: 18,
       spacing: 8,
-      font: tiemposFontRegular,
+      font: RubikFont,
       newLineAfter: true,
       color: rgbNormalized(48, 19, 103),
     },
     blockSubHeader: {
       fontSize: 16,
       spacing: 1,
-      font: RobotoFontBold,
+      font: RubikFontBold,
       newLineAfter: true,
       color: rgbNormalized(48, 19, 103),
     },
     fieldHeader: {
       fontSize: 16,
-      font: RobotoFont,
+      font: RubikFont,
       spacing: 1,
       color: rgbNormalized(48, 19, 103),
     },
     fieldText: {
       fontSize: 16,
       spacing: 6,
-      font: RobotoFont,
+      font: RubikFont,
       side: 'right',
       newLineAfter: true,
     },
     regularText: {
       fontSize: 16,
       spacing: 1,
-      font: RobotoFont,
+      font: RubikFont,
       newLineAfter: true,
     },
     alternativeRegularText: {
       fontSize: 16,
       spacing: 1,
       color: rgbNormalized(143, 154, 167),
-      font: RobotoFont,
+      font: RubikFont,
       newLineAfter: true,
     },
     smallText: {
       fontSize: 14,
       spacing: 1,
-      font: RobotoFont,
+      font: RubikFont,
       newLineAfter: true,
     },
     smallGreyText: {
       fontSize: 14,
       spacing: 1,
-      font: RobotoFont,
+      font: RubikFont,
       newLineAfter: true,
       color: rgbNormalized(143, 154, 167),
     },
     examCardHeader: {
       fontSize: 16,
       spacing: 1,
-      font: RobotoFontBold,
+      font: RubikFontBold,
       color: rgbNormalized(48, 19, 103),
     },
     examBoldField: {
       fontSize: 16,
       spacing: 5,
-      font: RobotoFontBold,
+      font: RubikFontBold,
     },
     examRegularField: {
       fontSize: 16,
       spacing: 5,
-      font: RobotoFont,
+      font: RubikFont,
     },
     examProviderComment: {
       fontSize: 16,
       spacing: 16,
-      font: RobotoFontBold,
+      font: RubikFontBold,
       newLineAfter: true,
     },
   };

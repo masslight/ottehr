@@ -1,6 +1,6 @@
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans',
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Rubik', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans',
     'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -11,75 +11,26 @@ code {
 }
 
 @font-face {
-  font-family: 'Roboto';
+  font-family: 'Rubik';
   src:
-    local('Roboto'),
-    url(./fonts/Roboto-Regular.woff2) format('woff2'),
-    local('Roboto'),
-    url(./fonts/Roboto-Regular.woff) format('woff'),
-    local('Roboto'),
-    url(./fonts/Roboto-Regular.otf) format('otf');
+    local('Rubik'),
+    url(./fonts/Rubik-Regular.woff2) format('woff2'),
+    local('Rubik'),
+    url(./fonts/Rubik-Regular.woff) format('woff'),
+    local('Rubik'),
+    url(./fonts/Rubik-Regular.otf) format('otf');
   font-weight: normal;
   font-style: normal;
 }
 
 @font-face {
-  font-family: 'Roboto';
+  font-family: 'Rubik';
   src:
-    local('Roboto'),
-    url(./fonts/Roboto-RegularItalic.woff2) format('woff2'),
-    local('Roboto'),
-    url(./fonts/Roboto-RegularItalic.woff) format('woff'),
-    local('Roboto'),
-    url(./fonts/Roboto-RegularItalic.otf) format('otf');
-  font-weight: normal;
-  font-style: italic;
-}
-
-@font-face {
-  font-family: 'Roboto';
-  src:
-    local('Roboto'),
-    url(./fonts/Roboto-Bold.woff2) format('woff2'),
-    local('Roboto'),
-    url(./fonts/Roboto-Bold.woff) format('woff'),
-    local('Roboto'),
-    url(./fonts/Roboto-Bold.otf) format('otf');
+    local('Rubik'),
+    url(./fonts/Rubik-Bold.woff2) format('woff2'),
+    local('Rubik'),
+    url(./fonts/Rubik-Bold.woff) format('woff'),
+    local('Rubik'),
+    url(./fonts/Rubik-Bold.otf) format('otf');
   font-weight: bold;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'Roboto';
-  src:
-    local('Roboto'),
-    url(./fonts/Roboto-BoldItalic.woff2) format('woff2'),
-    local('Roboto'),
-    url(./fonts/Roboto-BoldItalic.woff) format('woff'),
-    local('Roboto'),
-    url(./fonts/Roboto-BoldItalic.woff2) format('otf');
-  font-weight: bold;
-  font-style: italic;
-}
-
-@font-face {
-  font-family: 'TiemposText';
-  src:
-    local('TiemposText'),
-    url(./fonts/tiempos-text-regular.woff2) format('woff2'),
-    local('TiemposText'),
-    url(./fonts/TiemposText-Regular.otf) format('otf'),
-    local('TiemposText'),
-    url(./fonts/TiemposText-Regular.ttf) format('ttf');
-}
-
-@font-face {
-  font-family: 'TiemposHeadline';
-  src:
-    local('TiemposHeadline'),
-    url(./fonts/tiempos-headline-regular.woff2) format('woff2'),
-    local('TiemposHeadline'),
-    url(./fonts/TiemposHeadline-Regular.otf) format('otf'),
-    local('TiemposHeadline'),
-    url(./fonts/TiemposHeadline-Regular.ttf) format('ttf');
 }
