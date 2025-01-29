@@ -54,6 +54,7 @@ test('Should log in if not authorized', async ({ context, page }) => {
 
 async function pushUserJsonToSecretsRepo(): Promise<void> {
   try {
+    console.log('Pushing user.json to secrets repo');
     const repoUrl = 'git@github.com:masslight/ottehr-secrets.git';
     const repoName = getRepoNameFromUrl(repoUrl);
     if (!repoName) throw new Error('secrets repo name not found');

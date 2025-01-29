@@ -98,9 +98,31 @@ jobs:
       - name: Save user.json files to secrets repo
         if: matrix.app == 'intake' && always()
         run: |
-          cd secrets
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          cp ../apps/intake/playwright/user.json intake/app/user.json
-          git add .
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Update user.json files from CI" && git push)
+          node -e '
+          const fs = require("fs");
+          const path = "apps/intake/playwright/user.json";
+
+          try {
+            if (!fs.existsSync(path)) process.exit(0);
+
+            const data = JSON.parse(fs.readFileSync(path, "utf8"));
+            const authOrigin = data.origins?.find(o => o.origin === "https://auth.ottehr.com");
+            const hasAuth0Token = authOrigin?.localStorage && 
+              Object.keys(authOrigin.localStorage).some(key => key.includes("auth0"));
+
+            if (!hasAuth0Token) process.exit(0);
+
+            require("child_process").execSync(`
+              cd secrets && 
+              git config --global user.name "GitHub Actions" && 
+              git config --global user.email "actions@github.com" && 
+              cp ../apps/intake/playwright/user.json intake/app/user.json && 
+              git add . && 
+              (git diff --quiet && git diff --staged --quiet || (git commit -m "Update user.json files from CI" && git push))
+            `, {stdio: "inherit"});
+
+          } catch (error) {
+            console.error("Error processing user.json:", error);
+            process.exit(1);
+          }
+          '
