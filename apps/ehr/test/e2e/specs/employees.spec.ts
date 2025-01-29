@@ -9,6 +9,7 @@ import {
 } from '../../e2e-utils/resource/employees';
 import { AVAILABLE_EMPLOYEE_ROLES, RoleType } from '../../e2e-utils/temp-imports-from-utils';
 import { PractitionerQualificationCode } from 'utils';
+import { waitForSnackbar } from '../../e2e-utils/helpers/tests-utils';
 
 // We may create new instances for the tests with mutable operations, and keep parralel tests isolated
 const resourceHandler = new ResourceHandler();
@@ -34,13 +35,6 @@ async function goToTestEmployeePage(page: Page, employee: TestEmployee): Promise
   await expect(page.getByTestId(dataTestIds.employeesPage.informationForm)).toBeVisible(DEFAULT_TIMEOUT);
 }
 
-async function waitForSuccessSnackbar(page: Page): Promise<void> {
-  // for this moment it's the easiest way to check for snackbar, data-key didn't work out
-  // const snackbar = page.locator(`[data-key="${dataTestIds.employeesPage.snackbarSuccessKey}"]`);
-  const snackbar = page.locator('div[id=notistack-snackbar]');
-  await expect(snackbar).toBeVisible(DEFAULT_TIMEOUT);
-}
-
 async function checkEmployeeFields(page: Page, employee: TestEmployeeInviteParams): Promise<void> {
   // CHECKING EMPLOYEE BASIC FIELDS
   const firstNameField = page.getByTestId(dataTestIds.employeesPage.firstName).locator('input');
@@ -49,29 +43,29 @@ async function checkEmployeeFields(page: Page, employee: TestEmployeeInviteParam
   const emailField = page.getByTestId(dataTestIds.employeesPage.email).locator('input');
   const phoneField = page.getByTestId(dataTestIds.employeesPage.phone).locator('input');
 
-  await expect(firstNameField).toHaveValue(employee.givenName);
-  await expect(middleNameField).toHaveValue(employee.middleName);
+  await expect.soft(firstNameField).toHaveValue(employee.givenName);
+  await expect.soft(middleNameField).toHaveValue(employee.middleName);
   if (employee.familyName) await expect(lastNameField).toHaveValue(employee.familyName);
-  await expect(emailField).toHaveValue(employee.email!);
-  await expect(phoneField).toHaveValue(employee.telecomPhone);
+  await expect.soft(emailField).toHaveValue(employee.email!);
+  await expect.soft(phoneField).toHaveValue(employee.telecomPhone);
 
   // CHECKING EMPLOYEE ROLES
   for (const emp_role of AVAILABLE_EMPLOYEE_ROLES) {
     const roleCheckbox = page.getByTestId(dataTestIds.employeesPage.roleRow(emp_role.value));
     if (employee.roles.includes(emp_role.value)) {
-      await expect(roleCheckbox.getByRole('checkbox')).toBeChecked();
+      await expect.soft(roleCheckbox.getByRole('checkbox')).toBeChecked();
     } else {
-      await expect(roleCheckbox.getByRole('checkbox')).not.toBeChecked();
+      await expect.soft(roleCheckbox.getByRole('checkbox')).not.toBeChecked();
     }
   }
 
   // IN CASE EMPLOYEE IS A PROVIDER WE CHECKING CREDENTIALS AND NPI
   if (employee.roles.includes(RoleType.Provider)) {
     const credentialsField = page.getByTestId(dataTestIds.employeesPage.providerDetailsCredentials).locator('input');
-    await expect(credentialsField).toHaveValue(employee.credentials);
+    await expect.soft(credentialsField).toHaveValue(employee.credentials);
 
     const npiField = page.getByTestId(dataTestIds.employeesPage.providerDetailsNPI).locator('input');
-    await expect(npiField).toHaveValue(employee.npi);
+    await expect.soft(npiField).toHaveValue(employee.npi);
   }
 
   // CHECKING QUALIFICATION
@@ -80,7 +74,7 @@ async function checkEmployeeFields(page: Page, employee: TestEmployeeInviteParam
       const row = page.getByTestId(
         dataTestIds.employeesPage.qualificationRow(qualification.code as PractitionerQualificationCode)
       );
-      await expect(row).toBeVisible(DEFAULT_TIMEOUT);
+      await expect.soft(row).toBeVisible(DEFAULT_TIMEOUT);
     }
   }
 }
@@ -146,7 +140,7 @@ async function updateEmployeesFields(page: Page, employee: TestEmployeeInvitePar
 
 test('Employee page is working', async ({ page }) => {
   await page.goto(`employees`);
-  await expect(page.getByTestId('PersonIcon')).toBeVisible();
+  await expect(page.getByTestId('PersonIcon')).toBeVisible(DEFAULT_TIMEOUT);
   await expect(page.getByTestId(dataTestIds.header.userName)).toBeAttached(DEFAULT_TIMEOUT);
 
   await expect(page.getByTestId(dataTestIds.employeesPage.table)).toBeVisible(DEFAULT_TIMEOUT);
@@ -208,7 +202,7 @@ test('Employee editing is working', async ({ page }) => {
     await updateEmployeesFields(page, TEST_EMPLOYEE_1_UPDATED_INFO);
     await submitButton.click(DEFAULT_TIMEOUT);
 
-    await waitForSuccessSnackbar(page);
+    await waitForSnackbar(page);
     await expect(submitButton).not.toBeDisabled(DEFAULT_TIMEOUT);
   });
 
@@ -242,7 +236,7 @@ test('Deactivating employee success', async ({ page }) => {
     const deactivateButton = page.getByTestId(dataTestIds.employeesPage.deactivateUserButton);
     await expect(deactivateButton).toBeVisible(DEFAULT_TIMEOUT);
     await deactivateButton.click(DEFAULT_TIMEOUT);
-    await waitForSuccessSnackbar(page);
+    await waitForSnackbar(page);
   });
 
   await test.step('Checking provider deactivated successfully', async () => {

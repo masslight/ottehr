@@ -108,6 +108,5 @@ export const dataTestIds = {
     addQualificationButton: 'add-qualification-button',
     deactivateUserButton: 'deactivate-user-button',
     statusChip: 'employee-status-chip',
-    snackbarSuccessKey: 'employee-success-submission-snackbar',
   },
 };

@@ -156,7 +156,6 @@ export default function EmployeeInformationForm({
       });
       enqueueSnackbar(`User ${data.firstName} ${data.lastName} was updated successfully`, {
         variant: 'success',
-        key: dataTestIds.employeesPage.snackbarSuccessKey,
       });
     } catch (error) {
       console.log(`Failed to update user: ${error}`);

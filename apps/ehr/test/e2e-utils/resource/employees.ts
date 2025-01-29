@@ -12,6 +12,7 @@ import {
   PractitionerLicense,
   RoleType,
 } from '../temp-imports-from-utils';
+import { fetchWithOystAuth } from '../helpers/tests-utils';
 
 export interface TestEmployeeInviteParams {
   userName?: string;
@@ -36,13 +37,13 @@ export interface TestEmployee extends TestEmployeeInviteParams {
   profile: Practitioner;
 }
 
-export type UserResponse = {
+type UserResponse = {
   id: string;
   name: string;
   email: string;
   phoneNumber: string;
   authenticationMethod: string;
-  profile: Practitioner;
+  profile: string;
   roles: {
     id: string;
     name: string;
@@ -50,7 +51,7 @@ export type UserResponse = {
 };
 
 const testEmployeeUsernamePattern = 'e2e-employee-';
-export const testEmployeeGivenNamePattern = 'employeeTestE2E'
+export const testEmployeeGivenNamePattern = 'employeeTestE2E';
 
 export const TEST_EMPLOYEE_1: TestEmployeeInviteParams = {
   givenName: `${testEmployeeGivenNamePattern}1`,
@@ -156,68 +157,25 @@ export function invitationParamsForEmployee(employee: TestEmployeeInviteParams, 
   };
 }
 
-async function fetchWithOystAuth(
-  url: string,
-  method: string,
-  authToken: string,
-  body?: any
-): Promise<Response | undefined> {
-  const oyst_proj_id = process.env.PROJECT_ID;
-  if (!oyst_proj_id) throw new Error('secret PROJECT_ID is not set');
-
-  const response = await fetch(url, {
-    method,
-    headers: {
-      accept: 'application/json',
-      'content-type': 'application/json',
-      authorization: `Bearer ${authToken}`,
-      'x-zapehr-project-id': oyst_proj_id,
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-
-  if (!response.ok) {
-    const res = await response.json();
-    console.error(`HTTP error for ${url}: ${res}, ${JSON.stringify(res)}`);
-    return undefined;
-  }
-  console.log(`Request status for ${url}: `, response.status);
-  return response;
-}
-
 export async function inviteTestEmployeeUser(
   employee: TestEmployeeInviteParams,
   oystehr: Oystehr,
   authToken: string
 ): Promise<TestEmployee | undefined> {
-  const rolesResponse = await fetchWithOystAuth('https://project-api.zapehr.com/v1/iam/role', 'GET', authToken);
-  const rolesRaw = (await rolesResponse?.json()) as { id: string; name: string }[];
+  const rolesRaw = await fetchWithOystAuth<{ id: string; name: string }[]>(
+    'GET',
+    'https://project-api.zapehr.com/v1/iam/role',
+    authToken
+  );
   const providerRoleId = rolesRaw.find((role) => role.name === RoleType.Provider)?.id;
   if (!providerRoleId) throw new Error(`Didn't found any role with name: ${RoleType.Provider}`);
-  const response = await fetchWithOystAuth(
-    'https://project-api.zapehr.com/v1/user/invite',
+  const response = await fetchWithOystAuth<UserResponse>(
     'POST',
+    'https://project-api.zapehr.com/v1/user/invite',
     authToken,
     invitationParamsForEmployee(employee, [providerRoleId])
   );
-  const res = await response?.json();
-  if (res) {
-    const { id, name, email, profile, phoneNumber, authenticationMethod, roles } = res;
-    const practitioner = await oystehr.fhir.get<Practitioner>({
-      resourceType: 'Practitioner',
-      id: (profile as string).replace('Practitioner/', ''),
-    });
-    return parseTestUser({
-      id,
-      name,
-      email,
-      profile: practitioner,
-      phoneNumber,
-      authenticationMethod,
-      roles,
-    });
-  }
-  throw new Error('New user were not invited');
+  return await parseTestUser(response, oystehr);
 }
 
 export async function removeUser(
@@ -226,41 +184,41 @@ export async function removeUser(
   oystehr: Oystehr,
   authToken: string
 ): Promise<void> {
-  const removeUser = fetchWithOystAuth(`https://project-api.zapehr.com/v1/user/${userId}`, 'DELETE', authToken);
+  const removeUser = fetchWithOystAuth('DELETE', `https://project-api.zapehr.com/v1/user/${userId}`, authToken);
   const removeUserPractitioner = oystehr.fhir.delete({ resourceType: 'Practitioner', id: practitionerId });
-  const [removedUser] = await Promise.all([removeUser, removeUserPractitioner]);
+  await Promise.all([removeUser, removeUserPractitioner]);
 
-  if (removedUser?.status && removedUser.status !== 204) {
-    const res = await removedUser?.json();
-    console.error(`HTTP error: ${res}, ${JSON.stringify(res)}`);
-  } else {
-    console.log(`✅ employee deleted ${userId}`);
-    console.log(`✅ practitioner for employee deleted ${practitionerId}`);
-  }
+  console.log(`✅ employee deleted ${userId}`);
+  console.log(`✅ practitioner for employee deleted ${practitionerId}`);
 }
 
-export async function tryToFindAndRemoveTestUsers(oystehr: Oystehr, authToken: string): Promise<void> {
-  const response = await fetchWithOystAuth('https://project-api.zapehr.com/v1/user', 'GET', authToken);
+// export async function tryToFindAndRemoveTestUsers(oystehr: Oystehr, authToken: string): Promise<void> {
+//   const response = await fetchWithOystAuth('https://project-api.zapehr.com/v1/user', 'GET', authToken);
+//
+//   const res = await response?.json();
+//   if (!res) return;
+//   const users = res as { id: string; name: string; profile: string }[];
+//   const usersToDelete = users.filter((user) => user.name.includes(testEmployeeUsernamePattern));
+//
+//   await Promise.all(
+//     usersToDelete.map((user) => removeUser(user.id, user.profile.replace('Practitioner/', ''), oystehr, authToken))
+//   );
+// }
 
-  const res = await response?.json();
-  if (!res) return;
-  const users = res as { id: string; name: string; profile: string }[];
-  const usersToDelete = users.filter((user) => user.name.includes(testEmployeeUsernamePattern));
+async function parseTestUser(user: UserResponse, oystehr: Oystehr): Promise<TestEmployee> {
+  const practitioner = await oystehr.fhir.get<Practitioner>({
+    resourceType: 'Practitioner',
+    id: user.profile.replace('Practitioner/', ''),
+  });
 
-  await Promise.all(
-    usersToDelete.map((user) => removeUser(user.id, user.profile.replace('Practitioner/', ''), oystehr, authToken))
-  );
-}
-
-function parseTestUser(user: UserResponse): TestEmployee {
-  const firstName = getFirstName(user.profile);
-  const middleName = getMiddleName(user.profile);
-  const lastName = getLastName(user.profile);
+  const firstName = getFirstName(practitioner);
+  const middleName = getMiddleName(practitioner);
+  const lastName = getLastName(practitioner);
   if (!firstName || !middleName || !lastName) throw new Error(`Error parsing user full name: ${user.id}`);
-  const phone = user.profile.telecom?.find((telecom) => telecom.system === 'sms')?.value;
-  const npi = getPractitionerNPI(user.profile);
-  const qualification = allLicensesForPractitioner(user.profile);
-  const credentials = getSuffix(user.profile);
+  const phone = practitioner.telecom?.find((telecom) => telecom.system === 'sms')?.value;
+  const npi = getPractitionerNPI(practitioner);
+  const qualification = allLicensesForPractitioner(practitioner);
+  const credentials = getSuffix(practitioner);
   if (!phone) throw new Error(`No phone for this user: ${user.id}`);
   if (!npi) throw new Error(`No npi for this user: ${user.id}`);
   if (!credentials) throw new Error(`No credentials for this user: ${user.id}`);
@@ -270,7 +228,7 @@ function parseTestUser(user: UserResponse): TestEmployee {
     email: user.email,
     phoneNumber: user.phoneNumber,
     authenticationMethod: user.authenticationMethod,
-    profile: user.profile,
+    profile: practitioner,
     givenName: firstName,
     middleName: middleName,
     familyName: lastName,
