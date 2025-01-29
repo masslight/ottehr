@@ -1,4 +1,3 @@
-# Extract values using grep and sed
 project_id=$(grep '"project_id"' "$(dirname "$0")/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
 access_token=$(grep '"access_token"' "$(dirname "$0")/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
 provider_email=$(grep '"provider_email"' "$(dirname "$0")/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
@@ -30,6 +29,7 @@ npm run build:env --env=$environment
 cd ../../packages/ehr/zambdas
 ENV=$environment npm run deploy-zambdas $environment
 ENV=$environment npm run setup-zapehr-secrets $environment
+ENV=$environment npm run setup-questionnaires $environment
 
 cd ../../../apps/ehr
 npm run build:env --env=$environment

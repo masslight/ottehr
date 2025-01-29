@@ -63,13 +63,13 @@ export interface CanonicalUrl {
 }
 
 export const getCanonicalUrlForPrevisitQuestionnaire = (
-  appointmentType: ServiceMode,
+  serviceMode: ServiceMode,
   secrets: Secrets | null
 ): CanonicalUrl => {
   let secretKey = '';
-  if (appointmentType === 'in-person') {
+  if (serviceMode === 'in-person') {
     secretKey = SecretsKeys.IN_PERSON_PREVISIT_QUESTIONNAIRE;
-  } else if (appointmentType === 'virtual') {
+  } else if (serviceMode === 'virtual') {
     secretKey = SecretsKeys.VIRTUAL_PREVISIT_QUESTIONNAIRE;
   }
   const questionnaireCanonURL = getSecret(secretKey, secrets);
