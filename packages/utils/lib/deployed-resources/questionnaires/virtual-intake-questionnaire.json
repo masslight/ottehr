@@ -3,7 +3,7 @@
   "resource": {
     "resourceType": "Questionnaire",
     "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "name": "virtual_pre-visit_paperwork (please_do_not_delete)",
     "title": "virtual pre-visit paperwork",
     "status": "active",
@@ -518,23 +518,6 @@
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
                 "valueString": "hidden"
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
-                "extension": [
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
-                    "valueString": "is-new-qrs-patient"
-                  },
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                    "valueString": "="
-                  },
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
-                    "valueBoolean": true
-                  }
-                ]
               }
             ],
             "answerOption": [
