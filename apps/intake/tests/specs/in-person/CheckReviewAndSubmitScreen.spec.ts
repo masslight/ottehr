@@ -1,6 +1,7 @@
 import { expect, test, Page } from '@playwright/test';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 import { Locators } from '../../utils/locators';
+import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -8,11 +9,13 @@ let page: Page;
 let flowClass: PrebookInPersonFlow;
 let locator: Locators;
 let visitData: Awaited<ReturnType<PrebookInPersonFlow['goToReviewPageInPersonVisit']>>;
+let commonLocators: CommonLocatorsHelper;
 
 test.beforeAll(async ({ browser }) => {
   page = await browser.newPage();
   flowClass = new PrebookInPersonFlow(page);
   locator = new Locators(page);
+  commonLocators = new CommonLocatorsHelper(page);
   visitData = await flowClass.goToReviewPageInPersonVisit();
 });
 
@@ -49,31 +52,23 @@ test('RP-7 Check prebook slot value is visible', async () => {
 test('RP-8 Check patient name is correct', async () => {
   const firstName = visitData.firstName;
   const lastName = visitData.lastName;
-  await expect(page.getByText(`${firstName} ${lastName}`)).toBeVisible();
+  await commonLocators.checkPatientNameIsCorrect({ firstName, lastName });
 });
 
 test('RP-9 Check slot is correct', async () => {
-  await expect(page.getByText(`${visitData.selectedSlot.selectedSlot}`)).toBeVisible();
+  await commonLocators.checkSlotIsCorrect(visitData.selectedSlot.selectedSlot);
 });
 
 test('RP-10 Check location value is correct', async () => {
-  await expect(page.getByText(`${visitData.location}`)).toBeVisible();
+  await commonLocators.checkLocationValueIsCorrect(visitData.location);
 });
 
 // TODO: currently link is opened like http instead of https. Need to check how it work on demo env
 test.skip('RP-11 Check privacy policy link', async () => {
-  const pagePromise = page.context().waitForEvent('page');
-  await locator.privacyPolicyReviewScreen.click();
-  const newPage = await pagePromise;
-  await newPage.waitForLoadState();
-  await expect(newPage).toHaveURL('https://www.ottehr.com/privacy-policy');
+  await commonLocators.checkPrivacyPolicyLink();
 });
 
 // TODO: currently link is opened like http instead of https. Need to check how it work on demo env
 test.skip('RP-12 Check terms and conditions link', async () => {
-  const pagePromise = page.context().waitForEvent('page');
-  await locator.termsAndConditions.click();
-  const newPage = await pagePromise;
-  await newPage.waitForLoadState();
-  await expect(newPage).toHaveURL('https://www.ottehr.com/terms-and-conditions');
+  await commonLocators.checkTermsAndConditionsLink();
 });
