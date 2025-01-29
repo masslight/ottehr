@@ -1,17 +1,6 @@
-import {
-  isWeightVitalObservation,
-  VitalsObservationDTO,
-  VitalsWeightObservationDTO,
-  kgToLb,
-  weightPercentile,
-} from 'utils';
+import { isWeightVitalObservation, VitalsObservationDTO, VitalsWeightObservationDTO, kgToLb } from 'utils';
 import { VitalWeightHistoryEntry } from './VitalWeightHistoryEntry';
 import { composeVitalsHistoryEntries } from '../utils';
-
-export const PERCENTILE_THRESHOLD = 3;
-const checkIsPercentileWarning = (weightKg: number): boolean => {
-  return weightPercentile(weightKg) > PERCENTILE_THRESHOLD;
-};
 
 export const composeWeightVitalsHistoryEntries = (
   encounterId: string,
@@ -29,8 +18,6 @@ export const composeWeightVitalsHistoryEntries = (
       return {
         weightKg: observation.value,
         weightLbs: kgToLb(observation.value),
-        percentile: weightPercentile(observation.value),
-        isPercentileWarning: checkIsPercentileWarning(observation.value),
       };
     }
   );
