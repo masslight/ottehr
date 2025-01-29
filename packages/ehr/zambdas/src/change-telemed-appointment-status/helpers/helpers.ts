@@ -293,7 +293,7 @@ export function makeReceiptPdfDocumentReference(
   return {
     resourceType: 'DocumentReference',
     meta: {
-      tag: [{ code: 'OTTEHR-TM' }],
+      tag: [{ code: 'TELEMEDICINE' }],
     },
     date: DateTime.now().setZone('UTC').toISO() ?? '',
     status: 'current',

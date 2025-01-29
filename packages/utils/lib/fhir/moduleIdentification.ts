@@ -1,8 +1,8 @@
 import { Appointment } from 'fhir/r4b';
 // we should be able to get rid of this module tag entirely
 export enum PROJECT_MODULE {
-  IP = 'OTTEHR-IP',
-  TM = 'OTTEHR-TM',
+  IP = 'IN-PERSON',
+  TM = 'TELEMEDICINE',
 }
 
 export const isInPersonAppointment = (appointment: Appointment): boolean => {

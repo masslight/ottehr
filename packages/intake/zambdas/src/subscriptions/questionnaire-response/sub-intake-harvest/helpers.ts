@@ -75,6 +75,7 @@ import {
   uploadPDF,
   consolidateOperations,
   RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL,
+  PROJECT_NAME,
 } from 'utils';
 import { v4 as uuid } from 'uuid';
 import { createOrUpdateFlags } from '../../../paperwork/sharedHelpers';
@@ -761,7 +762,7 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
     )?.valueCoding?.code === 'vi';
 
   const facilityName = isVirtualLocation
-    ? 'Ottehr Telemedicine'
+    ? `${PROJECT_NAME} Telemedicine`
     : locationResource?.identifier?.find(
         (identifierTemp) => identifierTemp.system === `${FHIR_BASE_URL}/r4/facility-name`
       )?.value;
