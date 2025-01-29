@@ -9,7 +9,6 @@ import {
   ELIGIBILITY_PRACTITIONER_META_TAG_PREFIX,
   ELIGIBILITY_PRACTITIONER_TYPES,
   EligibilityPractitionerType,
-  FHIR_BASE_URL,
   FHIR_IDENTIFIER_NPI,
   filterVirtualLocations,
   PhysicalLocation,
