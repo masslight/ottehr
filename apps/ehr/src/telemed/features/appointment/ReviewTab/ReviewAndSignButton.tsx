@@ -46,7 +46,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
 
   const patientName = getPatientName(patient?.name).firstLastName;
 
-  const { isPractitionerLoading, handleUpdatePractitionerAndStatus } = usePractitionerActions(
+  const { isEncounterUpdatePending, handleUpdatePractitionerAndStatus } = usePractitionerActions(
     appointment?.id ?? '',
     'end',
     practitionerType.Attender
@@ -61,7 +61,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     }
   };
 
-  const isLoading = isChangeLoading || isSignLoading || isPractitionerLoading;
+  const isLoading = isChangeLoading || isSignLoading || isEncounterUpdatePending;
   const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
 
   const errorMessage = useMemo(() => {

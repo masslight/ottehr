@@ -15,7 +15,7 @@ export const BottomNavigation = (): JSX.Element => {
   const { goToNext, goToPrevious, isNavigationHidden, isFirstPage, isLastPage, interactionMode, isNavigationDisabled } =
     useNavigationContext();
   const practitionerTypeFromMode = interactionMode === 'intake' ? practitionerType.Admitter : practitionerType.Attender;
-  const { isPractitionerLoading, handleUpdatePractitionerAndStatus } = usePractitionerActions(
+  const { isEncounterUpdatePending, handleUpdatePractitionerAndStatus } = usePractitionerActions(
     appointmentID ?? '',
     'end',
     practitionerTypeFromMode
@@ -79,7 +79,7 @@ export const BottomNavigation = (): JSX.Element => {
           Back
         </Button>
         <LoadingButton
-          disabled={isNavigationDisabled || isPractitionerLoading}
+          disabled={isNavigationDisabled || isEncounterUpdatePending}
           loading={nextButtonLoading}
           endIcon={<ArrowForwardIcon sx={{ width: '32px', height: '32px' }} />}
           onClick={handleNextPage}

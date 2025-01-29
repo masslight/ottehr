@@ -234,7 +234,7 @@ export default function AppointmentTableRow({
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
   const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
   const user = useEvolveUser();
-  const { isPractitionerLoading, handleUpdatePractitionerAndStatus } = usePractitionerActions(
+  const { isEncounterUpdatePending, handleUpdatePractitionerAndStatus } = usePractitionerActions(
     appointment.id,
     'start',
     practitionerType.Admitter,
@@ -242,9 +242,7 @@ export default function AppointmentTableRow({
     'intake'
   );
 
-  const handleCSSButton = async (e: React.MouseEvent): Promise<void> => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleCSSButton = async (): Promise<void> => {
     try {
       await handleUpdatePractitionerAndStatus();
       navigate(`/in-person/${appointment.id}/patient-info`);
@@ -675,7 +673,7 @@ export default function AppointmentTableRow({
       >
         {appointment.status === 'arrived' || appointment.status === 'pending' || appointment.status === 'intake' ? (
           <CSSButton
-            isDisabled={!appointment.id || isPractitionerLoading}
+            isDisabled={!appointment.id || isEncounterUpdatePending}
             handleCSSButton={handleCSSButton}
             appointmentID={appointment.id}
           />

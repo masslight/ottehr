@@ -234,11 +234,10 @@ export const Sidebar = (): JSX.Element => {
   const { telemedData, refetch } = useAppointment(appointmentID);
   const { appointment, encounter } = telemedData;
   const status = appointment && encounter ? getVisitStatus(appointment, encounter) : undefined;
-  const practitionerTypeFromMode = interactionMode === 'intake' ? practitionerType.Attender : practitionerType.Admitter;
-  const { isPractitionerLoading, handleUpdatePractitionerAndStatus } = usePractitionerActions(
+  const { isEncounterUpdatePending, handleUpdatePractitionerAndStatus } = usePractitionerActions(
     appointmentID || '',
-    'start',
-    practitionerTypeFromMode
+    'end',
+    practitionerType.Admitter
   );
 
   const handleCompleteIntake = async (): Promise<void> => {
@@ -332,7 +331,7 @@ export const Sidebar = (): JSX.Element => {
       </List>
       <br />
       <CompleteIntakeButton
-        isDisabled={!appointmentID || isPractitionerLoading || status !== 'intake'}
+        isDisabled={!appointmentID || isEncounterUpdatePending || status !== 'intake'}
         handleCompleteIntake={handleCompleteIntake}
         status={status}
       />

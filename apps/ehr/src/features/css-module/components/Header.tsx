@@ -79,7 +79,7 @@ export const Header = (): JSX.Element => {
   const { interactionMode, setInteractionMode } = useNavigationContext();
   const nextMode = interactionMode === 'intake' ? 'provider' : 'intake';
   const practitionerTypeFromMode = interactionMode === 'intake' ? practitionerType.Attender : practitionerType.Admitter;
-  const { isPractitionerLoading, handleUpdatePractitionerAndStatus } = usePractitionerActions(
+  const { isEncounterUpdatePending, handleUpdatePractitionerAndStatus } = usePractitionerActions(
     appointmentID || '',
     'start',
     practitionerTypeFromMode
@@ -159,7 +159,7 @@ export const Header = (): JSX.Element => {
               }}
             >
               <SwitchIntakeModeButton
-                isDisabled={!appointmentID || isPractitionerLoading}
+                isDisabled={!appointmentID || isEncounterUpdatePending}
                 handleSwitchMode={handleSwitchMode}
                 nextMode={nextMode}
               />

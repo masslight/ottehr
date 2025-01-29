@@ -17,6 +17,12 @@ export const CSSButton: React.FC<{
     return null;
   }
 
+  const handleClick = (e: React.MouseEvent): void => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleCSSButton(e);
+  };
+
   return (
     <IconButtonContained
       data-testid={dataTestIds.dashboard.intakeButton(appointmentID ?? undefined)}
@@ -24,7 +30,7 @@ export const CSSButton: React.FC<{
         width: 'auto',
       }}
       variant="primary"
-      onClick={handleCSSButton}
+      onClick={handleClick}
       disabled={isDisabled}
     >
       <PersonSearchIcon sx={{ color: theme.palette.primary.contrastText }} />

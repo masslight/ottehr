@@ -22,7 +22,7 @@ export const usePractitionerActions = (
   practitionerType: Coding[],
   updateStatus?: boolean,
   selectedStatus?: VisitStatusLabel
-): { isPractitionerLoading: boolean; handleUpdatePractitionerAndStatus: () => Promise<void> } => {
+): { isEncounterUpdatePending: boolean; handleUpdatePractitionerAndStatus: () => Promise<void> } => {
   const { oystehr, oystehrZambda } = useApiClients();
   const user = useEvolveUser();
   const { telemedData, refetch } = useAppointment(appointmentID);
@@ -109,7 +109,7 @@ export const usePractitionerActions = (
   });
 
   return {
-    isPractitionerLoading: mutation.isLoading,
+    isEncounterUpdatePending: mutation.isLoading,
     handleUpdatePractitionerAndStatus: mutation.mutateAsync,
   };
 };
