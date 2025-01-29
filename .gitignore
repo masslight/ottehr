@@ -24,4 +24,4 @@ packages/ui-components/dist/*
 .env.sentry-build-plugin
 .idea
 
-ehr_e2e_ci_log.txt
+**/vite.config.ts.timestamp-*.mjs

@@ -77,6 +77,7 @@ const updateUserRoles = async (
   let adminUserRole = undefined;
   let prescriberUserRole = undefined;
   let providerUserRole = undefined;
+  let managerUserRole = undefined;
 
   for (const role of roles) {
     const roleName = role.name;
@@ -122,6 +123,9 @@ const updateUserRoles = async (
     if (roleResJson.name === RoleType.Provider) {
       providerUserRole = roleResJson;
     }
+    if (roleResJson.name === RoleType.Manager) {
+      managerUserRole = roleResJson;
+    }
   }
 
   console.group(`Setting defaultSSOUserRole for project to Administrator user role ${adminUserRole.id}`);
@@ -137,7 +141,7 @@ const updateUserRoles = async (
   // throw new Error(`Failed to set defaultSSOUserRole`);
   // }
 
-  return [adminUserRole, prescriberUserRole, providerUserRole];
+  return [adminUserRole, prescriberUserRole, providerUserRole, managerUserRole];
 };
 
 export async function inviteUser(

@@ -32,6 +32,7 @@ import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
 import { usePreserveQueryParams } from '../hooks/usePreserveQueryParams';
 import { Appointment } from '../types';
 import { useBookingContext } from './Welcome';
+import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 
 const WelcomeBack = (): JSX.Element => {
   const navigate = useNavigate();
@@ -61,6 +62,17 @@ const WelcomeBack = (): JSX.Element => {
   const { t } = useTranslation();
 
   const navigateInFlow = useNavigateInFlow();
+
+  const { walkinOpen } = useCheckOfficeOpen(selectedLocation);
+
+  useEffect(() => {
+    if (visitType === VisitType.WalkIn && !walkinOpen) {
+      navigate(getStartingPath(selectedLocation, visitType, serviceType, selectedSlot), {
+        state: { reschedule: true },
+        replace: true,
+      });
+    }
+  }, [selectedLocation, visitType, serviceType, selectedSlot, walkinOpen, navigate]);
 
   const formElements: FormInputType[] = useMemo(() => {
     return [
