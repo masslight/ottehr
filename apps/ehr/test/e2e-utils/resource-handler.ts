@@ -40,11 +40,8 @@ export class ResourceHandler {
   public questionnaireResponse!: QuestionnaireResponse;
 
   async initApi(): Promise<void> {
-    const token = await getAuth0Token();
-    console.log('TOKEN!!!!');
-    console.log(token);
     this.apiClient = new Oystehr({
-      accessToken: token,
+      accessToken: await getAuth0Token(),
       fhirApiUrl: process.env.FHIR_API,
       projectApiUrl: process.env.AUTH0_AUDIENCE,
     });
