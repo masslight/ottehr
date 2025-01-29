@@ -22,6 +22,7 @@ on:
         options:
           - development
           - testing
+          - staging
           - demo
       incrementVersion:
         description: 'Bump Version?'
