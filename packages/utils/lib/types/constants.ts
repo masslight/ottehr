@@ -7,6 +7,7 @@ export const PROJECT_NAME = 'Ottehr';
 export const PROJECT_NAME_LOWER = PROJECT_NAME.toLowerCase();
 export const PROJECT_NAME_UPPER = PROJECT_NAME.toUpperCase();
 export const PROJECT_WEBSITE = 'https://ottehr.com';
+export const SUPPORT_EMAIL = 'support@ottehr.com';
 
 export const PATIENT_INDIVIDUAL_PRONOUNS_URL = 'http://hl7.org/fhir/StructureDefinition/individual-pronouns';
 export const PATIENT_INDIVIDUAL_PRONOUNS_CUSTOM_URL =

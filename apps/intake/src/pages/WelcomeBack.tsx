@@ -417,7 +417,7 @@ const WelcomeBack = (): JSX.Element => {
             descText={t('welcomeBack.checkIn')}
             link={intakeFlowPageRoute.Appointments.path}
             linkText={t('appointments.checkIn')}
-            bgColor={otherColors.brightPurple}
+            bgColor={otherColors.purple}
             marginTop={0}
             marginBottom={2}
             paddingY={6}

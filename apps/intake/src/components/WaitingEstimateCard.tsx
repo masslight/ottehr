@@ -54,7 +54,7 @@ export const WaitingEstimateCard = ({ waitingMinutes }: WaitingEstimateCardProps
           </>
         )
       }
-      bgColor={otherColors.brightPurple}
+      bgColor={otherColors.purple}
       marginTop={0}
       marginBottom={2}
     />
