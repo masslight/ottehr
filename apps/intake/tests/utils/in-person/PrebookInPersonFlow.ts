@@ -33,11 +33,6 @@ export class PrebookInPersonFlow {
     }
 
     const selectedSlot = await this.fillingInfo.selectRandomSlot();
-    // added workaround to pass the test
-    // issue is described here https://github.com/masslight/ottehr-private/issues/168#issuecomment-2574837200
-    // need to uncomment when issue is fixed
-    await this.page.reload();
-    //
     await this.locator.selectDifferentFamilyMember();
     await this.locator.clickContinueButton();
     const bookingData = await this.fillingInfo.fillNewPatientInfo();
