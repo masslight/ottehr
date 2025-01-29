@@ -5,7 +5,7 @@
   "scripts": {
     "version": "npm version $npm_package_version --workspaces && git add **/package.json",
     "lint": "npm run lint:eslint && npm run lint:prettier",
-    "lint:eslint": "turbo lint",  
+    "lint:eslint": "turbo lint",
     "lint:prettier": "prettier --check .",
     "lint:fix": "npm run lint:eslint -- -- --fix & npm run lint:prettier -- --write",
     "intake:start": "turbo start --filter=intake-ui --filter=intake-zambdas",

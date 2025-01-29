@@ -16,3 +16,4 @@ export * from './medication-administration';
 export * from './vitals';
 export * from './encounter';
 export * from './patientMasterRecord';
+export * from './questionnaires';
