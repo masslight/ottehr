@@ -23,6 +23,60 @@ interface AppointmentTableProps {
   tab: ApptTab;
 }
 
+interface TrackingBoardColumn {
+  id: string;
+  label: string;
+  conditional?: {
+    showWhen: keyof ColumnConditions;
+  };
+}
+
+interface ColumnConditions {
+  showProvider: boolean;
+}
+
+const TRACKING_BOARD_COLUMNS_CONFIG: Record<string, TrackingBoardColumn> = {
+  STATUS: {
+    id: 'status',
+    label: 'Status',
+  },
+  WAITING_TIME: {
+    id: 'waitingTime',
+    label: 'Waiting time',
+  },
+  GROUP: {
+    id: 'group',
+    label: 'Group',
+  },
+  PATIENT_INFO: {
+    id: 'patient',
+    label: 'Patient',
+  },
+  LOCATION: {
+    id: 'state',
+    label: 'State',
+  },
+  REASON: {
+    id: 'reason',
+    label: 'Reason',
+  },
+  PROVIDER: {
+    id: 'provider',
+    label: 'Provider',
+    conditional: {
+      showWhen: 'showProvider',
+    },
+  },
+  CHAT: {
+    id: 'chat',
+    label: 'Chat',
+  },
+  ACTION: {
+    id: 'action',
+    label: 'Action',
+  },
+};
+
 export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement {
   const theme = useTheme();
   const { appointments, selectedStates, availableStates, isAppointmentsLoading, unsignedFor, showOnlyNext } =
@@ -38,6 +92,8 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
   const filteredAppointments = filterAppointments(appointments, unsignedFor, tab, showOnlyNext, availableStates);
 
   const showProvider = tab !== ApptTab.ready;
+
+  const columns = getVisibleColumns({ showProvider });
 
   const groupsSortedByState: Record<string, TelemedAppointmentInformation[]> = useMemo(() => {
     const createGroups = (): Record<string, TelemedAppointmentInformation[]> => {
@@ -104,58 +160,22 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>
-                <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                  Status
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                  Waiting time
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                  Group
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                  Patient
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                  State
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                  Reason
-                </Typography>
-              </TableCell>
-              {showProvider && (
-                <TableCell>
+              {columns.map((column) => (
+                <TableCell key={column.id}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                    Provider
+                    {column.label}
                   </Typography>
                 </TableCell>
-              )}
-              <TableCell>
-                <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                  Chat
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                  Action
-                </Typography>
-              </TableCell>
+              ))}
             </TableRow>
           </TableHead>
           <TableBody>
             {isAppointmentsLoading ? (
-              <TrackingBoardTableRowSkeleton showProvider={showProvider} isState={false} />
+              <TrackingBoardTableRowSkeleton
+                showProvider={showProvider}
+                isState={false}
+                columnsCount={columns.length}
+              />
             ) : (
               Object.keys(groupsSortedByState).map((state) => (
                 <React.Fragment key={state}>
@@ -191,3 +211,9 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
     </Box>
   );
 }
+
+const getVisibleColumns = (conditions: ColumnConditions): TrackingBoardColumn[] => {
+  return Object.values(TRACKING_BOARD_COLUMNS_CONFIG).filter(
+    (column) => !column.conditional || conditions[column.conditional.showWhen]
+  );
+};
