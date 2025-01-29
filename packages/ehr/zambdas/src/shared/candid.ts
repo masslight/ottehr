@@ -3,6 +3,7 @@ import {
   Condition,
   Coverage,
   Encounter,
+  Extension,
   Identifier,
   Location,
   Organization,
@@ -69,18 +70,18 @@ const BILLING_PROVIDER: Organization = {
 const SERVICE_FACILITY_LOCATION: Location = {
   resourceType: 'Location',
   name: 'ServiceFacilityName',
-  identifier: [
-    {
-      system: CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
-      value: '20',
-    },
-  ],
   address: {
     line: ['ServiceFacilityAddressLine'],
     city: 'ServiceFacilityCity',
     state: 'CA',
     postalCode: '54321',
   },
+  extension: [
+    {
+      url: CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
+      valueString: '20',
+    },
+  ],
 };
 
 export interface InsuranceResources {
@@ -171,10 +172,7 @@ export function candidCreateEncounterRequest(input: CreateEncounterInput): Encou
       },
     },
     placeOfServiceCode: assertDefined(
-      getIdentifierValueBySystem(
-        SERVICE_FACILITY_LOCATION.identifier,
-        CODE_SYSTEM_CMS_PLACE_OF_SERVICE
-      ) as FacilityTypeCode,
+      getExtensionString(SERVICE_FACILITY_LOCATION.extension, CODE_SYSTEM_CMS_PLACE_OF_SERVICE) as FacilityTypeCode,
       'Location place of service code'
     ),
     diagnoses: candidDiagnoses,
@@ -218,6 +216,10 @@ function getIdentifierValueBySystem(identifiers: Identifier[] | undefined, syste
 
 function getCode(codeableConcept: CodeableConcept | undefined, system: string): string | undefined {
   return codeableConcept?.coding?.find((coding) => coding.system === system)?.code;
+}
+
+function getExtensionString(extensions: Extension[] | undefined, url: string): string | undefined {
+  return extensions?.find((extension: Extension) => extension.url === url)?.valueString;
 }
 
 function relationshipCode(coverage: Coverage): PatientRelationshipToInsuredCodeAll {
