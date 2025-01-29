@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Coding, Extension, Questionnaire } from 'fhir/r4b';
 import {
+  CanonicalUrl,
   OtherParticipantsExtension,
   Secrets,
   SecretsKeys,
@@ -19,12 +20,6 @@ export const getCurrentQuestionnaireForServiceType = async (
   return getCanonicalQuestionnaire(canonical, oystehrClient);
 };
 
-export interface CanonicalUrl {
-  canonical: string;
-  url: string;
-  version: string;
-}
-
 export const getCanonicalUrlForPrevisitQuestionnaire = (
   serviceMode: ServiceMode,
   secrets: Secrets | null
@@ -42,7 +37,6 @@ export const getCanonicalUrlForPrevisitQuestionnaire = (
     throw new Error('Questionnaire url secret missing or malformed');
   }
   return {
-    canonical: questionnaireCanonURL,
     url: questionnaireURL,
     version: questionnaireVersion,
   };

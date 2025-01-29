@@ -1,14 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { Questionnaire } from 'fhir/r4b';
-
-interface CanonicalUrlComponents {
-  url: string;
-  version: string;
-}
+import { CanonicalUrl } from '../types';
 
 // throws an error if unable to find exactly 1 matching resource
 export const getCanonicalQuestionnaire = async (
-  canonical: CanonicalUrlComponents,
+  canonical: CanonicalUrl,
   oystehrClient: Oystehr
 ): Promise<Questionnaire> => {
   const { url, version } = canonical;

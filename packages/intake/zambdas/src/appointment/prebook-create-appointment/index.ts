@@ -20,6 +20,7 @@ import {
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
+  CanonicalUrl,
   CHARACTER_LIMIT_EXCEEDED_ERROR,
   CreateAppointmentResponse,
   CREATED_BY_SYSTEM,
@@ -51,7 +52,6 @@ import { getAccessToken, getUser } from '../../shared/auth';
 import { createOystehrClient } from '../../shared/helpers';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAuditLog';
 import {
-  CanonicalUrl,
   getCanonicalUrlForPrevisitQuestionnaire,
   getEncounterClass,
   getTelemedRequiredAppointmentEncounterExtensions,
@@ -462,7 +462,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     status: 'in-progress',
     subject: { reference: patientRef },
     encounter: { reference: encUrl },
-    item,
+    item, // contains the pre-populated answers for the Patient
   };
 
   const postQuestionnaireResponseRequest: BatchInputPostRequest<QuestionnaireResponse> = {
