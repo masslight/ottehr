@@ -8,11 +8,6 @@ const platwrightUserFileCode = JSON.stringify({ cookies: [], origins: [] }, null
 
 // сopy secrets only on local machine; GitHub workflow handles it on its own
 if (!isCI) {
-  if (fs.existsSync(playwrightUserFile)) {
-    // delete user.json to make possible fetch a new from the repo
-    fs.rmSync(playwrightUserFile);
-  }
-
   void (async () => {
     await setup.loadEnvFilesFromRepo('git@github.com:masslight/ottehr-secrets.git', [
       {
@@ -24,11 +19,6 @@ if (!isCI) {
         localEnvFolder: './env/',
         repoEnvFolder: './ottehr-secrets/intake/app/',
         envsToCopy: ['tests.local.json', 'tests.demo.json'],
-      },
-      {
-        localEnvFolder: './playwright/',
-        repoEnvFolder: './ottehr-secrets/intake/app/',
-        envsToCopy: ['user.json'],
       },
       {
         localEnvFolder: '../../packages/intake/zambdas/.env',

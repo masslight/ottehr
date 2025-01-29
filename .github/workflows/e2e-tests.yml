@@ -45,6 +45,13 @@ jobs:
             ${{ runner.os }}-build-
             ${{ runner.os }}-
 
+      - name: Cache user.json
+        if: matrix.app == 'intake'
+        uses: actions/cache@v3
+        with:
+          path: apps/intake/playwright/user.json
+          key: user-json-cache
+
       - name: Check out secrets repo
         uses: actions/checkout@v4
         with:
@@ -61,10 +68,6 @@ jobs:
             mkdir -p "apps/$app/env"
             cp "secrets/$app/app/tests."*.json "apps/$app/env/"
             cp "secrets/$app/app/.env.local" "apps/$app/env/"
-            if [ "$app" = "intake" ] && [ -f "secrets/$app/app/user.json" ]; then
-                mkdir -p "apps/$app/playwright"
-                cp "secrets/$app/app/user.json" "apps/$app/playwright/user.json"
-            fi
           }
 
           for app in ehr intake; do
@@ -91,10 +94,10 @@ jobs:
             apps/${{ matrix.app }}/test-results/
           retention-days: 30
 
-      - name: Save user.json files to secrets repo
-        if: matrix.app == 'intake' && always()
-        env:
-          DEPLOY_OTTEHR_KEY: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+      - name: Validate user.json
+        if: always() && matrix.app == 'intake'
+        id: validate
+        continue-on-error: true
         run: |
           node -e '
           const fs = require("fs");
@@ -105,58 +108,36 @@ jobs:
             
             if (!fs.existsSync(path)) {
               console.log(`File ${path} does not exist, exiting`);
-              process.exit(0);
+              process.exit(1);
             }
             
             console.log("Reading user.json file...");
             const data = JSON.parse(fs.readFileSync(path, "utf8"));
             console.log("Successfully parsed user.json");
             
-            const authOrigin = data.origins?.find(o => o.origin === "https://auth.ottehr.com");
-            console.log("Auth origin found:", !!authOrigin);
+            const hasAuth0Token = data.origins?.some(origin => 
+              origin.localStorage && 
+              Object.values(origin.localStorage)?.some?.(value => value?.name?.includes?.("auth0"))
+            );
             
-            const hasAuth0Token = authOrigin?.localStorage &&
-              Object.keys(authOrigin.localStorage).some(key => key.includes("auth0"));
             console.log("Has Auth0 token:", hasAuth0Token);
             
             if (!hasAuth0Token) {
               console.log("No Auth0 token found, exiting");
-              process.exit(0);
+              process.exit(1);
             }
 
-            console.log("Setting up SSH...");
-            require("child_process").execSync(`
-              mkdir -p ~/.ssh
-              chmod 700 ~/.ssh
-              echo "${process.env.DEPLOY_OTTEHR_KEY}" > ~/.ssh/id_rsa
-              chmod 600 ~/.ssh/id_rsa
-              ssh-keyscan github.com >> ~/.ssh/known_hosts
-            `, {stdio: "inherit"});
-
-            console.log("Pushing to secrets repo...");
-            require("child_process").execSync(`
-              cd secrets
-              git config --global user.name "GitHub Actions"
-              git config --global user.email "actions@github.com"
-              git remote set-url origin git@github.com:masslight/ottehr-secrets.git
-              cp ../apps/intake/playwright/user.json intake/app/user.json
-              git add .
-              git diff --quiet && git diff --staged --quiet || (git commit -m "Update user.json files from CI" && git push)
-            `, {stdio: "inherit"});
-            
-            console.log("Push completed successfully");
-
+            console.log("User.json validated successfully");
           } catch (error) {
             console.error("Error occurred:", error);
             console.error("Error stack:", error.stack);
             process.exit(1);
-          } finally {
-            console.log("Cleaning up...");
-            try {
-              require("child_process").execSync("rm -f ~/.ssh/id_rsa", {stdio: "inherit"});
-              console.log("Cleanup completed");
-            } catch (e) {
-              console.error("Error cleaning up SSH key:", e);
-            }
           }
           '
+
+      - name: Save user.json to cache
+        if: always() && matrix.app == 'intake' && steps.validate.outcome == 'success'
+        uses: actions/cache@v3
+        with:
+          path: apps/intake/playwright/user.json
+          key: user-json-cache
