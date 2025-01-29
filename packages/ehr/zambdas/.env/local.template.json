@@ -48,8 +48,8 @@
   "UC_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID": "TEMPLATE_ID",
   "INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID": "GROUP_ID",
   "REDOX_PATIENT_SEARCH_MAX_EXECUTION_MS": "5000",
-  "IN_PERSON_PREVISIT_QUESTIONNAIRE": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson|1.0.2",
-  "VIRTUAL_PREVISIT_QUESTIONNAIRE": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual|1.0.2",
+  "IN_PERSON_PREVISIT_QUESTIONNAIRE": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson|1.0.3",
+  "VIRTUAL_PREVISIT_QUESTIONNAIRE": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual|1.0.4",
   "SENTRY_INTAKE_API_AUTH_TOKEN": "AUTH_TOKEN",
   "TELEMED_ECW_VISIT_TYPE": "6Telemed",
   "PROJECT_ID": "PROJECT_ID"
