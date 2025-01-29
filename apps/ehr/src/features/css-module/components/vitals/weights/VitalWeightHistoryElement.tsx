@@ -1,6 +1,5 @@
 import React, { JSX, useState } from 'react';
 import { useTheme, Box, Typography, IconButton } from '@mui/material';
-import ErrorIcon from '@mui/icons-material/Error';
 import { DeleteOutlined as DeleteIcon } from '@mui/icons-material';
 import { VitalWeightHistoryEntry } from './VitalWeightHistoryEntry';
 import { VitalsObservationDTO } from 'utils';
@@ -26,7 +25,6 @@ export const VitalWeightHistoryElement: React.FC<VitalWeightHistoryElementProps>
   };
 
   const hasAuthor = !!historyEntry.author && historyEntry.author?.length > 0;
-  const lineColor = historyEntry.isPercentileWarning ? theme.palette.error.main : theme.palette.text.primary;
 
   return (
     <>
@@ -38,18 +36,10 @@ export const VitalWeightHistoryElement: React.FC<VitalWeightHistoryElementProps>
             </Typography>
           )}
           {historyEntry.recordDateTime} {hasAuthor && 'by'} {historyEntry.author} - &nbsp;
-          <Typography component="span" sx={{ fontWeight: 'bold', color: lineColor }}>
+          <Typography component="span" sx={{ fontWeight: 'bold' }}>
             {historyEntry.weightKg} kg &nbsp;
           </Typography>
-          <Typography component="span" sx={{ color: lineColor }}>
-            / {historyEntry.weightLbs} lbs&nbsp;
-          </Typography>
-          <Typography component="span" sx={{ color: lineColor }}>
-            / {historyEntry.percentile} percentile
-          </Typography>
-          {historyEntry.isPercentileWarning && (
-            <ErrorIcon fontSize="small" sx={{ ml: '4px', verticalAlign: 'middle', color: lineColor }} />
-          )}
+          <Typography component="span">/ {historyEntry.weightLbs} lbs&nbsp;</Typography>
         </Typography>
 
         {historyEntry.isDeletable && (
