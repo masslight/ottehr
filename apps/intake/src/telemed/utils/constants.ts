@@ -1,6 +1,7 @@
+import { PROJECT_NAME } from 'src/helpers';
 import { otherColors } from 'src/IntakeThemeProvider';
 
-export const IOSAppCookieName = 'OttehriOSApp';
+export const IOSAppCookieName = `${PROJECT_NAME}iOSApp`;
 
 export const DIFFERENT_FAMILY_MEMBER_DATA = {
   label: 'Different family member',
