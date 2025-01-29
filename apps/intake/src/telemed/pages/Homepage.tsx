@@ -8,7 +8,6 @@ import { generatePath, useNavigate } from 'react-router-dom';
 import { ServiceMode, VisitType } from 'utils';
 import { BOOKING_SERVICE_MODE_PARAM, bookingBasePath, intakeFlowPageRoute } from '../../App';
 import { otherColors } from '../../IntakeThemeProvider';
-import { pastVisits } from '../assets/icons';
 import { CancelVisitDialog } from '../components';
 import {
   findActiveAppointment,
@@ -21,6 +20,7 @@ import HomepageOption from '../features/homepage/HomepageOption';
 import { useZapEHRAPIClient } from '../utils';
 import { dataTestIds } from '../../helpers/data-test-ids';
 import { PROJECT_NAME } from '../../helpers';
+import { pastVisits } from '@theme/icons';
 
 const Homepage = (): JSX.Element => {
   const apiClient = useZapEHRAPIClient();

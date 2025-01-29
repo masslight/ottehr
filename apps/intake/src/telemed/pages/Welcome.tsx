@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { intakeFlowPageRoute } from '../../App';
 import { EmergencyBanner } from '../components/EmergencyBanner';
 import { CustomContainer } from '../features/common';
-import { ottehrLightBlue } from '../assets';
+import { ottehrLightBlue } from '@theme/icons';
 import { dataTestIds } from '../../helpers/data-test-ids';
 import { PROJECT_NAME } from '../../helpers';
 
