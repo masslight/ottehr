@@ -2,11 +2,11 @@
   font-family: 'Rubik';
   src:
     local('Rubik'),
-    url(./assets/fonts/Rubik-Regular.woff2) format('woff2'),
+    url(./fonts/Rubik-Regular.woff2) format('woff2'),
     local('Rubik'),
-    url(./assets/fonts/Rubik-Regular.woff) format('woff'),
+    url(./fonts/Rubik-Regular.woff) format('woff'),
     local('Rubik'),
-    url(./assets/fonts/Rubik-Regular.otf) format('otf');
+    url(./fonts/Rubik-Regular.otf) format('otf');
   font-weight: normal;
   font-style: normal;
 }
@@ -15,10 +15,10 @@
   font-family: 'Rubik';
   src:
     local('Rubik'),
-    url(./assets/fonts/Rubik-Bold.woff2) format('woff2'),
+    url(./fonts/Rubik-Bold.woff2) format('woff2'),
     local('Rubik'),
-    url(./assets/fonts/Rubik-Bold.woff) format('woff'),
+    url(./fonts/Rubik-Bold.woff) format('woff'),
     local('Rubik'),
-    url(./assets/fonts/Rubik-Bold.otf) format('otf');
+    url(./fonts/Rubik-Bold.otf) format('otf');
   font-weight: bold;
 }

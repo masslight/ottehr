@@ -1,13 +1,13 @@
 import React, { ReactElement, useState } from 'react';
 import { TableRow, TableCell, Button } from '@mui/material';
 import { DateTime } from 'luxon';
-import deleteIcon from '../../../assets/delete-1x.png';
 import { ExternalLabsStatusChip } from './ExternalLabsStatusChip';
-import { otherColors } from '../../../CustomThemeProvider';
 import { DiagnosisDTO } from 'utils';
 import CancelExternalLabDialog from './CancelExternalLabOrderDialog';
 import { useNavigate } from 'react-router-dom';
 import { ExternalLabsStatus } from '../helpers/types';
+import { deleteIcon } from '@theme/icons';
+import { otherColors } from '@theme/colors';
 
 const { VITE_APP_ORGANIZATION_NAME_SHORT: ORGANIZATION_NAME_SHORT } = import.meta.env;
 if (ORGANIZATION_NAME_SHORT == null) {

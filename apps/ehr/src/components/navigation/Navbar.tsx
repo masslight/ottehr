@@ -3,13 +3,13 @@ import { AppBar, Container, Tab, Toolbar, useTheme, useMediaQuery } from '@mui/m
 import { ReactElement, SyntheticEvent, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { RoleType } from 'utils';
-import logo from '../../assets/logo-4x.png';
-import { otherColors } from '../../CustomThemeProvider';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { AppTab, useNavStore } from '../../state/nav.store';
 import { UserMenu } from './UserMenu';
 import MobileMenu from './MobileMenu';
 import { adjustTopForBannerHeight } from '../../constants';
+import { otherColors } from '@theme/colors';
+import { logo } from '@theme/icons';
 
 const { VITE_APP_ORGANIZATION_NAME_SHORT: ORGANIZATION_NAME_SHORT } = import.meta.env;
 if (ORGANIZATION_NAME_SHORT == null) {

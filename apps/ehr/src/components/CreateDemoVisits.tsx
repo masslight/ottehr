@@ -6,8 +6,8 @@ import { LoadingButton } from '@mui/lab';
 import { Box } from '@mui/system';
 import { createSampleAppointments } from 'utils/lib/helpers';
 import { useApiClients } from '../hooks/useAppClients';
-import { otherColors } from '../CustomThemeProvider';
-import createDemoVisits from '../assets/create-demo-visits.svg';
+import { otherColors } from '@theme/colors';
+import { createDemoVisits } from '@theme/icons';
 
 const createAppointmentZambdaId = import.meta.env.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID;
 const intakeZambdaUrl = import.meta.env.VITE_APP_INTAKE_ZAMBDAS_URL;
