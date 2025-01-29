@@ -50,6 +50,14 @@ export class PatientsPage {
     await this.#page.getByTestId(dataTestIds.patients.resetFiltersButton).click();
   }
 
+  async verifyFilterReset(): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.patients.searchByNameField).locator('input')).toBeEmpty();
+    await expect(this.#page.getByTestId(dataTestIds.patients.searchByDateOfBirthField).locator('input')).toBeEmpty();
+    await expect(this.#page.getByTestId(dataTestIds.patients.searchByPhoneField).locator('input')).toBeEmpty();
+    await expect(this.#page.getByTestId(dataTestIds.patients.searchByAddressField).locator('input')).toBeEmpty();
+    await expect(this.#page.getByTestId(dataTestIds.patients.searchByEmailField).locator('input')).toBeEmpty();
+  }
+
   async verifyPatientPresent(
     patientId: string,
     patientFirstName: string,

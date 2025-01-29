@@ -189,4 +189,5 @@ test('Reset filters', async ({ page }) => {
   await patientsPage.searchByAddress('New York');
   await patientsPage.searchByEmail('doe');
   await patientsPage.clickResetFiltersButton();
+  await patientsPage.verifyFilterReset();
 });
