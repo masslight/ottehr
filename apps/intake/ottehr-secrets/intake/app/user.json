@@ -1,0 +1,149 @@
+{
+  "cookies": [
+    {
+      "name": "did",
+      "value": "s%3Av0%3A66e1d2a7-aa9f-473a-b5d9-b222ebb8ad51%3A509f72d8194e196c79303003b0fc014b7600ba4298dd9322da5685ebf0cecf2c.0ShmeQSSIHcaC3m%2FW7GyOu1vS6ML9rSmuD%2FlRht%2B6co",
+      "domain": "auth.zapehr.com",
+      "path": "/",
+      "expires": 1769692352.752438,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "did_compat",
+      "value": "s%3Av0%3A66e1d2a7-aa9f-473a-b5d9-b222ebb8ad51%3A509f72d8194e196c79303003b0fc014b7600ba4298dd9322da5685ebf0cecf2c.0ShmeQSSIHcaC3m%2FW7GyOu1vS6ML9rSmuD%2FlRht%2B6co",
+      "domain": "auth.zapehr.com",
+      "path": "/",
+      "expires": 1769692352.752541,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "auth0",
+      "value": "s%3ASOYhCxX6TvE0x45poYiMBMkq862qB74V.THuHO9PYFu6eQaCfIT%2FLOn43BXPw2SKcOdw50qUuMn8",
+      "domain": "auth.zapehr.com",
+      "path": "/",
+      "expires": 1738399201.26414,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "auth0_compat",
+      "value": "s%3ASOYhCxX6TvE0x45poYiMBMkq862qB74V.THuHO9PYFu6eQaCfIT%2FLOn43BXPw2SKcOdw50qUuMn8",
+      "domain": "auth.zapehr.com",
+      "path": "/",
+      "expires": 1738399201.264274,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "mp_506e3dff6f71a2c47f8469e769a03425_mixpanel",
+      "value": "%7B%22distinct_id%22%3A%20%22%24device%3A194b1375802e9d-0b50d9bb6c99a6-1239307b-e1000-194b1375803e9d%22%2C%22%24device_id%22%3A%20%22194b1375802e9d-0b50d9bb6c99a6-1239307b-e1000-194b1375803e9d%22%2C%22%24initial_referrer%22%3A%20%22%24direct%22%2C%22%24initial_referring_domain%22%3A%20%22%24direct%22%2C%22appname%22%3A%20%22In%20Person%22%7D",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1769676002,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_legacy_auth0.VoySZI8YevRrX18duqUicnvp8GUlS5wK.is.authenticated",
+      "value": "true",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1738226402,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "auth0.VoySZI8YevRrX18duqUicnvp8GUlS5wK.is.authenticated",
+      "value": "true",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1738226402,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://localhost:3002",
+      "localStorage": [
+        {
+          "name": "telemed-patient-info-storage",
+          "value": "{\"state\":{\"patientInfo\":{\"newPatient\":false,\"pointOfDiscovery\":false}},\"version\":0}"
+        },
+        {
+          "name": "ip-intake-appointments-store",
+          "value": "{\"state\":{\"appointmentData\":{}},\"version\":0}"
+        },
+        {
+          "name": "__mpq_506e3dff6f71a2c47f8469e769a03425_ev",
+          "value": "[]"
+        },
+        {
+          "name": "__mpq_506e3dff6f71a2c47f8469e769a03425_pp",
+          "value": "[{\"id\":\"3monrmg1hx7n1wli\",\"flushAfter\":1738140012711,\"payload\":{\"$set\":{\"$os\":\"Windows\",\"$browser\":\"Chrome\",\"$browser_version\":131,\"$initial_referrer\":\"$direct\",\"$initial_referring_domain\":\"$direct\",\"$phone\":\"+18445999975\"},\"$token\":\"506e3dff6f71a2c47f8469e769a03425\",\"$distinct_id\":\"$device:194b1375802e9d-0b50d9bb6c99a6-1239307b-e1000-194b1375803e9d\",\"$device_id\":\"194b1375802e9d-0b50d9bb6c99a6-1239307b-e1000-194b1375803e9d\"}}]"
+        },
+        {
+          "name": "telemed-files-storage",
+          "value": "{\"state\":{\"fileUploads\":{}},\"version\":0}"
+        },
+        {
+          "name": "@@auth0spajs@@::VoySZI8YevRrX18duqUicnvp8GUlS5wK::https://api.zapehr.com::openid profile email offline_access",
+          "value": "{\"body\":{\"access_token\":\"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlRRc2xGbWlRX01ZTzg4Z3BRUnlvRCJ9.eyJodHRwczovL2FwaS56YXBlaHIuY29tL3Byb2plY3RfaWQiOiIwYmE2ZDdhNS1hNWE2LTRjMTYtYTZkOS1jZTkxZjMwMGFjYjQiLCJpc3MiOiJodHRwczovL2F1dGguemFwZWhyLmNvbS8iLCJzdWIiOiJzbXN8Njc2MTk0ODUzMjFhOTZlODhlZTEyYmVhIiwiYXVkIjpbImh0dHBzOi8vYXBpLnphcGVoci5jb20iLCJodHRwczovL3phcGVoci51cy5hdXRoMC5jb20vdXNlcmluZm8iXSwiaWF0IjoxNzM4MTQwMDAyLCJleHAiOjE3MzgyMjY0MDIsInNjb3BlIjoib3BlbmlkIHByb2ZpbGUgZW1haWwgb2ZmbGluZV9hY2Nlc3MiLCJhenAiOiJWb3lTWkk4WWV2UnJYMThkdXFVaWNudnA4R1VsUzV3SyJ9.dsPykB14J8UtRSZqyRrQUTj0cacYOpHfIuEsbfdZzME2HYBpLMgw05bkTE3IqUfmcfyefizv5mQoRPpqeGXgPubs1a9x2oP7YICe9hkmGmc8Nd6Ky-p8TUXuJWrIS6RXGH7sAqHqSni75Gprox-godJNTm7iENpEG4_UtWYHPyEEx0oAxkF85oU-aahBZpFjJoydUTJRS6RhE9EMep4ZtTohLrY3pO3nuQgXJ4eWz_Cfltn0rAmf4hoQ59NwVStMSfD67cG9NLgxJXEWIOTFpGIwHzbKlncMsNXHfY82SFt59Tdwk4Ko2HsOLgM0MRzf2DxABt4DJh-EbCCgDy6ziQ\",\"scope\":\"openid profile email offline_access\",\"expires_in\":86400,\"token_type\":\"Bearer\",\"need_patient_banner\":false,\"audience\":\"https://api.zapehr.com\",\"oauthTokenScope\":\"openid profile email offline_access\",\"client_id\":\"VoySZI8YevRrX18duqUicnvp8GUlS5wK\"},\"expiresAt\":1738226402}"
+        },
+        {
+          "name": "telemed-call-settings-storage",
+          "value": "{\"state\":{\"videoInput\":\"\",\"audioInput\":\"\",\"audioOutput\":\"\"},\"version\":0}"
+        },
+        {
+          "name": "i18nextLng",
+          "value": "en-US"
+        },
+        {
+          "name": "@@auth0spajs@@::VoySZI8YevRrX18duqUicnvp8GUlS5wK::@@user@@",
+          "value": "{\"id_token\":\"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlRRc2xGbWlRX01ZTzg4Z3BRUnlvRCJ9.eyJuaWNrbmFtZSI6IisxODQ0NTk5OTk3NSIsIm5hbWUiOiIrMTg0NDU5OTk5NzUiLCJwaWN0dXJlIjoiaHR0cHM6Ly9jZG4uYXV0aDAuY29tL2F2YXRhcnMvMS5wbmciLCJ1cGRhdGVkX2F0IjoiMjAyNS0wMS0yOVQwODo0MDowMC43MjJaIiwiaXNzIjoiaHR0cHM6Ly9hdXRoLnphcGVoci5jb20vIiwiYXVkIjoiVm95U1pJOFlldlJyWDE4ZHVxVWljbnZwOEdVbFM1d0siLCJpYXQiOjE3MzgxNDAwMDIsImV4cCI6MTczODE3NjAwMiwic3ViIjoic21zfDY3NjE5NDg1MzIxYTk2ZTg4ZWUxMmJlYSIsInNpZCI6InoybzBwZThSVDJnellxS2tLdklPdnJGaHFqcTFLZTAzIiwibm9uY2UiOiJXRTU2ZG5NMlpYQnNRbE5aTW5rMFRHVTJZMGxrT1dGK2ZtTjViVE5qTVRsMGFqaDZTRVkwY0cxZlNRPT0ifQ.SCKLXXx5Q1fVft_dV5qfWiGtX1-pbrC0XgUuLpDFO2RRgBq-W67wqnpxQPxoJGQdPAUc-qNXOw3-qCPu2v77mF9u7F-Q5TIi03sdcgx73urar_l7ttOlXnPcuQF_xNhoGlLdaBGyCm4ibnx6Zar-KSauXVt-BAD3aTVWtMpTpsVTWRyTA98wmWFDdJp0Q3Wrsj8WuZerWiijUhagdDQORZO9VQtNzqTFo5A2iE4rkwwND4ucyCvj_A4Onjy0bAjtgrmnKcVeHqxeHBYclNqUFORSfGSL0tSf9MWpz-meXa2czpXCVmitjXfexzmVwPOHCJIWjO10AV69BZQ-TBpgmg\",\"decodedToken\":{\"encoded\":{\"header\":\"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlRRc2xGbWlRX01ZTzg4Z3BRUnlvRCJ9\",\"payload\":\"eyJuaWNrbmFtZSI6IisxODQ0NTk5OTk3NSIsIm5hbWUiOiIrMTg0NDU5OTk5NzUiLCJwaWN0dXJlIjoiaHR0cHM6Ly9jZG4uYXV0aDAuY29tL2F2YXRhcnMvMS5wbmciLCJ1cGRhdGVkX2F0IjoiMjAyNS0wMS0yOVQwODo0MDowMC43MjJaIiwiaXNzIjoiaHR0cHM6Ly9hdXRoLnphcGVoci5jb20vIiwiYXVkIjoiVm95U1pJOFlldlJyWDE4ZHVxVWljbnZwOEdVbFM1d0siLCJpYXQiOjE3MzgxNDAwMDIsImV4cCI6MTczODE3NjAwMiwic3ViIjoic21zfDY3NjE5NDg1MzIxYTk2ZTg4ZWUxMmJlYSIsInNpZCI6InoybzBwZThSVDJnellxS2tLdklPdnJGaHFqcTFLZTAzIiwibm9uY2UiOiJXRTU2ZG5NMlpYQnNRbE5aTW5rMFRHVTJZMGxrT1dGK2ZtTjViVE5qTVRsMGFqaDZTRVkwY0cxZlNRPT0ifQ\",\"signature\":\"SCKLXXx5Q1fVft_dV5qfWiGtX1-pbrC0XgUuLpDFO2RRgBq-W67wqnpxQPxoJGQdPAUc-qNXOw3-qCPu2v77mF9u7F-Q5TIi03sdcgx73urar_l7ttOlXnPcuQF_xNhoGlLdaBGyCm4ibnx6Zar-KSauXVt-BAD3aTVWtMpTpsVTWRyTA98wmWFDdJp0Q3Wrsj8WuZerWiijUhagdDQORZO9VQtNzqTFo5A2iE4rkwwND4ucyCvj_A4Onjy0bAjtgrmnKcVeHqxeHBYclNqUFORSfGSL0tSf9MWpz-meXa2czpXCVmitjXfexzmVwPOHCJIWjO10AV69BZQ-TBpgmg\"},\"header\":{\"alg\":\"RS256\",\"typ\":\"JWT\",\"kid\":\"TQslFmiQ_MYO88gpQRyoD\"},\"claims\":{\"__raw\":\"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlRRc2xGbWlRX01ZTzg4Z3BRUnlvRCJ9.eyJuaWNrbmFtZSI6IisxODQ0NTk5OTk3NSIsIm5hbWUiOiIrMTg0NDU5OTk5NzUiLCJwaWN0dXJlIjoiaHR0cHM6Ly9jZG4uYXV0aDAuY29tL2F2YXRhcnMvMS5wbmciLCJ1cGRhdGVkX2F0IjoiMjAyNS0wMS0yOVQwODo0MDowMC43MjJaIiwiaXNzIjoiaHR0cHM6Ly9hdXRoLnphcGVoci5jb20vIiwiYXVkIjoiVm95U1pJOFlldlJyWDE4ZHVxVWljbnZwOEdVbFM1d0siLCJpYXQiOjE3MzgxNDAwMDIsImV4cCI6MTczODE3NjAwMiwic3ViIjoic21zfDY3NjE5NDg1MzIxYTk2ZTg4ZWUxMmJlYSIsInNpZCI6InoybzBwZThSVDJnellxS2tLdklPdnJGaHFqcTFLZTAzIiwibm9uY2UiOiJXRTU2ZG5NMlpYQnNRbE5aTW5rMFRHVTJZMGxrT1dGK2ZtTjViVE5qTVRsMGFqaDZTRVkwY0cxZlNRPT0ifQ.SCKLXXx5Q1fVft_dV5qfWiGtX1-pbrC0XgUuLpDFO2RRgBq-W67wqnpxQPxoJGQdPAUc-qNXOw3-qCPu2v77mF9u7F-Q5TIi03sdcgx73urar_l7ttOlXnPcuQF_xNhoGlLdaBGyCm4ibnx6Zar-KSauXVt-BAD3aTVWtMpTpsVTWRyTA98wmWFDdJp0Q3Wrsj8WuZerWiijUhagdDQORZO9VQtNzqTFo5A2iE4rkwwND4ucyCvj_A4Onjy0bAjtgrmnKcVeHqxeHBYclNqUFORSfGSL0tSf9MWpz-meXa2czpXCVmitjXfexzmVwPOHCJIWjO10AV69BZQ-TBpgmg\",\"nickname\":\"+18445999975\",\"name\":\"+18445999975\",\"picture\":\"https://cdn.auth0.com/avatars/1.png\",\"updated_at\":\"2025-01-29T08:40:00.722Z\",\"iss\":\"https://auth.zapehr.com/\",\"aud\":\"VoySZI8YevRrX18duqUicnvp8GUlS5wK\",\"iat\":1738140002,\"exp\":1738176002,\"sub\":\"sms|67619485321a96e88ee12bea\",\"sid\":\"z2o0pe8RT2gzYqKkKvIOvrFhqjq1Ke03\",\"nonce\":\"WE56dnM2ZXBsQlNZMnk0TGU2Y0lkOWF+fmN5bTNjMTl0ajh6SEY0cG1fSQ==\"},\"user\":{\"nickname\":\"+18445999975\",\"name\":\"+18445999975\",\"picture\":\"https://cdn.auth0.com/avatars/1.png\",\"updated_at\":\"2025-01-29T08:40:00.722Z\",\"sub\":\"sms|67619485321a96e88ee12bea\"}}}"
+        },
+        {
+          "name": "telemed-patients-storage",
+          "value": "{\"state\":{\"patients\":[]},\"version\":0}"
+        },
+        {
+          "name": "ip-intake-paperwork-store-0.1",
+          "value": "{\"state\":{\"paperworkInProgress\":{}},\"version\":0}"
+        },
+        {
+          "name": "ip-intake-booking-store",
+          "value": "{\"state\":{\"patients\":[]},\"version\":0}"
+        },
+        {
+          "name": "telemed-past-visits-storage",
+          "value": "{\"state\":{},\"version\":0}"
+        },
+        {
+          "name": "ip-intake-common-state",
+          "value": "{\"state\":{\"networkError\":false},\"version\":0}"
+        },
+        {
+          "name": "telemed-appointment-storage",
+          "value": "{\"state\":{},\"version\":0}"
+        },
+        {
+          "name": "past-visit-storage",
+          "value": "{\"state\":{},\"version\":0}"
+        },
+        {
+          "name": "telemed-intake-common-storage",
+          "value": "{\"state\":{\"supportDialogOpen\":false,\"error\":\"\",\"selectedLocationState\":\"\"},\"version\":0}"
+        }
+      ]
+    }
+  ]
+}
