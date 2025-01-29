@@ -20,8 +20,9 @@ on:
         type: choice
         default: 'development'
         options:
-          - demo
           - development
+          - testing
+          - demo
       incrementVersion:
         description: 'Bump Version?'
         type: boolean
