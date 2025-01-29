@@ -2,7 +2,7 @@ import React, { FC, useEffect, useState } from 'react';
 import { Box, Button, Card, Typography } from '@mui/material';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import { DateTime } from 'luxon';
-import { otherColors } from '../../../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useClaimStore } from '../../state';
 import { ClaimStatusChip } from '../claims-queue';

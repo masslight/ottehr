@@ -10,7 +10,7 @@ import React, { ReactElement, useEffect, useMemo, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { InPersonAppointmentInformation } from 'utils';
-import { otherColors } from '../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import { getAppointments } from '../api/api';
 import AppointmentTabs from '../components/AppointmentTabs';
 import DateSearch from '../components/DateSearch';

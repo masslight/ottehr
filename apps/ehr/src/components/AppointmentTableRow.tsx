@@ -31,7 +31,6 @@ import {
   getDurationOfStatus,
 } from 'utils';
 import { PROJECT_NAME, LANGUAGES } from '../constants';
-import { otherColors } from '../CustomThemeProvider';
 import { PriorityIconWithBorder } from './PriorityIconWithBorder';
 import ChatModal from '../features/chat/ChatModal';
 import { checkinPatient } from '../helpers';
@@ -49,6 +48,7 @@ import { dataTestIds } from '../constants/data-test-ids';
 import { IntakeCheckmark } from './IntakeCheckmark';
 import { PatientDateOfBirth } from './PatientDateOfBirth';
 import { formatPatientName } from '../helpers/formatPatientName';
+import { otherColors } from '@theme/colors';
 
 interface AppointmentTableProps {
   appointment: InPersonAppointmentInformation;

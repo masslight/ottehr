@@ -2,7 +2,7 @@ import React, { FC } from 'react';
 import { Card, Typography, useTheme } from '@mui/material';
 import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutlined';
 import { Link } from 'react-router-dom';
-import { otherColors } from '../../../../../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import { DeleteIconButton } from '../../../../components';
 
 type ExcuseCardProps = {

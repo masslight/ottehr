@@ -53,7 +53,7 @@ import {
   getUnconfirmedDOBIdx,
   getVisitStatus,
 } from 'utils';
-import { otherColors } from '../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import AppointmentNotesHistory from '../components/AppointmentNotesHistory';
 import { getAppointmentStatusChip } from '../components/AppointmentTableRow';
 import CardGridItem from '../components/CardGridItem';

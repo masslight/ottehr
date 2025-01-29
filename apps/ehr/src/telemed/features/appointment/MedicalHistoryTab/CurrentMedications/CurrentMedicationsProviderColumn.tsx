@@ -18,7 +18,7 @@ import { DateTime } from 'luxon';
 import { FC, useCallback, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { MedicationDTO } from 'utils';
-import { otherColors } from '../../../../../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useChartDataArrayValue, useGetAppointmentAccessibility } from '../../../../hooks';
 import { MedicationSearchResponse, useAppointmentStore, useGetMedicationsSearch } from '../../../../state';

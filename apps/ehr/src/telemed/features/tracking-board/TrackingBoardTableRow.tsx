@@ -15,7 +15,7 @@ import {
 import { FC, ReactElement, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TelemedAppointmentInformation, TelemedAppointmentStatusEnum } from 'utils';
-import { otherColors } from '../../../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import ChatModal from '../../../features/chat/ChatModal';
 import { calculatePatientAge, formatDateUsingSlashes } from '../../../helpers/formatDateTime';
 import { AppointmentStatusChip, StatusHistory } from '../../components';

@@ -2,9 +2,9 @@ import { FC } from 'react';
 import { Box, Card, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { ClaimCard } from './ClaimCard';
 import { BillingModal } from './modals';
-import { otherColors } from '../../../CustomThemeProvider';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useClaimStore } from '../../state';
+import { otherColors } from '@theme/colors';
 
 export const BillingCard: FC = () => {
   const { organizations, facilities, claimData, coverageData } = getSelectors(useClaimStore, [

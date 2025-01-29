@@ -147,7 +147,7 @@ export default function Navbar(): ReactElement | null {
                     to={navbarItems[navbarItem]!.urls?.[0]}
                     sx={{
                       fontSize: 16,
-                      fontWeight: 700,
+                      fontWeight: 600,
                       textTransform: 'capitalize',
                     }}
                   />

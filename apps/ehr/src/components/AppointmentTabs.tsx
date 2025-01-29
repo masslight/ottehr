@@ -5,7 +5,7 @@ import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useState } from 'react';
 import { InPersonAppointmentInformation } from 'utils';
-import { otherColors } from '../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import AppointmentTable from './AppointmentTable';
 import Loading from './Loading';
 import { dataTestIds } from '../constants/data-test-ids';

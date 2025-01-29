@@ -1,6 +1,6 @@
 import { Box, Grid, TableCell, TableRow, Typography, capitalize, Modal } from '@mui/material';
 import { ReactElement, CSSProperties, useState } from 'react';
-import { otherColors } from '../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import ReasonsForVisit from './ReasonForVisit';
 import { InPersonAppointmentInformation } from 'utils';
 import { ApptTab } from './AppointmentTabs';

@@ -1,7 +1,7 @@
 import CircularProgress from '@mui/material/CircularProgress';
 import { FC } from 'react';
 import { useTheme, Box } from '@mui/material';
-import { otherColors } from '../../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 
 interface LoadingSpinnerProps {
   transparent?: boolean;

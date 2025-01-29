@@ -24,7 +24,7 @@ import { default as React, ReactElement, useCallback, useMemo, useState } from '
 import { useQuery } from 'react-query';
 import { Link } from 'react-router-dom';
 import { AllStates, EmployeeDetails, State } from 'utils';
-import { otherColors } from '../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import { getEmployees } from '../api/api';
 import Loading from '../components/Loading';
 import { formatDateUsingSlashes } from '../helpers/formatDateTime';

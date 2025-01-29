@@ -22,7 +22,7 @@ import { useGetInsurancePlans, useGetPatient, useGetPatientQuery } from '../hook
 import { createInsurancePlanDto, InsurancePlanDTO, usePatientStore } from '../state/patient.store';
 import CloseIcon from '@mui/icons-material/Close';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { otherColors } from '../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import { AddInsuranceModal } from '../components/patient/AddInsuranceModal';
 
 const PatientInformationPage: FC = () => {

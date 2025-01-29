@@ -3,7 +3,7 @@ import { Autocomplete, Box, Button, Grid, Paper, Skeleton, Switch, Tab, TextFiel
 import { Address, HealthcareService, Identifier, Location, Practitioner } from 'fhir/r4b';
 import { ReactElement, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { otherColors } from '../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
