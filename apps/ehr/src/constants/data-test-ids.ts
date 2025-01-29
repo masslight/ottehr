@@ -91,12 +91,12 @@ export const dataTestIds = {
     searchByLocationName: 'search-by-location-name',
     searchButton: 'search-button',
     resetFiltersButton: 'reset-filters-button',
-    searchResultRow: 'search-result-row',
     patientId: 'patient-id',
     patientName: 'patient-name',
     patientDateOfBirth: 'patient-date-of-birth',
     patientEmail: 'patient-email',
     patientPhoneNumber: 'patient-phone-number',
     patientAddress: 'patient-address',
+    searchResultRow: (patientId: string) => `search-result-row-${patientId}`,
   },
 };

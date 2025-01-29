@@ -58,36 +58,28 @@ export class PatientsPage {
     await expect(this.#page.getByTestId(dataTestIds.patients.searchByEmailField).locator('input')).toBeEmpty();
   }
 
-  async verifyPatientPresent(
-    patientId: string,
-    patientFirstName: string,
-    patientLastName: string,
-    patientDateOfBirth: string,
-    patientEmail: string,
-    patientPhoneNumber: string,
-    patientAddress: string
-  ): Promise<void> {
-    const rowsLocator = this.#page.getByTestId(dataTestIds.patients.searchResultRow);
-    const count = await rowsLocator.count();
-    let patientFound = false;
-    for (let i = 0; i < count; i++) {
-      const rowLocator = rowsLocator.nth(i);
-      const rowPatientId = await rowLocator.getByTestId(dataTestIds.patients.patientId).innerText();
-      const rowPatientName = await rowLocator.getByTestId(dataTestIds.patients.patientName).innerText();
-      const rowPatientDateOfBirth = await rowLocator.getByTestId(dataTestIds.patients.patientDateOfBirth).innerText();
-      const rowPatientEmail = await rowLocator.getByTestId(dataTestIds.patients.patientEmail).innerText();
-      const rowPatientPhoneNumber = await rowLocator.getByTestId(dataTestIds.patients.patientPhoneNumber).innerText();
-      const rowPatientAddress = await rowLocator.getByTestId(dataTestIds.patients.patientAddress).innerText();
-      if (rowPatientId === patientId) {
-        expect(rowPatientName).toBe(patientLastName + ' ' + patientFirstName);
-        expect(rowPatientDateOfBirth).toBe(patientDateOfBirth);
-        expect(rowPatientEmail).toBe(patientEmail);
-        expect(rowPatientPhoneNumber).toBe(patientPhoneNumber);
-        expect(rowPatientAddress).toBe(patientAddress);
-        patientFound = true;
-      }
-    }
-    expect(patientFound).toBeTruthy();
+  async verifyPatientPresent(patientInfo: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    dateOfBirth: string;
+    email: string;
+    phoneNumber: string;
+    address: string;
+  }): Promise<void> {
+    const rowLocator = this.#page.getByTestId(dataTestIds.patients.searchResultRow(patientInfo.id));
+    const rowPatientId = await rowLocator.getByTestId(dataTestIds.patients.patientId).innerText();
+    const rowPatientName = await rowLocator.getByTestId(dataTestIds.patients.patientName).innerText();
+    const rowPatientDateOfBirth = await rowLocator.getByTestId(dataTestIds.patients.patientDateOfBirth).innerText();
+    const rowPatientEmail = await rowLocator.getByTestId(dataTestIds.patients.patientEmail).innerText();
+    const rowPatientPhoneNumber = await rowLocator.getByTestId(dataTestIds.patients.patientPhoneNumber).innerText();
+    const rowPatientAddress = await rowLocator.getByTestId(dataTestIds.patients.patientAddress).innerText();
+    expect(rowPatientId).toBe(patientInfo.id);
+    expect(rowPatientName).toBe(patientInfo.lastName + ' ' + patientInfo.firstName);
+    expect(rowPatientDateOfBirth).toBe(patientInfo.dateOfBirth);
+    expect(rowPatientEmail).toBe(patientInfo.email);
+    expect(rowPatientPhoneNumber).toBe(patientInfo.phoneNumber);
+    expect(rowPatientAddress).toBe(patientInfo.address);
   }
 }
 
