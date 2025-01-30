@@ -17,7 +17,8 @@ export enum RoleType {
   Provider = 'Provider',
   FrontDesk = 'Front Desk',
   Inactive = 'Inactive',
-  // Medical Assystant
+  Prescriber = 'Prescriber',
+  // Medical Assistant
 }
 
 export interface AccessPolicy {

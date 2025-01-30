@@ -1,5 +1,5 @@
-import path from 'path';
 import { spawn, execSync } from 'child_process';
+import path from 'path';
 
 const ENV = process.env.ENV?.trim?.() || 'local';
 const isUI = process.argv.includes('--ui');

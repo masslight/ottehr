@@ -62,6 +62,7 @@ export function createPatient({
         relationship: [relationshipConcept],
       },
     ],
+    address: address ? [address] : undefined,
     telecom: telecom,
     birthDate,
     extension: [

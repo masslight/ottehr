@@ -4,6 +4,9 @@ import * as path from 'path';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function removeFolder(path) {
+  if (!path) {
+    return;
+  }
   // Remove the cloned repository
   console.log(`Removing folder ${path}...`);
   return new Promise((resolve, reject) => {
@@ -45,7 +48,7 @@ function cloneRepoLocally(repoUrl) {
 }
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-async function loadEnvFilesFromRepo(repoUrl, filesToCopyParamsArray) {
+function getRepoNameFromUrl(repoUrl) {
   const httpsPattern = /(?<=github\.com\/)[^/]+\/([^/]+)(?=\.git)/;
   const sshPattern = /(?<=github\.com:|github\.com\/)[^/]+\/([^/]+)(?=\.git)/;
   const match = repoUrl.match(httpsPattern) || repoUrl.match(sshPattern);
@@ -55,7 +58,12 @@ async function loadEnvFilesFromRepo(repoUrl, filesToCopyParamsArray) {
   }
 
   const repoName = match[1];
+  return repoName;
+}
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+async function loadEnvFilesFromRepo(repoUrl, filesToCopyParamsArray) {
+  const repoName = getRepoNameFromUrl(repoUrl);
   let someEnvMissing = false;
   filesToCopyParamsArray.forEach((params) => {
     console.log(params);
@@ -114,8 +122,9 @@ async function loadEnvFilesFromRepo(repoUrl, filesToCopyParamsArray) {
 }
 
 export default {
-  removeFolder: removeFolder,
-  isDirectoryExistsAndNotEmpty: isDirectoryExistsAndNotEmpty,
-  loadEnvFilesFromRepo: loadEnvFilesFromRepo,
-  cloneRepoLocally: cloneRepoLocally,
+  removeFolder,
+  isDirectoryExistsAndNotEmpty,
+  loadEnvFilesFromRepo,
+  cloneRepoLocally,
+  getRepoNameFromUrl,
 };
