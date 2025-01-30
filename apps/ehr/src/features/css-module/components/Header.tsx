@@ -67,7 +67,6 @@ export const Header = (): JSX.Element => {
   const language = format(processedData?.preferredLanguage, 'Lang');
   const dob = format(processedData?.DOB, 'DOB', true);
   const allergies = format(chartData?.allergies?.map((allergy) => allergy.name)?.join(', '), 'Allergy', true, 'none');
-  const weight = format(processedData?.weight, 'Weight', true);
   const reasonForVisit = format(appointment?.description, 'Reason for Visit');
   const userId = format(patient?.id);
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
@@ -113,8 +112,7 @@ export const Header = (): JSX.Element => {
                   sx={{ fontWeight: chartData?.allergies?.length ? 700 : 400, maxWidth: '250px' }}
                 >
                   {allergies}
-                </PatientMetadata>{' '}
-                |<PatientMetadata>{weight}</PatientMetadata>
+                </PatientMetadata>
               </PatientInfoWrapper>
               <PatientInfoWrapper>
                 <PatientMetadata>{pronouns}</PatientMetadata> | <PatientMetadata>{gender}</PatientMetadata> |

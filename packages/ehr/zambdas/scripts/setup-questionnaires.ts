@@ -1,8 +1,8 @@
-import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
-import { Questionnaire } from 'fhir/r4b';
 import fs from 'fs';
-import { getAuth0Token } from '../src/shared';
+import { Questionnaire } from 'fhir/r4b';
+import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import { createOystehrClient } from '../src/shared/helpers';
+import { getAuth0Token } from '../src/shared';
 
 const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> => {
   const token = await getAuth0Token(envConfig);
@@ -104,6 +104,7 @@ const main = async (): Promise<void> => {
   const env = process.argv[2];
 
   const envConfig = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  console.log('env config', envConfig);
   await writeQuestionnaires(envConfig, env);
 };
 

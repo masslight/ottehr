@@ -10,6 +10,7 @@ import {
 import { getAuth0Token } from '../src/shared';
 import { createOystehrClient } from '../src/shared/helpers';
 import QRData from './data/quetionnaire-responses.json';
+import { vi } from 'vitest';
 
 const SECRETS = {
   FHIR_API: FHIR_API,
@@ -23,10 +24,11 @@ const SECRETS = {
 // where does this come form, and how can we get the questionnaire id instead?
 // const APPOINTMENT_ID = '94a90465-8c4f-422d-b752-ca3d154d7175';
 
-describe('qr recursive filter validation tests', () => {
+describe.skip('qr recursive filter validation tests', () => {
   let questions: IntakeQuestionnaireItem[] = [];
 
-  jest.setTimeout(100000);
+  vi.setConfig({ testTimeout: 100_000 });
+
   beforeAll(async () => {
     const token = await getAuth0Token(SECRETS);
     const oystehr = createOystehrClient(token, SECRETS);

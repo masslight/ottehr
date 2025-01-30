@@ -9,7 +9,7 @@
     "build": "tsc && vite build",
     "lint": "eslint lib --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "test": "vitest",
+    "test": "vitest --silent",
     "coverage": "vitest run --coverage"
   },
   "devDependencies": {},
