@@ -1,9 +1,9 @@
 import { FC } from 'react';
 import { PropsWithChildren, IntakeThemeProviderBase } from 'ui-components';
 import i18n from './lib/i18n';
-import * as customTheme from '@theme/index';
-import * as defaults from '@defaultTheme/index';
 import { createTheme } from '@mui/material';
+import * as defaults from '@defaultTheme/index';
+import * as customTheme from '@theme/index';
 
 const { palette: p } = createTheme();
 
