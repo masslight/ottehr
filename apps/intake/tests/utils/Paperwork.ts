@@ -157,27 +157,8 @@ export class Paperwork {
   private relationshipConsentForms = ['Legal Guardian', 'Parent', 'Other', 'Spouse', 'Self'];
   private birthSex = ['Male', 'Female', 'Intersex'];
   getRandomState(): string {
-    // const randomIndex = Math.floor(Math.random() * AllStates.length);
-    // return AllStates[randomIndex].value;
-    // Fetch all available states from the dropdown
-    const availableStates = this.locator.patientState.evaluateAll(
-      (options) =>
-        options
-          .map((option) => (option as HTMLOptionElement).value) // Explicitly cast to HTMLOptionElement
-          .filter((value) => value !== '') // Exclude empty values
-    );
-
-    // Filter the list based on available options
-    const validStates = AllStates.map((state) => state.value).filter(async (state) =>
-      (await availableStates).includes(state)
-    );
-
-    if (validStates.length === 0) {
-      throw new Error('No valid states are available in the dropdown');
-    }
-
-    // Select a random valid state
-    return validStates[Math.floor(Math.random() * validStates.length)];
+    const randomIndex = Math.floor(Math.random() * AllStates.length);
+    return AllStates[randomIndex].value;
   }
   getRandomEthnicity(): string {
     const values = Object.values(PatientEthnicity);
