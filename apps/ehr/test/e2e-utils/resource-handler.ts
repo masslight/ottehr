@@ -24,6 +24,10 @@ export const PATIENT_GENDER = 'male';
 export const PATIENT_BIRTHDAY = '2024-01-01';
 export const PATIENT_PHONE_NUMBER = '2144985555';
 export const PATIENT_EMAIL = 'john.doe@example.com';
+export const PATIENT_CITY = 'New York';
+export const PATIENT_LINE = '10 Cooper Square';
+export const PATIENT_STATE = 'NY';
+export const PATIENT_POSTALCODE = '06001';
 
 export class ResourceHandler {
   private apiClient!: Oystehr;
@@ -65,6 +69,10 @@ export class ResourceHandler {
               },
             ],
             relationship: 'Parent/Guardian',
+            city: PATIENT_CITY,
+            line: PATIENT_LINE,
+            state: PATIENT_STATE,
+            postalCode: PATIENT_POSTALCODE,
           }) as FhirResource
         )) as Patient;
         console.log(`👏 patient created`, this.patient.id);

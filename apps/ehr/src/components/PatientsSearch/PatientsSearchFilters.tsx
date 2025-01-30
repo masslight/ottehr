@@ -6,6 +6,7 @@ import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { ClearIcon } from '@mui/x-date-pickers';
 import { useLocationsOptions } from './useLocationsOptions';
 import { PartialSearchOptionsState, SearchOptionsFilters } from './types';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 export const PatientsSearchFilters: React.FC<{
   searchFilters: SearchOptionsFilters;
@@ -25,6 +26,7 @@ export const PatientsSearchFilters: React.FC<{
     <FormControl component="form" onSubmit={handleSubmit} fullWidth>
       <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
         <TextField
+          data-testid={dataTestIds.patients.searchByNameField}
           sx={{ flex: 1 }}
           label="Name"
           placeholder="Last, First, Middle"
@@ -32,6 +34,7 @@ export const PatientsSearchFilters: React.FC<{
           onChange={(e) => setSearchField({ field: 'name', value: e.target.value })}
         />
         <TextField
+          data-testid={dataTestIds.patients.searchByDateOfBirthField}
           sx={{ flex: 1 }}
           label="DOB"
           type="date"
@@ -66,17 +69,20 @@ export const PatientsSearchFilters: React.FC<{
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2, mb: 3 }}>
           <TextField
             label="Phone"
+            data-testid={dataTestIds.patients.searchByPhoneField}
             placeholder="(XXX) XX-XXXX"
             value={searchFilters.phone}
             onChange={(e) => setSearchField({ field: 'phone', value: e.target.value })}
           />
           <TextField
             label="Address"
+            data-testid={dataTestIds.patients.searchByAddressField}
             value={searchFilters.address}
             onChange={(e) => setSearchField({ field: 'address', value: e.target.value })}
           />
           <TextField
             label="Email"
+            data-testid={dataTestIds.patients.searchByEmailField}
             placeholder="example@mail.com"
             value={searchFilters.email}
             onChange={(e) => setSearchField({ field: 'email', value: e.target.value })}
@@ -88,6 +94,7 @@ export const PatientsSearchFilters: React.FC<{
               /> */}
           <FormControl fullWidth>
             <TextField
+              data-testid={dataTestIds.patients.searchByStatusName}
               select
               label="Status"
               value={searchFilters.status}
@@ -101,6 +108,7 @@ export const PatientsSearchFilters: React.FC<{
           </FormControl>
           <FormControl fullWidth>
             <TextField
+              data-testid={dataTestIds.patients.searchByLocationName}
               select
               label="Location"
               value={searchFilters.location}
@@ -118,10 +126,11 @@ export const PatientsSearchFilters: React.FC<{
       )}
 
       <Box sx={{ mb: 2, display: 'flex', justifyContent: 'end', gap: 3 }}>
-        <Button type="button" onClick={resetFilters}>
+        <Button type="button" onClick={resetFilters} data-testid={dataTestIds.patients.resetFiltersButton}>
           Reset filters
         </Button>
         <Button
+          data-testid={dataTestIds.patients.searchButton}
           variant="contained"
           color="primary"
           startIcon={<SearchIcon />}
