@@ -36,7 +36,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.error('Error: ' + error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: 'Error assigning encounter participant' }),
+      body: JSON.stringify({ message: 'Error updating in person visit status' }),
     };
   }
 };
@@ -82,9 +82,9 @@ export const performEffect = async (
 ): Promise<ChangeInPersonVisitStatusResponse> => {
   const { encounter, appointment, user, updatedStatus } = validatedData;
 
-  await changeInPersonVisitStatusIfPossible(encounter, appointment, oystehr, user, updatedStatus);
+  await changeInPersonVisitStatusIfPossible(oystehr, { encounter, appointment }, user, updatedStatus);
 
   return {
-    message: `gnwejnwf`,
+    message: `updated in person visit status to ${updatedStatus}`,
   };
 };

@@ -47,8 +47,6 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const patientName = getPatientName(patient?.name).firstLastName;
 
   const { isEncounterUpdatePending, handleUpdatePractitionerAndStatus } = usePractitionerActions(
-    appointment?.id,
-    appointment?.status,
     encounter,
     'end',
     practitionerType.Attender

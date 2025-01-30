@@ -1,14 +1,15 @@
 import PersonSearchIcon from '@mui/icons-material/PersonSearch';
-import { useTheme } from '@mui/material';
+import { CircularProgress, useTheme } from '@mui/material';
 import { IconButtonContained } from '../../../telemed';
 import { useCSSPermissions } from '../hooks/useCSSPermissions';
 import { dataTestIds } from '../../../constants/data-test-ids';
 
 export const CSSButton: React.FC<{
   isDisabled: boolean;
+  isLoading: boolean;
   handleCSSButton: (e: React.MouseEvent) => void;
   appointmentID: string;
-}> = ({ isDisabled, handleCSSButton, appointmentID }) => {
+}> = ({ isDisabled, isLoading, handleCSSButton, appointmentID }) => {
   const theme = useTheme();
 
   const { view } = useCSSPermissions();
@@ -29,11 +30,15 @@ export const CSSButton: React.FC<{
       sx={{
         width: 'auto',
       }}
-      variant="primary"
+      variant={isLoading ? 'loading' : 'primary'}
       onClick={handleClick}
       disabled={isDisabled}
     >
-      <PersonSearchIcon sx={{ color: theme.palette.primary.contrastText }} />
+      {isLoading ? (
+        <CircularProgress sx={{ color: theme.palette.primary.contrastText }} size={24} />
+      ) : (
+        <PersonSearchIcon sx={{ color: theme.palette.primary.contrastText }} />
+      )}
     </IconButtonContained>
   );
 };
