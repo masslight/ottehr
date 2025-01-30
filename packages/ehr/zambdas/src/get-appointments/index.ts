@@ -39,7 +39,7 @@ import { topLevelCatch } from '../shared/errors';
 import { checkOrCreateM2MClientToken, createOystehrClient, getRelatedPersonsFromResourceList } from '../shared/helpers';
 import { sortAppointments } from '../shared/queueingUtils';
 import { ZambdaInput } from '../types';
-import { parseEncounterParticipants } from './helpers';
+import { getMergedResourcesFromBundles, parseEncounterParticipants } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetAppointmentsInput {
@@ -306,10 +306,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ...appointmentSearchQueries,
     ]);
     const activeEncounters = activeEncounterBundle.unbundle();
-    const appointmentResourcesForSelectedDate = appointmentBundles.flatMap((result) => result.unbundle());
-    const searchResultsForSelectedDate = Array.from(
-      new Map(appointmentResourcesForSelectedDate.map((resource) => [resource.id, resource])).values()
-    );
+    const searchResultsForSelectedDate = getMergedResourcesFromBundles(appointmentBundles);
 
     console.timeEnd('get_active_encounters + get_appointment_data');
 
