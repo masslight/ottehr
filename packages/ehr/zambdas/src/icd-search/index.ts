@@ -1,6 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { IcdSearchResponse } from 'utils';
-import { SecretsKeys, getSecret } from '../shared';
+import { IcdSearchResponse, SecretsKeys, getSecret } from 'utils';
 import { ZambdaInput } from '../types';
 import { validateRequestParameters } from './validateRequestParameters';
 

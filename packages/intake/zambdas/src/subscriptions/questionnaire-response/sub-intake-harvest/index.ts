@@ -23,17 +23,17 @@ import {
   ZambdaInput,
 } from 'utils';
 import '../../../../instrument.mjs';
-import { captureSentryException, configSentry, getAccessToken } from '../../../shared';
+import { captureSentryException, configSentry, getAuth0Token } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';
 import {
   createConflictResolutionTask,
   createConsentResources,
   createDocumentResources,
+  createInsuranceResources,
   createMasterRecordPatchOperations,
   flagPaperworkEdit,
   hasConflictingUpdates,
   PatientMasterRecordResources,
-  createInsuranceResources,
   searchInsuranceInformation,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -54,7 +54,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     if (!zapehrToken) {
       console.log('getting token');
-      zapehrToken = await getAccessToken(secrets);
+      zapehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }

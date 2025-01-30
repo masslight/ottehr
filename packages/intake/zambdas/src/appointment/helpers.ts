@@ -1,12 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { Coding, Extension, Questionnaire } from 'fhir/r4b';
 import {
+  getSecret,
   OtherParticipantsExtension,
   Secrets,
   SecretsKeys,
   ServiceMode,
   TELEMED_VIDEO_ROOM_CODE,
-  getSecret,
 } from 'utils';
 
 export const getCurrentQuestionnaireForServiceType = async (

@@ -10,7 +10,6 @@ import {
   allLicensesForPractitioner,
   getPractitionerNPIIdentitifier,
 } from 'utils';
-import { SecretsKeys, getSecret } from '../shared';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
 import { makeQualificationForPractitioner } from '../shared/practitioners';
 import { ZambdaInput } from '../types';

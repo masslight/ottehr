@@ -9,7 +9,7 @@ import {
   Secrets,
   TELEMED_VIDEO_ROOM_CODE,
 } from 'utils';
-import { getAuth0Token as getM2MClientToken } from './getAuth0Token';
+import { getAuth0Token } from './getAuth0Token';
 import { SecretsKeys, getSecret } from './secrets';
 
 export function createOystehrClient(token: string, secrets: Secrets | null): Oystehr {
@@ -26,7 +26,7 @@ export function createOystehrClient(token: string, secrets: Secrets | null): Oys
 export async function checkOrCreateM2MClientToken(token: string, secrets: Secrets | null): Promise<string> {
   if (!token) {
     console.log('getting m2m token for service calls...');
-    return await getM2MClientToken(secrets);
+    return await getAuth0Token(secrets);
   } else {
     console.log('already have a token, no need to update');
   }

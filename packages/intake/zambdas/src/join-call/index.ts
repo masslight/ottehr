@@ -23,7 +23,7 @@ import {
   userHasAccessToPatient,
 } from 'utils';
 import {
-  getM2MClientToken,
+  getAuth0Token,
   getUser,
   getVideoEncounterForAppointment,
   searchInvitedParticipantResourcesByEncounterId,
@@ -86,7 +86,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!zapehrToken) {
       console.log('getting m2m token for service calls');
-      zapehrToken = await getM2MClientToken(secrets); // keeping token externally for reuse
+      zapehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
     } else {
       console.log('already have a token, no need to update');
     }

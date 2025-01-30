@@ -1,6 +1,6 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Location, Patient, HealthcareService, Practitioner } from 'fhir/r4b';
+import { Appointment, HealthcareService, Location, Patient, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   APPOINTMENT_CANT_BE_IN_PAST_ERROR,
@@ -9,18 +9,18 @@ import {
   DATETIME_FULL_NO_YEAR,
   PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
   POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
+  SCHEDULE_NOT_FOUND_ERROR,
   Secrets,
   ZambdaInput,
+  getAvailableSlotsForSchedule,
   getPatientContactEmail,
   getPatientFirstName,
   getRelatedPersonForPatient,
   getSMSNumberForIndividual,
   isPostTelemedAppointment,
   topLevelCatch,
-  SCHEDULE_NOT_FOUND_ERROR,
-  getAvailableSlotsForSchedule,
 } from 'utils';
-import { captureSentryException, configSentry, getAccessToken, sendInPersonMessages } from '../../shared';
+import { captureSentryException, configSentry, getAuth0Token, sendInPersonMessages } from '../../shared';
 import { updateAppointmentTime } from '../../shared/fhir';
 import { checkValidBookingTime, createOystehrClient, getParticipantFromAppointment } from '../../shared/helpers';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAuditLog';
@@ -48,7 +48,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     if (!zapehrToken) {
       console.log('getting token');
-      zapehrToken = await getAccessToken(secrets);
+      zapehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }

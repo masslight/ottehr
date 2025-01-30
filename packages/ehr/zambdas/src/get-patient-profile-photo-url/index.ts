@@ -1,11 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Secrets } from 'utils';
-import { getSecret, SecretsKeys } from '../shared';
+import { getSecret, Secrets, SecretsKeys } from 'utils';
 import { topLevelCatch } from '../shared/errors';
 import { checkOrCreateM2MClientToken } from '../shared/helpers';
+import { createPresignedUrl } from '../shared/z3Utils';
 import { ZambdaInput } from '../types';
 import { validateRequestParameters } from './validateRequestParameters';
-import { createPresignedUrl } from '../shared/z3Utils';
 
 const logIt = (msg: string): void => {
   console.log(`PatientProfilePhoto: ${msg}`);

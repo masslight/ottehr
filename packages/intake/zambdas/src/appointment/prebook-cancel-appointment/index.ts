@@ -14,7 +14,6 @@ import {
   FHIR_ZAPEHR_URL,
   POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR,
   Secrets,
-  SecretsKeys,
   ZambdaInput,
   formatPhoneNumberDisplay,
   getAppointmentResourceById,
@@ -23,18 +22,18 @@ import {
   getPatientContactEmail,
   getPatientFirstName,
   getRelatedPersonForPatient,
-  getSecret,
   isPostTelemedAppointment,
   topLevelCatch,
 } from 'utils';
-import { captureSentryException, configSentry, sendInPersonCancellationEmail } from '../../shared';
-import { getAccessToken, getUser } from '../../shared/auth';
+import { captureSentryException, configSentry, getAuth0Token, sendInPersonCancellationEmail } from '../../shared';
+import { getUser } from '../../shared/auth';
 import { getEncounterDetails } from '../../shared/getEncounterDetails';
 import { createOystehrClient, getLocationInformation } from '../../shared/helpers';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAuditLog';
 import { validateBundleAndExtractAppointment } from '../../shared/validateBundleAndExtractAppointment';
 import { validateRequestParameters } from './validateRequestParameters';
 
+import { SecretsKeys, getSecret } from 'utils';
 export interface CancelAppointmentInput {
   appointmentID: string;
   cancellationReason: CancellationReasonOptionsInPerson;
@@ -74,7 +73,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     if (!zapehrToken) {
       console.log('getting token');
-      zapehrToken = await getAccessToken(secrets);
+      zapehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }

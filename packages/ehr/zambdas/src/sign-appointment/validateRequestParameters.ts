@@ -1,5 +1,4 @@
-import { SignAppointmentInput } from 'utils';
-import { SecretsKeys, getSecret } from '../shared';
+import { SecretsKeys, SignAppointmentInput, getSecret } from 'utils';
 import { ZambdaInput } from '../types';
 
 export function validateRequestParameters(input: ZambdaInput): SignAppointmentInput & { userToken: string } {

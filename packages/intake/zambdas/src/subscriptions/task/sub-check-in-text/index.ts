@@ -1,23 +1,22 @@
-import '../../../../instrument.mjs';
 import { wrapHandler } from '@sentry/aws-serverless';
-import { captureSentryException, configSentry } from '../../../shared';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import {
-  ZambdaInput,
-  topLevelCatch,
-  Secrets,
-  getPatientContactEmail,
-  DATETIME_FULL_NO_YEAR,
-  getPatientFirstName,
-  TaskStatus,
-} from 'utils';
-import { Task, Location, Appointment, Patient, RelatedPerson } from 'fhir/r4b';
-import { validateRequestParameters } from '../validateRequestParameters';
-import { getAccessToken } from '../../../shared';
-import { createOystehrClient } from '../../../shared/helpers';
+import { Appointment, Location, Patient, RelatedPerson, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { sendText } from '../helpers';
+import {
+  DATETIME_FULL_NO_YEAR,
+  Secrets,
+  TaskStatus,
+  ZambdaInput,
+  getPatientContactEmail,
+  getPatientFirstName,
+  topLevelCatch,
+} from 'utils';
+import '../../../../instrument.mjs';
+import { captureSentryException, configSentry, getAuth0Token } from '../../../shared';
+import { createOystehrClient } from '../../../shared/helpers';
 import { patchTaskStatus } from '../../helpers';
+import { sendText } from '../helpers';
+import { validateRequestParameters } from '../validateRequestParameters';
 
 export interface TaskSubscriptionInput {
   task: Task;
@@ -39,7 +38,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     if (!zapehrToken) {
       console.log('getting token');
-      zapehrToken = await getAccessToken(secrets);
+      zapehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }

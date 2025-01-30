@@ -1,11 +1,11 @@
-import fs from 'fs';
-import { getAccessToken } from '../src/shared/auth';
-import { createOystehrClient } from '../src/shared/helpers';
+import { BatchInputDeleteRequest, BatchInputPostRequest } from '@oystehr/sdk';
 import { Questionnaire } from 'fhir/r4b';
-import { BatchInputPostRequest, BatchInputDeleteRequest } from '@oystehr/sdk';
+import fs from 'fs';
+import { getAuth0Token } from '../src/shared';
+import { createOystehrClient } from '../src/shared/helpers';
 
 const writeQuestionnaires = async (envConfig: any): Promise<void> => {
-  const token = await getAccessToken(envConfig);
+  const token = await getAuth0Token(envConfig);
 
   if (!token) {
     throw new Error('Failed to fetch auth token.');

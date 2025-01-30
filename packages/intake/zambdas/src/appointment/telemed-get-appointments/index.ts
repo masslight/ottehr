@@ -1,15 +1,15 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient } from 'fhir/r4b';
 import {
-  GetTelemedAppointmentsResponse,
-  SecretsKeys,
-  TelemedAppointmentInformationIntake,
-  ZambdaInput,
   createOystehrClient,
   getParticipantIdFromAppointment,
   getPatientsForUser,
   getSecret,
+  GetTelemedAppointmentsResponse,
   mapStatusToTelemed,
+  SecretsKeys,
+  TelemedAppointmentInformationIntake,
+  ZambdaInput,
 } from 'utils';
 import { checkOrCreateM2MClientToken, getUser } from '../../shared';
 import { filterTelemedVideoEncounters, getFhirResources } from './helpers';

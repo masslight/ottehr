@@ -4,14 +4,16 @@ import { Bundle, Communication, Device, Patient, Practitioner, RelatedPerson } f
 import { DateTime } from 'luxon';
 import {
   Secrets,
+  SecretsKeys,
   chunkThings,
   getFirstName,
   getFullestAvailableName,
   getLastName,
   getMessageFromComm,
   getMessageHasBeenRead,
+  getSecret,
 } from 'utils';
-import { SecretsKeys, getAuth0Token, getSecret } from '../shared';
+import { getAuth0Token } from '../shared';
 import { topLevelCatch } from '../shared/errors';
 import { createOystehrClient } from '../shared/helpers';
 import { ZambdaInput } from '../types';

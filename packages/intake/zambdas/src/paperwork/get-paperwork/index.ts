@@ -20,6 +20,7 @@ import {
   PaperworkSupportingInfo,
   PersonSex,
   SLUG_SYSTEM,
+  ScheduleType,
   Secrets,
   ServiceMode,
   UCGetPaperworkResponse,
@@ -34,10 +35,10 @@ import {
   serviceModeForHealthcareService,
   topLevelCatch,
   userHasAccessToPatient,
-  ScheduleType,
 } from 'utils';
 import '../../../instrument.mjs';
-import { getM2MClientToken, getUser } from '../../shared/auth';
+import { getAuth0Token } from '../../shared';
+import { getUser } from '../../shared/auth';
 import { createOystehrClient, getOtherOfficesForLocation } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -76,7 +77,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     if (!zapehrToken) {
       console.log('getting token');
-      zapehrToken = await getM2MClientToken(secrets);
+      zapehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }

@@ -1,7 +1,7 @@
 import { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ZambdaInput, lambdaResponse, getSecret, SecretsKeys } from 'utils';
-import { getM2MClientToken, getUser } from '../../shared';
+import { SecretsKeys, ZambdaInput, getSecret, lambdaResponse } from 'utils';
+import { getAuth0Token, getUser } from '../../shared';
 import { postPaymentMethodListRequest } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -40,7 +40,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!zapehrM2MClientToken) {
       console.log('getting m2m token for service calls');
-      zapehrM2MClientToken = await getM2MClientToken(secrets); // keeping token externally for reuse
+      zapehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
     } else {
       console.log('already have a token, no need to update');
     }

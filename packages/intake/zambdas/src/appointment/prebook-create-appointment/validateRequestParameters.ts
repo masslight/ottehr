@@ -15,7 +15,6 @@ import {
 import { SCHEDULE_TYPES } from '../../get-schedule/validateRequestParameters';
 import { phoneRegex } from '../../shared';
 import { checkValidBookingTime } from '../../shared/helpers';
-
 export interface CreateAppointmentValidatedInput
   extends Omit<CreateAppointmentInputParams, 'providerID' | 'groupID' | 'locationID'> {
   currentCanonicalQuestionnaireUrl: string;

@@ -2,7 +2,7 @@
 import { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter, Location, Patient, HealthcareService, Practitioner } from 'fhir/r4b';
+import { Appointment, Encounter, HealthcareService, Location, Patient, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
@@ -30,7 +30,6 @@ import { sendVirtualCancellationEmail } from '../../shared/communication';
 import { validateBundleAndExtractAppointment } from '../../shared/validateBundleAndExtractAppointment';
 import { getPatientContactEmail } from '../telemed-create-appointment';
 import { validateRequestParameters } from './validateRequestParameters';
-
 export interface CancelAppointmentInput {
   appointmentID: string;
   cancellationReason: CancellationReasonOptionsTelemed;

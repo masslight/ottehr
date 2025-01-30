@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Account, Consent, Coverage, RelatedPerson } from 'fhir/r4b';
-import { AUTH0_AUDIENCE, AUTH0_CLIENT, AUTH0_ENDPOINT, AUTH0_SECRET, PROJECT_API, FHIR_API } from '../.env/local.json';
-import { getAccessToken } from '../src/shared';
+import { AUTH0_AUDIENCE, AUTH0_CLIENT, AUTH0_ENDPOINT, AUTH0_SECRET, FHIR_API, PROJECT_API } from '../.env/local.json';
+import { getAuth0Token } from '../src/shared';
 
 export const insuranceData = {
   additionalInfo: '',
@@ -52,7 +52,7 @@ describe('paperwork tests', () => {
   let token = null;
   jest.setTimeout(DEFAULT_TEST_TIMEOUT);
   beforeAll(async () => {
-    token = await getAccessToken({
+    token = await getAuth0Token({
       AUTH0_ENDPOINT: AUTH0_ENDPOINT,
       AUTH0_CLIENT: AUTH0_CLIENT,
       AUTH0_SECRET: AUTH0_SECRET,

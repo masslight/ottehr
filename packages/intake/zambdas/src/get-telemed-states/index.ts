@@ -2,15 +2,15 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Location } from 'fhir/r4b';
 import {
-  createOystehrClient,
-  getSecret,
   GetTelemedLocationsResponse,
   PUBLIC_EXTENSION_BASE_URL,
   SecretsKeys,
   TelemedLocation,
   ZambdaInput,
+  createOystehrClient,
+  getSecret,
 } from 'utils';
-import { getM2MClientToken } from '../shared';
+import { getAuth0Token } from '../shared';
 
 let zapehrToken: string;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -20,7 +20,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!zapehrToken) {
       console.log('getting m2m token for service calls');
-      zapehrToken = await getM2MClientToken(input.secrets);
+      zapehrToken = await getAuth0Token(input.secrets);
     } else {
       console.log('already have a token, no need to update');
     }

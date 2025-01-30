@@ -10,7 +10,7 @@ import {
   getPatientsForUser,
   getSecret,
 } from 'utils';
-import { getM2MClientToken } from '../shared';
+import { getAuth0Token } from '../shared';
 import { getUser } from '../shared/auth';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -31,7 +31,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!zapehrToken) {
       console.log('getting token');
-      zapehrToken = await getM2MClientToken(secrets);
+      zapehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }

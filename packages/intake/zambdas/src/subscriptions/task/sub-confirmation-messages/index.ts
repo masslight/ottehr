@@ -12,7 +12,7 @@ import {
   topLevelCatch,
 } from 'utils';
 import '../../../../instrument.mjs';
-import { captureSentryException, configSentry, getAccessToken, sendInPersonMessages } from '../../../shared';
+import { captureSentryException, configSentry, getAuth0Token, sendInPersonMessages } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';
 import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
@@ -32,7 +32,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     if (!zapehrToken) {
       console.log('getting token');
-      zapehrToken = await getAccessToken(secrets);
+      zapehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }

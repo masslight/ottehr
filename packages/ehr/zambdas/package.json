@@ -43,7 +43,9 @@
     "fast-json-patch": "^3.1.1",
     "luxon": "^3.4.3",
     "query-string": "^8.1.0",
-    "short-uuid": "^4.2.2"
+    "short-uuid": "^4.2.2",
+    "utils": "*",
+    "zambda-utils": "*"
   },
   "devDependencies": {
     "@types/luxon": "^3.3.2",

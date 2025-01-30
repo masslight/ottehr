@@ -1,5 +1,4 @@
-import Oystehr from '@oystehr/sdk';
-import FhirClient from '@oystehr/sdk';
+import { default as FhirClient, default as Oystehr } from '@oystehr/sdk';
 import { FhirResource, Location, Practitioner, Resource } from 'fhir/r4b';
 import {
   allPhysicalLocations,
@@ -15,7 +14,7 @@ import {
   TIMEZONE_EXTENSION_URL,
   VirtualLocationBody,
 } from 'utils';
-import { getAccessToken } from '../src/shared';
+import { getAuth0Token } from '../src/shared';
 import { createOystehrClient } from '../src/shared/helpers';
 
 export const checkLocations = async (fhirClient: FhirClient): Promise<void> => {
@@ -147,7 +146,7 @@ const createPhysicalLocation = async (
 
 // Create Practitioners
 const createPractitionerForEligibilityCheck = async (config: any): Promise<void> => {
-  const envToken = await getAccessToken(config);
+  const envToken = await getAuth0Token(config);
   const oystehr = await createOystehrClient(envToken, config);
 
   ELIGIBILITY_PRACTITIONER_TYPES.forEach(async (type) => {

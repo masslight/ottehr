@@ -24,6 +24,7 @@ import {
   codingsEqual,
   CONSENT_CODE,
   ConsentSigner,
+  consolidateOperations,
   ContactTelecomConfig,
   coverageFieldPaths,
   createConsentResource,
@@ -65,6 +66,7 @@ import {
   PHOTO_ID_FRONT_ID,
   PRACTICE_NAME_URL,
   PRIVATE_EXTENSION_BASE_URL,
+  RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL,
   relatedPersonFieldPaths,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
@@ -73,8 +75,6 @@ import {
   SecretsKeys,
   SUBSCRIBER_RELATIONSHIP_CODE_MAP,
   uploadPDF,
-  consolidateOperations,
-  RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL,
 } from 'utils';
 import { v4 as uuid } from 'uuid';
 import { createOrUpdateFlags } from '../../../paperwork/sharedHelpers';

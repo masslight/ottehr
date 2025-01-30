@@ -18,10 +18,10 @@ import {
   HOURS_OF_OPERATION_FORMAT,
   OVERRIDE_DATE_FORMAT,
   pickFirstValueFromAnswerItem,
+  ScheduleType,
   Secrets,
   SecretsKeys,
   SLUG_SYSTEM,
-  ScheduleType,
 } from 'utils';
 
 export function createOystehrClient(token: string, secrets: Secrets | null): Oystehr {

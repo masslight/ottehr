@@ -1,5 +1,4 @@
-import { AssignPractitionerInput } from 'utils';
-import { SecretsKeys, getSecret } from '../shared';
+import { AssignPractitionerInput, SecretsKeys, getSecret } from 'utils';
 import { ZambdaInput } from '../types';
 
 export function validateRequestParameters(input: ZambdaInput): AssignPractitionerInput & { userToken: string } {

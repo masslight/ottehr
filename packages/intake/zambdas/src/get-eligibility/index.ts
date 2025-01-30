@@ -33,7 +33,7 @@ import {
   lambdaResponse,
   removeTimeFromDate,
 } from 'utils';
-import { createInsurancePlanDto, createOrUpdateRelatedPerson, getM2MClientToken } from '../shared';
+import { createInsurancePlanDto, createOrUpdateRelatedPerson, getAuth0Token } from '../shared';
 import { validateInsuranceRequirements, validateRequestParameters } from './validation';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -65,7 +65,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!zapehrToken) {
       console.log('getting token');
-      zapehrToken = await getM2MClientToken(secrets);
+      zapehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
