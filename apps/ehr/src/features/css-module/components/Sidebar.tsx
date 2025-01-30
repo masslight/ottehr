@@ -235,7 +235,9 @@ export const Sidebar = (): JSX.Element => {
   const { appointment, encounter } = telemedData;
   const status = appointment && encounter ? getVisitStatus(appointment, encounter) : undefined;
   const { isEncounterUpdatePending, handleUpdatePractitionerAndStatus } = usePractitionerActions(
-    appointmentID || '',
+    appointmentID,
+    appointment?.status,
+    encounter,
     'end',
     practitionerType.Admitter
   );

@@ -2,11 +2,9 @@ import { useMutation } from 'react-query';
 import { SelectChangeEvent } from '@mui/material';
 import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser from '../../../hooks/useEvolveUser';
-import { useAppointment } from '../hooks/useAppointment';
 import { handleParticipantPeriod } from '../../../helpers/practitionerUtils';
 import {
   getPatchBinary,
-  getCriticalUpdateTagOp,
   getEncounterStatusHistoryUpdateOp,
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
@@ -14,10 +12,12 @@ import {
   VisitStatusWithoutUnknown,
 } from 'utils';
 import { Operation } from 'fast-json-patch';
-import { Coding } from 'fhir/r4b';
+import { Coding, Encounter } from 'fhir/r4b';
 
 export const usePractitionerActions = (
-  appointmentID: string,
+  appointmentId: string | undefined,
+  appointmentStatus: string | undefined,
+  encounter: Encounter | undefined,
   action: 'start' | 'end',
   practitionerType: Coding[],
   updateStatus?: boolean,
@@ -25,8 +25,6 @@ export const usePractitionerActions = (
 ): { isEncounterUpdatePending: boolean; handleUpdatePractitionerAndStatus: () => Promise<void> } => {
   const { oystehr, oystehrZambda } = useApiClients();
   const user = useEvolveUser();
-  const { telemedData, refetch } = useAppointment(appointmentID);
-  const { appointment, encounter } = telemedData;
 
   // todo: updateStatusForAppointment logic will move to backend in another pr
   async function updateStatusForAppointment(event: SelectChangeEvent<VisitStatusLabel | unknown>): Promise<void> {
@@ -34,7 +32,7 @@ export const usePractitionerActions = (
       if (!user) {
         throw new Error('User is not defined');
       }
-      if (!appointment || !appointmentID) {
+      if (!appointmentId || !appointmentStatus) {
         throw new Error('Appointment is not defined');
       }
       if (!encounter || !encounter.id) {
@@ -45,41 +43,41 @@ export const usePractitionerActions = (
       }
 
       const updatedStatus = event.target.value as VisitStatusWithoutUnknown;
-      const appointmentStatus = visitStatusToFhirAppointmentStatusMap[updatedStatus];
-      const encounterStatus = visitStatusToFhirEncounterStatusMap[updatedStatus];
+      const appointmentStatusMapped = visitStatusToFhirAppointmentStatusMap[updatedStatus];
+      const encounterStatusMapped = visitStatusToFhirEncounterStatusMap[updatedStatus];
 
       const patchOps: Operation[] = [
         {
           op: 'replace',
           path: '/status',
-          value: appointmentStatus,
+          value: appointmentStatusMapped,
         },
       ];
 
-      if (appointment.status === 'cancelled') {
+      if (appointmentStatus === 'cancelled') {
         patchOps.push({
           op: 'remove',
           path: '/cancelationReason',
         });
       }
 
-      const updateTag = getCriticalUpdateTagOp(appointment, `Staff ${user?.email ? user.email : `(${user?.id})`}`);
-      patchOps.push(updateTag);
-
       const encounterPatchOps: Operation[] = [
         {
           op: 'replace',
           path: '/status',
-          value: encounterStatus,
+          value: encounterStatusMapped,
         },
       ];
 
-      const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(encounter, encounterStatus);
+      const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(
+        encounter,
+        encounterStatusMapped
+      );
       encounterPatchOps.push(encounterStatusHistoryUpdate);
 
       const appointmentPatch = getPatchBinary({
         resourceType: 'Appointment',
-        resourceId: appointmentID,
+        resourceId: appointmentId,
         patchOperations: patchOps,
       });
       const encounterPatch = getPatchBinary({
@@ -90,7 +88,6 @@ export const usePractitionerActions = (
       await oystehr.fhir.transaction({
         requests: [appointmentPatch, encounterPatch],
       });
-      await refetch();
     } catch (error) {
       throw new Error(JSON.stringify(error));
     }

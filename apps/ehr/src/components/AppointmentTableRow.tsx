@@ -52,6 +52,7 @@ import { formatPatientName } from '../helpers/formatPatientName';
 import { usePractitionerActions } from '../features/css-module/hooks/usePractitioner';
 import { practitionerType } from '../helpers/practitionerUtils';
 import { enqueueSnackbar } from 'notistack';
+import { useAppointment } from '../features/css-module/hooks/useAppointment';
 
 interface AppointmentTableProps {
   appointment: InPersonAppointmentInformation;
@@ -228,6 +229,8 @@ export default function AppointmentTableRow({
 }: AppointmentTableProps): ReactElement {
   const { oystehr } = useApiClients();
   const theme = useTheme();
+  const { telemedData } = useAppointment(appointment.id);
+  const { encounter } = telemedData;
   const navigate = useNavigate();
   const [statusTime, setStatusTime] = useState<string>('');
   const [arrivedStatusSaving, setArrivedStatusSaving] = useState<boolean>(false);
@@ -235,7 +238,9 @@ export default function AppointmentTableRow({
   const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
   const user = useEvolveUser();
   const { isEncounterUpdatePending, handleUpdatePractitionerAndStatus } = usePractitionerActions(
-    appointment.id,
+    appointment?.id,
+    appointment?.status,
+    encounter,
     'start',
     practitionerType.Admitter,
     true,

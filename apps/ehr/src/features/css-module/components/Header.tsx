@@ -80,7 +80,9 @@ export const Header = (): JSX.Element => {
   const nextMode = interactionMode === 'intake' ? 'provider' : 'intake';
   const practitionerTypeFromMode = interactionMode === 'intake' ? practitionerType.Attender : practitionerType.Admitter;
   const { isEncounterUpdatePending, handleUpdatePractitionerAndStatus } = usePractitionerActions(
-    appointmentID || '',
+    appointmentID,
+    appointment?.status,
+    encounter,
     'start',
     practitionerTypeFromMode
   );

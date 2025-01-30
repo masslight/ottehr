@@ -8,18 +8,24 @@ import { useParams } from 'react-router-dom';
 import { usePractitionerActions } from '../hooks/usePractitioner';
 import { LoadingButton } from '@mui/lab';
 import { enqueueSnackbar } from 'notistack';
+import { useAppointment } from '../hooks/useAppointment';
 
 export const BottomNavigation = (): JSX.Element => {
   const { id: appointmentID } = useParams();
+  const { telemedData, refetch } = useAppointment(appointmentID);
+  const { appointment, encounter } = telemedData;
   const theme = useTheme();
   const { goToNext, goToPrevious, isNavigationHidden, isFirstPage, isLastPage, interactionMode, isNavigationDisabled } =
     useNavigationContext();
   const practitionerTypeFromMode = interactionMode === 'intake' ? practitionerType.Admitter : practitionerType.Attender;
   const { isEncounterUpdatePending, handleUpdatePractitionerAndStatus } = usePractitionerActions(
-    appointmentID ?? '',
+    appointment?.id,
+    appointment?.status,
+    encounter,
     'end',
     practitionerTypeFromMode
   );
+
   const [nextButtonLoading, setNextButtonLoading] = React.useState<boolean>(false);
 
   const handleNextPage = async (): Promise<void> => {
@@ -31,6 +37,7 @@ export const BottomNavigation = (): JSX.Element => {
       }
       goToNext();
       setNextButtonLoading(false);
+      await refetch();
     } catch (error: any) {
       console.log(error.message);
       enqueueSnackbar('An error occurred trying to complete intake. Please try again.', { variant: 'error' });
