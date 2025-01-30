@@ -81,4 +81,22 @@ export const dataTestIds = {
   statesPage: {
     statesSearch: 'states-search',
   },
+  patients: {
+    searchByNameField: 'search-name-field',
+    searchByDateOfBirthField: 'searchByDateOfBirthField',
+    searchByPhoneField: 'search-phone-field',
+    searchByAddressField: 'search-by-address',
+    searchByEmailField: 'search-by-email-field',
+    searchByStatusName: 'search-by-status-name',
+    searchByLocationName: 'search-by-location-name',
+    searchButton: 'search-button',
+    resetFiltersButton: 'reset-filters-button',
+    patientId: 'patient-id',
+    patientName: 'patient-name',
+    patientDateOfBirth: 'patient-date-of-birth',
+    patientEmail: 'patient-email',
+    patientPhoneNumber: 'patient-phone-number',
+    patientAddress: 'patient-address',
+    searchResultRow: (patientId: string) => `search-result-row-${patientId}`,
+  },
 };

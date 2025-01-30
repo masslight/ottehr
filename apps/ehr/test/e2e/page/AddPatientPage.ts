@@ -18,7 +18,7 @@ export class AddPatientPage {
   }
 
   async verifyMobilePhoneNumberValidationErrorShown(): Promise<void> {
-    await expect(this.#page.locator('p:text("Phone number must be 10 digits")')).toBeVisible;
+    await expect(this.#page.locator('p:text("Phone number must be 10 digits")')).toBeVisible();
   }
 
   async verifySearchForPatientsErrorShown(): Promise<void> {
