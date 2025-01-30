@@ -192,19 +192,6 @@ export async function removeUser(
   console.log(`✅ practitioner for employee deleted ${practitionerId}`);
 }
 
-// export async function tryToFindAndRemoveTestUsers(oystehr: Oystehr, authToken: string): Promise<void> {
-//   const response = await fetchWithOystAuth('https://project-api.zapehr.com/v1/user', 'GET', authToken);
-//
-//   const res = await response?.json();
-//   if (!res) return;
-//   const users = res as { id: string; name: string; profile: string }[];
-//   const usersToDelete = users.filter((user) => user.name.includes(testEmployeeUsernamePattern));
-//
-//   await Promise.all(
-//     usersToDelete.map((user) => removeUser(user.id, user.profile.replace('Practitioner/', ''), oystehr, authToken))
-//   );
-// }
-
 async function parseTestUser(user: UserResponse, oystehr: Oystehr): Promise<TestEmployee> {
   const practitioner = await oystehr.fhir.get<Practitioner>({
     resourceType: 'Practitioner',
