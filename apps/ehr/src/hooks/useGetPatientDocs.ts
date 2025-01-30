@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { useQuery } from 'react-query';
+import { useQuery, useQueryClient } from 'react-query';
 import { FhirResource, List, DocumentReference, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useApiClients } from './useAppClients';
@@ -404,6 +404,7 @@ const debug__mimicTextNarrativeDocumentsFilter = (
 
 const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatientDocsActionsReturn => {
   const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
 
   const uploadDocumentAction = useCallback(
     async (params: UploadDocumentActionParams): Promise<UploadDocumentActionResult> => {
@@ -452,6 +453,9 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
 
         console.log('Z3 file uploading SUCCESS');
 
+        await queryClient.invalidateQueries(['get-patient-docs-folders', { patientId }]);
+        await queryClient.invalidateQueries(['get-search-patient-documents', { patientId }]);
+
         return {
           z3Url: z3Url,
           presignedUploadUrl: presignedUploadUrl,
@@ -463,7 +467,7 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
         throw error;
       }
     },
-    [oystehrZambda, patientId]
+    [oystehrZambda, patientId, queryClient]
   );
 
   return {
