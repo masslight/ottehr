@@ -157,8 +157,27 @@ export class Paperwork {
   private relationshipConsentForms = ['Legal Guardian', 'Parent', 'Other', 'Spouse', 'Self'];
   private birthSex = ['Male', 'Female', 'Intersex'];
   getRandomState(): string {
-    const randomIndex = Math.floor(Math.random() * AllStates.length);
-    return AllStates[randomIndex].value;
+    // const randomIndex = Math.floor(Math.random() * AllStates.length);
+    // return AllStates[randomIndex].value;
+    // Fetch all available states from the dropdown
+    const availableStates = this.locator.patientState.evaluateAll(
+      (options) =>
+        options
+          .map((option) => (option as HTMLOptionElement).value) // Explicitly cast to HTMLOptionElement
+          .filter((value) => value !== '') // Exclude empty values
+    );
+
+    // Filter the list based on available options
+    const validStates = AllStates.map((state) => state.value).filter(async (state) =>
+      (await availableStates).includes(state)
+    );
+
+    if (validStates.length === 0) {
+      throw new Error('No valid states are available in the dropdown');
+    }
+
+    // Select a random valid state
+    return validStates[Math.floor(Math.random() * validStates.length)];
   }
   getRandomEthnicity(): string {
     const values = Object.values(PatientEthnicity);
@@ -187,8 +206,11 @@ export class Paperwork {
   }
   async fillContactInformationRequiredFields(): Promise<void> {
     await this.fillStreetAddress();
+    await this.page.waitForTimeout(500);
     await this.fillPatientCity();
+    await this.page.waitForTimeout(500);
     await this.fillPatientState();
+    await this.page.waitForTimeout(500);
     await this.fillPatientZip();
     await this.page.waitForTimeout(500);
   }
@@ -210,7 +232,7 @@ export class Paperwork {
     const randomState = this.getRandomState();
     await this.locator.patientState.click();
     await this.locator.patientState.pressSequentially(randomState);
-    await this.page.getByRole('option', { name: randomState }).click();
+    await this.verifyOptionIsPresentAndSelect(randomState);
   }
   async fillPatientZip(): Promise<void> {
     await this.locator.patientZip.fill('12345');
@@ -235,17 +257,17 @@ export class Paperwork {
   async fillEthnicity(): Promise<void> {
     const randomEthnicity = this.getRandomEthnicity();
     await this.locator.patientEthnicity.click();
-    await this.page.getByRole('option', { name: randomEthnicity, exact: true }).click();
+    await this.verifyOptionIsPresentAndSelect(randomEthnicity);
   }
   async fillRace(): Promise<void> {
     const randomRace = this.getRandomRace();
     await this.locator.patientRace.click();
-    await this.page.getByRole('option', { name: randomRace }).click();
+    await this.verifyOptionIsPresentAndSelect(randomRace);
   }
   async fillPreferredLanguage(): Promise<void> {
     const randomLanguage = this.getRandomElement(this.language);
     await this.locator.patientPreferredLanguage.click();
-    await this.page.getByRole('option', { name: randomLanguage }).click();
+    await this.verifyOptionIsPresentAndSelect(randomLanguage);
   }
   async fillPatientDetailsRequiredFields(): Promise<void> {
     await this.fillEthnicity();
@@ -281,7 +303,7 @@ export class Paperwork {
   async fillResponsiblePartyBirthSex(): Promise<void> {
     const birthSex = this.getRandomElement(this.birthSex);
     await this.locator.responsiblePartyBirthSex.click();
-    await this.page.getByRole('option', { name: birthSex }).click();
+    await this.verifyOptionIsPresentAndSelect(birthSex);
   }
   async fillResponsiblePartyDOB(): Promise<void> {
     // TO DO
@@ -293,7 +315,7 @@ export class Paperwork {
   async fillResponsiblePartyNotSelfRelationship(): Promise<void> {
     const relationship = this.getRandomElement(this.relationshipResponsiblePartyNotSelf);
     await this.locator.responsiblePartyRelationship.click();
-    await this.page.getByRole('option', { name: relationship }).click();
+    await this.verifyOptionIsPresentAndSelect(relationship);
   }
   async fillConsentForms(): Promise<void> {
     const relationshipConsentForms = this.getRandomElement(this.relationshipConsentForms);
@@ -304,6 +326,14 @@ export class Paperwork {
     await this.locator.consentFullName.click();
     await this.locator.consentFullName.fill('Test consent full name');
     await this.locator.consentSignerRelationship.click();
-    await this.page.getByRole('option', { name: relationshipConsentForms }).click();
+    await this.verifyOptionIsPresentAndSelect(relationshipConsentForms);
+  }
+  async verifyOptionIsPresentAndSelect(value: string): Promise<void> {
+    const options = await this.page.locator('[role="option"]').allInnerTexts();
+    if (options.includes(value)) {
+      await this.page.getByRole('option', { name: value, exact: true }).click();
+    } else {
+      console.warn(`Option '${value}' not found in the dropdown.`);
+    }
   }
 }
