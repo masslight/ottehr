@@ -34,7 +34,6 @@ import {
   NOT_PATIENT_OR_GUARDIAN_ERROR,
   NO_LOCATION_ERROR,
   getFillingThisOutAsOptions,
-  getStartingPath,
 } from '../helpers';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { usePreserveQueryParams } from '../hooks/usePreserveQueryParams';
@@ -49,7 +48,6 @@ type BookingState = {
   patients: PatientInfo[];
   patientInfo: PatientInfoInProgress | undefined;
   unconfirmedDateOfBirth: string | undefined;
-  locationPath: string | undefined;
 };
 
 interface BookingStoreActions {
@@ -61,7 +59,6 @@ interface BookingStoreActions {
   setSlotData: (slotData: string[]) => void;
   setScheduleType: (scheduleType: ScheduleType | undefined) => void;
   completeBooking: () => void;
-  restartBooking: (newLocationPath: string) => void;
   handleLogout: () => void;
 }
 
@@ -71,7 +68,6 @@ const BOOKING_INITIAL: BookingState = {
   unconfirmedDateOfBirth: undefined,
   selectedLocationResponse: undefined,
   selectedSlot: undefined,
-  locationPath: undefined,
   visitType: undefined,
   serviceType: undefined,
   scheduleType: undefined,
@@ -159,19 +155,6 @@ const useBookingStore = create<BookingState & BookingStoreActions>()(
           formUser: undefined,
         }));
       },
-      restartBooking: (newLocationPath: string) => {
-        const split = newLocationPath.split('/');
-        const isWalkin = split[split.length - 1] === 'walkin';
-        set((state) => ({
-          ...state,
-          patientInfo: isWalkin ? undefined : state.patientInfo,
-          locationPath: newLocationPath,
-          selectedSlot: undefined,
-          scheduleType: undefined,
-          selectedLocationResponse: undefined,
-          unconfirmedDateOfBirth: undefined,
-        }));
-      },
       handleLogout: () => {
         set(() => ({
           ...BOOKING_INITIAL,
@@ -189,15 +172,10 @@ enum LoadingState {
 }
 
 interface BookAppointmentContext
-  extends Omit<BookingState, 'locationPath' | 'selectedLocationResponse' | 'redirectToStart'>,
+  extends Omit<BookingState, 'selectedLocationResponse' | 'redirectToStart'>,
     Omit<
       BookingStoreActions,
-      | 'restartBooking'
-      | 'setLocationPath'
-      | 'setSelectedLocationResponse'
-      | 'handleLogout'
-      | 'setPatients'
-      | 'setScheduleType'
+      'setLocationPath' | 'setSelectedLocationResponse' | 'handleLogout' | 'setPatients' | 'setScheduleType'
     > {
   visitType: VisitType | undefined;
   selectedLocation: AvailableLocationInformation | undefined;
@@ -229,14 +207,12 @@ const isPostPatientSelectionPath = (basePath: string, pathToCheck: string): bool
 
 const BookingHome: FC = () => {
   const {
-    locationPath: persistedLocationPath,
     selectedLocationResponse,
     patients,
     patientInfo,
     selectedSlot,
     unconfirmedDateOfBirth,
     scheduleType,
-    restartBooking,
     setSelectedLocationResponse,
     setPatientInfo,
     setPatients,
@@ -247,8 +223,6 @@ const BookingHome: FC = () => {
     handleLogout,
     setScheduleType,
   } = getSelectors(useBookingStore, [
-    'restartBooking',
-    'locationPath',
     'patientInfo',
     'unconfirmedDateOfBirth',
     'selectedLocationResponse',
@@ -327,7 +301,6 @@ const BookingHome: FC = () => {
       patientsLoading: patientsLoading !== LoadingState.complete,
       selectedSlot,
       unconfirmedDateOfBirth,
-      restartBooking,
       setPatientInfo,
       setUnconfirmedDateOfBirth,
       setSelectedSlot,
@@ -345,7 +318,6 @@ const BookingHome: FC = () => {
     patientsLoading,
     selectedSlot,
     unconfirmedDateOfBirth,
-    restartBooking,
     setPatientInfo,
     setUnconfirmedDateOfBirth,
     setSelectedSlot,
@@ -358,7 +330,7 @@ const BookingHome: FC = () => {
     if (!isAuthenticated && !authIsLoading) {
       handleLogout();
     }
-  }, [authIsLoading, handleLogout, isAuthenticated, restartBooking, setScheduleType]);
+  }, [authIsLoading, handleLogout, isAuthenticated, setScheduleType]);
 
   // console.log('outlet context in root', outletContext);
 
@@ -411,19 +383,21 @@ const BookingHome: FC = () => {
             service_mode: serviceTypeParam,
           });
           // if walkin is open or the base path contains prebook, redirect to new-user page
-          if ((visitTypeParam == 'walkin' && walkinOpen) || visitTypeParam == 'prebook') {
-            console.log('nav event 12');
-            navigate(`${basePath}/new-user`);
-          }
-          // if walkin is closed, redirect to the walkin closed page
-          else {
-            console.log('nav event 13', basePath);
-            navigate(basePath);
+          if (visitTypeParam == 'walkin') {
+            if (walkinOpen) {
+              navigate(`${basePath}/new-user`);
+            } else {
+              // if walkin is closed, redirect to the walkin closed page
+              navigate(basePath);
+            }
+          } else if (visitTypeParam == 'prebook') {
+            navigate(`${basePath}/new-user`, {
+              state: { slot: navState?.slot, scheduleType: navState?.scheduleType },
+            });
           }
         }
         // navigate to the root domain (localhost:3002 or welcome.ottehr.com) if either of stateParam or slugParam or visitTypeParam are undefined.
         else {
-          console.log('nav event 13fr23r2');
           navigate('');
         }
       }
@@ -446,29 +420,10 @@ const BookingHome: FC = () => {
     walkinOpen,
     navigate,
     serviceTypeParam,
+    selectedSlot,
+    scheduleType,
+    navState,
   ]);
-
-  useEffect(() => {
-    const visitType = (visitTypeParam ?? VisitType.PreBook) as VisitType;
-    const serviceType = (serviceTypeParam ?? ServiceMode['in-person']) as ServiceMode;
-    // console.log('effect rendered');
-    if (slugParam) {
-      const newLocationPath = getStartingPath(slugParam, visitType, serviceType);
-      if (!persistedLocationPath) {
-        console.log('nav event 1.11');
-        restartBooking(newLocationPath);
-        setLocationLoading(LoadingState.initial);
-      } else if (persistedLocationPath !== newLocationPath) {
-        // commenting this out fixed an issue with a redirect where a prebooked virtual visit was being
-        // redirected from the {booking base path}/patients to {booking base path}.
-        /* console.log('effect path 1.2', newLocationPath);
-        restartBooking(newLocationPath);
-        setLocationLoading(LoadingState.initial);
-        console.log('nav event 1.12');
-        navigate(newLocationPath);*/
-      }
-    }
-  }, [navigate, persistedLocationPath, restartBooking, serviceTypeParam, slugParam, visitTypeParam]);
 
   useEffect(() => {
     const recoverFromLostData = async (slug: string, zambdaClient: ZambdaClient): Promise<void> => {
@@ -544,7 +499,6 @@ const BookingHome: FC = () => {
       const shouldStartAtBeginning = isPostPatientSelectionPath(basePath, solvedPath) && !patientsLoading;
       console.log('basePath, solvedPath, shouldSAB', basePath, solvedPath, shouldStartAtBeginning);
       if (shouldStartAtBeginning) {
-        console.log('nav event 1.743535');
         return <Navigate to={basePath} replace={true} />;
       }
     } else {
