@@ -53,9 +53,9 @@ test('PCI-1 Click on [Proceed to paperwork] - Contact information screen opens',
   const paperwork = new Paperwork(page);
   await paperwork.checkContactInformationPageOpens();
 });
-test('PCI-2 Fill Contact Information required fields', async () => {
+test('PCI-2 Fill Contact Information all fields', async () => {
   const paperwork = new Paperwork(page);
-  await paperwork.fillContactInformationRequiredFields();
+  await paperwork.fillContactInformationAllFields();
 });
 test('PCI-3 Contact Information - Check email is prefilled', async () => {
   const paperwork = new Paperwork(page);
