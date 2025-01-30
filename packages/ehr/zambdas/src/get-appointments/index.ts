@@ -305,10 +305,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       encounterSearch,
       ...appointmentSearchQueries,
     ]);
-    const [activeEncounters, searchResultsForSelectedDate] = [
-      activeEncounterBundle.unbundle(),
-      appointmentBundles.flatMap((result) => result.unbundle()),
-    ];
+    const activeEncounters = activeEncounterBundle.unbundle();
+    const appointmentResourcesForSelectedDate = appointmentBundles.flatMap((result) => result.unbundle());
+    const searchResultsForSelectedDate = Array.from(
+      new Map(appointmentResourcesForSelectedDate.map((resource) => [resource.id, resource])).values()
+    );
+
     console.timeEnd('get_active_encounters + get_appointment_data');
 
     const encounterIds: string[] = [];
