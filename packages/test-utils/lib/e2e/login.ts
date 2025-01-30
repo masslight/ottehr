@@ -20,7 +20,7 @@ export async function login(page: Page, phone?: string, text_username?: string, 
   await authLoginContinueButton.click();
   let n = 0;
   let code: string | undefined = '';
-  while (n < 4) {
+  while (n < 3) {
     n++;
     await page.waitForTimeout(10000);
     code = await getCode(now, text_username, text_password);
