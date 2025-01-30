@@ -25,3 +25,4 @@ packages/ui-components/dist/*
 .idea
 
 **/vite.config.ts.timestamp-*.mjs
+**/ottehr-secrets/

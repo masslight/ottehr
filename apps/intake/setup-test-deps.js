@@ -3,6 +3,8 @@ import * as path from 'path';
 import setup from '../../scripts/setup/setup.utils.mjs';
 
 const isCI = Boolean(process.env.CI);
+const playwrightUserFile = './playwright/user.json';
+const platwrightUserFileCode = JSON.stringify({ cookies: [], origins: [] }, null, 2);
 
 // сopy secrets only on local machine; GitHub workflow handles it on its own
 if (!isCI) {
@@ -26,9 +28,6 @@ if (!isCI) {
     ]);
   })();
 }
-
-const playwrightUserFile = './playwright/user.json';
-const platwrightUserFileCode = JSON.stringify({ cookies: [], origins: [] }, null, 2);
 
 // Create the playwright/user.json file if it doesn't exist
 if (!fs.existsSync(playwrightUserFile)) {
