@@ -3,15 +3,11 @@ import { Box, Typography } from '@mui/material';
 import {
   ExamObservationFieldItem,
   examObservationFieldsDetailsArray,
-  getQuestionnaireResponseByLinkId,
   parseMusculoskeletalFieldToName,
   parseRashesFieldToName,
   rashesFields,
 } from 'utils';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore, useExamObservationsStore } from '../../../../state';
-import { convertTemperature } from 'utils';
-import { AssessmentTitle } from '../../AssessmentTab';
+import { useExamObservationsStore } from '../../../../state';
 import { useExamObservations } from '../../../../hooks/useExamObservations';
 import { ActionsList } from '../../../../components';
 import { ExamReviewGroup } from './ExamReviewGroup';
@@ -24,7 +20,7 @@ type ExaminationContainerProps = {
 export const ExaminationContainer: FC<ExaminationContainerProps> = (props) => {
   const { noTitle } = props;
 
-  const { questionnaireResponse } = getSelectors(useAppointmentStore, ['questionnaireResponse']);
+  // const { questionnaireResponse } = getSelectors(useAppointmentStore, ['questionnaireResponse']);
   const examObservations = useExamObservationsStore();
   const { value: rashesValues } = useExamObservations(rashesFields);
 
@@ -42,18 +38,18 @@ export const ExaminationContainer: FC<ExaminationContainerProps> = (props) => {
     .filter((details) => examObservations[details.field].value)
     .map((details) => parseMusculoskeletalFieldToName(details.field));
 
-  const vitalsTempC =
-    getQuestionnaireResponseByLinkId('vitals-temperature', questionnaireResponse)?.answer?.[0]?.valueString || 'N/A';
-  const vitalsTempF = convertTemperature(vitalsTempC, 'fahrenheit');
-  const vitalsTemp = vitalsTempC === 'N/A' ? 'N/A' : `${vitalsTempC}°C / ${vitalsTempF}°F`;
-  const vitalsPulse =
-    getQuestionnaireResponseByLinkId('vitals-pulse', questionnaireResponse)?.answer?.[0]?.valueString || 'N/A';
-  const vitalsHR =
-    getQuestionnaireResponseByLinkId('vitals-hr', questionnaireResponse)?.answer?.[0]?.valueString || 'N/A';
-  const vitalsRR =
-    getQuestionnaireResponseByLinkId('vitals-rr', questionnaireResponse)?.answer?.[0]?.valueString || 'N/A';
-  const vitalsBP =
-    getQuestionnaireResponseByLinkId('vitals-bp', questionnaireResponse)?.answer?.[0]?.valueString || 'N/A';
+  // const vitalsTempC =
+  //   getQuestionnaireResponseByLinkId('vitals-temperature', questionnaireResponse)?.answer?.[0]?.valueString || 'N/A';
+  // const vitalsTempF = convertTemperature(vitalsTempC, 'fahrenheit');
+  // const vitalsTemp = vitalsTempC === 'N/A' ? 'N/A' : `${vitalsTempC}°C / ${vitalsTempF}°F`;
+  // const vitalsPulse =
+  //   getQuestionnaireResponseByLinkId('vitals-pulse', questionnaireResponse)?.answer?.[0]?.valueString || 'N/A';
+  // const vitalsHR =
+  //   getQuestionnaireResponseByLinkId('vitals-hr', questionnaireResponse)?.answer?.[0]?.valueString || 'N/A';
+  // const vitalsRR =
+  //   getQuestionnaireResponseByLinkId('vitals-rr', questionnaireResponse)?.answer?.[0]?.valueString || 'N/A';
+  // const vitalsBP =
+  //   getQuestionnaireResponseByLinkId('vitals-bp', questionnaireResponse)?.answer?.[0]?.valueString || 'N/A';
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, width: '100%' }}>
@@ -64,24 +60,24 @@ export const ExaminationContainer: FC<ExaminationContainerProps> = (props) => {
       )}
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <Box sx={{ display: 'flex', gap: 4 }}>
-          <AssessmentTitle>Vitals (patient provided):</AssessmentTitle>
-          <Typography>
-            <b>Temp:</b> {vitalsTemp}
-          </Typography>
-          <Typography>
-            <b>Pulse Ox:</b> {vitalsPulse}
-          </Typography>
-          <Typography>
-            <b>HR:</b> {vitalsHR}
-          </Typography>
-          <Typography>
-            <b>RR:</b> {vitalsRR}
-          </Typography>
-          <Typography>
-            <b>BP:</b> {vitalsBP}
-          </Typography>
-        </Box>
+        {/*<Box sx={{ display: 'flex', gap: 4 }}>*/}
+        {/*  <AssessmentTitle>Vitals (patient provided):</AssessmentTitle>*/}
+        {/*  <Typography>*/}
+        {/*    <b>Temp:</b> {vitalsTemp}*/}
+        {/*  </Typography>*/}
+        {/*  <Typography>*/}
+        {/*    <b>Pulse Ox:</b> {vitalsPulse}*/}
+        {/*  </Typography>*/}
+        {/*  <Typography>*/}
+        {/*    <b>HR:</b> {vitalsHR}*/}
+        {/*  </Typography>*/}
+        {/*  <Typography>*/}
+        {/*    <b>RR:</b> {vitalsRR}*/}
+        {/*  </Typography>*/}
+        {/*  <Typography>*/}
+        {/*    <b>BP:</b> {vitalsBP}*/}
+        {/*  </Typography>*/}
+        {/*</Box>*/}
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <ExamReviewGroup
@@ -134,6 +130,15 @@ export const ExaminationContainer: FC<ExaminationContainerProps> = (props) => {
           />
 
           <ExamReviewComment item={examObservations['eyes-comment']} />
+        </Box>
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <ExamReviewGroup
+            label="Nose:"
+            items={examObservationFieldsDetailsArray
+              .filter((details) => details.card === 'nose' && ['normal', 'abnormal'].includes(details.group))
+              .filter((details) => examObservations[details.field].value)}
+          />
         </Box>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>

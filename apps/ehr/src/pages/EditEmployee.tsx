@@ -10,6 +10,7 @@ import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 import { enqueueSnackbar } from 'notistack';
 import EmployeeInformationForm from '../components/EmployeeInformation';
+import { dataTestIds } from '../constants/data-test-ids';
 
 export default function EditEmployeePage(): JSX.Element {
   const { oystehr, oystehrZambda } = useApiClients();
@@ -133,9 +134,7 @@ export default function EditEmployeePage(): JSX.Element {
                 />
               )}
 
-              {!isActive ? (
-                <Skeleton height={300} sx={{ marginTop: -8 }} />
-              ) : (
+              {isActive && (
                 <Paper sx={{ padding: 3, marginTop: 3 }}>
                   <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
                     Provider schedule
@@ -172,6 +171,7 @@ export default function EditEmployeePage(): JSX.Element {
                   <LoadingButton
                     variant="contained"
                     color={isActive ? 'error' : 'primary'}
+                    data-testid={dataTestIds.employeesPage.deactivateUserButton}
                     sx={{
                       textTransform: 'none',
                       borderRadius: 28,

@@ -49,6 +49,10 @@ import { dataTestIds } from '../constants/data-test-ids';
 import { IntakeCheckmark } from './IntakeCheckmark';
 import { PatientDateOfBirth } from './PatientDateOfBirth';
 import { formatPatientName } from '../helpers/formatPatientName';
+import { usePractitionerActions } from '../features/css-module/hooks/usePractitioner';
+import { practitionerType } from '../helpers/practitionerUtils';
+import { enqueueSnackbar } from 'notistack';
+import { useAppointment } from '../features/css-module/hooks/useAppointment';
 
 interface AppointmentTableProps {
   appointment: InPersonAppointmentInformation;
@@ -225,12 +229,33 @@ export default function AppointmentTableRow({
 }: AppointmentTableProps): ReactElement {
   const { oystehr } = useApiClients();
   const theme = useTheme();
+  const { telemedData } = useAppointment(appointment.id);
+  const { encounter } = telemedData;
   const navigate = useNavigate();
   const [statusTime, setStatusTime] = useState<string>('');
   const [arrivedStatusSaving, setArrivedStatusSaving] = useState<boolean>(false);
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
   const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
   const user = useEvolveUser();
+  const { isEncounterUpdatePending, handleUpdatePractitionerAndStatus } = usePractitionerActions(
+    appointment?.id,
+    appointment?.status,
+    encounter,
+    'start',
+    practitionerType.Admitter,
+    true,
+    'intake'
+  );
+
+  const handleCSSButton = async (): Promise<void> => {
+    try {
+      await handleUpdatePractitionerAndStatus();
+      navigate(`/in-person/${appointment.id}/patient-info`);
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+    }
+  };
 
   const officePhoneNumber = getOfficePhoneNumber(location);
 
@@ -499,6 +524,7 @@ export default function AppointmentTableRow({
 
   return (
     <TableRow
+      id="appointments-table-row"
       data-testid={dataTestIds.dashboard.tableRowWrapper(appointment.id)}
       sx={{
         '&:last-child td, &:last-child th': { border: 0 },
@@ -566,7 +592,7 @@ export default function AppointmentTableRow({
                 )}
               </Typography>
               <Typography variant="body1">
-                <strong>{start}</strong>
+                <strong data-testid={dataTestIds.dashboard.appointmentTime}>{start}</strong>
               </Typography>
               {tab !== ApptTab.prebooked && <Box mt={1}>{getAppointmentStatusChip(appointment.status)}</Box>}
             </Box>
@@ -612,7 +638,7 @@ export default function AppointmentTableRow({
         onClick={isVisitPrebookedOrCancelledOrInWaitingRoom ? goToVisitDetails : goToCharts}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <Typography variant="subtitle2" sx={{ fontSize: '16px' }}>
+          <Typography variant="subtitle2" sx={{ fontSize: '16px' }} data-testid={dataTestIds.dashboard.patientName}>
             {patientName}
           </Typography>
           {appointment.needsDOBConfirmation ? (
@@ -651,7 +677,11 @@ export default function AppointmentTableRow({
         }}
       >
         {appointment.status === 'arrived' || appointment.status === 'pending' || appointment.status === 'intake' ? (
-          <CSSButton appointmentID={appointment.id} />
+          <CSSButton
+            isDisabled={!appointment.id || isEncounterUpdatePending}
+            handleCSSButton={handleCSSButton}
+            appointmentID={appointment.id}
+          />
         ) : (
           <IntakeCheckmark providerName={admitterName} />
         )}

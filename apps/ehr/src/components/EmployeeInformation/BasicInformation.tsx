@@ -1,6 +1,7 @@
 import { Controller } from 'react-hook-form';
 import { TextField, FormLabel } from '@mui/material';
 import { BasicInformationProps } from './types';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 export function BasicInformation({ control, existingUser, errors }: BasicInformationProps): JSX.Element {
   return (
@@ -13,6 +14,7 @@ export function BasicInformation({ control, existingUser, errors }: BasicInforma
           <TextField
             label="First name"
             required
+            data-testid={dataTestIds.employeesPage.firstName}
             value={value || ''}
             onChange={onChange}
             sx={{ marginTop: 2, marginBottom: 1, width: '100%' }}
@@ -26,6 +28,7 @@ export function BasicInformation({ control, existingUser, errors }: BasicInforma
         render={({ field: { onChange, value } }) => (
           <TextField
             label="Middle name"
+            data-testid={dataTestIds.employeesPage.middleName}
             value={value || ''}
             onChange={onChange}
             sx={{ marginTop: 2, marginBottom: 1, width: '100%' }}
@@ -39,6 +42,7 @@ export function BasicInformation({ control, existingUser, errors }: BasicInforma
         render={({ field: { onChange, value } }) => (
           <TextField
             label="Last name"
+            data-testid={dataTestIds.employeesPage.lastName}
             required
             value={value || ''}
             onChange={onChange}
@@ -49,6 +53,7 @@ export function BasicInformation({ control, existingUser, errors }: BasicInforma
       />
       <TextField
         label="Email"
+        data-testid={dataTestIds.employeesPage.email}
         value={existingUser?.email ?? ''}
         sx={{ marginBottom: 2, width: '100%' }}
         margin="dense"
@@ -63,6 +68,7 @@ export function BasicInformation({ control, existingUser, errors }: BasicInforma
         render={({ field: { onChange, value } }) => (
           <TextField
             label="Phone"
+            data-testid={dataTestIds.employeesPage.phone}
             value={value || ''}
             onChange={onChange}
             error={errors.phoneNumber}

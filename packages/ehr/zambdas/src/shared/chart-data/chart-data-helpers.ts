@@ -11,6 +11,7 @@ import {
   Encounter,
   EpisodeOfCare,
   FhirResource,
+  List,
   MedicationRequest,
   MedicationStatement,
   Meta,
@@ -67,7 +68,7 @@ import {
   addOperation,
   addOrReplaceOperation,
   createCodingCode,
-  createDocumentReference,
+  createFilesDocumentReferences,
   fillVitalObservationAttributes,
   isVitalObservation,
   makeVitalsObservationDTO,
@@ -884,14 +885,14 @@ export async function makeSchoolWorkDR(
   appointmentId: string,
   encounterId: string,
   type: SchoolWorkNoteType,
-  fieldName: ProviderChartDataFieldsNames
+  fieldName: ProviderChartDataFieldsNames,
+  listResources: List[]
 ): Promise<DocumentReference> {
-  return await createDocumentReference({
-    docInfo: [
+  const docRefs = await createFilesDocumentReferences({
+    files: [
       {
-        contentURL: pdfInfo.uploadURL,
+        url: pdfInfo.uploadURL,
         title: pdfInfo.title,
-        mimeType: 'application/pdf',
       },
     ],
     docStatus: PdfDocumentReferencePublishedStatuses.unpublished,
@@ -924,7 +925,10 @@ export async function makeSchoolWorkDR(
     meta: {
       tag: [{ code: type, system: SCHOOL_WORK_NOTE_TYPE_META_SYSTEM }, ...(getMetaWFieldName(fieldName).tag || [])],
     },
+    searchParams: [],
+    listResources,
   });
+  return docRefs[0];
 }
 
 export function makeSchoolWorkNoteDTO(resource: DocumentReference): SchoolWorkNoteExcuseDocFileDTO {

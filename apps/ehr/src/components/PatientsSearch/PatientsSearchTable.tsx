@@ -23,6 +23,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { COLUMN_CONFIG, SEARCH_CONFIG } from './constants';
 import { SortField, SortOrder, SearchResult, PartialSearchOptionsState, SearchOptionsState } from './types';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 const StyledTabs = styled(Tabs)(({ theme }) => ({
   color: theme.palette.background.paper,
@@ -169,8 +170,9 @@ export const PatientsSearchTable: React.FC<{
                   )
                 )
               : searchResult?.patients.map((patient) => (
-                  <TableRow key={patient.id}>
+                  <TableRow key={patient.id} data-testid={dataTestIds.patients.searchResultRow(patient.id)}>
                     <TableCell
+                      data-testid={dataTestIds.patients.patientId}
                       width={COLUMN_CONFIG.pid.width}
                       sx={{ cursor: 'pointer' }}
                       onClick={() => {
@@ -179,13 +181,19 @@ export const PatientsSearchTable: React.FC<{
                     >
                       {patient.id}
                     </TableCell>
-                    <TableCell width={COLUMN_CONFIG.name.width}>{patient.name}</TableCell>
-                    <TableCell width={COLUMN_CONFIG.dob.width}>
+                    <TableCell width={COLUMN_CONFIG.name.width} data-testid={dataTestIds.patients.patientName}>
+                      {patient.name}
+                    </TableCell>
+                    <TableCell width={COLUMN_CONFIG.dob.width} data-testid={dataTestIds.patients.patientDateOfBirth}>
                       {patient.birthDate ? DateTime.fromISO(patient.birthDate).toFormat('MM/dd/yyyy') : ''}
                     </TableCell>
-                    <TableCell width={COLUMN_CONFIG.email.width}>{patient.email}</TableCell>
-                    <TableCell width={COLUMN_CONFIG.phone.width}>{patient.phone}</TableCell>
-                    <TableCell width={COLUMN_CONFIG.address.width}>
+                    <TableCell width={COLUMN_CONFIG.email.width} data-testid={dataTestIds.patients.patientEmail}>
+                      {patient.email}
+                    </TableCell>
+                    <TableCell width={COLUMN_CONFIG.phone.width} data-testid={dataTestIds.patients.patientPhoneNumber}>
+                      {patient.phone}
+                    </TableCell>
+                    <TableCell width={COLUMN_CONFIG.address.width} data-testid={dataTestIds.patients.patientAddress}>
                       {patient.address ? (
                         <>
                           {patient?.address?.line}

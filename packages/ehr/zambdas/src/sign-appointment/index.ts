@@ -67,7 +67,7 @@ export const performEffect = async (
       throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);
     }
   }
-  const { encounter, patient, appointment } = visitResources;
+  const { encounter, patient, appointment, listResources } = visitResources;
 
   if (encounter?.subject?.reference === undefined) {
     throw new Error(`No subject reference defined for encounter ${encounter?.id}`);
@@ -100,7 +100,7 @@ export const performEffect = async (
   );
   if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
   console.log(`Creating visit note pdf docRef`);
-  await makeVisitNotePdfDocumentReference(oystehr, pdfInfo, patient.id, appointmentId, encounter.id!);
+  await makeVisitNotePdfDocumentReference(oystehr, pdfInfo, patient.id, appointmentId, encounter.id!, listResources);
 
   return {
     message: 'Appointment status successfully changed.',
