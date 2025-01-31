@@ -1,4 +1,5 @@
-import { IcdSearchRequestParams, Secrets } from 'utils';
+import { IcdSearchRequestParams } from 'utils';
+import { Secrets } from 'zambda-utils';
 import { ZambdaInput } from '../types';
 
 export function validateRequestParameters(input: ZambdaInput): IcdSearchRequestParams & { secrets: Secrets | null } {

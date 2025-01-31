@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import fs from 'fs';
-import { Secrets } from 'utils';
+import { Secrets } from 'zambda-utils';
 import { getAuth0Token } from '../src/shared';
 
 const projectApiUrlFromAuth0Audience = (auth0Audience: string): string => {

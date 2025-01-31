@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { Secrets, SecretsKeys, getSecret } from 'utils';
+import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 import { getAuth0Token } from '../shared';
 import { getPatientFromAppointment } from '../shared/appointment/helpers';
 import { getVideoRoomResourceExtension } from '../shared/helpers';

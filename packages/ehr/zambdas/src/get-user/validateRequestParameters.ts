@@ -1,4 +1,5 @@
-import { GetUserParams, Secrets, WithRequired } from 'utils';
+import { GetUserParams, WithRequired } from 'utils';
+import { Secrets } from 'zambda-utils';
 import { ZambdaInput } from '../types';
 
 export interface GetUserInput extends WithRequired<GetUserParams, 'userId'> {

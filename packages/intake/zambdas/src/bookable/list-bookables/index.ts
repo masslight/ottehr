@@ -6,16 +6,14 @@ import {
   BookableItemListResponse,
   createOystehrClient,
   GetBookableItemListParams,
-  getSecret,
   isLocationVirtual,
-  SecretsKeys,
   ServiceMode,
   ServiceModeCoding,
   serviceModeForHealthcareService,
   stateCodeToFullName,
-  topLevelCatch,
   ZambdaInput,
 } from 'utils';
+import { getSecret, SecretsKeys, topLevelCatch } from 'zambda-utils';
 import { getAuth0Token } from '../../shared';
 import { getSlugForBookableResource } from '../helpers';
 

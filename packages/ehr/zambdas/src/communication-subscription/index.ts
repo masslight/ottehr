@@ -1,7 +1,8 @@
 import { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle, Communication, Group, Location, Practitioner } from 'fhir/r4b';
-import { COMMUNICATION_ISSUE_REPORT_CODE, getFullestAvailableName, getSecret, Secrets, SecretsKeys } from 'utils';
+import { COMMUNICATION_ISSUE_REPORT_CODE, getFullestAvailableName } from 'utils';
+import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 import { getAuth0Token } from '../shared';
 import { sendgridEmail, sendSlackNotification, topLevelCatch } from '../shared/errors';
 import { createOystehrClient } from '../shared/helpers';

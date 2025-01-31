@@ -13,7 +13,6 @@ import {
   DATETIME_FULL_NO_YEAR,
   FHIR_ZAPEHR_URL,
   POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR,
-  Secrets,
   ZambdaInput,
   formatPhoneNumberDisplay,
   getAppointmentResourceById,
@@ -23,8 +22,8 @@ import {
   getPatientFirstName,
   getRelatedPersonForPatient,
   isPostTelemedAppointment,
-  topLevelCatch,
 } from 'utils';
+import { Secrets, SecretsKeys, getSecret, topLevelCatch } from 'zambda-utils';
 import { captureSentryException, configSentry, getAuth0Token, sendInPersonCancellationEmail } from '../../shared';
 import { getUser } from '../../shared/auth';
 import { getEncounterDetails } from '../../shared/getEncounterDetails';
@@ -33,7 +32,6 @@ import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAud
 import { validateBundleAndExtractAppointment } from '../../shared/validateBundleAndExtractAppointment';
 import { validateRequestParameters } from './validateRequestParameters';
 
-import { SecretsKeys, getSecret } from 'utils';
 export interface CancelAppointmentInput {
   appointmentID: string;
   cancellationReason: CancellationReasonOptionsInPerson;

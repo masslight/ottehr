@@ -2,15 +2,8 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, RelatedPerson, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  DATETIME_FULL_NO_YEAR,
-  Secrets,
-  TaskStatus,
-  ZambdaInput,
-  getPatientContactEmail,
-  getPatientFirstName,
-  topLevelCatch,
-} from 'utils';
+import { DATETIME_FULL_NO_YEAR, TaskStatus, ZambdaInput, getPatientContactEmail, getPatientFirstName } from 'utils';
+import { Secrets, topLevelCatch } from 'zambda-utils';
 import '../../../../instrument.mjs';
 import { captureSentryException, configSentry, getAuth0Token } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';

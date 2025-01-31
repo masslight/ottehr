@@ -1,4 +1,5 @@
-import { ClaimsQueueGetRequest, SecretsKeys, getSecret } from 'utils';
+import { ClaimsQueueGetRequest } from 'utils';
+import { getSecret, SecretsKeys } from 'zambda-utils';
 import { ZambdaInput } from '../types';
 
 export function validateRequestParameters(input: ZambdaInput): ClaimsQueueGetRequest & Pick<ZambdaInput, 'secrets'> {

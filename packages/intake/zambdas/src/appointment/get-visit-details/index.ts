@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { createOystehrClient, getEncounterForAppointment, GetVisitDetailsResponse, ZambdaInput } from 'utils';
 
-import { getSecret, SecretsKeys } from 'utils';
+import { getSecret, SecretsKeys } from 'zambda-utils';
 import { checkOrCreateM2MClientToken } from '../../shared';
 import { getMedications, getPaymentDataRequest, getPresignedURLs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';

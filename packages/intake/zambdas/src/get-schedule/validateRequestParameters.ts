@@ -1,4 +1,5 @@
-import { GetScheduleRequestParams, Secrets, ZambdaInput } from 'utils';
+import { GetScheduleRequestParams, ZambdaInput } from 'utils';
+import { Secrets } from 'zambda-utils';
 
 export const SCHEDULE_TYPES = ['location', 'provider', 'group'];
 export function validateRequestParameters(input: ZambdaInput): GetScheduleRequestParams & { secrets: Secrets | null } {

@@ -6,11 +6,10 @@ import {
   EncounterVirtualServiceExtension,
   PRIVATE_EXTENSION_BASE_URL,
   PUBLIC_EXTENSION_BASE_URL,
-  Secrets,
   TELEMED_VIDEO_ROOM_CODE,
 } from 'utils';
+import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 import { getAuth0Token } from './getAuth0Token';
-import { SecretsKeys, getSecret } from './secrets';
 
 export function createOystehrClient(token: string, secrets: Secrets | null): Oystehr {
   const FHIR_API = getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, '');

@@ -42,7 +42,6 @@ import {
   getPatchOperationToAddOrUpdateExtension,
   getPatchOperationToRemoveExtension,
   getResourcesFromBatchInlineRequests,
-  getSecret,
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
   INSURANCE_CARD_CODE,
@@ -71,12 +70,11 @@ import {
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   SCHOOL_WORK_NOTE_WORK_ID,
-  Secrets,
-  SecretsKeys,
   SUBSCRIBER_RELATIONSHIP_CODE_MAP,
   uploadPDF,
 } from 'utils';
 import { v4 as uuid } from 'uuid';
+import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 import { createOrUpdateFlags } from '../../../paperwork/sharedHelpers';
 import { createPdfBytes } from '../../../shared/pdf';
 

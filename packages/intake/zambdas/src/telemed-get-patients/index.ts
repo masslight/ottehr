@@ -3,13 +3,11 @@ import {
   FHIR_EXTENSION,
   PRIVATE_EXTENSION_BASE_URL,
   PatientInfo,
-  Secrets,
-  SecretsKeys,
   ZambdaInput,
   createOystehrClient,
   getPatientsForUser,
-  getSecret,
 } from 'utils';
+import { Secrets, SecretsKeys, getSecret } from 'zambda-utils';
 import { getAuth0Token } from '../shared';
 import { getUser } from '../shared/auth';
 import { validateRequestParameters } from './validateRequestParameters';

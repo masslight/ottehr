@@ -11,7 +11,6 @@ import {
   ProviderNotificationMethod,
   ProviderNotificationSettings,
   RoleType,
-  Secrets,
   TelemedAppointmentStatus,
   TelemedAppointmentStatusEnum,
   allLicensesForPractitioner,
@@ -20,6 +19,7 @@ import {
   getProviderNotificationSettingsForPractitioner,
   mapStatusToTelemed,
 } from 'utils';
+import { Secrets } from 'zambda-utils';
 import { getTelemedEncounterAppointmentId } from '../get-telemed-appointments/helpers/mappers';
 import { getEmployees, getRoleMembers, getRoles } from '../shared';
 import { removePrefix } from '../shared/appointment/helpers';

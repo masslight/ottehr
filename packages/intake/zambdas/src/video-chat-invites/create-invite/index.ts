@@ -5,16 +5,14 @@ import { SignJWT } from 'jose';
 import { JSONPath } from 'jsonpath-plus';
 import {
   FHIR_EXTENSION,
-  SecretsKeys,
   VideoChatCreateInviteInput,
   VideoChatCreateInviteResponse,
   ZambdaInput,
   createOystehrClient,
   formatPhoneNumber,
   getAppointmentResourceById,
-  getSecret,
-  lambdaResponse,
 } from 'utils';
+import { SecretsKeys, getSecret, lambdaResponse } from 'zambda-utils';
 import {
   getAuth0Token,
   getUser,

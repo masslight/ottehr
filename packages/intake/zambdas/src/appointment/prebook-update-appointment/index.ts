@@ -10,7 +10,6 @@ import {
   PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
   POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
   SCHEDULE_NOT_FOUND_ERROR,
-  Secrets,
   ZambdaInput,
   getAvailableSlotsForSchedule,
   getPatientContactEmail,
@@ -18,8 +17,8 @@ import {
   getRelatedPersonForPatient,
   getSMSNumberForIndividual,
   isPostTelemedAppointment,
-  topLevelCatch,
 } from 'utils';
+import { Secrets, topLevelCatch } from 'zambda-utils';
 import { captureSentryException, configSentry, getAuth0Token, sendInPersonMessages } from '../../shared';
 import { updateAppointmentTime } from '../../shared/fhir';
 import { checkValidBookingTime, createOystehrClient, getParticipantFromAppointment } from '../../shared/helpers';

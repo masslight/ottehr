@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { AuditEvent } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { Secrets, SecretsKeys, ZambdaInput, getSecret } from 'utils';
+import { ZambdaInput } from 'utils';
+import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 
 export enum AuditableZambdaEndpoints {
   appointmentCancel = 'cancel-appointment',

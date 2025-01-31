@@ -1,7 +1,8 @@
 import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, MedicationRequest } from 'fhir/r4b';
-import { Secrets, getPatchBinary, isTruthy } from 'utils';
+import { getPatchBinary, isTruthy } from 'utils';
+import { Secrets } from 'zambda-utils';
 import { topLevelCatch } from '../shared/errors';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
 import { ZambdaInput } from '../types';

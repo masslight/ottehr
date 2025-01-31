@@ -26,13 +26,11 @@ import {
   INSURANCE_COVERAGE_CODING,
   InsurancePlanDTO,
   PRIVATE_EXTENSION_BASE_URL,
-  SecretsKeys,
   ZambdaInput,
   createOystehrClient,
-  getSecret,
-  lambdaResponse,
   removeTimeFromDate,
 } from 'utils';
+import { SecretsKeys, getSecret, lambdaResponse } from 'zambda-utils';
 import { createInsurancePlanDto, createOrUpdateRelatedPerson, getAuth0Token } from '../shared';
 import { validateInsuranceRequirements, validateRequestParameters } from './validation';
 

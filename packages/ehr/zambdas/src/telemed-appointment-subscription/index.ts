@@ -25,9 +25,9 @@ import {
   inPersonExamFieldsMap,
   InPersonExamFieldsNames,
   OTTEHR_MODULE,
-  Secrets,
   SNOMEDCodeConceptInterface,
 } from 'utils';
+import { Secrets } from 'zambda-utils';
 import { saveResourceRequest } from '../shared';
 import {
   createDispositionServiceRequest,

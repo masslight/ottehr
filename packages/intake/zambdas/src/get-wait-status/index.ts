@@ -3,15 +3,14 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location } from 'fhir/r4b';
 import { decodeJwt, jwtVerify } from 'jose';
 import {
-  SecretsKeys,
   TelemedAppointmentStatusEnum,
   ZambdaInput,
   createOystehrClient,
   getAppointmentResourceById,
   getLocationIdFromAppointment,
-  getSecret,
   mapStatusToTelemed,
 } from 'utils';
+import { SecretsKeys, getSecret } from 'zambda-utils';
 import { getAuth0Token } from '../shared';
 import { estimatedTimeStatesGroups } from '../shared/appointment/constants';
 import { getUser } from '../shared/auth';

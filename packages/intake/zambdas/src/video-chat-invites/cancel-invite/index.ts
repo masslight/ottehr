@@ -4,13 +4,11 @@ import { Appointment, Encounter, EncounterParticipant, RelatedPerson } from 'fhi
 import { JSONPath } from 'jsonpath-plus';
 import {
   CancelInviteParticipantRequestInput,
-  SecretsKeys,
   ZambdaInput,
   createOystehrClient,
   getAppointmentResourceById,
-  getSecret,
-  lambdaResponse,
 } from 'utils';
+import { SecretsKeys, getSecret, lambdaResponse } from 'zambda-utils';
 import {
   getAuth0Token,
   getUser,

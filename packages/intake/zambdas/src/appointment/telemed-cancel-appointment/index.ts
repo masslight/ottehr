@@ -9,16 +9,14 @@ import {
   CancellationReasonOptionsTelemed,
   FHIR_ZAPEHR_URL,
   SLUG_SYSTEM,
-  Secrets,
-  SecretsKeys,
   ZambdaInput,
   cancelAppointmentResource,
   createOystehrClient,
   getAppointmentResourceById,
   getPatchBinary,
   getRelatedPersonForPatient,
-  getSecret,
 } from 'utils';
+import { Secrets, SecretsKeys, getSecret } from 'zambda-utils';
 import {
   AuditableZambdaEndpoints,
   checkOrCreateM2MClientToken,

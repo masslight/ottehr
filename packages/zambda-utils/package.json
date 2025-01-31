@@ -13,5 +13,7 @@
     "coverage": "vitest run --coverage"
   },
   "devDependencies": {},
-  "dependencies": {}
+  "dependencies": {
+    "utils": "*"
+  }
 }

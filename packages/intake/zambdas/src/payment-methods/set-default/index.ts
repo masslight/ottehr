@@ -1,6 +1,7 @@
 import { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { SecretsKeys, ZambdaInput, getSecret, lambdaResponse } from 'utils';
+import { ZambdaInput } from 'utils';
+import { SecretsKeys, getSecret, lambdaResponse } from 'zambda-utils';
 import { getAuth0Token, getUser } from '../../shared';
 import { postPaymentMethodSetDefaultRequest } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';

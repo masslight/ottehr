@@ -4,12 +4,11 @@ import { ChargeItem, DocumentReference, Task } from 'fhir/r4b';
 import {
   ChangeTelemedAppointmentStatusInput,
   ChangeTelemedAppointmentStatusResponse,
-  SecretsKeys,
   TelemedAppointmentStatusEnum,
   getQuestionnaireResponseByLinkId,
-  getSecret,
   mapStatusToTelemed,
 } from 'utils';
+import { SecretsKeys, getSecret } from 'zambda-utils';
 
 import { getChartData } from '../get-chart-data';
 import { parseCreatedResourcesBundle, saveResourceRequest } from '../shared';

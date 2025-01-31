@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { SecretsKeys, getSecret } from 'utils';
+import { getSecret, SecretsKeys } from 'zambda-utils';
 import { makeCommunicationDTO } from '../shared/chart-data/chart-data-helpers';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
 import { ZambdaInput } from '../types';

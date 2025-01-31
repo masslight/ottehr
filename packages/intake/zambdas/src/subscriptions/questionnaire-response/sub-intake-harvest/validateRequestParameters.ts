@@ -1,5 +1,6 @@
-import { Secrets, ZambdaInput } from 'utils';
 import { QuestionnaireResponse } from 'fhir/r4b';
+import { ZambdaInput } from 'utils';
+import { Secrets } from 'zambda-utils';
 
 export interface QRSubscriptionInput {
   qr: QuestionnaireResponse;

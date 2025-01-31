@@ -5,13 +5,12 @@ import { DateTime } from 'luxon';
 import {
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   SLUG_SYSTEM,
-  Secrets,
   VisitStatusLabel,
   ZambdaInput,
   getPatientsForUser,
   getVisitStatus,
-  topLevelCatch,
 } from 'utils';
+import { Secrets, topLevelCatch } from 'zambda-utils';
 import '../../../instrument.mjs';
 import { captureSentryException, configSentry, getAuth0Token } from '../../shared';
 import { getUser } from '../../shared/auth';

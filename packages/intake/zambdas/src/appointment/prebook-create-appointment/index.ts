@@ -38,13 +38,12 @@ import {
   PatientInfo,
   REASON_MAXIMUM_CHAR_LIMIT,
   ScheduleType,
-  Secrets,
   ServiceMode,
-  topLevelCatch,
   userHasAccessToPatient,
   VisitType,
   ZambdaInput,
 } from 'utils';
+import { Secrets, topLevelCatch } from 'zambda-utils';
 import '../../../instrument.mjs';
 import { captureSentryException, configSentry, getAuth0Token } from '../../shared';
 import { generatePatientRelatedRequests } from '../../shared/appointment';

@@ -21,7 +21,6 @@ import {
   PersonSex,
   SLUG_SYSTEM,
   ScheduleType,
-  Secrets,
   ServiceMode,
   UCGetPaperworkResponse,
   VisitType,
@@ -33,9 +32,9 @@ import {
   getUnconfirmedDOBForAppointment,
   mapQuestionnaireAndValueSetsToItemsList,
   serviceModeForHealthcareService,
-  topLevelCatch,
   userHasAccessToPatient,
 } from 'utils';
+import { Secrets, topLevelCatch } from 'zambda-utils';
 import '../../../instrument.mjs';
 import { getAuth0Token } from '../../shared';
 import { getUser } from '../../shared/auth';

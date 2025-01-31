@@ -4,12 +4,11 @@ import { Location } from 'fhir/r4b';
 import {
   GetTelemedLocationsResponse,
   PUBLIC_EXTENSION_BASE_URL,
-  SecretsKeys,
   TelemedLocation,
   ZambdaInput,
   createOystehrClient,
-  getSecret,
 } from 'utils';
+import { SecretsKeys, getSecret } from 'zambda-utils';
 import { getAuth0Token } from '../shared';
 
 let zapehrToken: string;

@@ -1,6 +1,6 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { RelatedPerson } from 'fhir/r4b';
-import { Secrets } from 'utils';
+import { Secrets } from 'zambda-utils';
 import { getAuth0Token } from './getAuth0Token';
 import { createOystehrClient } from './helpers';
 

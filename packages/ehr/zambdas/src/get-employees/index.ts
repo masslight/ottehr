@@ -5,15 +5,15 @@ import { DateTime } from 'luxon';
 import {
   EmployeeDetails,
   GetEmployeesResponse,
+  getProviderNotificationSettingsForPractitioner,
+  getResourcesFromBatchInlineRequests,
   PractitionerLicense,
+  PractitionerQualificationCode,
   PromiseInnerType,
   RoleType,
-  Secrets,
-  getProviderNotificationSettingsForPractitioner,
   standardizePhoneNumber,
-  getResourcesFromBatchInlineRequests,
-  PractitionerQualificationCode,
 } from 'utils';
+import { Secrets } from 'zambda-utils';
 import { getAuth0Token, getRoleMembers, lambdaResponse } from '../shared';
 import { topLevelCatch } from '../shared/errors';
 import { createOystehrClient } from '../shared/helpers';

@@ -3,7 +3,8 @@ import { remove as removeDiacritics } from 'diacritics';
 import { Patient } from 'fhir/r4b';
 import fs from 'fs';
 import { Color, PDFDocument, PDFFont, PDFPage, PageSizes, StandardFonts, rgb } from 'pdf-lib';
-import { ConsentSigner, Secrets, formatDateTimeToLocaleString, getSecret, triggerSlackAlarm } from 'utils';
+import { ConsentSigner, formatDateTimeToLocaleString } from 'utils';
+import { Secrets, getSecret, triggerSlackAlarm } from 'zambda-utils';
 
 type PdfInfo = { uploadURL: string; copyFromPath: string; formTitle: string; resourceTitle: string };
 type SectionDetail = { label: string; value: string; valueFont?: PDFFont };
