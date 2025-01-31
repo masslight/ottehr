@@ -1,3 +1,5 @@
+export * from './helpers';
+
 export interface Secrets {
   [secretName: string]: string;
 }

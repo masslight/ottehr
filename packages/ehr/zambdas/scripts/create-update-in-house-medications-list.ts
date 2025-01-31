@@ -8,11 +8,10 @@ import {
   MEDICATION_IDENTIFIER_ADMIN_CODE_SYSTEM,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
-  performEffectWithEnvFile,
 } from 'utils';
-import { getResourcesFromBatchInlineRequests } from 'utils';
-import { getMedicationTypeCode } from 'utils';
-import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils';
+
+import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC, getMedicationTypeCode, getResourcesFromBatchInlineRequests } from 'utils';
+import { performEffectWithEnvFile } from 'zambda-utils';
 import { getAuth0Token } from '../src/shared';
 import { fhirApiUrlFromAuth0Audience } from './helpers';
 
