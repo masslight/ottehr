@@ -8,9 +8,9 @@ import {
   getPatientContactEmail,
   getWaitingMinutesAtSchedule,
   TaskStatus,
-  topLevelCatch,
   ZambdaInput,
 } from 'utils';
+import { topLevelCatch } from 'zambda-utils';
 import '../../../../instrument.mjs';
 import { captureSentryException, configSentry, getAuth0Token } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';

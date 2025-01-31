@@ -9,8 +9,8 @@ import {
   ZambdaInput,
   getPatientContactEmail,
   getPatientFirstName,
-  topLevelCatch,
 } from 'utils';
+import { topLevelCatch } from 'zambda-utils';
 import '../../../../instrument.mjs';
 import { captureSentryException, configSentry, getAuth0Token, sendInPersonMessages } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';
