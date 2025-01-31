@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
 import { ResourceHandler } from '../../e2e-utils/resource-handler';
-import { expectStatesPage } from '../page/StatesPage';
+import { expectStatesPage, openStatesPage } from '../page/StatesPage';
 import { expectStateDetailsPage } from '../page/StateDetailsPage';
 const resourceHandler = new ResourceHandler();
 
@@ -69,6 +69,7 @@ const STATES_41_50 = [
   'WV - West Virginia',
 ];
 const STATES_51_52 = ['WI - Wisconsin', 'WY - Wyoming'];
+const STATE_NAME = 'CO - Colorado';
 
 test.beforeAll(async () => {
   await resourceHandler.setResources();
@@ -147,6 +148,48 @@ test('Open "States page", enter state abbreviation,  correct search result is di
 
 test('Open "States page", click on state,  state details page is opened', async ({ page }) => {
   const statesPage = await expectStatesPage(page);
-  await statesPage.clickState('CA - California');
-  await expectStateDetailsPage('CA', page);
+  await statesPage.clickState(STATE_NAME);
+  await expectStateDetailsPage('CO', page);
+});
+
+test('Open "States details page", click cancel button,  states page is opened', async ({ page }) => {
+  const statesPage = await expectStatesPage(page);
+  await statesPage.clickState(STATE_NAME);
+  const stateDetailsPage = await expectStateDetailsPage('CO', page);
+  await stateDetailsPage.clickCancelButton();
+  await expectStatesPage(page);
+});
+
+test('Open "States details page", check title and state name field,  verify state name is correct in title', async ({
+  page,
+}) => {
+  const statesPage = await expectStatesPage(page);
+  await statesPage.clickState(STATE_NAME);
+  const stateDetailsPage = await expectStateDetailsPage('CO', page);
+  await stateDetailsPage.verifyStateNameTitle('CO - Telemed Colorado');
+  await stateDetailsPage.verifyStateNameField('CO - Telemed Colorado');
+});
+
+test('Open "States details page", toggle "Operate in state" and save changes, verify changes are saved', async ({
+  page,
+}) => {
+  let statesPage = await expectStatesPage(page);
+  await statesPage.clickState(STATE_NAME);
+  const stateDetailsPage = await expectStateDetailsPage('CO', page);
+
+  if (await stateDetailsPage.isToggleOn()) {
+    await stateDetailsPage.setToggleOff();
+    await stateDetailsPage.clickSaveChangesButton();
+    await stateDetailsPage.reloadStateDetailsPage();
+    await stateDetailsPage.verifyToggleOff();
+    statesPage = await openStatesPage(page);
+    await statesPage.verifyOperateInState('CO', false);
+  } else {
+    await stateDetailsPage.setToggleOn();
+    await stateDetailsPage.clickSaveChangesButton();
+    await stateDetailsPage.reloadStateDetailsPage();
+    await stateDetailsPage.verifyToggleOn();
+    statesPage = await openStatesPage(page);
+    await statesPage.verifyOperateInState('CO', true);
+  }
 });

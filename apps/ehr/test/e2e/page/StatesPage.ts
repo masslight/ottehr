@@ -8,44 +8,44 @@ export class StatesPage {
     this.#page = page;
   }
 
-  async clickNextPage(): Promise<StatesPage> {
+  async clickNextPage(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.pagination.nextPage).click();
-    return this;
   }
 
-  async clickPreviousPage(): Promise<StatesPage> {
+  async clickPreviousPage(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.pagination.previousPage).click();
-    return this;
   }
 
-  async verifyPaginationState(rows: string): Promise<StatesPage> {
+  async verifyPaginationState(rows: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.pagination.paginationContainer).locator('p:text("' + rows + '")')
     ).toBeVisible();
-    return this;
   }
 
-  async verifyStatesPresent(states: string[]): Promise<StatesPage> {
+  async verifyStatesPresent(states: string[]): Promise<void> {
     for (const state of states) {
       await expect(this.#page.locator('a:text("' + state + '")')).toBeVisible();
     }
-    return this;
   }
 
-  async selectRowsPerPage(rowsPerPage: string): Promise<StatesPage> {
+  async selectRowsPerPage(rowsPerPage: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.pagination.paginationContainer).getByText('10', { exact: true }).click();
     await this.#page.getByText(rowsPerPage).click();
-    return this;
   }
 
-  async searchStates(text: string): Promise<StatesPage> {
+  async searchStates(text: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.statesPage.statesSearch).locator('input').fill(text);
-    return this;
   }
 
-  async clickState(state: string): Promise<StatesPage> {
+  async clickState(state: string): Promise<void> {
     await this.#page.locator('a:text("' + state + '")').click();
-    return this;
+  }
+
+  async verifyOperateInState(state: string, operate: boolean): Promise<void> {
+    await this.#page.waitForTimeout(5000);
+    const rowLocator = this.#page.getByTestId(dataTestIds.statesPage.stateRow(state));
+    const rowOperate = await rowLocator.getByTestId(dataTestIds.statesPage.operateInStateValue).innerText();
+    expect(rowOperate).toBe(operate ? 'YES' : 'NO');
   }
 }
 
@@ -53,4 +53,9 @@ export async function expectStatesPage(page: Page): Promise<StatesPage> {
   await page.waitForURL(`/telemed-admin/states`);
   await expect(page.locator('th').getByText('State name')).toBeVisible();
   return new StatesPage(page);
+}
+
+export async function openStatesPage(page: Page): Promise<StatesPage> {
+  await page.goto('/telemed-admin/states');
+  return expectStatesPage(page);
 }

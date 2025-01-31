@@ -114,8 +114,8 @@ export default function StatesPage(): ReactElement {
               const operatesInState = Boolean(stateLocation && stateLocation.status === 'active');
               const operatesLabelText = operatesInState ? 'yes' : 'no';
               return (
-                <TableRow key={idx}>
-                  <TableCell>
+                <TableRow key={idx} data-testid={dataTestIds.statesPage.stateRow(state.value)}>
+                  <TableCell data-testid={dataTestIds.statesPage.stateValue}>
                     <Link
                       to={`${STATES_URL}/${state.value}`}
                       style={{
@@ -127,6 +127,7 @@ export default function StatesPage(): ReactElement {
                     </Link>
                   </TableCell>
                   <TableCell
+                    data-testid={dataTestIds.statesPage.operateInStateValue}
                     align="left"
                     sx={{
                       color: otherColors.tableRow,
