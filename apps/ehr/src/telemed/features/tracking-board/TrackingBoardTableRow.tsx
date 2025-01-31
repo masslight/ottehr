@@ -182,9 +182,6 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
         <StatusHistory history={appointment.telemedStatusHistory} currentStatus={appointment.telemedStatus} />
       </TableCell>
       <TableCell sx={{ verticalAlign: 'top' }}>
-        <Typography>{appointment.provider?.join(', ')}</Typography>
-      </TableCell>
-      <TableCell sx={{ verticalAlign: 'top' }}>
         <Typography>{appointment.group?.join(', ')}</Typography>
       </TableCell>
       <TableCell sx={{ verticalAlign: 'top', cursor: 'pointer' }} onClick={goToAppointment}>
