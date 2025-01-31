@@ -1,6 +1,6 @@
 import { ErrorDialogConfig, UnexpectedErrorDescription } from 'ui-components';
 
-export const PROJECT_NAME = await import.meta.env.VITE_APP_NAME;
+export const PROJECT_NAME = import.meta.env.VITE_APP_NAME || 'Ottehr';
 export const PROJECT_NAME_UPPER = PROJECT_NAME.toUpperCase();
 export const PROJECT_NAME_LOWER = PROJECT_NAME.toLowerCase();
 
