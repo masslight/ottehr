@@ -105,13 +105,16 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   const [documentsFolders, setDocumentsFolders] = useState<PatientDocumentsFolder[]>([]);
   const [currentFilters, setCurrentFilters] = useState<PatientDocumentsFilters | undefined>(filters);
 
-  const { isLoading: isLoadingFolders } = useGetPatientDocsFolders({ patientId }, (docsFolders) => {
-    console.log(`[useGetPatientDocs] Folders data loading SUCCESS size=[${docsFolders.length}]. Content => `);
-    console.log(docsFolders);
-    setDocumentsFolders(docsFolders);
-  });
+  const { isLoading: isLoadingFolders, isFetching: isFetchingFolders } = useGetPatientDocsFolders(
+    { patientId },
+    (docsFolders) => {
+      console.log(`[useGetPatientDocs] Folders data loading SUCCESS size=[${docsFolders.length}]. Content => `);
+      console.log(docsFolders);
+      setDocumentsFolders(docsFolders);
+    }
+  );
 
-  const { isLoading: isLoadingDocuments } = useSearchPatientDocuments(
+  const { isLoading: isLoadingDocuments, isFetching: isFetchingDocuments } = useSearchPatientDocuments(
     { patientId: patientId, filters: currentFilters },
     (docs) => {
       console.log(`[useGetPatientDocs] found Docs [${docs.length}] => `);
@@ -198,10 +201,10 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   );
 
   return {
-    isLoadingDocuments: isLoadingDocuments,
+    isLoadingDocuments: isLoadingDocuments || isFetchingDocuments,
     documents: documents,
     // documentsByFolders: documentsByFolders,
-    isLoadingFolders: isLoadingFolders,
+    isLoadingFolders: isLoadingFolders || isFetchingFolders,
     documentsFolders: documentsFolders,
     searchDocuments: searchDocuments,
     downloadDocument: downloadDocument,
@@ -455,8 +458,10 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
 
         console.log('Z3 file uploading SUCCESS');
 
-        await queryClient.invalidateQueries(['get-patient-docs-folders', { patientId }]);
-        await queryClient.invalidateQueries(['get-search-patient-documents', { patientId }]);
+        await Promise.all([
+          queryClient.refetchQueries(['get-patient-docs-folders', { patientId }]),
+          queryClient.refetchQueries(['get-search-patient-documents', { patientId }]),
+        ]);
 
         return {
           z3Url: z3Url,
