@@ -100,6 +100,11 @@ export type UseGetPatientDocsReturn = {
   documentActions: UsePatientDocsActionsReturn;
 };
 
+const QUERY_KEYS = {
+  GET_PATIENT_DOCS_FOLDERS: 'get-patient-docs-folders',
+  GET_SEARCH_PATIENT_DOCUMENTS: 'get-search-patient-documents',
+};
+
 export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsFilters): UseGetPatientDocsReturn => {
   const [documents, setDocuments] = useState<PatientDocumentInfo[]>();
   const [documentsFolders, setDocumentsFolders] = useState<PatientDocumentsFolder[]>([]);
@@ -223,7 +228,7 @@ const useGetPatientDocsFolders = (
 ) => {
   const { oystehr } = useApiClients();
   return useQuery(
-    ['get-patient-docs-folders', { patientId }],
+    [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }],
     async () => {
       if (!oystehr) {
         throw new Error('useGetDocsFolders() oystehr client not defined');
@@ -299,15 +304,7 @@ const useSearchPatientDocuments = (
   const docCreationDate = filters?.dateAdded?.toFormat('yyyy-MM-dd');
   const { oystehr } = useApiClients();
   return useQuery(
-    [
-      'get-search-patient-documents',
-      {
-        patientId,
-        docSearchTerm: filters?.documentName,
-        docCreationDate: docCreationDate,
-        docFolderId: filters?.documentsFolder?.id,
-      },
-    ],
+    [QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS, { patientId }],
     async () => {
       if (!oystehr) throw new Error('useSearchPatientDocuments() oystehr not defined');
       if (!patientId) throw new Error('useSearchPatientDocuments() patientId not defined');
@@ -459,8 +456,8 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
         console.log('Z3 file uploading SUCCESS');
 
         await Promise.all([
-          queryClient.refetchQueries(['get-patient-docs-folders', { patientId }]),
-          queryClient.refetchQueries(['get-search-patient-documents', { patientId }]),
+          queryClient.refetchQueries([QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }]),
+          queryClient.refetchQueries([QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS, { patientId }]),
         ]);
 
         return {
