@@ -40,7 +40,7 @@ export const IconButtonContained = styled(IconButton)<{ variant?: IconButtonCont
       styles = {
         ...styles,
         backgroundColor: theme.palette.action.disabled,
-        '&:hover': { backgroundColor: lighten(theme.palette.error.main, 0.125) },
+        '&:hover': { backgroundColor: lighten(theme.palette.primary.main, 0.125) },
       };
       break;
     }
