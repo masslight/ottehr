@@ -122,6 +122,8 @@ export const AllStatesToNames: {
   WY: 'Wyoming',
 };
 
+// TODO: import PatientEthnicity, PatientRace and other from the utils, when the https://github.com/masslight/ottehr/pull/889 is merged.
+
 export enum PatientEthnicity {
   'Hispanic or Latino' = 'Hispanic or Latino',
   'Not Hispanic or Latino' = 'Not Hispanic or Latino',
