@@ -1,10 +1,14 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
-import { Account, Appointment, ChargeItem, DocumentReference, Encounter, EncounterStatusHistory } from 'fhir/r4b';
+import { Account, Appointment, ChargeItem, DocumentReference, Encounter, EncounterStatusHistory, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   addOrReplaceOperation,
+  createFilesDocumentReferences,
   getPatchBinary,
+  PROJECT_MODULE,
+  RECEIPT_CODE,
   SCHOOL_NOTE_CODE,
   SCHOOL_WORK_NOTE_TYPE_META_SYSTEM,
   TelemedCallStatuses,
@@ -285,43 +289,47 @@ export function makeAppointmentChargeItem(encounter: Encounter, organizationId: 
   };
 }
 
-export function makeReceiptPdfDocumentReference(
+export async function makeReceiptPdfDocumentReference(
+  oystehr: Oystehr,
   pdfInfo: PdfInfo,
   patientId: string,
-  encounterId: string
-): DocumentReference {
-  return {
-    resourceType: 'DocumentReference',
-    meta: {
-      tag: [{ code: 'TELEMEDICINE' }],
-    },
-    date: DateTime.now().setZone('UTC').toISO() ?? '',
-    status: 'current',
+  encounterId: string,
+  listResources: List[]
+): Promise<DocumentReference> {
+  const docRefs = await createFilesDocumentReferences({
+    files: [
+      {
+        url: pdfInfo.uploadURL,
+        title: pdfInfo.title,
+      },
+    ],
     type: {
       coding: [
         {
           system: 'http://loinc.org',
-          code: '34105-7',
+          code: RECEIPT_CODE,
           display: 'Telehealth Payment Receipt',
         },
       ],
     },
-    content: [
-      {
-        attachment: { url: pdfInfo.uploadURL, title: pdfInfo.title, contentType: 'application/pdf' },
+    references: {
+      subject: {
+        reference: `Patient/${patientId}`,
       },
-    ],
-    subject: {
-      reference: `Patient/${patientId}`,
+      context: {
+        encounter: [{ reference: `Encounter/${encounterId}` }],
+      },
     },
-    context: {
-      encounter: [
-        {
-          reference: `Encounter/${encounterId}`,
-        },
-      ],
+    dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
+    oystehr,
+    generateUUID: randomUUID,
+    meta: {
+      tag: [{ code: PROJECT_MODULE.TM }],
     },
-  };
+    searchParams: [],
+    listResources,
+  });
+  return docRefs[0];
 }
 
 function makeWorkSchoolNotePublished(documentReferences: DocumentReference[]): BatchInputRequest<DocumentReference>[] {

@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, SearchParam } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
@@ -27,9 +27,10 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  addOperation,
   findExistingListByDocumentTypeCode,
-  getPatchBinary,
   PatientMasterRecordResourceType,
+  replaceOperation,
   TaskCoding,
   TELEMED_VIDEO_ROOM_CODE,
 } from 'utils';
@@ -173,8 +174,13 @@ export function getOtherOfficesForLocation(location: Location): { display: strin
   return parsedExtValue;
 }
 
+export interface FileDocDataForDocReference {
+  url: string;
+  title: string;
+}
+
 export interface CreateDocumentReferenceInput {
-  docInfo: { contentURL: string; title: string; mimeType: string }[];
+  files: FileDocDataForDocReference[];
   type: CodeableConcept;
   dateCreated: string;
   references: object;
@@ -182,65 +188,138 @@ export interface CreateDocumentReferenceInput {
   generateUUID?: () => string;
   docStatus?: 'preliminary' | 'final' | 'amended' | 'entered-in-error' | undefined;
   meta?: Meta;
+  searchParams: SearchParam[];
   listResources?: List[];
 }
 
-export async function createDocumentReference(input: CreateDocumentReferenceInput): Promise<DocumentReference> {
-  const { docInfo, type, dateCreated, references, oystehr, generateUUID, docStatus, listResources, meta } = input;
+export async function createFilesDocumentReferences(input: CreateDocumentReferenceInput): Promise<DocumentReference[]> {
+  const { files, type, meta, dateCreated, docStatus, references, oystehr, searchParams, generateUUID, listResources } =
+    input;
+  console.log('files for doc refs', JSON.stringify(files, null, 2));
   try {
-    console.log('creating new document reference resource');
-    const writeDRFullUrl = generateUUID ? generateUUID() : undefined;
-    const writeDocRefReq: BatchInputPostRequest<DocumentReference> = {
-      method: 'POST',
-      fullUrl: writeDRFullUrl,
-      url: '/DocumentReference',
-      resource: {
+    console.log('searching for current document references', JSON.stringify(searchParams, null, 2));
+    const docsJson = (
+      await oystehr.fhir.search<DocumentReference>({
         resourceType: 'DocumentReference',
-        meta: meta,
-        docStatus,
-        date: dateCreated,
-        status: 'current',
-        type: type,
-        content: docInfo.map((tempInfo) => {
-          return { attachment: { url: tempInfo.contentURL, contentType: tempInfo.mimeType, title: tempInfo.title } };
-        }),
-        ...references,
-      },
-    };
-
-    // Add document reference to list
-    const listRequests: BatchInputRequest<List>[] = [];
-    if (listResources && type.coding?.[0]?.code) {
-      const list = findExistingListByDocumentTypeCode(listResources, type.coding?.[0]?.code);
-      if (list?.id) {
-        const patchListWithDocRefOperation: Operation = {
-          op: 'add',
-          path: '/entry',
-          value: {
-            item: {
-              reference: writeDocRefReq.fullUrl!,
-            },
+        params: [
+          {
+            name: 'status',
+            value: 'current',
           },
-        };
+          ...searchParams,
+        ],
+      })
+    ).unbundle();
 
-        const patchRequest = getPatchBinary({
-          resourceId: list.id,
-          resourceType: 'List',
-          patchOperations: [patchListWithDocRefOperation],
+    const results: DocumentReference[] = [];
+    // Track new entries by list type code
+    const newEntriesByType: Record<string, Array<{ date: string; item: { type: string; reference: string } }>> = {};
+
+    for (const file of files) {
+      // Check if there's an existing DocumentReference for this file
+      const existingDoc = docsJson.find(
+        (doc) => doc.content[0]?.attachment.title === file.title && doc.content[0]?.attachment.url === file.url
+      );
+
+      if (existingDoc) {
+        // If exact same file exists, reuse it
+        results.push(existingDoc);
+        continue;
+      }
+      // If different version exists, mark it as superseded
+      const oldDoc = docsJson.find((doc) => doc.content[0]?.attachment.title === file.title);
+      if (oldDoc) {
+        await oystehr.fhir.patch({
+          resourceType: 'DocumentReference',
+          id: oldDoc.id || '',
+          operations: [{ op: 'replace', path: '/status', value: 'superseded' }],
         });
+      }
 
-        listRequests.push(patchRequest);
+      // Create all DocumentReferences
+      const urlExt = file.url.split('.').slice(-1).toString();
+      const contentType = urlExt === 'pdf' ? 'application/pdf' : urlExt === 'jpg' ? 'image/jpeg' : `image/${urlExt}`;
+
+      const writeDRFullUrl = generateUUID ? generateUUID() : undefined;
+
+      const writeDocRefReq: BatchInputPostRequest<DocumentReference> = {
+        method: 'POST',
+        fullUrl: writeDRFullUrl,
+        url: '/DocumentReference',
+        resource: {
+          resourceType: 'DocumentReference',
+          meta,
+          status: 'current',
+          docStatus,
+          type: type,
+          date: dateCreated,
+          content: [
+            {
+              attachment: {
+                url: file.url,
+                contentType,
+                title: file.title,
+              },
+            },
+          ],
+          ...references,
+        },
+      };
+
+      console.log('making DocumentReference ...');
+      const docRefBundle = await oystehr.fhir.transaction<DocumentReference>({
+        requests: [writeDocRefReq],
+      });
+      console.log('making DocumentReference results =>', JSON.stringify(docRefBundle, null, 2));
+
+      const docRef = docRefBundle.entry?.[0]?.resource;
+      // Collect document reference to list by type
+      if (listResources && type.coding?.[0]?.code && docRef) {
+        const typeCode = type.coding[0].code;
+        if (!newEntriesByType[typeCode]) {
+          newEntriesByType[typeCode] = [];
+        }
+        newEntriesByType[typeCode].push({
+          date: DateTime.now().setZone('UTC').toISO() ?? '',
+          item: {
+            type: 'DocumentReference',
+            reference: `DocumentReference/${docRef.id}`,
+          },
+        });
+        results.push(docRef);
       }
     }
 
-    const results = await oystehr.fhir.transaction<DocumentReference | List>({
-      requests: [writeDocRefReq, ...listRequests],
-    });
-    const docRef = results.entry?.[0]?.resource;
-    if (docRef?.resourceType !== 'DocumentReference') {
-      throw 'failed';
+    // Update lists
+    if (listResources) {
+      for (const [typeCode, newEntries] of Object.entries(newEntriesByType)) {
+        const list = findExistingListByDocumentTypeCode(listResources, typeCode);
+        if (!list?.id) {
+          console.log(`default list for files with typeCode: ${typeCode} not found. Add typeCode to FOLDERS_CONFIG`);
+          // TODO: Create List with default config
+        } else {
+          const updatedFolderEntries = [...(list?.entry ?? []), ...newEntries];
+          const patchListWithDocRefOperation: Operation =
+            list?.entry && list.entry?.length > 0
+              ? replaceOperation('/entry', updatedFolderEntries)
+              : addOperation('/entry', updatedFolderEntries);
+          console.log('operation:', JSON.stringify(patchListWithDocRefOperation));
+
+          console.log(`patching documents folder List ...`);
+
+          const listPatchResult = await oystehr.fhir.patch<List>({
+            resourceType: 'List',
+            id: list?.id ?? '',
+            operations: [patchListWithDocRefOperation],
+          });
+
+          console.log(`patch results => `);
+          console.log(JSON.stringify(listPatchResult));
+        }
+      }
     }
-    return docRef;
+
+    return results;
   } catch (error: unknown) {
     throw new Error(`Failed to create DocumentReference resource: ${JSON.stringify(error)}`);
   }

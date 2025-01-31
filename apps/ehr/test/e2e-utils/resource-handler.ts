@@ -17,6 +17,13 @@ import { getAuth0Token } from './auth/getAuth0Token';
 import { createRelatedPerson } from './resource/related-person';
 import { createDocumentReference } from './resource/insurance-document';
 import { createQuestionnaireResponse } from './resource/questionnaire-response';
+import {
+  inviteTestEmployeeUser,
+  removeUser,
+  TEST_EMPLOYEE_1,
+  TEST_EMPLOYEE_2,
+  TestEmployee,
+} from './resource/employees';
 import { randomUUID } from 'crypto';
 export const PATIENT_FIRST_NAME = 'Test_John';
 export const PATIENT_LAST_NAME = 'Test_Doe' + randomUUID();
@@ -24,9 +31,14 @@ export const PATIENT_GENDER = 'male';
 export const PATIENT_BIRTHDAY = '2024-01-01';
 export const PATIENT_PHONE_NUMBER = '2144985555';
 export const PATIENT_EMAIL = 'john.doe@example.com';
+export const PATIENT_CITY = 'New York';
+export const PATIENT_LINE = '10 Cooper Square';
+export const PATIENT_STATE = 'NY';
+export const PATIENT_POSTALCODE = '06001';
 
 export class ResourceHandler {
   private apiClient!: Oystehr;
+  private authToken!: string;
   public patient!: Patient;
   public appointment!: Appointment;
   public encounter!: Encounter;
@@ -34,10 +46,13 @@ export class ResourceHandler {
   public person!: Person;
   public documentReference!: DocumentReference;
   public questionnaireResponse!: QuestionnaireResponse;
+  public testEmployee1!: TestEmployee;
+  public testEmployee2!: TestEmployee;
 
   async initApi(): Promise<void> {
+    this.authToken = await getAuth0Token();
     this.apiClient = new Oystehr({
-      accessToken: await getAuth0Token(),
+      accessToken: this.authToken,
       fhirApiUrl: process.env.FHIR_API,
       projectApiUrl: process.env.AUTH0_AUDIENCE,
     });
@@ -65,6 +80,10 @@ export class ResourceHandler {
               },
             ],
             relationship: 'Parent/Guardian',
+            city: PATIENT_CITY,
+            line: PATIENT_LINE,
+            state: PATIENT_STATE,
+            postalCode: PATIENT_POSTALCODE,
           }) as FhirResource
         )) as Patient;
         console.log(`👏 patient created`, this.patient.id);
@@ -178,6 +197,32 @@ export class ResourceHandler {
       } catch (error) {
         console.error('❌ QuestionnaireResponse not created', error);
       }
+    }
+  }
+
+  async setEmployees(): Promise<void> {
+    try {
+      await this.initApi();
+      const [employee1, employee2] = await Promise.all([
+        inviteTestEmployeeUser(TEST_EMPLOYEE_1, this.apiClient, this.authToken),
+        inviteTestEmployeeUser(TEST_EMPLOYEE_2, this.apiClient, this.authToken),
+      ]);
+      this.testEmployee1 = employee1!;
+      this.testEmployee2 = employee2!;
+    } catch (error) {
+      console.error('❌ New providers were not invited', error, JSON.stringify(error));
+    }
+  }
+
+  async deleteEmployees(): Promise<void> {
+    try {
+      // await tryToFindAndRemoveTestUsers(this.apiClient, this.authToken);
+      await Promise.all([
+        removeUser(this.testEmployee1.id, this.testEmployee1.profile.id!, this.apiClient, this.authToken),
+        removeUser(this.testEmployee2.id, this.testEmployee2.profile.id!, this.apiClient, this.authToken),
+      ]);
+    } catch (e) {
+      console.error('❌ Failed to delete users: ', e, JSON.stringify(e));
     }
   }
 

@@ -286,17 +286,20 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
   );
 }
 
+const SKELETON_ROWS_COUNT = 3;
+
 export const TrackingBoardTableRowSkeleton: FC<{
   showProvider: boolean;
   isState: boolean;
-}> = ({ showProvider, isState }) => {
+  columnsCount: number;
+}> = ({ showProvider, isState, columnsCount }) => {
   const theme = useTheme();
 
   return (
     <>
       {!isState && (
         <TableRow>
-          <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={7 + +showProvider}>
+          <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={columnsCount}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Skeleton>
                 <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
@@ -307,7 +310,7 @@ export const TrackingBoardTableRowSkeleton: FC<{
           </TableCell>
         </TableRow>
       )}
-      {[...Array(3)].map((_row, index) => (
+      {[...Array(SKELETON_ROWS_COUNT)].map((_row, index) => (
         <TableRow key={index} sx={{}}>
           <TableCell>
             <Skeleton variant="rounded">
@@ -327,6 +330,11 @@ export const TrackingBoardTableRowSkeleton: FC<{
           <TableCell sx={{ verticalAlign: 'top' }}>
             <Skeleton width="100%">
               <Typography>time</Typography>
+            </Skeleton>
+          </TableCell>
+          <TableCell sx={{ verticalAlign: 'top' }}>
+            <Skeleton width="100%">
+              <Typography>Group</Typography>
             </Skeleton>
           </TableCell>
           <TableCell sx={{ verticalAlign: 'top' }}>

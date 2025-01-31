@@ -414,7 +414,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     separateLine();
   }
 
-  if (data.vitals && Object.values(data.vitals).filter((arr) => arr.length > 0).length > 0) {
+  if (data.vitals && (Object.values(data.vitals).filter((arr) => arr && arr.length > 0) ?? []).length > 0) {
     drawBlockHeader('Vitals');
 
     const vitalLabelMapper: { [value in VitalFieldNames]: string } & { notes: string } = {

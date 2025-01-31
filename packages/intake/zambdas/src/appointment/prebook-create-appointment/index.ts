@@ -20,6 +20,7 @@ import {
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
+  CanonicalUrl,
   CHARACTER_LIMIT_EXCEEDED_ERROR,
   CreateAppointmentResponse,
   CREATED_BY_SYSTEM,
@@ -30,6 +31,7 @@ import {
   FhirEncounterStatus,
   formatPhoneNumber,
   formatPhoneNumberDisplay,
+  getCanonicalQuestionnaire,
   makePrepopulatedItemsForPatient,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   PROJECT_MODULE,
@@ -50,7 +52,6 @@ import { getAccessToken, getUser } from '../../shared/auth';
 import { createOystehrClient } from '../../shared/helpers';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAuditLog';
 import {
-  CanonicalUrl,
   getCanonicalUrlForPrevisitQuestionnaire,
   getEncounterClass,
   getTelemedRequiredAppointmentEncounterExtensions,
@@ -149,11 +150,6 @@ export async function createAppointment(
     serviceType,
     questionnaireCanonical: questionnaireUrl,
   } = input;
-  const {
-    url: currentQuestionnaireUrl,
-    version: currentQuestionnaireVersion,
-    canonical: canonicalQuestionnaireUrl,
-  } = questionnaireUrl;
 
   const { verifiedPhoneNumber, listRequests, createPatientRequest, updatePatientRequest, isEHRUser, maybeFhirPatient } =
     await generatePatientRelatedRequests(user, patient, oystehr);
@@ -168,29 +164,7 @@ export async function createAppointment(
     : `${visitType === VisitType.WalkIn ? 'QR - ' : ''}Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
 
   console.log('getting questionnaire ID to create blank questionnaire response');
-  const questionnaireSearch = (
-    await oystehr.fhir.search<Questionnaire>({
-      resourceType: 'Questionnaire',
-      params: [
-        {
-          name: 'url',
-          value: currentQuestionnaireUrl,
-        },
-        {
-          name: 'version',
-          value: currentQuestionnaireVersion,
-        },
-      ],
-    })
-  ).unbundle();
-  // if we do not get exactly one result, throw an error
-  if (questionnaireSearch.length < 1) {
-    throw new Error(`Could not find questionnaire with canonical url ${canonicalQuestionnaireUrl}`);
-  } else if (questionnaireSearch.length > 1) {
-    throw new Error(`Found multiple Questionnaires with same canonical url: ${canonicalQuestionnaireUrl}`);
-  }
-  console.log('questionnaire search', JSON.stringify(questionnaireSearch));
-  const currentQuestionnaire = questionnaireSearch[0];
+  const currentQuestionnaire = await getCanonicalQuestionnaire(questionnaireUrl, oystehr);
 
   let verifiedFormattedPhoneNumber = verifiedPhoneNumber;
 
@@ -488,7 +462,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     status: 'in-progress',
     subject: { reference: patientRef },
     encounter: { reference: encUrl },
-    item,
+    item, // contains the pre-populated answers for the Patient
   };
 
   const postQuestionnaireResponseRequest: BatchInputPostRequest<QuestionnaireResponse> = {

@@ -31,6 +31,7 @@ import { formatDateUsingSlashes } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 import { EMPLOYEE_ROWS_PER_PAGE, PROVIDER_ROWS_PER_PAGE } from '../constants';
+import { dataTestIds } from '../constants/data-test-ids';
 
 enum PageTab {
   employees = 'employees',
@@ -101,7 +102,12 @@ export default function EmployeesPage(): ReactElement {
           <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
             <TabList onChange={handleTabChange} aria-label="employees tabs">
               <Tab label="Employees" value={PageTab.employees} sx={{ textTransform: 'none', fontWeight: 700 }} />
-              <Tab label="Providers" value={PageTab.providers} sx={{ textTransform: 'none', fontWeight: 700 }} />
+              <Tab
+                label="Providers"
+                value={PageTab.providers}
+                sx={{ textTransform: 'none', fontWeight: 700 }}
+                data-testid={dataTestIds.employeesPage.providersTabButton}
+              />
               {isFetching && <Loading />}
             </TabList>
           </Box>
@@ -243,6 +249,7 @@ function EmployeesTable({
                 variant="outlined"
                 onChange={handleChangeSearchText}
                 value={searchText}
+                data-testid={dataTestIds.employeesPage.searchByName}
                 InputProps={{ endAdornment: <SearchIcon /> }}
                 sx={{ width: '100%', paddingRight: 2 }}
               />
@@ -264,7 +271,7 @@ function EmployeesTable({
           </Grid>
 
           {/* Employees Table */}
-          <Table sx={{ minWidth: 650 }} aria-label="locationsTable">
+          <Table sx={{ minWidth: 650 }} aria-label="locationsTable" data-testid={dataTestIds.employeesPage.table}>
             <TableHead>
               <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 'bold', textAlign: 'left' } }}>
                 <TableCell sx={{ width: '25%' }}>Name (Last, First)</TableCell>
@@ -327,6 +334,7 @@ function EmployeesTable({
                     <TableCell>
                       <Chip
                         label={employee.status.toUpperCase()}
+                        data-testid={dataTestIds.employeesPage.statusChip}
                         sx={{
                           backgroundColor:
                             employee.status === 'Active'
@@ -430,6 +438,7 @@ function StateSelect({ onChange, selectedState }: StateSelectProps): ReactElemen
     <Autocomplete
       value={selectedState || EMPTY_STATE}
       onChange={onChange}
+      data-testid={dataTestIds.employeesPage.providersStateFilter}
       getOptionLabel={(state) => state.label || 'Unknown'}
       isOptionEqualToValue={(option, tempValue) => option.value === tempValue.value}
       options={options}
