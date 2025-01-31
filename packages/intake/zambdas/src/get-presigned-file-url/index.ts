@@ -16,13 +16,13 @@ import {
   SCHOOL_WORK_NOTE,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_WORK_ID,
-  validateRequestParameters,
   ZambdaInput,
 } from 'utils';
 import { makeZ3Url, Secrets, topLevelCatch } from 'zambda-utils';
 import '../../instrument.mjs';
 import { captureSentryException, configSentry, getAuth0Token } from '../shared';
 import { createOystehrClient } from '../shared/helpers';
+import { validateRequestParameters } from './validateRequestParameters';
 
 let zapehrToken: string;
 

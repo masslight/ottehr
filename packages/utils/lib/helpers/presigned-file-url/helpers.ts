@@ -1,8 +1,3 @@
-export interface PresignUploadUrlResponse {
-  presignedURL: string;
-  z3URL: string;
-}
-
 export async function getPresignedURL(url: string, zapehrToken: string): Promise<string> {
   console.log('getting presigned url');
   const presignedURLRequest = await fetch(url, {
