@@ -28,7 +28,6 @@ export abstract class ResourceHandlerAbstract {
     } catch (error) {
       console.error(`❌ ${resource['resourceType']} not created`, error);
     }
-    console.error(`❌ ${resource['resourceType']} not created without error`);
     return undefined;
   }
 

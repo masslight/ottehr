@@ -19,6 +19,16 @@ import { createDocumentReference } from '../resource/insurance-document';
 import { createQuestionnaireResponse } from '../resource/questionnaire-response';
 import { ResourceHandlerAbstract } from './resource-handler-abstract';
 import { allLicensesForPractitioner, getTelemedLocation, stateCodeToFullName } from '../temp-imports-from-utils';
+import {
+  PATIENT_BIRTHDAY,
+  PATIENT_CITY,
+  PATIENT_EMAIL,
+  PATIENT_LINE,
+  PATIENT_PHONE_NUMBER,
+  PATIENT_POSTALCODE,
+  PATIENT_STATE,
+} from '../resource-handler';
+import { fetchWithOystAuth } from '../helpers/tests-utils';
 
 interface PatientPackage {
   patient: Patient;
@@ -53,9 +63,7 @@ export class TelemedFlowResourceHandler extends ResourceHandlerAbstract {
 
     console.log('Getting my practitioner location from qualifications, and one that are not there');
     const myPractitionerLicenses = allLicensesForPractitioner(me.practitioner);
-    // const myLicensesStatesInline = myPractitionerLicenses.map((license) => license.state).join(', ');
     const myState = myPractitionerLicenses.find((license) => license.active)?.state;
-    // const otherState = AllStates.find((state) => !myLicensesStatesInline.includes(state.value))?.value;
     const otherState = 'WV';
     if (!myState || !otherState)
       throw new Error('My practitioner has no active qualification states, or has all states in qualification');
@@ -78,9 +86,22 @@ export class TelemedFlowResourceHandler extends ResourceHandlerAbstract {
       firstName: 'E2E_tests_telemed_flow',
       lastName: 'Test_Last',
       gender: 'male',
-      birthDate: '2024-01-01',
-      email: 'test.telemed@example.com',
+      birthDate: PATIENT_BIRTHDAY,
+      telecom: [
+        {
+          system: 'email',
+          value: PATIENT_EMAIL,
+        },
+        {
+          system: 'phone',
+          value: '+1' + PATIENT_PHONE_NUMBER,
+        },
+      ],
       relationship: 'Parent/Guardian',
+      city: PATIENT_CITY,
+      line: PATIENT_LINE,
+      state: PATIENT_STATE,
+      postalCode: PATIENT_POSTALCODE,
     });
 
     const americanDate = DateTime.local().setZone('America/New_York');
@@ -111,7 +132,9 @@ export class TelemedFlowResourceHandler extends ResourceHandlerAbstract {
   }
 
   async createPatientPackage(patientParams: PatientParams): Promise<PatientPackage> {
-    const patient = (await this.createResource(createPatient(patientParams) as FhirResource)) as Patient;
+    const res = createPatient(patientParams) as FhirResource;
+    console.log('patient to create: ', JSON.stringify(res));
+    const patient = (await this.createResource(res)) as Patient;
 
     const relatedPerson = (await this.createResource(
       createRelatedPerson({
@@ -185,65 +208,26 @@ export class TelemedFlowResourceHandler extends ResourceHandlerAbstract {
     email: string;
     practitioner: Practitioner;
   }> {
-    const users = await this.getUsers();
+    const users = await fetchWithOystAuth<
+      {
+        id: string;
+        name: string;
+        email: string;
+        profile: string;
+      }[]
+    >('GET', 'https://project-api.zapehr.com/v1/user', this.accessToken);
+
     const myUser = users?.find((user) => user.email === process.env.TEXT_USERNAME);
     if (!myUser) throw new Error('Failed to find my user');
     const practitioner = (await this.apiClient.fhir.get({
       resourceType: 'Practitioner',
       id: myUser.profile.replace('Practitioner/', ''),
     })) as Practitioner;
-    if (!practitioner) throw Error('Failed to fetch practitioner for my user');
     return {
       id: myUser.id,
       name: myUser.name,
       email: myUser.email,
       practitioner,
     };
-  }
-
-  async getUsers(): Promise<
-    | {
-        id: string;
-        name: string;
-        email: string;
-        profile: string;
-      }[]
-    | undefined
-  > {
-    const response = await this.fetchWithOystAuth('https://project-api.zapehr.com/v1/user', 'GET');
-
-    const res = await response?.json();
-    if (!res) return;
-    return res as {
-      id: string;
-      name: string;
-      email: string;
-      profile: string;
-    }[];
-  }
-
-  async fetchWithOystAuth(url: string, method: string, body?: any): Promise<Response | undefined> {
-    const oyst_proj_id = process.env.PROJECT_ID;
-    if (!oyst_proj_id) throw new Error('secret OYST_PROJECT_ID is not set');
-
-    console.log(`Project id: ${oyst_proj_id}, access token: ${this.accessToken}`);
-    const response = await fetch(url, {
-      method,
-      headers: {
-        accept: 'application/json',
-        'content-type': 'application/json',
-        authorization: `Bearer ${this.accessToken}`,
-        'x-zapehr-project-id': oyst_proj_id,
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-
-    if (!response.ok) {
-      const res = await response.json();
-      console.error(`HTTP error: ${res}, ${JSON.stringify(res)}`);
-      return undefined;
-    }
-    console.log('Request status: ', response.status);
-    return response;
   }
 }
