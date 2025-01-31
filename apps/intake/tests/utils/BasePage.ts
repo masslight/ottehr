@@ -1,5 +1,5 @@
 import { Page } from '@playwright/test';
-import { AllStates, AllStatesToNames } from './Paperwork';
+import { AllStates, AllStatesToNames } from 'utils';
 
 export class BasePage {
   readonly page: Page;
