@@ -1,5 +1,5 @@
-import { PROJECT_NAME } from 'src/helpers';
-import { otherColors } from 'src/IntakeThemeProvider';
+import { otherColors } from '@theme/colors';
+import { PROJECT_NAME } from 'utils';
 
 export const IOSAppCookieName = `${PROJECT_NAME}iOSApp`;
 
