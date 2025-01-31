@@ -142,8 +142,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       coverages: coverageResources,
       relatedPersons: relatedPersonResources,
     };
+    console.log('Patient Master Record resources: ', JSON.stringify(patientMasterRecordResources, null, 2));
 
-    console.log('getting patient patchOps', JSON.stringify(patientResource, null, 2));
+    console.log('creating patch operations');
     const patientPatchOps = createMasterRecordPatchOperations(qr, patientMasterRecordResources);
 
     console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
