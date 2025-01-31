@@ -63,6 +63,12 @@ Clone &mdash; Copy and run the clone script for your fork.
 git clone git@github.com:{your_profile}/ottehr.git
 ```
 
+Then, move into the new directory
+
+```bash
+cd ottehr
+```
+
 ### Run the Setup Script
 
 ```bash
