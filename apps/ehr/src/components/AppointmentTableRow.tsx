@@ -53,6 +53,7 @@ import { usePractitionerActions } from '../features/css-module/hooks/usePractiti
 import { practitionerType } from '../helpers/practitionerUtils';
 import { enqueueSnackbar } from 'notistack';
 import { useAppointment } from '../features/css-module/hooks/useAppointment';
+import { handleChangeInPersonVisitStatus } from '../helpers/inPersonVisitStatusUtils';
 
 interface AppointmentTableProps {
   appointment: InPersonAppointmentInformation;
@@ -227,7 +228,7 @@ export default function AppointmentTableRow({
   updateAppointments,
   setEditingComment,
 }: AppointmentTableProps): ReactElement {
-  const { oystehr } = useApiClients();
+  const { oystehr, oystehrZambda } = useApiClients();
   const theme = useTheme();
   const { telemedData } = useAppointment(appointment.id);
   const { encounter } = telemedData;
@@ -237,24 +238,20 @@ export default function AppointmentTableRow({
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
   const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
   const user = useEvolveUser();
-  const { isEncounterUpdatePending, handleUpdatePractitionerAndStatus } = usePractitionerActions(
-    appointment?.id,
-    appointment?.status,
-    encounter,
-    'start',
-    practitionerType.Admitter,
-    true,
-    'intake'
-  );
+  const [isCSSButtonIsLoading, setCSSButtonIsLoading] = useState(false);
+  const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'start', practitionerType.Admitter);
 
   const handleCSSButton = async (): Promise<void> => {
+    setCSSButtonIsLoading(true);
     try {
-      await handleUpdatePractitionerAndStatus();
+      await handleUpdatePractitioner();
+      await handleChangeInPersonVisitStatus(encounter, user, oystehrZambda, 'intake');
       navigate(`/in-person/${appointment.id}/patient-info`);
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
     }
+    setCSSButtonIsLoading(false);
   };
 
   const officePhoneNumber = getOfficePhoneNumber(location);
@@ -676,9 +673,10 @@ export default function AppointmentTableRow({
           wordWrap: 'break-word',
         }}
       >
-        {appointment.status === 'arrived' || appointment.status === 'pending' || appointment.status === 'intake' ? (
+        {appointment.status === 'arrived' || appointment.status === 'pending' || appointment.status === 'ready' ? (
           <CSSButton
-            isDisabled={!appointment.id || isEncounterUpdatePending}
+            isDisabled={!appointment.id}
+            isLoading={isCSSButtonIsLoading}
             handleCSSButton={handleCSSButton}
             appointmentID={appointment.id}
           />
