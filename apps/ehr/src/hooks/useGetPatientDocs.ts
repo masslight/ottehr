@@ -86,6 +86,7 @@ type UploadDocumentZambdaResponse = {
 export type UsePatientDocsActionsReturn = {
   uploadDocumentAction: (uploadParams: UploadDocumentActionParams) => Promise<UploadDocumentActionResult>;
   refreshTrigger: number;
+  isUploading: boolean;
 };
 
 export type UseGetPatientDocsReturn = {
@@ -412,6 +413,7 @@ const debug__mimicTextNarrativeDocumentsFilter = (
 const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatientDocsActionsReturn => {
   const { oystehrZambda } = useApiClients();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
 
   const uploadDocumentAction = useCallback(
     async (params: UploadDocumentActionParams): Promise<UploadDocumentActionResult> => {
@@ -428,7 +430,7 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
         }
 
         console.log('signing request start ...');
-
+        setIsUploading(true);
         const createUploadDocumentRes = await oystehrZambda.zambda.execute({
           id: CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID,
           patientId: patientId,
@@ -472,6 +474,8 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
       } catch (error: unknown) {
         console.error(error);
         throw error;
+      } finally {
+        setIsUploading(false);
       }
     },
     [oystehrZambda, patientId]
@@ -480,6 +484,7 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
   return {
     uploadDocumentAction: uploadDocumentAction,
     refreshTrigger,
+    isUploading,
   };
 };
 
