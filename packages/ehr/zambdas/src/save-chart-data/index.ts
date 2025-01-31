@@ -65,12 +65,15 @@ import { PdfDocumentReferencePublishedStatuses } from '../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../shared/pdf/school-work-note-pdf';
 import { ZambdaInput } from '../types';
 import {
+  createVersionEntitiesForChartResources,
+  createAuditEvent,
   filterServiceRequestsFromFhir,
   followUpToPerformerMap,
   getEncounterAndRelatedResources,
   validateBundleAndExtractSavedChartData,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+import { getChartData } from '../get-chart-data';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -131,15 +134,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.timeLog('time', 'before fetching resources');
     // get encounter and resources
     console.log(`Getting encounter ${encounterId}`);
-    // ----- !!!DON'T DELETE!!! this is in #2129 scope -----
-    // const [allResources, currentPractitioner, chartDataBeforeUpdate] = await Promise.all([
-    //   getEncounterAndRelatedResources(oystehr, encounterId),
-    //   getUserPractitioner(oystehr, oystehrCurrentUser),
-    //   getChartData(oystehr, encounterId),
-    // ]);
-    const [allResources, currentPractitioner] = await Promise.all([
+    const [allResources, currentPractitioner, chartDataBeforeUpdate] = await Promise.all([
       getEncounterAndRelatedResources(oystehr, encounterId),
       getUserPractitioner(oystehr, oystehrCurrentUser),
+      getChartData(oystehr, encounterId),
     ]);
 
     const encounter = allResources.filter((resource) => resource.resourceType === 'Encounter')[0] as Encounter;
@@ -471,15 +469,21 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     );
     console.timeLog('time', 'after sorting resources');
 
-    // ----- !!!DON'T DELETE!!! this is in #2129 scope -----
-    // console.timeLog('time', 'before creating auditEvent');
-    // const auditEvent = createAuditEvent(chartDataBeforeUpdate.chartResources, output.chartResources);
-    // await oystehr.fhir.create(auditEvent);
-    // console.timeLog('time', 'after creating auditEvent');
+    // todo: find organization id
+    console.timeLog('time', 'before creating auditEvent');
+    chartDataBeforeUpdate.chartResources.push(encounter); // we do this to be sure we'll have encounter in our set 100%
+    const resVersionsEntities = createVersionEntitiesForChartResources(
+      chartDataBeforeUpdate.chartResources,
+      output.chartResources
+    );
+    const auditEvent = createAuditEvent(currentPractitioner.id!, patient.id, resVersionsEntities);
+    console.log('Audit event: ' + JSON.stringify(auditEvent));
+    await oystehr.fhir.create(auditEvent);
+    console.timeLog('time', 'after creating auditEvent');
 
     console.timeEnd('time');
     return {
-      body: JSON.stringify(output),
+      body: JSON.stringify(output.chartResources),
       statusCode: 200,
     };
   } catch (error) {
@@ -490,73 +494,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   }
 };
-
-// ----- !!!DON'T DELETE!!! this is in #2129 scope -----
-// function createAuditEvent(chartResourcesBeforeUpdate: Resource[], chartResourcesAfterUpdate: Resource[]): AuditEvent {
-//   // todo finish up this function to create proper AuditEvent and maybe discuss AE format with guys later
-//   const resourcesEntities: AuditEventEntity[] = [];
-//
-//   // todo add previous resources and new one into entries
-//   chartResourcesBeforeUpdate.forEach((res) => {
-//     const resReference = createReference(res);
-//     if (resReference.reference && res.meta?.versionId) {
-//       createAuditEventEntity(createReference(res), 'entityName', res.meta.versionId);
-//     }
-//   });
-//   return {
-//     resourceType: 'AuditEvent',
-//     type: {
-//       code: '110101',
-//       system: 'http://dicom.nema.org/resources/ontology/DCM',
-//       display: 'Audit Log Used\t',
-//     },
-//     agent: [
-//       {
-//         who: {
-//           reference: 'Practitioner/96587574-637b-4346-91d9-27abc655365f',
-//         },
-//         requestor: true,
-//       },
-//     ],
-//     recorded: DateTime.now().toISO() ?? '',
-//     source: {
-//       observer: {
-//         reference: 'Organization/165bb2f4-a972-4d29-b092-dac9d0bc43cf',
-//       },
-//     },
-//     entity: resourcesEntities,
-//   };
-// }
-//
-// function createAuditEventEntity(
-//   resourceReference: Reference,
-//   name: string,
-//   previousVersionId: string,
-//   newVersionId?: string
-// ): AuditEventEntity {
-//   const entity = {
-//     what: resourceReference,
-//     name,
-//     detail: [
-//       {
-//         type: 'previousVersionId',
-//         valueString: previousVersionId,
-//       },
-//       // do we wanna keep this request json?? because idk how to create such thing in save-chart-data
-//       {
-//         type: 'requestJson',
-//         valueString: '{"name": [{"given": ["Jonathan"], "family": "Doe"}]}',
-//       },
-//     ],
-//   };
-//   if (newVersionId) {
-//     entity.detail.push({
-//       type: 'newVersionId',
-//       valueString: newVersionId,
-//     });
-//   }
-//   return entity;
-// }
 
 async function getUserPractitioner(oystehr: Oystehr, oystehrCurrentUser: Oystehr): Promise<Practitioner> {
   try {

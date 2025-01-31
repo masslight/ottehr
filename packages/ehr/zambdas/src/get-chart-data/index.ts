@@ -6,7 +6,7 @@ import { getPatientEncounter } from '../shared';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
 import { ZambdaInput } from '../types';
 import {
-  convertSearchResultsToResponse,
+  convertChartResourcesToResponse,
   createFindResourceRequest,
   createFindResourceRequestById,
   createFindResourceRequestByPatientField,
@@ -178,8 +178,9 @@ export async function getChartData(
   // console.debug('result JSON\n\n==============\n\n', JSON.stringify(result));
 
   console.timeLog('check', 'after fetch, before converting chart data to response');
-  const chartDataResult = convertSearchResultsToResponse(
-    result,
+  const resources = result.unbundle();
+  const chartDataResult = convertChartResourcesToResponse(
+    resources,
     patient.id!,
     encounterId,
     requestedFields ? (Object.keys(requestedFields) as (keyof ChartDataFields)[]) : undefined

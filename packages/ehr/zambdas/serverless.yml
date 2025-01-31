@@ -273,6 +273,22 @@ functions:
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
 
+  get-chart-data-versioned:
+    handler: src/get-chart-data-versioned/index.index
+    events:
+      - http:
+          path: zambda/get-chart-data-versioned/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      URGENT_CARE_AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
+      URGENT_CARE_AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+
   delete-chart-data:
     handler: src/delete-chart-data/index.index
     events:

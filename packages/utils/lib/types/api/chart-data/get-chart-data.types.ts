@@ -14,3 +14,12 @@ export interface GetChartDataResponse extends ChartDataFields {
 }
 
 export type ChartDataRequestedFields = Partial<Record<keyof GetChartDataResponse, SearchParams>>;
+
+export interface GetVersionedChartDataRequest {
+  chartDataAuditEventId: string;
+}
+
+export interface GetVersionedChartDataResponse {
+  previousChartData: GetChartDataResponse;
+  newChartData: GetChartDataResponse;
+}

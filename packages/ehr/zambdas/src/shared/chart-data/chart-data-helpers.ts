@@ -1136,15 +1136,22 @@ export function mapResourceToChartDataResponse(
   };
 }
 
-export function handleCustomDTOExtractions(data: ChartDataFields, resources: FhirResource[]): ChartDataFields {
+export function handleCustomDTOExtractions(
+  data: ChartDataFields,
+  resources: FhirResource[]
+): { chartData: ChartDataFields; chartResources?: Resource[] } {
   const encounterResource = resources.find((res) => res.resourceType === 'Encounter') as Encounter;
-  if (!encounterResource) return data;
+  // if (!encounterResource) throw new Error('Encounter is required to extract chart resources');
+  if (!encounterResource) return { chartData: data };
+  let chartResources: Resource[] = [];
+  chartResources.push(encounterResource);
 
   // 1. Getting DispositionDTO
   const serviceRequests: ServiceRequest[] = resources.filter(
     (res) => res.resourceType === 'ServiceRequest'
   ) as ServiceRequest[];
   data.disposition = makeDispositionDTOFromFhirResources(encounterResource, serviceRequests);
+  if (data.disposition) chartResources = chartResources.concat(serviceRequests);
 
   // 2. Getting DiagnosisDTO
   encounterResource.diagnosis?.forEach((encounterDiagnosis) => {
@@ -1178,7 +1185,7 @@ export function handleCustomDTOExtractions(data: ChartDataFields, resources: Fhi
     data.addendumNote = { text: addendumNote.valueString };
   }
 
-  return data;
+  return { chartData: data, chartResources };
 }
 
 export const createDispositionServiceRequest = ({
