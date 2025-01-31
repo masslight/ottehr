@@ -9,7 +9,7 @@ export interface PatientParams {
   line?: string;
   state?: string;
   postalCode?: string;
-  email?: string;
+  telecom?: ContactPoint[];
   relationship?: string;
 }
 
@@ -22,7 +22,7 @@ export function createPatient({
   line,
   state,
   postalCode,
-  email,
+  telecom,
   relationship = 'Parent/Guardian',
 }: PatientParams): Patient {
   const name: HumanName = {
@@ -39,13 +39,6 @@ export function createPatient({
           ...(postalCode && { postalCode }),
         }
       : undefined;
-
-  const telecom: ContactPoint | undefined = email
-    ? {
-        value: email,
-        system: 'email',
-      }
-    : undefined;
 
   const relationshipCoding: Coding = {
     code: relationship,
@@ -65,10 +58,12 @@ export function createPatient({
     contact: [
       {
         ...(address && { address }),
-        telecom: telecom ? [telecom] : undefined,
+        telecom: telecom,
         relationship: [relationshipConcept],
       },
     ],
+    address: address ? [address] : undefined,
+    telecom: telecom,
     birthDate,
     extension: [
       {

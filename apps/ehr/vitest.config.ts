@@ -1,15 +1,12 @@
-// import { mergeConfig } from 'vite';
-// import { defineConfig } from 'vitest/config';
-// import viteConfig from './vite.config';
+import { defineConfig } from 'vitest/config';
+import dotenv from 'dotenv';
+import path from 'path';
 
-// export default mergeConfig(
-//   viteConfig({mode: 'default'}),
-//   defineConfig({
-//     test: {
-//       environment: 'happy-dom',
-//       coverage: {
-//         reporter: ['text', 'json', 'html'],
-//       },
-//     },
-//   })
-// );
+dotenv.config({ path: path.resolve(__dirname, 'env/.env.local') });
+
+export default defineConfig({
+  test: {
+    globals: true,
+    exclude: ['**/*.spec.ts'],
+  },
+});

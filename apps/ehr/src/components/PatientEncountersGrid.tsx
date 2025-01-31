@@ -133,15 +133,17 @@ const columns: GridColDef<AppointmentHistoryRow>[] = [
     sortable: false,
     field: 'info',
     headerName: 'Visit Info',
-    width: 110,
-    renderCell: ({ row: { encounter, id } }) => (
-      <RoundedButton
-        target="_blank"
-        to={`/patient/${encounter?.subject?.reference?.split('/')[1]}/details?appointment=${id}`}
-      >
-        Visit Info
-      </RoundedButton>
-    ),
+    headerAlign: 'center',
+    width: 120,
+    renderCell: ({ row: { encounter, id, appointment } }) =>
+      appointment?.appointmentType?.text !== 'virtual' && (
+        <RoundedButton
+          target="_blank"
+          to={`/patient/${encounter?.subject?.reference?.split('/')[1]}/details?appointment=${id}`}
+        >
+          Visit Info
+        </RoundedButton>
+      ),
   },
   {
     sortable: false,

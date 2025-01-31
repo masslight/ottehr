@@ -11,6 +11,7 @@ import {
   Encounter,
   EpisodeOfCare,
   FhirResource,
+  List,
   MedicationStatement,
   Observation,
   Patient,
@@ -144,6 +145,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const encounter = allResources.filter((resource) => resource.resourceType === 'Encounter')[0] as Encounter;
     if (encounter === undefined) throw new Error(`Encounter with ID ${encounterId} must exist... `);
     const patient = allResources.filter((resource) => resource.resourceType === 'Patient')[0] as Patient;
+    const listResources = allResources.filter((res) => res.resourceType === 'List') as List[];
     const appointment = allResources.find((res) => res.resourceType === 'Appointment');
     console.log(`Got encounter with id ${encounter.id}`);
 
@@ -400,7 +402,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           appointment?.id,
           encounterId,
           newSchoolWorkNote.type,
-          SCHOOL_WORK_NOTE
+          SCHOOL_WORK_NOTE,
+          listResources
         )
       );
     }

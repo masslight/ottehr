@@ -10,6 +10,7 @@ import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 import { enqueueSnackbar } from 'notistack';
 import EmployeeInformationForm from '../components/EmployeeInformation';
+import { dataTestIds } from '../constants/data-test-ids';
 
 export default function EditEmployeePage(): JSX.Element {
   const { oystehr, oystehrZambda } = useApiClients();
@@ -172,6 +173,7 @@ export default function EditEmployeePage(): JSX.Element {
                   <LoadingButton
                     variant="contained"
                     color={isActive ? 'error' : 'primary'}
+                    data-testid={dataTestIds.employeesPage.deactivateUserButton}
                     sx={{
                       textTransform: 'none',
                       borderRadius: 28,

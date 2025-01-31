@@ -27,7 +27,6 @@ import {
   ContactTelecomConfig,
   coverageFieldPaths,
   createConsentResource,
-  createDocumentReference,
   createFilesDocumentReferences,
   createPatchOperationForTelecom,
   DATE_OF_BIRTH_URL,
@@ -75,6 +74,8 @@ import {
   uploadPDF,
   consolidateOperations,
   RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL,
+  PRIVACY_POLICY_CODE,
+  OTTEHR_MODULE,
 } from 'utils';
 import { v4 as uuid } from 'uuid';
 import { createOrUpdateFlags } from '../../../paperwork/sharedHelpers';
@@ -92,7 +93,7 @@ interface DocToSaveData {
   code: string;
   display: string;
   text: string;
-  images: FileDocDataForDocReference[];
+  files: FileDocDataForDocReference[];
   dateCreated: string;
 }
 
@@ -668,8 +669,6 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       ).unbundle();
     }
   }
-  console.log('oldConsentDocRefs?.length', oldConsentDocRefs?.length);
-  console.log('oldConsentResources?.length', oldConsentResources?.length);
 
   // Create consent PDF, DocumentReference, and Consent resource if there are none or signer information changes
   // Update prior consent DocumentReferences statuses to superseded
@@ -745,7 +744,7 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
         coding: [
           {
             system: 'http://loinc.org',
-            code: '64292-6',
+            code: PRIVACY_POLICY_CODE,
             display: 'Privacy Policy',
           },
         ],
@@ -801,9 +800,10 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
     });
   }
 
+  console.log('pdfsToCreate len', pdfsToCreate.length);
   for (const pdfInfo of pdfsToCreate) {
-    const documentReference = await createDocumentReference({
-      docInfo: [{ contentURL: pdfInfo.uploadURL, title: pdfInfo.resourceTitle, mimeType: 'application/pdf' }],
+    const documentReferences = await createFilesDocumentReferences({
+      files: [{ url: pdfInfo.uploadURL, title: pdfInfo.formTitle }],
       type: pdfInfo.type,
       dateCreated: nowIso,
       oystehr,
@@ -821,14 +821,20 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       },
       generateUUID: randomUUID,
       listResources,
+      searchParams: [],
+      meta: {
+        // for backward compatibility. TODO: remove this
+        tag: [{ code: OTTEHR_MODULE.IP }, { code: OTTEHR_MODULE.TM }],
+      },
     });
-    if (!documentReference.id) {
+
+    if (!documentReferences?.[0]?.id) {
       throw new Error('No consent document reference id found');
     }
 
     // Create FHIR Consent resource
     if (pdfInfo.type.coding[0].code === CONSENT_CODE) {
-      await createConsentResource(patientResource.id ?? '', documentReference.id, nowIso, oystehr);
+      await createConsentResource(patientResource.id ?? '', documentReferences?.[0]?.id, nowIso, oystehr);
     }
   }
 }
@@ -843,9 +849,6 @@ export async function createDocumentResources(
   console.log('reviewing insurance cards and photo id cards');
 
   const docsToSave: DocToSaveData[] = [];
-
-  let insuranceDocToSave: DocToSaveData | undefined;
-  let photoIdDocToSave: DocToSaveData | undefined;
 
   const items = (quesionnaireResponse.item as IntakeQuestionnaireItem[]) ?? [];
   const flattenedPaperwork = flattenIntakeQuestionnaireItems(items) as QuestionnaireResponseItem[];
@@ -917,10 +920,10 @@ export async function createDocumentResources(
   if (idCards.length) {
     const sorted = sortAttachmentsByCreationTime(idCards);
     const dateCreated = sorted[0].creation ?? '';
-    photoIdDocToSave = {
+    const photoIdDocToSave = {
       // photo id
       code: PHOTO_ID_CARD_CODE,
-      images: sorted.map((attachment) => {
+      files: sorted.map((attachment) => {
         const { url = '', title = '' } = attachment;
         return {
           url,
@@ -937,9 +940,9 @@ export async function createDocumentResources(
   if (insuranceCards.length) {
     const sorted = sortAttachmentsByCreationTime(insuranceCards);
     const dateCreated = sorted[0].creation ?? '';
-    insuranceDocToSave = {
+    const insuranceDocToSave = {
       code: INSURANCE_CARD_CODE,
-      images: sorted.map((attachment) => {
+      files: sorted.map((attachment) => {
         const { url = '', title = '' } = attachment;
         return {
           url,
@@ -957,7 +960,7 @@ export async function createDocumentResources(
     const dateCreated = patientConditionPhoto.creation ?? '';
     const conditionPhotosToSave = {
       code: PATIENT_PHOTO_CODE,
-      images: [patientConditionPhoto].map((attachment) => {
+      files: [patientConditionPhoto].map((attachment) => {
         const { url = '', title = '' } = attachment;
         return {
           url,
@@ -976,7 +979,7 @@ export async function createDocumentResources(
     const dateCreated = sorted[0].creation ?? '';
     const schoolWorkNotesToSave = {
       code: SCHOOL_WORK_NOTE_TEMPLATE_CODE,
-      images: schoolWorkNotes.map((attachment) => {
+      files: schoolWorkNotes.map((attachment) => {
         const { url = attachment.url || '', title = attachment.title || '' } = attachment;
         return {
           url,
@@ -993,7 +996,7 @@ export async function createDocumentResources(
   console.log('docsToSave len', docsToSave.length);
   for (const d of docsToSave) {
     await createFilesDocumentReferences({
-      files: d.images,
+      files: d.files,
       type: {
         coding: [
           {
@@ -1015,13 +1018,17 @@ export async function createDocumentResources(
           value: d.code,
         },
       ],
-      referenceParam: {
+      references: {
         subject: { reference: `Patient/${patientID}` },
         context: { related: [{ reference: `Appointment/${appointmentID}` }, { reference: `Patient/${patientID}` }] },
       },
       oystehr,
       generateUUID: randomUUID,
       listResources,
+      meta: {
+        // for backward compatibility. TODO: remove this
+        tag: [{ code: OTTEHR_MODULE.IP }, { code: OTTEHR_MODULE.TM }],
+      },
     });
   }
 }

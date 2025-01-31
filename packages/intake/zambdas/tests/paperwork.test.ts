@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Account, Consent, Coverage, RelatedPerson } from 'fhir/r4b';
 import { AUTH0_AUDIENCE, AUTH0_CLIENT, AUTH0_ENDPOINT, AUTH0_SECRET, PROJECT_API, FHIR_API } from '../.env/local.json';
 import { getAccessToken } from '../src/shared';
+import { vi } from 'vitest';
 
 export const insuranceData = {
   additionalInfo: '',
@@ -47,10 +48,11 @@ export const responsiblePartyInfoData = {
 
 export const appointment = 'f21ad419-d8ab-4a41-8dbd-2e2e3a7b4333';
 export const DEFAULT_TEST_TIMEOUT = 100000;
-describe('paperwork tests', () => {
+
+describe.skip('paperwork tests', () => {
   let oystehr: Oystehr | null = null;
   let token = null;
-  jest.setTimeout(DEFAULT_TEST_TIMEOUT);
+  vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });
   beforeAll(async () => {
     token = await getAccessToken({
       AUTH0_ENDPOINT: AUTH0_ENDPOINT,

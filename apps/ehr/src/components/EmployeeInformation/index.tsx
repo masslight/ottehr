@@ -20,6 +20,7 @@ import {
   isNPIValid,
 } from 'utils';
 import { EditEmployeeInformationProps, EmployeeForm } from './types';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 export default function EmployeeInformationForm({
   submitLabel,
@@ -203,7 +204,7 @@ export default function EmployeeInformationForm({
     <Skeleton height={300} sx={{ marginY: -5 }} />
   ) : (
     <Paper sx={{ padding: 3 }}>
-      <form onSubmit={handleSubmit(updateUserRequest)}>
+      <form onSubmit={handleSubmit(updateUserRequest)} data-testid={dataTestIds.employeesPage.informationForm}>
         <BasicInformation control={control} existingUser={existingUser} errors={errors} />
 
         <RoleSelection
@@ -238,6 +239,7 @@ export default function EmployeeInformationForm({
           <LoadingButton
             variant="contained"
             color="primary"
+            data-testid={dataTestIds.employeesPage.submitButton}
             sx={{
               textTransform: 'none',
               borderRadius: 28,

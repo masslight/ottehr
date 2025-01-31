@@ -2,9 +2,9 @@ import fs from 'fs';
 import { getAccessToken } from '../src/shared/auth';
 import { createOystehrClient } from '../src/shared/helpers';
 import { Questionnaire } from 'fhir/r4b';
-import { BatchInputPostRequest, BatchInputDeleteRequest } from '@oystehr/sdk';
+import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 
-const writeQuestionnaires = async (envConfig: any): Promise<void> => {
+const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> => {
   const token = await getAccessToken(envConfig);
 
   if (!token) {
@@ -12,14 +12,16 @@ const writeQuestionnaires = async (envConfig: any): Promise<void> => {
   }
   const oystehrClient = createOystehrClient(token, envConfig);
   try {
-    const folder = fs.readdirSync('scripts/questionnaires');
+    const folder = fs.readdirSync('../../utils/lib/deployed-resources/questionnaires');
     const requests = await Promise.all(
       folder.flatMap(async (file) => {
-        const questionnaireData = JSON.parse(fs.readFileSync(`scripts/questionnaires/${file}`, 'utf8'));
+        const questionnaireData = JSON.parse(
+          fs.readFileSync(`../../utils/lib/deployed-resources/questionnaires/${file}`, 'utf8')
+        );
         const { resource: questionnaire } = questionnaireData;
 
         const existingQuestionnaire = (
-          await oystehrClient.fhir.search({
+          await oystehrClient.fhir.search<Questionnaire>({
             resourceType: 'Questionnaire',
             params: [
               {
@@ -43,16 +45,21 @@ const writeQuestionnaires = async (envConfig: any): Promise<void> => {
           return createRequest;
         } else {
           console.log('existing Questionnaire id: ', existingQuestionnaire[0].id);
-          const deleteRequest: BatchInputDeleteRequest = {
-            method: 'DELETE',
-            url: `/Questionnaire/${existingQuestionnaire[0].id}`,
+          const existing = existingQuestionnaire.find(
+            (eq: Questionnaire) => eq.url === questionnaire.url && eq.version === questionnaire.version
+          );
+          if (!existing) {
+            throw new Error('Questionnaire missing unexpectedly');
+          }
+          const updateRequest: BatchInputPutRequest<Questionnaire> = {
+            method: 'PUT',
+            url: `/Questionnaire/${existing.id}`,
+            resource: {
+              ...questionnaire,
+              id: existing.id,
+            },
           };
-          const createRequest: BatchInputPostRequest<Questionnaire> = {
-            method: 'POST',
-            url: '/Questionnaire',
-            resource: questionnaire,
-          };
-          return [deleteRequest, createRequest];
+          return updateRequest;
         }
       })
     );
@@ -60,13 +67,19 @@ const writeQuestionnaires = async (envConfig: any): Promise<void> => {
 
     const newSecrets: any = {};
     folder.forEach((file) => {
-      const questionnaireData = JSON.parse(fs.readFileSync(`scripts/questionnaires/${file}`, 'utf8'));
+      const questionnaireData = JSON.parse(
+        fs.readFileSync(`../../utils/lib/deployed-resources/questionnaires/${file}`, 'utf8')
+      );
       const { resource: questionnaire, envVarName } = questionnaireData;
       if (envVarName && questionnaire?.url && questionnaire?.version) {
         const canonical = `${questionnaire.url}|${questionnaire.version}`;
         newSecrets[envVarName] = canonical;
       }
     });
+
+    const newLocalEnv = { ...envConfig, ...newSecrets };
+    const envString = JSON.stringify(newLocalEnv, null, 2);
+    fs.writeFileSync(`.env/${env}.json`, envString);
 
     for await (const entry of Object.entries(newSecrets)) {
       const [key, value] = entry;
@@ -91,7 +104,7 @@ const main = async (): Promise<void> => {
   const env = process.argv[2];
 
   const envConfig = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
-  await writeQuestionnaires(envConfig);
+  await writeQuestionnaires(envConfig, env);
 };
 
 main().catch((error) => {

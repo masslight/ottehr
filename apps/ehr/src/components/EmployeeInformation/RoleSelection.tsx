@@ -1,48 +1,18 @@
 import { Box, Checkbox, FormControl, FormControlLabel, FormGroup, FormLabel, Typography } from '@mui/material';
-import { RoleType } from 'utils';
+import { AVAILABLE_EMPLOYEE_ROLES, RoleType } from 'utils';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { RoleSelectionProps } from './types';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 export function RoleSelection({ errors, isActive, getValues, setValue }: RoleSelectionProps): JSX.Element {
   const currentUser = useEvolveUser();
-  const AVAILABLE_ROLES: {
-    value: RoleType;
-    label: string;
-    hint: string;
-  }[] = [
-    {
-      value: RoleType.Administrator,
-      label: 'Administrator',
-      hint: `Adjust full settings for entire system`,
-    },
-    {
-      value: RoleType.Manager,
-      label: 'Manager',
-      hint: `Adjust operating hours or schedule overrides; adjust pre-booked visits per hour`,
-    },
-    {
-      value: RoleType.Staff,
-      label: 'Staff',
-      hint: `No settings changes; essentially read-only`,
-    },
-    {
-      value: RoleType.Provider,
-      label: 'Provider',
-      hint: `A clinician, such as a doctor, a PA or an NP`,
-    },
-    // {
-    //   value: RoleType.Prescriber,
-    //   label: 'Prescriber',
-    //   hint: `A clinician that is allowed to prescribe`,
-    // },
-  ];
 
   return (
-    <FormControl sx={{ width: '100%' }} error={errors.roles}>
+    <FormControl sx={{ width: '100%' }} error={errors.roles} data-testid={dataTestIds.employeesPage.rolesSection}>
       <FormLabel sx={{ mb: 1, mt: 2, fontWeight: '600 !important' }}>Role</FormLabel>
       <FormLabel sx={{ fontWeight: 700, fontSize: '12px' }}>Select role *</FormLabel>
       <FormGroup>
-        {AVAILABLE_ROLES.map((roleEntry, index) => {
+        {AVAILABLE_EMPLOYEE_ROLES.map((roleEntry, index) => {
           const roles = getValues('roles') ?? [];
           const isChecked = roles.includes(roleEntry.value);
           return (
@@ -50,6 +20,7 @@ export function RoleSelection({ errors, isActive, getValues, setValue }: RoleSel
               <FormControlLabel
                 value={roleEntry.value}
                 name="roles"
+                data-testid={dataTestIds.employeesPage.roleRow(roleEntry.value)}
                 checked={isChecked}
                 onChange={(e, checked) => {
                   const currentRoles = getValues('roles');
