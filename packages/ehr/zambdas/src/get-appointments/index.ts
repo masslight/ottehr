@@ -15,6 +15,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  AppointmentRelatedResources,
   INSURANCE_CARD_CODE,
   InPersonAppointmentInformation,
   OTTEHR_MODULE,
@@ -198,18 +199,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       { name: '_include', value: 'Appointment:actor' },
     ];
 
-    const appointmentSearchQueries: Promise<
-      Bundle<
-        | Appointment
-        | Encounter
-        | Location
-        | Patient
-        | QuestionnaireResponse
-        | Practitioner
-        | RelatedPerson
-        | HealthcareService
-      >
-    >[] = [];
+    const appointmentSearchQueries: Promise<Bundle<AppointmentRelatedResources>>[] = [];
     if (locationID) {
       const locationSearchParams = [
         ...appointmentSearchParams,
@@ -219,16 +209,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         },
       ];
       appointmentSearchQueries.push(
-        oystehr.fhir.search<
-          | Appointment
-          | Encounter
-          | Location
-          | Patient
-          | QuestionnaireResponse
-          | Practitioner
-          | RelatedPerson
-          | HealthcareService
-        >({
+        oystehr.fhir.search<AppointmentRelatedResources>({
           resourceType: 'Appointment',
           params: locationSearchParams,
         })
@@ -243,16 +224,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         },
       ];
       appointmentSearchQueries.push(
-        oystehr.fhir.search<
-          | Appointment
-          | Encounter
-          | Location
-          | Patient
-          | QuestionnaireResponse
-          | Practitioner
-          | RelatedPerson
-          | HealthcareService
-        >({
+        oystehr.fhir.search<AppointmentRelatedResources>({
           resourceType: 'Appointment',
           params: providerSearchParams,
         })
@@ -267,16 +239,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         },
       ];
       appointmentSearchQueries.push(
-        oystehr.fhir.search<
-          | Appointment
-          | Encounter
-          | Location
-          | Patient
-          | QuestionnaireResponse
-          | Practitioner
-          | RelatedPerson
-          | HealthcareService
-        >({
+        oystehr.fhir.search<AppointmentRelatedResources>({
           resourceType: 'Appointment',
           params: groupSearchParams,
         })
@@ -285,16 +248,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (appointmentSearchQueries.length === 0) {
       appointmentSearchQueries.push(
-        oystehr.fhir.search<
-          | Appointment
-          | Encounter
-          | Location
-          | Patient
-          | QuestionnaireResponse
-          | Practitioner
-          | RelatedPerson
-          | HealthcareService
-        >({
+        oystehr.fhir.search<AppointmentRelatedResources>({
           resourceType: 'Appointment',
           params: appointmentSearchParams,
         })
