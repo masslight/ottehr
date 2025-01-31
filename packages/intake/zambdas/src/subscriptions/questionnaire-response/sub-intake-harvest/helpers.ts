@@ -95,6 +95,7 @@ interface DocToSaveData {
   text: string;
   files: FileDocDataForDocReference[];
   dateCreated: string;
+  references: object;
 }
 
 interface CreateConsentResourcesInput {
@@ -930,6 +931,9 @@ export async function createDocumentResources(
           title,
         };
       }),
+      references: {
+        context: { related: [{ reference: `Patient/${patientID}` }] },
+      },
       display: 'Patient data Document',
       text: 'Photo ID cards',
       dateCreated,
@@ -949,6 +953,9 @@ export async function createDocumentResources(
           title,
         };
       }),
+      references: {
+        context: { related: [{ reference: `Patient/${patientID}` }] },
+      },
       display: 'Health insurance card',
       text: 'Insurance cards',
       dateCreated,
@@ -967,6 +974,10 @@ export async function createDocumentResources(
           title,
         };
       }),
+      references: {
+        subject: { reference: `Patient/${patientID}` },
+        context: { related: [{ reference: `Appointment/${appointmentID}` }] },
+      },
       display: 'Patient condition photos',
       text: 'Patient photos',
       dateCreated,
@@ -986,6 +997,10 @@ export async function createDocumentResources(
           title,
         };
       }),
+      references: {
+        subject: { reference: `Patient/${patientID}` },
+        context: { related: [{ reference: `Appointment/${appointmentID}` }] },
+      },
       display: 'Patient status assessment note template',
       text: 'Patient status assessment note template',
       dateCreated,
@@ -1018,10 +1033,7 @@ export async function createDocumentResources(
           value: d.code,
         },
       ],
-      references: {
-        subject: { reference: `Patient/${patientID}` },
-        context: { related: [{ reference: `Appointment/${appointmentID}` }, { reference: `Patient/${patientID}` }] },
-      },
+      references: d.references,
       oystehr,
       generateUUID: randomUUID,
       listResources,
