@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { useQuery, useQueryClient } from 'react-query';
+import { useQuery } from 'react-query';
 import { FhirResource, List, DocumentReference, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useApiClients } from './useAppClients';
@@ -85,6 +85,7 @@ type UploadDocumentZambdaResponse = {
 };
 export type UsePatientDocsActionsReturn = {
   uploadDocumentAction: (uploadParams: UploadDocumentActionParams) => Promise<UploadDocumentActionResult>;
+  refreshTrigger: number;
 };
 
 export type UseGetPatientDocsReturn = {
@@ -104,22 +105,23 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   const [documentsFolders, setDocumentsFolders] = useState<PatientDocumentsFolder[]>([]);
   const [currentFilters, setCurrentFilters] = useState<PatientDocumentsFilters | undefined>(filters);
 
-  const { isLoading: isLoadingFolders } = useGetPatientDocsFolders({ patientId }, (docsFolders) => {
+  const documentActions = usePatientDocsActions({ patientId });
+  const { refreshTrigger } = documentActions;
+
+  const { isLoading: isLoadingFolders } = useGetPatientDocsFolders({ patientId, refreshTrigger }, (docsFolders) => {
     console.log(`[useGetPatientDocs] Folders data loading SUCCESS size=[${docsFolders.length}]. Content => `);
     console.log(docsFolders);
     setDocumentsFolders(docsFolders);
   });
 
   const { isLoading: isLoadingDocuments } = useSearchPatientDocuments(
-    { patientId: patientId, filters: currentFilters },
+    { patientId: patientId, filters: currentFilters, refreshTrigger },
     (docs) => {
       console.log(`[useGetPatientDocs] found Docs [${docs.length}] => `);
       console.log(docs);
       setDocuments(docs);
     }
   );
-
-  const documentActions = usePatientDocsActions({ patientId });
 
   const searchDocuments = useCallback((filters: PatientDocumentsFilters): void => {
     console.log(`[useGetPatientDocs] searchDocuments, filters => `);
@@ -212,14 +214,16 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
 const useGetPatientDocsFolders = (
   {
     patientId,
+    refreshTrigger,
   }: {
     patientId: string;
+    refreshTrigger: number;
   },
   onSuccess: (data: PatientDocumentsFolder[]) => void
 ) => {
   const { oystehr } = useApiClients();
   return useQuery(
-    ['get-patient-docs-folders', { patientId }],
+    ['get-patient-docs-folders', { patientId, refreshTrigger }],
     async () => {
       if (!oystehr) {
         throw new Error('useGetDocsFolders() oystehr client not defined');
@@ -286,9 +290,11 @@ const useSearchPatientDocuments = (
   {
     patientId,
     filters,
+    refreshTrigger,
   }: {
     patientId: string;
     filters?: PatientDocumentsFilters;
+    refreshTrigger: number;
   },
   onSuccess: (data: PatientDocumentInfo[]) => void
 ) => {
@@ -302,6 +308,7 @@ const useSearchPatientDocuments = (
         docSearchTerm: filters?.documentName,
         docCreationDate: docCreationDate,
         docFolderId: filters?.documentsFolder?.id,
+        refreshTrigger,
       },
     ],
     async () => {
@@ -404,7 +411,7 @@ const debug__mimicTextNarrativeDocumentsFilter = (
 
 const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatientDocsActionsReturn => {
   const { oystehrZambda } = useApiClients();
-  const queryClient = useQueryClient();
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const uploadDocumentAction = useCallback(
     async (params: UploadDocumentActionParams): Promise<UploadDocumentActionResult> => {
@@ -453,8 +460,8 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
 
         console.log('Z3 file uploading SUCCESS');
 
-        await queryClient.invalidateQueries(['get-patient-docs-folders', { patientId }]);
-        await queryClient.invalidateQueries(['get-search-patient-documents', { patientId }]);
+        // Trigger refresh after successful upload
+        setRefreshTrigger((prev) => prev + 1);
 
         return {
           z3Url: z3Url,
@@ -467,11 +474,12 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
         throw error;
       }
     },
-    [oystehrZambda, patientId, queryClient]
+    [oystehrZambda, patientId]
   );
 
   return {
     uploadDocumentAction: uploadDocumentAction,
+    refreshTrigger,
   };
 };
 
