@@ -2,21 +2,12 @@ import { CircularProgress, FormControl, Grid, MenuItem, Select, Skeleton, Select
 import React, { useEffect, useState } from 'react';
 import { styled } from '@mui/system';
 import { CHIP_STATUS_MAP } from '../../../components/AppointmentTableRow';
-import { useApiClients } from '../../../hooks/useAppClients';
-import { Operation } from 'fast-json-patch';
-import {
-  Visit_Status_Array,
-  VisitStatusLabel,
-  getPatchBinary,
-  visitStatusToFhirAppointmentStatusMap,
-  visitStatusToFhirEncounterStatusMap,
-  getVisitStatus,
-  VisitStatusWithoutUnknown,
-  getEncounterStatusHistoryUpdateOp,
-} from 'utils';
-import { getCriticalUpdateTagOp } from '../../../helpers/activityLogsUtils';
-import useEvolveUser from '../../../hooks/useEvolveUser';
+import { Visit_Status_Array, VisitStatusLabel, getVisitStatus } from 'utils';
 import { useAppointment } from '../hooks/useAppointment';
+import { handleChangeInPersonVisitStatus } from '../../../helpers/inPersonVisitStatusUtils';
+import { useApiClients } from '../../../hooks/useAppClients';
+import useEvolveUser from '../../../hooks/useEvolveUser';
+import { enqueueSnackbar } from 'notistack';
 
 const StyledSelect = styled(Select)<{ hasdropdown?: string; arrowcolor: string }>(({ hasdropdown, arrowcolor }) => ({
   height: '32px',
@@ -61,83 +52,23 @@ export const ChangeStatusDropdown = ({
 }): React.ReactElement => {
   const [statusLoading, setStatusLoading] = useState<boolean>(false);
   const [status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
-  const { oystehr } = useApiClients();
+  const { oystehrZambda } = useApiClients();
   const user = useEvolveUser();
   const { telemedData, refetch } = useAppointment(appointmentID);
   const { appointment, encounter } = telemedData;
   const nonDropdownStatuses = ['checked out', 'canceled', 'no show'];
   const hasdropdown = status ? !nonDropdownStatuses.includes(status) : false;
 
-  // todo move update status logic to back end
-
-  async function updateStatusForAppointment(event: SelectChangeEvent<VisitStatusLabel | unknown>): Promise<void> {
+  async function updateInPersonVisitStatus(event: SelectChangeEvent<VisitStatusLabel | unknown>): Promise<void> {
+    setStatusLoading(true);
     try {
-      if (!user) {
-        throw new Error('User is not defined');
-      }
-      if (!appointment || !appointment.id) {
-        throw new Error('Appointment is not defined');
-      }
-      if (!encounter || !encounter.id) {
-        throw new Error('Encounter is not defined');
-      }
-      if (!oystehr) {
-        throw new Error('Oystehr is not defined');
-      }
-      setStatusLoading(true);
-
-      const updatedStatus = event.target.value as VisitStatusWithoutUnknown;
-      const appointmentStatus = visitStatusToFhirAppointmentStatusMap[updatedStatus];
-      const encounterStatus = visitStatusToFhirEncounterStatusMap[updatedStatus];
-
-      const patchOps: Operation[] = [
-        {
-          op: 'replace',
-          path: '/status',
-          value: appointmentStatus,
-        },
-      ];
-
-      if (appointment.status === 'cancelled') {
-        patchOps.push({
-          op: 'remove',
-          path: '/cancelationReason',
-        });
-      }
-
-      const updateTag = getCriticalUpdateTagOp(appointment, `Staff ${user?.email ? user.email : `(${user?.id})`}`);
-      patchOps.push(updateTag);
-
-      const encounterPatchOps: Operation[] = [
-        {
-          op: 'replace',
-          path: '/status',
-          value: encounterStatus,
-        },
-      ];
-
-      const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(encounter, encounterStatus);
-      encounterPatchOps.push(encounterStatusHistoryUpdate);
-
-      const appointmentPatch = getPatchBinary({
-        resourceType: 'Appointment',
-        resourceId: appointment.id,
-        patchOperations: patchOps,
-      });
-      const encounterPatch = getPatchBinary({
-        resourceType: 'Encounter',
-        resourceId: encounter.id,
-        patchOperations: encounterPatchOps,
-      });
-      setStatus(updatedStatus as VisitStatusLabel);
-      await oystehr.fhir.transaction({
-        requests: [appointmentPatch, encounterPatch],
-      });
+      await handleChangeInPersonVisitStatus(encounter, user, oystehrZambda, event.target.value as VisitStatusLabel);
       await refetch();
-      setStatusLoading(false);
     } catch (error) {
       console.error(error);
+      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
     }
+    setStatusLoading(false);
   }
 
   useEffect(() => {
@@ -162,7 +93,7 @@ export const ChangeStatusDropdown = ({
               value={status}
               {...(hasdropdown ? { hasdropdown: 'true' } : {})}
               arrowcolor={CHIP_STATUS_MAP[status].color.primary}
-              onChange={(event: SelectChangeEvent<VisitStatusLabel | unknown>) => updateStatusForAppointment(event)}
+              onChange={(event: SelectChangeEvent<VisitStatusLabel | unknown>) => updateInPersonVisitStatus(event)}
               sx={{
                 border: `1px solid ${CHIP_STATUS_MAP[status].color.primary}`,
                 borderRadius: ' 7px',
