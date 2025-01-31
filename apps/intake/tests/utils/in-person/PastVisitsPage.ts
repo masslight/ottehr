@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test';
-import { BasePage } from '../BasePage';
+import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
 
-export class PastVisitsPage extends BasePage {
+export class PastVisitsPage extends CommonLocatorsHelper {
   async navigate(): Promise<void> {
     await this.page.goto('/past-visits');
 
