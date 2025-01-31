@@ -1,17 +1,20 @@
 import { BrowserContext, expect, Locator, Page } from '@playwright/test';
 import { Locators } from '../locators';
 import { FillingInfo } from './FillingInfo';
+import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
 
 export class PrebookInPersonFlow {
   page: Page;
   locator: Locators;
   fillingInfo: FillingInfo;
   context: BrowserContext;
+  commonLocatorsHelper: CommonLocatorsHelper;
 
   constructor(page: Page) {
     this.page = page;
     this.locator = new Locators(page);
     this.fillingInfo = new FillingInfo(page);
+    this.commonLocatorsHelper = new CommonLocatorsHelper(page);
     this.context = page.context();
   }
 
@@ -33,11 +36,6 @@ export class PrebookInPersonFlow {
     }
 
     const selectedSlot = await this.fillingInfo.selectRandomSlot();
-    // added workaround to pass the test
-    // issue is described here https://github.com/masslight/ottehr-private/issues/168#issuecomment-2574837200
-    // need to uncomment when issue is fixed
-    await this.page.reload();
-    //
     await this.locator.selectDifferentFamilyMember();
     await this.locator.clickContinueButton();
     const bookingData = await this.fillingInfo.fillNewPatientInfo();
@@ -47,6 +45,14 @@ export class PrebookInPersonFlow {
     await this.fillingInfo.fillDOBgreater18();
     await this.locator.clickContinueButton();
     return { firstName, lastName, email, selectedSlot, location };
+  }
+
+  async prebookInPersonVisit(): Promise<{ bookingURL: string }> {
+    await this.goToReviewPageInPersonVisit();
+    await this.locator.clickReserveButton();
+    await this.page.waitForURL(/\/visit/);
+    const bookingURL = this.page.url();
+    return { bookingURL };
   }
 
   async checkValueIsNotEmpty(value: Locator): Promise<void> {

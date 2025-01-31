@@ -50,13 +50,9 @@ test('MV-1 Click on [Modify] - Modify screen opens', async () => {
   const modifyPage = new ModifyPage(page);
   await modifyPage.checkModifyPageOpens();
 });
-test('MV-2 Select new time slot', async () => {
+test('MV-2 Update time slot', async () => {
   const modifyPage = new ModifyPage(page);
   await modifyPage.selectNewTimeSlot();
-});
-// issue https://github.com/masslight/ottehr-private/issues/347
-test.skip('MV-3 Time slot is updated', async () => {
-  const modifyPage = new ModifyPage(page);
   await modifyPage.checkTimeSlotIsUpdated();
 });
 test('CV-1 Click on [Cancel] - Cancel screen opens', async () => {

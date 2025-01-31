@@ -305,9 +305,9 @@ export async function createPdfBytes(
   const newPdf = await PDFDocument.create();
   console.log('running PDFDocument.load');
   const document = await PDFDocument.load(fs.readFileSync(pdfInfo.copyFromPath));
-  console.log('drawwing pdf page', JSON.stringify(newPdf));
+  console.log('drawing pdf page', JSON.stringify(newPdf));
   console.log(
-    'drawwing pdf page',
+    'drawing pdf page',
     JSON.stringify(newPdf),
     patient.id,
     JSON.stringify(consentSigner),

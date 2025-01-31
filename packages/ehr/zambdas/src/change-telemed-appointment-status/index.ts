@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ChargeItem, DocumentReference, Task } from 'fhir/r4b';
+import { ChargeItem, Task } from 'fhir/r4b';
 import {
   ChangeTelemedAppointmentStatusInput,
   ChangeTelemedAppointmentStatusResponse,
@@ -65,7 +65,7 @@ export const performEffect = async (
       throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);
     }
   }
-  const { encounter, patient, account, chargeItem, questionnaireResponse, appointment } = visitResources;
+  const { encounter, patient, account, chargeItem, questionnaireResponse, appointment, listResources } = visitResources;
   const insuranceCompanyID = getQuestionnaireResponseByLinkId('insurance-carrier', questionnaireResponse)?.answer?.[0]
     .valueString;
   if (insuranceCompanyID) {
@@ -101,7 +101,7 @@ export const performEffect = async (
     const pdfInfo = await composeAndCreateVisitNotePdf({ chartData }, visitResources, secrets, m2mtoken);
     if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
     console.log(`Creating visit note pdf docRef`);
-    await makeVisitNotePdfDocumentReference(oystehr, pdfInfo, patient.id, appointmentId, encounter.id!);
+    await makeVisitNotePdfDocumentReference(oystehr, pdfInfo, patient.id, appointmentId, encounter.id!, listResources);
 
     console.log('Creating Claim resource.');
     const claimId = await createClaim(oystehr, visitResources);
@@ -168,10 +168,13 @@ export const performEffect = async (
         const pdfInfo = await composeAndCreateReceiptPdf(paymentInfo, chartData, visitResources, secrets, m2mtoken);
         if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
 
-        const transactionBundle = await oystehr.fhir.transaction<DocumentReference>({
-          requests: [saveResourceRequest(makeReceiptPdfDocumentReference(pdfInfo, patient.id, encounter.id!))],
-        });
-        const resources = parseCreatedResourcesBundle(transactionBundle);
+        const resources = await makeReceiptPdfDocumentReference(
+          oystehr,
+          pdfInfo,
+          patient.id,
+          encounter.id!,
+          listResources
+        );
         console.log(`createdResources: ${JSON.stringify(resources)}`);
       } catch (error) {
         console.error('Error issuing a charge for self-pay encounter.');

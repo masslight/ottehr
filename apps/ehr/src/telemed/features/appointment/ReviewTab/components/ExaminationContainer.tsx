@@ -134,6 +134,15 @@ export const ExaminationContainer: FC<ExaminationContainerProps> = (props) => {
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <ExamReviewGroup
+            label="Nose:"
+            items={examObservationFieldsDetailsArray
+              .filter((details) => details.card === 'nose' && ['normal', 'abnormal'].includes(details.group))
+              .filter((details) => examObservations[details.field].value)}
+          />
+        </Box>
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <ExamReviewGroup
             label="Right ear:"
             items={examObservationFieldsDetailsArray
               .filter((details) => details.group === 'rightEar')
