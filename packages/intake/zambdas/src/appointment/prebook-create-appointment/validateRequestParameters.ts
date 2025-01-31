@@ -7,8 +7,8 @@ import {
   isISODateTime,
   PersonSex,
   VisitType,
-  ZambdaInput,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 import { SCHEDULE_TYPES } from '../../get-schedule/validateRequestParameters';
 import { phoneRegex } from '../../shared';

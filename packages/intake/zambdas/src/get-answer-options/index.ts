@@ -7,10 +7,10 @@ import {
   AnswerOptionSource,
   MALFORMED_GET_ANSWER_OPTIONS_INPUT,
   MISSING_REQUEST_BODY,
-  ZambdaInput,
   createOystehrClient,
   isApiError,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { SecretsKeys, getSecret } from 'zambda-utils';
 import { getAuth0Token } from '../shared';
 

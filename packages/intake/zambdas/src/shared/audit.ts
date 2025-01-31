@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { AuditEvent } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { ZambdaInput } from 'utils';
+import {} from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 
 export enum AuditableZambdaEndpoints {

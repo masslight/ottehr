@@ -1,6 +1,5 @@
 import { AssignPractitionerInput } from 'utils';
-import { getSecret, SecretsKeys } from 'zambda-utils';
-import { ZambdaInput } from '../types';
+import { getSecret, SecretsKeys, ZambdaInput } from 'zambda-utils';
 
 export function validateRequestParameters(input: ZambdaInput): AssignPractitionerInput & { userToken: string } {
   console.group('validateRequestParameters');

@@ -6,10 +6,10 @@ import {
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   SLUG_SYSTEM,
   VisitStatusLabel,
-  ZambdaInput,
   getPatientsForUser,
   getVisitStatus,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { Secrets, topLevelCatch } from 'zambda-utils';
 import '../../../instrument.mjs';
 import { captureSentryException, configSentry, getAuth0Token } from '../../shared';

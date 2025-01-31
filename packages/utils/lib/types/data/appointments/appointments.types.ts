@@ -1,5 +1,6 @@
 import { Encounter, Practitioner, QuestionnaireResponse } from 'fhir/r4b';
 
+import { OTTEHR_MODULE } from '../../../fhir/moduleIdentification';
 import {
   AppointmentMessaging,
   AppointmentType,
@@ -7,8 +8,7 @@ import {
   VisitStatusHistoryEntry,
   VisitStatusLabel,
 } from '../../api';
-import { OTTEHR_MODULE } from '../../../fhir/moduleIdentification';
-import { Secrets, TelemedAppointmentStatusEnum, TelemedCallStatuses, TelemedStatusHistoryElement } from '../../../main';
+import { TelemedAppointmentStatusEnum, TelemedCallStatuses, TelemedStatusHistoryElement } from '../telemed';
 
 export interface GetPastVisitsResponse {
   appointments: AppointmentInformationIntake[];
@@ -127,7 +127,6 @@ export interface GetTelemedAppointmentsInput {
   groupsFilter?: string[];
   patientFilter: PatientFilterType;
   statusesFilter: TelemedCallStatuses[];
-  secrets: Secrets | null;
   userToken: string;
 }
 

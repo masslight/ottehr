@@ -72,7 +72,7 @@ import {
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   SCHOOL_WORK_NOTE_WORK_ID,
   SUBSCRIBER_RELATIONSHIP_CODE_MAP,
-  uploadPDF
+  uploadPDF,
 } from 'utils';
 import { v4 as uuid } from 'uuid';
 import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';

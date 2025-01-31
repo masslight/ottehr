@@ -10,6 +10,7 @@ import {
 } from 'utils';
 import { SecretsKeys, getSecret } from 'zambda-utils';
 
+import { ZambdaInput } from 'zambda-utils';
 import { getChartData } from '../get-chart-data';
 import { parseCreatedResourcesBundle, saveResourceRequest } from '../shared';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
@@ -17,7 +18,6 @@ import { getVideoResources } from '../shared/pdf/visit-details-pdf/get-video-res
 import { makeVisitNotePdfDocumentReference } from '../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
 import { composeAndCreateVisitNotePdf } from '../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { getMyPractitionerId } from '../shared/practitioners';
-import { ZambdaInput } from '../types';
 import { createClaim } from './helpers/claim';
 import { getInsurancePlan } from './helpers/fhir-utils';
 import { changeStatusIfPossible, makeAppointmentChargeItem, makeReceiptPdfDocumentReference } from './helpers/helpers';

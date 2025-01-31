@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon';
-import { CreateAppointmentUCTelemedParams, PersonSex, RequiredAllProps, ZambdaInput } from 'utils';
+import { CreateAppointmentUCTelemedParams, PersonSex, RequiredAllProps } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { Secrets } from 'zambda-utils';
 import { phoneRegex } from '../../shared';
 

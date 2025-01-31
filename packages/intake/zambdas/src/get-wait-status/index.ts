@@ -4,12 +4,12 @@ import { Appointment, Location } from 'fhir/r4b';
 import { decodeJwt, jwtVerify } from 'jose';
 import {
   TelemedAppointmentStatusEnum,
-  ZambdaInput,
   createOystehrClient,
   getAppointmentResourceById,
   getLocationIdFromAppointment,
   mapStatusToTelemed,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { SecretsKeys, getSecret } from 'zambda-utils';
 import { getAuth0Token } from '../shared';
 import { estimatedTimeStatesGroups } from '../shared/appointment/constants';

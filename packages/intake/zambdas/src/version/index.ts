@@ -1,6 +1,7 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ZambdaInput } from 'utils';
+import {} from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { topLevelCatch } from 'zambda-utils';
 import '../../instrument.mjs';
 import { version } from '../../package.json';

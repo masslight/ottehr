@@ -13,7 +13,8 @@ import {
   QuestionnaireResponseItem,
   RelatedPerson,
 } from 'fhir/r4b';
-import { flattenIntakeQuestionnaireItems, IntakeQuestionnaireItem, ZambdaInput } from 'utils';
+import { flattenIntakeQuestionnaireItems, IntakeQuestionnaireItem } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { getSecret, SecretsKeys, topLevelCatch, triggerSlackAlarm } from 'zambda-utils';
 import '../../../../instrument.mjs';
 import { captureSentryException, configSentry, getAuth0Token } from '../../../shared';

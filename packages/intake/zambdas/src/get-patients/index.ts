@@ -1,6 +1,7 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { PatientInfo, ZambdaInput, getPatientsForUser } from 'utils';
+import { PatientInfo, getPatientsForUser } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { Secrets, topLevelCatch } from 'zambda-utils';
 import '../../instrument.mjs';
 import { captureSentryException, configSentry, getAuth0Token } from '../shared';

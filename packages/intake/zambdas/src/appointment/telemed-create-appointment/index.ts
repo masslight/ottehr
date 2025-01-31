@@ -28,8 +28,8 @@ import {
   ServiceMode,
   userHasAccessToPatient,
   VisitType,
-  ZambdaInput,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { getSecret, Secrets, SecretsKeys, topLevelCatch } from 'zambda-utils';
 import { AuditableZambdaEndpoints, checkOrCreateM2MClientToken, createAuditEvent, getUser } from '../../shared';
 import { createUpdateUserRelatedResources, generatePatientRelatedRequests } from '../../shared/appointment';

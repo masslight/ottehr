@@ -9,13 +9,13 @@ import {
   CancellationReasonOptionsTelemed,
   FHIR_ZAPEHR_URL,
   SLUG_SYSTEM,
-  ZambdaInput,
   cancelAppointmentResource,
   createOystehrClient,
   getAppointmentResourceById,
   getPatchBinary,
   getRelatedPersonForPatient,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { Secrets, SecretsKeys, getSecret } from 'zambda-utils';
 import {
   AuditableZambdaEndpoints,

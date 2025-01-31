@@ -7,8 +7,8 @@ import {
   GetTelemedAppointmentsResponse,
   mapStatusToTelemed,
   TelemedAppointmentInformationIntake,
-  ZambdaInput,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { getSecret, SecretsKeys } from 'zambda-utils';
 import { checkOrCreateM2MClientToken, getUser } from '../../shared';
 import { filterTelemedVideoEncounters, getFhirResources } from './helpers';

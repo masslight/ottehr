@@ -1,5 +1,5 @@
+import { ZambdaInput } from 'zambda-utils';
 import { CreateUploadPatientDocumentInput } from '.';
-import { ZambdaInput } from '../types';
 
 export function validateRequestParameters(input: ZambdaInput): CreateUploadPatientDocumentInput {
   if (!input.body) {

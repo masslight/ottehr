@@ -9,8 +9,8 @@ import {
   PHOTO_ID_FRONT_ID,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_WORK_ID,
-  ZambdaInput,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { Secrets } from 'zambda-utils';
 
 const fileTypes = [

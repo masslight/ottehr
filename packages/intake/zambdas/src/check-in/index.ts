@@ -11,8 +11,8 @@ import {
   getPatchBinary,
   getTaskResource,
   TaskIndicator,
-  ZambdaInput,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { Secrets, topLevelCatch } from 'zambda-utils';
 import '../../instrument.mjs';
 import { captureSentryException, configSentry, getAuth0Token } from '../shared';

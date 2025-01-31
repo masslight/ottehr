@@ -1,4 +1,4 @@
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 import { AppointmentSubscriptionInput } from '.';
 import { Appointment } from 'fhir/r4b';
 

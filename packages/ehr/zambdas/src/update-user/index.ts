@@ -6,7 +6,7 @@ import { topLevelCatch } from '../shared/errors';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
 import { makeQualificationForPractitioner } from '../shared/practitioners';
 import { getRoleId } from '../shared/rolesUtils';
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface UpdateUserInput {

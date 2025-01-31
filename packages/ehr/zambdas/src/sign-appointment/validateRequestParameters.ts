@@ -1,6 +1,6 @@
 import { SignAppointmentInput } from 'utils';
 import { getSecret, SecretsKeys } from 'zambda-utils';
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 
 export function validateRequestParameters(input: ZambdaInput): SignAppointmentInput & { userToken: string } {
   console.group('validateRequestParameters');

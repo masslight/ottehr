@@ -17,7 +17,7 @@ import { Secrets } from 'zambda-utils';
 import { getAuth0Token, getRoleMembers, lambdaResponse } from '../shared';
 import { topLevelCatch } from '../shared/errors';
 import { createOystehrClient } from '../shared/helpers';
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // For local development it makes it easier to track performance

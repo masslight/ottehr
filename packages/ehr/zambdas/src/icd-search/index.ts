@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { IcdSearchResponse } from 'utils';
 import { getSecret, SecretsKeys } from 'zambda-utils';
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {

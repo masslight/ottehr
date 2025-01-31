@@ -38,7 +38,7 @@ import {
 } from '../shared/chart-data/chart-data-helpers';
 import { topLevelCatch } from '../shared/errors';
 import { checkOrCreateM2MClientToken, createOystehrClient, getVideoRoomResourceExtension } from '../shared/helpers';
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 import { createAdditionalQuestions, createExamObservations } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

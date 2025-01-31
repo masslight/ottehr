@@ -13,7 +13,6 @@ import {
   DATETIME_FULL_NO_YEAR,
   FHIR_ZAPEHR_URL,
   POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR,
-  ZambdaInput,
   formatPhoneNumberDisplay,
   getAppointmentResourceById,
   getCriticalUpdateTagOp,
@@ -23,6 +22,7 @@ import {
   getRelatedPersonForPatient,
   isPostTelemedAppointment,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { Secrets, SecretsKeys, getSecret, topLevelCatch } from 'zambda-utils';
 import { captureSentryException, configSentry, getAuth0Token, sendInPersonCancellationEmail } from '../../shared';
 import { getUser } from '../../shared/auth';

@@ -12,7 +12,7 @@ import {
 import { SecretsKeys, getSecret, Secrets } from 'zambda-utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
 import { makeQualificationForPractitioner } from '../shared/practitioners';
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations

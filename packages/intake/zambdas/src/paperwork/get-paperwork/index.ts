@@ -24,7 +24,6 @@ import {
   ServiceMode,
   UCGetPaperworkResponse,
   VisitType,
-  ZambdaInput,
   extractHealthcareServiceAndSupportingLocations,
   getLastUpdateTimestampForResource,
   getQuestionnaireAndValueSets,
@@ -34,6 +33,7 @@ import {
   serviceModeForHealthcareService,
   userHasAccessToPatient,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { Secrets, topLevelCatch } from 'zambda-utils';
 import '../../../instrument.mjs';
 import { getAuth0Token } from '../../shared';

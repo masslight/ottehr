@@ -8,8 +8,8 @@ import {
   getPatientContactEmail,
   getWaitingMinutesAtSchedule,
   TaskStatus,
-  ZambdaInput,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { topLevelCatch } from 'zambda-utils';
 import '../../../../instrument.mjs';
 import { captureSentryException, configSentry, getAuth0Token } from '../../../shared';

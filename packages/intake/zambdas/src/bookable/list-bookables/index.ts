@@ -11,8 +11,8 @@ import {
   ServiceModeCoding,
   serviceModeForHealthcareService,
   stateCodeToFullName,
-  ZambdaInput,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { getSecret, SecretsKeys, topLevelCatch } from 'zambda-utils';
 import { getAuth0Token } from '../../shared';
 import { getSlugForBookableResource } from '../helpers';

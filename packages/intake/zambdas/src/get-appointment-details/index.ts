@@ -6,9 +6,9 @@ import {
   APPOINTMENT_NOT_FOUND_ERROR,
   AvailableLocationInformation,
   SCHEDULE_NOT_FOUND_ERROR,
-  ZambdaInput,
   getAvailableSlotsForSchedule,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { Secrets, SecretsKeys, getSecret, topLevelCatch } from 'zambda-utils';
 import '../../instrument.mjs';
 import { captureSentryException, configSentry, getAuth0Token } from '../shared';

@@ -12,13 +12,13 @@ import {
   JoinCallResponse,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   TELEMED_VIDEO_ROOM_CODE,
-  ZambdaInput,
   createOystehrClient,
   getAppointmentResourceById,
   getRelatedPersonForPatient,
   getVirtualServiceResourceExtension,
   userHasAccessToPatient,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { SecretsKeys, getSecret, lambdaResponse } from 'zambda-utils';
 import {
   getAuth0Token,

@@ -1,5 +1,5 @@
 import { GetMedicationOrdersInput } from 'utils';
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 
 export function validateRequestParameters(input: ZambdaInput): GetMedicationOrdersInput & Pick<ZambdaInput, 'secrets'> {
   console.group('validateRequestParameters');

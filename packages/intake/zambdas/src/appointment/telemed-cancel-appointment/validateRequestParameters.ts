@@ -1,4 +1,5 @@
-import { CancellationReasonOptionsProviderSideTelemed, CancellationReasonOptionsTelemed, ZambdaInput } from 'utils';
+import { CancellationReasonOptionsProviderSideTelemed, CancellationReasonOptionsTelemed } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { CancelAppointmentInput } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): CancelAppointmentInput {

@@ -11,8 +11,8 @@ import {
   UpdateAppointmentRequestParams,
   UpdateAppointmentResponse,
   userHasAccessToPatient,
-  ZambdaInput,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { getSecret, SecretsKeys, topLevelCatch } from 'zambda-utils';
 import { checkOrCreateM2MClientToken, getUser } from '../../shared';
 import { createUpdateUserRelatedResources, creatingPatientUpdateRequest } from '../../shared/appointment/helpers';

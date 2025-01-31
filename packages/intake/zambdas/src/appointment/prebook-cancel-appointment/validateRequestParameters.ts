@@ -1,4 +1,5 @@
-import { CancellationReasonOptionsInPerson, ZambdaInput } from 'utils';
+import { CancellationReasonOptionsInPerson } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { CancelAppointmentInput } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): CancelAppointmentInput {

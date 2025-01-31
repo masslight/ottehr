@@ -17,7 +17,7 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 import { getChartData } from '../get-chart-data';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 import { VideoResourcesAppointmentPackage } from '../shared/pdf/visit-details-pdf/types';
 import { getVideoResources } from '../shared/pdf/visit-details-pdf/get-video-resources';
 import { composeAndCreateVisitNotePdf } from '../shared/pdf/visit-details-pdf/visit-note-pdf-creation';

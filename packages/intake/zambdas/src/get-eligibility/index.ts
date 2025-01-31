@@ -20,16 +20,15 @@ import {
   ELIGIBILITY_FAILED_REASON_META_TAG,
   ELIGIBILITY_PRACTITIONER_META_TAG_PREFIX,
   ELIGIBILITY_RELATED_PERSON_META_TAG,
-  GetEligibilityInput,
   GetEligibilityInsuranceData,
   GetEligibilityPolicyHolder,
   INSURANCE_COVERAGE_CODING,
   InsurancePlanDTO,
   PRIVATE_EXTENSION_BASE_URL,
-  ZambdaInput,
   createOystehrClient,
   removeTimeFromDate,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { SecretsKeys, getSecret, lambdaResponse } from 'zambda-utils';
 import { createInsurancePlanDto, createOrUpdateRelatedPerson, getAuth0Token } from '../shared';
 import { validateInsuranceRequirements, validateRequestParameters } from './validation';
@@ -41,7 +40,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   let eligible = false;
   try {
     console.group('validateRequestParameters');
-    let validatedParameters: GetEligibilityInput;
+    let validatedParameters: ReturnType<typeof validateRequestParameters>;
     try {
       validatedParameters = validateRequestParameters(input);
     } catch (error: any) {

@@ -6,7 +6,7 @@ import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 import { getAuth0Token } from '../shared';
 import { sendgridEmail, sendSlackNotification, topLevelCatch } from '../shared/errors';
 import { createOystehrClient } from '../shared/helpers';
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 import { bundleResourcesConfig, codingContainedInList, getEmailsFromGroup } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
