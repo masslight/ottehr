@@ -239,12 +239,12 @@ export default function AppointmentTableRow({
   const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
   const user = useEvolveUser();
   const [isCSSButtonIsLoading, setCSSButtonIsLoading] = useState(false);
-  const { handleUpdatePractitionerAndStatus } = usePractitionerActions(encounter, 'start', practitionerType.Admitter);
+  const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'start', practitionerType.Admitter);
 
   const handleCSSButton = async (): Promise<void> => {
     setCSSButtonIsLoading(true);
     try {
-      await handleUpdatePractitionerAndStatus();
+      await handleUpdatePractitioner();
       await handleChangeInPersonVisitStatus(encounter, user, oystehrZambda, 'intake');
       navigate(`/in-person/${appointment.id}/patient-info`);
     } catch (error) {

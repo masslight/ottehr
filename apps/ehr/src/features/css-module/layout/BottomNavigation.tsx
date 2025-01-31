@@ -18,7 +18,7 @@ export const BottomNavigation = (): JSX.Element => {
   const { goToNext, goToPrevious, isNavigationHidden, isFirstPage, isLastPage, interactionMode, isNavigationDisabled } =
     useNavigationContext();
   const practitionerTypeFromMode = interactionMode === 'intake' ? practitionerType.Admitter : practitionerType.Attender;
-  const { isEncounterUpdatePending, handleUpdatePractitionerAndStatus } = usePractitionerActions(
+  const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
     encounter,
     'end',
     practitionerTypeFromMode
@@ -30,7 +30,7 @@ export const BottomNavigation = (): JSX.Element => {
     try {
       setNextButtonLoading(true);
       if (isLastPage) {
-        await handleUpdatePractitionerAndStatus();
+        await handleUpdatePractitioner();
         setNextButtonLoading(false);
       }
       goToNext();

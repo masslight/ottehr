@@ -78,7 +78,7 @@ export const Header = (): JSX.Element => {
   const { interactionMode, setInteractionMode } = useNavigationContext();
   const nextMode = interactionMode === 'intake' ? 'provider' : 'intake';
   const practitionerTypeFromMode = interactionMode === 'intake' ? practitionerType.Attender : practitionerType.Admitter;
-  const { isEncounterUpdatePending, handleUpdatePractitionerAndStatus } = usePractitionerActions(
+  const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
     encounter,
     'start',
     practitionerTypeFromMode
@@ -87,7 +87,7 @@ export const Header = (): JSX.Element => {
   const handleSwitchMode = async (): Promise<void> => {
     try {
       if (!appointmentID) return;
-      await handleUpdatePractitionerAndStatus();
+      await handleUpdatePractitioner();
       void refetch();
       setInteractionMode(nextMode);
     } catch (error: any) {

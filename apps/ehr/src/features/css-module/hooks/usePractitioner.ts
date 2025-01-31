@@ -8,7 +8,7 @@ export const usePractitionerActions = (
   encounter: Encounter | undefined,
   action: 'start' | 'end',
   practitionerType: Coding[]
-): { isEncounterUpdatePending: boolean; handleUpdatePractitionerAndStatus: () => Promise<void> } => {
+): { isEncounterUpdatePending: boolean; handleUpdatePractitioner: () => Promise<void> } => {
   const { oystehrZambda } = useApiClients();
   const user = useEvolveUser();
 
@@ -22,6 +22,6 @@ export const usePractitionerActions = (
 
   return {
     isEncounterUpdatePending: mutation.isLoading,
-    handleUpdatePractitionerAndStatus: mutation.mutateAsync,
+    handleUpdatePractitioner: mutation.mutateAsync,
   };
 };
