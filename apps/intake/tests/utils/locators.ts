@@ -40,6 +40,23 @@ export class Locators {
   mobileOptIn: Locator;
   contactInformationHeading: Locator;
   patientDetailsHeading: Locator;
+  patientEthnicity: Locator;
+  patientRace: Locator;
+  patientPreferredLanguage: Locator;
+  selfPayOption: Locator;
+  responsiblePartyRelationship: Locator;
+  responsiblePartyFirstName: Locator;
+  responsiblePartyLastName: Locator;
+  responsiblePartyBirthSex: Locator;
+  hipaaAcknowledgement: Locator;
+  consentToTreat: Locator;
+  signature: Locator;
+  consentFullName: Locator;
+  consentSignerRelationship: Locator;
+  editPaperwork: Locator;
+  PCPHeading: Locator;
+  responsiblePartyHeading: Locator;
+  photoIDHeading: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -48,6 +65,9 @@ export class Locators {
     this.continueButton = page.getByText('Continue');
     this.reserveButton = page.getByRole('button', { name: 'Reserve this check-in time' });
     this.thankYouHeading = page.getByRole('heading', { name: 'Thank you for choosing Ottehr!' });
+    this.PCPHeading = page.getByRole('heading', { name: 'Primary Care Physician' });
+    this.responsiblePartyHeading = page.getByRole('heading', { name: 'Responsible party information' });
+    this.photoIDHeading = page.getByRole('heading', { name: 'Photo ID' });
     this.locationName = page.getByTestId(dataTestIds.locationNameReviewScreen);
     this.prebookSlotReviewScreen = page.getByTestId(dataTestIds.prebookSlotReviewScreen);
     this.titleReviewScreen = page.getByRole('heading', { name: 'Review and submit' });
@@ -70,7 +90,6 @@ export class Locators {
     this.cancelConfirmationScreenHeading = page.getByRole('heading', { name: 'Your visit has been canceled' });
     this.bookAgainButton = page.getByRole('button', { name: 'Book again' });
     this.homeScreenHeading = page.getByRole('heading', { name: 'Welcome to Ottehr' });
-    this.proceedToPaperwork = page.getByRole('button', { name: 'Proceed to paperwork' });
     this.streetAddress = page.locator('[id="patient-street-address"]');
     this.streetAddressLine2 = page.locator('[id="patient-street-address-2"]');
     this.patientCity = page.locator('[id="patient-city"]');
@@ -78,9 +97,23 @@ export class Locators {
     this.patientZip = page.locator('[id="patient-zip"]');
     this.patientEmail = page.locator('[id="patient-email"]');
     this.patientNumber = page.locator('[id="patient-number"]');
+    this.patientEthnicity = page.locator('[id="patient-ethnicity"]');
+    this.patientRace = page.locator('[id="patient-race"]');
+    this.patientPreferredLanguage = page.locator('[id="preferred-language"]');
     this.mobileOptIn = page.getByLabel('mobile-opt-in-label');
     this.contactInformationHeading = page.getByRole('heading', { name: 'Contact information' });
     this.patientDetailsHeading = page.getByRole('heading', { name: 'Patient details' });
+    this.selfPayOption = page.getByLabel('I will pay without insurance');
+    this.responsiblePartyRelationship = page.locator('[id="responsible-party-relationship"]');
+    this.responsiblePartyFirstName = page.locator('[id="responsible-party-first-name"]');
+    this.responsiblePartyLastName = page.locator('[id="responsible-party-last-name"]');
+    this.responsiblePartyBirthSex = page.locator('[id="responsible-party-birth-sex"]');
+    this.hipaaAcknowledgement = page.getByLabel('I have reviewed and accept HIPAA Acknowledgement *');
+    this.consentToTreat = page.getByLabel('I have reviewed and accept Consent to Treat and Guarantee of Payment *');
+    this.signature = page.locator('[id="signature"]');
+    this.consentFullName = page.locator('[id="full-name"]');
+    this.consentSignerRelationship = page.locator('[id="consent-form-signer-relationship"]');
+    this.editPaperwork = page.getByRole('button', { name: 'Edit paperwork' });
   }
 
   async selectDifferentFamilyMember(): Promise<void> {
