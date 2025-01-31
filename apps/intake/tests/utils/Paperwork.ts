@@ -201,19 +201,19 @@ export class Paperwork {
     await this.fillMobileOptIn();
   }
   async fillStreetAddress(): Promise<void> {
-    await this.locator.streetAddress.fill('Test address');
+    await this.locator.streetAddress.pressSequentially('Test address');
   }
   async fillStreetAddressLine2(): Promise<void> {
-    await this.locator.streetAddressLine2.fill('Test Address Line 2');
+    await this.locator.streetAddressLine2.pressSequentially('Test Address Line 2');
   }
   async fillPatientCity(): Promise<void> {
-    await this.locator.patientCity.fill('Test City');
+    await this.locator.patientCity.pressSequentially('Test City');
   }
   async fillPatientState(): Promise<void> {
     const randomState = this.getRandomState();
     await this.locator.patientState.click();
     await this.locator.patientState.pressSequentially(randomState);
-    await this.verifyOptionIsPresentAndSelect(randomState);
+    await this.page.getByRole('option', { name: randomState }).click();
   }
   async fillPatientZip(): Promise<void> {
     await this.locator.patientZip.fill('12345');
@@ -236,19 +236,19 @@ export class Paperwork {
     await expect(this.locator.patientDetailsHeading).toBeVisible();
   }
   async fillEthnicity(): Promise<void> {
+    await this.validateAllOptions(this.locator.patientEthnicity, Object.values(PatientEthnicity), 'ethnicity');
     const randomEthnicity = this.getRandomEthnicity();
-    await this.locator.patientEthnicity.click();
-    await this.verifyOptionIsPresentAndSelect(randomEthnicity);
+    await this.page.getByRole('option', { name: randomEthnicity, exact: true }).click();
   }
   async fillRace(): Promise<void> {
+    await this.validateAllOptions(this.locator.patientRace, Object.values(PatientRace), 'race');
     const randomRace = this.getRandomRace();
-    await this.locator.patientRace.click();
-    await this.verifyOptionIsPresentAndSelect(randomRace);
+    await this.page.getByRole('option', { name: randomRace }).click();
   }
   async fillPreferredLanguage(): Promise<void> {
+    await this.validateAllOptions(this.locator.patientPreferredLanguage, this.language, 'language');
     const randomLanguage = this.getRandomElement(this.language);
-    await this.locator.patientPreferredLanguage.click();
-    await this.verifyOptionIsPresentAndSelect(randomLanguage);
+    await this.page.getByRole('option', { name: randomLanguage }).click();
   }
   async fillPatientDetailsRequiredFields(): Promise<void> {
     await this.fillEthnicity();
@@ -282,23 +282,36 @@ export class Paperwork {
     await this.locator.responsiblePartyLastName.fill(lastName);
   }
   async fillResponsiblePartyBirthSex(): Promise<void> {
+    await this.validateAllOptions(this.locator.responsiblePartyBirthSex, this.birthSex, 'birth sex');
     const birthSex = this.getRandomElement(this.birthSex);
-    await this.locator.responsiblePartyBirthSex.click();
-    await this.verifyOptionIsPresentAndSelect(birthSex);
+    await this.page.getByRole('option', { name: birthSex }).click();
   }
   async fillResponsiblePartyDOB(): Promise<void> {
     // TO DO
   }
   async fillResponsiblePartySelfRelationship(): Promise<void> {
-    await this.locator.responsiblePartyRelationship.click();
+    await this.validateAllOptions(
+      this.locator.responsiblePartyRelationship,
+      [this.relationshipResponsiblePartySelf],
+      'responsible party self'
+    );
     await this.page.getByRole('option', { name: this.relationshipResponsiblePartySelf }).click();
   }
   async fillResponsiblePartyNotSelfRelationship(): Promise<void> {
+    await this.validateAllOptions(
+      this.locator.responsiblePartyRelationship,
+      this.relationshipResponsiblePartyNotSelf,
+      'responsible party not self'
+    );
     const relationship = this.getRandomElement(this.relationshipResponsiblePartyNotSelf);
-    await this.locator.responsiblePartyRelationship.click();
-    await this.verifyOptionIsPresentAndSelect(relationship);
+    await this.page.getByRole('option', { name: relationship }).click();
   }
   async fillConsentForms(): Promise<void> {
+    await this.validateAllOptions(
+      this.locator.consentSignerRelationship,
+      this.relationshipConsentForms,
+      'consent signer'
+    );
     const relationshipConsentForms = this.getRandomElement(this.relationshipConsentForms);
     await this.locator.hipaaAcknowledgement.check();
     await this.locator.consentToTreat.check();
@@ -307,14 +320,15 @@ export class Paperwork {
     await this.locator.consentFullName.click();
     await this.locator.consentFullName.fill('Test consent full name');
     await this.locator.consentSignerRelationship.click();
-    await this.verifyOptionIsPresentAndSelect(relationshipConsentForms);
+    await this.page.getByRole('option', { name: relationshipConsentForms }).click();
   }
-  async verifyOptionIsPresentAndSelect(value: string): Promise<void> {
+  async validateAllOptions(locator: any, optionsList: string[], type: string): Promise<void> {
+    await locator.click();
     const options = await this.page.locator('[role="option"]').allInnerTexts();
-    if (options.includes(value)) {
-      await this.page.getByRole('option', { name: value, exact: true }).click();
-    } else {
-      console.warn(`Option '${value}' not found in the dropdown.`);
+    for (const option of optionsList) {
+      if (!options.includes(option)) {
+        throw new Error(`Test failed: Missing ${type} option: '${option}'`);
+      }
     }
   }
 }
