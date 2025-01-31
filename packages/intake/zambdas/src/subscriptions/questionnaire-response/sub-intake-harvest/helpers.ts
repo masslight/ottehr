@@ -95,7 +95,7 @@ interface DocToSaveData {
   text: string;
   files: FileDocDataForDocReference[];
   dateCreated: string;
-  references: object;
+  references: { context?: DocumentReference['context']; subject?: DocumentReference['subject'] };
 }
 
 interface CreateConsentResourcesInput {
