@@ -1,8 +1,8 @@
 import { BrowserContext, Page, expect, test } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
 import { Locators } from '../../utils/locators';
-import { ReviewPage } from '../../utils/ReviewPage';
 import { Paperwork } from '../../utils/Paperwork';
+import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 
 let context: BrowserContext;
 let page: Page;
@@ -37,8 +37,8 @@ let lastName: string | undefined;
 
 test('Prerequisite - Schedule in person visit', async () => {
   const locators = new Locators(page);
-  const reviewPage = new ReviewPage(page);
-  const bookingData = await reviewPage.goToReviewPageInPersonVisit();
+  const prebookInPersonFlow = new PrebookInPersonFlow(page);
+  const bookingData = await prebookInPersonFlow.goToReviewPageInPersonVisit();
   email = bookingData.email;
   firstName = bookingData.firstName;
   lastName = bookingData.lastName;

@@ -17,3 +17,4 @@ export * from './vitals';
 export * from './encounter';
 export * from './patientMasterRecord';
 export * from './billing';
+export * from './questionnaires';

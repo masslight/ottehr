@@ -898,3 +898,8 @@ export interface DocumentReferenceParams {
     text?: string;
   };
 }
+
+export interface CanonicalUrl {
+  url: string;
+  version: string;
+}
