@@ -34,39 +34,36 @@ import { ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resou
 import { DateTime } from 'luxon';
 import { FHIR_IDENTIFIER_NPI } from 'utils/lib/types';
 import { assertDefined } from './helpers';
+import { CandidApiClient } from 'candidhealth';
+import { RenderingProviderid } from 'candidhealth/api/resources/contracts/resources/v2';
 
 const CODE_SYSTEM_HL7_IDENTIFIER_TYPE = 'http://terminology.hl7.org/CodeSystem/v2-0203';
 const CODE_SYSTEM_HL7_SUBSCRIBER_RELATIONSHIP = 'http://terminology.hl7.org/CodeSystem/subscriber-relationship';
 
-const BILLING_PROVIDER: Organization = {
-  resourceType: 'Organization',
-  name: 'BillingProviderName',
-  identifier: [
-    {
-      system: FHIR_IDENTIFIER_NPI,
-      value: 'BillingProviderNpi',
-    },
-    {
-      type: {
-        coding: [
-          {
-            system: CODE_SYSTEM_HL7_IDENTIFIER_TYPE,
-            code: 'TAX',
-          },
-        ],
-      },
-      value: '123456789',
-    },
-  ],
-  address: [
-    {
-      line: ['BillingProviderAddressLine'],
-      city: 'BillingProviderCity',
-      state: 'CA',
-      postalCode: '12345-1234',
-    },
-  ],
+interface BillingProviderData {
+  organizationName?: string;
+  firstName?: string;
+  lastName?: string;
+  npi: string;
+  taxId: string;
+  addressLine: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  zipPlusFourCode: string;
+}
+
+const STUB_BILLING_PROVIDER_DATA: BillingProviderData = {
+  organizationName: 'StubBillingProvider',
+  npi: '0000000000',
+  taxId: '000000000',
+  addressLine: 'stub address line',
+  city: 'Stub city',
+  state: 'CA',
+  zipCode: '00000',
+  zipPlusFourCode: '0000',
 };
+
 const SERVICE_FACILITY_LOCATION: Location = {
   resourceType: 'Location',
   name: 'ServiceFacilityName',
@@ -99,16 +96,23 @@ export interface CreateEncounterInput {
   insuranceResources?: InsuranceResources;
 }
 
-export function candidCreateEncounterRequest(input: CreateEncounterInput): EncounterCreate {
+export async function candidCreateEncounterRequest(
+  input: CreateEncounterInput,
+  apiClient: CandidApiClient
+): Promise<EncounterCreate> {
   const { encounter, patient, practitioner, diagnoses, procedures, insuranceResources } = input;
   const patientName = assertDefined(patient.name?.[0], 'Patient name');
   const patientAddress = assertDefined(patient.address?.[0], 'Patient address');
-  const billingProviderAddress = assertDefined(BILLING_PROVIDER.address?.[0], 'Billing provider address');
-  const billingProviderPostalCodeTokens = assertDefined(
-    billingProviderAddress.postalCode,
-    'Billing provider postal code'
-  ).split('-');
+  const practitionerNpi = assertDefined(getNpi(practitioner.identifier), 'Practitioner NPI');
   const practitionerName = assertDefined(practitioner.name?.[0], 'Practitioner name');
+  const billingProviderData = insuranceResources
+    ? await fetchBillingProviderData(
+        practitionerNpi,
+        assertDefined(insuranceResources.payor.name, 'Payor name'),
+        'CA', // TODO pass a correct state
+        apiClient
+      )
+    : STUB_BILLING_PROVIDER_DATA;
   const serviceFacilityAddress = assertDefined(SERVICE_FACILITY_LOCATION.address, 'Service facility address');
   const serviceFacilityPostalCodeTokens = assertDefined(
     serviceFacilityAddress.postalCode,
@@ -142,18 +146,17 @@ export function candidCreateEncounterRequest(input: CreateEncounterInput): Encou
       },
     },
     billingProvider: {
-      organizationName: assertDefined(BILLING_PROVIDER.name, 'Billing provider name'),
-      npi: assertDefined(getNpi(BILLING_PROVIDER.identifier), 'Billing provider NPI'),
-      taxId: assertDefined(
-        getIdentifierValue(BILLING_PROVIDER.identifier, CODE_SYSTEM_HL7_IDENTIFIER_TYPE, 'TAX'),
-        'Billing provider TAX ID'
-      ),
+      organizationName: billingProviderData.organizationName,
+      firstName: billingProviderData.firstName,
+      lastName: billingProviderData.lastName,
+      npi: billingProviderData.npi,
+      taxId: billingProviderData.taxId,
       address: {
-        address1: assertDefined(billingProviderAddress.line?.[0], 'Billing provider address line'),
-        city: assertDefined(billingProviderAddress.city, 'Billing provider city'),
-        state: assertDefined(billingProviderAddress.state as State, 'Billing provider state'),
-        zipCode: billingProviderPostalCodeTokens[0],
-        zipPlusFourCode: billingProviderPostalCodeTokens[1],
+        address1: billingProviderData.addressLine,
+        city: billingProviderData.city,
+        state: billingProviderData.state as State,
+        zipCode: billingProviderData.zipCode,
+        zipPlusFourCode: billingProviderData.zipPlusFourCode,
       },
     },
     renderingProvider: {
@@ -277,5 +280,63 @@ function createSubscriberPrimary(insuranceResources: InsuranceResources | undefi
       payerName: assertDefined(payor.name, 'Payor name'),
       payerId: assertDefined(getIdentifierValue(payor.identifier, CODE_SYSTEM_HL7_IDENTIFIER_TYPE, 'XX'), 'Payor id'),
     },
+  };
+}
+
+async function fetchBillingProviderData(
+  renderingProviderNpi: string,
+  payerName: string,
+  state: string,
+  apiClient: CandidApiClient
+): Promise<BillingProviderData> {
+  const providersResponse = await apiClient.organizationProviders.v3.getMulti({
+    npi: renderingProviderNpi,
+    isRendering: true,
+  });
+  const renderingProviderId = providersResponse.ok ? providersResponse.body.items[0].organizationProviderId : undefined;
+  if (renderingProviderId == null) {
+    return STUB_BILLING_PROVIDER_DATA;
+  }
+  const contractsResponse = await apiClient.contracts.v2.getMulti({
+    renderingProviderIds: [RenderingProviderid(renderingProviderId)],
+    payerNames: payerName,
+    contractStatus: 'effective',
+    states: state as State,
+  });
+  const contractingProvider =
+    contractsResponse.ok && contractsResponse.body.items.length === 1
+      ? contractsResponse.body.items[0].contractingProvider
+      : undefined;
+  const billingProviderId =
+    contractingProvider != null && contractingProvider.isBilling
+      ? contractingProvider.organizationProviderId
+      : undefined;
+  if (billingProviderId == null) {
+    return STUB_BILLING_PROVIDER_DATA;
+  }
+  const billingProvierResponse = await apiClient.organizationProviders.v3.get(billingProviderId);
+  if (!billingProvierResponse.ok) {
+    return STUB_BILLING_PROVIDER_DATA;
+  }
+  const billingProvider = billingProvierResponse.body;
+  const billingProvierAddress = billingProvider.addresses?.[0]?.address;
+  if (billingProvierAddress == null) {
+    return STUB_BILLING_PROVIDER_DATA;
+  }
+  const billingProviderTaxId = billingProvider.taxId;
+  if (billingProviderTaxId == null) {
+    return STUB_BILLING_PROVIDER_DATA;
+  }
+  return {
+    organizationName: billingProvider.organizationName,
+    firstName: billingProvider.firstName,
+    lastName: billingProvider.lastName,
+    npi: billingProvider.npi,
+    taxId: billingProviderTaxId,
+    addressLine: billingProvierAddress.address1,
+    city: billingProvierAddress.city,
+    state: billingProvierAddress.state,
+    zipCode: billingProvierAddress.zipCode,
+    zipPlusFourCode: billingProvierAddress.zipPlusFourCode,
   };
 }

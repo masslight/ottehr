@@ -203,9 +203,9 @@ const createCandidEncounter = async (
     return undefined;
   }
   const createEncounterInput = await createCandidCreateEncounterInput(visitResources, oystehr);
-  const request = candidCreateEncounterRequest(createEncounterInput);
-  console.log('Candid request:' + JSON.stringify(request, null, 2));
   const apiClient = createCandidApiClient(secrets);
+  const request = await candidCreateEncounterRequest(createEncounterInput, apiClient);
+  console.log('Candid request:' + JSON.stringify(request, null, 2));
   const response = await apiClient.encounters.v4.create(request);
   if (!response.ok) {
     throw new Error(`Error creating a Candid encounter. Response body: ${JSON.stringify(response.error)}`);
