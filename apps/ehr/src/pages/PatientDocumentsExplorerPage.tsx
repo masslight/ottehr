@@ -306,7 +306,7 @@ const PatientDocumentsExplorerPage: FC = () => {
                   )}
 
                   <RoundedButton
-                    disabled={!!selectedFolder == false}
+                    disabled={!selectedFolder || documentActions.isUploading}
                     component="label"
                     target="_blank"
                     variant="outlined"

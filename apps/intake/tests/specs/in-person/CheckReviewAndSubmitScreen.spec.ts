@@ -63,12 +63,10 @@ test('RP-10 Check location value is correct', async () => {
   await commonLocators.checkLocationValueIsCorrect(visitData.location);
 });
 
-// TODO: currently link is opened like http instead of https. Need to check how it work on demo env
-test.skip('RP-11 Check privacy policy link', async () => {
-  await commonLocators.checkPrivacyPolicyLink();
+test('RP-11 Check privacy policy link', async () => {
+  await commonLocators.checkLinkOpensPdf(locator.privacyPolicyReviewScreen);
 });
 
-// TODO: currently link is opened like http instead of https. Need to check how it work on demo env
-test.skip('RP-12 Check terms and conditions link', async () => {
-  await commonLocators.checkTermsAndConditionsLink();
+test('RP-12 Check terms and conditions link', async () => {
+  await commonLocators.checkLinkOpensPdf(locator.termsAndConditions);
 });

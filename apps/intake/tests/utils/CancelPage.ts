@@ -1,18 +1,8 @@
 import { BrowserContext, Page, expect } from '@playwright/test';
 import { FillingInfo } from './in-person/FillingInfo';
 import { Locators } from './locators';
+import { CancellationReasonOptionsInPerson } from 'utils';
 
-enum CancellationReasonOptionsInPerson {
-  'Patient improved' = 'Patient improved',
-  'Wait time too long' = 'Wait time too long',
-  'Prefer another provider' = 'Prefer another provider',
-  'Changing location' = 'Changing location',
-  'Changing to telemedicine' = 'Changing to telemedicine',
-  'Financial responsibility concern' = 'Financial responsibility concern',
-  'Insurance issue' = 'Insurance issue',
-  'Service never offered' = 'Service never offered',
-  'Duplicate visit or account error' = 'Duplicate visit or account error',
-}
 export class CancelPage {
   page: Page;
   locator: Locators;

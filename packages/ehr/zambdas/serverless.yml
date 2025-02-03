@@ -161,6 +161,31 @@ functions:
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+  
+  change-in-person-visit-status:
+    handler: src/change-in-person-visit-status/index.index
+    events:
+      - http:
+          path: zambda/change-in-person-visit-status/execute
+          method: POST
+    timeout: 25
+    package:
+      include:
+        - Roboto-Bold.otf
+        - Roboto-Regular.otf
+        - TiemposHeadline-Regular.otf
+        - ottehrLogo.png
+        - red-dot.png
+        - green-dot.png
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
+      AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
 
   update-user:
     handler: src/update-user/index.index

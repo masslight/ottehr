@@ -1,6 +1,7 @@
 {
   "name": "utils",
   "private": true,
+  "type": "module",
   "version": "0.0.1",
   "main": "lib/main.ts",
   "types": "lib/main.ts",
@@ -12,8 +13,11 @@
     "test": "vitest --silent",
     "coverage": "vitest run --coverage"
   },
-  "devDependencies": {},
   "dependencies": {
-    "axios": "1.6.2"
+    "axios": "1.6.2",
+    "lodash-es": "^4.17.21"
+  },
+  "devDependencies": {
+    "@types/lodash-es": "^4.17.12"
   }
 }

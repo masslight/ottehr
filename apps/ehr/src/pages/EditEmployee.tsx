@@ -134,9 +134,7 @@ export default function EditEmployeePage(): JSX.Element {
                 />
               )}
 
-              {!isActive ? (
-                <Skeleton height={300} sx={{ marginTop: -8 }} />
-              ) : (
+              {isActive && (
                 <Paper sx={{ padding: 3, marginTop: 3 }}>
                   <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
                     Provider schedule
