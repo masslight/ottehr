@@ -14,7 +14,7 @@ export class StateDetailsPage {
 
   async clickSaveChangesButton(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.editState.saveChangesButton).click();
-    await this.#page.waitForTimeout(5000);
+    await this.#page.waitForSelector('text=State was updated successfully');
   }
 
   async verifyStateNameTitle(stateNameTitle: string): Promise<void> {
@@ -29,7 +29,6 @@ export class StateDetailsPage {
 
   async setToggleOff(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.editState.operateInStateToggle).locator('input').setChecked(false);
-    await this.#page.waitForTimeout(5000);
   }
 
   async verifyToggleOff(): Promise<void> {
@@ -40,7 +39,6 @@ export class StateDetailsPage {
 
   async setToggleOn(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.editState.operateInStateToggle).locator('input').setChecked(true);
-    await this.#page.waitForTimeout(5000);
   }
 
   async verifyToggleOn(): Promise<void> {
