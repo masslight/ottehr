@@ -1,8 +1,6 @@
-
-import { Secrets } from "zambda-utils";
-import { VisitStatusWithoutUnknown } from "../appointment.types";
-import { User } from "../user.types";
-
+import { Secrets } from 'zambda-utils';
+import { VisitStatusWithoutUnknown } from '../appointment.types';
+import { User } from '../user.types';
 
 export interface ChangeInPersonVisitStatusInput {
   encounterId: string;
