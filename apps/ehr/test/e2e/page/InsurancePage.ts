@@ -1,4 +1,4 @@
-import { expect, Page } from '@playwright/test';
+import { Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 
 export class InsutrancePage {
@@ -8,12 +8,11 @@ export class InsutrancePage {
     this.#page = page;
   }
 
-  async clickNextPage(): Promise<InsurancePage> {
+  async clickNextPage(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.pagination.nextPage).click();
-    return this;
   }
 
-  async clickPreviousPage(): Promise<InsurancePage> {
+  async clickPreviousPage(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.pagination.previousPage).click();
-    return this;
   }
+}
