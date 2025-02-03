@@ -16,6 +16,7 @@ export const useZapEHRAPIClient = (): ReturnType<typeof getOystehrTelemedAPI> | 
           saveChartDataZambdaID: import.meta.env.VITE_APP_SAVE_CHART_DATA_ZAMBDA_ID,
           deleteChartDataZambdaID: import.meta.env.VITE_APP_DELETE_CHART_DATA_ZAMBDA_ID,
           changeTelemedAppointmentStatusZambdaID: import.meta.env.VITE_APP_CHANGE_TELEMED_APPOINTMENT_STATUS_ZAMBDA_ID,
+          changeInPersonVisitStatusZambdaID: import.meta.env.VITE_APP_CHANGE_IN_PERSON_VISIT_STATUS_ZAMBDA_ID,
           assignPractitionerZambdaID: import.meta.env.VITE_APP_ASSIGN_PRACTITIONER_ZAMBDA_ID,
           unassignPractitionerZambdaID: import.meta.env.VITE_APP_UNASSIGN_PRACTITIONER_ZAMBDA_ID,
           signAppointmentZambdaID: import.meta.env.VITE_APP_SIGN_APPOINTMENT_ZAMBDA_ID,

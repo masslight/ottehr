@@ -1,5 +1,6 @@
 export * from './appointment.types';
 export * from './assign-practitioner';
+export * from './change-in-person-visit-status';
 export * from './change-telemed-appointment-status';
 export * from './chart-data';
 export * from './encounter.types';
@@ -20,3 +21,4 @@ export * from './sign-appointment';
 export * from './sync-user';
 export * from './unassign-practitioner';
 export * from './user.types';
+

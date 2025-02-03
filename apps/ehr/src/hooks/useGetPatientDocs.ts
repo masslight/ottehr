@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { useQuery } from 'react-query';
+import { useQuery, useQueryClient } from 'react-query';
 import { FhirResource, List, DocumentReference, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useApiClients } from './useAppClients';
@@ -85,6 +85,7 @@ type UploadDocumentZambdaResponse = {
 };
 export type UsePatientDocsActionsReturn = {
   uploadDocumentAction: (uploadParams: UploadDocumentActionParams) => Promise<UploadDocumentActionResult>;
+  isUploading: boolean;
 };
 
 export type UseGetPatientDocsReturn = {
@@ -99,18 +100,26 @@ export type UseGetPatientDocsReturn = {
   documentActions: UsePatientDocsActionsReturn;
 };
 
+const QUERY_KEYS = {
+  GET_PATIENT_DOCS_FOLDERS: 'get-patient-docs-folders',
+  GET_SEARCH_PATIENT_DOCUMENTS: 'get-search-patient-documents',
+};
+
 export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsFilters): UseGetPatientDocsReturn => {
   const [documents, setDocuments] = useState<PatientDocumentInfo[]>();
   const [documentsFolders, setDocumentsFolders] = useState<PatientDocumentsFolder[]>([]);
   const [currentFilters, setCurrentFilters] = useState<PatientDocumentsFilters | undefined>(filters);
 
-  const { isLoading: isLoadingFolders } = useGetPatientDocsFolders({ patientId }, (docsFolders) => {
-    console.log(`[useGetPatientDocs] Folders data loading SUCCESS size=[${docsFolders.length}]. Content => `);
-    console.log(docsFolders);
-    setDocumentsFolders(docsFolders);
-  });
+  const { isLoading: isLoadingFolders, isFetching: isFetchingFolders } = useGetPatientDocsFolders(
+    { patientId },
+    (docsFolders) => {
+      console.log(`[useGetPatientDocs] Folders data loading SUCCESS size=[${docsFolders.length}]. Content => `);
+      console.log(docsFolders);
+      setDocumentsFolders(docsFolders);
+    }
+  );
 
-  const { isLoading: isLoadingDocuments } = useSearchPatientDocuments(
+  const { isLoading: isLoadingDocuments, isFetching: isFetchingDocuments } = useSearchPatientDocuments(
     { patientId: patientId, filters: currentFilters },
     (docs) => {
       console.log(`[useGetPatientDocs] found Docs [${docs.length}] => `);
@@ -197,10 +206,10 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   );
 
   return {
-    isLoadingDocuments: isLoadingDocuments,
+    isLoadingDocuments: isLoadingDocuments || isFetchingDocuments,
     documents: documents,
     // documentsByFolders: documentsByFolders,
-    isLoadingFolders: isLoadingFolders,
+    isLoadingFolders: isLoadingFolders || isFetchingFolders,
     documentsFolders: documentsFolders,
     searchDocuments: searchDocuments,
     downloadDocument: downloadDocument,
@@ -219,7 +228,7 @@ const useGetPatientDocsFolders = (
 ) => {
   const { oystehr } = useApiClients();
   return useQuery(
-    ['get-patient-docs-folders', { patientId }],
+    [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }],
     async () => {
       if (!oystehr) {
         throw new Error('useGetDocsFolders() oystehr client not defined');
@@ -295,15 +304,7 @@ const useSearchPatientDocuments = (
   const docCreationDate = filters?.dateAdded?.toFormat('yyyy-MM-dd');
   const { oystehr } = useApiClients();
   return useQuery(
-    [
-      'get-search-patient-documents',
-      {
-        patientId,
-        docSearchTerm: filters?.documentName,
-        docCreationDate: docCreationDate,
-        docFolderId: filters?.documentsFolder?.id,
-      },
-    ],
+    [QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS, { patientId }],
     async () => {
       if (!oystehr) throw new Error('useSearchPatientDocuments() oystehr not defined');
       if (!patientId) throw new Error('useSearchPatientDocuments() patientId not defined');
@@ -404,6 +405,8 @@ const debug__mimicTextNarrativeDocumentsFilter = (
 
 const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatientDocsActionsReturn => {
   const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+  const [isUploading, setIsUploading] = useState(false);
 
   const uploadDocumentAction = useCallback(
     async (params: UploadDocumentActionParams): Promise<UploadDocumentActionResult> => {
@@ -420,7 +423,7 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
         }
 
         console.log('signing request start ...');
-
+        setIsUploading(true);
         const createUploadDocumentRes = await oystehrZambda.zambda.execute({
           id: CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID,
           patientId: patientId,
@@ -452,6 +455,11 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
 
         console.log('Z3 file uploading SUCCESS');
 
+        await Promise.all([
+          queryClient.refetchQueries([QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }]),
+          queryClient.refetchQueries([QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS, { patientId }]),
+        ]);
+
         return {
           z3Url: z3Url,
           presignedUploadUrl: presignedUploadUrl,
@@ -461,13 +469,16 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
       } catch (error: unknown) {
         console.error(error);
         throw error;
+      } finally {
+        setIsUploading(false);
       }
     },
-    [oystehrZambda, patientId]
+    [oystehrZambda, patientId, queryClient]
   );
 
   return {
     uploadDocumentAction: uploadDocumentAction,
+    isUploading,
   };
 };
 

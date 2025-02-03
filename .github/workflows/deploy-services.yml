@@ -152,7 +152,7 @@ jobs:
         run: cd ${{ env.PACKAGE_LOCATION }} && npm run ci-deploy:${{ env.ENVIRONMENT }}
 
       - name: Deploy zambdas
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run deploy-zambdas ${{ env.ENVIRONMENT }}
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && ENV=${{ env.ENVIRONMENT }} npm run deploy-zambdas ${{ env.ENVIRONMENT }}
 
       - name: Update user roles
         if: ${{ github.event.inputs.service == 'ehr' }}

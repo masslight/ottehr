@@ -1,6 +1,6 @@
 import { expect, Page, Locator } from '@playwright/test';
 import { Locators } from './locators';
-import { AllStates, AllStatesToNames } from './Paperwork';
+import { AllStates, AllStatesToNames } from 'utils';
 
 export class CommonLocatorsHelper {
   page: Page;

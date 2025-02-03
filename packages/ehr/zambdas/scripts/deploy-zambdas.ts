@@ -46,6 +46,9 @@ const ZAMBDAS: { [name: string]: DeployZambda } = {
   'UNASSIGN-PRACTITIONER': {
     type: 'http_auth',
   },
+  'CHANGE-IN-PERSON-VISIT-STATUS': {
+    type: 'http_auth',
+  },
   'SIGN-APPOINTMENT': {
     type: 'http_auth',
   },
