@@ -214,10 +214,6 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/information-text-secondary`;
   })?.valueString;
 
-  const randomize = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/randomize`;
-  })?.valueBoolean;
-
   const dataType = validateQuestionnaireDataType(
     extension.find((ext) => {
       return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/data-type`;
@@ -308,7 +304,6 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     autofillFromWhenDisabled,
     infoText,
     secondaryInfoText,
-    randomize,
     dataType,
     filterWhen,
     validateAgeOver,

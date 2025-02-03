@@ -96,7 +96,6 @@ export interface QuestionnaireItemExtension {
   inputWidth?: InputWidthOption;
   minRows?: number;
   preferredElement?: FormElement;
-  randomize?: boolean;
   requireWhen?: QuestionnaireItemRequireWhen;
   secondaryInfoText?: string;
   textWhen?: QuestionnaireItemTextWhen;
