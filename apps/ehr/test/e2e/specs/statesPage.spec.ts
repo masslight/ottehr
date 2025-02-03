@@ -70,6 +70,8 @@ const STATES_41_50 = [
 ];
 const STATES_51_52 = ['WI - Wisconsin', 'WY - Wyoming'];
 const STATE_NAME = 'CO - Colorado';
+const STATE = 'CO';
+const STATE_TELEMED = 'CO - Telemed Colorado';
 
 test.beforeAll(async () => {
   await resourceHandler.setResources();
@@ -149,13 +151,13 @@ test('Open "States page", enter state abbreviation,  correct search result is di
 test('Open "States page", click on state,  state details page is opened', async ({ page }) => {
   const statesPage = await expectStatesPage(page);
   await statesPage.clickState(STATE_NAME);
-  await expectStateDetailsPage('CO', page);
+  await expectStateDetailsPage(STATE, page);
 });
 
 test('Open "States details page", click cancel button,  states page is opened', async ({ page }) => {
   const statesPage = await expectStatesPage(page);
   await statesPage.clickState(STATE_NAME);
-  const stateDetailsPage = await expectStateDetailsPage('CO', page);
+  const stateDetailsPage = await expectStateDetailsPage(STATE, page);
   await stateDetailsPage.clickCancelButton();
   await expectStatesPage(page);
 });
@@ -165,9 +167,9 @@ test('Open "States details page", check title and state name field,  verify stat
 }) => {
   const statesPage = await expectStatesPage(page);
   await statesPage.clickState(STATE_NAME);
-  const stateDetailsPage = await expectStateDetailsPage('CO', page);
-  await stateDetailsPage.verifyStateNameTitle('CO - Telemed Colorado');
-  await stateDetailsPage.verifyStateNameField('CO - Telemed Colorado');
+  const stateDetailsPage = await expectStateDetailsPage(STATE, page);
+  await stateDetailsPage.verifyStateNameTitle(STATE_TELEMED);
+  await stateDetailsPage.verifyStateNameField(STATE_TELEMED);
 });
 
 test('Open "States details page", toggle "Operate in state" and save changes, verify changes are saved', async ({
@@ -175,7 +177,7 @@ test('Open "States details page", toggle "Operate in state" and save changes, ve
 }) => {
   let statesPage = await expectStatesPage(page);
   await statesPage.clickState(STATE_NAME);
-  const stateDetailsPage = await expectStateDetailsPage('CO', page);
+  const stateDetailsPage = await expectStateDetailsPage(STATE, page);
 
   if (await stateDetailsPage.isToggleOn()) {
     await stateDetailsPage.setToggleOff();
@@ -183,13 +185,13 @@ test('Open "States details page", toggle "Operate in state" and save changes, ve
     await stateDetailsPage.reloadStateDetailsPage();
     await stateDetailsPage.verifyToggleOff();
     statesPage = await openStatesPage(page);
-    await statesPage.verifyOperateInState('CO', false);
+    await statesPage.verifyOperateInState(STATE, false);
   } else {
     await stateDetailsPage.setToggleOn();
     await stateDetailsPage.clickSaveChangesButton();
     await stateDetailsPage.reloadStateDetailsPage();
     await stateDetailsPage.verifyToggleOn();
     statesPage = await openStatesPage(page);
-    await statesPage.verifyOperateInState('CO', true);
+    await statesPage.verifyOperateInState(STATE, true);
   }
 });
