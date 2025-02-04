@@ -12,6 +12,7 @@ import {
   APIError,
   APPOINTMENT_NOT_FOUND_ERROR,
   AppointmentData,
+  PROJECT_NAME,
   UCGetPaperworkResponse,
   VisitType,
   formatPhoneNumberDisplay,
@@ -23,13 +24,12 @@ import { persist } from 'zustand/middleware';
 import { intakeFlowPageRoute, visitBasePath } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
 import zapehrApi from '../api/zapehrApi';
-import { ottehrLightBlue } from '../theme/ottehr/icons';
 import { PageContainer } from '../components';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import i18n from '../lib/i18n';
-import { PROJECT_NAME } from '../helpers';
+import { ottehrLightBlue } from '@theme/icons';
 
 type AppointmentState = { appointmentData: Partial<AppointmentData> };
 

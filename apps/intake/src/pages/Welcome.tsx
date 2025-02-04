@@ -14,7 +14,16 @@ import {
 } from 'react-router-dom';
 import { ErrorDialog, ErrorDialogConfig, FormInputType, PageForm } from 'ui-components';
 import { ZambdaClient, useUCZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
-import { GetScheduleResponse, PatientInfo, ScheduleType, ServiceMode, VisitType, getSelectors } from 'utils';
+import {
+  GetScheduleResponse,
+  PatientInfo,
+  ScheduleType,
+  ServiceMode,
+  VisitType,
+  getSelectors,
+  PROJECT_NAME,
+  PROJECT_WEBSITE,
+} from 'utils';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import zapehrApi, { AvailableLocationInformation } from '../api/zapehrApi';
@@ -25,7 +34,6 @@ import {
   bookingBasePath,
   intakeFlowPageRoute,
 } from '../App';
-import { ottehrLightBlue } from '../theme/ottehr/icons';
 import { PageContainer, Schedule } from '../components';
 import { WaitingEstimateCard } from '../components/WaitingEstimateCard';
 import { PatientInfoInProgress } from '../features/patients/types';
@@ -33,13 +41,12 @@ import {
   FillingOutAsValue,
   NOT_PATIENT_OR_GUARDIAN_ERROR,
   NO_LOCATION_ERROR,
-  PROJECT_NAME,
-  PROJECT_WEBSITE,
   getFillingThisOutAsOptions,
 } from '../helpers';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { usePreserveQueryParams } from '../hooks/usePreserveQueryParams';
 import { otherColors } from '../IntakeThemeProvider';
+import { ottehrLightBlue } from '@theme/icons';
 
 type BookingState = {
   visitType: VisitType | undefined;

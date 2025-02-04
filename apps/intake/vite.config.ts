@@ -46,8 +46,8 @@ export default (env) => {
       },
       resolve: {
         alias: {
-          '@theme': path.resolve(__dirname, appEnv.THEME_PATH || '/src/theme/ottehr'),
-          '@defaultTheme': path.resolve(__dirname, '/src/theme/ottehr'),
+          '@theme': path.resolve(__dirname, appEnv.THEME_PATH || '/src/themes/ottehr'),
+          '@defaultTheme': path.resolve(__dirname, '/src/themes/ottehr'),
         },
       },
     })

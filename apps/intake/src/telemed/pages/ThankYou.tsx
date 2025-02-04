@@ -3,7 +3,7 @@ import { Button, Divider, Grid, Typography } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { otherColors } from '../../IntakeThemeProvider';
 import { CustomContainer } from '../features/common';
-import { PROJECT_NAME } from '../../helpers';
+import { PROJECT_NAME } from 'utils';
 
 const ThankYou = (): JSX.Element => {
   return (

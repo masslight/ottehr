@@ -19,7 +19,7 @@ import { CustomContainer, useIntakeCommonStore } from '../features/common';
 import HomepageOption from '../features/homepage/HomepageOption';
 import { useZapEHRAPIClient } from '../utils';
 import { dataTestIds } from '../../helpers/data-test-ids';
-import { pastVisits } from 'src/themes/ottehr/icons';
+import { pastVisits } from '@theme/icons';
 
 const Homepage = (): JSX.Element => {
   const apiClient = useZapEHRAPIClient();

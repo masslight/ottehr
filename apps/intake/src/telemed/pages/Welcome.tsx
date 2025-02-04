@@ -7,8 +7,7 @@ import { EmergencyBanner } from '../components/EmergencyBanner';
 import { CustomContainer } from '../features/common';
 import { ottehrLightBlue } from '@theme/icons';
 import { dataTestIds } from '../../helpers/data-test-ids';
-import { PROJECT_NAME } from '../../helpers';
-
+import { PROJECT_NAME } from 'utils';
 const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean }): JSX.Element => {
   const navigate = useNavigate();
 

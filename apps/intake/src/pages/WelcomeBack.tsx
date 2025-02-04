@@ -24,7 +24,6 @@ import {
 import { intakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
 import { zapehrApi } from '../api';
-import { ottehrLightBlue } from '../theme/ottehr/icons';
 import { CardWithDescriptionAndLink, PageContainer } from '../components';
 import { getStartingPath } from '../helpers';
 import { safelyCaptureException } from '../helpers/sentry';
@@ -33,6 +32,7 @@ import { usePreserveQueryParams } from '../hooks/usePreserveQueryParams';
 import { Appointment } from '../types';
 import { useBookingContext } from './Welcome';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
+import { ottehrLightBlue } from '@theme/icons';
 
 const WelcomeBack = (): JSX.Element => {
   const navigate = useNavigate();
