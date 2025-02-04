@@ -14,10 +14,10 @@ import {
 } from '@mui/material';
 import { FC, ReactElement, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TelemedAppointmentInformation, TelemedAppointmentStatusEnum } from 'utils';
+import { TelemedAppointmentInformation, TelemedAppointmentStatusEnum, calculatePatientAge } from 'utils';
 import { otherColors } from '../../../CustomThemeProvider';
 import ChatModal from '../../../features/chat/ChatModal';
-import { calculatePatientAge, formatDateUsingSlashes } from '../../../helpers/formatDateTime';
+import { formatDateUsingSlashes } from '../../../helpers/formatDateTime';
 import { AppointmentStatusChip, StatusHistory } from '../../components';
 import { quickTexts } from '../../utils';
 import { TrackingBoardTableButton } from './TrackingBoardTableButton';
