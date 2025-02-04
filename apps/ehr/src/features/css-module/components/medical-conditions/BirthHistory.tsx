@@ -342,7 +342,7 @@ const CheckboxWithNotesField: FC<CheckboxWithNotesFieldProps> = (props) => {
       >
         <FormLabel
           sx={{
-            fontWeight: 700,
+            fontWeight: 500,
             color: 'primary.dark',
             whiteSpace: 'nowrap',
           }}

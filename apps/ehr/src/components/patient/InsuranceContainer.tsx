@@ -398,7 +398,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
                 color: theme.palette.error.main,
                 textTransform: 'none',
                 fontSize: '13px',
-                fontWeight: 700,
+                fontWeight: 500,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'flex-start',

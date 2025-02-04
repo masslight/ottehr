@@ -16,7 +16,7 @@ const PdfButton = ({ pdfUrl }: { pdfUrl?: string }): ReactElement => {
         borderColor: otherColors.consentBorder,
         borderRadius: 100,
         textTransform: 'none',
-        fontWeight: 700,
+        fontWeight: 500,
         fontSize: 14,
         minWidth: 'max-content',
       }}

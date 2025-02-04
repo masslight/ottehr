@@ -188,7 +188,7 @@ export const DiagnosesContainer: FC = () => {
                           disabled={isLoading || !value.resourceId}
                           onClick={() => onMakePrimary(value.resourceId!)}
                           size="small"
-                          sx={{ textTransform: 'none', fontWeight: 700 }}
+                          sx={{ textTransform: 'none', fontWeight: 500 }}
                         >
                           Make Primary
                         </Button>

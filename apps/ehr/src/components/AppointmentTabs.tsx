@@ -105,20 +105,20 @@ export default function AppointmentTabs({
                 data-testid={dataTestIds.dashboard.prebookedTab}
                 label={`Pre-booked${preBookedAppointments ? ` – ${preBookedAppointments?.length}` : ''}`}
                 value={ApptTab.prebooked}
-                sx={{ textTransform: 'none', fontWeight: 700 }}
+                sx={{ textTransform: 'none', fontWeight: 500 }}
               />
               <Tab
                 data-testid={dataTestIds.dashboard.inOfficeTab}
                 label={`In Office${inOfficeAppointments ? ` – ${inOfficeAppointments?.length}` : ''}`}
                 value={ApptTab['in-office']}
-                sx={{ textTransform: 'none', fontWeight: 700 }}
+                sx={{ textTransform: 'none', fontWeight: 500 }}
               />
               <Tab
                 label={`Discharged${completedAppointments ? ` – ${completedAppointments?.length}` : ''}`}
                 value={ApptTab.completed}
-                sx={{ textTransform: 'none', fontWeight: 700 }}
+                sx={{ textTransform: 'none', fontWeight: 500 }}
               />
-              <Tab label="Cancelled" value={ApptTab.cancelled} sx={{ textTransform: 'none', fontWeight: 700 }} />
+              <Tab label="Cancelled" value={ApptTab.cancelled} sx={{ textTransform: 'none', fontWeight: 500 }} />
               {loading && <Loading />}
             </TabList>
           </Box>

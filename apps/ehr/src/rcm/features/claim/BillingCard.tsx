@@ -29,7 +29,7 @@ export const BillingCard: FC = () => {
           <Table
             sx={{
               '& .MuiTableCell-head': {
-                fontWeight: 700,
+                fontWeight: 500,
               },
             }}
           >

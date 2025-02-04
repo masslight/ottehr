@@ -7,7 +7,7 @@ export const PrescribedMedicationReviewItem: FC<{ medication: PrescribedMedicati
 
   return (
     <>
-      <Typography fontWeight={700} mb={0.5}>
+      <Typography fontWeight={500} mb={0.5}>
         {medication.name}
       </Typography>
       <Typography>{medication.instructions}</Typography>

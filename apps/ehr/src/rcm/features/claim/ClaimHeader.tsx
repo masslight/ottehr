@@ -116,7 +116,7 @@ export const ClaimHeader: FC = () => {
             <Button
               sx={{
                 textTransform: 'none',
-                fontWeight: 700,
+                fontWeight: 500,
                 fontSize: 16,
               }}
               startIcon={<FileDownloadOutlinedIcon />}

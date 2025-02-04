@@ -377,7 +377,7 @@ export const TrackingBoardTableRowSkeleton: FC<{
                 variant="contained"
                 sx={{
                   fontSize: '15px',
-                  fontWeight: '700',
+                  fontWeight: 500,
                 }}
               >
                 text

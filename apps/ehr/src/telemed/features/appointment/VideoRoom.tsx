@@ -118,7 +118,7 @@ export const VideoRoom: FC = () => {
                   pl: '10px',
                 }}
               >
-                <Typography sx={{ fontWeight: 700, fontSize: '14px' }}>You</Typography>
+                <Typography sx={{ fontWeight: 500, fontSize: '14px' }}>You</Typography>
               </Box>
             </Box>
             {participants

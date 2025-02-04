@@ -332,8 +332,8 @@ export default function SchedulePage(): ReactElement {
             <TabContext value={tabName}>
               <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                 <TabList onChange={handleTabChange} aria-label="Tabs">
-                  <Tab label="Schedule" value="schedule" sx={{ textTransform: 'none', fontWeight: 700 }} />
-                  <Tab label="General" value="general" sx={{ textTransform: 'none', fontWeight: 700 }} />
+                  <Tab label="Schedule" value="schedule" sx={{ textTransform: 'none', fontWeight: 500 }} />
+                  <Tab label="General" value="general" sx={{ textTransform: 'none', fontWeight: 500 }} />
                 </TabList>
               </Box>
               {/* Page Content */}

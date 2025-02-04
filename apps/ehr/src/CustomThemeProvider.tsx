@@ -50,13 +50,13 @@ const typography: TypographyOptions = {
   // Other
   subtitle1: {
     fontSize: 20,
-    fontWeight: 700,
+    fontWeight: 500,
     fontFamily: textFonts.join(','),
     lineHeight: '140%',
   },
   subtitle2: {
     fontSize: 12,
-    fontWeight: 700,
+    fontWeight: 500,
     fontFamily: textFonts.join(','),
     lineHeight: '140%',
   },
@@ -86,7 +86,7 @@ const typography: TypographyOptions = {
   },
   button: {
     fontSize: 14,
-    fontWeight: 700,
+    fontWeight: 500,
     fontFamily: textFonts.join(','),
     lineHeight: '140%',
   },

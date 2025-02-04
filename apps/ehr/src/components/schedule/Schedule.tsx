@@ -450,7 +450,7 @@ export default function Schedule({ item, setItem }: ScheduleProps): ReactElement
                       width: 'fit-content',
                       height: '36px',
                       minHeight: '36px',
-                      fontWeight: 700,
+                      fontWeight: 500,
                       '&.Mui-selected': {
                         color: '#FFFFFF',
                         background: '#2169F5',

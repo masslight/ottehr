@@ -108,7 +108,7 @@ export default function AppointmentTableRowMobile({
                     )}
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center' }} gap={1}>
-                    <Typography variant="body1" sx={{ fontWeight: 700, wordBreak: 'break-word' }}>
+                    <Typography variant="body1" sx={{ fontWeight: 500, wordBreak: 'break-word' }}>
                       {patientName}
                     </Typography>{' '}
                     <PatientDateOfBirth dateOfBirth={patientDateOfBirth} />

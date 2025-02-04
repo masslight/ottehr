@@ -151,7 +151,7 @@ const PatientInformationPage: FC = () => {
                 <Typography
                   variant="body2"
                   color={otherColors.closeCross}
-                  sx={{ m: 1.25, maxWidth: 850, fontWeight: 700 }}
+                  sx={{ m: 1.25, maxWidth: 850, fontWeight: 500 }}
                 >
                   There are another patients with this name in our database. Please confirm by the DOB that you are
                   viewing the right patient.

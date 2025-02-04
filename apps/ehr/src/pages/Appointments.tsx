@@ -371,7 +371,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                       <KeyboardArrowDownIcon fontSize="small"></KeyboardArrowDownIcon>
                     )}
                   </IconButton>
-                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
                     Filters
                   </Typography>
                 </Grid>

@@ -35,7 +35,7 @@ export const ExcuseLink: FC<ExcuseCardProps> = (props) => {
       target="_blank"
     >
       <InsertDriveFileOutlinedIcon fontSize="small" />
-      <Typography sx={{ flexGrow: 1 }} fontWeight={700}>
+      <Typography sx={{ flexGrow: 1 }} fontWeight={500}>
         {label}
       </Typography>
       {onDelete && (

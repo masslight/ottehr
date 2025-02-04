@@ -30,7 +30,7 @@ export default function ScheduleOverridesDialog({
   setIsScheduleOverridesDialogOpen,
 }: ScheduleOverridesDialogProps): ReactElement {
   const buttonSx = {
-    fontWeight: '700',
+    fontWeight: 500,
     textTransform: 'none',
     borderRadius: 6,
   };

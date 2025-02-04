@@ -364,7 +364,7 @@ export default function AppointmentTableRow({
       <Typography
         variant="body2"
         color={theme.palette.getContrastText(theme.palette.background.default)}
-        style={{ display: 'inline', fontWeight: 700 }}
+        style={{ display: 'inline', fontWeight: 500 }}
       >
         Long wait: Please check on patient
       </Typography>
@@ -399,14 +399,14 @@ export default function AppointmentTableRow({
         <Typography
           variant="body2"
           color={theme.palette.getContrastText(theme.palette.background.default)}
-          style={{ display: 'inline', fontWeight: 700 }}
+          style={{ display: 'inline', fontWeight: 500 }}
         >
           Total LOS: {formatMinutes(totalMinutes)} mins
         </Typography>
         <Typography
           variant="body2"
           color={theme.palette.getContrastText(theme.palette.background.default)}
-          style={{ display: 'inline', fontWeight: 700 }}
+          style={{ display: 'inline', fontWeight: 500 }}
           sx={{ whiteSpace: { md: 'nowrap', sm: 'normal' } }}
         >
           Estimated wait time at check-in:
@@ -799,7 +799,7 @@ export default function AppointmentTableRow({
               borderRadius: 8,
               textTransform: 'none',
               fontSize: '15px',
-              fontWeight: '700',
+              fontWeight: 500,
             }}
           >
             Arrived

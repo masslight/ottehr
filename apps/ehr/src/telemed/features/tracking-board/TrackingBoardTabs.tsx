@@ -59,10 +59,10 @@ export function TrackingBoardTabs(): ReactElement {
       <TabContext value={value}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <TabList onChange={handleChange} aria-label="appointment tabs">
-            <Tab label="Ready for provider" value={ApptTab.ready} sx={{ textTransform: 'none', fontWeight: 700 }} />
-            <Tab label="Provider" value={ApptTab.provider} sx={{ textTransform: 'none', fontWeight: 700 }} />
-            <Tab label="Unsigned" value={ApptTab['not-signed']} sx={{ textTransform: 'none', fontWeight: 700 }} />
-            <Tab label="Complete" value={ApptTab.complete} sx={{ textTransform: 'none', fontWeight: 700 }} />
+            <Tab label="Ready for provider" value={ApptTab.ready} sx={{ textTransform: 'none', fontWeight: 500 }} />
+            <Tab label="Provider" value={ApptTab.provider} sx={{ textTransform: 'none', fontWeight: 500 }} />
+            <Tab label="Unsigned" value={ApptTab['not-signed']} sx={{ textTransform: 'none', fontWeight: 500 }} />
+            <Tab label="Complete" value={ApptTab.complete} sx={{ textTransform: 'none', fontWeight: 500 }} />
             {isFetching && <Loading />}
           </TabList>
         </Box>

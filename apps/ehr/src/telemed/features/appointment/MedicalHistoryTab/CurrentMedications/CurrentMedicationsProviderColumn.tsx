@@ -289,7 +289,7 @@ export const CurrentMedicationsProviderColumn: FC = () => {
                 borderColor: otherColors.consentBorder,
                 borderRadius: 100,
                 textTransform: 'none',
-                fontWeight: 700,
+                fontWeight: 500,
                 fontSize: 14,
                 maxWidth: '100px',
               }}
