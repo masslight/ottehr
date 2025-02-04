@@ -6,8 +6,12 @@ import {
   ResourceHandler,
 } from '../../e2e-utils/resource-handler';
 import { expectPatientInformationPage } from '../page/PatientInformationPage';
-
-const HEADER_PATIENT_BIRTHDAY = '01/01/2024 (12 mo)';
+import { DateTime } from 'luxon';
+DateTime.now();
+const HEADER_PATIENT_BIRTHDAY =
+  '01/01/2024 (' +
+  Math.floor(Math.abs(DateTime.fromFormat('01/01/2024', 'MM/dd/yyyy').diffNow('months').months)) +
+  ' mo)';
 const HEADER_PATIENT_GENDER = 'Male';
 const HEADER_PATIENT_NAME = PATIENT_LAST_NAME + ', ' + PATIENT_FIRST_NAME;
 const PATIENT_BIRTHDAY = '01/01/2024';
