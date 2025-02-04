@@ -39,6 +39,7 @@ export const PatientsSearchFilters: React.FC<{
           label="DOB"
           type="date"
           autoComplete="off"
+          name="patient-birthdate"
           value={searchFilters.dob}
           onChange={(e) => setSearchField({ field: 'dob', value: e.target.value })}
           InputProps={{
