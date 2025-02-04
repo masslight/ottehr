@@ -14,7 +14,6 @@ import {
 } from 'utils';
 import { getAccessToken } from '../src/shared';
 import { createOystehrClient } from '../src/shared/helpers';
-import { AllStates } from 'utils/lib/types/common';
 
 const virtualLocations: { value: string; label: string }[] = [
   { value: 'NJ', label: 'NJ' },
