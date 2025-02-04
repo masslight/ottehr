@@ -145,7 +145,7 @@ export async function setupEHR(
     'practitioner1'
   );
 
-  const provider2Email = 'jane.smith@ottehr.com'
+  const provider2Email = 'jane.smith@ottehr.com';
   const { userId: userId2 } = await inviteUser(
     oystehr,
     provider2Email,
@@ -156,7 +156,7 @@ export async function setupEHR(
     'practitioner2'
   );
 
-  const provider3Email = 'kevin.brown@ottehr.com'
+  const provider3Email = 'kevin.brown@ottehr.com';
   const { userId: userId3 } = await inviteUser(
     oystehr,
     provider3Email,
