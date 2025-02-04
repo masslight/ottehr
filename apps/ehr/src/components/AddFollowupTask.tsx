@@ -4,7 +4,7 @@ import { InfoAlert } from '../features/css-module/components/InfoAlert';
 const PatientTaskType: string[] = ['Clinical', 'Non-Clinical'];
 const PatientTaskCategory: string[] = ['Medication', '-'];
 const PatientAssignTask: string[] = ['Not Assigned', 'Assigned'];
-const PatientTaskOffice: string[] = ['Commack, NY', 'New York, NY'];
+const PatientTaskOffice: string[] = ['Los Angeles, CA', 'New York, NY'];
 
 export default function AddFollowupTask(): JSX.Element {
   return (

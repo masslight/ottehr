@@ -289,30 +289,19 @@ export const AllStates: ValuePair[] = [
   { value: 'WY', label: 'WY' }, // Wyoming
 ];
 
+export const allVirtualLocations: { value: string; label: string }[] = [
+  { value: 'NJ', label: 'NJ' },
+  { value: 'OH', label: 'OH' },
+];
+
 export const allPhysicalLocations: { state: string; city: string }[] = [
-  {
-    state: 'MD',
-    city: 'Silver Spring',
-  },
   {
     state: 'NY',
     city: 'New York',
   },
   {
-    state: 'NY',
-    city: 'Commack',
-  },
-  {
-    state: 'NY',
-    city: 'Selden',
-  },
-  {
-    state: 'VA',
-    city: 'Ashburn',
-  },
-  {
-    state: 'VA',
-    city: 'McLean',
+    state: 'CA',
+    city: 'Los Angeles',
   },
 ];
 
