@@ -413,17 +413,3 @@ export const performEffectWithEnvFile = async (
     throw new Error(`can't import config for the environment: '${env}'`);
   }
 };
-
-export const getAppName = (): {
-  regular: string;
-  lower: string;
-  upper: string;
-} => {
-  const appName = process.env.VITE_APP_NAME || 'Ottehr';
-  console.log('process.env.APP_NAME', process.env.VITE_APP_NAME);
-  return {
-    regular: appName,
-    lower: appName.toLowerCase(),
-    upper: appName.toUpperCase(),
-  };
-};
