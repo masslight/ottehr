@@ -15,13 +15,13 @@ import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/help
 import { getVideoResources } from '../shared/pdf/visit-details-pdf/get-video-resources';
 import { getMyPractitionerId } from '../shared/practitioners';
 import { ZambdaInput } from '../types';
-import { createClaim } from './helpers/claim';
 import { getInsurancePlan } from './helpers/fhir-utils';
 import { changeStatusIfPossible, makeAppointmentChargeItem, makeReceiptPdfDocumentReference } from './helpers/helpers';
 import { composeAndCreateReceiptPdf, getPaymentDataRequest, postChargeIssueRequest } from './helpers/payments';
 import { validateRequestParameters } from './validateRequestParameters';
 import { composeAndCreateVisitNotePdf } from '../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { makeVisitNotePdfDocumentReference } from '../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
+import { createCandidEncounter } from '../shared/candid';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -102,9 +102,8 @@ export const performEffect = async (
     console.log(`Creating visit note pdf docRef`);
     await makeVisitNotePdfDocumentReference(oystehr, pdfInfo, patient.id, appointmentId, encounter.id!);
 
-    console.log('Creating Claim resource.');
-    const claimId = await createClaim(oystehr, visitResources);
-    console.log(`Created Claim resource with id ${claimId}`);
+    const candidEncounterId = await createCandidEncounter(visitResources, secrets, oystehr);
+    await addCandidEncounterIdToEncounter(candidEncounterId, encounter.id, oystehr);
 
     // if this is a self-pay encounter, create a charge item
     if (selfPayVisit) {
@@ -183,4 +182,30 @@ export const performEffect = async (
       ? 'Appointment status successfully changed and appropriate charged issued.'
       : 'Appointment status successfully changed.',
   };
+};
+
+const addCandidEncounterIdToEncounter = async (
+  candidEncounterId: string | undefined,
+  encounterId: string | undefined,
+  oystehr: Oystehr
+): Promise<void> => {
+  if (candidEncounterId == null || encounterId == null) {
+    return undefined;
+  }
+  await oystehr.fhir.patch({
+    resourceType: 'Encounter',
+    id: encounterId,
+    operations: [
+      {
+        op: 'add',
+        path: '/identifier',
+        value: [
+          {
+            system: 'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id',
+            value: candidEncounterId,
+          },
+        ],
+      },
+    ],
+  });
 };

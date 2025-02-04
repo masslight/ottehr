@@ -4,12 +4,14 @@ import {
   Coverage,
   Encounter,
   Extension,
+  FhirResource,
   Identifier,
   Location,
   Organization,
   Patient,
   Practitioner,
   Procedure,
+  Reference,
   RelatedPerson,
 } from 'fhir/r4b';
 import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm';
@@ -34,11 +36,18 @@ import { ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resou
 import { DateTime } from 'luxon';
 import { FHIR_IDENTIFIER_NPI } from 'utils/lib/types';
 import { assertDefined } from './helpers';
-import { CandidApiClient } from 'candidhealth';
+import { CandidApiClient, CandidApiEnvironment } from 'candidhealth';
 import { RenderingProviderid } from 'candidhealth/api/resources/contracts/resources/v2';
+import { getSecret, Secrets } from 'utils';
+import { SecretsKeys } from './secrets';
+import { VideoResourcesAppointmentPackage } from './pdf/visit-details-pdf/types';
+import Oystehr from '@oystehr/sdk';
+import { chartDataResourceHasMetaTagByCode } from './chart-data/chart-data-helpers';
 
 const CODE_SYSTEM_HL7_IDENTIFIER_TYPE = 'http://terminology.hl7.org/CodeSystem/v2-0203';
 const CODE_SYSTEM_HL7_SUBSCRIBER_RELATIONSHIP = 'http://terminology.hl7.org/CodeSystem/subscriber-relationship';
+
+let candidApiClient: CandidApiClient;
 
 interface BillingProviderData {
   organizationName?: string;
@@ -51,6 +60,21 @@ interface BillingProviderData {
   state: string;
   zipCode: string;
   zipPlusFourCode: string;
+}
+
+interface InsuranceResources {
+  coverage: Coverage;
+  subsriber: Patient | RelatedPerson;
+  payor: Organization;
+}
+
+interface CreateEncounterInput {
+  encounter: Encounter;
+  patient: Patient;
+  practitioner: Practitioner;
+  diagnoses: Condition[];
+  procedures: Procedure[];
+  insuranceResources?: InsuranceResources;
 }
 
 const STUB_BILLING_PROVIDER_DATA: BillingProviderData = {
@@ -81,22 +105,99 @@ const SERVICE_FACILITY_LOCATION: Location = {
   ],
 };
 
-export interface InsuranceResources {
-  coverage: Coverage;
-  subsriber: Patient | RelatedPerson;
-  payor: Organization;
+export async function createCandidEncounter(
+  visitResources: VideoResourcesAppointmentPackage,
+  secrets: Secrets | null,
+  oystehr: Oystehr
+): Promise<string | undefined> {
+  console.log('Create candid encounter.');
+  const candidClientId = getSecret(SecretsKeys.CANDID_CLIENT_ID, secrets);
+  if (candidClientId == null || candidClientId.length === 0) {
+    return undefined;
+  }
+  const apiClient = createCandidApiClient(secrets);
+  const createEncounterInput = await createCandidCreateEncounterInput(visitResources, oystehr);
+  const request = await candidCreateEncounterRequest(createEncounterInput, apiClient);
+  console.log('Candid request:' + JSON.stringify(request, null, 2));
+  const response = await apiClient.encounters.v4.create(request);
+  if (!response.ok) {
+    throw new Error(`Error creating a Candid encounter. Response body: ${JSON.stringify(response.error)}`);
+  }
+  const encounter = response.body;
+  console.log('Created Candid encounter:' + JSON.stringify(encounter));
+  return encounter.encounterId;
 }
 
-export interface CreateEncounterInput {
-  encounter: Encounter;
-  patient: Patient;
-  practitioner: Practitioner;
-  diagnoses: Condition[];
-  procedures: Procedure[];
-  insuranceResources?: InsuranceResources;
+function createCandidApiClient(secrets: Secrets | null): CandidApiClient {
+  if (candidApiClient == null) {
+    candidApiClient = new CandidApiClient({
+      clientId: getSecret(SecretsKeys.CANDID_CLIENT_ID, secrets),
+      clientSecret: getSecret(SecretsKeys.CANDID_CLIENT_SECRET, secrets),
+      environment:
+        getSecret(SecretsKeys.CANDID_ENV, secrets) === 'PROD'
+          ? CandidApiEnvironment.Production
+          : CandidApiEnvironment.Staging,
+    });
+  }
+  return candidApiClient;
 }
 
-export async function candidCreateEncounterRequest(
+const createCandidCreateEncounterInput = async (
+  visitResources: VideoResourcesAppointmentPackage,
+  oystehr: Oystehr
+): Promise<CreateEncounterInput> => {
+  const { encounter } = visitResources;
+  const encounterId = encounter.id;
+  const coverage = visitResources.coverage;
+  return {
+    encounter: encounter,
+    patient: assertDefined(visitResources.patient, `Patient on encounter ${encounterId}`),
+    practitioner: assertDefined(visitResources.practitioner, `Practitioner on encounter ${encounterId}`),
+    diagnoses: (
+      await oystehr.fhir.search<Condition>({
+        resourceType: 'Condition',
+        params: [
+          {
+            name: 'encounter',
+            value: `Encounter/${encounterId}`,
+          },
+        ],
+      })
+    )
+      .unbundle()
+      .filter(
+        (condition) =>
+          encounter.diagnosis?.find((diagnosis) => diagnosis.condition?.reference === 'Condition/' + condition.id) !=
+          null
+      ),
+    procedures: (
+      await oystehr.fhir.search<Procedure>({
+        resourceType: 'Procedure',
+        params: [
+          {
+            name: 'subject',
+            value: assertDefined(encounter.subject?.reference, `Patient id on encounter ${encounterId}`),
+          },
+          {
+            name: 'encounter',
+            value: `Encounter/${encounterId}`,
+          },
+        ],
+      })
+    )
+      .unbundle()
+      .filter((procedure) => chartDataResourceHasMetaTagByCode(procedure, 'cpt-code')),
+    insuranceResources: coverage
+      ? {
+          coverage: coverage,
+          subsriber: await resourceByReference(coverage.subscriber, 'Coverage.subscriber', oystehr),
+          payor: await resourceByReference(coverage.payor[0], 'Coverage.payor[0]', oystehr),
+        }
+      : undefined,
+  };
+};
+
+async function candidCreateEncounterRequest(
   input: CreateEncounterInput,
   apiClient: CandidApiClient
 ): Promise<EncounterCreate> {
@@ -339,4 +440,16 @@ async function fetchBillingProviderData(
     zipCode: billingProvierAddress.zipCode,
     zipPlusFourCode: billingProvierAddress.zipPlusFourCode,
   };
+}
+
+async function resourceByReference<T extends FhirResource>(
+  reference: Reference | undefined,
+  referencePath: string,
+  oystehr: Oystehr
+): Promise<T> {
+  const [resourceType, id] = assertDefined(reference?.reference, referencePath + '.reference').split('/');
+  return oystehr.fhir.get<T>({
+    resourceType,
+    id,
+  });
 }

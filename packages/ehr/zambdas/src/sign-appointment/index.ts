@@ -12,26 +12,20 @@ import {
   visitStatusToFhirEncounterStatusMap,
   getCriticalUpdateTagOp,
   progressNoteChartDataRequestedFields,
-  Secrets,
 } from 'utils';
-import { CandidApiClient, CandidApiEnvironment } from 'candidhealth';
 
 import { validateRequestParameters } from './validateRequestParameters';
 import { getChartData } from '../get-chart-data';
-import { assertDefined, checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
+import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
 import { ZambdaInput } from '../types';
 import { VideoResourcesAppointmentPackage } from '../shared/pdf/visit-details-pdf/types';
 import { getVideoResources } from '../shared/pdf/visit-details-pdf/get-video-resources';
 import { composeAndCreateVisitNotePdf } from '../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { makeVisitNotePdfDocumentReference } from '../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
-import { getSecret, SecretsKeys } from '../shared';
-import { candidCreateEncounterRequest, CreateEncounterInput } from '../shared/candid';
-import { Condition, FhirResource, Procedure, Reference } from 'fhir/r4b';
-import { chartDataResourceHasMetaTagByCode } from '../shared/chart-data/chart-data-helpers';
+import { createCandidEncounter } from '../shared/candid';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
-let candidApiClient: CandidApiClient;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -80,7 +74,7 @@ export const performEffect = async (
     throw new Error(`No subject reference defined for encounter ${encounter?.id}`);
   }
 
-  const candidEncounterId = await createCandidEncounter(visitResources, oystehr, secrets);
+  const candidEncounterId = await createCandidEncounter(visitResources, secrets, oystehr);
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getVisitStatus(appointment, encounter);
@@ -190,107 +184,4 @@ const changeStatus = async (
   await oystehr.fhir.transaction({
     requests: [appointmentPatch, encounterPatch],
   });
-};
-
-const createCandidEncounter = async (
-  visitResources: VideoResourcesAppointmentPackage,
-  oystehr: Oystehr,
-  secrets: Secrets | null
-): Promise<string | undefined> => {
-  const candidClientId = getSecret(SecretsKeys.CANDID_CLIENT_ID, secrets);
-  if (candidClientId == null || candidClientId.length === 0) {
-    return undefined;
-  }
-  const createEncounterInput = await createCandidCreateEncounterInput(visitResources, oystehr);
-  const apiClient = createCandidApiClient(secrets);
-  const request = await candidCreateEncounterRequest(createEncounterInput, apiClient);
-  console.log('Candid request:' + JSON.stringify(request, null, 2));
-  const response = await apiClient.encounters.v4.create(request);
-  if (!response.ok) {
-    throw new Error(`Error creating a Candid encounter. Response body: ${JSON.stringify(response.error)}`);
-  }
-  const encounter = response.body;
-  console.log('Created Candid encounter:' + JSON.stringify(encounter));
-  return encounter.encounterId;
-};
-
-const createCandidCreateEncounterInput = async (
-  visitResources: VideoResourcesAppointmentPackage,
-  oystehr: Oystehr
-): Promise<CreateEncounterInput> => {
-  const { encounter } = visitResources;
-  const encounterId = encounter.id;
-  const coverage = visitResources.coverage;
-  return {
-    encounter: encounter,
-    patient: assertDefined(visitResources.patient, `Patient on encounter ${encounterId}`),
-    practitioner: assertDefined(visitResources.practitioner, `Practitioner on encounter ${encounterId}`),
-    diagnoses: (
-      await oystehr.fhir.search<Condition>({
-        resourceType: 'Condition',
-        params: [
-          {
-            name: 'encounter',
-            value: `Encounter/${encounterId}`,
-          },
-        ],
-      })
-    )
-      .unbundle()
-      .filter(
-        (condition) =>
-          encounter.diagnosis?.find((diagnosis) => diagnosis.condition?.reference === 'Condition/' + condition.id) !=
-          null
-      ),
-    procedures: (
-      await oystehr.fhir.search<Procedure>({
-        resourceType: 'Procedure',
-        params: [
-          {
-            name: 'subject',
-            value: assertDefined(encounter.subject?.reference, `Patient id on encounter ${encounterId}`),
-          },
-          {
-            name: 'encounter',
-            value: `Encounter/${encounterId}`,
-          },
-        ],
-      })
-    )
-      .unbundle()
-      .filter((procedure) => chartDataResourceHasMetaTagByCode(procedure, 'cpt-code')),
-    insuranceResources: coverage
-      ? {
-          coverage: coverage,
-          subsriber: await resourceByReference(coverage.subscriber, 'Coverage.subscriber', oystehr),
-          payor: await resourceByReference(coverage.payor[0], 'Coverage.payor[0]', oystehr),
-        }
-      : undefined,
-  };
-};
-
-const resourceByReference = <T extends FhirResource>(
-  reference: Reference | undefined,
-  referencePath: string,
-  oystehr: Oystehr
-): Promise<T> => {
-  const [resourceType, id] = assertDefined(reference?.reference, referencePath + '.reference').split('/');
-  return oystehr.fhir.get<T>({
-    resourceType,
-    id,
-  });
-};
-
-const createCandidApiClient = (secrets: Secrets | null): CandidApiClient => {
-  if (candidApiClient == null) {
-    candidApiClient = new CandidApiClient({
-      clientId: getSecret(SecretsKeys.CANDID_CLIENT_ID, secrets),
-      clientSecret: getSecret(SecretsKeys.CANDID_CLIENT_SECRET, secrets),
-      environment:
-        getSecret(SecretsKeys.CANDID_ENV, secrets) === 'PROD'
-          ? CandidApiEnvironment.Production
-          : CandidApiEnvironment.Staging,
-    });
-  }
-  return candidApiClient;
 };
