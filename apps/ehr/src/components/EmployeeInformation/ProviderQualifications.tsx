@@ -25,6 +25,7 @@ import { Autocomplete, TextField } from '@mui/material';
 import { PractitionerLicense, PractitionerQualificationCodesLabels } from 'utils';
 import { AllStates } from '../../types/types';
 import { FormErrors } from './types';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 const displaystates = AllStates.map((state) => state.value);
 
@@ -48,7 +49,7 @@ export function ProviderQualifications({
       <FormLabel sx={{ mt: 3, fontWeight: '600 !important' }}>Provider Qualifications</FormLabel>
       <Box mt={1}>
         <TableContainer>
-          <Table>
+          <Table data-testid={dataTestIds.employeesPage.qualificationsTable}>
             <TableHead>
               <TableRow>
                 <TableCell>State</TableCell>
@@ -59,7 +60,7 @@ export function ProviderQualifications({
             </TableHead>
             <TableBody>
               {newLicenses.map((license, index) => (
-                <TableRow key={index}>
+                <TableRow key={index} data-testid={dataTestIds.employeesPage.qualificationRow(license.code)}>
                   <TableCell>{license.state}</TableCell>
                   <TableCell align="left">{license.code}</TableCell>
                   <TableCell align="center">
@@ -86,6 +87,7 @@ export function ProviderQualifications({
                         updatedLicenses.splice(index, 1);
                         setNewLicenses(updatedLicenses);
                       }}
+                      data-testid={dataTestIds.employeesPage.deleteQualificationButton}
                     >
                       <DeleteIcon />
                     </IconButton>
@@ -98,6 +100,7 @@ export function ProviderQualifications({
         <Accordion>
           <AccordionSummary
             expandIcon={<ExpandMoreIcon />}
+            data-testid={dataTestIds.employeesPage.addQualificationAccordion}
             sx={{
               marginTop: '20px',
               fontWeight: 'bold',
@@ -122,6 +125,7 @@ export function ProviderQualifications({
                         <TextField
                           {...params}
                           label="State"
+                          data-testid={dataTestIds.employeesPage.newQualificationStateDropdown}
                           error={errors.state}
                           helperText={errors.state ? 'Please select a state' : null}
                         />
@@ -145,6 +149,7 @@ export function ProviderQualifications({
                         <TextField
                           {...params}
                           label="Qualification"
+                          data-testid={dataTestIds.employeesPage.newQualificationTypeDropdown}
                           error={errors.qualification}
                           helperText={errors.qualification ? 'Please select a qualification' : null}
                         />
@@ -159,6 +164,7 @@ export function ProviderQualifications({
                 <Button
                   variant="contained"
                   endIcon={<AddIcon />}
+                  data-testid={dataTestIds.employeesPage.addQualificationButton}
                   sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 28 }}
                   fullWidth
                   onClick={handleAddLicense}

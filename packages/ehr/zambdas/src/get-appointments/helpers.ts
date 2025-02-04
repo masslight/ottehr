@@ -1,4 +1,5 @@
-import { Encounter, Practitioner } from 'fhir/r4b';
+import { Bundle } from '@oystehr/sdk';
+import { Encounter, FhirResource, Practitioner } from 'fhir/r4b';
 import { AppointmentParticipants, PARTICIPANT_TYPE, ParticipantInfo } from 'utils';
 
 const parseParticipantInfo = (practitioner: Practitioner): ParticipantInfo => ({
@@ -34,4 +35,9 @@ export const parseEncounterParticipants = (
   });
 
   return participants;
+};
+
+export const getMergedResourcesFromBundles = <T extends FhirResource>(bundles: Bundle<T>[]): T[] => {
+  const allResources = bundles.flatMap((bundle) => bundle.unbundle());
+  return Array.from(new Map(allResources.map((resource) => [resource.id, resource])).values());
 };

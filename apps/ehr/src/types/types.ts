@@ -1,7 +1,7 @@
 import { User } from '@oystehr/sdk';
 import { Appointment, Coding, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { PatientFollowupDetails, FhirAppointmentType, PractitionerLicense } from 'utils';
+import { PatientFollowupDetails, FhirAppointmentType, PractitionerLicense, VisitStatusWithoutUnknown } from 'utils';
 import { ScheduleType, ServiceMode } from 'utils';
 
 export interface GetAppointmentsParameters {
@@ -63,6 +63,12 @@ export interface UnassignPractitionerParameters {
   encounterId: string | undefined;
   practitioner: Practitioner | undefined;
   userRole: Coding[];
+}
+
+export interface ChangeInPersonVisitStatusParameters {
+  encounterId: string | undefined;
+  user: User | undefined;
+  updatedStatus: VisitStatusWithoutUnknown | undefined;
 }
 
 export { AllStates } from 'utils';

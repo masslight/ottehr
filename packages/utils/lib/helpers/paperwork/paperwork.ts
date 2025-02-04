@@ -26,7 +26,7 @@ import {
   AnswerLoadingOptions,
 } from '../../types';
 import Oystehr from '@oystehr/sdk';
-import { PRIVATE_EXTENSION_BASE_URL } from '../../fhir';
+import { getCanonicalQuestionnaire, PRIVATE_EXTENSION_BASE_URL } from '../../fhir';
 
 export interface OptionConfig {
   label: string;
@@ -52,37 +52,16 @@ export function getCorrectInputOption(itemId: string, currentValue: string): str
 }
 
 export async function getQuestionnaireAndValueSets(
-  questionnaireCanonUrl: string,
+  questionnaireUrl: string,
   questionnaireVersion: string,
   valueSetRef: string,
   oystehr: Oystehr
 ): Promise<{ questionnaire: Questionnaire; valueSets: ValueSet[] }> {
-  console.log(`searching for a questionnaire with canonical ${questionnaireCanonUrl}`);
-  const questionnaireSearch = (
-    await oystehr.fhir.search<Questionnaire>({
-      resourceType: 'Questionnaire',
-      params: [
-        {
-          name: 'url',
-          value: questionnaireCanonUrl,
-        },
-        {
-          name: 'version',
-          value: questionnaireVersion,
-        },
-      ],
-    })
-  ).unbundle();
-
-  // if we do not get exactly one result, throw an error
-  if (questionnaireSearch.length < 1) {
-    throw new Error('Could not find questionnaire with provided name');
-  } else if (questionnaireSearch.length > 1) {
-    throw new Error('Found multiple questionnaires with the provided name');
-  }
-
-  // otherwise, take the one result
-  const questionnaire: Questionnaire = questionnaireSearch[0];
+  console.log(`searching for a questionnaire with canonical ${questionnaireUrl}`);
+  const questionnaire = await getCanonicalQuestionnaire(
+    { version: questionnaireVersion, url: questionnaireUrl },
+    oystehr
+  );
 
   console.log(`searching for value sets with reference ${valueSetRef}`);
   const valueSets = (

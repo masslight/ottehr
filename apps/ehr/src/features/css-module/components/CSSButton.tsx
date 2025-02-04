@@ -1,22 +1,16 @@
 import PersonSearchIcon from '@mui/icons-material/PersonSearch';
-import { useTheme } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { CircularProgress, useTheme } from '@mui/material';
 import { IconButtonContained } from '../../../telemed';
 import { useCSSPermissions } from '../hooks/useCSSPermissions';
 import { dataTestIds } from '../../../constants/data-test-ids';
-import { practitionerType } from '../../../helpers/practitionerUtils';
-import { usePractitionerActions } from '../hooks/usePractitioner';
 
-export const CSSButton = ({ appointmentID }: { appointmentID: string }): React.ReactElement | null => {
+export const CSSButton: React.FC<{
+  isDisabled: boolean;
+  isLoading: boolean;
+  handleCSSButton: (e: React.MouseEvent) => void;
+  appointmentID: string;
+}> = ({ isDisabled, isLoading, handleCSSButton, appointmentID }) => {
   const theme = useTheme();
-  const navigate = useNavigate();
-  const { isPractitionerLoading, handleButtonClick } = usePractitionerActions(
-    appointmentID,
-    'start',
-    practitionerType.Admitter,
-    true,
-    'intake'
-  );
 
   const { view } = useCSSPermissions();
 
@@ -24,26 +18,27 @@ export const CSSButton = ({ appointmentID }: { appointmentID: string }): React.R
     return null;
   }
 
+  const handleClick = (e: React.MouseEvent): void => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleCSSButton(e);
+  };
+
   return (
     <IconButtonContained
       data-testid={dataTestIds.dashboard.intakeButton(appointmentID ?? undefined)}
       sx={{
         width: 'auto',
       }}
-      variant="primary"
-      onClick={async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        try {
-          await handleButtonClick();
-          navigate(`/in-person/${appointmentID}/patient-info`);
-        } catch (error) {
-          console.error(error);
-        }
-      }}
-      disabled={isPractitionerLoading}
+      variant={isLoading ? 'loading' : 'primary'}
+      onClick={handleClick}
+      disabled={isDisabled}
     >
-      <PersonSearchIcon sx={{ color: theme.palette.primary.contrastText }} />
+      {isLoading ? (
+        <CircularProgress sx={{ color: theme.palette.primary.contrastText }} size={24} />
+      ) : (
+        <PersonSearchIcon sx={{ color: theme.palette.primary.contrastText }} />
+      )}
     </IconButtonContained>
   );
 };

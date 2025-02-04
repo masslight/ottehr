@@ -1,8 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { DocumentReference } from 'fhir/r4b';
+import { DocumentReference, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { createDocumentReference } from 'utils';
+import { createFilesDocumentReferences } from 'utils';
 import { PdfInfo } from '../pdf-utils';
 
 export async function makeVisitNotePdfDocumentReference(
@@ -10,14 +10,14 @@ export async function makeVisitNotePdfDocumentReference(
   pdfInfo: PdfInfo,
   patientId: string,
   appointmentId: string,
-  encounterId: string
+  encounterId: string,
+  listResources: List[]
 ): Promise<DocumentReference> {
-  return await createDocumentReference({
-    docInfo: [
+  const docRefs = await createFilesDocumentReferences({
+    files: [
       {
-        contentURL: pdfInfo.uploadURL,
+        url: pdfInfo.uploadURL,
         title: pdfInfo.title,
-        mimeType: 'application/pdf',
       },
     ],
     type: {
@@ -46,5 +46,8 @@ export async function makeVisitNotePdfDocumentReference(
     dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
     oystehr,
     generateUUID: randomUUID,
+    searchParams: [],
+    listResources,
   });
+  return docRefs[0];
 }
