@@ -3,7 +3,8 @@ import { capitalize, Box, Skeleton, Typography } from '@mui/material';
 import { FC } from 'react';
 import { PATIENT_INDIVIDUAL_PRONOUNS_URL } from 'utils/lib/types';
 import { getExtensionValue } from '../../../features/css-module/parser';
-import { calculatePatientAge, formatDateUsingSlashes } from '../../../helpers/formatDateTime';
+import { formatDateUsingSlashes } from '../../../helpers/formatDateTime';
+import { calculatePatientAge } from 'utils';
 import { useGetPatient } from '../../../hooks/useGetPatient';
 import { dataTestIds } from '../../../constants/data-test-ids';
 
