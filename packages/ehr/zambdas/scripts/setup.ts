@@ -145,23 +145,23 @@ export async function setupEHR(
     'practitioner1'
   );
 
-  const provider2Email = providerEmail.replace('@', '+provider2@');
+  const provider2Email = 'jane.smith@ottehr.com'
   const { userId: userId2 } = await inviteUser(
     oystehr,
     provider2Email,
-    firstName,
-    lastName,
+    'Jane',
+    'Smith',
     applicationId,
     true,
     'practitioner2'
   );
 
-  const provider3Email = providerEmail.replace('@', '+provider3@');
+  const provider3Email = 'kevin.brown@ottehr.com'
   const { userId: userId3 } = await inviteUser(
     oystehr,
     provider3Email,
-    firstName,
-    lastName,
+    'Kevin',
+    'Brown',
     applicationId,
     true,
     'practitioner3'
