@@ -3,7 +3,6 @@ import FhirClient from '@oystehr/sdk';
 import { FhirResource, Location, Practitioner, Resource } from 'fhir/r4b';
 import {
   allPhysicalLocations,
-  allVirtualLocations,
   AllStatesToVirtualLocationsData,
   defaultLocation,
   ELIGIBILITY_PRACTITIONER_META_TAG_PREFIX,
@@ -18,6 +17,11 @@ import {
 import { getAccessToken } from '../src/shared';
 import { createOystehrClient } from '../src/shared/helpers';
 
+const virtualLocations: { value: string; label: string }[] = [
+  { value: 'NJ', label: 'NJ' },
+  { value: 'OH', label: 'OH' },
+];
+
 export const checkLocations = async (fhirClient: FhirClient): Promise<void> => {
   const allLocations = await fhirClient.fhir.search({
     resourceType: 'Location',
@@ -31,7 +35,7 @@ export const checkLocations = async (fhirClient: FhirClient): Promise<void> => {
 
   console.log('Filtered all virtual telemed locations.');
 
-  for (const statePkg of allVirtualLocations) {
+  for (const statePkg of virtualLocations) {
     const stateData = AllStatesToVirtualLocationsData[statePkg.value];
     if (!telemedStates.includes(statePkg.value)) await createTelemedLocation(statePkg, stateData, fhirClient);
   }

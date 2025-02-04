@@ -289,11 +289,6 @@ export const AllStates: ValuePair[] = [
   { value: 'WY', label: 'WY' }, // Wyoming
 ];
 
-export const allVirtualLocations: { value: string; label: string }[] = [
-  { value: 'NJ', label: 'NJ' },
-  { value: 'OH', label: 'OH' },
-];
-
 export const allPhysicalLocations: { state: string; city: string }[] = [
   {
     state: 'NY',
