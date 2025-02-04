@@ -193,7 +193,7 @@ const addCandidEncounterIdToEncounter = async (
   oystehr: Oystehr
 ): Promise<void> => {
   if (candidEncounterId == null || encounterId == null) {
-    return undefined;
+    return;
   }
   await oystehr.fhir.patch({
     resourceType: 'Encounter',
