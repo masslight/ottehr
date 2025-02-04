@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ErrorDialog, ErrorDialogConfig, PageForm } from 'ui-components';
-import { APIError, APPOINTMENT_NOT_FOUND_ERROR, CANT_CANCEL_CHECKEDIN_APT_ERROR } from 'utils';
+import { APIError, APPOINTMENT_NOT_FOUND_ERROR, CANT_CANCEL_CHECKEDIN_APT_ERROR, PROJECT_NAME } from 'utils';
 import zapehrApi from '../api/zapehrApi';
 import { PageContainer } from '../components';
 import useAppointmentNotFoundInformation from '../helpers/information';
@@ -12,7 +12,6 @@ import { useUCZambdaClient } from 'ui-components';
 import { useVisitContext } from './ThankYou';
 import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
 import { useTranslation } from 'react-i18next';
-import { PROJECT_NAME } from '../helpers';
 
 // these are the options for a patient in the IP intake app and are a product requirement for that app
 // please don't attempt to extract this to a shared util. if another app has similar or even identical options

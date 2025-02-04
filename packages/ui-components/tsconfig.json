@@ -3,8 +3,8 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@theme/*": ["../../apps/intake/src/theme/ottehr/*"],
-      "@defaultTheme/*": ["../../apps/intake/src/theme/ottehr/*"]
+      "@theme/*": ["../../apps/intake/src/themes/ottehr/*"],
+      "@defaultTheme/*": ["../../apps/intake/src/themes/ottehr/*"]
     }
   },
   "include": ["lib", "test", "../../apps/intake/src/features/paperwork"]

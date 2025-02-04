@@ -3,7 +3,7 @@ import { DateTime } from 'luxon';
 import { FormEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ControlButtons, ErrorDialog, ErrorDialogConfig, breakpoints, useUCZambdaClient } from 'ui-components';
-import { DATETIME_FULL_NO_YEAR, DATE_FULL_NO_YEAR, ScheduleType, createLocalDateTime } from 'utils';
+import { DATETIME_FULL_NO_YEAR, DATE_FULL_NO_YEAR, PROJECT_NAME, ScheduleType, createLocalDateTime } from 'utils';
 import { SelectSlot } from '.';
 import { otherColors } from '../IntakeThemeProvider';
 import zapehrApi from '../api/zapehrApi';
@@ -12,7 +12,6 @@ import i18n from '../lib/i18n';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { LocalizationProvider, StaticDatePicker } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
-import { PROJECT_NAME } from '../helpers';
 
 interface TabPanelProps {
   children?: ReactNode;

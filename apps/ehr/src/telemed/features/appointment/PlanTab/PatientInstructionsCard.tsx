@@ -2,7 +2,7 @@ import React, { FC, useState } from 'react';
 import { Box, TextField, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DoneIcon from '@mui/icons-material/Done';
-import { CommunicationDTO } from 'utils';
+import { CommunicationDTO, PROJECT_NAME } from 'utils';
 import { AccordionCard, ActionsList, DeleteIconButton } from '../../../components';
 import { PatientInstructionsTemplatesDialog } from './components';
 import { useAppointmentStore, useDeleteChartData, useSaveChartData, useSavePatientInstruction } from '../../../state';
@@ -10,7 +10,6 @@ import { getSelectors } from '../../../../shared/store/getSelectors';
 import { enqueueSnackbar } from 'notistack';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { useGetAppointmentAccessibility } from '../../../hooks';
-import { PROJECT_NAME } from '../../../../constants';
 
 export const PatientInstructionsCard: FC = () => {
   const [collapsed, setCollapsed] = useState(false);

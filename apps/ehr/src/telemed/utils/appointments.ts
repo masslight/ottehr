@@ -4,6 +4,7 @@ import {
   GetTelemedAppointmentsInput,
   mapStatusToTelemed,
   PATIENT_PHOTO_CODE,
+  PROJECT_NAME,
   RefreshableAppointmentData,
   ReviewAndSignData,
   TelemedAppointmentInformation,
@@ -13,7 +14,6 @@ import {
 } from 'utils';
 import { TelemedAppointmentData } from '../state';
 import { diffInMinutes } from './diffInMinutes';
-import { PROJECT_NAME } from '../../constants';
 
 export enum ApptTab {
   'ready' = 'ready',

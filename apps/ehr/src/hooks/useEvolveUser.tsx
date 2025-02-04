@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from 'react-query';
 import {
   PHOTON_PRACTITIONER_ENROLLED,
   PHOTON_PRESCRIBER_SYSTEM_URL,
+  PROJECT_NAME,
   RoleType,
   SyncUserResponse,
   User,
@@ -22,7 +23,6 @@ import { getUser } from '../api/api';
 import { useZapEHRAPIClient } from '../telemed/hooks/useOystehrAPIClient';
 import { useApiClients } from './useAppClients';
 import { useAuthToken } from './useAuthToken';
-import { PROJECT_NAME } from '../constants';
 
 export interface EvolveUser extends User {
   userName: string;

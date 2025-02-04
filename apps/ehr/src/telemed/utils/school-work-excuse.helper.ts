@@ -1,7 +1,6 @@
 import { DateTime } from 'luxon';
-import { SchoolWorkNoteExcuseDocDTO } from 'utils';
+import { PROJECT_NAME, SchoolWorkNoteExcuseDocDTO } from 'utils';
 import { ArrayElement } from '../../shared/types';
-import { PROJECT_NAME } from '../../constants';
 
 export const mapExcuseTypeToFields = {
   workTemplate: ['headerNote', 'workFields', 'footerNote'],

@@ -2,17 +2,12 @@ import React, { ReactElement, useState } from 'react';
 import { TableRow, TableCell, Button } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ExternalLabsStatusChip } from './ExternalLabsStatusChip';
-import { DiagnosisDTO } from 'utils';
+import { DiagnosisDTO, PROJECT_NAME_UPPER } from 'utils';
 import CancelExternalLabDialog from './CancelExternalLabOrderDialog';
 import { useNavigate } from 'react-router-dom';
 import { ExternalLabsStatus } from '../helpers/types';
 import { deleteIcon } from '@theme/icons';
 import { otherColors } from '@theme/colors';
-
-const { VITE_APP_ORGANIZATION_NAME_SHORT: ORGANIZATION_NAME_SHORT } = import.meta.env;
-if (ORGANIZATION_NAME_SHORT == null) {
-  throw new Error('Could not load env variable');
-}
 
 export interface MockLabOrderData {
   type: string; // ServiceRequest.code (representing test)
@@ -76,7 +71,7 @@ export default function ExternalLabsTableRow({ externalLabsData }: ExternalLabsT
               fontWeight: 'bold',
             }}
           >
-            <img src={deleteIcon} alt={`${ORGANIZATION_NAME_SHORT} deleteIcon`} />
+            <img src={deleteIcon} alt={`${PROJECT_NAME_UPPER} deleteIcon`} />
           </Button>
         ) : null}
       </TableCell>

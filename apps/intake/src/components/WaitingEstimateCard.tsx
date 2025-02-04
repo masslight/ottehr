@@ -2,8 +2,8 @@ import CardWithDescription from './CardWithDescription';
 import { Skeleton } from '@mui/material';
 import { otherColors } from '../IntakeThemeProvider';
 import { useTranslation } from 'react-i18next';
-import { ottehrLightBlue } from '../theme/ottehr/icons';
-import { PROJECT_NAME_LOWER } from '../helpers/constants';
+import { ottehrLightBlue } from '../themes/ottehr/icons';
+import { PROJECT_NAME_LOWER } from 'utils';
 
 interface WaitingEstimateCardProps {
   waitingMinutes: number | undefined;

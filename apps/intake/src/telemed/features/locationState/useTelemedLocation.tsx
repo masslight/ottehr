@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
-import { checkTelemedLocationAvailability, getSelectors, TelemedLocation } from 'utils';
+import { checkTelemedLocationAvailability, getSelectors, PROJECT_WEBSITE, TelemedLocation } from 'utils';
 import { useZapEHRAPIClient } from '../../utils';
 import { useIntakeCommonStore } from '../common';
 import { UpdateAppointmentFn, useAppointmentsData, useAppointmentUpdate, useGetTelemedStates } from '../appointments';
 import { usePatientInfoStore } from '../patient-info';
-import { PROJECT_WEBSITE } from '../../../helpers';
 
 type HookReturnType = CurrentLocation & {
   isValidationRunning: boolean;

@@ -3,9 +3,9 @@ import {
   DispositionFollowUpType,
   DispositionType,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
+  PROJECT_NAME,
   dispositionCheckboxOptions,
 } from 'utils';
-import { PROJECT_NAME } from '../../constants';
 
 export const dispositionFieldsPerType: { [key in DispositionType]: string[] } = {
   pcp: ['followUpIn', 'followUpType'],

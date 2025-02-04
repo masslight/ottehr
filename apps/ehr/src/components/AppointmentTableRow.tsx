@@ -29,8 +29,9 @@ import {
   formatMinutes,
   getVisitTotalTime,
   getDurationOfStatus,
+  PROJECT_NAME,
 } from 'utils';
-import { PROJECT_NAME, LANGUAGES } from '../constants';
+import { LANGUAGES } from '../constants';
 import { PriorityIconWithBorder } from './PriorityIconWithBorder';
 import ChatModal from '../features/chat/ChatModal';
 import { checkinPatient } from '../helpers';
@@ -48,7 +49,7 @@ import { dataTestIds } from '../constants/data-test-ids';
 import { IntakeCheckmark } from './IntakeCheckmark';
 import { PatientDateOfBirth } from './PatientDateOfBirth';
 import { formatPatientName } from '../helpers/formatPatientName';
-import { otherColors } from '@theme/colors';
+import { otherColors } from 'src/themes/ottehr/colors';
 import { usePractitionerActions } from '../features/css-module/hooks/usePractitioner';
 import { practitionerType } from '../helpers/practitionerUtils';
 import { enqueueSnackbar } from 'notistack';

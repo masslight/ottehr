@@ -5,8 +5,8 @@
     "noUnusedParameters": false,
     "baseUrl": ".",
     "paths": {
-      "@theme/*": ["src/theme/ottehr/*"],
-      "@defaultTheme/*": ["src/theme/ottehr/*"]
+      "@theme/*": ["src/themes/ottehr/*"],
+      "@defaultTheme/*": ["src/themes/ottehr/*"]
     }
   },
   "include": ["src", "test", "playwright.config.ts", "setup-test-deps.js", "auth.setup.js", "test", "vitest.config.ts"]

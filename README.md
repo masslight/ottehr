@@ -55,9 +55,9 @@ If you do not already have it, install Node.js v18.x.
 ### Fork & Clone
 
 Fork &mdash;
-   Go to [https://github.com/masslight/ottehr/fork](https://github.com/masslight/ottehr/fork) and click 'Create fork' to fork the repository.
+Go to [https://github.com/masslight/ottehr/fork](https://github.com/masslight/ottehr/fork) and click 'Create fork' to fork the repository.
 
-Clone  &mdash; Copy and run the clone script for your fork.
+Clone &mdash; Copy and run the clone script for your fork.
 
 ```bash
 git clone git@github.com:{your_profile}/ottehr.git
@@ -161,3 +161,29 @@ This repository uses a monorepo structure.
 - [Frontend Documentation](./apps/intake/README.md)
 - [Zambda Documentation](./packages/intake/zambdas/README.md)
 - [E2E Testing Guide](./apps/intake/tests/e2e-readme/README.md)
+
+### Customization
+
+#### To rename your Ottehr app:
+
+-
+
+#### To theme your Ottehr Intake app:
+
+- Copy the files in `apps/intake/src/theme` into a new folder, for example `apps/intake/src/myTheme`
+- Update the theme environment variables to point to your new folders:
+  ```bash
+  THEME_PATH='/src/themes/myTheme'
+  ```
+- Modify the images, svgs and colors as needed
+- Restart the app
+
+#### To theme your Ottehr Ehr app:
+
+- Copy the files in `apps/ehr/src/theme` into a new folder, for example `apps/ehr/src/myTheme`
+- Update the theme environment variables to point to your new folders:
+  ```bash
+  THEME_PATH='/src/themes/myTheme'
+  ```
+- Modify the images, svgs and colors as needed
+- Restart the app

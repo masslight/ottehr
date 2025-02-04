@@ -5,15 +5,21 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ErrorDialog, ErrorDialogConfig, useUCZambdaClient } from 'ui-components';
-import { APIError, CANT_UPDATE_CANCELED_APT_ERROR, PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR, VisitType } from 'utils';
+import {
+  APIError,
+  CANT_UPDATE_CANCELED_APT_ERROR,
+  PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
+  VisitType,
+  PROJECT_NAME,
+  PROJECT_WEBSITE,
+} from 'utils';
 import zapehrApi, { AppointmentBasicInfo, AvailableLocationInformation } from '../api/zapehrApi';
-import { ottehrLightBlue } from '../theme/ottehr/icons';
+import { ottehrLightBlue } from '../themes/ottehr/icons';
 import { PageContainer, Schedule } from '../components';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import i18n from '../lib/i18n';
 import { useVisitContext } from './ThankYou';
-import { PROJECT_NAME, PROJECT_WEBSITE } from '../helpers';
 
 const Reschedule = (): JSX.Element => {
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });

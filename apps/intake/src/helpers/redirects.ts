@@ -1,8 +1,7 @@
 import { generatePath } from 'react-router-dom';
-import { ServiceMode, VisitType } from 'utils';
+import { ServiceMode, VisitType, PROJECT_WEBSITE } from 'utils';
 import { AvailableLocationInformation } from '../api/zapehrApi';
 import { bookingBasePath } from '../App';
-import { PROJECT_WEBSITE } from './constants';
 
 interface RedirectResult {
   relative?: string;

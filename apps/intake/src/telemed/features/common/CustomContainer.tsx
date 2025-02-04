@@ -1,6 +1,6 @@
 import { CustomContainerFactory } from 'ui-components';
 import Footer from '../../components/Footer';
-import { PROJECT_NAME } from '../../../helpers/constants';
+import { PROJECT_NAME } from 'utils';
 import { ottehrLogo } from '@theme/index';
 
 export const CustomContainer = CustomContainerFactory({

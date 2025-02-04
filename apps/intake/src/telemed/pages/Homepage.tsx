@@ -5,7 +5,7 @@ import LocalHospitalOutlinedIcon from '@mui/icons-material/LocalHospitalOutlined
 import { Box, Button, Skeleton, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { generatePath, useNavigate } from 'react-router-dom';
-import { ServiceMode, VisitType } from 'utils';
+import { ServiceMode, VisitType, PROJECT_NAME } from 'utils';
 import { BOOKING_SERVICE_MODE_PARAM, bookingBasePath, intakeFlowPageRoute } from '../../App';
 import { otherColors } from '../../IntakeThemeProvider';
 import { CancelVisitDialog } from '../components';
@@ -19,8 +19,7 @@ import { CustomContainer, useIntakeCommonStore } from '../features/common';
 import HomepageOption from '../features/homepage/HomepageOption';
 import { useZapEHRAPIClient } from '../utils';
 import { dataTestIds } from '../../helpers/data-test-ids';
-import { PROJECT_NAME } from '../../helpers';
-import { pastVisits } from '@theme/icons';
+import { pastVisits } from 'src/themes/ottehr/icons';
 
 const Homepage = (): JSX.Element => {
   const apiClient = useZapEHRAPIClient();
