@@ -29,8 +29,6 @@ import { candidCreateEncounterRequest, CreateEncounterInput } from '../shared/ca
 import { Condition, FhirResource, Procedure, Reference } from 'fhir/r4b';
 import { chartDataResourceHasMetaTagByCode } from '../shared/chart-data/chart-data-helpers';
 
-const CREATE_CANDID_ENCOUNTER = false;
-
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
 let candidApiClient: CandidApiClient;
@@ -199,7 +197,8 @@ const createCandidEncounter = async (
   oystehr: Oystehr,
   secrets: Secrets | null
 ): Promise<string | undefined> => {
-  if (!CREATE_CANDID_ENCOUNTER) {
+  const candidClientId = getSecret(SecretsKeys.CANDID_CLIENT_ID, secrets);
+  if (candidClientId == null || candidClientId.length === 0) {
     return undefined;
   }
   const createEncounterInput = await createCandidCreateEncounterInput(visitResources, oystehr);
