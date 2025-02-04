@@ -38,8 +38,8 @@ export const palette = {
     main: '#0F347C',
     contrast: '#FFFFFF',
     contrastText: '#FFFFFF',
-    dark: '#0F347C',
-    light: '#1976D2',
+    dark: '#0A2143',
+    light: '#2169F5',
   },
   secondary: {
     main: '#2169F5',
