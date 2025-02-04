@@ -30,6 +30,7 @@ import { INSURANCES_URL } from '../../../App';
 import { otherColors } from '../../../CustomThemeProvider';
 import { useInsurancesQuery } from './telemed-admin.queries';
 import { INSURANCE_ROWS_PER_PAGE } from '../../../constants';
+import { dataTestIds } from '../../../constants/data-test-ids';
 
 enum IsActiveStatus {
   active,
@@ -113,6 +114,7 @@ export default function Insurances(): ReactElement {
               }}
               InputProps={{ endAdornment: <SearchIcon /> }}
               margin="dense"
+              data-testid={dataTestIds.insurancesPage.insuranceSearch}
             />
           </Grid>
           <Grid item xs={12} sm={5} paddingTop={5}>
@@ -206,6 +208,7 @@ export default function Insurances(): ReactElement {
           page={pageNumber}
           onPageChange={handleChangePage}
           onRowsPerPageChange={handleChangeRowsPerPage}
+          data-testid={dataTestIds.pagination.paginationContainer}
         />
       </TableContainer>
     </Paper>

@@ -127,4 +127,7 @@ export const dataTestIds = {
     deactivateUserButton: 'deactivate-user-button',
     statusChip: 'employee-status-chip',
   },
+  insurancesPage: {
+    insuranceSearch: 'insurance-search',
+  },
 };
