@@ -289,19 +289,6 @@ export const AllStates: ValuePair[] = [
   { value: 'WY', label: 'WY' }, // Wyoming
 ];
 
-export const allPhysicalLocations: { state: string; city: string }[] = [
-  {
-    state: 'NY',
-    city: 'New York',
-  },
-  {
-    state: 'CA',
-    city: 'Los Angeles',
-  },
-];
-
-export type PhysicalLocation = (typeof allPhysicalLocations)[number];
-
 export type StateCode = (typeof AllStates)[number]['value'];
 
 export const stateCodeToFullName: Readonly<Record<StateCode, string>> = {

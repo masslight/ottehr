@@ -2,7 +2,6 @@ import Oystehr from '@oystehr/sdk';
 import FhirClient from '@oystehr/sdk';
 import { FhirResource, Location, Practitioner, Resource } from 'fhir/r4b';
 import {
-  allPhysicalLocations,
   AllStatesToVirtualLocationsData,
   defaultLocation,
   ELIGIBILITY_PRACTITIONER_META_TAG_PREFIX,
@@ -10,17 +9,29 @@ import {
   EligibilityPractitionerType,
   FHIR_IDENTIFIER_NPI,
   filterVirtualLocations,
-  PhysicalLocation,
   TIMEZONE_EXTENSION_URL,
   VirtualLocationBody,
 } from 'utils';
 import { getAccessToken } from '../src/shared';
 import { createOystehrClient } from '../src/shared/helpers';
+import { AllStates } from 'utils/lib/types/common';
 
 const virtualLocations: { value: string; label: string }[] = [
   { value: 'NJ', label: 'NJ' },
   { value: 'OH', label: 'OH' },
 ];
+
+export const allPhysicalLocations: { state: string; city: string }[] = [
+  {
+    state: 'NY',
+    city: 'New York',
+  },
+  {
+    state: 'CA',
+    city: 'Los Angeles',
+  },
+];
+export type PhysicalLocation = (typeof allPhysicalLocations)[number];
 
 export const checkLocations = async (fhirClient: FhirClient): Promise<void> => {
   const allLocations = await fhirClient.fhir.search({
