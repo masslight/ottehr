@@ -6,7 +6,7 @@
     local('Rubik'),
     url(./fonts/Rubik-Regular.woff) format('woff'),
     local('Rubik'),
-    url(./fonts/Rubik-Regular.otf) format('otf');
+    url(./fonts/Rubik-Regular.ttf) format('ttf');
   font-weight: normal;
   font-style: normal;
 }
@@ -19,6 +19,18 @@
     local('Rubik'),
     url(./fonts/Rubik-Bold.woff) format('woff'),
     local('Rubik'),
-    url(./fonts/Rubik-Bold.otf) format('otf');
+    url(./fonts/Rubik-Bold.ttf) format('ttf');
   font-weight: bold;
+}
+
+@font-face {
+  font-family: 'Rubik';
+  src:
+    local('Rubik'),
+    url(./fonts/Rubik-Medium.ttf) format('ttf'),
+    local('Rubik'),
+    url(./fonts/Rubik-Medium.woff) format('woff'),
+    local('Rubik'),
+    url(./fonts/Rubik-Medium.woff2) format('woff2');
+  font-weight: 500;
 }

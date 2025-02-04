@@ -3,7 +3,7 @@ export const PHOTON_PATIENT_IDENTIFIER_SYSTEM = 'http://api.zapehr.com/photon-pa
 
 export const INTERPRETER_PHONE_NUMBER = '(866) 718-0099';
 
-export const PROJECT_NAME = process.env.VITE_APP_NAME || 'Ottehr';
+export const PROJECT_NAME = 'Ottehr';
 export const PROJECT_NAME_LOWER = PROJECT_NAME.toLowerCase();
 export const PROJECT_NAME_UPPER = PROJECT_NAME.toUpperCase();
 export const PROJECT_WEBSITE = 'https://ottehr.com';
