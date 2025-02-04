@@ -7,7 +7,7 @@ import {
 } from '../../e2e-utils/resource-handler';
 import { expectPatientInformationPage } from '../page/PatientInformationPage';
 import { DateTime } from 'luxon';
-DateTime.now();
+
 const HEADER_PATIENT_BIRTHDAY =
   '01/01/2024 (' +
   Math.floor(Math.abs(DateTime.fromFormat('01/01/2024', 'MM/dd/yyyy').diffNow('months').months)) +
