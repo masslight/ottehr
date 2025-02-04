@@ -42,7 +42,6 @@ export class StatesPage {
   }
 
   async verifyOperateInState(state: string, operate: boolean): Promise<void> {
-    await this.#page.waitForTimeout(5000);
     const rowLocator = this.#page.getByTestId(dataTestIds.statesPage.stateRow(state));
     const rowOperate = await rowLocator.getByTestId(dataTestIds.statesPage.operateInStateValue).innerText();
     expect(rowOperate).toBe(operate ? 'YES' : 'NO');

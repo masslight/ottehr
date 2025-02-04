@@ -127,7 +127,6 @@ export default function StatesPage(): ReactElement {
                     </Link>
                   </TableCell>
                   <TableCell
-                    data-testid={dataTestIds.statesPage.operateInStateValue}
                     align="left"
                     sx={{
                       color: otherColors.tableRow,
@@ -136,7 +135,11 @@ export default function StatesPage(): ReactElement {
                     {isFetching ? (
                       <Skeleton width={35} height={20} />
                     ) : (
-                      <BooleanStateChip label={operatesLabelText} state={operatesInState} />
+                      <BooleanStateChip
+                        dataTestId={dataTestIds.statesPage.operateInStateValue}
+                        label={operatesLabelText}
+                        state={operatesInState}
+                      />
                     )}
                   </TableCell>
                 </TableRow>
