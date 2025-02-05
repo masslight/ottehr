@@ -5,6 +5,7 @@ import {
   Attachment,
   Coding,
   Consent,
+  ContactPoint,
   Coverage,
   DocumentReference,
   Flag,
@@ -76,6 +77,7 @@ import {
   RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL,
   PRIVACY_POLICY_CODE,
   OTTEHR_MODULE,
+  getPhoneNumberForIndividual,
 } from 'utils';
 import { v4 as uuid } from 'uuid';
 import { createOrUpdateFlags } from '../../../paperwork/sharedHelpers';
@@ -1416,7 +1418,10 @@ export function createMasterRecordPatchOperations(
   });
 
   // Separate operations for each resource
+  // Separate Patient operations
   result.patient = separateResourceUpdates(tempOperations.patient, resources.patient, 'Patient');
+
+  // Prepare Patient direct operations for executing
   result.patient.patchOpsForDirectUpdate = addAuxiliaryPatchOperations(result.patient.patchOpsForDirectUpdate);
   result.patient.patchOpsForDirectUpdate = consolidateOperations(
     result.patient.patchOpsForDirectUpdate,
@@ -2048,6 +2053,8 @@ function setValueByPath(obj: any, path: string, value: any): void {
 
 function addAuxiliaryPatchOperations(operations: Operation[]): Operation[] {
   const auxOperations: Operation[] = [];
+
+  // Add required link to contained Practitioner resource
   if (operations.some((op) => op.path && op.path.includes('contained'))) {
     const addResourceTypeOperation: AddOperation<any> = {
       op: 'add',
@@ -2080,4 +2087,67 @@ function addAuxiliaryPatchOperations(operations: Operation[]): Operation[] {
   }
 
   return [...operations, ...auxOperations];
+}
+
+export function createErxContactOperation(
+  relatedPerson: RelatedPerson,
+  patientResource: Patient
+): Operation | undefined {
+  const verifiedPhoneNumber = getPhoneNumberForIndividual(relatedPerson);
+  console.log(`patient verified phone number ${verifiedPhoneNumber}`);
+
+  console.log('reviewing patient erx contact telecom phone nubmber');
+  // find existing erx contact info and it's index so that the contact array can be updated
+  const erxContactIdx = patientResource?.contact?.findIndex((contact) =>
+    Boolean(
+      contact.telecom?.find((telecom) =>
+        Boolean(telecom?.extension?.find((telExt) => telExt.url === FHIR_EXTENSION.ContactPoint.erxTelecom.url))
+      )
+    )
+  );
+
+  let updateErxContact = false;
+  const erxContact = erxContactIdx && erxContactIdx >= 0 ? patientResource?.contact?.[erxContactIdx] : undefined;
+  const erxTelecom =
+    erxContact &&
+    erxContact.telecom?.find((telecom) =>
+      Boolean(telecom?.extension?.find((telExt) => telExt.url === FHIR_EXTENSION.ContactPoint.erxTelecom.url))
+    );
+
+  if (erxContactIdx && erxContactIdx >= 0) {
+    if (!(erxTelecom && erxTelecom.system === 'phone' && erxTelecom.value === verifiedPhoneNumber)) {
+      updateErxContact = true;
+    }
+  } else {
+    updateErxContact = true;
+  }
+
+  if (updateErxContact) {
+    const erxContactTelecom: ContactPoint = {
+      value: verifiedPhoneNumber,
+      system: 'phone',
+      extension: [{ url: FHIR_EXTENSION.ContactPoint.erxTelecom.url, valueString: 'erx' }],
+    };
+    if (erxContactIdx && erxContactIdx >= 0) {
+      console.log('building patient patch operations: update patient erx contact telecom');
+      return {
+        op: 'replace',
+        path: `/contact/${erxContactIdx}`,
+        value: {
+          telecom: [erxContactTelecom],
+        },
+      };
+    } else {
+      console.log('building patient patch operations: add patient erx contact telecom');
+      return {
+        op: 'add',
+        path: `/contact/-`,
+        value: {
+          telecom: [erxContactTelecom],
+        },
+      };
+    }
+  }
+
+  return undefined;
 }

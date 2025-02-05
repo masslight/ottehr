@@ -15,6 +15,7 @@ import {
 } from 'fhir/r4b';
 import {
   flattenIntakeQuestionnaireItems,
+  getRelatedPersonForPatient,
   getSecret,
   IntakeQuestionnaireItem,
   SecretsKeys,
@@ -35,6 +36,7 @@ import {
   PatientMasterRecordResources,
   createInsuranceResources,
   searchInsuranceInformation,
+  createErxContactOperation,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -136,6 +138,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const organizationResources = insuranceInformationResources.filter(
       (res): res is Organization => res.resourceType === 'Organization'
     );
+
+    // relatedPersonResources.push(relatedPerson);
 
     const patientMasterRecordResources: PatientMasterRecordResources = {
       patient: patientResource,
@@ -278,7 +282,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       console.timeEnd('creating consent resources');
     }
 
-    console.time('creating insurances cards, condition photo, work school notes resources resources');
+    console.time('creating insurances cards, condition photo, work school notes resources');
     try {
       await createDocumentResources(qr, patientResource.id, appointmentResource.id, oystehr, listResources);
     } catch (error: unknown) {
@@ -298,6 +302,30 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       } catch (error: unknown) {
         tasksFailed.push('flag paperwork edit');
         console.log(`Failed to update flag paperwork edit: ${error}`);
+      }
+    }
+
+    console.time('querying for related person for patient self');
+    const relatedPerson = await getRelatedPersonForPatient(patientResource.id, oystehr);
+    console.timeEnd('querying for related person for patient self');
+
+    if (!relatedPerson || !relatedPerson.id) {
+      throw new Error('RelatedPerson for patient is not defined or does not have ID');
+    }
+
+    const erxContactOperation = createErxContactOperation(relatedPerson, patientResource);
+    if (erxContactOperation) {
+      try {
+        console.time('patching patient resource');
+        await oystehr.fhir.patch({
+          resourceType: 'Patient',
+          id: patientResource.id,
+          operations: [erxContactOperation],
+        });
+        console.timeEnd('patching patient resource');
+      } catch (error: unknown) {
+        tasksFailed.push('patch patient contact');
+        console.log(`Failed to update Patient contact: ${JSON.stringify(error)}`);
       }
     }
 
