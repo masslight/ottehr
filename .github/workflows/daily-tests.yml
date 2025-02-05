@@ -73,5 +73,6 @@ jobs:
           echo "Setup complete"
 
       # - name: Run E2E tests
+      #   run: npm run SOMETHING
 
       # - name: Clean up after tests
