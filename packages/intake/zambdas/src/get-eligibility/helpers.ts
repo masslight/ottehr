@@ -8,7 +8,7 @@ import {
   Organization,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { ELIGIBILITY_BENEFIT_CODES, removeTimeFromDate } from 'utils';
+import { ELIGIBILITY_BENEFIT_CODES, InsuranceEligibilityCheckStatus, removeTimeFromDate } from 'utils';
 
 // todo: move this into a higher level util
 export const performEligibilityCheck = (
@@ -159,10 +159,14 @@ export const makeCoverageEligibilityRequest = (
 
 export const parseEligibilityCheckResponse = async (
   eligibilityCheckResponse: PromiseFulfilledResult<Response> | PromiseRejectedResult
-): Promise<boolean> => {
+): Promise<InsuranceEligibilityCheckStatus> => {
   if (eligibilityCheckResponse.status === 'rejected') {
-    console.log('failedResponse', eligibilityCheckResponse);
-    return false;
+    console.log('eligibility check service failure reason: ', JSON.stringify(eligibilityCheckResponse.reason, null, 2));
+    return InsuranceEligibilityCheckStatus.eligibilityNotChecked;
+  } else if (!eligibilityCheckResponse.value.ok) {
+    const message = await eligibilityCheckResponse.value.json();
+    console.log('eligibility check service failure reason: ', JSON.stringify(message, null, 2));
+    return InsuranceEligibilityCheckStatus.eligibilityNotChecked;
   }
   try {
     const coverageResponse = (await eligibilityCheckResponse.value.json()) as CoverageEligibilityResponse;
@@ -179,10 +183,10 @@ export const parseEligibilityCheckResponse = async (
       if (errorCodes.includes('410')) {
         // "Payer ID [<ID>] does not support real-time eligibility."
         console.log('Payer does not support real-time eligibility. Bypassing.');
-        return true;
+        return InsuranceEligibilityCheckStatus.eligibilityCheckNotSupported;
       }
-      console.log(errorMessages.join(', '));
-      return false;
+      console.log(`eligibility check service failure reason(s): `, errorMessages.join(', '));
+      return InsuranceEligibilityCheckStatus.eligibilityNotConfirmed;
     }
 
     const eligible = coverageResponse.insurance?.[0].item?.some((item) => {
@@ -190,10 +194,15 @@ export const parseEligibilityCheckResponse = async (
       const isActive = item.benefit?.filter((benefit) => benefit.type.text === 'Active Coverage').length !== 0;
       return isActive && code && ELIGIBILITY_BENEFIT_CODES.includes(code);
     });
-    console.log('eligible', eligible);
-    return eligible || false;
+    // console.log('eligible', eligible);
+    if (eligible) {
+      return InsuranceEligibilityCheckStatus.eligibilityConfirmed;
+    } else {
+      // console.log('error result: ', JSON.stringify(coverageResponse.insurance?.[0].item, null, 2));
+      return InsuranceEligibilityCheckStatus.eligibilityNotConfirmed;
+    }
   } catch (error: any) {
     console.error('API response included an error', error);
-    return false;
+    return InsuranceEligibilityCheckStatus.eligibilityNotChecked;
   }
 };

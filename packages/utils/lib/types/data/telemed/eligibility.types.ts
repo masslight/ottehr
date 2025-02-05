@@ -1,5 +1,6 @@
 import { Address, Location, Organization, Practitioner, QuestionnaireResponseItem, Reference } from 'fhir/r4b';
 import { Secrets } from '../../../secrets';
+import { InsuranceEligibilityCheckStatus } from '../paperwork';
 
 interface LambdaSecrets {
   secrets: Secrets | null;
@@ -61,5 +62,6 @@ export interface GetEligibilityInput
 }
 
 export type GetEligibilityResponse = {
-  eligible: boolean;
+  primary: InsuranceEligibilityCheckStatus;
+  secondary?: InsuranceEligibilityCheckStatus;
 };

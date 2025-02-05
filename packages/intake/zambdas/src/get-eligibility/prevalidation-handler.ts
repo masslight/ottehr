@@ -4,7 +4,7 @@ import {
   Coverage,
   CoverageClass,
   CoverageEligibilityRequest,
-  CoverageEligibilityResponse,
+  FhirResource,
   InsurancePlan,
   Organization,
   RelatedPerson,
@@ -14,12 +14,13 @@ import {
   GetEligibilityInput,
   GetEligibilityInsuranceData,
   GetEligibilityPolicyHolder,
+  GetEligibilityResponse,
   INSURANCE_COVERAGE_CODING,
+  InsuranceEligibilityCheckStatus,
   InsuranceEligibilityPrevalidationInput,
   InsurancePlanDTO,
 } from 'utils';
 import { createInsurancePlanDto, CreateRelatedPersonObject } from '../shared';
-import { randomUUID } from 'crypto';
 import {
   getInsurancePlansAndOrgs,
   makeCoverageEligibilityRequest,
@@ -35,10 +36,7 @@ interface Input extends Omit<GetEligibilityInput, 'coveragePrevalidationInput'> 
   accessToken: string;
 }
 
-export const prevalidationHandler = async (
-  input: Input,
-  oystehrClient: Oystehr
-): Promise<Record<string, CoverageEligibilityResponse>> => {
+export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr): Promise<GetEligibilityResponse> => {
   const {
     // appointmentId,
     primaryInsuranceData,
@@ -53,15 +51,20 @@ export const prevalidationHandler = async (
 
   const billingProviderData = await complexBillingProviderValidation(coveragePrevalidationInput, oystehrClient);
 
-  console.log('billingProviderData', JSON.stringify(billingProviderData));
+  console.log('billingProviderData', JSON.stringify(billingProviderData), null, 2);
 
-  const rps = [makeRP({ patientId, relatedPersonData: primaryPolicyHolder, generateId: true })];
-  if (secondaryInsuranceData && secondaryPolicyHolder) {
+  console.log('primary policy holder', JSON.stringify(primaryPolicyHolder), null, 2);
+
+  const rps: RelatedPerson[] = [];
+  if (primaryPolicyHolder && primaryPolicyHolder.isPatient === false) {
+    rps.push(makeRP({ patientId, relatedPersonData: primaryPolicyHolder, id: 'primaryRP' }));
+  }
+  if (secondaryInsuranceData && secondaryPolicyHolder && secondaryPolicyHolder.isPatient === false) {
     rps.push(
       makeRP({
         patientId,
         relatedPersonData: secondaryPolicyHolder,
-        generateId: true,
+        id: 'secondaryRP',
       })
     );
   }
@@ -81,6 +84,7 @@ export const prevalidationHandler = async (
   const primaryInsurancePlanRequirements = createInsurancePlanDto(primary.insurancePlan);
   let secondaryInsurancePlanRequirements: InsurancePlanDTO | undefined;
 
+  console.log('primaryPolicyHolder', JSON.stringify(primaryPolicyHolder, null, 2));
   validateInsuranceRequirements({
     insurancePlanDto: primaryInsurancePlanRequirements,
     insuranceData: primaryInsuranceData,
@@ -141,15 +145,19 @@ export const prevalidationHandler = async (
     const patientReference = `Patient/${patientId}`;
     const payorReference = `Organization/${isPrimary ? primary.organization.id : secondary.organization.id}`;
     const providerReference = `${billingProviderData.resourceType}/${billingProviderData.id}`;
-
+    const contained: FhirResource[] = [coverage];
+    if (rps[idx]) {
+      contained.push(rps[idx]);
+    }
     const CER = makeCoverageEligibilityRequest({
       coverageReference,
       payorReference,
       providerReference,
       patientReference,
-      contained: [coverage, rps[idx]],
+      contained,
     });
     console.log('CER', JSON.stringify(CER, null, 2));
+    console.log('END CER');
     return CER;
   });
 
@@ -167,6 +175,13 @@ export const prevalidationHandler = async (
 
   const requestIds = batchResults.entry?.flatMap((e) => e?.resource?.id ?? []) ?? [];
 
+  if (requestIds.length < coverages.length) {
+    return {
+      primary: InsuranceEligibilityCheckStatus.eligibilityNotChecked,
+      secondary: coverages.length === 2 ? InsuranceEligibilityCheckStatus.eligibilityNotChecked : undefined,
+    };
+  }
+
   console.log('requestIds', requestIds);
 
   const results = await Promise.allSettled(
@@ -175,14 +190,16 @@ export const prevalidationHandler = async (
     })
   );
   console.log('results', JSON.stringify(results, null, 2));
-  const eligibilityVerdicts = await Promise.all(
-    results.map((p) => (p.status === 'fulfilled' ? parseEligibilityCheckResponse(p) : false))
-  );
+  const eligibilityVerdicts = await Promise.all(results.map((p) => parseEligibilityCheckResponse(p)));
 
-  console.log('eligibility verdicts', eligibilityVerdicts);
-  throw new Error('This just isnt done yet, sorry');
+  console.log('eligibility verdicts', eligibilityVerdicts, results.length);
 
-  // create the EligibilityRequest resources
+  const res: GetEligibilityResponse = { primary: eligibilityVerdicts[0] };
+  if (eligibilityVerdicts.length > 1) {
+    res.secondary = eligibilityVerdicts[1];
+  }
+  console.log('eligibility result', JSON.stringify(res, null, 2));
+  return res;
 };
 
 interface CoverageInput {
@@ -253,24 +270,16 @@ const makeCoverage = (input: CoverageInput): Coverage => {
     type: { coding: [INSURANCE_COVERAGE_CODING] },
     order: primary ? 1 : 2,
     beneficiary: { reference: `Patient/${patientId}` },
-    extension: insuranceData.additionalInfo
-      ? [
-          {
-            url: 'insurance-note',
-            valueString: insuranceData.additionalInfo,
-          },
-        ]
-      : [],
   };
 };
 
 interface MakeRPInput {
   patientId: string;
   relatedPersonData: CreateRelatedPersonObject;
-  generateId?: boolean;
+  id: 'primaryRP' | 'secondaryRP';
 }
 const makeRP = (input: MakeRPInput): RelatedPerson => {
-  const { patientId, relatedPersonData: data, generateId } = input;
+  const { patientId, relatedPersonData: data, id } = input;
   let code = '';
   switch (data.relationship) {
     case 'Father':
@@ -309,7 +318,7 @@ const makeRP = (input: MakeRPInput): RelatedPerson => {
   const relatedPerson: RelatedPerson = {
     resourceType: 'RelatedPerson',
     patient: { reference: `Patient/${patientId}` }, // is this valid?
-    id: generateId ? randomUUID() : undefined,
+    id,
     name: createFhirHumanName(data.firstName, data.middleName, data.lastName),
     birthDate: data.dob,
     gender: getGender(data.sex),

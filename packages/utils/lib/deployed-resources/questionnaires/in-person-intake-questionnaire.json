@@ -655,6 +655,10 @@
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/review-text",
             "valueString": "Insurance details"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation-type",
+            "valueString": "insurance eligibility"
           }
         ],
         "type": "group",
@@ -1781,6 +1785,28 @@
                     "valueString": "I have insurance"
                   }
                 ]
+              }
+            ]
+          },
+          {
+            "linkId": "insurance-eligibility-verification-status",
+            "type": "string",
+            "enableWhen": [
+              {
+                "question": "payment-option",
+                "operator": "=",
+                "answerString": "NEVER"
+              }
+            ],
+            "required": false,
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                "valueString": "hidden"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/accepts-multiple-answers",
+                "valueBoolean": true
               }
             ]
           },

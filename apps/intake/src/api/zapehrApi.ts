@@ -3,6 +3,8 @@ import { ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import {
   Closure,
   CreateAppointmentInputParams,
+  GetEligibilityParameters,
+  GetEligibilityResponse,
   GetScheduleRequestParams,
   GetScheduleResponse,
   PatchPaperworkParameters,
@@ -43,6 +45,7 @@ const GET_PRESIGNED_FILE_URL = import.meta.env.VITE_APP_GET_PRESIGNED_FILE_URL_Z
 const GET_APPOINTMENT_DETAILS = import.meta.env.VITE_APP_GET_APPOINTMENT_DETAILS;
 const PATCH_PAPERWORK_ZAMBDA_ID = import.meta.env.VITE_APP_PATCH_PAPERWORK_ZAMBDA_ID;
 const SUBMIT_PAPERWORK_ZAMBDA_ID = import.meta.env.VITE_APP_SUBMIT_PAPERWORK_ZAMBDA_ID;
+const GET_ELIGIBILITY_ZAMBDA_ID = import.meta.env.VITE_APP_GET_ELIGIBILITY_ZAMBDA_ID;
 
 export function chooseJson(json: any, isLocal: string): any {
   if (isLocal === 'true' || !json.output) {
@@ -386,6 +389,20 @@ class API {
         fileFormat,
       });
       const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
+      return jsonToUse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+  async getEligibility(input: GetEligibilityParameters, zambdaClient: ZambdaClient): Promise<GetEligibilityResponse> {
+    try {
+      if (GET_ELIGIBILITY_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
+        throw new Error('get presigned file url environment variable could not be loaded');
+      }
+
+      const response = await zambdaClient.execute(GET_ELIGIBILITY_ZAMBDA_ID, input);
+      const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
+      console.log('json from get eligibility', jsonToUse);
       return jsonToUse;
     } catch (error: unknown) {
       throw apiErrorToThrow(error);

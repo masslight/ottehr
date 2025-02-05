@@ -1,9 +1,20 @@
 import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { Box, CircularProgress } from '@mui/material';
-import { FC, useCallback, useEffect, useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import {
+  Box,
+  Button,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  IconButton,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material';
+import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { create } from 'zustand';
-import { ErrorDialog, PaperworkContext, usePaperworkContext } from 'ui-components';
+import { PaperworkContext, usePaperworkContext } from 'ui-components';
 import {
   getSelectors,
   isApiError,
@@ -15,6 +26,9 @@ import {
   flattenIntakeQuestionnaireItems,
   QuestionnaireFormFields,
   findQuestionnaireResponseItemLinkId,
+  ComplexValidationResult,
+  InsuranceEligibilityCheckStatus,
+  ComplexValidationResultFailureCase,
 } from 'utils';
 import { zapehrApi } from '../api';
 import useAppointmentNotFoundInformation from '../helpers/information';
@@ -26,9 +40,11 @@ import { DateTime } from 'luxon';
 import { ZambdaClient, useUCZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import { useGetFullName } from '../hooks/useGetFullName';
 import api from '../api/zapehrApi';
-import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import { QuestionnaireResponse, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
 import { t } from 'i18next';
 import PagedQuestionnaire from '../features/paperwork/PagedQuestionnaire';
+import { Close } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 
 enum AuthedLoadingState {
   initial,
@@ -295,12 +311,10 @@ export const PaperworkHome: FC = () => {
 };
 
 export const PaperworkPage: FC = () => {
-  // const theme = useTheme();
-  const { t } = useTranslation();
   const navigate = useNavigate();
   const { id: appointmentID, slug } = useParams();
-  const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
-  const [fileErrorDialogOpen, setFileErrorDialogOpen] = useState<boolean>(false);
+  const zambdaClient = useUCZambdaClient({ tokenless: false });
+  const [validationRoadblockConfig, setValidationRoadblockConfig] = useState<ValidationRoadblockConfig | undefined>();
   const patchCompletedPaperwork = usePaperworkStore((state) => {
     return state.patchCompletedPaperwork;
   });
@@ -350,17 +364,18 @@ export const PaperworkPage: FC = () => {
     return { nextPage, pageName, currentPage, currentIndex, empty: false, questionnaireItems };
   }, [paperworkPages, slug]);
 
+  // console.log('current page', JSON.stringify(currentPage, null, 2));
+
   useEffect(() => {
     if (pageName !== lastLoggedPageName) {
       setLastLoggedPageName(pageName);
     }
   }, [lastLoggedPageName, pageName]);
 
-  // todo: use or delete
   const [loading, setLoading] = useState<boolean>(false);
 
   // Update last active time for paperwork-in-progress flag every minute
-  useSetLastActiveTime(appointmentID, !!slug, tokenlessZambdaClient);
+  useSetLastActiveTime(appointmentID, !!slug, zambdaClient);
 
   const controlButtons = useMemo(
     () => ({
@@ -385,35 +400,18 @@ export const PaperworkPage: FC = () => {
     if (!currentPageEntries && !inProgress) {
       return { ...currentPageFields };
     }
-    // console.log('current page entries', currentPageEntries);
+
     const pageDefaults = (currentPageEntries ?? []).reduce((accum, entry) => {
       accum[entry.linkId] = { ...entry };
       return accum;
     }, {} as QuestionnaireFormFields);
 
-    // console.log('in progress stuff', inProgress);
-    // console.log('in progress page defaults', pageDefaults);
     return { ...currentPageFields, ...pageDefaults, ...inProgress };
   }, [completedPaperwork, currentPage, paperworkInProgress]);
 
-  // console.log('completed', completedPaperwork);
-  // console.log('paperworkGroupDefaults', paperworkGroupDefaults);
-
   const finishPaperworkPage = useCallback(
     async (data: QuestionnaireFormFields): Promise<void> => {
-      const patchPaperwork = async (
-        data: QuestionnaireResponseItem[],
-        questionnaireResponseId: string,
-        pageId: string,
-        zambdaClient: ZambdaClient
-      ): Promise<QuestionnaireResponse> => {
-        return api.patchPaperwork(zambdaClient, {
-          answers: { linkId: pageId, item: data },
-          questionnaireResponseId,
-        });
-      };
-
-      if (data && appointmentID && tokenlessZambdaClient && currentPage && questionnaireResponseId) {
+      if (data && appointmentID && zambdaClient && currentPage && questionnaireResponseId && paperworkPatient) {
         const raw = (Object.values(data) ?? []) as QuestionnaireResponseItem[];
         const responseItems = raw
           .filter((item) => {
@@ -429,36 +427,93 @@ export const PaperworkPage: FC = () => {
             }
             return item;
           });
-        // console.log('responseItems', responseItems, data);
-        try {
-          if (currentPage.linkId.includes('insurance')) {
-            // do the insurance check thing
+        const handlePatchPaperwork = async (
+          item: QuestionnaireResponseItem[],
+          zambdaClient: ZambdaClient
+        ): Promise<void> => {
+          try {
+            setLoading(true);
+            const updatedPaperwork = await api.patchPaperwork(zambdaClient, {
+              answers: { linkId: currentPage.linkId, item },
+              questionnaireResponseId,
+            });
+            patchCompletedPaperwork(updatedPaperwork);
+            saveProgress(currentPage.linkId, undefined);
+            navigate(
+              `/paperwork/${appointmentID}/${nextPage !== undefined ? slugFromLinkId(nextPage.linkId) : 'review'}`
+            );
+          } catch (e) {
+            // todo: handle this better
+            console.error('error patching paperwork', e);
+          } finally {
+            setLoading(false);
           }
-          setLoading(true);
-          const updatedPaperwork = await patchPaperwork(
-            responseItems,
-            questionnaireResponseId,
-            currentPage.linkId,
-            tokenlessZambdaClient
-          );
-          patchCompletedPaperwork(updatedPaperwork);
-          saveProgress(currentPage.linkId, undefined);
-          navigate(
-            `/paperwork/${appointmentID}/${nextPage !== undefined ? slugFromLinkId(nextPage.linkId) : 'review'}`
-          );
+        };
+        try {
+          if (currentPage.complexValidationType !== undefined) {
+            console.log('performing complex validation');
+            setValidationRoadblockConfig({
+              type: 'in-progress',
+              title: 'Hang tight',
+              message: "We're verifying your insurance information. This shouldn't take long...",
+            });
+            const complexValidationResult = await performComplexValidation(
+              {
+                appointmentId: appointmentID,
+                patientId: paperworkPatient.id ?? '',
+                responseItems,
+                type: currentPage.complexValidationType,
+              },
+              zambdaClient
+            );
+            const { valueEntries } = complexValidationResult;
+            Object.entries(valueEntries).forEach((e) => {
+              const [key, val] = e;
+              const existingIdx = responseItems.findIndex((i) => {
+                return i.linkId === key;
+              });
+              if (existingIdx >= 0) {
+                responseItems[existingIdx] = { linkId: key, answer: val };
+              } else {
+                responseItems.push({ linkId: key, answer: val });
+              }
+            });
+
+            if (complexValidationResult.type === 'failure') {
+              const { attemptCureAction, canProceed } = complexValidationResult;
+              const edConfig: ValidationRoadblockConfig = {
+                ...complexValidationResult,
+              };
+              if (canProceed) {
+                edConfig.onContinueClick = async () => {
+                  setValidationRoadblockConfig(undefined);
+                  await handlePatchPaperwork(responseItems, zambdaClient);
+                };
+              }
+              if (attemptCureAction) {
+                edConfig.onRetryClick = () => {
+                  setValidationRoadblockConfig(undefined);
+                };
+              }
+              setValidationRoadblockConfig(edConfig);
+              return;
+            }
+          }
+          setValidationRoadblockConfig(undefined);
+          return handlePatchPaperwork(responseItems, zambdaClient);
         } catch (e) {
           // todo: handle this better
           console.error('error patching paperwork', e);
-        } finally {
-          setLoading(false);
+          setValidationRoadblockConfig(undefined);
         }
       }
     },
     [
       appointmentID,
-      questionnaireResponseId,
-      tokenlessZambdaClient,
+      zambdaClient,
       currentPage,
+      questionnaireResponseId,
+      paperworkPatient,
       patchCompletedPaperwork,
       saveProgress,
       navigate,
@@ -480,6 +535,7 @@ export const PaperworkPage: FC = () => {
             options={{ controlButtons }}
             items={questionnaireItems}
             defaultValues={paperworkGroupDefaults}
+            isSaving={loading}
             saveProgress={(data) => {
               const pageId = currentPage?.linkId;
               if (pageId) {
@@ -487,12 +543,13 @@ export const PaperworkPage: FC = () => {
               }
             }}
           />
-          <ErrorDialog
-            open={fileErrorDialogOpen}
-            title={t('paperwork.errors.file.title')}
-            description={t('paperwork.errors.file.description')}
-            closeButtonText={t('paperwork.errors.file.close')}
-            handleClose={() => setFileErrorDialogOpen(false)}
+          <ComplexValidationRoadblock
+            open={validationRoadblockConfig !== undefined}
+            title={validationRoadblockConfig?.title ?? ''}
+            message={validationRoadblockConfig?.message ?? ''}
+            onRetryClick={validationRoadblockConfig?.onRetryClick}
+            onContinueClick={validationRoadblockConfig?.onContinueClick}
+            type={validationRoadblockConfig?.type ?? 'failure'}
           />
         </>
       )}
@@ -502,4 +559,194 @@ export const PaperworkPage: FC = () => {
 
 export const slugFromLinkId = (linkId: string): string => {
   return linkId.replace('-page', '');
+};
+
+interface ComplexValidationInput {
+  appointmentId: string;
+  patientId: string;
+  responseItems: QuestionnaireResponseItem[];
+  type: string;
+}
+
+const performComplexValidation = async (
+  input: ComplexValidationInput,
+  client: ZambdaClient
+): Promise<ComplexValidationResult> => {
+  const { appointmentId, patientId, responseItems, type } = input;
+
+  if (type === 'insurance eligibility') {
+    const eligibilityRes = await api.getEligibility(
+      {
+        appointmentId,
+        patientId,
+        coveragePrevalidationInput: {
+          responseItems,
+          billingProviderResource: {
+            type: 'Organization',
+            reference: 'Organization/86e52f3d-b0ad-4088-a82a-02a5f8236a51',
+          },
+        },
+      },
+      client
+    );
+    const { primary, secondary } = eligibilityRes;
+    const valueEntryValues: QuestionnaireResponseItemAnswer[] = [{ valueString: primary }];
+    if (secondary != undefined) {
+      valueEntryValues.push({ valueString: secondary });
+    }
+    if (
+      primary === InsuranceEligibilityCheckStatus.eligibilityConfirmed ||
+      primary === InsuranceEligibilityCheckStatus.eligibilityCheckNotSupported
+    ) {
+      return {
+        type: 'success',
+        valueEntries: {
+          'insurance-eligibility-verification-status': valueEntryValues,
+        },
+      };
+    } else {
+      let message = '';
+      let title = '';
+      let attemptCureAction: string | undefined;
+      if (primary === InsuranceEligibilityCheckStatus.eligibilityNotChecked) {
+        title = 'Coverage could not be verified';
+        message =
+          'System not responding; unable to verify eligibility. Proceed to the next screen to continue as self-pay.';
+      }
+      if (primary === InsuranceEligibilityCheckStatus.eligibilityNotConfirmed) {
+        title = 'Coverage not found';
+        message =
+          'We were unable to verify insurance eligibility. Please select "Try again" to confirm the information was entered correctly or continue as self-pay';
+        attemptCureAction = 'Try again';
+      }
+      return {
+        type: 'failure',
+        title,
+        canProceed: true,
+        message,
+        attemptCureAction,
+        valueEntries: {
+          'insurance-eligibility-verification-status': valueEntryValues,
+        },
+      };
+    }
+  }
+  return {
+    type: 'success',
+    valueEntries: {},
+  };
+};
+
+interface ValidationRoadblockConfig
+  extends Omit<ComplexValidationResultFailureCase, 'valueEntries' | 'canProceed' | 'type'> {
+  type: 'failure' | 'in-progress' | 'success';
+  onRetryClick?: () => void;
+  onContinueClick?: () => Promise<void>;
+}
+
+interface ValidationRoadblockProps extends ValidationRoadblockConfig {
+  open: boolean;
+}
+
+const ComplexValidationRoadblock: FC<ValidationRoadblockProps> = ({
+  open,
+  message,
+  attemptCureAction,
+  title,
+  onRetryClick,
+  onContinueClick,
+}) => {
+  const theme = useTheme();
+  const { t } = useTranslation();
+  const isMobile = useMediaQuery(`(max-width: 480px)`);
+
+  const dialogActions: ReactNode = (() => {
+    const buttons: any[] = [];
+    if (onRetryClick) {
+      buttons.push(
+        <Button
+          key="validation-roadblock-retry-button"
+          data-testid="validation-roadblock-retry-button"
+          variant={onContinueClick ? 'outlined' : 'contained'}
+          onClick={onRetryClick}
+          size={isMobile ? 'small' : 'large'}
+          sx={{
+            fontWeight: '700',
+          }}
+        >
+          <span>{attemptCureAction ?? 'Try again'}</span>
+        </Button>
+      );
+    }
+    if (onContinueClick) {
+      buttons.push(
+        <Button
+          key="validation-roadblock-continue-button'"
+          data-testid="validation-roadblock-continue-button"
+          variant="contained"
+          onClick={onContinueClick}
+          size={isMobile ? 'small' : 'large'}
+          sx={{
+            fontWeight: '700',
+            marginTop: isMobile ? 1 : 0,
+            marginLeft: isMobile ? '0 !important' : 1,
+          }}
+        >
+          <span>{'Self pay'}</span>
+        </Button>
+      );
+    }
+    return (
+      <DialogActions
+        sx={{
+          justifyContent: `${buttons.length > 1 ? 'space-between' : 'end'}`,
+          display: isMobile ? 'contents' : 'flex',
+          marginLeft: isMobile ? 0 : 'initial',
+        }}
+      >
+        {buttons}
+      </DialogActions>
+    );
+  })();
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onRetryClick}
+      disableScrollLock
+      sx={{
+        '.MuiPaper-root': {
+          padding: 2,
+        },
+      }}
+    >
+      <DialogTitle variant="h2" color="secondary.main" sx={{ width: '80%' }} data-testid="validation-roadblock-title">
+        <span>{title}</span>
+        {onRetryClick && (
+          <IconButton
+            aria-label={t('general.button.close')}
+            onClick={onRetryClick}
+            sx={{
+              position: 'absolute',
+              right: 8,
+              top: 8,
+            }}
+          >
+            <Close />
+          </IconButton>
+        )}
+      </DialogTitle>
+      <DialogContent>
+        <DialogContentText
+          sx={{
+            color: theme.palette.text.primary,
+          }}
+          data-testid="validation-roadblock-content-text"
+        >
+          {message}
+        </DialogContentText>
+      </DialogContent>
+      {dialogActions}
+    </Dialog>
+  );
 };
