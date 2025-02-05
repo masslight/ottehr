@@ -1,4 +1,4 @@
-import { default as FhirClient, default as Oystehr } from '@oystehr/sdk';
+import { default as Oystehr } from '@oystehr/sdk';
 import { FhirResource, Location, Practitioner, Resource } from 'fhir/r4b';
 import {
   allPhysicalLocations,
@@ -17,8 +17,8 @@ import {
 import { getAuth0Token } from '../src/shared';
 import { createOystehrClient } from '../src/shared/helpers';
 
-export const checkLocations = async (fhirClient: FhirClient): Promise<void> => {
-  const allLocations = await fhirClient.fhir.search({
+export const checkLocations = async (oystehr: Oystehr): Promise<void> => {
+  const allLocations = await oystehr.fhir.search({
     resourceType: 'Location',
   });
   console.log('Received all locations from fhir.');
@@ -32,12 +32,12 @@ export const checkLocations = async (fhirClient: FhirClient): Promise<void> => {
 
   for (const statePkg of AllStates) {
     const stateData = AllStatesToVirtualLocationsData[statePkg.value];
-    if (!telemedStates.includes(statePkg.value)) await createTelemedLocation(statePkg, stateData, fhirClient);
+    if (!telemedStates.includes(statePkg.value)) await createTelemedLocation(statePkg, stateData, oystehr);
   }
   console.log('All telemed locations exist');
 
   for (const locationInfo of allPhysicalLocations) {
-    await createPhysicalLocation(locationInfo, fhirClient);
+    await createPhysicalLocation(locationInfo, oystehr);
   }
 };
 

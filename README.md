@@ -75,7 +75,7 @@ The script will prompt you for the following information:
 - Your project ID &mdash; Listed on the Oystehr Console next to the access token
 - An email address for your first Provider User of the EHR &mdash; Put your email here.
 
-When the setup script finishes, the intake and EHR websites will open automatically.
+When the setup script finishes, the intake and EHR websites will open automatically, and the email address you provided will receive an invitation to join the EHR.
 
 You only need to run the setup script once. To start the apps going forward, use `npm run apps:start`.
 
@@ -89,7 +89,7 @@ By default, the Patient app uses passwordless SMS for authentication. On the log
 
 The EHR app starts up at <http://localhost:4002>
 
-To log into the EHR, enter the email you input during the setup program on the login screen. Click `Forgot password?`, follow the password reset workflow, then enter your password to complete login.
+To log into the EHR, check the email address you provided during setup for an invitation to join the EHR application. Click the link, follow the account setup workflow, and then enter your credentials to complete login.
 
 ## End to End Test Setup Procedure
 
