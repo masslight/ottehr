@@ -1,6 +1,6 @@
 {
   "app": "npx ts-node --prefer-ts-exts bin/deploy-test.ts",
-  "profile": "Ottehr",
+  "profile": "ottehr",
   "watch": {
     "include": ["**"],
     "exclude": [
