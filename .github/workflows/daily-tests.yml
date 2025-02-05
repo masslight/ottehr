@@ -1,0 +1,74 @@
+name: Daily Tests
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Runs at 00:00 UTC every day
+  workflow_dispatch: # Allows manual triggering
+
+env:
+  PROJECT_ID: '5c29cd00-8df3-447b-aa49-2e65d262388c'
+  NODE_VERSION: '18'
+  NPM_VERSION: '9'
+  TEST_EMAIL: 'gschneider@masslight.com'
+  AUTH_URL: 'https://auth.zapehr.com/oauth/token'
+  AUD_URL: 'https://api.zapehr.com'
+
+jobs:
+  e2e-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install correct npm version
+        run: |
+          npm install -g npm@${{ env.NPM_VERSION }}
+
+      - name: Verify versions
+        run: |
+          echo "Node version: $(node --version)"
+          echo "npm version: $(npm --version)"
+
+      - name: Get Access Token
+        id: get-token
+        run: |
+          response=$(curl -X POST ${{ env.AUTH_URL }} \
+            -H "Content-Type: application/json" \
+            -d '{
+              "client_id": "${{ secrets.DAILY_TEST_M2M_CLIENT_ID }}",
+              "client_secret": "${{ secrets.DAILY_TEST_M2M_CLIENT_SECRET }}",
+              "audience": "${{ env.AUD_URL }}",
+              "grant_type": "client_credentials"
+            }')
+
+          # Extract access token and set as output
+          echo "access_token=$(echo $response | jq -r .access_token)" >> $GITHUB_OUTPUT
+
+      - name: Make setup script executable
+        run: chmod +x scripts/ottehr-setup.sh
+
+      - name: Run setup script
+        env:
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+          ACCESS_TOKEN: ${{ steps.get-token.outputs.access_token }}
+          TEST_EMAIL: ${{ env.TEST_EMAIL }}
+        run: |
+          scripts/ottehr-setup.sh \
+            --project-id=$PROJECT_ID \
+            --access-token=$ACCESS_TOKEN \
+            --email=$TEST_EMAIL
+
+      - name: Confirm setup
+        run: |
+          echo "Setup complete"
+
+      # - name: Run E2E tests
+
+      # - name: Clean up after tests

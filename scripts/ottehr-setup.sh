@@ -55,12 +55,6 @@ display_progress "Dependencies installed"
 display_progress "Executing ./ottehr-setup.ts..."
 npx tsx ./scripts/ottehr-setup.ts "$@"
 
-if [ "$#" -eq 2 ]; then
-  # Display progress messages
-  display_progress "Starting the app/zambdas locally..."
-  pnpm apps:start
-fi
-
 display_progress "Setup script completed"
 
 # if no command line arguments are provided, npm run apps:start
