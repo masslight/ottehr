@@ -202,17 +202,17 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     }
     console.timeEnd('patching policy holders resources');
 
-    console.time('creating conflict resolution task resource');
     if (hasConflictingUpdates(patientPatchOps)) {
       const task = createConflictResolutionTask(patientPatchOps, patientMasterRecordResources, qr.id);
       try {
+        console.time('creating conflict resolution task resource');
         await oystehr.fhir.create(task);
+        console.timeEnd('creating conflict resolution task resource');
       } catch (error) {
         console.log(`Failed to create conflict review task: ${JSON.stringify(error)}`);
         throw new Error('Failed to create conflict review task');
       }
     }
-    console.timeEnd('creating conflict resolution task resource');
 
     const newPatientMasterRecordResources = createInsuranceResources({
       questionnaireResponse: qr,
