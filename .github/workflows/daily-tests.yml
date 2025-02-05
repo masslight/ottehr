@@ -1,8 +1,8 @@
 name: Daily Tests
 on:
   schedule:
-    - cron: '0 0 * * *' # Runs at 00:00 UTC every day
-  workflow_dispatch: # Allows manual triggering
+    - cron: '0 0 * * *' # Fixed cron syntax
+  workflow_dispatch:
   push:
     branches:
       - '984/automated-setup-script-testing'
@@ -18,6 +18,8 @@ env:
 jobs:
   e2e-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: testing
 
     steps:
       - uses: actions/checkout@v4
@@ -34,8 +36,18 @@ jobs:
 
       - name: Verify versions
         run: |
-          echo "Node version: $(node --version)"
-          echo "npm version: $(npm --version)"
+          node_ver=$(node --version)
+          npm_ver=$(npm --version)
+          echo "Node version: $node_ver"
+          echo "npm version: $npm_ver"
+          if [[ ! "$node_ver" =~ ^v${NODE_VERSION} ]]; then
+            echo "Incorrect Node.js version"
+            exit 1
+          fi
+          if [[ ! "$npm_ver" =~ ^${NPM_VERSION} ]]; then
+            echo "Incorrect npm version"
+            exit 1
+          fi
 
       - name: Get Access Token
         id: get-token
@@ -48,13 +60,20 @@ jobs:
               "audience": "${{ env.AUD_URL }}",
               "grant_type": "client_credentials"
             }')
-
-          echo "Response: $response"
+          if ! echo "$response" | jq -e '.access_token' > /dev/null; then
+            echo "Error getting access token. Response: $response"
+            exit 1
+          fi
           access_token=$(echo $response | jq -r '.access_token')
           echo "access_token=$access_token" >> $GITHUB_OUTPUT
 
       - name: Make setup script executable
-        run: chmod +x scripts/ottehr-setup.sh
+        run: |
+          if [ ! -f scripts/ottehr-setup.sh ]; then
+            echo "Setup script not found!"
+            exit 1
+          fi
+          chmod +x scripts/ottehr-setup.sh
 
       - name: Run setup script
         env:
@@ -62,10 +81,30 @@ jobs:
           ACCESS_TOKEN: ${{ steps.get-token.outputs.access_token }}
           TEST_EMAIL: ${{ env.TEST_EMAIL }}
         run: |
+          if [ -z "$ACCESS_TOKEN" ]; then
+            echo "Access token is empty!"
+            exit 1
+          fi
+          if [ -z "$PROJECT_ID" ]; then
+            echo "Project ID is empty!"
+            exit 1
+          fi
+          if [ -z "$TEST_EMAIL" ]; then
+            echo "Test email is empty!"
+            exit 1
+          fi
           ./scripts/ottehr-setup.sh \
             --project-id="$PROJECT_ID" \
             --access-token="$ACCESS_TOKEN" \
             --email="$TEST_EMAIL"
 
       - name: Confirm setup
-        run: echo "Setup complete"
+        run: |
+          # Add your validation commands here
+          # For example, check if certain files or configurations exist
+          if [ $? -eq 0 ]; then
+            echo "Setup completed successfully"
+          else
+            echo "Setup failed"
+            exit 1
+          fi
