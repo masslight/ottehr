@@ -20,7 +20,7 @@ const virtualLocations: { value: string; label: string }[] = [
   { value: 'OH', label: 'OH' },
 ];
 
-export const allPhysicalLocations: { state: string; city: string }[] = [
+const allPhysicalLocations: { state: string; city: string }[] = [
   {
     state: 'NY',
     city: 'New York',
