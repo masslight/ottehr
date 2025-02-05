@@ -90,6 +90,9 @@ functions:
       PROJECT_ID: ${file(./.env/${self:provider.stage}.json):PROJECT_ID}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+      CANDID_CLIENT_ID: ${file(./.env/${self:provider.stage}.json):CANDID_CLIENT_ID, ''}
+      CANDID_CLIENT_SECRET: ${file(./.env/${self:provider.stage}.json):CANDID_CLIENT_SECRET, ''}
+      CANDID_ENV: ${file(./.env/${self:provider.stage}.json):CANDID_ENV, ''}
 
   sign-appointment:
     handler: src/sign-appointment/index.index

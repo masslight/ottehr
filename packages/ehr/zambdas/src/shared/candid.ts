@@ -38,7 +38,7 @@ import { FHIR_IDENTIFIER_NPI } from 'utils/lib/types';
 import { assertDefined } from './helpers';
 import { CandidApiClient, CandidApiEnvironment } from 'candidhealth';
 import { RenderingProviderid } from 'candidhealth/api/resources/contracts/resources/v2';
-import { getSecret, Secrets } from 'utils';
+import { getOptionalSecret, getSecret, Secrets } from 'utils';
 import { SecretsKeys } from './secrets';
 import { VideoResourcesAppointmentPackage } from './pdf/visit-details-pdf/types';
 import Oystehr from '@oystehr/sdk';
@@ -113,7 +113,7 @@ export async function createCandidEncounter(
   oystehr: Oystehr
 ): Promise<string | undefined> {
   console.log('Create candid encounter.');
-  const candidClientId = getSecret(SecretsKeys.CANDID_CLIENT_ID, secrets);
+  const candidClientId = getOptionalSecret(SecretsKeys.CANDID_CLIENT_ID, secrets);
   if (candidClientId == null || candidClientId.length === 0) {
     return undefined;
   }
@@ -188,7 +188,11 @@ const createCandidCreateEncounterInput = async (
       })
     )
       .unbundle()
-      .filter((procedure) => chartDataResourceHasMetaTagByCode(procedure, 'cpt-code')),
+      .filter(
+        (procedure) =>
+          chartDataResourceHasMetaTagByCode(procedure, 'cpt-code') ||
+          chartDataResourceHasMetaTagByCode(procedure, 'em-code')
+      ),
     insuranceResources: coverage
       ? {
           coverage: coverage,
@@ -396,7 +400,9 @@ async function fetchBillingProviderData(
     npi: renderingProviderNpi,
     isRendering: true,
   });
-  const renderingProviderId = providersResponse.ok ? providersResponse.body.items[0].organizationProviderId : undefined;
+  const renderingProviderId = providersResponse.ok
+    ? providersResponse.body.items[0]?.organizationProviderId
+    : undefined;
   if (renderingProviderId == null) {
     return STUB_BILLING_PROVIDER_DATA;
   }
