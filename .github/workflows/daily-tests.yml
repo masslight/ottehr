@@ -4,6 +4,9 @@ on:
   schedule:
     - cron: '0 0 * * *' # Runs at 00:00 UTC every day
   workflow_dispatch: # Allows manual triggering
+  push:
+    branches:
+      - '984/automated-setup-script-testing'
 
 env:
   PROJECT_ID: '5c29cd00-8df3-447b-aa49-2e65d262388c'
