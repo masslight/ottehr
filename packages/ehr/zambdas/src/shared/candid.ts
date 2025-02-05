@@ -88,13 +88,15 @@ const STUB_BILLING_PROVIDER_DATA: BillingProviderData = {
   zipPlusFourCode: '0000',
 };
 
+const SERVICE_FACILITY_LOCATION_STATE = 'CA';
+
 const SERVICE_FACILITY_LOCATION: Location = {
   resourceType: 'Location',
   name: 'ServiceFacilityName',
   address: {
     line: ['ServiceFacilityAddressLine'],
     city: 'ServiceFacilityCity',
-    state: 'CA',
+    state: SERVICE_FACILITY_LOCATION_STATE,
     postalCode: '54321',
   },
   extension: [
@@ -210,7 +212,7 @@ async function candidCreateEncounterRequest(
     ? await fetchBillingProviderData(
         practitionerNpi,
         assertDefined(insuranceResources.payor.name, 'Payor name'),
-        'CA', // TODO pass a correct state
+        SERVICE_FACILITY_LOCATION_STATE,
         apiClient
       )
     : STUB_BILLING_PROVIDER_DATA;
