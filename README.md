@@ -164,9 +164,10 @@ This repository uses a monorepo structure.
 
 ### Customization
 
-#### To rename your Ottehr app:
+#### To customize your Ottehr app:
 
--
+- Update the "VITE_APP_NAME" environment variable from both ehr and intake env folders
+- Modify the project name, website and support email from `packages/utils/lib/types/constants.ts`
 
 #### To theme your Ottehr Intake app:
 
