@@ -82,6 +82,16 @@ export const dataTestIds = {
   },
   statesPage: {
     statesSearch: 'states-search',
+    stateValue: 'state-value',
+    operateInStateValue: 'operate-in-state-value',
+    stateRow: (stateValue: string) => `state-row-${stateValue}`,
+  },
+  editState: {
+    saveChangesButton: 'save-changes-button',
+    cancelButton: 'cancel-button',
+    operateInStateToggle: 'operate-in-state-toggle',
+    stateNameTitle: 'state-name-title',
+    stateNameField: 'state-name-field',
   },
   patients: {
     searchByNameField: 'search-name-field',
