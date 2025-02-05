@@ -36,6 +36,7 @@ export const PATIENT_CITY = 'New York';
 export const PATIENT_LINE = '10 Cooper Square';
 export const PATIENT_STATE = 'NY';
 export const PATIENT_POSTALCODE = '06001';
+export const INSURANCE_NAME = 'Test insurance' + randomUUID();
 
 export class ResourceHandler {
   private apiClient!: Oystehr;
@@ -205,7 +206,7 @@ export class ResourceHandler {
       try {
         this.insurancePlan = await this.apiClient.fhir.create({
           resourceType: 'InsurancePlan',
-          name: 'Test Insurance 1234567',
+          name: INSURANCE_NAME,
           meta: {
             tag: [
               {
@@ -258,7 +259,7 @@ export class ResourceHandler {
             },
           ],
         });
-        console.log(`👏 insurance plan created`, this.insurancePlan.id);
+        console.log(`👏 insurance plan created`, this.insurancePlan.id, this.insurancePlan.name);
       } catch (error) {
         console.error('❌ insurance plan not created', error);
       }

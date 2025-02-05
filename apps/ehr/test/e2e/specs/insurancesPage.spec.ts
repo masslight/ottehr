@@ -1,8 +1,8 @@
 import { test } from '@playwright/test';
 import { ResourceHandler } from '../../e2e-utils/resource-handler';
 import { expectInsurancesPage } from '../page/InsurancesPage';
+import { INSURANCE_NAME } from '../../e2e-utils/resource-handler';
 const resourceHandler = new ResourceHandler();
-const INSURANCE_NAME = 'Test Insurance 1234567';
 
 test.beforeAll(async () => {
   await resourceHandler.setResources();
@@ -13,13 +13,11 @@ test.afterAll(async () => {
 });
 
 test.beforeEach(async ({ page }) => {
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(10000);
   await page.goto('/telemed-admin/insurances');
 });
 
-test('Open "Insurances page", click through several pages forward and backward,  paginagiton works correctly', async ({
-  page,
-}) => {
+test('Open "Insurances page", click forward and backward,  paginagiton works correctly', async ({ page }) => {
   const insurancesPage = await expectInsurancesPage(page);
   await insurancesPage.verifyPaginationState('1–10 of 1000');
   await insurancesPage.clickNextPage();
