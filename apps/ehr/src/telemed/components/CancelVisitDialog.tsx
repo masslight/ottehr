@@ -17,6 +17,7 @@ import React, { ReactElement, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { cancelTelemedAppointment } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
+import { CancellationReasonOptionsTelemedEHR } from 'utils';
 
 interface CancelVisitDialogProps {
   onClose: () => void;
@@ -31,12 +32,7 @@ const CancelVisitDialog = ({ onClose }: CancelVisitDialogProps): ReactElement =>
   const { id: appointmentID } = useParams();
   const navigate = useNavigate();
 
-  const cancellationReasons = [
-    'Patient did not answer after multiple attempts',
-    'Wrong patient name on chart',
-    'Technical issues connecting and/ or with video',
-    'Other',
-  ];
+  const cancellationReasons = Object.values(CancellationReasonOptionsTelemedEHR);
 
   const handleReasonChange = (event: SelectChangeEvent<string>): void => {
     setReason(event.target.value);
