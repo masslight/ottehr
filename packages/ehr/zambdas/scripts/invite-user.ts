@@ -1,5 +1,4 @@
-import fetch from 'node-fetch';
-import { Practitioner } from 'fhir/r4';
+import { Practitioner } from 'fhir/r4b';
 import {
   ADMINISTRATOR_RULES,
   INACTIVE_RULES,
@@ -10,6 +9,7 @@ import {
 } from '../src/shared';
 import { AllStatesValues, PractitionerLicense, TIMEZONE_EXTENSION_URL } from 'utils';
 import { makeQualificationForPractitioner } from '../src/shared/practitioners';
+import Oystehr, { AccessPolicy, Role, RoleListItem } from '@oystehr/sdk';
 
 const DEFAULTS = {
   firstName: 'Example',
@@ -28,24 +28,22 @@ export const enum RoleType {
   Administrator = 'Administrator',
 }
 
-const updateUserRoles = async (
-  projectApiUrl: string,
-  accessToken: string,
-  projectId: string
-): Promise<{ id: string }[]> => {
+const updateUserRoles = async (oystehr: Oystehr): Promise<{ id: string }[]> => {
   console.log('Updating user roles.');
 
-  const zambdaRule = {
-    resource: ['Zambda:Function:*'],
-    action: ['Zambda:InvokeFunction'],
-    effect: 'Allow',
-  };
-  const inactiveAccessPolicy = { rule: [...INACTIVE_RULES.rule, zambdaRule] };
-  const administratorAccessPolicy = { rule: [...ADMINISTRATOR_RULES.rule, zambdaRule] };
-  const managerAccessPolicy = { rule: [...MANAGER_RULES.rule, zambdaRule] };
-  const staffAccessPolicy = { rule: [...STAFF_RULES.rule, zambdaRule] };
-  const providerAccessPolicy = { rule: [...PROVIDER_RULES.rule, zambdaRule] };
-  const prescriberAccessPolicy = { rule: [...PRESCRIBER_RULES, zambdaRule] };
+  const zambdaRules: AccessPolicy['rule'] = [
+    {
+      resource: ['Zambda:Function:*'],
+      action: ['Zambda:InvokeFunction'],
+      effect: 'Allow',
+    },
+  ];
+  const inactiveAccessPolicy = { rule: [...INACTIVE_RULES.rule, ...zambdaRules] };
+  const administratorAccessPolicy = { rule: [...ADMINISTRATOR_RULES.rule, ...zambdaRules] };
+  const managerAccessPolicy = { rule: [...MANAGER_RULES.rule, ...zambdaRules] };
+  const staffAccessPolicy = { rule: [...STAFF_RULES.rule, ...zambdaRules] };
+  const providerAccessPolicy = { rule: [...PROVIDER_RULES.rule, ...zambdaRules] };
+  const prescriberAccessPolicy = { rule: [...PRESCRIBER_RULES, ...zambdaRules] };
 
   const roles = [
     { name: RoleType.Inactive, accessPolicy: inactiveAccessPolicy },
@@ -56,23 +54,14 @@ const updateUserRoles = async (
     { name: RoleType.Prescriber, accessPolicy: prescriberAccessPolicy },
   ];
 
-  const httpHeaders = {
-    accept: 'application/json',
-    authorization: `Bearer ${accessToken}`,
-    'content-type': 'application/json',
-    'x-zapehr-project-id': `${projectId}`,
-  };
-
   console.log('searching for existing roles for the project');
-  const existingRolesResponse = await fetch(`${projectApiUrl}/iam/role`, {
-    method: 'GET',
-    headers: httpHeaders,
-  });
-  const existingRoles = await existingRolesResponse.json();
-  console.log('existingRoles: ', existingRoles);
-  if (!existingRolesResponse.ok) {
+  let existingRoles: RoleListItem[];
+  try {
+    existingRoles = await oystehr.role.list();
+  } catch (err) {
     throw new Error('Error searching for existing roles');
   }
+  console.log('existingRoles: ', existingRoles);
 
   let adminUserRole = undefined;
   let prescriberUserRole = undefined;
@@ -82,53 +71,48 @@ const updateUserRoles = async (
   for (const role of roles) {
     const roleName = role.name;
     let foundRole;
-    let roleResJson = undefined;
     if (existingRoles.length > 0) {
       foundRole = existingRoles.find((existingRole: any) => existingRole.name === roleName);
     }
+    let roleResult: Role;
     if (foundRole) {
       console.log(`${roleName} role found: `, foundRole);
-      const roleRes = await fetch(`${projectApiUrl}/iam/role/${foundRole.id}`, {
-        method: 'PATCH',
-        headers: httpHeaders,
-        body: JSON.stringify({ accessPolicy: role.accessPolicy }),
-      });
-      roleResJson = await roleRes.json();
-      if (!roleRes.ok) {
-        console.log(roleResJson);
+      try {
+        roleResult = await oystehr.role.update({
+          roleId: foundRole.id,
+          accessPolicy: role.accessPolicy as AccessPolicy,
+        });
+        console.log(`${roleName} role accessPolicy patched: `, roleResult, JSON.stringify(roleResult.accessPolicy));
+      } catch (err) {
+        console.error(err);
         throw new Error(`Failed to patch role ${roleName}`);
       }
-      console.log(`${roleName} role accessPolicy patched: `, roleResJson, JSON.stringify(roleResJson.accessPolicy));
     } else {
       console.log(`creating ${roleName} role`);
-      const roleRes = await fetch(`${projectApiUrl}/iam/role`, {
-        method: 'POST',
-        headers: httpHeaders,
-        body: JSON.stringify({ name: roleName, accessPolicy: role.accessPolicy }),
-      });
-      roleResJson = await roleRes.json();
-      if (!roleRes.ok) {
-        console.log(roleResJson);
+      try {
+        roleResult = await oystehr.role.create({ name: roleName, accessPolicy: role.accessPolicy as AccessPolicy });
+        console.log(`${roleName} role: `, roleResult, JSON.stringify(roleResult.accessPolicy));
+      } catch (err) {
+        console.error(err);
         throw new Error(`Failed to create role ${roleName}`);
       }
-      console.log(`${roleName} role: `, roleResJson, JSON.stringify(roleResJson.accessPolicy));
     }
 
-    if (roleResJson.name === RoleType.Administrator) {
-      adminUserRole = roleResJson;
+    if (roleResult.name === RoleType.Administrator) {
+      adminUserRole = roleResult;
     }
-    if (roleResJson.name === RoleType.Prescriber) {
-      prescriberUserRole = roleResJson;
+    if (roleResult.name === RoleType.Prescriber) {
+      prescriberUserRole = roleResult;
     }
-    if (roleResJson.name === RoleType.Provider) {
-      providerUserRole = roleResJson;
+    if (roleResult.name === RoleType.Provider) {
+      providerUserRole = roleResult;
     }
-    if (roleResJson.name === RoleType.Manager) {
-      managerUserRole = roleResJson;
+    if (roleResult.name === RoleType.Manager) {
+      managerUserRole = roleResult;
     }
   }
 
-  console.group(`Setting defaultSSOUserRole for project to Administrator user role ${adminUserRole.id}`);
+  // console.group(`Setting defaultSSOUserRole for project to Administrator user role ${adminUserRole.id}`);
   // const endpoint = `${projectApiUrl}/project`;
   // const response = await fetch(endpoint, {
   //   method: 'PATCH',
@@ -141,21 +125,31 @@ const updateUserRoles = async (
   // throw new Error(`Failed to set defaultSSOUserRole`);
   // }
 
+  if (!adminUserRole) {
+    throw new Error('Could not create adminUserRole');
+  }
+  if (!prescriberUserRole) {
+    throw new Error('Could not create adminUserRole');
+  }
+  if (!providerUserRole) {
+    throw new Error('Could not create adminUserRole');
+  }
+  if (!managerUserRole) {
+    throw new Error('Could not create adminUserRole');
+  }
   return [adminUserRole, prescriberUserRole, providerUserRole, managerUserRole];
 };
 
 export async function inviteUser(
-  projectApiUrl: string,
+  oystehr: Oystehr,
   email: string,
   firstName = DEFAULTS.firstName,
   lastName = DEFAULTS.lastName,
   applicationId: string,
-  accessToken: string,
-  projectId: string,
   includeDefaultSchedule?: boolean,
   slug?: string
 ): Promise<{ invitationUrl: string | undefined; userId: string | undefined }> {
-  const defaultRoles = await updateUserRoles(projectApiUrl, accessToken, projectId);
+  const defaultRoles = await updateUserRoles(oystehr);
 
   const practitionerQualificationExtension: any = [];
   (
@@ -206,43 +200,31 @@ export async function inviteUser(
     ];
   }
 
-  const activeUsersRequest = await fetch(`${projectApiUrl}/user`, {
-    headers: {
-      accept: 'application/json',
-      authorization: `Bearer ${accessToken}`,
-      'content-type': 'application/json',
-      'x-zapehr-project-id': `${projectId}`,
-    },
-  });
-  const activeUsers = await activeUsersRequest.json();
+  const activeUsers = [];
+  let activeUsersCursor;
+  do {
+    const usersPage = await oystehr.user.listV2({});
+    activeUsers.push(...usersPage.data);
+    activeUsersCursor = usersPage.metadata.nextCursor;
+  } while (activeUsersCursor);
+
   if (activeUsers.find((user: any) => user.email === email)) {
     console.log('User is already invited to project');
     return { invitationUrl: undefined, userId: undefined };
   } else {
     console.log('Inviting user to project');
-    const invitedUserResponse = await fetch(`${projectApiUrl}/user/invite`, {
-      method: 'POST',
-      headers: {
-        accept: 'application/json',
-        authorization: `Bearer ${accessToken}`,
-        'content-type': 'application/json',
-        'x-zapehr-project-id': `${projectId}`,
-      },
-      body: JSON.stringify({
+    try {
+      const invitedUser = await oystehr.user.invite({
         email: email,
         applicationId: applicationId,
         resource: practitioner,
         roles: defaultRoles.map((role) => role.id),
-      }),
-    });
-
-    if (!invitedUserResponse.ok) {
-      console.log(await invitedUserResponse.json());
+      });
+      console.log('User invited:', invitedUser);
+      return { invitationUrl: invitedUser.invitationUrl, userId: invitedUser.profile.split('/')[1] };
+    } catch (err) {
+      console.error(err);
       throw new Error('Failed to create user');
     }
-
-    const invitedUser = await invitedUserResponse.json();
-    console.log('User invited:', invitedUser);
-    return { invitationUrl: invitedUser.invitationUrl, userId: invitedUser.profile.split('/')[1] };
   }
 }

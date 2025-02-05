@@ -1,4 +1,4 @@
-import { CancellationReasonOptionsInPerson, ZambdaInput } from 'utils';
+import { CancellationReasonOptionsInPerson, CancellationReasonOptionsTelemedEHR, ZambdaInput } from 'utils';
 import { CancelAppointmentInput } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): CancelAppointmentInput {
@@ -12,12 +12,13 @@ export function validateRequestParameters(input: ZambdaInput): CancelAppointment
     throw new Error('These fields are required: "appointmentID", "cancellationReason"');
   }
 
-  if (!Object.values(CancellationReasonOptionsInPerson).includes(cancellationReason)) {
-    throw new Error(
-      `"cancellationReason" must be one of the following values: ${JSON.stringify(
-        Object.values(CancellationReasonOptionsInPerson)
-      )}`
-    );
+  const validReasons = [
+    ...Object.values(CancellationReasonOptionsInPerson),
+    ...Object.values(CancellationReasonOptionsTelemedEHR),
+  ];
+
+  if (!validReasons.includes(cancellationReason)) {
+    throw new Error(`"cancellationReason" must be one of the following values: ${JSON.stringify(validReasons)}`);
   }
 
   return {

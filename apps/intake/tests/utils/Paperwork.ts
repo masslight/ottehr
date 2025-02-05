@@ -2,24 +2,7 @@ import { BrowserContext, Page, expect } from '@playwright/test';
 import { CommonLocatorsHelper } from './CommonLocatorsHelper';
 import { FillingInfo } from './in-person/FillingInfo';
 import { Locators } from './locators';
-import { AllStates } from 'utils';
-
-// TODO: import PatientEthnicity, PatientRace and other from the utils, when the https://github.com/masslight/ottehr/pull/889 is merged.
-
-export enum PatientEthnicity {
-  'Hispanic or Latino' = 'Hispanic or Latino',
-  'Not Hispanic or Latino' = 'Not Hispanic or Latino',
-  'Decline to Specify' = 'Decline to Specify',
-}
-
-export enum PatientRace {
-  'American Indian or Alaska Native' = 'American Indian or Alaska Native',
-  'Asian' = 'Asian',
-  'Black or African American' = 'Black or African American',
-  'Native Hawaiian or Other Pacific Islander' = 'Native Hawaiian or Other Pacific Islander',
-  'White' = 'White',
-  'Decline to Specify' = 'Decline to Specify',
-}
+import { AllStates, PatientEthnicity, PatientRace } from 'utils';
 
 export class Paperwork {
   page: Page;
