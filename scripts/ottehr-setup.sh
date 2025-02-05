@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Exit immediately if a command exits with a non-zero status.
-set -e
+set -eo pipefail
 
 # Initialize an empty string for error messages
 errors=""
