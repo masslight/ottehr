@@ -40,36 +40,18 @@ jobs:
       - name: Get Access Token
         id: get-token
         run: |
-          # Make the curl request and store response
           response=$(curl -s -X POST "${{ env.AUTH_URL }}" \
             -H "Content-Type: application/json" \
-            -d "{
-              \"client_id\": \"${{ secrets.DAILY_TEST_M2M_CLIENT_ID }}\",
-              \"client_secret\": \"${{ secrets.DAILY_TEST_M2M_CLIENT_SECRET }}\",
-              \"audience\": \"${{ env.AUD_URL }}\",
-              \"grant_type\": \"client_credentials\"
-            }")
+            -d '{
+              "client_id": "${{ secrets.DAILY_TEST_M2M_CLIENT_ID }}",
+              "client_secret": "${{ secrets.DAILY_TEST_M2M_CLIENT_SECRET }}",
+              "audience": "${{ env.AUD_URL }}",
+              "grant_type": "client_credentials"
+            }')
 
-          # Print raw response for debugging (without sensitive data)
-          echo "Raw response received:"
-          echo "$response" | grep -v "access_token"
-
-          # Extract and store the access token
-          access_token=$(echo "$response" | jq -r '.access_token')
-
-          # Verify we got a token
-          if [ -z "$access_token" ] || [ "$access_token" = "null" ]; then
-            echo "Error: Failed to get access token. Full response:"
-            echo "$response" | jq '.'
-            exit 1
-          fi
-
-          # Set the token as an output
-          echo "::add-mask::$access_token"
+          echo "Response: $response"
+          access_token=$(echo $response | jq -r '.access_token')
           echo "access_token=$access_token" >> $GITHUB_OUTPUT
-
-          # Print token length for verification
-          echo "Access token retrieved (length: ${#access_token})"
 
       - name: Make setup script executable
         run: chmod +x scripts/ottehr-setup.sh
