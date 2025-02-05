@@ -1,6 +1,7 @@
 import { BatchInputPostRequest } from '@oystehr/sdk';
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Operation } from 'fast-json-patch';
 import {
   Appointment,
   Coverage,
@@ -313,19 +314,28 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       throw new Error('RelatedPerson for patient is not defined or does not have ID');
     }
 
+    const patientPatches: Operation[] = [];
     const erxContactOperation = createErxContactOperation(relatedPerson, patientResource);
-    if (erxContactOperation) {
+    if (erxContactOperation) patientPatches.push(erxContactOperation);
+    //TODO: remove addDefaultCountryOperation after country selection is supported in paperwork
+    const addDefaultCountryOperation: Operation = {
+      op: 'add',
+      path: '/address/0/country',
+      value: 'US',
+    };
+    patientPatches.push(addDefaultCountryOperation);
+    if (patientPatches.length > 0) {
       try {
         console.time('patching patient resource');
         await oystehr.fhir.patch({
           resourceType: 'Patient',
           id: patientResource.id,
-          operations: [erxContactOperation],
+          operations: patientPatches,
         });
         console.timeEnd('patching patient resource');
       } catch (error: unknown) {
-        tasksFailed.push('patch patient contact');
-        console.log(`Failed to update Patient contact: ${JSON.stringify(error)}`);
+        tasksFailed.push('patch patient');
+        console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
       }
     }
 
