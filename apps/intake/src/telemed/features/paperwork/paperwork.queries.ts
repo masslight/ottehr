@@ -51,11 +51,11 @@ export const useUpdatePaperworkMutation = () => {
     // todo: figure out what is going on with the ts here
     mutationFn: async ({
       apiClient,
-      appointmentId: questionnaireResponseId,
+      questionnaireResponseId,
       answers,
     }: {
       apiClient: ZapEHRAPIClient;
-      appointmentId: string;
+      questionnaireResponseId: string;
       answers: QuestionnaireResponseItem;
     }) => {
       await apiClient.patchPaperwork({

@@ -14,7 +14,7 @@ import { CustomContainer, useIntakeCommonStore } from '../features/common';
 import { InvitedParticipantListItemButton, ManageParticipantsDialog } from '../features/invited-participants';
 import { createIOSMesssageCallStarted, sendIOSAppMessage } from '../features/ios-communication';
 import { useIOSAppSync } from '../features/ios-communication/useIOSAppSync';
-import { UploadPhotosDialog } from '../features/upload-photos';
+import { UploadPhotosDialog, UploadPhotosListItemButton } from '../features/upload-photos';
 import { useGetWaitStatus, useWaitingRoomStore } from '../features/waiting-room';
 
 const WaitingRoom = (): JSX.Element => {
@@ -109,10 +109,7 @@ const WaitingRoom = (): JSX.Element => {
         {!isInvitedParticipant && (
           <>
             <InvitedParticipantListItemButton onClick={() => setManageParticipantsDialogOpen(true)} hideText={false} />
-            {/*
-             * todo: Feature temporarily disabled. Additional development required to restore full functionality from previous version.
-             * <UploadPhotosListItemButton onClick={() => setUploadPhotosDialogOpen(true)} hideText={false} />
-             */}
+            <UploadPhotosListItemButton onClick={() => setUploadPhotosDialogOpen(true)} hideText={false} />
           </>
         )}
 
@@ -163,6 +160,7 @@ const WaitingRoom = (): JSX.Element => {
         />
       ) : null}
       {isCallSettingsOpen ? <CallSettings onClose={() => setIsCallSettingsOpen(false)} /> : null}
+      {isUploadPhotosDialogOpen ? <UploadPhotosDialog onClose={() => setUploadPhotosDialogOpen(false)} /> : null}
     </CustomContainer>
   );
 };

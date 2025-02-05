@@ -655,6 +655,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({ itemProps, renderProps, fi
             value={unwrappedValue}
             onChange={smartOnChange}
             description={item.attachmentText ?? ''}
+            usePaperworkContext={usePaperworkContext}
           />
         );
       case 'Group':
