@@ -38,7 +38,14 @@ export class StatesPage {
   }
 
   async clickState(state: string): Promise<void> {
-    await this.#page.locator('a:text("' + state + '")').click();
+    await this.#page.getByTestId(dataTestIds.statesPage.stateRow(state)).locator('a').click();
+  }
+
+  async getFisrtState(): Promise<string> {
+    return (await this.#page.getByTestId(dataTestIds.statesPage.stateValue).first().locator('a').innerText()).substring(
+      0,
+      2
+    );
   }
 
   async verifyOperateInState(state: string, operate: boolean): Promise<void> {

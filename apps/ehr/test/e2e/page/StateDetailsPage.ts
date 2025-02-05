@@ -18,12 +18,14 @@ export class StateDetailsPage {
   }
 
   async verifyStateNameTitle(stateNameTitle: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.editState.stateNameTitle)).toHaveText(stateNameTitle);
+    await expect(this.#page.getByTestId(dataTestIds.editState.stateNameTitle)).toHaveText(
+      new RegExp(stateNameTitle + '.*')
+    );
   }
 
-  async verifyStateNameField(stateNameField: string): Promise<void> {
+  async verifyStateNameField(stateNameText: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.editState.stateNameField).locator('input')).toHaveValue(
-      stateNameField
+      new RegExp(stateNameText + '.*')
     );
   }
 
