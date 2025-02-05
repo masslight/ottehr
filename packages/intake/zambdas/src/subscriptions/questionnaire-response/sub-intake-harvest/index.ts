@@ -140,8 +140,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       (res): res is Organization => res.resourceType === 'Organization'
     );
 
-    // relatedPersonResources.push(relatedPerson);
-
     const patientMasterRecordResources: PatientMasterRecordResources = {
       patient: patientResource,
       coverages: coverageResources,
