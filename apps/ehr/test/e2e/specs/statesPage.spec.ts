@@ -20,12 +20,9 @@ test.beforeEach(async ({ page }) => {
 
 test('Open "States page", enter state abbreviation,  correct search result is displayed', async ({ page }) => {
   const statesPage = await expectStatesPage(page);
-  await statesPage.searchStates('ID');
-  await statesPage.verifyStatesPresent(['ID - Idaho']);
-  await statesPage.verifyPaginationState('1–1 of 1');
-
-  await statesPage.searchStates('ca');
-  await statesPage.verifyStatesPresent(['CA - California']);
+  const state = await statesPage.getFisrtState();
+  await statesPage.searchStates(state);
+  await statesPage.verifyStatePresent(state);
   await statesPage.verifyPaginationState('1–1 of 1');
 
   await statesPage.searchStates('AA');

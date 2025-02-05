@@ -22,10 +22,14 @@ export class StatesPage {
     ).toBeVisible();
   }
 
-  async verifyStatesPresent(states: string[]): Promise<void> {
-    for (const state of states) {
-      await expect(this.#page.locator('a:text("' + state + '")')).toBeVisible();
-    }
+  async verifyStatePresent(state: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.statesPage.stateRow(state))).toBeVisible();
+  }
+
+  async verifyStateNameField(stateNameText: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.editState.stateNameField).locator('input')).toHaveValue(
+      new RegExp(stateNameText + '.*')
+    );
   }
 
   async selectRowsPerPage(rowsPerPage: string): Promise<void> {
