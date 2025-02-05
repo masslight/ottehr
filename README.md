@@ -77,66 +77,21 @@ The script will prompt you for the following information:
 
 When the setup script finishes, the intake and EHR websites will open automatically, and the email address you provided will receive an invitation to join the EHR.
 
-You only need to run the setup script once. To start the apps going forward, use `npm run apps:start`.
+Now that you have set up Ottehr, let's explore the project a bit to make sure everything is working properly.
 
-### Log in and explore the Patient app
+Two applications should have been started automatically after setting up Ottehr.
 
-The Patient app starts up at <http://localhost:3002>
+* On localhost:3002 the patient application should be running
 
-By default, the Patient app uses passwordless SMS for authentication. On the login screen, enter your mobile phone number followed by the one-time passcode which is sent to your device.
+* On localhost:4002 the staff application should be running
 
-### Log in and explore the EHR
+The first thing we will do is create an appointment on the patient application, and check it on the staff application. These steps will check if that both the frontend and backend for the patient and staff applications are working as expected.
 
-The EHR app starts up at <http://localhost:4002>
+On the patient application, sign in by entering a phone number. Note that only numbers in the United States and Canada will work -- to configure authentication for numbers in other countries please contact us at support@oystehr.com.
 
-To log into the EHR, check the email address you provided during setup for an invitation to join the EHR application. Click the link, follow the account setup workflow, and then enter your credentials to complete login.
+Choose Schedule an In-Person Visit, then fill out patient information. You can complete the paperwork, it is optional.
 
-## End to End Test Setup Procedure
-
-Ottehr includes a suite of end to end tests that can be used to maintain quality as you customize it for your use case.
-
-Ottehr uses the [ClickSend](https://www.clicksend.com/us/) api to send an sms with a confirmation code that is used to login before running the e2e tests. As such, you will need to [create a ClickSend account](https://dashboard.clicksend.com/signup/step1) in order to setup e2e testing.
-
-After you have created your ClickSend account, invite a test user to your EHR application by navigating to <https://console.oystehr.com/app/users/new>. Select your EHR application, input the user's email for both "User name" and "Email", set the in-line access policy to
-
-```
-{
-  "rule": []
-}
-```
-
-and choose "Administrator" as the role. Then, click "Invite". To set the password, launch the ehr app by running `npm run ehr:start` from the root directory, enter the email you invited, click `Forgot password?` and set a password.
-
-To set the environment files required to run e2e tests, run the following command in the root directory:
-
-```bash
-sh scripts/e2e-test-setup.sh
-```
-
-The script will prompt you for the following information:
-
-- The username for the test user of the EHR
-- The password for a test user of the EHR
-- The phone number for a test user of the EHR
-- Your ClickSend user's username
-- Your ClickSend user's password
-
-Once the program finishes running, the environment files for your e2e tests will be set.
-
-From the root directory, running the following commands will run the e2e tests for the backend and UI for the intake and ehr apps:
-
-```
-npm run intake:e2e:local
-npm run intake:e2e:local:ui
-npm run ehr:e2e:local
-npm run ehr:e2e:local:ui
-```
-
-## Setting up Terminology Search
-
-Ottehr uses UMLS Terminology Services for searching for ICD-10 and CPT codes.
-
-To set up the terminology search service, please follow these instructions in the [Oystehr docs](https://docs.oystehr.com/services/zambda/examples/terminology-search/#1-get-a-national-library-of-medicine-api-key), and then save the API key as `NLM_API_KEY` in the Zambdas secrets.
+Next, go to the staff application and select the In Person page. Select the location you made an appointment. The appointment you created should load. If it does, everything is working as expected. If it does not, check that you didn't miss any steps and if there is still a problem please open an issue.
 
 ## Repository Structure
 
