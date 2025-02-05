@@ -1,5 +1,4 @@
 name: Daily Tests
-
 on:
   schedule:
     - cron: '0 0 * * *' # Runs at 00:00 UTC every day
@@ -31,8 +30,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install correct npm version
-        run: |
-          npm install -g npm@${{ env.NPM_VERSION }}
+        run: npm install -g npm@${{ env.NPM_VERSION }}
 
       - name: Verify versions
         run: |
@@ -42,7 +40,7 @@ jobs:
       - name: Get Access Token
         id: get-token
         run: |
-          response=$(curl -X POST ${{ env.AUTH_URL }} \
+          response=$(curl -X POST "${{ env.AUTH_URL }}" \
             -H "Content-Type: application/json" \
             -d '{
               "client_id": "${{ secrets.DAILY_TEST_M2M_CLIENT_ID }}",
@@ -50,7 +48,6 @@ jobs:
               "audience": "${{ env.AUD_URL }}",
               "grant_type": "client_credentials"
             }')
-
           # Extract access token and set as output
           echo "access_token=$(echo $response | jq -r .access_token)" >> $GITHUB_OUTPUT
 
@@ -63,16 +60,10 @@ jobs:
           ACCESS_TOKEN: ${{ steps.get-token.outputs.access_token }}
           TEST_EMAIL: ${{ env.TEST_EMAIL }}
         run: |
-          scripts/ottehr-setup.sh \
-            --project-id=$PROJECT_ID \
-            --access-token=$ACCESS_TOKEN \
-            --email=$TEST_EMAIL
+          ./scripts/ottehr-setup.sh \
+            --project-id="$PROJECT_ID" \
+            --access-token="$ACCESS_TOKEN" \
+            --email="$TEST_EMAIL"
 
       - name: Confirm setup
-        run: |
-          echo "Setup complete"
-
-      # - name: Run E2E tests
-      #   run: npm run SOMETHING
-
-      # - name: Clean up after tests
+        run: echo "Setup complete"
