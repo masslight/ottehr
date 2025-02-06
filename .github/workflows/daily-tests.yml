@@ -46,6 +46,7 @@ jobs:
       - name: Run setup script
         run: |
           chmod +x scripts/ottehr-setup.sh
+          echo "Client ID: ${{ secrets.DAILY_TEST_M2M_CLIENT_ID }}"
           ./scripts/ottehr-setup.sh \
             --project-id="${{ env.PROJECT_ID }}" \
             --access-token="${{ steps.get-token.outputs.access_token }}" \
