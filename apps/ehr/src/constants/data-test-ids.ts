@@ -129,5 +129,12 @@ export const dataTestIds = {
   },
   insurancesPage: {
     insuranceSearch: 'insurance-search',
+    statusDropdown: 'status-dropdown',
+    addNewButton: 'add-new-button',
+  },
+  newInsurancePage: {
+    payerName: 'payer-name',
+    saveChangesButton: 'save-changes-button',
+    activateButton: 'activate-button',
   },
 };

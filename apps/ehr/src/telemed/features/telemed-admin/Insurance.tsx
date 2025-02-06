@@ -126,6 +126,7 @@ export default function Insurances(): ReactElement {
                 defaultValue={''}
                 input={<OutlinedInput label="Status" />}
                 onChange={handleStatusChange}
+                data-testid={dataTestIds.insurancesPage.statusDropdown}
               >
                 <MenuItem value={''}>None</MenuItem>
                 <MenuItem value={IsActiveStatus.active}>Active</MenuItem>
@@ -146,7 +147,9 @@ export default function Insurances(): ReactElement {
                 variant="contained"
               >
                 <AddIcon />
-                <Typography fontWeight="bold">Add new</Typography>
+                <Typography fontWeight="bold" data-testid={dataTestIds.insurancesPage.addNewButton}>
+                  Add new
+                </Typography>
               </Button>
             </Link>
           </Grid>

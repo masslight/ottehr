@@ -27,6 +27,15 @@ export class InsurancesPage {
   async verifyInsurancePresent(insurance: string): Promise<void> {
     await expect(this.#page.locator('a:text("' + insurance + '")')).toBeVisible();
   }
+
+  async selectStatusFilter(status: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.insurancesPage.statusDropdown).click();
+    await this.#page.locator('li').getByText(status).click();
+  }
+
+  async clickAddNewButton(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.insurancesPage.addNewButton).click();
+  }
 }
 
 export async function expectInsurancesPage(page: Page): Promise<InsurancesPage> {
