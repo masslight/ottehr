@@ -44,9 +44,11 @@ jobs:
           echo "access_token=$token" >> $GITHUB_OUTPUT
 
       - name: Run setup script
+        env:
+          CLIENT_ID: ${{ secrets.DAILY_TEST_M2M_CLIENT_ID }}
         run: |
           chmod +x scripts/ottehr-setup.sh
-          echo "::debug::Client ID: ${{ secrets.DAILY_TEST_M2M_CLIENT_ID }}"
+          echo "Client ID: $CLIENT_ID"
           ./scripts/ottehr-setup.sh \
             --project-id="${{ env.PROJECT_ID }}" \
             --access-token="${{ steps.get-token.outputs.access_token }}" \
