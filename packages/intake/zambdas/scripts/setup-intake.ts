@@ -98,6 +98,7 @@ async function createApplication(oystehr: Oystehr, applicationName: string): Pro
           'Zambda:Function:telemed-get-paperwork',
           'Zambda:Function:telemed-create-paperwork',
           'Zambda:Function:telemed-cancel-telemed-appointment',
+          'Zambda:Function:telemed-cancel-in-person-appointment',
           'Zambda:Function:check-in',
           'Zambda:Function:create-appointment',
           'Zambda:Function:cancel-appointment',
