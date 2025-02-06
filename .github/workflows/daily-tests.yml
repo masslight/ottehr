@@ -1,11 +1,10 @@
 name: Daily Tests
 on:
   schedule:
-    - cron: '0 0 * * *' # Fixed cron syntax
+    - cron: '0 0 * * *'
   workflow_dispatch:
   push:
-    branches:
-      - '984/automated-setup-script-testing'
+    branches: ['984/automated-setup-script-testing']
 
 env:
   PROJECT_ID: '5c29cd00-8df3-447b-aa49-2e65d262388c'
@@ -20,91 +19,34 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: testing
-
     steps:
       - uses: actions/checkout@v4
         with:
           ref: develop
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Install correct npm version
-        run: npm install -g npm@${{ env.NPM_VERSION }}
-
-      - name: Verify versions
-        run: |
-          node_ver=$(node --version)
-          npm_ver=$(npm --version)
-          echo "Node version: $node_ver"
-          echo "npm version: $npm_ver"
-          if [[ ! "$node_ver" =~ ^v${NODE_VERSION} ]]; then
-            echo "Incorrect Node.js version"
-            exit 1
-          fi
-          if [[ ! "$npm_ver" =~ ^${NPM_VERSION} ]]; then
-            echo "Incorrect npm version"
-            exit 1
-          fi
+      - run: npm install -g npm@${{ env.NPM_VERSION }}
 
       - name: Get Access Token
         id: get-token
         run: |
-          response=$(curl -s -X POST "${{ env.AUTH_URL }}" \
+          token=$(curl -s -X POST "${{ env.AUTH_URL }}" \
             -H "Content-Type: application/json" \
             -d '{
               "client_id": "${{ secrets.DAILY_TEST_M2M_CLIENT_ID }}",
               "client_secret": "${{ secrets.DAILY_TEST_M2M_CLIENT_SECRET }}",
               "audience": "${{ env.AUD_URL }}",
               "grant_type": "client_credentials"
-            }')
-          if ! echo "$response" | jq -e '.access_token' > /dev/null; then
-            echo "Error getting access token. Response: $response"
-            exit 1
-          fi
-          access_token=$(echo $response | jq -r '.access_token')
-          echo "access_token=$access_token" >> $GITHUB_OUTPUT
-
-      - name: Make setup script executable
-        run: |
-          if [ ! -f scripts/ottehr-setup.sh ]; then
-            echo "Setup script not found!"
-            exit 1
-          fi
-          chmod +x scripts/ottehr-setup.sh
+            }' | jq -r '.access_token')
+          echo "access_token=$token" >> $GITHUB_OUTPUT
 
       - name: Run setup script
-        env:
-          PROJECT_ID: ${{ env.PROJECT_ID }}
-          ACCESS_TOKEN: ${{ steps.get-token.outputs.access_token }}
-          TEST_EMAIL: ${{ env.TEST_EMAIL }}
         run: |
-          if [ -z "$ACCESS_TOKEN" ]; then
-            echo "Access token is empty!"
-            exit 1
-          fi
-          if [ -z "$PROJECT_ID" ]; then
-            echo "Project ID is empty!"
-            exit 1
-          fi
-          if [ -z "$TEST_EMAIL" ]; then
-            echo "Test email is empty!"
-            exit 1
-          fi
+          chmod +x scripts/ottehr-setup.sh
           ./scripts/ottehr-setup.sh \
-            --project-id="$PROJECT_ID" \
-            --access-token="$ACCESS_TOKEN" \
-            --email="$TEST_EMAIL"
-
-      - name: Confirm setup
-        run: |
-          # Add your validation commands here
-          # For example, check if certain files or configurations exist
-          if [ $? -eq 0 ]; then
-            echo "Setup completed successfully"
-          else
-            echo "Setup failed"
-            exit 1
-          fi
+            --project-id="${{ env.PROJECT_ID }}" \
+            --access-token="${{ steps.get-token.outputs.access_token }}" \
+            --email="${{ env.TEST_EMAIL }}"
