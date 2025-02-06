@@ -26,11 +26,11 @@ import {
   INTERPRETER_PHONE_NUMBER,
   mapStatusToTelemed,
   TelemedAppointmentStatusEnum,
+  calculatePatientAge,
 } from 'utils';
 import { EditPatientDialog } from '../../../components/dialogs';
 import { adjustTopForBannerHeight } from '../../../constants';
 import ChatModal from '../../../features/chat/ChatModal';
-import { calculatePatientAge } from '../../../helpers/formatDateTime';
 import { addSpacesAfterCommas } from '../../../helpers/formatString';
 import useEvolveUser from '../../../hooks/useEvolveUser';
 import { getSelectors } from '../../../shared/store/getSelectors';

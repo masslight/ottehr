@@ -21,3 +21,10 @@ export const CancellationReasonCodesInPerson: { [key in CancellationReasonOption
   'Service never offered': 'service-not-offered',
   'Duplicate visit or account error': 'duplicate-visit-or-account-error',
 };
+
+export enum CancellationReasonOptionsTelemedEHR {
+  'Patient did not answer after multiple attempts' = 'Patient did not answer after multiple attempts',
+  'Wrong patient name on chart' = 'Wrong patient name on chart',
+  'Technical issues connecting and/ or with video' = 'Technical issues connecting and/ or with video',
+  'Other' = 'Other',
+}
