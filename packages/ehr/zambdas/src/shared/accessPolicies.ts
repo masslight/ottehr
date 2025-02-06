@@ -15,7 +15,6 @@ export const ADMINISTRATOR_RULES: AccessPolicy = {
         'FHIR:Person',
         'FHIR:Medication',
         'FHIR:List',
-        'FHIR:PractitionerRole',
       ],
     },
     {
@@ -35,6 +34,7 @@ export const ADMINISTRATOR_RULES: AccessPolicy = {
         'FHIR:Communication',
         'FHIR:Flag',
         'FHIR:QuestionnaireResponse',
+        'FHIR:PractitionerRole',
       ],
     },
     {
