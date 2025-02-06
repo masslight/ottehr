@@ -10,7 +10,7 @@ export class UploadImage {
     this.page = page;
   }
 
-  async uploadPhoto(locator: string, fileName: string): Promise<Locator> {
+  async uploadPhoto(locator: string, fileName: string, pathToProjectRoot: string | undefined = '..'): Promise<Locator> {
     let requestUrl: string | undefined;
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = dirname(__filename);
@@ -28,7 +28,7 @@ export class UploadImage {
       this.page.locator(locator).click(),
     ]);
 
-    const filePath = path.resolve(__dirname, `../images-for-tests/${fileName}`);
+    const filePath = path.resolve(__dirname, `${pathToProjectRoot}/images-for-tests/${fileName}`);
     await fileChooser.setFiles(filePath);
     await this.page.waitForTimeout(5000);
 
@@ -49,5 +49,8 @@ export class UploadImage {
   }
   async fillInsuranceBack(): Promise<Locator> {
     return await this.uploadPhoto('#insurance-card-back', 'Portrait_2.jpg');
+  }
+  async fillPatientCondition(pathToProjectRoot?: string): Promise<Locator> {
+    return await this.uploadPhoto('#photo', 'Landscape_1.jpg', pathToProjectRoot);
   }
 }
