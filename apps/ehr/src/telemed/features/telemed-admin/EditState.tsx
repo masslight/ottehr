@@ -23,6 +23,7 @@ import { STATES_URL } from '../../../App';
 import CustomBreadcrumbs from '../../../components/CustomBreadcrumbs';
 import { useApiClients } from '../../../hooks/useAppClients';
 import PageContainer from '../../../layout/PageContainer';
+import { dataTestIds } from '../../../constants/data-test-ids';
 
 export default function EditStatePage(): JSX.Element {
   const { oystehr } = useApiClients();
@@ -96,6 +97,7 @@ export default function EditStatePage(): JSX.Element {
 
             {/* Page Title */}
             <Typography
+              data-testid={dataTestIds.editState.stateNameTitle}
               variant="h3"
               color="primary.dark"
               marginTop={2}
@@ -114,6 +116,7 @@ export default function EditStatePage(): JSX.Element {
 
               <Box sx={{ marginTop: '10px' }}>
                 <TextField
+                  data-testid={dataTestIds.editState.stateNameField}
                   id="outlined-read-only-input"
                   label="State name"
                   value={fullLabel}
@@ -131,6 +134,7 @@ export default function EditStatePage(): JSX.Element {
                   <FormControlLabel
                     control={
                       <Switch
+                        data-testid={dataTestIds.editState.operateInStateToggle}
                         checked={isOperateInStateChecked}
                         onChange={(event) => onSwitchChange(event.target.checked)}
                       />
@@ -143,6 +147,7 @@ export default function EditStatePage(): JSX.Element {
               {/* Update State and Cancel Buttons */}
               <Grid>
                 <LoadingButton
+                  data-testid={dataTestIds.editState.saveChangesButton}
                   variant="contained"
                   color="primary"
                   sx={{
@@ -161,6 +166,7 @@ export default function EditStatePage(): JSX.Element {
 
                 <Link to={STATES_URL}>
                   <Button
+                    data-testid={dataTestIds.editState.cancelButton}
                     variant="text"
                     color="primary"
                     sx={{
