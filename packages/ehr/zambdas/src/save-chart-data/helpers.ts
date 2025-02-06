@@ -94,6 +94,10 @@ export async function getEncounterAndRelatedResources(oystehr: Oystehr, encounte
           name: '_include',
           value: 'Encounter:appointment',
         },
+        {
+          name: '_revinclude:iterate',
+          value: 'List:patient',
+        },
       ],
     })
   ).unbundle();

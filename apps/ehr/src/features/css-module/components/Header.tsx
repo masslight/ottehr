@@ -13,6 +13,10 @@ import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../telemed';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { VisitStatusLabel } from 'utils';
+import { usePractitionerActions } from '../hooks/usePractitioner';
+import { practitionerType } from '../../../helpers/practitionerUtils';
+import { useNavigationContext } from '../context/NavigationContext';
+import { enqueueSnackbar } from 'notistack';
 
 const HeaderWrapper = styled(Box)(({ theme }) => ({
   backgroundColor: theme.palette.background.paper,
@@ -57,6 +61,7 @@ export const Header = (): JSX.Element => {
     sourceData: { appointment, patient },
     processedData,
     telemedData,
+    refetch,
   } = useAppointment(appointmentID);
   const { encounter } = telemedData;
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
@@ -67,10 +72,31 @@ export const Header = (): JSX.Element => {
   const language = format(processedData?.preferredLanguage, 'Lang');
   const dob = format(processedData?.DOB, 'DOB', true);
   const allergies = format(chartData?.allergies?.map((allergy) => allergy.name)?.join(', '), 'Allergy', true, 'none');
-  const weight = format(processedData?.weight, 'Weight', true);
   const reasonForVisit = format(appointment?.description, 'Reason for Visit');
   const userId = format(patient?.id);
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
+  const { interactionMode, setInteractionMode } = useNavigationContext();
+  const nextMode = interactionMode === 'intake' ? 'provider' : 'intake';
+  const practitionerTypeFromMode = interactionMode === 'intake' ? practitionerType.Attender : practitionerType.Admitter;
+  const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
+    encounter,
+    'start',
+    practitionerTypeFromMode
+  );
+
+  const handleSwitchMode = async (): Promise<void> => {
+    try {
+      if (!appointmentID) return;
+      await handleUpdatePractitioner();
+      void refetch();
+      setInteractionMode(nextMode);
+    } catch (error: any) {
+      console.log(error.message);
+      enqueueSnackbar(`An error occurred trying to switch to ${nextMode} mode. Please try again.`, {
+        variant: 'error',
+      });
+    }
+  };
 
   return (
     <HeaderWrapper data-testid={dataTestIds.cssHeader.container}>
@@ -113,8 +139,7 @@ export const Header = (): JSX.Element => {
                   sx={{ fontWeight: chartData?.allergies?.length ? 700 : 400, maxWidth: '250px' }}
                 >
                   {allergies}
-                </PatientMetadata>{' '}
-                |<PatientMetadata>{weight}</PatientMetadata>
+                </PatientMetadata>
               </PatientInfoWrapper>
               <PatientInfoWrapper>
                 <PatientMetadata>{pronouns}</PatientMetadata> | <PatientMetadata>{gender}</PatientMetadata> |
@@ -131,7 +156,11 @@ export const Header = (): JSX.Element => {
                 },
               }}
             >
-              <SwitchIntakeModeButton />
+              <SwitchIntakeModeButton
+                isDisabled={!appointmentID || isEncounterUpdatePending}
+                handleSwitchMode={handleSwitchMode}
+                nextMode={nextMode}
+              />
               {encounterId ? <InternalNotes encounterId={encounterId} /> : null}
             </Grid>
           </Grid>

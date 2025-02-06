@@ -5,6 +5,7 @@ import {
   Attachment,
   Coding,
   Consent,
+  ContactPoint,
   Coverage,
   DocumentReference,
   Flag,
@@ -27,7 +28,6 @@ import {
   ContactTelecomConfig,
   coverageFieldPaths,
   createConsentResource,
-  createDocumentReference,
   createFilesDocumentReferences,
   createPatchOperationForTelecom,
   DATE_OF_BIRTH_URL,
@@ -75,6 +75,9 @@ import {
   uploadPDF,
   consolidateOperations,
   RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL,
+  PRIVACY_POLICY_CODE,
+  OTTEHR_MODULE,
+  getPhoneNumberForIndividual,
 } from 'utils';
 import { v4 as uuid } from 'uuid';
 import { createOrUpdateFlags } from '../../../paperwork/sharedHelpers';
@@ -92,8 +95,9 @@ interface DocToSaveData {
   code: string;
   display: string;
   text: string;
-  images: FileDocDataForDocReference[];
+  files: FileDocDataForDocReference[];
   dateCreated: string;
+  references: { context?: DocumentReference['context']; subject?: DocumentReference['subject'] };
 }
 
 interface CreateConsentResourcesInput {
@@ -668,8 +672,6 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       ).unbundle();
     }
   }
-  console.log('oldConsentDocRefs?.length', oldConsentDocRefs?.length);
-  console.log('oldConsentResources?.length', oldConsentResources?.length);
 
   // Create consent PDF, DocumentReference, and Consent resource if there are none or signer information changes
   // Update prior consent DocumentReferences statuses to superseded
@@ -745,7 +747,7 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
         coding: [
           {
             system: 'http://loinc.org',
-            code: '64292-6',
+            code: PRIVACY_POLICY_CODE,
             display: 'Privacy Policy',
           },
         ],
@@ -801,9 +803,10 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
     });
   }
 
+  console.log('pdfsToCreate len', pdfsToCreate.length);
   for (const pdfInfo of pdfsToCreate) {
-    const documentReference = await createDocumentReference({
-      docInfo: [{ contentURL: pdfInfo.uploadURL, title: pdfInfo.resourceTitle, mimeType: 'application/pdf' }],
+    const documentReferences = await createFilesDocumentReferences({
+      files: [{ url: pdfInfo.uploadURL, title: pdfInfo.formTitle }],
       type: pdfInfo.type,
       dateCreated: nowIso,
       oystehr,
@@ -821,14 +824,20 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       },
       generateUUID: randomUUID,
       listResources,
+      searchParams: [],
+      meta: {
+        // for backward compatibility. TODO: remove this
+        tag: [{ code: OTTEHR_MODULE.IP }, { code: OTTEHR_MODULE.TM }],
+      },
     });
-    if (!documentReference.id) {
+
+    if (!documentReferences?.[0]?.id) {
       throw new Error('No consent document reference id found');
     }
 
     // Create FHIR Consent resource
     if (pdfInfo.type.coding[0].code === CONSENT_CODE) {
-      await createConsentResource(patientResource.id ?? '', documentReference.id, nowIso, oystehr);
+      await createConsentResource(patientResource.id ?? '', documentReferences?.[0]?.id, nowIso, oystehr);
     }
   }
 }
@@ -843,9 +852,6 @@ export async function createDocumentResources(
   console.log('reviewing insurance cards and photo id cards');
 
   const docsToSave: DocToSaveData[] = [];
-
-  let insuranceDocToSave: DocToSaveData | undefined;
-  let photoIdDocToSave: DocToSaveData | undefined;
 
   const items = (quesionnaireResponse.item as IntakeQuestionnaireItem[]) ?? [];
   const flattenedPaperwork = flattenIntakeQuestionnaireItems(items) as QuestionnaireResponseItem[];
@@ -917,16 +923,19 @@ export async function createDocumentResources(
   if (idCards.length) {
     const sorted = sortAttachmentsByCreationTime(idCards);
     const dateCreated = sorted[0].creation ?? '';
-    photoIdDocToSave = {
+    const photoIdDocToSave = {
       // photo id
       code: PHOTO_ID_CARD_CODE,
-      images: sorted.map((attachment) => {
+      files: sorted.map((attachment) => {
         const { url = '', title = '' } = attachment;
         return {
           url,
           title,
         };
       }),
+      references: {
+        context: { related: [{ reference: `Patient/${patientID}` }] },
+      },
       display: 'Patient data Document',
       text: 'Photo ID cards',
       dateCreated,
@@ -937,15 +946,18 @@ export async function createDocumentResources(
   if (insuranceCards.length) {
     const sorted = sortAttachmentsByCreationTime(insuranceCards);
     const dateCreated = sorted[0].creation ?? '';
-    insuranceDocToSave = {
+    const insuranceDocToSave = {
       code: INSURANCE_CARD_CODE,
-      images: sorted.map((attachment) => {
+      files: sorted.map((attachment) => {
         const { url = '', title = '' } = attachment;
         return {
           url,
           title,
         };
       }),
+      references: {
+        context: { related: [{ reference: `Patient/${patientID}` }] },
+      },
       display: 'Health insurance card',
       text: 'Insurance cards',
       dateCreated,
@@ -957,13 +969,17 @@ export async function createDocumentResources(
     const dateCreated = patientConditionPhoto.creation ?? '';
     const conditionPhotosToSave = {
       code: PATIENT_PHOTO_CODE,
-      images: [patientConditionPhoto].map((attachment) => {
+      files: [patientConditionPhoto].map((attachment) => {
         const { url = '', title = '' } = attachment;
         return {
           url,
           title,
         };
       }),
+      references: {
+        subject: { reference: `Patient/${patientID}` },
+        context: { related: [{ reference: `Appointment/${appointmentID}` }] },
+      },
       display: 'Patient condition photos',
       text: 'Patient photos',
       dateCreated,
@@ -976,13 +992,17 @@ export async function createDocumentResources(
     const dateCreated = sorted[0].creation ?? '';
     const schoolWorkNotesToSave = {
       code: SCHOOL_WORK_NOTE_TEMPLATE_CODE,
-      images: schoolWorkNotes.map((attachment) => {
+      files: schoolWorkNotes.map((attachment) => {
         const { url = attachment.url || '', title = attachment.title || '' } = attachment;
         return {
           url,
           title,
         };
       }),
+      references: {
+        subject: { reference: `Patient/${patientID}` },
+        context: { related: [{ reference: `Appointment/${appointmentID}` }] },
+      },
       display: 'Patient status assessment note template',
       text: 'Patient status assessment note template',
       dateCreated,
@@ -993,7 +1013,7 @@ export async function createDocumentResources(
   console.log('docsToSave len', docsToSave.length);
   for (const d of docsToSave) {
     await createFilesDocumentReferences({
-      files: d.images,
+      files: d.files,
       type: {
         coding: [
           {
@@ -1015,13 +1035,14 @@ export async function createDocumentResources(
           value: d.code,
         },
       ],
-      referenceParam: {
-        subject: { reference: `Patient/${patientID}` },
-        context: { related: [{ reference: `Appointment/${appointmentID}` }, { reference: `Patient/${patientID}` }] },
-      },
+      references: d.references,
       oystehr,
       generateUUID: randomUUID,
       listResources,
+      meta: {
+        // for backward compatibility. TODO: remove this
+        tag: [{ code: OTTEHR_MODULE.IP }, { code: OTTEHR_MODULE.TM }],
+      },
     });
   }
 }
@@ -1397,7 +1418,10 @@ export function createMasterRecordPatchOperations(
   });
 
   // Separate operations for each resource
+  // Separate Patient operations
   result.patient = separateResourceUpdates(tempOperations.patient, resources.patient, 'Patient');
+
+  // Prepare Patient direct operations for executing
   result.patient.patchOpsForDirectUpdate = addAuxiliaryPatchOperations(result.patient.patchOpsForDirectUpdate);
   result.patient.patchOpsForDirectUpdate = consolidateOperations(
     result.patient.patchOpsForDirectUpdate,
@@ -2029,6 +2053,8 @@ function setValueByPath(obj: any, path: string, value: any): void {
 
 function addAuxiliaryPatchOperations(operations: Operation[]): Operation[] {
   const auxOperations: Operation[] = [];
+
+  // Add required link to contained Practitioner resource
   if (operations.some((op) => op.path && op.path.includes('contained'))) {
     const addResourceTypeOperation: AddOperation<any> = {
       op: 'add',
@@ -2061,4 +2087,67 @@ function addAuxiliaryPatchOperations(operations: Operation[]): Operation[] {
   }
 
   return [...operations, ...auxOperations];
+}
+
+export function createErxContactOperation(
+  relatedPerson: RelatedPerson,
+  patientResource: Patient
+): Operation | undefined {
+  const verifiedPhoneNumber = getPhoneNumberForIndividual(relatedPerson);
+  console.log(`patient verified phone number ${verifiedPhoneNumber}`);
+
+  console.log('reviewing patient erx contact telecom phone nubmber');
+  // find existing erx contact info and it's index so that the contact array can be updated
+  const erxContactIdx = patientResource?.contact?.findIndex((contact) =>
+    Boolean(
+      contact.telecom?.find((telecom) =>
+        Boolean(telecom?.extension?.find((telExt) => telExt.url === FHIR_EXTENSION.ContactPoint.erxTelecom.url))
+      )
+    )
+  );
+
+  let updateErxContact = false;
+  const erxContact = erxContactIdx && erxContactIdx >= 0 ? patientResource?.contact?.[erxContactIdx] : undefined;
+  const erxTelecom =
+    erxContact &&
+    erxContact.telecom?.find((telecom) =>
+      Boolean(telecom?.extension?.find((telExt) => telExt.url === FHIR_EXTENSION.ContactPoint.erxTelecom.url))
+    );
+
+  if (erxContactIdx && erxContactIdx >= 0) {
+    if (!(erxTelecom && erxTelecom.system === 'phone' && erxTelecom.value === verifiedPhoneNumber)) {
+      updateErxContact = true;
+    }
+  } else {
+    updateErxContact = true;
+  }
+
+  if (updateErxContact) {
+    const erxContactTelecom: ContactPoint = {
+      value: verifiedPhoneNumber,
+      system: 'phone',
+      extension: [{ url: FHIR_EXTENSION.ContactPoint.erxTelecom.url, valueString: 'erx' }],
+    };
+    if (erxContactIdx && erxContactIdx >= 0) {
+      console.log('building patient patch operations: update patient erx contact telecom');
+      return {
+        op: 'replace',
+        path: `/contact/${erxContactIdx}`,
+        value: {
+          telecom: [erxContactTelecom],
+        },
+      };
+    } else {
+      console.log('building patient patch operations: add patient erx contact telecom');
+      return {
+        op: 'add',
+        path: `/contact/-`,
+        value: {
+          telecom: [erxContactTelecom],
+        },
+      };
+    }
+  }
+
+  return undefined;
 }

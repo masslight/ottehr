@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Drawer, List, ListItem, ListItemIcon, ListItemText, IconButton, styled, alpha, Button } from '@mui/material';
 import { RouteCSS, useNavigationContext } from '../context/NavigationContext';
 import { routesCSS } from '../routing/routesCSS';
 import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
 import { CompleteIntakeButton } from './CompleteIntakeButton';
+import { practitionerType } from '../../../helpers/practitionerUtils';
+import { useAppointment } from '../hooks/useAppointment';
+import { usePractitionerActions } from '../hooks/usePractitioner';
+import { getVisitStatus } from 'utils';
+import { enqueueSnackbar } from 'notistack';
 const ArrowIcon = ({ direction }: { direction: 'left' | 'right' }): React.ReactElement => (
   <svg width="40" height="40" fill="none" xmlns="http://www.w3.org/2000/svg">
     <circle cx="20" cy="20" r="20" fill="#2169F5" fillOpacity=".04" />
@@ -225,6 +230,25 @@ export const Sidebar = (): JSX.Element => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(true);
   const { interactionMode } = useNavigationContext();
+  const { id: appointmentID } = useParams();
+  const { telemedData, refetch } = useAppointment(appointmentID);
+  const { appointment, encounter } = telemedData;
+  const status = appointment && encounter ? getVisitStatus(appointment, encounter) : undefined;
+  const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
+    encounter,
+    'end',
+    practitionerType.Admitter
+  );
+
+  const handleCompleteIntake = async (): Promise<void> => {
+    try {
+      await handleUpdatePractitioner();
+      await refetch();
+    } catch (error: any) {
+      console.log(error.message);
+      enqueueSnackbar('An error occurred trying to complete intake. Please try again.', { variant: 'error' });
+    }
+  };
 
   const handleDrawerToggle = (): void => {
     setOpen(!open);
@@ -306,7 +330,11 @@ export const Sidebar = (): JSX.Element => {
         })}
       </List>
       <br />
-      <CompleteIntakeButton />
+      <CompleteIntakeButton
+        isDisabled={!appointmentID || isEncounterUpdatePending || status !== 'intake'}
+        handleCompleteIntake={handleCompleteIntake}
+        status={status}
+      />
     </Drawer>
   );
 };

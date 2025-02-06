@@ -20,8 +20,10 @@ on:
         type: choice
         default: 'development'
         options:
-          - demo
           - development
+          - testing
+          - staging
+          - demo
       incrementVersion:
         description: 'Bump Version?'
         type: boolean
@@ -150,7 +152,7 @@ jobs:
         run: cd ${{ env.PACKAGE_LOCATION }} && npm run ci-deploy:${{ env.ENVIRONMENT }}
 
       - name: Deploy zambdas
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run deploy-zambdas ${{ env.ENVIRONMENT }}
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && ENV=${{ env.ENVIRONMENT }} npm run deploy-zambdas ${{ env.ENVIRONMENT }}
 
       - name: Update user roles
         if: ${{ github.event.inputs.service == 'ehr' }}
@@ -164,7 +166,6 @@ jobs:
         run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run setup-zapehr-secrets ${{ env.ENVIRONMENT }}
 
       - name: Ensure required Questionnaire resources are in place
-        if: ${{ github.event.inputs.service == 'intake' }}
         run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run setup-questionnaires ${{ env.ENVIRONMENT }}
 
       - name: Create/update in-house medication resources

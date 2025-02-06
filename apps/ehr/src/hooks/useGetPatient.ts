@@ -206,7 +206,7 @@ export const useGetPatientQuery = (
 ) => {
   const { oystehr } = useApiClients();
   return useQuery(
-    ['patient-data', { patientId }],
+    ['patient-data', { patientId }, { enabled: oystehr && patientId }],
     () => {
       if (oystehr && patientId) {
         return oystehr.fhir.search<Bundle>({

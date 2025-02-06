@@ -1,7 +1,7 @@
 import { FhirResource } from 'fhir/r4b';
-import { getQuestionnaireResponseByLinkId, PATIENT_PHOTO_CODE, SCHOOL_WORK_NOTE_TEMPLATE_CODE } from 'utils';
+import { getQuestionnaireResponseByLinkId, PATIENT_PHOTO_CODE, SCHOOL_WORK_NOTE_TEMPLATE_CODE, formatDOB } from 'utils';
 import { getPatientName } from '../../../telemed/utils';
-import { formatDOB, getPatientInfoWithFallback, getPronouns, getWeight } from './business-logic';
+import { getPatientInfoWithFallback, getPronouns, getWeight } from './business-logic';
 import { Gender } from './constants';
 import {
   extractUrlsFromAppointmentData,

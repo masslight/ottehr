@@ -1,7 +1,13 @@
 import { IconButton, styled, useTheme } from '@mui/material';
 import { lighten, SxProps } from '@mui/material/styles';
 
-export type IconButtonContainedVariant = 'error' | 'primary' | 'disabled' | 'primary.lighter' | 'primary.lightest';
+export type IconButtonContainedVariant =
+  | 'error'
+  | 'loading'
+  | 'primary'
+  | 'disabled'
+  | 'primary.lighter'
+  | 'primary.lightest';
 
 export const IconButtonContained = styled(IconButton)<{ variant?: IconButtonContainedVariant }>(({ variant }) => {
   const theme = useTheme();
@@ -27,6 +33,14 @@ export const IconButtonContained = styled(IconButton)<{ variant?: IconButtonCont
         ...styles,
         backgroundColor: theme.palette.error.main,
         '&:hover': { backgroundColor: lighten(theme.palette.error.main, 0.125) },
+      };
+      break;
+    }
+    case 'loading': {
+      styles = {
+        ...styles,
+        backgroundColor: theme.palette.action.disabled,
+        '&:hover': { backgroundColor: lighten(theme.palette.primary.main, 0.125) },
       };
       break;
     }

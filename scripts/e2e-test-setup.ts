@@ -51,7 +51,7 @@ export async function createTestEnvFiles(): Promise<void> {
       {
         type: 'input',
         name: 'ehrTextPassword',
-        message: 'Enter EHR test user password for getting sms auth code:',
+        message: 'Enter EHR test user password:',
       },
     ]);
 

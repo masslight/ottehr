@@ -1,6 +1,6 @@
 {
   "name": "intake-zambdas",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "scripts": {
     "start": "npm run start:local",
@@ -10,7 +10,7 @@
     "start:dev2": "ENV=dev2 npm run start-skeleton",
     "start:testing": "ENV=testing npm run start-skeleton",
     "start:staging": "ENV=staging npm run start-skeleton",
-    "start-skeleton": "sls offline --stage ${ENV} --httpPort 3000",
+    "start-skeleton": "npm run setup-questionnaires ${ENV} && sls offline --stage ${ENV} --httpPort 3000",
     "create-subscription:dev": "ENV=dev npm run create-subscription-skeleton",
     "create-subscription:dev2": "ENV=dev2 npm run create-subscription-skeleton",
     "create-subscription:testing": "ENV=testing npm run create-subscription-skeleton",
@@ -20,17 +20,17 @@
     "create-location:placeholder": "env-cmd -f ./.env/local.json tsx scripts/create-location.ts",
     "debug": "export SLS_DEBUG=* && node --inspect ../../../node_modules/serverless/bin/serverless offline --stage=local",
     "setup-zapehr-secrets": "tsx scripts/configure-zapehr-secrets.ts",
-    "deploy-zambdas": "npm run package && tsx scripts/deploy-zambdas.ts",
+    "deploy-zambdas": "ENV=$ENV npm run package && tsx scripts/deploy-zambdas.ts",
     "update-permissions-for-users": "tsx scripts/update-permissions-for-users.ts",
     "stub-zambdas": "tsx scripts/create-stub-zambda.ts",
-    "build": "tsc && sls package --stage demo",
-    "build:": "ENV=$npm_config_env npm run build-skeleton",
+    "build": "npm run build:env --env=local",
+    "build:env": "ENV=$npm_config_env npm run build-skeleton",
     "build-skeleton": "tsc && sls package --stage ${ENV}",
-    "package": "tsc && sls package && npm run rebundle",
-    "rebundle": "env-cmd --silent -f ./.env/demo.json bash scripts/package-for-release.sh",
+    "package": "tsc && sls package --stage ${ENV} && npm run rebundle",
+    "rebundle": "env-cmd --silent -f ./.env/${ENV}.json bash scripts/package-for-release.sh",
     "paperwork-types": "tsx scripts/make-paperwork-types.ts",
     "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0 --fix",
-    "test": "jest",
+    "test": "vitest --silent",
     "setup-questionnaires": "tsx scripts/setup-questionnaires.ts",
     "copy-ip-locations": "tsx scripts/copy-ip-locations.ts",
     "setup-intake": "tsx scripts/setup-intake.ts"
@@ -47,6 +47,7 @@
     "utils": "*"
   },
   "devDependencies": {
-    "@types/diacritics": "^1.3.3"
+    "@types/diacritics": "^1.3.3",
+    "vitest": "^3.0.4"
   }
 }

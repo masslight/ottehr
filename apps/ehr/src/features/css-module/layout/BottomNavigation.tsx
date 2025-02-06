@@ -7,28 +7,39 @@ import { practitionerType } from '../../../helpers/practitionerUtils';
 import { useParams } from 'react-router-dom';
 import { usePractitionerActions } from '../hooks/usePractitioner';
 import { LoadingButton } from '@mui/lab';
+import { enqueueSnackbar } from 'notistack';
+import { useAppointment } from '../hooks/useAppointment';
 
 export const BottomNavigation = (): JSX.Element => {
   const { id: appointmentID } = useParams();
+  const { telemedData, refetch } = useAppointment(appointmentID);
+  const { encounter } = telemedData;
   const theme = useTheme();
   const { goToNext, goToPrevious, isNavigationHidden, isFirstPage, isLastPage, interactionMode, isNavigationDisabled } =
     useNavigationContext();
   const practitionerTypeFromMode = interactionMode === 'intake' ? practitionerType.Admitter : practitionerType.Attender;
-  const { isPractitionerLoading, handleButtonClick } = usePractitionerActions(
-    appointmentID ?? '',
+  const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
+    encounter,
     'end',
     practitionerTypeFromMode
   );
+
   const [nextButtonLoading, setNextButtonLoading] = React.useState<boolean>(false);
 
   const handleNextPage = async (): Promise<void> => {
-    setNextButtonLoading(true);
-    if (isLastPage) {
-      await handleButtonClick();
+    try {
+      setNextButtonLoading(true);
+      if (isLastPage) {
+        await handleUpdatePractitioner();
+        setNextButtonLoading(false);
+      }
+      goToNext();
       setNextButtonLoading(false);
+      await refetch();
+    } catch (error: any) {
+      console.log(error.message);
+      enqueueSnackbar('An error occurred trying to complete intake. Please try again.', { variant: 'error' });
     }
-    goToNext();
-    setNextButtonLoading(false);
   };
 
   if (isNavigationHidden) return <></>;
@@ -73,7 +84,7 @@ export const BottomNavigation = (): JSX.Element => {
           Back
         </Button>
         <LoadingButton
-          disabled={isNavigationDisabled || isPractitionerLoading}
+          disabled={isNavigationDisabled || isEncounterUpdatePending}
           loading={nextButtonLoading}
           endIcon={<ArrowForwardIcon sx={{ width: '32px', height: '32px' }} />}
           onClick={handleNextPage}

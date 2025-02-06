@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "scripts": {
     "version": "npm version $npm_package_version --workspaces && git add **/package.json",
@@ -22,7 +22,8 @@
     "ehr:build": "turbo build --filter=ehr-ui --filter=ehr-zambdas",
     "ehr:lint": "turbo lint --filter=ehr-ui... --filter=ehr-zambdas...",
     "ehr:start:ui": "turbo start --filter=ehr-ui",
-    "apps:start": "turbo start --filter=intake-ui --filter=intake-zambdas --filter=ehr-ui --filter=ehr-zambdas"
+    "apps:start": "turbo start --filter=intake-ui --filter=intake-zambdas --filter=ehr-ui --filter=ehr-zambdas",
+    "test": "turbo test"
   },
   "workspaces": [
     "packages/**/*",

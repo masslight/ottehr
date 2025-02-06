@@ -26,6 +26,7 @@ interface ImportMetaEnv {
   readonly VITE_APP_SAVE_CHART_DATA_ZAMBDA_ID?: string;
   readonly VITE_APP_DELETE_CHART_DATA_ZAMBDA_ID?: string;
   readonly VITE_APP_CHANGE_TELEMED_APPOINTMENT_STATUS_ZAMBDA_ID?: string;
+  readonly VITE_APP_CHANGE_IN_PERSON_VISIT_STATUS_ZAMBDA_ID?: string;
   readonly VITE_APP_ASSIGN_PRACTITIONER_ZAMBDA_ID: string;
   readonly VITE_APP_UNASSIGN_PRACTITIONER_ZAMBDA_ID: string;
   readonly VITE_APP_QRS_URL?: string;

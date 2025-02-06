@@ -5,6 +5,7 @@ import {
   ChargeItem,
   DocumentReference,
   Encounter,
+  List,
   Location,
   Patient,
   Practitioner,
@@ -42,6 +43,7 @@ export const getVideoResources = async (
     | QuestionnaireResponse
     | Practitioner
     | DocumentReference
+    | List
   > = (
     await oystehr.fhir.search<
       | Appointment
@@ -53,6 +55,7 @@ export const getVideoResources = async (
       | QuestionnaireResponse
       | Practitioner
       | DocumentReference
+      | List
     >({
       resourceType: 'Encounter',
       params: [
@@ -96,6 +99,10 @@ export const getVideoResources = async (
           name: '_revinclude:iterate',
           value: 'Coverage:beneficiary',
         },
+        {
+          name: '_revinclude:iterate',
+          value: 'List:patient',
+        },
       ],
     })
   ).unbundle();
@@ -138,6 +145,8 @@ export const getVideoResources = async (
     return item.resourceType === 'DocumentReference';
   }) as DocumentReference[];
 
+  const listResources = items.filter((item) => item.resourceType === 'List') as List[];
+
   return {
     appointment,
     encounter,
@@ -148,5 +157,6 @@ export const getVideoResources = async (
     questionnaireResponse,
     practitioner,
     documentReferences,
+    listResources,
   };
 };

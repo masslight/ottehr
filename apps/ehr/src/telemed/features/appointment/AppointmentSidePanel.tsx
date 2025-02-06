@@ -26,11 +26,11 @@ import {
   INTERPRETER_PHONE_NUMBER,
   mapStatusToTelemed,
   TelemedAppointmentStatusEnum,
+  calculatePatientAge,
 } from 'utils';
 import { EditPatientDialog } from '../../../components/dialogs';
 import { adjustTopForBannerHeight } from '../../../constants';
 import ChatModal from '../../../features/chat/ChatModal';
-import { calculatePatientAge } from '../../../helpers/formatDateTime';
 import { addSpacesAfterCommas } from '../../../helpers/formatString';
 import useEvolveUser from '../../../hooks/useEvolveUser';
 import { getSelectors } from '../../../shared/store/getSelectors';
@@ -113,21 +113,6 @@ export const AppointmentSidePanel: FC = () => {
     return null;
   }
 
-  const weight = patient.extension?.find(
-    (extension) => extension.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/weight'
-  )?.valueString;
-  const weightLastUpdated = patient.extension?.find(
-    (extension) => extension.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/weight-last-updated'
-  )?.valueString;
-
-  const weightString =
-    weight &&
-    weightLastUpdated &&
-    `${Math.round(+weight * 0.45359237 * 100) / 100} kg (updated ${DateTime.fromFormat(
-      weightLastUpdated,
-      'yyyy-MM-dd'
-    ).toFormat('MM/dd/yyyy')})`;
-
   function isSpanish(language: string): boolean {
     return language.toLowerCase() === 'Spanish'.toLowerCase();
   }
@@ -204,8 +189,6 @@ export const AppointmentSidePanel: FC = () => {
             DOB: {DateTime.fromFormat(patient.birthDate!, 'yyyy-MM-dd').toFormat('MM/dd/yyyy')}, Age:{' '}
             {calculatePatientAge(patient.birthDate!)}
           </Typography>
-
-          {weightString && <Typography variant="body2">Wt: {weightString}</Typography>}
 
           <Typography variant="body2" fontWeight={700}>
             Allergies:{' '}

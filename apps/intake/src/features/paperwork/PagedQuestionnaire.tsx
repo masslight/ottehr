@@ -203,9 +203,9 @@ interface PaperworkRootInput {
 const PaperworkFormRoot: FC<PaperworkRootInput> = ({ items, onSubmit, saveProgress, options = {} }) => {
   const [isSavingProgress, setIsSavingProgress] = useState(false);
 
-  const { saveButtonDisabled, questionnaireResponse, allItems } = usePaperworkContext();
-  console.log('questionnaire response.q', questionnaireResponse?.questionnaire);
-  console.log('all items', allItems);
+  const { saveButtonDisabled } = usePaperworkContext();
+  //console.log('questionnaire response.q', questionnaireResponse?.questionnaire);
+  //console.log('all items', allItems);
 
   const { handleSubmit, formState } = useFormContext();
 

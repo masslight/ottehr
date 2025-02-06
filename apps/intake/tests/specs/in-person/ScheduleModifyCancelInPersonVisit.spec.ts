@@ -1,9 +1,9 @@
 import { BrowserContext, Page, expect, test } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
 import { Locators } from '../../utils/locators';
-import { ReviewPage } from '../../utils/ReviewPage';
 import { ModifyPage } from '../../utils/ModifyPage';
 import { CancelPage } from '../../utils/CancelPage';
+import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 
 let context: BrowserContext;
 let page: Page;
@@ -36,8 +36,8 @@ let bookingURL: string | undefined;
 
 test('Schedule in person visit', async () => {
   const locators = new Locators(page);
-  const reviewPage = new ReviewPage(page);
-  await reviewPage.goToReviewPageInPersonVisit();
+  const prebookInPersonFlow = new PrebookInPersonFlow(page);
+  await prebookInPersonFlow.goToReviewPageInPersonVisit();
   await page.waitForLoadState();
   await locators.clickReserveButton();
   await page.waitForURL(/\/visit/);
@@ -50,13 +50,9 @@ test('MV-1 Click on [Modify] - Modify screen opens', async () => {
   const modifyPage = new ModifyPage(page);
   await modifyPage.checkModifyPageOpens();
 });
-test('MV-2 Select new time slot', async () => {
+test('MV-2 Update time slot', async () => {
   const modifyPage = new ModifyPage(page);
   await modifyPage.selectNewTimeSlot();
-});
-// issue https://github.com/masslight/ottehr-private/issues/347
-test.skip('MV-3 Time slot is updated', async () => {
-  const modifyPage = new ModifyPage(page);
   await modifyPage.checkTimeSlotIsUpdated();
 });
 test('CV-1 Click on [Cancel] - Cancel screen opens', async () => {

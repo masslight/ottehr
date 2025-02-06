@@ -19,11 +19,11 @@ export function validateRequestParameters(input: ZambdaInput): UpdateUserInput {
     throw new Error('These fields are required: "userId"');
   }
 
-  if (!isPhoneNumberValid(phoneNumber)) {
+  if (phoneNumber && !isPhoneNumberValid(phoneNumber)) {
     throw new Error('Invalid phone number format');
   }
 
-  if (!isNPIValid(npi)) {
+  if (npi && !isNPIValid(npi)) {
     throw new Error('Invalid NPI format');
   }
 

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { DateTime } from 'luxon';
+import { calculatePatientAge } from 'utils';
 import {
   formatHourNumber,
   formatDateUsingSlashes,
@@ -8,7 +9,6 @@ import {
   calculateDuration,
   formatISOStringToDateAndTime,
   getTimezone,
-  calculatePatientAge,
 } from './formatDateTime';
 
 describe('calculatePatientAge', () => {

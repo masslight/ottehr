@@ -1,6 +1,7 @@
 import { BatchInputPostRequest } from '@oystehr/sdk';
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Operation } from 'fast-json-patch';
 import {
   Appointment,
   Coverage,
@@ -15,6 +16,7 @@ import {
 } from 'fhir/r4b';
 import {
   flattenIntakeQuestionnaireItems,
+  getRelatedPersonForPatient,
   getSecret,
   IntakeQuestionnaireItem,
   SecretsKeys,
@@ -35,6 +37,7 @@ import {
   PatientMasterRecordResources,
   createInsuranceResources,
   searchInsuranceInformation,
+  createErxContactOperation,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -142,8 +145,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       coverages: coverageResources,
       relatedPersons: relatedPersonResources,
     };
+    console.log('Patient Master Record resources: ', JSON.stringify(patientMasterRecordResources, null, 2));
 
-    console.log('getting patient patchOps', JSON.stringify(patientResource, null, 2));
+    console.log('creating patch operations');
     const patientPatchOps = createMasterRecordPatchOperations(qr, patientMasterRecordResources);
 
     console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
@@ -197,17 +201,17 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     }
     console.timeEnd('patching policy holders resources');
 
-    console.time('creating conflict resolution task resource');
     if (hasConflictingUpdates(patientPatchOps)) {
       const task = createConflictResolutionTask(patientPatchOps, patientMasterRecordResources, qr.id);
       try {
+        console.time('creating conflict resolution task resource');
         await oystehr.fhir.create(task);
+        console.timeEnd('creating conflict resolution task resource');
       } catch (error) {
         console.log(`Failed to create conflict review task: ${JSON.stringify(error)}`);
         throw new Error('Failed to create conflict review task');
       }
     }
-    console.timeEnd('creating conflict resolution task resource');
 
     const newPatientMasterRecordResources = createInsuranceResources({
       questionnaireResponse: qr,
@@ -277,7 +281,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       console.timeEnd('creating consent resources');
     }
 
-    console.time('creating insurances cards, condition photo, work school notes resources resources');
+    console.time('creating insurances cards, condition photo, work school notes resources');
     try {
       await createDocumentResources(qr, patientResource.id, appointmentResource.id, oystehr, listResources);
     } catch (error: unknown) {
@@ -297,6 +301,39 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       } catch (error: unknown) {
         tasksFailed.push('flag paperwork edit');
         console.log(`Failed to update flag paperwork edit: ${error}`);
+      }
+    }
+
+    console.time('querying for related person for patient self');
+    const relatedPerson = await getRelatedPersonForPatient(patientResource.id, oystehr);
+    console.timeEnd('querying for related person for patient self');
+
+    if (!relatedPerson || !relatedPerson.id) {
+      throw new Error('RelatedPerson for patient is not defined or does not have ID');
+    }
+
+    const patientPatches: Operation[] = [];
+    const erxContactOperation = createErxContactOperation(relatedPerson, patientResource);
+    if (erxContactOperation) patientPatches.push(erxContactOperation);
+    //TODO: remove addDefaultCountryOperation after country selection is supported in paperwork
+    const addDefaultCountryOperation: Operation = {
+      op: 'add',
+      path: '/address/0/country',
+      value: 'US',
+    };
+    patientPatches.push(addDefaultCountryOperation);
+    if (patientPatches.length > 0) {
+      try {
+        console.time('patching patient resource');
+        await oystehr.fhir.patch({
+          resourceType: 'Patient',
+          id: patientResource.id,
+          operations: patientPatches,
+        });
+        console.timeEnd('patching patient resource');
+      } catch (error: unknown) {
+        tasksFailed.push('patch patient');
+        console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
       }
     }
 
