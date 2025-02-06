@@ -160,7 +160,6 @@ const WaitingRoom = (): JSX.Element => {
         />
       ) : null}
       {isCallSettingsOpen ? <CallSettings onClose={() => setIsCallSettingsOpen(false)} /> : null}
-      {isUploadPhotosDialogOpen ? <UploadPhotosDialog onClose={() => setUploadPhotosDialogOpen(false)} /> : null}
     </CustomContainer>
   );
 };

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from 'react-query';
+import { useMutation, useQuery } from 'react-query';
 import { ZapEHRAPIClient } from 'ui-components';
 import { GetAnswerOptionsRequest, PromiseReturnType, getSelectors, isNullOrUndefined } from 'utils';
 import { useZapEHRAPIClient } from '../../utils';
@@ -46,7 +46,6 @@ export const useGetPaperwork = (
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useUpdatePaperworkMutation = () => {
-  const queryClient = useQueryClient();
   return useMutation({
     // todo: figure out what is going on with the ts here
     mutationFn: async ({
@@ -62,7 +61,6 @@ export const useUpdatePaperworkMutation = () => {
         questionnaireResponseId,
         answers,
       });
-      return queryClient.invalidateQueries(['paperwork']);
     },
   });
 };

@@ -8,10 +8,12 @@ import { useUpdatePaperworkMutation } from '../paperwork';
 import FileInput from '../../../features/paperwork/components/FileInput';
 import ControlButtons from 'ui-components/lib/components/form/ControlButtons';
 import { useUploadPhotosStore } from './UploadPhotosListItemButton';
+import { useQueryClient } from 'react-query';
 
 export const UploadPhotosWrapper = ({ onClose }: { onClose: () => void }): JSX.Element => {
   const { paperworkData, isFetching, attachment, isLoading } = useUploadPhotosStore();
 
+  const queryClient = useQueryClient();
   const updatePaperwork = useUpdatePaperworkMutation();
   const apiClient = useZapEHRAPIClient();
   const methods = useForm();
@@ -31,16 +33,19 @@ export const UploadPhotosWrapper = ({ onClose }: { onClose: () => void }): JSX.E
         questionnaireResponseId: paperworkData.questionnaireResponse.id,
         answers: {
           linkId: 'patient-condition-page',
-          item: [
-            {
-              linkId: 'patient-photos',
-              answer: uploadedAttachment && [{ valueAttachment: uploadedAttachment }],
-            },
-          ],
+          item: uploadedAttachment
+            ? [
+                {
+                  linkId: 'patient-photos',
+                  answer: [{ valueAttachment: uploadedAttachment }],
+                },
+              ]
+            : [],
         },
       },
       {
         onSuccess: () => {
+          void queryClient.invalidateQueries(['paperwork']);
           onClose();
         },
         onError: (error) => {
@@ -48,7 +53,7 @@ export const UploadPhotosWrapper = ({ onClose }: { onClose: () => void }): JSX.E
         },
       }
     );
-  }, [apiClient, onClose, paperworkData?.questionnaireResponse?.id, updatePaperwork, uploadedAttachment]);
+  }, [apiClient, onClose, paperworkData?.questionnaireResponse?.id, queryClient, updatePaperwork, uploadedAttachment]);
 
   const [saveButtonDisabled, setSaveButtonDisabled] = useState(false);
 
@@ -72,7 +77,7 @@ export const UploadPhotosWrapper = ({ onClose }: { onClose: () => void }): JSX.E
         <form onSubmit={methods.handleSubmit(onSubmit)}>
           <FormProvider {...methods}>
             <FileInput
-              value={attachment}
+              value={uploadedAttachment}
               attachmentType="image"
               description="Photo of patient’s condition (optional)"
               onChange={setUploadedAttachment}
