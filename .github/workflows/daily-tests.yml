@@ -48,6 +48,7 @@ jobs:
           CLIENT_ID: ${{ secrets.DAILY_TEST_M2M_CLIENT_ID }}
         run: |
           chmod +x scripts/ottehr-setup.sh
+          echo "::echo::on"
           echo "Client ID: $CLIENT_ID"
           ./scripts/ottehr-setup.sh \
             --project-id="${{ env.PROJECT_ID }}" \
