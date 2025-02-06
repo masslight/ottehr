@@ -1,7 +1,5 @@
-import AddIcon from '@mui/icons-material/Add';
 import {
   Box,
-  Button,
   Paper,
   Skeleton,
   styled,
@@ -73,7 +71,8 @@ export const PatientsSearchTable: React.FC<{
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, p: 2 }}>
         <StyledTabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
           <Tab value="allPatients" label="All Patients" />
-          <Tab
+          {/* TODO: Uncomment this when we have recently accessed and new patient button features */}
+          {/* <Tab
             disabled
             value="recentlyAccessed"
             label="Recently Accessed"
@@ -83,11 +82,11 @@ export const PatientsSearchTable: React.FC<{
                 backgroundColor: 'transparent',
               },
             }}
-          />
+          /> */}
         </StyledTabs>
-        <Button disabled variant="contained" color="primary" startIcon={<AddIcon />} sx={{ mr: 1, borderRadius: 28 }}>
+        {/* <Button disabled variant="contained" color="primary" startIcon={<AddIcon />} sx={{ mr: 1, borderRadius: 28 }}>
           New Patient
-        </Button>
+        </Button> */}
       </Box>
 
       <TableContainer

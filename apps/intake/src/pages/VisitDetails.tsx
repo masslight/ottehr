@@ -1,5 +1,4 @@
 import DownloadIcon from '@mui/icons-material/Download';
-import RequestQuoteOutlinedIcon from '@mui/icons-material/RequestQuoteOutlined';
 import { Box, Button, CircularProgress, Divider, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { formatVisitDate, getPatientInfoFullName } from 'utils';
@@ -95,7 +94,8 @@ const VisitDetailsContent = ({ appointmentID }: { appointmentID: string }): JSX.
 
       <Divider />
 
-      <Box>
+      {/* TODO: Uncomment this when we have billing information */}
+      {/* <Box>
         <Typography variant="subtitle1" sx={{ mb: 1, color: 'primary.dark' }}>
           Billing information
         </Typography>
@@ -132,7 +132,7 @@ const VisitDetailsContent = ({ appointmentID }: { appointmentID: string }): JSX.
         >
           Receipt PDF
         </Button>
-      </Box>
+      </Box> */}
     </>
   );
 };
