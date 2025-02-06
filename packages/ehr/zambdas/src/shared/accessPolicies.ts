@@ -239,7 +239,6 @@ export const PROVIDER_RULES: AccessPolicy = {
         'FHIR:Organization',
         'FHIR:Location',
         'FHIR:HealthcareService',
-        'FHIR:PractitionerRole',
         'FHIR:QuestionnaireResponse',
         'FHIR:DocumentReference',
         'FHIR:Person',
