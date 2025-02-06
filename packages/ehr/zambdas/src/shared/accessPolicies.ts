@@ -34,7 +34,6 @@ export const ADMINISTRATOR_RULES: AccessPolicy = {
         'FHIR:Communication',
         'FHIR:Flag',
         'FHIR:QuestionnaireResponse',
-        'FHIR:PractitionerRole',
       ],
     },
     {
@@ -72,7 +71,7 @@ export const ADMINISTRATOR_RULES: AccessPolicy = {
     },
     {
       action: ['FHIR:Search', 'FHIR:Read', 'FHIR:Update', 'FHIR:Create'],
-      resource: ['FHIR:InsurancePlan:*'],
+      resource: ['FHIR:InsurancePlan:*', 'FHIR:PractitionerRole'],
       effect: 'Allow',
     },
     {
