@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ChargeItem, Task } from 'fhir/r4b';
+import { ChargeItem, Encounter, Task } from 'fhir/r4b';
 import {
   ChangeTelemedAppointmentStatusInput,
   ChangeTelemedAppointmentStatusResponse,
@@ -21,7 +21,7 @@ import { composeAndCreateReceiptPdf, getPaymentDataRequest, postChargeIssueReque
 import { validateRequestParameters } from './validateRequestParameters';
 import { composeAndCreateVisitNotePdf } from '../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { makeVisitNotePdfDocumentReference } from '../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
-import { createCandidEncounter } from '../shared/candid';
+import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../shared/candid';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -103,7 +103,7 @@ export const performEffect = async (
     await makeVisitNotePdfDocumentReference(oystehr, pdfInfo, patient.id, appointmentId, encounter.id!, listResources);
 
     const candidEncounterId = await createCandidEncounter(visitResources, secrets, oystehr);
-    await addCandidEncounterIdToEncounter(candidEncounterId, encounter.id, oystehr);
+    await addCandidEncounterIdToEncounter(candidEncounterId, encounter, oystehr);
 
     // if this is a self-pay encounter, create a charge item
     if (selfPayVisit) {
@@ -189,25 +189,25 @@ export const performEffect = async (
 
 const addCandidEncounterIdToEncounter = async (
   candidEncounterId: string | undefined,
-  encounterId: string | undefined,
+  encounter: Encounter,
   oystehr: Oystehr
 ): Promise<void> => {
+  const encounterId = encounter.id;
   if (candidEncounterId == null || encounterId == null) {
     return;
   }
+  const identifier = {
+    system: CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
+    value: candidEncounterId,
+  };
   await oystehr.fhir.patch({
     resourceType: 'Encounter',
     id: encounterId,
     operations: [
       {
         op: 'add',
-        path: '/identifier',
-        value: [
-          {
-            system: 'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id',
-            value: candidEncounterId,
-          },
-        ],
+        path: encounter.identifier != null ? '/identifier/-' : '/identifier',
+        value: encounter.identifier != null ? identifier : [identifier],
       },
     ],
   });

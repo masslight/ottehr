@@ -44,6 +44,9 @@ import { VideoResourcesAppointmentPackage } from './pdf/visit-details-pdf/types'
 import Oystehr from '@oystehr/sdk';
 import { chartDataResourceHasMetaTagByCode } from './chart-data/chart-data-helpers';
 
+export const CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM =
+  'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id';
+
 const CODE_SYSTEM_HL7_IDENTIFIER_TYPE = 'http://terminology.hl7.org/CodeSystem/v2-0203';
 const CODE_SYSTEM_HL7_SUBSCRIBER_RELATIONSHIP = 'http://terminology.hl7.org/CodeSystem/subscriber-relationship';
 
@@ -219,7 +222,7 @@ async function candidCreateEncounterRequest(
         SERVICE_FACILITY_LOCATION_STATE,
         apiClient
       )
-    : STUB_BILLING_PROVIDER_DATA;
+    : getSelfPayBillingProvider();
   const serviceFacilityAddress = assertDefined(SERVICE_FACILITY_LOCATION.address, 'Service facility address');
   const serviceFacilityPostalCodeTokens = assertDefined(
     serviceFacilityAddress.postalCode,
@@ -460,4 +463,11 @@ async function resourceByReference<T extends FhirResource>(
     resourceType,
     id,
   });
+}
+
+/*
+  Modify this function in order to add custom logic of selecting a billing provider for "self pay" appointments.
+*/
+function getSelfPayBillingProvider(): BillingProviderData {
+  return STUB_BILLING_PROVIDER_DATA;
 }

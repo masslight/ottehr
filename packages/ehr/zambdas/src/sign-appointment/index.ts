@@ -22,7 +22,7 @@ import { VideoResourcesAppointmentPackage } from '../shared/pdf/visit-details-pd
 import { getVideoResources } from '../shared/pdf/visit-details-pdf/get-video-resources';
 import { composeAndCreateVisitNotePdf } from '../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { makeVisitNotePdfDocumentReference } from '../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
-import { createCandidEncounter } from '../shared/candid';
+import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../shared/candid';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -152,15 +152,14 @@ const changeStatus = async (
   ];
 
   if (candidEncounterId != null) {
+    const identifier = {
+      system: CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
+      value: candidEncounterId,
+    };
     encounterPatchOps.push({
       op: 'add',
-      path: '/identifier',
-      value: [
-        {
-          system: 'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id',
-          value: candidEncounterId,
-        },
-      ],
+      path: resourcesToUpdate.encounter.identifier != null ? '/identifier/-' : '/identifier',
+      value: resourcesToUpdate.encounter.identifier != null ? identifier : [identifier],
     });
   }
 
