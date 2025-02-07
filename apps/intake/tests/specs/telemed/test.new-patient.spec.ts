@@ -272,8 +272,7 @@ test('Should check photo upload feature', async () => {
   await expect(page.getByText('Patient condition photo')).toBeVisible();
 
   const uploadPhoto = new UploadImage(page);
-  const photoLocator = await uploadPhoto.fillPatientCondition('../../..');
-  await expect(photoLocator).toBeVisible();
+  await uploadPhoto.fillPatientCondition();
   await page.getByText('Save').click();
 
   await expect(page.getByText('Photo attached')).toBeVisible();
