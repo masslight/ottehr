@@ -1,8 +1,6 @@
 import { test } from '@playwright/test';
 import { ResourceHandler } from '../../e2e-utils/resource-handler';
 import { expectEditInsurancePage } from '../page/EditInsurancePage';
-import { INSURANCE_SETTINGS_MAP } from 'utils/lib/types';
-//import { dataTestIds } from '../../../src/constants/data-test-ids';
 
 const resourceHandler = new ResourceHandler();
 
@@ -40,25 +38,25 @@ test('Open "New insurance page", select Payer name and leave Display name empty 
 test('Open "New insurance page", verify mandatory options are uneditable and checked', async ({ page }) => {
   const newInsurancePage = await expectEditInsurancePage(page);
   await newInsurancePage.verifyOptionState({
-    option: INSURANCE_SETTINGS_MAP.requiresSubscriberId,
+    option: 'requiresSubscriberId',
     checked: true,
     enabled: false,
   });
 
   await newInsurancePage.verifyOptionState({
-    option: INSURANCE_SETTINGS_MAP.requiresRelationshipToSubscriber,
+    option: 'requiresRelationshipToSubscriber',
     checked: true,
     enabled: false,
   });
 
   await newInsurancePage.verifyOptionState({
-    option: INSURANCE_SETTINGS_MAP.requiresInsuranceName,
+    option: 'requiresInsuranceName',
     checked: true,
     enabled: false,
   });
 
   await newInsurancePage.verifyOptionState({
-    option: INSURANCE_SETTINGS_MAP.requiresInsuranceCardImage,
+    option: 'requiresInsuranceCardImage',
     checked: true,
     enabled: false,
   });
