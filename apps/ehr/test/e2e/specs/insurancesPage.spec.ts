@@ -45,7 +45,6 @@ test('Open "Insurances page", select status from dropdown,  correct results are 
   const insurancesPage = await expectInsurancesPage(page);
   await insurancesPage.searchInsurance(INSURANCE_NAME);
   await insurancesPage.selectStatusFilter('Active');
-
   await insurancesPage.verifyInsurancePresent(INSURANCE_NAME);
   await insurancesPage.verifyPaginationState('1–1 of 1');
 
@@ -63,7 +62,6 @@ test('fail', async ({ page }) => {
   const insurancesPage = await expectInsurancesPage(page);
   await insurancesPage.searchInsurance(INSURANCE_NAME);
   await insurancesPage.selectStatusFilter('aaa');
-
   await insurancesPage.verifyInsurancePresent(INSURANCE_NAME);
   await insurancesPage.verifyPaginationState('1–1 of 1');
 

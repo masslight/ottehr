@@ -277,6 +277,7 @@ export default function EditInsurance(): JSX.Element {
                       onChange={onChange}
                       sx={{ marginTop: 2, marginBottom: 1, width: '100%' }}
                       margin="dense"
+                      data-testid={dataTestIds.newInsurancePage.displayNameInput}
                     />
                   )}
                 />
@@ -308,7 +309,12 @@ export default function EditInsurance(): JSX.Element {
                           value={value}
                           disabled={INSURANCE_SETTINGS_DEFAULTS[name] === true}
                           checked={value}
-                          control={<Checkbox onChange={onChange}></Checkbox>}
+                          control={
+                            <Checkbox
+                              onChange={onChange}
+                              data-testid={dataTestIds.newInsurancePage.settingsOptionRow(name)}
+                            ></Checkbox>
+                          }
                           label={INSURANCE_SETTINGS_MAP[name]}
                         />
                       )}

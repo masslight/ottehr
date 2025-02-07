@@ -144,7 +144,9 @@ export const dataTestIds = {
   },
   newInsurancePage: {
     payerName: 'payer-name',
+    displayNameInput: 'display-name-input',
     saveChangesButton: 'save-changes-button',
     activateButton: 'activate-button',
+    settingsOptionRow: (optionName: string) => `state-row-${optionName}`,
   },
 };
