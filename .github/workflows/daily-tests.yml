@@ -51,7 +51,8 @@ jobs:
             "${{ steps.get-token.outputs.access_token }}" \
             "${{ env.TEST_EMAIL }}"
 
-      - name: Run the ottehr-cleanup script
+      - name: Run the cleanup script
         run: |
-          chmod +x scripts/ottehr-cleanup.sh
-          ./scripts/ottehr-cleanup.sh "${{ env.PROJECT_ID }}" "${{ steps.get-token.outputs.access_token }}"
+          node scripts/ottehr-cleanup.js \
+            --"${{ env.PROJECT_ID }}" \
+            --"${{ steps.get-token.outputs.access_token }}"
