@@ -519,8 +519,41 @@ const BookingHome: FC = () => {
     );
   }
 
-  // console.log('outlet context', outletContext);
-  console.log('render welcome', renderWelcome);
+  if (!selectedLocationResponse) {
+    /*
+     * TODO: Component requires refactoring
+     *
+     * Current implementation has the following issues:
+     * - Race conditions between parent component's useEffect and internal logic of child components
+     * - Contains complex navigation logic
+     * - Potential for collisions
+     * - Not decomposed and contains too much code
+     *
+     * Issue with incorrect welcome page redirect https://github.com/masslight/ottehr/issues/908:
+     * 1. selectedLocationResponse is set asynchronously in useEffect
+     * 2. renderWelcome chooses component to render immediately, without waiting for selectedLocationResponse
+     * 3. Rendered component depends on selectedLocationResponse value
+     *
+     * Possible scenarios:
+     * A. With empty LocalStorage (bug-case):
+     *    - Outlet renders without selectedLocationResponse
+     *    - Incorrect redirect to welcome page occurs
+     *
+     * B. With non-empty LocalStorage:
+     *    - selectedLocationResponse is retrieved from LocalStorage
+     *    - Incorrect redirect does not occur
+     *
+     * Current solution:
+     * To fix bug-case - display loading screen while selectedLocationResponse is not set,
+     * and preventing Outlet render in pending state causing incorrect redirect to welcome page
+     */
+    return (
+      <PageContainer title={t('welcome.loading')}>
+        <CircularProgress />
+      </PageContainer>
+    );
+  }
+
   return (
     <>
       {renderWelcome ? <Welcome context={outletContext} /> : <Outlet context={{ ...outletContext }} />}
