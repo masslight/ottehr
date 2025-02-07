@@ -98,7 +98,7 @@ const updateUserRoles = async (config: any): Promise<void> => {
     }
   }
 
-  if (config.ENVIRONMENT === 'production' || config.ENVIRONMENT === 'staging') {
+  if (config.ENVIRONMENT === 'production') {
     console.group(`setting defaultSSOUserRole for project to Staff user role ${staffUserRoleID}`);
     const endpoint = `${config.PROJECT_API}/project`;
     console.log('sending to endpoint: ', endpoint);

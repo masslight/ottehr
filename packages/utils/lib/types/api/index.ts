@@ -1,5 +1,6 @@
 export * from './appointment.types';
 export * from './change-telemed-appointment-status';
+export * from './change-in-person-visit-status';
 export * from './assign-practitioner';
 export * from './unassign-practitioner';
 export * from './sign-appointment';

@@ -1,4 +1,13 @@
-import { Encounter, Practitioner, QuestionnaireResponse } from 'fhir/r4b';
+import {
+  Appointment,
+  Encounter,
+  HealthcareService,
+  Location,
+  Patient,
+  Practitioner,
+  QuestionnaireResponse,
+  RelatedPerson,
+} from 'fhir/r4b';
 
 import {
   AppointmentMessaging,
@@ -135,3 +144,13 @@ export const PARTICIPANT_TYPE = {
   ADMITTER: 'ADM',
   ATTENDER: 'ATND',
 };
+
+export type AppointmentRelatedResources =
+  | Appointment
+  | Encounter
+  | Location
+  | Patient
+  | QuestionnaireResponse
+  | Practitioner
+  | RelatedPerson
+  | HealthcareService;

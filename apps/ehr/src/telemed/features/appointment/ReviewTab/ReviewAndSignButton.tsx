@@ -46,9 +46,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
 
   const patientName = getPatientName(patient?.name).firstLastName;
 
-  const { isEncounterUpdatePending, handleUpdatePractitionerAndStatus } = usePractitionerActions(
-    appointment?.id,
-    appointment?.status,
+  const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
     encounter,
     'end',
     practitionerType.Attender
@@ -56,7 +54,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
 
   const handleCompleteProvider = async (): Promise<void> => {
     try {
-      await handleUpdatePractitionerAndStatus();
+      await handleUpdatePractitioner();
     } catch (error: any) {
       console.log(error.message);
       enqueueSnackbar('An error occurred trying to complete intake. Please try again.', { variant: 'error' });

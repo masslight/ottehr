@@ -2,18 +2,15 @@ export interface Secrets {
   [secretName: string]: string;
 }
 
-export const getSecret = (secretKey: string, secrets: Secrets | null): string => {
-  let value: string | undefined;
-  if (secrets != null) {
-    value = secrets[secretKey];
-  } else {
-    value = process.env[secretKey];
-  }
+export const getOptionalSecret = (secretKey: string, secrets: Secrets | null): string | undefined => {
+  return secrets != null ? secrets[secretKey] : process.env[secretKey];
+};
 
+export const getSecret = (secretKey: string, secrets: Secrets | null): string => {
+  const value = getOptionalSecret(secretKey, secrets);
   if (value == null) {
     throw new Error(`Secret or Environment Variable with key ${secretKey} was not set.`);
   }
-
   return value;
 };
 

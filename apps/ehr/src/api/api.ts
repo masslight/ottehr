@@ -16,6 +16,7 @@ import {
   SaveFollowupParameter,
   AssignPractitionerParameters,
   UnassignPractitionerParameters,
+  ChangeInPersonVisitStatusParameters,
   UpdateUserParameters,
 } from '../types/types';
 
@@ -34,6 +35,7 @@ const INVITE_PARTICIPANT_ZAMBDA_ID = import.meta.env.VITE_APP_INVITE_PARTICIPANT
 const UPDATE_USER_ZAMBDA_ID = import.meta.env.VITE_APP_UPDATE_USER_ZAMBDA_ID;
 const ASSIGN_PRACTITIONER_ZAMBDA_ID = import.meta.env.VITE_APP_ASSIGN_PRACTITIONER_ZAMBDA_ID;
 const UNASSIGN_PRACTITIONER_ZAMBDA_ID = import.meta.env.VITE_APP_UNASSIGN_PRACTITIONER_ZAMBDA_ID;
+const CHANGE_IN_PERSON_VISIT_STATUS_ZAMBDA_ID = import.meta.env.VITE_APP_CHANGE_IN_PERSON_VISIT_STATUS_ZAMBDA_ID;
 const GET_USER_ZAMBDA_ID = import.meta.env.VITE_APP_GET_USER_ZAMBDA_ID;
 const DEACTIVATE_USER_ZAMBDA_ID = import.meta.env.VITE_APP_DEACTIVATE_USER_ZAMBDA_ID;
 const GET_CONVERSATION_ZAMBDA_ID = import.meta.env.VITE_APP_GET_CONVERSATION_ZAMBDA_ID;
@@ -128,7 +130,7 @@ export const cancelTelemedAppointment = async (
       throw new Error('cancel appointment environment variable could not be loaded');
     }
 
-    const response = await oystehr.zambda.execute({
+    const response = await oystehr.zambda.executePublic({
       id: CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID,
       ...parameters,
     });
@@ -208,6 +210,25 @@ export const unassignPractitioner = async (
 
     const response = await oystehr.zambda.execute({
       id: UNASSIGN_PRACTITIONER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response, VITE_APP_IS_LOCAL);
+  } catch (error: unknown) {
+    throw new Error(JSON.stringify(error));
+  }
+};
+
+export const changeInPersonVisitStatus = async (
+  oystehr: Oystehr,
+  parameters: ChangeInPersonVisitStatusParameters
+): Promise<any> => {
+  try {
+    if (CHANGE_IN_PERSON_VISIT_STATUS_ZAMBDA_ID == null) {
+      throw new Error('change in person visit status environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: CHANGE_IN_PERSON_VISIT_STATUS_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response, VITE_APP_IS_LOCAL);

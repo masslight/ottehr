@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { sidebarMenuIcons } from '../components/Sidebar';
 import { CSSModal } from '../components/CSSModal';
 import { ROUTER_PATH, routesCSS } from '../routing/routesCSS';
+import { getSelectors } from '../../../shared/store/getSelectors';
+import { useAppointmentStore } from '../../../telemed';
 
 export type InteractionMode = 'intake' | 'provider' | 'readonly';
 
@@ -37,6 +39,7 @@ interface NavigationContextType {
   isLastPage: boolean;
   isNavigationDisabled: boolean;
   setNavigationDisable: (state: Record<string, boolean>) => void; // disable intake navigation buttons, use case - updating required field
+  nextButtonText: string;
 }
 
 const NavigationContext = createContext<NavigationContextType | undefined>(undefined);
@@ -49,13 +52,18 @@ export let setNavigationDisable: NavigationContextType['setNavigationDisable'] =
 export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
+
   const nextPageValidatorsRef = useRef<CSSValidators>({});
   const previousPageValidatorsRef = useRef<CSSValidators>({});
+
   const [isNavigationHidden, setIsNavigationHidden] = useState(false);
+
   const [interactionMode, _setInteractionMode] = useState<InteractionMode>('intake'); // todo: calc actual initial InteractionMode value
 
   const [modalContent, setModalContent] = useState<ReturnType<CSSValidator>>();
+
   const [isModalOpen, setIsModalOpen] = useState(false);
+
   const [_disabledNavigationState, _setDisabledNavigationState] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -160,6 +168,28 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
   const isFirstPage = currentRouteIndex === 0;
   const isLastPage = currentRouteIndex === availableRoutes.length - 1;
 
+  const { chartData, isChartDataLoading } = getSelectors(useAppointmentStore, ['chartData', 'isChartDataLoading']);
+
+  const nextButtonText = (() => {
+    if (isChartDataLoading) return ' ';
+    switch (currentRoute) {
+      case 'allergies':
+        return chartData?.allergies?.length ? 'Allergies Confirmed' : 'Confirmed No Known Allergies';
+      case 'medications':
+        return chartData?.medications?.length ? 'Medications Confirmed' : 'Confirmed No Medications';
+      case 'medical-conditions':
+        return chartData?.conditions?.length ? 'Medical Conditions Confirmed' : 'Confirmed No Medical Conditions';
+      case 'surgical-history':
+        return chartData?.procedures?.length ? 'Surgical History Confirmed' : 'Confirmed No Surgical History';
+      case 'hospitalization':
+        return `${
+          chartData?.episodeOfCare?.length ? 'Hospitalization Confirmed' : 'Confirmed No Hospitalization'
+        } AND Complete Intake`;
+      default:
+        return isLastPage ? 'Complete' : 'Next';
+    }
+  })();
+
   return (
     <NavigationContext.Provider
       value={{
@@ -178,6 +208,7 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
         isLastPage,
         setNavigationDisable,
         isNavigationDisabled,
+        nextButtonText,
       }}
     >
       {children}

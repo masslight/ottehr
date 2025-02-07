@@ -15,6 +15,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  AppointmentRelatedResources,
   INSURANCE_CARD_CODE,
   InPersonAppointmentInformation,
   OTTEHR_MODULE,
@@ -39,7 +40,7 @@ import { topLevelCatch } from '../shared/errors';
 import { checkOrCreateM2MClientToken, createOystehrClient, getRelatedPersonsFromResourceList } from '../shared/helpers';
 import { sortAppointments } from '../shared/queueingUtils';
 import { ZambdaInput } from '../types';
-import { parseEncounterParticipants } from './helpers';
+import { getMergedResourcesFromBundles, parseEncounterParticipants } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetAppointmentsInput {
@@ -197,45 +198,70 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       { name: '_revinclude:iterate', value: 'QuestionnaireResponse:encounter' },
       { name: '_include', value: 'Appointment:actor' },
     ];
+
+    const appointmentSearchQueries: Promise<Bundle<AppointmentRelatedResources>>[] = [];
     if (locationID) {
-      appointmentSearchParams.push({
-        name: 'location',
-        value: `Location/${locationID}`,
-      });
+      const locationSearchParams = [
+        ...appointmentSearchParams,
+        {
+          name: 'location',
+          value: `Location/${locationID}`,
+        },
+      ];
+      appointmentSearchQueries.push(
+        oystehr.fhir.search<AppointmentRelatedResources>({
+          resourceType: 'Appointment',
+          params: locationSearchParams,
+        })
+      );
     }
     if (providerIDs && providerIDs?.length > 0) {
-      appointmentSearchParams.push({
-        name: 'actor',
-        value: providerIDs.map((providerID) => `Practitioner/${providerID}`).join(','),
-      });
+      const providerSearchParams = [
+        ...appointmentSearchParams,
+        {
+          name: 'actor',
+          value: providerIDs.map((providerID) => `Practitioner/${providerID}`).join(','),
+        },
+      ];
+      appointmentSearchQueries.push(
+        oystehr.fhir.search<AppointmentRelatedResources>({
+          resourceType: 'Appointment',
+          params: providerSearchParams,
+        })
+      );
     }
     if (groupIDs && groupIDs?.length > 0) {
-      appointmentSearchParams.push({
-        name: 'actor',
-        value: groupIDs.map((groupID) => `HealthcareService/${groupID}`).join(','),
-      });
+      const groupSearchParams = [
+        ...appointmentSearchParams,
+        {
+          name: 'actor',
+          value: groupIDs.map((groupID) => `HealthcareService/${groupID}`).join(','),
+        },
+      ];
+      appointmentSearchQueries.push(
+        oystehr.fhir.search<AppointmentRelatedResources>({
+          resourceType: 'Appointment',
+          params: groupSearchParams,
+        })
+      );
     }
 
-    console.log(5, appointmentSearchParams);
+    if (appointmentSearchQueries.length === 0) {
+      appointmentSearchQueries.push(
+        oystehr.fhir.search<AppointmentRelatedResources>({
+          resourceType: 'Appointment',
+          params: appointmentSearchParams,
+        })
+      );
+    }
 
-    const appointmentSearch = oystehr.fhir.search<
-      | Appointment
-      | Encounter
-      | Location
-      | Patient
-      | QuestionnaireResponse
-      | Practitioner
-      | RelatedPerson
-      | HealthcareService
-    >({
-      resourceType: 'Appointment',
-      params: appointmentSearchParams,
-    });
-    const [activeEncounterBundle, appointmentBundle] = await Promise.all([encounterSearch, appointmentSearch]);
-    const [activeEncounters, searchResultsForSelectedDate] = [
-      activeEncounterBundle.unbundle(),
-      appointmentBundle.unbundle(),
-    ];
+    const [activeEncounterBundle, ...appointmentBundles] = await Promise.all([
+      encounterSearch,
+      ...appointmentSearchQueries,
+    ]);
+    const activeEncounters = activeEncounterBundle.unbundle();
+    const searchResultsForSelectedDate = getMergedResourcesFromBundles(appointmentBundles);
+
     console.timeEnd('get_active_encounters + get_appointment_data');
 
     const encounterIds: string[] = [];

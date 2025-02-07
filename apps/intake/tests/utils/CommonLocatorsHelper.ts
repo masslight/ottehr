@@ -1,5 +1,6 @@
-import { expect, Page } from '@playwright/test';
+import { expect, Page, Locator } from '@playwright/test';
 import { Locators } from './locators';
+import { AllStates, AllStatesToNames } from 'utils';
 
 export class CommonLocatorsHelper {
   page: Page;
@@ -10,20 +11,11 @@ export class CommonLocatorsHelper {
     this.locator = new Locators(page);
   }
 
-  async checkPrivacyPolicyLink(): Promise<void> {
-    const pagePromise = this.page.context().waitForEvent('page');
-    await this.locator.privacyPolicyReviewScreen.click();
-    const newPage = await pagePromise;
-    await newPage.waitForLoadState();
-    await expect(newPage).toHaveURL('https://www.ottehr.com/privacy-policy');
-  }
-
-  async checkTermsAndConditionsLink(): Promise<void> {
-    const pagePromise = this.page.context().waitForEvent('page');
-    await this.locator.termsAndConditions.click();
-    const newPage = await pagePromise;
-    await newPage.waitForLoadState();
-    await expect(newPage).toHaveURL('https://www.ottehr.com/terms-and-conditions');
+  async checkLinkOpensPdf(linkLocator: Locator): Promise<void> {
+    const downloadPromise = this.page.waitForEvent('download');
+    await linkLocator.click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/\.pdf$/);
   }
 
   async checkPatientNameIsCorrect({ firstName, lastName }: { firstName: string; lastName: string }): Promise<void> {
@@ -36,5 +28,14 @@ export class CommonLocatorsHelper {
 
   async checkLocationValueIsCorrect(location: string | null): Promise<void> {
     await expect(this.page.getByText(`${location}`)).toBeVisible();
+  }
+
+  async clickContinue(): Promise<void> {
+    await this.page.getByRole('button', { name: 'Continue' }).click();
+  }
+  async selectState(stateName = AllStatesToNames[AllStates[0].value]): Promise<void> {
+    await this.page.getByPlaceholder('Search or select').click();
+    await this.page.getByRole('option', { name: stateName }).click();
+    await this.clickContinue();
   }
 }

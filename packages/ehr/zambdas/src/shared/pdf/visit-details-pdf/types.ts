@@ -2,9 +2,11 @@ import {
   Account,
   Appointment,
   ChargeItem,
+  Coverage,
   DocumentReference,
   Encounter,
   InsurancePlan,
+  List,
   Location,
   Patient,
   Practitioner,
@@ -21,5 +23,7 @@ export interface VideoResourcesAppointmentPackage {
   questionnaireResponse?: QuestionnaireResponse;
   practitioner?: Practitioner;
   documentReferences?: DocumentReference[];
+  listResources: List[];
   insurancePlan?: InsurancePlan;
+  coverage?: Coverage;
 }

@@ -1,6 +1,7 @@
 import { Controller } from 'react-hook-form';
 import { FormControl, FormLabel, TextField } from '@mui/material';
 import { ProviderDetailsProps } from './types';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 export function ProviderDetails({ control, photoSrc, errors }: ProviderDetailsProps): JSX.Element {
   return (
@@ -13,6 +14,7 @@ export function ProviderDetails({ control, photoSrc, errors }: ProviderDetailsPr
         render={({ field: { onChange, value } }) => (
           <TextField
             label="Credentials"
+            data-testid={dataTestIds.employeesPage.providerDetailsCredentials}
             value={value || ''}
             onChange={onChange}
             sx={{ marginTop: 3, width: '100%' }}
@@ -26,6 +28,7 @@ export function ProviderDetails({ control, photoSrc, errors }: ProviderDetailsPr
         render={({ field: { onChange, value } }) => (
           <TextField
             label="NPI"
+            data-testid={dataTestIds.employeesPage.providerDetailsNPI}
             required
             value={value || ''}
             onChange={onChange}

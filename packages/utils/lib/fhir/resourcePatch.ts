@@ -1,7 +1,7 @@
 import { BatchInputPatchRequest } from '@oystehr/sdk';
 import { Operation, AddOperation, RemoveOperation, ReplaceOperation } from 'fast-json-patch';
 import { Coding, Extension, FhirResource, Period, Resource } from 'fhir/r4b';
-import lodashGet from 'lodash/get';
+import { get as lodashGet } from 'lodash-es';
 
 export interface GetPatchBinaryInput {
   resourceId: string;

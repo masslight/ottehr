@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ChargeItem, DocumentReference, Task } from 'fhir/r4b';
+import { ChargeItem, Encounter, Task } from 'fhir/r4b';
 import {
   ChangeTelemedAppointmentStatusInput,
   ChangeTelemedAppointmentStatusResponse,
@@ -15,13 +15,13 @@ import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/help
 import { getVideoResources } from '../shared/pdf/visit-details-pdf/get-video-resources';
 import { getMyPractitionerId } from '../shared/practitioners';
 import { ZambdaInput } from '../types';
-import { createClaim } from './helpers/claim';
 import { getInsurancePlan } from './helpers/fhir-utils';
 import { changeStatusIfPossible, makeAppointmentChargeItem, makeReceiptPdfDocumentReference } from './helpers/helpers';
 import { composeAndCreateReceiptPdf, getPaymentDataRequest, postChargeIssueRequest } from './helpers/payments';
 import { validateRequestParameters } from './validateRequestParameters';
 import { composeAndCreateVisitNotePdf } from '../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { makeVisitNotePdfDocumentReference } from '../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
+import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../shared/candid';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -64,7 +64,7 @@ export const performEffect = async (
       throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);
     }
   }
-  const { encounter, patient, account, chargeItem, questionnaireResponse, appointment } = visitResources;
+  const { encounter, patient, account, chargeItem, questionnaireResponse, appointment, listResources } = visitResources;
   const insuranceCompanyID = getQuestionnaireResponseByLinkId('insurance-carrier', questionnaireResponse)?.answer?.[0]
     .valueString;
   if (insuranceCompanyID) {
@@ -100,11 +100,10 @@ export const performEffect = async (
     const pdfInfo = await composeAndCreateVisitNotePdf({ chartData }, visitResources, secrets, m2mtoken);
     if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
     console.log(`Creating visit note pdf docRef`);
-    await makeVisitNotePdfDocumentReference(oystehr, pdfInfo, patient.id, appointmentId, encounter.id!);
+    await makeVisitNotePdfDocumentReference(oystehr, pdfInfo, patient.id, appointmentId, encounter.id!, listResources);
 
-    console.log('Creating Claim resource.');
-    const claimId = await createClaim(oystehr, visitResources);
-    console.log(`Created Claim resource with id ${claimId}`);
+    const candidEncounterId = await createCandidEncounter(visitResources, secrets, oystehr);
+    await addCandidEncounterIdToEncounter(candidEncounterId, encounter, oystehr);
 
     // if this is a self-pay encounter, create a charge item
     if (selfPayVisit) {
@@ -167,10 +166,13 @@ export const performEffect = async (
         const pdfInfo = await composeAndCreateReceiptPdf(paymentInfo, chartData, visitResources, secrets, m2mtoken);
         if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
 
-        const transactionBundle = await oystehr.fhir.transaction<DocumentReference>({
-          requests: [saveResourceRequest(makeReceiptPdfDocumentReference(pdfInfo, patient.id, encounter.id!))],
-        });
-        const resources = parseCreatedResourcesBundle(transactionBundle);
+        const resources = await makeReceiptPdfDocumentReference(
+          oystehr,
+          pdfInfo,
+          patient.id,
+          encounter.id!,
+          listResources
+        );
         console.log(`createdResources: ${JSON.stringify(resources)}`);
       } catch (error) {
         console.error('Error issuing a charge for self-pay encounter.');
@@ -183,4 +185,30 @@ export const performEffect = async (
       ? 'Appointment status successfully changed and appropriate charged issued.'
       : 'Appointment status successfully changed.',
   };
+};
+
+const addCandidEncounterIdToEncounter = async (
+  candidEncounterId: string | undefined,
+  encounter: Encounter,
+  oystehr: Oystehr
+): Promise<void> => {
+  const encounterId = encounter.id;
+  if (candidEncounterId == null || encounterId == null) {
+    return;
+  }
+  const identifier = {
+    system: CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
+    value: candidEncounterId,
+  };
+  await oystehr.fhir.patch({
+    resourceType: 'Encounter',
+    id: encounterId,
+    operations: [
+      {
+        op: 'add',
+        path: encounter.identifier != null ? '/identifier/-' : '/identifier',
+        value: encounter.identifier != null ? identifier : [identifier],
+      },
+    ],
+  });
 };

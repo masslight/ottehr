@@ -13,14 +13,20 @@ import { useAppointment } from '../hooks/useAppointment';
 export const BottomNavigation = (): JSX.Element => {
   const { id: appointmentID } = useParams();
   const { telemedData, refetch } = useAppointment(appointmentID);
-  const { appointment, encounter } = telemedData;
+  const { encounter } = telemedData;
   const theme = useTheme();
-  const { goToNext, goToPrevious, isNavigationHidden, isFirstPage, isLastPage, interactionMode, isNavigationDisabled } =
-    useNavigationContext();
+  const {
+    goToNext,
+    goToPrevious,
+    isNavigationHidden,
+    isFirstPage,
+    isLastPage,
+    interactionMode,
+    isNavigationDisabled,
+    nextButtonText,
+  } = useNavigationContext();
   const practitionerTypeFromMode = interactionMode === 'intake' ? practitionerType.Admitter : practitionerType.Attender;
-  const { isEncounterUpdatePending, handleUpdatePractitionerAndStatus } = usePractitionerActions(
-    appointment?.id,
-    appointment?.status,
+  const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
     encounter,
     'end',
     practitionerTypeFromMode
@@ -32,7 +38,7 @@ export const BottomNavigation = (): JSX.Element => {
     try {
       setNextButtonLoading(true);
       if (isLastPage) {
-        await handleUpdatePractitionerAndStatus();
+        await handleUpdatePractitioner();
         setNextButtonLoading(false);
       }
       goToNext();
@@ -106,7 +112,7 @@ export const BottomNavigation = (): JSX.Element => {
             fontSize: '16px',
           }}
         >
-          {interactionMode === 'intake' && isLastPage ? 'Complete' : 'Next'}
+          {nextButtonText}
         </LoadingButton>
       </Box>
     </Box>
