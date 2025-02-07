@@ -29,6 +29,7 @@ import {
   ComplexValidationResult,
   InsuranceEligibilityCheckStatus,
   ComplexValidationResultFailureCase,
+  BillingProviderResource,
 } from 'utils';
 import { zapehrApi } from '../api';
 import useAppointmentNotFoundInformation from '../helpers/information';
@@ -581,10 +582,6 @@ const performComplexValidation = async (
         patientId,
         coveragePrevalidationInput: {
           responseItems,
-          billingProviderResource: {
-            type: 'Organization',
-            reference: 'Organization/86e52f3d-b0ad-4088-a82a-02a5f8236a51',
-          },
         },
       },
       client

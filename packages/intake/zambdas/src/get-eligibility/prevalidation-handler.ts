@@ -10,6 +10,7 @@ import {
   RelatedPerson,
 } from 'fhir/r4b';
 import {
+  BillingProviderDataObject,
   createFhirHumanName,
   GetEligibilityInput,
   GetEligibilityInsuranceData,
@@ -38,20 +39,15 @@ interface Input extends Omit<GetEligibilityInput, 'coveragePrevalidationInput'> 
 
 export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr): Promise<GetEligibilityResponse> => {
   const {
-    // appointmentId,
+    appointmentId,
     primaryInsuranceData,
     patientId,
     primaryPolicyHolder,
     secondaryInsuranceData,
     secondaryPolicyHolder,
-    coveragePrevalidationInput,
     apiUrl,
     accessToken,
   } = input;
-
-  const billingProviderData = await complexBillingProviderValidation(coveragePrevalidationInput, oystehrClient);
-
-  console.log('billingProviderData', JSON.stringify(billingProviderData), null, 2);
 
   console.log('primary policy holder', JSON.stringify(primaryPolicyHolder), null, 2);
 
@@ -121,7 +117,26 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
     }),
   ];
 
-  if (secondaryInsuranceData && secondaryPolicyHolder && secondary && rps.length > 1) {
+  let billingProviderData: BillingProviderDataObject;
+  try {
+    /*
+      for some use cases it might make more sense to go fetch the billing provider data from Candid,
+      in which case a contained resource would be created and added to the eligibility requests contained resources,
+      rather than attemping to get a reference to some resource in the FHIR db here. 
+    */
+    billingProviderData = await complexBillingProviderValidation(
+      { primary, secondary },
+      appointmentId,
+      input.secrets ?? null,
+      oystehrClient
+    );
+  } catch (e) {
+    console.log('error getting billing provider data', e);
+    throw e;
+  }
+  console.log('billingProviderData', JSON.stringify(billingProviderData), null, 2);
+
+  if (secondaryInsuranceData && secondaryPolicyHolder && secondary && rps.length > 1 && billingProviderData.secondary) {
     coverages.push(
       makeCoverage({
         insuranceData: secondaryInsuranceData,
@@ -139,12 +154,17 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
 
   const eligibilityRequests = coverages.map((coverage, idx) => {
     const isPrimary = idx === 0;
+    let providerReference = '';
+    if (isPrimary) {
+      providerReference = `${billingProviderData.primary.resourceType}/${billingProviderData.primary.id}`;
+    } else if (billingProviderData.secondary) {
+      providerReference = `${billingProviderData.secondary.resourceType}/${billingProviderData.secondary.id}`;
+    }
     const id = isPrimary ? 'covPrimary' : 'covSecondary';
     coverage.id = id;
     const coverageReference = `#${coverage.id}`;
     const patientReference = `Patient/${patientId}`;
     const payorReference = `Organization/${isPrimary ? primary.organization.id : secondary.organization.id}`;
-    const providerReference = `${billingProviderData.resourceType}/${billingProviderData.id}`;
     const contained: FhirResource[] = [coverage];
     if (rps[idx]) {
       contained.push(rps[idx]);

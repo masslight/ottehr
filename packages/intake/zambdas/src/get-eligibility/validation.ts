@@ -2,16 +2,16 @@ import Oystehr from '@oystehr/sdk';
 import { QuestionnaireResponseItem } from 'fhir/r4b';
 import {
   APIErrorCode,
-  BillingProviderData,
-  BillingProvideResource,
-  getBillingProviderDataFromResource,
+  BillingProviderDataObject,
+  getBillingProviderData,
+  GetBillingProviderInput,
   GetEligibilityInput,
   GetEligibilityInsuranceData,
   GetEligibilityParameters,
   GetEligibilityPolicyHolder,
-  InsuranceEligibilityPrevalidationInput,
   InsurancePlanDTO,
   isValidUUID,
+  Secrets,
   ZambdaInput,
 } from 'utils';
 
@@ -30,34 +30,12 @@ export function validateRequestParameters(input: ZambdaInput): GetEligibilityInp
   }
 
   if (coveragePrevalidationInput !== undefined) {
-    const { responseItems, billingProviderResource } = coveragePrevalidationInput;
+    const { responseItems } = coveragePrevalidationInput;
     if (responseItems === undefined) {
       throw new Error('Parameter "responseItems" must be included in prevalidation input');
     }
     if (responseItems !== undefined && (!Array.isArray(responseItems) || typeof responseItems[0] !== 'object')) {
       throw new Error('Parameter "prevalidationInput.responseItems" must be an array of objects when included');
-    }
-    if (billingProviderResource === undefined) {
-      throw new Error('Parameter "billingProviderResource" must be included in prevalidation input');
-    }
-    const bpType = billingProviderResource.type;
-    if (!bpType || !['Location', 'Organization', 'Practitioner'].includes(bpType)) {
-      throw new Error(
-        'Parameter "billingProviderResource" must include a "type" property of "Location", "Practitioner", or "Organziation"'
-      );
-    }
-    const { reference } = billingProviderResource;
-    if (reference === undefined || typeof reference !== 'string') {
-      throw new Error('Parameter "billingProviderResource" must "reference" property of type string');
-    }
-    const [refType, refId] = reference.split('/');
-    if (!refType || !refId || !isValidUUID(refId)) {
-      throw new Error('Parameter "billingProviderResource.reference" was malformed. Must be {ResourceType}/{uuid}');
-    }
-    if (refType !== bpType) {
-      throw new Error(
-        `Parameter "billingProviderResource" contained inconsistent type and reference properties: ${refType} !== ${bpType}`
-      );
     }
     if (responseItems) {
       const primaryPolicyHolder = mapResponseItemsToInsurancePolicyHolder(responseItems);
@@ -227,26 +205,21 @@ const mapResponseItemsToInsurancePolicyHolder = (
 };
 
 export const complexBillingProviderValidation = async (
-  prevalidationInput: InsuranceEligibilityPrevalidationInput,
+  plans: GetBillingProviderInput['plans'],
+  appointmentId: string,
+  secrets: Secrets | null,
   oystehrClient: Oystehr
-): Promise<BillingProviderData> => {
-  const { type, reference } = prevalidationInput.billingProviderResource;
+): Promise<BillingProviderDataObject> => {
+  //const { type, reference } = prevalidationInput.billingProviderResource;
 
-  const fetchedResources = await oystehrClient.fhir.search<BillingProvideResource>({
-    resourceType: type,
-    params: [
-      {
-        name: '_id',
-        value: reference?.split('/')[1] ?? '',
-      },
-    ],
-  });
-
-  const billingResource = fetchedResources?.unbundle()[0];
-  if (!billingResource) {
-    throw APIErrorCode.BILLING_PROVIDER_NOT_FOUND;
-  }
-  const providerData = getBillingProviderDataFromResource(billingResource);
+  const providerData = await getBillingProviderData(
+    {
+      plans,
+      secrets,
+      appointmentId,
+    },
+    oystehrClient
+  );
 
   if (providerData === undefined) {
     throw APIErrorCode.MISSING_BILLING_PROVIDER_DETAILS;

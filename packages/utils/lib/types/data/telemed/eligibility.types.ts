@@ -28,21 +28,20 @@ export interface GetEligibilityPolicyHolder {
   relationship?: string;
 }
 
-export type BillingProvideResource = Location | Practitioner | Organization;
+export type BillingProviderResource = Location | Practitioner | Organization;
 
 export interface BillingProviderData {
-  resourceType: BillingProvideResource['resourceType'];
+  resourceType: BillingProviderResource['resourceType'];
   id: string;
   npi: string;
   taxId: string;
   address: Address;
 }
-interface BillingProviderResourceReference extends Omit<Reference, 'type'> {
-  type: BillingProvideResource['resourceType'];
+export interface BillingProviderResourceReference extends Omit<Reference, 'type'> {
+  type: BillingProviderResource['resourceType'];
 }
 export interface InsuranceEligibilityPrevalidationInput {
   responseItems: QuestionnaireResponseItem[];
-  billingProviderResource: BillingProviderResourceReference;
 }
 export interface GetEligibilityParameters {
   patientId: string;

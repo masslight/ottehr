@@ -217,7 +217,7 @@ export interface ComplexValidationResultSuccessCase extends ComplexValidationBas
 export type ComplexValidationResult = ComplexValidationResultFailureCase | ComplexValidationResultSuccessCase;
 
 export enum InsuranceEligibilityCheckStatus {
-  eligibilityConfirmed = 'eligibility-confirmed', // patient's insurance info was verified as elibile
+  eligibilityConfirmed = 'eligibility-confirmed', // patient's insurance info was verified as eligible
   eligibilityCheckNotSupported = 'eligibility-check-not-supported', // not done because not supported by payer
   eligibilityNotChecked = 'eligibility-not-checked', // not done or some system failure occurred
   eligibilityNotConfirmed = 'eligibility-not-confirmed', // eligibility check was done and the patient's insurance info was deemed not eligible

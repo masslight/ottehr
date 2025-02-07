@@ -8,7 +8,12 @@ import {
   Organization,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { ELIGIBILITY_BENEFIT_CODES, InsuranceEligibilityCheckStatus, removeTimeFromDate } from 'utils';
+import {
+  ELIGIBILITY_BENEFIT_CODES,
+  InsuranceEligibilityCheckStatus,
+  InsurancePlanResources,
+  removeTimeFromDate,
+} from 'utils';
 
 // todo: move this into a higher level util
 export const performEligibilityCheck = (
@@ -33,10 +38,6 @@ interface InsuranceIds {
   secondary?: string;
 }
 
-export interface InsurancePlanResources {
-  insurancePlan: InsurancePlan;
-  organization: Organization;
-}
 export const getInsurancePlansAndOrgs = async (
   planIds: InsuranceIds,
   oystehrClient: Oystehr
