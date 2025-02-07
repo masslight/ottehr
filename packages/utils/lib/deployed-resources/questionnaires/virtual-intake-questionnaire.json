@@ -55,8 +55,8 @@
             "required": true,
             "extension": [
               {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-width",
-                "valuePositiveInt": 4
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                "valueString": "s"
               },
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
@@ -229,8 +229,8 @@
             "required": true,
             "extension": [
               {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-width",
-                "valuePositiveInt": 4
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                "valueString": "s"
               }
             ]
           },
@@ -245,8 +245,8 @@
                 "valueString": "ZIP"
               },
               {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-width",
-                "valuePositiveInt": 4
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                "valueString": "s"
               },
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
@@ -604,8 +604,8 @@
             "required": false,
             "extension": [
               {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-width",
-                "valuePositiveInt": 6
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                "valueString": "m"
               },
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
@@ -620,8 +620,8 @@
             "required": false,
             "extension": [
               {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-width",
-                "valuePositiveInt": 6
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                "valueString": "m"
               },
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
@@ -2779,7 +2779,11 @@
               },
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
-                "valueString": "button"
+                "valueString": "Button"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                "valueString": "l"
               }
             ]
           },
@@ -3325,8 +3329,8 @@
             ],
             "extension": [
               {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-width",
-                "valuePositiveInt": 6
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                "valueString": "m"
               },
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
@@ -3356,8 +3360,8 @@
                 "valueString": "protected"
               },
               {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-width",
-                "valuePositiveInt": 6
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                "valueString": "m"
               },
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
@@ -3776,8 +3780,8 @@
             ],
             "extension": [
               {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-width",
-                "valuePositiveInt": 6
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                "valueString": "m"
               },
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
@@ -3816,8 +3820,8 @@
             ],
             "extension": [
               {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-width",
-                "valuePositiveInt": 6
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                "valueString": "m"
               },
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
