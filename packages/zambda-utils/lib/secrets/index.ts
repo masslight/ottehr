@@ -4,18 +4,15 @@ export interface Secrets {
   [secretName: string]: string;
 }
 
-export const getSecret = (secretKey: string, secrets: Secrets | null): string => {
-  let value: string | undefined;
-  if (secrets != null) {
-    value = secrets[secretKey];
-  } else {
-    value = process.env[secretKey];
-  }
+export const getOptionalSecret = (secretKey: string, secrets: Secrets | null): string | undefined => {
+  return secrets != null ? secrets[secretKey] : process.env[secretKey];
+};
 
+export const getSecret = (secretKey: string, secrets: Secrets | null): string => {
+  const value = getOptionalSecret(secretKey, secrets);
   if (value == null) {
     throw new Error(`Secret or Environment Variable with key ${secretKey} was not set.`);
   }
-
   return value;
 };
 
@@ -74,4 +71,7 @@ export enum SecretsKeys {
   IN_PERSON_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID = 'IN_PERSON_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID',
   INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID = 'INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID',
   NLM_API_KEY = 'NLM_API_KEY',
+  CANDID_CLIENT_ID = 'CANDID_CLIENT_ID',
+  CANDID_CLIENT_SECRET = 'CANDID_CLIENT_SECRET',
+  CANDID_ENV = 'CANDID_ENV',
 }
