@@ -478,20 +478,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({ itemProps, renderProps, fi
   } = usePaperworkFormHelpers({ item, renderValue: value, renderOnChange: onChange, fieldId });
 
   const error = useFieldError(fieldId);
-  const answerOptions = useMemo(() => {
-    const options = item.answerOption ?? [];
-    if (!item.randomize) {
-      return options;
-    }
-
-    // Durstenfeld shuffle alogrithm
-    // https://stackoverflow.com/a/12646864
-    for (let i = options.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [options[i], options[j]] = [options[j], options[i]];
-    }
-    return options;
-  }, [item.answerOption, item.randomize]);
+  const answerOptions = item.answerOption ?? [];
   const colorForButton = unwrappedValue ? theme.palette.destructive.main : theme.palette.primary.main;
   let attachmentType: AttachmentType = 'image';
   if (item.dataType === 'PDF') {
