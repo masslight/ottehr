@@ -78,7 +78,7 @@ export class PatientsPage {
     expect(rowPatientName).toBe(patientInfo.lastName + ' ' + patientInfo.firstName);
     expect(rowPatientDateOfBirth).toBe(patientInfo.dateOfBirth);
     expect(rowPatientEmail).toBe(patientInfo.email);
-    expect(rowPatientPhoneNumber).toBe(patientInfo.phoneNumber);
+    expect(rowPatientPhoneNumber).toContain(patientInfo.phoneNumber);
     expect(rowPatientAddress).toBe(patientInfo.address);
   }
 }

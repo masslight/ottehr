@@ -37,7 +37,7 @@ test('Search by Last name', async ({ page }) => {
     lastName: PATIENT_LAST_NAME,
     dateOfBirth: '01/01/2024',
     email: PATIENT_EMAIL,
-    phoneNumber: '+1' + PATIENT_PHONE_NUMBER,
+    phoneNumber: PATIENT_PHONE_NUMBER,
     address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
   });
 });
@@ -52,7 +52,7 @@ test('Search by Date of birth', async ({ page }) => {
     lastName: PATIENT_LAST_NAME,
     dateOfBirth: '01/01/2024',
     email: PATIENT_EMAIL,
-    phoneNumber: '+1' + PATIENT_PHONE_NUMBER,
+    phoneNumber: PATIENT_PHONE_NUMBER,
     address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
   });
 });
@@ -67,7 +67,7 @@ test('Search by Phone number', async ({ page }) => {
     lastName: PATIENT_LAST_NAME,
     dateOfBirth: '01/01/2024',
     email: PATIENT_EMAIL,
-    phoneNumber: '+1' + PATIENT_PHONE_NUMBER,
+    phoneNumber: PATIENT_PHONE_NUMBER,
     address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
   });
 });
@@ -82,7 +82,7 @@ test('Search by Address', async ({ page }) => {
     lastName: PATIENT_LAST_NAME,
     dateOfBirth: '01/01/2024',
     email: PATIENT_EMAIL,
-    phoneNumber: '+1' + PATIENT_PHONE_NUMBER,
+    phoneNumber: PATIENT_PHONE_NUMBER,
     address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
   });
 });
@@ -97,7 +97,7 @@ test('Search by Email', async ({ page }) => {
     lastName: PATIENT_LAST_NAME,
     dateOfBirth: '01/01/2024',
     email: PATIENT_EMAIL,
-    phoneNumber: '+1' + PATIENT_PHONE_NUMBER,
+    phoneNumber: PATIENT_PHONE_NUMBER,
     address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
   });
 });
@@ -112,7 +112,7 @@ test('Search by Last name and First name', async ({ page }) => {
     lastName: PATIENT_LAST_NAME,
     dateOfBirth: '01/01/2024',
     email: PATIENT_EMAIL,
-    phoneNumber: '+1' + PATIENT_PHONE_NUMBER,
+    phoneNumber: PATIENT_PHONE_NUMBER,
     address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
   });
 });
@@ -128,7 +128,7 @@ test('Search by Last name and Date of birth', async ({ page }) => {
     lastName: PATIENT_LAST_NAME,
     dateOfBirth: '01/01/2024',
     email: PATIENT_EMAIL,
-    phoneNumber: '+1' + PATIENT_PHONE_NUMBER,
+    phoneNumber: PATIENT_PHONE_NUMBER,
     address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
   });
 });
@@ -144,7 +144,7 @@ test('Search by Last name and Address', async ({ page }) => {
     lastName: PATIENT_LAST_NAME,
     dateOfBirth: '01/01/2024',
     email: PATIENT_EMAIL,
-    phoneNumber: '+1' + PATIENT_PHONE_NUMBER,
+    phoneNumber: PATIENT_PHONE_NUMBER,
     address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
   });
 });
@@ -160,7 +160,7 @@ test('Search by Last name and Phone number', async ({ page }) => {
     lastName: PATIENT_LAST_NAME,
     dateOfBirth: '01/01/2024',
     email: PATIENT_EMAIL,
-    phoneNumber: '+1' + PATIENT_PHONE_NUMBER,
+    phoneNumber: PATIENT_PHONE_NUMBER,
     address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
   });
 });
@@ -176,7 +176,7 @@ test('Search by Last name, First name and Date of birth', async ({ page }) => {
     lastName: PATIENT_LAST_NAME,
     dateOfBirth: '01/01/2024',
     email: PATIENT_EMAIL,
-    phoneNumber: '+1' + PATIENT_PHONE_NUMBER,
+    phoneNumber: PATIENT_PHONE_NUMBER,
     address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
   });
 });

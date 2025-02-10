@@ -77,6 +77,9 @@ const waitForApp = async (app: (typeof supportedApps)[number]): Promise<void> =>
 
 const startApp = async (app: (typeof supportedApps)[number]): Promise<void> => {
   return new Promise((resolve, reject) => {
+    console.log('starting app....', app);
+    console.log('env', ENV);
+    console.log('envMapping', envMapping[app][ENV]);
     const childProcess = spawn(
       'cross-env',
       [

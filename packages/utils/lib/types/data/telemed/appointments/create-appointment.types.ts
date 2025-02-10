@@ -1,4 +1,4 @@
-import { Patient } from 'fhir/r4b';
+import { Address, Patient } from 'fhir/r4b';
 import { PatientBaseInfo } from '../../../common';
 
 export interface CreateAppointmentUCTelemedParams {
@@ -33,6 +33,11 @@ export type PatientInfo = PatientBaseInfo & {
   reasonAdditional?: string;
   phoneNumber?: string;
   pointOfDiscovery?: boolean;
+  telecom?: {
+    system: string;
+    value: string;
+  }[];
+  address?: Address[];
 };
 
 export interface PatientInfoInProgress extends Omit<PatientInfo, 'patientDateOfBirth'> {

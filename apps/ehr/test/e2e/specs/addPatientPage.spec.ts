@@ -31,9 +31,6 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await resourceHandler.cleanupResources();
-  await resourceHandler.cleanupNewPatientData(NEW_PATIENT_1_LAST_NAME);
-  await resourceHandler.cleanupNewPatientData(NEW_PATIENT_2_LAST_NAME);
-  await resourceHandler.cleanupNewPatientData(NEW_PATIENT_3_LAST_NAME);
 });
 
 test.beforeEach(async ({ page }) => {

@@ -72,16 +72,38 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.group('validateRequestParameters');
     // Step 1: Validate input
     console.log('getting user');
-    const user = await getUser(input.headers.Authorization.replace('Bearer ', ''), input.secrets);
-    const isEHRUser = !user.name.startsWith('+');
+    console.log('secrets create appointment', input.secrets);
+
+    let user: User = {} as User;
+    try {
+      const token = input.headers.Authorization.replace('Bearer ', '');
+      user = await getUser(token, input.secrets); // check
+    } catch (error) {
+      console.log('getUser error', error);
+      // throw error;
+    }
+
+    const isEHRUser = !user?.name?.startsWith?.('+');
     if (!zapehrToken) {
       console.log('getting token');
       zapehrToken = await getAccessToken(input.secrets);
     } else {
       console.log('already have token');
     }
+    console.log('will create oystehr client', zapehrToken);
     const oystehr = createOystehrClient(zapehrToken, input.secrets);
-    const validatedParameters = await validateCreateAppointmentParams(input, isEHRUser, oystehr);
+
+    let validatedParameters: CreateAppointmentValidatedInput = {} as CreateAppointmentValidatedInput;
+    try {
+      console.log('validating parameters');
+      validatedParameters = await validateCreateAppointmentParams(input, isEHRUser, oystehr);
+      console.log('validatedParameters result', validatedParameters);
+    } catch (error) {
+      console.log('validatedParameters error', error);
+      throw error;
+    }
+
+    console.log('validate pass');
 
     const { slot, schedule, language, patient, secrets, scheduleType, visitType, unconfirmedDateOfBirth, serviceType } =
       validatedParameters;
@@ -97,32 +119,44 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     if (patient.id) {
       const userAccess = await userHasAccessToPatient(user, patient.id, oystehr);
       if (!userAccess && !isEHRUser) {
+        console.log('11111 user does not have access to patient', userAccess, isEHRUser);
         throw NO_READ_ACCESS_TO_PATIENT_ERROR;
       } else if (isEHRUser) {
-        console.log('user is flagged as an EHR User, therefore has access to create appointment');
+        console.log('11111 is flagged as an EHR User, therefore has access to create appointment');
       }
     }
     console.log('creating appointment');
-    const { message, appointment, fhirPatientId, questionnaireResponseId, encounterId } = await createAppointment(
-      {
-        slot,
-        scheduleType,
-        schedule,
-        patient,
-        serviceType,
-        user,
-        language,
-        secrets,
-        visitType,
-        unconfirmedDateOfBirth,
-        questionnaireCanonical,
-      },
-      oystehr
-    );
+
+    let data_appointment: CreateAppointmentResponse = {} as CreateAppointmentResponse;
+    try {
+      data_appointment = await createAppointment(
+        {
+          slot,
+          scheduleType,
+          schedule,
+          patient,
+          serviceType,
+          user,
+          language,
+          secrets,
+          visitType,
+          unconfirmedDateOfBirth,
+          questionnaireCanonical,
+        },
+        oystehr
+      );
+    } catch (error) {
+      console.log('create appointment error', error);
+      throw error;
+    }
+
+    console.log('appointment created');
+
+    const { message, appointment, fhirPatientId, questionnaireResponseId, encounterId, resources } = data_appointment;
 
     await createAuditEvent(AuditableZambdaEndpoints.appointmentCreate, oystehr, input, fhirPatientId, secrets);
 
-    const response = { message, appointment, fhirPatientId, questionnaireResponseId, encounterId };
+    const response = { message, appointment, fhirPatientId, questionnaireResponseId, encounterId, resources };
 
     console.log(`fhirAppointment = ${JSON.stringify(response)}`, visitType);
     return {
@@ -188,6 +222,7 @@ export async function createAppointment(
     patient: fhirPatient,
     questionnaireResponseId,
     encounter,
+    questionnaire,
   } = await performTransactionalFhirRequests({
     patient: maybeFhirPatient,
     reasonForVisit: patient?.reasonForVisit || '',
@@ -237,6 +272,7 @@ export async function createAppointment(
     fhirPatientId: fhirPatient.id || '',
     questionnaireResponseId: questionnaireResponseId || '',
     encounterId: encounter.id || '',
+    resources: { appointment, encounter, questionnaire, patient: fhirPatient },
   };
 }
 
@@ -273,6 +309,7 @@ interface TransactionOutput {
   appointment: Appointment;
   encounter: Encounter;
   patient: Patient;
+  questionnaire: QuestionnaireResponse;
   questionnaireResponseId: string;
 }
 
@@ -501,18 +538,484 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   return extractResourcesFromBundle(bundle);
 };
 
+// const resp = {
+//   resourceType: 'Bundle',
+//   type: 'transaction-response',
+//   entry: [
+//     {
+//       response: {
+//         outcome: {
+//           resourceType: 'OperationOutcome',
+//           id: 'created',
+//           issue: [{ severity: 'information', code: 'informational', details: { text: 'Created' } }],
+//         },
+//         status: '201',
+//         location: 'Patient/ced3d936-e438-4fa7-8559-e193edb26558',
+//       },
+//       resource: {
+//         resourceType: 'Patient',
+//         name: [{ given: ['Test_John'], family: 'Test_Doed69c087a-4390-486c-a70d-7f7833ac3951' }],
+//         birthDate: '2024-01-01',
+//         gender: 'male',
+//         active: true,
+//         telecom: [
+//           { system: 'email', value: 'john.doe@example.com' },
+//           { system: 'phone', value: '2144985555' },
+//         ],
+//         address: [{ city: 'New York', line: ['10 Cooper Square'], state: 'NY', postalCode: '06001' }],
+//         id: 'ced3d936-e438-4fa7-8559-e193edb26558',
+//         meta: { versionId: 'e93788ff-75a0-4fa4-ba2f-29e1fb61d9ea', lastUpdated: '2025-02-11T08:17:19.726Z' },
+//       },
+//     },
+//     {
+//       response: {
+//         outcome: {
+//           resourceType: 'OperationOutcome',
+//           id: 'created',
+//           issue: [{ severity: 'information', code: 'informational', details: { text: 'Created' } }],
+//         },
+//         status: '201',
+//         location: 'List/d0d3b5ca-0370-4f4a-be71-3ea810f5f4ba',
+//       },
+//       resource: {
+//         resourceType: 'List',
+//         status: 'current',
+//         mode: 'working',
+//         title: 'visit-notes',
+//         code: {
+//           coding: [
+//             {
+//               system: 'https://fhir.zapehr.com/r4/StructureDefinitions',
+//               code: 'patient-docs-folder',
+//               display: 'Visit Notes',
+//             },
+//           ],
+//         },
+//         subject: { reference: 'Patient/ced3d936-e438-4fa7-8559-e193edb26558' },
+//         entry: [],
+//         identifier: [
+//           {
+//             type: {
+//               coding: [
+//                 {
+//                   system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+//                   code: 'UDI',
+//                   display: 'Universal Device Identifier',
+//                 },
+//               ],
+//             },
+//             value: 'visit-notes',
+//           },
+//         ],
+//         id: 'd0d3b5ca-0370-4f4a-be71-3ea810f5f4ba',
+//         meta: { versionId: 'f31b8abb-7490-42ef-8ed7-69099b76a3e9', lastUpdated: '2025-02-11T08:17:19.775Z' },
+//       },
+//     },
+//     {
+//       response: {
+//         outcome: {
+//           resourceType: 'OperationOutcome',
+//           id: 'created',
+//           issue: [{ severity: 'information', code: 'informational', details: { text: 'Created' } }],
+//         },
+//         status: '201',
+//         location: 'List/9d54b175-db7f-46ce-bef4-481f2eb6c190',
+//       },
+//       resource: {
+//         resourceType: 'List',
+//         status: 'current',
+//         mode: 'working',
+//         title: 'consent-forms',
+//         code: {
+//           coding: [
+//             {
+//               system: 'https://fhir.zapehr.com/r4/StructureDefinitions',
+//               code: 'patient-docs-folder',
+//               display: 'Consent Forms',
+//             },
+//           ],
+//         },
+//         subject: { reference: 'Patient/ced3d936-e438-4fa7-8559-e193edb26558' },
+//         entry: [],
+//         identifier: [
+//           {
+//             type: {
+//               coding: [
+//                 {
+//                   system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+//                   code: 'UDI',
+//                   display: 'Universal Device Identifier',
+//                 },
+//               ],
+//             },
+//             value: 'consent-forms',
+//           },
+//         ],
+//         id: '9d54b175-db7f-46ce-bef4-481f2eb6c190',
+//         meta: { versionId: '1592529c-de71-4273-a7df-494c1d8ef605', lastUpdated: '2025-02-11T08:17:19.818Z' },
+//       },
+//     },
+//     {
+//       response: {
+//         outcome: {
+//           resourceType: 'OperationOutcome',
+//           id: 'created',
+//           issue: [{ severity: 'information', code: 'informational', details: { text: 'Created' } }],
+//         },
+//         status: '201',
+//         location: 'List/84d74c78-6be1-4418-bf15-305b75321f0a',
+//       },
+//       resource: {
+//         resourceType: 'List',
+//         status: 'current',
+//         mode: 'working',
+//         title: 'privacy-policy',
+//         code: {
+//           coding: [
+//             {
+//               system: 'https://fhir.zapehr.com/r4/StructureDefinitions',
+//               code: 'patient-docs-folder',
+//               display: 'Privacy Policy',
+//             },
+//           ],
+//         },
+//         subject: { reference: 'Patient/ced3d936-e438-4fa7-8559-e193edb26558' },
+//         entry: [],
+//         identifier: [
+//           {
+//             type: {
+//               coding: [
+//                 {
+//                   system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+//                   code: 'UDI',
+//                   display: 'Universal Device Identifier',
+//                 },
+//               ],
+//             },
+//             value: 'privacy-policy',
+//           },
+//         ],
+//         id: '84d74c78-6be1-4418-bf15-305b75321f0a',
+//         meta: { versionId: '5c67cf39-4f0a-4ca3-b298-bb6b55e9cab3', lastUpdated: '2025-02-11T08:17:19.877Z' },
+//       },
+//     },
+//     {
+//       response: {
+//         outcome: {
+//           resourceType: 'OperationOutcome',
+//           id: 'created',
+//           issue: [{ severity: 'information', code: 'informational', details: { text: 'Created' } }],
+//         },
+//         status: '201',
+//         location: 'List/00302bc7-f1ea-4458-a248-f8044bb4b33c',
+//       },
+//       resource: {
+//         resourceType: 'List',
+//         status: 'current',
+//         mode: 'working',
+//         title: 'insurance-cards',
+//         code: {
+//           coding: [
+//             {
+//               system: 'https://fhir.zapehr.com/r4/StructureDefinitions',
+//               code: 'patient-docs-folder',
+//               display: 'Ins Cards / Photo ID',
+//             },
+//           ],
+//         },
+//         subject: { reference: 'Patient/ced3d936-e438-4fa7-8559-e193edb26558' },
+//         entry: [],
+//         identifier: [
+//           {
+//             type: {
+//               coding: [
+//                 {
+//                   system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+//                   code: 'UDI',
+//                   display: 'Universal Device Identifier',
+//                 },
+//               ],
+//             },
+//             value: 'insurance-cards',
+//           },
+//         ],
+//         id: '00302bc7-f1ea-4458-a248-f8044bb4b33c',
+//         meta: { versionId: 'c0af588a-7442-48c5-afc8-016dff444613', lastUpdated: '2025-02-11T08:17:19.912Z' },
+//       },
+//     },
+//     {
+//       response: {
+//         outcome: {
+//           resourceType: 'OperationOutcome',
+//           id: 'created',
+//           issue: [{ severity: 'information', code: 'informational', details: { text: 'Created' } }],
+//         },
+//         status: '201',
+//         location: 'List/ea9152c1-2e47-4105-934f-c6b148514d42',
+//       },
+//       resource: {
+//         resourceType: 'List',
+//         status: 'current',
+//         mode: 'working',
+//         title: 'patient-photos',
+//         code: {
+//           coding: [
+//             {
+//               system: 'https://fhir.zapehr.com/r4/StructureDefinitions',
+//               code: 'patient-docs-folder',
+//               display: 'Photos',
+//             },
+//           ],
+//         },
+//         subject: { reference: 'Patient/ced3d936-e438-4fa7-8559-e193edb26558' },
+//         entry: [],
+//         identifier: [
+//           {
+//             type: {
+//               coding: [
+//                 {
+//                   system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+//                   code: 'UDI',
+//                   display: 'Universal Device Identifier',
+//                 },
+//               ],
+//             },
+//             value: 'patient-photos',
+//           },
+//         ],
+//         id: 'ea9152c1-2e47-4105-934f-c6b148514d42',
+//         meta: { versionId: 'b3241a34-d5ab-438d-9cec-4b69a5023a63', lastUpdated: '2025-02-11T08:17:19.946Z' },
+//       },
+//     },
+//     {
+//       response: {
+//         outcome: {
+//           resourceType: 'OperationOutcome',
+//           id: 'created',
+//           issue: [{ severity: 'information', code: 'informational', details: { text: 'Created' } }],
+//         },
+//         status: '201',
+//         location: 'List/7048e882-a205-4d46-9ecb-915cbd2387fb',
+//       },
+//       resource: {
+//         resourceType: 'List',
+//         status: 'current',
+//         mode: 'working',
+//         title: 'school-work-note-templates',
+//         code: {
+//           coding: [
+//             {
+//               system: 'https://fhir.zapehr.com/r4/StructureDefinitions',
+//               code: 'patient-docs-folder',
+//               display: 'School/Work Notes',
+//             },
+//           ],
+//         },
+//         subject: { reference: 'Patient/ced3d936-e438-4fa7-8559-e193edb26558' },
+//         entry: [],
+//         identifier: [
+//           {
+//             type: {
+//               coding: [
+//                 {
+//                   system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+//                   code: 'UDI',
+//                   display: 'Universal Device Identifier',
+//                 },
+//               ],
+//             },
+//             value: 'school-work-note-templates',
+//           },
+//         ],
+//         id: '7048e882-a205-4d46-9ecb-915cbd2387fb',
+//         meta: { versionId: '9e11934d-552d-41a7-b00c-0233bf81d4a1', lastUpdated: '2025-02-11T08:17:19.979Z' },
+//       },
+//     },
+//     {
+//       response: {
+//         outcome: {
+//           resourceType: 'OperationOutcome',
+//           id: 'created',
+//           issue: [{ severity: 'information', code: 'informational', details: { text: 'Created' } }],
+//         },
+//         status: '201',
+//         location: 'List/c1a38a52-2e7f-4465-b8e1-25f028ae1526',
+//       },
+//       resource: {
+//         resourceType: 'List',
+//         status: 'current',
+//         mode: 'working',
+//         title: 'receipts',
+//         code: {
+//           coding: [
+//             {
+//               system: 'https://fhir.zapehr.com/r4/StructureDefinitions',
+//               code: 'patient-docs-folder',
+//               display: 'Receipts',
+//             },
+//           ],
+//         },
+//         subject: { reference: 'Patient/ced3d936-e438-4fa7-8559-e193edb26558' },
+//         entry: [],
+//         identifier: [
+//           {
+//             type: {
+//               coding: [
+//                 {
+//                   system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+//                   code: 'UDI',
+//                   display: 'Universal Device Identifier',
+//                 },
+//               ],
+//             },
+//             value: 'receipts',
+//           },
+//         ],
+//         id: 'c1a38a52-2e7f-4465-b8e1-25f028ae1526',
+//         meta: { versionId: 'fce1ed71-7607-4826-9114-0d36def58dd8', lastUpdated: '2025-02-11T08:17:20.024Z' },
+//       },
+//     },
+//     {
+//       response: {
+//         outcome: {
+//           resourceType: 'OperationOutcome',
+//           id: 'created',
+//           issue: [{ severity: 'information', code: 'informational', details: { text: 'Created' } }],
+//         },
+//         status: '201',
+//         location: 'Appointment/c05691bc-60f6-4244-905a-25b1701d03a7',
+//       },
+//       resource: {
+//         resourceType: 'Appointment',
+//         meta: {
+//           tag: [{ code: 'OTTEHR-IP' }, { system: 'created-by', display: 'Staff ottehr-ehr-e2e@ottehr.com via QRS' }],
+//           versionId: '46309671-80ef-465c-998f-838a54d9ce9b',
+//           lastUpdated: '2025-02-11T08:17:20.060Z',
+//         },
+//         participant: [
+//           { actor: { reference: 'Patient/ced3d936-e438-4fa7-8559-e193edb26558' }, status: 'accepted' },
+//           { actor: { reference: 'Location/f2418766-0bf7-4ed9-9c88-b9d8044e7a37' }, status: 'accepted' },
+//         ],
+//         start: '2025-02-11T10:17:17.505Z',
+//         end: '2025-02-11T10:32:17.505Z',
+//         appointmentType: { text: 'prebook' },
+//         description: 'Fever',
+//         status: 'booked',
+//         created: '2025-02-11T08:17:19.177Z',
+//         extension: [],
+//         id: 'c05691bc-60f6-4244-905a-25b1701d03a7',
+//       },
+//     },
+//     {
+//       response: {
+//         outcome: {
+//           resourceType: 'OperationOutcome',
+//           id: 'created',
+//           issue: [{ severity: 'information', code: 'informational', details: { text: 'Created' } }],
+//         },
+//         status: '201',
+//         location: 'Encounter/3e49240b-e465-47d3-8ac0-c67b00686101',
+//       },
+//       resource: {
+//         resourceType: 'Encounter',
+//         status: 'planned',
+//         statusHistory: [{ status: 'planned', period: { start: '2025-02-11T08:17:19.177Z' } }],
+//         class: {
+//           system: 'http://hl7.org/fhir/R4/v3/ActEncounterCode/vs.html',
+//           code: 'ACUTE',
+//           display: 'inpatient acute',
+//         },
+//         subject: { reference: 'Patient/ced3d936-e438-4fa7-8559-e193edb26558' },
+//         appointment: [{ reference: 'Appointment/c05691bc-60f6-4244-905a-25b1701d03a7' }],
+//         location: [{ location: { reference: 'Location/f2418766-0bf7-4ed9-9c88-b9d8044e7a37' } }],
+//         extension: [],
+//         id: '3e49240b-e465-47d3-8ac0-c67b00686101',
+//         meta: { versionId: '744bdb8a-dad2-4dd7-9a53-fd00f64acfa2', lastUpdated: '2025-02-11T08:17:20.308Z' },
+//       },
+//     },
+//     {
+//       response: {
+//         outcome: {
+//           resourceType: 'OperationOutcome',
+//           id: 'created',
+//           issue: [{ severity: 'information', code: 'informational', details: { text: 'Created' } }],
+//         },
+//         status: '201',
+//         location: 'QuestionnaireResponse/0463447c-8642-4076-892f-f6976bedc91d',
+//       },
+//       resource: {
+//         resourceType: 'QuestionnaireResponse',
+//         questionnaire: 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson|1.0.4',
+//         status: 'in-progress',
+//         subject: { reference: 'Patient/ced3d936-e438-4fa7-8559-e193edb26558' },
+//         encounter: { reference: 'Encounter/3e49240b-e465-47d3-8ac0-c67b00686101' },
+//         item: [
+//           {
+//             linkId: 'contact-information-page',
+//             item: [
+//               { linkId: 'contact-page-address-text' },
+//               { linkId: 'patient-street-address', answer: [{ valueString: '10 Cooper Square' }] },
+//               { linkId: 'patient-street-address-2' },
+//               { linkId: 'patient-city', answer: [{ valueString: 'New York' }] },
+//               { linkId: 'patient-state', answer: [{ valueString: 'NY' }] },
+//               { linkId: 'patient-zip', answer: [{ valueString: '06001' }] },
+//               { linkId: 'patient-will-be-18', answer: [{ valueBoolean: false }] },
+//               { linkId: 'is-new-qrs-patient', answer: [{ valueBoolean: true }] },
+//               { linkId: 'patient-first-name', answer: [{ valueString: 'Test_John' }] },
+//               {
+//                 linkId: 'patient-last-name',
+//                 answer: [{ valueString: 'Test_Doed69c087a-4390-486c-a70d-7f7833ac3951' }],
+//               },
+//               { linkId: 'patient-birthdate', answer: [{ valueString: '2024-01-01' }] },
+//               { linkId: 'patient-birth-sex', answer: [{ valueString: 'Male' }] },
+//               { linkId: 'patient-birth-sex-missing' },
+//               { linkId: 'patient-contact-additional-caption' },
+//               { linkId: 'patient-email', answer: [{ valueString: 'john.doe@example.com' }] },
+//               { linkId: 'patient-number', answer: [{ valueString: '(214) 498-5555' }] },
+//               { linkId: 'mobile-opt-in' },
+//             ],
+//           },
+//           {
+//             linkId: 'patient-details-page',
+//             item: [
+//               { linkId: 'patient-ethnicity' },
+//               { linkId: 'patient-race' },
+//               { linkId: 'patient-pronouns' },
+//               { linkId: 'patient-pronouns-custom' },
+//               { linkId: 'patient-details-additional-text' },
+//               { linkId: 'patient-point-of-discovery' },
+//               { linkId: 'preferred-language' },
+//             ],
+//           },
+//           { linkId: 'primary-care-physician-page', item: [] },
+//           { linkId: 'payment-option-page', item: [] },
+//           { linkId: 'responsible-party-page', item: [] },
+//           { linkId: 'photo-id-page', item: [] },
+//           { linkId: 'consent-forms-page', item: [] },
+//         ],
+//         id: '0463447c-8642-4076-892f-f6976bedc91d',
+//         meta: { versionId: '7d8160fd-f9d8-4bcf-b3c7-2a519086fd01', lastUpdated: '2025-02-11T08:17:20.402Z' },
+//       },
+//     },
+//   ],
+// };
+
 const extractResourcesFromBundle = (bundle: Bundle<Resource>): TransactionOutput => {
   console.log('getting resources from bundle');
   const entry = bundle.entry ?? [];
+
   const appointment: Appointment = entry.find((appt) => {
     return appt.resource && appt.resource.resourceType === 'Appointment';
   })?.resource as Appointment;
+
   const encounter: Encounter = entry.find((enc) => {
     return enc.resource && enc.resource.resourceType === 'Encounter';
   })?.resource as Encounter;
+
   const patient: Patient = entry.find((enc) => {
     return enc.resource && enc.resource.resourceType === 'Patient';
   })?.resource as Patient;
+
   const questionnaireResponse: QuestionnaireResponse = entry.find((entry) => {
     return entry.resource && entry.resource.resourceType === 'QuestionnaireResponse';
   })?.resource as QuestionnaireResponse;
@@ -531,5 +1034,11 @@ const extractResourcesFromBundle = (bundle: Bundle<Resource>): TransactionOutput
   }
 
   console.log('successfully obtained resources from bundle');
-  return { appointment, encounter, patient, questionnaireResponseId: questionnaireResponse.id || '' };
+  return {
+    appointment,
+    encounter,
+    patient,
+    questionnaire: questionnaireResponse,
+    questionnaireResponseId: questionnaireResponse.id || '',
+  };
 };

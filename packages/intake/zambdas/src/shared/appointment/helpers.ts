@@ -308,7 +308,7 @@ export function creatingPatientCreateRequest(
         },
         {
           system: 'phone',
-          value: patient.phoneNumber,
+          value: patient.phoneNumber, //formatPhoneNumber(patient.phoneNumber), // todo check
         },
       ];
     } else {
@@ -320,6 +320,16 @@ export function creatingPatientCreateRequest(
       ];
     }
   }
+
+  // TODO: 11111111
+  if (patient.address) {
+    patientResource.address = patient.address;
+  }
+
+  // if (patient.telecom) {
+  //   patientResource.telecom = patient.telecom;
+  // }
+
   console.log('creating patient request for new patient resource');
   createPatientRequest = {
     method: 'POST',

@@ -14,13 +14,13 @@ import {
   getSecret,
   topLevelCatch,
   userHasAccessToPatient,
+  getTelemedLocation,
 } from 'utils';
 import { checkOrCreateM2MClientToken, getUser } from '../../shared';
 
 import { Operation } from 'fast-json-patch';
 import { createUpdateUserRelatedResources, creatingPatientUpdateRequest } from '../../shared/appointment/helpers';
 import { validateUpdateAppointmentParams } from './validateRequestParameters';
-import { getTelemedLocation } from '../telemed-create-appointment';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;

@@ -1,16 +1,48 @@
 import { DateTime } from 'luxon';
-import { Practitioner, Location, Appointment, QuestionnaireResponse } from 'fhir/r4b';
+import { Practitioner, Location, Appointment, QuestionnaireResponse, Patient, Address } from 'fhir/r4b';
 import Oystehr from '@oystehr/sdk';
-import { CreateAppointmentInputParams, PersonSex, ScheduleType, ServiceMode, VisitType } from '../types';
+import {
+  CreateAppointmentInputParams,
+  CreateAppointmentResponse,
+  PersonSex,
+  ScheduleType,
+  ServiceMode,
+  VisitType,
+} from '../types';
 import { updateQuestionnaireResponse } from './helpers';
 import { isLocationVirtual } from '../fhir';
 
-interface DemoAppointmentData {
+// export const PATIENT_FIRST_NAME = 'Test_John';
+// export const PATIENT_LAST_NAME = 'Test_Doe' + randomUUID();
+// export const PATIENT_GENDER = 'male';
+// export const PATIENT_BIRTHDAY = '2024-01-01';
+// export const PATIENT_PHONE_NUMBER = '2144985555';
+// export const PATIENT_EMAIL = 'john.doe@example.com';
+// export const PATIENT_CITY = 'New York';
+// export const PATIENT_LINE = '10 Cooper Square';
+// export const PATIENT_STATE = 'NY';
+// export const PATIENT_POSTALCODE = '06001';
+
+interface AppointmentData {
   firstNames?: string[];
   lastNames?: string[];
   reasonsForVisit?: string[];
+  phoneNumbers?: string[];
+  emails?: string[];
+  gender?: string;
+  birthDate?: string;
+  telecom?: {
+    system: string;
+    value: string;
+  }[];
+  address?: Address[];
+}
+
+interface DemoConfig {
   numberOfAppointments?: number;
 }
+
+type DemoAppointmentData = AppointmentData & DemoConfig;
 
 const DEFAULT_FIRST_NAMES = [
   'Alice',
@@ -72,36 +104,34 @@ export const createSampleAppointments = async (
   intakeZambdaUrl: string,
   selectedLocationId?: string,
   demoData?: DemoAppointmentData
-): Promise<void> => {
+): Promise<CreateAppointmentResponse | null> => {
   if (!oystehr) {
     console.log('oystehr client is not defined');
-    return;
+    return null;
   }
-
-  const {
-    firstNames = DEFAULT_FIRST_NAMES,
-    lastNames = DEFAULT_LAST_NAMES,
-    reasonsForVisit = DEFAULT_REASONS_FOR_VISIT,
-    numberOfAppointments = 10,
-  } = demoData || {};
 
   try {
     const responses: any[] = [];
+    let appointmentData: CreateAppointmentResponse = {} as CreateAppointmentResponse;
+    const numberOfAppointments = demoData?.numberOfAppointments || 10;
 
     for (let i = 0; i < numberOfAppointments; i++) {
-      const serviceMode = i % 2 === 0 ? ServiceMode.virtual : ServiceMode['in-person'];
+      const serviceMode = i % 2 === 0 ? ServiceMode['in-person'] : ServiceMode.virtual;
       const randomPatientInfo = await generateRandomPatientInfo(
         oystehr,
         serviceMode,
         phoneNumber,
         {
-          firstNames,
-          lastNames,
-          reasonsForVisit,
+          // default demoData values:
+          firstNames: DEFAULT_FIRST_NAMES,
+          lastNames: DEFAULT_LAST_NAMES,
+          reasonsForVisit: DEFAULT_REASONS_FOR_VISIT,
+
+          // demoData values:
+          ...demoData,
         },
         selectedLocationId
       );
-      const inputBody = JSON.stringify(randomPatientInfo);
 
       const createAppointmentResponse = await fetch(`${intakeZambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
         method: 'POST',
@@ -109,12 +139,13 @@ export const createSampleAppointments = async (
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
         },
-        body: inputBody,
+        body: JSON.stringify(randomPatientInfo),
       });
 
-      const appointmentData = islocal
+      appointmentData = islocal
         ? await createAppointmentResponse.json()
         : (await createAppointmentResponse.json()).output;
+
       const appointmentId = appointmentData.appointment;
       const patientId = appointmentData.fhirPatientId;
       const questionnaireResponseId = appointmentData.questionnaireResponseId;
@@ -122,9 +153,9 @@ export const createSampleAppointments = async (
 
       const updatedQuestionnaireResponse = await oystehr.fhir.update<QuestionnaireResponse>({
         ...updateQuestionnaireResponse({
-          questionnaireResponseId: questionnaireResponseId,
+          questionnaireResponseId: questionnaireResponseId!,
           patientId: patientId,
-          encounterId: encounterId,
+          encounterId: encounterId!,
           firstName: randomPatientInfo?.patient?.firstName || '',
           lastName: randomPatientInfo?.patient?.lastName || '',
           birthDate: {
@@ -159,7 +190,7 @@ export const createSampleAppointments = async (
 
       if (serviceMode === ServiceMode.virtual) {
         const updatedAppointmentResponse = await oystehr.fhir.patch<Appointment>({
-          id: appointmentId,
+          id: appointmentId!,
           resourceType: 'Appointment',
           operations: [
             {
@@ -174,8 +205,11 @@ export const createSampleAppointments = async (
 
       responses.push(updatedQuestionnaireResponse, createAppointmentResponse);
     }
+
+    return appointmentData;
   } catch (error: any) {
     console.error('Error creating appointments:', error);
+    return null;
   }
 };
 
@@ -183,23 +217,36 @@ const generateRandomPatientInfo = async (
   oystehr: Oystehr,
   serviceMode: ServiceMode,
   phoneNumber?: string,
-  demoData?: Pick<DemoAppointmentData, 'firstNames' | 'lastNames' | 'reasonsForVisit'>,
+  demoData?: AppointmentData,
   selectedLocationId?: string
 ): Promise<CreateAppointmentInputParams> => {
   const {
     firstNames = DEFAULT_FIRST_NAMES,
     lastNames = DEFAULT_LAST_NAMES,
     reasonsForVisit = DEFAULT_REASONS_FOR_VISIT,
+    emails = [],
+    phoneNumbers = [],
+    gender,
+    birthDate,
+    address,
+    telecom,
   } = demoData || {};
 
   const sexes: PersonSex[] = [PersonSex.Male, PersonSex.Female, PersonSex.Intersex];
   const randomFirstName = firstNames[Math.floor(Math.random() * firstNames.length)];
   const randomLastName = lastNames[Math.floor(Math.random() * lastNames.length)];
-  const randomEmail = `${randomFirstName.toLowerCase()}.${randomLastName.toLowerCase()}@example.com`;
-  const randomDateOfBirth = DateTime.now()
-    .minus({ years: 7 + Math.floor(Math.random() * 16) })
-    .toISODate();
-  const randomSex = sexes[Math.floor(Math.random() * sexes.length)];
+  const randomEmail =
+    emails.length > 0
+      ? emails[Math.floor(Math.random() * emails.length)]
+      : `${randomFirstName.toLowerCase()}.${randomLastName.toLowerCase()}@example.com`;
+  const randomPhoneNumber =
+    phoneNumbers.length > 0 ? phoneNumbers[Math.floor(Math.random() * phoneNumbers.length)] : phoneNumber;
+  const randomDateOfBirth =
+    birthDate ||
+    DateTime.now()
+      .minus({ years: 7 + Math.floor(Math.random() * 16) })
+      .toISODate();
+  const randomSex = (gender as Patient['gender']) || sexes[Math.floor(Math.random() * sexes.length)];
 
   const allOffices = (
     await oystehr.fhir.search<Location>({
@@ -212,9 +259,7 @@ const generateRandomPatientInfo = async (
   ).unbundle();
 
   const telemedOffices = allOffices.filter((loc) => isLocationVirtual(loc));
-
   const activeOffices = allOffices.filter((item) => item.status === 'active');
-
   const practitionersTemp = (
     await oystehr.fhir.search<Practitioner>({
       resourceType: 'Practitioner',
@@ -231,18 +276,22 @@ const generateRandomPatientInfo = async (
   const randomProviderId = practitionersTemp[Math.floor(Math.random() * practitionersTemp.length)].id;
   const randomReason = reasonsForVisit[Math.floor(Math.random() * reasonsForVisit.length)];
 
+  const patientData = {
+    newPatient: true,
+    firstName: randomFirstName,
+    lastName: randomLastName,
+    dateOfBirth: randomDateOfBirth,
+    sex: randomSex,
+    email: randomEmail,
+    phoneNumber: randomPhoneNumber,
+    reasonForVisit: randomReason,
+    ...(address ? { address } : {}),
+    ...(telecom ? { telecom } : {}),
+  };
+
   if (serviceMode === 'virtual') {
     return {
-      patient: {
-        newPatient: true,
-        firstName: randomFirstName,
-        lastName: randomLastName,
-        dateOfBirth: randomDateOfBirth,
-        sex: randomSex,
-        email: randomEmail,
-        phoneNumber: phoneNumber,
-        reasonForVisit: randomReason,
-      },
+      patient: patientData,
       unconfirmedDateOfBirth: randomDateOfBirth,
       scheduleType: ScheduleType.location,
       visitType: VisitType.PreBook,
@@ -255,16 +304,7 @@ const generateRandomPatientInfo = async (
   }
 
   return {
-    patient: {
-      newPatient: true,
-      firstName: randomFirstName,
-      lastName: randomLastName,
-      dateOfBirth: randomDateOfBirth,
-      sex: randomSex,
-      email: randomEmail,
-      phoneNumber: phoneNumber,
-      reasonForVisit: randomReason,
-    },
+    patient: patientData,
     scheduleType: ScheduleType.location,
     visitType: VisitType.PreBook,
     serviceType: ServiceMode['in-person'],

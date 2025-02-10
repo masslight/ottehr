@@ -49,6 +49,8 @@ let zapehrToken: string;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
+    console.log('secrets create telemed appointment', input.secrets);
+
     const validatedParameters = validateCreateAppointmentParams(input);
 
     zapehrToken = await checkOrCreateM2MClientToken(zapehrToken, input.secrets);

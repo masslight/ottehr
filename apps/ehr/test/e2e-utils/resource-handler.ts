@@ -1,22 +1,6 @@
 import Oystehr from '@oystehr/sdk';
-import {
-  Patient,
-  Appointment,
-  Encounter,
-  RelatedPerson,
-  DocumentReference,
-  QuestionnaireResponse,
-  Person,
-} from 'fhir/r4';
-import { FhirResource } from '@oystehr/sdk/dist/cjs/resources/types/fhir';
-import { DateTime } from 'luxon';
-import { createAppointment } from './resource/appointment';
-import { createPatient } from './resource/patient';
-import { createEncounter } from './resource/encounter';
+import { Patient, Appointment, Encounter, QuestionnaireResponse, Address } from 'fhir/r4';
 import { getAuth0Token } from './auth/getAuth0Token';
-import { createRelatedPerson } from './resource/related-person';
-import { createDocumentReference } from './resource/insurance-document';
-import { createQuestionnaireResponse } from './resource/questionnaire-response';
 import {
   inviteTestEmployeeUser,
   removeUser,
@@ -25,6 +9,31 @@ import {
   TestEmployee,
 } from './resource/employees';
 import { randomUUID } from 'crypto';
+import { CreateAppointmentResponse, createSampleAppointments, formatPhoneNumber } from 'utils';
+import { join } from 'path';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+export function getAccessToken(): string {
+  const userJsonPath = join(__dirname, '../../playwright/user.json');
+  const userData = JSON.parse(readFileSync(userJsonPath, 'utf-8'));
+
+  const authData = userData.origins[0].localStorage.find((item: { name: string }) =>
+    item.name.includes('api.zapehr.com')
+  );
+
+  if (!authData) {
+    throw new Error('Auth data not found');
+  }
+
+  const token = JSON.parse(authData.value).body.access_token;
+  return token;
+}
+
 export const PATIENT_FIRST_NAME = 'Test_John';
 export const PATIENT_LAST_NAME = 'Test_Doe' + randomUUID();
 export const PATIENT_GENDER = 'male';
@@ -39,17 +48,17 @@ export const PATIENT_POSTALCODE = '06001';
 export class ResourceHandler {
   private apiClient!: Oystehr;
   private authToken!: string;
-  public patient!: Patient;
-  public appointment!: Appointment;
-  public encounter!: Encounter;
-  public relatedPerson!: RelatedPerson;
-  public person!: Person;
-  public documentReference!: DocumentReference;
-  public questionnaireResponse!: QuestionnaireResponse;
+  private resources!: CreateAppointmentResponse['resources'];
+  private zambdaId: string;
+
   public testEmployee1!: TestEmployee;
   public testEmployee2!: TestEmployee;
 
-  async initApi(): Promise<void> {
+  constructor(zambdaName: string = process.env.CREATE_APPOINTMENT_ZAMBDA_ID!) {
+    this.zambdaId = zambdaName;
+  }
+
+  public async initApi(): Promise<void> {
     this.authToken = await getAuth0Token();
     this.apiClient = new Oystehr({
       accessToken: this.authToken,
@@ -58,146 +67,72 @@ export class ResourceHandler {
     });
   }
 
-  async setResources(): Promise<void> {
+  public async setResources(): Promise<void> {
     await this.initApi();
 
-    if (!this.patient) {
-      try {
-        this.patient = (await this.apiClient.fhir.create(
-          createPatient({
-            firstName: PATIENT_FIRST_NAME,
-            lastName: PATIENT_LAST_NAME,
-            gender: PATIENT_GENDER,
-            birthDate: PATIENT_BIRTHDAY,
-            telecom: [
-              {
-                system: 'email',
-                value: PATIENT_EMAIL,
-              },
-              {
-                system: 'phone',
-                value: '+1' + PATIENT_PHONE_NUMBER,
-              },
-            ],
-            relationship: 'Parent/Guardian',
-            city: PATIENT_CITY,
-            line: PATIENT_LINE,
-            state: PATIENT_STATE,
-            postalCode: PATIENT_POSTALCODE,
-          }) as FhirResource
-        )) as Patient;
-        console.log(`👏 patient created`, this.patient.id);
-      } catch (error) {
-        console.error('❌ Patient not created', error);
+    try {
+      const address: Address = {
+        city: PATIENT_CITY,
+        line: [PATIENT_LINE],
+        state: PATIENT_STATE,
+        postalCode: PATIENT_POSTALCODE,
+      };
+
+      // Create appointment and related resources using zambda
+      const appointmentData = await createSampleAppointments(
+        this.apiClient,
+        getAccessToken(),
+        formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
+        this.zambdaId,
+        process.env.APP_IS_LOCAL === 'true',
+        process.env.PROJECT_API_ZAMBDA_URL!,
+        process.env.LOCATION_ID!,
+        {
+          firstNames: [PATIENT_FIRST_NAME],
+          lastNames: [PATIENT_LAST_NAME],
+          numberOfAppointments: 1,
+          reasonsForVisit: ['Fever'],
+          phoneNumbers: [PATIENT_PHONE_NUMBER],
+          emails: [PATIENT_EMAIL],
+          gender: PATIENT_GENDER,
+          birthDate: PATIENT_BIRTHDAY,
+          address: [address],
+        }
+      );
+
+      if (!appointmentData) {
+        throw new Error('Appointment not created');
       }
+
+      this.resources = appointmentData.resources;
+
+      Object.values(this.resources).forEach((resource) => {
+        console.log(`✅ created ${resource.resourceType}: ${resource.id}`);
+      });
+    } catch (error) {
+      console.error('❌ Failed to create resources:', error);
+      throw error;
     }
+  }
 
-    if (!this.relatedPerson && this.patient.id) {
-      try {
-        this.relatedPerson = (await this.apiClient.fhir.create(
-          createRelatedPerson({
-            patientId: this.patient.id,
-          })
-        )) as RelatedPerson;
-        console.log(`👏 related person created`, this.relatedPerson.id);
-      } catch (error) {
-        console.error('❌ Related person not created', error);
-      }
-    }
-
-    if (!this.person && this.relatedPerson.id) {
-      try {
-        this.person = await this.apiClient.fhir.create({
-          resourceType: 'Person',
-          telecom: this.relatedPerson.telecom,
-          link: [
-            {
-              target: {
-                reference: 'RelatedPerson/' + this.relatedPerson.id,
-              },
-            },
-          ],
-        });
-        console.log(`👏 person created`, this.person.id);
-      } catch (error) {
-        console.error('❌ Person not created', error);
-      }
-    }
-
-    const americanDate = DateTime.local().setZone('America/New_York');
-    const americanDayStart = americanDate.startOf('day');
-    const americanDayEnd = americanDate.endOf('day');
-
-    if (!this.appointment && this.patient.id) {
-      try {
-        this.appointment = (await this.apiClient.fhir.create(
-          createAppointment({
-            startTime: americanDayStart.toISO() as string,
-            endTime: americanDayEnd.endOf('day').toISO() as string,
-            patientId: this.patient.id,
-            description: 'Test Appointment',
-          })
-        )) as Appointment;
-        console.log(`👏 appointment created`, this.appointment.id);
-      } catch (error) {
-        console.error('❌ Appointment not created', error);
-      }
-    }
-
-    if (!this.encounter && this.appointment.id && this.patient.id) {
-      try {
-        this.encounter = (await this.apiClient.fhir.create(
-          createEncounter({
-            patientId: this.patient.id,
-            appointmentId: this.appointment.id,
-            startTime: americanDayStart.toISO() as string,
-          })
-        )) as Encounter;
-
-        console.log(`👏 encounter created`, this.encounter.id);
-      } catch (error) {
-        console.error('❌ Encounter not created', error);
-      }
-    }
-
-    if (!this.documentReference && this.appointment.id && this.patient.id) {
-      this.documentReference = (await this.apiClient.fhir.create(
-        createDocumentReference({
-          appointmentId: this.appointment.id,
-          patientId: this.patient.id,
-        })
-      )) as DocumentReference;
-
-      if (typeof this.encounter?.id === 'string') {
-        console.log(`👏 documentReference created`, this.documentReference.id);
-      } else {
-        throw new Error('❌ documentReference not created');
-      }
-    }
-
-    if (!this.questionnaireResponse && this.appointment.id && this.patient.id && this.encounter.id) {
-      try {
-        this.questionnaireResponse = (await this.apiClient.fhir.create(
-          createQuestionnaireResponse({
-            patientId: this.patient.id,
-            encounterId: this.encounter.id,
-            firstName: this.patient?.name?.[0]?.given?.[0] ?? 'no-first-name',
-            lastName: this.patient?.name?.[0]?.family ?? 'no-last-name',
-            birthDate: this.patient.birthDate
-              ? {
-                  day: DateTime.fromISO(this.patient.birthDate).toFormat('dd'),
-                  month: DateTime.fromISO(this.patient.birthDate).toFormat('MM'),
-                  year: DateTime.fromISO(this.patient.birthDate).toFormat('yyyy'),
-                }
-              : { day: '11', month: '11', year: '2024' },
-          })
-        )) as QuestionnaireResponse;
-
-        console.log(`👏 questionnaireResponse created`, this.questionnaireResponse.id);
-      } catch (error) {
-        console.error('❌ QuestionnaireResponse not created', error);
-      }
-    }
+  async cleanupResources(): Promise<void> {
+    await Promise.allSettled(
+      Object.values(this.resources).map((resource) => {
+        if (resource.id && resource.resourceType) {
+          return this.apiClient.fhir
+            .delete({ id: resource.id, resourceType: resource.resourceType })
+            .then(() => {
+              console.log(`🗑️ deleted ${resource.resourceType} ${resource.id}`);
+            })
+            .catch((error) => {
+              console.error(`❌ 🗑️ ${resource.resourceType} not deleted ${resource.id}`, error);
+            });
+        } else {
+          console.error(`❌ 🫣 resource not found: ${resource.resourceType} ${resource.id}`);
+          return Promise.resolve();
+        }
+      })
+    );
   }
 
   async setEmployees(): Promise<void> {
@@ -210,91 +145,38 @@ export class ResourceHandler {
       this.testEmployee1 = employee1!;
       this.testEmployee2 = employee2!;
     } catch (error) {
-      console.error('❌ New providers were not invited', error, JSON.stringify(error));
+      console.error('❌ New providers were not invited', error);
     }
   }
 
   async deleteEmployees(): Promise<void> {
     try {
-      // await tryToFindAndRemoveTestUsers(this.apiClient, this.authToken);
       await Promise.all([
         removeUser(this.testEmployee1.id, this.testEmployee1.profile.id!, this.apiClient, this.authToken),
         removeUser(this.testEmployee2.id, this.testEmployee2.profile.id!, this.apiClient, this.authToken),
       ]);
     } catch (e) {
-      console.error('❌ Failed to delete users: ', e, JSON.stringify(e));
+      console.error('❌ Failed to delete users: ', e);
     }
   }
 
-  async cleanupResources(): Promise<void> {
-    if (this.patient?.id) {
-      await this.apiClient.fhir.delete({ id: this.patient.id, resourceType: 'Patient' });
-      console.log(`✅ patient deleted ${this.patient.id}`);
-    }
-
-    if (this.patient?.id) {
-      await this.cleanupAppointments(this.patient.id);
-      console.log(`✅ appointments deleted`);
-
-      if (this.encounter?.id) {
-        await this.apiClient.fhir.delete({ id: this.encounter.id, resourceType: 'Encounter' });
-        console.log(`✅ encounter deleted ${this.encounter.id}`);
-      }
-
-      if (this.documentReference?.id) {
-        await this.apiClient.fhir.delete({ id: this.documentReference.id, resourceType: 'DocumentReference' });
-        console.log(`✅ document-reference deleted ${this.documentReference.id}`);
-      }
-
-      if (this.questionnaireResponse?.id) {
-        await this.apiClient.fhir.delete({ id: this.questionnaireResponse.id, resourceType: 'QuestionnaireResponse' });
-        console.log(`✅ questionnaire response deleted ${this.questionnaireResponse.id}`);
-      }
-
-      if (this.relatedPerson?.id) {
-        await this.apiClient.fhir.delete({ id: this.relatedPerson.id, resourceType: 'RelatedPerson' });
-        console.log(`✅ related person deleted ${this.relatedPerson.id}`);
-      }
-
-      if (this.person?.id) {
-        await this.apiClient.fhir.delete({ id: this.person.id, resourceType: 'Person' });
-        console.log(`✅ person deleted ${this.person.id}`);
-      }
-    }
+  public get patient(): Patient | undefined {
+    return this.findResourceByType('Patient');
   }
 
-  async cleanupNewPatientData(lastName: string): Promise<void> {
-    const patients = (
-      await this.apiClient.fhir.search({
-        resourceType: 'Patient',
-        params: [
-          {
-            name: 'name',
-            value: lastName,
-          },
-        ],
-      })
-    ).unbundle();
-    for (const patient of patients) {
-      await this.cleanupAppointments(patient.id!);
-      await this.apiClient.fhir.delete({ resourceType: patient.resourceType, id: patient.id! }).catch();
-    }
+  public get appointment(): Appointment | undefined {
+    return this.findResourceByType('Appointment');
   }
 
-  async cleanupAppointments(patientId: string): Promise<void> {
-    const appointments = (
-      await this.apiClient.fhir.search({
-        resourceType: 'Appointment',
-        params: [
-          {
-            name: 'actor',
-            value: 'Patient/' + patientId,
-          },
-        ],
-      })
-    ).unbundle();
-    for (const appointment of appointments) {
-      await this.apiClient.fhir.delete({ resourceType: appointment.resourceType, id: appointment.id! }).catch();
-    }
+  public get encounter(): Encounter | undefined {
+    return this.findResourceByType('Encounter');
+  }
+
+  public get questionnaireResponse(): QuestionnaireResponse | undefined {
+    return this.findResourceByType('QuestionnaireResponse');
+  }
+
+  private findResourceByType<T>(resourceType: string): T | undefined {
+    return Object.values(this.resources).find((resource) => resource.resourceType === resourceType) as T;
   }
 }

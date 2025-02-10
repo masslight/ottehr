@@ -10,7 +10,7 @@
     "start:dev2": "ENV=dev2 npm run start-skeleton",
     "start:testing": "ENV=testing npm run start-skeleton",
     "start:staging": "ENV=staging npm run start-skeleton",
-    "start-skeleton": "npm run setup-questionnaires ${ENV} && sls offline --stage ${ENV} --httpPort 3000",
+    "start-skeleton": "env-cmd -f ./.env/${ENV}.json npm run setup-questionnaires ${ENV} && sls offline --stage ${ENV} --httpPort 3000",
     "create-subscription:dev": "ENV=dev npm run create-subscription-skeleton",
     "create-subscription:dev2": "ENV=dev2 npm run create-subscription-skeleton",
     "create-subscription:testing": "ENV=testing npm run create-subscription-skeleton",
