@@ -51,12 +51,9 @@ jobs:
             "${{ steps.get-token.outputs.access_token }}" \
             "${{ env.TEST_EMAIL }}"
 
-      - name: Install dependencies
-        run: npm install
-
-      - run: npm install
       - name: Run the cleanup script
         run: |
-          npx tsx scripts/ottehr-cleanup.ts \
+          chmod +x scripts/ottehr-cleanup.sh
+          ./scripts/ottehr-cleanup.sh \
             "${{ env.PROJECT_ID }}" \
             "${{ steps.get-token.outputs.access_token }}"
