@@ -21,9 +21,9 @@ export const TIMEZONE_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/t
 const TIMEZONES = ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles'];
 
 export function getResource(
-  scheduleType: 'office' | 'provider' | 'group'
+  scheduleType: 'location' | 'provider' | 'group'
 ): 'Location' | 'Practitioner' | 'HealthcareService' {
-  if (scheduleType === 'office') {
+  if (scheduleType === 'location') {
     return 'Location';
   } else if (scheduleType === 'provider') {
     return 'Practitioner';
@@ -38,7 +38,7 @@ export function getResource(
 export default function SchedulePage(): ReactElement {
   // Define variables to interact w database and navigate to other pages
   const { oystehr } = useApiClients();
-  const scheduleType = useParams()['schedule-type'] as 'office' | 'provider' | 'group';
+  const scheduleType = useParams()['schedule-type'] as 'location' | 'provider' | 'group';
   const id = useParams().id as string;
 
   if (!scheduleType) {
@@ -137,7 +137,7 @@ export default function SchedulePage(): ReactElement {
     if (!oystehr) {
       return;
     }
-    if (scheduleType === 'office') {
+    if (scheduleType === 'location') {
       resourceType = 'Location';
     } else if (scheduleType === 'provider') {
       resourceType = 'Practitioner';
@@ -352,7 +352,7 @@ export default function SchedulePage(): ReactElement {
               >
                 <TabPanel value="schedule" sx={{ padding: 0 }}>
                   {scheduleType === 'group' && <GroupSchedule groupID={item.id || ''} />}
-                  {['office', 'provider'].includes(scheduleType) &&
+                  {['location', 'provider'].includes(scheduleType) &&
                     (item.extension?.find(
                       (extensionTemp) =>
                         extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule'
