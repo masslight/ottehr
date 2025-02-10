@@ -44,13 +44,15 @@ const writeProviders = async (envConfig: any, env: string): Promise<void> => {
         ).unbundle();
 
         if (existingResources.length > 1) {
-          throw new Error(`Found multiple existing resources. Please clean your fhir data so that only one matching resource matches the search critera (NPI = ${npi} and tax id = ${taxId})`);
+          throw new Error(
+            `Found multiple existing resources. Please clean your fhir data so that only one matching resource matches the search critera (NPI = ${npi} and tax id = ${taxId})`
+          );
         }
         const existingResource = existingResources[0];
         if (!existingResource) {
           const createRequest: BatchInputPostRequest<Practitioner | Organization | Location> = {
             method: 'POST',
-            url:  `/${billingResource.resourceType}`,
+            url: `/${billingResource.resourceType}`,
             resource: billingResource,
           };
           return createRequest;
@@ -69,10 +71,11 @@ const writeProviders = async (envConfig: any, env: string): Promise<void> => {
       })
     );
     const outcomes = await oystehrClient.fhir.transaction({ requests: requests.flatMap((r) => r) });
-    const newResources = (outcomes.entry ?? []).filter((oc) => oc.response?.outcome?.id === 'created').map((oc) => oc.resource);
+    const newResources = (outcomes.entry ?? [])
+      .filter((oc) => oc.response?.outcome?.id === 'created')
+      .map((oc) => oc.resource);
     console.log('outcomes', JSON.stringify(outcomes, null, 2), JSON.stringify(newResources, null, 2));
 
-  
     newResources.forEach((resource) => {
       if (!resource) {
         return;
