@@ -1,6 +1,7 @@
 import { Operation } from 'fast-json-patch';
 import { Coding, Coverage, Extension, Patient, RelatedPerson } from 'fhir/r4b';
 import {
+  APP_TYPE,
   COVERAGE_ADDITIONAL_INFORMATION_URL,
   PATIENT_COMMON_WELL_CONSENT_URL,
   PATIENT_DECEASED_NOTE_URL,
@@ -183,115 +184,95 @@ const EXTENSION_CONFIGS: Record<string, ExtensionConfig> = {
 };
 
 const PRONOUNS_MAPPING = {
-  'He/him': {
-    code: 'LA29518-0',
+  'LA29518-0': {
     display: 'He/Him/His',
     system: 'http://loinc.org',
   },
-  'She/her': {
-    code: 'LA29519-8',
+  'LA29519-8': {
     display: 'She/Her/Her',
     system: 'http://loinc.org',
   },
-  'They/them': {
-    code: 'LA29520-6',
+  'LA29520-6': {
     display: 'They/Them/Their',
     system: 'http://loinc.org',
   },
-  'My pronouns are not listed': {
-    code: 'LA29521-4',
+  'LA29521-4': {
     display: 'My pronouns are not listed',
     system: 'http://loinc.org',
   },
 };
 
 const GENDER_IDENTITY_MAPPING = {
-  'Female gender identity': {
-    code: '446151000124109',
+  '446151000124109': {
     display: 'Female gender identity',
     system: 'http://snomed.info/sct',
   },
-  'Male gender identity': {
-    code: '446141000124107',
+  '446141000124107': {
     display: 'Male gender identity',
     system: 'http://snomed.info/sct',
   },
-  'Non-binary gender identity': {
-    code: '33791000087105',
+  '33791000087105': {
     display: 'Non-binary gender identity',
     system: 'http://snomed.info/sct',
   },
 };
 
 const SEXUAL_ORIENTATION_MAPPING = {
-  Straight: {
-    code: '446191000124102',
+  '446191000124102': {
     display: 'Straight',
     system: 'http://snomed.info/sct',
   },
-  'Gay or Lesbian': {
-    code: '446161000124108',
+  '446161000124108': {
     display: 'Gay or Lesbian',
     system: 'http://snomed.info/sct',
   },
-  Bisexual: {
-    code: '446171000124106',
+  '446171000124106': {
     display: 'Bisexual',
     system: 'http://snomed.info/sct',
   },
-  'Other sexual orientation': {
-    code: '446181000124104',
+  '446181000124104': {
     display: 'Other sexual orientation',
     system: 'http://snomed.info/sct',
   },
 };
 
 const ETHNICITY_MAPPING = {
-  'Hispanic or Latino': {
-    code: '2135-2',
+  '2135-2': {
     display: 'Hispanic or Latino',
     system: 'http://terminology.hl7.org/CodeSystem/v3-Ethnicity',
   },
-  'Not Hispanic or Latino': {
-    code: '2186-5',
+  '2186-5': {
     display: 'Not Hispanic or Latino',
     system: 'http://terminology.hl7.org/CodeSystem/v3-Ethnicity',
   },
-  'Decline to Specify': {
-    code: 'ASKU',
+  ASKU: {
     display: 'Decline to Specify',
     system: 'http://terminology.hl7.org/CodeSystem/v3-NullFlavor',
   },
 };
 
 const RACE_MAPPING = {
-  'American Indian or Alaska Native': {
-    code: '1002-5',
+  '1002-5': {
     display: 'American Indian or Alaska Native',
     system: 'http://terminology.hl7.org/CodeSystem/v3-Race',
   },
-  Asian: {
-    code: '2028-9',
+  '2028-9': {
     display: 'Asian',
     system: 'http://terminology.hl7.org/CodeSystem/v3-Race',
   },
-  'Black or African American': {
-    code: '2054-5',
+  '2054-5': {
     display: 'Black or African American',
     system: 'http://terminology.hl7.org/CodeSystem/v3-Race',
   },
-  'Native Hawaiian or Other Pacific Islander': {
-    code: '2076-8',
+  '2076-8': {
     display: 'Native Hawaiian or Other Pacific Islander',
     system: 'http://terminology.hl7.org/CodeSystem/v3-Race',
   },
-  White: {
-    code: '2106-3',
+  '2106-3': {
     display: 'White',
     system: 'http://terminology.hl7.org/CodeSystem/v3-Race',
   },
-  'Decline to Specify': {
-    code: 'ASKU',
+  ASKU: {
     display: 'Decline to Specify',
     system: 'http://terminology.hl7.org/CodeSystem/v3-NullFlavor',
   },
@@ -305,7 +286,98 @@ const CODEABLE_CONCEPT_MAPPINGS = {
   [PATIENT_ETHNICITY_URL]: ETHNICITY_MAPPING,
 };
 
+type AppType = (typeof APP_TYPE)[keyof typeof APP_TYPE];
+type ExtensionType = 'pronouns' | 'genderIdentity' | 'sexualOrientation' | 'ethnicity' | 'race';
+
+export const APP_DISPLAY_MAPPINGS: Record<AppType, Record<ExtensionType, Record<string, string>>> = {
+  [APP_TYPE.QRS]: {
+    pronouns: {
+      'LA29518-0': 'He/him',
+      'LA29519-8': 'She/her',
+      'LA29520-6': 'They/them',
+      'LA29521-4': 'My pronouns are not listed',
+    },
+    genderIdentity: {
+      '446151000124109': 'Female',
+      '446141000124107': 'Male',
+      '33791000087105': 'Non-binary',
+    },
+    sexualOrientation: {
+      '446191000124102': 'Straight',
+      '446161000124108': 'Gay or Lesbian',
+      '446171000124106': 'Bisexual',
+      '446181000124104': 'Other',
+    },
+    ethnicity: {
+      '2135-2': 'Hispanic or Latino',
+      '2186-5': 'Not Hispanic or Latino',
+      ASKU: 'Decline to Specify',
+    },
+    race: {
+      '1002-5': 'American Indian or Alaska Native',
+      '2028-9': 'Asian',
+      '2054-5': 'Black or African American',
+      '2076-8': 'Native Hawaiian or Other Pacific Islander',
+      '2106-3': 'White',
+      ASKU: 'Decline to Specify',
+    },
+  },
+  [APP_TYPE.EHR]: {
+    pronouns: {
+      'LA29518-0': 'He/Him/His',
+      'LA29519-8': 'She/Her/Her',
+      'LA29520-6': 'They/Them/Their',
+      'LA29521-4': 'My pronouns are not listed',
+    },
+    genderIdentity: {
+      '446151000124109': 'Female gender identity',
+      '446141000124107': 'Male gender identity',
+      '33791000087105': 'Non-binary gender identity',
+    },
+    sexualOrientation: {
+      '446191000124102': 'Straight',
+      '446161000124108': 'Gay or Lesbian',
+      '446171000124106': 'Bisexual',
+      '446181000124104': 'Other sexual orientation',
+    },
+    ethnicity: {
+      '2135-2': 'Hispanic or Latino',
+      '2186-5': 'Not Hispanic or Latino',
+      ASKU: 'Decline to Specify',
+    },
+    race: {
+      '1002-5': 'American Indian or Alaska Native',
+      '2028-9': 'Asian',
+      '2054-5': 'Black or African American',
+      '2076-8': 'Native Hawaiian or Other Pacific Islander',
+      '2106-3': 'White',
+      ASKU: 'Decline to Specify',
+    },
+  },
+};
+
+const URL_TO_EXTENSION_TYPE: Record<string, ExtensionType> = {
+  [PATIENT_INDIVIDUAL_PRONOUNS_URL]: 'pronouns',
+  [PATIENT_GENDER_IDENTITY_URL]: 'genderIdentity',
+  [PATIENT_SEXUAL_ORIENTATION_URL]: 'sexualOrientation',
+  [PATIENT_RACE_URL]: 'race',
+  [PATIENT_ETHNICITY_URL]: 'ethnicity',
+} as const;
+
+export function getDisplayValue(code: string, appType: AppType, type: ExtensionType): string {
+  return (
+    APP_DISPLAY_MAPPINGS[appType][type][code as keyof (typeof APP_DISPLAY_MAPPINGS)[typeof appType][typeof type]] ||
+    code
+  );
+}
+
+export function getCodeFromDisplay(display: string, appType: AppType, type: ExtensionType): string {
+  const mappings = APP_DISPLAY_MAPPINGS[appType][type];
+  return Object.entries(mappings).find(([_, value]) => value === display)?.[0] || display;
+}
+
 export function getPatchOperationToAddOrUpdateExtension(
+  appType: AppType = APP_TYPE.QRS,
   resource: PatientMasterRecordResource,
   extension: {
     url: string;
@@ -316,20 +388,20 @@ export function getPatchOperationToAddOrUpdateExtension(
 ): Operation {
   const config = Object.values(EXTENSION_CONFIGS).find((config) => config.url === extension.url);
   if (!config) return {} as Operation;
-
   let extensionValue;
   switch (config.valueType) {
     case 'valueCodeableConcept': {
+      const extensionType = URL_TO_EXTENSION_TYPE[extension.url];
       const mapping = CODEABLE_CONCEPT_MAPPINGS[extension.url as keyof typeof CODEABLE_CONCEPT_MAPPINGS];
       if (mapping) {
-        const valueMapping = mapping[extension.value as keyof typeof mapping] as Coding;
+        const code = getCodeFromDisplay(extension.value, appType, extensionType);
         extensionValue = {
           valueCodeableConcept: {
             coding: [
               {
-                system: valueMapping?.system,
-                code: valueMapping?.code,
-                display: valueMapping?.display,
+                system: (mapping[code as keyof typeof mapping] as Coding)?.system,
+                code,
+                display: (mapping[code as keyof typeof mapping] as Coding)?.display,
               },
             ],
           },

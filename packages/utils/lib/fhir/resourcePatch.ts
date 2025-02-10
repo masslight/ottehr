@@ -375,7 +375,6 @@ function convertInvalidArrayOperation(op: Operation, resource: FhirResource): Op
     // Check if we're trying to add to a specific array index that doesn't exist
     if (isArray && index >= 0) {
       const parentValue = lodashGet(resource, parentPath.slice(1));
-      console.log(parentValue);
       if (!Array.isArray(parentValue) || parentValue.length <= index) {
         // Convert to array append operation
         const pathParts = op.path.split('/');
