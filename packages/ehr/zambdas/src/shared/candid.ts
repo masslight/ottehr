@@ -34,11 +34,10 @@ import {
 } from 'candidhealth/api/resources/encounters/resources/v4';
 import { ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resources/v2';
 import { DateTime } from 'luxon';
-import { FHIR_IDENTIFIER_NPI } from 'utils/lib/types';
 import { assertDefined } from './helpers';
 import { CandidApiClient, CandidApiEnvironment } from 'candidhealth';
 import { RenderingProviderid } from 'candidhealth/api/resources/contracts/resources/v2';
-import { getOptionalSecret, getSecret, Secrets } from 'utils';
+import { FHIR_IDENTIFIER_NPI, getOptionalSecret, getSecret, Secrets } from 'utils';
 import { SecretsKeys } from './secrets';
 import { VideoResourcesAppointmentPackage } from './pdf/visit-details-pdf/types';
 import Oystehr from '@oystehr/sdk';
