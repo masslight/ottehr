@@ -10,6 +10,7 @@ import {
   ResourceTypeNames,
   PatientMasterRecordResourceType,
   patientFieldPaths,
+  APP_TYPE,
 } from 'utils';
 import { create } from 'zustand';
 
@@ -167,14 +168,15 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
         //TODO: debug case where the extension was added in previous operations
         if (effectiveValue !== undefined && effectiveValue !== null) {
           newPatchOperation = getPatchOperationToRemoveExtension(resource, {
-            url: url,
+            url,
           });
         }
       } else {
         newPatchOperation = getPatchOperationToAddOrUpdateExtension(
+          APP_TYPE.EHR,
           resource,
           {
-            url: url,
+            url,
             value: String(value),
           },
           effectiveValue
