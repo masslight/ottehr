@@ -1,5 +1,5 @@
 import inquirer from 'inquirer';
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { Group, HealthcareService, InsurancePlan, Medication, Organization, PractitionerRole } from 'fhir/r4b';
 
 async function getUserInput(): Promise<{
@@ -44,11 +44,11 @@ async function main(): Promise<void> {
       resourceType: 'Medication',
     })
   ).unbundle();
-  for (const med of medications) {
-    if (med.id) {
-      await oystehr.fhir.delete({ resourceType: 'Medication', id: med.id });
-    }
-  }
+  let deleteOperations: BatchInputDeleteRequest[] = medications.map((medication) => ({
+    method: 'DELETE',
+    url: `/Medication/${medication.id}`,
+  }));
+  await oystehr.fhir.transaction({ requests: deleteOperations });
   console.log(`deleted ${medications.length} Medications`);
 
   // delete all InsurancePlan FHIR resources in the project
@@ -79,11 +79,11 @@ async function main(): Promise<void> {
     insurancePlans.push(...unbundled);
     currentIndex += unbundled.length;
   }
-  for (const plan of insurancePlans) {
-    if (plan.id) {
-      await oystehr.fhir.delete({ resourceType: 'InsurancePlan', id: plan.id });
-    }
-  }
+  deleteOperations = insurancePlans.map((insurancePlan) => ({
+    method: 'DELETE',
+    url: `/InsurancePlan/${insurancePlan.id}`,
+  }));
+  await oystehr.fhir.transaction({ requests: deleteOperations });
   console.log(`deleted ${insurancePlans.length} InsurancePlans`);
 
   //   delete all z3 buckets in the project
@@ -101,11 +101,8 @@ async function main(): Promise<void> {
       resourceType: 'Group',
     })
   ).unbundle();
-  for (const group of groups) {
-    if (group.id) {
-      await oystehr.fhir.delete({ resourceType: 'Group', id: group.id });
-    }
-  }
+  deleteOperations = groups.map((group) => ({ method: 'DELETE', url: `/Group/${group.id}` }));
+  await oystehr.fhir.transaction({ requests: deleteOperations });
   console.log(`deleted ${groups.length} Groups`);
 
   // delete all PractitionerRole FHIR resources in the project
@@ -115,11 +112,11 @@ async function main(): Promise<void> {
       resourceType: 'PractitionerRole',
     })
   ).unbundle();
-  for (const role of practitionerRoles) {
-    if (role.id) {
-      await oystehr.fhir.delete({ resourceType: 'PractitionerRole', id: role.id });
-    }
-  }
+  deleteOperations = practitionerRoles.map((practitionerRole) => ({
+    method: 'DELETE',
+    url: `/PractitionerRole/${practitionerRole.id}`,
+  }));
+  await oystehr.fhir.transaction({ requests: deleteOperations });
   console.log(`deleted ${practitionerRoles.length} PractitionerRoles`);
 
   //   delete all HealthcareService FHIR resources in the project
@@ -129,11 +126,11 @@ async function main(): Promise<void> {
       resourceType: 'HealthcareService',
     })
   ).unbundle();
-  for (const service of healthcareServices) {
-    if (service.id) {
-      await oystehr.fhir.delete({ resourceType: 'HealthcareService', id: service.id });
-    }
-  }
+  deleteOperations = healthcareServices.map((healthcareService) => ({
+    method: 'DELETE',
+    url: `/HealthcareService/${healthcareService.id}`,
+  }));
+  await oystehr.fhir.transaction({ requests: deleteOperations });
   console.log(`deleted ${healthcareServices.length} HealthcareServices`);
 
   // delete all users in the project
@@ -172,44 +169,33 @@ async function main(): Promise<void> {
     organizations.push(...unbundled);
     currentIndex += unbundled.length;
   }
-  for (const org of organizations) {
-    if (org.id) {
-      await oystehr.fhir.delete({ resourceType: 'Organization', id: org.id });
-    }
-  }
+  deleteOperations = organizations.map((organization) => ({
+    method: 'DELETE',
+    url: `/Organization/${organization.id}`,
+  }));
+  await oystehr.fhir.transaction({ requests: deleteOperations });
   console.log(`deleted ${organizations.length} Organizations`);
 
   // delete all applications in the project
   console.log('Deleting all applications...');
   const applications = await oystehr.application.list();
-  for (const app of applications) {
-    await oystehr.application.delete({ id: app.id });
-  }
+  deleteOperations = applications.map((application) => ({ method: 'DELETE', url: `/Application/${application.id}` }));
+  await oystehr.fhir.transaction({ requests: deleteOperations });
   console.log(`deleted ${applications.length} applications`);
 
   // delete all m2m clients in the project
   console.log('Deleting all M2M clients...');
   const m2mClients = await oystehr.m2m.list();
-  for (const client of m2mClients) {
-    await oystehr.m2m.delete({ id: client.id });
-  }
+  deleteOperations = m2mClients.map((m2mClient) => ({ method: 'DELETE', url: `/M2M/${m2mClient.id}` }));
+  await oystehr.fhir.transaction({ requests: deleteOperations });
   console.log(`deleted ${m2mClients.length} M2M clients`);
 
   // delete all roles in the project
   console.log('Deleting all IAM roles...');
   const iamRoles = await oystehr.role.list();
-  for (const role of iamRoles) {
-    await oystehr.role.delete({ roleId: role.id });
-  }
+  deleteOperations = iamRoles.map((iamRole) => ({ method: 'DELETE', url: `/Role/${iamRole.id}` }));
+  await oystehr.fhir.transaction({ requests: deleteOperations });
   console.log(`deleted ${iamRoles.length} IAM roles`);
-
-  //   delete all zambdas in the account
-  console.log('Deleting all Zambdas...');
-  const zambdas = await oystehr.zambda.list();
-  for (const zambda of zambdas) {
-    await oystehr.zambda.delete({ id: zambda.id });
-  }
-  console.log(`deleted ${zambdas.length} Zambdas`);
 }
 
 main().catch((e) => console.error(e));
