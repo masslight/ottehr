@@ -400,7 +400,7 @@ const NestedInput: FC<NestedInputProps> = (props) => {
           >
             <BoldPurpleInputLabel
               id={`${item.linkId}-label`}
-              htmlFor={`${item.linkId}-label`}
+              htmlFor={`${item.linkId}`}
               sx={(theme) => ({
                 ...(item.hideControlLabel ? { display: 'none' } : { whiteSpace: 'pre-wrap', position: 'unset' }),
                 color: isFocused ? theme.palette.primary.main : theme.palette.primary.dark,

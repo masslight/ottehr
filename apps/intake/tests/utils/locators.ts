@@ -58,7 +58,10 @@ export class Locators {
     this.page = page;
     this.scheduleInPersonVisitButton = page.getByTestId(dataTestIds.scheduleInPersonVisitButton);
     this.differentFamilyMember = page.getByText('Different family member');
-    this.continueButton = page.getByText('Continue');
+    this.continueButton = page.getByTestId(dataTestIds.continueButton);
+    if (this.continueButton == null) {
+      this.continueButton = page.getByText('Continue');
+    }
     this.reserveButton = page.getByRole('button', { name: 'Reserve this check-in time' });
     this.flowHeading = page.getByTestId(dataTestIds.flowPageTitle);
     this.thankYouHeading = page.getByRole('heading', { name: 'Thank you for choosing Ottehr!' });

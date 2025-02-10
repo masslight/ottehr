@@ -45,6 +45,7 @@ const ControlButtons: FC<ControlButtonsProps> = ({
         </Button>
       )}
       <CustomLoadingButton
+        data-testid="continue-button"
         disabled={submitDisabled}
         loading={loading}
         type={onSubmit === undefined ? 'submit' : 'button'}

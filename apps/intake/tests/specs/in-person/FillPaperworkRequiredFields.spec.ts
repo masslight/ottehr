@@ -62,7 +62,7 @@ test.describe('In person visit - Paperwork submission flow with only required fi
     await paperwork.skipPrimaryCarePhysician();
     await paperwork.selectSelfPayPayment();
     await commonLocatorsHelper.clickContinue();
-    // await expect(locator.flowHeading).toBeVisible();
+    await expect(locator.flowHeading).toBeVisible();
     await expect(locator.flowHeading).toHaveText('Responsible party information');
   });
   test('PRF-4 Fill responsible party details', async () => {
