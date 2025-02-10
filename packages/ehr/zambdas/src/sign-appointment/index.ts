@@ -22,6 +22,7 @@ import { VideoResourcesAppointmentPackage } from '../shared/pdf/visit-details-pd
 import { getVideoResources } from '../shared/pdf/visit-details-pdf/get-video-resources';
 import { composeAndCreateVisitNotePdf } from '../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { makeVisitNotePdfDocumentReference } from '../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
+import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../shared/candid';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -73,10 +74,12 @@ export const performEffect = async (
     throw new Error(`No subject reference defined for encounter ${encounter?.id}`);
   }
 
+  const candidEncounterId = await createCandidEncounter(visitResources, secrets, oystehr);
+
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getVisitStatus(appointment, encounter);
   if (currentStatus) {
-    await changeStatus(oystehr, oystehrCurrentUser, visitResources, newStatus);
+    await changeStatus(oystehr, oystehrCurrentUser, visitResources, newStatus, candidEncounterId);
   }
   console.debug(`Status has been changed.`);
 
@@ -111,7 +114,8 @@ const changeStatus = async (
   oystehr: Oystehr,
   oystehrCurrentUser: Oystehr,
   resourcesToUpdate: VideoResourcesAppointmentPackage,
-  status: VisitStatusLabel
+  status: VisitStatusLabel,
+  candidEncounterId: string | undefined
 ): Promise<void> => {
   if (!resourcesToUpdate.appointment || !resourcesToUpdate.appointment.id) {
     throw new Error('Appointment is not defined');
@@ -146,6 +150,18 @@ const changeStatus = async (
       value: encounterStatus,
     },
   ];
+
+  if (candidEncounterId != null) {
+    const identifier = {
+      system: CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
+      value: candidEncounterId,
+    };
+    encounterPatchOps.push({
+      op: 'add',
+      path: resourcesToUpdate.encounter.identifier != null ? '/identifier/-' : '/identifier',
+      value: resourcesToUpdate.encounter.identifier != null ? identifier : [identifier],
+    });
+  }
 
   const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(
     resourcesToUpdate.encounter,
