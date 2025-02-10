@@ -387,7 +387,21 @@ function convertInvalidArrayOperation(op: Operation, resource: FhirResource): Op
         };
       }
     }
+  } else if (op.op === 'remove') {
+    const pathParts = op.path.split('/').filter(Boolean);
+    const parentPath = '/' + pathParts.slice(0, -1).join('/');
+    const parentValue = lodashGet(resource, pathParts.slice(0, -1));
+    if (typeof parentValue === 'object' && parentValue !== null) {
+      const remainingKeys = Object.keys(parentValue).filter((key) => key !== pathParts[pathParts.length - 1]);
+      if (remainingKeys.length === 0) {
+        return {
+          op: 'remove',
+          path: parentPath,
+        };
+      }
+    }
   }
+
   return op;
 }
 
