@@ -72,18 +72,17 @@ async function main(): Promise<void> {
   logWithTimestamp('Deleting all InsurancePlans...');
   let currentIndex = 0;
   let total = 1;
-  const insurancePlans: InsurancePlan[] = [];
   while (currentIndex < total) {
     const bundledResponse = await oystehr.fhir.search<InsurancePlan>({
       resourceType: 'InsurancePlan',
       params: [
         {
           name: '_offset',
-          value: currentIndex,
+          value: currentIndex.toString(),
         },
         {
           name: '_count',
-          value: 1000,
+          value: '1000',
         },
         {
           name: '_total',
@@ -93,15 +92,14 @@ async function main(): Promise<void> {
     });
     total = bundledResponse.total || 0;
     const unbundled = bundledResponse.unbundle();
-    insurancePlans.push(...unbundled);
-    currentIndex += unbundled.length;
+    const batchOperations = unbundled.map((insurancePlan) => ({
+      method: 'DELETE',
+      url: `/InsurancePlan/${insurancePlan.id}`,
+    }));
+    await oystehr.fhir.batch({ requests: batchOperations as BatchInputDeleteRequest[] });
+    logWithTimestamp(`Deleted a batch of ${unbundled.length} InsurancePlans`);
   }
-  deleteOperations = insurancePlans.map((insurancePlan) => ({
-    method: 'DELETE',
-    url: `/InsurancePlan/${insurancePlan.id}`,
-  }));
-  await oystehr.fhir.batch({ requests: deleteOperations });
-  logWithTimestamp(`deleted ${insurancePlans.length} InsurancePlans`);
+  logWithTimestamp('Deleted all InsurancePlans');
 
   // delete all z3 buckets in the project
   logWithTimestamp('Deleting all z3 buckets...');
@@ -162,7 +160,6 @@ async function main(): Promise<void> {
   logWithTimestamp('Deleting all Organizations...');
   currentIndex = 0;
   total = 1;
-  const organizations: Organization[] = [];
   while (currentIndex < total) {
     const bundledResponse = await oystehr.fhir.search<Organization>({
       resourceType: 'Organization',
@@ -173,7 +170,7 @@ async function main(): Promise<void> {
         },
         {
           name: '_count',
-          value: 1000,
+          value: '1000',
         },
         {
           name: '_total',
@@ -183,15 +180,14 @@ async function main(): Promise<void> {
     });
     total = bundledResponse.total || 0;
     const unbundled = bundledResponse.unbundle();
-    organizations.push(...unbundled);
-    currentIndex += unbundled.length;
+    const batchOperations = unbundled.map((organization) => ({
+      method: 'DELETE',
+      url: `/Organization/${organization.id}`,
+    }));
+    await oystehr.fhir.batch({ requests: batchOperations as BatchInputDeleteRequest[] });
+    logWithTimestamp(`Deleted a batch of ${unbundled.length} Organizations`);
   }
-  deleteOperations = organizations.map((organization) => ({
-    method: 'DELETE',
-    url: `/Organization/${organization.id}`,
-  }));
-  await oystehr.fhir.batch({ requests: deleteOperations });
-  logWithTimestamp(`deleted ${organizations.length} Organizations`);
+  logWithTimestamp('Deleted all Organizations');
 
   // delete all applications in the project
   logWithTimestamp('Deleting all applications...');
@@ -215,4 +211,8 @@ async function main(): Promise<void> {
   logWithTimestamp(`deleted ${iamRoles.length} IAM roles`);
 }
 
-main().catch((e) => console.error(e));
+main().catch((e) => {
+  logWithTimestamp(`Error: ${e}`);
+  console.error(e);
+  process.exit(1);
+});
