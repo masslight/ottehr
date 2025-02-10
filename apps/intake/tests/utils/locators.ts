@@ -66,7 +66,7 @@ export class Locators {
     this.reserveButton = page.getByRole('button', { name: 'Reserve this check-in time' });
     this.thankYouHeading = page.getByRole('heading', { name: 'Thank you for choosing Ottehr!' });
     this.PCPHeading = page.getByRole('heading', { name: 'Primary Care Physician' });
-    this.responsiblePartyHeading = page.getByRole('heading', { name: 'Responsible party information' });
+    this.responsiblePartyHeading = page.getByTestId(dataTestIds.flowPageTitle);
     this.photoIDHeading = page.getByRole('heading', { name: 'Photo ID' });
     this.locationName = page.getByTestId(dataTestIds.locationNameReviewScreen);
     this.prebookSlotReviewScreen = page.getByTestId(dataTestIds.prebookSlotReviewScreen);

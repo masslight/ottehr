@@ -311,7 +311,6 @@ class API {
 
       const response = await zambdaClient.executePublic(GET_PAPERWORK_ZAMBDA_ID, parameters);
       const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
-      console.log('paperwork json', jsonToUse.paperwork);
       return jsonToUse;
     } catch (error: any) {
       console.log('error from get paperwork', error);
