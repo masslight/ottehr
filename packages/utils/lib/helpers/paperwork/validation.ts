@@ -606,9 +606,6 @@ export const evalRequired = (item: IntakeQuestionnaireItem, context: any, questi
   }
 
   const { question, operator, answerString, answerBoolean } = item.requireWhen;
-  // for now we assume all linkIds within a form are unique, even accross groups
-  // this can be changed later an will be backwards compatible if we come to require
-  // structural prcision in the requireWhen feature
   const questionValue = recursivePathEval(context, question, questionVal);
   if (answerString !== undefined) {
     const comparisonString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;
@@ -642,9 +639,6 @@ export const evalItemText = (item: IntakeQuestionnaireItem, context: any, questi
   }
 
   const { question, operator, answerString, answerBoolean, substituteText } = textWhen;
-  // for now we assume all linkIds within a form are unique, even accross groups
-  // this can be changed later an will be backwards compatible if we come to require
-  // structural precision in the textWhen feature
   const questionValue = recursivePathEval(context, question, questionVal);
   if (answerString !== undefined) {
     const comparisonString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;
