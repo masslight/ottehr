@@ -54,6 +54,7 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - run: npm install
       - name: Run the cleanup script
         run: |
           npx tsx scripts/ottehr-cleanup.ts \
