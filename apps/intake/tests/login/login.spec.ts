@@ -1,4 +1,4 @@
-import { login } from 'test-utils';
+// import { login } from 'test-utils';
 import { test, expect } from '@playwright/test';
 
 test('Should log in if not authorized', async ({ context, page }) => {
