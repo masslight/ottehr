@@ -35,7 +35,7 @@ export class UploadImage {
       this.page.locator(locator).click(),
     ]);
 
-    const filePath = path.resolve(this.getPathToProjectRoot(__dirname), `/images-for-tests/${fileName}`);
+    const filePath = path.join(this.getPathToProjectRoot(__dirname), `/images-for-tests/${fileName}`);
     await fileChooser.setFiles(filePath);
     await this.page.waitForTimeout(5000);
 
