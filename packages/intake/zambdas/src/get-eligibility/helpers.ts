@@ -58,13 +58,12 @@ export const getInsurancePlansAndOrgs = async (
   }
 
   const batchResults = (await oystehrClient.fhir.batch({ requests })) as Bundle<Bundle<InsurancePlan | Organization>>;
-  console.log('batchResults', JSON.stringify(batchResults, null, 2));
 
   const unbundled = (batchResults.entry?.flatMap((e) => e?.resource ?? []) ?? []).flatMap(
     (i) => i.entry?.flatMap((e) => e.resource ?? []) ?? []
   );
 
-  console.log('unbundled', JSON.stringify(unbundled, null, 2));
+  console.log('unbundled insurance plan search results', JSON.stringify(unbundled, null, 2));
 
   const reduced = unbundled.reduce((accum, curr) => {
     if (curr.resourceType === 'InsurancePlan') {
