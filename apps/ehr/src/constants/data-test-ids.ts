@@ -137,4 +137,16 @@ export const dataTestIds = {
     deactivateUserButton: 'deactivate-user-button',
     statusChip: 'employee-status-chip',
   },
+  insurancesPage: {
+    insuranceSearch: 'insurance-search',
+    statusDropdown: 'status-dropdown',
+    addNewButton: 'add-new-button',
+  },
+  newInsurancePage: {
+    payerName: 'payer-name',
+    displayNameInput: 'display-name-input',
+    saveChangesButton: 'save-changes-button',
+    activateButton: 'activate-button',
+    settingsOptionRow: (optionName: string) => `state-row-${optionName}`,
+  },
 };

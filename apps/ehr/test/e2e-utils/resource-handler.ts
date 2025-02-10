@@ -7,6 +7,7 @@ import {
   DocumentReference,
   QuestionnaireResponse,
   Person,
+  InsurancePlan,
 } from 'fhir/r4';
 import { FhirResource } from '@oystehr/sdk/dist/cjs/resources/types/fhir';
 import { DateTime } from 'luxon';
@@ -35,6 +36,7 @@ export const PATIENT_CITY = 'New York';
 export const PATIENT_LINE = '10 Cooper Square';
 export const PATIENT_STATE = 'NY';
 export const PATIENT_POSTALCODE = '06001';
+export const INSURANCE_NAME = 'Test insurance' + randomUUID();
 
 export class ResourceHandler {
   private apiClient!: Oystehr;
@@ -48,6 +50,7 @@ export class ResourceHandler {
   public questionnaireResponse!: QuestionnaireResponse;
   public testEmployee1!: TestEmployee;
   public testEmployee2!: TestEmployee;
+  public insurancePlan!: InsurancePlan;
 
   async initApi(): Promise<void> {
     this.authToken = await getAuth0Token();
@@ -198,6 +201,69 @@ export class ResourceHandler {
         console.error('❌ QuestionnaireResponse not created', error);
       }
     }
+
+    if (!this.insurancePlan) {
+      try {
+        this.insurancePlan = await this.apiClient.fhir.create({
+          resourceType: 'InsurancePlan',
+          name: INSURANCE_NAME,
+          meta: {
+            tag: [
+              {
+                code: 'insurance-payer-plan',
+              },
+            ],
+          },
+          status: 'active',
+          extension: [
+            {
+              url: 'https://extensions.fhir.zapehr.com/insurance-requirements',
+              extension: [
+                {
+                  url: 'requiresSubscriberId',
+                  valueBoolean: true,
+                },
+                {
+                  url: 'requiresSubscriberName',
+                  valueBoolean: false,
+                },
+                {
+                  url: 'requiresRelationshipToSubscriber',
+                  valueBoolean: true,
+                },
+                {
+                  url: 'requiresInsuranceName',
+                  valueBoolean: true,
+                },
+                {
+                  url: 'requiresInsuranceCardImage',
+                  valueBoolean: true,
+                },
+                {
+                  url: 'requiresSubscriberDOB',
+                  valueBoolean: false,
+                },
+                {
+                  url: 'requiresFacilityNPI',
+                  valueBoolean: false,
+                },
+                {
+                  url: 'requiresStateUID',
+                  valueBoolean: false,
+                },
+                {
+                  url: 'enabledEligibilityCheck',
+                  valueBoolean: true,
+                },
+              ],
+            },
+          ],
+        });
+        console.log(`👏 insurance plan created`, this.insurancePlan.id, this.insurancePlan.name);
+      } catch (error) {
+        console.error('❌ insurance plan not created', error);
+      }
+    }
   }
 
   async setEmployees(): Promise<void> {
@@ -259,6 +325,11 @@ export class ResourceHandler {
       if (this.person?.id) {
         await this.apiClient.fhir.delete({ id: this.person.id, resourceType: 'Person' });
         console.log(`✅ person deleted ${this.person.id}`);
+      }
+
+      if (this.insurancePlan?.id) {
+        await this.apiClient.fhir.delete({ id: this.insurancePlan.id, resourceType: 'InsurancePlan' });
+        console.log(`✅ insurance plan deleted ${this.insurancePlan.id}`);
       }
     }
   }
