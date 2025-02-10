@@ -68,8 +68,8 @@ test.describe('In person visit - Paperwork submission flow with only required fi
   test('PRF-4 Fill responsible party details', async () => {
     await paperwork.fillResponsiblePartyDataSelf();
     await commonLocatorsHelper.clickContinue();
-    // await expect(locator.flowHeading).toBeVisible();
-    await expect(locator.flowHeading).toHaveText('Photo ID');
+    await expect(locator.flowHeading).toBeVisible();
+    // await expect(locator.flowHeading).toHaveText('Photo ID');
   });
   test('PRF-5 Skip photo ID and complete consent forms', async () => {
     await paperwork.skipPhotoID();

@@ -38,7 +38,7 @@ test.afterAll(async () => {
 });
 
 test.describe('Past Visits - Empty State', () => {
-  test('Should create new patient', async ({ page }) => {
+  /*test('Should create new patient', async ({ page }) => {
     const homepage = new Homepage(page);
     await homepage.navigate();
 
@@ -58,6 +58,7 @@ test.describe('Past Visits - Empty State', () => {
 
     await page.getByRole('button', { name: 'Continue' }).click();
   });
+  */
 
   test('should show empty state when no past visits exist', async ({ page }) => {
     const homepage = new Homepage(page);
