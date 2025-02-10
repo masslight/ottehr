@@ -349,9 +349,7 @@ export const PaperworkPage: FC = () => {
       // throw new Error('paperworkQuestions is not defined');
       return empty;
     }
-    // console.log('current slug', slug);
     const currentPage = paperworkPages.find((pageTemp) => slugFromLinkId(pageTemp.linkId) === slug);
-    // console.log('current page', currentPage);
     if (!currentPage) {
       // throw new Error('currentPage is not defined'); // todo: some better way of erroring here
       return empty;
@@ -363,8 +361,6 @@ export const PaperworkPage: FC = () => {
     const nextPage = paperworkPages[currentIndex + 1];
     return { nextPage, pageName, currentPage, currentIndex, empty: false, questionnaireItems };
   }, [paperworkPages, slug]);
-
-  // console.log('current page', JSON.stringify(currentPage, null, 2));
 
   useEffect(() => {
     if (pageName !== lastLoggedPageName) {
