@@ -38,8 +38,6 @@ export class Locators {
   patientEmail: Locator;
   patientNumber: Locator;
   mobileOptIn: Locator;
-  contactInformationHeading: Locator;
-  patientDetailsHeading: Locator;
   patientEthnicity: Locator;
   patientRace: Locator;
   patientPreferredLanguage: Locator;
@@ -54,9 +52,7 @@ export class Locators {
   consentFullName: Locator;
   consentSignerRelationship: Locator;
   editPaperwork: Locator;
-  PCPHeading: Locator;
-  responsiblePartyHeading: Locator;
-  photoIDHeading: Locator;
+  flowHeading: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -64,10 +60,8 @@ export class Locators {
     this.differentFamilyMember = page.getByText('Different family member');
     this.continueButton = page.getByText('Continue');
     this.reserveButton = page.getByRole('button', { name: 'Reserve this check-in time' });
+    this.flowHeading = page.getByTestId(dataTestIds.flowPageTitle);
     this.thankYouHeading = page.getByRole('heading', { name: 'Thank you for choosing Ottehr!' });
-    this.PCPHeading = page.getByRole('heading', { name: 'Primary Care Physician' });
-    this.responsiblePartyHeading = page.getByTestId(dataTestIds.flowPageTitle);
-    this.photoIDHeading = page.getByRole('heading', { name: 'Photo ID' });
     this.locationName = page.getByTestId(dataTestIds.locationNameReviewScreen);
     this.prebookSlotReviewScreen = page.getByTestId(dataTestIds.prebookSlotReviewScreen);
     this.titleReviewScreen = page.getByRole('heading', { name: 'Review and submit' });
@@ -101,8 +95,6 @@ export class Locators {
     this.patientRace = page.locator('[id="patient-race"]');
     this.patientPreferredLanguage = page.locator('[id="preferred-language"]');
     this.mobileOptIn = page.getByLabel('mobile-opt-in-label');
-    this.contactInformationHeading = page.getByRole('heading', { name: 'Contact information' });
-    this.patientDetailsHeading = page.getByRole('heading', { name: 'Patient details' });
     this.selfPayOption = page.getByLabel('I will pay without insurance');
     this.responsiblePartyRelationship = page.locator('[id="responsible-party-relationship"]');
     this.responsiblePartyFirstName = page.locator('[id="responsible-party-first-name"]');
