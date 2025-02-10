@@ -2,14 +2,19 @@ import inquirer from 'inquirer';
 import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { Group, HealthcareService, InsurancePlan, Medication, Organization, PractitionerRole } from 'fhir/r4b';
 
+function logWithTimestamp(message: string): void {
+  console.log(`[${new Date().toISOString()}] ${message}`);
+}
+
 async function getUserInput(): Promise<{
   accessToken: string;
   projectId: string;
+  confirm: boolean;
 }> {
   if (process.argv.length > 2) {
-    return { projectId: process.argv[2], accessToken: process.argv[3] };
+    return { projectId: process.argv[2], accessToken: process.argv[3], confirm: true };
   }
-  const { accessToken, projectId } = await inquirer.prompt([
+  const { accessToken, projectId, confirm } = await inquirer.prompt([
     {
       message: 'Please enter your access token:',
       name: 'accessToken',
@@ -22,23 +27,35 @@ async function getUserInput(): Promise<{
       type: 'input',
       validate: (input: any) => !!input || 'Project id is required',
     },
+    {
+      message:
+        'WARNING: This script will delete a bunch of data in the project, not just that which was created using the setup script. Are you sure you want to continue?',
+      name: 'confirm',
+      type: 'confirm',
+      default: false,
+    },
   ]);
-  return { accessToken, projectId };
+  return { accessToken, projectId, confirm };
 }
 
 async function main(): Promise<void> {
-  const { accessToken, projectId } = await getUserInput();
+  const { accessToken, projectId, confirm } = await getUserInput();
+
+  if (!confirm) {
+    console.log('Exiting script');
+    return;
+  }
 
   // initialize the SDK
   const oystehr = new Oystehr({ accessToken, projectId });
 
   // remove default patient role from the project
-  console.log('Removing default patient role from the project...');
+  logWithTimestamp('Removing default patient role from the project...');
   await oystehr.project.update({ signupEnabled: false, defaultPatientRoleId: null });
-  console.log('Default patient role removed from the project');
+  logWithTimestamp('Default patient role removed from the project');
 
-  //   delete all Medication FHIR resources in the project
-  console.log('Deleting all Medications...');
+  // delete all Medication FHIR resources in the project
+  logWithTimestamp('Deleting all Medications...');
   const medications = (
     await oystehr.fhir.search<Medication>({
       resourceType: 'Medication',
@@ -48,11 +65,11 @@ async function main(): Promise<void> {
     method: 'DELETE',
     url: `/Medication/${medication.id}`,
   }));
-  await oystehr.fhir.transaction({ requests: deleteOperations });
-  console.log(`deleted ${medications.length} Medications`);
+  await oystehr.fhir.batch({ requests: deleteOperations });
+  logWithTimestamp(`deleted ${medications.length} Medications`);
 
   // delete all InsurancePlan FHIR resources in the project
-  console.log('Deleting all InsurancePlans...');
+  logWithTimestamp('Deleting all InsurancePlans...');
   let currentIndex = 0;
   let total = 1;
   const insurancePlans: InsurancePlan[] = [];
@@ -83,30 +100,30 @@ async function main(): Promise<void> {
     method: 'DELETE',
     url: `/InsurancePlan/${insurancePlan.id}`,
   }));
-  await oystehr.fhir.transaction({ requests: deleteOperations });
-  console.log(`deleted ${insurancePlans.length} InsurancePlans`);
+  await oystehr.fhir.batch({ requests: deleteOperations });
+  logWithTimestamp(`deleted ${insurancePlans.length} InsurancePlans`);
 
-  //   delete all z3 buckets in the project
-  console.log('Deleting all z3 buckets...');
+  // delete all z3 buckets in the project
+  logWithTimestamp('Deleting all z3 buckets...');
   const buckets = await oystehr.z3.listBuckets();
   for (const bucket of buckets) {
     await oystehr.z3.deleteBucket({ bucketName: bucket.name });
   }
-  console.log(`deleted ${buckets.length} z3 buckets`);
+  logWithTimestamp(`deleted ${buckets.length} z3 buckets`);
 
-  //    delete all Group FHIR resources in the project
-  console.log('Deleting all Groups...');
+  // delete all Group FHIR resources in the project
+  logWithTimestamp('Deleting all Groups...');
   const groups = (
     await oystehr.fhir.search<Group>({
       resourceType: 'Group',
     })
   ).unbundle();
   deleteOperations = groups.map((group) => ({ method: 'DELETE', url: `/Group/${group.id}` }));
-  await oystehr.fhir.transaction({ requests: deleteOperations });
-  console.log(`deleted ${groups.length} Groups`);
+  await oystehr.fhir.batch({ requests: deleteOperations });
+  logWithTimestamp(`deleted ${groups.length} Groups`);
 
   // delete all PractitionerRole FHIR resources in the project
-  console.log('Deleting all PractitionerRoles...');
+  logWithTimestamp('Deleting all PractitionerRoles...');
   const practitionerRoles = (
     await oystehr.fhir.search<PractitionerRole>({
       resourceType: 'PractitionerRole',
@@ -116,11 +133,11 @@ async function main(): Promise<void> {
     method: 'DELETE',
     url: `/PractitionerRole/${practitionerRole.id}`,
   }));
-  await oystehr.fhir.transaction({ requests: deleteOperations });
-  console.log(`deleted ${practitionerRoles.length} PractitionerRoles`);
+  await oystehr.fhir.batch({ requests: deleteOperations });
+  logWithTimestamp(`deleted ${practitionerRoles.length} PractitionerRoles`);
 
-  //   delete all HealthcareService FHIR resources in the project
-  console.log('Deleting all HealthcareServices...');
+  // delete all HealthcareService FHIR resources in the project
+  logWithTimestamp('Deleting all HealthcareServices...');
   const healthcareServices = (
     await oystehr.fhir.search<HealthcareService>({
       resourceType: 'HealthcareService',
@@ -130,19 +147,19 @@ async function main(): Promise<void> {
     method: 'DELETE',
     url: `/HealthcareService/${healthcareService.id}`,
   }));
-  await oystehr.fhir.transaction({ requests: deleteOperations });
-  console.log(`deleted ${healthcareServices.length} HealthcareServices`);
+  await oystehr.fhir.batch({ requests: deleteOperations });
+  logWithTimestamp(`deleted ${healthcareServices.length} HealthcareServices`);
 
   // delete all users in the project
-  console.log('Deleting all users...');
+  logWithTimestamp('Deleting all users...');
   const users = await oystehr.user.list();
   for (const user of users) {
     await oystehr.user.delete({ id: user.id });
   }
-  console.log(`deleted ${users.length} users`);
+  logWithTimestamp(`deleted ${users.length} users`);
 
   // delete all Organization FHIR resources in the project
-  console.log('Deleting all Organizations...');
+  logWithTimestamp('Deleting all Organizations...');
   currentIndex = 0;
   total = 1;
   const organizations: Organization[] = [];
@@ -173,29 +190,29 @@ async function main(): Promise<void> {
     method: 'DELETE',
     url: `/Organization/${organization.id}`,
   }));
-  await oystehr.fhir.transaction({ requests: deleteOperations });
-  console.log(`deleted ${organizations.length} Organizations`);
+  await oystehr.fhir.batch({ requests: deleteOperations });
+  logWithTimestamp(`deleted ${organizations.length} Organizations`);
 
   // delete all applications in the project
-  console.log('Deleting all applications...');
+  logWithTimestamp('Deleting all applications...');
   const applications = await oystehr.application.list();
   deleteOperations = applications.map((application) => ({ method: 'DELETE', url: `/Application/${application.id}` }));
-  await oystehr.fhir.transaction({ requests: deleteOperations });
-  console.log(`deleted ${applications.length} applications`);
+  await oystehr.fhir.batch({ requests: deleteOperations });
+  logWithTimestamp(`deleted ${applications.length} applications`);
 
   // delete all m2m clients in the project
-  console.log('Deleting all M2M clients...');
+  logWithTimestamp('Deleting all M2M clients...');
   const m2mClients = await oystehr.m2m.list();
   deleteOperations = m2mClients.map((m2mClient) => ({ method: 'DELETE', url: `/M2M/${m2mClient.id}` }));
-  await oystehr.fhir.transaction({ requests: deleteOperations });
-  console.log(`deleted ${m2mClients.length} M2M clients`);
+  await oystehr.fhir.batch({ requests: deleteOperations });
+  logWithTimestamp(`deleted ${m2mClients.length} M2M clients`);
 
   // delete all roles in the project
-  console.log('Deleting all IAM roles...');
+  logWithTimestamp('Deleting all IAM roles...');
   const iamRoles = await oystehr.role.list();
   deleteOperations = iamRoles.map((iamRole) => ({ method: 'DELETE', url: `/Role/${iamRole.id}` }));
-  await oystehr.fhir.transaction({ requests: deleteOperations });
-  console.log(`deleted ${iamRoles.length} IAM roles`);
+  await oystehr.fhir.batch({ requests: deleteOperations });
+  logWithTimestamp(`deleted ${iamRoles.length} IAM roles`);
 }
 
 main().catch((e) => console.error(e));
