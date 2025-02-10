@@ -29,7 +29,6 @@ import {
   ComplexValidationResult,
   InsuranceEligibilityCheckStatus,
   ComplexValidationResultFailureCase,
-  BillingProviderResource,
 } from 'utils';
 import { zapehrApi } from '../api';
 import useAppointmentNotFoundInformation from '../helpers/information';
