@@ -53,6 +53,6 @@ jobs:
 
       - name: Run the cleanup script
         run: |
-          npx tsx ./scripts/ottehr-cleanup.ts \
+          npx tsx scripts/ottehr-cleanup.ts \
             "${{ env.PROJECT_ID }}" \
             "${{ steps.get-token.outputs.access_token }}"
