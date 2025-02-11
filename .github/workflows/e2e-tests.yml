@@ -73,7 +73,8 @@ jobs:
           for app in ehr intake; do
             setup_env "$app"
           done
-
+      - name: Ensure deployed resources are in place
+        run: cd packages/intake/zambdas && npm run setup-deployed-resources ${{ env.ENVIRONMENT }}
       - name: Install dependencies
         run: |
           npm ci
