@@ -62,9 +62,6 @@ export class Locators {
     if (this.continueButton == null) {
       this.continueButton = page.getByText('Continue');
     }
-    if (this.continueButton == null) {
-      this.continueButton = page.getByTestId('loading-button');
-    }
     this.reserveButton = page.getByRole('button', { name: 'Reserve this check-in time' });
     this.flowHeading = page.getByTestId(dataTestIds.flowPageTitle);
     this.thankYouHeading = page.getByRole('heading', { name: 'Thank you for choosing Ottehr!' });

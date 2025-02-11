@@ -1,5 +1,5 @@
 export const dataTestIds = {
-  continueButton: 'continue-button',
+  continueButton: 'loading-button',
   firstFlowPageTitle: 'first-flow-page-title',
   flowPageTitle: 'flow-page-title',
   startVirtualVisitButton: 'start-virtual-visit-button',
