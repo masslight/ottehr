@@ -19,6 +19,7 @@ import {
   useVideoCallStore,
 } from '../../state';
 import { updateEncounterStatusHistory } from '../../utils';
+import { dataTestIds } from '../../../constants/data-test-ids';
 
 const FooterButton = styled(LoadingButton)(({ theme }) => ({
   textTransform: 'none',
@@ -181,6 +182,7 @@ export const AppointmentFooterButton: FC = () => {
               loading={changeTelemedAppointmentStatusEnum.isLoading || isAppointmentLoading}
               onClick={showDialog}
               variant="contained"
+              data-testid={dataTestIds.telemedEhrFlow.footerButtonAssignMe}
             >
               Assign to me
             </FooterButton>
@@ -207,6 +209,7 @@ export const AppointmentFooterButton: FC = () => {
                 loading={initTelemedSession.isLoading || getMeetingData.isLoading}
                 onClick={showDialog}
                 variant="contained"
+                data-testid={dataTestIds.telemedEhrFlow.footerButtonConnectToPatient}
               >
                 Connect to Patient
               </FooterButton>

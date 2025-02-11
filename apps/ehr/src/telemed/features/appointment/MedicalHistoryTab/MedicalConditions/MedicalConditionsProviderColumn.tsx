@@ -22,6 +22,7 @@ import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
 import { DeleteIconButton } from '../../../../components';
 import { enqueueSnackbar } from 'notistack';
 import { useChartData } from '../../../../../features/css-module/hooks/useChartData';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const MedicalConditionsProviderColumn: FC = () => {
   const { encounter, chartData } = getSelectors(useAppointmentStore, ['encounter', 'chartData']);
@@ -49,11 +50,17 @@ export const MedicalConditionsProviderColumn: FC = () => {
   const length = conditions.length;
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+      data-testid={dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn}
+    >
       {isChartDataLoading && <ProviderSideListSkeleton />}
 
       {length > 0 && !isChartDataLoading && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box
+          sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+          data-testid={dataTestIds.telemedEhrFlow.hpiMedicalConditionsList}
+        >
           {conditions.map((value, index) => (
             <MedicalConditionListItem
               key={value.resourceId || `new${index}`}
@@ -349,6 +356,7 @@ const AddMedicalConditionField: FC = () => {
               <TextField
                 {...params}
                 onChange={(e) => debouncedHandleInputChange(e.target.value)}
+                data-testid={dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput}
                 label="Medical condition"
                 placeholder="Search"
                 InputLabelProps={{ shrink: true }}

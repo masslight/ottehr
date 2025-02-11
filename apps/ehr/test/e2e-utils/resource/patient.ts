@@ -1,6 +1,6 @@
 import { Patient, ContactPoint, Address, CodeableConcept, Coding, HumanName } from 'fhir/r4';
 
-interface PatientParams {
+export interface PatientParams {
   firstName: string;
   lastName: string;
   gender: Patient['gender'];

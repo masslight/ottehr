@@ -8,6 +8,7 @@ import { ActionsList, DeleteIconButton } from '../../../../components';
 import { useChartDataArrayValue } from '../../../../hooks';
 import { useAppointmentStore } from '../../../../state';
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 const surgicalHystoryOptions: CPTCodeDTO[] = [
   { display: 'Adenoidectomy', code: '42830' },
@@ -133,6 +134,7 @@ export const ProceduresForm: FC = () => {
                   label="Surgery"
                   placeholder="Search"
                   InputLabelProps={{ shrink: true }}
+                  data-testid={dataTestIds.telemedEhrFlow.hpiSurgicalHistoryInput}
                   sx={{
                     '& .MuiInputLabel-root': {
                       fontWeight: 'bold',

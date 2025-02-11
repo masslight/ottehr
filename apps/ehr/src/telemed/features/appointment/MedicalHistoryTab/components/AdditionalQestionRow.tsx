@@ -5,6 +5,7 @@ import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore, useSaveChartData } from '../../../../state';
 import { AdditionalBooleanQuestionsFieldsNames, convertToBoolean, ObservationDTO } from 'utils';
 import { setNavigationDisable } from '../../../../../features/css-module/context/NavigationContext';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const AdditionalQuestionEdit = ({
   label,
@@ -76,6 +77,7 @@ export const AdditionalQuestionEdit = ({
             name={field}
             value={normalizedValue}
             onChange={(e) => onChange(e.target.value, field)}
+            data-testid={dataTestIds.telemedEhrFlow.hpiAdditionalQuestions(field)}
           >
             <FormControlLabel value="true" control={<Radio disabled={isLoading} sx={{ p: 0 }} />} label="Yes" />
             <FormControlLabel

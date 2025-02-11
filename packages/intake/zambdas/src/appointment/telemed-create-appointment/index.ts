@@ -21,6 +21,7 @@ import {
   FHIR_EXTENSION,
   formatPhoneNumber,
   getSecret,
+  getTelemedLocation,
   makePrepopulatedItemsForPatient,
   OTTEHR_MODULE,
   PatientInfo,
@@ -441,26 +442,6 @@ export function getPatientContactEmail(patient: Patient): string | undefined {
   }
 
   return undefined;
-}
-
-export async function getTelemedLocation(oystehr: Oystehr, state: string): Promise<Location | undefined> {
-  const resources = (
-    await oystehr.fhir.search<Location>({
-      resourceType: 'Location',
-      params: [
-        {
-          name: 'address-state',
-          value: state,
-        },
-      ],
-    })
-  ).unbundle();
-
-  return resources.find(
-    (loca) =>
-      loca.extension?.find((ext) => ext.url === 'https://extensions.fhir.zapehr.com/location-form-pre-release')
-        ?.valueCoding?.code === 'vi'
-  );
 }
 
 /***

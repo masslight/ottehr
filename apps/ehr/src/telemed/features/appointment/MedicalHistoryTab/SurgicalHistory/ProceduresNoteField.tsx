@@ -4,6 +4,7 @@ import { Skeleton, TextField } from '@mui/material';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
 import { useDebounceNotesField } from '../../../../hooks';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const ProceduresNoteField: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
@@ -31,6 +32,7 @@ export const ProceduresNoteField: FC = () => {
           fullWidth
           multiline
           rows={3}
+          data-testid={dataTestIds.telemedEhrFlow.hpiSurgicalHistoryNote}
         />
       )}
     />
