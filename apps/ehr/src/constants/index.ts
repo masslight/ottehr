@@ -131,7 +131,7 @@ export const SEX_OPTIONS = [
   },
   {
     label: 'Intersex',
-    value: 'intersex',
+    value: 'other',
   },
 ];
 
