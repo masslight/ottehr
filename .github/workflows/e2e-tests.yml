@@ -79,7 +79,9 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
       - name: Ensure required Questionnaire resources are in place
-        run: cd packages/intake/zambdas && npm run setup-deployed-resources development
+        env:
+          ENVIRONMENT: "development"
+        run: cd packages/intake/zambdas && npm run setup-deployed-resources ${{ env.ENVIRONMENT }}
 
       - name: Run E2E tests
         run: npm run ${{ matrix.app }}:e2e:local
