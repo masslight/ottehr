@@ -1,8 +1,3 @@
-export const APP_TYPE = {
-  QRS: 'QRS',
-  EHR: 'EHR',
-} as const;
-
 export const TELEMED_VIDEO_ROOM_CODE = 'chime-video-meetings';
 export const PHOTON_PATIENT_IDENTIFIER_SYSTEM = 'http://api.zapehr.com/photon-patient-id';
 
