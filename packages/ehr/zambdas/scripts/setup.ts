@@ -10,8 +10,8 @@ import { promisify } from 'node:util';
 async function createApplication(oystehr: Oystehr, applicationName: string): Promise<[string, string]> {
   const application = await oystehr.application.create({
     name: applicationName,
-    description: 'Example',
-    loginRedirectUri: 'https://127.0.0.1:4002/dashboard',
+    description: 'EHR application with email authentication',
+    loginRedirectUri: 'https://ehr-local.ottehr.com/dashboard',
     allowedCallbackUrls: ['http://localhost:4002', 'http://localhost:4002/dashboard'],
     allowedLogoutUrls: ['http://localhost:4002'],
     allowedWebOriginsUrls: ['http://localhost:4002'],
@@ -123,7 +123,7 @@ export async function setupEHR(
 ): Promise<void> {
   console.log('Starting setup of EHR...');
 
-  const applicationName = 'Starter EHR Application';
+  const applicationName = 'Ottehr EHR';
   const [applicationId, clientId] = await createApplication(oystehr, applicationName);
   console.log(`Created application "${applicationName}".`);
 
