@@ -25,6 +25,7 @@ test.beforeAll(async ({ browser }) => {
       }
     }
   });
+  page.once('load', () => console.log('Page loaded!'));
   flowClass = new PrebookInPersonFlow(page);
   paperwork = new Paperwork(page);
   locator = new Locators(page);
