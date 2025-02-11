@@ -1,4 +1,4 @@
-import inquirer from 'inquirer';
+import { input } from '@inquirer/prompts';
 import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { Group, HealthcareService, InsurancePlan, Medication, Organization, PractitionerRole } from 'fhir/r4b';
 
@@ -14,28 +14,24 @@ async function getUserInput(): Promise<{
   if (process.argv.length > 2) {
     return { projectId: process.argv[2], accessToken: process.argv[3], confirm: true };
   }
-  const { accessToken, projectId, confirm } = await inquirer.prompt([
-    {
-      message: 'Please enter your access token:',
-      name: 'accessToken',
-      type: 'input',
-      validate: (input: any) => !!input || 'Access token is required',
-    },
-    {
-      message: 'Please enter your project id:',
-      name: 'projectId',
-      type: 'input',
-      validate: (input: any) => !!input || 'Project id is required',
-    },
-    {
-      message:
-        'WARNING: This script will delete a bunch of data in the project, not just that which was created using the setup script. Are you sure you want to continue?',
-      name: 'confirm',
-      type: 'confirm',
-      default: false,
-    },
-  ]);
-  return { accessToken, projectId, confirm };
+  const accessToken = await input({
+    message: 'Please enter your access token:',
+    validate: (input: any) => !!input || 'Access token is required',
+  });
+  const projectId = await input({
+    message: 'Please enter your project id:',
+    validate: (input: any) => !!input || 'Project id is required',
+  });
+  const confirm = await input({
+    message:
+      'WARNING: This script will delete a bunch of data in the project, not just that which was created using the setup script. Are you sure you want to continue (y/N)?',
+    validate: (input: any) => !!input || 'Confirmation is required',
+  });
+  return {
+    accessToken: accessToken,
+    projectId: projectId,
+    confirm: confirm.toLowerCase() === 'y',
+  };
 }
 
 async function main(): Promise<void> {
