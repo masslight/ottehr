@@ -112,12 +112,15 @@ export class Locators {
   }
 
   async selectDifferentFamilyMember(): Promise<void> {
-    await this.differentFamilyMember.click();
+    console.log('different family member: ', JSON.stringify(this.differentFamilyMember, null, 2));
+    await this.differentFamilyMember.click({ force: true });
   }
   async clickContinueButton(): Promise<void> {
+    console.log('continue button: ', JSON.stringify(this.continueButton, null, 2));
     await this.continueButton.click();
   }
   async clickReserveButton(): Promise<void> {
+    console.log('reserve button: ', JSON.stringify(this.reserveButton, null, 2));
     await this.reserveButton.click();
   }
 }
