@@ -6,10 +6,11 @@ export const dataTestIds = {
   },
   cssHeader: {
     container: 'css-header-container',
+    patientName: 'patient-name',
   },
   dashboard: {
     addPatientButton: 'add-patient-button',
-    intakeButton: (appointmentId: string) => `intake-button-${appointmentId}`,
+    intakeButton: `intake-button`,
     prebookedTab: 'prebooked-tab',
     locationSelect: 'location-select',
     datePickerTodayButton: 'date-picker-today-button',
@@ -56,6 +57,7 @@ export const dataTestIds = {
     patientAddress: 'header-patient-address',
     patientPhoneNumber: 'header-patient-phone-number',
     emergencyContact: 'header-emergency-contact',
+    appointmentStatus: 'appointment-status',
   },
   patientInformation: {
     patientLastName: 'patient-last-name',

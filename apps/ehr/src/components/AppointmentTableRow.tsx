@@ -245,6 +245,7 @@ export default function AppointmentTableRow({
     setCSSButtonIsLoading(true);
     try {
       await handleUpdatePractitioner();
+      console.log(`handleChangeInPersonVisitStatus app:${appointment.id}, enc:${encounter?.id}`);
       await handleChangeInPersonVisitStatus(encounter, user, oystehrZambda, 'intake');
       navigate(`/in-person/${appointment.id}/patient-info`);
     } catch (error) {
@@ -658,12 +659,7 @@ export default function AppointmentTableRow({
         }}
       >
         {appointment.status === 'arrived' || appointment.status === 'pending' || appointment.status === 'ready' ? (
-          <CSSButton
-            isDisabled={!appointment.id}
-            isLoading={isCSSButtonIsLoading}
-            handleCSSButton={handleCSSButton}
-            appointmentID={appointment.id}
-          />
+          <CSSButton isDisabled={!appointment.id} isLoading={isCSSButtonIsLoading} handleCSSButton={handleCSSButton} />
         ) : (
           <IntakeCheckmark providerName={admitterName} />
         )}
