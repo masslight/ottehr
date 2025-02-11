@@ -93,46 +93,6 @@ const VisitDetailsContent = ({ appointmentID }: { appointmentID: string }): JSX.
       </Box>
 
       <Divider />
-
-      {/* TODO: Uncomment this when we have billing information */}
-      {/* <Box>
-        <Typography variant="subtitle1" sx={{ mb: 1, color: 'primary.dark' }}>
-          Billing information
-        </Typography>
-        <Typography sx={{ color: 'primary.dark' }}>
-          Paid amount: {`${data?.charge.amount || ''} ${data?.charge.currency.toUpperCase()}`}
-        </Typography>
-        <Divider sx={{ my: 1 }} />
-        <Typography sx={{ color: 'primary.dark' }}>Payment date: {data?.charge.date}</Typography>
-        <Divider sx={{ my: 1 }} />
-      </Box>
-
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          p: 2,
-          borderRadius: 2,
-          bgcolor: otherColors.lightPurple,
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', color: 'primary.dark' }}>
-          <RequestQuoteOutlinedIcon sx={{ fontSize: 30, mr: 1 }} />
-          <Typography variant="body1" sx={{ fontWeight: 700 }}>
-            Billing Receipt
-          </Typography>
-        </Box>
-        <Button
-          disabled={!data?.files['receipt']?.presignedUrl}
-          variant="text"
-          startIcon={<DownloadIcon />}
-          onClick={() => {
-            openExternalLink(data?.files['receipt']?.presignedUrl || '');
-          }}
-        >
-          Receipt PDF
-        </Button>
-      </Box> */}
     </>
   );
 };

@@ -71,22 +71,7 @@ export const PatientsSearchTable: React.FC<{
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, p: 2 }}>
         <StyledTabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
           <Tab value="allPatients" label="All Patients" />
-          {/* TODO: Uncomment this when we have recently accessed and new patient button features */}
-          {/* <Tab
-            disabled
-            value="recentlyAccessed"
-            label="Recently Accessed"
-            sx={{
-              '&.Mui-disabled': {
-                color: 'text.disabled',
-                backgroundColor: 'transparent',
-              },
-            }}
-          /> */}
         </StyledTabs>
-        {/* <Button disabled variant="contained" color="primary" startIcon={<AddIcon />} sx={{ mr: 1, borderRadius: 28 }}>
-          New Patient
-        </Button> */}
       </Box>
 
       <TableContainer
