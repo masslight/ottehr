@@ -26,10 +26,10 @@ export default defineConfig({
     trace: process.env.CI ? 'on-first-retry' : 'on',
     screenshot: process.env.CI ? 'only-on-failure' : 'off',
     video: process.env.CI ? 'retain-on-failure' : 'off',
-    actionTimeout: 25000,
+    actionTimeout: 2500,
     navigationTimeout: 30000,
   },
-  timeout: 120000,
+  timeout: 60000,
   expect: {
     timeout: 10000,
   },
