@@ -57,7 +57,7 @@ export class Locators {
   constructor(page: Page) {
     this.page = page;
     this.scheduleInPersonVisitButton = page.getByTestId(dataTestIds.scheduleInPersonVisitButton);
-    this.differentFamilyMember = page.getByText('Different family member');
+    this.differentFamilyMember = page.getByTestId(dataTestIds.differentFamilyMember);
     this.continueButton = page.getByTestId(dataTestIds.continueButton);
     if (this.continueButton == null) {
       this.continueButton = page.getByText('Continue');
