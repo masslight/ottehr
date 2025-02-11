@@ -198,6 +198,21 @@ const PRONOUNS_MAPPING = {
     display: 'They/Them/Their',
     system: 'http://loinc.org',
   },
+  'He/Him/His': {
+    code: 'LA29518-0',
+    display: 'He/Him/His',
+    system: 'http://loinc.org',
+  },
+  'She/Her/Her': {
+    code: 'LA29519-8',
+    display: 'She/Her/Her',
+    system: 'http://loinc.org',
+  },
+  'They/Them/Their': {
+    code: 'LA29520-6',
+    display: 'They/Them/Their',
+    system: 'http://loinc.org',
+  },
   'My pronouns are not listed': {
     code: 'LA29521-4',
     display: 'My pronouns are not listed',
