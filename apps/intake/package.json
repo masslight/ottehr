@@ -59,6 +59,7 @@
     "@stripe/stripe-js": "^3.5.0",
     "react-markdown": "^9.0.0",
     "ui-components": "*",
+    "utils": "*",
     "vitest": "^3.0.4"
   }
 }
