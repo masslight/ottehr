@@ -1,10 +1,10 @@
 import React, { FC, useState } from 'react';
 import { capitalize, IconButton, Stack, Typography } from '@mui/material';
-import { getPatientAddress, getSelectors, standardizePhoneNumber } from 'utils';
+import { getPatientAddress, getSelectors, standardizePhoneNumber, calculatePatientAge } from 'utils';
 import { VisitNoteItem } from '../../../../telemed/features/appointment/ReviewTab';
 import { ActionsList, useAppointmentStore } from '../../../../telemed';
 import { getPatientName } from '../../../../telemed/utils';
-import { calculatePatientAge, formatDateUsingSlashes } from '../../../../helpers/formatDateTime';
+import { formatDateUsingSlashes } from '../../../../helpers/formatDateTime';
 import { EditPatientDialog } from '../../../../components/dialogs';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 

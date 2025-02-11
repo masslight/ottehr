@@ -4,6 +4,7 @@ import { Chip } from '@mui/material';
 interface BooleanStateChip {
   state: boolean;
   label: string;
+  dataTestId?: string;
 }
 
 const theme = {
@@ -25,10 +26,11 @@ const theme = {
   },
 };
 
-export function BooleanStateChip({ state, label }: BooleanStateChip): ReactElement {
+export function BooleanStateChip({ state, label, dataTestId }: BooleanStateChip): ReactElement {
   const colors = state ? theme.on : theme.off;
   return (
     <Chip
+      data-testid={dataTestId}
       size="small"
       label={label}
       sx={{

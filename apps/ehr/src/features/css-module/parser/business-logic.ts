@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import { PatientValues, ProcessedData, QuestionnaireResponseValues } from './types';
-import { DATE_FORMAT, DISPLAY_DATE_FORMAT, LBS_TO_KG_FACTOR, WEIGHT_ROUNDING_PRECISION } from './constants';
-import { calculatePatientAge } from '../../../helpers/formatDateTime';
+import { LBS_TO_KG_FACTOR, WEIGHT_ROUNDING_PRECISION } from './constants';
+import { DATE_FORMAT, DISPLAY_DATE_FORMAT } from 'utils';
 
 export const getPatientInfoWithFallback = (
   patient: PatientValues,
@@ -26,13 +26,6 @@ export const getPronouns = (questionnaire: QuestionnaireResponseValues): string 
   const customPronouns = questionnaire.customPronouns;
   const patientPronounsNotListedValues = ['My pronounces are not listed', 'My pronouns are not listed'];
   return patientPronounsNotListedValues.includes(pronouns ?? '') ? customPronouns : pronouns;
-};
-
-export const formatDOB = (birthDate: string | undefined): string | undefined => {
-  if (!birthDate) return undefined;
-  const birthday = DateTime.fromFormat(birthDate, DATE_FORMAT).toFormat(DISPLAY_DATE_FORMAT);
-  const age = calculatePatientAge(birthDate);
-  return `${birthday} (${age})`;
 };
 
 export const getWeight = (patientValues: PatientValues): string | undefined => {
