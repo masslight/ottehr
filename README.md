@@ -50,7 +50,7 @@ Check out the [Oystehr Technical Documentation](https://docs.oystehr.com) to lea
 
 #### Install Node.js
 
-If you do not already have it, [install Node.js](https://nodejs.org/en/download) v18.x or higher.
+If you do not already have it, [install Node.js](https://nodejs.org/en/download) v20.x or higher.
 
 Ottehr also supports `nvm`, `asdf`, and tools that use `.node-version`.
 

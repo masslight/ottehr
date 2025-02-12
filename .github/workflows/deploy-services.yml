@@ -55,7 +55,8 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18.14.0]
+        node-version:
+          - "20"
 
     steps:
       - name: Set Service-Specific Variables

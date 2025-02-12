@@ -34,7 +34,10 @@ jobs:
     if: github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest-8-cores
     timeout-minutes: 15
-
+    strategy:
+      matrix:
+        node-version:
+          - "20"
     steps:
       - name: Install SSH Client
         uses: webfactory/ssh-agent@v0.7.0
@@ -49,7 +52,7 @@ jobs:
       # Set up Node.js environment
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node-version }}
 
       - name: Check out secrets repo
         uses: actions/checkout@v4
