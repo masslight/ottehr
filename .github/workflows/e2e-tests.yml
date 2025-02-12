@@ -23,7 +23,7 @@ jobs:
       matrix:
         app: [ehr, intake]
       fail-fast: false
-    runs-on: ubuntu-latest-16-cores
+    runs-on: ubuntu-latest-8-cores
     timeout-minutes: 20
     steps:
       - name: Checkout repository
@@ -78,11 +78,6 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps chromium
-      - name: Ensure required Questionnaire resources are in place
-        env:
-          ENV: "development"
-        run: cd packages/intake/zambdas && npm run setup-deployed-resources
-
       - name: Run E2E tests
         run: npm run ${{ matrix.app }}:e2e:local
         env:

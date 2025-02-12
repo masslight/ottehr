@@ -38,13 +38,13 @@ test.afterAll(async () => {
 });
 
 test.describe('Past Visits - Empty State', () => {
-  /*test('Should create new patient', async ({ page }) => {
+  test('Should create new patient', async ({ page }) => {
     const homepage = new Homepage(page);
     await homepage.navigate();
 
     await homepage.clickStartVirtualVisitButton();
 
-    await page.getByText('Different family member', { exact: true }).click();
+    await page.getByTestId('Different family member').click();
     await homepage.clickContinue();
 
     await homepage.selectState();
@@ -58,7 +58,6 @@ test.describe('Past Visits - Empty State', () => {
 
     await page.getByRole('button', { name: 'Continue' }).click();
   });
-  */
 
   test('should show empty state when no past visits exist', async ({ page }) => {
     const homepage = new Homepage(page);
