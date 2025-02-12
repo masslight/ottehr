@@ -54,13 +54,9 @@ export class Paperwork {
   }
   async fillContactInformationRequiredFields(): Promise<void> {
     await this.fillStreetAddress();
-    await this.page.waitForTimeout(500);
     await this.fillPatientCity();
-    await this.page.waitForTimeout(500);
     await this.fillPatientState();
-    await this.page.waitForTimeout(500);
     await this.fillPatientZip();
-    await this.page.waitForTimeout(500);
   }
   async fillContactInformationAllFields(): Promise<void> {
     await this.fillContactInformationRequiredFields();
@@ -68,18 +64,18 @@ export class Paperwork {
     await this.fillMobileOptIn();
   }
   async fillStreetAddress(): Promise<void> {
-    await this.locator.streetAddress.pressSequentially('Test address');
+    await this.locator.streetAddress.fill('Test address');
   }
   async fillStreetAddressLine2(): Promise<void> {
-    await this.locator.streetAddressLine2.pressSequentially('Test Address Line 2');
+    await this.locator.streetAddressLine2.fill('Test Address Line 2');
   }
   async fillPatientCity(): Promise<void> {
-    await this.locator.patientCity.pressSequentially('Test City');
+    await this.locator.patientCity.fill('Test City');
   }
   async fillPatientState(): Promise<void> {
     const randomState = this.getRandomState();
     await this.locator.patientState.click();
-    await this.locator.patientState.pressSequentially(randomState);
+    await this.locator.patientState.fill(randomState);
     await this.page.getByRole('option', { name: randomState }).click();
   }
   async fillPatientZip(): Promise<void> {
