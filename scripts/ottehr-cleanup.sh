@@ -46,19 +46,13 @@ function display_progress() {
 }
 
 # Display progress messages
-display_progress "Starting setup script"
+display_progress "Starting cleanup script"
 display_progress "Installing dependencies..."
 npm install
 display_progress "Dependencies installed"
 
 # Execute ./setup.ts
-display_progress "Executing ./ottehr-setup.ts..."
-npx tsx ./scripts/ottehr-setup.ts "$@"
+display_progress "Executing ./ottehr-cleanup.ts..."
+npx tsx ./scripts/ottehr-cleanup.ts "$@"
 
-display_progress "Setup script completed"
-
-# if no command line arguments are provided, npm run apps:start
-if [ "$#" -eq 0 ]; then
-  display_progress "Starting the apps locally..."
-  npm run apps:start
-fi
+display_progress "cleanup script completed"
