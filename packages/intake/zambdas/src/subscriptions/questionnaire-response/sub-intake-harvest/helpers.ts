@@ -76,6 +76,8 @@ import {
   RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL,
   PRIVACY_POLICY_CODE,
   OTTEHR_MODULE,
+  LanguageOption,
+  getPatchOperationToAddOrUpdatePreferredLanguage,
 } from 'utils';
 import { v4 as uuid } from 'uuid';
 import { createOrUpdateFlags } from '../../../paperwork/sharedHelpers';
@@ -1117,6 +1119,7 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-birth-sex-missing': patientFieldPaths.genderIdentityDetails,
   'patient-number': patientFieldPaths.phone,
   'patient-email': patientFieldPaths.email,
+  'preferred-language': patientFieldPaths.preferredLanguage,
   'pcp-first': patientFieldPaths.pcpFirstName,
   'pcp-last': patientFieldPaths.pcpLastName,
   'pcp-number': patientFieldPaths.pcpPhone,
@@ -1280,6 +1283,22 @@ export function createMasterRecordPatchOperations(
                 currentValue
               );
             }
+            if (operation) tempOperations.patient.push(operation);
+          }
+          return;
+        }
+
+        // Special handler for preferred-language
+        if (item.linkId === 'preferred-language') {
+          const currentValue = resources.patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0]
+            .display;
+          if (value !== currentValue) {
+            const operation = getPatchOperationToAddOrUpdatePreferredLanguage(
+              value as LanguageOption,
+              path,
+              currentValue as LanguageOption
+            );
+
             if (operation) tempOperations.patient.push(operation);
           }
           return;
