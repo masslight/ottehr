@@ -43,6 +43,7 @@ export default (env) => {
       plugins,
       server: {
         open: !process.env.VITE_NO_OPEN,
+        host: '0.0.0.0',
       },
     })
   );
