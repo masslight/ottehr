@@ -44,7 +44,7 @@ test.describe('Past Visits - Empty State', () => {
 
     await homepage.clickStartVirtualVisitButton();
 
-    await page.getByText('Different family member', { exact: true }).click();
+    await page.getByTestId('Different family member').click();
     await homepage.clickContinue();
 
     await homepage.selectState();

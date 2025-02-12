@@ -166,7 +166,7 @@ jobs:
         run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run setup-zapehr-secrets ${{ env.ENVIRONMENT }}
 
       - name: Ensure required Questionnaire resources are in place
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run setup-questionnaires ${{ env.ENVIRONMENT }}
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run setup-deployed-resources ${{ env.ENVIRONMENT }}
 
       - name: Create/update in-house medication resources
         if: ${{ github.event.inputs.service == 'ehr' }}

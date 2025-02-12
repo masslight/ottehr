@@ -314,50 +314,36 @@ export const makeValidationSchema = (
   } else {
     // we are validating the entire questionnaire
     return Yup.array().of(
-      Yup.object()
-        /*.transform((val) => {
-          try {
-            // idea is if we did the transformations here rather than in the test block
-            // they would actually be returned from the validate call, whereas now those
-            // transformations don't escape the scope of the test function
-            const transformed = recursiveGroupTransform(items, val);
-            console.log('pre validation transform', JSON.stringify(transformed));
-            return transformed;
-          } catch (e) {
-            console.log('pre validation transform error', JSON.stringify(e), e);
-            return val;
+      Yup.object().test('submit test', async (value: any, context: any) => {
+        const { linkId: pageId, item: answerItem } = value;
+        console.log('items.it 5', items);
+        const questionItem = items.find((i) => i.linkId === pageId);
+        if (!questionItem) {
+          // console.log('page not found');
+          return context.createError({ message: `Page ${pageId} not found in Questionnaire` });
+        }
+        if (answerItem === undefined) {
+          if (questionItem.item?.some((i) => evalRequired(i, context))) {
+            return context.createError({ message: 'Item not found' });
+          } else {
+            return value;
           }
-        })*/
-        .test('submit test', async (value: any, context: any) => {
-          const { linkId: pageId, item: answerItem } = value;
-          console.log('items.it 5', items);
-          const questionItem = items.find((i) => i.linkId === pageId);
-          if (!questionItem) {
-            // console.log('page not found');
-            return context.createError({ message: `Page ${pageId} not found in Questionnaire` });
-          }
-          if (answerItem === undefined) {
-            if (questionItem.item?.some((i) => evalRequired(i, context))) {
-              return context.createError({ message: 'Item not found' });
-            } else {
-              return value;
-            }
-          }
-          const schema = makeValidationSchemaPrivate(questionItem.item ?? [], context);
-          // we convert this from a list to key-val dict to match the form shape
-          try {
-            const reduced = answerItem.reduce((accum: any, current: any) => {
-              accum[current.linkId] = { ...current };
-              return accum;
-            }, {});
-            const validated = await schema.validate(reduced, { abortEarly: false });
-            console.log('validated', JSON.stringify(validated));
-            return Yup.mixed().transform(() => validated);
-          } catch (e) {
-            console.log('error: ', pageId, JSON.stringify(answerItem), e);
-            return e;
-          }
-        })
+        }
+        const schema = makeValidationSchemaPrivate(questionItem.item ?? [], context);
+        // we convert this from a list to key-val dict to match the form shape
+        try {
+          const reduced = answerItem.reduce((accum: any, current: any) => {
+            accum[current.linkId] = { ...current };
+            return accum;
+          }, {});
+          const validated = await schema.validate(reduced, { abortEarly: false });
+          console.log('validated', JSON.stringify(validated));
+          return Yup.mixed().transform(() => validated);
+        } catch (e) {
+          console.log('error: ', pageId, JSON.stringify(answerItem), e);
+          return e;
+        }
+      })
     );
   }
 };
@@ -620,10 +606,6 @@ export const evalRequired = (item: IntakeQuestionnaireItem, context: any, questi
   }
 
   const { question, operator, answerString, answerBoolean } = item.requireWhen;
-  // todo: move/update this comment
-  // for now we assume all linkIds within a form are unique, even accross groups
-  // this can be changed later an will be backwards compatible if we come to require
-  // structural prcision in the requireWhen feature
   const questionValue = recursivePathEval(context, question, questionVal);
   if (answerString !== undefined) {
     const comparisonString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;
@@ -657,10 +639,6 @@ export const evalItemText = (item: IntakeQuestionnaireItem, context: any, questi
   }
 
   const { question, operator, answerString, answerBoolean, substituteText } = textWhen;
-  // todo: move/update this comment
-  // for now we assume all linkIds within a form are unique, even accross groups
-  // this can be changed later an will be backwards compatible if we come to require
-  // structural precision in the textWhen feature
   const questionValue = recursivePathEval(context, question, questionVal);
   if (answerString !== undefined) {
     const comparisonString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;

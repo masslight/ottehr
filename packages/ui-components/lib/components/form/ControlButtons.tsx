@@ -28,7 +28,6 @@ const ControlButtons: FC<ControlButtonsProps> = ({
 }) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-
   return (
     <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} sx={{ justifyContent: 'space-between', mt: 4.125 }}>
       {backButton && (

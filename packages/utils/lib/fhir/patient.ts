@@ -18,13 +18,13 @@ import {
 } from 'fhir/r4b';
 import {
   FHIR_EXTENSION,
+  FHIR_IDENTIFIER_NPI,
   filterResources,
   getCommunicationsAndSenders,
   getUniquePhonesNumbers,
   PRIVATE_EXTENSION_BASE_URL,
 } from '.';
 import {
-  FHIR_IDENTIFIER_NPI,
   PatientInfo,
   PROVIDER_NOTIFICATION_METHOD_URL,
   PROVIDER_NOTIFICATIONS_ENABLED_URL,
