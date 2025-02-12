@@ -3,6 +3,7 @@ import { HumanName } from 'fhir/r4b';
 import { FC, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import {
+  LANGUAGE_OPTIONS,
   PATIENT_COMMON_WELL_CONSENT_URL,
   PATIENT_ETHNICITY_URL,
   PATIENT_GENDER_IDENTITY_DETAILS_URL,
@@ -266,18 +267,9 @@ export const PatientDetailsContainer: FC = () => {
                   handleChange(e as any);
                 }}
               >
-                {[
-                  {
-                    label: 'English',
-                    value: 'English',
-                  },
-                  {
-                    label: 'Spanish',
-                    value: 'Spanish',
-                  },
-                ].map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
+                {Object.entries(LANGUAGE_OPTIONS).map(([key, value]) => (
+                  <MenuItem key={value} value={value}>
+                    {key}
                   </MenuItem>
                 ))}
               </Select>

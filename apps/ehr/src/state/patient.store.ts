@@ -10,6 +10,9 @@ import {
   ResourceTypeNames,
   PatientMasterRecordResourceType,
   patientFieldPaths,
+  LANGUAGE_OPTIONS,
+  LanguageOption,
+  getPatchOperationToAddOrUpdatePreferredLanguage,
 } from 'utils';
 import { create } from 'zustand';
 
@@ -155,6 +158,7 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
     const { isArray, parentPath } = getArrayInfo(path);
     const isTelecom = path.includes('/telecom/');
     const isResponsiblePartyBirthDate = patientFieldPaths.responsiblePartyBirthDate.includes(path);
+    const isPreferredLanguage = patientFieldPaths.preferredLanguage.includes(path);
 
     let newPatchOperation: Operation | undefined;
 
@@ -180,6 +184,20 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
           effectiveValue
         );
       }
+    } else if (isPreferredLanguage) {
+      if (typeof value !== 'string') {
+        throw new Error(`Invalid language value type: ${typeof value}`);
+      }
+      if (!(value in LANGUAGE_OPTIONS)) {
+        throw new Error(
+          `Invalid language option: ${value}. Expected one of: ${Object.keys(LANGUAGE_OPTIONS).join(', ')}`
+        );
+      }
+      newPatchOperation = getPatchOperationToAddOrUpdatePreferredLanguage(
+        value as LanguageOption,
+        path,
+        effectiveValue as LanguageOption
+      );
     } else if (isArray) {
       const effectiveArrayValue = getEffectiveValue(resource, parentPath, state.patchOperations?.patient || []);
       const arrayMatch = path.match(/^(.+)\/(\d+)$/);
