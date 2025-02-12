@@ -207,10 +207,7 @@ const CheckIn = (): JSX.Element => {
           <Grid container marginTop={2}>
             {showRegisterAnotherPatient && (
               <Grid item xs={12} md={6} textAlign={{ xs: 'center', md: 'start' }} justifyContent="start">
-                <Link
-                  to={getStartingPath(checkIn.location, VisitType.WalkIn, ServiceMode['in-person'])}
-                  className="register-button"
-                >
+                <Link to={'/home'} className="register-button">
                   <Button variant="outlined">{t('appointments.registerAnother')}</Button>
                 </Link>
               </Grid>
