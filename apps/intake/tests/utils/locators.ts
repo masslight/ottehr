@@ -52,7 +52,6 @@ export class Locators {
   consentSignerRelationship: Locator;
   editPaperwork: Locator;
   flowHeading: Locator;
-  photoIDHeading: Locator;
   startInPersonVisitButton: Locator;
   confirmWalkInButton: Locator;
   checkInHeading: Locator;
@@ -75,7 +74,6 @@ export class Locators {
     this.confirmWalkInButton = page.getByRole('button', { name: 'Confirm this walk-in time' });
     this.thankYouHeading = page.getByRole('heading', { name: 'Thank you for choosing Ottehr!' });
     this.checkInHeading = page.getByRole('heading', { name: 'You are checked in!' });
-    this.photoIDHeading = page.getByRole('heading', { name: 'Photo ID' });
     this.locationName = page.getByTestId(dataTestIds.locationNameReviewScreen);
     this.prebookSlotReviewScreen = page.getByTestId(dataTestIds.prebookSlotReviewScreen);
     this.titleVisitDetails = page.getByRole('heading', { name: 'Visit details' });
