@@ -37,7 +37,7 @@ Ottehr consists of two apps,
 
 ### Prerequisites
 
-To run Ottehr, you'll need a free Oystehr account, and Node.js.
+To run Ottehr, you'll need a free Oystehr account and Node.js.
 
 #### Get Your Oystehr Account
 
@@ -50,7 +50,9 @@ Check out the [Oystehr Technical Documentation](https://docs.oystehr.com) to lea
 
 #### Install Node.js
 
-If you do not already have it, install Node.js v18.x.
+If you do not already have it, [install Node.js](https://nodejs.org/en/download) v18.x or higher.
+
+Ottehr also supports `nvm`, `asdf`, and tools that use `.node-version`.
 
 ### Fork & Clone
 

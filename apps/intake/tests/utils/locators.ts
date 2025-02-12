@@ -53,6 +53,10 @@ export class Locators {
   consentSignerRelationship: Locator;
   editPaperwork: Locator;
   flowHeading: Locator;
+  photoIDHeading: Locator;
+  startInPersonVisitButton: Locator;
+  confirmWalkInButton: Locator;
+  checkInHeading: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -65,6 +69,16 @@ export class Locators {
     this.reserveButton = page.getByRole('button', { name: 'Reserve this check-in time' });
     this.flowHeading = page.getByTestId(dataTestIds.flowPageTitle);
     this.thankYouHeading = page.getByRole('heading', { name: 'Thank you for choosing Ottehr!' });
+    this.startInPersonVisitButton = page.getByTestId(dataTestIds.startInPersonVisitButton);
+    this.differentFamilyMember = page.getByText('Different family member');
+    this.continueButton = page.getByText('Continue');
+    this.reserveButton = page.getByRole('button', { name: 'Reserve this check-in time' });
+    this.confirmWalkInButton = page.getByRole('button', { name: 'Confirm this walk-in time' });
+    this.thankYouHeading = page.getByRole('heading', { name: 'Thank you for choosing Ottehr!' });
+    this.checkInHeading = page.getByRole('heading', { name: 'You are checked in!' });
+    // this.PCPHeading = page.getByRole('heading', { name: 'Primary Care Physician' });
+    // this.responsiblePartyHeading = page.getByRole('heading', { name: 'Responsible party information' });
+    this.photoIDHeading = page.getByRole('heading', { name: 'Photo ID' });
     this.locationName = page.getByTestId(dataTestIds.locationNameReviewScreen);
     this.prebookSlotReviewScreen = page.getByTestId(dataTestIds.prebookSlotReviewScreen);
     this.titleReviewScreen = page.getByRole('heading', { name: 'Review and submit' });

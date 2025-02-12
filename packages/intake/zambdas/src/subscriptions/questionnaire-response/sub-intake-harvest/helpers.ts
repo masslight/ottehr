@@ -1165,6 +1165,12 @@ const pathToLinkIdMap: Record<string, string> = Object.entries(paperworkToPatien
   {} as Record<string, string>
 );
 
+const BIRTH_SEX_MAP: Record<string, string> = {
+  Male: 'male',
+  Female: 'female',
+  Intersex: 'other',
+};
+
 const PRIMARY_INSURANCE_LINK_IDS = ['insurance-carrier', 'insurance-member-id', 'patient-relationship-to-insured'];
 
 const SECONDARY_INSURANCE_LINK_IDS = PRIMARY_INSURANCE_LINK_IDS.map((id) => `${id}-2`);
@@ -1552,7 +1558,7 @@ function extractValueFromItem(
 
   // Handle gender answers
   if (item.linkId.endsWith('-birth-sex') && answer?.valueString) {
-    return answer.valueString.toLowerCase();
+    return BIRTH_SEX_MAP[answer.valueString];
   }
 
   // Handle regular answers

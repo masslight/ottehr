@@ -9,7 +9,7 @@ let page: Page;
 let context: BrowserContext;
 let flowClass: PrebookInPersonFlow;
 let locator: Locators;
-let bookingURL: Awaited<ReturnType<PrebookInPersonFlow['prebookInPersonVisit']>>;
+let bookingURL: Awaited<ReturnType<PrebookInPersonFlow['startVisit']>>;
 let paperwork: Paperwork;
 let commonLocatorsHelper: CommonLocatorsHelper;
 const appointmentIds: string[] = [];
@@ -29,7 +29,7 @@ test.beforeAll(async ({ browser }) => {
   paperwork = new Paperwork(page);
   locator = new Locators(page);
   commonLocatorsHelper = new CommonLocatorsHelper(page);
-  bookingURL = await flowClass.prebookInPersonVisit();
+  bookingURL = await flowClass.startVisit();
 });
 test.afterAll(async () => {
   await page.close();
@@ -41,7 +41,7 @@ test.afterAll(async () => {
   }
 });
 
-test.describe('In person visit - Paperwork submission flow with only required fields', () => {
+test.describe('Prebook In person visit - Paperwork submission flow with only required fields', () => {
   test('PRF-1 Fill required contact information', async () => {
     await page.goto(bookingURL.bookingURL);
     await paperwork.clickProceedToPaperwork();
