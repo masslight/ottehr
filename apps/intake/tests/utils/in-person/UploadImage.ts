@@ -10,6 +10,13 @@ export class UploadImage {
     this.page = page;
   }
 
+  private getPathToProjectRoot(currentPath: string): string {
+    if (currentPath.split('/').at(-1) === 'intake') {
+      return currentPath;
+    }
+    return this.getPathToProjectRoot(path.resolve(currentPath, '..'));
+  }
+
   async uploadPhoto(locator: string, fileName: string): Promise<Locator> {
     let requestUrl: string | undefined;
     const __filename = fileURLToPath(import.meta.url);
@@ -28,12 +35,12 @@ export class UploadImage {
       this.page.locator(locator).click(),
     ]);
 
-    const filePath = path.resolve(__dirname, `../images-for-tests/${fileName}`);
+    const filePath = path.join(this.getPathToProjectRoot(__dirname), `/images-for-tests/${fileName}`);
     await fileChooser.setFiles(filePath);
     await this.page.waitForTimeout(5000);
 
     expect(requestUrl).toBeDefined();
-    const uploadedPhoto = await this.page.locator(`img[src*="${requestUrl}"]`);
+    const uploadedPhoto = this.page.locator(`img[src*="${requestUrl}"]`);
     await expect(uploadedPhoto).toBeVisible();
     return uploadedPhoto;
   }
@@ -49,5 +56,8 @@ export class UploadImage {
   }
   async fillInsuranceBack(): Promise<Locator> {
     return await this.uploadPhoto('#insurance-card-back', 'Portrait_2.jpg');
+  }
+  async fillPatientCondition(): Promise<Locator> {
+    return await this.uploadPhoto('#photo', 'Landscape_1.jpg');
   }
 }

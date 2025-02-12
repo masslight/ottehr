@@ -1,181 +1,98 @@
 import { CircularProgress, Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { useCallback, useMemo, useState } from 'react';
-// import { useEffect } from 'react';
-import { PageForm, getFileTypeFromFile } from 'ui-components';
-// import { filterObject, safelyCaptureException } from 'ui-components';
-// import { PaperworkResponseWithResponses } from 'utils';
-import { FileURLs, FileUpload, FormItemType, getSelectors } from 'utils';
+import { FormProvider, useForm } from 'react-hook-form';
+import { PaperworkContext, safelyCaptureException } from 'ui-components';
 import { useZapEHRAPIClient } from '../../utils';
-import { useAppointmentStore } from '../appointments';
-import { useCreateZ3ObjectMutation } from '../files';
-// import { useGetPaperwork } from '../paperwork';
 import { useUpdatePaperworkMutation } from '../paperwork';
-
-// const getPaperworkPhotoFiles = (paperworkData: PaperworkResponseWithResponses | undefined): FileURLs => {
-//   return paperworkData
-//     ? (filterObject(paperworkData.files || {}, (key) => key.startsWith('patient-photos')) as FileURLs)
-//     : {};
-// };
+import FileInput from '../../../features/paperwork/components/FileInput';
+import ControlButtons from 'ui-components/lib/components/form/ControlButtons';
+import { useUploadPhotosStore } from './UploadPhotosListItemButton';
+import { useQueryClient } from 'react-query';
 
 export const UploadPhotosWrapper = ({ onClose }: { onClose: () => void }): JSX.Element => {
-  const { appointmentID } = getSelectors(useAppointmentStore, ['appointmentID']);
-  const createZ3Object = useCreateZ3ObjectMutation();
+  const { paperworkData, isFetching, attachment, isLoading } = useUploadPhotosStore();
+
+  const queryClient = useQueryClient();
   const updatePaperwork = useUpdatePaperworkMutation();
   const apiClient = useZapEHRAPIClient();
-  // const {
-  //   data: paperworkData,
-  //   isLoading,
-  //   isFetching,
-  // } = useGetPaperwork((data) => setFileURLs(getPaperworkPhotoFiles(data)));
-  const isLoading = false;
-  const isFetching = false;
-
-  // const photos = useMemo(() => getPaperworkPhotoFiles(paperworkData), [paperworkData]);
-  const photos = {};
-
-  const [fileURLs, setFileURLs] = useState<FileURLs>(photos);
-  const [fileUploads, setFileUploads] = useState<FileUpload>({});
-
-  const requestPending = isLoading || isFetching || createZ3Object.isLoading || updatePaperwork.isLoading;
-
-  // this is temprorary hack for settign fileUrls, cause for some reason there's some very strange bug in useState(initial) for photos
-  // useEffect(() => {
-  //   setFileURLs(photos);
-  // }, [photos]);
-
-  const formElements = useMemo(
-    () => [
-      {
-        name: 'patient-photos',
-        type: 'Photos' as FormItemType,
-        label: '',
-        defaultValue: fileURLs,
-        fileOptions: {
-          onUpload: setFileUploads,
-          uploadFile: (fileType: string, tempURL: string) =>
-            setFileURLs((prevState) => ({
-              ...prevState,
-              [fileType]: { ...prevState?.[fileType], localUrl: tempURL },
-            })),
-          uploadFailed: Object.keys(fileUploads)
-            .map((name) => ({ name, uploadFailed: fileUploads[name].uploadFailed }))
-            .reduce(
-              (prev, curr) => {
-                prev[curr.name] = curr.uploadFailed;
-                return prev;
-              },
-              {} as Record<string, boolean>
-            ),
-          resetUploadFailed: (fileType: string) =>
-            setFileUploads((prev) => ({
-              ...prev,
-              [fileType]: { ...prev[fileType], uploadFailed: false },
-            })),
-          onClear: (fileType: string) => {
-            setFileUploads((prev) => {
-              delete prev[fileType];
-              return prev;
-            });
-            setFileURLs((prevState) => {
-              delete prevState[fileType];
-              return prevState;
-            });
-          },
-          fileType: 'patient-photos',
-          loading: requestPending,
-        },
-      },
-    ],
-    [fileURLs, fileUploads, requestPending]
-  );
+  const methods = useForm();
+  const [uploadedAttachment, setUploadedAttachment] = useState(attachment);
 
   const onSubmit = useCallback(async (): Promise<void> => {
-    let uploadResponse: any;
-    const fileUrlsToUpdate = { ...fileURLs };
-
-    for (const photoItem in fileUploads) {
-      const fileId = photoItem;
-      const fileData = fileUploads[photoItem].fileData;
-
-      if (fileData) {
-        uploadResponse = await createZ3Object.mutateAsync({
-          apiClient,
-          fileType: fileId,
-          fileFormat: getFileTypeFromFile(fileUploads[photoItem].fileData?.name || ''),
-          file: fileData,
-          appointmentID,
-        });
-      }
-
-      if (fileData && !uploadResponse) {
-        // Reset fields if Z3 upload fails
-        setFileUploads((prev) => ({
-          ...prev,
-          [fileId]: { fileData: null, uploadFailed: true },
-        }));
-      } else if (fileData && uploadResponse) {
-        // Reset file data when user continues to next page
-        setFileUploads((prev) => ({
-          ...prev,
-          [fileId]: { fileData: null, uploadFailed: prev[fileId].uploadFailed },
-        }));
-      }
-
-      if (uploadResponse) {
-        // Update state.fileURLs
-        fileUrlsToUpdate[fileId] = {
-          ...fileUrlsToUpdate[fileId],
-          z3Url: uploadResponse.z3URL,
-          localUrl: uploadResponse.z3URL ? fileURLs?.[fileId].localUrl : undefined,
-        };
-        setFileURLs(fileUrlsToUpdate);
-      }
-    }
-
     if (!apiClient) {
       throw new Error('apiClient is not defined');
     }
-    if (!appointmentID) {
-      throw new Error('appointmentID is not defined');
+    if (!paperworkData?.questionnaireResponse?.id) {
+      throw new Error('questionnaireResponse is not defined');
     }
 
-    // await updatePaperwork.mutateAsync(
-    //   {
-    //     apiClient,
-    //     appointmentID,
-    //     files: fileUrlsToUpdate,
-    //   },
-    //   {
-    //     onSuccess: () => {
-    //       onClose();
-    //     },
-    //     onError: (error) => {
-    //       safelyCaptureException(error);
-    //     },
-    //   }
-    // );
-  }, [fileURLs, apiClient, appointmentID, fileUploads, createZ3Object]);
+    await updatePaperwork.mutateAsync(
+      {
+        apiClient,
+        questionnaireResponseId: paperworkData.questionnaireResponse.id,
+        answers: {
+          linkId: 'patient-condition-page',
+          item: uploadedAttachment
+            ? [
+                {
+                  linkId: 'patient-photos',
+                  answer: [{ valueAttachment: uploadedAttachment }],
+                },
+              ]
+            : [],
+        },
+      },
+      {
+        onSuccess: () => {
+          void queryClient.invalidateQueries(['paperwork']);
+          onClose();
+        },
+        onError: (error) => {
+          safelyCaptureException(error);
+        },
+      }
+    );
+  }, [apiClient, onClose, paperworkData?.questionnaireResponse?.id, queryClient, updatePaperwork, uploadedAttachment]);
+
+  const [saveButtonDisabled, setSaveButtonDisabled] = useState(false);
+
+  const outletContext: PaperworkContext = useMemo(() => {
+    return {
+      appointment: paperworkData?.appointment,
+      setSaveButtonDisabled,
+    } as PaperworkContext;
+  }, [paperworkData?.appointment]);
+
   return (
     <>
       <Typography variant="h2" color="primary.main" sx={{ pb: 3 }}>
-        Patient condition photos
+        Patient condition photo
       </Typography>
       {isLoading || !apiClient ? (
         <Box sx={{ justifyContent: 'center', display: 'flex' }}>
           <CircularProgress />
         </Box>
       ) : (
-        <PageForm
-          formElements={formElements}
-          onSubmit={onSubmit}
-          controlButtons={{
-            submitLabel: 'Save',
-            backButtonLabel: 'Close',
-            onBack: onClose,
-            loading: isLoading || isFetching || updatePaperwork.isLoading || createZ3Object.isLoading,
-          }}
-        />
+        <form onSubmit={methods.handleSubmit(onSubmit)}>
+          <FormProvider {...methods}>
+            <FileInput
+              value={uploadedAttachment}
+              attachmentType="image"
+              description="Photo of patient’s condition (optional)"
+              onChange={setUploadedAttachment}
+              fieldName="photo"
+              fileName="patient-photos"
+              usePaperworkContext={() => outletContext}
+            />
+            <ControlButtons
+              submitLabel="Save"
+              backButtonLabel="Close"
+              onBack={onClose}
+              loading={saveButtonDisabled || isLoading || isFetching || updatePaperwork.isLoading}
+            />
+          </FormProvider>
+        </form>
       )}
     </>
   );
