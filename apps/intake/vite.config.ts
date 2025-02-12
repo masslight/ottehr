@@ -45,6 +45,12 @@ export default (env) => {
         open: !process.env.VITE_NO_OPEN,
         host: '0.0.0.0',
       },
+      resolve: {
+        alias: {
+          '@theme': path.resolve(__dirname, appEnv.THEME_PATH || '/src/themes/ottehr'),
+          '@defaultTheme': path.resolve(__dirname, '/src/themes/ottehr'),
+        },
+      },
     })
   );
 };

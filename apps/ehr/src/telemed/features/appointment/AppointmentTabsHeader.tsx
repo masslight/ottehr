@@ -20,7 +20,7 @@ export const AppointmentTabsHeader: FC = () => {
           label={
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <AssignmentIndOutlinedIcon />
-              <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>
+              <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
                 HPI and Medical history
               </Typography>
             </Box>
@@ -31,7 +31,7 @@ export const AppointmentTabsHeader: FC = () => {
           label={
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <StethoscopeIcon />
-              <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>Exam</Typography>
+              <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>Exam</Typography>
             </Box>
           }
           value="exam"
@@ -40,7 +40,7 @@ export const AppointmentTabsHeader: FC = () => {
           label={
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <DiagnosisIcon />
-              <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>Assessment</Typography>
+              <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>Assessment</Typography>
             </Box>
           }
           value="erx"
@@ -49,7 +49,7 @@ export const AppointmentTabsHeader: FC = () => {
           label={
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <PatientListIcon />
-              <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>Plan</Typography>
+              <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>Plan</Typography>
             </Box>
           }
           value="plan"
@@ -58,7 +58,7 @@ export const AppointmentTabsHeader: FC = () => {
           label={
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <ContractEditIcon />
-              <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>Review and Sign</Typography>
+              <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>Review and Sign</Typography>
             </Box>
           }
           value="sign"

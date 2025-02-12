@@ -27,7 +27,7 @@ import React, { ReactElement } from 'react';
 import { Link } from 'react-router-dom';
 import { BooleanStateChip } from '../..';
 import { INSURANCES_URL } from '../../../App';
-import { otherColors } from '../../../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import { useInsurancesQuery } from './telemed-admin.queries';
 import { INSURANCE_ROWS_PER_PAGE } from '../../../constants';
 

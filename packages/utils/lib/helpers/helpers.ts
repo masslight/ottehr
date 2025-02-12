@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import { Secrets } from '../secrets';
 import { getSecret } from '../secrets';
 import { SecretsKeys } from '../secrets';
-import { OTTEHR_MODULE } from '../fhir';
+import { PROJECT_MODULE } from '../fhir';
 import { UpdateQuestionnaireResponseParams } from '../types';
 import path from 'path';
 
@@ -186,7 +186,7 @@ export function standardizePhoneNumber(phoneNumber: string | undefined): string 
   return formatPhoneNumber(phoneNumberDigits);
 }
 
-export function resourceHasMetaTag(resource: Resource, metaTag: OTTEHR_MODULE): boolean {
+export function resourceHasMetaTag(resource: Resource, metaTag: PROJECT_MODULE): boolean {
   return Boolean(resource.meta?.tag?.find((coding) => coding.code === metaTag));
 }
 

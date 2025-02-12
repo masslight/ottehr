@@ -6,7 +6,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { getAccessToken } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { SubmitPaperworkEffectInput, validateSubmitInputs } from '../validateRequestParameters';
-import { FHIR_EXTENSION, OTTEHR_MODULE, ZambdaInput, topLevelCatch } from 'utils';
+import { FHIR_EXTENSION, PROJECT_MODULE, ZambdaInput, topLevelCatch } from 'utils';
 import { Appointment, QuestionnaireResponse } from 'fhir/r4b';
 import { createAuditEvent, AuditableZambdaEndpoints } from '../../shared/userAuditLog';
 import { DateTime } from 'luxon';
@@ -93,7 +93,7 @@ const performEffect = async (input: SubmitPaperworkEffectInput, oystehr: Oystehr
             });
 
             const appointmentStatus = appointment.status;
-            const isOttehrTm = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.TM);
+            const isOttehrTm = appointment?.meta?.tag?.some((tag) => tag.code === PROJECT_MODULE.TM);
 
             if (isOttehrTm && appointmentStatus === 'proposed') {
               return oystehr.fhir.patch<Appointment>({

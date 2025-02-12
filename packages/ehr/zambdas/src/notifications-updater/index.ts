@@ -5,7 +5,7 @@ import { DateTime, Duration } from 'luxon';
 import {
   AppointmentProviderNotificationTags,
   AppointmentProviderNotificationTypes,
-  OTTEHR_MODULE,
+  PROJECT_MODULE,
   PROVIDER_NOTIFICATION_TAG_SYSTEM,
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
   ProviderNotificationMethod,
@@ -478,7 +478,7 @@ async function getResourcePackagesAppointmentsMap(
     await oystehr.fhir.search<Appointment | Communication | Encounter | Location | Practitioner>({
       resourceType: 'Appointment',
       params: [
-        { name: '_tag', value: OTTEHR_MODULE.TM },
+        { name: '_tag', value: PROJECT_MODULE.TM },
         {
           name: 'date',
           value: `ge${fromDate}`,

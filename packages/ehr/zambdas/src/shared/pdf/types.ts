@@ -26,6 +26,7 @@ export interface TextStyle extends PageElementStyle {
   spacing: number;
   color?: Color;
   newLineAfter?: boolean;
+  weight?: number;
 }
 
 export interface ImageStyle extends PageElementStyle {

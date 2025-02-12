@@ -14,7 +14,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { SearchParam } from '@zapehr/sdk';
-import { OTTEHR_MODULE, getVisitStatusHistory } from 'ehr-utils';
+import { PROJECT_MODULE, getVisitStatusHistory } from 'ehr-utils';
 import { Appointment, Location, Patient, RelatedPerson, Resource } from 'fhir/r4';
 import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
@@ -86,7 +86,7 @@ export default function PatientInformationPage(): JSX.Element {
       const appointmentsTemp: Appointment[] = resourcesTemp.filter(
         (resource) =>
           resource.resourceType === 'Appointment' &&
-          resource.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.UC || tag.code === OTTEHR_MODULE.TM),
+          resource.meta?.tag?.find((tag) => tag.code === PROJECT_MODULE.UC || tag.code === PROJECT_MODULE.TM),
       ) as Appointment[];
       const locations: Location[] = resourcesTemp.filter(
         (resource) => resource.resourceType === 'Location',

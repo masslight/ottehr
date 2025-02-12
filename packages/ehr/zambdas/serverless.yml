@@ -74,9 +74,8 @@ functions:
     timeout: 25
     package:
       include:
-        - Roboto-Bold.otf
-        - Roboto-Regular.otf
-        - TiemposHeadline-Regular.otf
+        - Rubik-Bold.otf
+        - Rubik-Regular.otf
         - ottehrLogo.png
         - red-dot.png
         - green-dot.png
@@ -103,9 +102,8 @@ functions:
     timeout: 25
     package:
       include:
-        - Roboto-Bold.otf
-        - Roboto-Regular.otf
-        - TiemposHeadline-Regular.otf
+        - Rubik-Bold.otf
+        - Rubik-Regular.otf
         - ottehrLogo.png
         - red-dot.png
         - green-dot.png
@@ -131,9 +129,8 @@ functions:
     timeout: 25
     package:
       include:
-        - Roboto-Bold.otf
-        - Roboto-Regular.otf
-        - TiemposHeadline-Regular.otf
+        - Rubik-Bold.otf
+        - Rubik-Regular.otf
         - ottehrLogo.png
         - red-dot.png
         - green-dot.png
@@ -156,9 +153,8 @@ functions:
     timeout: 25
     package:
       include:
-        - Roboto-Bold.otf
-        - Roboto-Regular.otf
-        - TiemposHeadline-Regular.otf
+        - Rubik-Bold.otf
+        - Rubik-Regular.otf
         - ottehrLogo.png
         - red-dot.png
         - green-dot.png
@@ -275,8 +271,8 @@ functions:
     package:
       include:
         - DancingScript-Regular.otf
-        - Roboto-Bold.otf
-        - Roboto-Regular.otf
+        - Rubik-Bold.otf
+        - Rubik-Regular.otf
         - ottehrLogo.png
     environment:
       AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}

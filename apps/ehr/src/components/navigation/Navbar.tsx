@@ -2,19 +2,14 @@ import { TabList } from '@mui/lab';
 import { AppBar, Container, Tab, Toolbar, useTheme, useMediaQuery } from '@mui/material';
 import { ReactElement, SyntheticEvent, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { RoleType } from 'utils';
-import logo from '../../assets/logo-4x.png';
-import { otherColors } from '../../CustomThemeProvider';
+import { PROJECT_NAME_UPPER, RoleType } from 'utils';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { AppTab, useNavStore } from '../../state/nav.store';
 import { UserMenu } from './UserMenu';
 import MobileMenu from './MobileMenu';
 import { adjustTopForBannerHeight } from '../../constants';
-
-const { VITE_APP_ORGANIZATION_NAME_SHORT: ORGANIZATION_NAME_SHORT } = import.meta.env;
-if (ORGANIZATION_NAME_SHORT == null) {
-  throw new Error('Could not load env variable');
-}
+import { otherColors } from '@theme/colors';
+import { logo } from '@theme/icons';
 
 export type NavbarItems = {
   [key in AppTab]?: { urls: string[] };
@@ -114,7 +109,7 @@ export default function Navbar(): ReactElement | null {
           <Link to="/">
             <img
               src={logo}
-              alt={`${ORGANIZATION_NAME_SHORT} logo`}
+              alt={`${PROJECT_NAME_UPPER} logo`}
               style={{
                 marginRight: 20,
                 marginTop: 10,
@@ -147,7 +142,7 @@ export default function Navbar(): ReactElement | null {
                     to={navbarItems[navbarItem]!.urls?.[0]}
                     sx={{
                       fontSize: 16,
-                      fontWeight: 700,
+                      fontWeight: 500,
                       textTransform: 'capitalize',
                     }}
                   />

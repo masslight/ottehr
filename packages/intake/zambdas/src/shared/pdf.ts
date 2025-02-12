@@ -238,7 +238,7 @@ async function drawFirstPage({
   // Start at the top of the page then move down as elements are added to the PDF.
   let currYPos = height - styles.margin.y; // top of page. Content starts after this point
 
-  // add Ottehr logo at the top of the PDF
+  // add project logo at the top of the PDF
   const imgPath = './ottehrLogo.png';
   const imgBytes = fs.readFileSync(imgPath);
   const img = await pdfDoc.embedPng(imgBytes);

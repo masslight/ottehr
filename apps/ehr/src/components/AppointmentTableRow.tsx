@@ -29,9 +29,9 @@ import {
   formatMinutes,
   getVisitTotalTime,
   getDurationOfStatus,
+  PROJECT_NAME,
 } from 'utils';
 import { LANGUAGES } from '../constants';
-import { otherColors } from '../CustomThemeProvider';
 import { PriorityIconWithBorder } from './PriorityIconWithBorder';
 import ChatModal from '../features/chat/ChatModal';
 import { checkinPatient } from '../helpers';
@@ -49,6 +49,7 @@ import { dataTestIds } from '../constants/data-test-ids';
 import { IntakeCheckmark } from './IntakeCheckmark';
 import { PatientDateOfBirth } from './PatientDateOfBirth';
 import { formatPatientName } from '../helpers/formatPatientName';
+import { otherColors } from 'src/themes/ottehr/colors';
 import { usePractitionerActions } from '../features/css-module/hooks/usePractitioner';
 import { practitionerType } from '../helpers/practitionerUtils';
 import { enqueueSnackbar } from 'notistack';
@@ -364,7 +365,7 @@ export default function AppointmentTableRow({
       <Typography
         variant="body2"
         color={theme.palette.getContrastText(theme.palette.background.default)}
-        style={{ display: 'inline', fontWeight: 700 }}
+        style={{ display: 'inline', fontWeight: 500 }}
       >
         Long wait: Please check on patient
       </Typography>
@@ -399,14 +400,14 @@ export default function AppointmentTableRow({
         <Typography
           variant="body2"
           color={theme.palette.getContrastText(theme.palette.background.default)}
-          style={{ display: 'inline', fontWeight: 700 }}
+          style={{ display: 'inline', fontWeight: 500 }}
         >
           Total LOS: {formatMinutes(totalMinutes)} mins
         </Typography>
         <Typography
           variant="body2"
           color={theme.palette.getContrastText(theme.palette.background.default)}
-          style={{ display: 'inline', fontWeight: 700 }}
+          style={{ display: 'inline', fontWeight: 500 }}
           sx={{ whiteSpace: { md: 'nowrap', sm: 'normal' } }}
         >
           Estimated wait time at check-in:
@@ -469,12 +470,12 @@ export default function AppointmentTableRow({
         spanish: 'Estamos listos para atender al paciente; ingrese al centro.',
       },
       {
-        english: `Ottehr is trying to get ahold of you. Please call us at ${officePhoneNumber} or respond to this text message.`,
-        spanish: `Ottehr está intentando comunicarse con usted. Llámenos al ${officePhoneNumber} o responda a este mensaje de texto.`,
+        english: `${PROJECT_NAME} is trying to get ahold of you. Please call us at ${officePhoneNumber} or respond to this text message.`,
+        spanish: `${PROJECT_NAME} está intentando comunicarse con usted. Llámenos al ${officePhoneNumber} o responda a este mensaje de texto.`,
       },
       {
-        english: `Ottehr hopes you are feeling better. Please call us with any questions at ${officePhoneNumber}.`,
-        spanish: `Ottehr espera que se sienta mejor. Llámenos si tiene alguna pregunta al ${officePhoneNumber}.`,
+        english: `${PROJECT_NAME} hopes you are feeling better. Please call us with any questions at ${officePhoneNumber}.`,
+        spanish: `${PROJECT_NAME} espera que se sienta mejor. Llámenos si tiene alguna pregunta al ${officePhoneNumber}.`,
       },
     ];
   }, [appointment.id, appointment.patient.firstName, officePhoneNumber]);
@@ -774,7 +775,7 @@ export default function AppointmentTableRow({
               borderRadius: 8,
               textTransform: 'none',
               fontSize: '15px',
-              fontWeight: '700',
+              fontWeight: 500,
             }}
           >
             Arrived

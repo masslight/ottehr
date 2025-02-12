@@ -11,6 +11,7 @@ import {
   JoinCallInput,
   JoinCallResponse,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
+  PROJECT_WEBSITE,
   SecretsKeys,
   TELEMED_VIDEO_ROOM_CODE,
   ZambdaInput,
@@ -65,7 +66,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     let isInvitedParticipant = false;
     let user: User | undefined;
     try {
-      if (claims.iss === 'https://ottehr.com') {
+      if (claims.iss === PROJECT_WEBSITE) {
         isInvitedParticipant = true;
         const secret = new TextEncoder().encode(telemedClientSecret);
         await jwtVerify(jwt, secret, {

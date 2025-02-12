@@ -4,6 +4,7 @@ import { createOystehrClient } from '../src/shared/helpers';
 import { randomUUID } from 'crypto';
 import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import { Location, Practitioner, PractitionerRole } from 'fhir/r4b';
+import { FHIR_BASE_URL } from 'utils';
 
 const directorsAreSame = (practitioner1: Practitioner, practitioner2: Practitioner | undefined): boolean => {
   if (!practitioner1 || !practitioner2) {
@@ -119,11 +120,11 @@ const copyLocations = async (fromConfig: any, toConfig: any, isDryRun = true): P
         params: [
           {
             name: 'identifier',
-            value: 'https://fhir.ottehr.com/r4/practitioner-role|ip-medical-director',
+            value: `${FHIR_BASE_URL}/r4/practitioner-role|ip-medical-director`,
           },
           {
             name: 'location.identifier',
-            value: `https://fhir.ottehr.com/r4/facility-name|`,
+            value: `${FHIR_BASE_URL}/r4/facility-name|`,
           },
           {
             name: '_include',
@@ -138,11 +139,11 @@ const copyLocations = async (fromConfig: any, toConfig: any, isDryRun = true): P
         params: [
           {
             name: 'identifier',
-            value: 'https://fhir.ottehr.com/r4/practitioner-role|ip-medical-director',
+            value: `${FHIR_BASE_URL}/r4/practitioner-role|ip-medical-director`,
           },
           {
             name: 'location.identifier',
-            value: `https://fhir.ottehr.com/r4/facility-name|`,
+            value: `${FHIR_BASE_URL}/r4/facility-name|`,
           },
           {
             name: '_include',

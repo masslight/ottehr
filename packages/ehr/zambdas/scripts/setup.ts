@@ -3,7 +3,7 @@ import { exec } from 'child_process';
 import { FhirResource, Organization } from 'fhir/r4b';
 import fs from 'fs';
 import path from 'path';
-import { ScheduleStrategyCoding, TIMEZONE_EXTENSION_URL } from 'utils';
+import { FHIR_BASE_URL, ScheduleStrategyCoding, TIMEZONE_EXTENSION_URL } from 'utils';
 import { inviteUser } from './invite-user';
 import { promisify } from 'node:util';
 
@@ -185,7 +185,7 @@ export async function setupEHR(
     ],
     identifier: [
       {
-        system: 'https://fhir.ottehr.com/r4/slug',
+        system: FHIR_BASE_URL + '/r4/slug',
         value: 'SeldenNY',
       },
     ],

@@ -13,8 +13,7 @@ import {
 } from '@mui/material';
 import { HealthcareService, Location, Practitioner } from 'fhir/r4b';
 import React, { Dispatch, MouseEventHandler, ReactElement, SetStateAction, useState } from 'react';
-import { otherColors } from '../../CustomThemeProvider';
-
+import { otherColors } from '@theme/colors';
 interface ScheduleOverridesDialogProps {
   item: Location | Practitioner | HealthcareService;
   setItem: React.Dispatch<React.SetStateAction<Location | Practitioner | HealthcareService | undefined>>;
@@ -31,7 +30,7 @@ export default function ScheduleOverridesDialog({
   setIsScheduleOverridesDialogOpen,
 }: ScheduleOverridesDialogProps): ReactElement {
   const buttonSx = {
-    fontWeight: '700',
+    fontWeight: 500,
     textTransform: 'none',
     borderRadius: 6,
   };

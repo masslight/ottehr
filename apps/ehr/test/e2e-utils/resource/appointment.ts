@@ -61,7 +61,7 @@ export function createAppointment({
     meta: {
       tag: [
         {
-          code: 'OTTEHR-IP',
+          code: 'IN-PERSON',
         },
         {
           system: 'created-by',

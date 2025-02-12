@@ -14,7 +14,7 @@ import {
 } from 'fhir/r4';
 import { DateTime } from 'luxon';
 import {
-  OTTEHR_MODULE,
+  PROJECT_MODULE,
   UCAppointmentInformation,
   SMSModel,
   SMSRecipient,
@@ -75,9 +75,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             resourceId: locationID,
             resourceType: 'Location',
           });
-          timezone = fhirLocation?.extension?.find(
-            (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL,
-          )?.valueString;
+          timezone = fhirLocation?.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL)
+            ?.valueString;
           if (timezone) {
             timezoneMap.set(locationID, timezone);
           }
@@ -96,7 +95,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const encounterSearchParams = [
       { name: '_count', value: '1000' },
       { name: '_include', value: 'Encounter:appointment' },
-      { name: 'appointment._tag', value: OTTEHR_MODULE.UC },
+      { name: 'appointment._tag', value: PROJECT_MODULE.UC },
       { name: 'status:not', value: 'planned' },
       { name: 'status:not', value: 'finished' },
       { name: 'status:not', value: 'cancelled' },

@@ -316,7 +316,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         sx={{
           border: 0,
           '.MuiDataGrid-columnHeaderTitle': {
-            fontWeight: 700,
+            fontWeight: 500,
           },
         }}
       />

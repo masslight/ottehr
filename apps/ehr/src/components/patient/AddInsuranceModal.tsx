@@ -21,10 +21,10 @@ import { useForm, Controller } from 'react-hook-form';
 import { v4 as uuid } from 'uuid';
 import { coverageFieldPaths, InsurancePlanDTO, relatedPersonFieldPaths, SUBSCRIBER_RELATIONSHIP_CODE_MAP } from 'utils';
 import { STATE_OPTIONS } from '../../constants';
-import { otherColors } from '../../CustomThemeProvider';
 import { BasicDatePicker as DatePicker, Option } from '../form';
 import { RELATIONSHIP_TO_INSURED } from '../../rcm/utils/resources.helper';
 import { usePatientStore } from '../../state/patient.store';
+import { otherColors } from '@theme/colors';
 
 interface AddInsuranceModalProps {
   open: boolean;

@@ -15,12 +15,12 @@ import {
 import { FC, ReactElement, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TelemedAppointmentInformation, TelemedAppointmentStatusEnum, calculatePatientAge } from 'utils';
-import { otherColors } from '../../../CustomThemeProvider';
 import ChatModal from '../../../features/chat/ChatModal';
 import { formatDateUsingSlashes } from '../../../helpers/formatDateTime';
 import { AppointmentStatusChip, StatusHistory } from '../../components';
 import { quickTexts } from '../../utils';
 import { TrackingBoardTableButton } from './TrackingBoardTableButton';
+import { otherColors } from '@theme/colors';
 
 interface AppointmentTableProps {
   appointment: TelemedAppointmentInformation;
@@ -377,7 +377,7 @@ export const TrackingBoardTableRowSkeleton: FC<{
                 variant="contained"
                 sx={{
                   fontSize: '15px',
-                  fontWeight: '700',
+                  fontWeight: 500,
                 }}
               >
                 text

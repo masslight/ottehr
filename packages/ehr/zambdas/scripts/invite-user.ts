@@ -7,7 +7,7 @@ import {
   PROVIDER_RULES,
   PRESCRIBER_RULES,
 } from '../src/shared';
-import { AllStatesValues, PractitionerLicense, TIMEZONE_EXTENSION_URL } from 'utils';
+import { AllStatesValues, PractitionerLicense, SLUG_SYSTEM, TIMEZONE_EXTENSION_URL } from 'utils';
 import { makeQualificationForPractitioner } from '../src/shared/practitioners';
 import Oystehr, { AccessPolicy, Role, RoleListItem } from '@oystehr/sdk';
 
@@ -169,7 +169,7 @@ export async function inviteUser(
         value: DEFAULTS.npi,
         system: 'http://hl7.org/fhir/sid/us-npi',
       },
-      { system: 'https://fhir.ottehr.com/r4/slug', value: slug },
+      { system: SLUG_SYSTEM, value: slug },
     ],
     name: [{ family: lastName, given: [firstName] }],
     telecom: [

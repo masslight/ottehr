@@ -228,7 +228,7 @@ export const PatientFollowupEncountersGrid: FC<PatientEncountersGridProps> = (pr
         sx={{
           border: 0,
           '.MuiDataGrid-columnHeaderTitle': {
-            fontWeight: 700,
+            fontWeight: 500,
           },
           cursor: 'pointer',
         }}
