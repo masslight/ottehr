@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import { ReactElement, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { dataTestIds } from '../constants/data-test-ids';
+import { TextFieldProps } from '@mui/material';
 
 export type CustomFormEventHandler = (event: React.FormEvent<HTMLFormElement>, value: any, field: string) => void;
 
@@ -23,6 +24,7 @@ interface DateSearchProps {
   handleSubmit?: CustomFormEventHandler;
   small?: boolean;
   setIsValidDate?: (isValid: boolean) => void;
+  'data-testid'?: string;
 }
 
 export default function DateSearch({
@@ -40,6 +42,7 @@ export default function DateSearch({
   handleSubmit,
   small,
   setIsValidDate: setValidDate,
+  'data-testid': dataTestId,
 }: DateSearchProps): ReactElement {
   const [error, setError] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -95,7 +98,8 @@ export default function DateSearch({
             id: 'appointment-date',
             label: label ?? 'Date',
             size: small ? 'small' : 'medium',
-          },
+            'data-testid': dataTestId,
+          } as TextFieldProps,
           actionBar: {
             actions: ['today'],
             // @ts-expect-error - that's valid field
