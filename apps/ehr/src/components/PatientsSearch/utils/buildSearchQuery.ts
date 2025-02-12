@@ -6,9 +6,9 @@ export const buildSearchQuery = (filter: Partial<SearchOptionsFilters>): string 
 
   if (filter.location && filter.location !== 'All') {
     params.push(`_has:Appointment:patient:actor:Location.name:contains=${encodeURIComponent(filter.location)}`);
-    params.push('_revinclude=Appointment:patient');
-    params.push('_include:iterate=Appointment:actor:Location');
   }
+  params.push('_revinclude=Appointment:patient');
+  params.push('_include:iterate=Appointment:actor:Location');
 
   if (filter.phone) {
     const digits = filter.phone.replace(/\D/g, '');
