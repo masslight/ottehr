@@ -4,6 +4,10 @@
   "bin": {
     "deploy-test": "bin/deploy-test.js"
   },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
   "scripts": {
     "build": "",
     "watch": "tsc -w",
