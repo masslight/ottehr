@@ -132,7 +132,7 @@ export const Header = (): JSX.Element => {
             </Grid>
             <Grid item xs>
               <PatientInfoWrapper>
-                <PatientName>{patientName}</PatientName>
+                <PatientName data-testid={dataTestIds.cssHeader.patientName}>{patientName}</PatientName>
                 <PatientMetadata sx={{ fontWeight: 700 }}>{dob}</PatientMetadata> |
                 <PatientMetadata
                   noWrap

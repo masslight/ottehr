@@ -63,7 +63,7 @@ test('Happy path: set up filters and navigate to visit page', async ({ page }) =
   await expect(
     page
       .getByTestId(dataTestIds.dashboard.tableRowWrapper(resourceHandler.appointment.id!))
-      .locator(`button[data-testid="${dataTestIds.dashboard.intakeButton(resourceHandler.appointment.id!)}"]`)
+      .locator(`button[data-testid="${dataTestIds.dashboard.intakeButton}"]`)
   ).toBeAttached({ timeout: 15000 });
 
   // GOTO VISIT PAGE
