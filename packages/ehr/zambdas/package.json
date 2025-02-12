@@ -36,7 +36,7 @@
     "test": "vitest --silent"
   },
   "engines": {
-    "node": ">=18.0.0",
+    "node": ">=20.0.0",
     "npm": ">=9.0.0"
   },
   "dependencies": {
@@ -50,7 +50,6 @@
   },
   "devDependencies": {
     "@types/luxon": "^3.3.2",
-    "esbuild": "^0.18.14",
-    "serverless-esbuild": "^1.48.0"
+    "esbuild": "^0.18.14"
   }
 }
