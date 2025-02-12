@@ -1,6 +1,8 @@
-import { WaitingRoomInput, ZambdaInput } from 'utils';
+import { WaitingRoomInput } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
+import { Secrets } from 'zambda-utils';
 
-export function validateRequestParameters(input: ZambdaInput): WaitingRoomInput {
+export function validateRequestParameters(input: ZambdaInput): WaitingRoomInput & { secrets: Secrets | null } {
   if (!input.body) {
     throw new Error('No request body provided');
   }

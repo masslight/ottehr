@@ -38,7 +38,7 @@ import {
 } from '../shared/chart-data/chart-data-helpers';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
 import { deleteZ3Object } from '../shared/z3Utils';
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 import { deleteResourceRequest, getEncounterAndRelatedResources } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

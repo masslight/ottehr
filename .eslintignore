@@ -9,3 +9,4 @@ vite-env.d.ts
 build/
 dist/
 .esbuild/
+old-ottehr/

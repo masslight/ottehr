@@ -8,20 +8,21 @@ import {
   getQuestionnaireResponseByLinkId,
   mapStatusToTelemed,
 } from 'utils';
+import { SecretsKeys, getSecret } from 'zambda-utils';
 
+import { ZambdaInput } from 'zambda-utils';
 import { getChartData } from '../get-chart-data';
-import { SecretsKeys, getSecret, parseCreatedResourcesBundle, saveResourceRequest } from '../shared';
+import { parseCreatedResourcesBundle, saveResourceRequest } from '../shared';
+import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../shared/candid';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
 import { getVideoResources } from '../shared/pdf/visit-details-pdf/get-video-resources';
+import { makeVisitNotePdfDocumentReference } from '../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
+import { composeAndCreateVisitNotePdf } from '../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { getMyPractitionerId } from '../shared/practitioners';
-import { ZambdaInput } from '../types';
 import { getInsurancePlan } from './helpers/fhir-utils';
 import { changeStatusIfPossible, makeAppointmentChargeItem, makeReceiptPdfDocumentReference } from './helpers/helpers';
 import { composeAndCreateReceiptPdf, getPaymentDataRequest, postChargeIssueRequest } from './helpers/payments';
 import { validateRequestParameters } from './validateRequestParameters';
-import { composeAndCreateVisitNotePdf } from '../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
-import { makeVisitNotePdfDocumentReference } from '../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
-import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../shared/candid';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;

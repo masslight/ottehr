@@ -1,13 +1,14 @@
 import {
-  GetEligibilityInput,
   GetEligibilityInsuranceData,
+  GetEligibilityParameters,
   GetEligibilityPolicyHolder,
   InsurancePlanDTO,
   isValidUUID,
-  ZambdaInput,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
+import { Secrets } from 'zambda-utils';
 
-export function validateRequestParameters(input: ZambdaInput): GetEligibilityInput {
+export function validateRequestParameters(input: ZambdaInput): GetEligibilityParameters & { secrets: Secrets | null } {
   if (!input.body) {
     throw new Error('No request body provided');
   }
@@ -19,7 +20,7 @@ export function validateRequestParameters(input: ZambdaInput): GetEligibilityInp
     primaryPolicyHolder,
     secondaryInsuranceData,
     secondaryPolicyHolder,
-  } = JSON.parse(input.body) as GetEligibilityInput;
+  } = JSON.parse(input.body) as ReturnType<typeof validateRequestParameters>;
 
   if (!appointmentId || !isValidUUID(appointmentId)) {
     throw new Error('Parameter "appointmentId" must be included in input body and be a valid UUID.');

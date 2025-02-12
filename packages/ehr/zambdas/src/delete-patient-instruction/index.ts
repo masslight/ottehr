@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication } from 'fhir/r4b';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mtoken: string;

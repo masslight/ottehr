@@ -1,20 +1,19 @@
-import '../../../instrument.mjs';
 import { wrapHandler } from '@sentry/aws-serverless';
-import { captureSentryException, configSentry } from '../../shared';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Appointment as FhirAppointment, Location, Patient, QuestionnaireResponse, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  VisitStatusLabel,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   SLUG_SYSTEM,
-  Secrets,
-  ZambdaInput,
-  getVisitStatus,
+  VisitStatusLabel,
   getPatientsForUser,
-  topLevelCatch,
+  getVisitStatus,
 } from 'utils';
-import { getAccessToken, getUser } from '../../shared/auth';
+import { ZambdaInput } from 'zambda-utils';
+import { Secrets, topLevelCatch } from 'zambda-utils';
+import '../../../instrument.mjs';
+import { captureSentryException, configSentry, getAuth0Token } from '../../shared';
+import { getUser } from '../../shared/auth';
 import { checkPaperworkComplete, createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -55,7 +54,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     if (!zapehrToken) {
       console.log('getting token');
-      zapehrToken = await getAccessToken(secrets);
+      zapehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }

@@ -2,16 +2,16 @@ import { useAuth0 } from '@auth0/auth0-react';
 import {
   Appointment,
   Bundle,
+  Coding,
   DocumentReference,
   Encounter,
   FhirResource,
   InsurancePlan,
   Location,
+  Medication,
   Patient,
   QuestionnaireResponse,
   RelatedPerson,
-  Coding,
-  Medication,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
@@ -21,6 +21,7 @@ import {
   ChartDataRequestedFields,
   GetMedicationOrdersResponse,
   INVENTORY_MEDICATION_TYPE_CODE,
+  IcdSearchRequestParams,
   InstructionType,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MeetingData,
@@ -33,14 +34,13 @@ import {
   createSmsModel,
   filterResources,
   relatedPersonAndCommunicationMaps,
-  IcdSearchRequestParams,
 } from 'utils';
 import { APPOINTMENT_REFRESH_INTERVAL, CHAT_REFETCH_INTERVAL, QUERY_STALE_TIME } from '../../../constants';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { useAuthToken } from '../../../hooks/useAuthToken';
 import useEvolveUser, { EvolveUser } from '../../../hooks/useEvolveUser';
 import { getSelectors } from '../../../shared/store/getSelectors';
-import { PromiseReturnType, OystehrTelemedAPIClient } from '../../data';
+import { OystehrTelemedAPIClient, PromiseReturnType } from '../../data';
 import { useGetAppointmentAccessibility } from '../../hooks';
 import { useZapEHRAPIClient } from '../../hooks/useOystehrAPIClient';
 import { createRefreshableAppointmentData, extractReviewAndSignAppointmentData } from '../../utils';

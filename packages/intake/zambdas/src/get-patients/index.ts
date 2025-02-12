@@ -1,9 +1,10 @@
-import '../../instrument.mjs';
 import { wrapHandler } from '@sentry/aws-serverless';
-import { captureSentryException, configSentry } from '../shared';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { PatientInfo, Secrets, ZambdaInput, getPatientsForUser, topLevelCatch } from 'utils';
-import { getAccessToken } from '../shared';
+import { PatientInfo, getPatientsForUser } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
+import { Secrets, topLevelCatch } from 'zambda-utils';
+import '../../instrument.mjs';
+import { captureSentryException, configSentry, getAuth0Token } from '../shared';
 import { getUser } from '../shared/auth';
 import { createOystehrClient } from '../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -27,7 +28,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     if (!zapehrToken) {
       console.log('getting token');
-      zapehrToken = await getAccessToken(secrets);
+      zapehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }

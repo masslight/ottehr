@@ -1,5 +1,5 @@
 import { Coding, Practitioner } from 'fhir/r4b';
-import { Secrets } from 'utils';
+import { Secrets } from 'zambda-utils';
 
 export interface UnassignPractitionerInput {
   encounterId: string;

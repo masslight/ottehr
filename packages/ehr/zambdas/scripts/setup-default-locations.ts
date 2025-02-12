@@ -14,11 +14,11 @@ import {
   filterVirtualLocations,
   getPatchBinary,
   getResourcesFromBatchInlineRequests,
-  performEffectWithEnvFile,
   removeOperation,
   replaceOperation,
   VirtualLocationBody,
 } from 'utils';
+import { performEffectWithEnvFile } from 'zambda-utils';
 import { createOystehrClientFromConfig } from './helpers';
 // Create Locations
 

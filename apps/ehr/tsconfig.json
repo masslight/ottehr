@@ -4,5 +4,5 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false
   },
-  "include": ["src", "test", "playwright.config.ts", "setup-test-deps.js", "auth.setup.js", "test", "vitest.config.ts"]
+  "include": ["src"]
 }

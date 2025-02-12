@@ -15,7 +15,8 @@ import {
   Resource,
   Substance,
 } from 'fhir/r4b';
-import { createOystehrClientFromSecrets, Secrets } from 'utils';
+import { createOystehrClient } from 'utils';
+import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 import { getAuth0Token } from '../src/shared';
 
 export const fhirApiUrlFromAuth0Audience = (auth0Audience: string): string => {
@@ -209,3 +210,9 @@ export const createOystehrClientFromConfig = async (config: Secrets): Promise<Oy
   if (!token) throw new Error('Failed to fetch auth token.');
   return createOystehrClientFromSecrets(token, config);
 };
+
+function createOystehrClientFromSecrets(token: string, secrets: Secrets | null): Oystehr {
+  const FHIR_API = getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, '');
+  const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
+  return createOystehrClient(token, FHIR_API, PROJECT_API);
+}

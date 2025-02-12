@@ -2,7 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication } from 'fhir/r4b';
 import { makeCommunicationDTO } from '../shared/chart-data/chart-data-helpers';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 import { checkIfProvidersInstruction, createCommunicationResource, updateCommunicationResource } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

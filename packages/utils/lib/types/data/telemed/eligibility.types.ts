@@ -1,9 +1,3 @@
-import { Secrets } from '../../../secrets';
-
-interface LambdaSecrets {
-  secrets: Secrets | null;
-}
-
 export interface GetEligibilityInsuranceData {
   insuranceId: string;
   memberId: string;
@@ -33,8 +27,6 @@ export interface GetEligibilityParameters {
   secondaryInsuranceData?: GetEligibilityInsuranceData;
   secondaryPolicyHolder?: GetEligibilityPolicyHolder;
 }
-
-export type GetEligibilityInput = GetEligibilityParameters & LambdaSecrets;
 
 export type GetEligibilityResponse = {
   eligible: boolean;

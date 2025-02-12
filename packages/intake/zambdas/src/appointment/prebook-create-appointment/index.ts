@@ -38,17 +38,16 @@ import {
   PatientInfo,
   REASON_MAXIMUM_CHAR_LIMIT,
   ScheduleType,
-  Secrets,
   ServiceMode,
-  topLevelCatch,
   userHasAccessToPatient,
   VisitType,
-  ZambdaInput,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
+import { Secrets, topLevelCatch } from 'zambda-utils';
 import '../../../instrument.mjs';
-import { captureSentryException, configSentry } from '../../shared';
+import { captureSentryException, configSentry, getAuth0Token } from '../../shared';
 import { generatePatientRelatedRequests } from '../../shared/appointment';
-import { getAccessToken, getUser } from '../../shared/auth';
+import { getUser } from '../../shared/auth';
 import { createOystehrClient } from '../../shared/helpers';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAuditLog';
 import {
@@ -76,7 +75,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const isEHRUser = !user.name.startsWith('+');
     if (!zapehrToken) {
       console.log('getting token');
-      zapehrToken = await getAccessToken(input.secrets);
+      zapehrToken = await getAuth0Token(input.secrets);
     } else {
       console.log('already have token');
     }

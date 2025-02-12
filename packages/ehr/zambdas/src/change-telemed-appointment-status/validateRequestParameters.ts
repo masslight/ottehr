@@ -1,6 +1,5 @@
 import { ChangeTelemedAppointmentStatusInput, TelemedCallStatusesArr } from 'utils';
-import { SecretsKeys, getSecret } from '../shared';
-import { ZambdaInput } from '../types';
+import { getSecret, SecretsKeys, ZambdaInput } from 'zambda-utils';
 
 export function validateRequestParameters(
   input: ZambdaInput

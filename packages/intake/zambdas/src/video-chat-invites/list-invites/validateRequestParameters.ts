@@ -1,4 +1,5 @@
-import { ListInvitedParticipantsInput, ZambdaInput } from 'utils';
+import { ListInvitedParticipantsInput } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 
 export function validateRequestParameters(input: ZambdaInput): ListInvitedParticipantsInput {
   if (!input.body) {

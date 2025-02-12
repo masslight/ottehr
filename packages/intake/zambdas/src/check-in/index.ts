@@ -10,14 +10,13 @@ import {
   getCriticalUpdateTagOp,
   getPatchBinary,
   getTaskResource,
-  Secrets,
-  topLevelCatch,
   TaskIndicator,
-  ZambdaInput,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
+import { Secrets, topLevelCatch } from 'zambda-utils';
 import '../../instrument.mjs';
-import { captureSentryException, configSentry } from '../shared';
-import { getAccessToken, getUser } from '../shared/auth';
+import { captureSentryException, configSentry, getAuth0Token } from '../shared';
+import { getUser } from '../shared/auth';
 import {
   checkPaperworkComplete,
   createOystehrClient,
@@ -54,7 +53,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     if (!zapehrToken) {
       console.log('getting token');
-      zapehrToken = await getAccessToken(secrets);
+      zapehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }

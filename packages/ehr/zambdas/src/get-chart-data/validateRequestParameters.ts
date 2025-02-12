@@ -1,5 +1,5 @@
 import { GetChartDataRequest } from 'utils';
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 
 export function validateRequestParameters(input: ZambdaInput): GetChartDataRequest & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {

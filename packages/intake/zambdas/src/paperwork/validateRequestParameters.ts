@@ -2,11 +2,11 @@ import { QuestionnaireResponseItem, QuestionnaireResponse } from 'fhir/r4b';
 import {
   PatchPaperworkParameters,
   QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
-  ZambdaInput,
   getQuestionnaireItemsAndProgress,
   makeValidationSchema,
   recursiveGroupTransform,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import Oystehr from '@oystehr/sdk';
 import { ValidationError } from 'yup';
 

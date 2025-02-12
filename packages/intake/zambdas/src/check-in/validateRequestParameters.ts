@@ -1,4 +1,5 @@
-import { ZambdaInput } from 'utils';
+import {} from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { CheckInInput } from '.';
 
 // Note that this file is copied from BH and needs significant changes

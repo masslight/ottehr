@@ -6,6 +6,8 @@ import App from './App';
 import './index.css';
 import './lib/i18n';
 
+window.global ||= window; // https://stackoverflow.com/questions/72795666/how-to-fix-vite-build-parser-error-unexpected-token-in-third-party-dependenc
+
 // polyfill for fixing missing hasOwn Object property in some browsers
 // https://www.npmjs.com/package/object.hasown
 if (!Object.hasOwn) {

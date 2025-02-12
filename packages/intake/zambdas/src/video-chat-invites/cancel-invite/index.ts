@@ -2,17 +2,11 @@ import { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, EncounterParticipant, RelatedPerson } from 'fhir/r4b';
 import { JSONPath } from 'jsonpath-plus';
+import { CancelInviteParticipantRequestInput, createOystehrClient, getAppointmentResourceById } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
+import { SecretsKeys, getSecret, lambdaResponse } from 'zambda-utils';
 import {
-  CancelInviteParticipantRequestInput,
-  SecretsKeys,
-  ZambdaInput,
-  createOystehrClient,
-  getAppointmentResourceById,
-  getSecret,
-  lambdaResponse,
-} from 'utils';
-import {
-  getM2MClientToken,
+  getAuth0Token,
   getUser,
   getVideoEncounterForAppointment,
   searchInvitedParticipantResourcesByEncounterId,
@@ -55,7 +49,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!zapehrToken) {
       console.log('getting m2m token for service calls');
-      zapehrToken = await getM2MClientToken(secrets); // keeping token externally for reuse
+      zapehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
     } else {
       console.log('already have a token, no need to update');
     }

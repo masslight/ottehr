@@ -1,7 +1,10 @@
 import { GetTelemedAppointmentsInput } from 'utils';
-import { ZambdaInput } from '../types';
+import { Secrets } from 'zambda-utils';
+import { ZambdaInput } from 'zambda-utils';
 
-export function validateRequestParameters(input: ZambdaInput): GetTelemedAppointmentsInput {
+export function validateRequestParameters(
+  input: ZambdaInput
+): GetTelemedAppointmentsInput & { secrets: Secrets | null } {
   console.group('validateRequestParameters');
 
   if (!input.body) {

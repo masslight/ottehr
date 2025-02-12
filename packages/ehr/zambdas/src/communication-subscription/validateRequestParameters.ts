@@ -1,4 +1,4 @@
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 import { CommunicationSubscriptionInput } from '.';
 import { Communication } from 'fhir/r4b';
 

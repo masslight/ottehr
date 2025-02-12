@@ -1,4 +1,3 @@
-import { Secrets } from '../../secrets';
 import {
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
@@ -8,7 +7,7 @@ import {
   PHOTO_ID_FRONT_ID,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_WORK_ID,
-} from '../../types';
+} from '../../data';
 
 export interface GetPresignedFileURLInput {
   appointmentID: string;
@@ -22,5 +21,9 @@ export interface GetPresignedFileURLInput {
     | typeof SCHOOL_WORK_NOTE_SCHOOL_ID
     | typeof SCHOOL_WORK_NOTE_WORK_ID;
   fileFormat: 'pdf' | 'jpg' | 'jpeg' | 'png';
-  secrets: Secrets | null;
+}
+
+export interface PresignUploadUrlResponse {
+  presignedURL: string;
+  z3URL: string;
 }

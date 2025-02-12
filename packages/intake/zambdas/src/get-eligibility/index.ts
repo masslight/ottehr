@@ -20,20 +20,17 @@ import {
   ELIGIBILITY_FAILED_REASON_META_TAG,
   ELIGIBILITY_PRACTITIONER_META_TAG_PREFIX,
   ELIGIBILITY_RELATED_PERSON_META_TAG,
-  GetEligibilityInput,
   GetEligibilityInsuranceData,
   GetEligibilityPolicyHolder,
   INSURANCE_COVERAGE_CODING,
   InsurancePlanDTO,
   PRIVATE_EXTENSION_BASE_URL,
-  SecretsKeys,
-  ZambdaInput,
   createOystehrClient,
-  getSecret,
-  lambdaResponse,
   removeTimeFromDate,
 } from 'utils';
-import { createInsurancePlanDto, createOrUpdateRelatedPerson, getM2MClientToken } from '../shared';
+import { ZambdaInput } from 'zambda-utils';
+import { SecretsKeys, getSecret, lambdaResponse } from 'zambda-utils';
+import { createInsurancePlanDto, createOrUpdateRelatedPerson, getAuth0Token } from '../shared';
 import { validateInsuranceRequirements, validateRequestParameters } from './validation';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -43,7 +40,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   let eligible = false;
   try {
     console.group('validateRequestParameters');
-    let validatedParameters: GetEligibilityInput;
+    let validatedParameters: ReturnType<typeof validateRequestParameters>;
     try {
       validatedParameters = validateRequestParameters(input);
     } catch (error: any) {
@@ -65,7 +62,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!zapehrToken) {
       console.log('getting token');
-      zapehrToken = await getM2MClientToken(secrets);
+      zapehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }

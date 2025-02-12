@@ -1,15 +1,13 @@
-window.global ||= window; // https://stackoverflow.com/questions/72795666/how-to-fix-vite-build-parser-error-unexpected-token-in-third-party-dependenc
-
 import { Container } from '@mui/material';
 import {
   DeviceLabels,
   GlobalStyles,
   MeetingProvider,
   lightTheme,
-  useMeetingManager,
+  useAudioInputs,
   useAudioVideo,
   useLocalVideo,
-  useAudioInputs,
+  useMeetingManager,
   useVideoInputs,
 } from 'amazon-chime-sdk-component-library-react';
 import { MeetingSessionConfiguration } from 'amazon-chime-sdk-js';
@@ -21,7 +19,7 @@ import { intakeFlowPageRoute } from '../../App';
 import { CallSideCard, LoadingSpinner } from '../components';
 import { useAppointmentStore } from '../features/appointments';
 import { CustomContainer, useIntakeCommonStore } from '../features/common';
-import { VideoRoom, useJoinCall, useVideoCallStore, useCallSettingsStore } from '../features/video-call';
+import { VideoRoom, useCallSettingsStore, useJoinCall, useVideoCallStore } from '../features/video-call';
 import { useZapEHRAPIClient } from '../utils';
 
 const VideoChatPage: FC = () => {

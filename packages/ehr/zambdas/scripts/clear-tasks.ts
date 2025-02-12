@@ -1,7 +1,7 @@
 import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { Task } from 'fhir/r4b';
 import fs from 'fs';
-import { Secrets } from 'utils';
+import { Secrets } from 'zambda-utils';
 import { getAuth0Token } from '../src/shared';
 import { fhirApiUrlFromAuth0Audience } from './helpers';
 

@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
-import { getAccessToken } from '../src/shared/auth';
 import fs from 'fs';
-import { Secrets } from 'utils';
+import { Secrets } from 'zambda-utils';
+import { getAuth0Token } from '../src/shared';
 
 const projectApiUrlFromAuth0Audience = (auth0Audience: string): string => {
   switch (auth0Audience) {
@@ -21,7 +21,7 @@ const projectApiUrlFromAuth0Audience = (auth0Audience: string): string => {
 };
 
 const setupSecrets = async (config: Secrets): Promise<void> => {
-  const token = await getAccessToken(config);
+  const token = await getAuth0Token(config);
 
   if (!token) {
     throw new Error('Failed to fetch auth token.');

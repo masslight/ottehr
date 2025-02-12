@@ -1,12 +1,8 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
 import { Appointment, Extension, QuestionnaireResponse, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { Secrets } from '../secrets';
-import { getSecret } from '../secrets';
-import { SecretsKeys } from '../secrets';
 import { OTTEHR_MODULE } from '../fhir';
 import { UpdateQuestionnaireResponseParams } from '../types';
-import path from 'path';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -17,12 +13,6 @@ export function createOystehrClient(token: string, fhirAPI: string, projectAPI: 
   };
   console.log('creating fhir client');
   return new Oystehr(CLIENT_CONFIG);
-}
-
-export function createOystehrClientFromSecrets(token: string, secrets: Secrets | null): Oystehr {
-  const FHIR_API = getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, '');
-  const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
-  return createOystehrClient(token, FHIR_API, PROJECT_API);
 }
 
 export function getParticipantIdFromAppointment(
@@ -399,17 +389,3 @@ export function updateQuestionnaireResponse({
     ],
   };
 }
-export const performEffectWithEnvFile = async (
-  pkg: 'intake' | 'ehr',
-  callback: (config: any) => void
-): Promise<void> => {
-  const env = process.argv[2];
-  try {
-    const configPath = path.resolve(__dirname, `../../../${pkg}/zambdas/.env/${env}.json`);
-    const config = await import(configPath);
-    await callback(config);
-  } catch (e) {
-    console.error(e);
-    throw new Error(`can't import config for the environment: '${env}'`);
-  }
-};

@@ -4,17 +4,17 @@ import {
   getDosageUnitsAndRouteOfMedication,
   getLocationCodeFromMedicationAdministration,
   getMedicationName,
+  getResourcesFromBatchInlineRequests,
   INVENTORY_MEDICATION_TYPE_CODE,
   MedicationData,
   OrderPackage,
   removePrefix,
   searchMedicationLocation,
   searchRouteByCode,
-  Secrets,
 } from 'utils';
-import { getResourcesFromBatchInlineRequests } from 'utils';
+import { Secrets } from 'zambda-utils';
 import { createOystehrClient } from '../shared/helpers';
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 import { createMedicationAdministrationResource } from './fhir-recources-creation';
 import { ExtendedMedicationData } from './index';
 

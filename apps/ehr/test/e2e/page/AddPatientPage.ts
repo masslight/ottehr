@@ -58,7 +58,7 @@ export class AddPatientPage {
     const locator = this.#page.locator('[placeholder="MM/DD/YYYY"]');
     await locator.click();
     await this.#page.waitForTimeout(2000);
-    await locator.pressSequentially(dateOfBirth);
+    await locator.fill(dateOfBirth);
   }
 
   async selectSexAtBirth(sexAtBirth: string): Promise<void> {

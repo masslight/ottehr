@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
-import { zapehrApi } from '../api';
 import { DateTime } from 'luxon';
+import { useEffect } from 'react';
 import { ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
+import { zapehrApi } from '../api';
 
 // Update last active time for paperwork-in-progress flag every minute
 export function useSetLastActiveTime(
@@ -10,7 +10,7 @@ export function useSetLastActiveTime(
   zambdaClient: ZambdaClient | null
 ): void {
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
     try {
       if (zambdaClient && appointmentID && paperworkPage) {
         interval = setInterval(async () => {

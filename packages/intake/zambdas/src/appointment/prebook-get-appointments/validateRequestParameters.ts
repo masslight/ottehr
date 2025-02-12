@@ -1,4 +1,5 @@
-import { ZambdaInput } from 'utils';
+import {} from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { GetPatientsInput } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): GetPatientsInput {

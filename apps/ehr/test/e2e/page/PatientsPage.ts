@@ -16,7 +16,7 @@ export class PatientsPage {
     const locator = this.#page.getByTestId(dataTestIds.patients.searchByDateOfBirthField).locator('input');
     await locator.click();
     await this.#page.waitForTimeout(2000);
-    await locator.pressSequentially(dateOfBirth);
+    await locator.fill(dateOfBirth);
   }
 
   async searchByMobilePhone(phone: string): Promise<void> {

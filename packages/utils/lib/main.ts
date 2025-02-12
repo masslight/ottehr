@@ -2,8 +2,6 @@ export * from './auth';
 export * from './fhir';
 export * from './frontend';
 export * from './helpers';
-export * from './lambda';
-export * from './secrets';
 export * from './store';
 export * from './telemed';
 export * from './types';

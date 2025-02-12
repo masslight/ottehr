@@ -1,4 +1,4 @@
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 import { DeleteChartDataRequest } from 'utils';
 
 export function validateRequestParameters(input: ZambdaInput): DeleteChartDataRequest & Pick<ZambdaInput, 'secrets'> {

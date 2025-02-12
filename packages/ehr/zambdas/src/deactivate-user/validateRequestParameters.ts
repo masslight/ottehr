@@ -1,4 +1,4 @@
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 import { DeactivateUserInput } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): DeactivateUserInput {

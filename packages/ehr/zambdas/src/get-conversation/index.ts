@@ -3,7 +3,6 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle, Communication, Device, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  Secrets,
   chunkThings,
   getFirstName,
   getFullestAvailableName,
@@ -11,10 +10,11 @@ import {
   getMessageFromComm,
   getMessageHasBeenRead,
 } from 'utils';
-import { SecretsKeys, getAuth0Token, getSecret } from '../shared';
+import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
+import { getAuth0Token } from '../shared';
 import { topLevelCatch } from '../shared/errors';
 import { createOystehrClient } from '../shared/helpers';
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 
 export interface GetConversationInput {
   secrets: Secrets | null;

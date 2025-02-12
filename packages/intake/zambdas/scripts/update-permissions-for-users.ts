@@ -1,9 +1,9 @@
-import fetch from 'node-fetch';
-import { getAccessToken } from '../src/shared/auth';
 import fs from 'fs';
+import fetch from 'node-fetch';
+import { getAuth0Token } from '../src/shared';
 
 const updatePermissionsFromZambdaList = async (zambdaList: string[], config: any): Promise<void> => {
-  const auth0Token = await getAccessToken(config);
+  const auth0Token = await getAuth0Token(config);
   if (auth0Token === null) {
     throw new Error('could not get Auth0 token');
   }

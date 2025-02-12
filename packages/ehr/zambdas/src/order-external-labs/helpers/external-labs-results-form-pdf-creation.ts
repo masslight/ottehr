@@ -1,5 +1,5 @@
 // import { AppointmentPackage } from '../../change-telemed-appointment-status/helpers/types';
-// import { GetChartDataResponse, getQuestionnaireResponseByLinkId, Secrets, getProviderNameWithProfession } from 'utils';
+// import {  GetChartDataResponse, getQuestionnaireResponseByLinkId, getProviderNameWithProfession  } from 'utils';
 // import { Patient } from 'fhir/r4';
 // import { DateTime } from 'luxon';
 // import { PdfInfo } from '../../shared/pdf/pdf-utils';

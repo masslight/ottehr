@@ -1,13 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Appointment, Encounter, Practitioner, PractitionerRole } from 'fhir/r4b';
 import { AssignPractitionerInput, AssignPractitionerResponse } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
+import { getVisitResources } from '../shared/practitioner/helpers';
 import { getMyPractitionerId } from '../shared/practitioners';
-import { ZambdaInput } from '../types';
 import { assignPractitionerIfPossible } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-import { getVisitResources } from '../shared/practitioner/helpers';
-import { Encounter, Appointment, PractitionerRole, Practitioner } from 'fhir/r4b';
 
 let m2mtoken: string;
 
