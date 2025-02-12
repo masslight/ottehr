@@ -10,7 +10,6 @@ export class Locators {
   thankYouHeading: Locator;
   locationName: Locator;
   prebookSlotReviewScreen: Locator;
-  titleReviewScreen: Locator;
   titleVisitDetails: Locator;
   titlePatient: Locator;
   titleLocation: Locator;
@@ -76,12 +75,9 @@ export class Locators {
     this.confirmWalkInButton = page.getByRole('button', { name: 'Confirm this walk-in time' });
     this.thankYouHeading = page.getByRole('heading', { name: 'Thank you for choosing Ottehr!' });
     this.checkInHeading = page.getByRole('heading', { name: 'You are checked in!' });
-    // this.PCPHeading = page.getByRole('heading', { name: 'Primary Care Physician' });
-    // this.responsiblePartyHeading = page.getByRole('heading', { name: 'Responsible party information' });
     this.photoIDHeading = page.getByRole('heading', { name: 'Photo ID' });
     this.locationName = page.getByTestId(dataTestIds.locationNameReviewScreen);
     this.prebookSlotReviewScreen = page.getByTestId(dataTestIds.prebookSlotReviewScreen);
-    this.titleReviewScreen = page.getByRole('heading', { name: 'Review and submit' });
     this.titleVisitDetails = page.getByRole('heading', { name: 'Visit details' });
     this.titlePatient = page.getByText('Patient');
     this.titleLocation = page.getByText('Location');
