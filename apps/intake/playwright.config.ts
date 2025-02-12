@@ -35,7 +35,7 @@ export default defineConfig({
   },
   retries: process.env.CI ? 2 : 0,
   outputDir: 'test-results/',
-  workers: process.env.CI ? 3 : undefined,
+  workers: process.env.CI ? 2 : undefined,
 
   /* Configure projects for major browsers */
   projects: [
