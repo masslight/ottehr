@@ -15,13 +15,12 @@ export const ADMINISTRATOR_RULES: AccessPolicy = {
         'FHIR:Person',
         'FHIR:Medication',
         'FHIR:List',
-        'FHIR:PractitionerRole',
       ],
     },
     {
       action: ['App:ListAllUsers', 'App:GetUser'],
       effect: 'Allow',
-      resource: 'App:User',
+      resource: ['App:User'],
     },
     {
       action: ['FHIR:Search', 'FHIR:Read', 'FHIR:Update'],
@@ -38,9 +37,9 @@ export const ADMINISTRATOR_RULES: AccessPolicy = {
       ],
     },
     {
-      action: 'Z3:GetObject',
+      action: ['Z3:GetObject'],
       effect: 'Allow',
-      resource: 'Z3:*',
+      resource: ['Z3:*'],
     },
     {
       action: ['Zambda:InvokeFunction'],
@@ -72,7 +71,7 @@ export const ADMINISTRATOR_RULES: AccessPolicy = {
     },
     {
       action: ['FHIR:Search', 'FHIR:Read', 'FHIR:Update', 'FHIR:Create'],
-      resource: 'FHIR:InsurancePlan:*',
+      resource: ['FHIR:InsurancePlan:*', 'FHIR:PractitionerRole'],
       effect: 'Allow',
     },
     {
@@ -103,17 +102,17 @@ export const MANAGER_RULES: AccessPolicy = {
     {
       action: ['App:ListAllUsers', 'App:GetUser'],
       effect: 'Allow',
-      resource: 'App:User',
+      resource: ['App:User'],
     },
     {
       action: ['Telemed:GetRoomToken'],
       effect: 'Allow',
-      resource: 'Telemed:Room',
+      resource: ['Telemed:Room'],
     },
     {
       action: ['Telemed:JoinMeeting'],
       effect: 'Allow',
-      resource: 'Telemed:Meeting:*',
+      resource: ['Telemed:Meeting:*'],
     },
     {
       action: ['FHIR:Search', 'FHIR:Read', 'FHIR:Update'],
@@ -129,9 +128,9 @@ export const MANAGER_RULES: AccessPolicy = {
       ],
     },
     {
-      action: 'Z3:GetObject',
+      action: ['Z3:GetObject'],
       effect: 'Allow',
-      resource: 'Z3:*',
+      resource: ['Z3:*'],
     },
     {
       action: ['Zambda:InvokeFunction'],
@@ -157,7 +156,7 @@ export const MANAGER_RULES: AccessPolicy = {
     },
     {
       action: ['FHIR:Search', 'FHIR:Read', 'FHIR:Update', 'FHIR:Create'],
-      resource: 'FHIR:InsurancePlan:*',
+      resource: ['FHIR:InsurancePlan:*'],
       effect: 'Allow',
     },
     {
@@ -196,8 +195,8 @@ export const STAFF_RULES: AccessPolicy = {
       effect: 'Allow',
     },
     {
-      resource: 'Z3:*',
-      action: 'Z3:GetObject',
+      resource: ['Z3:*'],
+      action: ['Z3:GetObject'],
       effect: 'Allow',
     },
     {
@@ -258,11 +257,11 @@ export const PROVIDER_RULES: AccessPolicy = {
     {
       action: ['Telemed:JoinMeeting'],
       effect: 'Allow',
-      resource: 'Telemed:Meeting:*',
+      resource: ['Telemed:Meeting:*'],
     },
     {
-      resource: 'Z3:*',
-      action: 'Z3:GetObject',
+      resource: ['Z3:*'],
+      action: ['Z3:GetObject'],
       effect: 'Allow',
     },
     {
@@ -320,7 +319,7 @@ export const PROVIDER_RULES: AccessPolicy = {
   ],
 };
 
-export const PRESCRIBER_RULES = [
+export const PRESCRIBER_RULES: AccessPolicy['rule'] = [
   {
     action: ['FHIR:Search', 'FHIR:Read'],
     effect: 'Allow',
@@ -328,24 +327,24 @@ export const PRESCRIBER_RULES = [
   },
 
   {
-    action: 'eRx:SearchMedication',
+    action: ['eRx:SearchMedication'],
     effect: 'Allow',
-    resource: 'eRx:Medication',
+    resource: ['eRx:Medication'],
   },
   {
-    action: 'eRx:SearchAllergy',
+    action: ['eRx:SearchAllergy'],
     effect: 'Allow',
-    resource: 'eRx:Allergy',
+    resource: ['eRx:Allergy'],
   },
   {
-    action: 'eRx:SyncPatient',
+    action: ['eRx:SyncPatient'],
     effect: 'Allow',
-    resource: 'eRx:Patient',
+    resource: ['eRx:Patient'],
   },
   {
     action: ['eRx:Create', 'eRx:Read'],
     effect: 'Allow',
-    resource: 'eRx:Enrollment',
+    resource: ['eRx:Enrollment'],
   },
 ];
 
@@ -377,9 +376,9 @@ export const FRONT_DESK_RULES: AccessPolicy = {
       resource: ['FHIR:Communication'],
     },
     {
-      action: 'Z3:GetObject',
+      action: ['Z3:GetObject'],
       effect: 'Allow',
-      resource: 'Z3:*',
+      resource: ['Z3:*'],
     },
     {
       action: ['Zambda:InvokeFunction'],
@@ -402,8 +401,8 @@ export const FRONT_DESK_RULES: AccessPolicy = {
 export const INACTIVE_RULES: AccessPolicy = {
   rule: [
     {
-      resource: '*',
-      action: '*',
+      resource: ['*'],
+      action: ['*'],
       effect: 'Deny',
     },
   ],

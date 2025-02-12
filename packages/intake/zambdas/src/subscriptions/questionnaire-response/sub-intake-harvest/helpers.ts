@@ -5,6 +5,7 @@ import {
   Attachment,
   Coding,
   Consent,
+  ContactPoint,
   Coverage,
   DocumentReference,
   Flag,
@@ -77,6 +78,7 @@ import {
   PROJECT_NAME,
   PRIVACY_POLICY_CODE,
   PROJECT_MODULE,
+  getPhoneNumberForIndividual,
 } from 'utils';
 import { v4 as uuid } from 'uuid';
 import { createOrUpdateFlags } from '../../../paperwork/sharedHelpers';
@@ -1164,6 +1166,12 @@ const pathToLinkIdMap: Record<string, string> = Object.entries(paperworkToPatien
   {} as Record<string, string>
 );
 
+const BIRTH_SEX_MAP: Record<string, string> = {
+  Male: 'male',
+  Female: 'female',
+  Intersex: 'other',
+};
+
 const PRIMARY_INSURANCE_LINK_IDS = ['insurance-carrier', 'insurance-member-id', 'patient-relationship-to-insured'];
 
 const SECONDARY_INSURANCE_LINK_IDS = PRIMARY_INSURANCE_LINK_IDS.map((id) => `${id}-2`);
@@ -1417,7 +1425,10 @@ export function createMasterRecordPatchOperations(
   });
 
   // Separate operations for each resource
+  // Separate Patient operations
   result.patient = separateResourceUpdates(tempOperations.patient, resources.patient, 'Patient');
+
+  // Prepare Patient direct operations for executing
   result.patient.patchOpsForDirectUpdate = addAuxiliaryPatchOperations(result.patient.patchOpsForDirectUpdate);
   result.patient.patchOpsForDirectUpdate = consolidateOperations(
     result.patient.patchOpsForDirectUpdate,
@@ -1548,7 +1559,7 @@ function extractValueFromItem(
 
   // Handle gender answers
   if (item.linkId.endsWith('-birth-sex') && answer?.valueString) {
-    return answer.valueString.toLowerCase();
+    return BIRTH_SEX_MAP[answer.valueString];
   }
 
   // Handle regular answers
@@ -2049,6 +2060,8 @@ function setValueByPath(obj: any, path: string, value: any): void {
 
 function addAuxiliaryPatchOperations(operations: Operation[]): Operation[] {
   const auxOperations: Operation[] = [];
+
+  // Add required link to contained Practitioner resource
   if (operations.some((op) => op.path && op.path.includes('contained'))) {
     const addResourceTypeOperation: AddOperation<any> = {
       op: 'add',
@@ -2081,4 +2094,67 @@ function addAuxiliaryPatchOperations(operations: Operation[]): Operation[] {
   }
 
   return [...operations, ...auxOperations];
+}
+
+export function createErxContactOperation(
+  relatedPerson: RelatedPerson,
+  patientResource: Patient
+): Operation | undefined {
+  const verifiedPhoneNumber = getPhoneNumberForIndividual(relatedPerson);
+  console.log(`patient verified phone number ${verifiedPhoneNumber}`);
+
+  console.log('reviewing patient erx contact telecom phone nubmber');
+  // find existing erx contact info and it's index so that the contact array can be updated
+  const erxContactIdx = patientResource?.contact?.findIndex((contact) =>
+    Boolean(
+      contact.telecom?.find((telecom) =>
+        Boolean(telecom?.extension?.find((telExt) => telExt.url === FHIR_EXTENSION.ContactPoint.erxTelecom.url))
+      )
+    )
+  );
+
+  let updateErxContact = false;
+  const erxContact = erxContactIdx && erxContactIdx >= 0 ? patientResource?.contact?.[erxContactIdx] : undefined;
+  const erxTelecom =
+    erxContact &&
+    erxContact.telecom?.find((telecom) =>
+      Boolean(telecom?.extension?.find((telExt) => telExt.url === FHIR_EXTENSION.ContactPoint.erxTelecom.url))
+    );
+
+  if (erxContactIdx && erxContactIdx >= 0) {
+    if (!(erxTelecom && erxTelecom.system === 'phone' && erxTelecom.value === verifiedPhoneNumber)) {
+      updateErxContact = true;
+    }
+  } else {
+    updateErxContact = true;
+  }
+
+  if (updateErxContact) {
+    const erxContactTelecom: ContactPoint = {
+      value: verifiedPhoneNumber,
+      system: 'phone',
+      extension: [{ url: FHIR_EXTENSION.ContactPoint.erxTelecom.url, valueString: 'erx' }],
+    };
+    if (erxContactIdx && erxContactIdx >= 0) {
+      console.log('building patient patch operations: update patient erx contact telecom');
+      return {
+        op: 'replace',
+        path: `/contact/${erxContactIdx}`,
+        value: {
+          telecom: [erxContactTelecom],
+        },
+      };
+    } else {
+      console.log('building patient patch operations: add patient erx contact telecom');
+      return {
+        op: 'add',
+        path: `/contact/-`,
+        value: {
+          telecom: [erxContactTelecom],
+        },
+      };
+    }
+  }
+
+  return undefined;
 }
