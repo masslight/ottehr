@@ -78,24 +78,28 @@ export interface AnswerLoadingOptions {
   strategy: 'prefetch' | 'dynamic';
   answerSource?: AnswerOptionSource; // required when Item.answerValueSet is not defined
 }
+
+export type InputWidthOption = 's' | 'm' | 'l' | 'max';
 export interface QuestionnaireItemExtension {
   acceptsMultipleAnswers: boolean;
   alwaysFilter: boolean;
-  disabledDisplay?: 'hidden' | 'protected';
-  requireWhen?: QuestionnaireItemRequireWhen;
-  textWhen?: QuestionnaireItemTextWhen;
+
+  answerLoadingOptions?: AnswerLoadingOptions;
   attachmentText?: string;
   autofillFromWhenDisabled?: string;
-  infoText?: string;
-  secondaryInfoText?: string;
-  randomize?: boolean;
-  dataType?: QuestionnaireDataType;
-  filterWhen?: QuestionnaireItemFilterWhen;
-  validateAgeOver?: number;
-  preferredElement?: FormElement;
-  groupType?: QuestionnaireItemGroupType;
   categoryTag?: string;
-  answerLoadingOptions?: AnswerLoadingOptions;
+  dataType?: QuestionnaireDataType;
+  disabledDisplay?: 'hidden' | 'protected';
+  filterWhen?: QuestionnaireItemFilterWhen;
+  groupType?: QuestionnaireItemGroupType;
+  infoText?: string;
+  inputWidth?: InputWidthOption;
+  minRows?: number;
+  preferredElement?: FormElement;
+  requireWhen?: QuestionnaireItemRequireWhen;
+  secondaryInfoText?: string;
+  textWhen?: QuestionnaireItemTextWhen;
+  validateAgeOver?: number;
 }
 
 export interface AppointmentSummary {

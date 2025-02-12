@@ -3,7 +3,7 @@ import { capitalize, Box, Skeleton, Typography } from '@mui/material';
 import { FC } from 'react';
 import { PATIENT_INDIVIDUAL_PRONOUNS_URL } from 'utils/lib/types';
 import { getExtensionValue } from '../../../features/css-module/parser';
-import { calculatePatientAge, formatDateUsingSlashes } from '../../../helpers/formatDateTime';
+import { formatDOB } from 'utils';
 import { useGetPatient } from '../../../hooks/useGetPatient';
 import { dataTestIds } from '../../../constants/data-test-ids';
 
@@ -34,7 +34,7 @@ export const Summary: FC<Props> = ({ id }) => {
           <Box sx={{ display: 'flex', gap: 0.5 }}>
             <CakeOutlinedIcon fontSize="small" />
             <Typography data-testid={dataTestIds.patientHeader.patientBirthday}>
-              {formatDateUsingSlashes(patient?.birthDate)} ({calculatePatientAge(patient?.birthDate)}o)
+              {formatDOB(patient?.birthDate)}
             </Typography>
           </Box>
         )
