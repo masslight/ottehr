@@ -304,7 +304,15 @@ const useSearchPatientDocuments = (
   const docCreationDate = filters?.dateAdded?.toFormat('yyyy-MM-dd');
   const { oystehr } = useApiClients();
   return useQuery(
-    [QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS, { patientId }],
+    [
+      QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS,
+      {
+        patientId,
+        docSearchTerm: filters?.documentName,
+        docCreationDate: docCreationDate,
+        docFolderId: filters?.documentsFolder?.id,
+      },
+    ],
     async () => {
       if (!oystehr) throw new Error('useSearchPatientDocuments() oystehr not defined');
       if (!patientId) throw new Error('useSearchPatientDocuments() patientId not defined');
