@@ -36,8 +36,8 @@
     "setup-intake": "tsx scripts/setup-intake.ts"
   },
   "engines": {
-    "npm": ">=8.0.0",
-    "node": ">=18.0.0"
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   },
   "dependencies": {
     "diacritics": "^1.3.0",
