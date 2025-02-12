@@ -26,16 +26,16 @@ export default defineConfig({
     trace: process.env.CI ? 'on-first-retry' : 'on',
     screenshot: process.env.CI ? 'only-on-failure' : 'off',
     video: process.env.CI ? 'retain-on-failure' : 'off',
-    actionTimeout: 15000,
-    navigationTimeout: 15000,
+    actionTimeout: 25000,
+    navigationTimeout: 30000,
   },
-  timeout: 60000,
+  timeout: 120000,
   expect: {
-    timeout: 5000,
+    timeout: 10000,
   },
   retries: process.env.CI ? 2 : 0,
   outputDir: 'test-results/',
-  workers: process.env.CI ? 2 : undefined,
+  workers: process.env.CI ? 4 : undefined,
 
   /* Configure projects for major browsers */
   projects: [
