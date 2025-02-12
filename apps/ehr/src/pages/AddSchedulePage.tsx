@@ -13,7 +13,7 @@ export default function AddSchedulePage(): ReactElement {
   // Define variables to interact w database and navigate to other pages
   const { oystehr } = useApiClients();
   const navigate = useNavigate();
-  const scheduleType = useParams()['schedule-type'] as 'office' | 'provider' | 'group';
+  const scheduleType = useParams()['schedule-type'] as 'location' | 'provider' | 'group';
 
   if (!scheduleType) {
     throw new Error('scheduleType is not defined');

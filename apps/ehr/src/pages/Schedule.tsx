@@ -1,8 +1,20 @@
 import { LoadingButton, TabContext, TabList, TabPanel } from '@mui/lab';
-import { Autocomplete, Box, Button, Grid, Paper, Skeleton, Switch, Tab, TextField, Typography } from '@mui/material';
+import {
+  Autocomplete,
+  Box,
+  Button,
+  Grid,
+  Paper,
+  Skeleton,
+  Switch,
+  Tab,
+  TextField,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 import { Address, HealthcareService, Identifier, Location, Practitioner } from 'fhir/r4b';
 import { ReactElement, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { otherColors } from '../CustomThemeProvider';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { useApiClients } from '../hooks/useAppClients';
@@ -13,6 +25,9 @@ import Loading from '../components/Loading';
 import GroupSchedule from '../components/schedule/GroupSchedule';
 import { Operation } from 'fast-json-patch';
 import { getTimezone } from '../helpers/formatDateTime';
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
+
+const INTAKE_URL = import.meta.env.VITE_APP_INTAKE_URL;
 
 const START_SCHEDULE =
   '{"schedule":{"monday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"tuesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"wednesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"thursday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"friday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"saturday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"sunday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]}},"scheduleOverrides":{}}';
@@ -21,9 +36,9 @@ export const TIMEZONE_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/t
 const TIMEZONES = ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles'];
 
 export function getResource(
-  scheduleType: 'office' | 'provider' | 'group'
+  scheduleType: 'location' | 'provider' | 'group'
 ): 'Location' | 'Practitioner' | 'HealthcareService' {
-  if (scheduleType === 'office') {
+  if (scheduleType === 'location') {
     return 'Location';
   } else if (scheduleType === 'provider') {
     return 'Practitioner';
@@ -38,7 +53,7 @@ export function getResource(
 export default function SchedulePage(): ReactElement {
   // Define variables to interact w database and navigate to other pages
   const { oystehr } = useApiClients();
-  const scheduleType = useParams()['schedule-type'] as 'office' | 'provider' | 'group';
+  const scheduleType = useParams()['schedule-type'] as 'location' | 'provider' | 'group';
   const id = useParams().id as string;
 
   if (!scheduleType) {
@@ -52,6 +67,9 @@ export default function SchedulePage(): ReactElement {
   const [slug, setSlug] = useState<string | undefined>(undefined);
   const [timezone, setTimezone] = useState<string | undefined>(undefined);
   const [saveLoading, setSaveLoading] = useState<boolean>(false);
+  const [isCopied, setIsCopied] = useState<boolean>(false);
+
+  const defaultIntakeUrl = `${INTAKE_URL}/prebook/in-person?bookingOn=${slug}&scheduleType=${scheduleType}`;
 
   const isActive = (item: Location | Practitioner | HealthcareService): boolean => {
     if (item.resourceType === 'Location') {
@@ -137,7 +155,7 @@ export default function SchedulePage(): ReactElement {
     if (!oystehr) {
       return;
     }
-    if (scheduleType === 'office') {
+    if (scheduleType === 'location') {
       resourceType = 'Location';
     } else if (scheduleType === 'provider') {
       resourceType = 'Practitioner';
@@ -352,7 +370,7 @@ export default function SchedulePage(): ReactElement {
               >
                 <TabPanel value="schedule" sx={{ padding: 0 }}>
                   {scheduleType === 'group' && <GroupSchedule groupID={item.id || ''} />}
-                  {['office', 'provider'].includes(scheduleType) &&
+                  {['location', 'provider'].includes(scheduleType) &&
                     (item.extension?.find(
                       (extensionTemp) =>
                         extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule'
@@ -385,6 +403,35 @@ export default function SchedulePage(): ReactElement {
                         sx={{ width: '250px' }}
                       />
                       <br />
+
+                      <Typography variant="body2" sx={{ pt: 1, pb: 0.5, fontWeight: 600 }}>
+                        Share booking link to this schedule:
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 3 }}>
+                        <Tooltip
+                          title={isCopied ? 'Link copied!' : 'Copy link'}
+                          placement="top"
+                          arrow
+                          onClose={() => {
+                            setTimeout(() => {
+                              setIsCopied(false);
+                            }, 200);
+                          }}
+                        >
+                          <Button
+                            onClick={() => {
+                              void navigator.clipboard.writeText(defaultIntakeUrl);
+                              setIsCopied(true);
+                            }}
+                            sx={{ p: 0, minWidth: 0 }}
+                          >
+                            <ContentCopyRoundedIcon fontSize="small" />
+                          </Button>
+                        </Tooltip>
+                        <Link to={defaultIntakeUrl} target="_blank">
+                          <Typography variant="body2">{defaultIntakeUrl}</Typography>
+                        </Link>
+                      </Box>
                       <Autocomplete
                         options={TIMEZONES}
                         renderInput={(params) => <TextField {...params} label="Timezone" />}

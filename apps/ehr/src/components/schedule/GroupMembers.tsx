@@ -2,7 +2,7 @@ import { ReactElement } from 'react';
 import { Autocomplete, TextField, capitalize } from '@mui/material';
 
 interface GroupMembersProps {
-  option: 'offices' | 'providers';
+  option: 'locations' | 'providers';
   options: { label: string; value: string }[];
   values: { label: string; value: string }[];
   onChange: (event: React.SyntheticEvent, value: any, field: string) => void;

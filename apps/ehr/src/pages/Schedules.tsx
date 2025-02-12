@@ -16,13 +16,13 @@ export default function SchedulesPage(): ReactElement {
               onChange={(event, tabTemp) => setTab(tabTemp)}
               aria-label="Switch between different schedule options"
             >
-              <Tab label="Offices" value="0" sx={{ textTransform: 'none', fontWeight: 700 }} />
+              <Tab label="Locations" value="0" sx={{ textTransform: 'none', fontWeight: 700 }} />
               <Tab label="Providers" value="1" sx={{ textTransform: 'none', fontWeight: 700 }} />
               <Tab label="Groups" value="2" sx={{ textTransform: 'none', fontWeight: 700 }} />
             </TabList>
           </Box>
           <TabPanel value="0">
-            <ScheduleInformation scheduleType="office"></ScheduleInformation>
+            <ScheduleInformation scheduleType="location"></ScheduleInformation>
           </TabPanel>
           <TabPanel value="1">
             <ScheduleInformation scheduleType="provider"></ScheduleInformation>

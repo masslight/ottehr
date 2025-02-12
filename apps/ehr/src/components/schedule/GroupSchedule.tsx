@@ -238,7 +238,7 @@ export default function GroupSchedule({ groupID }: GroupScheduleProps): ReactEle
         <Grid container spacing={4} sx={{ marginTop: 0 }}>
           <Grid item xs={6}>
             <GroupMembers
-              option="offices"
+              option="locations"
               options={
                 locations
                   ? locations.map((locationTemp) => ({

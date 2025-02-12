@@ -1,7 +1,7 @@
 export const TELEMED_VIDEO_ROOM_CODE = 'chime-video-meetings';
 export const PHOTON_PATIENT_IDENTIFIER_SYSTEM = 'http://api.zapehr.com/photon-patient-id';
 
-export const INTERPRETER_PHONE_NUMBER = '(866) 718-0099';
+export const INTERPRETER_PHONE_NUMBER = '(888) 555 0002';
 
 export const PATIENT_INDIVIDUAL_PRONOUNS_URL = 'http://hl7.org/fhir/StructureDefinition/individual-pronouns';
 export const PATIENT_INDIVIDUAL_PRONOUNS_CUSTOM_URL =

@@ -27,7 +27,7 @@ import { Closure, ClosureType, ScheduleExtension } from '../types/types';
 import Loading from './Loading';
 import { Add } from '@mui/icons-material';
 
-export type ScheduleType = 'office' | 'provider' | 'group';
+export type ScheduleType = 'location' | 'provider' | 'group';
 
 interface ScheduleInformationProps {
   scheduleType: ScheduleType;
@@ -80,7 +80,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
       setItems(itemsTemp);
       setLoading(false);
     }
-    if (scheduleType === 'office') {
+    if (scheduleType === 'location') {
       void getItems('Location');
     } else if (scheduleType === 'provider') {
       void getItems('Practitioner');
