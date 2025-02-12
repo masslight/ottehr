@@ -34,12 +34,6 @@ export abstract class BaseInPersonFlow {
       ...additionalData, // Includes selectedSlot & location (for prebook)
     };
   }
-  protected async additionalStepsForPrebook(): Promise<
-    Partial<{ selectedSlot: { buttonName: string | null; selectedSlot: string | undefined }; location: string | null }>
-  > {
-    return {};
-  }
-
   private async fillPatientDetailsAndContinue(): Promise<{ firstName: string; lastName: string; email: string }> {
     await this.locator.selectDifferentFamilyMember();
     await this.locator.clickContinueButton();
@@ -56,6 +50,9 @@ export abstract class BaseInPersonFlow {
   }
 
   // Abstract method to be implemented in subclasses
+  protected abstract additionalStepsForPrebook(): Promise<
+    Partial<{ selectedSlot: { buttonName: string | null; selectedSlot: string | undefined }; location: string | null }>
+  >;
   protected abstract clickVisitButton(): Promise<void>;
   protected abstract completeBooking(): Promise<void>;
 

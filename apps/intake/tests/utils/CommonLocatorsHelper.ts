@@ -23,10 +23,16 @@ export class CommonLocatorsHelper {
   }
 
   async checkSlotIsCorrect(selectedSlot?: string): Promise<void> {
+    if (!selectedSlot) {
+      throw new Error('Selected slot must not be empty or undefined');
+    }
     await expect(this.page.getByText(`${selectedSlot}`)).toBeVisible();
   }
 
   async checkLocationValueIsCorrect(location: string | null): Promise<void> {
+    if (!location) {
+      throw new Error('Location must not be empty or undefined');
+    }
     await expect(this.page.getByText(`${location}`)).toBeVisible();
   }
 

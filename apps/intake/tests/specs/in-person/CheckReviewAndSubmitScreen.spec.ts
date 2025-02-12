@@ -56,7 +56,7 @@ test('RP-8 Check patient name is correct', async () => {
 });
 
 test('RP-9 Check slot is correct', async () => {
-  await commonLocators.checkSlotIsCorrect(visitData.selectedSlot?.selectedSlot ?? '');
+  await commonLocators.checkSlotIsCorrect(visitData.selectedSlot?.selectedSlot);
 });
 
 test('RP-10 Check location value is correct', async () => {
