@@ -1,6 +1,6 @@
 {
   "name": "ehr-zambdas",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "scripts": {
     "start": "env-cmd -f ./.env/${ENV:-local}.json sls offline --stage ${ENV:-local}",
@@ -40,7 +40,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.272.0",
     "@sendgrid/mail": "^7.7.0",
-    "@oystehr/sdk": "3.0.4",
+    "@oystehr/sdk": "3.0.7",
     "fast-json-patch": "^3.1.1",
     "luxon": "^3.4.3",
     "query-string": "^8.1.0",

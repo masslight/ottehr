@@ -57,14 +57,20 @@ export class Locators {
   PCPHeading: Locator;
   responsiblePartyHeading: Locator;
   photoIDHeading: Locator;
+  startInPersonVisitButton: Locator;
+  confirmWalkInButton: Locator;
+  checkInHeading: Locator;
 
   constructor(page: Page) {
     this.page = page;
     this.scheduleInPersonVisitButton = page.getByTestId(dataTestIds.scheduleInPersonVisitButton);
+    this.startInPersonVisitButton = page.getByTestId(dataTestIds.startInPersonVisitButton);
     this.differentFamilyMember = page.getByText('Different family member');
     this.continueButton = page.getByText('Continue');
     this.reserveButton = page.getByRole('button', { name: 'Reserve this check-in time' });
+    this.confirmWalkInButton = page.getByRole('button', { name: 'Confirm this walk-in time' });
     this.thankYouHeading = page.getByRole('heading', { name: 'Thank you for choosing Ottehr!' });
+    this.checkInHeading = page.getByRole('heading', { name: 'You are checked in!' });
     this.PCPHeading = page.getByRole('heading', { name: 'Primary Care Physician' });
     this.responsiblePartyHeading = page.getByRole('heading', { name: 'Responsible party information' });
     this.photoIDHeading = page.getByRole('heading', { name: 'Photo ID' });
