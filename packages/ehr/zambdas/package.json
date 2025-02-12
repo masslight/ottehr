@@ -34,8 +34,8 @@
     "test": "vitest --silent"
   },
   "engines": {
-    "npm": ">=8.0.0",
-    "node": ">=18.0.0"
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.272.0",
