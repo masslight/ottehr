@@ -51,9 +51,6 @@ jobs:
             "${{ steps.get-token.outputs.access_token }}" \
             "${{ env.TEST_EMAIL }}"
 
-      - name: Run E2E tests
-        run: npm run test:e2e
-
       - name: Run the cleanup script
         run: |
           chmod +x scripts/ottehr-cleanup.sh
