@@ -20,7 +20,7 @@ test.beforeAll(async ({ browser }) => {
 });
 
 test('RP-1 Check title is visible', async () => {
-  await expect(locator.titleReviewScreen).toBeVisible();
+  await expect(locator.flowHeading).toHaveText('Review and submit');
 });
 
 test('RP-2 Check description is visible', async () => {

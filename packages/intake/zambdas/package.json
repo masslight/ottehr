@@ -10,7 +10,7 @@
     "start:dev2": "ENV=dev2 npm run start-skeleton",
     "start:testing": "ENV=testing npm run start-skeleton",
     "start:staging": "ENV=staging npm run start-skeleton",
-    "start-skeleton": "export HOME=./ && npm run setup-questionnaires ${ENV} && sls offline --stage ${ENV} --httpPort 3000",
+    "start-skeleton": "export HOME=./ && npm run setup-deployed-resources ${ENV} && sls offline --stage ${ENV} --httpPort 3000",
     "debug": "export HOME=./ && export SLS_DEBUG=* && node --inspect ../../../node_modules/serverless/bin/serverless offline --stage=local",
     "setup-zapehr-secrets": "tsx scripts/configure-zapehr-secrets.ts",
     "deploy-zambdas": "ENV=$ENV npm run package && tsx scripts/deploy-zambdas.ts",
@@ -25,6 +25,8 @@
     "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0 --fix",
     "test": "vitest --silent",
     "setup-questionnaires": "tsx scripts/setup-questionnaires.ts",
+    "setup-billing-providers": "tsx scripts/setup-billing-providers.ts",
+    "setup-deployed-resources": "tsx scripts/setup-questionnaires.ts ${ENV} && tsx scripts/setup-billing-providers.ts ${ENV}", 
     "copy-ip-locations": "tsx scripts/copy-ip-locations.ts",
     "setup-intake": "tsx scripts/setup-intake.ts"
   },

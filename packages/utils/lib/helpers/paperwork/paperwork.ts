@@ -294,6 +294,10 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/text-min-rows`;
   })?.valuePositiveInt;
 
+  const complexValidationType = extension?.find((ext) => {
+    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/complex-validation-type`;
+  })?.valueString;
+
   return {
     acceptsMultipleAnswers,
     alwaysFilter,
@@ -313,6 +317,7 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     answerLoadingOptions,
     inputWidth: inputWidth as InputWidthOption | undefined,
     minRows,
+    complexValidationType,
   };
 };
 
@@ -320,9 +325,11 @@ export const mapQuestionnaireAndValueSetsToItemsList = (
   questionnaireItems: QuestionnaireItem[],
   valueSets: ValueSet[]
 ): IntakeQuestionnaireItem[] => {
-  return questionnaireItems.map((item) => {
+  return questionnaireItems.map((startingItem) => {
+    let item = startingItem;
     if (item.item !== undefined) {
       item.item = mapQuestionnaireAndValueSetsToItemsList(item.item, valueSets);
+      item = { ...item, ...structureExtension(item) };
     }
     const additionalProps = structureExtension(item);
     const enhancedItem = {

@@ -69,6 +69,7 @@ interface PagedQuestionnaireInput {
   pageId: string;
   defaultValues?: QuestionnaireFormFields;
   options?: PagedQuestionnaireOptions;
+  isSaving?: boolean;
   onSubmit: (data: QuestionnaireFormFields) => void;
   saveProgress: (data: QuestionnaireFormFields) => void;
 }
@@ -157,6 +158,7 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   pageId,
   defaultValues,
   options = {},
+  isSaving,
   onSubmit,
   saveProgress,
 }) => {
@@ -189,7 +191,13 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
 
   return (
     <FormProvider {...methods}>
-      <PaperworkFormRoot items={items} onSubmit={onSubmit} saveProgress={saveProgress} options={options} />
+      <PaperworkFormRoot
+        items={items}
+        onSubmit={onSubmit}
+        saveProgress={saveProgress}
+        options={options}
+        parentIsSaving={isSaving}
+      />
     </FormProvider>
   );
 };
@@ -199,8 +207,15 @@ interface PaperworkRootInput {
   onSubmit: (data: QuestionnaireFormFields) => void;
   saveProgress: (data: QuestionnaireFormFields) => void;
   options?: PagedQuestionnaireOptions;
+  parentIsSaving?: boolean;
 }
-const PaperworkFormRoot: FC<PaperworkRootInput> = ({ items, onSubmit, saveProgress, options = {} }) => {
+const PaperworkFormRoot: FC<PaperworkRootInput> = ({
+  items,
+  onSubmit,
+  saveProgress,
+  options = {},
+  parentIsSaving = false,
+}) => {
   const [isSavingProgress, setIsSavingProgress] = useState(false);
 
   const { saveButtonDisabled } = usePaperworkContext();
@@ -254,7 +269,9 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({ items, onSubmit, saveProgre
           {errorMessage}
         </FormHelperText>
       )}
-      {!hideControls && <ControlButtons {...swizzledCtrlButtons} loading={isSavingProgress || isSubmitting} />}
+      {!hideControls && (
+        <ControlButtons {...swizzledCtrlButtons} loading={isSavingProgress || isSubmitting || parentIsSaving} />
+      )}
     </form>
   );
 };
@@ -383,7 +400,7 @@ const NestedInput: FC<NestedInputProps> = (props) => {
           >
             <BoldPurpleInputLabel
               id={`${item.linkId}-label`}
-              htmlFor={`${item.linkId}-label`}
+              htmlFor={`${item.linkId}`}
               sx={(theme) => ({
                 ...(item.hideControlLabel ? { display: 'none' } : { whiteSpace: 'pre-wrap', position: 'unset' }),
                 color: isFocused ? theme.palette.primary.main : theme.palette.primary.dark,

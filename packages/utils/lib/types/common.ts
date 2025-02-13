@@ -13,8 +13,6 @@ import {
   Task,
 } from 'fhir/r4b';
 
-export const FHIR_IDENTIFIER_NPI = 'http://hl7.org/fhir/sid/us-npi';
-
 export interface PatientBaseInfo {
   firstName?: string;
   id?: string;

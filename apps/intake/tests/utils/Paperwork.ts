@@ -50,7 +50,8 @@ export class Paperwork {
   }
   async checkContactInformationPageOpens(): Promise<void> {
     await this.clickProceedToPaperwork();
-    await expect(this.locator.contactInformationHeading).toBeVisible();
+    await expect(this.locator.flowHeading).toBeVisible();
+    await expect(this.locator.flowHeading).toHaveText('Contact information');
   }
   async fillContactInformationRequiredFields(): Promise<void> {
     await this.fillStreetAddress();
@@ -96,7 +97,8 @@ export class Paperwork {
   }
   async checkPatientDetailsPageOpens(): Promise<void> {
     await this.CommonLocatorsHelper.clickContinue();
-    await expect(this.locator.patientDetailsHeading).toBeVisible();
+    await expect(this.locator.flowHeading).toBeVisible();
+    await expect(this.locator.flowHeading).toHaveText('Patient details');
   }
   async fillEthnicity(): Promise<void> {
     await this.validateAllOptions(this.locator.patientEthnicity, Object.values(PatientEthnicity), 'ethnicity');

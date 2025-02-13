@@ -36,8 +36,8 @@ import {
   RelatedPerson,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { FHIR_IDENTIFIER_NPI } from 'utils';
 import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm';
-import { FHIR_IDENTIFIER_NPI } from 'utils/lib/types';
 import { getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 import { chartDataResourceHasMetaTagByCode } from './chart-data/chart-data-helpers';
 import { assertDefined } from './helpers';
