@@ -5,7 +5,7 @@ import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { Autocomplete, Box, Button, Grid, IconButton, Paper, TextField, Typography, useTheme } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { HealthcareService, Location, Practitioner } from 'fhir/r4b';
-import { DateTime } from 'luxon';
+import { DateTime, Zone } from 'luxon';
 import React, { ReactElement, useEffect, useMemo, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -236,7 +236,7 @@ export default function Appointments(): ReactElement {
       const timezone =
         locationSelected?.extension?.find(
           (extTemp) => extTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
-        )?.valueString ?? 'America/New_York';
+        )?.valueString ?? DateTime.local().zoneName;
       const searchDateToUse =
         (searchDate && DateTime.fromISO(searchDate, { zone: timezone })) || appointmentDate || undefined;
       void fetchStuff(oystehrZambda, searchDateToUse);
