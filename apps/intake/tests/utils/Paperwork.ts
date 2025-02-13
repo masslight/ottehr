@@ -50,7 +50,8 @@ export class Paperwork {
   }
   async checkContactInformationPageOpens(): Promise<void> {
     await this.clickProceedToPaperwork();
-    await expect(this.locator.contactInformationHeading).toBeVisible();
+    await expect(this.locator.flowHeading).toBeVisible();
+    await expect(this.locator.flowHeading).toHaveText('Contact information');
   }
   async fillContactInformationRequiredFields(): Promise<void> {
     await this.fillStreetAddress();
@@ -68,13 +69,13 @@ export class Paperwork {
     await this.fillMobileOptIn();
   }
   async fillStreetAddress(): Promise<void> {
-    await this.locator.streetAddress.pressSequentially('Test address');
+    await this.locator.streetAddress.pressSequentially(`Address ${this.getRandomString()}`);
   }
   async fillStreetAddressLine2(): Promise<void> {
-    await this.locator.streetAddressLine2.pressSequentially('Test Address Line 2');
+    await this.locator.streetAddressLine2.pressSequentially(`Address Line 2 ${this.getRandomString()}`);
   }
   async fillPatientCity(): Promise<void> {
-    await this.locator.patientCity.pressSequentially('Test City');
+    await this.locator.patientCity.pressSequentially(`City${this.getRandomString()}`);
   }
   async fillPatientState(): Promise<void> {
     const randomState = this.getRandomState();
@@ -100,7 +101,8 @@ export class Paperwork {
   }
   async checkPatientDetailsPageOpens(): Promise<void> {
     await this.CommonLocatorsHelper.clickContinue();
-    await expect(this.locator.patientDetailsHeading).toBeVisible();
+    await expect(this.locator.flowHeading).toBeVisible();
+    await expect(this.locator.flowHeading).toHaveText('Patient details');
   }
   async fillEthnicity(): Promise<void> {
     await this.validateAllOptions(this.locator.patientEthnicity, Object.values(PatientEthnicity), 'ethnicity');

@@ -14,8 +14,6 @@ import {
 } from 'fhir/r4b';
 import { Secrets } from '../secrets';
 
-export const FHIR_IDENTIFIER_NPI = 'http://hl7.org/fhir/sid/us-npi';
-
 export interface PatientBaseInfo {
   firstName?: string;
   id?: string;

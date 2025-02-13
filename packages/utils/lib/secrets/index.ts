@@ -2,18 +2,15 @@ export interface Secrets {
   [secretName: string]: string;
 }
 
-export const getSecret = (secretKey: string, secrets: Secrets | null): string => {
-  let value: string | undefined;
-  if (secrets != null) {
-    value = secrets[secretKey];
-  } else {
-    value = process.env[secretKey];
-  }
+export const getOptionalSecret = (secretKey: string, secrets: Secrets | null): string | undefined => {
+  return secrets != null ? secrets[secretKey] : process.env[secretKey];
+};
 
+export const getSecret = (secretKey: string, secrets: Secrets | null): string => {
+  const value = getOptionalSecret(secretKey, secrets);
   if (value == null) {
     throw new Error(`Secret or Environment Variable with key ${secretKey} was not set.`);
   }
-
   return value;
 };
 
@@ -22,6 +19,7 @@ export enum SecretsKeys {
   AUTH0_CLIENT = 'AUTH0_CLIENT',
   AUTH0_SECRET = 'AUTH0_SECRET',
   AUTH0_AUDIENCE = 'AUTH0_AUDIENCE',
+  DEFAULT_BILLING_RESOURCE = 'DEFAULT_BILLING_RESOURCE',
   FHIR_API = 'FHIR_API',
   PROJECT_API = 'PROJECT_API',
   PROJECT_ID = 'PROJECT_ID',

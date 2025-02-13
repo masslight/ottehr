@@ -1,6 +1,6 @@
 {
   "name": "ehr-zambdas",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "scripts": {
     "start": "env-cmd -f ./.env/${ENV:-local}.json sls offline --stage ${ENV:-local}",
@@ -25,17 +25,19 @@
     "build-skeleton": "tsc && sls package --stage ${ENV}",
     "package": "tsc && sls package --stage ${ENV} && npm run rebundle",
     "rebundle": "bash scripts/package-for-release.sh",
-    "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0 --fix",
     "import-locations:local": "tsx scripts/import-locations.ts local",
     "import-locations:demo": "tsx scripts/import-locations.ts demo",
     "clear-tasks": "tsx scripts/clear-tasks.ts production",
     "stub-zambdas:prod": "tsx scripts/create-zambda-stubs.ts production",
     "setup-questionnaires": "tsx scripts/setup-questionnaires.ts",
+    "setup-billing-providers": "tsx scripts/setup-billing-providers.ts",
+    "setup-deployed-resources": "tsx scripts/setup-questionnaires.ts ${ENV} && tsx scripts/setup-billing-providers.ts ${ENV}", 
     "test": "vitest --silent"
   },
   "engines": {
-    "npm": ">=8.0.0",
-    "node": ">=18.0.0"
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.272.0",

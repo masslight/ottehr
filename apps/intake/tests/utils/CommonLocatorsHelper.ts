@@ -23,15 +23,21 @@ export class CommonLocatorsHelper {
   }
 
   async checkSlotIsCorrect(selectedSlot?: string): Promise<void> {
+    if (!selectedSlot) {
+      throw new Error('Selected slot must not be empty or undefined');
+    }
     await expect(this.page.getByText(`${selectedSlot}`)).toBeVisible();
   }
 
   async checkLocationValueIsCorrect(location: string | null): Promise<void> {
+    if (!location) {
+      throw new Error('Location must not be empty or undefined');
+    }
     await expect(this.page.getByText(`${location}`)).toBeVisible();
   }
 
   async clickContinue(): Promise<void> {
-    await this.page.getByRole('button', { name: 'Continue' }).click();
+    await this.locator.continueButton.click();
   }
   async selectState(stateName = AllStatesToNames[AllStates[0].value]): Promise<void> {
     await this.page.getByPlaceholder('Search or select').click();

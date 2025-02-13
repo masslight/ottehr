@@ -24,6 +24,11 @@ export const TIMEZONE_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/t
 
 export const OTTEHR_BASE_URL = 'https://fhir.ottehr.com';
 
+export const FHIR_IDENTIFIER_NPI = 'http://hl7.org/fhir/sid/us-npi';
+export const FHIR_IDENTIFIER_SYSTEM_TAX = 'http://terminology.hl7.org/CodeSystem/v2-0203';
+export const FHIR_IDENTIFIER_CODE_TAX_EMPLOYER = 'NE';
+export const FHIR_IDENTIFIER_CODE_TAX_SS = 'SS';
+
 export const FHIR_EXTENSION = {
   Appointment: {
     additionalInfo: {
