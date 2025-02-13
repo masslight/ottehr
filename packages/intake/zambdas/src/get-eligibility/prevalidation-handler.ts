@@ -36,7 +36,7 @@ interface Input extends Omit<GetEligibilityInput, 'coveragePrevalidationInput'> 
   coveragePrevalidationInput: InsuranceEligibilityPrevalidationInput;
   apiUrl: string;
   accessToken: string;
-  secrets: Secrets;
+  secrets: Secrets | null;
 }
 
 export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr): Promise<GetEligibilityResponse> => {

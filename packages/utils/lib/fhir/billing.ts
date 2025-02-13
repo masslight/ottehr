@@ -1,8 +1,8 @@
-import { Address, Practitioner, Location, Organization, InsurancePlan } from 'fhir/r4b';
-import { getNPI, getTaxID } from './helpers';
-import { APIErrorCode, BillingProviderData, BillingProviderResource } from '../types';
 import Oystehr from '@oystehr/sdk';
-import { getSecret, Secrets, SecretsKeys } from '../secrets';
+import { Address, InsurancePlan, Location, Organization, Practitioner } from 'fhir/r4b';
+import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
+import { APIErrorCode, BillingProviderData, BillingProviderResource } from '../types';
+import { getNPI, getTaxID } from './helpers';
 
 export interface InsurancePlanResources {
   insurancePlan: InsurancePlan;

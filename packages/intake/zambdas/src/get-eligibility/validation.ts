@@ -5,6 +5,7 @@ import {
   BillingProviderDataObject,
   getBillingProviderData,
   GetBillingProviderInput,
+  GetEligibilityInput,
   GetEligibilityInsuranceData,
   GetEligibilityParameters,
   GetEligibilityPolicyHolder,
@@ -13,7 +14,7 @@ import {
 } from 'utils';
 import { Secrets, ZambdaInput } from 'zambda-utils';
 
-export function validateRequestParameters(input: ZambdaInput): GetEligibilityParameters & { secrets: Secrets | null } {
+export function validateRequestParameters(input: ZambdaInput): GetEligibilityInput & { secrets: Secrets | null } {
   if (!input.body) {
     throw new Error('No request body provided');
   }

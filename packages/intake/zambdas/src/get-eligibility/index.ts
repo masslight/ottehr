@@ -27,14 +27,12 @@ import {
   PRIVATE_EXTENSION_BASE_URL,
   createOystehrClient,
   removeTimeFromDate,
-  topLevelCatch,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { SecretsKeys, getSecret, lambdaResponse } from 'zambda-utils';
+import { SecretsKeys, ZambdaInput, getSecret, lambdaResponse, topLevelCatch } from 'zambda-utils';
 import { createInsurancePlanDto, createOrUpdateRelatedPerson, getAuth0Token } from '../shared';
-import { validateInsuranceRequirements, validateRequestParameters } from './validation';
-import { prevalidationHandler } from './prevalidation-handler';
 import { parseEligibilityCheckResponse } from './helpers';
+import { prevalidationHandler } from './prevalidation-handler';
+import { validateInsuranceRequirements, validateRequestParameters } from './validation';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
@@ -85,7 +83,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     if (coveragePrevalidationInput) {
       console.log('prevalidation path...');
       const result = await prevalidationHandler(
-        { ...validatedParameters, coveragePrevalidationInput, apiUrl, accessToken: zapehrToken },
+        { ...validatedParameters, coveragePrevalidationInput, apiUrl, accessToken: zapehrToken, secrets: secrets },
         oystehr
       );
       console.log('prevalidation primary', result.primary);
