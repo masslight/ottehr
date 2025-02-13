@@ -5,7 +5,7 @@ import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { Autocomplete, Box, Button, Grid, IconButton, Paper, TextField, Typography, useTheme } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { HealthcareService, Location, Practitioner } from 'fhir/r4b';
-import { DateTime, Zone } from 'luxon';
+import { DateTime } from 'luxon';
 import React, { ReactElement, useEffect, useMemo, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
