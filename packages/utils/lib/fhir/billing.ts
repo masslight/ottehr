@@ -1,6 +1,5 @@
-import Oystehr from '@oystehr/sdk';
 import { Address, InsurancePlan, Location, Organization, Practitioner } from 'fhir/r4b';
-import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
+
 import { APIErrorCode, BillingProviderData, BillingProviderResource } from '../types';
 import { getNPI, getTaxID } from './helpers';
 
@@ -11,7 +10,6 @@ export interface InsurancePlanResources {
 export interface GetBillingProviderInput {
   appointmentId: string;
   plans: { primary: InsurancePlanResources; secondary?: InsurancePlanResources };
-  secrets: Secrets | null;
 }
 
 export interface BillingProviderDataObject {
@@ -21,7 +19,7 @@ export interface BillingProviderDataObject {
 
 export const getBillingProviderData = async (
   input: GetBillingProviderInput,
-  oystehrClient: Oystehr
+  defaultBillingResource: BillingProviderResource
 ): Promise<BillingProviderDataObject | undefined> => {
   /*
       In practice, the best FHIR modeling strategy for storing and querying up billing provider data is going to vary widely from one Ottehr user to the
@@ -34,7 +32,6 @@ export const getBillingProviderData = async (
       You'll likely want to override this function with your implementation that either grabs the data you're after from some FHIR resource or another,
       or perhaps queries Candid's get-all-contracts endpoint https://docs.joincandidhealth.com/api-reference/contracts/v-2/get-multi.
     */
-  const defaultBillingResource = await getDefaultBillingProviderResource(input, oystehrClient);
   const billingData = getBillingProviderDataFromResource(defaultBillingResource);
   if (billingData === undefined) {
     throw APIErrorCode.BILLING_PROVIDER_NOT_FOUND; // todo: better error here
@@ -50,39 +47,6 @@ export const getBillingProviderData = async (
     dataToReturn.secondary = { ...dataToReturn.primary };
   }
   return dataToReturn;
-};
-
-const getDefaultBillingProviderResource = async (
-  input: GetBillingProviderInput,
-  oystehrClient: Oystehr
-): Promise<BillingProviderResource> => {
-  const defaultBillingResource = getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, input.secrets);
-  if (!defaultBillingResource) {
-    throw APIErrorCode.BILLING_PROVIDER_NOT_FOUND;
-  }
-
-  const defaultBillingResourceType = defaultBillingResource.split('/')[0];
-  const defaultBillingResourceId = defaultBillingResource.split('/')[1];
-
-  if (defaultBillingResourceType === undefined || defaultBillingResourceId === undefined) {
-    throw APIErrorCode.BILLING_PROVIDER_NOT_FOUND;
-  }
-
-  const fetchedResources = await oystehrClient.fhir.search<BillingProviderResource>({
-    resourceType: defaultBillingResourceType,
-    params: [
-      {
-        name: '_id',
-        value: defaultBillingResourceId,
-      },
-    ],
-  });
-
-  const billingResource = fetchedResources?.unbundle()[0];
-  if (!billingResource) {
-    throw APIErrorCode.BILLING_PROVIDER_NOT_FOUND;
-  }
-  return billingResource;
 };
 
 const getBillingProviderDataFromResource = (
