@@ -51,6 +51,11 @@ jobs:
         with:
           node-version: '20'
 
+      - name: TruffleHog -- Check for secrets committed to the repository
+        uses: trufflesecurity/trufflehog@v3.82.13
+        with:
+          extra_args: --only-verified
+
       - name: Check out secrets repo
         uses: actions/checkout@v4
         with:
