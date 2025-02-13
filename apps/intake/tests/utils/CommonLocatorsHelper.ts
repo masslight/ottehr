@@ -39,7 +39,7 @@ export class CommonLocatorsHelper {
   async clickContinue(): Promise<void> {
     await this.locator.continueButton.click();
   }
-  async selectState(stateName = AllStatesToNames[AllStates[1].value]): Promise<void> {
+  async selectState(stateName = AllStatesToNames[AllStates[0].value]): Promise<void> {
     await this.page.getByPlaceholder('Search or select').click();
     await this.page.getByRole('option', { name: stateName }).click();
     await this.clickContinue();
