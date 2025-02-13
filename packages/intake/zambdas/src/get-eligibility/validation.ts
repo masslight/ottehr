@@ -206,6 +206,8 @@ const mapResponseItemsToInsurancePolicyHolder = (
   return policyHolder;
 };
 
+type GetBillingProviderInputWithSecrets = GetBillingProviderInput & { secrets: Secrets | null };
+
 export const complexBillingProviderValidation = async (
   plans: GetBillingProviderInput['plans'],
   appointmentId: string,
@@ -214,7 +216,7 @@ export const complexBillingProviderValidation = async (
 ): Promise<BillingProviderDataObject> => {
   //const { type, reference } = prevalidationInput.billingProviderResource;
 
-  const input: GetBillingProviderInput & { secrets: Secrets | null } = {
+  const input: GetBillingProviderInputWithSecrets = {
     plans,
     secrets,
     appointmentId,
@@ -231,7 +233,7 @@ export const complexBillingProviderValidation = async (
 };
 
 const getDefaultBillingProviderResource = async (
-  input: GetBillingProviderInput,
+  input: GetBillingProviderInputWithSecrets,
   oystehrClient: Oystehr
 ): Promise<BillingProviderResource> => {
   const defaultBillingResource = getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, input.secrets);
