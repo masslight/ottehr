@@ -43,8 +43,6 @@ jobs:
 
       # Checkout the main repository
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
 
       # Set up Node.js environment
       - uses: actions/setup-node@v4
