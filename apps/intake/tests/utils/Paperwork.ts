@@ -23,6 +23,20 @@ export class Paperwork {
   private relationshipResponsiblePartySelf = 'Self';
   private relationshipConsentForms = ['Legal Guardian', 'Parent', 'Other', 'Spouse', 'Self'];
   private birthSex = ['Male', 'Female', 'Intersex'];
+  private pronouns = ['He/him', 'She/her', 'They/them', 'My pronouns are not listed'];
+  private pointOfDiscovery = [
+    'Friend/Family',
+    'Been there with another family member',
+    'Healthcare Professional',
+    'Google/Internet search',
+    'Internet ad',
+    'Social media community group',
+    'Webinar',
+    'TV/Radio',
+    'Newsletter',
+    'School',
+    'Drive by/Signage',
+  ];
   getRandomState(): string {
     const randomIndex = Math.floor(Math.random() * AllStates.length);
     return AllStates[randomIndex].value;
@@ -55,13 +69,13 @@ export class Paperwork {
   }
   async fillContactInformationRequiredFields(): Promise<void> {
     await this.fillStreetAddress();
-    await this.page.waitForTimeout(500);
     await this.fillPatientCity();
-    await this.page.waitForTimeout(500);
     await this.fillPatientState();
-    await this.page.waitForTimeout(500);
     await this.fillPatientZip();
-    await this.page.waitForTimeout(500);
+    await expect(this.locator.streetAddress).not.toBeEmpty();
+    await expect(this.locator.patientCity).not.toBeEmpty();
+    await expect(this.locator.patientState).not.toBeEmpty();
+    await expect(this.locator.patientZip).not.toBeEmpty();
   }
   async fillContactInformationAllFields(): Promise<void> {
     await this.fillContactInformationRequiredFields();
@@ -69,22 +83,34 @@ export class Paperwork {
     await this.fillMobileOptIn();
   }
   async fillStreetAddress(): Promise<void> {
-    await this.locator.streetAddress.pressSequentially(`Address ${this.getRandomString()}`);
+    const address = `Address ${this.getRandomString()}`;
+    await this.locator.streetAddress.fill(address);
+    await expect(this.locator.streetAddress).toHaveValue(address);
   }
   async fillStreetAddressLine2(): Promise<void> {
-    await this.locator.streetAddressLine2.pressSequentially(`Address Line 2 ${this.getRandomString()}`);
+    //await this.locator.streetAddressLine2.pressSequentially(`Address Line 2 ${this.getRandomString()}`);
+    const addressLine2 = `Address Line 2 ${this.getRandomString()}`;
+    await this.locator.streetAddressLine2.fill(addressLine2);
+    await expect(this.locator.streetAddressLine2).toHaveValue(addressLine2);
   }
   async fillPatientCity(): Promise<void> {
-    await this.locator.patientCity.pressSequentially(`City${this.getRandomString()}`);
+    // await this.locator.patientCity.pressSequentially(`City${this.getRandomString()}`);
+    const city = `City${this.getRandomString()}`;
+    await this.locator.patientCity.fill(city);
+    await expect(this.locator.patientCity).toHaveValue(city);
   }
   async fillPatientState(): Promise<void> {
     const randomState = this.getRandomState();
     await this.locator.patientState.click();
-    await this.locator.patientState.pressSequentially(randomState);
+    await this.locator.patientState.fill(randomState);
     await this.page.getByRole('option', { name: randomState }).click();
+    await expect(this.locator.patientState).toHaveValue(randomState);
   }
   async fillPatientZip(): Promise<void> {
-    await this.locator.patientZip.fill('12345');
+    //await this.locator.patientZip.fill('12345');
+    const zip = '12345';
+    await this.locator.patientZip.fill(zip);
+    await expect(this.locator.patientZip).toHaveValue(zip);
   }
   async fillMobileOptIn(): Promise<void> {
     await this.locator.mobileOptIn.check();
@@ -99,10 +125,10 @@ export class Paperwork {
   async checkPatientNameIsDisplayed(firstName: string, lastName: string): Promise<void> {
     await expect(this.page.getByText(`${firstName} ${lastName}`)).toBeVisible();
   }
-  async checkPatientDetailsPageOpens(): Promise<void> {
+  async checkCorrectPageOpens(pageTitle: string): Promise<void> {
     await this.CommonLocatorsHelper.clickContinue();
     await expect(this.locator.flowHeading).toBeVisible();
-    await expect(this.locator.flowHeading).toHaveText('Patient details');
+    await expect(this.locator.flowHeading).toHaveText(pageTitle);
   }
   async fillEthnicity(): Promise<void> {
     await this.validateAllOptions(this.locator.patientEthnicity, Object.values(PatientEthnicity), 'ethnicity');
@@ -114,14 +140,46 @@ export class Paperwork {
     const randomRace = this.getRandomRace();
     await this.page.getByRole('option', { name: randomRace }).click();
   }
+  async fillPronoun(): Promise<void> {
+    await this.validateAllOptions(this.locator.patientPronouns, this.pronouns, 'pronoun');
+    const randomPronoun = this.getRandomElement(this.pronouns);
+    await this.page.getByRole('option', { name: randomPronoun }).click();
+  }
+  async fillNotListedPronouns(): Promise<void> {
+    await this.validateAllOptions(this.locator.patientPronouns, this.pronouns, 'pronoun');
+    await this.page.getByRole('option', { name: 'My pronouns are not listed' }).click();
+    await expect(this.locator.patientMyPronounsLabel).toBeVisible();
+    await expect(this.locator.patientMyPronounsInput).toBeVisible();
+    await this.locator.patientMyPronounsInput.fill('Not listed pronouns');
+  }
+  async fillPointOfDiscovery(): Promise<void> {
+    await this.validateAllOptions(this.locator.patientPointOfDiscovery, this.pointOfDiscovery, 'point of discovery');
+    const randomPoint = this.getRandomElement(this.pointOfDiscovery);
+    await this.page.getByRole('option', { name: randomPoint }).click();
+  }
   async fillPreferredLanguage(): Promise<void> {
     await this.validateAllOptions(this.locator.patientPreferredLanguage, this.language, 'language');
     const randomLanguage = this.getRandomElement(this.language);
     await this.page.getByRole('option', { name: randomLanguage }).click();
   }
+  async checkRequiredFields(requiredFields: string, pageTitle: string): Promise<void> {
+    await this.CommonLocatorsHelper.clickContinue();
+    await expect(
+      this.page.getByText(`Please fix the errors in the following fields to proceed: ${requiredFields}`)
+    ).toBeVisible();
+    await this.CommonLocatorsHelper.clickContinue();
+    await expect(this.locator.flowHeading).toHaveText(pageTitle);
+  }
   async fillPatientDetailsRequiredFields(): Promise<void> {
     await this.fillEthnicity();
     await this.fillRace();
+    await this.fillPreferredLanguage();
+  }
+  async fillPatientDetailsAllFields(): Promise<void> {
+    await this.fillEthnicity();
+    await this.fillRace();
+    await this.fillPronoun();
+    await this.fillPointOfDiscovery();
     await this.fillPreferredLanguage();
   }
   async skipPrimaryCarePhysician(): Promise<void> {
