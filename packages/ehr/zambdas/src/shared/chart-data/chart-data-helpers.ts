@@ -246,6 +246,10 @@ export function makePrescribedMedicationDTO(medRequest: MedicationRequest): Pres
       (coding) => coding.system === 'http://api.zapehr.com/photon-treatment-id'
     )?.display,
     instructions: medRequest.dosageInstruction?.[0]?.patientInstruction,
+    added: medRequest.extension?.find((extension) => extension.url === 'http://api.zapehr.com/photon-event-time')
+      ?.valueDateTime,
+    provider: medRequest.requester?.reference?.split('/')?.[1],
+    status: medRequest.status,
   };
 }
 
