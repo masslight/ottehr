@@ -25,6 +25,7 @@ import {
   codingsEqual,
   CONSENT_CODE,
   ConsentSigner,
+  consolidateOperations,
   ContactTelecomConfig,
   coverageFieldPaths,
   createConsentResource,
@@ -40,8 +41,8 @@ import {
   getCurrentValue,
   getPatchOperationToAddOrUpdateExtension,
   getPatchOperationToRemoveExtension,
+  getPhoneNumberForIndividual,
   getResourcesFromBatchInlineRequests,
-  getSecret,
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
   INSURANCE_CARD_CODE,
@@ -51,6 +52,7 @@ import {
   IntakeQuestionnaireItem,
   isoStringFromDateComponents,
   OTTEHR_BASE_URL,
+  OTTEHR_MODULE,
   PATIENT_PHOTO_CODE,
   PATIENT_PHOTO_ID_PREFIX,
   PatientEthnicity,
@@ -64,22 +66,18 @@ import {
   PHOTO_ID_CARD_CODE,
   PHOTO_ID_FRONT_ID,
   PRACTICE_NAME_URL,
+  PRIVACY_POLICY_CODE,
   PRIVATE_EXTENSION_BASE_URL,
+  RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL,
   relatedPersonFieldPaths,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   SCHOOL_WORK_NOTE_WORK_ID,
-  Secrets,
-  SecretsKeys,
   SUBSCRIBER_RELATIONSHIP_CODE_MAP,
   uploadPDF,
-  consolidateOperations,
-  RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL,
-  PRIVACY_POLICY_CODE,
-  OTTEHR_MODULE,
-  getPhoneNumberForIndividual,
 } from 'utils';
 import { v4 as uuid } from 'uuid';
+import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 import { createOrUpdateFlags } from '../../../paperwork/sharedHelpers';
 import { createPdfBytes } from '../../../shared/pdf';
 

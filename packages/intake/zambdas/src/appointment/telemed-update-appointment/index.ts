@@ -1,26 +1,23 @@
 import Oystehr, { BatchInput, BatchInputRequest, User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Operation } from 'fast-json-patch';
 import { Appointment, Bundle, Encounter, Patient, Resource } from 'fhir/r4b';
 import {
-  FHIR_EXTENSION,
-  RequiredProps,
-  SecretsKeys,
-  UpdateAppointmentRequestParams,
-  UpdateAppointmentResponse,
-  ZambdaInput,
   createOystehrClient,
+  FHIR_EXTENSION,
   getPatchBinary,
   getPatchOperationToUpdateExtension,
-  getSecret,
-  topLevelCatch,
+  RequiredProps,
+  UpdateAppointmentRequestParams,
+  UpdateAppointmentResponse,
   userHasAccessToPatient,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
+import { getSecret, SecretsKeys, topLevelCatch } from 'zambda-utils';
 import { checkOrCreateM2MClientToken, getUser } from '../../shared';
-
-import { Operation } from 'fast-json-patch';
 import { createUpdateUserRelatedResources, creatingPatientUpdateRequest } from '../../shared/appointment/helpers';
-import { validateUpdateAppointmentParams } from './validateRequestParameters';
 import { getTelemedLocation } from '../telemed-create-appointment';
+import { validateUpdateAppointmentParams } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
