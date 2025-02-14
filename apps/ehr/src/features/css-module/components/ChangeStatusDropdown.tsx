@@ -90,7 +90,7 @@ export const ChangeStatusDropdown = ({
         <div id="user-set-appointment-status">
           <FormControl size="small">
             <StyledSelect
-              data-testid={dataTestIds.patientHeader.appointmentStatus}
+              data-testid={dataTestIds.cssHeader.appointmentStatus}
               id="appointment-status"
               value={status}
               {...(hasdropdown ? { hasdropdown: 'true' } : {})}

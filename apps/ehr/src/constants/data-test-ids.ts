@@ -7,6 +7,8 @@ export const dataTestIds = {
   cssHeader: {
     container: 'css-header-container',
     patientName: 'patient-name',
+    appointmentStatus: 'appointment-status',
+    switchStatusButton: (status: string) => `switch-status-to-${status}`,
   },
   dashboard: {
     addPatientButton: 'add-patient-button',
@@ -57,7 +59,6 @@ export const dataTestIds = {
     patientAddress: 'header-patient-address',
     patientPhoneNumber: 'header-patient-phone-number',
     emergencyContact: 'header-emergency-contact',
-    appointmentStatus: 'appointment-status',
   },
   patientInformation: {
     patientLastName: 'patient-last-name',
@@ -81,6 +82,7 @@ export const dataTestIds = {
   },
   dialog: {
     closeButton: 'close-button',
+    proceedButton: 'proceed-button',
   },
   statesPage: {
     statesSearch: 'states-search',
@@ -138,5 +140,19 @@ export const dataTestIds = {
     addQualificationButton: 'add-qualification-button',
     deactivateUserButton: 'deactivate-user-button',
     statusChip: 'employee-status-chip',
+  },
+  sideMenu: {
+    completeIntakeButton: 'complete-intake-button',
+    sideMenuItem: (item: string): string => `menu-item-${item}`,
+  },
+  hospitalizationPage: {
+    completeIntakeFromHospitalizationPage: 'complete-intake-from-hospitalization-page',
+  },
+  progressNotePage: {
+    reviewAndSignButton: 'review-and-sign-button',
+  },
+  assessmentPage: {
+    diagnosisDropdown: 'diagnosis-dropdown',
+    emCodeDropdown: 'em-code-dropdown',
   },
 };

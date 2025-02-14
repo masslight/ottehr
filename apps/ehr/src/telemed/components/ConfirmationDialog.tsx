@@ -2,6 +2,7 @@ import { FC, ReactNode } from 'react';
 import { DialogContentText, Stack } from '@mui/material';
 import { RoundedButton } from '../../components/RoundedButton';
 import { InnerStateDialog } from './InnerStateDialog';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 type ConfirmationDialogProps = {
   response: () => void;
@@ -41,6 +42,7 @@ export const ConfirmationDialog: FC<ConfirmationDialogProps> = (props) => {
       actions={(hideDialog) => (
         <Stack direction={props?.actionButtons?.reverse ? 'row-reverse' : 'row'} spacing={2}>
           <RoundedButton
+            data-testid={dataTestIds.dialog.proceedButton}
             onClick={() => confirmRequest(hideDialog)}
             variant="contained"
             color={props?.actionButtons?.proceed?.color || 'primary'}
