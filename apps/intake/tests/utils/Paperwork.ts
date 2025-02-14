@@ -88,13 +88,11 @@ export class Paperwork {
     await expect(this.locator.streetAddress).toHaveValue(address);
   }
   async fillStreetAddressLine2(): Promise<void> {
-    //await this.locator.streetAddressLine2.pressSequentially(`Address Line 2 ${this.getRandomString()}`);
     const addressLine2 = `Address Line 2 ${this.getRandomString()}`;
     await this.locator.streetAddressLine2.fill(addressLine2);
     await expect(this.locator.streetAddressLine2).toHaveValue(addressLine2);
   }
   async fillPatientCity(): Promise<void> {
-    // await this.locator.patientCity.pressSequentially(`City${this.getRandomString()}`);
     const city = `City${this.getRandomString()}`;
     await this.locator.patientCity.fill(city);
     await expect(this.locator.patientCity).toHaveValue(city);
@@ -107,7 +105,6 @@ export class Paperwork {
     await expect(this.locator.patientState).toHaveValue(randomState);
   }
   async fillPatientZip(): Promise<void> {
-    //await this.locator.patientZip.fill('12345');
     const zip = '12345';
     await this.locator.patientZip.fill(zip);
     await expect(this.locator.patientZip).toHaveValue(zip);
