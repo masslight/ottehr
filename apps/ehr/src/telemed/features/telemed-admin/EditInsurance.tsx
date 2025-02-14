@@ -29,6 +29,7 @@ import { INSURANCES_URL } from '../../../App';
 import CustomBreadcrumbs from '../../../components/CustomBreadcrumbs';
 import PageContainer from '../../../layout/PageContainer';
 import { useInsuranceMutation, useInsuranceOrganizationsQuery, useInsurancesQuery } from './telemed-admin.queries';
+import { dataTestIds } from '../../../constants/data-test-ids';
 
 const INSURANCE_SETTINGS_CHECKBOXES: Array<
   Exclude<keyof typeof INSURANCE_SETTINGS_MAP, typeof ENABLE_ELIGIBILITY_CHECK_KEY>
@@ -253,7 +254,13 @@ export default function EditInsurance(): JSX.Element {
                         }}
                         fullWidth
                         renderInput={(params) => (
-                          <TextField placeholder="Select payer name" {...params} label="Payer name" required />
+                          <TextField
+                            placeholder="Select payer name"
+                            {...params}
+                            label="Payer name"
+                            required
+                            data-testid={dataTestIds.newInsurancePage.payerName}
+                          />
                         )}
                       />
                     );
@@ -270,6 +277,7 @@ export default function EditInsurance(): JSX.Element {
                       onChange={onChange}
                       sx={{ marginTop: 2, marginBottom: 1, width: '100%' }}
                       margin="dense"
+                      data-testid={dataTestIds.newInsurancePage.displayNameInput}
                     />
                   )}
                 />
@@ -301,7 +309,12 @@ export default function EditInsurance(): JSX.Element {
                           value={value}
                           disabled={INSURANCE_SETTINGS_DEFAULTS[name] === true}
                           checked={value}
-                          control={<Checkbox onChange={onChange}></Checkbox>}
+                          control={
+                            <Checkbox
+                              onChange={onChange}
+                              data-testid={dataTestIds.newInsurancePage.settingsOptionRow(name)}
+                            ></Checkbox>
+                          }
                           label={INSURANCE_SETTINGS_MAP[name]}
                         />
                       )}
@@ -328,6 +341,7 @@ export default function EditInsurance(): JSX.Element {
                   }}
                   type="submit"
                   disabled={false}
+                  data-testid={dataTestIds.newInsurancePage.saveChangesButton}
                 >
                   Save changes
                 </LoadingButton>
