@@ -3,6 +3,9 @@ import { ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import {
   Closure,
   CreateAppointmentInputParams,
+  GetEligibilityParameters,
+  GetEligibilityResponse,
+  GetPresignedFileURLInput,
   GetScheduleRequestParams,
   GetScheduleResponse,
   PatchPaperworkParameters,
@@ -43,6 +46,7 @@ const GET_PRESIGNED_FILE_URL = import.meta.env.VITE_APP_GET_PRESIGNED_FILE_URL_Z
 const GET_APPOINTMENT_DETAILS = import.meta.env.VITE_APP_GET_APPOINTMENT_DETAILS;
 const PATCH_PAPERWORK_ZAMBDA_ID = import.meta.env.VITE_APP_PATCH_PAPERWORK_ZAMBDA_ID;
 const SUBMIT_PAPERWORK_ZAMBDA_ID = import.meta.env.VITE_APP_SUBMIT_PAPERWORK_ZAMBDA_ID;
+const GET_ELIGIBILITY_ZAMBDA_ID = import.meta.env.VITE_APP_GET_ELIGIBILITY_ZAMBDA_ID;
 
 export function chooseJson(json: any, isLocal: string): any {
   if (isLocal === 'true' || !json.output) {
@@ -308,7 +312,6 @@ class API {
 
       const response = await zambdaClient.executePublic(GET_PAPERWORK_ZAMBDA_ID, parameters);
       const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
-      console.log('paperwork json', jsonToUse.paperwork);
       return jsonToUse;
     } catch (error: any) {
       console.log('error from get paperwork', error);
@@ -330,7 +333,14 @@ class API {
     file: File
   ): Promise<any> {
     try {
-      const presignedURLRequest = await this.getPresignedFileURL(appointmentID, fileType, fileFormat, zambdaClient);
+      const presignedURLRequest = await this.getPresignedFileURL(
+        {
+          appointmentID,
+          fileType: fileType as GetPresignedFileURLInput['fileType'],
+          fileFormat: fileFormat as GetPresignedFileURLInput['fileFormat'],
+        },
+        zambdaClient
+      );
 
       // const presignedURLResponse = await presignedURLRequest.json();
       // Upload the file to S3
@@ -370,15 +380,14 @@ class API {
   }
 
   async getPresignedFileURL(
-    appointmentID: string,
-    fileType: string,
-    fileFormat: string,
+    params: GetPresignedFileURLInput,
     zambdaClient: ZambdaClient
   ): Promise<PresignUploadUrlResponse> {
     try {
       if (GET_PRESIGNED_FILE_URL == null || REACT_APP_IS_LOCAL == null) {
         throw new Error('get presigned file url environment variable could not be loaded');
       }
+      const { appointmentID, fileType, fileFormat } = params;
 
       const response = await zambdaClient.executePublic(GET_PRESIGNED_FILE_URL, {
         appointmentID,
@@ -386,6 +395,20 @@ class API {
         fileFormat,
       });
       const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
+      return jsonToUse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+  async getEligibility(input: GetEligibilityParameters, zambdaClient: ZambdaClient): Promise<GetEligibilityResponse> {
+    try {
+      if (GET_ELIGIBILITY_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
+        throw new Error('get presigned file url environment variable could not be loaded');
+      }
+
+      const response = await zambdaClient.execute(GET_ELIGIBILITY_ZAMBDA_ID, input);
+      const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
+      console.log('json from get eligibility', jsonToUse);
       return jsonToUse;
     } catch (error: unknown) {
       throw apiErrorToThrow(error);

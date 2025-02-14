@@ -1,4 +1,5 @@
-import { emailRegex, VideoChatCreateInviteInput, ZambdaInput } from 'utils';
+import { emailRegex, VideoChatCreateInviteInput } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 
 export function validateRequestParameters(input: ZambdaInput): VideoChatCreateInviteInput {
   if (!input.body) {

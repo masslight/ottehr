@@ -28,20 +28,6 @@ export interface StyledQuestionnaireItem extends IntakeQuestionnaireItem {
 
 // all of this could potentially move onto an extension
 const addStyleInfo = (item: IntakeQuestionnaireItem): StyledQuestionnaireItem => {
-  /*const widthEquals4 = [
-    'patient-city',
-    'patient-state',
-    'patient-zip',
-    'policy-holder-city',
-    'policy-holder-state',
-    'policy-holder-zip',
-    'policy-holder-city-2',
-    'policy-holder-state-2',
-    'policy-holder-zip-2',
-  ];
-  const widthEquals6 = ['pcp-first', 'pcp-last', 'responsible-party-first-name', 'responsible-party-last-name'];
-  const widthEquals7 = ['display-secondary-insurance'];
-  */
   let width: number | undefined;
   if (item.inputWidth === 's') {
     width = 4;
@@ -55,6 +41,7 @@ const addStyleInfo = (item: IntakeQuestionnaireItem): StyledQuestionnaireItem =>
   // item.inputWidth === 'max' results in undefined for width here (default is max width)
   const isFullWidth = width === undefined;
 
+  // todo: move this into form extensions
   const hidesLabel = [
     'mobile-opt-in',
     'hipaa-acknowledgement',

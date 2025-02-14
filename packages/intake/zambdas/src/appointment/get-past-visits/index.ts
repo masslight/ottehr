@@ -1,21 +1,20 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient } from 'fhir/r4b';
 import {
-  GetPastVisitsResponse,
-  SecretsKeys,
   AppointmentInformationIntake,
-  ZambdaInput,
+  AppointmentStatus,
+  appointmentTypeMap,
   createOystehrClient,
   getParticipantIdFromAppointment,
+  GetPastVisitsResponse,
   getPatientsForUser,
-  getSecret,
-  mapStatusToTelemed,
-  appointmentTypeMap,
   getVisitStatus,
-  AppointmentStatus,
+  mapStatusToTelemed,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
+import { getSecret, SecretsKeys } from 'zambda-utils';
 import { checkOrCreateM2MClientToken, getUser } from '../../shared';
-import { mapEncountersToAppointmentIds, getFhirResources } from './helpers';
+import { getFhirResources, mapEncountersToAppointmentIds } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations

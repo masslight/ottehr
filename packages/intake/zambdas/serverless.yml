@@ -7,7 +7,7 @@ package:
 
 provider:
   name: aws
-  runtime: nodejs18.x
+  runtime: nodejs20.x
   stage: ${opt:stage, self:custom.defaultStage}
 
 custom:
@@ -652,6 +652,7 @@ functions:
       FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      DEFAULT_BILLING_RESOURCE: ${file(./.env/${self:provider.stage}.json):DEFAULT_BILLING_RESOURCE}
   get-answer-options:
     handler: src/get-answer-options/index.index
     events:

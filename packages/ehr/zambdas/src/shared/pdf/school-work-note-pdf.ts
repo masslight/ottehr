@@ -2,7 +2,8 @@ import fontkit from '@pdf-lib/fontkit';
 import { Patient } from 'fhir/r4b';
 import fs from 'fs';
 import { Color, PageSizes, PDFDocument, PDFFont } from 'pdf-lib';
-import { makeZ3Url, PdfBulletPointItem, SCHOOL_WORK_NOTE, SchoolWorkNoteExcuseDocDTO, Secrets } from 'utils';
+import { PdfBulletPointItem, SCHOOL_WORK_NOTE, SchoolWorkNoteExcuseDocDTO } from 'utils';
+import { makeZ3Url, Secrets } from 'zambda-utils';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { handleBadSpaces, PdfInfo, rgbNormalized, splitLongStringToPageSize } from './pdf-utils';
 

@@ -13,19 +13,18 @@ import {
   IntakeQuestionnaireItem,
   Question,
   QuestionnaireItemExtension,
-  QuestionnaireItemRequireWhen,
   QuestionnaireItemTextWhen,
   validateQuestionnaireDataType,
-  QuestionnaireItemFilterWhen,
   FormDisplayElementList,
   FormSelectionElementList,
   FormElement,
   QuestionnaireItemGroupType,
   AnswerLoadingOptions,
   InputWidthOption,
+  QuestionnaireItemConditionDefinition,
 } from '../../types';
 import Oystehr from '@oystehr/sdk';
-import { getCanonicalQuestionnaire, PRIVATE_EXTENSION_BASE_URL } from '../../fhir';
+import { getCanonicalQuestionnaire, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../fhir';
 
 export interface OptionConfig {
   label: string;
@@ -80,7 +79,7 @@ export async function getQuestionnaireAndValueSets(
 
 const getPreferredElement = (extension: Extension[]): FormElement | undefined => {
   const preferredElementExt = extension?.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/preferred-element`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.preferredElement;
   })?.valueString as FormElement | undefined;
   if (preferredElementExt && [...FormSelectionElementList, ...FormDisplayElementList].includes(preferredElementExt)) {
     return preferredElementExt;
@@ -91,27 +90,27 @@ const getPreferredElement = (extension: Extension[]): FormElement | undefined =>
 const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension => {
   const extension = item.extension ?? [];
   let disabledDisplay = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/disabled-display`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.disabledDisplay;
   })?.valueString;
   if (disabledDisplay !== 'hidden' && disabledDisplay !== 'protected') {
     disabledDisplay = undefined;
   }
   const requiredWhenExt = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/require-when`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen.extension;
   })?.extension;
-  let requireWhen: QuestionnaireItemRequireWhen | undefined;
+  let requireWhen: QuestionnaireItemConditionDefinition | undefined;
   if (requiredWhenExt) {
     const question = requiredWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/require-when-question`;
+      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen.question;
     })?.valueString;
     const operator = requiredWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/require-when-operator`;
+      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen.operator;
     })?.valueString;
     const answerString = requiredWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/require-when-answer`;
+      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen.answer;
     })?.valueString;
     const answerBoolean = requiredWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/require-when-answer`;
+      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen.answer;
     })?.valueBoolean;
     if (
       operator !== undefined &&
@@ -129,24 +128,24 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
   }
 
   const textWhenExt = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/text-when`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen.extension;
   })?.extension;
   let textWhen: QuestionnaireItemTextWhen | undefined;
   if (textWhenExt) {
     const question = textWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/text-when-question`;
+      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen.question;
     })?.valueString;
     const operator = textWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/text-when-operator`;
+      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen.operator;
     })?.valueString;
     const answerString = textWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/text-when-answer`;
+      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen.answer;
     })?.valueString;
     const answerBoolean = textWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/text-when-answer`;
+      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen.answer;
     })?.valueBoolean;
     const substituteText = textWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/text-when-substitute-text`;
+      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen.substituteText;
     })?.valueString;
 
     if (
@@ -167,21 +166,21 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
   }
 
   const filterWhenExt = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/filter-when`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen.extension;
   })?.extension;
-  let filterWhen: QuestionnaireItemFilterWhen | undefined;
+  let filterWhen: QuestionnaireItemConditionDefinition | undefined;
   if (filterWhenExt) {
     const question = filterWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/filter-when-question`;
+      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen.question;
     })?.valueString;
     const operator = filterWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/filter-when-operator`;
+      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen.operator;
     })?.valueString;
     const answerString = filterWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/filter-when-answer`;
+      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen.answer;
     })?.valueString;
     const answerBoolean = filterWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/filter-when-answer`;
+      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen.answer;
     })?.valueBoolean;
     if (
       operator !== undefined &&
@@ -199,40 +198,40 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
   }
 
   const attachmentText = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/attachment-text`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.attachmentText;
   })?.valueString;
 
   const autofillFromWhenDisabled = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/fill-from-when-disabled`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.autofillFromWhenDisabled;
   })?.valueString;
 
   const infoText = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/information-text`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.infoText;
   })?.valueString;
 
   const secondaryInfoText = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/information-text-secondary`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.secondaryInfoText;
   })?.valueString;
 
   const dataType = validateQuestionnaireDataType(
     extension.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/data-type`;
+      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.dataType;
     })?.valueString
   );
 
   const validateAgeOver = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/validate-age-over`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.validateAgeOver;
   })?.valueInteger;
 
   const preferredElement = getPreferredElement(extension);
 
   const acceptsMultipleAnswers =
     extension.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/accepts-multiple-answers`;
+      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.acceptsMultipleAnswers;
     })?.valueBoolean ?? false;
 
   let groupType = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/group-type`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.groupType;
   })?.valueString as QuestionnaireItemGroupType | undefined;
 
   const validGroupTypes = Object.values(QuestionnaireItemGroupType) as string[];
@@ -242,23 +241,23 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
 
   const alwaysFilter =
     extension.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/always-filter`;
+      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.alwaysFilter;
     })?.valueBoolean ?? false;
 
   const categoryTag = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/category-tag`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.categoryTag;
   })?.valueString;
 
   const answerLoadingExtensionRoot = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/answer-loading-options`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.extension;
   })?.extension;
 
   const answerLoadingStrategy = answerLoadingExtensionRoot?.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/strategy`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.strategy;
   })?.valueString;
 
   const source = answerLoadingExtensionRoot?.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/source`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.source;
   })?.valueExpression;
 
   let answerLoadingOptions: AnswerLoadingOptions | undefined;
@@ -284,15 +283,62 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     }
   }
   let inputWidth = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/input-width`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.inputWidth;
   })?.valueString;
   if (!['s', 'm', 'l', 'max'].includes(inputWidth ?? '')) {
     inputWidth = undefined;
   }
 
   const minRows = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/text-min-rows`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.minRows;
   })?.valuePositiveInt;
+
+  let complexValidation: QuestionnaireItemExtension['complexValidation'] | undefined;
+  const complexValidationExtension = extension?.find((ext) => {
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.extension;
+  })?.extension;
+  if (complexValidationExtension) {
+    const complexValidationType = complexValidationExtension.find((ext) => {
+      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.type;
+    })?.valueString;
+    if (complexValidationType) {
+      const triggerWhenExtension = complexValidationExtension.find((ext) => {
+        return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.triggerWhen.extension;
+      })?.extension;
+      let triggerWhen: QuestionnaireItemConditionDefinition | undefined;
+      if (triggerWhenExtension) {
+        const question = triggerWhenExtension.find((ext) => {
+          return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.triggerWhen.question;
+        })?.valueString;
+        const operator = triggerWhenExtension.find((ext) => {
+          return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.triggerWhen.operator;
+        })?.valueString;
+        const answerString = triggerWhenExtension.find((ext) => {
+          return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.triggerWhen.answer;
+        })?.valueString;
+        const answerBoolean = triggerWhenExtension.find((ext) => {
+          return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.triggerWhen.answer;
+        })?.valueBoolean;
+        if (
+          operator !== undefined &&
+          ['=', '!='].includes(operator) &&
+          question !== undefined &&
+          (answerString !== undefined || answerBoolean !== undefined)
+        ) {
+          triggerWhen = {
+            question,
+            operator: operator as '=' | '!=',
+            answerString,
+            answerBoolean,
+          };
+        }
+      }
+      complexValidation = {
+        type: complexValidationType,
+        triggerWhen,
+      };
+    }
+  }
 
   return {
     acceptsMultipleAnswers,
@@ -313,6 +359,7 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     answerLoadingOptions,
     inputWidth: inputWidth as InputWidthOption | undefined,
     minRows,
+    complexValidation,
   };
 };
 
@@ -320,9 +367,11 @@ export const mapQuestionnaireAndValueSetsToItemsList = (
   questionnaireItems: QuestionnaireItem[],
   valueSets: ValueSet[]
 ): IntakeQuestionnaireItem[] => {
-  return questionnaireItems.map((item) => {
+  return questionnaireItems.map((startingItem) => {
+    let item = startingItem;
     if (item.item !== undefined) {
       item.item = mapQuestionnaireAndValueSetsToItemsList(item.item, valueSets);
+      item = { ...item, ...structureExtension(item) };
     }
     const additionalProps = structureExtension(item);
     const enhancedItem = {
