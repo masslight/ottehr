@@ -13,6 +13,7 @@
     "update-insurances-and-payer-orgs-debug": "node --inspect --loader tsx scripts/update-insurances-and-payer-orgs.ts",
     "revoke-practitioners-erx-enrollment": "tsx scripts/revoke-practitioners-erx-enrollment.ts",
     "create-update-in-house-medications-list": "tsx scripts/create-update-in-house-medications-list.ts $npm_config_env",
+    "remove-test-patient-data": "tsx scripts/remove-test-patient-data.ts local",
     "setup-default-locations": "tsx scripts/setup-default-locations.ts",
     "setup-zapehr-secrets": "tsx scripts/configure-zapehr-secrets.ts",
     "deploy-zambdas": "ENV=$ENV npm run package && tsx scripts/deploy-zambdas.ts",
