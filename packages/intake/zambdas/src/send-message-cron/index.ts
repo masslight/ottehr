@@ -3,9 +3,11 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Location, Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR, getSecret, Secrets, SecretsKeys, topLevelCatch, ZambdaInput } from 'utils';
+import { DATETIME_FULL_NO_YEAR } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
+import { Secrets, SecretsKeys, getSecret, topLevelCatch } from 'zambda-utils';
 import '../../instrument.mjs';
-import { captureSentryException, configSentry, getAccessToken } from '../shared';
+import { captureSentryException, configSentry, getAuth0Token } from '../shared';
 import { getMessageRecipientForAppointment } from '../shared/communication';
 import { createOystehrClient } from '../shared/helpers';
 
@@ -16,7 +18,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
   console.log(`Input: ${JSON.stringify(input)}`);
   const { secrets } = input;
   if (!zapehrToken) {
-    zapehrToken = await getAccessToken(secrets);
+    zapehrToken = await getAuth0Token(secrets);
   }
   try {
     const oystehr = createOystehrClient(zapehrToken, secrets);

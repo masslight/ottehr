@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import {
   Address,
   Bundle,
@@ -21,6 +22,7 @@ import {
   InsuranceEligibilityPrevalidationInput,
   InsurancePlanDTO,
 } from 'utils';
+import { Secrets } from 'zambda-utils';
 import { createInsurancePlanDto, CreateRelatedPersonObject } from '../shared';
 import {
   getInsurancePlansAndOrgs,
@@ -28,13 +30,13 @@ import {
   parseEligibilityCheckResponse,
   performEligibilityCheck,
 } from './helpers';
-import Oystehr from '@oystehr/sdk';
 import { complexBillingProviderValidation, validateInsuranceRequirements } from './validation';
 
 interface Input extends Omit<GetEligibilityInput, 'coveragePrevalidationInput'> {
   coveragePrevalidationInput: InsuranceEligibilityPrevalidationInput;
   apiUrl: string;
   accessToken: string;
+  secrets: Secrets | null;
 }
 
 export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr): Promise<GetEligibilityResponse> => {

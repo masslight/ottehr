@@ -22,7 +22,6 @@ import {
   PHOTO_ID_CARD_CODE,
   SMSModel,
   SMSRecipient,
-  Secrets,
   ZAP_SMS_MEDIUM_CODE,
   appointmentTypeForAppointment,
   flattenItems,
@@ -36,10 +35,10 @@ import {
   getVisitStatusHistory,
   isTruthy,
 } from 'utils';
+import { Secrets, ZambdaInput } from 'zambda-utils';
 import { topLevelCatch } from '../shared/errors';
 import { checkOrCreateM2MClientToken, createOystehrClient, getRelatedPersonsFromResourceList } from '../shared/helpers';
 import { sortAppointments } from '../shared/queueingUtils';
-import { ZambdaInput } from '../types';
 import { getMergedResourcesFromBundles, parseEncounterParticipants } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

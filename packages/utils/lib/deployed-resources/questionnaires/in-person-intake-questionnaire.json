@@ -657,8 +657,30 @@
             "valueString": "Insurance details"
           },
           {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation-type",
-            "valueString": "insurance eligibility"
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation-type",
+                "valueString": "insurance eligibility"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation-triggerWhen",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation-triggerQuestion",
+                    "valueString": "payment-option"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation-triggerOperator",
+                    "valueString": "="
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation-triggerAnswer",
+                    "valueString": "I have insurance"
+                  }
+                ]
+              }
+            ]
           }
         ],
         "type": "group",

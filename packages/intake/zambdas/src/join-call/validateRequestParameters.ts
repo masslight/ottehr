@@ -1,4 +1,5 @@
-import { JoinCallInput, ZambdaInput } from 'utils';
+import { JoinCallInput } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 
 export function validateRequestParameters(input: ZambdaInput): JoinCallInput {
   if (!input.body) {

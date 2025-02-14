@@ -29,6 +29,7 @@ import {
   ComplexValidationResult,
   InsuranceEligibilityCheckStatus,
   ComplexValidationResultFailureCase,
+  evalComplexValidationTrigger,
 } from 'utils';
 import { zapehrApi } from '../api';
 import useAppointmentNotFoundInformation from '../helpers/information';
@@ -446,8 +447,7 @@ export const PaperworkPage: FC = () => {
           }
         };
         try {
-          if (currentPage.complexValidationType !== undefined) {
-            console.log('performing complex validation');
+          if (currentPage.complexValidation !== undefined && evalComplexValidationTrigger(currentPage, responseItems)) {
             setValidationRoadblockConfig({
               type: 'in-progress',
               title: 'Hang tight',
@@ -458,7 +458,7 @@ export const PaperworkPage: FC = () => {
                 appointmentId: appointmentID,
                 patientId: paperworkPatient.id ?? '',
                 responseItems,
-                type: currentPage.complexValidationType,
+                type: currentPage.complexValidation.type,
               },
               zambdaClient
             );
