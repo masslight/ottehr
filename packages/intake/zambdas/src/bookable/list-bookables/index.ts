@@ -6,17 +6,15 @@ import {
   BookableItemListResponse,
   createOystehrClient,
   GetBookableItemListParams,
-  getSecret,
   isLocationVirtual,
-  SecretsKeys,
   ServiceMode,
   ServiceModeCoding,
   serviceModeForHealthcareService,
   stateCodeToFullName,
-  topLevelCatch,
-  ZambdaInput,
 } from 'utils';
-import { getM2MClientToken } from '../../shared';
+import { ZambdaInput } from 'zambda-utils';
+import { getSecret, SecretsKeys, topLevelCatch } from 'zambda-utils';
+import { getAuth0Token } from '../../shared';
 import { getSlugForBookableResource } from '../helpers';
 
 let zapehrToken: string;
@@ -28,7 +26,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!zapehrToken) {
       console.log('getting m2m token for service calls');
-      zapehrToken = await getM2MClientToken(input.secrets);
+      zapehrToken = await getAuth0Token(input.secrets);
     } else {
       console.log('already have a token, no need to update');
     }

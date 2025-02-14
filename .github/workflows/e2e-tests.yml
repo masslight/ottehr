@@ -9,6 +9,7 @@ on:
       - 'apps/ehr/**'
       - 'apps/intake/**'
       - 'packages/ehr/**'
+      - 'packages/intake/**'
       - 'packages/utils/**'
       - 'packages/ui-components/**'
       - '.github/**'
@@ -20,7 +21,11 @@ jobs:
     if: github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch'
     strategy:
       matrix:
-        app: [ehr, intake]
+        app:
+          - "ehr"
+          - "intake"
+        node-version:
+          - "20"
       fail-fast: false
     runs-on: ubuntu-latest-8-cores
     timeout-minutes: 20
@@ -31,7 +36,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node-version }}
 
       - name: Cache node modules
         uses: actions/cache@v3
@@ -73,12 +78,10 @@ jobs:
           for app in ehr intake; do
             setup_env "$app"
           done
-
       - name: Install dependencies
         run: |
           npm ci
           npx playwright install --with-deps chromium
-
       - name: Run E2E tests
         run: npm run ${{ matrix.app }}:e2e:local
         env:

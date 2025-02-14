@@ -20,20 +20,17 @@ import {
   createOystehrClient,
   FHIR_EXTENSION,
   formatPhoneNumber,
-  getSecret,
   makePrepopulatedItemsForPatient,
   OTTEHR_MODULE,
   PatientInfo,
   PRIVATE_EXTENSION_BASE_URL,
   RequiredAllProps,
-  Secrets,
-  SecretsKeys,
   ServiceMode,
-  topLevelCatch,
   userHasAccessToPatient,
   VisitType,
-  ZambdaInput,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
+import { getSecret, Secrets, SecretsKeys, topLevelCatch } from 'zambda-utils';
 import { AuditableZambdaEndpoints, checkOrCreateM2MClientToken, createAuditEvent, getUser } from '../../shared';
 import { createUpdateUserRelatedResources, generatePatientRelatedRequests } from '../../shared/appointment';
 import {

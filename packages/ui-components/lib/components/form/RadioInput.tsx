@@ -113,6 +113,7 @@ const RadioInput: FC<RadioInputProps> = ({
                 return (
                   <FormControlLabel
                     value={option.value}
+                    data-testid={option.label}
                     control={
                       <Radio
                         icon={

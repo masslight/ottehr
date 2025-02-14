@@ -1,12 +1,12 @@
-import { FC, useCallback, useEffect, useRef, useState } from 'react';
-import { Box, Card, FormControl, IconButton, InputLabel, MenuItem, Select, Typography } from '@mui/material';
-import KeyboardVoiceOutlinedIcon from '@mui/icons-material/KeyboardVoiceOutlined';
-import KeyboardVoiceIcon from '@mui/icons-material/KeyboardVoice';
-import ReplayIcon from '@mui/icons-material/Replay';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import PauseIcon from '@mui/icons-material/Pause';
-import StopIcon from '@mui/icons-material/Stop';
 import GraphicEqIcon from '@mui/icons-material/GraphicEq';
+import KeyboardVoiceIcon from '@mui/icons-material/KeyboardVoice';
+import KeyboardVoiceOutlinedIcon from '@mui/icons-material/KeyboardVoiceOutlined';
+import PauseIcon from '@mui/icons-material/Pause';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import ReplayIcon from '@mui/icons-material/Replay';
+import StopIcon from '@mui/icons-material/Stop';
+import { Box, Card, FormControl, IconButton, InputLabel, MenuItem, Select, Typography } from '@mui/material';
+import { FC, useCallback, useEffect, useRef, useState } from 'react';
 import { otherColors } from '../../../IntakeThemeProvider';
 
 type MicrophoneSettingsProps = {
@@ -77,7 +77,7 @@ export const MicrophoneSettings: FC<MicrophoneSettingsProps> = (props) => {
   }, [audioChunks]);
 
   useEffect(() => {
-    let timeout: NodeJS.Timeout | null = null;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
     if (recordingStatus === 'recording') {
       timeout = setTimeout(() => {
         stopRecording();

@@ -1,17 +1,6 @@
 import { test } from '@playwright/test';
-import { ResourceHandler } from '../../e2e-utils/resource-handler';
-import { expectStatesPage, openStatesPage } from '../page/StatesPage';
 import { expectStateDetailsPage } from '../page/StateDetailsPage';
-
-const resourceHandler = new ResourceHandler();
-
-test.beforeAll(async () => {
-  await resourceHandler.setResources();
-});
-
-test.afterAll(async () => {
-  await resourceHandler.cleanupResources();
-});
+import { expectStatesPage, openStatesPage } from '../page/StatesPage';
 
 test.beforeEach(async ({ page }) => {
   await page.waitForTimeout(2000);
