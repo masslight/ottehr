@@ -78,7 +78,6 @@ export const CustomContainer: FC<ContainerProps> = ({
   alt,
   footer,
   logoutHandler,
-  logoutUrl,
   patientFullName,
 }) => {
   const theme = useTheme();
@@ -89,9 +88,9 @@ export const CustomContainer: FC<ContainerProps> = ({
     if (logoutHandler !== undefined) {
       logoutHandler();
     } else {
-      void logout({ logoutParams: { returnTo: logoutUrl ?? window.location.origin, localOnly: true } });
+      void logout({ logoutParams: { localOnly: true } });
     }
-  }, [logout, logoutHandler, logoutUrl]);
+  }, [logout, logoutHandler]);
 
   const gridWidths = { title: img ? 8 : 12, image: 4 };
   return (
