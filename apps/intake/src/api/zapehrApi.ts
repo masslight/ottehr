@@ -5,6 +5,7 @@ import {
   CreateAppointmentInputParams,
   GetEligibilityParameters,
   GetEligibilityResponse,
+  GetPresignedFileURLInput,
   GetScheduleRequestParams,
   GetScheduleResponse,
   PatchPaperworkParameters,
@@ -332,7 +333,14 @@ class API {
     file: File
   ): Promise<any> {
     try {
-      const presignedURLRequest = await this.getPresignedFileURL(appointmentID, fileType, fileFormat, zambdaClient);
+      const presignedURLRequest = await this.getPresignedFileURL(
+        {
+          appointmentID,
+          fileType: fileType as GetPresignedFileURLInput['fileType'],
+          fileFormat: fileFormat as GetPresignedFileURLInput['fileFormat'],
+        },
+        zambdaClient
+      );
 
       // const presignedURLResponse = await presignedURLRequest.json();
       // Upload the file to S3
@@ -372,15 +380,14 @@ class API {
   }
 
   async getPresignedFileURL(
-    appointmentID: string,
-    fileType: string,
-    fileFormat: string,
+    params: GetPresignedFileURLInput,
     zambdaClient: ZambdaClient
   ): Promise<PresignUploadUrlResponse> {
     try {
       if (GET_PRESIGNED_FILE_URL == null || REACT_APP_IS_LOCAL == null) {
         throw new Error('get presigned file url environment variable could not be loaded');
       }
+      const { appointmentID, fileType, fileFormat } = params;
 
       const response = await zambdaClient.executePublic(GET_PRESIGNED_FILE_URL, {
         appointmentID,

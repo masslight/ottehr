@@ -14,6 +14,7 @@ import {
   phoneRegex,
   pickFirstValueFromAnswerItem,
   zipRegex,
+  QuestionnaireItemConditionDefinition,
 } from 'utils';
 import * as Yup from 'yup';
 
@@ -605,31 +606,7 @@ export const evalRequired = (item: IntakeQuestionnaireItem, context: any, questi
     return false;
   }
 
-  const { question, operator, answerString, answerBoolean } = item.requireWhen;
-  const questionValue = recursivePathEval(context, question, questionVal);
-  if (answerString !== undefined) {
-    const comparisonString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;
-
-    if (operator === '=' && comparisonString === answerString) {
-      return true;
-    }
-    if (operator === '!=' && comparisonString !== answerString) {
-      return true;
-    }
-    return false;
-  }
-  if (answerBoolean !== undefined) {
-    const comparisonBool = questionValue?.answer?.[0]?.valueBoolean ?? questionValue?.valueBoolean;
-
-    if (operator === '=' && comparisonBool === answerBoolean) {
-      return true;
-    }
-    if (operator === '!=' && comparisonBool !== answerBoolean) {
-      return true;
-    }
-    return false;
-  }
-  return false;
+  return evalCondition(item.requireWhen, context, questionVal);
 };
 
 export const evalItemText = (item: IntakeQuestionnaireItem, context: any, questionVal?: any): string | undefined => {
@@ -637,29 +614,10 @@ export const evalItemText = (item: IntakeQuestionnaireItem, context: any, questi
   if (textWhen === undefined) {
     return item.text;
   }
+  const { substituteText } = textWhen;
 
-  const { question, operator, answerString, answerBoolean, substituteText } = textWhen;
-  const questionValue = recursivePathEval(context, question, questionVal);
-  if (answerString !== undefined) {
-    const comparisonString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;
-    if (operator === '=' && comparisonString === answerString) {
-      return substituteText;
-    }
-    if (operator === '!=' && comparisonString !== answerString) {
-      return substituteText;
-    }
-    return item.text;
-  }
-  if (answerBoolean !== undefined) {
-    const comparisonBool = questionValue?.answer?.[0]?.valueBoolean ?? questionValue?.valueBoolean;
-
-    if (operator === '=' && comparisonBool === answerBoolean) {
-      return substituteText;
-    }
-    if (operator === '!=' && comparisonBool !== answerBoolean) {
-      return substituteText;
-    }
-    return item.text;
+  if (evalCondition(textWhen, context, questionVal)) {
+    return substituteText;
   }
   return item.text;
 };
@@ -699,8 +657,25 @@ export const evalFilterWhen = (item: IntakeQuestionnaireItem, context: any, ques
   if (item.filterWhen === undefined) {
     return false;
   }
+  return evalCondition(item.filterWhen, context, questionVal);
+};
 
-  const { question, operator, answerString, answerBoolean } = item.filterWhen;
+export const evalComplexValidationTrigger = (
+  item: IntakeQuestionnaireItem,
+  context: any,
+  questionVal?: any
+): boolean => {
+  console.log('item.complex', item.complexValidation?.type, item.complexValidation?.triggerWhen);
+  if (item.complexValidation === undefined) {
+    return false;
+  } else if (item.complexValidation?.triggerWhen === undefined) {
+    return true;
+  }
+  return evalCondition(item.complexValidation.triggerWhen, context, questionVal);
+};
+
+const evalCondition = (condition: QuestionnaireItemConditionDefinition, context: any, questionVal?: any): boolean => {
+  const { question, operator, answerString, answerBoolean } = condition;
   const questionValue = recursivePathEval(context, question, questionVal);
 
   if (answerString !== undefined) {
@@ -724,7 +699,6 @@ export const evalFilterWhen = (item: IntakeQuestionnaireItem, context: any, ques
   }
   return false;
 };
-
 /*
   given any list of questionnaire items and values representing answers to those items,
   filter out any values that should not be included in the form submission, whether because

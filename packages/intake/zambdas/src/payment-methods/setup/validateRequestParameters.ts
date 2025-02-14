@@ -1,4 +1,6 @@
-import { PaymentMethodSetupParameters, Secrets, ZambdaInput } from 'utils';
+import { PaymentMethodSetupParameters } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
+import { Secrets } from 'zambda-utils';
 
 export function validateRequestParameters(
   input: ZambdaInput

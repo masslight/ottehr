@@ -12,7 +12,6 @@ import {
   QuestionnaireResponse,
   Task,
 } from 'fhir/r4b';
-import { Secrets } from '../secrets';
 
 export interface PatientBaseInfo {
   firstName?: string;
@@ -195,13 +194,6 @@ export enum PersonSex {
   Male = 'male',
   Female = 'female',
   Intersex = 'other',
-}
-
-export interface ZambdaInput {
-  headers: any | null;
-  body: string | null;
-  secrets: Secrets | null;
-  requestContext: any;
 }
 
 export interface SubscriptionZambdaDetails {
@@ -599,7 +591,6 @@ export type TaskStatus = 'completed' | 'failed' | 'rejected' | undefined;
 
 export interface TaskSubscriptionInput {
   task: Task;
-  secrets: Secrets | null;
 }
 
 type Appointment_Update_Task_Codes = 'cancelled' | 'ready' | 'checkin' | 'record-wait-time';

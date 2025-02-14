@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment } from 'fhir/r4b';
 import { AUTH0_AUDIENCE, AUTH0_CLIENT, AUTH0_ENDPOINT, AUTH0_SECRET, FHIR_API, PROJECT_API } from '../.env/local.json';
-import { getAccessToken } from '../src/shared';
+import { getAuth0Token } from '../src/shared';
 import { contact, healthcareContacts, patient } from './appointment-validation.test';
 import { vi } from 'vitest';
 export const DEFAULT_TEST_TIMEOUT = 100000;
@@ -13,7 +13,7 @@ describe.skip('appointments tests', () => {
   vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });
 
   beforeAll(async () => {
-    token = await getAccessToken({
+    token = await getAuth0Token({
       AUTH0_ENDPOINT: AUTH0_ENDPOINT,
       AUTH0_CLIENT: AUTH0_CLIENT,
       AUTH0_SECRET: AUTH0_SECRET,
