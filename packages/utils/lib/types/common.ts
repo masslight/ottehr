@@ -279,35 +279,6 @@ export const AllStates: ValuePair[] = [
   { value: 'WY', label: 'WY' }, // Wyoming
 ];
 
-export const allPhysicalLocations: { state: string; city: string }[] = [
-  {
-    state: 'MD',
-    city: 'Silver Spring',
-  },
-  {
-    state: 'NY',
-    city: 'New York',
-  },
-  {
-    state: 'NY',
-    city: 'Commack',
-  },
-  {
-    state: 'NY',
-    city: 'Selden',
-  },
-  {
-    state: 'VA',
-    city: 'Ashburn',
-  },
-  {
-    state: 'VA',
-    city: 'McLean',
-  },
-];
-
-export type PhysicalLocation = (typeof allPhysicalLocations)[number];
-
 export type StateCode = (typeof AllStates)[number]['value'];
 
 export const stateCodeToFullName: Readonly<Record<StateCode, string>> = {

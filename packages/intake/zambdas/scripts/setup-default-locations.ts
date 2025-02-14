@@ -1,8 +1,6 @@
 import { default as Oystehr } from '@oystehr/sdk';
 import { FhirResource, Location, Practitioner, Resource } from 'fhir/r4b';
 import {
-  allPhysicalLocations,
-  AllStates,
   AllStatesToVirtualLocationsData,
   defaultLocation,
   ELIGIBILITY_PRACTITIONER_META_TAG_PREFIX,
@@ -10,12 +8,28 @@ import {
   EligibilityPractitionerType,
   FHIR_IDENTIFIER_NPI,
   filterVirtualLocations,
-  PhysicalLocation,
   TIMEZONE_EXTENSION_URL,
   VirtualLocationBody,
 } from 'utils';
 import { getAuth0Token } from '../src/shared';
 import { createOystehrClient } from '../src/shared/helpers';
+
+const virtualLocations: { value: string; label: string }[] = [
+  { value: 'NJ', label: 'NJ' },
+  { value: 'OH', label: 'OH' },
+];
+
+const allPhysicalLocations: { state: string; city: string }[] = [
+  {
+    state: 'NY',
+    city: 'New York',
+  },
+  {
+    state: 'CA',
+    city: 'Los Angeles',
+  },
+];
+export type PhysicalLocation = (typeof allPhysicalLocations)[number];
 
 export const checkLocations = async (oystehr: Oystehr): Promise<void> => {
   const allLocations = await oystehr.fhir.search({
@@ -30,7 +44,7 @@ export const checkLocations = async (oystehr: Oystehr): Promise<void> => {
 
   console.log('Filtered all virtual telemed locations.');
 
-  for (const statePkg of AllStates) {
+  for (const statePkg of virtualLocations) {
     const stateData = AllStatesToVirtualLocationsData[statePkg.value];
     if (!telemedStates.includes(statePkg.value)) await createTelemedLocation(statePkg, stateData, oystehr);
   }
