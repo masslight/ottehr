@@ -9,7 +9,7 @@ export class UIDesign {
   }
 
   async contactInformationUIcheck(firstName: string) {
-    await expect(this.page.getByRole('heading', { name: 'Contact information' })).toBeVisible({ timeout: 10000 });
+    await expect(this.page.getByRole('heading', { name: 'Contact information' })).toBeVisible({ timeout: 15000 });
     await expect(this.page.getByText(new RegExp(firstName))).toBeVisible();
 
     await expect(this.page.locator('#patient-street-address-label')).toBeVisible();

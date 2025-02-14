@@ -68,7 +68,6 @@ export class Locators {
     this.flowHeading = page.getByTestId(dataTestIds.flowPageTitle);
     this.thankYouHeading = page.getByRole('heading', { name: 'Thank you for choosing Ottehr!' });
     this.startInPersonVisitButton = page.getByTestId(dataTestIds.startInPersonVisitButton);
-    this.differentFamilyMember = page.getByText('Different family member');
     this.continueButton = page.getByText('Continue');
     this.reserveButton = page.getByRole('button', { name: 'Reserve this check-in time' });
     this.confirmWalkInButton = page.getByRole('button', { name: 'Confirm this walk-in time' });
