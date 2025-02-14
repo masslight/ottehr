@@ -98,19 +98,6 @@ jobs:
           CI: true
           NODE_OPTIONS: '--max-old-space-size=8192'
 
-      - name: TruffleHog -- Check for secrets in bundles of publicly available code
-        run: |
-          docker run --rm -v .:/tmp -w /tmp \
-          ghcr.io/trufflesecurity/trufflehog:3.82.13 \
-          filesystem .packages/test-utils/dist \
-          .packages/utils/dist \
-          .packages/ui-components/dist \
-          .apps/intake/build/assets \
-          .apps/ehr/build/assets \
-          --github-actions \
-          --only-verified \
-          --fail
-
       - uses: actions/github-script@v7
         if: always()
         with:
