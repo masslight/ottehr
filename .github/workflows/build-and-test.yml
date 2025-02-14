@@ -102,7 +102,11 @@ jobs:
         run: |
           docker run --rm -v .:/tmp -w /tmp \
           ghcr.io/trufflesecurity/trufflehog:3.82.13 \
-          filesystem .apps/intake/build/assets \
+          filesystem .packages/test-utils/dist \
+          .packages/utils/dist \
+          .packages/ui-components/dist \
+          .apps/intake/build/assets \
+          .apps/ehr/build/assets \
           --github-actions \
           --only-verified \
           --fail
