@@ -308,3 +308,54 @@ export const SUBSCRIBER_RELATIONSHIP_CODE_MAP: Record<string, string> = {
   Other: 'other',
   Self: 'self',
 };
+
+export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
+  acceptsMultipleAnswers: `${PRIVATE_EXTENSION_BASE_URL}/accepts-multiple-answers`,
+  alwaysFilter: `${PRIVATE_EXTENSION_BASE_URL}/always-filter`,
+  attachmentText: `${PRIVATE_EXTENSION_BASE_URL}/attachment-text`,
+  autofillFromWhenDisabled: `${PRIVATE_EXTENSION_BASE_URL}/fill-from-when-disabled`,
+  categoryTag: `${PRIVATE_EXTENSION_BASE_URL}/category-tag`,
+  dataType: `${PRIVATE_EXTENSION_BASE_URL}/data-type`,
+  disabledDisplay: `${PRIVATE_EXTENSION_BASE_URL}/disabled-display`,
+  groupType: `${PRIVATE_EXTENSION_BASE_URL}/disabled-display`,
+  infoText: `${PRIVATE_EXTENSION_BASE_URL}/information-text`,
+  inputWidth: `${PRIVATE_EXTENSION_BASE_URL}/input-width`,
+  preferredElement: `${PRIVATE_EXTENSION_BASE_URL}/preferred-element`,
+  secondaryInfoText: `${PRIVATE_EXTENSION_BASE_URL}/information-text-secondary`,
+  minRows: `${PRIVATE_EXTENSION_BASE_URL}/text-min-rows`,
+  validateAgeOver: `${PRIVATE_EXTENSION_BASE_URL}/validate-age-over`,
+  answerLoadingOptions: {
+    extension: `${PRIVATE_EXTENSION_BASE_URL}/answer-loading-options`,
+    strategy: `${PRIVATE_EXTENSION_BASE_URL}/strategy`,
+    source: `${PRIVATE_EXTENSION_BASE_URL}/source`,
+  },
+  complexValidation: {
+    extension: `${PRIVATE_EXTENSION_BASE_URL}/complex-validation`,
+    type: `${PRIVATE_EXTENSION_BASE_URL}/complex-validation-type`,
+    triggerWhen: {
+      extension: `${PRIVATE_EXTENSION_BASE_URL}/complex-validation-triggerWhen`,
+      question: `${PRIVATE_EXTENSION_BASE_URL}/complex-validation-triggerQuestion`,
+      operator: `${PRIVATE_EXTENSION_BASE_URL}/complex-validation-triggerOperator`,
+      answer: `${PRIVATE_EXTENSION_BASE_URL}/complex-validation-triggerAnswer`,
+    },
+  },
+  requireWhen: {
+    extension: `${PRIVATE_EXTENSION_BASE_URL}/require-when`,
+    question: `${PRIVATE_EXTENSION_BASE_URL}/require-when-question`,
+    operator: `${PRIVATE_EXTENSION_BASE_URL}/require-when-operator`,
+    answer: `${PRIVATE_EXTENSION_BASE_URL}/require-when-answer`,
+  },
+  textWhen: {
+    extension: `${PRIVATE_EXTENSION_BASE_URL}/text-when`,
+    question: `${PRIVATE_EXTENSION_BASE_URL}/text-when-question`,
+    operator: `${PRIVATE_EXTENSION_BASE_URL}/text-when-operator`,
+    answer: `${PRIVATE_EXTENSION_BASE_URL}/text-when-answer`,
+    substituteText: `${PRIVATE_EXTENSION_BASE_URL}/text-when-substitute-text`,
+  },
+  filterWhen: {
+    extension: `${PRIVATE_EXTENSION_BASE_URL}/filter-when`,
+    question: `${PRIVATE_EXTENSION_BASE_URL}/filter-when-question`,
+    operator: `${PRIVATE_EXTENSION_BASE_URL}/filter-when-operator`,
+    answer: `${PRIVATE_EXTENSION_BASE_URL}/filter-when-answer`,
+  },
+};
