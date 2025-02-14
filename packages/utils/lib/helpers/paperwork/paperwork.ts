@@ -13,16 +13,15 @@ import {
   IntakeQuestionnaireItem,
   Question,
   QuestionnaireItemExtension,
-  QuestionnaireItemRequireWhen,
   QuestionnaireItemTextWhen,
   validateQuestionnaireDataType,
-  QuestionnaireItemFilterWhen,
   FormDisplayElementList,
   FormSelectionElementList,
   FormElement,
   QuestionnaireItemGroupType,
   AnswerLoadingOptions,
   InputWidthOption,
+  QuestionnaireItemConditionDefinition,
 } from '../../types';
 import Oystehr from '@oystehr/sdk';
 import { getCanonicalQuestionnaire, PRIVATE_EXTENSION_BASE_URL } from '../../fhir';
@@ -99,7 +98,7 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
   const requiredWhenExt = extension.find((ext) => {
     return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/require-when`;
   })?.extension;
-  let requireWhen: QuestionnaireItemRequireWhen | undefined;
+  let requireWhen: QuestionnaireItemConditionDefinition | undefined;
   if (requiredWhenExt) {
     const question = requiredWhenExt.find((ext) => {
       return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/require-when-question`;
@@ -169,7 +168,7 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
   const filterWhenExt = extension.find((ext) => {
     return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/filter-when`;
   })?.extension;
-  let filterWhen: QuestionnaireItemFilterWhen | undefined;
+  let filterWhen: QuestionnaireItemConditionDefinition | undefined;
   if (filterWhenExt) {
     const question = filterWhenExt.find((ext) => {
       return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/filter-when-question`;
@@ -294,9 +293,54 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/text-min-rows`;
   })?.valuePositiveInt;
 
-  const complexValidationType = extension?.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/complex-validation-type`;
-  })?.valueString;
+  let complexValidation: QuestionnaireItemExtension['complexValidation'] | undefined;
+  const complexValidationExtension = extension?.find((ext) => {
+    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/complex-validation`;
+  })?.extension;
+  if (complexValidationExtension) {
+    const complexValidationType = complexValidationExtension.find((ext) => {
+      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/complex-validation-type`;
+    })?.valueString;
+    if (complexValidationType) {
+      console.log('complex validation type: ', complexValidationType);
+      const triggerWhenExtension = complexValidationExtension.find((ext) => {
+        return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/complex-validation-triggerWhen`;
+      })?.extension;
+      let triggerWhen: QuestionnaireItemConditionDefinition | undefined;
+      if (triggerWhenExtension) {
+        console.log('complex validation trigger when: ', triggerWhenExtension);
+        const question = triggerWhenExtension.find((ext) => {
+          return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/complex-validation-triggerQuestion`;
+        })?.valueString;
+        const operator = triggerWhenExtension.find((ext) => {
+          return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/complex-validation-triggerOperator`;
+        })?.valueString;
+        const answerString = triggerWhenExtension.find((ext) => {
+          return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/complex-validation-triggerAnswer`;
+        })?.valueString;
+        const answerBoolean = triggerWhenExtension.find((ext) => {
+          return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/complex-validation-triggerAnswer`;
+        })?.valueBoolean;
+        if (
+          operator !== undefined &&
+          ['=', '!='].includes(operator) &&
+          question !== undefined &&
+          (answerString !== undefined || answerBoolean !== undefined)
+        ) {
+          triggerWhen = {
+            question,
+            operator: operator as '=' | '!=',
+            answerString,
+            answerBoolean,
+          };
+        }
+      }
+      complexValidation = {
+        type: complexValidationType,
+        triggerWhen,
+      };
+    }
+  }
 
   return {
     acceptsMultipleAnswers,
@@ -317,7 +361,7 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     answerLoadingOptions,
     inputWidth: inputWidth as InputWidthOption | undefined,
     minRows,
-    complexValidationType,
+    complexValidation,
   };
 };
 

@@ -21,25 +21,15 @@ export interface UpdatePaperworkResponse {
   message: string;
 }
 
-export interface QuestionnaireItemRequireWhen {
+export interface QuestionnaireItemConditionDefinition {
   question: string;
   operator: '=' | '!=';
   answerString?: string;
   answerBoolean?: boolean;
-}
-export interface QuestionnaireItemTextWhen {
-  question: string;
-  operator: '=' | '!=';
-  answerString?: string;
-  answerBoolean?: boolean;
-  substituteText: string;
 }
 
-export interface QuestionnaireItemFilterWhen {
-  question: string;
-  operator: '=' | '!=';
-  answerString?: string;
-  answerBoolean?: boolean;
+export interface QuestionnaireItemTextWhen extends QuestionnaireItemConditionDefinition {
+  substituteText: string;
 }
 
 const QuestionnaireDataTypes = [
@@ -96,17 +86,20 @@ export interface QuestionnaireItemExtension {
   categoryTag?: string;
   dataType?: QuestionnaireDataType;
   disabledDisplay?: 'hidden' | 'protected';
-  filterWhen?: QuestionnaireItemFilterWhen;
+  filterWhen?: QuestionnaireItemConditionDefinition;
   groupType?: QuestionnaireItemGroupType;
   infoText?: string;
   inputWidth?: InputWidthOption;
   minRows?: number;
   preferredElement?: FormElement;
-  requireWhen?: QuestionnaireItemRequireWhen;
+  requireWhen?: QuestionnaireItemConditionDefinition;
   secondaryInfoText?: string;
   textWhen?: QuestionnaireItemTextWhen;
   validateAgeOver?: number;
-  complexValidationType?: string; // only 'insurance validation' is supported out of the box right now, but defining this as string to allow for easy customization for other use cases
+  complexValidation?: {
+    type: string; // only 'insurance validation' is supported out of the box right now, but defining this as string to allow for easy customization for other use cases
+    triggerWhen?: QuestionnaireItemConditionDefinition;
+  };
 }
 export interface AppointmentSummary {
   id: string;
