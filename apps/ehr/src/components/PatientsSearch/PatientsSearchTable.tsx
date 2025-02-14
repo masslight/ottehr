@@ -224,6 +224,7 @@ export const PatientsSearchTable: React.FC<{
                 backIconButtonProps={{
                   disabled: !searchResult?.pagination.prev || arePatientsLoading,
                 }}
+                data-testid={dataTestIds.pagination.paginationContainer}
               />
             </TableRow>
           </TableFooter>

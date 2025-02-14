@@ -8,7 +8,8 @@ import {
   QuestionnaireResponse,
   RelatedPerson,
 } from 'fhir/r4b';
-import { getParticipantIdFromAppointment, performEffectWithEnvFile } from 'utils';
+import { getParticipantIdFromAppointment } from 'utils';
+import { performEffectWithEnvFile } from 'zambda-utils';
 import { createOystehrClientFromConfig } from './helpers';
 
 const deleteAppointmentData = async (config: any): Promise<void> => {

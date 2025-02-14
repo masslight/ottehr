@@ -18,14 +18,15 @@ import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { otherColors } from '../CustomThemeProvider';
 
+import { Add } from '@mui/icons-material';
 import Oystehr from '@oystehr/sdk';
 import { HealthcareService, Location, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { dataTestIds } from '../constants/data-test-ids';
 import { OVERRIDE_DATE_FORMAT } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import { Closure, ClosureType, ScheduleExtension } from '../types/types';
 import Loading from './Loading';
-import { Add } from '@mui/icons-material';
 
 export type ScheduleType = 'office' | 'provider' | 'group';
 
@@ -301,6 +302,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
           page={pageNumber}
           onPageChange={handleChangePage}
           onRowsPerPageChange={handleChangeRowsPerPage}
+          data-testid={dataTestIds.pagination.paginationContainer}
         />
       </TableContainer>
     </Paper>
