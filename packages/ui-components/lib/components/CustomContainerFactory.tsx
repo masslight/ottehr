@@ -23,7 +23,6 @@ export interface ContainerProps {
   children: any;
   footer?: JSX.Element;
   logoutHandler?: () => void;
-  logoutUrl?: string;
   patientFullName?: string;
 }
 
@@ -35,7 +34,6 @@ interface CustomContainerFactoryProps {
   alt: string;
   footer?: JSX.Element;
   logoutHandler?: () => void;
-  logoutUrl?: string;
 }
 export const CustomContainerFactory = ({
   logo,
@@ -43,7 +41,6 @@ export const CustomContainerFactory = ({
   alt,
   footer,
   logoutHandler,
-  logoutUrl,
 }: CustomContainerFactoryProps): FC<WrappedContainerProps> => {
   const CustomContainerWrapped: FC<WrappedContainerProps> = (props) => {
     const passThroughProps = {
@@ -53,7 +50,6 @@ export const CustomContainerFactory = ({
       alt,
       footer,
       logoutHandler,
-      logoutUrl,
     };
     return <CustomContainer {...passThroughProps} />;
   };
