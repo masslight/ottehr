@@ -93,7 +93,7 @@ export class PatientsPage extends PageWithTablePagination {
         });
       },
       async () => {
-        // Wait for the backend API call to complete (adjust the URL pattern based on your actual request)
+        // Wait for the backend API call to complete
         await this.#page.waitForResponse(
           (response) => response.url().includes('/Patient?') && response.status() === 200
         );
