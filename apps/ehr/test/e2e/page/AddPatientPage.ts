@@ -58,7 +58,8 @@ export class AddPatientPage {
     const locator = this.#page.locator('[placeholder="MM/DD/YYYY"]');
     await locator.click();
     await this.#page.waitForTimeout(2000);
-    await locator.fill(dateOfBirth);
+    // just because of date input for some reason not accepting wrong date
+    await locator.pressSequentially(dateOfBirth);
   }
 
   async selectSexAtBirth(sexAtBirth: string): Promise<void> {
