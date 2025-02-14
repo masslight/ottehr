@@ -1,4 +1,4 @@
-import { Page } from '@playwright/test';
+import { Page, expect } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 
 export class PageWithTablePagination {
