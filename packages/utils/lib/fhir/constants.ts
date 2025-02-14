@@ -320,10 +320,11 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
   groupType: `${PRIVATE_EXTENSION_BASE_URL}/disabled-display`,
   infoText: `${PRIVATE_EXTENSION_BASE_URL}/information-text`,
   inputWidth: `${PRIVATE_EXTENSION_BASE_URL}/input-width`,
+  minRows: `${PRIVATE_EXTENSION_BASE_URL}/text-min-rows`,
   preferredElement: `${PRIVATE_EXTENSION_BASE_URL}/preferred-element`,
   secondaryInfoText: `${PRIVATE_EXTENSION_BASE_URL}/information-text-secondary`,
-  minRows: `${PRIVATE_EXTENSION_BASE_URL}/text-min-rows`,
   validateAgeOver: `${PRIVATE_EXTENSION_BASE_URL}/validate-age-over`,
+  // complex extensions
   answerLoadingOptions: {
     extension: `${PRIVATE_EXTENSION_BASE_URL}/answer-loading-options`,
     strategy: `${PRIVATE_EXTENSION_BASE_URL}/strategy`,
@@ -339,6 +340,12 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
       answer: `${PRIVATE_EXTENSION_BASE_URL}/complex-validation-triggerAnswer`,
     },
   },
+  filterWhen: {
+    extension: `${PRIVATE_EXTENSION_BASE_URL}/filter-when`,
+    question: `${PRIVATE_EXTENSION_BASE_URL}/filter-when-question`,
+    operator: `${PRIVATE_EXTENSION_BASE_URL}/filter-when-operator`,
+    answer: `${PRIVATE_EXTENSION_BASE_URL}/filter-when-answer`,
+  },
   requireWhen: {
     extension: `${PRIVATE_EXTENSION_BASE_URL}/require-when`,
     question: `${PRIVATE_EXTENSION_BASE_URL}/require-when-question`,
@@ -351,11 +358,5 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
     operator: `${PRIVATE_EXTENSION_BASE_URL}/text-when-operator`,
     answer: `${PRIVATE_EXTENSION_BASE_URL}/text-when-answer`,
     substituteText: `${PRIVATE_EXTENSION_BASE_URL}/text-when-substitute-text`,
-  },
-  filterWhen: {
-    extension: `${PRIVATE_EXTENSION_BASE_URL}/filter-when`,
-    question: `${PRIVATE_EXTENSION_BASE_URL}/filter-when-question`,
-    operator: `${PRIVATE_EXTENSION_BASE_URL}/filter-when-operator`,
-    answer: `${PRIVATE_EXTENSION_BASE_URL}/filter-when-answer`,
   },
 };

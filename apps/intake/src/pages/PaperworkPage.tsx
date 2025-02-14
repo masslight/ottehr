@@ -458,7 +458,7 @@ export const PaperworkPage: FC = () => {
                 appointmentId: appointmentID,
                 patientId: paperworkPatient.id ?? '',
                 responseItems,
-                type: currentPage.complexValidation?.type,
+                type: currentPage.complexValidation.type,
               },
               zambdaClient
             );
