@@ -983,6 +983,15 @@ export const extractHealthcareServiceAndSupportingLocations = (
   return { hs, locations, coverageArea };
 };
 
+export function slashPathToLodashPath(slashPath: string): string {
+  return slashPath
+    .split('/')
+    .filter(Boolean)
+    .map((key) => (isNaN(Number(key)) ? key : `[${key}]`))
+    .join('.')
+    .replace(/\.\[/g, '[');
+}
+
 export const createFhirHumanName = (
   firstName: string | undefined,
   middleName: string | undefined,

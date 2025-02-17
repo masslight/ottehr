@@ -385,8 +385,7 @@ function mergeOperations(operations: Operation[], resource: FhirResource): Opera
         op: existingOp?.op === 'add' ? 'add' : operation.op,
       });
     } else {
-      // For array append operations, add them directly to the result
-      merged.set(`${operation.path}_${merged.size}`, operation);
+      merged.set(operation.path, operation);
     }
   });
 
@@ -412,11 +411,8 @@ function getOperationArrayInfo(path: string): { isArray: boolean; parentPath: st
 
 function convertInvalidArrayOperation(op: Operation, resource: FhirResource): Operation {
   if (op.op === 'add') {
-    const { isArray, parentPath, index } = getOperationArrayInfo(op.path);
-    // Check if we're trying to add to a specific array index that doesn't exist
+    const { isArray, index } = getOperationArrayInfo(op.path);
     if (isArray && index >= 0) {
-      const parentValue = lodashGet(resource, parentPath.slice(1));
-
       const pathParts = op.path.split('/').filter(Boolean);
 
       // Special case for adding to name/given
@@ -443,17 +439,6 @@ function convertInvalidArrayOperation(op: Operation, resource: FhirResource): Op
           op: 'add',
           path: `${basePath}/-`,
           value: { given: Array.isArray(op.value) ? op.value : [op.value] },
-        };
-      }
-
-      if (!Array.isArray(parentValue) || parentValue.length <= index) {
-        // Convert to array append operation
-        const fieldName = pathParts[pathParts.length - 1];
-
-        return {
-          op: 'add',
-          path: `${parentPath}/-`,
-          value: { [fieldName]: op.value },
         };
       }
     }

@@ -257,8 +257,9 @@ export const useGetPatientQuery = (
 };
 
 const preprocessUpdateOperations = (operations: Operation[], patient: Patient): Operation[] => {
+  console.log('operations', operations);
   const processedOps = consolidateOperations(operations, patient);
-
+  console.log('processedOps', processedOps);
   // Find name-related operations and add old name to the list
   const nameOperations = operations.filter(
     (op) => op.path.startsWith('/name/0/') && (op.op === 'replace' || op.op === 'remove')
