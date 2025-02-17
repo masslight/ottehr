@@ -2224,6 +2224,10 @@
             "type": "string",
             "extension": [
               {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                "valueString": "s"
+              },
+              {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
                 "extension": [
                   {
@@ -2457,6 +2461,10 @@
             "enableBehavior": "all",
             "extension": [
               {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                "valueString": "s"
+              },
+              {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
                 "extension": [
                   {
@@ -2505,6 +2513,10 @@
             "text": "ZIP",
             "type": "string",
             "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                "valueString": "s"
+              },
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
                 "valueString": "ZIP"
@@ -2980,6 +2992,10 @@
                 "required": true,
                 "extension": [
                   {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                    "valueString": "s"
+                  },
+                  {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
                     "valueString": "patient-city"
                   },
@@ -3168,6 +3184,10 @@
                 ],
                 "extension": [
                   {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                    "valueString": "s"
+                  },
+                  {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
                     "valueString": "patient-state"
                   },
@@ -3183,6 +3203,10 @@
                 "type": "string",
                 "required": true,
                 "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                    "valueString": "s"
+                  },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
                     "valueString": "ZIP"

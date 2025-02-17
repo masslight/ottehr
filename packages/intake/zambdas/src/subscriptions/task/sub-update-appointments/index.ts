@@ -1,22 +1,21 @@
-import '../../../../instrument.mjs';
 import { wrapHandler } from '@sentry/aws-serverless';
-import { captureSentryException, configSentry } from '../../../shared';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Appointment, Location, Patient, RelatedPerson } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
-  ZambdaInput,
-  topLevelCatch,
-  getPatientContactEmail,
-  DATETIME_FULL_NO_YEAR,
-  getWaitingMinutesAtSchedule,
   addWaitingMinutesToAppointment,
+  DATETIME_FULL_NO_YEAR,
+  getPatientContactEmail,
+  getWaitingMinutesAtSchedule,
   TaskStatus,
 } from 'utils';
-import { Location, Appointment, Patient, RelatedPerson } from 'fhir/r4b';
-import { validateRequestParameters } from '../validateRequestParameters';
-import { getAccessToken } from '../../../shared';
+import { ZambdaInput } from 'zambda-utils';
+import { topLevelCatch } from 'zambda-utils';
+import '../../../../instrument.mjs';
+import { captureSentryException, configSentry, getAuth0Token } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';
-import { DateTime } from 'luxon';
 import { patchTaskStatus } from '../../helpers';
+import { validateRequestParameters } from '../validateRequestParameters';
 
 let zapehrToken: string;
 
@@ -33,7 +32,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     if (!zapehrToken) {
       console.log('getting token');
-      zapehrToken = await getAccessToken(secrets);
+      zapehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }

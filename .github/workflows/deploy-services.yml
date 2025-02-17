@@ -55,7 +55,8 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18.14.0]
+        node-version:
+          - "20"
 
     steps:
       - name: Set Service-Specific Variables
@@ -165,8 +166,10 @@ jobs:
       - name: Setup secrets in Oystehr console
         run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run setup-zapehr-secrets ${{ env.ENVIRONMENT }}
 
-      - name: Ensure required Questionnaire resources are in place
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run setup-questionnaires ${{ env.ENVIRONMENT }}
+      - name: Ensure deployed resources are in place
+        env:
+          ENV:  ${{ env.ENVIRONMENT }}
+        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run setup-deployed-resources
 
       - name: Create/update in-house medication resources
         if: ${{ github.event.inputs.service == 'ehr' }}

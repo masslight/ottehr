@@ -14,15 +14,13 @@ import {
   AvailableLocationInformation,
   findQuestionnaireResponseItemLinkId,
   getScheduleDetails,
-  getSecret,
   HOURS_OF_OPERATION_FORMAT,
   OVERRIDE_DATE_FORMAT,
   pickFirstValueFromAnswerItem,
-  Secrets,
-  SecretsKeys,
-  SLUG_SYSTEM,
   ScheduleType,
+  SLUG_SYSTEM,
 } from 'utils';
+import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 
 export function createOystehrClient(token: string, secrets: Secrets | null): Oystehr {
   const FHIR_API = getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, '');

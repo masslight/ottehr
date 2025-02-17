@@ -23,7 +23,6 @@ export interface ContainerProps {
   children: any;
   footer?: JSX.Element;
   logoutHandler?: () => void;
-  logoutUrl?: string;
   patientFullName?: string;
 }
 
@@ -35,7 +34,6 @@ interface CustomContainerFactoryProps {
   alt: string;
   footer?: JSX.Element;
   logoutHandler?: () => void;
-  logoutUrl?: string;
 }
 export const CustomContainerFactory = ({
   logo,
@@ -43,7 +41,6 @@ export const CustomContainerFactory = ({
   alt,
   footer,
   logoutHandler,
-  logoutUrl,
 }: CustomContainerFactoryProps): FC<WrappedContainerProps> => {
   const CustomContainerWrapped: FC<WrappedContainerProps> = (props) => {
     const passThroughProps = {
@@ -53,7 +50,6 @@ export const CustomContainerFactory = ({
       alt,
       footer,
       logoutHandler,
-      logoutUrl,
     };
     return <CustomContainer {...passThroughProps} />;
   };
@@ -78,7 +74,6 @@ export const CustomContainer: FC<ContainerProps> = ({
   alt,
   footer,
   logoutHandler,
-  logoutUrl,
   patientFullName,
 }) => {
   const theme = useTheme();
@@ -89,9 +84,9 @@ export const CustomContainer: FC<ContainerProps> = ({
     if (logoutHandler !== undefined) {
       logoutHandler();
     } else {
-      void logout({ logoutParams: { returnTo: logoutUrl ?? window.location.origin, localOnly: true } });
+      void logout({ logoutParams: { localOnly: true } });
     }
-  }, [logout, logoutHandler, logoutUrl]);
+  }, [logout, logoutHandler]);
 
   const gridWidths = { title: img ? 8 : 12, image: 4 };
   return (

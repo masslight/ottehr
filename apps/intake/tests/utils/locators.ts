@@ -10,7 +10,6 @@ export class Locators {
   thankYouHeading: Locator;
   locationName: Locator;
   prebookSlotReviewScreen: Locator;
-  titleReviewScreen: Locator;
   titleVisitDetails: Locator;
   titlePatient: Locator;
   titleLocation: Locator;
@@ -38,8 +37,6 @@ export class Locators {
   patientEmail: Locator;
   patientNumber: Locator;
   mobileOptIn: Locator;
-  contactInformationHeading: Locator;
-  patientDetailsHeading: Locator;
   patientEthnicity: Locator;
   patientRace: Locator;
   patientPreferredLanguage: Locator;
@@ -54,23 +51,30 @@ export class Locators {
   consentFullName: Locator;
   consentSignerRelationship: Locator;
   editPaperwork: Locator;
-  PCPHeading: Locator;
-  responsiblePartyHeading: Locator;
-  photoIDHeading: Locator;
+  flowHeading: Locator;
+  startInPersonVisitButton: Locator;
+  confirmWalkInButton: Locator;
+  checkInHeading: Locator;
 
   constructor(page: Page) {
     this.page = page;
     this.scheduleInPersonVisitButton = page.getByTestId(dataTestIds.scheduleInPersonVisitButton);
-    this.differentFamilyMember = page.getByText('Different family member');
+    this.differentFamilyMember = page.getByTestId(dataTestIds.differentFamilyMember);
+    this.continueButton = page.getByTestId(dataTestIds.continueButton);
+    if (this.continueButton == null) {
+      this.continueButton = page.getByText('Continue');
+    }
+    this.reserveButton = page.getByRole('button', { name: 'Reserve this check-in time' });
+    this.flowHeading = page.getByTestId(dataTestIds.flowPageTitle);
+    this.thankYouHeading = page.getByRole('heading', { name: 'Thank you for choosing Ottehr!' });
+    this.startInPersonVisitButton = page.getByTestId(dataTestIds.startInPersonVisitButton);
     this.continueButton = page.getByText('Continue');
     this.reserveButton = page.getByRole('button', { name: 'Reserve this check-in time' });
+    this.confirmWalkInButton = page.getByRole('button', { name: 'Confirm this walk-in time' });
     this.thankYouHeading = page.getByRole('heading', { name: 'Thank you for choosing Ottehr!' });
-    this.PCPHeading = page.getByRole('heading', { name: 'Primary Care Physician' });
-    this.responsiblePartyHeading = page.getByRole('heading', { name: 'Responsible party information' });
-    this.photoIDHeading = page.getByRole('heading', { name: 'Photo ID' });
+    this.checkInHeading = page.getByRole('heading', { name: 'You are checked in!' });
     this.locationName = page.getByTestId(dataTestIds.locationNameReviewScreen);
     this.prebookSlotReviewScreen = page.getByTestId(dataTestIds.prebookSlotReviewScreen);
-    this.titleReviewScreen = page.getByRole('heading', { name: 'Review and submit' });
     this.titleVisitDetails = page.getByRole('heading', { name: 'Visit details' });
     this.titlePatient = page.getByText('Patient');
     this.titleLocation = page.getByText('Location');
@@ -101,8 +105,6 @@ export class Locators {
     this.patientRace = page.locator('[id="patient-race"]');
     this.patientPreferredLanguage = page.locator('[id="preferred-language"]');
     this.mobileOptIn = page.getByLabel('mobile-opt-in-label');
-    this.contactInformationHeading = page.getByRole('heading', { name: 'Contact information' });
-    this.patientDetailsHeading = page.getByRole('heading', { name: 'Patient details' });
     this.selfPayOption = page.getByLabel('I will pay without insurance');
     this.responsiblePartyRelationship = page.locator('[id="responsible-party-relationship"]');
     this.responsiblePartyFirstName = page.locator('[id="responsible-party-first-name"]');
@@ -117,7 +119,7 @@ export class Locators {
   }
 
   async selectDifferentFamilyMember(): Promise<void> {
-    await this.differentFamilyMember.click();
+    await this.differentFamilyMember.click({ force: true });
   }
   async clickContinueButton(): Promise<void> {
     await this.continueButton.click();

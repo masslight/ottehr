@@ -259,8 +259,8 @@ export default function AppointmentTableRow({
     (appointment.patient.lastName &&
       appointment.patient.firstName &&
       formatPatientName({
-        firstName: appointment.patient.lastName,
-        lastName: appointment.patient.firstName,
+        firstName: appointment.patient.firstName,
+        lastName: appointment.patient.lastName,
         middleName: appointment.patient.middleName,
       })) ||
     'Unknown';

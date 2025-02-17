@@ -5,6 +5,10 @@
   "version": "0.0.1",
   "main": "lib/main.ts",
   "types": "lib/main.ts",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=9.0.0"
+  },
   "scripts": {
     "start": "vite",
     "build": "tsc && vite build",
@@ -17,6 +21,6 @@
     "@playwright/test": "^1.40.1"
   },
   "dependencies": {
-    "axios": "1.6.2"
+    "axios": "1.7.9"
   }
 }
