@@ -243,7 +243,6 @@ export default function AppointmentTableRow({
     setCSSButtonIsLoading(true);
     try {
       await handleUpdatePractitioner();
-      console.log(`handleChangeInPersonVisitStatus app:${appointment.id}, enc:${encounter?.id}`);
       await handleChangeInPersonVisitStatus(encounter, user, oystehrZambda, 'intake');
       navigate(`/in-person/${appointment.id}/patient-info`);
     } catch (error) {
