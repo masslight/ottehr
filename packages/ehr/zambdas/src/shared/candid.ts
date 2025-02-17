@@ -1,3 +1,24 @@
+import Oystehr from '@oystehr/sdk';
+import { CandidApiClient, CandidApiEnvironment } from 'candidhealth';
+import {
+  Decimal,
+  DiagnosisCreate,
+  DiagnosisTypeCode,
+  EncounterExternalId,
+  FacilityTypeCode,
+  Gender,
+  PatientRelationshipToInsuredCodeAll,
+  ServiceLineUnits,
+  State,
+  SubscriberCreate,
+} from 'candidhealth/api';
+import { RenderingProviderid } from 'candidhealth/api/resources/contracts/resources/v2';
+import {
+  BillableStatusType,
+  EncounterCreate,
+  ResponsiblePartyType,
+} from 'candidhealth/api/resources/encounters/resources/v4';
+import { ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resources/v2';
 import {
   CodeableConcept,
   Condition,
@@ -14,34 +35,13 @@ import {
   Reference,
   RelatedPerson,
 } from 'fhir/r4b';
-import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm';
-import {
-  Decimal,
-  DiagnosisCreate,
-  DiagnosisTypeCode,
-  EncounterExternalId,
-  FacilityTypeCode,
-  Gender,
-  PatientRelationshipToInsuredCodeAll,
-  ServiceLineUnits,
-  State,
-  SubscriberCreate,
-} from 'candidhealth/api';
-import {
-  BillableStatusType,
-  EncounterCreate,
-  ResponsiblePartyType,
-} from 'candidhealth/api/resources/encounters/resources/v4';
-import { ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resources/v2';
 import { DateTime } from 'luxon';
-import { assertDefined } from './helpers';
-import { CandidApiClient, CandidApiEnvironment } from 'candidhealth';
-import { RenderingProviderid } from 'candidhealth/api/resources/contracts/resources/v2';
-import { FHIR_IDENTIFIER_NPI, getOptionalSecret, getSecret, Secrets } from 'utils';
-import { SecretsKeys } from './secrets';
-import { VideoResourcesAppointmentPackage } from './pdf/visit-details-pdf/types';
-import Oystehr from '@oystehr/sdk';
+import { FHIR_IDENTIFIER_NPI } from 'utils';
+import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm';
+import { getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 import { chartDataResourceHasMetaTagByCode } from './chart-data/chart-data-helpers';
+import { assertDefined } from './helpers';
+import { VideoResourcesAppointmentPackage } from './pdf/visit-details-pdf/types';
 
 export const CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM =
   'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id';

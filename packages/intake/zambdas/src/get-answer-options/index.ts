@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import {
@@ -6,14 +7,12 @@ import {
   AnswerOptionSource,
   MALFORMED_GET_ANSWER_OPTIONS_INPUT,
   MISSING_REQUEST_BODY,
-  SecretsKeys,
-  ZambdaInput,
   createOystehrClient,
-  getSecret,
   isApiError,
 } from 'utils';
-import { getM2MClientToken } from '../shared';
-import Oystehr from '@oystehr/sdk';
+import { ZambdaInput } from 'zambda-utils';
+import { SecretsKeys, getSecret } from 'zambda-utils';
+import { getAuth0Token } from '../shared';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
@@ -25,15 +24,15 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const getOptionsInput = validateInput(input);
     console.log('get options input:', getOptionsInput);
 
-    console.group('getM2MClientToken');
+    console.group('getAuth0Token');
     if (!zapehrToken) {
       console.log('getting token');
-      zapehrToken = await getM2MClientToken(secrets);
+      zapehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
     console.groupEnd();
-    console.debug('getM2MClientToken success');
+    console.debug('getAuth0Token success');
 
     console.group('createOystehrClient');
     const oystehr = createOystehrClient(

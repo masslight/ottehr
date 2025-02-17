@@ -12,7 +12,6 @@ import {
   QuestionnaireResponse,
   Task,
 } from 'fhir/r4b';
-import { Secrets } from '../secrets';
 
 export interface PatientBaseInfo {
   firstName?: string;
@@ -197,13 +196,6 @@ export enum PersonSex {
   Intersex = 'other',
 }
 
-export interface ZambdaInput {
-  headers: any | null;
-  body: string | null;
-  secrets: Secrets | null;
-  requestContext: any;
-}
-
 export interface SubscriptionZambdaDetails {
   criteria: string;
   reason: string;
@@ -286,35 +278,6 @@ export const AllStates: ValuePair[] = [
   { value: 'WI', label: 'WI' }, // Wisconsin
   { value: 'WY', label: 'WY' }, // Wyoming
 ];
-
-export const allPhysicalLocations: { state: string; city: string }[] = [
-  {
-    state: 'MD',
-    city: 'Silver Spring',
-  },
-  {
-    state: 'NY',
-    city: 'New York',
-  },
-  {
-    state: 'NY',
-    city: 'Commack',
-  },
-  {
-    state: 'NY',
-    city: 'Selden',
-  },
-  {
-    state: 'VA',
-    city: 'Ashburn',
-  },
-  {
-    state: 'VA',
-    city: 'McLean',
-  },
-];
-
-export type PhysicalLocation = (typeof allPhysicalLocations)[number];
 
 export type StateCode = (typeof AllStates)[number]['value'];
 
@@ -599,7 +562,6 @@ export type TaskStatus = 'completed' | 'failed' | 'rejected' | undefined;
 
 export interface TaskSubscriptionInput {
   task: Task;
-  secrets: Secrets | null;
 }
 
 type Appointment_Update_Task_Codes = 'cancelled' | 'ready' | 'checkin' | 'record-wait-time';
