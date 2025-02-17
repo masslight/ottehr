@@ -198,7 +198,8 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
         path,
         effectiveValue as LanguageOption
       );
-    } else if (isArray) {
+    } else if (isArray && path !== '/contact/0/name/given/0') {
+      // ^skip contact name to process like general value
       const effectiveArrayValue = getEffectiveValue(resource, parentPath, state.patchOperations?.patient || []);
       const arrayMatch = path.match(/^(.+)\/(\d+)$/);
 
@@ -290,7 +291,7 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
             path: path,
           };
         }
-      } else {
+      } else if (value !== effectiveValue) {
         newPatchOperation = { op: effectiveValue === undefined ? 'add' : 'replace', path, value };
       }
     }
@@ -300,6 +301,7 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
     }
   },
   addPatchOperation: (resourceType, operation, resourceId) => {
+    console.log(operation);
     set((state) => {
       const targetKey = patchOperationsMap[resourceType];
 

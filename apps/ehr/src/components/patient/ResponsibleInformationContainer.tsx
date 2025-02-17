@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import { FC, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { patientFieldPaths, standardizePhoneNumber } from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
@@ -10,7 +10,11 @@ export const ResponsibleInformationContainer: FC = () => {
   const { patient, updatePatientField } = usePatientStore();
 
   const { control } = useFormContext();
-
+  const [inputValue, setInputValue] = useState(
+    patient?.contact?.[0].name?.family && patient?.contact?.[0].name?.given?.[0]
+      ? `${patient.contact[0].name.family}, ${patient.contact[0].name.given[0]}`
+      : ''
+  );
   if (!patient) return null;
 
   const phone = patient?.contact?.[0].telecom?.find((telecom) => telecom.system === 'phone')?.value;
@@ -27,7 +31,14 @@ export const ResponsibleInformationContainer: FC = () => {
   const handleResponsiblePartyNameChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const value = e.target.value;
 
-    const [lastName = '', firstName = ''] = value.split(',').map((part) => part.trim());
+    // Auto-format: If there's a space between words but no comma, add the comma
+    const formattedValue = value.includes(',')
+      ? value
+      : value.replace(/(\w+)\s+(\w+)/, (_, lastName, firstName) => `${lastName}, ${firstName}`);
+    // Update the input value with formatted version
+    setInputValue(formattedValue);
+
+    const [lastName = '', firstName = ''] = formattedValue.split(',').map((part) => part.trim());
 
     // Update both name parts
     handleChange({
@@ -68,7 +79,7 @@ export const ResponsibleInformationContainer: FC = () => {
         <FormTextField
           name={patientFieldPaths.responsiblePartyName}
           control={control}
-          defaultValue={`${patient?.contact?.[0].name?.family}, ${patient?.contact?.[0].name?.given?.[0]}`}
+          value={inputValue}
           rules={{ required: true }}
           onChangeHandler={handleResponsiblePartyNameChange}
           id="responsible-party-full-name"

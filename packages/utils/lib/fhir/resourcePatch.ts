@@ -2,6 +2,7 @@ import { BatchInputPatchRequest } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Coding, Extension, FhirResource, Period, Resource } from 'fhir/r4b';
 import { get as lodashGet } from 'lodash-es';
+import { slashPathToLodashPath } from './helpers';
 
 export interface GetPatchBinaryInput {
   resourceId: string;
@@ -309,7 +310,7 @@ interface GroupedOperation {
 
 export function consolidateOperations(operations: Operation[], resource: FhirResource): Operation[] {
   // Merge 'replace' and 'add' operations with the same path
-  const mergedOperations: Operation[] = mergeOperations(operations);
+  const mergedOperations: Operation[] = mergeOperations(operations, resource);
 
   // Group operations by their root paths
   const groupedOperations = mergedOperations.reduce<GroupedOperation[]>(
@@ -319,13 +320,13 @@ export function consolidateOperations(operations: Operation[], resource: FhirRes
 
   // Convert groups to consolidated operations
   const consolidatedOps = groupedOperations.map(consolidateGroupedOperations);
-
+  console.log('consolidatedOps', consolidatedOps);
   // Filter standalone operations
   const standaloneOperations = filterStandaloneOperations(mergedOperations, groupedOperations, resource);
-
+  console.log('standaloneOperations', standaloneOperations);
   // Combine consolidated and standalone operations
   const combinedOperations = [...consolidatedOps, ...standaloneOperations];
-
+  console.log('combinedOperations', combinedOperations);
   // Normalize all array operations
   const normalizedOperations = combinedOperations.map((op) => convertInvalidArrayOperation(op, resource));
 
@@ -333,19 +334,45 @@ export function consolidateOperations(operations: Operation[], resource: FhirRes
   return normalizedOperations;
 }
 
-function mergeOperations(operations: Operation[]): Operation[] {
+function mergeOperations(operations: Operation[], resource: FhirResource): Operation[] {
   const merged = new Map<string, Operation>();
 
-  operations.forEach((operation) => {
-    if ((operation.op === 'add' || operation.op === 'replace') && !operation.path.endsWith('/-')) {
+  operations.forEach((operation, index) => {
+    // Handle array append operations separately
+    if (operation.path.endsWith('/-')) {
+      merged.set(`${operation.path}_${merged.size}`, operation);
+      return;
+    }
+
+    const currentValue = lodashGet(resource, slashPathToLodashPath(operation.path));
+
+    // For remove operations, check if there's a subsequent add with same value
+    if (operation.op === 'remove') {
+      const nextOp = operations[index + 1];
+      if (
+        nextOp &&
+        nextOp.path === operation.path &&
+        (nextOp.op === 'add' || nextOp.op === 'replace') &&
+        nextOp.value === currentValue
+      ) {
+        return; // Skip this remove operation
+      }
+    }
+
+    // Skip add/replace if value wouldn't change
+    if ((operation.op === 'add' || operation.op === 'replace') && operation.value === currentValue) {
+      return;
+    }
+
+    // For remaining operations, preserve existing logic
+    if (operation.op === 'add' || operation.op === 'replace') {
       const existingOp = merged.get(operation.path);
       merged.set(operation.path, {
         ...operation,
         op: existingOp?.op === 'add' ? 'add' : operation.op,
       });
     } else {
-      // For array append operations, add them directly to the result
-      merged.set(`${operation.path}_${merged.size}`, operation);
+      merged.set(operation.path, operation);
     }
   });
 
@@ -371,18 +398,34 @@ function getOperationArrayInfo(path: string): { isArray: boolean; parentPath: st
 
 function convertInvalidArrayOperation(op: Operation, resource: FhirResource): Operation {
   if (op.op === 'add') {
-    const { isArray, parentPath, index } = getOperationArrayInfo(op.path);
-    // Check if we're trying to add to a specific array index that doesn't exist
+    const { isArray, index } = getOperationArrayInfo(op.path);
     if (isArray && index >= 0) {
-      const parentValue = lodashGet(resource, parentPath.slice(1));
-      if (!Array.isArray(parentValue) || parentValue.length <= index) {
-        // Convert to array append operation
-        const pathParts = op.path.split('/');
-        const fieldName = pathParts[pathParts.length - 1];
+      const pathParts = op.path.split('/').filter(Boolean);
+
+      // Special case for adding to name/given
+      if (pathParts.includes('name') && pathParts.includes('given')) {
+        const nameIndex = pathParts.indexOf('name');
+        const basePath = '/' + pathParts.slice(0, nameIndex + 1).join('/');
+
+        // Check if we're modifying an existing contact's name
+        if (pathParts.includes('contact')) {
+          const nameObject = lodashGet(resource, slashPathToLodashPath(basePath)) || {};
+
+          return {
+            op: 'replace',
+            path: basePath,
+            value: {
+              ...nameObject,
+              given: Array.isArray(op.value) ? op.value : [op.value],
+            },
+          };
+        }
+
+        // For new name entries
         return {
           op: 'add',
-          path: `${parentPath}/-`,
-          value: { [fieldName]: op.value },
+          path: `${basePath}/-`,
+          value: { given: Array.isArray(op.value) ? op.value : [op.value] },
         };
       }
     }
