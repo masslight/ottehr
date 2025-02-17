@@ -48,8 +48,8 @@ export class VisitsPage {
     await this.#page.waitForTimeout(15000);
   }
 
-  async clickDischsrgedTab(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.dashboard.dischsrgedTab).click();
+  async clickDischargedTab(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.dashboard.dischargedTab).click();
     await this.#page.waitForTimeout(15000);
   }
 

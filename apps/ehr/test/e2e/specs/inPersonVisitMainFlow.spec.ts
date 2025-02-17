@@ -84,7 +84,7 @@ test('Book appointment,fill required fields for screening, review and sign progr
 
   const visitsPage = await openVisitsPage(page);
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
-  await visitsPage.clickDischsrgedTab();
+  await visitsPage.clickDischargedTab();
   await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, NEW_PATIENT_4_LAST_NAME);
 });
 
