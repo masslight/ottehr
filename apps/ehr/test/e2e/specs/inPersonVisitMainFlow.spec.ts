@@ -82,10 +82,11 @@ test('Book appointment,fill required fields for screening, review and sign progr
   await progressNotePage.clickReviewAndSignButton();
   await progressNotePage.clickSignButton();
   await patientInfoPage.cssHeader().verifyStatus('completed');
-});
 
-test('fail', async ({ page }) => {
-  fail('fail');
+  const visitsPage = await expectVisitsPage(page);
+  await visitsPage.selectLocation(ENV_LOCATION_NAME!);
+  await visitsPage.clickDischsrgedTab();
+  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, NEW_PATIENT_4_LAST_NAME);
 });
 
 async function addAppointment(patientLastName: string, page: Page): Promise<void> {
@@ -105,5 +106,5 @@ async function addAppointment(patientLastName: string, page: Page): Promise<void
   const visitsPage = await expectVisitsPage(page);
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickPrebookedTab();
-  await visitsPage.clickIntakeButton(PATIENT_FIRST_NAME + ', ' + patientLastName);
+  await visitsPage.clickIntakeButton(patientLastName + ', ' + PATIENT_FIRST_NAME);
 }

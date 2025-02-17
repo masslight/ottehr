@@ -8,6 +8,7 @@ export class VisitsPage {
   constructor(page: Page) {
     this.#page = page;
   }
+
   async verifyVisitPresent(firstName: string, lastName: string, time?: string): Promise<void> {
     const patientName = `${lastName}, ${firstName}`;
 
@@ -44,6 +45,11 @@ export class VisitsPage {
 
   async clickInOfficeTab(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dashboard.inOfficeTab).click();
+    await this.#page.waitForTimeout(15000);
+  }
+
+  async clickDischsrgedTab(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.dashboard.dischsrgedTab).click();
     await this.#page.waitForTimeout(15000);
   }
 
