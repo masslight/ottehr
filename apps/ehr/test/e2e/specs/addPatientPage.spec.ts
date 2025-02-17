@@ -160,7 +160,7 @@ test.skip('Add walk-in visit for existing patient', async ({ page }) => {
   const visitsPage = await expectVisitsPage(page);
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickInOfficeTab();
-  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME + ', ' + PATIENT_LAST_NAME);
+  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, PATIENT_LAST_NAME);
 });
 
 test('Add walk-in visit for new patient', async ({ page }) => {
@@ -181,7 +181,7 @@ test('Add walk-in visit for new patient', async ({ page }) => {
   const visitsPage = await expectVisitsPage(page);
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickInOfficeTab();
-  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME + ', ' + NEW_PATIENT_1_LAST_NAME);
+  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, NEW_PATIENT_1_LAST_NAME);
 });
 
 // todo: fix
@@ -212,7 +212,7 @@ test.skip('Add pre-book visit for existing patient', async ({ page }) => {
   const visitsPage = await expectVisitsPage(page);
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickPrebookedTab();
-  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME + ', ' + PATIENT_LAST_NAME, slotTime);
+  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, PATIENT_LAST_NAME, slotTime);
 });
 
 // todo: fix
@@ -235,7 +235,7 @@ test.skip('Add pre-book visit for new patient', async ({ page }) => {
   const visitsPage = await expectVisitsPage(page);
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickPrebookedTab();
-  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME + ', ' + NEW_PATIENT_2_LAST_NAME, slotTime);
+  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, NEW_PATIENT_2_LAST_NAME, slotTime);
 });
 
 // todo: fix
@@ -266,7 +266,7 @@ test.skip('Add post-telemed visit for existing patient', async ({ page }) => {
   const visitsPage = await expectVisitsPage(page);
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickPrebookedTab();
-  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME + ', ' + PATIENT_LAST_NAME, slotTime);
+  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, PATIENT_LAST_NAME, slotTime);
 });
 
 test('Add post-telemed visit for new patient', async ({ page }) => {
@@ -288,5 +288,5 @@ test('Add post-telemed visit for new patient', async ({ page }) => {
   const visitsPage = await expectVisitsPage(page);
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickPrebookedTab();
-  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME + ', ' + NEW_PATIENT_3_LAST_NAME, slotTime);
+  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, NEW_PATIENT_3_LAST_NAME, slotTime);
 });

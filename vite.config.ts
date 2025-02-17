@@ -20,7 +20,7 @@ export default ({ mode }) => {
     build: {
       outDir: './build',
       target: browserslistToEsbuild(),
-      assetsInlineLimit: 0
+      assetsInlineLimit: 0,
     },
   });
 };

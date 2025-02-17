@@ -21,6 +21,7 @@ import { formatDateUsingSlashes } from '../../../helpers/formatDateTime';
 import { AppointmentStatusChip, StatusHistory } from '../../components';
 import { quickTexts } from '../../utils';
 import { TrackingBoardTableButton } from './TrackingBoardTableButton';
+import { dataTestIds } from '../../../constants/data-test-ids';
 
 interface AppointmentTableProps {
   appointment: TelemedAppointmentInformation;
@@ -103,6 +104,7 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
 
   return (
     <TableRow
+      data-testid={dataTestIds.telemedEhrFlow.trackingBoardTableRow}
       sx={{
         '&:last-child td, &:last-child th': { border: 0 },
         '&:hover': {

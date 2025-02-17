@@ -1,4 +1,4 @@
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 import { GetEmployeesInput } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): GetEmployeesInput {

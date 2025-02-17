@@ -328,7 +328,7 @@ export default function AddPatient(): JSX.Element {
               <Box padding={3} marginTop={2}>
                 {/* Location Select */}
                 <Typography variant="h4" color="primary.dark">
-                  Office
+                  Location
                 </Typography>
 
                 {/* location search */}

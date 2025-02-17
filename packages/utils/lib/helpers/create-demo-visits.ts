@@ -9,7 +9,7 @@ import {
   ServiceMode,
   VisitType,
 } from '../types';
-import { updateQuestionnaireResponse } from './helpers';
+import { isoToDateObject, updateQuestionnaireResponse } from './helpers';
 import { isLocationVirtual } from '../fhir';
 
 interface AppointmentData {
@@ -139,14 +139,17 @@ export const createSampleAppointments = async (
       const questionnaireResponseId = appointmentData.questionnaireResponseId;
       const encounterId = appointmentData.encounterId;
 
+      const birthDate = isoToDateObject(randomPatientInfo?.patient?.dateOfBirth || '');
+
       const updatedQuestionnaireResponse = await oystehr.fhir.update<QuestionnaireResponse>({
         ...updateQuestionnaireResponse({
+          patientId: appointmentData.fhirPatientId,
           questionnaire: appointmentData.resources.questionnaire.questionnaire!,
           questionnaireResponseId: questionnaireResponseId!,
           encounterId: encounterId!,
           firstName: randomPatientInfo?.patient?.firstName || '',
           lastName: randomPatientInfo?.patient?.lastName || '',
-          birthDate: randomPatientInfo?.patient?.dateOfBirth || '',
+          ...(birthDate ? { birthDate } : {}),
           email: randomPatientInfo?.patient?.email || '',
           phoneNumber: randomPatientInfo?.patient?.phoneNumber || '',
           fullName: randomPatientInfo?.patient?.firstName + ' ' + randomPatientInfo?.patient?.lastName || '',

@@ -14,6 +14,7 @@ import {
   phoneRegex,
   pickFirstValueFromAnswerItem,
   zipRegex,
+  QuestionnaireItemConditionDefinition,
 } from 'utils';
 import * as Yup from 'yup';
 
@@ -314,50 +315,36 @@ export const makeValidationSchema = (
   } else {
     // we are validating the entire questionnaire
     return Yup.array().of(
-      Yup.object()
-        /*.transform((val) => {
-          try {
-            // idea is if we did the transformations here rather than in the test block
-            // they would actually be returned from the validate call, whereas now those
-            // transformations don't escape the scope of the test function
-            const transformed = recursiveGroupTransform(items, val);
-            console.log('pre validation transform', JSON.stringify(transformed));
-            return transformed;
-          } catch (e) {
-            console.log('pre validation transform error', JSON.stringify(e), e);
-            return val;
+      Yup.object().test('submit test', async (value: any, context: any) => {
+        const { linkId: pageId, item: answerItem } = value;
+        console.log('items.it 5', items);
+        const questionItem = items.find((i) => i.linkId === pageId);
+        if (!questionItem) {
+          // console.log('page not found');
+          return context.createError({ message: `Page ${pageId} not found in Questionnaire` });
+        }
+        if (answerItem === undefined) {
+          if (questionItem.item?.some((i) => evalRequired(i, context))) {
+            return context.createError({ message: 'Item not found' });
+          } else {
+            return value;
           }
-        })*/
-        .test('submit test', async (value: any, context: any) => {
-          const { linkId: pageId, item: answerItem } = value;
-          console.log('items.it 5', items);
-          const questionItem = items.find((i) => i.linkId === pageId);
-          if (!questionItem) {
-            // console.log('page not found');
-            return context.createError({ message: `Page ${pageId} not found in Questionnaire` });
-          }
-          if (answerItem === undefined) {
-            if (questionItem.item?.some((i) => evalRequired(i, context))) {
-              return context.createError({ message: 'Item not found' });
-            } else {
-              return value;
-            }
-          }
-          const schema = makeValidationSchemaPrivate(questionItem.item ?? [], context);
-          // we convert this from a list to key-val dict to match the form shape
-          try {
-            const reduced = answerItem.reduce((accum: any, current: any) => {
-              accum[current.linkId] = { ...current };
-              return accum;
-            }, {});
-            const validated = await schema.validate(reduced, { abortEarly: false });
-            console.log('validated', JSON.stringify(validated));
-            return Yup.mixed().transform(() => validated);
-          } catch (e) {
-            console.log('error: ', pageId, JSON.stringify(answerItem), e);
-            return e;
-          }
-        })
+        }
+        const schema = makeValidationSchemaPrivate(questionItem.item ?? [], context);
+        // we convert this from a list to key-val dict to match the form shape
+        try {
+          const reduced = answerItem.reduce((accum: any, current: any) => {
+            accum[current.linkId] = { ...current };
+            return accum;
+          }, {});
+          const validated = await schema.validate(reduced, { abortEarly: false });
+          console.log('validated', JSON.stringify(validated));
+          return Yup.mixed().transform(() => validated);
+        } catch (e) {
+          console.log('error: ', pageId, JSON.stringify(answerItem), e);
+          return e;
+        }
+      })
     );
   }
 };
@@ -619,35 +606,7 @@ export const evalRequired = (item: IntakeQuestionnaireItem, context: any, questi
     return false;
   }
 
-  const { question, operator, answerString, answerBoolean } = item.requireWhen;
-  // todo: move/update this comment
-  // for now we assume all linkIds within a form are unique, even accross groups
-  // this can be changed later an will be backwards compatible if we come to require
-  // structural prcision in the requireWhen feature
-  const questionValue = recursivePathEval(context, question, questionVal);
-  if (answerString !== undefined) {
-    const comparisonString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;
-
-    if (operator === '=' && comparisonString === answerString) {
-      return true;
-    }
-    if (operator === '!=' && comparisonString !== answerString) {
-      return true;
-    }
-    return false;
-  }
-  if (answerBoolean !== undefined) {
-    const comparisonBool = questionValue?.answer?.[0]?.valueBoolean ?? questionValue?.valueBoolean;
-
-    if (operator === '=' && comparisonBool === answerBoolean) {
-      return true;
-    }
-    if (operator === '!=' && comparisonBool !== answerBoolean) {
-      return true;
-    }
-    return false;
-  }
-  return false;
+  return evalCondition(item.requireWhen, context, questionVal);
 };
 
 export const evalItemText = (item: IntakeQuestionnaireItem, context: any, questionVal?: any): string | undefined => {
@@ -655,33 +614,10 @@ export const evalItemText = (item: IntakeQuestionnaireItem, context: any, questi
   if (textWhen === undefined) {
     return item.text;
   }
+  const { substituteText } = textWhen;
 
-  const { question, operator, answerString, answerBoolean, substituteText } = textWhen;
-  // todo: move/update this comment
-  // for now we assume all linkIds within a form are unique, even accross groups
-  // this can be changed later an will be backwards compatible if we come to require
-  // structural precision in the textWhen feature
-  const questionValue = recursivePathEval(context, question, questionVal);
-  if (answerString !== undefined) {
-    const comparisonString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;
-    if (operator === '=' && comparisonString === answerString) {
-      return substituteText;
-    }
-    if (operator === '!=' && comparisonString !== answerString) {
-      return substituteText;
-    }
-    return item.text;
-  }
-  if (answerBoolean !== undefined) {
-    const comparisonBool = questionValue?.answer?.[0]?.valueBoolean ?? questionValue?.valueBoolean;
-
-    if (operator === '=' && comparisonBool === answerBoolean) {
-      return substituteText;
-    }
-    if (operator === '!=' && comparisonBool !== answerBoolean) {
-      return substituteText;
-    }
-    return item.text;
+  if (evalCondition(textWhen, context, questionVal)) {
+    return substituteText;
   }
   return item.text;
 };
@@ -721,8 +657,25 @@ export const evalFilterWhen = (item: IntakeQuestionnaireItem, context: any, ques
   if (item.filterWhen === undefined) {
     return false;
   }
+  return evalCondition(item.filterWhen, context, questionVal);
+};
 
-  const { question, operator, answerString, answerBoolean } = item.filterWhen;
+export const evalComplexValidationTrigger = (
+  item: IntakeQuestionnaireItem,
+  context: any,
+  questionVal?: any
+): boolean => {
+  console.log('item.complex', item.complexValidation?.type, item.complexValidation?.triggerWhen);
+  if (item.complexValidation === undefined) {
+    return false;
+  } else if (item.complexValidation?.triggerWhen === undefined) {
+    return true;
+  }
+  return evalCondition(item.complexValidation.triggerWhen, context, questionVal);
+};
+
+const evalCondition = (condition: QuestionnaireItemConditionDefinition, context: any, questionVal?: any): boolean => {
+  const { question, operator, answerString, answerBoolean } = condition;
   const questionValue = recursivePathEval(context, question, questionVal);
 
   if (answerString !== undefined) {
@@ -746,7 +699,6 @@ export const evalFilterWhen = (item: IntakeQuestionnaireItem, context: any, ques
   }
   return false;
 };
-
 /*
   given any list of questionnaire items and values representing answers to those items,
   filter out any values that should not be included in the form submission, whether because

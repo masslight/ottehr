@@ -75,15 +75,19 @@ test.describe('Appointment appearing correctly', async () => {
     await page.goto(`telemed/appointments`);
     await awaitAppointments(page);
 
-    const table = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTable).locator('table');
-    let foundMyAppointment = false;
-    await iterateThroughTable(table, async (row) => {
-      const rowText = await row.innerText(DEFAULT_TIMEOUT);
-      if (rowText?.includes(resourceHandler.appointment.id!)) {
-        foundMyAppointment = true;
-      }
-    });
-    expect(foundMyAppointment).toBe(true);
+    await expect(
+      page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))
+    ).toBeVisible(DEFAULT_TIMEOUT);
+
+    // const table = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTable).locator('table');
+    // let foundMyAppointment = false;
+    // await iterateThroughTable(table, async (row) => {
+    //   const rowText = await row.innerText(DEFAULT_TIMEOUT);
+    //   if (rowText?.includes(resourceHandler.appointment.id!)) {
+    //     foundMyAppointment = true;
+    //   }
+    // });
+    // expect(foundMyAppointment).toBe(true);
   });
 
   test("other appointment in 'all patients' tab.", async ({ page }) => {

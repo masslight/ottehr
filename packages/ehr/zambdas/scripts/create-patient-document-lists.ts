@@ -1,7 +1,7 @@
 import { DocumentReference, List, Patient } from 'fhir/r4b';
-import { createOystehrClientFromConfig } from './helpers';
 import { FOLDERS_CONFIG } from 'utils/lib/fhir/constants';
-import { performEffectWithEnvFile } from 'utils';
+import { performEffectWithEnvFile } from 'zambda-utils';
+import { createOystehrClientFromConfig } from './helpers';
 
 const createPatientDocumentLists = async (config: any): Promise<void> => {
   const oystehr = await createOystehrClientFromConfig(config);

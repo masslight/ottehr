@@ -1,12 +1,13 @@
-import { Box, Button, FormControl, IconButton, InputAdornment, MenuItem, TextField } from '@mui/material';
+import { Box, Button, FormControl, MenuItem, TextField } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import { useState } from 'react';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import { ClearIcon } from '@mui/x-date-pickers';
 import { useLocationsOptions } from './useLocationsOptions';
 import { PartialSearchOptionsState, SearchOptionsFilters } from './types';
 import { dataTestIds } from '../../constants/data-test-ids';
+import DateSearch from '../DateSearch';
+import { DateTime } from 'luxon';
 
 export const PatientsSearchFilters: React.FC<{
   searchFilters: SearchOptionsFilters;
@@ -33,26 +34,17 @@ export const PatientsSearchFilters: React.FC<{
           value={searchFilters.name}
           onChange={(e) => setSearchField({ field: 'name', value: e.target.value })}
         />
-        <TextField
-          data-testid={dataTestIds.patients.searchByDateOfBirthField}
-          sx={{ flex: 1 }}
-          label="DOB"
-          type="date"
-          value={searchFilters.dob}
-          onChange={(e) => setSearchField({ field: 'dob', value: e.target.value })}
-          InputProps={{
-            endAdornment: searchFilters.dob && (
-              <InputAdornment position="end">
-                <IconButton onClick={() => setSearchField({ field: 'dob', value: '' })} edge="end">
-                  <ClearIcon />
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-          InputLabelProps={{
-            shrink: true,
-          }}
-        />
+        <Box sx={{ flex: 1 }}>
+          <DateSearch
+            date={searchFilters.dob ? DateTime.fromISO(searchFilters.dob) : null}
+            setDate={(date: DateTime | null) =>
+              setSearchField({ field: 'dob', value: date ? date.toISODate() || '' : '' })
+            }
+            label="DOB"
+            closeOnSelect
+            data-testid={dataTestIds.patients.searchByDateOfBirthField}
+          />
+        </Box>
       </Box>
       <Box sx={{ mb: 2 }}>
         <Button

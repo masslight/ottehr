@@ -1,6 +1,5 @@
-import { expect, Page, Locator } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 import { Locators } from './locators';
-import { AllStates, AllStatesToNames } from 'utils';
 
 export class CommonLocatorsHelper {
   page: Page;
@@ -23,19 +22,29 @@ export class CommonLocatorsHelper {
   }
 
   async checkSlotIsCorrect(selectedSlot?: string): Promise<void> {
+    if (!selectedSlot) {
+      throw new Error('Selected slot must not be empty or undefined');
+    }
     await expect(this.page.getByText(`${selectedSlot}`)).toBeVisible();
   }
 
   async checkLocationValueIsCorrect(location: string | null): Promise<void> {
+    if (!location) {
+      throw new Error('Location must not be empty or undefined');
+    }
     await expect(this.page.getByText(`${location}`)).toBeVisible();
   }
 
   async clickContinue(): Promise<void> {
-    await this.page.getByRole('button', { name: 'Continue' }).click();
+    await this.locator.continueButton.click();
   }
-  async selectState(stateName = AllStatesToNames[AllStates[0].value]): Promise<void> {
+  async selectState(stateName?: string): Promise<void> {
     await this.page.getByPlaceholder('Search or select').click();
-    await this.page.getByRole('option', { name: stateName }).click();
+    if (stateName) {
+      await this.page.getByRole('option', { name: stateName }).click();
+    } else {
+      await this.page.getByRole('option').first().click();
+    }
     await this.clickContinue();
   }
 }

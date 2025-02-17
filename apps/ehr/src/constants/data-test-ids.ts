@@ -44,10 +44,7 @@ export const dataTestIds = {
     prefilledPatientEmail: 'prefilled-patient-email',
   },
   pagination: {
-    nextPage: 'KeyboardArrowRightIcon',
-    previousPage: 'KeyboardArrowLeftIcon',
     paginationContainer: 'pagination-container',
-    dropDownArrow: 'ArrowDropDownIcon',
   },
   patientHeader: {
     patientId: 'header-patient-id',
@@ -110,7 +107,8 @@ export const dataTestIds = {
     patientEmail: 'patient-email',
     patientPhoneNumber: 'patient-phone-number',
     patientAddress: 'patient-address',
-    searchResultRow: (patientId: string) => `search-result-row-${patientId}`,
+    searchResultsRowPrefix: 'search-result-row-',
+    searchResultRow: (patientId: string) => `${dataTestIds.patients.searchResultsRowPrefix}${patientId}`,
   },
   employeesPage: {
     table: 'employees-providers-content-table',
@@ -139,6 +137,7 @@ export const dataTestIds = {
     statusChip: 'employee-status-chip',
   },
   telemedEhrFlow: {
+    trackingBoardTableRow: (appointmentId: string) => `telemed-tracking-board-table-row-${appointmentId}`,
     myPatientsButton: 'telemed-my-patients-button',
     allPatientsButton: 'telemed-all-patients-button',
     trackingBoardTable: 'telemed-tracking-board-table',

@@ -69,6 +69,7 @@ interface PagedQuestionnaireInput {
   pageId: string;
   defaultValues?: QuestionnaireFormFields;
   options?: PagedQuestionnaireOptions;
+  isSaving?: boolean;
   onSubmit: (data: QuestionnaireFormFields) => void;
   saveProgress: (data: QuestionnaireFormFields) => void;
 }
@@ -157,6 +158,7 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   pageId,
   defaultValues,
   options = {},
+  isSaving,
   onSubmit,
   saveProgress,
 }) => {
@@ -189,7 +191,13 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
 
   return (
     <FormProvider {...methods}>
-      <PaperworkFormRoot items={items} onSubmit={onSubmit} saveProgress={saveProgress} options={options} />
+      <PaperworkFormRoot
+        items={items}
+        onSubmit={onSubmit}
+        saveProgress={saveProgress}
+        options={options}
+        parentIsSaving={isSaving}
+      />
     </FormProvider>
   );
 };
@@ -199,8 +207,15 @@ interface PaperworkRootInput {
   onSubmit: (data: QuestionnaireFormFields) => void;
   saveProgress: (data: QuestionnaireFormFields) => void;
   options?: PagedQuestionnaireOptions;
+  parentIsSaving?: boolean;
 }
-const PaperworkFormRoot: FC<PaperworkRootInput> = ({ items, onSubmit, saveProgress, options = {} }) => {
+const PaperworkFormRoot: FC<PaperworkRootInput> = ({
+  items,
+  onSubmit,
+  saveProgress,
+  options = {},
+  parentIsSaving = false,
+}) => {
   const [isSavingProgress, setIsSavingProgress] = useState(false);
 
   const { saveButtonDisabled } = usePaperworkContext();
@@ -254,7 +269,9 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({ items, onSubmit, saveProgre
           {errorMessage}
         </FormHelperText>
       )}
-      {!hideControls && <ControlButtons {...swizzledCtrlButtons} loading={isSavingProgress || isSubmitting} />}
+      {!hideControls && (
+        <ControlButtons {...swizzledCtrlButtons} loading={isSavingProgress || isSubmitting || parentIsSaving} />
+      )}
     </form>
   );
 };
@@ -383,7 +400,7 @@ const NestedInput: FC<NestedInputProps> = (props) => {
           >
             <BoldPurpleInputLabel
               id={`${item.linkId}-label`}
-              htmlFor={`${item.linkId}-label`}
+              htmlFor={`${item.linkId}`}
               sx={(theme) => ({
                 ...(item.hideControlLabel ? { display: 'none' } : { whiteSpace: 'pre-wrap', position: 'unset' }),
                 color: isFocused ? theme.palette.primary.main : theme.palette.primary.dark,
@@ -478,20 +495,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({ itemProps, renderProps, fi
   } = usePaperworkFormHelpers({ item, renderValue: value, renderOnChange: onChange, fieldId });
 
   const error = useFieldError(fieldId);
-  const answerOptions = useMemo(() => {
-    const options = item.answerOption ?? [];
-    if (!item.randomize) {
-      return options;
-    }
-
-    // Durstenfeld shuffle alogrithm
-    // https://stackoverflow.com/a/12646864
-    for (let i = options.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [options[i], options[j]] = [options[j], options[i]];
-    }
-    return options;
-  }, [item.answerOption, item.randomize]);
+  const answerOptions = item.answerOption ?? [];
   const colorForButton = unwrappedValue ? theme.palette.destructive.main : theme.palette.primary.main;
   let attachmentType: AttachmentType = 'image';
   if (item.dataType === 'PDF') {
@@ -655,6 +659,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({ itemProps, renderProps, fi
             value={unwrappedValue}
             onChange={smartOnChange}
             description={item.attachmentText ?? ''}
+            usePaperworkContext={usePaperworkContext}
           />
         );
       case 'Group':

@@ -6,11 +6,10 @@ import {
   EncounterVirtualServiceExtension,
   PRIVATE_EXTENSION_BASE_URL,
   PUBLIC_EXTENSION_BASE_URL,
-  Secrets,
   TELEMED_VIDEO_ROOM_CODE,
 } from 'utils';
-import { getAuth0Token as getM2MClientToken } from './getAuth0Token';
-import { SecretsKeys, getSecret } from './secrets';
+import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
+import { getAuth0Token } from './getAuth0Token';
 
 export function createOystehrClient(token: string, secrets: Secrets | null): Oystehr {
   const FHIR_API = getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, '');
@@ -26,7 +25,7 @@ export function createOystehrClient(token: string, secrets: Secrets | null): Oys
 export async function checkOrCreateM2MClientToken(token: string, secrets: Secrets | null): Promise<string> {
   if (!token) {
     console.log('getting m2m token for service calls...');
-    return await getM2MClientToken(secrets);
+    return await getAuth0Token(secrets);
   } else {
     console.log('already have a token, no need to update');
   }
@@ -184,3 +183,10 @@ export const fillMeta = (code: string, system: string): Meta => ({
     },
   ],
 });
+
+export function assertDefined<T>(value: T, name: string): NonNullable<T> {
+  if (value == null) {
+    throw `"${name}" is undefined`;
+  }
+  return value;
+}

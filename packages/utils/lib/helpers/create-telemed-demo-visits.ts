@@ -3,7 +3,7 @@ import { Location, QuestionnaireResponse, Patient, Address } from 'fhir/r4b';
 import Oystehr from '@oystehr/sdk';
 import { PersonSex, PatientInfo, CreateAppointmentUCTelemedResponse } from '../types';
 import { isLocationVirtual } from '../fhir';
-import { updateQuestionnaireResponse } from './helpers';
+import { isoToDateObject, updateQuestionnaireResponse } from './helpers';
 
 interface AppointmentData {
   firstNames?: string[];
@@ -199,14 +199,17 @@ export const createSampleTelemedAppointments = async (
       const questionnaireResponseId = appointmentData.questionnaireId;
       const encounterId = appointmentData.encounterId;
 
+      const birthDate = isoToDateObject(patientInfo.patient.dateOfBirth || '');
+
       if (questionnaireResponseId) {
         const questionnaireResponse = updateQuestionnaireResponse({
+          patientId: appointmentData.patientId,
           questionnaire: appointmentData.resources.questionnaire.questionnaire!,
           questionnaireResponseId,
           encounterId: encounterId!,
           firstName: patientInfo.patient.firstName!,
           lastName: patientInfo.patient.lastName!,
-          birthDate: patientInfo.patient.dateOfBirth!,
+          ...(birthDate ? { birthDate } : {}),
           email: patientInfo.patient.email!,
           phoneNumber: patientInfo.patient.phoneNumber!,
           fullName: `${patientInfo.patient.firstName} ${patientInfo.patient.lastName}`,

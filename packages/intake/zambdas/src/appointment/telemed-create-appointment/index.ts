@@ -20,21 +20,17 @@ import {
   createOystehrClient,
   FHIR_EXTENSION,
   formatPhoneNumber,
-  getSecret,
-  getTelemedLocation,
   makePrepopulatedItemsForPatient,
   OTTEHR_MODULE,
   PatientInfo,
   PRIVATE_EXTENSION_BASE_URL,
   RequiredAllProps,
-  Secrets,
-  SecretsKeys,
   ServiceMode,
-  topLevelCatch,
   userHasAccessToPatient,
   VisitType,
-  ZambdaInput,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
+import { getSecret, Secrets, SecretsKeys, topLevelCatch } from 'zambda-utils';
 import { AuditableZambdaEndpoints, checkOrCreateM2MClientToken, createAuditEvent, getUser } from '../../shared';
 import { createUpdateUserRelatedResources, generatePatientRelatedRequests } from '../../shared/appointment';
 import {
@@ -478,6 +474,26 @@ export function getPatientContactEmail(patient: Patient): string | undefined {
   }
 
   return undefined;
+}
+
+export async function getTelemedLocation(oystehr: Oystehr, state: string): Promise<Location | undefined> {
+  const resources = (
+    await oystehr.fhir.search<Location>({
+      resourceType: 'Location',
+      params: [
+        {
+          name: 'address-state',
+          value: state,
+        },
+      ],
+    })
+  ).unbundle();
+
+  return resources.find(
+    (loca) =>
+      loca.extension?.find((ext) => ext.url === 'https://extensions.fhir.zapehr.com/location-form-pre-release')
+        ?.valueCoding?.code === 'vi'
+  );
 }
 
 /***

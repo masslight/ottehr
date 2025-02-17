@@ -12,3 +12,4 @@ packages/**/.esbuild
 .github
 apps/**/env
 packages/**/scripts/
+old-ottehr/
