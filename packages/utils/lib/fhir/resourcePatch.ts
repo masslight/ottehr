@@ -312,6 +312,11 @@ export function consolidateOperations(operations: Operation[], resource: FhirRes
   // Merge 'replace' and 'add' operations with the same path
   const mergedOperations: Operation[] = mergeOperations(operations, resource);
 
+  if (resource.resourceType === 'Patient' && resource.contact?.[0]) {
+    // Special handling for contact name operations
+    return consolidateContactNameOperations(mergedOperations);
+  }
+
   // Group operations by their root paths
   const groupedOperations = mergedOperations.reduce<GroupedOperation[]>(
     (groups, op) => groupAddOperationsForNewPaths(groups, op, resource),
@@ -320,13 +325,10 @@ export function consolidateOperations(operations: Operation[], resource: FhirRes
 
   // Convert groups to consolidated operations
   const consolidatedOps = groupedOperations.map(consolidateGroupedOperations);
-  console.log('consolidatedOps', consolidatedOps);
   // Filter standalone operations
   const standaloneOperations = filterStandaloneOperations(mergedOperations, groupedOperations, resource);
-  console.log('standaloneOperations', standaloneOperations);
   // Combine consolidated and standalone operations
   const combinedOperations = [...consolidatedOps, ...standaloneOperations];
-  console.log('combinedOperations', combinedOperations);
   // Normalize all array operations
   const normalizedOperations = combinedOperations.map((op) => convertInvalidArrayOperation(op, resource));
 
@@ -457,14 +459,12 @@ function groupAddOperationsForNewPaths(
   const pathParts = op.path.replace(/\/-$/, '').split('/').filter(Boolean);
   const rootPath = `/${pathParts[0]}`;
   const index = pathParts[1] && !isNaN(Number(pathParts[1])) ? Number(pathParts[1]) : null;
-
   // Check if parent exists in resource
   const parentExists = lodashGet(resource, pathParts[0]) !== undefined;
   if (parentExists) return groups;
 
   // Find or create group
   const existingGroup = groups.find((g) => g.rootPath === rootPath && g.index === index);
-
   if (existingGroup) {
     existingGroup.operations.push(op);
   } else {
@@ -527,4 +527,54 @@ function filterStandaloneOperations(
       !groupedOperations.some((g) => g.rootPath === rootPath && g.index === index)
     );
   });
+}
+
+function consolidateContactNameOperations(operations: Operation[]): Operation[] {
+  const nameOperations = operations.filter((op) => op.op === 'add' && op.path.includes('/contact/0/name/'));
+
+  if (nameOperations.length === 0) {
+    return operations;
+  }
+
+  const nameGroups = new Map();
+
+  nameOperations.forEach((op) => {
+    const pathParts = op.path.split('/').filter(Boolean);
+    const nameIndex = pathParts.indexOf('name');
+    const basePath = '/' + pathParts.slice(0, nameIndex + 1).join('/');
+
+    if (!nameGroups.has(basePath)) {
+      nameGroups.set(basePath, {
+        given: [],
+        family: undefined,
+      });
+    }
+
+    const group = nameGroups.get(basePath);
+    const field = pathParts[nameIndex + 1];
+    if (op.op === 'add' || op.op === 'replace') {
+      if (field === 'family') {
+        group.family = op.value;
+      } else if (field === 'given') {
+        const givenIndex = parseInt(pathParts[nameIndex + 2]);
+        if (!isNaN(givenIndex)) {
+          group.given[givenIndex] = op.value;
+        }
+      }
+    }
+  });
+
+  const consolidatedNameOps: Operation[] = Array.from(nameGroups.entries()).map(([path, value]) => ({
+    op: 'add',
+    path,
+    value: {
+      given: value.given.filter(Boolean),
+      family: value.family,
+    },
+  }));
+
+  // Filter out the original name operations and add the consolidated ones
+  const nonNameOps = operations.filter((op) => !(op.op === 'add' && op.path.includes('/contact/0/name/')));
+
+  return [...consolidatedNameOps, ...nonNameOps];
 }
