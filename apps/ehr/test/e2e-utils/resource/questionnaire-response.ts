@@ -62,7 +62,6 @@ interface QuestionnaireResponseParams {
   };
 }
 
-// todo: use utils method
 export function createQuestionnaireResponse({
   // patient.id
   patientId,

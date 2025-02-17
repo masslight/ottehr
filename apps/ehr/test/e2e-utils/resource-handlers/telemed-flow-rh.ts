@@ -27,8 +27,8 @@ import {
   PATIENT_POSTALCODE,
   PATIENT_STATE,
 } from '../resource-handler';
-import { updateQuestionnaireResponse } from 'utils/lib/helpers/helpers';
 import { fetchWithOystAuth } from '../helpers/tests-utils';
+import { createQuestionnaireResponse } from '../resource/questionnaire-response';
 
 interface PatientPackage {
   patient: Patient;
@@ -186,7 +186,7 @@ export class TelemedFlowResourceHandler extends ResourceHandlerAbstract {
     )) as DocumentReference;
 
     const questionnaireResponse = (await this.createResource(
-      updateQuestionnaireResponse({
+      createQuestionnaireResponse({
         patientId: patient.id!,
         encounterId: encounter.id!,
         firstName: patient?.name?.[0]?.given?.[0] ?? 'no-first-name',

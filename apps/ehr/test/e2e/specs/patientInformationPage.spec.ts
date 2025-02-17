@@ -1,7 +1,7 @@
 import { test } from '@playwright/test';
 import {
+  PATIENT_BIRTH_DATE_SHORT,
   PATIENT_BIRTHDAY,
-  PATIENT_BIRTHDAY_FORMATTED,
   PATIENT_FIRST_NAME,
   PATIENT_GENDER,
   PATIENT_LAST_NAME,
@@ -13,7 +13,6 @@ import { formatDOB } from 'utils';
 const HEADER_PATIENT_BIRTHDAY = formatDOB(PATIENT_BIRTHDAY)!;
 const HEADER_PATIENT_GENDER = 'Male';
 const HEADER_PATIENT_NAME = PATIENT_LAST_NAME + ', ' + PATIENT_FIRST_NAME;
-const PATIENT_DATE_OF_BIRTH = PATIENT_BIRTHDAY_FORMATTED;
 
 const resourceHandler = new ResourceHandler();
 
@@ -43,6 +42,6 @@ test('Check patient info', async ({ page }) => {
   const patientInformationPage = await expectPatientInformationPage(page, resourceHandler.patient.id!);
   await patientInformationPage.verifyPatientLastName(PATIENT_LAST_NAME);
   await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
-  await patientInformationPage.verifyPatientDateOfBirth(PATIENT_DATE_OF_BIRTH);
+  await patientInformationPage.verifyPatientDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
   await patientInformationPage.verifyPatientBirthSex(PATIENT_GENDER);
 });

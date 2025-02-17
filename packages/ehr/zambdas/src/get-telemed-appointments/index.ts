@@ -78,15 +78,23 @@ export const performEffect = async (
   if (allResources.length > 0) {
     const allRelatedPersonMaps = await relatedPersonAndCommunicationMaps(oystehrm2m, allResources);
 
-    allPackages.forEach((appointmentPackage) => {
+    for (let i = 0; i < allPackages.length; i++) {
+      const appointmentPackage = allPackages[i];
       const { appointment, telemedStatus, telemedStatusHistory, location, practitioner, encounter } =
         appointmentPackage;
-
       const patient = filterPatientForAppointment(appointment, allResources);
+
+      // it handle case if patient was deleted, should we handle this case? (actual for local sometimes)
+      if (!patient) {
+        console.log('No patient found for appointment', appointment?.id);
+        continue;
+      }
+
       const patientPhone = appointmentPackage.paperwork
         ? getPhoneNumberFromQuestionnaire(appointmentPackage.paperwork)
         : undefined;
       const cancellationReason = extractCancellationReason(appointment);
+
       const smsModel = createSmsModel(patient.id!, allRelatedPersonMaps);
 
       const appointmentTemp: TelemedAppointmentInformation = {
@@ -121,7 +129,7 @@ export const performEffect = async (
       };
 
       resultAppointments.push(appointmentTemp);
-    });
+    }
     console.log('Appointments parsed and filtered from all resources.');
   }
   return {
