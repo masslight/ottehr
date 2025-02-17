@@ -790,8 +790,8 @@ export interface EncounterParams {
 
 export interface UpdateQuestionnaireResponseParams {
   patientId: string;
-  questionnaire: string;
-  questionnaireResponseId: string;
+  questionnaire?: string; // only for update
+  questionnaireResponseId?: string; // only for update
   encounterId: string;
   status?: QuestionnaireResponse['status'];
   firstName?: string;

@@ -205,6 +205,7 @@ export const isoToDateObject = (isoString: string): { year: string; month: strin
 };
 
 export function updateQuestionnaireResponse({
+  questionnaire,
   patientId,
   questionnaireResponseId,
   encounterId,
@@ -246,14 +247,15 @@ export function updateQuestionnaireResponse({
     birthDate: {
       day: '13',
       month: '05',
-      year: '2009',
+      year: '1900',
     },
     birthSex: 'Intersex',
   },
 }: UpdateQuestionnaireResponseParams): QuestionnaireResponse {
   return {
+    ...(questionnaire ? { questionnaire } : {}),
+    ...(questionnaireResponseId ? { id: questionnaireResponseId } : {}),
     resourceType: 'QuestionnaireResponse',
-    id: questionnaireResponseId,
     status,
     subject: {
       reference: `Patient/${patientId}`,
@@ -448,18 +450,9 @@ export function updateQuestionnaireResponse({
           },
           {
             linkId: 'responsible-party-date-of-birth',
-            item: [
+            answer: [
               {
-                linkId: 'responsible-party-dob-day',
-                answer: [{ valueString: responsibleParty.birthDate?.day }],
-              },
-              {
-                linkId: 'responsible-party-dob-month',
-                answer: [{ valueString: responsibleParty.birthDate?.month }],
-              },
-              {
-                linkId: 'responsible-party-dob-year',
-                answer: [{ valueString: responsibleParty.birthDate?.year }],
+                valueString: `${responsibleParty.birthDate?.year}-${responsibleParty.birthDate?.month}-${responsibleParty.birthDate?.day}`,
               },
             ],
           },

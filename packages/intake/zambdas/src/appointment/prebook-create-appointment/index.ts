@@ -226,7 +226,7 @@ export async function createAppointment(
     createdBy,
   });
 
-  let userResource: Awaited<ReturnType<typeof createUserResourcesForPatient>>;
+  let relatedPersonId = '';
 
   // Three cases:
   // New user, new patient, create a conversation and add the participants including M2M Device and RelatedPerson
@@ -240,7 +240,8 @@ export async function createAppointment(
     // If it is a new patient, create a RelatedPerson resource for the Patient
     // and create a Person resource if there is not one for the account
     // todo: this needs to happen transactionally with the other must-happen-for-this-request-to-succeed items
-    userResource = await createUserResourcesForPatient(oystehr, fhirPatient.id, verifiedFormattedPhoneNumber);
+    const userResource = await createUserResourcesForPatient(oystehr, fhirPatient.id, verifiedFormattedPhoneNumber);
+    relatedPersonId = userResource?.relatedPerson?.id || '';
     const person = userResource.person;
 
     if (!person.id) {
@@ -255,7 +256,7 @@ export async function createAppointment(
     fhirPatientId: fhirPatient.id || '',
     questionnaireResponseId: questionnaireResponseId || '',
     encounterId: encounter.id || '',
-    relatedPersonId: userResource!.relatedPerson.id || '',
+    relatedPersonId: relatedPersonId,
     resources: {
       appointment,
       encounter,

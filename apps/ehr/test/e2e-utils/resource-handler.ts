@@ -41,10 +41,13 @@ export function getAccessToken(): string {
 }
 
 export const PATIENT_FIRST_NAME = 'Test_John';
-export const PATIENT_LAST_NAME = 'Test_Doe' + randomUUID();
+export const PATIENT_LAST_NAME = 'Test_Doe_Random'; // don't use real random values in parallel related tests
 export const PATIENT_GENDER = 'male';
+
 export const PATIENT_BIRTHDAY = '2002-07-07';
-export const PATIENT_BIRTHDAY_FORMATTED = '07/07/2002';
+export const PATIENT_BIRTH_DATE_SHORT = '07/07/2002';
+export const PATIENT_BIRTH_DATE_LONG = 'July 07, 2002';
+
 export const PATIENT_PHONE_NUMBER = '2144985545';
 export const PATIENT_EMAIL = 'john.doe3@example.com';
 export const PATIENT_CITY = 'New York';
@@ -174,7 +177,7 @@ export class ResourceHandler {
 
     this.resources = {
       ...response.resources,
-      // add relatedPerson to resources to make posiible cleanup it later, endpoint returns only id
+      // add relatedPerson to resources to make posiible cleanup it, endpoint returns only id
       relatedPerson: {
         id: response.relatedPersonId,
         resourceType: 'RelatedPerson',
@@ -271,7 +274,6 @@ export class ResourceHandler {
     }
   }
 
-  // todo: should be incapsulated in the resource handler
   async cleanupAppointments(patientId: string): Promise<void> {
     const appointments = (
       await this.apiClient.fhir.search({

@@ -1,6 +1,7 @@
 import { test } from '@playwright/test';
 import {
-  PATIENT_BIRTHDAY_FORMATTED,
+  PATIENT_BIRTH_DATE_SHORT,
+  PATIENT_BIRTH_DATE_LONG,
   PATIENT_EMAIL,
   PATIENT_FIRST_NAME,
   PATIENT_GENDER,
@@ -14,8 +15,7 @@ import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import { expectVisitsPage } from '../page/VisitsPage';
 
 const PATIENT_PREFILL_NAME = PATIENT_FIRST_NAME + ' ' + PATIENT_LAST_NAME;
-const PATIENT_PREFILL_BIRTHDAY = PATIENT_BIRTHDAY_FORMATTED;
-const PATIENT_INPUT_BIRTHDAY = PATIENT_BIRTHDAY_FORMATTED;
+const PATIENT_INPUT_BIRTHDAY = PATIENT_BIRTH_DATE_SHORT;
 const REASON_FOR_VISIT = PATIENT_REASON_FOR_VISIT;
 
 // todo: remove hardcoded values, use constants from resource-handler
@@ -133,8 +133,7 @@ test('Open "Add patient page" then enter invalid date of birth, click "Add", val
   await addPatientPage.verifyDateFormatValidationErrorShown();
 });
 
-// todo: fix unstable test, maybe update requred becase resurce-handler changed
-test.skip('Add walk-in visit for existing patient', async ({ page }) => {
+test('Add walk-in visit for existing patient', async ({ page }) => {
   const addPatientPage = await expectAddPatientPage(page);
   await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
   await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
@@ -143,7 +142,7 @@ test.skip('Add walk-in visit for existing patient', async ({ page }) => {
   await addPatientPage.clickPrefillForButton();
 
   await addPatientPage.verifyPrefilledPatientName(PATIENT_PREFILL_NAME);
-  await addPatientPage.verifyPrefilledPatientBirthday(PATIENT_PREFILL_BIRTHDAY);
+  await addPatientPage.verifyPrefilledPatientBirthday(PATIENT_BIRTH_DATE_LONG);
   await addPatientPage.verifyPrefilledPatientBirthSex(PATIENT_GENDER);
   await addPatientPage.verifyPrefilledPatientEmail(PATIENT_EMAIL);
 
@@ -184,8 +183,7 @@ test('Add walk-in visit for new patient', async ({ page }) => {
   await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, NEW_PATIENT_1_LAST_NAME);
 });
 
-// todo: fix
-test.skip('Add pre-book visit for existing patient', async ({ page }) => {
+test('Add pre-book visit for existing patient', async ({ page }) => {
   const addPatientPage = await expectAddPatientPage(page);
   await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
   await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
@@ -194,7 +192,7 @@ test.skip('Add pre-book visit for existing patient', async ({ page }) => {
   await addPatientPage.clickPrefillForButton();
 
   await addPatientPage.verifyPrefilledPatientName(PATIENT_PREFILL_NAME);
-  await addPatientPage.verifyPrefilledPatientBirthday(PATIENT_PREFILL_BIRTHDAY);
+  await addPatientPage.verifyPrefilledPatientBirthday(PATIENT_BIRTH_DATE_LONG);
   await addPatientPage.verifyPrefilledPatientBirthSex(PATIENT_GENDER);
   await addPatientPage.verifyPrefilledPatientEmail(PATIENT_EMAIL);
 
@@ -215,8 +213,7 @@ test.skip('Add pre-book visit for existing patient', async ({ page }) => {
   await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, PATIENT_LAST_NAME, slotTime);
 });
 
-// todo: fix
-test.skip('Add pre-book visit for new patient', async ({ page }) => {
+test('Add pre-book visit for new patient', async ({ page }) => {
   const addPatientPage = await expectAddPatientPage(page);
   await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
   await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
@@ -238,8 +235,7 @@ test.skip('Add pre-book visit for new patient', async ({ page }) => {
   await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, NEW_PATIENT_2_LAST_NAME, slotTime);
 });
 
-// todo: fix
-test.skip('Add post-telemed visit for existing patient', async ({ page }) => {
+test('Add post-telemed visit for existing patient', async ({ page }) => {
   const addPatientPage = await expectAddPatientPage(page);
   await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
   await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
@@ -248,7 +244,7 @@ test.skip('Add post-telemed visit for existing patient', async ({ page }) => {
   await addPatientPage.clickPrefillForButton();
 
   await addPatientPage.verifyPrefilledPatientName(PATIENT_PREFILL_NAME);
-  await addPatientPage.verifyPrefilledPatientBirthday(PATIENT_PREFILL_BIRTHDAY);
+  await addPatientPage.verifyPrefilledPatientBirthday(PATIENT_BIRTH_DATE_LONG);
   await addPatientPage.verifyPrefilledPatientBirthSex(PATIENT_GENDER);
   await addPatientPage.verifyPrefilledPatientEmail(PATIENT_EMAIL);
 

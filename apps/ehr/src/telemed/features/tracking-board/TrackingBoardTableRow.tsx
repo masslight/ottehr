@@ -104,7 +104,7 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
 
   return (
     <TableRow
-      data-testid={dataTestIds.telemedEhrFlow.trackingBoardTableRow}
+      data-testid={dataTestIds.telemedEhrFlow.trackingBoardTableRow(appointment.id)}
       sx={{
         '&:last-child td, &:last-child th': { border: 0 },
         '&:hover': {

@@ -10,18 +10,15 @@ import { TelemedFlowResourceHandler } from '../../e2e-utils/resource-handlers/te
 
 // We may create new instances for the tests with mutable operations, and keep parralel tests isolated
 const resourceHandler = new ResourceHandler('telemed');
-const resourceHandler2 = new TelemedFlowResourceHandler();
 
 const DEFAULT_TIMEOUT = { timeout: 15000 };
 
 test.beforeAll(async () => {
   await resourceHandler.setResources();
-  await resourceHandler2.setResources();
 });
 
 test.afterAll(async () => {
   await resourceHandler.cleanupResources();
-  await resourceHandler2.cleanupResources();
 });
 
 async function iterateThroughTable(tableLocator: Locator, callback: (row: Locator) => Promise<void>): Promise<void> {
@@ -154,6 +151,9 @@ test('All appointments in my-patients section has appropriate assign buttons', a
 });
 
 test('Appointment in all-patients section are readonly', async ({ page }) => {
+  const resourceHandler2 = new TelemedFlowResourceHandler();
+  await resourceHandler2.setResources();
+
   await page.goto(`telemed/appointments`);
   await awaitAppointments(page);
 
@@ -167,6 +167,8 @@ test('Appointment in all-patients section are readonly', async ({ page }) => {
 
     expect(otherAppointmentViewButton).toBeDefined();
     await otherAppointmentViewButton?.click(DEFAULT_TIMEOUT);
+
+    await resourceHandler2.cleanupResources();
   });
 
   await test.step('check that after clicking there are readonly view', async () => {

@@ -413,9 +413,11 @@ export const getQuestionnaireItemsAndProgress = async (
   ).unbundle();
 
   console.log('qrs', JSON.stringify(results));
+
   const qr: QuestionnaireResponse | undefined = results.find((res) => {
     return res.resourceType === 'QuestionnaireResponse';
   }) as QuestionnaireResponse | undefined;
+
   const questionnaire: Questionnaire | undefined = results.find((res) => {
     if (res.resourceType === 'Questionnaire') {
       // this in-memory filtering is a workaround for an Oystehr search bug: https://github.com/masslight/zapehr/issues/6051

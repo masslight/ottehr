@@ -16,7 +16,6 @@ import { DateTime } from 'luxon';
 import { AppointmentParams, createTelemedAppointment } from '../resource/appointment';
 import { createTelemedEncounter } from '../resource/encounter';
 import { createDocumentReference } from '../resource/insurance-document';
-import { createQuestionnaireResponse } from '../resource/questionnaire-response';
 import { ResourceHandlerAbstract } from './resource-handler-abstract';
 import { allLicensesForPractitioner, getTelemedLocation, stateCodeToFullName } from '../temp-imports-from-utils';
 import {
@@ -28,6 +27,7 @@ import {
   PATIENT_POSTALCODE,
   PATIENT_STATE,
 } from '../resource-handler';
+import { updateQuestionnaireResponse } from 'utils/lib/helpers/helpers';
 import { fetchWithOystAuth } from '../helpers/tests-utils';
 
 interface PatientPackage {
@@ -186,7 +186,7 @@ export class TelemedFlowResourceHandler extends ResourceHandlerAbstract {
     )) as DocumentReference;
 
     const questionnaireResponse = (await this.createResource(
-      createQuestionnaireResponse({
+      updateQuestionnaireResponse({
         patientId: patient.id!,
         encounterId: encounter.id!,
         firstName: patient?.name?.[0]?.given?.[0] ?? 'no-first-name',
