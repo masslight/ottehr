@@ -3,7 +3,6 @@ import { Box, Typography } from '@mui/material';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
 import { AssessmentTitle } from '../../AssessmentTab';
-import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const AssessmentContainer: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);

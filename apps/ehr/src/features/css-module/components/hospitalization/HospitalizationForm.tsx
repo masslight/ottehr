@@ -12,7 +12,6 @@ import {
   useGetAppointmentAccessibility,
 } from '../../../../telemed';
 import { ProviderSideListSkeleton } from '../../../../telemed/features/appointment';
-import { dataTestIds } from '../../../../constants/data-test-ids';
 
 const HospitalizationOptions: HospitalizationDTO[] = [
   {

@@ -12,7 +12,6 @@ import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../state';
 import { useGetAppointmentAccessibility } from '../../../hooks';
 import { useFeatureFlags } from '../../../../features/css-module/context/featureFlags';
-import { dataTestIds } from '../../../../constants/data-test-ids';
 
 export const AssessmentCard: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);

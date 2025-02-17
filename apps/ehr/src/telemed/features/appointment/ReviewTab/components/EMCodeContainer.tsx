@@ -2,7 +2,6 @@ import { FC } from 'react';
 import { Box, Typography } from '@mui/material';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
-import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const EMCodeContainer: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
