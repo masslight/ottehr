@@ -250,6 +250,9 @@ export function makePrescribedMedicationDTO(medRequest: MedicationRequest): Pres
       ?.valueDateTime,
     provider: medRequest.requester?.reference?.split('/')?.[1],
     status: medRequest.status,
+    prescriptionId: medRequest.identifier?.find(
+      (identifier) => identifier.system === 'http://api.zapehr.com/photon-prescription-id'
+    )?.value,
   };
 }
 

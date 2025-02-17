@@ -89,9 +89,10 @@ export interface MedicationIntakeInfo {
 export interface PrescribedMedicationDTO extends SaveableDTO {
   name?: string;
   instructions?: string;
-  status?: MedicationRequest['status'];
+  status?: MedicationRequest['status'] | 'loading';
   provider?: string;
   added?: string;
+  prescriptionId?: string;
 }
 
 export interface AllergyDTO extends SaveableDTO {

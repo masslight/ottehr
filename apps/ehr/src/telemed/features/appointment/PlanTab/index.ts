@@ -1,5 +1,4 @@
 export * from './DispositionCard';
-export * from './ERxCard';
 export * from './ERxContainer';
 export * from './HealthwiseDocumentsCard';
 export * from './PatientInstructionsCard';

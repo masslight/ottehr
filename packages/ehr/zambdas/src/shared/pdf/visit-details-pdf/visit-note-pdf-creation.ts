@@ -180,7 +180,9 @@ function composeDataForPdf(
   const cptCodes = chartData?.cptCodes?.map((cpt) => `${cpt.code} ${cpt.display}`);
 
   // --- Prescriptions ---
-  const prescriptions = chartData?.prescribedMedications ? mapResourceByNameField(chartData.prescribedMedications) : [];
+  const prescriptions = additionalChartData?.prescribedMedications
+    ? mapResourceByNameField(additionalChartData.prescribedMedications)
+    : [];
 
   // --- Patient instructions ---
   const patientInstructions: string[] = [];

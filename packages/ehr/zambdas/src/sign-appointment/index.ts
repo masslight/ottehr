@@ -12,6 +12,8 @@ import {
   visitStatusToFhirEncounterStatusMap,
   getCriticalUpdateTagOp,
   progressNoteChartDataRequestedFields,
+  OTTEHR_MODULE,
+  telemedProgressNoteChartDataRequestedFields,
 } from 'utils';
 
 import { validateRequestParameters } from './validateRequestParameters';
@@ -83,11 +85,13 @@ export const performEffect = async (
   }
   console.debug(`Status has been changed.`);
 
+  const isInPersonAppointment = !!visitResources.appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
+
   const chartDataPromise = getChartData(oystehr, visitResources.encounter.id!);
   const additionalChartDataPromise = getChartData(
     oystehr,
     visitResources.encounter.id!,
-    progressNoteChartDataRequestedFields
+    isInPersonAppointment ? progressNoteChartDataRequestedFields : telemedProgressNoteChartDataRequestedFields
   );
 
   const [chartData, additionalChartData] = (await Promise.all([chartDataPromise, additionalChartDataPromise])).map(
