@@ -655,6 +655,32 @@
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/review-text",
             "valueString": "Insurance details"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation-type",
+                "valueString": "insurance eligibility"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation-triggerWhen",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation-triggerQuestion",
+                    "valueString": "payment-option"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation-triggerOperator",
+                    "valueString": "="
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation-triggerAnswer",
+                    "valueString": "I have insurance"
+                  }
+                ]
+              }
+            ]
           }
         ],
         "type": "group",
@@ -1282,6 +1308,10 @@
             "type": "string",
             "extension": [
               {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                "valueString": "s"
+              },
+              {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
                 "extension": [
                   {
@@ -1515,6 +1545,10 @@
             "enableBehavior": "all",
             "extension": [
               {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                "valueString": "s"
+              },
+              {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
                 "extension": [
                   {
@@ -1563,6 +1597,10 @@
             "text": "ZIP",
             "type": "string",
             "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                "valueString": "s"
+              },
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
                 "valueString": "ZIP"
@@ -1764,6 +1802,45 @@
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
                 "valueString": "64290-0"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                    "valueString": "payment-option"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                    "valueString": "!="
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                    "valueString": "I have insurance"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "linkId": "insurance-eligibility-verification-status",
+            "type": "string",
+            "enableWhen": [
+              {
+                "question": "payment-option",
+                "operator": "=",
+                "answerString": "NEVER"
+              }
+            ],
+            "required": false,
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                "valueString": "hidden"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/accepts-multiple-answers",
+                "valueBoolean": true
               },
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
@@ -2038,6 +2115,10 @@
                 "required": true,
                 "extension": [
                   {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                    "valueString": "s"
+                  },
+                  {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
                     "valueString": "patient-city"
                   },
@@ -2226,6 +2307,10 @@
                 ],
                 "extension": [
                   {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                    "valueString": "s"
+                  },
+                  {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
                     "valueString": "patient-state"
                   },
@@ -2241,6 +2326,10 @@
                 "type": "string",
                 "required": true,
                 "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                    "valueString": "s"
+                  },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
                     "valueString": "ZIP"

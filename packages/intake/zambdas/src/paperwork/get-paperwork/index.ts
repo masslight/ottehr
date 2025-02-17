@@ -20,11 +20,10 @@ import {
   PaperworkSupportingInfo,
   PersonSex,
   SLUG_SYSTEM,
-  Secrets,
+  ScheduleType,
   ServiceMode,
   UCGetPaperworkResponse,
   VisitType,
-  ZambdaInput,
   extractHealthcareServiceAndSupportingLocations,
   getLastUpdateTimestampForResource,
   getQuestionnaireAndValueSets,
@@ -32,12 +31,13 @@ import {
   getUnconfirmedDOBForAppointment,
   mapQuestionnaireAndValueSetsToItemsList,
   serviceModeForHealthcareService,
-  topLevelCatch,
   userHasAccessToPatient,
-  ScheduleType,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
+import { Secrets, topLevelCatch } from 'zambda-utils';
 import '../../../instrument.mjs';
-import { getM2MClientToken, getUser } from '../../shared/auth';
+import { getAuth0Token } from '../../shared';
+import { getUser } from '../../shared/auth';
 import { createOystehrClient, getOtherOfficesForLocation } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -76,7 +76,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     if (!zapehrToken) {
       console.log('getting token');
-      zapehrToken = await getM2MClientToken(secrets);
+      zapehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }

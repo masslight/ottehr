@@ -9,5 +9,5 @@
       "@defaultTheme/*": ["src/themes/ottehr/*"]
     }
   },
-  "include": ["src", "tests", "playwright.config.ts", "setup-test-deps.js", "vitest.config.ts"]
+  "include": ["src"]
 }

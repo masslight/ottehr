@@ -1,16 +1,16 @@
-import '../../../instrument.mjs';
+import Oystehr, { User } from '@oystehr/sdk';
 import { wrapHandler } from '@sentry/aws-serverless';
-import { captureSentryException, configSentry } from '../../shared';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Flag } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { ZambdaInput, topLevelCatch } from 'utils';
-import { validateUpdatePaperworkParams } from './validateRequestParameters';
-import { getAccessToken } from '../../shared';
+import {} from 'utils';
+import { ZambdaInput } from 'zambda-utils';
+import { topLevelCatch } from 'zambda-utils';
+import '../../../instrument.mjs';
+import { captureSentryException, configSentry, getAuth0Token, getUser } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { createOrUpdateFlags } from '../sharedHelpers';
-import Oystehr, { User } from '@oystehr/sdk';
-import { getUser } from '../../shared';
+import { validateUpdatePaperworkParams } from './validateRequestParameters';
 
 // Lifting the token out of the handler function allows it to persist across warm lambda invocations.
 export let token: string;
@@ -22,7 +22,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const secrets = input.secrets;
     if (!token) {
       console.log('getting token');
-      token = await getAccessToken(secrets);
+      token = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }

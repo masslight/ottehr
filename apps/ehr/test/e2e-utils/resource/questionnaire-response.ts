@@ -70,6 +70,7 @@ export function createQuestionnaireResponse({
   encounterId,
 
   //TODO: update this to the correct questionnaire url
+  // grab it from the appropiate Q resource in the deployed resources folder in utils
   questionnaireUrl = '',
   status = 'in-progress',
 

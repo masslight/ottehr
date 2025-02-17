@@ -11,7 +11,6 @@ import {
   ProviderNotificationMethod,
   ProviderNotificationSettings,
   RoleType,
-  Secrets,
   TelemedAppointmentStatus,
   TelemedAppointmentStatusEnum,
   allLicensesForPractitioner,
@@ -20,12 +19,13 @@ import {
   getProviderNotificationSettingsForPractitioner,
   mapStatusToTelemed,
 } from 'utils';
+import { Secrets } from 'zambda-utils';
 import { getTelemedEncounterAppointmentId } from '../get-telemed-appointments/helpers/mappers';
 import { getEmployees, getRoleMembers, getRoles } from '../shared';
 import { removePrefix } from '../shared/appointment/helpers';
 import { topLevelCatch } from '../shared/errors';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 
 export function validateRequestParameters(input: ZambdaInput): { secrets: Secrets | null } {
   return {

@@ -1,7 +1,7 @@
 import sendgrid, { ClientResponse } from '@sendgrid/mail';
 import { DateTime } from 'luxon';
-import { PROJECT_NAME, Secrets } from 'utils';
-import { SecretsKeys, getSecret } from './secrets';
+import { PROJECT_NAME } from 'utils';
+import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 
 export async function topLevelCatch(zambda: string, error: any, secrets: Secrets | null): Promise<void> {
   console.error(`Top level catch block in ${zambda}: \n ${error} \n Error stringified: ${JSON.stringify(error)}`);

@@ -17,7 +17,7 @@ import {
   VisitStatusLabel,
 } from '../../api';
 import { PROJECT_MODULE } from '../../../fhir/moduleIdentification';
-import { Secrets, TelemedAppointmentStatusEnum, TelemedCallStatuses, TelemedStatusHistoryElement } from '../../../main';
+import { TelemedAppointmentStatusEnum, TelemedCallStatuses, TelemedStatusHistoryElement } from '../../../main';
 
 export interface GetPastVisitsResponse {
   appointments: AppointmentInformationIntake[];
@@ -136,7 +136,6 @@ export interface GetTelemedAppointmentsInput {
   groupsFilter?: string[];
   patientFilter: PatientFilterType;
   statusesFilter: TelemedCallStatuses[];
-  secrets: Secrets | null;
   userToken: string;
 }
 

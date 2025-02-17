@@ -6,15 +6,12 @@ import {
   createOystehrClient,
   formatPhoneNumberDisplay,
   getRelatedPersonForPatient,
-  getSecret,
   isLocationVirtual,
   PROJECT_NAME,
-  Secrets,
-  SecretsKeys,
-  sendErrors,
   ServiceMode,
   SLUG_SYSTEM,
 } from 'utils';
+import { getSecret, Secrets, SecretsKeys, sendErrors } from 'zambda-utils';
 
 export interface InPersonCancellationEmailSettings {
   email: string;

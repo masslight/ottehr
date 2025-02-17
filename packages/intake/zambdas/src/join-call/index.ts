@@ -12,19 +12,17 @@ import {
   JoinCallResponse,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   PROJECT_WEBSITE,
-  SecretsKeys,
   TELEMED_VIDEO_ROOM_CODE,
-  ZambdaInput,
   createOystehrClient,
   getAppointmentResourceById,
   getRelatedPersonForPatient,
-  getSecret,
   getVirtualServiceResourceExtension,
-  lambdaResponse,
   userHasAccessToPatient,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
+import { SecretsKeys, getSecret, lambdaResponse } from 'zambda-utils';
 import {
-  getM2MClientToken,
+  getAuth0Token,
   getUser,
   getVideoEncounterForAppointment,
   searchInvitedParticipantResourcesByEncounterId,
@@ -87,7 +85,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!zapehrToken) {
       console.log('getting m2m token for service calls');
-      zapehrToken = await getM2MClientToken(secrets); // keeping token externally for reuse
+      zapehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
     } else {
       console.log('already have a token, no need to update');
     }

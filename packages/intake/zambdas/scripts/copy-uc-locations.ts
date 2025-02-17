@@ -1,10 +1,10 @@
-import fs from 'fs';
-import { getAccessToken } from '../src/shared/auth';
-import { createOystehrClient } from '../src/shared/helpers';
-import { randomUUID } from 'crypto';
 import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
+import { randomUUID } from 'crypto';
 import { Location, Practitioner, PractitionerRole } from 'fhir/r4b';
 import { FHIR_BASE_URL } from 'utils';
+import fs from 'fs';
+import { getAuth0Token } from '../src/shared';
+import { createOystehrClient } from '../src/shared/helpers';
 
 const directorsAreSame = (practitioner1: Practitioner, practitioner2: Practitioner | undefined): boolean => {
   if (!practitioner1 || !practitioner2) {
@@ -70,8 +70,8 @@ const filterDirectorListForInclusion = (listToFilter: Practitioner[], sourceList
 };
 
 const copyLocations = async (fromConfig: any, toConfig: any, isDryRun = true): Promise<void> => {
-  const fromEnvToken = await getAccessToken(fromConfig);
-  const toEnvToken = await getAccessToken(toConfig);
+  const fromEnvToken = await getAuth0Token(fromConfig);
+  const toEnvToken = await getAuth0Token(toConfig);
 
   if (!fromEnvToken || !toEnvToken) {
     throw new Error('Failed to fetch auth token.');

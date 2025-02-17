@@ -9,7 +9,7 @@ import CardDisplay from './CardDisplay';
 import UploadComponent from './UploadComponent';
 import Link from '@mui/material/Link';
 import imageCompression from 'browser-image-compression';
-import { usePaperworkContext } from '../../context';
+import { PaperworkContext } from '../../context';
 import NonImageCardComponent from './NonImageCardComponent';
 
 export type AttachmentType = 'image' | 'pdf';
@@ -21,6 +21,7 @@ interface FileInputProps {
   description: string;
   attachmentType?: AttachmentType;
   onChange: (event: any) => void;
+  usePaperworkContext: () => PaperworkContext;
 }
 
 enum UploadState {
@@ -37,6 +38,7 @@ const FileInput: FC<FileInputProps> = ({
   onChange,
   description,
   attachmentType = 'image',
+  usePaperworkContext,
 }) => {
   const { formState } = useFormContext();
   const { defaultValues } = formState;

@@ -3,14 +3,12 @@ import {
   FHIR_EXTENSION,
   PRIVATE_EXTENSION_BASE_URL,
   PatientInfo,
-  Secrets,
-  SecretsKeys,
-  ZambdaInput,
   createOystehrClient,
   getPatientsForUser,
-  getSecret,
 } from 'utils';
-import { getM2MClientToken } from '../shared';
+import { ZambdaInput } from 'zambda-utils';
+import { Secrets, SecretsKeys, getSecret } from 'zambda-utils';
+import { getAuth0Token } from '../shared';
 import { getUser } from '../shared/auth';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -31,7 +29,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!zapehrToken) {
       console.log('getting token');
-      zapehrToken = await getM2MClientToken(secrets);
+      zapehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }

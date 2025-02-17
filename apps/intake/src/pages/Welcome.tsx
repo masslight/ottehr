@@ -506,7 +506,7 @@ const BookingHome: FC = () => {
         service_mode: serviceTypeParam,
       });
       const shouldStartAtBeginning = isPostPatientSelectionPath(basePath, solvedPath) && !patientsLoading;
-      console.log('basePath, solvedPath, shouldSAB', basePath, solvedPath, shouldStartAtBeginning);
+      // console.log('basePath, solvedPath, shouldSAB', basePath, solvedPath, shouldStartAtBeginning);
       if (shouldStartAtBeginning) {
         return <Navigate to={basePath} replace={true} />;
       }

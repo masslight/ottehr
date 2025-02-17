@@ -1,7 +1,7 @@
 import { Patient } from 'fhir/r4b';
 import fs from 'fs';
 import { PageSizes } from 'pdf-lib';
-import { makeZ3Url, Secrets } from 'utils';
+import { makeZ3Url, Secrets } from 'zambda-utils';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { createPdfClient, PdfInfo } from './pdf-utils';
 import { ImageStyle, PdfClientStyles, ReceiptData, TextStyle } from './types';

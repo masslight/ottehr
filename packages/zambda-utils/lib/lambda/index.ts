@@ -1,9 +1,8 @@
-import { DateTime } from 'luxon';
-import { APIGatewayProxyResult } from 'aws-lambda';
 import sendgrid from '@sendgrid/mail';
-import { Secrets, getSecret, SecretsKeys } from '../secrets';
-import { APIError, isApiError, PROJECT_NAME, SUPPORT_EMAIL } from '../types';
-import { isFHIRError } from '../fhir';
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { DateTime } from 'luxon';
+import { APIError, isApiError, isFHIRError, PROJECT_NAME, SUPPORT_EMAIL } from 'utils';
+import { getSecret, Secrets, SecretsKeys } from '../secrets';
 
 const handleErrorResult = (errorResult: unknown): APIGatewayProxyResult => {
   if (isApiError(errorResult)) {
