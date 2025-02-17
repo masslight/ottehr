@@ -1,4 +1,4 @@
-import { FC, useState } from 'react';
+import { FC, useEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { isPhoneNumberValid, patientFieldPaths, REQUIRED_FIELD_ERROR_MESSAGE, standardizePhoneNumber } from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
@@ -9,12 +9,21 @@ import { usePatientStore } from '../../state/patient.store';
 export const ResponsibleInformationContainer: FC = () => {
   const { patient, updatePatientField } = usePatientStore();
 
-  const { control } = useFormContext();
-  const [inputValue, setInputValue] = useState(
-    patient?.contact?.[0].name?.family && patient?.contact?.[0].name?.given?.[0]
+  const { control, watch, setValue } = useFormContext();
+
+  const fullNameFromPatient =
+    patient?.contact?.[0]?.name?.family && patient?.contact?.[0]?.name?.given?.[0]
       ? `${patient.contact[0].name.family}, ${patient.contact[0].name.given[0]}`
-      : ''
-  );
+      : '';
+
+  const fullName = watch(patientFieldPaths.responsiblePartyName);
+
+  useEffect(() => {
+    if (fullName === undefined && fullNameFromPatient) {
+      setValue(patientFieldPaths.responsiblePartyName, fullNameFromPatient);
+    }
+  }, [setValue, fullName, fullNameFromPatient]);
+
   if (!patient) return null;
 
   const phone = patient?.contact?.[0].telecom?.find((telecom) => telecom.system === 'phone')?.value;
@@ -36,8 +45,7 @@ export const ResponsibleInformationContainer: FC = () => {
       ? value
       : value.replace(/(\w+)\s+(\w+)/, (_, lastName, firstName) => `${lastName}, ${firstName}`);
     // Update the input value with formatted version
-    setInputValue(formattedValue);
-
+    setValue(patientFieldPaths.responsiblePartyName, formattedValue);
     const [lastName = '', firstName = ''] = formattedValue.split(',').map((part) => part.trim());
 
     // Update both name parts
@@ -79,7 +87,7 @@ export const ResponsibleInformationContainer: FC = () => {
         <FormTextField
           name={patientFieldPaths.responsiblePartyName}
           control={control}
-          value={inputValue}
+          value={fullName ?? ''}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           onChangeHandler={handleResponsiblePartyNameChange}
           id="responsible-party-full-name"
