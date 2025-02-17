@@ -7,8 +7,7 @@ import {
 } from '../../e2e-utils/resource-handler';
 import { expectAddPatientPage } from '../page/AddPatientPage';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
-import { expectVisitsPage } from '../page/VisitsPage';
-import { fail } from 'assert';
+import { expectVisitsPage, openVisitsPage } from '../page/VisitsPage';
 import { expectPatientInfoPage } from '../page/PatientInfo';
 import { expectProgressNotePage } from '../page/ProgressNotePage';
 import { expectAssessmentPage } from '../page/AssessmentPage';
@@ -83,7 +82,7 @@ test('Book appointment,fill required fields for screening, review and sign progr
   await progressNotePage.clickSignButton();
   await patientInfoPage.cssHeader().verifyStatus('completed');
 
-  const visitsPage = await expectVisitsPage(page);
+  const visitsPage = await openVisitsPage(page);
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickDischsrgedTab();
   await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, NEW_PATIENT_4_LAST_NAME);

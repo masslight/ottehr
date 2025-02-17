@@ -68,3 +68,8 @@ export async function expectVisitsPage(page: Page): Promise<VisitsPage> {
   await page.waitForURL(`/visits`);
   return new VisitsPage(page);
 }
+
+export async function openVisitsPage(page: Page): Promise<VisitsPage> {
+  await page.goto(`/visits`);
+  return expectVisitsPage(page);
+}
