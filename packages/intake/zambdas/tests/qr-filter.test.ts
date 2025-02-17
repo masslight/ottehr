@@ -1,13 +1,13 @@
+import { IntakeQuestionnaireItem, getQuestionnaireItemsAndProgress, recursiveGroupTransform } from 'utils';
 import {
-  FHIR_API,
-  AUTH0_ENDPOINT,
-  AUTH0_CLIENT,
-  AUTH0_SECRET,
   AUTH0_AUDIENCE,
+  AUTH0_CLIENT,
+  AUTH0_ENDPOINT,
+  AUTH0_SECRET,
+  FHIR_API,
   IN_PERSON_PREVISIT_QUESTIONNAIRE,
 } from '../.env/local.json';
-import { IntakeQuestionnaireItem, getQuestionnaireItemsAndProgress, recursiveGroupTransform } from 'utils';
-import { getAccessToken } from '../src/shared';
+import { getAuth0Token } from '../src/shared';
 import { createOystehrClient } from '../src/shared/helpers';
 import QRData from './data/quetionnaire-responses.json';
 import { vi } from 'vitest';
@@ -30,7 +30,7 @@ describe.skip('qr recursive filter validation tests', () => {
   vi.setConfig({ testTimeout: 100_000 });
 
   beforeAll(async () => {
-    const token = await getAccessToken(SECRETS);
+    const token = await getAuth0Token(SECRETS);
     const oystehr = createOystehrClient(token, SECRETS);
 
     // get paperwork questions and validation schema

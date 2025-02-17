@@ -1,9 +1,9 @@
-import { BrowserContext, test, Page, expect } from '@playwright/test';
+import { BrowserContext, Page, expect, test } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
-import { StartInPersonFlow } from '../../utils/in-person/StartInPersonFlow';
-import { Paperwork } from '../../utils/Paperwork';
-import { Locators } from '../../utils/locators';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
+import { StartInPersonFlow } from '../../utils/in-person/StartInPersonFlow';
+import { Locators } from '../../utils/locators';
+import { Paperwork } from '../../utils/Paperwork';
 
 let page: Page;
 let context: BrowserContext;
@@ -41,7 +41,7 @@ test.afterAll(async () => {
   }
 });
 
-test.describe('Start now In person visit - Paperwork submission flow with only required fields', () => {
+test.describe.serial('Start now In person visit - Paperwork submission flow with only required fields', () => {
   test('SNPRF-1 Fill required contact information', async () => {
     await page.goto(bookingURL.bookingURL);
     await paperwork.clickProceedToPaperwork();

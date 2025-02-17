@@ -1,10 +1,5 @@
 import { Address, Location, Organization, Practitioner, QuestionnaireResponseItem, Reference } from 'fhir/r4b';
-import { Secrets } from '../../../secrets';
 import { InsuranceEligibilityCheckStatus } from '../paperwork';
-
-interface LambdaSecrets {
-  secrets: Secrets | null;
-}
 
 export interface GetEligibilityInsuranceData {
   insuranceId: string;
@@ -54,8 +49,7 @@ export interface GetEligibilityParameters {
 }
 
 export interface GetEligibilityInput
-  extends Omit<GetEligibilityParameters, 'primaryInsuranceData' | 'primaryPolicyHolder' | 'responseItems'>,
-    LambdaSecrets {
+  extends Omit<GetEligibilityParameters, 'primaryInsuranceData' | 'primaryPolicyHolder' | 'responseItems'> {
   primaryInsuranceData: GetEligibilityInsuranceData;
   primaryPolicyHolder: GetEligibilityPolicyHolder;
 }

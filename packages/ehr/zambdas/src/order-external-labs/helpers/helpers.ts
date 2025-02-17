@@ -10,10 +10,9 @@
 //   OTTEHR_MODULE,
 //   SCHOOL_NOTE_CODE,
 //   SCHOOL_WORK_NOTE_TYPE_META_SYSTEM,
-//   Secrets,
-//   TelemedCallStatuses,
+//   //   TelemedCallStatuses,
 //   WORK_NOTE_CODE,
-// } from 'utils';
+//  } from 'utils';
 // import { getPatchBinary } from '../../../../app/src/helpers/fhir';
 // import { telemedStatusToEncounter } from '../../shared/appointment/helpers';
 // import { sendSmsForPatient } from '../../shared/communication';

@@ -3,6 +3,7 @@ import { QuestionnaireResponseItem } from 'fhir/r4b';
 import {
   APIErrorCode,
   BillingProviderDataObject,
+  BillingProviderResource,
   getBillingProviderData,
   GetBillingProviderInput,
   GetEligibilityInput,
@@ -11,16 +12,17 @@ import {
   GetEligibilityPolicyHolder,
   InsurancePlanDTO,
   isValidUUID,
-  Secrets,
-  ZambdaInput,
 } from 'utils';
+import { getSecret, Secrets, SecretsKeys, ZambdaInput } from 'zambda-utils';
 
-export function validateRequestParameters(input: ZambdaInput): GetEligibilityInput {
+export function validateRequestParameters(input: ZambdaInput): GetEligibilityInput & { secrets: Secrets | null } {
   if (!input.body) {
     throw new Error('No request body provided');
   }
 
-  const { coveragePrevalidationInput, patientId, appointmentId } = JSON.parse(input.body) as GetEligibilityParameters;
+  const { appointmentId, patientId, coveragePrevalidationInput } = JSON.parse(input.body) as ReturnType<
+    typeof validateRequestParameters
+  >;
 
   if (!appointmentId || !isValidUUID(appointmentId)) {
     throw new Error('Parameter "appointmentId" must be included in input body and be a valid UUID.');
@@ -204,6 +206,8 @@ const mapResponseItemsToInsurancePolicyHolder = (
   return policyHolder;
 };
 
+type GetBillingProviderInputWithSecrets = GetBillingProviderInput & { secrets: Secrets | null };
+
 export const complexBillingProviderValidation = async (
   plans: GetBillingProviderInput['plans'],
   appointmentId: string,
@@ -212,17 +216,51 @@ export const complexBillingProviderValidation = async (
 ): Promise<BillingProviderDataObject> => {
   //const { type, reference } = prevalidationInput.billingProviderResource;
 
+  const input: GetBillingProviderInputWithSecrets = {
+    plans,
+    secrets,
+    appointmentId,
+  };
   const providerData = await getBillingProviderData(
-    {
-      plans,
-      secrets,
-      appointmentId,
-    },
-    oystehrClient
+    input,
+    await getDefaultBillingProviderResource(input, oystehrClient)
   );
 
   if (providerData === undefined) {
     throw APIErrorCode.MISSING_BILLING_PROVIDER_DETAILS;
   }
   return providerData;
+};
+
+const getDefaultBillingProviderResource = async (
+  input: GetBillingProviderInputWithSecrets,
+  oystehrClient: Oystehr
+): Promise<BillingProviderResource> => {
+  const defaultBillingResource = getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, input.secrets);
+  if (!defaultBillingResource) {
+    throw APIErrorCode.BILLING_PROVIDER_NOT_FOUND;
+  }
+
+  const defaultBillingResourceType = defaultBillingResource.split('/')[0];
+  const defaultBillingResourceId = defaultBillingResource.split('/')[1];
+
+  if (defaultBillingResourceType === undefined || defaultBillingResourceId === undefined) {
+    throw APIErrorCode.BILLING_PROVIDER_NOT_FOUND;
+  }
+
+  const fetchedResources = await oystehrClient.fhir.search<BillingProviderResource>({
+    resourceType: defaultBillingResourceType,
+    params: [
+      {
+        name: '_id',
+        value: defaultBillingResourceId,
+      },
+    ],
+  });
+
+  const billingResource = fetchedResources?.unbundle()[0];
+  if (!billingResource) {
+    throw APIErrorCode.BILLING_PROVIDER_NOT_FOUND;
+  }
+  return billingResource;
 };

@@ -1,8 +1,8 @@
 import { BrowserContext, Page, expect } from '@playwright/test';
+import { AllStates, PatientEthnicity, PatientRace } from 'utils';
 import { CommonLocatorsHelper } from './CommonLocatorsHelper';
 import { FillingInfo } from './in-person/FillingInfo';
 import { Locators } from './locators';
-import { AllStates, PatientEthnicity, PatientRace } from 'utils';
 
 export class Paperwork {
   page: Page;
@@ -96,6 +96,7 @@ export class Paperwork {
     const city = `City${this.getRandomString()}`;
     await this.locator.patientCity.fill(city);
     await expect(this.locator.patientCity).toHaveValue(city);
+    await this.locator.streetAddress.fill(`Address ${this.getRandomString()}`);
   }
   async fillPatientState(): Promise<void> {
     const randomState = this.getRandomState();
