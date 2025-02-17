@@ -180,7 +180,13 @@ export const BillingCodesContainer: FC = () => {
             renderActions={
               isReadOnly
                 ? undefined
-                : () => <DeleteIconButton disabled={disabledEM} onClick={() => onEMCodeChange(null)} />
+                : () => (
+                    <DeleteIconButton
+                      dataTestId={dataTestIds.billingContainer.deleteButton}
+                      disabled={disabledEM}
+                      onClick={() => onEMCodeChange(null)}
+                    />
+                  )
             }
           />
         </Box>

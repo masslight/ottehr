@@ -21,11 +21,13 @@ export class AssessmentPage {
   async selectDiagnosis(diagnosis: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.assessmentPage.diagnosisDropdown).locator('input').fill(diagnosis);
     await this.#page.getByText(diagnosis).click();
+    await expect(this.#page.getByTestId(dataTestIds.diagnosisContainer.deleteButton)).toBeEnabled();
   }
 
   async selectEMCode(code: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.assessmentPage.emCodeDropdown).click();
     await this.#page.getByText(code).click();
+    await expect(this.#page.getByTestId(dataTestIds.billingContainer.deleteButton)).toBeEnabled();
   }
 }
 

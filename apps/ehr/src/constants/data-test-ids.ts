@@ -154,4 +154,10 @@ export const dataTestIds = {
     diagnosisDropdown: 'diagnosis-dropdown',
     emCodeDropdown: 'em-code-dropdown',
   },
+  diagnosisContainer: {
+    deleteButton: 'diagnosis-container-delete-button',
+  },
+  billingContainer: {
+    deleteButton: 'billing-container-delete-button',
+  },
 };
