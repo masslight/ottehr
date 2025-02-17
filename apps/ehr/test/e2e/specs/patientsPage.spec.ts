@@ -1,5 +1,6 @@
 import { test } from '@playwright/test';
 import {
+  PATIENT_BIRTHDAY_FORMATTED,
   PATIENT_CITY,
   PATIENT_EMAIL,
   PATIENT_FIRST_NAME,
@@ -35,7 +36,7 @@ test('Search by Last name', async ({ page }) => {
     id: resourceHandler.patient.id!,
     firstName: PATIENT_FIRST_NAME,
     lastName: PATIENT_LAST_NAME,
-    dateOfBirth: '01/01/2024',
+    dateOfBirth: PATIENT_BIRTHDAY_FORMATTED,
     email: PATIENT_EMAIL,
     phoneNumber: PATIENT_PHONE_NUMBER,
     address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
@@ -44,13 +45,13 @@ test('Search by Last name', async ({ page }) => {
 
 test('Search by Date of birth', async ({ page }) => {
   const patientsPage = await expectPatientsPage(page);
-  await patientsPage.searchByDateOfBirth('01/01/2024');
+  await patientsPage.searchByDateOfBirth(PATIENT_BIRTHDAY_FORMATTED);
   await patientsPage.clickSearchButton();
   await patientsPage.verifyPatientPresent({
     id: resourceHandler.patient.id!,
     firstName: PATIENT_FIRST_NAME,
     lastName: PATIENT_LAST_NAME,
-    dateOfBirth: '01/01/2024',
+    dateOfBirth: PATIENT_BIRTHDAY_FORMATTED,
     email: PATIENT_EMAIL,
     phoneNumber: PATIENT_PHONE_NUMBER,
     address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
@@ -65,7 +66,7 @@ test('Search by Phone number', async ({ page }) => {
     id: resourceHandler.patient.id!,
     firstName: PATIENT_FIRST_NAME,
     lastName: PATIENT_LAST_NAME,
-    dateOfBirth: '01/01/2024',
+    dateOfBirth: PATIENT_BIRTHDAY_FORMATTED,
     email: PATIENT_EMAIL,
     phoneNumber: PATIENT_PHONE_NUMBER,
     address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
@@ -74,13 +75,13 @@ test('Search by Phone number', async ({ page }) => {
 
 test('Search by Address', async ({ page }) => {
   const patientsPage = await expectPatientsPage(page);
-  await patientsPage.searchByAddress('Coop');
+  await patientsPage.searchByAddress(PATIENT_LINE.substring(0, 6));
   await patientsPage.clickSearchButton();
   await patientsPage.verifyPatientPresent({
     id: resourceHandler.patient.id!,
     firstName: PATIENT_FIRST_NAME,
     lastName: PATIENT_LAST_NAME,
-    dateOfBirth: '01/01/2024',
+    dateOfBirth: PATIENT_BIRTHDAY_FORMATTED,
     email: PATIENT_EMAIL,
     phoneNumber: PATIENT_PHONE_NUMBER,
     address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
@@ -89,13 +90,13 @@ test('Search by Address', async ({ page }) => {
 
 test('Search by Email', async ({ page }) => {
   const patientsPage = await expectPatientsPage(page);
-  await patientsPage.searchByEmail('doe');
+  await patientsPage.searchByEmail(PATIENT_EMAIL.split('@')[0]);
   await patientsPage.clickSearchButton();
   await patientsPage.verifyPatientPresent({
     id: resourceHandler.patient.id!,
     firstName: PATIENT_FIRST_NAME,
     lastName: PATIENT_LAST_NAME,
-    dateOfBirth: '01/01/2024',
+    dateOfBirth: PATIENT_BIRTHDAY_FORMATTED,
     email: PATIENT_EMAIL,
     phoneNumber: PATIENT_PHONE_NUMBER,
     address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
@@ -110,7 +111,7 @@ test('Search by Last name and First name', async ({ page }) => {
     id: resourceHandler.patient.id!,
     firstName: PATIENT_FIRST_NAME,
     lastName: PATIENT_LAST_NAME,
-    dateOfBirth: '01/01/2024',
+    dateOfBirth: PATIENT_BIRTHDAY_FORMATTED,
     email: PATIENT_EMAIL,
     phoneNumber: PATIENT_PHONE_NUMBER,
     address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
@@ -120,13 +121,13 @@ test('Search by Last name and First name', async ({ page }) => {
 test('Search by Last name and Date of birth', async ({ page }) => {
   const patientsPage = await expectPatientsPage(page);
   await patientsPage.searchByName(PATIENT_LAST_NAME);
-  await patientsPage.searchByDateOfBirth('01/01/2024');
+  await patientsPage.searchByDateOfBirth(PATIENT_BIRTHDAY_FORMATTED);
   await patientsPage.clickSearchButton();
   await patientsPage.verifyPatientPresent({
     id: resourceHandler.patient.id!,
     firstName: PATIENT_FIRST_NAME,
     lastName: PATIENT_LAST_NAME,
-    dateOfBirth: '01/01/2024',
+    dateOfBirth: PATIENT_BIRTHDAY_FORMATTED,
     email: PATIENT_EMAIL,
     phoneNumber: PATIENT_PHONE_NUMBER,
     address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
@@ -136,13 +137,13 @@ test('Search by Last name and Date of birth', async ({ page }) => {
 test('Search by Last name and Address', async ({ page }) => {
   const patientsPage = await expectPatientsPage(page);
   await patientsPage.searchByName(PATIENT_LAST_NAME);
-  await patientsPage.searchByAddress('New York');
+  await patientsPage.searchByAddress(PATIENT_CITY);
   await patientsPage.clickSearchButton();
   await patientsPage.verifyPatientPresent({
     id: resourceHandler.patient.id!,
     firstName: PATIENT_FIRST_NAME,
     lastName: PATIENT_LAST_NAME,
-    dateOfBirth: '01/01/2024',
+    dateOfBirth: PATIENT_BIRTHDAY_FORMATTED,
     email: PATIENT_EMAIL,
     phoneNumber: PATIENT_PHONE_NUMBER,
     address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
@@ -158,7 +159,7 @@ test('Search by Last name and Phone number', async ({ page }) => {
     id: resourceHandler.patient.id!,
     firstName: PATIENT_FIRST_NAME,
     lastName: PATIENT_LAST_NAME,
-    dateOfBirth: '01/01/2024',
+    dateOfBirth: PATIENT_BIRTHDAY_FORMATTED,
     email: PATIENT_EMAIL,
     phoneNumber: PATIENT_PHONE_NUMBER,
     address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
@@ -168,13 +169,13 @@ test('Search by Last name and Phone number', async ({ page }) => {
 test('Search by Last name, First name and Date of birth', async ({ page }) => {
   const patientsPage = await expectPatientsPage(page);
   await patientsPage.searchByName(PATIENT_LAST_NAME + ',' + PATIENT_FIRST_NAME);
-  await patientsPage.searchByDateOfBirth('01/01/2024');
+  await patientsPage.searchByDateOfBirth(PATIENT_BIRTHDAY_FORMATTED);
   await patientsPage.clickSearchButton();
   await patientsPage.verifyPatientPresent({
     id: resourceHandler.patient.id!,
     firstName: PATIENT_FIRST_NAME,
     lastName: PATIENT_LAST_NAME,
-    dateOfBirth: '01/01/2024',
+    dateOfBirth: PATIENT_BIRTHDAY_FORMATTED,
     email: PATIENT_EMAIL,
     phoneNumber: PATIENT_PHONE_NUMBER,
     address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
@@ -184,10 +185,10 @@ test('Search by Last name, First name and Date of birth', async ({ page }) => {
 test('Reset filters', async ({ page }) => {
   const patientsPage = await expectPatientsPage(page);
   await patientsPage.searchByName(PATIENT_LAST_NAME);
-  await patientsPage.searchByDateOfBirth('01/01/2024');
+  await patientsPage.searchByDateOfBirth(PATIENT_BIRTHDAY_FORMATTED);
   await patientsPage.searchByMobilePhone(PATIENT_PHONE_NUMBER);
-  await patientsPage.searchByAddress('New York');
-  await patientsPage.searchByEmail('doe');
+  await patientsPage.searchByAddress(PATIENT_CITY);
+  await patientsPage.searchByEmail(PATIENT_EMAIL.split('@')[0]);
   await patientsPage.clickResetFiltersButton();
   await patientsPage.verifyFilterReset();
 });

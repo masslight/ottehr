@@ -190,132 +190,165 @@ export function resourceHasMetaTag(resource: Resource, metaTag: OTTEHR_MODULE): 
   return Boolean(resource.meta?.tag?.find((coding) => coding.code === metaTag));
 }
 
+const formatPhoneNumberForQuestionarie = (phone: string): string => {
+  if (phone.length !== 10) {
+    throw new Error('Invalid phone number');
+  }
+  return `(${phone.slice(0, 3)}) ${phone.slice(3, 6)}-${phone.slice(6)}`;
+};
+
 export function updateQuestionnaireResponse({
+  questionnaire,
   questionnaireResponseId,
-  patientId,
   encounterId,
   status = 'in-progress',
-  firstName,
-  lastName,
-  birthDate,
-  consentJurisdiction = 'NY',
-  willBe18 = false,
-  isNewPatient = false,
-  fillingOutAs = 'Parent/Guardian',
-  guardianEmail = 'testemail@s0metestdomain123454321.com',
-  guardianNumber = '(925) 622-4222',
+  firstName = 'TEST-FIRST-NAME',
+  lastName = 'TEST-LAST-NAME',
+  birthDate = '1990-02-02',
+  email = 'test-email@test-domain-1237843298123.co',
+  phoneNumber = '(202) 733-9622',
   birthSex = 'Female',
   address = {
     street: '123 Main Street',
     street2: 'Apt 4B',
     city: 'Orlando',
-    state: 'FL',
+    state: 'AK',
     zip: '32801',
   },
-  mobileOptIn = true,
   ethnicity = 'Decline to Specify',
   race = 'Native Hawaiian or Other Pacific Islander',
   pronouns = 'She/her',
-  ovrpInterest = 'Need more info',
   paymentOption = 'I will pay without insurance',
   responsibleParty = {
     relationship: 'Legal Guardian',
     firstName: 'fwe',
     lastName: 'sf',
-    birthDate: {
-      day: '13',
-      month: '05',
-      year: '2009',
-    },
+    birthDate: '1990-02-02',
     birthSex: 'Intersex',
   },
 }: UpdateQuestionnaireResponseParams): QuestionnaireResponse {
+  // console.log(params);
   return {
-    resourceType: 'QuestionnaireResponse',
     id: questionnaireResponseId,
-    status,
-    subject: {
-      reference: `Patient/${patientId}`,
-    },
+    resourceType: 'QuestionnaireResponse',
+    questionnaire,
     encounter: {
       reference: `Encounter/${encounterId}`,
     },
+    status,
     item: [
       {
         linkId: 'contact-information-page',
         item: [
           {
             linkId: 'patient-will-be-18',
-            answer: [{ valueBoolean: willBe18 }],
-          },
-          {
-            linkId: 'is-new-qrs-patient',
-            answer: [{ valueBoolean: isNewPatient }],
-          },
-          {
-            linkId: 'patient-first-name',
-            answer: [{ valueString: firstName }],
-          },
-          {
-            linkId: 'patient-last-name',
-            answer: [{ valueString: lastName }],
-          },
-          {
-            linkId: 'patient-birthdate',
-            item: [
+            answer: [
               {
-                linkId: 'patient-dob-day',
-                answer: [{ valueString: birthDate.day }],
-              },
-              {
-                linkId: 'patient-dob-month',
-                answer: [{ valueString: birthDate.month }],
-              },
-              {
-                linkId: 'patient-dob-year',
-                answer: [{ valueString: birthDate.year }],
+                valueBoolean: false,
               },
             ],
           },
           {
-            linkId: 'patient-filling-out-as',
-            answer: [{ valueString: fillingOutAs }],
+            linkId: 'is-new-qrs-patient',
+            answer: [
+              {
+                valueBoolean: false,
+              },
+            ],
           },
           {
-            linkId: 'guardian-email',
-            answer: [{ valueString: guardianEmail }],
+            linkId: 'patient-first-name',
+            answer: [
+              {
+                valueString: firstName,
+              },
+            ],
           },
           {
-            linkId: 'guardian-number',
-            answer: [{ valueString: guardianNumber }],
+            linkId: 'patient-last-name',
+            answer: [
+              {
+                valueString: lastName,
+              },
+            ],
+          },
+          {
+            linkId: 'patient-birthdate',
+            answer: [
+              {
+                valueString: birthDate,
+              },
+            ],
           },
           {
             linkId: 'patient-birth-sex',
-            answer: [{ valueString: birthSex }],
+            answer: [
+              {
+                valueString: birthSex,
+              },
+            ],
+          },
+          {
+            linkId: 'patient-birth-sex-missing',
           },
           {
             linkId: 'patient-street-address',
-            answer: [{ valueString: address.street }],
+            answer: [
+              {
+                valueString: address.street,
+              },
+            ],
           },
           {
             linkId: 'patient-street-address-2',
-            answer: [{ valueString: address.street2 }],
+            answer: [
+              {
+                valueString: address.street2,
+              },
+            ],
           },
           {
             linkId: 'patient-city',
-            answer: [{ valueString: address.city }],
+            answer: [
+              {
+                valueString: address.city,
+              },
+            ],
           },
           {
             linkId: 'patient-state',
-            answer: [{ valueString: address.state }],
+            answer: [
+              {
+                valueString: address.state,
+              },
+            ],
           },
           {
             linkId: 'patient-zip',
-            answer: [{ valueString: address.zip }],
+            answer: [
+              {
+                valueString: address.zip,
+              },
+            ],
+          },
+          {
+            linkId: 'patient-email',
+            answer: [
+              {
+                valueString: email,
+              },
+            ],
+          },
+          {
+            linkId: 'patient-number',
+            answer: [
+              {
+                valueString: formatPhoneNumberForQuestionarie(phoneNumber),
+              },
+            ],
           },
           {
             linkId: 'mobile-opt-in',
-            answer: [{ valueBoolean: mobileOptIn }],
           },
         ],
       },
@@ -324,19 +357,187 @@ export function updateQuestionnaireResponse({
         item: [
           {
             linkId: 'patient-ethnicity',
-            answer: [{ valueString: ethnicity }],
+            answer: [
+              {
+                valueString: ethnicity,
+              },
+            ],
           },
           {
             linkId: 'patient-race',
-            answer: [{ valueString: race }],
+            answer: [
+              {
+                valueString: race,
+              },
+            ],
           },
           {
             linkId: 'patient-pronouns',
-            answer: [{ valueString: pronouns }],
+            answer: [
+              {
+                valueString: pronouns,
+              },
+            ],
           },
           {
-            linkId: 'ovrp-interest',
-            answer: [{ valueString: ovrpInterest }],
+            linkId: 'patient-pronouns-custom',
+          },
+          {
+            linkId: 'patient-point-of-discovery',
+          },
+          {
+            linkId: 'preferred-language',
+            answer: [
+              {
+                valueString: 'English',
+              },
+            ],
+          },
+          {
+            linkId: 'relay-phone',
+            answer: [
+              {
+                valueString: 'No',
+              },
+            ],
+          },
+        ],
+      },
+      {
+        linkId: 'primary-care-physician-page',
+        item: [
+          {
+            linkId: 'pcp-first',
+            answer: [
+              {
+                valueString: 'qweqwe',
+              },
+            ],
+          },
+          {
+            linkId: 'pcp-last',
+            answer: [
+              {
+                valueString: 'qweqwe',
+              },
+            ],
+          },
+          {
+            linkId: 'pcp-practice',
+            answer: [
+              {
+                valueString: 'qweqwe',
+              },
+            ],
+          },
+          {
+            linkId: 'pcp-address',
+            answer: [
+              {
+                valueString: 'qweqweqwe',
+              },
+            ],
+          },
+          {
+            linkId: 'pcp-number',
+            answer: [
+              {
+                valueString: '(123) 123-1231',
+              },
+            ],
+          },
+        ],
+      },
+      {
+        linkId: 'current-medications-page',
+        item: [
+          {
+            linkId: 'current-medications-yes-no',
+            answer: [
+              {
+                valueString: 'Patient does not take any medications currently',
+              },
+            ],
+          },
+          {
+            linkId: 'current-medications',
+          },
+        ],
+      },
+      {
+        linkId: 'allergies-page',
+        item: [
+          {
+            linkId: 'allergies-yes-no',
+            answer: [
+              {
+                valueString: 'Patient has no known current allergies',
+              },
+            ],
+          },
+          {
+            linkId: 'allergies',
+          },
+        ],
+      },
+      {
+        linkId: 'medical-history-page',
+        item: [
+          {
+            linkId: 'medical-history-yes-no',
+            answer: [
+              {
+                valueString: 'Patient has no current medical conditions',
+              },
+            ],
+          },
+          {
+            linkId: 'medical-history',
+          },
+        ],
+      },
+      {
+        linkId: 'surgical-history-page',
+        item: [
+          {
+            linkId: 'surgical-history-yes-no',
+            answer: [
+              {
+                valueString: 'Patient has no surgical history',
+              },
+            ],
+          },
+          {
+            linkId: 'surgical-history',
+          },
+        ],
+      },
+      {
+        linkId: 'additional-page',
+        item: [
+          {
+            linkId: 'covid-symptoms',
+            answer: [
+              {
+                valueString: 'No',
+              },
+            ],
+          },
+          {
+            linkId: 'tested-positive-covid',
+            answer: [
+              {
+                valueString: 'No',
+              },
+            ],
+          },
+          {
+            linkId: 'travel-usa',
+            answer: [
+              {
+                valueString: 'No',
+              },
+            ],
           },
         ],
       },
@@ -345,7 +546,73 @@ export function updateQuestionnaireResponse({
         item: [
           {
             linkId: 'payment-option',
-            answer: [{ valueString: paymentOption }],
+            answer: [
+              {
+                valueString: paymentOption,
+              },
+            ],
+          },
+          {
+            item: [
+              {
+                linkId: 'valid-card-on-file',
+              },
+            ],
+            linkId: 'card-payment-data',
+          },
+          {
+            linkId: 'insurance-carrier',
+          },
+          {
+            linkId: 'insurance-member-id',
+          },
+          {
+            linkId: 'policy-holder-first-name',
+          },
+          {
+            linkId: 'policy-holder-middle-name',
+          },
+          {
+            linkId: 'policy-holder-last-name',
+          },
+          {
+            linkId: 'policy-holder-date-of-birth',
+          },
+          {
+            linkId: 'policy-holder-birth-sex',
+          },
+          {
+            linkId: 'policy-holder-address-as-patient',
+          },
+          {
+            linkId: 'policy-holder-address',
+          },
+          {
+            linkId: 'policy-holder-address-additional-line',
+          },
+          {
+            linkId: 'policy-holder-city',
+          },
+          {
+            linkId: 'policy-holder-state',
+          },
+          {
+            linkId: 'policy-holder-zip',
+          },
+          {
+            linkId: 'patient-relationship-to-insured',
+          },
+          {
+            linkId: 'insurance-card-front',
+          },
+          {
+            linkId: 'insurance-card-back',
+          },
+          {
+            linkId: 'display-secondary-insurance',
+          },
+          {
+            linkId: 'secondary-insurance',
           },
         ],
       },
@@ -354,36 +621,86 @@ export function updateQuestionnaireResponse({
         item: [
           {
             linkId: 'responsible-party-relationship',
-            answer: [{ valueString: responsibleParty.relationship }],
+            answer: [
+              {
+                valueString: 'Parent',
+              },
+            ],
           },
           {
             linkId: 'responsible-party-first-name',
-            answer: [{ valueString: responsibleParty.firstName }],
+            answer: [
+              {
+                valueString: responsibleParty.firstName,
+              },
+            ],
           },
           {
             linkId: 'responsible-party-last-name',
-            answer: [{ valueString: responsibleParty.lastName }],
+            answer: [
+              {
+                valueString: responsibleParty.lastName,
+              },
+            ],
           },
           {
             linkId: 'responsible-party-date-of-birth',
-            item: [
+            answer: [
               {
-                linkId: 'responsible-party-dob-day',
-                answer: [{ valueString: responsibleParty.birthDate?.day }],
-              },
-              {
-                linkId: 'responsible-party-dob-month',
-                answer: [{ valueString: responsibleParty.birthDate?.month }],
-              },
-              {
-                linkId: 'responsible-party-dob-year',
-                answer: [{ valueString: responsibleParty.birthDate?.year }],
+                valueString: responsibleParty.birthDate,
               },
             ],
           },
           {
             linkId: 'responsible-party-birth-sex',
-            answer: [{ valueString: responsibleParty.birthSex }],
+            answer: [
+              {
+                valueString: responsibleParty.birthSex,
+              },
+            ],
+          },
+          // {
+          //   linkId: 'responsible-party-number',
+          //   answer: [
+          //     {
+          //       valueString: responsibleParty.phoneNumber,
+          //     },
+          //   ],
+          // },
+        ],
+      },
+      // {
+      //   linkId: 'photo-id-page',
+      //   item: [
+      //     {
+      //       linkId: 'photo-id-front',
+      //     },
+      //     {
+      //       linkId: 'photo-id-back',
+      //     },
+      //   ],
+      // },
+      // {
+      //   linkId: 'patient-condition-page',
+      //   item: [
+      //     {
+      //       linkId: 'patient-photos',
+      //     },
+      //   ],
+      // },
+      {
+        linkId: 'school-work-note-page',
+        item: [
+          {
+            linkId: 'school-work-note-choice',
+            answer: [
+              {
+                valueString: 'Neither',
+              },
+            ],
+          },
+          {
+            linkId: 'school-work-note-template-upload-group',
           },
         ],
       },
@@ -391,14 +708,86 @@ export function updateQuestionnaireResponse({
         linkId: 'consent-forms-page',
         item: [
           {
-            linkId: 'consent-jurisdiction',
-            answer: [{ valueString: consentJurisdiction }],
+            linkId: 'hipaa-acknowledgement',
+            answer: [
+              {
+                valueBoolean: true,
+              },
+            ],
+          },
+          {
+            linkId: 'consent-to-treat',
+            answer: [
+              {
+                valueBoolean: true,
+              },
+            ],
+          },
+          {
+            linkId: 'signature',
+            answer: [
+              {
+                valueString: 'asdf',
+              },
+            ],
+          },
+          {
+            linkId: 'full-name',
+            answer: [
+              {
+                valueString: `${firstName} ${lastName}`,
+              },
+            ],
+          },
+          {
+            linkId: 'consent-form-signer-relationship',
+            answer: [
+              {
+                valueString: 'Self',
+              },
+            ],
+          },
+        ],
+      },
+      {
+        linkId: 'invite-participant-page',
+        item: [
+          {
+            linkId: 'invite-from-another-device',
+            answer: [
+              {
+                valueString: 'No, only one device will be connected',
+              },
+            ],
+          },
+          {
+            linkId: 'invite-first',
+          },
+          {
+            linkId: 'invite-last',
+          },
+          {
+            linkId: 'invite-contact',
+          },
+          {
+            linkId: 'invite-email',
+          },
+          {
+            linkId: 'invite-phone',
           },
         ],
       },
     ],
+    // authored: '2025-02-13T12:39:34.515+04:00',
+    // extension: [
+    //   {
+    //     url: 'https://fhir.zapehr.com/r4/StructureDefinitions/ip-address',
+    //     valueString: '::1',
+    //   },
+    // ],
   };
 }
+
 export const performEffectWithEnvFile = async (
   pkg: 'intake' | 'ehr',
   callback: (config: any) => void

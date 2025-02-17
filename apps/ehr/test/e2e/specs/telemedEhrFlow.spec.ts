@@ -1,18 +1,27 @@
 import { expect, Locator, Page, test } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
+import {
+  ADDITIONAL_QUESTIONS,
+  stateCodeToFullName,
+  TelemedAppointmentStatusEnum,
+} from '../../e2e-utils/temp-imports-from-utils';
+import { PATIENT_STATE, ResourceHandler } from '../../e2e-utils/resource-handler';
 import { TelemedFlowResourceHandler } from '../../e2e-utils/resource-handlers/telemed-flow-rh';
-import { ADDITIONAL_QUESTIONS, TelemedAppointmentStatusEnum } from '../../e2e-utils/temp-imports-from-utils';
 
 // We may create new instances for the tests with mutable operations, and keep parralel tests isolated
-const resourceHandler = new TelemedFlowResourceHandler();
+const resourceHandler = new ResourceHandler('telemed');
+const resourceHandler2 = new TelemedFlowResourceHandler();
+
 const DEFAULT_TIMEOUT = { timeout: 15000 };
 
 test.beforeAll(async () => {
   await resourceHandler.setResources();
+  await resourceHandler2.setResources();
 });
 
 test.afterAll(async () => {
   await resourceHandler.cleanupResources();
+  await resourceHandler2.cleanupResources();
 });
 
 async function iterateThroughTable(tableLocator: Locator, callback: (row: Locator) => Promise<void>): Promise<void> {
@@ -70,7 +79,7 @@ test.describe('Appointment appearing correctly', async () => {
     let foundMyAppointment = false;
     await iterateThroughTable(table, async (row) => {
       const rowText = await row.innerText(DEFAULT_TIMEOUT);
-      if (rowText?.includes(resourceHandler.myAppointment.appointment.id!)) {
+      if (rowText?.includes(resourceHandler.appointment.id!)) {
         foundMyAppointment = true;
       }
     });
@@ -88,7 +97,7 @@ test.describe('Appointment appearing correctly', async () => {
     const table = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTable).locator('table');
     await iterateThroughTable(table, async (row) => {
       const rowText = await row.innerText(DEFAULT_TIMEOUT);
-      if (rowText?.includes(resourceHandler.otherAppointment.appointment.id!)) {
+      if (rowText?.includes(resourceHandler.appointment.id!)) {
         foundOtherAppointment = true;
       }
     });
@@ -101,28 +110,30 @@ test('Appointment has location label and is in a relevant location group', async
   await awaitAppointments(page);
 
   const table = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTable).locator('table');
-  let foundMyLocationGroup = false;
-  let foundMyAppointment = false;
+  let foundLocationGroup = false;
+  let foundAppointment = false;
+
+  const state = PATIENT_STATE;
+  const fullStateName = stateCodeToFullName[state];
+
   await iterateThroughTable(table, async (row) => {
-    if (foundMyAppointment) return;
+    if (foundAppointment) return;
     const rowText = await row.innerText(DEFAULT_TIMEOUT);
 
-    // THIS IS EXIT FROM OUR FOUND LOCATION GROUP
-    // todo is it ok to use enum here like this??
-    if (foundMyLocationGroup && !rowText.toLowerCase().includes(TelemedAppointmentStatusEnum.ready))
-      foundMyLocationGroup = false;
-    // WE FOUND OUR LOCATION GROUP AND WE ENTERING IT FROM THIS ITERATION
-    if (rowText.includes(resourceHandler.myLocationPackage.fullName)) foundMyLocationGroup = true;
-    // HERE WE CHECK IF WE FOUND OUR LOCATION GROUP AND OUR APPOINTMENT IS IN THERE
-    if (
-      foundMyLocationGroup &&
-      rowText?.includes(resourceHandler.myAppointment.appointment.id!) &&
-      rowText.includes(resourceHandler.myLocationPackage.state)
-    ) {
-      foundMyAppointment = true;
+    if (foundLocationGroup && !rowText.toLowerCase().includes(TelemedAppointmentStatusEnum.ready)) {
+      foundLocationGroup = false;
+    }
+
+    if (rowText.includes(fullStateName)) {
+      foundLocationGroup = true;
+    }
+
+    if (foundLocationGroup && rowText.includes(resourceHandler.appointment?.id ?? '') && rowText.includes(state)) {
+      foundAppointment = true;
     }
   });
-  expect(foundMyAppointment && foundMyLocationGroup).toBe(true);
+
+  expect(foundAppointment && foundLocationGroup).toBe(true);
 });
 
 test('All appointments in my-patients section has appropriate assign buttons', async ({ page }) => {
@@ -146,14 +157,10 @@ test('Appointment in all-patients section are readonly', async ({ page }) => {
     await page.getByTestId(dataTestIds.telemedEhrFlow.allPatientsButton).click(DEFAULT_TIMEOUT);
     await awaitAppointments(page);
 
-    const table = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTable).locator('table');
-    let otherAppointmentViewButton: Locator | undefined;
-    await iterateThroughTable(table, async (row) => {
-      const rowText = await row.innerText(DEFAULT_TIMEOUT);
-      if (rowText?.includes(resourceHandler.otherAppointment.appointment.id!)) {
-        otherAppointmentViewButton = row.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardViewButton);
-      }
-    });
+    const otherAppointmentViewButton = page.getByTestId(
+      dataTestIds.telemedEhrFlow.trackingBoardViewButton(resourceHandler2.otherAppointment.appointment.id!)
+    );
+
     expect(otherAppointmentViewButton).toBeDefined();
     await otherAppointmentViewButton?.click(DEFAULT_TIMEOUT);
   });
@@ -174,7 +181,7 @@ test('Assigned appointment has connect-to-patient button', async ({ page }) => {
     let myAppointmentAssignButton: Locator | undefined;
     await iterateThroughTable(table, async (row) => {
       const rowText = await row.innerText(DEFAULT_TIMEOUT);
-      if (rowText?.includes(resourceHandler.myAppointment.appointment.id!)) {
+      if (rowText?.includes(resourceHandler.appointment.id!)) {
         myAppointmentAssignButton = row.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardAssignButton);
       }
     });
@@ -204,7 +211,7 @@ test('Appointment hpi fields', async ({ page }) => {
   const chiefComplaintRos = 'chief ros';
 
   await test.step("go to appointment page and make sure it's in pre-video", async () => {
-    await page.goto(`telemed/appointments/${resourceHandler.myAppointment.appointment.id}`);
+    await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
     await checkAppointmentAssigned(page);
   });
 
@@ -261,7 +268,7 @@ test('Appointment hpi fields', async ({ page }) => {
 
   await test.step('reload and wait until data is loaded', async () => {
     await page.reload(DEFAULT_TIMEOUT);
-    await page.goto(`telemed/appointments/${resourceHandler.myAppointment.appointment.id}`);
+    await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
     await expect(
       page
         .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)
@@ -312,7 +319,7 @@ test('Appointment hpi fields', async ({ page }) => {
 });
 
 test('Connect to patient function', async ({ page }) => {
-  await page.goto(`telemed/appointments/${resourceHandler.myAppointment.appointment.id}`);
+  await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
   await checkAppointmentAssigned(page);
 
   const connectButton = page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient);

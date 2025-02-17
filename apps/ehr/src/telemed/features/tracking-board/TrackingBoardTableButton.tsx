@@ -54,7 +54,7 @@ export const TrackingBoardTableButton: FC<{ appointment: TelemedAppointmentInfor
           onClick={() => goToAppointment()}
           variant={type === 'viewContained' ? 'contained' : 'outlined'}
           sx={baseStyles}
-          data-testid={dataTestIds.telemedEhrFlow.trackingBoardViewButton}
+          data-testid={dataTestIds.telemedEhrFlow.trackingBoardViewButton(appointment.id)}
         >
           View
         </LoadingButton>

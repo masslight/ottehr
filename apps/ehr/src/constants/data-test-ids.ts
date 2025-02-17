@@ -8,6 +8,7 @@ export const dataTestIds = {
     container: 'css-header-container',
   },
   dashboard: {
+    appointmentsTable: (tab: 'prebooked' | 'in-office' | 'completed' | 'cancelled') => `appointments-table-${tab}`,
     addPatientButton: 'add-patient-button',
     intakeButton: (appointmentId: string) => `intake-button-${appointmentId}`,
     prebookedTab: 'prebooked-tab',
@@ -142,7 +143,8 @@ export const dataTestIds = {
     allPatientsButton: 'telemed-all-patients-button',
     trackingBoardTable: 'telemed-tracking-board-table',
     trackingBoardAssignButton: 'telemed-tracking-board-assign-appointment-button',
-    trackingBoardViewButton: 'telemed-tracking-board-view-appointment-button',
+    trackingBoardViewButton: (appointmentId?: string) =>
+      `telemed-tracking-board-view-appointment-button-${appointmentId}`,
     appointmentStatusChip: 'telemed-appointment-status-chip',
     footerButtonConnectToPatient: 'telemed-appointment-footer-button-connect-to-patient',
     footerButtonAssignMe: 'telemed-appointment-footer-button-assign-me',

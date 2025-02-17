@@ -54,22 +54,8 @@ test('Happy path: set up filters and navigate to visit page', async ({ page }) =
     }
   );
 
-  // TODO: The appointment list is not working due to repo migration process, uncomment tests later
-
   // CHOOSE TAB
   await page.locator(`[data-testid="${dataTestIds.dashboard.prebookedTab}"]`).click();
-
-  console.log('👏? resourceHandler.appointment.id', resourceHandler.appointment.id);
-  console.log('👏? resourceHandler.appointment', resourceHandler.appointment);
-
-  // INTAKE RESOURCE WAS CREATED AND INTAKE BUTTON IS AVAILABLE
-  // await expect(
-  //   page
-  //     .getByTestId(dataTestIds.dashboard.tableRowWrapper(resourceHandler.appointment.id!))
-  //     .locator(`button[data-testid="${dataTestIds.dashboard.intakeButton(resourceHandler.appointment.id!)}"]`)
-  // ).toBeAttached({ timeout: 15000 });
-
-  await page.pause();
 
   await expect(page.getByTestId(dataTestIds.dashboard.tableRowWrapper(resourceHandler.appointment.id!))).toBeAttached({
     timeout: 15000,

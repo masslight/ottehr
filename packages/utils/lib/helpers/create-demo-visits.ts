@@ -12,17 +12,6 @@ import {
 import { updateQuestionnaireResponse } from './helpers';
 import { isLocationVirtual } from '../fhir';
 
-// export const PATIENT_FIRST_NAME = 'Test_John';
-// export const PATIENT_LAST_NAME = 'Test_Doe' + randomUUID();
-// export const PATIENT_GENDER = 'male';
-// export const PATIENT_BIRTHDAY = '2024-01-01';
-// export const PATIENT_PHONE_NUMBER = '2144985555';
-// export const PATIENT_EMAIL = 'john.doe@example.com';
-// export const PATIENT_CITY = 'New York';
-// export const PATIENT_LINE = '10 Cooper Square';
-// export const PATIENT_STATE = 'NY';
-// export const PATIENT_POSTALCODE = '06001';
-
 interface AppointmentData {
   firstNames?: string[];
   lastNames?: string[];
@@ -147,24 +136,19 @@ export const createSampleAppointments = async (
         : (await createAppointmentResponse.json()).output;
 
       const appointmentId = appointmentData.appointment;
-      const patientId = appointmentData.fhirPatientId;
       const questionnaireResponseId = appointmentData.questionnaireResponseId;
       const encounterId = appointmentData.encounterId;
 
       const updatedQuestionnaireResponse = await oystehr.fhir.update<QuestionnaireResponse>({
         ...updateQuestionnaireResponse({
+          questionnaire: appointmentData.resources.questionnaire.questionnaire!,
           questionnaireResponseId: questionnaireResponseId!,
-          patientId: patientId,
           encounterId: encounterId!,
           firstName: randomPatientInfo?.patient?.firstName || '',
           lastName: randomPatientInfo?.patient?.lastName || '',
-          birthDate: {
-            year: randomPatientInfo?.patient?.dateOfBirth?.split('-')[0] || '',
-            month: randomPatientInfo?.patient?.dateOfBirth?.split('-')[1] || '',
-            day: randomPatientInfo?.patient?.dateOfBirth?.split('-')[2] || '',
-          },
-          patientEmail: randomPatientInfo?.patient?.email || '',
-          patientNumber: randomPatientInfo?.patient?.phoneNumber || '',
+          birthDate: randomPatientInfo?.patient?.dateOfBirth || '',
+          email: randomPatientInfo?.patient?.email || '',
+          phoneNumber: randomPatientInfo?.patient?.phoneNumber || '',
           fullName: randomPatientInfo?.patient?.firstName + ' ' + randomPatientInfo?.patient?.lastName || '',
         }),
       });

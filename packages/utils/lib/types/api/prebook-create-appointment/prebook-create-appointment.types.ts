@@ -22,6 +22,7 @@ export interface CreateAppointmentResponse {
   fhirPatientId: string;
   questionnaireResponseId: string | null;
   encounterId: string | null;
+  relatedPersonId: string;
   resources: {
     appointment: Appointment;
     encounter: Encounter;

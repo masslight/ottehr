@@ -25,7 +25,7 @@ import {
 } from 'utils';
 
 export function createOystehrClient(token: string, secrets: Secrets | null): Oystehr {
-  const FHIR_API = getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''); // ?
+  const FHIR_API = getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, '');
   const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
   const CLIENT_CONFIG: OystehrConfig = {
     accessToken: token,
@@ -33,15 +33,7 @@ export function createOystehrClient(token: string, secrets: Secrets | null): Oys
     projectApiUrl: PROJECT_API,
   };
   console.log('creating oystehr client');
-  console.log('CLIENT_CONFIG', CLIENT_CONFIG);
-  try {
-    const oystehr = new Oystehr(CLIENT_CONFIG);
-    console.log('oystehr created');
-    return oystehr;
-  } catch (error) {
-    console.log('error creating oystehr client', error);
-    throw error;
-  }
+  return new Oystehr(CLIENT_CONFIG);
 }
 
 export function getParticipantFromAppointment(appointment: Appointment, participant: string): string {

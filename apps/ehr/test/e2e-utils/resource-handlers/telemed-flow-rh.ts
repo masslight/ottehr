@@ -48,6 +48,12 @@ interface LocationPackage {
   fullName: string;
 }
 
+/**
+ * TODO: We should use Zambdas for resource handling. The file
+ * apps/ehr/test/e2e-utils/resource-handler.ts implements base
+ * telemed/in-person create appointment logic using Zambdas.
+ * We should migrate other cases to Zambdas as well.
+ */
 export class TelemedFlowResourceHandler extends ResourceHandlerAbstract {
   public myLocationPackage!: LocationPackage;
   public otherLocationPackage!: LocationPackage;

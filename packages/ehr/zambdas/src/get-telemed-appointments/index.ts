@@ -26,6 +26,7 @@ let m2mtoken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
+    // console.log(1111111, process.pid);
     const validatedParameters: GetTelemedAppointmentsInput = validateRequestParameters(input);
     console.log('Parameters: ' + JSON.stringify(validatedParameters));
 

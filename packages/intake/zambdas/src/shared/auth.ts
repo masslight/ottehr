@@ -5,7 +5,7 @@ import { createOystehrClient } from './helpers';
 
 export async function getUser(token: string, secrets: Secrets | null): Promise<User> {
   const oystehr = createOystehrClient(token, secrets);
-  const user = await oystehr.user.me(); // todo: check
+  const user = await oystehr.user.me();
   return user;
 }
 

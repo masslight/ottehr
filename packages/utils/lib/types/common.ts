@@ -829,24 +829,13 @@ export interface EncounterParams {
 }
 
 export interface UpdateQuestionnaireResponseParams {
+  questionnaire: string;
   questionnaireResponseId: string;
-  patientId: string;
   encounterId: string;
-  questionnaireUrl?: string;
   status?: QuestionnaireResponse['status'];
-  firstName: string;
-  lastName: string;
-  birthDate: {
-    day: string;
-    month: string;
-    year: string;
-  };
-  consentJurisdiction?: string;
-  willBe18?: boolean;
-  isNewPatient?: boolean;
-  fillingOutAs?: string;
-  guardianEmail?: string;
-  guardianNumber?: string;
+  firstName?: string;
+  lastName?: string;
+  birthDate?: string;
   birthSex?: string;
   address?: {
     street?: string;
@@ -855,31 +844,35 @@ export interface UpdateQuestionnaireResponseParams {
     state?: string;
     zip?: string;
   };
-  mobileOptIn?: boolean;
+  email?: string;
+  phoneNumber?: string;
+  willBe18?: boolean;
+  isNewPatient?: boolean;
   ethnicity?: string;
   race?: string;
   pronouns?: string;
-  ovrpInterest?: string;
+  preferredLanguage?: string;
+  relayPhone?: string;
+  pcpInfo?: {
+    firstName?: string;
+    lastName?: string;
+    practice?: string;
+    address?: string;
+    phoneNumber?: string;
+  };
   paymentOption?: string;
   responsibleParty?: {
     relationship?: string;
     firstName?: string;
     lastName?: string;
-    birthDate?: {
-      day?: string;
-      month?: string;
-      year?: string;
-    };
+    birthDate?: string;
     birthSex?: string;
+    phoneNumber?: string;
   };
-  patientEmail?: string;
-  patientNumber?: string;
-  fullName?: string;
-  preferredLanguage?: string;
-  relayPhone?: boolean;
   hipaaAcknowledgement?: boolean;
   consentToTreat?: boolean;
   signature?: string;
+  fullName?: string;
   consentFormSignerRelationship?: string;
 }
 

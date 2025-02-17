@@ -1,4 +1,4 @@
-import { Address, Patient } from 'fhir/r4b';
+import { Address, Appointment, Encounter, Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { PatientBaseInfo } from '../../../common';
 
 export interface CreateAppointmentUCTelemedParams {
@@ -12,6 +12,15 @@ export interface CreateAppointmentUCTelemedResponse {
   message: string;
   appointmentId: string;
   patientId: string;
+  encounterId: string;
+  questionnaireId: string;
+  relatedPersonId: string;
+  resources: {
+    appointment: Appointment;
+    encounter: Encounter;
+    questionnaire: QuestionnaireResponse;
+    patient: Patient;
+  };
 }
 
 export enum VisitType {

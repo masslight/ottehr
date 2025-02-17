@@ -26,7 +26,7 @@ export async function getAuth0Token(input: GetAuthTokenInput): Promise<string> {
       grant_type: 'client_credentials',
       client_id: AUTH0_CLIENT,
       client_secret: AUTH0_SECRET,
-      audience: AUTH0_AUDIENCE, //
+      audience: AUTH0_AUDIENCE,
     },
   })
     .then((response: any) => {
