@@ -55,6 +55,10 @@ export class Locators {
   startInPersonVisitButton: Locator;
   confirmWalkInButton: Locator;
   checkInHeading: Locator;
+  patientPronouns: Locator;
+  patientMyPronounsLabel: Locator;
+  patientMyPronounsInput: Locator;
+  patientPointOfDiscovery: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -103,7 +107,11 @@ export class Locators {
     this.patientNumber = page.locator('[id="patient-number"]');
     this.patientEthnicity = page.locator('[id="patient-ethnicity"]');
     this.patientRace = page.locator('[id="patient-race"]');
+    this.patientPronouns = page.locator('[id="patient-pronouns"]');
+    this.patientMyPronounsLabel = page.getByText('My pronouns');
+    this.patientMyPronounsInput = page.locator('[id="patient-pronouns-custom"]');
     this.patientPreferredLanguage = page.locator('[id="preferred-language"]');
+    this.patientPointOfDiscovery = page.locator('[id="patient-point-of-discovery"]');
     this.mobileOptIn = page.getByLabel('mobile-opt-in-label');
     this.selfPayOption = page.getByLabel('I will pay without insurance');
     this.responsiblePartyRelationship = page.locator('[id="responsible-party-relationship"]');
