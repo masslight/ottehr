@@ -67,7 +67,7 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
 
   const { getValues } = useFormContext();
 
-  const defaultOrBlank: any = multiple ? [] : '';
+  const defaultOrNull: any = multiple ? [] : null;
   const placeholder = (() => {
     if (customPlaceholder) {
       return customPlaceholder;
@@ -148,6 +148,7 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
         },
       }}
       autoComplete
+      value={otherProps.value || null}
       disableClearable
       disabled={disabled}
       id={name}
@@ -167,7 +168,7 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
       multiple={multiple}
       onChange={selectionHandler}
       onBlur={() => freeSolo && selectionHandler({ selectedOption: inputValue })}
-      defaultValue={defaultOrBlank}
+      defaultValue={defaultOrNull}
       renderTags={(_options, _getTagProps) => null}
       getOptionLabel={(option) => {
         return labelForOption(option);

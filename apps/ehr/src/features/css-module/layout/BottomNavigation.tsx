@@ -37,16 +37,16 @@ export const BottomNavigation = (): JSX.Element => {
   const handleNextPage = async (): Promise<void> => {
     try {
       setNextButtonLoading(true);
-      if (isLastPage) {
+      if (isLastPage && interactionMode === 'intake') {
         await handleUpdatePractitioner();
-        setNextButtonLoading(false);
       }
       goToNext();
-      setNextButtonLoading(false);
       await refetch();
     } catch (error: any) {
       console.log(error.message);
       enqueueSnackbar('An error occurred trying to complete intake. Please try again.', { variant: 'error' });
+    } finally {
+      setNextButtonLoading(false);
     }
   };
 
@@ -92,7 +92,7 @@ export const BottomNavigation = (): JSX.Element => {
           Back
         </Button>
         <LoadingButton
-          disabled={isNavigationDisabled || isEncounterUpdatePending}
+          disabled={isNavigationDisabled || isEncounterUpdatePending || (isLastPage && interactionMode === 'provider')}
           loading={nextButtonLoading}
           endIcon={<ArrowForwardIcon sx={{ width: '32px', height: '32px' }} />}
           onClick={handleNextPage}

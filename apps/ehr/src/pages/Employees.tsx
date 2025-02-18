@@ -27,11 +27,11 @@ import { AllStates, EmployeeDetails, State } from 'utils';
 import { otherColors } from '../CustomThemeProvider';
 import { getEmployees } from '../api/api';
 import Loading from '../components/Loading';
+import { EMPLOYEE_ROWS_PER_PAGE, PROVIDER_ROWS_PER_PAGE } from '../constants';
+import { dataTestIds } from '../constants/data-test-ids';
 import { formatDateUsingSlashes } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import { EMPLOYEE_ROWS_PER_PAGE, PROVIDER_ROWS_PER_PAGE } from '../constants';
-import { dataTestIds } from '../constants/data-test-ids';
 
 enum PageTab {
   employees = 'employees',
@@ -414,6 +414,7 @@ function EmployeesTable({
             page={pageNumber}
             onPageChange={handleChangePage}
             onRowsPerPageChange={handleChangeRowsPerPage}
+            data-testid={dataTestIds.pagination.paginationContainer}
           />
         </TableContainer>
       </Paper>

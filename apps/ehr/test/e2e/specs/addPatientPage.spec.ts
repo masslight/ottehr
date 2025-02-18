@@ -1,24 +1,28 @@
 import { test } from '@playwright/test';
 import {
+  PATIENT_BIRTH_DATE_SHORT,
+  PATIENT_BIRTH_DATE_LONG,
   PATIENT_EMAIL,
   PATIENT_FIRST_NAME,
   PATIENT_GENDER,
   PATIENT_LAST_NAME,
   PATIENT_PHONE_NUMBER,
+  PATIENT_REASON_FOR_VISIT,
   ResourceHandler,
 } from '../../e2e-utils/resource-handler';
 import { expectAddPatientPage } from '../page/AddPatientPage';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import { expectVisitsPage } from '../page/VisitsPage';
 
+const PATIENT_PREFILL_NAME = PATIENT_FIRST_NAME + ' ' + PATIENT_LAST_NAME;
+const PATIENT_INPUT_BIRTHDAY = PATIENT_BIRTH_DATE_SHORT;
+const REASON_FOR_VISIT = PATIENT_REASON_FOR_VISIT;
+
+// todo: remove hardcoded values, use constants from resource-handler
 const NEW_PATIENT_1_LAST_NAME = 'new_1' + PATIENT_LAST_NAME;
 const NEW_PATIENT_2_LAST_NAME = 'new_2' + PATIENT_LAST_NAME;
 const NEW_PATIENT_3_LAST_NAME = 'new_3' + PATIENT_LAST_NAME;
-const PATIENT_PREFILL_NAME = PATIENT_FIRST_NAME + ' ' + PATIENT_LAST_NAME;
-const PATIENT_PREFILL_BIRTHDAY = 'January 01, 2024';
-const PATIENT_INPUT_BIRTHDAY = '01/01/2024';
 const PATIENT_INPUT_GENDER = 'Male';
-const REASON_FOR_VISIT = 'Fever';
 const VISIT_TYPE_WALK = 'Walk-in In Person Visit';
 const VISIT_TYPE_PREBOOK = 'Pre-booked In Person Visit';
 const VISIT_TYPE_POST_TELEMED = 'Post Telemed lab Only';
@@ -31,13 +35,15 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await resourceHandler.cleanupResources();
+
+  // todo: this logic should be incapsulated in resource-handler
   await resourceHandler.cleanupNewPatientData(NEW_PATIENT_1_LAST_NAME);
   await resourceHandler.cleanupNewPatientData(NEW_PATIENT_2_LAST_NAME);
   await resourceHandler.cleanupNewPatientData(NEW_PATIENT_3_LAST_NAME);
 });
 
 test.beforeEach(async ({ page }) => {
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(2000); // todo delete
   await page.goto('/visits/add');
 });
 
@@ -136,7 +142,7 @@ test('Add walk-in visit for existing patient', async ({ page }) => {
   await addPatientPage.clickPrefillForButton();
 
   await addPatientPage.verifyPrefilledPatientName(PATIENT_PREFILL_NAME);
-  await addPatientPage.verifyPrefilledPatientBirthday(PATIENT_PREFILL_BIRTHDAY);
+  await addPatientPage.verifyPrefilledPatientBirthday(PATIENT_BIRTH_DATE_LONG);
   await addPatientPage.verifyPrefilledPatientBirthSex(PATIENT_GENDER);
   await addPatientPage.verifyPrefilledPatientEmail(PATIENT_EMAIL);
 
@@ -153,7 +159,7 @@ test('Add walk-in visit for existing patient', async ({ page }) => {
   const visitsPage = await expectVisitsPage(page);
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickInOfficeTab();
-  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME + ', ' + PATIENT_LAST_NAME);
+  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, PATIENT_LAST_NAME);
 });
 
 test('Add walk-in visit for new patient', async ({ page }) => {
@@ -174,7 +180,7 @@ test('Add walk-in visit for new patient', async ({ page }) => {
   const visitsPage = await expectVisitsPage(page);
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickInOfficeTab();
-  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME + ', ' + NEW_PATIENT_1_LAST_NAME);
+  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, NEW_PATIENT_1_LAST_NAME);
 });
 
 test('Add pre-book visit for existing patient', async ({ page }) => {
@@ -186,7 +192,7 @@ test('Add pre-book visit for existing patient', async ({ page }) => {
   await addPatientPage.clickPrefillForButton();
 
   await addPatientPage.verifyPrefilledPatientName(PATIENT_PREFILL_NAME);
-  await addPatientPage.verifyPrefilledPatientBirthday(PATIENT_PREFILL_BIRTHDAY);
+  await addPatientPage.verifyPrefilledPatientBirthday(PATIENT_BIRTH_DATE_LONG);
   await addPatientPage.verifyPrefilledPatientBirthSex(PATIENT_GENDER);
   await addPatientPage.verifyPrefilledPatientEmail(PATIENT_EMAIL);
 
@@ -204,7 +210,7 @@ test('Add pre-book visit for existing patient', async ({ page }) => {
   const visitsPage = await expectVisitsPage(page);
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickPrebookedTab();
-  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME + ', ' + PATIENT_LAST_NAME, slotTime);
+  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, PATIENT_LAST_NAME, slotTime);
 });
 
 test('Add pre-book visit for new patient', async ({ page }) => {
@@ -226,7 +232,7 @@ test('Add pre-book visit for new patient', async ({ page }) => {
   const visitsPage = await expectVisitsPage(page);
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickPrebookedTab();
-  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME + ', ' + NEW_PATIENT_2_LAST_NAME, slotTime);
+  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, NEW_PATIENT_2_LAST_NAME, slotTime);
 });
 
 test('Add post-telemed visit for existing patient', async ({ page }) => {
@@ -238,7 +244,7 @@ test('Add post-telemed visit for existing patient', async ({ page }) => {
   await addPatientPage.clickPrefillForButton();
 
   await addPatientPage.verifyPrefilledPatientName(PATIENT_PREFILL_NAME);
-  await addPatientPage.verifyPrefilledPatientBirthday(PATIENT_PREFILL_BIRTHDAY);
+  await addPatientPage.verifyPrefilledPatientBirthday(PATIENT_BIRTH_DATE_LONG);
   await addPatientPage.verifyPrefilledPatientBirthSex(PATIENT_GENDER);
   await addPatientPage.verifyPrefilledPatientEmail(PATIENT_EMAIL);
 
@@ -256,7 +262,7 @@ test('Add post-telemed visit for existing patient', async ({ page }) => {
   const visitsPage = await expectVisitsPage(page);
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickPrebookedTab();
-  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME + ', ' + PATIENT_LAST_NAME, slotTime);
+  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, PATIENT_LAST_NAME, slotTime);
 });
 
 test('Add post-telemed visit for new patient', async ({ page }) => {
@@ -278,5 +284,5 @@ test('Add post-telemed visit for new patient', async ({ page }) => {
   const visitsPage = await expectVisitsPage(page);
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickPrebookedTab();
-  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME + ', ' + NEW_PATIENT_3_LAST_NAME, slotTime);
+  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, NEW_PATIENT_3_LAST_NAME, slotTime);
 });

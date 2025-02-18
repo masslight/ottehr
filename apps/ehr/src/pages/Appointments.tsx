@@ -236,7 +236,7 @@ export default function Appointments(): ReactElement {
       const timezone =
         locationSelected?.extension?.find(
           (extTemp) => extTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
-        )?.valueString ?? 'America/New_York';
+        )?.valueString ?? DateTime.local().zoneName;
       const searchDateToUse =
         (searchDate && DateTime.fromISO(searchDate, { zone: timezone })) || appointmentDate || undefined;
       void fetchStuff(oystehrZambda, searchDateToUse);

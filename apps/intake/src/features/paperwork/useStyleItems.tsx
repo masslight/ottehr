@@ -28,34 +28,20 @@ export interface StyledQuestionnaireItem extends IntakeQuestionnaireItem {
 
 // all of this could potentially move onto an extension
 const addStyleInfo = (item: IntakeQuestionnaireItem): StyledQuestionnaireItem => {
-  const widthEquals4 = [
-    'patient-city',
-    'patient-state',
-    'patient-zip',
-    'policy-holder-city',
-    'policy-holder-state',
-    'policy-holder-zip',
-    'policy-holder-city-2',
-    'policy-holder-state-2',
-    'policy-holder-zip-2',
-  ];
-  const widthEquals6 = ['pcp-first', 'pcp-last', 'responsible-party-first-name', 'responsible-party-last-name'];
-  const widthEquals7 = ['display-secondary-insurance'];
-  const minRowsItems: { [key: string]: number } = {
-    'insurance-additional-information': 3,
-  };
   let width: number | undefined;
-  if (widthEquals4.includes(item.linkId) ? 4 : undefined) {
+  if (item.inputWidth === 's') {
     width = 4;
   }
-  if (widthEquals6.includes(item.linkId)) {
+  if (item.inputWidth === 'm') {
     width = 6;
   }
-  if (widthEquals7.includes(item.linkId)) {
+  if (item.inputWidth === 'l') {
     width = 7;
   }
+  // item.inputWidth === 'max' results in undefined for width here (default is max width)
   const isFullWidth = width === undefined;
 
+  // todo: move this into form extensions
   const hidesLabel = [
     'mobile-opt-in',
     'hipaa-acknowledgement',
@@ -64,7 +50,7 @@ const addStyleInfo = (item: IntakeQuestionnaireItem): StyledQuestionnaireItem =>
     'policy-holder-address-as-patient-2',
     'display-secondary-insurance',
   ].includes(item.linkId);
-  const minRows = minRowsItems[item.linkId];
+  const minRows = item.minRows;
 
   let placeholder: string | undefined;
   let mask: string | undefined;

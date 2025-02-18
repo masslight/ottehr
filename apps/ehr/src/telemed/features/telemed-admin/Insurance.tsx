@@ -27,9 +27,10 @@ import React, { ReactElement } from 'react';
 import { Link } from 'react-router-dom';
 import { BooleanStateChip } from '../..';
 import { INSURANCES_URL } from '../../../App';
+import { INSURANCE_ROWS_PER_PAGE } from '../../../constants';
+import { dataTestIds } from '../../../constants/data-test-ids';
 import { otherColors } from '../../../CustomThemeProvider';
 import { useInsurancesQuery } from './telemed-admin.queries';
-import { INSURANCE_ROWS_PER_PAGE } from '../../../constants';
 
 enum IsActiveStatus {
   active,
@@ -206,6 +207,7 @@ export default function Insurances(): ReactElement {
           page={pageNumber}
           onPageChange={handleChangePage}
           onRowsPerPageChange={handleChangeRowsPerPage}
+          data-testid={dataTestIds.pagination.paginationContainer}
         />
       </TableContainer>
     </Paper>

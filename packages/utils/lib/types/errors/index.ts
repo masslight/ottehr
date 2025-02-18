@@ -15,9 +15,11 @@ export enum APIErrorCode {
   PATIENT_NOT_FOUND = 4013,
   MALFORMED_GET_ANSWER_OPTIONS_INPUT = 4014,
   ANSWER_OPTION_FROM_RESOURCE_UNDEFINED = 4015,
+  BILLING_PROVIDER_NOT_FOUND = 4016,
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
   MISSING_REQUEST_BODY = 4200,
   CANNOT_JOIN_CALL_NOT_IN_PROGRESS = 4300,
+  MISSING_BILLING_PROVIDER_DETAILS = 4301,
 }
 
 export interface APIError {
@@ -100,6 +102,16 @@ export const PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR = {
 export const PATIENT_NOT_BORN_ERROR = {
   code: APIErrorCode.PATIENT_NOT_BORN,
   message: 'Appointments can not be booked for unborn patients',
+};
+
+export const BILLING_PROVIDER_RESOURCE_NOT_FOUND = {
+  code: APIErrorCode.BILLING_PROVIDER_NOT_FOUND,
+  message: 'A resource matching the providing billing provider reference could not be found',
+};
+
+export const BILLING_PROVIDER_RESOURCE_INCOMPLETE = {
+  code: APIErrorCode.MISSING_BILLING_PROVIDER_DETAILS,
+  message: 'The specified billing provider resource does not include all required data',
 };
 
 export const PATIENT_TOO_OLD_ERROR = (maxAge: number): APIError => ({
