@@ -68,8 +68,8 @@ test('Book appointment, click Provider on "Patient info", check statuses', async
 
 test('Book appointment,fill required fields for screening, review and sign progress note', async ({ page }) => {
   await addAppointment(NEW_PATIENT_4_LAST_NAME, page);
-
   const patientInfoPage = await expectPatientInfoPage(NEW_PATIENT_4_LAST_NAME + ', ' + PATIENT_FIRST_NAME, page);
+  await patientInfoPage.setPatientInfoCheckboxOn();
   await patientInfoPage.cssHeader().clickSwitchStatusButton('provider');
   const progressNotePage = await expectProgressNotePage(page);
   await progressNotePage.verifyReviewAndSignButtonDisabled();

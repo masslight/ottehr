@@ -160,4 +160,7 @@ export const dataTestIds = {
   billingContainer: {
     deleteButton: 'billing-container-delete-button',
   },
+  patientInfoPage: {
+    patientInfoVerifiedCheckbox: 'patient-info-verified-checkbox',
+  },
 };
