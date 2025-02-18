@@ -12,14 +12,12 @@ import {
   APPOINTMENT_NOT_FOUND_ERROR,
   AvailableLocationInformation,
   DATETIME_FULL_NO_YEAR,
-  ServiceMode,
   VisitType,
 } from 'utils';
 import { otherColors, palette } from '../IntakeThemeProvider';
 import zapehrApi from '../api/zapehrApi';
 import { PageContainer } from '../components';
 import useAppointmentNotFoundInformation from '../helpers/information';
-import { getStartingPath } from '../helpers/redirects';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import i18n from '../lib/i18n';
 import { useVisitContext } from './ThankYou';
