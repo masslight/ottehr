@@ -13,6 +13,8 @@ import {
   SelectChangeEvent,
   Autocomplete,
   Button,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import { LoadingButton } from '@mui/lab';
 import React, { useState, useEffect, useMemo } from 'react';
@@ -21,11 +23,12 @@ import { useAppointmentStore, useGetIcd10Search, useDebounce } from '../../../te
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { DiagnosisDTO, isLocationVirtual } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { ServiceRequest, Location, Specimen, QuestionnaireResponse, Task } from 'fhir/r4b';
+import { Location } from 'fhir/r4b';
 import { sortLocationsByLabel } from '../../../helpers';
 import useEvolveUser from '../../../hooks/useEvolveUser';
-import { DateTime } from 'luxon';
 import Oystehr from '@oystehr/sdk';
+import { submitLabOrder } from '../../../api/api';
+import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 
 interface SubmitExternalLabOrdersProps {
   appointmentID?: string;
@@ -33,7 +36,7 @@ interface SubmitExternalLabOrdersProps {
 
 export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = () => {
   const theme = useTheme();
-  const { oystehr } = useApiClients();
+  const { oystehr, oystehrZambda } = useApiClients();
   const user = useEvolveUser();
   const navigate = useNavigate();
   const practitionerId = user?.profile.replace('Practitioner/', '');
@@ -43,10 +46,11 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
   const [dxValue, setDxValue] = useState<DiagnosisDTO | undefined>(undefined);
   const [dxInput, setDxInput] = useState<string>('');
   const [office, setOffice] = useState<Location | undefined>(undefined);
+  const [pscHold, setPscHold] = useState<boolean>(false);
   // this is really lab + test i think (oystehr lab orderable item)
   // these will be loaded up from an a call to the oystehr labs service?
   const [lab, setLab] = useState('');
-  const [notes, setNotes] = useState<string>('');
+  const [error, setError] = useState<string | undefined>(undefined);
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'ICD10CM' });
@@ -72,6 +76,12 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
       if (primaryDiagnosis) setDxValue(primaryDiagnosis);
     }
   }, [diagnosis]);
+
+  useEffect(() => {
+    if (location) {
+      setOffice(location);
+    }
+  }, [location]);
 
   useEffect(() => {
     async function getLocationsResults(oystehr: Oystehr): Promise<void> {
@@ -102,12 +112,6 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
     }
   }, [oystehr, loading, locations.length]);
 
-  useEffect(() => {
-    if (location) {
-      setOffice(location);
-    }
-  }, [location]);
-
   const locationOptions = useMemo(() => {
     const allLocations = locations.map((location) => {
       return { label: `${location.address?.state?.toUpperCase()} - ${location.name}`, value: location.id };
@@ -118,100 +122,29 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
 
   const handleOfficeChange = (e: SelectChangeEvent<string>): void => {
     const selectedLocation = locations.find((locationTemp) => locationTemp.id === e.target.value);
-    console.log('selected location in handle location change', selectedLocation);
     setOffice(selectedLocation);
   };
 
-  // not sure if we should handle creating resources on the front end or the back end
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>): void => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setSubmitting(true);
-    // todo add some error handling / modal popup in the event there is an issue creating the resources
-
-    // todo finish mapping the missing attributes below
-    // fhir resources to be created upon submit
-    const serviceRequestConfig: ServiceRequest = {
-      // SR mappings missing
-      // insurance (pending finalization on converting paperwork to coverage)
-      // performer
-      // specimen (maybe add later? need to see if can handle within the same transaction)
-      // supportingInfo (maybe add later? need to see if can handle within the same transaction)
-      // code (think this is dependent on what we get back from oystehr labs)
-      // instantiatesCanonical (skipping atm)
-      // contained (skipping atm)
-      resourceType: 'ServiceRequest',
-      status: 'draft',
-      intent: 'order',
-      subject: {
-        reference: `Patient/${patientId}`,
-      },
-      encounter: {
-        reference: `Encounter/${encounter.id}`,
-      },
-      requester: {
-        reference: `Practitioner/${practitionerId}`,
-      },
-      priority: 'routine',
-      note: [
-        {
-          text: notes,
-        },
-      ],
-      reasonCode: [
-        {
-          coding: [
-            {
-              system: 'http://hl7.org/fhir/sid/icd-10',
-              code: dxValue?.code,
-            },
-          ],
-          text: dxValue?.display,
-        },
-      ],
-    };
-    const specimenConfig: Specimen = {
-      // Specimen mappings missing
-      // request (will be a ref to the above SR)
-      resourceType: 'Specimen',
-      extension: [
-        {
-          url: 'specimen-defintion',
-          valueString: 'placeholder', // this will come from the oi.specimen returned from oystehr labs
-        },
-      ],
-    };
-    // only create if selected lab has an aoe create a QR for the linked Questionnaire
-    const aoeQRConfig: QuestionnaireResponse = {
-      // QR mappings missing
-      // basedOn (will be a ref to the above SR)
-      resourceType: 'QuestionnaireResponse',
-      questionnaire: `Questionnaire/`,
-      encounter: {
-        reference: `Encounter/${encounter.id}`,
-      },
-      status: 'in-progress',
-    };
-    const preSubmissionTaskConfig: Task = {
-      // Task mappings missing
-      // basedOn (will be a ref to the above SR)
-      // input (skipping atm)
-      // code (skipping atm)
-      resourceType: 'Task',
-      intent: 'order',
-      encounter: {
-        reference: `Encounter/${encounter.id}`,
-      },
-      location: {
-        reference: `Location/${office?.id}`,
-      },
-      status: 'ready',
-      authoredOn: DateTime.now().toISO() || undefined,
-    };
-    console.log('check me', serviceRequestConfig, specimenConfig, aoeQRConfig, preSubmissionTaskConfig);
-
+    if (oystehrZambda && dxValue && patientId && office && practitionerId) {
+      try {
+        const res = await submitLabOrder(oystehrZambda, {
+          dx: dxValue,
+          patientId,
+          encounter,
+          location: office,
+          practitionerId,
+        });
+        console.log('res', res);
+        navigate(`/in-person/${appointment?.id}/external-lab-orders`);
+      } catch (e) {
+        const oysterError = e as OystehrSdkError;
+        setError(oysterError?.message || 'error ordering lab');
+      }
+    }
     setSubmitting(false);
-    // redirect back the the sent out labs page
-    navigate(`/in-person/${appointment?.id}/external-lab-orders`);
   };
 
   return (
@@ -298,11 +231,9 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
                 </FormControl>
               </Grid>
               <Grid item xs={12}>
-                <TextField
-                  label="Notes"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  sx={{ width: '100%' }}
+                <FormControlLabel
+                  control={<Switch checked={pscHold} onChange={() => setPscHold(!pscHold)} />}
+                  label="PSC Hold"
                 />
               </Grid>
               <Grid item xs={6}>
@@ -325,6 +256,11 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
                 >
                   Order
                 </LoadingButton>
+                {error && (
+                  <Grid item xs={12} sx={{ textAlign: 'right', paddingTop: 1 }}>
+                    <Typography sx={{ color: theme.palette.error.main }}>{error}</Typography>
+                  </Grid>
+                )}
               </Grid>
             </Grid>
           </Paper>

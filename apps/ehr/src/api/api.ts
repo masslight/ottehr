@@ -1,5 +1,5 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { Address, ContactPoint, LocationHoursOfOperation } from 'fhir/r4b';
+import { Address, ContactPoint, LocationHoursOfOperation, Encounter, Location } from 'fhir/r4b';
 import {
   ConversationMessage,
   GetEmployeesResponse,
@@ -7,6 +7,7 @@ import {
   GetScheduleResponse,
   GetUserParams,
   GetUserResponse,
+  DiagnosisDTO,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -44,6 +45,7 @@ const CANCEL_APPOINTMENT_ZAMBDA_ID = import.meta.env.VITE_APP_CANCEL_APPOINTMENT
 const GET_EMPLOYEES_ZAMBDA_ID = import.meta.env.VITE_APP_GET_EMPLOYEES_ZAMBDA_ID;
 const GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID = import.meta.env.VITE_APP_GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID;
 const SAVE_PATIENT_FOLLOWUP_ZAMBDA_ID = import.meta.env.VITE_APP_SAVE_PATIENT_FOLLOWUP_ZAMBDA_ID;
+const SUBMIT_LAB_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_SUBMIT_LAB_ORDER_ZAMBDA_ID;
 
 function chooseJson(json: any, isLocal: string): any {
   return isLocal === 'true' ? json : json.output;
@@ -431,6 +433,33 @@ export const getSignedPatientProfilePhotoUrl = async (
     return chooseJson(urlSigningResponse, VITE_APP_IS_LOCAL);
   } catch (error: unknown) {
     console.error(error);
+    throw error;
+  }
+};
+
+export interface SubmitLabOrderParameters {
+  dx: DiagnosisDTO;
+  patientId: string;
+  encounter: Encounter;
+  location: Location;
+  practitionerId: string;
+}
+
+// todo update response type
+export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrderParameters): Promise<any> => {
+  try {
+    console.log('here1');
+    if (SUBMIT_LAB_ORDER_ZAMBDA_ID == null) {
+      throw new Error('submit lab order environment variable could not be loaded');
+    }
+    console.log('here2s');
+    const response = await oystehr.zambda.execute({
+      id: SUBMIT_LAB_ORDER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response, VITE_APP_IS_LOCAL);
+  } catch (error: unknown) {
+    console.log(error);
     throw error;
   }
 };
