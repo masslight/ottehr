@@ -584,7 +584,6 @@ const evalEnableWhenItem = (
     const verdict = evalString(operator, answerString, pickFirstValueFromAnswerItem(valueDef));
     return verdict;
   } else if (itemDef.type === 'date' && answerDate !== undefined) {
-    // we only support string and bool atm
     return evalDateTime(operator, answerDate, pickFirstValueFromAnswerItem(valueDef));
   } else if (itemDef.type === 'date' && answerInteger !== undefined) {
     const answerDateFormatted = formattedDateStringForYearsAgo(`${answerInteger}`);
