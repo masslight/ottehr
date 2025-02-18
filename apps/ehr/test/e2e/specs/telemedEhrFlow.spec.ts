@@ -150,31 +150,39 @@ test('All appointments in my-patients section has appropriate assign buttons', a
   });
 });
 
-test('Appointment in all-patients section are readonly', async ({ page }) => {
-  const resourceHandler2 = new TelemedFlowResourceHandler();
-  await resourceHandler2.setResources();
+test.describe('Appointment in all-patients section', () => {
+  let resourceHandler2: TelemedFlowResourceHandler;
 
-  await page.goto(`telemed/appointments`);
-  await awaitAppointments(page);
+  test.beforeAll(async () => {
+    resourceHandler2 = new TelemedFlowResourceHandler();
+    await resourceHandler2.setResources();
+  });
 
-  await test.step('go to all patients and find appointment', async () => {
-    await page.getByTestId(dataTestIds.telemedEhrFlow.allPatientsButton).click(DEFAULT_TIMEOUT);
-    await awaitAppointments(page);
-
-    const otherAppointmentViewButton = page.getByTestId(
-      dataTestIds.telemedEhrFlow.trackingBoardViewButton(resourceHandler2.otherAppointment.appointment.id!)
-    );
-
-    expect(otherAppointmentViewButton).toBeDefined();
-    await otherAppointmentViewButton?.click(DEFAULT_TIMEOUT);
-
+  test.afterAll(async () => {
     await resourceHandler2.cleanupResources();
   });
 
-  await test.step('check that after clicking there are readonly view', async () => {
-    const footer = page.getByTestId(dataTestIds.telemedEhrFlow.appointmentChartFooter);
-    await expect(footer).toBeVisible(DEFAULT_TIMEOUT);
-    await expect(footer.getByTestId(dataTestIds.telemedEhrFlow.footerButtonAssignMe)).not.toBeVisible();
+  test('are readonly', async ({ page }) => {
+    await page.goto(`telemed/appointments`);
+    await awaitAppointments(page);
+
+    await test.step('go to all patients and find appointment', async () => {
+      await page.getByTestId(dataTestIds.telemedEhrFlow.allPatientsButton).click(DEFAULT_TIMEOUT);
+      await awaitAppointments(page);
+
+      const otherAppointmentViewButton = page.getByTestId(
+        dataTestIds.telemedEhrFlow.trackingBoardViewButton(resourceHandler2.otherAppointment.appointment.id!)
+      );
+
+      expect(otherAppointmentViewButton).toBeDefined();
+      await otherAppointmentViewButton?.click(DEFAULT_TIMEOUT);
+    });
+
+    await test.step('check that after clicking there are readonly view', async () => {
+      const footer = page.getByTestId(dataTestIds.telemedEhrFlow.appointmentChartFooter);
+      await expect(footer).toBeVisible(DEFAULT_TIMEOUT);
+      await expect(footer.getByTestId(dataTestIds.telemedEhrFlow.footerButtonAssignMe)).not.toBeVisible();
+    });
   });
 });
 
