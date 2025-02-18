@@ -22,6 +22,7 @@ import {
   AnswerLoadingOptions,
   InputWidthOption,
   QuestionnaireItemConditionDefinition,
+  ConditionKeyObject,
 } from '../../types';
 import Oystehr from '@oystehr/sdk';
 import { getCanonicalQuestionnaire, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../fhir';
@@ -87,6 +88,53 @@ const getPreferredElement = (extension: Extension[]): FormElement | undefined =>
   return undefined;
 };
 
+const getConditionalExtension = (
+  extension: Extension[],
+  keys: ConditionKeyObject
+): { extension: Extension[]; baseConditionDef: QuestionnaireItemConditionDefinition | undefined } => {
+  const baseExtension = extension.find((ext) => {
+    return ext.url === keys.extension;
+  })?.extension;
+
+  if (baseExtension) {
+    const question = baseExtension.find((ext) => {
+      return ext.url === keys.question;
+    })?.valueString;
+    const operator = baseExtension.find((ext) => {
+      return ext.url === keys.operator;
+    })?.valueString;
+    const answerObj = baseExtension.find((ext) => {
+      return ext.url === keys.answer;
+    });
+    const answerString = answerObj?.valueString;
+    const answerBoolean = answerObj?.valueBoolean;
+    const answerInteger = answerObj?.valueInteger;
+    const answerDate = answerObj?.valueDate;
+    if (
+      operator !== undefined &&
+      ['=', '!=', '>', '<', '>=', '<='].includes(operator) &&
+      question !== undefined &&
+      (answerString !== undefined ||
+        answerBoolean !== undefined ||
+        answerInteger !== undefined ||
+        answerDate !== undefined)
+    ) {
+      return {
+        extension: baseExtension,
+        baseConditionDef: {
+          question,
+          operator: operator as QuestionnaireItemConditionDefinition['operator'],
+          answerString,
+          answerBoolean,
+          answerInteger,
+          answerDate,
+        },
+      };
+    }
+  }
+  return { extension: [], baseConditionDef: undefined };
+};
+
 const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension => {
   const extension = item.extension ?? [];
   let disabledDisplay = extension.find((ext) => {
@@ -95,107 +143,34 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
   if (disabledDisplay !== 'hidden' && disabledDisplay !== 'protected') {
     disabledDisplay = undefined;
   }
-  const requiredWhenExt = extension.find((ext) => {
-    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen.extension;
-  })?.extension;
-  let requireWhen: QuestionnaireItemConditionDefinition | undefined;
-  if (requiredWhenExt) {
-    const question = requiredWhenExt.find((ext) => {
-      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen.question;
-    })?.valueString;
-    const operator = requiredWhenExt.find((ext) => {
-      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen.operator;
-    })?.valueString;
-    const answerString = requiredWhenExt.find((ext) => {
-      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen.answer;
-    })?.valueString;
-    const answerBoolean = requiredWhenExt.find((ext) => {
-      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen.answer;
-    })?.valueBoolean;
-    if (
-      operator !== undefined &&
-      ['=', '!='].includes(operator) &&
-      question !== undefined &&
-      (answerString !== undefined || answerBoolean !== undefined)
-    ) {
-      requireWhen = {
-        question,
-        operator: operator as '=' | '!=',
-        answerString,
-        answerBoolean,
-      };
-    }
-  }
 
-  const textWhenExt = extension.find((ext) => {
-    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen.extension;
-  })?.extension;
+  const { baseConditionDef: requireWhen } = getConditionalExtension(
+    extension,
+    OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen
+  );
+
+  const { extension: textWhenExt, baseConditionDef: textWhenPartial } = getConditionalExtension(
+    extension,
+    OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen
+  );
   let textWhen: QuestionnaireItemTextWhen | undefined;
-  if (textWhenExt) {
-    const question = textWhenExt.find((ext) => {
-      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen.question;
-    })?.valueString;
-    const operator = textWhenExt.find((ext) => {
-      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen.operator;
-    })?.valueString;
-    const answerString = textWhenExt.find((ext) => {
-      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen.answer;
-    })?.valueString;
-    const answerBoolean = textWhenExt.find((ext) => {
-      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen.answer;
-    })?.valueBoolean;
+  if (textWhenPartial) {
     const substituteText = textWhenExt.find((ext) => {
       return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen.substituteText;
     })?.valueString;
 
-    if (
-      operator !== undefined &&
-      ['=', '!='].includes(operator) &&
-      question !== undefined &&
-      substituteText !== undefined &&
-      (answerString !== undefined || answerBoolean !== undefined)
-    ) {
+    if (substituteText) {
       textWhen = {
-        question,
-        operator: operator as '=' | '!=',
-        answerString,
-        answerBoolean,
+        ...textWhenPartial,
         substituteText,
       };
     }
   }
 
-  const filterWhenExt = extension.find((ext) => {
-    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen.extension;
-  })?.extension;
-  let filterWhen: QuestionnaireItemConditionDefinition | undefined;
-  if (filterWhenExt) {
-    const question = filterWhenExt.find((ext) => {
-      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen.question;
-    })?.valueString;
-    const operator = filterWhenExt.find((ext) => {
-      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen.operator;
-    })?.valueString;
-    const answerString = filterWhenExt.find((ext) => {
-      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen.answer;
-    })?.valueString;
-    const answerBoolean = filterWhenExt.find((ext) => {
-      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen.answer;
-    })?.valueBoolean;
-    if (
-      operator !== undefined &&
-      ['=', '!='].includes(operator) &&
-      question !== undefined &&
-      (answerString !== undefined || answerBoolean !== undefined)
-    ) {
-      filterWhen = {
-        question,
-        operator: operator as '=' | '!=',
-        answerString,
-        answerBoolean,
-      };
-    }
-  }
+  const { baseConditionDef: filterWhen } = getConditionalExtension(
+    extension,
+    OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen
+  );
 
   const attachmentText = extension.find((ext) => {
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.attachmentText;
@@ -298,44 +273,18 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.extension;
   })?.extension;
   if (complexValidationExtension) {
+    const { baseConditionDef: complexValidationTriggerWhen } = getConditionalExtension(
+      complexValidationExtension,
+      OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.triggerWhen
+    );
     const complexValidationType = complexValidationExtension.find((ext) => {
       return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.type;
     })?.valueString;
-    if (complexValidationType) {
-      const triggerWhenExtension = complexValidationExtension.find((ext) => {
-        return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.triggerWhen.extension;
-      })?.extension;
-      let triggerWhen: QuestionnaireItemConditionDefinition | undefined;
-      if (triggerWhenExtension) {
-        const question = triggerWhenExtension.find((ext) => {
-          return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.triggerWhen.question;
-        })?.valueString;
-        const operator = triggerWhenExtension.find((ext) => {
-          return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.triggerWhen.operator;
-        })?.valueString;
-        const answerString = triggerWhenExtension.find((ext) => {
-          return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.triggerWhen.answer;
-        })?.valueString;
-        const answerBoolean = triggerWhenExtension.find((ext) => {
-          return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.triggerWhen.answer;
-        })?.valueBoolean;
-        if (
-          operator !== undefined &&
-          ['=', '!='].includes(operator) &&
-          question !== undefined &&
-          (answerString !== undefined || answerBoolean !== undefined)
-        ) {
-          triggerWhen = {
-            question,
-            operator: operator as '=' | '!=',
-            answerString,
-            answerBoolean,
-          };
-        }
-      }
+
+    if (complexValidationType && complexValidationTriggerWhen) {
       complexValidation = {
         type: complexValidationType,
-        triggerWhen,
+        triggerWhen: complexValidationTriggerWhen,
       };
     }
   }
