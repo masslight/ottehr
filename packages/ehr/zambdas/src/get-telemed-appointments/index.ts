@@ -84,7 +84,7 @@ export const performEffect = async (
         appointmentPackage;
       const patient = filterPatientForAppointment(appointment, allResources);
 
-      // it handle case if patient was deleted, should we handle this case? (actual for local sometimes)
+      // it handles the case if a patient was deleted - should we handle this case? (relevant for local environment sometimes)
       if (!patient) {
         console.log('No patient found for appointment', appointment?.id);
         continue;
