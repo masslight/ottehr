@@ -1,8 +1,7 @@
 import { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {} from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { SecretsKeys, getSecret, lambdaResponse } from 'zambda-utils';
+import { ZambdaInput, lambdaResponse } from 'zambda-utils';
 import { getAuth0Token, getUser } from '../../shared';
 import { postPaymentMethodSetupRequest } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -48,12 +47,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       console.log('already have a token, no need to update');
     }
 
-    const response = await postPaymentMethodSetupRequest(
-      getSecret(SecretsKeys.PROJECT_API, secrets),
-      zapehrM2MClientToken,
+    const response = await postPaymentMethodSetupRequest({
+      secrets: secrets ?? null,
+      token: zapehrM2MClientToken,
       beneficiaryPatientId,
-      user.profile
-    );
+      payorProfile: user.profile,
+    });
 
     return lambdaResponse(200, response);
   } catch (error: any) {

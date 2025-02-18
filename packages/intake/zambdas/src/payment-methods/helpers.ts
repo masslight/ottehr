@@ -1,11 +1,23 @@
+import Oystehr from '@oystehr/sdk';
 import { CreditCardInfo } from 'utils';
+import { createOystehrClient } from '../shared/helpers';
+import { Secrets } from 'zambda-utils';
 
-export async function postPaymentMethodSetupRequest(
-  apiUrl: string,
-  token: string,
-  beneficiaryPatientId: string,
-  payorProfile: string
-): Promise<any> {
+export interface BasePaymentMgmtInput {
+  secrets: Secrets | null;
+  token: string;
+  beneficiaryPatientId: string;
+  payorProfile: string;
+}
+export async function postPaymentMethodSetupRequest(input: BasePaymentMgmtInput): Promise<any> {
+  const { secrets, token, beneficiaryPatientId, payorProfile } = input;
+
+  console.log('setting up payment method', beneficiaryPatientId, payorProfile);
+
+  const oystehrClient = createOystehrClient(token, secrets);
+  const stripeConfig = await selectStripeConfig(oystehrClient);
+  console.log('stripeConfig= ', stripeConfig);
+  /*
   const serviceUrl = `${apiUrl}/payment/payment-method/setup`;
   const payorPatientId = payorProfile.replace('Patient/', '');
 
@@ -26,6 +38,8 @@ export async function postPaymentMethodSetupRequest(
     }
     return response.json();
   });
+  */
+  return {};
 }
 
 export async function postPaymentMethodSetDefaultRequest(
@@ -164,3 +178,94 @@ function convert(jsonCard: CreditCardInfoFromJSON, defaultId?: string): CreditCa
     default: jsonCard.id === defaultId,
   };
 }
+
+const selectStripeConfig = async (oystehrClient: Oystehr): Promise<any> => {
+  const settings = await oystehrClient.project.get();
+  console.log('THE PROJECT SETTINGS', JSON.stringify(settings, null, 2));
+  const isSandbox = settings.sandbox;
+
+  if (isSandbox) {
+    return 'Stripe config for sandbox';
+  }
+
+  return 'Stripe config for production';
+};
+
+export interface StripeEnvironmentConfig {
+  publishableKey: string;
+  secretKey: string;
+}
+
+export interface StripeEnvironment {
+  live: StripeEnvironmentConfig;
+  test: StripeEnvironmentConfig;
+  paymentMethodTypes: string;
+}
+
+export interface StripeWebhookEnvironment extends StripeEnvironmentConfig {
+  webhookSecret: string;
+  paymentMethodTypes: string;
+}
+
+export const validateStripeWebhookEnvironment = (): StripeWebhookEnvironment => {
+  const stripeSecretKey = process.env.stripeSecretKey;
+  const stripePublishableKey = process.env.stripePublishableKey;
+  const stripeWebhookSecret = process.env.stripeWebhookSecret;
+  const stripePaymentMethodTypes = process.env.stripePaymentMethodTypes;
+
+  if (!stripeSecretKey) {
+    throw '"stripeSecretKey" environment variable was not set.';
+  }
+  if (!stripePublishableKey) {
+    throw '"stripePublishableKey" environment variable was not set.';
+  }
+  if (!stripeWebhookSecret) {
+    throw '"stripeWebhookSecret" environment variable was not set.';
+  }
+  if (!stripePaymentMethodTypes) {
+    throw '"stripePaymentMethodTypes" environment variable was not set.';
+  }
+
+  return {
+    publishableKey: stripePublishableKey,
+    secretKey: stripeSecretKey,
+    webhookSecret: stripeWebhookSecret,
+    paymentMethodTypes: stripePaymentMethodTypes,
+  };
+};
+
+export const validateStripeEnvironment = (): StripeEnvironment => {
+  const liveModeStripeSecretKey = process.env.liveModeStripeSecretKey;
+  const liveModeStripePublishableKey = process.env.liveModeStripePublishableKey;
+  const testModeStripeSecretKey = process.env.testModeStripeSecretKey;
+  const testModeStripePublishableKey = process.env.testModeStripePublishableKey;
+  const stripePaymentMethodTypes = process.env.stripePaymentMethodTypes;
+
+  if (!liveModeStripeSecretKey) {
+    throw '"liveModeStripeSecretKey" environment variable was not set.';
+  }
+  if (!liveModeStripePublishableKey) {
+    throw '"liveModeStripePublishableKey" environment variable was not set.';
+  }
+  if (!testModeStripeSecretKey) {
+    throw '"testModeStripeSecretKey" environment variable was not set.';
+  }
+  if (!testModeStripePublishableKey) {
+    throw '"testModeStripePublishableKey" environment variable was not set.';
+  }
+  if (!stripePaymentMethodTypes) {
+    throw '"stripePaymentMethodTypes" environment variable was not set.';
+  }
+
+  return {
+    live: {
+      publishableKey: liveModeStripePublishableKey,
+      secretKey: liveModeStripeSecretKey,
+    },
+    test: {
+      publishableKey: testModeStripePublishableKey,
+      secretKey: testModeStripeSecretKey,
+    },
+    paymentMethodTypes: stripePaymentMethodTypes,
+  };
+};
