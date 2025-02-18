@@ -9,7 +9,7 @@ export async function getAuth0Token(): Promise<string> {
   }
 
   try {
-    console.log(`Fetching auth0 token...`);
+    console.log(`🔑 Fetching auth0 token...`);
     const response = await fetch(AUTH0_ENDPOINT, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -25,7 +25,7 @@ export async function getAuth0Token(): Promise<string> {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    console.log('Got auth0 token');
+    console.log('👌 Got auth0 token');
     return (await response.json()).access_token;
   } catch (error: any) {
     console.error('❌ Failed to get auth0 token', error);

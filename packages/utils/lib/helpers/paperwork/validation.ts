@@ -436,7 +436,7 @@ const makeValidationSchemaPrivate = (
                     return embeddedSchema.validateAt(val.linkId, item);
                   } catch (e) {
                     console.log('thrown error from group member test', e);
-                    return context.createError({ message: (e as any).message });
+                    return context.createError({ message: (e as any).message, val, item });
                   }
                 }
                 return true;

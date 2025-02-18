@@ -279,35 +279,6 @@ export const AllStates: ValuePair[] = [
   { value: 'WY', label: 'WY' }, // Wyoming
 ];
 
-export const allPhysicalLocations: { state: string; city: string }[] = [
-  {
-    state: 'MD',
-    city: 'Silver Spring',
-  },
-  {
-    state: 'NY',
-    city: 'New York',
-  },
-  {
-    state: 'NY',
-    city: 'Commack',
-  },
-  {
-    state: 'NY',
-    city: 'Selden',
-  },
-  {
-    state: 'VA',
-    city: 'Ashburn',
-  },
-  {
-    state: 'VA',
-    city: 'McLean',
-  },
-];
-
-export type PhysicalLocation = (typeof allPhysicalLocations)[number];
-
 export type StateCode = (typeof AllStates)[number]['value'];
 
 export const stateCodeToFullName: Readonly<Record<StateCode, string>> = {
@@ -818,24 +789,24 @@ export interface EncounterParams {
 }
 
 export interface UpdateQuestionnaireResponseParams {
-  questionnaireResponseId: string;
   patientId: string;
+  questionnaire?: string; // only for update
+  questionnaireResponseId?: string; // only for update
   encounterId: string;
-  questionnaireUrl?: string;
   status?: QuestionnaireResponse['status'];
-  firstName: string;
-  lastName: string;
-  birthDate: {
-    day: string;
-    month: string;
-    year: string;
+  firstName?: string;
+  lastName?: string;
+  birthDate?: {
+    day?: string;
+    month?: string;
+    year?: string;
   };
-  consentJurisdiction?: string;
-  willBe18?: boolean;
-  isNewPatient?: boolean;
   fillingOutAs?: string;
   guardianEmail?: string;
   guardianNumber?: string;
+  mobileOptIn?: boolean;
+  ovrpInterest?: string;
+  consentJurisdiction?: string;
   birthSex?: string;
   address?: {
     street?: string;
@@ -844,11 +815,22 @@ export interface UpdateQuestionnaireResponseParams {
     state?: string;
     zip?: string;
   };
-  mobileOptIn?: boolean;
+  email?: string;
+  phoneNumber?: string;
+  willBe18?: boolean;
+  isNewPatient?: boolean;
   ethnicity?: string;
   race?: string;
   pronouns?: string;
-  ovrpInterest?: string;
+  preferredLanguage?: string;
+  relayPhone?: string;
+  pcpInfo?: {
+    firstName?: string;
+    lastName?: string;
+    practice?: string;
+    address?: string;
+    phoneNumber?: string;
+  };
   paymentOption?: string;
   responsibleParty?: {
     relationship?: string;
@@ -860,16 +842,16 @@ export interface UpdateQuestionnaireResponseParams {
       year?: string;
     };
     birthSex?: string;
+    phoneNumber?: string;
   };
-  patientEmail?: string;
-  patientNumber?: string;
-  fullName?: string;
-  preferredLanguage?: string;
-  relayPhone?: boolean;
   hipaaAcknowledgement?: boolean;
   consentToTreat?: boolean;
   signature?: string;
+  fullName?: string;
   consentFormSignerRelationship?: string;
+  consentFormSignerBirthDate?: string;
+  consentFormSignerBirthSex?: string;
+  consentFormSignerPhoneNumber?: string;
 }
 
 export interface DocumentReferenceParams {

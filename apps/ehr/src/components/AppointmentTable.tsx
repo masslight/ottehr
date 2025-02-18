@@ -33,6 +33,7 @@ import {
   PROVIDER_WIDTH,
   GROUP_WIDTH,
 } from '../constants';
+import { dataTestIds } from '../constants/data-test-ids';
 
 interface AppointmentTableProps {
   appointments: InPersonAppointmentInformation[];
@@ -61,7 +62,7 @@ export default function AppointmentTable({
     <>
       <AppointmentsStatusChipsCount appointments={appointments} />
       <Paper>
-        <TableContainer sx={{ overflow: 'inherit' }}>
+        <TableContainer sx={{ overflow: 'inherit' }} data-testid={dataTestIds.dashboard.appointmentsTable(tab)}>
           <Table style={{ tableLayout: 'fixed', width: '100%' }}>
             {/* column widths must add up to the table width ^ */}
             <TableHead>
