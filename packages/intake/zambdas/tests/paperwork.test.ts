@@ -1,7 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Account, Consent, Coverage, RelatedPerson } from 'fhir/r4b';
 import { vi } from 'vitest';
-import { AUTH0_AUDIENCE, AUTH0_CLIENT, AUTH0_ENDPOINT, AUTH0_SECRET, FHIR_API, PROJECT_API } from '../.env/local.json';
 import { getAuth0Token } from '../src/shared';
 
 export const insuranceData = {
@@ -54,6 +53,9 @@ describe.skip('paperwork tests', () => {
   let token = null;
   vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });
   beforeAll(async () => {
+    const { AUTH0_AUDIENCE, AUTH0_CLIENT, AUTH0_ENDPOINT, AUTH0_SECRET, FHIR_API, PROJECT_API } = await import(
+      '../.env/local.json'
+    );
     token = await getAuth0Token({
       AUTH0_ENDPOINT: AUTH0_ENDPOINT,
       AUTH0_CLIENT: AUTH0_CLIENT,

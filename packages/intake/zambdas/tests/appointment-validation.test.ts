@@ -1,6 +1,5 @@
 import Oystehr from '@oystehr/sdk';
 import { vi } from 'vitest';
-import { PROJECT_API } from '../.env/local.json';
 
 export const patient: any = {
   firstName: 'a',
@@ -55,6 +54,7 @@ describe.skip('appointments validation tests', () => {
     //   AUTH0_SECRET: AUTH0_SECRET,
     //   AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     // });
+    const { PROJECT_API } = await import('../.env/local.json');
 
     oystehr = new Oystehr({ projectApiUrl: PROJECT_API });
   });

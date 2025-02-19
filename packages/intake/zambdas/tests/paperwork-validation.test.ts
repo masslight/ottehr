@@ -1,6 +1,5 @@
 import Oystehr from '@oystehr/sdk';
 import { PersonSex } from 'utils';
-import { PROJECT_API } from '../.env/local.json';
 import { vi } from 'vitest';
 
 export const insuranceData = {
@@ -65,6 +64,7 @@ describe.skip('paperwork validation tests', () => {
     //   AUTH0_SECRET: AUTH0_SECRET,
     //   AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     // });
+    const { PROJECT_API } = await import('../.env/local.json');
 
     oystehr = new Oystehr({ projectApiUrl: PROJECT_API });
   });
