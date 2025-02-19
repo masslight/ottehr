@@ -61,7 +61,7 @@ test('Happy path: set up filters and navigate to visit page', async ({ page }) =
     timeout: 15000,
   });
 
-  await expect(page.getByTestId(dataTestIds.dashboard.intakeButton(resourceHandler.appointment.id!))).toBeAttached({
+  await expect(page.getByTestId(dataTestIds.dashboard.intakeButton)).toBeAttached({
     timeout: 15000,
   });
 
