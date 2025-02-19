@@ -1,7 +1,7 @@
-project_id=$(grep '"project_id"' "$(dirname "$0")/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
-access_token=$(grep '"access_token"' "$(dirname "$0")/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
-provider_email=$(grep '"provider_email"' "$(dirname "$0")/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
-environment=$(grep '"environment"' "$(dirname "$0")/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
+project_id=$(grep '"project_id"' "$(dirname "$0")/../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
+access_token=$(grep '"access_token"' "$(dirname "$0")/../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
+provider_email=$(grep '"provider_email"' "$(dirname "$0")/../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
+environment=$(grep '"environment"' "$(dirname "$0")/../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
 ENV=$environment
 
 if [ -f "apps/intake/env/.env.$environment" ]; then
@@ -19,10 +19,10 @@ else
     npm install
 fi
 
-cd ./scripts/deploy-test
-ts-node ./gcp/deploy-test.ts
+pwd
+cd ./scripts/deploy
+ts-node ./gcp/deploy.ts
 cd ../..
-npx tsx ./scripts/ottehr-setup.ts
 
 cd packages/intake/zambdas
 ENV=$environment npm run deploy-zambdas $environment

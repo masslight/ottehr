@@ -25,7 +25,7 @@ resource "google_storage_bucket" "intake_static_website" {
 
     website {
         main_page_suffix = "index.html"
-        # not_found_page = "index.html"
+        not_found_page = "index.html"
     }
 }
 
@@ -34,6 +34,11 @@ resource "google_storage_bucket" "ehr_static_website" {
     location = "US"
     # storage_class = "standard"
     uniform_bucket_level_access = true
+
+    website {
+        main_page_suffix = "index.html"
+        not_found_page = "index.html"
+    }
 }
 
 resource "google_storage_bucket_object" "intake_static_website_upload" {

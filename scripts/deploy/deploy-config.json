@@ -1,0 +1,10 @@
+{
+    "google_project": "leafy-antonym-429803-h5",
+    "project_identifier": "ottehr-development",
+    "project_id": "c2f09afb-c2c1-42a2-a028-b26ea7d6e1bc",
+    "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlRRc2xGbWlRX01ZTzg4Z3BRUnlvRCJ9.eyJpc3MiOiJodHRwczovL2F1dGguemFwZWhyLmNvbS8iLCJzdWIiOiJhdXRoMHw2NzYxYmQ2ODFjMDIyMGYxOTVlOGNmZDEiLCJhdWQiOlsiaHR0cHM6Ly9hcGkuemFwZWhyLmNvbSIsImh0dHBzOi8vemFwZWhyLnVzLmF1dGgwLmNvbS91c2VyaW5mbyJdLCJpYXQiOjE3Mzk5MDM0OTAsImV4cCI6MTczOTk4OTg5MCwic2NvcGUiOiJvcGVuaWQgcHJvZmlsZSBlbWFpbCBvZmZsaW5lX2FjY2VzcyIsImF6cCI6Im8zcnN6bDJuS0k2STFhSDZzYmw4ZEZyRmdNVkcyaU1jIn0.FJqHmksM102VPQ_04ndDnSlPQN8eVA41lp3bPyTZ3l3jKDko7r_ipCNwtNOJgMMiBjDpBW2jHWT64NyOG7FUZZPa4CM1DgKJKLVtZd-0SXpouo2Yii6x5s8FXCLSURdjP3whRjujtOSOj31nLpRGk8Y1KXB5jtrS96T_3pwkHux5Hth6qXBZVUfNhWDtjgnb57yqDAYZj5CVFPKO47pCAswR-lOm9gUkxOKRIUzoXUVtb-Vx14PBQrhEqD1EI2CpvD3z6jSGQh5Jwl8kcq2gZJ1fkOO6XiqulgHi1L8lqTVMKj7OgLRZoo03KSlW19ZsouQO4fzdpFtldp6oaMNmpw",
+    "provider_email": "jsaewitz@masslight.com",
+    "environment": "development",
+    "intake_domain": "gcp-patient.ottehr.com",
+    "ehr_domain": "gcp-ehr.ottehr.com"
+}

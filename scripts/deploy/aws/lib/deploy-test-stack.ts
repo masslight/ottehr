@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
@@ -8,7 +7,6 @@ import * as cloudfront_origins from 'aws-cdk-lib/aws-cloudfront-origins';
 
 // import * as sqs from 'aws-cdk-lib/aws-sqs';
 import config from '../deploy-config.json';
-import { getCloudFrontDistributions } from '../bin/deploy-test';
 
 export class DeployTestStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {

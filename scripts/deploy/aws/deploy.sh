@@ -34,7 +34,7 @@ ENV=$environment npm run setup-deployed-resources $environment
 cd ../../../apps/ehr
 npm run build:env --env=$environment
 
-cd ../../scripts/deploy-test
+cd ../../scripts/deploy/aws
 if $first_setup; then
     cdk bootstrap
     cdk deploy
@@ -44,12 +44,12 @@ cd ../../apps/intake
 npm run build:env --env=$environment
 cd ../ehr
 npm run build:env --env=$environment
-cd ../../scripts/deploy-test
+cd ../../scripts/deploy/aws
 cdk deploy
 
 cd ../../apps/intake
 npm run build:env --env=$environment
 cd ../ehr
 npm run build:env --env=$environment
-cd ../../scripts/deploy-test
+cd ../../scripts/deploy/aws
 cdk deploy

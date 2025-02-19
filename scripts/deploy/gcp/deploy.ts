@@ -3,7 +3,6 @@ import { updateZapehr, updateZambdas } from '../helpers';
 
 const projectConfig: any = config;
 const environment = projectConfig.environment;
-const projectID = projectConfig.project_id;
 const intakeDomain = projectConfig.intake_domain;
 const ehrDomain = projectConfig.ehr_domain;
 

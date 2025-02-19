@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib';
-import config from '../deploy-config.json';
+import config from '../../deploy-config.json';
 import { DeployTestStack } from '../lib/deploy-test-stack';
 import { CloudFrontClient, ListDistributionsCommand } from '@aws-sdk/client-cloudfront';
 import { fromIni } from '@aws-sdk/credential-providers';
-import { updateZambdas, updateZapehr } from '../helpers';
+import { updateZambdas, updateZapehr } from '../../helpers';
 
 const app = new cdk.App();
 const projectConfig: any = config;
@@ -23,31 +23,23 @@ void (async () => {
 async function setupDeploy(): Promise<void> {
   await deploy();
   const distributionsRequest = await getCloudFrontDistributions();
-  const intakeDistribution = `https://${
-    distributionsRequest.DistributionList?.Items?.find(
-      (distribution: any) => distribution.Comment === `ottehr-intake-${projectID}`
-    )?.DomainName
-  }`;
-  const ehrDistribution = `https://${
-    distributionsRequest.DistributionList?.Items?.find(
-      (distribution: any) => distribution.Comment === `ottehr-ehr-${projectID}`
-    )?.DomainName
-  }`;
+  const intakeDistribution = `https://${distributionsRequest.DistributionList?.Items?.find(
+    (distribution: any) => distribution.Comment === `ottehr-intake-${projectID}`
+  )?.DomainName}`;
+  const ehrDistribution = `https://${distributionsRequest.DistributionList?.Items?.find(
+    (distribution: any) => distribution.Comment === `ottehr-ehr-${projectID}`
+  )?.DomainName}`;
   await updateZapehr(intakeDistribution, ehrDistribution);
 }
 
 async function deploy(): Promise<void> {
   const distributionsRequest = await getCloudFrontDistributions();
-  const intakeDistribution = `https://${
-    distributionsRequest.DistributionList?.Items?.find(
-      (distribution: any) => distribution.Comment === `ottehr-intake-${projectID}`
-    )?.DomainName
-  }`;
-  const ehrDistribution = `https://${
-    distributionsRequest.DistributionList?.Items?.find(
-      (distribution: any) => distribution.Comment === `ottehr-ehr-${projectID}`
-    )?.DomainName
-  }`;
+  const intakeDistribution = `https://${distributionsRequest.DistributionList?.Items?.find(
+    (distribution: any) => distribution.Comment === `ottehr-intake-${projectID}`
+  )?.DomainName}`;
+  const ehrDistribution = `https://${distributionsRequest.DistributionList?.Items?.find(
+    (distribution: any) => distribution.Comment === `ottehr-ehr-${projectID}`
+  )?.DomainName}`;
   await updateZambdas(environment, intakeDistribution, ehrDistribution);
   new DeployTestStack(app, `DeployTestStack-${environment}`, {
     /* If you don't specify 'env', this stack will be environment-agnostic.

@@ -1,20 +1,16 @@
-import fetch from 'node-fetch';
 import fs from 'fs';
 import config from './deploy-config.json';
+import Oystehr from '@oystehr/sdk';
 
 const projectConfig: any = config;
 const environment = projectConfig.environment;
-const projectID = projectConfig.project_id;
 const accessToken = projectConfig.access_token;
 
 export async function updateZapehr(intakeDistribution: string, ehrDistribution: string): Promise<void> {
-  const applicationsRequest = await fetch('https://project-api.zapehr.com/v1/application', {
-    headers: {
-      'x-zapehr-project-id': projectID,
-      Authorization: `Bearer ${accessToken}`,
-    },
+  const oystehr = new Oystehr({
+    accessToken: accessToken,
   });
-  const applications = await applicationsRequest.json();
+  const applications = await oystehr.application.list();
   const envIntakeFile = fs.readFileSync(`../../apps/intake/env/.env.${environment}`, 'utf8');
   const applicationIntakeClientID = envIntakeFile
     .split('\n')
@@ -22,47 +18,41 @@ export async function updateZapehr(intakeDistribution: string, ehrDistribution: 
     ?.split('=')[1];
   const applicationIntakeID = applications.find(
     (application: any) => application.clientId === applicationIntakeClientID
-  ).id;
+  )?.id;
   const envEHRFile = fs.readFileSync(`../../apps/ehr/env/.env.${environment}`, 'utf8');
   const applicationEHRClientID = envEHRFile
     .split('\n')
     .find((item) => item.split('=')[0] === 'VITE_APP_OYSTEHR_APPLICATION_CLIENT_ID')
     ?.split('=')[1];
-  const applicationEHRID = applications.find((application: any) => application.clientId === applicationEHRClientID).id;
+  const applicationEHRID = applications.find((application: any) => application.clientId === applicationEHRClientID)?.id;
 
-  const updateIntakeApplicationRequest = await fetch(
-    `https://project-api.zapehr.com/v1/application/${applicationIntakeID}`,
-    {
-      method: 'PATCH',
-      headers: {
-        'x-zapehr-project-id': projectID,
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        loginRedirectUri: intakeDistribution,
-        allowedCallbackUrls: [intakeDistribution, `${intakeDistribution}/redirect`],
-        allowedLogoutUrls: [intakeDistribution],
-        allowedCORSOriginsUrls: [intakeDistribution],
-        allowedWebOriginsUrls: [intakeDistribution],
-      }),
-    }
-  );
-  const updateEHRApplicationRequest = await fetch(`https://project-api.zapehr.com/v1/application/${applicationEHRID}`, {
-    method: 'PATCH',
-    headers: {
-      'x-zapehr-project-id': projectID,
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify({
-      loginRedirectUri: ehrDistribution,
-      allowedCallbackUrls: [ehrDistribution],
-      allowedLogoutUrls: [ehrDistribution],
-      allowedCORSOriginsUrls: [ehrDistribution],
-      allowedWebOriginsUrls: [ehrDistribution],
-    }),
+  if (!applicationIntakeID || !applicationEHRID) {
+    console.log('application ID not found');
+    console.log(applicationIntakeID);
+    console.log(applicationEHRID);
+    process.exit();
+  }
+
+  const updateIntakeApplicationRequest = await oystehr.application.update({
+    id: applicationIntakeID,
+    loginRedirectUri: intakeDistribution,
+    allowedCallbackUrls: [intakeDistribution, `${intakeDistribution}/redirect`],
+    allowedLogoutUrls: [intakeDistribution],
+    allowedCORSOriginsUrls: [intakeDistribution],
+    allowedWebOriginsUrls: [intakeDistribution],
   });
-  console.log(await updateIntakeApplicationRequest.json());
-  console.log(await updateEHRApplicationRequest.json());
+
+  const updateEHRApplicationRequest = await oystehr.application.update({
+    id: applicationEHRID,
+    loginRedirectUri: ehrDistribution,
+    allowedCallbackUrls: [ehrDistribution],
+    allowedLogoutUrls: [ehrDistribution],
+    allowedCORSOriginsUrls: [ehrDistribution],
+    allowedWebOriginsUrls: [ehrDistribution],
+  });
+
+  console.log(updateIntakeApplicationRequest);
+  console.log(updateEHRApplicationRequest);
 }
 
 export async function updateZambdas(
