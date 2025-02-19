@@ -1,5 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { topLevelCatch, Secrets, DiagnosisDTO, ZambdaInput } from 'utils';
+import { DiagnosisDTO } from 'utils';
+import { topLevelCatch, Secrets, ZambdaInput } from 'zambda-utils';
 import { checkOrCreateM2MClientToken } from '../../../../intake/zambdas/src/shared';
 import { createOystehrClient } from '../../../../intake/zambdas/src/shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';

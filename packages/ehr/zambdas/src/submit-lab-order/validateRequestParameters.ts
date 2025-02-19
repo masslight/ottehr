@@ -1,4 +1,4 @@
-import { ZambdaInput } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { SubmitLabOrder } from '.';
 
 // temp for testing
