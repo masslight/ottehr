@@ -56,5 +56,8 @@
   "SENTRY_AUTH_TOKEN": "",
   "SENTRY_ORG": "",
   "SENTRY_PROJECT": "",
-  "SENTRY_DSN": ""
+  "SENTRY_DSN": "",
+  "STRIPE_PUBLIC_KEY": "the_public_api_key_from_your_stripe_account",
+  "STRIPE_SECRET_KEY": "the_private_api_key_from_your_stripe_account",
+  "STRIPE_PAYMENT_METHOD_TYPES": "the_payment_types_your_stripe_account_accepts"
 }

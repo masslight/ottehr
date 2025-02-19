@@ -14,10 +14,13 @@ export async function postPaymentMethodSetupRequest(input: BasePaymentMgmtInput)
 
   console.log('setting up payment method', beneficiaryPatientId, payorProfile);
 
-  const oystehrClient = createOystehrClient(token, secrets);
-  const stripeConfig = await selectStripeConfig(oystehrClient, secrets);
+  const stripeConfig = await validateStripeEnvironment(secrets);
   console.log('stripeConfig= ', stripeConfig);
+
+  return {};
   /*
+  const apiUrl = getSecret(SecretsKeys.PROJECT_API, secrets);
+
   const serviceUrl = `${apiUrl}/payment/payment-method/setup`;
   const payorPatientId = payorProfile.replace('Patient/', '');
 
@@ -39,7 +42,6 @@ export async function postPaymentMethodSetupRequest(input: BasePaymentMgmtInput)
     return response.json();
   });
   */
-  return {};
 }
 
 export async function postPaymentMethodSetDefaultRequest(
@@ -179,13 +181,6 @@ function convert(jsonCard: CreditCardInfoFromJSON, defaultId?: string): CreditCa
   };
 }
 
-const selectStripeConfig = async (oystehrClient: Oystehr, secrets: Secrets | null): Promise<StripeEnvironment> => {
-  const settings = await oystehrClient.project.get();
-  console.log('THE PROJECT SETTINGS', JSON.stringify(settings, null, 2));
-  const isSandbox = settings.sandbox;
-  return validateStripeEnvironment(secrets, isSandbox);
-};
-
 export interface StripeEnvironmentConfig {
   publishableKey: string;
   secretKey: string;
@@ -195,40 +190,25 @@ export interface StripeEnvironment extends StripeEnvironmentConfig {
   paymentMethodTypes: string;
 }
 
-const validateStripeEnvironment = (secrets: Secrets | null, isSandbox: boolean): StripeEnvironment => {
-  const liveModeStripeSecretKey = getSecret(SecretsKeys.STRIPE_SECRET_KEY_LIVE_MODE, secrets);
-  const liveModeStripePublishableKey = getSecret(SecretsKeys.STRIPE_PUBLISHABLE_KEY_LIVE_MODE, secrets);
-  const testModeStripeSecretKey = getSecret(SecretsKeys.STRIPE_SECRET_KEY_TEST_MODE, secrets);
-  const testModeStripePublishableKey = getSecret(SecretsKeys.STRIPE_PUBLISHABLE_KEY_TEST_MODE, secrets);
-  const stripePaymentMethodTypes = getSecret(SecretsKeys.STRIPE_PAYMENT_METHOD_TYPES, secrets);
+const validateStripeEnvironment = (secrets: Secrets | null): StripeEnvironment => {
+  const secretKey = getSecret(SecretsKeys.STRIPE_SECRET_KEY, secrets);
+  const publishableKey = getSecret(SecretsKeys.STRIPE_PUBLIC_KEY, secrets);
+  const paymentMethodTypes = getSecret(SecretsKeys.STRIPE_PAYMENT_METHOD_TYPES, secrets);
 
-  if (!stripePaymentMethodTypes) {
+  if (!paymentMethodTypes) {
     throw '"STRIPE_PAYMENT_METHOD_TYPES" environment variable was not set.';
   }
-  if (isSandbox) {
-    if (!testModeStripeSecretKey) {
-      throw '"STRIPE_SECRET_KEY_TEST_MODE" environment variable was not set.';
-    }
-    if (!testModeStripePublishableKey) {
-      throw '"STRIPE_PUBLISHABLE_KEY_TEST_MODE" environment variable was not set.';
-    }
-    return {
-      publishableKey: SecretsKeys.STRIPE_PUBLISHABLE_KEY_TEST_MODE,
-      secretKey: SecretsKeys.STRIPE_SECRET_KEY_TEST_MODE,
-      paymentMethodTypes: SecretsKeys.STRIPE_PAYMENT_METHOD_TYPES,
-    };
-  }
 
-  if (!liveModeStripeSecretKey) {
+  if (!secretKey) {
     throw '"STRIPE_SECRET_KEY_LIVE_MODE" environment variable was not set.';
   }
-  if (!liveModeStripePublishableKey) {
+  if (!publishableKey) {
     throw '"STRIPE_PUBLISHABLE_KEY_LIVE_MODE" environment variable was not set.';
   }
 
   return {
-    publishableKey: SecretsKeys.STRIPE_PUBLISHABLE_KEY_LIVE_MODE,
-    secretKey: SecretsKeys.STRIPE_SECRET_KEY_LIVE_MODE,
-    paymentMethodTypes: SecretsKeys.STRIPE_PAYMENT_METHOD_TYPES,
+    publishableKey,
+    secretKey,
+    paymentMethodTypes,
   };
 };
