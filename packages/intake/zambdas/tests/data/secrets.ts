@@ -8,7 +8,7 @@ import {
   IN_PERSON_PREVISIT_QUESTIONNAIRE,
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
-} from '../.env/local.json';
+} from '../../.env/local.json';
 
 export const SECRETS = {
   FHIR_API: FHIR_API,
