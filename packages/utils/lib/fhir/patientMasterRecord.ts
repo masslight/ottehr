@@ -474,12 +474,29 @@ function getLanguageCommunication(value: LanguageOption, preferred = true): Lang
 export function getPatchOperationToAddOrUpdatePreferredLanguage(
   value: LanguageOption,
   path: string,
+  patient: Patient,
   currentValue?: LanguageOption
 ): Operation {
   const communication = getLanguageCommunication(value);
-  return {
-    op: currentValue ? 'replace' : 'add',
-    path: path,
-    value: communication,
-  };
+  if (currentValue) {
+    return {
+      op: 'replace',
+      path: path,
+      value: communication,
+    };
+  } else {
+    if (patient.communication) {
+      return {
+        op: 'add',
+        path: '/communication/-',
+        value: communication,
+      };
+    } else {
+      return {
+        op: 'add',
+        path: '/communication',
+        value: communication,
+      };
+    }
+  }
 }
