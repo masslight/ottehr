@@ -93,10 +93,10 @@ export default function Appointments(): ReactElement {
     if (groups.length === 1 && groups[0] === '') {
       groups = [];
     }
-    const queryId = `${locationID}-${providers}-${groups}-${searchDate}-${appointmentTypesString}`;
+    const queryId = `${locationID}-${locationSelected?.id}-${providers}-${groups}-${searchDate}-${appointmentTypesString}`;
     const visitType = appointmentTypesString ? appointmentTypesString.split(',') : [];
     return { locationID, searchDate, visitType, providers, groups, queryId };
-  }, [queryParams]);
+  }, [queryParams, locationSelected?.id]);
 
   const {
     preBookedAppointments,
@@ -237,8 +237,10 @@ export default function Appointments(): ReactElement {
         locationSelected?.extension?.find(
           (extTemp) => extTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
         )?.valueString ?? DateTime.local().zoneName;
+
       const searchDateToUse =
         (searchDate && DateTime.fromISO(searchDate, { zone: timezone })) || appointmentDate || undefined;
+
       void fetchStuff(oystehrZambda, searchDateToUse);
     }
   }, [
