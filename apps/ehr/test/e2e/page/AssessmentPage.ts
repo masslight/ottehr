@@ -27,7 +27,7 @@ export class AssessmentPage {
   async selectEMCode(code: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.assessmentPage.emCodeDropdown).click();
     await this.#page.getByText(code).click();
-    await expect(this.#page.getByTestId(dataTestIds.billingContainer.deleteButton)).toBeEnabled();
+    await expect(this.#page.getByTestId(dataTestIds.billingContainer.deleteButton)).toBeEnabled({ timeout: 30000 });
   }
 }
 

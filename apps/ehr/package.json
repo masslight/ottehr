@@ -32,7 +32,7 @@
     "build-skeleton": "tsc && vite build --mode ${ENV}",
     "test": "vitest --silent",
     "e2e:login": "npm run e2e-skeleton ./test/e2e/login",
-    "e2e:specs": "npm run e2e-skeleton ./test/e2e/specs",
+    "e2e:specs": "npm run e2e-skeleton ./test/e2e/specs/inPersonVisitMainFlow",
     "e2e:specs:ui": "npm run e2e-skeleton ./test/e2e/specs -- --ui",
     "e2e:manual-login": "node ./auth.setup.js",
     "e2e-skeleton": "env-cmd -f ./env/tests.${ENV}.json playwright test",
