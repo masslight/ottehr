@@ -196,6 +196,7 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
       newPatchOperation = getPatchOperationToAddOrUpdatePreferredLanguage(
         value as LanguageOption,
         path,
+        resource as Patient,
         effectiveValue as LanguageOption
       );
     } else if (isArray && path !== '/contact/0/name/given/0') {
