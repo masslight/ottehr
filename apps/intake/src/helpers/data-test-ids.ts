@@ -1,5 +1,6 @@
 export const dataTestIds = {
-  continueButton: 'continue-button',
+  continueButton: 'loading-button',
+  differentFamilyMember: 'Different family member',
   firstFlowPageTitle: 'first-flow-page-title',
   flowPageTitle: 'flow-page-title',
   startVirtualVisitButton: 'start-virtual-visit-button',

@@ -12,14 +12,12 @@ import {
   APPOINTMENT_NOT_FOUND_ERROR,
   AvailableLocationInformation,
   DATETIME_FULL_NO_YEAR,
-  ServiceMode,
   VisitType,
 } from 'utils';
 import { otherColors, palette } from '../IntakeThemeProvider';
 import zapehrApi from '../api/zapehrApi';
 import { PageContainer } from '../components';
 import useAppointmentNotFoundInformation from '../helpers/information';
-import { getStartingPath } from '../helpers/redirects';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import i18n from '../lib/i18n';
 import { useVisitContext } from './ThankYou';
@@ -207,10 +205,7 @@ const CheckIn = (): JSX.Element => {
           <Grid container marginTop={2}>
             {showRegisterAnotherPatient && (
               <Grid item xs={12} md={6} textAlign={{ xs: 'center', md: 'start' }} justifyContent="start">
-                <Link
-                  to={getStartingPath(checkIn.location, VisitType.WalkIn, ServiceMode['in-person'])}
-                  className="register-button"
-                >
+                <Link to={'/home'} className="register-button">
                   <Button variant="outlined">{t('appointments.registerAnother')}</Button>
                 </Link>
               </Grid>

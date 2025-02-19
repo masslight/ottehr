@@ -9,8 +9,8 @@ import {
   getVisitStatusHistory,
   relatedPersonAndCommunicationMaps,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
-import { ZambdaInput } from '../types';
 import { filterAppointmentsFromResources, filterPatientForAppointment } from './helpers/fhir-resources-filters';
 import { getAllPrefilteredFhirResources, getAllVirtualLocationsMap } from './helpers/fhir-utils';
 import { getPhoneNumberFromQuestionnaire } from './helpers/helpers';
@@ -26,7 +26,7 @@ let m2mtoken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    const validatedParameters: GetTelemedAppointmentsInput = validateRequestParameters(input);
+    const validatedParameters: ReturnType<typeof validateRequestParameters> = validateRequestParameters(input);
     console.log('Parameters: ' + JSON.stringify(validatedParameters));
 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, validatedParameters.secrets);
@@ -78,15 +78,23 @@ export const performEffect = async (
   if (allResources.length > 0) {
     const allRelatedPersonMaps = await relatedPersonAndCommunicationMaps(oystehrm2m, allResources);
 
-    allPackages.forEach((appointmentPackage) => {
+    for (let i = 0; i < allPackages.length; i++) {
+      const appointmentPackage = allPackages[i];
       const { appointment, telemedStatus, telemedStatusHistory, location, practitioner, encounter } =
         appointmentPackage;
-
       const patient = filterPatientForAppointment(appointment, allResources);
+
+      // it handles the case if a patient was deleted - should we handle this case? (relevant for local environment sometimes)
+      if (!patient) {
+        console.log('No patient found for appointment', appointment?.id);
+        continue;
+      }
+
       const patientPhone = appointmentPackage.paperwork
         ? getPhoneNumberFromQuestionnaire(appointmentPackage.paperwork)
         : undefined;
       const cancellationReason = extractCancellationReason(appointment);
+
       const smsModel = createSmsModel(patient.id!, allRelatedPersonMaps);
 
       const appointmentTemp: TelemedAppointmentInformation = {
@@ -121,7 +129,7 @@ export const performEffect = async (
       };
 
       resultAppointments.push(appointmentTemp);
-    });
+    }
     console.log('Appointments parsed and filtered from all resources.');
   }
   return {

@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Address, HumanName, Patient, RelatedPerson } from 'fhir/r4b';
-import { ELIGIBILITY_RELATED_PERSON_META_TAG, GetEligibilityPolicyHolder } from 'utils';
+import { createFhirHumanName, ELIGIBILITY_RELATED_PERSON_META_TAG, GetEligibilityPolicyHolder } from 'utils';
 
 const getGender = (sex: string | undefined): 'male' | 'female' | 'unknown' | 'other' => {
   if (sex != undefined) {
@@ -17,34 +17,6 @@ const getGender = (sex: string | undefined): 'male' | 'female' | 'unknown' | 'ot
     }
   }
   return 'unknown';
-};
-
-const createFhirName = (
-  firstName: string | undefined,
-  middleName: string | undefined,
-  lastName: string | undefined
-): HumanName[] | undefined => {
-  let givenNames: string[] | undefined;
-  let familyName: string | undefined;
-  let fhirName: HumanName[] | undefined;
-  if (firstName) {
-    givenNames = [firstName];
-    if (middleName) {
-      givenNames.push(middleName);
-    }
-  }
-  if (lastName) {
-    familyName = lastName;
-  }
-  if (givenNames || familyName) {
-    fhirName = [
-      {
-        given: givenNames,
-        family: familyName,
-      },
-    ];
-  }
-  return fhirName;
 };
 
 export type CreateRelatedPersonObject = Omit<GetEligibilityPolicyHolder, 'isPatient'>;
@@ -112,23 +84,20 @@ const createRelatedPerson = async (
       break;
   }
 
-  const address: Address[] = [];
-  if (data.addressSameAsPatient && patient?.address?.[0]) {
-    address.push(patient.address[0]);
-  } else {
-    address.push({
+  const address: Address[] = [
+    {
       line: data.address ? [data.address] : [],
       city: data.city,
       state: data.state,
       postalCode: data.zip,
       country: 'US',
-    });
-  }
+    },
+  ];
 
   const relatedPerson = await oystehr.fhir.create<RelatedPerson>({
     resourceType: 'RelatedPerson',
     patient: { reference: `Patient/${patient.id}` },
-    name: createFhirName(data.firstName, data.middleName, data.lastName),
+    name: createFhirHumanName(data.firstName, data.middleName, data.lastName),
     birthDate: data.dob,
     gender: getGender(data.sex),
     address,
@@ -215,7 +184,7 @@ const updateRelatedPerson = async (
 
   const nameOp = createPatchOperation(
     '/name',
-    createFhirName(data.firstName, data.middleName, data.lastName),
+    createFhirHumanName(data.firstName, data.middleName, data.lastName),
     existingDetails.givenNames || existingDetails.lastName
   );
   if (nameOp) operations.push(nameOp);

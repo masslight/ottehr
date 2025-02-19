@@ -22,7 +22,7 @@ import {
 import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   InPersonAppointmentInformation,
   VisitStatusLabel,
@@ -260,8 +260,8 @@ export default function AppointmentTableRow({
     (appointment.patient.lastName &&
       appointment.patient.firstName &&
       formatPatientName({
-        firstName: appointment.patient.lastName,
-        lastName: appointment.patient.firstName,
+        firstName: appointment.patient.firstName,
+        lastName: appointment.patient.lastName,
         middleName: appointment.patient.middleName,
       })) ||
     'Unknown';
@@ -500,6 +500,8 @@ export default function AppointmentTableRow({
     tab === ApptTab['cancelled'] ||
     (tab === ApptTab['in-office'] && (appointment.status === 'arrived' || appointment.status === 'ready'));
 
+  const handleCellClick = isVisitPrebookedOrCancelledOrInWaitingRoom ? goToVisitDetails : goToCharts;
+
   if (isMobile) {
     return (
       <AppointmentTableRowMobile
@@ -536,10 +538,7 @@ export default function AppointmentTableRow({
         }),
       }}
     >
-      <TableCell
-        sx={{ verticalAlign: 'center', cursor: 'pointer' }}
-        onClick={isVisitPrebookedOrCancelledOrInWaitingRoom ? goToVisitDetails : goToCharts}
-      >
+      <TableCell sx={{ verticalAlign: 'center', cursor: 'pointer' }} onClick={handleCellClick}>
         {appointment.next && (
           <Box
             sx={{
@@ -572,38 +571,26 @@ export default function AppointmentTableRow({
       </TableCell>
       <TableCell
         sx={{ cursor: 'pointer' }}
-        onClick={isVisitPrebookedOrCancelledOrInWaitingRoom ? goToVisitDetails : goToCharts}
+        onClick={handleCellClick}
+        data-testid={dataTestIds.dashboard.tableRowStatus(appointment.id)}
       >
-        <Box>
-          <Link
-            to={`/visit/${appointment.id}`}
-            style={linkStyle}
-            data-testid={dataTestIds.dashboard.tableRowStatus(appointment.id)}
-          >
-            <Box>
-              <Typography variant="body1">
-                {capitalize?.(
-                  appointment.appointmentType === 'post-telemed'
-                    ? 'Post Telemed'
-                    : (appointment.appointmentType || '').toString()
-                )}
-              </Typography>
-              <Typography variant="body1">
-                <strong data-testid={dataTestIds.dashboard.appointmentTime}>{start}</strong>
-              </Typography>
-              {tab !== ApptTab.prebooked && <Box mt={1}>{getAppointmentStatusChip(appointment.status)}</Box>}
-            </Box>
-          </Link>
-        </Box>
+        <Typography variant="body1">
+          {capitalize?.(
+            appointment.appointmentType === 'post-telemed'
+              ? 'Post Telemed'
+              : (appointment.appointmentType || '').toString()
+          )}
+        </Typography>
+        <Typography variant="body1">
+          <strong data-testid={dataTestIds.dashboard.appointmentTime}>{start}</strong>
+        </Typography>
+        {tab !== ApptTab.prebooked && <Box mt={1}>{getAppointmentStatusChip(appointment.status)}</Box>}
       </TableCell>
       {/* placeholder until time stamps for waiting and in exam or something comparable are made */}
       {/* <TableCell sx={{ verticalAlign: 'top' }}><Typography variant="body1" aria-owns={hoverElement ? 'status-popover' : undefined} aria-haspopup='true' sx={{ verticalAlign: 'top' }} onMouseOver={(event) => setHoverElement(event.currentTarget)} onMouseLeave={() => setHoverElement(undefined)}>{statusTime}</Typography></TableCell>
           <Popover id='status-popover' open={hoverElement !== undefined} anchorEl={hoverElement} anchorOrigin={{ vertical: 'top', horizontal: 'center' }} transformOrigin={{ vertical: 'bottom', horizontal: 'right' }} onClose={() => setHoverElement(undefined)}><Typography>test</Typography></Popover> */}
       {showTime && (
-        <TableCell
-          sx={{ verticalAlign: 'center', cursor: 'pointer' }}
-          onClick={isVisitPrebookedOrCancelledOrInWaitingRoom ? goToVisitDetails : goToCharts}
-        >
+        <TableCell sx={{ verticalAlign: 'center', cursor: 'pointer' }} onClick={handleCellClick}>
           <Tooltip
             componentsProps={{
               tooltip: {
@@ -630,10 +617,7 @@ export default function AppointmentTableRow({
           </Tooltip>
         </TableCell>
       )}
-      <TableCell
-        sx={{ verticalAlign: 'center', wordWrap: 'break-word', cursor: 'pointer' }}
-        onClick={isVisitPrebookedOrCancelledOrInWaitingRoom ? goToVisitDetails : goToCharts}
-      >
+      <TableCell sx={{ verticalAlign: 'center', wordWrap: 'break-word', cursor: 'pointer' }} onClick={handleCellClick}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           <Typography variant="subtitle2" sx={{ fontSize: '16px' }} data-testid={dataTestIds.dashboard.patientName}>
             {patientName}
@@ -684,22 +668,13 @@ export default function AppointmentTableRow({
           <IntakeCheckmark providerName={admitterName} />
         )}
       </TableCell>
-      <TableCell
-        sx={{ verticalAlign: 'center', cursor: 'pointer' }}
-        onClick={isVisitPrebookedOrCancelledOrInWaitingRoom ? goToVisitDetails : goToCharts}
-      >
+      <TableCell sx={{ verticalAlign: 'center', cursor: 'pointer' }} onClick={handleCellClick}>
         <Typography sx={{ fontSize: 14, display: 'inline' }}>{appointment.provider}</Typography>
       </TableCell>
-      <TableCell
-        sx={{ verticalAlign: 'center', cursor: 'pointer' }}
-        onClick={isVisitPrebookedOrCancelledOrInWaitingRoom ? goToVisitDetails : goToCharts}
-      >
+      <TableCell sx={{ verticalAlign: 'center', cursor: 'pointer' }} onClick={handleCellClick}>
         <Typography sx={{ fontSize: 14, display: 'inline' }}>{appointment.group}</Typography>
       </TableCell>
-      <TableCell
-        sx={{ verticalAlign: 'center', cursor: 'pointer' }}
-        onClick={isVisitPrebookedOrCancelledOrInWaitingRoom ? goToVisitDetails : goToCharts}
-      >
+      <TableCell sx={{ verticalAlign: 'center', cursor: 'pointer' }} onClick={handleCellClick}>
         <GenericToolTip title={<PaperworkToolTipContent appointment={appointment} />} customWidth="none">
           <Box sx={{ display: 'flex', gap: 0 }}>
             <AccountCircleOutlinedIcon

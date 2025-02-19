@@ -20,16 +20,6 @@ npm run start:local
 
 Currently available scripts:
 
-### `create-subscription`
-
-**TODO describe function**
-
-#### Usage Example
-
-```sh
-npm run create-subscription:dev
-```
-
 ### `setup-zapehr-secrets`
 
 Set secrets for each environment.
