@@ -76,6 +76,8 @@ import {
   RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL,
   PRIVACY_POLICY_CODE,
   OTTEHR_MODULE,
+  LanguageOption,
+  getPatchOperationToAddOrUpdatePreferredLanguage,
 } from 'utils';
 import { v4 as uuid } from 'uuid';
 import { createOrUpdateFlags } from '../../../paperwork/sharedHelpers';
@@ -1291,6 +1293,23 @@ export function createMasterRecordPatchOperations(
           return;
         }
 
+        // Special handler for preferred-language
+        if (item.linkId === 'preferred-language') {
+          const currentValue = resources.patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0]
+            .display;
+          if (value !== currentValue) {
+            const operation = getPatchOperationToAddOrUpdatePreferredLanguage(
+              value as LanguageOption,
+              path,
+              resources.patient,
+              currentValue as LanguageOption
+            );
+
+            if (operation) tempOperations.patient.push(operation);
+          }
+          return;
+        }
+
         // Handle array fields
         const { isArray, parentPath } = getArrayInfo(path);
         if (isArray) {
@@ -1423,7 +1442,10 @@ export function createMasterRecordPatchOperations(
 
   // Separate operations for each resource
   result.patient = separateResourceUpdates(tempOperations.patient, resources.patient, 'Patient');
-  result.patient.patchOpsForDirectUpdate = addAuxiliaryPatchOperations(result.patient.patchOpsForDirectUpdate);
+  result.patient.patchOpsForDirectUpdate = addAuxiliaryPatchOperations(
+    result.patient.patchOpsForDirectUpdate,
+    resources.patient
+  );
   result.patient.patchOpsForDirectUpdate = consolidateOperations(
     result.patient.patchOpsForDirectUpdate,
     resources.patient
@@ -1535,14 +1557,14 @@ function extractValueFromItem(
   // Handle date components collection
   if (item?.item) {
     const hasDateComponents = item.item.some(
-      (i) => i.linkId.endsWith('-dob-year') || i.linkId.endsWith('-dob-month') || i.linkId.endsWith('-dob-day')
+      (i) => i.linkId.includes('-dob-year') || i.linkId.includes('-dob-month') || i.linkId.includes('-dob-day')
     );
 
     if (hasDateComponents) {
       const dateComponents: DateComponents = {
-        year: item.item.find((i) => i.linkId.endsWith('-dob-year'))?.answer?.[0]?.valueString || '',
-        month: item.item.find((i) => i.linkId.endsWith('-dob-month'))?.answer?.[0]?.valueString || '',
-        day: item.item.find((i) => i.linkId.endsWith('-dob-day'))?.answer?.[0]?.valueString || '',
+        year: item.item.find((i) => i.linkId.includes('-dob-year'))?.answer?.[0]?.valueString || '',
+        month: item.item.find((i) => i.linkId.includes('-dob-month'))?.answer?.[0]?.valueString || '',
+        day: item.item.find((i) => i.linkId.includes('-dob-day'))?.answer?.[0]?.valueString || '',
       };
 
       return isoStringFromDateComponents(dateComponents);
@@ -1552,7 +1574,7 @@ function extractValueFromItem(
   const answer = item.answer?.[0];
 
   // Handle gender answers
-  if (item.linkId.endsWith('-birth-sex') && answer?.valueString) {
+  if (item.linkId.includes('-birth-sex') && answer?.valueString) {
     return BIRTH_SEX_MAP[answer.valueString];
   }
 
@@ -2052,7 +2074,7 @@ function setValueByPath(obj: any, path: string, value: any): void {
   current[lastPart] = value;
 }
 
-function addAuxiliaryPatchOperations(operations: Operation[]): Operation[] {
+function addAuxiliaryPatchOperations(operations: Operation[], patient: Patient): Operation[] {
   const auxOperations: Operation[] = [];
   if (operations.some((op) => op.path && op.path.includes('contained'))) {
     const addResourceTypeOperation: AddOperation<any> = {
@@ -2062,14 +2084,16 @@ function addAuxiliaryPatchOperations(operations: Operation[]): Operation[] {
     };
     auxOperations.push(addResourceTypeOperation);
 
-    const addGeneralPractitionerOperation: AddOperation<any> = {
-      op: 'add',
-      path: '/generalPractitioner',
-      value: {
-        reference: '#primary-care-physician',
-      },
-    };
-    auxOperations.push(addGeneralPractitionerOperation);
+    if (!patient.generalPractitioner) {
+      const addGeneralPractitionerOperation: AddOperation<any> = {
+        op: 'add',
+        path: '/generalPractitioner',
+        value: {
+          reference: '#primary-care-physician',
+        },
+      };
+      auxOperations.push(addGeneralPractitionerOperation);
+    }
 
     const addPractitionerIdOperation: AddOperation<any> = {
       op: 'add',
