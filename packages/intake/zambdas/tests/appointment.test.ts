@@ -5,6 +5,7 @@ import { contact, healthcareContacts, patient } from './appointment-validation.t
 import { vi } from 'vitest';
 export const DEFAULT_TEST_TIMEOUT = 100000;
 export const location = '71bc5925-65d6-471f-abd0-be357043172a';
+import { SECRETS } from './data/secrets';
 
 describe.skip('appointments tests', () => {
   let oystehr: Oystehr | null = null;
@@ -12,10 +13,7 @@ describe.skip('appointments tests', () => {
   vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });
 
   beforeAll(async () => {
-    const { AUTH0_AUDIENCE, AUTH0_CLIENT, AUTH0_ENDPOINT, AUTH0_SECRET, FHIR_API, PROJECT_API } = await import(
-      '../.env/local.json'
-    );
-
+    const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE, FHIR_API, PROJECT_API } = SECRETS;
     token = await getAuth0Token({
       AUTH0_ENDPOINT: AUTH0_ENDPOINT,
       AUTH0_CLIENT: AUTH0_CLIENT,

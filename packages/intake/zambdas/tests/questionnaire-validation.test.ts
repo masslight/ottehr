@@ -4,6 +4,7 @@ import { getAuth0Token } from '../src/shared';
 import { createOystehrClient } from '../src/shared/helpers';
 import QRData from './data/quetionnaire-responses.json';
 import { vi } from 'vitest';
+import { SECRETS as S } from './data/secrets';
 // import { QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
 
 // npm run test -- questionnaire-validation.test.ts
@@ -202,9 +203,8 @@ describe.skip('qr page validation tests', () => {
 
   vi.setConfig({ testTimeout: 100_000 });
   beforeAll(async () => {
-    const { AUTH0_AUDIENCE, AUTH0_CLIENT, AUTH0_ENDPOINT, AUTH0_SECRET, FHIR_API, IN_PERSON_PREVISIT_QUESTIONNAIRE } =
-      await import('../.env/local.json');
-
+    const { FHIR_API, AUTH0_ENDPOINT, AUTH0_AUDIENCE, AUTH0_CLIENT, AUTH0_SECRET, IN_PERSON_PREVISIT_QUESTIONNAIRE } =
+      S;
     const SECRETS = {
       FHIR_API: FHIR_API,
       AUTH0_ENDPOINT: AUTH0_ENDPOINT,
@@ -315,9 +315,8 @@ describe.skip('full qr validation tests', () => {
   vi.setConfig({ testTimeout: 100_000 });
 
   beforeAll(async () => {
-    const { AUTH0_AUDIENCE, AUTH0_CLIENT, AUTH0_ENDPOINT, AUTH0_SECRET, FHIR_API, IN_PERSON_PREVISIT_QUESTIONNAIRE } =
-      await import('../.env/local.json');
-
+    const { FHIR_API, AUTH0_ENDPOINT, AUTH0_AUDIENCE, AUTH0_CLIENT, AUTH0_SECRET, IN_PERSON_PREVISIT_QUESTIONNAIRE } =
+      S;
     const SECRETS = {
       FHIR_API: FHIR_API,
       AUTH0_ENDPOINT: AUTH0_ENDPOINT,
