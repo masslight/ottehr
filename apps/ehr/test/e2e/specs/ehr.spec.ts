@@ -57,11 +57,13 @@ test('Happy path: set up filters and navigate to visit page', async ({ page }) =
   // CHOOSE TAB
   await page.locator(`[data-testid="${dataTestIds.dashboard.prebookedTab}"]`).click();
 
-  await expect(page.getByTestId(dataTestIds.dashboard.tableRowWrapper(resourceHandler.appointment.id!))).toBeAttached({
+  const tableRowLocator = page.getByTestId(dataTestIds.dashboard.tableRowWrapper(resourceHandler.appointment.id!));
+
+  await expect(tableRowLocator).toBeAttached({
     timeout: 15000,
   });
 
-  await expect(page.getByTestId(dataTestIds.dashboard.intakeButton)).toBeAttached({
+  await expect(tableRowLocator.getByTestId(dataTestIds.dashboard.intakeButton)).toBeAttached({
     timeout: 15000,
   });
 
