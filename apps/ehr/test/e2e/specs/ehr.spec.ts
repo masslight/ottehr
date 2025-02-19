@@ -1,7 +1,7 @@
 import { expect, Page, test } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { ResourceHandler } from '../../e2e-utils/resource-handler';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
+import { ResourceHandler } from '../../e2e-utils/resource-handler';
 
 // We may create new instances for the tests with mutable operations, and keep parralel tests isolated
 const resourceHandler = new ResourceHandler();
@@ -54,17 +54,16 @@ test('Happy path: set up filters and navigate to visit page', async ({ page }) =
     }
   );
 
-  // TODO: The appointment list is not working due to repo migration process, uncomment tests later
-
   // CHOOSE TAB
   await page.locator(`[data-testid="${dataTestIds.dashboard.prebookedTab}"]`).click();
 
-  // INTAKE RESOURCE WAS CREATED AND INTAKE BUTTON IS AVAILABLE
-  await expect(
-    page
-      .getByTestId(dataTestIds.dashboard.tableRowWrapper(resourceHandler.appointment.id!))
-      .locator(`button[data-testid="${dataTestIds.dashboard.intakeButton}"]`)
-  ).toBeAttached({ timeout: 15000 });
+  await expect(page.getByTestId(dataTestIds.dashboard.tableRowWrapper(resourceHandler.appointment.id!))).toBeAttached({
+    timeout: 15000,
+  });
+
+  await expect(page.getByTestId(dataTestIds.dashboard.intakeButton(resourceHandler.appointment.id!))).toBeAttached({
+    timeout: 15000,
+  });
 
   // todo: commenting out cause it doesn't work in CI, need to investigate why, locally runs fine every time
   // // GOTO VISIT PAGE

@@ -4,6 +4,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useDebounceNotesField } from '../../../../hooks';
 import { useAppointmentStore } from '../../../../state';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const ChiefComplaintProviderColumn: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
@@ -35,6 +36,7 @@ export const ChiefComplaintProviderColumn: FC = () => {
             fullWidth
             multiline
             rows={3}
+            data-testid={dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes}
           />
         )}
       />
@@ -52,6 +54,7 @@ export const ChiefComplaintProviderColumn: FC = () => {
             label="ROS (optional)"
             fullWidth
             multiline
+            data-testid={dataTestIds.telemedEhrFlow.hpiChiefComplaintRos}
           />
         )}
       />

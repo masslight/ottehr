@@ -69,9 +69,7 @@ export function createQuestionnaireResponse({
   // encounter.id
   encounterId,
 
-  //TODO: update this to the correct questionnaire url
-  // grab it from the appropiate Q resource in the deployed resources folder in utils
-  questionnaireUrl = '',
+  questionnaireUrl = 'https://ottehr.com/FHIR/Questionnaire/qrs-paperwork-uc|1.0.4',
   status = 'in-progress',
 
   // patient.name[0].given[0]
