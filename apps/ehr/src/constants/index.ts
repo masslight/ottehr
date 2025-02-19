@@ -486,8 +486,8 @@ export const POINT_OF_DISCOVERY_OPTIONS = [
     value: 'Friend/Family',
   },
   {
-    label: 'Been there with another child or family member',
-    value: 'Been there with another child or family member',
+    label: 'Been there with another family member',
+    value: 'Been there with another family member',
   },
   {
     label: 'Pediatrician/Healthcare Professional',
