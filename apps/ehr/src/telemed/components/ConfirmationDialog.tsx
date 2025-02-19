@@ -46,7 +46,6 @@ export const ConfirmationDialog: FC<ConfirmationDialogProps> = (props) => {
             onClick={() => confirmRequest(hideDialog)}
             variant="contained"
             color={props?.actionButtons?.proceed?.color || 'primary'}
-            data-testid={dataTestIds.telemedEhrFlow.dialogButtonConfirm}
           >
             {props?.actionButtons?.proceed?.text || 'Proceed'}
           </RoundedButton>

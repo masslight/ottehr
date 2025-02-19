@@ -152,7 +152,6 @@ export const dataTestIds = {
     appointmentStatusChip: 'telemed-appointment-status-chip',
     footerButtonConnectToPatient: 'telemed-appointment-footer-button-connect-to-patient',
     footerButtonAssignMe: 'telemed-appointment-footer-button-assign-me',
-    dialogButtonConfirm: 'telemed-dialog-button-confirm',
     appointmentChartFooter: 'telemed-chart-appointment-footer',
     hpiMedicalConditionsLoadingSkeleton: 'telemed-medical-conditions-loading-skeleton',
     hpiMedicalConditionColumn: 'telemed-hpi-medical-condition-column',
