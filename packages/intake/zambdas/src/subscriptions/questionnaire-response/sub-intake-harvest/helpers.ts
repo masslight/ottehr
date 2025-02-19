@@ -1158,6 +1158,12 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-relationship-to-insured': coverageFieldPaths.relationship,
 };
 
+const BIRTH_SEX_MAP: Record<string, string> = {
+  Male: 'male',
+  Female: 'female',
+  Intersex: 'other',
+};
+
 const pathToLinkIdMap: Record<string, string> = Object.entries(paperworkToPatientFieldMap).reduce(
   (acc, [linkId, path]) => {
     acc[path] = linkId;
