@@ -1,9 +1,9 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
+import { dataTestIds } from '../../../src/helpers/data-test-ids';
+import { UploadImage } from '../../utils/in-person/UploadImage';
 import { FillingInfo } from '../../utils/telemed/FillingInfo';
 import { Paperwork } from '../../utils/telemed/Paperwork';
-import { dataTestIds } from '../../../src/helpers/data-test-ids';
-import { DIFFERENT_FAMILY_MEMBER_DATA } from '../../../src/telemed/utils/constants';
 
 enum PersonSex {
   Male = 'male',
@@ -13,6 +13,8 @@ enum PersonSex {
 
 let context: BrowserContext;
 let page: Page;
+let fillingInfo: FillingInfo;
+let paperwork: Paperwork;
 
 let patientInfo: Awaited<ReturnType<FillingInfo['fillNewPatientInfo']>> | undefined;
 let dob: Awaited<ReturnType<FillingInfo['fillDOBless18']>> | undefined;
@@ -43,6 +45,8 @@ test.describe.configure({ mode: 'serial' });
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
   page = await context.newPage();
+  fillingInfo = new FillingInfo(page);
+  paperwork = new Paperwork(page);
 
   page.on('response', async (response) => {
     if (response.url().includes('/telemed-create-appointment/')) {
@@ -70,7 +74,7 @@ test('Should create new patient', async () => {
 
   await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
 
-  await page.getByRole('heading', { name: DIFFERENT_FAMILY_MEMBER_DATA.label }).click();
+  await page.getByRole('heading', { name: 'Different family member' }).click();
 
   await clickContinue(page);
 
@@ -80,15 +84,11 @@ test('Should create new patient', async () => {
 
   await expect(page.getByPlaceholder('First name')).toBeVisible();
 
-  const fillingInfo = new FillingInfo(page);
-
   patientInfo = await fillingInfo.fillNewPatientInfo();
 
   dob = await fillingInfo.fillDOBless18();
 
   await page.getByRole('button', { name: 'Continue' }).click();
-
-  const paperwork = new Paperwork(page);
 
   await paperwork.fillAndCheckContactInformation(patientInfo);
 
@@ -97,8 +97,6 @@ test('Should create new patient', async () => {
 
 test('Should display new patient in patients list', async () => {
   await page.goto('/select-patient');
-
-  const fillingInfo = new FillingInfo(page);
 
   const locator = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`).locator('..');
 
@@ -116,7 +114,10 @@ test('Should display new patient in patients list', async () => {
   ).toBeVisible();
 });
 
-test('Should display Continue visit and Cancel request buttons', async () => {
+// TODO: Fix the test, it should not be dependent on some resources that are pre-created at some moment
+// right now there is possible condition when another appointment is in the status that causes a "Return to call" button
+// to appear which has higher priority than "Continue Virtual Visit Request" button
+test.skip('Should display Continue visit and Cancel request buttons', async () => {
   await page.goto('/home');
 
   await expect(page.getByRole('button', { name: 'Continue Virtual Visit Request' })).toBeVisible({ timeout: 10000 });
@@ -133,8 +134,6 @@ test('Should display correct patient info', async () => {
   await page.goto('/home');
 
   await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
-
-  const fillingInfo = new FillingInfo(page);
 
   const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
   await patientName.click();
@@ -170,8 +169,6 @@ test("Should fill in correct patient's DOB", async () => {
 
   await expect(page.getByText(`Confirm ${patientInfo?.firstName}'s date of birth`)).toBeVisible();
 
-  const fillingInfo = new FillingInfo(page);
-
   if (!dob?.randomMonth || !dob?.randomDay || !dob?.randomYear) {
     throw Error('Date units are not provided');
   }
@@ -199,15 +196,11 @@ test("Should fill in correct patient's DOB", async () => {
 });
 
 test('Should fill in contact information', async () => {
-  const paperwork = new Paperwork(page);
-
   await paperwork.fillAndCheckContactInformation(patientInfo);
 });
 
 test('Should fill in patient details', async () => {
   await clickContinue(page);
-
-  const paperwork = new Paperwork(page);
 
   await paperwork.fillAndCheckPatientDetails();
 });
@@ -216,15 +209,11 @@ test('Should fill in current medications as empty', async () => {
   await clickContinue(page);
   await clickContinue(page); // skip page with no required fields
 
-  const paperwork = new Paperwork(page);
-
   await paperwork.fillAndCheckEmptyCurrentMedications();
 });
 
 test('Should fill in current allergies as empty', async () => {
   await clickContinue(page);
-
-  const paperwork = new Paperwork(page);
 
   await paperwork.fillAndCheckEmptyCurrentAllergies();
 });
@@ -232,15 +221,11 @@ test('Should fill in current allergies as empty', async () => {
 test('Should fill in medical history as empty', async () => {
   await clickContinue(page);
 
-  const paperwork = new Paperwork(page);
-
   await paperwork.fillAndCheckEmptyMedicalHistory();
 });
 
 test('Should fill in surgical history as empty', async () => {
   await clickContinue(page);
-
-  const paperwork = new Paperwork(page);
 
   await paperwork.fillAndCheckEmptySurgicalHistory();
 });
@@ -248,8 +233,6 @@ test('Should fill in surgical history as empty', async () => {
 test('Should fill in payment option as self-pay', async () => {
   await clickContinue(page);
   await clickContinue(page); // skip page with no required fields
-
-  const paperwork = new Paperwork(page);
 
   await paperwork.fillAndCheckSelfPay();
 });
@@ -263,21 +246,18 @@ test('Fill patient conditions', async () => {
 });
 
 test('Should fill school or work note as none', async () => {
-  const paperwork = new Paperwork(page);
   await paperwork.fillAndCheckSchoolWorkNoteAsNone();
 });
 
 test('Should fill consent forms', async () => {
   await clickContinue(page);
 
-  const paperwork = new Paperwork(page);
-
   await paperwork.fillAndCheckConsentForms();
 });
 
 test('Should not invite anyone', async () => {
   await clickContinue(page);
-  const paperwork = new Paperwork(page);
+
   await paperwork.fillAndCheckNoInviteParticipant();
 });
 
@@ -285,4 +265,20 @@ test('Should go to waiting room', async () => {
   await clickContinue(page);
   await page.getByRole('button', { name: 'Go to the Waiting Room' }).click();
   await expect(page.getByText('Please wait, call will start automatically.')).toBeVisible({ timeout: 30000 });
+});
+
+test('Should check photo upload feature', async () => {
+  const uploadPhotoButton = page.getByText('Upload photo');
+  await expect(uploadPhotoButton).toBeVisible();
+  await expect(page.getByText('No photo uploaded')).toBeVisible();
+  await uploadPhotoButton.click();
+  await expect(page.getByText('Patient condition photo')).toBeVisible();
+
+  const uploadPhoto = new UploadImage(page);
+  await uploadPhoto.fillPatientCondition();
+  await page.getByText('Save').click();
+
+  await expect(page.getByText('Photo attached')).toBeVisible();
+  await uploadPhotoButton.click();
+  await expect(page.getByText('We already have this! It was saved on')).toBeVisible();
 });

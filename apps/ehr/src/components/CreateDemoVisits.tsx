@@ -47,7 +47,7 @@ const CreateDemoVisits = (): ReactElement => {
       setLoading(true);
       setInputError(false);
       const authToken = await getAccessTokenSilently();
-      const response = await createSampleAppointments(
+      await createSampleAppointments(
         oystehr,
         authToken,
         formattedPhoneNumber,
@@ -62,7 +62,6 @@ const CreateDemoVisits = (): ReactElement => {
         message: 'Appointments created successfully!',
         severity: 'success',
       });
-      return response;
     } catch (error) {
       setSnackbar({
         open: true,

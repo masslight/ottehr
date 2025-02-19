@@ -1,17 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Appointment, Encounter } from 'fhir/r4b';
 import {
   ChangeInPersonVisitStatusInput,
   ChangeInPersonVisitStatusResponse,
   User,
   VisitStatusWithoutUnknown,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
-import { ZambdaInput } from '../types';
-import { validateRequestParameters } from './validateRequestParameters';
 import { getVisitResources } from '../shared/practitioner/helpers';
-import { Encounter, Appointment } from 'fhir/r4b';
 import { changeInPersonVisitStatusIfPossible } from './helpers/helpers';
+import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mtoken: string;
 

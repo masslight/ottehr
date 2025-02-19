@@ -436,7 +436,6 @@ export const PaperworkPage: FC = () => {
       return empty;
     }
     const currentPage = paperworkPages.find((pageTemp) => slugFromLinkId(pageTemp.linkId) === slug);
-    console.log('current page', currentPage);
     if (!currentPage) {
       return empty;
     }

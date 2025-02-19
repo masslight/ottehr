@@ -7,19 +7,19 @@ export class VisitsPage {
   constructor(page: Page) {
     this.#page = page;
   }
-  async verifyVisitPresent(patientName: string, time?: string): Promise<void> {
-    const visitsLocator = this.#page.locator('#appointments-table-row');
-    const count = await visitsLocator.count();
-    let visitFound = false;
-    for (let i = 0; i < count; i++) {
-      const visitLocator = visitsLocator.nth(i);
-      const visitTime = await visitLocator.getByTestId(dataTestIds.dashboard.appointmentTime).innerText();
-      const visitPatientName = await visitLocator.getByTestId(dataTestIds.dashboard.patientName).innerText();
-      if (visitPatientName === patientName && (time == null || visitTime === time)) {
-        visitFound = true;
-      }
+  async verifyVisitPresent(firstName: string, lastName: string, time?: string): Promise<void> {
+    const patientName = `${lastName}, ${firstName}`;
+
+    // Find a row that contains the correct patient name
+    let visitLocator = this.#page.locator('#appointments-table-row').filter({ hasText: patientName });
+
+    // If time is provided, further filter by time
+    if (time) {
+      visitLocator = visitLocator.filter({ hasText: time });
     }
-    expect(visitFound).toBeTruthy();
+
+    // Expect at least one matching visit
+    await expect(visitLocator).toHaveCount(1);
   }
 
   async clickPrebookedTab(): Promise<void> {

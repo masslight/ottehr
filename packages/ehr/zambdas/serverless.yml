@@ -1,13 +1,13 @@
 service: zambdas
 
-frameworkVersion: '3'
+frameworkVersion: "3"
 
 package:
   individually: true
 
 provider:
   name: aws
-  runtime: nodejs18.x
+  runtime: nodejs20.x
   stage: ${opt:stage, self:custom.defaultStage}
 
 custom:
@@ -90,6 +90,9 @@ functions:
       PROJECT_ID: ${file(./.env/${self:provider.stage}.json):PROJECT_ID}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+      CANDID_CLIENT_ID: ${file(./.env/${self:provider.stage}.json):CANDID_CLIENT_ID, ''}
+      CANDID_CLIENT_SECRET: ${file(./.env/${self:provider.stage}.json):CANDID_CLIENT_SECRET, ''}
+      CANDID_ENV: ${file(./.env/${self:provider.stage}.json):CANDID_ENV, ''}
 
   sign-appointment:
     handler: src/sign-appointment/index.index
@@ -116,6 +119,9 @@ functions:
       PROJECT_ID: ${file(./.env/${self:provider.stage}.json):PROJECT_ID}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+      CANDID_CLIENT_ID: ${file(./.env/${self:provider.stage}.json):CANDID_CLIENT_ID, ''}
+      CANDID_CLIENT_SECRET: ${file(./.env/${self:provider.stage}.json):CANDID_CLIENT_SECRET, ''}
+      CANDID_ENV: ${file(./.env/${self:provider.stage}.json):CANDID_ENV, ''}
   assign-practitioner:
     handler: src/assign-practitioner/index.index
     events:
@@ -165,7 +171,7 @@ functions:
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
-  
+
   change-in-person-visit-status:
     handler: src/change-in-person-visit-status/index.index
     events:

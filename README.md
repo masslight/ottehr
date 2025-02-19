@@ -31,13 +31,13 @@
 Ottehr consists of two apps,
 
 - **[Ottehr Intake](apps/intake)** &mdash; A patient-facing registration website for creating appointments, initiating telemedicine calls, with features including rescheduling, checking in, completing intake paperwork, text messages and emails, and listing appointments for an account.
-- **[Ottehr EHR](packages/ehr/)** &mdash; A staff-facing EHR for managing appointments created, with features including checking appointments, managing patient queues, texting patients, updating a location's slots, setting a location's schedule, joining telemedicine calls, HPI and medical history, exam charting, eRx and Assessment, patient plan, coming soon: RCM and claims submission.
+- **[Ottehr EHR](apps/ehr/)** &mdash; A staff-facing EHR for managing appointments created, with features including checking appointments, managing patient queues, texting patients, updating a location's slots, setting a location's schedule, joining telemedicine calls, HPI and medical history, exam charting, eRx and Assessment, patient plan, coming soon: RCM and claims submission.
 
 ## Run Ottehr Locally
 
 ### Prerequisites
 
-To run Ottehr, you'll need a free Oystehr account, and Node.js.
+To run Ottehr, you'll need a free Oystehr account and Node.js.
 
 #### Get Your Oystehr Account
 
@@ -50,17 +50,25 @@ Check out the [Oystehr Technical Documentation](https://docs.oystehr.com) to lea
 
 #### Install Node.js
 
-If you do not already have it, install Node.js v18.x.
+If you do not already have it, [install Node.js](https://nodejs.org/en/download) v20.x or higher. Ottehr is tested with all active LTS versions.
+
+Ottehr also supports `nvm`, `asdf`, and tools that use `.node-version`.
 
 ### Fork & Clone
 
 Fork &mdash;
-   Go to [https://github.com/masslight/ottehr/fork](https://github.com/masslight/ottehr/fork) and click 'Create fork' to fork the repository.
+Go to [https://github.com/masslight/ottehr/fork](https://github.com/masslight/ottehr/fork) and click 'Create fork' to fork the repository.
 
-Clone  &mdash; Copy and run the clone script for your fork.
+Clone &mdash; Copy and run the clone script for your fork.
 
 ```bash
 git clone git@github.com:{your_profile}/ottehr.git
+```
+
+Then, move into the new directory
+
+```bash
+cd ottehr
 ```
 
 ### Run the Setup Script

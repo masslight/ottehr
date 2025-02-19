@@ -320,6 +320,11 @@ export function creatingPatientCreateRequest(
       ];
     }
   }
+
+  if (patient.address) {
+    patientResource.address = patient.address;
+  }
+
   console.log('creating patient request for new patient resource');
   createPatientRequest = {
     method: 'POST',

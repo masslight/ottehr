@@ -29,7 +29,7 @@ npm run build:env --env=$environment
 cd ../../packages/ehr/zambdas
 ENV=$environment npm run deploy-zambdas $environment
 ENV=$environment npm run setup-zapehr-secrets $environment
-ENV=$environment npm run setup-questionnaires $environment
+ENV=$environment npm run setup-deployed-resources $environment
 
 cd ../../../apps/ehr
 npm run build:env --env=$environment
