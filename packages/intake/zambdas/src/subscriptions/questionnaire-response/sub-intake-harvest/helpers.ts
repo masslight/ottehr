@@ -1119,6 +1119,7 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-birth-sex-missing': patientFieldPaths.genderIdentityDetails,
   'patient-number': patientFieldPaths.phone,
   'patient-email': patientFieldPaths.email,
+  'preferred-language': patientFieldPaths.preferredLanguage,
   'pcp-first': patientFieldPaths.pcpFirstName,
   'pcp-last': patientFieldPaths.pcpLastName,
   'pcp-number': patientFieldPaths.pcpPhone,

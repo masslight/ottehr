@@ -58,7 +58,7 @@ export const patientFieldPaths = {
   fillingOutAs: `Patient/extension/${PATIENT_FILLING_OUT_AS_URL}`,
   parentGuardianEmail: 'Patient/contact/0/telecom/0/value',
   parentGuardianPhone: 'Patient/contact/0/telecom/1/value',
-  preferredLanguage: 'Patient/communication/0/language',
+  preferredLanguage: 'Patient/communication/0',
   race: `Patient/extension/${PATIENT_RACE_URL}`,
   ethnicity: `Patient/extension/${PATIENT_ETHNICITY_URL}`,
   sexualOrientation: `Patient/extension/${PATIENT_SEXUAL_ORIENTATION_URL}`,
