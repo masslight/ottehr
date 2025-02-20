@@ -53,6 +53,7 @@ jobs:
       id-token: write # Required for OIDC
       contents: read
       pull-requests: write # Required for version bumping
+      issues: write # Required for version bumping
 
     strategy:
       matrix:
