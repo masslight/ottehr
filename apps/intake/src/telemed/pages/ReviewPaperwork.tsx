@@ -19,7 +19,6 @@ import { ZambdaClient, useUCZambdaClient } from 'ui-components/lib/hooks/useUCZa
 import {
   InviteParticipantRequestParameters,
   VisitType,
-  convertQRItemToLinkIdMap,
   makeValidationSchema,
   pickFirstValueFromAnswerItem,
   uuidRegex,
@@ -118,7 +117,13 @@ const ReviewPaperwork = (): JSX.Element => {
 
   const { paperworkCompletedStatus } = useMemo(() => {
     const validationSchema = makeValidationSchema(allItems);
-    const validationState = convertQRItemToLinkIdMap(paperworkPages);
+    const validationState = (paperworkPages ?? []).reduce(
+      (accum, page) => {
+        accum[page.linkId] = true;
+        return accum;
+      },
+      {} as { [pageLinkId: string]: boolean }
+    );
 
     try {
       validationSchema.validate(completedPaperwork, { abortEarly: false });
