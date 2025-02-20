@@ -110,14 +110,14 @@ jobs:
         id: package-version
         uses: martinbeentjes/npm-get-version-action@v1.1.0
         with:
-          path: ${{ github.workspace }}/${{ env.PACKAGE_LOCATION }}
+          path: ${{ env.PACKAGE_LOCATION }}
       
       - name: Commit version bump if input dictates.
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
         run: |
           git config --local user.email "deploy@ottehr.com"
           git config --local user.name "GitHub Action Bump Version"
-          git add ${{ github.workspace }}/${{ env.PACKAGE_LOCATION }}/package.json ${{ github.workspace }}/${{ env.ZAMBDAS_LOCATION }}/package.json package-lock.json
+          git add .
           git commit -m 'Version bump ${{ steps.package-version.outputs.current-version }}'
       
       - name: Push to a new branch
