@@ -116,6 +116,17 @@ async function main(): Promise<void> {
   await oystehr.fhir.batch({ requests: deleteOperations });
   logWithTimestamp(`deleted ${groups.length} Groups`);
 
+  // delete all Location FHIR resources in the project
+  logWithTimestamp('Deleting all Locations...');
+  const locations = (
+    await oystehr.fhir.search<Organization>({
+      resourceType: 'Location',
+    })
+  ).unbundle();
+  deleteOperations = locations.map((location) => ({ method: 'DELETE', url: `/Location/${location.id}` }));
+  await oystehr.fhir.batch({ requests: deleteOperations });
+  logWithTimestamp(`deleted ${locations.length} Locations`);
+
   // delete all PractitionerRole FHIR resources in the project
   logWithTimestamp('Deleting all PractitionerRoles...');
   const practitionerRoles = (
@@ -188,22 +199,25 @@ async function main(): Promise<void> {
   // delete all applications in the project
   logWithTimestamp('Deleting all applications...');
   const applications = await oystehr.application.list();
-  deleteOperations = applications.map((application) => ({ method: 'DELETE', url: `/Application/${application.id}` }));
-  await oystehr.fhir.batch({ requests: deleteOperations });
+  for (const application of applications) {
+    await oystehr.application.delete({ id: application.id });
+  }
   logWithTimestamp(`deleted ${applications.length} applications`);
 
   // delete all m2m clients in the project
   logWithTimestamp('Deleting all M2M clients...');
   const m2mClients = await oystehr.m2m.list();
-  deleteOperations = m2mClients.map((m2mClient) => ({ method: 'DELETE', url: `/M2M/${m2mClient.id}` }));
-  await oystehr.fhir.batch({ requests: deleteOperations });
+  for (const m2mClient of m2mClients) {
+    await oystehr.m2m.delete({ id: m2mClient.id });
+  }
   logWithTimestamp(`deleted ${m2mClients.length} M2M clients`);
 
   // delete all roles in the project
   logWithTimestamp('Deleting all IAM roles...');
   const iamRoles = await oystehr.role.list();
-  deleteOperations = iamRoles.map((iamRole) => ({ method: 'DELETE', url: `/Role/${iamRole.id}` }));
-  await oystehr.fhir.batch({ requests: deleteOperations });
+  for (const iamRole of iamRoles) {
+    await oystehr.role.delete({ roleId: iamRole.id });
+  }
   logWithTimestamp(`deleted ${iamRoles.length} IAM roles`);
 }
 
