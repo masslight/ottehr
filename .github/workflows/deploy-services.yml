@@ -117,12 +117,29 @@ jobs:
           git add ${{ env.PACKAGE_LOCATION }}/package.json ${{ env.ZAMBDAS_LOCATION }}/package.json package-lock.json
           git commit -m 'Version bump ${{steps.package-version.outputs.current-version}}'
 
-      - name: Push increased version if input dictates.
+      - name: Push to a new branch
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
-        uses: ad-m/github-push-action@master
+        run: |
+          BRANCH_NAME="version-bump-${{ github.run_id }}"
+          git checkout -b $BRANCH_NAME
+          git push origin $BRANCH_NAME
+
+      - name: Create Pull Request
+        if: ${{ github.event.inputs.incrementVersion == 'true' }}
+        uses: peter-evans/create-pull-request@v5
         with:
-          ssh: true
-          branch: ${{ github.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: version-bump-${{ github.run_id }}
+          base: ${{ github.ref }}
+          title: "Version Bump ${{ steps.package-version.outputs.current-version }}"
+          body: "This PR updates package versions automatically."
+
+      - name: Auto-merge PR
+        if: ${{ github.event.inputs.incrementVersion == 'true' }}
+        run: |
+          gh pr merge --auto --squash version-bump-${{ github.run_id }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install dependencies
         run: npm ci
