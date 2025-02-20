@@ -39,7 +39,6 @@ ENV=$environment npm run setup-deployed-resources $environment
 cd ../../../apps/ehr
 npm run build:env --env=$environment
 
-cd ../../scripts/deploy-test/gcp
-cd scripts/deploy-test/gcp
+cd ../../scripts/deploy/gcp
 terraform apply
 
