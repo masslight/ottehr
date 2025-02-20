@@ -8,3 +8,8 @@
 !apps/**/*.jsx
 !/vite.config.ts
 .esbuild/
+packages/**/.esbuild
+.github
+apps/**/env
+packages/**/scripts/
+old-ottehr/

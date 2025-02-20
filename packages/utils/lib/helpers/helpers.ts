@@ -1,12 +1,8 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
 import { Appointment, Extension, QuestionnaireResponse, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { Secrets } from '../secrets';
-import { getSecret } from '../secrets';
-import { SecretsKeys } from '../secrets';
 import { OTTEHR_MODULE } from '../fhir';
 import { UpdateQuestionnaireResponseParams } from '../types';
-import path from 'path';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -17,12 +13,6 @@ export function createOystehrClient(token: string, fhirAPI: string, projectAPI: 
   };
   console.log('creating fhir client');
   return new Oystehr(CLIENT_CONFIG);
-}
-
-export function createOystehrClientFromSecrets(token: string, secrets: Secrets | null): Oystehr {
-  const FHIR_API = getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, '');
-  const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
-  return createOystehrClient(token, FHIR_API, PROJECT_API);
 }
 
 export function getParticipantIdFromAppointment(
@@ -190,20 +180,52 @@ export function resourceHasMetaTag(resource: Resource, metaTag: OTTEHR_MODULE): 
   return Boolean(resource.meta?.tag?.find((coding) => coding.code === metaTag));
 }
 
+const formatPhoneNumberForQuestionarie = (phone: string): string => {
+  if (phone.length !== 10) {
+    throw new Error('Invalid phone number');
+  }
+  return `(${phone.slice(0, 3)}) ${phone.slice(3, 6)}-${phone.slice(6)}`;
+};
+
+export const objectToDateString = (dateObj: { year: string; month: string; day: string }): string => {
+  const { year, month, day } = dateObj;
+  return `${year}-${month}-${day}`;
+};
+
+export const isoToDateObject = (isoString: string): { year: string; month: string; day: string } | '' => {
+  if (!isoString) return '';
+
+  const date = new Date(isoString);
+
+  return {
+    day: date.getDate().toString().padStart(2, '0'),
+    month: (date.getMonth() + 1).toString().padStart(2, '0'),
+    year: date.getFullYear().toString(),
+  };
+};
+
 export function updateQuestionnaireResponse({
-  questionnaireResponseId,
+  questionnaire,
   patientId,
+  questionnaireResponseId,
   encounterId,
   status = 'in-progress',
-  firstName,
-  lastName,
-  birthDate,
+  firstName = 'TEST-FIRST-NAME',
+  lastName = 'TEST-LAST-NAME',
+  birthDate = {
+    day: '02',
+    month: '02',
+    year: '1990',
+  },
   consentJurisdiction = 'NY',
   willBe18 = false,
   isNewPatient = false,
   fillingOutAs = 'Parent/Guardian',
   guardianEmail = 'testemail@s0metestdomain123454321.com',
   guardianNumber = '(925) 622-4222',
+
+  email = 'test-email@test-domain-1237843298123.co',
+  phoneNumber = '(202) 733-9622',
   birthSex = 'Female',
   address = {
     street: '123 Main Street',
@@ -225,14 +247,15 @@ export function updateQuestionnaireResponse({
     birthDate: {
       day: '13',
       month: '05',
-      year: '2009',
+      year: '1900',
     },
     birthSex: 'Intersex',
   },
 }: UpdateQuestionnaireResponseParams): QuestionnaireResponse {
   return {
+    ...(questionnaire ? { questionnaire } : {}),
+    ...(questionnaireResponseId ? { id: questionnaireResponseId } : {}),
     resourceType: 'QuestionnaireResponse',
-    id: questionnaireResponseId,
     status,
     subject: {
       reference: `Patient/${patientId}`,
@@ -317,6 +340,51 @@ export function updateQuestionnaireResponse({
             linkId: 'mobile-opt-in',
             answer: [{ valueBoolean: mobileOptIn }],
           },
+          {
+            linkId: 'patient-email',
+            answer: [
+              {
+                valueString: email,
+              },
+            ],
+          },
+          {
+            linkId: 'patient-number',
+            answer: [
+              {
+                valueString: formatPhoneNumberForQuestionarie(phoneNumber),
+              },
+            ],
+          },
+        ],
+      },
+      {
+        linkId: 'additional-page',
+        item: [
+          {
+            linkId: 'covid-symptoms',
+            answer: [
+              {
+                valueString: 'No',
+              },
+            ],
+          },
+          {
+            linkId: 'tested-positive-covid',
+            answer: [
+              {
+                valueString: 'No',
+              },
+            ],
+          },
+          {
+            linkId: 'travel-usa',
+            answer: [
+              {
+                valueString: 'No',
+              },
+            ],
+          },
         ],
       },
       {
@@ -337,6 +405,22 @@ export function updateQuestionnaireResponse({
           {
             linkId: 'ovrp-interest',
             answer: [{ valueString: ovrpInterest }],
+          },
+          {
+            linkId: 'preferred-language',
+            answer: [
+              {
+                valueString: 'English',
+              },
+            ],
+          },
+          {
+            linkId: 'relay-phone',
+            answer: [
+              {
+                valueString: 'No',
+              },
+            ],
           },
         ],
       },
@@ -366,18 +450,9 @@ export function updateQuestionnaireResponse({
           },
           {
             linkId: 'responsible-party-date-of-birth',
-            item: [
+            answer: [
               {
-                linkId: 'responsible-party-dob-day',
-                answer: [{ valueString: responsibleParty.birthDate?.day }],
-              },
-              {
-                linkId: 'responsible-party-dob-month',
-                answer: [{ valueString: responsibleParty.birthDate?.month }],
-              },
-              {
-                linkId: 'responsible-party-dob-year',
-                answer: [{ valueString: responsibleParty.birthDate?.year }],
+                valueString: `${responsibleParty.birthDate?.year}-${responsibleParty.birthDate?.month}-${responsibleParty.birthDate?.day}`,
               },
             ],
           },
@@ -388,28 +463,98 @@ export function updateQuestionnaireResponse({
         ],
       },
       {
+        linkId: 'school-work-note-page',
+        item: [
+          {
+            linkId: 'school-work-note-choice',
+            answer: [
+              {
+                valueString: 'Neither',
+              },
+            ],
+          },
+          {
+            linkId: 'school-work-note-template-upload-group',
+          },
+        ],
+      },
+      {
         linkId: 'consent-forms-page',
         item: [
           {
             linkId: 'consent-jurisdiction',
             answer: [{ valueString: consentJurisdiction }],
           },
+          {
+            linkId: 'hipaa-acknowledgement',
+            answer: [
+              {
+                valueBoolean: true,
+              },
+            ],
+          },
+          {
+            linkId: 'consent-to-treat',
+            answer: [
+              {
+                valueBoolean: true,
+              },
+            ],
+          },
+          {
+            linkId: 'signature',
+            answer: [
+              {
+                valueString: 'asdf',
+              },
+            ],
+          },
+          {
+            linkId: 'full-name',
+            answer: [
+              {
+                valueString: `${firstName} ${lastName}`,
+              },
+            ],
+          },
+          {
+            linkId: 'consent-form-signer-relationship',
+            answer: [
+              {
+                valueString: 'Self',
+              },
+            ],
+          },
+        ],
+      },
+      {
+        linkId: 'invite-participant-page',
+        item: [
+          {
+            linkId: 'invite-from-another-device',
+            answer: [
+              {
+                valueString: 'No, only one device will be connected',
+              },
+            ],
+          },
+          {
+            linkId: 'invite-first',
+          },
+          {
+            linkId: 'invite-last',
+          },
+          {
+            linkId: 'invite-contact',
+          },
+          {
+            linkId: 'invite-email',
+          },
+          {
+            linkId: 'invite-phone',
+          },
         ],
       },
     ],
   };
 }
-export const performEffectWithEnvFile = async (
-  pkg: 'intake' | 'ehr',
-  callback: (config: any) => void
-): Promise<void> => {
-  const env = process.argv[2];
-  try {
-    const configPath = path.resolve(__dirname, `../../../${pkg}/zambdas/.env/${env}.json`);
-    const config = await import(configPath);
-    await callback(config);
-  } catch (e) {
-    console.error(e);
-    throw new Error(`can't import config for the environment: '${env}'`);
-  }
-};

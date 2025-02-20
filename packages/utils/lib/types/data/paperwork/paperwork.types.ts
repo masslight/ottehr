@@ -1,4 +1,10 @@
-import { FhirResource, QuestionnaireItem, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import {
+  FhirResource,
+  QuestionnaireItem,
+  QuestionnaireResponse,
+  QuestionnaireResponseItem,
+  QuestionnaireResponseItemAnswer,
+} from 'fhir/r4b';
 import { AvailableLocationInformation, FileURLs, PatientBaseInfo } from '../../common';
 import { PaperworkResponse } from '../paperwork.types';
 import { VisitType } from '../telemed';
@@ -15,25 +21,23 @@ export interface UpdatePaperworkResponse {
   message: string;
 }
 
-export interface QuestionnaireItemRequireWhen {
+export interface QuestionnaireItemConditionDefinition {
   question: string;
-  operator: '=' | '!=';
+  operator: '=' | '!=' | '>' | '<' | '>=' | '<=';
   answerString?: string;
   answerBoolean?: boolean;
+  answerDate?: string;
+  answerInteger?: number | string;
 }
-export interface QuestionnaireItemTextWhen {
+export interface ConditionKeyObject {
+  extension: string;
   question: string;
-  operator: '=' | '!=';
-  answerString?: string;
-  answerBoolean?: boolean;
-  substituteText: string;
+  operator: string;
+  answer: string;
 }
 
-export interface QuestionnaireItemFilterWhen {
-  question: string;
-  operator: '=' | '!=';
-  answerString?: string;
-  answerBoolean?: boolean;
+export interface QuestionnaireItemTextWhen extends QuestionnaireItemConditionDefinition {
+  substituteText: string;
 }
 
 const QuestionnaireDataTypes = [
@@ -90,18 +94,21 @@ export interface QuestionnaireItemExtension {
   categoryTag?: string;
   dataType?: QuestionnaireDataType;
   disabledDisplay?: 'hidden' | 'protected';
-  filterWhen?: QuestionnaireItemFilterWhen;
+  filterWhen?: QuestionnaireItemConditionDefinition;
   groupType?: QuestionnaireItemGroupType;
   infoText?: string;
   inputWidth?: InputWidthOption;
   minRows?: number;
   preferredElement?: FormElement;
-  requireWhen?: QuestionnaireItemRequireWhen;
+  requireWhen?: QuestionnaireItemConditionDefinition;
   secondaryInfoText?: string;
   textWhen?: QuestionnaireItemTextWhen;
   validateAgeOver?: number;
+  complexValidation?: {
+    type: string; // only 'insurance validation' is supported out of the box right now, but defining this as string to allow for easy customization for other use cases
+    triggerWhen?: QuestionnaireItemConditionDefinition;
+  };
 }
-
 export interface AppointmentSummary {
   id: string;
   start: string;
@@ -192,4 +199,27 @@ export interface SubmitPaperworkParameters {
 export interface PatchPaperworkParameters {
   answers: QuestionnaireResponseItem;
   questionnaireResponseId: string;
+}
+
+interface ComplexValidationBaseCase {
+  valueEntries: Record<string, QuestionnaireResponseItemAnswer[]>;
+}
+
+export interface ComplexValidationResultFailureCase extends ComplexValidationBaseCase {
+  type: 'failure';
+  title: string;
+  canProceed: boolean;
+  message: string;
+  attemptCureAction?: string;
+}
+export interface ComplexValidationResultSuccessCase extends ComplexValidationBaseCase {
+  type: 'success';
+}
+export type ComplexValidationResult = ComplexValidationResultFailureCase | ComplexValidationResultSuccessCase;
+
+export enum InsuranceEligibilityCheckStatus {
+  eligibilityConfirmed = 'eligibility-confirmed', // patient's insurance info was verified as eligible
+  eligibilityCheckNotSupported = 'eligibility-check-not-supported', // not done because not supported by payer
+  eligibilityNotChecked = 'eligibility-not-checked', // not done or some system failure occurred
+  eligibilityNotConfirmed = 'eligibility-not-confirmed', // eligibility check was done and the patient's insurance info was deemed not eligible
 }

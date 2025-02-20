@@ -1,53 +1,53 @@
-import { VideoResourcesAppointmentPackage } from './types';
+import { Appointment, Encounter, Patient, QuestionnaireResponse } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
+  AdditionalBooleanQuestionsFieldsNames,
+  ASQ_FIELD,
+  ASQKeys,
+  asqLabels,
+  convertBooleanToString,
   convertTemperature,
+  CPTCodeDTO,
+  CustomOptionObservationHistoryObtainedFromDTO,
+  dispositionCheckboxOptions,
   ExamCardsNames,
   ExamFieldsNames,
   ExamObservationDTO,
-  examObservationFieldsDetailsArray,
-  GetChartDataResponse,
-  getQuestionnaireResponseByLinkId,
-  mapDispositionTypeToLabel,
-  Secrets,
-  dispositionCheckboxOptions,
   ExamObservationFieldItem,
-  parseMusculoskeletalFieldToName,
-  rashesOptions,
-  CPTCodeDTO,
+  examObservationFieldsDetailsArray,
   formatDateTimeToEDT,
-  getSpentTime,
-  AdditionalBooleanQuestionsFieldsNames,
-  convertBooleanToString,
-  NOTHING_TO_EAT_OR_DRINK_FIELD,
+  GetChartDataResponse,
   getDefaultNote,
   getProviderNameWithProfession,
-  ObservationBooleanFieldDTO,
+  getQuestionnaireResponseByLinkId,
+  getSpentTime,
+  HISTORY_OBTAINED_FROM_FIELD,
+  HistorySourceKeys,
+  historySourceLabels,
+  IN_PERSON_EXAM_CARDS,
   InPersonExamCardsNames,
   InPersonExamFieldsNames,
-  IN_PERSON_EXAM_CARDS,
-  InPersonExamTabProviderCardNames,
   inPersonExamObservationFieldsDetailsArray,
-  OTTEHR_MODULE,
-  NOTE_TYPE,
-  SEEN_IN_LAST_THREE_YEARS_FIELD,
-  ObservationSeenInLastThreeYearsDTO,
-  HISTORY_OBTAINED_FROM_FIELD,
-  ObservationHistoryObtainedFromDTO,
-  ASQ_FIELD,
-  recentVisitLabels,
-  historySourceLabels,
-  HistorySourceKeys,
-  CustomOptionObservationHistoryObtainedFromDTO,
-  asqLabels,
-  ASQKeys,
+  InPersonExamTabProviderCardNames,
+  mapDispositionTypeToLabel,
+  mapEncounterStatusHistory,
   mapVitalsToDisplay,
+  NOTE_TYPE,
+  NOTHING_TO_EAT_OR_DRINK_FIELD,
+  ObservationBooleanFieldDTO,
+  ObservationHistoryObtainedFromDTO,
+  ObservationSeenInLastThreeYearsDTO,
+  OTTEHR_MODULE,
+  parseMusculoskeletalFieldToName,
+  rashesOptions,
+  recentVisitLabels,
+  SEEN_IN_LAST_THREE_YEARS_FIELD,
 } from 'utils';
-import { createVisitNotePDF } from '../visit-note-pdf';
-import { Appointment, Encounter, Patient, QuestionnaireResponse } from 'fhir/r4b';
-import { DateTime } from 'luxon';
-import { mapEncounterStatusHistory } from 'utils';
+import { Secrets } from 'zambda-utils';
 import { PdfInfo } from '../pdf-utils';
 import { InPersonExamBlockData, TelemedExamBlockData, VisitNoteData } from '../types';
+import { createVisitNotePDF } from '../visit-note-pdf';
+import { VideoResourcesAppointmentPackage } from './types';
 
 type AllChartData = { chartData: GetChartDataResponse; additionalChartData?: GetChartDataResponse };
 
@@ -180,7 +180,9 @@ function composeDataForPdf(
   const cptCodes = chartData?.cptCodes?.map((cpt) => `${cpt.code} ${cpt.display}`);
 
   // --- Prescriptions ---
-  const prescriptions = chartData?.prescribedMedications ? mapResourceByNameField(chartData.prescribedMedications) : [];
+  const prescriptions = additionalChartData?.prescribedMedications
+    ? mapResourceByNameField(additionalChartData.prescribedMedications)
+    : [];
 
   // --- Patient instructions ---
   const patientInstructions: string[] = [];

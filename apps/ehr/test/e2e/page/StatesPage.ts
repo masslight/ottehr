@@ -1,25 +1,13 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
+import { PageWithTablePagination } from './PageWithTablePagination';
 
-export class StatesPage {
+export class StatesPage extends PageWithTablePagination {
   #page: Page;
 
   constructor(page: Page) {
+    super(page);
     this.#page = page;
-  }
-
-  async clickNextPage(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.pagination.nextPage).click();
-  }
-
-  async clickPreviousPage(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.pagination.previousPage).click();
-  }
-
-  async verifyPaginationState(rows: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.pagination.paginationContainer).locator('p:text("' + rows + '")')
-    ).toBeVisible();
   }
 
   async verifyStatePresent(state: string): Promise<void> {
@@ -30,11 +18,6 @@ export class StatesPage {
     await expect(this.#page.getByTestId(dataTestIds.editState.stateNameField).locator('input')).toHaveValue(
       new RegExp(stateNameText + '.*')
     );
-  }
-
-  async selectRowsPerPage(rowsPerPage: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.pagination.paginationContainer).getByText('10', { exact: true }).click();
-    await this.#page.getByText(rowsPerPage).click();
   }
 
   async searchStates(text: string): Promise<void> {

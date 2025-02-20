@@ -16,44 +16,43 @@ import {
   Tooltip,
   Typography,
   capitalize,
-  useTheme,
   useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   InPersonAppointmentInformation,
   VisitStatusLabel,
   formatMinutes,
-  getVisitTotalTime,
   getDurationOfStatus,
+  getVisitTotalTime,
 } from 'utils';
 import { LANGUAGES } from '../constants';
+import { dataTestIds } from '../constants/data-test-ids';
 import { otherColors } from '../CustomThemeProvider';
-import { PriorityIconWithBorder } from './PriorityIconWithBorder';
 import ChatModal from '../features/chat/ChatModal';
+import { CSSButton } from '../features/css-module/components/CSSButton';
+import { usePractitionerActions } from '../features/css-module/hooks/usePractitioner';
 import { checkinPatient } from '../helpers';
 import { getTimezone } from '../helpers/formatDateTime';
+import { formatPatientName } from '../helpers/formatPatientName';
 import { getOfficePhoneNumber } from '../helpers/getOfficePhoneNumber';
+import { handleChangeInPersonVisitStatus } from '../helpers/inPersonVisitStatusUtils';
+import { practitionerType } from '../helpers/practitionerUtils';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
-import { ApptTab } from './AppointmentTabs';
-import { GenericToolTip, PaperworkToolTipContent } from './GenericToolTip';
-import ReasonsForVisit from './ReasonForVisit';
 import AppointmentNote from './AppointmentNote';
 import AppointmentTableRowMobile from './AppointmentTableRowMobile';
-import { CSSButton } from '../features/css-module/components/CSSButton';
-import { dataTestIds } from '../constants/data-test-ids';
+import { ApptTab } from './AppointmentTabs';
+import { GenericToolTip, PaperworkToolTipContent } from './GenericToolTip';
 import { IntakeCheckmark } from './IntakeCheckmark';
 import { PatientDateOfBirth } from './PatientDateOfBirth';
-import { formatPatientName } from '../helpers/formatPatientName';
-import { usePractitionerActions } from '../features/css-module/hooks/usePractitioner';
-import { practitionerType } from '../helpers/practitionerUtils';
-import { enqueueSnackbar } from 'notistack';
-import { useAppointment } from '../features/css-module/hooks/useAppointment';
-import { handleChangeInPersonVisitStatus } from '../helpers/inPersonVisitStatusUtils';
+import { PriorityIconWithBorder } from './PriorityIconWithBorder';
+import ReasonsForVisit from './ReasonForVisit';
 
 interface AppointmentTableProps {
   appointment: InPersonAppointmentInformation;
@@ -230,9 +229,8 @@ export default function AppointmentTableRow({
 }: AppointmentTableProps): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
   const theme = useTheme();
-  const { telemedData } = useAppointment(appointment.id);
-  const { encounter } = telemedData;
   const navigate = useNavigate();
+  const { encounter } = appointment;
   const [statusTime, setStatusTime] = useState<string>('');
   const [arrivedStatusSaving, setArrivedStatusSaving] = useState<boolean>(false);
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
@@ -260,8 +258,8 @@ export default function AppointmentTableRow({
     (appointment.patient.lastName &&
       appointment.patient.firstName &&
       formatPatientName({
-        firstName: appointment.patient.lastName,
-        lastName: appointment.patient.firstName,
+        firstName: appointment.patient.firstName,
+        lastName: appointment.patient.lastName,
         middleName: appointment.patient.middleName,
       })) ||
     'Unknown';

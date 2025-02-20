@@ -1,4 +1,4 @@
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';

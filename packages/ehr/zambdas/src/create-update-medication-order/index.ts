@@ -18,8 +18,8 @@ import {
   searchRouteByCode,
   UpdateMedicationOrderInput,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
-import { ZambdaInput } from '../types';
 import { createMedicationAdministrationResource, createMedicationStatementResource } from './fhir-recources-creation';
 import {
   createMedicationCopy,

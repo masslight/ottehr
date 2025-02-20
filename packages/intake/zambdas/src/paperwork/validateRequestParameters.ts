@@ -2,11 +2,11 @@ import { QuestionnaireResponseItem, QuestionnaireResponse } from 'fhir/r4b';
 import {
   PatchPaperworkParameters,
   QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
-  ZambdaInput,
   getQuestionnaireItemsAndProgress,
   makeValidationSchema,
   recursiveGroupTransform,
 } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 import Oystehr from '@oystehr/sdk';
 import { ValidationError } from 'yup';
 
@@ -129,9 +129,8 @@ const complexSubmitValidation = async (
     return true;
   });
 
-  // console.log('submitted answers', JSON.stringify(submittedAnswers));
-
   const updatedAnswers: QuestionnaireResponseItem[] = currentAnswers ? [...currentAnswers] : [];
+
   submittedAnswers.forEach((sa) => {
     const idx = currentAnswers.findIndex((ua) => {
       return sa.linkId === ua.linkId && sa.answer !== undefined;
@@ -240,12 +239,8 @@ const complexPatchValidation = async (
   const currentAnswersForPage = fullQRResource.item?.find((i) => i.linkId === itemToPatch.linkId)?.item;
   const currentAnswersToKeep = (currentAnswersForPage ?? []).filter((ans) => readOnlyItems.has(ans.linkId));
   console.log('current answers to keep', JSON.stringify(currentAnswersToKeep));
-
-  // console.log('current answers', JSON.stringify(currentAnswers));
-
   const submittedAnswers = recursiveGroupTransform(itemsForThisPage, itemToPatch.item);
 
-  // console.log('submitted answers', JSON.stringify(submittedAnswers));
   const updatedAnswerIndex: number = items.findIndex((item) => {
     return item.linkId === itemToPatch.linkId;
   });

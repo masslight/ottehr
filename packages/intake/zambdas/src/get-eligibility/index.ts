@@ -6,7 +6,6 @@ import {
   Coverage,
   CoverageClass,
   CoverageEligibilityRequest,
-  CoverageEligibilityResponse,
   InsurancePlan,
   Organization,
   Patient,
@@ -20,30 +19,30 @@ import {
   ELIGIBILITY_FAILED_REASON_META_TAG,
   ELIGIBILITY_PRACTITIONER_META_TAG_PREFIX,
   ELIGIBILITY_RELATED_PERSON_META_TAG,
-  GetEligibilityInput,
   GetEligibilityInsuranceData,
   GetEligibilityPolicyHolder,
   INSURANCE_COVERAGE_CODING,
+  InsuranceEligibilityCheckStatus,
   InsurancePlanDTO,
   PRIVATE_EXTENSION_BASE_URL,
-  SecretsKeys,
-  ZambdaInput,
   createOystehrClient,
-  getSecret,
-  lambdaResponse,
   removeTimeFromDate,
 } from 'utils';
-import { createInsurancePlanDto, createOrUpdateRelatedPerson, getM2MClientToken } from '../shared';
+import { SecretsKeys, ZambdaInput, getSecret, lambdaResponse, topLevelCatch } from 'zambda-utils';
+import { createInsurancePlanDto, createOrUpdateRelatedPerson, getAuth0Token } from '../shared';
+import { parseEligibilityCheckResponse } from './helpers';
+import { prevalidationHandler } from './prevalidation-handler';
 import { validateInsuranceRequirements, validateRequestParameters } from './validation';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  let eligible = false;
+  let primary: InsuranceEligibilityCheckStatus;
+  let secondary: InsuranceEligibilityCheckStatus | undefined;
   try {
     console.group('validateRequestParameters');
-    let validatedParameters: GetEligibilityInput;
+    let validatedParameters: ReturnType<typeof validateRequestParameters>;
     try {
       validatedParameters = validateRequestParameters(input);
     } catch (error: any) {
@@ -58,6 +57,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       secrets,
       secondaryInsuranceData,
       secondaryPolicyHolder,
+      coveragePrevalidationInput,
     } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
@@ -65,12 +65,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!zapehrToken) {
       console.log('getting token');
-      zapehrToken = await getM2MClientToken(secrets);
+      zapehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
 
     console.group('createOystehrClient');
+    const apiUrl = getSecret(SecretsKeys.PROJECT_API, secrets);
     const oystehr = createOystehrClient(
       zapehrToken,
       getSecret(SecretsKeys.FHIR_API, secrets),
@@ -79,126 +80,137 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.groupEnd();
     console.debug('createOystehrClient success');
 
-    console.group('getFhirResources');
-    const fhirResources = await getFhirResources(
-      appointmentId,
-      oystehr,
-      primaryInsuranceData,
-      patientId,
-      secondaryInsuranceData
-    );
-    console.groupEnd();
-    console.debug('getFhirResources success');
-    console.log('fhirResources', JSON.stringify(fhirResources));
-    const {
-      appointment,
-      billingProviderGroup,
-      billingProviderIndividual,
-      patient,
-      coverages,
-      // Primary insurance resources
-      primaryInsurancePlan,
-      primaryPayor,
-      primaryRelatedPerson,
-      // Secondary insurance resources
-      secondaryInsurancePlan,
-      secondaryPayor,
-      secondaryRelatedPerson,
-    } = fhirResources;
+    if (coveragePrevalidationInput) {
+      console.log('prevalidation path...');
+      const result = await prevalidationHandler(
+        { ...validatedParameters, coveragePrevalidationInput, apiUrl, accessToken: zapehrToken, secrets: secrets },
+        oystehr
+      );
+      console.log('prevalidation primary', result.primary);
+      console.log('prevalidation secondary', result.primary);
+      primary = result.primary;
+      secondary = result.secondary;
+    } else {
+      console.group('getFhirResources');
+      const fhirResources = await getFhirResources(
+        appointmentId,
+        oystehr,
+        primaryInsuranceData,
+        patientId,
+        secondaryInsuranceData
+      );
+      console.groupEnd();
+      console.debug('getFhirResources success');
+      console.log('fhirResources', JSON.stringify(fhirResources));
+      const {
+        appointment,
+        billingProviderGroup,
+        billingProviderIndividual,
+        patient,
+        coverages,
+        // Primary insurance resources
+        primaryInsurancePlan,
+        primaryPayor,
+        primaryRelatedPerson,
+        // Secondary insurance resources
+        secondaryInsurancePlan,
+        secondaryPayor,
+        secondaryRelatedPerson,
+      } = fhirResources;
 
-    console.group('validateInsuranceRequirements');
-    const primaryInsurancePlanRequirements = createInsurancePlanDto(primaryInsurancePlan);
-    try {
-      validateInsuranceRequirements({
-        insurancePlanDto: primaryInsurancePlanRequirements,
-        insuranceData: primaryInsuranceData,
-        policyHolder: primaryPolicyHolder,
-        primary: true,
-      });
-    } catch (error: any) {
-      console.error(error);
-      return lambdaResponse(400, { message: error.message });
-    }
-    console.groupEnd();
-    console.debug('validateInsuranceRequirements success');
-
-    const areSecondaryInsuranceDetailsProvided =
-      secondaryInsuranceData && secondaryInsurancePlan && secondaryPolicyHolder && secondaryPayor;
-
-    let secondaryInsurancePlanRequirements: InsurancePlanDTO | undefined;
-    if (areSecondaryInsuranceDetailsProvided) {
-      console.group('validateInsuranceRequirements secondary');
-      secondaryInsurancePlanRequirements = createInsurancePlanDto(secondaryInsurancePlan);
+      console.group('validateInsuranceRequirements');
+      const primaryInsurancePlanRequirements = createInsurancePlanDto(primaryInsurancePlan);
       try {
         validateInsuranceRequirements({
-          insurancePlanDto: secondaryInsurancePlanRequirements,
-          insuranceData: secondaryInsuranceData,
-          policyHolder: secondaryPolicyHolder,
-          primary: false,
+          insurancePlanDto: primaryInsurancePlanRequirements,
+          insuranceData: primaryInsuranceData,
+          policyHolder: primaryPolicyHolder,
+          primary: true,
         });
       } catch (error: any) {
         console.error(error);
         return lambdaResponse(400, { message: error.message });
       }
       console.groupEnd();
-      console.debug('validateInsuranceRequirements secondary success');
-    }
+      console.debug('validateInsuranceRequirements success');
 
-    console.group('createRelatedPersonCoverageAndEligibilityRequest');
-    const coverageEligibilityRequest = await createRelatedPersonCoverageAndEligibilityRequest({
-      billingProviderGroup,
-      billingProviderIndividual,
-      coverages,
-      oystehr,
-      insurancePlan: primaryInsurancePlan,
-      insuranceData: primaryInsuranceData,
-      patientId,
-      patient,
-      payor: primaryPayor,
-      policyHolder: primaryPolicyHolder,
-      relatedPerson: primaryRelatedPerson,
-      primary: true,
-    });
-    console.groupEnd();
-    console.debug('createRelatedPersonCoverageAndEligibilityRequest success');
+      const areSecondaryInsuranceDetailsProvided =
+        secondaryInsuranceData && secondaryInsurancePlan && secondaryPolicyHolder && secondaryPayor;
 
-    let secondaryCoverageEligibilityRequest: CoverageEligibilityRequest | undefined;
-    if (areSecondaryInsuranceDetailsProvided) {
-      console.log('Secondary insurance details are provided.');
+      let secondaryInsurancePlanRequirements: InsurancePlanDTO | undefined;
+      if (areSecondaryInsuranceDetailsProvided) {
+        console.group('validateInsuranceRequirements secondary');
+        secondaryInsurancePlanRequirements = createInsurancePlanDto(secondaryInsurancePlan);
+        try {
+          validateInsuranceRequirements({
+            insurancePlanDto: secondaryInsurancePlanRequirements,
+            insuranceData: secondaryInsuranceData,
+            policyHolder: secondaryPolicyHolder,
+            primary: false,
+          });
+        } catch (error: any) {
+          console.error(error);
+          return lambdaResponse(400, { message: error.message });
+        }
+        console.groupEnd();
+        console.debug('validateInsuranceRequirements secondary success');
+      }
 
-      console.group('createRelatedPersonCoverageAndEligibilityRequest secondary');
-      secondaryCoverageEligibilityRequest = await createRelatedPersonCoverageAndEligibilityRequest({
+      console.group('createRelatedPersonCoverageAndEligibilityRequest');
+      const coverageEligibilityRequest = await createRelatedPersonCoverageAndEligibilityRequest({
         billingProviderGroup,
         billingProviderIndividual,
         coverages,
         oystehr,
-        insurancePlan: secondaryInsurancePlan,
-        insuranceData: secondaryInsuranceData,
+        insurancePlan: primaryInsurancePlan,
+        insuranceData: primaryInsuranceData,
         patientId,
         patient,
-        payor: secondaryPayor,
-        policyHolder: secondaryPolicyHolder,
-        relatedPerson: secondaryRelatedPerson,
-        primary: false,
+        payor: primaryPayor,
+        policyHolder: primaryPolicyHolder,
+        relatedPerson: primaryRelatedPerson,
+        primary: true,
       });
       console.groupEnd();
-      console.debug('createRelatedPersonCoverageAndEligibilityRequest secondary success');
-    }
+      console.debug('createRelatedPersonCoverageAndEligibilityRequest success');
 
-    if (!primaryInsurancePlanRequirements.enabledEligibilityCheck) {
-      console.log('Eligibility checking disabled for this insurance.');
-      // Bypass insurance will end up here too so it doesn't need a special case or tag.
-      await tagAppointmentWithEligibilityFailureReason({
-        appointment,
-        appointmentId,
-        oystehr,
-        reason: ELIGIBILITY_FAILED_REASONS.eligibilityCheckDisabled,
-      });
-      eligible = true;
-    } else {
-      const projectApiURL = getSecret(SecretsKeys.PROJECT_API, secrets);
-      // TODO replace with SDK calls when out of public beta https://docs.oystehr.com/services/rcm/eligibility/
-      /*
+      let secondaryCoverageEligibilityRequest: CoverageEligibilityRequest | undefined;
+      if (areSecondaryInsuranceDetailsProvided) {
+        console.log('Secondary insurance details are provided.');
+
+        console.group('createRelatedPersonCoverageAndEligibilityRequest secondary');
+        secondaryCoverageEligibilityRequest = await createRelatedPersonCoverageAndEligibilityRequest({
+          billingProviderGroup,
+          billingProviderIndividual,
+          coverages,
+          oystehr,
+          insurancePlan: secondaryInsurancePlan,
+          insuranceData: secondaryInsuranceData,
+          patientId,
+          patient,
+          payor: secondaryPayor,
+          policyHolder: secondaryPolicyHolder,
+          relatedPerson: secondaryRelatedPerson,
+          primary: false,
+        });
+        console.groupEnd();
+        console.debug('createRelatedPersonCoverageAndEligibilityRequest secondary success');
+      }
+
+      if (!primaryInsurancePlanRequirements.enabledEligibilityCheck) {
+        console.log('Eligibility checking disabled for this insurance.');
+        // Bypass insurance will end up here too so it doesn't need a special case or tag.
+        await tagAppointmentWithEligibilityFailureReason({
+          appointment,
+          appointmentId,
+          oystehr,
+          reason: ELIGIBILITY_FAILED_REASONS.eligibilityCheckDisabled,
+        });
+        primary = InsuranceEligibilityCheckStatus.eligibilityCheckNotSupported;
+      } else {
+        const projectApiURL = getSecret(SecretsKeys.PROJECT_API, secrets);
+        // TODO replace with SDK calls when out of public beta https://docs.oystehr.com/services/rcm/eligibility/
+        /*
         console.group('createAppClient');
         const appClient = createAppClient(zapehrToken, projectApiURL);
         console.groupEnd();
@@ -207,96 +219,76 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         Replace `createEligibilityCheckPromise` with appClient.rcm.eligibilityCheck(...)
       */
 
-      const eligibilityCheckRequest = performEligibilityCheck(coverageEligibilityRequest.id, projectApiURL);
-      const eligibilityCheckRequestPromises = [eligibilityCheckRequest];
-      if (secondaryCoverageEligibilityRequest && secondaryInsurancePlanRequirements?.enabledEligibilityCheck) {
-        eligibilityCheckRequestPromises.push(
-          performEligibilityCheck(secondaryCoverageEligibilityRequest.id, projectApiURL)
+        const eligibilityCheckRequest = performEligibilityCheck(coverageEligibilityRequest.id, projectApiURL);
+        const eligibilityCheckRequestPromises = [eligibilityCheckRequest];
+        if (secondaryCoverageEligibilityRequest && secondaryInsurancePlanRequirements?.enabledEligibilityCheck) {
+          eligibilityCheckRequestPromises.push(
+            performEligibilityCheck(secondaryCoverageEligibilityRequest.id, projectApiURL)
+          );
+        }
+
+        // secondaryEligibilityCheckResponse might be undefined but TS doesn't seem to know that.
+        const [primaryEligibilityCheckResponse, secondaryEligibilityCheckResponse] = await Promise.allSettled(
+          eligibilityCheckRequestPromises
         );
-      }
 
-      // secondaryEligibilityCheckResponse might be undefined but TS doesn't seem to know that.
-      const [primaryEligibilityCheckResponse, secondaryEligibilityCheckResponse] = await Promise.allSettled(
-        eligibilityCheckRequestPromises
-      );
-
-      // If the primary insurance fails, return the error and don't continue.
-      if (primaryEligibilityCheckResponse.status === 'rejected') {
-        await tagAppointmentWithEligibilityFailureReason({
-          appointment,
-          appointmentId,
-          oystehr,
-          reason: ELIGIBILITY_FAILED_REASONS.apiFailure,
-        });
-        throw new Error(primaryEligibilityCheckResponse.reason);
-      } else if (!primaryEligibilityCheckResponse.value.ok) {
-        await tagAppointmentWithEligibilityFailureReason({
-          appointment,
-          appointmentId,
-          oystehr,
-          reason: ELIGIBILITY_FAILED_REASONS.apiFailure,
-        });
-        throw new Error(
-          `Eligibility endpoint returned a status that was not ok for primary insurance. Value: ${JSON.stringify(
-            await primaryEligibilityCheckResponse.value.json()
-          )}`
-        );
-      }
-
-      console.group('checkEligibility');
-      // Enable QA to test failed eligibility response
-      if (primaryPayor.name === 'VA UHC UMR' && secrets?.ENVIRONMENT !== 'production') {
-        console.log('Bypassing eligibility check in lowers. Returning false.');
-        eligible = false;
-      } else {
-        eligible = await checkEligibility({
-          eligibilityCheckResponse: primaryEligibilityCheckResponse,
-          tagProps: {
+        // If the primary insurance fails, return the error and don't continue.
+        if (primaryEligibilityCheckResponse.status === 'rejected') {
+          await tagAppointmentWithEligibilityFailureReason({
             appointment,
             appointmentId,
             oystehr,
-          },
-          primary: true,
-        });
-      }
-      console.groupEnd();
-      console.debug('checkEligibility success');
-
-      if (secondaryEligibilityCheckResponse) {
-        if (secondaryEligibilityCheckResponse.status === 'rejected') {
-          console.log('Secondary insurance eligibility check threw an error', secondaryEligibilityCheckResponse.reason);
-        } else if (!secondaryEligibilityCheckResponse.value.ok) {
-          console.log(
-            `Eligibility endpoint returned a status that was not ok for secondary insurance. Value: ${JSON.stringify(
-              secondaryEligibilityCheckResponse.value
+            reason: ELIGIBILITY_FAILED_REASONS.apiFailure,
+          });
+          throw new Error(primaryEligibilityCheckResponse.reason);
+        } else if (!primaryEligibilityCheckResponse.value.ok) {
+          await tagAppointmentWithEligibilityFailureReason({
+            appointment,
+            appointmentId,
+            oystehr,
+            reason: ELIGIBILITY_FAILED_REASONS.apiFailure,
+          });
+          throw new Error(
+            `Eligibility endpoint returned a status that was not ok for primary insurance. Value: ${JSON.stringify(
+              await primaryEligibilityCheckResponse.value.json()
             )}`
           );
+        }
+
+        console.group('checkEligibility');
+        // Enable QA to test failed eligibility response
+        if (primaryPayor.name === 'VA UHC UMR' && secrets?.ENVIRONMENT !== 'production') {
+          console.log('Bypassing eligibility check in lowers. Returning false.');
+          primary = InsuranceEligibilityCheckStatus.eligibilityNotConfirmed;
         } else {
-          // We don't do anything with the response but log it for our records
-          console.group('checkEligibility secondary');
-          try {
-            await checkEligibility({
-              eligibilityCheckResponse: secondaryEligibilityCheckResponse,
-              tagProps: {
-                appointment,
-                appointmentId,
-                oystehr,
-              },
-              primary: false,
-            });
-          } catch (error) {
-            // Don't block flow if secondary eligibility throws for any reason. Do nothing.
-          }
-          console.groupEnd();
-          console.debug('checkEligibility secondary success');
+          primary = await checkEligibility({
+            eligibilityCheckResponse: primaryEligibilityCheckResponse,
+            tagProps: {
+              appointment,
+              appointmentId,
+              oystehr,
+            },
+          });
+        }
+        console.groupEnd();
+        console.debug('checkEligibility success');
+
+        if (secondaryEligibilityCheckResponse) {
+          secondary = await checkEligibility({
+            eligibilityCheckResponse: secondaryEligibilityCheckResponse,
+            tagProps: {
+              appointment,
+              appointmentId,
+              oystehr,
+            },
+          });
         }
       }
     }
-
-    return lambdaResponse(200, { eligible });
+    return lambdaResponse(200, { primary, secondary });
   } catch (error: any) {
     console.error(error, error.issue);
-    return lambdaResponse(500, { message: 'Internal error' });
+    return topLevelCatch('get-eligibility', error, input.secrets);
   }
 };
 
@@ -802,6 +794,7 @@ interface CreateCoverageEligibilityRequestParameters {
   payorId: string;
   providerId: string;
 }
+
 const createCoverageEligibilityRequest = async ({
   coverageId,
   oystehr,
@@ -868,52 +861,30 @@ const performEligibilityCheck = (
 const checkEligibility = async ({
   eligibilityCheckResponse,
   tagProps,
-  primary,
 }: {
-  eligibilityCheckResponse: PromiseFulfilledResult<Response>;
+  eligibilityCheckResponse: PromiseFulfilledResult<Response> | PromiseSettledResult<Response>;
   tagProps: Omit<TagAppointmentWithEligibilityFailureReasonParameters, 'reason'>;
-  primary: boolean;
-}): Promise<boolean> => {
-  try {
-    const coverageResponse = (await eligibilityCheckResponse.value.json()) as CoverageEligibilityResponse;
-    console.log(`coverageResponse${!primary ? ' secondary' : ''}`, JSON.stringify(coverageResponse));
-
-    if (coverageResponse.error) {
-      const errors = coverageResponse.error.map((error) => ({
-        code: error.code.coding?.[0].code,
-        text: error.code.text,
-      }));
-      console.log('errors', JSON.stringify(errors));
-      const errorCodes = errors.map((error) => error.code);
-      const errorMessages = errors.map((error) => error.text);
-      if (errorCodes.includes('410')) {
-        // "Payer ID [<ID>] does not support real-time eligibility."
-        console.log('Payer does not support real-time eligibility. Bypassing.');
-        await tagAppointmentWithEligibilityFailureReason({
-          ...tagProps,
-          reason: ELIGIBILITY_FAILED_REASONS.realTimeEligibilityUnsupported,
-        });
-        return true;
-      }
-      console.log(errorMessages.join(', '));
-      return false;
-    }
-
-    const eligible = coverageResponse.insurance?.[0].item?.some((item) => {
-      const code = item.category?.coding?.[0].code;
-      const isActive = item.benefit?.filter((benefit) => benefit.type.text === 'Active Coverage').length !== 0;
-      return isActive && code && ELIGIBILITY_BENEFIT_CODES.includes(code);
+}): Promise<InsuranceEligibilityCheckStatus> => {
+  const res = await parseEligibilityCheckResponse(eligibilityCheckResponse);
+  if (res === InsuranceEligibilityCheckStatus.eligibilityConfirmed) {
+    return res;
+  }
+  if (res === InsuranceEligibilityCheckStatus.eligibilityCheckNotSupported) {
+    console.log('Payer does not support real-time eligibility. Bypassing.');
+    await tagAppointmentWithEligibilityFailureReason({
+      ...tagProps,
+      reason: ELIGIBILITY_FAILED_REASONS.realTimeEligibilityUnsupported,
     });
-    console.log('eligible', eligible);
-    return eligible || false;
-  } catch (error: any) {
+    return res;
+  }
+  if (res === InsuranceEligibilityCheckStatus.eligibilityNotChecked) {
     await tagAppointmentWithEligibilityFailureReason({
       ...tagProps,
       reason: ELIGIBILITY_FAILED_REASONS.apiFailure,
     });
-    console.error('API response included an error', error);
-    throw new Error(error);
   }
+
+  return res;
 };
 
 interface TagAppointmentWithEligibilityFailureReasonParameters {
@@ -922,6 +893,8 @@ interface TagAppointmentWithEligibilityFailureReasonParameters {
   oystehr: Oystehr;
   reason: string;
 }
+// todo: not sure putting a meta tag on the appointment is the best thing to do here. probably better
+// to return information about the outcome and let the handler decide what to do with that information
 const tagAppointmentWithEligibilityFailureReason = async ({
   appointment,
   appointmentId,

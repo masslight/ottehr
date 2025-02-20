@@ -1,10 +1,11 @@
-import { ZambdaInput } from '../types';
-import { topLevelCatch } from '../shared/errors';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
-import { createEncounterResource, updateEncounterResource, makeEncounterDTO } from './helpers';
-import { PatientFollowupDetails, Secrets, FOLLOWUP_TYPES } from 'utils';
 import { Encounter } from 'fhir/r4b';
+import { FOLLOWUP_TYPES, PatientFollowupDetails } from 'utils';
+import { Secrets } from 'zambda-utils';
+import { topLevelCatch } from '../shared/errors';
+import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
+import { ZambdaInput } from 'zambda-utils';
+import { createEncounterResource, makeEncounterDTO, updateEncounterResource } from './helpers';
 
 export function validateRequestParameters(input: ZambdaInput): {
   secrets: Secrets | null;

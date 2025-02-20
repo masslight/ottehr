@@ -1,14 +1,10 @@
-import { ZambdaInput } from '../types';
 import { UpdateMedicationOrderInput } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 
 export function validateRequestParameters(
   input: ZambdaInput
 ): UpdateMedicationOrderInput & Pick<ZambdaInput, 'secrets'> {
   console.group('validateRequestParameters');
-
-  // if (getSecret(SecretsKeys.PROJECT_API, input.secrets) === undefined) {
-  //   throw new Error('"PROJECT_API" configuration not provided');
-  // }
 
   if (!input.body) {
     throw new Error('No request body provided');

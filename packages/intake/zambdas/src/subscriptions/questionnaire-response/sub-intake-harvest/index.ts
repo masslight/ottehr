@@ -14,30 +14,22 @@ import {
   QuestionnaireResponseItem,
   RelatedPerson,
 } from 'fhir/r4b';
-import {
-  flattenIntakeQuestionnaireItems,
-  getRelatedPersonForPatient,
-  getSecret,
-  IntakeQuestionnaireItem,
-  SecretsKeys,
-  topLevelCatch,
-  triggerSlackAlarm,
-  ZambdaInput,
-} from 'utils';
+import { flattenIntakeQuestionnaireItems, getRelatedPersonForPatient, IntakeQuestionnaireItem } from 'utils';
+import { getSecret, SecretsKeys, topLevelCatch, triggerSlackAlarm, ZambdaInput } from 'zambda-utils';
 import '../../../../instrument.mjs';
-import { captureSentryException, configSentry, getAccessToken } from '../../../shared';
+import { captureSentryException, configSentry, getAuth0Token } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';
 import {
   createConflictResolutionTask,
   createConsentResources,
   createDocumentResources,
+  createErxContactOperation,
+  createInsuranceResources,
   createMasterRecordPatchOperations,
   flagPaperworkEdit,
   hasConflictingUpdates,
   PatientMasterRecordResources,
-  createInsuranceResources,
   searchInsuranceInformation,
-  createErxContactOperation,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -57,7 +49,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     if (!zapehrToken) {
       console.log('getting token');
-      zapehrToken = await getAccessToken(secrets);
+      zapehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
@@ -146,9 +138,10 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       relatedPersons: relatedPersonResources,
     };
     console.log('Patient Master Record resources: ', JSON.stringify(patientMasterRecordResources, null, 2));
+    console.log('Insurance information resources: ', JSON.stringify(insuranceInformationResources, null, 2));
 
     console.log('creating patch operations');
-    const patientPatchOps = createMasterRecordPatchOperations(qr, patientMasterRecordResources);
+    const patientPatchOps = createMasterRecordPatchOperations(qr, patientMasterRecordResources, insurancePlanResources);
 
     console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
 

@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { UnassignPractitionerInput, UnassignPractitionerResponse } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
 import { getMyPractitionerId } from '../shared/practitioners';
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 import { unassignParticipantIfPossible } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 import { getVisitResources } from '../shared/practitioner/helpers';

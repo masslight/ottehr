@@ -7,6 +7,7 @@ import { ProceduresNoteField, ProceduresNoteFieldSkeleton } from './ProceduresNo
 import { ActionsList } from '../../../../components';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
 import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const SurgicalHistoryProviderColumn: FC = () => {
   const { isChartDataLoading, chartData } = getSelectors(useAppointmentStore, ['isChartDataLoading', 'chartData']);
@@ -18,7 +19,10 @@ export const SurgicalHistoryProviderColumn: FC = () => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+      data-testid={dataTestIds.telemedEhrFlow.hpiSurgicalHistoryColumn}
+    >
       {isReadOnly ? (
         <ActionsList
           data={procedures}

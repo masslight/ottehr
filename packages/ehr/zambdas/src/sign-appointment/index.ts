@@ -12,12 +12,14 @@ import {
   visitStatusToFhirEncounterStatusMap,
   getCriticalUpdateTagOp,
   progressNoteChartDataRequestedFields,
+  OTTEHR_MODULE,
+  telemedProgressNoteChartDataRequestedFields,
 } from 'utils';
 
 import { validateRequestParameters } from './validateRequestParameters';
 import { getChartData } from '../get-chart-data';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 import { VideoResourcesAppointmentPackage } from '../shared/pdf/visit-details-pdf/types';
 import { getVideoResources } from '../shared/pdf/visit-details-pdf/get-video-resources';
 import { composeAndCreateVisitNotePdf } from '../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
@@ -83,11 +85,13 @@ export const performEffect = async (
   }
   console.debug(`Status has been changed.`);
 
+  const isInPersonAppointment = !!visitResources.appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
+
   const chartDataPromise = getChartData(oystehr, visitResources.encounter.id!);
   const additionalChartDataPromise = getChartData(
     oystehr,
     visitResources.encounter.id!,
-    progressNoteChartDataRequestedFields
+    isInPersonAppointment ? progressNoteChartDataRequestedFields : telemedProgressNoteChartDataRequestedFields
   );
 
   const [chartData, additionalChartData] = (await Promise.all([chartDataPromise, additionalChartDataPromise])).map(
