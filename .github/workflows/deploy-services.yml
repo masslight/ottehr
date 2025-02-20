@@ -117,11 +117,9 @@ jobs:
       
       - name: Create Pull Request to the base branch
         uses: peter-evans/create-pull-request@v5
-        id: pr
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
           branch: version-bump-${{ github.run_id }}
-          base: ${{ github.ref }}  # Dynamically target the branch where the workflow was triggered
+          commit-message: Bump version to ${{ steps.package-version.outputs.current-version }}
           title: "Version Bump ${{ steps.package-version.outputs.current-version }}"
           body: "This PR updates package versions automatically."
       
