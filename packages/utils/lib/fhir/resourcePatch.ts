@@ -271,7 +271,7 @@ export function createPatchOperationForTelecom(
         ...(contactTelecomConfig.rank ? { rank: contactTelecomConfig.rank } : {}),
       };
 
-      if (!existingArray) {
+      if (!existingArray && !path.startsWith('/telecom/')) {
         // Create new array with item
         return {
           op: 'add',
