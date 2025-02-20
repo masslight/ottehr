@@ -51,16 +51,6 @@ jobs:
             "${{ steps.get-token.outputs.access_token }}" \
             "${{ env.TEST_EMAIL }}"
 
-      - name: Run the cleanup script
-        run: |
-          chmod +x scripts/ottehr-cleanup.sh
-          ./scripts/ottehr-cleanup.sh \
-            "${{ env.PROJECT_ID }}" \
-            "${{ steps.get-token.outputs.access_token }}"
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -187,3 +177,10 @@ jobs:
         with:
           path: apps/intake/playwright/user.json
           key: user-json-cache
+
+      - name: Run the cleanup script
+        run: |
+          chmod +x scripts/ottehr-cleanup.sh
+          ./scripts/ottehr-cleanup.sh \
+            "${{ env.PROJECT_ID }}" \
+            "${{ steps.get-token.outputs.access_token }}"
