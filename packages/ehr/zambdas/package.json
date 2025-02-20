@@ -1,6 +1,6 @@
 {
   "name": "ehr-zambdas",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "scripts": {
     "start": "export HOME=./ && env-cmd -f ./.env/${ENV:-local}.json sls offline --stage ${ENV:-local}",
@@ -28,7 +28,7 @@
     "stub-zambdas:prod": "tsx scripts/create-zambda-stubs.ts production",
     "setup-questionnaires": "tsx scripts/setup-questionnaires.ts",
     "setup-billing-providers": "tsx scripts/setup-billing-providers.ts",
-    "setup-deployed-resources": "tsx scripts/setup-questionnaires.ts ${ENV} && tsx scripts/setup-billing-providers.ts ${ENV}", 
+    "setup-deployed-resources": "tsx scripts/setup-questionnaires.ts ${ENV} && tsx scripts/setup-billing-providers.ts ${ENV}",
     "test": "vitest --silent"
   },
   "engines": {
