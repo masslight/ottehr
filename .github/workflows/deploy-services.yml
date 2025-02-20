@@ -100,23 +100,26 @@ jobs:
       - name: Increase version if input dictates.
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
         run: |
-          cd ${{ github.workspace }}/${{ env.PACKAGE_LOCATION }} && npm version ${{ github.event.inputs.versionType }}
-          cd ${{ github.workspace }}/${{ env.ZAMBDAS_LOCATION }} && npm version ${{ github.event.inputs.versionType }}
-
+          cd ${{ github.workspace }}/${{ env.PACKAGE_LOCATION }} && npm version ${{ github.event.inputs.versionType }} --no-git-tag-version
+          cd ${{ github.workspace }}/${{ env.ZAMBDAS_LOCATION }} && npm version ${{ github.event.inputs.versionType }} --no-git-tag-version
+        
+      - name: Check new version in package.json (Debug)
+        run: cat ${{ github.workspace }}/${{ env.PACKAGE_LOCATION }}/package.json
+      
       - name: Get Version Number from package.json for build notifications.
         id: package-version
         uses: martinbeentjes/npm-get-version-action@v1.1.0
         with:
-          path: ${{ env.PACKAGE_LOCATION }}
-
+          path: ${{ github.workspace }}/${{ env.PACKAGE_LOCATION }}
+      
       - name: Commit version bump if input dictates.
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
         run: |
           git config --local user.email "deploy@ottehr.com"
           git config --local user.name "GitHub Action Bump Version"
-          git add ${{ env.PACKAGE_LOCATION }}/package.json ${{ env.ZAMBDAS_LOCATION }}/package.json package-lock.json
-          git commit -m 'Version bump ${{steps.package-version.outputs.current-version}}'
-
+          git add ${{ github.workspace }}/${{ env.PACKAGE_LOCATION }}/package.json ${{ github.workspace }}/${{ env.ZAMBDAS_LOCATION }}/package.json package-lock.json
+          git commit -m 'Version bump ${{ steps.package-version.outputs.current-version }}'
+      
       - name: Push to a new branch
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
         run: |
