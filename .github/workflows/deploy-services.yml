@@ -133,8 +133,8 @@ jobs:
       
       - name: Ensure GitHub Detects Changes
         run: |
-          git fetch origin ${{ github.ref }}
-          git rebase origin/${{ github.ref }}
+          git fetch origin
+          git rebase origin/${{ github.ref_name }}
       
       - name: Create Pull Request to the base branch
         uses: peter-evans/create-pull-request@v5
