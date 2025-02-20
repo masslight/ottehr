@@ -131,8 +131,14 @@ jobs:
           git commit -m "Version bump ${{ steps.package-version.outputs.current-version }}"
           git push origin $BRANCH_NAME
       
+      - name: Ensure GitHub Detects Changes
+        run: |
+          git fetch origin ${{ github.ref }}
+          git rebase origin/${{ github.ref }}
+      
       - name: Create Pull Request to the base branch
         uses: peter-evans/create-pull-request@v5
+        id: pr
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: version-bump-${{ github.run_id }}
@@ -140,12 +146,19 @@ jobs:
           title: "Version Bump ${{ steps.package-version.outputs.current-version }}"
           body: "This PR updates package versions automatically."
       
+      - name: Fail if PR was not created
+        run: |
+          if [[ -z "${{ steps.pr.outputs.pull-request-number }}" ]]; then
+            echo "❌ No PR was created! Failing the workflow."
+            exit 1
+          fi
+      
       - name: Auto-merge PR
         run: |
           gh pr merge --auto --squash version-bump-${{ github.run_id }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+        
       - name: Install dependencies
         run: npm ci
 
