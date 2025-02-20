@@ -51,7 +51,7 @@ jobs:
 
     permissions:
       id-token: write # Required for OIDC
-      contents: read
+      contents: write # Required for version bumping
       pull-requests: write # Required for version bumping
       issues: write # Required for version bumping
 
