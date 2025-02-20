@@ -360,15 +360,15 @@ export const PATIENT_FILLING_OUT_AS_OPTIONS = [
 export const INSURANCE_COVERAGE_OPTIONS = [
   {
     label: 'Primary',
-    value: '1',
+    value: 1,
   },
   {
     label: 'Secondary',
-    value: '2',
+    value: 2,
   },
   {
     label: 'Tertiary',
-    value: '3',
+    value: 3,
   },
 ];
 
