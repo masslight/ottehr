@@ -18,14 +18,13 @@ test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
   page = await context.newPage();
   fillingInfo = new FillingInfo(page);
-  // paperwork = new Paperwork(page);
 
   page.on('response', async (response) => {
-    if (response.url().includes('/telemed-create-appointment/')) {
-      const { appointmentId } = await response.json();
-      if (appointmentId && !appointmentIds.includes(appointmentId)) {
-        console.log('Created appointment: ', appointmentId);
-        appointmentIds.push(appointmentId);
+    if (response.url().includes('/create-appointment/')) {
+      const { appointment } = await response.json();
+      if (appointment && !appointmentIds.includes(appointment)) {
+        console.log('Created appointment: ', appointment);
+        appointmentIds.push(appointment);
       }
     }
   });
@@ -62,6 +61,7 @@ test('Should select state and time', async () => {
   await firstTimeButton.click();
 
   await page.getByTestId(dataTestIds.continueButton).click();
+  await expect(page.getByRole('heading', { name: 'Different family member' })).toBeVisible();
 });
 
 test('Should select and create new patient', async () => {
@@ -81,11 +81,10 @@ test('Should select and create new patient', async () => {
   const reserveThisCheckTimeButton = page.getByTestId(dataTestIds.continueButton);
   await expect(reserveThisCheckTimeButton).toBeVisible();
   await reserveThisCheckTimeButton.click();
+  await expect(page.getByTestId(dataTestIds.thankYouPageSelectedTimeBlock)).toBeVisible({timeout: 30000});
 });
 
 test('Should check "thank you" page has correct location and visit time', async () => {
-  const appointmentTimeLocator = page.getByTestId(dataTestIds.thankYouPageSelectedTimeBlock);
-  await expect(appointmentTimeLocator).toBeVisible({timeout: 30000});
-  await expect(appointmentTimeLocator).toHaveText(firstAvailableTime);
-  await expect(page.locator('.appointment-description')).toHaveText(`Telemed ${location}`);
+  await expect(page.getByTestId(dataTestIds.thankYouPageSelectedTimeBlock)).toHaveText(firstAvailableTime);
+  await expect(page.locator('.appointment-description')).toHaveText(RegExp(location));
 });
