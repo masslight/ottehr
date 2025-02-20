@@ -137,12 +137,14 @@ export const getConfirmSaveModalConfigs = ({
   newStatus,
   updateRequestInputRef,
   setIsReasonSelected,
+  routeName,
 }: {
   patientName: string;
   medicationName: string;
   newStatus: MedicationOrderStatusesType;
   updateRequestInputRef: React.MutableRefObject<UpdateMedicationOrderInput | null>;
   setIsReasonSelected: React.Dispatch<React.SetStateAction<boolean>>;
+  routeName: string;
 }): Partial<Record<MedicationOrderStatusesType, ConfirmSaveModalConfig>> => {
   const confirmationModalContentJSX = (
     <Box display="flex" flexDirection="column" gap={1}>
@@ -151,7 +153,7 @@ export const getConfirmSaveModalConfigs = ({
       </Typography>
       <Typography>
         <strong>Medication:</strong> {medicationName} / {updateRequestInputRef.current?.orderData?.dose}
-        {updateRequestInputRef.current?.orderData?.units} / {updateRequestInputRef.current?.orderData?.route}
+        {updateRequestInputRef.current?.orderData?.units} / {routeName}
       </Typography>
       <Typography>
         Please confirm that you want to mark this medication order as{' '}
