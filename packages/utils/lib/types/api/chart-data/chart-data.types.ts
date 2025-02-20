@@ -1,4 +1,4 @@
-import { MedicationStatement, Practitioner, Reference, Resource } from 'fhir/r4b';
+import { MedicationRequest, MedicationStatement, Practitioner, Reference, Resource } from 'fhir/r4b';
 import {
   ASQ_FIELD,
   ASQKeys,
@@ -89,6 +89,10 @@ export interface MedicationIntakeInfo {
 export interface PrescribedMedicationDTO extends SaveableDTO {
   name?: string;
   instructions?: string;
+  status?: MedicationRequest['status'] | 'loading';
+  provider?: string;
+  added?: string;
+  prescriptionId?: string;
 }
 
 export interface AllergyDTO extends SaveableDTO {
