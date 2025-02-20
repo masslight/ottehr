@@ -112,19 +112,15 @@ jobs:
         with:
           path: ${{ env.PACKAGE_LOCATION }}
       
-      - name: Commit version bump if input dictates.
-        if: ${{ github.event.inputs.incrementVersion == 'true' }}
-        run: |
-          git config --local user.email "deploy@ottehr.com"
-          git config --local user.name "GitHub Action Bump Version"
-          git add .
-          git commit -m 'Version bump ${{ steps.package-version.outputs.current-version }}'
-      
       - name: Push to a new branch
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
         run: |
           BRANCH_NAME="version-bump-${{ github.run_id }}"
           git checkout -b $BRANCH_NAME
+          git config --local user.email "deploy@ottehr.com"
+          git config --local user.name "GitHub Action Bump Version"
+          git add .
+          git commit -m 'Version bump ${{ steps.package-version.outputs.current-version }}'
           git push origin $BRANCH_NAME
 
       - name: Create Pull Request
