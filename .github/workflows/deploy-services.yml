@@ -116,7 +116,7 @@ jobs:
         id: check-changes
         run: |
           if [[ -z "$(git status --porcelain)" ]]; then
-            echo "No changes detected! Version bump may have failed."
+            echo "❌ No changes detected! Version bump may have failed."
             exit 1
           fi
           echo "has_changes=true" >> $GITHUB_ENV
@@ -129,12 +129,15 @@ jobs:
           git config --local user.name "GitHub Action Bump Version"
           git add .
           git commit -m "Version bump ${{ steps.package-version.outputs.current-version }}"
-          git push origin $BRANCH_NAME
+          git push origin $BRANCH_NAME --force
       
       - name: Ensure GitHub Detects Changes
         run: |
           git fetch origin
-          git rebase origin/${{ github.ref_name }}
+          git merge --no-ff origin/${{ github.ref_name }}
+      
+      - name: Verify Changes Before PR
+        run: git log --oneline -n 5
       
       - name: Create Pull Request to the base branch
         uses: peter-evans/create-pull-request@v5
@@ -158,6 +161,7 @@ jobs:
           gh pr merge --auto --squash version-bump-${{ github.run_id }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
         
       - name: Install dependencies
         run: npm ci
