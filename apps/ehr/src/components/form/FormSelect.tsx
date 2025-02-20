@@ -5,7 +5,7 @@ import { Control, Controller, FieldValues, Path, RegisterOptions } from 'react-h
 
 interface SelectOption {
   label: string;
-  value: string;
+  value: string | number;
 }
 
 interface FormSelectProps<T extends FieldValues> extends Omit<SelectProps, 'name'> {
