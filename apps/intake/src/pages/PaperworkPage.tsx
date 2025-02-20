@@ -30,6 +30,9 @@ import {
   InsuranceEligibilityCheckStatus,
   ComplexValidationResultFailureCase,
   evalComplexValidationTrigger,
+  evalEnableWhen,
+  convertQuesitonnaireItemToQRLinkIdMap,
+  convertQRItemToLinkIdMap,
 } from 'utils';
 import { zapehrApi } from '../api';
 import useAppointmentNotFoundInformation from '../helpers/information';
@@ -328,6 +331,7 @@ export const PaperworkPage: FC = () => {
     pages: paperworkPages,
     patient: paperworkPatient,
     questionnaireResponse,
+    allItems,
   } = usePaperworkContext();
 
   const questionnaireResponseId = questionnaireResponse?.id;
@@ -336,7 +340,7 @@ export const PaperworkPage: FC = () => {
 
   const patientFullName = useGetFullName(paperworkPatient);
 
-  const { nextPage, pageName, currentPage, currentIndex, empty, questionnaireItems } = useMemo(() => {
+  const { pageName, currentPage, currentIndex, empty, questionnaireItems } = useMemo(() => {
     const empty = {
       items: [],
       nextPage: undefined,
@@ -359,9 +363,25 @@ export const PaperworkPage: FC = () => {
     const pageName = currentPage.text;
     const questionnaireItems = currentPage.item ?? [];
     const currentIndex = paperworkPages.findIndex((pageTemp) => pageTemp.linkId === currentPage.linkId);
-    const nextPage = paperworkPages[currentIndex + 1];
-    return { nextPage, pageName, currentPage, currentIndex, empty: false, questionnaireItems };
+    return { pageName, currentPage, currentIndex, empty: false, questionnaireItems };
   }, [paperworkPages, slug]);
+
+  const getNextPage = useCallback(
+    (qr: QuestionnaireResponse) => {
+      if (currentIndex === undefined) {
+        return undefined;
+      }
+      const paperworkValues = convertQRItemToLinkIdMap(qr.item);
+      let idx = 1;
+      let nextPage = paperworkPages[currentIndex + idx];
+      while (nextPage && !evalEnableWhen(nextPage, allItems, paperworkValues)) {
+        idx += 1;
+        nextPage = paperworkPages[currentIndex + idx];
+      }
+      return nextPage;
+    },
+    [allItems, currentIndex, paperworkPages]
+  );
 
   useEffect(() => {
     if (pageName !== lastLoggedPageName) {
@@ -386,22 +406,14 @@ export const PaperworkPage: FC = () => {
   );
 
   const paperworkGroupDefaults = useMemo(() => {
-    const currentPageFields = (currentPage?.item ?? []).reduce((accum, item) => {
-      if (item.type !== 'display') {
-        accum[item.linkId] = { linkId: item.linkId };
-      }
-      return accum;
-    }, {} as any);
+    const currentPageFields = convertQuesitonnaireItemToQRLinkIdMap(currentPage?.item);
     const currentPageEntries = completedPaperwork.find((item) => item.linkId === currentPage?.linkId)?.item;
     const inProgress = paperworkInProgress[currentPage?.linkId ?? ''] ?? {};
     if (!currentPageEntries && !inProgress) {
       return { ...currentPageFields };
     }
 
-    const pageDefaults = (currentPageEntries ?? []).reduce((accum, entry) => {
-      accum[entry.linkId] = { ...entry };
-      return accum;
-    }, {} as QuestionnaireFormFields);
+    const pageDefaults = convertQRItemToLinkIdMap(currentPageEntries);
 
     return { ...currentPageFields, ...pageDefaults, ...inProgress };
   }, [completedPaperwork, currentPage, paperworkInProgress]);
@@ -436,6 +448,7 @@ export const PaperworkPage: FC = () => {
             });
             patchCompletedPaperwork(updatedPaperwork);
             saveProgress(currentPage.linkId, undefined);
+            const nextPage = getNextPage(updatedPaperwork);
             navigate(
               `/paperwork/${appointmentID}/${nextPage !== undefined ? slugFromLinkId(nextPage.linkId) : 'review'}`
             );
@@ -512,8 +525,8 @@ export const PaperworkPage: FC = () => {
       paperworkPatient,
       patchCompletedPaperwork,
       saveProgress,
+      getNextPage,
       navigate,
-      nextPage,
     ]
   );
 
