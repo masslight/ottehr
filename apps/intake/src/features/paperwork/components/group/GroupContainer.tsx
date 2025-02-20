@@ -44,7 +44,6 @@ const ContentWrapper: FC<ContentWrapperProps> = ({ type, children }) => {
 };
 
 const GroupContainer: FC<GroupContainerProps> = ({ item, fieldId, parentItem, RenderItems }) => {
-  // console.log('item group', item.linkId, fieldId, parentItem);
   return (
     <ContentWrapper type="default">
       {item.groupType == QuestionnaireItemGroupType.ListWithForm && (
