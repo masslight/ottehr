@@ -136,7 +136,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
     } else {
       if (baseName.startsWith(ResourceTypeNames.coverage)) {
         if (baseName === coverageFieldPaths.carrier) {
-          console.log(insurancePlan);
           if (!insurancePlan) return;
           updatePatientField(coverageFieldPaths.carrier, insurancePlan?.name, insurance.coverage.id);
           updatePatientField(coverageFieldPaths.payerId, insurancePlan?.payerId, insurance.coverage.id);
@@ -167,7 +166,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
     if (insurance.isTemp) {
       removeTempInsurance(insuranceId);
     } else {
-      console.log('Remove insurance', insuranceId);
       updatePatientField(coverageFieldPaths.status, 'cancelled', insuranceId);
       dropInsurance(insuranceId);
     }

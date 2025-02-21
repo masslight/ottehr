@@ -314,7 +314,6 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
     }
   },
   addPatchOperation: (resourceType, operation, resourceId) => {
-    console.log(operation);
     set((state) => {
       const targetKey = patchOperationsMap[resourceType];
 
