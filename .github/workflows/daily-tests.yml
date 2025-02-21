@@ -90,6 +90,7 @@ jobs:
             mkdir -p "apps/$app/env"
             cp "secrets/$app/app/tests."*.json "apps/$app/env/"
             cp "secrets/$app/app/.env.local" "apps/$app/env/"
+            # TODO: copy secrets/$app/app/tests.clear-install.json to apps/$app/env/tests.local.json (tests.clear-install.json should be added to secrets repo)
           }
 
           for app in ehr intake; do
