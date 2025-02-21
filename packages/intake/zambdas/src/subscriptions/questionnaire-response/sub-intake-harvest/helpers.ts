@@ -1217,7 +1217,8 @@ export interface PatientMasterRecordResources {
 
 export function createMasterRecordPatchOperations(
   questionnaireResponse: QuestionnaireResponse,
-  resources: PatientMasterRecordResources
+  resources: PatientMasterRecordResources,
+  insurancePlanResources: InsurancePlan[]
 ): MasterRecordPatchOperations {
   const flattenedPaperwork = flattenIntakeQuestionnaireItems(
     questionnaireResponse.item as IntakeQuestionnaireItem[]
@@ -1256,14 +1257,13 @@ export function createMasterRecordPatchOperations(
     if (!fullPath) return;
 
     const { resourceType, path } = extractResourceTypeAndPath(fullPath);
-    let operation: Operation | undefined;
 
     switch (resourceType) {
       case 'Patient': {
         // Handle telecom fields
         const contactTelecomConfig = contactTelecomConfigs[item.linkId];
         if (contactTelecomConfig) {
-          operation = createPatchOperationForTelecom(
+          const operation = createPatchOperationForTelecom(
             value as string | boolean,
             contactTelecomConfig,
             resources.patient,
@@ -1278,6 +1278,7 @@ export function createMasterRecordPatchOperations(
           const url = path.replace('/extension/', '');
           const currentValue = getCurrentValue(resources.patient, path);
           if (value !== currentValue) {
+            let operation: Operation | undefined;
             if (value === '') {
               if (currentValue !== undefined && currentValue !== null) {
                 operation = getPatchOperationToRemoveExtension(resources.patient, { url });
@@ -1333,20 +1334,18 @@ export function createMasterRecordPatchOperations(
             const cleanArray = currentArray.filter(
               (item, index) => item !== undefined || index < currentArray.length - 1
             );
-
-            if (cleanArray.length > 0) {
-              operation = {
-                op: effectiveArrayValue === undefined ? 'add' : 'replace',
-                path: arrayPath,
-                value: cleanArray,
-              };
-            } else {
-              operation = {
-                op: 'remove',
-                path: arrayPath,
-              };
-            }
-            if (operation) tempOperations.patient.push(operation);
+            const operation: Operation =
+              cleanArray.length > 0
+                ? {
+                    op: effectiveArrayValue === undefined ? 'add' : 'replace',
+                    path: arrayPath,
+                    value: cleanArray,
+                  }
+                : {
+                    op: 'remove',
+                    path: arrayPath,
+                  };
+            tempOperations.patient.push(operation);
           }
           return;
         }
@@ -1357,7 +1356,7 @@ export function createMasterRecordPatchOperations(
           const url = DATE_OF_BIRTH_URL;
           const currentValue = getCurrentValue(resources.patient, path);
           if (value !== currentValue) {
-            operation = {
+            tempOperations.patient.push({
               op: 'add',
               path: '/contact/0/extension',
               value: [
@@ -1366,8 +1365,7 @@ export function createMasterRecordPatchOperations(
                   valueString: value,
                 },
               ],
-            };
-            if (operation) tempOperations.patient.push(operation);
+            });
           }
           return;
         }
@@ -1376,7 +1374,7 @@ export function createMasterRecordPatchOperations(
           const url = PRACTICE_NAME_URL;
           const currentValue = getCurrentValue(resources.patient, path);
           if (value !== currentValue) {
-            operation = {
+            tempOperations.patient.push({
               op: 'add',
               path: '/contained/0/extension',
               value: [
@@ -1385,8 +1383,7 @@ export function createMasterRecordPatchOperations(
                   valueString: value,
                 },
               ],
-            };
-            if (operation) tempOperations.patient.push(operation);
+            });
           }
           return;
         }
@@ -1394,9 +1391,9 @@ export function createMasterRecordPatchOperations(
         // Handle regular fields
         const currentValue = getCurrentValue(resources.patient, path);
         if (value !== currentValue) {
-          operation = createBasicPatchOperation(value, path, currentValue);
+          const operation = createBasicPatchOperation(value, path, currentValue);
+          if (operation) tempOperations.patient.push(operation);
         }
-        if (operation) tempOperations.patient.push(operation);
         break;
       }
 
@@ -1405,19 +1402,28 @@ export function createMasterRecordPatchOperations(
 
         if (coverage) {
           const currentValue = getCurrentValue(coverage, path);
+          const operations: (Operation | undefined)[] = [];
 
           if (baseFieldId === 'insurance-carrier') {
             if ((value as Reference).display !== currentValue) {
-              operation = createBasicPatchOperation((value as Reference).display!, path, currentValue);
+              operations.push(createBasicPatchOperation((value as Reference).display!, path, currentValue));
+            }
+            const insurancePlanId = (value as Reference).reference?.split('/')?.[1];
+            const payor = insurancePlanResources.find((insurancePlan) => insurancePlan.id === insurancePlanId)?.ownedBy
+              ?.reference;
+            if (payor != null) {
+              operations.push(createBasicPatchOperation(payor, '/payor/0/reference', coverage.payor?.[0].reference));
             }
           } else if (value !== currentValue) {
-            operation = createBasicPatchOperation(value, path, currentValue);
+            operations.push(createBasicPatchOperation(value, path, currentValue));
           }
 
-          if (operation) {
-            tempOperations.coverage[coverage.id!] = tempOperations.coverage[coverage.id!] || [];
-            tempOperations.coverage[coverage.id!].push(operation);
-          }
+          operations.forEach((operation) => {
+            if (operation) {
+              tempOperations.coverage[coverage.id!] = tempOperations.coverage[coverage.id!] || [];
+              tempOperations.coverage[coverage.id!].push(operation);
+            }
+          });
         }
         break;
       }
@@ -1428,12 +1434,11 @@ export function createMasterRecordPatchOperations(
         if (relatedPerson) {
           const currentValue = getCurrentValue(relatedPerson, path);
           if (value !== currentValue) {
-            operation = createBasicPatchOperation(value, path, currentValue);
-          }
-
-          if (operation) {
-            tempOperations.relatedPerson[relatedPerson.id!] = tempOperations.relatedPerson[relatedPerson.id!] || [];
-            tempOperations.relatedPerson[relatedPerson.id!].push(operation);
+            const operation = createBasicPatchOperation(value, path, currentValue);
+            if (operation) {
+              tempOperations.relatedPerson[relatedPerson.id!] = tempOperations.relatedPerson[relatedPerson.id!] || [];
+              tempOperations.relatedPerson[relatedPerson.id!].push(operation);
+            }
           }
         }
         break;

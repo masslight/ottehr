@@ -136,7 +136,19 @@ function App(): ReactElement {
                 <ProtectedRoute
                   showWhenAuthenticated={
                     <Suspense fallback={<LoadingScreen />}>
-                      <CSSRoutingLazy />
+                      {shouldUsePhoton ? (
+                        <photon-client
+                          id={import.meta.env.VITE_APP_PHOTON_CLIENT_ID}
+                          org={import.meta.env.VITE_APP_PHOTON_ORG_ID}
+                          dev-mode={import.meta.env.MODE === 'production' ? 'false' : 'true'}
+                          auto-login="true"
+                          redirect-uri={window.location.origin}
+                        >
+                          <CSSRoutingLazy />
+                        </photon-client>
+                      ) : (
+                        <CSSRoutingLazy />
+                      )}
                     </Suspense>
                   }
                 />

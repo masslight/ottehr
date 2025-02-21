@@ -516,3 +516,36 @@ export const pickValueAsStringListFromAnswerItem = (
 function capitalizeFirstLetter(string: string): string {
   return string.charAt(0).toUpperCase() + string.slice(1);
 }
+
+/*
+  This is used to convert a QuestionnaireResponse.item from an array of objects to a map where each key is the linkId
+  of each object in the array and the value is just the value of that object. It is convenient to make make this conversion
+  to make the form values easier to manipulate, though it does add some complexity in introdudcing some stuctural variance
+  in the validation schema, which must account both for the map-type object as well as the array, depending on where it is
+  being applied.
+*/
+
+export const convertQRItemToLinkIdMap = (
+  items: QuestionnaireResponseItem[] | undefined
+): { [key: string]: QuestionnaireResponseItem } => {
+  return (items ?? []).reduce(
+    (accum, entry) => {
+      accum[entry.linkId] = { ...entry };
+      return accum;
+    },
+    {} as { [key: string]: QuestionnaireResponseItem }
+  );
+};
+export const convertQuesitonnaireItemToQRLinkIdMap = (
+  items: QuestionnaireItem[] | undefined
+): { [key: string]: QuestionnaireResponseItem } => {
+  return (items ?? []).reduce(
+    (accum, item) => {
+      if ((item as any).type !== 'display') {
+        accum[item.linkId] = { linkId: item.linkId };
+      }
+      return accum;
+    },
+    {} as { [key: string]: QuestionnaireResponseItem }
+  );
+};

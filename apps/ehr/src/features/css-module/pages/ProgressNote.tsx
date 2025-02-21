@@ -13,9 +13,9 @@ import { useAppointment } from '../hooks/useAppointment';
 import { CSSLoader } from '../components/CSSLoader';
 import { PatientInformationContainer } from '../components/progress-note/PatientInformationContainer';
 import { VisitDetailsContainer } from '../components/progress-note/VisitDetailsContainer';
-import { InternalNotes } from '../hooks/useInternalNotes';
 import { ProgressNoteDetails } from '../components/progress-note/ProgressNoteDetails';
 import { ChiefComplaintCard } from '../../../telemed/features/appointment';
+import { IntakeNotes } from '../hooks/useIntakeNotes';
 
 interface PatientInfoProps {
   appointmentID?: string;
@@ -50,7 +50,7 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
       </AccordionCard>
 
       <AccordionCard label="Intake Notes">
-        <InternalNotes />
+        <IntakeNotes />
       </AccordionCard>
 
       <ChiefComplaintCard />
