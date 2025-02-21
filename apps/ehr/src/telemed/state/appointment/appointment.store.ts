@@ -1,4 +1,4 @@
-import { Appointment, Encounter, Location, Patient, Practitioner, QuestionnaireResponse } from 'fhir/r4b';
+import { Appointment, Encounter, Location, Patient, Practitioner, QuestionnaireResponse, Coverage } from 'fhir/r4b';
 import { GetChartDataResponse, ObservationDTO, ReviewAndSignData } from 'utils';
 import { create } from 'zustand';
 
@@ -9,6 +9,8 @@ type AppointmentState = {
   practitioner?: Practitioner;
   encounter: Encounter;
   questionnaireResponse: QuestionnaireResponse | undefined;
+  coverage?: Coverage;
+  coverageName?: string;
   patientPhotoUrls: string[];
   schoolWorkNoteUrls: string[];
   isAppointmentLoading: boolean;

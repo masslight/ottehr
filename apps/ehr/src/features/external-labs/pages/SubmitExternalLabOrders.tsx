@@ -64,12 +64,15 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
     });
   };
 
-  const { chartData, location, encounter, appointment } = getSelectors(useAppointmentStore, [
+  const { chartData, location, encounter, appointment, coverage, coverageName } = getSelectors(useAppointmentStore, [
     'chartData',
     'location',
     'encounter',
     'appointment',
+    'coverage',
+    'coverageName',
   ]);
+  console.log('check coverage resource', coverage);
   const { diagnosis, patientId } = chartData || {};
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
 
@@ -171,7 +174,7 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
   return (
     <Stack spacing={2} sx={{ p: 3 }}>
       <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
-        Send Out Lab Order
+        Order Lab
       </Typography>
       {loading ? (
         <CircularProgress />
@@ -206,6 +209,7 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
                         top: -8,
                       },
                     }}
+                    size="small"
                   >
                     <MenuItem value="" disabled>
                       <Typography sx={{ color: '#9E9E9E' }}>Add a Dx to Order</Typography>
@@ -222,6 +226,7 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
                 <Autocomplete
                   blurOnSelect
                   id="select-additional-dx"
+                  size="small"
                   fullWidth
                   noOptionsText={
                     debouncedSearchTerm && icdSearchOptions.length === 0
@@ -289,49 +294,68 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
                 </Grid>
               )}
               <Grid item xs={12}>
-                <FormControl fullWidth>
-                  <InputLabel id="select-office-label">Office</InputLabel>
-                  <Select
-                    required
-                    labelId="select-office-label"
-                    id="select-office"
-                    label="Office"
-                    value={office?.id || ''}
-                    onChange={handleOfficeChange}
-                  >
-                    {locationOptions.map((d) => (
-                      <MenuItem id={d.value} key={d.value} value={d.value}>
-                        {d.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Typography variant="h6" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
+                  Office
+                </Typography>
+                <Box sx={{ paddingTop: '8px' }}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="select-office-label">Office</InputLabel>
+                    <Select
+                      required
+                      labelId="select-office-label"
+                      id="select-office"
+                      label="Office"
+                      value={office?.id || ''}
+                      onChange={handleOfficeChange}
+                    >
+                      {locationOptions.map((d) => (
+                        <MenuItem id={d.value} key={d.value} value={d.value}>
+                          {d.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
               </Grid>
               <Grid item xs={12}>
-                <FormControl fullWidth>
-                  <InputLabel id="lab-label">Lab</InputLabel>
-                  {/* todo placeholder fake lab / test list  */}
-                  <Select
-                    required
-                    labelId="lab-label"
-                    id="lab"
-                    label="Lab"
-                    value={lab}
-                    onChange={(e) => setLab(e.target.value)}
-                  >
-                    {['strep/quest', 'strep/labcorp', 'mumps/quest'].map((d) => (
-                      <MenuItem key={d} value={d}>
-                        {d}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Typography variant="h6" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
+                  Patient insurance
+                </Typography>
+                <Typography variant="body2" sx={{ paddingTop: '8px' }}>
+                  {coverageName}
+                </Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="h6" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
+                  Lab
+                </Typography>
+                <Box sx={{ paddingTop: '8px' }}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="lab-label">Lab</InputLabel>
+                    {/* todo placeholder fake lab / test list  */}
+                    <Select
+                      required
+                      labelId="lab-label"
+                      id="lab"
+                      label="Lab"
+                      value={lab}
+                      onChange={(e) => setLab(e.target.value)}
+                    >
+                      {['strep/quest', 'strep/labcorp', 'mumps/quest'].map((d) => (
+                        <MenuItem key={d} value={d}>
+                          {d}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
               </Grid>
               <Grid item xs={12}>
                 {/* disabling this field as we are only allowing psc hold orders for mvp */}
                 <FormControlLabel
+                  sx={{ fontSize: '14px' }}
                   control={<Switch checked={pscHold} onChange={() => setPscHold(!pscHold)} disabled />}
-                  label="PSC Hold"
+                  label={<Typography variant="body2">PSC Hold</Typography>}
                 />
               </Grid>
               <Grid item xs={6}>

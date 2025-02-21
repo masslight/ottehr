@@ -1,6 +1,7 @@
 import {
   Appointment,
   ContactPoint,
+  Coverage,
   DocumentReference,
   Encounter,
   Extension,
@@ -193,6 +194,7 @@ export const getResources = (
   location: Location;
   encounter: Encounter;
   questionnaireResponse: QuestionnaireResponse;
+  coverage?: Coverage;
 }> => {
   if (!resourceBundle) return {};
 
@@ -205,6 +207,7 @@ export const getResources = (
     location: findResource<Location>('Location'),
     encounter: findResource<Encounter>('Encounter'),
     questionnaireResponse: findResource<QuestionnaireResponse>('QuestionnaireResponse'),
+    coverage: findResource<Coverage>('Coverage'),
   };
 };
 

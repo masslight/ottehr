@@ -3,6 +3,7 @@ import {
   Appointment,
   Bundle,
   Coding,
+  Coverage,
   DocumentReference,
   Encounter,
   FhirResource,
@@ -159,7 +160,8 @@ export type TelemedAppointmentData =
   | Encounter
   | Location
   | Patient
-  | QuestionnaireResponse;
+  | QuestionnaireResponse
+  | Coverage;
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetTelemedAppointment = (
@@ -201,6 +203,7 @@ export const useGetTelemedAppointment = (
                 value: 'QuestionnaireResponse:encounter',
               },
               { name: '_revinclude', value: 'DocumentReference:related' },
+              { name: '_revinclude:iterate', value: 'Coverage:patient' },
             ],
           })
         ).unbundle();

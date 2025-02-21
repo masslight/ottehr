@@ -65,10 +65,12 @@ export const useAppointment = (
       location: bundleResources.location,
       encounter: bundleResources.encounter,
       questionnaireResponse: bundleResources.questionnaireResponse,
+      coverage: bundleResources.coverage,
 
       // the patientPhotoUrls and schoolWorkNoteUrls structures are equal with Telemed
       patientPhotoUrls: parsedResources.processedData?.patientConditionalPhotosUrls || [],
       schoolWorkNoteUrls: parsedResources.processedData?.schoolWorkNoteUrls || [],
+      coverageName: parsedResources.processedData?.coverageName,
 
       isAppointmentLoading: false,
     });
