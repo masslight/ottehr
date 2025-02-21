@@ -453,6 +453,10 @@ export const useGetInsurancePlans = (onSuccess: (data: Bundle<InsurancePlan>) =>
               name: 'status',
               value: 'active',
             },
+            {
+              name: '_include',
+              value: 'InsurancePlan:owned-by',
+            },
           ],
         });
       }

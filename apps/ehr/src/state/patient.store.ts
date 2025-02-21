@@ -1,5 +1,15 @@
 import { Operation } from 'fast-json-patch';
-import { Coverage, FhirResource, InsurancePlan, Patient, PatientLink, Practitioner, RelatedPerson } from 'fhir/r4b';
+import {
+  Coverage,
+  FhirResource,
+  InsurancePlan,
+  Organization,
+  Patient,
+  PatientLink,
+  Practitioner,
+  Reference,
+  RelatedPerson,
+} from 'fhir/r4b';
 import {
   getArrayInfo,
   getCurrentValue,
@@ -49,6 +59,8 @@ export type InsurancePlanRequirementKeyBooleans = {
 export interface InsurancePlanDTO extends InsurancePlanRequirementKeyBooleans {
   id: string;
   name: string;
+  ownedBy: Reference;
+  payerId: string;
 }
 
 export interface GetInsurancesResponse {
@@ -76,7 +88,7 @@ interface PatientStoreActions {
   dropInsurance: (coverageId: string) => void;
   setPolicyHolders: (policyHolders: RelatedPerson[]) => void;
   setInsurancePlans: (insurancePlans: InsurancePlanDTO[]) => void;
-  updatePatientField: (fieldName: string, value: string | boolean, resourceId?: string) => void;
+  updatePatientField: (fieldName: string, value: string | boolean | Reference, resourceId?: string) => void;
   addPatchOperation: (resourceType: PatientMasterRecordResourceType, operation: Operation, resourceId?: string) => void;
   addTempInsurance: (coverage: Coverage, relatedPerson: RelatedPerson) => void;
   updateTempInsurance: (coverageId: string, updatedInsurance: Insurance) => void;
@@ -459,16 +471,26 @@ const getEffectiveValue = (
   return effectiveValue;
 };
 
-export const createInsurancePlanDto = (insurancePlan: InsurancePlan): InsurancePlanDTO => {
-  const { id, name, extension } = insurancePlan;
+export const createInsurancePlanDto = (insurancePlan: InsurancePlan, organization: Organization): InsurancePlanDTO => {
+  const { id, name, ownedBy, extension } = insurancePlan;
 
-  if (!id || !name) {
-    throw new Error('Insurance missing id or name.');
+  if (!id || !name || !ownedBy) {
+    throw new Error('Insurance is missing id, name or owning organization.');
+  }
+
+  const payerId = organization?.identifier
+    ?.find((identifier) => identifier.type?.coding?.some((coding) => coding.system === 'payer-id'))
+    ?.type?.coding?.find((coding) => coding.system === 'payer-id')?.code;
+
+  if (!payerId) {
+    throw new Error('Owning organization is missing payer-id.');
   }
 
   const insurancePlanDto: InsurancePlanDTO = {
     id,
     name,
+    ownedBy,
+    payerId,
     ...(Object.fromEntries(
       eligibilityRequirementKeys.map((key) => [key, false])
     ) as InsurancePlanRequirementKeyBooleans),
