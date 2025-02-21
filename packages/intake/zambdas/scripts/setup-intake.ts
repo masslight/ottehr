@@ -1,7 +1,6 @@
-import fetch from 'node-fetch';
 import fs from 'fs';
 import path from 'path';
-import FhirClient from '@oystehr/sdk';
+import Oystehr, { AccessPolicy, Application } from '@oystehr/sdk';
 import { TIMEZONE_EXTENSION_URL } from 'utils';
 import { FhirResource, Organization, Location } from 'fhir/r4b';
 import { checkLocations } from './setup-default-locations';
@@ -86,15 +85,10 @@ export const defaultLocation: Location = {
   ],
 };
 
-async function createApplication(
-  projectApiUrl: string,
-  applicationName: string,
-  accessToken: string,
-  projectId: string
-): Promise<[string, string]> {
+async function createApplication(oystehr: Oystehr, applicationName: string): Promise<[string, string]> {
   // Build access policy
   console.log('building access policy');
-  const accessPolicy = {
+  const accessPolicy: AccessPolicy = {
     rule: [
       {
         resource: [
@@ -142,99 +136,53 @@ async function createApplication(
       {
         action: ['Telemed:JoinMeeting'],
         effect: 'Allow',
-        resource: 'Telemed:Meeting',
+        resource: ['Telemed:Meeting'],
       },
       {
         action: ['FHIR:Read'],
         effect: 'Allow',
-        resource: 'FHIR:Encounter',
+        resource: ['FHIR:Encounter'],
       },
     ],
   };
 
   // Search for existing roles
   console.log('searching for existing roles for the project');
-  const existingRoles = await fetch(`${projectApiUrl}/iam/roles`, {
-    method: 'GET',
-    headers: {
-      accept: 'application/json',
-      'content-type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-      'x-zapehr-project-id': projectId,
-    },
-  });
-  const rolesData = await existingRoles.json();
-  console.log('existingRoles: ', rolesData);
+  const existingRoles = await oystehr.role.list();
+  console.log('existingRoles: ', existingRoles);
 
   // Handle patient role
   let patientRole;
-  const existingPatientRole = rolesData.find((role: any) => role.name === 'Patient');
+  const existingPatientRole = existingRoles.find((role: any) => role.name === 'Patient');
 
   if (existingPatientRole) {
     console.log('patient role found: ', existingPatientRole);
-    const patientRoleRes = await fetch(`${projectApiUrl}/iam/role/${existingPatientRole.id}`, {
-      method: 'PATCH',
-      headers: {
-        accept: 'application/json',
-        'content-type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-        'x-zapehr-project-id': projectId,
-      },
-      body: JSON.stringify({ accessPolicy }),
-    });
-    patientRole = await patientRoleRes.json();
+    patientRole = await oystehr.role.update({ roleId: existingPatientRole.id, accessPolicy });
     console.log('patientRole inlineAccessPolicy patch: ', patientRole);
   } else {
     console.log('creating patient role');
-    const patientRoleRes = await fetch(`${projectApiUrl}/iam/roles`, {
-      method: 'POST',
-      headers: {
-        accept: 'application/json',
-        'content-type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-        'x-zapehr-project-id': projectId,
-      },
-      body: JSON.stringify({ name: 'Patient', accessPolicy }),
-    });
-    patientRole = await patientRoleRes.json();
+    patientRole = await oystehr.role.create({ name: 'Patient', accessPolicy });
     console.log('patientRole: ', patientRole);
   }
 
   // Set default patient role
-  console.group('setting default patient role for project');
-  const projectResponse = await fetch(`${projectApiUrl}/project`, {
-    method: 'PATCH',
-    headers: {
-      accept: 'application/json',
-      'content-type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-      'x-zapehr-project-id': projectId,
-    },
-    body: JSON.stringify({ defaultPatientRoleId: patientRole.id, signupEnabled: true }),
-  });
-
-  const projectData = await projectResponse.json();
-  console.log('response json: ', projectData);
-  console.groupEnd();
-
-  if (projectResponse.status !== 200) {
+  try {
+    console.group('setting default patient role for project');
+    const projectData = await oystehr.project.update({ defaultPatientRoleId: patientRole.id, signupEnabled: true });
+    console.log('response json: ', projectData);
+    console.groupEnd();
+  } catch (err) {
     throw new Error('Failed to update default patient role');
   }
   console.log('successfully updated default patient role');
 
   // Create application
-  const applicationResponse = await fetch(`${projectApiUrl}/application`, {
-    headers: {
-      accept: 'application/json',
-      authorization: `Bearer ${accessToken}`,
-      'content-type': 'application/json',
-      'x-zapehr-project-id': projectId,
-    },
-    method: 'POST',
-    body: JSON.stringify({
+  let application: Application;
+  try {
+    application = await oystehr.application.create({
       name: applicationName,
       description: 'Intake application with sms authentication',
-      loginRedirectUri: 'https://127.0.0.1:3002/patients',
+      loginRedirectUri: 'https://intake-local.ottehr.com/patients',
       allowedCallbackUrls: [
         'http://localhost:3002',
         'http://localhost:3002/patients',
@@ -249,17 +197,12 @@ async function createApplication(
       shouldSendInviteEmail: false,
       logoUri:
         'https://assets-global.website-files.com/653fce065d76f84cf31488ae/65438838a5f9308ca9498887_otter%20logo%20dark.svg',
-    }),
-  });
-
-  if (applicationResponse.status !== 200) {
-    const errorData = await applicationResponse.json();
-    console.log(JSON.stringify(errorData));
-    throw new Error(`Failed to create application. Status: ${applicationResponse.status}`);
+    });
+  } catch (err) {
+    console.log(JSON.stringify(err));
+    throw new Error(`Failed to create application. Status: ${(err as Oystehr.OystehrSdkError).code}`);
   }
-
-  const applicationData = await applicationResponse.json();
-  return [applicationData.id, applicationData.clientId];
+  return [application.id, application.clientId];
 }
 
 function createZambdaEnvFile(
@@ -319,19 +262,18 @@ function createAppEnvFile(clientId: string, environment: string, projectId: stri
   return envPath;
 }
 
-const createOrganization = async (fhirClient: FhirClient): Promise<Organization> => {
+const createOrganization = async (oystehr: Oystehr): Promise<Organization> => {
   const organization: FhirResource = {
     resourceType: 'Organization',
     active: true,
     name: 'Example Organization',
   };
 
-  return await fhirClient.fhir.create(organization);
+  return await oystehr.fhir.create(organization);
 };
 
 export async function setupIntake(
-  projectApiUrl: string,
-  accessToken: string,
+  oystehr: Oystehr,
   projectId: string,
   m2mClientId: string,
   m2mSecret: string,
@@ -339,21 +281,15 @@ export async function setupIntake(
 ): Promise<void> {
   console.log('Starting setup of Ottehr Intake...');
 
-  const fhirClient = new FhirClient({
-    fhirApiUrl: 'https://fhir-api.zapehr.com',
-    projectId: projectId,
-    accessToken: accessToken,
-  });
-
   const applicationName = 'Ottehr Intake';
-  const [_, clientId] = await createApplication(projectApiUrl, applicationName, accessToken, projectId);
+  const [_, clientId] = await createApplication(oystehr, applicationName);
   console.log(`Created application "${applicationName}".`);
 
-  const organizationID = (await createOrganization(fhirClient)).id;
+  const organizationID = (await createOrganization(oystehr)).id;
   if (!organizationID) {
     throw new Error('Organization ID is not defined');
   }
-  await checkLocations(fhirClient);
+  await checkLocations(oystehr);
 
   const envPath1 = createZambdaEnvFile(projectId, m2mClientId, m2mSecret, organizationID, environment);
   console.log('Created environment file:', envPath1);

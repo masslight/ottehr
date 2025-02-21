@@ -43,10 +43,7 @@ export const dataTestIds = {
     prefilledPatientEmail: 'prefilled-patient-email',
   },
   pagination: {
-    nextPage: 'KeyboardArrowRightIcon',
-    previousPage: 'KeyboardArrowLeftIcon',
     paginationContainer: 'pagination-container',
-    dropDownArrow: 'ArrowDropDownIcon',
   },
   patientHeader: {
     patientId: 'header-patient-id',
@@ -82,6 +79,16 @@ export const dataTestIds = {
   },
   statesPage: {
     statesSearch: 'states-search',
+    stateValue: 'state-value',
+    operateInStateValue: 'operate-in-state-value',
+    stateRow: (stateValue: string) => `state-row-${stateValue}`,
+  },
+  editState: {
+    saveChangesButton: 'save-changes-button',
+    cancelButton: 'cancel-button',
+    operateInStateToggle: 'operate-in-state-toggle',
+    stateNameTitle: 'state-name-title',
+    stateNameField: 'state-name-field',
   },
   patients: {
     searchByNameField: 'search-name-field',
@@ -99,7 +106,8 @@ export const dataTestIds = {
     patientEmail: 'patient-email',
     patientPhoneNumber: 'patient-phone-number',
     patientAddress: 'patient-address',
-    searchResultRow: (patientId: string) => `search-result-row-${patientId}`,
+    searchResultsRowPrefix: 'search-result-row-',
+    searchResultRow: (patientId: string) => `${dataTestIds.patients.searchResultsRowPrefix}${patientId}`,
   },
   employeesPage: {
     table: 'employees-providers-content-table',

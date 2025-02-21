@@ -10,8 +10,6 @@ let page: Page;
 
 const appointmentIds: string[] = [];
 
-test.describe.configure({ mode: 'serial' });
-
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
   page = await context.newPage();
@@ -44,7 +42,7 @@ test.describe('Past Visits - Empty State', () => {
 
     await homepage.clickStartVirtualVisitButton();
 
-    await page.getByText('Different family member', { exact: true }).click();
+    await page.getByTestId('Different family member').click();
     await homepage.clickContinue();
 
     await homepage.selectState();
@@ -57,6 +55,7 @@ test.describe('Past Visits - Empty State', () => {
     await fillingInfo.fillDOBless18();
 
     await page.getByRole('button', { name: 'Continue' }).click();
+    await page.waitForResponse((response) => response.url().includes('/telemed-create-appointment/'));
   });
 
   test('should show empty state when no past visits exist', async ({ page }) => {

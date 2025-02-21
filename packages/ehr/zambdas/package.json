@@ -1,54 +1,52 @@
 {
   "name": "ehr-zambdas",
-  "version": "1.1.0",
+  "version": "1.2.2",
   "private": true,
   "scripts": {
-    "start": "env-cmd -f ./.env/${ENV:-local}.json sls offline --stage ${ENV:-local}",
+    "start": "export HOME=./ && env-cmd -f ./.env/${ENV:-local}.json sls offline --stage ${ENV:-local}",
     "start:local": "ENV=local npm run start",
     "start:demo": "ENV=demo npm run start",
-    "debug": "export SLS_DEBUG=* && node --inspect ../../../node_modules/serverless/bin/serverless offline --stage=local",
-    "create-subscription:demo": "ENV=demo npm run create-subscription-skeleton",
-    "create-subscription-skeleton": "env-cmd -f ./.env/${ENV}.json tsx scripts/create-subscription.ts",
-    "create-location:placeholder": "env-cmd -f ./.env/local.json tsx scripts/create-location.ts",
+    "debug": "export HOME=./ && export SLS_DEBUG=* && node --inspect ../../../node_modules/serverless/bin/serverless offline --stage=local",
     "cancel-telemed-appointments": "tsx scripts/cancel-telemed-appointments.ts",
     "remove-insurances-and-payer-orgs": "tsx scripts/remove-insurances-and-payer-orgs.ts",
     "update-insurances-and-payer-orgs": "tsx scripts/update-insurances-and-payer-orgs.ts",
     "update-insurances-and-payer-orgs-debug": "node --inspect --loader tsx scripts/update-insurances-and-payer-orgs.ts",
     "revoke-practitioners-erx-enrollment": "tsx scripts/revoke-practitioners-erx-enrollment.ts",
     "create-update-in-house-medications-list": "tsx scripts/create-update-in-house-medications-list.ts $npm_config_env",
+    "remove-test-patient-data": "tsx scripts/remove-test-patient-data.ts local",
     "setup-default-locations": "tsx scripts/setup-default-locations.ts",
     "setup-zapehr-secrets": "tsx scripts/configure-zapehr-secrets.ts",
     "deploy-zambdas": "ENV=$ENV npm run package && tsx scripts/deploy-zambdas.ts",
     "update-user-roles": "tsx scripts/update-user-roles.ts",
-    "build": "npm run build:env --env=local",
-    "build:env": "ENV=$npm_config_env npm run build-skeleton",
-    "build-skeleton": "tsc && sls package --stage ${ENV}",
-    "package": "tsc && sls package --stage ${ENV} && npm run rebundle",
+    "build": "export HOME=./ && npm run build:env --env=local",
+    "build:env": "export HOME=./ && ENV=$npm_config_env npm run build-skeleton",
+    "build-skeleton": "export HOME=./ && tsc && sls package --stage ${ENV}",
+    "package": "export HOME=./ && tsc && sls package --stage ${ENV} && npm run rebundle",
     "rebundle": "bash scripts/package-for-release.sh",
-    "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
-    "import-locations:local": "tsx scripts/import-locations.ts local",
-    "import-locations:demo": "tsx scripts/import-locations.ts demo",
+    "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0 --fix",
     "clear-tasks": "tsx scripts/clear-tasks.ts production",
     "stub-zambdas:prod": "tsx scripts/create-zambda-stubs.ts production",
     "setup-questionnaires": "tsx scripts/setup-questionnaires.ts",
+    "setup-billing-providers": "tsx scripts/setup-billing-providers.ts",
+    "setup-deployed-resources": "tsx scripts/setup-questionnaires.ts ${ENV} && tsx scripts/setup-billing-providers.ts ${ENV}",
     "test": "vitest --silent"
   },
   "engines": {
-    "npm": ">=8.0.0",
-    "node": ">=18.0.0"
+    "node": ">=20.0.0",
+    "npm": ">=9.0.0"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.272.0",
-    "@sendgrid/mail": "^7.7.0",
-    "@oystehr/sdk": "3.0.4",
+    "@oystehr/sdk": "3.0.7",
     "fast-json-patch": "^3.1.1",
     "luxon": "^3.4.3",
     "query-string": "^8.1.0",
-    "short-uuid": "^4.2.2"
+    "short-uuid": "^4.2.2",
+    "utils": "*",
+    "zambda-utils": "*"
   },
   "devDependencies": {
     "@types/luxon": "^3.3.2",
-    "esbuild": "^0.18.14",
-    "serverless-esbuild": "^1.48.0"
+    "esbuild": "^0.18.14"
   }
 }

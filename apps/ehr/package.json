@@ -1,8 +1,12 @@
 {
   "name": "ehr-ui",
-  "version": "1.1.0",
+  "version": "1.2.2",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=9.0.0"
+  },
   "browserslist": {
     "production": [
       ">0.2%",
@@ -48,7 +52,7 @@
     "@mui/icons-material": "^5.14.9",
     "@mui/x-data-grid-pro": "^6.3.0",
     "@mui/x-date-pickers-pro": "^6.3.0",
-    "@oystehr/sdk": "3.0.4",
+    "@oystehr/sdk": "3.0.7",
     "@photonhealth/elements": "^0.12.3",
     "@twilio/conversations": "^2.4.1",
     "amazon-chime-sdk-component-library-react": "^3.7.0",

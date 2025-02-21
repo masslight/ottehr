@@ -1,4 +1,5 @@
 import {
+  GetPresignedFileURLInput,
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
   INSURANCE_CARD_FRONT_2_ID,
@@ -8,9 +9,9 @@ import {
   PHOTO_ID_FRONT_ID,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_WORK_ID,
-  ZambdaInput,
-} from '../../types';
-import { GetPresignedFileURLInput } from './types';
+} from 'utils';
+import { ZambdaInput } from 'zambda-utils';
+import { Secrets } from 'zambda-utils';
 
 const fileTypes = [
   INSURANCE_CARD_BACK_ID,
@@ -24,7 +25,9 @@ const fileTypes = [
 ];
 const fileFormats = ['jpg', 'jpeg', 'png', 'pdf'];
 
-export function validateRequestParameters(input: ZambdaInput): GetPresignedFileURLInput {
+export function validateRequestParameters(input: ZambdaInput): GetPresignedFileURLInput & {
+  secrets: Secrets | null;
+} {
   if (!input.body) {
     throw new Error('No request body provided');
   }

@@ -1,59 +1,34 @@
-import FhirClient from '@oystehr/sdk';
+import Oystehr from '@oystehr/sdk';
 import { exec } from 'child_process';
 import { FhirResource, Organization } from 'fhir/r4b';
 import fs from 'fs';
-import fetch from 'node-fetch';
 import path from 'path';
 import { ScheduleStrategyCoding, TIMEZONE_EXTENSION_URL } from 'utils';
 import { inviteUser } from './invite-user';
 import { promisify } from 'node:util';
 
-async function createApplication(
-  projectApiUrl: string,
-  applicationName: string,
-  accessToken: string,
-  projectId: string
-): Promise<[string, string]> {
-  return new Promise((resolve, reject) => {
-    fetch(`${projectApiUrl}/application`, {
-      headers: {
-        accept: 'application/json',
-        authorization: `Bearer ${accessToken}`,
-        'content-type': 'application/json',
-        'x-zapehr-project-id': `${projectId}`,
-      },
-      method: 'POST',
-      body: JSON.stringify({
-        name: applicationName,
-        description: 'Example',
-        loginRedirectUri: 'https://127.0.0.1:4002/dashboard',
-        allowedCallbackUrls: ['http://localhost:4002', 'http://localhost:4002/dashboard'],
-        allowedLogoutUrls: ['http://localhost:4002'],
-        allowedWebOriginsUrls: ['http://localhost:4002'],
-        allowedCORSOriginsUrls: ['http://localhost:4002'],
-      }),
-    })
-      .then(async (response) => {
-        if (response.status === 200) {
-          return response.json();
-        } else {
-          console.log(`Failed to create application`, await response.json());
-          throw new Error('Failed to create application');
-        }
-      })
-      .then((data) => resolve([data.id, data.clientId]))
-      .catch((error) => reject(error));
+async function createApplication(oystehr: Oystehr, applicationName: string): Promise<[string, string]> {
+  const application = await oystehr.application.create({
+    name: applicationName,
+    description: 'EHR application with email authentication',
+    loginRedirectUri: 'https://ehr-local.ottehr.com/dashboard',
+    allowedCallbackUrls: ['http://localhost:4002', 'http://localhost:4002/dashboard'],
+    allowedLogoutUrls: ['http://localhost:4002'],
+    allowedWebOriginsUrls: ['http://localhost:4002'],
+    allowedCORSOriginsUrls: ['http://localhost:4002'],
+    shouldSendInviteEmail: true,
   });
+  return [application.id, application.clientId];
 }
 
-const createOrganization = async (fhirClient: FhirClient): Promise<Organization> => {
+const createOrganization = async (oystehr: Oystehr): Promise<Organization> => {
   const organization: FhirResource = {
     resourceType: 'Organization',
     active: true,
     name: 'Example Organization',
   };
 
-  return await fhirClient.fhir.create(organization);
+  return await oystehr.fhir.create(organization);
 };
 
 function createZambdaEnvFile(
@@ -111,32 +86,12 @@ function createFrontEndEnvFile(clientId: string, environment: string, projectId:
   return envPath;
 }
 
-async function createZ3(
-  projectApiUrl: string,
-  projectId: string,
-  accessToken: string,
-  bucketNames: string[]
-): Promise<void> {
-  const getResponse = await fetch(`${projectApiUrl}/z3`, {
-    headers: {
-      accept: 'application/json',
-      authorization: `Bearer ${accessToken}`,
-      'content-type': 'application/json',
-      'x-zapehr-project-id': `${projectId}`,
-    },
-    method: 'GET',
-  });
-
-  if (getResponse.status !== 200) {
-    console.log(`Failed to fetch existing buckets.`, await getResponse.json());
-    throw new Error('Failed to fetch existing buckets.');
-  }
-
-  const existingBuckets = await getResponse.json();
+async function createZ3(oystehr: Oystehr, bucketNames: string[]): Promise<void> {
+  const existingBuckets = await oystehr.z3.listBuckets();
 
   const promises = bucketNames
-    .map((bucketName) => {
-      const fqBucketName = `${projectId}-${bucketName}`;
+    .map(async (bucketName) => {
+      const fqBucketName = `${oystehr.config.projectId}-${bucketName}`;
 
       const foundBucket = existingBuckets.find((eb: { name: string }) => eb.name === fqBucketName);
       if (foundBucket !== undefined) {
@@ -146,22 +101,12 @@ async function createZ3(
 
       console.log(`Creating bucket ${fqBucketName}.`);
 
-      return fetch(`${projectApiUrl}/z3/${fqBucketName}`, {
-        headers: {
-          accept: 'application/json',
-          authorization: `Bearer ${accessToken}`,
-          'content-type': 'application/json',
-          'x-zapehr-project-id': `${projectId}`,
-        },
-        method: 'PUT',
-      }).then(async (response) => {
-        if (response.status === 200) {
-          return response.json();
-        } else {
-          console.log(`Failed to create bucket`, await response.json());
-          throw new Error('Failed to create bucket');
-        }
-      });
+      try {
+        return await oystehr.z3.createBucket({ bucketName: fqBucketName });
+      } catch (err) {
+        console.error(`Failed to create bucket`, err);
+        throw new Error('Failed to create bucket');
+      }
     })
     .filter((promiseOrNull) => promiseOrNull !== null);
 
@@ -169,8 +114,7 @@ async function createZ3(
 }
 
 export async function setupEHR(
-  projectApiUrl: string,
-  accessToken: string,
+  oystehr: Oystehr,
   projectId: string,
   providerEmail: string,
   m2mClientId: string,
@@ -179,17 +123,11 @@ export async function setupEHR(
 ): Promise<void> {
   console.log('Starting setup of EHR...');
 
-  const fhirClient = new FhirClient({
-    fhirApiUrl: 'https://fhir-api.zapehr.com',
-    projectId: projectId,
-    accessToken: accessToken,
-  });
-
-  const applicationName = 'Starter EHR Application';
-  const [applicationId, clientId] = await createApplication(projectApiUrl, applicationName, accessToken, projectId);
+  const applicationName = 'Ottehr EHR';
+  const [applicationId, clientId] = await createApplication(oystehr, applicationName);
   console.log(`Created application "${applicationName}".`);
 
-  const organizationId = (await createOrganization(fhirClient)).id;
+  const organizationId = (await createOrganization(oystehr)).id;
   if (!organizationId) {
     throw new Error('Organization ID is not defined');
   }
@@ -198,39 +136,33 @@ export async function setupEHR(
   const firstName = undefined;
   const lastName = undefined;
   const { invitationUrl: invitationUrl1, userId: userId1 } = await inviteUser(
-    projectApiUrl,
+    oystehr,
     providerEmail,
     firstName,
     lastName,
     applicationId,
-    accessToken,
-    projectId,
     true,
     'practitioner1'
   );
 
-  const provider2Email = providerEmail.replace('@', '+provider2@');
+  const provider2Email = 'jane.smith@ottehr.com';
   const { userId: userId2 } = await inviteUser(
-    projectApiUrl,
+    oystehr,
     provider2Email,
-    firstName,
-    lastName,
+    'Jane',
+    'Smith',
     applicationId,
-    accessToken,
-    projectId,
     true,
     'practitioner2'
   );
 
-  const provider3Email = providerEmail.replace('@', '+provider3@');
+  const provider3Email = 'kevin.brown@ottehr.com';
   const { userId: userId3 } = await inviteUser(
-    projectApiUrl,
+    oystehr,
     provider3Email,
-    firstName,
-    lastName,
+    'Kevin',
+    'Brown',
     applicationId,
-    accessToken,
-    projectId,
     true,
     'practitioner3'
   );
@@ -278,7 +210,7 @@ export async function setupEHR(
       },
     ],
   };
-  const healthcareService = await fhirClient.fhir.create(healthcareServiceResource);
+  const healthcareService = await oystehr.fhir.create(healthcareServiceResource);
 
   // create a PractitionerRole for each provider
   const userIds = [userId1, userId2, userId3];
@@ -298,7 +230,7 @@ export async function setupEHR(
       ],
     };
 
-    await fhirClient.fhir.create(practitionerRoleResource);
+    await oystehr.fhir.create(practitionerRoleResource);
   }
 
   // create a FHIR Group resource, for issue report email recipients
@@ -331,7 +263,7 @@ export async function setupEHR(
       ],
       actual: true,
     };
-    const groupResponse = await fhirClient.fhir.create(groupResource);
+    const groupResponse = await oystehr.fhir.create(groupResource);
     groupId = groupResponse.id ?? '';
   }
 
@@ -352,7 +284,7 @@ export async function setupEHR(
     'patient-photos',
   ];
 
-  await createZ3(projectApiUrl, projectId, accessToken, bucketNames);
+  await createZ3(oystehr, bucketNames);
 
   const execPromise = promisify(exec);
   try {

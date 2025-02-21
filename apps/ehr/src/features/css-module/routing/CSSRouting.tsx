@@ -5,17 +5,11 @@ import { useCSSPermissions } from '../hooks/useCSSPermissions';
 import { FeatureFlagsProvider } from '../context/featureFlags';
 import { CSSLoader } from '../components/CSSLoader';
 import { NavigationProvider, useNavigationContext } from '../context/NavigationContext';
-import { routesCSS } from './routesCSS';
-
-const allRoutes = Object.values(routesCSS);
-const providerRoutes = allRoutes.filter((route) => route.modes.includes('provider'));
-const intakeRoutes = allRoutes.filter((route) => route.modes.includes('intake'));
-// const readonlyRoutes = allRoutes.filter((route) => route.modes.includes('readonly'));
 
 const CSSRouting: React.FC = () => {
   const permissions = useCSSPermissions();
   const navigate = useNavigate();
-  const { interactionMode } = useNavigationContext();
+  const { availableRoutes } = useNavigationContext();
   if (permissions.isPending) {
     return <CSSLoader />;
   }
@@ -24,8 +18,6 @@ const CSSRouting: React.FC = () => {
     navigate('/visits');
     return null;
   }
-
-  const availableRoutes = interactionMode === 'provider' ? providerRoutes : intakeRoutes;
 
   return (
     <FeatureFlagsProvider flagsToSet={{ css: true }}>

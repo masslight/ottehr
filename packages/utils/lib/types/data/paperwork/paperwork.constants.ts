@@ -29,3 +29,8 @@ export const SCHOOL_WORK_NOTE_TEMPLATE_CODE = 'school-work-note-template';
 export const CONSENT_CODE = '59284-0';
 export const PRIVACY_POLICY_CODE = '64292-6';
 export const VISIT_NOTE_SUMMARY_CODE = '75498-6';
+
+// only one type supported currently, but extension is invited here
+export const ComplexValidationType = {
+  insuranceEligibility: 'insurance elgibility',
+};

@@ -31,13 +31,13 @@
 Ottehr consists of two apps,
 
 - **[Ottehr Intake](apps/intake)** &mdash; A patient-facing registration website for creating appointments, initiating telemedicine calls, with features including rescheduling, checking in, completing intake paperwork, text messages and emails, and listing appointments for an account.
-- **[Ottehr EHR](packages/ehr/)** &mdash; A staff-facing EHR for managing appointments created, with features including checking appointments, managing patient queues, texting patients, updating a location's slots, setting a location's schedule, joining telemedicine calls, HPI and medical history, exam charting, eRx and Assessment, patient plan, coming soon: RCM and claims submission.
+- **[Ottehr EHR](apps/ehr/)** &mdash; A staff-facing EHR for managing appointments created, with features including checking appointments, managing patient queues, texting patients, updating a location's slots, setting a location's schedule, joining telemedicine calls, HPI and medical history, exam charting, eRx and Assessment, patient plan, coming soon: RCM and claims submission.
 
 ## Run Ottehr Locally
 
 ### Prerequisites
 
-To run Ottehr, you'll need a free Oystehr account, and Node.js.
+To run Ottehr, you'll need a free Oystehr account and Node.js.
 
 #### Get Your Oystehr Account
 
@@ -50,17 +50,25 @@ Check out the [Oystehr Technical Documentation](https://docs.oystehr.com) to lea
 
 #### Install Node.js
 
-If you do not already have it, install Node.js v18.x.
+If you do not already have it, [install Node.js](https://nodejs.org/en/download) v20.x or higher. Ottehr is tested with all active LTS versions.
+
+Ottehr also supports `nvm`, `asdf`, and tools that use `.node-version`.
 
 ### Fork & Clone
 
 Fork &mdash;
-   Go to [https://github.com/masslight/ottehr/fork](https://github.com/masslight/ottehr/fork) and click 'Create fork' to fork the repository.
+Go to [https://github.com/masslight/ottehr/fork](https://github.com/masslight/ottehr/fork) and click 'Create fork' to fork the repository.
 
-Clone  &mdash; Copy and run the clone script for your fork.
+Clone &mdash; Copy and run the clone script for your fork.
 
 ```bash
 git clone git@github.com:{your_profile}/ottehr.git
+```
+
+Then, move into the new directory
+
+```bash
+cd ottehr
 ```
 
 ### Run the Setup Script
@@ -75,7 +83,7 @@ The script will prompt you for the following information:
 - Your project ID &mdash; Listed on the Oystehr Console next to the access token
 - An email address for your first Provider User of the EHR &mdash; Put your email here.
 
-When the setup script finishes, the intake and EHR websites will open automatically.
+When the setup script finishes, the intake and EHR websites will open automatically, and the email address you provided will receive an invitation to join the EHR.
 
 You only need to run the setup script once. To start the apps going forward, use `npm run apps:start`.
 
@@ -89,7 +97,7 @@ By default, the Patient app uses passwordless SMS for authentication. On the log
 
 The EHR app starts up at <http://localhost:4002>
 
-To log into the EHR, enter the email you input during the setup program on the login screen. Click `Forgot password?`, follow the password reset workflow, then enter your password to complete login.
+To log into the EHR, check the email address you provided during setup for an invitation to join the EHR application. Click the link, follow the account setup workflow, and then enter your credentials to complete login.
 
 ## End to End Test Setup Procedure
 

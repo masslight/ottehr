@@ -1,6 +1,6 @@
 {
   "name": "intake-zambdas",
-  "version": "1.1.0",
+  "version": "1.2.2",
   "private": true,
   "scripts": {
     "start": "npm run start:local",
@@ -10,41 +10,37 @@
     "start:dev2": "ENV=dev2 npm run start-skeleton",
     "start:testing": "ENV=testing npm run start-skeleton",
     "start:staging": "ENV=staging npm run start-skeleton",
-    "start-skeleton": "npm run setup-questionnaires ${ENV} && sls offline --stage ${ENV} --httpPort 3000",
-    "create-subscription:dev": "ENV=dev npm run create-subscription-skeleton",
-    "create-subscription:dev2": "ENV=dev2 npm run create-subscription-skeleton",
-    "create-subscription:testing": "ENV=testing npm run create-subscription-skeleton",
-    "create-subscription:staging": "ENV=staging npm run create-subscription-skeleton",
-    "create-subscription:production": "ENV=production npm run create-subscription-skeleton",
-    "create-subscription-skeleton": "env-cmd -f ./.env/${ENV}.json tsx scripts/create-subscription.ts",
-    "create-location:placeholder": "env-cmd -f ./.env/local.json tsx scripts/create-location.ts",
-    "debug": "export SLS_DEBUG=* && node --inspect ../../../node_modules/serverless/bin/serverless offline --stage=local",
+    "start-skeleton": "export HOME=./ && npm run setup-deployed-resources ${ENV} && sls offline --stage ${ENV} --httpPort 3000",
+    "debug": "export HOME=./ && export SLS_DEBUG=* && node --inspect ../../../node_modules/serverless/bin/serverless offline --stage=local",
     "setup-zapehr-secrets": "tsx scripts/configure-zapehr-secrets.ts",
     "deploy-zambdas": "ENV=$ENV npm run package && tsx scripts/deploy-zambdas.ts",
     "update-permissions-for-users": "tsx scripts/update-permissions-for-users.ts",
     "stub-zambdas": "tsx scripts/create-stub-zambda.ts",
-    "build": "npm run build:env --env=local",
-    "build:env": "ENV=$npm_config_env npm run build-skeleton",
-    "build-skeleton": "tsc && sls package --stage ${ENV}",
-    "package": "tsc && sls package --stage ${ENV} && npm run rebundle",
-    "rebundle": "env-cmd --silent -f ./.env/${ENV}.json bash scripts/package-for-release.sh",
+    "build": "export HOME=./ && npm run build:env --env=local",
+    "build:env": "export HOME=./ && ENV=$npm_config_env npm run build-skeleton",
+    "build-skeleton": "export HOME=./ && tsc && sls package --stage ${ENV}",
+    "package": "export HOME=./ && tsc && sls package --stage ${ENV} && npm run rebundle",
+    "rebundle": "export HOME=./ && env-cmd --silent -f ./.env/${ENV}.json bash scripts/package-for-release.sh",
     "paperwork-types": "tsx scripts/make-paperwork-types.ts",
     "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0 --fix",
     "test": "vitest --silent",
     "setup-questionnaires": "tsx scripts/setup-questionnaires.ts",
+    "setup-billing-providers": "tsx scripts/setup-billing-providers.ts",
+    "setup-deployed-resources": "tsx scripts/setup-questionnaires.ts ${ENV} && tsx scripts/setup-billing-providers.ts ${ENV}",
     "copy-ip-locations": "tsx scripts/copy-ip-locations.ts",
     "setup-intake": "tsx scripts/setup-intake.ts"
   },
   "engines": {
-    "npm": ">=8.0.0",
-    "node": ">=18.0.0"
+    "node": ">=20.0.0",
+    "npm": ">=9.0.0"
   },
   "dependencies": {
     "diacritics": "^1.3.0",
     "esbuild": "^0.20.2",
     "i18next": "^23.11.1",
     "mixpanel": "^0.18.0",
-    "utils": "*"
+    "utils": "*",
+    "zambda-utils": "*"
   },
   "devDependencies": {
     "@types/diacritics": "^1.3.3",

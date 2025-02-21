@@ -1,9 +1,8 @@
-import { DateTime } from 'luxon';
-import { APIGatewayProxyResult } from 'aws-lambda';
 import sendgrid from '@sendgrid/mail';
-import { Secrets, getSecret, SecretsKeys } from '../secrets';
-import { APIError, isApiError } from '../types';
-import { isFHIRError } from '../fhir';
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { DateTime } from 'luxon';
+import { APIError, isApiError, isFHIRError } from 'utils';
+import { getSecret, Secrets, SecretsKeys } from '../secrets';
 
 const handleErrorResult = (errorResult: unknown): APIGatewayProxyResult => {
   if (isApiError(errorResult)) {
@@ -90,8 +89,10 @@ export const sendErrors = async (
     );
   } catch (error) {
     console.error(`Error sending email to ${email}: ${JSON.stringify(error)}`);
-    // Re-throw error so caller knows we failed.
-    throw error;
+    // // Re-throw error so caller knows we failed.
+    // // commenting out because this is causing caught errors to fail and we do not have sendgrid configured yet
+    // // adding todo fix this after configuring sendgrid secrets
+    // throw error;
   }
 };
 

@@ -297,7 +297,6 @@ const PatientInformation = (): JSX.Element => {
       ...formValues,
     });
   }, []);
-  console.log('form elements', formElements);
   return (
     <PageContainer title={t('aboutPatient.title')} description={t('aboutPatient.subtitle')}>
       {patientInfo && !patientInfo?.newPatient && (

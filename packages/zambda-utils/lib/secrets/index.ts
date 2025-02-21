@@ -1,19 +1,18 @@
+export * from './helpers';
+
 export interface Secrets {
   [secretName: string]: string;
 }
 
-export const getSecret = (secretKey: string, secrets: Secrets | null): string => {
-  let value: string | undefined;
-  if (secrets != null) {
-    value = secrets[secretKey];
-  } else {
-    value = process.env[secretKey];
-  }
+export const getOptionalSecret = (secretKey: string, secrets: Secrets | null): string | undefined => {
+  return secrets != null ? secrets[secretKey] : process.env[secretKey];
+};
 
+export const getSecret = (secretKey: string, secrets: Secrets | null): string => {
+  const value = getOptionalSecret(secretKey, secrets);
   if (value == null) {
     throw new Error(`Secret or Environment Variable with key ${secretKey} was not set.`);
   }
-
   return value;
 };
 
@@ -22,6 +21,7 @@ export enum SecretsKeys {
   AUTH0_CLIENT = 'AUTH0_CLIENT',
   AUTH0_SECRET = 'AUTH0_SECRET',
   AUTH0_AUDIENCE = 'AUTH0_AUDIENCE',
+  DEFAULT_BILLING_RESOURCE = 'DEFAULT_BILLING_RESOURCE',
   FHIR_API = 'FHIR_API',
   PROJECT_API = 'PROJECT_API',
   PROJECT_ID = 'PROJECT_ID',
@@ -69,4 +69,10 @@ export enum SecretsKeys {
   S3_BUCKET_SECRET_ACCESS_KEY = 'S3_BUCKET_SECRET_ACCESS_KEY',
   IN_PERSON_SENDGRID_SPANISH_CANCELLATION_EMAIL_TEMPLATE_ID = 'IN_PERSON_SENDGRID_SPANISH_CANCELLATION_EMAIL_TEMPLATE_ID',
   IN_PERSON_SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID = 'IN_PERSON_SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID',
+  IN_PERSON_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID = 'IN_PERSON_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID',
+  INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID = 'INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID',
+  NLM_API_KEY = 'NLM_API_KEY',
+  CANDID_CLIENT_ID = 'CANDID_CLIENT_ID',
+  CANDID_CLIENT_SECRET = 'CANDID_CLIENT_SECRET',
+  CANDID_ENV = 'CANDID_ENV',
 }

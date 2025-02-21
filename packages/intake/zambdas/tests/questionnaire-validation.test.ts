@@ -1,29 +1,14 @@
-import {
-  FHIR_API,
-  AUTH0_ENDPOINT,
-  AUTH0_CLIENT,
-  AUTH0_SECRET,
-  AUTH0_AUDIENCE,
-  IN_PERSON_PREVISIT_QUESTIONNAIRE,
-} from '../.env/local.json';
 import { IntakeQuestionnaireItem, getQuestionnaireItemsAndProgress, makeValidationSchema } from 'utils';
-import { getAccessToken } from '../src/shared';
-import { createOystehrClient } from '../src/shared/helpers';
 import { AnyObjectSchema, AnySchema } from 'yup';
+import { getAuth0Token } from '../src/shared';
+import { createOystehrClient } from '../src/shared/helpers';
 import QRData from './data/quetionnaire-responses.json';
 import { vi } from 'vitest';
+import { SECRETS as S } from './data/secrets';
 // import { QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
 
 // npm run test -- questionnaire-validation.test.ts
 
-const SECRETS = {
-  FHIR_API: FHIR_API,
-  AUTH0_ENDPOINT: AUTH0_ENDPOINT,
-  AUTH0_AUDIENCE: AUTH0_AUDIENCE,
-  AUTH0_CLIENT: AUTH0_CLIENT,
-  AUTH0_SECRET: AUTH0_SECRET,
-  IN_PERSON_PREVISIT_QUESTIONNAIRE,
-};
 // where does this come from, and how can we get its questionnaire id instead??
 // const APPOINTMENT_ID = '94a90465-8c4f-422d-b752-ca3d154d7175';
 // const COMPLETED_VALID_FULL_QR_WITH_INSURANCE: QuestionnaireResponseItem[] = QRData.full[0].item;
@@ -218,7 +203,18 @@ describe.skip('qr page validation tests', () => {
 
   vi.setConfig({ testTimeout: 100_000 });
   beforeAll(async () => {
-    const token = await getAccessToken(SECRETS);
+    const { FHIR_API, AUTH0_ENDPOINT, AUTH0_AUDIENCE, AUTH0_CLIENT, AUTH0_SECRET, IN_PERSON_PREVISIT_QUESTIONNAIRE } =
+      S;
+    const SECRETS = {
+      FHIR_API: FHIR_API,
+      AUTH0_ENDPOINT: AUTH0_ENDPOINT,
+      AUTH0_AUDIENCE: AUTH0_AUDIENCE,
+      AUTH0_CLIENT: AUTH0_CLIENT,
+      AUTH0_SECRET: AUTH0_SECRET,
+      IN_PERSON_PREVISIT_QUESTIONNAIRE,
+    };
+
+    const token = await getAuth0Token(SECRETS);
     const oystehr = createOystehrClient(token, SECRETS);
 
     // get paperwork questions
@@ -319,7 +315,18 @@ describe.skip('full qr validation tests', () => {
   vi.setConfig({ testTimeout: 100_000 });
 
   beforeAll(async () => {
-    const token = await getAccessToken(SECRETS);
+    const { FHIR_API, AUTH0_ENDPOINT, AUTH0_AUDIENCE, AUTH0_CLIENT, AUTH0_SECRET, IN_PERSON_PREVISIT_QUESTIONNAIRE } =
+      S;
+    const SECRETS = {
+      FHIR_API: FHIR_API,
+      AUTH0_ENDPOINT: AUTH0_ENDPOINT,
+      AUTH0_AUDIENCE: AUTH0_AUDIENCE,
+      AUTH0_CLIENT: AUTH0_CLIENT,
+      AUTH0_SECRET: AUTH0_SECRET,
+      IN_PERSON_PREVISIT_QUESTIONNAIRE,
+    };
+
+    const token = await getAuth0Token(SECRETS);
     const oystehr = createOystehrClient(token, SECRETS);
 
     // get paperwork questions and validation schema
@@ -392,7 +399,7 @@ describe('QR item type tests', () => {
 
   vi.setConfig({ testTimeout: 100_000 });
   beforeAll(async () => {
-    const token = await getAccessToken(SECRETS);
+    const token = await getAuth0Token(SECRETS);
     const oystehr = createOystehrClient(token, SECRETS);
 
     // get paperwork questions and validation schema

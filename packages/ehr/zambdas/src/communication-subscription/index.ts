@@ -1,17 +1,14 @@
-import { Secrets } from 'utils';
-import { ZambdaInput } from '../types';
-import { getAuth0Token } from '../shared';
-import { createOystehrClient } from '../shared/helpers';
-import { topLevelCatch } from '../shared/errors';
-import { validateRequestParameters } from './validateRequestParameters';
-import { APIGatewayProxyResult } from 'aws-lambda';
-import { Communication, Group, Bundle, Location, Practitioner } from 'fhir/r4b';
-import { COMMUNICATION_ISSUE_REPORT_CODE } from 'utils';
-import { codingContainedInList, getEmailsFromGroup, bundleResourcesConfig } from './helpers';
-import { sendSlackNotification, sendgridEmail } from '../shared/errors';
-import { getSecret, SecretsKeys } from '../shared';
 import { BatchInputGetRequest } from '@oystehr/sdk';
-import { getFullestAvailableName } from 'utils';
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { Bundle, Communication, Group, Location, Practitioner } from 'fhir/r4b';
+import { COMMUNICATION_ISSUE_REPORT_CODE, getFullestAvailableName } from 'utils';
+import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
+import { getAuth0Token } from '../shared';
+import { sendgridEmail, sendSlackNotification, topLevelCatch } from '../shared/errors';
+import { createOystehrClient } from '../shared/helpers';
+import { ZambdaInput } from 'zambda-utils';
+import { bundleResourcesConfig, codingContainedInList, getEmailsFromGroup } from './helpers';
+import { validateRequestParameters } from './validateRequestParameters';
 
 export interface CommunicationSubscriptionInput {
   communication: Communication;

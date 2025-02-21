@@ -4,6 +4,7 @@ import { createVitalsSearchConfig } from './create-vitals-search-config.helper';
 
 export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
   episodeOfCare: {},
+  prescribedMedications: {},
   notes: {
     _sort: '-_lastUpdated',
     _count: 1000,
@@ -27,4 +28,8 @@ export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
         .join(','),
     },
   },
+};
+
+export const telemedProgressNoteChartDataRequestedFields: ChartDataRequestedFields = {
+  prescribedMedications: {},
 };

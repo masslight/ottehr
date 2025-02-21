@@ -9,6 +9,8 @@ import { useAppointmentStore } from '../../state';
 interface PhotonPrescription {
   treatment: { id: string; name: string };
   instructions: string;
+  writtenAt: string;
+  id: string;
 }
 
 export const ERXDialog = ({
@@ -38,12 +40,16 @@ export const ERXDialog = ({
   useEffect(() => {
     const photonListener = (e: Event): void => {
       const prescriptionsEvent = e as unknown as { detail?: { prescriptions?: PhotonPrescription[] } };
+
       const prescribedMeds =
         prescriptionsEvent.detail?.prescriptions?.map(
           (detail) =>
             ({
               name: detail.treatment.name,
               instructions: detail.instructions,
+              added: detail.writtenAt,
+              prescriptionId: detail.id,
+              status: 'loading',
             }) as PrescribedMedicationDTO
         ) || [];
       if (prescribedMeds.length > 0) {

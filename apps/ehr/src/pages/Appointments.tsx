@@ -23,6 +23,7 @@ import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 import { VisitType, VisitTypeToLabel } from '../types/types';
 import CreateDemoVisits from '../components/CreateDemoVisits';
+import { useDebounce } from '../telemed/hooks';
 
 type LoadingState = { status: 'loading' | 'initial'; id?: string | undefined } | { status: 'loaded'; id: string };
 
@@ -32,14 +33,6 @@ interface AppointmentSearchResultData {
   cancelled: InPersonAppointmentInformation[] | undefined;
   inOffice: InPersonAppointmentInformation[] | undefined;
   activeApptDatesBeforeToday: string[] | undefined;
-}
-
-interface StructuredAppointmentData {
-  preBookedAppointments: InPersonAppointmentInformation[];
-  completedAppointments: InPersonAppointmentInformation[];
-  cancelledAppointments: InPersonAppointmentInformation[];
-  inOfficeAppointments: InPersonAppointmentInformation[];
-  activeApptDatesBeforeToday: string[];
 }
 
 type CustomFormEventHandler = (event: React.FormEvent<HTMLFormElement>, value: any, field: string) => void;
@@ -56,6 +49,7 @@ export default function Appointments(): ReactElement {
   const location = useLocation();
   const navigate = useNavigate();
   const pageIsVisible = usePageVisibility(); // goes to false if tab loses focus and gives the fhir api a break
+  const { debounce } = useDebounce(300);
 
   const handleSubmit: CustomFormEventHandler = (event: any, value: any, field: string): void => {
     if (field === 'date') {
@@ -81,7 +75,7 @@ export default function Appointments(): ReactElement {
     return new URLSearchParams(location.search);
   }, [location.search]);
 
-  const { locationID, searchDate, visitType, providers, groups, queryId } = useMemo(() => {
+  const { locationID, searchDate, visitType, providers, groups, queryId } = (() => {
     const locationID = queryParams.get('locationID') || '';
     const searchDate = queryParams.get('searchDate') || '';
     const appointmentTypesString = queryParams.get('visitType') || '';
@@ -93,34 +87,18 @@ export default function Appointments(): ReactElement {
     if (groups.length === 1 && groups[0] === '') {
       groups = [];
     }
-    const queryId = `${locationID}-${providers}-${groups}-${searchDate}-${appointmentTypesString}`;
+    const queryId = `${locationID}:${locationSelected?.id}:${providers}:${groups}:${searchDate}:${appointmentTypesString}`;
     const visitType = appointmentTypesString ? appointmentTypesString.split(',') : [];
     return { locationID, searchDate, visitType, providers, groups, queryId };
-  }, [queryParams]);
+  })();
 
   const {
-    preBookedAppointments,
-    completedAppointments,
-    cancelledAppointments,
-    inOfficeAppointments,
-    activeApptDatesBeforeToday,
-  } = useMemo(() => {
-    const structuredAppts: StructuredAppointmentData = {
-      preBookedAppointments: [],
-      completedAppointments: [],
-      cancelledAppointments: [],
-      inOfficeAppointments: [],
-      activeApptDatesBeforeToday: [],
-    };
-    if (searchResults !== null) {
-      structuredAppts.preBookedAppointments = searchResults.preBooked ?? [];
-      structuredAppts.completedAppointments = searchResults.completed ?? [];
-      structuredAppts.cancelledAppointments = searchResults.cancelled ?? [];
-      structuredAppts.inOfficeAppointments = searchResults.inOffice ?? [];
-      structuredAppts.activeApptDatesBeforeToday = searchResults.activeApptDatesBeforeToday ?? [];
-    }
-    return structuredAppts;
-  }, [searchResults]);
+    preBooked: preBookedAppointments = [],
+    completed: completedAppointments = [],
+    cancelled: cancelledAppointments = [],
+    inOffice: inOfficeAppointments = [],
+    activeApptDatesBeforeToday = [],
+  } = searchResults || {};
 
   useEffect(() => {
     if (localStorage.getItem('selectedVisitTypes')) {
@@ -220,9 +198,10 @@ export default function Appointments(): ReactElement {
           groupIDs: groups,
         });
 
-        setSearchResults(searchResults || []);
-
-        setLoadingState({ status: 'loaded', id: queryId });
+        debounce(() => {
+          setSearchResults(searchResults || []);
+          setLoadingState({ status: 'loaded', id: queryId });
+        });
       }
     };
     if (
@@ -236,9 +215,11 @@ export default function Appointments(): ReactElement {
       const timezone =
         locationSelected?.extension?.find(
           (extTemp) => extTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
-        )?.valueString ?? 'America/New_York';
+        )?.valueString ?? DateTime.local().zoneName;
+
       const searchDateToUse =
         (searchDate && DateTime.fromISO(searchDate, { zone: timezone })) || appointmentDate || undefined;
+
       void fetchStuff(oystehrZambda, searchDateToUse);
     }
   }, [
@@ -255,6 +236,7 @@ export default function Appointments(): ReactElement {
     groups,
     queryParams,
     pageIsVisible,
+    debounce,
   ]);
 
   useEffect(() => {
