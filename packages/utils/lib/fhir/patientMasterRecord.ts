@@ -86,6 +86,8 @@ export const patientFieldPaths = {
 export const coverageFieldPaths = {
   memberId: 'Coverage/identifier/0/value',
   carrier: 'Coverage/class/0/name',
+  payerId: 'Coverage/class/0/value',
+  payor: 'Coverage/payor/0',
   order: 'Coverage/order',
   additionalInformation: `Coverage/extension/${COVERAGE_ADDITIONAL_INFORMATION_URL}`,
   relationship: 'Coverage/relationship/coding/0/display',
