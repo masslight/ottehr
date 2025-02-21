@@ -4,6 +4,7 @@ import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { UploadImage } from '../../utils/in-person/UploadImage';
 import { FillingInfo } from '../../utils/telemed/FillingInfo';
 import { Paperwork } from '../../utils/telemed/Paperwork';
+import { clickContinue } from '../../utils/utils';
 
 enum PersonSex {
   Male = 'male',
@@ -21,18 +22,6 @@ let dob: Awaited<ReturnType<FillingInfo['fillDOBless18']>> | undefined;
 
 const appointmentIds: string[] = [];
 
-const clickContinue = async (page: Page, awaitNavigation = true): Promise<unknown> => {
-  await expect(page.getByRole('button', { name: 'Continue' })).toBeEnabled({ timeout: 10000 });
-  const currentPath = new URL(page.url()).pathname;
-  if (awaitNavigation) {
-    return await Promise.all([
-      page.waitForURL((url) => url.pathname !== currentPath),
-      page.getByRole('button', { name: 'Continue' }).click(),
-    ]);
-  } else {
-    return await page.getByRole('button', { name: 'Continue' }).click();
-  }
-};
 
 const selectState = async (page: Page): Promise<void> => {
   await page.getByPlaceholder('Search or select').click();
@@ -88,7 +77,7 @@ test('Should create new patient', async () => {
 
   dob = await fillingInfo.fillDOBless18();
 
-  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('button', { name: 'Continue' }).click({timeout: 30000});
 
   await paperwork.fillAndCheckContactInformation(patientInfo);
 

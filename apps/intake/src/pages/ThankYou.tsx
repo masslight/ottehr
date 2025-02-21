@@ -29,6 +29,7 @@ import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import i18n from '../lib/i18n';
+import { dataTestIds } from '../helpers/data-test-ids';
 
 type AppointmentState = { appointmentData: Partial<AppointmentData> };
 
@@ -269,7 +270,13 @@ const ThankYou = (): JSX.Element => {
               <Typography variant="subtitle1" color="text.primary">
                 {t('thanks.body1')}
               </Typography>
-              <Typography variant="h3" color="primary" mt={0.5} className="appointment-time">
+              <Typography
+                variant="h3"
+                color="primary"
+                mt={0.5}
+                className="appointment-time"
+                data-testid={dataTestIds.thankYouPageSelectedTimeBlock}
+              >
                 {getLocaleDateTimeString(selectedSlotTimezoneAdjusted, 'medium', i18n.language)}
               </Typography>
               <Typography

@@ -1,5 +1,5 @@
 import { Operation } from 'fast-json-patch';
-import { Coding, Coverage, Extension, Patient, RelatedPerson } from 'fhir/r4b';
+import { CodeableConcept, Coding, Coverage, Extension, Patient, RelatedPerson } from 'fhir/r4b';
 import {
   COVERAGE_ADDITIONAL_INFORMATION_URL,
   PATIENT_COMMON_WELL_CONSENT_URL,
@@ -58,7 +58,7 @@ export const patientFieldPaths = {
   fillingOutAs: `Patient/extension/${PATIENT_FILLING_OUT_AS_URL}`,
   parentGuardianEmail: 'Patient/contact/0/telecom/0/value',
   parentGuardianPhone: 'Patient/contact/0/telecom/1/value',
-  preferredLanguage: 'Patient/communication/0/language',
+  preferredLanguage: 'Patient/communication/0',
   race: `Patient/extension/${PATIENT_RACE_URL}`,
   ethnicity: `Patient/extension/${PATIENT_ETHNICITY_URL}`,
   sexualOrientation: `Patient/extension/${PATIENT_SEXUAL_ORIENTATION_URL}`,
@@ -412,4 +412,76 @@ export function getCurrentValue(
   }
 
   return current;
+}
+
+export const LANGUAGE_OPTIONS = {
+  English: 'English',
+  Spanish: 'Spanish',
+} as const;
+
+export type LanguageOption = keyof typeof LANGUAGE_OPTIONS;
+
+const LANGUAGE_MAPPING: Record<LanguageOption, Coding> = {
+  [LANGUAGE_OPTIONS.English]: {
+    code: 'en',
+    display: 'English',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.Spanish]: {
+    code: 'es',
+    display: 'Spanish',
+    system: 'urn:ietf:bcp:47',
+  },
+};
+
+interface LanguageCommunication {
+  language: CodeableConcept;
+  preferred: boolean;
+}
+
+function getLanguageCommunication(value: LanguageOption, preferred = true): LanguageCommunication {
+  const mapping = LANGUAGE_MAPPING[value];
+
+  return {
+    language: {
+      coding: [
+        {
+          system: mapping.system,
+          code: mapping.code,
+          display: mapping.display,
+        },
+      ],
+    },
+    preferred,
+  };
+}
+
+export function getPatchOperationToAddOrUpdatePreferredLanguage(
+  value: LanguageOption,
+  path: string,
+  patient: Patient,
+  currentValue?: LanguageOption
+): Operation {
+  const communication = getLanguageCommunication(value);
+  if (currentValue) {
+    return {
+      op: 'replace',
+      path: path,
+      value: communication,
+    };
+  } else {
+    if (patient.communication) {
+      return {
+        op: 'add',
+        path: '/communication/-',
+        value: communication,
+      };
+    } else {
+      return {
+        op: 'add',
+        path: '/communication',
+        value: communication,
+      };
+    }
+  }
 }

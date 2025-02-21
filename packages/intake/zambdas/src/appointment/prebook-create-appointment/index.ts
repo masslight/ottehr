@@ -71,8 +71,11 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.group('validateRequestParameters');
     // Step 1: Validate input
     console.log('getting user');
-    const user = await getUser(input.headers.Authorization.replace('Bearer ', ''), input.secrets);
-    const isEHRUser = !user.name.startsWith('+');
+
+    const token = input.headers.Authorization.replace('Bearer ', '');
+    const user = await getUser(token, input.secrets); // check
+
+    const isEHRUser = !user?.name?.startsWith?.('+');
     if (!zapehrToken) {
       console.log('getting token');
       zapehrToken = await getAuth0Token(input.secrets);
@@ -80,6 +83,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       console.log('already have token');
     }
     const oystehr = createOystehrClient(zapehrToken, input.secrets);
+
     const validatedParameters = await validateCreateAppointmentParams(input, isEHRUser, oystehr);
 
     const { slot, schedule, language, patient, secrets, scheduleType, visitType, unconfirmedDateOfBirth, serviceType } =
@@ -97,12 +101,11 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       const userAccess = await userHasAccessToPatient(user, patient.id, oystehr);
       if (!userAccess && !isEHRUser) {
         throw NO_READ_ACCESS_TO_PATIENT_ERROR;
-      } else if (isEHRUser) {
-        console.log('user is flagged as an EHR User, therefore has access to create appointment');
       }
     }
     console.log('creating appointment');
-    const { message, appointment, fhirPatientId, questionnaireResponseId, encounterId } = await createAppointment(
+
+    const data_appointment = await createAppointment(
       {
         slot,
         scheduleType,
@@ -119,9 +122,22 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       oystehr
     );
 
+    console.log('appointment created');
+
+    const { message, appointment, fhirPatientId, questionnaireResponseId, encounterId, resources, relatedPersonId } =
+      data_appointment;
+
     await createAuditEvent(AuditableZambdaEndpoints.appointmentCreate, oystehr, input, fhirPatientId, secrets);
 
-    const response = { message, appointment, fhirPatientId, questionnaireResponseId, encounterId };
+    const response = {
+      message,
+      appointment,
+      fhirPatientId,
+      questionnaireResponseId,
+      encounterId,
+      resources,
+      relatedPersonId,
+    };
 
     console.log(`fhirAppointment = ${JSON.stringify(response)}`, visitType);
     return {
@@ -187,6 +203,7 @@ export async function createAppointment(
     patient: fhirPatient,
     questionnaireResponseId,
     encounter,
+    questionnaire,
   } = await performTransactionalFhirRequests({
     patient: maybeFhirPatient,
     reasonForVisit: patient?.reasonForVisit || '',
@@ -209,6 +226,8 @@ export async function createAppointment(
     createdBy,
   });
 
+  let relatedPersonId = '';
+
   // Three cases:
   // New user, new patient, create a conversation and add the participants including M2M Device and RelatedPerson
   // Returning user, new patient, get the user's conversation and add the participant RelatedPerson
@@ -222,6 +241,7 @@ export async function createAppointment(
     // and create a Person resource if there is not one for the account
     // todo: this needs to happen transactionally with the other must-happen-for-this-request-to-succeed items
     const userResource = await createUserResourcesForPatient(oystehr, fhirPatient.id, verifiedFormattedPhoneNumber);
+    relatedPersonId = userResource?.relatedPerson?.id || '';
     const person = userResource.person;
 
     if (!person.id) {
@@ -236,6 +256,13 @@ export async function createAppointment(
     fhirPatientId: fhirPatient.id || '',
     questionnaireResponseId: questionnaireResponseId || '',
     encounterId: encounter.id || '',
+    relatedPersonId: relatedPersonId,
+    resources: {
+      appointment,
+      encounter,
+      questionnaire,
+      patient: fhirPatient,
+    },
   };
 }
 
@@ -272,6 +299,7 @@ interface TransactionOutput {
   appointment: Appointment;
   encounter: Encounter;
   patient: Patient;
+  questionnaire: QuestionnaireResponse;
   questionnaireResponseId: string;
 }
 
@@ -503,15 +531,19 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
 const extractResourcesFromBundle = (bundle: Bundle<Resource>): TransactionOutput => {
   console.log('getting resources from bundle');
   const entry = bundle.entry ?? [];
+
   const appointment: Appointment = entry.find((appt) => {
     return appt.resource && appt.resource.resourceType === 'Appointment';
   })?.resource as Appointment;
+
   const encounter: Encounter = entry.find((enc) => {
     return enc.resource && enc.resource.resourceType === 'Encounter';
   })?.resource as Encounter;
+
   const patient: Patient = entry.find((enc) => {
     return enc.resource && enc.resource.resourceType === 'Patient';
   })?.resource as Patient;
+
   const questionnaireResponse: QuestionnaireResponse = entry.find((entry) => {
     return entry.resource && entry.resource.resourceType === 'QuestionnaireResponse';
   })?.resource as QuestionnaireResponse;
@@ -530,5 +562,11 @@ const extractResourcesFromBundle = (bundle: Bundle<Resource>): TransactionOutput
   }
 
   console.log('successfully obtained resources from bundle');
-  return { appointment, encounter, patient, questionnaireResponseId: questionnaireResponse.id || '' };
+  return {
+    appointment,
+    encounter,
+    patient,
+    questionnaire: questionnaireResponse,
+    questionnaireResponseId: questionnaireResponse.id || '',
+  };
 };

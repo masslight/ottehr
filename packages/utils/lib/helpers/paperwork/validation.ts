@@ -15,6 +15,7 @@ import {
   pickFirstValueFromAnswerItem,
   zipRegex,
   QuestionnaireItemConditionDefinition,
+  DOB_DATE_FORMAT,
 } from 'utils';
 import * as Yup from 'yup';
 
@@ -195,7 +196,6 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
   }
   if ((item.type === 'choice' || item.type === 'open-choice') && item.answerLoadingOptions !== undefined) {
     const { answerSource } = item.answerLoadingOptions;
-    console.log('required', item.linkId, required, item.required);
     if (!answerSource) {
       // answer options come from answerValueSet, which are converted into valueString choices
       let stringSchema = Yup.string();
@@ -317,7 +317,6 @@ export const makeValidationSchema = (
     return Yup.array().of(
       Yup.object().test('submit test', async (value: any, context: any) => {
         const { linkId: pageId, item: answerItem } = value;
-        console.log('items.it 5', items);
         const questionItem = items.find((i) => i.linkId === pageId);
         if (!questionItem) {
           // console.log('page not found');
@@ -360,7 +359,7 @@ const makeValidationSchemaPrivate = (
   const externalValues = externalContext?.values ?? {};
 
   const validatableItems = items
-    .filter((item) => item?.type !== 'display' && !item?.readOnly)
+    .filter((item) => item?.type !== 'display' && !item?.readOnly && evalEnableWhen(item, items, formValues))
     .flatMap((item) => makeValidatableItem(item));
   let allValues = (externalContext?.values ?? [])
     .flatMap((page: any) => page.item)
@@ -436,7 +435,7 @@ const makeValidationSchemaPrivate = (
                     return embeddedSchema.validateAt(val.linkId, item);
                   } catch (e) {
                     console.log('thrown error from group member test', e);
-                    return context.createError({ message: (e as any).message });
+                    return context.createError({ message: (e as any).message, val, item });
                   }
                 }
                 return true;
@@ -505,12 +504,40 @@ const evalString = (operator: EnableWhenOperator, answerValue: string, value: st
   throw new Error(`Unexpected operator ${operator} encountered for boolean value`);
 };
 
+const evalDateTime = (operator: EnableWhenOperator, answerValue: string, value: string | undefined): boolean => {
+  if (value === undefined) {
+    return false;
+  }
+
+  const answerDT = DateTime.fromISO(answerValue);
+  const valDT = DateTime.fromISO(value);
+
+  if (!answerDT.isValid || !valDT.isValid) {
+    return false;
+  }
+
+  if (operator === '=') {
+    return answerDT.equals(valDT);
+  } else if (operator === '!=') {
+    return !answerDT.equals(valDT);
+  } else if (operator === '<=') {
+    return answerDT.diff(valDT, 'seconds').seconds <= 0;
+  } else if (operator === '<') {
+    return answerDT.diff(valDT, 'seconds').seconds < 0;
+  } else if (operator === '>=') {
+    return answerDT.diff(valDT, 'seconds').seconds >= 0;
+  } else if (operator === '>') {
+    return answerDT.diff(valDT, 'seconds').seconds > 0;
+  }
+  throw new Error(`Unexpected operator ${operator} encountered for boolean value`);
+};
+
 const evalEnableWhenItem = (
   enableWhen: QuestionnaireItemEnableWhen,
   values: { [itemLinkId: string]: QuestionnaireResponseItem },
   items: QuestionnaireItem[]
 ): boolean => {
-  const { answerString, answerBoolean, question, operator } = enableWhen;
+  const { answerString, answerBoolean, answerDate, answerInteger, question, operator } = enableWhen;
   // console.log('items', items);
   const questionPathNodes = question.split('.');
 
@@ -546,11 +573,6 @@ const evalEnableWhenItem = (
     return (accum.item ?? []).find((i: any) => i?.linkId && i.linkId === current);
   }, values as any);
 
-  if (answerBoolean === undefined && answerString === undefined) {
-    // we only need to support these 2 value types so far
-    return false;
-  }
-
   if (itemDef.type === 'boolean' && answerBoolean !== undefined) {
     return evalBoolean(operator, answerBoolean, pickFirstValueFromAnswerItem(valueDef, 'boolean'));
   } else if (
@@ -559,8 +581,16 @@ const evalEnableWhenItem = (
   ) {
     const verdict = evalString(operator, answerString, pickFirstValueFromAnswerItem(valueDef));
     return verdict;
+  } else if (itemDef.type === 'date' && answerDate !== undefined) {
+    return evalDateTime(operator, answerDate, pickFirstValueFromAnswerItem(valueDef));
+  } else if (itemDef.type === 'date' && answerInteger !== undefined) {
+    const answerDateFormatted = formattedDateStringForYearsAgo(`${answerInteger}`);
+    if (answerDateFormatted === undefined) {
+      return false;
+    }
+    return evalDateTime(operator, answerDateFormatted, pickFirstValueFromAnswerItem(valueDef));
   } else {
-    // we only support string and bool atm
+    // we only support string, bool, and date atm, but extensions welcome as needed!
     return false;
   }
 };
@@ -606,7 +636,7 @@ export const evalRequired = (item: IntakeQuestionnaireItem, context: any, questi
     return false;
   }
 
-  return evalCondition(item.requireWhen, context, questionVal);
+  return evalCondition(item.requireWhen, context, item.type, questionVal);
 };
 
 export const evalItemText = (item: IntakeQuestionnaireItem, context: any, questionVal?: any): string | undefined => {
@@ -616,7 +646,7 @@ export const evalItemText = (item: IntakeQuestionnaireItem, context: any, questi
   }
   const { substituteText } = textWhen;
 
-  if (evalCondition(textWhen, context, questionVal)) {
+  if (evalCondition(textWhen, context, item.type, questionVal)) {
     return substituteText;
   }
   return item.text;
@@ -657,7 +687,7 @@ export const evalFilterWhen = (item: IntakeQuestionnaireItem, context: any, ques
   if (item.filterWhen === undefined) {
     return false;
   }
-  return evalCondition(item.filterWhen, context, questionVal);
+  return evalCondition(item.filterWhen, context, item.type, questionVal);
 };
 
 export const evalComplexValidationTrigger = (
@@ -671,11 +701,16 @@ export const evalComplexValidationTrigger = (
   } else if (item.complexValidation?.triggerWhen === undefined) {
     return true;
   }
-  return evalCondition(item.complexValidation.triggerWhen, context, questionVal);
+  return evalCondition(item.complexValidation.triggerWhen, context, item.type, questionVal);
 };
 
-const evalCondition = (condition: QuestionnaireItemConditionDefinition, context: any, questionVal?: any): boolean => {
-  const { question, operator, answerString, answerBoolean } = condition;
+const evalCondition = (
+  condition: QuestionnaireItemConditionDefinition,
+  context: any,
+  type: IntakeQuestionnaireItem['type'],
+  questionVal?: any
+): boolean => {
+  const { question, operator, answerString, answerBoolean, answerDate, answerInteger } = condition;
   const questionValue = recursivePathEval(context, question, questionVal);
 
   if (answerString !== undefined) {
@@ -696,6 +731,20 @@ const evalCondition = (condition: QuestionnaireItemConditionDefinition, context:
     if (operator === '!=' && comparisonBool !== answerBoolean) {
       return true;
     }
+  }
+  if (answerDate !== undefined) {
+    const valueDateString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;
+    return evalDateTime(operator, answerDate, valueDateString);
+  }
+  if (answerInteger && type === 'date') {
+    const valueDateString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;
+    // by convention, an answerInteger on date type item will be interpreted as expressing a value in years
+    // if the value is 18, for instance, we will calculate 18 years from the current date
+    const answerDateFormatted = formattedDateStringForYearsAgo(`${answerInteger}`);
+    if (answerDateFormatted === undefined) {
+      return false;
+    }
+    return evalDateTime(operator, answerDateFormatted, valueDateString);
   }
   return false;
 };
@@ -753,4 +802,17 @@ const recursivePathEval = (context: any, question: string, value?: any): any | u
     console.log('error resolving path', e, context);
   }
   return undefined;
+};
+
+const formattedDateStringForYearsAgo = (yearsAgoString: string): string | undefined => {
+  const asInt = parseInt(yearsAgoString);
+  if (Number.isNaN(asInt)) {
+    return undefined;
+  }
+  if (asInt < 0) {
+    return undefined;
+  }
+  const yearsAgo = DateTime.now().startOf('day').minus({ years: asInt });
+  const answerDateFormatted = yearsAgo.toFormat(DOB_DATE_FORMAT);
+  return answerDateFormatted;
 };

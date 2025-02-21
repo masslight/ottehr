@@ -2,6 +2,7 @@ import { APPT_STATUS_MAP } from './appointments';
 import React, { ReactElement } from 'react';
 import { Chip } from '@mui/material';
 import { TelemedAppointmentStatus } from 'utils';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 type Mapper<T extends string> = {
   [status in T]: {
@@ -46,6 +47,7 @@ function getAppointmentStatusChip<T extends string>(status?: T, item?: number | 
         color: mapper[status][isBackgroundWhite ? 'background' : 'color'].primary,
       }}
       variant="outlined"
+      data-testid={dataTestIds.telemedEhrFlow.appointmentStatusChip}
     />
   );
 }
