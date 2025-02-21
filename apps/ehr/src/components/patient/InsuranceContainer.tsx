@@ -407,7 +407,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
                 insurance.coverage.extension?.find((extension) => extension.url === COVERAGE_ADDITIONAL_INFORMATION_URL)
                   ?.valueString
               }
-              // TODO: fix operation in case extension is undefined - fixed?
               onChangeHandler={handleChange}
             />
           </Row>
