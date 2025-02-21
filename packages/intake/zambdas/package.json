@@ -39,6 +39,7 @@
     "esbuild": "^0.20.2",
     "i18next": "^23.11.1",
     "mixpanel": "^0.18.0",
+    "stripe": "^17.0.0",
     "utils": "*",
     "zambda-utils": "*"
   },

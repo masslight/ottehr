@@ -443,6 +443,8 @@ functions:
       FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      STRIPE_PUBLIC_KEY: ${file(./.env/${self:provider.stage}.json):STRIPE_PUBLIC_KEY}
+      STRIPE_SECRET_KEY: ${file(./.env/${self:provider.stage}.json):STRIPE_SECRET_KEY}
   payment-methods-list:
     handler: src/payment-methods/list/index.index
     events:
@@ -458,6 +460,8 @@ functions:
       FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      STRIPE_PUBLIC_KEY: ${file(./.env/${self:provider.stage}.json):STRIPE_PUBLIC_KEY}
+      STRIPE_SECRET_KEY: ${file(./.env/${self:provider.stage}.json):STRIPE_SECRET_KEY}
   payment-methods-setup:
     handler: src/payment-methods/setup/index.index
     events:
@@ -473,6 +477,8 @@ functions:
       FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      STRIPE_PUBLIC_KEY: ${file(./.env/${self:provider.stage}.json):STRIPE_PUBLIC_KEY}
+      STRIPE_SECRET_KEY: ${file(./.env/${self:provider.stage}.json):STRIPE_SECRET_KEY}
   payment-methods-set-default:
     handler: src/payment-methods/set-default/index.index
     events:
@@ -488,6 +494,8 @@ functions:
       FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      STRIPE_PUBLIC_KEY: ${file(./.env/${self:provider.stage}.json):STRIPE_PUBLIC_KEY}
+      STRIPE_SECRET_KEY: ${file(./.env/${self:provider.stage}.json):STRIPE_SECRET_KEY}
   video-chat-invites-cancel:
     handler: src/video-chat-invites/cancel-invite/index.index
     events:

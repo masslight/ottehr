@@ -2,7 +2,7 @@ import { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {} from 'utils';
 import { ZambdaInput } from 'zambda-utils';
-import { SecretsKeys, getSecret, lambdaResponse } from 'zambda-utils';
+import { lambdaResponse } from 'zambda-utils';
 import { getAuth0Token, getUser } from '../../shared';
 import { deletePaymentMethodRequest } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -48,13 +48,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       console.log('already have a token, no need to update');
     }
 
-    const response = await deletePaymentMethodRequest(
-      getSecret(SecretsKeys.PROJECT_API, secrets),
-      zapehrM2MClientToken,
+    const response = await deletePaymentMethodRequest({
+      secrets: secrets ?? null,
+      token: zapehrM2MClientToken,
       beneficiaryPatientId,
-      user.profile,
-      paymentMethodId
-    );
+      payorProfile: user.profile,
+      paymentMethodId,
+    });
 
     return lambdaResponse(200, response || {});
   } catch (error: any) {
