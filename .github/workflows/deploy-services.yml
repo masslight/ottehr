@@ -48,10 +48,12 @@ jobs:
 
     runs-on: ubuntu-latest-16-cores
     timeout-minutes: 15
-
+    
     permissions:
       id-token: write # Required for OIDC
-      contents: read
+      contents: write # Required for version bumping
+      pull-requests: write # Required for version bumping
+      issues: write # Required for version bumping
 
     strategy:
       matrix:
