@@ -24,6 +24,7 @@ export const useChartData = ({
   refetch: () => Promise<QueryObserverResult<GetChartDataResponse, unknown>>;
   chartData: GetChartDataResponse | undefined;
   isLoading: boolean;
+  isFetching: boolean;
   error: any;
   queryKey: QueryKey;
 } => {
@@ -34,6 +35,7 @@ export const useChartData = ({
   const {
     error: chartDataError,
     isLoading,
+    isFetching,
     refetch,
     data: chartData,
     queryKey,
@@ -56,5 +58,5 @@ export const useChartData = ({
     onError
   );
 
-  return { refetch, chartData, isLoading, error: chartDataError, queryKey };
+  return { refetch, chartData, isLoading, error: chartDataError, queryKey, isFetching };
 };
