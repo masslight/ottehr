@@ -101,28 +101,12 @@ export default function Appointments(): ReactElement {
   })();
 
   const {
-    preBookedAppointments,
-    completedAppointments,
-    cancelledAppointments,
-    inOfficeAppointments,
-    activeApptDatesBeforeToday,
-  } = useMemo(() => {
-    const structuredAppts: StructuredAppointmentData = {
-      preBookedAppointments: [],
-      completedAppointments: [],
-      cancelledAppointments: [],
-      inOfficeAppointments: [],
-      activeApptDatesBeforeToday: [],
-    };
-    if (searchResults !== null && loadingState.status !== 'loading' && loadingState.id === queryId) {
-      structuredAppts.preBookedAppointments = searchResults.preBooked ?? [];
-      structuredAppts.completedAppointments = searchResults.completed ?? [];
-      structuredAppts.cancelledAppointments = searchResults.cancelled ?? [];
-      structuredAppts.inOfficeAppointments = searchResults.inOffice ?? [];
-      structuredAppts.activeApptDatesBeforeToday = searchResults.activeApptDatesBeforeToday ?? [];
-    }
-    return structuredAppts;
-  }, [searchResults, queryId, loadingState]);
+    preBooked: preBookedAppointments = [],
+    completed: completedAppointments = [],
+    cancelled: cancelledAppointments = [],
+    inOffice: inOfficeAppointments = [],
+    activeApptDatesBeforeToday = [],
+  } = searchResults || {};
 
   useEffect(() => {
     if (localStorage.getItem('selectedVisitTypes')) {
