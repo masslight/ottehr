@@ -105,19 +105,14 @@ jobs:
           cd ${{ github.workspace }}/${{ env.PACKAGE_LOCATION }} && npm version ${{ github.event.inputs.versionType }} --no-git-tag-version
           cd ${{ github.workspace }}/${{ env.ZAMBDAS_LOCATION }} && npm version ${{ github.event.inputs.versionType }} --no-git-tag-version
       
-      - name: Check new version in package.json
-        run: cat ${{ github.workspace }}/${{ env.PACKAGE_LOCATION }}/package.json
-      
-      - name: Get Version Number from package.json for build notifications.
+      - name: Get Version Number from package.json
         id: package-version
         uses: martinbeentjes/npm-get-version-action@v1.1.0
         with:
           path: ${{ env.PACKAGE_LOCATION }}
       
-      - name: Verify Changes Before PR
-        run: git log --oneline -n 5
-      
-      - name: Create Pull Request to the base branch
+      - name: Create Pull Request to the base branch with version bump
+        if: ${{ github.event.inputs.incrementVersion == 'true' }}
         uses: peter-evans/create-pull-request@v5
         with:
           branch: version-bump-${{ github.run_id }}
@@ -126,6 +121,7 @@ jobs:
           body: "This PR updates package versions automatically."
       
       - name: Auto-merge PR
+        if: ${{ github.event.inputs.incrementVersion == 'true' }}
         run: |
           gh pr merge --auto --squash version-bump-${{ github.run_id }}
         env:
