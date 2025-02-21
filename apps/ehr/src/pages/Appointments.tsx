@@ -35,14 +35,6 @@ interface AppointmentSearchResultData {
   activeApptDatesBeforeToday: string[] | undefined;
 }
 
-interface StructuredAppointmentData {
-  preBookedAppointments: InPersonAppointmentInformation[];
-  completedAppointments: InPersonAppointmentInformation[];
-  cancelledAppointments: InPersonAppointmentInformation[];
-  inOfficeAppointments: InPersonAppointmentInformation[];
-  activeApptDatesBeforeToday: string[];
-}
-
 type CustomFormEventHandler = (event: React.FormEvent<HTMLFormElement>, value: any, field: string) => void;
 
 export default function Appointments(): ReactElement {
