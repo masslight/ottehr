@@ -12,7 +12,6 @@ fi
 
 echo $first_setup
 
-
 if $first_setup; then
     sh scripts/ottehr-setup.sh $project_id $access_token $provider_email $environment
 else
@@ -21,7 +20,7 @@ fi
 
 pwd
 cd ./scripts/deploy
-ts-node ./gcp/deploy.ts
+npx ts-node ./gcp/deploy.ts
 cd ../..
 
 cd packages/intake/zambdas
