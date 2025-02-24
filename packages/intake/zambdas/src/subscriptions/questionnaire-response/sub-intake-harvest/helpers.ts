@@ -75,6 +75,8 @@ import {
   SCHOOL_WORK_NOTE_WORK_ID,
   SUBSCRIBER_RELATIONSHIP_CODE_MAP,
   uploadPDF,
+  LanguageOption,
+  getPatchOperationToAddOrUpdatePreferredLanguage,
 } from 'utils';
 import { v4 as uuid } from 'uuid';
 import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
@@ -1117,6 +1119,7 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-birth-sex-missing': patientFieldPaths.genderIdentityDetails,
   'patient-number': patientFieldPaths.phone,
   'patient-email': patientFieldPaths.email,
+  'preferred-language': patientFieldPaths.preferredLanguage,
   'pcp-first': patientFieldPaths.pcpFirstName,
   'pcp-last': patientFieldPaths.pcpLastName,
   'pcp-number': patientFieldPaths.pcpPhone,
@@ -1292,6 +1295,23 @@ export function createMasterRecordPatchOperations(
           return;
         }
 
+        // Special handler for preferred-language
+        if (item.linkId === 'preferred-language') {
+          const currentValue = resources.patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0]
+            .display;
+          if (value !== currentValue) {
+            const operation = getPatchOperationToAddOrUpdatePreferredLanguage(
+              value as LanguageOption,
+              path,
+              resources.patient,
+              currentValue as LanguageOption
+            );
+
+            if (operation) tempOperations.patient.push(operation);
+          }
+          return;
+        }
+
         // Handle array fields
         const { isArray, parentPath } = getArrayInfo(path);
         if (isArray) {
@@ -1429,9 +1449,10 @@ export function createMasterRecordPatchOperations(
   // Separate operations for each resource
   // Separate Patient operations
   result.patient = separateResourceUpdates(tempOperations.patient, resources.patient, 'Patient');
-
-  // Prepare Patient direct operations for executing
-  result.patient.patchOpsForDirectUpdate = addAuxiliaryPatchOperations(result.patient.patchOpsForDirectUpdate);
+  result.patient.patchOpsForDirectUpdate = addAuxiliaryPatchOperations(
+    result.patient.patchOpsForDirectUpdate,
+    resources.patient
+  );
   result.patient.patchOpsForDirectUpdate = consolidateOperations(
     result.patient.patchOpsForDirectUpdate,
     resources.patient
@@ -1543,14 +1564,14 @@ function extractValueFromItem(
   // Handle date components collection
   if (item?.item) {
     const hasDateComponents = item.item.some(
-      (i) => i.linkId.endsWith('-dob-year') || i.linkId.endsWith('-dob-month') || i.linkId.endsWith('-dob-day')
+      (i) => i.linkId.includes('-dob-year') || i.linkId.includes('-dob-month') || i.linkId.includes('-dob-day')
     );
 
     if (hasDateComponents) {
       const dateComponents: DateComponents = {
-        year: item.item.find((i) => i.linkId.endsWith('-dob-year'))?.answer?.[0]?.valueString || '',
-        month: item.item.find((i) => i.linkId.endsWith('-dob-month'))?.answer?.[0]?.valueString || '',
-        day: item.item.find((i) => i.linkId.endsWith('-dob-day'))?.answer?.[0]?.valueString || '',
+        year: item.item.find((i) => i.linkId.includes('-dob-year'))?.answer?.[0]?.valueString || '',
+        month: item.item.find((i) => i.linkId.includes('-dob-month'))?.answer?.[0]?.valueString || '',
+        day: item.item.find((i) => i.linkId.includes('-dob-day'))?.answer?.[0]?.valueString || '',
       };
 
       return isoStringFromDateComponents(dateComponents);
@@ -1560,7 +1581,7 @@ function extractValueFromItem(
   const answer = item.answer?.[0];
 
   // Handle gender answers
-  if (item.linkId.endsWith('-birth-sex') && answer?.valueString) {
+  if (item.linkId.includes('-birth-sex') && answer?.valueString) {
     return BIRTH_SEX_MAP[answer.valueString];
   }
 
@@ -2060,7 +2081,7 @@ function setValueByPath(obj: any, path: string, value: any): void {
   current[lastPart] = value;
 }
 
-function addAuxiliaryPatchOperations(operations: Operation[]): Operation[] {
+function addAuxiliaryPatchOperations(operations: Operation[], patient: Patient): Operation[] {
   const auxOperations: Operation[] = [];
 
   // Add required link to contained Practitioner resource
@@ -2072,14 +2093,16 @@ function addAuxiliaryPatchOperations(operations: Operation[]): Operation[] {
     };
     auxOperations.push(addResourceTypeOperation);
 
-    const addGeneralPractitionerOperation: AddOperation<any> = {
-      op: 'add',
-      path: '/generalPractitioner',
-      value: {
-        reference: '#primary-care-physician',
-      },
-    };
-    auxOperations.push(addGeneralPractitionerOperation);
+    if (!patient.generalPractitioner) {
+      const addGeneralPractitionerOperation: AddOperation<any> = {
+        op: 'add',
+        path: '/generalPractitioner',
+        value: {
+          reference: '#primary-care-physician',
+        },
+      };
+      auxOperations.push(addGeneralPractitionerOperation);
+    }
 
     const addPractitionerIdOperation: AddOperation<any> = {
       op: 'add',
