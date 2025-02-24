@@ -33,5 +33,9 @@ export class AssessmentPage {
 
 export async function expectAssessmentPage(page: Page): Promise<AssessmentPage> {
   await page.waitForURL(new RegExp('/in-person/.*/assessment'));
+  await expect(page.getByTestId(dataTestIds.assessmentPage.medicalDecisionField)).toBeEnabled({
+    enabled: true,
+    timeout: 30000,
+  });
   return new AssessmentPage(page);
 }

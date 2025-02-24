@@ -182,6 +182,7 @@ export const dataTestIds = {
   assessmentPage: {
     diagnosisDropdown: 'diagnosis-dropdown',
     emCodeDropdown: 'em-code-dropdown',
+    medicalDecisionField: 'medical-decision-field',
   },
   diagnosisContainer: {
     deleteButton: 'diagnosis-container-delete-button',
