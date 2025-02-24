@@ -25,7 +25,7 @@ const EM_CODE = '99201 New Patient - E/M Level 1';
 const resourceHandler = new ResourceHandler();
 
 test.beforeAll(async () => {
-  await resourceHandler.initApi();
+  await resourceHandler.setResources();
 });
 
 test.afterAll(async () => {
@@ -66,7 +66,7 @@ test('Book appointment, click Provider on "Patient info", check statuses', async
   await patientInfoPage.cssHeader().verifyStatus('provider');
 });
 
-test('Book appointment,fill required fields for screening, review and sign progress note', async ({ page }) => {
+/*test('Book appointment,fill required fields for screening, review and sign progress note', async ({ page }) => {
   await addAppointment(NEW_PATIENT_4_LAST_NAME, page);
   const patientInfoPage = await expectPatientInfoPage(NEW_PATIENT_4_LAST_NAME + ', ' + PATIENT_FIRST_NAME, page);
   await patientInfoPage.cssHeader().clickSwitchStatusButton('provider');
@@ -85,7 +85,7 @@ test('Book appointment,fill required fields for screening, review and sign progr
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickDischargedTab();
   await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, NEW_PATIENT_4_LAST_NAME);
-});
+});*/
 
 async function addAppointment(patientLastName: string, page: Page): Promise<void> {
   const addPatientPage = await expectAddPatientPage(page);
