@@ -1,3 +1,4 @@
+import { Appointment, Encounter, Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { ScheduleType, ServiceMode } from '../../common';
 import { PatientInfo, VisitType } from '../../data';
 
@@ -21,4 +22,11 @@ export interface CreateAppointmentResponse {
   fhirPatientId: string;
   questionnaireResponseId: string | null;
   encounterId: string | null;
+  relatedPersonId: string;
+  resources: {
+    appointment: Appointment;
+    encounter: Encounter;
+    questionnaire: QuestionnaireResponse;
+    patient: Patient;
+  };
 }
