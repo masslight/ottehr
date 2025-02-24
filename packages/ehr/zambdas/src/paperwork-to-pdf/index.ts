@@ -24,6 +24,17 @@ interface Item {
   answer: string;
 }
 
+enum ImageType {
+  JPG,
+  PNG,
+}
+
+interface ImageItem {
+  title: string;
+  imageType: ImageType;
+  imageBytes: Promise<ArrayBuffer>;
+}
+
 const ZAMBDA_NAME = 'paperwork-to-pdf';
 const PAGE_WIDTH = PageSizes.A4[0];
 const PAGE_HEIGHT = PageSizes.A4[1];
@@ -66,6 +77,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       id: subjectId,
     });
     const sections = createSections(questionnaireResponse, questionnaire);
+    const imageItems = createImageItems(questionnaireResponse, questionnaire, oystehr);
 
     const pdfDocument = await PDFDocument.create();
     const page = pdfDocument.addPage();
@@ -75,6 +87,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     const y = drawPatientInfo(patient, page, PAGE_HEIGHT - DEFAULT_MARGIN, helveticaBoldFont, helveticaFont);
     drawSections(sections, page, y, helveticaBoldFont, helveticaFont);
+    await drawImageItems(imageItems, pdfDocument, helveticaFont);
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/pdf' },
@@ -154,6 +167,48 @@ function drawSections(sections: Section[], page: PDFPage, y: number, titleFont: 
     }
   }
   return Math.max(leftRowY, rightRowY);
+}
+
+async function drawImageItems(imageItems: ImageItem[], document: PDFDocument, titleFont: PDFFont): Promise<number> {
+  let leftRowY = 0;
+  let rightRowY = 0;
+  const page = document.addPage();
+  for (const imageItem of imageItems) {
+    if (leftRowY >= rightRowY) {
+      leftRowY = await drawImageItem(imageItem, page, DEFAULT_MARGIN, leftRowY, titleFont);
+    } else {
+      rightRowY = await drawImageItem(imageItem, page, DEFAULT_MARGIN * 2 + ITEM_WIDTH, rightRowY, titleFont);
+    }
+  }
+  return Math.max(leftRowY, rightRowY);
+}
+
+async function drawImageItem(
+  imageItem: ImageItem,
+  page: PDFPage,
+  x: number,
+  y: number,
+  titleFont: PDFFont
+): Promise<number> {
+  y -= drawTextLeftAligned(imageItem.title, page, {
+    x,
+    y,
+    font: titleFont,
+    size: ITEM_FONT_SIZE,
+  });
+  const imageBytes = await imageItem.imageBytes;
+  const image =
+    imageItem.imageType === ImageType.JPG ? await page.doc.embedJpg(imageBytes) : await page.doc.embedPng(imageBytes);
+  const scale = image.width / ITEM_WIDTH;
+  const drawWidth = scale > 1 ? image.width / scale : image.width;
+  const drawHeight = scale > 1 ? image.height / scale : image.height;
+  page.drawImage(image, {
+    x,
+    y,
+    width: drawWidth,
+    height: drawHeight,
+  });
+  return y - drawHeight;
 }
 
 function drawSection(
@@ -294,6 +349,49 @@ function createSections(questionnaireResponse: QuestionnaireResponse, questionna
       title,
       items,
     };
+  });
+}
+
+function createImageItems(
+  questionnaireResponse: QuestionnaireResponse,
+  questionnaire: Questionnaire,
+  oystehr: Oystehr
+): ImageItem[] {
+  return (questionnaireResponse.item ?? []).flatMap<ImageItem>((sectionItem) => {
+    const questionItemSection = getItem(sectionItem.linkId, questionnaire);
+    return (sectionItem.item ?? []).flatMap((item) => {
+      const title = getItem(item.linkId, questionItemSection)?.text;
+      const attachment = item.answer?.[0]?.valueAttachment;
+      const url = attachment?.url;
+      if (title == null || attachment == null || url == null) {
+        return [];
+      }
+      let imageType: ImageType | undefined = undefined;
+      if (attachment.contentType === 'image/jpeg') {
+        imageType = ImageType.JPG;
+      }
+      if (attachment.contentType === 'image/png') {
+        imageType = ImageType.PNG;
+      }
+      if (imageType == null) {
+        return [];
+      }
+      return [
+        {
+          title,
+          imageType,
+          imageBytes: downloadImage(url, oystehr),
+        },
+      ];
+    });
+  });
+}
+
+async function downloadImage(url: string, oystehr: Oystehr): Promise<ArrayBuffer> {
+  const pathTokens = url.substring(url.indexOf('/z3/') + 4).split('/');
+  return oystehr.z3.downloadFile({
+    bucketName: pathTokens[0],
+    'objectPath+': pathTokens.slice(1).join('/'),
   });
 }
 
