@@ -53,11 +53,8 @@ export function calculateDuration(startISO: string, endISO: string): number {
   return duration;
 }
 
-export function formatISOStringToDateAndTime(isoString: string, timezone?: string): string {
-  let dateTime = DateTime.fromISO(isoString);
-  if (timezone) {
-    dateTime = dateTime.setZone(timezone);
-  }
+export function formatISOStringToDateAndTime(isoString: string): string {
+  const dateTime = DateTime.fromISO(isoString);
 
   const formattedDateTime = dateTime.toFormat(`${DATE_FORMAT}, HH:mm`);
 

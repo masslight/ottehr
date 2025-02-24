@@ -38,9 +38,7 @@ export const PastVisitsTable: FC<PastVisitsTableProps> = (props) => {
         {appointments?.map((appointment, idx) => (
           <TableRow key={idx}>
             <TableCell align="left">
-              {appointment.dateTime
-                ? formatISOStringToDateAndTime(appointment.dateTime, appointment.officeTimeZone)
-                : '-'}
+              {appointment.dateTime ? formatISOStringToDateAndTime(appointment.dateTime) : '-'}
             </TableCell>
             <TableCell>
               <Link
