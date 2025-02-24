@@ -8,6 +8,7 @@ import { useGetTelemedAppointments, useTrackingBoardStore } from '../../state';
 import { ApptTab, ApptTabToStatus } from '../../utils';
 import { TrackingBoardTable } from './TrackingBoardTable';
 import CreateDemoVisits from '../../../components/CreateDemoVisits';
+import { dataTestIds } from '../../../constants/data-test-ids';
 
 export function TrackingBoardTabs(): ReactElement {
   const { alignment, selectedStates, date, providers, groups, setAppointments } = getSelectors(useTrackingBoardStore, [
@@ -59,10 +60,30 @@ export function TrackingBoardTabs(): ReactElement {
       <TabContext value={value}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <TabList onChange={handleChange} aria-label="appointment tabs">
-            <Tab label="Ready for provider" value={ApptTab.ready} sx={{ textTransform: 'none', fontWeight: 700 }} />
-            <Tab label="Provider" value={ApptTab.provider} sx={{ textTransform: 'none', fontWeight: 700 }} />
-            <Tab label="Unsigned" value={ApptTab['not-signed']} sx={{ textTransform: 'none', fontWeight: 700 }} />
-            <Tab label="Complete" value={ApptTab.complete} sx={{ textTransform: 'none', fontWeight: 700 }} />
+            <Tab
+              label="Ready for provider"
+              value={ApptTab.ready}
+              sx={{ textTransform: 'none', fontWeight: 700 }}
+              data-testid={dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTab.ready)}
+            />
+            <Tab
+              label="Provider"
+              value={ApptTab.provider}
+              sx={{ textTransform: 'none', fontWeight: 700 }}
+              data-testid={dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTab.provider)}
+            />
+            <Tab
+              label="Unsigned"
+              value={ApptTab['not-signed']}
+              sx={{ textTransform: 'none', fontWeight: 700 }}
+              data-testid={dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTab['not-signed'])}
+            />
+            <Tab
+              label="Complete"
+              value={ApptTab.complete}
+              sx={{ textTransform: 'none', fontWeight: 700 }}
+              data-testid={dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTab.complete)}
+            />
             {isFetching && <Loading />}
           </TabList>
         </Box>

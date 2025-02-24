@@ -34,6 +34,14 @@ export enum UnsignedFor {
   'all' = 'all',
 }
 
+export enum AppointmentVisitTabs {
+  'hpi' = 'hpi',
+  'exam' = 'exam',
+  'erx' = 'erx',
+  'plan' = 'plan',
+  'sign' = 'sign',
+}
+
 export const compareLuxonDates = (a: DateTime, b: DateTime): number => a.toMillis() - b.toMillis();
 
 export const getAppointmentUnsignedLengthTime = (history: TelemedStatusHistoryElement[]): number => {

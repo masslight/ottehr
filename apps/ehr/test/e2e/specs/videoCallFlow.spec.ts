@@ -1,0 +1,72 @@
+import { ResourceHandler } from '../../e2e-utils/resource-handler';
+import { expect, Page, test } from '@playwright/test';
+import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../e2e-utils/helpers/tests-utils';
+import { dataTestIds } from '../../../src/constants/data-test-ids';
+import { TelemedAppointmentStatusEnum } from '../../e2e-utils/temp-imports-from-utils';
+import { AppointmentVisitTabs, ApptTab } from '../../../src/telemed/utils';
+
+const resourceHandler = new ResourceHandler('telemed');
+let page: Page;
+
+test.beforeAll(async ({ browser }) => {
+  const context = await browser.newContext();
+  page = await context.newPage();
+  await resourceHandler.setResources();
+});
+
+test.afterAll(async () => {
+  await resourceHandler.cleanupResources();
+});
+
+test.describe.configure({ mode: 'serial' });
+
+test('Should assign visit to practitioner', async () => {
+  await page.goto(`telemed/appointments`);
+  await awaitAppointmentsTableToBeVisible(page);
+  await page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!)).getByTestId(dataTestIds.telemedEhrFlow.trackingBoardAssignButton).click();
+  await telemedDialogConfirm(page);
+  const statusChip = page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip);
+  await expect(statusChip).toBeVisible();
+  await expect(statusChip).toHaveText(TelemedAppointmentStatusEnum['pre-video']);
+});
+
+test('Should start video call', async () => {
+  const connectButton = page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient);
+  await expect(connectButton).toBeVisible();
+  await connectButton.click();
+
+  await telemedDialogConfirm(page);
+
+  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.videoRoomContainer)).toBeVisible();
+});
+
+test('Appointment status should be "on-video" during the call', async () => {
+  const statusChip = page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip);
+  await expect(statusChip).toBeVisible();
+  await expect(statusChip).toHaveText(TelemedAppointmentStatusEnum['on-video']);
+});
+
+test('Should end video call and check status "unsigned"', async () => {
+  await page.getByTestId(dataTestIds.telemedEhrFlow.endVideoCallButton).click();
+  const statusChip = page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip);
+  await expect(statusChip).toBeVisible();
+  await expect(statusChip).toHaveText(TelemedAppointmentStatusEnum['unsigned']);
+});
+
+test('Visit should be in "unsigned" tab on the tracking board', async () => {
+  await page.goto(`telemed/appointments`);
+  await page.getByTestId(dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTab['not-signed'])).click();
+  await awaitAppointmentsTableToBeVisible(page);
+  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))).toBeVisible();
+});
+
+test('Should fill all required fields', async () => {
+  await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
+  await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(AppointmentVisitTabs.erx)).click();
+  const diagnosisAutocomplete = page.getByTestId(dataTestIds.telemedEhrFlow.diagnosisAutocomplete);
+  await expect(diagnosisAutocomplete).toBeVisible();
+  await diagnosisAutocomplete.click();
+  await diagnosisAutocomplete.getByRole('textbox').fill('fever');
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+});

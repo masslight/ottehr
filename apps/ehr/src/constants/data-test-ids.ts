@@ -1,4 +1,5 @@
 import { PractitionerQualificationCode, RoleType } from 'utils';
+import { AppointmentVisitTabs, ApptTab } from '../telemed/utils';
 
 export const dataTestIds = {
   header: {
@@ -137,6 +138,7 @@ export const dataTestIds = {
     statusChip: 'employee-status-chip',
   },
   telemedEhrFlow: {
+    telemedAppointmentsTabs: (tab: ApptTab) => `telemed-appointments-tabs-${tab}`,
     trackingBoardTableRow: (appointmentId: string) => `telemed-tracking-board-table-row-${appointmentId}`,
     myPatientsButton: 'telemed-my-patients-button',
     allPatientsButton: 'telemed-all-patients-button',
@@ -164,5 +166,8 @@ export const dataTestIds = {
     hpiChiefComplaintNotes: 'telemed-chief-complaint-notes',
     hpiChiefComplaintRos: 'telemed-chief-complaint-ros',
     videoRoomContainer: 'telemed-video-room-container',
+    endVideoCallButton: 'telemed-end-video-call-button',
+    appointmentVisitTabs: (tab: AppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
+    diagnosisAutocomplete: 'telemed-diagnosis-autocomplete',
   },
 };
