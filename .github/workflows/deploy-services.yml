@@ -48,10 +48,12 @@ jobs:
 
     runs-on: ubuntu-latest-16-cores
     timeout-minutes: 15
-
+    
     permissions:
       id-token: write # Required for OIDC
-      contents: read
+      contents: write # Required for version bumping
+      pull-requests: write # Required for version bumping
+      issues: write # Required for version bumping
 
     strategy:
       matrix:
@@ -92,32 +94,38 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
+      - name: TruffleHog -- Check for secrets committed to the repository
+        uses: trufflesecurity/trufflehog@v3.82.13
+        with:
+          extra_args: --only-verified
+
       - name: Increase version if input dictates.
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
         run: |
-          cd ${{ github.workspace }}/${{ env.PACKAGE_LOCATION }} && npm version ${{ github.event.inputs.versionType }}
-          cd ${{ github.workspace }}/${{ env.ZAMBDAS_LOCATION }} && npm version ${{ github.event.inputs.versionType }}
-
-      - name: Get Version Number from package.json for build notifications.
+          cd ${{ github.workspace }}/${{ env.PACKAGE_LOCATION }} && npm version ${{ github.event.inputs.versionType }} --no-git-tag-version
+          cd ${{ github.workspace }}/${{ env.ZAMBDAS_LOCATION }} && npm version ${{ github.event.inputs.versionType }} --no-git-tag-version
+      
+      - name: Get Version Number from package.json
         id: package-version
         uses: martinbeentjes/npm-get-version-action@v1.1.0
         with:
           path: ${{ env.PACKAGE_LOCATION }}
-
-      - name: Commit version bump if input dictates.
+      
+      - name: Create Pull Request to the base branch with version bump
+        if: ${{ github.event.inputs.incrementVersion == 'true' }}
+        uses: peter-evans/create-pull-request@v5
+        with:
+          branch: version-bump-${{ github.run_id }}
+          commit-message: Bump version to ${{ steps.package-version.outputs.current-version }}
+          title: "Version Bump ${{ steps.package-version.outputs.current-version }}"
+          body: "This PR updates package versions automatically."
+      
+      - name: Auto-merge PR
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
         run: |
-          git config --local user.email "deploy@ottehr.com"
-          git config --local user.name "GitHub Action Bump Version"
-          git add ${{ env.PACKAGE_LOCATION }}/package.json ${{ env.ZAMBDAS_LOCATION }}/package.json package-lock.json
-          git commit -m 'Version bump ${{steps.package-version.outputs.current-version}}'
-
-      - name: Push increased version if input dictates.
-        if: ${{ github.event.inputs.incrementVersion == 'true' }}
-        uses: ad-m/github-push-action@master
-        with:
-          ssh: true
-          branch: ${{ github.ref }}
+          gh pr merge --auto --squash version-bump-${{ github.run_id }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install dependencies
         run: npm ci

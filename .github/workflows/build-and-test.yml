@@ -48,12 +48,17 @@ jobs:
       # Checkout the main repository
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
       # Set up Node.js environment
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+
+      - name: TruffleHog -- Check for secrets committed to the repository
+        uses: trufflesecurity/trufflehog@v3.82.13
+        with:
+          extra_args: --only-verified
 
       - name: Check out secrets repo
         uses: actions/checkout@v4
@@ -96,6 +101,19 @@ jobs:
         env:
           CI: true
           NODE_OPTIONS: '--max-old-space-size=8192'
+
+      - name: TruffleHog -- Check for secrets in bundles of publicly available code
+        run: |
+          docker run --rm -v .:/tmp -w /tmp \
+          ghcr.io/trufflesecurity/trufflehog:3.82.13 \
+          filesystem ./packages/test-utils/dist \
+          ./packages/utils/dist \
+          ./packages/ui-components/dist \
+          ./apps/intake/build/assets \
+          ./apps/ehr/build/assets \
+          --github-actions \
+          --only-verified \
+          --fail
 
       - uses: actions/github-script@v7
         if: always()

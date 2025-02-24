@@ -89,6 +89,11 @@ async function createM2M(
             effect: 'Allow',
             resource: ['*'],
           },
+          {
+            action: ['RCM:CheckInsuranceEligibility'],
+            effect: 'Allow',
+            resource: ['RCM:InsuranceEligibility'],
+          },
         ],
       },
     });
