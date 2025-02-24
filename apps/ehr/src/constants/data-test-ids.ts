@@ -174,7 +174,7 @@ export const dataTestIds = {
     sideMenuItem: (item: string): string => `menu-item-${item}`,
   },
   hospitalizationPage: {
-    completeIntakeFromHospitalizationPage: 'complete-intake-from-hospitalization-page',
+    hospitalizationTitle: 'hospitalization-title',
   },
   progressNotePage: {
     reviewAndSignButton: 'review-and-sign-button',
