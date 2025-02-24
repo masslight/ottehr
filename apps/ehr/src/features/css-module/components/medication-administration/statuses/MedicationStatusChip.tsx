@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
-import { Chip, Popover, Box, MenuItem, Typography, Stack } from '@mui/material';
+import { Chip, Popover, Box, MenuItem } from '@mui/material';
 import styled from 'styled-components';
 import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
 import { MedicationOrderStatusesType } from 'utils';
 import { ExtendedMedicationDataForResponse } from 'utils';
-import { formatStatus } from '../medication-editable-card/utils';
 
 interface MedicationStatusChipProps {
   medication?: ExtendedMedicationDataForResponse;
@@ -28,7 +27,7 @@ const StyledChip = styled(Chip)(() => ({
   '& .MuiChip-label': {
     padding: 0,
     fontWeight: 'bold',
-    fontSize: '12px',
+    fontSize: '0.7rem',
   },
   '& .MuiChip-icon': {
     marginLeft: 'auto',
@@ -87,39 +86,22 @@ export const MedicationStatusChip: React.FC<MedicationStatusChipProps> = ({
 
   return (
     <>
-      <Stack direction="column" spacing={1} sx={{ width: 'fit-content' }}>
-        <StyledChip
-          label={formatStatus(status)}
-          onClick={handleClick}
-          icon={isEditable && onClick ? <ArrowDropDownIcon /> : undefined}
-          sx={{
-            backgroundColor: chipColors.bg,
-            color: chipColors.text,
-            border: chipColors.border ? `1px solid ${chipColors.border}` : 'none',
-            '& .MuiSvgIcon-root': {
-              color: 'inherit',
-              fontSize: '1.2rem',
-              margin: '0 -4px 0 2px',
-            },
-            cursor: isEditable && onClick ? 'pointer' : 'default',
-            width: 'fit-content',
-          }}
-        />
-        {medication?.reason && (
-          <Typography
-            variant="caption"
-            sx={{
-              mt: 0.5,
-              color: 'text.secondary',
-              fontSize: '0.75rem',
-              lineHeight: 1.2,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {medication.reason}
-          </Typography>
-        )}
-      </Stack>
+      <StyledChip
+        label={status}
+        onClick={handleClick}
+        icon={isEditable && onClick ? <ArrowDropDownIcon /> : undefined}
+        sx={{
+          backgroundColor: chipColors.bg,
+          color: chipColors.text,
+          border: chipColors.border ? `1px solid ${chipColors.border}` : 'none',
+          '& .MuiSvgIcon-root': {
+            color: 'inherit',
+            fontSize: '1.2rem',
+            margin: '0 -4px 0 2px',
+          },
+          cursor: isEditable && onClick ? 'pointer' : 'default',
+        }}
+      />
       {isEditable ? (
         <Popover
           open={Boolean(anchorEl)}

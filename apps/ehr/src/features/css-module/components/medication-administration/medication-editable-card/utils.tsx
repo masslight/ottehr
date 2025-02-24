@@ -62,16 +62,11 @@ export const validateAllMedicationFields = (
 export const formatStatus = (status?: string): string => {
   if (!status) return '';
 
-  const words = status.toLowerCase().split('-');
-
-  if (words.length > 1) {
-    return words
-      .reverse()
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  }
-
-  return status.charAt(0).toUpperCase() + status.slice(1);
+  return status
+    .toLocaleLowerCase()
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 };
 
 // this check is used in order-new and order-edit to prevent user from exit page and lose unsaved data
@@ -162,7 +157,7 @@ export const getConfirmSaveModalConfigs = ({
       </Typography>
       <Typography>
         Please confirm that you want to mark this medication order as{' '}
-        {<strong>{formatStatus(updateRequestInputRef.current?.newStatus)}</strong>}
+        {<strong>"{formatStatus(updateRequestInputRef.current?.newStatus)}"</strong>}
         {newStatus !== 'administered' ? ' and select the reason.' : '.'}
       </Typography>
     </Box>
