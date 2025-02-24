@@ -1,25 +1,9 @@
 import { IntakeQuestionnaireItem, getQuestionnaireItemsAndProgress, recursiveGroupTransform } from 'utils';
-import {
-  AUTH0_AUDIENCE,
-  AUTH0_CLIENT,
-  AUTH0_ENDPOINT,
-  AUTH0_SECRET,
-  FHIR_API,
-  IN_PERSON_PREVISIT_QUESTIONNAIRE,
-} from '../.env/local.json';
 import { getAuth0Token } from '../src/shared';
 import { createOystehrClient } from '../src/shared/helpers';
 import QRData from './data/quetionnaire-responses.json';
 import { vi } from 'vitest';
-
-const SECRETS = {
-  FHIR_API: FHIR_API,
-  AUTH0_ENDPOINT: AUTH0_ENDPOINT,
-  AUTH0_AUDIENCE: AUTH0_AUDIENCE,
-  AUTH0_CLIENT: AUTH0_CLIENT,
-  AUTH0_SECRET: AUTH0_SECRET,
-  IN_PERSON_PREVISIT_QUESTIONNAIRE,
-};
+import { SECRETS as S } from './data/secrets';
 
 // where does this come form, and how can we get the questionnaire id instead?
 // const APPOINTMENT_ID = '94a90465-8c4f-422d-b752-ca3d154d7175';
@@ -30,6 +14,18 @@ describe.skip('qr recursive filter validation tests', () => {
   vi.setConfig({ testTimeout: 100_000 });
 
   beforeAll(async () => {
+    const { FHIR_API, AUTH0_ENDPOINT, AUTH0_AUDIENCE, AUTH0_CLIENT, AUTH0_SECRET, IN_PERSON_PREVISIT_QUESTIONNAIRE } =
+      S;
+
+    const SECRETS = {
+      FHIR_API: FHIR_API,
+      AUTH0_ENDPOINT: AUTH0_ENDPOINT,
+      AUTH0_AUDIENCE: AUTH0_AUDIENCE,
+      AUTH0_CLIENT: AUTH0_CLIENT,
+      AUTH0_SECRET: AUTH0_SECRET,
+      IN_PERSON_PREVISIT_QUESTIONNAIRE,
+    };
+
     const token = await getAuth0Token(SECRETS);
     const oystehr = createOystehrClient(token, SECRETS);
 

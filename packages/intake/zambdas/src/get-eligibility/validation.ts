@@ -4,6 +4,7 @@ import {
   APIErrorCode,
   BillingProviderDataObject,
   BillingProviderResource,
+  flattenItems,
   getBillingProviderData,
   GetBillingProviderInput,
   GetEligibilityInput,
@@ -133,7 +134,7 @@ const mapResponseItemsToInsuranceData = (
 ): GetEligibilityInsuranceData => {
   let insuranceId, memberId: string | undefined;
   const requiredFields = new Set([`insurance-member-id${suffix}`, `insurance-carrier${suffix}`]);
-  items.forEach((i) => {
+  flattenItems(items).forEach((i: any) => {
     requiredFields.delete(i.linkId);
     if (i.linkId === `insurance-member-id${suffix}`) {
       memberId = i.answer?.[0]?.valueString;

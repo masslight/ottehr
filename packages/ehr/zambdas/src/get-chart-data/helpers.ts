@@ -194,7 +194,6 @@ export function convertSearchResultsToResponse(
           diagnosis: [],
           schoolWorkNotes: [],
           observations: [],
-          prescribedMedications: [],
           practitioners: [],
         }),
   };
