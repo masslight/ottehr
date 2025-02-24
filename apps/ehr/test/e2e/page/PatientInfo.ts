@@ -17,16 +17,14 @@ export class PatientInfoPage {
   sideMenu(): SideMenu {
     return new SideMenu(this.#page);
   }
-
-  async setPatientInfoCheckboxOn(): Promise<void> {
-    const locator = this.#page.getByTestId(dataTestIds.patientInfoPage.patientInfoVerifiedCheckbox).locator('input');
-    await expect(locator).toBeEnabled();
-    await locator.setChecked(true);
-  }
 }
 
 export async function expectPatientInfoPage(patientName: string, page: Page): Promise<PatientInfoPage> {
   await page.waitForURL(new RegExp('/in-person/.*/patient-info'));
   await expect(page.getByTestId(dataTestIds.cssHeader.patientName)).toHaveText(patientName);
+  await expect(page.getByTestId(dataTestIds.patientInfoPage.patientInfoVerifiedCheckbox).locator('input')).toBeChecked({
+    checked: true,
+    timeout: 30000,
+  });
   return new PatientInfoPage(page);
 }
