@@ -8,6 +8,7 @@ import { assertDefined, createOystehrClient, validateJsonBody, validateString } 
 import { Color, PageSizes, PDFDocument, PDFFont, PDFPage, PDFPageDrawTextOptions, StandardFonts } from 'pdf-lib';
 import { rgbNormalized } from '../shared/pdf/pdf-utils';
 import { getCanonicalQuestionnaire } from 'utils';
+import { l } from 'vite/dist/node/types.d-aGj9QkWt';
 
 interface Input {
   questionnaireResponseId: string;
@@ -51,6 +52,7 @@ const ITEM_DIVIDER_MARGIN = 8;
 const ITEM_WIDTH = (PAGE_WIDTH - DEFAULT_MARGIN * 3) / 2;
 const ITEM_FONT_SIZE = 12;
 const ITEM_MAX_CHARS_PER_LINE = 25;
+const IMAGE_MAX_HEIGHT = PAGE_HEIGHT / 4;
 
 let zapehrToken: string;
 
@@ -170,9 +172,10 @@ function drawSections(sections: Section[], page: PDFPage, y: number, titleFont: 
 }
 
 async function drawImageItems(imageItems: ImageItem[], document: PDFDocument, titleFont: PDFFont): Promise<number> {
-  let leftRowY = 0;
-  let rightRowY = 0;
+  let leftRowY = PAGE_HEIGHT - DEFAULT_MARGIN;
+  let rightRowY = leftRowY;
   const page = document.addPage();
+  page.setSize(PAGE_WIDTH, PAGE_HEIGHT);
   for (const imageItem of imageItems) {
     if (leftRowY >= rightRowY) {
       leftRowY = await drawImageItem(imageItem, page, DEFAULT_MARGIN, leftRowY, titleFont);
@@ -190,7 +193,7 @@ async function drawImageItem(
   y: number,
   titleFont: PDFFont
 ): Promise<number> {
-  y -= drawTextLeftAligned(imageItem.title, page, {
+  y -= drawTextLeftAligned(splitOnLines(imageItem.title, 45), page, {
     x,
     y,
     font: titleFont,
@@ -199,16 +202,16 @@ async function drawImageItem(
   const imageBytes = await imageItem.imageBytes;
   const image =
     imageItem.imageType === ImageType.JPG ? await page.doc.embedJpg(imageBytes) : await page.doc.embedPng(imageBytes);
-  const scale = image.width / ITEM_WIDTH;
+  const scale = Math.max(image.width / ITEM_WIDTH, image.height / IMAGE_MAX_HEIGHT);
   const drawWidth = scale > 1 ? image.width / scale : image.width;
   const drawHeight = scale > 1 ? image.height / scale : image.height;
   page.drawImage(image, {
     x,
-    y,
+    y: y - drawHeight - DEFAULT_MARGIN,
     width: drawWidth,
     height: drawHeight,
   });
-  return y - drawHeight;
+  return y - IMAGE_MAX_HEIGHT - 2 * DEFAULT_MARGIN;
 }
 
 function drawSection(
