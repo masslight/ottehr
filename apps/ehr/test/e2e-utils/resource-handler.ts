@@ -257,6 +257,7 @@ export class ResourceHandler {
   }
 
   async cleanupNewPatientData(lastName: string): Promise<void> {
+    await this.initApi();
     const patients = (
       await this.apiClient.fhir.search({
         resourceType: 'Patient',

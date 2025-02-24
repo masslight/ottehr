@@ -9,8 +9,6 @@ import { expectAddPatientPage } from '../page/AddPatientPage';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import { expectVisitsPage, openVisitsPage } from '../page/VisitsPage';
 import { expectPatientInfoPage } from '../page/PatientInfo';
-import { expectProgressNotePage } from '../page/ProgressNotePage';
-import { expectAssessmentPage } from '../page/AssessmentPage';
 
 const NEW_PATIENT_1_LAST_NAME = 'new_1' + PATIENT_LAST_NAME;
 const NEW_PATIENT_2_LAST_NAME = 'new_2' + PATIENT_LAST_NAME;
@@ -20,13 +18,9 @@ const PATIENT_INPUT_BIRTHDAY = '01/01/2024';
 const PATIENT_INPUT_GENDER = 'Male';
 const REASON_FOR_VISIT = 'Fever';
 const VISIT_TYPE_PREBOOK = 'Pre-booked In Person Visit';
-const DIAGNOSIS = 'Situs inversus';
-const EM_CODE = '99201 New Patient - E/M Level 1';
+//const DIAGNOSIS = 'Situs inversus';
+//const EM_CODE = '99201 New Patient - E/M Level 1';
 const resourceHandler = new ResourceHandler();
-
-test.beforeAll(async () => {
-  await resourceHandler.setResources();
-});
 
 test.afterAll(async () => {
   await resourceHandler.cleanupNewPatientData(NEW_PATIENT_1_LAST_NAME);
