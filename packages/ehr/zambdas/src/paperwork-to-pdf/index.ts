@@ -8,7 +8,6 @@ import { assertDefined, createOystehrClient, validateJsonBody, validateString } 
 import { Color, PageSizes, PDFDocument, PDFFont, PDFPage, PDFPageDrawTextOptions, StandardFonts } from 'pdf-lib';
 import { rgbNormalized } from '../shared/pdf/pdf-utils';
 import { getCanonicalQuestionnaire } from 'utils';
-import { l } from 'vite/dist/node/types.d-aGj9QkWt';
 
 interface Input {
   questionnaireResponseId: string;
@@ -174,13 +173,17 @@ function drawSections(sections: Section[], page: PDFPage, y: number, titleFont: 
 async function drawImageItems(imageItems: ImageItem[], document: PDFDocument, titleFont: PDFFont): Promise<number> {
   let leftRowY = PAGE_HEIGHT - DEFAULT_MARGIN;
   let rightRowY = leftRowY;
-  const page = document.addPage();
-  page.setSize(PAGE_WIDTH, PAGE_HEIGHT);
-  for (const imageItem of imageItems) {
-    if (leftRowY >= rightRowY) {
-      leftRowY = await drawImageItem(imageItem, page, DEFAULT_MARGIN, leftRowY, titleFont);
-    } else {
-      rightRowY = await drawImageItem(imageItem, page, DEFAULT_MARGIN * 2 + ITEM_WIDTH, rightRowY, titleFont);
+  let page: PDFPage = document.addPage();
+  for (let i = 0; i < imageItems.length; i += 2) {
+    if (i % 6 === 0 && i !== 0) {
+      page = document.addPage();
+      page.setSize(PAGE_WIDTH, PAGE_HEIGHT);
+      leftRowY = PAGE_HEIGHT - DEFAULT_MARGIN;
+      rightRowY = leftRowY;
+    }
+    leftRowY = await drawImageItem(imageItems[i], page, DEFAULT_MARGIN, leftRowY, titleFont);
+    if (i + 1 < imageItems.length) {
+      rightRowY = await drawImageItem(imageItems[i + 1], page, DEFAULT_MARGIN * 2 + ITEM_WIDTH, rightRowY, titleFont);
     }
   }
   return Math.max(leftRowY, rightRowY);
