@@ -28,6 +28,8 @@
 
 [Ottehr](https://www.ottehr.com/) is a modern, modular EHR that began as a reference implementation for [Oystehr](https://oystehr.com/). It quickly outgrew "sample EHR" status and became the foundation for large-scale production EHR installations. Ottehr uses Oystehr for back-end service endpoints, and requires a free Oystehr account to run as-is, but you are welcome to modify and use a third-party service vendor or build your own service architecture. Ottehr is designed for developers, hopefully making it easy to fork, white-label, and build entire new classes of EHRs and health-tech products with a fraction of the effort of starting from scratch.
 
+This readme explains how to set up Ottehr locally. To learn more about using, customizing, and deploying Ottehr, check out the [Ottehr documentation](https://docs.oystehr.com/ottehr/welcome/).
+
 Ottehr consists of two apps,
 
 - **[Ottehr Intake](apps/intake)** &mdash; A patient-facing registration website for creating appointments, initiating telemedicine calls, with features including rescheduling, checking in, completing intake paperwork, text messages and emails, and listing appointments for an account.
