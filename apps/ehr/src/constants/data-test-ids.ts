@@ -169,5 +169,8 @@ export const dataTestIds = {
     endVideoCallButton: 'telemed-end-video-call-button',
     appointmentVisitTabs: (tab: AppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
     diagnosisAutocomplete: 'telemed-diagnosis-autocomplete',
+    emCodeAutocomplete: 'telemed-em-code-autocomplete',
+    patientInfoConfirmationCheckbox: 'telemed-patient-info-confirmation-checkbox',
+    signButton: 'telemed-sign-button',
   },
 };
