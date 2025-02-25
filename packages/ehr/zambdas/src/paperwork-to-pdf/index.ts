@@ -87,7 +87,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const helveticaBoldFont = await pdfDocument.embedFont(StandardFonts.HelveticaBold);
 
     const y = drawPatientInfo(patient, page, PAGE_HEIGHT - DEFAULT_MARGIN, helveticaBoldFont, helveticaFont);
-    drawSections(sections, page, y, helveticaBoldFont, helveticaFont);
+    drawSections([...sections, ...sections, ...sections, ...sections], page, y, helveticaBoldFont, helveticaFont);
     await drawImageItems(imageItems, pdfDocument, helveticaFont);
     return {
       statusCode: 200,
@@ -157,17 +157,38 @@ function drawPatientInfo(
   return y;
 }
 
-function drawSections(sections: Section[], page: PDFPage, y: number, titleFont: PDFFont, itemFont: PDFFont): number {
+function drawSections(sections: Section[], page: PDFPage, y: number, titleFont: PDFFont, itemFont: PDFFont): void {
+  let leftRowPage = page;
   let leftRowY = y;
+  let rightRowPage = page;
   let rightRowY = y;
   for (const section of sections) {
-    if (leftRowY >= rightRowY) {
-      leftRowY = drawSection(section, page, DEFAULT_MARGIN, leftRowY, titleFont, itemFont);
+    const leftRowPageIndex = getPageIndex(leftRowPage);
+    const rightRowPageIndex = getPageIndex(rightRowPage);
+    if (leftRowPageIndex < rightRowPageIndex || (leftRowPageIndex === rightRowPageIndex && leftRowY >= rightRowY)) {
+      const [pageAfterSectionDraw, yAfterSectionDraw] = drawSection(
+        section,
+        leftRowPage,
+        DEFAULT_MARGIN,
+        leftRowY,
+        titleFont,
+        itemFont
+      );
+      leftRowPage = pageAfterSectionDraw;
+      leftRowY = yAfterSectionDraw;
     } else {
-      rightRowY = drawSection(section, page, DEFAULT_MARGIN * 2 + ITEM_WIDTH, rightRowY, titleFont, itemFont);
+      const [pageAfterSectionDraw, yAfterSectionDraw] = drawSection(
+        section,
+        rightRowPage,
+        DEFAULT_MARGIN * 2 + ITEM_WIDTH,
+        rightRowY,
+        titleFont,
+        itemFont
+      );
+      rightRowPage = pageAfterSectionDraw;
+      rightRowY = yAfterSectionDraw;
     }
   }
-  return Math.max(leftRowY, rightRowY);
 }
 
 function drawSection(
@@ -177,7 +198,7 @@ function drawSection(
   y: number,
   titleFont: PDFFont,
   itemFont: PDFFont
-): number {
+): [PDFPage, number] {
   y = drawTextLeftAligned(splitOnLines(section.title, 30), page, {
     x,
     y,
@@ -186,7 +207,9 @@ function drawSection(
   });
   y -= SECTION_TITLE_MARGIN;
   for (const item of section.items) {
-    y = drawItem(item, page, x, y, itemFont);
+    const [pageAfterItemDraw, yAfterItemDraw] = drawItem(item, page, x, y, itemFont);
+    page = pageAfterItemDraw;
+    y = yAfterItemDraw;
     y = drawLine(
       {
         x,
@@ -199,12 +222,28 @@ function drawSection(
       page
     );
   }
-  return y - SECTION_BOTTOM_MARGIN;
+  return [page, y - SECTION_BOTTOM_MARGIN];
 }
 
-function drawItem(item: Item, page: PDFPage, x: number, y: number, font: PDFFont): number {
+function drawItem(item: Item, page: PDFPage, x: number, y: number, font: PDFFont): [PDFPage, number] {
   const { question, answer } = item;
   const questionLines = splitOnLines(question, ITEM_MAX_CHARS_PER_LINE);
+  const answerLines = splitOnLines(answer, ITEM_MAX_CHARS_PER_LINE);
+
+  const questionHeight = calculateTextHeight(questionLines, { font: font, fontSize: ITEM_FONT_SIZE });
+  const answerHeight = calculateTextHeight(answerLines, { font: font, fontSize: ITEM_FONT_SIZE });
+  if (y - Math.max(questionHeight, answerHeight) < DEFAULT_MARGIN) {
+    const pdfDocument = page.doc;
+    const currentPageIndex = getPageIndex(page);
+    if (currentPageIndex === pdfDocument.getPageCount() - 1) {
+      page = pdfDocument.addPage();
+      page.setSize(PAGE_WIDTH, PAGE_HEIGHT);
+    } else {
+      page = pdfDocument.getPage(currentPageIndex + 1);
+    }
+    y = PAGE_HEIGHT - DEFAULT_MARGIN;
+  }
+
   const questionY = drawTextLeftAligned(questionLines, page, {
     font: font,
     size: ITEM_FONT_SIZE,
@@ -212,14 +251,13 @@ function drawItem(item: Item, page: PDFPage, x: number, y: number, font: PDFFont
     x: x,
     y: y,
   });
-  const answerLines = splitOnLines(answer, ITEM_MAX_CHARS_PER_LINE);
   const answerY = drawTextRightAligned(answerLines, page, {
     font: font,
     size: ITEM_FONT_SIZE,
     x: x + ITEM_WIDTH,
     y: y,
   });
-  return Math.min(questionY, answerY);
+  return [page, Math.min(questionY, answerY)];
 }
 
 function splitOnLines(text: string, maxCharsPerLine: number): string {
@@ -417,4 +455,12 @@ function fetchQuestionnaire(questionnaire: string, oystehr: Oystehr): Promise<Qu
     resourceType: 'Questionnaire',
     id: questionnaire,
   });
+}
+
+function calculateTextHeight(text: string, options: { font: PDFFont; fontSize: number }): number {
+  return options.font.heightAtSize(options.fontSize) * ((text.match(/\n/g) || []).length + 1);
+}
+
+function getPageIndex(page: PDFPage): number {
+  return page.doc.getPages().indexOf(page);
 }
