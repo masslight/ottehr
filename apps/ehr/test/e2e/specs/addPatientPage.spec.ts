@@ -1,7 +1,7 @@
 import { test } from '@playwright/test';
 import {
-  PATIENT_BIRTH_DATE_SHORT,
   PATIENT_BIRTH_DATE_LONG,
+  PATIENT_BIRTH_DATE_SHORT,
   PATIENT_EMAIL,
   PATIENT_FIRST_NAME,
   PATIENT_GENDER,
@@ -10,8 +10,8 @@ import {
   PATIENT_REASON_FOR_VISIT,
   ResourceHandler,
 } from '../../e2e-utils/resource-handler';
-import { expectAddPatientPage } from '../page/AddPatientPage';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
+import { expectAddPatientPage } from '../page/AddPatientPage';
 import { expectVisitsPage } from '../page/VisitsPage';
 
 const PATIENT_PREFILL_NAME = PATIENT_FIRST_NAME + ' ' + PATIENT_LAST_NAME;
@@ -28,19 +28,6 @@ const VISIT_TYPE_PREBOOK = 'Pre-booked In Person Visit';
 const VISIT_TYPE_POST_TELEMED = 'Post Telemed lab Only';
 
 const resourceHandler = new ResourceHandler();
-
-test.beforeAll(async () => {
-  await resourceHandler.setResources();
-});
-
-test.afterAll(async () => {
-  await resourceHandler.cleanupResources();
-
-  // todo: this logic should be incapsulated in resource-handler
-  await resourceHandler.cleanupNewPatientData(NEW_PATIENT_1_LAST_NAME);
-  await resourceHandler.cleanupNewPatientData(NEW_PATIENT_2_LAST_NAME);
-  await resourceHandler.cleanupNewPatientData(NEW_PATIENT_3_LAST_NAME);
-});
 
 test.beforeEach(async ({ page }) => {
   await page.waitForTimeout(2000); // todo delete
@@ -133,156 +120,175 @@ test('Open "Add patient page" then enter invalid date of birth, click "Add", val
   await addPatientPage.verifyDateFormatValidationErrorShown();
 });
 
-test('Add walk-in visit for existing patient', async ({ page }) => {
-  const addPatientPage = await expectAddPatientPage(page);
-  await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
-  await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
-  await addPatientPage.clickSearchForPatientsButton();
-  await addPatientPage.selectExistingPatient(PATIENT_PREFILL_NAME);
-  await addPatientPage.clickPrefillForButton();
+test.describe('For new patient', () => {
+  test.afterAll(async () => {
+    // todo: this logic should be incapsulated in resource-handler
+    await resourceHandler.cleanupNewPatientData(NEW_PATIENT_1_LAST_NAME);
+    await resourceHandler.cleanupNewPatientData(NEW_PATIENT_2_LAST_NAME);
+    await resourceHandler.cleanupNewPatientData(NEW_PATIENT_3_LAST_NAME);
+  });
 
-  await addPatientPage.verifyPrefilledPatientName(PATIENT_PREFILL_NAME);
-  await addPatientPage.verifyPrefilledPatientBirthday(PATIENT_BIRTH_DATE_LONG);
-  await addPatientPage.verifyPrefilledPatientBirthSex(PATIENT_GENDER);
-  await addPatientPage.verifyPrefilledPatientEmail(PATIENT_EMAIL);
+  test('Add walk-in visit for new patient', async ({ page }) => {
+    const addPatientPage = await expectAddPatientPage(page);
+    await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
+    await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
+    await addPatientPage.clickSearchForPatientsButton();
+    await addPatientPage.clickPatientNotFoundButton();
+    await addPatientPage.enterFirstName(PATIENT_FIRST_NAME);
+    await addPatientPage.enterLastName(NEW_PATIENT_1_LAST_NAME);
+    await addPatientPage.enterDateOfBirth(PATIENT_INPUT_BIRTHDAY);
+    await addPatientPage.selectSexAtBirth(PATIENT_INPUT_GENDER);
+    await addPatientPage.selectReasonForVisit(REASON_FOR_VISIT);
 
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifyPageStillOpened();
+    await addPatientPage.selectVisitType(VISIT_TYPE_WALK);
+    await addPatientPage.clickAddButton();
 
-  await addPatientPage.selectReasonForVisit(REASON_FOR_VISIT);
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifyPageStillOpened();
+    const visitsPage = await expectVisitsPage(page);
+    await visitsPage.selectLocation(ENV_LOCATION_NAME!);
+    await visitsPage.clickInOfficeTab();
+    await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, NEW_PATIENT_1_LAST_NAME);
+  });
 
-  await addPatientPage.selectVisitType(VISIT_TYPE_WALK);
-  await addPatientPage.clickAddButton();
+  test('Add pre-book visit for new patient', async ({ page }) => {
+    const addPatientPage = await expectAddPatientPage(page);
+    await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
+    await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
+    await addPatientPage.clickSearchForPatientsButton();
+    await addPatientPage.clickPatientNotFoundButton();
+    await addPatientPage.enterFirstName(PATIENT_FIRST_NAME);
+    await addPatientPage.enterLastName(NEW_PATIENT_2_LAST_NAME);
+    await addPatientPage.enterDateOfBirth(PATIENT_INPUT_BIRTHDAY);
+    await addPatientPage.selectSexAtBirth(PATIENT_INPUT_GENDER);
+    await addPatientPage.selectReasonForVisit(REASON_FOR_VISIT);
 
-  const visitsPage = await expectVisitsPage(page);
-  await visitsPage.selectLocation(ENV_LOCATION_NAME!);
-  await visitsPage.clickInOfficeTab();
-  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, PATIENT_LAST_NAME);
+    await addPatientPage.selectVisitType(VISIT_TYPE_PREBOOK);
+    const slotTime = await addPatientPage.selectFirstAvailableSlot();
+    await addPatientPage.clickAddButton();
+
+    const visitsPage = await expectVisitsPage(page);
+    await visitsPage.selectLocation(ENV_LOCATION_NAME!);
+    await visitsPage.clickPrebookedTab();
+    await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, NEW_PATIENT_2_LAST_NAME, slotTime);
+  });
+
+  test('Add post-telemed visit for new patient', async ({ page }) => {
+    const addPatientPage = await expectAddPatientPage(page);
+    await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
+    await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
+    await addPatientPage.clickSearchForPatientsButton();
+    await addPatientPage.clickPatientNotFoundButton();
+    await addPatientPage.enterFirstName(PATIENT_FIRST_NAME);
+    await addPatientPage.enterLastName(NEW_PATIENT_3_LAST_NAME);
+    await addPatientPage.enterDateOfBirth(PATIENT_INPUT_BIRTHDAY);
+    await addPatientPage.selectSexAtBirth(PATIENT_INPUT_GENDER);
+    await addPatientPage.selectReasonForVisit(REASON_FOR_VISIT);
+
+    await addPatientPage.selectVisitType(VISIT_TYPE_POST_TELEMED);
+    const slotTime = await addPatientPage.selectFirstAvailableSlot();
+    await addPatientPage.clickAddButton();
+
+    const visitsPage = await expectVisitsPage(page);
+    await visitsPage.selectLocation(ENV_LOCATION_NAME!);
+    await visitsPage.clickPrebookedTab();
+    await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, NEW_PATIENT_3_LAST_NAME, slotTime);
+  });
 });
 
-test('Add walk-in visit for new patient', async ({ page }) => {
-  const addPatientPage = await expectAddPatientPage(page);
-  await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
-  await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
-  await addPatientPage.clickSearchForPatientsButton();
-  await addPatientPage.clickPatientNotFoundButton();
-  await addPatientPage.enterFirstName(PATIENT_FIRST_NAME);
-  await addPatientPage.enterLastName(NEW_PATIENT_1_LAST_NAME);
-  await addPatientPage.enterDateOfBirth(PATIENT_INPUT_BIRTHDAY);
-  await addPatientPage.selectSexAtBirth(PATIENT_INPUT_GENDER);
-  await addPatientPage.selectReasonForVisit(REASON_FOR_VISIT);
+test.describe('For existing patient', () => {
+  test.beforeAll(async () => {
+    await resourceHandler.setResources();
+  });
 
-  await addPatientPage.selectVisitType(VISIT_TYPE_WALK);
-  await addPatientPage.clickAddButton();
+  test.afterAll(async () => {
+    await resourceHandler.cleanupResources();
+  });
 
-  const visitsPage = await expectVisitsPage(page);
-  await visitsPage.selectLocation(ENV_LOCATION_NAME!);
-  await visitsPage.clickInOfficeTab();
-  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, NEW_PATIENT_1_LAST_NAME);
-});
+  test('Add walk-in visit for existing patient', async ({ page }) => {
+    const addPatientPage = await expectAddPatientPage(page);
+    await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
+    await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
+    await addPatientPage.clickSearchForPatientsButton();
+    await addPatientPage.selectExistingPatient(PATIENT_PREFILL_NAME);
+    await addPatientPage.clickPrefillForButton();
 
-test('Add pre-book visit for existing patient', async ({ page }) => {
-  const addPatientPage = await expectAddPatientPage(page);
-  await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
-  await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
-  await addPatientPage.clickSearchForPatientsButton();
-  await addPatientPage.selectExistingPatient(PATIENT_PREFILL_NAME);
-  await addPatientPage.clickPrefillForButton();
+    await addPatientPage.verifyPrefilledPatientName(PATIENT_PREFILL_NAME);
+    await addPatientPage.verifyPrefilledPatientBirthday(PATIENT_BIRTH_DATE_LONG);
+    await addPatientPage.verifyPrefilledPatientBirthSex(PATIENT_GENDER);
+    await addPatientPage.verifyPrefilledPatientEmail(PATIENT_EMAIL);
 
-  await addPatientPage.verifyPrefilledPatientName(PATIENT_PREFILL_NAME);
-  await addPatientPage.verifyPrefilledPatientBirthday(PATIENT_BIRTH_DATE_LONG);
-  await addPatientPage.verifyPrefilledPatientBirthSex(PATIENT_GENDER);
-  await addPatientPage.verifyPrefilledPatientEmail(PATIENT_EMAIL);
+    await addPatientPage.clickAddButton();
+    await addPatientPage.verifyPageStillOpened();
 
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifyPageStillOpened();
+    await addPatientPage.selectReasonForVisit(REASON_FOR_VISIT);
+    await addPatientPage.clickAddButton();
+    await addPatientPage.verifyPageStillOpened();
 
-  await addPatientPage.selectReasonForVisit(REASON_FOR_VISIT);
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifyPageStillOpened();
+    await addPatientPage.selectVisitType(VISIT_TYPE_WALK);
+    await addPatientPage.clickAddButton();
 
-  await addPatientPage.selectVisitType(VISIT_TYPE_PREBOOK);
-  const slotTime = await addPatientPage.selectFirstAvailableSlot();
-  await addPatientPage.clickAddButton();
+    const visitsPage = await expectVisitsPage(page);
+    await visitsPage.selectLocation(ENV_LOCATION_NAME!);
+    await visitsPage.clickInOfficeTab();
+    await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, PATIENT_LAST_NAME);
+  });
 
-  const visitsPage = await expectVisitsPage(page);
-  await visitsPage.selectLocation(ENV_LOCATION_NAME!);
-  await visitsPage.clickPrebookedTab();
-  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, PATIENT_LAST_NAME, slotTime);
-});
+  test('Add pre-book visit for existing patient', async ({ page }) => {
+    const addPatientPage = await expectAddPatientPage(page);
+    await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
+    await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
+    await addPatientPage.clickSearchForPatientsButton();
+    await addPatientPage.selectExistingPatient(PATIENT_PREFILL_NAME);
+    await addPatientPage.clickPrefillForButton();
 
-test('Add pre-book visit for new patient', async ({ page }) => {
-  const addPatientPage = await expectAddPatientPage(page);
-  await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
-  await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
-  await addPatientPage.clickSearchForPatientsButton();
-  await addPatientPage.clickPatientNotFoundButton();
-  await addPatientPage.enterFirstName(PATIENT_FIRST_NAME);
-  await addPatientPage.enterLastName(NEW_PATIENT_2_LAST_NAME);
-  await addPatientPage.enterDateOfBirth(PATIENT_INPUT_BIRTHDAY);
-  await addPatientPage.selectSexAtBirth(PATIENT_INPUT_GENDER);
-  await addPatientPage.selectReasonForVisit(REASON_FOR_VISIT);
+    await addPatientPage.verifyPrefilledPatientName(PATIENT_PREFILL_NAME);
+    await addPatientPage.verifyPrefilledPatientBirthday(PATIENT_BIRTH_DATE_LONG);
+    await addPatientPage.verifyPrefilledPatientBirthSex(PATIENT_GENDER);
+    await addPatientPage.verifyPrefilledPatientEmail(PATIENT_EMAIL);
 
-  await addPatientPage.selectVisitType(VISIT_TYPE_PREBOOK);
-  const slotTime = await addPatientPage.selectFirstAvailableSlot();
-  await addPatientPage.clickAddButton();
+    await addPatientPage.clickAddButton();
+    await addPatientPage.verifyPageStillOpened();
 
-  const visitsPage = await expectVisitsPage(page);
-  await visitsPage.selectLocation(ENV_LOCATION_NAME!);
-  await visitsPage.clickPrebookedTab();
-  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, NEW_PATIENT_2_LAST_NAME, slotTime);
-});
+    await addPatientPage.selectReasonForVisit(REASON_FOR_VISIT);
+    await addPatientPage.clickAddButton();
+    await addPatientPage.verifyPageStillOpened();
 
-test('Add post-telemed visit for existing patient', async ({ page }) => {
-  const addPatientPage = await expectAddPatientPage(page);
-  await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
-  await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
-  await addPatientPage.clickSearchForPatientsButton();
-  await addPatientPage.selectExistingPatient(PATIENT_PREFILL_NAME);
-  await addPatientPage.clickPrefillForButton();
+    await addPatientPage.selectVisitType(VISIT_TYPE_PREBOOK);
+    const slotTime = await addPatientPage.selectFirstAvailableSlot();
+    await addPatientPage.clickAddButton();
 
-  await addPatientPage.verifyPrefilledPatientName(PATIENT_PREFILL_NAME);
-  await addPatientPage.verifyPrefilledPatientBirthday(PATIENT_BIRTH_DATE_LONG);
-  await addPatientPage.verifyPrefilledPatientBirthSex(PATIENT_GENDER);
-  await addPatientPage.verifyPrefilledPatientEmail(PATIENT_EMAIL);
+    const visitsPage = await expectVisitsPage(page);
+    await visitsPage.selectLocation(ENV_LOCATION_NAME!);
+    await visitsPage.clickPrebookedTab();
+    await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, PATIENT_LAST_NAME, slotTime);
+  });
 
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifyPageStillOpened();
+  test('Add post-telemed visit for existing patient', async ({ page }) => {
+    const addPatientPage = await expectAddPatientPage(page);
+    await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
+    await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
+    await addPatientPage.clickSearchForPatientsButton();
+    await addPatientPage.selectExistingPatient(PATIENT_PREFILL_NAME);
+    await addPatientPage.clickPrefillForButton();
 
-  await addPatientPage.selectReasonForVisit(REASON_FOR_VISIT);
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifyPageStillOpened();
+    await addPatientPage.verifyPrefilledPatientName(PATIENT_PREFILL_NAME);
+    await addPatientPage.verifyPrefilledPatientBirthday(PATIENT_BIRTH_DATE_LONG);
+    await addPatientPage.verifyPrefilledPatientBirthSex(PATIENT_GENDER);
+    await addPatientPage.verifyPrefilledPatientEmail(PATIENT_EMAIL);
 
-  await addPatientPage.selectVisitType(VISIT_TYPE_POST_TELEMED);
-  const slotTime = await addPatientPage.selectFirstAvailableSlot();
-  await addPatientPage.clickAddButton();
+    await addPatientPage.clickAddButton();
+    await addPatientPage.verifyPageStillOpened();
 
-  const visitsPage = await expectVisitsPage(page);
-  await visitsPage.selectLocation(ENV_LOCATION_NAME!);
-  await visitsPage.clickPrebookedTab();
-  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, PATIENT_LAST_NAME, slotTime);
-});
+    await addPatientPage.selectReasonForVisit(REASON_FOR_VISIT);
+    await addPatientPage.clickAddButton();
+    await addPatientPage.verifyPageStillOpened();
 
-test('Add post-telemed visit for new patient', async ({ page }) => {
-  const addPatientPage = await expectAddPatientPage(page);
-  await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
-  await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
-  await addPatientPage.clickSearchForPatientsButton();
-  await addPatientPage.clickPatientNotFoundButton();
-  await addPatientPage.enterFirstName(PATIENT_FIRST_NAME);
-  await addPatientPage.enterLastName(NEW_PATIENT_3_LAST_NAME);
-  await addPatientPage.enterDateOfBirth(PATIENT_INPUT_BIRTHDAY);
-  await addPatientPage.selectSexAtBirth(PATIENT_INPUT_GENDER);
-  await addPatientPage.selectReasonForVisit(REASON_FOR_VISIT);
+    await addPatientPage.selectVisitType(VISIT_TYPE_POST_TELEMED);
+    const slotTime = await addPatientPage.selectFirstAvailableSlot();
+    await addPatientPage.clickAddButton();
 
-  await addPatientPage.selectVisitType(VISIT_TYPE_POST_TELEMED);
-  const slotTime = await addPatientPage.selectFirstAvailableSlot();
-  await addPatientPage.clickAddButton();
-
-  const visitsPage = await expectVisitsPage(page);
-  await visitsPage.selectLocation(ENV_LOCATION_NAME!);
-  await visitsPage.clickPrebookedTab();
-  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, NEW_PATIENT_3_LAST_NAME, slotTime);
+    const visitsPage = await expectVisitsPage(page);
+    await visitsPage.selectLocation(ENV_LOCATION_NAME!);
+    await visitsPage.clickPrebookedTab();
+    await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, PATIENT_LAST_NAME, slotTime);
+  });
 });

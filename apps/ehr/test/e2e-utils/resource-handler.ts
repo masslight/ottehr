@@ -82,6 +82,8 @@ export class ResourceHandler {
   constructor(flow: 'telemed' | 'in-person' = 'in-person') {
     this.flow = flow;
 
+    this.initApi();
+
     if (flow === 'in-person') {
       this.zambdaId = process.env.CREATE_APPOINTMENT_ZAMBDA_ID!;
       return;
@@ -277,7 +279,6 @@ export class ResourceHandler {
     ).unbundle();
     for (const patient of patients) {
       await this.cleanupAppointments(patient.id!);
-      await this.apiClient.fhir.delete({ resourceType: patient.resourceType, id: patient.id! }).catch();
     }
   }
 
