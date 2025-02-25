@@ -178,7 +178,7 @@ const Review = (): JSX.Element => {
   } else if (visitType === VisitType.WalkIn) {
     reviewItems.push({
       name: t('reviewAndSubmit.walkInTime'),
-      valueString: getLocaleDateTimeString(DateTime.now(), 'medium', i18n.language),
+      valueString: getLocaleDateTimeString(DateTime.now().setZone(selectedLocation?.timezone), 'medium', i18n.language),
       testId: 'r&s_walkInTime',
       valueTestId: dataTestIds.walkInSlotReviewScreen,
     });
