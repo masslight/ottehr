@@ -170,53 +170,6 @@ function drawSections(sections: Section[], page: PDFPage, y: number, titleFont: 
   return Math.max(leftRowY, rightRowY);
 }
 
-async function drawImageItems(imageItems: ImageItem[], document: PDFDocument, titleFont: PDFFont): Promise<number> {
-  let leftRowY = PAGE_HEIGHT - DEFAULT_MARGIN;
-  let rightRowY = leftRowY;
-  let page: PDFPage = document.addPage();
-  for (let i = 0; i < imageItems.length; i += 2) {
-    if (i % 6 === 0 && i !== 0) {
-      page = document.addPage();
-      page.setSize(PAGE_WIDTH, PAGE_HEIGHT);
-      leftRowY = PAGE_HEIGHT - DEFAULT_MARGIN;
-      rightRowY = leftRowY;
-    }
-    leftRowY = await drawImageItem(imageItems[i], page, DEFAULT_MARGIN, leftRowY, titleFont);
-    if (i + 1 < imageItems.length) {
-      rightRowY = await drawImageItem(imageItems[i + 1], page, DEFAULT_MARGIN * 2 + ITEM_WIDTH, rightRowY, titleFont);
-    }
-  }
-  return Math.max(leftRowY, rightRowY);
-}
-
-async function drawImageItem(
-  imageItem: ImageItem,
-  page: PDFPage,
-  x: number,
-  y: number,
-  titleFont: PDFFont
-): Promise<number> {
-  y -= drawTextLeftAligned(splitOnLines(imageItem.title, 45), page, {
-    x,
-    y,
-    font: titleFont,
-    size: ITEM_FONT_SIZE,
-  });
-  const imageBytes = await imageItem.imageBytes;
-  const image =
-    imageItem.imageType === ImageType.JPG ? await page.doc.embedJpg(imageBytes) : await page.doc.embedPng(imageBytes);
-  const scale = Math.max(image.width / ITEM_WIDTH, image.height / IMAGE_MAX_HEIGHT);
-  const drawWidth = scale > 1 ? image.width / scale : image.width;
-  const drawHeight = scale > 1 ? image.height / scale : image.height;
-  page.drawImage(image, {
-    x,
-    y: y - drawHeight - DEFAULT_MARGIN,
-    width: drawWidth,
-    height: drawHeight,
-  });
-  return y - IMAGE_MAX_HEIGHT - 2 * DEFAULT_MARGIN;
-}
-
 function drawSection(
   section: Section,
   page: PDFPage,
@@ -356,6 +309,53 @@ function createSections(questionnaireResponse: QuestionnaireResponse, questionna
       items,
     };
   });
+}
+
+async function drawImageItems(imageItems: ImageItem[], document: PDFDocument, titleFont: PDFFont): Promise<number> {
+  let leftRowY = PAGE_HEIGHT - DEFAULT_MARGIN;
+  let rightRowY = leftRowY;
+  let page: PDFPage = document.addPage();
+  for (let i = 0; i < imageItems.length; i += 2) {
+    if (i % 6 === 0 && i !== 0) {
+      page = document.addPage();
+      page.setSize(PAGE_WIDTH, PAGE_HEIGHT);
+      leftRowY = PAGE_HEIGHT - DEFAULT_MARGIN;
+      rightRowY = leftRowY;
+    }
+    leftRowY = await drawImageItem(imageItems[i], page, DEFAULT_MARGIN, leftRowY, titleFont);
+    if (i + 1 < imageItems.length) {
+      rightRowY = await drawImageItem(imageItems[i + 1], page, DEFAULT_MARGIN * 2 + ITEM_WIDTH, rightRowY, titleFont);
+    }
+  }
+  return Math.max(leftRowY, rightRowY);
+}
+
+async function drawImageItem(
+  imageItem: ImageItem,
+  page: PDFPage,
+  x: number,
+  y: number,
+  titleFont: PDFFont
+): Promise<number> {
+  y -= drawTextLeftAligned(splitOnLines(imageItem.title, 45), page, {
+    x,
+    y,
+    font: titleFont,
+    size: ITEM_FONT_SIZE,
+  });
+  const imageBytes = await imageItem.imageBytes;
+  const image =
+    imageItem.imageType === ImageType.JPG ? await page.doc.embedJpg(imageBytes) : await page.doc.embedPng(imageBytes);
+  const scale = Math.max(image.width / ITEM_WIDTH, image.height / IMAGE_MAX_HEIGHT);
+  const drawWidth = scale > 1 ? image.width / scale : image.width;
+  const drawHeight = scale > 1 ? image.height / scale : image.height;
+  page.drawImage(image, {
+    x,
+    y: y - drawHeight - DEFAULT_MARGIN,
+    width: drawWidth,
+    height: drawHeight,
+  });
+  return y - IMAGE_MAX_HEIGHT - 2 * DEFAULT_MARGIN;
 }
 
 function createImageItems(
