@@ -188,10 +188,10 @@ export class Paperwork {
   pcpAddress: string;
   pcpName: string;
   formattedPhoneNumber: string;}> {
-    const firstName = `First name ${this.getRandomString()}`;
-    const lastName = `Last name ${this.getRandomString()}`;
-    const pcpAddress = `PCP address ${this.getRandomString()}`;
-    const pcpName = `PCP name ${this.getRandomString()}`;
+    const firstName = `First name test`;
+    const lastName = `Last name test`;
+    const pcpAddress = `PCP address test`;
+    const pcpName = `PCP name test`;
     const pcpNumber = '1234567890'
     const formattedPhoneNumber = this.formatPhoneNumber(pcpNumber); 
     await this.locator.pcpFirstName.fill(firstName);
