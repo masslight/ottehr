@@ -1,4 +1,4 @@
-import { FC, useEffect } from 'react';
+import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { patientFieldPaths, standardizePhoneNumber } from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
@@ -9,20 +9,7 @@ import { usePatientStore } from '../../state/patient.store';
 export const ResponsibleInformationContainer: FC = () => {
   const { patient, updatePatientField } = usePatientStore();
 
-  const { control, watch, setValue } = useFormContext();
-
-  const fullNameFromPatient =
-    patient?.contact?.[0]?.name?.family && patient?.contact?.[0]?.name?.given?.[0]
-      ? `${patient.contact[0].name.family}, ${patient.contact[0].name.given[0]}`
-      : '';
-
-  const fullName = watch(patientFieldPaths.responsiblePartyName);
-
-  useEffect(() => {
-    if (fullName === undefined && fullNameFromPatient) {
-      setValue(patientFieldPaths.responsiblePartyName, fullNameFromPatient);
-    }
-  }, [setValue, fullName, fullNameFromPatient]);
+  const { control, setValue } = useFormContext();
 
   if (!patient) return null;
 
@@ -36,6 +23,11 @@ export const ResponsibleInformationContainer: FC = () => {
     const { name, value } = event.target;
     updatePatientField(name, value);
   };
+
+  const fullName =
+    patient?.contact?.[0]?.name?.family && patient?.contact?.[0]?.name?.given?.[0]
+      ? `${patient.contact[0].name.family}, ${patient.contact[0].name.given[0]}`
+      : '';
 
   const handleResponsiblePartyNameChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const value = e.target.value;
@@ -87,7 +79,7 @@ export const ResponsibleInformationContainer: FC = () => {
         <FormTextField
           name={patientFieldPaths.responsiblePartyName}
           control={control}
-          value={fullName ?? ''}
+          defaultValue={fullName}
           rules={{ required: true }}
           onChangeHandler={handleResponsiblePartyNameChange}
           id="responsible-party-full-name"
