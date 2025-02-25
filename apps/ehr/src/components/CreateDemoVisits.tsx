@@ -4,7 +4,7 @@ import React from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { LoadingButton } from '@mui/lab';
 import { Box } from '@mui/system';
-import { createSampleAppointments } from 'utils/lib/helpers';
+import { createSamplePrebookAppointments } from 'utils/lib/helpers';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../CustomThemeProvider';
 import createDemoVisits from '../assets/create-demo-visits.svg';
@@ -47,7 +47,7 @@ const CreateDemoVisits = (): ReactElement => {
       setLoading(true);
       setInputError(false);
       const authToken = await getAccessTokenSilently();
-      await createSampleAppointments(
+      await createSamplePrebookAppointments(
         oystehr,
         authToken,
         formattedPhoneNumber,
