@@ -199,13 +199,9 @@ function drawSection(
   titleFont: PDFFont,
   itemFont: PDFFont
 ): [PDFPage, number] {
-  y = drawTextLeftAligned(splitOnLines(section.title, 30), page, {
-    x,
-    y,
-    font: titleFont,
-    size: SECTION_TITLE_FONT_SIZE,
-  });
-  y -= SECTION_TITLE_MARGIN;
+  const [pageAfterSectionTitleDraw, yAfterSectionTitleDraw] = drawSectionTitle(section.title, page, x, y, titleFont);
+  page = pageAfterSectionTitleDraw;
+  y = yAfterSectionTitleDraw;
   for (const item of section.items) {
     const [pageAfterItemDraw, yAfterItemDraw] = drawItem(item, page, x, y, itemFont);
     page = pageAfterItemDraw;
@@ -225,6 +221,23 @@ function drawSection(
   return [page, y - SECTION_BOTTOM_MARGIN];
 }
 
+function drawSectionTitle(title: string, page: PDFPage, x: number, y: number, font: PDFFont): [PDFPage, number] {
+  const lines = splitOnLines(title, 30);
+  const height = calculateTextHeight(lines, { font: font, fontSize: SECTION_TITLE_FONT_SIZE });
+  if (y - height < DEFAULT_MARGIN) {
+    page = getNextPage(page);
+    y = PAGE_HEIGHT - DEFAULT_MARGIN;
+  }
+  y = drawTextLeftAligned(lines, page, {
+    x,
+    y,
+    font: font,
+    size: SECTION_TITLE_FONT_SIZE,
+  });
+  y -= SECTION_TITLE_MARGIN;
+  return [page, y];
+}
+
 function drawItem(item: Item, page: PDFPage, x: number, y: number, font: PDFFont): [PDFPage, number] {
   const { question, answer } = item;
   const questionLines = splitOnLines(question, ITEM_MAX_CHARS_PER_LINE);
@@ -233,14 +246,7 @@ function drawItem(item: Item, page: PDFPage, x: number, y: number, font: PDFFont
   const questionHeight = calculateTextHeight(questionLines, { font: font, fontSize: ITEM_FONT_SIZE });
   const answerHeight = calculateTextHeight(answerLines, { font: font, fontSize: ITEM_FONT_SIZE });
   if (y - Math.max(questionHeight, answerHeight) < DEFAULT_MARGIN) {
-    const pdfDocument = page.doc;
-    const currentPageIndex = getPageIndex(page);
-    if (currentPageIndex === pdfDocument.getPageCount() - 1) {
-      page = pdfDocument.addPage();
-      page.setSize(PAGE_WIDTH, PAGE_HEIGHT);
-    } else {
-      page = pdfDocument.getPage(currentPageIndex + 1);
-    }
+    page = getNextPage(page);
     y = PAGE_HEIGHT - DEFAULT_MARGIN;
   }
 
@@ -463,4 +469,15 @@ function calculateTextHeight(text: string, options: { font: PDFFont; fontSize: n
 
 function getPageIndex(page: PDFPage): number {
   return page.doc.getPages().indexOf(page);
+}
+
+function getNextPage(page: PDFPage): PDFPage {
+  const pdfDocument = page.doc;
+  const currentPageIndex = getPageIndex(page);
+  if (currentPageIndex === pdfDocument.getPageCount() - 1) {
+    const page = pdfDocument.addPage();
+    page.setSize(PAGE_WIDTH, PAGE_HEIGHT);
+    return page;
+  }
+  return pdfDocument.getPage(currentPageIndex + 1);
 }
