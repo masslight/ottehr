@@ -1,8 +1,10 @@
-import { ZambdaInput, TaskSubscriptionInput } from 'utils';
 import { Task } from 'fhir/r4b';
+import { TaskSubscriptionInput } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
+import { Secrets } from 'zambda-utils';
 
 // Note that this file is copied from BH and needs significant changes
-export function validateRequestParameters(input: ZambdaInput): TaskSubscriptionInput {
+export function validateRequestParameters(input: ZambdaInput): TaskSubscriptionInput & { secrets: Secrets | null } {
   if (!input.body) {
     throw new Error('No request body provided');
   }

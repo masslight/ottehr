@@ -14,6 +14,8 @@ import {
   phoneRegex,
   pickFirstValueFromAnswerItem,
   zipRegex,
+  QuestionnaireItemConditionDefinition,
+  DOB_DATE_FORMAT,
 } from 'utils';
 import * as Yup from 'yup';
 
@@ -194,7 +196,6 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
   }
   if ((item.type === 'choice' || item.type === 'open-choice') && item.answerLoadingOptions !== undefined) {
     const { answerSource } = item.answerLoadingOptions;
-    console.log('required', item.linkId, required, item.required);
     if (!answerSource) {
       // answer options come from answerValueSet, which are converted into valueString choices
       let stringSchema = Yup.string();
@@ -314,50 +315,35 @@ export const makeValidationSchema = (
   } else {
     // we are validating the entire questionnaire
     return Yup.array().of(
-      Yup.object()
-        /*.transform((val) => {
-          try {
-            // idea is if we did the transformations here rather than in the test block
-            // they would actually be returned from the validate call, whereas now those
-            // transformations don't escape the scope of the test function
-            const transformed = recursiveGroupTransform(items, val);
-            console.log('pre validation transform', JSON.stringify(transformed));
-            return transformed;
-          } catch (e) {
-            console.log('pre validation transform error', JSON.stringify(e), e);
-            return val;
+      Yup.object().test('submit test', async (value: any, context: any) => {
+        const { linkId: pageId, item: answerItem } = value;
+        const questionItem = items.find((i) => i.linkId === pageId);
+        if (!questionItem) {
+          // console.log('page not found');
+          return context.createError({ message: `Page ${pageId} not found in Questionnaire` });
+        }
+        if (answerItem === undefined) {
+          if (questionItem.item?.some((i) => evalRequired(i, context))) {
+            return context.createError({ message: 'Item not found' });
+          } else {
+            return value;
           }
-        })*/
-        .test('submit test', async (value: any, context: any) => {
-          const { linkId: pageId, item: answerItem } = value;
-          console.log('items.it 5', items);
-          const questionItem = items.find((i) => i.linkId === pageId);
-          if (!questionItem) {
-            // console.log('page not found');
-            return context.createError({ message: `Page ${pageId} not found in Questionnaire` });
-          }
-          if (answerItem === undefined) {
-            if (questionItem.item?.some((i) => evalRequired(i, context))) {
-              return context.createError({ message: 'Item not found' });
-            } else {
-              return value;
-            }
-          }
-          const schema = makeValidationSchemaPrivate(questionItem.item ?? [], context);
-          // we convert this from a list to key-val dict to match the form shape
-          try {
-            const reduced = answerItem.reduce((accum: any, current: any) => {
-              accum[current.linkId] = { ...current };
-              return accum;
-            }, {});
-            const validated = await schema.validate(reduced, { abortEarly: false });
-            console.log('validated', JSON.stringify(validated));
-            return Yup.mixed().transform(() => validated);
-          } catch (e) {
-            console.log('error: ', pageId, JSON.stringify(answerItem), e);
-            return e;
-          }
-        })
+        }
+        const schema = makeValidationSchemaPrivate(questionItem.item ?? [], context);
+        // we convert this from a list to key-val dict to match the form shape
+        try {
+          const reduced = answerItem.reduce((accum: any, current: any) => {
+            accum[current.linkId] = { ...current };
+            return accum;
+          }, {});
+          const validated = await schema.validate(reduced, { abortEarly: false });
+          console.log('validated', JSON.stringify(validated));
+          return Yup.mixed().transform(() => validated);
+        } catch (e) {
+          console.log('error: ', pageId, JSON.stringify(answerItem), e);
+          return e;
+        }
+      })
     );
   }
 };
@@ -373,7 +359,7 @@ const makeValidationSchemaPrivate = (
   const externalValues = externalContext?.values ?? {};
 
   const validatableItems = items
-    .filter((item) => item?.type !== 'display' && !item?.readOnly)
+    .filter((item) => item?.type !== 'display' && !item?.readOnly && evalEnableWhen(item, items, formValues))
     .flatMap((item) => makeValidatableItem(item));
   let allValues = (externalContext?.values ?? [])
     .flatMap((page: any) => page.item)
@@ -449,7 +435,7 @@ const makeValidationSchemaPrivate = (
                     return embeddedSchema.validateAt(val.linkId, item);
                   } catch (e) {
                     console.log('thrown error from group member test', e);
-                    return context.createError({ message: (e as any).message });
+                    return context.createError({ message: (e as any).message, val, item });
                   }
                 }
                 return true;
@@ -518,12 +504,40 @@ const evalString = (operator: EnableWhenOperator, answerValue: string, value: st
   throw new Error(`Unexpected operator ${operator} encountered for boolean value`);
 };
 
+const evalDateTime = (operator: EnableWhenOperator, answerValue: string, value: string | undefined): boolean => {
+  if (value === undefined) {
+    return false;
+  }
+
+  const answerDT = DateTime.fromISO(answerValue);
+  const valDT = DateTime.fromISO(value);
+
+  if (!answerDT.isValid || !valDT.isValid) {
+    return false;
+  }
+
+  if (operator === '=') {
+    return answerDT.equals(valDT);
+  } else if (operator === '!=') {
+    return !answerDT.equals(valDT);
+  } else if (operator === '<=') {
+    return answerDT.diff(valDT, 'seconds').seconds <= 0;
+  } else if (operator === '<') {
+    return answerDT.diff(valDT, 'seconds').seconds < 0;
+  } else if (operator === '>=') {
+    return answerDT.diff(valDT, 'seconds').seconds >= 0;
+  } else if (operator === '>') {
+    return answerDT.diff(valDT, 'seconds').seconds > 0;
+  }
+  throw new Error(`Unexpected operator ${operator} encountered for boolean value`);
+};
+
 const evalEnableWhenItem = (
   enableWhen: QuestionnaireItemEnableWhen,
   values: { [itemLinkId: string]: QuestionnaireResponseItem },
   items: QuestionnaireItem[]
 ): boolean => {
-  const { answerString, answerBoolean, question, operator } = enableWhen;
+  const { answerString, answerBoolean, answerDate, answerInteger, question, operator } = enableWhen;
   // console.log('items', items);
   const questionPathNodes = question.split('.');
 
@@ -559,11 +573,6 @@ const evalEnableWhenItem = (
     return (accum.item ?? []).find((i: any) => i?.linkId && i.linkId === current);
   }, values as any);
 
-  if (answerBoolean === undefined && answerString === undefined) {
-    // we only need to support these 2 value types so far
-    return false;
-  }
-
   if (itemDef.type === 'boolean' && answerBoolean !== undefined) {
     return evalBoolean(operator, answerBoolean, pickFirstValueFromAnswerItem(valueDef, 'boolean'));
   } else if (
@@ -572,8 +581,16 @@ const evalEnableWhenItem = (
   ) {
     const verdict = evalString(operator, answerString, pickFirstValueFromAnswerItem(valueDef));
     return verdict;
+  } else if (itemDef.type === 'date' && answerDate !== undefined) {
+    return evalDateTime(operator, answerDate, pickFirstValueFromAnswerItem(valueDef));
+  } else if (itemDef.type === 'date' && answerInteger !== undefined) {
+    const answerDateFormatted = formattedDateStringForYearsAgo(`${answerInteger}`);
+    if (answerDateFormatted === undefined) {
+      return false;
+    }
+    return evalDateTime(operator, answerDateFormatted, pickFirstValueFromAnswerItem(valueDef));
   } else {
-    // we only support string and bool atm
+    // we only support string, bool, and date atm, but extensions welcome as needed!
     return false;
   }
 };
@@ -619,35 +636,7 @@ export const evalRequired = (item: IntakeQuestionnaireItem, context: any, questi
     return false;
   }
 
-  const { question, operator, answerString, answerBoolean } = item.requireWhen;
-  // todo: move/update this comment
-  // for now we assume all linkIds within a form are unique, even accross groups
-  // this can be changed later an will be backwards compatible if we come to require
-  // structural prcision in the requireWhen feature
-  const questionValue = recursivePathEval(context, question, questionVal);
-  if (answerString !== undefined) {
-    const comparisonString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;
-
-    if (operator === '=' && comparisonString === answerString) {
-      return true;
-    }
-    if (operator === '!=' && comparisonString !== answerString) {
-      return true;
-    }
-    return false;
-  }
-  if (answerBoolean !== undefined) {
-    const comparisonBool = questionValue?.answer?.[0]?.valueBoolean ?? questionValue?.valueBoolean;
-
-    if (operator === '=' && comparisonBool === answerBoolean) {
-      return true;
-    }
-    if (operator === '!=' && comparisonBool !== answerBoolean) {
-      return true;
-    }
-    return false;
-  }
-  return false;
+  return evalCondition(item.requireWhen, context, item.type, questionVal);
 };
 
 export const evalItemText = (item: IntakeQuestionnaireItem, context: any, questionVal?: any): string | undefined => {
@@ -655,33 +644,10 @@ export const evalItemText = (item: IntakeQuestionnaireItem, context: any, questi
   if (textWhen === undefined) {
     return item.text;
   }
+  const { substituteText } = textWhen;
 
-  const { question, operator, answerString, answerBoolean, substituteText } = textWhen;
-  // todo: move/update this comment
-  // for now we assume all linkIds within a form are unique, even accross groups
-  // this can be changed later an will be backwards compatible if we come to require
-  // structural precision in the textWhen feature
-  const questionValue = recursivePathEval(context, question, questionVal);
-  if (answerString !== undefined) {
-    const comparisonString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;
-    if (operator === '=' && comparisonString === answerString) {
-      return substituteText;
-    }
-    if (operator === '!=' && comparisonString !== answerString) {
-      return substituteText;
-    }
-    return item.text;
-  }
-  if (answerBoolean !== undefined) {
-    const comparisonBool = questionValue?.answer?.[0]?.valueBoolean ?? questionValue?.valueBoolean;
-
-    if (operator === '=' && comparisonBool === answerBoolean) {
-      return substituteText;
-    }
-    if (operator === '!=' && comparisonBool !== answerBoolean) {
-      return substituteText;
-    }
-    return item.text;
+  if (evalCondition(textWhen, context, item.type, questionVal)) {
+    return substituteText;
   }
   return item.text;
 };
@@ -721,8 +687,30 @@ export const evalFilterWhen = (item: IntakeQuestionnaireItem, context: any, ques
   if (item.filterWhen === undefined) {
     return false;
   }
+  return evalCondition(item.filterWhen, context, item.type, questionVal);
+};
 
-  const { question, operator, answerString, answerBoolean } = item.filterWhen;
+export const evalComplexValidationTrigger = (
+  item: IntakeQuestionnaireItem,
+  context: any,
+  questionVal?: any
+): boolean => {
+  console.log('item.complex', item.complexValidation?.type, item.complexValidation?.triggerWhen);
+  if (item.complexValidation === undefined) {
+    return false;
+  } else if (item.complexValidation?.triggerWhen === undefined) {
+    return true;
+  }
+  return evalCondition(item.complexValidation.triggerWhen, context, item.type, questionVal);
+};
+
+const evalCondition = (
+  condition: QuestionnaireItemConditionDefinition,
+  context: any,
+  type: IntakeQuestionnaireItem['type'],
+  questionVal?: any
+): boolean => {
+  const { question, operator, answerString, answerBoolean, answerDate, answerInteger } = condition;
   const questionValue = recursivePathEval(context, question, questionVal);
 
   if (answerString !== undefined) {
@@ -744,9 +732,22 @@ export const evalFilterWhen = (item: IntakeQuestionnaireItem, context: any, ques
       return true;
     }
   }
+  if (answerDate !== undefined) {
+    const valueDateString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;
+    return evalDateTime(operator, answerDate, valueDateString);
+  }
+  if (answerInteger && type === 'date') {
+    const valueDateString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;
+    // by convention, an answerInteger on date type item will be interpreted as expressing a value in years
+    // if the value is 18, for instance, we will calculate 18 years from the current date
+    const answerDateFormatted = formattedDateStringForYearsAgo(`${answerInteger}`);
+    if (answerDateFormatted === undefined) {
+      return false;
+    }
+    return evalDateTime(operator, answerDateFormatted, valueDateString);
+  }
   return false;
 };
-
 /*
   given any list of questionnaire items and values representing answers to those items,
   filter out any values that should not be included in the form submission, whether because
@@ -767,7 +768,7 @@ export const recursiveGroupTransform = (items: IntakeQuestionnaireItem[], values
       return { linkId: item.linkId };
     }
     if (match.item) {
-      return { ...trimInvalidAnswersFromItem(match), item: recursiveGroupTransform(item.item ?? [], match.item) };
+      return { ...trimInvalidAnswersFromItem(match), item: recursiveGroupTransform(match.item ?? [], match.item) };
     } else {
       return trimInvalidAnswersFromItem(match);
     }
@@ -801,4 +802,17 @@ const recursivePathEval = (context: any, question: string, value?: any): any | u
     console.log('error resolving path', e, context);
   }
   return undefined;
+};
+
+const formattedDateStringForYearsAgo = (yearsAgoString: string): string | undefined => {
+  const asInt = parseInt(yearsAgoString);
+  if (Number.isNaN(asInt)) {
+    return undefined;
+  }
+  if (asInt < 0) {
+    return undefined;
+  }
+  const yearsAgo = DateTime.now().startOf('day').minus({ years: asInt });
+  const answerDateFormatted = yearsAgo.toFormat(DOB_DATE_FORMAT);
+  return answerDateFormatted;
 };

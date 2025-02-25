@@ -2,7 +2,7 @@ import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest } from '@oysteh
 import { Subscription } from 'fhir/r4b';
 import fs from 'fs';
 import { SubscriptionZambdaDetails, Task_Send_Messages_Url } from 'utils';
-import { getAccessToken } from '../src/shared/auth';
+import { getAuth0Token } from '../src/shared';
 
 interface DeployZambda {
   type: 'http_open' | 'http_auth' | 'subscription' | 'cron';
@@ -228,7 +228,7 @@ const projectApiUrlFromAuth0Audience = (auth0Audience: string): string => {
 };
 
 const updateZambdas = async (config: any, env: string): Promise<void> => {
-  const token = await getAccessToken(config);
+  const token = await getAuth0Token(config);
 
   if (!token) {
     throw new Error('Failed to fetch auth token.');

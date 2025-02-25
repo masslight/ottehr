@@ -18,6 +18,8 @@ import {
   flattenIntakeQuestionnaireItems,
   QuestionnaireFormFields,
   findQuestionnaireResponseItemLinkId,
+  convertQuesitonnaireItemToQRLinkIdMap,
+  convertQRItemToLinkIdMap,
 } from 'utils';
 import { useAuth0 } from '@auth0/auth0-react';
 import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
@@ -436,7 +438,6 @@ export const PaperworkPage: FC = () => {
       return empty;
     }
     const currentPage = paperworkPages.find((pageTemp) => slugFromLinkId(pageTemp.linkId) === slug);
-    console.log('current page', currentPage);
     if (!currentPage) {
       return empty;
     }
@@ -468,22 +469,14 @@ export const PaperworkPage: FC = () => {
   );
 
   const paperworkGroupDefaults = useMemo(() => {
-    const currentPageFields = (currentPage?.item ?? []).reduce((accum, item) => {
-      if (item.type !== 'display') {
-        accum[item.linkId] = { linkId: item.linkId };
-      }
-      return accum;
-    }, {} as any);
+    const currentPageFields = convertQuesitonnaireItemToQRLinkIdMap(currentPage?.item);
     const currentPageEntries = completedPaperwork.find((item) => item.linkId === currentPage?.linkId)?.item;
     const inProgress = paperworkInProgress[currentPage?.linkId ?? ''] ?? {};
     if (!currentPageEntries && !inProgress) {
       return { ...currentPageFields };
     }
 
-    const pageDefaults = (currentPageEntries ?? []).reduce((accum, entry) => {
-      accum[entry.linkId] = { ...entry };
-      return accum;
-    }, {} as QuestionnaireFormFields);
+    const pageDefaults = convertQRItemToLinkIdMap(currentPageEntries);
 
     return { ...currentPageFields, ...pageDefaults, ...inProgress };
   }, [completedPaperwork, currentPage, paperworkInProgress]);

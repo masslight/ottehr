@@ -1,5 +1,6 @@
-import { Task, RelatedPerson } from 'fhir/r4b';
-import { getSMSNumberForIndividual, createOystehrClient, getSecret, SecretsKeys, Secrets, TaskStatus } from 'utils';
+import { RelatedPerson, Task } from 'fhir/r4b';
+import { TaskStatus, createOystehrClient, getSMSNumberForIndividual } from 'utils';
+import { Secrets, SecretsKeys, getSecret } from 'zambda-utils';
 
 export const getDocReferenceIDFromFocus = (task: Task): string => {
   const ref = task.focus?.reference;

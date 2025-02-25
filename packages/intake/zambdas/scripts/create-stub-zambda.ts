@@ -1,7 +1,7 @@
-import fs from 'fs';
 import Oystehr, { ZambdaFunction } from '@oystehr/sdk';
-import { getAccessToken } from '../src/shared/auth';
+import fs from 'fs';
 import { ZambdaTriggerType } from 'utils';
+import { getAuth0Token } from '../src/shared';
 
 const projectApiUrlFromAuth0Audience = (auth0Audience: string): string => {
   switch (auth0Audience) {
@@ -27,7 +27,7 @@ const stubsToWrite: { name: string; triggerMethod: ZambdaTriggerType }[] = [
 ];
 
 const writeStub = async (config: any): Promise<void> => {
-  const token = await getAccessToken(config);
+  const token = await getAuth0Token(config);
 
   if (!token) {
     throw new Error('Failed to fetch auth token.');

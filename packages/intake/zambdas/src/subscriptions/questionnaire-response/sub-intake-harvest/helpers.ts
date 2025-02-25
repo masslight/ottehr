@@ -5,6 +5,7 @@ import {
   Attachment,
   Coding,
   Consent,
+  ContactPoint,
   Coverage,
   DocumentReference,
   Flag,
@@ -24,6 +25,7 @@ import {
   codingsEqual,
   CONSENT_CODE,
   ConsentSigner,
+  consolidateOperations,
   ContactTelecomConfig,
   coverageFieldPaths,
   createConsentResource,
@@ -39,8 +41,8 @@ import {
   getCurrentValue,
   getPatchOperationToAddOrUpdateExtension,
   getPatchOperationToRemoveExtension,
+  getPhoneNumberForIndividual,
   getResourcesFromBatchInlineRequests,
-  getSecret,
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
   INSURANCE_CARD_CODE,
@@ -50,6 +52,7 @@ import {
   IntakeQuestionnaireItem,
   isoStringFromDateComponents,
   OTTEHR_BASE_URL,
+  OTTEHR_MODULE,
   PATIENT_PHOTO_CODE,
   PATIENT_PHOTO_ID_PREFIX,
   PatientEthnicity,
@@ -63,21 +66,20 @@ import {
   PHOTO_ID_CARD_CODE,
   PHOTO_ID_FRONT_ID,
   PRACTICE_NAME_URL,
+  PRIVACY_POLICY_CODE,
   PRIVATE_EXTENSION_BASE_URL,
+  RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL,
   relatedPersonFieldPaths,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   SCHOOL_WORK_NOTE_WORK_ID,
-  Secrets,
-  SecretsKeys,
   SUBSCRIBER_RELATIONSHIP_CODE_MAP,
   uploadPDF,
-  consolidateOperations,
-  RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL,
-  PRIVACY_POLICY_CODE,
-  OTTEHR_MODULE,
+  LanguageOption,
+  getPatchOperationToAddOrUpdatePreferredLanguage,
 } from 'utils';
 import { v4 as uuid } from 'uuid';
+import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 import { createOrUpdateFlags } from '../../../paperwork/sharedHelpers';
 import { createPdfBytes } from '../../../shared/pdf';
 
@@ -1117,6 +1119,7 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-birth-sex-missing': patientFieldPaths.genderIdentityDetails,
   'patient-number': patientFieldPaths.phone,
   'patient-email': patientFieldPaths.email,
+  'preferred-language': patientFieldPaths.preferredLanguage,
   'pcp-first': patientFieldPaths.pcpFirstName,
   'pcp-last': patientFieldPaths.pcpLastName,
   'pcp-number': patientFieldPaths.pcpPhone,
@@ -1163,6 +1166,12 @@ const pathToLinkIdMap: Record<string, string> = Object.entries(paperworkToPatien
   {} as Record<string, string>
 );
 
+const BIRTH_SEX_MAP: Record<string, string> = {
+  Male: 'male',
+  Female: 'female',
+  Intersex: 'other',
+};
+
 const PRIMARY_INSURANCE_LINK_IDS = ['insurance-carrier', 'insurance-member-id', 'patient-relationship-to-insured'];
 
 const SECONDARY_INSURANCE_LINK_IDS = PRIMARY_INSURANCE_LINK_IDS.map((id) => `${id}-2`);
@@ -1208,7 +1217,8 @@ export interface PatientMasterRecordResources {
 
 export function createMasterRecordPatchOperations(
   questionnaireResponse: QuestionnaireResponse,
-  resources: PatientMasterRecordResources
+  resources: PatientMasterRecordResources,
+  insurancePlanResources: InsurancePlan[]
 ): MasterRecordPatchOperations {
   const flattenedPaperwork = flattenIntakeQuestionnaireItems(
     questionnaireResponse.item as IntakeQuestionnaireItem[]
@@ -1247,14 +1257,13 @@ export function createMasterRecordPatchOperations(
     if (!fullPath) return;
 
     const { resourceType, path } = extractResourceTypeAndPath(fullPath);
-    let operation: Operation | undefined;
 
     switch (resourceType) {
       case 'Patient': {
         // Handle telecom fields
         const contactTelecomConfig = contactTelecomConfigs[item.linkId];
         if (contactTelecomConfig) {
-          operation = createPatchOperationForTelecom(
+          const operation = createPatchOperationForTelecom(
             value as string | boolean,
             contactTelecomConfig,
             resources.patient,
@@ -1269,6 +1278,7 @@ export function createMasterRecordPatchOperations(
           const url = path.replace('/extension/', '');
           const currentValue = getCurrentValue(resources.patient, path);
           if (value !== currentValue) {
+            let operation: Operation | undefined;
             if (value === '') {
               if (currentValue !== undefined && currentValue !== null) {
                 operation = getPatchOperationToRemoveExtension(resources.patient, { url });
@@ -1280,6 +1290,23 @@ export function createMasterRecordPatchOperations(
                 currentValue
               );
             }
+            if (operation) tempOperations.patient.push(operation);
+          }
+          return;
+        }
+
+        // Special handler for preferred-language
+        if (item.linkId === 'preferred-language') {
+          const currentValue = resources.patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0]
+            .display;
+          if (value !== currentValue) {
+            const operation = getPatchOperationToAddOrUpdatePreferredLanguage(
+              value as LanguageOption,
+              path,
+              resources.patient,
+              currentValue as LanguageOption
+            );
+
             if (operation) tempOperations.patient.push(operation);
           }
           return;
@@ -1307,20 +1334,18 @@ export function createMasterRecordPatchOperations(
             const cleanArray = currentArray.filter(
               (item, index) => item !== undefined || index < currentArray.length - 1
             );
-
-            if (cleanArray.length > 0) {
-              operation = {
-                op: effectiveArrayValue === undefined ? 'add' : 'replace',
-                path: arrayPath,
-                value: cleanArray,
-              };
-            } else {
-              operation = {
-                op: 'remove',
-                path: arrayPath,
-              };
-            }
-            if (operation) tempOperations.patient.push(operation);
+            const operation: Operation =
+              cleanArray.length > 0
+                ? {
+                    op: effectiveArrayValue === undefined ? 'add' : 'replace',
+                    path: arrayPath,
+                    value: cleanArray,
+                  }
+                : {
+                    op: 'remove',
+                    path: arrayPath,
+                  };
+            tempOperations.patient.push(operation);
           }
           return;
         }
@@ -1331,7 +1356,7 @@ export function createMasterRecordPatchOperations(
           const url = DATE_OF_BIRTH_URL;
           const currentValue = getCurrentValue(resources.patient, path);
           if (value !== currentValue) {
-            operation = {
+            tempOperations.patient.push({
               op: 'add',
               path: '/contact/0/extension',
               value: [
@@ -1340,8 +1365,7 @@ export function createMasterRecordPatchOperations(
                   valueString: value,
                 },
               ],
-            };
-            if (operation) tempOperations.patient.push(operation);
+            });
           }
           return;
         }
@@ -1350,7 +1374,7 @@ export function createMasterRecordPatchOperations(
           const url = PRACTICE_NAME_URL;
           const currentValue = getCurrentValue(resources.patient, path);
           if (value !== currentValue) {
-            operation = {
+            tempOperations.patient.push({
               op: 'add',
               path: '/contained/0/extension',
               value: [
@@ -1359,8 +1383,7 @@ export function createMasterRecordPatchOperations(
                   valueString: value,
                 },
               ],
-            };
-            if (operation) tempOperations.patient.push(operation);
+            });
           }
           return;
         }
@@ -1368,9 +1391,9 @@ export function createMasterRecordPatchOperations(
         // Handle regular fields
         const currentValue = getCurrentValue(resources.patient, path);
         if (value !== currentValue) {
-          operation = createBasicPatchOperation(value, path, currentValue);
+          const operation = createBasicPatchOperation(value, path, currentValue);
+          if (operation) tempOperations.patient.push(operation);
         }
-        if (operation) tempOperations.patient.push(operation);
         break;
       }
 
@@ -1379,19 +1402,28 @@ export function createMasterRecordPatchOperations(
 
         if (coverage) {
           const currentValue = getCurrentValue(coverage, path);
+          const operations: (Operation | undefined)[] = [];
 
           if (baseFieldId === 'insurance-carrier') {
             if ((value as Reference).display !== currentValue) {
-              operation = createBasicPatchOperation((value as Reference).display!, path, currentValue);
+              operations.push(createBasicPatchOperation((value as Reference).display!, path, currentValue));
+            }
+            const insurancePlanId = (value as Reference).reference?.split('/')?.[1];
+            const payor = insurancePlanResources.find((insurancePlan) => insurancePlan.id === insurancePlanId)?.ownedBy
+              ?.reference;
+            if (payor != null) {
+              operations.push(createBasicPatchOperation(payor, '/payor/0/reference', coverage.payor?.[0].reference));
             }
           } else if (value !== currentValue) {
-            operation = createBasicPatchOperation(value, path, currentValue);
+            operations.push(createBasicPatchOperation(value, path, currentValue));
           }
 
-          if (operation) {
-            tempOperations.coverage[coverage.id!] = tempOperations.coverage[coverage.id!] || [];
-            tempOperations.coverage[coverage.id!].push(operation);
-          }
+          operations.forEach((operation) => {
+            if (operation) {
+              tempOperations.coverage[coverage.id!] = tempOperations.coverage[coverage.id!] || [];
+              tempOperations.coverage[coverage.id!].push(operation);
+            }
+          });
         }
         break;
       }
@@ -1402,12 +1434,11 @@ export function createMasterRecordPatchOperations(
         if (relatedPerson) {
           const currentValue = getCurrentValue(relatedPerson, path);
           if (value !== currentValue) {
-            operation = createBasicPatchOperation(value, path, currentValue);
-          }
-
-          if (operation) {
-            tempOperations.relatedPerson[relatedPerson.id!] = tempOperations.relatedPerson[relatedPerson.id!] || [];
-            tempOperations.relatedPerson[relatedPerson.id!].push(operation);
+            const operation = createBasicPatchOperation(value, path, currentValue);
+            if (operation) {
+              tempOperations.relatedPerson[relatedPerson.id!] = tempOperations.relatedPerson[relatedPerson.id!] || [];
+              tempOperations.relatedPerson[relatedPerson.id!].push(operation);
+            }
           }
         }
         break;
@@ -1416,8 +1447,12 @@ export function createMasterRecordPatchOperations(
   });
 
   // Separate operations for each resource
+  // Separate Patient operations
   result.patient = separateResourceUpdates(tempOperations.patient, resources.patient, 'Patient');
-  result.patient.patchOpsForDirectUpdate = addAuxiliaryPatchOperations(result.patient.patchOpsForDirectUpdate);
+  result.patient.patchOpsForDirectUpdate = addAuxiliaryPatchOperations(
+    result.patient.patchOpsForDirectUpdate,
+    resources.patient
+  );
   result.patient.patchOpsForDirectUpdate = consolidateOperations(
     result.patient.patchOpsForDirectUpdate,
     resources.patient
@@ -1529,14 +1564,14 @@ function extractValueFromItem(
   // Handle date components collection
   if (item?.item) {
     const hasDateComponents = item.item.some(
-      (i) => i.linkId.endsWith('-dob-year') || i.linkId.endsWith('-dob-month') || i.linkId.endsWith('-dob-day')
+      (i) => i.linkId.includes('-dob-year') || i.linkId.includes('-dob-month') || i.linkId.includes('-dob-day')
     );
 
     if (hasDateComponents) {
       const dateComponents: DateComponents = {
-        year: item.item.find((i) => i.linkId.endsWith('-dob-year'))?.answer?.[0]?.valueString || '',
-        month: item.item.find((i) => i.linkId.endsWith('-dob-month'))?.answer?.[0]?.valueString || '',
-        day: item.item.find((i) => i.linkId.endsWith('-dob-day'))?.answer?.[0]?.valueString || '',
+        year: item.item.find((i) => i.linkId.includes('-dob-year'))?.answer?.[0]?.valueString || '',
+        month: item.item.find((i) => i.linkId.includes('-dob-month'))?.answer?.[0]?.valueString || '',
+        day: item.item.find((i) => i.linkId.includes('-dob-day'))?.answer?.[0]?.valueString || '',
       };
 
       return isoStringFromDateComponents(dateComponents);
@@ -1546,8 +1581,8 @@ function extractValueFromItem(
   const answer = item.answer?.[0];
 
   // Handle gender answers
-  if (item.linkId.endsWith('-birth-sex') && answer?.valueString) {
-    return answer.valueString.toLowerCase();
+  if (item.linkId.includes('-birth-sex') && answer?.valueString) {
+    return BIRTH_SEX_MAP[answer.valueString];
   }
 
   // Handle regular answers
@@ -2046,8 +2081,10 @@ function setValueByPath(obj: any, path: string, value: any): void {
   current[lastPart] = value;
 }
 
-function addAuxiliaryPatchOperations(operations: Operation[]): Operation[] {
+function addAuxiliaryPatchOperations(operations: Operation[], patient: Patient): Operation[] {
   const auxOperations: Operation[] = [];
+
+  // Add required link to contained Practitioner resource
   if (operations.some((op) => op.path && op.path.includes('contained'))) {
     const addResourceTypeOperation: AddOperation<any> = {
       op: 'add',
@@ -2056,14 +2093,16 @@ function addAuxiliaryPatchOperations(operations: Operation[]): Operation[] {
     };
     auxOperations.push(addResourceTypeOperation);
 
-    const addGeneralPractitionerOperation: AddOperation<any> = {
-      op: 'add',
-      path: '/generalPractitioner',
-      value: {
-        reference: '#primary-care-physician',
-      },
-    };
-    auxOperations.push(addGeneralPractitionerOperation);
+    if (!patient.generalPractitioner) {
+      const addGeneralPractitionerOperation: AddOperation<any> = {
+        op: 'add',
+        path: '/generalPractitioner',
+        value: {
+          reference: '#primary-care-physician',
+        },
+      };
+      auxOperations.push(addGeneralPractitionerOperation);
+    }
 
     const addPractitionerIdOperation: AddOperation<any> = {
       op: 'add',
@@ -2080,4 +2119,67 @@ function addAuxiliaryPatchOperations(operations: Operation[]): Operation[] {
   }
 
   return [...operations, ...auxOperations];
+}
+
+export function createErxContactOperation(
+  relatedPerson: RelatedPerson,
+  patientResource: Patient
+): Operation | undefined {
+  const verifiedPhoneNumber = getPhoneNumberForIndividual(relatedPerson);
+  console.log(`patient verified phone number ${verifiedPhoneNumber}`);
+
+  console.log('reviewing patient erx contact telecom phone nubmber');
+  // find existing erx contact info and it's index so that the contact array can be updated
+  const erxContactIdx = patientResource?.contact?.findIndex((contact) =>
+    Boolean(
+      contact.telecom?.find((telecom) =>
+        Boolean(telecom?.extension?.find((telExt) => telExt.url === FHIR_EXTENSION.ContactPoint.erxTelecom.url))
+      )
+    )
+  );
+
+  let updateErxContact = false;
+  const erxContact = erxContactIdx && erxContactIdx >= 0 ? patientResource?.contact?.[erxContactIdx] : undefined;
+  const erxTelecom =
+    erxContact &&
+    erxContact.telecom?.find((telecom) =>
+      Boolean(telecom?.extension?.find((telExt) => telExt.url === FHIR_EXTENSION.ContactPoint.erxTelecom.url))
+    );
+
+  if (erxContactIdx && erxContactIdx >= 0) {
+    if (!(erxTelecom && erxTelecom.system === 'phone' && erxTelecom.value === verifiedPhoneNumber)) {
+      updateErxContact = true;
+    }
+  } else {
+    updateErxContact = true;
+  }
+
+  if (updateErxContact) {
+    const erxContactTelecom: ContactPoint = {
+      value: verifiedPhoneNumber,
+      system: 'phone',
+      extension: [{ url: FHIR_EXTENSION.ContactPoint.erxTelecom.url, valueString: 'erx' }],
+    };
+    if (erxContactIdx && erxContactIdx >= 0) {
+      console.log('building patient patch operations: update patient erx contact telecom');
+      return {
+        op: 'replace',
+        path: `/contact/${erxContactIdx}`,
+        value: {
+          telecom: [erxContactTelecom],
+        },
+      };
+    } else {
+      console.log('building patient patch operations: add patient erx contact telecom');
+      return {
+        op: 'add',
+        path: `/contact/-`,
+        value: {
+          telecom: [erxContactTelecom],
+        },
+      };
+    }
+  }
+
+  return undefined;
 }

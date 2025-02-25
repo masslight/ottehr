@@ -1,10 +1,12 @@
 export const dataTestIds = {
-  continueButton: 'continue-button',
+  continueButton: 'loading-button',
+  differentFamilyMember: 'Different family member',
   firstFlowPageTitle: 'first-flow-page-title',
   flowPageTitle: 'flow-page-title',
   startVirtualVisitButton: 'start-virtual-visit-button',
   startInPersonVisitButton: 'start-in-person-visit-button',
   scheduleVirtualVisitButton: 'schedule-virtual-visit-button',
+  scheduleVirtualVisitStatesSelector: 'schedule-virtual-visit-states-selector',
   scheduleInPersonVisitButton: 'schedule-in-person-visit-button',
   firstAvailableTime: 'first-available-time',
   contactSupportButton: 'contact-support-button',
@@ -15,4 +17,6 @@ export const dataTestIds = {
   walkInSlotReviewScreen: 'walkin-slot-review-screen',
   privacyPolicyReviewScreen: 'privacy-policy-review-screen',
   termsAndConditionsReviewScreen: 'terms-conditions-review-screen',
+  thankYouPageSelectedTimeBlock: 'thank-you-page-selected-time-block',
+  backButton: 'control-back-button',
 };

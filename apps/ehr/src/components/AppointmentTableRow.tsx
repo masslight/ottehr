@@ -16,44 +16,43 @@ import {
   Tooltip,
   Typography,
   capitalize,
-  useTheme,
   useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   InPersonAppointmentInformation,
   VisitStatusLabel,
   formatMinutes,
-  getVisitTotalTime,
   getDurationOfStatus,
+  getVisitTotalTime,
 } from 'utils';
 import { LANGUAGES } from '../constants';
+import { dataTestIds } from '../constants/data-test-ids';
 import { otherColors } from '../CustomThemeProvider';
-import { PriorityIconWithBorder } from './PriorityIconWithBorder';
 import ChatModal from '../features/chat/ChatModal';
+import { CSSButton } from '../features/css-module/components/CSSButton';
+import { usePractitionerActions } from '../features/css-module/hooks/usePractitioner';
 import { checkinPatient } from '../helpers';
 import { getTimezone } from '../helpers/formatDateTime';
+import { formatPatientName } from '../helpers/formatPatientName';
 import { getOfficePhoneNumber } from '../helpers/getOfficePhoneNumber';
+import { handleChangeInPersonVisitStatus } from '../helpers/inPersonVisitStatusUtils';
+import { practitionerType } from '../helpers/practitionerUtils';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
-import { ApptTab } from './AppointmentTabs';
-import { GenericToolTip, PaperworkToolTipContent } from './GenericToolTip';
-import ReasonsForVisit from './ReasonForVisit';
 import AppointmentNote from './AppointmentNote';
 import AppointmentTableRowMobile from './AppointmentTableRowMobile';
-import { CSSButton } from '../features/css-module/components/CSSButton';
-import { dataTestIds } from '../constants/data-test-ids';
+import { ApptTab } from './AppointmentTabs';
+import { GenericToolTip, PaperworkToolTipContent } from './GenericToolTip';
 import { IntakeCheckmark } from './IntakeCheckmark';
 import { PatientDateOfBirth } from './PatientDateOfBirth';
-import { formatPatientName } from '../helpers/formatPatientName';
-import { usePractitionerActions } from '../features/css-module/hooks/usePractitioner';
-import { practitionerType } from '../helpers/practitionerUtils';
-import { enqueueSnackbar } from 'notistack';
-import { useAppointment } from '../features/css-module/hooks/useAppointment';
-import { handleChangeInPersonVisitStatus } from '../helpers/inPersonVisitStatusUtils';
+import { PriorityIconWithBorder } from './PriorityIconWithBorder';
+import ReasonsForVisit from './ReasonForVisit';
 
 interface AppointmentTableProps {
   appointment: InPersonAppointmentInformation;
@@ -230,9 +229,8 @@ export default function AppointmentTableRow({
 }: AppointmentTableProps): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
   const theme = useTheme();
-  const { telemedData } = useAppointment(appointment.id);
-  const { encounter } = telemedData;
   const navigate = useNavigate();
+  const { encounter } = appointment;
   const [statusTime, setStatusTime] = useState<string>('');
   const [arrivedStatusSaving, setArrivedStatusSaving] = useState<boolean>(false);
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
@@ -260,8 +258,8 @@ export default function AppointmentTableRow({
     (appointment.patient.lastName &&
       appointment.patient.firstName &&
       formatPatientName({
-        firstName: appointment.patient.lastName,
-        lastName: appointment.patient.firstName,
+        firstName: appointment.patient.firstName,
+        lastName: appointment.patient.lastName,
         middleName: appointment.patient.middleName,
       })) ||
     'Unknown';
@@ -500,6 +498,8 @@ export default function AppointmentTableRow({
     tab === ApptTab['cancelled'] ||
     (tab === ApptTab['in-office'] && (appointment.status === 'arrived' || appointment.status === 'ready'));
 
+  const handleCellClick = isVisitPrebookedOrCancelledOrInWaitingRoom ? goToVisitDetails : goToCharts;
+
   if (isMobile) {
     return (
       <AppointmentTableRowMobile
@@ -536,10 +536,7 @@ export default function AppointmentTableRow({
         }),
       }}
     >
-      <TableCell
-        sx={{ verticalAlign: 'center', cursor: 'pointer' }}
-        onClick={isVisitPrebookedOrCancelledOrInWaitingRoom ? goToVisitDetails : goToCharts}
-      >
+      <TableCell sx={{ verticalAlign: 'center', cursor: 'pointer' }} onClick={handleCellClick}>
         {appointment.next && (
           <Box
             sx={{
@@ -572,38 +569,26 @@ export default function AppointmentTableRow({
       </TableCell>
       <TableCell
         sx={{ cursor: 'pointer' }}
-        onClick={isVisitPrebookedOrCancelledOrInWaitingRoom ? goToVisitDetails : goToCharts}
+        onClick={handleCellClick}
+        data-testid={dataTestIds.dashboard.tableRowStatus(appointment.id)}
       >
-        <Box>
-          <Link
-            to={`/visit/${appointment.id}`}
-            style={linkStyle}
-            data-testid={dataTestIds.dashboard.tableRowStatus(appointment.id)}
-          >
-            <Box>
-              <Typography variant="body1">
-                {capitalize?.(
-                  appointment.appointmentType === 'post-telemed'
-                    ? 'Post Telemed'
-                    : (appointment.appointmentType || '').toString()
-                )}
-              </Typography>
-              <Typography variant="body1">
-                <strong data-testid={dataTestIds.dashboard.appointmentTime}>{start}</strong>
-              </Typography>
-              {tab !== ApptTab.prebooked && <Box mt={1}>{getAppointmentStatusChip(appointment.status)}</Box>}
-            </Box>
-          </Link>
-        </Box>
+        <Typography variant="body1">
+          {capitalize?.(
+            appointment.appointmentType === 'post-telemed'
+              ? 'Post Telemed'
+              : (appointment.appointmentType || '').toString()
+          )}
+        </Typography>
+        <Typography variant="body1">
+          <strong data-testid={dataTestIds.dashboard.appointmentTime}>{start}</strong>
+        </Typography>
+        {tab !== ApptTab.prebooked && <Box mt={1}>{getAppointmentStatusChip(appointment.status)}</Box>}
       </TableCell>
       {/* placeholder until time stamps for waiting and in exam or something comparable are made */}
       {/* <TableCell sx={{ verticalAlign: 'top' }}><Typography variant="body1" aria-owns={hoverElement ? 'status-popover' : undefined} aria-haspopup='true' sx={{ verticalAlign: 'top' }} onMouseOver={(event) => setHoverElement(event.currentTarget)} onMouseLeave={() => setHoverElement(undefined)}>{statusTime}</Typography></TableCell>
           <Popover id='status-popover' open={hoverElement !== undefined} anchorEl={hoverElement} anchorOrigin={{ vertical: 'top', horizontal: 'center' }} transformOrigin={{ vertical: 'bottom', horizontal: 'right' }} onClose={() => setHoverElement(undefined)}><Typography>test</Typography></Popover> */}
       {showTime && (
-        <TableCell
-          sx={{ verticalAlign: 'center', cursor: 'pointer' }}
-          onClick={isVisitPrebookedOrCancelledOrInWaitingRoom ? goToVisitDetails : goToCharts}
-        >
+        <TableCell sx={{ verticalAlign: 'center', cursor: 'pointer' }} onClick={handleCellClick}>
           <Tooltip
             componentsProps={{
               tooltip: {
@@ -630,10 +615,7 @@ export default function AppointmentTableRow({
           </Tooltip>
         </TableCell>
       )}
-      <TableCell
-        sx={{ verticalAlign: 'center', wordWrap: 'break-word', cursor: 'pointer' }}
-        onClick={isVisitPrebookedOrCancelledOrInWaitingRoom ? goToVisitDetails : goToCharts}
-      >
+      <TableCell sx={{ verticalAlign: 'center', wordWrap: 'break-word', cursor: 'pointer' }} onClick={handleCellClick}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           <Typography variant="subtitle2" sx={{ fontSize: '16px' }} data-testid={dataTestIds.dashboard.patientName}>
             {patientName}
@@ -684,22 +666,13 @@ export default function AppointmentTableRow({
           <IntakeCheckmark providerName={admitterName} />
         )}
       </TableCell>
-      <TableCell
-        sx={{ verticalAlign: 'center', cursor: 'pointer' }}
-        onClick={isVisitPrebookedOrCancelledOrInWaitingRoom ? goToVisitDetails : goToCharts}
-      >
+      <TableCell sx={{ verticalAlign: 'center', cursor: 'pointer' }} onClick={handleCellClick}>
         <Typography sx={{ fontSize: 14, display: 'inline' }}>{appointment.provider}</Typography>
       </TableCell>
-      <TableCell
-        sx={{ verticalAlign: 'center', cursor: 'pointer' }}
-        onClick={isVisitPrebookedOrCancelledOrInWaitingRoom ? goToVisitDetails : goToCharts}
-      >
+      <TableCell sx={{ verticalAlign: 'center', cursor: 'pointer' }} onClick={handleCellClick}>
         <Typography sx={{ fontSize: 14, display: 'inline' }}>{appointment.group}</Typography>
       </TableCell>
-      <TableCell
-        sx={{ verticalAlign: 'center', cursor: 'pointer' }}
-        onClick={isVisitPrebookedOrCancelledOrInWaitingRoom ? goToVisitDetails : goToCharts}
-      >
+      <TableCell sx={{ verticalAlign: 'center', cursor: 'pointer' }} onClick={handleCellClick}>
         <GenericToolTip title={<PaperworkToolTipContent appointment={appointment} />} customWidth="none">
           <Box sx={{ display: 'flex', gap: 0 }}>
             <AccountCircleOutlinedIcon

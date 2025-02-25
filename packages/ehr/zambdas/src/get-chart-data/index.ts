@@ -4,7 +4,7 @@ import { FhirResource, Resource } from 'fhir/r4b';
 import { ChartDataFields, ChartDataRequestedFields, GetChartDataResponse } from 'utils';
 import { getPatientEncounter } from '../shared';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 import {
   convertSearchResultsToResponse,
   createFindResourceRequest,
@@ -128,21 +128,21 @@ export async function getChartData(
   // disposition is just per-encounter, so no need to search by patient
   addRequestIfNeeded({ field: 'disposition', resourceType: 'ServiceRequest', defaultSearchBy: 'encounter' });
 
-  // for now prescribed meds are just per-encounter, so no need to search by patient
-  addRequestIfNeeded({
-    field: 'prescribedMedications',
-    resourceType: 'MedicationRequest',
-    defaultSearchBy: 'encounter',
-  });
-
   // for now school work notes are just per-encounter, so no need to search by patient
   addRequestIfNeeded({ field: 'schoolWorkNotes', resourceType: 'DocumentReference', defaultSearchBy: 'encounter' });
 
+  if (requestedFields?.prescribedMedications) {
+    // for now prescribed meds are just per-encounter, so no need to search by patient
+    addRequestIfNeeded({
+      field: 'prescribedMedications',
+      resourceType: 'MedicationRequest',
+      defaultSearchBy: 'encounter',
+    });
+  }
+
   // notes included only by straight request
   if (requestedFields?.notes) {
-    chartDataRequests.push(
-      createFindResourceRequestByPatientField(patient.id!, 'Communication', 'subject', requestedFields.notes)
-    );
+    addRequestIfNeeded({ field: 'notes', resourceType: 'Communication', defaultSearchBy: 'patient' });
   }
 
   // vitalsObservations included only by straight request

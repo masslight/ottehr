@@ -12,12 +12,14 @@ import {
   Extension,
   FhirResource,
   HealthcareService,
+  HumanName,
   InsurancePlan,
   List,
   Location,
   Meta,
   Money,
   OperationOutcome,
+  Organization,
   Practitioner,
   QuestionnaireResponse,
   Reference,
@@ -44,6 +46,10 @@ import {
 } from '../types';
 import {
   FHIR_EXTENSION,
+  FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
+  FHIR_IDENTIFIER_CODE_TAX_SS,
+  FHIR_IDENTIFIER_NPI,
+  FHIR_IDENTIFIER_SYSTEM_TAX,
   PRACTITIONER_QUALIFICATION_CODE_SYSTEM,
   PRACTITIONER_QUALIFICATION_EXTENSION_URL,
   PRACTITIONER_QUALIFICATION_STATE_SYSTEM,
@@ -74,11 +80,25 @@ export function handleUnknownError(error: any): any {
   return errorToThrow;
 }
 
-export function getPractitionerNPI(practitioner: Practitioner): string | undefined {
-  return practitioner.identifier?.find((ident) => {
-    // correct uri http://hl7.org/fhir/sid/us-npi
-    // will need to clean up in prod before removing search for the incorrect one
-    return ident.system === 'http://hl7.org/fhir/sid/us-npi' || ident.system === 'http://hl7.org.fhir/sid/us-npi';
+export function getNPI(resource: Practitioner | Organization | Location | HealthcareService): string | undefined {
+  return resource.identifier?.find((ident) => {
+    return ident.system === FHIR_IDENTIFIER_NPI;
+  })?.value;
+}
+export function getTaxID(resource: Practitioner | Organization | Location | HealthcareService): string | undefined {
+  // https://docs.oystehr.com/services/rcm/eligibility/#provider-practitioner--practitionerrole--organization
+  return resource.identifier?.find((ident) => {
+    if (resource.resourceType === 'Practitioner') {
+      return ident.type?.coding?.some(
+        (tc) =>
+          tc.system === FHIR_IDENTIFIER_SYSTEM_TAX &&
+          (tc.code === FHIR_IDENTIFIER_CODE_TAX_EMPLOYER || tc.code === FHIR_IDENTIFIER_CODE_TAX_SS)
+      );
+    }
+    // don't check for SS on anything that isn't a Practitioner
+    return ident.type?.coding?.some(
+      (tc) => tc.system === FHIR_IDENTIFIER_SYSTEM_TAX && tc.code === FHIR_IDENTIFIER_CODE_TAX_EMPLOYER
+    );
   })?.value;
 }
 
@@ -961,4 +981,32 @@ export const extractHealthcareServiceAndSupportingLocations = (
   }
 
   return { hs, locations, coverageArea };
+};
+
+export const createFhirHumanName = (
+  firstName: string | undefined,
+  middleName: string | undefined,
+  lastName: string | undefined
+): HumanName[] | undefined => {
+  let givenNames: string[] | undefined;
+  let familyName: string | undefined;
+  let fhirName: HumanName[] | undefined;
+  if (firstName) {
+    givenNames = [firstName];
+    if (middleName) {
+      givenNames.push(middleName);
+    }
+  }
+  if (lastName) {
+    familyName = lastName;
+  }
+  if (givenNames || familyName) {
+    fhirName = [
+      {
+        given: givenNames,
+        family: familyName,
+      },
+    ];
+  }
+  return fhirName;
 };

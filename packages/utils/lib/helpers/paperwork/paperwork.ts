@@ -10,23 +10,22 @@ import {
   ValueSet,
 } from 'fhir/r4b';
 import {
-  FormItemType,
   IntakeQuestionnaireItem,
   Question,
-  QuestionOperator,
   QuestionnaireItemExtension,
-  QuestionnaireItemRequireWhen,
   QuestionnaireItemTextWhen,
   validateQuestionnaireDataType,
-  QuestionnaireItemFilterWhen,
   FormDisplayElementList,
   FormSelectionElementList,
   FormElement,
   QuestionnaireItemGroupType,
   AnswerLoadingOptions,
+  InputWidthOption,
+  QuestionnaireItemConditionDefinition,
+  ConditionKeyObject,
 } from '../../types';
 import Oystehr from '@oystehr/sdk';
-import { getCanonicalQuestionnaire, PRIVATE_EXTENSION_BASE_URL } from '../../fhir';
+import { getCanonicalQuestionnaire, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../fhir';
 
 export interface OptionConfig {
   label: string;
@@ -81,7 +80,7 @@ export async function getQuestionnaireAndValueSets(
 
 const getPreferredElement = (extension: Extension[]): FormElement | undefined => {
   const preferredElementExt = extension?.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/preferred-element`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.preferredElement;
   })?.valueString as FormElement | undefined;
   if (preferredElementExt && [...FormSelectionElementList, ...FormDisplayElementList].includes(preferredElementExt)) {
     return preferredElementExt;
@@ -89,155 +88,125 @@ const getPreferredElement = (extension: Extension[]): FormElement | undefined =>
   return undefined;
 };
 
+const getConditionalExtension = (
+  extension: Extension[],
+  keys: ConditionKeyObject
+): { extension: Extension[]; baseConditionDef: QuestionnaireItemConditionDefinition | undefined } => {
+  const baseExtension = extension.find((ext) => {
+    return ext.url === keys.extension;
+  })?.extension;
+
+  if (baseExtension) {
+    const question = baseExtension.find((ext) => {
+      return ext.url === keys.question;
+    })?.valueString;
+    const operator = baseExtension.find((ext) => {
+      return ext.url === keys.operator;
+    })?.valueString;
+    const answerObj = baseExtension.find((ext) => {
+      return ext.url === keys.answer;
+    });
+    const answerString = answerObj?.valueString;
+    const answerBoolean = answerObj?.valueBoolean;
+    const answerInteger = answerObj?.valueInteger;
+    const answerDate = answerObj?.valueDate;
+    if (
+      operator !== undefined &&
+      ['=', '!=', '>', '<', '>=', '<='].includes(operator) &&
+      question !== undefined &&
+      (answerString !== undefined ||
+        answerBoolean !== undefined ||
+        answerInteger !== undefined ||
+        answerDate !== undefined)
+    ) {
+      return {
+        extension: baseExtension,
+        baseConditionDef: {
+          question,
+          operator: operator as QuestionnaireItemConditionDefinition['operator'],
+          answerString,
+          answerBoolean,
+          answerInteger,
+          answerDate,
+        },
+      };
+    }
+  }
+  return { extension: [], baseConditionDef: undefined };
+};
+
 const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension => {
   const extension = item.extension ?? [];
   let disabledDisplay = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/disabled-display`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.disabledDisplay;
   })?.valueString;
   if (disabledDisplay !== 'hidden' && disabledDisplay !== 'protected') {
     disabledDisplay = undefined;
   }
-  const requiredWhenExt = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/require-when`;
-  })?.extension;
-  let requireWhen: QuestionnaireItemRequireWhen | undefined;
-  if (requiredWhenExt) {
-    const question = requiredWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/require-when-question`;
-    })?.valueString;
-    const operator = requiredWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/require-when-operator`;
-    })?.valueString;
-    const answerString = requiredWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/require-when-answer`;
-    })?.valueString;
-    const answerBoolean = requiredWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/require-when-answer`;
-    })?.valueBoolean;
-    if (
-      operator !== undefined &&
-      ['=', '!='].includes(operator) &&
-      question !== undefined &&
-      (answerString !== undefined || answerBoolean !== undefined)
-    ) {
-      requireWhen = {
-        question,
-        operator: operator as '=' | '!=',
-        answerString,
-        answerBoolean,
-      };
-    }
-  }
 
-  const textWhenExt = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/text-when`;
-  })?.extension;
+  const { baseConditionDef: requireWhen } = getConditionalExtension(
+    extension,
+    OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen
+  );
+
+  const { extension: textWhenExt, baseConditionDef: textWhenPartial } = getConditionalExtension(
+    extension,
+    OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen
+  );
   let textWhen: QuestionnaireItemTextWhen | undefined;
-  if (textWhenExt) {
-    const question = textWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/text-when-question`;
-    })?.valueString;
-    const operator = textWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/text-when-operator`;
-    })?.valueString;
-    const answerString = textWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/text-when-answer`;
-    })?.valueString;
-    const answerBoolean = textWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/text-when-answer`;
-    })?.valueBoolean;
+  if (textWhenPartial) {
     const substituteText = textWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/text-when-substitute-text`;
+      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen.substituteText;
     })?.valueString;
 
-    if (
-      operator !== undefined &&
-      ['=', '!='].includes(operator) &&
-      question !== undefined &&
-      substituteText !== undefined &&
-      (answerString !== undefined || answerBoolean !== undefined)
-    ) {
+    if (substituteText) {
       textWhen = {
-        question,
-        operator: operator as '=' | '!=',
-        answerString,
-        answerBoolean,
+        ...textWhenPartial,
         substituteText,
       };
     }
   }
 
-  const filterWhenExt = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/filter-when`;
-  })?.extension;
-  let filterWhen: QuestionnaireItemFilterWhen | undefined;
-  if (filterWhenExt) {
-    const question = filterWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/filter-when-question`;
-    })?.valueString;
-    const operator = filterWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/filter-when-operator`;
-    })?.valueString;
-    const answerString = filterWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/filter-when-answer`;
-    })?.valueString;
-    const answerBoolean = filterWhenExt.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/filter-when-answer`;
-    })?.valueBoolean;
-    if (
-      operator !== undefined &&
-      ['=', '!='].includes(operator) &&
-      question !== undefined &&
-      (answerString !== undefined || answerBoolean !== undefined)
-    ) {
-      filterWhen = {
-        question,
-        operator: operator as '=' | '!=',
-        answerString,
-        answerBoolean,
-      };
-    }
-  }
+  const { baseConditionDef: filterWhen } = getConditionalExtension(
+    extension,
+    OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen
+  );
 
   const attachmentText = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/attachment-text`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.attachmentText;
   })?.valueString;
 
   const autofillFromWhenDisabled = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/fill-from-when-disabled`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.autofillFromWhenDisabled;
   })?.valueString;
 
   const infoText = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/information-text`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.infoText;
   })?.valueString;
 
   const secondaryInfoText = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/information-text-secondary`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.secondaryInfoText;
   })?.valueString;
-
-  const randomize = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/randomize`;
-  })?.valueBoolean;
 
   const dataType = validateQuestionnaireDataType(
     extension.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/data-type`;
+      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.dataType;
     })?.valueString
   );
 
   const validateAgeOver = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/validate-age-over`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.validateAgeOver;
   })?.valueInteger;
 
   const preferredElement = getPreferredElement(extension);
 
   const acceptsMultipleAnswers =
     extension.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/accepts-multiple-answers`;
+      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.acceptsMultipleAnswers;
     })?.valueBoolean ?? false;
 
   let groupType = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/group-type`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.groupType;
   })?.valueString as QuestionnaireItemGroupType | undefined;
 
   const validGroupTypes = Object.values(QuestionnaireItemGroupType) as string[];
@@ -247,23 +216,23 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
 
   const alwaysFilter =
     extension.find((ext) => {
-      return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/always-filter`;
+      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.alwaysFilter;
     })?.valueBoolean ?? false;
 
   const categoryTag = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/category-tag`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.categoryTag;
   })?.valueString;
 
   const answerLoadingExtensionRoot = extension.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/answer-loading-options`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.extension;
   })?.extension;
 
   const answerLoadingStrategy = answerLoadingExtensionRoot?.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/strategy`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.strategy;
   })?.valueString;
 
   const source = answerLoadingExtensionRoot?.find((ext) => {
-    return ext.url === `${PRIVATE_EXTENSION_BASE_URL}/source`;
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.source;
   })?.valueExpression;
 
   let answerLoadingOptions: AnswerLoadingOptions | undefined;
@@ -288,6 +257,37 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
       answerLoadingOptions = option;
     }
   }
+  let inputWidth = extension.find((ext) => {
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.inputWidth;
+  })?.valueString;
+  if (!['s', 'm', 'l', 'max'].includes(inputWidth ?? '')) {
+    inputWidth = undefined;
+  }
+
+  const minRows = extension.find((ext) => {
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.minRows;
+  })?.valuePositiveInt;
+
+  let complexValidation: QuestionnaireItemExtension['complexValidation'] | undefined;
+  const complexValidationExtension = extension?.find((ext) => {
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.extension;
+  })?.extension;
+  if (complexValidationExtension) {
+    const { baseConditionDef: complexValidationTriggerWhen } = getConditionalExtension(
+      complexValidationExtension,
+      OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.triggerWhen
+    );
+    const complexValidationType = complexValidationExtension.find((ext) => {
+      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.type;
+    })?.valueString;
+
+    if (complexValidationType && complexValidationTriggerWhen) {
+      complexValidation = {
+        type: complexValidationType,
+        triggerWhen: complexValidationTriggerWhen,
+      };
+    }
+  }
 
   return {
     acceptsMultipleAnswers,
@@ -299,7 +299,6 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     autofillFromWhenDisabled,
     infoText,
     secondaryInfoText,
-    randomize,
     dataType,
     filterWhen,
     validateAgeOver,
@@ -307,6 +306,9 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     groupType,
     categoryTag,
     answerLoadingOptions,
+    inputWidth: inputWidth as InputWidthOption | undefined,
+    minRows,
+    complexValidation,
   };
 };
 
@@ -314,9 +316,11 @@ export const mapQuestionnaireAndValueSetsToItemsList = (
   questionnaireItems: QuestionnaireItem[],
   valueSets: ValueSet[]
 ): IntakeQuestionnaireItem[] => {
-  return questionnaireItems.map((item) => {
+  return questionnaireItems.map((startingItem) => {
+    let item = startingItem;
     if (item.item !== undefined) {
       item.item = mapQuestionnaireAndValueSetsToItemsList(item.item, valueSets);
+      item = { ...item, ...structureExtension(item) };
     }
     const additionalProps = structureExtension(item);
     const enhancedItem = {
@@ -358,9 +362,11 @@ export const getQuestionnaireItemsAndProgress = async (
   ).unbundle();
 
   console.log('qrs', JSON.stringify(results));
+
   const qr: QuestionnaireResponse | undefined = results.find((res) => {
     return res.resourceType === 'QuestionnaireResponse';
   }) as QuestionnaireResponse | undefined;
+
   const questionnaire: Questionnaire | undefined = results.find((res) => {
     if (res.resourceType === 'Questionnaire') {
       // this in-memory filtering is a workaround for an Oystehr search bug: https://github.com/masslight/zapehr/issues/6051
@@ -454,210 +460,6 @@ export function checkEnable(item: Pick<Question, 'enableWhen' | 'hidden'>, value
   return true;
 }
 
-export function questionnaireItemToInputType(item: QuestionnaireItem, valueSets?: ValueSet[]): Question {
-  const questionItemType = item.type;
-  let formItemType: FormItemType = undefined;
-  let subitem: Question[] | undefined = undefined;
-  let linkId = item.linkId;
-
-  const attributes = item.extension?.map((extensionTemp) => ({
-    name: extensionTemp.url.replace('https://fhir.zapehr.com/r4/StructureDefinitions/', ''),
-    value: extensionTemp.valueString || extensionTemp.valueBoolean || extensionTemp.valuePositiveInt,
-  }));
-  let multiline = false;
-
-  if (questionItemType === 'string') {
-    formItemType = 'Text';
-    // const inputType = item.extension?.find(
-    //   (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/input-type'
-    // )?.valueString;
-  } else if (questionItemType === 'choice') {
-    formItemType = 'Select';
-    if (attributes?.find((attributeTemp) => attributeTemp.name === 'select-type' && attributeTemp.value === 'Radio')) {
-      formItemType = 'Radio';
-    }
-    if (
-      attributes?.find((attributeTemp) => attributeTemp.name === 'select-type' && attributeTemp.value == 'Radio List')
-    ) {
-      formItemType = 'Radio List';
-    }
-    if (
-      attributes?.find((attributeTemp) => attributeTemp.name === 'select-type' && attributeTemp.value == 'Free select')
-    ) {
-      formItemType = 'Free Select';
-    }
-  } else if (questionItemType === 'display') {
-    const textType = item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/text-type'
-    )?.valueString;
-    if (textType === 'h3') {
-      formItemType = 'Header 3';
-    } else if (textType === 'h4') {
-      formItemType = 'Header 4';
-    } else if (textType === 'button') {
-      formItemType = 'Button';
-    } else if (textType === 'p') {
-      formItemType = 'Description';
-    }
-  } else if (questionItemType === 'date') {
-    if (attributes?.find((attributeTemp) => attributeTemp.name === 'date-type' && attributeTemp.value === 'year')) {
-      formItemType = 'Year';
-    } else {
-      formItemType = 'Date';
-    }
-  } else if (questionItemType === 'text') {
-    formItemType = 'Text';
-    multiline = true;
-  } else if (questionItemType === 'attachment') {
-    if (
-      attributes?.find((attributeTemp) => attributeTemp.name === 'attachment-type' && attributeTemp.value === 'photos')
-    ) {
-      formItemType = 'Photos';
-    } else {
-      formItemType = 'File';
-    }
-  } else if (questionItemType === 'boolean') {
-    formItemType = 'Checkbox';
-  } else if (questionItemType === 'group') {
-    if (
-      attributes?.find(
-        (attributeTemp) => attributeTemp.name === 'group-type' && attributeTemp.value === 'list-with-form'
-      )
-    ) {
-      formItemType = 'Form list';
-    } else {
-      formItemType = 'Group';
-    }
-    subitem = item.item?.map((innerItem) => questionnaireItemToInputType(innerItem, valueSets));
-  }
-
-  const customLinkId = attributes?.find((attributeTemp) => attributeTemp.name === 'custom-link-id');
-  if (customLinkId) {
-    linkId = `${customLinkId.value}`;
-  }
-
-  const enableWhen = item.enableWhen;
-  const enableWhenQuestion = item.enableWhen?.[0].question;
-  const enableWhenOperator = item.enableWhen?.[0].operator;
-  const enableWhenAnswer = item.enableWhen?.[0].answerString;
-
-  const requireWhen = item.extension?.find(
-    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when'
-  )?.extension;
-  const requireWhenQuestion = requireWhen?.find(
-    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question'
-  )?.valueString;
-  const requireWhenOperator: QuestionOperator = requireWhen?.find(
-    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator'
-  )?.valueString as QuestionOperator;
-  const requireWhenAnswer = requireWhen?.find(
-    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer'
-  )?.valueString;
-
-  const disableWhen = item.extension?.find(
-    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/disable-when'
-  )?.extension;
-  const disableWhenQuestion = disableWhen?.find(
-    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/disable-when-question'
-  )?.valueString;
-  const disableWhenOperator: QuestionOperator = disableWhen?.find(
-    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/disable-when-operator'
-  )?.valueString as QuestionOperator;
-  const disableWhenAnswer = disableWhen?.find(
-    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/disable-when-answer'
-  )?.valueString;
-  const disableWhenValue = disableWhen?.find(
-    (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/disable-when-value'
-  )?.valueString;
-
-  const minRows = attributes?.find((attributeTemp) => attributeTemp.name === 'input-multiline-minimum-rows')
-    ?.value as number;
-
-  const options = getOptionsArray(item, valueSets);
-
-  return {
-    id: linkId,
-    text: item.text || 'Unknown',
-    type: formItemType,
-    item: subitem,
-    multiline,
-    minRows,
-    placeholder: item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/placeholder'
-    )?.valueString,
-    helperText: item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/helper-text'
-    )?.valueString,
-    showHelperTextIcon: item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/show-helper-text-icon'
-    )?.valueBoolean,
-    infoText: item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/information-text'
-    )?.valueString,
-    infoTextSecondary: item.extension?.find(
-      (extensionTemp) =>
-        extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/information-text-secondary'
-    )?.valueString,
-    required: item.required,
-    width: item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/text-width'
-    )?.valuePositiveInt,
-    options,
-    attachmentText: item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text'
-    )?.valueString,
-    format: item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/input-format'
-    )?.valueString,
-    docType: item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/document-type'
-    )?.valueString,
-    autoComplete: item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete'
-    )?.valueString,
-    freeSelectMultiple: item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/free-select-multiple'
-    )?.valueBoolean,
-    submitOnChange: item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/submit-on-change'
-    )?.valueBoolean,
-    disableError: item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/disable-error'
-    )?.valueBoolean,
-    freeSelectFreeSolo: item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/free-select-free-solo'
-    )?.valueBoolean,
-    virtualization: item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/virtualization'
-    )?.valueBoolean,
-    fileUploadType: item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/file-upload-type'
-    )?.valueString,
-    enableWhen: enableWhen
-      ? {
-          question: enableWhenQuestion || 'Unknown',
-          operator: enableWhenOperator,
-          answer: enableWhenAnswer || 'Unknown',
-        }
-      : undefined,
-    requireWhen: requireWhen
-      ? {
-          question: requireWhenQuestion || 'Unknown',
-          operator: requireWhenOperator,
-          answer: requireWhenAnswer || 'Unknown',
-        }
-      : undefined,
-    disableWhen: disableWhen
-      ? {
-          question: disableWhenQuestion || 'Unknown',
-          operator: disableWhenOperator,
-          answer: disableWhenAnswer || 'Unknown',
-          value: disableWhenValue,
-        }
-      : undefined,
-  };
-}
-
 export const unflattenAnswers = (
   items: QuestionnaireItem[],
   responses: QuestionnaireResponseItem[]
@@ -714,3 +516,36 @@ export const pickValueAsStringListFromAnswerItem = (
 function capitalizeFirstLetter(string: string): string {
   return string.charAt(0).toUpperCase() + string.slice(1);
 }
+
+/*
+  This is used to convert a QuestionnaireResponse.item from an array of objects to a map where each key is the linkId
+  of each object in the array and the value is just the value of that object. It is convenient to make make this conversion
+  to make the form values easier to manipulate, though it does add some complexity in introdudcing some stuctural variance
+  in the validation schema, which must account both for the map-type object as well as the array, depending on where it is
+  being applied.
+*/
+
+export const convertQRItemToLinkIdMap = (
+  items: QuestionnaireResponseItem[] | undefined
+): { [key: string]: QuestionnaireResponseItem } => {
+  return (items ?? []).reduce(
+    (accum, entry) => {
+      accum[entry.linkId] = { ...entry };
+      return accum;
+    },
+    {} as { [key: string]: QuestionnaireResponseItem }
+  );
+};
+export const convertQuesitonnaireItemToQRLinkIdMap = (
+  items: QuestionnaireItem[] | undefined
+): { [key: string]: QuestionnaireResponseItem } => {
+  return (items ?? []).reduce(
+    (accum, item) => {
+      if ((item as any).type !== 'display') {
+        accum[item.linkId] = { linkId: item.linkId };
+      }
+      return accum;
+    },
+    {} as { [key: string]: QuestionnaireResponseItem }
+  );
+};

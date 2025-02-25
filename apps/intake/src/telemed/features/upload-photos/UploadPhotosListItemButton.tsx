@@ -1,7 +1,11 @@
 import PhotoLibraryOutlinedIcon from '@mui/icons-material/PhotoLibraryOutlined';
-import { FC } from 'react';
+import { FC, useEffect, useState } from 'react';
+import { create } from 'zustand';
+import { UCGetPaperworkResponse } from 'utils';
 import { StyledListItemWithButton } from 'ui-components';
-import { otherColors } from '../../../IntakeThemeProvider';
+import { otherColors } from '../../utils';
+import { useGetPaperwork } from '../paperwork';
+import { Attachment } from 'fhir/r4b';
 
 type UploadPhotosListItemButtonProps = {
   onClick: () => void;
@@ -9,23 +13,31 @@ type UploadPhotosListItemButtonProps = {
   noDivider?: boolean;
 };
 
+export const useUploadPhotosStore = create<{
+  paperworkData?: UCGetPaperworkResponse;
+  isLoading: boolean;
+  isFetching: boolean;
+  attachment?: Attachment;
+}>()(() => ({ isLoading: false, isFetching: false }));
+
 export const UploadPhotosListItemButton: FC<UploadPhotosListItemButtonProps> = ({ onClick, hideText, noDivider }) => {
-  // todo: fix this
-  // const photos = paperworkData
-  //   ? (filterObject(paperworkData.files || {}, (key) => key.startsWith('patient-photos')) as FileURLs)
-  //   : {};
-  const photos = {};
-  const loading = false;
+  const { isLoading, isFetching } = useGetPaperwork((data) => {
+    const attachment = data?.questionnaireResponse?.item
+      ?.find((item) => item.linkId === 'patient-condition-page')
+      ?.item?.find((item) => item.linkId === 'patient-photos')?.answer?.[0]?.valueAttachment;
+    setIsPhotoUploaded(!!attachment?.url);
+    useUploadPhotosStore.setState({ paperworkData: data, attachment });
+  });
+  const [isPhotoUploaded, setIsPhotoUploaded] = useState(false);
+
+  useEffect(() => {
+    useUploadPhotosStore.setState({ isLoading, isFetching });
+  }, [isLoading, isFetching]);
+
   return (
     <StyledListItemWithButton
-      primaryText="Upload photos"
-      secondaryText={
-        loading
-          ? 'Loading...'
-          : Object.keys(photos).length > 0
-          ? `${Object.keys(photos).length} photos attached`
-          : 'No photos uploaded'
-      }
+      primaryText="Upload photo"
+      secondaryText={isLoading || isFetching ? 'Loading...' : isPhotoUploaded ? 'Photo attached' : 'No photo uploaded'}
       hideText={hideText}
       onClick={onClick}
       noDivider={noDivider}

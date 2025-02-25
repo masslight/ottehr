@@ -1,4 +1,5 @@
-import { CancelInviteParticipantRequestInput, ZambdaInput, emailRegex } from 'utils';
+import { CancelInviteParticipantRequestInput, emailRegex } from 'utils';
+import { ZambdaInput } from 'zambda-utils';
 
 export function validateRequestParameters(input: ZambdaInput): CancelInviteParticipantRequestInput {
   if (!input.body) {

@@ -3,16 +3,15 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location } from 'fhir/r4b';
 import { decodeJwt, jwtVerify } from 'jose';
 import {
-  SecretsKeys,
   TelemedAppointmentStatusEnum,
-  ZambdaInput,
   createOystehrClient,
   getAppointmentResourceById,
   getLocationIdFromAppointment,
-  getSecret,
   mapStatusToTelemed,
 } from 'utils';
-import { getM2MClientToken } from '../shared';
+import { ZambdaInput } from 'zambda-utils';
+import { SecretsKeys, getSecret } from 'zambda-utils';
+import { getAuth0Token } from '../shared';
 import { estimatedTimeStatesGroups } from '../shared/appointment/constants';
 import { getUser } from '../shared/auth';
 import { getVideoEncounterForAppointment } from '../shared/encounters';
@@ -69,7 +68,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!zapehrToken) {
       console.log('getting m2m token for service calls');
-      zapehrToken = await getM2MClientToken(secrets); // keeping token externally for reuse
+      zapehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
     } else {
       console.log('already have a token, no need to update');
       // TODO: wonder if we need to check if it's expired at some point?

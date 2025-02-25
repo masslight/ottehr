@@ -10,5 +10,6 @@ export * from './rcm';
 export * from './states';
 export * from './zapEHRApi';
 export * from './create-demo-visits';
+export * from './create-telemed-demo-visits';
 export * from './visit-note';
 export * from './vitals';

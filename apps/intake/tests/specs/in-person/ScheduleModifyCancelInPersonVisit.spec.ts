@@ -37,7 +37,7 @@ let bookingURL: string | undefined;
 test('Schedule in person visit', async () => {
   const locators = new Locators(page);
   const prebookInPersonFlow = new PrebookInPersonFlow(page);
-  await prebookInPersonFlow.goToReviewPageInPersonVisit();
+  await prebookInPersonFlow.goToReviewPage();
   await page.waitForLoadState();
   await locators.clickReserveButton();
   await page.waitForURL(/\/visit/);

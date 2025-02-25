@@ -1,0 +1,37 @@
+{
+  "envVarName": "DEFAULT_BILLING_RESOURCE",
+  "resource": {
+    "resourceType": "Organization",
+    "name": "Default Billing Provider",
+    "identifier": [
+      {
+        "system": "http://hl7.org/fhir/sid/us-npi",
+        "value": "1275837114"
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+              "code": "NE"
+            }
+          ]
+        },
+        "value": "99-9999999"
+      }
+    ],
+    "address": [
+      {
+        "use": "billing",
+        "city": "Seattle",
+        "state": "WA",
+        "postalCode": "98105",
+        "country": "United States",
+        "type": "physical",
+        "line": [
+          "371 Pine St"
+        ]
+      }
+    ]
+  }
+}

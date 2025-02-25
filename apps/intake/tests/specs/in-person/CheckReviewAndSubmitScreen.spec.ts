@@ -8,7 +8,7 @@ test.describe.configure({ mode: 'parallel' });
 let page: Page;
 let flowClass: PrebookInPersonFlow;
 let locator: Locators;
-let visitData: Awaited<ReturnType<PrebookInPersonFlow['goToReviewPageInPersonVisit']>>;
+let visitData: Awaited<ReturnType<PrebookInPersonFlow['goToReviewPage']>>;
 let commonLocators: CommonLocatorsHelper;
 
 test.beforeAll(async ({ browser }) => {
@@ -16,11 +16,11 @@ test.beforeAll(async ({ browser }) => {
   flowClass = new PrebookInPersonFlow(page);
   locator = new Locators(page);
   commonLocators = new CommonLocatorsHelper(page);
-  visitData = await flowClass.goToReviewPageInPersonVisit();
+  visitData = await flowClass.goToReviewPage();
 });
 
 test('RP-1 Check title is visible', async () => {
-  await expect(locator.titleReviewScreen).toBeVisible();
+  await expect(locator.flowHeading).toHaveText('Review and submit');
 });
 
 test('RP-2 Check description is visible', async () => {
@@ -56,11 +56,11 @@ test('RP-8 Check patient name is correct', async () => {
 });
 
 test('RP-9 Check slot is correct', async () => {
-  await commonLocators.checkSlotIsCorrect(visitData.selectedSlot.selectedSlot);
+  await commonLocators.checkSlotIsCorrect(visitData.selectedSlot?.selectedSlot);
 });
 
 test('RP-10 Check location value is correct', async () => {
-  await commonLocators.checkLocationValueIsCorrect(visitData.location);
+  await commonLocators.checkLocationValueIsCorrect(visitData.location ?? null);
 });
 
 test('RP-11 Check privacy policy link', async () => {

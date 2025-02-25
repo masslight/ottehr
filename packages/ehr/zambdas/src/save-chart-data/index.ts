@@ -63,7 +63,7 @@ import {
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
 import { PdfDocumentReferencePublishedStatuses } from '../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../shared/pdf/school-work-note-pdf';
-import { ZambdaInput } from '../types';
+import { ZambdaInput } from 'zambda-utils';
 import {
   filterServiceRequestsFromFhir,
   followUpToPerformerMap,
