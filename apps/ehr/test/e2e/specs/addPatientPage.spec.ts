@@ -1,4 +1,5 @@
 import { test } from '@playwright/test';
+import { cleanAppointment } from 'test-utils';
 import {
   PATIENT_BIRTH_DATE_LONG,
   PATIENT_BIRTH_DATE_SHORT,
@@ -121,12 +122,32 @@ test('Open "Add patient page" then enter invalid date of birth, click "Add", val
 });
 
 test.describe('For new patient', () => {
-  test.afterAll(async () => {
-    // todo: this logic should be incapsulated in resource-handler
-    await resourceHandler.cleanupNewPatientData(NEW_PATIENT_1_LAST_NAME);
-    await resourceHandler.cleanupNewPatientData(NEW_PATIENT_2_LAST_NAME);
-    await resourceHandler.cleanupNewPatientData(NEW_PATIENT_3_LAST_NAME);
+  const appointmentIds: string[] = [];
+
+  test.beforeEach(async ({ page }) => {
+    page.on('response', async (response) => {
+      if (response.url().includes('/create-appointment/')) {
+        const { appointment } = await response.json();
+        if (appointment && !appointmentIds.includes(appointment)) {
+          appointmentIds.push(appointment);
+        }
+      }
+    });
   });
+  test.afterAll(async () => {
+    const env = process.env.ENV;
+    console.log('Appointments to cleanup: ' + JSON.stringify(appointmentIds));
+    for (const appointment of appointmentIds) {
+      console.log(`Deleting ${appointment} on env: ${env}`);
+      await cleanAppointment(appointment, env!);
+    }
+  });
+  // test.afterAll(async () => {
+  //   // todo: this logic should be incapsulated in resource-handler
+  //   await resourceHandler.cleanupNewPatientData(NEW_PATIENT_1_LAST_NAME);
+  //   await resourceHandler.cleanupNewPatientData(NEW_PATIENT_2_LAST_NAME);
+  //   await resourceHandler.cleanupNewPatientData(NEW_PATIENT_3_LAST_NAME);
+  // });
 
   test('Add walk-in visit for new patient', async ({ page }) => {
     const addPatientPage = await expectAddPatientPage(page);

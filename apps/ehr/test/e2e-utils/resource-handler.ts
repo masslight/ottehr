@@ -265,23 +265,6 @@ export class ResourceHandler {
     return resourse;
   }
 
-  async cleanupNewPatientData(lastName: string): Promise<void> {
-    const patients = (
-      await this.apiClient.fhir.search({
-        resourceType: 'Patient',
-        params: [
-          {
-            name: 'name',
-            value: lastName,
-          },
-        ],
-      })
-    ).unbundle();
-    for (const patient of patients) {
-      await this.cleanupAppointments(patient.id!);
-    }
-  }
-
   async cleanupAppointments(patientId: string): Promise<void> {
     const appointments = (
       await this.apiClient.fhir.search({
