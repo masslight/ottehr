@@ -10,6 +10,7 @@ import { useAppointment } from '../hooks/useAppointment';
 import { usePractitionerActions } from '../hooks/usePractitioner';
 import { getVisitStatus } from 'utils';
 import { enqueueSnackbar } from 'notistack';
+import { dataTestIds } from '../../../constants/data-test-ids';
 const ArrowIcon = ({ direction }: { direction: 'left' | 'right' }): React.ReactElement => (
   <svg width="40" height="40" fill="none" xmlns="http://www.w3.org/2000/svg">
     <circle cx="20" cy="20" r="20" fill="#2169F5" fillOpacity=".04" />
@@ -321,7 +322,10 @@ export const Sidebar = (): JSX.Element => {
                 });
               }}
             >
-              <ListItem sx={{ width: '100%', height: 'inherit' }}>
+              <ListItem
+                data-testid={dataTestIds.sideMenu.sideMenuItem(item.to)}
+                sx={{ width: '100%', height: 'inherit' }}
+              >
                 <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
                 <ListItemText primary={item.text} sx={{ opacity: open ? 1 : 0 }} />
               </ListItem>

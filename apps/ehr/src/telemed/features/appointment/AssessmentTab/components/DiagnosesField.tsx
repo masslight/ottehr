@@ -4,6 +4,7 @@ import { useDebounce } from '../../../../hooks';
 import { useGetIcd10Search } from '../../../../state';
 import { IcdSearchResponse } from 'utils';
 import { FieldError } from 'react-hook-form';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 type DiagnosesFieldProps = {
   onChange: (data: IcdSearchResponse['codes'][number]) => void;
@@ -59,6 +60,7 @@ export const DiagnosesField: FC<DiagnosesFieldProps> = (props) => {
       getOptionDisabled={(option) => disableForPrimary && option.code.startsWith('W')}
       renderInput={(params) => (
         <TextField
+          data-testid={dataTestIds.assessmentPage.diagnosisDropdown}
           {...params}
           onChange={(e) => debouncedHandleInputChange(e.target.value)}
           size="small"

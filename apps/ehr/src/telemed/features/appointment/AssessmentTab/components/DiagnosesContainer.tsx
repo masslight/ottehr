@@ -9,6 +9,7 @@ import { useAppointmentStore, useDeleteChartData, useSaveChartData } from '../..
 import { ActionsList, DeleteIconButton } from '../../../../components';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
 import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const DiagnosesContainer: FC = () => {
   const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
@@ -158,6 +159,7 @@ export const DiagnosesContainer: FC = () => {
                 ? undefined
                 : (value) => (
                     <DeleteIconButton
+                      dataTestId={dataTestIds.diagnosisContainer.deleteButton}
                       disabled={isLoading || !value.resourceId}
                       onClick={() => onDelete(value.resourceId!)}
                     />

@@ -46,7 +46,7 @@ async function fillWaitAndSelectDropdown(page: Page, dropdownDataTestId: string,
 }
 
 async function dialogConfirm(page: Page): Promise<void> {
-  const dialogButtonConfirm = page.getByTestId(dataTestIds.telemedEhrFlow.dialogButtonConfirm);
+  const dialogButtonConfirm = page.getByTestId(dataTestIds.dialog.proceedButton);
   await expect(dialogButtonConfirm).toBeVisible(DEFAULT_TIMEOUT);
   await dialogButtonConfirm.click(DEFAULT_TIMEOUT);
 }

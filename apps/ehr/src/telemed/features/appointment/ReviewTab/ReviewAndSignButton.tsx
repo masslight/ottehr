@@ -17,6 +17,7 @@ import { useAppointment } from '../../../../features/css-module/hooks/useAppoint
 import { practitionerType } from '../../../../helpers/practitionerUtils';
 import { usePractitionerActions } from '../../../../features/css-module/hooks/usePractitioner';
 import { enqueueSnackbar } from 'notistack';
+import { dataTestIds } from '../../../../constants/data-test-ids';
 
 type ReviewAndSignButtonProps = {
   onSigned?: () => void;
@@ -161,7 +162,12 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
             }}
           >
             {(showDialog) => (
-              <RoundedButton disabled={errorMessage.length > 0 || isLoading} variant="contained" onClick={showDialog}>
+              <RoundedButton
+                disabled={errorMessage.length > 0 || isLoading}
+                variant="contained"
+                onClick={showDialog}
+                data-testid={dataTestIds.progressNotePage.reviewAndSignButton}
+              >
                 Review & Sign
               </RoundedButton>
             )}

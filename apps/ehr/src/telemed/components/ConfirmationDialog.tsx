@@ -42,10 +42,10 @@ export const ConfirmationDialog: FC<ConfirmationDialogProps> = (props) => {
       actions={(hideDialog) => (
         <Stack direction={props?.actionButtons?.reverse ? 'row-reverse' : 'row'} spacing={2}>
           <RoundedButton
+            data-testid={dataTestIds.dialog.proceedButton}
             onClick={() => confirmRequest(hideDialog)}
             variant="contained"
             color={props?.actionButtons?.proceed?.color || 'primary'}
-            data-testid={dataTestIds.telemedEhrFlow.dialogButtonConfirm}
           >
             {props?.actionButtons?.proceed?.text || 'Proceed'}
           </RoundedButton>

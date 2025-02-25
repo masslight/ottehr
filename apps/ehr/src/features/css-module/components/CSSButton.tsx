@@ -8,8 +8,7 @@ export const CSSButton: React.FC<{
   isDisabled: boolean;
   isLoading: boolean;
   handleCSSButton: (e: React.MouseEvent) => void;
-  appointmentID: string;
-}> = ({ isDisabled, isLoading, handleCSSButton, appointmentID }) => {
+}> = ({ isDisabled, isLoading, handleCSSButton }) => {
   const theme = useTheme();
 
   const { view } = useCSSPermissions();
@@ -26,7 +25,7 @@ export const CSSButton: React.FC<{
 
   return (
     <IconButtonContained
-      data-testid={dataTestIds.dashboard.intakeButton(appointmentID ?? undefined)}
+      data-testid={dataTestIds.dashboard.intakeButton}
       sx={{
         width: 'auto',
       }}

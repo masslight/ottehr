@@ -2,6 +2,7 @@ import { GenericToolTip } from '../../../components/GenericToolTip';
 import { Box } from '@mui/system';
 import { Button } from '@mui/material';
 import { VisitStatusLabel } from 'utils';
+import { dataTestIds } from '../../../constants/data-test-ids';
 
 export const CompleteIntakeButton: React.FC<{
   isDisabled: boolean;
@@ -23,6 +24,7 @@ export const CompleteIntakeButton: React.FC<{
         }}
       >
         <Button
+          data-testid={dataTestIds.sideMenu.completeIntakeButton}
           variant="contained"
           sx={{
             alignSelf: 'center',

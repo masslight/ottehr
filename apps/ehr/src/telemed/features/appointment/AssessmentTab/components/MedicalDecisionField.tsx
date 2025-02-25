@@ -4,6 +4,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { useDebounceNotesField } from '../../../../hooks';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 const DEFAULT_TEXT =
   'Reviewed diagnosis, expected course, treatment plan, and reasons to seek urgent and/or emergent care.  Discharge instructions reviewed.  Caregiver expressed understanding.  All questions were answered, and caregiver is comfortable with discharge plan.';
@@ -41,6 +42,7 @@ export const MedicalDecisionField: FC<MedicalDecisionFieldProps> = ({ loading, s
       control={control}
       render={({ field: { value, onChange } }) => (
         <TextField
+          data-testid={dataTestIds.assessmentPage.medicalDecisionField}
           value={value}
           onChange={(e) => {
             onChange(e);

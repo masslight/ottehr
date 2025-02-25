@@ -8,13 +8,20 @@ type DeleteIconButtonProps = {
   disabled?: boolean;
   size?: IconButtonProps['size'];
   fontSize?: SvgIconProps['fontSize'];
+  dataTestId?: string;
 };
 
 export const DeleteIconButton: FC<DeleteIconButtonProps> = (props) => {
-  const { onClick, disabled, size, fontSize } = props;
+  const { onClick, disabled, size, fontSize, dataTestId } = props;
 
   return (
-    <IconButton sx={{ color: otherColors.endCallButton }} size={size || 'small'} disabled={disabled} onClick={onClick}>
+    <IconButton
+      data-testid={dataTestId}
+      sx={{ color: otherColors.endCallButton }}
+      size={size || 'small'}
+      disabled={disabled}
+      onClick={onClick}
+    >
       <DeleteOutlinedIcon fontSize={fontSize || 'small'} />
     </IconButton>
   );
