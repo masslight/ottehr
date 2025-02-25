@@ -108,7 +108,10 @@ export const VideoControls: FC = () => {
               {isLoading ? (
                 <CircularProgress size={24} sx={{ color: theme.palette.primary.contrastText }} />
               ) : (
-                <CallEndIcon sx={{ color: theme.palette.primary.contrastText }} data-testid={dataTestIds.telemedEhrFlow.endVideoCallButton} />
+                <CallEndIcon
+                  sx={{ color: theme.palette.primary.contrastText }}
+                  data-testid={dataTestIds.telemedEhrFlow.endVideoCallButton}
+                />
               )}
             </IconButtonContained>
           )}
