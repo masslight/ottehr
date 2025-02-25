@@ -131,19 +131,19 @@ function drawPatientInfo(
   patientNameFont: PDFFont,
   pidFont: PDFFont
 ): number {
-  y -= drawTextLeftAligned(`${patient.name?.[0].family}, ${patient.name?.[0].given}`, page, {
+  y = drawTextLeftAligned(`${patient.name?.[0].family}, ${patient.name?.[0].given}`, page, {
     x: DEFAULT_MARGIN,
     y,
     font: patientNameFont,
     size: PATIENT_NAME_FONT_SIZE,
   });
-  y -= drawTextLeftAligned(`PID: ${patient.id}`, page, {
+  y = drawTextLeftAligned(`PID: ${patient.id}`, page, {
     x: DEFAULT_MARGIN,
     y,
     font: pidFont,
     size: PID_FONT_SIZE,
   });
-  y -= drawLine(
+  y = drawLine(
     {
       x: DEFAULT_MARGIN,
       y,
@@ -178,7 +178,7 @@ function drawSection(
   titleFont: PDFFont,
   itemFont: PDFFont
 ): number {
-  y -= drawTextLeftAligned(splitOnLines(section.title, 30), page, {
+  y = drawTextLeftAligned(splitOnLines(section.title, 30), page, {
     x,
     y,
     font: titleFont,
@@ -186,8 +186,8 @@ function drawSection(
   });
   y -= SECTION_TITLE_MARGIN;
   for (const item of section.items) {
-    y -= drawItem(item, page, x, y, itemFont);
-    y -= drawLine(
+    y = drawItem(item, page, x, y, itemFont);
+    y = drawLine(
       {
         x,
         y,
@@ -205,7 +205,7 @@ function drawSection(
 function drawItem(item: Item, page: PDFPage, x: number, y: number, font: PDFFont): number {
   const { question, answer } = item;
   const questionLines = splitOnLines(question, ITEM_MAX_CHARS_PER_LINE);
-  const questionHeight = drawTextLeftAligned(questionLines, page, {
+  const questionY = drawTextLeftAligned(questionLines, page, {
     font: font,
     size: ITEM_FONT_SIZE,
     lineHeight: ITEM_FONT_SIZE,
@@ -213,14 +213,13 @@ function drawItem(item: Item, page: PDFPage, x: number, y: number, font: PDFFont
     y: y,
   });
   const answerLines = splitOnLines(answer, ITEM_MAX_CHARS_PER_LINE);
-  const answerHeight = drawTextRightAligned(answerLines, page, {
+  const answerY = drawTextRightAligned(answerLines, page, {
     font: font,
     size: ITEM_FONT_SIZE,
     x: x + ITEM_WIDTH,
     y: y,
   });
-  console.log(questionHeight + ', ' + answerHeight);
-  return Math.max(questionHeight, answerHeight);
+  return Math.min(questionY, answerY);
 }
 
 function splitOnLines(text: string, maxCharsPerLine: number): string {
@@ -245,12 +244,13 @@ function splitOnLines(text: string, maxCharsPerLine: number): string {
 function drawTextLeftAligned(text: string, page: PDFPage, options: PDFPageDrawTextOptions): number {
   const font = assertDefined(options.font, 'options.font');
   const fontSize = assertDefined(options.size, 'options.size');
-  const y = assertDefined(options.y, 'options.y') - font.heightAtSize(ITEM_FONT_SIZE, { descender: false });
+  const optionsY = assertDefined(options.y, 'options.y');
+  const y = optionsY - font.heightAtSize(ITEM_FONT_SIZE, { descender: false });
   page.drawText(text, {
     ...options,
     y,
   });
-  return font.heightAtSize(fontSize) * ((text.match(/\n/g) || []).length + 1);
+  return optionsY - font.heightAtSize(fontSize) * ((text.match(/\n/g) || []).length + 1);
 }
 
 function drawTextRightAligned(text: string, page: PDFPage, options: PDFPageDrawTextOptions): number {
@@ -258,7 +258,8 @@ function drawTextRightAligned(text: string, page: PDFPage, options: PDFPageDrawT
   const font = assertDefined(options.font, 'options.font');
   const fontSize = assertDefined(options.size, 'options.size');
   const x = assertDefined(options.x, 'options.x');
-  let y = assertDefined(options.y, 'options.y') - font.heightAtSize(ITEM_FONT_SIZE, { descender: false });
+  const optionsY = assertDefined(options.y, 'options.y');
+  let y = optionsY - font.heightAtSize(ITEM_FONT_SIZE, { descender: false });
   for (const line of lines) {
     const lineWidth = font.widthOfTextAtSize(line, fontSize);
     page.drawText(line, {
@@ -268,7 +269,7 @@ function drawTextRightAligned(text: string, page: PDFPage, options: PDFPageDrawT
     });
     y -= font.heightAtSize(fontSize);
   }
-  return font.heightAtSize(fontSize) * lines.length;
+  return optionsY - font.heightAtSize(fontSize) * lines.length;
 }
 
 function drawLine(
@@ -281,7 +282,7 @@ function drawLine(
     start: { x: line.x, y: line.y - line.margin },
     end: { x: line.x + line.width, y: line.y - line.margin },
   });
-  return line.margin * 2 + line.thickness;
+  return line.y - line.margin * 2 + line.thickness;
 }
 
 function createSections(questionnaireResponse: QuestionnaireResponse, questionnaire: Questionnaire): Section[] {
@@ -337,7 +338,7 @@ async function drawImageItem(
   y: number,
   titleFont: PDFFont
 ): Promise<number> {
-  y -= drawTextLeftAligned(splitOnLines(imageItem.title, 45), page, {
+  y = drawTextLeftAligned(splitOnLines(imageItem.title, 45), page, {
     x,
     y,
     font: titleFont,
