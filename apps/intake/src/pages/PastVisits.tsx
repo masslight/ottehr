@@ -22,7 +22,9 @@ const PastVisits = (): JSX.Element => {
     currentPatientInfo?.id
   );
 
-  const pastAppointments = pastVisitsData?.appointments;
+  const pastAppointments = pastVisitsData?.appointments.sort((a, b) =>
+    new Date(b.start || '').getTime() - new Date(a.start || '').getTime()
+);
 
   const handleVisitDetails = (appointment: AppointmentInformationIntake): void => {
     usePastVisitsStore.setState({
