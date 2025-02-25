@@ -23,7 +23,7 @@ export async function expectPatientInfoPage(patientName: string, page: Page): Pr
   await page.waitForURL(new RegExp('/in-person/.*/patient-info'));
   await expect(page.getByTestId(dataTestIds.cssHeader.patientName)).toHaveText(patientName);
   await expect(page.getByTestId(dataTestIds.patientInfoPage.patientInfoVerifiedCheckbox).locator('input')).toBeChecked({
-    checked: false,
+    checked: false, //
     timeout: 30000,
   });
   return new PatientInfoPage(page);
