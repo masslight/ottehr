@@ -89,8 +89,10 @@ export const sendErrors = async (
     );
   } catch (error) {
     console.error(`Error sending email to ${email}: ${JSON.stringify(error)}`);
-    // Re-throw error so caller knows we failed.
-    throw error;
+    // // Re-throw error so caller knows we failed.
+    // // commenting out because this is causing caught errors to fail and we do not have sendgrid configured yet
+    // // adding todo fix this after configuring sendgrid secrets
+    // throw error;
   }
 };
 

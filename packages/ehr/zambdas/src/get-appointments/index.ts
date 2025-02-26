@@ -657,6 +657,7 @@ const makeAppointmentInformation = (
 
   return {
     id: appointment.id || 'Unknown',
+    encounter,
     encounterId: encounter.id || 'Unknown',
     start: DateTime.fromISO(appointment.start!).setZone(appointmentTimezone).toISO() || 'Unknown',
     patient: {
