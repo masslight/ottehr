@@ -38,7 +38,7 @@ export default (env) => {
   const tlsCertExists = existsSync(path.join(process.cwd(), envDir, 'cert.pem'));
   const tlsKeyExists = existsSync(path.join(process.cwd(), envDir, 'key.pem'));
   if (tlsCertExists && tlsKeyExists) {
-    console.log(`Found TLS certificate and key, serving in ${mode} over HTTPS`)
+    console.log(`Found TLS certificate and key, serving in ${mode} over HTTPS`);
   } else if (tlsCertExists && !tlsKeyExists) {
     console.error(`Found TLS certificate but private key is missing, serving in ${mode} over HTTP`);
   } else if (!tlsCertExists && tlsKeyExists) {
@@ -55,10 +55,13 @@ export default (env) => {
       server: {
         open: !process.env.VITE_NO_OPEN,
         host: '0.0.0.0',
-        https: tlsCertExists && tlsKeyExists ? {
-          cert: './env/cert.pem',
-          key: './env/key.pem',
-        } : undefined,
+        https:
+          tlsCertExists && tlsKeyExists
+            ? {
+                cert: './env/cert.pem',
+                key: './env/key.pem',
+              }
+            : undefined,
       },
     })
   );

@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { exec } from 'child_process';
 import { FhirResource, Organization } from 'fhir/r4b';
-import fs, { existsSync } from 'fs';
+import fs from 'fs';
 import path from 'path';
 import { ScheduleStrategyCoding, TIMEZONE_EXTENSION_URL } from 'utils';
 import { inviteUser } from './invite-user';
@@ -12,7 +12,12 @@ async function createApplication(oystehr: Oystehr, applicationName: string): Pro
     name: applicationName,
     description: 'EHR application with email authentication',
     loginRedirectUri: 'https://ehr-local.ottehr.com/dashboard',
-    allowedCallbackUrls: ['http://localhost:4002', 'http://localhost:4002/dashboard', 'https://localhost:4002', 'https://localhost:4002/dashboard'],
+    allowedCallbackUrls: [
+      'http://localhost:4002',
+      'http://localhost:4002/dashboard',
+      'https://localhost:4002',
+      'https://localhost:4002/dashboard',
+    ],
     allowedLogoutUrls: ['http://localhost:4002', 'https://localhost:4002'],
     allowedWebOriginsUrls: ['http://localhost:4002', 'https://localhost:4002'],
     allowedCORSOriginsUrls: ['http://localhost:4002', 'https://localhost:4002'],
