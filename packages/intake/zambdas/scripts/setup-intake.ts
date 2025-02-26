@@ -279,9 +279,9 @@ export async function setupIntake(
   m2mSecret: string,
   environment: string
 ): Promise<void> {
-  console.log('Starting setup of Ottehr Intake...');
+  console.log('Starting setup of Ottehr Patient Portal...');
 
-  const applicationName = 'Ottehr Intake';
+  const applicationName = 'Ottehr Patient Portal';
   const [_, clientId] = await createApplication(oystehr, applicationName);
   console.log(`Created application "${applicationName}".`);
 
