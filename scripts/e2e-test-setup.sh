@@ -6,6 +6,13 @@ set -e
 # Initialize an empty string for error messages
 errors=""
 
+# Check for --skip-prompts argument
+skip_prompts=""
+if [[ "$1" == "--skip-prompts" ]]; then
+  skip_prompts="--skip-prompts"
+  echo "Running in skip prompts mode. Will preserve existing values."
+fi
+
 # Check if node is installed
 if ! command -v node &> /dev/null; then
   errors+="Error: Node is not installed. Please install Node.js before running this script.\n"
@@ -33,4 +40,4 @@ function display_progress() {
 
 # Execute ./create-test-env.ts
 display_progress "Executing ./e2e-test-setup.ts..."
-npx tsx ./scripts/e2e-test-setup.ts
+npx tsx ./scripts/e2e-test-setup.ts $skip_prompts
