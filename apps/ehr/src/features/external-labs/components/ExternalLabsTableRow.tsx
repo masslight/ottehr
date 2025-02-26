@@ -2,7 +2,7 @@ import React, { ReactElement, useState } from 'react';
 import { TableRow, TableCell, Button } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ExternalLabsStatusChip } from './ExternalLabsStatusChip';
-import { DiagnosisDTO, PROJECT_NAME_UPPER } from 'utils';
+import { DiagnosisDTO, PROJECT_NAME } from 'utils';
 import CancelExternalLabDialog from './CancelExternalLabOrderDialog';
 import { useNavigate } from 'react-router-dom';
 import { ExternalLabsStatus } from '../helpers/types';
@@ -71,7 +71,7 @@ export default function ExternalLabsTableRow({ externalLabsData }: ExternalLabsT
               fontWeight: 'bold',
             }}
           >
-            <img src={deleteIcon} alt={`${PROJECT_NAME_UPPER} deleteIcon`} />
+            <img src={deleteIcon} alt={`${PROJECT_NAME} deleteIcon`} />
           </Button>
         ) : null}
       </TableCell>

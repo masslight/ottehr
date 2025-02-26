@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import { FC, MouseEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getFullestAvailableName, PROJECT_NAME, PROJECT_NAME_UPPER, RoleType } from 'utils';
+import { getFullestAvailableName, PROJECT_NAME, RoleType } from 'utils';
 import { ProviderNotifications } from '../../features';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { dataTestIds } from '../../constants/data-test-ids';
@@ -49,7 +49,7 @@ export const UserMenu: FC = () => {
       >
         <MenuItem>
           <Box>
-            <Typography variant="body1">{PROJECT_NAME_UPPER} Admin</Typography>
+            <Typography variant="body1">{PROJECT_NAME} Admin</Typography>
             <Typography variant="caption">{user?.email}</Typography>
           </Box>
         </MenuItem>

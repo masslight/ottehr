@@ -5,7 +5,6 @@ export const INTERPRETER_PHONE_NUMBER = '(888) 555 0002';
 
 export const PROJECT_NAME = 'Ottehr';
 export const PROJECT_NAME_LOWER = PROJECT_NAME.toLowerCase();
-export const PROJECT_NAME_UPPER = PROJECT_NAME.toUpperCase();
 export const PROJECT_WEBSITE = 'https://ottehr.com';
 export const SUPPORT_EMAIL = 'support@ottehr.com';
 

@@ -2,7 +2,7 @@ import { TabList } from '@mui/lab';
 import { AppBar, Container, Tab, Toolbar, useTheme, useMediaQuery } from '@mui/material';
 import { ReactElement, SyntheticEvent, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { PROJECT_NAME_UPPER, RoleType } from 'utils';
+import { PROJECT_NAME, RoleType } from 'utils';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { AppTab, useNavStore } from '../../state/nav.store';
 import { UserMenu } from './UserMenu';
@@ -109,7 +109,7 @@ export default function Navbar(): ReactElement | null {
           <Link to="/">
             <img
               src={logo}
-              alt={`${PROJECT_NAME_UPPER} logo`}
+              alt={`${PROJECT_NAME} logo`}
               style={{
                 marginRight: 20,
                 marginTop: 10,
