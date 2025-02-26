@@ -1,5 +1,5 @@
 import fs from 'fs';
-import inquirer from 'inquirer';
+import { input, password } from '@inquirer/prompts';
 import dotenv from 'dotenv';
 import { defaultLocation } from 'utils';
 import Oystehr from '@oystehr/sdk';
@@ -194,50 +194,30 @@ export async function createTestEnvFiles(): Promise<void> {
 
       console.log('Skipping prompts and using existing values where available');
     } else {
-      // Prompt for inputs
-      const ehrPromptResult = await inquirer.prompt([
-        {
-          type: 'input',
-          name: 'ehrTextUsername',
-          message: 'Enter EHR test user username:',
-          default: existingEhrConfig.TEXT_USERNAME || undefined,
-        },
-        {
-          type: 'input',
-          name: 'ehrTextPassword',
-          message: 'Enter EHR test user password:',
-          default: existingEhrConfig.TEXT_PASSWORD || undefined,
-        },
-      ]);
+      // Prompt for inputs using the new @inquirer/prompts functions
+      ehrTextUsername = await input({
+        message: 'Enter EHR test user username:',
+        default: existingEhrConfig.TEXT_USERNAME || undefined,
+      });
 
-      ehrTextUsername = ehrPromptResult.ehrTextUsername;
-      ehrTextPassword = ehrPromptResult.ehrTextPassword;
+      ehrTextPassword = await password({
+        message: 'Enter EHR test user password:',
+      });
 
       // TODO: add to DOC; we receive an SMS with a confirmation code from ClickSend service. TextUsername and TextPassword used to get the sms code from ClickSend service.
-      const intakePromptResult = await inquirer.prompt([
-        {
-          type: 'input',
-          name: 'phoneNumber',
-          message: 'Enter Intake test user phone number:',
-          default: existingIntakeConfig.PHONE_NUMBER || undefined,
-        },
-        {
-          type: 'input',
-          name: 'textUsername',
-          message: 'Enter ClickSend user username:',
-          default: existingIntakeConfig.TEXT_USERNAME || undefined,
-        },
-        {
-          type: 'input',
-          name: 'textPassword',
-          message: 'Enter ClickSend user password for getting sms auth code:',
-          default: existingIntakeConfig.TEXT_PASSWORD || undefined,
-        },
-      ]);
+      phoneNumber = await input({
+        message: 'Enter Intake test user phone number:',
+        default: existingIntakeConfig.PHONE_NUMBER || undefined,
+      });
 
-      phoneNumber = intakePromptResult.phoneNumber;
-      textUsername = intakePromptResult.textUsername;
-      textPassword = intakePromptResult.textPassword;
+      textUsername = await input({
+        message: 'Enter ClickSend user username:',
+        default: existingIntakeConfig.TEXT_USERNAME || undefined,
+      });
+
+      textPassword = await password({
+        message: 'Enter ClickSend user password for getting sms auth code:',
+      });
     }
 
     const ehrConfig: EhrConfig = {
