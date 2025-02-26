@@ -39,6 +39,7 @@ const ZAMBDA_NAME = 'paperwork-to-pdf';
 const PAGE_WIDTH = PageSizes.A4[0];
 const PAGE_HEIGHT = PageSizes.A4[1];
 const DEFAULT_MARGIN = 25;
+const PAGE_CONTENT_BOTTOM_MARGIN = 50;
 const PATIENT_NAME_FONT_SIZE = 18;
 const PID_FONT_SIZE = 12;
 const SECTION_TITLE_FONT_SIZE = 16;
@@ -52,6 +53,8 @@ const ITEM_WIDTH = (PAGE_WIDTH - DEFAULT_MARGIN * 3) / 2;
 const ITEM_FONT_SIZE = 12;
 const ITEM_MAX_CHARS_PER_LINE = 25;
 const IMAGE_MAX_HEIGHT = PAGE_HEIGHT / 4;
+const PAGE_NUMBER_COLOR = rgbNormalized(0x66, 0x66, 0x66);
+const PAGE_NUMBER_FONT_SIZE = 10;
 
 let zapehrToken: string;
 
@@ -89,6 +92,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const y = drawPatientInfo(patient, page, PAGE_HEIGHT - DEFAULT_MARGIN, helveticaBoldFont, helveticaFont);
     drawSections([...sections, ...sections, ...sections, ...sections], page, y, helveticaBoldFont, helveticaFont);
     await drawImageItems(imageItems, pdfDocument, helveticaFont);
+    drawPageNumbers(pdfDocument, helveticaFont);
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/pdf' },
@@ -224,7 +228,7 @@ function drawSection(
 function drawSectionTitle(title: string, page: PDFPage, x: number, y: number, font: PDFFont): [PDFPage, number] {
   const lines = splitOnLines(title, 30);
   const height = calculateTextHeight(lines, { font: font, fontSize: SECTION_TITLE_FONT_SIZE });
-  if (y - height < DEFAULT_MARGIN) {
+  if (y - height < PAGE_CONTENT_BOTTOM_MARGIN) {
     page = getNextPage(page);
     y = PAGE_HEIGHT - DEFAULT_MARGIN;
   }
@@ -245,7 +249,7 @@ function drawItem(item: Item, page: PDFPage, x: number, y: number, font: PDFFont
 
   const questionHeight = calculateTextHeight(questionLines, { font: font, fontSize: ITEM_FONT_SIZE });
   const answerHeight = calculateTextHeight(answerLines, { font: font, fontSize: ITEM_FONT_SIZE });
-  if (y - Math.max(questionHeight, answerHeight) < DEFAULT_MARGIN) {
+  if (y - Math.max(questionHeight, answerHeight) < PAGE_CONTENT_BOTTOM_MARGIN) {
     page = getNextPage(page);
     y = PAGE_HEIGHT - DEFAULT_MARGIN;
   }
@@ -267,7 +271,20 @@ function drawItem(item: Item, page: PDFPage, x: number, y: number, font: PDFFont
 }
 
 function splitOnLines(text: string, maxCharsPerLine: number): string {
-  const words = text.split(' ');
+  const words = text.split(' ').flatMap((word) => {
+    if (word.length < maxCharsPerLine) {
+      return [word];
+    }
+    let segmentStart = 0;
+    let restLength = word.length;
+    const segments = [];
+    while (restLength > 0) {
+      segments.push(word.substring(segmentStart, Math.min(segmentStart + maxCharsPerLine, word.length)));
+      segmentStart += maxCharsPerLine;
+      restLength -= maxCharsPerLine;
+    }
+    return segments;
+  });
   const lines = [];
   let currentLine = words[0];
   for (let i = 1; i < words.length; i++) {
@@ -480,4 +497,16 @@ function getNextPage(page: PDFPage): PDFPage {
     return page;
   }
   return pdfDocument.getPage(currentPageIndex + 1);
+}
+
+function drawPageNumbers(pdfDocument: PDFDocument, font: PDFFont): void {
+  pdfDocument.getPages().forEach((page, index) => {
+    drawTextLeftAligned(`Page ${index + 1} of ${pdfDocument.getPageCount()}`, page, {
+      x: DEFAULT_MARGIN,
+      y: DEFAULT_MARGIN + font.heightAtSize(PAGE_NUMBER_FONT_SIZE),
+      font,
+      color: PAGE_NUMBER_COLOR,
+      size: PAGE_NUMBER_FONT_SIZE,
+    });
+  });
 }
