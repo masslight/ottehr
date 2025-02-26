@@ -23,12 +23,14 @@ import { useNavigate } from 'react-router-dom';
 import { AssessmentTitle } from '../../../telemed/features/appointment/AssessmentTab';
 import { useAppointmentStore, useGetIcd10Search, useDebounce, ActionsList, DeleteIconButton } from '../../../telemed';
 import { getSelectors } from '../../../shared/store/getSelectors';
-import { DiagnosisDTO, isLocationVirtual } from 'utils';
+import { DiagnosisDTO, isLocationVirtual, OrderableItemSearchResult } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { Location } from 'fhir/r4b';
 import { sortLocationsByLabel } from '../../../helpers';
 import useEvolveUser from '../../../hooks/useEvolveUser';
 import Oystehr from '@oystehr/sdk';
+import { LabsAutocomplete } from '../components/LabsAutocomplete';
+// import { useAuthToken } from '../../../hooks/useAuthToken';
 // import { submitLabOrder } from '../../../api/api';
 // import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 
@@ -42,16 +44,14 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
   const user = useEvolveUser();
   const navigate = useNavigate();
   const practitionerId = user?.profile.replace('Practitioner/', '');
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loadingLocations, setLoadingLocations] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [locations, setLocations] = useState<Location[]>([]);
   const [orderDxPrimary, setOrderDxPrimary] = useState<DiagnosisDTO | undefined>(undefined);
   const [orderDxSecondary, setOrderDxSecondary] = useState<DiagnosisDTO[]>([]);
+  const [selectedLab, setSelectedLab] = useState<OrderableItemSearchResult | null>(null);
   const [office, setOffice] = useState<Location | undefined>(undefined);
   const [pscHold, setPscHold] = useState<boolean>(true); // defaulting & locking to true for mvp
-  // this is really lab + test i think (oystehr lab orderable item)
-  // these will be loaded up from an a call to the oystehr labs service?
-  const [lab, setLab] = useState('');
   // const [error, setError] = useState<string | undefined>(undefined);
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -94,7 +94,7 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
         return;
       }
 
-      setLoading(true);
+      setLoadingLocations(true);
 
       try {
         let locationsResults = (
@@ -108,14 +108,14 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
       } catch (e) {
         console.error('error loading locations', e);
       } finally {
-        setLoading(false);
+        setLoadingLocations(false);
       }
     }
 
     if (oystehr && locations.length === 0) {
       void getLocationsResults(oystehr);
     }
-  }, [oystehr, loading, locations.length]);
+  }, [oystehr, loadingLocations, locations.length]);
 
   const addDxToOrder = (dx: DiagnosisDTO): void => {
     if (dx.code === primaryDiagnosis?.code) {
@@ -176,7 +176,7 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
       <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
         Order Lab
       </Typography>
-      {loading ? (
+      {loadingLocations ? (
         <CircularProgress />
       ) : (
         <form onSubmit={handleSubmit}>
@@ -258,7 +258,7 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
               <Grid item xs={12}>
                 {orderDxPrimary && (
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <AssessmentTitle>Primary *</AssessmentTitle>
+                    <AssessmentTitle>Primary</AssessmentTitle>
                     <ActionsList
                       data={[orderDxPrimary]}
                       getKey={(value, index) => value.resourceId || index}
@@ -268,7 +268,7 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
                         </Typography>
                       )}
                       renderActions={(value) => (
-                        <DeleteIconButton disabled={loading} onClick={() => removeDxFromOrder(value, 'Primary')} />
+                        <DeleteIconButton onClick={() => removeDxFromOrder(value, 'Primary')} />
                       )}
                     />
                   </Box>
@@ -287,7 +287,7 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
                         </Typography>
                       )}
                       renderActions={(value) => (
-                        <DeleteIconButton disabled={loading} onClick={() => removeDxFromOrder(value, 'Secondary')} />
+                        <DeleteIconButton onClick={() => removeDxFromOrder(value, 'Secondary')} />
                       )}
                     />
                   </Box>
@@ -329,26 +329,7 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
                 <Typography variant="h6" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
                   Lab
                 </Typography>
-                <Box sx={{ paddingTop: '8px' }}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel id="lab-label">Lab</InputLabel>
-                    {/* todo placeholder fake lab / test list  */}
-                    <Select
-                      required
-                      labelId="lab-label"
-                      id="lab"
-                      label="Lab"
-                      value={lab}
-                      onChange={(e) => setLab(e.target.value)}
-                    >
-                      {['strep/quest', 'strep/labcorp', 'mumps/quest'].map((d) => (
-                        <MenuItem key={d} value={d}>
-                          {d}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Box>
+                <LabsAutocomplete selectedLab={selectedLab} setSelectedLab={setSelectedLab}></LabsAutocomplete>
               </Grid>
               <Grid item xs={12}>
                 {/* disabling this field as we are only allowing psc hold orders for mvp */}
