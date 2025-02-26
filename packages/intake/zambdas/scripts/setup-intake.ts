@@ -181,7 +181,7 @@ async function createApplication(oystehr: Oystehr, applicationName: string): Pro
   try {
     application = await oystehr.application.create({
       name: applicationName,
-      description: 'Intake application with sms authentication',
+      description: 'Patient Portal application with sms authentication',
       loginRedirectUri: 'https://intake-local.ottehr.com/patients',
       allowedCallbackUrls: [
         'http://localhost:3002',
