@@ -1,4 +1,4 @@
-import { Locator, Page } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 
 export class Locators {
@@ -19,6 +19,7 @@ export class Locators {
   termsAndConditions: Locator;
   proceedToPaperwork: Locator;
   firstAvailableTime: Locator;
+  firstAvailableTimeButton: Locator;
   editPencilReviewScreen: Locator;
   modifyTimeThankYouScreen: Locator;
   cancelVisitThankYouScreen: Locator;
@@ -66,6 +67,7 @@ export class Locators {
   pcpNumber: Locator;
   backButton: Locator;
   pcpNumberErrorText: Locator;
+  appointmentDescription: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -79,10 +81,7 @@ export class Locators {
     this.flowHeading = page.getByTestId(dataTestIds.flowPageTitle);
     this.thankYouHeading = page.getByRole('heading', { name: 'Thank you for choosing Ottehr!' });
     this.startInPersonVisitButton = page.getByTestId(dataTestIds.startInPersonVisitButton);
-    this.continueButton = page.getByText('Continue');
-    this.reserveButton = page.getByRole('button', { name: 'Reserve this check-in time' });
     this.confirmWalkInButton = page.getByRole('button', { name: 'Confirm this walk-in time' });
-    this.thankYouHeading = page.getByRole('heading', { name: 'Thank you for choosing Ottehr!' });
     this.checkInHeading = page.getByRole('heading', { name: 'You are checked in!' });
     this.locationName = page.getByTestId(dataTestIds.locationNameReviewScreen);
     this.prebookSlotReviewScreen = page.getByTestId(dataTestIds.prebookSlotReviewScreen);
@@ -95,6 +94,7 @@ export class Locators {
     this.termsAndConditions = page.getByTestId(dataTestIds.termsAndConditionsReviewScreen);
     this.proceedToPaperwork = page.getByRole('button', { name: 'Proceed to paperwork' });
     this.firstAvailableTime = page.getByText('First available time');
+    this.firstAvailableTimeButton = page.getByRole('button', {name: 'First available time'});
     this.editPencilReviewScreen = page.getByTestId('EditOutlinedIcon');
     this.modifyTimeThankYouScreen = page.getByRole('button', { name: 'Modify' });
     this.cancelVisitThankYouScreen = page.getByRole('button', { name: 'Cancel' });
@@ -138,14 +138,24 @@ export class Locators {
     this.pcpNumber = page.locator('[id="pcp-number"]');
     this.backButton = page.getByTestId(dataTestIds.backButton);
     this.pcpNumberErrorText = page.locator('[id="pcp-number-helper-text"]');
+    this.appointmentDescription = page.locator('.appointment-description');
   }
 
   async selectDifferentFamilyMember(): Promise<void> {
     await this.differentFamilyMember.click({ force: true });
   }
-  async clickContinueButton(): Promise<void> {
-    await this.continueButton.click();
-  }
+  async clickContinueButton(awaitNavigation = true): Promise<unknown> {
+    await expect(this.continueButton).toBeEnabled();
+    const currentPath = new URL(this.page.url()).pathname;
+    if (awaitNavigation) {
+      return await Promise.all([
+        this.page.waitForURL((url) => url.pathname !== currentPath),
+        this.continueButton.click(),
+      ]);
+    } else {
+      return await this.continueButton.click();
+    }
+  };
   async clickBackButton(): Promise<void> {
     await this.backButton.click();
   }
