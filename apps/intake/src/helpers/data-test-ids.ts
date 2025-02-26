@@ -18,4 +18,5 @@ export const dataTestIds = {
   privacyPolicyReviewScreen: 'privacy-policy-review-screen',
   termsAndConditionsReviewScreen: 'terms-conditions-review-screen',
   thankYouPageSelectedTimeBlock: 'thank-you-page-selected-time-block',
+  backButton: 'control-back-button',
 };
