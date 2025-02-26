@@ -1,5 +1,15 @@
 import { Operation } from 'fast-json-patch';
-import { Coverage, FhirResource, InsurancePlan, Patient, PatientLink, Practitioner, RelatedPerson } from 'fhir/r4b';
+import {
+  Coverage,
+  FhirResource,
+  InsurancePlan,
+  Organization,
+  Patient,
+  PatientLink,
+  Practitioner,
+  Reference,
+  RelatedPerson,
+} from 'fhir/r4b';
 import {
   getArrayInfo,
   getCurrentValue,
@@ -10,6 +20,9 @@ import {
   ResourceTypeNames,
   PatientMasterRecordResourceType,
   patientFieldPaths,
+  LANGUAGE_OPTIONS,
+  LanguageOption,
+  getPatchOperationToAddOrUpdatePreferredLanguage,
 } from 'utils';
 import { create } from 'zustand';
 
@@ -46,6 +59,8 @@ export type InsurancePlanRequirementKeyBooleans = {
 export interface InsurancePlanDTO extends InsurancePlanRequirementKeyBooleans {
   id: string;
   name: string;
+  ownedBy: Reference;
+  payerId: string;
 }
 
 export interface GetInsurancesResponse {
@@ -73,7 +88,7 @@ interface PatientStoreActions {
   dropInsurance: (coverageId: string) => void;
   setPolicyHolders: (policyHolders: RelatedPerson[]) => void;
   setInsurancePlans: (insurancePlans: InsurancePlanDTO[]) => void;
-  updatePatientField: (fieldName: string, value: string | boolean, resourceId?: string) => void;
+  updatePatientField: (fieldName: string, value: string | boolean | Reference, resourceId?: string) => void;
   addPatchOperation: (resourceType: PatientMasterRecordResourceType, operation: Operation, resourceId?: string) => void;
   addTempInsurance: (coverage: Coverage, relatedPerson: RelatedPerson) => void;
   updateTempInsurance: (coverageId: string, updatedInsurance: Insurance) => void;
@@ -155,6 +170,7 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
     const { isArray, parentPath } = getArrayInfo(path);
     const isTelecom = path.includes('/telecom/');
     const isResponsiblePartyBirthDate = patientFieldPaths.responsiblePartyBirthDate.includes(path);
+    const isPreferredLanguage = patientFieldPaths.preferredLanguage.includes(path);
 
     let newPatchOperation: Operation | undefined;
 
@@ -180,7 +196,23 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
           effectiveValue
         );
       }
-    } else if (isArray) {
+    } else if (isPreferredLanguage) {
+      if (typeof value !== 'string') {
+        throw new Error(`Invalid language value type: ${typeof value}`);
+      }
+      if (!(value in LANGUAGE_OPTIONS)) {
+        throw new Error(
+          `Invalid language option: ${value}. Expected one of: ${Object.keys(LANGUAGE_OPTIONS).join(', ')}`
+        );
+      }
+      newPatchOperation = getPatchOperationToAddOrUpdatePreferredLanguage(
+        value as LanguageOption,
+        path,
+        resource as Patient,
+        effectiveValue as LanguageOption
+      );
+    } else if (isArray && path !== '/contact/0/name/given/0') {
+      // ^skip contact name to process like general value
       const effectiveArrayValue = getEffectiveValue(resource, parentPath, state.patchOperations?.patient || []);
       const arrayMatch = path.match(/^(.+)\/(\d+)$/);
 
@@ -272,7 +304,7 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
             path: path,
           };
         }
-      } else {
+      } else if (value !== effectiveValue) {
         newPatchOperation = { op: effectiveValue === undefined ? 'add' : 'replace', path, value };
       }
     }
@@ -438,16 +470,26 @@ const getEffectiveValue = (
   return effectiveValue;
 };
 
-export const createInsurancePlanDto = (insurancePlan: InsurancePlan): InsurancePlanDTO => {
-  const { id, name, extension } = insurancePlan;
+export const createInsurancePlanDto = (insurancePlan: InsurancePlan, organization: Organization): InsurancePlanDTO => {
+  const { id, name, ownedBy, extension } = insurancePlan;
 
-  if (!id || !name) {
-    throw new Error('Insurance missing id or name.');
+  if (!id || !name || !ownedBy) {
+    throw new Error('Insurance is missing id, name or owning organization.');
+  }
+
+  const payerId = organization?.identifier
+    ?.find((identifier) => identifier.type?.coding?.some((coding) => coding.system === 'payer-id'))
+    ?.type?.coding?.find((coding) => coding.system === 'payer-id')?.code;
+
+  if (!payerId) {
+    throw new Error('Owning organization is missing payer-id.');
   }
 
   const insurancePlanDto: InsurancePlanDTO = {
     id,
     name,
+    ownedBy,
+    payerId,
     ...(Object.fromEntries(
       eligibilityRequirementKeys.map((key) => [key, false])
     ) as InsurancePlanRequirementKeyBooleans),

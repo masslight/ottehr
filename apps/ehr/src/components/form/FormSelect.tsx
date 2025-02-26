@@ -4,7 +4,7 @@ import { Control, Controller, FieldValues, Path } from 'react-hook-form';
 
 interface SelectOption {
   label: string;
-  value: string;
+  value: string | number;
 }
 
 interface FormSelectProps<T extends FieldValues> extends Omit<SelectProps, 'name'> {

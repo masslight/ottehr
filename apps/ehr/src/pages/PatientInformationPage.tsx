@@ -1,5 +1,5 @@
 import { Box, Button, Typography, useTheme } from '@mui/material';
-import { BundleEntry, Coverage, InsurancePlan, Patient, RelatedPerson } from 'fhir/r4b';
+import { BundleEntry, Coverage, InsurancePlan, Organization, Patient, RelatedPerson } from 'fhir/r4b';
 import { FC, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -58,11 +58,23 @@ const PatientInformationPage: FC = () => {
   useGetInsurancePlans((data) => {
     const bundleEntries = data.entry;
     if (bundleEntries) {
+      const organizations = bundleEntries
+        .filter((bundleEntry: BundleEntry) => bundleEntry.resource?.resourceType === 'Organization')
+        .map((bundleEntry: BundleEntry) => bundleEntry.resource as Organization);
+
       const transformedInsurancePlans = bundleEntries
+        .filter((bundleEntry: BundleEntry) => bundleEntry.resource?.resourceType === 'InsurancePlan')
         .map((bundleEntry: BundleEntry) => {
           const insurancePlanResource = bundleEntry.resource as InsurancePlan;
+
           try {
-            return createInsurancePlanDto(insurancePlanResource);
+            const organizationId = insurancePlanResource.ownedBy?.reference?.split('/')[1];
+            const organizationResource = organizations.find((organization) => organization.id === organizationId);
+
+            if (!organizationResource) {
+              throw new Error(`Organization resource is not found by id: ${organizationId}.`);
+            }
+            return createInsurancePlanDto(insurancePlanResource, organizationResource);
           } catch (err) {
             console.error(err);
             console.log('Could not add insurance plan due to incomplete data:', JSON.stringify(insurancePlanResource));

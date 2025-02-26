@@ -3,6 +3,7 @@ import { HumanName } from 'fhir/r4b';
 import { FC, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import {
+  LANGUAGE_OPTIONS,
   PATIENT_COMMON_WELL_CONSENT_URL,
   PATIENT_ETHNICITY_URL,
   PATIENT_GENDER_IDENTITY_DETAILS_URL,
@@ -36,27 +37,26 @@ export const PatientDetailsContainer: FC = () => {
 
   if (!patient) return null;
 
-  const howDidYouHearAboutUs = patient?.extension?.find(
-    (e: { url: string }) => e.url === PATIENT_POINT_OF_DISCOVERY_URL
-  )?.valueString;
+  const howDidYouHearAboutUs = patient.extension?.find((e: { url: string }) => e.url === PATIENT_POINT_OF_DISCOVERY_URL)
+    ?.valueString;
 
-  const sendMarketingMessages = patient?.extension?.find((e: { url: string }) => e.url === PATIENT_SEND_MARKETING_URL)
+  const sendMarketingMessages = patient.extension?.find((e: { url: string }) => e.url === PATIENT_SEND_MARKETING_URL)
     ?.valueBoolean;
 
-  const commonWellConsent = patient?.extension?.find((e: { url: string }) => e.url === PATIENT_COMMON_WELL_CONSENT_URL)
+  const commonWellConsent = patient.extension?.find((e: { url: string }) => e.url === PATIENT_COMMON_WELL_CONSENT_URL)
     ?.valueBoolean;
 
   const previousNames = patient.name?.filter((name) => name.use === 'old').reverse() || [];
 
   const preferredLanguage = patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0].display;
 
-  const sexualOrientation = patient?.extension?.find((e: { url: string }) => e.url === PATIENT_SEXUAL_ORIENTATION_URL)
+  const sexualOrientation = patient.extension?.find((e: { url: string }) => e.url === PATIENT_SEXUAL_ORIENTATION_URL)
     ?.valueCodeableConcept?.coding?.[0].display;
 
-  const genderIdentity = patient?.extension?.find((e: { url: string }) => e.url === PATIENT_GENDER_IDENTITY_URL)
+  const genderIdentity = patient.extension?.find((e: { url: string }) => e.url === PATIENT_GENDER_IDENTITY_URL)
     ?.valueCodeableConcept?.coding?.[0].display;
 
-  const genderIdentityDetails = patient?.extension?.find(
+  const genderIdentityDetails = patient.extension?.find(
     (e: { url: string }) => e.url === PATIENT_GENDER_IDENTITY_DETAILS_URL
   )?.valueString;
 
@@ -160,42 +160,15 @@ export const PatientDetailsContainer: FC = () => {
           </Box>
         </Box>
       )}
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          gap: '5px',
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', flex: '0 1 30%' }}>
-          <Typography sx={{ color: theme.palette.primary.dark }}>How did you hear about us?</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', flex: '1 1 70%' }}>
-          <Controller
-            name={patientFieldPaths.pointOfDiscovery}
-            control={control}
-            defaultValue={howDidYouHearAboutUs || ''}
-            render={({ field }) => (
-              <Select
-                {...field}
-                value={field.value || ''}
-                variant="standard"
-                sx={{ width: '100%' }}
-                onChange={(e) => {
-                  field.onChange(e);
-                  handleChange(e as any);
-                }}
-              >
-                {POINT_OF_DISCOVERY_OPTIONS.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            )}
-          />
-        </Box>
-      </Box>
+      <Row label="How did you hear about us?">
+        <FormSelect
+          name={patientFieldPaths.pointOfDiscovery}
+          control={control}
+          options={POINT_OF_DISCOVERY_OPTIONS}
+          defaultValue={howDidYouHearAboutUs}
+          onChangeHandler={handleChange}
+        />
+      </Row>
       <Box
         sx={{
           display: 'flex',
@@ -261,18 +234,9 @@ export const PatientDetailsContainer: FC = () => {
                   handleChange(e as any);
                 }}
               >
-                {[
-                  {
-                    label: 'English',
-                    value: 'English',
-                  },
-                  {
-                    label: 'Spanish',
-                    value: 'Spanish',
-                  },
-                ].map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
+                {Object.entries(LANGUAGE_OPTIONS).map(([key, value]) => (
+                  <MenuItem key={value} value={value}>
+                    {key}
                   </MenuItem>
                 ))}
               </Select>

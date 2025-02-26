@@ -86,6 +86,8 @@ export const patientFieldPaths = {
 export const coverageFieldPaths = {
   memberId: 'Coverage/identifier/0/value',
   carrier: 'Coverage/class/0/name',
+  payerId: 'Coverage/class/0/value',
+  payor: 'Coverage/payor/0',
   order: 'Coverage/order',
   additionalInformation: `Coverage/extension/${COVERAGE_ADDITIONAL_INFORMATION_URL}`,
   relationship: 'Coverage/relationship/coding/0/display',
@@ -194,6 +196,21 @@ const PRONOUNS_MAPPING = {
     system: 'http://loinc.org',
   },
   'They/them': {
+    code: 'LA29520-6',
+    display: 'They/Them/Their',
+    system: 'http://loinc.org',
+  },
+  'He/Him/His': {
+    code: 'LA29518-0',
+    display: 'He/Him/His',
+    system: 'http://loinc.org',
+  },
+  'She/Her/Her': {
+    code: 'LA29519-8',
+    display: 'She/Her/Her',
+    system: 'http://loinc.org',
+  },
+  'They/Them/Their': {
     code: 'LA29520-6',
     display: 'They/Them/Their',
     system: 'http://loinc.org',

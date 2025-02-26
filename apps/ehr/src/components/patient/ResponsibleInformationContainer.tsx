@@ -9,7 +9,7 @@ import { usePatientStore } from '../../state/patient.store';
 export const ResponsibleInformationContainer: FC = () => {
   const { patient, updatePatientField } = usePatientStore();
 
-  const { control } = useFormContext();
+  const { control, setValue } = useFormContext();
 
   if (!patient) return null;
 
@@ -24,10 +24,21 @@ export const ResponsibleInformationContainer: FC = () => {
     updatePatientField(name, value);
   };
 
+  const fullName =
+    patient?.contact?.[0]?.name?.family && patient?.contact?.[0]?.name?.given?.[0]
+      ? `${patient.contact[0].name.family}, ${patient.contact[0].name.given[0]}`
+      : '';
+
   const handleResponsiblePartyNameChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const value = e.target.value;
 
-    const [lastName = '', firstName = ''] = value.split(',').map((part) => part.trim());
+    // Auto-format: If there's a space between words but no comma, add the comma
+    const formattedValue = value.includes(',')
+      ? value
+      : value.replace(/(\w+)\s+(\w+)/, (_, lastName, firstName) => `${lastName}, ${firstName}`);
+    // Update the input value with formatted version
+    setValue(patientFieldPaths.responsiblePartyName, formattedValue);
+    const [lastName = '', firstName = ''] = formattedValue.split(',').map((part) => part.trim());
 
     // Update both name parts
     handleChange({
@@ -68,7 +79,7 @@ export const ResponsibleInformationContainer: FC = () => {
         <FormTextField
           name={patientFieldPaths.responsiblePartyName}
           control={control}
-          defaultValue={`${patient?.contact?.[0].name?.family}, ${patient?.contact?.[0].name?.given?.[0]}`}
+          defaultValue={fullName}
           rules={{ required: true }}
           onChangeHandler={handleResponsiblePartyNameChange}
           id="responsible-party-full-name"

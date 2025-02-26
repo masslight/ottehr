@@ -11,10 +11,12 @@ type ActionBarProps = {
 export const ActionBar: FC<ActionBarProps> = ({ handleDiscard }) => {
   const theme = useTheme();
 
-  const { patient, patchOperations, reset, tempInsurances } = usePatientStore();
+  const { patient, patchOperations, reset: resetPatchOperations, tempInsurances } = usePatientStore();
   const {
     formState: { isDirty },
+    getValues,
     trigger,
+    reset: resetForm,
   } = useFormContext();
   const { mutateAsync: mutatePatientMasterRecord } = useUpdatePatient();
 
@@ -36,7 +38,15 @@ export const ActionBar: FC<ActionBarProps> = ({ handleDiscard }) => {
     if (!isValid) return;
 
     await mutatePatientMasterRecord();
-    reset();
+    resetPatchOperations();
+    resetForm(
+      {
+        ...getValues(),
+      },
+      {
+        keepDirty: false,
+      }
+    );
   };
 
   return (
