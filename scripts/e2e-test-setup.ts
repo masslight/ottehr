@@ -1,9 +1,9 @@
 import fs from 'fs';
 import { input, password } from '@inquirer/prompts';
 import dotenv from 'dotenv';
-import { defaultLocation } from 'utils';
 import Oystehr from '@oystehr/sdk';
 import { Location } from 'fhir/r4b';
+import { DEFAULT_TESTING_SLUG } from '../packages/intake/zambdas/scripts/setup-default-locations';
 
 interface EhrConfig {
   TEXT_USERNAME?: string;
@@ -37,57 +37,67 @@ interface IntakeConfig {
   [key: string]: any;
 }
 
-async function getLocationForTesting(ehrZambdaEnv: Record<string, string>): Promise<string | undefined> {
-  try {
-    const tokenResponse = await fetch(ehrZambdaEnv.AUTH0_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+async function getLocationForTesting(
+  ehrZambdaEnv: Record<string, string>
+): Promise<{ locationId: string; locationName: string; locationSlug: string; locationState: string }> {
+  const tokenResponse = await fetch(ehrZambdaEnv.AUTH0_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      client_id: ehrZambdaEnv.AUTH0_CLIENT,
+      client_secret: ehrZambdaEnv.AUTH0_SECRET,
+      audience: ehrZambdaEnv.AUTH0_AUDIENCE,
+      grant_type: 'client_credentials',
+    }),
+  });
+
+  const tokenData = await tokenResponse.json();
+
+  const oystehr = new Oystehr({
+    accessToken: tokenData.access_token,
+    projectId: ehrZambdaEnv.PROJECT_ID,
+    services: {
+      fhirApiUrl: ehrZambdaEnv.FHIR_API,
+      projectApiUrl: ehrZambdaEnv.PROJECT_API,
+    },
+  });
+
+  const testingResponse = await oystehr.fhir.search<Location>({
+    resourceType: 'Location',
+    params: [
+      {
+        name: 'identifier',
+        value: `https://fhir.ottehr.com/r4/slug|${DEFAULT_TESTING_SLUG}`,
       },
-      body: JSON.stringify({
-        client_id: ehrZambdaEnv.AUTH0_CLIENT,
-        client_secret: ehrZambdaEnv.AUTH0_SECRET,
-        audience: ehrZambdaEnv.AUTH0_AUDIENCE,
-        grant_type: 'client_credentials',
-      }),
-    });
+    ],
+  });
 
-    const tokenData = await tokenResponse.json();
+  if (testingResponse.entry && testingResponse.entry.length > 0) {
+    const locationResource = testingResponse.entry[0].resource;
 
-    const oystehr = new Oystehr({
-      accessToken: tokenData.access_token,
-      projectId: ehrZambdaEnv.PROJECT_ID,
-      services: {
-        fhirApiUrl: ehrZambdaEnv.FHIR_API,
-        projectApiUrl: ehrZambdaEnv.PROJECT_API,
-      },
-    });
+    const locationId = locationResource?.id;
+    const locationName = locationResource?.name;
+    const locationSlug = locationResource?.identifier?.[0]?.value;
+    const locationState = (locationResource?.address?.state || '').toLowerCase();
 
-    let locationId: string | undefined;
-
-    // try to find location with the "testing" slug, as it's used for the New York location
-    const testingResponse = await oystehr.fhir.search<Location>({
-      resourceType: 'Location',
-      params: [
-        {
-          name: 'identifier',
-          value: `https://fhir.ottehr.com/r4/slug|testing`,
-        },
-      ],
-    });
-
-    if (testingResponse.entry && testingResponse.entry.length > 0) {
-      locationId = testingResponse.entry[0].resource?.id;
-      console.log(`Found location by slug 'testing' with ID: ${locationId}`);
-      return locationId;
+    if (!locationId || !locationName || !locationSlug || !locationState) {
+      throw Error('Required location properties not found');
     }
 
-    console.warn('No locations found in FHIR API');
-    return undefined;
-  } catch (error) {
-    console.error('Error fetching location:', error);
-    return undefined;
+    console.log(`Found location by slug '${DEFAULT_TESTING_SLUG}' with ID: ${locationId}`);
+    console.log(`Location name: ${locationName}, slug: ${locationSlug}, state: ${locationState}`);
+
+    return {
+      locationId,
+      locationName,
+      locationSlug,
+      locationState,
+    };
   }
+
+  throw Error('No locations found in FHIR API');
 }
 
 export async function createTestEnvFiles(): Promise<void> {
@@ -106,17 +116,7 @@ export async function createTestEnvFiles(): Promise<void> {
 
     const intakeUiEnv: Record<string, string> = dotenv.parse(fs.readFileSync('apps/intake/env/.env.local', 'utf8'));
 
-    const locationId = (await getLocationForTesting(ehrZambdaEnv)) || '';
-
-    const locationName = defaultLocation.name || '';
-    const locationSlug = defaultLocation.identifier?.[0]?.value || '';
-    const locationState = (defaultLocation.address?.state || '').toLowerCase();
-
-    if (locationId) {
-      console.log(`Using location ID: ${locationId} with defaultLocation properties`);
-    } else {
-      console.warn('No location ID found, using empty ID with defaultLocation properties');
-    }
+    const { locationId, locationName, locationSlug, locationState } = await getLocationForTesting(ehrZambdaEnv);
 
     let ehrTemplateEnv = {};
     let intakeTemplateEnv = {};

@@ -51,11 +51,6 @@ jobs:
             "${{ steps.get-token.outputs.access_token }}" \
             "${{ env.TEST_EMAIL }}"
 
-      - name: Run test-setup script
-        run: |
-          chmod +x scripts/e2e-test-setup.sh
-          ./scripts/e2e-test-setup.sh --skip-prompts
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -95,7 +90,7 @@ jobs:
             mkdir -p "apps/$app/env"
             cp "secrets/$app/app/tests."*.json "apps/$app/env/"
             cp "secrets/$app/app/.env.local" "apps/$app/env/"
-            # TODO: copy secrets/$app/app/tests.clear-install.json to apps/$app/env/tests.local.json (tests.clear-install.json should be added to secrets repo)
+            cp -f "secrets/${app}/tests.clean-setup.json" "apps/${app}/env/tests.local.json" # temporary solution, web url should be used
           }
 
           for app in ehr intake; do
@@ -106,6 +101,11 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps chromium
+
+      - name: Run test-setup script
+        run: |
+          chmod +x scripts/e2e-test-setup.sh
+          ./scripts/e2e-test-setup.sh --skip-prompts    
 
       - name: Run E2E tests on the EHR application
         run: npm run ehr:e2e:local
