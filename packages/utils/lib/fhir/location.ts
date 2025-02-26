@@ -65,6 +65,12 @@ export const defaultLocation: Location = {
   status: 'active',
   name: 'Testing',
   description: 'Test description',
+  identifier: [
+    {
+      system: 'https://fhir.ottehr.com/r4/slug',
+      value: 'testing',
+    },
+  ],
   address: {
     use: 'work',
     type: 'physical',
