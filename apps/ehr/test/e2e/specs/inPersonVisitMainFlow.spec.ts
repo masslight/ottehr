@@ -97,6 +97,16 @@ async function addAppointment(patientLastName: string, page: Page): Promise<void
   await addPatientPage.selectVisitType(VISIT_TYPE_PREBOOK);
   await addPatientPage.selectFirstAvailableSlot();
   await addPatientPage.clickAddButton();
+
+  const response = await page.waitForResponse(
+    (response) => response.url().includes('/create-appointment/') && response.status() === 200
+  );
+  const body = (await response.json()) as { appointment: string | null } | undefined;
+  if (!body?.appointment) {
+    throw new Error('Appointment id not found');
+  }
+  await resourceHandler.waitTillAppointmentPreprocessed(body.appointment);
+
   const visitsPage = await expectVisitsPage(page);
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickPrebookedTab();
