@@ -51,6 +51,11 @@ jobs:
             "${{ steps.get-token.outputs.access_token }}" \
             "${{ env.TEST_EMAIL }}"
 
+      - name: Run test-setup script
+        run: |
+          chmod +x scripts/e2e-test-setup.sh
+          ./scripts/e2e-test-setup.sh --skip-prompts
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
