@@ -4,6 +4,7 @@ import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore, useSaveChartData } from '../../../../state';
 import { enqueueSnackbar } from 'notistack';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const PatientInfoConfirmedCheckbox: FC = () => {
   const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
@@ -39,6 +40,7 @@ export const PatientInfoConfirmedCheckbox: FC = () => {
         <Checkbox
           disabled={isLoading || isReadOnly}
           checked={patientInfoConfirmed}
+          data-testid={dataTestIds.telemedEhrFlow.patientInfoConfirmationCheckbox}
           onChange={(e) => onChange(e.target.checked)}
         />
       }

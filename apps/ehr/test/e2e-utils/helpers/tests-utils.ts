@@ -1,4 +1,5 @@
 import { expect, Page } from '@playwright/test';
+import { dataTestIds } from '../../../src/constants/data-test-ids';
 
 export async function waitForSnackbar(page: Page): Promise<void> {
   // for this moment it's the easiest way to check for snackbar, data-key didn't work out
@@ -32,4 +33,15 @@ export async function fetchWithOystAuth<T = any>(
   }
   console.log(`Request status for ${url}: `, response.status);
   return response.body ? await response.json() : {};
+}
+
+export async function awaitAppointmentsTableToBeVisible(page: Page): Promise<void> {
+  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTable)).toBeVisible();
+  await expect(page.getByTestId(dataTestIds.dashboard.loadingIndicator)).not.toBeVisible();
+}
+
+export async function telemedDialogConfirm(page: Page): Promise<void> {
+  const dialogButtonConfirm = page.getByTestId(dataTestIds.telemedEhrFlow.dialogButtonConfirm);
+  await expect(dialogButtonConfirm).toBeVisible();
+  await dialogButtonConfirm.click();
 }
