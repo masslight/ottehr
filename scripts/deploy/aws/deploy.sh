@@ -1,7 +1,7 @@
-project_id=$(grep '"project_id"' "$(dirname "$0")/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
-access_token=$(grep '"access_token"' "$(dirname "$0")/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
-provider_email=$(grep '"provider_email"' "$(dirname "$0")/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
-environment=$(grep '"environment"' "$(dirname "$0")/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
+project_id=$(grep '"project_id"' "$(dirname "$0")/../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
+access_token=$(grep '"access_token"' "$(dirname "$0")/../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
+provider_email=$(grep '"provider_email"' "$(dirname "$0")/../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
+environment=$(grep '"environment"' "$(dirname "$0")/../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
 ENV=$environment
 
 if [ -f "apps/intake/env/.env.$environment" ]; then
@@ -11,7 +11,6 @@ else
 fi
 
 echo $first_setup
-
 
 if $first_setup; then
     sh scripts/ottehr-setup.sh $project_id $access_token $provider_email $environment
@@ -34,22 +33,22 @@ ENV=$environment npm run setup-deployed-resources $environment
 cd ../../../apps/ehr
 npm run build:env --env=$environment
 
-cd ../../scripts/deploy-test
+cd ../../scripts/deploy/aws
 if $first_setup; then
     cdk bootstrap
     cdk deploy
 fi
 
-cd ../../apps/intake
+cd ../../../apps/intake
 npm run build:env --env=$environment
 cd ../ehr
 npm run build:env --env=$environment
-cd ../../scripts/deploy-test
+cd ../../scripts/deploy/aws
 cdk deploy
 
-cd ../../apps/intake
+cd ../../../apps/intake
 npm run build:env --env=$environment
 cd ../ehr
 npm run build:env --env=$environment
-cd ../../scripts/deploy-test
+cd ../../scripts/deploy/aws
 cdk deploy
