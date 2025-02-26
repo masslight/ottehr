@@ -1,6 +1,6 @@
 # app
 
-The create-react-app static frontend web application for Ottehr Intake.
+The static frontend web application for Ottehr Patient Portal.
 
 Patients use the application to sign up for and manage appointments. They can do things like schedule new appointments, cancel appointments, reschedule appointments, and fill out paperwork for appointments.
 

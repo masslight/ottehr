@@ -13,11 +13,11 @@
       "path": "../packages/ehr/zambdas",
     },
     {
-      "name": "Intake UI",
+      "name": "Patient Portal UI",
       "path": "../apps/intake",
     },
     {
-      "name": "Intake Zambdas",
+      "name": "Patient Portal Zambdas",
       "path": "../packages/intake/zambdas",
     },
     {
@@ -36,6 +36,8 @@
     },
   },
   "extensions": {
-    "recommendations": ["dbaeumer.vscode-eslint"],
+    "recommendations": [
+      "dbaeumer.vscode-eslint"
+    ],
   },
 }
