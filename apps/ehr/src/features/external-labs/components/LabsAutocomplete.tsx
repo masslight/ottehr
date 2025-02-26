@@ -108,7 +108,7 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
           onChange={(_, newValue) => setSelectedLab(newValue)}
           inputValue={inputValue}
           onInputChange={(_, newValue) => setInputValue(newValue)}
-          renderInput={(params) => <TextField {...params} label="Lab" variant="outlined" />}
+          renderInput={(params) => <TextField required {...params} label="Lab" variant="outlined" />}
         />
       )}
     </Box>

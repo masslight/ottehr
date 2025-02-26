@@ -20,7 +20,6 @@ import {
 import { LoadingButton } from '@mui/lab';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AssessmentTitle } from '../../../telemed/features/appointment/AssessmentTab';
 import { useAppointmentStore, useGetIcd10Search, useDebounce, ActionsList, DeleteIconButton } from '../../../telemed';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { DiagnosisDTO, isLocationVirtual, OrderableItemSearchResult } from 'utils';
@@ -46,8 +45,7 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
   const [loadingLocations, setLoadingLocations] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [locations, setLocations] = useState<Location[]>([]);
-  const [orderDxPrimary, setOrderDxPrimary] = useState<DiagnosisDTO | undefined>(undefined);
-  const [orderDxSecondary, setOrderDxSecondary] = useState<DiagnosisDTO[]>([]);
+  const [orderDx, setOrderDx] = useState<DiagnosisDTO[]>([]);
   const [selectedLab, setSelectedLab] = useState<OrderableItemSearchResult | null>(null);
   const [office, setOffice] = useState<Location | undefined>(undefined);
   const [pscHold, setPscHold] = useState<boolean>(true); // defaulting & locking to true for mvp
@@ -77,7 +75,7 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
 
   useEffect(() => {
     if (primaryDiagnosis) {
-      setOrderDxPrimary(primaryDiagnosis);
+      setOrderDx([primaryDiagnosis]);
     }
   }, [primaryDiagnosis]);
 
@@ -117,20 +115,14 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
   }, [oystehr, loadingLocations, locations.length]);
 
   const addDxToOrder = (dx: DiagnosisDTO): void => {
-    if (dx.code === primaryDiagnosis?.code) {
-      if (!orderDxPrimary) setOrderDxPrimary(dx);
-    } else if (!orderDxSecondary.find((tempdx) => tempdx.code === dx.code)) {
-      setOrderDxSecondary([...orderDxSecondary, dx]);
+    if (!orderDx.find((tempdx) => tempdx.code === dx.code)) {
+      setOrderDx([...orderDx, dx]);
     }
   };
 
-  const removeDxFromOrder = (dx: DiagnosisDTO, type: 'Primary' | 'Secondary'): void => {
-    if (type === 'Primary') {
-      setOrderDxPrimary(undefined);
-    } else {
-      const updatedDx = orderDxSecondary.filter((dxVal) => dxVal.code !== dx.code);
-      setOrderDxSecondary(updatedDx);
-    }
+  const removeDxFromOrder = (dx: DiagnosisDTO): void => {
+    const updatedDx = orderDx.filter((dxVal) => dxVal.code !== dx.code);
+    setOrderDx(updatedDx);
   };
 
   const locationOptions = useMemo(() => {
@@ -151,11 +143,10 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
     setSubmitting(true);
     console.log('check submit params', patientId, office, practitionerId);
     console.log('encounter', encounter);
-    const dx = orderDxPrimary ? [orderDxPrimary, ...orderDxSecondary] : [];
-    if (oystehrZambda && dx.length && patientId && office && practitionerId && selectedLab) {
+    if (oystehrZambda && orderDx.length && patientId && office && practitionerId && selectedLab) {
       try {
         const res = await createLabOrder(oystehrZambda, {
-          dx,
+          dx: orderDx,
           patientId,
           encounter,
           location: office,
@@ -255,40 +246,18 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
                   )}
                 />
               </Grid>
-              <Grid item xs={12}>
-                {orderDxPrimary && (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <AssessmentTitle>Primary</AssessmentTitle>
-                    <ActionsList
-                      data={[orderDxPrimary]}
-                      getKey={(value, index) => value.resourceId || index}
-                      renderItem={(value) => (
-                        <Typography>
-                          {value.display} {value.code}
-                        </Typography>
-                      )}
-                      renderActions={(value) => (
-                        <DeleteIconButton onClick={() => removeDxFromOrder(value, 'Primary')} />
-                      )}
-                    />
-                  </Box>
-                )}
-              </Grid>
-              {orderDxSecondary.length > 0 && (
+              {orderDx.length > 0 && (
                 <Grid item xs={12}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <AssessmentTitle>Secondary</AssessmentTitle>
                     <ActionsList
-                      data={orderDxSecondary}
+                      data={orderDx}
                       getKey={(value, index) => value.resourceId || index}
                       renderItem={(value) => (
                         <Typography>
                           {value.display} {value.code}
                         </Typography>
                       )}
-                      renderActions={(value) => (
-                        <DeleteIconButton onClick={() => removeDxFromOrder(value, 'Secondary')} />
-                      )}
+                      renderActions={(value) => <DeleteIconButton onClick={() => removeDxFromOrder(value)} />}
                     />
                   </Box>
                 </Grid>
