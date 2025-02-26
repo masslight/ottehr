@@ -203,6 +203,7 @@ export interface VisitNoteData extends ExaminationBlockData {
   vitals?: VitalsVisitNoteData & {
     notes?: string[];
   };
+  intakeNotes?: string[];
   assessment?: {
     primary: string;
     secondary: string[];

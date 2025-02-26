@@ -92,14 +92,21 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
   }
   console.log('creating appointment');
 
-  const { message, appointmentId, patientId } = await createAppointment(
-    { locationState, patient, user, unconfirmedDateOfBirth, secrets },
-    oystehr
-  );
+  const { message, appointmentId, patientId, encounterId, questionnaireId, resources, relatedPersonId } =
+    await createAppointment({ locationState, patient, user, unconfirmedDateOfBirth, secrets }, oystehr);
 
   await createAuditEvent(AuditableZambdaEndpoints.appointmentCreate, oystehr, input, patientId, secrets);
 
-  const response: CreateAppointmentUCTelemedResponse = { message, appointmentId, patientId };
+  const response: CreateAppointmentUCTelemedResponse = {
+    message,
+    appointmentId,
+    patientId,
+    encounterId,
+    questionnaireId,
+    relatedPersonId,
+    resources,
+  };
+
   console.log(`fhirAppointment = ${JSON.stringify(response)}`, 'Telemed visit');
   return {
     statusCode: 200,
@@ -158,7 +165,12 @@ export async function createAppointment(
   const questionnaire = await getCurrentQuestionnaireForServiceType(ServiceMode.virtual, secrets, oystehr);
 
   console.log('performing Transactional Fhir Requests for new appointment');
-  const { appointment, patient: fhirPatient } = await performTransactionalFhirRequests({
+  const {
+    appointment,
+    patient: fhirPatient,
+    questionnaire: questionnaireResponse,
+    encounter,
+  } = await performTransactionalFhirRequests({
     patient: maybeFhirPatient,
     reasonForVisit: patient?.reasonForVisit || '',
     questionnaire,
@@ -177,7 +189,7 @@ export async function createAppointment(
     },
   });
 
-  await createUpdateUserRelatedResources(oystehr, patient, fhirPatient, user);
+  const { relatedPersonRef = '' } = await createUpdateUserRelatedResources(oystehr, patient, fhirPatient, user);
 
   // verifiedPhoneNumber = phoneVerified ?? verifiedPhoneNumber;
 
@@ -186,6 +198,15 @@ export async function createAppointment(
     message: 'Successfully created an appointment and encounter',
     appointmentId: appointment.id || '',
     patientId: fhirPatient.id || '',
+    questionnaireId: questionnaireResponse.id || '',
+    encounterId: encounter.id || '',
+    relatedPersonId: relatedPersonRef?.split('/')?.[1] || '',
+    resources: {
+      appointment: appointment,
+      encounter: encounter,
+      questionnaire: questionnaireResponse,
+      patient: fhirPatient,
+    },
   };
 }
 
@@ -210,6 +231,7 @@ interface TransactionOutput {
   appointment: Appointment;
   encounter: Encounter;
   patient: Patient;
+  questionnaire: QuestionnaireResponse;
 }
 
 export const performTransactionalFhirRequests = async (input: TransactionInput): Promise<TransactionOutput> => {
@@ -328,6 +350,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
 
   const canonUrl = `${questionnaire.url}|${questionnaire.version}`;
   const patientToUse = createPatientRequest?.resource ?? patient ?? { resourceType: 'Patient' };
+
   const item: QuestionnaireResponseItem[] = makePrepopulatedItemsForPatient({
     patient: patientToUse,
     // location,
@@ -369,9 +392,11 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   };
 
   const patientRequests: BatchInputRequest<Patient>[] = [];
+
   if (updatePatientRequest) {
     patientRequests.push(updatePatientRequest);
   }
+
   if (createPatientRequest) {
     patientRequests.push(createPatientRequest);
   }
@@ -379,22 +404,32 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   const transactionInput = {
     requests: [...patientRequests, ...listRequests, postApptReq, postEncRequest, postQRRequest],
   };
+
   console.log('making transaction request');
+
   const bundle = await oystehr.fhir.transaction<Appointment | Encounter | Patient | List | QuestionnaireResponse>(
     transactionInput
   );
+
   return extractResourcesFromBundle(bundle, patient);
 };
 
 const extractResourcesFromBundle = (bundle: Bundle<Resource>, maybePatient?: Patient): TransactionOutput => {
   console.log('getting resources from bundle');
+
   const entry = bundle.entry ?? [];
+
   const appointment: Appointment = entry.find((appt) => {
     return appt.resource && appt.resource.resourceType === 'Appointment';
   })?.resource as Appointment;
+
   const encounter: Encounter = entry.find((enc) => {
     return enc.resource && enc.resource.resourceType === 'Encounter';
   })?.resource as Encounter;
+
+  const questionnaire: QuestionnaireResponse = entry.find((entry) => {
+    return entry.resource && entry.resource.resourceType === 'QuestionnaireResponse';
+  })?.resource as QuestionnaireResponse;
 
   if (appointment === undefined) {
     throw new Error('Appointment could not be created');
@@ -414,8 +449,9 @@ const extractResourcesFromBundle = (bundle: Bundle<Resource>, maybePatient?: Pat
   if (patient === undefined) {
     throw new Error('Patient could not be created');
   }
+
   console.log('successfully obtained resources from bundle');
-  return { appointment, encounter, patient };
+  return { appointment, encounter, patient, questionnaire };
 };
 
 export function getPatientContactEmail(patient: Patient): string | undefined {

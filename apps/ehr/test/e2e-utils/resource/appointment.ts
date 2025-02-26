@@ -2,7 +2,7 @@ import { Appointment, EncounterStatusHistory } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ENV_LOCATION_ID } from './constants';
 
-interface AppointmentParams {
+export interface AppointmentParams {
   patientId: string;
   locationId: string;
   startTime: string;
@@ -104,6 +104,77 @@ export function createAppointment({
             },
           ]
         : []),
+    ],
+  };
+}
+
+export function createTelemedAppointment({
+  patientId,
+  locationId = ENV_LOCATION_ID!,
+  startTime,
+  endTime,
+  description,
+  status = 'booked',
+}: Pick<
+  AppointmentParams,
+  'patientId' | 'locationId' | 'startTime' | 'endTime' | 'description' | 'status'
+>): Appointment {
+  const NOW_DT = DateTime.now().setZone('America/New_York');
+  const now = NOW_DT.toISO() || '';
+
+  return {
+    resourceType: 'Appointment',
+    meta: {
+      tag: [
+        {
+          code: 'OTTEHR-TM',
+        },
+        // {
+        //   system: 'created-by',
+        //   display: 'Staff aahmadli@masslight.com via QRS',
+        // },
+        {
+          system: 'https://fhir.ottehr.com/r4/provider-notifications-tag',
+          code: 'patient waiting',
+        },
+      ],
+    },
+    participant: [
+      {
+        actor: {
+          reference: `Patient/${patientId}`,
+        },
+        status: 'accepted',
+      },
+      {
+        actor: {
+          reference: `Location/${locationId}`,
+        },
+        status: 'accepted',
+      },
+    ],
+    start: startTime,
+    end: endTime,
+    appointmentType: {
+      text: 'prebook',
+    },
+    description: description,
+    status: status,
+    created: now,
+    extension: [
+      {
+        url: 'https://extensions.fhir.zapehr.com/appointment-virtual-service-pre-release',
+        extension: [
+          {
+            url: 'channelType',
+            valueCoding: {
+              system: 'https://fhir.zapehr.com/virtual-service-type',
+              code: 'chime-video-meetings',
+              display: 'Twilio Video Group Rooms',
+            },
+          },
+        ],
+      },
     ],
   };
 }

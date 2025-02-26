@@ -20,6 +20,7 @@ export const getAllResourcesFromFhir = async (
   searchDate?: DateTime
 ): Promise<FhirResource[]> => {
   const fhirSearchParams = {
+    //
     resourceType: 'Appointment',
     params: [
       {
@@ -73,6 +74,9 @@ export const getAllResourcesFromFhir = async (
       },
     ],
   };
+
+  console.log(22222221, fhirSearchParams);
+
   if (searchDate) {
     fhirSearchParams.params.push(
       {

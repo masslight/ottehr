@@ -23,9 +23,17 @@ export interface UpdatePaperworkResponse {
 
 export interface QuestionnaireItemConditionDefinition {
   question: string;
-  operator: '=' | '!=';
+  operator: '=' | '!=' | '>' | '<' | '>=' | '<=';
   answerString?: string;
   answerBoolean?: boolean;
+  answerDate?: string;
+  answerInteger?: number | string;
+}
+export interface ConditionKeyObject {
+  extension: string;
+  question: string;
+  operator: string;
+  answer: string;
 }
 
 export interface QuestionnaireItemTextWhen extends QuestionnaireItemConditionDefinition {

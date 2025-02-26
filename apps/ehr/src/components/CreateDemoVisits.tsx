@@ -4,7 +4,7 @@ import React from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { LoadingButton } from '@mui/lab';
 import { Box } from '@mui/system';
-import { createSampleAppointments } from 'utils/lib/helpers';
+import { createSamplePrebookAppointments } from 'utils/lib/helpers';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '@theme/colors';
 import { createDemoVisits } from '@theme/icons';
@@ -47,7 +47,7 @@ const CreateDemoVisits = (): ReactElement => {
       setLoading(true);
       setInputError(false);
       const authToken = await getAccessTokenSilently();
-      const response = await createSampleAppointments(
+      await createSamplePrebookAppointments(
         oystehr,
         authToken,
         formattedPhoneNumber,
@@ -62,7 +62,6 @@ const CreateDemoVisits = (): ReactElement => {
         message: 'Appointments created successfully!',
         severity: 'success',
       });
-      return response;
     } catch (error) {
       setSnackbar({
         open: true,

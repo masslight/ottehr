@@ -27,6 +27,7 @@ import {
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
 import { DeleteIconButton } from '../../../../components';
 import { enqueueSnackbar } from 'notistack';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const KnownAllergiesProviderColumn: FC = () => {
   const { chartData, isChartDataLoading } = getSelectors(useAppointmentStore, ['chartData', 'isChartDataLoading']);
@@ -37,11 +38,17 @@ export const KnownAllergiesProviderColumn: FC = () => {
   const length = allergies.length;
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+      data-testid={dataTestIds.telemedEhrFlow.hpiKnownAllergiesColumn}
+    >
       {isChartDataLoading && <ProviderSideListSkeleton />}
 
       {length > 0 && !isChartDataLoading && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box
+          sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+          data-testid={dataTestIds.telemedEhrFlow.hpiKnownAllergiesList}
+        >
           {allergies.map((value, index) => (
             <AllergyListItem key={value.resourceId || `new${index}`} value={value} index={index} length={length} />
           ))}
@@ -326,6 +333,7 @@ const AddAllergyField: FC = () => {
               <TextField
                 {...params}
                 onChange={(e) => debouncedHandleInputChange(e.target.value)}
+                data-testid={dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput}
                 label="Agent/Substance"
                 placeholder="Search"
                 InputLabelProps={{ shrink: true }}

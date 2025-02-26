@@ -413,6 +413,14 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     separateLine();
   }
 
+  if (data.intakeNotes && data.intakeNotes.length > 0) {
+    drawBlockHeader('Intake notes');
+    data.intakeNotes.forEach((record) => {
+      regularText(record);
+    });
+    separateLine();
+  }
+
   if (data.vitals && (Object.values(data.vitals).filter((arr) => arr && arr.length > 0) ?? []).length > 0) {
     drawBlockHeader('Vitals');
 
