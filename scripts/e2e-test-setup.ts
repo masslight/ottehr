@@ -65,38 +65,20 @@ async function getLocationForTesting(ehrZambdaEnv: Record<string, string>): Prom
 
     let locationId: string | undefined;
 
-    const slugValue = defaultLocation.identifier?.[0]?.value || 'testing';
-
-    const locationsResponse = await oystehr.fhir.search<Location>({
+    // try to find location with the "testing" slug, as it's used for the New York location
+    const testingResponse = await oystehr.fhir.search<Location>({
       resourceType: 'Location',
       params: [
         {
           name: 'identifier',
-          value: `https://fhir.ottehr.com/r4/slug|${slugValue}`,
+          value: `https://fhir.ottehr.com/r4/slug|testing`,
         },
       ],
     });
 
-    if (locationsResponse.entry && locationsResponse.entry.length > 0) {
-      locationId = locationsResponse.entry[0].resource?.id;
-      console.log(`Found location by slug '${slugValue}' with ID: ${locationId}`);
-      return locationId;
-    }
-
-    // If not found by slug, try by name
-    const nameResponse = await oystehr.fhir.search<Location>({
-      resourceType: 'Location',
-      params: [
-        {
-          name: 'name',
-          value: defaultLocation.name || 'Testing',
-        },
-      ],
-    });
-
-    if (nameResponse.entry && nameResponse.entry.length > 0) {
-      locationId = nameResponse.entry[0].resource?.id;
-      console.log(`Found location by name '${defaultLocation.name}' with ID: ${locationId}`);
+    if (testingResponse.entry && testingResponse.entry.length > 0) {
+      locationId = testingResponse.entry[0].resource?.id;
+      console.log(`Found location by slug 'testing' with ID: ${locationId}`);
       return locationId;
     }
 
