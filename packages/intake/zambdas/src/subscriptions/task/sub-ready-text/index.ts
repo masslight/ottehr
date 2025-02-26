@@ -2,7 +2,7 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR, TaskStatus, getPatientContactEmail } from 'utils';
+import { DATETIME_FULL_NO_YEAR, PROJECT_WEBSITE, TaskStatus, getPatientContactEmail } from 'utils';
 import { ZambdaInput } from 'zambda-utils';
 import { topLevelCatch } from 'zambda-utils';
 import '../../../../instrument.mjs';
@@ -114,8 +114,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('info', email, timezone, startTime, visitType);
 
     if (fhirRelatedPerson) {
-      const message =
-        'Please set up access to your patient portal so you can view test results and discharge information: https://ottehr.com/patient-portal';
+      const message = `Please set up access to your patient portal so you can view test results and discharge information: ${PROJECT_WEBSITE}/patient-portal`;
       const { taskStatus, statusReason } = await sendText(message, fhirRelatedPerson, zapehrToken, secrets);
       taskStatusToUpdate = taskStatus;
       statusReasonToUpdate = statusReason;

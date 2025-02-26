@@ -34,7 +34,7 @@ import {
   getCanonicalQuestionnaire,
   makePrepopulatedItemsForPatient,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
-  OTTEHR_MODULE,
+  PROJECT_MODULE,
   PatientInfo,
   REASON_MAXIMUM_CHAR_LIMIT,
   ScheduleType,
@@ -402,7 +402,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     resourceType: 'Appointment',
     meta: {
       tag: [
-        { code: isVirtual ? OTTEHR_MODULE.TM : OTTEHR_MODULE.IP },
+        { code: isVirtual ? PROJECT_MODULE.TM : PROJECT_MODULE.IP },
         {
           system: CREATED_BY_SYSTEM,
           display: createdBy,

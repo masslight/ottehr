@@ -40,7 +40,7 @@ export default function PatientPage(): JSX.Element {
                   <Skeleton width={150} />
                 ) : (
                   <>
-                    <Typography component="span" sx={{ fontWeight: 700 }}>{`${lastName}, `}</Typography>
+                    <Typography component="span" sx={{ fontWeight: 500 }}>{`${lastName}, `}</Typography>
                     <Typography component="span">{`${firstName}`}</Typography>
                   </>
                 ),
@@ -102,7 +102,7 @@ export default function PatientPage(): JSX.Element {
                 <Tab
                   value="encounters"
                   label={
-                    <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>
+                    <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
                       Visits - {appointments?.length || 0}
                     </Typography>
                   }
@@ -110,7 +110,7 @@ export default function PatientPage(): JSX.Element {
                 <Tab
                   value="followups"
                   label={
-                    <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>
+                    <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
                       Patient Follow-ups
                     </Typography>
                   }

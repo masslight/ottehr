@@ -22,5 +22,11 @@ export default ({ mode }) => {
       outDir: './build',
       target: browserslistToEsbuild(),
     },
+    resolve: {
+      alias: {
+        '@theme': path.resolve(__dirname, env.THEME_PATH || '/src/themes/ottehr'),
+        '@defaultTheme': path.resolve(__dirname, '/src/themes/ottehr'),
+      },
+    },
   });
 };

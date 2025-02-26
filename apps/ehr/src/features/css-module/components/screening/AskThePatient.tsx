@@ -12,8 +12,7 @@ import {
   Paper,
   useTheme,
 } from '@mui/material';
-
-import { otherColors } from '../../../../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import { enqueueSnackbar } from 'notistack';
 import {
   ObservationTextFieldDTO,

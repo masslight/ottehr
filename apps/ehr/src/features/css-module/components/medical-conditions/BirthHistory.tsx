@@ -5,7 +5,6 @@ import {
   useGetAppointmentAccessibility,
   useSaveChartData,
 } from '../../../../telemed';
-import { otherColors } from '../../../../CustomThemeProvider';
 import {
   Box,
   Card,
@@ -26,6 +25,7 @@ import { BirthHistoryDTO } from 'utils';
 import { enqueueSnackbar } from 'notistack';
 import { useAppointment } from '../../hooks/useAppointment';
 import { DateTime } from 'luxon';
+import { otherColors } from '@theme/colors';
 
 type BirthHistoryProps = {
   appointmentID?: string;
@@ -342,7 +342,7 @@ const CheckboxWithNotesField: FC<CheckboxWithNotesFieldProps> = (props) => {
       >
         <FormLabel
           sx={{
-            fontWeight: 700,
+            fontWeight: 500,
             color: 'primary.dark',
             whiteSpace: 'nowrap',
           }}

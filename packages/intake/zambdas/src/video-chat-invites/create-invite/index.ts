@@ -5,6 +5,7 @@ import { SignJWT } from 'jose';
 import { JSONPath } from 'jsonpath-plus';
 import {
   FHIR_EXTENSION,
+  PROJECT_WEBSITE,
   VideoChatCreateInviteInput,
   VideoChatCreateInviteResponse,
   createOystehrClient,
@@ -123,7 +124,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const jwt = await new SignJWT()
       .setProtectedHeader({ alg })
       .setIssuedAt()
-      .setIssuer('https://ottehr.com')
+      .setIssuer(PROJECT_WEBSITE)
       .setSubject(emailAddress)
       .setAudience(`${websiteUrl}/waiting-room/appointment/${appointmentId}`)
       .setExpirationTime('24h')

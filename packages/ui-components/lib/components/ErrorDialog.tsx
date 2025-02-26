@@ -14,6 +14,7 @@ import { FC, ReactElement } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
+import { PROJECT_WEBSITE } from 'utils';
 
 export interface ErrorDialogConfig {
   title: string;
@@ -28,7 +29,7 @@ const UnexpectedErrorDescriptionComponent: FC = () => {
   return (
     <>
       {t('general.errors.unexpected.description')}{' '}
-      <Link to="https://ottehr.com" target="_blank">
+      <Link to={PROJECT_WEBSITE} target="_blank">
         {t('general.errors.unexpected.link')}
       </Link>
       .

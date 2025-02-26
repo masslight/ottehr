@@ -1,5 +1,6 @@
 import sendgrid, { ClientResponse } from '@sendgrid/mail';
 import { DateTime } from 'luxon';
+import { PROJECT_NAME } from 'utils';
 import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 
 export async function topLevelCatch(zambda: string, error: any, secrets: Secrets | null): Promise<void> {
@@ -82,7 +83,7 @@ export const sendgridEmail = async (
     to: toEmail,
     from: {
       email: fromEmail,
-      name: 'Ottehr',
+      name: PROJECT_NAME,
     },
     replyTo: fromEmail,
     templateId: sendgridTemplateId,

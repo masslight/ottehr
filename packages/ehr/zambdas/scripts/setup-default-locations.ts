@@ -10,6 +10,7 @@ import {
   ELIGIBILITY_PRACTITIONER_META_TAG_PREFIX,
   ELIGIBILITY_PRACTITIONER_TYPES,
   EligibilityPractitionerType,
+  FHIR_BASE_URL,
   FHIR_IDENTIFIER_NPI,
   filterVirtualLocations,
   getPatchBinary,
@@ -46,7 +47,7 @@ const checkTelemedVirtualLocations = async (config: any): Promise<void> => {
   console.log('All locations exists.');
 };
 
-const TELEMED_VIRTUAL_LOCATION_CODE_SYSTEM = 'https://fhir.ottehr.com/r4/location-code';
+const TELEMED_VIRTUAL_LOCATION_CODE_SYSTEM = `${FHIR_BASE_URL}/r4/location-code`;
 
 async function checkAndAddDataToLocations(oystehr: Oystehr): Promise<void> {
   try {
