@@ -25,6 +25,7 @@ import { getAppointmentStatusChip } from '../../../utils';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { enqueueSnackbar } from 'notistack';
 import useEvolveUser from '../../../../hooks/useEvolveUser';
+import { dataTestIds } from '../../../../constants/data-test-ids';
 
 const getPractitionerName = (practitioner?: Practitioner): string | undefined => {
   if (!practitioner) {
@@ -209,7 +210,7 @@ export const ERxContainer: FC = () => {
       <Stack gap={1}>
         <Stack direction="row" justifyContent="space-between">
           <Stack direction="row" gap={1} alignItems="center">
-            <Typography variant="h6" color="primary.dark">
+            <Typography variant="h6" color="primary.dark" data-testid={dataTestIds.eRXPage.erxTitle}>
               eRX
             </Typography>
             {(isLoading || isFetching || cancellationLoading.length > 0) && <CircularProgress size={16} />}
@@ -223,6 +224,7 @@ export const ERxContainer: FC = () => {
           >
             <Stack>
               <RoundedButton
+                data-testid={dataTestIds.eRXPage.newOrderButton}
                 disabled={isReadOnly || isERXLoading || !user?.isPractitionerEnrolledInPhoton}
                 variant="contained"
                 onClick={() => setIsERXOpen(true)}

@@ -38,6 +38,14 @@ export class VisitsPage {
     await this.#page.getByTestId(dataTestIds.dashboard.groupSelect).click();
     await this.#page.getByText(new RegExp(groupName, 'i')).click();
   }
+
+  async enterMobilePhone(phone: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.dashboard.phoneNumberInput).locator('input').fill(phone);
+  }
+
+  async clickCreateDemoVisitsButton(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.dashboard.createDemoVisitsButton).click();
+  }
 }
 
 export async function expectVisitsPage(page: Page): Promise<VisitsPage> {

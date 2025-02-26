@@ -8,6 +8,7 @@ import { createSampleAppointments } from 'utils/lib/helpers';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../CustomThemeProvider';
 import createDemoVisits from '../assets/create-demo-visits.svg';
+import { dataTestIds } from '../constants/data-test-ids';
 
 const createAppointmentZambdaId = import.meta.env.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID;
 const intakeZambdaUrl = import.meta.env.VITE_APP_INTAKE_ZAMBDAS_URL;
@@ -120,6 +121,7 @@ const CreateDemoVisits = (): ReactElement => {
       </Box>
       <Box sx={{ display: 'flex', flexGrow: 1, gap: 2, alignItems: 'center' }}>
         <TextField
+          data-testid={dataTestIds.dashboard.phoneNumberInput}
           label="Phone Number"
           value={phoneNumber}
           onChange={handleChange}
@@ -140,6 +142,7 @@ const CreateDemoVisits = (): ReactElement => {
           helperText={inputError ? 'Please enter a valid phone number' : ''}
         />
         <LoadingButton
+          data-testid={dataTestIds.dashboard.createDemoVisitsButton}
           loading={loading}
           onClick={handleCreateSampleAppointments}
           size="small"

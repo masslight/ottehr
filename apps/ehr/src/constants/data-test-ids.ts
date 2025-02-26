@@ -21,6 +21,8 @@ export const dataTestIds = {
     appointmentTime: 'appointment-time',
     inOfficeTab: 'in-office-tab',
     groupSelect: 'group-select',
+    phoneNumberInput: 'phone-number-input',
+    createDemoVisitsButton: 'create-demo-visits-button',
   },
   appointmentPage: {
     patientFullName: 'patient-full-name',
@@ -164,5 +166,13 @@ export const dataTestIds = {
     hpiChiefComplaintNotes: 'telemed-chief-complaint-notes',
     hpiChiefComplaintRos: 'telemed-chief-complaint-ros',
     videoRoomContainer: 'telemed-video-room-container',
+  },
+
+  sideMenu: {
+    sideMenuItem: (item: string): string => `menu-item-${item}`,
+  },
+  eRXPage: {
+    erxTitle: 'erx-title',
+    newOrderButton: 'new-order-button',
   },
 };
