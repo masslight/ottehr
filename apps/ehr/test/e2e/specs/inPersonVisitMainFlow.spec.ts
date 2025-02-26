@@ -9,6 +9,8 @@ import { expectAddPatientPage } from '../page/AddPatientPage';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import { expectVisitsPage, openVisitsPage } from '../page/VisitsPage';
 import { expectPatientInfoPage } from '../page/PatientInfo';
+import { expectProgressNotePage } from '../page/ProgressNotePage';
+import { expectAssessmentPage } from '../page/AssessmentPage';
 
 const NEW_PATIENT_1_LAST_NAME = 'new_1' + PATIENT_LAST_NAME;
 const NEW_PATIENT_2_LAST_NAME = 'new_2' + PATIENT_LAST_NAME;
@@ -18,8 +20,8 @@ const PATIENT_INPUT_BIRTHDAY = '01/01/2024';
 const PATIENT_INPUT_GENDER = 'Male';
 const REASON_FOR_VISIT = 'Fever';
 const VISIT_TYPE_PREBOOK = 'Pre-booked In Person Visit';
-//const DIAGNOSIS = 'Situs inversus';
-//const EM_CODE = '99201 New Patient - E/M Level 1';
+const DIAGNOSIS = 'Situs inversus';
+const EM_CODE = '99201 New Patient - E/M Level 1';
 const resourceHandler = new ResourceHandler();
 
 test.afterAll(async () => {
@@ -60,7 +62,7 @@ test('Book appointment, click Provider on "Patient info", check statuses', async
   await patientInfoPage.cssHeader().verifyStatus('provider');
 });
 
-/*test('Book appointment,fill required fields for screening, review and sign progress note', async ({ page }) => {
+test('Book appointment,fill required fields for screening, review and sign progress note', async ({ page }) => {
   await addAppointment(NEW_PATIENT_4_LAST_NAME, page);
   const patientInfoPage = await expectPatientInfoPage(NEW_PATIENT_4_LAST_NAME + ', ' + PATIENT_FIRST_NAME, page);
   await patientInfoPage.cssHeader().clickSwitchStatusButton('provider');
@@ -79,7 +81,7 @@ test('Book appointment, click Provider on "Patient info", check statuses', async
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickDischargedTab();
   await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, NEW_PATIENT_4_LAST_NAME);
-});*/
+});
 
 async function addAppointment(patientLastName: string, page: Page): Promise<void> {
   const addPatientPage = await expectAddPatientPage(page);
@@ -95,6 +97,16 @@ async function addAppointment(patientLastName: string, page: Page): Promise<void
   await addPatientPage.selectVisitType(VISIT_TYPE_PREBOOK);
   await addPatientPage.selectFirstAvailableSlot();
   await addPatientPage.clickAddButton();
+
+  const response = await page.waitForResponse(
+    (response) => response.url().includes('/create-appointment/') && response.status() === 200
+  );
+  const body = (await response.json()) as { appointment: string | null } | undefined;
+  if (!body?.appointment) {
+    throw new Error('Appointment id not found');
+  }
+  await resourceHandler.waitTillAppointmentPreprocessed(body.appointment);
+
   const visitsPage = await expectVisitsPage(page);
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickPrebookedTab();
