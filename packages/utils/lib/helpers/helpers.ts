@@ -1,8 +1,8 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
-import { Appointment, Extension, QuestionnaireResponse, Resource } from 'fhir/r4b';
+import { Appointment, Extension, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { OTTEHR_MODULE } from '../fhir';
-import { UpdateQuestionnaireResponseParams } from '../types';
+import { PatchPaperworkParameters } from '../types';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -204,12 +204,9 @@ export const isoToDateObject = (isoString: string): { year: string; month: strin
   };
 };
 
-export function updateQuestionnaireResponse({
-  questionnaire,
-  patientId,
-  questionnaireResponseId,
-  encounterId,
-  status = 'in-progress',
+export function getContactInformationAnswers({
+  willBe18 = false,
+  isNewPatient = false,
   firstName = 'TEST-FIRST-NAME',
   lastName = 'TEST-LAST-NAME',
   birthDate = {
@@ -217,15 +214,6 @@ export function updateQuestionnaireResponse({
     month: '02',
     year: '1990',
   },
-  consentJurisdiction = 'NY',
-  willBe18 = false,
-  isNewPatient = false,
-  fillingOutAs = 'Parent/Guardian',
-  guardianEmail = 'testemail@s0metestdomain123454321.com',
-  guardianNumber = '(925) 622-4222',
-
-  email = 'test-email@test-domain-1237843298123.co',
-  phoneNumber = '(202) 733-9622',
   birthSex = 'Female',
   address = {
     street: '123 Main Street',
@@ -234,327 +222,382 @@ export function updateQuestionnaireResponse({
     state: 'FL',
     zip: '32801',
   },
+  email = 'test-email@test-domain-1237843298123.co',
+  phoneNumber = '(202) 733-9622',
+
   mobileOptIn = true,
+}: {
+  willBe18?: boolean;
+  isNewPatient?: boolean;
+  firstName?: string;
+  lastName?: string;
+  birthDate?: { day: string; month: string; year: string };
+  birthSex?: string;
+  address?: { street: string; street2: string; city: string; state: string; zip: string };
+  email?: string;
+  phoneNumber?: string;
+  mobileOptIn?: boolean;
+}): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'contact-information-page',
+    item: [
+      {
+        linkId: 'patient-will-be-18',
+        answer: [{ valueBoolean: willBe18 }],
+      },
+      {
+        linkId: 'is-new-qrs-patient',
+        answer: [{ valueBoolean: isNewPatient }],
+      },
+      {
+        linkId: 'patient-first-name',
+        answer: [{ valueString: firstName }],
+      },
+      {
+        linkId: 'patient-last-name',
+        answer: [{ valueString: lastName }],
+      },
+      {
+        linkId: 'patient-birthdate',
+        item: [
+          {
+            linkId: 'patient-dob-day',
+            answer: [{ valueString: birthDate.day }],
+          },
+          {
+            linkId: 'patient-dob-month',
+            answer: [{ valueString: birthDate.month }],
+          },
+          {
+            linkId: 'patient-dob-year',
+            answer: [{ valueString: birthDate.year }],
+          },
+        ],
+      },
+      {
+        linkId: 'patient-birth-sex',
+        answer: [{ valueString: birthSex }],
+      },
+      {
+        linkId: 'patient-street-address',
+        answer: [{ valueString: address.street }],
+      },
+      {
+        linkId: 'patient-street-address-2',
+        answer: [{ valueString: address.street2 }],
+      },
+      {
+        linkId: 'patient-city',
+        answer: [{ valueString: address.city }],
+      },
+      {
+        linkId: 'patient-state',
+        answer: [{ valueString: address.state }],
+      },
+      {
+        linkId: 'patient-zip',
+        answer: [{ valueString: address.zip }],
+      },
+      {
+        linkId: 'mobile-opt-in',
+        answer: [{ valueBoolean: mobileOptIn }],
+      },
+      {
+        linkId: 'patient-email',
+        answer: [
+          {
+            valueString: email,
+          },
+        ],
+      },
+      {
+        linkId: 'patient-number',
+        answer: [
+          {
+            valueString: formatPhoneNumberForQuestionarie(phoneNumber),
+          },
+        ],
+      },
+    ],
+  };
+}
+
+export function getPatientDetailsStepAnswers({
   ethnicity = 'Decline to Specify',
   race = 'Native Hawaiian or Other Pacific Islander',
   pronouns = 'She/her',
   ovrpInterest = 'Need more info',
-  paymentOption = 'I will pay without insurance',
-  responsibleParty = {
-    relationship: 'Legal Guardian',
-    firstName: 'fwe',
-    lastName: 'sf',
-    birthDate: {
-      day: '13',
-      month: '05',
-      year: '1900',
-    },
-    birthSex: 'Intersex',
-  },
-}: UpdateQuestionnaireResponseParams): QuestionnaireResponse {
+}: {
+  ethnicity?: string;
+  race?: string;
+  pronouns?: string;
+  ovrpInterest?: string;
+}): PatchPaperworkParameters['answers'] {
   return {
-    ...(questionnaire ? { questionnaire } : {}),
-    ...(questionnaireResponseId ? { id: questionnaireResponseId } : {}),
-    resourceType: 'QuestionnaireResponse',
-    status,
-    subject: {
-      reference: `Patient/${patientId}`,
-    },
-    encounter: {
-      reference: `Encounter/${encounterId}`,
-    },
+    linkId: 'patient-details-page',
     item: [
       {
-        linkId: 'contact-information-page',
-        item: [
+        linkId: 'patient-ethnicity',
+        answer: [{ valueString: ethnicity }],
+      },
+      {
+        linkId: 'patient-race',
+        answer: [{ valueString: race }],
+      },
+      {
+        linkId: 'patient-pronouns',
+        answer: [{ valueString: pronouns }],
+      },
+      {
+        linkId: 'ovrp-interest',
+        answer: [{ valueString: ovrpInterest }],
+      },
+      {
+        linkId: 'preferred-language',
+        answer: [
           {
-            linkId: 'patient-will-be-18',
-            answer: [{ valueBoolean: willBe18 }],
-          },
-          {
-            linkId: 'is-new-qrs-patient',
-            answer: [{ valueBoolean: isNewPatient }],
-          },
-          {
-            linkId: 'patient-first-name',
-            answer: [{ valueString: firstName }],
-          },
-          {
-            linkId: 'patient-last-name',
-            answer: [{ valueString: lastName }],
-          },
-          {
-            linkId: 'patient-birthdate',
-            item: [
-              {
-                linkId: 'patient-dob-day',
-                answer: [{ valueString: birthDate.day }],
-              },
-              {
-                linkId: 'patient-dob-month',
-                answer: [{ valueString: birthDate.month }],
-              },
-              {
-                linkId: 'patient-dob-year',
-                answer: [{ valueString: birthDate.year }],
-              },
-            ],
-          },
-          {
-            linkId: 'patient-filling-out-as',
-            answer: [{ valueString: fillingOutAs }],
-          },
-          {
-            linkId: 'guardian-email',
-            answer: [{ valueString: guardianEmail }],
-          },
-          {
-            linkId: 'guardian-number',
-            answer: [{ valueString: guardianNumber }],
-          },
-          {
-            linkId: 'patient-birth-sex',
-            answer: [{ valueString: birthSex }],
-          },
-          {
-            linkId: 'patient-street-address',
-            answer: [{ valueString: address.street }],
-          },
-          {
-            linkId: 'patient-street-address-2',
-            answer: [{ valueString: address.street2 }],
-          },
-          {
-            linkId: 'patient-city',
-            answer: [{ valueString: address.city }],
-          },
-          {
-            linkId: 'patient-state',
-            answer: [{ valueString: address.state }],
-          },
-          {
-            linkId: 'patient-zip',
-            answer: [{ valueString: address.zip }],
-          },
-          {
-            linkId: 'mobile-opt-in',
-            answer: [{ valueBoolean: mobileOptIn }],
-          },
-          {
-            linkId: 'patient-email',
-            answer: [
-              {
-                valueString: email,
-              },
-            ],
-          },
-          {
-            linkId: 'patient-number',
-            answer: [
-              {
-                valueString: formatPhoneNumberForQuestionarie(phoneNumber),
-              },
-            ],
+            valueString: 'English',
           },
         ],
       },
       {
-        linkId: 'additional-page',
-        item: [
+        linkId: 'relay-phone',
+        answer: [
           {
-            linkId: 'covid-symptoms',
-            answer: [
-              {
-                valueString: 'No',
-              },
-            ],
+            valueString: 'No',
           },
+        ],
+      },
+    ],
+  };
+}
+
+export function getResponsiblePartyStepAnswers({
+  relationship = 'Legal Guardian',
+  firstName = 'fwe',
+  lastName = 'sf',
+  birthDate = {
+    day: '13',
+    month: '05',
+    year: '1900',
+  },
+  birthSex = 'Intersex',
+}: {
+  firstName?: string;
+  relationship?: string;
+  birthDate?: { day: string; month: string; year: string };
+  birthSex?: string;
+  lastName?: string;
+}): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'responsible-party-page',
+    item: [
+      {
+        linkId: 'responsible-party-relationship',
+        answer: [{ valueString: relationship }],
+      },
+      {
+        linkId: 'responsible-party-first-name',
+        answer: [{ valueString: firstName }],
+      },
+      {
+        linkId: 'responsible-party-last-name',
+        answer: [{ valueString: lastName }],
+      },
+      {
+        linkId: 'responsible-party-date-of-birth',
+        answer: [
           {
-            linkId: 'tested-positive-covid',
-            answer: [
-              {
-                valueString: 'No',
-              },
-            ],
-          },
-          {
-            linkId: 'travel-usa',
-            answer: [
-              {
-                valueString: 'No',
-              },
-            ],
+            valueString: `${birthDate?.year}-${birthDate?.month}-${birthDate?.day}`,
           },
         ],
       },
       {
-        linkId: 'patient-details-page',
-        item: [
+        linkId: 'responsible-party-birth-sex',
+        answer: [{ valueString: birthSex }],
+      },
+    ],
+  };
+}
+
+export function getPaymentOptionSelfPayAnswers(): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'payment-option-page',
+    item: [
+      {
+        linkId: 'payment-option',
+        answer: [{ valueString: 'I will pay without insurance' }],
+      },
+    ],
+  };
+}
+
+export function getConsentStepAnswers({
+  firstName = 'TEST-FIRST-NAME',
+  lastName = 'TEST-LAST-NAME',
+}: {
+  firstName?: string;
+  lastName?: string;
+}): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'consent-forms-page',
+    item: [
+      {
+        linkId: 'hipaa-acknowledgement',
+        answer: [
           {
-            linkId: 'patient-ethnicity',
-            answer: [{ valueString: ethnicity }],
-          },
-          {
-            linkId: 'patient-race',
-            answer: [{ valueString: race }],
-          },
-          {
-            linkId: 'patient-pronouns',
-            answer: [{ valueString: pronouns }],
-          },
-          {
-            linkId: 'ovrp-interest',
-            answer: [{ valueString: ovrpInterest }],
-          },
-          {
-            linkId: 'preferred-language',
-            answer: [
-              {
-                valueString: 'English',
-              },
-            ],
-          },
-          {
-            linkId: 'relay-phone',
-            answer: [
-              {
-                valueString: 'No',
-              },
-            ],
+            valueBoolean: true,
           },
         ],
       },
       {
-        linkId: 'payment-option-page',
-        item: [
+        linkId: 'consent-to-treat',
+        answer: [
           {
-            linkId: 'payment-option',
-            answer: [{ valueString: paymentOption }],
+            valueBoolean: true,
           },
         ],
       },
       {
-        linkId: 'responsible-party-page',
-        item: [
+        linkId: 'signature',
+        answer: [
           {
-            linkId: 'responsible-party-relationship',
-            answer: [{ valueString: responsibleParty.relationship }],
-          },
-          {
-            linkId: 'responsible-party-first-name',
-            answer: [{ valueString: responsibleParty.firstName }],
-          },
-          {
-            linkId: 'responsible-party-last-name',
-            answer: [{ valueString: responsibleParty.lastName }],
-          },
-          {
-            linkId: 'responsible-party-date-of-birth',
-            answer: [
-              {
-                valueString: `${responsibleParty.birthDate?.year}-${responsibleParty.birthDate?.month}-${responsibleParty.birthDate?.day}`,
-              },
-            ],
-          },
-          {
-            linkId: 'responsible-party-birth-sex',
-            answer: [{ valueString: responsibleParty.birthSex }],
+            valueString: 'Signature text',
           },
         ],
       },
       {
-        linkId: 'school-work-note-page',
-        item: [
+        linkId: 'full-name',
+        answer: [
           {
-            linkId: 'school-work-note-choice',
-            answer: [
-              {
-                valueString: 'Neither',
-              },
-            ],
-          },
-          {
-            linkId: 'school-work-note-template-upload-group',
+            valueString: `${firstName} ${lastName}`,
           },
         ],
       },
       {
-        linkId: 'consent-forms-page',
-        item: [
+        linkId: 'consent-form-signer-relationship',
+        answer: [
           {
-            linkId: 'consent-jurisdiction',
-            answer: [{ valueString: consentJurisdiction }],
+            valueString: 'Self',
           },
+        ],
+      },
+    ],
+  };
+}
+
+export function getAdditionalQuestionsAnswers(): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'additional-page',
+    item: [
+      {
+        linkId: 'covid-symptoms',
+        answer: [
           {
-            linkId: 'hipaa-acknowledgement',
-            answer: [
-              {
-                valueBoolean: true,
-              },
-            ],
-          },
-          {
-            linkId: 'consent-to-treat',
-            answer: [
-              {
-                valueBoolean: true,
-              },
-            ],
-          },
-          {
-            linkId: 'signature',
-            answer: [
-              {
-                valueString: 'asdf',
-              },
-            ],
-          },
-          {
-            linkId: 'full-name',
-            answer: [
-              {
-                valueString: `${firstName} ${lastName}`,
-              },
-            ],
-          },
-          {
-            linkId: 'consent-form-signer-relationship',
-            answer: [
-              {
-                valueString: 'Self',
-              },
-            ],
+            valueString: 'No',
           },
         ],
       },
       {
-        linkId: 'invite-participant-page',
-        item: [
+        linkId: 'tested-positive-covid',
+        answer: [
           {
-            linkId: 'invite-from-another-device',
-            answer: [
-              {
-                valueString: 'No, only one device will be connected',
-              },
-            ],
-          },
-          {
-            linkId: 'invite-first',
-          },
-          {
-            linkId: 'invite-last',
-          },
-          {
-            linkId: 'invite-contact',
-          },
-          {
-            linkId: 'invite-email',
-          },
-          {
-            linkId: 'invite-phone',
+            valueString: 'Yes',
           },
         ],
       },
+      {
+        linkId: 'travel-usa',
+        answer: [
+          {
+            valueString: 'No',
+          },
+        ],
+      },
+    ],
+  };
+}
+
+export function getAllergiesStepAnswers(): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'allergies-page',
+    item: [
+      {
+        item: [
+          { linkId: 'allergies-form-type', answer: [{ valueString: 'Other' }] },
+          { linkId: 'allergies-form-agent-substance-medications', answer: [{ valueString: 'Azithromycin' }] },
+          { linkId: 'allergies-form-agent-substance-other', answer: [{ valueString: 'Fish/ Fish Oil' }] },
+        ],
+        linkId: 'allergies',
+      },
+      { linkId: 'allergies-yes-no', answer: [{ valueString: 'Patient has known current allergies' }] },
+    ],
+  };
+}
+
+export function getMedicationsStepAnswers(
+  medications: string[] = ['Amoxicillin', 'Cetirizine/ Zyrtec']
+): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'current-medications-page',
+    item: [
+      {
+        item: [
+          {
+            linkId: 'current-medications-form-medication',
+            answer: [...medications.map((med) => ({ valueString: med }))],
+          },
+        ],
+        linkId: 'current-medications',
+      },
+      { linkId: 'current-medications-yes-no', answer: [{ valueString: 'Patient takes medication currently' }] },
+    ],
+  };
+}
+
+export function getMedicalConditionsStepAnswers(): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'medical-history-page',
+    item: [
+      {
+        item: [{ linkId: 'medical-history-form-medical-condition', answer: [{ valueString: 'Constipation' }] }],
+        linkId: 'medical-history',
+      },
+      { linkId: 'medical-history-yes-no', answer: [{ valueString: 'Patient has current medical conditions' }] },
+    ],
+  };
+}
+
+export function getSurgicalHistoryStepAnswers(): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'surgical-history-page',
+    item: [
+      {
+        item: [
+          {
+            linkId: 'surgical-history-form-type',
+            answer: [{ valueString: 'Circumcision' }, { valueString: 'Ear tube placement (Myringotomy)' }],
+          },
+        ],
+        linkId: 'surgical-history',
+      },
+      { linkId: 'surgical-history-yes-no', answer: [{ valueString: 'Patient has surgical history' }] },
+    ],
+  };
+}
+
+export function getSchoolWorkNoteStepAnswers(): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'school-work-note-page',
+    item: [{ linkId: 'school-work-note-choice', answer: [{ valueString: 'Neither' }] }],
+  };
+}
+
+export function getInviteParticipantStepAnswers(): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'invite-participant-page',
+    item: [
+      { linkId: 'invite-from-another-device', answer: [{ valueString: 'No, only one device will be connected' }] },
     ],
   };
 }

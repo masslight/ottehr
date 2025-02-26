@@ -1,9 +1,24 @@
-import { DateTime } from 'luxon';
-import { Location, QuestionnaireResponse, Patient, Address } from 'fhir/r4b';
 import Oystehr from '@oystehr/sdk';
-import { PersonSex, PatientInfo, CreateAppointmentUCTelemedResponse } from '../types';
+import { Address, Location, Patient } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { isLocationVirtual } from '../fhir';
-import { isoToDateObject, updateQuestionnaireResponse } from './helpers';
+import { CreateAppointmentUCTelemedResponse, PatientInfo, PersonSex, SubmitPaperworkParameters } from '../types';
+import { makeSequentialPaperworkPatches } from './create-prebook-demo-visits';
+import {
+  getAdditionalQuestionsAnswers,
+  getAllergiesStepAnswers,
+  getConsentStepAnswers,
+  getContactInformationAnswers,
+  getInviteParticipantStepAnswers,
+  getMedicalConditionsStepAnswers,
+  getMedicationsStepAnswers,
+  getPatientDetailsStepAnswers,
+  getPaymentOptionSelfPayAnswers,
+  getResponsiblePartyStepAnswers,
+  getSchoolWorkNoteStepAnswers,
+  getSurgicalHistoryStepAnswers,
+  isoToDateObject,
+} from './helpers';
 
 interface AppointmentData {
   firstNames?: string[];
@@ -168,7 +183,6 @@ export const createSampleTelemedAppointments = async (
   }
 
   try {
-    const responses: any[] = [];
     let appointmentData: CreateAppointmentUCTelemedResponse | null = null;
     const numberOfAppointments = demoData?.numberOfAppointments || 10;
 
@@ -184,6 +198,8 @@ export const createSampleTelemedAppointments = async (
         body: JSON.stringify(patientInfo),
       });
 
+      console.log({ createAppointmentResponse });
+
       appointmentData = islocal
         ? await createAppointmentResponse.json()
         : (await createAppointmentResponse.json()).output;
@@ -197,44 +213,60 @@ export const createSampleTelemedAppointments = async (
 
       const appointmentId = appointmentData.appointmentId;
       const questionnaireResponseId = appointmentData.questionnaireId;
-      const encounterId = appointmentData.encounterId;
 
-      const birthDate = isoToDateObject(patientInfo.patient.dateOfBirth || '');
+      const birthDate = isoToDateObject(patientInfo.patient.dateOfBirth || '') || undefined;
 
       if (questionnaireResponseId) {
-        const questionnaireResponse = updateQuestionnaireResponse({
-          patientId: appointmentData.patientId,
-          questionnaire: appointmentData.resources.questionnaire.questionnaire!,
+        await makeSequentialPaperworkPatches(
           questionnaireResponseId,
-          encounterId: encounterId!,
-          firstName: patientInfo.patient.firstName!,
-          lastName: patientInfo.patient.lastName!,
-          ...(birthDate ? { birthDate } : {}),
-          email: patientInfo.patient.email!,
-          phoneNumber: patientInfo.patient.phoneNumber!,
-          fullName: `${patientInfo.patient.firstName} ${patientInfo.patient.lastName}`,
-        });
+          [
+            getContactInformationAnswers({
+              firstName: patientInfo.patient.firstName,
+              lastName: patientInfo.patient.lastName,
+              birthDate,
+              email: patientInfo.patient.email,
+              phoneNumber: patientInfo.patient.phoneNumber,
+              birthSex: patientInfo.patient.sex,
+            }),
+            getPatientDetailsStepAnswers({}),
+            getMedicationsStepAnswers(),
+            getAllergiesStepAnswers(),
+            getMedicalConditionsStepAnswers(),
+            getSurgicalHistoryStepAnswers(),
+            getAdditionalQuestionsAnswers(),
+            getPaymentOptionSelfPayAnswers(),
+            getResponsiblePartyStepAnswers({}),
+            getSchoolWorkNoteStepAnswers(),
+            getConsentStepAnswers({}),
+            getInviteParticipantStepAnswers(),
+          ],
+          intakeZambdaUrl,
+          authToken
+        );
 
-        const updatedQuestionnaireResponse = await oystehr.fhir.update<QuestionnaireResponse>(questionnaireResponse);
-        responses.push(updatedQuestionnaireResponse);
-
-        await fetch(`${intakeZambdaUrl}/zambda/submit-paperwork/execute-public`, {
+        const response = await fetch(`${intakeZambdaUrl}/zambda/submit-paperwork/execute-public`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${authToken}`,
           },
-          body: JSON.stringify({
+          body: JSON.stringify(<SubmitPaperworkParameters>{
             answers: [],
-            questionnaireResponseId: updatedQuestionnaireResponse.id,
+            questionnaireResponseId: questionnaireResponseId,
             appointmentId,
           }),
         });
 
+        if (!response.ok) {
+          // This may be an error if some paperwork required answers were not provided.
+          // Check QuestionnaireResponse resource if it corresponds to all Questionnaire requirements
+          throw new Error(
+            `Error submitting paperwork, response: ${response}, body: ${JSON.stringify(await response.json())}`
+          );
+        }
+
         await new Promise((resolve) => setTimeout(resolve, 5000)); // todo delete
       }
-
-      responses.push(createAppointmentResponse);
     }
 
     return appointmentData;
