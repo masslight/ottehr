@@ -599,11 +599,11 @@ functions:
       FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       
-  submit-lab-order:
-    handler: src/submit-lab-order/index.index
+  create-lab-order:
+    handler: src/create-lab-order/index.index
     events:
       - http:
-          path: zambda/submit-lab-order/execute
+          path: zambda/create-lab-order/execute
           method: POST
     timeout: 25
     environment:

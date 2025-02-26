@@ -66,13 +66,11 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
               },
             });
             const response = await orderableItemsSearch.json();
-            console.log('check the orderable item search res', response);
             const orabledItemsRes = response.orderableItems as OrderableItemSearchResult[];
             items.push(...orabledItemsRes);
             cursor = response?.metadata?.nextCursor || '';
           } while (cursor !== '');
 
-          console.log('check orderableItems', items);
           setLabs(items);
         } catch (e) {
           console.error('error fetching orderable items', e);
@@ -94,8 +92,6 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
     });
   }, [inputValue, labs]);
 
-  console.log('inputValue', inputValue);
-  console.log('selectedLab', selectedLab);
   return (
     <Box sx={{ paddingTop: '8px' }}>
       {loading ? (

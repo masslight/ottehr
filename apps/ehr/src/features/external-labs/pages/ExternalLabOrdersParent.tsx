@@ -1,5 +1,5 @@
 import React from 'react';
-import { SubmitExternalLabOrders } from './SubmitExternalLabOrders';
+import { SubmitExternalLabOrders } from './CreateExternalLabOrder';
 import { mockLabOrders } from '../helpers/types';
 import { ExternalLabOrdersListPage } from './ExternalLabOrdersListPage';
 

@@ -30,9 +30,8 @@ import { sortLocationsByLabel } from '../../../helpers';
 import useEvolveUser from '../../../hooks/useEvolveUser';
 import Oystehr from '@oystehr/sdk';
 import { LabsAutocomplete } from '../components/LabsAutocomplete';
-// import { useAuthToken } from '../../../hooks/useAuthToken';
-// import { submitLabOrder } from '../../../api/api';
-// import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import { createLabOrder } from '../../../api/api';
+import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 
 interface SubmitExternalLabOrdersProps {
   appointmentID?: string;
@@ -40,7 +39,7 @@ interface SubmitExternalLabOrdersProps {
 
 export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = () => {
   const theme = useTheme();
-  const { oystehr } = useApiClients();
+  const { oystehr, oystehrZambda } = useApiClients();
   const user = useEvolveUser();
   const navigate = useNavigate();
   const practitionerId = user?.profile.replace('Practitioner/', '');
@@ -52,7 +51,7 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
   const [selectedLab, setSelectedLab] = useState<OrderableItemSearchResult | null>(null);
   const [office, setOffice] = useState<Location | undefined>(undefined);
   const [pscHold, setPscHold] = useState<boolean>(true); // defaulting & locking to true for mvp
-  // const [error, setError] = useState<string | undefined>(undefined);
+  const [error, setError] = useState<string | undefined>(undefined);
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'ICD10CM' });
@@ -152,22 +151,24 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
     setSubmitting(true);
     console.log('check submit params', patientId, office, practitionerId);
     console.log('encounter', encounter);
-    // if (oystehrZambda && dxValue && patientId && office && practitionerId) {
-    //   try {
-    //     const res = await submitLabOrder(oystehrZambda, {
-    //       dx: dxValue,
-    //       patientId,
-    //       encounter,
-    //       location: office,
-    //       practitionerId,
-    //     });
-    //     console.log('res', res);
-    //     navigate(`/in-person/${appointment?.id}/external-lab-orders`);
-    //   } catch (e) {
-    //     const oysterError = e as OystehrSdkError;
-    //     setError(oysterError?.message || 'error ordering lab');
-    //   }
-    // }
+    const dx = orderDxPrimary ? [orderDxPrimary, ...orderDxSecondary] : [];
+    if (oystehrZambda && dx.length && patientId && office && practitionerId && selectedLab) {
+      try {
+        const res = await createLabOrder(oystehrZambda, {
+          dx,
+          patientId,
+          encounter,
+          location: office,
+          practitionerId,
+          orderableItem: selectedLab,
+        });
+        console.log('res', res);
+        navigate(`/in-person/${appointment?.id}/external-lab-orders`);
+      } catch (e) {
+        const oysterError = e as OystehrSdkError;
+        setError(oysterError?.message || 'error ordering lab');
+      }
+    }
     setSubmitting(false);
   };
 
@@ -246,7 +247,6 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      required
                       onChange={(e) => debouncedHandleInputChange(e.target.value)}
                       label="Additional Dx"
                       placeholder="Search for Dx if not on list above"
@@ -359,12 +359,12 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
                 >
                   Order
                 </LoadingButton>
-                {/* {error && (
-                  <Grid item xs={12} sx={{ textAlign: 'right', paddingTop: 1 }}>
-                    <Typography sx={{ color: theme.palette.error.main }}>{error}</Typography>
-                  </Grid>
-                )} */}
               </Grid>
+              {error && (
+                <Grid item xs={12} sx={{ textAlign: 'right', paddingTop: 1 }}>
+                  <Typography sx={{ color: theme.palette.error.main }}>{error}</Typography>
+                </Grid>
+              )}
             </Grid>
           </Paper>
         </form>

@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DiagnosisDTO } from 'utils';
+import { DiagnosisDTO, OrderableItemSearchResult } from 'utils';
 import { topLevelCatch, Secrets, ZambdaInput } from 'zambda-utils';
 import { checkOrCreateM2MClientToken } from '../../../../intake/zambdas/src/shared';
 import { createOystehrClient } from '../../../../intake/zambdas/src/shared/helpers';
@@ -20,13 +20,12 @@ import { BatchInputRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 
 export interface SubmitLabOrder {
-  // once oystehr labs is live there will also be an orderable item that is passed as well
   dx: DiagnosisDTO;
   patientId: string;
   encounter: Encounter;
   location: Location;
   practitionerId: string;
-  orderableItem: any; // todo we should get this type from oystehr
+  orderableItem: OrderableItemSearchResult;
   pscHold: boolean;
   secrets: Secrets | null;
 }
@@ -46,6 +45,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     // todo map this to the SR
     console.log('pscHold', pscHold);
+    console.log('orderableItem', orderableItem);
 
     const labGuid = orderableItem.lab.labGuid;
     const labOrganizationSearch = (
@@ -192,7 +192,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify('successfully created fhir resources for lab order'),
     };
   } catch (error: any) {
-    await topLevelCatch('admin-submit-lab-order', error, input.secrets);
+    await topLevelCatch('admin-create-lab-order', error, input.secrets);
     return {
       statusCode: 500,
       body: JSON.stringify({ message: `Error submitting lab order: ${error}` }),
