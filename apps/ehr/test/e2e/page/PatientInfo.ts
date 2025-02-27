@@ -18,6 +18,7 @@ export class PatientInfoPage {
   }
 }
 
+
 export async function expectPatientInfoPage(page: Page): Promise<PatientInfoPage> {
   await page.waitForURL(new RegExp('/in-person/.*/patient-info'));
   return new PatientInfoPage(page);

@@ -180,4 +180,11 @@ export const dataTestIds = {
     inputField: (field: string): string => `input-${field}`,
     fillOrderToSaveButton: 'fill-order-to-save-button',
   },
+  assessmentPage: {
+    diagnosisDropdown: 'diagnosis-dropdown',
+    medicalDecisionField: 'medical-decision-field',
+  },
+  diagnosisContainer: {
+    deleteButton: 'diagnosis-container-delete-button',
+  },
 };

@@ -16,6 +16,9 @@ export class SideMenu {
     return expectInHouseMedicationsPage(this.#page);
   }
   
-
+  async clickAssessment(): Promise<AssessmentPage> {
+    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('assessment')).click();
+    return expectAssessmentPage(this.#page);
+  }
  
 }

@@ -3,7 +3,7 @@ import { SideMenu } from './SideMenu';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { CssHeader } from './CssHeader';
 
-enum Field {
+export enum Field {
   MEDICATION,
   DOSE,
   ASSOCIATED_DX,
