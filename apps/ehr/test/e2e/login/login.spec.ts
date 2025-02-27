@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test';
-// @ts-expect-error import from js
 import { checkIfEnvAllowed } from '../../e2e-utils/check-env';
 
 test('Should log in', async ({ page, context, browser }) => {
@@ -17,6 +16,17 @@ test('Should log in', async ({ page, context, browser }) => {
   await page.click('button[type="submit"]');
   await page.fill('#password', process.env.TEXT_PASSWORD!);
   await page.click('button[type="submit"]');
+
+  // Check if authorization page appears and accept if it does. Actual for first login.
+  try {
+    const authorizeHeader = await page.waitForSelector('text=Authorize App', { timeout: 3000 });
+    if (authorizeHeader) {
+      await page.click('button:has-text("Accept")');
+    }
+  } catch (e) {
+    console.log('No authorization page detected, continuing with test');
+  }
+
   await page.waitForURL('/visits');
 
   // save login context
