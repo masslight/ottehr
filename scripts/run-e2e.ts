@@ -198,10 +198,9 @@ async function main(): Promise<void> {
 
   if (isLocal || isCI) {
     await startApps();
-    runTests();
-  } else {
-    runTests();
   }
+
+  runTests();
 }
 
 main().catch((error) => {
