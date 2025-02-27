@@ -170,7 +170,7 @@ export async function setupEHR(
   // create a group for the providers using the HealthcareService fhir resource
   const healthcareServiceResource: FhirResource = {
     resourceType: 'HealthcareService',
-    name: 'Selden NY',
+    name: 'Visit Followup Group',
     active: true,
     extension: [
       {
@@ -186,7 +186,7 @@ export async function setupEHR(
     identifier: [
       {
         system: 'https://fhir.ottehr.com/r4/slug',
-        value: 'SeldenNY',
+        value: 'visit-followup-group',
       },
     ],
     characteristic: [
