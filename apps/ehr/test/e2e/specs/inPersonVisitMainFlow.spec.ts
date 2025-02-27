@@ -1,47 +1,67 @@
 import { Page, test } from '@playwright/test';
-import { ResourceHandler } from '../../e2e-utils/resource-handler';
+import {
+  PATIENT_FIRST_NAME,
+  PATIENT_LAST_NAME,
+  PATIENT_PHONE_NUMBER,
+  ResourceHandler,
+} from '../../e2e-utils/resource-handler';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
-import { openVisitsPage } from '../page/VisitsPage';
+import { expectVisitsPage, openVisitsPage } from '../page/VisitsPage';
 import { expectPatientInfoPage } from '../page/PatientInfo';
 import { expectProgressNotePage } from '../page/ProgressNotePage';
 import { expectAssessmentPage } from '../page/AssessmentPage';
+import { expectAddPatientPage } from '../page/AddPatientPage';
 
+const NEW_PATIENT_1_LAST_NAME = 'new_1' + PATIENT_LAST_NAME;
+const NEW_PATIENT_2_LAST_NAME = 'new_2' + PATIENT_LAST_NAME;
+const NEW_PATIENT_3_LAST_NAME = 'new_3' + PATIENT_LAST_NAME;
+const NEW_PATIENT_4_LAST_NAME = 'new_4' + PATIENT_LAST_NAME;
+const PATIENT_INPUT_BIRTHDAY = '01/01/2024';
+const PATIENT_INPUT_GENDER = 'Male';
+const REASON_FOR_VISIT = 'Fever';
+const VISIT_TYPE_PREBOOK = 'Pre-booked In Person Visit';
 const DIAGNOSIS = 'Situs inversus';
 const EM_CODE = '99201 New Patient - E/M Level 1';
-const resourceHandler = new ResourceHandler('in-person');
-
-test.beforeAll(async () => {
-  await resourceHandler.setResources();
-});
+const resourceHandler = new ResourceHandler();
 
 test.beforeEach(async ({ page }) => {
-  const appointmentId = resourceHandler.appointment.id ?? '';
-  await resourceHandler.waitTillAppointmentPreprocessed(appointmentId);
-  await intakeAppointment(appointmentId, page);
+  await page.waitForTimeout(2000);
+  await page.goto('/visits/add');
+});
+
+test.afterAll(async () => {
+  await resourceHandler.cleanupNewPatientData(NEW_PATIENT_1_LAST_NAME);
+  await resourceHandler.cleanupNewPatientData(NEW_PATIENT_2_LAST_NAME);
+  await resourceHandler.cleanupNewPatientData(NEW_PATIENT_3_LAST_NAME);
+  await resourceHandler.cleanupNewPatientData(NEW_PATIENT_4_LAST_NAME);
 });
 
 test('Book appointment, start and complete Intake, check statuses', async ({ page }) => {
-  const patientInfoPage = await expectPatientInfoPage(getPatientFirstName(), getPatientLastName(), page);
+  await addAppointment(NEW_PATIENT_1_LAST_NAME, page);
+  const patientInfoPage = await expectPatientInfoPage(PATIENT_FIRST_NAME, NEW_PATIENT_1_LAST_NAME, page);
   await patientInfoPage.cssHeader().verifyStatus('intake');
   await patientInfoPage.sideMenu().clickCompleteIntakeButton();
   await patientInfoPage.cssHeader().verifyStatus('ready for provider');
 });
 
 test('Book appointment, go to Hospitalization page and complete Intake, check statuses', async ({ page }) => {
-  const patientInfoPage = await expectPatientInfoPage(getPatientFirstName(), getPatientLastName(), page);
+  await addAppointment(NEW_PATIENT_2_LAST_NAME, page);
+  const patientInfoPage = await expectPatientInfoPage(PATIENT_FIRST_NAME, NEW_PATIENT_2_LAST_NAME, page);
   const hospitalizationPage = await patientInfoPage.sideMenu().clickHospitalization();
   await hospitalizationPage.clickCompleteIntakeButton();
   await patientInfoPage.cssHeader().verifyStatus('ready for provider');
 });
 
 test('Book appointment, click Provider on "Patient info", check statuses', async ({ page }) => {
-  const patientInfoPage = await expectPatientInfoPage(getPatientFirstName(), getPatientLastName(), page);
+  await addAppointment(NEW_PATIENT_3_LAST_NAME, page);
+  const patientInfoPage = await expectPatientInfoPage(PATIENT_FIRST_NAME, NEW_PATIENT_3_LAST_NAME, page);
   await patientInfoPage.cssHeader().clickSwitchStatusButton('provider');
   await patientInfoPage.cssHeader().verifyStatus('provider');
 });
 
 test('Book appointment,fill required fields for screening, review and sign progress note', async ({ page }) => {
-  const patientInfoPage = await expectPatientInfoPage(getPatientFirstName(), getPatientLastName(), page);
+  await addAppointment(NEW_PATIENT_4_LAST_NAME, page);
+  const patientInfoPage = await expectPatientInfoPage(PATIENT_FIRST_NAME, NEW_PATIENT_4_LAST_NAME, page);
   await patientInfoPage.cssHeader().clickSwitchStatusButton('provider');
   const progressNotePage = await expectProgressNotePage(page);
   await progressNotePage.verifyReviewAndSignButtonDisabled();
@@ -53,24 +73,38 @@ test('Book appointment,fill required fields for screening, review and sign progr
   await progressNotePage.clickReviewAndSignButton();
   await progressNotePage.clickSignButton();
   await patientInfoPage.cssHeader().verifyStatus('completed');
-
   const visitsPage = await openVisitsPage(page);
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickDischargedTab();
-  await visitsPage.verifyVisitPresent(getPatientFirstName(), getPatientLastName());
+  await visitsPage.verifyVisitPresent(PATIENT_FIRST_NAME, NEW_PATIENT_4_LAST_NAME);
 });
 
-function getPatientFirstName(): string {
-  return resourceHandler.patient.name?.[0]?.given?.[0] ?? '';
-}
+async function addAppointment(patientLastName: string, page: Page): Promise<void> {
+  const addPatientPage = await expectAddPatientPage(page);
+  await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
+  await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
+  await addPatientPage.clickSearchForPatientsButton();
+  await addPatientPage.clickPatientNotFoundButton();
+  await addPatientPage.enterFirstName(PATIENT_FIRST_NAME);
+  await addPatientPage.enterLastName(patientLastName);
+  await addPatientPage.enterDateOfBirth(PATIENT_INPUT_BIRTHDAY);
+  await addPatientPage.selectSexAtBirth(PATIENT_INPUT_GENDER);
+  await addPatientPage.selectReasonForVisit(REASON_FOR_VISIT);
+  await addPatientPage.selectVisitType(VISIT_TYPE_PREBOOK);
+  await addPatientPage.selectFirstAvailableSlot();
+  await addPatientPage.clickAddButton();
 
-function getPatientLastName(): string {
-  return resourceHandler.patient.name?.[0]?.family ?? '';
-}
+  const response = await page.waitForResponse(
+    (response) => response.url().includes('/create-appointment/') && response.status() === 200
+  );
+  const body = (await response.json()) as { appointment: string | null } | undefined;
+  if (!body?.appointment) {
+    throw new Error('Appointment id not found');
+  }
+  await resourceHandler.waitTillAppointmentPreprocessed(body.appointment);
 
-async function intakeAppointment(appointmentId: string, page: Page): Promise<void> {
-  const visitsPage = await openVisitsPage(page);
+  const visitsPage = await expectVisitsPage(page);
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickPrebookedTab();
-  await visitsPage.clickIntakeButton(appointmentId);
+  await visitsPage.clickIntakeButton(patientLastName + ', ' + PATIENT_FIRST_NAME);
 }

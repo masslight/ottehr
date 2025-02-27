@@ -265,6 +265,29 @@ export class ResourceHandler {
     return resourse;
   }
 
+  async cleanupNewPatientData(lastName: string): Promise<void> {
+    try {
+      await this.initApi();
+      const patients = (
+        await this.apiClient.fhir.search({
+          resourceType: 'Patient',
+          params: [
+            {
+              name: 'name',
+              value: lastName,
+            },
+          ],
+        })
+      ).unbundle();
+      for (const patient of patients) {
+        await this.cleanupAppointments(patient.id!);
+        await this.apiClient.fhir.delete({ resourceType: patient.resourceType, id: patient.id! }).catch();
+      }
+    } catch (e) {
+      console.error('Error during cleanupNewPatientData', e);
+    }
+  }
+
   async waitTillAppointmentPreprocessed(id: string): Promise<void> {
     try {
       await this.initApi();
@@ -275,7 +298,7 @@ export class ResourceHandler {
             resourceType: 'Appointment',
             params: [
               {
-                name: '_id',
+                name: 'id',
                 value: id,
               },
             ],
