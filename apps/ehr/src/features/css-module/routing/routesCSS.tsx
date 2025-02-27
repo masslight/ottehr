@@ -14,6 +14,7 @@ import { SurgicalHistory } from '../pages/SurgicalHistory';
 import { AssessmentCard } from '../../../telemed/features/appointment/AssessmentTab';
 import { Plan } from '../pages/Plan';
 import { Examination } from '../pages/Examination';
+import { ERX } from '../pages/ERX';
 import { SubmitExternalLabOrders } from '../../external-labs/pages/CreateExternalLabOrder';
 import { OrderDetails } from '../../external-labs/pages/OrderDetails';
 import { ExternalLabOrdersListPage } from '../../external-labs/pages/ExternalLabOrdersListPage';
@@ -34,6 +35,7 @@ export enum ROUTER_PATH {
   ASSESSMENT = 'assessment',
   EXAMINATION = 'examination',
   PLAN = 'plan',
+  ERX = 'erx',
 
   // TODO: Uncomment after the module is ready
   // ERX = 'erx',
@@ -140,6 +142,13 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     text: 'Labs',
     iconKey: 'Send Out Labs',
   },
+  [ROUTER_PATH.ERX]: {
+    path: ROUTER_PATH.ERX,
+    modes: ['provider', 'readonly'],
+    element: <ERX />,
+    text: 'eRX',
+    iconKey: 'eRX',
+  },
   [ROUTER_PATH.EXAMINATION]: {
     path: ROUTER_PATH.EXAMINATION,
     modes: ['provider', 'readonly'],
@@ -162,14 +171,6 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     iconKey: 'Lab profile',
   },
 
-  // TODO: Uncomment after the module is ready
-  // [ROUTER_PATH.ERX]: {
-  //   path: ROUTER_PATH.ERX,
-  //   modes: ['provider', 'readonly'],
-  //   element: <ERX />,
-  //   text: 'eRX',
-  //   iconKey: 'eRX',
-  // },
   [ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE]: {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE,
     modes: ['provider', 'readonly'],

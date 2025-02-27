@@ -20,7 +20,7 @@ export const AppointmentTabs: FC = () => {
   const { update } = useExamObservations();
 
   const { isFetching } = useGetChartData({ apiClient, encounterId: encounter.id }, (data) => {
-    useAppointmentStore.setState({ chartData: data });
+    useAppointmentStore.setState({ chartData: { ...chartData, ...data } });
     update(data.examObservations, true);
   });
 

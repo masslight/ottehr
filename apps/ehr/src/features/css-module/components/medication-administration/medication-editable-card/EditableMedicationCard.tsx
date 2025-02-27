@@ -123,12 +123,17 @@ export const EditableMedicationCard: React.FC<{
         updatedRequestInput.newStatus === 'administered-partly' ||
         updatedRequestInput.newStatus === 'administered-not')
     ) {
-      const medicationName = getFieldValue('medicationId');
+      const medicationName = medication?.medicationName ?? '';
+
+      const routeName =
+        selectsOptions.route.options.find((option) => option.value === updatedRequestInput?.orderData?.route)?.label ||
+        '';
 
       const confirmSaveModalConfigs = getConfirmSaveModalConfigs({
+        medicationName,
+        routeName,
         patientName: processedData.patientName || '',
         newStatus: updatedRequestInput.newStatus,
-        medicationName,
         updateRequestInputRef: confirmedMedicationUpdateRequestRef,
         setIsReasonSelected,
       });

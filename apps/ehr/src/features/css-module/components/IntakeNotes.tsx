@@ -1,6 +1,7 @@
 import React, { CSSProperties } from 'react';
 import { IconButton } from '@mui/material';
 import { ButtonRounded } from './RoundedButton';
+import { useIntakeNotesModal } from '../hooks/useIntakeNotes';
 
 const icon = (
   <svg width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -12,29 +13,34 @@ const icon = (
 );
 
 export const IntakeNote = ({ open, sx = {} }: { open: boolean; sx?: CSSProperties }): React.ReactElement => {
-  if (open) {
-    return (
-      <ButtonRounded
-        variant="outlined"
-        startIcon={icon}
-        sx={{
-          margin: 2,
-          ...sx,
-        }}
-      >
-        Intake Note
-      </ButtonRounded>
-    );
-  } else {
-    return (
-      <IconButton
-        sx={{
-          padding: 0,
-          margin: 2,
-        }}
-      >
-        {icon}
-      </IconButton>
-    );
-  }
+  const { isOpen, openModal, IntakeNotesModal, closeModal } = useIntakeNotesModal();
+
+  return (
+    <>
+      {open ? (
+        <ButtonRounded
+          variant="outlined"
+          startIcon={icon}
+          onClick={openModal}
+          sx={{
+            margin: 2,
+            ...sx,
+          }}
+        >
+          Intake Note
+        </ButtonRounded>
+      ) : (
+        <IconButton
+          sx={{
+            padding: 0,
+            margin: 2,
+          }}
+          onClick={openModal}
+        >
+          {icon}
+        </IconButton>
+      )}
+      <IntakeNotesModal open={isOpen} onClose={closeModal} />
+    </>
+  );
 };

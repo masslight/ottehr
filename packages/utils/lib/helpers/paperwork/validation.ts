@@ -196,7 +196,6 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
   }
   if ((item.type === 'choice' || item.type === 'open-choice') && item.answerLoadingOptions !== undefined) {
     const { answerSource } = item.answerLoadingOptions;
-    console.log('required', item.linkId, required, item.required);
     if (!answerSource) {
       // answer options come from answerValueSet, which are converted into valueString choices
       let stringSchema = Yup.string();
@@ -318,7 +317,6 @@ export const makeValidationSchema = (
     return Yup.array().of(
       Yup.object().test('submit test', async (value: any, context: any) => {
         const { linkId: pageId, item: answerItem } = value;
-        console.log('items.it 5', items);
         const questionItem = items.find((i) => i.linkId === pageId);
         if (!questionItem) {
           // console.log('page not found');
@@ -361,7 +359,7 @@ const makeValidationSchemaPrivate = (
   const externalValues = externalContext?.values ?? {};
 
   const validatableItems = items
-    .filter((item) => item?.type !== 'display' && !item?.readOnly)
+    .filter((item) => item?.type !== 'display' && !item?.readOnly && evalEnableWhen(item, items, formValues))
     .flatMap((item) => makeValidatableItem(item));
   let allValues = (externalContext?.values ?? [])
     .flatMap((page: any) => page.item)
@@ -770,7 +768,7 @@ export const recursiveGroupTransform = (items: IntakeQuestionnaireItem[], values
       return { linkId: item.linkId };
     }
     if (match.item) {
-      return { ...trimInvalidAnswersFromItem(match), item: recursiveGroupTransform(item.item ?? [], match.item) };
+      return { ...trimInvalidAnswersFromItem(match), item: recursiveGroupTransform(match.item ?? [], match.item) };
     } else {
       return trimInvalidAnswersFromItem(match);
     }

@@ -25,21 +25,21 @@ import { NOTE_TYPE, progressNoteChartDataRequestedFields } from 'utils';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
 
 export const ProgressNoteDetails: FC = () => {
-  const { chartData, encounter } = getSelectors(useAppointmentStore, ['chartData', 'encounter']);
+  const { chartData, encounter, setPartialChartData } = getSelectors(useAppointmentStore, [
+    'chartData',
+    'encounter',
+    'setPartialChartData',
+  ]);
 
   const { chartData: additionalChartData } = useChartData({
     encounterId: encounter.id || '',
     requestedFields: progressNoteChartDataRequestedFields,
     onSuccess: (data) => {
-      useAppointmentStore.setState((prevState) => ({
-        ...prevState,
-        chartData: {
-          ...prevState.chartData,
-          patientId: prevState.chartData?.patientId || '',
-          episodeOfCare: data?.episodeOfCare,
-          vitalsObservations: data?.vitalsObservations,
-        },
-      }));
+      setPartialChartData({
+        episodeOfCare: data?.episodeOfCare,
+        vitalsObservations: data?.vitalsObservations,
+        prescribedMedications: data?.prescribedMedications,
+      });
     },
   });
 

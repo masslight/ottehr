@@ -27,6 +27,7 @@ export const InternalNotes = ({ encounterId }: { encounterId: string }): React.R
       encounterId,
       requestedFields: {
         notes: {
+          _search_by: 'encounter',
           _sort: '-_lastUpdated',
           _count: 1000,
           _tag: {

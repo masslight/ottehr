@@ -4,12 +4,13 @@ import { createVitalsSearchConfig } from './create-vitals-search-config.helper';
 
 export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
   episodeOfCare: {},
+  prescribedMedications: {},
   notes: {
     _sort: '-_lastUpdated',
     _count: 1000,
     _tag: {
       type: 'token',
-      value: `${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.SCREENING}|${CSS_NOTE_ID},${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.VITALS}|${CSS_NOTE_ID}`,
+      value: `${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.SCREENING}|${CSS_NOTE_ID},${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.VITALS}|${CSS_NOTE_ID},${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.INTAKE}|${CSS_NOTE_ID}`,
     },
   },
   vitalsObservations: {
@@ -27,4 +28,8 @@ export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
         .join(','),
     },
   },
+};
+
+export const telemedProgressNoteChartDataRequestedFields: ChartDataRequestedFields = {
+  prescribedMedications: {},
 };
