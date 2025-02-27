@@ -1,5 +1,5 @@
 import { User } from '@oystehr/sdk';
-import { Appointment, Coding, Practitioner, Encounter, Coverage } from 'fhir/r4b';
+import { Appointment, Coding, Practitioner, Encounter, Coverage, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   PatientFollowupDetails,

@@ -36,7 +36,7 @@ interface SubmitExternalLabOrdersProps {
   appointmentID?: string;
 }
 
-export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = () => {
+export const CreateExternalLabOrder: React.FC<SubmitExternalLabOrdersProps> = () => {
   const theme = useTheme();
   const { oystehr, oystehrZambda } = useApiClients();
   const user = useEvolveUser();

@@ -15,7 +15,7 @@ import { AssessmentCard } from '../../../telemed/features/appointment/Assessment
 import { Plan } from '../pages/Plan';
 import { Examination } from '../pages/Examination';
 import { ERX } from '../pages/ERX';
-import { SubmitExternalLabOrders } from '../../external-labs/pages/CreateExternalLabOrder';
+import { CreateExternalLabOrder } from '../../external-labs/pages/CreateExternalLabOrder';
 import { OrderDetails } from '../../external-labs/pages/OrderDetails';
 import { ExternalLabOrdersListPage } from '../../external-labs/pages/ExternalLabOrdersListPage';
 
@@ -175,7 +175,7 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE,
     modes: ['provider', 'readonly'],
     isSkippedInNavigation: true,
-    element: <SubmitExternalLabOrders />,
+    element: <CreateExternalLabOrder />,
     text: 'Order Lab',
     iconKey: 'Send Out Labs',
   },
