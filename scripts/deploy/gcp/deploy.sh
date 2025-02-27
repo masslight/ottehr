@@ -39,5 +39,6 @@ cd ../../../apps/ehr
 npm run build:env --env=$environment
 
 cd ../../scripts/deploy/gcp
+terraform init
 terraform apply
 
