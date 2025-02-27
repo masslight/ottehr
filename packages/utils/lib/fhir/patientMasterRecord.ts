@@ -502,3 +502,86 @@ export function getPatchOperationToAddOrUpdatePreferredLanguage(
     }
   }
 }
+
+export const RELATIONSHIP_OPTIONS = {
+  Self: 'Self',
+  'Legal Guardian': 'Legal Guardian',
+  Father: 'Father',
+  Mother: 'Mother',
+  Spouse: 'Spouse',
+} as const;
+
+export type RelationshipOption = keyof typeof RELATIONSHIP_OPTIONS;
+
+const RELATIONSHIP_MAPPING: Record<RelationshipOption, Coding> = {
+  [RELATIONSHIP_OPTIONS.Self]: {
+    code: 'SELF',
+    display: 'Self',
+    system: 'http://hl7.org/fhir/relationship',
+  },
+  [RELATIONSHIP_OPTIONS['Legal Guardian']]: {
+    code: 'GUARD',
+    display: 'Legal Guardian',
+    system: 'http://hl7.org/fhir/relationship',
+  },
+  [RELATIONSHIP_OPTIONS.Father]: {
+    code: 'FTH',
+    display: 'Father',
+    system: 'http://hl7.org/fhir/relationship',
+  },
+  [RELATIONSHIP_OPTIONS.Mother]: {
+    code: 'MTH',
+    display: 'Mother',
+    system: 'http://hl7.org/fhir/relationship',
+  },
+  [RELATIONSHIP_OPTIONS.Spouse]: {
+    code: 'SPO',
+    display: 'Spouse',
+    system: 'http://hl7.org/fhir/relationship',
+  },
+};
+
+function getResponsiblePartyRelationship(value: RelationshipOption): CodeableConcept[] {
+  const mapping = RELATIONSHIP_MAPPING[value];
+
+  return [
+    {
+      coding: [
+        {
+          system: mapping.system,
+          code: mapping.code,
+          display: mapping.display,
+        },
+      ],
+    },
+    {
+      coding: [
+        {
+          code: 'BP',
+          system: 'http://terminology.hl7.org/CodeSystem/v2-0131',
+        },
+      ],
+    },
+  ];
+}
+
+export function getPatchOperationToAddOrUpdateResponsiblePartyRelationship(
+  value: RelationshipOption,
+  path: string,
+  currentValue?: RelationshipOption
+): Operation {
+  const relationship = getResponsiblePartyRelationship(value);
+  if (currentValue) {
+    return {
+      op: 'replace',
+      path,
+      value,
+    };
+  } else {
+    return {
+      op: 'add',
+      path: path.replace(/(\/contact\/\d+\/relationship).*/, '$1'),
+      value: relationship,
+    };
+  }
+}

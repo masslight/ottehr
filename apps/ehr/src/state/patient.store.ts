@@ -23,6 +23,9 @@ import {
   LANGUAGE_OPTIONS,
   LanguageOption,
   getPatchOperationToAddOrUpdatePreferredLanguage,
+  getPatchOperationToAddOrUpdateResponsiblePartyRelationship,
+  RelationshipOption,
+  RELATIONSHIP_OPTIONS,
 } from 'utils';
 import { create } from 'zustand';
 
@@ -298,34 +301,21 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
         };
       }
     } else if (isResponsiblePartyRelationship) {
-      if (effectiveValue !== undefined) {
-        newPatchOperation = { op: 'replace', path, value };
-      } else {
-        const system = 'http://hl7.org/fhir/relationship';
-        console.log(path);
-        newPatchOperation = {
-          op: 'add',
-          path: path.replace(/(\/contact\/\d+\/relationship).*/, '$1'),
-          value: [
-            {
-              coding: [
-                {
-                  system,
-                  display: value,
-                },
-              ],
-            },
-            {
-              coding: [
-                {
-                  code: 'BP',
-                  system: 'http://terminology.hl7.org/CodeSystem/v2-0131',
-                },
-              ],
-            },
-          ],
-        };
+      if (typeof value !== 'string') {
+        throw new Error(`Invalid responsible party relationship value type: ${typeof value}`);
       }
+      if (!(value in RELATIONSHIP_OPTIONS)) {
+        throw new Error(
+          `Invalid responsible party relationship option: ${value}. Expected one of: ${Object.keys(
+            RELATIONSHIP_OPTIONS
+          ).join(', ')}`
+        );
+      }
+      newPatchOperation = getPatchOperationToAddOrUpdateResponsiblePartyRelationship(
+        value as RelationshipOption,
+        path,
+        effectiveValue as RelationshipOption
+      );
     } else {
       if (value === '') {
         // Only generate remove operation if there's actually something to remove
