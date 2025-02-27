@@ -1,4 +1,4 @@
-import Oystehr, { Bundle } from '@oystehr/sdk';
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Appointment,
@@ -6,7 +6,6 @@ import {
   DocumentReference,
   Encounter,
   HealthcareService,
-  Location,
   Patient,
   Practitioner,
   QuestionnaireResponse,
@@ -18,7 +17,6 @@ import {
   AppointmentRelatedResources,
   INSURANCE_CARD_CODE,
   InPersonAppointmentInformation,
-  OTTEHR_MODULE,
   PHOTO_ID_CARD_CODE,
   SMSModel,
   SMSRecipient,
@@ -39,7 +37,17 @@ import { Secrets, ZambdaInput } from 'zambda-utils';
 import { topLevelCatch } from '../shared/errors';
 import { checkOrCreateM2MClientToken, createOystehrClient, getRelatedPersonsFromResourceList } from '../shared/helpers';
 import { sortAppointments } from '../shared/queueingUtils';
-import { getMergedResourcesFromBundles, parseEncounterParticipants } from './helpers';
+import {
+  mergeResources,
+  parseEncounterParticipants,
+  getTimezone,
+  makeResourceCacheKey,
+  makeEncounterSearchParams,
+  makeAppointmentSearchRequest,
+  getTimezoneResourceIdFromAppointment,
+  encounterIdMap,
+  timezoneMap,
+} from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetAppointmentsInput {
@@ -53,219 +61,137 @@ export interface GetAppointmentsInput {
 
 let m2mtoken: string;
 
-const SKIP = 'skip';
-const timezoneMap: Map<string, string> = new Map();
-const encounterIdMap: Map<string, string> = new Map();
-
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
+
+    // searchDate should be in the client timezone initially, it will be converted later for requested resources timezones
     const { visitType, searchDate, locationID, providerIDs, groupIDs, secrets } = validatedParameters;
+
     console.groupEnd();
     console.debug('validateRequestParameters success');
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
 
+    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);
-    let activeAppointmentDatesBeforeToday: string[] = [];
-    let fhirLocation: Location | undefined = undefined;
-    let timezone: string | undefined;
-    if (locationID) {
-      timezone = timezoneMap.get(locationID);
-      console.log('timezone, map', timezone, JSON.stringify(timezoneMap));
-      console.time('get-timezone');
-      if (!timezone) {
-        try {
-          console.log(`reading location ${locationID}`);
-          fhirLocation = await oystehr.fhir.get<Location>({
-            resourceType: 'Location',
-            id: locationID,
-          });
-          timezone = fhirLocation?.extension?.find(
-            (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
-          )?.valueString;
-          if (timezone) {
-            timezoneMap.set(locationID, timezone);
-          }
-          console.log('found location: ', fhirLocation.name);
-        } catch (e) {
-          console.log('error getting location', JSON.stringify(e));
-          throw new Error('location is not found');
-        }
-      }
-      console.timeEnd('get-timezone');
-      console.log('timezone2, map2', timezone, timezoneMap);
-    }
 
     console.time('get_active_encounters + get_appointment_data');
 
-    const encounterSearchParams = [
-      { name: '_count', value: '1000' },
-      { name: '_include', value: 'Encounter:appointment' },
-      {
-        name: '_include',
-        value: 'Encounter:participant',
-      },
-      { name: 'appointment._tag', value: OTTEHR_MODULE.IP }, // why is this restricted to in-person appointments
-      { name: 'appointment.date', value: `lt${DateTime.now().setZone(timezone).startOf('day')}` },
-      // { name: 'appointment.location', value: `Location/${locationId}` },
-      { name: 'status:not', value: 'planned' },
-      { name: 'status:not', value: 'finished' },
-      { name: 'status:not', value: 'cancelled' },
-    ];
-    // console.log('encounter search params: ', JSON.stringify(encounterSearchParams, null, 2));
-    if (locationID) {
-      encounterSearchParams.push({ name: 'appointment.location', value: `Location/${locationID}` });
-    }
-    encounterSearchParams.push({
-      name: 'appointment.date',
-      value: `lt${DateTime.now().setZone(timezone).startOf('day')}`,
-    });
-    let cachedEncounterIds;
-    const idMapKey = `${locationID}|${DateTime.now().setZone(timezone).startOf('day').toISODate()}`;
+    const requestedTimezoneRelatedResources: {
+      resourceId: string;
+      resourceType: 'Location' | 'Practitioner' | 'HealthcareService';
+    }[] = (() => {
+      const resources: { resourceId: string; resourceType: 'Location' | 'Practitioner' | 'HealthcareService' }[] = [];
 
-    if (locationID) {
-      cachedEncounterIds = encounterIdMap.get(idMapKey);
-
-      // if we have cached encounter ids, add them to the search for a big optimization boost
-      if (cachedEncounterIds && cachedEncounterIds !== SKIP) {
-        encounterSearchParams.push({
-          name: '_id',
-          value: cachedEncounterIds,
-        });
+      if (locationID) {
+        resources.push({ resourceId: locationID, resourceType: 'Location' });
       }
-    }
 
-    // if we know previous search turned up no problem encounters, skip this search entirely and
-    // return an empty array. see note below where the rationale for this behavior is explained.
-    let encounterSearch: Promise<Bundle<Encounter | Appointment | Practitioner>>;
-    if (cachedEncounterIds === SKIP) {
-      encounterSearch = new Promise((resolve, _) => {
-        resolve({ resourceType: 'Bundle', type: 'collection', unbundle: () => [] });
-      });
-    } else {
-      encounterSearch = oystehr.fhir.search<Encounter | Appointment | Practitioner>({
-        resourceType: 'Encounter',
-        params: encounterSearchParams,
-      });
-    }
+      if (providerIDs) {
+        resources.push(
+          ...providerIDs.map((providerID) => ({ resourceId: providerID, resourceType: 'Practitioner' }) as const)
+        );
+      }
 
-    const searchDateWithTimezone = DateTime.fromISO(searchDate).setZone(timezone);
-    const appointmentSearchParams = [
-      {
-        name: 'date',
-        value: `ge${searchDateWithTimezone.startOf('day')}`,
-      },
-      {
-        name: 'date',
-        value: `le${searchDateWithTimezone.endOf('day')}`,
-      },
-      {
-        name: 'date:missing',
-        value: 'false',
-      },
-      {
-        name: '_sort',
-        value: 'date',
-      },
-      { name: '_count', value: '1000' },
-      {
-        name: '_include',
-        value: 'Appointment:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'RelatedPerson:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Person:link',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Encounter:participant',
-      },
-      {
-        name: '_include',
-        value: 'Appointment:location',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Encounter:appointment',
-      },
-      { name: '_revinclude:iterate', value: 'DocumentReference:patient' },
-      { name: '_revinclude:iterate', value: 'QuestionnaireResponse:encounter' },
-      { name: '_include', value: 'Appointment:actor' },
-    ];
+      if (groupIDs) {
+        resources.push(
+          ...groupIDs.map((groupID) => ({ resourceId: groupID, resourceType: 'HealthcareService' }) as const)
+        );
+      }
 
-    const appointmentSearchQueries: Promise<Bundle<AppointmentRelatedResources>>[] = [];
-    if (locationID) {
-      const locationSearchParams = [
-        ...appointmentSearchParams,
-        {
-          name: 'location',
-          value: `Location/${locationID}`,
-        },
-      ];
-      appointmentSearchQueries.push(
-        oystehr.fhir.search<AppointmentRelatedResources>({
-          resourceType: 'Appointment',
-          params: locationSearchParams,
+      return resources;
+    })();
+
+    const { appointmentResources, encounterResources } = await (async () => {
+      // prepare search options
+      const searchOptions = await Promise.all(
+        requestedTimezoneRelatedResources.map(async (resource) => {
+          const resourceTimezone = await getTimezone({
+            oystehr,
+            resourceType: resource.resourceType,
+            resourceId: resource.resourceId,
+          });
+
+          const cacheKey = makeResourceCacheKey({
+            resourceId: resource.resourceId,
+            resourceType: resource.resourceType,
+            resourceTimezone,
+          });
+
+          const searchParams = makeEncounterSearchParams({
+            resourceId: resource.resourceId,
+            resourceType: resource.resourceType,
+            resourceTimezone,
+            cacheKey,
+          });
+
+          return {
+            resourceId: resource.resourceId,
+            resourceType: resource.resourceType,
+            resourceTimezone,
+            searchParams,
+            cacheKey,
+          };
         })
       );
-    }
-    if (providerIDs && providerIDs?.length > 0) {
-      const providerSearchParams = [
-        ...appointmentSearchParams,
-        {
-          name: 'actor',
-          value: providerIDs.map((providerID) => `Practitioner/${providerID}`).join(','),
-        },
-      ];
-      appointmentSearchQueries.push(
-        oystehr.fhir.search<AppointmentRelatedResources>({
-          resourceType: 'Appointment',
-          params: providerSearchParams,
-        })
-      );
-    }
-    if (groupIDs && groupIDs?.length > 0) {
-      const groupSearchParams = [
-        ...appointmentSearchParams,
-        {
-          name: 'actor',
-          value: groupIDs.map((groupID) => `HealthcareService/${groupID}`).join(','),
-        },
-      ];
-      appointmentSearchQueries.push(
-        oystehr.fhir.search<AppointmentRelatedResources>({
-          resourceType: 'Appointment',
-          params: groupSearchParams,
-        })
-      );
-    }
 
-    if (appointmentSearchQueries.length === 0) {
-      appointmentSearchQueries.push(
-        oystehr.fhir.search<AppointmentRelatedResources>({
-          resourceType: 'Appointment',
-          params: appointmentSearchParams,
+      // request appointments and encounters
+      const resourceResults = await Promise.all(
+        searchOptions.map(async (options) => {
+          const appointmentRequest = await makeAppointmentSearchRequest({
+            oystehr,
+            resourceId: options.resourceId,
+            resourceType: options.resourceType,
+            searchDate,
+          });
+
+          // here is a possible optimisation, we can use `options.searchParams !== null` check like for encounterResponse
+          // because we may skip appointments search if there are no encounters, but i'm not sure bacuase we didn't use pagination
+          // and we may just didn't get all encounters. But if we ensure that encounters request works good we may use that.
+          const appointmentPromise = oystehr.fhir.search<AppointmentRelatedResources>(appointmentRequest);
+
+          // search params will be null if it was a cached result and response returns no encounters, so we can skip that request
+          const encounterPromise =
+            options.searchParams !== null
+              ? oystehr.fhir
+                  .search<Encounter | Appointment>({ resourceType: 'Encounter', params: options.searchParams })
+                  .then((encountersBundle) => {
+                    const encounters = encountersBundle.unbundle();
+                    const encounterIds = encounters.map((e) => e.id).join(',') || null;
+
+                    // original comment:
+                    // we now know whether and which encounters are un-cleaned-up at this location for this date; we can either search for exactly those or skip
+                    // the encounter search entirely
+                    // something very odd would need to happen for an encounter to retroactively enter the unresolved state, and if it happened it would get found
+                    // tomorrow rather than today (or when this zambda context gets cleaned up). therefore it is a pretty easy cost/benefit call to forego this search
+                    // when we know it recently returned no results, or optimize to only target encounters that met the search criteria in the first execution.
+                    encounterIdMap.set(options.cacheKey, encounterIds);
+
+                    return encounters;
+                  })
+              : Promise.resolve(null);
+
+          const [appointmentResponse, encounters] = await Promise.all([appointmentPromise, encounterPromise]);
+          const appointments = appointmentResponse.unbundle();
+
+          return { appointments, encounters };
         })
       );
-    }
 
-    const [activeEncounterBundle, ...appointmentBundles] = await Promise.all([
-      encounterSearch,
-      ...appointmentSearchQueries,
-    ]);
-    const activeEncounters = activeEncounterBundle.unbundle();
-    const searchResultsForSelectedDate = getMergedResourcesFromBundles(appointmentBundles);
+      const flatAppointments = resourceResults.flatMap((result) => result.appointments || []);
+      const flatEncounters = resourceResults.flatMap((result) => result.encounters || []);
+
+      return {
+        appointmentResources: mergeResources(flatAppointments),
+        encounterResources: mergeResources(flatEncounters),
+      };
+    })();
 
     console.timeEnd('get_active_encounters + get_appointment_data');
 
     const encounterIds: string[] = [];
 
-    const tempAppointmentDates = activeEncounters
+    const activeAppointmentDatesBeforeToday = encounterResources
       .filter((resource) => {
         if (resource.resourceType === 'Encounter' && resource.id) {
           encounterIds.push(resource.id);
@@ -278,39 +204,28 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         return d1.diff(d2).toMillis();
       })
       .map((resource) => {
+        const timezoneResourceId = getTimezoneResourceIdFromAppointment(resource as Appointment);
+        const appointmentTimezone = timezoneResourceId && timezoneMap.get(timezoneResourceId);
+
         return DateTime.fromISO((resource as Appointment).start || '')
-          .setZone(timezone)
+          .setZone(appointmentTimezone)
           .toFormat('MM/dd/yyyy');
-      });
-
-    // we now know whether and which encounters are un-cleaned-up at this location for this date; we can either search for exactly those or skip
-    // the encounter search entirely
-    // something very odd would need to happen for an encounter to retroactively enter the unresolved state, and if it happened it would get found
-    // tomorrow rather than today (or when this zambda context gets cleaned up). therefore it is a pretty easy cost/benefit call to forego this search
-    // when we know it recently returned no results, or optimize to only target encounters that met the search criteria in the first execution.
-    if (encounterIds.length) {
-      encounterIdMap.set(idMapKey, encounterIds.join(','));
-    } else {
-      encounterIdMap.set(idMapKey, SKIP);
-    }
-
-    activeAppointmentDatesBeforeToday = [...tempAppointmentDates];
+      })
+      .filter((date, index, array) => array.indexOf(date) === index); // filter duplicates
 
     let preBooked: InPersonAppointmentInformation[] = [];
     let inOffice: InPersonAppointmentInformation[] = [];
     let completed: InPersonAppointmentInformation[] = [];
-    let canceled: InPersonAppointmentInformation[] = [];
+    let cancelled: InPersonAppointmentInformation[] = [];
 
-    if (searchResultsForSelectedDate?.length == 0) {
+    if (appointmentResources?.length == 0) {
       const response = {
-        activeApptDatesBeforeToday: activeAppointmentDatesBeforeToday.filter(
-          (value, index, array) => array.indexOf(value) === index
-        ), // remove duplicate dates
+        activeApptDatesBeforeToday: activeAppointmentDatesBeforeToday,
         message: 'Successfully retrieved all appointments',
         preBooked,
         inOffice,
         completed,
-        cancelled: canceled, // grrr
+        cancelled,
       };
       console.timeEnd('structure_appointment_data');
 
@@ -322,7 +237,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     // array of patient ids to get related documents
     const patientIds: string[] = [];
-    searchResultsForSelectedDate.forEach((resource) => {
+    appointmentResources.forEach((resource) => {
       if (resource.resourceType === 'Appointment') {
         const appointment = resource as Appointment;
         const patientId = appointment.participant
@@ -334,10 +249,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     console.time('parse_search_results');
     // const persons = getPersonsFromResourceList(searchResultsForSelectedDate);
-    const patientToRPMap: Record<string, RelatedPerson[]> =
-      getRelatedPersonsFromResourceList(searchResultsForSelectedDate);
+    const patientToRPMap: Record<string, RelatedPerson[]> = getRelatedPersonsFromResourceList(appointmentResources);
 
-    // console.log('patientToRPMap', JSON.stringify(patientToRPMap));
     const allAppointments: Appointment[] = [];
     const patientIdMap: Record<string, Patient> = {};
     const apptRefToEncounterMap: Record<string, Encounter> = {};
@@ -350,12 +263,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const practitionerIdToResourceMap: Record<string, Practitioner> = {};
     const participantIdToResorceMap: Record<string, Practitioner> = {};
     const healthcareServiceIdToResourceMap: Record<string, HealthcareService> = {};
-    activeEncounters.forEach((resource) => {
+    appointmentResources.forEach((resource) => {
       if (resource.resourceType === 'Practitioner' && resource.id) {
         participantIdToResorceMap[`Practitioner/${resource.id}`] = resource as Practitioner;
       }
     });
-    searchResultsForSelectedDate.forEach((resource) => {
+    appointmentResources.forEach((resource) => {
       if (resource.resourceType === 'Appointment') {
         allAppointments.push(resource as Appointment);
       } else if (resource.resourceType === 'Patient' && resource.id) {
@@ -383,8 +296,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             patientRefToQRMap[patientRef] = resource as QuestionnaireResponse;
           }
         }
-      } else if (resource.resourceType === 'Location') {
-        fhirLocation = resource as Location;
       } else if (resource.resourceType === 'RelatedPerson' && resource.id) {
         rpIdToResourceMap[`RelatedPerson/${resource.id}`] = resource as RelatedPerson;
         const pn = getSMSNumberForIndividual(resource as RelatedPerson);
@@ -489,7 +400,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     if (appointments.length > 0) {
       const appointmentQueues = sortAppointments(appointments, apptRefToEncounterMap);
       const baseMapInput: Omit<AppointmentInformationInputs, 'appointment'> = {
-        timezone,
         encounterRefToQRMap,
         patientRefToQRMap,
         patientToRPMap,
@@ -560,7 +470,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           });
         })
         .filter(isTruthy);
-      canceled = appointmentQueues.canceled
+      cancelled = appointmentQueues.canceled
         .map((appointment) => {
           return makeAppointmentInformation(oystehr, {
             appointment,
@@ -571,14 +481,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     const response = {
-      activeApptDatesBeforeToday: activeAppointmentDatesBeforeToday.filter(
-        (value, index, array) => array.indexOf(value) === index
-      ), // remove duplicate dates
+      activeApptDatesBeforeToday: activeAppointmentDatesBeforeToday,
       message: 'Successfully retrieved all appointments',
       preBooked,
       inOffice,
       completed,
-      cancelled: canceled, // grrr
+      cancelled,
     };
     console.timeEnd('structure_appointment_data');
 
@@ -607,7 +515,6 @@ interface AppointmentInformationInputs {
   participantIdToResorceMap: Record<string, Practitioner>;
   healthcareServiceIdToResourceMap: Record<string, HealthcareService>;
   allDocRefs: DocumentReference[];
-  timezone: string | undefined;
   next: boolean;
 }
 
@@ -617,7 +524,6 @@ const makeAppointmentInformation = (
 ): InPersonAppointmentInformation | undefined => {
   const {
     appointment,
-    timezone,
     patientIdMap,
     apptRefToEncounterMap,
     encounterRefToQRMap,
@@ -629,8 +535,6 @@ const makeAppointmentInformation = (
     next,
     patientToRPMap,
   } = input;
-
-  // console.log('rp to comm map', JSON.stringify(Object.keys(rpToCommMap)));
 
   const patientRef = appointment.participant.find((appt) => appt.actor?.reference?.startsWith('Patient/'))?.actor
     ?.reference;
@@ -665,9 +569,7 @@ const makeAppointmentInformation = (
         })
         .filter((rec) => rec.recipientResourceUri !== undefined && rec.smsNumber !== undefined) as SMSRecipient[];
       if (recipients.length) {
-        // console.log('recipients', recipients);
         const allComs = recipients.flatMap((recip) => {
-          // console.log(`com map key: RelatedPerson/${recip.relatedPersonId}`);
           return rpToCommMap[recip.recipientResourceUri] ?? [];
         });
         smsModel = {
@@ -750,11 +652,14 @@ const makeAppointmentInformation = (
 
   const participants = parseEncounterParticipants(encounter, participantIdToResorceMap);
 
+  const timezoneResourceId = getTimezoneResourceIdFromAppointment(appointment);
+  const appointmentTimezone = timezoneResourceId && timezoneMap.get(timezoneResourceId);
+
   return {
     id: appointment.id || 'Unknown',
     encounter,
     encounterId: encounter.id || 'Unknown',
-    start: DateTime.fromISO(appointment.start!).setZone(timezone).toISO() || 'Unknown',
+    start: DateTime.fromISO(appointment.start!).setZone(appointmentTimezone).toISO() || 'Unknown',
     patient: {
       id: patient.id || 'Unknown',
       firstName: getPatientFirstName(patient),

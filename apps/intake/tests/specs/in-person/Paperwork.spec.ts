@@ -1,5 +1,6 @@
-import { BrowserContext, test, Page } from '@playwright/test';
+import { BrowserContext, test, Page, expect } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
+import { Locators } from '../../utils/locators';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 import { Paperwork } from '../../utils/Paperwork';
 
@@ -8,6 +9,8 @@ let context: BrowserContext;
 let flowClass: PrebookInPersonFlow;
 let bookingData: Awaited<ReturnType<PrebookInPersonFlow['startVisit']>>;
 let paperwork: Paperwork;
+let locator: Locators;
+let pcpData: Awaited<ReturnType<Paperwork['fillPrimaryCarePhysician']>>
 const appointmentIds: string[] = [];
 
 test.beforeAll(async ({ browser }) => {
@@ -23,6 +26,7 @@ test.beforeAll(async ({ browser }) => {
   });
   flowClass = new PrebookInPersonFlow(page);
   paperwork = new Paperwork(page);
+  locator = new Locators(page);
   bookingData = await flowClass.startVisit();
 });
 test.afterAll(async () => {
@@ -54,6 +58,7 @@ test.describe('Contact information screen - Check and fill all fields', () => {
     await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
   });
   test('PPD-1 Click on [Continue] - Patient details screen opens', async () => {
+    await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('Patient details');
   });
 });
@@ -71,6 +76,36 @@ test.describe('Patient details screen - Check and fill all fields', () => {
     await paperwork.fillNotListedPronouns();
   });
   test('PPD-5 Click on [Continue] - Primary Care Physician', async () => {
+    await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('Primary Care Physician');
+  });
+});
+test.describe('Primary Care Physician - Check and fill all fields', () => {
+  test('PPCP-1 Primary Care Physician - Check patient name is displayed', async () => {
+    await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
+  });
+  test('PPCP-2 Click on [Continue] with empty fields - Primary Care Physician opens', async () => {
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
+  });
+  test('PPCP-3 Click on [Back] - Primary Care Physician opens', async () => {
+    await locator.clickBackButton();
+    await paperwork.checkCorrectPageOpens('Primary Care Physician');
+  });
+  test('PPCP-4 Check phone field validation', async () => {
+    await paperwork.checkPhoneValidations(locator.pcpNumber, locator.pcpNumberErrorText);
+  });
+  test('PPCP-5 Fill all fields and click [Continue]', async () => {
+    pcpData = await paperwork.fillPrimaryCarePhysician();
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
+  });
+  test('PPCP-6 Click on [Back] - fields have correct values', async () => {
+    await locator.clickBackButton();
+    await expect(locator.pcpFirstName).toHaveValue(pcpData.firstName);
+    await expect(locator.pcpLastName).toHaveValue(pcpData.lastName);
+    await expect(locator.pcpAddress).toHaveValue(pcpData.pcpAddress);
+    await expect(locator.pcpPractice).toHaveValue(pcpData.pcpName);
+    await expect(locator.pcpNumber).toHaveValue(pcpData.formattedPhoneNumber);
   });
 });

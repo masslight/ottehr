@@ -48,7 +48,7 @@ jobs:
 
     runs-on: ubuntu-latest-16-cores
     timeout-minutes: 15
-
+    
     permissions:
       id-token: write # Required for OIDC
       contents: write # Required for version bumping
@@ -126,8 +126,7 @@ jobs:
           gh pr merge --auto --squash version-bump-${{ github.run_id }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        
-        
+
       - name: Install dependencies
         run: npm ci
 

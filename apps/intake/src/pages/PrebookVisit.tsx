@@ -16,6 +16,7 @@ import { PageContainer, Schedule } from '../components';
 import { otherColors } from '../IntakeThemeProvider';
 import { useGetBookableItems, useGetSchedule } from '../telemed/features/appointments/appointment.queries';
 import { useZapEHRAPIClient } from '../telemed/utils';
+import { dataTestIds } from '../helpers/data-test-ids';
 
 const SERVICE_MODES: ServiceMode[] = [ServiceMode['in-person'], ServiceMode['virtual']];
 
@@ -195,6 +196,7 @@ const PrebookVisit: FC = () => {
             <Autocomplete
               id="bookable-autocomplete"
               options={bookableItems}
+              data-testid={dataTestIds.scheduleVirtualVisitStatesSelector}
               getOptionLabel={(option) => option.label || option.state || ''}
               onChange={handleBookableSelection}
               groupBy={isCategorized ? (option) => option.category ?? '' : undefined}
