@@ -5,6 +5,22 @@ import Oystehr from '@oystehr/sdk';
 import { Location } from 'fhir/r4b';
 import { DEFAULT_TESTING_SLUG } from '../packages/intake/zambdas/scripts/setup-default-locations';
 
+const getEnvironment = (): string => {
+  const envFlagIndex = process.argv.findIndex((arg) => arg === '--environment');
+  if (envFlagIndex !== -1 && envFlagIndex < process.argv.length - 1) {
+    const env = process.argv[envFlagIndex + 1];
+    const validEnvironments = ['local', 'demo', 'development', 'staging', 'testing'];
+    if (validEnvironments.includes(env)) {
+      return env;
+    }
+    console.warn(`Invalid environment "${env}". Using default "local".`);
+  }
+  return 'local';
+};
+
+const environment = getEnvironment();
+console.log(`Using environment: ${environment}`);
+
 interface EhrConfig {
   TEXT_USERNAME?: string;
   TEXT_PASSWORD?: string;
@@ -105,56 +121,35 @@ export async function createTestEnvFiles(): Promise<void> {
     const skipPrompts = process.argv.includes('--skip-prompts');
 
     const ehrZambdaEnv: Record<string, string> = JSON.parse(
-      fs.readFileSync('packages/ehr/zambdas/.env/local.json', 'utf8')
+      fs.readFileSync(`packages/ehr/zambdas/.env/${environment}.json`, 'utf8')
     );
 
-    const ehrUiEnv: Record<string, string> = dotenv.parse(fs.readFileSync('apps/ehr/env/.env.local', 'utf8'));
+    const ehrUiEnv: Record<string, string> = dotenv.parse(fs.readFileSync(`apps/ehr/env/.env.${environment}`, 'utf8'));
 
     const intakeZambdaEnv: Record<string, string> = JSON.parse(
-      fs.readFileSync('packages/intake/zambdas/.env/local.json', 'utf8')
+      fs.readFileSync(`packages/intake/zambdas/.env/${environment}.json`, 'utf8')
     );
 
-    const intakeUiEnv: Record<string, string> = dotenv.parse(fs.readFileSync('apps/intake/env/.env.local', 'utf8'));
+    const intakeUiEnv: Record<string, string> = dotenv.parse(
+      fs.readFileSync(`apps/intake/env/.env.${environment}`, 'utf8')
+    );
 
     const { locationId, locationName, locationSlug, locationState } = await getLocationForTesting(ehrZambdaEnv);
-
-    let ehrTemplateEnv = {};
-    let intakeTemplateEnv = {};
 
     let existingEhrConfig: EhrConfig = {};
     let existingIntakeConfig: IntakeConfig = {};
 
-    const isValueExists = (value: unknown): boolean => value !== undefined && value !== '';
-
     try {
-      ehrTemplateEnv = Object.fromEntries(
-        Object.entries(JSON.parse(fs.readFileSync('apps/ehr/env/tests.local-template.json', 'utf8'))).filter(
-          ([_, value]) => isValueExists(value)
-        )
-      );
-    } catch {
-      console.warn('No existing EHR test template env file found (apps/ehr/env/tests.local-template.json)');
-    }
-
-    try {
-      intakeTemplateEnv = Object.fromEntries(
-        Object.entries(JSON.parse(fs.readFileSync('apps/intake/env/tests.local-template.json', 'utf8'))).filter(
-          ([_, value]) => isValueExists(value)
-        )
-      );
-    } catch {
-      console.warn('No existing Intake test template env file found (apps/intake/env/tests.local-template.json)');
-    }
-
-    try {
-      existingEhrConfig = JSON.parse(fs.readFileSync('apps/ehr/env/tests.local.json', 'utf8')) as EhrConfig;
+      existingEhrConfig = JSON.parse(fs.readFileSync(`apps/ehr/env/tests.${environment}.json`, 'utf8')) as EhrConfig;
       console.log('Found existing EHR test config file');
     } catch {
       console.log('No existing EHR test config file found');
     }
 
     try {
-      existingIntakeConfig = JSON.parse(fs.readFileSync('apps/intake/env/tests.local.json', 'utf8')) as IntakeConfig;
+      existingIntakeConfig = JSON.parse(
+        fs.readFileSync(`apps/intake/env/tests.${environment}.json`, 'utf8')
+      ) as IntakeConfig;
       console.log('Found existing Intake test config file');
     } catch {
       console.log('No existing Intake test config file found');
@@ -213,7 +208,11 @@ export async function createTestEnvFiles(): Promise<void> {
       FHIR_API: ehrZambdaEnv.FHIR_API,
       AUTH0_ENDPOINT: ehrZambdaEnv.AUTH0_ENDPOINT,
       AUTH0_AUDIENCE: ehrZambdaEnv.AUTH0_AUDIENCE,
-      ...ehrTemplateEnv,
+      PROJECT_API: intakeUiEnv.VITE_APP_PROJECT_API_URL,
+      PROJECT_API_ZAMBDA_URL: ehrUiEnv.VITE_APP_PROJECT_API_ZAMBDA_URL,
+      CREATE_APPOINTMENT_ZAMBDA_ID: ehrUiEnv.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID,
+      CREATE_TELEMED_APPOINTMENT_ZAMBDA_ID: intakeUiEnv.VITE_APP_TELEMED_CREATE_APPOINTMENT_ZAMBDA_ID,
+      ...(environment === 'local' && { APP_IS_LOCAL: 'true' }),
     };
 
     const intakeConfig: IntakeConfig = {
@@ -231,11 +230,19 @@ export async function createTestEnvFiles(): Promise<void> {
       AUTH0_ENDPOINT: intakeZambdaEnv.AUTH0_ENDPOINT,
       AUTH0_AUDIENCE: intakeZambdaEnv.AUTH0_AUDIENCE,
       PROJECT_API: intakeUiEnv.VITE_APP_PROJECT_API_URL,
-      ...intakeTemplateEnv,
     };
 
-    fs.writeFileSync('apps/ehr/env/tests.local.json', JSON.stringify(ehrConfig, null, 2));
-    fs.writeFileSync('apps/intake/env/tests.local.json', JSON.stringify(intakeConfig, null, 2));
+    if (Object.values(intakeConfig).some((value) => value === '')) {
+      throw new Error('Intake config contains empty values');
+    }
+
+    if (Object.values(ehrConfig).some((value) => value === '')) {
+      throw new Error('EHR config contains empty values');
+    }
+
+    console.log({ ehrConfig, intakeConfig, ehrZambdaEnv, intakeZambdaEnv });
+    fs.writeFileSync(`apps/ehr/env/tests.${environment}.json`, JSON.stringify(ehrConfig, null, 2));
+    fs.writeFileSync(`apps/intake/env/tests.${environment}.json`, JSON.stringify(intakeConfig, null, 2));
 
     console.log('Env files for tests created successfully');
   } catch (e) {

@@ -89,7 +89,7 @@ export const createSampleAppointments = async (
   phoneNumber: string,
   createAppointmentZambdaId: string,
   // submitPaperworkZambdaId: string,
-  islocal: boolean,
+  _islocal: boolean, // todo: use destructuring and remove useless args
   intakeZambdaUrl: string,
   selectedLocationId?: string,
   demoData?: DemoAppointmentData
@@ -131,19 +131,19 @@ export const createSampleAppointments = async (
         body: JSON.stringify(randomPatientInfo),
       });
 
-      appointmentData = islocal
-        ? await createAppointmentResponse.json()
-        : (await createAppointmentResponse.json()).output;
+      appointmentData = await createAppointmentResponse.json();
 
-      const appointmentId = appointmentData.appointment;
-      const questionnaireResponseId = appointmentData.questionnaireResponseId;
-      const encounterId = appointmentData.encounterId;
+      if ((appointmentData as any).output) {
+        appointmentData = (appointmentData as any).output as CreateAppointmentResponse;
+      }
+
+      const { appointment: appointmentId, questionnaireResponseId, encounterId, fhirPatientId } = appointmentData;
 
       const birthDate = isoToDateObject(randomPatientInfo?.patient?.dateOfBirth || '');
 
       const updatedQuestionnaireResponse = await oystehr.fhir.update<QuestionnaireResponse>({
         ...updateQuestionnaireResponse({
-          patientId: appointmentData.fhirPatientId,
+          patientId: fhirPatientId,
           questionnaire: appointmentData.resources.questionnaire.questionnaire!,
           questionnaireResponseId: questionnaireResponseId!,
           encounterId: encounterId!,

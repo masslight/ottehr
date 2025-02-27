@@ -6,12 +6,24 @@ set -e
 # Initialize an empty string for error messages
 errors=""
 
-# Check for --skip-prompts argument
+# Default environment
+environment="local"
+
+# Parse arguments
 skip_prompts=""
-if [[ "$1" == "--skip-prompts" ]]; then
-  skip_prompts="--skip-prompts"
-  echo "Running in skip prompts mode. Will preserve existing values."
-fi
+for arg in "$@"; do
+  if [[ "$arg" == "--skip-prompts" ]]; then
+    skip_prompts="--skip-prompts"
+    echo "Running in skip prompts mode. Will use existing values from environment files for user prompts."
+  elif [[ "$arg" == "--environment" ]]; then
+    # Next argument is the environment value
+    read_env=true
+  elif [[ "$read_env" == true ]]; then
+    environment="$arg"
+    read_env=false
+    echo "Using environment: $environment"
+  fi
+done
 
 # Check if node is installed
 if ! command -v node &> /dev/null; then
@@ -40,4 +52,4 @@ function display_progress() {
 
 # Execute ./create-test-env.ts
 display_progress "Executing ./e2e-test-setup.ts..."
-npx tsx ./scripts/e2e-test-setup.ts $skip_prompts
+npx tsx ./scripts/e2e-test-setup.ts $skip_prompts --environment $environment
