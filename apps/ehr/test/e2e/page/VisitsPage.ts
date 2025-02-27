@@ -20,7 +20,8 @@ export class VisitsPage {
     }
 
     // Expect at least one matching visit
-    await expect(visitLocator).toHaveCount(1);
+    const count = await visitLocator.count();
+    expect(count).toBeGreaterThan(0);
   }
 
   async clickIntakeButton(appointmentId: string): Promise<void> {
