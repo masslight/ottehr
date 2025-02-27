@@ -13,21 +13,77 @@ export const ResponsibleInformationContainer: FC = () => {
 
   if (!patient) return null;
 
-  const phone = patient?.contact?.[0].telecom?.find((telecom) => telecom.system === 'phone')?.value;
-  const index = patient?.contact?.[0].telecom?.findIndex(
-    (telecom) => telecom.system === 'phone' && telecom.value === phone
+  const contactIndex = patient.contact?.findIndex(
+    (contact) =>
+      contact.relationship?.some(
+        (rel) =>
+          rel.coding?.some(
+            (code) => code.system === 'http://terminology.hl7.org/CodeSystem/v2-0131' && code.code === 'BP'
+          )
+      )
   );
-  const responsiblePartyPhonePath = patientFieldPaths.responsiblePartyPhone.replace(/telecom\/\d+/, `telecom/${index}`);
+
+  const responsiblePartyIndex = patient?.contact ? (contactIndex === -1 ? patient.contact.length : contactIndex) : 0;
+
+  const responsiblePartyContact = responsiblePartyIndex ? patient?.contact?.[responsiblePartyIndex] : undefined;
+
+  const responsiblePartyFullNamePath = patientFieldPaths.responsiblePartyName.replace(
+    /contact\/\d+/,
+    `contact/${responsiblePartyIndex}`
+  );
+
+  const responsiblePartyFirstNamePath = patientFieldPaths.responsiblePartyFirstName.replace(
+    /contact\/\d+/,
+    `contact/${responsiblePartyIndex}`
+  );
+
+  const responsiblePartyLastNamePath = patientFieldPaths.responsiblePartyLastName.replace(
+    /contact\/\d+/,
+    `contact/${responsiblePartyIndex}`
+  );
+
+  const responsiblePartyRelationshipPath = patientFieldPaths.responsiblePartyRelationship.replace(
+    /contact\/\d+/,
+    `contact/${responsiblePartyIndex}`
+  );
+
+  const responsiblePartyBirthDatePath = patientFieldPaths.responsiblePartyBirthDate.replace(
+    /contact\/\d+/,
+    `contact/${responsiblePartyIndex}`
+  );
+
+  const responsiblePartyGenderPath = patientFieldPaths.responsiblePartyGender.replace(
+    /contact\/\d+/,
+    `contact/${responsiblePartyIndex}`
+  );
+
+  const relationship = responsiblePartyContact?.relationship?.find(
+    (rel) => rel.coding?.some((coding) => coding.system === 'http://hl7.org/fhir/relationship')
+  )?.coding?.[0].display;
+
+  const fullName =
+    responsiblePartyContact?.name?.family && responsiblePartyContact?.name?.given?.[0]
+      ? `${responsiblePartyContact.name.family}, ${responsiblePartyContact.name.given[0]}`
+      : '';
+
+  const birthDate = responsiblePartyContact?.extension?.[0].valueString;
+
+  const birthSex = responsiblePartyContact?.gender;
+
+  const phoneNumberIndex = responsiblePartyContact?.telecom
+    ? responsiblePartyContact?.telecom?.findIndex((telecom) => telecom.system === 'phone')
+    : -1;
+
+  const phone = responsiblePartyContact?.telecom?.[phoneNumberIndex]?.value;
+
+  const responsiblePartyPhonePath = patientFieldPaths.responsiblePartyPhone
+    .replace(/contact\/\d+/, `contact/${responsiblePartyIndex}`)
+    .replace(/telecom\/\d+/, `telecom/${phoneNumberIndex}`);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const { name, value } = event.target;
     updatePatientField(name, value);
   };
-
-  const fullName =
-    patient?.contact?.[0]?.name?.family && patient?.contact?.[0]?.name?.given?.[0]
-      ? `${patient.contact[0].name.family}, ${patient.contact[0].name.given[0]}`
-      : '';
 
   const handleResponsiblePartyNameChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const value = e.target.value;
@@ -43,14 +99,14 @@ export const ResponsibleInformationContainer: FC = () => {
     // Update both name parts
     handleChange({
       target: {
-        name: patientFieldPaths.responsiblePartyLastName,
+        name: responsiblePartyLastNamePath,
         value: lastName,
       },
     } as any);
 
     handleChange({
       target: {
-        name: patientFieldPaths.responsiblePartyFirstName,
+        name: responsiblePartyFirstNamePath,
         value: firstName,
       },
     } as any);
@@ -60,24 +116,20 @@ export const ResponsibleInformationContainer: FC = () => {
     <Section title="Responsible party information">
       <Row label="Relationship" required>
         <FormSelect
-          name={patientFieldPaths.responsiblePartyRelationship}
+          name={responsiblePartyRelationshipPath}
           control={control}
           options={RELATIONSHIP_OPTIONS}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
             validate: (value: string) => RELATIONSHIP_OPTIONS.some((option) => option.value === value),
           }}
-          defaultValue={
-            RELATIONSHIP_OPTIONS.find(
-              (option) => option.value === patient?.contact?.[0]?.relationship?.[0]?.coding?.[0]?.display
-            )?.value
-          }
+          defaultValue={RELATIONSHIP_OPTIONS.find((option) => option.value === relationship)?.value}
           onChangeHandler={handleChange}
         />
       </Row>
       <Row label="Full name" required inputId="responsible-party-full-name">
         <FormTextField
-          name={patientFieldPaths.responsiblePartyName}
+          name={responsiblePartyFullNamePath}
           control={control}
           defaultValue={fullName}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
@@ -87,25 +139,25 @@ export const ResponsibleInformationContainer: FC = () => {
       </Row>
       <Row label="Date of birth" required>
         <DatePicker
-          name={patientFieldPaths.responsiblePartyBirthDate}
+          name={responsiblePartyBirthDatePath}
           control={control}
           required={true}
-          defaultValue={patient?.contact?.[0].extension?.[0].valueString}
+          defaultValue={birthDate}
           onChange={(dateStr) => {
-            updatePatientField(patientFieldPaths.responsiblePartyBirthDate, dateStr);
+            updatePatientField(responsiblePartyBirthDatePath, dateStr);
           }}
         />
       </Row>
       <Row label="Birth sex" required>
         <FormSelect
-          name={patientFieldPaths.responsiblePartyGender}
+          name={responsiblePartyGenderPath}
           control={control}
           options={SEX_OPTIONS}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
           required={true}
-          defaultValue={patient?.contact?.[0].gender}
+          defaultValue={birthSex}
           onChangeHandler={handleChange}
         />
       </Row>
