@@ -19,9 +19,8 @@ export class PatientInfoPage {
   }
 }
 
-export async function expectPatientInfoPage(firstName: string, lastName: string, page: Page): Promise<PatientInfoPage> {
-  await page.waitForURL(new RegExp('/in-person/.*/patient-info'));
-  await expect(page.getByTestId(dataTestIds.cssHeader.patientName)).toHaveText(`${lastName}, ${firstName}`);
+export async function expectPatientInfoPage(patientId: string, page: Page): Promise<PatientInfoPage> {
+  await page.waitForURL(new RegExp(`/in-person/${patientId}/patient-info`));
   await expect(page.getByTestId(dataTestIds.patientInfoPage.patientInfoVerifiedCheckbox).locator('input')).toBeChecked({
     checked: true,
     timeout: 30000,

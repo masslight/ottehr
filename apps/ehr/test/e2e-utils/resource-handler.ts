@@ -298,7 +298,7 @@ export class ResourceHandler {
             resourceType: 'Appointment',
             params: [
               {
-                name: 'id',
+                name: '_id',
                 value: id,
               },
             ],

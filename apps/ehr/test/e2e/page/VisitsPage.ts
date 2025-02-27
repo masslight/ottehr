@@ -8,20 +8,8 @@ export class VisitsPage {
     this.#page = page;
   }
 
-  async verifyVisitPresent(firstName: string, lastName: string, time?: string): Promise<void> {
-    const patientName = `${lastName}, ${firstName}`;
-
-    // Find a row that contains the correct patient name
-    let visitLocator = this.#page.locator('#appointments-table-row').filter({ hasText: patientName });
-
-    // If time is provided, further filter by time
-    if (time) {
-      visitLocator = visitLocator.filter({ hasText: time });
-    }
-
-    // Expect at least one matching visit
-    const count = await visitLocator.count();
-    expect(count).toBeGreaterThan(0);
+  async verifyVisitPresent(appointmentId: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))).toBeVisible();
   }
 
   async clickIntakeButton(appointmentId: string): Promise<void> {
