@@ -27,7 +27,8 @@
     "ehr:lint": "turbo lint --filter=ehr-ui... --filter=ehr-zambdas...",
     "ehr:start:ui": "turbo start --filter=ehr-ui",
     "apps:start": "turbo start --filter=intake-ui --filter=intake-zambdas --filter=ehr-ui --filter=ehr-zambdas",
-    "test": "turbo test"
+    "test": "turbo test",
+    "prepare": "husky"
   },
   "workspaces": [
     "packages/**/*",
@@ -117,7 +118,7 @@
     "eslint-plugin-prettier": "^5.0.1",
     "eslint-plugin-react-hooks": "^4.6.0",
     "happy-dom": "^16.8.1",
-    "husky": "^8.0.0",
+    "husky": "^9.0.11",
     "jest": "^29.6.2",
     "lint-staged": "^15.0.2",
     "parquetjs": "^0.11.2",

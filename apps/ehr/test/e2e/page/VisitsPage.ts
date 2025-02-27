@@ -21,7 +21,8 @@ export class VisitsPage {
     }
 
     // Expect at least one matching visit
-    await expect(visitLocator).toBeVisible();
+    const count = await visitLocator.count();
+    expect(count).toBeGreaterThan(0);
   }
 
   async clickPrebookedTab(): Promise<void> {
