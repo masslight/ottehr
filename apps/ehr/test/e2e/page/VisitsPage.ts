@@ -1,6 +1,5 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { fail } from 'assert';
 
 export class VisitsPage {
   #page: Page;
@@ -24,18 +23,11 @@ export class VisitsPage {
     await expect(visitLocator).toHaveCount(1);
   }
 
-  async clickIntakeButton(patientName: string): Promise<void> {
-    const visitsLocator = this.#page.locator('#appointments-table-row');
-    const count = await visitsLocator.count();
-    for (let i = 0; i < count; i++) {
-      const visitLocator = visitsLocator.nth(i);
-      const visitPatientName = await visitLocator.getByTestId(dataTestIds.dashboard.patientName).innerText();
-      if (visitPatientName === patientName) {
-        await visitLocator.getByTestId(dataTestIds.dashboard.intakeButton).click();
-        return;
-      }
-    }
-    fail('Visit for patient ' + patientName + ' not found');
+  async clickIntakeButton(appointmentId: string): Promise<void> {
+    this.#page
+      .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
+      .getByTestId(dataTestIds.dashboard.intakeButton)
+      .click();
   }
 
   async clickPrebookedTab(): Promise<void> {

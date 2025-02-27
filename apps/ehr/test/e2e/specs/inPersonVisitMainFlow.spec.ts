@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { Page, test } from '@playwright/test';
 import { ResourceHandler } from '../../e2e-utils/resource-handler';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import { openVisitsPage } from '../page/VisitsPage';
@@ -15,8 +15,9 @@ test.beforeAll(async () => {
 });
 
 test.beforeEach(async ({ page }) => {
-  await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id ?? '');
-  await page.goto(`in-person/${resourceHandler.appointment.id}`);
+  const appointmentId = resourceHandler.appointment.id ?? '';
+  await resourceHandler.waitTillAppointmentPreprocessed(appointmentId);
+  await intakeAppointment(appointmentId, page);
 });
 
 test('Book appointment, start and complete Intake, check statuses', async ({ page }) => {
@@ -65,4 +66,11 @@ function getPatientFirstName(): string {
 
 function getPatientLastName(): string {
   return resourceHandler.patient.name?.[0]?.family ?? '';
+}
+
+async function intakeAppointment(appointmentId: string, page: Page): Promise<void> {
+  const visitsPage = await openVisitsPage(page);
+  await visitsPage.selectLocation(ENV_LOCATION_NAME!);
+  await visitsPage.clickPrebookedTab();
+  await visitsPage.clickIntakeButton(appointmentId);
 }
