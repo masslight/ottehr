@@ -146,6 +146,9 @@ const ZAMBDAS: { [name: string]: DeployZambda } = {
   'CREATE-UPLOAD-DOCUMENT-URL': {
     type: 'http_auth',
   },
+  'CREATE-LAB-ORDER': {
+    type: 'http_auth',
+  }
 };
 
 const updateZambdas = async (config: any, env: string): Promise<void> => {

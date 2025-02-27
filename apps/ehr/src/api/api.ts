@@ -1,5 +1,5 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { Address, ContactPoint, LocationHoursOfOperation, Encounter, Location, Coverage } from 'fhir/r4b';
+import { Address, ContactPoint, LocationHoursOfOperation } from 'fhir/r4b';
 import {
   ConversationMessage,
   GetEmployeesResponse,
@@ -7,8 +7,6 @@ import {
   GetScheduleResponse,
   GetUserParams,
   GetUserResponse,
-  DiagnosisDTO,
-  OrderableItemSearchResult,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -20,6 +18,7 @@ import {
   UnassignPractitionerParameters,
   ChangeInPersonVisitStatusParameters,
   UpdateUserParameters,
+  SubmitLabOrderParameters,
 } from '../types/types';
 
 export interface PatchOperation {
@@ -437,17 +436,6 @@ export const getSignedPatientProfilePhotoUrl = async (
     throw error;
   }
 };
-
-export interface SubmitLabOrderParameters {
-  dx: DiagnosisDTO[];
-  patientId: string;
-  encounter: Encounter;
-  coverage: Coverage;
-  location: Location;
-  practitionerId: string;
-  orderableItem: OrderableItemSearchResult;
-  pscHold: boolean;
-}
 
 // todo update response type
 export const createLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrderParameters): Promise<any> => {

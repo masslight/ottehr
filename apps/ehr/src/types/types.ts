@@ -1,7 +1,14 @@
 import { User } from '@oystehr/sdk';
-import { Appointment, Coding, Practitioner } from 'fhir/r4b';
+import { Appointment, Coding, Practitioner, Encounter, Coverage } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { PatientFollowupDetails, FhirAppointmentType, PractitionerLicense, VisitStatusWithoutUnknown } from 'utils';
+import {
+  PatientFollowupDetails,
+  FhirAppointmentType,
+  PractitionerLicense,
+  VisitStatusWithoutUnknown,
+  DiagnosisDTO,
+  OrderableItemSearchResult,
+} from 'utils';
 import { ScheduleType, ServiceMode } from 'utils';
 
 export interface GetAppointmentsParameters {
@@ -249,4 +256,15 @@ export interface DocumentInfo {
   type: DocumentType;
   z3Url: string;
   presignedUrl: string | undefined;
+}
+
+export interface SubmitLabOrderParameters {
+  dx: DiagnosisDTO[];
+  patientId: string;
+  encounter: Encounter;
+  coverage: Coverage;
+  location: Location;
+  practitionerId: string;
+  orderableItem: OrderableItemSearchResult;
+  pscHold: boolean;
 }
