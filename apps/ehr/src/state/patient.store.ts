@@ -169,7 +169,8 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
 
     const { isArray, parentPath } = getArrayInfo(path);
     const isTelecom = path.includes('/telecom/');
-    const isResponsiblePartyBirthDate = patientFieldPaths.responsiblePartyBirthDate.includes(path);
+    const isResponsiblePartyBirthDate = path.match(/\/contact\/\d+\/extension\/0\/valueString$/);
+    const isResponsiblePartyRelationship = path.match(/\/contact\/\d+\/relationship\//);
     const isPreferredLanguage = patientFieldPaths.preferredLanguage.includes(path);
 
     let newPatchOperation: Operation | undefined;
@@ -211,7 +212,7 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
         resource as Patient,
         effectiveValue as LanguageOption
       );
-    } else if (isArray && path !== '/contact/0/name/given/0') {
+    } else if (isArray && !path.match(/^\/contact\/\d+\/name\/given\/0$/)) {
       // ^skip contact name to process like general value
       const effectiveArrayValue = getEffectiveValue(resource, parentPath, state.patchOperations?.patient || []);
       const arrayMatch = path.match(/^(.+)\/(\d+)$/);
@@ -262,10 +263,11 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
           newPatchOperation = { op: 'replace', path, value };
         } else {
           if (path.includes('-1')) {
+            const isTelecomExist = getEffectiveValue(resource, path.replace('/-1/value', ''), currentPatchOperations);
             const telecomItem = { system: 'phone', value: value };
             newPatchOperation = {
               op: 'add',
-              path: path.split('-1')[0] + '-',
+              path: path.split('-1')[0] + (isTelecomExist ? '-' : '0'),
               value: telecomItem,
             };
           }
@@ -286,11 +288,40 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
         const url = 'https://fhir.zapehr.com/r4/StructureDefinitions/birth-date';
         newPatchOperation = {
           op: 'add',
-          path: '/contact/0/extension',
+          path: path.replace(/\/extension\/\d+\/valueString$/, '/extension'),
           value: [
             {
               url: url,
               valueString: value,
+            },
+          ],
+        };
+      }
+    } else if (isResponsiblePartyRelationship) {
+      if (effectiveValue !== undefined) {
+        newPatchOperation = { op: 'replace', path, value };
+      } else {
+        const system = 'http://hl7.org/fhir/relationship';
+        console.log(path);
+        newPatchOperation = {
+          op: 'add',
+          path: path.replace(/(\/contact\/\d+\/relationship).*/, '$1'),
+          value: [
+            {
+              coding: [
+                {
+                  system,
+                  display: value,
+                },
+              ],
+            },
+            {
+              coding: [
+                {
+                  code: 'BP',
+                  system: 'http://terminology.hl7.org/CodeSystem/v2-0131',
+                },
+              ],
             },
           ],
         };
