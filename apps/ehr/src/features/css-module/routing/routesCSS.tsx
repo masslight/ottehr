@@ -37,7 +37,6 @@ export enum ROUTER_PATH {
   PLAN = 'plan',
   ERX = 'erx',
 
-  // TODO: Uncomment after the module is ready
   // ERX = 'erx',
   EXTERNAL_LAB_ORDER = 'external-lab-orders',
   EXTERNAL_LAB_ORDER_CREATE = 'external-lab-orders/create',

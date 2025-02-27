@@ -437,7 +437,6 @@ export const getSignedPatientProfilePhotoUrl = async (
   }
 };
 
-// todo update response type
 export const createLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrderParameters): Promise<any> => {
   try {
     if (CREATE_LAB_ORDER_ZAMBDA_ID == null) {

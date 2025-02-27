@@ -1,5 +1,10 @@
 import { FC, useState, useMemo, useEffect } from 'react';
-import { OrderableItemSearchResult } from 'utils';
+import {
+  OrderableItemSearchResult,
+  LAB_ORG_TYPE_CODING,
+  OYSTEHR_LAB_GUID_SYSTEM,
+  OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API,
+} from 'utils';
 import { Autocomplete, TextField, Box, Skeleton } from '@mui/material';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useApiClients } from '../../../hooks/useAppClients';
@@ -34,13 +39,12 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
         const organizationSearch = (
           await oystehr.fhir.search<Organization>({
             resourceType: 'Organization',
-            params: [{ name: 'type', value: 'http://snomed.info/sct|261904005' }], // todo add consts for these values
+            params: [{ name: 'type', value: `${LAB_ORG_TYPE_CODING.system}|${LAB_ORG_TYPE_CODING.code}` }],
           })
         ).unbundle();
         console.log('organizationSearch', organizationSearch);
         organizationSearch.forEach((org) => {
-          const labGuid = org.identifier?.find((id) => id.system === 'https://identifiers.fhir.oystehr.com/lab-guid')
-            ?.value; // todo add const for this system
+          const labGuid = org.identifier?.find((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM)?.value;
           if (labGuid) labOrgsGuids.push(labGuid);
         });
       } catch (e) {
@@ -51,13 +55,12 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
         try {
           const token = await getAccessTokenSilently();
           const projectId = import.meta.env.VITE_APP_PROJECT_ID;
-          const orderableItemSearchUrl = 'https://labs-api.zapehr.com/v1/orderableItem'; // todo add const somewhere
           const labIds = labOrgsGuids.join(',');
           let cursor = '';
           const items: OrderableItemSearchResult[] = [];
 
           do {
-            const url = `${orderableItemSearchUrl}?labIds=${labIds}&limit=100&cursor=${cursor}`;
+            const url = `${OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API}?labIds=${labIds}&limit=100&cursor=${cursor}`;
             const orderableItemsSearch = await fetch(url, {
               method: 'GET',
               headers: {
