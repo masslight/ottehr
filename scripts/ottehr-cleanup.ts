@@ -2,6 +2,8 @@ import { input } from '@inquirer/prompts';
 import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { Group, HealthcareService, InsurancePlan, Medication, Organization, PractitionerRole } from 'fhir/r4b';
 
+const savedM2MId = '87d5be2e-19a9-4be4-a799-cfde9c74229b';
+
 function logWithTimestamp(message: string): void {
   console.log(`[${new Date().toISOString()}] ${message}`);
 }
@@ -208,6 +210,9 @@ async function main(): Promise<void> {
   logWithTimestamp('Deleting all M2M clients...');
   const m2mClients = await oystehr.m2m.list();
   for (const m2mClient of m2mClients) {
+    if (m2mClient.id == savedM2MId) {
+      continue;
+    }
     await oystehr.m2m.delete({ id: m2mClient.id });
   }
   logWithTimestamp(`deleted ${m2mClients.length} M2M clients`);
