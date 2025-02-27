@@ -210,7 +210,7 @@ export const ERxContainer: FC = () => {
       <Stack gap={1}>
         <Stack direction="row" justifyContent="space-between">
           <Stack direction="row" gap={1} alignItems="center">
-            <Typography variant="h6" color="primary.dark" data-testid={dataTestIds.eRXPage.erxTitle}>
+            <Typography variant="h6" color="primary.dark">
               eRX
             </Typography>
             {(isLoading || isFetching || cancellationLoading.length > 0) && <CircularProgress size={16} />}
@@ -224,7 +224,7 @@ export const ERxContainer: FC = () => {
           >
             <Stack>
               <RoundedButton
-                data-testid={dataTestIds.eRXPage.newOrderButton}
+                
                 disabled={isReadOnly || isERXLoading || !user?.isPractitionerEnrolledInPhoton}
                 variant="contained"
                 onClick={() => setIsERXOpen(true)}

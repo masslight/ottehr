@@ -6,6 +6,7 @@ export const dataTestIds = {
   },
   cssHeader: {
     container: 'css-header-container',
+    switchStatusButton: (status: string) => `switch-status-to-${status}`,
   },
   dashboard: {
     appointmentsTable: (tab: 'prebooked' | 'in-office' | 'completed' | 'cancelled') => `appointments-table-${tab}`,
@@ -171,8 +172,12 @@ export const dataTestIds = {
   sideMenu: {
     sideMenuItem: (item: string): string => `menu-item-${item}`,
   },
-  eRXPage: {
-    erxTitle: 'erx-title',
-    newOrderButton: 'new-order-button',
+  inHouseMedicationsPage: {
+    title: 'medications-title',
+    orderButton: 'order-button',
+  },
+  orderMedicationPage: {
+    inputField: (field: string): string => `input-${field}`,
+    fillOrderToSaveButton: 'fill-order-to-save-button',
   },
 };

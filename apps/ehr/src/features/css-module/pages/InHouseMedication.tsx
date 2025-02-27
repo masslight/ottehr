@@ -10,6 +10,7 @@ import { MedicationNotes } from '../components/medication-administration/Medicat
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getInHouseMedicationMARUrl, getInHouseMedicationDetailsUrl } from '../routing/helpers';
 import { CSSLoader } from '../components/CSSLoader';
+import { dataTestIds } from '../../../constants/data-test-ids';
 
 interface TabContentProps {
   isActive: boolean;
@@ -102,8 +103,13 @@ export const InHouseMedication: React.FC = () => {
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" pl={0.5} mb={2} mt={2}>
-        <PageHeader title="Medications" variant="h3" component="h1" />
-        <OrderButton />
+        <PageHeader
+          dataTestId={dataTestIds.inHouseMedicationsPage.title}
+          title="Medications"
+          variant="h3"
+          component="h1"
+        />
+        <OrderButton dataTestId={dataTestIds.inHouseMedicationsPage.orderButton} />
       </Box>
       <MedicationHistoryList />
 

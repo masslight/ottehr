@@ -4,6 +4,7 @@ import { styled } from '@mui/material/styles';
 import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { MedicationData } from 'utils';
 import { medicationOrderFieldsWithOptions } from './utils';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 interface MedicationCardFieldProps {
   field: keyof MedicationData;
@@ -88,7 +89,12 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
     );
 
     return (
-      <StyledFormControl disabled={!isEditable} required={required} error={showError && required && !value}>
+      <StyledFormControl
+        data-testid={dataTestIds.orderMedicationPage.inputField(field)}
+        disabled={!isEditable}
+        required={required}
+        error={showError && required && !value}
+      >
         <InputLabel id={`${field}-label`}>{mappedLabel}</InputLabel>
         {select}
         {showError && required && !value && <FormHelperText>This field is required</FormHelperText>}
@@ -98,6 +104,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
 
   return (
     <StyledTextField
+      data-testid={dataTestIds.orderMedicationPage.inputField(field)}
       disabled={!isEditable}
       autoComplete="off"
       fullWidth
