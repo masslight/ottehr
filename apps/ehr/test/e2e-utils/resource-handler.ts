@@ -265,7 +265,7 @@ export class ResourceHandler {
     return resourse;
   }
 
-  async cleanupAppointments(patientId: string): Promise<void> {
+  async cleanupAppointmentsForPatient(patientId: string): Promise<void> {
     const appointments = (
       await this.apiClient.fhir.search({
         resourceType: 'Appointment',
@@ -280,5 +280,9 @@ export class ResourceHandler {
     for (const appointment of appointments) {
       await cleanAppointment(appointment.id!, process.env.ENV!);
     }
+  }
+
+  async cleanAppointment(appointmentId: string): Promise<boolean> {
+    return cleanAppointment(appointmentId, process.env.ENV!);
   }
 }

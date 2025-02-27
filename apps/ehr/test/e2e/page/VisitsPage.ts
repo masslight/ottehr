@@ -7,11 +7,13 @@ export class VisitsPage {
   constructor(page: Page) {
     this.#page = page;
   }
-  async verifyVisitPresent(firstName: string, lastName: string, time?: string): Promise<void> {
+  async verifyVisitPresent(appointmentId: string, firstName: string, lastName: string, time?: string): Promise<void> {
     const patientName = `${lastName}, ${firstName}`;
 
     // Find a row that contains the correct patient name
-    let visitLocator = this.#page.locator('#appointments-table-row').filter({ hasText: patientName });
+    let visitLocator = this.#page
+      .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
+      .filter({ hasText: patientName });
 
     // If time is provided, further filter by time
     if (time) {
