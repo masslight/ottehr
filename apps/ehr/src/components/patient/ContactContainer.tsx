@@ -1,7 +1,7 @@
 import { Box } from '@mui/material';
 import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { patientFieldPaths, standardizePhoneNumber } from 'utils';
+import { isPhoneNumberValid, patientFieldPaths, standardizePhoneNumber } from 'utils';
 import { STATE_OPTIONS } from '../../constants';
 import { FormAutocomplete, FormTextField } from '../form';
 import { Row, Section } from '../layout';
@@ -13,12 +13,12 @@ export const ContactContainer: FC = () => {
 
   if (!patient) return null;
 
-  const phone = patient?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
-  const phoneIndex = patient?.telecom?.findIndex((telecom) => telecom.system === 'phone' && telecom.value === phone);
+  const phoneIndex = patient.telecom ? patient.telecom?.findIndex((telecom) => telecom.system === 'phone') : 0;
+  const phone = patient.telecom?.[phoneIndex]?.value;
   const phonePath = patientFieldPaths.phone.replace(/telecom\/\d+/, `telecom/${phoneIndex}`);
 
-  const email = patient.telecom?.find((telecom) => telecom.system === 'email')?.value;
-  const emailIndex = patient?.telecom?.findIndex((telecom) => telecom.system === 'email' && telecom.value === email);
+  const emailIndex = patient.telecom ? patient.telecom?.findIndex((telecom) => telecom.system === 'email') : 1;
+  const email = patient.telecom?.[emailIndex]?.value;
   const emailPath = patientFieldPaths.email.replace(/telecom\/\d+/, `telecom/${emailIndex}`);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
@@ -27,12 +27,7 @@ export const ContactContainer: FC = () => {
   };
 
   const handleAutocompleteChange = (name: string, value: string): void => {
-    handleChange({
-      target: {
-        name,
-        value,
-      },
-    } as any);
+    updatePatientField(name, value);
   };
 
   return (
@@ -63,7 +58,7 @@ export const ContactContainer: FC = () => {
             defaultValue={patient?.address?.[0]?.state}
             rules={{
               validate: (value: string) => STATE_OPTIONS.some((option) => option.value === value),
-              require: true,
+              required: true,
             }}
             onChangeHandler={handleAutocompleteChange}
           />
@@ -76,7 +71,7 @@ export const ContactContainer: FC = () => {
           />
         </Box>
       </Row>
-      <Row label="Patient email">
+      <Row label="Patient email" required={true}>
         <FormTextField
           id="patient-email"
           name={emailPath}
@@ -100,6 +95,7 @@ export const ContactContainer: FC = () => {
           defaultValue={standardizePhoneNumber(phone)}
           rules={{
             required: true,
+            validate: (value: string) => isPhoneNumberValid(value),
           }}
           onChangeHandler={handleChange}
         />

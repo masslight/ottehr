@@ -10,6 +10,7 @@ import {
   ResourceTypeNames,
   PatientMasterRecordResourceType,
   patientFieldPaths,
+  ContactTelecomConfig,
 } from 'utils';
 import { create } from 'zustand';
 
@@ -229,22 +230,14 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
         if (effectiveValue !== undefined) {
           newPatchOperation = { op: 'replace', path, value };
         } else {
-          if (path.includes('-1')) {
-            const telecomItem = { system: 'phone', value: value };
-            newPatchOperation = {
-              op: 'add',
-              path: path.split('-1')[0] + '-',
-              value: telecomItem,
-            };
-          }
-          if (path.includes('undefined')) {
-            const telecomItem = { system: 'phone', value: value };
-            newPatchOperation = {
-              op: 'add',
-              path: path.split('/undefined')[0],
-              value: [telecomItem],
-            };
-          }
+          const telecomConfig = getTelecomConfigByFieldName(fieldName);
+
+          const telecomItem = { system: telecomConfig?.system, value: value };
+          newPatchOperation = {
+            op: 'add',
+            path: path.replace(/\/\d+\/value$/, '/-'),
+            value: telecomItem,
+          };
         }
       }
     } else if (isResponsiblePartyBirthDate) {
@@ -461,3 +454,24 @@ export const createInsurancePlanDto = (insurancePlan: InsurancePlan): InsuranceP
 
   return insurancePlanDto;
 };
+
+const contactTelecomConfigs: Record<string, ContactTelecomConfig> = {
+  phone: { system: 'phone' },
+  email: { system: 'email' },
+  parentGuardianPhone: { system: 'phone' },
+  parentGuardianEmail: { system: 'email' },
+  responsiblePartyPhone: { system: 'phone', use: 'mobile' },
+  pcpPhone: { system: 'phone' },
+};
+
+type PatientFieldKey = keyof typeof patientFieldPaths;
+
+function getTelecomConfigByFieldName(path: string): ContactTelecomConfig | undefined {
+  // Find the field name corresponding to the given path
+  const fieldName = Object.keys(patientFieldPaths).find(
+    (key): key is PatientFieldKey => patientFieldPaths[key as PatientFieldKey] === path
+  );
+
+  // Return the corresponding telecom config
+  return fieldName ? contactTelecomConfigs[fieldName] : undefined;
+}
