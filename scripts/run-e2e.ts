@@ -181,9 +181,9 @@ function runTests(): void {
 
 async function main(): Promise<void> {
   clearPorts();
+  await setupTestDeps();
 
   if (isLocal || isCI) {
-    await setupTestDeps();
     await startApps();
     runTests();
   } else {
