@@ -1,5 +1,5 @@
 import Oystehr, { Bundle, SearchParam } from '@oystehr/sdk';
-import { Appointment, Encounter, FhirResource, Practitioner, Location } from 'fhir/r4b';
+import { Appointment, Encounter, FhirResource, Practitioner, Location, HealthcareService } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { AppointmentParticipants, OTTEHR_MODULE, PARTICIPANT_TYPE, ParticipantInfo } from 'utils';
 
@@ -84,14 +84,14 @@ export const getTimezone = async ({
   resourceId,
 }: {
   oystehr: Oystehr;
-  resourceType: string;
+  resourceType: 'Location' | 'Practitioner' | 'HealthcareService';
   resourceId: string;
 }): Promise<string | undefined> => {
   let timezone: string | undefined;
 
   if (!timezoneMap.has(resourceId)) {
     try {
-      const resource = await oystehr.fhir.get<Location>({
+      const resource = await oystehr.fhir.get<Location | Practitioner | HealthcareService>({
         resourceType,
         id: resourceId,
       });
