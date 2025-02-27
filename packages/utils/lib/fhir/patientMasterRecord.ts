@@ -509,6 +509,8 @@ export const RELATIONSHIP_OPTIONS = {
   Father: 'Father',
   Mother: 'Mother',
   Spouse: 'Spouse',
+  Parent: 'Parent',
+  Other: 'Other',
 } as const;
 
 export type RelationshipOption = keyof typeof RELATIONSHIP_OPTIONS;
@@ -537,6 +539,16 @@ const RELATIONSHIP_MAPPING: Record<RelationshipOption, Coding> = {
   [RELATIONSHIP_OPTIONS.Spouse]: {
     code: 'SPO',
     display: 'Spouse',
+    system: 'http://hl7.org/fhir/relationship',
+  },
+  [RELATIONSHIP_OPTIONS.Parent]: {
+    code: 'PRN',
+    display: 'Parent',
+    system: 'http://hl7.org/fhir/relationship',
+  },
+  [RELATIONSHIP_OPTIONS.Other]: {
+    code: 'OTH',
+    display: 'Other',
     system: 'http://hl7.org/fhir/relationship',
   },
 };
