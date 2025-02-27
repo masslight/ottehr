@@ -143,15 +143,18 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
     setSubmitting(true);
     console.log('check submit params', patientId, office, practitionerId);
     console.log('encounter', encounter);
-    if (oystehrZambda && orderDx.length && patientId && office && practitionerId && selectedLab) {
+    const paramsSatisfied = orderDx.length && patientId && office && practitionerId && selectedLab && coverage;
+    if (oystehrZambda && paramsSatisfied) {
       try {
         const res = await createLabOrder(oystehrZambda, {
           dx: orderDx,
           patientId,
           encounter,
+          coverage,
           location: office,
           practitionerId,
           orderableItem: selectedLab,
+          pscHold,
         });
         console.log('res', res);
         navigate(`/in-person/${appointment?.id}/external-lab-orders`);
@@ -159,6 +162,8 @@ export const SubmitExternalLabOrders: React.FC<SubmitExternalLabOrdersProps> = (
         const oysterError = e as OystehrSdkError;
         setError(oysterError?.message || 'error ordering lab');
       }
+    } else if (!paramsSatisfied) {
+      console.log('missing required params');
     }
     setSubmitting(false);
   };

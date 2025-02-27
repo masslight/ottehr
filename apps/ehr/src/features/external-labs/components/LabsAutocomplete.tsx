@@ -66,8 +66,8 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
               },
             });
             const response = await orderableItemsSearch.json();
-            const orabledItemsRes = response.orderableItems as OrderableItemSearchResult[];
-            items.push(...orabledItemsRes);
+            const orderableItemRes = response.orderableItems as OrderableItemSearchResult[];
+            items.push(...orderableItemRes);
             cursor = response?.metadata?.nextCursor || '';
           } while (cursor !== '');
 

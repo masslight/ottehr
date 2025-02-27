@@ -1,5 +1,5 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { Address, ContactPoint, LocationHoursOfOperation, Encounter, Location } from 'fhir/r4b';
+import { Address, ContactPoint, LocationHoursOfOperation, Encounter, Location, Coverage } from 'fhir/r4b';
 import {
   ConversationMessage,
   GetEmployeesResponse,
@@ -442,9 +442,11 @@ export interface SubmitLabOrderParameters {
   dx: DiagnosisDTO[];
   patientId: string;
   encounter: Encounter;
+  coverage: Coverage;
   location: Location;
   practitionerId: string;
   orderableItem: OrderableItemSearchResult;
+  pscHold: boolean;
 }
 
 // todo update response type

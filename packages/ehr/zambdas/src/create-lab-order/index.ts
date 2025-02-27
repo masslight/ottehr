@@ -1,5 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DiagnosisDTO, OrderableItemSearchResult } from 'utils';
+import {
+  DiagnosisDTO,
+  OrderableItemSearchResult,
+  PSC_HOLD_CONFIG,
+  LAB_ORDER_TASK,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
+  FHIR_IDC10_VALUESET_SYSTEM,
+} from 'utils';
 import { topLevelCatch, Secrets, ZambdaInput } from 'zambda-utils';
 import { checkOrCreateM2MClientToken } from '../../../../intake/zambdas/src/shared';
 import { createOystehrClient } from '../../../../intake/zambdas/src/shared/helpers';
@@ -8,21 +15,24 @@ import {
   Encounter,
   Location,
   ServiceRequest,
-  Specimen,
   QuestionnaireResponse,
   Task,
   Organization,
   Coding,
   FhirResource,
+  Coverage,
+  ActivityDefinition,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { BatchInputRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
+import Oystehr from '@oystehr/sdk';
 
 export interface SubmitLabOrder {
-  dx: DiagnosisDTO;
+  dx: DiagnosisDTO[];
   patientId: string;
   encounter: Encounter;
+  coverage: Coverage;
   location: Location;
   practitionerId: string;
   orderableItem: OrderableItemSearchResult;
@@ -36,48 +46,84 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { dx, patientId, encounter, location, practitionerId, orderableItem, pscHold, secrets } = validatedParameters;
+    const { dx, patientId, encounter, coverage, location, practitionerId, orderableItem, pscHold, secrets } =
+      validatedParameters;
+    console.log('pscHold', pscHold);
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);
 
-    // todo map this to the SR
-    console.log('pscHold', pscHold);
-    console.log('orderableItem', orderableItem);
-
     const labGuid = orderableItem.lab.labGuid;
-    const labOrganizationSearch = (
-      await oystehr.fhir.search<Organization>({
-        resourceType: 'Organization',
-        params: [
-          {
-            name: 'identifier',
-            value: labGuid,
-          },
-        ],
-      })
-    ).unbundle();
+    const labOrganizationSearchRequest: BatchInputRequest<Organization> = {
+      method: 'GET',
+      url: `/Organization?identifier=${labGuid}`,
+    };
 
-    if (labOrganizationSearch.length === 0) {
+    const activityDefinitionSearchRequest: BatchInputRequest<ActivityDefinition> = {
+      method: 'GET',
+      url: `/ActivityDefinition?name=${orderableItem.item.uniqueName}&publisher=${orderableItem.lab.labName}&version=${orderableItem.lab.compendiumVersion}`,
+    };
+
+    const searchResults = await oystehr.fhir.batch({
+      requests: [labOrganizationSearchRequest, activityDefinitionSearchRequest],
+    });
+
+    const labOrganizationSearchResults: Organization[] = [];
+    const activityDefinitionSearchResults: ActivityDefinition[] = [];
+    searchResults.entry?.forEach((resultEntry) => {
+      const bundle = resultEntry.resource as any;
+      if (bundle.resourceType === 'Bundle') {
+        const fhirResourcesEntries: any[] = bundle.entry;
+        fhirResourcesEntries.forEach((entry) => {
+          const fhirResource = entry.resource as FhirResource;
+          if (fhirResource.resourceType === 'Organization')
+            labOrganizationSearchResults.push(fhirResource as Organization);
+          if (fhirResource.resourceType === 'ActivityDefinition')
+            activityDefinitionSearchResults.push(fhirResource as ActivityDefinition);
+        });
+      }
+    });
+
+    if (labOrganizationSearchResults.length === 0) {
       throw new Error(`could not find lab organization for lab guid ${labGuid}`);
     }
+    const labOrganization = labOrganizationSearchResults[0];
 
-    const labOrganization = labOrganizationSearch[0];
+    const requests: BatchInputRequest<FhirResource>[] = [];
+
+    const { actiyivtyDefitionId, activityDefinitionToContain } = await handleActivityDefinition(
+      activityDefinitionSearchResults,
+      orderableItem,
+      oystehr
+    );
 
     const serviceRequestCode = fromateSrCode(orderableItem);
+    const serviceRequestReasonCode: ServiceRequest['reasonCode'] = dx.map((diagnosis) => {
+      return {
+        coding: [
+          {
+            system: FHIR_IDC10_VALUESET_SYSTEM,
+            code: diagnosis?.code,
+            display: diagnosis?.display,
+          },
+        ],
+        text: diagnosis?.display,
+      };
+    });
     const serviceRequestConfig: ServiceRequest = {
-      // SR mappings missing
-      // insurance (pending finalization on converting paperwork to coverage)
-      // instantiatesCanonical (skipping atm)
-      // contained (skipping atm)
       resourceType: 'ServiceRequest',
       status: 'draft',
       intent: 'order',
       subject: {
         reference: `Patient/${patientId}`,
       },
+      insurance: [
+        {
+          reference: `Coverage/${coverage.id}`,
+        },
+      ],
       encounter: {
         reference: `Encounter/${encounter.id}`,
       },
@@ -91,19 +137,25 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ],
       priority: 'routine',
       code: serviceRequestCode,
-      reasonCode: [
+      reasonCode: serviceRequestReasonCode,
+      instantiatesCanonical: [`#${actiyivtyDefitionId}`],
+      contained: [activityDefinitionToContain],
+    };
+    console.log('serviceRequestConfig instantiatesCanonical', serviceRequestConfig.instantiatesCanonical);
+    if (pscHold) {
+      serviceRequestConfig.orderDetail = [
         {
           coding: [
             {
-              system: 'http://hl7.org/fhir/valueset-icd-10.html',
-              code: dx?.code,
-              display: dx?.display,
+              system: PSC_HOLD_CONFIG.system,
+              code: PSC_HOLD_CONFIG.code,
+              display: PSC_HOLD_CONFIG.display,
             },
           ],
-          text: dx?.display,
+          text: PSC_HOLD_CONFIG.display,
         },
-      ],
-    };
+      ];
+    }
     const serviceRequestFullUrl = `urn:uuid:${randomUUID()}`;
 
     const preSubmissionTaskConfig: Task = {
@@ -126,14 +178,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       code: {
         coding: [
           {
-            system: 'external-lab-task', // todo make a const when definition is agreed upon
-            code: 'presubmission', // todo make a const
+            system: LAB_ORDER_TASK.system,
+            code: LAB_ORDER_TASK.code.presubmission,
           },
         ],
       },
     };
-
-    const requests: BatchInputRequest<FhirResource>[] = [];
 
     const aoeQRConfig = formatAoeQR(serviceRequestFullUrl, encounter.id || '', orderableItem);
     if (aoeQRConfig) {
@@ -151,24 +201,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           reference: aoeQRFullUrl,
         },
       ];
-    }
-
-    const specimenConfig = formatSpecimen(orderableItem);
-    if (specimenConfig) {
-      const specimenFullUrl = `urn:uuid:${randomUUID()}`;
-      const postSpecimenRequest: BatchInputRequest<Specimen> = {
-        method: 'POST',
-        url: '/Specimen',
-        resource: specimenConfig,
-        fullUrl: specimenFullUrl,
-      };
-      serviceRequestConfig.specimen = [
-        {
-          type: 'Specimen',
-          reference: specimenFullUrl,
-        },
-      ];
-      requests.push(postSpecimenRequest);
     }
 
     requests.push({
@@ -200,44 +232,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   }
 };
 
-// todo update oi type when we have one
-const formatSpecimen = (orderableItem: any): Specimen | undefined => {
-  if (!orderableItem.item.specimens.length) return;
-
-  const specimen = orderableItem.item.specimens[0];
-  return {
-    resourceType: 'Specimen',
-    // todo should these urls be formatted differently ? also need to make em consts after format is agreed on
-    extension: [
-      {
-        url: 'container',
-        valueString: specimen.container,
-      },
-      {
-        url: 'volume',
-        valueString: specimen.volume,
-      },
-      {
-        url: 'minimumVolume',
-        valueString: specimen.minimumVolume,
-      },
-      {
-        url: 'storageRequirements',
-        valueString: specimen.storageRequirements,
-      },
-      {
-        url: 'collectionInstructions',
-        valueString: specimen.collectionInstructions,
-      },
-    ],
-  };
-};
-
-// todo update oi type when we have one
 const formatAoeQR = (
   serviceRequestFullUrl: string,
   encoutnerId: string,
-  orderableItem: any
+  orderableItem: OrderableItemSearchResult
 ): QuestionnaireResponse | undefined => {
   if (!orderableItem.item.aoe) return;
   return {
@@ -256,18 +254,17 @@ const formatAoeQR = (
   };
 };
 
-// todo update oi type when we have one
-// todo fix code systems
-const fromateSrCode = (orderableItem: any): ServiceRequest['code'] => {
+const fromateSrCode = (orderableItem: OrderableItemSearchResult): ServiceRequest['code'] => {
   const coding: Coding[] = [
     {
-      system: 'placeholder', // i guess we will just make this ?
+      system: OYSTEHR_LAB_OI_CODE_SYSTEM,
       code: orderableItem.item.itemCode,
       display: orderableItem.item.itemName,
     },
   ];
   if (orderableItem.item.itemLoinc) {
     coding.push({
+      // todo double check how oystehr handles multiple codes (pretty sure its handled but want to double check)
       system: 'http://loinc.org', // is this right??
       code: orderableItem.item.itemLoinc,
     });
@@ -276,4 +273,50 @@ const fromateSrCode = (orderableItem: any): ServiceRequest['code'] => {
     coding,
     text: orderableItem.item.itemName,
   };
+};
+
+const handleActivityDefinition = async (
+  activityDefinitionSearchResults: ActivityDefinition[],
+  orderableItem: OrderableItemSearchResult,
+  oystehr: Oystehr
+): Promise<{ actiyivtyDefitionId: string; activityDefinitionToContain: any }> => {
+  const activityDefinition: ActivityDefinition = activityDefinitionSearchResults?.[0];
+
+  let actiyivtyDefitionId: string | undefined;
+  let activityDefinitionToContain: any;
+
+  if (!activityDefinition) {
+    const activityDefinitionConfig: ActivityDefinition = {
+      resourceType: 'ActivityDefinition',
+      status: 'unknown',
+      code: {
+        coding: [
+          {
+            system: OYSTEHR_LAB_OI_CODE_SYSTEM,
+            code: orderableItem.item.itemCode,
+            display: orderableItem.item.itemName,
+          },
+        ],
+      },
+      publisher: orderableItem.lab.labName,
+      kind: 'ServiceRequest',
+      title: orderableItem.item.itemName,
+      name: orderableItem.item.uniqueName,
+      url: `https://labs-api.zapehr.com/v1/orderableItem?labIds=${orderableItem.lab.labGuid}&itemCodes=${orderableItem.item.itemCode}`,
+      version: orderableItem.lab.compendiumVersion,
+    };
+    activityDefinitionToContain = activityDefinitionConfig;
+    const newActivityDef = await oystehr.fhir.create<ActivityDefinition>(activityDefinitionConfig);
+    actiyivtyDefitionId = newActivityDef.id;
+  } else if (activityDefinition) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { meta, ...activityDefToContain } = activityDefinition;
+    activityDefinitionToContain = activityDefToContain;
+    actiyivtyDefitionId = activityDefinition.id;
+  }
+
+  if (!actiyivtyDefitionId)
+    throw new Error(`issue finding or creating activity definition for this lab orderable item`);
+
+  return { actiyivtyDefitionId, activityDefinitionToContain };
 };
