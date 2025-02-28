@@ -265,60 +265,6 @@ export class ResourceHandler {
     return resourse;
   }
 
-  async cleanupNewPatientData(lastName: string): Promise<void> {
-    try {
-      await this.initApi();
-      const patients = (
-        await this.apiClient.fhir.search({
-          resourceType: 'Patient',
-          params: [
-            {
-              name: 'name',
-              value: lastName,
-            },
-          ],
-        })
-      ).unbundle();
-      for (const patient of patients) {
-        await this.cleanupAppointmentsForPatient(patient.id!);
-        await this.apiClient.fhir.delete({ resourceType: patient.resourceType, id: patient.id! }).catch();
-      }
-    } catch (e) {
-      console.error('Error during cleanupNewPatientData', e);
-    }
-  }
-
-  async waitTillAppointmentPreprocessed(id: string): Promise<void> {
-    try {
-      await this.initApi();
-
-      for (let i = 0; i < 10; i++) {
-        const appointment = (
-          await this.apiClient.fhir.search({
-            resourceType: 'Appointment',
-            params: [
-              {
-                name: '_id',
-                value: id,
-              },
-            ],
-          })
-        ).unbundle()[0];
-
-        if (appointment.meta?.tag?.find((tag) => tag.system === 'appointment-preprocessed')) {
-          return;
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-      }
-
-      throw new Error("Appointment wasn't preprocessed");
-    } catch (e) {
-      console.error('Error during waitTillAppointmentPreprocessed', e);
-      throw e;
-    }
-  }
-
   async cleanupAppointmentsForPatient(patientId: string): Promise<void> {
     const appointments = (
       await this.apiClient.fhir.search({

@@ -15,10 +15,12 @@ export class SideMenu {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('hospitalization')).click();
     return expectHospitalizationPage(this.#page);
   }
+
   async clickProgressNote(): Promise<ProgressNotePage> {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('progress-note')).click();
     return expectProgressNotePage(this.#page);
   }
+
   async clickAssessment(): Promise<AssessmentPage> {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('assessment')).click();
     return expectAssessmentPage(this.#page);
