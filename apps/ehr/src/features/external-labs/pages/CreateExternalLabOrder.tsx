@@ -10,7 +10,6 @@ import {
   Grid,
   TextField,
   CircularProgress,
-  SelectChangeEvent,
   Autocomplete,
   Button,
   Switch,
@@ -114,17 +113,6 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     }
   }, [oystehr, loadingState]);
 
-  const addDxToOrder = (dx: DiagnosisDTO): void => {
-    if (!orderDx.find((tempdx) => tempdx.code === dx.code)) {
-      setOrderDx([...orderDx, dx]);
-    }
-  };
-
-  const removeDxFromOrder = (dx: DiagnosisDTO): void => {
-    const updatedDx = orderDx.filter((dxVal) => dxVal.code !== dx.code);
-    setOrderDx(updatedDx);
-  };
-
   const officeOptions = useMemo(() => {
     const allLocations = locations.map((location) => {
       return { label: `${location.address?.state?.toUpperCase()} - ${location.name}`, value: location.id };
@@ -132,11 +120,6 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
 
     return sortLocationsByLabel(allLocations as { label: string; value: string }[]);
   }, [locations]);
-
-  const handleOfficeChange = (e: SelectChangeEvent<string>): void => {
-    const officeLocation = locations.find((locationTemp) => locationTemp.id === e.target.value);
-    setSelectedOffice(officeLocation);
-  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
@@ -202,7 +185,12 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                     onChange={(e) => {
                       const selectedDxCode = e.target.value;
                       const selectedDx = diagnosis?.find((tempDx) => tempDx.code === selectedDxCode);
-                      if (selectedDx) addDxToOrder(selectedDx);
+                      if (selectedDx) {
+                        const alreadySelected = orderDx.find((tempdx) => tempdx.code === selectedDx.code);
+                        if (!alreadySelected) {
+                          setOrderDx([...orderDx, selectedDx]);
+                        }
+                      }
                     }}
                     displayEmpty
                     value=""
@@ -237,8 +225,11 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                   }
                   value={null}
                   isOptionEqualToValue={(option, value) => value.code === option.code}
-                  onChange={(event: any, newValue: any) => {
-                    addDxToOrder(newValue);
+                  onChange={(event: any, selectedDx: any) => {
+                    const alreadySelected = orderDx.find((tempdx) => tempdx.code === selectedDx.code);
+                    if (!alreadySelected) {
+                      setOrderDx([...orderDx, selectedDx]);
+                    }
                   }}
                   loading={isSearching}
                   options={icdSearchOptions}
@@ -267,7 +258,11 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                           {value.display} {value.code}
                         </Typography>
                       )}
-                      renderActions={(value) => <DeleteIconButton onClick={() => removeDxFromOrder(value)} />}
+                      renderActions={(value) => (
+                        <DeleteIconButton
+                          onClick={() => setOrderDx(() => orderDx.filter((dxVal) => dxVal.code !== value.code))}
+                        />
+                      )}
                     />
                   </Box>
                 </Grid>
@@ -285,7 +280,9 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                       id="select-office"
                       label="Office"
                       value={selectedOffice?.id || ''}
-                      onChange={handleOfficeChange}
+                      onChange={(e) =>
+                        setSelectedOffice(() => locations.find((locationTemp) => locationTemp.id === e.target.value))
+                      }
                     >
                       {officeOptions.map((d) => (
                         <MenuItem id={d.value} key={d.value} value={d.value}>
