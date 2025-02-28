@@ -50,6 +50,14 @@ export function getBucketAndObjectFromZ3URL(z3URL: string, projectAPI: string): 
   return { bucket, object };
 }
 
+export const isPostalCodeValid = (postalCode: string | undefined): boolean => {
+  if (!postalCode) {
+    return false;
+  }
+  const fiveDigitRegex = /^\d{5}$/;
+  return fiveDigitRegex.test(postalCode);
+};
+
 export const isPhoneNumberValid = (phoneNumber: string | undefined): boolean => {
   if (!phoneNumber) {
     return false;

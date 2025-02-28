@@ -1,6 +1,6 @@
 import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { patientFieldPaths, standardizePhoneNumber } from 'utils';
+import { isPhoneNumberValid, patientFieldPaths, standardizePhoneNumber } from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
 import { RELATIONSHIP_OPTIONS, SEX_OPTIONS } from '../../constants';
 import { Row, Section } from '../layout';
@@ -103,6 +103,7 @@ export const ResponsibleInformationContainer: FC = () => {
           defaultValue={standardizePhoneNumber(phone)}
           rules={{
             required: true,
+            validate: (value: string) => isPhoneNumberValid(value) || 'Must be 10 digits',
           }}
           onChangeHandler={handleChange}
         />

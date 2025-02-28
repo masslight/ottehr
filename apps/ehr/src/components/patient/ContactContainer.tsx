@@ -1,7 +1,7 @@
 import { Box } from '@mui/material';
 import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { isPhoneNumberValid, patientFieldPaths, standardizePhoneNumber } from 'utils';
+import { isPhoneNumberValid, isPostalCodeValid, patientFieldPaths, standardizePhoneNumber } from 'utils';
 import { STATE_OPTIONS } from '../../constants';
 import { FormAutocomplete, FormTextField } from '../form';
 import { Row, Section } from '../layout';
@@ -53,7 +53,10 @@ export const ContactContainer: FC = () => {
             name={patientFieldPaths.city}
             control={control}
             defaultValue={patient?.address?.[0]?.city}
-            rules={{ required: true }}
+            rules={{
+              required: true,
+              validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
+            }}
             onChangeHandler={handleChange}
           />
           <FormAutocomplete
@@ -100,7 +103,7 @@ export const ContactContainer: FC = () => {
           defaultValue={standardizePhoneNumber(phone)}
           rules={{
             required: true,
-            validate: (value: string) => isPhoneNumberValid(value),
+            validate: (value: string) => isPhoneNumberValid(value) || 'Must be 10 digits',
           }}
           onChangeHandler={handleChange}
         />
