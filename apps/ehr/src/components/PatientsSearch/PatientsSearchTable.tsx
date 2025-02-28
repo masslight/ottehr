@@ -58,7 +58,9 @@ export const PatientsSearchTable: React.FC<{
     void search({ sort: { field, order }, pagination: { offset: 0 } });
   };
 
-  if (!searchResult?.patients.length && !arePatientsLoading) {
+  const patientsWithInfo = searchResult?.patients.filter((patient) => patient.name && patient.birthDate) || [];
+
+  if (!patientsWithInfo.length && !arePatientsLoading) {
     return (
       <Box sx={{ textAlign: 'center', p: 3 }}>
         <Typography variant="body1">Set up search filter and press Search to find patients</Typography>
@@ -126,34 +128,32 @@ export const PatientsSearchTable: React.FC<{
           </TableHead>
           <TableBody>
             {arePatientsLoading
-              ? Array.from(new Array(searchResult?.patients.length || searchOptions.pagination.pageSize)).map(
-                  (_, index) => (
-                    <TableRow key={`skeleton-${index}`}>
-                      <TableCell width={COLUMN_CONFIG.pid.width}>
-                        <Skeleton animation="wave" width={'100%'} />
-                      </TableCell>
-                      <TableCell width={COLUMN_CONFIG.name.width}>
-                        <Skeleton animation="wave" width={'100%'} />
-                      </TableCell>
-                      <TableCell width={COLUMN_CONFIG.dob.width}>
-                        <Skeleton animation="wave" width={'100%'} />
-                      </TableCell>
-                      <TableCell width={COLUMN_CONFIG.email.width}>
-                        <Skeleton animation="wave" width={'100%'} />
-                      </TableCell>
-                      <TableCell width={COLUMN_CONFIG.phone.width}>
-                        <Skeleton animation="wave" width={'100%'} />
-                      </TableCell>
-                      <TableCell width={COLUMN_CONFIG.address.width}>
-                        <Skeleton animation="wave" width={'100%'} />
-                      </TableCell>
-                      <TableCell width={COLUMN_CONFIG.lastVisit.width}>
-                        <Skeleton animation="wave" width={'100%'} />
-                      </TableCell>
-                    </TableRow>
-                  )
-                )
-              : searchResult?.patients.map((patient) => (
+              ? Array.from(new Array(patientsWithInfo.length || searchOptions.pagination.pageSize)).map((_, index) => (
+                  <TableRow key={`skeleton-${index}`}>
+                    <TableCell width={COLUMN_CONFIG.pid.width}>
+                      <Skeleton animation="wave" width={'100%'} />
+                    </TableCell>
+                    <TableCell width={COLUMN_CONFIG.name.width}>
+                      <Skeleton animation="wave" width={'100%'} />
+                    </TableCell>
+                    <TableCell width={COLUMN_CONFIG.dob.width}>
+                      <Skeleton animation="wave" width={'100%'} />
+                    </TableCell>
+                    <TableCell width={COLUMN_CONFIG.email.width}>
+                      <Skeleton animation="wave" width={'100%'} />
+                    </TableCell>
+                    <TableCell width={COLUMN_CONFIG.phone.width}>
+                      <Skeleton animation="wave" width={'100%'} />
+                    </TableCell>
+                    <TableCell width={COLUMN_CONFIG.address.width}>
+                      <Skeleton animation="wave" width={'100%'} />
+                    </TableCell>
+                    <TableCell width={COLUMN_CONFIG.lastVisit.width}>
+                      <Skeleton animation="wave" width={'100%'} />
+                    </TableCell>
+                  </TableRow>
+                ))
+              : patientsWithInfo.map((patient) => (
                   <TableRow key={patient.id} data-testid={dataTestIds.patients.searchResultRow(patient.id)}>
                     <TableCell
                       data-testid={dataTestIds.patients.patientId}
