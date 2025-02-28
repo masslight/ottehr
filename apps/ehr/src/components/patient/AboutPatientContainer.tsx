@@ -6,7 +6,7 @@ import { Row, Section } from '../layout';
 import { usePatientStore } from '../../state/patient.store';
 import { getPronounsFromExtension } from '../../helpers/fhir';
 import { dataTestIds } from '../../constants/data-test-ids';
-import { patientFieldPaths } from 'utils';
+import { patientFieldPaths, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 
 export const AboutPatientContainer: FC = () => {
   const { patient, updatePatientField } = usePatientStore();
