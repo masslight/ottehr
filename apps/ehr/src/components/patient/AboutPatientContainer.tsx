@@ -4,9 +4,8 @@ import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../for
 import { PRONOUN_OPTIONS, SEX_OPTIONS } from '../../constants';
 import { Row, Section } from '../layout';
 import { usePatientStore } from '../../state/patient.store';
-import { getPronounsFromExtension } from '../../helpers/fhir';
 import { dataTestIds } from '../../constants/data-test-ids';
-import { patientFieldPaths } from 'utils';
+import { getPronounsFromExtension, patientFieldPaths } from 'utils';
 
 export const AboutPatientContainer: FC = () => {
   const { patient, updatePatientField } = usePatientStore();

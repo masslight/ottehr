@@ -6,7 +6,7 @@ import {
   QuestionnaireResponseItemAnswer,
   RelatedPerson,
 } from 'fhir/r4b';
-import { getFirstName, getLastName, PRIVATE_EXTENSION_BASE_URL } from '../../fhir';
+import { getFirstName, getLastName, getPronounsFromExtension, PRIVATE_EXTENSION_BASE_URL } from '../../fhir';
 import { DateTime } from 'luxon';
 import { formatPhoneNumberDisplay } from '../helpers';
 
@@ -56,6 +56,9 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
     ?.valueCodeableConcept?.coding?.[0]?.display;
   const patientRace = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/race`)
     ?.valueCodeableConcept?.coding?.[0]?.display;
+
+  const pronouns = getPronounsFromExtension(patient);
+  const language = patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0].display;
 
   let patientSex: string | undefined;
   if (patient?.gender === 'male') {
@@ -134,6 +137,12 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
         return itemItems.map((item) => {
           let answer: QuestionnaireResponseItemAnswer[] | undefined;
           const { linkId } = item;
+          if (linkId === 'patient-pronouns' && pronouns) {
+            answer = makeAnswer(pronouns);
+          }
+          if (linkId === 'preferred-language' && language) {
+            answer = makeAnswer(language);
+          }
           if (linkId === 'patient-ethnicity' && patientEthnicity) {
             answer = makeAnswer(patientEthnicity);
           }
