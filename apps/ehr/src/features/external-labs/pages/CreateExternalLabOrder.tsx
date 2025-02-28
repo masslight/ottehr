@@ -32,11 +32,11 @@ import { LabsAutocomplete } from '../components/LabsAutocomplete';
 import { createLabOrder } from '../../../api/api';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 
-interface SubmitExternalLabOrdersProps {
+interface CreateExternalLabOrdersProps {
   appointmentID?: string;
 }
 
-export const CreateExternalLabOrder: React.FC<SubmitExternalLabOrdersProps> = () => {
+export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = () => {
   const theme = useTheme();
   const { oystehr, oystehrZambda } = useApiClients();
   const user = useEvolveUser();
