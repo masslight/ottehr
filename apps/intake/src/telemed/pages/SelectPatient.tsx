@@ -71,6 +71,7 @@ const SelectPatient = (): JSX.Element => {
       useAppointmentStore.setState({ appointmentDate: undefined, appointmentID: undefined });
       useFilesStore.setState({ fileURLs: undefined, fileUploads: {} });
       useIntakeCommonStore.setState({ selectedLocationState: initialLocationState.selectedLocationState });
+      usePatientInfoStore.setState({ patientInfo: { ...selectedPatient, reasonForVisit: undefined } });
       navigate(`${intakeFlowPageRoute.RequestVirtualVisit.path}?flow=${flow}`);
     } else if (flow === 'continueVisitRequest') {
       useFilesStore.setState({ fileURLs: undefined, fileUploads: {} });
