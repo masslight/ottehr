@@ -1,7 +1,7 @@
 import { Box } from '@mui/material';
 import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { patientFieldPaths, standardizePhoneNumber } from 'utils';
+import { isPhoneNumberValid, patientFieldPaths, standardizePhoneNumber } from 'utils';
 import { STATE_OPTIONS } from '../../constants';
 import { FormAutocomplete, FormTextField } from '../form';
 import { Row, Section } from '../layout';
@@ -63,7 +63,7 @@ export const ContactContainer: FC = () => {
             defaultValue={patient?.address?.[0]?.state}
             rules={{
               validate: (value: string) => STATE_OPTIONS.some((option) => option.value === value),
-              require: true,
+              required: true,
             }}
             onChangeHandler={handleAutocompleteChange}
           />
@@ -76,7 +76,7 @@ export const ContactContainer: FC = () => {
           />
         </Box>
       </Row>
-      <Row label="Patient email">
+      <Row label="Patient email" required={true}>
         <FormTextField
           id="patient-email"
           name={emailPath}
@@ -84,8 +84,8 @@ export const ContactContainer: FC = () => {
           rules={{
             required: true,
             pattern: {
-              value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-              message: 'Invalid email address',
+              value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.com$/i,
+              message: 'Must be in the format usernam@domain.com',
             },
           }}
           defaultValue={email}
@@ -100,6 +100,7 @@ export const ContactContainer: FC = () => {
           defaultValue={standardizePhoneNumber(phone)}
           rules={{
             required: true,
+            validate: (value: string) => isPhoneNumberValid(value),
           }}
           onChangeHandler={handleChange}
         />
