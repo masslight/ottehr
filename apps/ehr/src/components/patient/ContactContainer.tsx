@@ -88,7 +88,7 @@ export const ContactContainer: FC = () => {
             required: 'This field is required',
             pattern: {
               value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.com$/i,
-              message: 'Must be in the format usernam@domain.com',
+              message: 'Must be in the format "email@example.com"',
             },
           }}
           defaultValue={email}
