@@ -9,6 +9,7 @@ import { useSaveChartData } from '../../../../telemed';
 import { useAppointment } from '../../hooks/useAppointment';
 import { useChartData } from '../../hooks/useChartData';
 import { ProfileAvatar } from '../ProfileAvatar';
+import { dataTestIds } from '../../../../constants/data-test-ids';
 
 const getPatientDisplayedName = (patient: Patient | undefined): string => {
   if (!patient) {
@@ -116,6 +117,7 @@ const GeneralInfoCard: React.FC = (): JSX.Element => {
                 }}
                 control={
                   <Checkbox
+                    data-testid={dataTestIds.patientInfoPage.patientInfoVerifiedCheckbox}
                     sx={{
                       color: theme.palette.primary.main,
                       '&.Mui-checked': {
