@@ -62,7 +62,6 @@ export const ContactContainer: FC = () => {
             defaultValue={patient?.address?.[0]?.city}
             rules={{
               required: REQUIRED_FIELD_ERROR_MESSAGE,
-              validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
             }}
             onChangeHandler={handleChange}
           />
@@ -81,7 +80,10 @@ export const ContactContainer: FC = () => {
             name={patientFieldPaths.zip}
             control={control}
             defaultValue={patient?.address?.[0]?.postalCode}
-            rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+            rules={{
+              required: REQUIRED_FIELD_ERROR_MESSAGE,
+              validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
+            }}
             onChangeHandler={handleChange}
           />
         </Box>
