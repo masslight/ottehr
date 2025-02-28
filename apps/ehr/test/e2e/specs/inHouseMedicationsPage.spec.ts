@@ -10,11 +10,11 @@ const resourceHandler = new ResourceHandler('in-person');
 const DIAGNOSIS = 'Situs inversus';
 const Medication = '0.9% Sodium Chloride IV (1000cc)';
 
-test.beforeAll(async () => {
+test.beforeEach(async () => {
   await resourceHandler.setResources();
 });
 
-test.afterAll(async () => {
+test.afterEach(async () => {
   await resourceHandler.cleanupResources();
 });
 
@@ -25,13 +25,12 @@ test('Open Order Medication screen, check all fields are required', async ({ pag
   await orderMedicationPage.clickOrderMedicationButton();
   await orderMedicationPage.verifyValidationErrorShown(Field.MEDICATION);
   await orderMedicationPage.selectAssociatedDx('Select associatedDx');
-  
 });
 
 async function openOrderMedicationPage(page: Page): Promise<OrderMedicationPage> {
   await page.goto(`in-person/${resourceHandler.appointment.id}`);
   await page.waitForTimeout(10000);
-  const patientInfoPage = await expectPatientInfoPage(page);
+  const patientInfoPage = await expectPatientInfoPage(resourceHandler.appointment.id!, page);
   await patientInfoPage.cssHeader().clickSwitchStatusButton('provider');
   const progressNotePage = await expectProgressNotePage(page);
   await patientInfoPage.sideMenu().clickAssessment();

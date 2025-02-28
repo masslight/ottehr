@@ -224,7 +224,6 @@ export const ERxContainer: FC = () => {
           >
             <Stack>
               <RoundedButton
-                
                 disabled={isReadOnly || isERXLoading || !user?.isPractitionerEnrolledInPhoton}
                 variant="contained"
                 onClick={() => setIsERXOpen(true)}
