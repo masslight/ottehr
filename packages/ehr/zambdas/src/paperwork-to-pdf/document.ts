@@ -76,7 +76,8 @@ function createSections(questionnaireResponse: QuestionnaireResponse, questionna
         answerItem?.valueDate ??
         answerItem?.valueTime ??
         answerItem?.valueDateTime ??
-        answerItem?.valueQuantity?.value;
+        answerItem?.valueQuantity?.value ??
+        answerItem?.valueReference?.display;
       if (question == null || answer == null) {
         return [];
       }
