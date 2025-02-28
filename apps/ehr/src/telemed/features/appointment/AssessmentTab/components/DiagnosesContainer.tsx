@@ -159,6 +159,7 @@ export const DiagnosesContainer: FC = () => {
                 ? undefined
                 : (value) => (
                     <DeleteIconButton
+                      dataTestId={dataTestIds.diagnosisContainer.deleteButton}
                       disabled={isLoading || !value.resourceId}
                       onClick={() => onDelete(value.resourceId!)}
                     />

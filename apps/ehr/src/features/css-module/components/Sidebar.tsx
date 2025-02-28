@@ -322,10 +322,11 @@ export const Sidebar = (): JSX.Element => {
                 });
               }}
             >
-              <ListItem sx={{ width: '100%', height: 'inherit' }}>
-                <ListItemIcon data-testid={dataTestIds.sideMenu.sideMenuItem(item.to)} sx={{ minWidth: 40 }}>
-                  {item.icon}
-                </ListItemIcon>
+              <ListItem
+                data-testid={dataTestIds.sideMenu.sideMenuItem(item.to)}
+                sx={{ width: '100%', height: 'inherit' }}
+              >
+                <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
                 <ListItemText primary={item.text} sx={{ opacity: open ? 1 : 0 }} />
               </ListItem>
             </StyledButton>

@@ -6,12 +6,15 @@ export const dataTestIds = {
   },
   cssHeader: {
     container: 'css-header-container',
+    patientName: 'patient-name',
+    appointmentStatus: 'appointment-status',
+    switchStatusButton: (status: string) => `switch-status-to-${status}`,
     switchStatusButton: (status: string) => `switch-status-to-${status}`,
   },
   dashboard: {
     appointmentsTable: (tab: 'prebooked' | 'in-office' | 'completed' | 'cancelled') => `appointments-table-${tab}`,
     addPatientButton: 'add-patient-button',
-    intakeButton: (appointmentId: string) => `intake-button-${appointmentId}`,
+    intakeButton: `intake-button`,
     prebookedTab: 'prebooked-tab',
     locationSelect: 'location-select',
     datePickerTodayButton: 'date-picker-today-button',
@@ -22,6 +25,7 @@ export const dataTestIds = {
     appointmentTime: 'appointment-time',
     inOfficeTab: 'in-office-tab',
     groupSelect: 'group-select',
+    dischargedTab: 'discharged-tab',
     phoneNumberInput: 'phone-number-input',
     createDemoVisitsButton: 'create-demo-visits-button',
   },
@@ -80,6 +84,7 @@ export const dataTestIds = {
   },
   dialog: {
     closeButton: 'close-button',
+    proceedButton: 'proceed-button',
   },
   statesPage: {
     statesSearch: 'states-search',
@@ -150,7 +155,6 @@ export const dataTestIds = {
     appointmentStatusChip: 'telemed-appointment-status-chip',
     footerButtonConnectToPatient: 'telemed-appointment-footer-button-connect-to-patient',
     footerButtonAssignMe: 'telemed-appointment-footer-button-assign-me',
-    dialogButtonConfirm: 'telemed-dialog-button-confirm',
     appointmentChartFooter: 'telemed-chart-appointment-footer',
     hpiMedicalConditionsLoadingSkeleton: 'telemed-medical-conditions-loading-skeleton',
     hpiMedicalConditionColumn: 'telemed-hpi-medical-condition-column',
@@ -168,9 +172,29 @@ export const dataTestIds = {
     hpiChiefComplaintRos: 'telemed-chief-complaint-ros',
     videoRoomContainer: 'telemed-video-room-container',
   },
-
   sideMenu: {
+    completeIntakeButton: 'complete-intake-button',
     sideMenuItem: (item: string): string => `menu-item-${item}`,
+  },
+  hospitalizationPage: {
+    hospitalizationTitle: 'hospitalization-title',
+  },
+  progressNotePage: {
+    reviewAndSignButton: 'review-and-sign-button',
+  },
+  assessmentPage: {
+    diagnosisDropdown: 'diagnosis-dropdown',
+    emCodeDropdown: 'em-code-dropdown',
+    medicalDecisionField: 'medical-decision-field',
+  },
+  diagnosisContainer: {
+    deleteButton: 'diagnosis-container-delete-button',
+  },
+  billingContainer: {
+    deleteButton: 'billing-container-delete-button',
+  },
+  patientInfoPage: {
+    patientInfoVerifiedCheckbox: 'patient-info-verified-checkbox',
   },
   inHouseMedicationsPage: {
     title: 'medications-title',
@@ -179,12 +203,5 @@ export const dataTestIds = {
   orderMedicationPage: {
     inputField: (field: string): string => `input-${field}`,
     fillOrderToSaveButton: 'fill-order-to-save-button',
-  },
-  assessmentPage: {
-    diagnosisDropdown: 'diagnosis-dropdown',
-    medicalDecisionField: 'medical-decision-field',
-  },
-  diagnosisContainer: {
-    deleteButton: 'diagnosis-container-delete-button',
   },
 };

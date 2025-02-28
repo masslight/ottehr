@@ -17,6 +17,18 @@ export class ProgressNotePage {
   sideMenu(): SideMenu {
     return new SideMenu(this.#page);
   }
+
+  async clickReviewAndSignButton(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.progressNotePage.reviewAndSignButton).click();
+  }
+
+  async verifyReviewAndSignButtonDisabled(): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.reviewAndSignButton)).toBeDisabled();
+  }
+
+  async clickSignButton(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.dialog.proceedButton).click();
+  }
 }
 
 export async function expectProgressNotePage(page: Page): Promise<ProgressNotePage> {
