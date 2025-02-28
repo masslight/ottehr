@@ -7,6 +7,8 @@ import { ScheduleStrategyCoding, TIMEZONE_EXTENSION_URL } from 'utils';
 import { inviteUser } from './invite-user';
 import { promisify } from 'node:util';
 
+export const BUCKET_PAPERWORK_PDF = 'paperwork-pdf';
+
 async function createApplication(oystehr: Oystehr, applicationName: string): Promise<[string, string]> {
   const application = await oystehr.application.create({
     name: applicationName,
@@ -170,7 +172,7 @@ export async function setupEHR(
   // create a group for the providers using the HealthcareService fhir resource
   const healthcareServiceResource: FhirResource = {
     resourceType: 'HealthcareService',
-    name: 'Selden NY',
+    name: 'Visit Followup Group',
     active: true,
     extension: [
       {
@@ -186,7 +188,7 @@ export async function setupEHR(
     identifier: [
       {
         system: 'https://fhir.ottehr.com/r4/slug',
-        value: 'SeldenNY',
+        value: 'visit-followup-group',
       },
     ],
     characteristic: [
@@ -282,6 +284,7 @@ export async function setupEHR(
     'consent-forms',
     'receipts',
     'patient-photos',
+    BUCKET_PAPERWORK_PDF,
   ];
 
   await createZ3(oystehr, bucketNames);
