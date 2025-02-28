@@ -32,6 +32,11 @@ import { LabsAutocomplete } from '../components/LabsAutocomplete';
 import { createLabOrder } from '../../../api/api';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 
+enum LoadingState {
+  initial,
+  loading,
+  loaded,
+}
 interface CreateExternalLabOrdersProps {
   appointmentID?: string;
 }
@@ -42,15 +47,20 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const user = useEvolveUser();
   const navigate = useNavigate();
   const practitionerId = user?.profile.replace('Practitioner/', '');
-  const [loadingLocations, setLoadingLocations] = useState<boolean>(true);
-  const [submitting, setSubmitting] = useState<boolean>(false);
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [selectedLab, setSelectedLab] = useState<OrderableItemSearchResult | null>(null);
-  const [office, setOffice] = useState<Location | undefined>(undefined);
-  const [pscHold, setPscHold] = useState<boolean>(true); // defaulting & locking to true for mvp
+  const [loadingState, setLoadingState] = useState(LoadingState.initial);
   const [error, setError] = useState<string[] | undefined>(undefined);
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [selectedLab, setSelectedLab] = useState<OrderableItemSearchResult | null>(null);
+  const [pscHold, setPscHold] = useState<boolean>(true); // defaulting & locking to true for mvp
 
-  const { chartData, location, encounter, appointment, coverage, coverageName } = getSelectors(useAppointmentStore, [
+  const {
+    chartData,
+    location: locationInState,
+    encounter,
+    appointment,
+    coverage,
+    coverageName,
+  } = getSelectors(useAppointmentStore, [
     'chartData',
     'location',
     'encounter',
@@ -61,6 +71,9 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const { diagnosis, patientId } = chartData || {};
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
   const [orderDx, setOrderDx] = useState<DiagnosisDTO[]>(primaryDiagnosis ? [primaryDiagnosis] : []);
+
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [selectedOffice, setSelectedOffice] = useState<Location | undefined>(locationInState);
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'ICD10CM' });
@@ -73,18 +86,12 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   };
 
   useEffect(() => {
-    if (location) {
-      setOffice(location);
-    }
-  }, [location]);
-
-  useEffect(() => {
     async function getLocationsResults(oystehr: Oystehr): Promise<void> {
       if (!oystehr) {
         return;
       }
 
-      setLoadingLocations(true);
+      setLoadingState(LoadingState.loading);
 
       try {
         let locationsResults = (
@@ -98,14 +105,14 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       } catch (e) {
         console.error('error loading locations', e);
       } finally {
-        setLoadingLocations(false);
+        setLoadingState(LoadingState.loaded);
       }
     }
 
-    if (oystehr && locations.length === 0) {
+    if (oystehr && loadingState === LoadingState.initial) {
       void getLocationsResults(oystehr);
     }
-  }, [oystehr, loadingLocations, locations.length]);
+  }, [oystehr, loadingState]);
 
   const addDxToOrder = (dx: DiagnosisDTO): void => {
     if (!orderDx.find((tempdx) => tempdx.code === dx.code)) {
@@ -118,7 +125,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     setOrderDx(updatedDx);
   };
 
-  const locationOptions = useMemo(() => {
+  const officeOptions = useMemo(() => {
     const allLocations = locations.map((location) => {
       return { label: `${location.address?.state?.toUpperCase()} - ${location.name}`, value: location.id };
     });
@@ -127,14 +134,14 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   }, [locations]);
 
   const handleOfficeChange = (e: SelectChangeEvent<string>): void => {
-    const selectedLocation = locations.find((locationTemp) => locationTemp.id === e.target.value);
-    setOffice(selectedLocation);
+    const officeLocation = locations.find((locationTemp) => locationTemp.id === e.target.value);
+    setSelectedOffice(officeLocation);
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setSubmitting(true);
-    const paramsSatisfied = orderDx.length && patientId && office && practitionerId && selectedLab && coverage;
+    const paramsSatisfied = orderDx.length && patientId && selectedOffice && practitionerId && selectedLab && coverage;
     if (oystehrZambda && paramsSatisfied) {
       try {
         await createLabOrder(oystehrZambda, {
@@ -142,7 +149,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
           patientId,
           encounter,
           coverage,
-          location: office,
+          location: selectedOffice,
           practitionerId,
           orderableItem: selectedLab,
           pscHold,
@@ -158,7 +165,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       const errorMessage = [];
       if (!orderDx.length) errorMessage.push('Please enter at least one dx');
       if (!coverage) errorMessage.push('Patient insurance is missing, you cannot submit a lab order without one');
-      if (!office) errorMessage.push('Please enter an office');
+      if (!selectedOffice) errorMessage.push('Please enter an office');
       if (!selectedLab) errorMessage.push('Please select a lab to order');
       if (errorMessage.length === 0) errorMessage.push('There was an error ordering this lab');
       setError(errorMessage);
@@ -171,7 +178,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
         Order Lab
       </Typography>
-      {loadingLocations ? (
+      {loadingState !== LoadingState.loaded ? (
         <CircularProgress />
       ) : (
         <form onSubmit={handleSubmit}>
@@ -277,10 +284,10 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                       labelId="select-office-label"
                       id="select-office"
                       label="Office"
-                      value={office?.id || ''}
+                      value={selectedOffice?.id || ''}
                       onChange={handleOfficeChange}
                     >
-                      {locationOptions.map((d) => (
+                      {officeOptions.map((d) => (
                         <MenuItem id={d.value} key={d.value} value={d.value}>
                           {d.label}
                         </MenuItem>
