@@ -2,6 +2,7 @@ import { Box } from '@mui/material';
 import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
 import {
+  emailRegex,
   isPhoneNumberValid,
   isPostalCodeValid,
   patientFieldPaths,
@@ -93,7 +94,7 @@ export const ContactContainer: FC = () => {
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
             pattern: {
-              value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.com$/i,
+              value: emailRegex,
               message: 'Must be in the format "email@example.com"',
             },
           }}
