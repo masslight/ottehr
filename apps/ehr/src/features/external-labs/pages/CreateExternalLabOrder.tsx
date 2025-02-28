@@ -48,7 +48,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const [selectedLab, setSelectedLab] = useState<OrderableItemSearchResult | null>(null);
   const [office, setOffice] = useState<Location | undefined>(undefined);
   const [pscHold, setPscHold] = useState<boolean>(true); // defaulting & locking to true for mvp
-  const [error, setError] = useState<string | undefined>(undefined);
+  const [error, setError] = useState<string[] | undefined>(undefined);
 
   const { chartData, location, encounter, appointment, coverage, coverageName } = getSelectors(useAppointmentStore, [
     'chartData',
@@ -150,10 +150,18 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
         navigate(`/in-person/${appointment?.id}/external-lab-orders`);
       } catch (e) {
         const oysterError = e as OystehrSdkError;
-        setError(oysterError?.message || 'error ordering lab');
+        const errorMessage = oysterError?.message ? [oysterError?.message] : ['There was an error ordering this lab'];
+        setError(errorMessage);
       }
     } else if (!paramsSatisfied) {
       console.log('missing required params');
+      const errorMessage = [];
+      if (!orderDx.length) errorMessage.push('Please enter at least one dx');
+      if (!coverage) errorMessage.push('Patient insurance is missing, you cannot submit a lab order without one');
+      if (!office) errorMessage.push('Please enter an office');
+      if (!selectedLab) errorMessage.push('Please select a lab to order');
+      if (errorMessage.length === 0) errorMessage.push('There was an error ordering this lab');
+      setError(errorMessage);
     }
     setSubmitting(false);
   };
@@ -324,11 +332,13 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                   Order
                 </LoadingButton>
               </Grid>
-              {error && (
-                <Grid item xs={12} sx={{ textAlign: 'right', paddingTop: 1 }}>
-                  <Typography sx={{ color: theme.palette.error.main }}>{error}</Typography>
-                </Grid>
-              )}
+              {error &&
+                error.length > 0 &&
+                error.map((msg, idx) => (
+                  <Grid item xs={12} sx={{ textAlign: 'right', paddingTop: 1 }} key={idx}>
+                    <Typography sx={{ color: theme.palette.error.main }}>{msg}</Typography>
+                  </Grid>
+                ))}
             </Grid>
           </Paper>
         </form>

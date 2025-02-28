@@ -5,6 +5,7 @@ import {
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   formatDOB,
   CODE_SYSTEM_COVERAGE_CLASS,
+  SELF_PAY_CODING,
 } from 'utils';
 import { getPatientName } from '../../../telemed/utils';
 import { getPatientInfoWithFallback, getPronouns, getWeight } from './business-logic';
@@ -44,6 +45,8 @@ export const getParsedAppointmentData = (resourceBundle: FhirResource[]): Partia
 
 const parseCoverage = (coverage: Coverage | undefined): Partial<ProcessedData> => {
   if (!coverage) return {};
+  const isSelfPay = !!coverage.type?.coding?.find((coding) => coding.system === SELF_PAY_CODING.system);
+  if (isSelfPay) return { coverageName: 'Self Pay' }; // todo check that this is implemented / or being implmented
   const coveragePlanClass = coverage.class?.find(
     (c) => c.type.coding?.find((code) => code.system === CODE_SYSTEM_COVERAGE_CLASS)
   );
