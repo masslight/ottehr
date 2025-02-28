@@ -82,7 +82,8 @@ export const ResponsibleInformationContainer: FC = () => {
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const { name, value } = event.target;
-    updatePatientField(name, value);
+    const fieldType = name === responsiblePartyPhonePath ? 'phone' : undefined;
+    updatePatientField(name, value, undefined, fieldType);
   };
 
   const handleResponsiblePartyNameChange = (e: React.ChangeEvent<HTMLInputElement>): void => {

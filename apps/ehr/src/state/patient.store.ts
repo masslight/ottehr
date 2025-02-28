@@ -20,6 +20,7 @@ import {
   ResourceTypeNames,
   PatientMasterRecordResourceType,
   patientFieldPaths,
+  ContactTelecomConfig,
   LANGUAGE_OPTIONS,
   LanguageOption,
   getPatchOperationToAddOrUpdatePreferredLanguage,
@@ -91,7 +92,12 @@ interface PatientStoreActions {
   dropInsurance: (coverageId: string) => void;
   setPolicyHolders: (policyHolders: RelatedPerson[]) => void;
   setInsurancePlans: (insurancePlans: InsurancePlanDTO[]) => void;
-  updatePatientField: (fieldName: string, value: string | boolean | Reference, resourceId?: string) => void;
+  updatePatientField: (
+    fieldName: string,
+    value: string | boolean | Reference,
+    resourceId?: string,
+    fieldType?: string
+  ) => void;
   addPatchOperation: (resourceType: PatientMasterRecordResourceType, operation: Operation, resourceId?: string) => void;
   addTempInsurance: (coverage: Coverage, relatedPerson: RelatedPerson) => void;
   updateTempInsurance: (coverageId: string, updatedInsurance: Insurance) => void;
@@ -143,7 +149,7 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
       tempInsurances: state.tempInsurances.filter((insurance) => insurance.coverage.id !== coverageId),
     })),
   setInsurancePlans: (insurancePlans) => set({ insurancePlans }),
-  updatePatientField: (fieldName, value, resourceId) => {
+  updatePatientField: (fieldName, value, resourceId, fieldType) => {
     const state = usePatientStore.getState();
     const { resourceType, path } = extractResourceTypeAndPath(fieldName);
 
@@ -265,23 +271,14 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
         if (effectiveValue !== undefined) {
           newPatchOperation = { op: 'replace', path, value };
         } else {
-          if (path.includes('-1')) {
-            const isTelecomExist = getEffectiveValue(resource, path.replace('/-1/value', ''), currentPatchOperations);
-            const telecomItem = { system: 'phone', value: value };
-            newPatchOperation = {
-              op: 'add',
-              path: path.split('-1')[0] + (isTelecomExist ? '-' : '0'),
-              value: telecomItem,
-            };
-          }
-          if (path.includes('undefined')) {
-            const telecomItem = { system: 'phone', value: value };
-            newPatchOperation = {
-              op: 'add',
-              path: path.split('/undefined')[0],
-              value: [telecomItem],
-            };
-          }
+          const telecomConfig = contactTelecomConfigs[fieldType!];
+
+          const telecomItem = { system: telecomConfig?.system, value: value };
+          newPatchOperation = {
+            op: 'add',
+            path: path.replace(/\/-?\d+\/value$/, '/-'),
+            value: telecomItem,
+          };
         }
       }
     } else if (isResponsiblePartyBirthDate) {
@@ -523,4 +520,21 @@ export const createInsurancePlanDto = (insurancePlan: InsurancePlan, organizatio
     });
 
   return insurancePlanDto;
+};
+
+const contactTelecomConfigs: Record<string, ContactTelecomConfig> = {
+  phone: { system: 'phone' },
+  email: { system: 'email' },
+};
+
+export const getTelecomInfo = (
+  patient: Patient,
+  system: 'phone' | 'email',
+  defaultIndex: number
+): { value?: string; path: string } => {
+  const index = patient.telecom?.findIndex((telecom) => telecom.system === system) ?? defaultIndex;
+  return {
+    value: patient.telecom?.[index]?.value,
+    path: patientFieldPaths[system].replace(/telecom\/\d+/, `telecom/${index}`),
+  };
 };
