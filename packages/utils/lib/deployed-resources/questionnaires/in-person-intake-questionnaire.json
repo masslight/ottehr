@@ -2364,22 +2364,22 @@
                 "required": true,
                 "answerOption": [
                   {
+                    "valueString": "Self"
+                  },
+                  {
                     "valueString": "Child"
                   },
                   {
                     "valueString": "Parent"
                   },
                   {
-                    "valueString": "Mother"
-                  },
-                  {
-                    "valueString": "Father"
-                  },
-                  {
-                    "valueString": "Sibling"
-                  },
-                  {
                     "valueString": "Spouse"
+                  },
+                  {
+                    "valueString": "Common Law Spouse"
+                  },
+                  {
+                    "valueString": "Injured Party"
                   },
                   {
                     "valueString": "Other"
