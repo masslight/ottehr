@@ -66,7 +66,7 @@ export const ContactContainer: FC = () => {
             defaultValue={patient?.address?.[0]?.state}
             rules={{
               validate: (value: string) => STATE_OPTIONS.some((option) => option.value === value),
-              required: true,
+              required: 'This field is required',
             }}
             onChangeHandler={handleAutocompleteChange}
           />
