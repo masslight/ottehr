@@ -26,5 +26,5 @@ export const FHIR_IDC10_VALUESET_SYSTEM = 'http://hl7.org/fhir/valueset-icd-10.h
 export const OYSTEHR_LAB_GUID_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab-guid';
 
 // Oystehr Labs APIs
-export const OYSTEHR_LAB_API_BASE = 'https://labs-api.zapehr.com/v1/';
+export const OYSTEHR_LAB_API_BASE = 'https://labs-api.zapehr.com/v1';
 export const OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API = `${OYSTEHR_LAB_API_BASE}/orderableItem`;
