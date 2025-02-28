@@ -142,7 +142,7 @@ test.describe('For new patient', () => {
   });
 
   test('Add pre-book visit for new patient', async ({ page }) => {
-    const { appointmentId } = await createAppointment(
+    const { appointmentId, slotTime } = await createAppointment(
       page,
       VISIT_TYPES.PRE_BOOK,
       false,
@@ -157,7 +157,7 @@ test.describe('For new patient', () => {
 
   // skipping post-telemed vists tests cause they are unstable for some reason. TODO: investigate
   test.skip('Add post-telemed visit for new patient', async ({ page }) => {
-    const { appointmentId } = await createAppointment(
+    const { appointmentId, slotTime } = await createAppointment(
       page,
       VISIT_TYPES.POST_TELEMED,
       false,
@@ -167,7 +167,7 @@ test.describe('For new patient', () => {
     const visitsPage = await expectVisitsPage(page);
     await visitsPage.selectLocation(ENV_LOCATION_NAME!);
     await visitsPage.clickPrebookedTab();
-    await visitsPage.verifyVisitPresent(appointmentId);
+    await visitsPage.verifyVisitPresent(appointmentId, slotTime);
   });
 });
 
@@ -189,22 +189,22 @@ test.describe('For existing patient', () => {
   });
 
   test('Add pre-book visit for existing patient', async ({ page }) => {
-    const { appointmentId } = await createAppointment(page, VISIT_TYPES.PRE_BOOK, true);
+    const { appointmentId, slotTime } = await createAppointment(page, VISIT_TYPES.PRE_BOOK, true);
 
     const visitsPage = await expectVisitsPage(page);
     await visitsPage.selectLocation(ENV_LOCATION_NAME!);
     await visitsPage.clickPrebookedTab();
-    await visitsPage.verifyVisitPresent(appointmentId);
+    await visitsPage.verifyVisitPresent(appointmentId, slotTime);
   });
 
   // skipping post-telemed vists tests cause they are unstable for some reason. TODO: investigate
   test('Add post-telemed visit for existing patient', async ({ page }) => {
-    const { appointmentId } = await createAppointment(page, VISIT_TYPES.POST_TELEMED, true);
+    const { appointmentId, slotTime } = await createAppointment(page, VISIT_TYPES.POST_TELEMED, true);
 
     const visitsPage = await expectVisitsPage(page);
     await visitsPage.selectLocation(ENV_LOCATION_NAME!);
     await visitsPage.clickPrebookedTab();
-    await visitsPage.verifyVisitPresent(appointmentId);
+    await visitsPage.verifyVisitPresent(appointmentId, slotTime);
   });
 });
 

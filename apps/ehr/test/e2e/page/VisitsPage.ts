@@ -8,8 +8,12 @@ export class VisitsPage {
     this.#page = page;
   }
 
-  async verifyVisitPresent(appointmentId: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))).toBeVisible();
+  async verifyVisitPresent(appointmentId: string, time?: string): Promise<void> {
+    let visitLocator = this.#page.getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId));
+    if (time) {
+      visitLocator = visitLocator.filter({ hasText: time });
+    }
+    await expect(visitLocator).toBeVisible();
   }
 
   async clickIntakeButton(appointmentId: string): Promise<void> {
