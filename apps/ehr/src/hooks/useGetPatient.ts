@@ -24,6 +24,7 @@ import {
   getVisitStatusHistory,
   getVisitTotalTime,
   consolidateOperations,
+  PatientMasterRecordResource,
 } from 'utils';
 import { getTimezone } from '../helpers/formatDateTime';
 import { getPatientNameSearchParams } from '../helpers/patientSearch';
@@ -255,25 +256,27 @@ export const useGetPatientQuery = (
   );
 };
 
-const preprocessUpdateOperations = (operations: Operation[], patient: Patient): Operation[] => {
-  const processedOps = consolidateOperations(operations, patient);
+const preprocessUpdateOperations = (operations: Operation[], resource: PatientMasterRecordResource): Operation[] => {
+  const processedOps = consolidateOperations(operations, resource);
 
-  // Find name-related operations and add old name to the list
-  const nameOperations = operations.filter(
-    (op) => op.path.startsWith('/name/0/') && (op.op === 'replace' || op.op === 'remove')
-  );
+  if (resource.resourceType === ResourceTypeNames.patient) {
+    // Find name-related operations and add old name to the list
+    const nameOperations = operations.filter(
+      (op) => op.path.startsWith('/name/0/') && (op.op === 'replace' || op.op === 'remove')
+    );
 
-  if (nameOperations.length > 0) {
-    const currentOfficialName = patient.name?.find((name) => name.use === 'official');
-    if (currentOfficialName) {
-      processedOps.push({
-        op: 'add',
-        path: '/name/-',
-        value: {
-          ...currentOfficialName,
-          use: 'old',
-        },
-      });
+    if (nameOperations.length > 0) {
+      const currentOfficialName = (resource as Patient).name?.find((name) => name.use === 'official');
+      if (currentOfficialName) {
+        processedOps.push({
+          op: 'add',
+          path: '/name/-',
+          value: {
+            ...currentOfficialName,
+            use: 'old',
+          },
+        });
+      }
     }
   }
 
@@ -313,12 +316,16 @@ export const useUpdatePatient = () => {
       // Process Coverage patches
       if (patchOperations?.coverages && Object.keys(patchOperations?.coverages).length > 0) {
         Object.entries(patchOperations?.coverages || {}).forEach(([coverageId, operations]) => {
-          const coveragePatch = getPatchBinary({
-            resourceType: ResourceTypeNames.coverage,
-            resourceId: coverageId,
-            patchOperations: operations,
-          });
-          patchRequests.push(coveragePatch);
+          const coverage = insurances.find((ins) => ins.id === coverageId);
+          if (coverage) {
+            const processedCoverageOperations = preprocessUpdateOperations(operations, coverage);
+            const coveragePatch = getPatchBinary({
+              resourceType: ResourceTypeNames.coverage,
+              resourceId: coverageId,
+              patchOperations: processedCoverageOperations,
+            });
+            patchRequests.push(coveragePatch);
+          }
         });
       }
 
@@ -429,6 +436,10 @@ export const useGetInsurancePlans = (onSuccess: (data: Bundle<InsurancePlan>) =>
             {
               name: 'status',
               value: 'active',
+            },
+            {
+              name: '_include',
+              value: 'InsurancePlan:owned-by',
             },
           ],
         });

@@ -57,7 +57,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
 
   if (!insurance) return null;
 
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>, insurancePlan?: InsurancePlanDTO): void => {
     const { name, value } = event.target;
     const baseName = name.split('_')[0];
     if (insurance.isTemp) {
@@ -135,7 +135,14 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
       updateTempInsurance(insurance.coverage.id || '', updatedInsurance);
     } else {
       if (baseName.startsWith(ResourceTypeNames.coverage)) {
-        updatePatientField(baseName, value, insurance.coverage.id);
+        if (baseName === coverageFieldPaths.carrier) {
+          if (!insurancePlan) return;
+          updatePatientField(coverageFieldPaths.carrier, insurancePlan?.name, insurance.coverage.id);
+          updatePatientField(coverageFieldPaths.payerId, insurancePlan?.payerId, insurance.coverage.id);
+          updatePatientField(coverageFieldPaths.payor, insurancePlan?.ownedBy, insurance.coverage.id);
+        } else {
+          updatePatientField(baseName, value, insurance.coverage.id);
+        }
       } else if (baseName.startsWith(ResourceTypeNames.relatedPerson)) {
         updatePatientField(baseName, value, insurance.relatedPerson?.id);
       }
@@ -159,7 +166,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
     if (insurance.isTemp) {
       removeTempInsurance(insuranceId);
     } else {
-      console.log('Remove insurance', insuranceId);
       updatePatientField(coverageFieldPaths.status, 'cancelled', insuranceId);
       dropInsurance(insuranceId);
     }
@@ -197,12 +203,15 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
                 getOptionLabel={(option) => option.name || ''}
                 onChange={(_, newValue) => {
                   onChange(newValue?.name || '');
-                  handleChange({
-                    target: {
-                      name: `${coverageFieldPaths.carrier}_${insurance.coverage.id}`,
-                      value: newValue?.name || '',
-                    },
-                  } as any);
+                  handleChange(
+                    {
+                      target: {
+                        name: `${coverageFieldPaths.carrier}_${insurance.coverage.id}`,
+                        value: newValue?.name || '',
+                      },
+                    } as any,
+                    newValue
+                  );
                 }}
                 disableClearable
                 fullWidth
