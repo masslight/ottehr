@@ -209,9 +209,13 @@ export async function createTestEnvFiles(): Promise<void> {
       AUTH0_ENDPOINT: ehrZambdaEnv.AUTH0_ENDPOINT,
       AUTH0_AUDIENCE: ehrZambdaEnv.AUTH0_AUDIENCE,
       PROJECT_API: intakeUiEnv.VITE_APP_PROJECT_API_URL,
-      PROJECT_API_ZAMBDA_URL: ehrUiEnv.VITE_APP_PROJECT_API_ZAMBDA_URL,
+      PROJECT_API_ZAMBDA_URL: intakeUiEnv.VITE_APP_PROJECT_API_URL,
       CREATE_APPOINTMENT_ZAMBDA_ID: ehrUiEnv.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID,
       CREATE_TELEMED_APPOINTMENT_ZAMBDA_ID: intakeUiEnv.VITE_APP_TELEMED_CREATE_APPOINTMENT_ZAMBDA_ID,
+      PROJECT_ID: ehrUiEnv.VITE_APP_PROJECT_ID,
+      SLUG_ONE: locationSlug,
+      STATE_ONE: locationState,
+      EHR_APPLICATION_ID: ehrUiEnv.VITE_APP_OYSTEHR_APPLICATION_ID,
       ...(environment === 'local' && { APP_IS_LOCAL: 'true' }),
     };
 
@@ -240,7 +244,6 @@ export async function createTestEnvFiles(): Promise<void> {
       throw new Error('EHR config contains empty values');
     }
 
-    console.log({ ehrConfig, intakeConfig, ehrZambdaEnv, intakeZambdaEnv });
     fs.writeFileSync(`apps/ehr/env/tests.${environment}.json`, JSON.stringify(ehrConfig, null, 2));
     fs.writeFileSync(`apps/intake/env/tests.${environment}.json`, JSON.stringify(intakeConfig, null, 2));
 

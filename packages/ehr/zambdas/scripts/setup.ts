@@ -68,7 +68,7 @@ function createZambdaEnvFile(
   return envPath;
 }
 
-function createFrontEndEnvFile(clientId: string, environment: string, projectId: string): string {
+function createFrontEndEnvFile(clientId: string, environment: string, projectId: string, applicationId: string): string {
   const envTemplatePath = 'apps/ehr/env/.env.local-template';
   const envPath = `apps/ehr/env/.env.${environment}`;
 
@@ -79,7 +79,8 @@ function createFrontEndEnvFile(clientId: string, environment: string, projectId:
   const updatedData = templateData
     .replace('VITE_APP_OYSTEHR_APPLICATION_CLIENT_ID=', `VITE_APP_OYSTEHR_APPLICATION_CLIENT_ID=${clientId}`)
     .replace('VITE_APP_ENV=', `VITE_APP_ENV=${environment}`)
-    .replace('VITE_APP_PROJECT_ID=', `VITE_APP_PROJECT_ID=${projectId}`);
+    .replace('VITE_APP_PROJECT_ID=', `VITE_APP_PROJECT_ID=${projectId}`)
+    .replace('VITE_APP_OYSTEHR_APPLICATION_ID=', `VITE_APP_OYSTEHR_APPLICATION_ID=${applicationId}`);
 
   // Write the updated data to the new file
   fs.writeFileSync(envPath, updatedData);
@@ -270,7 +271,7 @@ export async function setupEHR(
   const envPath1 = createZambdaEnvFile(projectId, m2mClientId, m2mSecret, organizationId, groupId, environment);
   console.log('Created environment file:', envPath1);
 
-  const envPath2 = createFrontEndEnvFile(clientId, environment, projectId);
+  const envPath2 = createFrontEndEnvFile(clientId, environment, projectId, applicationId);
   console.log('Created environment file:', envPath2);
 
   const bucketNames = [

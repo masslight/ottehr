@@ -92,17 +92,23 @@ const DEFAULT_REASONS_FOR_VISIT = [
   'Eye concern',
 ];
 
-export const createSamplePrebookAppointments = async (
-  oystehr: Oystehr | undefined,
-  authToken: string,
-  phoneNumber: string,
-  createAppointmentZambdaId: string,
-  // submitPaperworkZambdaId: string,
-  _islocal: boolean, // todo: use destructuring and remove useless args
-  intakeZambdaUrl: string,
-  selectedLocationId?: string,
-  demoData?: DemoAppointmentData
-): Promise<CreateAppointmentResponse | null> => {
+export const createSamplePrebookAppointments = async ({
+  oystehr,
+  authToken,
+  phoneNumber,
+  createAppointmentZambdaId,
+  intakeZambdaUrl,
+  selectedLocationId,
+  demoData,
+}: {
+  oystehr: Oystehr | undefined;
+  authToken: string;
+  phoneNumber: string;
+  createAppointmentZambdaId: string;
+  intakeZambdaUrl: string;
+  selectedLocationId?: string;
+  demoData?: DemoAppointmentData;
+}): Promise<CreateAppointmentResponse | null> => {
   if (!oystehr) {
     console.log('oystehr client is not defined');
     return null;
@@ -141,7 +147,7 @@ export const createSamplePrebookAppointments = async (
 
       appointmentData = await createAppointmentResponse.json();
 
-      if ((appointmentData as any).output) {
+      if ((appointmentData as any)?.output) {
         appointmentData = (appointmentData as any).output as CreateAppointmentResponse;
       }
 
