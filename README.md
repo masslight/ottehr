@@ -30,7 +30,7 @@
 
 Ottehr consists of two apps,
 
-- **[Ottehr Intake](apps/intake)** &mdash; A patient-facing registration website for creating appointments, initiating telemedicine calls, with features including rescheduling, checking in, completing intake paperwork, text messages and emails, and listing appointments for an account.
+- **[Ottehr Patient Portal](apps/intake)** &mdash; A patient-facing registration website for creating appointments, initiating telemedicine calls, with features including rescheduling, checking in, completing intake paperwork, text messages and emails, and listing appointments for an account.
 - **[Ottehr EHR](apps/ehr/)** &mdash; A staff-facing EHR for managing appointments created, with features including checking appointments, managing patient queues, texting patients, updating a location's slots, setting a location's schedule, joining telemedicine calls, HPI and medical history, exam charting, eRx and Assessment, patient plan, coming soon: RCM and claims submission.
 
 ## Run Ottehr Locally
@@ -164,7 +164,7 @@ This repository uses a monorepo structure.
 - [Zambda Documentation](./packages/ehr/zambdas/README.md)
 - [E2E Testing Guide](./apps/ehr/test/e2e-readme/README.md)
 
-### Intake App
+### Patient Portal App
 
 - [Frontend Documentation](./apps/intake/README.md)
 - [Zambda Documentation](./packages/intake/zambdas/README.md)

@@ -181,7 +181,7 @@ async function createApplication(oystehr: Oystehr, applicationName: string): Pro
   try {
     application = await oystehr.application.create({
       name: applicationName,
-      description: 'Intake application with sms authentication',
+      description: 'Patient Portal application with sms authentication',
       loginRedirectUri: 'https://intake-local.ottehr.com/patients',
       allowedCallbackUrls: [
         'http://localhost:3002',
@@ -279,9 +279,9 @@ export async function setupIntake(
   m2mSecret: string,
   environment: string
 ): Promise<void> {
-  console.log('Starting setup of Ottehr Intake...');
+  console.log('Starting setup of Ottehr Patient Portal...');
 
-  const applicationName = 'Ottehr Intake';
+  const applicationName = 'Ottehr Patient Portal';
   const [_, clientId] = await createApplication(oystehr, applicationName);
   console.log(`Created application "${applicationName}".`);
 

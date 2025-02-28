@@ -1,3 +1,0 @@
-{
-  "(packages|apps)/**/*.(tsx|ts|js|jsx)": ["eslint --fix", "prettier . --write"]
-}

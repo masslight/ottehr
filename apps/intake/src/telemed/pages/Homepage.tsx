@@ -82,7 +82,7 @@ const Homepage = (): JSX.Element => {
     const destination = `${intakeFlowPageRoute.PrebookVisitDynamic.path.replace(
       `:${BOOKING_SERVICE_MODE_PARAM}`,
       ServiceMode['in-person']
-    )}?bookingOn=SeldenNY&scheduleType=group`;
+    )}?bookingOn=visit-followup-group&scheduleType=group`;
     navigate(destination);
   };
 
