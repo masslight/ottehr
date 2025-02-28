@@ -93,7 +93,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const requests: BatchInputRequest<FhirResource>[] = [];
 
-    const { actiyivtyDefitionId, activityDefinitionToContain } = await handleActivityDefinition(
+    const { activityDefinitionId, activityDefinitionToContain } = await handleActivityDefinition(
       activityDefinitionSearchResults,
       orderableItem,
       oystehr
@@ -138,7 +138,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       priority: 'routine',
       code: serviceRequestCode,
       reasonCode: serviceRequestReasonCode,
-      instantiatesCanonical: [`#${actiyivtyDefitionId}`],
+      instantiatesCanonical: [`#${activityDefinitionId}`],
       contained: [activityDefinitionToContain],
     };
     console.log('serviceRequestConfig instantiatesCanonical', serviceRequestConfig.instantiatesCanonical);
@@ -234,7 +234,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
 const formatAoeQR = (
   serviceRequestFullUrl: string,
-  encoutnerId: string,
+  encounterId: string,
   orderableItem: OrderableItemSearchResult
 ): QuestionnaireResponse | undefined => {
   if (!orderableItem.item.aoe) return;
@@ -242,7 +242,7 @@ const formatAoeQR = (
     resourceType: 'QuestionnaireResponse',
     questionnaire: orderableItem.item.aoe.url,
     encounter: {
-      reference: `Encounter/${encoutnerId}`,
+      reference: `Encounter/${encounterId}`,
     },
     basedOn: [
       {
@@ -279,10 +279,10 @@ const handleActivityDefinition = async (
   activityDefinitionSearchResults: ActivityDefinition[],
   orderableItem: OrderableItemSearchResult,
   oystehr: Oystehr
-): Promise<{ actiyivtyDefitionId: string; activityDefinitionToContain: any }> => {
+): Promise<{ activityDefinitionId: string; activityDefinitionToContain: any }> => {
   const activityDefinition: ActivityDefinition = activityDefinitionSearchResults?.[0];
 
-  let actiyivtyDefitionId: string | undefined;
+  let activityDefinitionId: string | undefined;
   let activityDefinitionToContain: any;
 
   if (!activityDefinition) {
@@ -307,16 +307,16 @@ const handleActivityDefinition = async (
     };
     activityDefinitionToContain = activityDefinitionConfig;
     const newActivityDef = await oystehr.fhir.create<ActivityDefinition>(activityDefinitionConfig);
-    actiyivtyDefitionId = newActivityDef.id;
+    activityDefinitionId = newActivityDef.id;
   } else if (activityDefinition) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { meta, ...activityDefToContain } = activityDefinition;
     activityDefinitionToContain = activityDefToContain;
-    actiyivtyDefitionId = activityDefinition.id;
+    activityDefinitionId = activityDefinition.id;
   }
 
-  if (!actiyivtyDefitionId)
+  if (!activityDefinitionId)
     throw new Error(`issue finding or creating activity definition for this lab orderable item`);
 
-  return { actiyivtyDefitionId, activityDefinitionToContain };
+  return { activityDefinitionId, activityDefinitionToContain };
 };

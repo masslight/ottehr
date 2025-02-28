@@ -72,7 +72,7 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
             const orderableItemRes = response.orderableItems as OrderableItemSearchResult[];
             items.push(...orderableItemRes);
             cursor = response?.metadata?.nextCursor || '';
-          } while (cursor !== '');
+          } while (cursor);
 
           setLabs(items);
         } catch (e) {
