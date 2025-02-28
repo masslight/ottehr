@@ -166,7 +166,7 @@ export const ResponsibleInformationContainer: FC = () => {
           defaultValue={standardizePhoneNumber(phone)}
           rules={{
             required: true,
-            validate: (value: string) => isPhoneNumberValid(value),
+            validate: (value: string) => isPhoneNumberValid(value) || 'Must be 10 digits',
           }}
           onChangeHandler={handleChange}
         />

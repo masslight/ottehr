@@ -4,6 +4,7 @@ import { Controller, useFormContext } from 'react-hook-form';
 import {
   COVERAGE_ADDITIONAL_INFORMATION_URL,
   coverageFieldPaths,
+  isPostalCodeValid,
   RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL,
   relatedPersonFieldPaths,
   ResourceTypeNames,
@@ -374,6 +375,9 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
                 name={`${relatedPersonFieldPaths.zip}_${insurance.relatedPerson?.id}`}
                 control={control}
                 defaultValue={insurance.relatedPerson?.address?.[0]?.postalCode}
+                rules={{
+                  validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
+                }}
                 onChangeHandler={handleChange}
               />
             </Box>
