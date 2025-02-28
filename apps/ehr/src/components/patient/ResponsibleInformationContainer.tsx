@@ -1,6 +1,6 @@
 import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { isPhoneNumberValid, patientFieldPaths, standardizePhoneNumber } from 'utils';
+import { isPhoneNumberValid, patientFieldPaths, REQUIRED_FIELD_ERROR_MESSAGE, standardizePhoneNumber } from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
 import { RELATIONSHIP_OPTIONS, SEX_OPTIONS } from '../../constants';
 import { Row, Section } from '../layout';
@@ -53,7 +53,7 @@ export const ResponsibleInformationContainer: FC = () => {
           control={control}
           options={RELATIONSHIP_OPTIONS}
           rules={{
-            required: 'This field is required',
+            required: REQUIRED_FIELD_ERROR_MESSAGE,
             validate: (value: string) => RELATIONSHIP_OPTIONS.some((option) => option.value === value),
           }}
           defaultValue={
@@ -69,7 +69,7 @@ export const ResponsibleInformationContainer: FC = () => {
           name={patientFieldPaths.responsiblePartyName}
           control={control}
           defaultValue={`${patient?.contact?.[0].name?.family}, ${patient?.contact?.[0].name?.given?.[0]}`}
-          rules={{ required: 'This field is required' }}
+          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           onChangeHandler={handleResponsiblePartyNameChange}
           id="responsible-party-full-name"
         />
@@ -91,7 +91,7 @@ export const ResponsibleInformationContainer: FC = () => {
           control={control}
           options={SEX_OPTIONS}
           rules={{
-            required: 'This field is required',
+            required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
           required={true}
           defaultValue={patient?.contact?.[0].gender}
@@ -105,7 +105,7 @@ export const ResponsibleInformationContainer: FC = () => {
           control={control}
           defaultValue={standardizePhoneNumber(phone)}
           rules={{
-            required: 'This field is required',
+            required: REQUIRED_FIELD_ERROR_MESSAGE,
             validate: (value: string) => isPhoneNumberValid(value) || 'Must be 10 digits',
           }}
           onChangeHandler={handleChange}

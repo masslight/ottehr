@@ -5,6 +5,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import dayjs from 'dayjs';
 import { Control, Controller } from 'react-hook-form';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 
 interface BasicDatePickerProps {
   name: string;
@@ -31,7 +32,7 @@ export function BasicDatePicker({
   InputLabelProps,
   id,
 }: BasicDatePickerProps): JSX.Element {
-  const defaultErrorHelperText = required ? 'This field is required' : '';
+  const defaultErrorHelperText = required ? REQUIRED_FIELD_ERROR_MESSAGE : '';
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>

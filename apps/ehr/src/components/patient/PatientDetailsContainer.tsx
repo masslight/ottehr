@@ -12,6 +12,7 @@ import {
   PATIENT_SEND_MARKETING_URL,
   PATIENT_SEXUAL_ORIENTATION_URL,
   patientFieldPaths,
+  REQUIRED_FIELD_ERROR_MESSAGE,
 } from 'utils';
 import {
   ETHNICITY_OPTIONS,
@@ -110,7 +111,7 @@ export const PatientDetailsContainer: FC = () => {
           control={control}
           options={ETHNICITY_OPTIONS}
           rules={{
-            required: 'This field is required',
+            required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
           defaultValue={getExtensionValue(patient, PATIENT_ETHNICITY_URL)}
           onChangeHandler={handleChange}
@@ -122,7 +123,7 @@ export const PatientDetailsContainer: FC = () => {
           control={control}
           options={RACE_OPTIONS}
           rules={{
-            required: 'This field is required',
+            required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
           defaultValue={getExtensionValue(patient, PATIENT_RACE_URL)}
           onChangeHandler={handleChange}
