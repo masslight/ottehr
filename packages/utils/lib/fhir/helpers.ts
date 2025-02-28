@@ -1172,3 +1172,11 @@ export const checkForPatientDemographicMatch = (
 
   return true;
 };
+export function slashPathToLodashPath(slashPath: string): string {
+  return slashPath
+    .split('/')
+    .filter(Boolean)
+    .map((key) => (isNaN(Number(key)) ? key : `[${key}]`))
+    .join('.')
+    .replace(/\.\[/g, '[');
+}
