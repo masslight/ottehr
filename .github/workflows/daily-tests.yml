@@ -90,7 +90,7 @@ jobs:
             mkdir -p "apps/$app/env"
             cp "secrets/$app/app/tests."*.json "apps/$app/env/"
             cp "secrets/$app/app/.env.local" "apps/$app/env/"
-            cp -f "secrets/${app}/tests.clean-setup.json" "apps/${app}/env/tests.local.json" # temporary solution, web url should be used
+            cp -f "secrets/${app}/app/tests.clean-setup.json" "apps/${app}/env/tests.local.json"
           }
 
           for app in ehr intake; do
