@@ -1,13 +1,14 @@
 import { TextField, TextFieldProps } from '@mui/material';
 import React, { ReactElement } from 'react';
-import { Control, Controller, FieldValues, Path } from 'react-hook-form';
+import { Control, Controller, FieldValues, Path, RegisterOptions } from 'react-hook-form';
 
 interface FormTextFieldProps<T extends FieldValues> extends Omit<TextFieldProps, 'name'> {
   name: Path<T>;
   control: Control<T>;
   defaultValue?: string;
-  rules?: object;
+  rules?: RegisterOptions;
   onChangeHandler?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  helperText?: string;
 }
 
 export const FormTextField = <T extends FieldValues>({
@@ -17,8 +18,11 @@ export const FormTextField = <T extends FieldValues>({
   rules,
   id,
   onChangeHandler,
+  helperText,
   ...textFieldProps
 }: FormTextFieldProps<T>): ReactElement => {
+  const defaultErrorHelperText = rules?.required ? 'This field is required' : '';
+
   return (
     <Controller
       name={name}
@@ -37,6 +41,7 @@ export const FormTextField = <T extends FieldValues>({
             field.onChange(e);
             onChangeHandler?.(e);
           }}
+          helperText={error?.message || (error && defaultErrorHelperText) || helperText}
         />
       )}
     />

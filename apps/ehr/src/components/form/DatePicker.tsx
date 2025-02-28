@@ -31,6 +31,8 @@ export function BasicDatePicker({
   InputLabelProps,
   id,
 }: BasicDatePickerProps): JSX.Element {
+  const defaultErrorHelperText = required ? 'This field is required' : '';
+
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <Box sx={{ width: '100%' }}>
@@ -60,7 +62,7 @@ export function BasicDatePicker({
                   id: id,
                   variant,
                   error: !!error,
-                  helperText: error?.message,
+                  helperText: error?.message || (error && defaultErrorHelperText),
                   onBlur: () => {
                     field.onBlur();
                   },

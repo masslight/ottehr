@@ -1,6 +1,6 @@
 import { Autocomplete, TextField, AutocompleteProps } from '@mui/material';
 import { ReactElement } from 'react';
-import { Control, Controller, FieldValues, Path } from 'react-hook-form';
+import { Control, Controller, FieldValues, Path, RegisterOptions } from 'react-hook-form';
 
 export interface Option {
   label: string;
@@ -13,9 +13,10 @@ interface FormAutocompleteProps<T extends FieldValues>
   control: Control<T>;
   options: Option[];
   defaultValue?: string;
-  rules?: object;
+  rules?: RegisterOptions;
   required?: boolean;
   onChangeHandler?: (name: string, value: string) => void;
+  helperText?: string;
 }
 
 export const FormAutocomplete = <T extends FieldValues>({
@@ -26,8 +27,11 @@ export const FormAutocomplete = <T extends FieldValues>({
   rules,
   required,
   onChangeHandler,
+  helperText,
   ...autocompleteProps
 }: FormAutocompleteProps<T>): ReactElement => {
+  const defaultErrorHelperText = rules?.required ? 'This field is required' : '';
+
   return (
     <Controller
       name={name}
@@ -49,7 +53,15 @@ export const FormAutocomplete = <T extends FieldValues>({
             onChangeHandler?.(name, newStringValue);
           }}
           disableClearable={true}
-          renderInput={(params) => <TextField {...params} variant="standard" error={!!error} fullWidth />}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              variant="standard"
+              error={!!error}
+              fullWidth
+              helperText={error?.message || (error && defaultErrorHelperText) || helperText}
+            />
+          )}
         />
       )}
     />

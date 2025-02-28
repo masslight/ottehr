@@ -1,6 +1,7 @@
-import { Select, MenuItem, SelectProps } from '@mui/material';
+import { Select, MenuItem, SelectProps, FormHelperText } from '@mui/material';
+import { Box } from '@mui/system';
 import React, { ReactElement } from 'react';
-import { Control, Controller, FieldValues, Path } from 'react-hook-form';
+import { Control, Controller, FieldValues, Path, RegisterOptions } from 'react-hook-form';
 
 interface SelectOption {
   label: string;
@@ -12,7 +13,7 @@ interface FormSelectProps<T extends FieldValues> extends Omit<SelectProps, 'name
   control: Control<T>;
   options: SelectOption[];
   defaultValue?: string;
-  rules?: object;
+  rules?: RegisterOptions;
   onChangeHandler?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
@@ -25,29 +26,34 @@ export const FormSelect = <T extends FieldValues>({
   onChangeHandler,
   ...selectProps
 }: FormSelectProps<T>): ReactElement => {
+  const defaultErrorHelperText = rules?.required ? 'This field is required' : '';
+
   return (
     <Controller
       name={name}
       control={control}
       defaultValue={defaultValue as any}
       rules={rules}
-      render={({ field }) => (
-        <Select
-          {...field}
-          {...selectProps}
-          variant="standard"
-          fullWidth
-          onChange={(e) => {
-            field.onChange(e as any);
-            onChangeHandler?.(e as any);
-          }}
-        >
-          {options.map((option) => (
-            <MenuItem key={option.value} value={option.value}>
-              {option.label}
-            </MenuItem>
-          ))}
-        </Select>
+      render={({ field, fieldState: { error } }) => (
+        <Box sx={{ width: '100%' }}>
+          <Select
+            {...field}
+            {...selectProps}
+            variant="standard"
+            fullWidth
+            onChange={(e) => {
+              field.onChange(e as any);
+              onChangeHandler?.(e as any);
+            }}
+          >
+            {options.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </Select>
+          {error && <FormHelperText error={true}>{error?.message || defaultErrorHelperText}</FormHelperText>}
+        </Box>
       )}
     />
   );
