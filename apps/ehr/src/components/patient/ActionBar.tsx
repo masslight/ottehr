@@ -3,6 +3,7 @@ import { FC, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { useUpdatePatient } from '../../hooks/useGetPatient';
 import { usePatientStore } from '../../state/patient.store';
+import { enqueueSnackbar } from 'notistack';
 
 type ActionBarProps = {
   handleDiscard: () => void;
@@ -35,6 +36,7 @@ export const ActionBar: FC<ActionBarProps> = ({ handleDiscard }) => {
   const handleSave = async (): Promise<void> => {
     // Trigger validation for all fields
     const isValid = await trigger();
+    enqueueSnackbar('Please check error alerts and try again');
     if (!isValid) return;
 
     await mutatePatientMasterRecord();
