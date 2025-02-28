@@ -29,41 +29,37 @@ export const FormAutocomplete = <T extends FieldValues>({
   onChangeHandler,
   helperText,
   ...autocompleteProps
-}: FormAutocompleteProps<T>): ReactElement => {
-  const defaultErrorHelperText = rules?.required ? 'This field is required' : '';
-
-  return (
-    <Controller
-      name={name}
-      control={control}
-      defaultValue={defaultValue as any}
-      rules={{
-        required,
-        validate: (value) => !value || options.some((option) => option.value === value),
-        ...rules,
-      }}
-      render={({ field: { onChange, value }, fieldState: { error } }) => (
-        <Autocomplete<Option, false, true, false>
-          {...autocompleteProps}
-          options={options}
-          value={options.find((option) => option.value === value) ?? undefined}
-          onChange={(_, newValue) => {
-            const newStringValue = newValue?.value || '';
-            onChange(newStringValue as any);
-            onChangeHandler?.(name, newStringValue);
-          }}
-          disableClearable={true}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              variant="standard"
-              error={!!error}
-              fullWidth
-              helperText={error?.message || (error && defaultErrorHelperText) || helperText}
-            />
-          )}
-        />
-      )}
-    />
-  );
-};
+}: FormAutocompleteProps<T>): ReactElement => (
+  <Controller
+    name={name}
+    control={control}
+    defaultValue={defaultValue as any}
+    rules={{
+      required,
+      validate: (value) => !value || options.some((option) => option.value === value),
+      ...rules,
+    }}
+    render={({ field: { onChange, value }, fieldState: { error } }) => (
+      <Autocomplete<Option, false, true, false>
+        {...autocompleteProps}
+        options={options}
+        value={options.find((option) => option.value === value) ?? undefined}
+        onChange={(_, newValue) => {
+          const newStringValue = newValue?.value || '';
+          onChange(newStringValue as any);
+          onChangeHandler?.(name, newStringValue);
+        }}
+        disableClearable={true}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            variant="standard"
+            error={!!error}
+            fullWidth
+            helperText={error?.message || helperText}
+          />
+        )}
+      />
+    )}
+  />
+);
