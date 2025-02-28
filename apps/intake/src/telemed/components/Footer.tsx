@@ -1,8 +1,8 @@
 import { Box } from '@mui/material';
 import { FC } from 'react';
-import { ContactSupportDialog } from './ContactSupportDialog';
 import { ContactSupportButton } from './ContactSupportButton';
 import { useIntakeCommonStore } from '../features/common';
+import { ContactSupportDialog } from '../../components/ContactSupportDialog';
 
 const Footer: FC = () => {
   const supportDialogOpen = useIntakeCommonStore((state) => state.supportDialogOpen);

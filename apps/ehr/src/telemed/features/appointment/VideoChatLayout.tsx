@@ -149,7 +149,7 @@ const VideoRoomContainer: FC<
         <VideoProviderReminderPopover />
       </Box>
 
-      <Box sx={{ backgroundColor: '#1A093B', height: '100%' }}>{children}</Box>
+      <Box sx={{ backgroundColor: '#0A2143', height: '100%' }}>{children}</Box>
     </Box>
   );
 };
