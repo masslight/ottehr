@@ -7,6 +7,7 @@ import {
   isPostalCodeValid,
   RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL,
   relatedPersonFieldPaths,
+  REQUIRED_FIELD_ERROR_MESSAGE,
   ResourceTypeNames,
 } from 'utils';
 import { BasicDatePicker as DatePicker, FormAutocomplete, FormSelect, FormTextField } from '../../components/form';
@@ -180,7 +181,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
           control={control}
           options={INSURANCE_COVERAGE_OPTIONS}
           rules={{
-            required: 'This field is required',
+            required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
           defaultValue={insurance.coverage.order?.toString()}
           onChangeHandler={handleChange}
@@ -231,7 +232,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
           name={`${coverageFieldPaths.memberId}_${insurance.coverage.id}`}
           control={control}
           defaultValue={insurance.coverage.identifier?.[0].value}
-          rules={{ required: 'This field is required' }}
+          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           onChangeHandler={handleChange}
         />
       </Row>
@@ -250,7 +251,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
               name={`${relatedPersonFieldPaths.firstName}_${insurance.relatedPerson?.id}`}
               control={control}
               defaultValue={insurance.relatedPerson?.name?.[0]?.given?.[0]}
-              rules={{ required: 'This field is required' }}
+              rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
               onChangeHandler={handleChange}
             />
           </Row>
@@ -273,7 +274,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
               name={`${relatedPersonFieldPaths.lastName}_${insurance.relatedPerson?.id}`}
               control={control}
               defaultValue={insurance.relatedPerson?.name?.[0]?.family || ''}
-              rules={{ required: 'This field is required' }}
+              rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
               onChangeHandler={handleChange}
             />
           </Row>
@@ -294,7 +295,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
               control={control}
               defaultValue={insurance.relatedPerson?.gender}
               options={SEX_OPTIONS}
-              rules={{ required: 'This field is required' }}
+              rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
               onChangeHandler={handleChange}
             />
           </Row>
@@ -392,7 +393,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
               defaultValue={insurance.coverage?.relationship?.coding?.[0]?.display}
               options={RELATIONSHIP_TO_INSURED_OPTIONS}
               rules={{
-                required: 'This field is required',
+                required: REQUIRED_FIELD_ERROR_MESSAGE,
               }}
               onChangeHandler={handleChange}
             />

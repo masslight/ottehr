@@ -19,6 +19,7 @@ import {
   PATIENT_RELEASE_OF_INFO_URL,
   PATIENT_RX_HISTORY_CONSENT_STATUS_URL,
   patientFieldPaths,
+  REQUIRED_FIELD_ERROR_MESSAGE,
 } from 'utils';
 import { RX_HISTORY_CONSENT_OPTIONS } from '../../constants';
 import { BasicDatePicker as DatePicker, FormSelect } from '../form';
@@ -56,7 +57,7 @@ export const SettingsContainer: FC = () => {
           name={patientFieldPaths.releaseOfInfo}
           control={control}
           defaultValue={releaseOfInfo === undefined ? '' : String(releaseOfInfo)}
-          rules={{ required: 'This field is required' }}
+          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           render={({ field, fieldState: { error } }) => (
             <Box sx={{ width: '100%' }}>
               <Select
@@ -90,7 +91,7 @@ export const SettingsContainer: FC = () => {
           defaultValue={rxHistoryConsentStatus}
           options={RX_HISTORY_CONSENT_OPTIONS}
           rules={{
-            required: 'This field is required',
+            required: REQUIRED_FIELD_ERROR_MESSAGE,
             validate: (value: string) => RX_HISTORY_CONSENT_OPTIONS.some((option) => option.value === value),
           }}
           onChangeHandler={handleChange}
