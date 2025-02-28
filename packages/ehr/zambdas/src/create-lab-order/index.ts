@@ -80,6 +80,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         activityDefinitionSearchResults.push(resource as ActivityDefinition);
     });
 
+    // todo throw defined error to allow for more clear / useful error message on front end
     if (labOrganizationSearchResults.length === 0) {
       throw new Error(`could not find lab organization for lab guid ${labGuid}`);
     }
