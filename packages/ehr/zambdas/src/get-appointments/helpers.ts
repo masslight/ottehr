@@ -1,7 +1,7 @@
 import Oystehr, { Bundle, SearchParam } from '@oystehr/sdk';
 import { Appointment, Encounter, FhirResource, Practitioner, Location, HealthcareService } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { AppointmentParticipants, OTTEHR_MODULE, PARTICIPANT_TYPE, ParticipantInfo } from 'utils';
+import { AppointmentParticipants, PROJECT_MODULE, PARTICIPANT_TYPE, ParticipantInfo } from 'utils';
 
 const parseParticipantInfo = (practitioner: Practitioner): ParticipantInfo => ({
   firstName: practitioner.name?.[0]?.given?.[0] ?? '',
@@ -213,7 +213,7 @@ export const makeEncounterBaseSearchParamsByTimezone = (timezone: string | undef
   { name: '_count', value: '1000' },
   { name: '_include', value: 'Encounter:appointment' },
   { name: '_include', value: 'Encounter:participant' },
-  { name: 'appointment._tag', value: OTTEHR_MODULE.IP },
+  { name: 'appointment._tag', value: PROJECT_MODULE.IP },
   { name: 'appointment.date', value: `lt${DateTime.now().setZone(timezone).startOf('day')}` },
   { name: 'status:not', value: 'planned' },
   { name: 'status:not', value: 'finished' },
