@@ -48,7 +48,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const validatedParameters = validateRequestParameters(input);
     const { dx, patientId, encounter, coverage, location, practitionerId, orderableItem, pscHold, secrets } =
       validatedParameters;
-    console.log('pscHold', pscHold);
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -141,7 +140,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       instantiatesCanonical: [`#${activityDefinitionId}`],
       contained: [activityDefinitionToContain],
     };
-    console.log('serviceRequestConfig instantiatesCanonical', serviceRequestConfig.instantiatesCanonical);
+
     if (pscHold) {
       serviceRequestConfig.orderDetail = [
         {
@@ -305,10 +304,24 @@ const handleActivityDefinition = async (
       url: `https://labs-api.zapehr.com/v1/orderableItem?labIds=${orderableItem.lab.labGuid}&itemCodes=${orderableItem.item.itemCode}`,
       version: orderableItem.lab.compendiumVersion,
     };
+    console.log(
+      'creating a new activityDefinition for orderable item',
+      orderableItem.item.itemCode,
+      orderableItem.item.itemName,
+      orderableItem.lab.labName,
+      orderableItem.lab.compendiumVersion
+    );
     activityDefinitionToContain = activityDefinitionConfig;
     const newActivityDef = await oystehr.fhir.create<ActivityDefinition>(activityDefinitionConfig);
     activityDefinitionId = newActivityDef.id;
   } else if (activityDefinition) {
+    console.log(
+      'activityDefinition found for orderable item',
+      orderableItem.item.itemCode,
+      orderableItem.item.itemName,
+      orderableItem.lab.labName,
+      orderableItem.lab.compendiumVersion
+    );
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { meta, ...activityDefToContain } = activityDefinition;
     activityDefinitionToContain = activityDefToContain;

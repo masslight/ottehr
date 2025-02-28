@@ -69,7 +69,6 @@ export const CreateExternalLabOrder: React.FC<SubmitExternalLabOrdersProps> = ()
     'coverage',
     'coverageName',
   ]);
-  console.log('check coverage resource', coverage);
   const { diagnosis, patientId } = chartData || {};
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
 
@@ -141,12 +140,10 @@ export const CreateExternalLabOrder: React.FC<SubmitExternalLabOrdersProps> = ()
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setSubmitting(true);
-    console.log('check submit params', patientId, office, practitionerId);
-    console.log('encounter', encounter);
     const paramsSatisfied = orderDx.length && patientId && office && practitionerId && selectedLab && coverage;
     if (oystehrZambda && paramsSatisfied) {
       try {
-        const res = await createLabOrder(oystehrZambda, {
+        await createLabOrder(oystehrZambda, {
           dx: orderDx,
           patientId,
           encounter,
@@ -156,7 +153,6 @@ export const CreateExternalLabOrder: React.FC<SubmitExternalLabOrdersProps> = ()
           orderableItem: selectedLab,
           pscHold,
         });
-        console.log('res', res);
         navigate(`/in-person/${appointment?.id}/external-lab-orders`);
       } catch (e) {
         const oysterError = e as OystehrSdkError;

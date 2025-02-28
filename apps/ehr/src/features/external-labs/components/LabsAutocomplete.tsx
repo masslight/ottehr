@@ -42,7 +42,6 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
             params: [{ name: 'type', value: `${LAB_ORG_TYPE_CODING.system}|${LAB_ORG_TYPE_CODING.code}` }],
           })
         ).unbundle();
-        console.log('organizationSearch', organizationSearch);
         organizationSearch.forEach((org) => {
           const labGuid = org.identifier?.find((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM)?.value;
           if (labGuid) labOrgsGuids.push(labGuid);
