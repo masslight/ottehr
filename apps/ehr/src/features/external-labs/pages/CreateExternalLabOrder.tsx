@@ -45,21 +45,10 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const [loadingLocations, setLoadingLocations] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [locations, setLocations] = useState<Location[]>([]);
-  const [orderDx, setOrderDx] = useState<DiagnosisDTO[]>([]);
   const [selectedLab, setSelectedLab] = useState<OrderableItemSearchResult | null>(null);
   const [office, setOffice] = useState<Location | undefined>(undefined);
   const [pscHold, setPscHold] = useState<boolean>(true); // defaulting & locking to true for mvp
   const [error, setError] = useState<string | undefined>(undefined);
-
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'ICD10CM' });
-  const icdSearchOptions = data?.codes || [];
-  const { debounce } = useDebounce(800);
-  const debouncedHandleInputChange = (data: string): void => {
-    debounce(() => {
-      setDebouncedSearchTerm(data);
-    });
-  };
 
   const { chartData, location, encounter, appointment, coverage, coverageName } = getSelectors(useAppointmentStore, [
     'chartData',
@@ -71,12 +60,17 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   ]);
   const { diagnosis, patientId } = chartData || {};
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
+  const [orderDx, setOrderDx] = useState<DiagnosisDTO[]>(primaryDiagnosis ? [primaryDiagnosis] : []);
 
-  useEffect(() => {
-    if (primaryDiagnosis) {
-      setOrderDx([primaryDiagnosis]);
-    }
-  }, [primaryDiagnosis]);
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'ICD10CM' });
+  const icdSearchOptions = data?.codes || [];
+  const { debounce } = useDebounce(800);
+  const debouncedHandleInputChange = (data: string): void => {
+    debounce(() => {
+      setDebouncedSearchTerm(data);
+    });
+  };
 
   useEffect(() => {
     if (location) {

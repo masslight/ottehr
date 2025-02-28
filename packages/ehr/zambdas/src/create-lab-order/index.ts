@@ -6,6 +6,7 @@ import {
   LAB_ORDER_TASK,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   FHIR_IDC10_VALUESET_SYSTEM,
+  flattenBundleResources,
 } from 'utils';
 import { topLevelCatch, Secrets, ZambdaInput } from 'zambda-utils';
 import { checkOrCreateM2MClientToken } from '../../../../intake/zambdas/src/shared';
@@ -24,7 +25,7 @@ import {
   ActivityDefinition,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { BatchInputRequest } from '@oystehr/sdk';
+import { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import Oystehr from '@oystehr/sdk';
 
@@ -65,24 +66,18 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       url: `/ActivityDefinition?name=${orderableItem.item.uniqueName}&publisher=${orderableItem.lab.labName}&version=${orderableItem.lab.compendiumVersion}`,
     };
 
-    const searchResults = await oystehr.fhir.batch({
+    const searchResults: Bundle<FhirResource> = await oystehr.fhir.batch({
       requests: [labOrganizationSearchRequest, activityDefinitionSearchRequest],
     });
 
     const labOrganizationSearchResults: Organization[] = [];
     const activityDefinitionSearchResults: ActivityDefinition[] = [];
-    searchResults.entry?.forEach((resultEntry) => {
-      const bundle = resultEntry.resource as any;
-      if (bundle.resourceType === 'Bundle') {
-        const fhirResourcesEntries: any[] = bundle.entry;
-        fhirResourcesEntries.forEach((entry) => {
-          const fhirResource = entry.resource as FhirResource;
-          if (fhirResource.resourceType === 'Organization')
-            labOrganizationSearchResults.push(fhirResource as Organization);
-          if (fhirResource.resourceType === 'ActivityDefinition')
-            activityDefinitionSearchResults.push(fhirResource as ActivityDefinition);
-        });
-      }
+
+    const resources = flattenBundleResources(searchResults);
+    resources.forEach((resource) => {
+      if (resource.resourceType === 'Organization') labOrganizationSearchResults.push(resource as Organization);
+      if (resource.resourceType === 'ActivityDefinition')
+        activityDefinitionSearchResults.push(resource as ActivityDefinition);
     });
 
     if (labOrganizationSearchResults.length === 0) {
