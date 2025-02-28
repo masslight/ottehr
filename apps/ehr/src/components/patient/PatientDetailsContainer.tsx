@@ -109,7 +109,9 @@ export const PatientDetailsContainer: FC = () => {
           name={patientFieldPaths.ethnicity}
           control={control}
           options={ETHNICITY_OPTIONS}
-          rules={{ required: true }}
+          rules={{
+            required: 'This field is required',
+          }}
           defaultValue={getExtensionValue(patient, PATIENT_ETHNICITY_URL)}
           onChangeHandler={handleChange}
         />
@@ -119,7 +121,9 @@ export const PatientDetailsContainer: FC = () => {
           name={patientFieldPaths.race}
           control={control}
           options={RACE_OPTIONS}
-          rules={{ required: true }}
+          rules={{
+            required: 'This field is required',
+          }}
           defaultValue={getExtensionValue(patient, PATIENT_RACE_URL)}
           onChangeHandler={handleChange}
         />

@@ -42,7 +42,7 @@ export const ContactContainer: FC = () => {
           name={patientFieldPaths.streetAddress}
           control={control}
           defaultValue={patient?.address?.[0]?.line?.[0]}
-          rules={{ required: true }}
+          rules={{ required: 'This field is required' }}
           id="patient-street-address"
           onChangeHandler={handleChange}
         />
@@ -54,7 +54,7 @@ export const ContactContainer: FC = () => {
             control={control}
             defaultValue={patient?.address?.[0]?.city}
             rules={{
-              required: true,
+              required: 'This field is required',
               validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
             }}
             onChangeHandler={handleChange}
@@ -74,7 +74,7 @@ export const ContactContainer: FC = () => {
             name={patientFieldPaths.zip}
             control={control}
             defaultValue={patient?.address?.[0]?.postalCode}
-            rules={{ required: true }}
+            rules={{ required: 'This field is required' }}
             onChangeHandler={handleChange}
           />
         </Box>
@@ -85,7 +85,7 @@ export const ContactContainer: FC = () => {
           name={emailPath}
           control={control}
           rules={{
-            required: true,
+            required: 'This field is required',
             pattern: {
               value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.com$/i,
               message: 'Must be in the format usernam@domain.com',
@@ -102,7 +102,7 @@ export const ContactContainer: FC = () => {
           control={control}
           defaultValue={standardizePhoneNumber(phone)}
           rules={{
-            required: true,
+            required: 'This field is required',
             validate: (value: string) => isPhoneNumberValid(value) || 'Must be 10 digits',
           }}
           onChangeHandler={handleChange}

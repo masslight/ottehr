@@ -20,30 +20,26 @@ export const FormTextField = <T extends FieldValues>({
   onChangeHandler,
   helperText,
   ...textFieldProps
-}: FormTextFieldProps<T>): ReactElement => {
-  const defaultErrorHelperText = rules?.required ? 'This field is required' : '';
-
-  return (
-    <Controller
-      name={name}
-      control={control}
-      defaultValue={defaultValue as any}
-      rules={rules}
-      render={({ field, fieldState: { error } }) => (
-        <TextField
-          {...field}
-          {...textFieldProps}
-          id={id}
-          error={!!error}
-          variant="standard"
-          fullWidth
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-            field.onChange(e);
-            onChangeHandler?.(e);
-          }}
-          helperText={error?.message || (error && defaultErrorHelperText) || helperText}
-        />
-      )}
-    />
-  );
-};
+}: FormTextFieldProps<T>): ReactElement => (
+  <Controller
+    name={name}
+    control={control}
+    defaultValue={defaultValue as any}
+    rules={rules}
+    render={({ field, fieldState: { error } }) => (
+      <TextField
+        {...field}
+        {...textFieldProps}
+        id={id}
+        error={!!error}
+        variant="standard"
+        fullWidth
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+          field.onChange(e);
+          onChangeHandler?.(e);
+        }}
+        helperText={error?.message || helperText}
+      />
+    )}
+  />
+);

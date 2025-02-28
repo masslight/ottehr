@@ -59,7 +59,7 @@ export const PrimaryCareContainer: FC = () => {
               name={patientFieldPaths.pcpFirstName}
               control={control}
               defaultValue={pcp?.name?.[0]?.given?.[0]}
-              rules={{ required: true }}
+              rules={{ required: 'This field is required' }}
               id="pcp-first-name"
               onChangeHandler={handleChange}
             />
@@ -69,7 +69,7 @@ export const PrimaryCareContainer: FC = () => {
               name={patientFieldPaths.pcpLastName}
               control={control}
               defaultValue={pcp?.name?.[0]?.family}
-              rules={{ required: true }}
+              rules={{ required: 'This field is required' }}
               id="pcp-last-name"
               onChangeHandler={handleChange}
             />
@@ -79,7 +79,7 @@ export const PrimaryCareContainer: FC = () => {
               name={patientFieldPaths.practiceName}
               control={control}
               defaultValue={practiceName}
-              rules={{ required: true }}
+              rules={{ required: 'This field is required' }}
               id="practice-name"
               onChangeHandler={handleChange}
             />
@@ -89,7 +89,7 @@ export const PrimaryCareContainer: FC = () => {
               name={patientFieldPaths.pcpStreetAddress}
               control={control}
               defaultValue={pcp?.address?.[0]?.line?.[0]}
-              rules={{ required: true }}
+              rules={{ required: 'This field is required' }}
               id="pcp-street-address"
               onChangeHandler={handleChange}
             />
@@ -99,7 +99,7 @@ export const PrimaryCareContainer: FC = () => {
               name={patientFieldPaths.pcpPhone}
               control={control}
               defaultValue={standardizePhoneNumber(pcp?.telecom?.[0]?.value)}
-              rules={{ required: true }}
+              rules={{ required: 'This field is required' }}
               id="pcp-mobile"
               onChangeHandler={handleChange}
             />

@@ -53,7 +53,7 @@ export const ResponsibleInformationContainer: FC = () => {
           control={control}
           options={RELATIONSHIP_OPTIONS}
           rules={{
-            required: true,
+            required: 'This field is required',
             validate: (value: string) => RELATIONSHIP_OPTIONS.some((option) => option.value === value),
           }}
           defaultValue={
@@ -69,7 +69,7 @@ export const ResponsibleInformationContainer: FC = () => {
           name={patientFieldPaths.responsiblePartyName}
           control={control}
           defaultValue={`${patient?.contact?.[0].name?.family}, ${patient?.contact?.[0].name?.given?.[0]}`}
-          rules={{ required: true }}
+          rules={{ required: 'This field is required' }}
           onChangeHandler={handleResponsiblePartyNameChange}
           id="responsible-party-full-name"
         />
@@ -90,6 +90,9 @@ export const ResponsibleInformationContainer: FC = () => {
           name={patientFieldPaths.responsiblePartyGender}
           control={control}
           options={SEX_OPTIONS}
+          rules={{
+            required: 'This field is required',
+          }}
           required={true}
           defaultValue={patient?.contact?.[0].gender}
           onChangeHandler={handleChange}
@@ -102,7 +105,7 @@ export const ResponsibleInformationContainer: FC = () => {
           control={control}
           defaultValue={standardizePhoneNumber(phone)}
           rules={{
-            required: true,
+            required: 'This field is required',
             validate: (value: string) => isPhoneNumberValid(value) || 'Must be 10 digits',
           }}
           onChangeHandler={handleChange}

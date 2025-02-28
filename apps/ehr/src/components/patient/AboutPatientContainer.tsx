@@ -26,7 +26,7 @@ export const AboutPatientContainer: FC = () => {
           name={patientFieldPaths.lastName}
           control={control}
           defaultValue={patient?.name?.[0]?.family}
-          rules={{ required: true }}
+          rules={{ required: 'This field is required' }}
           id="patient-last-name"
           onChangeHandler={handleChange}
           data-testid={dataTestIds.patientInformation.patientLastName}
@@ -37,7 +37,7 @@ export const AboutPatientContainer: FC = () => {
           name={patientFieldPaths.firstName}
           control={control}
           defaultValue={patient?.name?.[0]?.given?.[0]}
-          rules={{ required: true }}
+          rules={{ required: 'This field is required' }}
           id="patient-first-name"
           onChangeHandler={handleChange}
           data-testid={dataTestIds.patientInformation.patientFirstName}
@@ -97,6 +97,9 @@ export const AboutPatientContainer: FC = () => {
           control={control}
           options={SEX_OPTIONS}
           defaultValue={patient?.gender}
+          rules={{
+            required: 'This field is required',
+          }}
           onChangeHandler={handleChange}
           data-testid={dataTestIds.patientInformation.patientBirthSex}
         />
