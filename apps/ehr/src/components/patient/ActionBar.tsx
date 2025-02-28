@@ -34,8 +34,10 @@ export const ActionBar: FC<ActionBarProps> = ({ handleDiscard }) => {
   const handleSave = async (): Promise<void> => {
     // Trigger validation for all fields
     const isValid = await trigger();
-    enqueueSnackbar('Please fix all field validation errors and try again');
-    if (!isValid) return;
+    if (!isValid) {
+      enqueueSnackbar('Please fix all field validation errors and try again');
+      return;
+    }
 
     await mutatePatientMasterRecord();
     reset();
