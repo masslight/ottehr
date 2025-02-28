@@ -10,11 +10,11 @@ const DIAGNOSIS = 'Situs inversus';
 const EM_CODE = '99201 New Patient - E/M Level 1';
 const resourceHandler = new ResourceHandler();
 
-test.beforeAll(async () => {
+test.beforeEach(async () => {
   await resourceHandler.setResources();
 });
 
-test.afterAll(async () => {
+test.afterEach(async () => {
   await resourceHandler.cleanupResources();
 });
 
@@ -38,7 +38,7 @@ test('Book appointment, click Provider on "Patient info", check statuses', async
   await patientInfoPage.cssHeader().verifyStatus('provider');
 });
 
-test('Book appointment,fill required fields for screening, review and sign progress note', async ({ page }) => {
+test('Book appointment,fill required fields for signing the visit, review and sign progress note', async ({ page }) => {
   const patientInfoPage = await intakeTestAppointment(page);
   await patientInfoPage.cssHeader().clickSwitchStatusButton('provider');
   const progressNotePage = await expectProgressNotePage(page);
