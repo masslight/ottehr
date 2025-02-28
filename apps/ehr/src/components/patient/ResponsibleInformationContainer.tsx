@@ -4,7 +4,7 @@ import { isPhoneNumberValid, patientFieldPaths, standardizePhoneNumber } from 'u
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
 import { RELATIONSHIP_OPTIONS, SEX_OPTIONS } from '../../constants';
 import { Row, Section } from '../layout';
-import { getTelecomInfo, usePatientStore } from '../../state/patient.store';
+import { usePatientStore } from '../../state/patient.store';
 
 export const ResponsibleInformationContainer: FC = () => {
   const { patient, updatePatientField } = usePatientStore();
