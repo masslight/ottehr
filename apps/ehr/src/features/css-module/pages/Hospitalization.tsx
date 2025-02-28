@@ -10,6 +10,7 @@ import { useAppointment } from '../hooks/useAppointment';
 import { MedicalHistoryDoubleCard } from '../../../telemed/features/appointment';
 import { HospitalizationPatientComponent } from '../components/hospitalization/HospitalizationPatientComponent';
 import { HospitalizationForm } from '../components/hospitalization/HospitalizationForm';
+import { dataTestIds } from '../../../constants/data-test-ids';
 
 interface HospitalizationProps {
   appointmentID?: string;
@@ -32,7 +33,7 @@ export const Hospitalization: React.FC<HospitalizationProps> = () => {
 
   return (
     <Stack spacing={2}>
-      <PageTitle label="Hospitalization" />
+      <PageTitle dataTestId={dataTestIds.hospitalizationPage.hospitalizationTitle} label="Hospitalization" />
       <InfoAlert text="Ask: Has the patient had any prior overnight hospital stays or hospital admissions?" />
       <MedicalHistoryDoubleCard
         patientSide={<HospitalizationPatientComponent />}

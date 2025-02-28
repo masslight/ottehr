@@ -1,5 +1,6 @@
 import React from 'react';
 import { ButtonRounded } from './RoundedButton';
+import { dataTestIds } from '../../../constants/data-test-ids';
 
 export const SwitchIntakeModeButton: React.FC<{
   isDisabled: boolean;
@@ -7,7 +8,12 @@ export const SwitchIntakeModeButton: React.FC<{
   nextMode: string;
 }> = ({ isDisabled, handleSwitchMode, nextMode }) => {
   return (
-    <ButtonRounded variant="contained" disabled={isDisabled} onClick={handleSwitchMode}>
+    <ButtonRounded
+      data-testid={dataTestIds.cssHeader.switchStatusButton(nextMode)}
+      variant="contained"
+      disabled={isDisabled}
+      onClick={handleSwitchMode}
+    >
       {nextMode.charAt(0).toUpperCase() + nextMode.slice(1)}
     </ButtonRounded>
   );
