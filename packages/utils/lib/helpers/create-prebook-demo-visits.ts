@@ -19,6 +19,7 @@ import {
   getResponsiblePartyStepAnswers,
   isoToDateObject,
 } from './helpers';
+import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
 
 interface AppointmentData {
   firstNames?: string[];
