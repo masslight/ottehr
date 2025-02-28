@@ -25,36 +25,32 @@ export const FormSelect = <T extends FieldValues>({
   rules,
   onChangeHandler,
   ...selectProps
-}: FormSelectProps<T>): ReactElement => {
-  const defaultErrorHelperText = rules?.required ? 'This field is required' : '';
-
-  return (
-    <Controller
-      name={name}
-      control={control}
-      defaultValue={defaultValue as any}
-      rules={rules}
-      render={({ field, fieldState: { error } }) => (
-        <Box sx={{ width: '100%' }}>
-          <Select
-            {...field}
-            {...selectProps}
-            variant="standard"
-            fullWidth
-            onChange={(e) => {
-              field.onChange(e as any);
-              onChangeHandler?.(e as any);
-            }}
-          >
-            {options.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </Select>
-          {error && <FormHelperText error={true}>{error?.message || defaultErrorHelperText}</FormHelperText>}
-        </Box>
-      )}
-    />
-  );
-};
+}: FormSelectProps<T>): ReactElement => (
+  <Controller
+    name={name}
+    control={control}
+    defaultValue={defaultValue as any}
+    rules={rules}
+    render={({ field, fieldState: { error } }) => (
+      <Box sx={{ width: '100%' }}>
+        <Select
+          {...field}
+          {...selectProps}
+          variant="standard"
+          fullWidth
+          onChange={(e) => {
+            field.onChange(e as any);
+            onChangeHandler?.(e as any);
+          }}
+        >
+          {options.map((option) => (
+            <MenuItem key={option.value} value={option.value}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </Select>
+        {error && <FormHelperText error={true}>{error?.message}</FormHelperText>}
+      </Box>
+    )}
+  />
+);

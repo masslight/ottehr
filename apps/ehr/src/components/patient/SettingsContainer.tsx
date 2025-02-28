@@ -9,6 +9,7 @@ import {
   FormControl,
   MenuItem,
   Select,
+  FormHelperText,
 } from '@mui/material';
 import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
@@ -55,27 +56,30 @@ export const SettingsContainer: FC = () => {
           name={patientFieldPaths.releaseOfInfo}
           control={control}
           defaultValue={releaseOfInfo === undefined ? '' : String(releaseOfInfo)}
-          rules={{ required: true }}
-          render={({ field }) => (
-            <Select
-              {...field}
-              value={field.value || ''}
-              variant="standard"
-              sx={{ width: '100%' }}
-              onChange={(e) => {
-                field.onChange(e);
-                handleChange(e as any);
-              }}
-            >
-              {[
-                { value: true, label: 'Yes, Release Allowed' },
-                { value: false, label: 'No, Release Not Allowed' },
-              ].map((option) => (
-                <MenuItem key={String(option.value)} value={String(option.value)}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </Select>
+          rules={{ required: 'This field is required' }}
+          render={({ field, fieldState: { error } }) => (
+            <Box sx={{ width: '100%' }}>
+              <Select
+                {...field}
+                value={field.value || ''}
+                variant="standard"
+                sx={{ width: '100%' }}
+                onChange={(e) => {
+                  field.onChange(e);
+                  handleChange(e as any);
+                }}
+              >
+                {[
+                  { value: true, label: 'Yes, Release Allowed' },
+                  { value: false, label: 'No, Release Not Allowed' },
+                ].map((option) => (
+                  <MenuItem key={String(option.value)} value={String(option.value)}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+              {error && <FormHelperText error={true}>{error?.message}</FormHelperText>}
+            </Box>
           )}
         />
       </Row>
@@ -85,6 +89,10 @@ export const SettingsContainer: FC = () => {
           control={control}
           defaultValue={rxHistoryConsentStatus}
           options={RX_HISTORY_CONSENT_OPTIONS}
+          rules={{
+            required: 'This field is required',
+            validate: (value: string) => RX_HISTORY_CONSENT_OPTIONS.some((option) => option.value === value),
+          }}
           onChangeHandler={handleChange}
         />
       </Row>
