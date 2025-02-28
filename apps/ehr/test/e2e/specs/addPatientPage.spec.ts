@@ -152,7 +152,7 @@ test.describe('For new patient', () => {
     const visitsPage = await expectVisitsPage(page);
     await visitsPage.selectLocation(ENV_LOCATION_NAME!);
     await visitsPage.clickPrebookedTab();
-    await visitsPage.verifyVisitPresent(appointmentId);
+    await visitsPage.verifyVisitPresent(appointmentId, slotTime);
   });
 
   // skipping post-telemed vists tests cause they are unstable for some reason. TODO: investigate
