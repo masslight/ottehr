@@ -91,7 +91,7 @@ function createSections(questionnaireResponse: QuestionnaireResponse, questionna
       return [
         {
           question,
-          answer: answer,
+          answer,
         },
       ];
     });
