@@ -1,12 +1,14 @@
-import { Secrets, topLevelCatch, ZambdaInput } from 'zambda-utils';
+import { getSecret, Secrets, SecretsKeys, topLevelCatch, ZambdaInput } from 'zambda-utils';
 import { wrapHandler } from '@sentry/aws-serverless';
 import { captureSentryException, configSentry, getAuth0Token } from '../../../../intake/zambdas/src/shared';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import Oystehr from '@oystehr/sdk';
 import { createOystehrClient, validateJsonBody, validateString } from '../shared/helpers';
 import { createDocument } from './document';
-import { drawDocument } from './draw';
-import { DocumentReference } from 'fhir/r4b';
+import { generatePdf } from './draw';
+import { DocumentReference, QuestionnaireResponse } from 'fhir/r4b';
+import { BUCKET_PAPERWORK_PDF } from '../../scripts/setup';
+import { DateTime } from 'luxon';
 
 interface Input {
   questionnaireResponseId: string;
@@ -24,27 +26,47 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
   try {
     const { questionnaireResponseId, documentReference, secrets } = validateInput(input);
     const oystehr = await createOystehr(secrets);
-    const document = await createDocument(questionnaireResponseId, oystehr);
-    const pdfDocument = await drawDocument(document);
+    const questionnaireResponse = await oystehr.fhir.get<QuestionnaireResponse>({
+      resourceType: 'QuestionnaireResponse',
+      id: questionnaireResponseId,
+    });
+
+    const document = await createDocument(questionnaireResponse, oystehr);
+    const pdfDocument = await generatePdf(document);
+
+    const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
+    const z3Bucket = projectId + '-' + BUCKET_PAPERWORK_PDF;
+    await createZ3Bucket(z3Bucket, oystehr);
+
+    const timestamp = DateTime.now().toUTC().toFormat('yyyy-MM-dd-x');
+    const pdfFilePath = `${document.patientInfo.id}/${questionnaireResponse.id}-${questionnaireResponse.meta?.versionId}-${timestamp}.pdf`;
     await oystehr.z3.uploadFile({
-      bucketName: 'todo',
-      'objectPath+': 'todo',
+      bucketName: z3Bucket,
+      'objectPath+': pdfFilePath,
       file: new Blob([new Uint8Array(await pdfDocument.save())]),
     });
-    documentReference.content = [
-      {
-        attachment: {
-          url: 'todo',
-          contentType: 'application/pdf',
-          title: 'todo title',
-        },
+
+    const projectApi = getSecret(SecretsKeys.PROJECT_API, secrets);
+    const { id } = await oystehr.fhir.create<DocumentReference>({
+      ...documentReference,
+      subject: {
+        reference: 'Patient/' + document.patientInfo.id,
       },
-    ];
-    const { id } = await oystehr.fhir.create<DocumentReference>(documentReference);
+      content: [
+        {
+          attachment: {
+            url: `${projectApi}/z3/${z3Bucket}/${pdfFilePath}`,
+            contentType: 'application/pdf',
+            title: 'Paperwork PDF',
+          },
+        },
+      ],
+      date: DateTime.now().toUTC().toISO(),
+    });
     return {
       statusCode: 200,
       body: JSON.stringify({
-        id: id,
+        documentReference: 'DocumentReference/' + id,
       }),
     };
   } catch (error: any) {
@@ -69,4 +91,15 @@ async function createOystehr(secrets: Secrets | null): Promise<Oystehr> {
     zapehrToken = await getAuth0Token(secrets);
   }
   return createOystehrClient(zapehrToken, secrets);
+}
+
+async function createZ3Bucket(z3Bucket: string, oystehr: Oystehr): Promise<void> {
+  await oystehr.z3
+    .createBucket({
+      bucketName: z3Bucket,
+    })
+    .catch((e) => {
+      console.error(`Failed to create bucket "${z3Bucket}"`, e);
+      return Promise.resolve();
+    });
 }

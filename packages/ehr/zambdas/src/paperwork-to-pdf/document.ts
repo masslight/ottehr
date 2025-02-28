@@ -35,11 +35,10 @@ export interface ImageItem {
   imageBytes: Promise<ArrayBuffer>;
 }
 
-export async function createDocument(questionnaireResponseId: string, oystehr: Oystehr): Promise<Document> {
-  const questionnaireResponse = await oystehr.fhir.get<QuestionnaireResponse>({
-    resourceType: 'QuestionnaireResponse',
-    id: questionnaireResponseId,
-  });
+export async function createDocument(
+  questionnaireResponse: QuestionnaireResponse,
+  oystehr: Oystehr
+): Promise<Document> {
   const questionnaire = await fetchQuestionnaire(
     assertDefined(questionnaireResponse.questionnaire, 'questionnaireResponse.questionnaire'),
     oystehr

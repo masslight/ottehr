@@ -616,6 +616,7 @@ functions:
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+      PROJECT_ID: ${file(./.env/${self:provider.stage}.json):PROJECT_ID}
 
 plugins:
   - serverless-offline

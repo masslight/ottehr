@@ -7,6 +7,8 @@ import { ScheduleStrategyCoding, TIMEZONE_EXTENSION_URL } from 'utils';
 import { inviteUser } from './invite-user';
 import { promisify } from 'node:util';
 
+export const BUCKET_PAPERWORK_PDF = 'paperwork-pdf';
+
 async function createApplication(oystehr: Oystehr, applicationName: string): Promise<[string, string]> {
   const application = await oystehr.application.create({
     name: applicationName,
@@ -282,6 +284,7 @@ export async function setupEHR(
     'consent-forms',
     'receipts',
     'patient-photos',
+    BUCKET_PAPERWORK_PDF,
   ];
 
   await createZ3(oystehr, bucketNames);

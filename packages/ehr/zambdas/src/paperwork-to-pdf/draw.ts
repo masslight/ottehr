@@ -23,7 +23,7 @@ const IMAGE_MAX_HEIGHT = PAGE_HEIGHT / 4;
 const PAGE_NUMBER_COLOR = rgbNormalized(0x66, 0x66, 0x66);
 const PAGE_NUMBER_FONT_SIZE = 10;
 
-export async function drawDocument(document: Document): Promise<PDFDocument> {
+export async function generatePdf(document: Document): Promise<PDFDocument> {
   const pdfDocument = await PDFDocument.create();
   const helveticaFont = await pdfDocument.embedFont(StandardFonts.Helvetica);
   const helveticaBoldFont = await pdfDocument.embedFont(StandardFonts.HelveticaBold);
