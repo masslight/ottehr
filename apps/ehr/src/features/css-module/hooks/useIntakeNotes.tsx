@@ -1,16 +1,15 @@
 import React from 'react';
 import { Dialog, DialogTitle, DialogContent, IconButton, Typography, Box } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { NOTE_TYPE, PRIVATE_EXTENSION_BASE_URL, CSS_NOTE_ID } from 'utils';
 import { GenericNotesConfig } from '../components/generic-notes-list/types';
 import { GenericNoteList } from '../components/generic-notes-list/GenericNoteList';
 
-export const useInternalNotesModal = (): {
+export const useIntakeNotesModal = (): {
   isOpen: boolean;
   openModal: () => void;
   closeModal: () => void;
-  InternalNotesModal: React.FC<InternalNotesModalProps>;
+  IntakeNotesModal: React.FC<IntakeNotesModalProps>;
 } => {
   const [isOpen, setIsOpen] = React.useState(false);
 
@@ -21,61 +20,55 @@ export const useInternalNotesModal = (): {
     isOpen,
     openModal,
     closeModal,
-    InternalNotesModal,
+    IntakeNotesModal,
   };
 };
 
-interface InternalNotesModalProps {
+interface IntakeNotesModalProps {
   open: boolean;
   onClose: () => void;
 }
 
-const InternalNotesModal: React.FC<InternalNotesModalProps> = ({ open, onClose }) => {
+const IntakeNotesModal: React.FC<IntakeNotesModalProps> = ({ open, onClose }) => {
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg">
       <DialogTitle>
         <Box px={3} display="flex" alignItems="center" justifyContent="space-between">
           <Typography variant="h4" component="div">
-            Internal Notes
+            Intake Notes
           </Typography>
           <IconButton sx={{ color: 'grey.500' }} edge="end" color="inherit" onClick={onClose} aria-label="close">
             <CloseIcon />
           </IconButton>
         </Box>
-        <Box px={3} display="flex" alignItems="center">
-          <VisibilityOffIcon color="primary" />
-          <Typography variant="body2" color="textSecondary" sx={{ ml: 1 }}>
-            Not visible to the patient
-          </Typography>
-        </Box>
       </DialogTitle>
 
       <DialogContent sx={{ mt: -3 }}>
-        <InternalNotes />
+        <IntakeNotes />
       </DialogContent>
     </Dialog>
   );
 };
 
-const internalNotesConfig: GenericNotesConfig = {
+const intakeNotesConfig: GenericNotesConfig = {
   apiConfig: {
     fieldName: 'notes',
-    type: NOTE_TYPE.INTERNAL,
+    type: NOTE_TYPE.INTAKE,
     searchParams: {
       _search_by: 'encounter',
       _sort: '-_lastUpdated',
       _count: 1000,
       _tag: {
         type: 'token',
-        value: `${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.INTERNAL}|${CSS_NOTE_ID}`,
+        value: `${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.INTAKE}|${CSS_NOTE_ID}`,
       },
     },
   },
   locales: {
-    entityLabel: 'internal note',
-    editModalTitle: 'Edit Internal Note',
-    editModalPlaceholder: 'Internal Note',
-    getAddButtonText: (isSaving: boolean) => (isSaving ? 'Saving Internal Note...' : 'Save Internal Note'),
+    entityLabel: 'intake note',
+    editModalTitle: 'Edit Intake Note',
+    editModalPlaceholder: 'Intake Note',
+    getAddButtonText: (isSaving: boolean) => (isSaving ? 'Saving Intake Note...' : 'Save Intake Note'),
     getMoreButtonText: (isMoreEntitiesShown: boolean) => (isMoreEntitiesShown ? 'See less' : 'See more'),
     getDeleteModalTitle: (entityLabel: string) => `Delete ${entityLabel}`,
     getDeleteModalContent: (entityLabel: string) => `Are you sure you want to permanently delete this ${entityLabel}?`,
@@ -89,10 +82,10 @@ const internalNotesConfig: GenericNotesConfig = {
   },
 };
 
-export const InternalNotes: React.FC = () => (
+export const IntakeNotes: React.FC = () => (
   <GenericNoteList
     separateEncounterNotes={false}
-    apiConfig={internalNotesConfig.apiConfig}
-    locales={internalNotesConfig.locales}
+    apiConfig={intakeNotesConfig.apiConfig}
+    locales={intakeNotesConfig.locales}
   />
 );

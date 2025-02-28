@@ -768,7 +768,7 @@ export const recursiveGroupTransform = (items: IntakeQuestionnaireItem[], values
       return { linkId: item.linkId };
     }
     if (match.item) {
-      return { ...trimInvalidAnswersFromItem(match), item: recursiveGroupTransform(item.item ?? [], match.item) };
+      return { ...trimInvalidAnswersFromItem(match), item: recursiveGroupTransform(match.item ?? [], match.item) };
     } else {
       return trimInvalidAnswersFromItem(match);
     }

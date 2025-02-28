@@ -159,6 +159,11 @@ function composeDataForPdf(
     ?.filter((note) => note.type === NOTE_TYPE.VITALS)
     ?.map((note) => note.text);
 
+  // --- Intake notes ---
+  const intakeNotes = additionalChartData?.notes
+    ?.filter((note) => note.type === NOTE_TYPE.INTAKE)
+    ?.map((note) => note.text);
+
   // --- Examination ---
   const examination = isInPersonAppointment
     ? parseInPersonExamFieldsFromExamObservations(chartData)
@@ -254,6 +259,7 @@ function composeDataForPdf(
     },
     hospitalization,
     vitals: { notes: vitalsNotes, ...vitals },
+    intakeNotes,
     examination: examination.examination,
     assessment: {
       primary: primaryDiagnosis ?? '',

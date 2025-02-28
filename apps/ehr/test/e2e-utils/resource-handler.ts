@@ -1,5 +1,16 @@
 import Oystehr from '@oystehr/sdk';
-import { Patient, Appointment, Encounter, QuestionnaireResponse, Address } from 'fhir/r4b';
+import { Address, Appointment, Encounter, Patient, QuestionnaireResponse } from 'fhir/r4b';
+import { readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { cleanAppointment } from 'test-utils';
+import { fileURLToPath } from 'url';
+import {
+  CreateAppointmentResponse,
+  CreateAppointmentUCTelemedResponse,
+  createSamplePrebookAppointments,
+  createSampleTelemedAppointments,
+  formatPhoneNumber,
+} from 'utils';
 import { getAuth0Token } from './auth/getAuth0Token';
 import {
   inviteTestEmployeeUser,
@@ -8,18 +19,6 @@ import {
   TEST_EMPLOYEE_2,
   TestEmployee,
 } from './resource/employees';
-import { randomUUID } from 'crypto';
-import {
-  CreateAppointmentResponse,
-  CreateAppointmentUCTelemedResponse,
-  createSampleAppointments,
-  createSampleTelemedAppointments,
-  formatPhoneNumber,
-} from 'utils';
-import { join } from 'path';
-import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -56,6 +55,20 @@ export const PATIENT_STATE = 'NY';
 export const PATIENT_POSTALCODE = '06001';
 export const PATIENT_REASON_FOR_VISIT = 'Fever';
 
+export type CreateTestAppointmentInput = {
+  firstName?: string;
+  lastName?: string;
+  gender?: string;
+  birthDate?: string;
+  phoneNumber?: string;
+  email?: string;
+  city?: string;
+  line?: string;
+  state?: string;
+  postalCode?: string;
+  reasonsForVisit?: string;
+};
+
 export class ResourceHandler {
   private apiClient!: Oystehr;
   private authToken!: string;
@@ -68,6 +81,8 @@ export class ResourceHandler {
 
   constructor(flow: 'telemed' | 'in-person' = 'in-person') {
     this.flow = flow;
+
+    this.initApi();
 
     if (flow === 'in-person') {
       this.zambdaId = process.env.CREATE_APPOINTMENT_ZAMBDA_ID!;
@@ -94,21 +109,35 @@ export class ResourceHandler {
     });
   }
 
-  private async createAppointment(): Promise<CreateAppointmentResponse | CreateAppointmentUCTelemedResponse> {
+  private async createAppointment(
+    inputParams?: CreateTestAppointmentInput
+  ): Promise<CreateAppointmentResponse | CreateAppointmentUCTelemedResponse> {
     await this.initApi();
 
     try {
       const address: Address = {
-        city: PATIENT_CITY,
-        line: [PATIENT_LINE],
-        state: PATIENT_STATE,
-        postalCode: PATIENT_POSTALCODE,
+        city: inputParams?.city ?? PATIENT_CITY,
+        line: [inputParams?.line ?? PATIENT_LINE],
+        state: inputParams?.state ?? PATIENT_STATE,
+        postalCode: inputParams?.postalCode ?? PATIENT_POSTALCODE,
+      };
+
+      const patientData = {
+        firstNames: [inputParams?.firstName ?? PATIENT_FIRST_NAME],
+        lastNames: [inputParams?.lastName ?? PATIENT_LAST_NAME],
+        numberOfAppointments: 1,
+        reasonsForVisit: [inputParams?.reasonsForVisit ?? PATIENT_REASON_FOR_VISIT],
+        phoneNumbers: [inputParams?.phoneNumber ?? PATIENT_PHONE_NUMBER],
+        emails: [inputParams?.email ?? PATIENT_EMAIL],
+        gender: inputParams?.gender ?? PATIENT_GENDER,
+        birthDate: inputParams?.birthDate ?? PATIENT_BIRTHDAY,
+        address: [address],
       };
 
       // Create appointment and related resources using zambda
       const appointmentData =
         this.flow === 'in-person'
-          ? await createSampleAppointments(
+          ? await createSamplePrebookAppointments(
               this.apiClient,
               getAccessToken(),
               formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
@@ -116,17 +145,7 @@ export class ResourceHandler {
               process.env.APP_IS_LOCAL === 'true',
               process.env.PROJECT_API_ZAMBDA_URL!,
               process.env.LOCATION_ID!,
-              {
-                firstNames: [PATIENT_FIRST_NAME],
-                lastNames: [PATIENT_LAST_NAME],
-                numberOfAppointments: 1,
-                reasonsForVisit: [PATIENT_REASON_FOR_VISIT],
-                phoneNumbers: [PATIENT_PHONE_NUMBER],
-                emails: [PATIENT_EMAIL],
-                gender: PATIENT_GENDER,
-                birthDate: PATIENT_BIRTHDAY,
-                address: [address],
-              }
+              patientData
             )
           : await createSampleTelemedAppointments(
               this.apiClient,
@@ -136,17 +155,7 @@ export class ResourceHandler {
               process.env.APP_IS_LOCAL === 'true',
               process.env.PROJECT_API_ZAMBDA_URL!,
               process.env.STATE_ONE!, //LOCATION_ID!, // do we oficially have STATE env variable?
-              {
-                firstNames: [PATIENT_FIRST_NAME],
-                lastNames: [PATIENT_LAST_NAME],
-                numberOfAppointments: 1,
-                reasonsForVisit: [PATIENT_REASON_FOR_VISIT],
-                phoneNumbers: [PATIENT_PHONE_NUMBER],
-                emails: [PATIENT_EMAIL],
-                gender: PATIENT_GENDER,
-                birthDate: PATIENT_BIRTHDAY,
-                address: [address],
-              }
+              patientData
             );
 
       console.log({ appointmentData });
@@ -256,25 +265,7 @@ export class ResourceHandler {
     return resourse;
   }
 
-  async cleanupNewPatientData(lastName: string): Promise<void> {
-    const patients = (
-      await this.apiClient.fhir.search({
-        resourceType: 'Patient',
-        params: [
-          {
-            name: 'name',
-            value: lastName,
-          },
-        ],
-      })
-    ).unbundle();
-    for (const patient of patients) {
-      await this.cleanupAppointments(patient.id!);
-      await this.apiClient.fhir.delete({ resourceType: patient.resourceType, id: patient.id! }).catch();
-    }
-  }
-
-  async cleanupAppointments(patientId: string): Promise<void> {
+  async cleanupAppointmentsForPatient(patientId: string): Promise<void> {
     const appointments = (
       await this.apiClient.fhir.search({
         resourceType: 'Appointment',
@@ -287,7 +278,11 @@ export class ResourceHandler {
       })
     ).unbundle();
     for (const appointment of appointments) {
-      await this.apiClient.fhir.delete({ resourceType: appointment.resourceType, id: appointment.id! }).catch();
+      await cleanAppointment(appointment.id!, process.env.ENV!);
     }
+  }
+
+  async cleanAppointment(appointmentId: string): Promise<boolean> {
+    return cleanAppointment(appointmentId, process.env.ENV!);
   }
 }
