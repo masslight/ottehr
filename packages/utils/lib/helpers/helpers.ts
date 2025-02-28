@@ -3,6 +3,7 @@ import { Appointment, Extension, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { OTTEHR_MODULE } from '../fhir';
 import { PatchPaperworkParameters } from '../types';
+import { zipRegex } from '../validation';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -54,8 +55,7 @@ export const isPostalCodeValid = (postalCode: string | undefined): boolean => {
   if (!postalCode) {
     return false;
   }
-  const fiveDigitRegex = /^\d{5}$/;
-  return fiveDigitRegex.test(postalCode);
+  return zipRegex.test(postalCode);
 };
 
 export const isPhoneNumberValid = (phoneNumber: string | undefined): boolean => {
