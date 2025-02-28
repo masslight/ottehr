@@ -30,6 +30,7 @@ import { getPatientNameSearchParams } from '../helpers/patientSearch';
 import { usePatientStore } from '../state/patient.store';
 import { getVisitTypeLabelForAppointment } from '../types/types';
 import { useApiClients } from './useAppClients';
+import { enqueueSnackbar } from 'notistack';
 
 const getTelemedLength = (history?: EncounterStatusHistory[]): number => {
   const value = history?.find((item) => item.status === 'in-progress');
@@ -406,6 +407,9 @@ export const useUpdatePatient = () => {
       }
     } catch (error) {
       console.error(error);
+      enqueueSnackbar('Save operation failed. The server encountered an error while processing your request.', {
+        variant: 'error',
+      });
       throw error;
     }
   });
