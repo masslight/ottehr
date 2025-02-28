@@ -61,7 +61,6 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
 
           do {
             const url = `${OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API}?labIds=${labIds}&limit=100&cursor=${cursor}`;
-            console.log('url', url);
             const orderableItemsSearch = await fetch(url, {
               method: 'GET',
               headers: {
@@ -70,11 +69,8 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
               },
             });
             const response = await orderableItemsSearch.json();
-            console.log('response', response);
             const orderableItemRes = response.orderableItems as OrderableItemSearchResult[];
-            console.log('orderableItemRes', orderableItemRes);
             items.push(...orderableItemRes);
-            console.log('items', items);
             cursor = response?.metadata?.nextCursor || '';
           } while (cursor);
 
