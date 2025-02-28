@@ -12,10 +12,11 @@ type CallSettingsTooltipProps = {
   handleTooltipOpen: () => void;
   handleTooltipClose: () => void;
   openSettings: () => void;
+  handleReportDialogOpen: () => void;
 };
 
 export const CallSettingsTooltip: FC<CallSettingsTooltipProps> = (props) => {
-  const { isTooltipOpen, handleTooltipOpen, handleTooltipClose, openSettings } = props;
+  const { isTooltipOpen, handleTooltipOpen, handleTooltipClose, openSettings, handleReportDialogOpen } = props;
 
   return (
     <ClickAwayListener onClickAway={handleTooltipClose}>
@@ -32,6 +33,17 @@ export const CallSettingsTooltip: FC<CallSettingsTooltipProps> = (props) => {
           title={
             <Box sx={{ p: 3, width: '300px', position: 'relative' }}>
               <List sx={{ p: 0 }}>
+                <StyledListItemWithButton
+                  primaryText="Report problem"
+                  secondaryText="Send error report"
+                  onClick={() => {
+                    handleTooltipClose();
+                    handleReportDialogOpen();
+                  }}
+                >
+                  {/* <img alt={t('callSettings.reportProblemImgAlt')} src={clockFullColor} width={24} /> */}
+                  Test
+                </StyledListItemWithButton>
                 <StyledListItemWithButton
                   primaryText="Setting"
                   secondaryText="Audio, video"
