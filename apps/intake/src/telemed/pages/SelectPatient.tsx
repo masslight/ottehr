@@ -59,7 +59,7 @@ const SelectPatient = (): JSX.Element => {
           id: selectedPatient.id || undefined,
           newPatient: false,
           dateOfBirth: DateTime.fromISO(selectedPatient.dateOfBirth || '').toString(),
-          reasonForVisit: currentPatientInfo?.reasonForVisit,
+          reasonForVisit: selectedPatient?.reasonForVisit,
         },
         pendingPatientInfoUpdates: undefined,
       }));
@@ -71,7 +71,6 @@ const SelectPatient = (): JSX.Element => {
       useAppointmentStore.setState({ appointmentDate: undefined, appointmentID: undefined });
       useFilesStore.setState({ fileURLs: undefined, fileUploads: {} });
       useIntakeCommonStore.setState({ selectedLocationState: initialLocationState.selectedLocationState });
-      usePatientInfoStore.setState({ patientInfo: { ...selectedPatient, reasonForVisit: undefined } });
       navigate(`${intakeFlowPageRoute.RequestVirtualVisit.path}?flow=${flow}`);
     } else if (flow === 'continueVisitRequest') {
       useFilesStore.setState({ fileURLs: undefined, fileUploads: {} });
