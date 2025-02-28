@@ -280,7 +280,7 @@ export class ResourceHandler {
         })
       ).unbundle();
       for (const patient of patients) {
-        await this.cleanupAppointments(patient.id!);
+        await this.cleanupAppointmentsForPatient(patient.id!);
         await this.apiClient.fhir.delete({ resourceType: patient.resourceType, id: patient.id! }).catch();
       }
     } catch (e) {
@@ -319,7 +319,7 @@ export class ResourceHandler {
     }
   }
 
-  async cleanupAppointments(patientId: string): Promise<void> {
+  async cleanupAppointmentsForPatient(patientId: string): Promise<void> {
     const appointments = (
       await this.apiClient.fhir.search({
         resourceType: 'Appointment',
@@ -334,5 +334,9 @@ export class ResourceHandler {
     for (const appointment of appointments) {
       await cleanAppointment(appointment.id!, process.env.ENV!);
     }
+  }
+
+  async cleanAppointment(appointmentId: string): Promise<boolean> {
+    return cleanAppointment(appointmentId, process.env.ENV!);
   }
 }

@@ -10,7 +10,7 @@ let flowClass: PrebookInPersonFlow;
 let bookingData: Awaited<ReturnType<PrebookInPersonFlow['startVisit']>>;
 let paperwork: Paperwork;
 let locator: Locators;
-let pcpData: Awaited<ReturnType<Paperwork['fillPrimaryCarePhysician']>>
+let pcpData: Awaited<ReturnType<Paperwork['fillPrimaryCarePhysician']>>;
 const appointmentIds: string[] = [];
 
 test.beforeAll(async ({ browser }) => {
@@ -43,6 +43,7 @@ test.describe.configure({ mode: 'serial' });
 test.describe('Contact information screen - Check and fill all fields', () => {
   test('PCI-1 Click on [Proceed to paperwork] - Contact information screen opens', async () => {
     await page.goto(bookingData.bookingURL);
+    await paperwork.clickProceedToPaperwork();
     await paperwork.checkContactInformationPageOpens();
   });
   test('PCI-2 Fill Contact Information all fields', async () => {
