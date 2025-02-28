@@ -1,5 +1,14 @@
 import { Operation } from 'fast-json-patch';
-import { Coverage, FhirResource, InsurancePlan, Patient, PatientLink, Practitioner, RelatedPerson } from 'fhir/r4b';
+import {
+  Coverage,
+  FhirResource,
+  InsurancePlan,
+  Patient,
+  PatientLink,
+  Practitioner,
+  Reference,
+  RelatedPerson,
+} from 'fhir/r4b';
 import {
   getArrayInfo,
   getCurrentValue,
@@ -74,7 +83,12 @@ interface PatientStoreActions {
   dropInsurance: (coverageId: string) => void;
   setPolicyHolders: (policyHolders: RelatedPerson[]) => void;
   setInsurancePlans: (insurancePlans: InsurancePlanDTO[]) => void;
-  updatePatientField: (fieldName: string, value: string | boolean, resourceId?: string) => void;
+  updatePatientField: (
+    fieldName: string,
+    value: string | boolean | Reference,
+    resourceId?: string,
+    fieldType?: string
+  ) => void;
   addPatchOperation: (resourceType: PatientMasterRecordResourceType, operation: Operation, resourceId?: string) => void;
   addTempInsurance: (coverage: Coverage, relatedPerson: RelatedPerson) => void;
   updateTempInsurance: (coverageId: string, updatedInsurance: Insurance) => void;
@@ -126,7 +140,7 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
       tempInsurances: state.tempInsurances.filter((insurance) => insurance.coverage.id !== coverageId),
     })),
   setInsurancePlans: (insurancePlans) => set({ insurancePlans }),
-  updatePatientField: (fieldName, value, resourceId) => {
+  updatePatientField: (fieldName, value, resourceId, fieldType) => {
     const state = usePatientStore.getState();
     const { resourceType, path } = extractResourceTypeAndPath(fieldName);
 
@@ -230,12 +244,12 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
         if (effectiveValue !== undefined) {
           newPatchOperation = { op: 'replace', path, value };
         } else {
-          const telecomConfig = getTelecomConfigByFieldName(fieldName);
+          const telecomConfig = contactTelecomConfigs[fieldType!];
 
           const telecomItem = { system: telecomConfig?.system, value: value };
           newPatchOperation = {
             op: 'add',
-            path: path.replace(/\/\d+\/value$/, '/-'),
+            path: path.replace(/\/-?\d+\/value$/, '/-'),
             value: telecomItem,
           };
         }
@@ -458,20 +472,16 @@ export const createInsurancePlanDto = (insurancePlan: InsurancePlan): InsuranceP
 const contactTelecomConfigs: Record<string, ContactTelecomConfig> = {
   phone: { system: 'phone' },
   email: { system: 'email' },
-  parentGuardianPhone: { system: 'phone' },
-  parentGuardianEmail: { system: 'email' },
-  responsiblePartyPhone: { system: 'phone', use: 'mobile' },
-  pcpPhone: { system: 'phone' },
 };
 
-type PatientFieldKey = keyof typeof patientFieldPaths;
-
-function getTelecomConfigByFieldName(path: string): ContactTelecomConfig | undefined {
-  // Find the field name corresponding to the given path
-  const fieldName = Object.keys(patientFieldPaths).find(
-    (key): key is PatientFieldKey => patientFieldPaths[key as PatientFieldKey] === path
-  );
-
-  // Return the corresponding telecom config
-  return fieldName ? contactTelecomConfigs[fieldName] : undefined;
-}
+export const getTelecomInfo = (
+  patient: Patient,
+  system: 'phone' | 'email',
+  defaultIndex: number
+): { value?: string; path: string } => {
+  const index = patient.telecom?.findIndex((telecom) => telecom.system === system) ?? defaultIndex;
+  return {
+    value: patient.telecom?.[index]?.value,
+    path: patientFieldPaths[system].replace(/telecom\/\d+/, `telecom/${index}`),
+  };
+};

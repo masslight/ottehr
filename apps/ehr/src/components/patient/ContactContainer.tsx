@@ -5,7 +5,7 @@ import { isPhoneNumberValid, patientFieldPaths, standardizePhoneNumber } from 'u
 import { STATE_OPTIONS } from '../../constants';
 import { FormAutocomplete, FormTextField } from '../form';
 import { Row, Section } from '../layout';
-import { usePatientStore } from '../../state/patient.store';
+import { getTelecomInfo, usePatientStore } from '../../state/patient.store';
 
 export const ContactContainer: FC = () => {
   const { patient, updatePatientField } = usePatientStore();
@@ -13,17 +13,13 @@ export const ContactContainer: FC = () => {
 
   if (!patient) return null;
 
-  const phoneIndex = patient.telecom ? patient.telecom?.findIndex((telecom) => telecom.system === 'phone') : 0;
-  const phone = patient.telecom?.[phoneIndex]?.value;
-  const phonePath = patientFieldPaths.phone.replace(/telecom\/\d+/, `telecom/${phoneIndex}`);
-
-  const emailIndex = patient.telecom ? patient.telecom?.findIndex((telecom) => telecom.system === 'email') : 1;
-  const email = patient.telecom?.[emailIndex]?.value;
-  const emailPath = patientFieldPaths.email.replace(/telecom\/\d+/, `telecom/${emailIndex}`);
+  const { value: phone, path: phonePath } = getTelecomInfo(patient, 'phone', 0);
+  const { value: email, path: emailPath } = getTelecomInfo(patient, 'email', 1);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const { name, value } = event.target;
-    updatePatientField(name, value);
+    const fieldType = name === emailPath ? 'email' : name === phonePath ? 'phone' : undefined;
+    updatePatientField(name, value, undefined, fieldType);
   };
 
   const handleAutocompleteChange = (name: string, value: string): void => {

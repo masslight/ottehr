@@ -4,7 +4,7 @@ import { patientFieldPaths, standardizePhoneNumber } from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
 import { RELATIONSHIP_OPTIONS, SEX_OPTIONS } from '../../constants';
 import { Row, Section } from '../layout';
-import { usePatientStore } from '../../state/patient.store';
+import { getTelecomInfo, usePatientStore } from '../../state/patient.store';
 
 export const ResponsibleInformationContainer: FC = () => {
   const { patient, updatePatientField } = usePatientStore();
@@ -13,15 +13,12 @@ export const ResponsibleInformationContainer: FC = () => {
 
   if (!patient) return null;
 
-  const phone = patient?.contact?.[0].telecom?.find((telecom) => telecom.system === 'phone')?.value;
-  const index = patient?.contact?.[0].telecom?.findIndex(
-    (telecom) => telecom.system === 'phone' && telecom.value === phone
-  );
-  const responsiblePartyPhonePath = patientFieldPaths.responsiblePartyPhone.replace(/telecom\/\d+/, `telecom/${index}`);
+  const { value: phone, path: responsiblePartyPhonePath } = getTelecomInfo(patient, 'phone', 0);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const { name, value } = event.target;
-    updatePatientField(name, value);
+    const fieldType = name === responsiblePartyPhonePath ? 'phone' : undefined;
+    updatePatientField(name, value, undefined, fieldType);
   };
 
   const handleResponsiblePartyNameChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
