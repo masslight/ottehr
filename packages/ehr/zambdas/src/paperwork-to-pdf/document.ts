@@ -67,24 +67,31 @@ function createSections(questionnaireResponse: QuestionnaireResponse, questionna
     const title = questionItemSection?.text;
     const items = (sectionItem.item ?? []).flatMap<Item>((item) => {
       const question = getItem(item.linkId, questionItemSection)?.text;
-      const answerItem = item.answer?.[0];
-      const answer =
-        answerItem?.valueString ??
-        answerItem?.valueBoolean ??
-        answerItem?.valueDecimal ??
-        answerItem?.valueInteger ??
-        answerItem?.valueDate ??
-        answerItem?.valueTime ??
-        answerItem?.valueDateTime ??
-        answerItem?.valueQuantity?.value ??
-        answerItem?.valueReference?.display;
-      if (question == null || answer == null) {
+      const answer = item.answer
+        ?.flatMap((answerItem) => {
+          const answer =
+            answerItem?.valueString ??
+            answerItem?.valueBoolean ??
+            answerItem?.valueDecimal ??
+            answerItem?.valueInteger ??
+            answerItem?.valueDate ??
+            answerItem?.valueTime ??
+            answerItem?.valueDateTime ??
+            answerItem?.valueQuantity?.value ??
+            answerItem?.valueReference?.display;
+          if (answer == null) {
+            return [];
+          }
+          return [answer.toString()];
+        })
+        .join();
+      if (question == null || answer == null || answer.length === 0) {
         return [];
       }
       return [
         {
           question,
-          answer: answer.toString(),
+          answer: answer,
         },
       ];
     });
