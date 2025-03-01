@@ -24,12 +24,14 @@ import {
   getVisitStatusHistory,
   getVisitTotalTime,
   consolidateOperations,
+  PatientMasterRecordResource,
 } from 'utils';
 import { getTimezone } from '../helpers/formatDateTime';
 import { getPatientNameSearchParams } from '../helpers/patientSearch';
 import { usePatientStore } from '../state/patient.store';
 import { getVisitTypeLabelForAppointment } from '../types/types';
 import { useApiClients } from './useAppClients';
+import { enqueueSnackbar } from 'notistack';
 
 const getTelemedLength = (history?: EncounterStatusHistory[]): number => {
   const value = history?.find((item) => item.status === 'in-progress');
@@ -255,25 +257,27 @@ export const useGetPatientQuery = (
   );
 };
 
-const preprocessUpdateOperations = (operations: Operation[], patient: Patient): Operation[] => {
-  const processedOps = consolidateOperations(operations, patient);
+const preprocessUpdateOperations = (operations: Operation[], resource: PatientMasterRecordResource): Operation[] => {
+  const processedOps = consolidateOperations(operations, resource);
 
-  // Find name-related operations and add old name to the list
-  const nameOperations = operations.filter(
-    (op) => op.path.startsWith('/name/0/') && (op.op === 'replace' || op.op === 'remove')
-  );
+  if (resource.resourceType === ResourceTypeNames.patient) {
+    // Find name-related operations and add old name to the list
+    const nameOperations = operations.filter(
+      (op) => op.path.startsWith('/name/0/') && (op.op === 'replace' || op.op === 'remove')
+    );
 
-  if (nameOperations.length > 0) {
-    const currentOfficialName = patient.name?.find((name) => name.use === 'official');
-    if (currentOfficialName) {
-      processedOps.push({
-        op: 'add',
-        path: '/name/-',
-        value: {
-          ...currentOfficialName,
-          use: 'old',
-        },
-      });
+    if (nameOperations.length > 0) {
+      const currentOfficialName = (resource as Patient).name?.find((name) => name.use === 'official');
+      if (currentOfficialName) {
+        processedOps.push({
+          op: 'add',
+          path: '/name/-',
+          value: {
+            ...currentOfficialName,
+            use: 'old',
+          },
+        });
+      }
     }
   }
 
@@ -294,121 +298,140 @@ export const useUpdatePatient = () => {
   } = usePatientStore();
   const { oystehr } = useApiClients();
 
-  return useMutation(['update-patient'], async (): Promise<void> => {
-    try {
-      if (!oystehr || !patient) return;
-      const patchRequests = [];
+  return useMutation(
+    ['update-patient'],
+    async (): Promise<void> => {
+      try {
+        if (!oystehr || !patient) return;
+        const patchRequests = [];
 
-      // Process Patient patches
-      if (patchOperations?.patient.length > 0) {
-        const processedPatientOperations = preprocessUpdateOperations(patchOperations?.patient || [], patient);
-        const patientPatch = getPatchBinary({
-          resourceId: patient.id!,
-          resourceType: ResourceTypeNames.patient,
-          patchOperations: processedPatientOperations,
-        });
-        patchRequests.push(patientPatch);
-      }
-
-      // Process Coverage patches
-      if (patchOperations?.coverages && Object.keys(patchOperations?.coverages).length > 0) {
-        Object.entries(patchOperations?.coverages || {}).forEach(([coverageId, operations]) => {
-          const coveragePatch = getPatchBinary({
-            resourceType: ResourceTypeNames.coverage,
-            resourceId: coverageId,
-            patchOperations: operations,
+        // Process Patient patches
+        if (patchOperations?.patient.length > 0) {
+          const processedPatientOperations = preprocessUpdateOperations(patchOperations?.patient || [], patient);
+          const patientPatch = getPatchBinary({
+            resourceId: patient.id!,
+            resourceType: ResourceTypeNames.patient,
+            patchOperations: processedPatientOperations,
           });
-          patchRequests.push(coveragePatch);
-        });
-      }
+          patchRequests.push(patientPatch);
+        }
 
-      // Process RelatedPerson patches
-      if (patchOperations?.relatedPersons && Object.keys(patchOperations?.relatedPersons).length > 0) {
-        Object.entries(patchOperations?.relatedPersons || {}).forEach(([relatedPersonId, operations]) => {
-          const relatedPersonPatch = getPatchBinary({
-            resourceType: ResourceTypeNames.relatedPerson,
-            resourceId: relatedPersonId,
-            patchOperations: operations,
+        // Process Coverage patches
+        if (patchOperations?.coverages && Object.keys(patchOperations?.coverages).length > 0) {
+          Object.entries(patchOperations?.coverages || {}).forEach(([coverageId, operations]) => {
+            const coverage = insurances.find((ins) => ins.id === coverageId);
+            if (coverage) {
+              const processedCoverageOperations = preprocessUpdateOperations(operations, coverage);
+              const coveragePatch = getPatchBinary({
+                resourceType: ResourceTypeNames.coverage,
+                resourceId: coverageId,
+                patchOperations: processedCoverageOperations,
+              });
+              patchRequests.push(coveragePatch);
+            }
           });
-          patchRequests.push(relatedPersonPatch);
-        });
-      }
+        }
 
-      // Create POST requests for temporary insurances
-      const postInsuranceRequests: BatchInputPostRequest<FhirResource>[] = tempInsurances.flatMap(
-        ({ coverage, relatedPerson }) => [
-          {
-            method: 'POST',
-            url: '/RelatedPerson',
-            resource: relatedPerson,
-          },
-          {
-            method: 'POST',
-            url: '/Coverage',
-            resource: coverage,
-          },
-        ]
-      );
+        // Process RelatedPerson patches
+        if (patchOperations?.relatedPersons && Object.keys(patchOperations?.relatedPersons).length > 0) {
+          Object.entries(patchOperations?.relatedPersons || {}).forEach(([relatedPersonId, operations]) => {
+            const relatedPersonPatch = getPatchBinary({
+              resourceType: ResourceTypeNames.relatedPerson,
+              resourceId: relatedPersonId,
+              patchOperations: operations,
+            });
+            patchRequests.push(relatedPersonPatch);
+          });
+        }
 
-      const response = await oystehr.fhir.transaction({
-        requests: [...patchRequests, ...postInsuranceRequests],
-      });
-
-      const updatedPatient = response.entry?.find(
-        (entry) => entry.resource?.resourceType === ResourceTypeNames.patient && entry.resource?.id === patient.id
-      )?.resource as Patient;
-
-      const updatedCoverages = response.entry
-        ?.filter((entry) => entry.resource?.resourceType === ResourceTypeNames.coverage)
-        .map((entry) => entry.resource as Coverage)
-        .filter((coverage) => coverage.status === 'active') as Coverage[];
-
-      const updatedRelatedPersons = response.entry
-        ?.filter((entry) => entry.resource?.resourceType === ResourceTypeNames.relatedPerson)
-        .map((entry) => entry.resource) as RelatedPerson[];
-
-      // Update store with all updated resources
-      if (updatedPatient) setPatient(updatedPatient);
-      if (updatedCoverages.length > 0) {
-        const updatedInsuranceIds = updatedCoverages.map((coverage) => coverage.id);
-
-        const mergedInsurances = insurances
-          .map((insurance) =>
-            updatedInsuranceIds.includes(insurance.id)
-              ? updatedCoverages.find((updated) => updated.id === insurance.id)
-              : insurance
-          )
-          .filter((insurance): insurance is Coverage => insurance !== undefined);
-
-        const newInsurances = updatedCoverages.filter(
-          (updated) => !insurances.some((existing) => existing.id === updated.id)
+        // Create POST requests for temporary insurances
+        const postInsuranceRequests: BatchInputPostRequest<FhirResource>[] = tempInsurances.flatMap(
+          ({ coverage, relatedPerson }) => [
+            {
+              method: 'POST',
+              url: '/RelatedPerson',
+              resource: relatedPerson,
+            },
+            {
+              method: 'POST',
+              url: '/Coverage',
+              resource: coverage,
+            },
+          ]
         );
 
-        setInsurances([...mergedInsurances, ...newInsurances]);
+        const response = await oystehr.fhir.transaction({
+          requests: [...patchRequests, ...postInsuranceRequests],
+        });
+
+        const updatedPatient = response.entry?.find(
+          (entry) => entry.resource?.resourceType === ResourceTypeNames.patient && entry.resource?.id === patient.id
+        )?.resource as Patient;
+
+        const updatedCoverages = response.entry
+          ?.filter((entry) => entry.resource?.resourceType === ResourceTypeNames.coverage)
+          .map((entry) => entry.resource as Coverage)
+          .filter((coverage) => coverage.status === 'active') as Coverage[];
+
+        const updatedRelatedPersons = response.entry
+          ?.filter((entry) => entry.resource?.resourceType === ResourceTypeNames.relatedPerson)
+          .map((entry) => entry.resource) as RelatedPerson[];
+
+        // Update store with all updated resources
+        if (updatedPatient) setPatient(updatedPatient);
+        if (updatedCoverages.length > 0) {
+          const updatedInsuranceIds = updatedCoverages.map((coverage) => coverage.id);
+
+          const mergedInsurances = insurances
+            .map((insurance) =>
+              updatedInsuranceIds.includes(insurance.id)
+                ? updatedCoverages.find((updated) => updated.id === insurance.id)
+                : insurance
+            )
+            .filter((insurance): insurance is Coverage => insurance !== undefined);
+
+          const newInsurances = updatedCoverages.filter(
+            (updated) => !insurances.some((existing) => existing.id === updated.id)
+          );
+
+          setInsurances([...mergedInsurances, ...newInsurances]);
+        }
+
+        if (updatedRelatedPersons.length > 0) {
+          const updatedPolicyHolderIds = updatedRelatedPersons.map((relatedPerson) => relatedPerson.id);
+
+          const mergedPolicyHolders = policyHolders
+            .map((policyHolder) =>
+              updatedPolicyHolderIds.includes(policyHolder.id)
+                ? updatedRelatedPersons.find((updated) => updated.id === policyHolder.id)
+                : policyHolder
+            )
+            .filter((policyHolder): policyHolder is RelatedPerson => policyHolder !== undefined);
+
+          const newPolicyHolders = updatedRelatedPersons.filter(
+            (updated) => !policyHolders.some((existing) => existing.id === updated.id)
+          );
+
+          setPolicyHolders([...mergedPolicyHolders, ...newPolicyHolders]);
+        }
+      } catch (error) {
+        console.error(error);
+        throw error;
       }
-
-      if (updatedRelatedPersons.length > 0) {
-        const updatedPolicyHolderIds = updatedRelatedPersons.map((relatedPerson) => relatedPerson.id);
-
-        const mergedPolicyHolders = policyHolders
-          .map((policyHolder) =>
-            updatedPolicyHolderIds.includes(policyHolder.id)
-              ? updatedRelatedPersons.find((updated) => updated.id === policyHolder.id)
-              : policyHolder
-          )
-          .filter((policyHolder): policyHolder is RelatedPerson => policyHolder !== undefined);
-
-        const newPolicyHolders = updatedRelatedPersons.filter(
-          (updated) => !policyHolders.some((existing) => existing.id === updated.id)
-        );
-
-        setPolicyHolders([...mergedPolicyHolders, ...newPolicyHolders]);
-      }
-    } catch (error) {
-      console.error(error);
-      throw error;
+    },
+    {
+      onSuccess: () => {
+        enqueueSnackbar('Patient information updated successfully', {
+          variant: 'success',
+        });
+      },
+      onError: () => {
+        enqueueSnackbar('Save operation failed. The server encountered an error while processing your request.', {
+          variant: 'error',
+        });
+      },
     }
-  });
+  );
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -429,6 +452,10 @@ export const useGetInsurancePlans = (onSuccess: (data: Bundle<InsurancePlan>) =>
             {
               name: 'status',
               value: 'active',
+            },
+            {
+              name: '_include',
+              value: 'InsurancePlan:owned-by',
             },
           ],
         });
