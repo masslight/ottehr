@@ -185,6 +185,7 @@ jobs:
           key: user-json-cache
 
       - name: Run the cleanup script
+        if: always()
         run: |
           chmod +x scripts/ottehr-cleanup.sh
           ./scripts/ottehr-cleanup.sh \

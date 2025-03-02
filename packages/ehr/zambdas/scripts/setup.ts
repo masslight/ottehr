@@ -80,7 +80,12 @@ function createZambdaEnvFile(
   return envPath;
 }
 
-function createFrontEndEnvFile(clientId: string, environment: string, projectId: string, applicationId: string): string {
+function createFrontEndEnvFile(
+  clientId: string,
+  environment: string,
+  projectId: string,
+  applicationId: string
+): string {
   const envFolderPath = 'apps/ehr/env';
   const envTemplatePath = path.join(envFolderPath, '.env.local-template');
   const envPath = path.join(envFolderPath, `.env.${environment}`);
@@ -93,7 +98,7 @@ function createFrontEndEnvFile(clientId: string, environment: string, projectId:
     .replace('VITE_APP_OYSTEHR_APPLICATION_CLIENT_ID=', `VITE_APP_OYSTEHR_APPLICATION_CLIENT_ID=${clientId}`)
     .replace('VITE_APP_ENV=', `VITE_APP_ENV=${environment}`)
     .replace('VITE_APP_PROJECT_ID=', `VITE_APP_PROJECT_ID=${projectId}`)
-    .replace('VITE_APP_OYSTEHR_APPLICATION_ID=', `VITE_APP_OYSTEHR_APPLICATION_ID=${applicationId}`);
+    .replace('VITE_APP_OYSTEHR_APPLICATION_ID=APPLICATION_ID', `VITE_APP_OYSTEHR_APPLICATION_ID=${applicationId}`);
 
   // Handle TLS certificate
   if (fs.existsSync(path.join(envFolderPath, 'cert.pem')) && fs.existsSync(path.join(envFolderPath, 'key.pem'))) {
