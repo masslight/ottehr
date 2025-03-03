@@ -2767,22 +2767,24 @@ export const getCoverageUpdateResourcesFromUnbundled = (
 
   const primarySubscriberReference = existingCoverages.primary?.subscriber?.reference;
   if (primarySubscriberReference && existingCoverages.primary) {
-    existingCoverages.primarySubscriber = takeContainedOrFind(
+    const subscriberResult = takeContainedOrFind<RelatedPerson>(
       primarySubscriberReference,
       resources,
       existingCoverages.primary
     );
+    console.log('checked primary subscriber reference:', subscriberResult);
+    existingCoverages.primarySubscriber = subscriberResult;
   }
 
   const secondarySubscriberReference = existingCoverages.secondary?.subscriber?.reference;
   if (secondarySubscriberReference && existingCoverages.secondary) {
-    existingCoverages.secondarySubscriber = takeContainedOrFind(
+    const subscriberResult = takeContainedOrFind<RelatedPerson>(
       secondarySubscriberReference,
       resources,
       existingCoverages.secondary
     );
-  } else if (existingCoverages.secondary) {
-    existingCoverages.secondarySubscriber = existingCoverages.primarySubscriber!;
+    console.log('checked secondary subscriber reference:', subscriberResult);
+    existingCoverages.secondarySubscriber = subscriberResult;
   }
 
   return {
