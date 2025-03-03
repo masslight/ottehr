@@ -4,6 +4,7 @@ import { dataTestIds } from '../../src/helpers/data-test-ids';
 export class Locators {
   page: Page;
   scheduleInPersonVisitButton: Locator;
+  scheduleVirtualVisitButton: Locator;
   differentFamilyMember: Locator;
   continueButton: Locator;
   reserveButton: Locator;
@@ -72,6 +73,7 @@ export class Locators {
   constructor(page: Page) {
     this.page = page;
     this.scheduleInPersonVisitButton = page.getByTestId(dataTestIds.scheduleInPersonVisitButton);
+    this.scheduleVirtualVisitButton = page.getByTestId(dataTestIds.scheduleVirtualVisitButton);
     this.differentFamilyMember = page.getByTestId(dataTestIds.differentFamilyMember);
     this.continueButton = page.getByTestId(dataTestIds.continueButton);
     if (this.continueButton == null) {

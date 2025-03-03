@@ -439,4 +439,20 @@ export class FillingInfo {
     await this.page.getByRole('option', { name: randomRelationships }).click();
     return { firstName, lastName, randomRelationships };
   }
+  async selectRandomSlot() {
+    await expect(this.page.getByText('First available time')).toBeVisible();
+    const timeSlotsButtons = this.page.locator('role=button[name=/^\\d{1,2}:\\d{2} (AM|PM)$/]');
+    const buttonCount = await timeSlotsButtons.count();
+    expect(buttonCount).toBeGreaterThan(0);
+    const randomIndex = Math.floor(Math.random() * (buttonCount - 1)) + 1;
+    const selectedSlotButton = timeSlotsButtons.nth(randomIndex);
+    const buttonName = await selectedSlotButton.textContent();
+    console.log(`Button name: ${buttonName}`);
+    await selectedSlotButton.click();
+    const selectButton = await this.page.getByRole('button', { name: /^Select/ });
+    const selectButtonContent = await selectButton.textContent();
+    const selectedSlot = selectButtonContent?.replace('Select ', '').trim();
+    console.log(`Selected slot: ${selectedSlot}`);
+    return { buttonName, selectedSlot };
+  }
 }
