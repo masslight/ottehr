@@ -3,8 +3,10 @@ import * as fs from 'fs';
 import { getAuth0Token } from '../../../../shared';
 import { createOystehrClient } from '../../../../shared/helpers';
 import baseQRItem from './data/integration-base-qr-1.json';
-import { Account, InsurancePlan, Organization, QuestionnaireResponse } from 'fhir/r4b';
+import { Account, Coverage, InsurancePlan, Organization, QuestionnaireResponse } from 'fhir/r4b';
 import { sleep } from 'utils';
+import Oystehr from '@oystehr/sdk';
+import { performEffect } from '..';
 
 const TEST_ENCOUNTER_ID_KEY = 'test-encounter-id';
 const TEST_PATIENT_ID_KEY = 'test-patient-id';
@@ -21,6 +23,8 @@ describe('Harvest Module Integration Tests', () => {
   const envConfig = JSON.parse(fs.readFileSync('.env/local.json', 'utf8'));
   const INSURANCE_PLAN_ORG_MAP: Record<string, string> = {};
   let token: string | undefined;
+  let oystehrClient: Oystehr;
+  let BASE_QR: QuestionnaireResponse;
   beforeAll(async () => {
     // Set up environment
     console.log('Setting up environment...');
@@ -32,7 +36,7 @@ describe('Harvest Module Integration Tests', () => {
       token = await getAuth0Token(envConfig);
     }
 
-    const oystehrClient = createOystehrClient(token, envConfig);
+    oystehrClient = createOystehrClient(token, envConfig);
     expect(oystehrClient).toBeDefined();
     const quesionnaireResponse = await oystehrClient.fhir.get<QuestionnaireResponse>({
       resourceType: 'QuestionnaireResponse',
@@ -93,10 +97,9 @@ describe('Harvest Module Integration Tests', () => {
     quesionnaireResponse.item = replacedItem;
     quesionnaireResponse.status = 'completed';
 
-    const updatedQuestionnaireResponse = await oystehrClient.fhir.update<QuestionnaireResponse>(quesionnaireResponse);
-    expect(updatedQuestionnaireResponse).toBeDefined();
-    // give the updates a chance to propagate
-    await sleep(2000);
+    BASE_QR = await oystehrClient.fhir.update<QuestionnaireResponse>(quesionnaireResponse);
+
+    expect(BASE_QR).toBeDefined();
   });
 
   afterAll(async () => {
@@ -131,7 +134,62 @@ describe('Harvest Module Integration Tests', () => {
     // Add your test code here
     expect(true).toBe(true);
   });
-  /*it('should create an account with two associated coverages from the base sample QR', async () => {
+  it('should create an account with two associated coverages from the base sample QR', async () => {
+    await performEffect({ qr: BASE_QR, secrets: envConfig }, oystehrClient);
+    // give the updates a chance to propagate
+    await sleep(500);
 
-  });*/
+    const createdAccount = (
+      await oystehrClient.fhir.search<Account>({
+        resourceType: 'Account',
+        params: [
+          {
+            name: 'subject',
+            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+          },
+          {
+            name: 'status',
+            value: 'active',
+          },
+        ],
+      })
+    ).unbundle()[0];
+    expect(createdAccount).toBeDefined();
+    assert(createdAccount.id);
+    const primaryCoverageRef = createdAccount.coverage?.find((cov) => cov.priority === 1)?.coverage?.reference;
+    const secondaryCoverageRef = createdAccount.coverage?.find((cov) => cov.priority === 2)?.coverage?.reference;
+    expect(primaryCoverageRef).toBeDefined();
+    expect(secondaryCoverageRef).toBeDefined();
+    assert(primaryCoverageRef);
+    assert(secondaryCoverageRef);
+
+    const createdCoverages = (
+      await oystehrClient.fhir.search<Coverage>({
+        resourceType: 'Coverage',
+        params: [
+          {
+            name: 'patient',
+            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+          },
+          {
+            name: 'status',
+            value: 'active',
+          },
+        ],
+      })
+    ).unbundle();
+    expect(createdCoverages).toBeDefined();
+    expect(createdCoverages.length).toBeGreaterThanOrEqual(2);
+    const primaryCoverage = createdCoverages.find((coverage) => {
+      const coverageRef = `Coverage/${coverage.id}`;
+      return coverageRef === primaryCoverageRef;
+    });
+    const secondaryCoverage = createdCoverages.find((coverage) => {
+      const coverageRef = `Coverage/${coverage.id}`;
+      return coverageRef === secondaryCoverageRef;
+    });
+    expect(primaryCoverage).toBeDefined();
+    expect(secondaryCoverage).toBeDefined();
+    expect(primaryCoverage?.policyHolder?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
+  });
 });
