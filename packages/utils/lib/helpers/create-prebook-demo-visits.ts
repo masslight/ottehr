@@ -136,11 +136,16 @@ export const createSamplePrebookAppointments = async ({
         selectedLocationId
       );
 
+      if (!process.env.VITE_APP_OYSTEHR_APPLICATION_ID) {
+        throw new Error('VITE_APP_OYSTEHR_APPLICATION_ID is not set');
+      }
+
       const createAppointmentResponse = await fetch(`${intakeZambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
+          'x-zapehr-project-id': process.env.VITE_APP_OYSTEHR_APPLICATION_ID,
         },
         body: JSON.stringify(randomPatientInfo),
       });
@@ -175,11 +180,16 @@ export const createSamplePrebookAppointments = async ({
         authToken
       );
 
+      if (!process.env.VITE_APP_OYSTEHR_APPLICATION_ID) {
+        throw new Error('VITE_APP_OYSTEHR_APPLICATION_ID is not set');
+      }
+
       const response = await fetch(`${intakeZambdaUrl}/zambda/submit-paperwork/execute-public`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
+          'x-zapehr-project-id': process.env.VITE_APP_OYSTEHR_APPLICATION_ID,
         },
         body: JSON.stringify(<SubmitPaperworkParameters>{
           answers: [],
@@ -327,18 +337,24 @@ export async function makeSequentialPaperworkPatches(
 ): Promise<void> {
   await stepAnswers.reduce(async (previousPromise, answer) => {
     await previousPromise;
-    console.log('Patching paperwork with with linkid:', answer.linkId);
+
+    if (!process.env.VITE_APP_OYSTEHR_APPLICATION_ID) {
+      throw new Error('VITE_APP_OYSTEHR_APPLICATION_ID is not set');
+    }
+
     const response = await fetch(`${intakeZambdaUrl}/zambda/patch-paperwork/execute-public`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${authToken}`,
+        'x-zapehr-project-id': process.env.VITE_APP_OYSTEHR_APPLICATION_ID,
       },
       body: JSON.stringify(<PatchPaperworkParameters>{
         answers: answer,
         questionnaireResponseId: questionnaireResponseId,
       }),
     });
+
     if (!response.ok) {
       throw new Error(`Failed to patch paperwork with linkId: ${answer.linkId}`);
     }

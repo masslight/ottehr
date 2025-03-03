@@ -39,10 +39,15 @@ const fetchPatients = async ({
   try {
     const token = await getAccessTokenSilently();
 
+    if (!process.env.VITE_APP_OYSTEHR_APPLICATION_ID) {
+      throw new Error('VITE_APP_OYSTEHR_APPLICATION_ID is not set');
+    }
+
     const headers = {
       accept: 'application/json',
       'content-type': 'application/json',
       Authorization: `Bearer ${token}`,
+      'x-zapehr-project-id': process.env.VITE_APP_OYSTEHR_APPLICATION_ID,
     };
 
     const response = await fetch(searchUrl, {

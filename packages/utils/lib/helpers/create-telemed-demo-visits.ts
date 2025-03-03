@@ -172,7 +172,6 @@ export const createSampleTelemedAppointments = async ({
   authToken,
   phoneNumber,
   createAppointmentZambdaId,
-  islocal,
   intakeZambdaUrl,
   selectedLocationId,
   demoData,
@@ -198,20 +197,27 @@ export const createSampleTelemedAppointments = async ({
     for (let i = 0; i < numberOfAppointments; i++) {
       const patientInfo = await generateRandomPatientInfo(oystehr, phoneNumber, demoData, selectedLocationId);
 
+      if (!process.env.VITE_APP_OYSTEHR_APPLICATION_ID) {
+        throw new Error('VITE_APP_OYSTEHR_APPLICATION_ID is not set');
+      }
+
       const createAppointmentResponse = await fetch(`${intakeZambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
+          'x-zapehr-project-id': process.env.VITE_APP_OYSTEHR_APPLICATION_ID!,
         },
         body: JSON.stringify(patientInfo),
       });
 
       console.log({ createAppointmentResponse });
 
-      appointmentData = islocal
-        ? await createAppointmentResponse.json()
-        : (await createAppointmentResponse.json()).output;
+      appointmentData = await createAppointmentResponse.json();
+
+      if ((appointmentData as any)?.output) {
+        appointmentData = (appointmentData as any).output as CreateAppointmentUCTelemedResponse;
+      }
 
       console.log({ appointmentData });
 
@@ -253,11 +259,16 @@ export const createSampleTelemedAppointments = async ({
           authToken
         );
 
+        if (!process.env.VITE_APP_OYSTEHR_APPLICATION_ID) {
+          throw new Error('VITE_APP_OYSTEHR_APPLICATION_ID is not set');
+        }
+
         const response = await fetch(`${intakeZambdaUrl}/zambda/submit-paperwork/execute-public`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${authToken}`,
+            'x-zapehr-project-id': process.env.VITE_APP_OYSTEHR_APPLICATION_ID!,
           },
           body: JSON.stringify(<SubmitPaperworkParameters>{
             answers: [],
@@ -274,7 +285,7 @@ export const createSampleTelemedAppointments = async ({
           );
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 5000)); // todo delete
+        await new Promise((resolve) => setTimeout(resolve, 7_000)); // todo: handle without waiting
       }
     }
 

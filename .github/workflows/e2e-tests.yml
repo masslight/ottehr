@@ -2,6 +2,23 @@ name: E2E Tests
 
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to run tests on'
+        required: false
+        type: choice
+        options:
+          - local
+          - demo
+          - development
+          - testing
+          - staging
+        default: 'local'
+      branch:
+        description: 'Branch to checkout (leave empty to use default branch)'
+        required: false
+        type: string
+        default: ''
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main, develop, 'release/*']
@@ -32,6 +49,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -78,12 +97,19 @@ jobs:
           for app in ehr intake; do
             setup_env "$app"
           done
+      
       - name: Install dependencies
         run: |
           npm ci
           npx playwright install --with-deps chromium
+
       - name: Run E2E tests
-        run: npm run ${{ matrix.app }}:e2e:local
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "" ] || [ "${{ github.event.inputs.environment }}" == "local" ] || [ "${{ github.event_name }}" == "pull_request" ]; then
+            npm run ${{ matrix.app }}:e2e:local
+          else
+            ENV=${{ github.event.inputs.environment }} npm run ${{ matrix.app }}:e2e:${{ github.event.inputs.environment }}
+          fi
         env:
           CI: true
 
@@ -91,7 +117,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-${{ matrix.app }}
+          name: playwright-report-${{ matrix.app }}-${{ github.event.inputs.environment || 'local' }}
           path: |
             apps/${{ matrix.app }}/playwright-report/
             apps/${{ matrix.app }}/test-results/
