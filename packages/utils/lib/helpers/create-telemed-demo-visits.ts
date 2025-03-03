@@ -99,6 +99,8 @@ const DEFAULT_REASONS_FOR_VISIT = [
   'Eye concern',
 ];
 
+const projectId = process.env.VITE_APP_PROJECT_ID || process.env.PROJECT_ID;
+
 const generateRandomPatientInfo = async (
   oystehr: Oystehr,
   phoneNumber?: string,
@@ -197,8 +199,8 @@ export const createSampleTelemedAppointments = async ({
     for (let i = 0; i < numberOfAppointments; i++) {
       const patientInfo = await generateRandomPatientInfo(oystehr, phoneNumber, demoData, selectedLocationId);
 
-      if (!process.env.VITE_APP_OYSTEHR_APPLICATION_ID) {
-        throw new Error('VITE_APP_OYSTEHR_APPLICATION_ID is not set');
+      if (!projectId) {
+        throw new Error('PROJECT_ID is not set');
       }
 
       const createAppointmentResponse = await fetch(`${intakeZambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
@@ -206,7 +208,7 @@ export const createSampleTelemedAppointments = async ({
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
-          'x-zapehr-project-id': process.env.VITE_APP_OYSTEHR_APPLICATION_ID!,
+          'x-zapehr-project-id': projectId,
         },
         body: JSON.stringify(patientInfo),
       });
@@ -259,8 +261,8 @@ export const createSampleTelemedAppointments = async ({
           authToken
         );
 
-        if (!process.env.VITE_APP_OYSTEHR_APPLICATION_ID) {
-          throw new Error('VITE_APP_OYSTEHR_APPLICATION_ID is not set');
+        if (!projectId) {
+          throw new Error('PROJECT_ID is not set');
         }
 
         const response = await fetch(`${intakeZambdaUrl}/zambda/submit-paperwork/execute-public`, {
@@ -268,7 +270,7 @@ export const createSampleTelemedAppointments = async ({
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${authToken}`,
-            'x-zapehr-project-id': process.env.VITE_APP_OYSTEHR_APPLICATION_ID!,
+            'x-zapehr-project-id': projectId,
           },
           body: JSON.stringify(<SubmitPaperworkParameters>{
             answers: [],
@@ -285,7 +287,7 @@ export const createSampleTelemedAppointments = async ({
           );
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 7_000)); // todo: handle without waiting
+        await new Promise((resolve) => setTimeout(resolve, 5_000)); // todo: handle without waiting
       }
     }
 
