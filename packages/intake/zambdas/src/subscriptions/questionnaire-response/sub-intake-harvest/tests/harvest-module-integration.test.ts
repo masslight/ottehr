@@ -65,11 +65,11 @@ describe('Harvest Module Integration Tests', () => {
       })
     ).unbundle();
 
-    const iPs = ipAndOrg1.filter((ip) => ip.resourceType === 'InsurancePlan');
-    const orgs = ipAndOrg1.filter((org) => org.resourceType === 'Organization');
+    const iPs = ipAndOrg1.filter((ip) => ip.resourceType === 'InsurancePlan') as InsurancePlan[];
+    const orgs = ipAndOrg1.filter((org) => org.resourceType === 'Organization') as Organization[];
     expect(iPs.length).toBeGreaterThan(0);
     expect(orgs.length).toBeGreaterThan(0);
-    iPs.forEach((ip) => {
+    iPs.forEach((ip: InsurancePlan) => {
       const ownedByReference = ip.ownedBy?.reference;
       if (ownedByReference) {
         const org = orgs.find((org) => `Organization/${org.id}` === ownedByReference);
@@ -130,5 +130,8 @@ describe('Harvest Module Integration Tests', () => {
   it('should perform a sample test', async () => {
     // Add your test code here
     expect(true).toBe(true);
+  });
+  it('should create an account with two associated coverages from the base sample QR', async () => {
+
   });
 });
