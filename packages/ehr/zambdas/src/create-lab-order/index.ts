@@ -227,14 +227,6 @@ const fromateSrCode = (orderableItem: OrderableItemSearchResult): ServiceRequest
       display: orderableItem.item.itemName,
     },
   ];
-  if (orderableItem.item.itemLoinc) {
-    coding.push({
-      // todo is this right?? we are only searching for codes with system = https://terminology.fhir.oystehr.com/CodeSystem/oystehr-oi-codes
-      // on the oystehr side
-      system: 'http://loinc.org',
-      code: orderableItem.item.itemLoinc,
-    });
-  }
   return {
     coding,
     text: orderableItem.item.itemName,
