@@ -25,6 +25,25 @@ test('Open Order Medication screen, check all fields are required', async ({ pag
   await orderMedicationPage.clickOrderMedicationButton();
   await orderMedicationPage.verifyValidationErrorShown(Field.MEDICATION);
   await orderMedicationPage.selectAssociatedDx('Select associatedDx');
+  await orderMedicationPage.selectMedication('0.9% Sodium Chloride IV (250cc)');
+  await orderMedicationPage.clickOrderMedicationButton();
+  await orderMedicationPage.verifyValidationErrorShown(Field.ASSOCIATED_DX);
+  await orderMedicationPage.selectAssociatedDx(DIAGNOSIS);
+  await orderMedicationPage.clickOrderMedicationButton();
+  await orderMedicationPage.verifyValidationErrorShown(Field.DOSE);
+  await orderMedicationPage.enterDose('2');
+  await orderMedicationPage.clickOrderMedicationButton();
+  await orderMedicationPage.verifyValidationErrorShown(Field.UNITS);
+  await orderMedicationPage.selectUnits('mg');
+  await orderMedicationPage.clickOrderMedicationButton();
+  await orderMedicationPage.verifyValidationErrorShown(Field.MANUFACTURER);
+  await orderMedicationPage.enterManufacturer('Test');
+  await orderMedicationPage.clickOrderMedicationButton();
+  await orderMedicationPage.verifyValidationErrorShown(Field.ROUTE);
+  await orderMedicationPage.selectRoute('Route of administration values');
+  await orderMedicationPage.clickOrderMedicationButton();
+  await orderMedicationPage.verifyValidationErrorShown(Field.INSTRUCTIONS);
+  
 });
 
 async function openOrderMedicationPage(page: Page): Promise<OrderMedicationPage> {

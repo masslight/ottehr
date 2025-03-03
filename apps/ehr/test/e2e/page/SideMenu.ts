@@ -13,7 +13,7 @@ export class SideMenu {
   }
 
   async clickInHouseMedications(): Promise<InHouseMedicationsPage> {
-    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('In-house Medications')).click();
+    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('in-house-medication/mar')).click();
     return expectInHouseMedicationsPage(this.#page);
   }
 
