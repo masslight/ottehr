@@ -2384,6 +2384,13 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
     deactivatedCoverages.push(existingCoverages.secondary);
   }
 
+  console.log('existing primary coverage', JSON.stringify(existingCoverages.primary, null, 2));
+  console.log('new primary coverage', JSON.stringify(newPrimaryCoverage, null, 2));
+  console.log('existing secondary coverage', JSON.stringify(existingCoverages.secondary, null, 2));
+  console.log('new secondary coverage', JSON.stringify(newSecondaryCoverage, null, 2));
+  console.log('deactivated coverages', JSON.stringify(deactivatedCoverages, null, 2));
+  console.log('coverage updates', JSON.stringify(coverageUpdates, null, 2));
+
   return {
     suggestedNewCoverageObject,
     deactivatedCoverages,

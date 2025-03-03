@@ -200,6 +200,10 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       resources: accountAndCoverageResources,
     });
 
+    console.log('existing coverages', JSON.stringify(existingCoverages, null, 2));
+    console.log('existing account', JSON.stringify(existingAccount, null, 2));
+    console.log('existing guarantor resource', JSON.stringify(existingGuarantorResource, null, 2));
+
     const accountOperations = getAccountOperations({
       patient: patientResource,
       questionnaireResponseItem: paperwork,
