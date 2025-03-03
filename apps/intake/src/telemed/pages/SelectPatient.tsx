@@ -53,7 +53,7 @@ const SelectPatient = (): JSX.Element => {
     const selectedPatient = patientsStore.patients?.find((patient) => patient.id === data.patientId);
 
     if (selectedPatient) {
-      let reasonForVisit = undefined;
+      let reasonForVisit: string | undefined;
       if (selectedPatient.id === currentPatientInfo.id) {
         reasonForVisit = currentPatientInfo.reasonForVisit;
       }
