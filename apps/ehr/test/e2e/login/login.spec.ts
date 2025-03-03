@@ -32,5 +32,16 @@ test('Should log in', async ({ page, context, browser }) => {
   // save login context
   await context.storageState({ path: './playwright/user.json' });
 
-  await expect(page.getByTestId('PersonIcon')).toBeVisible();
+  // Try to handle additional auth modal if it appears
+  try {
+    // Look for the ZapEHR button with case-insensitive text matching
+    const zapehrButton = page.getByText(/continue with zapehr/i);
+    await zapehrButton.waitFor({ timeout: 5000 });
+    await zapehrButton.click();
+    console.log('Auth modal detected, logged in through ZapEHR');
+  } catch (e) {
+    console.log('Auth modal not detected, continuing');
+  }
+
+  await expect(page.getByTestId('PersonIcon')).toBeVisible({ timeout: 30_000 });
 });
