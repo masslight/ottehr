@@ -339,7 +339,7 @@ const getAdditionalResources = async (
   });
 
   const missingRequiredResourcse: string[] = [];
-  const coverage = coverageSearchResults?.[0];
+  const coverage = coverageSearchResults?.[0]; // todo how to confirm primary?
   if (!coverage) missingRequiredResourcse.push('coverage');
   if (!patientId) missingRequiredResourcse.push('patient');
   if (!location) missingRequiredResourcse.push('location');
