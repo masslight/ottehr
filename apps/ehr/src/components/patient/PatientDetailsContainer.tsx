@@ -13,6 +13,7 @@ import {
   PATIENT_SEND_MARKETING_URL,
   PATIENT_SEXUAL_ORIENTATION_URL,
   patientFieldPaths,
+  REQUIRED_FIELD_ERROR_MESSAGE,
 } from 'utils';
 import {
   ETHNICITY_OPTIONS,
@@ -109,7 +110,9 @@ export const PatientDetailsContainer: FC = () => {
           name={patientFieldPaths.ethnicity}
           control={control}
           options={ETHNICITY_OPTIONS}
-          rules={{ required: true }}
+          rules={{
+            required: REQUIRED_FIELD_ERROR_MESSAGE,
+          }}
           defaultValue={getExtensionValue(patient, PATIENT_ETHNICITY_URL)}
           onChangeHandler={handleChange}
         />
@@ -119,7 +122,9 @@ export const PatientDetailsContainer: FC = () => {
           name={patientFieldPaths.race}
           control={control}
           options={RACE_OPTIONS}
-          rules={{ required: true }}
+          rules={{
+            required: REQUIRED_FIELD_ERROR_MESSAGE,
+          }}
           defaultValue={getExtensionValue(patient, PATIENT_RACE_URL)}
           onChangeHandler={handleChange}
         />

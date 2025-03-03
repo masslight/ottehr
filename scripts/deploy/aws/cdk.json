@@ -1,5 +1,5 @@
 {
-  "app": "npx ts-node --prefer-ts-exts bin/deploy-test.ts",
+  "app": "npx ts-node --prefer-ts-exts bin/deploy.ts",
   "profile": "ottehr",
   "watch": {
     "include": ["**"],
