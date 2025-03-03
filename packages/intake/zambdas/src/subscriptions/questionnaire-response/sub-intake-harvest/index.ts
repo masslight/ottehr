@@ -59,7 +59,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     console.time('querying for resources to support qr harvest');
     const resources = (
-      await oystehr.fhir.search<Encounter | Patient | Appointment | Location | RelatedPerson | List>({
+      await oystehr.fhir.search<Encounter | Patient | Appointment | Location | RelatedPerson | Coverage | List>({
         resourceType: 'Encounter',
         params: [
           {
@@ -82,6 +82,18 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
             name: '_revinclude:iterate',
             value: 'List:patient',
           },
+          {
+            name: '_revinclude:iterate',
+            value: 'RelatedPerson:patient',
+          },
+          {
+            name: '_revinclude:iterate',
+            value: 'Coverage:patient',
+          },
+          {
+            name: '_include:iterate',
+            value: 'Coverage:subscriber',
+          },
         ],
       })
     ).unbundle();
@@ -92,6 +104,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const listResources = resources.filter((res) => res.resourceType === 'List') as List[];
     const locationResource = resources.find((res) => res.resourceType === 'Location') as Location | undefined;
     const appointmentResource = resources.find((res) => res.resourceType === 'Appointment') as Appointment | undefined;
+    const relatedPersonResources = resources.filter((res) => res.resourceType === 'RelatedPerson') as RelatedPerson[];
+    const coverageResources = resources.filter((res) => res.resourceType === 'Coverage') as Coverage[];
 
     const paperwork = qr.item ?? [];
     const flattenedPaperwork = flattenIntakeQuestionnaireItems(
@@ -197,7 +211,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('creating account and coverage operations');
     const { existingCoverages, existingAccount, existingGuarantorResource } = getCoverageUpdateResourcesFromUnbundled({
       patient: patientResource,
-      resources: accountAndCoverageResources,
+      resources: [...accountAndCoverageResources, ...coverageResources, ...relatedPersonResources],
     });
 
     console.log('existing coverages', JSON.stringify(existingCoverages, null, 2));
