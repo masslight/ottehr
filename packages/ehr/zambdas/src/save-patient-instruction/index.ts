@@ -11,16 +11,16 @@ let m2mtoken: string;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
-    const { id, text, secrets, userToken } = validateRequestParameters(input);
+    const { instructionId, text, secrets, userToken } = validateRequestParameters(input);
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);
     const oystehrCurrentUser = createOystehrClient(userToken, secrets);
     const myUserProfile = (await oystehrCurrentUser.user.me()).profile;
     let communication: Communication;
 
-    if (id) {
-      await checkIfProvidersInstruction(id, myUserProfile, oystehr);
-      communication = await updateCommunicationResource(id, text, oystehr);
+    if (instructionId) {
+      await checkIfProvidersInstruction(instructionId, myUserProfile, oystehr);
+      communication = await updateCommunicationResource(instructionId, text, oystehr);
     } else {
       communication = await createCommunicationResource(text, myUserProfile, oystehr);
     }
