@@ -193,7 +193,7 @@
         "answer": [
           {
             "valueReference": {
-              "reference": "InsurancePlan/45ae21d2-12a3-4727-b915-896f7dc57dbd",
+              "reference": "{{INSURANCE_PLAN_REF}}",
               "display": "Aetna"
             }
           }
@@ -345,8 +345,8 @@
             "answer": [
               {
                 "valueReference": {
-                  "reference": "InsurancePlan/217badd9-ded4-4efa-91b9-10ab7cdcb8b8",
-                  "display": "United Heartland"
+                  "reference": "{{INSURANCE_PLAN_REF}}",
+                  "display": "Aetna"
                 }
               }
             ]

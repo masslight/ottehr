@@ -5,14 +5,13 @@ import { createOystehrClient } from '../../../../shared/helpers';
 import baseQRItem from './data/integration-base-qr-1.json';
 import { Account, InsurancePlan, Organization, QuestionnaireResponse } from 'fhir/r4b';
 import { sleep } from 'utils';
-import { i } from 'vite/dist/node/types.d-aGj9QkWt';
 
 const TEST_ENCOUNTER_ID_KEY = 'test-encounter-id';
 const TEST_PATIENT_ID_KEY = 'test-patient-id';
 const TEST_APPOINTMENT_ID_KEY = 'test-appointment-id';
 const TEST_QUESTIONNAIRE_RESPONSE_ID_KEY = 'test-questionnaire-response-id';
 
-const TEST_CONFIG: Record<string> = {
+const TEST_CONFIG: Record<string, string> = {
   [TEST_ENCOUNTER_ID_KEY]: '9b019c97-3156-4745-b384-5dc8a60f63d2',
   [TEST_APPOINTMENT_ID_KEY]: '308c7a77-c992-45f6-b41c-00d021fe4710',
   [TEST_PATIENT_ID_KEY]: '099639e6-c89c-4bad-becf-ce15ce010f21',
@@ -42,11 +41,6 @@ describe('Harvest Module Integration Tests', () => {
     expect(quesionnaireResponse).toBeDefined();
     expect(quesionnaireResponse.encounter?.reference).toEqual(`Encounter/${TEST_CONFIG[TEST_ENCOUNTER_ID_KEY]}`);
 
-    quesionnaireResponse.item = baseQRItem;
-    quesionnaireResponse.status = 'completed';
-    const updatedQuestionnaireResponse = await oystehrClient.fhir.update<QuestionnaireResponse>(quesionnaireResponse);
-    // give the updates a chance to propagate
-    await sleep(2000);
     const ipAndOrg1 = (
       await oystehrClient.fhir.search<InsurancePlan | Organization>({
         resourceType: 'InsurancePlan',
@@ -71,10 +65,10 @@ describe('Harvest Module Integration Tests', () => {
       })
     ).unbundle();
 
-    expect(updatedQuestionnaireResponse).toBeDefined();
-
     const iPs = ipAndOrg1.filter((ip) => ip.resourceType === 'InsurancePlan');
     const orgs = ipAndOrg1.filter((org) => org.resourceType === 'Organization');
+    expect(iPs.length).toBeGreaterThan(0);
+    expect(orgs.length).toBeGreaterThan(0);
     iPs.forEach((ip) => {
       const ownedByReference = ip.ownedBy?.reference;
       if (ownedByReference) {
@@ -84,8 +78,25 @@ describe('Harvest Module Integration Tests', () => {
         }
       }
     });
+    expect(Object.keys(INSURANCE_PLAN_ORG_MAP).length).toBeGreaterThan(0);
 
-    expect(Object.keys(INSURANCE_PLAN_ORG_MAP)).toBeGreaterThan(0);
+    const firstPair = Object.entries(INSURANCE_PLAN_ORG_MAP)[0];
+
+    const [key] = firstPair;
+
+    const insurancePlanRef = `InsurancePlan/${key}`;
+
+    const replacedItem = JSON.parse(JSON.stringify(baseQRItem).replace(/{{INSURANCE_PLAN_REF}}/g, insurancePlanRef));
+
+    console.log('replaced item', JSON.stringify(replacedItem, null, 2));
+
+    quesionnaireResponse.item = replacedItem;
+    quesionnaireResponse.status = 'completed';
+
+    const updatedQuestionnaireResponse = await oystehrClient.fhir.update<QuestionnaireResponse>(quesionnaireResponse);
+    expect(updatedQuestionnaireResponse).toBeDefined();
+    // give the updates a chance to propagate
+    await sleep(2000);
   });
 
   afterAll(async () => {
