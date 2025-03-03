@@ -108,7 +108,6 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
           })
         ).unbundle();
         // todo is there a way to confirm primary?
-        // todo should probably display all of them?
         setCoverage(coverageResults[0]);
       } catch (e) {
         console.error('error loading locations', e);
@@ -150,10 +149,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       try {
         await createLabOrder(oystehrZambda, {
           dx: orderDx,
-          patientId,
           encounter,
-          coverage,
-          location: selectedOffice,
           practitionerId,
           orderableItem: selectedLab,
           pscHold,

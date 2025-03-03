@@ -1,5 +1,5 @@
 import { User } from '@oystehr/sdk';
-import { Appointment, Coding, Practitioner, Encounter, Coverage, Location } from 'fhir/r4b';
+import { Appointment, Coding, Practitioner, Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   PatientFollowupDetails,
@@ -260,10 +260,7 @@ export interface DocumentInfo {
 
 export interface SubmitLabOrderParameters {
   dx: DiagnosisDTO[];
-  patientId: string;
   encounter: Encounter;
-  coverage: Coverage;
-  location: Location;
   practitionerId: string;
   orderableItem: OrderableItemSearchResult;
   pscHold: boolean;

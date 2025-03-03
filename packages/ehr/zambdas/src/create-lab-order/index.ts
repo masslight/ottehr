@@ -31,10 +31,7 @@ import Oystehr from '@oystehr/sdk';
 
 export interface SubmitLabOrder {
   dx: DiagnosisDTO[];
-  patientId: string;
   encounter: Encounter;
-  coverage: Coverage;
-  location: Location;
   practitionerId: string;
   orderableItem: OrderableItemSearchResult;
   pscHold: boolean;
@@ -47,52 +44,26 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { dx, patientId, encounter, coverage, location, practitionerId, orderableItem, pscHold, secrets } =
-      validatedParameters;
+    const { dx, encounter, practitionerId, orderableItem, pscHold, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);
 
-    const labGuid = orderableItem.lab.labGuid;
-    const labOrganizationSearchRequest: BatchInputRequest<Organization> = {
-      method: 'GET',
-      url: `/Organization?identifier=${labGuid}`,
-    };
-
-    const activityDefinitionSearchRequest: BatchInputRequest<ActivityDefinition> = {
-      method: 'GET',
-      url: `/ActivityDefinition?name=${orderableItem.item.uniqueName}&publisher=${orderableItem.lab.labName}&version=${orderableItem.lab.compendiumVersion}`,
-    };
-
-    const searchResults: Bundle<FhirResource> = await oystehr.fhir.batch({
-      requests: [labOrganizationSearchRequest, activityDefinitionSearchRequest],
-    });
-
-    const labOrganizationSearchResults: Organization[] = [];
-    const activityDefinitionSearchResults: ActivityDefinition[] = [];
-
-    const resources = flattenBundleResources(searchResults);
-    resources.forEach((resource) => {
-      if (resource.resourceType === 'Organization') labOrganizationSearchResults.push(resource as Organization);
-      if (resource.resourceType === 'ActivityDefinition')
-        activityDefinitionSearchResults.push(resource as ActivityDefinition);
-    });
-
-    // todo throw defined error to allow for more clear / useful error message on front end
-    if (labOrganizationSearchResults.length === 0) {
-      throw new Error(`could not find lab organization for lab guid ${labGuid}`);
-    }
-    const labOrganization = labOrganizationSearchResults[0];
-
-    const requests: BatchInputRequest<FhirResource>[] = [];
+    const { labOrganization, coverage, location, patientId, existingActivityDefinition } = await getAdditionalResources(
+      orderableItem,
+      encounter,
+      oystehr
+    );
 
     const { activityDefinitionId, activityDefinitionToContain } = await handleActivityDefinition(
-      activityDefinitionSearchResults,
+      existingActivityDefinition,
       orderableItem,
       oystehr
     );
+
+    const requests: BatchInputRequest<FhirResource>[] = [];
 
     const serviceRequestCode = fromateSrCode(orderableItem);
     const serviceRequestReasonCode: ServiceRequest['reasonCode'] = dx.map((diagnosis) => {
@@ -136,7 +107,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       instantiatesCanonical: [`#${activityDefinitionId}`],
       contained: [activityDefinitionToContain],
     };
-
     if (pscHold) {
       serviceRequestConfig.orderDetail = [
         {
@@ -160,7 +130,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         reference: `Encounter/${encounter.id}`,
       },
       location: {
-        reference: `Location/${location?.id}`,
+        reference: `Location/${location.id}`,
       },
       basedOn: [
         {
@@ -259,8 +229,9 @@ const fromateSrCode = (orderableItem: OrderableItemSearchResult): ServiceRequest
   ];
   if (orderableItem.item.itemLoinc) {
     coding.push({
-      // todo double check how oystehr handles multiple codes (pretty sure its handled but want to double check)
-      system: 'http://loinc.org', // is this right??
+      // todo is this right?? we are only searching for codes with system = https://terminology.fhir.oystehr.com/CodeSystem/oystehr-oi-codes
+      // on the oystehr side
+      system: 'http://loinc.org',
       code: orderableItem.item.itemLoinc,
     });
   }
@@ -271,12 +242,10 @@ const fromateSrCode = (orderableItem: OrderableItemSearchResult): ServiceRequest
 };
 
 const handleActivityDefinition = async (
-  activityDefinitionSearchResults: ActivityDefinition[],
+  activityDefinition: ActivityDefinition | undefined,
   orderableItem: OrderableItemSearchResult,
   oystehr: Oystehr
 ): Promise<{ activityDefinitionId: string; activityDefinitionToContain: any }> => {
-  const activityDefinition: ActivityDefinition = activityDefinitionSearchResults?.[0];
-
   let activityDefinitionId: string | undefined;
   let activityDefinitionToContain: any;
 
@@ -328,4 +297,77 @@ const handleActivityDefinition = async (
     throw new Error(`issue finding or creating activity definition for this lab orderable item`);
 
   return { activityDefinitionId, activityDefinitionToContain };
+};
+
+const getAdditionalResources = async (
+  orderableItem: OrderableItemSearchResult,
+  encounter: Encounter,
+  oystehr: Oystehr
+): Promise<{
+  labOrganization: Organization;
+  coverage: Coverage;
+  location: Location;
+  patientId: string;
+  existingActivityDefinition: ActivityDefinition | undefined;
+}> => {
+  const labGuid = orderableItem.lab.labGuid;
+  const labOrganizationSearchRequest: BatchInputRequest<Organization> = {
+    method: 'GET',
+    url: `/Organization?identifier=${labGuid}`,
+  };
+  const activityDefinitionSearchRequest: BatchInputRequest<ActivityDefinition> = {
+    method: 'GET',
+    url: `/ActivityDefinition?name=${orderableItem.item.uniqueName}&publisher=${orderableItem.lab.labName}&version=${orderableItem.lab.compendiumVersion}`,
+  };
+  const encounterResourceSearch: BatchInputRequest<Coverage> = {
+    method: 'GET',
+    url: `/Encounter?_id=${encounter.id}&_include=Encounter:patient&_include=Encounter:location&_revinclude:iterate=Coverage:patient`,
+  };
+
+  console.log('searching for lab org, activity definition, and encounter resources');
+  const searchResults: Bundle<FhirResource> = await oystehr.fhir.batch({
+    requests: [labOrganizationSearchRequest, activityDefinitionSearchRequest, encounterResourceSearch],
+  });
+
+  const labOrganizationSearchResults: Organization[] = [];
+  const activityDefinitionSearchResults: ActivityDefinition[] = [];
+  const coverageSearchResults: Coverage[] = [];
+  let patientId: string | undefined;
+  let location: Location | undefined;
+
+  const resources = flattenBundleResources(searchResults);
+  resources.forEach((resource) => {
+    if (resource.resourceType === 'Organization') labOrganizationSearchResults.push(resource as Organization);
+    if (resource.resourceType === 'ActivityDefinition')
+      activityDefinitionSearchResults.push(resource as ActivityDefinition);
+    if (resource.resourceType === 'Coverage') coverageSearchResults.push(resource as Coverage);
+    if (resource.resourceType === 'Patient') patientId = resource.id;
+    if (resource.resourceType === 'Location') location = resource as Location;
+  });
+
+  const missingRequiredResourcse: string[] = [];
+  const coverage = coverageSearchResults?.[0];
+  if (!coverage) missingRequiredResourcse.push('coverage');
+  if (!patientId) missingRequiredResourcse.push('patient');
+  if (!location) missingRequiredResourcse.push('location');
+  if (!coverage) missingRequiredResourcse.push('coverage');
+  if (!coverage || !patientId || !location || !coverage) {
+    throw new Error(
+      `The following resources could not be found for this encounter: ${missingRequiredResourcse.join(', ')}`
+    );
+  }
+
+  // todo throw defined error to allow for more clear / useful error message on front end
+  const labOrganization = labOrganizationSearchResults?.[0];
+  if (!labOrganization) {
+    throw new Error(`Could not find lab organization for lab guid ${labGuid}`);
+  }
+
+  return {
+    labOrganization,
+    coverage,
+    location,
+    patientId,
+    existingActivityDefinition: activityDefinitionSearchResults?.[0],
+  };
 };
