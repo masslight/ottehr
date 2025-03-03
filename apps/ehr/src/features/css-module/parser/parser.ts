@@ -1,12 +1,5 @@
-import { FhirResource, Coverage } from 'fhir/r4b';
-import {
-  getQuestionnaireResponseByLinkId,
-  PATIENT_PHOTO_CODE,
-  SCHOOL_WORK_NOTE_TEMPLATE_CODE,
-  formatDOB,
-  CODE_SYSTEM_COVERAGE_CLASS,
-  SELF_PAY_CODING,
-} from 'utils';
+import { FhirResource } from 'fhir/r4b';
+import { getQuestionnaireResponseByLinkId, PATIENT_PHOTO_CODE, SCHOOL_WORK_NOTE_TEMPLATE_CODE, formatDOB } from 'utils';
 import { getPatientName } from '../../../telemed/utils';
 import { getPatientInfoWithFallback, getPronouns, getWeight } from './business-logic';
 import { Gender } from './constants';
@@ -43,17 +36,6 @@ export const getParsedAppointmentData = (resourceBundle: FhirResource[]): Partia
   };
 };
 
-const parseCoverage = (coverage: Coverage | undefined): Partial<ProcessedData> => {
-  if (!coverage) return {};
-  const isSelfPay = !!coverage.type?.coding?.find((coding) => coding.system === SELF_PAY_CODING.system);
-  if (isSelfPay) return { coverageName: 'Self Pay' }; // todo check that this is implemented / or being implmented
-  const coveragePlanClass = coverage.class?.find(
-    (c) => c.type.coding?.find((code) => code.system === CODE_SYSTEM_COVERAGE_CLASS)
-  );
-  const coverageName = coveragePlanClass?.name;
-  return { coverageName };
-};
-
 export const parseBundle = (resourceBundle: FhirResource[]): AppointmentProcessedSourceData => {
   const {
     appointment: appointmentResource,
@@ -61,7 +43,6 @@ export const parseBundle = (resourceBundle: FhirResource[]): AppointmentProcesse
     location: locationResource,
     encounter: encounterResource,
     questionnaireResponse: questionnaireResponseResource,
-    coverage: coverage,
   } = getResources(resourceBundle);
 
   const appointment = getAppointmentValues(appointmentResource);
@@ -71,7 +52,6 @@ export const parseBundle = (resourceBundle: FhirResource[]): AppointmentProcesse
   const questionnaire = getQuestionnaireResponseValues(questionnaireResponseResource);
   const patientInfoWithFallback = getPatientInfoWithFallback(patient, questionnaire);
   const parsedAppointmentData = getParsedAppointmentData(resourceBundle);
-  const parsedCoverageData = parseCoverage(coverage);
 
   return {
     sourceData: {
@@ -84,7 +64,6 @@ export const parseBundle = (resourceBundle: FhirResource[]): AppointmentProcesse
     processedData: {
       ...patientInfoWithFallback,
       ...parsedAppointmentData,
-      ...parsedCoverageData,
     },
   };
 };

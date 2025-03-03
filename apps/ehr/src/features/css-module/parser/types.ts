@@ -1,4 +1,4 @@
-import { Appointment, Patient, Location, Encounter, Coverage } from 'fhir/r4b';
+import { Appointment, Patient, Location, Encounter } from 'fhir/r4b';
 import { FillingOutAs, Gender } from './constants';
 
 export type AppointmentProcessedSourceData = {
@@ -12,7 +12,6 @@ export type SourceData = Partial<{
   encounter: EncounterValues;
   questionnaire: QuestionnaireResponseValues;
   patient: PatientValues;
-  coverage?: Coverage;
 }>;
 
 export type ProcessedData = Partial<{
@@ -39,7 +38,6 @@ export type ProcessedData = Partial<{
   hospitalizations: string[];
   allergies: string;
   weight: string;
-  coverageName: string;
 }>;
 
 export type AppointmentValues = Partial<Pick<Appointment, 'id' | 'start' | 'end' | 'status' | 'description'>> & {
@@ -91,10 +89,6 @@ export type QuestionnaireResponseValues = Partial<{
   race: string;
   pronouns: string;
   customPronouns: string;
-}>;
-
-export type CoverageValues = Partial<{
-  name: string;
 }>;
 
 export type AddressValues = Partial<{

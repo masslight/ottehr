@@ -21,9 +21,15 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppointmentStore, useGetIcd10Search, useDebounce, ActionsList, DeleteIconButton } from '../../../telemed';
 import { getSelectors } from '../../../shared/store/getSelectors';
-import { DiagnosisDTO, isLocationVirtual, OrderableItemSearchResult } from 'utils';
+import {
+  DiagnosisDTO,
+  isLocationVirtual,
+  OrderableItemSearchResult,
+  SELF_PAY_CODING,
+  CODE_SYSTEM_COVERAGE_CLASS,
+} from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { Location } from 'fhir/r4b';
+import { Location, Coverage } from 'fhir/r4b';
 import { sortLocationsByLabel } from '../../../helpers';
 import useEvolveUser from '../../../hooks/useEvolveUser';
 import Oystehr from '@oystehr/sdk';
@@ -49,31 +55,24 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const [loadingState, setLoadingState] = useState(LoadingState.initial);
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [submitting, setSubmitting] = useState<boolean>(false);
-  const [selectedLab, setSelectedLab] = useState<OrderableItemSearchResult | null>(null);
-  const [pscHold, setPscHold] = useState<boolean>(true); // defaulting & locking to true for mvp
 
   const {
     chartData,
     location: locationInState,
     encounter,
     appointment,
-    coverage,
-    coverageName,
-  } = getSelectors(useAppointmentStore, [
-    'chartData',
-    'location',
-    'encounter',
-    'appointment',
-    'coverage',
-    'coverageName',
-  ]);
+  } = getSelectors(useAppointmentStore, ['chartData', 'location', 'encounter', 'appointment']);
   const { diagnosis, patientId } = chartData || {};
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
-  const [orderDx, setOrderDx] = useState<DiagnosisDTO[]>(primaryDiagnosis ? [primaryDiagnosis] : []);
 
+  const [orderDx, setOrderDx] = useState<DiagnosisDTO[]>(primaryDiagnosis ? [primaryDiagnosis] : []);
   const [locations, setLocations] = useState<Location[]>([]);
   const [selectedOffice, setSelectedOffice] = useState<Location | undefined>(locationInState);
+  const [selectedLab, setSelectedLab] = useState<OrderableItemSearchResult | null>(null);
+  const [pscHold, setPscHold] = useState<boolean>(true); // defaulting & locking to true for mvp
+  const [coverage, setCoverage] = useState<Coverage | undefined>(undefined);
 
+  // used to fetch dx icd10 codes
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'ICD10CM' });
   const icdSearchOptions = data?.codes || [];
@@ -86,12 +85,6 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
 
   useEffect(() => {
     async function getLocationsResults(oystehr: Oystehr): Promise<void> {
-      if (!oystehr) {
-        return;
-      }
-
-      setLoadingState(LoadingState.loading);
-
       try {
         let locationsResults = (
           await oystehr.fhir.search<Location>({
@@ -103,15 +96,33 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
         setLocations(locationsResults);
       } catch (e) {
         console.error('error loading locations', e);
-      } finally {
-        setLoadingState(LoadingState.loaded);
       }
     }
 
-    if (oystehr && loadingState === LoadingState.initial) {
-      void getLocationsResults(oystehr);
+    async function getPatientCoverage(oystehr: Oystehr): Promise<void> {
+      try {
+        const coverageResults = (
+          await oystehr.fhir.search<Coverage>({
+            resourceType: 'Coverage',
+            params: [{ name: 'patient', value: `Patient/${patientId}` }],
+          })
+        ).unbundle();
+        // todo is there a way to confirm primary?
+        // todo should probably display all of them?
+        setCoverage(coverageResults[0]);
+      } catch (e) {
+        console.error('error loading locations', e);
+      }
     }
-  }, [oystehr, loadingState]);
+
+    if (patientId && oystehr && loadingState === LoadingState.initial) {
+      setLoadingState(LoadingState.loading);
+
+      Promise.all([getLocationsResults(oystehr), getPatientCoverage(oystehr)]).finally(() =>
+        setLoadingState(LoadingState.loaded)
+      );
+    }
+  }, [patientId, oystehr, loadingState]);
 
   const officeOptions = useMemo(() => {
     const allLocations = locations.map((location) => {
@@ -120,6 +131,16 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
 
     return sortLocationsByLabel(allLocations as { label: string; value: string }[]);
   }, [locations]);
+
+  const coverageName = useMemo(() => {
+    if (!coverage) return;
+    const isSelfPay = !!coverage.type?.coding?.find((coding) => coding.system === SELF_PAY_CODING.system);
+    if (isSelfPay) return 'Self Pay'; // todo check that this is implemented / or being implmented
+    const coveragePlanClass = coverage.class?.find(
+      (c) => c.type.coding?.find((code) => code.system === CODE_SYSTEM_COVERAGE_CLASS)
+    );
+    return coveragePlanClass?.name;
+  }, [coverage]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
