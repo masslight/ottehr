@@ -131,7 +131,7 @@ describe('Harvest Module Integration Tests', () => {
     // Add your test code here
     expect(true).toBe(true);
   });
-  it('should create an account with two associated coverages from the base sample QR', async () => {
+  /*it('should create an account with two associated coverages from the base sample QR', async () => {
 
-  });
+  });*/
 });
