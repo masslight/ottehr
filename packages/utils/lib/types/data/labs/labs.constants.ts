@@ -1,5 +1,3 @@
-// todo review and agree upon the below
-
 export const PSC_HOLD_CONFIG = {
   system: 'psc-hold-identifier',
   code: 'psc-hold',

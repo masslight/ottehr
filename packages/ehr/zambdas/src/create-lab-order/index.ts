@@ -23,6 +23,7 @@ import {
   FhirResource,
   Coverage,
   ActivityDefinition,
+  Patient,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { BatchInputRequest, Bundle } from '@oystehr/sdk';
@@ -311,7 +312,7 @@ const getAdditionalResources = async (
     method: 'GET',
     url: `/ActivityDefinition?name=${orderableItem.item.uniqueName}&publisher=${orderableItem.lab.labName}&version=${orderableItem.lab.compendiumVersion}`,
   };
-  const encounterResourceSearch: BatchInputRequest<Coverage> = {
+  const encounterResourceSearch: BatchInputRequest<Patient | Location | Coverage> = {
     method: 'GET',
     url: `/Encounter?_id=${encounter.id}&_include=Encounter:patient&_include=Encounter:location&_revinclude:iterate=Coverage:patient`,
   };
