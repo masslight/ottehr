@@ -10,7 +10,7 @@ import {
 import { getFirstName, getLastName, getPronounsFromExtension, PRIVATE_EXTENSION_BASE_URL } from '../../fhir';
 import { DateTime } from 'luxon';
 import { formatPhoneNumberDisplay } from '../helpers';
-import { PRACTICE_NAME_URL } from '../../types';
+import { DATE_OF_BIRTH_URL, PRACTICE_NAME_URL } from '../../types';
 
 interface PrepopulationInput {
   patient: Patient;
@@ -62,6 +62,15 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
   const pronouns = getPronounsFromExtension(patient);
   const language = patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0].display;
 
+  let patientSex: string | undefined;
+  if (patient?.gender === 'male') {
+    patientSex = 'Male';
+  } else if (patient?.gender === 'female') {
+    patientSex = 'Female';
+  } else if (patient?.gender !== undefined) {
+    patientSex = 'Intersex';
+  }
+
   const pcp = patient.contained?.find(
     (resource): resource is Practitioner => resource.resourceType === 'Practitioner' && resource.active === true
   );
@@ -78,13 +87,40 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
     }
   }
 
-  let patientSex: string | undefined;
+  const responsibleParty = patient.contact?.find(
+    (contact) =>
+      contact.relationship?.some(
+        (rel) =>
+          rel.coding?.some(
+            (code) => code.system === 'http://terminology.hl7.org/CodeSystem/v2-0131' && code.code === 'BP'
+          )
+      )
+  );
+
+  const responsiblePartyRelationship = responsibleParty?.relationship?.find(
+    (rel) => rel.coding?.some((coding) => coding.system === 'http://hl7.org/fhir/relationship')
+  )?.coding?.[0].display;
+
+  const responsiblePartyFirstName = responsibleParty?.name?.given?.[0];
+  const responsiblePartyLastName = responsibleParty?.name?.family;
+  const responsiblePartyBirthDate = responsibleParty?.extension?.find((e) => e.url === DATE_OF_BIRTH_URL)?.valueString;
+
+  let responsiblePartySex: string | undefined;
   if (patient?.gender === 'male') {
-    patientSex = 'Male';
+    responsiblePartySex = 'Male';
   } else if (patient?.gender === 'female') {
-    patientSex = 'Female';
+    responsiblePartySex = 'Female';
   } else if (patient?.gender !== undefined) {
-    patientSex = 'Intersex';
+    responsiblePartySex = 'Intersex';
+  }
+  const responsiblePartyPhoneNumber = responsibleParty?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
+  let formattedResponsiblePartyPhoneNumber: string | undefined;
+  if (responsiblePartyPhoneNumber) {
+    try {
+      formattedResponsiblePartyPhoneNumber = formatPhoneNumberDisplay(responsiblePartyPhoneNumber.slice(-10));
+    } catch (e) {
+      console.log('unable to format phone number', responsiblePartyPhoneNumber);
+    }
   }
 
   console.log('patient info for prepop: ');
@@ -198,7 +234,36 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
             answer,
           };
         });
+      } else if (item.linkId === 'responsible-party-page') {
+        return itemItems.map((item) => {
+          let answer: QuestionnaireResponseItemAnswer[] | undefined;
+          const { linkId } = item;
+          if (linkId === 'responsible-party-relationship' && responsiblePartyRelationship) {
+            answer = makeAnswer(responsiblePartyRelationship);
+          }
+          if (linkId === 'responsible-party-first-name' && responsiblePartyFirstName) {
+            answer = makeAnswer(responsiblePartyFirstName);
+          }
+          if (linkId === 'responsible-party-last-name' && responsiblePartyLastName) {
+            answer = makeAnswer(responsiblePartyLastName);
+          }
+          if (linkId === 'responsible-party-date-of-birth' && responsiblePartyBirthDate) {
+            answer = makeAnswer(responsiblePartyBirthDate);
+          }
+          if (linkId === 'responsible-party-birth-sex' && responsiblePartySex) {
+            answer = makeAnswer(responsiblePartySex);
+          }
+          if (linkId === 'responsible-party-number' && formattedResponsiblePartyPhoneNumber) {
+            answer = makeAnswer(formattedResponsiblePartyPhoneNumber);
+          }
+
+          return {
+            linkId,
+            answer,
+          };
+        });
       }
+
       return [];
     })();
     return {
