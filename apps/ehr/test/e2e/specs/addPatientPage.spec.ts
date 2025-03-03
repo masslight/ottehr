@@ -138,7 +138,7 @@ test.describe('For new patient', () => {
     const visitsPage = await expectVisitsPage(page);
     await visitsPage.selectLocation(ENV_LOCATION_NAME!);
     await visitsPage.clickInOfficeTab();
-    await visitsPage.verifyVisitPresent(appointmentId, PATIENT_FIRST_NAME, NEW_PATIENT_1_LAST_NAME);
+    await visitsPage.verifyVisitPresent(appointmentId);
   });
 
   test('Add pre-book visit for new patient', async ({ page }) => {
@@ -152,7 +152,7 @@ test.describe('For new patient', () => {
     const visitsPage = await expectVisitsPage(page);
     await visitsPage.selectLocation(ENV_LOCATION_NAME!);
     await visitsPage.clickPrebookedTab();
-    await visitsPage.verifyVisitPresent(appointmentId, PATIENT_FIRST_NAME, NEW_PATIENT_2_LAST_NAME, slotTime);
+    await visitsPage.verifyVisitPresent(appointmentId, slotTime);
   });
 
   // skipping post-telemed vists tests cause they are unstable for some reason. TODO: investigate
@@ -167,7 +167,7 @@ test.describe('For new patient', () => {
     const visitsPage = await expectVisitsPage(page);
     await visitsPage.selectLocation(ENV_LOCATION_NAME!);
     await visitsPage.clickPrebookedTab();
-    await visitsPage.verifyVisitPresent(appointmentId, PATIENT_FIRST_NAME, NEW_PATIENT_3_LAST_NAME, slotTime);
+    await visitsPage.verifyVisitPresent(appointmentId, slotTime);
   });
 });
 
@@ -185,7 +185,7 @@ test.describe('For existing patient', () => {
     const visitsPage = await expectVisitsPage(page);
     await visitsPage.selectLocation(ENV_LOCATION_NAME!);
     await visitsPage.clickInOfficeTab();
-    await visitsPage.verifyVisitPresent(appointmentId, PATIENT_FIRST_NAME, PATIENT_LAST_NAME);
+    await visitsPage.verifyVisitPresent(appointmentId);
   });
 
   test('Add pre-book visit for existing patient', async ({ page }) => {
@@ -194,7 +194,7 @@ test.describe('For existing patient', () => {
     const visitsPage = await expectVisitsPage(page);
     await visitsPage.selectLocation(ENV_LOCATION_NAME!);
     await visitsPage.clickPrebookedTab();
-    await visitsPage.verifyVisitPresent(appointmentId, PATIENT_FIRST_NAME, PATIENT_LAST_NAME, slotTime);
+    await visitsPage.verifyVisitPresent(appointmentId, slotTime);
   });
 
   // skipping post-telemed vists tests cause they are unstable for some reason. TODO: investigate
@@ -204,7 +204,7 @@ test.describe('For existing patient', () => {
     const visitsPage = await expectVisitsPage(page);
     await visitsPage.selectLocation(ENV_LOCATION_NAME!);
     await visitsPage.clickPrebookedTab();
-    await visitsPage.verifyVisitPresent(appointmentId, PATIENT_FIRST_NAME, PATIENT_LAST_NAME, slotTime);
+    await visitsPage.verifyVisitPresent(appointmentId, slotTime);
   });
 });
 

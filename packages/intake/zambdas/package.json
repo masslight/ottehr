@@ -1,6 +1,6 @@
 {
   "name": "intake-zambdas",
-  "version": "1.2.5",
+  "version": "1.2.7",
   "private": true,
   "scripts": {
     "start": "npm run start:local",

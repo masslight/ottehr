@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Address, Appointment, Location, Patient, Practitioner, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { isLocationVirtual } from '../fhir';
@@ -20,6 +19,7 @@ import {
   getResponsiblePartyStepAnswers,
   isoToDateObject,
 } from './helpers';
+import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
 
 interface AppointmentData {
   firstNames?: string[];
@@ -92,17 +92,23 @@ const DEFAULT_REASONS_FOR_VISIT = [
   'Eye concern',
 ];
 
-export const createSamplePrebookAppointments = async (
-  oystehr: Oystehr | undefined,
-  authToken: string,
-  phoneNumber: string,
-  createAppointmentZambdaId: string,
-  // submitPaperworkZambdaId: string,
-  islocal: boolean,
-  intakeZambdaUrl: string,
-  selectedLocationId?: string,
-  demoData?: DemoAppointmentData
-): Promise<CreateAppointmentResponse | null> => {
+export const createSamplePrebookAppointments = async ({
+  oystehr,
+  authToken,
+  phoneNumber,
+  createAppointmentZambdaId,
+  intakeZambdaUrl,
+  selectedLocationId,
+  demoData,
+}: {
+  oystehr: Oystehr | undefined;
+  authToken: string;
+  phoneNumber: string;
+  createAppointmentZambdaId: string;
+  intakeZambdaUrl: string;
+  selectedLocationId?: string;
+  demoData?: DemoAppointmentData;
+}): Promise<CreateAppointmentResponse | null> => {
   if (!oystehr) {
     console.log('oystehr client is not defined');
     return null;
@@ -139,12 +145,13 @@ export const createSamplePrebookAppointments = async (
         body: JSON.stringify(randomPatientInfo),
       });
 
-      appointmentData = islocal
-        ? await createAppointmentResponse.json()
-        : (await createAppointmentResponse.json()).output;
+      appointmentData = await createAppointmentResponse.json();
 
-      const appointmentId = appointmentData.appointment;
-      const questionnaireResponseId = appointmentData.questionnaireResponseId;
+      if ((appointmentData as any)?.output) {
+        appointmentData = (appointmentData as any).output as CreateAppointmentResponse;
+      }
+
+      const { appointment: appointmentId, questionnaireResponseId } = appointmentData;
 
       const birthDate = isoToDateObject(randomPatientInfo?.patient?.dateOfBirth || '');
 

@@ -1028,3 +1028,12 @@ export function flattenBundleResources(searchResults: Bundle<FhirResource>): Fhi
 
   return flattenedResources;
 }
+
+export function slashPathToLodashPath(slashPath: string): string {
+  return slashPath
+    .split('/')
+    .filter(Boolean)
+    .map((key) => (isNaN(Number(key)) ? key : `[${key}]`))
+    .join('.')
+    .replace(/\.\[/g, '[');
+}

@@ -167,16 +167,25 @@ const generateRandomPatientInfo = async (
   };
 };
 
-export const createSampleTelemedAppointments = async (
-  oystehr: Oystehr | undefined,
-  authToken: string,
-  phoneNumber: string,
-  createAppointmentZambdaId: string,
-  islocal: boolean,
-  intakeZambdaUrl: string,
-  selectedLocationId?: string,
-  demoData?: DemoAppointmentData
-): Promise<CreateAppointmentUCTelemedResponse | null> => {
+export const createSampleTelemedAppointments = async ({
+  oystehr,
+  authToken,
+  phoneNumber,
+  createAppointmentZambdaId,
+  islocal,
+  intakeZambdaUrl,
+  selectedLocationId,
+  demoData,
+}: {
+  oystehr: Oystehr | undefined;
+  authToken: string;
+  phoneNumber: string;
+  createAppointmentZambdaId: string;
+  islocal: boolean;
+  intakeZambdaUrl: string;
+  selectedLocationId?: string;
+  demoData?: DemoAppointmentData;
+}): Promise<CreateAppointmentUCTelemedResponse | null> => {
   if (!oystehr) {
     console.log('oystehr client is not defined');
     return null;
