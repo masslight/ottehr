@@ -1,5 +1,6 @@
 import {
   Patient,
+  Practitioner,
   Questionnaire,
   QuestionnaireItem,
   QuestionnaireResponseItem,
@@ -9,6 +10,7 @@ import {
 import { getFirstName, getLastName, getPronounsFromExtension, PRIVATE_EXTENSION_BASE_URL } from '../../fhir';
 import { DateTime } from 'luxon';
 import { formatPhoneNumberDisplay } from '../helpers';
+import { PRACTICE_NAME_URL } from '../../types';
 
 interface PrepopulationInput {
   patient: Patient;
@@ -59,6 +61,22 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
 
   const pronouns = getPronounsFromExtension(patient);
   const language = patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0].display;
+
+  const pcp = patient.contained?.find(
+    (resource): resource is Practitioner => resource.resourceType === 'Practitioner' && resource.active === true
+  );
+  const pcpPractice = pcp?.extension?.find((e) => e.url === PRACTICE_NAME_URL)?.valueString;
+  const pcpAddress = pcp?.address?.[0]?.line?.[0];
+  const pcpPhoneNumber = pcp?.telecom?.[0]?.value;
+
+  let formattedPcpPhoneNumber: string | undefined;
+  if (pcpPhoneNumber) {
+    try {
+      formattedPcpPhoneNumber = formatPhoneNumberDisplay(pcpPhoneNumber.slice(-10));
+    } catch (e) {
+      console.log('unable to format phone number', pcpPhoneNumber);
+    }
+  }
 
   let patientSex: string | undefined;
   if (patient?.gender === 'male') {
@@ -148,6 +166,31 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
           }
           if (linkId === 'patient-race' && patientRace) {
             answer = makeAnswer(patientRace);
+          }
+
+          return {
+            linkId,
+            answer,
+          };
+        });
+      } else if (item.linkId === 'primary-care-physician-page') {
+        return itemItems.map((item) => {
+          let answer: QuestionnaireResponseItemAnswer[] | undefined;
+          const { linkId } = item;
+          if (linkId === 'pcp-first' && pcp) {
+            answer = makeAnswer(getFirstName(pcp) ?? '');
+          }
+          if (linkId === 'pcp-last' && pcp) {
+            answer = makeAnswer(getLastName(pcp) ?? '');
+          }
+          if (linkId === 'pcp-practice' && pcpPractice) {
+            answer = makeAnswer(pcpPractice);
+          }
+          if (linkId === 'pcp-address' && pcpAddress) {
+            answer = makeAnswer(pcpAddress);
+          }
+          if (linkId === 'pcp-number' && formattedPcpPhoneNumber) {
+            answer = makeAnswer(formattedPcpPhoneNumber);
           }
 
           return {
