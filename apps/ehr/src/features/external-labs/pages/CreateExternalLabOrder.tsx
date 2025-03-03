@@ -21,16 +21,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppointmentStore, useGetIcd10Search, useDebounce, ActionsList, DeleteIconButton } from '../../../telemed';
 import { getSelectors } from '../../../shared/store/getSelectors';
-import {
-  DiagnosisDTO,
-  isLocationVirtual,
-  OrderableItemSearchResult,
-  SELF_PAY_CODING,
-  CODE_SYSTEM_COVERAGE_CLASS,
-} from 'utils';
+import { DiagnosisDTO, OrderableItemSearchResult, SELF_PAY_CODING, CODE_SYSTEM_COVERAGE_CLASS } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { Location, Coverage } from 'fhir/r4b';
-import { sortLocationsByLabel } from '../../../helpers';
+import { Coverage } from 'fhir/r4b';
 import useEvolveUser from '../../../hooks/useEvolveUser';
 import Oystehr from '@oystehr/sdk';
 import { LabsAutocomplete } from '../components/LabsAutocomplete';
@@ -56,18 +49,15 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  const {
-    chartData,
-    location: locationInState,
-    encounter,
-    appointment,
-  } = getSelectors(useAppointmentStore, ['chartData', 'location', 'encounter', 'appointment']);
+  const { chartData, encounter, appointment } = getSelectors(useAppointmentStore, [
+    'chartData',
+    'encounter',
+    'appointment',
+  ]);
   const { diagnosis, patientId } = chartData || {};
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
 
   const [orderDx, setOrderDx] = useState<DiagnosisDTO[]>(primaryDiagnosis ? [primaryDiagnosis] : []);
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [selectedOffice, setSelectedOffice] = useState<Location | undefined>(locationInState);
   const [selectedLab, setSelectedLab] = useState<OrderableItemSearchResult | null>(null);
   const [pscHold, setPscHold] = useState<boolean>(true); // defaulting & locking to true for mvp
   const [coverage, setCoverage] = useState<Coverage | undefined>(undefined);
@@ -84,22 +74,8 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   };
 
   useEffect(() => {
-    async function getLocationsResults(oystehr: Oystehr): Promise<void> {
-      try {
-        let locationsResults = (
-          await oystehr.fhir.search<Location>({
-            resourceType: 'Location',
-            params: [{ name: '_count', value: '1000' }],
-          })
-        ).unbundle();
-        locationsResults = locationsResults.filter((loc) => !isLocationVirtual(loc));
-        setLocations(locationsResults);
-      } catch (e) {
-        console.error('error loading locations', e);
-      }
-    }
-
     async function getPatientCoverage(oystehr: Oystehr): Promise<void> {
+      setLoadingState(LoadingState.loading);
       try {
         const coverageResults = (
           await oystehr.fhir.search<Coverage>({
@@ -111,25 +87,15 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
         setCoverage(coverageResults[0]);
       } catch (e) {
         console.error('error loading locations', e);
+      } finally {
+        setLoadingState(LoadingState.loaded);
       }
     }
 
     if (patientId && oystehr && loadingState === LoadingState.initial) {
-      setLoadingState(LoadingState.loading);
-
-      Promise.all([getLocationsResults(oystehr), getPatientCoverage(oystehr)]).finally(() =>
-        setLoadingState(LoadingState.loaded)
-      );
+      void getPatientCoverage(oystehr);
     }
   }, [patientId, oystehr, loadingState]);
-
-  const officeOptions = useMemo(() => {
-    const allLocations = locations.map((location) => {
-      return { label: `${location.address?.state?.toUpperCase()} - ${location.name}`, value: location.id };
-    });
-
-    return sortLocationsByLabel(allLocations as { label: string; value: string }[]);
-  }, [locations]);
 
   const coverageName = useMemo(() => {
     if (!coverage) return;
@@ -144,7 +110,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setSubmitting(true);
-    const paramsSatisfied = orderDx.length && patientId && selectedOffice && practitionerId && selectedLab && coverage;
+    const paramsSatisfied = orderDx.length && patientId && practitionerId && selectedLab && coverage;
     if (oystehrZambda && paramsSatisfied) {
       try {
         await createLabOrder(oystehrZambda, {
@@ -165,7 +131,6 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       const errorMessage = [];
       if (!orderDx.length) errorMessage.push('Please enter at least one dx');
       if (!coverage) errorMessage.push('Patient insurance is missing, you cannot submit a lab order without one');
-      if (!selectedOffice) errorMessage.push('Please enter an office');
       if (!selectedLab) errorMessage.push('Please select a lab to order');
       if (errorMessage.length === 0) errorMessage.push('There was an error ordering this lab');
       setError(errorMessage);
@@ -284,32 +249,6 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                   </Box>
                 </Grid>
               )}
-              <Grid item xs={12}>
-                <Typography variant="h6" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
-                  Office
-                </Typography>
-                <Box sx={{ paddingTop: '8px' }}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel id="select-office-label">Office</InputLabel>
-                    <Select
-                      required
-                      labelId="select-office-label"
-                      id="select-office"
-                      label="Office"
-                      value={selectedOffice?.id || ''}
-                      onChange={(e) =>
-                        setSelectedOffice(() => locations.find((locationTemp) => locationTemp.id === e.target.value))
-                      }
-                    >
-                      {officeOptions.map((d) => (
-                        <MenuItem id={d.value} key={d.value} value={d.value}>
-                          {d.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Box>
-              </Grid>
               <Grid item xs={12}>
                 <Typography variant="h6" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
                   Patient insurance
