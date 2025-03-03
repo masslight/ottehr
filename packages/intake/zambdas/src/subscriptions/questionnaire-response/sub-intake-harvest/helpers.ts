@@ -88,8 +88,8 @@ import {
   deduplicateIdentifiers,
   deduplicateObjectsByStrictKeyValEquality,
   flattenItems,
-  getPatchOperationToAddOrUpdateResponsiblePartyRelationship,
-  RelationshipOption,
+  deduplicateUnbundledResources,
+  takeContainedOrFind,
 } from 'utils';
 import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 import { createOrUpdateFlags } from '../../../paperwork/sharedHelpers';
@@ -1141,14 +1141,13 @@ interface MasterRecordPatchOperations {
 
 export interface PatientMasterRecordResources {
   patient: Patient;
-  relatedPersons?: RelatedPerson[];
-  coverages?: Coverage[];
+  //relatedPersons?: RelatedPerson[];
+  //coverages?: Coverage[];
 }
 
 export function createMasterRecordPatchOperations(
   questionnaireResponse: QuestionnaireResponse,
-  resources: PatientMasterRecordResources,
-  insurancePlanResources: InsurancePlan[]
+  patient: Patient
 ): MasterRecordPatchOperations {
   const flattenedPaperwork = flattenIntakeQuestionnaireItems(
     questionnaireResponse.item as IntakeQuestionnaireItem[]
@@ -1196,7 +1195,7 @@ export function createMasterRecordPatchOperations(
           const operation = createPatchOperationForTelecom(
             value as string | boolean,
             contactTelecomConfig,
-            resources.patient,
+            patient,
             path
           );
           if (operation) tempOperations.patient.push(operation);
@@ -1206,19 +1205,15 @@ export function createMasterRecordPatchOperations(
         // Handle extensions
         if (path.startsWith('/extension/')) {
           const url = path.replace('/extension/', '');
-          const currentValue = getCurrentValue(resources.patient, path);
+          const currentValue = getCurrentValue(patient, path);
           if (value !== currentValue) {
             let operation: Operation | undefined;
             if (value === '') {
               if (currentValue !== undefined && currentValue !== null) {
-                operation = getPatchOperationToRemoveExtension(resources.patient, { url });
+                operation = getPatchOperationToRemoveExtension(patient, { url });
               }
             } else {
-              operation = getPatchOperationToAddOrUpdateExtension(
-                resources.patient,
-                { url, value: String(value) },
-                currentValue
-              );
+              operation = getPatchOperationToAddOrUpdateExtension(patient, { url, value: String(value) }, currentValue);
             }
             if (operation) tempOperations.patient.push(operation);
           }
@@ -1227,41 +1222,13 @@ export function createMasterRecordPatchOperations(
 
         // Special handler for preferred-language
         if (item.linkId === 'preferred-language') {
-          const currentValue = resources.patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0]
-            .display;
+          const currentValue = patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0].display;
           if (value !== currentValue) {
             const operation = getPatchOperationToAddOrUpdatePreferredLanguage(
               value as LanguageOption,
               path,
-              resources.patient,
+              patient,
               currentValue as LanguageOption
-            );
-
-            if (operation) tempOperations.patient.push(operation);
-          }
-          return;
-        }
-
-        // Special handler for responsible-party-relationship
-        if (item.linkId === 'responsible-party-relationship') {
-          const responsiblePartyContact = resources.patient.contact?.find(
-            (contact) =>
-              contact.relationship?.some(
-                (rel) =>
-                  rel.coding?.some(
-                    (code) => code.system === 'http://terminology.hl7.org/CodeSystem/v2-0131' && code.code === 'BP'
-                  )
-              )
-          );
-          const currentValue = responsiblePartyContact?.relationship?.find(
-            (rel) => rel.coding?.some((coding) => coding.system === 'http://hl7.org/fhir/relationship')
-          )?.coding?.[0].display;
-
-          if (value !== currentValue) {
-            const operation = getPatchOperationToAddOrUpdateResponsiblePartyRelationship(
-              value as RelationshipOption,
-              path,
-              currentValue as RelationshipOption
             );
 
             if (operation) tempOperations.patient.push(operation);
@@ -1272,7 +1239,7 @@ export function createMasterRecordPatchOperations(
         // Handle array fields
         const { isArray, parentPath } = getArrayInfo(path);
         if (isArray) {
-          const effectiveArrayValue = getEffectiveValue(resources.patient, parentPath, tempOperations.patient);
+          const effectiveArrayValue = getEffectiveValue(patient, parentPath, tempOperations.patient);
           const arrayMatch = path.match(/^(.+)\/(\d+)$/);
 
           if (arrayMatch) {
@@ -1311,7 +1278,7 @@ export function createMasterRecordPatchOperations(
         // Special handler for responsible-party-date-of-birth
         if (item.linkId === 'responsible-party-date-of-birth') {
           const url = DATE_OF_BIRTH_URL;
-          const currentValue = getCurrentValue(resources.patient, path);
+          const currentValue = getCurrentValue(patient, path);
           if (value !== currentValue) {
             tempOperations.patient.push({
               op: 'add',
@@ -1329,7 +1296,7 @@ export function createMasterRecordPatchOperations(
         // Special handler for practice-name
         if (item.linkId === 'pcp-practice') {
           const url = PRACTICE_NAME_URL;
-          const currentValue = getCurrentValue(resources.patient, path);
+          const currentValue = getCurrentValue(patient, path);
           if (value !== currentValue) {
             tempOperations.patient.push({
               op: 'add',
@@ -1346,57 +1313,10 @@ export function createMasterRecordPatchOperations(
         }
 
         // Handle regular fields
-        const currentValue = getCurrentValue(resources.patient, path);
+        const currentValue = getCurrentValue(patient, path);
         if (value !== currentValue) {
           const operation = createBasicPatchOperation(value, path, currentValue);
           if (operation) tempOperations.patient.push(operation);
-        }
-        break;
-      }
-
-      case 'Coverage': {
-        const coverage = resources.coverages && findRelevantCoverage(resources.coverages, item);
-
-        if (coverage) {
-          const currentValue = getCurrentValue(coverage, path);
-          const operations: (Operation | undefined)[] = [];
-
-          if (baseFieldId === 'insurance-carrier') {
-            if ((value as Reference).display !== currentValue) {
-              operations.push(createBasicPatchOperation((value as Reference).display!, path, currentValue));
-            }
-            const insurancePlanId = (value as Reference).reference?.split('/')?.[1];
-            const payor = insurancePlanResources.find((insurancePlan) => insurancePlan.id === insurancePlanId)?.ownedBy
-              ?.reference;
-            if (payor != null) {
-              operations.push(createBasicPatchOperation(payor, '/payor/0/reference', coverage.payor?.[0].reference));
-            }
-          } else if (value !== currentValue) {
-            operations.push(createBasicPatchOperation(value, path, currentValue));
-          }
-
-          operations.forEach((operation) => {
-            if (operation) {
-              tempOperations.coverage[coverage.id!] = tempOperations.coverage[coverage.id!] || [];
-              tempOperations.coverage[coverage.id!].push(operation);
-            }
-          });
-        }
-        break;
-      }
-
-      case 'RelatedPerson': {
-        const relatedPerson = findRelevantRelatedPerson(resources, item);
-
-        if (relatedPerson) {
-          const currentValue = getCurrentValue(relatedPerson, path);
-          if (value !== currentValue) {
-            const operation = createBasicPatchOperation(value, path, currentValue);
-            if (operation) {
-              tempOperations.relatedPerson[relatedPerson.id!] = tempOperations.relatedPerson[relatedPerson.id!] || [];
-              tempOperations.relatedPerson[relatedPerson.id!].push(operation);
-            }
-          }
         }
         break;
       }
@@ -1405,31 +1325,9 @@ export function createMasterRecordPatchOperations(
 
   // Separate operations for each resource
   // Separate Patient operations
-  result.patient = separateResourceUpdates(tempOperations.patient, resources.patient, 'Patient');
-  result.patient.patchOpsForDirectUpdate = addAuxiliaryPatchOperations(
-    result.patient.patchOpsForDirectUpdate,
-    resources.patient
-  );
-  result.patient.patchOpsForDirectUpdate = consolidateOperations(
-    result.patient.patchOpsForDirectUpdate,
-    resources.patient
-  );
-
-  // Separate Coverage operations
-  Object.entries(tempOperations.coverage).forEach(([coverageId, ops]) => {
-    const coverage = resources.coverages?.find((c) => c.id === coverageId);
-    if (coverage) {
-      result.coverage[coverageId] = separateResourceUpdates(ops, coverage, 'Coverage');
-    }
-  });
-
-  // Separate RelatedPerson operations
-  Object.entries(tempOperations.relatedPerson).forEach(([relatedPersonId, ops]) => {
-    const relatedPerson = resources.relatedPersons?.find((rp) => rp.id === relatedPersonId);
-    if (relatedPerson) {
-      result.relatedPerson[relatedPersonId] = separateResourceUpdates(ops, relatedPerson, 'RelatedPerson');
-    }
-  });
+  result.patient = separateResourceUpdates(tempOperations.patient, patient, 'Patient');
+  result.patient.patchOpsForDirectUpdate = addAuxiliaryPatchOperations(result.patient.patchOpsForDirectUpdate, patient);
+  result.patient.patchOpsForDirectUpdate = consolidateOperations(result.patient.patchOpsForDirectUpdate, patient);
 
   return result;
 }
@@ -1482,35 +1380,6 @@ function createBasicPatchOperation(
     path,
     value,
   };
-}
-
-function findRelevantCoverage(coverages: Coverage[], item: QuestionnaireResponseItem): Coverage | undefined {
-  let order: number;
-  if (item.linkId.endsWith('-2')) {
-    order = 2;
-  } else {
-    order = 1;
-  }
-
-  return coverages.find((c) => c.order === order);
-}
-
-function findRelevantRelatedPerson(
-  resources: PatientMasterRecordResources,
-  item: QuestionnaireResponseItem
-): RelatedPerson | undefined {
-  let order: number;
-  if (item.linkId.endsWith('-2')) {
-    order = 2;
-  } else {
-    order = 1;
-  }
-
-  const coverage = resources.coverages?.find((c) => c.order === order);
-  if (!coverage?.policyHolder?.reference) return undefined;
-
-  const relatedPersonId = coverage.policyHolder.reference.replace('RelatedPerson/', '');
-  return resources.relatedPersons?.find((rp) => rp.id === relatedPersonId);
 }
 
 function extractValueFromItem(
@@ -1644,12 +1513,6 @@ function getFieldNameWithResource(
   switch (resourceType) {
     case 'Patient':
       resource = resources.patient;
-      break;
-    case 'Coverage':
-      resource = resources.coverages?.find((c) => c.id === resourceId);
-      break;
-    case 'RelatedPerson':
-      resource = resources.relatedPersons?.find((rp) => rp.id === resourceId);
       break;
   }
 
@@ -2115,6 +1978,10 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     organizationResources,
     existingAccount,
   } = input;
+
+  if (!patient.id) {
+    throw new Error('Patient resource must have an id');
+  }
 
   const flattenedItems = flattenItems(questionnaireResponseItem ?? []);
 
@@ -2774,4 +2641,147 @@ const replaceCurrentGuarantor = (
     }
     return guarantor;
   });
+};
+
+/*
+export interface GetAccountOperationsInput {
+  patient: Patient;
+  questionnaireResponseItem: QuestionnaireResponse['item'];
+  insurancePlanResources: InsurancePlan[];
+  organizationResources: Organization[];
+  existingCoverages: OrderedCoveragesWithSubscribers;
+  existingGuarantorResource?: RelatedPerson | Patient;
+  existingAccount?: Account;
+}
+
+
+*/
+
+type UnbundledAccountResources = (Account | Coverage | RelatedPerson | Patient)[];
+interface UnbundledAccountResourceWithInsuranceResources {
+  patient: Patient;
+  resources: UnbundledAccountResources;
+}
+// this function is exported for testing purposes
+export const getCoverageUpdateResourcesFromUnbundled = (
+  input: UnbundledAccountResourceWithInsuranceResources
+): Omit<
+  GetAccountOperationsInput,
+  'questionnaireResponseItem' | 'insurancePlanResources' | 'organizationResources'
+> => {
+  const { patient, resources: unfilteredResources } = input;
+  const resources = deduplicateUnbundledResources(unfilteredResources);
+  const accountResources = resources.filter((res): res is Account => res.resourceType === 'Account');
+  const coverageResources = resources.filter((res): res is Coverage => res.resourceType === 'Coverage');
+
+  let existingAccount: Account | undefined;
+  let existingGuarantorResource: RelatedPerson | Patient | undefined;
+
+  if (accountResources.length >= 0) {
+    existingAccount = accountResources[0];
+  }
+
+  const existingCoverages: OrderedCoveragesWithSubscribers = {};
+  if (existingAccount) {
+    const guarantorReference = existingAccount.guarantor?.[0]?.party?.reference;
+    if (guarantorReference) {
+      existingGuarantorResource = takeContainedOrFind(guarantorReference, resources, existingAccount);
+    }
+    existingAccount.coverage?.forEach((cov) => {
+      const coverage = coverageResources.find((c) => c.id === cov.coverage?.reference?.split('/')[1]);
+      if (coverage) {
+        if (cov.priority === 1) {
+          existingCoverages.primary = coverage;
+        } else if (cov.priority === 2) {
+          existingCoverages.secondary = coverage;
+        }
+      }
+    });
+  } else {
+    // find the free-floating existing coverages
+    const primaryCoverages = coverageResources
+      .filter((cov) => cov.order === 1 && cov.status === 'active')
+      .sort((cova, covb) => {
+        const covALastUpdate = cova.meta?.lastUpdated;
+        const covBLastUpdate = covb.meta?.lastUpdated;
+        if (covALastUpdate && covBLastUpdate) {
+          const covALastUpdateDate = DateTime.fromISO(covALastUpdate);
+          const covBLastUpdateDate = DateTime.fromISO(covBLastUpdate);
+          if (covALastUpdateDate.isValid && covBLastUpdateDate.isValid) {
+            return covALastUpdateDate.diff(covBLastUpdateDate).milliseconds;
+          }
+        }
+        return 0;
+      });
+    const secondaryCoverages = coverageResources
+      .filter((cov) => cov.order === 2 && cov.status === 'active')
+      .sort((cova, covb) => {
+        const covALastUpdate = cova.meta?.lastUpdated;
+        const covBLastUpdate = covb.meta?.lastUpdated;
+        if (covALastUpdate && covBLastUpdate) {
+          const covALastUpdateDate = DateTime.fromISO(covALastUpdate);
+          const covBLastUpdateDate = DateTime.fromISO(covBLastUpdate);
+          if (covALastUpdateDate.isValid && covBLastUpdateDate.isValid) {
+            return covALastUpdateDate.diff(covBLastUpdateDate).milliseconds;
+          }
+        }
+        return 0;
+      });
+    const unknownOrderCoverages = coverageResources
+      .filter((cov) => !cov.order && cov.status === 'active')
+      .sort((cova, covb) => {
+        const covALastUpdate = cova.meta?.lastUpdated;
+        const covBLastUpdate = covb.meta?.lastUpdated;
+        if (covALastUpdate && covBLastUpdate) {
+          const covALastUpdateDate = DateTime.fromISO(covALastUpdate);
+          const covBLastUpdateDate = DateTime.fromISO(covBLastUpdate);
+          if (covALastUpdateDate.isValid && covBLastUpdateDate.isValid) {
+            return covALastUpdateDate.diff(covBLastUpdateDate).milliseconds;
+          }
+        }
+        return 0;
+      });
+
+    if (primaryCoverages.length) {
+      existingCoverages.primary = primaryCoverages[0];
+    }
+    if (secondaryCoverages.length) {
+      existingCoverages.secondary = secondaryCoverages[0];
+    }
+    // we'll use the first unknown order coverage as the primary only if no coverages with order populated exist
+    if (
+      existingCoverages.primary === undefined &&
+      existingCoverages.secondary === undefined &&
+      unknownOrderCoverages.length
+    ) {
+      existingCoverages.primary = unknownOrderCoverages[0];
+    }
+  }
+
+  const primarySubscriberReference = existingCoverages.primary?.subscriber?.reference;
+  if (primarySubscriberReference && existingCoverages.primary) {
+    existingCoverages.primarySubscriber = takeContainedOrFind(
+      primarySubscriberReference,
+      resources,
+      existingCoverages.primary
+    );
+  }
+
+  const secondarySubscriberReference = existingCoverages.secondary?.subscriber?.reference;
+  if (secondarySubscriberReference && existingCoverages.secondary) {
+    existingCoverages.secondarySubscriber = takeContainedOrFind(
+      secondarySubscriberReference,
+      resources,
+      existingCoverages.secondary
+    );
+  } else if (existingCoverages.secondary) {
+    existingCoverages.secondarySubscriber = existingCoverages.primarySubscriber!;
+  }
+
+  return {
+    patient,
+    existingAccount,
+    existingCoverages,
+    existingGuarantorResource,
+  };
 };

@@ -1,8 +1,8 @@
-import { BatchInputPostRequest } from '@oystehr/sdk';
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
+  Account,
   Appointment,
   Coverage,
   Encounter,
@@ -20,18 +20,17 @@ import '../../../../instrument.mjs';
 import { captureSentryException, configSentry, getAuth0Token } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';
 import {
-  createConflictResolutionTask,
   createConsentResources,
   createDocumentResources,
   createErxContactOperation,
-  createInsuranceResources,
   createMasterRecordPatchOperations,
   flagPaperworkEdit,
-  hasConflictingUpdates,
-  PatientMasterRecordResources,
+  getAccountOperations,
+  getCoverageUpdateResourcesFromUnbundled,
   searchInsuranceInformation,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+import { BatchInputRequest } from '@oystehr/sdk';
 
 let zapehrToken: string;
 
@@ -60,7 +59,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     console.time('querying for resources to support qr harvest');
     const resources = (
-      await oystehr.fhir.search<Encounter | Patient | Appointment | Location | Coverage | RelatedPerson | List>({
+      await oystehr.fhir.search<Encounter | Patient | Appointment | Location | RelatedPerson | List>({
         resourceType: 'Encounter',
         params: [
           {
@@ -81,14 +80,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
           },
           {
             name: '_revinclude:iterate',
-            value: 'Coverage:patient',
-          },
-          {
-            name: '_include:iterate',
-            value: 'Coverage:subscriber:RelatedPerson',
-          },
-          {
-            name: '_revinclude:iterate',
             value: 'List:patient',
           },
         ],
@@ -101,12 +92,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const listResources = resources.filter((res) => res.resourceType === 'List') as List[];
     const locationResource = resources.find((res) => res.resourceType === 'Location') as Location | undefined;
     const appointmentResource = resources.find((res) => res.resourceType === 'Appointment') as Appointment | undefined;
-    const coverageResources = resources
-      .filter((res): res is Coverage => res.resourceType === 'Coverage')
-      .filter((coverage) => coverage.status === 'active') as Coverage[];
-    const relatedPersonResources = resources.filter(
-      (res): res is RelatedPerson => res.resourceType === 'RelatedPerson'
-    );
+
     const paperwork = qr.item ?? [];
     const flattenedPaperwork = flattenIntakeQuestionnaireItems(
       paperwork as IntakeQuestionnaireItem[]
@@ -132,16 +118,17 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       (res): res is Organization => res.resourceType === 'Organization'
     );
 
-    const patientMasterRecordResources: PatientMasterRecordResources = {
+    /*const patientMasterRecordResources: PatientMasterRecordResources = {
       patient: patientResource,
       coverages: coverageResources,
       relatedPersons: relatedPersonResources,
     };
     console.log('Patient Master Record resources: ', JSON.stringify(patientMasterRecordResources, null, 2));
     console.log('Insurance information resources: ', JSON.stringify(insuranceInformationResources, null, 2));
+    */
 
     console.log('creating patch operations');
-    const patientPatchOps = createMasterRecordPatchOperations(qr, patientMasterRecordResources, insurancePlanResources);
+    const patientPatchOps = createMasterRecordPatchOperations(qr, patientResource);
 
     console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
 
@@ -160,40 +147,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     }
     console.timeEnd('patching patient resource');
 
-    console.time('patching coverages resources');
-    for (const [coverageId, ops] of Object.entries(patientPatchOps.coverage)) {
-      if (ops.patchOpsForDirectUpdate.length > 0) {
-        try {
-          await oystehr.fhir.patch({
-            resourceType: 'Coverage',
-            id: coverageId,
-            operations: ops.patchOpsForDirectUpdate,
-          });
-        } catch (error: unknown) {
-          tasksFailed.push('patch coverage');
-          console.log(`Failed to update Coverage: ${JSON.stringify(error)}`);
-        }
-      }
-    }
-    console.timeEnd('patching coverages resources');
-
-    console.time('patching policy holders resources');
-    for (const [relatedPersonId, ops] of Object.entries(patientPatchOps.relatedPerson)) {
-      if (ops.patchOpsForDirectUpdate.length > 0) {
-        try {
-          await oystehr.fhir.patch({
-            resourceType: 'RelatedPerson',
-            id: relatedPersonId,
-            operations: ops.patchOpsForDirectUpdate,
-          });
-        } catch (error: unknown) {
-          tasksFailed.push('patch policy holder');
-          console.log(`Failed to update RelatedPerson: ${JSON.stringify(error)}`);
-        }
-      }
-    }
-    console.timeEnd('patching policy holders resources');
-
+    /*
     if (hasConflictingUpdates(patientPatchOps)) {
       const task = createConflictResolutionTask(patientPatchOps, patientMasterRecordResources, qr.id);
       try {
@@ -204,45 +158,78 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         console.log(`Failed to create conflict review task: ${JSON.stringify(error)}`);
         throw new Error('Failed to create conflict review task');
       }
-    }
+    }*/
 
-    const newPatientMasterRecordResources = createInsuranceResources({
-      questionnaireResponse: qr,
-      resources: patientMasterRecordResources,
+    console.time('querying for Account and Coverage resources');
+    const accountAndCoverageResources = (
+      await oystehr.fhir.search<Account | Coverage | RelatedPerson | Patient>({
+        resourceType: 'Account',
+        params: [
+          {
+            name: 'patient._id',
+            value: patientResource.id,
+          },
+          {
+            name: 'status',
+            value: 'active',
+          },
+          {
+            name: '_include',
+            value: 'Account:patient',
+          },
+          {
+            name: '_revinclude:iterate',
+            value: 'RelatedPerson:patient',
+          },
+          {
+            name: '_revinclude:iterate',
+            value: 'Coverage:patient',
+          },
+          {
+            name: '_include:iterate',
+            value: 'Coverage:subscriber',
+          },
+        ],
+      })
+    ).unbundle();
+    console.timeEnd('querying for Account and Coverage resources');
+
+    console.log('creating account and coverage operations');
+    const { existingCoverages, existingAccount, existingGuarantorResource } = getCoverageUpdateResourcesFromUnbundled({
+      patient: patientResource,
+      resources: accountAndCoverageResources,
+    });
+
+    const accountOperations = getAccountOperations({
+      patient: patientResource,
+      questionnaireResponseItem: paperwork,
       insurancePlanResources,
       organizationResources,
+      existingCoverages,
+      existingAccount,
+      existingGuarantorResource,
     });
-    if (newPatientMasterRecordResources?.coverage?.length || newPatientMasterRecordResources?.relatedPerson?.length) {
-      console.time('creating insurance resources');
-      const newCoveragesRequests: BatchInputPostRequest<Coverage>[] = [];
-      for (const resource of newPatientMasterRecordResources.coverage ?? []) {
-        const writeCoverageReq: BatchInputPostRequest<Coverage> = {
-          method: 'POST',
-          url: '/Coverage',
-          resource: resource as Coverage,
-        };
-        newCoveragesRequests.push(writeCoverageReq);
-      }
-      const newRelatedPersonsRequests: BatchInputPostRequest<RelatedPerson>[] = [];
-      for (const resource of newPatientMasterRecordResources.relatedPerson ?? []) {
-        const writeRelatedPersonReq: BatchInputPostRequest<RelatedPerson> = {
-          method: 'POST',
-          url: '/RelatedPerson',
-          resource: resource as RelatedPerson,
-        };
-        newRelatedPersonsRequests.push(writeRelatedPersonReq);
-      }
-      try {
-        const response = await oystehr.fhir.batch<Coverage | RelatedPerson>({
-          requests: [...newCoveragesRequests, ...newRelatedPersonsRequests],
-        });
-        console.log('batch-response:', JSON.stringify(response));
-      } catch (error: unknown) {
-        tasksFailed.push('create insurance resources');
-        console.log(`Failed to create insurance resources: ${error}`);
-      }
-      console.timeEnd('creating insurance resources');
+
+    console.log('account and coverage operations created', JSON.stringify(accountOperations, null, 2));
+
+    const { patch, accountPost, coveragePosts } = accountOperations;
+    console.time('patching account resource');
+    const transactionRequests: BatchInputRequest<Account | RelatedPerson | Coverage>[] = [...coveragePosts, ...patch];
+    if (accountPost) {
+      transactionRequests.push({
+        url: '/Account',
+        method: 'POST',
+        resource: accountPost,
+      });
     }
+
+    try {
+      await oystehr.fhir.transaction({ requests: transactionRequests });
+    } catch (error: unknown) {
+      tasksFailed.push('patch account');
+      console.log(`Failed to update Account: ${JSON.stringify(error)}`);
+    }
+    console.timeEnd('patching account resource');
 
     const hipaa = flattenedPaperwork.find((data) => data.linkId === 'hipaa-acknowledgement')?.answer?.[0]?.valueBoolean;
     const consentToTreat = flattenedPaperwork.find((data) => data.linkId === 'consent-to-treat')?.answer?.[0]

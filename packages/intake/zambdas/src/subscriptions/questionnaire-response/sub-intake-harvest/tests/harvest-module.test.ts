@@ -1,7 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { describe, it, expect, assert } from 'vitest';
 import InPersonQuestionnaireFile from '../../../../../../../utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json';
-import VirtualIntakeQuestionnaireFile from '../../../../../../../utils/lib/deployed-resources/questionnaires/virtual-intake-questionnaire.json';
+// import VirtualIntakeQuestionnaireFile from '../../../../../../../utils/lib/deployed-resources/questionnaires/virtual-intake-questionnaire.json';
 import {
   getPatientAddressPatchOps,
   getPrimaryPolicyHolderFromAnswers,
@@ -14,6 +13,7 @@ import {
   createContainedGuarantor,
   getAccountOperations,
   GetAccountOperationsOutput,
+  getCoverageUpdateResourcesFromUnbundled,
 } from '../helpers';
 import {
   Account,
@@ -27,13 +27,10 @@ import {
 import { flattenItems } from '../../../../../../../utils/lib/helpers/paperwork/validation';
 import { COVERAGE_MEMBER_IDENTIFIER_BASE, isValidUUID } from 'utils';
 import { v4 as uuidv4 } from 'uuid';
-import { b } from 'vitest/dist/chunks/suite.BJU7kdY9';
 import { DateTime } from 'luxon';
-import { patient } from '../../../../../tests/appointment-validation.test';
 import { BatchInputJSONPatchRequest, BatchInputPostRequest } from '@oystehr/sdk';
 
 const InPersonQuestionnaire = InPersonQuestionnaireFile.resource;
-const VirtualIntakeQuestionnaire = VirtualIntakeQuestionnaireFile.resource;
 
 describe('Harvest Module', () => {
   const { orderedCoverages: coverageResources, accountCoverage } = getCoverageResources({
@@ -1900,7 +1897,6 @@ describe('Harvest Module', () => {
     });
   });
   describe('getAccountOperations', () => {
-    const patient = newPatient1;
     const questionnaireResponseItem = questionnaireResponse1.item;
     /*
     these optional params will be speficied in each test:
@@ -1909,6 +1905,7 @@ describe('Harvest Module', () => {
     existingGuarantorResource?: RelatedPerson | Patient;
     existingAccount?: Account;
     */
+    const patient = { ...newPatient1 };
     it('returns a well formulated post request for the new Account case', () => {
       const result = getAccountOperations({
         patient,
@@ -2160,7 +2157,7 @@ describe('Harvest Module', () => {
       });
       expect(result).toBeDefined();
       assert(result);
-      const { accountPost: post, patch, coveragePosts } = result;
+      const { accountPost: post, patch } = result;
       expect(post).toBeDefined();
       expect(post?.resourceType).toBe('Account');
       expect(post?.status).toBe('active');
@@ -2308,6 +2305,242 @@ describe('Harvest Module', () => {
       });
       expect(accountPatch3.op).toBe('replace');
       expect(accountPatch3.path).toBe('/coverage');
+    });
+  });
+  describe('translating query results into input for the account operations', () => {
+    const stubSecondaryCoverage: Coverage = {
+      resourceType: 'Coverage',
+      identifier: [
+        {
+          ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
+          value: 'fdfdfdfdfdfh7897',
+          assigner: {
+            reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884',
+            display: 'United Heartland',
+          },
+        },
+      ],
+      // contained: [expectedSecondaryPolicyHolderFromQR1],
+      status: 'active',
+      beneficiary: { reference: `Patient/${bundle1Patient}`, type: 'Patient' },
+      payor: [{ reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884' }],
+      subscriberId: 'fdfdfdfdfdfh7897',
+      subscriber: { reference: `RelatedPerson/${bundle1RP1.id}` },
+      relationship: {
+        coding: [
+          {
+            system: 'http://terminology.hl7.org/CodeSystem/subscriber-relationship',
+            code: 'child',
+            display: 'Child',
+          },
+        ],
+      },
+      class: [
+        {
+          name: 'United Heartland',
+          type: {
+            coding: [
+              {
+                code: 'plan',
+                system: 'http://terminology.hl7.org/CodeSystem/coverage-class',
+              },
+            ],
+          },
+          value: 'InsurancePlan/217badd9-ded4-4efa-91b9-10ab7cdcb8b8',
+        },
+      ],
+      type: {
+        coding: [
+          {
+            code: 'HIP',
+            system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+          },
+        ],
+      },
+    };
+    it('should have one existing coverage resource for an existing Account case with one primary coverage associated, and all the outher stuff should be right too', () => {
+      const inputs = getCoverageUpdateResourcesFromUnbundled({ patient: bundle1Patient, resources: bundle1 });
+      expect(inputs).toBeDefined();
+      expect(inputs.existingAccount).toBeDefined();
+      expect(inputs.existingAccount?.id).toBe(bundle1Account.id);
+      expect(inputs.existingAccount?.coverage).toBeDefined();
+      expect(inputs.existingAccount?.coverage?.length).toBe(1);
+      expect(inputs.existingCoverages).toBeDefined();
+      expect(inputs.existingCoverages?.primary).toBeDefined();
+      expect(inputs.existingCoverages?.primary?.id).toBe(bundle1Coverage.id);
+      expect(inputs.existingCoverages?.primary?.subscriber).toBeDefined();
+      expect(inputs.existingCoverages?.primary?.subscriber?.reference).toBe(`RelatedPerson/${bundle1RP1.id}`);
+      expect(inputs.existingCoverages?.primarySubscriber).toBeDefined();
+      expect(inputs.existingCoverages?.primarySubscriber?.id).toBe(bundle1RP1.id);
+      expect(inputs.existingCoverages.secondary).toBeUndefined();
+      expect(inputs.existingCoverages.secondarySubscriber).toBeUndefined();
+      expect(inputs.existingGuarantorResource).toBeDefined();
+      expect(bundle1.some((r) => r.id === inputs.existingGuarantorResource?.id)).toBe(false);
+      expect(`#${inputs.existingGuarantorResource?.id}`).toBe(inputs.existingAccount?.guarantor?.[0]?.party?.reference);
+      expect(inputs.existingGuarantorResource).toEqual(inputs.existingAccount?.contained?.[0]);
+    });
+    it('it should have primary and no secondary coverage when secondary coverage is added but is not associated with existing account', () => {
+      const secondaryCvg = { ...stubSecondaryCoverage, order: 2 };
+      const resources = [...bundle1, secondaryCvg];
+      const inputs = getCoverageUpdateResourcesFromUnbundled({ patient: bundle1Patient, resources });
+      expect(inputs).toBeDefined();
+      expect(inputs.existingAccount).toBeDefined();
+      expect(inputs.existingAccount?.id).toBe(bundle1Account.id);
+      expect(inputs.existingAccount?.coverage).toBeDefined();
+      expect(inputs.existingAccount?.coverage?.length).toBe(1);
+      expect(inputs.existingCoverages).toBeDefined();
+      expect(inputs.existingCoverages?.primary).toBeDefined();
+      expect(inputs.existingCoverages?.primary?.id).toBe(bundle1Coverage.id);
+      expect(inputs.existingCoverages?.primary?.subscriber).toBeDefined();
+      expect(inputs.existingCoverages?.primary?.subscriber?.reference).toBe(`RelatedPerson/${bundle1RP1.id}`);
+      expect(inputs.existingCoverages?.primarySubscriber).toBeDefined();
+      expect(inputs.existingCoverages?.primarySubscriber?.id).toBe(bundle1RP1.id);
+      expect(inputs.existingGuarantorResource).toBeDefined();
+      expect(bundle1.some((r) => r.id === inputs.existingGuarantorResource?.id)).toBe(false);
+      expect(`#${inputs.existingGuarantorResource?.id}`).toBe(inputs.existingAccount?.guarantor?.[0]?.party?.reference);
+      expect(inputs.existingGuarantorResource).toEqual(inputs.existingAccount?.contained?.[0]);
+
+      expect(inputs.existingCoverages.secondary).toBeUndefined();
+      expect(inputs.existingCoverages.secondarySubscriber).toBeUndefined();
+    });
+
+    it('it should have primary and secondary coverage when secondary coverage is added and there is no existing account', () => {
+      const secondaryCvg = { ...stubSecondaryCoverage, order: 2 };
+      let resources = [...bundle1, secondaryCvg].filter((r) => r.id !== bundle1Account.id);
+      let inputs = getCoverageUpdateResourcesFromUnbundled({ patient: bundle1Patient, resources });
+      expect(inputs).toBeDefined();
+      expect(inputs.existingCoverages).toBeDefined();
+      expect(inputs.existingCoverages?.primary).toBeDefined();
+      expect(inputs.existingCoverages?.primary?.id).toBe(bundle1Coverage.id);
+      expect(inputs.existingCoverages?.primary?.subscriber).toBeDefined();
+      expect(inputs.existingCoverages?.primary?.subscriber?.reference).toBe(`RelatedPerson/${bundle1RP1.id}`);
+      expect(inputs.existingCoverages?.primarySubscriber).toBeDefined();
+      expect(inputs.existingCoverages?.primarySubscriber?.id).toBe(bundle1RP1.id);
+
+      expect(inputs.existingCoverages.secondary).toBeDefined();
+      expect(inputs.existingCoverages.secondarySubscriber).toBeDefined();
+
+      // the same result basic result should obtain with primary/secondary flipped if the order is flipped on the Coverage resources
+
+      resources = resources.map((r) => {
+        const asAny = r as any;
+        if (asAny.order !== undefined && asAny.resourceType === 'Coverage') {
+          return {
+            ...asAny,
+            order: asAny.order === 2 ? 1 : 2,
+          };
+        }
+        return asAny;
+      });
+      inputs = getCoverageUpdateResourcesFromUnbundled({ patient: bundle1Patient, resources });
+      expect(inputs).toBeDefined();
+      expect(inputs.existingCoverages).toBeDefined();
+      expect(inputs.existingCoverages?.primary).toBeDefined();
+      expect(inputs.existingCoverages?.primary?.id).toBe(secondaryCvg.id);
+      expect(inputs.existingCoverages?.primary?.subscriber).toBeDefined();
+      expect(inputs.existingCoverages?.primary?.subscriber?.reference).toBe(`RelatedPerson/${bundle1RP1.id}`);
+      expect(inputs.existingCoverages?.primarySubscriber).toBeDefined();
+      expect(inputs.existingCoverages?.primarySubscriber?.id).toBe(bundle1RP1.id);
+
+      expect(inputs.existingCoverages.secondary).toBeDefined();
+      expect(inputs.existingCoverages.secondarySubscriber).toBeDefined();
+    });
+    it('it should have primary and secondary coverage when secondary coverage is added and there is no existing account and secondary coverage has a contained RP', () => {
+      const secondaryCvg = {
+        ...stubSecondaryCoverage,
+        subscriber: { reference: `#${expectedSecondaryPolicyHolderFromQR1.id}` },
+        contained: [expectedSecondaryPolicyHolderFromQR1],
+        order: 2,
+      };
+      let resources = [...bundle1, secondaryCvg].filter((r) => r.id !== bundle1Account.id);
+      let inputs = getCoverageUpdateResourcesFromUnbundled({ patient: bundle1Patient, resources });
+      expect(inputs).toBeDefined();
+      expect(inputs.existingCoverages).toBeDefined();
+      expect(inputs.existingCoverages?.primary).toBeDefined();
+      expect(inputs.existingCoverages?.primary?.id).toBe(bundle1Coverage.id);
+      expect(inputs.existingCoverages?.primary?.subscriber).toBeDefined();
+      expect(inputs.existingCoverages?.primary?.subscriber?.reference).toBe(`RelatedPerson/${bundle1RP1.id}`);
+      expect(inputs.existingCoverages?.primarySubscriber).toBeDefined();
+      expect(inputs.existingCoverages?.primarySubscriber?.id).toBe(bundle1RP1.id);
+
+      expect(inputs.existingCoverages.secondary).toBeDefined();
+      expect(inputs.existingCoverages.secondarySubscriber).toBeDefined();
+
+      // the same result basic result should obtain with primary/secondary flipped if the order is flipped on the Coverage resources
+
+      resources = resources.map((r) => {
+        const asAny = r as any;
+        if (asAny.order !== undefined && asAny.resourceType === 'Coverage') {
+          return {
+            ...asAny,
+            order: asAny.order === 2 ? 1 : 2,
+          };
+        }
+        return asAny;
+      });
+      inputs = getCoverageUpdateResourcesFromUnbundled({ patient: bundle1Patient, resources });
+      expect(inputs).toBeDefined();
+      expect(inputs.existingCoverages).toBeDefined();
+      expect(inputs.existingCoverages?.primary).toBeDefined();
+      expect(inputs.existingCoverages?.primary?.id).toBe(secondaryCvg.id);
+      expect(inputs.existingCoverages?.primary?.subscriber).toBeDefined();
+      expect(inputs.existingCoverages?.primary?.subscriber?.reference).toBe(
+        `#${expectedSecondaryPolicyHolderFromQR1.id}`
+      );
+      expect(inputs.existingCoverages?.primarySubscriber).toBeDefined();
+      expect(inputs.existingCoverages?.primarySubscriber?.id).toBe(expectedSecondaryPolicyHolderFromQR1.id);
+
+      expect(inputs.existingCoverages.secondary).toBeDefined();
+      expect(inputs.existingCoverages.secondarySubscriber).toBeDefined();
+    });
+
+    it('it should have primary and secondary coverage when secondary coverage is added and there is no existing account and secondary coverage has a contained RP', () => {
+      const secondaryCvg = {
+        ...stubSecondaryCoverage,
+        subscriber: { reference: `#${expectedSecondaryPolicyHolderFromQR1.id}` },
+        contained: [expectedSecondaryPolicyHolderFromQR1],
+        order: 2,
+      };
+      let resources = [...bundle1, secondaryCvg].filter((r) => r.id !== bundle1Account.id);
+      let inputs = getCoverageUpdateResourcesFromUnbundled({ patient: bundle1Patient, resources });
+      expect(inputs).toBeDefined();
+      expect(inputs.existingCoverages).toBeDefined();
+      expect(inputs.existingCoverages?.primary).toBeDefined();
+      expect(inputs.existingCoverages?.primary?.id).toBe(bundle1Coverage.id);
+      expect(inputs.existingCoverages?.primary?.subscriber).toBeDefined();
+      expect(inputs.existingCoverages?.primary?.subscriber?.reference).toBe(`RelatedPerson/${bundle1RP1.id}`);
+      expect(inputs.existingCoverages?.primarySubscriber).toBeDefined();
+      expect(inputs.existingCoverages?.primarySubscriber?.id).toBe(bundle1RP1.id);
+
+      expect(inputs.existingCoverages.secondary).toBeDefined();
+      expect(inputs.existingCoverages.secondarySubscriber).toBeDefined();
+
+      // the same result basic result should obtain with primary/secondary flipped if the order is flipped on the Coverage resources
+
+      resources = resources.map((r) => {
+        const asAny = r as any;
+        if (asAny.order !== undefined && asAny.resourceType === 'Coverage') {
+          return {
+            ...asAny,
+            order: asAny.order === 2 ? 1 : 2,
+          };
+        }
+        return asAny;
+      });
+      inputs = getCoverageUpdateResourcesFromUnbundled({ patient: bundle1Patient, resources });
+      expect(inputs).toBeDefined();
+      expect(inputs.existingCoverages).toBeDefined();
+      expect(inputs.existingCoverages?.primary).toBeDefined();
+      expect(inputs.existingCoverages?.primary?.id).toBe(secondaryCvg.id);
+      expect(inputs.existingCoverages?.primary?.subscriber).toBeDefined();
+      expect(inputs.existingCoverages?.primary?.subscriber?.reference).toBe(
+        `#${expectedSecondaryPolicyHolderFromQR1.id}`
+      );
+      expect(inputs.existingCoverages?.primarySubscriber).toBeDefined();
+      expect(inputs.existingCoverages?.primarySubscriber?.id).toBe(expectedSecondaryPolicyHolderFromQR1.id);
+
+      expect(inputs.existingCoverages.secondary).toBeDefined();
+      expect(inputs.existingCoverages.secondarySubscriber).toBeDefined();
     });
   });
 });
@@ -3277,4 +3510,214 @@ const organisations1: Organization[] = [
       lastUpdated: '2024-12-12T10:01:12.820Z',
     },
   },
+];
+
+// Resource bundles
+
+const bundle1Patient: Patient = {
+  id: '36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61',
+  meta: {
+    versionId: 'df82db58-cd5b-4585-86cd-d59dcd7ffab9',
+    lastUpdated: '2025-02-21T21:41:16.238Z',
+  },
+  name: [
+    {
+      given: ['John', 'Wesley'],
+      family: 'Harding',
+    },
+  ],
+  active: true,
+  gender: 'male',
+  telecom: [
+    {
+      value: 'ibenham+jwh@masslight.com',
+      system: 'email',
+    },
+  ],
+  birthDate: '1984-06-12',
+  resourceType: 'Patient',
+};
+
+const bundle1Account: Account = {
+  id: '3d6c331b-ed16-40ec-a7ab-9935c7699f09',
+  resourceType: 'Account',
+  status: 'active',
+  contained: [
+    {
+      resourceType: 'RelatedPerson',
+      id: 'accountGuarantorId',
+      name: [
+        {
+          given: ['Jane'],
+          family: 'Doe',
+        },
+      ],
+      birthDate: '1983-02-23',
+      gender: 'female',
+      patient: {
+        reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61',
+      },
+      relationship: [
+        {
+          coding: [
+            {
+              system: 'http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype',
+              code: 'parent',
+              display: 'Parent',
+            },
+          ],
+        },
+      ],
+    },
+  ],
+  type: {
+    coding: [
+      {
+        system: 'http://terminology.hl7.org/CodeSystem/account-type',
+        code: 'PBILLACCT',
+        display: 'patient billing account',
+      },
+    ],
+  },
+  subject: [
+    {
+      type: 'Patient',
+      reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61',
+    },
+  ],
+  guarantor: [
+    {
+      party: {
+        reference: '#accountGuarantorId',
+      },
+    },
+  ],
+  coverage: [
+    {
+      coverage: {
+        type: 'Coverage',
+        reference: 'Coverage/4a3d4bd6-6c1a-422a-a26f-71b967f3b00c',
+      },
+      priority: 1,
+    },
+  ],
+  meta: {
+    versionId: '3728b10d-4f4d-4401-9be4-f4f7f43aa488',
+    lastUpdated: '2025-03-01T03:03:27.796Z',
+  },
+};
+
+const bundle1RP1: RelatedPerson = {
+  id: '90ad77cd-ff76-426a-951a-b35f5ef8b302',
+  meta: {
+    versionId: '144b3d41-b149-49af-875a-998335101384',
+    lastUpdated: '2025-02-21T21:41:19.721Z',
+  },
+  patient: {
+    reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61',
+  },
+  telecom: [
+    {
+      value: '+13134825424',
+      system: 'phone',
+    },
+    {
+      value: '+13134825424',
+      system: 'sms',
+    },
+  ],
+  relationship: [
+    {
+      coding: [
+        {
+          code: 'user-relatedperson',
+          system: 'https://fhir.zapehr.com/r4/StructureDefinitions/relationship',
+        },
+      ],
+    },
+  ],
+  resourceType: 'RelatedPerson',
+};
+const bundle1RP2: RelatedPerson = {
+  id: '90ad77cd-ff76-426a-951a-b35f5ef8b302',
+  meta: {
+    versionId: '144b3d41-b149-49af-875a-998335101384',
+    lastUpdated: '2025-02-21T21:41:19.721Z',
+  },
+  patient: {
+    reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61',
+  },
+  telecom: [
+    {
+      value: '+13134825424',
+      system: 'phone',
+    },
+    {
+      value: '+13134825424',
+      system: 'sms',
+    },
+  ],
+  relationship: [
+    {
+      coding: [
+        {
+          code: 'user-relatedperson',
+          system: 'https://fhir.zapehr.com/r4/StructureDefinitions/relationship',
+        },
+      ],
+    },
+  ],
+  resourceType: 'RelatedPerson',
+};
+
+const bundle1Coverage: Coverage = {
+  id: '4a3d4bd6-6c1a-422a-a26f-71b967f3b00c',
+  resourceType: 'Coverage',
+  status: 'active',
+  type: {
+    coding: [
+      {
+        system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+        code: 'HIP',
+        display: 'health insurance plan policy',
+      },
+    ],
+  },
+  order: 1,
+  subscriber: {
+    type: 'RelatedPerson',
+    reference: 'RelatedPerson/90ad77cd-ff76-426a-951a-b35f5ef8b302',
+  },
+  subscriberId: 'FAfonejwgndkoetwwe6',
+  beneficiary: {
+    type: 'Patient',
+    reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61',
+  },
+  relationship: {
+    coding: [
+      {
+        system: 'http://terminology.hl7.org/CodeSystem/subscriber-relationship',
+        code: 'child',
+        display: 'Child',
+      },
+    ],
+  },
+  payor: [
+    {
+      type: 'Organization',
+      reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884',
+    },
+  ],
+  meta: {
+    versionId: '4ed8910a-c056-450d-ad5d-ad5f477645a3',
+    lastUpdated: '2025-03-01T02:46:02.698Z',
+  },
+};
+
+const bundle1: (Account | RelatedPerson | Patient | Coverage)[] = [
+  bundle1Account,
+  bundle1RP1,
+  bundle1RP2,
+  bundle1Patient,
+  bundle1Coverage,
 ];

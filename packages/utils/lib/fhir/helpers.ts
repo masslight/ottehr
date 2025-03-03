@@ -9,6 +9,7 @@ import {
   ContactPoint,
   Coverage,
   DocumentReference,
+  DomainResource,
   Encounter,
   Extension,
   FhirResource,
@@ -1180,3 +1181,23 @@ export function slashPathToLodashPath(slashPath: string): string {
     .join('.')
     .replace(/\.\[/g, '[');
 }
+
+export const deduplicateUnbundledResources = <T extends Resource>(unbundledResources: T[]): T[] => {
+  const uniqueObjects: Record<string, T> = {};
+  unbundledResources.forEach((object) => {
+    uniqueObjects[`${object.resourceType}/${object.id}`] = object;
+  });
+  return Object.values(uniqueObjects);
+};
+
+export const takeContainedOrFind = <T extends Resource>(
+  referenceString: string,
+  resourceList: Resource[],
+  parent: DomainResource
+): T | undefined => {
+  if (referenceString.startsWith('#')) {
+    return parent.contained?.find((resource) => `#${resource.id}` === referenceString) as T | undefined;
+  }
+
+  return resourceList.find((res) => `${res.resourceType}/${res.id}` === referenceString) as T | undefined;
+};
