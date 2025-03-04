@@ -272,13 +272,23 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
           newPatchOperation = { op: 'replace', path, value };
         } else {
           const telecomConfig = contactTelecomConfigs[fieldType!];
-
-          const telecomItem = { system: telecomConfig?.system, value: value };
-          newPatchOperation = {
-            op: 'add',
-            path: path.replace(/\/-?\d+\/value$/, '/-'),
-            value: telecomItem,
-          };
+          if (path.includes('-1')) {
+            const isTelecomExist = getEffectiveValue(resource, path.replace('/-1/value', ''), currentPatchOperations);
+            const telecomItem = { system: telecomConfig.system, value };
+            newPatchOperation = {
+              op: 'add',
+              path: path.split('-1')[0] + (isTelecomExist ? '-' : '0'),
+              value: telecomItem,
+            };
+          }
+          if (path.includes('undefined')) {
+            const telecomItem = { system: telecomConfig.system, value };
+            newPatchOperation = {
+              op: 'add',
+              path: path.split('/undefined')[0],
+              value: [telecomItem],
+            };
+          }
         }
       }
     } else if (isResponsiblePartyBirthDate) {
