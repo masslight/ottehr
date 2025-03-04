@@ -84,7 +84,7 @@ jobs:
             cp secrets/zambdas/* "packages/$app/zambdas/.env"
             mkdir -p "apps/$app/env"
             cp "secrets/$app/app/tests."*.json "apps/$app/env/"
-            cp "secrets/$app/app/.env.local" "apps/$app/env/"
+            cp "secrets/$app/app/.env"* "apps/$app/env/"
           }
 
           for app in ehr intake; do
