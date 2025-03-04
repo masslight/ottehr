@@ -155,7 +155,7 @@ export const getConfirmSaveModalConfigs = ({
       </Typography>
       <Typography>
         Please confirm that you want to mark this medication order as{' '}
-        {<strong>{statusLocaleMap[newStatus] || newStatus}</strong>}
+        {<strong>{medicationStatusDisplayLabelMap[newStatus] || newStatus}</strong>}
         {newStatus !== 'administered' ? ' and select the reason.' : '.'}
       </Typography>
     </Box>
