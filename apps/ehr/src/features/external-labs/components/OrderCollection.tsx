@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { LoadingButton } from '@mui/lab';
 import { Stack } from '@mui/material';
 import { AOECard } from './AOECard';
-import { SampleCollectionInstructionsCard } from './SampleCollectionInstructionsCard';
+// import { SampleCollectionInstructionsCard } from './SampleCollectionInstructionsCard';
 import { SampleInformationCard } from './SampleInformationCard';
 import { DateTime } from 'luxon';
 import { useForm, SubmitHandler, FormProvider } from 'react-hook-form';
@@ -31,7 +31,7 @@ interface DynamicAOEInput {
 
 export const OrderCollection: React.FC<SampleCollectionProps> = ({
   aoe,
-  collectionInstructions,
+  // collectionInstructions,
   specimen: _2,
   serviceRequest,
   _onCollectionSubmit,
@@ -56,7 +56,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
     <>
       <FormProvider {...methods}>
         <AOECard questions={aoe} />
-        <SampleCollectionInstructionsCard instructions={collectionInstructions} />
+        {/* <SampleCollectionInstructionsCard instructions={collectionInstructions} /> */}
         <SampleInformationCard
           orderAddedDateTime={serviceRequest?.orderDateTime || DateTime.now()}
           orderingPhysician={serviceRequest?.orderingPhysician || ''}

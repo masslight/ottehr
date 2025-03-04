@@ -41,7 +41,7 @@ export enum ROUTER_PATH {
   // ERX = 'erx',
   EXTERNAL_LAB_ORDER = 'external-lab-orders',
   EXTERNAL_LAB_ORDER_CREATE = 'external-lab-orders/create',
-  EXTERNAL_LAB_ORDER_DETAILS = 'external-lab-orders/order-details',
+  EXTERNAL_LAB_ORDER_DETAILS = 'external-lab-orders/:orderId/order-details',
 }
 
 export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {

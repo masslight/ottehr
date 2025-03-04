@@ -1,12 +1,13 @@
-import { Paper, FormControl, Stack, Switch, FormControlLabel } from '@mui/material';
-import { DatePicker, TimePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { Paper, Stack, Switch, FormControlLabel } from '@mui/material';
+// import { DatePicker, TimePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import React, { useState } from 'react';
-import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+// import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DateTime } from 'luxon';
 import { BoldedTitleText } from './BoldedTitleText';
 import { Controller, useFormContext } from 'react-hook-form';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const splitDate = (orignialDate: DateTime): { datePortion: DateTime; timePortion: DateTime } => {
   return {
     datePortion: DateTime.fromObject(
@@ -37,25 +38,25 @@ interface SampleInfoProps {
 export const SampleInformationCard: React.FC<SampleInfoProps> = ({
   orderAddedDateTime,
   orderingPhysician,
-  individualCollectingSample,
-  collectionDateTime,
+  // individualCollectingSample,
+  // collectionDateTime,
   showInPatientPortal,
 }) => {
   const [collapsed, setCollapsed] = useState(false);
-  const { datePortion, timePortion } = splitDate(collectionDateTime);
+  // const { datePortion, timePortion } = splitDate(collectionDateTime);
 
-  const dateFormName = 'collection-date';
-  const timeFormName = 'collection-time';
+  // const dateFormName = 'collection-date';
+  // const timeFormName = 'collection-time';
 
   const {
     control,
-    formState: { errors },
+    // formState: { errors },
   } = useFormContext();
 
   return (
     <>
       <AccordionCard
-        label={'Sample Information'}
+        label={'Order information'}
         collapsed={collapsed}
         withBorder={false}
         onSwitch={() => {
@@ -65,12 +66,12 @@ export const SampleInformationCard: React.FC<SampleInfoProps> = ({
         <Paper sx={{ p: 3 }}>
           <Stack spacing={1} sx={{ justifyContent: 'space-between' }}>
             <BoldedTitleText
-              title={'Order Added'}
+              title={'Order added'}
               description={orderAddedDateTime.toLocal().toFormat('MM/dd/yyyy hh:mm a') || ''}
             />
-            <BoldedTitleText title={'Ordering Physician'} description={orderingPhysician} />
-            <BoldedTitleText title={'Individual Collecting Sample'} description={individualCollectingSample} />
-            <Stack direction={'row'} spacing={1} sx={{ justifyContent: 'space-between' }}>
+            <BoldedTitleText title={'Ordering physician'} description={orderingPhysician} />
+            {/* <BoldedTitleText title={'Individual Collecting Sample'} description={individualCollectingSample} /> */}
+            {/* <Stack direction={'row'} spacing={1} sx={{ justifyContent: 'space-between' }}>
               <Controller
                 name={dateFormName}
                 control={control}
@@ -96,12 +97,12 @@ export const SampleInformationCard: React.FC<SampleInfoProps> = ({
                           value={datePortion}
                         />
                       </LocalizationProvider>
-                      {/* {!!errors[dateFormName] && <FormHelperText>Valid date required</FormHelperText>} */}
+                      {!!errors[dateFormName] && <FormHelperText>Valid date required</FormHelperText>}
                     </FormControl>
                   </>
                 )}
-              />
-              <Controller
+              /> */}
+            {/* <Controller
                 name={timeFormName}
                 control={control}
                 defaultValue={timePortion || DateTime.now()}
@@ -122,11 +123,11 @@ export const SampleInformationCard: React.FC<SampleInfoProps> = ({
                         value={timePortion}
                       ></TimePicker>
                     </LocalizationProvider>
-                    {/* {!!errors[timeFormName] && <FormHelperText>Valid time required</FormHelperText>} */}
+                    {!!errors[timeFormName] && <FormHelperText>Valid time required</FormHelperText>}
                   </FormControl>
                 )}
               />
-            </Stack>
+            </Stack> */}
             <FormControlLabel
               control={
                 <Controller
@@ -136,7 +137,7 @@ export const SampleInformationCard: React.FC<SampleInfoProps> = ({
                   render={({ field }) => <Switch {...field} checked={field.value} />}
                 />
               }
-              label={'Show in Patient Portal'}
+              label={'Show Results in Patient Portal'}
             />
           </Stack>
         </Paper>
