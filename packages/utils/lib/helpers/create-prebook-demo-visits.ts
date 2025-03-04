@@ -100,6 +100,7 @@ export const createSamplePrebookAppointments = async ({
   intakeZambdaUrl,
   selectedLocationId,
   demoData,
+  projectId,
 }: {
   oystehr: Oystehr | undefined;
   authToken: string;
@@ -108,7 +109,12 @@ export const createSamplePrebookAppointments = async ({
   intakeZambdaUrl: string;
   selectedLocationId?: string;
   demoData?: DemoAppointmentData;
+  projectId: string;
 }): Promise<CreateAppointmentResponse | null> => {
+  if (!projectId) {
+    throw new Error('PROJECT_ID is not set');
+  }
+
   if (!oystehr) {
     console.log('oystehr client is not defined');
     return null;
@@ -141,6 +147,7 @@ export const createSamplePrebookAppointments = async ({
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
+          'x-zapehr-project-id': projectId,
         },
         body: JSON.stringify(randomPatientInfo),
       });
@@ -172,7 +179,8 @@ export const createSamplePrebookAppointments = async ({
           getConsentStepAnswers({}),
         ],
         intakeZambdaUrl,
-        authToken
+        authToken,
+        projectId
       );
 
       const response = await fetch(`${intakeZambdaUrl}/zambda/submit-paperwork/execute-public`, {
@@ -180,6 +188,7 @@ export const createSamplePrebookAppointments = async ({
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
+          'x-zapehr-project-id': projectId,
         },
         body: JSON.stringify(<SubmitPaperworkParameters>{
           answers: [],
@@ -323,22 +332,25 @@ export async function makeSequentialPaperworkPatches(
   questionnaireResponseId: string,
   stepAnswers: QuestionnaireResponseItem[],
   intakeZambdaUrl: string,
-  authToken: string
+  authToken: string,
+  projectId: string
 ): Promise<void> {
   await stepAnswers.reduce(async (previousPromise, answer) => {
     await previousPromise;
-    console.log('Patching paperwork with with linkid:', answer.linkId);
+
     const response = await fetch(`${intakeZambdaUrl}/zambda/patch-paperwork/execute-public`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${authToken}`,
+        'x-zapehr-project-id': projectId,
       },
       body: JSON.stringify(<PatchPaperworkParameters>{
         answers: answer,
         questionnaireResponseId: questionnaireResponseId,
       }),
     });
+
     if (!response.ok) {
       throw new Error(`Failed to patch paperwork with linkId: ${answer.linkId}`);
     }
