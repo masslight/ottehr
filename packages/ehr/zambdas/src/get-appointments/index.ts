@@ -40,7 +40,6 @@ import { sortAppointments } from '../shared/queueingUtils';
 import {
   mergeResources,
   parseEncounterParticipants,
-  getTimezone,
   makeResourceCacheKey,
   makeEncounterSearchParams,
   makeAppointmentSearchRequest,
@@ -66,7 +65,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
 
-    // searchDate should be in the client timezone initially, it will be converted later for requested resources timezones
+    // searchDate should be in UTC(Zulu) format
     const { visitType, searchDate, locationID, providerIDs, groupIDs, secrets } = validatedParameters;
 
     console.groupEnd();
@@ -106,29 +105,20 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       // prepare search options
       const searchOptions = await Promise.all(
         requestedTimezoneRelatedResources.map(async (resource) => {
-          const resourceTimezone = await getTimezone({
-            oystehr,
-            resourceType: resource.resourceType,
-            resourceId: resource.resourceId,
-          });
-
           const cacheKey = makeResourceCacheKey({
             resourceId: resource.resourceId,
             resourceType: resource.resourceType,
-            resourceTimezone,
           });
 
           const searchParams = makeEncounterSearchParams({
             resourceId: resource.resourceId,
             resourceType: resource.resourceType,
-            resourceTimezone,
             cacheKey,
           });
 
           return {
             resourceId: resource.resourceId,
             resourceType: resource.resourceType,
-            resourceTimezone,
             searchParams,
             cacheKey,
           };

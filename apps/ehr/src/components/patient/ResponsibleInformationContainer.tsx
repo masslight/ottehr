@@ -25,7 +25,8 @@ export const ResponsibleInformationContainer: FC = () => {
 
   const responsiblePartyIndex = patient?.contact ? (contactIndex === -1 ? patient.contact.length : contactIndex) : 0;
 
-  const responsiblePartyContact = responsiblePartyIndex ? patient?.contact?.[responsiblePartyIndex] : undefined;
+  const responsiblePartyContact =
+    responsiblePartyIndex !== undefined ? patient?.contact?.[responsiblePartyIndex] : undefined;
 
   const responsiblePartyFullNamePath = patientFieldPaths.responsiblePartyName.replace(
     /contact\/\d+/,
