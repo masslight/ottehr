@@ -56,8 +56,8 @@ export const patientFieldPaths = {
   state: 'Patient/address/0/state',
   zip: 'Patient/address/0/postalCode',
   fillingOutAs: `Patient/extension/${PATIENT_FILLING_OUT_AS_URL}`,
-  parentGuardianEmail: 'Patient/contact/0/telecom/0/value',
-  parentGuardianPhone: 'Patient/contact/0/telecom/1/value',
+  parentGuardianPhone: 'Patient/contact/0/telecom/0/value',
+  parentGuardianEmail: 'Patient/contact/0/telecom/1/value',
   preferredLanguage: 'Patient/communication/0',
   race: `Patient/extension/${PATIENT_RACE_URL}`,
   ethnicity: `Patient/extension/${PATIENT_ETHNICITY_URL}`,
@@ -74,7 +74,7 @@ export const patientFieldPaths = {
   responsiblePartyLastName: 'Patient/contact/0/name/family',
   responsiblePartyGender: 'Patient/contact/0/gender',
   responsiblePartyBirthDate: 'Patient/contact/0/extension/0/valueString',
-  responsiblePartyPhone: 'Patient/contact/0/telecom/1/value',
+  responsiblePartyPhone: 'Patient/contact/0/telecom/0/value',
   releaseOfInfo: `Patient/extension/${PATIENT_RELEASE_OF_INFO_URL}`,
   rxHistoryConsentStatus: `Patient/extension/${PATIENT_RX_HISTORY_CONSENT_STATUS_URL}`,
   active: 'Patient/active',
@@ -86,6 +86,8 @@ export const patientFieldPaths = {
 export const coverageFieldPaths = {
   memberId: 'Coverage/identifier/0/value',
   carrier: 'Coverage/class/0/name',
+  payerId: 'Coverage/class/0/value',
+  payor: 'Coverage/payor/0',
   order: 'Coverage/order',
   additionalInformation: `Coverage/extension/${COVERAGE_ADDITIONAL_INFORMATION_URL}`,
   relationship: 'Coverage/relationship/coding/0/display',
@@ -194,6 +196,21 @@ const PRONOUNS_MAPPING = {
     system: 'http://loinc.org',
   },
   'They/them': {
+    code: 'LA29520-6',
+    display: 'They/Them/Their',
+    system: 'http://loinc.org',
+  },
+  'He/Him/His': {
+    code: 'LA29518-0',
+    display: 'He/Him/His',
+    system: 'http://loinc.org',
+  },
+  'She/Her/Her': {
+    code: 'LA29519-8',
+    display: 'She/Her/Her',
+    system: 'http://loinc.org',
+  },
+  'They/Them/Their': {
     code: 'LA29520-6',
     display: 'They/Them/Their',
     system: 'http://loinc.org',
@@ -483,5 +500,100 @@ export function getPatchOperationToAddOrUpdatePreferredLanguage(
         value: communication,
       };
     }
+  }
+}
+
+export const RELATIONSHIP_OPTIONS = {
+  Self: 'Self',
+  'Legal Guardian': 'Legal Guardian',
+  Father: 'Father',
+  Mother: 'Mother',
+  Spouse: 'Spouse',
+  Parent: 'Parent',
+  Other: 'Other',
+} as const;
+
+export type RelationshipOption = keyof typeof RELATIONSHIP_OPTIONS;
+
+const RELATIONSHIP_MAPPING: Record<RelationshipOption, Coding> = {
+  [RELATIONSHIP_OPTIONS.Self]: {
+    code: 'SELF',
+    display: 'Self',
+    system: 'http://hl7.org/fhir/relationship',
+  },
+  [RELATIONSHIP_OPTIONS['Legal Guardian']]: {
+    code: 'GUARD',
+    display: 'Legal Guardian',
+    system: 'http://hl7.org/fhir/relationship',
+  },
+  [RELATIONSHIP_OPTIONS.Father]: {
+    code: 'FTH',
+    display: 'Father',
+    system: 'http://hl7.org/fhir/relationship',
+  },
+  [RELATIONSHIP_OPTIONS.Mother]: {
+    code: 'MTH',
+    display: 'Mother',
+    system: 'http://hl7.org/fhir/relationship',
+  },
+  [RELATIONSHIP_OPTIONS.Spouse]: {
+    code: 'SPO',
+    display: 'Spouse',
+    system: 'http://hl7.org/fhir/relationship',
+  },
+  [RELATIONSHIP_OPTIONS.Parent]: {
+    code: 'PRN',
+    display: 'Parent',
+    system: 'http://hl7.org/fhir/relationship',
+  },
+  [RELATIONSHIP_OPTIONS.Other]: {
+    code: 'OTH',
+    display: 'Other',
+    system: 'http://hl7.org/fhir/relationship',
+  },
+};
+
+function getResponsiblePartyRelationship(value: RelationshipOption): CodeableConcept[] {
+  const mapping = RELATIONSHIP_MAPPING[value];
+
+  return [
+    {
+      coding: [
+        {
+          system: mapping.system,
+          code: mapping.code,
+          display: mapping.display,
+        },
+      ],
+    },
+    {
+      coding: [
+        {
+          code: 'BP',
+          system: 'http://terminology.hl7.org/CodeSystem/v2-0131',
+        },
+      ],
+    },
+  ];
+}
+
+export function getPatchOperationToAddOrUpdateResponsiblePartyRelationship(
+  value: RelationshipOption,
+  path: string,
+  currentValue?: RelationshipOption
+): Operation {
+  const relationship = getResponsiblePartyRelationship(value);
+  if (currentValue) {
+    return {
+      op: 'replace',
+      path,
+      value,
+    };
+  } else {
+    return {
+      op: 'add',
+      path: path.replace(/(\/contact\/\d+\/relationship).*/, '$1'),
+      value: relationship,
+    };
   }
 }

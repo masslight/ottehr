@@ -43,7 +43,7 @@ export const VideoControls: FC = () => {
       <Box
         sx={{
           alignItems: 'center',
-          backgroundColor: otherColors.darkPurple,
+          backgroundColor: otherColors.appbarBackground,
           display: 'flex',
           gap: 3,
           justifyContent: 'center',
@@ -54,14 +54,14 @@ export const VideoControls: FC = () => {
           {isVideoEnabled ? (
             <VideocamIcon sx={{ color: otherColors.white }} />
           ) : (
-            <VideocamOffIcon sx={{ color: otherColors.darkPurple }} />
+            <VideocamOffIcon sx={{ color: otherColors.appbarBackground }} />
           )}
         </IconButtonContained>
         <IconButtonContained onClick={toggleMute} variant={!muted ? undefined : 'disabled'}>
           {!muted ? (
             <MicIcon sx={{ color: otherColors.white }} />
           ) : (
-            <MicOffIcon sx={{ color: otherColors.darkPurple }} />
+            <MicOffIcon sx={{ color: otherColors.appbarBackground }} />
           )}
         </IconButtonContained>
         <CallSettingsTooltip

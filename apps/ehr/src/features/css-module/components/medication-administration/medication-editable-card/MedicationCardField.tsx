@@ -2,7 +2,7 @@ import React from 'react';
 import { TextField, Select, MenuItem, FormControl, InputLabel, FormHelperText, Skeleton } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
-import { MedicationData } from 'utils';
+import { MedicationData, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { medicationOrderFieldsWithOptions } from './utils';
 
 interface MedicationCardFieldProps {
@@ -114,7 +114,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
       }
       required={required}
       error={showError && required && !value}
-      helperText={showError && required && !value ? 'This field is required' : ''}
+      helperText={showError && required && !value ? REQUIRED_FIELD_ERROR_MESSAGE : ''}
     />
   );
 };
