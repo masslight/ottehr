@@ -59,7 +59,7 @@ export abstract class BaseInPersonFlow {
   async startVisit(): Promise<{ bookingURL: string; firstName: string; lastName: string; email: string }> {
     const bookingData = await this.goToReviewPage();
     await this.completeBooking();
-    await this.page.waitForURL(/\/visit/);
+    await this.page.waitForURL(/\/visit\//);
     return {
       bookingURL: this.page.url(),
       firstName: bookingData.firstName,

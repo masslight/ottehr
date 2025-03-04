@@ -3,6 +3,7 @@ import { FC, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { useUpdatePatient } from '../../hooks/useGetPatient';
 import { usePatientStore } from '../../state/patient.store';
+import { enqueueSnackbar } from 'notistack';
 
 type ActionBarProps = {
   handleDiscard: () => void;
@@ -11,10 +12,12 @@ type ActionBarProps = {
 export const ActionBar: FC<ActionBarProps> = ({ handleDiscard }) => {
   const theme = useTheme();
 
-  const { patient, patchOperations, reset, tempInsurances } = usePatientStore();
+  const { patient, patchOperations, reset: resetPatchOperations, tempInsurances } = usePatientStore();
   const {
     formState: { isDirty },
+    getValues,
     trigger,
+    reset: resetForm,
   } = useFormContext();
   const { mutateAsync: mutatePatientMasterRecord } = useUpdatePatient();
 
@@ -33,10 +36,21 @@ export const ActionBar: FC<ActionBarProps> = ({ handleDiscard }) => {
   const handleSave = async (): Promise<void> => {
     // Trigger validation for all fields
     const isValid = await trigger();
-    if (!isValid) return;
+    if (!isValid) {
+      enqueueSnackbar('Please fix all field validation errors and try again');
+      return;
+    }
 
     await mutatePatientMasterRecord();
-    reset();
+    resetPatchOperations();
+    resetForm(
+      {
+        ...getValues(),
+      },
+      {
+        keepDirty: false,
+      }
+    );
   };
 
   return (
