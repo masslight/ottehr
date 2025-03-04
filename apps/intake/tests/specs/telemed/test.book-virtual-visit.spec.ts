@@ -7,7 +7,7 @@ import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
 let context: BrowserContext;
 let page: Page;
 let firstAvailableTime: string;
-let location;
+let location: string;
 let locators: Locators;
 let telemedFlow: PrebookTelemedFlow;
 
@@ -46,8 +46,8 @@ test.afterAll(async () => {
 test('Should select state and time', async () => {
   await telemedFlow.selectVisitAndContinue();
   const slotAndLocation = await telemedFlow.selectTimeLocationAndContinue();
-  firstAvailableTime = slotAndLocation.selectedSlot.fullSlot;
-  location = slotAndLocation.location;
+  firstAvailableTime = slotAndLocation.selectedSlot?.fullSlot ?? '';
+  location = slotAndLocation.location!;
 });
 
 test('Should select and create new patient', async () => {
