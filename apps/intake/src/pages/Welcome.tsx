@@ -12,7 +12,7 @@ import {
   useOutletContext,
   useParams,
 } from 'react-router-dom';
-import { ErrorDialog, ErrorDialogConfig, FormInputType, PageForm } from 'ui-components';
+import { ErrorDialog, ErrorDialogConfig, PageForm } from 'ui-components';
 import { ZambdaClient, useUCZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import { GetScheduleResponse, PatientInfo, ScheduleType, ServiceMode, VisitType, getSelectors } from 'utils';
 import { create } from 'zustand';
@@ -29,15 +29,9 @@ import { ottehrLightBlue } from '../assets/icons';
 import { PageContainer, Schedule } from '../components';
 import { WaitingEstimateCard } from '../components/WaitingEstimateCard';
 import { PatientInfoInProgress } from '../features/patients/types';
-import {
-  FillingOutAsValue,
-  NOT_PATIENT_OR_GUARDIAN_ERROR,
-  NO_LOCATION_ERROR,
-  getFillingThisOutAsOptions,
-} from '../helpers';
+import { FillingOutAsValue, NOT_PATIENT_OR_GUARDIAN_ERROR, NO_LOCATION_ERROR } from '../helpers';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { usePreserveQueryParams } from '../hooks/usePreserveQueryParams';
-import { otherColors } from '../IntakeThemeProvider';
 
 type BookingState = {
   visitType: VisitType | undefined;
@@ -621,33 +615,6 @@ const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
 
   const { title, subtext } = getCustomContainerText();
 
-  const fillingThisOutAsOptions = getFillingThisOutAsOptions(t);
-
-  const formElements: FormInputType[] = useMemo(
-    () => [
-      {
-        type: 'Radio',
-        name: 'formUser',
-        label: t('welcome.fillingOutAsLabel'),
-        required: true,
-        radioOptions: fillingThisOutAsOptions,
-        borderColor: otherColors.borderGray,
-        backgroundSelected: otherColors.lightBlue,
-        radioStyling: {
-          radio: {
-            alignSelf: 'center',
-            marginY: 'auto',
-          },
-          label: {
-            ...theme.typography.body2,
-            color: theme.palette.text.primary,
-          },
-        },
-      },
-    ],
-    [fillingThisOutAsOptions, theme.typography.body2, theme.palette.text.primary, t]
-  );
-
   // console.log('selected slot', selectedSlot);
 
   return (
@@ -702,7 +669,6 @@ const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
                 {t('welcome.walkinOpen.title')}
               </Typography>
               <PageForm
-                formElements={formElements}
                 onSubmit={(data) => {
                   const formUserSelected = data?.formUser as FillingOutAsValue;
                   if (formUserSelected === FillingOutAsValue.Other) {

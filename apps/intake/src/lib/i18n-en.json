@@ -832,12 +832,6 @@
     "title": "Looking to walk-in?"
   },
   "welcome": {
-    "fillingOutAsLabel": "Are you filling out this information as:",
-    "fillingOutOptions": {
-      "option1": "I am the Parent or legal guardian of the minor patient",
-      "option2": "I am the Patient",
-      "option3": "I am NOT the parent or legal guardian but have permission to bring the minor patient for care"
-    },
     "proceedToDesk": "Please proceed to the front desk to check-in and complete patient paperwork",
     "bottomLabel": {
       "description": "Try connecting with a pediatric expert",
