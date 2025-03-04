@@ -60,7 +60,8 @@ const columns: GridColDef<AppointmentHistoryRow>[] = [
     field: 'dateTime',
     headerName: 'Date & Time',
     width: 150,
-    renderCell: ({ row: { dateTime } }) => (dateTime ? formatISOStringToDateAndTime(dateTime) : '-'),
+    renderCell: ({ row: { dateTime, officeTimeZone } }) =>
+      dateTime ? formatISOStringToDateAndTime(dateTime, officeTimeZone) : '-',
   },
   {
     sortable: false,
@@ -222,7 +223,9 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           Encounters - {appointments?.length || 0}
         </Typography>
         {appointments?.[0]?.dateTime && (
-          <Typography>Latest visit: {formatISOStringToDateAndTime(appointments[0].dateTime)}</Typography>
+          <Typography>
+            Latest visit: {formatISOStringToDateAndTime(appointments[0].dateTime, appointments[0].officeTimeZone)}
+          </Typography>
         )}
         <RoundedButton to="/visits/add" target="_blank" variant="contained" startIcon={<AddIcon fontSize="small" />}>
           New Visit
