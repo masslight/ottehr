@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
 import { MedicationOrderStatusesType } from 'utils';
 import { ExtendedMedicationDataForResponse } from 'utils';
-import { formatStatus } from '../medication-editable-card/utils';
+import { statusLocaleMap } from '../medication-editable-card/utils';
 
 interface MedicationStatusChipProps {
   medication?: ExtendedMedicationDataForResponse;
@@ -89,7 +89,7 @@ export const MedicationStatusChip: React.FC<MedicationStatusChipProps> = ({
     <>
       <Stack direction="column" spacing={1} sx={{ width: 'fit-content' }}>
         <StyledChip
-          label={formatStatus(status)}
+          label={statusLocaleMap[status] || status}
           onClick={handleClick}
           icon={isEditable && onClick ? <ArrowDropDownIcon /> : undefined}
           sx={{
