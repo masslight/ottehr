@@ -2,7 +2,8 @@ import { ResourceHandler } from '../../e2e-utils/resource-handler';
 import { expect, Page, test } from '@playwright/test';
 import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../e2e-utils/helpers/tests-utils';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { AppointmentVisitTabs, ApptTab, TelemedAppointmentStatusEnum } from '../../e2e-utils/temp-imports-from-utils';
+import { TelemedAppointmentStatusEnum } from '../../e2e-utils/temp-imports-from-utils';
+import { AppointmentVisitTabs, ApptTelemedTab } from 'utils';
 
 const resourceHandler = new ResourceHandler('telemed');
 let page: Page;
@@ -22,7 +23,10 @@ test.describe.configure({ mode: 'serial' });
 test('Should assign visit to practitioner', async () => {
   await page.goto(`telemed/appointments`);
   await awaitAppointmentsTableToBeVisible(page);
-  await page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!)).getByTestId(dataTestIds.telemedEhrFlow.trackingBoardAssignButton).click();
+  await page
+    .getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))
+    .getByTestId(dataTestIds.telemedEhrFlow.trackingBoardAssignButton)
+    .click();
   await telemedDialogConfirm(page);
   const statusChip = page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip);
   await expect(statusChip).toBeVisible();
@@ -55,9 +59,11 @@ test('Should end video call and check status "unsigned"', async () => {
 
 test('Visit should be in "unsigned" tab on the tracking board', async () => {
   await page.goto(`telemed/appointments`);
-  await page.getByTestId(dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTab['not-signed'])).click();
+  await page.getByTestId(dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTelemedTab['not-signed'])).click();
   await awaitAppointmentsTableToBeVisible(page);
-  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))).toBeVisible();
+  await expect(
+    page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))
+  ).toBeVisible();
 });
 
 test('Should fill all required fields', async () => {

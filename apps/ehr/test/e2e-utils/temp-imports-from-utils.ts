@@ -342,18 +342,3 @@ export interface ValuePair {
   value: string;
   label: string;
 }
-
-export enum AppointmentVisitTabs {
-  'hpi' = 'hpi',
-  'exam' = 'exam',
-  'erx' = 'erx',
-  'plan' = 'plan',
-  'sign' = 'sign',
-}
-
-export enum ApptTab {
-  'ready' = 'ready',
-  'provider' = 'provider',
-  'not-signed' = 'not-signed',
-  'complete' = 'complete',
-}

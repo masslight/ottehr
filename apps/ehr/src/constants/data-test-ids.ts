@@ -1,5 +1,4 @@
-import { PractitionerQualificationCode, RoleType } from 'utils';
-import { AppointmentVisitTabs, ApptTab } from '../telemed/utils';
+import { AppointmentVisitTabs, ApptTelemedTab, PractitionerQualificationCode, RoleType } from 'utils';
 
 export const dataTestIds = {
   header: {
@@ -138,7 +137,7 @@ export const dataTestIds = {
     statusChip: 'employee-status-chip',
   },
   telemedEhrFlow: {
-    telemedAppointmentsTabs: (tab: ApptTab) => `telemed-appointments-tabs-${tab}`,
+    telemedAppointmentsTabs: (tab: ApptTelemedTab) => `telemed-appointments-tabs-${tab}`,
     trackingBoardTableRow: (appointmentId: string) => `telemed-tracking-board-table-row-${appointmentId}`,
     myPatientsButton: 'telemed-my-patients-button',
     allPatientsButton: 'telemed-all-patients-button',
