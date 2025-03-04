@@ -5,7 +5,7 @@ on:
     inputs:
       environment:
         description: 'Environment to run tests on'
-        required: false
+        required: true
         type: choice
         options:
           - local
@@ -14,11 +14,6 @@ on:
           - testing
           - staging
         default: 'local'
-      branch:
-        description: 'Branch to checkout (leave empty to use default branch)'
-        required: false
-        type: string
-        default: ''
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main, develop, 'release/*']
@@ -49,8 +44,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.branch || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -102,13 +95,13 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps chromium
-
+      
       - name: Run E2E tests
         run: |
-          if [ "${{ github.event.inputs.environment }}" == "" ] || [ "${{ github.event.inputs.environment }}" == "local" ] || [ "${{ github.event_name }}" == "pull_request" ]; then
+          if [ "${{ github.event.inputs.environment }}" == "local" ] || [ "${{ github.event_name }}" == "pull_request" ]; then
             npm run ${{ matrix.app }}:e2e:local
           else
-            ENV=${{ github.event.inputs.environment }} npm run ${{ matrix.app }}:e2e:${{ github.event.inputs.environment }}
+            npm run ${{ matrix.app }}:e2e:${{ github.event.inputs.environment }}
           fi
         env:
           CI: true
