@@ -33,7 +33,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       return lambdaResponse(400, { message: error.message });
     }
 
-    const { appointmentId, emailAddress, secrets } = validatedParameters;
+    const { appointmentId, emailAddress, phoneNumber, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -73,13 +73,17 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     const relatedPersons: RelatedPerson[] = await searchInvitedParticipantResourcesByEncounterId(encounter.id, oystehr);
-    const relatedPerson = findParticipantByEmail(relatedPersons, emailAddress);
+    const relatedPersonEmail = findParticipantByEmail(relatedPersons, emailAddress);
+    if (relatedPersonEmail)
+      console.log(`Found RelatedPerson for provided email: RelatedPerson/${relatedPersonEmail.id}`);
+    const relatedPersonNumber = findParticipantByNumber(relatedPersons, phoneNumber);
+    if (relatedPersonNumber)
+      console.log(`Found RelatedPerson for provided number: RelatedPerson/${relatedPersonNumber.id}`);
+    const relatedPerson = relatedPersonEmail || relatedPersonNumber;
     if (!relatedPerson) {
       console.log('Invite is not found.');
       return lambdaResponse(404, { message: 'Invite is not found.' });
     }
-
-    console.log(`Found RelatedPerson for provided email: RelatedPerson/${relatedPerson.id}`);
 
     const participants: EncounterParticipant[] = [...(encounter.participant ?? [])];
     const remainingParticipants = participants.filter(
@@ -110,5 +114,12 @@ function findParticipantByEmail(participants: RelatedPerson[], matchingEmail: st
   return participants.find((p) => {
     const email = JSONPath({ path: '$.telecom[?(@.system == "email")].value', json: p })[0];
     return email === matchingEmail;
+  });
+}
+
+function findParticipantByNumber(participants: RelatedPerson[], matchingNumber: string): RelatedPerson | undefined {
+  return participants.find((p) => {
+    const number = JSONPath({ path: '$.telecom[?(@.system == "sms")].value', json: p })[0];
+    return number === matchingNumber;
   });
 }
