@@ -302,7 +302,7 @@ export const makeValidationSchema = (
     })?.item;
     if (itemsToValidate !== undefined) {
       return Yup.lazy((values) => {
-        return makeValidationSchemaPrivate(itemsToValidate, values, externalContext);
+        return makeValidationSchemaPrivate({ items: itemsToValidate, formValues: values, externalContext });
       });
     } else {
       // this is the branch hit from frontend validation. it is nearly the same as the branch hit by
@@ -310,7 +310,7 @@ export const makeValidationSchema = (
       // the item field on { linkId: pageId, item: items }. might be nice to consolidate this.
       // console.log('page id not found; assuming it is root and making schema from items');
       return Yup.lazy((values: any) => {
-        return makeValidationSchemaPrivate(items, values, externalContext);
+        return makeValidationSchemaPrivate({ items, formValues: values, externalContext });
       });
     }
   } else {
@@ -330,8 +330,11 @@ export const makeValidationSchema = (
             return value;
           }
         }
-        const schema = makeValidationSchemaPrivate(questionItem.item ?? [], context);
-        // we convert this from a list to key-val dict to match the form shape
+        const schema = makeValidationSchemaPrivate({
+          items: questionItem.item ?? [],
+          formValues: value,
+          externalContext: { values: context?.parent ?? [], items: items.flatMap((i) => i.item ?? []) },
+        });
         try {
           const reduced = answerItem.reduce((accum: any, current: any) => {
             accum[current.linkId] = { ...current };
@@ -349,20 +352,21 @@ export const makeValidationSchema = (
   }
 };
 
-const makeValidationSchemaPrivate = (
-  items: IntakeQuestionnaireItem[],
-  formValues: any,
-  externalContext?: { values: any; items: any }
-): Yup.AnyObjectSchema => {
+interface PrivateMakeSchemaArgs {
+  items: IntakeQuestionnaireItem[];
+  formValues: any; // todo: better typing on these "any" types
+  externalContext?: { values: any; items: any };
+}
+
+const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjectSchema => {
+  const { items, formValues, externalContext: maybeExternalContext } = input;
+  const contextualItems = maybeExternalContext?.items ?? [];
+  const externalValues = maybeExternalContext?.values ?? [];
   // console.log('validation items', items);
   // these allow us some flexibility to inject field dependencies from another
-  // paperwork page, or anywhere outside the context of the immediate form being validated
-  const externalValues = externalContext?.values ?? {};
-
-  const validatableItems = items
-    .filter((item) => item?.type !== 'display' && !item?.readOnly && evalEnableWhen(item, items, formValues))
-    .flatMap((item) => makeValidatableItem(item));
-  let allValues = (externalContext?.values ?? [])
+  // paperwork page, or anywhere outside the context of the immediate form being validated,
+  // or to keep parent/sibling items in context when drilling down into a group
+  let allValues = [...externalValues]
     .flatMap((page: any) => page.item)
     .reduce((accum: { [x: string]: any }, current: any) => {
       const linkId = current?.linkId;
@@ -372,13 +376,22 @@ const makeValidationSchemaPrivate = (
       return accum;
     }, {} as any);
   allValues = { ...allValues, ...formValues };
+  const validatableItems = [...items]
+    .filter(
+      (item) =>
+        item?.type !== 'display' && !item?.readOnly && evalEnableWhen(item, [...items, ...contextualItems], allValues)
+    )
+    .flatMap((item) => makeValidatableItem(item));
   const validationTemp: any = {};
   validatableItems.forEach((item) => {
     let schemaTemp: any | undefined = item.type !== 'group' ? schemaForItem(item, allValues) : undefined;
     if (item.type === 'group' && item.item && item.dataType !== 'DOB') {
       const filteredItems = (item.item ?? []).filter((item) => item?.type !== 'display' && !item?.readOnly);
-      // console.log('filtered items', filteredItems);
-      const embeddedSchema = makeValidationSchemaPrivate(filteredItems, externalContext);
+      const embeddedSchema = makeValidationSchemaPrivate({
+        items: filteredItems,
+        formValues,
+        externalContext: maybeExternalContext,
+      });
       // console.log('embedded schema', embeddedSchema);
       schemaTemp = Yup.object().shape({
         linkId: Yup.string(),
@@ -539,7 +552,6 @@ const evalEnableWhenItem = (
   items: QuestionnaireItem[]
 ): boolean => {
   const { answerString, answerBoolean, answerDate, answerInteger, question, operator } = enableWhen;
-  // console.log('items', items);
   const questionPathNodes = question.split('.');
 
   const itemDef = questionPathNodes.reduce(
@@ -696,7 +708,7 @@ export const evalComplexValidationTrigger = (
   context: any,
   questionVal?: any
 ): boolean => {
-  console.log('item.complex', item.complexValidation?.type, item.complexValidation?.triggerWhen);
+  // console.log('item.complex', item.complexValidation?.type, item.complexValidation?.triggerWhen);
   if (item.complexValidation === undefined) {
     return false;
   } else if (item.complexValidation?.triggerWhen === undefined) {
