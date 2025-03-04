@@ -446,13 +446,13 @@ export class FillingInfo {
     expect(buttonCount).toBeGreaterThan(0);
     const randomIndex = Math.floor(Math.random() * (buttonCount - 1)) + 1;
     const selectedSlotButton = timeSlotsButtons.nth(randomIndex);
-    const buttonName = await selectedSlotButton.textContent();
-    console.log(`Button name: ${buttonName}`);
+    const time = await selectedSlotButton.textContent();
+    console.log(`Selected time: ${time}`);
     await selectedSlotButton.click();
     const selectButton = await this.page.getByRole('button', { name: /^Select/ });
     const selectButtonContent = await selectButton.textContent();
-    const selectedSlot = selectButtonContent?.replace('Select ', '').trim();
-    console.log(`Selected slot: ${selectedSlot}`);
-    return { buttonName, selectedSlot };
+    const fullSlot = selectButtonContent?.replace('Select ', '').trim();
+    console.log(`Selected slot: ${fullSlot}`);
+    return { time, fullSlot };
   }
 }

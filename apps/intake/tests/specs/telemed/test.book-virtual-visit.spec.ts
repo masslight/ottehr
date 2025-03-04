@@ -45,8 +45,8 @@ test.afterAll(async () => {
 
 test('Should select state and time', async () => {
   await telemedFlow.selectVisitAndContinue();
-  const slotAndLocation = await telemedFlow.additionalStepsForPrebookAndContinue();
-  firstAvailableTime = slotAndLocation.selectedSlot.selectedSlot;
+  const slotAndLocation = await telemedFlow.selectTimeLocationAndContinue();
+  firstAvailableTime = slotAndLocation.selectedSlot.fullSlot;
   location = slotAndLocation.location;
 });
 

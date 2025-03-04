@@ -2,9 +2,27 @@ import { BrowserContext, Page } from '@playwright/test';
 import { Locators } from '../locators';
 import { FillingInfo } from './FillingInfo';
 import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
+import { Paperwork } from './Paperwork';
 
-export interface SlotAndLocation { selectedSlot: { buttonName: string | null; selectedSlot: string | undefined }; location: string | null }
-export interface StartVisitResponse { bookingURL: string; firstName: string; lastName: string; email: string; slotAndLocation: Partial<SlotAndLocation> }
+export interface SlotAndLocation {
+  selectedSlot: { time: string; fullSlot: string };
+  location: string;
+}
+
+export interface StartVisitResponse {
+  slotAndLocation: Partial<SlotAndLocation>;
+  patientBasicInfo: Partial<PatientBasicInfo>;
+}
+
+export interface PatientBasicInfo {
+  firstName: string;
+  lastName: string;
+  birthSex: string;
+  email: string;
+  thisEmailBelongsTo: string;
+  reasonForVisit: string;
+  dob: { m: string; d: string; y: string; }
+}
 
 export abstract class BaseTelemedFlow {
   protected page: Page;
@@ -12,6 +30,7 @@ export abstract class BaseTelemedFlow {
   protected fillingInfo: FillingInfo;
   protected context: BrowserContext;
   protected commonLocatorsHelper: CommonLocatorsHelper;
+  protected paperwork: Paperwork;
 
   constructor(page: Page) {
     this.page = page;
@@ -20,11 +39,10 @@ export abstract class BaseTelemedFlow {
     this.commonLocatorsHelper = new CommonLocatorsHelper(page);
     this.context = page.context();
   }
-  abstract additionalStepsForPrebookAndContinue(): Promise<
-    Partial<SlotAndLocation>
-  >;
+  abstract selectTimeLocationAndContinue(): Promise<Partial<SlotAndLocation>>;
   abstract clickVisitButton(): Promise<void>;
   abstract completeBooking(): Promise<void>;
+  abstract startVisitFullFlow(): Promise<StartVisitResponse>;
 
   async selectVisitAndContinue() {
     await this.page.goto(`/`);
@@ -36,47 +54,26 @@ export abstract class BaseTelemedFlow {
     await this.continue();
   }
 
-  async fillNewPatientDataAndContinue():Promise<{ firstName: string; lastName: string; email: string }> {
+  async fillNewPatientDataAndContinue(): Promise<PatientBasicInfo> {
     const bookingData = await this.fillingInfo.fillNewPatientInfo();
-    await this.fillingInfo.fillDOBless18();
+    const patientDob = await this.fillingInfo.fillDOBless18();
     await this.continue();
-  return {
-    firstName: bookingData.firstName,
-    lastName: bookingData.lastName,
-    email: bookingData.email,
-  };
-
-}
-  // async goToReviewPage(): Promise<{
-  //   selectedSlot?: { buttonName: string | null; selectedSlot: string | undefined };
-  //   location?: string | null;
-  // }> {
-  //
-  //   const additionalData = await this.additionalStepsForPrebook();
-  //   const bookingData = await this.fillPatientDetailsAndContinue();
-  //   return {
-  //     ...bookingData, // Includes firstName, lastName, email
-  //     ...additionalData, // Includes selectedSlot & location (for prebook)
-  //   };
-  // }
+    return {
+      firstName: bookingData.firstName,
+      lastName: bookingData.lastName,
+      email: bookingData.email,
+      thisEmailBelongsTo: bookingData.thisEmailBelongsTo,
+      birthSex: bookingData.birthSex,
+      reasonForVisit: bookingData.reasonForVisit,
+      dob: {
+        d: patientDob.randomDay,
+        m: patientDob.randomMonth,
+        y: patientDob.randomYear
+      }
+    };
+  }
 
   async continue() {
     await this.locator.clickContinueButton();
-  }
-
-  async startVisitFullFlow(): Promise<StartVisitResponse> {
-    await this.selectVisitAndContinue();
-    const slotAndLocation = await this.additionalStepsForPrebookAndContinue();
-    await this.selectDifferentFamilyMemberAndContinue();
-    const patientData = await this.fillNewPatientDataAndContinue();
-    await this.completeBooking();
-    await this.page.waitForURL(/\/visit/);
-    return {
-      bookingURL: this.page.url(),
-      firstName: patientData.firstName,
-      lastName: patientData.lastName,
-      email: patientData.email,
-      slotAndLocation,
-    };
   }
 }

@@ -69,6 +69,7 @@ export class Locators {
   backButton: Locator;
   pcpNumberErrorText: Locator;
   appointmentDescription: Locator;
+  goToWaitingRoomButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -141,6 +142,7 @@ export class Locators {
     this.backButton = page.getByTestId(dataTestIds.backButton);
     this.pcpNumberErrorText = page.locator('[id="pcp-number-helper-text"]');
     this.appointmentDescription = page.locator('.appointment-description');
+    this.goToWaitingRoomButton = page.getByRole('button', { name: 'Go to the Waiting Room' });
   }
 
   async selectDifferentFamilyMember(): Promise<void> {

@@ -5,6 +5,7 @@ import { UploadImage } from '../../utils/in-person/UploadImage';
 import { FillingInfo } from '../../utils/telemed/FillingInfo';
 import { Paperwork } from '../../utils/telemed/Paperwork';
 import { Locators } from '../../utils/locators';
+import { TelemedVisitFlow } from '../../utils/telemed/TelemedVisitFlow';
 
 enum PersonSex {
   Male = 'male',
@@ -17,18 +18,12 @@ let page: Page;
 let fillingInfo: FillingInfo;
 let paperwork: Paperwork;
 let locators: Locators;
+let telemedFlow: TelemedVisitFlow;
 
 let patientInfo: Awaited<ReturnType<FillingInfo['fillNewPatientInfo']>> | undefined;
 let dob: Awaited<ReturnType<FillingInfo['fillDOBless18']>> | undefined;
 
 const appointmentIds: string[] = [];
-
-
-const selectState = async (page: Page): Promise<void> => {
-  await page.getByPlaceholder('Search or select').click();
-  await page.getByRole('option', { name: 'California' }).click();
-  await locators.clickContinueButton();
-};
 
 test.describe.configure({ mode: 'serial' });
 
@@ -38,6 +33,7 @@ test.beforeAll(async ({ browser }) => {
   fillingInfo = new FillingInfo(page);
   paperwork = new Paperwork(page);
   locators = new Locators(page);
+  telemedFlow = new TelemedVisitFlow(page);
 
   page.on('response', async (response) => {
     if (response.url().includes('/telemed-create-appointment/')) {
@@ -63,23 +59,18 @@ test.afterAll(async () => {
 test('Should create new patient', async () => {
   await page.goto('/home');
 
-  await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
+  await telemedFlow.selectVisitAndContinue();
+  await telemedFlow.selectDifferentFamilyMemberAndContinue();
 
-  await locators.differentFamilyMember.click();
+  await telemedFlow.selectTimeLocationAndContinue();
 
-  await locators.clickContinueButton();
-
-  await selectState(page);
-
-  await expect(page.getByText('About the patient')).toBeVisible();
-
-  await expect(page.getByPlaceholder('First name')).toBeVisible();
-
-  patientInfo = await fillingInfo.fillNewPatientInfo();
-
-  dob = await fillingInfo.fillDOBless18();
-
-  await locators.continueButton.click({timeout: 30000});
+  const patientData = await telemedFlow.fillNewPatientDataAndContinue();
+  patientInfo = patientData;
+  dob = {
+    randomDay: patientData.dob.d,
+    randomMonth: patientData.dob.m,
+    randomYear: patientData.dob.y
+  };
 
   await paperwork.fillAndCheckContactInformation(patientInfo);
 
@@ -130,7 +121,7 @@ test('Should display correct patient info', async () => {
   await patientName.click();
   await locators.clickContinueButton();
 
-  await selectState(page);
+  await telemedFlow.selectTimeLocationAndContinue();
 
   await expect(page.getByText('About the patient')).toBeVisible({ timeout: 10000 });
 

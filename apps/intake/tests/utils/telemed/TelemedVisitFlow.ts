@@ -9,14 +9,65 @@ export class TelemedVisitFlow extends BaseTelemedFlow {
     await scheduleButton.click();
   }
   async completeBooking(): Promise<void> {
-    // await this.locator.clickReserveButton();
+    await this.locator.goToWaitingRoomButton.click();
   }
-  async additionalStepsForPrebookAndContinue(): Promise<Partial<SlotAndLocation>> {
-    await expect(this.locator.firstAvailableTime).toBeVisible();
-    const title = await this.locator.pageTitle.textContent();
-    const location = title ? title.replace('Book a visit at ', '').trim() : null;
+  async selectTimeLocationAndContinue(): Promise<Partial<SlotAndLocation>> {
+    await this.page.getByPlaceholder('Search or select').click();
+    const locationOption = this.page
+      .locator('[role="option"]')
+      .filter({ hasNot: this.page.locator('[aria-disabled="true"], [disabled]') }) // Exclude disabled options
+      .first();
+    const location = await locationOption.textContent();
+    console.log('Video call location: ', location);
+    await locationOption.click();
+    await this.continue();
 
-    const selectedSlot = await this.fillingInfo.selectRandomSlot();
-    return { selectedSlot, location };
+    return { location: "" };
+  }
+  async startVisitFullFlow() {
+    await this.selectVisitAndContinue();
+    await this.selectDifferentFamilyMemberAndContinue();
+    const slotAndLocation = await this.selectTimeLocationAndContinue();
+    const patientBasicInfo = await this.fillNewPatientDataAndContinue();
+    await this.fillingInfo.fillContactInformation();
+    await this.continue();
+    await this.fillingInfo.fillPatientDetails();
+    await this.continue();
+    // Primary Care Physician screen here
+    await this.continue();
+    await this.paperwork.fillAndCheckEmptyCurrentMedications();
+    await this.continue();
+    await this.paperwork.fillAndCheckEmptyCurrentAllergies();
+    await this.continue();
+    await this.paperwork.fillAndCheckEmptyMedicalHistory();
+    await this.continue();
+    await this.paperwork.fillAndCheckEmptySurgicalHistory();
+    await this.continue();
+    // additional questions
+    await this.continue();
+    await this.paperwork.fillAndCheckSelfPay();
+    await this.paperwork.fillAndCheckResponsiblePartyInfoAsSelf({
+      firstName: patientBasicInfo.firstName,
+      lastName: patientBasicInfo.lastName,
+      email: patientBasicInfo.email,
+      birthSex: patientBasicInfo.birthSex,
+      thisEmailBelongsTo: patientBasicInfo.thisEmailBelongsTo,
+      reasonForVisit: patientBasicInfo.reasonForVisit
+    });
+    await this.continue();
+    await this.continue(); // skip optional photo ID
+    await this.continue(); // skip optional patient conditions
+    await this.paperwork.fillAndCheckSchoolWorkNoteAsNone();
+    await this.continue();
+    await this.paperwork.fillAndCheckConsentForms();
+    await this.continue();
+    await this.paperwork.fillAndCheckNoInviteParticipant();
+    await this.continue();
+    await this.completeBooking();
+    await expect(this.page.getByText('Please wait, call will start automatically.')).toBeVisible({ timeout: 30000 });
+    return {
+      slotAndLocation,
+      patientBasicInfo
+    }
   }
 }

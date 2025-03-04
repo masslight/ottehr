@@ -11,7 +11,7 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
   async completeBooking(): Promise<void> {
     await this.locator.clickReserveButton();
   }
-  async additionalStepsForPrebookAndContinue(): Promise<Partial<SlotAndLocation>> {
+  async selectTimeLocationAndContinue(): Promise<Partial<SlotAndLocation>> {
     await this.page.waitForTimeout(2000); // this is little waiting to let locations be loaded
     const statesSelector = this.page.getByTestId(dataTestIds.scheduleVirtualVisitStatesSelector);
     await expect(statesSelector).toBeVisible();
@@ -27,5 +27,18 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
     const selectedSlot = await this.fillingInfo.selectRandomSlot();
     await this.continue();
     return { selectedSlot, location };
+  }
+
+  async startVisitFullFlow() {
+    await this.selectVisitAndContinue();
+    const slotAndLocation = await this.selectTimeLocationAndContinue();
+    await this.selectDifferentFamilyMemberAndContinue();
+    const patientBasicInfo = await this.fillNewPatientDataAndContinue();
+    await this.completeBooking();
+    await this.page.waitForURL(/\/visit/);
+    return {
+      patientBasicInfo,
+      slotAndLocation,
+    };
   }
 }
