@@ -876,3 +876,5 @@ export interface CanonicalUrl {
   url: string;
   version: string;
 }
+
+export const projectId = import.meta.env?.VITE_APP_PROJECT_ID || process?.env?.PROJECT_ID;

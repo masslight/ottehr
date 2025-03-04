@@ -18,6 +18,7 @@ import { buildSearchQuery } from './utils/buildSearchQuery';
 import { parseSearchResults } from './utils/parseSearchResults';
 import { SEARCH_CONFIG } from './constants';
 import { addSearchPagination } from './utils/addSearchPagination';
+import { projectId } from 'utils/lib/types/common';
 
 const emptySearchResult: SearchResult = {
   patients: [],
@@ -39,15 +40,15 @@ const fetchPatients = async ({
   try {
     const token = await getAccessTokenSilently();
 
-    if (!process.env.VITE_APP_PROJECT_ID) {
-      throw new Error('VITE_APP_PROJECT_ID is not set');
+    if (!projectId) {
+      throw new Error('PROJECT_ID is not set');
     }
 
     const headers = {
       accept: 'application/json',
       'content-type': 'application/json',
       Authorization: `Bearer ${token}`,
-      'x-zapehr-project-id': process.env.VITE_APP_PROJECT_ID,
+      'x-zapehr-project-id': projectId,
     };
 
     const response = await fetch(searchUrl, {

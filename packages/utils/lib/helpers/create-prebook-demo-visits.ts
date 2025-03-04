@@ -6,6 +6,7 @@ import {
   CreateAppointmentResponse,
   PatchPaperworkParameters,
   PersonSex,
+  projectId,
   ScheduleType,
   ServiceMode,
   SubmitPaperworkParameters,
@@ -91,8 +92,6 @@ const DEFAULT_REASONS_FOR_VISIT = [
   'Allergic reaction',
   'Eye concern',
 ];
-
-const projectId = process.env.VITE_APP_PROJECT_ID || process.env.PROJECT_ID;
 
 export const createSamplePrebookAppointments = async ({
   oystehr,

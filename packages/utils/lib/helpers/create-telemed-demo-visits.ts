@@ -19,6 +19,7 @@ import {
   getSurgicalHistoryStepAnswers,
   isoToDateObject,
 } from './helpers';
+import { projectId } from '../types/common';
 
 interface AppointmentData {
   firstNames?: string[];
@@ -98,8 +99,6 @@ const DEFAULT_REASONS_FOR_VISIT = [
   'Allergic reaction',
   'Eye concern',
 ];
-
-const projectId = process.env.VITE_APP_PROJECT_ID || process.env.PROJECT_ID;
 
 const generateRandomPatientInfo = async (
   oystehr: Oystehr,
