@@ -29,8 +29,18 @@ import { COVERAGE_MEMBER_IDENTIFIER_BASE, isValidUUID } from 'utils';
 import { v4 as uuidv4 } from 'uuid';
 import { DateTime } from 'luxon';
 import { BatchInputJSONPatchRequest, BatchInputPostRequest } from '@oystehr/sdk';
+import {
+  expectedPrimaryPolicyHolderFromQR1 as rawPPHQR1,
+  expectedSecondaryPolicyHolderFromQR1 as rawSPHQR1,
+} from './data/expected-coverage-resources-qr1';
+import { fillReferences } from './helpers';
 
 const InPersonQuestionnaire = InPersonQuestionnaireFile.resource;
+
+const expectedPrimaryPolicyHolderFromQR1 = fillReferences(rawPPHQR1, ['Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61']);
+const expectedSecondaryPolicyHolderFromQR1 = fillReferences(rawSPHQR1, [
+  'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61',
+]);
 
 describe('Harvest Module', () => {
   const { orderedCoverages: coverageResources, accountCoverage } = getCoverageResources({
@@ -192,7 +202,7 @@ describe('Harvest Module', () => {
         payor: [{ reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176' }],
         subscriberId: 'FAfonejwgndkoetwwe6',
         subscriber: {
-          reference: `#coveragePolicyHolder`,
+          reference: `#coverageSubscriber`,
         },
         relationship: {
           coding: [
@@ -243,7 +253,7 @@ describe('Harvest Module', () => {
         beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
         payor: [{ reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884' }],
         subscriberId: 'fdfdfdfdfdfh7897',
-        subscriber: { reference: '#coveragePolicyHolder' },
+        subscriber: { reference: '#coverageSubscriber' },
         relationship: {
           coding: [
             {
@@ -314,8 +324,8 @@ describe('Harvest Module', () => {
     expect(secondary.contained?.[0].resourceType).toBe('RelatedPerson');
     expect((primary.contained?.[0] as RelatedPerson)?.name?.[0].given?.[0]).toBe('Barnabas');
     expect((secondary.contained?.[0] as RelatedPerson)?.name?.[0].given?.[0]).toBe('Jennifer');
-    expect(primary.contained?.[0].id).toBe('coveragePolicyHolder');
-    expect(secondary.contained?.[0].id).toBe('coveragePolicyHolder');
+    expect(primary.contained?.[0].id).toBe('coverageSubscriber');
+    expect(secondary.contained?.[0].id).toBe('coverageSubscriber');
     expect(primary.contained).toEqual(expectedCoverageResources.primary.contained);
     expect(secondary.contained).toEqual(expectedCoverageResources.secondary.contained);
 
@@ -2058,7 +2068,7 @@ describe('Harvest Module', () => {
       expect(patch2.op).toBe('replace');
       expect(patch2.path).toBe('/subscriber');
       expect(patch2.value).toEqual({
-        reference: `#coveragePolicyHolder`,
+        reference: `#coverageSubscriber`,
       });
     });
     it('should return a well formulated post request for new Account and patch operations to mark deactivated Coverages as inactive', () => {
@@ -2172,7 +2182,7 @@ describe('Harvest Module', () => {
       const patch1 = patchOperations[0];
       expect(patch1.op).toBe('replace');
       expect(patch1.path).toBe('/status');
-      expect(patch1.value).toBe('inactive');
+      expect(patch1.value).toBe('cancelled');
     });
     it('should patch an existing Account when one exists and shouldnt post a new one', () => {
       const primary: Coverage = {
@@ -2609,72 +2619,6 @@ const expectedAccountGuarantorFromQR1: RelatedPerson = {
           display: 'Parent',
         },
       ],
-    },
-  ],
-};
-
-const expectedPrimaryPolicyHolderFromQR1: RelatedPerson = {
-  resourceType: 'RelatedPerson',
-  id: 'coveragePolicyHolder',
-  name: [
-    {
-      given: ['Barnabas'],
-      family: 'Picklesworth',
-    },
-  ],
-  birthDate: '1982-02-23',
-  gender: 'male',
-  patient: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61' }, // newPatient1
-  relationship: [
-    {
-      coding: [
-        {
-          system: 'http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype',
-          code: 'child',
-          display: 'Child',
-        },
-      ],
-    },
-  ],
-  address: [
-    {
-      line: ['317 Mustard Street', 'Unit 2'],
-      city: 'Deliciousville',
-      state: 'DE',
-      postalCode: '20001',
-    },
-  ],
-};
-
-const expectedSecondaryPolicyHolderFromQR1: RelatedPerson = {
-  resourceType: 'RelatedPerson',
-  id: 'coveragePolicyHolder',
-  name: [
-    {
-      given: ['Jennifer'],
-      family: 'Picklesworth',
-    },
-  ],
-  birthDate: '1983-02-23',
-  gender: 'female',
-  patient: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61' },
-  relationship: [
-    {
-      coding: [
-        {
-          system: 'http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype',
-          code: 'child',
-          display: 'Child',
-        },
-      ],
-    },
-  ],
-  address: [
-    {
-      line: ['317 R St NW Unit 2', 'conditional-filter-test-1234'],
-      city: 'Washington',
-      state: 'DC',
-      postalCode: '20001',
     },
   ],
 };

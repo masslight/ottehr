@@ -1327,6 +1327,10 @@ export function createMasterRecordPatchOperations(
   // Separate Patient operations
   result.patient = separateResourceUpdates(tempOperations.patient, patient, 'Patient');
   result.patient.patchOpsForDirectUpdate = addAuxiliaryPatchOperations(result.patient.patchOpsForDirectUpdate, patient);
+  result.patient.patchOpsForDirectUpdate = result.patient.patchOpsForDirectUpdate.filter((op) => {
+    const { path, op: oper } = op;
+    return path != undefined && oper != undefined;
+  });
   result.patient.patchOpsForDirectUpdate = consolidateOperations(result.patient.patchOpsForDirectUpdate, patient);
 
   return result;
@@ -1786,7 +1790,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   const { org, plan, policyHolder } = insurance;
   const memberId = policyHolder.memberId;
 
-  const policyHolderId = 'coveragePolicyHolder';
+  const policyHolderId = 'coverageSubscriber';
   const policyHolderName = createFhirHumanName(policyHolder.firstName, undefined, policyHolder.lastName);
   const relationshipCode = SUBSCRIBER_RELATIONSHIP_CODE_MAP[policyHolder.relationship] || 'other';
   const containedPolicyHolder: RelatedPerson = {
@@ -2028,7 +2032,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
         {
           op: 'replace',
           path: '/status',
-          value: 'inactive',
+          value: 'cancelled',
         },
       ],
     });

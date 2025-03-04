@@ -193,7 +193,7 @@
         "answer": [
           {
             "valueReference": {
-              "reference": "{{INSURANCE_PLAN_REF}}",
+              "reference": "{{INSURANCEPLAN_REF}}",
               "display": "Aetna"
             }
           }
@@ -345,7 +345,7 @@
             "answer": [
               {
                 "valueReference": {
-                  "reference": "{{INSURANCE_PLAN_REF}}",
+                  "reference": "{{INSURANCEPLAN_REF}}",
                   "display": "Aetna"
                 }
               }

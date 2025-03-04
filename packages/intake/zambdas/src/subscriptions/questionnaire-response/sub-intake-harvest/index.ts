@@ -244,6 +244,12 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
 
   const { patch, accountPost, coveragePosts } = accountOperations;
   console.time('patching account resource');
+  const accountPatch = patch.find((req) => req.url.includes('Account'));
+  if (accountPatch) {
+    throw new Error(
+      `Account patch request should not be present in the patch operations ${JSON.stringify(accountPatch)}`
+    );
+  }
   const transactionRequests: BatchInputRequest<Account | RelatedPerson | Coverage>[] = [...coveragePosts, ...patch];
   if (accountPost) {
     transactionRequests.push({
@@ -256,7 +262,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   try {
     await oystehr.fhir.transaction({ requests: transactionRequests });
   } catch (error: unknown) {
-    tasksFailed.push('patch account');
+    tasksFailed.push(`Failed to update Account: ${JSON.stringify(error)}`);
     console.log(`Failed to update Account: ${JSON.stringify(error)}`);
   }
   console.timeEnd('patching account resource');
