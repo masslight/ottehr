@@ -59,7 +59,7 @@ export const validateAllMedicationFields = (
   return { isValid: missingFields.length === 0, missingFields };
 };
 
-export const statusLocaleMap: Record<string, string> = {
+export const medicationStatusDisplayLabelMap: Record<MedicationOrderStatusesType, string> = {
   pending: 'Pending',
   administered: 'Administered',
   'administered-partly': 'Partly Administered',
