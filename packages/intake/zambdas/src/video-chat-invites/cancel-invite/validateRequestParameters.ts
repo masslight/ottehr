@@ -1,4 +1,4 @@
-import { CancelInviteParticipantRequestInput, emailRegex } from 'utils';
+import { CancelInviteParticipantRequestInput, emailRegex, phoneRegex } from 'utils';
 import { ZambdaInput } from 'zambda-utils';
 
 export function validateRequestParameters(input: ZambdaInput): CancelInviteParticipantRequestInput {
@@ -20,7 +20,7 @@ export function validateRequestParameters(input: ZambdaInput): CancelInviteParti
     throw new Error('emailAddress is not valid');
   }
 
-  if (phoneNumber && !/\d{9}/.test(phoneNumber)) {
+  if (phoneNumber && !phoneRegex.test(phoneNumber)) {
     throw new Error('phoneNumber is not valid');
   }
 
