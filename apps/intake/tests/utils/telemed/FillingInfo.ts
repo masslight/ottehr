@@ -439,7 +439,7 @@ export class FillingInfo {
     await this.page.getByRole('option', { name: randomRelationships }).click();
     return { firstName, lastName, randomRelationships };
   }
-  async selectRandomSlot() {
+  async selectRandomSlot(): Promise<{ time: string; fullSlot: string }> {
     await expect(this.page.getByText('First available time')).toBeVisible();
     const timeSlotsButtons = this.page.locator('role=button[name=/^\\d{1,2}:\\d{2} (AM|PM)$/]');
     const buttonCount = await timeSlotsButtons.count();
@@ -447,11 +447,13 @@ export class FillingInfo {
     const randomIndex = Math.floor(Math.random() * (buttonCount - 1)) + 1;
     const selectedSlotButton = timeSlotsButtons.nth(randomIndex);
     const time = await selectedSlotButton.textContent();
+    if (!time) throw new Error('No time found in selected slot button');
     console.log(`Selected time: ${time}`);
     await selectedSlotButton.click();
     const selectButton = await this.page.getByRole('button', { name: /^Select/ });
     const selectButtonContent = await selectButton.textContent();
     const fullSlot = selectButtonContent?.replace('Select ', '').trim();
+    if (!fullSlot) throw new Error('No fullSlot info found in select slot button');
     console.log(`Selected slot: ${fullSlot}`);
     return { time, fullSlot };
   }

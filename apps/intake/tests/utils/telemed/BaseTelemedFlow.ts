@@ -38,18 +38,19 @@ export abstract class BaseTelemedFlow {
     this.fillingInfo = new FillingInfo(page);
     this.commonLocatorsHelper = new CommonLocatorsHelper(page);
     this.context = page.context();
+    this.paperwork = new Paperwork(page);
   }
   abstract selectTimeLocationAndContinue(): Promise<Partial<SlotAndLocation>>;
   abstract clickVisitButton(): Promise<void>;
   abstract completeBooking(): Promise<void>;
   abstract startVisitFullFlow(): Promise<StartVisitResponse>;
 
-  async selectVisitAndContinue() {
+  async selectVisitAndContinue(): Promise<void> {
     await this.page.goto(`/`);
     await this.clickVisitButton();
   }
 
-  async selectDifferentFamilyMemberAndContinue() {
+  async selectDifferentFamilyMemberAndContinue(): Promise<void> {
     await this.locator.selectDifferentFamilyMember();
     await this.continue();
   }
@@ -73,7 +74,7 @@ export abstract class BaseTelemedFlow {
     };
   }
 
-  async continue() {
+  async continue(): Promise<void> {
     await this.locator.clickContinueButton();
   }
 }

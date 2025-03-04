@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { BaseTelemedFlow, SlotAndLocation } from './BaseTelemedFlow';
+import { BaseTelemedFlow, SlotAndLocation, StartVisitResponse } from './BaseTelemedFlow';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 
 export class PrebookTelemedFlow extends BaseTelemedFlow {
@@ -21,15 +21,15 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
       .locator('[role="option"]')
       .filter({ hasNot: this.page.locator('[aria-disabled="true"], [disabled]') }) // Exclude disabled options
       .first();
-    const location = await locationOption.textContent();
+    const location = (await locationOption.textContent()) ?? undefined;
     await locationOption.click();
 
     const selectedSlot = await this.fillingInfo.selectRandomSlot();
     await this.continue();
-    return { selectedSlot, location };
+    return { selectedSlot: { time: selectedSlot.time, fullSlot: selectedSlot.fullSlot }, location };
   }
 
-  async startVisitFullFlow() {
+  async startVisitFullFlow(): Promise<StartVisitResponse> {
     await this.selectVisitAndContinue();
     const slotAndLocation = await this.selectTimeLocationAndContinue();
     await this.selectDifferentFamilyMemberAndContinue();
