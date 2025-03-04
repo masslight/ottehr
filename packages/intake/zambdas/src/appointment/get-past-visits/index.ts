@@ -81,6 +81,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
         const stateCode = locations.find((location) => location.id === stateId)?.address?.state;
 
+        const timezone = locations
+          .find((location) => location.id === stateId)
+          ?.extension?.find((extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone')
+          ?.valueString;
+
+        console.log('timezone here', timezone);
+
         const appointmentTypeTag = fhirAppointment.meta?.tag?.find((tag) => tag.code && tag.code in appointmentTypeMap);
         const appointmentType = appointmentTypeTag?.code ? appointmentTypeMap[appointmentTypeTag.code] : 'Unknown';
 
@@ -109,6 +116,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           appointmentStatus: fhirAppointment.status,
           status: status,
           state: { code: stateCode, id: stateId },
+          timezone: timezone,
           type: appointmentType,
         };
         appointments.push(appointment);
