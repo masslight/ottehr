@@ -63,7 +63,6 @@ export class Paperwork {
     await this.locator.proceedToPaperwork.click();
   }
   async checkContactInformationPageOpens(): Promise<void> {
-    await this.clickProceedToPaperwork();
     await expect(this.locator.flowHeading).toBeVisible();
     await expect(this.locator.flowHeading).toHaveText('Contact information');
   }

@@ -137,28 +137,25 @@ export class ResourceHandler {
       // Create appointment and related resources using zambda
       const appointmentData =
         this.flow === 'in-person'
-          ? await createSamplePrebookAppointments(
-              this.apiClient,
-              getAccessToken(),
-              formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
-              this.zambdaId,
-              process.env.APP_IS_LOCAL === 'true',
-              process.env.PROJECT_API_ZAMBDA_URL!,
-              process.env.LOCATION_ID!,
-              patientData
-            )
-          : await createSampleTelemedAppointments(
-              this.apiClient,
-              getAccessToken(),
-              formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
-              this.zambdaId,
-              process.env.APP_IS_LOCAL === 'true',
-              process.env.PROJECT_API_ZAMBDA_URL!,
-              process.env.STATE_ONE!, //LOCATION_ID!, // do we oficially have STATE env variable?
-              patientData
-            );
-
-      console.log({ appointmentData });
+          ? await createSamplePrebookAppointments({
+              oystehr: this.apiClient,
+              authToken: getAccessToken(),
+              phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
+              createAppointmentZambdaId: this.zambdaId,
+              intakeZambdaUrl: process.env.PROJECT_API_ZAMBDA_URL!,
+              selectedLocationId: process.env.LOCATION_ID!,
+              demoData: patientData,
+            })
+          : await createSampleTelemedAppointments({
+              oystehr: this.apiClient,
+              authToken: getAccessToken(),
+              phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
+              createAppointmentZambdaId: this.zambdaId,
+              islocal: process.env.APP_IS_LOCAL === 'true',
+              intakeZambdaUrl: process.env.PROJECT_API_ZAMBDA_URL!,
+              selectedLocationId: process.env.STATE_ONE!, // todo: check why state is used here
+              demoData: patientData,
+            });
 
       if (!appointmentData?.resources) {
         throw new Error('Appointment not created');
@@ -221,6 +218,7 @@ export class ResourceHandler {
         inviteTestEmployeeUser(TEST_EMPLOYEE_1, this.apiClient, this.authToken),
         inviteTestEmployeeUser(TEST_EMPLOYEE_2, this.apiClient, this.authToken),
       ]);
+
       this.testEmployee1 = employee1!;
       this.testEmployee2 = employee2!;
     } catch (error) {
@@ -265,7 +263,7 @@ export class ResourceHandler {
     return resourse;
   }
 
-  async cleanupAppointments(patientId: string): Promise<void> {
+  async cleanupAppointmentsForPatient(patientId: string): Promise<void> {
     const appointments = (
       await this.apiClient.fhir.search({
         resourceType: 'Appointment',
@@ -280,5 +278,9 @@ export class ResourceHandler {
     for (const appointment of appointments) {
       await cleanAppointment(appointment.id!, process.env.ENV!);
     }
+  }
+
+  async cleanAppointment(appointmentId: string): Promise<boolean> {
+    return cleanAppointment(appointmentId, process.env.ENV!);
   }
 }

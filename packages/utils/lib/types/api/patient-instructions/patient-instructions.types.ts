@@ -11,10 +11,10 @@ export interface GetPatientInstructionsInput {
 }
 
 export interface SavePatientInstructionInput {
-  id?: string;
+  instructionId?: string;
   text: string;
 }
 
 export interface DeletePatientInstructionInput {
-  id: string;
+  instructionId: string;
 }
