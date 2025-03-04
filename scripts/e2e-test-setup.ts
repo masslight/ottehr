@@ -98,8 +98,20 @@ async function getLocationForTesting(
     const locationSlug = locationResource?.identifier?.[0]?.value;
     const locationState = (locationResource?.address?.state || '').toLowerCase();
 
-    if (!locationId || !locationName || !locationSlug || !locationState) {
-      throw Error('Required location properties not found');
+    if (!locationId) {
+      throw Error('Required locationId not found  ');
+    }
+
+    if (!locationName) {
+      throw Error('Required locationName not found');
+    }
+
+    if (!locationSlug) {
+      throw Error('Required locationSlug not found');
+    }
+
+    if (!locationState) {
+      throw Error('Required locationState not found');
     }
 
     console.log(`Found location by slug '${DEFAULT_TESTING_SLUG}' with ID: ${locationId}`);

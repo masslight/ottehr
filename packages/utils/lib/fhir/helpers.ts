@@ -1037,3 +1037,8 @@ export function slashPathToLodashPath(slashPath: string): string {
     .join('.')
     .replace(/\.\[/g, '[');
 }
+
+export const unpackFhirResponse = async <T>(response: { json: () => Promise<any> }): Promise<T> => {
+  const data = await response.json();
+  return (data.output ? data.output : data) as T;
+};
