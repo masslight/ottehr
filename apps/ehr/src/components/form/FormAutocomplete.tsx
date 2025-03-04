@@ -1,6 +1,6 @@
 import { Autocomplete, TextField, AutocompleteProps } from '@mui/material';
 import { ReactElement } from 'react';
-import { Control, Controller, FieldValues, Path } from 'react-hook-form';
+import { Control, Controller, FieldValues, Path, RegisterOptions } from 'react-hook-form';
 
 export interface Option {
   label: string;
@@ -13,9 +13,10 @@ interface FormAutocompleteProps<T extends FieldValues>
   control: Control<T>;
   options: Option[];
   defaultValue?: string;
-  rules?: object;
+  rules?: RegisterOptions;
   required?: boolean;
   onChangeHandler?: (name: string, value: string) => void;
+  helperText?: string;
 }
 
 export const FormAutocomplete = <T extends FieldValues>({
@@ -26,32 +27,39 @@ export const FormAutocomplete = <T extends FieldValues>({
   rules,
   required,
   onChangeHandler,
+  helperText,
   ...autocompleteProps
-}: FormAutocompleteProps<T>): ReactElement => {
-  return (
-    <Controller
-      name={name}
-      control={control}
-      defaultValue={defaultValue as any}
-      rules={{
-        required,
-        validate: (value) => !value || options.some((option) => option.value === value),
-        ...rules,
-      }}
-      render={({ field: { onChange, value }, fieldState: { error } }) => (
-        <Autocomplete<Option, false, true, false>
-          {...autocompleteProps}
-          options={options}
-          value={options.find((option) => option.value === value) ?? undefined}
-          onChange={(_, newValue) => {
-            const newStringValue = newValue?.value || '';
-            onChange(newStringValue as any);
-            onChangeHandler?.(name, newStringValue);
-          }}
-          disableClearable={true}
-          renderInput={(params) => <TextField {...params} variant="standard" error={!!error} fullWidth />}
-        />
-      )}
-    />
-  );
-};
+}: FormAutocompleteProps<T>): ReactElement => (
+  <Controller
+    name={name}
+    control={control}
+    defaultValue={defaultValue as any}
+    rules={{
+      required,
+      validate: (value) => !value || options.some((option) => option.value === value),
+      ...rules,
+    }}
+    render={({ field: { onChange, value }, fieldState: { error } }) => (
+      <Autocomplete<Option, false, true, false>
+        {...autocompleteProps}
+        options={options}
+        value={options.find((option) => option.value === value) ?? undefined}
+        onChange={(_, newValue) => {
+          const newStringValue = newValue?.value || '';
+          onChange(newStringValue as any);
+          onChangeHandler?.(name, newStringValue);
+        }}
+        disableClearable={true}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            variant="standard"
+            error={!!error}
+            fullWidth
+            helperText={error?.message || helperText}
+          />
+        )}
+      />
+    )}
+  />
+);
