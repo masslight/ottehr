@@ -19,7 +19,6 @@ import {
   getSurgicalHistoryStepAnswers,
   isoToDateObject,
 } from './helpers';
-import { getProjectId } from '../types/common';
 
 interface AppointmentData {
   firstNames?: string[];
@@ -176,6 +175,7 @@ export const createSampleTelemedAppointments = async ({
   intakeZambdaUrl,
   selectedLocationId,
   demoData,
+  projectId,
 }: {
   oystehr: Oystehr | undefined;
   authToken: string;
@@ -185,7 +185,12 @@ export const createSampleTelemedAppointments = async ({
   intakeZambdaUrl: string;
   selectedLocationId?: string;
   demoData?: DemoAppointmentData;
+  projectId: string;
 }): Promise<CreateAppointmentUCTelemedResponse | null> => {
+  if (!projectId) {
+    throw new Error('PROJECT_ID is not set');
+  }
+
   if (!oystehr) {
     console.log('oystehr client is not defined');
     return null;
@@ -203,7 +208,7 @@ export const createSampleTelemedAppointments = async ({
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
-          'x-zapehr-project-id': getProjectId(),
+          'x-zapehr-project-id': projectId,
         },
         body: JSON.stringify(patientInfo),
       });
@@ -253,7 +258,8 @@ export const createSampleTelemedAppointments = async ({
             getInviteParticipantStepAnswers(),
           ],
           intakeZambdaUrl,
-          authToken
+          authToken,
+          projectId
         );
 
         const response = await fetch(`${intakeZambdaUrl}/zambda/submit-paperwork/execute-public`, {
@@ -261,7 +267,7 @@ export const createSampleTelemedAppointments = async ({
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${authToken}`,
-            'x-zapehr-project-id': getProjectId(),
+            'x-zapehr-project-id': projectId,
           },
           body: JSON.stringify(<SubmitPaperworkParameters>{
             answers: [],

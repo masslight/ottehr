@@ -18,12 +18,17 @@ import { buildSearchQuery } from './utils/buildSearchQuery';
 import { parseSearchResults } from './utils/parseSearchResults';
 import { SEARCH_CONFIG } from './constants';
 import { addSearchPagination } from './utils/addSearchPagination';
-import { getProjectId } from 'utils/lib/types/common';
 
 const emptySearchResult: SearchResult = {
   patients: [],
   pagination: { next: null, prev: null, totalItems: 0 },
 };
+
+const projectId = import.meta.env.VITE_APP_PROJECT_ID;
+
+if (!projectId) {
+  throw new Error('PROJECT_ID is not set');
+}
 
 const fetchPatients = async ({
   searchUrl,
@@ -44,7 +49,7 @@ const fetchPatients = async ({
       accept: 'application/json',
       'content-type': 'application/json',
       Authorization: `Bearer ${token}`,
-      'x-zapehr-project-id': getProjectId(),
+      'x-zapehr-project-id': projectId,
     };
 
     const response = await fetch(searchUrl, {

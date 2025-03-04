@@ -149,6 +149,10 @@ export class ResourceHandler {
         throw new Error('STATE_ONE is not set');
       }
 
+      if (!process.env.PROJECT_ID) {
+        throw new Error('PROJECT_ID is not set');
+      }
+
       // Create appointment and related resources using zambda
       const appointmentData =
         this.flow === 'in-person'
@@ -160,6 +164,7 @@ export class ResourceHandler {
               intakeZambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
               selectedLocationId: process.env.LOCATION_ID,
               demoData: patientData,
+              projectId: process.env.PROJECT_ID!,
             })
           : await createSampleTelemedAppointments({
               oystehr: this.apiClient,
@@ -170,6 +175,7 @@ export class ResourceHandler {
               intakeZambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
               selectedLocationId: process.env.STATE_ONE, // todo: check why state is used here
               demoData: patientData,
+              projectId: process.env.PROJECT_ID!,
             });
 
       if (!appointmentData?.resources) {

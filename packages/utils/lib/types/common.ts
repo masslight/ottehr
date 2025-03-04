@@ -876,12 +876,3 @@ export interface CanonicalUrl {
   url: string;
   version: string;
 }
-
-export function getProjectId(): string {
-  const projectId =
-    (import.meta as any)?.env?.VITE_APP_PROJECT_ID || (typeof process !== 'undefined' && process?.env?.PROJECT_ID);
-  if (!projectId) {
-    throw new Error('PROJECT_ID is not set');
-  }
-  return projectId;
-}
