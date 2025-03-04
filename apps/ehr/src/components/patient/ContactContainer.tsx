@@ -6,6 +6,7 @@ import { STATE_OPTIONS } from '../../constants';
 import { FormAutocomplete, FormTextField } from '../form';
 import { Row, Section } from '../layout';
 import { usePatientStore } from '../../state/patient.store';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 export const ContactContainer: FC = () => {
   const { patient, updatePatientField } = usePatientStore();
@@ -39,6 +40,7 @@ export const ContactContainer: FC = () => {
     <Section title="Contact information">
       <Row label="Street address" inputId="patient-street-address" required>
         <FormTextField
+          data-testid={dataTestIds.contactInformationContainer.streetAddress}
           name={patientFieldPaths.streetAddress}
           control={control}
           defaultValue={patient?.address?.[0]?.line?.[0]}
@@ -55,6 +57,7 @@ export const ContactContainer: FC = () => {
             defaultValue={patient?.address?.[0]?.city}
             rules={{ required: true }}
             onChangeHandler={handleChange}
+            data-testid={dataTestIds.contactInformationContainer.city}
           />
           <FormAutocomplete
             name={patientFieldPaths.state}
@@ -66,6 +69,7 @@ export const ContactContainer: FC = () => {
               require: true,
             }}
             onChangeHandler={handleAutocompleteChange}
+            data-testid={dataTestIds.contactInformationContainer.state}
           />
           <FormTextField
             name={patientFieldPaths.zip}
@@ -73,11 +77,13 @@ export const ContactContainer: FC = () => {
             defaultValue={patient?.address?.[0]?.postalCode}
             rules={{ required: true }}
             onChangeHandler={handleChange}
+            data-testid={dataTestIds.contactInformationContainer.zip}
           />
         </Box>
       </Row>
       <Row label="Patient email">
         <FormTextField
+          data-testid={dataTestIds.contactInformationContainer.patientEmail}
           id="patient-email"
           name={emailPath}
           control={control}
@@ -102,6 +108,7 @@ export const ContactContainer: FC = () => {
             required: true,
           }}
           onChangeHandler={handleChange}
+          data-testid={dataTestIds.contactInformationContainer.patientMobile}
         />
       </Row>
     </Section>

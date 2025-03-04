@@ -5,6 +5,7 @@ import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../
 import { RELATIONSHIP_OPTIONS, SEX_OPTIONS } from '../../constants';
 import { Row, Section } from '../layout';
 import { usePatientStore } from '../../state/patient.store';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 export const ResponsibleInformationContainer: FC = () => {
   const { patient, updatePatientField } = usePatientStore();
@@ -49,6 +50,7 @@ export const ResponsibleInformationContainer: FC = () => {
     <Section title="Responsible party information">
       <Row label="Relationship" required>
         <FormSelect
+          data-testid={dataTestIds.responsiblePartyInformationContainer.relationshipDropdown}
           name={patientFieldPaths.responsiblePartyRelationship}
           control={control}
           options={RELATIONSHIP_OPTIONS}
@@ -66,6 +68,7 @@ export const ResponsibleInformationContainer: FC = () => {
       </Row>
       <Row label="Full name" required inputId="responsible-party-full-name">
         <FormTextField
+          data-testid={dataTestIds.responsiblePartyInformationContainer.fullName}
           name={patientFieldPaths.responsiblePartyName}
           control={control}
           defaultValue={`${patient?.contact?.[0].name?.family}, ${patient?.contact?.[0].name?.given?.[0]}`}
@@ -87,6 +90,7 @@ export const ResponsibleInformationContainer: FC = () => {
       </Row>
       <Row label="Birth sex" required>
         <FormSelect
+          data-testid={dataTestIds.responsiblePartyInformationContainer.birthSexDropdown}
           name={patientFieldPaths.responsiblePartyGender}
           control={control}
           options={SEX_OPTIONS}
@@ -97,6 +101,7 @@ export const ResponsibleInformationContainer: FC = () => {
       </Row>
       <Row label="Phone" required inputId="responsible-party-phone">
         <FormTextField
+          data-testid={dataTestIds.responsiblePartyInformationContainer.phoneInput}
           id="responsible-party-phone"
           name={responsiblePartyPhonePath}
           control={control}

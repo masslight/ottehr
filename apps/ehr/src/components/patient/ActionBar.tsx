@@ -3,6 +3,7 @@ import { FC, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { useUpdatePatient } from '../../hooks/useGetPatient';
 import { usePatientStore } from '../../state/patient.store';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 type ActionBarProps = {
   handleDiscard: () => void;
@@ -66,6 +67,7 @@ export const ActionBar: FC<ActionBarProps> = ({ handleDiscard }) => {
         Back
       </Button>
       <Button
+        data-testid={dataTestIds.patientInformationPage.saveChangesButton}
         variant="contained"
         color="primary"
         disabled={!hasChanges}
