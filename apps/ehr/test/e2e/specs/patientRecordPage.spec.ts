@@ -1,16 +1,12 @@
 import { test } from '@playwright/test';
 import {
-  PATIENT_BIRTH_DATE_SHORT,
-  PATIENT_BIRTHDAY,
-  PATIENT_FIRST_NAME,
-  PATIENT_GENDER,
-  PATIENT_LAST_NAME,
+ 
   ResourceHandler,
 } from '../../e2e-utils/resource-handler';
 
 import { expectPatientRecordPage } from '../page/PatientRecordPage';
-import { expectPatientInformationPage } from '../page/PatientInformationPage';
-import { getMaxListeners } from 'events';
+import { expectPatientInformationPage, openPatientInformationPage, PatientInformationPage } from '../page/PatientInformationPage';
+
 
 
 
@@ -33,15 +29,13 @@ test('Click on "See all patient info button", Patient Info Page is opened', asyn
 });
 
 
-test('Fill and save required valus on Patient Info Pgae, values are saved and updated successfully', async ({ page }) => {
-  const patientRecordPage = await expectPatientRecordPage(resourceHandler.patient.id!, page);
-  await patientRecordPage.clickSeeAllPatientInfoButton();
-  const patientInformationPage = await expectPatientInformationPage(page, resourceHandler.patient.id!);
+test('Fill and save required values on Patient Info Page, values are saved and updated successfully', async ({ page }) => {
+  const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!,);
   await patientInformationPage.enterPatientLastName('Test_lastname');
   await patientInformationPage.enterPatientFirstName('Test_firstname');
   await patientInformationPage.enterPatientDateOfBirth('01/01/2024');
   await patientInformationPage.selectPatientBirthSex('Female');
-  await patientInformationPage.enterStreetaddress('Test address, 1');
+  await patientInformationPage.enterStreetAddress('Test address, 1');
   await patientInformationPage.enterCity('New York');
   await patientInformationPage.selectState('CA');
   await patientInformationPage.enterPatientEmail('testemail@getMaxListeners.com');
@@ -50,5 +44,31 @@ test('Fill and save required valus on Patient Info Pgae, values are saved and up
   await patientInformationPage.selectPatientRace('Asian');
   await patientInformationPage.selectRelationship('Self');
   await patientInformationPage.enterFullName('Last name, First name');
-  
+  await patientInformationPage.enterDateOfBirthFromResponsibleContainer('10/10/2000');
+  await patientInformationPage.selectBirthSexFromResponsibleContainer('Male');
+  await patientInformationPage.enterPhoneFromResponsibleContainer('1111111111');
+  await patientInformationPage.selectReleaseOfInfo('Yes, Release Allowed'); 
+  await patientInformationPage.selectRxHistoryConsent('Rx history consent signed by the patient'); 
+  await patientInformationPage.clickSaveChangesButton();
+  await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
+  await patientInformationPage.reloadPatientInformationPage();
+
+  await patientInformationPage.verifyPatientLastName('Test_lastname');
+  await patientInformationPage.verifyPatientFirstName('Test_firstname');
+  await patientInformationPage.verifyPatientDateOfBirth('01/01/2024');
+  await patientInformationPage.verifyPatientBirthSex('Female');
+  await patientInformationPage.verifyStreetAddress('Test address, 1');
+  await patientInformationPage.verifyCity('New York');
+  await patientInformationPage.verifyState('CA');
+  await patientInformationPage.verifyPatientEmail('testemail@getMaxListeners.com');
+  await patientInformationPage.verifyPatientMobile('2027139680');
+  await patientInformationPage.verifyPatientEthnicity('Hispanic or Latino');
+  await patientInformationPage.verifyPatientRace('Asian');
+  await patientInformationPage.verifyRelationship('Self');
+  await patientInformationPage.verifyFullName('Last name, First name');
+  await patientInformationPage.verifyDateOfBirthFromResponsibleContainer('10/10/2000');
+  await patientInformationPage.verifyBirthSexFromResponsibleContainer('Male');
+  await patientInformationPage.verifyPhoneFromResponsibleContainer('1111111111');
+  await patientInformationPage.verifyReleaseOfInfo('Yes, Release Allowed'); 
+  await patientInformationPage.verifyRxHistoryConsent('Rx history consent signed by the patient'); 
 });

@@ -80,6 +80,7 @@ export const dataTestIds = {
     patientsRace: 'patients-race',
   },
   responsiblePartyInformationContainer: {
+    id: 'responsible-party-information-container',
     relationshipDropdown: 'relationship-dropdown',
     fullName: 'full-name',
     dateOfBirthDropdown: 'date-of-birth-dropdown',

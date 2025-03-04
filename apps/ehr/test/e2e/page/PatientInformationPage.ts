@@ -20,13 +20,6 @@ export class PatientInformationPage {
       .fill(patientLastName);
   }
 
-  async updatePatientLastName(patientLastName: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.patientInformationContainer.patientLastName)
-      .locator('input')
-      .fill(patientLastName);
-  }
-
   async verifyPatientLastName(patientLastName: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.patientInformationContainer.patientLastName).locator('input')
@@ -34,13 +27,6 @@ export class PatientInformationPage {
   }
 
   async enterPatientFirstName(patientFirstName: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.patientInformationContainer.patientFirstName)
-      .locator('input')
-      .fill(patientFirstName);
-  }
-
-  async updatePatientFirstName(patientFirstName: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.patientInformationContainer.patientFirstName)
       .locator('input')
@@ -60,23 +46,11 @@ export class PatientInformationPage {
     await locator.pressSequentially(patientDateOfBirth);
   }
 
-  async updatePatientDateOfBirth(patientDateOfBirth: string): Promise<void> {
-    const locator = this.#page.locator('#patient-date-of-birth');
-    await locator.click();
-    await this.#page.waitForTimeout(2000);
-    await locator.pressSequentially(patientDateOfBirth);
-  }
-
   async verifyPatientDateOfBirth(patientDateOfBirth: string): Promise<void> {
     await expect(this.#page.locator('#patient-date-of-birth')).toHaveValue(patientDateOfBirth);
   }
 
   async selectPatientBirthSex(birthSex: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientInformationContainer.patientBirthSex).click();
-    await this.#page.getByText(birthSex, { exact: true }).click();
-  }
-
-  async updatePatientBirthSex(birthSex: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.patientInformationContainer.patientBirthSex).click();
     await this.#page.getByText(birthSex, { exact: true }).click();
   }
@@ -87,14 +61,7 @@ export class PatientInformationPage {
     ).toHaveValue(patientBirthSex);
   }
 
-  async enterStreetaddress(streetAddress: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.contactInformationContainer.streetAddress)
-      .locator('input')
-      .fill(streetAddress);
-  }
-
-  async updateStreetaddress(streetAddress: string): Promise<void> {
+  async enterStreetAddress(streetAddress: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.contactInformationContainer.streetAddress)
       .locator('input')
@@ -111,10 +78,6 @@ export class PatientInformationPage {
     await this.#page.getByTestId(dataTestIds.contactInformationContainer.city).locator('input').fill(city);
   }
 
-  async updateCity(city: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.contactInformationContainer.city).locator('input').fill(city);
-  }
-
   async verifyCity(city: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.contactInformationContainer.city).locator('input')).toHaveValue(
       city
@@ -122,11 +85,6 @@ export class PatientInformationPage {
   }
 
   async selectState(state: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.contactInformationContainer.state).click();
-    await this.#page.getByText(state, { exact: true }).click();
-  }
-
-  async updateState(state: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.contactInformationContainer.state).click();
     await this.#page.getByText(state, { exact: true }).click();
   }
@@ -141,11 +99,7 @@ export class PatientInformationPage {
     await this.#page.getByTestId(dataTestIds.contactInformationContainer.zip).locator('input').fill(zip);
   }
 
-  async updateZip(zip: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.contactInformationContainer.zip).locator('input').fill(zip);
-  }
-
-  async verifyZip(zip: string): Promise<void> {
+   async verifyZip(zip: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.contactInformationContainer.zip).locator('input')).toHaveValue(zip);
   }
 
@@ -153,22 +107,11 @@ export class PatientInformationPage {
     await this.#page.getByTestId(dataTestIds.contactInformationContainer.patientEmail).locator('input').fill(email);
   }
 
-  async updatePatientEmail(email: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.contactInformationContainer.patientEmail).locator('input').fill(email);
-  }
-
-  async verifyPatientEmail(email: string): Promise<void> {
+    async verifyPatientEmail(email: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.contactInformationContainer.patientEmail).locator('input')).toHaveValue(email);
   }
 
   async enterPatientMobile(patientMobile: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.contactInformationContainer.patientMobile)
-      .locator('input')
-      .fill(patientMobile);
-  }
-
-  async updatePatientMobile(patientMobile: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.contactInformationContainer.patientMobile)
       .locator('input')
@@ -186,22 +129,12 @@ export class PatientInformationPage {
     await this.#page.getByText(patientEthnicity, { exact: true }).click();
   }
 
-  async updatePatientEthnicity(patientEthnicity: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.patientsEthnicity).click();
-    await this.#page.getByText(patientEthnicity, { exact: true }).click();
-  }
-
   async verifyPatientEthnicity(patientEthnicity: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.patientDetailsContainer.patientsEthnicity).locator('input')
     ).toHaveValue(patientEthnicity);
   }
   async selectPatientRace(patientEthnicity: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.patientsRace).click();
-    await this.#page.getByText(patientEthnicity, { exact: true }).click();
-  }
-
-  async updatePatientRace(patientEthnicity: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.patientDetailsContainer.patientsRace).click();
     await this.#page.getByText(patientEthnicity, { exact: true }).click();
   }
@@ -216,11 +149,7 @@ export class PatientInformationPage {
     await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.relationshipDropdown).click();
     await this.#page.getByText(relationship, { exact: true }).click();
   }
-  async updateRelationship(relationship: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.relationshipDropdown).click();
-    await this.#page.getByText(relationship, { exact: true }).click();
-  }
-
+ 
   async verifyRelationship(relationship: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.relationshipDropdown).locator('input')
@@ -234,13 +163,6 @@ export class PatientInformationPage {
       .fill(fullName);
   }
 
-  async updateFullName(fullName: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.responsiblePartyInformationContainer.fullName)
-      .locator('input')
-      .fill(fullName);
-  }
-
   async verifyFullName(fullName: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.fullName).locator('input')
@@ -248,29 +170,19 @@ export class PatientInformationPage {
   }
 
   async enterDateOfBirthFromResponsibleContainer(dateOfBirth: string): Promise<void> {
-    const locator = this.#page.locator('[placeholder="MM/DD/YYYY"]');
+    const locator = this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.id).locator('[placeholder="MM/DD/YYYY"]');
     await locator.click();
     await this.#page.waitForTimeout(2000);
     await locator.pressSequentially(dateOfBirth);
   }
 
-  async updateDateOfBirthFromResponsibleContainer(dateOfBirth: string): Promise<void> {
-    const locator = this.#page.locator('[placeholder="MM/DD/YYYY"]');
-    await locator.click();
-    await this.#page.waitForTimeout(2000);
-    await locator.pressSequentially(dateOfBirth);
-  }
   async verifyDateOfBirthFromResponsibleContainer(dateOfBirth: string): Promise<void> {
-    await expect(this.#page.locator('[placeholder="MM/DD/YYYY"]')).toHaveValue(dateOfBirth);
+    await expect(this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.id).locator('[placeholder="MM/DD/YYYY"]')).toHaveValue(dateOfBirth);
   }
+
   async selectBirthSexFromResponsibleContainer(birthSex: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.birthSexDropdown).click();
-    await this.#page.getByText(birthSex, { exact: true }).click();
-  }
-
-  async updateBirthSexFromResponsibleContainer(birthSex: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.birthSexDropdown).click();
-    await this.#page.getByText(birthSex, { exact: true }).click();
+    await this.#page.locator('li').getByText(birthSex, { exact: true }).click();
   }
 
   async verifyBirthSexFromResponsibleContainer(birthSex: string): Promise<void> {
@@ -286,10 +198,6 @@ export class PatientInformationPage {
       .fill(phone);
   }
 
-  async updatePhoneFromResponsibleContainer(phone: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.contactInformationContainer.patientMobile).locator('input').fill(phone);
-  }
-
   async verifyPhoneFromResponsibleContainer(phone: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.contactInformationContainer.patientMobile).locator('input')
@@ -297,11 +205,6 @@ export class PatientInformationPage {
   }
 
   async selectReleaseOfInfo(releaseOfInfo: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.userSettingsContainer.releaseOfInfoDropdown).click();
-    await this.#page.getByText(releaseOfInfo, { exact: true }).click();
-  }
-
-  async updateReleaseOfInfo(releaseOfInfo: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.userSettingsContainer.releaseOfInfoDropdown).click();
     await this.#page.getByText(releaseOfInfo, { exact: true }).click();
   }
@@ -317,11 +220,6 @@ export class PatientInformationPage {
     await this.#page.getByText(rxHistoryConsent, { exact: true }).click();
   }
 
-  async updateRxHistoryConsent(rxHistoryConsent: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.userSettingsContainer.RxHistoryConsentDropdown).click();
-    await this.#page.getByText(rxHistoryConsent, { exact: true }).click();
-  }
-
   async verifyRxHistoryConsent(rxHistoryConsent: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.userSettingsContainer.RxHistoryConsentDropdown).locator('input')
@@ -331,11 +229,14 @@ export class PatientInformationPage {
   async reloadPatientInformationPage(): Promise<void> {
     await this.#page.reload();
   }
-
   
   async clickSaveChangesButton(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.patientInformationPage.saveChangesButton).click();
     //await this.#page.waitForSelector('text=State was updated successfully');
+  }
+
+  async verifyUpdatedSuccessfullyMessageShown(): Promise<void> {
+    await expect(this.#page.locator('p:text("Patient information updated successfully")')).toBeVisible();
   }
 
 }

@@ -115,7 +115,7 @@ export const ResponsibleInformationContainer: FC = () => {
   };
 
   return (
-    <Section title="Responsible party information">
+    <Section dataTestId={dataTestIds.responsiblePartyInformationContainer.id} title="Responsible party information">
       <Row label="Relationship" required>
         <FormSelect
           data-testid={dataTestIds.responsiblePartyInformationContainer.relationshipDropdown}
