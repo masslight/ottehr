@@ -182,18 +182,19 @@ export class Paperwork {
   async skipPrimaryCarePhysician(): Promise<void> {
     await this.CommonLocatorsHelper.clickContinue();
   }
-  async fillPrimaryCarePhysician(): Promise<{  
-  firstName: string;
-  lastName: string;
-  pcpAddress: string;
-  pcpName: string;
-  formattedPhoneNumber: string;}> {
+  async fillPrimaryCarePhysician(): Promise<{
+    firstName: string;
+    lastName: string;
+    pcpAddress: string;
+    pcpName: string;
+    formattedPhoneNumber: string;
+  }> {
     const firstName = `First name test`;
     const lastName = `Last name test`;
     const pcpAddress = `PCP address test`;
     const pcpName = `PCP name test`;
-    const pcpNumber = '1234567890'
-    const formattedPhoneNumber = this.formatPhoneNumber(pcpNumber); 
+    const pcpNumber = '1234567890';
+    const formattedPhoneNumber = this.formatPhoneNumber(pcpNumber);
     await this.locator.pcpFirstName.fill(firstName);
     await expect(this.locator.pcpFirstName).toHaveValue(firstName);
     await this.locator.pcpLastName.fill(lastName);
@@ -204,7 +205,7 @@ export class Paperwork {
     await expect(this.locator.pcpPractice).toHaveValue(pcpName);
     await this.locator.pcpNumber.fill(pcpNumber);
     await expect(this.locator.pcpNumber).toHaveValue(formattedPhoneNumber);
-    return {firstName, lastName, pcpAddress, pcpName, formattedPhoneNumber};
+    return { firstName, lastName, pcpAddress, pcpName, formattedPhoneNumber };
   }
   async checkPhoneValidations(number: any, error: any): Promise<void> {
     await number.fill('123');

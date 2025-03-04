@@ -6,7 +6,7 @@ import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
 
 let context: BrowserContext;
 let page: Page;
-let firstAvailableTime : string;
+let firstAvailableTime: string;
 let location;
 let locators: Locators;
 let telemedFlow: PrebookTelemedFlow;
@@ -54,7 +54,7 @@ test('Should select and create new patient', async () => {
   await telemedFlow.selectDifferentFamilyMemberAndContinue();
   await telemedFlow.fillNewPatientDataAndContinue();
   await telemedFlow.continue(); // this one for submitting reserve page
-  await expect(page.getByTestId(dataTestIds.thankYouPageSelectedTimeBlock)).toBeVisible({timeout: 30000});
+  await expect(page.getByTestId(dataTestIds.thankYouPageSelectedTimeBlock)).toBeVisible({ timeout: 30000 });
 });
 
 test('Should check "thank you" page has correct location and visit time', async () => {

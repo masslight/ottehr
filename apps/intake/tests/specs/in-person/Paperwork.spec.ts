@@ -10,7 +10,7 @@ let flowClass: PrebookInPersonFlow;
 let bookingData: Awaited<ReturnType<PrebookInPersonFlow['startVisit']>>;
 let paperwork: Paperwork;
 let locator: Locators;
-let pcpData: Awaited<ReturnType<Paperwork['fillPrimaryCarePhysician']>>
+let pcpData: Awaited<ReturnType<Paperwork['fillPrimaryCarePhysician']>>;
 const appointmentIds: string[] = [];
 
 test.beforeAll(async ({ browser }) => {

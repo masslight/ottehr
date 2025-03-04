@@ -97,7 +97,7 @@ export class Locators {
     this.termsAndConditions = page.getByTestId(dataTestIds.termsAndConditionsReviewScreen);
     this.proceedToPaperwork = page.getByRole('button', { name: 'Proceed to paperwork' });
     this.firstAvailableTime = page.getByText('First available time');
-    this.firstAvailableTimeButton = page.getByRole('button', {name: 'First available time'});
+    this.firstAvailableTimeButton = page.getByRole('button', { name: 'First available time' });
     this.editPencilReviewScreen = page.getByTestId('EditOutlinedIcon');
     this.modifyTimeThankYouScreen = page.getByRole('button', { name: 'Modify' });
     this.cancelVisitThankYouScreen = page.getByRole('button', { name: 'Cancel' });
@@ -159,7 +159,7 @@ export class Locators {
     } else {
       return await this.continueButton.click();
     }
-  };
+  }
   async clickBackButton(): Promise<void> {
     await this.backButton.click();
   }

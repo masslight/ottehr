@@ -21,7 +21,7 @@ export interface PatientBasicInfo {
   email: string;
   thisEmailBelongsTo: string;
   reasonForVisit: string;
-  dob: { m: string; d: string; y: string; }
+  dob: { m: string; d: string; y: string };
 }
 
 export abstract class BaseTelemedFlow {
@@ -68,8 +68,8 @@ export abstract class BaseTelemedFlow {
       dob: {
         d: patientDob.randomDay,
         m: patientDob.randomMonth,
-        y: patientDob.randomYear
-      }
+        y: patientDob.randomYear,
+      },
     };
   }
 

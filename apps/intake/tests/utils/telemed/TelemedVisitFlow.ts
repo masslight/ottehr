@@ -22,7 +22,7 @@ export class TelemedVisitFlow extends BaseTelemedFlow {
     await locationOption.click();
     await this.continue();
 
-    return { location: "" };
+    return { location: '' };
   }
   async startVisitFullFlow() {
     await this.selectVisitAndContinue();
@@ -52,7 +52,7 @@ export class TelemedVisitFlow extends BaseTelemedFlow {
       email: patientBasicInfo.email,
       birthSex: patientBasicInfo.birthSex,
       thisEmailBelongsTo: patientBasicInfo.thisEmailBelongsTo,
-      reasonForVisit: patientBasicInfo.reasonForVisit
+      reasonForVisit: patientBasicInfo.reasonForVisit,
     });
     await this.continue();
     await this.continue(); // skip optional photo ID
@@ -67,7 +67,7 @@ export class TelemedVisitFlow extends BaseTelemedFlow {
     await expect(this.page.getByText('Please wait, call will start automatically.')).toBeVisible({ timeout: 30000 });
     return {
       slotAndLocation,
-      patientBasicInfo
-    }
+      patientBasicInfo,
+    };
   }
 }

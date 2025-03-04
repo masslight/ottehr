@@ -69,7 +69,7 @@ test('Should create new patient', async () => {
   dob = {
     randomDay: patientData.dob.d,
     randomMonth: patientData.dob.m,
-    randomYear: patientData.dob.y
+    randomYear: patientData.dob.y,
   };
 
   await paperwork.fillAndCheckContactInformation(patientInfo);
