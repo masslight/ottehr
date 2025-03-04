@@ -19,7 +19,7 @@ import {
   getSurgicalHistoryStepAnswers,
   isoToDateObject,
 } from './helpers';
-import { projectId } from '../types/common';
+import { getProjectId } from '../types/common';
 
 interface AppointmentData {
   firstNames?: string[];
@@ -198,16 +198,12 @@ export const createSampleTelemedAppointments = async ({
     for (let i = 0; i < numberOfAppointments; i++) {
       const patientInfo = await generateRandomPatientInfo(oystehr, phoneNumber, demoData, selectedLocationId);
 
-      if (!projectId) {
-        throw new Error('PROJECT_ID is not set');
-      }
-
       const createAppointmentResponse = await fetch(`${intakeZambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
-          'x-zapehr-project-id': projectId,
+          'x-zapehr-project-id': getProjectId(),
         },
         body: JSON.stringify(patientInfo),
       });
@@ -260,16 +256,12 @@ export const createSampleTelemedAppointments = async ({
           authToken
         );
 
-        if (!projectId) {
-          throw new Error('PROJECT_ID is not set');
-        }
-
         const response = await fetch(`${intakeZambdaUrl}/zambda/submit-paperwork/execute-public`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${authToken}`,
-            'x-zapehr-project-id': projectId,
+            'x-zapehr-project-id': getProjectId(),
           },
           body: JSON.stringify(<SubmitPaperworkParameters>{
             answers: [],

@@ -6,7 +6,7 @@ import {
   CreateAppointmentResponse,
   PatchPaperworkParameters,
   PersonSex,
-  projectId,
+  getProjectId,
   ScheduleType,
   ServiceMode,
   SubmitPaperworkParameters,
@@ -137,16 +137,12 @@ export const createSamplePrebookAppointments = async ({
         selectedLocationId
       );
 
-      if (!projectId) {
-        throw new Error('PROJECT_ID is not set');
-      }
-
       const createAppointmentResponse = await fetch(`${intakeZambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
-          'x-zapehr-project-id': projectId,
+          'x-zapehr-project-id': getProjectId(),
         },
         body: JSON.stringify(randomPatientInfo),
       });
@@ -181,16 +177,12 @@ export const createSamplePrebookAppointments = async ({
         authToken
       );
 
-      if (!projectId) {
-        throw new Error('PROJECT_ID is not set');
-      }
-
       const response = await fetch(`${intakeZambdaUrl}/zambda/submit-paperwork/execute-public`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
-          'x-zapehr-project-id': projectId,
+          'x-zapehr-project-id': getProjectId(),
         },
         body: JSON.stringify(<SubmitPaperworkParameters>{
           answers: [],
@@ -339,16 +331,12 @@ export async function makeSequentialPaperworkPatches(
   await stepAnswers.reduce(async (previousPromise, answer) => {
     await previousPromise;
 
-    if (!projectId) {
-      throw new Error('PROJECT_ID is not set');
-    }
-
     const response = await fetch(`${intakeZambdaUrl}/zambda/patch-paperwork/execute-public`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${authToken}`,
-        'x-zapehr-project-id': projectId,
+        'x-zapehr-project-id': getProjectId(),
       },
       body: JSON.stringify(<PatchPaperworkParameters>{
         answers: answer,
