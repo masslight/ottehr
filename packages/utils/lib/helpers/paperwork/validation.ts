@@ -16,6 +16,7 @@ import {
   zipRegex,
   QuestionnaireItemConditionDefinition,
   DOB_DATE_FORMAT,
+  REQUIRED_FIELD_ERROR_MESSAGE,
 } from 'utils';
 import * as Yup from 'yup';
 
@@ -41,9 +42,9 @@ export const FULL_ADDRESS_FIELDS = ['pharmacy-address'];
 const makeReferenceValueSchema = (required: boolean): Yup.AnyObjectSchema => {
   if (required) {
     return Yup.object({
-      reference: Yup.string().required('This field is required'),
-      display: Yup.string().required('This field is required'),
-    }).required('This field is required');
+      reference: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE),
+      display: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE),
+    }).required(REQUIRED_FIELD_ERROR_MESSAGE);
   }
   return Yup.object({
     reference: Yup.string(),
@@ -117,16 +118,16 @@ const wrapSchemaInSingleMemberArray = (
   const { required, filtered } = context;
   const multi = item.acceptsMultipleAnswers;
   if (required && !filtered) {
-    let answer = Yup.array().of(schema).length(1).required('This field is required');
+    let answer = Yup.array().of(schema).length(1).required(REQUIRED_FIELD_ERROR_MESSAGE);
     if (multi) {
-      answer = Yup.array().of(schema).min(1).required('This field is required');
+      answer = Yup.array().of(schema).min(1).required(REQUIRED_FIELD_ERROR_MESSAGE);
     }
     return Yup.object({
       linkId: Yup.string(),
       answer,
     })
       .transform((v) => (!v ? undefined : v))
-      .required('This field is required');
+      .required(REQUIRED_FIELD_ERROR_MESSAGE);
   }
   return Yup.object({
     linkId: Yup.string().optional(),
@@ -155,13 +156,13 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
     }
 
     if (required) {
-      stringSchema = stringSchema.required('This field is required');
+      stringSchema = stringSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
     }
     let schema: Yup.AnySchema = Yup.object({
       valueString: stringSchema,
     });
     if (required) {
-      schema = schema.required('This field is required');
+      schema = schema.required(REQUIRED_FIELD_ERROR_MESSAGE);
     } else {
       schema = schema.optional();
     }
@@ -170,27 +171,27 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
   if (item.type === 'boolean') {
     let booleanSchema = Yup.boolean();
     if (required) {
-      booleanSchema = booleanSchema.is([true], 'This field is required').required('This field is required');
+      booleanSchema = booleanSchema.is([true], REQUIRED_FIELD_ERROR_MESSAGE).required(REQUIRED_FIELD_ERROR_MESSAGE);
     }
     schemaTemp = Yup.object({
       valueBoolean: booleanSchema,
     });
     if (required) {
-      schemaTemp = schemaTemp.required('This field is required');
+      schemaTemp = schemaTemp.required(REQUIRED_FIELD_ERROR_MESSAGE);
     }
   }
 
   if (item.type === 'choice' && item.answerOption && item.answerOption.length) {
     let stringSchema = Yup.string();
     if (required) {
-      stringSchema = stringSchema.required('This field is required');
+      stringSchema = stringSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
     }
     stringSchema = stringSchema.oneOf(item.answerOption.map((option) => option.valueString));
     let schema = Yup.object({
       valueString: stringSchema,
     });
     if (required) {
-      schema = schema.required('This field is required');
+      schema = schema.required(REQUIRED_FIELD_ERROR_MESSAGE);
     }
     schemaTemp = schema;
   }
@@ -200,13 +201,13 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
       // answer options come from answerValueSet, which are converted into valueString choices
       let stringSchema = Yup.string();
       if (required) {
-        stringSchema = stringSchema.required('This field is required');
+        stringSchema = stringSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
       }
       let schema = Yup.object({
         valueString: stringSchema,
       });
       if (required) {
-        schema = schema.required('This field is required');
+        schema = schema.required(REQUIRED_FIELD_ERROR_MESSAGE);
       }
       schemaTemp = schema;
     } else {
@@ -215,7 +216,7 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
         valueReference: makeReferenceValueSchema(required),
       });
       if (required) {
-        referenceSchema = referenceSchema.required('This field is required');
+        referenceSchema = referenceSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
       }
       schemaTemp = referenceSchema;
     }
@@ -256,21 +257,21 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
     if (required) {
       objSchema = Yup.object({
         valueAttachment: Yup.object({
-          url: Yup.string().required('This field is required'), // we could have stronger validation for a z3 url here
-          contentType: Yup.string().required('This field is required'),
-          title: Yup.string().required('This field is required'),
+          url: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE), // we could have stronger validation for a z3 url here
+          contentType: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE),
+          title: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE),
           created: Yup.string().optional(),
           extension: Yup.array()
             .of(Yup.object({ url: Yup.string(), valueString: Yup.string() }))
             .optional(),
-        }).required('This field is required'),
-      }).required('This field is required');
+        }).required(REQUIRED_FIELD_ERROR_MESSAGE),
+      }).required(REQUIRED_FIELD_ERROR_MESSAGE);
     } else {
       objSchema = Yup.object({
         valueAttachment: Yup.object({
-          url: Yup.string().required('This field is required'), // we could have stronger validation for a z3 url here
-          contentType: Yup.string().required('This field is required'),
-          title: Yup.string().required('This field is required'),
+          url: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE), // we could have stronger validation for a z3 url here
+          contentType: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE),
+          title: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE),
           created: Yup.string().optional(),
           extension: Yup.array()
             .of(Yup.object({ url: Yup.string(), valueString: Yup.string() }))

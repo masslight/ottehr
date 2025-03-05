@@ -1,16 +1,25 @@
+import { Address, Appointment, Location, Patient, Practitioner, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { Practitioner, Location, Appointment, QuestionnaireResponse, Patient, Address } from 'fhir/r4b';
-import Oystehr from '@oystehr/sdk';
+import { isLocationVirtual } from '../fhir';
 import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
+  PatchPaperworkParameters,
   PersonSex,
   ScheduleType,
   ServiceMode,
+  SubmitPaperworkParameters,
   VisitType,
 } from '../types';
-import { isoToDateObject, updateQuestionnaireResponse } from './helpers';
-import { isLocationVirtual } from '../fhir';
+import {
+  getConsentStepAnswers,
+  getContactInformationAnswers,
+  getPatientDetailsStepAnswers,
+  getPaymentOptionSelfPayAnswers,
+  getResponsiblePartyStepAnswers,
+  isoToDateObject,
+} from './helpers';
+import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
 
 interface AppointmentData {
   firstNames?: string[];
@@ -83,24 +92,35 @@ const DEFAULT_REASONS_FOR_VISIT = [
   'Eye concern',
 ];
 
-export const createSampleAppointments = async (
-  oystehr: Oystehr | undefined,
-  authToken: string,
-  phoneNumber: string,
-  createAppointmentZambdaId: string,
-  // submitPaperworkZambdaId: string,
-  islocal: boolean,
-  intakeZambdaUrl: string,
-  selectedLocationId?: string,
-  demoData?: DemoAppointmentData
-): Promise<CreateAppointmentResponse | null> => {
+export const createSamplePrebookAppointments = async ({
+  oystehr,
+  authToken,
+  phoneNumber,
+  createAppointmentZambdaId,
+  intakeZambdaUrl,
+  selectedLocationId,
+  demoData,
+  projectId,
+}: {
+  oystehr: Oystehr | undefined;
+  authToken: string;
+  phoneNumber: string;
+  createAppointmentZambdaId: string;
+  intakeZambdaUrl: string;
+  selectedLocationId?: string;
+  demoData?: DemoAppointmentData;
+  projectId: string;
+}): Promise<CreateAppointmentResponse | null> => {
+  if (!projectId) {
+    throw new Error('PROJECT_ID is not set');
+  }
+
   if (!oystehr) {
     console.log('oystehr client is not defined');
     return null;
   }
 
   try {
-    const responses: any[] = [];
     let appointmentData: CreateAppointmentResponse = {} as CreateAppointmentResponse;
     const numberOfAppointments = demoData?.numberOfAppointments || 10;
 
@@ -127,56 +147,66 @@ export const createSampleAppointments = async (
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
+          'x-zapehr-project-id': projectId,
         },
         body: JSON.stringify(randomPatientInfo),
       });
 
-      appointmentData = islocal
-        ? await createAppointmentResponse.json()
-        : (await createAppointmentResponse.json()).output;
+      appointmentData = await createAppointmentResponse.json();
 
-      const appointmentId = appointmentData.appointment;
-      const questionnaireResponseId = appointmentData.questionnaireResponseId;
-      const encounterId = appointmentData.encounterId;
+      if ((appointmentData as any)?.output) {
+        appointmentData = (appointmentData as any).output as CreateAppointmentResponse;
+      }
+
+      const { appointment: appointmentId, questionnaireResponseId } = appointmentData;
 
       const birthDate = isoToDateObject(randomPatientInfo?.patient?.dateOfBirth || '');
 
-      const updatedQuestionnaireResponse = await oystehr.fhir.update<QuestionnaireResponse>({
-        ...updateQuestionnaireResponse({
-          patientId: appointmentData.fhirPatientId,
-          questionnaire: appointmentData.resources.questionnaire.questionnaire!,
-          questionnaireResponseId: questionnaireResponseId!,
-          encounterId: encounterId!,
-          firstName: randomPatientInfo?.patient?.firstName || '',
-          lastName: randomPatientInfo?.patient?.lastName || '',
-          ...(birthDate ? { birthDate } : {}),
-          email: randomPatientInfo?.patient?.email || '',
-          phoneNumber: randomPatientInfo?.patient?.phoneNumber || '',
-          fullName: randomPatientInfo?.patient?.firstName + ' ' + randomPatientInfo?.patient?.lastName || '',
+      await makeSequentialPaperworkPatches(
+        questionnaireResponseId!,
+        [
+          getContactInformationAnswers({
+            firstName: randomPatientInfo.patient.firstName,
+            lastName: randomPatientInfo.patient.lastName,
+            ...(birthDate ? { birthDate } : {}),
+            email: randomPatientInfo.patient.email,
+            phoneNumber: randomPatientInfo.patient.phoneNumber,
+            birthSex: randomPatientInfo.patient.sex,
+          }),
+          getPatientDetailsStepAnswers({}),
+          getPaymentOptionSelfPayAnswers(),
+          getResponsiblePartyStepAnswers({}),
+          getConsentStepAnswers({}),
+        ],
+        intakeZambdaUrl,
+        authToken,
+        projectId
+      );
+
+      const response = await fetch(`${intakeZambdaUrl}/zambda/submit-paperwork/execute-public`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+          'x-zapehr-project-id': projectId,
+        },
+        body: JSON.stringify(<SubmitPaperworkParameters>{
+          answers: [],
+          questionnaireResponseId: questionnaireResponseId,
+          appointmentId,
         }),
       });
 
-      // TODO: uncomment this when we resolve https://github.com/masslight/ottehr-private/issues/397
-      // const submitPaperworkResponse = await fetch(
-      //   `${intakeZambdaUrl}/zambda/${submitPaperworkZambdaId}/execute-public`,
-      //   {
-      //     method: 'POST',
-      //     headers: {
-      //       'Content-Type': 'application/json',
-      //       Authorization: `Bearer ${authToken}`,
-      //     },
-      //     body: JSON.stringify({
-      //       questionnaireResponseId,
-      //       appointmentId,
-      //       answers: updateQuestionnaireResponse({
-      //         TODO: add answers[] here after un-commenting
-      //       }).item,
-      //     }),
-      //   }
-      // );
+      if (!response.ok) {
+        // This may be an error if some paperwork required answers were not provided.
+        // Check QuestionnaireResponse resource if it corresponds to all Questionnaire requirements
+        throw new Error(
+          `Error submitting paperwork, response: ${response}, body: ${JSON.stringify(await response.json())}`
+        );
+      }
 
       if (serviceMode === ServiceMode.virtual) {
-        const updatedAppointmentResponse = await oystehr.fhir.patch<Appointment>({
+        await oystehr.fhir.patch<Appointment>({
           id: appointmentId!,
           resourceType: 'Appointment',
           operations: [
@@ -187,12 +217,8 @@ export const createSampleAppointments = async (
             },
           ],
         });
-        responses.push(updatedAppointmentResponse);
       }
-
-      responses.push(updatedQuestionnaireResponse, createAppointmentResponse);
     }
-
     return appointmentData;
   } catch (error: any) {
     console.error('Error creating appointments:', error);
@@ -301,3 +327,32 @@ const generateRandomPatientInfo = async (
     language: 'en',
   };
 };
+
+export async function makeSequentialPaperworkPatches(
+  questionnaireResponseId: string,
+  stepAnswers: QuestionnaireResponseItem[],
+  intakeZambdaUrl: string,
+  authToken: string,
+  projectId: string
+): Promise<void> {
+  await stepAnswers.reduce(async (previousPromise, answer) => {
+    await previousPromise;
+
+    const response = await fetch(`${intakeZambdaUrl}/zambda/patch-paperwork/execute-public`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`,
+        'x-zapehr-project-id': projectId,
+      },
+      body: JSON.stringify(<PatchPaperworkParameters>{
+        answers: answer,
+        questionnaireResponseId: questionnaireResponseId,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to patch paperwork with linkId: ${answer.linkId}`);
+    }
+  }, Promise.resolve() as Promise<void>);
+}

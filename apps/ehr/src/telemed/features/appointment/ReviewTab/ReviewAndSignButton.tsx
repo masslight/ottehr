@@ -166,7 +166,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
                 disabled={errorMessage.length > 0 || isLoading}
                 variant="contained"
                 onClick={showDialog}
-                data-testid={dataTestIds.telemedEhrFlow.signButton}
+                data-testid={dataTestIds.progressNotePage.reviewAndSignButton}
               >
                 Review & Sign
               </RoundedButton>

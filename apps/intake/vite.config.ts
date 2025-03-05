@@ -1,10 +1,11 @@
 import { sentryVitePlugin } from '@sentry/vite-plugin';
+import { existsSync } from 'fs';
 import path from 'path';
 import { PluginOption, defineConfig, loadEnv, mergeConfig } from 'vite';
 import IstanbulPlugin from 'vite-plugin-istanbul';
 import config from '../../vite.config';
 
-export default (env) => {
+export default (env: any): Record<string, any> => {
   const { mode } = env;
   const envDir = './env';
   const appEnv = loadEnv(mode, path.join(process.cwd(), envDir), '');
@@ -34,6 +35,16 @@ export default (env) => {
     );
   }
 
+  const tlsCertExists = existsSync(path.join(process.cwd(), envDir, 'cert.pem'));
+  const tlsKeyExists = existsSync(path.join(process.cwd(), envDir, 'key.pem'));
+  if (tlsCertExists && tlsKeyExists) {
+    console.log(`Found TLS certificate and key, serving in ${mode} over HTTPS`);
+  } else if (tlsCertExists && !tlsKeyExists) {
+    console.error(`Found TLS certificate but private key is missing, serving in ${mode} over HTTP`);
+  } else if (!tlsCertExists && tlsKeyExists) {
+    console.error(`Found TLS private key but certificate is missing, serving in ${mode} over HTTP`);
+  }
+
   return mergeConfig(
     config({ mode }),
     defineConfig({
@@ -44,6 +55,13 @@ export default (env) => {
       server: {
         open: !process.env.VITE_NO_OPEN,
         host: '0.0.0.0',
+        https:
+          tlsCertExists && tlsKeyExists
+            ? {
+                cert: './env/cert.pem',
+                key: './env/key.pem',
+              }
+            : undefined,
       },
     })
   );

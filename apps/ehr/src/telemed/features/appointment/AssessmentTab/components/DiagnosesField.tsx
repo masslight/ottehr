@@ -61,6 +61,7 @@ export const DiagnosesField: FC<DiagnosesFieldProps> = (props) => {
       getOptionDisabled={(option) => disableForPrimary && option.code.startsWith('W')}
       renderInput={(params) => (
         <TextField
+          data-testid={dataTestIds.assessmentPage.diagnosisDropdown}
           {...params}
           onChange={(e) => debouncedHandleInputChange(e.target.value)}
           size="small"

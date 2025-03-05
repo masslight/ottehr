@@ -1010,3 +1010,17 @@ export const createFhirHumanName = (
   }
   return fhirName;
 };
+
+export function slashPathToLodashPath(slashPath: string): string {
+  return slashPath
+    .split('/')
+    .filter(Boolean)
+    .map((key) => (isNaN(Number(key)) ? key : `[${key}]`))
+    .join('.')
+    .replace(/\.\[/g, '[');
+}
+
+export const unpackFhirResponse = async <T>(response: { json: () => Promise<any> }): Promise<T> => {
+  const data = await response.json();
+  return (data.output ? data.output : data) as T;
+};

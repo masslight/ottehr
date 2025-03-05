@@ -32,7 +32,13 @@ export async function fetchWithOystAuth<T = any>(
     throw new Error(`HTTP error for ${method} ${url}: ${res}, ${JSON.stringify(res)}`);
   }
   console.log(`Request status for ${url}: `, response.status);
-  return response.body ? await response.json() : {};
+
+  if (response.body) {
+    const data = await response.json();
+    return data?.output ? data.output : data;
+  }
+
+  return {} as T;
 }
 
 export async function awaitAppointmentsTableToBeVisible(page: Page): Promise<void> {
@@ -41,7 +47,7 @@ export async function awaitAppointmentsTableToBeVisible(page: Page): Promise<voi
 }
 
 export async function telemedDialogConfirm(page: Page): Promise<void> {
-  const dialogButtonConfirm = page.getByTestId(dataTestIds.telemedEhrFlow.dialogButtonConfirm);
+  const dialogButtonConfirm = page.getByTestId(dataTestIds.dialog.proceedButton);
   await expect(dialogButtonConfirm).toBeVisible();
   await dialogButtonConfirm.click();
 }

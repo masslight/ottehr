@@ -59,6 +59,13 @@ export class Locators {
   patientMyPronounsLabel: Locator;
   patientMyPronounsInput: Locator;
   patientPointOfDiscovery: Locator;
+  pcpFirstName: Locator;
+  pcpLastName: Locator;
+  pcpPractice: Locator;
+  pcpAddress: Locator;
+  pcpNumber: Locator;
+  backButton: Locator;
+  pcpNumberErrorText: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -124,6 +131,13 @@ export class Locators {
     this.consentFullName = page.locator('[id="full-name"]');
     this.consentSignerRelationship = page.locator('[id="consent-form-signer-relationship"]');
     this.editPaperwork = page.getByRole('button', { name: 'Edit paperwork' });
+    this.pcpFirstName = page.locator('[id="pcp-first"]');
+    this.pcpLastName = page.locator('[id="pcp-last"]');
+    this.pcpPractice = page.locator('[id="pcp-practice"]');
+    this.pcpAddress = page.locator('[id="pcp-address"]');
+    this.pcpNumber = page.locator('[id="pcp-number"]');
+    this.backButton = page.getByTestId(dataTestIds.backButton);
+    this.pcpNumberErrorText = page.locator('[id="pcp-number-helper-text"]');
   }
 
   async selectDifferentFamilyMember(): Promise<void> {
@@ -131,6 +145,9 @@ export class Locators {
   }
   async clickContinueButton(): Promise<void> {
     await this.continueButton.click();
+  }
+  async clickBackButton(): Promise<void> {
+    await this.backButton.click();
   }
   async clickReserveButton(): Promise<void> {
     await this.reserveButton.click();
