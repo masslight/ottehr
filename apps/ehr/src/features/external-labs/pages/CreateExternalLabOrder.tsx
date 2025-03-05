@@ -80,7 +80,10 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
         const coverageResults = (
           await oystehr.fhir.search<Coverage>({
             resourceType: 'Coverage',
-            params: [{ name: 'patient', value: `Patient/${patientId}` }],
+            params: [
+              { name: 'patient', value: `Patient/${patientId}` },
+              { name: 'status', value: 'active' },
+            ],
           })
         ).unbundle();
         // todo is there a way to confirm primary?
@@ -127,7 +130,6 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
         setError(errorMessage);
       }
     } else if (!paramsSatisfied) {
-      console.log('missing required params');
       const errorMessage = [];
       if (!orderDx.length) errorMessage.push('Please enter at least one dx');
       if (!coverage) errorMessage.push('Patient insurance is missing, you cannot submit a lab order without one');

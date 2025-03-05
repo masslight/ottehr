@@ -75,6 +75,7 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
 
           setLabs(items);
         } catch (e) {
+          // todo add error handling here
           console.error('error fetching orderable items', e);
         }
       }
