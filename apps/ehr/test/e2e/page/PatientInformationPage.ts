@@ -236,7 +236,7 @@ export class PatientInformationPage {
   }
 
   async verifyUpdatedSuccessfullyMessageShown(): Promise<void> {
-    await expect(this.#page.locator('p:text("Patient information updated successfully")')).toBeVisible();
+    await expect(this.#page.getByText('Patient information updated successfully')).toBeVisible();
   }
 
 }
