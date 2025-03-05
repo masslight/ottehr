@@ -107,8 +107,12 @@ async function loadEnvFilesFromRepo(repoUrl, filesToCopyParamsArray) {
 
       if (fs.existsSync(sourceEnvFile)) {
         try {
-          fs.copyFileSync(sourceEnvFile, destinationEnvFile);
-          console.log(`Copied ${env} successfully to ${destinationEnvFile}`);
+          if (!fs.existsSync(destinationEnvFile)) {
+            fs.copyFileSync(sourceEnvFile, destinationEnvFile);
+            console.log(`Copied ${env} successfully to ${destinationEnvFile}`);
+          } else {
+            console.log(`File ${destinationEnvFile} already exists. Skipping.`);
+          }
         } catch (err) {
           console.error(`Error copying ${env}: ${err.message}`);
         }

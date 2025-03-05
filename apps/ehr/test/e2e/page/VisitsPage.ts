@@ -40,7 +40,7 @@ export class VisitsPage {
 
   async selectLocation(locationName: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dashboard.locationSelect).click();
-    await this.#page.getByText(new RegExp(locationName, 'i')).click();
+    await this.#page.locator(`li[role="option"]:has-text("${locationName}")`).click();
   }
 
   async selectGroup(groupName: string): Promise<void> {

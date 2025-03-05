@@ -21,5 +21,12 @@ export class PatientInfoPage {
 
 export async function expectPatientInfoPage(appointmentId: string, page: Page): Promise<PatientInfoPage> {
   await page.waitForURL(new RegExp(`/in-person/${appointmentId}/patient-info`));
-   return new PatientInfoPage(page);
+  await expect(
+    page.getByTestId(dataTestIds.patientInfoPage.patientInfoVerifiedCheckbox).locator('input')
+  ).toBeEnabled();
+  await page.getByTestId(dataTestIds.patientInfoPage.patientInfoVerifiedCheckbox).locator('input').setChecked(true);
+  await expect(
+    page.getByTestId(dataTestIds.patientInfoPage.patientInfoVerifiedCheckbox).locator('input')
+  ).toBeEnabled();
+  return new PatientInfoPage(page);
 }

@@ -19,6 +19,7 @@ import {
   TEST_EMPLOYEE_2,
   TestEmployee,
 } from './resource/employees';
+import { DateTime } from 'luxon';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -39,18 +40,20 @@ export function getAccessToken(): string {
   return token;
 }
 
-export const PATIENT_FIRST_NAME = 'Test_John';
-export const PATIENT_LAST_NAME = 'Test_Doe_Random'; // don't use real random values in parallel related tests
+const EightDigitsString = DateTime.now().toFormat('yyyyMMdd');
+
+export const PATIENT_FIRST_NAME = 'Test_John_Random' + EightDigitsString;
+export const PATIENT_LAST_NAME = 'Test_Doe_Random' + EightDigitsString; // don't use real random values in parallel related tests
 export const PATIENT_GENDER = 'male';
 
 export const PATIENT_BIRTHDAY = '2002-07-07';
 export const PATIENT_BIRTH_DATE_SHORT = '07/07/2002';
 export const PATIENT_BIRTH_DATE_LONG = 'July 07, 2002';
 
-export const PATIENT_PHONE_NUMBER = '2144985545';
-export const PATIENT_EMAIL = 'john.doe3@example.com';
+export const PATIENT_PHONE_NUMBER = '21' + EightDigitsString;
+export const PATIENT_EMAIL = `john.doe.${EightDigitsString}3@example.com`;
 export const PATIENT_CITY = 'New York';
-export const PATIENT_LINE = '10 Test Line';
+export const PATIENT_LINE = `${EightDigitsString} Test Line`;
 export const PATIENT_STATE = 'NY';
 export const PATIENT_POSTALCODE = '06001';
 export const PATIENT_REASON_FOR_VISIT = 'Fever';
@@ -134,31 +137,46 @@ export class ResourceHandler {
         address: [address],
       };
 
+      if (!process.env.PROJECT_API_ZAMBDA_URL) {
+        throw new Error('PROJECT_API_ZAMBDA_URL is not set');
+      }
+
+      if (!process.env.LOCATION_ID) {
+        throw new Error('LOCATION_ID is not set');
+      }
+
+      if (!process.env.STATE_ONE) {
+        throw new Error('STATE_ONE is not set');
+      }
+
+      if (!process.env.PROJECT_ID) {
+        throw new Error('PROJECT_ID is not set');
+      }
+
       // Create appointment and related resources using zambda
       const appointmentData =
         this.flow === 'in-person'
-          ? await createSamplePrebookAppointments(
-              this.apiClient,
-              getAccessToken(),
-              formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
-              this.zambdaId,
-              process.env.APP_IS_LOCAL === 'true',
-              process.env.PROJECT_API_ZAMBDA_URL!,
-              process.env.LOCATION_ID!,
-              patientData
-            )
-          : await createSampleTelemedAppointments(
-              this.apiClient,
-              getAccessToken(),
-              formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
-              this.zambdaId,
-              process.env.APP_IS_LOCAL === 'true',
-              process.env.PROJECT_API_ZAMBDA_URL!,
-              process.env.STATE_ONE!, //LOCATION_ID!, // do we oficially have STATE env variable?
-              patientData
-            );
-
-      console.log({ appointmentData });
+          ? await createSamplePrebookAppointments({
+              oystehr: this.apiClient,
+              authToken: getAccessToken(),
+              phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
+              createAppointmentZambdaId: this.zambdaId,
+              intakeZambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
+              selectedLocationId: process.env.LOCATION_ID,
+              demoData: patientData,
+              projectId: process.env.PROJECT_ID!,
+            })
+          : await createSampleTelemedAppointments({
+              oystehr: this.apiClient,
+              authToken: getAccessToken(),
+              phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
+              createAppointmentZambdaId: this.zambdaId,
+              islocal: process.env.APP_IS_LOCAL === 'true',
+              intakeZambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
+              selectedLocationId: process.env.STATE_ONE, // todo: check why state is used here
+              demoData: patientData,
+              projectId: process.env.PROJECT_ID!,
+            });
 
       if (!appointmentData?.resources) {
         throw new Error('Appointment not created');
@@ -221,6 +239,7 @@ export class ResourceHandler {
         inviteTestEmployeeUser(TEST_EMPLOYEE_1, this.apiClient, this.authToken),
         inviteTestEmployeeUser(TEST_EMPLOYEE_2, this.apiClient, this.authToken),
       ]);
+
       this.testEmployee1 = employee1!;
       this.testEmployee2 = employee2!;
     } catch (error) {
