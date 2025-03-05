@@ -209,7 +209,6 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
                     getOptionLabel={(option) => option?.name || ''}
                     isOptionEqualToValue={(option, value) => option?.name === value?.name || (!option && !value)}
                     onChange={(_, newValue) => {
-                      console.log(newValue);
                       onChange(newValue?.name || null);
                     }}
                     disableClearable
