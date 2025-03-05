@@ -83,6 +83,7 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
       setLoading(false);
     }
 
+    // todo add error handling here
     if (oystehr) {
       void getLabs(oystehr);
     }
