@@ -92,14 +92,18 @@ test('Should fill all required fields', async () => {
   await expect(emAutocomplete.locator('input')).toBeEnabled();
 
   await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(AppointmentVisitTabs.sign)).click();
+  await page.waitForTimeout(5000);
   const patientInfoConfirmationCheckbox = page.getByTestId(dataTestIds.telemedEhrFlow.patientInfoConfirmationCheckbox);
-  await expect(patientInfoConfirmationCheckbox).toBeVisible();
-  await patientInfoConfirmationCheckbox.click();
-  await expect(patientInfoConfirmationCheckbox).toBeEnabled();
+  const confirmationChecked = await patientInfoConfirmationCheckbox.isChecked();
+  if (!confirmationChecked) {
+    await expect(patientInfoConfirmationCheckbox).toBeVisible();
+    await patientInfoConfirmationCheckbox.click();
+    await expect(patientInfoConfirmationCheckbox).toBeEnabled();
+  }
 });
 
 test('Should sign visit', async () => {
-  await page.getByTestId(dataTestIds.telemedEhrFlow.signButton).click();
+  await page.getByTestId(dataTestIds.progressNotePage.reviewAndSignButton).click();
   await telemedDialogConfirm(page);
 
   const statusChip = page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip);
