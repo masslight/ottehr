@@ -302,15 +302,19 @@ export const makeValidationSchema = (
     })?.item;
     if (itemsToValidate !== undefined) {
       return Yup.lazy((values) => {
-        return makeValidationSchemaPrivate(itemsToValidate, values, externalContext);
+        return makeValidationSchemaPrivate({ items: itemsToValidate, formValues: values, externalContext });
       });
     } else {
       // this is the branch hit from frontend validation. it is nearly the same as the branch hit by
       // patch. in this case item list is provided directly, where as with Patch it is provided as
       // the item field on { linkId: pageId, item: items }. might be nice to consolidate this.
       // console.log('page id not found; assuming it is root and making schema from items');
-      return Yup.lazy((values: any) => {
-        return makeValidationSchemaPrivate(items, values, externalContext);
+      return Yup.lazy((values: any, options: any) => {
+        return makeValidationSchemaPrivate({
+          items,
+          formValues: values,
+          externalContext: { values: options.context, items: externalContext?.items ?? [] },
+        });
       });
     }
   } else {
@@ -330,15 +334,17 @@ export const makeValidationSchema = (
             return value;
           }
         }
-        const schema = makeValidationSchemaPrivate(questionItem.item ?? [], context);
-        // we convert this from a list to key-val dict to match the form shape
+        const schema = makeValidationSchemaPrivate({
+          items: questionItem.item ?? [],
+          formValues: value,
+          externalContext: { values: context?.parent ?? [], items: items.flatMap((i) => i.item ?? []) },
+        });
         try {
           const reduced = answerItem.reduce((accum: any, current: any) => {
             accum[current.linkId] = { ...current };
             return accum;
           }, {});
           const validated = await schema.validate(reduced, { abortEarly: false });
-          console.log('validated', JSON.stringify(validated));
           return Yup.mixed().transform(() => validated);
         } catch (e) {
           console.log('error: ', pageId, JSON.stringify(answerItem), e);
@@ -349,20 +355,21 @@ export const makeValidationSchema = (
   }
 };
 
-const makeValidationSchemaPrivate = (
-  items: IntakeQuestionnaireItem[],
-  formValues: any,
-  externalContext?: { values: any; items: any }
-): Yup.AnyObjectSchema => {
+interface PrivateMakeSchemaArgs {
+  items: IntakeQuestionnaireItem[];
+  formValues: any; // todo: better typing on these "any" types
+  externalContext?: { values: any; items: any };
+}
+
+const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjectSchema => {
+  const { items, formValues, externalContext: maybeExternalContext } = input;
+  const contextualItems = maybeExternalContext?.items ?? [];
+  const externalValues = maybeExternalContext?.values ?? [];
   // console.log('validation items', items);
   // these allow us some flexibility to inject field dependencies from another
-  // paperwork page, or anywhere outside the context of the immediate form being validated
-  const externalValues = externalContext?.values ?? {};
-
-  const validatableItems = items
-    .filter((item) => item?.type !== 'display' && !item?.readOnly && evalEnableWhen(item, items, formValues))
-    .flatMap((item) => makeValidatableItem(item));
-  let allValues = (externalContext?.values ?? [])
+  // paperwork page, or anywhere outside the context of the immediate form being validated,
+  // or to keep parent/sibling items in context when drilling down into a group
+  let allValues = [...externalValues]
     .flatMap((page: any) => page.item)
     .reduce((accum: { [x: string]: any }, current: any) => {
       const linkId = current?.linkId;
@@ -372,13 +379,22 @@ const makeValidationSchemaPrivate = (
       return accum;
     }, {} as any);
   allValues = { ...allValues, ...formValues };
+  const validatableItems = [...items]
+    .filter(
+      (item) =>
+        item?.type !== 'display' && !item?.readOnly && evalEnableWhen(item, [...items, ...contextualItems], allValues)
+    )
+    .flatMap((item) => makeValidatableItem(item));
   const validationTemp: any = {};
   validatableItems.forEach((item) => {
     let schemaTemp: any | undefined = item.type !== 'group' ? schemaForItem(item, allValues) : undefined;
     if (item.type === 'group' && item.item && item.dataType !== 'DOB') {
       const filteredItems = (item.item ?? []).filter((item) => item?.type !== 'display' && !item?.readOnly);
-      // console.log('filtered items', filteredItems);
-      const embeddedSchema = makeValidationSchemaPrivate(filteredItems, externalContext);
+      const embeddedSchema = makeValidationSchemaPrivate({
+        items: filteredItems,
+        formValues,
+        externalContext: maybeExternalContext,
+      });
       // console.log('embedded schema', embeddedSchema);
       schemaTemp = Yup.object().shape({
         linkId: Yup.string(),
@@ -429,13 +445,31 @@ const makeValidationSchemaPrivate = (
                     if (!idx) {
                       return false;
                     }
-                    const item: any = {};
-                    item[val.linkId] = val;
+                    const memberItem: any = {};
+                    memberItem[val.linkId] = val;
 
+                    const memberItemDef = item.item?.find((i) => i.linkId === val.linkId);
+                    // members of a group may have their own filter trigger independent of the group
+                    // this occurs in the default virtual intake paperwork in the school-work-note-template-upload-group
+                    if (memberItemDef) {
+                      const shouldFilterMember = evalFilterWhen(memberItemDef, combinedContext);
+                      if (shouldFilterMember) {
+                        return true;
+                      }
+                    }
                     // console.log('idx', idx, itemLinkId, val, item);
-                    return embeddedSchema.validateAt(val.linkId, item);
+                    return embeddedSchema.validateAt(val.linkId, memberItem);
                   } catch (e) {
                     console.log('thrown error from group member test', e);
+                    // this special one-off handling deals with the allergies page, which has an item that
+                    // powers some logic in the form, but is not actually a field that needs to be validated because it
+                    // contributes no persisted values. there's probably a better way to handle this, but this works for now.
+                    if (typeof e === 'object' && (e as any).message) {
+                      const mesage = (e as any).message as string | undefined;
+                      if (mesage?.startsWith('The schema does not contain the path') && item.required === false) {
+                        return true;
+                      }
+                    }
                     return context.createError({ message: (e as any).message, val, item });
                   }
                 }
@@ -539,7 +573,6 @@ const evalEnableWhenItem = (
   items: QuestionnaireItem[]
 ): boolean => {
   const { answerString, answerBoolean, answerDate, answerInteger, question, operator } = enableWhen;
-  // console.log('items', items);
   const questionPathNodes = question.split('.');
 
   const itemDef = questionPathNodes.reduce(
@@ -696,7 +729,7 @@ export const evalComplexValidationTrigger = (
   context: any,
   questionVal?: any
 ): boolean => {
-  console.log('item.complex', item.complexValidation?.type, item.complexValidation?.triggerWhen);
+  // console.log('item.complex', item.complexValidation?.type, item.complexValidation?.triggerWhen);
   if (item.complexValidation === undefined) {
     return false;
   } else if (item.complexValidation?.triggerWhen === undefined) {
