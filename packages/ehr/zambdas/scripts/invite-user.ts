@@ -129,13 +129,13 @@ const updateUserRoles = async (oystehr: Oystehr): Promise<{ id: string }[]> => {
     throw new Error('Could not create adminUserRole');
   }
   if (!prescriberUserRole) {
-    throw new Error('Could not create adminUserRole');
+    throw new Error('Could not create prescriberUserRole');
   }
   if (!providerUserRole) {
-    throw new Error('Could not create adminUserRole');
+    throw new Error('Could not create providerUserRole');
   }
   if (!managerUserRole) {
-    throw new Error('Could not create adminUserRole');
+    throw new Error('Could not create managerUserRole');
   }
   return [adminUserRole, prescriberUserRole, providerUserRole, managerUserRole];
 };
