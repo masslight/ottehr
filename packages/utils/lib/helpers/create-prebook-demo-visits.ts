@@ -13,11 +13,18 @@ import {
   VisitType,
 } from '../types';
 import {
+  getAdditionalQuestionsAnswers,
+  getAllergiesStepAnswers,
   getConsentStepAnswers,
   getContactInformationAnswers,
+  getInviteParticipantStepAnswers,
+  getMedicalConditionsStepAnswers,
+  getMedicationsStepAnswers,
   getPatientDetailsStepAnswers,
   getPaymentOptionSelfPayAnswers,
   getResponsiblePartyStepAnswers,
+  getSchoolWorkNoteStepAnswers,
+  getSurgicalHistoryStepAnswers,
   isoToDateObject,
 } from './helpers';
 
@@ -155,7 +162,14 @@ export const createSamplePrebookAppointments = async (
           return null;
         }
 
-        await processPrebookPaperwork(appointmentData, randomPatientInfo, intakeZambdaUrl, authToken, projectId);
+        await processPrebookPaperwork(
+          appointmentData,
+          randomPatientInfo,
+          intakeZambdaUrl,
+          authToken,
+          projectId,
+          serviceMode
+        );
 
         // If it's a virtual appointment, mark it as 'arrived'
         if (serviceMode === ServiceMode.virtual) {
@@ -189,14 +203,13 @@ export const createSamplePrebookAppointments = async (
     throw error;
   }
 };
-
-// Separate function for handling paperwork
 const processPrebookPaperwork = async (
   appointmentData: CreateAppointmentResponse,
   patientInfo: any,
   intakeZambdaUrl: string,
   authToken: string,
-  projectId: string
+  projectId: string,
+  serviceMode: ServiceMode
 ): Promise<void> => {
   try {
     const appointmentId = appointmentData.appointment;
@@ -206,27 +219,55 @@ const processPrebookPaperwork = async (
 
     const birthDate = isoToDateObject(patientInfo?.patient?.dateOfBirth || '');
 
+    // Determine the paperwork patches based on service mode
+    const paperworkPatches =
+      serviceMode === ServiceMode.virtual
+        ? [
+            getContactInformationAnswers({
+              firstName: patientInfo.patient.firstName,
+              lastName: patientInfo.patient.lastName,
+              ...(birthDate ? { birthDate } : {}),
+              email: patientInfo.patient.email,
+              phoneNumber: patientInfo.patient.phoneNumber,
+              birthSex: patientInfo.patient.sex,
+            }),
+            getPatientDetailsStepAnswers({}),
+            getMedicationsStepAnswers(),
+            getAllergiesStepAnswers(),
+            getMedicalConditionsStepAnswers(),
+            getSurgicalHistoryStepAnswers(),
+            getAdditionalQuestionsAnswers(),
+            getPaymentOptionSelfPayAnswers(),
+            getResponsiblePartyStepAnswers({}),
+            getSchoolWorkNoteStepAnswers(),
+            getConsentStepAnswers({}),
+            getInviteParticipantStepAnswers(),
+          ]
+        : [
+            getContactInformationAnswers({
+              firstName: patientInfo.patient.firstName,
+              lastName: patientInfo.patient.lastName,
+              ...(birthDate ? { birthDate } : {}),
+              email: patientInfo.patient.email,
+              phoneNumber: patientInfo.patient.phoneNumber,
+              birthSex: patientInfo.patient.sex,
+            }),
+            getPatientDetailsStepAnswers({}),
+            getPaymentOptionSelfPayAnswers(),
+            getResponsiblePartyStepAnswers({}),
+            getConsentStepAnswers({}),
+          ];
+
+    // Execute the paperwork patches
     await makeSequentialPaperworkPatches(
       questionnaireResponseId,
-      [
-        getContactInformationAnswers({
-          firstName: patientInfo.patient.firstName,
-          lastName: patientInfo.patient.lastName,
-          ...(birthDate ? { birthDate } : {}),
-          email: patientInfo.patient.email,
-          phoneNumber: patientInfo.patient.phoneNumber,
-          birthSex: patientInfo.patient.sex,
-        }),
-        getPatientDetailsStepAnswers({}),
-        getPaymentOptionSelfPayAnswers(),
-        getResponsiblePartyStepAnswers({}),
-        getConsentStepAnswers({}),
-      ],
+      paperworkPatches,
       intakeZambdaUrl,
       authToken,
       projectId
     );
 
+    // Submit the paperwork
     const response = await fetch(`${intakeZambdaUrl}/zambda/submit-paperwork/execute-public`, {
       method: 'POST',
       headers: {
