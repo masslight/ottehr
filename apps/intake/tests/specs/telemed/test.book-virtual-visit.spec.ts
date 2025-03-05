@@ -55,7 +55,9 @@ test('Should select state and time', async () => {
   await statesSelector.getByRole('button').click();
   await page.getByRole('option', { name: location }).click();
   const firstTimeButton = page.getByRole('button', { name: 'First available time' });
-  firstAvailableTime = (await firstTimeButton.textContent()).replace('First available time: ', '');
+  const firstTimeFromButton = (await firstTimeButton.textContent())?.replace('First available time: ', '');
+  if (!firstTimeFromButton) throw new Error('No first time found in button');
+  firstAvailableTime = firstTimeFromButton;
   console.log('first time', firstAvailableTime);
   await expect(firstTimeButton).toBeVisible();
   await firstTimeButton.click();

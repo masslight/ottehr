@@ -5,8 +5,8 @@ import React, { FC } from 'react';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { ContractEditIcon, DiagnosisIcon, PatientListIcon, StethoscopeIcon } from '../../assets';
 import { useAppointmentStore } from '../../state';
-import { AppointmentVisitTabs } from '../../utils';
 import { dataTestIds } from '../../../constants/data-test-ids';
+import { AppointmentVisitTabs } from 'utils';
 
 export const AppointmentTabsHeader: FC = () => {
   const { currentTab } = getSelectors(useAppointmentStore, ['currentTab']);
