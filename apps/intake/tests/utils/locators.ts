@@ -148,7 +148,7 @@ export class Locators {
   async selectDifferentFamilyMember(): Promise<void> {
     await this.differentFamilyMember.click({ force: true });
   }
-  async clickContinueButton(awaitNavigation = true): Promise<unknown> {
+  async clickContinueButton(awaitNavigation = false): Promise<unknown> {
     await expect(this.continueButton).toBeEnabled();
     const currentPath = new URL(this.page.url()).pathname;
     if (awaitNavigation) {

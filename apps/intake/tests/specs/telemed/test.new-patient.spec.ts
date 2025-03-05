@@ -25,6 +25,10 @@ let dob: Awaited<ReturnType<FillingInfo['fillDOBless18']>> | undefined;
 
 const appointmentIds: string[] = [];
 
+async function clickContinueButton(awaitRedirect = true): Promise<void> {
+  await locators.clickContinueButton(awaitRedirect);
+}
+
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async ({ browser }) => {
@@ -74,7 +78,7 @@ test('Should create new patient', async () => {
 
   await paperwork.fillAndCheckContactInformation(patientInfo);
 
-  await locators.clickContinueButton();
+  await clickContinueButton();
 });
 
 test('Should display new patient in patients list', async () => {
@@ -119,7 +123,7 @@ test('Should display correct patient info', async () => {
 
   const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
   await patientName.click();
-  await locators.clickContinueButton();
+  await clickContinueButton();
 
   await telemedFlow.selectTimeLocationAndContinue();
 
@@ -147,7 +151,7 @@ test('Should display correct patient info', async () => {
 });
 
 test("Should fill in correct patient's DOB", async () => {
-  await locators.clickContinueButton();
+  await clickContinueButton();
 
   await expect(page.getByText(`Confirm ${patientInfo?.firstName}'s date of birth`)).toBeVisible();
 
@@ -156,7 +160,7 @@ test("Should fill in correct patient's DOB", async () => {
   }
 
   await fillingInfo.fillWrongDOB(dob?.randomMonth, dob?.randomDay, dob?.randomYear);
-  await locators.clickContinueButton(false);
+  await clickContinueButton(false);
 
   const errorText = await page
     .getByText('Unfortunately, this patient record is not confirmed.') // modal, in that case try again option should be selected
@@ -169,7 +173,7 @@ test("Should fill in correct patient's DOB", async () => {
   }
 
   await fillingInfo.fillCorrectDOB(dob?.randomMonth, dob?.randomDay, dob?.randomYear);
-  await locators.clickContinueButton();
+  await clickContinueButton();
 
   // todo use another way to get appointment id
   // await getAppointmentIdFromCreateAppointmentRequest(page);
@@ -182,49 +186,49 @@ test('Should fill in contact information', async () => {
 });
 
 test('Should fill in patient details', async () => {
-  await locators.clickContinueButton();
+  await clickContinueButton();
 
   await paperwork.fillAndCheckPatientDetails();
 });
 
 test('Should fill in current medications as empty', async () => {
-  await locators.clickContinueButton();
-  await locators.clickContinueButton(); // skip page with no required fields
+  await clickContinueButton();
+  await clickContinueButton(); // skip page with no required fields
 
   await paperwork.fillAndCheckEmptyCurrentMedications();
 });
 
 test('Should fill in current allergies as empty', async () => {
-  await locators.clickContinueButton();
+  await clickContinueButton();
 
   await paperwork.fillAndCheckEmptyCurrentAllergies();
 });
 
 test('Should fill in medical history as empty', async () => {
-  await locators.clickContinueButton();
+  await clickContinueButton();
 
   await paperwork.fillAndCheckEmptyMedicalHistory();
 });
 
 test('Should fill in surgical history as empty', async () => {
-  await locators.clickContinueButton();
+  await clickContinueButton();
 
   await paperwork.fillAndCheckEmptySurgicalHistory();
 });
 
 test('Should fill in payment option as self-pay', async () => {
-  await locators.clickContinueButton();
-  await locators.clickContinueButton(); // skip page with no required fields
+  await clickContinueButton();
+  await clickContinueButton(); // skip page with no required fields
 
   await paperwork.fillAndCheckSelfPay();
 });
 
 test('Skip optional Photo ID', async () => {
-  await locators.clickContinueButton();
+  await clickContinueButton();
 });
 
 test('Fill patient conditions', async () => {
-  await locators.clickContinueButton();
+  await clickContinueButton();
 });
 
 test('Should fill school or work note as none', async () => {
@@ -232,19 +236,19 @@ test('Should fill school or work note as none', async () => {
 });
 
 test('Should fill consent forms', async () => {
-  await locators.clickContinueButton();
+  await clickContinueButton();
 
   await paperwork.fillAndCheckConsentForms();
 });
 
 test('Should not invite anyone', async () => {
-  await locators.clickContinueButton();
+  await clickContinueButton();
 
   await paperwork.fillAndCheckNoInviteParticipant();
 });
 
 test('Should go to waiting room', async () => {
-  await locators.clickContinueButton();
+  await clickContinueButton();
   await page.getByRole('button', { name: 'Go to the Waiting Room' }).click();
   await expect(page.getByText('Please wait, call will start automatically.')).toBeVisible({ timeout: 30000 });
 });
