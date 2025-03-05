@@ -36,7 +36,7 @@ export const FormSelect = <T extends FieldValues>({
         <Select
           {...field}
           {...selectProps}
-          variant="standard"
+          variant={selectProps.variant ?? 'standard'}
           fullWidth
           onChange={(e) => {
             field.onChange(e as any);
