@@ -10,8 +10,6 @@ import {
   Grid,
   IconButton,
   InputLabel,
-  MenuItem,
-  Select,
   TextField,
   useTheme,
 } from '@mui/material';
@@ -19,11 +17,16 @@ import { Coverage, RelatedPerson } from 'fhir/r4b';
 import React from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { v4 as uuid } from 'uuid';
-import { coverageFieldPaths, InsurancePlanDTO, relatedPersonFieldPaths, SUBSCRIBER_RELATIONSHIP_CODE_MAP } from 'utils';
-import { STATE_OPTIONS } from '../../constants';
-import { otherColors } from '../../CustomThemeProvider';
-import { BasicDatePicker as DatePicker, Option } from '../form';
-import { RELATIONSHIP_TO_INSURED } from '../../rcm/utils/resources.helper';
+import {
+  coverageFieldPaths,
+  InsurancePlanDTO,
+  isPostalCodeValid,
+  relatedPersonFieldPaths,
+  REQUIRED_FIELD_ERROR_MESSAGE,
+  SUBSCRIBER_RELATIONSHIP_CODE_MAP,
+} from 'utils';
+import { RELATIONSHIP_TO_INSURED_OPTIONS, SEX_OPTIONS, STATE_OPTIONS } from '../../constants';
+import { BasicDatePicker as DatePicker, FormSelect, FormTextField, Option } from '../form';
 import { usePatientStore } from '../../state/patient.store';
 
 interface AddInsuranceModalProps {
@@ -196,7 +199,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
                 control={control}
                 defaultValue={null}
                 rules={{
-                  required: true,
+                  required: REQUIRED_FIELD_ERROR_MESSAGE,
                   validate: (value) => insurancePlans.some((option) => option.name === value),
                 }}
                 render={({ field: { onChange, value }, fieldState: { error } }) => (
@@ -223,6 +226,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
                             fontWeight: 'bold',
                           },
                         }}
+                        helperText={error?.message}
                       />
                     )}
                   />
@@ -231,106 +235,73 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
             </FormControl>
           </Grid>
           <Grid item xs={3}>
-            <Controller
+            <FormTextField
+              label="Member ID *"
+              InputLabelProps={{
+                shrink: true,
+                sx: {
+                  fontWeight: 'bold',
+                },
+              }}
+              variant="outlined"
               name={coverageFieldPaths.memberId}
               control={control}
               defaultValue={''}
-              rules={{ required: true }}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="Member ID"
-                  error={!!errors[coverageFieldPaths.memberId]}
-                  required
-                  fullWidth
-                  InputLabelProps={{
-                    shrink: true,
-                    sx: {
-                      fontWeight: 'bold',
-                    },
-                  }}
-                  onChange={(e) => {
-                    field.onChange(e);
-                  }}
-                />
-              )}
+              rules={{
+                required: REQUIRED_FIELD_ERROR_MESSAGE,
+              }}
             />
           </Grid>
           <Grid item xs={3} />
           <Grid item xs={3}>
-            <Controller
+            <FormTextField
+              label="Policy holder's first name *"
+              InputLabelProps={{
+                shrink: true,
+                sx: {
+                  fontWeight: 'bold',
+                },
+              }}
+              variant="outlined"
               name={relatedPersonFieldPaths.firstName}
               control={control}
               defaultValue={''}
-              rules={{ required: true }}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="Policy holder's first name"
-                  required
-                  error={!!errors[relatedPersonFieldPaths.firstName]}
-                  fullWidth
-                  InputLabelProps={{
-                    shrink: true,
-                    sx: {
-                      fontWeight: 'bold',
-                    },
-                  }}
-                  onChange={(e) => {
-                    field.onChange(e);
-                  }}
-                />
-              )}
+              rules={{
+                required: REQUIRED_FIELD_ERROR_MESSAGE,
+              }}
             />
           </Grid>
           <Grid item xs={3}>
-            <Controller
+            <FormTextField
+              label="Policy holder's middle name"
+              InputLabelProps={{
+                shrink: true,
+                sx: {
+                  fontWeight: 'bold',
+                },
+              }}
+              variant="outlined"
               name={relatedPersonFieldPaths.middleName}
               control={control}
               defaultValue={''}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="Policy holder's middle name"
-                  error={!!errors[relatedPersonFieldPaths.middleName]}
-                  fullWidth
-                  InputLabelProps={{
-                    shrink: true,
-                    sx: {
-                      fontWeight: 'bold',
-                    },
-                  }}
-                  onChange={(e) => {
-                    field.onChange(e);
-                  }}
-                />
-              )}
             />
           </Grid>
           <Grid item xs={3}>
-            <Controller
+            <FormTextField
+              label="Policy holder's last name *"
+              InputLabelProps={{
+                shrink: true,
+                sx: {
+                  fontWeight: 'bold',
+                },
+              }}
+              variant="outlined"
               name={relatedPersonFieldPaths.lastName}
               control={control}
               defaultValue={''}
-              rules={{ required: true }}
-              render={({ field, fieldState: { error } }) => (
-                <TextField
-                  {...field}
-                  label="Policy holder's last name"
-                  required
-                  error={!!error}
-                  fullWidth
-                  InputLabelProps={{
-                    shrink: true,
-                    sx: {
-                      fontWeight: 'bold',
-                    },
-                  }}
-                  onChange={(e) => {
-                    field.onChange(e);
-                  }}
-                />
-              )}
+              rules={{
+                required: REQUIRED_FIELD_ERROR_MESSAGE,
+              }}
             />
           </Grid>
           <Grid item xs={3}>
@@ -352,161 +323,90 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
           <Grid item xs={3}>
             <FormControl fullWidth error={!!errors[relatedPersonFieldPaths.gender]}>
               <InputLabel
-                id="gender-label"
                 shrink
                 sx={{ fontWeight: 'bold', backgroundColor: theme.palette.background.paper, px: '5px' }}
               >
                 Policy holder's sex *
               </InputLabel>
-              <Controller
+              <FormSelect
+                variant="outlined"
                 name={relatedPersonFieldPaths.gender}
                 control={control}
                 defaultValue={''}
-                rules={{ required: true }}
-                render={({ field }) => (
-                  <Select
-                    {...field}
-                    labelId="gender-label"
-                    label="Policy holder's sex"
-                    displayEmpty
-                    renderValue={(selected) => {
-                      const selectedOption = genderOptions.find((option) => option.value === selected);
-                      return selectedOption ? (
-                        selectedOption.label
-                      ) : (
-                        <span style={{ color: otherColors.disabled }}>Select</span>
-                      );
-                    }}
-                    onChange={(e) => {
-                      field.onChange(e);
-                    }}
-                  >
-                    {genderOptions.map((option) =>
-                      option.value === 'placeholder' ? (
-                        <MenuItem key={option.value} value={option.value} disabled />
-                      ) : (
-                        <MenuItem key={option.value} value={option.value}>
-                          {option.label}
-                        </MenuItem>
-                      )
-                    )}
-                  </Select>
-                )}
+                options={SEX_OPTIONS}
+                rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
               />
             </FormControl>
           </Grid>
           <Grid item xs={3}>
-            <FormControl fullWidth error={!!errors[coverageFieldPaths.relationship]}>
+            <FormControl fullWidth error={!!errors[relatedPersonFieldPaths.relationship]}>
               <InputLabel
                 shrink
                 sx={{ fontWeight: 'bold', backgroundColor: theme.palette.background.paper, px: '5px' }}
               >
                 Patient’s relationship to insured *
               </InputLabel>
-              <Controller
-                name={coverageFieldPaths.relationship}
+              <FormSelect
+                variant="outlined"
+                name={relatedPersonFieldPaths.relationship}
                 control={control}
                 defaultValue={''}
-                rules={{ required: true }}
-                render={({ field }) => (
-                  <Select
-                    {...field}
-                    label="Patient’s relationship to insured"
-                    onChange={(e) => {
-                      field.onChange(e);
-                    }}
-                    displayEmpty
-                    renderValue={(selected) => {
-                      const selectedOption = relationshipOptions.find((option) => option.value === selected);
-                      return selectedOption ? (
-                        selectedOption.label
-                      ) : (
-                        <span style={{ color: otherColors.disabled }}>Select</span>
-                      );
-                    }}
-                  >
-                    {relationshipOptions.map((option) =>
-                      option.value === 'placeholder' ? (
-                        <MenuItem key={option.value} value={option.value} disabled />
-                      ) : (
-                        <MenuItem key={option.value} value={option.value}>
-                          {option.label}
-                        </MenuItem>
-                      )
-                    )}
-                  </Select>
-                )}
+                options={RELATIONSHIP_TO_INSURED_OPTIONS}
+                rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
               />
             </FormControl>
           </Grid>
           <Grid item xs={3}>
-            <Controller
+            <FormTextField
+              label="Street address *"
+              placeholder="No., Street"
+              InputLabelProps={{
+                shrink: true,
+                sx: {
+                  fontWeight: 'bold',
+                },
+              }}
+              variant="outlined"
               name={relatedPersonFieldPaths.streetAddress}
               control={control}
               defaultValue={''}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="Street address"
-                  fullWidth
-                  placeholder="No., Street"
-                  InputLabelProps={{
-                    shrink: true,
-                    sx: {
-                      fontWeight: 'bold',
-                    },
-                  }}
-                  onChange={(e) => {
-                    field.onChange(e);
-                  }}
-                />
-              )}
+              rules={{
+                required: REQUIRED_FIELD_ERROR_MESSAGE,
+              }}
             />
           </Grid>
           <Grid item xs={3}>
-            <Controller
+            <FormTextField
+              label="Address line 2"
+              placeholder="No., Street"
+              InputLabelProps={{
+                shrink: true,
+                sx: {
+                  fontWeight: 'bold',
+                },
+              }}
+              variant="outlined"
               name={relatedPersonFieldPaths.addressLine2}
               control={control}
               defaultValue={''}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="Address line 2"
-                  fullWidth
-                  placeholder="No., Street"
-                  InputLabelProps={{
-                    shrink: true,
-                    sx: {
-                      fontWeight: 'bold',
-                    },
-                  }}
-                  onChange={(e) => {
-                    field.onChange(e);
-                  }}
-                />
-              )}
             />
           </Grid>
           <Grid item xs={1}>
-            <Controller
+            <FormTextField
+              label="City *"
+              InputLabelProps={{
+                shrink: true,
+                sx: {
+                  fontWeight: 'bold',
+                },
+              }}
+              variant="outlined"
               name={relatedPersonFieldPaths.city}
               control={control}
               defaultValue={''}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="City"
-                  InputLabelProps={{
-                    shrink: true,
-                    sx: {
-                      fontWeight: 'bold',
-                    },
-                  }}
-                  onChange={(e) => {
-                    field.onChange(e);
-                  }}
-                />
-              )}
+              rules={{
+                required: REQUIRED_FIELD_ERROR_MESSAGE,
+              }}
             />
           </Grid>
           <Grid item xs={1}>
@@ -515,7 +415,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
               control={control}
               defaultValue={null}
               rules={{
-                required: false,
+                required: REQUIRED_FIELD_ERROR_MESSAGE,
                 validate: (value) => !value || STATE_OPTIONS.some((option) => option.value === value),
               }}
               render={({ field: { onChange, value }, fieldState: { error } }) => (
@@ -532,6 +432,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
                     <TextField
                       {...params}
                       label="State"
+                      required
                       error={!!error}
                       placeholder="Select"
                       InputLabelProps={{
@@ -540,6 +441,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
                           fontWeight: 'bold',
                         },
                       }}
+                      helperText={error?.message}
                     />
                   )}
                 />
@@ -547,48 +449,37 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
             />
           </Grid>
           <Grid item xs={1}>
-            <Controller
+            <FormTextField
+              variant="outlined"
               name={relatedPersonFieldPaths.zip}
               control={control}
               defaultValue={''}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="ZIP"
-                  InputLabelProps={{
-                    shrink: true,
-                    sx: {
-                      fontWeight: 'bold',
-                    },
-                  }}
-                  onChange={(e) => {
-                    field.onChange(e);
-                  }}
-                />
-              )}
+              rules={{
+                required: REQUIRED_FIELD_ERROR_MESSAGE,
+                validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
+              }}
+              label="ZIP *"
+              InputLabelProps={{
+                shrink: true,
+                sx: {
+                  fontWeight: 'bold',
+                },
+              }}
             />
           </Grid>
           <Grid item xs={9}>
-            <Controller
+            <FormTextField
+              label="Additional insurance information"
+              InputLabelProps={{
+                shrink: true,
+                sx: {
+                  fontWeight: 'bold',
+                },
+              }}
+              variant="outlined"
               name="Coverage/additionalInformation"
               control={control}
               defaultValue={''}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="Additional insurance information"
-                  InputLabelProps={{
-                    shrink: true,
-                    sx: {
-                      fontWeight: 'bold',
-                    },
-                  }}
-                  fullWidth
-                  onChange={(e) => {
-                    field.onChange(e);
-                  }}
-                />
-              )}
             />
           </Grid>
         </Grid>
@@ -624,15 +515,3 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
     </Dialog>
   );
 };
-
-const genderOptions = [
-  { value: 'placeholder', label: 'Select' },
-  { value: 'male', label: 'Male' },
-  { value: 'female', label: 'Female' },
-  { value: 'intersex', label: 'Intersex' },
-];
-
-const relationshipOptions = [
-  { value: 'placeholder', label: 'Select' },
-  ...RELATIONSHIP_TO_INSURED.map((option) => ({ value: option, label: option })),
-];
