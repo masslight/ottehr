@@ -10,7 +10,7 @@ env:
   PROJECT_ID: '5c29cd00-8df3-447b-aa49-2e65d262388c'
   NODE_VERSION: '18'
   NPM_VERSION: '9'
-  TEST_EMAIL: 'gschneider@masslight.com'
+  TEST_EMAIL: 'gschneider+test@masslight.com'
   AUTH_URL: 'https://auth.zapehr.com/oauth/token'
   AUD_URL: 'https://api.zapehr.com'
 
