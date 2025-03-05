@@ -193,7 +193,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
           control={control}
           defaultValue={insurance.coverage.class?.[0].name || ''}
           rules={{
-            required: true,
+            required: REQUIRED_FIELD_ERROR_MESSAGE,
             validate: (value) => insurancePlans.some((option) => option.name === value),
           }}
           render={({ field: { onChange, value }, fieldState: { error } }) => {
@@ -220,7 +220,9 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
                 }}
                 disableClearable
                 fullWidth
-                renderInput={(params) => <TextField {...params} variant="standard" error={!!error} required />}
+                renderInput={(params) => (
+                  <TextField {...params} variant="standard" error={!!error} required helperText={error?.message} />
+                )}
               />
             );
           }}
