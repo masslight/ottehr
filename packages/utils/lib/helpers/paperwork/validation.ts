@@ -309,8 +309,12 @@ export const makeValidationSchema = (
       // patch. in this case item list is provided directly, where as with Patch it is provided as
       // the item field on { linkId: pageId, item: items }. might be nice to consolidate this.
       // console.log('page id not found; assuming it is root and making schema from items');
-      return Yup.lazy((values: any) => {
-        return makeValidationSchemaPrivate({ items, formValues: values, externalContext });
+      return Yup.lazy((values: any, options: any) => {
+        return makeValidationSchemaPrivate({
+          items,
+          formValues: values,
+          externalContext: { values: options.context, items: externalContext?.items ?? [] },
+        });
       });
     }
   } else {
@@ -341,7 +345,6 @@ export const makeValidationSchema = (
             return accum;
           }, {});
           const validated = await schema.validate(reduced, { abortEarly: false });
-          console.log('validated', JSON.stringify(validated));
           return Yup.mixed().transform(() => validated);
         } catch (e) {
           console.log('error: ', pageId, JSON.stringify(answerItem), e);
@@ -442,13 +445,31 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
                     if (!idx) {
                       return false;
                     }
-                    const item: any = {};
-                    item[val.linkId] = val;
+                    const memberItem: any = {};
+                    memberItem[val.linkId] = val;
 
+                    const memberItemDef = item.item?.find((i) => i.linkId === val.linkId);
+                    // members of a group may have their own filter trigger independent of the group
+                    // this occurs in the default virtual intake paperwork in the school-work-note-template-upload-group
+                    if (memberItemDef) {
+                      const shouldFilterMember = evalFilterWhen(memberItemDef, combinedContext);
+                      if (shouldFilterMember) {
+                        return true;
+                      }
+                    }
                     // console.log('idx', idx, itemLinkId, val, item);
-                    return embeddedSchema.validateAt(val.linkId, item);
+                    return embeddedSchema.validateAt(val.linkId, memberItem);
                   } catch (e) {
                     console.log('thrown error from group member test', e);
+                    // this special one-off handling deals with the allergies page, which has an item that
+                    // powers some logic in the form, but is not actually a field that needs to be validated because it
+                    // contributes no persisted values. there's probably a better way to handle this, but this works for now.
+                    if (typeof e === 'object' && (e as any).message) {
+                      const mesage = (e as any).message as string | undefined;
+                      if (mesage?.startsWith('The schema does not contain the path') && item.required === false) {
+                        return true;
+                      }
+                    }
                     return context.createError({ message: (e as any).message, val, item });
                   }
                 }
