@@ -54,6 +54,7 @@ const CreateDemoVisits = (): ReactElement => {
         createAppointmentZambdaId,
         intakeZambdaUrl,
         selectedLocationId: selectedLocation.id,
+        projectId: import.meta.env.VITE_APP_PROJECT_ID,
       });
       setSnackbar({
         open: true,

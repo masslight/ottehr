@@ -12,7 +12,7 @@ SLS_DIR=$(realpath $SCRIPTS_DIR/../.serverless)
 DIST_DIR=$(realpath $SCRIPTS_DIR/../.dist)
 
 # Zip
-ZIP_ORDER=("version" "deactivate-user" "save-followup-encounter" "get-appointments" "get-telemed-appointments" "change-telemed-appointment-status" "change-in-person-visit-status" "assign-practitioner" "unassign-practitioner" "get-conversation" "get-employees" "update-user" "get-user" "init-telemed-session" "save-chart-data" "get-chart-data" "delete-chart-data" "save-patient-instruction" "get-patient-instructions" "delete-patient-instruction" "notifications-updater" "sync-user" "icd-search" "communication-subscription" "process-erx-resources" "telemed-appointment-subscription" "get-claims" "get-patient-profile-photo-url" "create-update-medication-order" "get-medication-orders" "create-upload-document-url" "sign-appointment")
+ZIP_ORDER=("version" "deactivate-user" "save-followup-encounter" "get-appointments" "get-telemed-appointments" "change-telemed-appointment-status" "change-in-person-visit-status" "assign-practitioner" "unassign-practitioner" "get-conversation" "get-employees" "update-user" "get-user" "init-telemed-session" "save-chart-data" "get-chart-data" "delete-chart-data" "save-patient-instruction" "get-patient-instructions" "delete-patient-instruction" "notifications-updater" "sync-user" "icd-search" "communication-subscription" "process-erx-resources" "telemed-appointment-subscription" "get-claims" "get-patient-profile-photo-url" "create-update-medication-order" "get-medication-orders" "create-upload-document-url" "sign-appointment" "create-lab-order" "paperwork-to-pdf")
 
 for ZAMBDA in ${ZIP_ORDER[@]}; do
   # Set up temp directory for the zip

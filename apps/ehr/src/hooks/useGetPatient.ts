@@ -259,6 +259,10 @@ export const useGetPatientQuery = (
 
 const preprocessUpdateOperations = (operations: Operation[], resource: PatientMasterRecordResource): Operation[] => {
   const processedOps = consolidateOperations(operations, resource);
+  const telecomOp = processedOps.find((op) => op.path === '/telecom');
+  if (telecomOp && telecomOp.op === 'add') {
+    telecomOp.value = deduplicateContacts(telecomOp.value);
+  }
 
   if (resource.resourceType === ResourceTypeNames.patient) {
     // Find name-related operations and add old name to the list
@@ -283,6 +287,20 @@ const preprocessUpdateOperations = (operations: Operation[], resource: PatientMa
 
   return processedOps;
 };
+
+type Contact = { system: string; value: string };
+
+function deduplicateContacts(contacts: Contact[]): Contact[] {
+  const lastContacts = new Map();
+
+  for (let i = contacts.length - 1; i >= 0; i--) {
+    if (!lastContacts.has(contacts[i].system)) {
+      lastContacts.set(contacts[i].system, contacts[i]);
+    }
+  }
+
+  return Array.from(lastContacts.values());
+}
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useUpdatePatient = () => {

@@ -212,7 +212,8 @@ export default function Appointments(): ReactElement {
       loadingState.status !== 'loading' &&
       pageIsVisible
     ) {
-      const searchDateToUse = (searchDate && DateTime.fromISO(searchDate)) || appointmentDate || undefined;
+      const searchDateToUse =
+        (searchDate && DateTime.fromISO(searchDate, { zone: 'UTC' }).startOf('day')) || appointmentDate || undefined;
       void fetchStuff(oystehrZambda, searchDateToUse);
     }
   }, [

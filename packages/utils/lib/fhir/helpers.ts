@@ -1173,6 +1173,24 @@ export const checkForPatientDemographicMatch = (
 
   return true;
 };
+export function flattenBundleResources(searchResults: Bundle<FhirResource>): FhirResource[] {
+  const flattenedResources: FhirResource[] = [];
+
+  searchResults.entry?.forEach((resultEntry) => {
+    const bundle = resultEntry.resource;
+
+    if (bundle?.resourceType === 'Bundle' && Array.isArray(bundle.entry)) {
+      bundle.entry.forEach((entry) => {
+        if (entry.resource) {
+          flattenedResources.push(entry.resource);
+        }
+      });
+    }
+  });
+
+  return flattenedResources;
+}
+
 export function slashPathToLodashPath(slashPath: string): string {
   return slashPath
     .split('/')
@@ -1200,4 +1218,9 @@ export const takeContainedOrFind = <T extends Resource>(
   }
 
   return resourceList.find((res) => `${res.resourceType}/${res.id}` === referenceString) as T | undefined;
+};
+
+export const unpackFhirResponse = async <T>(response: { json: () => Promise<any> }): Promise<T> => {
+  const data = await response.json();
+  return (data.output ? data.output : data) as T;
 };

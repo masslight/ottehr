@@ -12,6 +12,8 @@ import {
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import { expectAddPatientPage } from '../page/AddPatientPage';
 import { expectVisitsPage } from '../page/VisitsPage';
+import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment';
+import { unpackFhirResponse } from 'utils';
 
 const PATIENT_PREFILL_NAME = PATIENT_FIRST_NAME + ' ' + PATIENT_LAST_NAME;
 const PATIENT_INPUT_BIRTHDAY = PATIENT_BIRTH_DATE_SHORT;
@@ -245,8 +247,12 @@ async function createAppointment(
 
   const appointmentCreationResponse = page.waitForResponse(/\/create-appointment\//);
   await addPatientPage.clickAddButton();
-  const response = await appointmentCreationResponse;
-  const { appointment } = await response.json();
-  appointmentIds.push(appointment);
-  return { appointmentId: appointment, slotTime };
+  const response = await unpackFhirResponse<CreateAppointmentResponse>(await appointmentCreationResponse);
+
+  if (!response.appointment) {
+    throw new Error('Appointment ID should be present in the response');
+  }
+
+  appointmentIds.push(response.appointment);
+  return { appointmentId: response.appointment, slotTime };
 }
