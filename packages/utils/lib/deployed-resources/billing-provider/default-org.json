@@ -28,9 +28,7 @@
         "postalCode": "98105",
         "country": "United States",
         "type": "physical",
-        "line": [
-          "371 Pine St"
-        ]
+        "line": ["371 Pine St"]
       }
     ]
   }

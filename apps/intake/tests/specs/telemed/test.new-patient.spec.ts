@@ -22,7 +22,6 @@ let dob: Awaited<ReturnType<FillingInfo['fillDOBless18']>> | undefined;
 
 const appointmentIds: string[] = [];
 
-
 const selectState = async (page: Page): Promise<void> => {
   await page.getByPlaceholder('Search or select').click();
   await page.getByRole('option', { name: 'California' }).click();
@@ -77,7 +76,7 @@ test('Should create new patient', async () => {
 
   dob = await fillingInfo.fillDOBless18();
 
-  await page.getByRole('button', { name: 'Continue' }).click({timeout: 30000});
+  await page.getByRole('button', { name: 'Continue' }).click({ timeout: 30000 });
 
   await paperwork.fillAndCheckContactInformation(patientInfo);
 
