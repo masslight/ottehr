@@ -40,7 +40,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
 
   const [showMoreInfo, setShowMoreInfo] = useState(false);
 
-  const { control } = useFormContext();
+  const { control, trigger } = useFormContext();
 
   const allInsurances = useMemo(
     () => [
@@ -193,7 +193,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
           control={control}
           defaultValue={insurance.coverage.class?.[0].name || ''}
           rules={{
-            required: true,
+            required: REQUIRED_FIELD_ERROR_MESSAGE,
             validate: (value) => insurancePlans.some((option) => option.name === value),
           }}
           render={({ field: { onChange, value }, fieldState: { error } }) => {
@@ -217,10 +217,13 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
                     } as any,
                     newValue
                   );
+                  void trigger(`${coverageFieldPaths.carrier}_${insurance.coverage.id}`);
                 }}
                 disableClearable
                 fullWidth
-                renderInput={(params) => <TextField {...params} variant="standard" error={!!error} required />}
+                renderInput={(params) => (
+                  <TextField {...params} variant="standard" error={!!error} required helperText={error?.message} />
+                )}
               />
             );
           }}
@@ -357,12 +360,15 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
               onChangeHandler={handleChange}
             />
           </Row>
-          <Row label="City, State, ZIP">
+          <Row label="City, State, ZIP" required>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <FormTextField
                 name={`${relatedPersonFieldPaths.city}_${insurance.relatedPerson?.id}`}
                 control={control}
                 defaultValue={insurance.relatedPerson?.address?.[0]?.city}
+                rules={{
+                  required: REQUIRED_FIELD_ERROR_MESSAGE,
+                }}
                 onChangeHandler={handleChange}
               />
               <FormAutocomplete
@@ -372,6 +378,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
                 options={STATE_OPTIONS}
                 rules={{
                   validate: (value: string) => STATE_OPTIONS.some((option) => option.value === value),
+                  required: REQUIRED_FIELD_ERROR_MESSAGE,
                 }}
                 onChangeHandler={handleAutocompleteChange}
               />
@@ -381,6 +388,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
                 defaultValue={insurance.relatedPerson?.address?.[0]?.postalCode}
                 rules={{
                   validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
+                  required: REQUIRED_FIELD_ERROR_MESSAGE,
                 }}
                 onChangeHandler={handleChange}
               />
