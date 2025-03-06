@@ -15,6 +15,8 @@ import {
 import { getAuth0Token } from '../src/shared';
 import { createOystehrClient } from '../src/shared/helpers';
 
+export const DEFAULT_TESTING_SLUG = 'testing';
+
 const virtualLocations: { value: string; label: string }[] = [
   { value: 'NJ', label: 'NJ' },
   { value: 'OH', label: 'OH' },
@@ -147,7 +149,7 @@ const createPhysicalLocation = async (
       newLocation.identifier = [
         {
           system: SLUG_SYSTEM,
-          value: `testing`,
+          value: DEFAULT_TESTING_SLUG,
         },
       ];
     }

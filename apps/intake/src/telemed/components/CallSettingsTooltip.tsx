@@ -6,6 +6,9 @@ import CloseIcon from '@mui/icons-material/Close';
 import { StyledListItemWithButton, CustomTooltip } from 'ui-components';
 import { otherColors } from '../../IntakeThemeProvider';
 import { IconButtonContained } from './IconButtonContained';
+import { ContactSupportDialog } from '../../components/ContactSupportDialog';
+import { useIntakeCommonStore } from '../features/common';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
 type CallSettingsTooltipProps = {
   isTooltipOpen: boolean;
@@ -16,6 +19,7 @@ type CallSettingsTooltipProps = {
 
 export const CallSettingsTooltip: FC<CallSettingsTooltipProps> = (props) => {
   const { isTooltipOpen, handleTooltipOpen, handleTooltipClose, openSettings } = props;
+  const supportDialogOpen = useIntakeCommonStore((state) => state.supportDialogOpen);
 
   return (
     <ClickAwayListener onClickAway={handleTooltipClose}>
@@ -31,7 +35,20 @@ export const CallSettingsTooltip: FC<CallSettingsTooltipProps> = (props) => {
           disableTouchListener
           title={
             <Box sx={{ p: 3, width: '300px', position: 'relative' }}>
+              {supportDialogOpen && (
+                <ContactSupportDialog onClose={() => useIntakeCommonStore.setState({ supportDialogOpen: false })} />
+              )}
               <List sx={{ p: 0 }}>
+                <StyledListItemWithButton
+                  primaryText="Report problem"
+                  secondaryText="Send error report"
+                  onClick={() => {
+                    handleTooltipClose();
+                    useIntakeCommonStore.setState({ supportDialogOpen: true });
+                  }}
+                >
+                  <HelpOutlineIcon color="secondary" />
+                </StyledListItemWithButton>
                 <StyledListItemWithButton
                   primaryText="Setting"
                   secondaryText="Audio, video"

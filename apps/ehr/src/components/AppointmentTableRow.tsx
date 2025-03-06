@@ -657,12 +657,7 @@ export default function AppointmentTableRow({
         }}
       >
         {appointment.status === 'arrived' || appointment.status === 'pending' || appointment.status === 'ready' ? (
-          <CSSButton
-            isDisabled={!appointment.id}
-            isLoading={isCSSButtonIsLoading}
-            handleCSSButton={handleCSSButton}
-            appointmentID={appointment.id}
-          />
+          <CSSButton isDisabled={!appointment.id} isLoading={isCSSButtonIsLoading} handleCSSButton={handleCSSButton} />
         ) : (
           <IntakeCheckmark providerName={admitterName} />
         )}

@@ -503,7 +503,7 @@ export default function Data(): React.ReactElement {
               <Grid key={index} item md={4} xs={12} sx={{ width: '33%' }}>
                 <Box
                   sx={{
-                    backgroundColor: '#301367',
+                    backgroundColor: '#0A2143',
                     color: '#FFFFFF',
                     padding: '20px',
                     height: '100%',

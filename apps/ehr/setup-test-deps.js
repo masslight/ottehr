@@ -11,17 +11,23 @@ if (!isCI) {
       {
         localEnvFolder: './env/',
         repoEnvFolder: './ottehr-secrets/ehr/app/',
-        envsToCopy: ['.env.demo', '.env.local'],
-      },
-      {
-        localEnvFolder: './env/',
-        repoEnvFolder: './ottehr-secrets/ehr/app/',
-        envsToCopy: ['tests.local.json', 'tests.demo.json'],
+        envsToCopy: [
+          '.env.demo',
+          '.env.local',
+          '.env.development',
+          '.env.staging',
+          '.env.testing',
+          'tests.local.json',
+          'tests.demo.json',
+          'tests.development.json',
+          'tests.staging.json',
+          'tests.testing.json',
+        ],
       },
       {
         localEnvFolder: '../../packages/ehr/zambdas/.env',
         repoEnvFolder: './ottehr-secrets/zambdas/',
-        envsToCopy: ['demo.json', 'local.json'],
+        envsToCopy: ['demo.json', 'development.json', 'local.json', 'staging.json', 'testing.json'],
       },
     ]);
   })();

@@ -3,6 +3,7 @@ import { Appointment, Extension, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { PROJECT_MODULE } from 'utils';
 import { PatchPaperworkParameters } from '../types';
+import { zipRegex } from '../validation';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -49,6 +50,13 @@ export function getBucketAndObjectFromZ3URL(z3URL: string, projectAPI: string): 
   const object = photoIdFrontItems.slice(1).join('/');
   return { bucket, object };
 }
+
+export const isPostalCodeValid = (postalCode: string | undefined): boolean => {
+  if (!postalCode) {
+    return false;
+  }
+  return zipRegex.test(postalCode);
+};
 
 export const isPhoneNumberValid = (phoneNumber: string | undefined): boolean => {
   if (!phoneNumber) {

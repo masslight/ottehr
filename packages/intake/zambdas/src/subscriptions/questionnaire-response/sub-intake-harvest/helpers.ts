@@ -78,6 +78,8 @@ import {
   LanguageOption,
   getPatchOperationToAddOrUpdatePreferredLanguage,
   PROJECT_MODULE,
+  getPatchOperationToAddOrUpdateResponsiblePartyRelationship,
+  RelationshipOption,
 } from 'utils';
 import { v4 as uuid } from 'uuid';
 import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
@@ -1306,6 +1308,33 @@ export function createMasterRecordPatchOperations(
               path,
               resources.patient,
               currentValue as LanguageOption
+            );
+
+            if (operation) tempOperations.patient.push(operation);
+          }
+          return;
+        }
+
+        // Special handler for responsible-party-relationship
+        if (item.linkId === 'responsible-party-relationship') {
+          const responsiblePartyContact = resources.patient.contact?.find(
+            (contact) =>
+              contact.relationship?.some(
+                (rel) =>
+                  rel.coding?.some(
+                    (code) => code.system === 'http://terminology.hl7.org/CodeSystem/v2-0131' && code.code === 'BP'
+                  )
+              )
+          );
+          const currentValue = responsiblePartyContact?.relationship?.find(
+            (rel) => rel.coding?.some((coding) => coding.system === 'http://hl7.org/fhir/relationship')
+          )?.coding?.[0].display;
+
+          if (value !== currentValue) {
+            const operation = getPatchOperationToAddOrUpdateResponsiblePartyRelationship(
+              value as RelationshipOption,
+              path,
+              currentValue as RelationshipOption
             );
 
             if (operation) tempOperations.patient.push(operation);

@@ -38,7 +38,7 @@ export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (p
 
   const onDelete = (id: string): void => {
     mutate(
-      { id },
+      { instructionId: id },
       {
         onSuccess: () => {
           void queryClient.invalidateQueries({ queryKey: ['telemed-get-patient-instructions'] });

@@ -61,13 +61,12 @@ export const getMergedResourcesFromBundles = <T extends FhirResource>(bundles: B
 export const makeResourceCacheKey = ({
   resourceId,
   resourceType,
-  resourceTimezone,
 }: {
   resourceId: string;
   resourceType: 'Location' | 'Practitioner' | 'HealthcareService';
-  resourceTimezone: string | undefined;
 }): string => {
-  return `${resourceType}|${resourceId}|${DateTime.now().setZone(resourceTimezone).startOf('day').toISODate()}`;
+  const time = DateTime.now().setZone('UTC').startOf('day').toISO();
+  return `${resourceType}|${resourceId}|${time}`;
 };
 
 export const timezoneMap: Map<string, string> = new Map(); // key: Location id | Group id | Provider id, value: timezone
@@ -124,24 +123,25 @@ export const makeAppointmentSearchRequest = async ({
   resourceType: 'Location' | 'Practitioner' | 'HealthcareService';
   searchDate: string;
 }): Promise<{ resourceType: 'Appointment'; params: SearchParam[] }> => {
-  const timezone = await getTimezone({
+  // timezone will be cached and we can use it to show date in user timezone
+  await getTimezone({
     oystehr,
     resourceType,
     resourceId,
   });
 
-  const searchDateWithTimezone = DateTime.fromISO(searchDate).setZone(timezone);
+  const searchDateWithTimezone = DateTime.fromISO(searchDate).setZone('UTC');
 
   return {
     resourceType: 'Appointment',
     params: [
       {
         name: 'date',
-        value: `ge${searchDateWithTimezone.startOf('day')}`,
+        value: `ge${searchDateWithTimezone.startOf('day').toISO()}`,
       },
       {
         name: 'date',
-        value: `le${searchDateWithTimezone.endOf('day')}`,
+        value: `le${searchDateWithTimezone.endOf('day').toISO()}`,
       },
       {
         name: 'date:missing',
@@ -209,12 +209,12 @@ export const getTimezoneResourceIdFromAppointment = (appointment: Appointment): 
   return undefined;
 };
 
-export const makeEncounterBaseSearchParamsByTimezone = (timezone: string | undefined): SearchParam[] => [
+export const makeEncounterBaseSearchParams = (): SearchParam[] => [
   { name: '_count', value: '1000' },
   { name: '_include', value: 'Encounter:appointment' },
   { name: '_include', value: 'Encounter:participant' },
   { name: 'appointment._tag', value: PROJECT_MODULE.IP },
-  { name: 'appointment.date', value: `lt${DateTime.now().setZone(timezone).startOf('day')}` },
+  { name: 'appointment.date', value: `lt${DateTime.now().setZone('UTC').startOf('day').toISO()}` },
   { name: 'status:not', value: 'planned' },
   { name: 'status:not', value: 'finished' },
   { name: 'status:not', value: 'cancelled' },
@@ -223,23 +223,17 @@ export const makeEncounterBaseSearchParamsByTimezone = (timezone: string | undef
 export const makeEncounterSearchParams = ({
   resourceId,
   resourceType,
-  resourceTimezone,
   cacheKey,
 }: {
   resourceId: string;
   resourceType: 'Location' | 'Practitioner' | 'HealthcareService';
-  resourceTimezone: string | undefined;
   cacheKey: string;
 }): SearchParam[] | null => {
-  if (!resourceTimezone) {
-    console.log(`WARNING: encounter search params for ${resourceType}/${resourceId} prepared without timezone`);
-  }
-
   const cachedEncounterIds = encounterIdMap.get(cacheKey);
 
   if (cachedEncounterIds !== null) {
     return [
-      ...makeEncounterBaseSearchParamsByTimezone(resourceTimezone),
+      ...makeEncounterBaseSearchParams(),
       ...(cachedEncounterIds ? [{ name: '_id', value: cachedEncounterIds }] : []),
       ...(resourceType === 'Location' ? [{ name: 'appointment.location', value: `Location/${resourceId}` }] : []),
       ...(resourceType === 'Practitioner' ? [{ name: 'appointment.actor', value: `Practitioner/${resourceId}` }] : []),
