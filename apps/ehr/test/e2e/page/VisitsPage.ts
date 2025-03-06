@@ -50,7 +50,7 @@ export class VisitsPage {
 }
 
 export async function expectVisitsPage(page: Page): Promise<VisitsPage> {
-  await page.waitForURL(`/visits`);
+  await page.waitForURL(/visits/);
   return new VisitsPage(page);
 }
 
