@@ -71,6 +71,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
     return (
       <Box sx={{ minHeight: '40px' }} display="flex" justifyContent="space-between" alignItems="center">
         <ButtonRounded
+          data-testid={dataTestIds.orderMedicationPage.backButton}
           variant="outlined"
           onClick={() => navigate(getInHouseMedicationMARUrl(encounterId!))}
           color="primary"

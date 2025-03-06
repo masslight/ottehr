@@ -24,6 +24,22 @@ export class InHouseMedicationsPage {
     return expectOrderMedicationPage(this.#page);
   }
 
+  async verifyMedicationPresent(medicationName: string, status: string): Promise<void> {
+    await expect(
+      this.#page
+        .getByTestId(dataTestIds.inHouseMedicationsPage.marTableRow)
+        .filter({
+          has: this.#page
+            .getByTestId(dataTestIds.inHouseMedicationsPage.marTableMedicationCell)
+            .filter({ hasText: medicationName }),
+        })
+        .filter({
+          has: this.#page
+            .getByTestId(dataTestIds.inHouseMedicationsPage.marTableStatusCell)
+            .filter({ hasText: status }),
+        })
+    ).toBeVisible();
+  }
 }
 
 export async function expectInHouseMedicationsPage(page: Page): Promise<InHouseMedicationsPage> {

@@ -17,6 +17,8 @@ export class AssessmentPage {
     await this.#page.getByTestId(dataTestIds.assessmentPage.diagnosisDropdown).locator('input').fill(diagnosis);
     await this.#page.getByText(diagnosis).click();
     await expect(this.#page.getByTestId(dataTestIds.diagnosisContainer.deleteButton)).toBeEnabled({ timeout: 30000 });
+    //wait the diagnosis to be processed
+    await this.#page.waitForTimeout(30000);
   }
 
   async selectEMCode(code: string): Promise<void> {

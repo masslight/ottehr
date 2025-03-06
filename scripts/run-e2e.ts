@@ -108,6 +108,7 @@ const startApp = async (app: (typeof supportedApps)[number]): Promise<void> => {
     });
 
     waitForApp(app)
+      .then(() => new Promise((resolve) => setTimeout(resolve, 40000)))
       .then(() => {
         console.log(`${app} is ready`);
         resolve();

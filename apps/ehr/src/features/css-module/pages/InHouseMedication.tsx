@@ -150,7 +150,7 @@ export const InHouseMedication: React.FC = () => {
               aria-label="medication tabs"
             >
               <Tab label="MAR" />
-              <Tab label="Medication Details" />
+              <Tab data-testid={dataTestIds.inHouseMedicationsPage.medicationDetailsTab} label="Medication Details" />
             </Tabs>
             <Box
               sx={{
