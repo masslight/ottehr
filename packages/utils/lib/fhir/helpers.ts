@@ -1224,3 +1224,7 @@ export const unpackFhirResponse = async <T>(response: { json: () => Promise<any>
   const data = await response.json();
   return (data.output ? data.output : data) as T;
 };
+
+export const unbundleBatchPostOutput = <T extends Resource>(bundle: Bundle<T>): T[] => {
+  return (bundle.entry?.map((entry) => entry.resource) ?? []) as T[];
+};

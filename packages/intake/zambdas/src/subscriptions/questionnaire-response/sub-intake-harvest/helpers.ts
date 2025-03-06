@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { AddOperation, Operation } from 'fast-json-patch';
 import {
@@ -1967,7 +1967,8 @@ export interface GetAccountOperationsInput {
 
 export interface GetAccountOperationsOutput {
   coveragePosts: BatchInputPostRequest<Coverage>[];
-  patch: BatchInputPatchRequest<Coverage | RelatedPerson | Account>[];
+  patch: BatchInputPatchRequest<Coverage | RelatedPerson>[];
+  put: BatchInputPutRequest<Account>[];
   accountPost?: Account;
 }
 
@@ -1992,7 +1993,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
   const guarantorData = extractAccountGuarantor(flattenedItems);
   if (!guarantorData) {
     console.log('no guarantor data could be extracted from questionnaire response');
-    return { patch: [], coveragePosts: [], accountPost: undefined };
+    return { patch: [], coveragePosts: [], put: [], accountPost: undefined };
   }
   const { orderedCoverages: questionnaireCoverages } = getCoverageResources({
     questionnaireResponse: {
@@ -2005,7 +2006,9 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
 
   const patch: BatchInputPatchRequest<Coverage | RelatedPerson | Account>[] = [];
   const coveragePosts: BatchInputPostRequest<Coverage>[] = [];
+  const put: BatchInputPutRequest<Account>[] = [];
   let accountPost: Account | undefined;
+
   console.log(
     'getting account operations for patient, guarantorData, coverages, account',
     JSON.stringify(patient, null, 2),
@@ -2092,44 +2095,25 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       existingGuarantorReferences: existingAccount.guarantor ?? [],
     });
 
-    const operations: Operation[] = [];
+    const updatedAccount: Account = {
+      ...existingAccount,
+      guarantor: guarantors,
+      contained,
+      coverage: suggestedNewCoverageObject,
+    };
 
-    if (!_.isEqual(guarantors, existingAccount.guarantor)) {
-      operations.push({
-        op: existingAccount.guarantor ? 'replace' : 'add',
-        path: '/guarantor',
-        value: guarantors,
-      });
-    }
-    if (!_.isEqual(contained, existingAccount.contained)) {
-      operations.push({
-        op: existingAccount.contained ? 'replace' : 'add',
-        path: '/contained',
-        value: contained,
-      });
-    }
-
-    if (!_.isEqual(suggestedNewCoverageObject, existingAccount.coverage)) {
-      operations.push({
-        op: 'replace',
-        path: '/coverage',
-        value: suggestedNewCoverageObject,
-      });
-    }
-
-    if (operations.length) {
-      patch.push({
-        method: 'PATCH',
-        url: `Account/${existingAccount.id}`,
-        operations,
-      });
-    }
+    put.push({
+      method: 'PUT',
+      url: `Account/${existingAccount.id}`,
+      resource: updatedAccount,
+    });
   }
 
   return {
     coveragePosts,
     accountPost,
     patch,
+    put,
   };
 };
 
@@ -2366,6 +2350,15 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
         coverage: { reference: secondaryCoverageFromPaperwork.id },
         priority: 2,
       });
+      /*const condition1 = coveragesAreSame(secondaryCoverageFromPaperwork, existingSecondaryCoverage);
+      const condition2 = relatedPersonsAreSame(secondarySubscriberFromPaperwork, existingSecondarySubscriber);
+      throw new Error(
+        `unexpected condition. condition1: ${condition1}, condition2: ${condition2} ${JSON.stringify(
+          existingSecondaryCoverage,
+          null,
+          2
+        )} ${JSON.stringify(existingSecondarySubscriber, null, 2)}`
+      );*/
     }
   }
 
@@ -2474,7 +2467,7 @@ export const resolveGuarantor = (input: ResolveGuarantorInput): ResolveGuarantor
   }
 };
 
-const coveragesAreSame = (coverage1: Coverage, coverage2: Coverage | undefined): boolean => {
+export const coveragesAreSame = (coverage1: Coverage, coverage2: Coverage | undefined): boolean => {
   if (!coverage2) return false;
   let coverage1MemberId = getMemberIdFromCoverage(coverage1);
   let coverage2MemberId = getMemberIdFromCoverage(coverage2);
@@ -2498,7 +2491,10 @@ const coveragesAreSame = (coverage1: Coverage, coverage2: Coverage | undefined):
   return coverage1Payor !== undefined && coverage2Payor !== undefined && coverage1Payor === coverage2Payor;
 };
 
-const relatedPersonsAreSame = (relatedPersons1: RelatedPerson, relatedPerson2: RelatedPerson | undefined): boolean => {
+export const relatedPersonsAreSame = (
+  relatedPersons1: RelatedPerson,
+  relatedPerson2: RelatedPerson | undefined
+): boolean => {
   if (!relatedPerson2) return false;
   const fullName1 = getFullName(relatedPersons1);
   const fullName2 = getFullName(relatedPerson2);
@@ -2664,8 +2660,6 @@ export interface GetAccountOperationsInput {
   existingGuarantorResource?: RelatedPerson | Patient;
   existingAccount?: Account;
 }
-
-
 */
 
 type UnbundledAccountResources = (Account | Coverage | RelatedPerson | Patient)[];
@@ -2738,34 +2732,12 @@ export const getCoverageUpdateResourcesFromUnbundled = (
         }
         return 0;
       });
-    const unknownOrderCoverages = coverageResources
-      .filter((cov) => !cov.order && cov.status === 'active')
-      .sort((cova, covb) => {
-        const covALastUpdate = cova.meta?.lastUpdated;
-        const covBLastUpdate = covb.meta?.lastUpdated;
-        if (covALastUpdate && covBLastUpdate) {
-          const covALastUpdateDate = DateTime.fromISO(covALastUpdate);
-          const covBLastUpdateDate = DateTime.fromISO(covBLastUpdate);
-          if (covALastUpdateDate.isValid && covBLastUpdateDate.isValid) {
-            return covALastUpdateDate.diff(covBLastUpdateDate).milliseconds;
-          }
-        }
-        return 0;
-      });
 
     if (primaryCoverages.length) {
       existingCoverages.primary = primaryCoverages[0];
     }
     if (secondaryCoverages.length) {
       existingCoverages.secondary = secondaryCoverages[0];
-    }
-    // we'll use the first unknown order coverage as the primary only if no coverages with order populated exist
-    if (
-      existingCoverages.primary === undefined &&
-      existingCoverages.secondary === undefined &&
-      unknownOrderCoverages.length
-    ) {
-      existingCoverages.primary = unknownOrderCoverages[0];
     }
   }
 

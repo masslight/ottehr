@@ -242,15 +242,14 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
 
   console.log('account and coverage operations created', JSON.stringify(accountOperations, null, 2));
 
-  const { patch, accountPost, coveragePosts } = accountOperations;
-  console.time('patching account resource');
-  const accountPatch = patch.find((req) => req.url.includes('Account'));
-  if (accountPatch) {
-    throw new Error(
-      `Account patch request should not be present in the patch operations ${JSON.stringify(accountPatch)}`
-    );
-  }
-  const transactionRequests: BatchInputRequest<Account | RelatedPerson | Coverage>[] = [...coveragePosts, ...patch];
+  const { patch, accountPost, put, coveragePosts } = accountOperations;
+  console.time('updating account resource');
+
+  const transactionRequests: BatchInputRequest<Account | RelatedPerson | Coverage>[] = [
+    ...coveragePosts,
+    ...patch,
+    ...put,
+  ];
   if (accountPost) {
     transactionRequests.push({
       url: '/Account',
@@ -265,7 +264,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     tasksFailed.push(`Failed to update Account: ${JSON.stringify(error)}`);
     console.log(`Failed to update Account: ${JSON.stringify(error)}`);
   }
-  console.timeEnd('patching account resource');
+  console.timeEnd('updating account resource');
 
   const hipaa = flattenedPaperwork.find((data) => data.linkId === 'hipaa-acknowledgement')?.answer?.[0]?.valueBoolean;
   const consentToTreat = flattenedPaperwork.find((data) => data.linkId === 'consent-to-treat')?.answer?.[0]

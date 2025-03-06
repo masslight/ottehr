@@ -1,4 +1,4 @@
-import { RelatedPerson } from 'fhir/r4b';
+import { Coverage, RelatedPerson } from 'fhir/r4b';
 import { COVERAGE_MEMBER_IDENTIFIER_BASE } from 'utils';
 
 export const expectedPrimaryPolicyHolderFromQR1: RelatedPerson = {
@@ -67,7 +67,7 @@ export const expectedSecondaryPolicyHolderFromQR1: RelatedPerson = {
   ],
 };
 
-export const expectedCoverageResources = {
+export const expectedCoverageResources: { primary: Coverage; secondary: Coverage } = {
   primary: {
     resourceType: 'Coverage',
     identifier: [

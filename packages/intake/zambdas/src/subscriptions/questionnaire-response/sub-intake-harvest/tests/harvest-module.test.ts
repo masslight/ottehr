@@ -2289,32 +2289,23 @@ describe('Harvest Module', () => {
       });
       expect(result).toBeDefined();
       assert(result);
-      const { accountPost: post, patch } = result;
+      const { accountPost: post, patch, put } = result;
       checkAccountOperations(result, expectedAccount);
       expect(post).toBeUndefined();
       expect(patch).toBeDefined();
       assert(patch);
-      expect(patch.length).toBeGreaterThan(1);
-      const accountPatch = patch.find((p) => p.url === `Account/${existingAccount.id}`);
-      expect(accountPatch).toBeDefined();
-      assert(accountPatch);
-      const accountPatchOperations = (accountPatch as any).operations;
-      expect(accountPatchOperations.length).toBe(3);
-      const [accountPatch1, accountPatch2, accountPatch3] = accountPatchOperations;
-      assert(accountPatch1 && accountPatch2);
-      expect(accountPatch2.op).toBe('add');
-      expect(accountPatch2.path).toBe('/contained');
-      expect(accountPatch2.value).toEqual([expectedAccountGuarantorFromQR1]);
-      expect(accountPatch1.op).toBe('replace');
-      expect(accountPatch1.path).toBe('/guarantor');
-      expect(accountPatch1.value).toContainEqual({
+      expect(patch.length).toBe(1);
+      const accountPut = put.find((p) => p.url === `Account/${existingAccount.id}`);
+      const updatedAccount = accountPut?.resource as Account;
+      expect(updatedAccount).toBeDefined();
+      assert(updatedAccount);
+      expect(updatedAccount.contained).toEqual([expectedAccountGuarantorFromQR1]);
+      expect(updatedAccount.guarantor).toContainEqual({
         party: {
           reference: `#${expectedAccountGuarantorFromQR1.id}`,
           type: 'RelatedPerson',
         },
       });
-      expect(accountPatch3.op).toBe('replace');
-      expect(accountPatch3.path).toBe('/coverage');
     });
   });
   describe('translating query results into input for the account operations', () => {
@@ -2572,7 +2563,7 @@ const checkAccountOperations = (accountOps: GetAccountOperationsOutput, expected
 
   expect(accountOps).toBeDefined();
   assert(accountOps);
-  const { accountPost: post, coveragePosts, patch } = accountOps;
+  const { accountPost: post, coveragePosts, patch, put } = accountOps;
 
   if (post) {
     expect(post?.resourceType).toBe('Account');
@@ -2586,15 +2577,12 @@ const checkAccountOperations = (accountOps: GetAccountOperationsOutput, expected
   } else {
     if (coveragePosts.length) {
       coveragePosts?.forEach((coveragePost) => {
-        const accountPatches = patch.find((p) => p.url.startsWith('Account/'));
-        expect(accountPatches).toBeDefined();
-        const operations = (accountPatches as BatchInputJSONPatchRequest).operations;
-        assert(operations);
-        expect(operations.length).toBeGreaterThan(0);
-        const coveragePatch = operations.find((c) => c.path === '/coverage');
-        expect(coveragePatch).toBeDefined();
-        assert(coveragePatch);
-        const someMatch = (coveragePatch as any).value.some((c: any) => c.coverage.reference === coveragePost.fullUrl);
+        const accountPut = put.find((p) => p.url.startsWith('Account/'));
+        expect(accountPut).toBeDefined();
+        const updatedAccount = accountPut?.resource as Account;
+        expect(updatedAccount).toBeDefined();
+        assert(updatedAccount);
+        const someMatch = updatedAccount.coverage?.some((c: any) => c.coverage.reference === coveragePost.fullUrl);
         expect(someMatch).toBe(true);
       });
     }
