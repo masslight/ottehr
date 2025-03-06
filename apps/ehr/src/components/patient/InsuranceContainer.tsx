@@ -40,7 +40,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
 
   const [showMoreInfo, setShowMoreInfo] = useState(false);
 
-  const { control } = useFormContext();
+  const { control, trigger } = useFormContext();
 
   const allInsurances = useMemo(
     () => [
@@ -217,6 +217,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
                     } as any,
                     newValue
                   );
+                  void trigger(`${coverageFieldPaths.carrier}_${insurance.coverage.id}`);
                 }}
                 disableClearable
                 fullWidth
