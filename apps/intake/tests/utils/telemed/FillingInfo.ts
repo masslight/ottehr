@@ -1,12 +1,15 @@
 import { Page, expect } from '@playwright/test';
 import { DateTime } from 'luxon';
+import { Locators } from '../locators';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 export class FillingInfo {
   page: Page;
+  locator: Locators;
 
   constructor(page: Page) {
     this.page = page;
+    this.locator = new Locators(page);
   }
   // Helper method to get a random element from an array
   private getRandomElement(arr: string[]) {
@@ -440,7 +443,7 @@ export class FillingInfo {
     return { firstName, lastName, randomRelationships };
   }
   async selectRandomSlot(): Promise<{ time: string; fullSlot: string }> {
-    await expect(this.page.getByText('First available time')).toBeVisible();
+    await expect(this.locator.firstAvailableTime).toBeVisible();
     const timeSlotsButtons = this.page.locator('role=button[name=/^\\d{1,2}:\\d{2} (AM|PM)$/]');
     const buttonCount = await timeSlotsButtons.count();
     expect(buttonCount).toBeGreaterThan(0);
