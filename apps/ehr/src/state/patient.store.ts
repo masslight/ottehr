@@ -541,7 +541,12 @@ export const getTelecomInfo = (
   system: 'phone' | 'email',
   defaultIndex: number
 ): { value?: string; path: string } => {
-  const index = patient.telecom?.findIndex((telecom) => telecom.system === system) ?? defaultIndex;
+  const index =
+    patient.telecom
+      ?.map((telecom, i) => (telecom.system === system ? i : -1))
+      .filter((i) => i !== -1)
+      .pop() ?? defaultIndex;
+
   return {
     value: patient.telecom?.[index]?.value,
     path: patientFieldPaths[system].replace(/telecom\/\d+/, `telecom/${index}`),
