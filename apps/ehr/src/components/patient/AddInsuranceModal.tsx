@@ -338,7 +338,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
             </FormControl>
           </Grid>
           <Grid item xs={3}>
-            <FormControl fullWidth error={!!errors[relatedPersonFieldPaths.relationship]}>
+            <FormControl fullWidth error={!!errors[coverageFieldPaths.relationship]}>
               <InputLabel
                 shrink
                 sx={{ fontWeight: 'bold', backgroundColor: theme.palette.background.paper, px: '5px' }}
