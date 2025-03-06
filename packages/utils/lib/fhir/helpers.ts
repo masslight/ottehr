@@ -1011,6 +1011,24 @@ export const createFhirHumanName = (
   return fhirName;
 };
 
+export function flattenBundleResources(searchResults: Bundle<FhirResource>): FhirResource[] {
+  const flattenedResources: FhirResource[] = [];
+
+  searchResults.entry?.forEach((resultEntry) => {
+    const bundle = resultEntry.resource;
+
+    if (bundle?.resourceType === 'Bundle' && Array.isArray(bundle.entry)) {
+      bundle.entry.forEach((entry) => {
+        if (entry.resource) {
+          flattenedResources.push(entry.resource);
+        }
+      });
+    }
+  });
+
+  return flattenedResources;
+}
+
 export function slashPathToLodashPath(slashPath: string): string {
   return slashPath
     .split('/')
