@@ -380,7 +380,7 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
     }, {} as any);
   allValues = { ...allValues, ...formValues };
   const validatableItems = [...items]
-    .filter((item) => item?.type !== 'display' && !item?.readOnly && evalFilterWhen(item, allValues))
+    .filter((item) => item?.type !== 'display' && !item?.readOnly && !evalFilterWhen(item, allValues))
     .flatMap((item) => makeValidatableItem(item));
   const validationTemp: any = {};
   validatableItems.forEach((item) => {
