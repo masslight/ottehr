@@ -73,6 +73,12 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     });
   };
 
+  // todo: remove, only for mockFunction to navigate to list page with mock data
+  const handleViewMockOrders = (): void => {
+    // It uses a query parameter to show mock data when the real API is not yet available
+    navigate(`/in-person/${appointment?.id}/external-lab-orders?useMockData=true`);
+  };
+
   useEffect(() => {
     async function getPatientCoverage(oystehr: Oystehr): Promise<void> {
       setLoadingState(LoadingState.loading);
@@ -142,9 +148,21 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
 
   return (
     <Stack spacing={2} sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
-        Order Lab
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
+          Order Lab
+        </Typography>
+
+        {/* Temporary button for development purposes to view mock lab orders */}
+        <Button
+          variant="outlined"
+          onClick={handleViewMockOrders}
+          sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
+        >
+          View Mock Orders
+        </Button>
+      </Box>
+
       {loadingState !== LoadingState.loaded ? (
         <CircularProgress />
       ) : (

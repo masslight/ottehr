@@ -1,12 +1,24 @@
 import { ReactElement } from 'react';
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
-import SendOutLabsTableRow from './ExternalLabsTableRow';
-import { mockLabOrders } from '../helpers/types';
+import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography, Box } from '@mui/material';
+import ExternalLabsTableRow from './ExternalLabsTableRow';
+import { LabOrderDTO } from '../helpers/types';
 
-export default function ExternalLabsTable(): ReactElement {
+interface ExternalLabsTableProps {
+  labOrders: LabOrderDTO[];
+}
+
+export default function ExternalLabsTable({ labOrders }: ExternalLabsTableProps): ReactElement {
   const statusOrder = { pending: 1, received: 2, sent: 3, reviewed: 4 };
 
-  const sortedLabOrders = [...mockLabOrders].sort((a, b) => {
+  if (!Array.isArray(labOrders) || labOrders.length === 0) {
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Typography variant="body1">No lab orders to display</Typography>
+      </Box>
+    );
+  }
+
+  const sortedLabOrders = [...labOrders].sort((a, b) => {
     const statusComparison = statusOrder[a.status] - statusOrder[b.status];
     if (statusComparison !== 0) return statusComparison;
     return a.orderAdded.toMillis() - b.orderAdded.toMillis();
@@ -36,9 +48,8 @@ export default function ExternalLabsTable(): ReactElement {
           </TableRow>
         </TableHead>
         <TableBody>
-          {sortedLabOrders.map((order, index) => (
-            <SendOutLabsTableRow key={index} externalLabsData={order} />
-            // TODO: use an id field or unique identifier on the lab orders here once real data is being used
+          {sortedLabOrders.map((order) => (
+            <ExternalLabsTableRow key={order.id} externalLabsData={order} />
           ))}
         </TableBody>
       </Table>
