@@ -16,7 +16,7 @@ import { Plan } from '../pages/Plan';
 import { Examination } from '../pages/Examination';
 import { ERX } from '../pages/ERX';
 import { SubmitExternalLabOrders } from '../../external-labs/pages/SubmitExternalLabOrders';
-import { OrderDetails } from '../../external-labs/pages/OrderDetails';
+import { OrderDetailsPage } from '../../external-labs/pages/OrderDetails';
 import { ExternalLabOrdersListPage } from '../../external-labs/pages/ExternalLabOrdersListPage';
 
 export enum ROUTER_PATH {
@@ -184,7 +184,7 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER_DETAILS,
     modes: ['provider', 'readonly'],
     isSkippedInNavigation: true,
-    element: <OrderDetails />,
+    element: <OrderDetailsPage />,
     text: 'Order Details',
     iconKey: 'Send Out Labs',
   },

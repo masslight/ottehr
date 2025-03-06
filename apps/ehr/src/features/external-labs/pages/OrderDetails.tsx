@@ -1,16 +1,15 @@
 import { Typography, Stack, CircularProgress } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import { StatusChip } from '../components/StatusChip';
-import { DateTime } from 'luxon';
 import { OrderCollection } from '../components/OrderCollection';
 import { OrderHistoryCard } from '../components/OrderHistoryCard';
 import { StatusString } from '../components/StatusChip';
 import mockAOEData from '../mock-data/mock_aoe_questionnaire.json';
 import { useParams } from 'react-router-dom';
 import { CSSPageTitle } from '../../../telemed/components/PageTitle';
-import { TaskBanner } from '../components/TaskBanner';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { ActivityDefinition, Practitioner, ServiceRequest, Task } from 'fhir/r4b';
+import { OrderDetails } from 'utils';
+import { getLabOrderDetails } from '../../../api/api';
 
 interface CollectionInstructions {
   container: string;
@@ -52,24 +51,17 @@ export interface AoeQuestionnaireItemConfig extends JsonObject {
   answerOption?: AoeAnswerOption[];
   extension?: AoeExtension[];
 }
-export interface MockServiceRequest {
-  diagnosis: string;
-  patientName: string;
-  orderName: string;
-  orderingPhysician: string;
-  orderDateTime: DateTime | undefined;
-  labName: string;
-  sampleCollectionDateTime: DateTime;
-}
 
-export const OrderDetails: React.FC = () => {
+export const OrderDetailsPage: React.FC = () => {
   const { orderId } = useParams();
-  const { oystehr } = useApiClients();
+  const { oystehrZambda } = useApiClients();
+
   if (!orderId) {
     throw new Error('orderId is undefined');
   }
   // TODO: The ServiceRequest and other necessary resources will have been made on Create Order. Just need to grab those
-  const [serviceRequest, setServiceRequest] = useState({} as MockServiceRequest);
+  const [serviceRequest, setServiceRequest] = useState({} as OrderDetails);
+
   // Note: specimens are no longer MVP, and also we'll be getting specimens from Create Order
   const [specimen, setSpecimen] = useState({});
   const [collectionInstructions, setCollectionInstructions] = useState({} as CollectionInstructions);
@@ -86,62 +78,12 @@ export const OrderDetails: React.FC = () => {
       if (!orderId) {
         throw new Error('orderId is undefined');
       }
-      const serviceRequestTemp = (
-        await oystehr?.fhir.search<ServiceRequest | Practitioner | Task>({
-          resourceType: 'ServiceRequest',
-          params: [
-            {
-              name: '_id',
-              value: orderId,
-            },
-            {
-              name: '_revinclude',
-              value: 'Task:based-on',
-            },
-            {
-              name: '_include',
-              value: 'ServiceRequest:requester',
-            },
-          ],
-        })
-      )?.unbundle();
-      const serviceRequestsTemp: ServiceRequest[] | undefined = serviceRequestTemp?.filter(
-        (resourceTemp) => resourceTemp.resourceType === 'ServiceRequest'
-      );
-      const practitionersTemp: Practitioner[] | undefined = serviceRequestTemp?.filter(
-        (resourceTemp) => resourceTemp.resourceType === 'Practitioner'
-      );
-      const tasksTemp: Task[] | undefined = serviceRequestTemp?.filter(
-        (resourceTemp) => resourceTemp.resourceType === 'Task'
-      );
-
-      if (serviceRequestsTemp?.length !== 1) {
-        throw new Error('service request is not found');
+      if (!oystehrZambda) {
+        throw new Error('oystehr client is undefined');
       }
+      const orderDetails = await getLabOrderDetails(oystehrZambda, { serviceRequestID: orderId });
 
-      if (practitionersTemp?.length !== 1) {
-        throw new Error('practitioner is not found');
-      }
-
-      if (tasksTemp?.length !== 1) {
-        throw new Error('task is not found');
-      }
-
-      const serviceRequest = serviceRequestsTemp?.[0];
-      const practitioner = practitionersTemp?.[0];
-      const task = tasksTemp?.[0];
-
-      setServiceRequest({
-        diagnosis: serviceRequest?.reasonCode?.map((reasonCode) => reasonCode.text).join('; ') || 'Missing diagnosis',
-        patientName: 'Patient Name',
-        orderName: (serviceRequest?.contained?.[0] as ActivityDefinition)?.title || 'Missing Order name',
-        orderingPhysician: practitioner.name
-          ? oystehr?.fhir.formatHumanName(practitioner.name?.[0]) || 'Missing Provider name'
-          : 'Missing Provider name',
-        orderDateTime: task.authoredOn ? DateTime.fromISO(task.authoredOn) : undefined,
-        labName: (serviceRequest?.contained?.[0] as ActivityDefinition).publisher || 'Missing Publisher name',
-        sampleCollectionDateTime: DateTime.now(),
-      });
+      setServiceRequest(orderDetails);
     }
     getServiceRequestTemp().catch((error) => console.log(error));
 
@@ -161,7 +103,7 @@ export const OrderDetails: React.FC = () => {
 
     setIsLoading(false);
     // setTaskStatus('collected');
-  }, [orderId, oystehr?.fhir]);
+  }, [orderId, oystehrZambda]);
 
   return (
     <>
@@ -195,8 +137,10 @@ export const OrderDetails: React.FC = () => {
               aoe={aoe}
               collectionInstructions={collectionInstructions}
               specimen={specimen}
+              serviceRequestID={orderId}
               serviceRequest={serviceRequest}
               _onCollectionSubmit={handleSampleCollectionTaskChange}
+              oystehr={oystehrZambda}
             />
           )
         )}

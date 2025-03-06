@@ -28,10 +28,10 @@ const splitDate = (orignialDate: DateTime): { datePortion: DateTime; timePortion
 };
 
 interface SampleInfoProps {
-  orderAddedDateTime: DateTime;
+  orderAddedDateTime: string;
   orderingPhysician: string;
   individualCollectingSample: string;
-  collectionDateTime: DateTime;
+  collectionDateTime: string;
   showInPatientPortal: boolean;
 }
 
@@ -67,7 +67,7 @@ export const SampleInformationCard: React.FC<SampleInfoProps> = ({
           <Stack spacing={1} sx={{ justifyContent: 'space-between' }}>
             <BoldedTitleText
               title={'Order added'}
-              description={orderAddedDateTime.toLocal().toFormat('MM/dd/yyyy hh:mm a') || ''}
+              description={DateTime.fromISO(orderAddedDateTime).toLocal().toFormat('MM/dd/yyyy hh:mm a') || ''}
             />
             <BoldedTitleText title={'Ordering physician'} description={orderingPhysician} />
             {/* <BoldedTitleText title={'Individual Collecting Sample'} description={individualCollectingSample} /> */}

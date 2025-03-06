@@ -4,10 +4,12 @@ import { Stack } from '@mui/material';
 import { AOECard } from './AOECard';
 // import { SampleCollectionInstructionsCard } from './SampleCollectionInstructionsCard';
 import { SampleInformationCard } from './SampleInformationCard';
-import { DateTime } from 'luxon';
 import { useForm, SubmitHandler, FormProvider } from 'react-hook-form';
 import { AoeQuestionnaireItemConfig } from '../pages/OrderDetails';
-import { MockServiceRequest } from '../pages/OrderDetails';
+import Oystehr from '@oystehr/sdk';
+import { OrderDetails } from 'utils';
+import useEvolveUser from '../../../hooks/useEvolveUser';
+import { createLabOrder } from '../../../api/api';
 
 interface CollectionInstructions {
   container: string;
@@ -21,8 +23,10 @@ interface SampleCollectionProps {
   aoe: AoeQuestionnaireItemConfig[];
   collectionInstructions: CollectionInstructions;
   specimen: any;
-  serviceRequest: MockServiceRequest;
+  serviceRequestID: string;
+  serviceRequest: OrderDetails;
   _onCollectionSubmit: () => void;
+  oystehr: Oystehr;
 }
 
 interface DynamicAOEInput {
@@ -33,11 +37,14 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   aoe,
   // collectionInstructions,
   specimen: _2,
+  serviceRequestID,
   serviceRequest,
   _onCollectionSubmit,
+  oystehr,
 }) => {
   // can add a Yup resolver {resolver: yupResolver(definedSchema)} for validation, see PaperworkGroup for example
   const methods = useForm<DynamicAOEInput>();
+  const currentUser = useEvolveUser();
 
   // NEW TODO: will probably end up getting rid of a lot of this state since it will be held in the form state
   // need to iterate through the passed aoe and format it into state so we can collect the answer
@@ -49,7 +56,20 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   const sampleCollectionSubmit: SubmitHandler<DynamicAOEInput> = (data) => {
     setSubmitLoading(true);
 
-    console.log(`data at submit: ${data}`);
+    async function updateFhir(): Promise<void> {
+      // if (!oystehr) {
+      //   throw new Error('oystehr client is undefined');
+      // }
+      await createLabOrder(oystehr, {
+        serviceRequestID: serviceRequestID,
+        data: data,
+      });
+      setSubmitLoading(false);
+    }
+    updateFhir().catch((error) => console.log(error));
+
+    setSubmitLoading(false);
+    console.log(`data at submit: ${JSON.stringify(data)}`);
   };
 
   return (
@@ -58,10 +78,10 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
         <AOECard questions={aoe} />
         {/* <SampleCollectionInstructionsCard instructions={collectionInstructions} /> */}
         <SampleInformationCard
-          orderAddedDateTime={serviceRequest?.orderDateTime || DateTime.now()}
-          orderingPhysician={serviceRequest?.orderingPhysician || ''}
+          orderAddedDateTime={serviceRequest.orderDateTime}
+          orderingPhysician={serviceRequest.orderingPhysician || ''}
           individualCollectingSample={'The best nurse'}
-          collectionDateTime={serviceRequest?.sampleCollectionDateTime || DateTime.now()}
+          collectionDateTime={serviceRequest.sampleCollectionDateTime}
           // showInPatientPortal={showInPatientPortal}
           showInPatientPortal={true}
         />

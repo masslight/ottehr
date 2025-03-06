@@ -265,6 +265,38 @@ functions:
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
 
+  lab-order:
+    handler: src/lab-order/index.index
+    events:
+      - http:
+          path: zambda/lab-order/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
+      AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+
+  get-lab-order-details:
+    handler: src/get-lab-order-details/index.index
+    events:
+      - http:
+          path: zambda/get-lab-order-details/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
+      AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+
   save-chart-data:
     handler: src/save-chart-data/index.index
     events:
