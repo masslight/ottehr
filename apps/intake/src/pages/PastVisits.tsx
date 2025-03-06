@@ -24,8 +24,6 @@ const PastVisits = (): JSX.Element => {
 
   const pastAppointments = pastVisitsData?.appointments;
 
-  console.log('pastAppointments', pastAppointments);
-
   const handleVisitDetails = (appointment: AppointmentInformationIntake): void => {
     usePastVisitsStore.setState({
       appointmentID: appointment.id,

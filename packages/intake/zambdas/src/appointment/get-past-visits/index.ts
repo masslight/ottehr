@@ -5,6 +5,7 @@ import {
   AppointmentStatus,
   appointmentTypeMap,
   createOystehrClient,
+  getAppointmentTimezone,
   getParticipantIdFromAppointment,
   GetPastVisitsResponse,
   getPatientsForUser,
@@ -51,6 +52,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         body: JSON.stringify({ appointments: [] }),
       };
     }
+
     console.log('awaiting allResources');
     const allResources = await getFhirResources(oystehr, patientIDs, patientId);
 
@@ -59,13 +61,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const encountersMap = mapEncountersToAppointmentIds(allResources);
     const appointments: AppointmentInformationIntake[] = [];
     const pastVisitStatuses = ['fulfilled', 'cancelled'];
-    allResources
+
+    const appointmentPromises = allResources
       .filter((resourceTemp) => resourceTemp.resourceType === 'Appointment')
-      .forEach((appointmentTemp) => {
+      .map(async (appointmentTemp) => {
         const fhirAppointment = appointmentTemp as Appointment;
 
-        if (!fhirAppointment.id) return;
-        if (!pastVisitStatuses.includes(fhirAppointment.status)) return;
+        if (!fhirAppointment.id) return Promise.resolve(null);
+        if (!pastVisitStatuses.includes(fhirAppointment.status)) return Promise.resolve(null);
 
         const patient = allResources.find(
           (resourceTemp) => resourceTemp.id === getParticipantIdFromAppointment(fhirAppointment, 'Patient')
@@ -74,38 +77,27 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
         if (!encounter) {
           console.log('No encounter for appointment: ' + fhirAppointment.id);
-          return;
+          return Promise.resolve(null);
         }
 
         const stateId = encounter?.location?.[0]?.location?.reference?.split('/')?.[1];
-
         const stateCode = locations.find((location) => location.id === stateId)?.address?.state;
 
-        const timezone = locations
-          .find((location) => location.id === stateId)
-          ?.extension?.find((extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone')
-          ?.valueString;
-
-        console.log('timezone here', timezone);
-
+        const timezone = await getAppointmentTimezone(oystehr, fhirAppointment);
         const appointmentTypeTag = fhirAppointment.meta?.tag?.find((tag) => tag.code && tag.code in appointmentTypeMap);
         const appointmentType = appointmentTypeTag?.code ? appointmentTypeMap[appointmentTypeTag.code] : 'Unknown';
-
         let status: AppointmentStatus | undefined;
         if (appointmentType === 'Telemedicine') {
           status = mapStatusToTelemed(encounter.status, fhirAppointment.status);
         } else if (appointmentType === 'In-Person') {
           status = getVisitStatus(fhirAppointment, encounter);
         }
-
         if (!status) {
           console.log('No visit status for appointment');
-          return;
+          return null;
         }
-
         console.log(`build appointment resource for appointment with id ${fhirAppointment.id}`);
-
-        const appointment: AppointmentInformationIntake = {
+        return {
           id: fhirAppointment.id || 'Unknown',
           start: fhirAppointment.start,
           patient: {
@@ -119,8 +111,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           timezone: timezone,
           type: appointmentType,
         };
-        appointments.push(appointment);
       });
+
+    const resolvedAppointments = (await Promise.all(appointmentPromises)).filter(
+      Boolean
+    ) as AppointmentInformationIntake[];
+    appointments.push(...resolvedAppointments);
 
     const response: GetPastVisitsResponse = {
       appointments,

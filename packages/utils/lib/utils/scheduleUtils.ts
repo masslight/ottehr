@@ -180,6 +180,32 @@ export function getTimezone(schedule: Location | Practitioner | HealthcareServic
   return timezone;
 }
 
+export const getAppointmentTimezone = async (oystehr: Oystehr, appointment: Appointment): Promise<string> => {
+  const resourceId = appointment.participant?.[1]?.actor?.reference?.split('/')[1];
+
+  const resourceType = appointment.participant?.[1]?.actor?.reference?.split('/')[0];
+
+  console.log('resourceId', resourceId);
+  console.log('resourceType', resourceType);
+
+  if (!resourceId || !resourceType) {
+    return 'America/New_York';
+  }
+
+  const resource = await oystehr.fhir.get<Location | HealthcareService | Practitioner>({
+    resourceType,
+    id: resourceId,
+  });
+
+  console.log('resource', resource);
+
+  const timezone = getTimezone(resource as Location | HealthcareService | Practitioner);
+
+  console.log('timezone', timezone);
+
+  return timezone;
+};
+
 // creates a map where each open hour in the day's schedule is a key and the capacity for that hour is the value
 export function getSlotCapacityMapForDayAndSchedule(
   now: DateTime,
