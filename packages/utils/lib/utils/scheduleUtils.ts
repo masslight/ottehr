@@ -186,7 +186,7 @@ export const getAppointmentTimezone = async (oystehr: Oystehr, appointment: Appo
   const resourceType = appointment.participant?.[1]?.actor?.reference?.split('/')[0];
 
   if (!resourceId || !resourceType) {
-    return 'America/New_York';
+    throw new Error(`Could not determine timezone for appointment ${appointment.id} - missing resource type or id`);
   }
 
   const resource = await oystehr.fhir.get<Location | HealthcareService | Practitioner>({
