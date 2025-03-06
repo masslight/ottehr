@@ -347,7 +347,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
               </InputLabel>
               <FormSelect
                 variant="outlined"
-                name={relatedPersonFieldPaths.relationship}
+                name={coverageFieldPaths.relationship}
                 control={control}
                 defaultValue={''}
                 options={RELATIONSHIP_TO_INSURED_OPTIONS}
