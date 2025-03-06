@@ -541,11 +541,7 @@ export const getTelecomInfo = (
   system: 'phone' | 'email',
   defaultIndex: number
 ): { value?: string; path: string } => {
-  const index =
-    patient.telecom
-      ?.map((telecom, i) => (telecom.system === system ? i : -1))
-      .filter((i) => i !== -1)
-      .pop() ?? defaultIndex;
+  const index = patient.telecom?.map((telecom, i) => (telecom.system === system ? i : -1)).pop() ?? defaultIndex;
 
   return {
     value: patient.telecom?.[index]?.value,
