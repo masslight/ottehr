@@ -185,9 +185,6 @@ export const getAppointmentTimezone = async (oystehr: Oystehr, appointment: Appo
 
   const resourceType = appointment.participant?.[1]?.actor?.reference?.split('/')[0];
 
-  console.log('resourceId', resourceId);
-  console.log('resourceType', resourceType);
-
   if (!resourceId || !resourceType) {
     return 'America/New_York';
   }
@@ -197,11 +194,7 @@ export const getAppointmentTimezone = async (oystehr: Oystehr, appointment: Appo
     id: resourceId,
   });
 
-  console.log('resource', resource);
-
   const timezone = getTimezone(resource as Location | HealthcareService | Practitioner);
-
-  console.log('timezone', timezone);
 
   return timezone;
 };
