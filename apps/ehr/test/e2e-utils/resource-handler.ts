@@ -144,6 +144,7 @@ export class ResourceHandler {
               this.zambdaId,
               process.env.APP_IS_LOCAL === 'true',
               process.env.PROJECT_API_ZAMBDA_URL!,
+              process.env.PROJECT_ID!,
               process.env.LOCATION_ID!,
               patientData
             )
@@ -154,6 +155,7 @@ export class ResourceHandler {
               this.zambdaId,
               process.env.APP_IS_LOCAL === 'true',
               process.env.PROJECT_API_ZAMBDA_URL!,
+              process.env.PROJECT_ID!,
               process.env.STATE_ONE!, //LOCATION_ID!, // do we oficially have STATE env variable?
               patientData
             );
