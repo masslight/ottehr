@@ -18,6 +18,7 @@ import {
   UnassignPractitionerParameters,
   ChangeInPersonVisitStatusParameters,
   UpdateUserParameters,
+  SubmitLabOrderParameters,
 } from '../types/types';
 
 export interface PatchOperation {
@@ -44,6 +45,7 @@ const CANCEL_APPOINTMENT_ZAMBDA_ID = import.meta.env.VITE_APP_CANCEL_APPOINTMENT
 const GET_EMPLOYEES_ZAMBDA_ID = import.meta.env.VITE_APP_GET_EMPLOYEES_ZAMBDA_ID;
 const GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID = import.meta.env.VITE_APP_GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID;
 const SAVE_PATIENT_FOLLOWUP_ZAMBDA_ID = import.meta.env.VITE_APP_SAVE_PATIENT_FOLLOWUP_ZAMBDA_ID;
+const CREATE_LAB_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_LAB_ORDER_ZAMBDA_ID;
 
 function chooseJson(json: any, isLocal: string): any {
   return isLocal === 'true' ? json : json.output;
@@ -431,6 +433,22 @@ export const getSignedPatientProfilePhotoUrl = async (
     return chooseJson(urlSigningResponse, VITE_APP_IS_LOCAL);
   } catch (error: unknown) {
     console.error(error);
+    throw error;
+  }
+};
+
+export const createLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrderParameters): Promise<any> => {
+  try {
+    if (CREATE_LAB_ORDER_ZAMBDA_ID == null) {
+      throw new Error('submit lab order environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: CREATE_LAB_ORDER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response, VITE_APP_IS_LOCAL);
+  } catch (error: unknown) {
+    console.log(error);
     throw error;
   }
 };

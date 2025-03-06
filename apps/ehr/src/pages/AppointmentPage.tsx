@@ -968,7 +968,7 @@ export default function AppointmentPage(): ReactElement {
 
   const secondaryPolicyHolderDetails = useMemo(() => {
     return {
-      'Insurance Carrier': getAnswerStringFor('insurance-carrier-2', flattenedItems),
+      'Insurance Carrier': getValueReferenceDisplay('insurance-carrier-2', flattenedItems),
       'Member ID': getAnswerStringFor('insurance-member-id-2', flattenedItems),
       "Policy holder's name": secondaryPolicyHolderFullName,
       "Policy holder's date of birth": formatDateUsingSlashes(

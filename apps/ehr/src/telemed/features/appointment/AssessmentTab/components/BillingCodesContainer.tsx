@@ -7,6 +7,7 @@ import { useAppointmentStore, useDeleteChartData, useGetIcd10Search, useSaveChar
 import { useDebounce, useGetAppointmentAccessibility } from '../../../../hooks';
 import { enqueueSnackbar } from 'notistack';
 import { ActionsList, DeleteIconButton } from '../../../../components';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const BillingCodesContainer: FC = () => {
   const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
@@ -125,7 +126,13 @@ export const BillingCodesContainer: FC = () => {
           getOptionLabel={(option) => option.display}
           onChange={(_e, value) => onEMCodeChange(value)}
           renderInput={(params) => (
-            <TextField {...params} size="small" label="E&M code" placeholder="Search E&M code" />
+            <TextField
+              {...params}
+              size="small"
+              label="E&M code"
+              placeholder="Search E&M code"
+              data-testid={dataTestIds.assessmentPage.emCodeDropdown}
+            />
           )}
         />
         <Autocomplete
@@ -173,7 +180,13 @@ export const BillingCodesContainer: FC = () => {
             renderActions={
               isReadOnly
                 ? undefined
-                : () => <DeleteIconButton disabled={disabledEM} onClick={() => onEMCodeChange(null)} />
+                : () => (
+                    <DeleteIconButton
+                      dataTestId={dataTestIds.billingContainer.deleteButton}
+                      disabled={disabledEM}
+                      onClick={() => onEMCodeChange(null)}
+                    />
+                  )
             }
           />
         </Box>
