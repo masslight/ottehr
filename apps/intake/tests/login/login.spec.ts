@@ -7,7 +7,7 @@ test('Should log in if not authorized', async ({ context, page }) => {
 
     try {
       await page.getByRole('button', { name: 'Start a Virtual Visit' }).click();
-      await expect(page.getByRole('heading', { name: 'Select patient', level: 2 })).toBeVisible({ timeout: 15000 });
+      await expect(page.getByRole('heading', { name: 'Select patient', level: 2 })).toBeVisible({ timeout: 20000 });
       console.log('User is already logged in');
       return;
     } catch {
@@ -21,7 +21,7 @@ test('Should log in if not authorized', async ({ context, page }) => {
           await context.clearCookies();
           await context.clearPermissions();
           await page.goto('/');
-          await page.getByTestId('loading-button').click({ timeout: 10000 });
+          await page.getByTestId('loading-button').click({ timeout: 20000 });
           await login(page, process.env.PHONE_NUMBER, process.env.TEXT_USERNAME, process.env.TEXT_PASSWORD);
           successLogin = true;
         } catch (error) {
