@@ -6,7 +6,7 @@ import svgr from 'vite-plugin-svgr';
 import * as path from 'path';
 import { existsSync } from 'fs';
 
-export default ({ mode }: { mode: any }): UserConfig => {
+export default ({ mode }: { mode: string }): UserConfig => {
   const envDir = './env';
   const env = loadEnv(mode, path.join(process.cwd(), envDir), '');
   const tlsCertExists = existsSync(path.join(process.cwd(), envDir, 'cert.pem'));

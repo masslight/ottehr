@@ -78,6 +78,7 @@ export class ResourceHandler {
   private resources!: CreateAppointmentResponse['resources'] & { relatedPerson: { id: string; resourceType: string } };
   private zambdaId: string;
   private flow: 'telemed' | 'in-person';
+  private initPromise: Promise<void>;
 
   public testEmployee1!: TestEmployee;
   public testEmployee2!: TestEmployee;
@@ -85,7 +86,7 @@ export class ResourceHandler {
   constructor(flow: 'telemed' | 'in-person' = 'in-person') {
     this.flow = flow;
 
-    void this.initApi();
+    this.initPromise = this.initApi();
 
     if (flow === 'in-person') {
       this.zambdaId = process.env.CREATE_APPOINTMENT_ZAMBDA_ID!;
@@ -115,7 +116,7 @@ export class ResourceHandler {
   private async createAppointment(
     inputParams?: CreateTestAppointmentInput
   ): Promise<CreateAppointmentResponse | CreateAppointmentUCTelemedResponse> {
-    await this.initApi();
+    await this.initPromise;
 
     try {
       const address: Address = {
@@ -234,7 +235,7 @@ export class ResourceHandler {
 
   async setEmployees(): Promise<void> {
     try {
-      await this.initApi();
+      await this.initPromise;
       const [employee1, employee2] = await Promise.all([
         inviteTestEmployeeUser(TEST_EMPLOYEE_1, this.apiClient, this.authToken),
         inviteTestEmployeeUser(TEST_EMPLOYEE_2, this.apiClient, this.authToken),
