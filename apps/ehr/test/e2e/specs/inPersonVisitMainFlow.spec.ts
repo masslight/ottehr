@@ -48,7 +48,6 @@ test('Book appointment,fill required fields for signing the visit, review and si
   await assessmentPage.selectDiagnosis(DIAGNOSIS);
   await assessmentPage.selectEMCode(EM_CODE);
   await patientInfoPage.sideMenu().clickProgressNote();
-  await page.waitForTimeout(5000);
   await progressNotePage.clickReviewAndSignButton();
   await progressNotePage.clickSignButton();
   await patientInfoPage.cssHeader().verifyStatus('completed');

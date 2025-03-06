@@ -81,7 +81,6 @@ export class PatientsPage extends PageWithTablePagination {
         const rowPatientDateOfBirth = await rowLocator.getByTestId(dataTestIds.patients.patientDateOfBirth).innerText();
         const rowPatientEmail = await rowLocator.getByTestId(dataTestIds.patients.patientEmail).innerText();
         const rowPatientPhoneNumber = await rowLocator.getByTestId(dataTestIds.patients.patientPhoneNumber).innerText();
-        const rowPatientAddress = await rowLocator.getByTestId(dataTestIds.patients.patientAddress).innerText();
 
         const expectedName = patientInfo.lastName + ' ' + patientInfo.firstName;
         const normalizedExpectedPhone = patientInfo.phoneNumber.replace(/[^\d]/g, '');
@@ -92,8 +91,6 @@ export class PatientsPage extends PageWithTablePagination {
         const dobMatch = rowPatientDateOfBirth === patientInfo.dateOfBirth;
         const emailMatch = rowPatientEmail === patientInfo.email;
         const phoneMatch = normalizedActualPhone === normalizedExpectedPhone;
-        const addressMatch = rowPatientAddress === patientInfo.address;
-        console.log(addressMatch);
 
         const allMatches = idMatch && nameMatch && dobMatch && emailMatch && phoneMatch; // todo: fix addressMatch ad add it
 
