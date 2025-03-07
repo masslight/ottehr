@@ -1,6 +1,6 @@
 import { Chip } from '@mui/material';
 import { ReactElement } from 'react';
-import { ExternalLabsStatus } from '../helpers/types';
+import { ExternalLabsStatus } from 'utils';
 
 interface ExternalLabsStatusChipProps {
   status?: keyof typeof ExternalLabsStatus;

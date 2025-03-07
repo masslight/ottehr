@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { LabOrderDTO } from 'utils';
 import {
   Box,
   Button,
@@ -13,8 +14,7 @@ import {
 } from '@mui/material';
 import ExternalLabsTable from '../components/ExternalLabsTable';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { LabOrderDTO, mockLabOrders } from '../helpers/types';
-
+import { mockLabOrders } from '../helpers/types';
 interface ExternalLabOrdersListPageProps {
   appointmentID?: string;
   encounterId?: string;

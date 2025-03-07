@@ -4,10 +4,9 @@ import { DateTime } from 'luxon';
 import deleteIcon from '../../../assets/delete-1x.png';
 import { ExternalLabsStatusChip } from './ExternalLabsStatusChip';
 import { otherColors } from '../../../CustomThemeProvider';
-import { DiagnosisDTO } from 'utils';
+import { DiagnosisDTO, LabOrderDTO } from 'utils';
 import CancelExternalLabDialog from './CancelExternalLabOrderDialog';
 import { useNavigate } from 'react-router-dom';
-import { LabOrderDTO } from '../helpers/types';
 
 const { VITE_APP_ORGANIZATION_NAME_SHORT: ORGANIZATION_NAME_SHORT } = import.meta.env;
 if (ORGANIZATION_NAME_SHORT == null) {
@@ -57,10 +56,7 @@ export default function ExternalLabsTableRow({ externalLabsData }: ExternalLabsT
     );
   }
 
-  const orderAdded =
-    externalLabsData.orderAdded instanceof DateTime
-      ? externalLabsData.orderAdded
-      : DateTime.fromISO(typeof externalLabsData.orderAdded === 'string' ? externalLabsData.orderAdded : '');
+  const orderAdded = DateTime.fromISO(externalLabsData.orderAdded ?? '');
 
   if (!orderAdded.isValid) {
     console.error('Invalid DateTime in lab order:', externalLabsData.orderAdded);
@@ -127,7 +123,7 @@ export default function ExternalLabsTableRow({ externalLabsData }: ExternalLabsT
         )}
       </TableCell>
       <TableCell align="left">
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'space-between' }}>
           <ExternalLabsStatusChip status={externalLabsData.status} />
           {isPSC && (
             <Chip

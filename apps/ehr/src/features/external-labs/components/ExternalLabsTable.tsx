@@ -1,7 +1,8 @@
 import { ReactElement } from 'react';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography, Box } from '@mui/material';
 import ExternalLabsTableRow from './ExternalLabsTableRow';
-import { LabOrderDTO } from '../helpers/types';
+import { DateTime } from 'luxon';
+import { LabOrderDTO } from 'utils';
 
 interface ExternalLabsTableProps {
   labOrders: LabOrderDTO[];
@@ -21,7 +22,9 @@ export default function ExternalLabsTable({ labOrders }: ExternalLabsTableProps)
   const sortedLabOrders = [...labOrders].sort((a, b) => {
     const statusComparison = statusOrder[a.status] - statusOrder[b.status];
     if (statusComparison !== 0) return statusComparison;
-    return a.orderAdded.toMillis() - b.orderAdded.toMillis();
+
+    // todo: need to ensure that time handling is correct, should we use a timezone?
+    return DateTime.fromISO(a.orderAdded).toMillis() - DateTime.fromISO(b.orderAdded).toMillis();
   });
 
   return (
