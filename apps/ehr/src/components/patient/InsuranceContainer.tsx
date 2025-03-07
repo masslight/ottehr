@@ -342,12 +342,15 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
               )}
             />
           </Box>
-          <Row label="Street address" inputId={`policy-holder-street-address_${insurance.relatedPerson?.id}`}>
+          <Row label="Street address" inputId={`policy-holder-street-address_${insurance.relatedPerson?.id}`} required>
             <FormTextField
               id={`policy-holder-street-address_${insurance.relatedPerson?.id}`}
               name={`${relatedPersonFieldPaths.streetAddress}_${insurance.relatedPerson?.id}`}
               control={control}
               defaultValue={insurance.relatedPerson?.address?.[0]?.line?.[0]}
+              rules={{
+                required: REQUIRED_FIELD_ERROR_MESSAGE,
+              }}
               onChangeHandler={handleChange}
             />
           </Row>
