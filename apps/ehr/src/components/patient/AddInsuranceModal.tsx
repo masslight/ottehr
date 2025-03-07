@@ -6,10 +6,8 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControl,
   Grid,
   IconButton,
-  InputLabel,
   TextField,
   useTheme,
 } from '@mui/material';
@@ -26,7 +24,7 @@ import {
   SUBSCRIBER_RELATIONSHIP_CODE_MAP,
 } from 'utils';
 import { RELATIONSHIP_TO_INSURED_OPTIONS, SEX_OPTIONS, STATE_OPTIONS } from '../../constants';
-import { BasicDatePicker as DatePicker, FormSelect, FormTextField, Option } from '../form';
+import { BasicDatePicker as DatePicker, FormSelect, FormTextField, LabeledField, Option } from '../form';
 import { usePatientStore } from '../../state/patient.store';
 
 interface AddInsuranceModalProps {
@@ -193,7 +191,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Grid container spacing={2} columns={9} sx={{ pt: 1 }}>
           <Grid item xs={3}>
-            <FormControl fullWidth>
+            <LabeledField label='Insurance carrier' required error={!!errors[coverageFieldPaths.carrier]}>
               <Controller
                 name={coverageFieldPaths.carrier}
                 control={control}
@@ -215,118 +213,86 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        label="Insurance carrier"
                         error={!!error}
                         required
                         placeholder="Select"
-                        InputLabelProps={{
-                          shrink: true,
-                          sx: {
-                            fontWeight: 'bold',
-                          },
-                        }}
                         helperText={error?.message}
                       />
                     )}
                   />
                 )}
               />
-            </FormControl>
+            </LabeledField>
           </Grid>
           <Grid item xs={3}>
-            <FormTextField
-              label="Member ID *"
-              InputLabelProps={{
-                shrink: true,
-                sx: {
-                  fontWeight: 'bold',
-                },
-              }}
-              variant="outlined"
-              name={coverageFieldPaths.memberId}
-              control={control}
-              defaultValue={''}
-              rules={{
-                required: REQUIRED_FIELD_ERROR_MESSAGE,
-              }}
-            />
+            <LabeledField label="Member ID" required error={!!errors[relatedPersonFieldPaths.firstName]}>
+              <FormTextField
+                variant="outlined"
+                name={coverageFieldPaths.memberId}
+                control={control}
+                defaultValue={''}
+                rules={{
+                  required: REQUIRED_FIELD_ERROR_MESSAGE,
+                }}
+              />
+            </LabeledField>
           </Grid>
           <Grid item xs={3} />
           <Grid item xs={3}>
-            <FormTextField
-              label="Policy holder's first name *"
-              InputLabelProps={{
-                shrink: true,
-                sx: {
-                  fontWeight: 'bold',
-                },
-              }}
-              variant="outlined"
-              name={relatedPersonFieldPaths.firstName}
-              control={control}
-              defaultValue={''}
-              rules={{
-                required: REQUIRED_FIELD_ERROR_MESSAGE,
-              }}
-            />
+            <LabeledField label="Policy holder's first name" required error={!!errors[relatedPersonFieldPaths.firstName]}>
+              <FormTextField
+                variant="outlined"
+                name={relatedPersonFieldPaths.firstName}
+                control={control}
+                defaultValue={''}
+                rules={{
+                  required: REQUIRED_FIELD_ERROR_MESSAGE,
+                }}
+              />
+            </LabeledField>
           </Grid>
           <Grid item xs={3}>
-            <FormTextField
-              label="Policy holder's middle name"
-              InputLabelProps={{
-                shrink: true,
-                sx: {
-                  fontWeight: 'bold',
-                },
-              }}
-              variant="outlined"
-              name={relatedPersonFieldPaths.middleName}
-              control={control}
-              defaultValue={''}
-            />
+            <LabeledField label="Policy holder's middle name">
+              <FormTextField
+                InputLabelProps={{
+                  shrink: true,
+                  sx: {
+                    fontWeight: 'bold',
+                  },
+                }}
+                variant="outlined"
+                name={relatedPersonFieldPaths.middleName}
+                control={control}
+                defaultValue={''}
+              />
+            </LabeledField>
           </Grid>
           <Grid item xs={3}>
-            <FormTextField
-              label="Policy holder's last name *"
-              InputLabelProps={{
-                shrink: true,
-                sx: {
-                  fontWeight: 'bold',
-                },
-              }}
-              variant="outlined"
-              name={relatedPersonFieldPaths.lastName}
-              control={control}
-              defaultValue={''}
-              rules={{
-                required: REQUIRED_FIELD_ERROR_MESSAGE,
-              }}
-            />
+            <LabeledField label="Policy holder's last name" required error={!!errors[relatedPersonFieldPaths.lastName]}>
+              <FormTextField
+                variant="outlined"
+                name={relatedPersonFieldPaths.lastName}
+                control={control}
+                defaultValue={''}
+                rules={{
+                  required: REQUIRED_FIELD_ERROR_MESSAGE,
+                }}
+              />
+            </LabeledField>  
           </Grid>
           <Grid item xs={3}>
-            <DatePicker
-              name={relatedPersonFieldPaths.birthDate}
-              variant="outlined"
-              control={control}
-              required={true}
-              defaultValue={''}
-              label="Policy holder's date of birth"
-              InputLabelProps={{
-                shrink: true,
-                sx: {
-                  fontWeight: 'bold',
-                },
-              }}
-            />
+            <LabeledField label="Policy holder's date of birth" required error={!!errors[relatedPersonFieldPaths.birthDate]}>
+              <DatePicker
+                name={relatedPersonFieldPaths.birthDate}
+                variant="outlined"
+                control={control}
+                required={true}
+                defaultValue={''}
+              />
+            </LabeledField>
           </Grid>
           <Grid item xs={3}>
-            <FormControl fullWidth error={!!errors[relatedPersonFieldPaths.gender]}>
-              <InputLabel
-                shrink
-                sx={{ fontWeight: 'bold', backgroundColor: theme.palette.background.paper, px: '5px' }}
-              >
-                Policy holder's sex *
-              </InputLabel>
+            <LabeledField label="Policy holder's sex" required error={!!errors[relatedPersonFieldPaths.gender]}>
               <FormSelect
                 variant="outlined"
                 name={relatedPersonFieldPaths.gender}
@@ -335,16 +301,10 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
                 options={SEX_OPTIONS}
                 rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
               />
-            </FormControl>
+            </LabeledField>
           </Grid>
           <Grid item xs={3}>
-            <FormControl fullWidth error={!!errors[coverageFieldPaths.relationship]}>
-              <InputLabel
-                shrink
-                sx={{ fontWeight: 'bold', backgroundColor: theme.palette.background.paper, px: '5px' }}
-              >
-                Patient’s relationship to insured *
-              </InputLabel>
+            <LabeledField label="Patient’s relationship to insured" required error={!!errors[coverageFieldPaths.relationship]}>
               <FormSelect
                 variant="outlined"
                 name={coverageFieldPaths.relationship}
@@ -353,133 +313,103 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
                 options={RELATIONSHIP_TO_INSURED_OPTIONS}
                 rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
               />
-            </FormControl>
+            </LabeledField>
           </Grid>
           <Grid item xs={3}>
-            <FormTextField
-              label="Street address *"
-              placeholder="No., Street"
-              InputLabelProps={{
-                shrink: true,
-                sx: {
-                  fontWeight: 'bold',
-                },
-              }}
-              variant="outlined"
-              name={relatedPersonFieldPaths.streetAddress}
-              control={control}
-              defaultValue={''}
-              rules={{
-                required: REQUIRED_FIELD_ERROR_MESSAGE,
-              }}
-            />
+            <LabeledField label='Street address' required error={!!errors[relatedPersonFieldPaths.streetAddress]}>
+              <FormTextField
+                placeholder="No., Street"
+                variant="outlined"
+                name={relatedPersonFieldPaths.streetAddress}
+                control={control}
+                defaultValue={''}
+                rules={{
+                  required: REQUIRED_FIELD_ERROR_MESSAGE,
+                }}
+              />
+            </LabeledField>
           </Grid>
           <Grid item xs={3}>
-            <FormTextField
-              label="Address line 2"
-              placeholder="No., Street"
-              InputLabelProps={{
-                shrink: true,
-                sx: {
-                  fontWeight: 'bold',
-                },
-              }}
-              variant="outlined"
-              name={relatedPersonFieldPaths.addressLine2}
-              control={control}
-              defaultValue={''}
-            />
+            <LabeledField label="Address line 2">
+              <FormTextField
+                placeholder="No., Street"
+                variant="outlined"
+                name={relatedPersonFieldPaths.addressLine2}
+                control={control}
+                defaultValue={''}
+              />
+            </LabeledField>
           </Grid>
           <Grid item xs={1}>
-            <FormTextField
-              label="City *"
-              InputLabelProps={{
-                shrink: true,
-                sx: {
-                  fontWeight: 'bold',
-                },
-              }}
-              variant="outlined"
-              name={relatedPersonFieldPaths.city}
-              control={control}
-              defaultValue={''}
-              rules={{
-                required: REQUIRED_FIELD_ERROR_MESSAGE,
-              }}
-            />
+            <LabeledField label='City' required error={!!errors[relatedPersonFieldPaths.city]}>
+              <FormTextField
+                variant="outlined"
+                name={relatedPersonFieldPaths.city}
+                control={control}
+                defaultValue={''}
+                rules={{
+                  required: REQUIRED_FIELD_ERROR_MESSAGE,
+                }}
+              />
+            </LabeledField>
           </Grid>
           <Grid item xs={1}>
-            <Controller
-              name={relatedPersonFieldPaths.state}
-              control={control}
-              defaultValue={null}
-              rules={{
-                required: REQUIRED_FIELD_ERROR_MESSAGE,
-                validate: (value) => !value || STATE_OPTIONS.some((option) => option.value === value),
-              }}
-              render={({ field: { onChange, value }, fieldState: { error } }) => (
-                <Autocomplete
-                  options={STATE_OPTIONS}
-                  value={(STATE_OPTIONS.find((option) => option.value === value) || null) as Option}
-                  getOptionLabel={(option) => option.label || ''}
-                  isOptionEqualToValue={(option, value) => option?.value === value?.value || (!option && !value)}
-                  onChange={(_, newValue) => {
-                    onChange(newValue?.value || null);
-                  }}
-                  disableClearable
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="State"
-                      required
-                      error={!!error}
-                      placeholder="Select"
-                      InputLabelProps={{
-                        shrink: true,
-                        sx: {
-                          fontWeight: 'bold',
-                        },
-                      }}
-                      helperText={error?.message}
-                    />
-                  )}
-                />
-              )}
-            />
+            <LabeledField label='State' required error={!!errors[relatedPersonFieldPaths.state]}>
+              <Controller
+                name={relatedPersonFieldPaths.state}
+                control={control}
+                defaultValue={null}
+                rules={{
+                  required: REQUIRED_FIELD_ERROR_MESSAGE,
+                  validate: (value) => !value || STATE_OPTIONS.some((option) => option.value === value),
+                }}
+                render={({ field: { onChange, value }, fieldState: { error } }) => (
+                  <Autocomplete
+                    options={STATE_OPTIONS}
+                    value={(STATE_OPTIONS.find((option) => option.value === value) || null) as Option}
+                    getOptionLabel={(option) => option.label || ''}
+                    isOptionEqualToValue={(option, value) => option?.value === value?.value || (!option && !value)}
+                    onChange={(_, newValue) => {
+                      onChange(newValue?.value || null);
+                    }}
+                    disableClearable
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        required
+                        error={!!error}
+                        placeholder="Select"
+                        helperText={error?.message}
+                      />
+                    )}
+                  />
+                )}
+              />
+            </LabeledField>
           </Grid>
           <Grid item xs={1}>
-            <FormTextField
-              variant="outlined"
-              name={relatedPersonFieldPaths.zip}
-              control={control}
-              defaultValue={''}
-              rules={{
-                required: REQUIRED_FIELD_ERROR_MESSAGE,
-                validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
-              }}
-              label="ZIP *"
-              InputLabelProps={{
-                shrink: true,
-                sx: {
-                  fontWeight: 'bold',
-                },
-              }}
-            />
+            <LabeledField label='ZIP' required error={!!errors[relatedPersonFieldPaths.zip]}>
+              <FormTextField
+                variant="outlined"
+                name={relatedPersonFieldPaths.zip}
+                control={control}
+                defaultValue={''}
+                rules={{
+                  required: REQUIRED_FIELD_ERROR_MESSAGE,
+                  validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
+                }}
+              />
+            </LabeledField>
           </Grid>
           <Grid item xs={9}>
-            <FormTextField
-              label="Additional insurance information"
-              InputLabelProps={{
-                shrink: true,
-                sx: {
-                  fontWeight: 'bold',
-                },
-              }}
-              variant="outlined"
-              name="Coverage/additionalInformation"
-              control={control}
-              defaultValue={''}
-            />
+            <LabeledField label="Additional insurance information">
+              <FormTextField
+                variant="outlined"
+                name="Coverage/additionalInformation"
+                control={control}
+                defaultValue={''}
+              />
+            </LabeledField>
           </Grid>
         </Grid>
       </DialogContent>
