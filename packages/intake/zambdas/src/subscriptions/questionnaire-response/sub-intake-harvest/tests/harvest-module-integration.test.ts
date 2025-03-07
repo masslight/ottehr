@@ -18,7 +18,7 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
-import { sleep, unbundleBatchPostOutput } from 'utils';
+import { COVERAGE_MEMBER_IDENTIFIER_BASE, sleep, unbundleBatchPostOutput } from 'utils';
 import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { performEffect } from '..';
 import { batchTestInsuranceWrites, fillReferences } from './helpers';
@@ -66,6 +66,54 @@ describe('Harvest Module Integration Tests', () => {
     const template = fillWithQR1Refs(rawTemplate);
     expect(template).toEqual(stripIdAndMeta(rawExpectation));
   };
+
+  interface ValidatedAccountData {
+    account: Account;
+    primaryCoverageRef: string;
+    secondaryCoverageRef: string;
+  }
+  const validatePostEffectAccount = async (idToCheck?: string): Promise<ValidatedAccountData> =>{
+    const effect = await performEffect({ qr: BASE_QR, secrets: envConfig }, oystehrClient);
+    expect(effect).toBe('all tasks executed successfully');
+    const foundAccounts = (
+      await oystehrClient.fhir.search<Account>({
+        resourceType: 'Account',
+        params: [
+          {
+            name: 'patient',
+            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+          },
+          {
+            name: 'status',
+            value: 'active',
+          },
+        ],
+      })
+    ).unbundle();
+    expect(foundAccounts).toBeDefined();
+    expect(foundAccounts.length).toBe(1);
+    const foundAccount = foundAccounts[0];
+    expect(foundAccount).toBeDefined();
+    assert(foundAccount.id);
+    if (idToCheck) {
+      expect(foundAccount.id).toBe(idToCheck);
+    }
+    expect(foundAccount.coverage).toBeDefined();
+    expect(foundAccount.coverage?.length).toBe(2);
+    const primaryCoverageRef = foundAccount.coverage?.find((cov) => cov.priority === 1)?.coverage?.reference;
+    const secondaryCoverageRef = foundAccount.coverage?.find((cov) => cov.priority === 2)?.coverage?.reference;
+    expect(primaryCoverageRef).toBeDefined();
+    expect(secondaryCoverageRef).toBeDefined();
+    assert(primaryCoverageRef);
+    assert(secondaryCoverageRef);
+
+    return {
+      account: foundAccount,
+      primaryCoverageRef,
+      secondaryCoverageRef
+    };
+  }
+
   beforeAll(async () => {
     // Set up environment
     console.log('Setting up environment...');
@@ -736,6 +784,89 @@ describe('Harvest Module Integration Tests', () => {
     assert(primaryCoverageRef);
     assert(secondaryCoverageRef);
 
+    const allCoverages = (
+      await oystehrClient.fhir.search<Coverage>({
+        resourceType: 'Coverage',
+        params: [
+          {
+            name: 'patient',
+            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+          },
+          {
+            name: 'status',
+            value: 'active',
+          },
+        ],
+      })
+    ).unbundle();
+    expect(allCoverages).toBeDefined();
+    expect(allCoverages.length).toBe(2);
+    const primaryCoverage = allCoverages.find((coverage) => {
+      const coverageRef = `Coverage/${coverage.id}`;
+      return coverageRef === primaryCoverageRef;
+    });
+    const secondaryCoverage = allCoverages.find((coverage) => {
+      const coverageRef = `Coverage/${coverage.id}`;
+      return coverageRef === secondaryCoverageRef;
+    });
+
+    expect(primaryCoverage).toBeDefined();
+    expect(secondaryCoverage).toBeDefined();
+    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
+    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
+
+    expect(primaryCoverage?.subscriber?.reference).toEqual('#coverageSubscriber');
+    expect(secondaryCoverage?.subscriber?.reference).toEqual('#coverageSubscriber');
+
+    const { primary, secondary } = qr1ExpectedCoverageResources;
+    normalizedCompare(primary, primaryCoverage);
+    normalizedCompare(secondary, secondaryCoverage);
+  });
+
+  it('should update an existing Account to remove replace old coverage, which should be updated to "cancelled', async () => {
+    const persistedRP1 = fillReferences(expectedPrimaryPolicyHolderFromQR1, getQR1Refs());
+    const persistedCoverage1 = fillReferences({
+      ...qr1ExpectedCoverageResources.primary,
+      identifier: [
+        {
+          ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
+          value: 'SAme_orgDifferEntId',
+          assigner: {
+            reference: '{{ORGANIZATION_REF}}',
+            display: 'Aetna',
+          },
+        },
+      ],
+      subscriberId: 'SAme_orgDifferEntId',
+    }, getQR1Refs());
+
+    const stubAccount: Account = {
+      resourceType: 'Account',
+      type: {
+        coding: [
+          {
+            system: 'http://terminology.hl7.org/CodeSystem/account-type',
+            code: 'PBILLACCT',
+            display: 'patient billing account',
+          },
+        ],
+      },
+      status: 'active',
+      subject: [{ reference: `{{PATIENT_REF}}` }],
+      description: 'Patient account',
+    };
+    const batchRequests = batchTestInsuranceWrites({
+      primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
+      account: stubAccount,
+    });
+
+    const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
+    expect(transactionRequests).toBeDefined();
+    const writtenResources = unbundleBatchPostOutput<Account | RelatedPerson | Coverage | Patient>(transactionRequests);
+    expect(writtenResources.length).toBe(1);
+    const writtenAccount = writtenResources.find((res) => res.resourceType === 'Account') as Account;
+
+   const { primaryCoverage, secondaryCoverage } = await validatePostEffectAccount(writtenAccount.id);
     const allCoverages = (
       await oystehrClient.fhir.search<Coverage>({
         resourceType: 'Coverage',
