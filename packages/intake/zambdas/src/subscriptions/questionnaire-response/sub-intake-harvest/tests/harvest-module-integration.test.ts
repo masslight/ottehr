@@ -22,8 +22,7 @@ import { COVERAGE_MEMBER_IDENTIFIER_BASE, sleep, unbundleBatchPostOutput } from 
 import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { performEffect } from '..';
 import { batchTestInsuranceWrites, fillReferences } from './helpers';
-import { coveragesAreSame, relatedPersonsAreSame } from '../helpers';
-import exp from 'constants';
+import { relatedPersonsAreSame } from '../helpers';
 
 const TEST_ENCOUNTER_ID_KEY = 'test-encounter-id';
 const TEST_PATIENT_ID_KEY = 'test-patient-id';
@@ -866,7 +865,7 @@ describe('Harvest Module Integration Tests', () => {
     expect(writtenResources.length).toBe(1);
     const writtenAccount = writtenResources.find((res) => res.resourceType === 'Account') as Account;
 
-   const { primaryCoverage, secondaryCoverage } = await validatePostEffectAccount(writtenAccount.id);
+   const { primaryCoverageRef, secondaryCoverageRef } = await validatePostEffectAccount(writtenAccount.id);
     const allCoverages = (
       await oystehrClient.fhir.search<Coverage>({
         resourceType: 'Coverage',
