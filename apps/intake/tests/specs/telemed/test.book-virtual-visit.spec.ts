@@ -7,7 +7,7 @@ import { clickContinue } from '../../utils/utils';
 let context: BrowserContext;
 let page: Page;
 let fillingInfo: FillingInfo;
-let firstAvailableTime : string;
+let firstAvailableTime: string;
 const location = 'California';
 
 const appointmentIds: string[] = [];
@@ -54,9 +54,11 @@ test('Should select state and time', async () => {
 
   await statesSelector.getByRole('button').click();
   await page.getByRole('option', { name: location }).click();
-  const firstTimeButton = page.getByRole('button', {name: 'First available time'});
-  firstAvailableTime = (await firstTimeButton.textContent()).replace('First available time: ', '');
-  console.log('first time',firstAvailableTime);
+  const firstTimeButton = page.getByRole('button', { name: 'First available time' });
+  const firstTimeFromButton = (await firstTimeButton.textContent())?.replace('First available time: ', '');
+  if (!firstTimeFromButton) throw new Error('No first time found in button');
+  firstAvailableTime = firstTimeFromButton;
+  console.log('first time', firstAvailableTime);
   await expect(firstTimeButton).toBeVisible();
   await firstTimeButton.click();
 
@@ -81,7 +83,7 @@ test('Should select and create new patient', async () => {
   const reserveThisCheckTimeButton = page.getByTestId(dataTestIds.continueButton);
   await expect(reserveThisCheckTimeButton).toBeVisible();
   await reserveThisCheckTimeButton.click();
-  await expect(page.getByTestId(dataTestIds.thankYouPageSelectedTimeBlock)).toBeVisible({timeout: 30000});
+  await expect(page.getByTestId(dataTestIds.thankYouPageSelectedTimeBlock)).toBeVisible({ timeout: 30000 });
 });
 
 test('Should check "thank you" page has correct location and visit time', async () => {

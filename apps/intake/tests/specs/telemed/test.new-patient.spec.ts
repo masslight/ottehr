@@ -1,7 +1,7 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
-import { UploadImage } from '../../utils/in-person/UploadImage';
+import { UploadImage } from '../../utils/UploadImage';
 import { FillingInfo } from '../../utils/telemed/FillingInfo';
 import { Paperwork } from '../../utils/telemed/Paperwork';
 import { clickContinue } from '../../utils/utils';
@@ -21,7 +21,6 @@ let patientInfo: Awaited<ReturnType<FillingInfo['fillNewPatientInfo']>> | undefi
 let dob: Awaited<ReturnType<FillingInfo['fillDOBless18']>> | undefined;
 
 const appointmentIds: string[] = [];
-
 
 const selectState = async (page: Page): Promise<void> => {
   await page.getByPlaceholder('Search or select').click();
@@ -77,7 +76,7 @@ test('Should create new patient', async () => {
 
   dob = await fillingInfo.fillDOBless18();
 
-  await page.getByRole('button', { name: 'Continue' }).click({timeout: 30000});
+  await page.getByRole('button', { name: 'Continue' }).click({ timeout: 30000 });
 
   await paperwork.fillAndCheckContactInformation(patientInfo);
 

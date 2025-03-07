@@ -97,3 +97,18 @@ export interface TelemedStatusHistoryElement {
   end?: string;
   status?: TelemedCallStatuses;
 }
+
+export enum AppointmentVisitTabs {
+  'hpi' = 'hpi',
+  'exam' = 'exam',
+  'erx' = 'erx',
+  'plan' = 'plan',
+  'sign' = 'sign',
+}
+
+export enum ApptTelemedTab {
+  'ready' = 'ready',
+  'provider' = 'provider',
+  'not-signed' = 'not-signed',
+  'complete' = 'complete',
+}
