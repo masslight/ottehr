@@ -191,7 +191,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Grid container spacing={2} columns={9} sx={{ pt: 1 }}>
           <Grid item xs={3}>
-            <LabeledField label='Insurance carrier' required error={!!errors[coverageFieldPaths.carrier]}>
+            <LabeledField label="Insurance carrier" required error={!!errors[coverageFieldPaths.carrier]}>
               <Controller
                 name={coverageFieldPaths.carrier}
                 control={control}
@@ -239,7 +239,11 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
           </Grid>
           <Grid item xs={3} />
           <Grid item xs={3}>
-            <LabeledField label="Policy holder's first name" required error={!!errors[relatedPersonFieldPaths.firstName]}>
+            <LabeledField
+              label="Policy holder's first name"
+              required
+              error={!!errors[relatedPersonFieldPaths.firstName]}
+            >
               <FormTextField
                 variant="outlined"
                 name={relatedPersonFieldPaths.firstName}
@@ -278,10 +282,14 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
                   required: REQUIRED_FIELD_ERROR_MESSAGE,
                 }}
               />
-            </LabeledField>  
+            </LabeledField>
           </Grid>
           <Grid item xs={3}>
-            <LabeledField label="Policy holder's date of birth" required error={!!errors[relatedPersonFieldPaths.birthDate]}>
+            <LabeledField
+              label="Policy holder's date of birth"
+              required
+              error={!!errors[relatedPersonFieldPaths.birthDate]}
+            >
               <DatePicker
                 name={relatedPersonFieldPaths.birthDate}
                 variant="outlined"
@@ -304,7 +312,11 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
             </LabeledField>
           </Grid>
           <Grid item xs={3}>
-            <LabeledField label="Patient’s relationship to insured" required error={!!errors[coverageFieldPaths.relationship]}>
+            <LabeledField
+              label="Patient’s relationship to insured"
+              required
+              error={!!errors[coverageFieldPaths.relationship]}
+            >
               <FormSelect
                 variant="outlined"
                 name={coverageFieldPaths.relationship}
@@ -316,7 +328,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
             </LabeledField>
           </Grid>
           <Grid item xs={3}>
-            <LabeledField label='Street address' required error={!!errors[relatedPersonFieldPaths.streetAddress]}>
+            <LabeledField label="Street address" required error={!!errors[relatedPersonFieldPaths.streetAddress]}>
               <FormTextField
                 placeholder="No., Street"
                 variant="outlined"
@@ -341,7 +353,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
             </LabeledField>
           </Grid>
           <Grid item xs={1}>
-            <LabeledField label='City' required error={!!errors[relatedPersonFieldPaths.city]}>
+            <LabeledField label="City" required error={!!errors[relatedPersonFieldPaths.city]}>
               <FormTextField
                 variant="outlined"
                 name={relatedPersonFieldPaths.city}
@@ -354,7 +366,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
             </LabeledField>
           </Grid>
           <Grid item xs={1}>
-            <LabeledField label='State' required error={!!errors[relatedPersonFieldPaths.state]}>
+            <LabeledField label="State" required error={!!errors[relatedPersonFieldPaths.state]}>
               <Controller
                 name={relatedPersonFieldPaths.state}
                 control={control}
@@ -388,7 +400,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
             </LabeledField>
           </Grid>
           <Grid item xs={1}>
-            <LabeledField label='ZIP' required error={!!errors[relatedPersonFieldPaths.zip]}>
+            <LabeledField label="ZIP" required error={!!errors[relatedPersonFieldPaths.zip]}>
               <FormTextField
                 variant="outlined"
                 name={relatedPersonFieldPaths.zip}
