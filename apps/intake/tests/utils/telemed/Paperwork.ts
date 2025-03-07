@@ -1,13 +1,18 @@
 import { Page, expect } from '@playwright/test';
 import { FillingInfo } from './FillingInfo';
 import { UIDesign } from './UIdesign';
+import { clickContinue } from '../utils';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 export class Paperwork {
   page: Page;
+  fillingInfo: FillingInfo;
+  uiDesign: UIDesign;
 
   constructor(page: Page) {
     this.page = page;
+    this.fillingInfo = new FillingInfo(page);
+    this.uiDesign = new UIDesign(page);
   }
 
   private async nextBackClick(waitFor?: () => Promise<void>) {
@@ -35,11 +40,8 @@ export class Paperwork {
   async fillAndCheckContactInformation(
     patientInfo: Awaited<ReturnType<FillingInfo['fillNewPatientInfo']>> | undefined
   ) {
-    const fillingInfo = new FillingInfo(this.page);
-    const uiDesign = new UIDesign(this.page);
-
-    await uiDesign.contactInformationUIcheck(patientInfo?.firstName || '');
-    const contactInformation = await fillingInfo.fillContactInformation();
+    await this.uiDesign.contactInformationUIcheck(patientInfo?.firstName || '');
+    const contactInformation = await this.fillingInfo.fillContactInformation();
 
     await this.nextBackClick();
 
@@ -60,11 +62,8 @@ export class Paperwork {
   }
 
   async fillAndCheckPatientDetails() {
-    const fillingInfo = new FillingInfo(this.page);
-    const uiDesign = new UIDesign(this.page);
-
-    await uiDesign.patientDetailsUIcheck();
-    const patientDetails = await fillingInfo.fillPatientDetails();
+    await this.uiDesign.patientDetailsUIcheck();
+    const patientDetails = await this.fillingInfo.fillPatientDetails();
 
     await this.nextBackClick();
 
@@ -100,6 +99,29 @@ export class Paperwork {
     await expect(this.page.getByRole('radio', { name: value })).toBeChecked();
   }
 
+  async fillAndCheckFilledCurrentMedications() {
+    await clickContinue(this.page, false);
+    await expect(this.page.getByText('Please fix the error in the "Select option" field to proceed')).toBeVisible();
+
+    const { optionValue, filledValue, selectedValue } = await new FillingInfo(this.page).fillCurrentMedications();
+
+    await this.checkFilledCurrentMedications(optionValue, [filledValue, selectedValue]);
+
+    await this.nextBackClick(async () => {
+      await this.page.getByRole('heading', { name: 'Current allergies', level: 2 }).waitFor({ state: 'visible' });
+    });
+    await expect(this.page.getByRole('heading', { name: 'Current medications', level: 2 })).toBeVisible();
+
+    await this.checkFilledCurrentMedications(optionValue, [filledValue, selectedValue]);
+  }
+
+  async checkFilledCurrentMedications(value: string, options: string[]) {
+    await expect(this.page.getByRole('radio', { name: value })).toBeChecked();
+    for (const option of options) {
+      await expect(this.page.getByText(option)).toBeVisible();
+    }
+  }
+
   async fillAndCheckEmptyCurrentAllergies() {
     const value = 'Patient has no known current allergies';
 
@@ -112,6 +134,29 @@ export class Paperwork {
 
   async checkEmptyCurrentAllergies(value: string) {
     await expect(this.page.getByRole('radio', { name: value })).toBeChecked();
+  }
+
+  async fillAndCheckFilledCurrentAllergies() {
+    await clickContinue(this.page, false);
+    await expect(this.page.getByText('Please fix the error in the "Select option" field to proceed')).toBeVisible();
+
+    const { optionValue, filledValue, selectedValue } = await new FillingInfo(this.page).fillCurrentAllergies();
+
+    await this.checkFilledCurrentAllergies(optionValue, [filledValue, selectedValue]);
+
+    await this.nextBackClick(async () => {
+      await this.page.getByRole('heading', { name: 'Medical history', level: 2 }).waitFor({ state: 'visible' });
+    });
+    await expect(this.page.getByRole('heading', { name: 'Current allergies', level: 2 })).toBeVisible();
+
+    await this.checkFilledCurrentAllergies(optionValue, [filledValue, selectedValue]);
+  }
+
+  async checkFilledCurrentAllergies(value: string, options: string[]) {
+    await expect(this.page.getByRole('radio', { name: value })).toBeChecked();
+    for (const option of options) {
+      await expect(this.page.getByText(option)).toBeVisible();
+    }
   }
 
   async fillAndCheckEmptyMedicalHistory() {
@@ -128,6 +173,29 @@ export class Paperwork {
     await expect(this.page.getByRole('radio', { name: value })).toBeChecked();
   }
 
+  async fillAndCheckFilledMedicalHistory() {
+    await clickContinue(this.page, false);
+    await expect(this.page.getByText('Please fix the error in the "Select option" field to proceed')).toBeVisible();
+
+    const { optionValue, filledValue, selectedValue } = await new FillingInfo(this.page).fillMedicalHistory();
+
+    await this.checkFilledMedicalHistory(optionValue, [filledValue, selectedValue]);
+
+    await this.nextBackClick(async () => {
+      await this.page.getByRole('heading', { name: 'Surgical history', level: 2 }).waitFor({ state: 'visible' });
+    });
+    await expect(this.page.getByRole('heading', { name: 'Medical history', level: 2 })).toBeVisible();
+
+    await this.checkFilledMedicalHistory(optionValue, [filledValue, selectedValue]);
+  }
+
+  async checkFilledMedicalHistory(value: string, options: string[]) {
+    await expect(this.page.getByRole('radio', { name: value })).toBeChecked();
+    for (const option of options) {
+      await expect(this.page.getByText(option)).toBeVisible();
+    }
+  }
+
   async fillAndCheckEmptySurgicalHistory() {
     const value = 'Patient has no surgical history';
 
@@ -140,6 +208,56 @@ export class Paperwork {
 
   async checkEmptySurgicalHistory(value: string) {
     await expect(this.page.getByRole('radio', { name: value })).toBeChecked();
+  }
+
+  async fillAndCheckFilledSurgicalHistory() {
+    await clickContinue(this.page, false);
+    await expect(this.page.getByText('Please fix the error in the "Select option" field to proceed')).toBeVisible();
+
+    const { optionValue, filledValue, selectedValue } = await new FillingInfo(this.page).fillSurgicalHistory();
+
+    await this.checkFilledSurgicalHistory(optionValue, [filledValue, selectedValue]);
+
+    await this.nextBackClick(async () => {
+      await this.page.getByRole('heading', { name: 'Additional questions', level: 2 }).waitFor({ state: 'visible' });
+    });
+    await expect(this.page.getByRole('heading', { name: 'Surgical history', level: 2 })).toBeVisible();
+
+    await this.checkFilledSurgicalHistory(optionValue, [filledValue, selectedValue]);
+  }
+
+  async checkFilledSurgicalHistory(value: string, options: string[]) {
+    await expect(this.page.getByRole('radio', { name: value })).toBeChecked();
+    for (const option of options) {
+      await expect(this.page.getByText(option)).toBeVisible();
+    }
+  }
+
+  async fillAndCheckAdditionalQuestions() {
+    const flags = await this.fillingInfo.fillAdditionalQuestions();
+
+    await this.checkAdditionalQuestions(flags);
+
+    await this.nextBackClick(async () => {
+      await this.page
+        .getByRole('heading', { name: 'How would you like to pay for your visit?', level: 2 })
+        .waitFor({ state: 'visible' });
+    });
+    await expect(this.page.getByRole('heading', { name: 'Additional questions', level: 2 })).toBeVisible();
+
+    await this.checkAdditionalQuestions(flags);
+  }
+
+  async checkAdditionalQuestions(flags: Awaited<ReturnType<FillingInfo['fillAdditionalQuestions']>>) {
+    await expect(
+      this.page.locator(`div[aria-labelledby='covid-symptoms-label'] input[value='${flags.covid}']`)
+    ).toBeChecked();
+    await expect(
+      this.page.locator(`div[aria-labelledby='tested-positive-covid-label'] input[value='${flags.test}']`)
+    ).toBeChecked();
+    await expect(
+      this.page.locator(`div[aria-labelledby='travel-usa-label'] input[value='${flags.travel}']`)
+    ).toBeChecked();
   }
 
   async fillAndCheckSelfPay() {
@@ -246,9 +364,7 @@ export class Paperwork {
   }
 
   async fillAndCheckReasonForVisit() {
-    const fillingInfo = new FillingInfo(this.page);
-
-    const reasonForVisit = await fillingInfo.fillReasonForVisit();
+    const reasonForVisit = await this.fillingInfo.fillReasonForVisit();
 
     await this.nextBackClick();
 

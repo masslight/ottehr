@@ -1,5 +1,6 @@
 import { Page, expect } from '@playwright/test';
 import { DateTime } from 'luxon';
+import { clickContinue } from '../utils';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 export class FillingInfo {
@@ -262,6 +263,7 @@ export class FillingInfo {
     await this.page.locator('#patient-number').fill(number);
     return { streetAddress, streetAddress2, patientCity, patientZIP, patientState, email, number };
   }
+
   async fillPatientDetails() {
     const ethnicity = this.getRandomElement(this.ethnicity);
     const race = this.getRandomElement(this.race);
@@ -281,6 +283,100 @@ export class FillingInfo {
     await this.page.getByRole('radio', { name: 'No' }).check();
 
     return { ethnicity, race, discovery, preferredLanguage };
+  }
+
+  async fillCurrentMedications() {
+    const optionValue = 'Patient takes medication currently';
+    const filledValue = 'some medication';
+    const selectedValue = 'Albuterol';
+
+    await this.page.locator(`input[value='${optionValue}']`).click();
+    await clickContinue(this.page, false);
+    await expect(this.page.getByText('Please fix the error in the field above to proceed')).toBeVisible();
+
+    const input = this.page.getByPlaceholder('Type or select all that apply');
+    await input.click();
+    await input.fill(filledValue);
+    await this.page.keyboard.press('Enter');
+
+    await input.click();
+    await this.page.getByRole('option', { name: selectedValue }).click();
+
+    return { optionValue, filledValue, selectedValue };
+  }
+
+  async fillCurrentAllergies() {
+    const optionValue = 'Patient has known current allergies';
+    const filledValue = 'other allergy';
+    const selectedValue = 'Aspirin';
+
+    await this.page.locator(`input[value='${optionValue}']`).click();
+    await clickContinue(this.page, false);
+    await expect(this.page.getByText('Please fix the error in the field above to proceed')).toBeVisible();
+
+    await this.page.locator(`input[value='Other']`).click();
+    const input = this.page.getByPlaceholder('Type or select all that apply');
+    await input.click();
+    await input.fill(filledValue);
+    await this.page.keyboard.press('Enter');
+
+    await this.page.locator(`input[value='Medications']`).click();
+    await input.click();
+    await this.page.getByRole('option', { name: selectedValue }).click();
+
+    return { optionValue, filledValue: `${filledValue} | Other`, selectedValue: `${selectedValue} | Medication` };
+  }
+
+  async fillMedicalHistory() {
+    const optionValue = 'Patient has current medical conditions';
+    const filledValue = 'some history';
+    const selectedValue = 'Anemia';
+
+    await this.page.locator(`input[value='${optionValue}']`).click();
+    await clickContinue(this.page, false);
+    await expect(this.page.getByText('Please fix the error in the field above to proceed')).toBeVisible();
+
+    const input = this.page.getByPlaceholder('Type or select all that apply');
+    await input.click();
+    await input.fill(filledValue);
+    await this.page.keyboard.press('Enter');
+
+    await input.click();
+    await this.page.getByRole('option', { name: selectedValue }).click();
+
+    return { optionValue, filledValue, selectedValue };
+  }
+
+  async fillSurgicalHistory() {
+    const optionValue = 'Patient has surgical history';
+    const filledValue = 'some history';
+    const selectedValue = 'Appendectomy';
+
+    await this.page.locator(`input[value='${optionValue}']`).click();
+    await clickContinue(this.page, false);
+    await expect(this.page.getByText('Please fix the error in the field above to proceed')).toBeVisible();
+
+    const input = this.page.getByPlaceholder('Type or select all that apply');
+    await input.click();
+    await input.fill(filledValue);
+    await this.page.keyboard.press('Enter');
+
+    await input.click();
+    await this.page.getByRole('option', { name: selectedValue }).click();
+
+    return { optionValue, filledValue, selectedValue };
+  }
+
+  async fillAdditionalQuestions() {
+    const covid = 'Yes';
+    const test = 'No';
+    const travel = 'Yes';
+
+    await this.page.locator(`div[aria-labelledby='covid-symptoms-label'] input[value='${covid}']`).click();
+    await this.page.locator(`div[aria-labelledby='tested-positive-covid-label'] input[value='${test}']`).click();
+    await this.page.locator(`div[aria-labelledby='travel-usa-label'] input[value='${travel}']`).click();
+
+    return { covid, test, travel };
   }
 
   async fillSelfPayCardData(card: { number: string; expDate: string; cvc: string }) {

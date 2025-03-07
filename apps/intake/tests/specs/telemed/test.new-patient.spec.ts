@@ -22,7 +22,6 @@ let dob: Awaited<ReturnType<FillingInfo['fillDOBless18']>> | undefined;
 
 const appointmentIds: string[] = [];
 
-
 const selectState = async (page: Page): Promise<void> => {
   await page.getByPlaceholder('Search or select').click();
   await page.getByRole('option', { name: 'California' }).click();
@@ -77,7 +76,7 @@ test('Should create new patient', async () => {
 
   dob = await fillingInfo.fillDOBless18();
 
-  await page.getByRole('button', { name: 'Continue' }).click({timeout: 30000});
+  await page.getByRole('button', { name: 'Continue' }).click({ timeout: 30000 });
 
   await paperwork.fillAndCheckContactInformation(patientInfo);
 
@@ -194,34 +193,39 @@ test('Should fill in patient details', async () => {
   await paperwork.fillAndCheckPatientDetails();
 });
 
-test('Should fill in current medications as empty', async () => {
+test('Should fill in current medications', async () => {
   await clickContinue(page);
   await clickContinue(page); // skip page with no required fields
 
-  await paperwork.fillAndCheckEmptyCurrentMedications();
+  await paperwork.fillAndCheckFilledCurrentMedications();
 });
 
-test('Should fill in current allergies as empty', async () => {
+test('Should fill in current allergies', async () => {
   await clickContinue(page);
 
-  await paperwork.fillAndCheckEmptyCurrentAllergies();
+  await paperwork.fillAndCheckFilledCurrentAllergies();
 });
 
-test('Should fill in medical history as empty', async () => {
+test('Should fill in medical history', async () => {
   await clickContinue(page);
 
-  await paperwork.fillAndCheckEmptyMedicalHistory();
+  await paperwork.fillAndCheckFilledMedicalHistory();
 });
 
-test('Should fill in surgical history as empty', async () => {
+test('Should fill in surgical history', async () => {
   await clickContinue(page);
 
-  await paperwork.fillAndCheckEmptySurgicalHistory();
+  await paperwork.fillAndCheckFilledSurgicalHistory();
+});
+
+test('Should fill in additional questions', async () => {
+  await clickContinue(page);
+
+  await paperwork.fillAndCheckAdditionalQuestions();
 });
 
 test('Should fill in payment option as self-pay', async () => {
   await clickContinue(page);
-  await clickContinue(page); // skip page with no required fields
 
   await paperwork.fillAndCheckSelfPay();
 });
