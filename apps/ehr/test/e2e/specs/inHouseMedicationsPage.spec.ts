@@ -2,13 +2,19 @@ import { Page, test } from '@playwright/test';
 import { ResourceHandler } from '../../e2e-utils/resource-handler';
 import { expectPatientInfoPage } from '../page/PatientInfo';
 import { expectProgressNotePage } from '../page/ProgressNotePage';
-import { expectEditOrderPage, Field, OrderMedicationPage } from '../page/OrderMedicationPage';
+import { expectEditOrderPage, OrderMedicationPage } from '../page/OrderMedicationPage';
 import { expectAssessmentPage } from '../page/AssessmentPage';
+import { Field } from '../page/EditMedicationCard';
 
 const resourceHandler = new ResourceHandler('in-person');
 
 const DIAGNOSIS = 'Situs inversus';
 const MEDICATION = '0.9% Sodium Chloride IV (1000cc)';
+const DOSE = '2';
+const UNITS = 'mg';
+const MANUFACTURER ='Test';
+const ROUTE = 'Route of administration values';
+const INSTRUCTIONS = 'INSTRUCTIONS';
 
 test.beforeEach(async () => {
   await resourceHandler.setResources();
@@ -32,16 +38,16 @@ test('Open Order Medication screen, check all fields are required', async ({ pag
   await editMedicationCard.selectAssociatedDx(DIAGNOSIS);
   await orderMedicationPage.clickOrderMedicationButton();
   await editMedicationCard.verifyValidationErrorShown(Field.DOSE);
-  await editMedicationCard.enterDose('2');
+  await editMedicationCard.enterDose(DOSE);
   await orderMedicationPage.clickOrderMedicationButton();
   await editMedicationCard.verifyValidationErrorShown(Field.UNITS);
-  await editMedicationCard.selectUnits('mg');
+  await editMedicationCard.selectUnits(UNITS);
   await orderMedicationPage.clickOrderMedicationButton();
   await editMedicationCard.verifyValidationErrorShown(Field.MANUFACTURER);
-  await editMedicationCard.enterManufacturer('Test');
+  await editMedicationCard.enterManufacturer(MANUFACTURER);
   await orderMedicationPage.clickOrderMedicationButton();
   await editMedicationCard.verifyValidationErrorShown(Field.ROUTE);
-  await editMedicationCard.selectRoute('Route of administration values');
+  await editMedicationCard.selectRoute(ROUTE);
   await orderMedicationPage.clickOrderMedicationButton();
   await editMedicationCard.verifyValidationErrorShown(Field.INSTRUCTIONS);
 });
@@ -66,24 +72,34 @@ test('Order medication, order is submitted successfully and entered data are dis
   const editMedicationCard = orderMedicationPage.editMedicationCard();
   await editMedicationCard.selectAssociatedDx(DIAGNOSIS);
   await editMedicationCard.selectMedication(MEDICATION);
-  await editMedicationCard.enterDose('2');
-  await editMedicationCard.selectUnits('mg');
-  await editMedicationCard.enterManufacturer('Test');
-  await editMedicationCard.selectRoute('Route of administration values');
-  await editMedicationCard.enterInstructions('Test instructions');
+  await editMedicationCard.enterDose(DOSE);
+  await editMedicationCard.selectUnits(UNITS);
+  await editMedicationCard.enterManufacturer(MANUFACTURER);
+  await editMedicationCard.selectRoute(ROUTE);
+  await editMedicationCard.enterInstructions(INSTRUCTIONS);
   await orderMedicationPage.clickOrderMedicationButton();
   
   const editOrderPage = await expectEditOrderPage(page);
   await editMedicationCard.verifyAssociatedDx(DIAGNOSIS);
   await editMedicationCard.verifyMedication(MEDICATION);
-  await editMedicationCard.verifyDose('2');
-  await editMedicationCard.verifyUnits('mg');
-  await editMedicationCard.verifyManufacturer('Test');
-  await editMedicationCard.verifyRoute('Route of administration values');
-  await editMedicationCard.verifyInstructions('Test instructions');
+  await editMedicationCard.verifyDose(DOSE);
+  await editMedicationCard.verifyUnits(UNITS);
+  await editMedicationCard.verifyManufacturer(MANUFACTURER);
+  await editMedicationCard.verifyRoute(ROUTE);
+  await editMedicationCard.verifyInstructions(INSTRUCTIONS);
   
   const medicationsPage = await editOrderPage.clickBackButton();
   await medicationsPage.verifyMedicationPresent(MEDICATION , 'pending');
+
+  await medicationsPage.clickMedicationDetailsTab();
+  const medicationDetails = await medicationsPage.medicationDetails();
+  await medicationDetails.verifyAssociatedDx(DIAGNOSIS);
+  await medicationDetails.verifyMedication(MEDICATION);
+  await medicationDetails.verifyDose(DOSE);
+  await medicationDetails.verifyUnits(UNITS);
+  await medicationDetails.verifyManufacturer(MANUFACTURER);
+  await medicationDetails.verifyRoute(ROUTE);
+  await medicationDetails.verifyInstructions(INSTRUCTIONS);
 });
 
 async function prepareAndOpenOrderMedicationPage(page: Page): Promise<OrderMedicationPage> {

@@ -3,6 +3,7 @@ import { SideMenu } from './SideMenu';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { CssHeader } from './CssHeader';
 import { expectOrderMedicationPage, OrderMedicationPage } from './OrderMedicationPage';
+import { EditMedicationCard } from './EditMedicationCard';
 
 export class InHouseMedicationsPage {
   #page: Page;
@@ -17,6 +18,10 @@ export class InHouseMedicationsPage {
 
   sideMenu(): SideMenu {
     return new SideMenu(this.#page);
+  }
+
+  medicationDetails(): EditMedicationCard {
+    return new EditMedicationCard(this.#page);
   }
 
   async clickOrderButton(): Promise<OrderMedicationPage> {
@@ -39,6 +44,10 @@ export class InHouseMedicationsPage {
             .filter({ hasText: status }),
         })
     ).toBeVisible();
+  }
+
+  async clickMedicationDetailsTab(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.medicationDetailsTab).click();
   }
 }
 
