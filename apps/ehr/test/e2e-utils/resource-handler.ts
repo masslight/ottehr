@@ -216,7 +216,9 @@ export class ResourceHandler {
 
   public async cleanupResources(): Promise<void> {
     let appointmentResources = Object.values(this.resources ?? {}) as FhirResource[];
-    const inHouseMedicationsResources = await getInHouseMedicationsResources(this.apiClient, 'encounter', this.resources.encounter.id);
+    // TODO: here we should change appointment id to encounter id when we'll fix this bug in frontend,
+    // because for this moment frontend creates order with appointment id in place of encounter one
+    const inHouseMedicationsResources = await getInHouseMedicationsResources(this.apiClient, 'encounter', this.resources.appointment.id);
 
     appointmentResources = appointmentResources.concat(inHouseMedicationsResources);
     await Promise.allSettled(
