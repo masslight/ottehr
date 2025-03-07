@@ -133,7 +133,7 @@ export default function EmployeeInformationForm({
       setErrors((prev) => ({ ...prev, phoneNumber: false }));
     }
 
-    if (!isNPIValid(data.npi)) {
+    if (isProviderRoleSelected && !isNPIValid(data.npi)) {
       setErrors((prev) => ({ ...prev, npi: true }));
       return;
     } else {
