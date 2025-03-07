@@ -219,10 +219,6 @@ describe('Harvest Module Integration Tests', () => {
             value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
           },
           {
-            name: 'status',
-            value: 'active',
-          },
-          {
             name: '_include',
             value: 'Coverage:subscriber:RelatedPerson',
           },
@@ -822,9 +818,9 @@ describe('Harvest Module Integration Tests', () => {
     normalizedCompare(secondary, secondaryCoverage);
   });
 
-  it('should update an existing Account to remove replace old coverage, which should be updated to "cancelled', async () => {
-    const persistedRP1 = fillReferences(expectedPrimaryPolicyHolderFromQR1, getQR1Refs());
-    const persistedCoverage1 = fillReferences({
+  it('should update an existing Account to replace old coverage, which should be updated to "cancelled', async () => {
+    const persistedRP1 = fillWithQR1Refs(expectedPrimaryPolicyHolderFromQR1);
+    const persistedCoverage1 = fillWithQR1Refs({
       ...qr1ExpectedCoverageResources.primary,
       identifier: [
         {
@@ -837,7 +833,7 @@ describe('Harvest Module Integration Tests', () => {
         },
       ],
       subscriberId: 'SAme_orgDifferEntId',
-    }, getQR1Refs());
+    });
 
     const stubAccount: Account = {
       resourceType: 'Account',
@@ -856,13 +852,13 @@ describe('Harvest Module Integration Tests', () => {
     };
     const batchRequests = batchTestInsuranceWrites({
       primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
-      account: stubAccount,
+      account: fillWithQR1Refs(stubAccount),
     });
 
     const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
     expect(transactionRequests).toBeDefined();
     const writtenResources = unbundleBatchPostOutput<Account | RelatedPerson | Coverage | Patient>(transactionRequests);
-    expect(writtenResources.length).toBe(1);
+    expect(writtenResources.length).toBe(3);
     const writtenAccount = writtenResources.find((res) => res.resourceType === 'Account') as Account;
 
    const { primaryCoverageRef, secondaryCoverageRef } = await validatePostEffectAccount(writtenAccount.id);
@@ -903,5 +899,32 @@ describe('Harvest Module Integration Tests', () => {
     const { primary, secondary } = qr1ExpectedCoverageResources;
     normalizedCompare(primary, primaryCoverage);
     normalizedCompare(secondary, secondaryCoverage);
+
+    const canceledCoverages = (
+      await oystehrClient.fhir.search<Coverage>({
+        resourceType: 'Coverage',
+        params: [
+          {
+            name: 'patient',
+            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+          },
+          {
+            name: 'status',
+            value: 'cancelled',
+          },
+        ],
+      })
+    ).unbundle();
+    expect(canceledCoverages.length).toBe(1);
+    const canceledCoverage = canceledCoverages[0];
+    assert(canceledCoverage);
+    const shouldHaveBeenCanceled = writtenResources.find((res) => res.resourceType === 'Coverage') as Coverage;
+    expect(canceledCoverage.id).toEqual(shouldHaveBeenCanceled.id); 
+    /*expect(canceledCoverage).toEqual({
+      ...shouldHaveBeenCanceled,
+      status: 'cancelled',
+      metaa: { ...(canceledCoverage.meta ?? {})}
+    });*/
+    expect({ ...shouldHaveBeenCanceled, status: 'cancelled', meta: undefined }).toEqual({...canceledCoverage, meta: undefined });
   });
 });
