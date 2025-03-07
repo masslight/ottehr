@@ -17,7 +17,7 @@ export class VisitsPage {
   }
 
   async clickIntakeButton(appointmentId: string): Promise<void> {
-    this.#page
+    await this.#page
       .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
       .getByTestId(dataTestIds.dashboard.intakeButton)
       .click();
@@ -50,7 +50,7 @@ export class VisitsPage {
 }
 
 export async function expectVisitsPage(page: Page): Promise<VisitsPage> {
-  await page.waitForURL(`/visits`);
+  await page.waitForURL(/visits/);
   return new VisitsPage(page);
 }
 
