@@ -695,7 +695,6 @@
             "text": "Select payment option",
             "type": "choice",
             "required": true,
-            "readOnly": true,
             "answerOption": [
               {
                 "valueString": "I have insurance"
@@ -714,6 +713,7 @@
           {
             "linkId": "card-payment-data",
             "type": "group",
+            "readOnly": true,
             "enableWhen": [
               {
                 "question": "payment-option",
