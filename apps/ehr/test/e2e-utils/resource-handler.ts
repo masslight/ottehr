@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Address, Appointment, Encounter, Patient, QuestionnaireResponse } from 'fhir/r4b';
+import { Address, Appointment, Encounter, FhirResource, Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { cleanAppointment } from 'test-utils';
@@ -20,6 +20,8 @@ import {
   TestEmployee,
 } from './resource/employees';
 import { DateTime } from 'luxon';
+import { getInHouseMedicationsResources } from './resource/in-house-medications';
+import { patient } from 'intake-zambdas/tests/appointment-validation.test';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -213,8 +215,12 @@ export class ResourceHandler {
   }
 
   public async cleanupResources(): Promise<void> {
+    let appointmentResources = Object.values(this.resources ?? {}) as FhirResource[];
+    const inHouseMedicationsResources = await getInHouseMedicationsResources(this.apiClient, 'encounter', this.resources.encounter.id);
+
+    appointmentResources = appointmentResources.concat(inHouseMedicationsResources);
     await Promise.allSettled(
-      Object.values(this.resources ?? {}).map((resource) => {
+      appointmentResources.map((resource) => {
         if (resource.id && resource.resourceType) {
           return this.apiClient.fhir
             .delete({ id: resource.id, resourceType: resource.resourceType })
