@@ -1,6 +1,7 @@
 import {
   AppointmentType,
   CONSENT_CODE,
+  EXPORTED_QUESTIONNAIRE_CODE,
   INSURANCE_CARD_CODE,
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
@@ -298,6 +299,11 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: 'receipts',
     display: 'Receipts',
     documentTypeCode: RECEIPT_CODE,
+  },
+  {
+    title: 'exported-questionnaires',
+    display: 'Exported questionnaires',
+    documentTypeCode: EXPORTED_QUESTIONNAIRE_CODE,
   },
 ];
 
