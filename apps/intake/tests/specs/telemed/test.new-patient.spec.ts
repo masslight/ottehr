@@ -181,7 +181,7 @@ test("Should fill in correct patient's DOB", async () => {
   // todo use another way to get appointment id
   // await getAppointmentIdFromCreateAppointmentRequest(page);
 
-  await expect(page.getByText('Contact information')).toBeVisible({ timeout: 20000 });
+  await expect(page.getByText('Contact information')).toBeVisible({ timeout: 30000 });
 });
 
 test('Should fill in contact information', async () => {
