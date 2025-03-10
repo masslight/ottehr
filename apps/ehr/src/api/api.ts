@@ -7,6 +7,9 @@ import {
   GetScheduleResponse,
   GetUserParams,
   GetUserResponse,
+  DiagnosisDTO,
+  OrderableItemSearchResult,
+  LabOrderDTO,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -19,6 +22,7 @@ import {
   ChangeInPersonVisitStatusParameters,
   UpdateUserParameters,
   SubmitLabOrderParameters,
+  GetLabOrdersParameters,
 } from '../types/types';
 
 export interface PatchOperation {
@@ -46,6 +50,7 @@ const GET_EMPLOYEES_ZAMBDA_ID = import.meta.env.VITE_APP_GET_EMPLOYEES_ZAMBDA_ID
 const GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID = import.meta.env.VITE_APP_GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID;
 const SAVE_PATIENT_FOLLOWUP_ZAMBDA_ID = import.meta.env.VITE_APP_SAVE_PATIENT_FOLLOWUP_ZAMBDA_ID;
 const CREATE_LAB_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_LAB_ORDER_ZAMBDA_ID;
+const GET_LAB_ORDERS_ZAMBDA_ID = import.meta.env.VITE_APP_GET_LAB_ORDERS_ZAMBDA_ID;
 
 function chooseJson(json: any, isLocal: string): any {
   return isLocal === 'true' ? json : json.output;
@@ -444,6 +449,22 @@ export const createLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrde
     }
     const response = await oystehr.zambda.execute({
       id: CREATE_LAB_ORDER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response, VITE_APP_IS_LOCAL);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getLabOrders = async (oystehr: Oystehr, parameters: GetLabOrdersParameters): Promise<LabOrderDTO[]> => {
+  try {
+    if (GET_LAB_ORDERS_ZAMBDA_ID == null) {
+      throw new Error('get lab orders environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: GET_LAB_ORDERS_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response, VITE_APP_IS_LOCAL);

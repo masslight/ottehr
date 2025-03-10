@@ -1,119 +1,90 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { LabOrderDTO } from 'utils';
-import {
-  Box,
-  Button,
-  Paper,
-  Typography,
-  useTheme,
-  CircularProgress,
-  Stack,
-  Switch,
-  FormControlLabel,
-} from '@mui/material';
+import { Box, Button, Paper, Typography, useTheme, CircularProgress, Stack } from '@mui/material';
 import ExternalLabsTable from '../components/ExternalLabsTable';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { mockLabOrders } from '../helpers/types';
+import { getLabOrders } from '../../../api/api';
+import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
+
 interface ExternalLabOrdersListPageProps {
   appointmentID?: string;
   encounterId?: string;
 }
 
-export const ExternalLabOrdersListPage: React.FC<ExternalLabOrdersListPageProps> = ({ appointmentID, encounterId }) => {
+export const ExternalLabOrdersListPage: React.FC<ExternalLabOrdersListPageProps> = () => {
   const theme = useTheme();
   const navigate = useNavigate();
-  const params = useParams();
-  const location = useLocation();
-  const { oystehr } = useApiClients();
+  const { oystehrZambda } = useApiClients();
   const [labOrders, setLabOrders] = useState<LabOrderDTO[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // todo: temporary solution to check for useMockData in URL query params
-  const queryParams = new URLSearchParams(location.search);
-
-  // todo: temporary solution to remove, it's only for showing page with a mock data because by default we redirected to create page if no orders are available
-  const forceStayOnListTable = queryParams.get('useMockData') === 'true';
-
-  // Use appointmentID from props or from URL params
-  const currentAppointmentId = appointmentID || params.appointmentId;
-  const currentEncounterId = encounterId || params.encounterId;
+  const [error, setError] = useState<string | null>(null);
+  const encounterId = useAppointmentStore((state) => state.encounter?.id);
 
   const handleCreateOrder = useCallback((): void => {
-    navigate('create', {
-      state: {
-        appointmentId: currentAppointmentId,
-        encounterId: currentEncounterId,
-      },
-    });
-  }, [navigate, currentAppointmentId, currentEncounterId]);
-
-  const loadMockData = useCallback((): void => {
-    try {
-      if (Array.isArray(mockLabOrders) && mockLabOrders.length > 0) {
-        console.log('Mock data loaded successfully:', mockLabOrders);
-        setLabOrders(mockLabOrders);
-      } else {
-        console.error('Mock data is not an array or is empty');
-      }
-    } catch (error) {
-      console.error('Error loading mock data:', error);
-    }
-  }, []);
+    navigate('create');
+  }, [navigate]);
 
   useEffect(() => {
-    // todo: temporary demo implementations
     const fetchLabOrders = async (): Promise<void> => {
-      if (!oystehr || !currentEncounterId) {
+      if (!oystehrZambda) {
         setLoading(false);
         return;
       }
 
       setLoading(true);
-
-      // todo: temporary solution to load mock data
-      if (forceStayOnListTable) {
-        console.log('Using mock data, calling loadMockData()');
-        loadMockData();
-        return;
-      }
+      setError(null);
 
       try {
-        // todo: implement the real API call
-        // example:
-        // const response = await getLabOrdersForEncounter(oystehr, { encounterId: currentEncounterId });
-        // setLabOrders(response.labOrders);
+        if (!encounterId) {
+          setError('encounter ID is required to fetch lab orders');
+          setLoading(false);
+          return;
+        }
 
-        setLabOrders([]);
-        setLoading(false);
+        const params = {
+          encounterId,
+        };
+
+        const response = await getLabOrders(oystehrZambda, params);
+
+        console.log('Lab orders fetched successfully:', response);
+        setLabOrders(response);
       } catch (error) {
         console.error('Error fetching lab orders:', error);
+        setError('Failed to fetch lab orders. Please try again later.');
+        setLabOrders([]);
       } finally {
         setLoading(false);
       }
     };
 
     void fetchLabOrders();
-  }, [oystehr, currentEncounterId, forceStayOnListTable, loadMockData]);
+  }, [oystehrZambda, encounterId]);
 
   useEffect(() => {
-    if (!loading && labOrders.length === 0 && !forceStayOnListTable) {
+    if (!loading && labOrders.length === 0 && !error) {
       handleCreateOrder();
     }
-  }, [loading, labOrders, handleCreateOrder, forceStayOnListTable]);
-
-  const handleToggleMockData = (): void => {
-    if (labOrders.length === 0) {
-      setLabOrders(mockLabOrders);
-    } else {
-      setLabOrders([]);
-    }
-  };
+  }, [loading, labOrders, handleCreateOrder, error]);
 
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', padding: 4 }}>
         <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ padding: 4 }}>
+        <Typography color="error" variant="h6" gutterBottom>
+          {error}
+        </Typography>
+        <Button variant="contained" onClick={handleCreateOrder} sx={{ mt: 2 }}>
+          Create New Lab Order
+        </Button>
       </Box>
     );
   }
@@ -125,10 +96,6 @@ export const ExternalLabOrdersListPage: React.FC<ExternalLabOrdersListPageProps>
           Labs
         </Typography>
         <Stack direction="row" spacing={2} alignItems="center">
-          <FormControlLabel
-            control={<Switch checked={labOrders.length !== 0} onChange={handleToggleMockData} color="primary" />}
-            label="Use mock data"
-          />
           <Button
             onClick={handleCreateOrder}
             variant="contained"
