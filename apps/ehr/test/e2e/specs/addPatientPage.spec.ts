@@ -213,7 +213,7 @@ test.describe('For existing patient', () => {
 async function createAppointment(
   page: Page,
   visitType: (typeof VISIT_TYPES)[keyof typeof VISIT_TYPES],
-  existingPatient: boolean = false,
+  existingPatient = false,
   lastName?: string
 ): Promise<{ appointmentId: string; slotTime: string | undefined }> {
   const addPatientPage = await expectAddPatientPage(page);
