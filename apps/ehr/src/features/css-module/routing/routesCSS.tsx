@@ -14,9 +14,10 @@ import { SurgicalHistory } from '../pages/SurgicalHistory';
 import { AssessmentCard } from '../../../telemed/features/appointment/AssessmentTab';
 import { Plan } from '../pages/Plan';
 import { Examination } from '../pages/Examination';
-// import { SubmitExternalLabOrders } from '../../external-labs/pages/SubmitExternalLabOrders';
-// import { OrderDetails } from '../../external-labs/pages/OrderDetails';
-// import { ExternalLabOrdersListPage } from '../../external-labs/pages/ExternalLabOrdersListPage';
+import { ERX } from '../pages/ERX';
+import { CreateExternalLabOrder } from '../../external-labs/pages/CreateExternalLabOrder';
+import { OrderDetails } from '../../external-labs/pages/OrderDetails';
+import { ExternalLabOrdersListPage } from '../../external-labs/pages/ExternalLabOrdersListPage';
 
 export enum ROUTER_PATH {
   PROGRESS_NOTE = 'progress-note',
@@ -34,12 +35,12 @@ export enum ROUTER_PATH {
   ASSESSMENT = 'assessment',
   EXAMINATION = 'examination',
   PLAN = 'plan',
+  ERX = 'erx',
 
-  // TODO: Uncomment after the module is ready
   // ERX = 'erx',
-  // EXTERNAL_LAB_ORDER = 'external-lab-orders',
-  // EXTERNAL_LAB_ORDER_CREATE = 'external-lab-orders/create',
-  // EXTERNAL_LAB_ORDER_DETAILS = 'external-lab-orders/order-details',
+  EXTERNAL_LAB_ORDER = 'external-lab-orders',
+  EXTERNAL_LAB_ORDER_CREATE = 'external-lab-orders/create',
+  EXTERNAL_LAB_ORDER_DETAILS = 'external-lab-orders/order-details',
 }
 
 export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
@@ -133,6 +134,20 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     text: 'In-house Medications',
     iconKey: 'Med. Administration',
   },
+  [ROUTER_PATH.EXTERNAL_LAB_ORDER]: {
+    path: ROUTER_PATH.EXTERNAL_LAB_ORDER,
+    modes: ['provider', 'readonly'],
+    element: <ExternalLabOrdersListPage />,
+    text: 'Labs',
+    iconKey: 'Send Out Labs',
+  },
+  [ROUTER_PATH.ERX]: {
+    path: ROUTER_PATH.ERX,
+    modes: ['provider', 'readonly'],
+    element: <ERX />,
+    text: 'eRX',
+    iconKey: 'eRX',
+  },
   [ROUTER_PATH.EXAMINATION]: {
     path: ROUTER_PATH.EXAMINATION,
     modes: ['provider', 'readonly'],
@@ -155,35 +170,20 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     iconKey: 'Lab profile',
   },
 
-  // TODO: Uncomment after the module is ready
-  // [ROUTER_PATH.ERX]: {
-  //   path: ROUTER_PATH.ERX,
-  //   modes: ['provider', 'readonly'],
-  //   element: <ERX />,
-  //   text: 'eRX',
-  //   iconKey: 'eRX',
-  // },
-  // [ROUTER_PATH.EXTERNAL_LAB_ORDER]: {
-  //   path: ROUTER_PATH.EXTERNAL_LAB_ORDER,
-  //   modes: ['provider', 'readonly'],
-  //   element: <ExternalLabOrdersListPage />,
-  //   text: 'Send Out Labs',
-  //   iconKey: 'Send Out Labs',
-  // },
-  // [ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE]: {
-  //   path: ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE,
-  //   modes: ['provider', 'readonly'],
-  //   isSkippedInNavigation: true,
-  //   element: <SubmitExternalLabOrders />,
-  //   text: 'Order Lab',
-  //   iconKey: 'Send Out Labs',
-  // },
-  // [ROUTER_PATH.EXTERNAL_LAB_ORDER_DETAILS]: {
-  //   path: ROUTER_PATH.EXTERNAL_LAB_ORDER_DETAILS,
-  //   modes: ['provider', 'readonly'],
-  //   isSkippedInNavigation: true,
-  //   element: <OrderDetails />,
-  //   text: 'Order Details',
-  //   iconKey: 'Send Out Labs',
-  // },
+  [ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE]: {
+    path: ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE,
+    modes: ['provider', 'readonly'],
+    isSkippedInNavigation: true,
+    element: <CreateExternalLabOrder />,
+    text: 'Order Lab',
+    iconKey: 'Send Out Labs',
+  },
+  [ROUTER_PATH.EXTERNAL_LAB_ORDER_DETAILS]: {
+    path: ROUTER_PATH.EXTERNAL_LAB_ORDER_DETAILS,
+    modes: ['provider', 'readonly'],
+    isSkippedInNavigation: true,
+    element: <OrderDetails />,
+    text: 'Order Details',
+    iconKey: 'Send Out Labs',
+  },
 };

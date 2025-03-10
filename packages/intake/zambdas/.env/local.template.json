@@ -56,5 +56,6 @@
   "SENTRY_AUTH_TOKEN": "",
   "SENTRY_ORG": "",
   "SENTRY_PROJECT": "",
-  "SENTRY_DSN": ""
+  "SENTRY_DSN": "",
+  "DEFAULT_BILLING_RESOURCE": "automatically-set-when-deploying"
 }

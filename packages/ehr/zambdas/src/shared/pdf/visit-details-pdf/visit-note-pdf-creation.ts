@@ -108,7 +108,9 @@ function composeDataForPdf(
   const medications = chartData.medications ? mapResourceByNameField(chartData.medications) : [];
 
   // --- Allergies ---
-  const allergies = chartData.allergies ? mapResourceByNameField(chartData.allergies) : [];
+  const allergies = chartData.allergies
+    ? mapResourceByNameField(chartData?.allergies?.filter((allergy) => allergy.current === true))
+    : [];
 
   // --- Medical conditions ---
   const medicalConditions = mapMedicalConditions(chartData);
@@ -159,6 +161,11 @@ function composeDataForPdf(
     ?.filter((note) => note.type === NOTE_TYPE.VITALS)
     ?.map((note) => note.text);
 
+  // --- Intake notes ---
+  const intakeNotes = additionalChartData?.notes
+    ?.filter((note) => note.type === NOTE_TYPE.INTAKE)
+    ?.map((note) => note.text);
+
   // --- Examination ---
   const examination = isInPersonAppointment
     ? parseInPersonExamFieldsFromExamObservations(chartData)
@@ -180,7 +187,9 @@ function composeDataForPdf(
   const cptCodes = chartData?.cptCodes?.map((cpt) => `${cpt.code} ${cpt.display}`);
 
   // --- Prescriptions ---
-  const prescriptions = chartData?.prescribedMedications ? mapResourceByNameField(chartData.prescribedMedications) : [];
+  const prescriptions = additionalChartData?.prescribedMedications
+    ? mapResourceByNameField(additionalChartData.prescribedMedications)
+    : [];
 
   // --- Patient instructions ---
   const patientInstructions: string[] = [];
@@ -252,6 +261,7 @@ function composeDataForPdf(
     },
     hospitalization,
     vitals: { notes: vitalsNotes, ...vitals },
+    intakeNotes,
     examination: examination.examination,
     assessment: {
       primary: primaryDiagnosis ?? '',
@@ -333,7 +343,8 @@ function mapResourceByNameField(data: { name?: string }[] | CPTCodeDTO[]): strin
 
 function mapMedicalConditions(chartData: GetChartDataResponse): string[] {
   const medicalConditions: string[] = [];
-  chartData?.conditions?.forEach((mc) => {
+  const conditions = chartData?.conditions?.filter((condition) => condition.current === true);
+  conditions?.forEach((mc) => {
     if (mc.display && mc.code) medicalConditions.push(`${mc.display} ${mc.code}`);
   });
   return medicalConditions;

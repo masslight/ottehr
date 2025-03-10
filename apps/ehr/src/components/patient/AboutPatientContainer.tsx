@@ -1,11 +1,11 @@
 import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../form';
+import { getPronounsFromExtension, patientFieldPaths, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { PRONOUN_OPTIONS, SEX_OPTIONS } from '../../constants';
+import { dataTestIds } from '../../constants/data-test-ids';
+import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../form';
 import { Row, Section } from '../layout';
 import { usePatientStore } from '../../state/patient.store';
-import { dataTestIds } from '../../constants/data-test-ids';
-import { getPronounsFromExtension, patientFieldPaths } from 'utils';
 
 export const AboutPatientContainer: FC = () => {
   const { patient, updatePatientField } = usePatientStore();
@@ -25,7 +25,7 @@ export const AboutPatientContainer: FC = () => {
           name={patientFieldPaths.lastName}
           control={control}
           defaultValue={patient?.name?.[0]?.family}
-          rules={{ required: true }}
+          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           id="patient-last-name"
           onChangeHandler={handleChange}
           data-testid={dataTestIds.patientInformation.patientLastName}
@@ -36,7 +36,7 @@ export const AboutPatientContainer: FC = () => {
           name={patientFieldPaths.firstName}
           control={control}
           defaultValue={patient?.name?.[0]?.given?.[0]}
-          rules={{ required: true }}
+          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           id="patient-first-name"
           onChangeHandler={handleChange}
           data-testid={dataTestIds.patientInformation.patientFirstName}
@@ -96,6 +96,9 @@ export const AboutPatientContainer: FC = () => {
           control={control}
           options={SEX_OPTIONS}
           defaultValue={patient?.gender}
+          rules={{
+            required: REQUIRED_FIELD_ERROR_MESSAGE,
+          }}
           onChangeHandler={handleChange}
           data-testid={dataTestIds.patientInformation.patientBirthSex}
         />

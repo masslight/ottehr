@@ -1,4 +1,4 @@
-import { PractitionerQualificationCode, RoleType } from 'utils';
+import { AppointmentVisitTabs, ApptTelemedTab, PractitionerQualificationCode, RoleType } from 'utils';
 
 export const dataTestIds = {
   header: {
@@ -6,11 +6,14 @@ export const dataTestIds = {
   },
   cssHeader: {
     container: 'css-header-container',
+    patientName: 'patient-name',
+    appointmentStatus: 'appointment-status',
+    switchStatusButton: (status: string) => `switch-status-to-${status}`,
   },
   dashboard: {
     appointmentsTable: (tab: 'prebooked' | 'in-office' | 'completed' | 'cancelled') => `appointments-table-${tab}`,
     addPatientButton: 'add-patient-button',
-    intakeButton: (appointmentId: string) => `intake-button-${appointmentId}`,
+    intakeButton: `intake-button`,
     prebookedTab: 'prebooked-tab',
     locationSelect: 'location-select',
     datePickerTodayButton: 'date-picker-today-button',
@@ -21,6 +24,7 @@ export const dataTestIds = {
     appointmentTime: 'appointment-time',
     inOfficeTab: 'in-office-tab',
     groupSelect: 'group-select',
+    dischargedTab: 'discharged-tab',
   },
   appointmentPage: {
     patientFullName: 'patient-full-name',
@@ -77,6 +81,7 @@ export const dataTestIds = {
   },
   dialog: {
     closeButton: 'close-button',
+    proceedButton: 'proceed-button',
   },
   statesPage: {
     statesSearch: 'states-search',
@@ -137,6 +142,7 @@ export const dataTestIds = {
     statusChip: 'employee-status-chip',
   },
   telemedEhrFlow: {
+    telemedAppointmentsTabs: (tab: ApptTelemedTab) => `telemed-appointments-tabs-${tab}`,
     trackingBoardTableRow: (appointmentId: string) => `telemed-tracking-board-table-row-${appointmentId}`,
     myPatientsButton: 'telemed-my-patients-button',
     allPatientsButton: 'telemed-all-patients-button',
@@ -147,7 +153,6 @@ export const dataTestIds = {
     appointmentStatusChip: 'telemed-appointment-status-chip',
     footerButtonConnectToPatient: 'telemed-appointment-footer-button-connect-to-patient',
     footerButtonAssignMe: 'telemed-appointment-footer-button-assign-me',
-    dialogButtonConfirm: 'telemed-dialog-button-confirm',
     appointmentChartFooter: 'telemed-chart-appointment-footer',
     hpiMedicalConditionsLoadingSkeleton: 'telemed-medical-conditions-loading-skeleton',
     hpiMedicalConditionColumn: 'telemed-hpi-medical-condition-column',
@@ -164,5 +169,48 @@ export const dataTestIds = {
     hpiChiefComplaintNotes: 'telemed-chief-complaint-notes',
     hpiChiefComplaintRos: 'telemed-chief-complaint-ros',
     videoRoomContainer: 'telemed-video-room-container',
+    endVideoCallButton: 'telemed-end-video-call-button',
+    appointmentVisitTabs: (tab: AppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
+    diagnosisAutocomplete: 'telemed-diagnosis-autocomplete',
+    emCodeAutocomplete: 'telemed-em-code-autocomplete',
+    patientInfoConfirmationCheckbox: 'telemed-patient-info-confirmation-checkbox',
+    signButton: 'telemed-sign-button',
+  },
+  sideMenu: {
+    completeIntakeButton: 'complete-intake-button',
+    sideMenuItem: (item: string): string => `menu-item-${item}`,
+  },
+  hospitalizationPage: {
+    hospitalizationTitle: 'hospitalization-title',
+  },
+  progressNotePage: {
+    reviewAndSignButton: 'review-and-sign-button',
+  },
+  assessmentPage: {
+    diagnosisDropdown: 'diagnosis-dropdown',
+    emCodeDropdown: 'em-code-dropdown',
+    medicalDecisionField: 'medical-decision-field',
+  },
+  diagnosisContainer: {
+    deleteButton: 'diagnosis-container-delete-button',
+  },
+  billingContainer: {
+    deleteButton: 'billing-container-delete-button',
+  },
+  patientInfoPage: {
+    patientInfoVerifiedCheckbox: 'patient-info-verified-checkbox',
+  },
+  inHouseMedicationsPage: {
+    title: 'medications-title',
+    orderButton: 'order-button',
+    marTableRow: 'mar-table-row',
+    marTableMedicationCell: 'mar-table-medication-cell',
+    marTableStatusCell: 'mar-table-status-cell',
+    medicationDetailsTab: 'medication-details-tab',
+  },
+  orderMedicationPage: {
+    inputField: (field: string): string => `input-${field}`,
+    fillOrderToSaveButton: 'fill-order-to-save-button',
+    backButton: 'back-button',
   },
 };

@@ -1,6 +1,6 @@
 service: zambdas
 
-frameworkVersion: "3"
+frameworkVersion: '3'
 
 package:
   individually: true
@@ -17,6 +17,7 @@ custom:
     host: 0.0.0.0
     httpPort: 3000
     lambdaPort: 3001
+    httpsProtocol: ${file(./scripts/detect-tls.js):tlsPath, null}
   esbuild:
     sourcemap: true
 

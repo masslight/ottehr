@@ -105,7 +105,8 @@ function App(): ReactElement {
   // we may use sleep + page.refresh() and other workarounds, but better to run photon tests separately and don't affect other tests
   const photonDisadledByEnv = import.meta.env.VITE_APP_CI_PHOTON_DISABLED === 'true';
   const photonEnabledForUser = currentUser?.hasRole([RoleType.Provider]) && currentUser.isPractitionerEnrolledInPhoton;
-  const shouldUsePhoton = !photonDisadledByEnv && (photonEnabledForUser || wasEnrolledInphoton);
+  const isE2EUser = currentUser?.email?.includes('e2euser');
+  const shouldUsePhoton = !photonDisadledByEnv && !isE2EUser && (photonEnabledForUser || wasEnrolledInphoton);
 
   return (
     <CustomThemeProvider>
@@ -136,7 +137,19 @@ function App(): ReactElement {
                 <ProtectedRoute
                   showWhenAuthenticated={
                     <Suspense fallback={<LoadingScreen />}>
-                      <CSSRoutingLazy />
+                      {shouldUsePhoton ? (
+                        <photon-client
+                          id={import.meta.env.VITE_APP_PHOTON_CLIENT_ID}
+                          org={import.meta.env.VITE_APP_PHOTON_ORG_ID}
+                          dev-mode={import.meta.env.MODE === 'production' ? 'false' : 'true'}
+                          auto-login="true"
+                          redirect-uri={window.location.origin}
+                        >
+                          <CSSRoutingLazy />
+                        </photon-client>
+                      ) : (
+                        <CSSRoutingLazy />
+                      )}
                     </Suspense>
                   }
                 />
@@ -195,6 +208,7 @@ function App(): ReactElement {
                   <Route path="/patient/:id" element={<PatientPage />} />
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                   <Route path="/patient/:id/details" element={<PatientVisitDetails />} />
+                  <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
                   <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
                   <Route path="/telemed-admin" element={<Navigate to={INSURANCES_URL} />} />
@@ -231,6 +245,7 @@ function App(): ReactElement {
                   <Route path="/visit/:id" element={<AppointmentPage />} />
                   <Route path="/patient/:id" element={<PatientPage />} />
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
+                  <Route path="/patient/:id/details" element={<PatientVisitDetails />} />
                   <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
                   <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />

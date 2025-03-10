@@ -131,7 +131,7 @@ export const SEX_OPTIONS = [
   },
   {
     label: 'Intersex',
-    value: 'intersex',
+    value: 'other',
   },
 ];
 
@@ -360,15 +360,15 @@ export const PATIENT_FILLING_OUT_AS_OPTIONS = [
 export const INSURANCE_COVERAGE_OPTIONS = [
   {
     label: 'Primary',
-    value: '1',
+    value: 1,
   },
   {
     label: 'Secondary',
-    value: '2',
+    value: 2,
   },
   {
     label: 'Tertiary',
-    value: '3',
+    value: 3,
   },
 ];
 
@@ -486,8 +486,8 @@ export const POINT_OF_DISCOVERY_OPTIONS = [
     value: 'Friend/Family',
   },
   {
-    label: 'Been there with another child or family member',
-    value: 'Been there with another child or family member',
+    label: 'Been there with another family member',
+    value: 'Been there with another family member',
   },
   {
     label: 'Pediatrician/Healthcare Professional',

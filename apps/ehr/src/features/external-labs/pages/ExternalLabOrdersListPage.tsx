@@ -13,7 +13,7 @@ export const ExternalLabOrdersListPage: React.FC<ExternalLabOrdersListPageProps>
     <Box sx={{ padding: 4 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
         <Typography variant="h2" gutterBottom sx={{ flexGrow: 1, color: theme.palette.primary.dark }}>
-          Send Out Labs
+          Labs
         </Typography>
         <Button
           component={Link}

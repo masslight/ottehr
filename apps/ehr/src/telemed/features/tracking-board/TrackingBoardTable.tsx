@@ -12,16 +12,16 @@ import {
 } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useMemo } from 'react';
-import { AllStatesToNames, StateType, TelemedAppointmentInformation } from 'utils';
+import { AllStatesToNames, ApptTelemedTab, StateType, TelemedAppointmentInformation } from 'utils';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useTrackingBoardStore } from '../../state';
-import { ApptTab, compareAppointments, compareLuxonDates, filterAppointments } from '../../utils';
+import { compareAppointments, compareLuxonDates, filterAppointments } from '../../utils';
 import { TrackingBoardFilters } from './TrackingBoardFilters';
 import { TrackingBoardTableRow, TrackingBoardTableRowSkeleton } from './TrackingBoardTableRow';
 import { dataTestIds } from '../../../constants/data-test-ids';
 
 interface AppointmentTableProps {
-  tab: ApptTab;
+  tab: ApptTelemedTab;
 }
 
 interface TrackingBoardColumn {
@@ -92,7 +92,7 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
 
   const filteredAppointments = filterAppointments(appointments, unsignedFor, tab, showOnlyNext, availableStates);
 
-  const showProvider = tab !== ApptTab.ready;
+  const showProvider = tab !== ApptTelemedTab.ready;
 
   const columns = getVisibleColumns({ showProvider });
 
@@ -152,7 +152,7 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
   const oldestId = filteredAppointments
     .filter((appointment) => availableStates.includes(appointment.location.state!))
     .sort((a, b) => compareLuxonDates(DateTime.fromISO(a.start!), DateTime.fromISO(b.start!)))?.[0]?.id;
-  const showNext = tab === ApptTab.ready;
+  const showNext = tab === ApptTelemedTab.ready;
 
   return (
     <Box>
@@ -194,7 +194,7 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
                   </TableRow>
                   {!groupCollapse[state] &&
                     groupsSortedByState[state]
-                      .sort((a, b) => compareAppointments(tab === ApptTab['not-signed'], a, b))
+                      .sort((a, b) => compareAppointments(tab === ApptTelemedTab['not-signed'], a, b))
                       .map((appointment) => (
                         <TrackingBoardTableRow
                           key={appointment.id}

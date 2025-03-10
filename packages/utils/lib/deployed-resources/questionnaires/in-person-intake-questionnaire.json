@@ -3,7 +3,7 @@
   "resource": {
     "resourceType": "Questionnaire",
     "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "name": "in-person_pre-visit_paperwork (please_do_not_delete)",
     "title": "in-person pre-visit paperwork",
     "status": "active",
@@ -576,6 +576,13 @@
         "linkId": "primary-care-physician-page",
         "text": "Primary Care Physician",
         "type": "group",
+        "enableWhen": [
+          {
+            "question": "contact-information-page.patient-street-address-2",
+            "operator": "!=",
+            "answerString": "conditional-filter-test-1234"
+          }
+        ],
         "item": [
           {
             "linkId": "pcp-first",

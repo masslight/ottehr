@@ -59,14 +59,12 @@ export const validateAllMedicationFields = (
   return { isValid: missingFields.length === 0, missingFields };
 };
 
-export const formatStatus = (status?: string): string => {
-  if (!status) return '';
-
-  return status
-    .toLocaleLowerCase()
-    .split(' ')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+export const medicationStatusDisplayLabelMap: Record<MedicationOrderStatusesType, string> = {
+  pending: 'Pending',
+  administered: 'Administered',
+  'administered-partly': 'Partly Administered',
+  'administered-not': 'Not Administered',
+  cancelled: 'Cancelled',
 };
 
 // this check is used in order-new and order-edit to prevent user from exit page and lose unsaved data
@@ -137,12 +135,14 @@ export const getConfirmSaveModalConfigs = ({
   newStatus,
   updateRequestInputRef,
   setIsReasonSelected,
+  routeName,
 }: {
   patientName: string;
   medicationName: string;
   newStatus: MedicationOrderStatusesType;
   updateRequestInputRef: React.MutableRefObject<UpdateMedicationOrderInput | null>;
   setIsReasonSelected: React.Dispatch<React.SetStateAction<boolean>>;
+  routeName: string;
 }): Partial<Record<MedicationOrderStatusesType, ConfirmSaveModalConfig>> => {
   const confirmationModalContentJSX = (
     <Box display="flex" flexDirection="column" gap={1}>
@@ -151,11 +151,11 @@ export const getConfirmSaveModalConfigs = ({
       </Typography>
       <Typography>
         <strong>Medication:</strong> {medicationName} / {updateRequestInputRef.current?.orderData?.dose}
-        {updateRequestInputRef.current?.orderData?.units} / {updateRequestInputRef.current?.orderData?.route}
+        {updateRequestInputRef.current?.orderData?.units} / {routeName}
       </Typography>
       <Typography>
         Please confirm that you want to mark this medication order as{' '}
-        {<strong>"{formatStatus(updateRequestInputRef.current?.newStatus)}"</strong>}
+        {<strong>{medicationStatusDisplayLabelMap[newStatus] || newStatus}</strong>}
         {newStatus !== 'administered' ? ' and select the reason.' : '.'}
       </Typography>
     </Box>
