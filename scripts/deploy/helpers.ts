@@ -1,7 +1,6 @@
 import fetch from 'node-fetch';
 import fs from 'fs';
 import config from './deploy-config.json';
-import path from 'path';
 
 const projectConfig: any = config;
 const environment = projectConfig.environment;

@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { FillingInfo } from '../../utils/in-person/FillingInfo';
 import { DateTime } from 'luxon';
 import { UIDesign } from '../../utils/in-person/UIdesign';
-import { UploadImage } from '../../utils/in-person/UploadImage';
+import { UploadImage } from '../../utils/UploadImage';
 
 test.skip('TC48 "You are checked in!" screen paperwork missing and completed', async ({ page, context }) => {
   const fillingInfo = new FillingInfo(page);
