@@ -120,7 +120,6 @@ const CreateDemoVisits = (): ReactElement => {
       </Box>
       <Box sx={{ display: 'flex', flexGrow: 1, gap: 2, alignItems: 'center' }}>
         <TextField
-          data-testid={dataTestIds.dashboard.phoneNumberInput}
           label="Phone Number"
           value={phoneNumber}
           onChange={handleChange}
@@ -141,7 +140,6 @@ const CreateDemoVisits = (): ReactElement => {
           helperText={inputError ? 'Please enter a valid phone number' : ''}
         />
         <LoadingButton
-          data-testid={dataTestIds.dashboard.createDemoVisitsButton}
           loading={loading}
           onClick={handleCreateSampleAppointments}
           size="small"

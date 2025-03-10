@@ -9,7 +9,6 @@ export const dataTestIds = {
     patientName: 'patient-name',
     appointmentStatus: 'appointment-status',
     switchStatusButton: (status: string) => `switch-status-to-${status}`,
-    switchStatusButton: (status: string) => `switch-status-to-${status}`,
   },
   dashboard: {
     appointmentsTable: (tab: 'prebooked' | 'in-office' | 'completed' | 'cancelled') => `appointments-table-${tab}`,
@@ -26,8 +25,6 @@ export const dataTestIds = {
     inOfficeTab: 'in-office-tab',
     groupSelect: 'group-select',
     dischargedTab: 'discharged-tab',
-    phoneNumberInput: 'phone-number-input',
-    createDemoVisitsButton: 'create-demo-visits-button',
   },
   appointmentPage: {
     patientFullName: 'patient-full-name',
