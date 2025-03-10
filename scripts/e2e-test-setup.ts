@@ -212,8 +212,8 @@ export async function createTestEnvFiles(): Promise<void> {
     const ehrConfig: EhrConfig = {
       TEXT_USERNAME: ehrTextUsername,
       TEXT_PASSWORD: ehrTextPassword,
-      AUTH0_CLIENT: ehrZambdaEnv.AUTH0_CLIENT,
-      AUTH0_SECRET: ehrZambdaEnv.AUTH0_SECRET,
+      AUTH0_CLIENT: existingEhrConfig.AUTH0_CLIENT ?? ehrZambdaEnv.AUTH0_CLIENT,
+      AUTH0_SECRET: existingEhrConfig.AUTH0_SECRET ?? ehrZambdaEnv.AUTH0_SECRET,
       LOCATION: locationName,
       LOCATION_ID: locationId,
       WEBSITE_URL: ehrUiEnv.VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL,
