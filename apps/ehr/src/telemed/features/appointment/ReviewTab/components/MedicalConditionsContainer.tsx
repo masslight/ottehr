@@ -6,7 +6,7 @@ import { useAppointmentStore } from '../../../../state';
 export const MedicalConditionsContainer: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
 
-  const conditions = chartData?.conditions;
+  const conditions = chartData?.conditions?.filter((condition) => condition.current === true);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>

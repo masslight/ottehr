@@ -8,9 +8,10 @@ import { SxProps } from '@mui/material';
 interface OrderButtonProps {
   size?: 'medium' | 'large';
   sx?: SxProps;
+  dataTestId?: string;
 }
 
-export const OrderButton: React.FC<OrderButtonProps> = ({ size = 'large', sx }) => {
+export const OrderButton: React.FC<OrderButtonProps> = ({ size = 'large', sx, dataTestId }) => {
   const navigate = useNavigate();
   const { id } = useParams();
 
@@ -23,7 +24,7 @@ export const OrderButton: React.FC<OrderButtonProps> = ({ size = 'large', sx }) 
   };
 
   return (
-    <ButtonRounded variant="contained" color="primary" size={size} onClick={onClick} sx={sx}>
+    <ButtonRounded variant="contained" color="primary" size={size} onClick={onClick} sx={sx} data-testid={dataTestId}>
       Order
     </ButtonRounded>
   );

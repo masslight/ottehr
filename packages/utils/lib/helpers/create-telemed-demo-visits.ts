@@ -166,17 +166,31 @@ const generateRandomPatientInfo = async (
     locationState: selectedLocationId || randomTelemedLocationId, // ?
   };
 };
-export const createSampleTelemedAppointments = async (
-  oystehr: Oystehr | undefined,
-  authToken: string,
-  phoneNumber: string,
-  createAppointmentZambdaId: string,
-  islocal: boolean,
-  intakeZambdaUrl: string,
-  projectId: string,
-  selectedLocationId?: string,
-  demoData?: DemoAppointmentData
-): Promise<CreateAppointmentUCTelemedResponse | null> => {
+
+export const createSampleTelemedAppointments = async ({
+  oystehr,
+  authToken,
+  phoneNumber,
+  createAppointmentZambdaId,
+  intakeZambdaUrl,
+  selectedLocationId,
+  demoData,
+  projectId,
+}: {
+  oystehr: Oystehr | undefined;
+  authToken: string;
+  phoneNumber: string;
+  createAppointmentZambdaId: string;
+  islocal: boolean;
+  intakeZambdaUrl: string;
+  selectedLocationId?: string;
+  demoData?: DemoAppointmentData;
+  projectId: string;
+}): Promise<CreateAppointmentUCTelemedResponse | null> => {
+  if (!projectId) {
+    throw new Error('PROJECT_ID is not set');
+  }
+
   if (!oystehr) {
     console.log('oystehr client is not defined');
     return null;
@@ -208,9 +222,13 @@ export const createSampleTelemedAppointments = async (
 
         console.log(`Appointment ${i + 1} created successfully.`);
 
-        const appointmentData: CreateAppointmentUCTelemedResponse = islocal
-          ? await createAppointmentResponse.json()
-          : (await createAppointmentResponse.json()).output;
+        let appointmentData: CreateAppointmentUCTelemedResponse = await createAppointmentResponse.json();
+
+        appointmentData = await createAppointmentResponse.json();
+
+        if ((appointmentData as any)?.output) {
+          appointmentData = (appointmentData as any).output as CreateAppointmentUCTelemedResponse;
+        }
 
         if (!appointmentData) {
           console.error('Error: appointment data is null');
@@ -301,7 +319,11 @@ const processPaperwork = async (
     });
 
     if (!response.ok) {
-      throw new Error(`Error submitting paperwork: ${response.status}`);
+      // This may be an error if some paperwork required answers were not provided.
+      // Check QuestionnaireResponse resource if it corresponds to all Questionnaire requirements
+      throw new Error(
+        `Error submitting paperwork, response: ${response}, body: ${JSON.stringify(await response.json())}`
+      );
     }
 
     console.log(`Paperwork submitted for appointment: ${appointmentId}`);
