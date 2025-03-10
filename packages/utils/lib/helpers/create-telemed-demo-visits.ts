@@ -222,9 +222,7 @@ export const createSampleTelemedAppointments = async ({
 
         console.log(`Appointment ${i + 1} created successfully.`);
 
-        let appointmentData: CreateAppointmentUCTelemedResponse = await createAppointmentResponse.json();
-
-        appointmentData = await createAppointmentResponse.json();
+        let appointmentData = await createAppointmentResponse.json();
 
         if ((appointmentData as any)?.output) {
           appointmentData = (appointmentData as any).output as CreateAppointmentUCTelemedResponse;
