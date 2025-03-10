@@ -5,16 +5,21 @@ import {
   Appointment,
   AppointmentParticipant,
   Bundle,
+  Coverage,
+  DocumentReference,
   Encounter,
   Extension,
   HealthcareService,
+  InsurancePlan,
   List,
   Location,
+  Organization,
   Patient,
   Practitioner,
   Questionnaire,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
+  RelatedPerson,
   Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -460,6 +465,52 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     extension: [...(isVirtual ? telemedEncExtensions : [])],
   };
 
+  let documents: DocumentReference[] = [];
+  let insuranceInfo: (Coverage | RelatedPerson | Organization | InsurancePlan)[] = [];
+
+  if (patient?.id) {
+    console.log('get related resources to prepopulate paperwork');
+    const [docsResponse, insuranceResponse] = await Promise.all([
+      oystehr.fhir.search<DocumentReference>({
+        resourceType: 'DocumentReference',
+        params: [
+          {
+            name: 'related',
+            value: `Patient/${patient.id}`,
+          },
+          {
+            name: 'status',
+            value: 'current',
+          },
+        ],
+      }),
+      oystehr.fhir.search<Coverage | RelatedPerson | Organization | InsurancePlan>({
+        resourceType: 'Coverage',
+        params: [
+          {
+            name: 'patient',
+            value: `Patient/${patient.id}`,
+          },
+          {
+            name: '_include',
+            value: 'Coverage:subscriber:RelatedPerson',
+          },
+          {
+            name: '_include',
+            value: 'Coverage:payor:Organization',
+          },
+          {
+            name: '_revinclude:iterate',
+            value: 'InsurancePlan:owned-by:Organization',
+          },
+        ],
+      }),
+    ]);
+
+    documents = docsResponse.unbundle();
+    insuranceInfo = insuranceResponse.unbundle();
+  }
+
   const patientToUse = patient ?? (createPatientRequest?.resource as Patient);
 
   const item: QuestionnaireResponseItem[] = makePrepopulatedItemsForPatient({
@@ -471,6 +522,8 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     unconfirmedDateOfBirth,
     appointmentStartTime: startTime,
     questionnaire,
+    documents,
+    insuranceInfo,
   });
 
   console.log(
