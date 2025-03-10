@@ -302,7 +302,7 @@ export const FOLDERS_CONFIG: ListConfig[] = [
   },
   {
     title: 'exported-questionnaires',
-    display: 'Exported questionnaires',
+    display: 'Paperwork',
     documentTypeCode: EXPORTED_QUESTIONNAIRE_CODE,
   },
 ];
