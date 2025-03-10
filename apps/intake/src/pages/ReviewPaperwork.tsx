@@ -108,7 +108,7 @@ const ReviewPaperwork = (): JSX.Element => {
     );
 
     try {
-      validationSchema.validateSync(completedPaperwork, { abortEarly: false });
+      validationSchema.validate(completedPaperwork, { abortEarly: false });
     } catch (e) {
       const errorList =
         (e as ValidationError).inner?.map((item) => {
