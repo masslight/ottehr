@@ -516,7 +516,14 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
 
   if (data.assessment?.primary) {
     drawBlockHeader('Assessment');
+    drawBlockHeader('Primary:', textStyles.blockSubHeader);
     regularText(data.assessment?.primary);
+    if (data.assessment?.secondary.length > 0) {
+      drawBlockHeader('Secondary:', textStyles.blockSubHeader);
+      data.assessment?.secondary.forEach((assessment) => {
+        regularText(assessment);
+      });
+    }
     separateLine();
   }
 
