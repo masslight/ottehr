@@ -12,7 +12,7 @@ const DIAGNOSIS = 'Situs inversus';
 const MEDICATION = '0.9% Sodium Chloride IV (1000cc)';
 const DOSE = '2';
 const UNITS = 'mg';
-const MANUFACTURER ='Test';
+const MANUFACTURER = 'Test';
 const ROUTE = 'Route of administration values';
 const INSTRUCTIONS = 'INSTRUCTIONS';
 
@@ -78,7 +78,7 @@ test('Order medication, order is submitted successfully and entered data are dis
   await editMedicationCard.selectRoute(ROUTE);
   await editMedicationCard.enterInstructions(INSTRUCTIONS);
   await orderMedicationPage.clickOrderMedicationButton();
-  
+
   const editOrderPage = await expectEditOrderPage(page);
   await editMedicationCard.verifyAssociatedDx(DIAGNOSIS);
   await editMedicationCard.verifyMedication(MEDICATION);
@@ -87,12 +87,12 @@ test('Order medication, order is submitted successfully and entered data are dis
   await editMedicationCard.verifyManufacturer(MANUFACTURER);
   await editMedicationCard.verifyRoute(ROUTE);
   await editMedicationCard.verifyInstructions(INSTRUCTIONS);
-  
+
   const medicationsPage = await editOrderPage.clickBackButton();
-  await medicationsPage.verifyMedicationPresent(MEDICATION , 'pending');
+  await medicationsPage.verifyMedicationPresent(MEDICATION, 'pending');
 
   await medicationsPage.clickMedicationDetailsTab();
-  const medicationDetails = await medicationsPage.medicationDetails();
+  const medicationDetails = medicationsPage.medicationDetails();
   await medicationDetails.verifyAssociatedDx(DIAGNOSIS);
   await medicationDetails.verifyMedication(MEDICATION);
   await medicationDetails.verifyDose(DOSE);
