@@ -609,3 +609,11 @@ export function getInviteParticipantStepAnswers(): PatchPaperworkParameters['ans
     ],
   };
 }
+
+// export async function getPatientConditionPhotosStepAnswers(apiClient: Oystehr): Promise<PatchPaperworkParameters['answers']> {
+//   const a = await apiClient.z3.uploadFile({});
+//   return {
+//     linkId: 'patient-condition-page',
+//     item: [{ linkId: 'patient-photos', answer: [{ valueAttachment: 'No, only one device will be connected' }] }],
+//   };
+// }
