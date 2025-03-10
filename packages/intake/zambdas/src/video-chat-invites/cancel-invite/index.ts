@@ -73,13 +73,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     const relatedPersons: RelatedPerson[] = await searchInvitedParticipantResourcesByEncounterId(encounter.id, oystehr);
-    const relatedPersonEmail = findParticipantByEmail(relatedPersons, emailAddress);
-    if (relatedPersonEmail)
-      console.log(`Found RelatedPerson for provided email: RelatedPerson/${relatedPersonEmail.id}`);
-    const relatedPersonNumber = findParticipantByNumber(relatedPersons, phoneNumber);
-    if (relatedPersonNumber)
-      console.log(`Found RelatedPerson for provided number: RelatedPerson/${relatedPersonNumber.id}`);
-    const relatedPerson = relatedPersonEmail || relatedPersonNumber;
+    const relatedPersonFoundByEmail = findParticipantByEmail(relatedPersons, emailAddress);
+    if (relatedPersonFoundByEmail)
+      console.log(`Found RelatedPerson for provided email: RelatedPerson/${relatedPersonFoundByEmail.id}`);
+    const relatedPersonFoundByNumber = findParticipantByNumber(relatedPersons, phoneNumber);
+    if (relatedPersonFoundByNumber)
+      console.log(`Found RelatedPerson for provided number: RelatedPerson/${relatedPersonFoundByNumber.id}`);
+    const relatedPerson = relatedPersonFoundByEmail || relatedPersonFoundByNumber;
     if (!relatedPerson) {
       console.log('Invite is not found.');
       return lambdaResponse(404, { message: 'Invite is not found.' });
