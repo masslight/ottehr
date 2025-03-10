@@ -56,13 +56,17 @@ export abstract class BaseInPersonFlow {
   protected abstract clickVisitButton(): Promise<void>;
   protected abstract completeBooking(): Promise<void>;
 
-  async startVisit(): Promise<{ bookingURL: string }> {
-    await this.goToReviewPage();
+  async startVisit(): Promise<{ bookingURL: string; firstName: string; lastName: string; email: string }> {
+    const bookingData = await this.goToReviewPage();
     await this.completeBooking();
-    await this.page.waitForURL(/\/visit/);
-    return { bookingURL: this.page.url() };
+    await this.page.waitForURL(/\/visit\//);
+    return {
+      bookingURL: this.page.url(),
+      firstName: bookingData.firstName,
+      lastName: bookingData.lastName,
+      email: bookingData.email,
+    };
   }
-
   async checkValueIsNotEmpty(value: Locator): Promise<void> {
     const textContent = await value.textContent();
     await expect(textContent).not.toBeNull();

@@ -412,7 +412,7 @@ const WelcomeBack = (): JSX.Element => {
   }
 
   const onBack = (): void => {
-    navigate(getStartingPath(selectedLocation, visitType, serviceType, selectedSlot), { state: { reschedule: true } });
+    navigate(`/home`);
   };
 
   return (

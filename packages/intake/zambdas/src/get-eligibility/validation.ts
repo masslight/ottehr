@@ -4,6 +4,7 @@ import {
   APIErrorCode,
   BillingProviderDataObject,
   BillingProviderResource,
+  flattenItems,
   getBillingProviderData,
   GetBillingProviderInput,
   GetEligibilityInput,
@@ -46,8 +47,14 @@ export function validateRequestParameters(input: ZambdaInput): GetEligibilityInp
       let secondaryPolicyHolder: GetEligibilityPolicyHolder | undefined;
       let secondaryInsuranceData: GetEligibilityInsuranceData | undefined;
       if (secondaryInsuranceItem !== undefined) {
-        secondaryPolicyHolder = mapResponseItemsToInsurancePolicyHolder(secondaryInsuranceItem?.item ?? [], '-2');
-        secondaryInsuranceData = mapResponseItemsToInsuranceData(secondaryInsuranceItem.item ?? [], '-2');
+        try {
+          secondaryPolicyHolder = mapResponseItemsToInsurancePolicyHolder(secondaryInsuranceItem?.item ?? [], '-2');
+          secondaryInsuranceData = mapResponseItemsToInsuranceData(secondaryInsuranceItem.item ?? [], '-2');
+        } catch (e) {
+          console.error('Error parsing secondary insurance data', e);
+          secondaryPolicyHolder = undefined;
+          secondaryInsuranceData = undefined;
+        }
       }
       console.log('primaryPolicyHolder', JSON.stringify(primaryPolicyHolder));
       console.log('primaryInsuranceData', JSON.stringify(primaryInsuranceData));
@@ -133,7 +140,7 @@ const mapResponseItemsToInsuranceData = (
 ): GetEligibilityInsuranceData => {
   let insuranceId, memberId: string | undefined;
   const requiredFields = new Set([`insurance-member-id${suffix}`, `insurance-carrier${suffix}`]);
-  items.forEach((i) => {
+  flattenItems(items).forEach((i: any) => {
     requiredFields.delete(i.linkId);
     if (i.linkId === `insurance-member-id${suffix}`) {
       memberId = i.answer?.[0]?.valueString;

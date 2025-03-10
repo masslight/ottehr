@@ -7,6 +7,7 @@ import { useGetAppointmentAccessibility } from '../../hooks';
 import { useAppointmentStore, useVideoCallStore } from '../../state';
 import { getAppointmentWaitingTime } from '../../utils';
 import { AppointmentFooterButton } from './AppointmentFooterButton';
+import { dataTestIds } from '../../../constants/data-test-ids';
 
 export const AppointmentFooter: FC = () => {
   const theme = useTheme();
@@ -31,6 +32,7 @@ export const AppointmentFooter: FC = () => {
         backgroundColor: theme.palette.primary.dark,
         zIndex: (theme) => theme.zIndex.drawer + 1,
       }}
+      data-testid={dataTestIds.telemedEhrFlow.appointmentChartFooter}
     >
       {isInviteParticipantOpen && (
         <InviteParticipant modalOpen={isInviteParticipantOpen} onClose={() => setIsInviteParticipantOpen(false)} />

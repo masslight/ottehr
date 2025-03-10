@@ -119,6 +119,7 @@ const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): st
   if (numErrors === 0) {
     return undefined;
   }
+  // console.log('errors in form', JSON.stringify(errors, null, 2));
   const errorItems = items
     .filter((i) => errorKeys.includes(i.linkId) && (i.text !== undefined || i.type === 'group'))
     .flatMap((i) => {

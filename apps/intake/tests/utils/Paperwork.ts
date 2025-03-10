@@ -23,6 +23,20 @@ export class Paperwork {
   private relationshipResponsiblePartySelf = 'Self';
   private relationshipConsentForms = ['Legal Guardian', 'Parent', 'Other', 'Spouse', 'Self'];
   private birthSex = ['Male', 'Female', 'Intersex'];
+  private pronouns = ['He/him', 'She/her', 'They/them', 'My pronouns are not listed'];
+  private pointOfDiscovery = [
+    'Friend/Family',
+    'Been there with another family member',
+    'Healthcare Professional',
+    'Google/Internet search',
+    'Internet ad',
+    'Social media community group',
+    'Webinar',
+    'TV/Radio',
+    'Newsletter',
+    'School',
+    'Drive by/Signage',
+  ];
   getRandomState(): string {
     const randomIndex = Math.floor(Math.random() * AllStates.length);
     return AllStates[randomIndex].value;
@@ -49,7 +63,6 @@ export class Paperwork {
     await this.locator.proceedToPaperwork.click();
   }
   async checkContactInformationPageOpens(): Promise<void> {
-    await this.clickProceedToPaperwork();
     await expect(this.locator.flowHeading).toBeVisible();
     await expect(this.locator.flowHeading).toHaveText('Contact information');
   }
@@ -58,6 +71,10 @@ export class Paperwork {
     await this.fillPatientCity();
     await this.fillPatientState();
     await this.fillPatientZip();
+    await expect(this.locator.streetAddress).not.toBeEmpty();
+    await expect(this.locator.patientCity).not.toBeEmpty();
+    await expect(this.locator.patientState).not.toBeEmpty();
+    await expect(this.locator.patientZip).not.toBeEmpty();
   }
   async fillContactInformationAllFields(): Promise<void> {
     await this.fillContactInformationRequiredFields();
@@ -65,22 +82,32 @@ export class Paperwork {
     await this.fillMobileOptIn();
   }
   async fillStreetAddress(): Promise<void> {
-    await this.locator.streetAddress.fill(`Address ${this.getRandomString()}`);
+    const address = `Address ${this.getRandomString()}`;
+    await this.locator.streetAddress.fill(address);
+    await expect(this.locator.streetAddress).toHaveValue(address);
   }
   async fillStreetAddressLine2(): Promise<void> {
-    await this.locator.streetAddressLine2.fill(`Address Line 2 ${this.getRandomString()}`);
+    const addressLine2 = `Address Line 2 ${this.getRandomString()}`;
+    await this.locator.streetAddressLine2.fill(addressLine2);
+    await expect(this.locator.streetAddressLine2).toHaveValue(addressLine2);
   }
   async fillPatientCity(): Promise<void> {
-    await this.locator.patientCity.fill(`City${this.getRandomString()}`);
+    const city = `City${this.getRandomString()}`;
+    await this.locator.patientCity.fill(city);
+    await expect(this.locator.patientCity).toHaveValue(city);
+    await this.locator.streetAddress.fill(`Address ${this.getRandomString()}`);
   }
   async fillPatientState(): Promise<void> {
     const randomState = this.getRandomState();
     await this.locator.patientState.click();
     await this.locator.patientState.fill(randomState);
     await this.page.getByRole('option', { name: randomState }).click();
+    await expect(this.locator.patientState).toHaveValue(randomState);
   }
   async fillPatientZip(): Promise<void> {
-    await this.locator.patientZip.fill('12345');
+    const zip = '12345';
+    await this.locator.patientZip.fill(zip);
+    await expect(this.locator.patientZip).toHaveValue(zip);
   }
   async fillMobileOptIn(): Promise<void> {
     await this.locator.mobileOptIn.check();
@@ -95,10 +122,9 @@ export class Paperwork {
   async checkPatientNameIsDisplayed(firstName: string, lastName: string): Promise<void> {
     await expect(this.page.getByText(`${firstName} ${lastName}`)).toBeVisible();
   }
-  async checkPatientDetailsPageOpens(): Promise<void> {
-    await this.CommonLocatorsHelper.clickContinue();
+  async checkCorrectPageOpens(pageTitle: string): Promise<void> {
     await expect(this.locator.flowHeading).toBeVisible();
-    await expect(this.locator.flowHeading).toHaveText('Patient details');
+    await expect(this.locator.flowHeading).toHaveText(pageTitle);
   }
   async fillEthnicity(): Promise<void> {
     await this.validateAllOptions(this.locator.patientEthnicity, Object.values(PatientEthnicity), 'ethnicity');
@@ -110,18 +136,83 @@ export class Paperwork {
     const randomRace = this.getRandomRace();
     await this.page.getByRole('option', { name: randomRace }).click();
   }
+  async fillPronoun(): Promise<void> {
+    await this.validateAllOptions(this.locator.patientPronouns, this.pronouns, 'pronoun');
+    const randomPronoun = this.getRandomElement(this.pronouns);
+    await this.page.getByRole('option', { name: randomPronoun }).click();
+  }
+  async fillNotListedPronouns(): Promise<void> {
+    await this.validateAllOptions(this.locator.patientPronouns, this.pronouns, 'pronoun');
+    await this.page.getByRole('option', { name: 'My pronouns are not listed' }).click();
+    await expect(this.locator.patientMyPronounsLabel).toBeVisible();
+    await expect(this.locator.patientMyPronounsInput).toBeVisible();
+    await this.locator.patientMyPronounsInput.fill('Not listed pronouns');
+  }
+  async fillPointOfDiscovery(): Promise<void> {
+    await this.validateAllOptions(this.locator.patientPointOfDiscovery, this.pointOfDiscovery, 'point of discovery');
+    const randomPoint = this.getRandomElement(this.pointOfDiscovery);
+    await this.page.getByRole('option', { name: randomPoint }).click();
+  }
   async fillPreferredLanguage(): Promise<void> {
     await this.validateAllOptions(this.locator.patientPreferredLanguage, this.language, 'language');
     const randomLanguage = this.getRandomElement(this.language);
     await this.page.getByRole('option', { name: randomLanguage }).click();
+  }
+  async checkRequiredFields(requiredFields: string, pageTitle: string): Promise<void> {
+    await this.CommonLocatorsHelper.clickContinue();
+    await expect(
+      this.page.getByText(`Please fix the errors in the following fields to proceed: ${requiredFields}`)
+    ).toBeVisible();
+    await this.CommonLocatorsHelper.clickContinue();
+    await expect(this.locator.flowHeading).toHaveText(pageTitle);
   }
   async fillPatientDetailsRequiredFields(): Promise<void> {
     await this.fillEthnicity();
     await this.fillRace();
     await this.fillPreferredLanguage();
   }
+  async fillPatientDetailsAllFields(): Promise<void> {
+    await this.fillEthnicity();
+    await this.fillRace();
+    await this.fillPronoun();
+    await this.fillPointOfDiscovery();
+    await this.fillPreferredLanguage();
+  }
   async skipPrimaryCarePhysician(): Promise<void> {
     await this.CommonLocatorsHelper.clickContinue();
+  }
+  async fillPrimaryCarePhysician(): Promise<{
+    firstName: string;
+    lastName: string;
+    pcpAddress: string;
+    pcpName: string;
+    formattedPhoneNumber: string;
+  }> {
+    const firstName = `First name test`;
+    const lastName = `Last name test`;
+    const pcpAddress = `PCP address test`;
+    const pcpName = `PCP name test`;
+    const pcpNumber = '1234567890';
+    const formattedPhoneNumber = this.formatPhoneNumber(pcpNumber);
+    await this.locator.pcpFirstName.fill(firstName);
+    await expect(this.locator.pcpFirstName).toHaveValue(firstName);
+    await this.locator.pcpLastName.fill(lastName);
+    await expect(this.locator.pcpLastName).toHaveValue(lastName);
+    await this.locator.pcpAddress.fill(pcpAddress);
+    await expect(this.locator.pcpAddress).toHaveValue(pcpAddress);
+    await this.locator.pcpPractice.fill(pcpName);
+    await expect(this.locator.pcpPractice).toHaveValue(pcpName);
+    await this.locator.pcpNumber.fill(pcpNumber);
+    await expect(this.locator.pcpNumber).toHaveValue(formattedPhoneNumber);
+    return { firstName, lastName, pcpAddress, pcpName, formattedPhoneNumber };
+  }
+  async checkPhoneValidations(number: any, error: any): Promise<void> {
+    await number.fill('123');
+    await this.locator.clickContinueButton();
+    await expect(error).toBeVisible();
+    await number.fill('1234567890');
+    await this.page.keyboard.press('Tab');
+    await expect(error).not.toBeVisible();
   }
   async skipPhotoID(): Promise<void> {
     await this.CommonLocatorsHelper.clickContinue();

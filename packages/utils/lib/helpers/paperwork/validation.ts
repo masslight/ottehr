@@ -15,6 +15,8 @@ import {
   pickFirstValueFromAnswerItem,
   zipRegex,
   QuestionnaireItemConditionDefinition,
+  DOB_DATE_FORMAT,
+  REQUIRED_FIELD_ERROR_MESSAGE,
 } from 'utils';
 import * as Yup from 'yup';
 
@@ -40,9 +42,9 @@ export const FULL_ADDRESS_FIELDS = ['pharmacy-address'];
 const makeReferenceValueSchema = (required: boolean): Yup.AnyObjectSchema => {
   if (required) {
     return Yup.object({
-      reference: Yup.string().required('This field is required'),
-      display: Yup.string().required('This field is required'),
-    }).required('This field is required');
+      reference: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE),
+      display: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE),
+    }).required(REQUIRED_FIELD_ERROR_MESSAGE);
   }
   return Yup.object({
     reference: Yup.string(),
@@ -116,16 +118,16 @@ const wrapSchemaInSingleMemberArray = (
   const { required, filtered } = context;
   const multi = item.acceptsMultipleAnswers;
   if (required && !filtered) {
-    let answer = Yup.array().of(schema).length(1).required('This field is required');
+    let answer = Yup.array().of(schema).length(1).required(REQUIRED_FIELD_ERROR_MESSAGE);
     if (multi) {
-      answer = Yup.array().of(schema).min(1).required('This field is required');
+      answer = Yup.array().of(schema).min(1).required(REQUIRED_FIELD_ERROR_MESSAGE);
     }
     return Yup.object({
       linkId: Yup.string(),
       answer,
     })
       .transform((v) => (!v ? undefined : v))
-      .required('This field is required');
+      .required(REQUIRED_FIELD_ERROR_MESSAGE);
   }
   return Yup.object({
     linkId: Yup.string().optional(),
@@ -154,13 +156,13 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
     }
 
     if (required) {
-      stringSchema = stringSchema.required('This field is required');
+      stringSchema = stringSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
     }
     let schema: Yup.AnySchema = Yup.object({
       valueString: stringSchema,
     });
     if (required) {
-      schema = schema.required('This field is required');
+      schema = schema.required(REQUIRED_FIELD_ERROR_MESSAGE);
     } else {
       schema = schema.optional();
     }
@@ -169,44 +171,43 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
   if (item.type === 'boolean') {
     let booleanSchema = Yup.boolean();
     if (required) {
-      booleanSchema = booleanSchema.is([true], 'This field is required').required('This field is required');
+      booleanSchema = booleanSchema.is([true], REQUIRED_FIELD_ERROR_MESSAGE).required(REQUIRED_FIELD_ERROR_MESSAGE);
     }
     schemaTemp = Yup.object({
       valueBoolean: booleanSchema,
     });
     if (required) {
-      schemaTemp = schemaTemp.required('This field is required');
+      schemaTemp = schemaTemp.required(REQUIRED_FIELD_ERROR_MESSAGE);
     }
   }
 
   if (item.type === 'choice' && item.answerOption && item.answerOption.length) {
     let stringSchema = Yup.string();
     if (required) {
-      stringSchema = stringSchema.required('This field is required');
+      stringSchema = stringSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
     }
     stringSchema = stringSchema.oneOf(item.answerOption.map((option) => option.valueString));
     let schema = Yup.object({
       valueString: stringSchema,
     });
     if (required) {
-      schema = schema.required('This field is required');
+      schema = schema.required(REQUIRED_FIELD_ERROR_MESSAGE);
     }
     schemaTemp = schema;
   }
   if ((item.type === 'choice' || item.type === 'open-choice') && item.answerLoadingOptions !== undefined) {
     const { answerSource } = item.answerLoadingOptions;
-    console.log('required', item.linkId, required, item.required);
     if (!answerSource) {
       // answer options come from answerValueSet, which are converted into valueString choices
       let stringSchema = Yup.string();
       if (required) {
-        stringSchema = stringSchema.required('This field is required');
+        stringSchema = stringSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
       }
       let schema = Yup.object({
         valueString: stringSchema,
       });
       if (required) {
-        schema = schema.required('This field is required');
+        schema = schema.required(REQUIRED_FIELD_ERROR_MESSAGE);
       }
       schemaTemp = schema;
     } else {
@@ -215,7 +216,7 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
         valueReference: makeReferenceValueSchema(required),
       });
       if (required) {
-        referenceSchema = referenceSchema.required('This field is required');
+        referenceSchema = referenceSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
       }
       schemaTemp = referenceSchema;
     }
@@ -256,21 +257,21 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
     if (required) {
       objSchema = Yup.object({
         valueAttachment: Yup.object({
-          url: Yup.string().required('This field is required'), // we could have stronger validation for a z3 url here
-          contentType: Yup.string().required('This field is required'),
-          title: Yup.string().required('This field is required'),
+          url: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE), // we could have stronger validation for a z3 url here
+          contentType: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE),
+          title: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE),
           created: Yup.string().optional(),
           extension: Yup.array()
             .of(Yup.object({ url: Yup.string(), valueString: Yup.string() }))
             .optional(),
-        }).required('This field is required'),
-      }).required('This field is required');
+        }).required(REQUIRED_FIELD_ERROR_MESSAGE),
+      }).required(REQUIRED_FIELD_ERROR_MESSAGE);
     } else {
       objSchema = Yup.object({
         valueAttachment: Yup.object({
-          url: Yup.string().required('This field is required'), // we could have stronger validation for a z3 url here
-          contentType: Yup.string().required('This field is required'),
-          title: Yup.string().required('This field is required'),
+          url: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE), // we could have stronger validation for a z3 url here
+          contentType: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE),
+          title: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE),
           created: Yup.string().optional(),
           extension: Yup.array()
             .of(Yup.object({ url: Yup.string(), valueString: Yup.string() }))
@@ -301,15 +302,19 @@ export const makeValidationSchema = (
     })?.item;
     if (itemsToValidate !== undefined) {
       return Yup.lazy((values) => {
-        return makeValidationSchemaPrivate(itemsToValidate, values, externalContext);
+        return makeValidationSchemaPrivate({ items: itemsToValidate, formValues: values, externalContext });
       });
     } else {
       // this is the branch hit from frontend validation. it is nearly the same as the branch hit by
       // patch. in this case item list is provided directly, where as with Patch it is provided as
       // the item field on { linkId: pageId, item: items }. might be nice to consolidate this.
       // console.log('page id not found; assuming it is root and making schema from items');
-      return Yup.lazy((values: any) => {
-        return makeValidationSchemaPrivate(items, values, externalContext);
+      return Yup.lazy((values: any, options: any) => {
+        return makeValidationSchemaPrivate({
+          items,
+          formValues: values,
+          externalContext: { values: options.context, items: externalContext?.items ?? [] },
+        });
       });
     }
   } else {
@@ -317,7 +322,6 @@ export const makeValidationSchema = (
     return Yup.array().of(
       Yup.object().test('submit test', async (value: any, context: any) => {
         const { linkId: pageId, item: answerItem } = value;
-        console.log('items.it 5', items);
         const questionItem = items.find((i) => i.linkId === pageId);
         if (!questionItem) {
           // console.log('page not found');
@@ -330,15 +334,17 @@ export const makeValidationSchema = (
             return value;
           }
         }
-        const schema = makeValidationSchemaPrivate(questionItem.item ?? [], context);
-        // we convert this from a list to key-val dict to match the form shape
+        const schema = makeValidationSchemaPrivate({
+          items: questionItem.item ?? [],
+          formValues: value,
+          externalContext: { values: context?.parent ?? [], items: items.flatMap((i) => i.item ?? []) },
+        });
         try {
           const reduced = answerItem.reduce((accum: any, current: any) => {
             accum[current.linkId] = { ...current };
             return accum;
           }, {});
           const validated = await schema.validate(reduced, { abortEarly: false });
-          console.log('validated', JSON.stringify(validated));
           return Yup.mixed().transform(() => validated);
         } catch (e) {
           console.log('error: ', pageId, JSON.stringify(answerItem), e);
@@ -349,20 +355,21 @@ export const makeValidationSchema = (
   }
 };
 
-const makeValidationSchemaPrivate = (
-  items: IntakeQuestionnaireItem[],
-  formValues: any,
-  externalContext?: { values: any; items: any }
-): Yup.AnyObjectSchema => {
+interface PrivateMakeSchemaArgs {
+  items: IntakeQuestionnaireItem[];
+  formValues: any; // todo: better typing on these "any" types
+  externalContext?: { values: any; items: any };
+}
+
+const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjectSchema => {
+  const { items, formValues, externalContext: maybeExternalContext } = input;
+  // const contextualItems = maybeExternalContext?.items ?? [];
+  const externalValues = maybeExternalContext?.values ?? [];
   // console.log('validation items', items);
   // these allow us some flexibility to inject field dependencies from another
-  // paperwork page, or anywhere outside the context of the immediate form being validated
-  const externalValues = externalContext?.values ?? {};
-
-  const validatableItems = items
-    .filter((item) => item?.type !== 'display' && !item?.readOnly)
-    .flatMap((item) => makeValidatableItem(item));
-  let allValues = (externalContext?.values ?? [])
+  // paperwork page, or anywhere outside the context of the immediate form being validated,
+  // or to keep parent/sibling items in context when drilling down into a group
+  let allValues = [...externalValues]
     .flatMap((page: any) => page.item)
     .reduce((accum: { [x: string]: any }, current: any) => {
       const linkId = current?.linkId;
@@ -372,13 +379,19 @@ const makeValidationSchemaPrivate = (
       return accum;
     }, {} as any);
   allValues = { ...allValues, ...formValues };
+  const validatableItems = [...items]
+    .filter((item) => item?.type !== 'display' && !item?.readOnly && !evalFilterWhen(item, allValues))
+    .flatMap((item) => makeValidatableItem(item));
   const validationTemp: any = {};
   validatableItems.forEach((item) => {
     let schemaTemp: any | undefined = item.type !== 'group' ? schemaForItem(item, allValues) : undefined;
     if (item.type === 'group' && item.item && item.dataType !== 'DOB') {
       const filteredItems = (item.item ?? []).filter((item) => item?.type !== 'display' && !item?.readOnly);
-      // console.log('filtered items', filteredItems);
-      const embeddedSchema = makeValidationSchemaPrivate(filteredItems, externalContext);
+      const embeddedSchema = makeValidationSchemaPrivate({
+        items: filteredItems,
+        formValues,
+        externalContext: maybeExternalContext,
+      });
       // console.log('embedded schema', embeddedSchema);
       schemaTemp = Yup.object().shape({
         linkId: Yup.string(),
@@ -429,14 +442,32 @@ const makeValidationSchemaPrivate = (
                     if (!idx) {
                       return false;
                     }
-                    const item: any = {};
-                    item[val.linkId] = val;
+                    const memberItem: any = {};
+                    memberItem[val.linkId] = val;
 
+                    const memberItemDef = item.item?.find((i) => i.linkId === val.linkId);
+                    // members of a group may have their own filter trigger independent of the group
+                    // this occurs in the default virtual intake paperwork in the school-work-note-template-upload-group
+                    if (memberItemDef) {
+                      const shouldFilterMember = evalFilterWhen(memberItemDef, combinedContext);
+                      if (shouldFilterMember) {
+                        return true;
+                      }
+                    }
                     // console.log('idx', idx, itemLinkId, val, item);
-                    return embeddedSchema.validateAt(val.linkId, item);
+                    return embeddedSchema.validateAt(val.linkId, memberItem);
                   } catch (e) {
                     console.log('thrown error from group member test', e);
-                    return context.createError({ message: (e as any).message });
+                    // this special one-off handling deals with the allergies page, which has an item that
+                    // powers some logic in the form, but is not actually a field that needs to be validated because it
+                    // contributes no persisted values. there's probably a better way to handle this, but this works for now.
+                    if (typeof e === 'object' && (e as any).message) {
+                      const mesage = (e as any).message as string | undefined;
+                      if (mesage?.startsWith('The schema does not contain the path') && item.required === false) {
+                        return true;
+                      }
+                    }
+                    return context.createError({ message: (e as any).message, val, item });
                   }
                 }
                 return true;
@@ -505,13 +536,40 @@ const evalString = (operator: EnableWhenOperator, answerValue: string, value: st
   throw new Error(`Unexpected operator ${operator} encountered for boolean value`);
 };
 
+const evalDateTime = (operator: EnableWhenOperator, answerValue: string, value: string | undefined): boolean => {
+  if (value === undefined) {
+    return false;
+  }
+
+  const answerDT = DateTime.fromISO(answerValue);
+  const valDT = DateTime.fromISO(value);
+
+  if (!answerDT.isValid || !valDT.isValid) {
+    return false;
+  }
+
+  if (operator === '=') {
+    return answerDT.equals(valDT);
+  } else if (operator === '!=') {
+    return !answerDT.equals(valDT);
+  } else if (operator === '<=') {
+    return answerDT.diff(valDT, 'seconds').seconds <= 0;
+  } else if (operator === '<') {
+    return answerDT.diff(valDT, 'seconds').seconds < 0;
+  } else if (operator === '>=') {
+    return answerDT.diff(valDT, 'seconds').seconds >= 0;
+  } else if (operator === '>') {
+    return answerDT.diff(valDT, 'seconds').seconds > 0;
+  }
+  throw new Error(`Unexpected operator ${operator} encountered for boolean value`);
+};
+
 const evalEnableWhenItem = (
   enableWhen: QuestionnaireItemEnableWhen,
   values: { [itemLinkId: string]: QuestionnaireResponseItem },
   items: QuestionnaireItem[]
 ): boolean => {
-  const { answerString, answerBoolean, question, operator } = enableWhen;
-  // console.log('items', items);
+  const { answerString, answerBoolean, answerDate, answerInteger, question, operator } = enableWhen;
   const questionPathNodes = question.split('.');
 
   const itemDef = questionPathNodes.reduce(
@@ -546,11 +604,6 @@ const evalEnableWhenItem = (
     return (accum.item ?? []).find((i: any) => i?.linkId && i.linkId === current);
   }, values as any);
 
-  if (answerBoolean === undefined && answerString === undefined) {
-    // we only need to support these 2 value types so far
-    return false;
-  }
-
   if (itemDef.type === 'boolean' && answerBoolean !== undefined) {
     return evalBoolean(operator, answerBoolean, pickFirstValueFromAnswerItem(valueDef, 'boolean'));
   } else if (
@@ -559,8 +612,16 @@ const evalEnableWhenItem = (
   ) {
     const verdict = evalString(operator, answerString, pickFirstValueFromAnswerItem(valueDef));
     return verdict;
+  } else if (itemDef.type === 'date' && answerDate !== undefined) {
+    return evalDateTime(operator, answerDate, pickFirstValueFromAnswerItem(valueDef));
+  } else if (itemDef.type === 'date' && answerInteger !== undefined) {
+    const answerDateFormatted = formattedDateStringForYearsAgo(`${answerInteger}`);
+    if (answerDateFormatted === undefined) {
+      return false;
+    }
+    return evalDateTime(operator, answerDateFormatted, pickFirstValueFromAnswerItem(valueDef));
   } else {
-    // we only support string and bool atm
+    // we only support string, bool, and date atm, but extensions welcome as needed!
     return false;
   }
 };
@@ -606,7 +667,7 @@ export const evalRequired = (item: IntakeQuestionnaireItem, context: any, questi
     return false;
   }
 
-  return evalCondition(item.requireWhen, context, questionVal);
+  return evalCondition(item.requireWhen, context, item.type, questionVal);
 };
 
 export const evalItemText = (item: IntakeQuestionnaireItem, context: any, questionVal?: any): string | undefined => {
@@ -616,7 +677,7 @@ export const evalItemText = (item: IntakeQuestionnaireItem, context: any, questi
   }
   const { substituteText } = textWhen;
 
-  if (evalCondition(textWhen, context, questionVal)) {
+  if (evalCondition(textWhen, context, item.type, questionVal)) {
     return substituteText;
   }
   return item.text;
@@ -657,7 +718,7 @@ export const evalFilterWhen = (item: IntakeQuestionnaireItem, context: any, ques
   if (item.filterWhen === undefined) {
     return false;
   }
-  return evalCondition(item.filterWhen, context, questionVal);
+  return evalCondition(item.filterWhen, context, item.type, questionVal);
 };
 
 export const evalComplexValidationTrigger = (
@@ -665,17 +726,22 @@ export const evalComplexValidationTrigger = (
   context: any,
   questionVal?: any
 ): boolean => {
-  console.log('item.complex', item.complexValidation?.type, item.complexValidation?.triggerWhen);
+  // console.log('item.complex', item.complexValidation?.type, item.complexValidation?.triggerWhen);
   if (item.complexValidation === undefined) {
     return false;
   } else if (item.complexValidation?.triggerWhen === undefined) {
     return true;
   }
-  return evalCondition(item.complexValidation.triggerWhen, context, questionVal);
+  return evalCondition(item.complexValidation.triggerWhen, context, item.type, questionVal);
 };
 
-const evalCondition = (condition: QuestionnaireItemConditionDefinition, context: any, questionVal?: any): boolean => {
-  const { question, operator, answerString, answerBoolean } = condition;
+const evalCondition = (
+  condition: QuestionnaireItemConditionDefinition,
+  context: any,
+  type: IntakeQuestionnaireItem['type'],
+  questionVal?: any
+): boolean => {
+  const { question, operator, answerString, answerBoolean, answerDate, answerInteger } = condition;
   const questionValue = recursivePathEval(context, question, questionVal);
 
   if (answerString !== undefined) {
@@ -696,6 +762,20 @@ const evalCondition = (condition: QuestionnaireItemConditionDefinition, context:
     if (operator === '!=' && comparisonBool !== answerBoolean) {
       return true;
     }
+  }
+  if (answerDate !== undefined) {
+    const valueDateString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;
+    return evalDateTime(operator, answerDate, valueDateString);
+  }
+  if (answerInteger && type === 'date') {
+    const valueDateString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;
+    // by convention, an answerInteger on date type item will be interpreted as expressing a value in years
+    // if the value is 18, for instance, we will calculate 18 years from the current date
+    const answerDateFormatted = formattedDateStringForYearsAgo(`${answerInteger}`);
+    if (answerDateFormatted === undefined) {
+      return false;
+    }
+    return evalDateTime(operator, answerDateFormatted, valueDateString);
   }
   return false;
 };
@@ -719,7 +799,7 @@ export const recursiveGroupTransform = (items: IntakeQuestionnaireItem[], values
       return { linkId: item.linkId };
     }
     if (match.item) {
-      return { ...trimInvalidAnswersFromItem(match), item: recursiveGroupTransform(item.item ?? [], match.item) };
+      return { ...trimInvalidAnswersFromItem(match), item: recursiveGroupTransform(match.item ?? [], match.item) };
     } else {
       return trimInvalidAnswersFromItem(match);
     }
@@ -753,4 +833,17 @@ const recursivePathEval = (context: any, question: string, value?: any): any | u
     console.log('error resolving path', e, context);
   }
   return undefined;
+};
+
+const formattedDateStringForYearsAgo = (yearsAgoString: string): string | undefined => {
+  const asInt = parseInt(yearsAgoString);
+  if (Number.isNaN(asInt)) {
+    return undefined;
+  }
+  if (asInt < 0) {
+    return undefined;
+  }
+  const yearsAgo = DateTime.now().startOf('day').minus({ years: asInt });
+  const answerDateFormatted = yearsAgo.toFormat(DOB_DATE_FORMAT);
+  return answerDateFormatted;
 };

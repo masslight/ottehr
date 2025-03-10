@@ -62,6 +62,7 @@ const internalNotesConfig: GenericNotesConfig = {
     fieldName: 'notes',
     type: NOTE_TYPE.INTERNAL,
     searchParams: {
+      _search_by: 'encounter',
       _sort: '-_lastUpdated',
       _count: 1000,
       _tag: {

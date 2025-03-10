@@ -4,8 +4,10 @@ import { Controller, useFormContext } from 'react-hook-form';
 import {
   COVERAGE_ADDITIONAL_INFORMATION_URL,
   coverageFieldPaths,
+  isPostalCodeValid,
   RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL,
   relatedPersonFieldPaths,
+  REQUIRED_FIELD_ERROR_MESSAGE,
   ResourceTypeNames,
 } from 'utils';
 import { BasicDatePicker as DatePicker, FormAutocomplete, FormSelect, FormTextField } from '../../components/form';
@@ -38,7 +40,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
 
   const [showMoreInfo, setShowMoreInfo] = useState(false);
 
-  const { control } = useFormContext();
+  const { control, trigger } = useFormContext();
 
   const allInsurances = useMemo(
     () => [
@@ -57,7 +59,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
 
   if (!insurance) return null;
 
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>, insurancePlan?: InsurancePlanDTO): void => {
     const { name, value } = event.target;
     const baseName = name.split('_')[0];
     if (insurance.isTemp) {
@@ -135,7 +137,14 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
       updateTempInsurance(insurance.coverage.id || '', updatedInsurance);
     } else {
       if (baseName.startsWith(ResourceTypeNames.coverage)) {
-        updatePatientField(baseName, value, insurance.coverage.id);
+        if (baseName === coverageFieldPaths.carrier) {
+          if (!insurancePlan) return;
+          updatePatientField(coverageFieldPaths.carrier, insurancePlan?.name, insurance.coverage.id);
+          updatePatientField(coverageFieldPaths.payerId, insurancePlan?.payerId, insurance.coverage.id);
+          updatePatientField(coverageFieldPaths.payor, insurancePlan?.ownedBy, insurance.coverage.id);
+        } else {
+          updatePatientField(baseName, value, insurance.coverage.id);
+        }
       } else if (baseName.startsWith(ResourceTypeNames.relatedPerson)) {
         updatePatientField(baseName, value, insurance.relatedPerson?.id);
       }
@@ -159,7 +168,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
     if (insurance.isTemp) {
       removeTempInsurance(insuranceId);
     } else {
-      console.log('Remove insurance', insuranceId);
       updatePatientField(coverageFieldPaths.status, 'cancelled', insuranceId);
       dropInsurance(insuranceId);
     }
@@ -172,6 +180,9 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
           name={`${coverageFieldPaths.order}_${insurance.coverage.id}`}
           control={control}
           options={INSURANCE_COVERAGE_OPTIONS}
+          rules={{
+            required: REQUIRED_FIELD_ERROR_MESSAGE,
+          }}
           defaultValue={insurance.coverage.order?.toString()}
           onChangeHandler={handleChange}
         />
@@ -182,7 +193,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
           control={control}
           defaultValue={insurance.coverage.class?.[0].name || ''}
           rules={{
-            required: true,
+            required: REQUIRED_FIELD_ERROR_MESSAGE,
             validate: (value) => insurancePlans.some((option) => option.name === value),
           }}
           render={({ field: { onChange, value }, fieldState: { error } }) => {
@@ -197,16 +208,22 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
                 getOptionLabel={(option) => option.name || ''}
                 onChange={(_, newValue) => {
                   onChange(newValue?.name || '');
-                  handleChange({
-                    target: {
-                      name: `${coverageFieldPaths.carrier}_${insurance.coverage.id}`,
-                      value: newValue?.name || '',
-                    },
-                  } as any);
+                  handleChange(
+                    {
+                      target: {
+                        name: `${coverageFieldPaths.carrier}_${insurance.coverage.id}`,
+                        value: newValue?.name || '',
+                      },
+                    } as any,
+                    newValue
+                  );
+                  void trigger(`${coverageFieldPaths.carrier}_${insurance.coverage.id}`);
                 }}
                 disableClearable
                 fullWidth
-                renderInput={(params) => <TextField {...params} variant="standard" error={!!error} required />}
+                renderInput={(params) => (
+                  <TextField {...params} variant="standard" error={!!error} required helperText={error?.message} />
+                )}
               />
             );
           }}
@@ -218,7 +235,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
           name={`${coverageFieldPaths.memberId}_${insurance.coverage.id}`}
           control={control}
           defaultValue={insurance.coverage.identifier?.[0].value}
-          rules={{ required: true }}
+          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           onChangeHandler={handleChange}
         />
       </Row>
@@ -237,7 +254,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
               name={`${relatedPersonFieldPaths.firstName}_${insurance.relatedPerson?.id}`}
               control={control}
               defaultValue={insurance.relatedPerson?.name?.[0]?.given?.[0]}
-              rules={{ required: true }}
+              rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
               onChangeHandler={handleChange}
             />
           </Row>
@@ -260,7 +277,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
               name={`${relatedPersonFieldPaths.lastName}_${insurance.relatedPerson?.id}`}
               control={control}
               defaultValue={insurance.relatedPerson?.name?.[0]?.family || ''}
-              rules={{ required: true }}
+              rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
               onChangeHandler={handleChange}
             />
           </Row>
@@ -281,7 +298,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
               control={control}
               defaultValue={insurance.relatedPerson?.gender}
               options={SEX_OPTIONS}
-              rules={{ required: true }}
+              rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
               onChangeHandler={handleChange}
             />
           </Row>
@@ -325,12 +342,15 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
               )}
             />
           </Box>
-          <Row label="Street address" inputId={`policy-holder-street-address_${insurance.relatedPerson?.id}`}>
+          <Row label="Street address" inputId={`policy-holder-street-address_${insurance.relatedPerson?.id}`} required>
             <FormTextField
               id={`policy-holder-street-address_${insurance.relatedPerson?.id}`}
               name={`${relatedPersonFieldPaths.streetAddress}_${insurance.relatedPerson?.id}`}
               control={control}
               defaultValue={insurance.relatedPerson?.address?.[0]?.line?.[0]}
+              rules={{
+                required: REQUIRED_FIELD_ERROR_MESSAGE,
+              }}
               onChangeHandler={handleChange}
             />
           </Row>
@@ -343,12 +363,15 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
               onChangeHandler={handleChange}
             />
           </Row>
-          <Row label="City, State, ZIP">
+          <Row label="City, State, ZIP" required>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <FormTextField
                 name={`${relatedPersonFieldPaths.city}_${insurance.relatedPerson?.id}`}
                 control={control}
                 defaultValue={insurance.relatedPerson?.address?.[0]?.city}
+                rules={{
+                  required: REQUIRED_FIELD_ERROR_MESSAGE,
+                }}
                 onChangeHandler={handleChange}
               />
               <FormAutocomplete
@@ -358,6 +381,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
                 options={STATE_OPTIONS}
                 rules={{
                   validate: (value: string) => STATE_OPTIONS.some((option) => option.value === value),
+                  required: REQUIRED_FIELD_ERROR_MESSAGE,
                 }}
                 onChangeHandler={handleAutocompleteChange}
               />
@@ -365,6 +389,10 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
                 name={`${relatedPersonFieldPaths.zip}_${insurance.relatedPerson?.id}`}
                 control={control}
                 defaultValue={insurance.relatedPerson?.address?.[0]?.postalCode}
+                rules={{
+                  validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
+                  required: REQUIRED_FIELD_ERROR_MESSAGE,
+                }}
                 onChangeHandler={handleChange}
               />
             </Box>
@@ -375,6 +403,9 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
               control={control}
               defaultValue={insurance.coverage?.relationship?.coding?.[0]?.display}
               options={RELATIONSHIP_TO_INSURED_OPTIONS}
+              rules={{
+                required: REQUIRED_FIELD_ERROR_MESSAGE,
+              }}
               onChangeHandler={handleChange}
             />
           </Row>

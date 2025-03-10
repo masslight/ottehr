@@ -108,6 +108,7 @@ const ReviewPaperwork = (): JSX.Element => {
     );
 
     try {
+      // todo: we should be using async validation here
       validationSchema.validateSync(completedPaperwork, { abortEarly: false });
     } catch (e) {
       const errorList =

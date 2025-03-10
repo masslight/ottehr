@@ -10,7 +10,7 @@ interface RelatedPersonParams {
 
 export function createRelatedPerson({
   patientId,
-  phoneNumber = '+12144985555',
+  phoneNumber = '+12144985545',
   relationshipCode = 'user-relatedperson',
   relationshipSystem = 'https://fhir.zapehr.com/r4/StructureDefinitions/relationship',
 }: RelatedPersonParams): RelatedPerson {

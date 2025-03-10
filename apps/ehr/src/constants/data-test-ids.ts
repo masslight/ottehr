@@ -6,10 +6,14 @@ export const dataTestIds = {
   },
   cssHeader: {
     container: 'css-header-container',
+    patientName: 'patient-name',
+    appointmentStatus: 'appointment-status',
+    switchStatusButton: (status: string) => `switch-status-to-${status}`,
   },
   dashboard: {
+    appointmentsTable: (tab: 'prebooked' | 'in-office' | 'completed' | 'cancelled') => `appointments-table-${tab}`,
     addPatientButton: 'add-patient-button',
-    intakeButton: (appointmentId: string) => `intake-button-${appointmentId}`,
+    intakeButton: `intake-button`,
     prebookedTab: 'prebooked-tab',
     locationSelect: 'location-select',
     datePickerTodayButton: 'date-picker-today-button',
@@ -20,6 +24,7 @@ export const dataTestIds = {
     appointmentTime: 'appointment-time',
     inOfficeTab: 'in-office-tab',
     groupSelect: 'group-select',
+    dischargedTab: 'discharged-tab',
   },
   appointmentPage: {
     patientFullName: 'patient-full-name',
@@ -76,6 +81,7 @@ export const dataTestIds = {
   },
   dialog: {
     closeButton: 'close-button',
+    proceedButton: 'proceed-button',
   },
   statesPage: {
     statesSearch: 'states-search',
@@ -134,5 +140,57 @@ export const dataTestIds = {
     addQualificationButton: 'add-qualification-button',
     deactivateUserButton: 'deactivate-user-button',
     statusChip: 'employee-status-chip',
+  },
+  telemedEhrFlow: {
+    trackingBoardTableRow: (appointmentId: string) => `telemed-tracking-board-table-row-${appointmentId}`,
+    myPatientsButton: 'telemed-my-patients-button',
+    allPatientsButton: 'telemed-all-patients-button',
+    trackingBoardTable: 'telemed-tracking-board-table',
+    trackingBoardAssignButton: 'telemed-tracking-board-assign-appointment-button',
+    trackingBoardViewButton: (appointmentId?: string) =>
+      `telemed-tracking-board-view-appointment-button-${appointmentId}`,
+    appointmentStatusChip: 'telemed-appointment-status-chip',
+    footerButtonConnectToPatient: 'telemed-appointment-footer-button-connect-to-patient',
+    footerButtonAssignMe: 'telemed-appointment-footer-button-assign-me',
+    appointmentChartFooter: 'telemed-chart-appointment-footer',
+    hpiMedicalConditionsLoadingSkeleton: 'telemed-medical-conditions-loading-skeleton',
+    hpiMedicalConditionColumn: 'telemed-hpi-medical-condition-column',
+    hpiMedicalConditionsList: 'telemed-hpi-medical-condition-list',
+    hpiMedicalConditionsInput: 'telemed-hpi-medical-condition-input',
+    hpiKnownAllergiesColumn: 'telemed-hpi-known-allergies-column',
+    hpiKnownAllergiesList: 'telemed-hpi-known-allergies-list',
+    hpiKnownAllergiesInput: 'telemed-hpi-known-allergies-input',
+    hpiSurgicalHistoryColumn: 'telemed-hpi-surgical-history-column',
+    // hpiSurgicalHistoryList: 'telemed-hpi-surgical-history-list',
+    hpiSurgicalHistoryInput: 'telemed-hpi-surgical-history-input',
+    hpiAdditionalQuestions: (questionSymptom: string) => `telemed-additional-questions-${questionSymptom}`,
+    hpiSurgicalHistoryNote: 'telemed-hpi-surgical-history-note',
+    hpiChiefComplaintNotes: 'telemed-chief-complaint-notes',
+    hpiChiefComplaintRos: 'telemed-chief-complaint-ros',
+    videoRoomContainer: 'telemed-video-room-container',
+  },
+  sideMenu: {
+    completeIntakeButton: 'complete-intake-button',
+    sideMenuItem: (item: string): string => `menu-item-${item}`,
+  },
+  hospitalizationPage: {
+    hospitalizationTitle: 'hospitalization-title',
+  },
+  progressNotePage: {
+    reviewAndSignButton: 'review-and-sign-button',
+  },
+  assessmentPage: {
+    diagnosisDropdown: 'diagnosis-dropdown',
+    emCodeDropdown: 'em-code-dropdown',
+    medicalDecisionField: 'medical-decision-field',
+  },
+  diagnosisContainer: {
+    deleteButton: 'diagnosis-container-delete-button',
+  },
+  billingContainer: {
+    deleteButton: 'billing-container-delete-button',
+  },
+  patientInfoPage: {
+    patientInfoVerifiedCheckbox: 'patient-info-verified-checkbox',
   },
 };

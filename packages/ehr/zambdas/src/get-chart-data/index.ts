@@ -142,9 +142,7 @@ export async function getChartData(
 
   // notes included only by straight request
   if (requestedFields?.notes) {
-    chartDataRequests.push(
-      createFindResourceRequestByPatientField(patient.id!, 'Communication', 'subject', requestedFields.notes)
-    );
+    addRequestIfNeeded({ field: 'notes', resourceType: 'Communication', defaultSearchBy: 'patient' });
   }
 
   // vitalsObservations included only by straight request

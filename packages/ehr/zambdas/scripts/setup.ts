@@ -7,15 +7,22 @@ import { ScheduleStrategyCoding, TIMEZONE_EXTENSION_URL } from 'utils';
 import { inviteUser } from './invite-user';
 import { promisify } from 'node:util';
 
+export const BUCKET_PAPERWORK_PDF = 'paperwork-pdf';
+
 async function createApplication(oystehr: Oystehr, applicationName: string): Promise<[string, string]> {
   const application = await oystehr.application.create({
     name: applicationName,
     description: 'EHR application with email authentication',
     loginRedirectUri: 'https://ehr-local.ottehr.com/dashboard',
-    allowedCallbackUrls: ['http://localhost:4002', 'http://localhost:4002/dashboard'],
-    allowedLogoutUrls: ['http://localhost:4002'],
-    allowedWebOriginsUrls: ['http://localhost:4002'],
-    allowedCORSOriginsUrls: ['http://localhost:4002'],
+    allowedCallbackUrls: [
+      'http://localhost:4002',
+      'http://localhost:4002/dashboard',
+      'https://localhost:4002',
+      'https://localhost:4002/dashboard',
+    ],
+    allowedLogoutUrls: ['http://localhost:4002', 'https://localhost:4002'],
+    allowedWebOriginsUrls: ['http://localhost:4002', 'https://localhost:4002'],
+    allowedCORSOriginsUrls: ['http://localhost:4002', 'https://localhost:4002'],
     shouldSendInviteEmail: true,
   });
   return [application.id, application.clientId];
@@ -61,6 +68,11 @@ function createZambdaEnvFile(
 
   const envData = { ...templateData, ...overrideData };
 
+  // Handle TLS certificate
+  if (fs.existsSync(path.join(envFolderPath, 'cert.pem')) && fs.existsSync(path.join(envFolderPath, 'key.pem'))) {
+    envData.WEBSITE_URL = 'https://localhost';
+  }
+
   if (!fs.existsSync(envFolderPath)) {
     fs.mkdirSync(envFolderPath, { recursive: true });
   }
@@ -69,17 +81,23 @@ function createZambdaEnvFile(
 }
 
 function createFrontEndEnvFile(clientId: string, environment: string, projectId: string): string {
-  const envTemplatePath = 'apps/ehr/env/.env.local-template';
-  const envPath = `apps/ehr/env/.env.${environment}`;
+  const envFolderPath = 'apps/ehr/env';
+  const envTemplatePath = path.join(envFolderPath, '.env.local-template');
+  const envPath = path.join(envFolderPath, `.env.${environment}`);
 
   // Read the template file
   const templateData = fs.readFileSync(envTemplatePath, 'utf8');
 
   // Replace the placeholders with the actual values
-  const updatedData = templateData
+  let updatedData = templateData
     .replace('VITE_APP_OYSTEHR_APPLICATION_CLIENT_ID=', `VITE_APP_OYSTEHR_APPLICATION_CLIENT_ID=${clientId}`)
     .replace('VITE_APP_ENV=', `VITE_APP_ENV=${environment}`)
     .replace('VITE_APP_PROJECT_ID=', `VITE_APP_PROJECT_ID=${projectId}`);
+
+  // Handle TLS certificate
+  if (fs.existsSync(path.join(envFolderPath, 'cert.pem')) && fs.existsSync(path.join(envFolderPath, 'key.pem'))) {
+    updatedData = updatedData.replace('http://localhost', 'https://localhost');
+  }
 
   // Write the updated data to the new file
   fs.writeFileSync(envPath, updatedData);
@@ -170,7 +188,7 @@ export async function setupEHR(
   // create a group for the providers using the HealthcareService fhir resource
   const healthcareServiceResource: FhirResource = {
     resourceType: 'HealthcareService',
-    name: 'Selden NY',
+    name: 'Visit Followup Group',
     active: true,
     extension: [
       {
@@ -186,7 +204,7 @@ export async function setupEHR(
     identifier: [
       {
         system: 'https://fhir.ottehr.com/r4/slug',
-        value: 'SeldenNY',
+        value: 'visit-followup-group',
       },
     ],
     characteristic: [
@@ -282,6 +300,7 @@ export async function setupEHR(
     'consent-forms',
     'receipts',
     'patient-photos',
+    BUCKET_PAPERWORK_PDF,
   ];
 
   await createZ3(oystehr, bucketNames);

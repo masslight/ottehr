@@ -8,6 +8,7 @@ import { AppointmentFooter } from './AppointmentFooter';
 import { PropsWithChildren } from '../../../shared/types';
 import { IconButtonContained } from '../../components';
 import { VideoProviderReminderPopover } from './VideoProviderReminderPopover';
+import { dataTestIds } from '../../../constants/data-test-ids';
 
 type LayoutType = 'pip' | 'pinned' | 'fullscreen';
 
@@ -99,6 +100,7 @@ const VideoRoomContainer: FC<
         flexDirection: 'column',
         flex: 1,
       }}
+      data-testid={dataTestIds.telemedEhrFlow.videoRoomContainer}
     >
       <Box
         sx={{
@@ -147,7 +149,7 @@ const VideoRoomContainer: FC<
         <VideoProviderReminderPopover />
       </Box>
 
-      <Box sx={{ backgroundColor: '#1A093B', height: '100%' }}>{children}</Box>
+      <Box sx={{ backgroundColor: '#0A2143', height: '100%' }}>{children}</Box>
     </Box>
   );
 };

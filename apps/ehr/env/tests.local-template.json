@@ -9,5 +9,9 @@
   "FHIR_API": "",
   "AUTH0_ENDPOINT": "",
   "AUTH0_AUDIENCE": "",
-  "PROJECT_API": "http://localhost:3000/tests"
+  "PROJECT_API": "http://localhost:3000/tests",
+  "CREATE_APPOINTMENT_ZAMBDA_ID": "create-appointment",
+  "CREATE_TELEMED_APPOINTMENT_ZAMBDA_ID": "telemed-create-appointment",
+  "PROJECT_API_ZAMBDA_URL": "http://localhost:3000/local",
+  "APP_IS_LOCAL": "true"
 }
