@@ -25,7 +25,6 @@ import { getAppointmentStatusChip } from '../../../utils';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { enqueueSnackbar } from 'notistack';
 import useEvolveUser from '../../../../hooks/useEvolveUser';
-import { dataTestIds } from '../../../../constants/data-test-ids';
 
 const getPractitionerName = (practitioner?: Practitioner): string | undefined => {
   if (!practitioner) {
