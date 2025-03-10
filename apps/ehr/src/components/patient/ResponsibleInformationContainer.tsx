@@ -163,15 +163,14 @@ export const ResponsibleInformationContainer: FC = () => {
           onChangeHandler={handleChange}
         />
       </Row>
-      <Row label="Phone" required inputId="responsible-party-phone">
+      <Row label="Phone" inputId="responsible-party-phone">
         <FormTextField
           id="responsible-party-phone"
           name={responsiblePartyPhonePath}
           control={control}
           defaultValue={standardizePhoneNumber(phone)}
           rules={{
-            required: REQUIRED_FIELD_ERROR_MESSAGE,
-            validate: (value: string) => isPhoneNumberValid(value) || 'Must be 10 digits',
+            validate: (value: string) => !value || isPhoneNumberValid(value) || 'Must be 10 digits',
           }}
           onChangeHandler={handleChange}
         />
