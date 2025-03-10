@@ -22,10 +22,16 @@ const envMapping = {
   ehr: {
     local: 'local',
     demo: 'demo',
+    development: 'development',
+    staging: 'staging',
+    testing: 'testing',
   },
   intake: {
     local: 'default',
     demo: 'demo',
+    development: 'development',
+    staging: 'staging',
+    testing: 'testing',
   },
 } as const;
 
@@ -118,6 +124,13 @@ const setupTestDeps = async (): Promise<void> => {
         env: { ...process.env, ENV: ENV },
         cwd: path.join(process.cwd(), `apps/${app}`),
       });
+
+      // Run the e2e-test-setup.sh script with skip-prompts and current environment
+      console.log(`Running e2e-test-setup.sh for ${app} with environment ${ENV}...`);
+      execSync(`bash ./scripts/e2e-test-setup.sh --skip-prompts --environment ${ENV}`, {
+        stdio: 'inherit',
+        env: { ...process.env, ENV: ENV },
+      });
     } catch (error) {
       console.error(`Failed to run setup-test-deps.js for ${app}:`, error);
       clearPorts();
@@ -170,25 +183,24 @@ function runTests(): void {
 
       specs.on('close', (specsCode) => {
         clearPorts();
-        process.exit(specsCode);
+        process.exit(specsCode ?? 1);
       });
     } else {
       clearPorts();
-      process.exit(loginCode);
+      process.exit(loginCode ?? 1);
     }
   });
 }
 
 async function main(): Promise<void> {
   clearPorts();
+  await setupTestDeps();
 
   if (isLocal || isCI) {
-    await setupTestDeps();
     await startApps();
-    runTests();
-  } else {
-    runTests();
   }
+
+  runTests();
 }
 
 main().catch((error) => {

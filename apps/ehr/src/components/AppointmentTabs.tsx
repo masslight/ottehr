@@ -114,6 +114,7 @@ export default function AppointmentTabs({
                 sx={{ textTransform: 'none', fontWeight: 700 }}
               />
               <Tab
+                data-testid={dataTestIds.dashboard.dischargedTab}
                 label={`Discharged${completedAppointments ? ` – ${completedAppointments?.length}` : ''}`}
                 value={ApptTab.completed}
                 sx={{ textTransform: 'none', fontWeight: 700 }}

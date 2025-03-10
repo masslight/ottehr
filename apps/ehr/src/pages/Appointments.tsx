@@ -212,14 +212,8 @@ export default function Appointments(): ReactElement {
       loadingState.status !== 'loading' &&
       pageIsVisible
     ) {
-      const timezone =
-        locationSelected?.extension?.find(
-          (extTemp) => extTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
-        )?.valueString ?? DateTime.local().zoneName;
-
       const searchDateToUse =
-        (searchDate && DateTime.fromISO(searchDate, { zone: timezone })) || appointmentDate || undefined;
-
+        (searchDate && DateTime.fromISO(searchDate, { zone: 'UTC' }).startOf('day')) || appointmentDate || undefined;
       void fetchStuff(oystehrZambda, searchDateToUse);
     }
   }, [

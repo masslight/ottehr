@@ -1,5 +1,16 @@
 import Oystehr from '@oystehr/sdk';
-import { Patient, Appointment, Encounter, QuestionnaireResponse, Address } from 'fhir/r4b';
+import { Address, Appointment, Encounter, Patient, QuestionnaireResponse } from 'fhir/r4b';
+import { readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { cleanAppointment } from 'test-utils';
+import { fileURLToPath } from 'url';
+import {
+  CreateAppointmentResponse,
+  CreateAppointmentUCTelemedResponse,
+  createSamplePrebookAppointments,
+  createSampleTelemedAppointments,
+  formatPhoneNumber,
+} from 'utils';
 import { getAuth0Token } from './auth/getAuth0Token';
 import {
   inviteTestEmployeeUser,
@@ -8,18 +19,7 @@ import {
   TEST_EMPLOYEE_2,
   TestEmployee,
 } from './resource/employees';
-import { randomUUID } from 'crypto';
-import {
-  CreateAppointmentResponse,
-  CreateAppointmentUCTelemedResponse,
-  createSampleAppointments,
-  createSampleTelemedAppointments,
-  formatPhoneNumber,
-} from 'utils';
-import { join } from 'path';
-import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import { DateTime } from 'luxon';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -40,21 +40,37 @@ export function getAccessToken(): string {
   return token;
 }
 
-export const PATIENT_FIRST_NAME = 'Test_John';
-export const PATIENT_LAST_NAME = 'Test_Doe_Random'; // don't use real random values in parallel related tests
+const EightDigitsString = DateTime.now().toFormat('yyyyMMdd');
+
+export const PATIENT_FIRST_NAME = 'Test_John_Random' + EightDigitsString;
+export const PATIENT_LAST_NAME = 'Test_Doe_Random' + EightDigitsString; // don't use real random values in parallel related tests
 export const PATIENT_GENDER = 'male';
 
 export const PATIENT_BIRTHDAY = '2002-07-07';
 export const PATIENT_BIRTH_DATE_SHORT = '07/07/2002';
 export const PATIENT_BIRTH_DATE_LONG = 'July 07, 2002';
 
-export const PATIENT_PHONE_NUMBER = '2144985545';
-export const PATIENT_EMAIL = 'john.doe3@example.com';
+export const PATIENT_PHONE_NUMBER = '21' + EightDigitsString;
+export const PATIENT_EMAIL = `john.doe.${EightDigitsString}3@example.com`;
 export const PATIENT_CITY = 'New York';
-export const PATIENT_LINE = '10 Test Line';
+export const PATIENT_LINE = `${EightDigitsString} Test Line`;
 export const PATIENT_STATE = 'NY';
 export const PATIENT_POSTALCODE = '06001';
 export const PATIENT_REASON_FOR_VISIT = 'Fever';
+
+export type CreateTestAppointmentInput = {
+  firstName?: string;
+  lastName?: string;
+  gender?: string;
+  birthDate?: string;
+  phoneNumber?: string;
+  email?: string;
+  city?: string;
+  line?: string;
+  state?: string;
+  postalCode?: string;
+  reasonsForVisit?: string;
+};
 
 export class ResourceHandler {
   private apiClient!: Oystehr;
@@ -62,12 +78,15 @@ export class ResourceHandler {
   private resources!: CreateAppointmentResponse['resources'] & { relatedPerson: { id: string; resourceType: string } };
   private zambdaId: string;
   private flow: 'telemed' | 'in-person';
+  private initPromise: Promise<void>;
 
   public testEmployee1!: TestEmployee;
   public testEmployee2!: TestEmployee;
 
   constructor(flow: 'telemed' | 'in-person' = 'in-person') {
     this.flow = flow;
+
+    this.initPromise = this.initApi();
 
     if (flow === 'in-person') {
       this.zambdaId = process.env.CREATE_APPOINTMENT_ZAMBDA_ID!;
@@ -94,62 +113,71 @@ export class ResourceHandler {
     });
   }
 
-  private async createAppointment(): Promise<CreateAppointmentResponse | CreateAppointmentUCTelemedResponse> {
-    await this.initApi();
+  private async createAppointment(
+    inputParams?: CreateTestAppointmentInput
+  ): Promise<CreateAppointmentResponse | CreateAppointmentUCTelemedResponse> {
+    await this.initPromise;
 
     try {
       const address: Address = {
-        city: PATIENT_CITY,
-        line: [PATIENT_LINE],
-        state: PATIENT_STATE,
-        postalCode: PATIENT_POSTALCODE,
+        city: inputParams?.city ?? PATIENT_CITY,
+        line: [inputParams?.line ?? PATIENT_LINE],
+        state: inputParams?.state ?? PATIENT_STATE,
+        postalCode: inputParams?.postalCode ?? PATIENT_POSTALCODE,
       };
+
+      const patientData = {
+        firstNames: [inputParams?.firstName ?? PATIENT_FIRST_NAME],
+        lastNames: [inputParams?.lastName ?? PATIENT_LAST_NAME],
+        numberOfAppointments: 1,
+        reasonsForVisit: [inputParams?.reasonsForVisit ?? PATIENT_REASON_FOR_VISIT],
+        phoneNumbers: [inputParams?.phoneNumber ?? PATIENT_PHONE_NUMBER],
+        emails: [inputParams?.email ?? PATIENT_EMAIL],
+        gender: inputParams?.gender ?? PATIENT_GENDER,
+        birthDate: inputParams?.birthDate ?? PATIENT_BIRTHDAY,
+        address: [address],
+      };
+
+      if (!process.env.PROJECT_API_ZAMBDA_URL) {
+        throw new Error('PROJECT_API_ZAMBDA_URL is not set');
+      }
+
+      if (!process.env.LOCATION_ID) {
+        throw new Error('LOCATION_ID is not set');
+      }
+
+      if (!process.env.STATE_ONE) {
+        throw new Error('STATE_ONE is not set');
+      }
+
+      if (!process.env.PROJECT_ID) {
+        throw new Error('PROJECT_ID is not set');
+      }
 
       // Create appointment and related resources using zambda
       const appointmentData =
         this.flow === 'in-person'
-          ? await createSampleAppointments(
-              this.apiClient,
-              getAccessToken(),
-              formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
-              this.zambdaId,
-              process.env.APP_IS_LOCAL === 'true',
-              process.env.PROJECT_API_ZAMBDA_URL!,
-              process.env.LOCATION_ID!,
-              {
-                firstNames: [PATIENT_FIRST_NAME],
-                lastNames: [PATIENT_LAST_NAME],
-                numberOfAppointments: 1,
-                reasonsForVisit: [PATIENT_REASON_FOR_VISIT],
-                phoneNumbers: [PATIENT_PHONE_NUMBER],
-                emails: [PATIENT_EMAIL],
-                gender: PATIENT_GENDER,
-                birthDate: PATIENT_BIRTHDAY,
-                address: [address],
-              }
-            )
-          : await createSampleTelemedAppointments(
-              this.apiClient,
-              getAccessToken(),
-              formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
-              this.zambdaId,
-              process.env.APP_IS_LOCAL === 'true',
-              process.env.PROJECT_API_ZAMBDA_URL!,
-              process.env.STATE_ONE!, //LOCATION_ID!, // do we oficially have STATE env variable?
-              {
-                firstNames: [PATIENT_FIRST_NAME],
-                lastNames: [PATIENT_LAST_NAME],
-                numberOfAppointments: 1,
-                reasonsForVisit: [PATIENT_REASON_FOR_VISIT],
-                phoneNumbers: [PATIENT_PHONE_NUMBER],
-                emails: [PATIENT_EMAIL],
-                gender: PATIENT_GENDER,
-                birthDate: PATIENT_BIRTHDAY,
-                address: [address],
-              }
-            );
-
-      console.log({ appointmentData });
+          ? await createSamplePrebookAppointments({
+              oystehr: this.apiClient,
+              authToken: getAccessToken(),
+              phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
+              createAppointmentZambdaId: this.zambdaId,
+              intakeZambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
+              selectedLocationId: process.env.LOCATION_ID,
+              demoData: patientData,
+              projectId: process.env.PROJECT_ID!,
+            })
+          : await createSampleTelemedAppointments({
+              oystehr: this.apiClient,
+              authToken: getAccessToken(),
+              phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
+              createAppointmentZambdaId: this.zambdaId,
+              islocal: process.env.APP_IS_LOCAL === 'true',
+              intakeZambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
+              selectedLocationId: process.env.STATE_ONE, // todo: check why state is used here
+              demoData: patientData,
+              projectId: process.env.PROJECT_ID!,
+            });
 
       if (!appointmentData?.resources) {
         throw new Error('Appointment not created');
@@ -207,11 +235,12 @@ export class ResourceHandler {
 
   async setEmployees(): Promise<void> {
     try {
-      await this.initApi();
+      await this.initPromise;
       const [employee1, employee2] = await Promise.all([
         inviteTestEmployeeUser(TEST_EMPLOYEE_1, this.apiClient, this.authToken),
         inviteTestEmployeeUser(TEST_EMPLOYEE_2, this.apiClient, this.authToken),
       ]);
+
       this.testEmployee1 = employee1!;
       this.testEmployee2 = employee2!;
     } catch (error) {
@@ -256,25 +285,7 @@ export class ResourceHandler {
     return resourse;
   }
 
-  async cleanupNewPatientData(lastName: string): Promise<void> {
-    const patients = (
-      await this.apiClient.fhir.search({
-        resourceType: 'Patient',
-        params: [
-          {
-            name: 'name',
-            value: lastName,
-          },
-        ],
-      })
-    ).unbundle();
-    for (const patient of patients) {
-      await this.cleanupAppointments(patient.id!);
-      await this.apiClient.fhir.delete({ resourceType: patient.resourceType, id: patient.id! }).catch();
-    }
-  }
-
-  async cleanupAppointments(patientId: string): Promise<void> {
+  async cleanupAppointmentsForPatient(patientId: string): Promise<void> {
     const appointments = (
       await this.apiClient.fhir.search({
         resourceType: 'Appointment',
@@ -287,7 +298,11 @@ export class ResourceHandler {
       })
     ).unbundle();
     for (const appointment of appointments) {
-      await this.apiClient.fhir.delete({ resourceType: appointment.resourceType, id: appointment.id! }).catch();
+      await cleanAppointment(appointment.id!, process.env.ENV!);
     }
+  }
+
+  async cleanAppointment(appointmentId: string): Promise<boolean> {
+    return cleanAppointment(appointmentId, process.env.ENV!);
   }
 }

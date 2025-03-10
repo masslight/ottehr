@@ -181,16 +181,19 @@ async function createApplication(oystehr: Oystehr, applicationName: string): Pro
   try {
     application = await oystehr.application.create({
       name: applicationName,
-      description: 'Intake application with sms authentication',
+      description: 'Patient Portal application with sms authentication',
       loginRedirectUri: 'https://intake-local.ottehr.com/patients',
       allowedCallbackUrls: [
         'http://localhost:3002',
         'http://localhost:3002/patients',
         'http://localhost:3002/redirect',
+        'https://localhost:3002',
+        'https://localhost:3002/patients',
+        'https://localhost:3002/redirect',
       ],
-      allowedLogoutUrls: ['http://localhost:3002'],
-      allowedWebOriginsUrls: ['http://localhost:3002'],
-      allowedCORSOriginsUrls: ['http://localhost:3002'],
+      allowedLogoutUrls: ['http://localhost:3002', 'https://localhost:3002'],
+      allowedWebOriginsUrls: ['http://localhost:3002', 'https://localhost:3002'],
+      allowedCORSOriginsUrls: ['http://localhost:3002', 'https://localhost:3002'],
       loginWithEmailEnabled: true,
       passwordlessSMS: true,
       mfaEnabled: false,
@@ -235,6 +238,11 @@ function createZambdaEnvFile(
 
   const envData = { ...templateData, ...overrideData };
 
+  // Handle TLS certificate
+  if (fs.existsSync(path.join(envFolderPath, 'cert.pem')) && fs.existsSync(path.join(envFolderPath, 'key.pem'))) {
+    envData.WEBSITE_URL = 'https://localhost';
+  }
+
   if (!fs.existsSync(envFolderPath)) {
     fs.mkdirSync(envFolderPath, { recursive: true });
   }
@@ -243,18 +251,23 @@ function createZambdaEnvFile(
 }
 
 function createAppEnvFile(clientId: string, environment: string, projectId: string): string {
-  const envTemplatePath = 'apps/intake/env/.env.local-template';
-  const envPath = `apps/intake/env/.env.${environment}`;
+  const envFolderPath = 'apps/intake/env';
+  const envTemplatePath = path.join(envFolderPath, '.env.local-template');
+  const envPath = path.join(envFolderPath, `.env.${environment}`);
 
   // Read the template file
   const templateData = fs.readFileSync(envTemplatePath, 'utf8');
-
   // Replace the placeholders with the actual values
   let updatedData = templateData
     .replace('VITE_APP_CLIENT_ID=', `VITE_APP_CLIENT_ID=${clientId}`)
     .replace('VITE_APP_PROJECT_ID=', `VITE_APP_PROJECT_ID=${projectId}`);
   if (environment !== 'local') {
     updatedData = updatedData.replace('VITE_APP_IS_LOCAL=true', 'VITE_APP_IS_LOCAL=false');
+  }
+
+  // Handle TLS certificate
+  if (fs.existsSync(path.join(envFolderPath, 'cert.pem')) && fs.existsSync(path.join(envFolderPath, 'key.pem'))) {
+    updatedData = updatedData.replace('http://localhost', 'https://localhost');
   }
 
   // Write the updated data to the new file
@@ -279,9 +292,9 @@ export async function setupIntake(
   m2mSecret: string,
   environment: string
 ): Promise<void> {
-  console.log('Starting setup of Ottehr Intake...');
+  console.log('Starting setup of Ottehr Patient Portal...');
 
-  const applicationName = 'Ottehr Intake';
+  const applicationName = 'Ottehr Patient Portal';
   const [_, clientId] = await createApplication(oystehr, applicationName);
   console.log(`Created application "${applicationName}".`);
 

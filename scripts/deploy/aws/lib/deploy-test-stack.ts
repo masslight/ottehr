@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
@@ -7,8 +6,7 @@ import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as cloudfront_origins from 'aws-cdk-lib/aws-cloudfront-origins';
 
 // import * as sqs from 'aws-cdk-lib/aws-sqs';
-import config from '../deploy-config.json';
-import { getCloudFrontDistributions } from '../bin/deploy-test';
+import config from '../../deploy-config.json';
 
 export class DeployTestStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -62,7 +60,7 @@ function deployWebsite(
 
   new s3deploy.BucketDeployment(scope, `upload-${website}-to-s3-bucket`, {
     destinationBucket: bucketTemp,
-    sources: [s3deploy.Source.asset(`../../apps/${website}/build`)],
+    sources: [s3deploy.Source.asset(`../../../apps/${website}/build`)],
   });
   return bucketTemp;
 }

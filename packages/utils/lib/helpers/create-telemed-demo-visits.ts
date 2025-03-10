@@ -1,9 +1,24 @@
-import { DateTime } from 'luxon';
-import { Location, QuestionnaireResponse, Patient, Address } from 'fhir/r4b';
 import Oystehr from '@oystehr/sdk';
-import { PersonSex, PatientInfo, CreateAppointmentUCTelemedResponse } from '../types';
+import { Address, Location, Patient } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { isLocationVirtual } from '../fhir';
-import { isoToDateObject, updateQuestionnaireResponse } from './helpers';
+import { CreateAppointmentUCTelemedResponse, PatientInfo, PersonSex, SubmitPaperworkParameters } from '../types';
+import { makeSequentialPaperworkPatches } from './create-prebook-demo-visits';
+import {
+  getAdditionalQuestionsAnswers,
+  getAllergiesStepAnswers,
+  getConsentStepAnswers,
+  getContactInformationAnswers,
+  getInviteParticipantStepAnswers,
+  getMedicalConditionsStepAnswers,
+  getMedicationsStepAnswers,
+  getPatientDetailsStepAnswers,
+  getPaymentOptionSelfPayAnswers,
+  getResponsiblePartyStepAnswers,
+  getSchoolWorkNoteStepAnswers,
+  getSurgicalHistoryStepAnswers,
+  isoToDateObject,
+} from './helpers';
 
 interface AppointmentData {
   firstNames?: string[];
@@ -152,23 +167,36 @@ const generateRandomPatientInfo = async (
   };
 };
 
-export const createSampleTelemedAppointments = async (
-  oystehr: Oystehr | undefined,
-  authToken: string,
-  phoneNumber: string,
-  createAppointmentZambdaId: string,
-  islocal: boolean,
-  intakeZambdaUrl: string,
-  selectedLocationId?: string,
-  demoData?: DemoAppointmentData
-): Promise<CreateAppointmentUCTelemedResponse | null> => {
+export const createSampleTelemedAppointments = async ({
+  oystehr,
+  authToken,
+  phoneNumber,
+  createAppointmentZambdaId,
+  intakeZambdaUrl,
+  selectedLocationId,
+  demoData,
+  projectId,
+}: {
+  oystehr: Oystehr | undefined;
+  authToken: string;
+  phoneNumber: string;
+  createAppointmentZambdaId: string;
+  islocal: boolean;
+  intakeZambdaUrl: string;
+  selectedLocationId?: string;
+  demoData?: DemoAppointmentData;
+  projectId: string;
+}): Promise<CreateAppointmentUCTelemedResponse | null> => {
+  if (!projectId) {
+    throw new Error('PROJECT_ID is not set');
+  }
+
   if (!oystehr) {
     console.log('oystehr client is not defined');
     return null;
   }
 
   try {
-    const responses: any[] = [];
     let appointmentData: CreateAppointmentUCTelemedResponse | null = null;
     const numberOfAppointments = demoData?.numberOfAppointments || 10;
 
@@ -180,13 +208,18 @@ export const createSampleTelemedAppointments = async (
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
+          'x-zapehr-project-id': projectId,
         },
         body: JSON.stringify(patientInfo),
       });
 
-      appointmentData = islocal
-        ? await createAppointmentResponse.json()
-        : (await createAppointmentResponse.json()).output;
+      console.log({ createAppointmentResponse });
+
+      appointmentData = await createAppointmentResponse.json();
+
+      if ((appointmentData as any)?.output) {
+        appointmentData = (appointmentData as any).output as CreateAppointmentUCTelemedResponse;
+      }
 
       console.log({ appointmentData });
 
@@ -197,44 +230,62 @@ export const createSampleTelemedAppointments = async (
 
       const appointmentId = appointmentData.appointmentId;
       const questionnaireResponseId = appointmentData.questionnaireId;
-      const encounterId = appointmentData.encounterId;
 
-      const birthDate = isoToDateObject(patientInfo.patient.dateOfBirth || '');
+      const birthDate = isoToDateObject(patientInfo.patient.dateOfBirth || '') || undefined;
 
       if (questionnaireResponseId) {
-        const questionnaireResponse = updateQuestionnaireResponse({
-          patientId: appointmentData.patientId,
-          questionnaire: appointmentData.resources.questionnaire.questionnaire!,
+        await makeSequentialPaperworkPatches(
           questionnaireResponseId,
-          encounterId: encounterId!,
-          firstName: patientInfo.patient.firstName!,
-          lastName: patientInfo.patient.lastName!,
-          ...(birthDate ? { birthDate } : {}),
-          email: patientInfo.patient.email!,
-          phoneNumber: patientInfo.patient.phoneNumber!,
-          fullName: `${patientInfo.patient.firstName} ${patientInfo.patient.lastName}`,
-        });
+          [
+            getContactInformationAnswers({
+              firstName: patientInfo.patient.firstName,
+              lastName: patientInfo.patient.lastName,
+              birthDate,
+              email: patientInfo.patient.email,
+              phoneNumber: patientInfo.patient.phoneNumber,
+              birthSex: patientInfo.patient.sex,
+            }),
+            getPatientDetailsStepAnswers({}),
+            getMedicationsStepAnswers(),
+            getAllergiesStepAnswers(),
+            getMedicalConditionsStepAnswers(),
+            getSurgicalHistoryStepAnswers(),
+            getAdditionalQuestionsAnswers(),
+            getPaymentOptionSelfPayAnswers(),
+            getResponsiblePartyStepAnswers({}),
+            getSchoolWorkNoteStepAnswers(),
+            getConsentStepAnswers({}),
+            getInviteParticipantStepAnswers(),
+          ],
+          intakeZambdaUrl,
+          authToken,
+          projectId
+        );
 
-        const updatedQuestionnaireResponse = await oystehr.fhir.update<QuestionnaireResponse>(questionnaireResponse);
-        responses.push(updatedQuestionnaireResponse);
-
-        await fetch(`${intakeZambdaUrl}/zambda/submit-paperwork/execute-public`, {
+        const response = await fetch(`${intakeZambdaUrl}/zambda/submit-paperwork/execute-public`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${authToken}`,
+            'x-zapehr-project-id': projectId,
           },
-          body: JSON.stringify({
+          body: JSON.stringify(<SubmitPaperworkParameters>{
             answers: [],
-            questionnaireResponseId: updatedQuestionnaireResponse.id,
+            questionnaireResponseId: questionnaireResponseId,
             appointmentId,
           }),
         });
 
-        await new Promise((resolve) => setTimeout(resolve, 5000)); // todo delete
-      }
+        if (!response.ok) {
+          // This may be an error if some paperwork required answers were not provided.
+          // Check QuestionnaireResponse resource if it corresponds to all Questionnaire requirements
+          throw new Error(
+            `Error submitting paperwork, response: ${response}, body: ${JSON.stringify(await response.json())}`
+          );
+        }
 
-      responses.push(createAppointmentResponse);
+        await new Promise((resolve) => setTimeout(resolve, 5_000)); // todo: handle without waiting
+      }
     }
 
     return appointmentData;
