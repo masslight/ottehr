@@ -16,7 +16,13 @@ import {
   usePaperworkContext,
 } from 'ui-components';
 import { ZambdaClient, useUCZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
-import { VisitType, makeValidationSchema, pickFirstValueFromAnswerItem, uuidRegex } from 'utils';
+import {
+  InviteParticipantRequestParameters,
+  VisitType,
+  makeValidationSchema,
+  pickFirstValueFromAnswerItem,
+  uuidRegex,
+} from 'utils';
 import { ValidationError } from 'yup';
 import { otherColors } from '../IntakeThemeProvider';
 import api from '../api/zapehrApi';
@@ -28,6 +34,7 @@ import useAppointmentNotFoundInformation from '../helpers/information';
 import { useGetFullName } from '../hooks/useGetFullName';
 import { useSetLastActiveTime } from '../hooks/useSetLastActiveTime';
 import i18n from '../lib/i18n';
+import { useCreateInviteMutation } from '../telemed/features/waiting-room';
 import { useOpenExternalLink } from '../telemed/hooks/useOpenExternalLink';
 import { slugFromLinkId } from './PaperworkPage';
 
@@ -96,6 +103,52 @@ const ReviewPaperwork = (): JSX.Element => {
       console.error(error);
     }
   }, [appointmentID, pathname]);
+
+  const createInviteMutation = useCreateInviteMutation();
+
+  const inviteParams = useMemo((): null | Omit<InviteParticipantRequestParameters, 'appointmentId'> => {
+    const page = completedPaperwork.find((page) => page.linkId === 'invite-participant-page');
+
+    if (!page) {
+      // in-person doesn't need invite participant
+      return null;
+    }
+
+    const answers: { [key: string]: string | undefined } = {};
+
+    page.item?.forEach((item) => {
+      const linkId = item.linkId;
+      let value: string | undefined;
+      if (item?.answer?.[0]?.valueString) {
+        value = item.answer[0].valueString;
+      }
+      answers[linkId] = value;
+    });
+
+    if (answers['invite-from-another-device'] !== 'Yes, I will add invite details below') {
+      return null;
+    }
+
+    if (answers['invite-phone']) {
+      answers['invite-phone'] = answers['invite-phone'].replace(/\D/g, '');
+    }
+
+    return {
+      firstName: answers['invite-first']!,
+      lastName: answers['invite-last']!,
+      emailAddress: answers['invite-email']!,
+      phoneNumber: answers['invite-phone']!,
+    };
+  }, [completedPaperwork]);
+
+  const navigateToWaitingRoom = useCallback(
+    (error: boolean): void => {
+      navigate(`/visit/${appointmentID}`, {
+        state: { inviteErrorSnackbarOpen: error },
+      });
+    },
+    [appointmentID, navigate]
+  );
 
   const { paperworkCompletedStatus, allComplete } = useMemo(() => {
     const validationSchema = makeValidationSchema(allItems);
@@ -215,7 +268,19 @@ const ReviewPaperwork = (): JSX.Element => {
         if (visitType === VisitType.WalkIn) {
           navigate(`/visit/${appointmentID}/check-in`);
         } else {
-          navigate(`/visit/${appointmentID}`);
+          // telemed logic
+          if (inviteParams) {
+            createInviteMutation.mutate(inviteParams, {
+              onSuccess: () => {
+                navigateToWaitingRoom(false);
+              },
+              onError: async () => {
+                navigateToWaitingRoom(true);
+              },
+            });
+          } else {
+            navigateToWaitingRoom(false);
+          }
         }
       } catch (e) {
         // todo: handle this better, direct to page where error was found if available
@@ -224,7 +289,17 @@ const ReviewPaperwork = (): JSX.Element => {
         setLoading(false);
       }
     }
-  }, [appointmentID, questionnaireResponseId, zambdaClient, visitType, paperworkPages, navigate]);
+  }, [
+    appointmentID,
+    createInviteMutation,
+    inviteParams,
+    questionnaireResponseId,
+    zambdaClient,
+    visitType,
+    paperworkPages,
+    navigate,
+    navigateToWaitingRoom,
+  ]);
 
   const appointmentNotFoundInformation = useAppointmentNotFoundInformation();
 
