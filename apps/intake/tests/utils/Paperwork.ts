@@ -262,6 +262,15 @@ export class Paperwork {
     const relationship = this.getRandomElement(this.relationshipResponsiblePartyNotSelf);
     await this.page.getByRole('option', { name: relationship }).click();
   }
+  async checkImagesAreSaved(): Promise<void> {
+    const today = await this.CommonLocatorsHelper.getToday();   
+    await expect(this.locator.photoIdFrontImage).toHaveText(
+      `We already have this! It was saved on ${today}. Click to re-upload.`
+    );
+    await expect(this.locator.photoIdBackImage).toHaveText(
+      `We already have this! It was saved on ${today}. Click to re-upload.`
+    );
+  }
   async fillConsentForms(): Promise<void> {
     await this.validateAllOptions(
       this.locator.consentSignerRelationship,

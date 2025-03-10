@@ -47,4 +47,12 @@ export class CommonLocatorsHelper {
     }
     await this.clickContinue();
   }
+  async getToday() {
+    const today = new Date();
+    const month = today.getMonth() + 1;
+    const day = today.getDate();
+    const year = today.getFullYear().toString().slice(-2);
+    const formattedDate = `${month}/${day}/${year}`;
+    return formattedDate;
+  }
 }

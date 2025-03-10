@@ -15,6 +15,7 @@ import { useZapEHRAPIClient } from '../../hooks/useOystehrAPIClient';
 import { useAppointmentStore, useChangeTelemedAppointmentStatusMutation, useVideoCallStore } from '../../state';
 import { updateEncounterStatusHistory } from '../../utils';
 import { CallSettings } from './CallSettings';
+import { dataTestIds } from '../../../constants/data-test-ids';
 
 export const VideoControls: FC = () => {
   const theme = useTheme();
@@ -107,7 +108,10 @@ export const VideoControls: FC = () => {
               {isLoading ? (
                 <CircularProgress size={24} sx={{ color: theme.palette.primary.contrastText }} />
               ) : (
-                <CallEndIcon sx={{ color: theme.palette.primary.contrastText }} />
+                <CallEndIcon
+                  sx={{ color: theme.palette.primary.contrastText }}
+                  data-testid={dataTestIds.telemedEhrFlow.endVideoCallButton}
+                />
               )}
             </IconButtonContained>
           )}

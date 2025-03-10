@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
-import { Address, Appointment, Encounter, Patient, QuestionnaireResponse } from 'fhir/r4b';
+import { Address, Appointment, Encounter, FhirResource, Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { readFileSync } from 'fs';
+import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
 import { cleanAppointment } from 'test-utils';
 import { fileURLToPath } from 'url';
@@ -19,6 +20,7 @@ import {
   TEST_EMPLOYEE_2,
   TestEmployee,
 } from './resource/employees';
+import { getInHouseMedicationsResources } from './resource/in-house-medications';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -39,18 +41,20 @@ export function getAccessToken(): string {
   return token;
 }
 
-export const PATIENT_FIRST_NAME = 'Test_John';
-export const PATIENT_LAST_NAME = 'Test_Doe_Random'; // don't use real random values in parallel related tests
+const EightDigitsString = DateTime.now().toFormat('yyyyMMdd');
+
+export const PATIENT_FIRST_NAME = 'Test_John_Random' + EightDigitsString;
+export const PATIENT_LAST_NAME = 'Test_Doe_Random' + EightDigitsString; // don't use real random values in parallel related tests
 export const PATIENT_GENDER = 'male';
 
 export const PATIENT_BIRTHDAY = '2002-07-07';
 export const PATIENT_BIRTH_DATE_SHORT = '07/07/2002';
 export const PATIENT_BIRTH_DATE_LONG = 'July 07, 2002';
 
-export const PATIENT_PHONE_NUMBER = '2144985545';
-export const PATIENT_EMAIL = 'john.doe3@example.com';
+export const PATIENT_PHONE_NUMBER = '21' + EightDigitsString;
+export const PATIENT_EMAIL = `john.doe.${EightDigitsString}3@example.com`;
 export const PATIENT_CITY = 'New York';
-export const PATIENT_LINE = '10 Test Line';
+export const PATIENT_LINE = `${EightDigitsString} Test Line`;
 export const PATIENT_STATE = 'NY';
 export const PATIENT_POSTALCODE = '06001';
 export const PATIENT_REASON_FOR_VISIT = 'Fever';
@@ -75,6 +79,7 @@ export class ResourceHandler {
   private resources!: CreateAppointmentResponse['resources'] & { relatedPerson: { id: string; resourceType: string } };
   private zambdaId: string;
   private flow: 'telemed' | 'in-person';
+  private initPromise: Promise<void>;
 
   public testEmployee1!: TestEmployee;
   public testEmployee2!: TestEmployee;
@@ -82,7 +87,7 @@ export class ResourceHandler {
   constructor(flow: 'telemed' | 'in-person' = 'in-person') {
     this.flow = flow;
 
-    this.initApi();
+    this.initPromise = this.initApi();
 
     if (flow === 'in-person') {
       this.zambdaId = process.env.CREATE_APPOINTMENT_ZAMBDA_ID!;
@@ -112,7 +117,7 @@ export class ResourceHandler {
   private async createAppointment(
     inputParams?: CreateTestAppointmentInput
   ): Promise<CreateAppointmentResponse | CreateAppointmentUCTelemedResponse> {
-    await this.initApi();
+    await this.initPromise;
 
     try {
       const address: Address = {
@@ -134,33 +139,46 @@ export class ResourceHandler {
         address: [address],
       };
 
+      if (!process.env.PROJECT_API_ZAMBDA_URL) {
+        throw new Error('PROJECT_API_ZAMBDA_URL is not set');
+      }
+
+      if (!process.env.LOCATION_ID) {
+        throw new Error('LOCATION_ID is not set');
+      }
+
+      if (!process.env.STATE_ONE) {
+        throw new Error('STATE_ONE is not set');
+      }
+
+      if (!process.env.PROJECT_ID) {
+        throw new Error('PROJECT_ID is not set');
+      }
+
       // Create appointment and related resources using zambda
       const appointmentData =
         this.flow === 'in-person'
-          ? await createSamplePrebookAppointments(
-              this.apiClient,
-              getAccessToken(),
-              formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
-              this.zambdaId,
-              process.env.APP_IS_LOCAL === 'true',
-              process.env.PROJECT_API_ZAMBDA_URL!,
-              process.env.PROJECT_ID!,
-              process.env.LOCATION_ID!,
-              patientData
-            )
-          : await createSampleTelemedAppointments(
-              this.apiClient,
-              getAccessToken(),
-              formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
-              this.zambdaId,
-              process.env.APP_IS_LOCAL === 'true',
-              process.env.PROJECT_API_ZAMBDA_URL!,
-              process.env.PROJECT_ID!,
-              process.env.STATE_ONE!, //LOCATION_ID!, // do we oficially have STATE env variable?
-              patientData
-            );
-
-      console.log({ appointmentData });
+          ? await createSamplePrebookAppointments({
+              oystehr: this.apiClient,
+              authToken: getAccessToken(),
+              phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
+              createAppointmentZambdaId: this.zambdaId,
+              intakeZambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
+              selectedLocationId: process.env.LOCATION_ID,
+              demoData: patientData,
+              projectId: process.env.PROJECT_ID!,
+            })
+          : await createSampleTelemedAppointments({
+              oystehr: this.apiClient,
+              authToken: getAccessToken(),
+              phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
+              createAppointmentZambdaId: this.zambdaId,
+              islocal: process.env.APP_IS_LOCAL === 'true',
+              intakeZambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
+              selectedLocationId: process.env.STATE_ONE, // todo: check why state is used here
+              demoData: patientData,
+              projectId: process.env.PROJECT_ID!,
+            });
 
       if (!appointmentData?.resources) {
         throw new Error('Appointment not created');
@@ -197,32 +215,45 @@ export class ResourceHandler {
   }
 
   public async cleanupResources(): Promise<void> {
-    await Promise.allSettled(
-      Object.values(this.resources ?? {}).map((resource) => {
-        if (resource.id && resource.resourceType) {
-          return this.apiClient.fhir
-            .delete({ id: resource.id, resourceType: resource.resourceType })
-            .then(() => {
-              console.log(`🗑️ deleted ${resource.resourceType} ${resource.id}`);
-            })
-            .catch((error) => {
-              console.error(`❌ 🗑️ ${resource.resourceType} not deleted ${resource.id}`, error);
-            });
-        } else {
-          console.error(`❌ 🫣 resource not found: ${resource.resourceType} ${resource.id}`);
-          return Promise.resolve();
-        }
-      })
-    );
+    let appointmentResources = Object.values(this.resources ?? {}) as FhirResource[];
+    // TODO: here we should change appointment id to encounter id when we'll fix this bug in frontend,
+    // because for this moment frontend creates order with appointment id in place of encounter one
+    if (this.resources.appointment) {
+      const inHouseMedicationsResources = await getInHouseMedicationsResources(
+        this.apiClient,
+        'encounter',
+        this.resources.appointment.id!
+      );
+
+      appointmentResources = appointmentResources.concat(inHouseMedicationsResources);
+      await Promise.allSettled(
+        appointmentResources.map((resource) => {
+          if (resource.id && resource.resourceType) {
+            return this.apiClient.fhir
+              .delete({ id: resource.id, resourceType: resource.resourceType })
+              .then(() => {
+                console.log(`🗑️ deleted ${resource.resourceType} ${resource.id}`);
+              })
+              .catch((error) => {
+                console.error(`❌ 🗑️ ${resource.resourceType} not deleted ${resource.id}`, error);
+              });
+          } else {
+            console.error(`❌ 🫣 resource not found: ${resource.resourceType} ${resource.id}`);
+            return Promise.resolve();
+          }
+        })
+      );
+    }
   }
 
   async setEmployees(): Promise<void> {
     try {
-      await this.initApi();
+      await this.initPromise;
       const [employee1, employee2] = await Promise.all([
         inviteTestEmployeeUser(TEST_EMPLOYEE_1, this.apiClient, this.authToken),
         inviteTestEmployeeUser(TEST_EMPLOYEE_2, this.apiClient, this.authToken),
       ]);
+
       this.testEmployee1 = employee1!;
       this.testEmployee2 = employee2!;
     } catch (error) {

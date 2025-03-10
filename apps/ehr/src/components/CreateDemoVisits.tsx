@@ -10,9 +10,6 @@ import { useApiClients } from '../hooks/useAppClients';
 
 const createAppointmentZambdaId = import.meta.env.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID;
 const intakeZambdaUrl = import.meta.env.VITE_APP_INTAKE_ZAMBDAS_URL;
-// const submitPaperworkZambdaId = import.meta.env.VITE_APP_SUBMIT_PAPERWORK_ZAMBDA_ID;
-const isLocal = import.meta.env.VITE_APP_IS_LOCAL === 'true';
-const projectId = import.meta.env.VITE_APP_PROJECT_ID;
 
 const CreateDemoVisits = (): ReactElement => {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -47,16 +44,15 @@ const CreateDemoVisits = (): ReactElement => {
       setLoading(true);
       setInputError(false);
       const authToken = await getAccessTokenSilently();
-      await createSamplePrebookAppointments(
+      await createSamplePrebookAppointments({
         oystehr,
         authToken,
-        formattedPhoneNumber,
+        phoneNumber: formattedPhoneNumber,
         createAppointmentZambdaId,
-        isLocal,
         intakeZambdaUrl,
-        projectId,
-        selectedLocation.id
-      );
+        selectedLocationId: selectedLocation.id,
+        projectId: import.meta.env.VITE_APP_PROJECT_ID,
+      });
       setSnackbar({
         open: true,
         message: 'Appointments created successfully!',

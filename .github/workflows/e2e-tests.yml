@@ -2,6 +2,18 @@ name: E2E Tests
 
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to run tests on'
+        required: true
+        type: choice
+        options:
+          - local
+          - demo
+          - development
+          - testing
+          - staging
+        default: 'local'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main, develop, 'release/*']
@@ -72,18 +84,25 @@ jobs:
             cp secrets/zambdas/* "packages/$app/zambdas/.env"
             mkdir -p "apps/$app/env"
             cp "secrets/$app/app/tests."*.json "apps/$app/env/"
-            cp "secrets/$app/app/.env.local" "apps/$app/env/"
+            cp "secrets/$app/app/.env"* "apps/$app/env/"
           }
 
           for app in ehr intake; do
             setup_env "$app"
           done
+      
       - name: Install dependencies
         run: |
           npm ci
           npx playwright install --with-deps chromium
+      
       - name: Run E2E tests
-        run: npm run ${{ matrix.app }}:e2e:local
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "local" ] || [ "${{ github.event_name }}" == "pull_request" ]; then
+            npm run ${{ matrix.app }}:e2e:local
+          else
+            npm run ${{ matrix.app }}:e2e:${{ github.event.inputs.environment }}
+          fi
         env:
           CI: true
 
@@ -91,7 +110,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-${{ matrix.app }}
+          name: playwright-report-${{ matrix.app }}-${{ github.event.inputs.environment || 'local' }}
           path: |
             apps/${{ matrix.app }}/playwright-report/
             apps/${{ matrix.app }}/test-results/
