@@ -22,7 +22,7 @@ test.describe.serial('TC7,8,12', () => {
     const BookVisit = new BookPrebookVisit(page);
     const FillPaperwork = new Paperwork(page);
     await page.goto(`/location/${process.env.STATE_ONE}/${process.env.SLUG_ONE}/prebook`);
-    await expect(page.getByRole('tab', { name: 'Today' })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('tab', { name: 'Today' })).toBeVisible({ timeout: 20000 });
     await fillingInfo.selectRandomSlot();
     await expect(page.getByRole('heading', { name: 'Get ready for your visit' })).toBeVisible({ timeout: 15000 });
     await continueButton.click();

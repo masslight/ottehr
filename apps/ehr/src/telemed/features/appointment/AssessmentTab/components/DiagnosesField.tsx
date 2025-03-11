@@ -48,6 +48,7 @@ export const DiagnosesField: FC<DiagnosesFieldProps> = (props) => {
           ? 'Nothing found for this search criteria'
           : 'Start typing to load results'
       }
+      data-testid={dataTestIds.telemedEhrFlow.diagnosisAutocomplete}
       autoComplete
       includeInputInList
       disableClearable

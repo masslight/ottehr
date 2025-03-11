@@ -1624,6 +1624,7 @@
           {
             "linkId": "card-payment-data",
             "type": "group",
+            "readOnly": true,
             "enableWhen": [
               {
                 "question": "payment-option",

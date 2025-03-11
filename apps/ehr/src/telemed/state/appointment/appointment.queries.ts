@@ -674,7 +674,7 @@ export const useDeletePatientInstruction = () => {
   const apiClient = useZapEHRAPIClient();
 
   return useMutation({
-    mutationFn: (instruction: { id: string }) => {
+    mutationFn: (instruction: { instructionId: string }) => {
       if (apiClient) {
         return apiClient.deletePatientInstruction(instruction);
       }

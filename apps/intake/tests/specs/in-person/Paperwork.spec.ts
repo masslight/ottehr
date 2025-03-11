@@ -3,6 +3,8 @@ import { cleanAppointment } from 'test-utils';
 import { Locators } from '../../utils/locators';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 import { Paperwork } from '../../utils/Paperwork';
+import { UploadImage } from '../../utils/UploadImage';
+import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 
 let page: Page;
 let context: BrowserContext;
@@ -10,7 +12,9 @@ let flowClass: PrebookInPersonFlow;
 let bookingData: Awaited<ReturnType<PrebookInPersonFlow['startVisit']>>;
 let paperwork: Paperwork;
 let locator: Locators;
+let uploadPhoto: UploadImage;
 let pcpData: Awaited<ReturnType<Paperwork['fillPrimaryCarePhysician']>>;
+let commonLocatorsHelper: CommonLocatorsHelper;
 const appointmentIds: string[] = [];
 
 test.beforeAll(async ({ browser }) => {
@@ -27,6 +31,8 @@ test.beforeAll(async ({ browser }) => {
   flowClass = new PrebookInPersonFlow(page);
   paperwork = new Paperwork(page);
   locator = new Locators(page);
+  uploadPhoto = new UploadImage(page);
+  commonLocatorsHelper = new CommonLocatorsHelper(page);
   bookingData = await flowClass.startVisit();
 });
 test.afterAll(async () => {
@@ -110,3 +116,59 @@ test.describe('Primary Care Physician - Check and fill all fields', () => {
     await expect(locator.pcpNumber).toHaveValue(pcpData.formattedPhoneNumber);
   });
 });
+test.describe('Payment page - self pay option', () => {
+  // TODO: Tests for payment page will be added and updated under #848 ticket
+  test('Check that select payment page opens', async () => {
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
+  });
+  test('Payment - Check patient name is displayed', async () => {
+    await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
+  });
+  test('Payment - Select self pay', async () => {
+    await paperwork.selectSelfPayPayment();
+  });
+  test('Click on [Continue] - Responsible party information opens', async () => {
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Responsible party information');
+  });
+});
+test.describe('Responsible party information - check and fill all fields', () => {
+   // TODO: Tests for Responsible party information will be added and updated under #849 ticket
+  test('Responsible party information - Check patient name is displayed', async () => {
+    await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
+  });
+  test('Responsible party information - Fill fields', async () => {
+    await paperwork.fillResponsiblePartyDataSelf();
+  });
+});
+test.describe('Photo ID - Upload photo', () => {
+  test('PPID-1 Click on [Continue] - Photo ID page opens', async () => {
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Photo ID');
+  });
+  test('PPID-2 Photo ID - Check patient name is displayed', async () => {
+    await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
+  });
+  test('PPID-3 Upload and Clear images', async () => {
+    const uploadedFrontPhoto = await uploadPhoto.fillPhotoFrontID();
+    await locator.clearImage.click();
+    await expect(uploadedFrontPhoto).toBeHidden();
+    const uploadedBackPhoto = await uploadPhoto.fillPhotoBackID();
+    await locator.clearImage.click();
+    await expect(uploadedBackPhoto).toBeHidden();
+  });
+  test('PPID-5 Upload images, reload page, check images are saved', async () => {
+    await uploadPhoto.fillPhotoFrontID();
+    await uploadPhoto.fillPhotoBackID();
+    await page.reload();
+    await paperwork.checkImagesAreSaved();
+  });
+  test('PPID-6 Open next page, click [Back] - check images are saved', async () => {  
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Complete consent forms');
+    await locator.clickBackButton();    
+    await paperwork.checkImagesAreSaved();    
+  });
+});
+

@@ -8,6 +8,7 @@ import {
 } from '../../e2e-utils/temp-imports-from-utils';
 import { PATIENT_STATE, ResourceHandler } from '../../e2e-utils/resource-handler';
 import { TelemedFlowResourceHandler } from '../../e2e-utils/resource-handlers/telemed-flow-rh';
+import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../e2e-utils/helpers/tests-utils';
 
 // We may create new instances for the tests with mutable operations, and keep parralel tests isolated
 const resourceHandler = new ResourceHandler('telemed');
@@ -31,11 +32,6 @@ async function iterateThroughTable(tableLocator: Locator, callback: (row: Locato
   }
 }
 
-async function awaitAppointments(page: Page): Promise<void> {
-  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTable)).toBeVisible(DEFAULT_TIMEOUT);
-  await expect(page.getByTestId(dataTestIds.dashboard.loadingIndicator)).not.toBeVisible(DEFAULT_TIMEOUT);
-}
-
 async function fillWaitAndSelectDropdown(page: Page, dropdownDataTestId: string, textToFill: string): Promise<void> {
   // await page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput).click(DEFAULT_TIMEOUT);
   await page.getByTestId(dropdownDataTestId).locator('input').fill(textToFill);
@@ -46,12 +42,6 @@ async function fillWaitAndSelectDropdown(page: Page, dropdownDataTestId: string,
   await page.keyboard.press('Enter');
 }
 
-async function dialogConfirm(page: Page): Promise<void> {
-  const dialogButtonConfirm = page.getByTestId(dataTestIds.dialog.proceedButton);
-  await expect(dialogButtonConfirm).toBeVisible(DEFAULT_TIMEOUT);
-  await dialogButtonConfirm.click(DEFAULT_TIMEOUT);
-}
-
 async function checkAppointmentAssigned(page: Page): Promise<void> {
   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.appointmentChartFooter)).toBeVisible(DEFAULT_TIMEOUT);
   const assignButton = page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonAssignMe);
@@ -59,7 +49,7 @@ async function checkAppointmentAssigned(page: Page): Promise<void> {
   if (await assignButton.isVisible(DEFAULT_TIMEOUT)) {
     await assignButton.click(DEFAULT_TIMEOUT);
 
-    await dialogConfirm(page);
+    await telemedDialogConfirm(page);
 
     const statusChip = page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip);
     await expect(statusChip).toBeVisible(DEFAULT_TIMEOUT);
@@ -71,29 +61,19 @@ async function checkAppointmentAssigned(page: Page): Promise<void> {
 test.describe('Appointment appearing correctly', async () => {
   test("in 'my patients' tab", async ({ page }) => {
     await page.goto(`telemed/appointments`);
-    await awaitAppointments(page);
+    await awaitAppointmentsTableToBeVisible(page);
 
     await expect(
       page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))
     ).toBeVisible(DEFAULT_TIMEOUT);
-
-    // const table = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTable).locator('table');
-    // let foundMyAppointment = false;
-    // await iterateThroughTable(table, async (row) => {
-    //   const rowText = await row.innerText(DEFAULT_TIMEOUT);
-    //   if (rowText?.includes(resourceHandler.appointment.id!)) {
-    //     foundMyAppointment = true;
-    //   }
-    // });
-    // expect(foundMyAppointment).toBe(true);
   });
 
   test("other appointment in 'all patients' tab.", async ({ page }) => {
     await page.goto(`telemed/appointments`);
-    await awaitAppointments(page);
+    await awaitAppointmentsTableToBeVisible(page);
 
     await page.getByTestId(dataTestIds.telemedEhrFlow.allPatientsButton).click(DEFAULT_TIMEOUT);
-    await awaitAppointments(page);
+    await awaitAppointmentsTableToBeVisible(page);
 
     let foundOtherAppointment = false;
     const table = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTable).locator('table');
@@ -109,7 +89,7 @@ test.describe('Appointment appearing correctly', async () => {
 
 test('Appointment has location label and is in a relevant location group', async ({ page }) => {
   await page.goto(`telemed/appointments`);
-  await awaitAppointments(page);
+  await awaitAppointmentsTableToBeVisible(page);
 
   const table = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTable).locator('table');
   let foundLocationGroup = false;
@@ -140,7 +120,7 @@ test('Appointment has location label and is in a relevant location group', async
 
 test('All appointments in my-patients section has appropriate assign buttons', async ({ page }) => {
   await page.goto(`telemed/appointments`);
-  await awaitAppointments(page);
+  await awaitAppointmentsTableToBeVisible(page);
 
   const table = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTable).locator('table');
   await iterateThroughTable(table, async (row) => {
@@ -165,11 +145,11 @@ test.describe('Appointment in all-patients section', () => {
 
   test('are readonly', async ({ page }) => {
     await page.goto(`telemed/appointments`);
-    await awaitAppointments(page);
+    await awaitAppointmentsTableToBeVisible(page);
 
     await test.step('go to all patients and find appointment', async () => {
       await page.getByTestId(dataTestIds.telemedEhrFlow.allPatientsButton).click(DEFAULT_TIMEOUT);
-      await awaitAppointments(page);
+      await awaitAppointmentsTableToBeVisible(page);
 
       const otherAppointmentViewButton = page.getByTestId(
         dataTestIds.telemedEhrFlow.trackingBoardViewButton(resourceHandler2.otherAppointment.appointment.id!)
@@ -189,7 +169,7 @@ test.describe('Appointment in all-patients section', () => {
 
 test('Assigned appointment has connect-to-patient button', async ({ page }) => {
   await page.goto(`telemed/appointments`);
-  await awaitAppointments(page);
+  await awaitAppointmentsTableToBeVisible(page);
 
   await test.step('Find and assign my appointment', async () => {
     const table = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTable).locator('table');
@@ -204,7 +184,7 @@ test('Assigned appointment has connect-to-patient button', async ({ page }) => {
     await myAppointmentAssignButton?.click(DEFAULT_TIMEOUT);
   });
 
-  await dialogConfirm(page);
+  await telemedDialogConfirm(page);
 
   await test.step('Appointment has connect-to-patient button', async () => {
     const statusChip = page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip);
@@ -423,7 +403,7 @@ test('Connect to patient function', async ({ page }) => {
   await expect(connectButton).toBeVisible(DEFAULT_TIMEOUT);
   await connectButton.click(DEFAULT_TIMEOUT);
 
-  await dialogConfirm(page);
+  await telemedDialogConfirm(page);
 
   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.videoRoomContainer)).toBeVisible(DEFAULT_TIMEOUT);
 });
