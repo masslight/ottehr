@@ -55,4 +55,9 @@ export class CommonLocatorsHelper {
     const formattedDate = `${month}/${day}/${year}`;
     return formattedDate;
   }
+  async getMonthDay(monthStr: string, dayStr: string) {
+    const monthNumber = new Date(`${monthStr} 01 2000`).toLocaleDateString(`en`, { month: `2-digit` });
+    const dayNumber = new Date(`Jan ${dayStr} 2000`).toLocaleDateString(`en`, { day: `2-digit` });
+    return { monthNumber, dayNumber };
+  }
 }
