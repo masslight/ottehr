@@ -205,7 +205,7 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
       resource.resourceType === 'RelatedPerson' &&
       resource.id === primaryCoverage?.subscriber?.reference?.replace('RelatedPerson/', '')
   );
-  const primaryInsrancePlan = insuranceInfo?.find(
+  const primaryInsurancePlan = insuranceInfo?.find(
     (resource): resource is InsurancePlan =>
       resource.resourceType === 'InsurancePlan' && resource.ownedBy?.reference === primaryCoverage?.payor?.[0].reference
   );
@@ -233,7 +233,7 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
   const policyHolderFirstName = primaryPolicyHolder?.name?.[0].given?.[0];
   const insuranceMemberId = primaryCoverage?.subscriberId;
   const insuranceCarrier = {
-    reference: `InsurancePlan/${primaryInsrancePlan?.id}`,
+    reference: `InsurancePlan/${primaryInsurancePlan?.id}`,
     display: primaryCoverage?.class?.[0].name,
   };
 
@@ -250,7 +250,7 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
       resource.resourceType === 'RelatedPerson' &&
       resource.id === secondaryCoverage?.subscriber?.reference?.replace('RelatedPerson/', '')
   );
-  const secondaryInsrancePlan = insuranceInfo?.find(
+  const secondaryInsurancePlan = insuranceInfo?.find(
     (resource): resource is InsurancePlan =>
       resource.resourceType === 'InsurancePlan' &&
       resource.ownedBy?.reference === secondaryCoverage?.payor?.[0].reference
@@ -279,7 +279,7 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
   const secondaryPolicyHolderFirstName = secondaryPolicyHolder?.name?.[0].given?.[0];
   const secondaryInsuranceMemberId = secondaryCoverage?.subscriberId;
   const secondaryInsuranceCarrier = {
-    reference: `InsurancePlan/${secondaryInsrancePlan?.id}`,
+    reference: `InsurancePlan/${secondaryInsurancePlan?.id}`,
     display: secondaryCoverage?.class?.[0].name,
   };
 
@@ -472,7 +472,7 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
           if (linkId === 'insurance-member-id' && insuranceMemberId) {
             answer = makeAnswer(insuranceMemberId);
           }
-          if (linkId === 'insurance-carrier' && insuranceCarrier) {
+          if (linkId === 'insurance-carrier' && primaryInsurancePlan) {
             answer = makeAnswer(insuranceCarrier, 'Reference');
           }
           if (linkId === 'payment-option' && paymentOption) {
@@ -527,7 +527,7 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
               if (linkId === 'insurance-member-id-2' && secondaryInsuranceMemberId) {
                 answer = makeAnswer(secondaryInsuranceMemberId);
               }
-              if (linkId === 'insurance-carrier-2' && secondaryInsuranceCarrier) {
+              if (linkId === 'insurance-carrier-2' && secondaryInsurancePlan) {
                 answer = makeAnswer(secondaryInsuranceCarrier, 'Reference');
               }
               return {
