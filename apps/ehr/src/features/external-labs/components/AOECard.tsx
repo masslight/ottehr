@@ -2,12 +2,19 @@ import { Paper, Grid, CircularProgress, Typography } from '@mui/material';
 import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import React, { useState } from 'react';
 import { AOEQuestion } from './AOEQuestion';
+<<<<<<< Updated upstream
 import { AOEQuestionWithAnswer, UserProvidedAnswerType } from './SampleCollection';
 
 interface AOEProps {
   questions: AOEQuestionWithAnswer[];
   onAnswer: (answer: UserProvidedAnswerType, isValid: boolean, index: number) => void;
   submitAttempted: boolean;
+=======
+import { QuestionnaireItem } from 'fhir/r4b';
+
+interface AOEProps {
+  questions: QuestionnaireItem[];
+>>>>>>> Stashed changes
 }
 
 export const AOECard: React.FC<AOEProps> = ({ questions, onAnswer, submitAttempted }) => {

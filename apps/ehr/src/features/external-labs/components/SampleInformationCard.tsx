@@ -106,6 +106,7 @@ export const SampleInformationCard: React.FC<SampleInfoProps> = ({
               title={'Order Added'}
               description={orderAddedDateTime.toLocal().toFormat('MM/dd/yyyy hh:mm a') || ''}
             />
+<<<<<<< Updated upstream
             <BoldedTitleText title={'Ordering Physician'} description={orderingPhysician} />
             <BoldedTitleText title={'Individual Collecting Sample'} description={individualCollectingSample} />
             <Stack direction={'row'} spacing={1} sx={{ justifyContent: 'space-between' }}>
@@ -192,6 +193,68 @@ export const SampleInformationCard: React.FC<SampleInfoProps> = ({
               </FormControl>
             </Stack>
             <FormControlLabel
+=======
+            <BoldedTitleText title={'Ordering physician'} description={orderingPhysician} />
+            {/* <BoldedTitleText title={'Individual Collecting Sample'} description={individualCollectingSample} /> */}
+            {/* <Stack direction={'row'} spacing={1} sx={{ justifyContent: 'space-between' }}>
+              <Controller
+                name={dateFormName}
+                control={control}
+                defaultValue={datePortion || DateTime.now()}
+                render={({ field }) => (
+                  <>
+                    <FormControl fullWidth error={!!errors[dateFormName]}>
+                      <LocalizationProvider dateAdapter={AdapterLuxon}>
+                        <DatePicker
+                          {...field}
+                          disabled={false}
+                          format={'MM/dd/yyyy'}
+                          label="Collection Date"
+                          slotProps={{
+                            textField: {
+                              id: 'sample-collection-date',
+                              error: !!errors[dateFormName],
+                              required: true,
+                              style: { width: '100%' },
+                            },
+                            actionBar: { actions: ['today'] },
+                          }}
+                          value={datePortion}
+                        />
+                      </LocalizationProvider>
+                      {!!errors[dateFormName] && <FormHelperText>Valid date required</FormHelperText>}
+                    </FormControl>
+                  </>
+                )}
+              /> */}
+            {/* <Controller
+                name={timeFormName}
+                control={control}
+                defaultValue={timePortion || DateTime.now()}
+                render={({ field }) => (
+                  <FormControl fullWidth error={!!errors[timeFormName]}>
+                    <LocalizationProvider dateAdapter={AdapterLuxon}>
+                      <TimePicker
+                        {...field}
+                        label="Collection Time"
+                        slotProps={{
+                          textField: {
+                            id: 'sample-collection-time',
+                            error: !!errors[timeFormName],
+                            required: true,
+                            style: { width: '100%' },
+                          },
+                        }}
+                        value={timePortion}
+                      ></TimePicker>
+                    </LocalizationProvider>
+                    {!!errors[timeFormName] && <FormHelperText>Valid time required</FormHelperText>}
+                  </FormControl>
+                )}
+              />
+            </Stack> */}
+            {/* <FormControlLabel
+>>>>>>> Stashed changes
               control={
                 <Switch
                   checked={showInPatientPortal}
@@ -200,6 +263,7 @@ export const SampleInformationCard: React.FC<SampleInfoProps> = ({
                   }}
                 />
               }
+<<<<<<< Updated upstream
               label={'Show in Patient Portal'}
             />
             {showButtons && (
@@ -212,6 +276,10 @@ export const SampleInformationCard: React.FC<SampleInfoProps> = ({
                 </LoadingButton>
               </Stack>
             )}
+=======
+              label={'Show Results in Patient Portal'}
+            /> */}
+>>>>>>> Stashed changes
           </Stack>
         </Paper>
       </AccordionCard>
