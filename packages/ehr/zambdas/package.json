@@ -1,6 +1,6 @@
 {
   "name": "ehr-zambdas",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "private": true,
   "scripts": {
     "start": "export HOME=./ && env-cmd -f ./.env/${ENV:-local}.json sls offline --stage ${ENV:-local}",
