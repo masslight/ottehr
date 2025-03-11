@@ -829,7 +829,9 @@ export function getProviderNameWithProfession(practitioner: Practitioner): strin
   const firstName = practitioner.name?.[0].given?.[0];
   const secondName = practitioner.name?.[0].family;
   const professionAbbreviation = practitioner.name?.[0].suffix?.join(' ');
-  return [`${secondName}, ${firstName}`, professionAbbreviation].join(' | ');
+  const fullName = [secondName, firstName].filter(Boolean).join(', ');
+
+  return [fullName, professionAbbreviation].filter(Boolean).join(' | ');
 }
 
 export const findExtensionIndex = (extensions: Extension[], url: string): number => {
