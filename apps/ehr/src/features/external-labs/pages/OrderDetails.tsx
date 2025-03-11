@@ -4,12 +4,12 @@ import { StatusChip } from '../components/StatusChip';
 import { OrderCollection } from '../components/OrderCollection';
 import { OrderHistoryCard } from '../components/OrderHistoryCard';
 import { StatusString } from '../components/StatusChip';
-import mockAOEData from '../mock-data/mock_aoe_questionnaire.json';
 import { useParams } from 'react-router-dom';
 import { CSSPageTitle } from '../../../telemed/components/PageTitle';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { OrderDetails } from 'utils';
 import { getLabOrderDetails } from '../../../api/api';
+import { QuestionnaireItem } from 'fhir/r4b';
 
 interface CollectionInstructions {
   container: string;
@@ -17,39 +17,6 @@ interface CollectionInstructions {
   minimumVolume: string;
   storageRequirements: string;
   collectionInstructions: string;
-}
-
-type JsonPrimitive = boolean | number | string | null;
-type JsonArray = JsonValue[];
-type JsonObject = {
-  [x: string]: JsonValue | undefined;
-};
-type JsonValue = JsonArray | JsonObject | JsonPrimitive;
-
-export interface AoeQuestionnaireConfig extends JsonObject {
-  resourceType: string;
-  status: string;
-  url: string;
-  item: AoeQuestionnaireItemConfig[];
-}
-export interface AoeAnswerOption extends JsonObject {
-  id: string;
-  valueString: string;
-}
-
-export interface AoeExtension extends JsonObject {
-  url: string;
-  valueString: string;
-}
-
-export interface AoeQuestionnaireItemConfig extends JsonObject {
-  linkId: string;
-  text: string;
-  type: string;
-  required: boolean;
-  code?: { system: string; code: string }[];
-  answerOption?: AoeAnswerOption[];
-  extension?: AoeExtension[];
 }
 
 export const OrderDetailsPage: React.FC = () => {
@@ -65,7 +32,7 @@ export const OrderDetailsPage: React.FC = () => {
   // Note: specimens are no longer MVP, and also we'll be getting specimens from Create Order
   const [specimen, setSpecimen] = useState({});
   const [collectionInstructions, setCollectionInstructions] = useState({} as CollectionInstructions);
-  const initialAoe: AoeQuestionnaireItemConfig[] = [];
+  const initialAoe: QuestionnaireItem[] = [];
   const [aoe, setAoe] = useState(initialAoe);
   const [isLoading, setIsLoading] = useState(true);
   const [taskStatus, setTaskStatus] = useState('pending' as StatusString);
@@ -84,6 +51,9 @@ export const OrderDetailsPage: React.FC = () => {
       const orderDetails = await getLabOrderDetails(oystehrZambda, { serviceRequestID: orderId });
 
       setServiceRequest(orderDetails);
+      if (orderDetails.labQuestions.item) {
+        setAoe(orderDetails.labQuestions.item);
+      }
     }
     getServiceRequestTemp().catch((error) => console.log(error));
 
@@ -99,7 +69,6 @@ export const OrderDetailsPage: React.FC = () => {
       collectionInstructions:
         'If a red-top tube or plasma tube is used, transfer separated serum or plasma to a plastic transport tube.',
     });
-    setAoe(mockAOEData.item);
 
     setIsLoading(false);
     // setTaskStatus('collected');

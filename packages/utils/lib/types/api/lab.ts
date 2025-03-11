@@ -1,8 +1,10 @@
+import { Questionnaire } from 'fhir/r4b';
+
 export interface GetLabOrderDetailsInput {
   serviceRequestID: string;
 }
 
-export interface CreateLabOrderInput {
+export interface SubmitLabOrderInput {
   serviceRequestID: string;
   data: any;
 }
@@ -15,4 +17,5 @@ export interface OrderDetails {
   orderDateTime: string;
   labName: string;
   sampleCollectionDateTime: string;
+  labQuestions: Questionnaire;
 }

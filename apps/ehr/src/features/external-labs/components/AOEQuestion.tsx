@@ -3,14 +3,14 @@ import { AOEMultiSelectListQuestion } from './AOEMultiSelectListQuestion';
 import { AOEFreeTextQuestion } from './AOEFreeTextQuestion';
 import { AOEDateQuestion } from './AOEDateQuestion';
 import { Grid } from '@mui/material';
-import { AoeQuestionnaireItemConfig } from '../pages/OrderDetails';
 import { AOENumberQuestion } from './AOENumberQuestion';
 import { AOEYesNoQuestion } from './AOEYesNoQuestion';
 import { FormControl } from '@mui/material';
 import { Controller, useFormContext } from 'react-hook-form';
+import { QuestionnaireItem } from 'fhir/r4b';
 
 interface AOEQuestionProps {
-  question: AoeQuestionnaireItemConfig;
+  question: QuestionnaireItem;
 }
 
 export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
@@ -29,6 +29,10 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
       ? []
       : undefined;
 
+  if (!text) {
+    throw new Error('question text is not defined');
+  }
+
   return (
     // Athena TODO: consider Stack instead of grid...
     <Grid item xs={12}>
@@ -44,7 +48,7 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
                   questionText={text}
                   linkId={linkId}
                   answerOption={answerOption}
-                  required={required}
+                  required={required || false}
                   field={field}
                 />
               )}
@@ -55,17 +59,19 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
                     questionText={text}
                     linkId={linkId}
                     answerOption={answerOption}
-                    required={required}
+                    required={required || false}
                     field={field}
                   />
                 )}
-              {type === 'text' && <AOEFreeTextQuestion questionText={text} linkId={linkId} required={required} />}
+              {type === 'text' && (
+                <AOEFreeTextQuestion questionText={text} linkId={linkId} required={required || false} />
+              )}
               {type === 'date' && extension && (
                 <AOEDateQuestion
                   questionText={text}
                   linkId={linkId}
                   extension={extension}
-                  required={required}
+                  required={required || false}
                   field={field}
                 />
               )}
@@ -74,7 +80,7 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
                   questionText={text}
                   linkId={linkId}
                   extension={extension}
-                  required={required}
+                  required={required || false}
                   idString={`integer-${linkId}`}
                   onKeyDown={(event) => {
                     if (event.key === '.' || event.key === 'e') {
@@ -91,7 +97,7 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
                   questionText={text}
                   linkId={linkId}
                   extension={extension}
-                  required={required}
+                  required={required || false}
                   idString={`decimal-${linkId}`}
                   onKeyDown={(event) => {
                     if (event.key === 'e') {
@@ -104,7 +110,7 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
                 />
               )}
               {type === 'boolean' && (
-                <AOEYesNoQuestion questionText={text} linkId={linkId} required={required} field={field} />
+                <AOEYesNoQuestion questionText={text} linkId={linkId} required={required || false} field={field} />
               )}
               {/* {!!errors[questionText] && <FormHelperText>{errors[questionText]}</FormHelperText>} */}
             </FormControl>

@@ -5,11 +5,11 @@ import { AOECard } from './AOECard';
 // import { SampleCollectionInstructionsCard } from './SampleCollectionInstructionsCard';
 import { SampleInformationCard } from './SampleInformationCard';
 import { useForm, SubmitHandler, FormProvider } from 'react-hook-form';
-import { AoeQuestionnaireItemConfig } from '../pages/OrderDetails';
 import Oystehr from '@oystehr/sdk';
 import { OrderDetails } from 'utils';
 import useEvolveUser from '../../../hooks/useEvolveUser';
-import { createLabOrder } from '../../../api/api';
+import { submitLabOrder } from '../../../api/api';
+import { QuestionnaireItem } from 'fhir/r4b';
 
 interface CollectionInstructions {
   container: string;
@@ -20,13 +20,13 @@ interface CollectionInstructions {
 }
 
 interface SampleCollectionProps {
-  aoe: AoeQuestionnaireItemConfig[];
+  aoe: QuestionnaireItem[];
   collectionInstructions: CollectionInstructions;
   specimen: any;
   serviceRequestID: string;
   serviceRequest: OrderDetails;
   _onCollectionSubmit: () => void;
-  oystehr: Oystehr;
+  oystehr: Oystehr | undefined;
 }
 
 interface DynamicAOEInput {
@@ -57,10 +57,10 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
     setSubmitLoading(true);
 
     async function updateFhir(): Promise<void> {
-      // if (!oystehr) {
-      //   throw new Error('oystehr client is undefined');
-      // }
-      await createLabOrder(oystehr, {
+      if (!oystehr) {
+        throw new Error('oystehr client is undefined');
+      }
+      await submitLabOrder(oystehr, {
         serviceRequestID: serviceRequestID,
         data: data,
       });

@@ -2,7 +2,7 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { Address, ContactPoint, LocationHoursOfOperation } from 'fhir/r4b';
 import {
   ConversationMessage,
-  CreateLabOrderInput,
+  SubmitLabOrderInput,
   GetEmployeesResponse,
   GetLabOrderDetailsInput,
   GetScheduleRequestParams,
@@ -32,7 +32,7 @@ export interface PatchOperation {
 
 const VITE_APP_IS_LOCAL = import.meta.env.VITE_APP_IS_LOCAL;
 const GET_LAB_ORDER_DETAILS_ZAMBDA_ID = import.meta.env.VITE_APP_GET_LAB_ORDER_DETAILS_ZAMBDA_ID;
-const CREATE_LAB_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_LAB_ORDER_ZAMBDA_ID;
+const SUBMIT_LAB_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_SUBMIT_LAB_ORDER_ZAMBDA_ID;
 const GET_APPOINTMENTS_ZAMBDA_ID = import.meta.env.VITE_APP_GET_APPOINTMENTS_ZAMBDA_ID;
 const CREATE_APPOINTMENT_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID;
 const CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID = import.meta.env.VITE_APP_CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID;
@@ -66,14 +66,14 @@ if (!VITE_APP_IS_LOCAL) {
   throw new Error('VITE_APP_IS_LOCAL is not defined');
 }
 
-export const createLabOrder = async (oystehr: Oystehr, parameters: CreateLabOrderInput): Promise<OrderDetails> => {
+export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrderInput): Promise<OrderDetails> => {
   try {
-    if (CREATE_LAB_ORDER_ZAMBDA_ID == null) {
-      throw new Error('create lab order environment variable could not be loaded');
+    if (SUBMIT_LAB_ORDER_ZAMBDA_ID == null) {
+      throw new Error('submit lab order environment variable could not be loaded');
     }
 
     const response = await oystehr.zambda.execute({
-      id: CREATE_LAB_ORDER_ZAMBDA_ID,
+      id: SUBMIT_LAB_ORDER_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response, VITE_APP_IS_LOCAL);

@@ -3,7 +3,7 @@ import { OrderDetails } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
 import { ZambdaInput } from 'zambda-utils';
 import { validateRequestParameters } from './validateRequestParameters';
-import { ActivityDefinition } from 'fhir/r4b';
+import { ActivityDefinition, Questionnaire } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getLabOrderResources } from '../shared/labs';
 
@@ -36,11 +36,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     if (!questionnaireUrl) {
       throw new Error('questionnaire is not found');
     }
-    await fetch(questionnaireUrl, {
+    const questionnaireRequest = await fetch(questionnaireUrl, {
       headers: {
         Authorization: `Bearer ${m2mtoken}`,
       },
     });
+    const questionnaire: Questionnaire = await questionnaireRequest.json();
 
     const orderDetails: OrderDetails = {
       diagnosis: serviceRequest?.reasonCode?.map((reasonCode) => reasonCode.text).join('; ') || 'Missing diagnosis',
@@ -52,6 +53,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       orderDateTime: task.authoredOn,
       labName: (serviceRequest?.contained?.[0] as ActivityDefinition).publisher || 'Missing Publisher name',
       sampleCollectionDateTime: DateTime.now().toString(),
+      labQuestions: questionnaire,
     };
 
     return {

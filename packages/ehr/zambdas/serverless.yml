@@ -265,11 +265,11 @@ functions:
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
 
-  lab-order:
-    handler: src/lab-order/index.index
+  submit-lab-order:
+    handler: src/submit-lab-order/index.index
     events:
       - http:
-          path: zambda/lab-order/execute
+          path: zambda/submit-lab-order/execute
           method: POST
     timeout: 25
     environment:

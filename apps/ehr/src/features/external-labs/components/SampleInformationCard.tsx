@@ -128,7 +128,7 @@ export const SampleInformationCard: React.FC<SampleInfoProps> = ({
                 )}
               />
             </Stack> */}
-            <FormControlLabel
+            {/* <FormControlLabel
               control={
                 <Controller
                   name={'show-in-patient-portal'}
@@ -138,7 +138,7 @@ export const SampleInformationCard: React.FC<SampleInfoProps> = ({
                 />
               }
               label={'Show Results in Patient Portal'}
-            />
+            /> */}
           </Stack>
         </Paper>
       </AccordionCard>

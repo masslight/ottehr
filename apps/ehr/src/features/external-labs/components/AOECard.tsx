@@ -2,10 +2,10 @@ import { Paper, Grid, CircularProgress, Typography } from '@mui/material';
 import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import React, { useState } from 'react';
 import { AOEQuestion } from './AOEQuestion';
-import { AoeQuestionnaireItemConfig } from '../pages/OrderDetails';
+import { QuestionnaireItem } from 'fhir/r4b';
 
 interface AOEProps {
-  questions: AoeQuestionnaireItemConfig[];
+  questions: QuestionnaireItem[];
 }
 
 export const AOECard: React.FC<AOEProps> = ({ questions }) => {

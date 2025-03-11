@@ -1,7 +1,7 @@
-import { CreateLabOrderInput } from 'utils';
+import { SubmitLabOrderInput } from 'utils';
 import { ZambdaInput } from 'zambda-utils';
 
-export function validateRequestParameters(input: ZambdaInput): CreateLabOrderInput & Pick<ZambdaInput, 'secrets'> {
+export function validateRequestParameters(input: ZambdaInput): SubmitLabOrderInput & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {
     throw new Error('No request body provided');
   }
