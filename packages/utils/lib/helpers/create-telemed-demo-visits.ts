@@ -167,16 +167,30 @@ const generateRandomPatientInfo = async (
   };
 };
 
-export const createSampleTelemedAppointments = async (
-  oystehr: Oystehr | undefined,
-  authToken: string,
-  phoneNumber: string,
-  createAppointmentZambdaId: string,
-  islocal: boolean,
-  intakeZambdaUrl: string,
-  selectedLocationId?: string,
-  demoData?: DemoAppointmentData
-): Promise<CreateAppointmentUCTelemedResponse | null> => {
+export const createSampleTelemedAppointments = async ({
+  oystehr,
+  authToken,
+  phoneNumber,
+  createAppointmentZambdaId,
+  intakeZambdaUrl,
+  selectedLocationId,
+  demoData,
+  projectId,
+}: {
+  oystehr: Oystehr | undefined;
+  authToken: string;
+  phoneNumber: string;
+  createAppointmentZambdaId: string;
+  islocal: boolean;
+  intakeZambdaUrl: string;
+  selectedLocationId?: string;
+  demoData?: DemoAppointmentData;
+  projectId: string;
+}): Promise<CreateAppointmentUCTelemedResponse | null> => {
+  if (!projectId) {
+    throw new Error('PROJECT_ID is not set');
+  }
+
   if (!oystehr) {
     console.log('oystehr client is not defined');
     return null;
@@ -194,15 +208,18 @@ export const createSampleTelemedAppointments = async (
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
+          'x-zapehr-project-id': projectId,
         },
         body: JSON.stringify(patientInfo),
       });
 
       console.log({ createAppointmentResponse });
 
-      appointmentData = islocal
-        ? await createAppointmentResponse.json()
-        : (await createAppointmentResponse.json()).output;
+      appointmentData = await createAppointmentResponse.json();
+
+      if ((appointmentData as any)?.output) {
+        appointmentData = (appointmentData as any).output as CreateAppointmentUCTelemedResponse;
+      }
 
       console.log({ appointmentData });
 
@@ -241,7 +258,8 @@ export const createSampleTelemedAppointments = async (
             getInviteParticipantStepAnswers(),
           ],
           intakeZambdaUrl,
-          authToken
+          authToken,
+          projectId
         );
 
         const response = await fetch(`${intakeZambdaUrl}/zambda/submit-paperwork/execute-public`, {
@@ -249,6 +267,7 @@ export const createSampleTelemedAppointments = async (
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${authToken}`,
+            'x-zapehr-project-id': projectId,
           },
           body: JSON.stringify(<SubmitPaperworkParameters>{
             answers: [],
@@ -265,7 +284,7 @@ export const createSampleTelemedAppointments = async (
           );
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 5000)); // todo delete
+        await new Promise((resolve) => setTimeout(resolve, 5_000)); // todo: handle without waiting
       }
     }
 

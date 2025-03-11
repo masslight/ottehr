@@ -15,8 +15,8 @@ import { AssessmentCard } from '../../../telemed/features/appointment/Assessment
 import { Plan } from '../pages/Plan';
 import { Examination } from '../pages/Examination';
 import { ERX } from '../pages/ERX';
-import { SubmitExternalLabOrders } from '../../external-labs/pages/SubmitExternalLabOrders';
 import { OrderDetailsPage } from '../../external-labs/pages/OrderDetails';
+import { CreateExternalLabOrder } from '../../external-labs/pages/CreateExternalLabOrder';
 import { ExternalLabOrdersListPage } from '../../external-labs/pages/ExternalLabOrdersListPage';
 
 export enum ROUTER_PATH {
@@ -163,20 +163,18 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     text: 'Plan',
     iconKey: 'Lab profile',
   },
-
-  // TODO: Uncomment after the module is ready
   [ROUTER_PATH.EXTERNAL_LAB_ORDER]: {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER,
     modes: ['provider', 'readonly'],
     element: <ExternalLabOrdersListPage />,
-    text: 'Send Out Labs',
+    text: 'Labs',
     iconKey: 'Send Out Labs',
   },
   [ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE]: {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE,
     modes: ['provider', 'readonly'],
     isSkippedInNavigation: true,
-    element: <SubmitExternalLabOrders />,
+    element: <CreateExternalLabOrder />,
     text: 'Order Lab',
     iconKey: 'Send Out Labs',
   },

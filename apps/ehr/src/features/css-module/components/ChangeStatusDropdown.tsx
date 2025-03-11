@@ -8,6 +8,7 @@ import { handleChangeInPersonVisitStatus } from '../../../helpers/inPersonVisitS
 import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser from '../../../hooks/useEvolveUser';
 import { enqueueSnackbar } from 'notistack';
+import { dataTestIds } from '../../../constants/data-test-ids';
 
 const StyledSelect = styled(Select)<{ hasdropdown?: string; arrowcolor: string }>(({ hasdropdown, arrowcolor }) => ({
   height: '32px',
@@ -89,6 +90,7 @@ export const ChangeStatusDropdown = ({
         <div id="user-set-appointment-status">
           <FormControl size="small">
             <StyledSelect
+              data-testid={dataTestIds.cssHeader.appointmentStatus}
               id="appointment-status"
               value={status}
               {...(hasdropdown ? { hasdropdown: 'true' } : {})}
