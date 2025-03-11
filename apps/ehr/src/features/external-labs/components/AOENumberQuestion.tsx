@@ -1,12 +1,12 @@
 import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
-import { AoeExtension } from '../pages/OrderDetails';
 import { NumberInput } from '../../../telemed/features/appointment/ExamTab/components/NumberInput';
 import React, { KeyboardEvent } from 'react';
+import { Extension } from 'fhir/r4b';
 
 interface NumberQuestionProps {
   questionText: string;
   linkId: string;
-  extension: AoeExtension[];
+  extension: Extension[];
   required: boolean;
   idString: string;
   onKeyDown(event: KeyboardEvent<HTMLDivElement>): boolean;

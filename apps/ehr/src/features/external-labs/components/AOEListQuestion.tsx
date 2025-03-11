@@ -1,11 +1,11 @@
 import { Select, MenuItem, InputLabel } from '@mui/material';
 import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
-import { AoeAnswerOption } from '../pages/OrderDetails';
+import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 
 interface ListQuestionProps {
   questionText: string;
   linkId: string;
-  answerOption: AoeAnswerOption[];
+  answerOption: QuestionnaireItemAnswerOption[];
   required: boolean;
   field: ControllerRenderProps<FieldValues, string>;
 }

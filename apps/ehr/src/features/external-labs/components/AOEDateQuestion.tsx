@@ -1,12 +1,12 @@
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+import { Extension } from 'fhir/r4b';
 import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
-import { AoeExtension } from '../pages/OrderDetails';
 
 interface DateQuestionProps {
   questionText: string;
   linkId: string;
-  extension: AoeExtension[];
+  extension: Extension[];
   required: boolean;
   field: ControllerRenderProps<FieldValues, string>;
 }
