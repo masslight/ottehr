@@ -46,6 +46,15 @@ export const ContactContainer: FC = () => {
           onChangeHandler={handleChange}
         />
       </Row>
+      <Row label="Address line 2" inputId="patient-street-address-line-2">
+        <FormTextField
+          name={patientFieldPaths.streetAddressLine2}
+          control={control}
+          defaultValue={patient?.address?.[0]?.line?.[1]}
+          id="patient-street-address-line-2"
+          onChangeHandler={handleChange}
+        />
+      </Row>
       <Row label="City, State, ZIP" required>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <FormTextField
