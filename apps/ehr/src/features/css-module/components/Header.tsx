@@ -99,7 +99,7 @@ export const Header = (): JSX.Element => {
       )
     ) {
       if (interactionMode === 'intake') {
-        setInteractionMode('provider');
+        setInteractionMode('provider', false);
       }
     }
   }, [encounter?.participant, setInteractionMode, interactionMode]);

@@ -33,7 +33,7 @@ interface NavigationContextType {
   setIsNavigationHidden: (hide: boolean) => void;
   isNavigationHidden: boolean;
   interactionMode: InteractionMode;
-  setInteractionMode: (mode: InteractionMode) => void;
+  setInteractionMode: (mode: InteractionMode, shouldNavigate: boolean | undefined) => void;
   availableRoutes: RouteCSS[];
   isFirstPage: boolean;
   isLastPage: boolean;
@@ -108,7 +108,7 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
     (route) => route.sidebarPath || route.path
   );
 
-  const setInteractionMode = (mode: InteractionMode): void => {
+  const setInteractionMode = (mode: InteractionMode, shouldNavigate: boolean | undefined = true): void => {
     const basePath = location.pathname.match(/.*?(in-person)\/[^/]*/)?.[0];
 
     if (!basePath) {
@@ -124,7 +124,10 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
     const routePath = firstAvailableRoute.sidebarPath || firstAvailableRoute.path;
     const newPath = `${basePath}/${routePath}`;
     _setInteractionMode(mode);
-    navigate(newPath);
+
+    if (shouldNavigate) {
+      navigate(newPath);
+    }
   };
 
   const match = useMatch('/in-person/:id/*');
