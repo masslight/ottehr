@@ -162,6 +162,10 @@ function runTests(): void {
       env: { ...process.env, ENV },
     }
   );
+  loginTest.on('message', (m) => console.log(m));
+  loginTest.on('error', (e) => console.error(e));
+  loginTest.on('disconnect', () => console.error('login disconnected'));
+  loginTest.on('exit', () => console.error('login exit'));
 
   loginTest.on('close', (loginCode) => {
     if (loginCode === 0) {
