@@ -200,4 +200,17 @@ export const dataTestIds = {
   patientInfoPage: {
     patientInfoVerifiedCheckbox: 'patient-info-verified-checkbox',
   },
+  inHouseMedicationsPage: {
+    title: 'medications-title',
+    orderButton: 'order-button',
+    marTableRow: 'mar-table-row',
+    marTableMedicationCell: 'mar-table-medication-cell',
+    marTableStatusCell: 'mar-table-status-cell',
+    medicationDetailsTab: 'medication-details-tab',
+  },
+  orderMedicationPage: {
+    inputField: (field: string): string => `input-${field}`,
+    fillOrderToSaveButton: 'fill-order-to-save-button',
+    backButton: 'back-button',
+  },
 };
