@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { FillingInfo } from '../../utils/in-person/FillingInfo';
-import { UploadImage } from '../../utils/in-person/UploadImage';
+import { UploadImage } from '../../utils/UploadImage';
 
 test.describe.configure({ mode: 'parallel' });
 

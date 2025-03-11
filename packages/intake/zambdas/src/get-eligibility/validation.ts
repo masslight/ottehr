@@ -47,8 +47,14 @@ export function validateRequestParameters(input: ZambdaInput): GetEligibilityInp
       let secondaryPolicyHolder: GetEligibilityPolicyHolder | undefined;
       let secondaryInsuranceData: GetEligibilityInsuranceData | undefined;
       if (secondaryInsuranceItem !== undefined) {
-        secondaryPolicyHolder = mapResponseItemsToInsurancePolicyHolder(secondaryInsuranceItem?.item ?? [], '-2');
-        secondaryInsuranceData = mapResponseItemsToInsuranceData(secondaryInsuranceItem.item ?? [], '-2');
+        try {
+          secondaryPolicyHolder = mapResponseItemsToInsurancePolicyHolder(secondaryInsuranceItem?.item ?? [], '-2');
+          secondaryInsuranceData = mapResponseItemsToInsuranceData(secondaryInsuranceItem.item ?? [], '-2');
+        } catch (e) {
+          console.error('Error parsing secondary insurance data', e);
+          secondaryPolicyHolder = undefined;
+          secondaryInsuranceData = undefined;
+        }
       }
       console.log('primaryPolicyHolder', JSON.stringify(primaryPolicyHolder));
       console.log('primaryInsuranceData', JSON.stringify(primaryInsuranceData));

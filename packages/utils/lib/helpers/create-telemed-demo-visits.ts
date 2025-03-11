@@ -172,10 +172,10 @@ export const createSampleTelemedAppointments = async ({
   authToken,
   phoneNumber,
   createAppointmentZambdaId,
-  islocal,
   intakeZambdaUrl,
   selectedLocationId,
   demoData,
+  projectId,
 }: {
   oystehr: Oystehr | undefined;
   authToken: string;
@@ -185,102 +185,149 @@ export const createSampleTelemedAppointments = async ({
   intakeZambdaUrl: string;
   selectedLocationId?: string;
   demoData?: DemoAppointmentData;
+  projectId: string;
 }): Promise<CreateAppointmentUCTelemedResponse | null> => {
+  if (!projectId) {
+    throw new Error('PROJECT_ID is not set');
+  }
+
   if (!oystehr) {
     console.log('oystehr client is not defined');
     return null;
   }
 
   try {
-    let appointmentData: CreateAppointmentUCTelemedResponse | null = null;
     const numberOfAppointments = demoData?.numberOfAppointments || 10;
 
-    for (let i = 0; i < numberOfAppointments; i++) {
-      const patientInfo = await generateRandomPatientInfo(oystehr, phoneNumber, demoData, selectedLocationId);
+    // Run all appointment creations in parallel
+    const appointmentPromises = Array.from({ length: numberOfAppointments }, async (_, i) => {
+      try {
+        const patientInfo = await generateRandomPatientInfo(oystehr, phoneNumber, demoData, selectedLocationId);
 
-      const createAppointmentResponse = await fetch(`${intakeZambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify(patientInfo),
-      });
-
-      console.log({ createAppointmentResponse });
-
-      appointmentData = islocal
-        ? await createAppointmentResponse.json()
-        : (await createAppointmentResponse.json()).output;
-
-      console.log({ appointmentData });
-
-      if (!appointmentData) {
-        console.error('Error creating appointment:', appointmentData);
-        return null;
-      }
-
-      const appointmentId = appointmentData.appointmentId;
-      const questionnaireResponseId = appointmentData.questionnaireId;
-
-      const birthDate = isoToDateObject(patientInfo.patient.dateOfBirth || '') || undefined;
-
-      if (questionnaireResponseId) {
-        await makeSequentialPaperworkPatches(
-          questionnaireResponseId,
-          [
-            getContactInformationAnswers({
-              firstName: patientInfo.patient.firstName,
-              lastName: patientInfo.patient.lastName,
-              birthDate,
-              email: patientInfo.patient.email,
-              phoneNumber: patientInfo.patient.phoneNumber,
-              birthSex: patientInfo.patient.sex,
-            }),
-            getPatientDetailsStepAnswers({}),
-            getMedicationsStepAnswers(),
-            getAllergiesStepAnswers(),
-            getMedicalConditionsStepAnswers(),
-            getSurgicalHistoryStepAnswers(),
-            getAdditionalQuestionsAnswers(),
-            getPaymentOptionSelfPayAnswers(),
-            getResponsiblePartyStepAnswers({}),
-            getSchoolWorkNoteStepAnswers(),
-            getConsentStepAnswers({}),
-            getInviteParticipantStepAnswers(),
-          ],
-          intakeZambdaUrl,
-          authToken
+        const createAppointmentResponse = await fetch(
+          `${intakeZambdaUrl}/zambda/${createAppointmentZambdaId}/execute`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${authToken}`,
+            },
+            body: JSON.stringify(patientInfo),
+          }
         );
 
-        const response = await fetch(`${intakeZambdaUrl}/zambda/submit-paperwork/execute-public`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${authToken}`,
-          },
-          body: JSON.stringify(<SubmitPaperworkParameters>{
-            answers: [],
-            questionnaireResponseId: questionnaireResponseId,
-            appointmentId,
-          }),
-        });
-
-        if (!response.ok) {
-          // This may be an error if some paperwork required answers were not provided.
-          // Check QuestionnaireResponse resource if it corresponds to all Questionnaire requirements
-          throw new Error(
-            `Error submitting paperwork, response: ${response}, body: ${JSON.stringify(await response.json())}`
-          );
+        if (!createAppointmentResponse.ok) {
+          throw new Error(`Failed to create appointment. Status: ${createAppointmentResponse.status}`);
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 5000)); // todo delete
+        console.log(`Appointment ${i + 1} created successfully.`);
+
+        let appointmentData = await createAppointmentResponse.json();
+
+        if ((appointmentData as any)?.output) {
+          appointmentData = (appointmentData as any).output as CreateAppointmentUCTelemedResponse;
+        }
+
+        console.log({ appointmentData });
+
+        if (!appointmentData) {
+          console.error('Error creating appointment:', appointmentData);
+          return null;
+        }
+
+        await processPaperwork(appointmentData, patientInfo, intakeZambdaUrl, authToken, projectId);
+        return appointmentData;
+      } catch (error) {
+        console.error(`Error processing appointment ${i + 1}:`, error);
+        return null; // Return null for failed appointments
       }
+    });
+
+    // Wait for all appointments to complete
+    const results = await Promise.all(appointmentPromises);
+
+    // Filter out failed attempts (null values)
+    const successfulAppointments = results.filter((data) => data !== null) as CreateAppointmentUCTelemedResponse[];
+
+    if (successfulAppointments.length > 0) {
+      return successfulAppointments[0]; // Return the first successful appointment
     }
 
-    return appointmentData;
-  } catch (error: any) {
+    throw new Error('All appointment creation attempts failed.');
+  } catch (error) {
     console.error('Error creating appointments:', error);
-    return null;
+    throw error;
+  }
+};
+
+// Separate function for processing paperwork
+const processPaperwork = async (
+  appointmentData: CreateAppointmentUCTelemedResponse,
+  patientInfo: any,
+  intakeZambdaUrl: string,
+  authToken: string,
+  projectId: string
+): Promise<void> => {
+  try {
+    const appointmentId = appointmentData.appointmentId;
+    const questionnaireResponseId = appointmentData.questionnaireId;
+
+    if (!questionnaireResponseId) return;
+
+    const birthDate = isoToDateObject(patientInfo.patient.dateOfBirth || '') || undefined;
+
+    await makeSequentialPaperworkPatches(
+      questionnaireResponseId,
+      [
+        getContactInformationAnswers({
+          firstName: patientInfo.patient.firstName,
+          lastName: patientInfo.patient.lastName,
+          birthDate,
+          email: patientInfo.patient.email,
+          phoneNumber: patientInfo.patient.phoneNumber,
+          birthSex: patientInfo.patient.sex,
+        }),
+        getPatientDetailsStepAnswers({}),
+        getMedicationsStepAnswers(),
+        getAllergiesStepAnswers(),
+        getMedicalConditionsStepAnswers(),
+        getSurgicalHistoryStepAnswers(),
+        getAdditionalQuestionsAnswers(),
+        getPaymentOptionSelfPayAnswers(),
+        getResponsiblePartyStepAnswers({}),
+        getSchoolWorkNoteStepAnswers(),
+        getConsentStepAnswers({}),
+        getInviteParticipantStepAnswers(),
+      ],
+      intakeZambdaUrl,
+      authToken,
+      projectId
+    );
+
+    const response = await fetch(`${intakeZambdaUrl}/zambda/submit-paperwork/execute-public`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`,
+        'x-zapehr-project-id': projectId,
+      },
+      body: JSON.stringify(<SubmitPaperworkParameters>{
+        answers: [],
+        questionnaireResponseId,
+        appointmentId,
+      }),
+    });
+
+    if (!response.ok) {
+      // This may be an error if some paperwork required answers were not provided.
+      // Check QuestionnaireResponse resource if it corresponds to all Questionnaire requirements
+      throw new Error(
+        `Error submitting paperwork, response: ${response}, body: ${JSON.stringify(await response.json())}`
+      );
+    }
+
+    console.log(`Paperwork submitted for appointment: ${appointmentId}`);
+  } catch (error) {
+    console.error(`Error processing paperwork:`, error);
   }
 };

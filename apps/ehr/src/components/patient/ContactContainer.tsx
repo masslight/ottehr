@@ -17,7 +17,7 @@ import { dataTestIds } from '../../constants/data-test-ids';
 
 export const ContactContainer: FC = () => {
   const { patient, updatePatientField } = usePatientStore();
-  const { control } = useFormContext();
+  const { control, trigger } = useFormContext();
 
   if (!patient) return null;
 
@@ -32,6 +32,7 @@ export const ContactContainer: FC = () => {
 
   const handleAutocompleteChange = (name: string, value: string): void => {
     updatePatientField(name, value);
+    void trigger(name);
   };
 
   return (

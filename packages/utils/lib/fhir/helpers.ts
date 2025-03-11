@@ -829,7 +829,9 @@ export function getProviderNameWithProfession(practitioner: Practitioner): strin
   const firstName = practitioner.name?.[0].given?.[0];
   const secondName = practitioner.name?.[0].family;
   const professionAbbreviation = practitioner.name?.[0].suffix?.join(' ');
-  return [`${secondName}, ${firstName}`, professionAbbreviation].join(' | ');
+  const fullName = [secondName, firstName].filter(Boolean).join(', ');
+
+  return [fullName, professionAbbreviation].filter(Boolean).join(' | ');
 }
 
 export const findExtensionIndex = (extensions: Extension[], url: string): number => {
@@ -1011,6 +1013,24 @@ export const createFhirHumanName = (
   return fhirName;
 };
 
+export function flattenBundleResources(searchResults: Bundle<FhirResource>): FhirResource[] {
+  const flattenedResources: FhirResource[] = [];
+
+  searchResults.entry?.forEach((resultEntry) => {
+    const bundle = resultEntry.resource;
+
+    if (bundle?.resourceType === 'Bundle' && Array.isArray(bundle.entry)) {
+      bundle.entry.forEach((entry) => {
+        if (entry.resource) {
+          flattenedResources.push(entry.resource);
+        }
+      });
+    }
+  });
+
+  return flattenedResources;
+}
+
 export function slashPathToLodashPath(slashPath: string): string {
   return slashPath
     .split('/')
@@ -1019,3 +1039,8 @@ export function slashPathToLodashPath(slashPath: string): string {
     .join('.')
     .replace(/\.\[/g, '[');
 }
+
+export const unpackFhirResponse = async <T>(response: { json: () => Promise<any> }): Promise<T> => {
+  const data = await response.json();
+  return (data.output ? data.output : data) as T;
+};

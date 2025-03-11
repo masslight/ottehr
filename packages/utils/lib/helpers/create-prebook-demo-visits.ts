@@ -1,3 +1,4 @@
+import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
 import { Address, Appointment, Location, Patient, Practitioner, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { isLocationVirtual } from '../fhir';
@@ -12,14 +13,20 @@ import {
   VisitType,
 } from '../types';
 import {
+  getAdditionalQuestionsAnswers,
+  getAllergiesStepAnswers,
   getConsentStepAnswers,
   getContactInformationAnswers,
+  getInviteParticipantStepAnswers,
+  getMedicalConditionsStepAnswers,
+  getMedicationsStepAnswers,
   getPatientDetailsStepAnswers,
   getPaymentOptionSelfPayAnswers,
   getResponsiblePartyStepAnswers,
+  getSchoolWorkNoteStepAnswers,
+  getSurgicalHistoryStepAnswers,
   isoToDateObject,
 } from './helpers';
-import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
 
 interface AppointmentData {
   firstNames?: string[];
@@ -100,6 +107,7 @@ export const createSamplePrebookAppointments = async ({
   intakeZambdaUrl,
   selectedLocationId,
   demoData,
+  projectId,
 }: {
   oystehr: Oystehr | undefined;
   authToken: string;
@@ -108,112 +116,197 @@ export const createSamplePrebookAppointments = async ({
   intakeZambdaUrl: string;
   selectedLocationId?: string;
   demoData?: DemoAppointmentData;
+  projectId: string;
 }): Promise<CreateAppointmentResponse | null> => {
+  if (!projectId) {
+    throw new Error('PROJECT_ID is not set');
+  }
+
   if (!oystehr) {
     console.log('oystehr client is not defined');
     return null;
   }
 
   try {
-    let appointmentData: CreateAppointmentResponse = {} as CreateAppointmentResponse;
     const numberOfAppointments = demoData?.numberOfAppointments || 10;
 
-    for (let i = 0; i < numberOfAppointments; i++) {
-      const serviceMode = i % 2 === 0 ? ServiceMode['in-person'] : ServiceMode.virtual;
-      const randomPatientInfo = await generateRandomPatientInfo(
-        oystehr,
-        serviceMode,
-        phoneNumber,
-        {
-          // default demoData values:
-          firstNames: DEFAULT_FIRST_NAMES,
-          lastNames: DEFAULT_LAST_NAMES,
-          reasonsForVisit: DEFAULT_REASONS_FOR_VISIT,
+    // Run all appointment creations in parallel
+    const appointmentPromises = Array.from({ length: numberOfAppointments }, async (_, i) => {
+      try {
+        const serviceMode = i % 2 === 0 ? ServiceMode['in-person'] : ServiceMode.virtual;
 
-          // demoData values:
-          ...demoData,
-        },
-        selectedLocationId
-      );
-
-      const createAppointmentResponse = await fetch(`${intakeZambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify(randomPatientInfo),
-      });
-
-      appointmentData = await createAppointmentResponse.json();
-
-      if ((appointmentData as any)?.output) {
-        appointmentData = (appointmentData as any).output as CreateAppointmentResponse;
-      }
-
-      const { appointment: appointmentId, questionnaireResponseId } = appointmentData;
-
-      const birthDate = isoToDateObject(randomPatientInfo?.patient?.dateOfBirth || '');
-
-      await makeSequentialPaperworkPatches(
-        questionnaireResponseId!,
-        [
-          getContactInformationAnswers({
-            firstName: randomPatientInfo.patient.firstName,
-            lastName: randomPatientInfo.patient.lastName,
-            ...(birthDate ? { birthDate } : {}),
-            email: randomPatientInfo.patient.email,
-            phoneNumber: randomPatientInfo.patient.phoneNumber,
-            birthSex: randomPatientInfo.patient.sex,
-          }),
-          getPatientDetailsStepAnswers({}),
-          getPaymentOptionSelfPayAnswers(),
-          getResponsiblePartyStepAnswers({}),
-          getConsentStepAnswers({}),
-        ],
-        intakeZambdaUrl,
-        authToken
-      );
-
-      const response = await fetch(`${intakeZambdaUrl}/zambda/submit-paperwork/execute-public`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify(<SubmitPaperworkParameters>{
-          answers: [],
-          questionnaireResponseId: questionnaireResponseId,
-          appointmentId,
-        }),
-      });
-
-      if (!response.ok) {
-        // This may be an error if some paperwork required answers were not provided.
-        // Check QuestionnaireResponse resource if it corresponds to all Questionnaire requirements
-        throw new Error(
-          `Error submitting paperwork, response: ${response}, body: ${JSON.stringify(await response.json())}`
+        const randomPatientInfo = await generateRandomPatientInfo(
+          oystehr,
+          serviceMode,
+          phoneNumber,
+          {
+            firstNames: DEFAULT_FIRST_NAMES,
+            lastNames: DEFAULT_LAST_NAMES,
+            reasonsForVisit: DEFAULT_REASONS_FOR_VISIT,
+            ...demoData,
+          },
+          selectedLocationId
         );
-      }
 
-      if (serviceMode === ServiceMode.virtual) {
-        await oystehr.fhir.patch<Appointment>({
-          id: appointmentId!,
-          resourceType: 'Appointment',
-          operations: [
-            {
-              op: 'replace',
-              path: '/status',
-              value: 'arrived',
+        const createAppointmentResponse = await fetch(
+          `${intakeZambdaUrl}/zambda/${createAppointmentZambdaId}/execute`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${authToken}`,
             },
-          ],
-        });
+            body: JSON.stringify(randomPatientInfo),
+          }
+        );
+
+        if (!createAppointmentResponse.ok) {
+          throw new Error(`Failed to create appointment. Status: ${createAppointmentResponse.status}`);
+        }
+
+        console.log(`Appointment ${i + 1} created successfully.`);
+
+        let appointmentData = await createAppointmentResponse.json();
+
+        if ((appointmentData as any)?.output) {
+          appointmentData = (appointmentData as any).output as CreateAppointmentResponse;
+        }
+
+        if (!appointmentData) {
+          console.error('Error: appointment data is null');
+          return null;
+        }
+
+        await processPrebookPaperwork(
+          appointmentData,
+          randomPatientInfo,
+          intakeZambdaUrl,
+          authToken,
+          projectId,
+          serviceMode
+        );
+
+        // If it's a virtual appointment, mark it as 'arrived'
+        if (serviceMode === ServiceMode.virtual) {
+          await oystehr.fhir.patch<Appointment>({
+            id: appointmentData.appointment!,
+            resourceType: 'Appointment',
+            operations: [{ op: 'replace', path: '/status', value: 'arrived' }],
+          });
+        }
+
+        return appointmentData;
+      } catch (error) {
+        console.error(`Error processing appointment ${i + 1}:`, error);
+        return null;
       }
+    });
+
+    // Wait for all appointments to complete
+    const results = await Promise.all(appointmentPromises);
+
+    // Filter out failed attempts (null values)
+    const successfulAppointments = results.filter((data) => data !== null) as CreateAppointmentResponse[];
+
+    if (successfulAppointments.length > 0) {
+      return successfulAppointments[0]; // Return the first successful appointment
     }
-    return appointmentData;
-  } catch (error: any) {
+
+    throw new Error('All appointment creation attempts failed.');
+  } catch (error) {
     console.error('Error creating appointments:', error);
-    return null;
+    throw error;
+  }
+};
+const processPrebookPaperwork = async (
+  appointmentData: CreateAppointmentResponse,
+  patientInfo: any,
+  intakeZambdaUrl: string,
+  authToken: string,
+  projectId: string,
+  serviceMode: ServiceMode
+): Promise<void> => {
+  try {
+    const { appointment: appointmentId, questionnaireResponseId } = appointmentData;
+
+    if (!questionnaireResponseId) return;
+
+    const birthDate = isoToDateObject(patientInfo?.patient?.dateOfBirth || '');
+
+    // Determine the paperwork patches based on service mode
+    const paperworkPatches =
+      serviceMode === ServiceMode.virtual
+        ? [
+            getContactInformationAnswers({
+              firstName: patientInfo.patient.firstName,
+              lastName: patientInfo.patient.lastName,
+              ...(birthDate ? { birthDate } : {}),
+              email: patientInfo.patient.email,
+              phoneNumber: patientInfo.patient.phoneNumber,
+              birthSex: patientInfo.patient.sex,
+            }),
+            getPatientDetailsStepAnswers({}),
+            getMedicationsStepAnswers(),
+            getAllergiesStepAnswers(),
+            getMedicalConditionsStepAnswers(),
+            getSurgicalHistoryStepAnswers(),
+            getAdditionalQuestionsAnswers(),
+            getPaymentOptionSelfPayAnswers(),
+            getResponsiblePartyStepAnswers({}),
+            getSchoolWorkNoteStepAnswers(),
+            getConsentStepAnswers({}),
+            getInviteParticipantStepAnswers(),
+          ]
+        : [
+            getContactInformationAnswers({
+              firstName: patientInfo.patient.firstName,
+              lastName: patientInfo.patient.lastName,
+              ...(birthDate ? { birthDate } : {}),
+              email: patientInfo.patient.email,
+              phoneNumber: patientInfo.patient.phoneNumber,
+              birthSex: patientInfo.patient.sex,
+            }),
+            getPatientDetailsStepAnswers({}),
+            getPaymentOptionSelfPayAnswers(),
+            getResponsiblePartyStepAnswers({}),
+            getConsentStepAnswers({}),
+          ];
+
+    // Execute the paperwork patches
+    await makeSequentialPaperworkPatches(
+      questionnaireResponseId,
+      paperworkPatches,
+      intakeZambdaUrl,
+      authToken,
+      projectId
+    );
+
+    // Submit the paperwork
+    const response = await fetch(`${intakeZambdaUrl}/zambda/submit-paperwork/execute-public`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`,
+        'x-zapehr-project-id': projectId,
+      },
+      body: JSON.stringify(<SubmitPaperworkParameters>{
+        answers: [],
+        questionnaireResponseId,
+        appointmentId,
+      }),
+    });
+
+    if (!response.ok) {
+      // This may be an error if some paperwork required answers were not provided.
+      // Check QuestionnaireResponse resource if it corresponds to all Questionnaire requirements
+      throw new Error(
+        `Error submitting paperwork, response: ${response}, body: ${JSON.stringify(await response.json())}`
+      );
+    }
+
+    console.log(`Paperwork submitted for appointment: ${appointmentId}`);
+  } catch (error) {
+    console.error(`Error processing paperwork:`, error);
   }
 };
 
@@ -323,22 +416,25 @@ export async function makeSequentialPaperworkPatches(
   questionnaireResponseId: string,
   stepAnswers: QuestionnaireResponseItem[],
   intakeZambdaUrl: string,
-  authToken: string
+  authToken: string,
+  projectId: string
 ): Promise<void> {
   await stepAnswers.reduce(async (previousPromise, answer) => {
     await previousPromise;
-    console.log('Patching paperwork with with linkid:', answer.linkId);
+
     const response = await fetch(`${intakeZambdaUrl}/zambda/patch-paperwork/execute-public`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${authToken}`,
+        'x-zapehr-project-id': projectId,
       },
       body: JSON.stringify(<PatchPaperworkParameters>{
         answers: answer,
         questionnaireResponseId: questionnaireResponseId,
       }),
     });
+
     if (!response.ok) {
       throw new Error(`Failed to patch paperwork with linkId: ${answer.linkId}`);
     }

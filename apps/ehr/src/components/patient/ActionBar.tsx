@@ -38,7 +38,7 @@ export const ActionBar: FC<ActionBarProps> = ({ handleDiscard }) => {
     // Trigger validation for all fields
     const isValid = await trigger();
     if (!isValid) {
-      enqueueSnackbar('Please fix all field validation errors and try again');
+      enqueueSnackbar('Please fix all field validation errors and try again', { variant: 'error' });
       return;
     }
 
