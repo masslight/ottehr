@@ -109,7 +109,7 @@ export const Header = (): JSX.Element => {
       if (!appointmentID) return;
       await handleUpdatePractitioner();
       void refetch();
-      setInteractionMode(nextMode);
+      setInteractionMode(nextMode, true);
     } catch (error: any) {
       console.log(error.message);
       enqueueSnackbar(`An error occurred trying to switch to ${nextMode} mode. Please try again.`, {

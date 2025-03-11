@@ -33,7 +33,7 @@ interface NavigationContextType {
   setIsNavigationHidden: (hide: boolean) => void;
   isNavigationHidden: boolean;
   interactionMode: InteractionMode;
-  setInteractionMode: (mode: InteractionMode, shouldNavigate: boolean | undefined) => void;
+  setInteractionMode: (mode: InteractionMode, shouldNavigate: boolean) => void;
   availableRoutes: RouteCSS[];
   isFirstPage: boolean;
   isLastPage: boolean;
@@ -108,7 +108,7 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
     (route) => route.sidebarPath || route.path
   );
 
-  const setInteractionMode = (mode: InteractionMode, shouldNavigate: boolean | undefined = true): void => {
+  const setInteractionMode = (mode: InteractionMode, shouldNavigate: boolean): void => {
     const basePath = location.pathname.match(/.*?(in-person)\/[^/]*/)?.[0];
 
     if (!basePath) {
