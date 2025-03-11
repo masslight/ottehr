@@ -14,8 +14,8 @@ export function validateRequestParameters(
     throw new Error('AuthToken is not provided in headers');
   }
 
-  if (data.id === undefined) {
-    throw new Error('These fields are required: "type"');
+  if (data.instructionId === undefined) {
+    throw new Error('These fields are required: "instructionId"');
   }
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');

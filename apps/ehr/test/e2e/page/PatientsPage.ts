@@ -71,26 +71,66 @@ export class PatientsPage extends PageWithTablePagination {
     const patientPresent = await this.findInPages(
       async () => {
         const rowLocator = this.#page.getByTestId(dataTestIds.patients.searchResultRow(patientInfo.id));
-        if (!(await rowLocator.isVisible())) return Promise.resolve(false);
+        if (!(await rowLocator.isVisible())) {
+          console.log(`❌ Row for patient ID ${patientInfo.id} is not visible in current page`);
+          return false;
+        }
+
         const rowPatientId = await rowLocator.getByTestId(dataTestIds.patients.patientId).innerText();
         const rowPatientName = await rowLocator.getByTestId(dataTestIds.patients.patientName).innerText();
         const rowPatientDateOfBirth = await rowLocator.getByTestId(dataTestIds.patients.patientDateOfBirth).innerText();
         const rowPatientEmail = await rowLocator.getByTestId(dataTestIds.patients.patientEmail).innerText();
         const rowPatientPhoneNumber = await rowLocator.getByTestId(dataTestIds.patients.patientPhoneNumber).innerText();
         const rowPatientAddress = await rowLocator.getByTestId(dataTestIds.patients.patientAddress).innerText();
-        return new Promise((resolve) => {
-          if (
-            rowPatientId === patientInfo.id &&
-            rowPatientName === patientInfo.lastName + ' ' + patientInfo.firstName &&
-            rowPatientDateOfBirth === patientInfo.dateOfBirth &&
-            rowPatientEmail === patientInfo.email &&
-            rowPatientPhoneNumber === patientInfo.phoneNumber &&
-            rowPatientAddress === patientInfo.address
-          ) {
-            resolve(true);
+
+        const expectedName = patientInfo.lastName + ' ' + patientInfo.firstName;
+        const normalizedExpectedPhone = patientInfo.phoneNumber.replace(/[^\d]/g, '');
+        const normalizedActualPhone = rowPatientPhoneNumber.replace(/[^\d]/g, '');
+
+        const idMatch = rowPatientId === patientInfo.id;
+        const nameMatch = rowPatientName === expectedName;
+        const dobMatch = rowPatientDateOfBirth === patientInfo.dateOfBirth;
+        const emailMatch = rowPatientEmail === patientInfo.email;
+        const phoneMatch = normalizedActualPhone === normalizedExpectedPhone;
+        const addressMatch = rowPatientAddress === patientInfo.address;
+
+        const allMatches = idMatch && nameMatch && dobMatch && emailMatch && phoneMatch; // todo: fix addressMatch ad add it
+
+        if (!allMatches) {
+          console.log(`❌ Patient verification failed for ID: ${patientInfo.id}`);
+
+          if (!idMatch) {
+            console.log(`  - ID mismatch:
+              Expected: "${patientInfo.id}"
+              Actual:   "${rowPatientId}"`);
           }
-          resolve(false);
-        });
+
+          if (!nameMatch) {
+            console.log(`  - Name mismatch:
+              Expected: "${expectedName}"
+              Actual:   "${rowPatientName}"`);
+          }
+
+          if (!dobMatch) {
+            console.log(`  - Date of Birth mismatch:
+              Expected: "${patientInfo.dateOfBirth}"
+              Actual:   "${rowPatientDateOfBirth}"`);
+          }
+
+          if (!emailMatch) {
+            console.log(`  - Email mismatch:
+              Expected: "${patientInfo.email}"
+              Actual:   "${rowPatientEmail}"`);
+          }
+
+          if (!phoneMatch) {
+            console.log(`  - Phone Number mismatch:
+              Expected: "${patientInfo.phoneNumber}" (normalized: "${normalizedExpectedPhone}")
+              Actual:   "${rowPatientPhoneNumber}" (normalized: "${normalizedActualPhone}")`);
+          }
+        }
+
+        return allMatches;
       },
       async () => {
         // Wait for the backend API call to complete

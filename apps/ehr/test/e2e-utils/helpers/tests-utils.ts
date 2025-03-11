@@ -31,5 +31,11 @@ export async function fetchWithOystAuth<T = any>(
     throw new Error(`HTTP error for ${method} ${url}: ${res}, ${JSON.stringify(res)}`);
   }
   console.log(`Request status for ${url}: `, response.status);
-  return response.body ? await response.json() : {};
+
+  if (response.body) {
+    const data = await response.json();
+    return data?.output ? data.output : data;
+  }
+
+  return {} as T;
 }

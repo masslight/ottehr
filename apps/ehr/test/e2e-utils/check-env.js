@@ -9,7 +9,8 @@ export const checkIfEnvAllowed = () => {
 
   console.log('used ENV: ', env);
 
-  if (!['local', 'demo'].includes(env)) {
+  // temporary check, later we can remove this check if we want to allow tests on production
+  if (env === 'demo') {
     throw Error('⚠️ Only non production envs allowed');
   }
 };

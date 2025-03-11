@@ -3634,6 +3634,23 @@
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
                     "valueString": "47420-5"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                        "valueString": "school-work-note-choice"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                        "valueString": "="
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                        "valueString": "School only"
+                      }
+                    ]
                   }
                 ],
                 "enableWhen": [
@@ -3675,6 +3692,23 @@
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
                     "valueString": "47420-5"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                        "valueString": "school-work-note-choice"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                        "valueString": "="
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                        "valueString": "School only"
+                      }
+                    ]
                   }
                 ]
               }
