@@ -1,5 +1,6 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { Locators } from './locators';
+import { DateTime } from 'luxon';
 
 export class CommonLocatorsHelper {
   page: Page;
@@ -55,9 +56,11 @@ export class CommonLocatorsHelper {
     const formattedDate = `${month}/${day}/${year}`;
     return formattedDate;
   }
-  async getMonthDay(monthStr: string, dayStr: string) {
-    const monthNumber = new Date(`${monthStr} 01 2000`).toLocaleDateString(`en`, { month: `2-digit` });
-    const dayNumber = new Date(`Jan ${dayStr} 2000`).toLocaleDateString(`en`, { day: `2-digit` });
-    return { monthNumber, dayNumber };
+  getMonthDay(monthStr: string, dayStr: string) {
+    // Using year 2000 as it's a leap year, ensuring February 29th is valid
+    const date = DateTime.fromFormat(`${monthStr} ${dayStr} 2000`, 'MMM d yyyy', { locale: 'en' });
+    return date.isValid ? 
+      { monthNumber: date.toFormat('MM'), dayNumber: date.toFormat('dd') } : 
+      null;
   }
 }
