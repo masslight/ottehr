@@ -60,6 +60,22 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
       if (!oystehr) {
         throw new Error('oystehr client is undefined');
       }
+      Object.keys(data).forEach((item) => {
+        const question = aoe.find((question) => question.linkId === item);
+
+        if (question && question.type === 'boolean') {
+          if (data[item] === 'true') {
+            data[item] = true;
+          }
+          if (data[item] === 'false') {
+            data[item] = false;
+          }
+        }
+        if (question && (question.type === 'integer' || question.type === 'decimal')) {
+          data[item] = Number(data[item]);
+        }
+      });
+
       await submitLabOrder(oystehr, {
         serviceRequestID: serviceRequestID,
         data: data,

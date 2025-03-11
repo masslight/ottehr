@@ -48,15 +48,20 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         throw new Error('question is not found');
       }
       let answer: QuestionnaireResponseItemAnswer[] | undefined = undefined;
-      if (question.type === 'text') {
+      const multiSelect = question.extension?.find(
+        (currentExtension) =>
+          currentExtension.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/data-type' &&
+          currentExtension.valueString === 'multi-select list'
+      );
+      if (question.type === 'text' || (question.type === 'choice' && !multiSelect)) {
         answer = [
           {
             valueString: data[questionResponse],
           },
         ];
       }
-      if (question.type === 'choice') {
-        answer = Object.keys(data[questionResponse]).map((item) => ({ valueString: item }));
+      if (multiSelect) {
+        answer = data[questionResponse].map((item) => ({ valueString: item }));
       }
       if (question.type === 'boolean') {
         answer = [
@@ -128,7 +133,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         },
       ],
     };
-    Object.keys(data).map((item) => console.log(typeof data[item], data[item]));
     const request = await oystehr?.fhir.transaction({
       requests: [
         getPatchBinary({
@@ -139,6 +143,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
               op: 'add',
               path: '/item',
               value: questionnaireItems,
+            },
+            {
+              op: 'replace',
+              path: '/status',
+              value: 'completed',
             },
           ],
         }),
