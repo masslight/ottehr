@@ -10,7 +10,7 @@ export class AddPatientPage {
 
   async selectOffice(officeName: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dashboard.locationSelect).click();
-    await this.#page.getByText(new RegExp(officeName, 'i')).click();
+    await this.#page.getByRole('option', { name: new RegExp(officeName, 'i') }).nth(0).click();
   }
 
   async enterMobilePhone(phone: string): Promise<void> {
