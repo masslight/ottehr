@@ -363,7 +363,7 @@ interface PrivateMakeSchemaArgs {
 
 const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjectSchema => {
   const { items, formValues, externalContext: maybeExternalContext } = input;
-  const contextualItems = maybeExternalContext?.items ?? [];
+  // const contextualItems = maybeExternalContext?.items ?? [];
   const externalValues = maybeExternalContext?.values ?? [];
   // console.log('validation items', items);
   // these allow us some flexibility to inject field dependencies from another
@@ -380,10 +380,7 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
     }, {} as any);
   allValues = { ...allValues, ...formValues };
   const validatableItems = [...items]
-    .filter(
-      (item) =>
-        item?.type !== 'display' && !item?.readOnly && evalEnableWhen(item, [...items, ...contextualItems], allValues)
-    )
+    .filter((item) => item?.type !== 'display' && !item?.readOnly && !evalFilterWhen(item, allValues))
     .flatMap((item) => makeValidatableItem(item));
   const validationTemp: any = {};
   validatableItems.forEach((item) => {
