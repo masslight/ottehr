@@ -99,7 +99,7 @@ export class PatientInformationPage {
     await this.#page.getByTestId(dataTestIds.contactInformationContainer.zip).locator('input').fill(zip);
   }
 
-   async verifyZip(zip: string): Promise<void> {
+  async verifyZip(zip: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.contactInformationContainer.zip).locator('input')).toHaveValue(zip);
   }
 
@@ -107,8 +107,10 @@ export class PatientInformationPage {
     await this.#page.getByTestId(dataTestIds.contactInformationContainer.patientEmail).locator('input').fill(email);
   }
 
-    async verifyPatientEmail(email: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.contactInformationContainer.patientEmail).locator('input')).toHaveValue(email);
+  async verifyPatientEmail(email: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.contactInformationContainer.patientEmail).locator('input')
+    ).toHaveValue(email);
   }
 
   async enterPatientMobile(patientMobile: string): Promise<void> {
@@ -149,7 +151,7 @@ export class PatientInformationPage {
     await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.relationshipDropdown).click();
     await this.#page.getByText(relationship, { exact: true }).click();
   }
- 
+
   async verifyRelationship(relationship: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.relationshipDropdown).locator('input')
@@ -170,14 +172,18 @@ export class PatientInformationPage {
   }
 
   async enterDateOfBirthFromResponsibleContainer(dateOfBirth: string): Promise<void> {
-    const locator = this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.id).locator('[placeholder="MM/DD/YYYY"]');
+    const locator = this.#page
+      .getByTestId(dataTestIds.responsiblePartyInformationContainer.id)
+      .locator('[placeholder="MM/DD/YYYY"]');
     await locator.click();
     await this.#page.waitForTimeout(2000);
     await locator.pressSequentially(dateOfBirth);
   }
 
   async verifyDateOfBirthFromResponsibleContainer(dateOfBirth: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.id).locator('[placeholder="MM/DD/YYYY"]')).toHaveValue(dateOfBirth);
+    await expect(
+      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.id).locator('[placeholder="MM/DD/YYYY"]')
+    ).toHaveValue(dateOfBirth);
   }
 
   async selectBirthSexFromResponsibleContainer(birthSex: string): Promise<void> {
@@ -200,7 +206,7 @@ export class PatientInformationPage {
 
   async verifyPhoneFromResponsibleContainer(phone: string): Promise<void> {
     await expect(
-      this.#page.getByTestId(dataTestIds.contactInformationContainer.patientMobile).locator('input')
+      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.phoneInput).locator('input')
     ).toHaveValue(phone);
   }
 
@@ -210,9 +216,9 @@ export class PatientInformationPage {
   }
 
   async verifyReleaseOfInfo(releaseOfInfo: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.userSettingsContainer.releaseOfInfoDropdown).locator('input')
-    ).toHaveValue(releaseOfInfo);
+    await expect(this.#page.getByTestId(dataTestIds.userSettingsContainer.releaseOfInfoDropdown)).toHaveText(
+      releaseOfInfo
+    );
   }
 
   async selectRxHistoryConsent(rxHistoryConsent: string): Promise<void> {
@@ -229,7 +235,7 @@ export class PatientInformationPage {
   async reloadPatientInformationPage(): Promise<void> {
     await this.#page.reload();
   }
-  
+
   async clickSaveChangesButton(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.patientInformationPage.saveChangesButton).click();
     //await this.#page.waitForSelector('text=State was updated successfully');
@@ -238,10 +244,7 @@ export class PatientInformationPage {
   async verifyUpdatedSuccessfullyMessageShown(): Promise<void> {
     await expect(this.#page.getByText('Patient information updated successfully')).toBeVisible();
   }
-
 }
-
-
 
 export async function expectPatientInformationPage(page: Page, patientId: string): Promise<PatientInformationPage> {
   await page.waitForURL('/patient/' + patientId + '/info');
@@ -251,5 +254,5 @@ export async function expectPatientInformationPage(page: Page, patientId: string
 
 export async function openPatientInformationPage(page: Page, patientId: string): Promise<PatientInformationPage> {
   await page.goto('/patient/' + patientId + '/info');
-    return expectPatientInformationPage(page,patientId);
+  return expectPatientInformationPage(page, patientId);
 }
