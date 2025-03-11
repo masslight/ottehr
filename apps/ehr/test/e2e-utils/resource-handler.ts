@@ -1,8 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { Address, Appointment, Encounter, FhirResource, Patient, QuestionnaireResponse } from 'fhir/r4b';
-import { readFileSync } from 'fs';
+import { readFileSync, promises as fsPromises } from 'fs';
 import { DateTime } from 'luxon';
-import { dirname, join } from 'path';
+import { dirname, join, resolve } from 'path';
 import { cleanAppointment } from 'test-utils';
 import { fileURLToPath } from 'url';
 import {
@@ -178,6 +178,7 @@ export class ResourceHandler {
               selectedLocationId: process.env.STATE_ONE, // todo: check why state is used here
               demoData: patientData,
               projectId: process.env.PROJECT_ID!,
+              patientConditionImageFile: fetchImageByName('Landscape_1.jpg'),
             });
 
       if (!appointmentData?.resources) {
@@ -319,3 +320,19 @@ export class ResourceHandler {
     return cleanAppointment(appointmentId, process.env.ENV!);
   }
 }
+
+const fetchImageByName = async (fileName: string): Promise<File> => {
+  const getPathToProjectRoot = (currentPath: string): string => {
+    if (currentPath.split('/').at(-1) === 'ottehr') {
+      return currentPath;
+    }
+    return getPathToProjectRoot(resolve(currentPath, '..'));
+  };
+
+  const filePath = join(getPathToProjectRoot(__dirname), `apps/intake/images-for-tests/${fileName}`);
+  const response = await fsPromises.readFile(filePath, 'binary');
+
+  const blob = new Blob([response], { type: 'application/jpg' });
+
+  return new File([blob], 'filename.jpg', { type: blob.type });
+};

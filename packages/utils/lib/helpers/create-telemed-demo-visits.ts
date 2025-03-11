@@ -17,6 +17,7 @@ import {
   getResponsiblePartyStepAnswers,
   getSchoolWorkNoteStepAnswers,
   getSurgicalHistoryStepAnswers,
+  getPatientConditionPhotosStepAnswers,
   isoToDateObject,
 } from './helpers';
 
@@ -176,6 +177,7 @@ export const createSampleTelemedAppointments = async ({
   selectedLocationId,
   demoData,
   projectId,
+  patientConditionImageFile,
 }: {
   oystehr: Oystehr | undefined;
   authToken: string;
@@ -186,6 +188,7 @@ export const createSampleTelemedAppointments = async ({
   selectedLocationId?: string;
   demoData?: DemoAppointmentData;
   projectId: string;
+  patientConditionImageFile: Promise<File>;
 }): Promise<CreateAppointmentUCTelemedResponse | null> => {
   if (!projectId) {
     throw new Error('PROJECT_ID is not set');
@@ -235,7 +238,14 @@ export const createSampleTelemedAppointments = async ({
           return null;
         }
 
-        await processPaperwork(appointmentData, patientInfo, intakeZambdaUrl, authToken, projectId);
+        await processPaperwork(
+          appointmentData,
+          patientInfo,
+          intakeZambdaUrl,
+          authToken,
+          projectId,
+          patientConditionImageFile
+        );
         return appointmentData;
       } catch (error) {
         console.error(`Error processing appointment ${i + 1}:`, error);
@@ -266,7 +276,8 @@ const processPaperwork = async (
   patientInfo: any,
   intakeZambdaUrl: string,
   authToken: string,
-  projectId: string
+  projectId: string,
+  patientConditionImageFile: Promise<File>
 ): Promise<void> => {
   try {
     const appointmentId = appointmentData.appointmentId;
@@ -298,6 +309,13 @@ const processPaperwork = async (
         getSchoolWorkNoteStepAnswers(),
         getConsentStepAnswers({}),
         getInviteParticipantStepAnswers(),
+        await getPatientConditionPhotosStepAnswers({
+          appointmentId,
+          authToken,
+          intakeZambdaUrl,
+          projectId,
+          filePromise: patientConditionImageFile,
+        }),
       ],
       intakeZambdaUrl,
       authToken,

@@ -203,16 +203,6 @@ test('Patient provided hpi data', async ({ page }) => {
     await checkAppointmentAssigned(page);
   });
 
-  // await test.step('await until hpi fields are ready', async () => {
-  //   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput)).toBeVisible(DEFAULT_TIMEOUT);
-  //   await expect(
-  //     page
-  //       .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)
-  //       .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsLoadingSkeleton)
-  //       .first()
-  //   ).not.toBeVisible(DEFAULT_TIMEOUT);
-  // });
-
   await test.step('Medical conditions provided by patient', async () => {
     await expect(
       page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionPatientProvidedsList).getByText('Constipation')
@@ -273,10 +263,10 @@ test('Patient provided hpi data', async ({ page }) => {
     );
   });
 
-  // await test.step('Condition photo provided by patient', async () => {
-  //   const block = page.getByTestId(dataTestIds.telemedEhrFlow.hpiPatientConditionPhotos);
-  //   await expect(block.locator('img')).toHaveCount(1);
-  // });
+  await test.step('Condition photo provided by patient', async () => {
+    const block = page.getByTestId(dataTestIds.telemedEhrFlow.hpiPatientConditionPhotos);
+    await expect(block.locator('img')).toHaveCount(1);
+  });
 });
 
 test('Appointment hpi fields', async ({ page }) => {
