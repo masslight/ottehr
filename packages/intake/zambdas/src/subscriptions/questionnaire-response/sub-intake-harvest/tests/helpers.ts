@@ -1,12 +1,12 @@
 import { BatchInputPostRequest } from '@oystehr/sdk';
-import { Account, Coverage, Patient, RelatedPerson } from 'fhir/r4b';
+import { Account, Coverage, Patient, QuestionnaireResponseItem, RelatedPerson } from 'fhir/r4b';
 import { uuid } from 'short-uuid';
+import altGuarantor from './data/alt-guarantor.json';
 
 export const fillReferences = (template: any, references: string[]): any => {
   let stringinfiedTemplate = JSON.stringify(template);
   references.forEach((reference) => {
     const [resourceType] = reference.split('/');
-    // const resourceType regex in template looks like: {{resourceType.upperCased()_REF}}
     stringinfiedTemplate = stringinfiedTemplate.replace(
       new RegExp(`{{${resourceType.toUpperCase()}_REF}}`, 'g'),
       reference
@@ -16,15 +16,39 @@ export const fillReferences = (template: any, references: string[]): any => {
 };
 
 interface BatchPostInput {
-  primary?: { coverage: Coverage; subscriber: RelatedPerson | Patient; ensureOrder: boolean };
-  secondary?: { coverage: Coverage; subscriber: RelatedPerson | Patient; ensureOrder: boolean };
+  primary?: {
+    coverage: Coverage;
+    subscriber: RelatedPerson | Patient;
+    ensureOrder: boolean;
+    containedSubscriber?: boolean;
+  };
+  secondary?: {
+    coverage: Coverage;
+    subscriber: RelatedPerson | Patient;
+    ensureOrder: boolean;
+    containedSubscriber?: boolean;
+  };
   account?: Account;
+  containedGuarantor?: RelatedPerson | Patient;
+  persistedGuarantor?: RelatedPerson | Patient;
+  persistedGuarantorReference?: string;
 }
 
 export const batchTestInsuranceWrites = (
   input: BatchPostInput
 ): BatchInputPostRequest<Coverage | RelatedPerson | Patient | Account>[] => {
-  const { primary, secondary, account } = input;
+  const { primary, secondary, account, containedGuarantor, persistedGuarantor, persistedGuarantorReference } = input;
+
+  if (containedGuarantor && persistedGuarantor) {
+    throw new Error('Cannot have both contained and persisted guarantor');
+  }
+  if (containedGuarantor && persistedGuarantorReference) {
+    throw new Error('Cannot have both contained and persisted guarantor reference');
+  }
+
+  if (persistedGuarantor && persistedGuarantorReference) {
+    throw new Error('Cannot have both persisted guarantor and persisted guarantor reference');
+  }
 
   const primaryCoveragePostURL = primary ? `urn:uuid:${uuid()}` : undefined;
   const secondaryCoveragePostURL = secondary ? `urn:uuid:${uuid()}` : undefined;
@@ -32,7 +56,8 @@ export const batchTestInsuranceWrites = (
   const batchRequests: BatchInputPostRequest<Coverage | RelatedPerson | Patient | Account>[] = [];
 
   if (primary) {
-    const primaryRPPostURL = primary ? `urn:uuid:${uuid()}` : undefined;
+    const contained = primary.containedSubscriber;
+    const primaryRPPostURL = contained ? '#coverageSubscriber' : `urn:uuid:${uuid()}`;
     const primaryCoveragePost: BatchInputPostRequest<Coverage> = {
       method: 'POST',
       fullUrl: primaryCoveragePostURL,
@@ -41,21 +66,25 @@ export const batchTestInsuranceWrites = (
         ...primary.coverage,
         subscriber: { reference: primaryRPPostURL },
         id: primaryCoveragePostURL,
-        contained: undefined,
+        contained: contained ? [{ ...primary.subscriber, id: 'coverageSubscriber' }] : undefined,
         order: primary.ensureOrder ? 1 : primary.coverage.order,
       },
     };
-    const primaryRPPost: BatchInputPostRequest<Patient | RelatedPerson> = {
-      resource: primary.subscriber,
-      method: 'POST',
-      url: primary.subscriber.resourceType,
-      fullUrl: primaryRPPostURL,
-    };
-    batchRequests.push(...[primaryCoveragePost, primaryRPPost]);
+    batchRequests.push(primaryCoveragePost);
+    if (!contained) {
+      const primaryRPPost: BatchInputPostRequest<Patient | RelatedPerson> = {
+        resource: primary.subscriber,
+        method: 'POST',
+        url: primary.subscriber.resourceType,
+        fullUrl: primaryRPPostURL,
+      };
+      batchRequests.push(primaryRPPost);
+    }
   }
 
   if (secondary) {
-    const secondaryRPPostURL = secondary ? `urn:uuid:${uuid()}` : undefined;
+    const contained = secondary.containedSubscriber;
+    const secondaryRPPostURL = contained ? '#coverageSubscriber' : `urn:uuid:${uuid()}`;
     const secondaryCoveragePost: BatchInputPostRequest<Coverage> = {
       method: 'POST',
       fullUrl: secondaryCoveragePostURL,
@@ -64,17 +93,20 @@ export const batchTestInsuranceWrites = (
         ...secondary.coverage,
         subscriber: { reference: secondaryRPPostURL },
         id: secondaryCoveragePostURL,
-        contained: undefined,
+        contained: contained ? [{ ...secondary.subscriber, id: 'coverageSubscriber' }] : undefined,
         order: secondary.ensureOrder ? 2 : secondary.coverage.order,
       },
     };
-    const secondaryRPPost: BatchInputPostRequest<Patient | RelatedPerson> = {
-      resource: secondary.subscriber,
-      method: 'POST',
-      url: secondary.subscriber.resourceType,
-      fullUrl: secondaryRPPostURL,
-    };
-    batchRequests.push(...[secondaryCoveragePost, secondaryRPPost]);
+    batchRequests.push(secondaryCoveragePost);
+    if (!contained) {
+      const secondaryRPPost: BatchInputPostRequest<Patient | RelatedPerson> = {
+        resource: secondary.subscriber,
+        method: 'POST',
+        url: secondary.subscriber.resourceType,
+        fullUrl: secondaryRPPostURL,
+      };
+      batchRequests.push(secondaryRPPost);
+    }
   }
   if (account) {
     const coverage: Account['coverage'] = secondaryCoveragePostURL || primaryCoveragePostURL ? [] : undefined;
@@ -86,15 +118,81 @@ export const batchTestInsuranceWrites = (
         coverage.push({ coverage: { reference: secondaryCoveragePostURL }, priority: 2 });
       }
     }
+    const accountToPost: Account = {
+      ...account,
+      coverage,
+    };
+    if (containedGuarantor) {
+      accountToPost.contained = [containedGuarantor];
+      accountToPost.guarantor = [{ party: { reference: `#${containedGuarantor.id}` } }];
+    } else if (persistedGuarantor) {
+      const guarantorPostUrl = `urn:uuid:${uuid()}`;
+      batchRequests.push({
+        method: 'POST',
+        resource: persistedGuarantor,
+        url: persistedGuarantor.resourceType,
+        fullUrl: guarantorPostUrl,
+      });
+      accountToPost.guarantor = [{ party: { reference: guarantorPostUrl } }];
+    } else if (persistedGuarantorReference) {
+      accountToPost.guarantor = [{ party: { reference: persistedGuarantorReference } }];
+    }
     const accountPost: BatchInputPostRequest<Account> = {
       method: 'POST',
-      resource: {
-        ...account,
-        coverage,
-      },
+      resource: accountToPost,
       url: 'Account',
     };
     batchRequests.push(accountPost);
   }
   return batchRequests;
+};
+
+export const replaceGuarantorWithPatient = (item: QuestionnaireResponseItem[]): QuestionnaireResponseItem[] => {
+  return item.map((i) => {
+    if (i.linkId === 'responsible-party-page') {
+      return {
+        ...i,
+        item: replaceGuarantorWithPatient(i.item ?? []),
+      };
+    }
+    if (i.linkId === 'responsible-party-relationship') {
+      return { ...i, answer: [{ valueString: 'Self' }] };
+    }
+    return i;
+  });
+};
+
+export const replaceGuarantorWithAlternate = (
+  item: QuestionnaireResponseItem[],
+  parameterized?: any
+): QuestionnaireResponseItem[] => {
+  return [
+    ...item.map((i) => {
+      if (i.linkId === 'responsible-party-page') {
+        return parameterized ?? altGuarantor;
+      }
+      return i;
+    }),
+  ];
+};
+
+export const replaceSubscriberWithPatient = (
+  item: QuestionnaireResponseItem[],
+  options: { primary: boolean; secondary: boolean }
+): QuestionnaireResponseItem[] => {
+  return item.map((i) => {
+    if (i.linkId === 'payment-option-page' || i.linkId === 'secondary-insurance') {
+      return {
+        ...i,
+        item: replaceSubscriberWithPatient(i.item ?? [], options),
+      };
+    }
+    if (i.linkId === 'patient-relationship-to-insured-2' && options.secondary) {
+      return { ...i, answer: [{ valueString: 'Self' }] };
+    }
+    if (i.linkId === 'patient-relationship-to-insured' && options.primary) {
+      return { ...i, answer: [{ valueString: 'Self' }] };
+    }
+    return i;
+  });
 };

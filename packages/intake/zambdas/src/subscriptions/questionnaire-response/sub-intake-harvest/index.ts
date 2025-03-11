@@ -144,15 +144,6 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     (res): res is Organization => res.resourceType === 'Organization'
   );
 
-  /*const patientMasterRecordResources: PatientMasterRecordResources = {
-    patient: patientResource,
-    coverages: coverageResources,
-    relatedPersons: relatedPersonResources,
-  };
-  console.log('Patient Master Record resources: ', JSON.stringify(patientMasterRecordResources, null, 2));
-  console.log('Insurance information resources: ', JSON.stringify(insuranceInformationResources, null, 2));
-  */
-
   console.log('creating patch operations');
   const patientPatchOps = createMasterRecordPatchOperations(qr, patientResource);
 
@@ -172,19 +163,6 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     }
   }
   console.timeEnd('patching patient resource');
-
-  /*
-  if (hasConflictingUpdates(patientPatchOps)) {
-    const task = createConflictResolutionTask(patientPatchOps, patientMasterRecordResources, qr.id);
-    try {
-      console.time('creating conflict resolution task resource');
-      await oystehr.fhir.create(task);
-      console.timeEnd('creating conflict resolution task resource');
-    } catch (error) {
-      console.log(`Failed to create conflict review task: ${JSON.stringify(error)}`);
-      throw new Error('Failed to create conflict review task');
-    }
-  }*/
 
   console.time('querying for Account and Coverage resources');
   const accountAndCoverageResources = (

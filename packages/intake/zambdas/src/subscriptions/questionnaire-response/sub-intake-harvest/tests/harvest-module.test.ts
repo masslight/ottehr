@@ -28,8 +28,9 @@ import { flattenItems } from '../../../../../../../utils/lib/helpers/paperwork/v
 import { COVERAGE_MEMBER_IDENTIFIER_BASE, isValidUUID } from 'utils';
 import { v4 as uuidv4 } from 'uuid';
 import { DateTime } from 'luxon';
-import { BatchInputJSONPatchRequest, BatchInputPostRequest } from '@oystehr/sdk';
+import { BatchInputPostRequest } from '@oystehr/sdk';
 import {
+  expectedAccountGuarantorFromQR1 as rawAGQR1,
   expectedPrimaryPolicyHolderFromQR1 as rawPPHQR1,
   expectedSecondaryPolicyHolderFromQR1 as rawSPHQR1,
 } from './data/expected-coverage-resources-qr1';
@@ -41,6 +42,7 @@ const expectedPrimaryPolicyHolderFromQR1 = fillReferences(rawPPHQR1, ['Patient/3
 const expectedSecondaryPolicyHolderFromQR1 = fillReferences(rawSPHQR1, [
   'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61',
 ]);
+const expectedAccountGuarantorFromQR1 = fillReferences(rawAGQR1, ['Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61']);
 
 describe('Harvest Module', () => {
   const { orderedCoverages: coverageResources, accountCoverage } = getCoverageResources({
@@ -588,7 +590,11 @@ describe('Harvest Module', () => {
           primarySubscriber,
         };
 
-        const result = resolveCoverageUpdates({ existingCoverages, newCoverages: coverages });
+        const result = resolveCoverageUpdates({
+          existingCoverages,
+          newCoverages: coverages,
+          patient: newPatient1,
+        });
         const { suggestedNewCoverageObject, deactivatedCoverages, coverageUpdates, relatedPersonUpdates } = result;
         expect(suggestedNewCoverageObject).toBeDefined();
         expect(suggestedNewCoverageObject?.length).toBe(2);
@@ -620,7 +626,7 @@ describe('Harvest Module', () => {
           primarySubscriber: existingSubscriber,
         };
 
-        const result = resolveCoverageUpdates({ existingCoverages, newCoverages: coverages });
+        const result = resolveCoverageUpdates({ patient: newPatient1, existingCoverages, newCoverages: coverages });
         const { suggestedNewCoverageObject, deactivatedCoverages, coverageUpdates, relatedPersonUpdates } = result;
         expect(suggestedNewCoverageObject).toBeDefined();
         expect(suggestedNewCoverageObject?.length).toBe(2);
@@ -653,7 +659,7 @@ describe('Harvest Module', () => {
           primarySubscriber: existingSubscriber,
         };
 
-        const result = resolveCoverageUpdates({ existingCoverages, newCoverages: coverages });
+        const result = resolveCoverageUpdates({ patient: newPatient1, existingCoverages, newCoverages: coverages });
         const { suggestedNewCoverageObject, deactivatedCoverages, coverageUpdates, relatedPersonUpdates } = result;
         expect(suggestedNewCoverageObject).toBeDefined();
         expect(suggestedNewCoverageObject?.length).toBe(2);
@@ -701,7 +707,7 @@ describe('Harvest Module', () => {
           primarySubscriber: existingSubscriber,
         };
 
-        const result = resolveCoverageUpdates({ existingCoverages, newCoverages: coverages });
+        const result = resolveCoverageUpdates({ patient: newPatient1, existingCoverages, newCoverages: coverages });
         const { suggestedNewCoverageObject, deactivatedCoverages, coverageUpdates, relatedPersonUpdates } = result;
         expect(suggestedNewCoverageObject).toBeDefined();
         assert(suggestedNewCoverageObject);
@@ -744,7 +750,7 @@ describe('Harvest Module', () => {
           primarySubscriber: existingSubscriber,
         };
 
-        const result = resolveCoverageUpdates({ existingCoverages, newCoverages: coverages });
+        const result = resolveCoverageUpdates({ patient: newPatient1, existingCoverages, newCoverages: coverages });
         const { suggestedNewCoverageObject, deactivatedCoverages, coverageUpdates, relatedPersonUpdates } = result;
         expect(suggestedNewCoverageObject).toBeDefined();
         assert(suggestedNewCoverageObject);
@@ -791,7 +797,7 @@ describe('Harvest Module', () => {
           secondarySubscriber,
         };
 
-        const result = resolveCoverageUpdates({ existingCoverages, newCoverages: coverages });
+        const result = resolveCoverageUpdates({ patient: newPatient1, existingCoverages, newCoverages: coverages });
         const { suggestedNewCoverageObject, deactivatedCoverages, coverageUpdates, relatedPersonUpdates } = result;
         expect(suggestedNewCoverageObject).toBeDefined();
         assert(suggestedNewCoverageObject);
@@ -822,7 +828,7 @@ describe('Harvest Module', () => {
           secondarySubscriber: existingSubscriber,
         };
 
-        const result = resolveCoverageUpdates({ existingCoverages, newCoverages: coverages });
+        const result = resolveCoverageUpdates({ patient: newPatient1, existingCoverages, newCoverages: coverages });
         const { suggestedNewCoverageObject, deactivatedCoverages, coverageUpdates, relatedPersonUpdates } = result;
         expect(suggestedNewCoverageObject).toBeDefined();
         assert(suggestedNewCoverageObject);
@@ -857,7 +863,7 @@ describe('Harvest Module', () => {
           secondarySubscriber: existingSubscriber,
         };
 
-        const result = resolveCoverageUpdates({ existingCoverages, newCoverages: coverages });
+        const result = resolveCoverageUpdates({ patient: newPatient1, existingCoverages, newCoverages: coverages });
         const { suggestedNewCoverageObject, deactivatedCoverages, coverageUpdates, relatedPersonUpdates } = result;
         expect(suggestedNewCoverageObject).toBeDefined();
         assert(suggestedNewCoverageObject);
@@ -904,7 +910,7 @@ describe('Harvest Module', () => {
           secondarySubscriber: existingSubscriber,
         };
 
-        const result = resolveCoverageUpdates({ existingCoverages, newCoverages: coverages });
+        const result = resolveCoverageUpdates({ patient: newPatient1, existingCoverages, newCoverages: coverages });
         const { suggestedNewCoverageObject, deactivatedCoverages, coverageUpdates, relatedPersonUpdates } = result;
         expect(suggestedNewCoverageObject).toBeDefined();
         assert(suggestedNewCoverageObject);
@@ -947,7 +953,7 @@ describe('Harvest Module', () => {
           secondarySubscriber: existingSubscriber,
         };
 
-        const result = resolveCoverageUpdates({ existingCoverages, newCoverages: coverages });
+        const result = resolveCoverageUpdates({ patient: newPatient1, existingCoverages, newCoverages: coverages });
         const { suggestedNewCoverageObject, deactivatedCoverages, coverageUpdates, relatedPersonUpdates } = result;
         expect(suggestedNewCoverageObject).toBeDefined();
         assert(suggestedNewCoverageObject);
@@ -985,7 +991,7 @@ describe('Harvest Module', () => {
           secondarySubscriber,
         };
 
-        const result = resolveCoverageUpdates({ existingCoverages, newCoverages: coverages });
+        const result = resolveCoverageUpdates({ patient: newPatient1, existingCoverages, newCoverages: coverages });
         const { suggestedNewCoverageObject, deactivatedCoverages, coverageUpdates, relatedPersonUpdates } = result;
         expect(suggestedNewCoverageObject).toBeDefined();
         assert(suggestedNewCoverageObject);
@@ -1025,7 +1031,7 @@ describe('Harvest Module', () => {
           secondary,
           secondarySubscriber: existingSecondarySubscriber,
         };
-        const result = resolveCoverageUpdates({ existingCoverages, newCoverages: coverages });
+        const result = resolveCoverageUpdates({ patient: newPatient1, existingCoverages, newCoverages: coverages });
         const { suggestedNewCoverageObject, deactivatedCoverages, coverageUpdates, relatedPersonUpdates } = result;
         expect(suggestedNewCoverageObject).toBeDefined();
         assert(suggestedNewCoverageObject);
@@ -1076,7 +1082,7 @@ describe('Harvest Module', () => {
           secondarySubscriber: existingSecondarySubscriber,
         };
 
-        const result = resolveCoverageUpdates({ existingCoverages, newCoverages: coverages });
+        const result = resolveCoverageUpdates({ patient: newPatient1, existingCoverages, newCoverages: coverages });
         const { suggestedNewCoverageObject, deactivatedCoverages, coverageUpdates, relatedPersonUpdates } = result;
         expect(suggestedNewCoverageObject).toBeDefined();
         expect(suggestedNewCoverageObject?.length).toBe(2);
@@ -1159,7 +1165,7 @@ describe('Harvest Module', () => {
           secondarySubscriber: existingSecondarySubscriber,
         };
 
-        const result = resolveCoverageUpdates({ existingCoverages, newCoverages: coverages });
+        const result = resolveCoverageUpdates({ patient: newPatient1, existingCoverages, newCoverages: coverages });
         const { suggestedNewCoverageObject, deactivatedCoverages, coverageUpdates, relatedPersonUpdates } = result;
         expect(suggestedNewCoverageObject).toBeDefined();
         assert(suggestedNewCoverageObject);
@@ -1226,7 +1232,7 @@ describe('Harvest Module', () => {
           secondarySubscriber: existingSecondarySubscriber,
         };
 
-        const result = resolveCoverageUpdates({ existingCoverages, newCoverages: coverages });
+        const result = resolveCoverageUpdates({ patient: newPatient1, existingCoverages, newCoverages: coverages });
         const { suggestedNewCoverageObject, deactivatedCoverages, coverageUpdates, relatedPersonUpdates } = result;
         expect(suggestedNewCoverageObject).toBeDefined();
         assert(suggestedNewCoverageObject);
@@ -1257,7 +1263,7 @@ describe('Harvest Module', () => {
           secondary,
           secondarySubscriber: existingSecondarySubscriber,
         };
-        const result = resolveCoverageUpdates({ existingCoverages, newCoverages: coverages });
+        const result = resolveCoverageUpdates({ patient: newPatient1, existingCoverages, newCoverages: coverages });
         const { suggestedNewCoverageObject, deactivatedCoverages, coverageUpdates, relatedPersonUpdates } = result;
         expect(suggestedNewCoverageObject).toBeDefined();
         assert(suggestedNewCoverageObject);
@@ -1313,7 +1319,7 @@ describe('Harvest Module', () => {
           primarySubscriber: secondarySubscriber,
         };
 
-        const result = resolveCoverageUpdates({ existingCoverages, newCoverages: coverages });
+        const result = resolveCoverageUpdates({ patient: newPatient1, existingCoverages, newCoverages: coverages });
         const { suggestedNewCoverageObject, deactivatedCoverages, coverageUpdates, relatedPersonUpdates } = result;
         expect(suggestedNewCoverageObject).toBeDefined();
         assert(suggestedNewCoverageObject);
@@ -1361,7 +1367,7 @@ describe('Harvest Module', () => {
           primary: secondary,
           primarySubscriber: existingSecondarySubscriber,
         };
-        const result = resolveCoverageUpdates({ existingCoverages, newCoverages: coverages });
+        const result = resolveCoverageUpdates({ patient: newPatient1, existingCoverages, newCoverages: coverages });
         const { suggestedNewCoverageObject, deactivatedCoverages, coverageUpdates, relatedPersonUpdates } = result;
         expect(suggestedNewCoverageObject).toBeDefined();
         assert(suggestedNewCoverageObject);
@@ -1419,7 +1425,7 @@ describe('Harvest Module', () => {
           primarySubscriber: existingSecondarySubscriber,
         };
 
-        const result = resolveCoverageUpdates({ existingCoverages, newCoverages: coverages });
+        const result = resolveCoverageUpdates({ patient: newPatient1, existingCoverages, newCoverages: coverages });
         const { suggestedNewCoverageObject, deactivatedCoverages, coverageUpdates, relatedPersonUpdates } = result;
         expect(suggestedNewCoverageObject).toBeDefined();
         assert(suggestedNewCoverageObject);
@@ -1500,7 +1506,7 @@ describe('Harvest Module', () => {
           primary: secondary,
           primarySubscriber: existingSecondarySubscriber,
         };
-        const result = resolveCoverageUpdates({ existingCoverages, newCoverages: coverages });
+        const result = resolveCoverageUpdates({ patient: newPatient1, existingCoverages, newCoverages: coverages });
         const { suggestedNewCoverageObject, deactivatedCoverages, coverageUpdates, relatedPersonUpdates } = result;
         expect(suggestedNewCoverageObject).toBeDefined();
         assert(suggestedNewCoverageObject);
@@ -1571,7 +1577,7 @@ describe('Harvest Module', () => {
           primary: secondary,
           primarySubscriber: existingSecondarySubscriber,
         };
-        const result = resolveCoverageUpdates({ existingCoverages, newCoverages: coverages });
+        const result = resolveCoverageUpdates({ patient: newPatient1, existingCoverages, newCoverages: coverages });
         const { suggestedNewCoverageObject, deactivatedCoverages, coverageUpdates, relatedPersonUpdates } = result;
         expect(suggestedNewCoverageObject).toBeDefined();
         assert(suggestedNewCoverageObject);
@@ -1626,10 +1632,7 @@ describe('Harvest Module', () => {
           secondary,
           secondarySubscriber,
         };
-        const result = resolveCoverageUpdates({
-          existingCoverages,
-          newCoverages: {},
-        });
+        const result = resolveCoverageUpdates({ patient: newPatient1, existingCoverages, newCoverages: {} });
         expect(result).toBeDefined();
         assert(result);
         expect(result.deactivatedCoverages).toBeDefined();
@@ -1812,7 +1815,9 @@ describe('Harvest Module', () => {
           guarantorFromQuestionnaire: accountGuarantor,
           existingGuarantorResource: existingGuarantorResource,
           existingGuarantorReferences: [existingGuarantorReference],
+          existingContained: [existingGuarantorResource],
           timestamp,
+          // choke: true,
         });
         expect(result).toBeDefined();
         assert(result);
@@ -2563,7 +2568,7 @@ const checkAccountOperations = (accountOps: GetAccountOperationsOutput, expected
 
   expect(accountOps).toBeDefined();
   assert(accountOps);
-  const { accountPost: post, coveragePosts, patch, put } = accountOps;
+  const { accountPost: post, coveragePosts, put } = accountOps;
 
   if (post) {
     expect(post?.resourceType).toBe('Account');
@@ -2590,26 +2595,6 @@ const checkAccountOperations = (accountOps: GetAccountOperationsOutput, expected
 };
 
 // supporting resources
-
-const expectedAccountGuarantorFromQR1: RelatedPerson = {
-  resourceType: 'RelatedPerson',
-  id: 'accountGuarantorId',
-  name: [{ given: ['Jane'], family: 'Doe' }],
-  birthDate: '1983-02-23',
-  gender: 'female',
-  patient: { reference: `Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61` }, // newPatient1
-  relationship: [
-    {
-      coding: [
-        {
-          system: 'http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype',
-          code: 'parent',
-          display: 'Parent',
-        },
-      ],
-    },
-  ],
-};
 
 const newPatient1: Patient = {
   id: '36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61',

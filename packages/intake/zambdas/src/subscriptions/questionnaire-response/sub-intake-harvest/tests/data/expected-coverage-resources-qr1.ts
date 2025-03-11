@@ -67,6 +67,26 @@ export const expectedSecondaryPolicyHolderFromQR1: RelatedPerson = {
   ],
 };
 
+export const expectedAccountGuarantorFromQR1: RelatedPerson = {
+  resourceType: 'RelatedPerson',
+  id: 'accountGuarantorId',
+  name: [{ given: ['Jane'], family: 'Doe' }],
+  birthDate: '1983-02-23',
+  gender: 'female',
+  patient: { reference: '{{PATIENT_REF}}' }, // newPatient1
+  relationship: [
+    {
+      coding: [
+        {
+          system: 'http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype',
+          code: 'parent',
+          display: 'Parent',
+        },
+      ],
+    },
+  ],
+};
+
 export const expectedCoverageResources: { primary: Coverage; secondary: Coverage } = {
   primary: {
     resourceType: 'Coverage',

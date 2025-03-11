@@ -11,6 +11,7 @@ import {
   ContactPoint,
   Coverage,
   DocumentReference,
+  FhirResource,
   Flag,
   InsurancePlan,
   List,
@@ -1100,29 +1101,6 @@ const BIRTH_SEX_MAP: Record<string, string> = {
   Intersex: 'other',
 };
 
-/*
-const PRIMARY_INSURANCE_LINK_IDS = ['insurance-carrier', 'insurance-member-id', 'patient-relationship-to-insured'];
-
-const SECONDARY_INSURANCE_LINK_IDS = PRIMARY_INSURANCE_LINK_IDS.map((id) => `${id}-2`);
-
-const PRIMARY_POLICY_HOLDER_LINK_IDS = [
-  'policy-holder-first-name',
-  'policy-holder-middle-name',
-  'policy-holder-last-name',
-  'policy-holder-date-of-birth',
-  'policy-holder-birth-sex',
-  'policy-holder-address-as-patient',
-  'policy-holder-address',
-  'policy-holder-address-additional-line',
-  'policy-holder-city',
-  'policy-holder-state',
-  'policy-holder-zip',
-  'patient-relationship-to-insured',
-];
-
-const SECONDARY_POLICY_HOLDER_LINK_IDS = PRIMARY_POLICY_HOLDER_LINK_IDS.map((id) => `${id}-2`);
-*/
-
 interface ConflictingUpdate {
   operation: Operation;
   resourceReference: Reference['reference'];
@@ -1141,8 +1119,6 @@ interface MasterRecordPatchOperations {
 
 export interface PatientMasterRecordResources {
   patient: Patient;
-  //relatedPersons?: RelatedPerson[];
-  //coverages?: Coverage[];
 }
 
 export function createMasterRecordPatchOperations(
@@ -1814,14 +1790,22 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
     ],
   };
 
+  let contained: Coverage['contained'];
+  let subscriberReference = `#${policyHolderId}`;
+  if (relationshipCode === 'self') {
+    subscriberReference = `Patient/${patientId}`;
+  } else {
+    contained = [containedPolicyHolder];
+  }
+
   const coverage: Coverage = {
-    contained: [containedPolicyHolder],
+    contained,
     id: `urn:uuid:${randomUUID()}`,
     identifier: [createCoverageMemberIdentifier(memberId, org)],
     resourceType: 'Coverage',
     status: 'active',
     subscriber: {
-      reference: `#${policyHolderId}`,
+      reference: subscriberReference,
     },
     beneficiary: {
       type: 'Patient',
@@ -2023,10 +2007,10 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
 
   const { suggestedNewCoverageObject, deactivatedCoverages, coverageUpdates, relatedPersonUpdates } =
     resolveCoverageUpdates({
+      patient,
       existingCoverages,
       newCoverages: questionnaireCoverages,
     });
-  //accountOfRecord.coverage = suggestedNewCoverageObject;
   deactivatedCoverages.forEach((cov) => {
     patch.push({
       method: 'PATCH',
@@ -2093,6 +2077,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       guarantorFromQuestionnaire: guarantorData,
       existingGuarantorResource: existingGuarantorResource ?? patient,
       existingGuarantorReferences: existingAccount.guarantor ?? [],
+      existingContained: existingAccount.contained ?? [],
     });
 
     const updatedAccount: Account = {
@@ -2122,7 +2107,6 @@ interface CreateAccountInput {
   coverage: Account['coverage'];
   guarantor: AccountGuarantor[];
   contained: Account['contained'];
-  ///guarantor: ResponsiblePartyContact;
 }
 // this function is exported for testing purposes
 export const createAccount = (input: CreateAccountInput): Account => {
@@ -2155,6 +2139,7 @@ interface OrderedCoveragesWithSubscribers extends OrderedCoverages {
 }
 
 interface CompareCoverageInput {
+  patient: Patient;
   newCoverages: OrderedCoverages;
   existingCoverages: OrderedCoveragesWithSubscribers;
 }
@@ -2167,7 +2152,7 @@ interface CompareCoverageResult {
 
 // this function is exported for testing purposes
 export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCoverageResult => {
-  const { existingCoverages, newCoverages } = input;
+  const { patient, existingCoverages, newCoverages } = input;
   const suggestedNewCoverageObject: Account['coverage'] = [];
   const deactivatedCoverages: Coverage[] = [];
   const coverageUpdates: Record<string, Operation[]> = {};
@@ -2195,8 +2180,32 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
   const primaryCoverageFromPaperwork = newCoverages.primary;
   let secondaryCoverageFromPaperwork = newCoverages.secondary;
 
-  const primarySubscriberFromPaperwork = primaryCoverageFromPaperwork?.contained?.[0] as RelatedPerson;
-  const secondarySubscriberFromPaperwork = secondaryCoverageFromPaperwork?.contained?.[0] as RelatedPerson;
+  let primarySubscriberFromPaperwork: RelatedPerson | Patient | undefined = undefined;
+  let secondarySubscriberFromPaperwork: RelatedPerson | Patient | undefined = undefined;
+
+  if (primaryCoverageFromPaperwork) {
+    if (primaryCoverageFromPaperwork.subscriber?.reference?.startsWith('#')) {
+      primarySubscriberFromPaperwork = primaryCoverageFromPaperwork.contained?.[0] as RelatedPerson;
+    } else {
+      const [resourceType, resourceId] = primaryCoverageFromPaperwork.subscriber?.reference?.split('/') ?? [];
+      if (`${resourceType}/${resourceId}` === `Patient/${patient.id}`) {
+        primarySubscriberFromPaperwork = patient;
+      }
+    }
+  }
+  if (secondaryCoverageFromPaperwork) {
+    if (secondaryCoverageFromPaperwork.subscriber?.reference?.startsWith('#')) {
+      secondarySubscriberFromPaperwork = secondaryCoverageFromPaperwork.contained?.[0] as RelatedPerson;
+    } else {
+      const [resourceType, resourceId] = secondaryCoverageFromPaperwork.subscriber?.reference?.split('/') ?? [];
+      if (`${resourceType}/${resourceId}` === `Patient/${patient.id}`) {
+        secondarySubscriberFromPaperwork = patient;
+      }
+    }
+  }
+
+  //const primarySubscriberFromPaperwork = primaryCoverageFromPaperwork?.contained?.[0] as RelatedPerson | Patient;
+  //const secondarySubscriberFromPaperwork = secondaryCoverageFromPaperwork?.contained?.[0] as RelatedPerson;
 
   if (primaryCoverageFromPaperwork && coveragesAreSame(primaryCoverageFromPaperwork, secondaryCoverageFromPaperwork)) {
     secondaryCoverageFromPaperwork = undefined;
@@ -2211,9 +2220,13 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
         coverage: { reference: `Coverage/${existingPrimaryCoverage?.id}` },
         priority: 1,
       });
-      if (existingPrimarySubscriber?.id && existingPrimarySubscriberIsPersisted) {
+      if (
+        existingPrimarySubscriber?.id &&
+        existingPrimarySubscriberIsPersisted &&
+        existingPrimarySubscriber.resourceType === 'RelatedPerson'
+      ) {
         const ops = patchOpsForRelatedPerson({
-          source: primarySubscriberFromPaperwork,
+          source: primarySubscriberFromPaperwork as RelatedPerson,
           target: existingPrimarySubscriber,
         });
         addRelatedPersonUpdates(existingPrimarySubscriber.id, ops);
@@ -2232,9 +2245,13 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
         coverage: { reference: `Coverage/${existingSecondaryCoverage?.id}` },
         priority: 1,
       });
-      if (existingSecondarySubscriber?.id && existingSecondarySubscriberIsPersisted) {
+      if (
+        existingSecondarySubscriber?.id &&
+        existingSecondarySubscriberIsPersisted &&
+        existingSecondarySubscriber.resourceType === 'RelatedPerson'
+      ) {
         const ops = patchOpsForRelatedPerson({
-          source: primarySubscriberFromPaperwork,
+          source: primarySubscriberFromPaperwork as RelatedPerson,
           target: existingSecondarySubscriber,
         });
         addRelatedPersonUpdates(existingSecondarySubscriber.id, ops);
@@ -2285,9 +2302,13 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
         coverage: { reference: `Coverage/${existingSecondaryCoverage?.id}` },
         priority: 2,
       });
-      if (existingSecondarySubscriber?.id && existingSecondarySubscriberIsPersisted) {
+      if (
+        existingSecondarySubscriber?.id &&
+        existingSecondarySubscriberIsPersisted &&
+        existingSecondarySubscriber.resourceType === 'RelatedPerson'
+      ) {
         const ops = patchOpsForRelatedPerson({
-          source: secondarySubscriberFromPaperwork,
+          source: secondarySubscriberFromPaperwork as RelatedPerson,
           target: existingSecondarySubscriber,
         });
         addRelatedPersonUpdates(existingSecondarySubscriber.id, ops);
@@ -2306,9 +2327,13 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
         coverage: { reference: `Coverage/${existingPrimaryCoverage?.id}` },
         priority: 2,
       });
-      if (existingPrimarySubscriber?.id) {
+      if (
+        existingPrimarySubscriber?.id &&
+        existingPrimarySubscriberIsPersisted &&
+        existingPrimarySubscriber.resourceType === 'RelatedPerson'
+      ) {
         const ops = patchOpsForRelatedPerson({
-          source: secondarySubscriberFromPaperwork,
+          source: secondarySubscriberFromPaperwork as RelatedPerson,
           target: existingPrimarySubscriber,
         });
         addRelatedPersonUpdates(existingPrimarySubscriber.id, ops);
@@ -2401,19 +2426,26 @@ interface ResolveGuarantorInput {
   guarantorFromQuestionnaire: ResponsiblePartyContact;
   existingGuarantorResource: RelatedPerson | Patient;
   existingGuarantorReferences: AccountGuarantor[];
+  existingContained?: FhirResource[];
   timestamp?: string;
 }
 interface ResolveGuarantorOutput {
   guarantors: AccountGuarantor[];
-  contained: RelatedPerson[] | undefined;
+  contained: FhirResource[] | undefined;
 }
 // exporting for testing purposes
 export const resolveGuarantor = (input: ResolveGuarantorInput): ResolveGuarantorOutput => {
-  const { patientId, guarantorFromQuestionnaire, existingGuarantorResource, existingGuarantorReferences, timestamp } =
-    input;
+  const {
+    patientId,
+    guarantorFromQuestionnaire,
+    existingGuarantorResource,
+    existingGuarantorReferences,
+    existingContained,
+    timestamp,
+  } = input;
   if (guarantorFromQuestionnaire.relationship === 'Self') {
     if (existingGuarantorResource.resourceType === 'Patient' && existingGuarantorResource.id === patientId) {
-      return { guarantors: existingGuarantorReferences, contained: undefined };
+      return { guarantors: existingGuarantorReferences, contained: existingContained };
     } else {
       const newGuarantor = {
         party: {
@@ -2423,46 +2455,64 @@ export const resolveGuarantor = (input: ResolveGuarantorInput): ResolveGuarantor
       };
       return {
         guarantors: replaceCurrentGuarantor(newGuarantor, existingGuarantorReferences, timestamp),
-        contained: undefined,
+        contained: existingContained,
       };
     }
   }
   // the new gurantor is not the patient...
   const existingResourceIsPersisted = existingGuarantorReferences.some((r) => {
     const ref = r.party.reference;
+    if (r.period?.end !== undefined) return false;
     return `${existingGuarantorResource.resourceType}/${existingGuarantorResource.id}` === ref;
   });
   const existingResourceType = existingGuarantorResource.resourceType;
-  const rpFromGruarantorData = createContainedGuarantor(guarantorFromQuestionnaire, patientId);
+  const rpFromGuarantorData = createContainedGuarantor(guarantorFromQuestionnaire, patientId);
   if (existingResourceType === 'RelatedPerson') {
-    if (existingResourceIsPersisted && relatedPersonsAreSame(existingGuarantorResource, rpFromGruarantorData)) {
+    if (existingResourceIsPersisted && relatedPersonsAreSame(existingGuarantorResource, rpFromGuarantorData)) {
       // we won't bother with trying to update the existing RelatedPerson resource
       return {
         guarantors: existingGuarantorReferences,
-        contained: undefined,
+        contained: existingContained,
+      };
+    } else if (relatedPersonsAreSame(existingGuarantorResource, rpFromGuarantorData)) {
+      const contained = existingContained?.map((c) => {
+        if (c.id === existingGuarantorResource.id) {
+          return rpFromGuarantorData;
+        }
+        return c;
+      });
+      return {
+        guarantors: existingGuarantorReferences,
+        contained,
       };
     } else {
+      if (existingContained?.length) {
+        rpFromGuarantorData.id += `-${existingContained.length}`;
+      }
       const newGuarantor = {
         party: {
-          reference: `#${rpFromGruarantorData.id}`,
+          reference: `#${rpFromGuarantorData.id}`,
           type: 'RelatedPerson',
         },
       };
       return {
         guarantors: replaceCurrentGuarantor(newGuarantor, existingGuarantorReferences, timestamp),
-        contained: [rpFromGruarantorData],
+        contained: [rpFromGuarantorData, ...(existingContained ?? [])],
       };
     }
   } else {
+    if (existingContained?.length) {
+      rpFromGuarantorData.id += `-${existingContained.length}`;
+    }
     const newGuarantor = {
       party: {
-        reference: `#${rpFromGruarantorData.id}`,
+        reference: `#${rpFromGuarantorData.id}`,
         type: 'RelatedPerson',
       },
     };
     return {
       guarantors: replaceCurrentGuarantor(newGuarantor, existingGuarantorReferences, timestamp),
-      contained: [rpFromGruarantorData],
+      contained: [rpFromGuarantorData, ...(existingContained ?? [])],
     };
   }
 };
@@ -2492,10 +2542,11 @@ export const coveragesAreSame = (coverage1: Coverage, coverage2: Coverage | unde
 };
 
 export const relatedPersonsAreSame = (
-  relatedPersons1: RelatedPerson,
-  relatedPerson2: RelatedPerson | undefined
+  relatedPersons1: RelatedPerson | Patient,
+  relatedPerson2: RelatedPerson | Patient | undefined
 ): boolean => {
   if (!relatedPerson2) return false;
+  if (relatedPersons1.resourceType !== relatedPerson2.resourceType) return false;
   const fullName1 = getFullName(relatedPersons1);
   const fullName2 = getFullName(relatedPerson2);
   const dob1 = relatedPersons1.birthDate;
@@ -2518,6 +2569,12 @@ const patchOpsForRelatedPerson = (input: GetRelatedPersonPatchOperationsInput): 
     if (keysToUpdate.includes(key)) {
       const sourceValue = (input.source as any)[key];
       const targetValue = (input.target as any)[key];
+      if (key === 'contained' && sourceValue === undefined && targetValue !== undefined) {
+        ops.push({
+          op: 'remove',
+          path: `/${key}`,
+        });
+      }
       if (sourceValue && !_.isEqual(sourceValue, targetValue) && targetValue === undefined) {
         ops.push({
           op: 'add',
@@ -2564,7 +2621,12 @@ const patchOpsForCoverage = (input: GetCoveragePatchOpsInput): Operation[] => {
   for (const key of keysToCheck) {
     const sourceValue = (source as any)[key];
     const targetValue = (target as any)[key];
-
+    if (key === 'contained' && sourceValue === undefined && targetValue !== undefined) {
+      ops.push({
+        op: 'remove',
+        path: `/${key}`,
+      });
+    }
     if (sourceValue && !_.isEqual(sourceValue, targetValue) && targetValue === undefined) {
       ops.push({
         op: 'add',
@@ -2650,18 +2712,6 @@ const replaceCurrentGuarantor = (
   });
 };
 
-/*
-export interface GetAccountOperationsInput {
-  patient: Patient;
-  questionnaireResponseItem: QuestionnaireResponse['item'];
-  insurancePlanResources: InsurancePlan[];
-  organizationResources: Organization[];
-  existingCoverages: OrderedCoveragesWithSubscribers;
-  existingGuarantorResource?: RelatedPerson | Patient;
-  existingAccount?: Account;
-}
-*/
-
 type UnbundledAccountResources = (Account | Coverage | RelatedPerson | Patient)[];
 interface UnbundledAccountResourceWithInsuranceResources {
   patient: Patient;
@@ -2688,7 +2738,9 @@ export const getCoverageUpdateResourcesFromUnbundled = (
 
   const existingCoverages: OrderedCoveragesWithSubscribers = {};
   if (existingAccount) {
-    const guarantorReference = existingAccount.guarantor?.[0]?.party?.reference;
+    const guarantorReference = existingAccount.guarantor?.find((gref) => {
+      return gref.period?.end === undefined;
+    })?.party?.reference;
     if (guarantorReference) {
       existingGuarantorResource = takeContainedOrFind(guarantorReference, resources, existingAccount);
     }
