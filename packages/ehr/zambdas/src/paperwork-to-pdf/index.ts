@@ -6,9 +6,10 @@ import Oystehr from '@oystehr/sdk';
 import { createOystehrClient, validateJsonBody, validateString } from '../shared/helpers';
 import { createDocument } from './document';
 import { generatePdf } from './draw';
-import { DocumentReference, QuestionnaireResponse } from 'fhir/r4b';
+import { DocumentReference, List, QuestionnaireResponse } from 'fhir/r4b';
 import { BUCKET_PAPERWORK_PDF } from '../../scripts/setup';
 import { DateTime } from 'luxon';
+import { addOperation, EXPORTED_QUESTIONNAIRE_CODE, findExistingListByDocumentTypeCode, replaceOperation } from 'utils';
 
 interface Input {
   questionnaireResponseId: string;
@@ -24,7 +25,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
   configSentry(ZAMBDA_NAME, input.secrets);
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
-    const { questionnaireResponseId, documentReference, secrets } = validateInput(input);
+    const { questionnaireResponseId, documentReference: documentReferenceBase, secrets } = validateInput(input);
     const oystehr = await createOystehr(secrets);
     const questionnaireResponse = await oystehr.fhir.get<QuestionnaireResponse>({
       resourceType: 'QuestionnaireResponse',
@@ -47,8 +48,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     });
 
     const projectApi = getSecret(SecretsKeys.PROJECT_API, secrets);
-    const { id } = await oystehr.fhir.create<DocumentReference>({
-      ...documentReference,
+    const documentReference = await oystehr.fhir.create<DocumentReference>({
+      ...documentReferenceBase,
       subject: {
         reference: 'Patient/' + document.patientInfo.id,
       },
@@ -63,10 +64,11 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       ],
       date: DateTime.now().toUTC().toISO(),
     });
+    await addDocumentReferenceToList(documentReference, oystehr);
     return {
       statusCode: 200,
       body: JSON.stringify({
-        documentReference: 'DocumentReference/' + id,
+        documentReference: 'DocumentReference/' + documentReference.id,
       }),
     };
   } catch (error: any) {
@@ -102,4 +104,45 @@ async function createZ3Bucket(z3Bucket: string, oystehr: Oystehr): Promise<void>
       console.error(`Failed to create bucket "${z3Bucket}"`, e);
       return Promise.resolve();
     });
+}
+
+async function addDocumentReferenceToList(documentReference: DocumentReference, oystehr: Oystehr): Promise<void> {
+  const lists = (
+    await oystehr.fhir.search<List>({
+      resourceType: 'List',
+      params: [
+        {
+          name: 'patient',
+          value: documentReference.subject?.reference ?? '',
+        },
+      ],
+    })
+  ).unbundle();
+
+  const list = findExistingListByDocumentTypeCode(lists, EXPORTED_QUESTIONNAIRE_CODE);
+  if (list == null) {
+    console.log(`List with code "${EXPORTED_QUESTIONNAIRE_CODE}" not found`);
+    return;
+  }
+
+  const updatedFolderEntries = [
+    ...(list?.entry ?? []),
+    {
+      date: DateTime.now().setZone('UTC').toISO() ?? '',
+      item: {
+        type: 'DocumentReference',
+        reference: `DocumentReference/${documentReference.id}`,
+      },
+    },
+  ];
+
+  await oystehr.fhir.patch<List>({
+    resourceType: 'List',
+    id: list?.id ?? '',
+    operations: [
+      (list.entry ?? []).length > 0
+        ? replaceOperation('/entry', updatedFolderEntries)
+        : addOperation('/entry', updatedFolderEntries),
+    ],
+  });
 }
