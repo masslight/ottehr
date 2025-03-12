@@ -1,9 +1,8 @@
-import { ReactElement, useState } from 'react';
-import { Alert, Snackbar, TextField, Typography } from '@mui/material';
-import React from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { LoadingButton } from '@mui/lab';
+import { Alert, Snackbar, TextField, Typography } from '@mui/material';
 import { Box } from '@mui/system';
+import React, { ReactElement, useState } from 'react';
 import { createSamplePrebookAppointments } from 'utils/lib/helpers';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '@theme/colors';
@@ -11,8 +10,6 @@ import { createDemoVisits } from '@theme/icons';
 
 const createAppointmentZambdaId = import.meta.env.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID;
 const intakeZambdaUrl = import.meta.env.VITE_APP_INTAKE_ZAMBDAS_URL;
-// const submitPaperworkZambdaId = import.meta.env.VITE_APP_SUBMIT_PAPERWORK_ZAMBDA_ID;
-// const isLocal = import.meta.env.VITE_APP_IS_LOCAL === 'true';
 
 const CreateDemoVisits = (): ReactElement => {
   const [phoneNumber, setPhoneNumber] = useState('');

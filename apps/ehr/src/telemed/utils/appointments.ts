@@ -1,6 +1,7 @@
 import { Appointment, DocumentReference, Encounter, EncounterStatusHistory, FhirResource } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
 import {
+  ApptTelemedTab,
   GetTelemedAppointmentsInput,
   mapStatusToTelemed,
   PATIENT_PHOTO_CODE,
@@ -15,18 +16,11 @@ import {
 import { TelemedAppointmentData } from '../state';
 import { diffInMinutes } from './diffInMinutes';
 
-export enum ApptTab {
-  'ready' = 'ready',
-  'provider' = 'provider',
-  'not-signed' = 'not-signed',
-  'complete' = 'complete',
-}
-
-export const ApptTabToStatus: Record<ApptTab, TelemedAppointmentStatus[]> = {
-  [ApptTab.ready]: [TelemedAppointmentStatusEnum.ready],
-  [ApptTab.provider]: [TelemedAppointmentStatusEnum['pre-video'], TelemedAppointmentStatusEnum['on-video']],
-  [ApptTab['not-signed']]: [TelemedAppointmentStatusEnum.unsigned],
-  [ApptTab.complete]: [TelemedAppointmentStatusEnum.complete, TelemedAppointmentStatusEnum.cancelled],
+export const ApptTabToStatus: Record<ApptTelemedTab, TelemedAppointmentStatus[]> = {
+  [ApptTelemedTab.ready]: [TelemedAppointmentStatusEnum.ready],
+  [ApptTelemedTab.provider]: [TelemedAppointmentStatusEnum['pre-video'], TelemedAppointmentStatusEnum['on-video']],
+  [ApptTelemedTab['not-signed']]: [TelemedAppointmentStatusEnum.unsigned],
+  [ApptTelemedTab.complete]: [TelemedAppointmentStatusEnum.complete, TelemedAppointmentStatusEnum.cancelled],
 };
 
 export enum UnsignedFor {
@@ -65,15 +59,15 @@ export const compareAppointments = (
 export const filterAppointments = (
   appointments: TelemedAppointmentInformation[],
   unsignedFor: UnsignedFor,
-  tab: ApptTab,
+  tab: ApptTelemedTab,
   showOnlyNext: boolean,
   availableStates: string[]
 ): TelemedAppointmentInformation[] => {
-  if (![ApptTab['not-signed'], ApptTab.ready].includes(tab)) {
+  if (![ApptTelemedTab['not-signed'], ApptTelemedTab.ready].includes(tab)) {
     return appointments;
   }
 
-  if (tab === ApptTab.ready) {
+  if (tab === ApptTelemedTab.ready) {
     if (showOnlyNext) {
       const oldest = appointments
         .filter((appointment) => availableStates.includes(appointment.location.state!))

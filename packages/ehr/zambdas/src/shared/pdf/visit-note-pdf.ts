@@ -31,10 +31,13 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
       width: PageSizes.A4[0],
       height: PageSizes.A4[1],
       pageMargins: {
-        left: 40,
         top: 40,
-        right: 40,
         bottom: 40,
+
+        // Left and right margins should be 37 to fit item "* Intact recent and remote memory, judgment and insight".
+        // The design of this page will be changed soon, so this simple fix is optimal for now.
+        right: 37,
+        left: 37,
       },
     },
   };
@@ -163,8 +166,8 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   };
 
   const drawFieldLine = (fieldName: string, fieldValue: string): void => {
-    pdfClient.drawText(fieldName, textStyles.fieldHeader);
-    pdfClient.drawText(fieldValue, textStyles.fieldText);
+    pdfClient.drawText(fieldName || '', textStyles.fieldHeader);
+    pdfClient.drawText(fieldValue || '', textStyles.fieldText);
   };
 
   const separateLine = (): void => {
@@ -294,8 +297,8 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   if (data.insuranceSubscriberId) {
     drawFieldLine('Subscriber ID', data.insuranceSubscriberId);
   }
+  drawFieldLine('Address', data.address);
   regularText("Provider confirmed patient's name, DOB, introduced myself and gave my licensure and credentials");
-  pdfClient.drawText(`Address: ${data.address}`, textStyles.smallText);
   separateLine();
 
   if (data.chiefComplaint || data.providerTimeSpan) {

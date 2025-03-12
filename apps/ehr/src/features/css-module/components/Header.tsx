@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Box, Typography, IconButton, Grid } from '@mui/material';
 import { styled } from '@mui/system';
@@ -84,12 +84,32 @@ export const Header = (): JSX.Element => {
     practitionerTypeFromMode
   );
 
+  useEffect(() => {
+    if (
+      encounter?.participant?.find(
+        (participant) =>
+          participant.type?.find(
+            (type) =>
+              type.coding?.find(
+                (coding) =>
+                  coding.system === 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType' &&
+                  coding.code === 'ATND'
+              ) != null
+          ) != null
+      )
+    ) {
+      if (interactionMode === 'intake') {
+        setInteractionMode('provider', false);
+      }
+    }
+  }, [encounter?.participant, setInteractionMode, interactionMode]);
+
   const handleSwitchMode = async (): Promise<void> => {
     try {
       if (!appointmentID) return;
       await handleUpdatePractitioner();
       void refetch();
-      setInteractionMode(nextMode);
+      setInteractionMode(nextMode, true);
     } catch (error: any) {
       console.log(error.message);
       enqueueSnackbar(`An error occurred trying to switch to ${nextMode} mode. Please try again.`, {

@@ -11,6 +11,7 @@ interface ImportMetaEnv {
   readonly VITE_APP_OYSTEHR_APPLICATION_ID: string;
   readonly VITE_APP_FHIR_API_URL: string;
   readonly VITE_APP_PROJECT_API_URL: string;
+  readonly VITE_APP_PROJECT_ID: string;
   readonly VITE_APP_PROJECT_API_ZAMBDA_URL: string;
   readonly VITE_APP_INTAKE_ZAMBDAS_URL: string;
   readonly VITE_APP_GET_APPOINTMENTS_ZAMBDA_ID: string;

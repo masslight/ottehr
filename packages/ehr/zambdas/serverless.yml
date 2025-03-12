@@ -1,6 +1,6 @@
 service: zambdas
 
-frameworkVersion: "3"
+frameworkVersion: '3'
 
 package:
   individually: true

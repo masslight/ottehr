@@ -5,9 +5,11 @@ import Loading from '../../../components/Loading';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useZapEHRAPIClient } from '../../hooks/useOystehrAPIClient';
 import { useGetTelemedAppointments, useTrackingBoardStore } from '../../state';
-import { ApptTab, ApptTabToStatus } from '../../utils';
+import { ApptTabToStatus } from '../../utils';
 import { TrackingBoardTable } from './TrackingBoardTable';
 import CreateDemoVisits from '../../../components/CreateDemoVisits';
+import { dataTestIds } from '../../../constants/data-test-ids';
+import { ApptTelemedTab } from 'utils';
 
 export function TrackingBoardTabs(): ReactElement {
   const { alignment, selectedStates, date, providers, groups, setAppointments } = getSelectors(useTrackingBoardStore, [
@@ -19,16 +21,16 @@ export function TrackingBoardTabs(): ReactElement {
     'setAppointments',
   ]);
 
-  const [value, setValue] = useState<ApptTab>(ApptTab.ready);
+  const [value, setValue] = useState<ApptTelemedTab>(ApptTelemedTab.ready);
 
-  const handleChange = (_: any, newValue: ApptTab): any => {
+  const handleChange = (_: any, newValue: ApptTelemedTab): any => {
     setValue(newValue);
   };
 
   const apiClient = useZapEHRAPIClient();
 
   // removing date filter from ready, provider and unsigned tabs
-  const dateFilter = [ApptTab.ready, ApptTab.provider, ApptTab['not-signed']].includes(value)
+  const dateFilter = [ApptTelemedTab.ready, ApptTelemedTab.provider, ApptTelemedTab['not-signed']].includes(value)
     ? undefined
     : date
     ? date.toISODate()!
@@ -59,10 +61,30 @@ export function TrackingBoardTabs(): ReactElement {
       <TabContext value={value}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <TabList onChange={handleChange} aria-label="appointment tabs">
-            <Tab label="Ready for provider" value={ApptTab.ready} sx={{ textTransform: 'none', fontWeight: 500 }} />
-            <Tab label="Provider" value={ApptTab.provider} sx={{ textTransform: 'none', fontWeight: 500 }} />
-            <Tab label="Unsigned" value={ApptTab['not-signed']} sx={{ textTransform: 'none', fontWeight: 500 }} />
-            <Tab label="Complete" value={ApptTab.complete} sx={{ textTransform: 'none', fontWeight: 500 }} />
+            <Tab
+              label="Ready for provider"
+              value={ApptTelemedTab.ready}
+              sx={{ textTransform: 'none', fontWeight: 500 }}
+              data-testid={dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTelemedTab.ready)}
+            />
+            <Tab
+              label="Provider"
+              value={ApptTelemedTab.provider}
+              sx={{ textTransform: 'none', fontWeight: 500 }}
+              data-testid={dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTelemedTab.provider)}
+            />
+            <Tab
+              label="Unsigned"
+              value={ApptTelemedTab['not-signed']}
+              sx={{ textTransform: 'none', fontWeight: 500 }}
+              data-testid={dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTelemedTab['not-signed'])}
+            />
+            <Tab
+              label="Complete"
+              value={ApptTelemedTab.complete}
+              sx={{ textTransform: 'none', fontWeight: 500 }}
+              data-testid={dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTelemedTab.complete)}
+            />
             {isFetching && <Loading />}
           </TabList>
         </Box>

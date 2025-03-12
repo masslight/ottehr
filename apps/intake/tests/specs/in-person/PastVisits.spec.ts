@@ -1,32 +1,27 @@
-import { BrowserContext, Page, test } from '@playwright/test';
-import { PastVisitsPage } from '../../utils/in-person/PastVisitsPage';
-import { Homepage } from '../../utils/in-person/Homepage';
-import { FillingInfo } from '../../utils/telemed/FillingInfo';
+import { test } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
+import { CreateAppointmentUCTelemedResponse } from 'utils';
+import { Homepage } from '../../utils/in-person/Homepage';
+import { PastVisitsPage } from '../../utils/in-person/PastVisitsPage';
+import { FillingInfo } from '../../utils/telemed/FillingInfo';
 
 let patientInfo: Awaited<ReturnType<FillingInfo['fillNewPatientInfo']>> | undefined;
-let context: BrowserContext;
-let page: Page;
-
 const appointmentIds: string[] = [];
 
-test.beforeAll(async ({ browser }) => {
-  context = await browser.newContext();
-  page = await context.newPage();
-
+test.beforeEach(async ({ page }) => {
   page.on('response', async (response) => {
-    if (response.url().includes('/telemed-create-appointment/')) {
-      const { appointmentId } = await response.json();
-      if (appointmentId && !appointmentIds.includes(appointmentId)) {
-        appointmentIds.push(appointmentId);
+    if (response.url().includes('/telemed-create-appointment')) {
+      const { resources } = (await response.json()) as CreateAppointmentUCTelemedResponse;
+      const id = resources?.appointment.id;
+
+      if (id) {
+        appointmentIds.push(id);
       }
     }
   });
 });
 
 test.afterAll(async () => {
-  await page.close();
-  await context.close();
   const env = process.env.ENV;
 
   for (const appointmentId of appointmentIds) {
@@ -35,7 +30,7 @@ test.afterAll(async () => {
   }
 });
 
-test.describe('Past Visits - Empty State', () => {
+test.describe.serial('Past Visits - Empty State', () => {
   test('Should create new patient', async ({ page }) => {
     const homepage = new Homepage(page);
     await homepage.navigate();

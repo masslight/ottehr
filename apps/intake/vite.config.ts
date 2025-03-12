@@ -5,7 +5,7 @@ import { PluginOption, defineConfig, loadEnv, mergeConfig } from 'vite';
 import IstanbulPlugin from 'vite-plugin-istanbul';
 import config from '../../vite.config';
 
-export default (env) => {
+export default (env: any): Record<string, any> => {
   const { mode } = env;
   const envDir = './env';
   const appEnv = loadEnv(mode, path.join(process.cwd(), envDir), '');
