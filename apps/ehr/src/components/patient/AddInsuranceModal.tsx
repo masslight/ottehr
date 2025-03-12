@@ -11,26 +11,34 @@ import {
   TextField,
   useTheme,
 } from '@mui/material';
-import { Coverage, RelatedPerson } from 'fhir/r4b';
 import React from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import { v4 as uuid } from 'uuid';
-import {
-  coverageFieldPaths,
-  InsurancePlanDTO,
-  isPostalCodeValid,
-  relatedPersonFieldPaths,
-  REQUIRED_FIELD_ERROR_MESSAGE,
-  SUBSCRIBER_RELATIONSHIP_CODE_MAP,
-} from 'utils';
+import { InsurancePlanDTO, isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { RELATIONSHIP_TO_INSURED_OPTIONS, SEX_OPTIONS, STATE_OPTIONS } from '../../constants';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField, LabeledField, Option } from '../form';
 import { usePatientStore } from '../../state/patient.store';
+import { QuestionnaireResponseItem } from 'fhir/r4b';
 
 interface AddInsuranceModalProps {
   open: boolean;
   onClose: () => void;
 }
+
+const FormFields = {
+  insuranceCarrier: { key: 'insurance-carrier', type: 'Reference' },
+  memberId: { key: 'insurance-member-id', type: 'String' },
+  firstName: { key: 'policy-holder-first-name', type: 'String' },
+  middleName: { key: 'policy-holder-middle-name', type: 'String' },
+  lastName: { key: 'policy-holder-last-name', type: 'String' },
+  birthDate: { key: 'policy-holder-date-of-birth', type: 'String' },
+  birthSex: { key: 'policy-holder-birth-sex', type: 'String' },
+  streetAddress: { key: 'policy-holder-address', type: 'String' },
+  addressLine2: { key: 'policy-holder-address-additional-line', type: 'String' },
+  city: { key: 'policy-holder-city', type: 'String' },
+  state: { key: 'policy-holder-state', type: 'String' },
+  zip: { key: 'policy-holder-zip', type: 'String' },
+  relationship: { key: 'patient-relationship-to-insured', type: 'String' },
+};
 
 export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onClose }) => {
   const theme = useTheme();
@@ -40,127 +48,29 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
     formState: { errors },
   } = useForm();
 
-  const { insurancePlans, patient, addTempInsurance, insurances, tempInsurances } = usePatientStore();
+  const { insurancePlans, patient } = usePatientStore();
+  // console.log('errors', errors);
 
   const onSubmit = (data: any): void => {
     if (!patient) return;
-
-    // Create RelatedPerson resource
-    const relatedPersonResource: RelatedPerson = {
-      resourceType: 'RelatedPerson',
-      id: uuid(),
-      name: [
-        {
-          given: [
-            data[relatedPersonFieldPaths.firstName],
-            ...(data[relatedPersonFieldPaths.middleName] ? [data[relatedPersonFieldPaths.middleName]] : []),
-          ],
-          family: data[relatedPersonFieldPaths.lastName],
-        },
-      ],
-      gender: data[relatedPersonFieldPaths.gender],
-      patient: {
-        reference: `Patient/${patient.id}`,
-      },
-      birthDate: data[relatedPersonFieldPaths.birthDate],
-      relationship: [
-        {
-          coding: [
-            {
-              system: 'http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype',
-              code: SUBSCRIBER_RELATIONSHIP_CODE_MAP[data[coverageFieldPaths.relationship]],
-              display: data[coverageFieldPaths.relationship],
-            },
-          ],
-        },
-      ],
+    // send the data to a zambda
+    const itemized = Object.keys(data).reduce((acc, key) => {
+      const val = data[key];
+      const fieldType = Object.entries(FormFields).find(([, field]) => field.key === key)?.[1]?.type;
+      if (fieldType === 'Reference') {
+        acc.push({ linkId: key, answer: [{ valueReference: { reference: `InsurancePlan/${val}` } }] });
+      } else if (fieldType === 'String') {
+        acc.push({ linkId: key, answer: [{ valueString: val }] });
+      }
+      return acc;
+    }, [] as QuestionnaireResponseItem[]);
+    const questionnaireResponse = {
+      resourceType: 'QuestionnaireResponse',
+      status: 'completed',
+      item: itemized,
     };
-
-    // Add address only if any address field is filled
-    const hasAddressFields = [
-      data[relatedPersonFieldPaths.streetAddress],
-      data[relatedPersonFieldPaths.addressLine2],
-      data[relatedPersonFieldPaths.city],
-      data[relatedPersonFieldPaths.state],
-      data[relatedPersonFieldPaths.zip],
-    ].some((field) => field);
-
-    if (hasAddressFields) {
-      relatedPersonResource.address = [
-        {
-          line: [
-            data[relatedPersonFieldPaths.streetAddress],
-            ...(data[relatedPersonFieldPaths.addressLine2] ? [data[relatedPersonFieldPaths.addressLine2]] : []),
-          ].filter(Boolean), // Remove empty lines
-          ...(data[relatedPersonFieldPaths.city] && { city: data[relatedPersonFieldPaths.city] }),
-          ...(data[relatedPersonFieldPaths.state] && { state: data[relatedPersonFieldPaths.state] }),
-          ...(data[relatedPersonFieldPaths.zip] && { postalCode: data[relatedPersonFieldPaths.zip] }),
-        },
-      ];
-    }
-
-    // Create Coverage resource
-    const countOfInsurances = insurances.length + tempInsurances.length;
-    const coverageResource: Coverage = {
-      resourceType: 'Coverage',
-      id: uuid(),
-      status: 'active',
-      subscriberId: data[coverageFieldPaths.memberId],
-      subscriber: {
-        reference: `RelatedPerson/${relatedPersonResource.id}`,
-      },
-      beneficiary: {
-        type: 'Patient',
-        reference: `Patient/${patient.id}`,
-      },
-      payor: [
-        {
-          reference: 'Organization/65eebe57-0b68-49e5-a96d-abb1123f9aa4', // data[CoverageFieldPaths.carrier],
-        },
-      ],
-      relationship: {
-        coding: [
-          {
-            system: 'http://terminology.hl7.org/CodeSystem/subscriber-relationship',
-            code: SUBSCRIBER_RELATIONSHIP_CODE_MAP[data[coverageFieldPaths.relationship]],
-            display: data[coverageFieldPaths.relationship],
-          },
-        ],
-      },
-      class: [
-        {
-          type: {
-            coding: [
-              {
-                system: 'http://terminology.hl7.org/CodeSystem/coverage-class',
-                code: 'plan',
-              },
-            ],
-          },
-          value: '951',
-          name: data[coverageFieldPaths.carrier],
-        },
-      ],
-      order: countOfInsurances + 1,
-      identifier: [
-        {
-          value: data[coverageFieldPaths.memberId],
-        },
-      ],
-    };
-
-    // Add extension only if additional information is provided
-    if (data['Coverage/additionalInformation']) {
-      coverageResource.extension = [
-        {
-          url: 'https://fhir.zapehr.com/r4/StructureDefinitions/additional-information',
-          valueString: data['Coverage/additionalInformation'],
-        },
-      ];
-    }
-
-    addTempInsurance(coverageResource, relatedPersonResource);
-    onClose();
+    console.log('data', data, JSON.stringify(itemized));
+    // onClose();
   };
 
   return (
@@ -175,7 +85,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
           fontWeight: '600 !important',
         }}
       >
-        Add Secondary Insurance
+        Add Insurance
         <IconButton
           aria-label="Close"
           onClick={onClose}
@@ -191,23 +101,24 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Grid container spacing={2} columns={9} sx={{ pt: 1 }}>
           <Grid item xs={3}>
-            <LabeledField label="Insurance carrier" required error={!!errors[coverageFieldPaths.carrier]}>
+            <LabeledField label="Insurance carrier" required error={!!errors[FormFields.insuranceCarrier.key]}>
               <Controller
-                name={coverageFieldPaths.carrier}
+                name={FormFields.insuranceCarrier.key}
                 control={control}
                 defaultValue={null}
                 rules={{
                   required: REQUIRED_FIELD_ERROR_MESSAGE,
-                  validate: (value) => insurancePlans.some((option) => option.name === value),
+                  validate: (value) => insurancePlans.some((option) => option.id === value),
                 }}
                 render={({ field: { onChange, value }, fieldState: { error } }) => (
                   <Autocomplete
                     options={insurancePlans}
-                    value={(insurancePlans.find((option) => option.name === value) || null) as InsurancePlanDTO}
+                    value={(insurancePlans.find((option) => option.id === value) || null) as InsurancePlanDTO}
                     getOptionLabel={(option) => option?.name || ''}
-                    isOptionEqualToValue={(option, value) => option?.name === value?.name || (!option && !value)}
+                    isOptionEqualToValue={(option, value) => option?.id === value?.id || (!option && !value)}
                     onChange={(_, newValue) => {
-                      onChange(newValue?.name || null);
+                      console.log(newValue);
+                      onChange(newValue?.id || null);
                     }}
                     disableClearable
                     renderInput={(params) => (
@@ -225,10 +136,10 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
             </LabeledField>
           </Grid>
           <Grid item xs={3}>
-            <LabeledField label="Member ID" required error={!!errors[relatedPersonFieldPaths.firstName]}>
+            <LabeledField label="Member ID" required error={!!errors[FormFields.memberId.key]}>
               <FormTextField
                 variant="outlined"
-                name={coverageFieldPaths.memberId}
+                name={FormFields.memberId.key}
                 control={control}
                 defaultValue={''}
                 rules={{
@@ -239,14 +150,10 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
           </Grid>
           <Grid item xs={3} />
           <Grid item xs={3}>
-            <LabeledField
-              label="Policy holder's first name"
-              required
-              error={!!errors[relatedPersonFieldPaths.firstName]}
-            >
+            <LabeledField label="Policy holder's first name" required error={!!errors[FormFields.firstName.key]}>
               <FormTextField
                 variant="outlined"
-                name={relatedPersonFieldPaths.firstName}
+                name={FormFields.firstName.key}
                 control={control}
                 defaultValue={''}
                 rules={{
@@ -265,17 +172,17 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
                   },
                 }}
                 variant="outlined"
-                name={relatedPersonFieldPaths.middleName}
+                name={FormFields.middleName.key}
                 control={control}
                 defaultValue={''}
               />
             </LabeledField>
           </Grid>
           <Grid item xs={3}>
-            <LabeledField label="Policy holder's last name" required error={!!errors[relatedPersonFieldPaths.lastName]}>
+            <LabeledField label="Policy holder's last name" required error={!!errors[FormFields.lastName.key]}>
               <FormTextField
                 variant="outlined"
-                name={relatedPersonFieldPaths.lastName}
+                name={FormFields.lastName.key}
                 control={control}
                 defaultValue={''}
                 rules={{
@@ -285,13 +192,9 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
             </LabeledField>
           </Grid>
           <Grid item xs={3}>
-            <LabeledField
-              label="Policy holder's date of birth"
-              required
-              error={!!errors[relatedPersonFieldPaths.birthDate]}
-            >
+            <LabeledField label="Policy holder's date of birth" required error={!!errors[FormFields.birthDate.key]}>
               <DatePicker
-                name={relatedPersonFieldPaths.birthDate}
+                name={FormFields.birthDate.key}
                 variant="outlined"
                 control={control}
                 required={true}
@@ -300,10 +203,10 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
             </LabeledField>
           </Grid>
           <Grid item xs={3}>
-            <LabeledField label="Policy holder's sex" required error={!!errors[relatedPersonFieldPaths.gender]}>
+            <LabeledField label="Policy holder's sex" required error={!!errors[FormFields.birthSex.key]}>
               <FormSelect
                 variant="outlined"
-                name={relatedPersonFieldPaths.gender}
+                name={FormFields.birthSex.key}
                 control={control}
                 defaultValue={''}
                 options={SEX_OPTIONS}
@@ -315,11 +218,11 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
             <LabeledField
               label="Patient’s relationship to insured"
               required
-              error={!!errors[coverageFieldPaths.relationship]}
+              error={!!errors[FormFields.relationship.key]}
             >
               <FormSelect
                 variant="outlined"
-                name={coverageFieldPaths.relationship}
+                name={FormFields.relationship.key}
                 control={control}
                 defaultValue={''}
                 options={RELATIONSHIP_TO_INSURED_OPTIONS}
@@ -328,11 +231,11 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
             </LabeledField>
           </Grid>
           <Grid item xs={3}>
-            <LabeledField label="Street address" required error={!!errors[relatedPersonFieldPaths.streetAddress]}>
+            <LabeledField label="Street address" required error={!!errors[FormFields.streetAddress.key]}>
               <FormTextField
                 placeholder="No., Street"
                 variant="outlined"
-                name={relatedPersonFieldPaths.streetAddress}
+                name={FormFields.streetAddress.key}
                 control={control}
                 defaultValue={''}
                 rules={{
@@ -346,17 +249,17 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
               <FormTextField
                 placeholder="No., Street"
                 variant="outlined"
-                name={relatedPersonFieldPaths.addressLine2}
+                name={FormFields.addressLine2.key}
                 control={control}
                 defaultValue={''}
               />
             </LabeledField>
           </Grid>
           <Grid item xs={1}>
-            <LabeledField label="City" required error={!!errors[relatedPersonFieldPaths.city]}>
+            <LabeledField label="City" required error={!!errors[FormFields.city.key]}>
               <FormTextField
                 variant="outlined"
-                name={relatedPersonFieldPaths.city}
+                name={FormFields.city.key}
                 control={control}
                 defaultValue={''}
                 rules={{
@@ -366,9 +269,9 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
             </LabeledField>
           </Grid>
           <Grid item xs={1}>
-            <LabeledField label="State" required error={!!errors[relatedPersonFieldPaths.state]}>
+            <LabeledField label="State" required error={!!errors[FormFields.state.key]}>
               <Controller
-                name={relatedPersonFieldPaths.state}
+                name={FormFields.state.key}
                 control={control}
                 defaultValue={null}
                 rules={{
@@ -400,10 +303,10 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
             </LabeledField>
           </Grid>
           <Grid item xs={1}>
-            <LabeledField label="ZIP" required error={!!errors[relatedPersonFieldPaths.zip]}>
+            <LabeledField label="ZIP" required error={!!errors[FormFields.zip.key]}>
               <FormTextField
                 variant="outlined"
-                name={relatedPersonFieldPaths.zip}
+                name={FormFields.zip.key}
                 control={control}
                 defaultValue={''}
                 rules={{

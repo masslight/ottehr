@@ -14,7 +14,7 @@ import {
   getAccountOperations,
   GetAccountOperationsOutput,
   getCoverageUpdateResourcesFromUnbundled,
-} from '../helpers';
+} from '../../../../../../../zambda-utils';
 import {
   Account,
   Coverage,
@@ -2367,47 +2367,47 @@ describe('Harvest Module', () => {
     it('should have one existing coverage resource for an existing Account case with one primary coverage associated, and all the outher stuff should be right too', () => {
       const inputs = getCoverageUpdateResourcesFromUnbundled({ patient: bundle1Patient, resources: bundle1 });
       expect(inputs).toBeDefined();
-      expect(inputs.existingAccount).toBeDefined();
-      expect(inputs.existingAccount?.id).toBe(bundle1Account.id);
-      expect(inputs.existingAccount?.coverage).toBeDefined();
-      expect(inputs.existingAccount?.coverage?.length).toBe(1);
-      expect(inputs.existingCoverages).toBeDefined();
-      expect(inputs.existingCoverages?.primary).toBeDefined();
-      expect(inputs.existingCoverages?.primary?.id).toBe(bundle1Coverage.id);
-      expect(inputs.existingCoverages?.primary?.subscriber).toBeDefined();
-      expect(inputs.existingCoverages?.primary?.subscriber?.reference).toBe(`RelatedPerson/${bundle1RP1.id}`);
-      expect(inputs.existingCoverages?.primarySubscriber).toBeDefined();
-      expect(inputs.existingCoverages?.primarySubscriber?.id).toBe(bundle1RP1.id);
-      expect(inputs.existingCoverages.secondary).toBeUndefined();
-      expect(inputs.existingCoverages.secondarySubscriber).toBeUndefined();
-      expect(inputs.existingGuarantorResource).toBeDefined();
-      expect(bundle1.some((r) => r.id === inputs.existingGuarantorResource?.id)).toBe(false);
-      expect(`#${inputs.existingGuarantorResource?.id}`).toBe(inputs.existingAccount?.guarantor?.[0]?.party?.reference);
-      expect(inputs.existingGuarantorResource).toEqual(inputs.existingAccount?.contained?.[0]);
+      expect(inputs.account).toBeDefined();
+      expect(inputs.account?.id).toBe(bundle1Account.id);
+      expect(inputs.account?.coverage).toBeDefined();
+      expect(inputs.account?.coverage?.length).toBe(1);
+      expect(inputs.coverages).toBeDefined();
+      expect(inputs.coverages?.primary).toBeDefined();
+      expect(inputs.coverages?.primary?.id).toBe(bundle1Coverage.id);
+      expect(inputs.coverages?.primary?.subscriber).toBeDefined();
+      expect(inputs.coverages?.primary?.subscriber?.reference).toBe(`RelatedPerson/${bundle1RP1.id}`);
+      expect(inputs.coverages?.primarySubscriber).toBeDefined();
+      expect(inputs.coverages?.primarySubscriber?.id).toBe(bundle1RP1.id);
+      expect(inputs.coverages.secondary).toBeUndefined();
+      expect(inputs.coverages.secondarySubscriber).toBeUndefined();
+      expect(inputs.guarantorResource).toBeDefined();
+      expect(bundle1.some((r) => r.id === inputs.guarantorResource?.id)).toBe(false);
+      expect(`#${inputs.guarantorResource?.id}`).toBe(inputs.account?.guarantor?.[0]?.party?.reference);
+      expect(inputs.guarantorResource).toEqual(inputs.account?.contained?.[0]);
     });
     it('it should have primary and no secondary coverage when secondary coverage is added but is not associated with existing account', () => {
       const secondaryCvg = { ...stubSecondaryCoverage, order: 2 };
       const resources = [...bundle1, secondaryCvg];
       const inputs = getCoverageUpdateResourcesFromUnbundled({ patient: bundle1Patient, resources });
       expect(inputs).toBeDefined();
-      expect(inputs.existingAccount).toBeDefined();
-      expect(inputs.existingAccount?.id).toBe(bundle1Account.id);
-      expect(inputs.existingAccount?.coverage).toBeDefined();
-      expect(inputs.existingAccount?.coverage?.length).toBe(1);
-      expect(inputs.existingCoverages).toBeDefined();
-      expect(inputs.existingCoverages?.primary).toBeDefined();
-      expect(inputs.existingCoverages?.primary?.id).toBe(bundle1Coverage.id);
-      expect(inputs.existingCoverages?.primary?.subscriber).toBeDefined();
-      expect(inputs.existingCoverages?.primary?.subscriber?.reference).toBe(`RelatedPerson/${bundle1RP1.id}`);
-      expect(inputs.existingCoverages?.primarySubscriber).toBeDefined();
-      expect(inputs.existingCoverages?.primarySubscriber?.id).toBe(bundle1RP1.id);
-      expect(inputs.existingGuarantorResource).toBeDefined();
-      expect(bundle1.some((r) => r.id === inputs.existingGuarantorResource?.id)).toBe(false);
-      expect(`#${inputs.existingGuarantorResource?.id}`).toBe(inputs.existingAccount?.guarantor?.[0]?.party?.reference);
-      expect(inputs.existingGuarantorResource).toEqual(inputs.existingAccount?.contained?.[0]);
+      expect(inputs.account).toBeDefined();
+      expect(inputs.account?.id).toBe(bundle1Account.id);
+      expect(inputs.account?.coverage).toBeDefined();
+      expect(inputs.account?.coverage?.length).toBe(1);
+      expect(inputs.coverages).toBeDefined();
+      expect(inputs.coverages?.primary).toBeDefined();
+      expect(inputs.coverages?.primary?.id).toBe(bundle1Coverage.id);
+      expect(inputs.coverages?.primary?.subscriber).toBeDefined();
+      expect(inputs.coverages?.primary?.subscriber?.reference).toBe(`RelatedPerson/${bundle1RP1.id}`);
+      expect(inputs.coverages?.primarySubscriber).toBeDefined();
+      expect(inputs.coverages?.primarySubscriber?.id).toBe(bundle1RP1.id);
+      expect(inputs.guarantorResource).toBeDefined();
+      expect(bundle1.some((r) => r.id === inputs.guarantorResource?.id)).toBe(false);
+      expect(`#${inputs.guarantorResource?.id}`).toBe(inputs.account?.guarantor?.[0]?.party?.reference);
+      expect(inputs.guarantorResource).toEqual(inputs.account?.contained?.[0]);
 
-      expect(inputs.existingCoverages.secondary).toBeUndefined();
-      expect(inputs.existingCoverages.secondarySubscriber).toBeUndefined();
+      expect(inputs.coverages.secondary).toBeUndefined();
+      expect(inputs.coverages.secondarySubscriber).toBeUndefined();
     });
 
     it('it should have primary and secondary coverage when secondary coverage is added and there is no existing account', () => {
@@ -2415,16 +2415,16 @@ describe('Harvest Module', () => {
       let resources = [...bundle1, secondaryCvg].filter((r) => r.id !== bundle1Account.id);
       let inputs = getCoverageUpdateResourcesFromUnbundled({ patient: bundle1Patient, resources });
       expect(inputs).toBeDefined();
-      expect(inputs.existingCoverages).toBeDefined();
-      expect(inputs.existingCoverages?.primary).toBeDefined();
-      expect(inputs.existingCoverages?.primary?.id).toBe(bundle1Coverage.id);
-      expect(inputs.existingCoverages?.primary?.subscriber).toBeDefined();
-      expect(inputs.existingCoverages?.primary?.subscriber?.reference).toBe(`RelatedPerson/${bundle1RP1.id}`);
-      expect(inputs.existingCoverages?.primarySubscriber).toBeDefined();
-      expect(inputs.existingCoverages?.primarySubscriber?.id).toBe(bundle1RP1.id);
+      expect(inputs.coverages).toBeDefined();
+      expect(inputs.coverages?.primary).toBeDefined();
+      expect(inputs.coverages?.primary?.id).toBe(bundle1Coverage.id);
+      expect(inputs.coverages?.primary?.subscriber).toBeDefined();
+      expect(inputs.coverages?.primary?.subscriber?.reference).toBe(`RelatedPerson/${bundle1RP1.id}`);
+      expect(inputs.coverages?.primarySubscriber).toBeDefined();
+      expect(inputs.coverages?.primarySubscriber?.id).toBe(bundle1RP1.id);
 
-      expect(inputs.existingCoverages.secondary).toBeDefined();
-      expect(inputs.existingCoverages.secondarySubscriber).toBeDefined();
+      expect(inputs.coverages.secondary).toBeDefined();
+      expect(inputs.coverages.secondarySubscriber).toBeDefined();
 
       // the same result basic result should obtain with primary/secondary flipped if the order is flipped on the Coverage resources
 
@@ -2440,16 +2440,16 @@ describe('Harvest Module', () => {
       });
       inputs = getCoverageUpdateResourcesFromUnbundled({ patient: bundle1Patient, resources });
       expect(inputs).toBeDefined();
-      expect(inputs.existingCoverages).toBeDefined();
-      expect(inputs.existingCoverages?.primary).toBeDefined();
-      expect(inputs.existingCoverages?.primary?.id).toBe(secondaryCvg.id);
-      expect(inputs.existingCoverages?.primary?.subscriber).toBeDefined();
-      expect(inputs.existingCoverages?.primary?.subscriber?.reference).toBe(`RelatedPerson/${bundle1RP1.id}`);
-      expect(inputs.existingCoverages?.primarySubscriber).toBeDefined();
-      expect(inputs.existingCoverages?.primarySubscriber?.id).toBe(bundle1RP1.id);
+      expect(inputs.coverages).toBeDefined();
+      expect(inputs.coverages?.primary).toBeDefined();
+      expect(inputs.coverages?.primary?.id).toBe(secondaryCvg.id);
+      expect(inputs.coverages?.primary?.subscriber).toBeDefined();
+      expect(inputs.coverages?.primary?.subscriber?.reference).toBe(`RelatedPerson/${bundle1RP1.id}`);
+      expect(inputs.coverages?.primarySubscriber).toBeDefined();
+      expect(inputs.coverages?.primarySubscriber?.id).toBe(bundle1RP1.id);
 
-      expect(inputs.existingCoverages.secondary).toBeDefined();
-      expect(inputs.existingCoverages.secondarySubscriber).toBeDefined();
+      expect(inputs.coverages.secondary).toBeDefined();
+      expect(inputs.coverages.secondarySubscriber).toBeDefined();
     });
     it('it should have primary and secondary coverage when secondary coverage is added and there is no existing account and secondary coverage has a contained RP', () => {
       const secondaryCvg = {
@@ -2461,16 +2461,16 @@ describe('Harvest Module', () => {
       let resources = [...bundle1, secondaryCvg].filter((r) => r.id !== bundle1Account.id);
       let inputs = getCoverageUpdateResourcesFromUnbundled({ patient: bundle1Patient, resources });
       expect(inputs).toBeDefined();
-      expect(inputs.existingCoverages).toBeDefined();
-      expect(inputs.existingCoverages?.primary).toBeDefined();
-      expect(inputs.existingCoverages?.primary?.id).toBe(bundle1Coverage.id);
-      expect(inputs.existingCoverages?.primary?.subscriber).toBeDefined();
-      expect(inputs.existingCoverages?.primary?.subscriber?.reference).toBe(`RelatedPerson/${bundle1RP1.id}`);
-      expect(inputs.existingCoverages?.primarySubscriber).toBeDefined();
-      expect(inputs.existingCoverages?.primarySubscriber?.id).toBe(bundle1RP1.id);
+      expect(inputs.coverages).toBeDefined();
+      expect(inputs.coverages?.primary).toBeDefined();
+      expect(inputs.coverages?.primary?.id).toBe(bundle1Coverage.id);
+      expect(inputs.coverages?.primary?.subscriber).toBeDefined();
+      expect(inputs.coverages?.primary?.subscriber?.reference).toBe(`RelatedPerson/${bundle1RP1.id}`);
+      expect(inputs.coverages?.primarySubscriber).toBeDefined();
+      expect(inputs.coverages?.primarySubscriber?.id).toBe(bundle1RP1.id);
 
-      expect(inputs.existingCoverages.secondary).toBeDefined();
-      expect(inputs.existingCoverages.secondarySubscriber).toBeDefined();
+      expect(inputs.coverages.secondary).toBeDefined();
+      expect(inputs.coverages.secondarySubscriber).toBeDefined();
 
       // the same result basic result should obtain with primary/secondary flipped if the order is flipped on the Coverage resources
 
@@ -2486,18 +2486,16 @@ describe('Harvest Module', () => {
       });
       inputs = getCoverageUpdateResourcesFromUnbundled({ patient: bundle1Patient, resources });
       expect(inputs).toBeDefined();
-      expect(inputs.existingCoverages).toBeDefined();
-      expect(inputs.existingCoverages?.primary).toBeDefined();
-      expect(inputs.existingCoverages?.primary?.id).toBe(secondaryCvg.id);
-      expect(inputs.existingCoverages?.primary?.subscriber).toBeDefined();
-      expect(inputs.existingCoverages?.primary?.subscriber?.reference).toBe(
-        `#${expectedSecondaryPolicyHolderFromQR1.id}`
-      );
-      expect(inputs.existingCoverages?.primarySubscriber).toBeDefined();
-      expect(inputs.existingCoverages?.primarySubscriber?.id).toBe(expectedSecondaryPolicyHolderFromQR1.id);
+      expect(inputs.coverages).toBeDefined();
+      expect(inputs.coverages?.primary).toBeDefined();
+      expect(inputs.coverages?.primary?.id).toBe(secondaryCvg.id);
+      expect(inputs.coverages?.primary?.subscriber).toBeDefined();
+      expect(inputs.coverages?.primary?.subscriber?.reference).toBe(`#${expectedSecondaryPolicyHolderFromQR1.id}`);
+      expect(inputs.coverages?.primarySubscriber).toBeDefined();
+      expect(inputs.coverages?.primarySubscriber?.id).toBe(expectedSecondaryPolicyHolderFromQR1.id);
 
-      expect(inputs.existingCoverages.secondary).toBeDefined();
-      expect(inputs.existingCoverages.secondarySubscriber).toBeDefined();
+      expect(inputs.coverages.secondary).toBeDefined();
+      expect(inputs.coverages.secondarySubscriber).toBeDefined();
     });
 
     it('it should have primary and secondary coverage when secondary coverage is added and there is no existing account and secondary coverage has a contained RP', () => {
@@ -2510,16 +2508,16 @@ describe('Harvest Module', () => {
       let resources = [...bundle1, secondaryCvg].filter((r) => r.id !== bundle1Account.id);
       let inputs = getCoverageUpdateResourcesFromUnbundled({ patient: bundle1Patient, resources });
       expect(inputs).toBeDefined();
-      expect(inputs.existingCoverages).toBeDefined();
-      expect(inputs.existingCoverages?.primary).toBeDefined();
-      expect(inputs.existingCoverages?.primary?.id).toBe(bundle1Coverage.id);
-      expect(inputs.existingCoverages?.primary?.subscriber).toBeDefined();
-      expect(inputs.existingCoverages?.primary?.subscriber?.reference).toBe(`RelatedPerson/${bundle1RP1.id}`);
-      expect(inputs.existingCoverages?.primarySubscriber).toBeDefined();
-      expect(inputs.existingCoverages?.primarySubscriber?.id).toBe(bundle1RP1.id);
+      expect(inputs.coverages).toBeDefined();
+      expect(inputs.coverages?.primary).toBeDefined();
+      expect(inputs.coverages?.primary?.id).toBe(bundle1Coverage.id);
+      expect(inputs.coverages?.primary?.subscriber).toBeDefined();
+      expect(inputs.coverages?.primary?.subscriber?.reference).toBe(`RelatedPerson/${bundle1RP1.id}`);
+      expect(inputs.coverages?.primarySubscriber).toBeDefined();
+      expect(inputs.coverages?.primarySubscriber?.id).toBe(bundle1RP1.id);
 
-      expect(inputs.existingCoverages.secondary).toBeDefined();
-      expect(inputs.existingCoverages.secondarySubscriber).toBeDefined();
+      expect(inputs.coverages.secondary).toBeDefined();
+      expect(inputs.coverages.secondarySubscriber).toBeDefined();
 
       // the same result basic result should obtain with primary/secondary flipped if the order is flipped on the Coverage resources
 
@@ -2535,18 +2533,16 @@ describe('Harvest Module', () => {
       });
       inputs = getCoverageUpdateResourcesFromUnbundled({ patient: bundle1Patient, resources });
       expect(inputs).toBeDefined();
-      expect(inputs.existingCoverages).toBeDefined();
-      expect(inputs.existingCoverages?.primary).toBeDefined();
-      expect(inputs.existingCoverages?.primary?.id).toBe(secondaryCvg.id);
-      expect(inputs.existingCoverages?.primary?.subscriber).toBeDefined();
-      expect(inputs.existingCoverages?.primary?.subscriber?.reference).toBe(
-        `#${expectedSecondaryPolicyHolderFromQR1.id}`
-      );
-      expect(inputs.existingCoverages?.primarySubscriber).toBeDefined();
-      expect(inputs.existingCoverages?.primarySubscriber?.id).toBe(expectedSecondaryPolicyHolderFromQR1.id);
+      expect(inputs.coverages).toBeDefined();
+      expect(inputs.coverages?.primary).toBeDefined();
+      expect(inputs.coverages?.primary?.id).toBe(secondaryCvg.id);
+      expect(inputs.coverages?.primary?.subscriber).toBeDefined();
+      expect(inputs.coverages?.primary?.subscriber?.reference).toBe(`#${expectedSecondaryPolicyHolderFromQR1.id}`);
+      expect(inputs.coverages?.primarySubscriber).toBeDefined();
+      expect(inputs.coverages?.primarySubscriber?.id).toBe(expectedSecondaryPolicyHolderFromQR1.id);
 
-      expect(inputs.existingCoverages.secondary).toBeDefined();
-      expect(inputs.existingCoverages.secondarySubscriber).toBeDefined();
+      expect(inputs.coverages.secondary).toBeDefined();
+      expect(inputs.coverages.secondarySubscriber).toBeDefined();
     });
   });
 });

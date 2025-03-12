@@ -1228,3 +1228,20 @@ export const unpackFhirResponse = async <T>(response: { json: () => Promise<any>
 export const unbundleBatchPostOutput = <T extends Resource>(bundle: Bundle<T>): T[] => {
   return (bundle.entry?.map((entry) => entry.resource) ?? []) as T[];
 };
+
+export const getVersionedReferencesFromBundleResources = (bundle: Bundle): Reference[] => {
+  return (bundle.entry ?? []).flatMap((entry) => {
+    const { resource } = entry;
+    if (!resource) {
+      return [];
+    }
+    const { meta, resourceType, id } = resource;
+    const versionId = meta?.versionId;
+    let reference = `${resourceType}/${id}`;
+    if (versionId) {
+      reference += `/_history/${versionId}`;
+    }
+
+    return { reference };
+  });
+};

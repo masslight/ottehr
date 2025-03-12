@@ -1,4 +1,9 @@
-import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
+import Oystehr, {
+  BatchInputPatchRequest,
+  BatchInputPostRequest,
+  BatchInputPutRequest,
+  BatchInputRequest,
+} from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { AddOperation, Operation } from 'fast-json-patch';
 import {
@@ -6,6 +11,7 @@ import {
   AccountGuarantor,
   Address,
   Attachment,
+  Bundle,
   CodeableConcept,
   Consent,
   ContactPoint,
@@ -91,11 +97,15 @@ import {
   flattenItems,
   deduplicateUnbundledResources,
   takeContainedOrFind,
+  PATIENT_NOT_FOUND_ERROR,
+  OrderedCoverages,
+  OrderedCoveragesWithSubscribers,
+  PatientAccountAndCoverageResources,
 } from 'utils';
 import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
-import { createOrUpdateFlags } from '../../../paperwork/sharedHelpers';
-import { createPdfBytes } from '../../../shared/pdf';
 import _ from 'lodash';
+import { createPdfBytes } from '../pdf';
+import { createOrUpdateFlags } from '../sharedHelpers';
 
 const IGNORE_CREATING_TASKS_FOR_REVIEW = true;
 
@@ -1485,7 +1495,7 @@ export function createConflictResolutionTask(
 function getFieldNameWithResource(
   resources: PatientMasterRecordResources,
   resourceType: PatientMasterRecordResourceType,
-  resourceId: string,
+  _resourceId: string,
   path: string
 ): string {
   let resource: PatientMasterRecordResource | undefined;
@@ -1534,11 +1544,6 @@ function getFieldName(resource: PatientMasterRecordResource, path: string): stri
   return pathToLinkIdMap[path] || 'unknown-field';
 }
 
-interface OrderedCoverages {
-  primary?: Coverage;
-  secondary?: Coverage;
-}
-
 interface GetCoveragesInput {
   questionnaireResponse: QuestionnaireResponse;
   patientId: string;
@@ -1558,22 +1563,30 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
   const flattenedPaperwork = flattenIntakeQuestionnaireItems(
     questionnaireResponse.item as IntakeQuestionnaireItem[]
   ) as QuestionnaireResponseItem[];
+  const isSecondaryOnly = checkIsSecondaryOnly(flattenedPaperwork);
   // Check primary insurance
-  const primaryPolicyHolder = getPrimaryPolicyHolderFromAnswers(flattenedPaperwork);
-  const primaryInsuranceDetails = getInsuranceDetailsFromAnswers(
-    flattenedPaperwork,
-    insurancePlanResources,
-    organizationResources
-  );
-
-  // Check secondary insurance
-  const secondaryPolicyHolder = getSecondaryPolicyHolderFromAnswers(flattenedPaperwork);
-  const secondaryInsuranceDetails = getInsuranceDetailsFromAnswers(
+  let primaryPolicyHolder: PolicyHolder | undefined;
+  let primaryInsuranceDetails: InsuranceDetails | undefined;
+  let secondaryPolicyHolder = getSecondaryPolicyHolderFromAnswers(flattenedPaperwork);
+  let secondaryInsuranceDetails = getInsuranceDetailsFromAnswers(
     flattenedPaperwork,
     insurancePlanResources,
     organizationResources,
     '-2'
   );
+  if (!isSecondaryOnly) {
+    primaryPolicyHolder = getPrimaryPolicyHolderFromAnswers(flattenedPaperwork);
+    primaryInsuranceDetails = getInsuranceDetailsFromAnswers(
+      flattenedPaperwork,
+      insurancePlanResources,
+      organizationResources
+    );
+  } else if (secondaryPolicyHolder === undefined || secondaryInsuranceDetails === undefined) {
+    secondaryPolicyHolder = secondaryPolicyHolder ?? getPrimaryPolicyHolderFromAnswers(flattenedPaperwork);
+    secondaryInsuranceDetails =
+      secondaryInsuranceDetails ??
+      getInsuranceDetailsFromAnswers(flattenedPaperwork, insurancePlanResources, organizationResources);
+  }
 
   let primaryInsurance: CreateCoverageResourceInput['insurance'] | undefined;
   let secondaryInsurance: CreateCoverageResourceInput['insurance'] | undefined;
@@ -1657,6 +1670,10 @@ export const getSecondaryPolicyHolderFromAnswers = (items: QuestionnaireResponse
   return extractPolicyHolder(items, '-2');
 };
 
+const checkIsSecondaryOnly = (items: QuestionnaireResponseItem[]): boolean => {
+  return items.find((item) => item.linkId === 'insurance-is-secondary')?.answer?.[0]?.valueBoolean ?? false;
+};
+
 // note: this function assumes items have been flattened before being passed in
 const extractPolicyHolder = (items: QuestionnaireResponseItem[], keySuffix?: string): PolicyHolder | undefined => {
   const findAnswer = (linkId: string): string | undefined =>
@@ -1727,16 +1744,20 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
   if (contact.firstName && contact.lastName && contact.dob && contact.birthSex && contact.relationship) {
     return contact;
   }
-  return contact;
+  return undefined;
 }
 
 // note: this function assumes items have been flattened before being passed in
+interface InsuranceDetails {
+  plan: InsurancePlan;
+  org: Organization;
+}
 function getInsuranceDetailsFromAnswers(
   answers: QuestionnaireResponseItem[],
   insurancePlans: InsurancePlan[],
   organizations: Organization[],
   keySuffix?: string
-): { plan: InsurancePlan; org: Organization } | undefined {
+): InsuranceDetails | undefined {
   const suffix = keySuffix ? `${keySuffix}` : '';
   const insurancePlanReference = answers.find((item) => item.linkId === `insurance-carrier${suffix}`)?.answer?.[0]
     ?.valueReference;
@@ -1975,10 +1996,13 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
   const flattenedItems = flattenItems(questionnaireResponseItem ?? []);
 
   const guarantorData = extractAccountGuarantor(flattenedItems);
-  if (!guarantorData) {
-    console.log('no guarantor data could be extracted from questionnaire response');
-    return { patch: [], coveragePosts: [], put: [], accountPost: undefined };
-  }
+  console.log(
+    'insurance plan resources',
+    JSON.stringify(insurancePlanResources, null, 2),
+    JSON.stringify(organizationResources, null, 2),
+    JSON.stringify(flattenedItems, null, 2)
+  );
+
   const { orderedCoverages: questionnaireCoverages } = getCoverageResources({
     questionnaireResponse: {
       item: flattenedItems,
@@ -1987,6 +2011,8 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     insurancePlanResources,
     organizationResources,
   });
+
+  console.log('insurance plan ordered coverages', JSON.stringify(questionnaireCoverages, null, 2));
 
   const patch: BatchInputPatchRequest<Coverage | RelatedPerson | Account>[] = [];
   const coveragePosts: BatchInputPostRequest<Coverage>[] = [];
@@ -2132,11 +2158,6 @@ export const createAccount = (input: CreateAccountInput): Account => {
   };
   return account;
 };
-
-interface OrderedCoveragesWithSubscribers extends OrderedCoverages {
-  primarySubscriber?: RelatedPerson;
-  secondarySubscriber?: RelatedPerson;
-}
 
 interface CompareCoverageInput {
   patient: Patient;
@@ -2375,15 +2396,6 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
         coverage: { reference: secondaryCoverageFromPaperwork.id },
         priority: 2,
       });
-      /*const condition1 = coveragesAreSame(secondaryCoverageFromPaperwork, existingSecondaryCoverage);
-      const condition2 = relatedPersonsAreSame(secondarySubscriberFromPaperwork, existingSecondarySubscriber);
-      throw new Error(
-        `unexpected condition. condition1: ${condition1}, condition2: ${condition2} ${JSON.stringify(
-          existingSecondaryCoverage,
-          null,
-          2
-        )} ${JSON.stringify(existingSecondarySubscriber, null, 2)}`
-      );*/
     }
   }
 
@@ -2423,7 +2435,7 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
 
 interface ResolveGuarantorInput {
   patientId: string;
-  guarantorFromQuestionnaire: ResponsiblePartyContact;
+  guarantorFromQuestionnaire: ResponsiblePartyContact | undefined;
   existingGuarantorResource: RelatedPerson | Patient;
   existingGuarantorReferences: AccountGuarantor[];
   existingContained?: FhirResource[];
@@ -2443,7 +2455,8 @@ export const resolveGuarantor = (input: ResolveGuarantorInput): ResolveGuarantor
     existingContained,
     timestamp,
   } = input;
-  if (guarantorFromQuestionnaire.relationship === 'Self') {
+  console.log('guarantorFromQuestionnaire', JSON.stringify(guarantorFromQuestionnaire, null, 2));
+  if (guarantorFromQuestionnaire === undefined || guarantorFromQuestionnaire.relationship === 'Self') {
     if (existingGuarantorResource.resourceType === 'Patient' && existingGuarantorResource.id === patientId) {
       return { guarantors: existingGuarantorReferences, contained: existingContained };
     } else {
@@ -2720,10 +2733,7 @@ interface UnbundledAccountResourceWithInsuranceResources {
 // this function is exported for testing purposes
 export const getCoverageUpdateResourcesFromUnbundled = (
   input: UnbundledAccountResourceWithInsuranceResources
-): Omit<
-  GetAccountOperationsInput,
-  'questionnaireResponseItem' | 'insurancePlanResources' | 'organizationResources'
-> => {
+): PatientAccountAndCoverageResources => {
   const { patient, resources: unfilteredResources } = input;
   const resources = deduplicateUnbundledResources(unfilteredResources);
   const accountResources = resources.filter((res): res is Account => res.resourceType === 'Account');
@@ -2817,8 +2827,150 @@ export const getCoverageUpdateResourcesFromUnbundled = (
 
   return {
     patient,
-    existingAccount,
-    existingCoverages,
-    existingGuarantorResource,
+    account: existingAccount,
+    coverages: existingCoverages,
+    guarantorResource: existingGuarantorResource,
   };
+};
+
+enum InsuanceCarrierKeys {
+  primary = 'insurance-carrier',
+  secondary = 'insurance-carrier-2',
+}
+
+export const getAccountAndCoverageResourcesForPatient = async (
+  patientId: string,
+  oystehr: Oystehr
+): Promise<PatientAccountAndCoverageResources> => {
+  console.time('querying for Patient account resources');
+  const accountAndCoverageResources = (
+    await oystehr.fhir.search<Account | Coverage | RelatedPerson | Patient>({
+      resourceType: 'Patient',
+      params: [
+        {
+          name: '_id',
+          value: patientId,
+        },
+        {
+          name: '_revinclude',
+          value: 'Account:patient',
+        },
+        {
+          name: '_revinclude',
+          value: 'RelatedPerson:patient',
+        },
+        {
+          name: '_revinclude',
+          value: 'Coverage:patient',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Coverage:subscriber',
+        },
+      ],
+    })
+  ).unbundle();
+  console.timeEnd('querying for Patient account resources');
+
+  const patientResource = accountAndCoverageResources.find(
+    (r) => r.resourceType === 'Patient' && r.id === patientId
+  ) as Patient;
+
+  const resources = accountAndCoverageResources.filter((resource) => {
+    if (resource.resourceType === 'Account') {
+      return resource.status === 'active';
+    }
+    return true;
+  });
+
+  if (!patientResource) {
+    throw PATIENT_NOT_FOUND_ERROR;
+  }
+  console.log('creating account and coverage operations');
+  return getCoverageUpdateResourcesFromUnbundled({
+    patient: patientResource,
+    resources: [...resources],
+  });
+};
+
+export interface UpdatePatientAccountInput {
+  patientId: string;
+  questionnaireResponseItem: QuestionnaireResponse['item'];
+}
+
+export const updatePatientAccountFromQuestionnaire = async (
+  input: UpdatePatientAccountInput,
+  oystehr: Oystehr
+): Promise<Bundle> => {
+  const { patientId, questionnaireResponseItem } = input;
+
+  const flattenedPaperwork = flattenIntakeQuestionnaireItems(
+    questionnaireResponseItem as IntakeQuestionnaireItem[]
+  ) as QuestionnaireResponseItem[];
+
+  // get insurance additional information
+  const insurancePlans = [];
+  const primaryInsurancePlan = flattenedPaperwork.find((item) => item.linkId === InsuanceCarrierKeys.primary)
+    ?.answer?.[0]?.valueReference?.reference;
+  if (primaryInsurancePlan) insurancePlans.push(primaryInsurancePlan);
+  const secondaryInsurancePlan = flattenedPaperwork.find((item) => item.linkId === InsuanceCarrierKeys.secondary)
+    ?.answer?.[0]?.valueReference?.reference;
+  if (secondaryInsurancePlan) insurancePlans.push(secondaryInsurancePlan);
+  const insuranceInformationResources = await searchInsuranceInformation(oystehr, insurancePlans);
+  console.log('insurance information resources', JSON.stringify(insuranceInformationResources, null, 2));
+  const insurancePlanResources = insuranceInformationResources.filter(
+    (res): res is InsurancePlan => res.resourceType === 'InsurancePlan'
+  );
+  const organizationResources = insuranceInformationResources.filter(
+    (res): res is Organization => res.resourceType === 'Organization'
+  );
+
+  const {
+    patient,
+    coverages: existingCoverages,
+    account: existingAccount,
+    guarantorResource: existingGuarantorResource,
+  } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+
+  console.log('existing coverages', JSON.stringify(existingCoverages, null, 2));
+  console.log('existing account', JSON.stringify(existingAccount, null, 2));
+  console.log('existing guarantor resource', JSON.stringify(existingGuarantorResource, null, 2));
+
+  const accountOperations = getAccountOperations({
+    patient,
+    questionnaireResponseItem: flattenedPaperwork,
+    insurancePlanResources,
+    organizationResources,
+    existingCoverages,
+    existingAccount,
+    existingGuarantorResource,
+  });
+
+  console.log('account and coverage operations created', JSON.stringify(accountOperations, null, 2));
+
+  const { patch, accountPost, put, coveragePosts } = accountOperations;
+
+  const transactionRequests: BatchInputRequest<Account | RelatedPerson | Coverage>[] = [
+    ...coveragePosts,
+    ...patch,
+    ...put,
+  ];
+  if (accountPost) {
+    transactionRequests.push({
+      url: '/Account',
+      method: 'POST',
+      resource: accountPost,
+    });
+  }
+
+  try {
+    console.time('updating account resources');
+    const bundle = await oystehr.fhir.transaction({ requests: transactionRequests });
+    console.timeEnd('updating account resources');
+    // return the bundle to allow writing AuditEvents, etc.
+    return bundle;
+  } catch (error: unknown) {
+    console.log(`Failed to update Account: ${JSON.stringify(error)}`);
+    throw error;
+  }
 };

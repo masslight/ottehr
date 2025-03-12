@@ -1,5 +1,5 @@
 {
   "extends": "tsconfig/base.json",
   "compilerOptions": {},
-  "include": ["src", "tests", "scripts", "./*.ts"]
+  "include": ["src", "tests", "scripts", "./*.ts", "../../zambda-utils/lib/helpers/sharedHelpers.ts", "../../zambda-utils/lib/helpers/pdf.ts"]
 }

@@ -29,8 +29,9 @@ import {
   replaceGuarantorWithPatient,
   replaceSubscriberWithPatient,
 } from './helpers';
-import { relatedPersonsAreSame } from '../helpers';
+
 import { uuid } from 'short-uuid';
+import { relatedPersonsAreSame } from 'zambda-utils';
 
 const TEST_ENCOUNTER_ID_KEY = 'test-encounter-id';
 const TEST_PATIENT_ID_KEY = 'test-patient-id';
@@ -2298,4 +2299,5 @@ describe('Harvest Module Integration Tests', () => {
     expect(account.guarantor?.[0]?.period?.end).toBeUndefined();
     expect(account.guarantor?.[1]?.period?.end).toBeDefined();
   });
+  // todo: tests for EHR updates: 1) test when no guarantor is provided; 2) test when insurance-is-secondary = true
 });

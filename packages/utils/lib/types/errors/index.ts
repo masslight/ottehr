@@ -17,7 +17,10 @@ export enum APIErrorCode {
   ANSWER_OPTION_FROM_RESOURCE_UNDEFINED = 4015,
   BILLING_PROVIDER_NOT_FOUND = 4016,
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
+  QUESTIONNAIRE_NOT_FOUND_FOR_QR = 4101,
   MISSING_REQUEST_BODY = 4200,
+  MISSING_REQUIRED_PARAMETERS = 4201,
+  INVALID_RESOURCE_ID = 4202,
   CANNOT_JOIN_CALL_NOT_IN_PROGRESS = 4300,
   MISSING_BILLING_PROVIDER_DETAILS = 4301,
 }
@@ -131,6 +134,25 @@ export const QUESTIONNAIRE_RESPONSE_INVALID_ERROR = (errors: { [pageId: string]:
   };
 };
 
+export const QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.QUESTIONNAIRE_RESPONSE_INVALID,
+    message,
+  };
+};
+
+export const INVALID_RESOURCE_ID_ERROR = (paramName: string): APIError => {
+  return {
+    code: APIErrorCode.INVALID_RESOURCE_ID,
+    message: `"${paramName}" value must be a valid UUID`,
+  };
+};
+
+export const QUESTIONNAIRE_NOT_FOUND_FOR_QR_ERROR = {
+  code: APIErrorCode.QUESTIONNAIRE_NOT_FOUND_FOR_QR,
+  message: 'The questionnaire referenced in the QuestionnaireResponse could not be found',
+};
+
 export const SCHEDULE_NOT_FOUND_ERROR = {
   code: APIErrorCode.SCHEDULE_NOT_FOUND,
   message: 'Schedule could not be found',
@@ -154,6 +176,13 @@ export const CANNOT_JOIN_CALL_NOT_STARTED_ERROR = {
 export const MISSING_REQUEST_BODY = {
   code: APIErrorCode.MISSING_REQUEST_BODY,
   message: 'The request was missing a required request body',
+};
+
+export const MISSING_REQUIRED_PARAMETERS = (params: string[]): APIError => {
+  return {
+    code: APIErrorCode.MISSING_REQUIRED_PARAMETERS,
+    message: `The following required parameters were missing: ${params.join(', ')}`,
+  };
 };
 
 export const MALFORMED_GET_ANSWER_OPTIONS_INPUT = (message: string): APIError => ({
