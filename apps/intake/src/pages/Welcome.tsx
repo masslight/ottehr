@@ -29,7 +29,7 @@ import { ottehrLightBlue } from '../assets/icons';
 import { PageContainer, Schedule } from '../components';
 import { WaitingEstimateCard } from '../components/WaitingEstimateCard';
 import { PatientInfoInProgress } from '../features/patients/types';
-import { FillingOutAsValue, NOT_PATIENT_OR_GUARDIAN_ERROR, NO_LOCATION_ERROR } from '../helpers';
+import { NO_LOCATION_ERROR } from '../helpers';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { usePreserveQueryParams } from '../hooks/usePreserveQueryParams';
 
@@ -669,11 +669,8 @@ const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
                 {t('welcome.walkinOpen.title')}
               </Typography>
               <PageForm
-                onSubmit={(data) => {
-                  const formUserSelected = data?.formUser as FillingOutAsValue;
-                  if (formUserSelected === FillingOutAsValue.Other) {
-                    setErrorConfig(NOT_PATIENT_OR_GUARDIAN_ERROR(t));
-                  } else if (!isAuthenticated) {
+                onSubmit={(_) => {
+                  if (!isAuthenticated) {
                     // if the user is not signed in, redirect them to auth0
                     loginWithRedirect({
                       appState: {
@@ -690,7 +687,7 @@ const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
                   }
                 }}
                 controlButtons={{ backButton: false }}
-              ></PageForm>
+              />
               <ErrorDialog
                 open={errorConfig != undefined}
                 title={errorConfig?.title ?? ''}
