@@ -2,8 +2,7 @@
   "extends": "tsconfig/react.json",
   "compilerOptions": {
     "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "moduleResolution": "node"
+    "noUnusedParameters": false
   },
   "include": ["src"]
 }
