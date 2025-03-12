@@ -16,13 +16,13 @@ const HEADER_PATIENT_NAME = PATIENT_LAST_NAME + ', ' + PATIENT_FIRST_NAME;
 
 const resourceHandler = new ResourceHandler();
 
-test.beforeEach(async ({page}) => {
+test.beforeAll(async ({page}) => {
   await resourceHandler.setResources();
   await page.waitForTimeout(2000);
   await page.goto('/patient/' + resourceHandler.patient.id + '/info');
 });
 
-test.afterEach(async () => {
+test.afterAll(async () => {
   await resourceHandler.cleanupResources();
 });
 
