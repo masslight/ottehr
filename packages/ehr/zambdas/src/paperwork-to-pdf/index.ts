@@ -1,9 +1,17 @@
-import { getSecret, Secrets, SecretsKeys, topLevelCatch, ZambdaInput } from 'zambda-utils';
+import {
+  getSecret,
+  Secrets,
+  SecretsKeys,
+  topLevelCatch,
+  validateJsonBody,
+  validateString,
+  ZambdaInput,
+} from 'zambda-utils';
 import { wrapHandler } from '@sentry/aws-serverless';
 import { captureSentryException, configSentry, getAuth0Token } from '../../../../intake/zambdas/src/shared';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import Oystehr from '@oystehr/sdk';
-import { createOystehrClient, validateJsonBody, validateString } from '../shared/helpers';
+import { createOystehrClient } from '../shared/helpers';
 import { createDocument } from './document';
 import { generatePdf } from './draw';
 import { DocumentReference, QuestionnaireResponse } from 'fhir/r4b';
