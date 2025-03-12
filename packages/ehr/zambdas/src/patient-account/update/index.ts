@@ -84,6 +84,7 @@ interface AuditEventInput {
 
 const writeAuditEvent = async (input: AuditEventInput, oystehr: Oystehr): Promise<AuditEvent> => {
   const { resultBundle, providerProfileReference, patientId, questionnaireResponse } = input;
+  // todo: check that bundle outcome was successful
   const outcome = resultBundle ? '0' : '8';
   const contained: AuditEvent['contained'] = [{ ...questionnaireResponse, id: 'inputQR' }];
   const entity: AuditEvent['entity'] = [

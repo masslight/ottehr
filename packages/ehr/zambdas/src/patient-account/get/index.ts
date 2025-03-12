@@ -1,12 +1,13 @@
-import {
-  getAccountAndCoverageResourcesForPatient,
-  PatientAccountAndCoverageResources,
-  Secrets,
-  ZambdaInput,
-} from 'zambda-utils';
+import { getAccountAndCoverageResourcesForPatient, Secrets, ZambdaInput } from 'zambda-utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared/helpers';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { INVALID_RESOURCE_ID_ERROR, isValidUUID, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
+import {
+  INVALID_RESOURCE_ID_ERROR,
+  isValidUUID,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUIRED_PARAMETERS,
+  PatientAccountAndCoverageResources,
+} from 'utils';
 import Oystehr from '@oystehr/sdk';
 
 let m2mtoken: string;

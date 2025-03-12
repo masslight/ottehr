@@ -24,6 +24,8 @@ interface AddInsuranceModalProps {
   onClose: () => void;
 }
 
+const updateQRUrl = import.meta.env.VITE_APP_EHR_ACCOUNT_UPDATE_FORM;
+
 const FormFields = {
   insuranceCarrier: { key: 'insurance-carrier', type: 'Reference' },
   memberId: { key: 'insurance-member-id', type: 'String' },
@@ -66,10 +68,12 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
     }, [] as QuestionnaireResponseItem[]);
     const questionnaireResponse = {
       resourceType: 'QuestionnaireResponse',
+      questionnaire: updateQRUrl,
       status: 'completed',
+      subject: { reference: `Patient/${patient.id}` },
       item: itemized,
     };
-    console.log('data', data, JSON.stringify(itemized));
+    console.log('data', data, questionnaireResponse);
     // onClose();
   };
 
