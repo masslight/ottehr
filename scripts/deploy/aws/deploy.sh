@@ -18,37 +18,51 @@ else
     npm install
 fi
 
-cd packages/intake/zambdas
+pushd packages/intake/zambdas
 ENV=$environment npm run deploy-zambdas $environment
 ENV=$environment npm run setup-zapehr-secrets $environment
+popd
 
-cd ../../../apps/intake
+pushd apps/intake
 npm run build:env --env=$environment
+popd
 
-cd ../../packages/ehr/zambdas
+pushd packages/ehr/zambdas
 ENV=$environment npm run deploy-zambdas $environment
 ENV=$environment npm run setup-zapehr-secrets $environment
 ENV=$environment npm run setup-deployed-resources $environment
+popd
 
-cd ../../../apps/ehr
+pushd apps/ehr
 npm run build:env --env=$environment
+popd
 
-cd ../../scripts/deploy/aws
+# first cdk deploy creates cloudformation distributions
+pushd scripts/deploy/aws
 if $first_setup; then
-    cdk bootstrap
-    cdk deploy
+    npx cdk bootstrap
+    npx cdk deploy
 fi
+popd
 
-cd ../../../apps/intake
+# second cdk deploy updates env files
+pushd apps/intake
 npm run build:env --env=$environment
-cd ../ehr
+popd
+pushd apps/ehr
 npm run build:env --env=$environment
-cd ../../scripts/deploy/aws
-cdk deploy
+popd
+pushd scripts/deploy/aws
+npx cdk deploy
+popd
 
-cd ../../../apps/intake
+# third cdk deploy deploys updated code with updated env vars
+pushd apps/intake
 npm run build:env --env=$environment
-cd ../ehr
+popd
+pushd apps/ehr
 npm run build:env --env=$environment
-cd ../../scripts/deploy/aws
-cdk deploy
+popd
+pushd scripts/deploy/aws
+npx cdk deploy
+popd
