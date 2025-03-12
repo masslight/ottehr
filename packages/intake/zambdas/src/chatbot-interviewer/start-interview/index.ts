@@ -26,8 +26,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const chatbotResponse = await invokeChatbot([{ role: 'user', content: INITIAL_USER_MESSAGE }]);
     const { encounterId, secrets } = validateInput(input);
     const oystehr = await createOystehr(secrets);
-
-    const aa: QuestionnaireResponse = {
+    const questionnaireResponse = await oystehr.fhir.create<QuestionnaireResponse>({
       resourceType: 'QuestionnaireResponse',
       status: 'in-progress',
       encounter: {
@@ -70,10 +69,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           },
         },
       ],
-    };
-    console.log(JSON.stringify(aa, null, 2));
-
-    const questionnaireResponse = await oystehr.fhir.create<QuestionnaireResponse>(aa);
+    });
     const output: Output = {
       questionnaireResponse,
     };
