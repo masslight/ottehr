@@ -4,13 +4,14 @@ import { FC, useEffect, useState } from 'react';
 import DateSearch from '../../../components/DateSearch';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useTrackingBoardStore } from '../../state';
-import { ApptTab, UnsignedFor } from '../../utils';
+import { UnsignedFor } from '../../utils';
 import { StateSelect } from './StateSelect';
 import { HealthcareService, Practitioner } from 'fhir/r4b';
 import { useApiClients } from '../../../hooks/useAppClients';
 import Oystehr from '@oystehr/sdk';
 import ProvidersSelect from '../../../components/ProvidersSelect';
 import GroupSelect from '../../../components/GroupSelect';
+import { ApptTelemedTab } from 'utils';
 
 const selectOptions = [
   {
@@ -27,7 +28,7 @@ const selectOptions = [
   },
 ];
 
-export const TrackingBoardFilters: FC<{ tab: ApptTab }> = (props) => {
+export const TrackingBoardFilters: FC<{ tab: ApptTelemedTab }> = (props) => {
   const { tab } = props;
   const { oystehr: oystehrClient } = useApiClients();
   const [practitioners, setPractitioners] = useState<Practitioner[] | undefined>(undefined);
@@ -96,9 +97,9 @@ export const TrackingBoardFilters: FC<{ tab: ApptTab }> = (props) => {
     setGroups(value);
     useTrackingBoardStore.setState({ groups: value });
   };
-  const useDate = tab === ApptTab.complete;
-  const useUnsigned = tab === ApptTab['not-signed'];
-  const useFirst = tab === ApptTab.ready;
+  const useDate = tab === ApptTelemedTab.complete;
+  const useUnsigned = tab === ApptTelemedTab['not-signed'];
+  const useFirst = tab === ApptTelemedTab.ready;
 
   return (
     <Box sx={{ padding: 2, display: 'flex', flexDirection: 'column' }}>

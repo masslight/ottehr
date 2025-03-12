@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { FillingInfo } from '../../utils/in-person/FillingInfo';
-import { UploadImage } from '../../utils/in-person/UploadImage';
+import { UploadImage } from '../../utils/UploadImage';
 import { BookPrebookVisit } from '../../utils/in-person/BookPrebookVisit';
 import { Paperwork } from '../../utils/in-person/Paperwork';
 

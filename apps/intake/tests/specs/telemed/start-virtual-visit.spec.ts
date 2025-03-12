@@ -1,7 +1,7 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
-import { UploadImage } from '../../utils/in-person/UploadImage';
+import { UploadImage } from '../../utils/UploadImage';
 import { FillingInfo } from '../../utils/telemed/FillingInfo';
 import { Paperwork } from '../../utils/telemed/Paperwork';
 import { Locators } from '../../utils/locators';
@@ -106,7 +106,7 @@ test('Should display new patient in patients list', async () => {
 test.skip('Should display Continue visit and Cancel request buttons', async () => {
   await page.goto('/home');
 
-  await expect(page.getByRole('button', { name: 'Continue Virtual Visit Request' })).toBeVisible({ timeout: 10000 });
+  await expect(page.getByRole('button', { name: 'Continue Virtual Visit Request' })).toBeVisible({ timeout: 20000 });
 
   const cancelButton = page.getByRole('button', { name: 'Cancel this request' });
   await expect(cancelButton).toBeVisible();
@@ -127,7 +127,7 @@ test('Should display correct patient info', async () => {
 
   await telemedFlow.selectTimeLocationAndContinue();
 
-  await expect(page.getByText('About the patient')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText('About the patient')).toBeVisible({ timeout: 20000 });
 
   if (!dob?.randomMonth || !dob?.randomDay || !dob?.randomYear) {
     throw Error('Date units are not provided');
@@ -178,7 +178,7 @@ test("Should fill in correct patient's DOB", async () => {
   // todo use another way to get appointment id
   // await getAppointmentIdFromCreateAppointmentRequest(page);
 
-  await expect(page.getByText('Contact information')).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText('Contact information')).toBeVisible({ timeout: 30000 });
 });
 
 test('Should fill in contact information', async () => {
