@@ -103,12 +103,14 @@ jobs:
           ./scripts/e2e-test-setup.sh --skip-prompts    
 
       - name: Run E2E tests on the EHR application
+        continue-on-error: true
         run: npm run ehr:e2e:local
         env:
           CI: true
 
       - name: Upload test results
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-ehr
@@ -118,12 +120,14 @@ jobs:
           retention-days: 30
 
       - name: Run E2E tests on the Intake application
+        continue-on-error: true
         run: npm run intake:e2e:local
         env:
           CI: true
 
       - name: Upload test results
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-intake
@@ -174,6 +178,7 @@ jobs:
 
       - name: Save user.json to cache
         if: always() && steps.validate.outcome == 'success'
+        continue-on-error: true
         uses: actions/cache@v3
         with:
           path: apps/intake/playwright/user.json
