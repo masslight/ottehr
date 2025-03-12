@@ -1,14 +1,15 @@
 import { ReactElement } from 'react';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography, Box } from '@mui/material';
-import ExternalLabsTableRow from './ExternalLabsTableRow';
+import { ExternalLabsTableRow } from './ExternalLabsTableRow';
 import { DateTime } from 'luxon';
 import { LabOrderDTO } from 'utils';
 
 interface ExternalLabsTableProps {
   labOrders: LabOrderDTO[];
+  fetchLabOrders: () => Promise<void>;
 }
 
-export default function ExternalLabsTable({ labOrders }: ExternalLabsTableProps): ReactElement {
+export const ExternalLabsTable = ({ labOrders, fetchLabOrders }: ExternalLabsTableProps): ReactElement => {
   const statusOrder = { pending: 1, received: 2, sent: 3, reviewed: 4 };
 
   if (!Array.isArray(labOrders) || labOrders.length === 0) {
@@ -52,10 +53,10 @@ export default function ExternalLabsTable({ labOrders }: ExternalLabsTableProps)
         </TableHead>
         <TableBody>
           {sortedLabOrders.map((order) => (
-            <ExternalLabsTableRow key={order.id} externalLabsData={order} />
+            <ExternalLabsTableRow key={order.id} externalLabsData={order} fetchLabOrders={fetchLabOrders} />
           ))}
         </TableBody>
       </Table>
     </TableContainer>
   );
-}
+};

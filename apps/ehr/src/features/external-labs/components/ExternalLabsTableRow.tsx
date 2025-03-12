@@ -5,8 +5,11 @@ import deleteIcon from '../../../assets/delete-1x.png';
 import { ExternalLabsStatusChip } from './ExternalLabsStatusChip';
 import { otherColors } from '../../../CustomThemeProvider';
 import { DiagnosisDTO, LabOrderDTO } from 'utils';
-import CancelExternalLabDialog from './CancelExternalLabOrderDialog';
 import { useNavigate } from 'react-router-dom';
+import { deleteLabOrder } from '../../../api/api';
+import { CancelExternalLabDialog } from './CancelExternalLabOrderDialog';
+import { useApiClients } from '../../../hooks/useAppClients';
+import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 
 const { VITE_APP_ORGANIZATION_NAME_SHORT: ORGANIZATION_NAME_SHORT } = import.meta.env;
 if (ORGANIZATION_NAME_SHORT == null) {
@@ -15,6 +18,7 @@ if (ORGANIZATION_NAME_SHORT == null) {
 
 interface ExternalLabsTableRowProps {
   externalLabsData: LabOrderDTO;
+  fetchLabOrders: () => Promise<void>;
 }
 
 const getFormattedDiagnoses = (diagnoses: DiagnosisDTO[]): React.ReactNode => {
@@ -33,9 +37,13 @@ const getFormattedDiagnoses = (diagnoses: DiagnosisDTO[]): React.ReactNode => {
   );
 };
 
-export default function ExternalLabsTableRow({ externalLabsData }: ExternalLabsTableRowProps): ReactElement {
+export const ExternalLabsTableRow = ({ externalLabsData, fetchLabOrders }: ExternalLabsTableRowProps): ReactElement => {
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const navigateTo = useNavigate();
+  const { oystehrZambda } = useApiClients();
+  const encounterId = useAppointmentStore((state) => state.encounter?.id);
 
   if (
     !externalLabsData ||
@@ -74,6 +82,41 @@ export default function ExternalLabsTableRow({ externalLabsData }: ExternalLabsT
   };
 
   const handleCloseDialog = (): void => setDialogOpen(false);
+
+  const handleConfirmDelete = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
+    e.preventDefault();
+    if (!encounterId) {
+      setDeleteError('Unable to delete lab order: Missing encounter ID');
+      return;
+    }
+
+    if (!externalLabsData.id) {
+      setDeleteError('Unable to delete lab order: Missing lab order ID');
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      setDeleteError(null);
+
+      if (!oystehrZambda) {
+        throw new Error('Oystehr Zambda is not available');
+      }
+
+      await deleteLabOrder(oystehrZambda, {
+        labOrderId: externalLabsData.id,
+        encounterId,
+      });
+
+      setDialogOpen(false);
+      await fetchLabOrders();
+    } catch (error: any) {
+      console.error('Error deleting lab order:', error);
+      setDeleteError(error.message || 'An error occurred while deleting the lab order');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // for MVP we have PSC for all orders
   const isPSC = true;
@@ -158,8 +201,11 @@ export default function ExternalLabsTableRow({ externalLabsData }: ExternalLabsT
       <CancelExternalLabDialog
         open={dialogOpen}
         onClose={handleCloseDialog}
-        externalLabOrderTestType={externalLabsData.type}
+        labOrderId={externalLabsData.type}
+        onConfirm={handleConfirmDelete}
+        isDeleting={isDeleting}
+        error={deleteError}
       />
     </TableRow>
   );
-}
+};

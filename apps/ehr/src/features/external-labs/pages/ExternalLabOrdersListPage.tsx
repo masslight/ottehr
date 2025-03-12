@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LabOrderDTO } from 'utils';
 import { Box, Button, Paper, Typography, useTheme, CircularProgress, Stack } from '@mui/material';
-import ExternalLabsTable from '../components/ExternalLabsTable';
+import { ExternalLabsTable } from '../components/ExternalLabsTable';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { getLabOrders } from '../../../api/api';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
@@ -25,42 +25,42 @@ export const ExternalLabOrdersListPage: React.FC<ExternalLabOrdersListPageProps>
     navigate('create');
   }, [navigate]);
 
-  useEffect(() => {
-    const fetchLabOrders = async (): Promise<void> => {
-      if (!oystehrZambda) {
+  const fetchLabOrders = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (!encounterId) {
+        setError('encounter ID is required to fetch lab orders');
         setLoading(false);
         return;
       }
 
-      setLoading(true);
-      setError(null);
+      const params = {
+        encounterId,
+      };
 
-      try {
-        if (!encounterId) {
-          setError('encounter ID is required to fetch lab orders');
-          setLoading(false);
-          return;
-        }
+      const response = await getLabOrders(oystehrZambda, params);
 
-        const params = {
-          encounterId,
-        };
-
-        const response = await getLabOrders(oystehrZambda, params);
-
-        console.log('Lab orders fetched successfully:', response);
-        setLabOrders(response);
-      } catch (error) {
-        console.error('Error fetching lab orders:', error);
-        setError('Failed to fetch lab orders. Please try again later.');
-        setLabOrders([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void fetchLabOrders();
+      console.log('Lab orders fetched successfully:', response);
+      setLabOrders(response);
+    } catch (error) {
+      console.error('Error fetching lab orders:', error);
+      setError('Failed to fetch lab orders. Please try again later.');
+      setLabOrders([]);
+    } finally {
+      setLoading(false);
+    }
   }, [oystehrZambda, encounterId]);
+
+  useEffect(() => {
+    void fetchLabOrders();
+  }, [oystehrZambda, encounterId, fetchLabOrders]);
 
   useEffect(() => {
     if (!loading && labOrders.length === 0 && !error) {
@@ -111,7 +111,7 @@ export const ExternalLabOrdersListPage: React.FC<ExternalLabOrdersListPageProps>
         </Stack>
       </Box>
       <Paper>
-        <ExternalLabsTable labOrders={labOrders} />
+        <ExternalLabsTable labOrders={labOrders} fetchLabOrders={fetchLabOrders} />
       </Paper>
     </Box>
   );

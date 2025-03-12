@@ -1,45 +1,32 @@
 import { LoadingButton } from '@mui/lab';
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material';
-import React, { ReactElement, useState } from 'react';
+import { ReactElement } from 'react';
+
+const buttonSx = {
+  fontWeight: '700',
+  textTransform: 'none',
+  borderRadius: 6,
+  mb: 2,
+  ml: 1,
+};
 
 interface CancelExternalLabDialogProps {
   open: boolean;
-  externalLabOrderTestType: string;
+  labOrderId: string;
   onClose: () => void;
+  onConfirm: () => Promise<void>;
+  isDeleting?: boolean;
+  error?: string | null;
 }
 
-const CancelExternalLabDialog = ({
+export const CancelExternalLabDialog = ({
   open,
   onClose,
-  externalLabOrderTestType,
+  labOrderId,
+  onConfirm,
+  isDeleting = false,
+  error = null,
 }: CancelExternalLabDialogProps): ReactElement => {
-  const [error, setError] = useState<boolean>(false);
-  const [isCancelling, setIsCancelling] = useState(false);
-
-  const handleCancelExternalLab = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
-    event.preventDefault();
-    setError(false);
-    setIsCancelling(true);
-    try {
-      const response = await cancelExternalLab();
-      console.log('Appointment cancelled successfully', response);
-      onClose();
-    } catch (error) {
-      setError(true);
-      console.error('Failed to cancel appointment', error);
-    } finally {
-      setIsCancelling(false);
-    }
-  };
-
-  const buttonSx = {
-    fontWeight: '700',
-    textTransform: 'none',
-    borderRadius: 6,
-    mb: 2,
-    ml: 1,
-  };
-
   return (
     <Dialog
       open={open}
@@ -54,14 +41,14 @@ const CancelExternalLabDialog = ({
         },
       }}
     >
-      <form onSubmit={(e) => handleCancelExternalLab(e)}>
+      <form onSubmit={(e) => onConfirm(e)}>
         <DialogTitle variant="h4" color="primary.dark" sx={{ width: '100%' }}>
           Delete Send Out Labs Order
         </DialogTitle>
         <DialogContent>
           Are you sure you want to delete this order{' '}
           <Typography component="span" fontWeight="bold">
-            "{externalLabOrderTestType}"
+            "{labOrderId}"
           </Typography>
           ?
         </DialogContent>
@@ -70,7 +57,7 @@ const CancelExternalLabDialog = ({
             Keep
           </Button>
           <LoadingButton
-            loading={isCancelling}
+            loading={isDeleting}
             type="submit"
             variant="contained"
             color="error"
@@ -82,17 +69,10 @@ const CancelExternalLabDialog = ({
         </DialogActions>
         {error && (
           <Typography color="error" variant="body2" my={1} mx={2}>
-            There was an error cancelling this external lab order, please try again.
+            {error || 'There was an error deleting this external lab order, please try again.'}
           </Typography>
         )}
       </form>
     </Dialog>
   );
 };
-
-// Replace with import to real cancel labs operation
-export default CancelExternalLabDialog;
-function cancelExternalLab(): Promise<void> {
-  console.log('cancelExternalLab');
-  return Promise.resolve();
-}
