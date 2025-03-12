@@ -146,7 +146,6 @@ const useBookingStore = create<BookingState & BookingStoreActions>()(
           selectedSlot: undefined,
           patientInfo: undefined,
           unconfirmedDateOfBirth: undefined,
-          formUser: undefined,
         }));
       },
       handleLogout: () => {
