@@ -16,14 +16,17 @@ const HEADER_PATIENT_NAME = PATIENT_LAST_NAME + ', ' + PATIENT_FIRST_NAME;
 
 const resourceHandler = new ResourceHandler();
 
-test.beforeAll(async ({page}) => {
+test.beforeAll(async () => {
   await resourceHandler.setResources();
-  await page.waitForTimeout(2000);
-  await page.goto('/patient/' + resourceHandler.patient.id + '/info');
 });
 
 test.afterAll(async () => {
   await resourceHandler.cleanupResources();
+});
+
+test.beforeEach(async ({ page }) => {
+  await page.waitForTimeout(2000);
+  await page.goto('/patient/' + resourceHandler.patient.id + '/info');
 });
 
 test('Check header info', async ({ page }) => {
