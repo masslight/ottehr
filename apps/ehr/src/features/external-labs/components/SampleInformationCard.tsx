@@ -1,31 +1,12 @@
-import { Paper, Stack, Switch, FormControlLabel } from '@mui/material';
+import { Paper, Stack } from '@mui/material';
 // import { DatePicker, TimePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import React, { useState } from 'react';
 // import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DateTime } from 'luxon';
 import { BoldedTitleText } from './BoldedTitleText';
-import { Controller, useFormContext } from 'react-hook-form';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const splitDate = (orignialDate: DateTime): { datePortion: DateTime; timePortion: DateTime } => {
-  return {
-    datePortion: DateTime.fromObject(
-      { day: orignialDate.day, month: orignialDate.month, year: orignialDate.year },
-      { zone: 'utc' }
-    ),
-    timePortion: DateTime.fromObject(
-      {
-        hour: orignialDate.hour,
-        minute: orignialDate.minute,
-        second: orignialDate.second,
-      },
-      {
-        zone: 'utc',
-      }
-    ),
-  };
-};
 
 interface SampleInfoProps {
   orderAddedDateTime: string;
@@ -35,23 +16,12 @@ interface SampleInfoProps {
   showInPatientPortal: boolean;
 }
 
-export const SampleInformationCard: React.FC<SampleInfoProps> = ({
-  orderAddedDateTime,
-  orderingPhysician,
-  // individualCollectingSample,
-  // collectionDateTime,
-  showInPatientPortal,
-}) => {
+export const SampleInformationCard: React.FC<SampleInfoProps> = ({ orderAddedDateTime, orderingPhysician }) => {
   const [collapsed, setCollapsed] = useState(false);
   // const { datePortion, timePortion } = splitDate(collectionDateTime);
 
   // const dateFormName = 'collection-date';
   // const timeFormName = 'collection-time';
-
-  const {
-    control,
-    // formState: { errors },
-  } = useFormContext();
 
   return (
     <>

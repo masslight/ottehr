@@ -10,6 +10,8 @@ import { useApiClients } from '../../../hooks/useAppClients';
 import { OrderDetails } from 'utils';
 import { getLabOrderDetails } from '../../../api/api';
 import { QuestionnaireItem } from 'fhir/r4b';
+import Loading from '../../../components/Loading';
+import { LoadingScreen } from '../../../components/LoadingScreen';
 
 interface CollectionInstructions {
   container: string;
@@ -20,14 +22,14 @@ interface CollectionInstructions {
 }
 
 export const OrderDetailsPage: React.FC = () => {
-  const { orderId } = useParams();
+  const { serviceRequestID } = useParams();
   const { oystehrZambda } = useApiClients();
 
-  if (!orderId) {
-    throw new Error('orderId is undefined');
+  if (!serviceRequestID) {
+    throw new Error('serviceRequestID is undefined');
   }
   // TODO: The ServiceRequest and other necessary resources will have been made on Create Order. Just need to grab those
-  const [serviceRequest, setServiceRequest] = useState({} as OrderDetails);
+  const [serviceRequest, setServiceRequest] = useState<OrderDetails | undefined>(undefined);
 
   // Note: specimens are no longer MVP, and also we'll be getting specimens from Create Order
   const [specimen, setSpecimen] = useState({});
@@ -42,13 +44,13 @@ export const OrderDetailsPage: React.FC = () => {
   useEffect(() => {
     console.log(10);
     async function getServiceRequestTemp(): Promise<void> {
-      if (!orderId) {
-        throw new Error('orderId is undefined');
+      if (!serviceRequestID) {
+        throw new Error('serviceRequestID is undefined');
       }
       if (!oystehrZambda) {
         throw new Error('oystehr client is undefined');
       }
-      const orderDetails = await getLabOrderDetails(oystehrZambda, { serviceRequestID: orderId });
+      const orderDetails = await getLabOrderDetails(oystehrZambda, { serviceRequestID });
 
       setServiceRequest(orderDetails);
       if (orderDetails.labQuestions.item) {
@@ -72,7 +74,11 @@ export const OrderDetailsPage: React.FC = () => {
 
     setIsLoading(false);
     // setTaskStatus('collected');
-  }, [orderId, oystehrZambda]);
+  }, [oystehrZambda, serviceRequestID]);
+
+  if (!serviceRequest) {
+    return 'Loading...';
+  }
 
   return (
     <>
@@ -106,7 +112,7 @@ export const OrderDetailsPage: React.FC = () => {
               aoe={aoe}
               collectionInstructions={collectionInstructions}
               specimen={specimen}
-              serviceRequestID={orderId}
+              serviceRequestID={serviceRequestID}
               serviceRequest={serviceRequest}
               _onCollectionSubmit={handleSampleCollectionTaskChange}
               oystehr={oystehrZambda}

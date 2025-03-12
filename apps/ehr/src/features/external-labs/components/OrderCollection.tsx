@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { LoadingButton } from '@mui/lab';
-import { Stack } from '@mui/material';
+import { Button, Stack } from '@mui/material';
 import { AOECard } from './AOECard';
 // import { SampleCollectionInstructionsCard } from './SampleCollectionInstructionsCard';
 import { SampleInformationCard } from './SampleInformationCard';
 import { useForm, SubmitHandler, FormProvider } from 'react-hook-form';
 import Oystehr from '@oystehr/sdk';
 import { OrderDetails } from 'utils';
-import useEvolveUser from '../../../hooks/useEvolveUser';
+// import useEvolveUser from '../../../hooks/useEvolveUser';
 import { submitLabOrder } from '../../../api/api';
 import { QuestionnaireItem } from 'fhir/r4b';
+import { Link, useParams } from 'react-router-dom';
 
 interface CollectionInstructions {
   container: string;
@@ -44,7 +45,8 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
 }) => {
   // can add a Yup resolver {resolver: yupResolver(definedSchema)} for validation, see PaperworkGroup for example
   const methods = useForm<DynamicAOEInput>();
-  const currentUser = useEvolveUser();
+  const { id: appointmentID } = useParams();
+  // const currentUser = useEvolveUser();
 
   // NEW TODO: will probably end up getting rid of a lot of this state since it will be held in the form state
   // need to iterate through the passed aoe and format it into state so we can collect the answer
@@ -60,7 +62,12 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
       if (!oystehr) {
         throw new Error('oystehr client is undefined');
       }
+      console.log(data);
       Object.keys(data).forEach((item) => {
+        if (!data[item]) {
+          delete data[item];
+          return;
+        }
         const question = aoe.find((question) => question.linkId === item);
 
         if (question && question.type === 'boolean') {
@@ -71,6 +78,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
             data[item] = false;
           }
         }
+        console.log(data[item]);
         if (question && (question.type === 'integer' || question.type === 'decimal')) {
           data[item] = Number(data[item]);
         }
@@ -89,8 +97,8 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   };
 
   return (
-    <>
-      <FormProvider {...methods}>
+    <FormProvider {...methods}>
+      <form onSubmit={methods.handleSubmit(sampleCollectionSubmit)}>
         <AOECard questions={aoe} />
         {/* <SampleCollectionInstructionsCard instructions={collectionInstructions} /> */}
         <SampleInformationCard
@@ -103,22 +111,25 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
         />
         {/* <OrderHistoryCard /> */}
         <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-          <LoadingButton variant="outlined" sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}>
-            Back
-          </LoadingButton>
+          <Link to={`/in-person/${appointmentID}/external-lab-orders`}>
+            <Button variant="outlined" sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}>
+              Back
+            </Button>
+          </Link>
           <Stack>
             <LoadingButton
               loading={submitLoading}
               variant="contained"
               sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
-              onClick={methods.handleSubmit(sampleCollectionSubmit)}
+              // onClick={methods.handleSubmit(sampleCollectionSubmit)}
+              type="submit"
             >
               Order
             </LoadingButton>
             {/* <FormHelperText error>Please address errors</FormHelperText> */}
           </Stack>
         </Stack>
-      </FormProvider>
-    </>
+      </form>
+    </FormProvider>
   );
 };

@@ -34,7 +34,7 @@ export default function ExternalLabsTableRow({ externalLabsData }: ExternalLabsT
 
   const handleRowClick = (): void => {
     if (!dialogOpen) {
-      navigateTo('4e3a3013-e29e-4e74-bcd0-17371544d88b/order-details'); // replace with actual route based on status and assignee
+      navigateTo('325f18e4-fad5-4276-956a-99c0f26b218b/order-details'); // replace with actual route based on status and assignee
     }
   };
 

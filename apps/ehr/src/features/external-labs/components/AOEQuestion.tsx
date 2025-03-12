@@ -82,13 +82,6 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
                   extension={extension}
                   required={required || false}
                   idString={`integer-${linkId}`}
-                  onKeyDown={(event) => {
-                    if (event.key === '.' || event.key === 'e') {
-                      event.preventDefault();
-                      return false;
-                    }
-                    return true;
-                  }}
                   field={field}
                 />
               )}
@@ -99,13 +92,6 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
                   extension={extension}
                   required={required || false}
                   idString={`decimal-${linkId}`}
-                  onKeyDown={(event) => {
-                    if (event.key === 'e') {
-                      event.preventDefault();
-                      return false;
-                    }
-                    return true;
-                  }}
                   field={field}
                 />
               )}

@@ -14,15 +14,15 @@ export const AOEYesNoQuestion: React.FC<YesNoQuestionProps> = (props) => {
     formState: { errors: _ },
   } = useFormContext();
 
-  const { questionText, linkId, required: _r, field } = props;
+  const { questionText, linkId, required, field } = props;
 
   const labelId = `boolean-${linkId}-label`;
   return (
     <>
       <FormLabel id={labelId}>{questionText}</FormLabel>
-      <RadioGroup {...field} row aria-labelledby="demo-row-radio-buttons-group-label" name="row-radio-buttons-group">
-        <FormControlLabel value="true" control={<Radio />} label="Yes" />
-        <FormControlLabel value="false" control={<Radio />} label="No" />
+      <RadioGroup {...field} row aria-labelledby={labelId} name={`${labelId}-row-radio-buttons-group`}>
+        <FormControlLabel value="true" control={<Radio inputProps={{ required: required }} />} label="Yes" />
+        <FormControlLabel value="false" control={<Radio inputProps={{ required: required }} />} label="No" />
       </RadioGroup>
     </>
   );
