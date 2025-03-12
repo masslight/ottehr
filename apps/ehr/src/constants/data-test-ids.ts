@@ -25,6 +25,7 @@ export const dataTestIds = {
     inOfficeTab: 'in-office-tab',
     groupSelect: 'group-select',
     dischargedTab: 'discharged-tab',
+    arrivedButton: 'arrived-button',
   },
   appointmentPage: {
     patientFullName: 'patient-full-name',

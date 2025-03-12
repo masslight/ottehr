@@ -22,6 +22,9 @@ export class VisitsPage {
       .getByTestId(dataTestIds.dashboard.intakeButton)
       .click();
   }
+  async clickArrivedButton(appointmentId: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.dashboard.arrivedButton).click();
+  }
 
   async clickPrebookedTab(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dashboard.prebookedTab).click();
@@ -46,6 +49,10 @@ export class VisitsPage {
   async selectGroup(groupName: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dashboard.groupSelect).click();
     await this.#page.getByText(new RegExp(groupName, 'i')).click();
+  }
+
+  async clickAddPatientButton(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.dashboard.addPatientButton).click();
   }
 }
 

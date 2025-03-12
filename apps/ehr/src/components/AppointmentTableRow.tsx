@@ -760,6 +760,7 @@ export default function AppointmentTableRow({
       {actionButtons && (
         <TableCell sx={{ verticalAlign: 'center' }}>
           <LoadingButton
+            data-testid={dataTestIds.dashboard.arrivedButton}
             onClick={handleArrivedClick}
             loading={arrivedStatusSaving}
             variant="contained"
