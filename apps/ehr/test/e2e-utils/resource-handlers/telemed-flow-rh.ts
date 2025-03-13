@@ -17,7 +17,6 @@ import { AppointmentParams, createTelemedAppointment } from '../resource/appoint
 import { createTelemedEncounter } from '../resource/encounter';
 import { createDocumentReference } from '../resource/insurance-document';
 import { ResourceHandlerAbstract } from './resource-handler-abstract';
-import { allLicensesForPractitioner, getTelemedLocation, stateCodeToFullName } from '../temp-imports-from-utils';
 import {
   PATIENT_BIRTHDAY,
   PATIENT_CITY,
@@ -27,8 +26,9 @@ import {
   PATIENT_POSTALCODE,
   PATIENT_STATE,
 } from '../resource-handler';
-import { fetchWithOystAuth } from '../helpers/tests-utils';
+import { fetchWithOystAuth, getMyUserAndPractitioner } from '../helpers/tests-utils';
 import { createQuestionnaireResponse } from '../resource/questionnaire-response';
+import { allLicensesForPractitioner, getTelemedLocation, stateCodeToFullName } from 'utils';
 
 interface PatientPackage {
   patient: Patient;

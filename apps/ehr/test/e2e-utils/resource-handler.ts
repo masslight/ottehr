@@ -22,6 +22,7 @@ import {
 } from './resource/employees';
 import { getInHouseMedicationsResources } from './resource/in-house-medications';
 
+// @ts-ignore
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -201,8 +202,8 @@ export class ResourceHandler {
     }
   }
 
-  public async setResources(): Promise<void> {
-    const response = await this.createAppointment();
+  public async setResources(inputParams?: CreateTestAppointmentInput): Promise<void> {
+    const response = await this.createAppointment(inputParams);
 
     this.resources = {
       ...response.resources,

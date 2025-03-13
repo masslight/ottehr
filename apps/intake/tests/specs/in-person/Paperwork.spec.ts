@@ -134,7 +134,7 @@ test.describe('Payment page - self pay option', () => {
   });
 });
 test.describe('Responsible party information - check and fill all fields', () => {
-   // TODO: Tests for Responsible party information will be added and updated under #849 ticket
+  // TODO: Tests for Responsible party information will be added and updated under #849 ticket
   test('Responsible party information - Check patient name is displayed', async () => {
     await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
   });
@@ -164,11 +164,10 @@ test.describe('Photo ID - Upload photo', () => {
     await page.reload();
     await paperwork.checkImagesAreSaved();
   });
-  test('PPID-6 Open next page, click [Back] - check images are saved', async () => {  
+  test('PPID-6 Open next page, click [Back] - check images are saved', async () => {
     await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('Complete consent forms');
-    await locator.clickBackButton();    
-    await paperwork.checkImagesAreSaved();    
+    await locator.clickBackButton();
+    await paperwork.checkImagesAreSaved();
   });
 });
-

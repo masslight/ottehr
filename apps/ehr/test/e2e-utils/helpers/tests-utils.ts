@@ -1,5 +1,7 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
+import { Practitioner } from 'fhir/r4b';
+import Oystehr from '@oystehr/sdk';
 
 export async function waitForSnackbar(page: Page): Promise<void> {
   // for this moment it's the easiest way to check for snackbar, data-key didn't work out

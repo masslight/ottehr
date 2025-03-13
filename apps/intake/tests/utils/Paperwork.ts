@@ -263,7 +263,7 @@ export class Paperwork {
     await this.page.getByRole('option', { name: relationship }).click();
   }
   async checkImagesAreSaved(): Promise<void> {
-    const today = await this.CommonLocatorsHelper.getToday();   
+    const today = await this.CommonLocatorsHelper.getToday();
     await expect(this.locator.photoIdFrontImage).toHaveText(
       `We already have this! It was saved on ${today}. Click to re-upload.`
     );

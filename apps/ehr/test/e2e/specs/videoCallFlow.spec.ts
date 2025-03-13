@@ -2,8 +2,7 @@ import { ResourceHandler } from '../../e2e-utils/resource-handler';
 import { expect, Page, test } from '@playwright/test';
 import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../e2e-utils/helpers/tests-utils';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { TelemedAppointmentStatusEnum } from '../../e2e-utils/temp-imports-from-utils';
-import { AppointmentVisitTabs, ApptTelemedTab } from 'utils';
+import { AppointmentVisitTabs, ApptTelemedTab, TelemedAppointmentStatusEnum } from 'utils';
 
 const resourceHandler = new ResourceHandler('telemed');
 let page: Page;
