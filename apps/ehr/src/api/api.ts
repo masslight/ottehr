@@ -7,8 +7,6 @@ import {
   GetScheduleResponse,
   GetUserParams,
   GetUserResponse,
-  DiagnosisDTO,
-  OrderableItemSearchResult,
   LabOrderDTO,
 } from 'utils';
 import {

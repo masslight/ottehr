@@ -12,9 +12,9 @@ const buttonSx = {
 
 interface CancelExternalLabDialogProps {
   open: boolean;
-  labOrderId: string;
+  labOrderType: string;
   onClose: () => void;
-  onConfirm: () => Promise<void>;
+  onConfirm: (e: React.FormEvent<HTMLFormElement>) => Promise<void>;
   isDeleting?: boolean;
   error?: string | null;
 }
@@ -22,7 +22,7 @@ interface CancelExternalLabDialogProps {
 export const CancelExternalLabDialog = ({
   open,
   onClose,
-  labOrderId,
+  labOrderType,
   onConfirm,
   isDeleting = false,
   error = null,
@@ -48,7 +48,7 @@ export const CancelExternalLabDialog = ({
         <DialogContent>
           Are you sure you want to delete this order{' '}
           <Typography component="span" fontWeight="bold">
-            "{labOrderId}"
+            "{labOrderType}"
           </Typography>
           ?
         </DialogContent>

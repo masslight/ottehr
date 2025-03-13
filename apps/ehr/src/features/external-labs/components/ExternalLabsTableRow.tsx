@@ -201,7 +201,7 @@ export const ExternalLabsTableRow = ({ externalLabsData, fetchLabOrders }: Exter
       <CancelExternalLabDialog
         open={dialogOpen}
         onClose={handleCloseDialog}
-        labOrderId={externalLabsData.type}
+        labOrderType={externalLabsData.type}
         onConfirm={handleConfirmDelete}
         isDeleting={isDeleting}
         error={deleteError}
