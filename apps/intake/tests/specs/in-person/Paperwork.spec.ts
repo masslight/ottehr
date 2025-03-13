@@ -140,7 +140,7 @@ test.describe('Responsible party information - check and fill all fields', () =>
   });
   test('PRPI-2 Check required fields', async () => {
     await paperwork.checkRequiredFields(
-      '"Relationship to the patient","First name","Last name","Date of birth","Birth sex"',
+      '"Relationship to the patient","First name","Last name","Date of birth"',
       'Responsible party information'
     );
   });
@@ -167,7 +167,6 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await paperwork.fillResponsiblePartyNotSelfRelationship();
     await expect(locator.responsiblePartyFirstName).toHaveValue('');
     await expect(locator.responsiblePartyLastName).toHaveValue('');
-    await expect(locator.responsiblePartyBirthSex).toHaveValue('');
     await expect(locator.responsiblePartyDOBAnswer).toHaveValue('');
   });
   test('PRPI-7 Select dob less than 18 years - check validation error', async () => {
