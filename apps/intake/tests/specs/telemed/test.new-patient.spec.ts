@@ -152,6 +152,22 @@ test('Should display correct patient info', async () => {
   await expect(page.locator("input[type='text'][id='email']")).toHaveValue(patientInfo?.email || '');
 });
 
+test('Should fill in reason for visit', async () => {
+  await page.goto('/home');
+  await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
+
+  const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
+  await patientName.click();
+  await clickContinue(page);
+
+  await selectState(page);
+
+  await expect(page.getByText('About the patient')).toBeVisible({ timeout: 20000 });
+
+  const Reason = await fillingInfo.fillTelemedReasonForVisit();
+  await expect(page.locator('#reasonForVisit')).toHaveText(Reason);
+});
+
 test("Should fill in correct patient's DOB", async () => {
   await clickContinue(page);
 
