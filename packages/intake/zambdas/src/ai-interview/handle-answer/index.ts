@@ -9,7 +9,7 @@ import {
   ZambdaInput,
 } from 'zambda-utils';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
-import { createOystehrClient } from 'utils';
+import { createOystehrClient, HandleAnswerInput } from 'utils';
 import { getAuth0Token } from '../../shared';
 import Oystehr from '@oystehr/sdk';
 import { BaseMessageLike } from '@langchain/core/messages';
@@ -17,10 +17,7 @@ import { invokeChatbot } from '../common';
 
 let oystehrToken: string;
 
-interface Input {
-  questionnaireResponseId: string;
-  linkId: string;
-  answer: string;
+interface Input extends HandleAnswerInput {
   secrets: Secrets | null;
 }
 

@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, Secrets, SecretsKeys, validateJsonBody, validateString, ZambdaInput } from 'zambda-utils';
 import { QuestionnaireResponse } from 'fhir/r4b';
-import { createOystehrClient } from 'utils';
+import { createOystehrClient, StartInterviewInput } from 'utils';
 import { getAuth0Token } from '../../shared';
 import Oystehr from '@oystehr/sdk';
 import { invokeChatbot } from '../common';
@@ -11,8 +11,7 @@ const INITIAL_USER_MESSAGE =
 
 let oystehrToken: string;
 
-interface Input {
-  encounterId: string;
+interface Input extends StartInterviewInput {
   secrets: Secrets | null;
 }
 
@@ -24,7 +23,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     const chatbotResponse = await invokeChatbot([{ role: 'user', content: INITIAL_USER_MESSAGE }]);
-    const { encounterId, secrets } = validateInput(input);
+    const { appointmentId, secrets } = validateInput(input);
     const oystehr = await createOystehr(secrets);
     const questionnaireResponse = await oystehr.fhir.create<QuestionnaireResponse>({
       resourceType: 'QuestionnaireResponse',
@@ -87,9 +86,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 };
 
 function validateInput(input: ZambdaInput): Input {
-  const { encounterId } = validateJsonBody(input);
+  const { appointmentId } = validateJsonBody(input);
   return {
-    encounterId: validateString(encounterId, 'encounterId'),
+    appointmentId: validateString(appointmentId, 'appointmentId'),
     secrets: input.secrets,
   };
 }
