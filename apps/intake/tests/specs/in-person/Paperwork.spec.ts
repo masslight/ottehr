@@ -14,6 +14,7 @@ let paperwork: Paperwork;
 let locator: Locators;
 let uploadPhoto: UploadImage;
 let pcpData: Awaited<ReturnType<Paperwork['fillPrimaryCarePhysician']>>;
+let responsiblePartyData: Awaited<ReturnType<Paperwork['fillResponsiblePartyDataNotSelf']>>;
 let commonLocatorsHelper: CommonLocatorsHelper;
 const appointmentIds: string[] = [];
 
@@ -100,7 +101,7 @@ test.describe('Primary Care Physician - Check and fill all fields', () => {
     await paperwork.checkCorrectPageOpens('Primary Care Physician');
   });
   test('PPCP-4 Check phone field validation', async () => {
-    await paperwork.checkPhoneValidations(locator.pcpNumber, locator.pcpNumberErrorText);
+    await paperwork.checkPhoneValidations(locator.pcpNumber);
   });
   test('PPCP-5 Fill all fields and click [Continue]', async () => {
     pcpData = await paperwork.fillPrimaryCarePhysician();
@@ -134,12 +135,68 @@ test.describe('Payment page - self pay option', () => {
   });
 });
 test.describe('Responsible party information - check and fill all fields', () => {
-   // TODO: Tests for Responsible party information will be added and updated under #849 ticket
-  test('Responsible party information - Check patient name is displayed', async () => {
+  test('PRPI-1 Check patient name is displayed', async () => {
     await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
   });
-  test('Responsible party information - Fill fields', async () => {
+  test('PRPI-2 Check required fields', async () => {
+    await paperwork.checkRequiredFields(
+      '"Relationship to the patient","First name","Last name","Date of birth","Birth sex"',
+      'Responsible party information'
+    );
+  });
+  test('PRPI-3 Check phone field validation', async () => {
+    await paperwork.checkPhoneValidations(locator.responsiblePartyNumber);
+  });
+  test('PRPI-4 Select self - check fields are prefilled with correct values', async () => {
+    const dob = await commonLocatorsHelper.getMonthDay(bookingData.dobMonth, bookingData.dobDay);
     await paperwork.fillResponsiblePartyDataSelf();
+    await expect(locator.responsiblePartyFirstName).toHaveValue(bookingData.firstName);
+    await expect(locator.responsiblePartyLastName).toHaveValue(bookingData.lastName);
+    await expect(locator.responsiblePartyBirthSex).toHaveValue(bookingData.birthSex);
+    await expect(locator.responsiblePartyDOBAnswer).toHaveValue(
+      `${dob.monthNumber}/${dob.dayNumber}/${bookingData.dobYear}`
+    );
+  });
+  test('PRPI-5 Select self - check fields are disabled', async () => {
+    await expect(locator.responsiblePartyFirstName.getAttribute('disabled')).not.toBeNull();
+    await expect(locator.responsiblePartyLastName.getAttribute('disabled')).not.toBeNull();
+    await expect(locator.responsiblePartyBirthSex.getAttribute('disabled')).not.toBeNull();
+    await expect(locator.responsiblePartyDOBAnswer.getAttribute('disabled')).not.toBeNull();
+  });
+  test('PRPI-6 Select not self - check fields are empty', async () => {
+    await paperwork.fillResponsiblePartyNotSelfRelationship();
+    await expect(locator.responsiblePartyFirstName).toHaveValue('');
+    await expect(locator.responsiblePartyLastName).toHaveValue('');
+    await expect(locator.responsiblePartyBirthSex).toHaveValue('');
+    await expect(locator.responsiblePartyDOBAnswer).toHaveValue('');
+  });
+  test('PRPI-7 Select dob less than 18 years - check validation error', async () => {
+    await locator.responsiblePartyDOBAnswer.click();
+    await locator.responsiblePartyCalendarCurrentDay.click();
+    await locator.responsiblePartyCalendarButtonOK.click();
+    await expect(locator.dateOlder18YearsError).toBeVisible();
+  });
+  test('PRPI-8 Select future dob - check validation error', async () => {
+    await locator.responsiblePartyDOBAnswer.click();
+    await locator.responsiblePartyCalendarArrowRight.click();
+    await locator.responsiblePartyCalendarDay.click();
+    await locator.responsiblePartyCalendarButtonOK.click();
+    await expect(locator.dateFutureError).toBeVisible();
+  });
+  test('PRPI-9 Fill all fields and click [Continue]', async () => {
+    responsiblePartyData = await paperwork.fillResponsiblePartyDataNotSelf();
+    await expect(locator.dateOlder18YearsError).not.toBeVisible();
+    await expect(locator.dateFutureError).not.toBeVisible();
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Photo ID');
+  });
+  test('PRPI-10 Click on [Back] - all values are saved', async () => {
+    await locator.clickBackButton();
+    await expect(locator.responsiblePartyFirstName).toHaveValue(responsiblePartyData.firstName);
+    await expect(locator.responsiblePartyLastName).toHaveValue(responsiblePartyData.lastName);
+    await expect(locator.responsiblePartyBirthSex).toHaveValue(responsiblePartyData.birthSex);
+    await expect(locator.responsiblePartyRelationship).toHaveValue(responsiblePartyData.relationship);
+    await expect(locator.responsiblePartyDOBAnswer).toHaveValue(responsiblePartyData.dob);
   });
 });
 test.describe('Photo ID - Upload photo', () => {
@@ -164,11 +221,10 @@ test.describe('Photo ID - Upload photo', () => {
     await page.reload();
     await paperwork.checkImagesAreSaved();
   });
-  test('PPID-6 Open next page, click [Back] - check images are saved', async () => {  
+  test('PPID-6 Open next page, click [Back] - check images are saved', async () => {
     await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('Complete consent forms');
-    await locator.clickBackButton();    
-    await paperwork.checkImagesAreSaved();    
+    await locator.clickBackButton();
+    await paperwork.checkImagesAreSaved();
   });
 });
-

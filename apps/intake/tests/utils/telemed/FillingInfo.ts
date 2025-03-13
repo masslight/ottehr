@@ -1,12 +1,15 @@
 import { Page, expect } from '@playwright/test';
 import { DateTime } from 'luxon';
+import { Locators } from '../locators';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 export class FillingInfo {
   page: Page;
+  locator: Locators;
 
   constructor(page: Page) {
     this.page = page;
+    this.locator = new Locators(page);
   }
   // Helper method to get a random element from an array
   private getRandomElement(arr: string[]) {
@@ -445,5 +448,23 @@ export class FillingInfo {
     await this.page.locator('#patient-relationship-to-insured').click();
     await this.page.getByRole('option', { name: randomRelationships }).click();
     return { firstName, lastName, randomRelationships };
+  }
+  async selectRandomSlot(): Promise<{ time: string; fullSlot: string }> {
+    await expect(this.locator.firstAvailableTime).toBeVisible();
+    const timeSlotsButtons = this.page.locator('role=button[name=/^\\d{1,2}:\\d{2} (AM|PM)$/]');
+    const buttonCount = await timeSlotsButtons.count();
+    expect(buttonCount).toBeGreaterThan(0);
+    const randomIndex = Math.floor(Math.random() * (buttonCount - 1)) + 1;
+    const selectedSlotButton = timeSlotsButtons.nth(randomIndex);
+    const time = await selectedSlotButton.textContent();
+    if (!time) throw new Error('No time found in selected slot button');
+    console.log(`Selected time: ${time}`);
+    await selectedSlotButton.click();
+    const selectButton = await this.page.getByRole('button', { name: /^Select/ });
+    const selectButtonContent = await selectButton.textContent();
+    const fullSlot = selectButtonContent?.replace('Select ', '').trim();
+    if (!fullSlot) throw new Error('No fullSlot info found in select slot button');
+    console.log(`Selected slot: ${fullSlot}`);
+    return { time, fullSlot };
   }
 }
