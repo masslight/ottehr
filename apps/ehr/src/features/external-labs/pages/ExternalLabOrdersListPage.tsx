@@ -1,16 +1,23 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LabOrderDTO } from 'utils';
+import { EMPTY_PAGINATION, LabOrderDTO, Pagination } from 'utils';
 import { Box, Button, Paper, Typography, useTheme, CircularProgress, Stack } from '@mui/material';
-import { ExternalLabsTable } from '../components/ExternalLabsTable';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { getLabOrders } from '../../../api/api';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
+import { LabsTable, LabsTableColumn } from '../components/labs-order-table/LabsTable';
 
 interface ExternalLabOrdersListPageProps {
   appointmentID?: string;
   encounterId?: string;
 }
+
+interface PaginatedLabOrderResponse {
+  data: LabOrderDTO[];
+  pagination: Pagination;
+}
+
+const externalLabsColumns: LabsTableColumn[] = ['testType', 'orderAdded', 'provider', 'dx', 'status', 'actions'];
 
 export const ExternalLabOrdersListPage: React.FC<ExternalLabOrdersListPageProps> = () => {
   const theme = useTheme();
@@ -25,38 +32,56 @@ export const ExternalLabOrdersListPage: React.FC<ExternalLabOrdersListPageProps>
     navigate('create');
   }, [navigate]);
 
-  const fetchLabOrders = useCallback(async (): Promise<void> => {
-    if (!oystehrZambda) {
-      setLoading(false);
-      return;
-    }
+  // todo: use this hook everywhere
+  // const { fetchLabOrders, loading: labOrdersLoading, error: labOrdersError } = usePatientLabOrders();
 
-    setLoading(true);
-    setError(null);
-
-    try {
-      if (!encounterId) {
-        setError('encounter ID is required to fetch lab orders');
+  const fetchLabOrders = useCallback(
+    async (params?: any): Promise<PaginatedLabOrderResponse> => {
+      if (!oystehrZambda) {
         setLoading(false);
-        return;
+        return {
+          data: [],
+          pagination: EMPTY_PAGINATION,
+        };
       }
 
-      const params = {
-        encounterId,
-      };
+      setLoading(true);
+      setError(null);
 
-      const response = await getLabOrders(oystehrZambda, params);
+      try {
+        if (!encounterId && !params?.encounterId) {
+          setError('encounter ID is required to fetch lab orders');
+          setLoading(false);
+          return { data: [], pagination: EMPTY_PAGINATION };
+        }
 
-      console.log('Lab orders fetched successfully:', response);
-      setLabOrders(response);
-    } catch (error) {
-      console.error('Error fetching lab orders:', error);
-      setError('Failed to fetch lab orders. Please try again later.');
-      setLabOrders([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [oystehrZambda, encounterId]);
+        const requestParams = {
+          encounterId: params?.encounterId || encounterId,
+          ...params,
+        };
+
+        const response = await getLabOrders(oystehrZambda, requestParams);
+
+        console.log('Lab orders fetched successfully:', response);
+
+        if (response?.data) {
+          setLabOrders(response.data);
+        } else {
+          setLabOrders([]);
+        }
+
+        return response;
+      } catch (error) {
+        console.error('Error fetching lab orders:', error);
+        setError('Failed to fetch lab orders. Please try again later.');
+        setLabOrders([]);
+        return { data: [], pagination: EMPTY_PAGINATION };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [oystehrZambda, encounterId]
+  );
 
   useEffect(() => {
     void fetchLabOrders();
@@ -68,7 +93,7 @@ export const ExternalLabOrdersListPage: React.FC<ExternalLabOrdersListPageProps>
     }
   }, [loading, labOrders, handleCreateOrder, error]);
 
-  if (loading) {
+  if (loading && labOrders.length === 0) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', padding: 4 }}>
         <CircularProgress />
@@ -111,7 +136,15 @@ export const ExternalLabOrdersListPage: React.FC<ExternalLabOrdersListPageProps>
         </Stack>
       </Box>
       <Paper>
-        <ExternalLabsTable labOrders={labOrders} fetchLabOrders={fetchLabOrders} />
+        <LabsTable
+          labOrders={labOrders}
+          fetchLabOrders={fetchLabOrders}
+          encounterId={encounterId}
+          columns={externalLabsColumns}
+          showFilters={false}
+          allowDelete={true}
+          initialLoading={loading}
+        />
       </Paper>
     </Box>
   );

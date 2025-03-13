@@ -268,7 +268,3 @@ export interface SubmitLabOrderParameters {
   orderableItem: OrderableItemSearchResult;
   pscHold: boolean;
 }
-
-export interface GetLabOrdersParameters {
-  encounterId: string;
-}

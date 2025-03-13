@@ -4,6 +4,7 @@ import { checkOrCreateM2MClientToken } from '../../../../intake/zambdas/src/shar
 import { createOystehrClient } from '../../../../intake/zambdas/src/shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 import { getLabResources, transformToLabOrderDTOs } from './helpers';
+import { EMPTY_PAGINATION } from 'utils';
 
 let m2mtoken: string;
 
@@ -18,7 +19,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);
 
-    const { serviceRequests, tasks, diagnosticReports, practitioners } = await getLabResources(
+    const { serviceRequests, tasks, diagnosticReports, practitioners, pagination } = await getLabResources(
       oystehr,
       validatedParameters
     );
@@ -26,7 +27,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     if (!serviceRequests.length) {
       return {
         statusCode: 200,
-        body: JSON.stringify([]),
+        body: JSON.stringify({
+          data: [],
+          pagination: EMPTY_PAGINATION,
+        }),
       };
     }
 
@@ -34,7 +38,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     return {
       statusCode: 200,
-      body: JSON.stringify(labOrders),
+      body: JSON.stringify({
+        data: labOrders,
+        pagination,
+      }),
     };
   } catch (error: any) {
     await topLevelCatch('get-lab-orders', error, input.secrets);

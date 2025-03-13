@@ -8,8 +8,15 @@ import {
   ServiceRequest,
   Task,
 } from 'fhir/r4b';
-import { flattenBundleResources, OYSTEHR_LAB_OI_CODE_SYSTEM } from 'utils';
-import { GetLabOrdersParams } from './validateRequestParameters';
+import {
+  DEFAULT_LABS_ITEMS_PER_PAGE,
+  EMPTY_PAGINATION,
+  flattenBundleResources,
+  isPositiveNumberOrZero,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
+  Pagination,
+} from 'utils';
+import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 import { DiagnosisDTO, LabOrderDTO, ExternalLabsStatus, LAB_ORDER_TASK, PSC_HOLD_CONFIG } from 'utils';
 
 export const transformToLabOrderDTOs = (
@@ -53,15 +60,16 @@ export const transformToLabOrderDTOs = (
 
 export const getLabResources = async (
   oystehr: Oystehr,
-  params: GetLabOrdersParams
+  params: GetZambdaLabOrdersParams
 ): Promise<{
   serviceRequests: ServiceRequest[];
   tasks: Task[];
   diagnosticReports: DiagnosticReport[];
   practitioners: Practitioner[];
+  pagination: Pagination;
 }> => {
-  const { encounterId } = params;
-  const labOrdersSearchParams = createLabOrdersSearchParams(encounterId);
+  const { encounterId, testType } = params;
+  const labOrdersSearchParams = createLabOrdersSearchParams(params);
 
   const labOrdersResponse = await oystehr.fhir.search<ServiceRequest | Task>({
     resourceType: 'ServiceRequest',
@@ -73,8 +81,18 @@ export const getLabResources = async (
       ?.map((entry) => entry.resource)
       .filter((res): res is ServiceRequest | Task => Boolean(res)) || [];
 
-  const diagnosticRequests = createDiagnosticReportBatchInput(labResources, encounterId);
-  const { serviceRequests, tasks } = extractLabResources(labResources);
+  const { serviceRequests: allServiceRequests, tasks } = extractLabResources(labResources);
+
+  // todo: check; Further filter service requests if testType is provided
+  let serviceRequests = allServiceRequests;
+  if (testType) {
+    serviceRequests = allServiceRequests.filter((sr) => {
+      const activityDefinition = sr.contained?.find((c) => c.resourceType === 'ActivityDefinition');
+      return activityDefinition && (activityDefinition as any).title?.toLowerCase().includes(testType.toLowerCase());
+    });
+  }
+
+  const diagnosticRequests = createDiagnosticReportBatchInput(serviceRequests, encounterId || '');
 
   const [reflexTestResources, practitioners] = await Promise.all([
     diagnosticRequests.length > 0 ? fetchReflexTestResources(oystehr, diagnosticRequests) : Promise.resolve([]),
@@ -88,36 +106,73 @@ export const getLabResources = async (
     tasks,
     diagnosticReports,
     practitioners,
+    pagination: parsePaginationFromResponse(labOrdersResponse),
   };
 };
 
-export const createLabOrdersSearchParams = (encounterId: string): SearchParam[] => [
-  {
-    name: 'encounter',
-    value: `Encounter/${encounterId}`,
-  },
-  {
-    name: 'code',
-    // search any code value for given system
-    value: `${OYSTEHR_LAB_OI_CODE_SYSTEM}|`,
-  },
-  {
-    name: 'code:missing',
-    value: 'false',
-  },
-  {
-    name: '_count',
-    value: '100',
-  },
-  {
-    name: '_revinclude',
-    value: 'Task:based-on',
-  },
-  {
-    name: '_revinclude',
-    value: 'DiagnosticReport:based-on',
-  },
-];
+export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): SearchParam[] => {
+  const { encounterId, patientId, visitDate, itemsPerPage = DEFAULT_LABS_ITEMS_PER_PAGE, pageIndex = 0 } = params;
+
+  const searchParams: SearchParam[] = [
+    {
+      name: '_total',
+      value: 'accurate',
+    },
+    {
+      name: '_offset',
+      value: `${pageIndex * itemsPerPage}`,
+    },
+    {
+      name: '_count',
+      value: `${itemsPerPage}`,
+    },
+    {
+      name: '_sort',
+      value: '-_lastUpdated',
+    },
+    {
+      name: 'code',
+      // search any code value for given system
+      value: `${OYSTEHR_LAB_OI_CODE_SYSTEM}|`,
+    },
+    {
+      name: 'code:missing',
+      value: 'false',
+    },
+    {
+      name: '_revinclude',
+      value: 'Task:based-on',
+    },
+    {
+      name: '_revinclude',
+      value: 'DiagnosticReport:based-on',
+    },
+  ];
+
+  // Add filters
+  if (encounterId) {
+    searchParams.push({
+      name: 'encounter',
+      value: `Encounter/${encounterId}`,
+    });
+  }
+
+  if (patientId) {
+    searchParams.push({
+      name: 'subject',
+      value: `Patient/${patientId}`,
+    });
+  }
+
+  if (visitDate) {
+    searchParams.push({
+      name: 'authored',
+      value: visitDate,
+    });
+  }
+
+  return searchParams;
+};
 
 export const createDiagnosticReportBatchInput = (
   mainResources: FhirResource[],
@@ -358,4 +413,44 @@ export const countReflexTests = (serviceRequestId: string, diagnosticReports: Di
   });
 
   return Math.max(0, uniqueCodes.size - 1); // Subtract 1 for the primary test, todo: check if this is correct
+};
+
+export const parsePaginationFromResponse = (data: {
+  total?: number;
+  link?: Array<{ relation: string; url: string }>;
+}): Pagination => {
+  if (!data || typeof data.total !== 'number' || !Array.isArray(data.link)) {
+    return EMPTY_PAGINATION;
+  }
+
+  const selfLink = data.link.find((link) => link && link.relation === 'self');
+
+  if (!selfLink || !selfLink.url) {
+    return EMPTY_PAGINATION;
+  }
+
+  const totalItems = data.total;
+  const selfUrl = new URL(selfLink.url);
+  const itemsPerPageStr = selfUrl.searchParams.get('_count');
+
+  if (!itemsPerPageStr) {
+    return EMPTY_PAGINATION;
+  }
+
+  const itemsPerPage = parseInt(itemsPerPageStr, 10);
+
+  if (!isPositiveNumberOrZero(itemsPerPage)) {
+    return EMPTY_PAGINATION;
+  }
+
+  const selfOffsetStr = selfUrl.searchParams.get('_offset');
+  const selfOffset = selfOffsetStr ? parseInt(selfOffsetStr, 10) : 0;
+  const currentPageIndex = !isNaN(selfOffset) ? Math.floor(selfOffset / itemsPerPage) : 0;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+  return {
+    currentPageIndex,
+    totalItems,
+    totalPages,
+  };
 };

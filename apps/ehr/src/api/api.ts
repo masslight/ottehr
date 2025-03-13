@@ -3,11 +3,12 @@ import { Address, ContactPoint, LocationHoursOfOperation } from 'fhir/r4b';
 import {
   ConversationMessage,
   GetEmployeesResponse,
+  GetLabOrdersParameters,
   GetScheduleRequestParams,
   GetScheduleResponse,
   GetUserParams,
   GetUserResponse,
-  LabOrderDTO,
+  PaginatedLabOrderResponse,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -20,7 +21,6 @@ import {
   ChangeInPersonVisitStatusParameters,
   UpdateUserParameters,
   SubmitLabOrderParameters,
-  GetLabOrdersParameters,
 } from '../types/types';
 
 export interface PatchOperation {
@@ -457,7 +457,10 @@ export const createLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrde
   }
 };
 
-export const getLabOrders = async (oystehr: Oystehr, parameters: GetLabOrdersParameters): Promise<LabOrderDTO[]> => {
+export const getLabOrders = async (
+  oystehr: Oystehr,
+  parameters: GetLabOrdersParameters
+): Promise<PaginatedLabOrderResponse> => {
   try {
     if (GET_LAB_ORDERS_ZAMBDA_ID == null) {
       throw new Error('get lab orders environment variable could not be loaded');

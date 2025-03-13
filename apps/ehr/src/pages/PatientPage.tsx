@@ -11,6 +11,7 @@ import { useGetPatient } from '../hooks/useGetPatient';
 import PageContainer from '../layout/PageContainer';
 import { PatientFollowupEncountersGrid } from '../components/patient/PatientFollowupEncountersGrid';
 import { dataTestIds } from '../constants/data-test-ids';
+import { PatientLabsTab } from '../features/patient-labs';
 
 export default function PatientPage(): JSX.Element {
   const { id } = useParams();
@@ -121,6 +122,12 @@ export default function PatientPage(): JSX.Element {
                     </Typography>
                   }
                 />
+                <Tab
+                  value="labs"
+                  label={
+                    <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>Labs</Typography>
+                  }
+                />
               </TabList>
             </Box>
 
@@ -129,6 +136,9 @@ export default function PatientPage(): JSX.Element {
             </TabPanel>
             <TabPanel value="followups" sx={{ p: 0 }}>
               <PatientFollowupEncountersGrid patient={patient} loading={loading}></PatientFollowupEncountersGrid>
+            </TabPanel>
+            <TabPanel value="labs" sx={{ p: 0 }}>
+              <PatientLabsTab patientId={id || ''} />
             </TabPanel>
           </TabContext>
         </Stack>

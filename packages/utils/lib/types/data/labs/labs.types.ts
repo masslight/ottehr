@@ -75,3 +75,23 @@ export interface LabOrderDTO {
   isPSC: boolean; // Derived from SR.orderDetail
   reflexTestsCount: number; // Number of DiagnosticReports with the same SR identifier but different test codes
 }
+
+export interface Pagination {
+  currentPageIndex: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export interface PaginatedLabOrderResponse {
+  data: LabOrderDTO[];
+  pagination: Pagination;
+}
+
+export interface GetLabOrdersParameters {
+  encounterId?: string;
+  patientId?: string;
+  testType?: string;
+  visitDate?: string;
+  itemsPerPage?: number;
+  pageIndex?: number;
+}
