@@ -3,8 +3,6 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Appointment,
   Bundle,
-  Coverage,
-  DocumentReference,
   Encounter,
   List,
   Location,
@@ -12,7 +10,6 @@ import {
   Questionnaire,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
-  RelatedPerson,
   Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -39,6 +36,7 @@ import { createUpdateUserRelatedResources, generatePatientRelatedRequests } from
 import {
   getCurrentQuestionnaireForServiceType,
   getEncounterClass,
+  getRelatedResources,
   getTelemedRequiredAppointmentEncounterExtensions,
 } from '../helpers';
 import { validateCreateAppointmentParams } from './validateRequestParameters';
@@ -351,51 +349,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     extension: encExtensions,
   };
 
-  let documents: DocumentReference[] = [];
-  let insuranceInfo: (Coverage | RelatedPerson)[] = [];
-
-  if (patient?.id) {
-    console.log('get related resources to prepopulate paperwork');
-    const [docsResponse, insuranceResponse] = await Promise.all([
-      oystehr.fhir.search<DocumentReference>({
-        resourceType: 'DocumentReference',
-        params: [
-          {
-            name: 'related',
-            value: `Patient/${patient.id}`,
-          },
-          {
-            name: 'status',
-            value: 'current',
-          },
-        ],
-      }),
-      oystehr.fhir.search<Coverage | RelatedPerson>({
-        resourceType: 'Coverage',
-        params: [
-          {
-            name: 'patient',
-            value: `Patient/${patient.id}`,
-          },
-          {
-            name: '_include',
-            value: 'Coverage:subscriber:RelatedPerson',
-          },
-          {
-            name: '_include',
-            value: 'Coverage:payor:Organization',
-          },
-          {
-            name: '_revinclude:iterate',
-            value: 'InsurancePlan:owned-by:Organization',
-          },
-        ],
-      }),
-    ]);
-
-    documents = docsResponse.unbundle();
-    insuranceInfo = insuranceResponse.unbundle();
-  }
+  const { documents, insuranceInfo } = await getRelatedResources(oystehr, patient?.id);
 
   const canonUrl = `${questionnaire.url}|${questionnaire.version}`;
   const patientToUse = createPatientRequest?.resource ?? patient ?? { resourceType: 'Patient' };

@@ -5,21 +5,16 @@ import {
   Appointment,
   AppointmentParticipant,
   Bundle,
-  Coverage,
-  DocumentReference,
   Encounter,
   Extension,
   HealthcareService,
-  InsurancePlan,
   List,
   Location,
-  Organization,
   Patient,
   Practitioner,
   Questionnaire,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
-  RelatedPerson,
   Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -58,6 +53,7 @@ import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAud
 import {
   getCanonicalUrlForPrevisitQuestionnaire,
   getEncounterClass,
+  getRelatedResources,
   getTelemedRequiredAppointmentEncounterExtensions,
 } from '../helpers';
 import { CreateAppointmentValidatedInput, validateCreateAppointmentParams } from './validateRequestParameters';
@@ -465,51 +461,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     extension: [...(isVirtual ? telemedEncExtensions : [])],
   };
 
-  let documents: DocumentReference[] = [];
-  let insuranceInfo: (Coverage | RelatedPerson | Organization | InsurancePlan)[] = [];
-
-  if (patient?.id) {
-    console.log('get related resources to prepopulate paperwork');
-    const [docsResponse, insuranceResponse] = await Promise.all([
-      oystehr.fhir.search<DocumentReference>({
-        resourceType: 'DocumentReference',
-        params: [
-          {
-            name: 'related',
-            value: `Patient/${patient.id}`,
-          },
-          {
-            name: 'status',
-            value: 'current',
-          },
-        ],
-      }),
-      oystehr.fhir.search<Coverage | RelatedPerson | Organization | InsurancePlan>({
-        resourceType: 'Coverage',
-        params: [
-          {
-            name: 'patient',
-            value: `Patient/${patient.id}`,
-          },
-          {
-            name: '_include',
-            value: 'Coverage:subscriber:RelatedPerson',
-          },
-          {
-            name: '_include',
-            value: 'Coverage:payor:Organization',
-          },
-          {
-            name: '_revinclude:iterate',
-            value: 'InsurancePlan:owned-by:Organization',
-          },
-        ],
-      }),
-    ]);
-
-    documents = docsResponse.unbundle();
-    insuranceInfo = insuranceResponse.unbundle();
-  }
+  const { documents, insuranceInfo } = await getRelatedResources(oystehr, patient?.id);
 
   const patientToUse = patient ?? (createPatientRequest?.resource as Patient);
 
