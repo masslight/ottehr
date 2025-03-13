@@ -156,12 +156,13 @@ test('Should fill in reason for visit', async () => {
 
   const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
   await patientName.click();
-  await clickContinue(page);
+  await clickContinueButton();
 
-  await selectState(page);
+  await telemedFlow.selectTimeLocationAndContinue();
 
   await expect(page.getByText('About the patient')).toBeVisible({ timeout: 20000 });
 
+  await expect(page.locator('#reasonForVisit')).toHaveText('Select...');
   const Reason = await fillingInfo.fillTelemedReasonForVisit();
   await expect(page.locator('#reasonForVisit')).toHaveText(Reason);
 });
