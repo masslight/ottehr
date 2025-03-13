@@ -29,7 +29,7 @@ export const AboutPatientContainer: FC = () => {
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           id="patient-last-name"
           onChangeHandler={handleChange}
-          data-testid={dataTestIds.patientInformation.patientLastName}
+          data-testid={dataTestIds.patientInformationContainer.patientLastName}
         />
       </Row>
       <Row label="First name" inputId="patient-first-name" required>
@@ -40,7 +40,7 @@ export const AboutPatientContainer: FC = () => {
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           id="patient-first-name"
           onChangeHandler={handleChange}
-          data-testid={dataTestIds.patientInformation.patientFirstName}
+          data-testid={dataTestIds.patientInformationContainer.patientFirstName}
         />
       </Row>
       <Row label="Middle name" inputId="patient-middle-name">
@@ -101,7 +101,7 @@ export const AboutPatientContainer: FC = () => {
             required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
           onChangeHandler={handleChange}
-          data-testid={dataTestIds.patientInformation.patientBirthSex}
+          data-testid={dataTestIds.patientInformationContainer.patientBirthSex}
         />
       </Row>
     </Section>
