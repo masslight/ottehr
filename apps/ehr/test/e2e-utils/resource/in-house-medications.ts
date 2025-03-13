@@ -3,7 +3,11 @@ import { FhirResource } from 'fhir/r4b';
 
 /**
  * passing idType you determine what resources you'll receive, patient means all orders for patient and encounter all orders for particular visit*/
-export async function getInHouseMedicationsResources(apiClient: Oystehr, idType: 'patient' | 'encounter', id: string): Promise<FhirResource[]> {
+export async function getInHouseMedicationsResources(
+  apiClient: Oystehr,
+  idType: 'patient' | 'encounter',
+  id: string
+): Promise<FhirResource[]> {
   const params = {
     resourceType: 'MedicationAdministration',
     params: [
@@ -17,11 +21,11 @@ export async function getInHouseMedicationsResources(apiClient: Oystehr, idType:
     params.params.push({
       name: 'subject',
       value: `Patient/${id}`,
-    })
+    });
   } else {
     params.params.push({
-        name: 'context',
-        value: id,
+      name: 'context',
+      value: id,
     });
   }
   return (await apiClient.fhir.search<FhirResource>(params)).unbundle();
