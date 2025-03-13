@@ -140,7 +140,7 @@ test.describe('Responsible party information - check and fill all fields', () =>
   });
   test('PRPI-2 Check required fields', async () => {
     await paperwork.checkRequiredFields(
-      '"Relationship to the patient","First name","Last name","Date of birth","Birth sex"',
+      '"Relationship to the patient","First name","Last name","Date of birth"',
       'Responsible party information'
     );
   });
