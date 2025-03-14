@@ -83,6 +83,13 @@ export class FillingInfo {
     return reasonForVisit;
   }
 
+  async fillTelemedReasonForVisit() {
+    await this.page.locator('#reasonForVisit').click();
+    const reasonForVisit = this.getRandomElement(this.reasonForVisit);
+    await this.page.getByRole('option', { name: reasonForVisit, exact: true }).click({ timeout: 5000 });
+    return reasonForVisit;
+  }
+
   async fillMiddleName() {
     const middleName = `TM-UserMN${this.getRandomString()}`;
     await this.page.getByPlaceholder('Middle name').click();
