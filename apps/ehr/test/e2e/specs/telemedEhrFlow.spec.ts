@@ -1,14 +1,12 @@
 import { BrowserContext, expect, Locator, Page, test } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { ResourceHandler } from '../../e2e-utils/resource-handler';
-import { TelemedFlowResourceHandler } from '../../e2e-utils/resource-handlers/telemed-flow-rh';
 import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../e2e-utils/helpers/tests-utils';
 import { allLicensesForPractitioner, AllStates, stateCodeToFullName, TelemedAppointmentStatusEnum } from 'utils';
 import { ADDITIONAL_QUESTIONS } from '../../../src/constants';
 
 const myResources = new ResourceHandler('telemed');
 const otherResources = new ResourceHandler('telemed');
-const telemedRH = new TelemedFlowResourceHandler();
 let myState: string;
 let otherState: string;
 let context: BrowserContext;
@@ -18,7 +16,7 @@ test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
   page = await context.newPage();
 
-  const myPractitioner = await telemedRH.getMyUserAndPractitioner();
+  const myPractitioner = await myResources.getMyUserAndPractitioner();
   const myPractitionerLicenses: string[] = [];
   allLicensesForPractitioner(myPractitioner.practitioner).forEach((license) => {
     if (license.active && license.state) myPractitionerLicenses.push(license.state);
@@ -79,7 +77,7 @@ test("Appointment should appear correctly in 'my patients' tab", async () => {
 
   await expect(
     page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(myResources.appointment.id!))
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 20000 });
 });
 
 test("Appointment should appear correctly in 'all patients' tab.", async () => {

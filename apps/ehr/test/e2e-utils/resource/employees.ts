@@ -10,9 +10,9 @@ import {
   getSuffix,
   PractitionerLicense,
   RoleType,
+  makeQualificationForPractitioner
 } from 'utils';
 import { fetchWithOystAuth } from '../helpers/tests-utils';
-import { makeQualificationForPractitioner } from 'ehr-zambdas/src/shared/practitioners';
 
 export interface TestEmployeeInviteParams {
   userName?: string;
