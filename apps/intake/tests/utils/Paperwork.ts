@@ -208,7 +208,7 @@ export class Paperwork {
   }
   async checkPhoneValidations(number: any): Promise<void> {
     await number.fill('123');
-    await this.locator.clickContinueButton();
+    await this.locator.clickContinueButton(false);
     await expect(this.locator.numberErrorText).toBeVisible();
     await number.fill('1234567890');
     await this.page.keyboard.press('Tab');

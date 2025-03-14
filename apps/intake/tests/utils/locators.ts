@@ -1,9 +1,10 @@
-import { Locator, Page } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 
 export class Locators {
   page: Page;
   scheduleInPersonVisitButton: Locator;
+  scheduleVirtualVisitButton: Locator;
   differentFamilyMember: Locator;
   continueButton: Locator;
   reserveButton: Locator;
@@ -19,6 +20,7 @@ export class Locators {
   termsAndConditions: Locator;
   proceedToPaperwork: Locator;
   firstAvailableTime: Locator;
+  firstAvailableTimeButton: Locator;
   editPencilReviewScreen: Locator;
   modifyTimeThankYouScreen: Locator;
   cancelVisitThankYouScreen: Locator;
@@ -66,6 +68,8 @@ export class Locators {
   pcpNumber: Locator;
   backButton: Locator;
   pcpNumberErrorText: Locator;
+  appointmentDescription: Locator;
+  goToWaitingRoomButton: Locator;
   clearImage: Locator;
   photoIdFrontImage: Locator;
   photoIdBackImage: Locator;
@@ -83,6 +87,7 @@ export class Locators {
   constructor(page: Page) {
     this.page = page;
     this.scheduleInPersonVisitButton = page.getByTestId(dataTestIds.scheduleInPersonVisitButton);
+    this.scheduleVirtualVisitButton = page.getByTestId(dataTestIds.scheduleVirtualVisitButton);
     this.startInPersonVisitButton = page.getByTestId(dataTestIds.startInPersonVisitButton);
     this.differentFamilyMember = page.getByTestId(dataTestIds.differentFamilyMember);
     this.continueButton = page.getByTestId(dataTestIds.continueButton);
@@ -91,6 +96,8 @@ export class Locators {
     }
     this.flowHeading = page.getByTestId(dataTestIds.flowPageTitle);
     this.thankYouHeading = page.getByRole('heading', { name: 'Thank you for choosing Ottehr!' });
+    this.startInPersonVisitButton = page.getByTestId(dataTestIds.startInPersonVisitButton);
+    this.confirmWalkInButton = page.getByRole('button', { name: 'Confirm this walk-in time' });
     this.checkInHeading = page.getByRole('heading', { name: 'You are checked in!' });
     this.locationName = page.getByTestId(dataTestIds.locationNameReviewScreen);
     this.pageTitle = page.getByTestId(dataTestIds.flowPageTitle);
@@ -103,6 +110,8 @@ export class Locators {
     this.numberErrorText = page.getByText('Phone number must be 10 digits in the format (xxx) xxx-xxxx');
     this.dateOlder18YearsError = page.getByText('Must be 18 years or older');
     this.dateFutureError = page.getByText('Date may not be in the future');
+    this.appointmentDescription = page.locator('.appointment-description');
+    this.goToWaitingRoomButton = page.getByRole('button', { name: 'Go to the Waiting Room' });
 
     // Review page locators
     this.prebookSlotReviewScreen = page.getByTestId(dataTestIds.prebookSlotReviewScreen);
@@ -116,6 +125,7 @@ export class Locators {
     this.confirmWalkInButton = page.getByRole('button', { name: 'Confirm this walk-in time' });
 
     // Modify locators
+    this.firstAvailableTimeButton = page.getByRole('button', { name: 'First available time' });
     this.editPencilReviewScreen = page.getByTestId('EditOutlinedIcon');
     this.modifyTimeThankYouScreen = page.getByRole('button', { name: 'Modify' });
     this.submitModifyTime = page.getByRole('button', { name: 'Modify', exact: false });
@@ -186,8 +196,17 @@ export class Locators {
   async selectDifferentFamilyMember(): Promise<void> {
     await this.differentFamilyMember.click({ force: true });
   }
-  async clickContinueButton(): Promise<void> {
-    await this.continueButton.click();
+  async clickContinueButton(awaitNavigation = false): Promise<unknown> {
+    await expect(this.continueButton).toBeEnabled();
+    const currentPath = new URL(this.page.url()).pathname;
+    if (awaitNavigation) {
+      return await Promise.all([
+        this.page.waitForURL((url) => url.pathname !== currentPath),
+        this.continueButton.click(),
+      ]);
+    } else {
+      return await this.continueButton.click();
+    }
   }
   async clickBackButton(): Promise<void> {
     await this.backButton.click();
