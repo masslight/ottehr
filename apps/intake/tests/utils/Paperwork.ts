@@ -1,9 +1,26 @@
-import { BrowserContext, Page, expect } from '@playwright/test';
+import { BrowserContext, Page, expect, Locator } from '@playwright/test';
 import { AllStates, PatientEthnicity, PatientRace } from 'utils';
 import { CommonLocatorsHelper } from './CommonLocatorsHelper';
 import { FillingInfo } from './in-person/FillingInfo';
 import { Locators } from './locators';
 
+interface InsuranceRequiredData {
+  firstName: string;
+  lastName: string;
+  relationship: string;
+  birthSex: string;
+  insuranceMember: string;
+  policyHolderAddress: string;
+  policyHolderCity: string;
+  policyHolderState: string;
+  policyHolderZip: string;
+  paperworkDOB: string;
+  insuranceCarrier: string;
+}
+interface InsuranceOptionalData {
+  policyHolderMiddleName:string; 
+  policyHolderAddressLine2: string;
+}
 export class Paperwork {
   page: Page;
   locator: Locators;
@@ -37,6 +54,8 @@ export class Paperwork {
     'School',
     'Drive by/Signage',
   ];
+  private relationshipsInsurance = ['Self', 'Child', 'Parent', 'Spouse', 'Common Law Spouse', 'Injured Party', 'Other'];
+
   getRandomState(): string {
     const randomIndex = Math.floor(Math.random() * AllStates.length);
     return AllStates[randomIndex].value;
@@ -158,11 +177,18 @@ export class Paperwork {
     const randomLanguage = this.getRandomElement(this.language);
     await this.page.getByRole('option', { name: randomLanguage }).click();
   }
-  async checkRequiredFields(requiredFields: string, pageTitle: string): Promise<void> {
+  async checkRequiredFields(requiredFields: string, pageTitle: string, multiple: boolean): Promise<void> {
     await this.CommonLocatorsHelper.clickContinue();
+    if (multiple) {
     await expect(
       this.page.getByText(`Please fix the errors in the following fields to proceed: ${requiredFields}`)
     ).toBeVisible();
+    }
+    else {
+      await expect(
+        this.page.getByText(`Please fix the error in the ${requiredFields} field to proceed`)
+      ).toBeVisible();
+      }
     await this.CommonLocatorsHelper.clickContinue();
     await expect(this.locator.flowHeading).toHaveText(pageTitle);
   }
@@ -214,11 +240,214 @@ export class Paperwork {
     await this.page.keyboard.press('Tab');
     await expect(this.locator.numberErrorText).not.toBeVisible();
   }
+  async checkZipValidations(zipField: Locator): Promise<void> {
+    await zipField.fill('123');
+    await this.locator.clickContinueButton(false);
+    await expect(this.locator.zipErrorText).toBeVisible();
+    await zipField.fill('12345');
+    await this.page.keyboard.press('Tab');
+    await expect(this.locator.zipErrorText).not.toBeVisible();
+  }
   async skipPhotoID(): Promise<void> {
     await this.CommonLocatorsHelper.clickContinue();
   }
   async selectSelfPayPayment(): Promise<void> {
     await this.locator.selfPayOption.check();
+  }
+  async selectInsurancePayment(): Promise<void> {
+    await this.locator.insuranceOption.check();
+  }
+  // async fillInsuranceRequiredFields(): Promise<InsuranceRequiredData> {
+  //   const firstName = 'Insurance first name';
+  //   const lastName = 'Insurance last name';
+  //   const relationship = this.getRandomElement(this.relationshipsInsurance);
+  //   const birthSex = this.getRandomElement(this.birthSex);
+  //   const insuranceMember = 'Insurance member test';
+  //   const policyHolderAddress = 'Test Address Insurance';
+  //   const policyHolderCity = 'TestCity';
+  //   const policyHolderZip = '10111';
+  //   const policyHolderState = 'CO';
+  //   const { paperworkDOB } = await this.fillPaperworkDOB(this.locator.policyHolderDOB);
+  //   await this.locator.insuranceCarrier.click();
+  //   await this.locator.insuranceCarrierFirstOption.click();
+  //   const insuranceCarrier = await this.locator.insuranceCarrier.getAttribute('value') || '';
+  //   await this.locator.insuranceMemberID.click();
+  //   await this.locator.insuranceMemberID.fill(insuranceMember);
+  //   await this.locator.policyHolderFirstName.click();
+  //   await this.locator.policyHolderFirstName.fill(firstName);
+  //   await this.locator.policyHolderLastName.click();
+  //   await this.locator.policyHolderLastName.fill(lastName);
+  //   await this.locator.policyHolderBirthSex.click();
+  //   await this.page.getByRole('option', { name: birthSex, exact: true }).click();
+  //   await this.locator.patientRelationship.click();
+  //   await this.page.getByRole('option', { name: relationship, exact: true }).click();
+  //   await this.locator.policyHolderAddress.click();
+  //   await this.locator.policyHolderAddress.fill(policyHolderAddress);
+  //   await this.locator.policyHolderCity.click();
+  //   await this.locator.policyHolderCity.fill(policyHolderCity);
+  //   await this.locator.policyHolderState.click();
+  //   await this.page.getByRole('option', { name: policyHolderState }).click();
+  //   await this.locator.policyHolderZip.click();
+  //   await this.locator.policyHolderZip.fill(policyHolderZip);
+  //   return {
+  //     firstName,
+  //     lastName,
+  //     relationship,
+  //     birthSex,
+  //     insuranceMember,
+  //     policyHolderAddress,
+  //     policyHolderCity,
+  //     policyHolderState,
+  //     policyHolderZip,
+  //     paperworkDOB,
+  //     insuranceCarrier,
+  //   };
+  // }
+  // async fillSecondaryInsuranceRequiredFields(): Promise<InsuranceRequiredData> {
+  //   const firstName = 'Insurance first name';
+  //   const lastName = 'Insurance last name';
+  //   const relationship = this.getRandomElement(this.relationshipsInsurance);
+  //   const birthSex = this.getRandomElement(this.birthSex);
+  //   const insuranceMember = 'Insurance member test';
+  //   const policyHolderAddress = 'Test Address Insurance';
+  //   const policyHolderCity = 'TestCity';
+  //   const policyHolderZip = '10111';
+  //   const policyHolderState = 'CO';
+  //   const { paperworkDOB } = await this.fillPaperworkDOB(this.locator.policyHolderDOB);
+  //   await this.locator.secondaryInsuranceCarrier.click();
+  //   await this.locator.secondaryInsuranceCarrierSecondOption.click();
+  //   const insuranceCarrier = await this.locator.secondaryInsuranceCarrier.getAttribute('value') || '';
+  //   await this.locator.secondaryInsuranceMemberID.click();
+  //   await this.locator.secondaryInsuranceMemberID.fill(insuranceMember);
+  //   await this.locator.secondaryPolicyHolderFirstName.click();
+  //   await this.locator.secondaryPolicyHolderFirstName.fill(firstName);
+  //   await this.locator.secondaryPolicyHolderLastName.click();
+  //   await this.locator.secondaryPolicyHolderLastName.fill(lastName);
+  //   await this.locator.secondaryPolicyHolderBirthSex.click();
+  //   await this.page.getByRole('option', { name: birthSex, exact: true }).click();
+  //   await this.locator.secondaryPatientRelationship.click();
+  //   await this.page.getByRole('option', { name: relationship, exact: true }).click();
+  //   await this.locator.secondaryPolicyHolderAddress.click();
+  //   await this.locator.secondaryPolicyHolderAddress.fill(policyHolderAddress);
+  //   await this.locator.secondaryPolicyHolderCity.click();
+  //   await this.locator.secondaryPolicyHolderCity.fill(policyHolderCity);
+  //   await this.locator.secondaryPolicyHolderState.click();
+  //   await this.page.getByRole('option', { name: policyHolderState }).click();
+  //   await this.locator.secondaryPolicyHolderZip.click();
+  //   await this.locator.secondaryPolicyHolderZip.fill(policyHolderZip);
+  //   return {
+  //     firstName,
+  //     lastName,
+  //     relationship,
+  //     birthSex,
+  //     insuranceMember,
+  //     policyHolderAddress,
+  //     policyHolderCity,
+  //     policyHolderState,
+  //     policyHolderZip,
+  //     paperworkDOB,
+  //     insuranceCarrier,
+  //   };
+  // }
+
+  private async fillInsuranceRequiredFields(isSecondary: boolean): Promise<InsuranceRequiredData> {
+    const firstName = 'Insurance first name';
+    const lastName = 'Insurance last name';
+   // Need to uncomment when issue https://github.com/masslight/ottehr/issues/1486 is fixed
+   // const relationship = this.getRandomElement(this.relationshipsInsurance);
+    const relationship = 'Spouse';
+    const birthSex = this.getRandomElement(this.birthSex);
+    const insuranceMember = 'Insurance member test';
+    const policyHolderAddress = 'Test Address Insurance';
+    const policyHolderCity = 'TestCity';
+    const policyHolderZip = '10111';
+    const policyHolderState = 'CO';
+    const locators = isSecondary
+    ? {
+        insuranceCarrier: this.locator.secondaryInsuranceCarrier,
+        insuranceCarrierOption: this.locator.secondaryInsuranceCarrierSecondOption,
+        insuranceMemberID: this.locator.secondaryInsuranceMemberID,
+        policyHolderFirstName: this.locator.secondaryPolicyHolderFirstName,
+        policyHolderLastName: this.locator.secondaryPolicyHolderLastName,
+        policyHolderDOB: this.locator.secondaryPolicyHolderDOB,
+        policyHolderBirthSex: this.locator.secondaryPolicyHolderBirthSex,
+        patientRelationship: this.locator.secondaryPatientRelationship,
+        policyHolderAddress: this.locator.secondaryPolicyHolderAddress,
+        policyHolderCity: this.locator.secondaryPolicyHolderCity,
+        policyHolderState: this.locator.secondaryPolicyHolderState,
+        policyHolderZip: this.locator.secondaryPolicyHolderZip
+      }
+    : {
+        insuranceCarrier: this.locator.insuranceCarrier,
+        insuranceCarrierOption: this.locator.insuranceCarrierFirstOption,
+        insuranceMemberID: this.locator.insuranceMemberID,
+        policyHolderFirstName: this.locator.policyHolderFirstName,
+        policyHolderLastName: this.locator.policyHolderLastName,
+        policyHolderDOB: this.locator.policyHolderDOB,
+        policyHolderBirthSex: this.locator.policyHolderBirthSex,
+        patientRelationship: this.locator.patientRelationship,
+        policyHolderAddress: this.locator.policyHolderAddress,
+        policyHolderCity: this.locator.policyHolderCity,
+        policyHolderState: this.locator.policyHolderState,
+        policyHolderZip: this.locator.policyHolderZip
+      };
+    const { paperworkDOB } = await this.fillPaperworkDOB(locators.policyHolderDOB);
+    await locators.insuranceCarrier.click();
+    await locators.insuranceCarrierOption.click();
+    const insuranceCarrier = await this.locator.insuranceCarrier.getAttribute('value') || '';
+    await locators.insuranceMemberID.fill(insuranceMember);
+    await locators.policyHolderFirstName.fill(firstName);
+    await locators.policyHolderLastName.fill(lastName);
+    await locators.policyHolderBirthSex.click();
+    await this.page.getByRole('option', { name: birthSex, exact: true }).click();
+    await locators.patientRelationship.click();
+    await this.page.getByRole('option', { name: relationship, exact: true }).click();
+    await locators.policyHolderAddress.fill(policyHolderAddress);
+    await locators.policyHolderCity.fill(policyHolderCity);
+    await locators.policyHolderState.click();
+    await this.page.getByRole('option', { name: policyHolderState }).click();
+    await locators.policyHolderZip.fill(policyHolderZip);
+
+    return {
+      firstName,
+      lastName,
+      relationship,
+      birthSex,
+      insuranceMember,
+      policyHolderAddress,
+      policyHolderCity,
+      policyHolderState,
+      policyHolderZip,
+      paperworkDOB,
+      insuranceCarrier,
+    };
+  }
+  async fillInsuranceOptionalFields(isSecondary: boolean): Promise<InsuranceOptionalData> {
+    const policyHolderMiddleName = 'Insurance middle name';
+    const policyHolderAddressLine2 = 'Insurance Address Line 2';
+    const locators = isSecondary
+    ? {
+      policyHolderMiddleName: this.locator.secondaryPolicyHolderMiddleName,
+      policyHolderAddressLine2: this.locator.secondaryPolicyHolderAddressLine2,
+      }
+    : {
+      policyHolderMiddleName: this.locator.policyHolderMiddleName,
+      policyHolderAddressLine2: this.locator.policyHolderAddressLine2,
+      };
+    await this.locator.policyHolderMiddleName.fill(policyHolderMiddleName);
+    await this.locator.policyHolderAddressLine2.fill(policyHolderAddressLine2);
+    return {policyHolderMiddleName, policyHolderAddressLine2}
+  }
+
+  async fillInsuranceAllFieldsWithoutCards(): Promise<{insuranceRequiredData: InsuranceRequiredData, insuranceOptionalData: InsuranceOptionalData}> {
+    const insuranceRequiredData = await this.fillInsuranceRequiredFields(false);
+    const insuranceOptionalData = await this.fillInsuranceOptionalFields(false);
+    return {insuranceRequiredData, insuranceOptionalData}
+  }
+  async fillSecondaryInsuranceAllFieldsWithoutCards(): Promise<{insuranceRequiredData: InsuranceRequiredData, insuranceOptionalData: InsuranceOptionalData}> {
+    const insuranceRequiredData = await this.fillInsuranceRequiredFields(true);
+    const insuranceOptionalData = await this.fillInsuranceOptionalFields(true);
+    return {insuranceRequiredData, insuranceOptionalData}
   }
   async fillResponsiblePartyDataSelf(): Promise<void> {
     await this.fillResponsiblePartySelfRelationship();
@@ -233,13 +462,13 @@ export class Paperwork {
     const { relationship } = await this.fillResponsiblePartyNotSelfRelationship();
     const name = await this.fillResponsiblePartyPatientName();
     const { birthSex } = await this.fillResponsiblePartyBirthSex();
-    const { responsiblePartyDOB } = await this.fillResponsiblePartyDOB();
+    const { paperworkDOB } = await this.fillPaperworkDOB(this.locator.responsiblePartyDOBAnswer);
     return {
       relationship,
       birthSex,
       firstName: name.firstName,
       lastName: name.lastName,
-      dob: responsiblePartyDOB,
+      dob: paperworkDOB,
     };
   }
   async fillResponsiblePartyPatientName(): Promise<{ firstName: string; lastName: string }> {
@@ -257,16 +486,16 @@ export class Paperwork {
     await this.page.getByRole('option', { name: birthSex, exact: true }).click();
     return { birthSex };
   }
-  async fillResponsiblePartyDOB(): Promise<{ responsiblePartyDOB: string }> {
-    await this.locator.responsiblePartyDOBAnswer.click();
-    await this.locator.responsiblePartyCalendarArrowDown.click();
+  async fillPaperworkDOB(dobField: Locator): Promise<{ paperworkDOB: string }> {
+    await dobField.click();
+    await this.locator.calendarArrowDown.click();
     const year = this.page.getByText('2005');
     await year.scrollIntoViewIfNeeded();
     await year.click();
-    await this.locator.responsiblePartyCalendarDay.click();
-    await this.locator.responsiblePartyCalendarButtonOK.click();
-    const responsiblePartyDOB = (await this.locator.responsiblePartyDOBAnswer.getAttribute('value')) || '';
-    return { responsiblePartyDOB };
+    await this.locator.calendarDay.click();
+    await this.locator.calendarButtonOK.click();
+    const paperworkDOB = (await dobField.getAttribute('value')) || '';
+    return { paperworkDOB };
   }
   async fillResponsiblePartySelfRelationship(): Promise<void> {
     await this.validateAllOptions(
@@ -286,12 +515,12 @@ export class Paperwork {
     await this.page.getByRole('option', { name: relationship }).click();
     return { relationship };
   }
-  async checkImagesAreSaved(): Promise<void> {
+  async checkImagesAreSaved(frontImage: Locator, backImage: Locator): Promise<void> {
     const today = await this.CommonLocatorsHelper.getToday();
-    await expect(this.locator.photoIdFrontImage).toHaveText(
+    await expect(frontImage).toHaveText(
       `We already have this! It was saved on ${today}. Click to re-upload.`
     );
-    await expect(this.locator.photoIdBackImage).toHaveText(
+    await expect(backImage).toHaveText(
       `We already have this! It was saved on ${today}. Click to re-upload.`
     );
   }

@@ -57,6 +57,12 @@ export class UploadImage {
   async fillInsuranceBack(): Promise<Locator> {
     return await this.uploadPhoto('#insurance-card-back', 'Portrait_2.jpg');
   }
+  async fillSecondaryInsuranceFront(): Promise<Locator> {
+    return await this.uploadPhoto('#secondary-insurance.item.14', 'Landscape_1.jpg');
+  }
+  async fillSecondaryInsuranceBack(): Promise<Locator> {
+    return await this.uploadPhoto('#secondary-insurance.item.15', 'Portrait_2.jpg');
+  }
   async fillPatientCondition(): Promise<Locator> {
     return await this.uploadPhoto('#photo', 'Landscape_1.jpg');
   }

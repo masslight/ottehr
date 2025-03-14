@@ -75,14 +75,52 @@ export class Locators {
   photoIdBackImage: Locator;
   responsiblePartyNumber: Locator;
   numberErrorText: Locator;
+  zipErrorText: Locator;
   responsiblePartyDOBAnswer: Locator;
   dateOlder18YearsError: Locator;
   dateFutureError: Locator;
-  responsiblePartyCalendarCurrentDay: Locator;
-  responsiblePartyCalendarButtonOK: Locator;
-  responsiblePartyCalendarArrowRight: Locator;
-  responsiblePartyCalendarArrowDown: Locator;
-  responsiblePartyCalendarDay: Locator;
+  calendarCurrentDay: Locator;
+  calendarButtonOK: Locator;
+  calendarArrowRight: Locator;
+  calendarArrowDown: Locator;
+  calendarDay: Locator;
+  insuranceOption: Locator;
+  insuranceHeading: Locator;
+  insuranceCarrier: Locator;
+  insuranceCarrierFirstOption: Locator;
+  insuranceMemberID: Locator;
+  policyHolderFirstName: Locator;
+  policyHolderLastName: Locator;
+  policyHolderMiddleName: Locator;
+  policyHolderBirthSex: Locator;
+  patientRelationship: Locator;
+  policyHolderAddress: Locator;
+  policyHolderAddressLine2: Locator;
+  policyHolderCity: Locator;
+  policyHolderState: Locator;
+  policyHolderZip: Locator;
+  policyHolderDOB: Locator;
+  insuranceFrontImage: Locator;
+  insuranceBackImage: Locator;
+  secondaryInsuranceCarrier: Locator;
+  secondaryInsuranceMemberID: Locator;
+  secondaryPolicyHolderFirstName: Locator;
+  secondaryPolicyHolderLastName: Locator;
+  secondaryPolicyHolderMiddleName: Locator;
+  secondaryPolicyHolderBirthSex: Locator;
+  secondaryPatientRelationship: Locator;
+  secondaryPolicyHolderAddress: Locator;
+  secondaryPolicyHolderAddressLine2: Locator;
+  secondaryPolicyHolderCity: Locator;
+  secondaryPolicyHolderState: Locator;
+  secondaryPolicyHolderZip: Locator;
+  secondaryPolicyHolderDOB: Locator;
+  secondaryInsuranceFrontImage: Locator;
+  secondaryInsuranceBackImage: Locator;
+  secondaryInsuranceCarrierSecondOption: Locator;
+  addSecondaryInsurance: Locator;
+  removeSecondaryInsurance: Locator;
+  secondaryInsuranceHeading: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -108,6 +146,7 @@ export class Locators {
     this.bookAgainButton = page.getByRole('button', { name: 'Book again' });
     this.homeScreenHeading = page.getByRole('heading', { name: 'Welcome to Ottehr' });
     this.numberErrorText = page.getByText('Phone number must be 10 digits in the format (xxx) xxx-xxxx');
+    this.zipErrorText = page.getByText('ZIP Code must be 5 numbers');
     this.dateOlder18YearsError = page.getByText('Must be 18 years or older');
     this.dateFutureError = page.getByText('Date may not be in the future');
     this.appointmentDescription = page.locator('.appointment-description');
@@ -156,8 +195,47 @@ export class Locators {
     this.patientPointOfDiscovery = page.locator('[id="patient-point-of-discovery"]');
     this.mobileOptIn = page.getByLabel('mobile-opt-in-label');
 
-    // Payment locators
+    // Payment, insurance locators
     this.selfPayOption = page.getByLabel('I will pay without insurance');
+    this.insuranceOption = page.getByLabel('I have insurance');
+    this.insuranceHeading = page.getByText('Insurance details');
+    this.insuranceCarrier = page.locator("[id='insurance-carrier']");
+    this.insuranceCarrierFirstOption = page.locator("[id='insurance-carrier-option-0']");
+    this.insuranceMemberID = page.locator("[id='insurance-member-id']");
+    this.policyHolderFirstName = page.locator("[id='policy-holder-first-name']");
+    this.policyHolderMiddleName = page.locator("[id='policy-holder-middle-name']");
+    this.policyHolderLastName = page.locator("[id='policy-holder-last-name']");
+    this.policyHolderBirthSex = page.locator("[id='policy-holder-birth-sex']");
+    this.patientRelationship = page.locator("[id='patient-relationship-to-insured']");
+    this.policyHolderAddress = page.locator('[id="policy-holder-address"]');
+    this.policyHolderAddressLine2 = page.locator('[id="policy-holder-address-additional-line"]');
+    this.policyHolderCity = page.locator('[id="policy-holder-city"]');
+    this.policyHolderState = page.locator('[id="policy-holder-state"]');
+    this.policyHolderZip = page.locator('[id="policy-holder-zip"]');
+    this.policyHolderDOB = page.locator('[name="policy-holder-date-of-birth.answer.0.valueString"]');
+    this.insuranceFrontImage = page.locator('#insurance-card-front-description');
+    this.insuranceBackImage = page.locator('#insurance-card-back-description');
+
+    // Secondary insurance locators
+    this.addSecondaryInsurance = page.getByRole('button', { name: 'Add Secondary Insurance' });
+    this.removeSecondaryInsurance = page.getByRole('button', { name: 'Remove Secondary Insurance' });
+    this.secondaryInsuranceHeading = page.getByText('Secondary insurance details');
+    this.secondaryInsuranceCarrier = page.locator("[id='secondary-insurance.item.0']");
+    this.secondaryInsuranceCarrierSecondOption = page.locator("[id='secondary-insurance.item.0-option-1']");
+    this.secondaryInsuranceMemberID = page.locator("[id='secondary-insurance.item.1']");
+    this.secondaryPolicyHolderFirstName = page.locator("[id='secondary-insurance.item.2']");
+    this.secondaryPolicyHolderMiddleName = page.locator("[id='secondary-insurance.item.3']");
+    this.secondaryPolicyHolderLastName = page.locator("[id='secondary-insurance.item.4']");
+    this.secondaryPolicyHolderBirthSex = page.locator("[id='secondary-insurance.item.6']");
+    this.secondaryPatientRelationship = page.locator("[id='secondary-insurance.item.13']");
+    this.secondaryPolicyHolderAddress = page.locator('[id="secondary-insurance.item.8"]');
+    this.secondaryPolicyHolderAddressLine2 = page.locator('[id="secondary-insurance.item.9"]');
+    this.secondaryPolicyHolderCity = page.locator('[id="secondary-insurance.item.10"]');
+    this.secondaryPolicyHolderState = page.locator('[id="secondary-insurance.item.11"]');
+    this.secondaryPolicyHolderZip = page.locator('[id="secondary-insurance.item.12"]');
+    this.secondaryPolicyHolderDOB = page.locator('[name="secondary-insurance.item.5.answer.0.valueString"]');
+    this.secondaryInsuranceFrontImage = page.locator('#secondary-insurance.item.14-description');
+    this.secondaryInsuranceBackImage = page.locator('#secondary-insurance.item.15-description');
 
     // Responsible Party locators
     this.responsiblePartyRelationship = page.locator('[id="responsible-party-relationship"]');
@@ -166,11 +244,13 @@ export class Locators {
     this.responsiblePartyBirthSex = page.locator('[id="responsible-party-birth-sex"]');
     this.responsiblePartyNumber = page.locator('[id="responsible-party-number"]');
     this.responsiblePartyDOBAnswer = page.locator('[name="responsible-party-date-of-birth.answer.0.valueString"]');
-    this.responsiblePartyCalendarCurrentDay = page.locator('button[aria-current="date"]');
-    this.responsiblePartyCalendarButtonOK = page.locator('button:has-text("OK")');
-    this.responsiblePartyCalendarArrowRight = page.getByTestId('ArrowRightIcon');
-    this.responsiblePartyCalendarArrowDown = page.locator('[role="presentation"] [data-testid="ArrowDropDownIcon"]');
-    this.responsiblePartyCalendarDay = page.locator('div[aria-rowindex="2"] button[aria-colindex="1"]').nth(0);
+
+    // Paperwork calendar locators
+    this.calendarCurrentDay = page.locator('button[aria-current="date"]');
+    this.calendarButtonOK = page.locator('button:has-text("OK")');
+    this.calendarArrowRight = page.getByTestId('ArrowRightIcon');
+    this.calendarArrowDown = page.locator('[role="presentation"] [data-testid="ArrowDropDownIcon"]');
+    this.calendarDay = page.locator('div[aria-rowindex="2"] button[aria-colindex="1"]').nth(0);
 
     //Consent forms locators
     this.hipaaAcknowledgement = page.getByLabel('I have reviewed and accept HIPAA Acknowledgement *');
