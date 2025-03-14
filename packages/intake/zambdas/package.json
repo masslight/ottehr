@@ -22,7 +22,7 @@
     "package": "export HOME=./ && tsc && sls package --stage ${ENV} && npm run rebundle",
     "rebundle": "export HOME=./ && env-cmd --silent -f ./.env/${ENV}.json bash scripts/package-for-release.sh",
     "paperwork-types": "tsx scripts/make-paperwork-types.ts",
-    "lint": "eslint src --ext ts,tsx,js,jsx --fix --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint --ext ts,tsx,js,jsx --report-unused-disable-directives --max-warnings 0",
     "prettier": "prettier --write .",
     "test": "vitest --silent",
     "setup-questionnaires": "tsx scripts/setup-questionnaires.ts",
