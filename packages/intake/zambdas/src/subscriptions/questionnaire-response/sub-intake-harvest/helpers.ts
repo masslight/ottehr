@@ -936,6 +936,7 @@ export async function createDocumentResources(
         };
       }),
       references: {
+        subject: { reference: `Patient/${patientID}` },
         context: { related: [{ reference: `Patient/${patientID}` }] },
       },
       display: 'Patient data Document',
@@ -958,6 +959,7 @@ export async function createDocumentResources(
         };
       }),
       references: {
+        subject: { reference: `Patient/${patientID}` },
         context: { related: [{ reference: `Patient/${patientID}` }] },
       },
       display: 'Health insurance card',
