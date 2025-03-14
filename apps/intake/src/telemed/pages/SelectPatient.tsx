@@ -53,18 +53,13 @@ const SelectPatient = (): JSX.Element => {
     const selectedPatient = patientsStore.patients?.find((patient) => patient.id === data.patientId);
 
     if (selectedPatient) {
-      let reasonForVisit: string | undefined;
-      if (selectedPatient.id === currentPatientInfo.id) {
-        reasonForVisit = currentPatientInfo.reasonForVisit;
-      }
-
       usePatientInfoStore.setState(() => ({
         patientInfo: {
           ...selectedPatient,
           id: selectedPatient.id || undefined,
           newPatient: false,
           dateOfBirth: DateTime.fromISO(selectedPatient.dateOfBirth || '').toString(),
-          reasonForVisit,
+          reasonForVisit: selectedPatient?.reasonForVisit,
         },
         pendingPatientInfoUpdates: undefined,
       }));

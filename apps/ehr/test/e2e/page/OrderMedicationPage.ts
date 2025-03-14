@@ -36,7 +36,6 @@ export class OrderMedicationPage {
     await this.#page.getByTestId(dataTestIds.orderMedicationPage.backButton).click();
     return expectInHouseMedicationsPage(this.#page);
   }
-
 }
 
 export async function expectOrderMedicationPage(page: Page): Promise<OrderMedicationPage> {

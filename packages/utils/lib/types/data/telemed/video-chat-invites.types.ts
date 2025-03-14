@@ -7,6 +7,7 @@ interface LambdaSecrets {
 export interface CancelInviteParticipantRequestParameters {
   appointmentId: string;
   emailAddress: string;
+  phoneNumber: string;
 }
 
 export type CancelInviteParticipantRequestInput = CancelInviteParticipantRequestParameters & LambdaSecrets;

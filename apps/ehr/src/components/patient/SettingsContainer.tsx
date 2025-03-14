@@ -25,6 +25,7 @@ import { RX_HISTORY_CONSENT_OPTIONS } from '../../constants';
 import { BasicDatePicker as DatePicker, FormSelect } from '../form';
 import { Row, Section } from '../layout';
 import { usePatientStore } from '../../state/patient.store';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 export const SettingsContainer: FC = () => {
   const { patient, updatePatientField } = usePatientStore();
@@ -61,6 +62,7 @@ export const SettingsContainer: FC = () => {
           render={({ field, fieldState: { error } }) => (
             <Box sx={{ width: '100%' }}>
               <Select
+                data-testid={dataTestIds.userSettingsContainer.releaseOfInfoDropdown}
                 {...field}
                 value={field.value || ''}
                 variant="standard"
@@ -86,6 +88,7 @@ export const SettingsContainer: FC = () => {
       </Row>
       <Row label="Rx History Consent" required>
         <FormSelect
+          data-testid={dataTestIds.userSettingsContainer.RxHistoryConsentDropdown}
           name={patientFieldPaths.rxHistoryConsentStatus}
           control={control}
           defaultValue={rxHistoryConsentStatus}

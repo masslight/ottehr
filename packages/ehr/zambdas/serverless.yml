@@ -599,7 +599,7 @@ functions:
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
-      
+
   create-lab-order:
     handler: src/create-lab-order/index.index
     events:

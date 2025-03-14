@@ -52,6 +52,9 @@ export const dataTestIds = {
   pagination: {
     paginationContainer: 'pagination-container',
   },
+  patientInformationPage: {
+    saveChangesButton: 'save-changes-button',
+  },
   patientHeader: {
     patientId: 'header-patient-id',
     patientName: 'header-patient-name',
@@ -61,23 +64,37 @@ export const dataTestIds = {
     patientPhoneNumber: 'header-patient-phone-number',
     emergencyContact: 'header-emergency-contact',
   },
-  patientInformation: {
+  patientInformationContainer: {
     patientLastName: 'patient-last-name',
     patientFirstName: 'patient-first-name',
     patientBirthSex: 'patient-birth-sex',
+  },
+  contactInformationContainer: {
     streetAddress: 'street-address',
     city: 'city',
     state: 'state',
     zip: 'zip',
-    fillingThisInfoAs: 'filling-this-info-as',
-    parentGuardianEmail: 'parent-guardian-email',
-    patientEmail: 'patient-email',
     patientMobile: 'patient-mobile',
+    patientEmail: 'patient-email',
+  },
+  patientDetailsContainer: {
     patientsEthnicity: 'patients-ethnicity',
     patientsRace: 'patients-race',
-    howDidYouHearAboutUs: 'how-did-you-hear-about-us',
-    fullName: 'full-name',
   },
+  responsiblePartyInformationContainer: {
+    id: 'responsible-party-information-container',
+    relationshipDropdown: 'relationship-dropdown',
+    fullName: 'full-name',
+    dateOfBirthDropdown: 'date-of-birth-dropdown',
+    birthSexDropdown: 'birth-sex-dropdown',
+    phoneInput: 'phone-input',
+  },
+
+  userSettingsContainer: {
+    releaseOfInfoDropdown: 'release-of-info-dropdown',
+    RxHistoryConsentDropdown: 'Rx-history-consent-dropdown',
+  },
+
   slots: {
     slot: 'slot',
   },
@@ -219,5 +236,8 @@ export const dataTestIds = {
     cancelVisitButton: 'cancel-visit-button',
     cancelationReasonDropdown: 'cancelation-reason-dropdown',
     cancelVisitDialogue: 'cancel-visit-dialogue',
+  },
+  patientRecordPage: {
+    seeAllPatientInfoButton: 'see-all-patient-info-button',
   },
 };

@@ -26,8 +26,10 @@ import { UNEXPECTED_ERROR_CONFIG } from '../helpers';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useGetFullName } from '../hooks/useGetFullName';
+import { usePaperworkInviteParams } from '../hooks/usePaperworkInviteParams';
 import { useSetLastActiveTime } from '../hooks/useSetLastActiveTime';
 import i18n from '../lib/i18n';
+import { useCreateInviteMutation } from '../telemed/features/waiting-room';
 import { useOpenExternalLink } from '../telemed/hooks/useOpenExternalLink';
 import { slugFromLinkId } from './PaperworkPage';
 
@@ -97,6 +99,19 @@ const ReviewPaperwork = (): JSX.Element => {
     }
   }, [appointmentID, pathname]);
 
+  const createInviteMutation = useCreateInviteMutation();
+
+  const inviteParams = usePaperworkInviteParams(completedPaperwork);
+
+  const navigateToWaitingRoom = useCallback(
+    (error: boolean): void => {
+      navigate(`/visit/${appointmentID}`, {
+        state: { inviteErrorSnackbarOpen: error },
+      });
+    },
+    [appointmentID, navigate]
+  );
+
   const { paperworkCompletedStatus, allComplete } = useMemo(() => {
     const validationSchema = makeValidationSchema(allItems);
     const validationState = (paperworkPages ?? []).reduce(
@@ -108,8 +123,7 @@ const ReviewPaperwork = (): JSX.Element => {
     );
 
     try {
-      // todo: we should be using async validation here
-      validationSchema.validateSync(completedPaperwork, { abortEarly: false });
+      validationSchema.validate(completedPaperwork, { abortEarly: false });
     } catch (e) {
       const errorList =
         (e as ValidationError).inner?.map((item) => {
@@ -216,7 +230,19 @@ const ReviewPaperwork = (): JSX.Element => {
         if (visitType === VisitType.WalkIn) {
           navigate(`/visit/${appointmentID}/check-in`);
         } else {
-          navigate(`/visit/${appointmentID}`);
+          // telemed logic
+          if (inviteParams) {
+            createInviteMutation.mutate(inviteParams, {
+              onSuccess: () => {
+                navigateToWaitingRoom(false);
+              },
+              onError: async () => {
+                navigateToWaitingRoom(true);
+              },
+            });
+          } else {
+            navigateToWaitingRoom(false);
+          }
         }
       } catch (e) {
         // todo: handle this better, direct to page where error was found if available
@@ -225,7 +251,17 @@ const ReviewPaperwork = (): JSX.Element => {
         setLoading(false);
       }
     }
-  }, [appointmentID, questionnaireResponseId, zambdaClient, visitType, paperworkPages, navigate]);
+  }, [
+    appointmentID,
+    createInviteMutation,
+    inviteParams,
+    questionnaireResponseId,
+    zambdaClient,
+    visitType,
+    paperworkPages,
+    navigate,
+    navigateToWaitingRoom,
+  ]);
 
   const appointmentNotFoundInformation = useAppointmentNotFoundInformation();
 

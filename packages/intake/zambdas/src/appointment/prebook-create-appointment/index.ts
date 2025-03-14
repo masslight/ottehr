@@ -53,6 +53,7 @@ import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAud
 import {
   getCanonicalUrlForPrevisitQuestionnaire,
   getEncounterClass,
+  getRelatedResources,
   getTelemedRequiredAppointmentEncounterExtensions,
 } from '../helpers';
 import { CreateAppointmentValidatedInput, validateCreateAppointmentParams } from './validateRequestParameters';
@@ -460,6 +461,8 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     extension: [...(isVirtual ? telemedEncExtensions : [])],
   };
 
+  const { documents, insuranceInfo } = await getRelatedResources(oystehr, patient?.id);
+
   const patientToUse = patient ?? (createPatientRequest?.resource as Patient);
 
   const item: QuestionnaireResponseItem[] = makePrepopulatedItemsForPatient({
@@ -471,6 +474,8 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     unconfirmedDateOfBirth,
     appointmentStartTime: startTime,
     questionnaire,
+    documents,
+    insuranceInfo,
   });
 
   console.log(
