@@ -2730,7 +2730,7 @@ const replaceCurrentGuarantor = (
   });
 };
 
-type UnbundledAccountResources = (Account | Coverage | RelatedPerson | Patient)[];
+type UnbundledAccountResources = (Account | Coverage | RelatedPerson | Patient | InsurancePlan | Organization)[];
 interface UnbundledAccountResourceWithInsuranceResources {
   patient: Patient;
   resources: UnbundledAccountResources;
@@ -2830,10 +2830,15 @@ export const getCoverageUpdateResourcesFromUnbundled = (
     existingCoverages.secondarySubscriber = subscriberResult;
   }
 
+  const insurancePlans: InsurancePlan[] = resources.filter((res): res is InsurancePlan => res.resourceType === 'InsurancePlan');
+  const insuranceOrgs: Organization[] = resources.filter((res): res is Organization => res.resourceType === 'Organization');
+
   return {
     patient,
     account: existingAccount,
     coverages: existingCoverages,
+    insuranceOrgs,
+    insurancePlans,
     guarantorResource: existingGuarantorResource,
   };
 };
@@ -2849,7 +2854,7 @@ export const getAccountAndCoverageResourcesForPatient = async (
 ): Promise<PatientAccountAndCoverageResources> => {
   console.time('querying for Patient account resources');
   const accountAndCoverageResources = (
-    await oystehr.fhir.search<Account | Coverage | RelatedPerson | Patient>({
+    await oystehr.fhir.search<Account | Coverage | RelatedPerson | Patient | InsurancePlan | Organization>({
       resourceType: 'Patient',
       params: [
         {
@@ -2872,6 +2877,14 @@ export const getAccountAndCoverageResourcesForPatient = async (
           name: '_include:iterate',
           value: 'Coverage:subscriber',
         },
+        {
+          name: '_include:iterate',
+          value: 'Coverage:payor',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'InsurancePlan:owned-by',
+        }
       ],
     })
   ).unbundle();

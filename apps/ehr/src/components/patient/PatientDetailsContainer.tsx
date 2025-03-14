@@ -40,20 +40,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
 
   const previousNames = patient.name?.filter((name) => name.use === 'old').reverse() || [];
 
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    console.log('event', event);
-  };
-
   const genderIdentityCurrentValue = watch(FormFields.genderIdentity.key);
-
-  const handleGenderIdentityChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    handleChange(e as any);
-    // Remove gender identity details if not selecting "Other"
-    if (e.target.value !== 'Non-binary gender identity') {
-      // setValue(patientFieldPaths.genderIdentityDetails, '');
-      // updatePatientField(patientFieldPaths.genderIdentityDetails, '');
-    }
-  };
 
   return (
     <Section title="Patient details">
@@ -94,7 +81,6 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
-          onChangeHandler={handleChange}
         />
       </Row>
       <Row label="Patient's race" required>
@@ -106,24 +92,13 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
-          onChangeHandler={handleChange}
         />
       </Row>
       <Row label="Sexual orientation">
-        <FormSelect
-          name={FormFields.sexualOrientation.key}
-          control={control}
-          options={SEXUAL_ORIENTATION_OPTIONS}
-          onChangeHandler={handleChange}
-        />
+        <FormSelect name={FormFields.sexualOrientation.key} control={control} options={SEXUAL_ORIENTATION_OPTIONS} />
       </Row>
       <Row label="Gender identity">
-        <FormSelect
-          name={FormFields.genderIdentity.key}
-          control={control}
-          options={GENDER_IDENTITY_OPTIONS}
-          onChangeHandler={handleGenderIdentityChange}
-        />
+        <FormSelect name={FormFields.genderIdentity.key} control={control} options={GENDER_IDENTITY_OPTIONS} />
       </Row>
       {genderIdentityCurrentValue === 'Non-binary gender identity' && (
         <Box
@@ -134,21 +109,12 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', alignSelf: 'end', flex: '0 1 70%' }}>
-            <FormTextField
-              name={FormFields.genderIdentityDetails.key}
-              control={control}
-              onChangeHandler={handleChange}
-            />
+            <FormTextField name={FormFields.genderIdentityDetails.key} control={control} />
           </Box>
         </Box>
       )}
       <Row label="How did you hear about us?">
-        <FormSelect
-          name={FormFields.pointOfDiscovery.key}
-          control={control}
-          options={POINT_OF_DISCOVERY_OPTIONS}
-          onChangeHandler={handleChange}
-        />
+        <FormSelect name={FormFields.pointOfDiscovery.key} control={control} options={POINT_OF_DISCOVERY_OPTIONS} />
       </Row>
       <Box
         sx={{
@@ -165,16 +131,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
             name={FormFields.sendMarketing.key}
             control={control}
             render={({ field }) => (
-              <Select
-                {...field}
-                value={field.value || ''}
-                variant="standard"
-                sx={{ width: '100%' }}
-                onChange={(e) => {
-                  field.onChange(e);
-                  handleChange(e as any);
-                }}
-              >
+              <Select {...field} value={field.value || ''} variant="standard" sx={{ width: '100%' }}>
                 {[
                   { value: true, label: 'Yes' },
                   { value: false, label: 'No' },
@@ -203,16 +160,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
             name={FormFields.language.key}
             control={control}
             render={({ field }) => (
-              <Select
-                {...field}
-                value={field.value || ''}
-                variant="standard"
-                sx={{ width: '100%' }}
-                onChange={(e) => {
-                  field.onChange(e);
-                  handleChange(e as any);
-                }}
-              >
+              <Select {...field} value={field.value || ''} variant="standard" sx={{ width: '100%' }}>
                 {Object.entries(LANGUAGE_OPTIONS).map(([key, value]) => (
                   <MenuItem key={value} value={value}>
                     {key}
@@ -238,16 +186,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
             name={FormFields.commonWellConsent.key}
             control={control}
             render={({ field }) => (
-              <Select
-                {...field}
-                value={field.value || ''}
-                variant="standard"
-                sx={{ width: '100%' }}
-                onChange={(e) => {
-                  field.onChange(e);
-                  handleChange(e as any);
-                }}
-              >
+              <Select {...field} value={field.value || ''} variant="standard" sx={{ width: '100%' }}>
                 {[
                   { value: true, label: 'Yes' },
                   { value: false, label: 'No' },

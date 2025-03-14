@@ -123,15 +123,15 @@ export const PRONOUN_OPTIONS = [
 export const SEX_OPTIONS = [
   {
     label: 'Male',
-    value: 'male',
+    value: 'Male',
   },
   {
     label: 'Female',
-    value: 'female',
+    value: 'Female',
   },
   {
     label: 'Intersex',
-    value: 'other',
+    value: 'Intersex',
   },
 ];
 
@@ -360,15 +360,11 @@ export const PATIENT_FILLING_OUT_AS_OPTIONS = [
 export const INSURANCE_COVERAGE_OPTIONS = [
   {
     label: 'Primary',
-    value: 1,
+    value: 'Primary',
   },
   {
     label: 'Secondary',
-    value: 2,
-  },
-  {
-    label: 'Tertiary',
-    value: 3,
+    value: 'Secondary',
   },
 ];
 

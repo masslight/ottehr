@@ -280,7 +280,6 @@ export const useGetPatientAccount = (
       });
     },
     {
-      refetchInterval: 30000,
       onSuccess,
       onError: (err) => {
         console.error('Error fetching patient account: ', err);

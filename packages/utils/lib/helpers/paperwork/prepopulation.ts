@@ -847,6 +847,8 @@ interface MapCoverageItemsInput {
 const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput): QuestionnaireResponseItem[] => {
   const { items, coverages, insuranceOrgs, insurancePlans } = input;
 
+  console.log('mapping coverages to questionnaire response items', insuranceOrgs, insurancePlans);
+
   const { primary, secondary, primarySubscriber, secondarySubscriber } = coverages;
 
   let primaryInsurancePlanReference: Reference | undefined;
@@ -856,7 +858,7 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
   let secondaryMemberId = '';
 
   if (primary && insuranceOrgs && insurancePlans) {
-    const matchingOrg = insuranceOrgs.find((org) => org.id === primary.payor?.[0].reference);
+    const matchingOrg = insuranceOrgs.find((org) => `${org.resourceType}/${org.id}` === primary.payor?.[0].reference);
     const matchingPlan =
       matchingOrg &&
       insurancePlans.find((plan) => plan.ownedBy?.reference === `${matchingOrg.resourceType}/${matchingOrg.id}`);
@@ -865,7 +867,7 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     }
   }
   if (secondary && insuranceOrgs && insurancePlans) {
-    const matchingOrg = insuranceOrgs.find((org) => org.id === secondary.payor?.[0].reference);
+    const matchingOrg = insuranceOrgs.find((org) => `${org.resourceType}/${org.id}` === secondary.payor?.[0].reference);
     const matchingPlan =
       matchingOrg &&
       insurancePlans.find((plan) => plan.ownedBy?.reference === `${matchingOrg.resourceType}/${matchingOrg.id}`);
@@ -888,7 +890,7 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
   }
 
   const primarySubscriberDoB = primarySubscriber?.birthDate ?? '';
-  const primarySubscriberBirthSex = primarySubscriber?.gender ?? '';
+  const primarySubscriberBirthSex = capitalize(primarySubscriber?.gender ?? '');
   let primarySubscriberFirstName = '';
   let primarySubscriberLastName = '';
   let primarySubscriberMiddleName = '';
@@ -921,6 +923,7 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     }
     if (linkId === 'insurance-carrier') {
       answer = makeAnswer(primaryInsurancePlanReference, 'Reference');
+      console.log('insurance carrier answer', answer);
     }
     if (linkId === 'insurance-carrier-2') {
       answer = makeAnswer(secondaryInsurancePlanReference, 'Reference');
@@ -959,7 +962,11 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
       answer = makeAnswer(primarySubscriberBirthSex);
     }
     if (linkId === 'policy-holder-birth-sex-2' && secondarySubscriberBirthSex) {
-      answer = makeAnswer(secondarySubscriberBirthSex);
+      answer = makeAnswer(capitalize(secondarySubscriberBirthSex));
+    }
+    if (linkId === 'insurance-priority') {
+      // todo
+      answer = makeAnswer('Primary');
     }
 
     return {

@@ -1,7 +1,6 @@
 import { Box, Button, useTheme } from '@mui/material';
 import { FC, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { useUpdatePatient } from '../../hooks/useGetPatient';
 import { usePatientStore } from '../../state/patient.store';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { enqueueSnackbar } from 'notistack';
@@ -13,14 +12,12 @@ type ActionBarProps = {
 export const ActionBar: FC<ActionBarProps> = ({ handleDiscard }) => {
   const theme = useTheme();
 
-  const { patient, patchOperations, reset: resetPatchOperations, tempInsurances } = usePatientStore();
+  const { patchOperations, tempInsurances } = usePatientStore();
   const {
     formState: { isDirty },
     getValues,
     trigger,
-    reset: resetForm,
   } = useFormContext();
-  const { mutateAsync: mutatePatientMasterRecord } = useUpdatePatient();
 
   const hasChanges = useMemo(() => {
     return (
@@ -32,7 +29,7 @@ export const ActionBar: FC<ActionBarProps> = ({ handleDiscard }) => {
     );
   }, [isDirty, patchOperations, tempInsurances]);
 
-  if (!patient) return null;
+  if (isDirty) return null;
 
   const handleSave = async (): Promise<void> => {
     // Trigger validation for all fields
@@ -42,16 +39,7 @@ export const ActionBar: FC<ActionBarProps> = ({ handleDiscard }) => {
       return;
     }
 
-    await mutatePatientMasterRecord();
-    resetPatchOperations();
-    resetForm(
-      {
-        ...getValues(),
-      },
-      {
-        keepDirty: false,
-      }
-    );
+    console.log('form vals', getValues());
   };
 
   return (

@@ -1,9 +1,9 @@
-import { Box } from '@mui/material';
+import { Autocomplete, Box, TextField } from '@mui/material';
 import { FC } from 'react';
-import { useFormContext } from 'react-hook-form';
+import { Controller, useFormContext } from 'react-hook-form';
 import { emailRegex, isPhoneNumberValid, isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { STATE_OPTIONS } from '../../constants';
-import { FormAutocomplete, FormTextField } from '../form';
+import { FormTextField } from '../form';
 import { Row, Section } from '../layout';
 import { dataTestIds } from '../../constants/data-test-ids';
 
@@ -17,8 +17,16 @@ const FormFields = {
   phone: { key: 'patient-number', type: 'String' },
 };
 
+export const PatientAddressFields = [
+  FormFields.streetAddress.key,
+  FormFields.addressLine2.key,
+  FormFields.city.key,
+  FormFields.state.key,
+  FormFields.zip.key,
+];
+
 export const ContactContainer: FC = () => {
-  const { control } = useFormContext();
+  const { control, setValue } = useFormContext();
 
   return (
     <Section title="Contact information">
@@ -44,15 +52,33 @@ export const ContactContainer: FC = () => {
             }}
             data-testid={dataTestIds.contactInformationContainer.city}
           />
-          <FormAutocomplete
+          <Controller
             name={FormFields.state.key}
             control={control}
-            options={STATE_OPTIONS}
+            data-testid={dataTestIds.contactInformationContainer.state}
             rules={{
-              validate: (value: string) => STATE_OPTIONS.some((option) => option.value === value),
               required: REQUIRED_FIELD_ERROR_MESSAGE,
             }}
-            data-testid={dataTestIds.contactInformationContainer.state}
+            render={({ field: { value }, fieldState: { error } }) => {
+              return (
+                <Autocomplete
+                  options={STATE_OPTIONS.map((option) => option.value)}
+                  value={value ?? ''}
+                  onChange={(_, newValue) => {
+                    if (newValue) {
+                      setValue(FormFields.state.key, newValue);
+                    } else {
+                      setValue(FormFields.state.key, '');
+                    }
+                  }}
+                  disableClearable
+                  fullWidth
+                  renderInput={(params) => (
+                    <TextField {...params} variant="standard" error={!!error} required helperText={error?.message} />
+                  )}
+                />
+              );
+            }}
           />
           <FormTextField
             name={FormFields.zip.key}

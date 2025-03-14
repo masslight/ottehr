@@ -31,10 +31,22 @@ import { otherColors } from '../CustomThemeProvider';
 import { AddInsuranceModal } from '../components/patient/AddInsuranceModal';
 import { useZapEHRAPIClient } from '../telemed/hooks/useOystehrAPIClient';
 
+const getAnyAnswer = (item: QuestionnaireResponseItem): any | undefined => {
+  let index = 0;
+  let answer: any | undefined;
+  const types: ('String' | 'Boolean' | 'Reference' | 'Attachment')[] = ['String', 'Boolean', 'Reference', 'Attachment'];
+
+  do {
+    answer = extractFirstValueFromAnswer(item.answer ?? [], types[index]);
+    index++;
+  } while (answer === undefined && index < types.length);
+  return answer;
+};
+
 const makeFormDefaults = (currentItemValues: QuestionnaireResponseItem[]): any => {
   const flattened = flattenItems(currentItemValues);
   return flattened.reduce((acc: any, item: QuestionnaireResponseItem) => {
-    const value = item.answer ? extractFirstValueFromAnswer(item.answer ?? []) : undefined;
+    const value = getAnyAnswer(item);
     acc[item.linkId] = value;
     return acc;
   }, {});
@@ -82,7 +94,15 @@ const PatientInformationPage: FC = () => {
           return 0;
         });
 
-      setInsurancePlans(transformedInsurancePlans);
+      const insurancePlanMap: Record<string, InsurancePlanDTO> = {};
+
+      transformedInsurancePlans.forEach((insurancePlan) => {
+        insurancePlanMap[insurancePlan.name ?? ''] = insurancePlan;
+      });
+
+      const uniquePlans = Object.values(insurancePlanMap);
+
+      setInsurancePlans(uniquePlans);
     }
   });
 
@@ -126,8 +146,6 @@ const PatientInformationPage: FC = () => {
   }, [defaultFormVals, methods]);
 
   if (!patient) return null;
-
-  console.log('form vals', methods.getValues());
 
   if (isFetching || questionnaireFetching) return <LoadingScreen />;
 

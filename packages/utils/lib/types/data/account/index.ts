@@ -13,12 +13,12 @@ export interface OrderedCoveragesWithSubscribers extends OrderedCoverages {
 export interface PatientAccountAndCoverageResources {
   patient: Patient;
   coverages: OrderedCoveragesWithSubscribers;
+  insurancePlans: InsurancePlan[];
+  insuranceOrgs: Organization[];
   account?: Account;
   guarantorResource?: RelatedPerson | Patient;
 }
 
 export interface PatientAccountResponse extends PatientAccountAndCoverageResources {
   primaryCarePhysician?: Practitioner;
-  insurancePlans?: InsurancePlan[];
-  insuranceOrgs?: Organization[];
 }

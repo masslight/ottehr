@@ -1,8 +1,8 @@
-import { Autocomplete, Box, Button, Checkbox, FormControlLabel, TextField, Typography, useTheme } from '@mui/material';
-import { FC, useState } from 'react';
+import { Autocomplete, Box, Button, Checkbox, TextField, Typography, useTheme } from '@mui/material';
+import { FC, useEffect, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { isPostalCodeValid, relatedPersonFieldPaths, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
-import { BasicDatePicker as DatePicker, FormAutocomplete, FormSelect, FormTextField } from '../../components/form';
+import { isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
 import {
   INSURANCE_COVERAGE_OPTIONS,
   RELATIONSHIP_TO_INSURED_OPTIONS,
@@ -12,6 +12,7 @@ import {
 import { Row, Section } from '../layout';
 import ShowMoreButton from './ShowMoreButton';
 import { InsurancePlanDTO, usePatientStore } from '../../state/patient.store';
+import { PatientAddressFields } from './ContactContainer';
 
 type InsuranceContainerProps = {
   insuranceId: string;
@@ -35,28 +36,37 @@ const FormFields = {
   additionalInformation: { key: 'insurance-additional-information', type: 'String' },
 };
 
+const LocalAddressFields = [
+  FormFields.streetAddress.key,
+  FormFields.addressLine2.key,
+  FormFields.city.key,
+  FormFields.state.key,
+  FormFields.zip.key,
+];
+
 export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId }) => {
   console.log('insuranceId', insuranceId);
   const theme = useTheme();
   const { insurancePlans } = usePatientStore();
 
   const [showMoreInfo, setShowMoreInfo] = useState(false);
+  const [sameAsPatientAddress, setSameAsPatientAddress] = useState(false);
 
-  const { control, trigger } = useFormContext();
+  const { control, setValue, watch } = useFormContext();
 
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>, insurancePlan?: InsurancePlanDTO): void => {
-    console.log('event', event);
-    console.log('insurancePlan', insurancePlan);
-  };
+  const patientAddressData = watch(PatientAddressFields);
+  const localAddressData = watch(LocalAddressFields);
 
-  const handleAutocompleteChange = (name: string, value: string): void => {
-    handleChange({
-      target: {
-        name,
-        value,
-      },
-    } as any);
-  };
+  useEffect(() => {
+    // console.log('patientAddressData state', patientAddressData[3]);
+    if (sameAsPatientAddress) {
+      for (let i = 0; i < localAddressData.length; i++) {
+        if (patientAddressData[i] && localAddressData[i] !== patientAddressData[i]) {
+          setValue(LocalAddressFields[i], patientAddressData[i]);
+        }
+      }
+    }
+  }, [localAddressData, patientAddressData, sameAsPatientAddress, setValue]);
 
   const toggleMoreInfo = (): void => {
     setShowMoreInfo((prev) => !prev);
@@ -76,7 +86,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
-          onChangeHandler={handleChange}
         />
       </Row>
       <Row label="Insurance carrier" required>
@@ -85,30 +94,32 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
           control={control}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
-            validate: (value) => insurancePlans.some((option) => option.name === value),
+            validate: (value) => insurancePlans.some((option) => `InsurancePlan/${option.id}` === value?.reference),
           }}
-          render={({ field: { onChange, value }, fieldState: { error } }) => {
+          render={({ field: { value }, fieldState: { error } }) => {
             const isLoading = insurancePlans.length === 0;
-            const selectedOption = insurancePlans.find((option) => option.name === value);
+
+            const selectedOption = insurancePlans.find((option) => `InsurancePlan/${option.id}` === value?.reference);
             return (
               <Autocomplete
                 options={insurancePlans}
                 loading={isLoading}
                 loadingText={'Loading...'}
-                value={isLoading ? ({} as InsurancePlanDTO) : selectedOption || ({} as InsurancePlanDTO)}
+                value={selectedOption ?? ({} as InsurancePlanDTO)}
+                isOptionEqualToValue={(option, value) => {
+                  return option?.id === value?.id;
+                }}
                 getOptionLabel={(option) => option.name || ''}
                 onChange={(_, newValue) => {
-                  onChange(newValue?.name || '');
-                  handleChange(
-                    {
-                      target: {
-                        name: FormFields.insuranceCarrier.key,
-                        value: newValue?.name || '',
-                      },
-                    } as any,
-                    newValue
-                  );
-                  void trigger(FormFields.insuranceCarrier.key);
+                  if (newValue) {
+                    setValue(
+                      FormFields.insuranceCarrier.key,
+                      { reference: `InsurancePlan/${newValue.id}` },
+                      { shouldDirty: true }
+                    );
+                  } else {
+                    setValue(FormFields.insuranceCarrier.key, null);
+                  }
                 }}
                 disableClearable
                 fullWidth
@@ -126,7 +137,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
           name={FormFields.memberId.key}
           control={control}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-          onChangeHandler={handleChange}
         />
       </Row>
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -140,16 +150,10 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
               name={FormFields.firstName.key}
               control={control}
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-              onChangeHandler={handleChange}
             />
           </Row>
           <Row label="Policy holder's middle name" inputId={FormFields.middleName.key}>
-            <FormTextField
-              id={FormFields.middleName.key}
-              name={FormFields.middleName.key}
-              control={control}
-              onChangeHandler={handleChange}
-            />
+            <FormTextField id={FormFields.middleName.key} name={FormFields.middleName.key} control={control} />
           </Row>
           <Row label="Policy holder's last name" required inputId={FormFields.lastName.key}>
             <FormTextField
@@ -157,7 +161,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
               name={FormFields.lastName.key}
               control={control}
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-              onChangeHandler={handleChange}
             />
           </Row>
           <Row label="Policy holder's date of birth" required>
@@ -169,81 +172,86 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
               control={control}
               options={SEX_OPTIONS}
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-              onChangeHandler={handleChange}
             />
           </Row>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: '5px' }}>
-            <Controller
-              name={relatedPersonFieldPaths.sameAsPatientAddress}
-              control={control}
-              render={({ field: { onChange, value, ...field } }) => (
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      {...field}
-                      checked={!value}
-                      onChange={(e) => {
-                        const newActiveValue = !e.target.checked;
-                        onChange(newActiveValue);
-                        handleChange({
-                          ...e,
-                          target: {
-                            ...e.target,
-                            name: relatedPersonFieldPaths.sameAsPatientAddress,
-                            checked: newActiveValue,
-                          },
-                        });
-                      }}
-                    />
-                  }
-                  label={<Typography>Policy holder address is the same as patient's address</Typography>}
-                />
-              )}
-            />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: '0px' }}>
+              <Checkbox
+                checked={sameAsPatientAddress}
+                onChange={() => {
+                  setSameAsPatientAddress((currentVal) => !currentVal);
+                }}
+              />
+              <Typography>Policy holder address is the same as patient's address</Typography>
+            </Box>
           </Box>
           <Row label="Street address" inputId={FormFields.streetAddress.key} required>
             <FormTextField
               id={FormFields.streetAddress.key}
               name={FormFields.streetAddress.key}
+              disabled={sameAsPatientAddress && Boolean(patientAddressData[0])}
               control={control}
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-              onChangeHandler={handleChange}
             />
           </Row>
           <Row label="Address line 2" inputId={FormFields.addressLine2.key}>
             <FormTextField
               id={FormFields.addressLine2.key}
               name={FormFields.addressLine2.key}
+              disabled={sameAsPatientAddress}
               control={control}
-              onChangeHandler={handleChange}
             />
           </Row>
           <Row label="City, State, ZIP" required>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <FormTextField
                 name={FormFields.city.key}
+                disabled={sameAsPatientAddress && Boolean(patientAddressData[2])}
                 control={control}
                 rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-                onChangeHandler={handleChange}
               />
-              <FormAutocomplete
+              <Controller
                 name={FormFields.state.key}
                 control={control}
-                options={STATE_OPTIONS}
                 rules={{
-                  validate: (value: string) => STATE_OPTIONS.some((option) => option.value === value),
                   required: REQUIRED_FIELD_ERROR_MESSAGE,
                 }}
-                onChangeHandler={handleAutocompleteChange}
+                render={({ field: { value }, fieldState: { error } }) => {
+                  return (
+                    <Autocomplete
+                      options={STATE_OPTIONS.map((option) => option.value)}
+                      disabled={sameAsPatientAddress && Boolean(patientAddressData[3])}
+                      value={value ?? ''}
+                      onChange={(_, newValue) => {
+                        if (newValue) {
+                          setValue(FormFields.state.key, newValue);
+                        } else {
+                          setValue(FormFields.state.key, '');
+                        }
+                      }}
+                      disableClearable
+                      fullWidth
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          variant="standard"
+                          error={!!error}
+                          required
+                          helperText={error?.message}
+                        />
+                      )}
+                    />
+                  );
+                }}
               />
               <FormTextField
                 name={FormFields.zip.key}
                 control={control}
+                disabled={sameAsPatientAddress && Boolean(patientAddressData[4])}
                 rules={{
                   validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
                   required: REQUIRED_FIELD_ERROR_MESSAGE,
                 }}
-                onChangeHandler={handleChange}
               />
             </Box>
           </Row>
@@ -253,7 +261,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
               control={control}
               options={RELATIONSHIP_TO_INSURED_OPTIONS}
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-              onChangeHandler={handleChange}
             />
           </Row>
           <Row label="Additional insurance information" inputId={FormFields.additionalInformation.key}>
@@ -261,7 +268,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
               id={FormFields.additionalInformation.key}
               name={FormFields.additionalInformation.key}
               control={control}
-              onChangeHandler={handleChange}
             />
           </Row>
           <Button
