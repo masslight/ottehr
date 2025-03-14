@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Address, Location, Patient } from 'fhir/r4b';
+import { Address, Location, Patient, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { isLocationVirtual } from '../fhir';
 import { CreateAppointmentUCTelemedResponse, PatientInfo, PersonSex, SubmitPaperworkParameters } from '../types';
@@ -17,7 +17,6 @@ import {
   getResponsiblePartyStepAnswers,
   getSchoolWorkNoteStepAnswers,
   getSurgicalHistoryStepAnswers,
-  getPatientConditionPhotosStepAnswers,
   isoToDateObject,
 } from './helpers';
 
@@ -42,13 +41,27 @@ interface DemoConfig {
 
 type DemoAppointmentData = AppointmentData & DemoConfig;
 
-interface CreateAppointmentInput {
+export interface CreateAppointmentInput {
   locationState: string;
   patient: PatientInfo;
   // user: User;
   unconfirmedDateOfBirth: string;
   // secrets: Secrets | null;
 }
+
+export type GetPaperworkAnswers = ({
+  patientInfo,
+  intakeZambdaUrl,
+  authToken,
+  projectId,
+  appointmentId,
+}: {
+  patientInfo: CreateAppointmentInput;
+  intakeZambdaUrl: string;
+  authToken: string;
+  projectId: string;
+  appointmentId: string;
+}) => Promise<QuestionnaireResponseItem[]>;
 
 const DEFAULT_FIRST_NAMES = [
   'Alice',
@@ -177,7 +190,7 @@ export const createSampleTelemedAppointments = async ({
   selectedLocationId,
   demoData,
   projectId,
-  patientConditionImageFile,
+  paperworkAnswers,
 }: {
   oystehr: Oystehr | undefined;
   authToken: string;
@@ -188,7 +201,7 @@ export const createSampleTelemedAppointments = async ({
   selectedLocationId?: string;
   demoData?: DemoAppointmentData;
   projectId: string;
-  patientConditionImageFile: Promise<File>;
+  paperworkAnswers?: GetPaperworkAnswers;
 }): Promise<CreateAppointmentUCTelemedResponse | null> => {
   if (!projectId) {
     throw new Error('PROJECT_ID is not set');
@@ -238,14 +251,7 @@ export const createSampleTelemedAppointments = async ({
           return null;
         }
 
-        await processPaperwork(
-          appointmentData,
-          patientInfo,
-          intakeZambdaUrl,
-          authToken,
-          projectId,
-          patientConditionImageFile
-        );
+        await processPaperwork(appointmentData, patientInfo, intakeZambdaUrl, authToken, projectId, paperworkAnswers);
         return appointmentData;
       } catch (error) {
         console.error(`Error processing appointment ${i + 1}:`, error);
@@ -277,7 +283,7 @@ const processPaperwork = async (
   intakeZambdaUrl: string,
   authToken: string,
   projectId: string,
-  patientConditionImageFile: Promise<File>
+  paperworkAnswers?: GetPaperworkAnswers
 ): Promise<void> => {
   try {
     const appointmentId = appointmentData.appointmentId;
@@ -289,34 +295,29 @@ const processPaperwork = async (
 
     await makeSequentialPaperworkPatches(
       questionnaireResponseId,
-      [
-        getContactInformationAnswers({
-          firstName: patientInfo.patient.firstName,
-          lastName: patientInfo.patient.lastName,
-          birthDate,
-          email: patientInfo.patient.email,
-          phoneNumber: patientInfo.patient.phoneNumber,
-          birthSex: patientInfo.patient.sex,
-        }),
-        getPatientDetailsStepAnswers({}),
-        getMedicationsStepAnswers(),
-        getAllergiesStepAnswers(),
-        getMedicalConditionsStepAnswers(),
-        getSurgicalHistoryStepAnswers(),
-        getAdditionalQuestionsAnswers(),
-        getPaymentOptionSelfPayAnswers(),
-        getResponsiblePartyStepAnswers({}),
-        getSchoolWorkNoteStepAnswers(),
-        getConsentStepAnswers({}),
-        getInviteParticipantStepAnswers(),
-        await getPatientConditionPhotosStepAnswers({
-          appointmentId,
-          authToken,
-          intakeZambdaUrl,
-          projectId,
-          filePromise: patientConditionImageFile,
-        }),
-      ],
+      paperworkAnswers
+        ? await paperworkAnswers({ patientInfo, appointmentId, authToken, intakeZambdaUrl, projectId })
+        : [
+            getContactInformationAnswers({
+              firstName: patientInfo.patient.firstName,
+              lastName: patientInfo.patient.lastName,
+              birthDate,
+              email: patientInfo.patient.email,
+              phoneNumber: patientInfo.patient.phoneNumber,
+              birthSex: patientInfo.patient.sex,
+            }),
+            getPatientDetailsStepAnswers({}),
+            getMedicationsStepAnswers(),
+            getAllergiesStepAnswers(),
+            getMedicalConditionsStepAnswers(),
+            getSurgicalHistoryStepAnswers(),
+            getAdditionalQuestionsAnswers(),
+            getPaymentOptionSelfPayAnswers(),
+            getResponsiblePartyStepAnswers({}),
+            getSchoolWorkNoteStepAnswers(),
+            getConsentStepAnswers({}),
+            getInviteParticipantStepAnswers(),
+          ],
       intakeZambdaUrl,
       authToken,
       projectId

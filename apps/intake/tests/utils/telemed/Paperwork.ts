@@ -2,17 +2,30 @@ import { Page, expect } from '@playwright/test';
 import { FillingInfo } from './FillingInfo';
 import { UIDesign } from './UIdesign';
 import { clickContinue } from '../utils';
+import {
+  CURRENT_MEDICATIONS_ABSENT_LABEL,
+  CURRENT_MEDICATIONS_PRESENT_LABEL,
+  KNOWN_ALLERGIES_ABSENT_LABEL,
+  KNOWN_ALLERGIES_PRESENT_LABEL,
+  Locators,
+  MEDICAL_CONDITIONS_ABSENT_LABEL,
+  MEDICAL_CONDITIONS_PRESENT_LABEL,
+  SURGICAL_HISTORY_ABSENT_LABEL,
+  SURGICAL_HISTORY_PRESENT_LABEL,
+} from '../locators';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 export class Paperwork {
   page: Page;
   fillingInfo: FillingInfo;
   uiDesign: UIDesign;
+  locators: Locators;
 
   constructor(page: Page) {
     this.page = page;
     this.fillingInfo = new FillingInfo(page);
     this.uiDesign = new UIDesign(page);
+    this.locators = new Locators(page);
   }
 
   private async nextBackClick(waitFor?: () => Promise<void>) {
@@ -83,151 +96,143 @@ export class Paperwork {
   }
 
   async fillAndCheckEmptyCurrentMedications() {
-    const value = 'Patient does not take any medications currently';
-
-    await this.page.locator(`input[value='${value}']`).click();
+    await this.locators.currentMedicationsAbsent.click();
 
     await this.nextBackClick(async () => {
       await this.page.getByRole('heading', { name: 'Current allergies', level: 2 }).waitFor({ state: 'visible' });
     });
     await expect(this.page.getByRole('heading', { name: 'Current medications' })).toBeVisible();
 
-    await this.checkEmptyCurrentMedications(value);
+    await this.checkEmptyCurrentMedications();
   }
 
-  async checkEmptyCurrentMedications(value: string) {
-    await expect(this.page.getByRole('radio', { name: value })).toBeChecked();
+  async checkEmptyCurrentMedications() {
+    await expect(this.page.getByRole('radio', { name: CURRENT_MEDICATIONS_ABSENT_LABEL })).toBeChecked();
   }
 
   async fillAndCheckFilledCurrentMedications() {
     await clickContinue(this.page, false);
-    await expect(this.page.getByText('Please fix the error in the "Select option" field to proceed')).toBeVisible();
+    await expect(this.locators.paperworkSelectOptionFieldErrorMessage).toBeVisible();
 
-    const { optionValue, filledValue, selectedValue } = await new FillingInfo(this.page).fillCurrentMedications();
+    const { filledValue, selectedValue } = await this.fillingInfo.fillCurrentMedications();
 
-    await this.checkFilledCurrentMedications(optionValue, [filledValue, selectedValue]);
+    await this.checkFilledCurrentMedications([filledValue, selectedValue]);
 
     await this.nextBackClick(async () => {
       await this.page.getByRole('heading', { name: 'Current allergies', level: 2 }).waitFor({ state: 'visible' });
     });
     await expect(this.page.getByRole('heading', { name: 'Current medications', level: 2 })).toBeVisible();
 
-    await this.checkFilledCurrentMedications(optionValue, [filledValue, selectedValue]);
+    await this.checkFilledCurrentMedications([filledValue, selectedValue]);
   }
 
-  async checkFilledCurrentMedications(value: string, options: string[]) {
-    await expect(this.page.getByRole('radio', { name: value })).toBeChecked();
+  async checkFilledCurrentMedications(options: string[]) {
+    await expect(this.page.getByRole('radio', { name: CURRENT_MEDICATIONS_PRESENT_LABEL })).toBeChecked();
     for (const option of options) {
       await expect(this.page.getByText(option)).toBeVisible();
     }
   }
 
   async fillAndCheckEmptyCurrentAllergies() {
-    const value = 'Patient has no known current allergies';
-
-    await this.page.locator(`input[value='${value}']`).click();
+    await this.locators.knownAllergiesAbsent.click();
 
     await this.nextBackClick();
 
-    await this.checkEmptyCurrentAllergies(value);
+    await this.checkEmptyCurrentAllergies();
   }
 
-  async checkEmptyCurrentAllergies(value: string) {
-    await expect(this.page.getByRole('radio', { name: value })).toBeChecked();
+  async checkEmptyCurrentAllergies() {
+    await expect(this.page.getByRole('radio', { name: KNOWN_ALLERGIES_ABSENT_LABEL })).toBeChecked();
   }
 
   async fillAndCheckFilledCurrentAllergies() {
     await clickContinue(this.page, false);
-    await expect(this.page.getByText('Please fix the error in the "Select option" field to proceed')).toBeVisible();
+    await expect(this.locators.paperworkSelectOptionFieldErrorMessage).toBeVisible();
 
-    const { optionValue, filledValue, selectedValue } = await new FillingInfo(this.page).fillCurrentAllergies();
+    const { filledValue, selectedValue } = await this.fillingInfo.fillCurrentAllergies();
 
-    await this.checkFilledCurrentAllergies(optionValue, [filledValue, selectedValue]);
+    await this.checkFilledCurrentAllergies([filledValue, selectedValue]);
 
     await this.nextBackClick(async () => {
       await this.page.getByRole('heading', { name: 'Medical history', level: 2 }).waitFor({ state: 'visible' });
     });
     await expect(this.page.getByRole('heading', { name: 'Current allergies', level: 2 })).toBeVisible();
 
-    await this.checkFilledCurrentAllergies(optionValue, [filledValue, selectedValue]);
+    await this.checkFilledCurrentAllergies([filledValue, selectedValue]);
   }
 
-  async checkFilledCurrentAllergies(value: string, options: string[]) {
-    await expect(this.page.getByRole('radio', { name: value })).toBeChecked();
+  async checkFilledCurrentAllergies(options: string[]) {
+    await expect(this.page.getByRole('radio', { name: KNOWN_ALLERGIES_PRESENT_LABEL })).toBeChecked();
     for (const option of options) {
       await expect(this.page.getByText(option)).toBeVisible();
     }
   }
 
   async fillAndCheckEmptyMedicalHistory() {
-    const value = 'Patient has no current medical conditions';
-
-    await this.page.locator(`input[value='${value}']`).click();
+    await this.locators.medicalConditionsAbsent.click();
 
     await this.nextBackClick();
 
-    await this.checkEmptyMedicalHistory(value);
+    await this.checkEmptyMedicalHistory();
   }
 
-  async checkEmptyMedicalHistory(value: string) {
-    await expect(this.page.getByRole('radio', { name: value })).toBeChecked();
+  async checkEmptyMedicalHistory() {
+    await expect(this.page.getByRole('radio', { name: MEDICAL_CONDITIONS_ABSENT_LABEL })).toBeChecked();
   }
 
   async fillAndCheckFilledMedicalHistory() {
     await clickContinue(this.page, false);
-    await expect(this.page.getByText('Please fix the error in the "Select option" field to proceed')).toBeVisible();
+    await expect(this.locators.paperworkSelectOptionFieldErrorMessage).toBeVisible();
 
-    const { optionValue, filledValue, selectedValue } = await new FillingInfo(this.page).fillMedicalHistory();
+    const { filledValue, selectedValue } = await this.fillingInfo.fillMedicalHistory();
 
-    await this.checkFilledMedicalHistory(optionValue, [filledValue, selectedValue]);
+    await this.checkFilledMedicalHistory([filledValue, selectedValue]);
 
     await this.nextBackClick(async () => {
       await this.page.getByRole('heading', { name: 'Surgical history', level: 2 }).waitFor({ state: 'visible' });
     });
     await expect(this.page.getByRole('heading', { name: 'Medical history', level: 2 })).toBeVisible();
 
-    await this.checkFilledMedicalHistory(optionValue, [filledValue, selectedValue]);
+    await this.checkFilledMedicalHistory([filledValue, selectedValue]);
   }
 
-  async checkFilledMedicalHistory(value: string, options: string[]) {
-    await expect(this.page.getByRole('radio', { name: value })).toBeChecked();
+  async checkFilledMedicalHistory(options: string[]) {
+    await expect(this.page.getByRole('radio', { name: MEDICAL_CONDITIONS_PRESENT_LABEL })).toBeChecked();
     for (const option of options) {
       await expect(this.page.getByText(option)).toBeVisible();
     }
   }
 
   async fillAndCheckEmptySurgicalHistory() {
-    const value = 'Patient has no surgical history';
-
-    await this.page.locator(`input[value='${value}']`).click();
+    await this.locators.surgicalHistoryAbsent.click();
 
     await this.nextBackClick();
 
-    await this.checkEmptySurgicalHistory(value);
+    await this.checkEmptySurgicalHistory();
   }
 
-  async checkEmptySurgicalHistory(value: string) {
-    await expect(this.page.getByRole('radio', { name: value })).toBeChecked();
+  async checkEmptySurgicalHistory() {
+    await expect(this.page.getByRole('radio', { name: SURGICAL_HISTORY_ABSENT_LABEL })).toBeChecked();
   }
 
   async fillAndCheckFilledSurgicalHistory() {
     await clickContinue(this.page, false);
-    await expect(this.page.getByText('Please fix the error in the "Select option" field to proceed')).toBeVisible();
+    await expect(this.locators.paperworkSelectOptionFieldErrorMessage).toBeVisible();
 
-    const { optionValue, filledValue, selectedValue } = await new FillingInfo(this.page).fillSurgicalHistory();
+    const { filledValue, selectedValue } = await this.fillingInfo.fillSurgicalHistory();
 
-    await this.checkFilledSurgicalHistory(optionValue, [filledValue, selectedValue]);
+    await this.checkFilledSurgicalHistory([filledValue, selectedValue]);
 
     await this.nextBackClick(async () => {
       await this.page.getByRole('heading', { name: 'Additional questions', level: 2 }).waitFor({ state: 'visible' });
     });
     await expect(this.page.getByRole('heading', { name: 'Surgical history', level: 2 })).toBeVisible();
 
-    await this.checkFilledSurgicalHistory(optionValue, [filledValue, selectedValue]);
+    await this.checkFilledSurgicalHistory([filledValue, selectedValue]);
   }
 
-  async checkFilledSurgicalHistory(value: string, options: string[]) {
-    await expect(this.page.getByRole('radio', { name: value })).toBeChecked();
+  async checkFilledSurgicalHistory(options: string[]) {
+    await expect(this.page.getByRole('radio', { name: SURGICAL_HISTORY_PRESENT_LABEL })).toBeChecked();
     for (const option of options) {
       await expect(this.page.getByText(option)).toBeVisible();
     }
@@ -249,15 +254,9 @@ export class Paperwork {
   }
 
   async checkAdditionalQuestions(flags: Awaited<ReturnType<FillingInfo['fillAdditionalQuestions']>>) {
-    await expect(
-      this.page.locator(`div[aria-labelledby='covid-symptoms-label'] input[value='${flags.covid}']`)
-    ).toBeChecked();
-    await expect(
-      this.page.locator(`div[aria-labelledby='tested-positive-covid-label'] input[value='${flags.test}']`)
-    ).toBeChecked();
-    await expect(
-      this.page.locator(`div[aria-labelledby='travel-usa-label'] input[value='${flags.travel}']`)
-    ).toBeChecked();
+    await expect(this.locators.covidSymptoms(flags.covid)).toBeChecked();
+    await expect(this.locators.testedPositiveCovid(flags.test)).toBeChecked();
+    await expect(this.locators.travelUSA(flags.travel)).toBeChecked();
   }
 
   async fillAndCheckSelfPay() {

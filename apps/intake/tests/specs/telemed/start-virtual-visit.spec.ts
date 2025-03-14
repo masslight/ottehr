@@ -12,14 +12,6 @@ enum PersonSex {
   Intersex = 'other',
 }
 
-let context: BrowserContext;
-let page: Page;
-let fillingInfo: FillingInfo;
-let paperwork: Paperwork;
-
-let patientInfo: Awaited<ReturnType<FillingInfo['fillNewPatientInfo']>> | undefined;
-let dob: Awaited<ReturnType<FillingInfo['fillDOBless18']>> | undefined;
-
 const appointmentIds: string[] = [];
 
 const selectState = async (page: Page): Promise<void> => {
@@ -30,25 +22,7 @@ const selectState = async (page: Page): Promise<void> => {
 
 test.describe.configure({ mode: 'serial' });
 
-test.beforeAll(async ({ browser }) => {
-  context = await browser.newContext();
-  page = await context.newPage();
-  fillingInfo = new FillingInfo(page);
-  paperwork = new Paperwork(page);
-
-  page.on('response', async (response) => {
-    if (response.url().includes('/telemed-create-appointment/')) {
-      const { appointmentId } = await response.json();
-      if (appointmentId && !appointmentIds.includes(appointmentId)) {
-        appointmentIds.push(appointmentId);
-      }
-    }
-  });
-});
-
 test.afterAll(async () => {
-  await page.close();
-  await context.close();
   const env = process.env.ENV;
 
   for (const appointmentId of appointmentIds) {
@@ -57,221 +31,469 @@ test.afterAll(async () => {
   }
 });
 
-test('Should create new patient', async () => {
-  await page.goto('/home');
+test.describe('Start virtual visit with required information only', async () => {
+  test.describe.configure({ mode: 'serial' });
 
-  await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
+  let context: BrowserContext;
+  let page: Page;
+  let fillingInfo: FillingInfo;
+  let paperwork: Paperwork;
 
-  await page.getByRole('heading', { name: 'Different family member' }).click();
+  let patientInfo: Awaited<ReturnType<FillingInfo['fillNewPatientInfo']>> | undefined;
+  let dob: Awaited<ReturnType<FillingInfo['fillDOBless18']>> | undefined;
 
-  await clickContinue(page);
+  test.beforeAll(async ({ browser }) => {
+    context = await browser.newContext();
+    page = await context.newPage();
+    fillingInfo = new FillingInfo(page);
+    paperwork = new Paperwork(page);
 
-  await selectState(page);
-
-  await expect(page.getByText('About the patient')).toBeVisible();
-
-  await expect(page.getByPlaceholder('First name')).toBeVisible();
-
-  patientInfo = await fillingInfo.fillNewPatientInfo();
-
-  dob = await fillingInfo.fillDOBless18();
-
-  await page.getByRole('button', { name: 'Continue' }).click({ timeout: 30000 });
-
-  await paperwork.fillAndCheckContactInformation(patientInfo);
-
-  await clickContinue(page);
-});
-
-test('Should display new patient in patients list', async () => {
-  await page.goto('/select-patient');
-
-  const locator = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`).locator('..');
-
-  if (!dob?.randomMonth || !dob?.randomDay || !dob?.randomYear) {
-    throw Error('Date units are not provided');
-  }
-
-  await expect(locator.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`)).toBeVisible({
-    timeout: 10000,
+    page.on('response', async (response) => {
+      if (response.url().includes('/telemed-create-appointment/')) {
+        const { appointmentId } = await response.json();
+        if (appointmentId && !appointmentIds.includes(appointmentId)) {
+          appointmentIds.push(appointmentId);
+        }
+      }
+    });
   });
-  await expect(
-    locator.getByText(
-      `Birthday: ${fillingInfo.getStringDateByDateUnits(dob?.randomMonth, dob?.randomDay, dob?.randomYear)}`
-    )
-  ).toBeVisible();
+
+  test.afterAll(async () => {
+    await page.close();
+    await context.close();
+  });
+
+  test('Should create new patient', async () => {
+    await page.goto('/home');
+
+    await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
+
+    await page.getByRole('heading', { name: 'Different family member' }).click();
+
+    await clickContinue(page);
+
+    await selectState(page);
+
+    await expect(page.getByText('About the patient')).toBeVisible();
+
+    await expect(page.getByPlaceholder('First name')).toBeVisible();
+
+    patientInfo = await fillingInfo.fillNewPatientInfo();
+
+    dob = await fillingInfo.fillDOBless18();
+
+    await page.getByRole('button', { name: 'Continue' }).click({ timeout: 30000 });
+
+    await paperwork.fillAndCheckContactInformation(patientInfo);
+
+    await clickContinue(page);
+  });
+
+  test('Should display new patient in patients list', async () => {
+    await page.goto('/select-patient');
+
+    const locator = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`).locator('..');
+
+    if (!dob?.randomMonth || !dob?.randomDay || !dob?.randomYear) {
+      throw Error('Date units are not provided');
+    }
+
+    await expect(locator.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`)).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(
+      locator.getByText(
+        `Birthday: ${fillingInfo.getStringDateByDateUnits(dob?.randomMonth, dob?.randomDay, dob?.randomYear)}`
+      )
+    ).toBeVisible();
+  });
+
+  // TODO: Fix the test, it should not be dependent on some resources that are pre-created at some moment
+  // right now there is possible condition when another appointment is in the status that causes a "Return to call" button
+  // to appear which has higher priority than "Continue Virtual Visit Request" button
+  test.skip('Should display Continue visit and Cancel request buttons', async () => {
+    await page.goto('/home');
+
+    await expect(page.getByRole('button', { name: 'Continue Virtual Visit Request' })).toBeVisible({ timeout: 20000 });
+
+    const cancelButton = page.getByRole('button', { name: 'Cancel this request' });
+    await expect(cancelButton).toBeVisible();
+
+    await cancelButton.click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByText('Why are you canceling?')).toBeVisible();
+  });
+
+  test('Should display correct patient info', async () => {
+    await page.goto('/home');
+
+    await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
+
+    const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
+    await patientName.click();
+    await clickContinue(page);
+
+    await selectState(page);
+
+    await expect(page.getByText('About the patient')).toBeVisible({ timeout: 20000 });
+
+    if (!dob?.randomMonth || !dob?.randomDay || !dob?.randomYear) {
+      throw Error('Date units are not provided');
+    }
+
+    await expect(patientName).toBeVisible();
+    await expect(
+      page.getByText(
+        `Birthday: ${fillingInfo.getStringDateByDateUnits(
+          dob?.randomMonth,
+          dob?.randomDay,
+          dob?.randomYear,
+          'MMM dd, yyyy'
+        )}`
+      )
+    ).toBeVisible();
+    await expect(
+      page.getByText(`Birth sex: ${PersonSex[patientInfo?.birthSex as keyof typeof PersonSex]}`)
+    ).toBeVisible();
+    await expect(page.locator("input[type='text'][id='email']")).toHaveValue(patientInfo?.email || '');
+  });
+
+  test("Should fill in correct patient's DOB", async () => {
+    await clickContinue(page);
+
+    await expect(page.getByText(`Confirm ${patientInfo?.firstName}'s date of birth`)).toBeVisible();
+
+    if (!dob?.randomMonth || !dob?.randomDay || !dob?.randomYear) {
+      throw Error('Date units are not provided');
+    }
+
+    await fillingInfo.fillWrongDOB(dob?.randomMonth, dob?.randomDay, dob?.randomYear);
+    await clickContinue(page, false);
+
+    const errorText = await page
+      .getByText('Unfortunately, this patient record is not confirmed.') // modal, in that case try again option should be selected
+      .or(page.getByText('Date may not be in the future')) // validation error directly on the form
+      .textContent();
+
+    // close if it is modal
+    if (errorText?.includes('Unfortunately, this patient record is not confirmed')) {
+      await page.getByRole('button', { name: 'Try again' }).click();
+    }
+
+    await fillingInfo.fillCorrectDOB(dob?.randomMonth, dob?.randomDay, dob?.randomYear);
+    await clickContinue(page);
+
+    // todo use another way to get appointment id
+    // await getAppointmentIdFromCreateAppointmentRequest(page);
+
+    await expect(page.getByText('Contact information')).toBeVisible({ timeout: 30000 });
+  });
+
+  test('Should fill in contact information', async () => {
+    await paperwork.fillAndCheckContactInformation(patientInfo);
+  });
+
+  test('Should fill in patient details', async () => {
+    await clickContinue(page);
+
+    await paperwork.fillAndCheckPatientDetails();
+  });
+
+  test('Should fill in current medications as empty', async () => {
+    await clickContinue(page);
+    await clickContinue(page); // skip page with no required fields
+
+    await paperwork.fillAndCheckEmptyCurrentMedications();
+  });
+
+  test('Should fill in current allergies as empty', async () => {
+    await clickContinue(page);
+
+    await paperwork.fillAndCheckEmptyCurrentAllergies();
+  });
+
+  test('Should fill in medical history as empty', async () => {
+    await clickContinue(page);
+
+    await paperwork.fillAndCheckEmptyMedicalHistory();
+  });
+
+  test('Should fill in surgical history as empty', async () => {
+    await clickContinue(page);
+
+    await paperwork.fillAndCheckEmptySurgicalHistory();
+  });
+
+  test('Should fill in payment option as self-pay', async () => {
+    await clickContinue(page);
+    await clickContinue(page); // skip page with no required fields
+
+    await paperwork.fillAndCheckSelfPay();
+  });
+
+  test('Skip optional Photo ID', async () => {
+    await clickContinue(page);
+  });
+
+  test('Fill patient conditions', async () => {
+    await clickContinue(page);
+  });
+
+  test('Should fill school or work note as none', async () => {
+    await paperwork.fillAndCheckSchoolWorkNoteAsNone();
+  });
+
+  test('Should fill consent forms', async () => {
+    await clickContinue(page);
+
+    await paperwork.fillAndCheckConsentForms();
+  });
+
+  test('Should not invite anyone', async () => {
+    await clickContinue(page);
+
+    await paperwork.fillAndCheckNoInviteParticipant();
+  });
+
+  test('Should go to waiting room', async () => {
+    await clickContinue(page);
+    await page.getByRole('button', { name: 'Go to the Waiting Room' }).click();
+    await expect(page.getByText('Please wait, call will start automatically.')).toBeVisible({ timeout: 30000 });
+  });
 });
 
-// TODO: Fix the test, it should not be dependent on some resources that are pre-created at some moment
-// right now there is possible condition when another appointment is in the status that causes a "Return to call" button
-// to appear which has higher priority than "Continue Virtual Visit Request" button
-test.skip('Should display Continue visit and Cancel request buttons', async () => {
-  await page.goto('/home');
+test.describe('Start virtual visit with filling in paperwork', async () => {
+  test.describe.configure({ mode: 'serial' });
 
-  await expect(page.getByRole('button', { name: 'Continue Virtual Visit Request' })).toBeVisible({ timeout: 20000 });
+  let context: BrowserContext;
+  let page: Page;
+  let fillingInfo: FillingInfo;
+  let paperwork: Paperwork;
 
-  const cancelButton = page.getByRole('button', { name: 'Cancel this request' });
-  await expect(cancelButton).toBeVisible();
+  let patientInfo: Awaited<ReturnType<FillingInfo['fillNewPatientInfo']>> | undefined;
+  let dob: Awaited<ReturnType<FillingInfo['fillDOBless18']>> | undefined;
 
-  await cancelButton.click();
-  await expect(page.getByRole('dialog')).toBeVisible();
-  await expect(page.getByText('Why are you canceling?')).toBeVisible();
-});
+  test.beforeAll(async ({ browser }) => {
+    context = await browser.newContext();
+    page = await context.newPage();
+    fillingInfo = new FillingInfo(page);
+    paperwork = new Paperwork(page);
 
-test('Should display correct patient info', async () => {
-  await page.goto('/home');
+    page.on('response', async (response) => {
+      if (response.url().includes('/telemed-create-appointment/')) {
+        const { appointmentId } = await response.json();
+        if (appointmentId && !appointmentIds.includes(appointmentId)) {
+          appointmentIds.push(appointmentId);
+        }
+      }
+    });
+  });
 
-  await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
+  test.afterAll(async () => {
+    await page.close();
+    await context.close();
+  });
 
-  const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
-  await patientName.click();
-  await clickContinue(page);
+  test('Should create new patient', async () => {
+    await page.goto('/home');
 
-  await selectState(page);
+    await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
 
-  await expect(page.getByText('About the patient')).toBeVisible({ timeout: 20000 });
+    await page.getByRole('heading', { name: 'Different family member' }).click();
 
-  if (!dob?.randomMonth || !dob?.randomDay || !dob?.randomYear) {
-    throw Error('Date units are not provided');
-  }
+    await clickContinue(page);
 
-  await expect(patientName).toBeVisible();
-  await expect(
-    page.getByText(
-      `Birthday: ${fillingInfo.getStringDateByDateUnits(
-        dob?.randomMonth,
-        dob?.randomDay,
-        dob?.randomYear,
-        'MMM dd, yyyy'
-      )}`
-    )
-  ).toBeVisible();
-  await expect(
-    page.getByText(`Birth sex: ${PersonSex[patientInfo?.birthSex as keyof typeof PersonSex]}`)
-  ).toBeVisible();
-  await expect(page.locator("input[type='text'][id='email']")).toHaveValue(patientInfo?.email || '');
-});
+    await selectState(page);
 
-test("Should fill in correct patient's DOB", async () => {
-  await clickContinue(page);
+    await expect(page.getByText('About the patient')).toBeVisible();
 
-  await expect(page.getByText(`Confirm ${patientInfo?.firstName}'s date of birth`)).toBeVisible();
+    await expect(page.getByPlaceholder('First name')).toBeVisible();
 
-  if (!dob?.randomMonth || !dob?.randomDay || !dob?.randomYear) {
-    throw Error('Date units are not provided');
-  }
+    patientInfo = await fillingInfo.fillNewPatientInfo();
 
-  await fillingInfo.fillWrongDOB(dob?.randomMonth, dob?.randomDay, dob?.randomYear);
-  await clickContinue(page, false);
+    dob = await fillingInfo.fillDOBless18();
 
-  const errorText = await page
-    .getByText('Unfortunately, this patient record is not confirmed.') // modal, in that case try again option should be selected
-    .or(page.getByText('Date may not be in the future')) // validation error directly on the form
-    .textContent();
+    await page.getByRole('button', { name: 'Continue' }).click({ timeout: 30000 });
 
-  // close if it is modal
-  if (errorText?.includes('Unfortunately, this patient record is not confirmed')) {
-    await page.getByRole('button', { name: 'Try again' }).click();
-  }
+    await paperwork.fillAndCheckContactInformation(patientInfo);
 
-  await fillingInfo.fillCorrectDOB(dob?.randomMonth, dob?.randomDay, dob?.randomYear);
-  await clickContinue(page);
+    await clickContinue(page);
+  });
 
-  // todo use another way to get appointment id
-  // await getAppointmentIdFromCreateAppointmentRequest(page);
+  test('Should display new patient in patients list', async () => {
+    await page.goto('/select-patient');
 
-  await expect(page.getByText('Contact information')).toBeVisible({ timeout: 30000 });
-});
+    const locator = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`).locator('..');
 
-test('Should fill in contact information', async () => {
-  await paperwork.fillAndCheckContactInformation(patientInfo);
-});
+    if (!dob?.randomMonth || !dob?.randomDay || !dob?.randomYear) {
+      throw Error('Date units are not provided');
+    }
 
-test('Should fill in patient details', async () => {
-  await clickContinue(page);
+    await expect(locator.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`)).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(
+      locator.getByText(
+        `Birthday: ${fillingInfo.getStringDateByDateUnits(dob?.randomMonth, dob?.randomDay, dob?.randomYear)}`
+      )
+    ).toBeVisible();
+  });
 
-  await paperwork.fillAndCheckPatientDetails();
-});
+  test('Should display correct patient info', async () => {
+    await page.goto('/home');
 
-test('Should fill in current medications', async () => {
-  await clickContinue(page);
-  await clickContinue(page); // skip page with no required fields
+    await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
 
-  await paperwork.fillAndCheckFilledCurrentMedications();
-});
+    const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
+    await patientName.click();
+    await clickContinue(page);
 
-test('Should fill in current allergies', async () => {
-  await clickContinue(page);
+    await selectState(page);
 
-  await paperwork.fillAndCheckFilledCurrentAllergies();
-});
+    await expect(page.getByText('About the patient')).toBeVisible({ timeout: 20000 });
 
-test('Should fill in medical history', async () => {
-  await clickContinue(page);
+    if (!dob?.randomMonth || !dob?.randomDay || !dob?.randomYear) {
+      throw Error('Date units are not provided');
+    }
 
-  await paperwork.fillAndCheckFilledMedicalHistory();
-});
+    await expect(patientName).toBeVisible();
+    await expect(
+      page.getByText(
+        `Birthday: ${fillingInfo.getStringDateByDateUnits(
+          dob?.randomMonth,
+          dob?.randomDay,
+          dob?.randomYear,
+          'MMM dd, yyyy'
+        )}`
+      )
+    ).toBeVisible();
+    await expect(
+      page.getByText(`Birth sex: ${PersonSex[patientInfo?.birthSex as keyof typeof PersonSex]}`)
+    ).toBeVisible();
+    await expect(page.locator("input[type='text'][id='email']")).toHaveValue(patientInfo?.email || '');
+  });
 
-test('Should fill in surgical history', async () => {
-  await clickContinue(page);
+  test("Should fill in correct patient's DOB", async () => {
+    await clickContinue(page);
 
-  await paperwork.fillAndCheckFilledSurgicalHistory();
-});
+    await expect(page.getByText(`Confirm ${patientInfo?.firstName}'s date of birth`)).toBeVisible();
 
-test('Should fill in additional questions', async () => {
-  await clickContinue(page);
+    if (!dob?.randomMonth || !dob?.randomDay || !dob?.randomYear) {
+      throw Error('Date units are not provided');
+    }
 
-  await paperwork.fillAndCheckAdditionalQuestions();
-});
+    await fillingInfo.fillWrongDOB(dob?.randomMonth, dob?.randomDay, dob?.randomYear);
+    await clickContinue(page, false);
 
-test('Should fill in payment option as self-pay', async () => {
-  await clickContinue(page);
+    const errorText = await page
+      .getByText('Unfortunately, this patient record is not confirmed.') // modal, in that case try again option should be selected
+      .or(page.getByText('Date may not be in the future')) // validation error directly on the form
+      .textContent();
 
-  await paperwork.fillAndCheckSelfPay();
-});
+    // close if it is modal
+    if (errorText?.includes('Unfortunately, this patient record is not confirmed')) {
+      await page.getByRole('button', { name: 'Try again' }).click();
+    }
 
-test('Skip optional Photo ID', async () => {
-  await clickContinue(page);
-});
+    await fillingInfo.fillCorrectDOB(dob?.randomMonth, dob?.randomDay, dob?.randomYear);
+    await clickContinue(page);
 
-test('Fill patient conditions', async () => {
-  await clickContinue(page);
-});
+    // todo use another way to get appointment id
+    // await getAppointmentIdFromCreateAppointmentRequest(page);
 
-test('Should fill school or work note as none', async () => {
-  await paperwork.fillAndCheckSchoolWorkNoteAsNone();
-});
+    await expect(page.getByText('Contact information')).toBeVisible({ timeout: 30000 });
+  });
 
-test('Should fill consent forms', async () => {
-  await clickContinue(page);
+  test('Should fill in contact information', async () => {
+    await paperwork.fillAndCheckContactInformation(patientInfo);
+  });
 
-  await paperwork.fillAndCheckConsentForms();
-});
+  test('Should fill in patient details', async () => {
+    await clickContinue(page);
 
-test('Should not invite anyone', async () => {
-  await clickContinue(page);
+    await paperwork.fillAndCheckPatientDetails();
+  });
 
-  await paperwork.fillAndCheckNoInviteParticipant();
-});
+  test('Should fill in current medications', async () => {
+    await clickContinue(page);
+    await clickContinue(page); // skip page with no required fields
 
-test('Should go to waiting room', async () => {
-  await clickContinue(page);
-  await page.getByRole('button', { name: 'Go to the Waiting Room' }).click();
-  await expect(page.getByText('Please wait, call will start automatically.')).toBeVisible({ timeout: 30000 });
-});
+    await paperwork.fillAndCheckFilledCurrentMedications();
+  });
 
-test('Should check photo upload feature', async () => {
-  const uploadPhotoButton = page.getByText('Upload photo');
-  await expect(uploadPhotoButton).toBeVisible();
-  await expect(page.getByText('No photo uploaded')).toBeVisible();
-  await uploadPhotoButton.click();
-  await expect(page.getByText('Patient condition photo')).toBeVisible();
+  test('Should fill in current allergies', async () => {
+    await clickContinue(page);
 
-  const uploadPhoto = new UploadImage(page);
-  await uploadPhoto.fillPatientCondition();
-  await page.getByText('Save').click();
+    await paperwork.fillAndCheckFilledCurrentAllergies();
+  });
 
-  await expect(page.getByText('Photo attached')).toBeVisible();
-  await uploadPhotoButton.click();
-  await expect(page.getByText('We already have this! It was saved on')).toBeVisible();
+  test('Should fill in medical history', async () => {
+    await clickContinue(page);
+
+    await paperwork.fillAndCheckFilledMedicalHistory();
+  });
+
+  test('Should fill in surgical history', async () => {
+    await clickContinue(page);
+
+    await paperwork.fillAndCheckFilledSurgicalHistory();
+  });
+
+  test('Should fill in additional questions', async () => {
+    await clickContinue(page);
+
+    await paperwork.fillAndCheckAdditionalQuestions();
+  });
+
+  test('Should fill in payment option as self-pay', async () => {
+    await clickContinue(page);
+
+    await paperwork.fillAndCheckSelfPay();
+  });
+
+  test('Skip optional Photo ID', async () => {
+    await clickContinue(page);
+  });
+
+  test('Fill patient conditions', async () => {
+    await clickContinue(page);
+  });
+
+  test('Should fill school or work note as none', async () => {
+    await paperwork.fillAndCheckSchoolWorkNoteAsNone();
+  });
+
+  test('Should fill consent forms', async () => {
+    await clickContinue(page);
+
+    await paperwork.fillAndCheckConsentForms();
+  });
+
+  test('Should not invite anyone', async () => {
+    await clickContinue(page);
+
+    await paperwork.fillAndCheckNoInviteParticipant();
+  });
+
+  test('Should go to waiting room', async () => {
+    await clickContinue(page);
+    await page.getByRole('button', { name: 'Go to the Waiting Room' }).click();
+    await expect(page.getByText('Please wait, call will start automatically.')).toBeVisible({ timeout: 30000 });
+  });
+
+  test('Should check photo upload feature', async () => {
+    const uploadPhotoButton = page.getByText('Upload photo');
+    await expect(uploadPhotoButton).toBeVisible();
+    await expect(page.getByText('No photo uploaded')).toBeVisible();
+    await uploadPhotoButton.click();
+    await expect(page.getByText('Patient condition photo')).toBeVisible();
+
+    const uploadPhoto = new UploadImage(page);
+    await uploadPhoto.fillPatientCondition();
+    await page.getByText('Save').click();
+
+    await expect(page.getByText('Photo attached')).toBeVisible();
+    await uploadPhotoButton.click();
+    await expect(page.getByText('We already have this! It was saved on')).toBeVisible();
+  });
 });

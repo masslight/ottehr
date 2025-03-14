@@ -1,10 +1,9 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
-import { Appointment, Attachment, Extension, Resource } from 'fhir/r4b';
+import { Appointment, Extension, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { OTTEHR_MODULE } from '../fhir';
-import { GetPresignedFileURLInput, PatchPaperworkParameters, PresignUploadUrlResponse } from '../types';
+import { PatchPaperworkParameters } from '../types';
 import { zipRegex } from '../validation';
-import { addContentTypeToAttachement } from './paperwork';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -608,66 +607,5 @@ export function getInviteParticipantStepAnswers(): PatchPaperworkParameters['ans
     item: [
       { linkId: 'invite-from-another-device', answer: [{ valueString: 'No, only one device will be connected' }] },
     ],
-  };
-}
-
-export async function getPatientConditionPhotosStepAnswers({
-  intakeZambdaUrl,
-  authToken,
-  projectId,
-  appointmentId,
-  filePromise,
-}: {
-  intakeZambdaUrl: string;
-  authToken: string;
-  projectId: string;
-  appointmentId: string;
-  filePromise: Promise<File>;
-}): Promise<PatchPaperworkParameters['answers']> {
-  const file = await filePromise;
-
-  const presignedFileUrlResponse = await fetch(`${intakeZambdaUrl}/zambda/get-presigned-file-url/execute-public`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${authToken}`,
-      'x-zapehr-project-id': projectId,
-    },
-    body: JSON.stringify(<GetPresignedFileURLInput>{
-      appointmentID: appointmentId,
-      fileType: 'patient-photos' as GetPresignedFileURLInput['fileType'],
-      fileFormat: file.type.split('/')[1] as GetPresignedFileURLInput['fileFormat'],
-    }),
-  });
-  if (!presignedFileUrlResponse.ok) {
-    throw new Error(
-      `Error getting presigned file URL: ${presignedFileUrlResponse}, body: ${JSON.stringify(
-        await presignedFileUrlResponse.json()
-      )}`
-    );
-  }
-
-  const presignedFileUrlBody = (await presignedFileUrlResponse.json()) as PresignUploadUrlResponse;
-  const uploadResponse = await fetch(presignedFileUrlBody.presignedURL, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': file.type,
-    },
-    body: file,
-  });
-
-  if (!uploadResponse.ok) {
-    throw new Error('Failed to upload file');
-  }
-
-  const attachment: Attachment = {
-    url: presignedFileUrlBody.z3URL,
-    title: 'patient-photos',
-    creation: DateTime.now().toISO(),
-  };
-
-  return {
-    linkId: 'patient-condition-page',
-    item: [{ linkId: 'patient-photos', answer: [{ valueAttachment: addContentTypeToAttachement(attachment) }] }],
   };
 }

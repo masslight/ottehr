@@ -9,9 +9,58 @@ import {
 import { PATIENT_STATE, ResourceHandler } from '../../e2e-utils/resource-handler';
 import { TelemedFlowResourceHandler } from '../../e2e-utils/resource-handlers/telemed-flow-rh';
 import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../e2e-utils/helpers/tests-utils';
+import {
+  getAdditionalQuestionsAnswers,
+  getAllergiesStepAnswers,
+  getConsentStepAnswers,
+  getContactInformationAnswers,
+  getInviteParticipantStepAnswers,
+  getMedicalConditionsStepAnswers,
+  getMedicationsStepAnswers,
+  getPatientDetailsStepAnswers,
+  getPaymentOptionSelfPayAnswers,
+  getResponsiblePartyStepAnswers,
+  getSchoolWorkNoteStepAnswers,
+  getSurgicalHistoryStepAnswers,
+  isoToDateObject,
+} from 'utils';
+import { getPatientConditionPhotosStepAnswers } from 'test-utils';
 
 // We may create new instances for the tests with mutable operations, and keep parralel tests isolated
-const resourceHandler = new ResourceHandler('telemed');
+const resourceHandler = new ResourceHandler(
+  'telemed',
+  async ({ patientInfo, appointmentId, authToken, intakeZambdaUrl, projectId }) => {
+    const patientConditionPhotosStepAnswers = await getPatientConditionPhotosStepAnswers({
+      appointmentId,
+      authToken,
+      intakeZambdaUrl,
+      projectId,
+      fileName: 'Landscape_1.jpg',
+    });
+    return [
+      getContactInformationAnswers({
+        firstName: patientInfo.patient.firstName,
+        lastName: patientInfo.patient.lastName,
+        birthDate: isoToDateObject(patientInfo.patient.dateOfBirth || '') || undefined,
+        email: patientInfo.patient.email,
+        phoneNumber: patientInfo.patient.phoneNumber,
+        birthSex: patientInfo.patient.sex,
+      }),
+      getPatientDetailsStepAnswers({}),
+      getMedicationsStepAnswers(),
+      getAllergiesStepAnswers(),
+      getMedicalConditionsStepAnswers(),
+      getSurgicalHistoryStepAnswers(),
+      getAdditionalQuestionsAnswers(),
+      getPaymentOptionSelfPayAnswers(),
+      getResponsiblePartyStepAnswers({}),
+      getSchoolWorkNoteStepAnswers(),
+      getConsentStepAnswers({}),
+      getInviteParticipantStepAnswers(),
+      patientConditionPhotosStepAnswers,
+    ];
+  }
+);
 
 const DEFAULT_TIMEOUT = { timeout: 15000 };
 

@@ -1,13 +1,16 @@
 import { Page, expect } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { clickContinue } from '../utils';
+import { Locators } from '../locators';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 export class FillingInfo {
   page: Page;
+  locators: Locators;
 
   constructor(page: Page) {
     this.page = page;
+    this.locators = new Locators(page);
   }
   // Helper method to get a random element from an array
   private getRandomElement(arr: string[]) {
@@ -286,13 +289,12 @@ export class FillingInfo {
   }
 
   async fillCurrentMedications() {
-    const optionValue = 'Patient takes medication currently';
     const filledValue = 'some medication';
     const selectedValue = 'Albuterol';
 
-    await this.page.locator(`input[value='${optionValue}']`).click();
+    await this.locators.currentMedicationsPresent.click();
     await clickContinue(this.page, false);
-    await expect(this.page.getByText('Please fix the error in the field above to proceed')).toBeVisible();
+    await expect(this.locators.paperworkErrorInFieldAboveMessage).toBeVisible();
 
     const input = this.page.getByPlaceholder('Type or select all that apply');
     await input.click();
@@ -302,17 +304,16 @@ export class FillingInfo {
     await input.click();
     await this.page.getByRole('option', { name: selectedValue }).click();
 
-    return { optionValue, filledValue, selectedValue };
+    return { filledValue, selectedValue };
   }
 
   async fillCurrentAllergies() {
-    const optionValue = 'Patient has known current allergies';
     const filledValue = 'other allergy';
     const selectedValue = 'Aspirin';
 
-    await this.page.locator(`input[value='${optionValue}']`).click();
+    await this.locators.knownAllergiesPresent.click();
     await clickContinue(this.page, false);
-    await expect(this.page.getByText('Please fix the error in the field above to proceed')).toBeVisible();
+    await expect(this.locators.paperworkErrorInFieldAboveMessage).toBeVisible();
 
     await this.page.locator(`input[value='Other']`).click();
     const input = this.page.getByPlaceholder('Type or select all that apply');
@@ -324,17 +325,16 @@ export class FillingInfo {
     await input.click();
     await this.page.getByRole('option', { name: selectedValue }).click();
 
-    return { optionValue, filledValue: `${filledValue} | Other`, selectedValue: `${selectedValue} | Medication` };
+    return { filledValue: `${filledValue} | Other`, selectedValue: `${selectedValue} | Medication` };
   }
 
   async fillMedicalHistory() {
-    const optionValue = 'Patient has current medical conditions';
     const filledValue = 'some history';
     const selectedValue = 'Anemia';
 
-    await this.page.locator(`input[value='${optionValue}']`).click();
+    await this.locators.medicalConditionsPresent.click();
     await clickContinue(this.page, false);
-    await expect(this.page.getByText('Please fix the error in the field above to proceed')).toBeVisible();
+    await expect(this.locators.paperworkErrorInFieldAboveMessage).toBeVisible();
 
     const input = this.page.getByPlaceholder('Type or select all that apply');
     await input.click();
@@ -344,17 +344,16 @@ export class FillingInfo {
     await input.click();
     await this.page.getByRole('option', { name: selectedValue }).click();
 
-    return { optionValue, filledValue, selectedValue };
+    return { filledValue, selectedValue };
   }
 
   async fillSurgicalHistory() {
-    const optionValue = 'Patient has surgical history';
     const filledValue = 'some history';
     const selectedValue = 'Appendectomy';
 
-    await this.page.locator(`input[value='${optionValue}']`).click();
+    await this.locators.surgicalHistoryPresent.click();
     await clickContinue(this.page, false);
-    await expect(this.page.getByText('Please fix the error in the field above to proceed')).toBeVisible();
+    await expect(this.locators.paperworkErrorInFieldAboveMessage).toBeVisible();
 
     const input = this.page.getByPlaceholder('Type or select all that apply');
     await input.click();
@@ -364,7 +363,7 @@ export class FillingInfo {
     await input.click();
     await this.page.getByRole('option', { name: selectedValue }).click();
 
-    return { optionValue, filledValue, selectedValue };
+    return { filledValue, selectedValue };
   }
 
   async fillAdditionalQuestions() {
@@ -372,9 +371,9 @@ export class FillingInfo {
     const test = 'No';
     const travel = 'Yes';
 
-    await this.page.locator(`div[aria-labelledby='covid-symptoms-label'] input[value='${covid}']`).click();
-    await this.page.locator(`div[aria-labelledby='tested-positive-covid-label'] input[value='${test}']`).click();
-    await this.page.locator(`div[aria-labelledby='travel-usa-label'] input[value='${travel}']`).click();
+    await this.locators.covidSymptoms(covid).click();
+    await this.locators.testedPositiveCovid(test).click();
+    await this.locators.travelUSA(travel).click();
 
     return { covid, test, travel };
   }

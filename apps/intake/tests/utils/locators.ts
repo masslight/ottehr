@@ -1,6 +1,18 @@
 import { Locator, Page } from '@playwright/test';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 
+export const CURRENT_MEDICATIONS_PRESENT_LABEL = 'Patient takes medication currently';
+export const CURRENT_MEDICATIONS_ABSENT_LABEL = 'Patient does not take any medications currently';
+
+export const KNOWN_ALLERGIES_PRESENT_LABEL = 'Patient has known current allergies';
+export const KNOWN_ALLERGIES_ABSENT_LABEL = 'Patient has no known current allergies';
+
+export const MEDICAL_CONDITIONS_PRESENT_LABEL = 'Patient has current medical conditions';
+export const MEDICAL_CONDITIONS_ABSENT_LABEL = 'Patient has no current medical conditions';
+
+export const SURGICAL_HISTORY_PRESENT_LABEL = 'Patient has surgical history';
+export const SURGICAL_HISTORY_ABSENT_LABEL = 'Patient has no surgical history';
+
 export class Locators {
   page: Page;
   scheduleInPersonVisitButton: Locator;
@@ -79,11 +91,24 @@ export class Locators {
   responsiblePartyCalendarArrowRight: Locator;
   responsiblePartyCalendarArrowDown: Locator;
   responsiblePartyCalendarDay: Locator;
+  paperworkSelectOptionFieldErrorMessage: Locator;
+  paperworkErrorInFieldAboveMessage: Locator;
+  currentMedicationsPresent: Locator;
+  currentMedicationsAbsent: Locator;
+  knownAllergiesPresent: Locator;
+  knownAllergiesAbsent: Locator;
+  medicalConditionsPresent: Locator;
+  medicalConditionsAbsent: Locator;
+  surgicalHistoryPresent: Locator;
+  surgicalHistoryAbsent: Locator;
+  covidSymptoms: (flag: string) => Locator;
+  testedPositiveCovid: (flag: string) => Locator;
+  travelUSA: (flag: string) => Locator;
 
   constructor(page: Page) {
     this.page = page;
     this.scheduleInPersonVisitButton = page.getByTestId(dataTestIds.scheduleInPersonVisitButton);
-    this.startInPersonVisitButton = page.getByTestId(dataTestIds.startInPersonVisitButton);   
+    this.startInPersonVisitButton = page.getByTestId(dataTestIds.startInPersonVisitButton);
     this.differentFamilyMember = page.getByTestId(dataTestIds.differentFamilyMember);
     this.continueButton = page.getByTestId(dataTestIds.continueButton);
     if (this.continueButton == null) {
@@ -116,17 +141,17 @@ export class Locators {
     this.confirmWalkInButton = page.getByRole('button', { name: 'Confirm this walk-in time' });
 
     // Modify locators
-    this.editPencilReviewScreen = page.getByTestId('EditOutlinedIcon'); 
+    this.editPencilReviewScreen = page.getByTestId('EditOutlinedIcon');
     this.modifyTimeThankYouScreen = page.getByRole('button', { name: 'Modify' });
     this.submitModifyTime = page.getByRole('button', { name: 'Modify', exact: false });
 
     //Cancel visit locators
     this.cancelVisitThankYouScreen = page.getByRole('button', { name: 'Cancel' });
-    this.cancelScreenHeading = page.getByText('Why are you canceling?');   
+    this.cancelScreenHeading = page.getByText('Why are you canceling?');
     this.cancellationReasonField = page.locator('#cancellationReason');
     this.cancelVisitButton = page.getByRole('button', { name: 'Cancel visit' });
     this.cancelConfirmationScreenHeading = page.getByRole('heading', { name: 'Your visit has been canceled' });
-    
+
     // Contact information locators
     this.streetAddress = page.locator('[id="patient-street-address"]');
     this.streetAddressLine2 = page.locator('[id="patient-street-address-2"]');
@@ -157,9 +182,9 @@ export class Locators {
     this.responsiblePartyNumber = page.locator('[id="responsible-party-number"]');
     this.responsiblePartyDOBAnswer = page.locator('[name="responsible-party-date-of-birth.answer.0.valueString"]');
     this.responsiblePartyCalendarCurrentDay = page.locator('button[aria-current="date"]');
-    this.responsiblePartyCalendarButtonOK = page.locator('button:has-text(\"OK\")');
+    this.responsiblePartyCalendarButtonOK = page.locator('button:has-text("OK")');
     this.responsiblePartyCalendarArrowRight = page.getByTestId('ArrowRightIcon');
-    this.responsiblePartyCalendarArrowDown = page.locator('[role="presentation"] [data-testid="ArrowDropDownIcon"]')
+    this.responsiblePartyCalendarArrowDown = page.locator('[role="presentation"] [data-testid="ArrowDropDownIcon"]');
     this.responsiblePartyCalendarDay = page.locator('div[aria-rowindex="2"] button[aria-colindex="1"]').nth(0);
 
     //Consent forms locators
@@ -181,6 +206,38 @@ export class Locators {
     this.clearImage = page.getByRole('button', { name: 'Clear' });
     this.photoIdFrontImage = page.locator('#photo-id-front-description');
     this.photoIdBackImage = page.locator('#photo-id-back-description');
+
+    // Paperwork errors locators
+    this.paperworkSelectOptionFieldErrorMessage = page.getByText(
+      'Please fix the error in the "Select option" field to proceed'
+    );
+    this.paperworkErrorInFieldAboveMessage = page.getByText('Please fix the error in the field above to proceed');
+
+    // Current medications locators
+    this.currentMedicationsPresent = this.getInputByValue(CURRENT_MEDICATIONS_PRESENT_LABEL);
+    this.currentMedicationsAbsent = this.getInputByValue(CURRENT_MEDICATIONS_ABSENT_LABEL);
+
+    // Known allergies locators
+    this.knownAllergiesPresent = this.getInputByValue(KNOWN_ALLERGIES_PRESENT_LABEL);
+    this.knownAllergiesAbsent = this.getInputByValue(KNOWN_ALLERGIES_ABSENT_LABEL);
+
+    // Medical conditions locators
+    this.medicalConditionsPresent = this.getInputByValue(MEDICAL_CONDITIONS_PRESENT_LABEL);
+    this.medicalConditionsAbsent = this.getInputByValue(MEDICAL_CONDITIONS_ABSENT_LABEL);
+
+    // Surgical history locators
+    this.surgicalHistoryPresent = this.getInputByValue(SURGICAL_HISTORY_PRESENT_LABEL);
+    this.surgicalHistoryAbsent = this.getInputByValue(SURGICAL_HISTORY_ABSENT_LABEL);
+
+    // Additional questions locators
+    this.covidSymptoms = (flag) => page.locator(`div[aria-labelledby='covid-symptoms-label'] input[value='${flag}']`);
+    this.testedPositiveCovid = (flag) =>
+      page.locator(`div[aria-labelledby='tested-positive-covid-label'] input[value='${flag}']`);
+    this.travelUSA = (flag) => page.locator(`div[aria-labelledby='travel-usa-label'] input[value='${flag}']`);
+  }
+
+  private getInputByValue(value: string): Locator {
+    return this.page.locator(`input[value='${value}']`);
   }
 
   async selectDifferentFamilyMember(): Promise<void> {
@@ -196,4 +253,3 @@ export class Locators {
     await this.reserveButton.click();
   }
 }
-
