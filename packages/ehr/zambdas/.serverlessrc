@@ -5,6 +5,9 @@
   "enterpriseDisabled": false,
   "meta": {
     "created_at": 1738340587,
-    "updated_at": 1738340587
+    "updated_at": 1741962480
+  },
+  "shownNotificationsHistory": {
+    "GENERIC_CONSOLE_MSG_2": 1741962480390
   }
 }
