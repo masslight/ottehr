@@ -66,11 +66,9 @@ jobs:
         run: |
           if [[ "${{ github.event.inputs.service }}" == "ehr" ]]; then
             echo "PACKAGE_LOCATION=apps/ehr" >> $GITHUB_ENV
-            echo "ZAMBDAS_LOCATION=packages/ehr/zambdas" >> $GITHUB_ENV
             echo "SLACK_NOTIFICATION_SERVICE_NAME=ehr" >> $GITHUB_ENV
           elif [[ "${{ github.event.inputs.service }}" == "intake" ]]; then
             echo "PACKAGE_LOCATION=apps/intake" >> $GITHUB_ENV
-            echo "ZAMBDAS_LOCATION=packages/intake/zambdas" >> $GITHUB_ENV
             echo "SLACK_NOTIFICATION_SERVICE_NAME=intake-ui" >> $GITHUB_ENV
           fi
 
@@ -103,7 +101,7 @@ jobs:
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
         run: |
           cd ${{ github.workspace }}/${{ env.PACKAGE_LOCATION }} && npm version ${{ github.event.inputs.versionType }} --no-git-tag-version
-          cd ${{ github.workspace }}/${{ env.ZAMBDAS_LOCATION }} && npm version ${{ github.event.inputs.versionType }} --no-git-tag-version
+          cd ${{ github.workspace }}/packages/zambdas && npm version ${{ github.event.inputs.versionType }} --no-git-tag-version
       
       - name: Get Version Number from package.json
         id: package-version
@@ -138,7 +136,7 @@ jobs:
           path: 'secrets'
 
       - name: Move zambda secrets file into service zambdas dir.
-        run: mkdir -p ${{ env.ZAMBDAS_LOCATION }}/.env; cp secrets/zambdas/* ${{ env.ZAMBDAS_LOCATION }}/.env
+        run: mkdir -p packages/zambdas/.env; cp secrets/zambdas/* packages/zambdas/.env
 
       - name: Move app secrets file into service app dir.
         run: mkdir -p ${{ env.PACKAGE_LOCATION }}/env; cp secrets/${{ github.event.inputs.service }}/app/.env.${{ github.event.inputs.environment }} ${{ env.PACKAGE_LOCATION }}/env
@@ -161,27 +159,27 @@ jobs:
         run: cd ${{ env.PACKAGE_LOCATION }} && npm run ci-deploy:${{ env.ENVIRONMENT }}
 
       - name: Deploy zambdas
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && ENV=${{ env.ENVIRONMENT }} npm run deploy-zambdas ${{ env.ENVIRONMENT }}
+        run: cd packages/zambdas && ENV=${{ env.ENVIRONMENT }} npm run deploy-zambdas ${{ env.ENVIRONMENT }}
 
       - name: Update user roles
         if: ${{ github.event.inputs.service == 'ehr' }}
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run update-user-roles ${{ env.ENVIRONMENT }}
+        run: cd packages/zambdas && npm run update-user-roles ${{ env.ENVIRONMENT }}
 
       - name: Ensure insurance plans and payer orgs created from CSV
         if: ${{ github.event.inputs.service == 'ehr' }}
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run update-insurances-and-payer-orgs ${{ env.ENVIRONMENT }}
+        run: cd packages/zambdas && npm run update-insurances-and-payer-orgs ${{ env.ENVIRONMENT }}
 
       - name: Setup secrets in Oystehr console
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run setup-zapehr-secrets ${{ env.ENVIRONMENT }}
+        run: cd packages/zambdas && npm run setup-zapehr-secrets ${{ env.ENVIRONMENT }}
 
       - name: Ensure deployed resources are in place
         env:
           ENV:  ${{ env.ENVIRONMENT }}
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run setup-deployed-resources
+        run: cd packages/zambdas && npm run setup-deployed-resources
 
       - name: Create/update in-house medication resources
         if: ${{ github.event.inputs.service == 'ehr' }}
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run create-update-in-house-medications-list --env=${{ env.ENVIRONMENT }}
+        run: cd packages/zambdas && npm run create-update-in-house-medications-list --env=${{ env.ENVIRONMENT }}
 
       - name: Notify Slack
         if: always()
