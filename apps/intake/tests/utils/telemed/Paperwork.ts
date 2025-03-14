@@ -1,4 +1,5 @@
 import { Page, expect } from '@playwright/test';
+import { waitForResponseWithData } from 'test-utils/lib/e2e/response-utils';
 import { FillingInfo } from './FillingInfo';
 import { UIDesign } from './UIdesign';
 
@@ -26,9 +27,7 @@ export class Paperwork {
   }
 
   private async getPaymentMethodFromConfirmCardRequest() {
-    const response = await this.page.waitForResponse(
-      (response) => response.url().includes('api.stripe.com/v1/setup_intents') && response.status() === 200
-    );
+    const response = await waitForResponseWithData(this.page, 'api.stripe.com/v1/setup_intents');
     return (await response.json())?.payment_method;
   }
 

@@ -1,9 +1,9 @@
-import { ResourceHandler } from '../../e2e-utils/resource-handler';
 import { expect, Page, test } from '@playwright/test';
-import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../e2e-utils/helpers/tests-utils';
-import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { TelemedAppointmentStatusEnum } from '../../e2e-utils/temp-imports-from-utils';
-import { AppointmentVisitTabs, ApptTelemedTab } from 'utils';
+import { ApptTelemedTab, TelemedAppointmentVisitTabs } from 'utils';
+import { dataTestIds } from '../../../../src/constants/data-test-ids';
+import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../../e2e-utils/helpers/tests-utils';
+import { ResourceHandler } from '../../../e2e-utils/resource-handler';
+import { TelemedAppointmentStatusEnum } from '../../../e2e-utils/temp-imports-from-utils';
 
 const resourceHandler = new ResourceHandler('telemed');
 let page: Page;
@@ -68,7 +68,9 @@ test('Visit should be in "unsigned" tab on the tracking board', async () => {
 
 test('Should fill all required fields', async () => {
   await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
-  await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(AppointmentVisitTabs.erx)).click();
+  await page
+    .getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.assessment))
+    .click();
 
   const diagnosisAutocomplete = page.getByTestId(dataTestIds.telemedEhrFlow.diagnosisAutocomplete);
   await expect(diagnosisAutocomplete).toBeVisible();
@@ -81,7 +83,7 @@ test('Should fill all required fields', async () => {
   await page.keyboard.press('Enter');
   await expect(diagnosisAutocomplete.locator('input')).toBeEnabled();
 
-  const emAutocomplete = page.getByTestId(dataTestIds.telemedEhrFlow.emCodeAutocomplete);
+  const emAutocomplete = page.getByTestId(dataTestIds.assessmentPage.emCodeDropdown);
   await expect(emAutocomplete).toBeVisible();
   await emAutocomplete.click();
   await emAutocomplete.locator('input').fill('1');
@@ -91,7 +93,7 @@ test('Should fill all required fields', async () => {
   await page.keyboard.press('Enter');
   await expect(emAutocomplete.locator('input')).toBeEnabled();
 
-  await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(AppointmentVisitTabs.sign)).click();
+  await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
   await page.waitForTimeout(5000);
   const patientInfoConfirmationCheckbox = page.getByTestId(dataTestIds.telemedEhrFlow.patientInfoConfirmationCheckbox);
   const confirmationChecked = await patientInfoConfirmationCheckbox.isChecked();

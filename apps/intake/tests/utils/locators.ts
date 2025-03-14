@@ -87,7 +87,6 @@ export class Locators {
   constructor(page: Page) {
     this.page = page;
     this.scheduleInPersonVisitButton = page.getByTestId(dataTestIds.scheduleInPersonVisitButton);
-    this.scheduleVirtualVisitButton = page.getByTestId(dataTestIds.scheduleVirtualVisitButton);
     this.startInPersonVisitButton = page.getByTestId(dataTestIds.startInPersonVisitButton);
     this.differentFamilyMember = page.getByTestId(dataTestIds.differentFamilyMember);
     this.continueButton = page.getByTestId(dataTestIds.continueButton);
@@ -125,7 +124,6 @@ export class Locators {
     this.confirmWalkInButton = page.getByRole('button', { name: 'Confirm this walk-in time' });
 
     // Modify locators
-    this.firstAvailableTimeButton = page.getByRole('button', { name: 'First available time' });
     this.editPencilReviewScreen = page.getByTestId('EditOutlinedIcon');
     this.modifyTimeThankYouScreen = page.getByRole('button', { name: 'Modify' });
     this.submitModifyTime = page.getByRole('button', { name: 'Modify', exact: false });

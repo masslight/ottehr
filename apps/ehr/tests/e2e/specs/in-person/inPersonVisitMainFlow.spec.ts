@@ -1,10 +1,10 @@
 import { Page, test } from '@playwright/test';
-import { ResourceHandler } from '../../e2e-utils/resource-handler';
-import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
-import { openVisitsPage } from '../page/VisitsPage';
-import { expectPatientInfoPage, PatientInfoPage } from '../page/PatientInfo';
-import { expectProgressNotePage } from '../page/ProgressNotePage';
-import { expectAssessmentPage } from '../page/AssessmentPage';
+import { ResourceHandler } from '../../../e2e-utils/resource-handler';
+import { ENV_LOCATION_NAME } from '../../../e2e-utils/resource/constants';
+import { expectAssessmentPage } from '../../page/AssessmentPage';
+import { expectPatientInfoPage, PatientInfoPage } from '../../page/PatientInfo';
+import { expectProgressNotePage } from '../../page/ProgressNotePage';
+import { openVisitsPage } from '../../page/VisitsPage';
 
 const DIAGNOSIS = 'Situs inversus';
 const EM_CODE = '99201 New Patient - E/M Level 1';

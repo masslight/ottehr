@@ -1,10 +1,10 @@
-import { BrowserContext, test, Page, expect } from '@playwright/test';
+import { BrowserContext, Page, expect, test } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
-import { Locators } from '../../utils/locators';
+import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
+import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
 import { UploadImage } from '../../utils/UploadImage';
-import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 
 let page: Page;
 let context: BrowserContext;
@@ -140,7 +140,7 @@ test.describe('Responsible party information - check and fill all fields', () =>
   });
   test('PRPI-2 Check required fields', async () => {
     await paperwork.checkRequiredFields(
-      '"Relationship to the patient","First name","Last name","Date of birth"',
+      '"Relationship to the patient","First name","Last name","Date of birth","Birth sex"',
       'Responsible party information'
     );
   });
@@ -167,6 +167,7 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await paperwork.fillResponsiblePartyNotSelfRelationship();
     await expect(locator.responsiblePartyFirstName).toHaveValue('');
     await expect(locator.responsiblePartyLastName).toHaveValue('');
+    await expect(locator.responsiblePartyBirthSex).toHaveValue('');
     await expect(locator.responsiblePartyDOBAnswer).toHaveValue('');
   });
   test('PRPI-7 Select dob less than 18 years - check validation error', async () => {

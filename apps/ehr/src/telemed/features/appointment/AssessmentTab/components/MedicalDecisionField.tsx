@@ -1,13 +1,11 @@
-import React, { FC, useEffect } from 'react';
 import { TextField } from '@mui/material';
+import { FC, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { useDebounceNotesField } from '../../../../hooks';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../state';
+import { MDM_FIELD_DEFAULT_TEXT } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
-
-const DEFAULT_TEXT =
-  'Reviewed diagnosis, expected course, treatment plan, and reasons to seek urgent and/or emergent care.  Discharge instructions reviewed.  Caregiver expressed understanding.  All questions were answered, and caregiver is comfortable with discharge plan.';
+import { getSelectors } from '../../../../../shared/store/getSelectors';
+import { useDebounceNotesField } from '../../../../hooks';
+import { useAppointmentStore } from '../../../../state';
 
 type MedicalDecisionFieldProps = {
   loading: boolean;
@@ -18,7 +16,7 @@ export const MedicalDecisionField: FC<MedicalDecisionFieldProps> = ({ loading, s
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
   const methods = useForm({
     defaultValues: {
-      medicalDecision: chartData?.medicalDecision?.text || DEFAULT_TEXT,
+      medicalDecision: chartData?.medicalDecision?.text || MDM_FIELD_DEFAULT_TEXT,
     },
   });
   const { control } = methods;
@@ -27,7 +25,7 @@ export const MedicalDecisionField: FC<MedicalDecisionFieldProps> = ({ loading, s
 
   useEffect(() => {
     if (!loading && !chartData?.medicalDecision) {
-      onValueChange(DEFAULT_TEXT);
+      onValueChange(MDM_FIELD_DEFAULT_TEXT);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading]);

@@ -1,4 +1,7 @@
 import { Page, test } from '@playwright/test';
+import { unpackFhirResponse } from 'utils';
+import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment';
+import { waitForResponseWithData } from 'test-utils/lib/e2e/response-utils';
 import {
   PATIENT_BIRTH_DATE_LONG,
   PATIENT_BIRTH_DATE_SHORT,
@@ -12,8 +15,6 @@ import {
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import { expectAddPatientPage } from '../page/AddPatientPage';
 import { expectVisitsPage } from '../page/VisitsPage';
-import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment';
-import { unpackFhirResponse } from 'utils';
 
 const PATIENT_PREFILL_NAME = PATIENT_FIRST_NAME + ' ' + PATIENT_LAST_NAME;
 const PATIENT_INPUT_BIRTHDAY = PATIENT_BIRTH_DATE_SHORT;
@@ -245,7 +246,7 @@ async function createAppointment(
     slotTime = await addPatientPage.selectFirstAvailableSlot();
   }
 
-  const appointmentCreationResponse = page.waitForResponse(/\/create-appointment\//);
+  const appointmentCreationResponse = await waitForResponseWithData(page, /\/create-appointment\//);
   await addPatientPage.clickAddButton();
   const response = await unpackFhirResponse<CreateAppointmentResponse>(await appointmentCreationResponse);
 
