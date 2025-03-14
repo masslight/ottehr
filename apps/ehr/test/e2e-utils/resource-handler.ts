@@ -128,6 +128,7 @@ export class ResourceHandler {
         state: inputParams?.state ?? PATIENT_STATE,
         postalCode: inputParams?.postalCode ?? PATIENT_POSTALCODE,
       };
+      console.log('address: ', JSON.stringify(address));
 
       const patientData = {
         firstNames: [inputParams?.firstName ?? PATIENT_FIRST_NAME],
@@ -177,7 +178,7 @@ export class ResourceHandler {
               createAppointmentZambdaId: this.zambdaId,
               islocal: process.env.APP_IS_LOCAL === 'true',
               intakeZambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
-              selectedLocationId: process.env.STATE_ONE, // todo: check why state is used here
+              selectedLocationId: address.state, // todo: check why state is used here
               demoData: patientData,
               projectId: process.env.PROJECT_ID!,
             });
@@ -327,6 +328,7 @@ export class ResourceHandler {
     email: string;
     practitioner: Practitioner;
   }> {
+    await this.initPromise;
     const users = await fetchWithOystAuth<
         {
           id: string;

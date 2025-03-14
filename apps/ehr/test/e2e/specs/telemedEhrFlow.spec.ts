@@ -27,8 +27,8 @@ test.beforeAll(async ({ browser }) => {
     throw new Error('My practitioner has no active qualification states, or has all states in qualification');
   console.log(`My state ${myState}, other state: ${otherState}`);
 
-  await myResources.setResources({ state: myState });
-  await otherResources.setResources({ state: otherState });
+  await myResources.setResources({ state: myState, city: stateCodeToFullName[myState] });
+  await otherResources.setResources({ state: otherState, city: stateCodeToFullName[otherState] });
 });
 
 test.afterAll(async () => {
@@ -116,6 +116,7 @@ test('Appointment has location label and is in a relevant location group', async
     }
   });
 
+  console.log(`found appointment: ${foundAppointment}, ${foundLocationGroup}`);
   expect(foundAppointment && foundLocationGroup).toBe(true);
 });
 
