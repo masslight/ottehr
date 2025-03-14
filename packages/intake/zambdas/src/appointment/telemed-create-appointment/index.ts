@@ -36,6 +36,7 @@ import { createUpdateUserRelatedResources, generatePatientRelatedRequests } from
 import {
   getCurrentQuestionnaireForServiceType,
   getEncounterClass,
+  getRelatedResources,
   getTelemedRequiredAppointmentEncounterExtensions,
 } from '../helpers';
 import { validateCreateAppointmentParams } from './validateRequestParameters';
@@ -348,6 +349,8 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     extension: encExtensions,
   };
 
+  const { documents, insuranceInfo } = await getRelatedResources(oystehr, patient?.id);
+
   const canonUrl = `${questionnaire.url}|${questionnaire.version}`;
   const patientToUse = createPatientRequest?.resource ?? patient ?? { resourceType: 'Patient' };
 
@@ -361,6 +364,8 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     questionnaire,
     verifiedPhoneNumber: verifiedPhoneNumber,
     contactInfo: contactInfo,
+    documents,
+    insuranceInfo,
   });
 
   const questionnaireResponse: QuestionnaireResponse = {

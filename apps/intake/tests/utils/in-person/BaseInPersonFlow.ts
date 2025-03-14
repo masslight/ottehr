@@ -38,7 +38,15 @@ export abstract class BaseInPersonFlow {
       ...additionalData, // Includes selectedSlot & location (for prebook)
     };
   }
-  private async fillPatientDetailsAndContinue(): Promise<{ firstName: string; lastName: string; email: string, birthSex: string; dobMonth: string, dobYear: string, dobDay: string }> {
+  private async fillPatientDetailsAndContinue(): Promise<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    birthSex: string;
+    dobMonth: string;
+    dobYear: string;
+    dobDay: string;
+  }> {
     await this.locator.selectDifferentFamilyMember();
     await this.locator.clickContinueButton();
 
@@ -64,7 +72,16 @@ export abstract class BaseInPersonFlow {
   protected abstract clickVisitButton(): Promise<void>;
   protected abstract completeBooking(): Promise<void>;
 
-  async startVisit(): Promise<{ bookingURL: string; firstName: string; lastName: string; email: string, birthSex: string, dobMonth: string, dobYear: string, dobDay: string }> {
+  async startVisit(): Promise<{
+    bookingURL: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    birthSex: string;
+    dobMonth: string;
+    dobYear: string;
+    dobDay: string;
+  }> {
     const bookingData = await this.goToReviewPage();
     await this.completeBooking();
     await this.page.waitForURL(/\/visit\//);

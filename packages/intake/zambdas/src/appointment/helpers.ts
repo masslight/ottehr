@@ -1,5 +1,14 @@
 import Oystehr from '@oystehr/sdk';
-import { Coding, Extension, Questionnaire } from 'fhir/r4b';
+import {
+  Coding,
+  Coverage,
+  DocumentReference,
+  Extension,
+  InsurancePlan,
+  Organization,
+  Questionnaire,
+  RelatedPerson,
+} from 'fhir/r4b';
 import {
   CanonicalUrl,
   OtherParticipantsExtension,
@@ -108,3 +117,59 @@ export const getEncounterClass = (serviceType: ServiceMode): Coding => {
         display: 'inpatient acute',
       };
 };
+
+export async function getRelatedResources(
+  oystehr: Oystehr,
+  patientId?: string
+): Promise<{
+  documents: DocumentReference[];
+  insuranceInfo: (Coverage | RelatedPerson | Organization | InsurancePlan)[];
+}> {
+  let documents: DocumentReference[] = [];
+  let insuranceInfo: (Coverage | RelatedPerson | Organization | InsurancePlan)[] = [];
+
+  if (patientId) {
+    console.log('get related resources to prepopulate paperwork');
+    const [docsResponse, insuranceResponse] = await Promise.all([
+      oystehr.fhir.search<DocumentReference>({
+        resourceType: 'DocumentReference',
+        params: [
+          {
+            name: 'related',
+            value: `Patient/${patientId}`,
+          },
+          {
+            name: 'status',
+            value: 'current',
+          },
+        ],
+      }),
+      oystehr.fhir.search<Coverage | RelatedPerson | Organization | InsurancePlan>({
+        resourceType: 'Coverage',
+        params: [
+          {
+            name: 'patient',
+            value: `Patient/${patientId}`,
+          },
+          {
+            name: '_include',
+            value: 'Coverage:subscriber:RelatedPerson',
+          },
+          {
+            name: '_include',
+            value: 'Coverage:payor:Organization',
+          },
+          {
+            name: '_revinclude:iterate',
+            value: 'InsurancePlan:owned-by:Organization',
+          },
+        ],
+      }),
+    ]);
+
+    documents = docsResponse.unbundle();
+    insuranceInfo = insuranceResponse.unbundle();
+  }
+
+  return { documents, insuranceInfo };
+}

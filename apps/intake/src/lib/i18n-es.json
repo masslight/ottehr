@@ -829,12 +829,6 @@
       "link": "virtualmente",
       "title": "¿No encuentra el horario que necesita?"
     },
-    "fillingOutAsLabel": "¿Cuál es su rol al completar esta información?:",
-    "fillingOutOptions": {
-      "option1": "Soy el padre, la madre o el tutor legal del paciente menor de edad",
-      "option2": "Soy el paciente",
-      "option3": "NO soy el padre, la madre o el tutor legal, pero tengo permiso para llevar al paciente menor de edad a que reciba atención médica"
-    },
     "errors": {
       "closed": {
         "description": "¡Lo sentimos! Está cerrado en este momento. Visite nuestro sitio web para ver los consultorios abiertos.",
