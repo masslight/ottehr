@@ -2,7 +2,7 @@ import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { CssHeader } from './CssHeader';
 import { EditMedicationCard } from './EditMedicationCard';
-import { expectInHouseMedicationsPage, InHouseMedicationsPage } from './InHouseMedicationsPage';
+import { expectInHouseMedicationsPage, InHouseMedicationsPage } from './in-person/InHouseMedicationsPage';
 import { SideMenu } from './SideMenu';
 
 export class OrderMedicationPage {
