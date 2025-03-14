@@ -1,12 +1,11 @@
 import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../form';
+import { getPronounsFromExtension, patientFieldPaths, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { PRONOUN_OPTIONS, SEX_OPTIONS } from '../../constants';
+import { dataTestIds } from '../../constants/data-test-ids';
+import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../form';
 import { Row, Section } from '../layout';
 import { usePatientStore } from '../../state/patient.store';
-import { getPronounsFromExtension } from '../../helpers/fhir';
-import { dataTestIds } from '../../constants/data-test-ids';
-import { patientFieldPaths, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 
 export const AboutPatientContainer: FC = () => {
   const { patient, updatePatientField } = usePatientStore();
