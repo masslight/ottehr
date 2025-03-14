@@ -1,6 +1,5 @@
 import { getSecret, Secrets, SecretsKeys, topLevelCatch, ZambdaInput } from 'zambda-utils';
 import { wrapHandler } from '@sentry/aws-serverless';
-import { captureSentryException, configSentry, getAuth0Token } from '../../../../intake/zambdas/src/shared';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import Oystehr from '@oystehr/sdk';
 import { createOystehrClient, validateJsonBody, validateString } from '../shared/helpers';
@@ -10,6 +9,8 @@ import { DocumentReference, List, QuestionnaireResponse } from 'fhir/r4b';
 import { BUCKET_PAPERWORK_PDF } from '../../scripts/setup';
 import { DateTime } from 'luxon';
 import { addOperation, EXPORTED_QUESTIONNAIRE_CODE, findExistingListByDocumentTypeCode, replaceOperation } from 'utils';
+import { configSentry, captureSentryException } from '../../patient/shared';
+import { getAuth0Token } from '../shared';
 
 interface Input {
   questionnaireResponseId: string;

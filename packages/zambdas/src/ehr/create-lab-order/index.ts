@@ -9,8 +9,6 @@ import {
   flattenBundleResources,
 } from 'utils';
 import { topLevelCatch, Secrets, ZambdaInput } from 'zambda-utils';
-import { checkOrCreateM2MClientToken } from '../../../../intake/zambdas/src/shared';
-import { createOystehrClient } from '../../../../intake/zambdas/src/shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
   Encounter,
@@ -29,6 +27,7 @@ import { DateTime } from 'luxon';
 import { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import Oystehr from '@oystehr/sdk';
+import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
 
 export interface SubmitLabOrder {
   dx: DiagnosisDTO[];
