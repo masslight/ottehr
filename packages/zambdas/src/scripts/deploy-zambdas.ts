@@ -2,7 +2,7 @@ import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest } from '@oysteh
 import { Subscription } from 'fhir/r4b';
 import fs from 'fs';
 import { SubscriptionZambdaDetails, Task_Send_Messages_Url } from 'utils';
-import { getAuth0Token } from '../src/shared';
+import { getAuth0Token } from '../patient/shared';
 
 interface DeployZambda {
   type: 'http_open' | 'http_auth' | 'subscription' | 'cron';

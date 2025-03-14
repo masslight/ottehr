@@ -1,9 +1,9 @@
-import fs from 'fs';
-import { getAuth0Token } from '../src/shared';
-import { createOystehrClient } from '../src/shared/helpers';
-import { Location, Organization, Practitioner } from 'fhir/r4b';
 import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
+import { Location, Organization, Practitioner } from 'fhir/r4b';
+import fs from 'fs';
 import { FHIR_IDENTIFIER_NPI, getNPI, getTaxID } from 'utils';
+import { getAuth0Token } from '../patient/shared';
+import { createOystehrClient } from '../patient/shared/helpers';
 const writeProviders = async (envConfig: any, env: string): Promise<void> => {
   const token = await getAuth0Token(envConfig);
 

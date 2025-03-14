@@ -17,7 +17,7 @@ import {
 } from 'fhir/r4b';
 import { createOystehrClient } from 'utils';
 import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
-import { getAuth0Token } from '../src/shared';
+import { getAuth0Token } from '../patient/shared';
 
 export const fhirApiUrlFromAuth0Audience = (auth0Audience: string): string => {
   switch (auth0Audience) {

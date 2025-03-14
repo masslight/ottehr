@@ -12,7 +12,7 @@ import {
 
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC, getMedicationTypeCode, getResourcesFromBatchInlineRequests } from 'utils';
 import { performEffectWithEnvFile } from 'zambda-utils';
-import { getAuth0Token } from '../src/shared';
+import { getAuth0Token } from '../patient/shared';
 import { fhirApiUrlFromAuth0Audience } from './helpers';
 
 const checkAndUpdateInHouseMedications = async (config: any): Promise<void> => {

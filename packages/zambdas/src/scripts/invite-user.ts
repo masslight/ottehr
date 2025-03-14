@@ -6,9 +6,9 @@ import {
   STAFF_RULES,
   PROVIDER_RULES,
   PRESCRIBER_RULES,
-} from '../src/ehr/shared';
+} from '../ehr/shared';
 import { AllStatesValues, PractitionerLicense, TIMEZONE_EXTENSION_URL } from 'utils';
-import { makeQualificationForPractitioner } from '../src/ehr/shared/practitioners';
+import { makeQualificationForPractitioner } from '../ehr/shared/practitioners';
 import Oystehr, { AccessPolicy, Role, RoleListItem } from '@oystehr/sdk';
 
 const DEFAULTS = {

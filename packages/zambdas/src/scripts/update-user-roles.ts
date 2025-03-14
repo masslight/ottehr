@@ -8,8 +8,8 @@ import {
   PROVIDER_RULES,
   STAFF_RULES,
   getAuth0Token,
-} from '../src/shared';
-import { FRONT_DESK_RULES } from '../src/shared/accessPolicies';
+} from '../ehr/shared';
+import { FRONT_DESK_RULES } from '../ehr/shared/accessPolicies';
 
 interface Role {
   name: string;

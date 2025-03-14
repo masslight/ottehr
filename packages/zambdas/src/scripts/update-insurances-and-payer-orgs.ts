@@ -9,7 +9,7 @@ import {
   INSURANCE_SETTINGS_MAP,
   PRIVATE_EXTENSION_BASE_URL,
 } from 'utils';
-import { getAuth0Token } from '../src/shared';
+import { getAuth0Token } from '../patient/shared';
 import { fhirApiUrlFromAuth0Audience } from './helpers';
 
 enum PayersFileColumns {

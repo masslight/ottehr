@@ -7,7 +7,7 @@ import { createOystehrClient, validateJsonBody, validateString } from '../shared
 import { createDocument } from './document';
 import { generatePdf } from './draw';
 import { DocumentReference, List, QuestionnaireResponse } from 'fhir/r4b';
-import { BUCKET_PAPERWORK_PDF } from '../../../scripts/setup';
+import { BUCKET_PAPERWORK_PDF } from '../../scripts/setup';
 import { DateTime } from 'luxon';
 import { addOperation, EXPORTED_QUESTIONNAIRE_CODE, findExistingListByDocumentTypeCode, replaceOperation } from 'utils';
 

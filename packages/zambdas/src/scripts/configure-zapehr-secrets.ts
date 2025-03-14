@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import fs from 'fs';
-import { getAuth0Token } from '../src/shared';
+import { getAuth0Token } from '../ehr/shared';
 import { projectApiUrlFromAuth0Audience } from './helpers';
 
 const setupSecrets = async (config: any): Promise<void> => {

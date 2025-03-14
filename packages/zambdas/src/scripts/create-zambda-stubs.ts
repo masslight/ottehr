@@ -1,7 +1,6 @@
-import Oystehr, { ZambdaFunction } from '@oystehr/sdk';
 import fs from 'fs';
-import { ZambdaTriggerType } from 'utils';
-import { getAuth0Token } from '../src/shared';
+import Oystehr, { ZambdaFunction } from '@oystehr/sdk';
+import { getAuth0Token } from '../patient/shared';
 
 const projectApiUrlFromAuth0Audience = (auth0Audience: string): string => {
   switch (auth0Audience) {
@@ -21,9 +20,8 @@ const projectApiUrlFromAuth0Audience = (auth0Audience: string): string => {
 };
 
 // we don't have to do this all that often. just update this const with the name(s) of the new zambda(s)
-const stubsToWrite: { name: string; triggerMethod: ZambdaTriggerType }[] = [
-  { name: 'urgent-care-patch-paperwork', triggerMethod: 'http_open' },
-  { name: 'urgent-care-submit-paperwork', triggerMethod: 'http_open' },
+const stubsToWrite: { name: string; triggerMethod: ZambdaFunction['triggerMethod'] }[] = [
+  { name: 'sync-user', triggerMethod: 'http_auth' },
 ];
 
 const writeStub = async (config: any): Promise<void> => {
