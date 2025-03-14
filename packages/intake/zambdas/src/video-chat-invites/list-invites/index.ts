@@ -81,7 +81,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       firstName: (r.name?.[0].given ?? []).join(' '),
       lastName: r.name?.[0].family ?? '',
       emailAddress: JSONPath({ path: '$.telecom[?(@.system == "email")].value', json: r })[0],
-      phoneNumber: JSONPath({ path: '$.telecom[?(@.system == "phone")].value', json: r })[0],
+      phoneNumber: JSONPath({ path: '$.telecom[?(@.system == "phone")].value', json: r })[0]?.replace(
+        /(\d{3})(\d{3})(\d{4})/,
+        '($1) $2-$3'
+      ), // parse number "1111111111" to "(111) 111-1111"
     }));
 
     const result: ListInvitedParticipantsResponse = { invites: participants };
