@@ -1,6 +1,6 @@
 import { expect, Page } from '@playwright/test';
+import { waitForResponseWithData } from 'test-utils';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { waitForResponseWithData } from 'test-utils/lib/e2e/response-utils';
 import { PageWithTablePagination } from './PageWithTablePagination';
 
 export class PatientsPage extends PageWithTablePagination {

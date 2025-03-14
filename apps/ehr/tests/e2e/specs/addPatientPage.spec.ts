@@ -1,7 +1,7 @@
 import { Page, test } from '@playwright/test';
+import { waitForResponseWithData } from 'test-utils';
 import { unpackFhirResponse } from 'utils';
 import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment';
-import { waitForResponseWithData } from 'test-utils/lib/e2e/response-utils';
 import {
   PATIENT_BIRTH_DATE_LONG,
   PATIENT_BIRTH_DATE_SHORT,

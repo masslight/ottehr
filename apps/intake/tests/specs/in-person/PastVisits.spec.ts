@@ -1,6 +1,5 @@
 import { test } from '@playwright/test';
-import { cleanAppointment } from 'test-utils';
-import { waitForResponseWithData } from 'test-utils/lib/e2e/response-utils';
+import { cleanAppointment, waitForResponseWithData } from 'test-utils';
 import { CreateAppointmentUCTelemedResponse } from 'utils';
 import { Homepage } from '../../utils/in-person/Homepage';
 import { PastVisitsPage } from '../../utils/in-person/PastVisitsPage';

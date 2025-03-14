@@ -1,5 +1,5 @@
 import { Page, expect } from '@playwright/test';
-import { waitForResponseWithData } from 'test-utils/lib/e2e/response-utils';
+import { waitForResponseWithData } from 'test-utils';
 import { FillingInfo } from './FillingInfo';
 import { UIDesign } from './UIdesign';
 

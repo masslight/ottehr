@@ -1,12 +1,12 @@
 import { expect, test } from '@playwright/test';
-import { MDM_FIELD_DEFAULT_TEXT, TelemedAppointmentVisitTabs } from 'utils';
-import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import {
   waitForChartDataDeletion,
   waitForGetChartDataResponse,
   waitForPractitionerResponse,
   waitForSaveChartDataResponse,
-} from 'test-utils/lib/e2e/response-utils';
+} from 'test-utils';
+import { MDM_FIELD_DEFAULT_TEXT, TelemedAppointmentVisitTabs } from 'utils';
+import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { expectTelemedProgressNotePage } from '../../page/telemed/TelemedProgressNotePage';
