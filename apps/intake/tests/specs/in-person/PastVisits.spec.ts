@@ -1,5 +1,6 @@
 import { test } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
+import { waitForResponseWithData } from 'test-utils/lib/e2e/response-utils';
 import { CreateAppointmentUCTelemedResponse } from 'utils';
 import { Homepage } from '../../utils/in-person/Homepage';
 import { PastVisitsPage } from '../../utils/in-person/PastVisitsPage';
@@ -50,7 +51,7 @@ test.describe.serial('Past Visits - Empty State', () => {
     await fillingInfo.fillDOBless18();
 
     await page.getByRole('button', { name: 'Continue' }).click();
-    await page.waitForResponse((response) => response.url().includes('/telemed-create-appointment/'));
+    await waitForResponseWithData(page, '/telemed-create-appointment/');
   });
 
   test('should show empty state when no past visits exist', async ({ page }) => {

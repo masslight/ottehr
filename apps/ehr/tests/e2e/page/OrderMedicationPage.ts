@@ -1,9 +1,9 @@
 import { expect, Page } from '@playwright/test';
-import { SideMenu } from './SideMenu';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { CssHeader } from './CssHeader';
-import { expectInHouseMedicationsPage, InHouseMedicationsPage } from './InHouseMedicationsPage';
 import { EditMedicationCard } from './EditMedicationCard';
+import { expectInHouseMedicationsPage, InHouseMedicationsPage } from './InHouseMedicationsPage';
+import { SideMenu } from './SideMenu';
 
 export class OrderMedicationPage {
   #page: Page;
@@ -36,7 +36,6 @@ export class OrderMedicationPage {
     await this.#page.getByTestId(dataTestIds.orderMedicationPage.backButton).click();
     return expectInHouseMedicationsPage(this.#page);
   }
-
 }
 
 export async function expectOrderMedicationPage(page: Page): Promise<OrderMedicationPage> {

@@ -1,10 +1,10 @@
 import { Page, test } from '@playwright/test';
-import { ResourceHandler } from '../../e2e-utils/resource-handler';
-import { expectPatientInfoPage } from '../page/PatientInfo';
-import { expectProgressNotePage } from '../page/ProgressNotePage';
-import { expectEditOrderPage, OrderMedicationPage } from '../page/OrderMedicationPage';
-import { expectAssessmentPage } from '../page/AssessmentPage';
-import { Field } from '../page/EditMedicationCard';
+import { ResourceHandler } from '../../../e2e-utils/resource-handler';
+import { expectAssessmentPage } from '../../page/AssessmentPage';
+import { Field } from '../../page/EditMedicationCard';
+import { expectEditOrderPage, OrderMedicationPage } from '../../page/OrderMedicationPage';
+import { expectPatientInfoPage } from '../../page/PatientInfo';
+import { expectProgressNotePage } from '../../page/ProgressNotePage';
 
 const resourceHandler = new ResourceHandler('in-person');
 

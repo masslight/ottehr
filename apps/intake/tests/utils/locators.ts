@@ -83,7 +83,7 @@ export class Locators {
   constructor(page: Page) {
     this.page = page;
     this.scheduleInPersonVisitButton = page.getByTestId(dataTestIds.scheduleInPersonVisitButton);
-    this.startInPersonVisitButton = page.getByTestId(dataTestIds.startInPersonVisitButton);   
+    this.startInPersonVisitButton = page.getByTestId(dataTestIds.startInPersonVisitButton);
     this.differentFamilyMember = page.getByTestId(dataTestIds.differentFamilyMember);
     this.continueButton = page.getByTestId(dataTestIds.continueButton);
     if (this.continueButton == null) {
@@ -116,17 +116,17 @@ export class Locators {
     this.confirmWalkInButton = page.getByRole('button', { name: 'Confirm this walk-in time' });
 
     // Modify locators
-    this.editPencilReviewScreen = page.getByTestId('EditOutlinedIcon'); 
+    this.editPencilReviewScreen = page.getByTestId('EditOutlinedIcon');
     this.modifyTimeThankYouScreen = page.getByRole('button', { name: 'Modify' });
     this.submitModifyTime = page.getByRole('button', { name: 'Modify', exact: false });
 
     //Cancel visit locators
     this.cancelVisitThankYouScreen = page.getByRole('button', { name: 'Cancel' });
-    this.cancelScreenHeading = page.getByText('Why are you canceling?');   
+    this.cancelScreenHeading = page.getByText('Why are you canceling?');
     this.cancellationReasonField = page.locator('#cancellationReason');
     this.cancelVisitButton = page.getByRole('button', { name: 'Cancel visit' });
     this.cancelConfirmationScreenHeading = page.getByRole('heading', { name: 'Your visit has been canceled' });
-    
+
     // Contact information locators
     this.streetAddress = page.locator('[id="patient-street-address"]');
     this.streetAddressLine2 = page.locator('[id="patient-street-address-2"]');
@@ -157,9 +157,9 @@ export class Locators {
     this.responsiblePartyNumber = page.locator('[id="responsible-party-number"]');
     this.responsiblePartyDOBAnswer = page.locator('[name="responsible-party-date-of-birth.answer.0.valueString"]');
     this.responsiblePartyCalendarCurrentDay = page.locator('button[aria-current="date"]');
-    this.responsiblePartyCalendarButtonOK = page.locator('button:has-text(\"OK\")');
+    this.responsiblePartyCalendarButtonOK = page.locator('button:has-text("OK")');
     this.responsiblePartyCalendarArrowRight = page.getByTestId('ArrowRightIcon');
-    this.responsiblePartyCalendarArrowDown = page.locator('[role="presentation"] [data-testid="ArrowDropDownIcon"]')
+    this.responsiblePartyCalendarArrowDown = page.locator('[role="presentation"] [data-testid="ArrowDropDownIcon"]');
     this.responsiblePartyCalendarDay = page.locator('div[aria-rowindex="2"] button[aria-colindex="1"]').nth(0);
 
     //Consent forms locators
@@ -196,4 +196,3 @@ export class Locators {
     await this.reserveButton.click();
   }
 }
-

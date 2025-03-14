@@ -59,8 +59,6 @@ export class CommonLocatorsHelper {
   getMonthDay(monthStr: string, dayStr: string) {
     // Using year 2000 as it's a leap year, ensuring February 29th is valid
     const date = DateTime.fromFormat(`${monthStr} ${dayStr} 2000`, 'MMM d yyyy', { locale: 'en' });
-    return date.isValid ? 
-      { monthNumber: date.toFormat('MM'), dayNumber: date.toFormat('dd') } : 
-      null;
+    return date.isValid ? { monthNumber: date.toFormat('MM'), dayNumber: date.toFormat('dd') } : null;
   }
 }
