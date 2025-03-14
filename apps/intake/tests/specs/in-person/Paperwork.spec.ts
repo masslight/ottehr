@@ -48,11 +48,12 @@ test.afterAll(async () => {
   }
 });
 
-test.describe.configure({ mode: 'serial' });
 test.describe('Contact information screen - Check and fill all fields', () => {
+  test.describe.configure({ mode: 'serial' });
   test('PCI-1 Click on [Proceed to paperwork] - Contact information screen opens', async () => {
     await page.goto(bookingData.bookingURL);
     await paperwork.clickProceedToPaperwork();
+    await paperwork.checkCorrectPageOpens('Contact information');
     await paperwork.checkContactInformationPageOpens();
   });
   test('PCI-2 Fill Contact Information all fields', async () => {
@@ -73,6 +74,12 @@ test.describe('Contact information screen - Check and fill all fields', () => {
   });
 });
 test.describe('Patient details screen - Check and fill all fields', () => {
+  test.describe.configure({ mode: 'serial' });
+  test('PPD-0 Open Patient details', async () => {
+    await page.goto(`paperwork/${bookingData.bookingUUID}/patient-details`);
+    await page.waitForLoadState('networkidle');
+    await paperwork.checkCorrectPageOpens('Patient details');
+  });
   test('PPD-1 Check required fields', async () => {
     await paperwork.checkRequiredFields('"Ethnicity","Race","Preferred language"', 'Patient details', true);
   });
@@ -91,6 +98,12 @@ test.describe('Patient details screen - Check and fill all fields', () => {
   });
 });
 test.describe('Primary Care Physician - Check and fill all fields', () => {
+  test.describe.configure({ mode: 'serial' });
+  test('PPCP-0 Open Primary Care Physician', async () => {
+    await page.goto(`paperwork/${bookingData.bookingUUID}/primary-care-physician`);
+    await page.waitForLoadState('networkidle');
+    await paperwork.checkCorrectPageOpens('Primary Care Physician');
+  });
   test('PPCP-1 Primary Care Physician - Check patient name is displayed', async () => {
     await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
   });
@@ -119,24 +132,8 @@ test.describe('Primary Care Physician - Check and fill all fields', () => {
     await expect(locator.pcpNumber).toHaveValue(pcpData.formattedPhoneNumber);
   });
 });
-test.describe('Payment page - self pay option', () => {
-  // TODO: Tests for payment page will be added and updated under #848 ticket
-  test('Check that select payment page opens', async () => {
-    await locator.clickContinueButton();
-    await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
-  });
-  test('Payment - Check patient name is displayed', async () => {
-    await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
-  });
-  test('Payment - Select self pay', async () => {
-    await paperwork.selectSelfPayPayment();
-  });
-  test('Click on [Continue] - Responsible party information opens', async () => {
-    await locator.clickContinueButton();
-    await paperwork.checkCorrectPageOpens('Responsible party information');
-  });
-});
 test.describe('Payment option - Check Self pay and insurance options', () => {
+  test.describe.configure({ mode: 'serial' });
   test('PPO-1 Payment option - Check page opens', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/payment-option`);
     await page.waitForLoadState('networkidle');
@@ -166,6 +163,7 @@ test.describe('Payment option - Check Self pay and insurance options', () => {
   });
 });
 test.describe('Primary Insurance', () => {
+  test.describe.configure({ mode: 'serial' });
   test('Primary Insurance - Check insurance details opens', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/payment-option`);
     await page.waitForLoadState('networkidle');
@@ -232,8 +230,23 @@ test.describe('Primary Insurance', () => {
     await locator.clickBackButton();
     await paperwork.checkImagesAreSaved(locator.insuranceFrontImage, locator.insuranceBackImage);
   });
+  test('Primary Insurance - Add secondary insurance with empty fields, remove secondary insurance, continue with primary insurance', async () => {
+    await locator.addSecondaryInsurance.click();
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
+    await locator.removeSecondaryInsurance.click();
+    await expect(locator.secondaryInsuranceHeading).not.toBeVisible();
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Responsible party information');
+  });
+  test('Primary Insurance - Policy holder address is the same checkbox', async () => {
+    await locator.clickBackButton();
+    await paperwork.checkPolicyAddressIsTheSameCheckbox(false);
+  });
+
 });
 test.describe('Secondary Insurance', () => {
+  test.describe.configure({ mode: 'serial' });
   test('Secondary Insurance - Fill primary and Add secondary insurance', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/payment-option`);
     await page.waitForLoadState('networkidle');
@@ -297,8 +310,17 @@ test.describe('Secondary Insurance', () => {
     await locator.clickBackButton();
     await paperwork.checkImagesAreSaved(locator.secondaryInsuranceFrontImage, locator.secondaryInsuranceBackImage);
   });
+  test('Secondary Insurance - Policy holder address is the same checkbox', async () => {
+    await paperwork.checkPolicyAddressIsTheSameCheckbox(true);
+  });
 });
 test.describe('Responsible party information - check and fill all fields', () => {
+  test.describe.configure({ mode: 'serial' });
+  test('PRPI-0 Open Responsible party information', async () => {
+    await page.goto(`paperwork/${bookingData.bookingUUID}/responsible-party`);
+    await page.waitForLoadState('networkidle');
+    await paperwork.checkCorrectPageOpens('Responsible party information');
+  });
   test('PRPI-1 Check patient name is displayed', async () => {
     await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
   });
@@ -368,8 +390,10 @@ test.describe('Responsible party information - check and fill all fields', () =>
   });
 });
 test.describe('Photo ID - Upload photo', () => {
-  test('PPID-1 Click on [Continue] - Photo ID page opens', async () => {
-    await locator.clickContinueButton();
+  test.describe.configure({ mode: 'serial' });
+  test('PPID-1 Open Photo ID', async () => {
+    await page.goto(`paperwork/${bookingData.bookingUUID}/photo-id`);
+    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('Photo ID');
   });
   test('PPID-2 Photo ID - Check patient name is displayed', async () => {

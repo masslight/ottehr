@@ -121,6 +121,8 @@ export class Locators {
   addSecondaryInsurance: Locator;
   removeSecondaryInsurance: Locator;
   secondaryInsuranceHeading: Locator;
+  policyAddressIsTheSame: Locator;
+  secondaryPolicyAddressIsTheSame: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -215,6 +217,7 @@ export class Locators {
     this.policyHolderDOB = page.locator('[name="policy-holder-date-of-birth.answer.0.valueString"]');
     this.insuranceFrontImage = page.locator('#insurance-card-front-description');
     this.insuranceBackImage = page.locator('#insurance-card-back-description');
+    this.policyAddressIsTheSame = page.getByLabel('policy-holder-address-as-patient-label');
 
     // Secondary insurance locators
     this.addSecondaryInsurance = page.getByRole('button', { name: 'Add Secondary Insurance' });
@@ -234,8 +237,9 @@ export class Locators {
     this.secondaryPolicyHolderState = page.locator('[id="secondary-insurance.item.11"]');
     this.secondaryPolicyHolderZip = page.locator('[id="secondary-insurance.item.12"]');
     this.secondaryPolicyHolderDOB = page.locator('[name="secondary-insurance.item.5.answer.0.valueString"]');
-    this.secondaryInsuranceFrontImage = page.locator('#secondary-insurance.item.14-description');
-    this.secondaryInsuranceBackImage = page.locator('#secondary-insurance.item.15-description');
+    this.secondaryInsuranceFrontImage = page.locator('[id="secondary-insurance.item.14-description"]');
+    this.secondaryInsuranceBackImage = page.locator('[id="secondary-insurance.item.15-description"]');
+    this.secondaryPolicyAddressIsTheSame = page.getByLabel('policy-holder-address-as-patient-2-label');
 
     // Responsible Party locators
     this.responsiblePartyRelationship = page.locator('[id="responsible-party-relationship"]');
