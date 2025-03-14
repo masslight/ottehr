@@ -26,4 +26,4 @@ packages/ui-components/dist/*
 
 **/vite.config.ts.timestamp-*.mjs
 **/ottehr-secrets/
-**/hlthi-packages/
+**/hlthi-packages
