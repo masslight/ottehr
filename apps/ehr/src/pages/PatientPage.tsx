@@ -10,8 +10,8 @@ import { RoundedButton } from '../components/RoundedButton';
 import { useGetPatient } from '../hooks/useGetPatient';
 import PageContainer from '../layout/PageContainer';
 import { PatientFollowupEncountersGrid } from '../components/patient/PatientFollowupEncountersGrid';
+import { PatientLabsTab } from '../components/PatientLabsTab';
 import { dataTestIds } from '../constants/data-test-ids';
-import { PatientLabsTab } from '../features/patient-labs';
 
 export default function PatientPage(): JSX.Element {
   const { id } = useParams();

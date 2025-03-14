@@ -1,13 +1,12 @@
 import { ReactElement } from 'react';
 import { Box } from '@mui/material';
-import { usePatientLabOrders } from '../hooks/usePatientLabOrders';
-import { LabsTable, LabsTableColumn } from '../../external-labs/components/labs-order-table/LabsTable';
+import { LabsTable, LabsTableColumn } from '../features/external-labs/components/labs-orders/LabsTable';
 
 interface PatientLabsTabProps {
   patientId: string;
 }
 
-const patientColumns: LabsTableColumn[] = [
+const patientLabOrdersColumns: LabsTableColumn[] = [
   'testType',
   'visit',
   'orderAdded',
@@ -20,14 +19,11 @@ const patientColumns: LabsTableColumn[] = [
 ];
 
 export const PatientLabsTab = ({ patientId }: PatientLabsTabProps): ReactElement => {
-  const { fetchLabOrders, loading: _loading, error: _error } = usePatientLabOrders();
-
   return (
     <Box sx={{ mt: 2 }}>
       <LabsTable
         patientId={patientId}
-        fetchLabOrders={fetchLabOrders}
-        columns={patientColumns}
+        columns={patientLabOrdersColumns}
         showFilters={true}
         allowDelete={false}
         titleText="Labs"

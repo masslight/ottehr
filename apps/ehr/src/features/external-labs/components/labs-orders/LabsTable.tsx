@@ -1,4 +1,4 @@
-import { ReactElement, useState, useEffect } from 'react';
+import { ReactElement, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -14,14 +14,14 @@ import {
   Grid,
   Paper,
   CircularProgress,
+  Button,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
-import { DateTime } from 'luxon';
-import { DEFAULT_LABS_ITEMS_PER_PAGE, LabOrderDTO, GetLabOrdersParameters } from 'utils';
 import SearchIcon from '@mui/icons-material/Search';
 import { LabsTableRow } from './LabsTableRow';
+import { usePatientLabOrders } from './usePatientLabOrders';
 
 export type LabsTableColumn =
   | 'testType'
@@ -36,126 +36,90 @@ export type LabsTableColumn =
   | 'actions';
 
 interface LabsTableProps {
-  labOrders?: LabOrderDTO[];
-  fetchLabOrders: (params?: any) => Promise<any>;
   patientId?: string;
   encounterId?: string;
   columns: LabsTableColumn[];
   showFilters?: boolean;
   allowDelete?: boolean;
-  initialLoading?: boolean;
   titleText?: string;
+  redirectToOrderCreateIfOrdersEmpty?: boolean;
+  onCreateOrder?: () => void;
 }
 
 export const LabsTable = ({
-  labOrders: initialLabOrders,
-  fetchLabOrders,
   patientId,
   encounterId,
   columns,
   showFilters = false,
   allowDelete = false,
-  initialLoading = false,
-  titleText: titleText,
+  titleText,
+  redirectToOrderCreateIfOrdersEmpty = false,
+  onCreateOrder,
 }: LabsTableProps): ReactElement => {
-  const [loading, setLoading] = useState(initialLoading);
-  const [labOrders, setLabOrders] = useState<LabOrderDTO[]>(initialLabOrders || []);
-  const [testTypeFilter, setTestTypeFilter] = useState('');
-  const [visitDateFilter, setVisitDateFilter] = useState<DateTime | null>(null);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [showPagination, setShowPagination] = useState(false);
+  const {
+    labOrders,
+    loading,
+    totalPages,
+    page,
+    setPage,
+    testTypeFilter,
+    setTestTypeFilter,
+    visitDateFilter,
+    setVisitDateFilter,
+    showPagination,
+    error,
+    onDeleteOrder,
+    DeleteOrderDialog,
+  } = usePatientLabOrders({
+    patientId,
+    encounterId,
+  });
+
+  // Redirect to create order page if needed (controlled by the parent component by prop redirectToOrderCreateIfOrdersEmpty)
   useEffect(() => {
-    if (initialLabOrders) {
-      setLabOrders(initialLabOrders);
+    if (redirectToOrderCreateIfOrdersEmpty && !loading && labOrders.length === 0 && !error && onCreateOrder) {
+      const timer = setTimeout(() => {
+        return onCreateOrder();
+      }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [initialLabOrders]);
-
-  const loadLabOrders = async (): Promise<void> => {
-    if (!showFilters && !showPagination && initialLabOrders) {
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const params: Partial<GetLabOrdersParameters> = {
-        pageIndex: page - 1,
-        itemsPerPage: DEFAULT_LABS_ITEMS_PER_PAGE,
-      };
-
-      if (patientId) {
-        params.patientId = patientId;
-      }
-
-      if (encounterId) {
-        params.encounterId = encounterId;
-      }
-
-      if (showFilters) {
-        if (testTypeFilter) {
-          params.testType = testTypeFilter;
-        }
-
-        if (visitDateFilter) {
-          try {
-            if (visitDateFilter.isValid) {
-              params.visitDate = visitDateFilter.toISODate() || undefined;
-            }
-          } catch (dateError) {
-            console.error('Error formatting date:', dateError);
-          }
-        }
-      }
-
-      const response = await fetchLabOrders(params);
-
-      if (response?.data && response?.pagination) {
-        setLabOrders(response.data);
-        if (response.pagination) {
-          setTotalPages(response.pagination.totalPages);
-          setShowPagination(response.pagination.totalPages > 1);
-        }
-      } else {
-        setLabOrders([]);
-        setTotalPages(1);
-      }
-    } catch (error) {
-      console.error('Error fetching lab orders:', error);
-      setLabOrders([]);
-      setTotalPages(1);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!initialLabOrders || showFilters || showPagination) {
-      void loadLabOrders();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patientId, encounterId, page]);
+    return;
+  }, [redirectToOrderCreateIfOrdersEmpty, loading, labOrders.length, error, onCreateOrder]);
 
   const handleTestTypeChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     setTestTypeFilter(event.target.value);
   };
 
-  const handleVisitDateChange = (date: DateTime | null): void => {
-    if (date === null || date.isValid) {
-      setVisitDateFilter(date);
-    } else {
-      console.error('Invalid date received:', date);
-      setVisitDateFilter(null);
-    }
-  };
-
-  const handleSearch = async (): Promise<void> => {
-    setPage(1); // Reset to first page when applying filters
-    void loadLabOrders();
+  const handleVisitDateChange = (date: any): void => {
+    setVisitDateFilter(date);
   };
 
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number): void => {
     setPage(value);
   };
+
+  if (loading && labOrders.length === 0) {
+    return (
+      <Paper sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
+        <CircularProgress size={40} thickness={4} />
+      </Paper>
+    );
+  }
+
+  if (error) {
+    return (
+      <Paper sx={{ p: 4, textAlign: 'center' }}>
+        <Typography color="error" variant="body1" gutterBottom>
+          {error.message || 'Failed to fetch lab orders. Please try again later.'}
+        </Typography>
+        {onCreateOrder && (
+          <Button variant="contained" onClick={onCreateOrder} sx={{ mt: 2 }}>
+            Create New Lab Order
+          </Button>
+        )}
+      </Paper>
+    );
+  }
 
   const getColumnWidth = (column: LabsTableColumn): string => {
     switch (column) {
@@ -267,7 +231,7 @@ export const LabsTable = ({
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">
-                        <SearchIcon cursor="pointer" onClick={handleSearch} />
+                        <SearchIcon cursor="pointer" />
                       </InputAdornment>
                     ),
                   }}
@@ -283,7 +247,6 @@ export const LabsTable = ({
                     textField: {
                       fullWidth: true,
                       size: 'small',
-                      onBlur: handleSearch,
                     },
                   }}
                 />
@@ -294,10 +257,17 @@ export const LabsTable = ({
 
         {!Array.isArray(labOrders) || labOrders.length === 0 ? (
           <Box sx={{ p: 3, textAlign: 'center' }}>
-            <Typography variant="body1">No lab orders to display</Typography>
+            <Typography variant="body1" gutterBottom>
+              No lab orders to display
+            </Typography>
+            {onCreateOrder && (
+              <Button variant="contained" onClick={onCreateOrder} sx={{ mt: 2 }}>
+                Create New Lab Order
+              </Button>
+            )}
           </Box>
         ) : (
-          <TableContainer>
+          <TableContainer sx={{ border: '1px solid #e0e0e0' }}>
             <Table>
               <TableHead>
                 <TableRow>
@@ -320,11 +290,11 @@ export const LabsTable = ({
                 {labOrders.map((order) => (
                   <LabsTableRow
                     key={order.id}
+                    appointmentId={appointmentId}
                     labOrderData={order}
-                    refreshLabOrders={loadLabOrders}
+                    onDeleteOrder={() => onDeleteOrder(order)}
                     columns={columns}
                     allowDelete={allowDelete}
-                    encounterId={encounterId}
                   />
                 ))}
               </TableBody>
@@ -350,6 +320,8 @@ export const LabsTable = ({
           </Box>
         )}
       </Box>
+
+      {DeleteOrderDialog}
     </Paper>
   );
 };
