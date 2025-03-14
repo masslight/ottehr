@@ -733,11 +733,11 @@ functions:
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
-  chatbot-start-interview:
-    handler: src/chatbot-interviewer/start-interview/index.index
+  ai-interview-start:
+    handler: src/ai-interview/start/index.index
     events:
       - http:
-          path: zambda/chatbot-interviewer/start-interview/execute
+          path: zambda/ai-interview/start/execute
           method: POST
     timeout: 25
     environment:
@@ -750,11 +750,11 @@ functions:
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
-  chatbot-handle-answer:
-    handler: src/chatbot-interviewer/handle-answer/index.index
+  ai-interview-handle-answer:
+    handler: src/ai-interview/handle-answer/index.index
     events:
       - http:
-          path: zambda/chatbot-interviewer/handle-answer/execute
+          path: zambda/ai-interview/handle-answer/execute
           method: POST
     timeout: 25
     environment:

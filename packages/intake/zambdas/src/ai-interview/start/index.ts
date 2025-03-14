@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, Secrets, SecretsKeys, validateJsonBody, validateString, ZambdaInput } from 'zambda-utils';
-import { QuestionnaireResponse } from 'fhir/r4b';
+import { Encounter, QuestionnaireResponse } from 'fhir/r4b';
 import { createOystehrClient, StartInterviewInput } from 'utils';
 import { getAuth0Token } from '../../shared';
 import Oystehr from '@oystehr/sdk';
@@ -25,11 +25,25 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const chatbotResponse = await invokeChatbot([{ role: 'user', content: INITIAL_USER_MESSAGE }]);
     const { appointmentId, secrets } = validateInput(input);
     const oystehr = await createOystehr(secrets);
+    const encounters = (
+      await oystehr.fhir.search<Encounter>({
+        resourceType: 'Encounter',
+        params: [
+          {
+            name: 'appointment',
+            value: 'Appointment/' + appointmentId,
+          },
+        ],
+      })
+    ).unbundle();
+    if (encounters.length === 0) {
+      throw new Error(`Encounter for appointment "${appointmentId}" not found`);
+    }
     const questionnaireResponse = await oystehr.fhir.create<QuestionnaireResponse>({
       resourceType: 'QuestionnaireResponse',
       status: 'in-progress',
       encounter: {
-        reference: 'Encounter/' + encounterId,
+        reference: 'Encounter/' + encounters[0].id,
       },
       item: [
         {

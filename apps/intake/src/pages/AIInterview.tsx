@@ -3,9 +3,10 @@ import { PageContainer } from '../components';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { useEffect, useState } from 'react';
 import api from '../api/zapehrApi';
-import { assertDefined } from 'zambda-utils';
 import { Box } from '@mui/system';
-import { Button, TextField } from '@mui/material';
+import { Avatar, Button, TextField, Typography } from '@mui/material';
+import { ottehrDarkBlue } from '../assets/icons';
+import { Send } from '@mui/icons-material';
 
 interface Message {
   linkId: string;
@@ -49,20 +50,58 @@ const AIInterview = (): JSX.Element => {
     setLoading(false);
   };
   return (
-    <PageContainer title="Title">
+    <PageContainer>
       {messages.map((message) => (
-        <Box key={message.linkId + '-' + message.author}>{message.text}</Box>
+        <Box
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: message.author === 'ai' ? 'flex-start' : 'flex-end',
+            marginBottom: message.author === 'ai' ? '10px' : '18px',
+          }}
+        >
+          {message.author === 'ai' && <img src={ottehrDarkBlue} style={{ width: '24px', marginRight: '10px' }} />}
+          <Typography
+            variant="body1"
+            key={message.linkId + '-' + message.author}
+            style={{
+              background: message.author === 'user' ? 'rgba(244, 246, 248, 1)' : 'none',
+              borderRadius: '4px',
+              padding: '8px',
+              paddingTop: message.author === 'ai' ? '0' : '8px',
+              paddingLeft: message.author === 'ai' ? '0' : '8px',
+              width: 'fit-content',
+            }}
+          >
+            {message.text}
+          </Typography>
+          {message.author === 'user' && <Avatar style={{ width: '24px', height: '24px', marginLeft: '10px' }} />}
+        </Box>
       ))}
-      <TextField onChange={(e) => setAnswer(e.target.value)} />
-      <Button
-        disabled={loading || questionnaireResponse == null}
-        onClick={onSend}
-        size="large"
-        type="button"
-        color="secondary"
+      <Box
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+        }}
       >
-        Send
-      </Button>
+        <TextField
+          style={{ width: '100%' }}
+          placeholder="Your message..."
+          onChange={(e) => setAnswer(e.target.value)}
+        />
+        <Button
+          disabled={loading || questionnaireResponse == null}
+          onClick={onSend}
+          size="large"
+          type="button"
+          color="secondary"
+          variant="contained"
+          startIcon={<Send />}
+          style={{ height: '38px', marginLeft: '16px' }}
+        >
+          Send
+        </Button>
+      </Box>
     </PageContainer>
   );
 };
@@ -73,22 +112,20 @@ function createMessages(questionnaireResponse: QuestionnaireResponse): Message[]
     questionnaire.item
       ?.sort((itemA, itemB) => parseInt(itemA.linkId) - parseInt(itemB.linkId))
       ?.flatMap<Message>((questionItem) => {
-        const answerItem = assertDefined(
-          questionnaireResponse.item?.find((answerItem) => answerItem.linkId === questionItem.linkId),
-          `Answer for question "${questionItem.linkId}"`
-        );
-        const questionText = assertDefined(questionItem.text, `Text of question "${questionItem.linkId}"`);
-        const answerText = assertDefined(
-          answerItem.answer?.[0]?.valueString,
-          `Text of answer to question "${questionItem.linkId}"`
-        );
+        const answerItem = questionnaireResponse.item?.find((answerItem) => answerItem.linkId === questionItem.linkId);
         if (questionItem.linkId == '0') {
           return [];
         }
-        return [
-          { linkId: questionItem.linkId, author: 'ai', text: questionText },
-          { linkId: questionItem.linkId, author: 'user', text: answerText },
-        ];
+        const result: Message[] = [{ linkId: questionItem.linkId, author: 'ai', text: questionItem.text ?? '' }];
+        const answerText = answerItem?.answer?.[0]?.valueString;
+        if (answerText != null) {
+          result.push({
+            linkId: questionItem.linkId,
+            author: 'user',
+            text: answerItem?.answer?.[0]?.valueString ?? '',
+          });
+        }
+        return result;
       }) ?? []
   );
 }
