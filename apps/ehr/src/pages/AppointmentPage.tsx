@@ -1072,6 +1072,7 @@ export default function AppointmentPage(): ReactElement {
               {appointment && appointment?.status !== 'cancelled' ? (
                 <>
                   <Button
+                    data-testid={dataTestIds.visitDetailsPage.cancelVisitButton}
                     variant="outlined"
                     sx={{
                       alignSelf: 'center',
