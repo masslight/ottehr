@@ -16,13 +16,7 @@ import {
   usePaperworkContext,
 } from 'ui-components';
 import { ZambdaClient, useUCZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
-import {
-  InviteParticipantRequestParameters,
-  VisitType,
-  makeValidationSchema,
-  pickFirstValueFromAnswerItem,
-  uuidRegex,
-} from 'utils';
+import { VisitType, makeValidationSchema, pickFirstValueFromAnswerItem, uuidRegex } from 'utils';
 import { ValidationError } from 'yup';
 import { intakeFlowPageRoute } from '../../App';
 import { otherColors } from '../../IntakeThemeProvider';
@@ -38,6 +32,7 @@ import { useTrackMixpanelEvents } from '../../hooks/useTrackMixpanelEvents';
 import i18n from '../../lib/i18n';
 import { useCreateInviteMutation } from '../features/waiting-room';
 import { useOpenExternalLink } from '../hooks/useOpenExternalLink';
+import { usePaperworkInviteParams } from '../../hooks/usePaperworkInviteParams';
 import { slugFromLinkId } from './PaperworkPage';
 
 const ReviewPaperwork = (): JSX.Element => {
@@ -194,39 +189,7 @@ const ReviewPaperwork = (): JSX.Element => {
     [appointmentID, navigate]
   );
 
-  const inviteParams = useMemo((): null | Omit<InviteParticipantRequestParameters, 'appointmentId'> => {
-    const page = completedPaperwork.find((page) => page.linkId === 'invite-participant-page');
-
-    if (!page) {
-      throw new Error('invite-participant-page page not found');
-    }
-
-    const answers: { [key: string]: string | undefined } = {};
-
-    page.item?.forEach((item) => {
-      const linkId = item.linkId;
-      let value: string | undefined;
-      if (item?.answer?.[0]?.valueString) {
-        value = item.answer[0].valueString;
-      }
-      answers[linkId] = value;
-    });
-
-    if (answers['invite-from-another-device'] !== 'Yes, I will add invite details below') {
-      return null;
-    }
-
-    if (answers['invite-phone']) {
-      answers['invite-phone'] = answers['invite-phone'].replace(/\D/g, '');
-    }
-
-    return {
-      firstName: answers['invite-first']!,
-      lastName: answers['invite-last']!,
-      emailAddress: answers['invite-email']!,
-      phoneNumber: answers['invite-phone']!,
-    };
-  }, [completedPaperwork]);
+  const inviteParams = usePaperworkInviteParams(completedPaperwork);
 
   const submitPaperwork = useCallback(async (): Promise<void> => {
     const submitPaperwork = async (

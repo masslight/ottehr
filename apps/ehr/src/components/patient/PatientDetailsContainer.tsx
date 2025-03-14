@@ -13,6 +13,7 @@ import {
 import { FormSelect, FormTextField } from '../form';
 import { Row, Section } from '../layout';
 import ShowMoreButton from './ShowMoreButton';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 const FormFields = {
   ethinicity: { key: 'patient-ethnicity' },
@@ -87,6 +88,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
       <Row label="Patient's ethnicity" required>
         <FormSelect
           name={FormFields.ethinicity.key}
+          data-testid={dataTestIds.patientDetailsContainer.patientsEthnicity}
           control={control}
           options={ETHNICITY_OPTIONS}
           rules={{
@@ -98,6 +100,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
       <Row label="Patient's race" required>
         <FormSelect
           name={FormFields.race.key}
+          data-testid={dataTestIds.patientDetailsContainer.patientsRace}
           control={control}
           options={RACE_OPTIONS}
           rules={{

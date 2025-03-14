@@ -5,6 +5,7 @@ import { emailRegex, isPhoneNumberValid, isPostalCodeValid, REQUIRED_FIELD_ERROR
 import { STATE_OPTIONS } from '../../constants';
 import { FormAutocomplete, FormTextField } from '../form';
 import { Row, Section } from '../layout';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 const FormFields = {
   streetAddress: { key: 'patient-street-address', type: 'String' },
@@ -24,10 +25,14 @@ export const ContactContainer: FC = () => {
       <Row label="Street address" inputId={FormFields.streetAddress.key} required>
         <FormTextField
           name={FormFields.streetAddress.key}
+          data-testid={dataTestIds.contactInformationContainer.streetAddress}
           control={control}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           id={FormFields.streetAddress.key}
         />
+      </Row>
+      <Row label="Address line 2" inputId={FormFields.addressLine2.key}>
+        <FormTextField name={FormFields.addressLine2.key} control={control} id={FormFields.addressLine2.key} />
       </Row>
       <Row label="City, State, ZIP" required>
         <Box sx={{ display: 'flex', gap: 2 }}>
@@ -37,6 +42,7 @@ export const ContactContainer: FC = () => {
             rules={{
               required: REQUIRED_FIELD_ERROR_MESSAGE,
             }}
+            data-testid={dataTestIds.contactInformationContainer.city}
           />
           <FormAutocomplete
             name={FormFields.state.key}
@@ -46,6 +52,7 @@ export const ContactContainer: FC = () => {
               validate: (value: string) => STATE_OPTIONS.some((option) => option.value === value),
               required: REQUIRED_FIELD_ERROR_MESSAGE,
             }}
+            data-testid={dataTestIds.contactInformationContainer.state}
           />
           <FormTextField
             name={FormFields.zip.key}
@@ -54,6 +61,7 @@ export const ContactContainer: FC = () => {
               required: REQUIRED_FIELD_ERROR_MESSAGE,
               validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
             }}
+            data-testid={dataTestIds.contactInformationContainer.zip}
           />
         </Box>
       </Row>
@@ -61,6 +69,7 @@ export const ContactContainer: FC = () => {
         <FormTextField
           id={FormFields.email.key}
           name={FormFields.email.key}
+          data-testid={dataTestIds.contactInformationContainer.patientEmail}
           control={control}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
@@ -80,6 +89,7 @@ export const ContactContainer: FC = () => {
             required: REQUIRED_FIELD_ERROR_MESSAGE,
             validate: (value: string) => isPhoneNumberValid(value) || 'Must be 10 digits',
           }}
+          data-testid={dataTestIds.contactInformationContainer.patientMobile}
         />
       </Row>
     </Section>

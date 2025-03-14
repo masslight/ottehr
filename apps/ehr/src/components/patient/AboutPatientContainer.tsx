@@ -1,7 +1,7 @@
 import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../form';
 import { PRONOUN_OPTIONS, SEX_OPTIONS } from '../../constants';
+import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../form';
 import { Row, Section } from '../layout';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
@@ -28,7 +28,7 @@ export const AboutPatientContainer: FC = () => {
           control={control}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           id={FormFields.lastName.key}
-          data-testid={dataTestIds.patientInformation.patientLastName}
+          data-testid={dataTestIds.patientInformationContainer.patientLastName}
         />
       </Row>
       <Row label="First name" inputId={FormFields.firstName.key} required>
@@ -37,7 +37,7 @@ export const AboutPatientContainer: FC = () => {
           control={control}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           id={FormFields.firstName.key}
-          data-testid={dataTestIds.patientInformation.patientFirstName}
+          data-testid={dataTestIds.patientInformationContainer.patientFirstName}
         />
       </Row>
       <Row label="Middle name" inputId={FormFields.middleName.key}>
@@ -71,7 +71,7 @@ export const AboutPatientContainer: FC = () => {
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
-          data-testid={dataTestIds.patientInformation.patientBirthSex}
+          data-testid={dataTestIds.patientInformationContainer.patientBirthSex}
         />
       </Row>
     </Section>
