@@ -10,7 +10,7 @@ const supportedApps = ['ehr', 'intake'] as const;
 const ports = {
   ehr: {
     frontend: 4002,
-    backend: 4001,
+    backend: 3001,
   },
   intake: {
     frontend: 3002,

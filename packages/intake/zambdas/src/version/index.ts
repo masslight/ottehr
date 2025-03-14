@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import {} from 'utils';
 import { ZambdaInput } from 'zambda-utils';
 import { topLevelCatch } from 'zambda-utils';
-import '../../instrument.mjs';
+import '../shared/instrument.mjs';
 import { version } from '../../package.json';
 import { captureSentryException, configSentry } from '../shared';
 

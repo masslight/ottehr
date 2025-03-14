@@ -1,0 +1,32 @@
+{
+  "resourceType": "ValueSet",
+  "name": "ovrp-response-options",
+  "title": "OVRP Interest Options",
+  "status": "active",
+  "compose": {
+    "include": [
+      {
+        "concept": [
+          {
+            "code": "Yes",
+            "display": "Yes / First available"
+          },
+          {
+            "code": "No",
+            "display": "No"
+          },
+          {
+            "code": "Maybe",
+            "display": "Need more info"
+          }
+        ],
+        "system": "ip-questionnaire-item-value-set"
+      }
+    ]
+  },
+  "id": "1feb090f-bb62-4def-b0b3-3e8667b96095",
+  "meta": {
+    "versionId": "f0d327f9-2c8c-4e84-8fc1-9887e832269b",
+    "lastUpdated": "2024-03-27T10:38:54.132Z"
+  }
+}

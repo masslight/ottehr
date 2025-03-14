@@ -1,0 +1,212 @@
+{
+  "resourceType": "QuestionnaireResponse",
+  "questionnaire": "Questionnaire/f4876e3d-b6dd-4c39-886f-29e8a647135f",
+  "status": "in-progress",
+  "subject": {
+    "reference": "Patient/3033d394-5174-492d-8231-6fccfe5b7b11"
+  },
+  "encounter": {
+    "reference": "Encounter/1a640065-62a1-4d09-b1e7-ca13e391d08a"
+  },
+  "authored": "2024-05-28T11:26:33.514Z",
+  "source": {
+    "reference": "RelatedPerson/aa417ad2-80de-405c-916d-5d240bd19616"
+  },
+  "item": [
+    {
+      "linkId": "patient-street-address",
+      "answer": [
+        {
+          "valueString": "ew"
+        }
+      ]
+    },
+    {
+      "linkId": "patient-city",
+      "answer": [
+        {
+          "valueString": "we"
+        }
+      ]
+    },
+    {
+      "linkId": "patient-state",
+      "answer": [
+        {
+          "valueString": "AZ"
+        }
+      ]
+    },
+    {
+      "linkId": "patient-zip",
+      "answer": [
+        {
+          "valueString": "13232"
+        }
+      ]
+    },
+    {
+      "linkId": "patient-filling-out-as",
+      "answer": [
+        {
+          "valueString": "Parent/Guardian"
+        }
+      ]
+    },
+    {
+      "linkId": "guardian-email",
+      "answer": [
+        {
+          "valueString": "jenchik15@gmail.com"
+        }
+      ]
+    },
+    {
+      "linkId": "guardian-number",
+      "answer": [
+        {
+          "valueString": "2323232233"
+        }
+      ]
+    },
+    {
+      "linkId": "mobile-opt-in",
+      "answer": [
+        {
+          "valueBoolean": false
+        }
+      ]
+    },
+    {
+      "linkId": "patient-ethnicity",
+      "answer": [
+        {
+          "valueString": "Not Hispanic or Latino"
+        }
+      ]
+    },
+    {
+      "linkId": "patient-race",
+      "answer": [
+        {
+          "valueString": "American Indian or Alaska Native"
+        }
+      ]
+    },
+    {
+      "linkId": "patient-point-of-discovery",
+      "answer": [
+        {
+          "valueString": "Been there with another child or family member"
+        }
+      ]
+    },
+    {
+      "linkId": "ovrp-interest",
+      "answer": [
+        {
+          "valueString": "Yes"
+        }
+      ]
+    },
+    {
+      "linkId": "payment-option",
+      "answer": [
+        {
+          "valueString": "I will pay without insurance"
+        }
+      ]
+    },
+    {
+      "linkId": "responsible-party-relationship",
+      "answer": [
+        {
+          "valueString": "Self"
+        }
+      ]
+    },
+    {
+      "linkId": "responsible-party-first-name",
+      "answer": [
+        {
+          "valueString": "Yevheniia"
+        }
+      ]
+    },
+    {
+      "linkId": "responsible-party-last-name",
+      "answer": [
+        {
+          "valueString": "T052802New"
+        }
+      ]
+    },
+    {
+      "linkId": "responsible-party-date-of-birth",
+      "answer": [
+        {
+          "valueDate": "2017-02-06"
+        }
+      ]
+    },
+    {
+      "linkId": "responsible-party-birth-sex",
+      "answer": [
+        {
+          "valueString": "Male"
+        }
+      ]
+    },
+    {
+      "linkId": "hipaa-acknowledgement",
+      "answer": [
+        {
+          "valueBoolean": true
+        }
+      ]
+    },
+    {
+      "linkId": "consent-to-treat",
+      "answer": [
+        {
+          "valueBoolean": true
+        }
+      ]
+    },
+    {
+      "linkId": "signature",
+      "answer": [
+        {
+          "valueString": "qw"
+        }
+      ]
+    },
+    {
+      "linkId": "full-name",
+      "answer": [
+        {
+          "valueString": "qw"
+        }
+      ]
+    },
+    {
+      "linkId": "consent-form-signer-relationship",
+      "answer": [
+        {
+          "valueString": "Parent"
+        }
+      ]
+    }
+  ],
+  "extension": [
+    {
+      "url": "https://fhir.zapehr.com/r4/StructureDefinitions/ip-address",
+      "valueString": "2a02:a45d:8dad:0:7464:b34d:86a2:6046"
+    }
+  ],
+  "id": "371b3005-fddd-4292-80e2-162104452ee7",
+  "meta": {
+    "versionId": "1db0a1ca-fc84-4155-97a8-43d90b73b7c4",
+    "lastUpdated": "2024-05-28T11:26:35.285Z"
+  }
+}
