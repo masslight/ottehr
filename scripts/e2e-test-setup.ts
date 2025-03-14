@@ -3,7 +3,7 @@ import { input, password } from '@inquirer/prompts';
 import dotenv from 'dotenv';
 import Oystehr from '@oystehr/sdk';
 import { Location } from 'fhir/r4b';
-import { DEFAULT_TESTING_SLUG } from '../packages/intake/zambdas/scripts/setup-default-locations';
+import { DEFAULT_TESTING_SLUG } from '../packages/zambdas/src/scripts/setup-default-locations';
 
 const getEnvironment = (): string => {
   const envFlagIndex = process.argv.findIndex((arg) => arg === '--environment');
