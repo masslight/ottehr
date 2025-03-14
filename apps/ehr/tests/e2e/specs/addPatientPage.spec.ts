@@ -246,7 +246,7 @@ async function createAppointment(
     slotTime = await addPatientPage.selectFirstAvailableSlot();
   }
 
-  const appointmentCreationResponse = await waitForResponseWithData(page, /\/create-appointment\//);
+  const appointmentCreationResponse = waitForResponseWithData(page, /\/create-appointment\//);
   await addPatientPage.clickAddButton();
   const response = await unpackFhirResponse<CreateAppointmentResponse>(await appointmentCreationResponse);
 

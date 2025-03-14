@@ -143,7 +143,7 @@ export class PatientsPage extends PageWithTablePagination {
       }
     );
 
-    expect(patientPresent).toBe(true);
+    await expect.soft(patientPresent).toBe(true);
   }
 }
 

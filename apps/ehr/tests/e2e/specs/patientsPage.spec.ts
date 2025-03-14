@@ -23,172 +23,181 @@ test.afterAll(async () => {
   await resourceHandler.cleanupResources();
 });
 
-test.beforeEach(async ({ page }) => {
-  await page.waitForTimeout(2000);
+test('Search patients with different filters', async ({ page }) => {
   await page.goto('/patients');
-});
 
-test('Search by Last name', async ({ page }) => {
-  const patientsPage = await expectPatientsPage(page);
-  await patientsPage.searchByName(PATIENT_LAST_NAME);
-  await patientsPage.clickSearchButton();
-  await patientsPage.verifyPatientPresent({
-    id: resourceHandler.patient.id!,
-    firstName: PATIENT_FIRST_NAME,
-    lastName: PATIENT_LAST_NAME,
-    dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
-    email: PATIENT_EMAIL,
-    phoneNumber: PATIENT_PHONE_NUMBER,
-    address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+  await test.step('Search by Last name', async () => {
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByName(PATIENT_LAST_NAME);
+    await patientsPage.clickSearchButton();
+    await patientsPage.verifyPatientPresent({
+      id: resourceHandler.patient.id!,
+      firstName: PATIENT_FIRST_NAME,
+      lastName: PATIENT_LAST_NAME,
+      dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
+      email: PATIENT_EMAIL,
+      phoneNumber: PATIENT_PHONE_NUMBER,
+      address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+    });
+    await page.goto('/patients');
   });
-});
 
-test('Search by Date of birth', async ({ page }) => {
-  const patientsPage = await expectPatientsPage(page);
-  await patientsPage.searchByDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
-  await patientsPage.clickSearchButton();
-  await patientsPage.verifyPatientPresent({
-    id: resourceHandler.patient.id!,
-    firstName: PATIENT_FIRST_NAME,
-    lastName: PATIENT_LAST_NAME,
-    dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
-    email: PATIENT_EMAIL,
-    phoneNumber: PATIENT_PHONE_NUMBER,
-    address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+  await test.step('Search by Date of birth', async () => {
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
+    await patientsPage.clickSearchButton();
+    await patientsPage.verifyPatientPresent({
+      id: resourceHandler.patient.id!,
+      firstName: PATIENT_FIRST_NAME,
+      lastName: PATIENT_LAST_NAME,
+      dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
+      email: PATIENT_EMAIL,
+      phoneNumber: PATIENT_PHONE_NUMBER,
+      address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+    });
+    await page.goto('/patients');
   });
-});
 
-test('Search by Phone number', async ({ page }) => {
-  const patientsPage = await expectPatientsPage(page);
-  await patientsPage.searchByMobilePhone(PATIENT_PHONE_NUMBER);
-  await patientsPage.clickSearchButton();
-  await patientsPage.verifyPatientPresent({
-    id: resourceHandler.patient.id!,
-    firstName: PATIENT_FIRST_NAME,
-    lastName: PATIENT_LAST_NAME,
-    dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
-    email: PATIENT_EMAIL,
-    phoneNumber: PATIENT_PHONE_NUMBER,
-    address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+  await test.step('Search by Phone number', async () => {
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByMobilePhone(PATIENT_PHONE_NUMBER);
+    await patientsPage.clickSearchButton();
+    await patientsPage.verifyPatientPresent({
+      id: resourceHandler.patient.id!,
+      firstName: PATIENT_FIRST_NAME,
+      lastName: PATIENT_LAST_NAME,
+      dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
+      email: PATIENT_EMAIL,
+      phoneNumber: PATIENT_PHONE_NUMBER,
+      address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+    });
+    await page.goto('/patients');
   });
-});
 
-test('Search by Address', async ({ page }) => {
-  const patientsPage = await expectPatientsPage(page);
-  await patientsPage.searchByAddress(PATIENT_LINE.substring(0, 6));
-  await patientsPage.clickSearchButton();
-  await patientsPage.verifyPatientPresent({
-    id: resourceHandler.patient.id!,
-    firstName: PATIENT_FIRST_NAME,
-    lastName: PATIENT_LAST_NAME,
-    dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
-    email: PATIENT_EMAIL,
-    phoneNumber: PATIENT_PHONE_NUMBER,
-    address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+  await test.step('Search by Address', async () => {
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByAddress(PATIENT_LINE.substring(0, 6));
+    await patientsPage.clickSearchButton();
+    await patientsPage.verifyPatientPresent({
+      id: resourceHandler.patient.id!,
+      firstName: PATIENT_FIRST_NAME,
+      lastName: PATIENT_LAST_NAME,
+      dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
+      email: PATIENT_EMAIL,
+      phoneNumber: PATIENT_PHONE_NUMBER,
+      address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+    });
+    await page.goto('/patients');
   });
-});
 
-test('Search by Email', async ({ page }) => {
-  const patientsPage = await expectPatientsPage(page);
-  await patientsPage.searchByEmail(PATIENT_EMAIL.split('@')[0]);
-  await patientsPage.clickSearchButton();
-  await patientsPage.verifyPatientPresent({
-    id: resourceHandler.patient.id!,
-    firstName: PATIENT_FIRST_NAME,
-    lastName: PATIENT_LAST_NAME,
-    dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
-    email: PATIENT_EMAIL,
-    phoneNumber: PATIENT_PHONE_NUMBER,
-    address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+  await test.step('Search by Email', async () => {
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByEmail(PATIENT_EMAIL.split('@')[0]);
+    await patientsPage.clickSearchButton();
+    await patientsPage.verifyPatientPresent({
+      id: resourceHandler.patient.id!,
+      firstName: PATIENT_FIRST_NAME,
+      lastName: PATIENT_LAST_NAME,
+      dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
+      email: PATIENT_EMAIL,
+      phoneNumber: PATIENT_PHONE_NUMBER,
+      address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+    });
+    await page.goto('/patients');
   });
-});
 
-test('Search by Last name and First name', async ({ page }) => {
-  const patientsPage = await expectPatientsPage(page);
-  await patientsPage.searchByName(PATIENT_LAST_NAME + ',' + PATIENT_FIRST_NAME);
-  await patientsPage.clickSearchButton();
-  await patientsPage.verifyPatientPresent({
-    id: resourceHandler.patient.id!,
-    firstName: PATIENT_FIRST_NAME,
-    lastName: PATIENT_LAST_NAME,
-    dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
-    email: PATIENT_EMAIL,
-    phoneNumber: PATIENT_PHONE_NUMBER,
-    address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+  await test.step('Search by Last name and First name', async () => {
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByName(PATIENT_LAST_NAME + ',' + PATIENT_FIRST_NAME);
+    await patientsPage.clickSearchButton();
+    await patientsPage.verifyPatientPresent({
+      id: resourceHandler.patient.id!,
+      firstName: PATIENT_FIRST_NAME,
+      lastName: PATIENT_LAST_NAME,
+      dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
+      email: PATIENT_EMAIL,
+      phoneNumber: PATIENT_PHONE_NUMBER,
+      address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+    });
+    await page.goto('/patients');
   });
-});
 
-test('Search by Last name and Date of birth', async ({ page }) => {
-  const patientsPage = await expectPatientsPage(page);
-  await patientsPage.searchByName(PATIENT_LAST_NAME);
-  await patientsPage.searchByDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
-  await patientsPage.clickSearchButton();
-  await patientsPage.verifyPatientPresent({
-    id: resourceHandler.patient.id!,
-    firstName: PATIENT_FIRST_NAME,
-    lastName: PATIENT_LAST_NAME,
-    dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
-    email: PATIENT_EMAIL,
-    phoneNumber: PATIENT_PHONE_NUMBER,
-    address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+  await test.step('Search by Last name and Date of birth', async () => {
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByName(PATIENT_LAST_NAME);
+    await patientsPage.searchByDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
+    await patientsPage.clickSearchButton();
+    await patientsPage.verifyPatientPresent({
+      id: resourceHandler.patient.id!,
+      firstName: PATIENT_FIRST_NAME,
+      lastName: PATIENT_LAST_NAME,
+      dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
+      email: PATIENT_EMAIL,
+      phoneNumber: PATIENT_PHONE_NUMBER,
+      address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+    });
+    await page.goto('/patients');
   });
-});
 
-test('Search by Last name and Address', async ({ page }) => {
-  const patientsPage = await expectPatientsPage(page);
-  await patientsPage.searchByName(PATIENT_LAST_NAME);
-  await patientsPage.searchByAddress(PATIENT_CITY);
-  await patientsPage.clickSearchButton();
-  await patientsPage.verifyPatientPresent({
-    id: resourceHandler.patient.id!,
-    firstName: PATIENT_FIRST_NAME,
-    lastName: PATIENT_LAST_NAME,
-    dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
-    email: PATIENT_EMAIL,
-    phoneNumber: PATIENT_PHONE_NUMBER,
-    address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+  await test.step('Search by Last name and Address', async () => {
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByName(PATIENT_LAST_NAME);
+    await patientsPage.searchByAddress(PATIENT_CITY);
+    await patientsPage.clickSearchButton();
+    await patientsPage.verifyPatientPresent({
+      id: resourceHandler.patient.id!,
+      firstName: PATIENT_FIRST_NAME,
+      lastName: PATIENT_LAST_NAME,
+      dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
+      email: PATIENT_EMAIL,
+      phoneNumber: PATIENT_PHONE_NUMBER,
+      address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+    });
+    await page.goto('/patients');
   });
-});
 
-test('Search by Last name and Phone number', async ({ page }) => {
-  const patientsPage = await expectPatientsPage(page);
-  await patientsPage.searchByName(PATIENT_LAST_NAME);
-  await patientsPage.searchByMobilePhone(PATIENT_PHONE_NUMBER);
-  await patientsPage.clickSearchButton();
-  await patientsPage.verifyPatientPresent({
-    id: resourceHandler.patient.id!,
-    firstName: PATIENT_FIRST_NAME,
-    lastName: PATIENT_LAST_NAME,
-    dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
-    email: PATIENT_EMAIL,
-    phoneNumber: PATIENT_PHONE_NUMBER,
-    address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+  await test.step('Search by Last name and Phone number', async () => {
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByName(PATIENT_LAST_NAME);
+    await patientsPage.searchByMobilePhone(PATIENT_PHONE_NUMBER);
+    await patientsPage.clickSearchButton();
+    await patientsPage.verifyPatientPresent({
+      id: resourceHandler.patient.id!,
+      firstName: PATIENT_FIRST_NAME,
+      lastName: PATIENT_LAST_NAME,
+      dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
+      email: PATIENT_EMAIL,
+      phoneNumber: PATIENT_PHONE_NUMBER,
+      address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+    });
+    await page.goto('/patients');
   });
-});
 
-test('Search by Last name, First name and Date of birth', async ({ page }) => {
-  const patientsPage = await expectPatientsPage(page);
-  await patientsPage.searchByName(PATIENT_LAST_NAME + ',' + PATIENT_FIRST_NAME);
-  await patientsPage.searchByDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
-  await patientsPage.clickSearchButton();
-  await patientsPage.verifyPatientPresent({
-    id: resourceHandler.patient.id!,
-    firstName: PATIENT_FIRST_NAME,
-    lastName: PATIENT_LAST_NAME,
-    dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
-    email: PATIENT_EMAIL,
-    phoneNumber: PATIENT_PHONE_NUMBER,
-    address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+  await test.step('Search by Last name, First name and Date of birth', async () => {
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByName(PATIENT_LAST_NAME + ',' + PATIENT_FIRST_NAME);
+    await patientsPage.searchByDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
+    await patientsPage.clickSearchButton();
+    await patientsPage.verifyPatientPresent({
+      id: resourceHandler.patient.id!,
+      firstName: PATIENT_FIRST_NAME,
+      lastName: PATIENT_LAST_NAME,
+      dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
+      email: PATIENT_EMAIL,
+      phoneNumber: PATIENT_PHONE_NUMBER,
+      address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+    });
+    await page.goto('/patients');
   });
-});
 
-test('Reset filters', async ({ page }) => {
-  const patientsPage = await expectPatientsPage(page);
-  await patientsPage.searchByName(PATIENT_LAST_NAME);
-  await patientsPage.searchByDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
-  await patientsPage.searchByMobilePhone(PATIENT_PHONE_NUMBER);
-  await patientsPage.searchByAddress(PATIENT_CITY);
-  await patientsPage.searchByEmail(PATIENT_EMAIL.split('@')[0]);
-  await patientsPage.clickResetFiltersButton();
-  await patientsPage.verifyFilterReset();
+  await test.step('Reset filters', async () => {
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByName(PATIENT_LAST_NAME);
+    await patientsPage.searchByDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
+    await patientsPage.searchByMobilePhone(PATIENT_PHONE_NUMBER);
+    await patientsPage.searchByAddress(PATIENT_CITY);
+    await patientsPage.searchByEmail(PATIENT_EMAIL.split('@')[0]);
+    await patientsPage.clickResetFiltersButton();
+    await patientsPage.verifyFilterReset();
+  });
 });
