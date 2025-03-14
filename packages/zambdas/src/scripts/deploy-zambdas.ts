@@ -1,8 +1,10 @@
 import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest } from '@oystehr/sdk';
 import { Subscription } from 'fhir/r4b';
 import fs from 'fs';
-import { SubscriptionZambdaDetails, Task_Send_Messages_Url } from 'utils';
+import { COMMUNICATION_ISSUE_REPORT_CODE, SubscriptionZambdaDetails, Task_Send_Messages_Url } from 'utils';
 import { getAuth0Token } from '../patient/shared';
+
+const APPOINTMENT_PREPROCESSED = 'APPOINTMENT_PREPROCESSED';
 
 interface DeployZambda {
   type: 'http_open' | 'http_auth' | 'subscription' | 'cron';
@@ -16,8 +18,132 @@ interface DeployZambda {
 }
 
 const ZAMBDAS: { [name: string]: DeployZambda } = {
-  'INTAKE-VERSION': {
+  VERSION: {
     type: 'http_open',
+  },
+  'DEACTIVATE-USER': {
+    type: 'http_auth',
+  },
+  'GET-APPOINTMENTS': {
+    type: 'http_auth',
+  },
+  'GET-TELEMED-APPOINTMENTS': {
+    type: 'http_auth',
+  },
+  'CHANGE-TELEMED-APPOINTMENT-STATUS': {
+    type: 'http_auth',
+  },
+  'ASSIGN-PRACTITIONER': {
+    type: 'http_auth',
+  },
+  'UNASSIGN-PRACTITIONER': {
+    type: 'http_auth',
+  },
+  'CHANGE-IN-PERSON-VISIT-STATUS': {
+    type: 'http_auth',
+  },
+  'SIGN-APPOINTMENT': {
+    type: 'http_auth',
+  },
+  'GET-CHART-DATA': {
+    type: 'http_auth',
+  },
+  'SAVE-CHART-DATA': {
+    type: 'http_auth',
+  },
+  'DELETE-CHART-DATA': {
+    type: 'http_auth',
+  },
+  'UPDATE-USER': {
+    type: 'http_auth',
+  },
+  'INIT-TELEMED-SESSION': {
+    type: 'http_auth',
+  },
+  'GET-USER': {
+    type: 'http_auth',
+  },
+  'SAVE-PATIENT-INSTRUCTION': {
+    type: 'http_auth',
+  },
+  'GET-PATIENT-INSTRUCTIONS': {
+    type: 'http_auth',
+  },
+  'DELETE-PATIENT-INSTRUCTION': {
+    type: 'http_auth',
+  },
+  'SAVE-FOLLOWUP-ENCOUNTER': {
+    type: 'http_auth',
+  },
+  'GET-CONVERSATION': {
+    type: 'http_auth',
+  },
+  'GET-EMPLOYEES': {
+    type: 'http_auth',
+  },
+  'NOTIFICATIONS-UPDATER': {
+    type: 'cron',
+    schedule: {
+      expression: 'cron(*/5 * * * ? *)', // every 3 minutes
+    },
+    environments: ['demo'],
+  },
+  'SYNC-USER': {
+    type: 'http_auth',
+  },
+  'ICD-SEARCH': {
+    type: 'http_auth',
+  },
+  'GET-PATIENT-PROFILE-PHOTO-URL': {
+    type: 'http_auth',
+  },
+  'COMMUNICATION-SUBSCRIPTION': {
+    type: 'subscription',
+    subscriptionDetails: [
+      {
+        criteria: `Communication?category=${COMMUNICATION_ISSUE_REPORT_CODE.system}|${COMMUNICATION_ISSUE_REPORT_CODE.code}&status=in-progress`,
+        reason: 'Internal communication',
+        event: 'create',
+      },
+    ],
+  },
+  'PROCESS-ERX-RESOURCES': {
+    type: 'subscription',
+    subscriptionDetails: [
+      {
+        criteria: `MedicationRequest`,
+        reason: 'ERX incoming resources processor',
+        event: 'create',
+      },
+    ],
+  },
+  'GET-CLAIMS': {
+    type: 'http_auth',
+  },
+  'TELEMED-APPOINTMENT-SUBSCRIPTION': {
+    type: 'subscription',
+    subscriptionDetails: [
+      {
+        criteria: `Appointment?_tag:not=${APPOINTMENT_PREPROCESSED}&status=arrived,booked`,
+        reason: 'Appointment pre-processor',
+        event: 'update',
+      },
+    ],
+  },
+  'CREATE-UPDATE-MEDICATION-ORDER': {
+    type: 'http_auth',
+  },
+  'GET-MEDICATION-ORDERS': {
+    type: 'http_auth',
+  },
+  'CREATE-UPLOAD-DOCUMENT-URL': {
+    type: 'http_auth',
+  },
+  'CREATE-LAB-ORDER': {
+    type: 'http_auth',
+  },
+  'PAPERWORK-TO-PDF': {
+    type: 'http_auth',
   },
   'SUB-CANCELLATION-EMAIL': {
     type: 'subscription',
@@ -227,7 +353,7 @@ const projectApiUrlFromAuth0Audience = (auth0Audience: string): string => {
   }
 };
 
-const updateZambdas = async (config: any, env: string): Promise<void> => {
+const updateZambdas = async (config: any): Promise<void> => {
   const token = await getAuth0Token(config);
 
   if (!token) {
@@ -270,20 +396,6 @@ const updateZambdas = async (config: any, env: string): Promise<void> => {
         name: zambdaName,
       });
       console.log(`Zambda ${zambda} with ID ${currentDeployedZambda.id}`);
-    }
-
-    const envPath = `../../../apps/intake/env/.env.${env}`;
-    const envLines = fs.readFileSync(envPath, 'utf8').split('\n');
-    const zambdaKey = `VITE_APP_${zambda.toUpperCase().replace(/-/g, '_')}_ZAMBDA_ID`;
-    const newLine = `${zambdaKey}=${currentDeployedZambda.name}`;
-
-    const existingLineIndex = envLines.findIndex((line) => line.startsWith(zambdaKey));
-
-    if (existingLineIndex >= 0) {
-      envLines[existingLineIndex] = newLine;
-      fs.writeFileSync(envPath, envLines.join('\n'));
-    } else {
-      console.log(`Secret ${zambdaKey} is not found in the environment file, continuing`);
     }
 
     await updateProjectZambda(
@@ -522,7 +634,7 @@ if (process.argv.length < 3) {
 const main = async (): Promise<void> => {
   const env = process.argv[2];
   const secrets = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
-  await updateZambdas(secrets, env);
+  await updateZambdas(secrets);
 };
 
 main().catch((error) => {
