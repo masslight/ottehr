@@ -1,20 +1,8 @@
 import { Box, Divider, MenuItem, Select, Typography, useTheme } from '@mui/material';
-import { HumanName } from 'fhir/r4b';
+import { HumanName, Patient } from 'fhir/r4b';
 import { FC, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import {
-  LANGUAGE_OPTIONS,
-  PATIENT_COMMON_WELL_CONSENT_URL,
-  PATIENT_ETHNICITY_URL,
-  PATIENT_GENDER_IDENTITY_DETAILS_URL,
-  PATIENT_GENDER_IDENTITY_URL,
-  PATIENT_POINT_OF_DISCOVERY_URL,
-  PATIENT_RACE_URL,
-  PATIENT_SEND_MARKETING_URL,
-  PATIENT_SEXUAL_ORIENTATION_URL,
-  patientFieldPaths,
-  REQUIRED_FIELD_ERROR_MESSAGE,
-} from 'utils';
+import { LANGUAGE_OPTIONS, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import {
   ETHNICITY_OPTIONS,
   GENDER_IDENTITY_OPTIONS,
@@ -22,56 +10,47 @@ import {
   RACE_OPTIONS,
   SEXUAL_ORIENTATION_OPTIONS,
 } from '../../constants';
-import { getExtensionValue } from '../../features/css-module/parser';
 import { FormSelect, FormTextField } from '../form';
 import { Row, Section } from '../layout';
 import ShowMoreButton from './ShowMoreButton';
-import { usePatientStore } from '../../state/patient.store';
 
-export const PatientDetailsContainer: FC = () => {
+const FormFields = {
+  ethinicity: { key: 'patient-ethnicity' },
+  race: { key: 'patient-race' },
+  sexualOrientation: { key: 'patient-sexual-orientation' },
+  genderIdentity: { key: 'patient-gender-identity' },
+  genderIdentityDetails: { key: 'patient-gender-identity-details' },
+  language: { key: 'patient-preferred-language' },
+  pointOfDiscovery: { key: 'patient-point-of-discovery' },
+  sendMarketing: { key: 'mobile-opt-in' },
+  commonWellConsent: { key: 'common-well-consent' },
+};
+
+interface PatientDetailsContainerProps {
+  patient: Patient;
+}
+export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ patient }) => {
   const theme = useTheme();
-  const { patient, updatePatientField } = usePatientStore();
-  const { control, setValue, watch } = useFormContext();
+  const { control, watch } = useFormContext();
 
   const [showAllPreviousNames, setShowAllPreviousNames] = useState(false);
-  const genderIdentityCurrentValue = watch(patientFieldPaths.genderIdentity);
 
   if (!patient) return null;
 
-  const howDidYouHearAboutUs = patient.extension?.find((e: { url: string }) => e.url === PATIENT_POINT_OF_DISCOVERY_URL)
-    ?.valueString;
-
-  const sendMarketingMessages = patient.extension?.find((e: { url: string }) => e.url === PATIENT_SEND_MARKETING_URL)
-    ?.valueBoolean;
-
-  const commonWellConsent = patient.extension?.find((e: { url: string }) => e.url === PATIENT_COMMON_WELL_CONSENT_URL)
-    ?.valueBoolean;
-
   const previousNames = patient.name?.filter((name) => name.use === 'old').reverse() || [];
 
-  const preferredLanguage = patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0].display;
-
-  const sexualOrientation = patient.extension?.find((e: { url: string }) => e.url === PATIENT_SEXUAL_ORIENTATION_URL)
-    ?.valueCodeableConcept?.coding?.[0].display;
-
-  const genderIdentity = patient.extension?.find((e: { url: string }) => e.url === PATIENT_GENDER_IDENTITY_URL)
-    ?.valueCodeableConcept?.coding?.[0].display;
-
-  const genderIdentityDetails = patient.extension?.find(
-    (e: { url: string }) => e.url === PATIENT_GENDER_IDENTITY_DETAILS_URL
-  )?.valueString;
-
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    const { name, value } = event.target;
-    updatePatientField(name, value);
+    console.log('event', event);
   };
+
+  const genderIdentityCurrentValue = watch(FormFields.genderIdentity.key);
 
   const handleGenderIdentityChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     handleChange(e as any);
     // Remove gender identity details if not selecting "Other"
     if (e.target.value !== 'Non-binary gender identity') {
-      setValue(patientFieldPaths.genderIdentityDetails, '');
-      updatePatientField(patientFieldPaths.genderIdentityDetails, '');
+      // setValue(patientFieldPaths.genderIdentityDetails, '');
+      // updatePatientField(patientFieldPaths.genderIdentityDetails, '');
     }
   };
 
@@ -107,43 +86,39 @@ export const PatientDetailsContainer: FC = () => {
       </Row>
       <Row label="Patient's ethnicity" required>
         <FormSelect
-          name={patientFieldPaths.ethnicity}
+          name={FormFields.ethinicity.key}
           control={control}
           options={ETHNICITY_OPTIONS}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
-          defaultValue={getExtensionValue(patient, PATIENT_ETHNICITY_URL)}
           onChangeHandler={handleChange}
         />
       </Row>
       <Row label="Patient's race" required>
         <FormSelect
-          name={patientFieldPaths.race}
+          name={FormFields.race.key}
           control={control}
           options={RACE_OPTIONS}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
-          defaultValue={getExtensionValue(patient, PATIENT_RACE_URL)}
           onChangeHandler={handleChange}
         />
       </Row>
       <Row label="Sexual orientation">
         <FormSelect
-          name={patientFieldPaths.sexualOrientation}
+          name={FormFields.sexualOrientation.key}
           control={control}
           options={SEXUAL_ORIENTATION_OPTIONS}
-          defaultValue={sexualOrientation}
           onChangeHandler={handleChange}
         />
       </Row>
       <Row label="Gender identity">
         <FormSelect
-          name={patientFieldPaths.genderIdentity}
+          name={FormFields.genderIdentity.key}
           control={control}
           options={GENDER_IDENTITY_OPTIONS}
-          defaultValue={genderIdentity}
           onChangeHandler={handleGenderIdentityChange}
         />
       </Row>
@@ -157,9 +132,8 @@ export const PatientDetailsContainer: FC = () => {
         >
           <Box sx={{ display: 'flex', alignItems: 'center', alignSelf: 'end', flex: '0 1 70%' }}>
             <FormTextField
-              name={patientFieldPaths.genderIdentityDetails}
+              name={FormFields.genderIdentityDetails.key}
               control={control}
-              defaultValue={genderIdentityDetails}
               onChangeHandler={handleChange}
             />
           </Box>
@@ -167,10 +141,9 @@ export const PatientDetailsContainer: FC = () => {
       )}
       <Row label="How did you hear about us?">
         <FormSelect
-          name={patientFieldPaths.pointOfDiscovery}
+          name={FormFields.pointOfDiscovery.key}
           control={control}
           options={POINT_OF_DISCOVERY_OPTIONS}
-          defaultValue={howDidYouHearAboutUs}
           onChangeHandler={handleChange}
         />
       </Row>
@@ -186,9 +159,8 @@ export const PatientDetailsContainer: FC = () => {
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', flex: '1 1 70%' }}>
           <Controller
-            name={patientFieldPaths.sendMarketing}
+            name={FormFields.sendMarketing.key}
             control={control}
-            defaultValue={sendMarketingMessages === undefined ? '' : String(sendMarketingMessages)}
             render={({ field }) => (
               <Select
                 {...field}
@@ -225,9 +197,8 @@ export const PatientDetailsContainer: FC = () => {
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', flex: '1 1 70%' }}>
           <Controller
-            name={patientFieldPaths.preferredLanguage}
+            name={FormFields.language.key}
             control={control}
-            defaultValue={preferredLanguage || ''}
             render={({ field }) => (
               <Select
                 {...field}
@@ -261,9 +232,8 @@ export const PatientDetailsContainer: FC = () => {
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', flex: '1 1 70%' }}>
           <Controller
-            name={patientFieldPaths.commonWellConsent}
+            name={FormFields.commonWellConsent.key}
             control={control}
-            defaultValue={commonWellConsent === undefined ? '' : String(commonWellConsent)}
             render={({ field }) => (
               <Select
                 {...field}

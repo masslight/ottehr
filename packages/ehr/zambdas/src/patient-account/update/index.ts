@@ -231,17 +231,23 @@ interface FinishedInput extends BasicInput {
 const complexValidation = async (input: BasicInput, oystehrM2M: Oystehr): Promise<FinishedInput> => {
   const { secrets, userToken, questionnaireResponse } = input;
   console.log('questionnaireResponse', JSON.stringify(questionnaireResponse));
+  console.log('here -1');
   const oystehr = createOystehrClient(userToken, secrets);
+  console.log('here');
   const user = await oystehr.user.me();
+  console.log('here 2');
+  if (!user) {
+    throw NOT_AUTHORIZED;
+  }
 
   const providerProfileReference = user.profile;
 
   if (!providerProfileReference) {
     throw NOT_AUTHORIZED;
   }
-
+  console.log('here 3');
   const [url, version] = (questionnaireResponse.questionnaire ?? ' | ').split('|');
-
+  console.log('here 4');
   const questionnaire = (
     await oystehrM2M.fhir.search<Questionnaire>({
       resourceType: 'Questionnaire',
@@ -257,7 +263,7 @@ const complexValidation = async (input: BasicInput, oystehrM2M: Oystehr): Promis
       ],
     })
   ).unbundle()[0];
-
+  console.log('here 5');
   if (!questionnaire) {
     throw QUESTIONNAIRE_NOT_FOUND_FOR_QR_ERROR;
   }
@@ -275,7 +281,7 @@ const complexValidation = async (input: BasicInput, oystehrM2M: Oystehr): Promis
           return e.path?.split('.')?.[0];
         })
         .filter((i) => !!i) as string[];
-
+      console.log('validationErrors', JSON.stringify(validationErrors, null, 2));
       console.log('errorpaths', JSON.stringify(errorPaths));
 
       if (errorPaths.length === 0) {

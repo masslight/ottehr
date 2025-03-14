@@ -71,7 +71,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
       questionnaire: updateQRUrl,
       status: 'completed',
       subject: { reference: `Patient/${patient.id}` },
-      item: itemized,
+      item: [{ linkId: 'insurance-section', item: itemized }],
     };
     console.log('data', data, questionnaireResponse);
     // onClose();

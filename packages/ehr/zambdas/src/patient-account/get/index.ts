@@ -6,7 +6,7 @@ import {
   isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
-  PatientAccountAndCoverageResources,
+  PatientAccountResponse,
 } from 'utils';
 import Oystehr from '@oystehr/sdk';
 
@@ -36,9 +36,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   }
 };
 
-const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAccountAndCoverageResources> => {
+const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAccountResponse> => {
   const { patientId } = input;
-  return getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+  const accountAndCoverages = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+  return {
+    ...accountAndCoverages,
+    primaryCarePhysician: undefined,
+  };
 };
 
 interface Input {

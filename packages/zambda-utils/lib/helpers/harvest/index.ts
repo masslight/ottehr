@@ -1670,8 +1670,13 @@ export const getSecondaryPolicyHolderFromAnswers = (items: QuestionnaireResponse
   return extractPolicyHolder(items, '-2');
 };
 
+// EHR design calls for teritary insurance to be handled in addition to secondary - will need some changes to support this
 const checkIsSecondaryOnly = (items: QuestionnaireResponseItem[]): boolean => {
-  return items.find((item) => item.linkId === 'insurance-is-secondary')?.answer?.[0]?.valueBoolean ?? false;
+  const priorityAnswer = items.find((item) => item.linkId === 'insurance-priority')?.answer?.[0]?.valueString;
+  if (priorityAnswer && priorityAnswer !== 'Primary') {
+    return true;
+  }
+  return false;
 };
 
 // note: this function assumes items have been flattened before being passed in
@@ -2886,7 +2891,7 @@ export const getAccountAndCoverageResourcesForPatient = async (
   if (!patientResource) {
     throw PATIENT_NOT_FOUND_ERROR;
   }
-  console.log('creating account and coverage operations');
+
   return getCoverageUpdateResourcesFromUnbundled({
     patient: patientResource,
     resources: [...resources],

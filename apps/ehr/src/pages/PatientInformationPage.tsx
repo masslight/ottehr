@@ -1,9 +1,9 @@
 import { Box, Button, Typography, useTheme } from '@mui/material';
-import { BundleEntry, Coverage, InsurancePlan, Organization, Patient, RelatedPerson } from 'fhir/r4b';
-import { FC, useState } from 'react';
+import { BundleEntry, Coverage, InsurancePlan, Organization, QuestionnaireResponseItem } from 'fhir/r4b';
+import { FC, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getFullName } from 'utils';
+import { extractFirstValueFromAnswer, flattenItems, getFullName, makePrepopulatedItemsFromPatientRecord } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { CustomDialog } from '../components/dialogs';
 import { LoadingScreen } from '../components/LoadingScreen';
@@ -18,42 +18,36 @@ import {
   ResponsibleInformationContainer,
   SettingsContainer,
 } from '../components/patient';
-import { useGetInsurancePlans, useGetPatient, useGetPatientQuery } from '../hooks/useGetPatient';
+import {
+  useGetInsurancePlans,
+  useGetPatient,
+  useGetPatientAccount,
+  useGetPatientDetailsUpdateForm,
+} from '../hooks/useGetPatient';
 import { createInsurancePlanDto, InsurancePlanDTO, usePatientStore } from '../state/patient.store';
 import CloseIcon from '@mui/icons-material/Close';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { otherColors } from '../CustomThemeProvider';
 import { AddInsuranceModal } from '../components/patient/AddInsuranceModal';
+import { useZapEHRAPIClient } from '../telemed/hooks/useOystehrAPIClient';
+
+const makeFormDefaults = (currentItemValues: QuestionnaireResponseItem[]): any => {
+  const flattened = flattenItems(currentItemValues);
+  return flattened.reduce((acc: any, item: QuestionnaireResponseItem) => {
+    const value = item.answer ? extractFirstValueFromAnswer(item.answer ?? []) : undefined;
+    acc[item.linkId] = value;
+    return acc;
+  }, {});
+};
 
 const PatientInformationPage: FC = () => {
   const theme = useTheme();
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const { isFetching } = useGetPatientQuery({ patientId: id }, (data) => {
-    const bundleEntries = data.entry;
-    const bundleEntryWithPatient = bundleEntries?.find(
-      (bundleEntry) => bundleEntry.resource?.resourceType === 'Patient'
-    );
-    const patientResource = bundleEntryWithPatient?.resource as Patient;
-
-    const coverageResources = bundleEntries
-      ?.filter((bundleEntry) => bundleEntry.resource?.resourceType === 'Coverage')
-      .map((bundleEntry) => bundleEntry.resource as Coverage)
-      .filter((coverage) => coverage.status === 'active');
-
-    const relatedPersonResources = bundleEntries
-      ?.filter((bundleEntry) => bundleEntry.resource?.resourceType === 'RelatedPerson')
-      .map((bundleEntry) => bundleEntry.resource as RelatedPerson);
-
-    usePatientStore.setState({
-      patient: patientResource,
-      insurances: coverageResources,
-      policyHolders: relatedPersonResources,
-    });
-  });
-
-  const { patient, reset, patchOperations, insurances, tempInsurances, setInsurancePlans } = usePatientStore();
+  const apiClient = useZapEHRAPIClient();
+  const { setInsurancePlans } = usePatientStore();
+  const { isFetching: accountFetching, data: accountData } = useGetPatientAccount({ apiClient, patientId: id ?? null });
 
   useGetInsurancePlans((data) => {
     const bundleEntries = data.entry;
@@ -92,21 +86,53 @@ const PatientInformationPage: FC = () => {
     }
   });
 
+  const { isFetching: questionnaireFetching, data: questionnaire } = useGetPatientDetailsUpdateForm();
+
+  const { patient, coverages, isFetching, defaultFormVals } = useMemo(() => {
+    const patient = accountData?.patient;
+    const coverages: Coverage[] = [];
+    if (accountData?.coverages?.primary) {
+      coverages.push(accountData.coverages.primary);
+    }
+    if (accountData?.coverages?.secondary) {
+      coverages.push(accountData.coverages.secondary);
+    }
+    const isFetching = accountFetching || questionnaireFetching;
+    let defaultFormVals: any | undefined;
+    if (!isFetching && accountData && questionnaire) {
+      const prepopulatedForm = makePrepopulatedItemsFromPatientRecord({ ...accountData, questionnaire });
+      console.log('prepopulatedForm', prepopulatedForm);
+      defaultFormVals = makeFormDefaults(prepopulatedForm);
+      console.log('defaultFormVals', defaultFormVals);
+    }
+    return { patient, coverages, isFetching, defaultFormVals };
+  }, [accountData, questionnaire, questionnaireFetching, accountFetching]);
+
   const { otherPatientsWithSameName, setOtherPatientsWithSameName } = useGetPatient(id);
 
   const [openConfirmationDialog, setOpenConfirmationDialog] = useState(false);
   const [openAddInsuranceModal, setOpenAddInsuranceModal] = useState(false);
 
   const methods = useForm({
+    defaultValues: defaultFormVals,
+    values: defaultFormVals,
     mode: 'onBlur',
   });
 
+  useEffect(() => {
+    if (defaultFormVals) {
+      methods.reset();
+    }
+  }, [defaultFormVals, methods]);
+
   if (!patient) return null;
 
-  if (isFetching) return <LoadingScreen />;
+  console.log('form vals', methods.getValues());
+
+  if (isFetching || questionnaireFetching) return <LoadingScreen />;
 
   const handleDiscardChanges = (): void => {
-    reset();
+    methods.reset();
     setOpenConfirmationDialog(false);
     navigate(-1);
   };
@@ -116,7 +142,7 @@ const PatientInformationPage: FC = () => {
   };
 
   const handleBackClickWithConfirmation = (): void => {
-    if (
+    /*if (
       (patchOperations?.patient?.length ?? 0) > 0 ||
       Object.values(patchOperations?.coverages || {}).some((ops) => ops.length > 0) ||
       Object.values(patchOperations?.relatedPersons || {}).some((ops) => ops.length > 0)
@@ -124,7 +150,8 @@ const PatientInformationPage: FC = () => {
       setOpenConfirmationDialog(true);
     } else {
       navigate(-1);
-    }
+    }*/
+    navigate(-1);
   };
 
   return (
@@ -178,17 +205,15 @@ const PatientInformationPage: FC = () => {
               <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <AboutPatientContainer />
                 <ContactContainer />
-                <PatientDetailsContainer />
+                <PatientDetailsContainer patient={patient} />
                 <PrimaryCareContainer />
               </Box>
               <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {insurances.map((insurance) => (
-                  <InsuranceContainer key={insurance.id} insuranceId={insurance.id!} />
+                {coverages.map((coverage) => (
+                  <InsuranceContainer key={coverage.id} insuranceId={coverage.id!} />
                 ))}
-                {tempInsurances.map((insurance) => (
-                  <InsuranceContainer key={insurance.coverage.id} insuranceId={insurance.coverage.id!} />
-                ))}
-                {insurances.length + tempInsurances.length < 3 && (
+                {/*todo*/}
+                {coverages.length < 2 && (
                   <Button
                     variant="outlined"
                     color="primary"

@@ -31,7 +31,7 @@ import {
   SignAppointmentResponse,
   ChangeInPersonVisitStatusInput,
   ChangeInPersonVisitStatusResponse,
-  PatientAccountAndCoverageResources,
+  PatientAccountResponse,
 } from 'utils';
 import { GetAppointmentsRequestParams } from '../utils';
 import { GetOystehrTelemedAPIParams } from './types';
@@ -255,13 +255,13 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('get medication orders', parameters);
   };
 
-  const getPatientAccount = async (parameters: { patientId: string }): Promise<PatientAccountAndCoverageResources> => {
+  const getPatientAccount = async (parameters: { patientId: string }): Promise<PatientAccountResponse> => {
     return await makeZapRequest('get patient account', parameters);
   };
 
   const updatePatientAccount = async (parameters: {
     questionnaireResponse: QuestionnaireResponse;
-  }): Promise<PatientAccountAndCoverageResources> => {
+  }): Promise<PatientAccountResponse> => {
     return await makeZapRequest('update patient account', parameters);
   };
 

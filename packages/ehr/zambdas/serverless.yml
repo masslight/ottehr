@@ -639,7 +639,7 @@ functions:
     handler: src/patient-account/get/index.index
     events:
       - http:
-          path: zambda/patient-account/get/execute
+          path: zambda/get-patient-account/execute
           method: POST
     timeout: 25
     environment:
@@ -657,7 +657,7 @@ functions:
     handler: src/patient-account/update/index.index
     events:
       - http:
-          path: zambda/patient-account/update/execute
+          path: zambda/update-patient-account/execute
           method: POST
     timeout: 25
     environment:

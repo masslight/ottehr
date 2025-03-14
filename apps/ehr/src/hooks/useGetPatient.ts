@@ -9,6 +9,7 @@ import {
   InsurancePlan,
   Location,
   Patient,
+  Questionnaire,
   RelatedPerson,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -25,6 +26,7 @@ import {
   getVisitTotalTime,
   consolidateOperations,
   PatientMasterRecordResource,
+  PromiseReturnType,
 } from 'utils';
 import { getTimezone } from '../helpers/formatDateTime';
 import { getPatientNameSearchParams } from '../helpers/patientSearch';
@@ -32,6 +34,8 @@ import { usePatientStore } from '../state/patient.store';
 import { getVisitTypeLabelForAppointment } from '../types/types';
 import { useApiClients } from './useAppClients';
 import { enqueueSnackbar } from 'notistack';
+import { OystehrTelemedAPIClient } from '../telemed/data';
+const updateQRUrl = import.meta.env.VITE_APP_EHR_ACCOUNT_UPDATE_FORM;
 
 const getTelemedLength = (history?: EncounterStatusHistory[]): number => {
   const value = history?.find((item) => item.status === 'in-progress');
@@ -253,6 +257,35 @@ export const useGetPatientQuery = (
       onError: (err) => {
         console.error('Error during fetching get patient: ', err);
       },
+    }
+  );
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useGetPatientAccount = (
+  {
+    apiClient,
+    patientId,
+  }: {
+    apiClient: OystehrTelemedAPIClient | null;
+    patientId: string | null;
+  },
+  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientAccount']>>) => void
+) => {
+  return useQuery(
+    ['patient-account-get', { apiClient, patientId }],
+    () => {
+      return apiClient!.getPatientAccount({
+        patientId: patientId!,
+      });
+    },
+    {
+      refetchInterval: 30000,
+      onSuccess,
+      onError: (err) => {
+        console.error('Error fetching patient account: ', err);
+      },
+      enabled: apiClient != null && patientId != null,
     }
   );
 };
@@ -484,6 +517,50 @@ export const useGetInsurancePlans = (onSuccess: (data: Bundle<InsurancePlan>) =>
       onSuccess,
       onError: (err) => {
         console.error('Error during fetching insurance plans: ', err);
+      },
+    }
+  );
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useGetPatientDetailsUpdateForm = (onSuccess?: (data: Questionnaire) => void) => {
+  const { oystehr } = useApiClients();
+
+  const [url, version] = updateQRUrl.split('|');
+
+  return useQuery(
+    ['patient-update-form'],
+    async () => {
+      if (oystehr) {
+        const searchResults = (
+          await oystehr.fhir.search<Questionnaire>({
+            resourceType: 'Questionnaire',
+            params: [
+              {
+                name: 'url',
+                value: url,
+              },
+              {
+                name: 'version',
+                value: version,
+              },
+            ],
+          })
+        ).unbundle();
+        const form = searchResults[0];
+        if (!form) {
+          throw new Error('Form not found');
+        }
+        return form;
+      } else {
+        throw new Error('FHIR client not defined');
+      }
+    },
+    {
+      enabled: Boolean(oystehr) && Boolean(updateQRUrl),
+      onSuccess,
+      onError: (err) => {
+        console.error('Error during patient update form: ', err);
       },
     }
   );

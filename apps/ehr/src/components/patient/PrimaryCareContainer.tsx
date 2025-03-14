@@ -1,32 +1,33 @@
 import { Checkbox, FormControlLabel, Typography } from '@mui/material';
-import { Practitioner } from 'fhir/r4b';
 import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { patientFieldPaths, PRACTICE_NAME_URL, REQUIRED_FIELD_ERROR_MESSAGE, standardizePhoneNumber } from 'utils';
-import { usePatientStore } from '../../state/patient.store';
+import { patientFieldPaths, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { Row, Section } from '../layout';
 import { FormTextField } from '../form';
+
+const FormFields = {
+  firstName: { key: 'pcp-first-name', type: 'String' },
+  lastName: { key: 'pcp-last-name', type: 'String' },
+  practiceName: { key: 'pcp-practice', type: 'String' },
+  address: { key: 'pcp-address', type: 'String' },
+  phone: { key: 'pcp-number', type: 'String' },
+  active: { key: 'pcp-active', type: 'Boolean' },
+};
+
 export const PrimaryCareContainer: FC = () => {
   const { control, watch } = useFormContext();
-  const { patient, updatePatientField } = usePatientStore();
-  if (!patient) return null;
-
-  const pcp = patient?.contained?.find(
-    (resource) => resource.resourceType === 'Practitioner' && resource.active === true
-  ) as Practitioner;
-  const practiceName = pcp?.extension?.find((e: { url: string }) => e.url === PRACTICE_NAME_URL)?.valueString;
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const { name, value, type, checked } = event.target;
-    updatePatientField(name, type === 'checkbox' ? checked : value);
+    console.log('event', name, value, type, checked);
+    //updatePatientField(name, type === 'checkbox' ? checked : value);
   };
 
   return (
     <Section title="Primary Care Physician">
       <Controller
-        name={patientFieldPaths.pcpActive}
+        name={FormFields.active.key}
         control={control}
-        defaultValue={pcp?.active ?? false}
         render={({ field: { onChange, value, ...field } }) => (
           <FormControlLabel
             control={
@@ -41,7 +42,7 @@ export const PrimaryCareContainer: FC = () => {
                     target: {
                       ...e.target,
                       type: e.target.type,
-                      name: patientFieldPaths.pcpActive,
+                      name: FormFields.active.key,
                       checked: newActiveValue,
                     },
                   });
@@ -54,53 +55,48 @@ export const PrimaryCareContainer: FC = () => {
       />
       {watch(patientFieldPaths.pcpActive) && (
         <>
-          <Row label="First name" inputId="pcp-first-name" required>
+          <Row label="First name" inputId={FormFields.firstName.key} required>
             <FormTextField
-              name={patientFieldPaths.pcpFirstName}
+              name={FormFields.firstName.key}
               control={control}
-              defaultValue={pcp?.name?.[0]?.given?.[0]}
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-              id="pcp-first-name"
+              id={FormFields.firstName.key}
               onChangeHandler={handleChange}
             />
           </Row>
-          <Row label="Last name" inputId="pcp-last-name" required>
+          <Row label="Last name" inputId={FormFields.lastName.key} required>
             <FormTextField
-              name={patientFieldPaths.pcpLastName}
+              name={FormFields.lastName.key}
               control={control}
-              defaultValue={pcp?.name?.[0]?.family}
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-              id="pcp-last-name"
+              id={FormFields.lastName.key}
               onChangeHandler={handleChange}
             />
           </Row>
-          <Row label="Practice name" inputId="practice-name" required>
+          <Row label="Practice name" inputId={FormFields.practiceName.key} required>
             <FormTextField
-              name={patientFieldPaths.practiceName}
+              name={FormFields.practiceName.key}
               control={control}
-              defaultValue={practiceName}
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-              id="practice-name"
+              id={FormFields.practiceName.key}
               onChangeHandler={handleChange}
             />
           </Row>
-          <Row label="Address" inputId="pcp-street-address" required>
+          <Row label="Address" inputId={FormFields.address.key} required>
             <FormTextField
-              name={patientFieldPaths.pcpStreetAddress}
+              name={FormFields.address.key}
               control={control}
-              defaultValue={pcp?.address?.[0]?.line?.[0]}
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-              id="pcp-street-address"
+              id={FormFields.address.key}
               onChangeHandler={handleChange}
             />
           </Row>
-          <Row label="Mobile" inputId="pcp-mobile" required>
+          <Row label="Mobile" inputId={FormFields.phone.key} required>
             <FormTextField
-              name={patientFieldPaths.pcpPhone}
+              name={FormFields.phone.key}
               control={control}
-              defaultValue={standardizePhoneNumber(pcp?.telecom?.[0]?.value)}
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-              id="pcp-mobile"
+              id={FormFields.phone.key}
               onChangeHandler={handleChange}
             />
           </Row>
