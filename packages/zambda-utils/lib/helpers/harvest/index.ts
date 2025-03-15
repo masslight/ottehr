@@ -1567,7 +1567,7 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
   // Check primary insurance
   let primaryPolicyHolder: PolicyHolder | undefined;
   let primaryInsuranceDetails: InsuranceDetails | undefined;
-  let secondaryPolicyHolder = getSecondaryPolicyHolderFromAnswers(flattenedPaperwork);
+  let secondaryPolicyHolder = getSecondaryPolicyHolderFromAnswers(questionnaireResponse.item ?? []);
   let secondaryInsuranceDetails = getInsuranceDetailsFromAnswers(
     flattenedPaperwork,
     insurancePlanResources,
@@ -1575,7 +1575,7 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
     '-2'
   );
   if (!isSecondaryOnly) {
-    primaryPolicyHolder = getPrimaryPolicyHolderFromAnswers(flattenedPaperwork);
+    primaryPolicyHolder = getPrimaryPolicyHolderFromAnswers(questionnaireResponse.item ?? []);
     primaryInsuranceDetails = getInsuranceDetailsFromAnswers(
       flattenedPaperwork,
       insurancePlanResources,
@@ -1659,15 +1659,85 @@ export async function searchInsuranceInformation(
   >;
 }
 
+ const getCoverageGroups = (items: QuestionnaireResponseItem[]): QuestionnaireResponseItem[][] => {
+   const VARIABLE_PRIORITY_COVERAGE_SECTION_ID = 'insurance-section'
+  const groups: QuestionnaireResponseItem[][] = [];
+
+  items.forEach((item) => {
+    const linkId = item.linkId;
+    if (linkId.startsWith(VARIABLE_PRIORITY_COVERAGE_SECTION_ID) && item.item) {
+      groups.push(item.item);
+    }
+  });
+  return groups;
+ }
+
+ interface PrioritizedCoverageGroup {
+  priority: 'Primary' | 'Secondary'; // | 'Tertiary' some day
+  suffix: string;
+  items: QuestionnaireResponseItem[];
+ }
+
+ const tagCoverageGroupWithPriortity = (items: QuestionnaireResponseItem[]): PrioritizedCoverageGroup | undefined => {
+  const primaryItem = items.find((item) => item.linkId.startsWith('insurance-priority') && item.answer?.[0]?.valueString === 'Primary');
+  const secondaryItem = items.find((item) => item.linkId.startsWith('insurance-priority') && item.answer?.[0]?.valueString === 'Secondary');
+  
+  const isPrimary = primaryItem !== undefined;
+  const isSecondary = secondaryItem !== undefined;
+
+  const primarySuffix = parseInt(primaryItem?.linkId.split('-').pop() ?? '');
+  const secondarySuffix = parseInt(secondaryItem?.linkId.split('-').pop() ?? '');
+
+  if (isPrimary) {
+    return {
+      priority: 'Primary',
+      items,
+      suffix: Number.isNaN(primarySuffix) ? '' : `-${primarySuffix}`,
+    };
+  }
+  if (isSecondary) {
+    return {
+      priority: 'Secondary',
+      items,
+      suffix: Number.isNaN(secondarySuffix) ? '' : `-${secondarySuffix}`,
+    };
+  }
+  return undefined;
+ };
+
 // the following 3 functions are exported for testing purposes; not expected to be called outside this file but for unit testing
-// note: this function assumes items have been flattened before being passed in
 export const getPrimaryPolicyHolderFromAnswers = (items: QuestionnaireResponseItem[]): PolicyHolder | undefined => {
-  return extractPolicyHolder(items);
+  // group the coverage-related items into their respective group(s)
+  // if there is some indication in the answers within each group that the group should be treated as primary, 
+  // use that group here, regardless of the suffix used within that group
+
+  const coverageGroups = getCoverageGroups(items);
+
+  const prioritizedCoverageGroups = coverageGroups.map(tagCoverageGroupWithPriortity).filter(Boolean) as PrioritizedCoverageGroup[];
+  const foundPrimaryGroup = prioritizedCoverageGroups.find((group) => group.priority === 'Primary');
+
+  if (foundPrimaryGroup) {
+    return extractPolicyHolder(foundPrimaryGroup.items, foundPrimaryGroup.suffix);
+  }
+
+  const flattenedItems = flattenIntakeQuestionnaireItems(items as IntakeQuestionnaireItem[]);
+  return extractPolicyHolder(flattenedItems);
 };
 
-// note: this function assumes items have been flattened before being passed in
 export const getSecondaryPolicyHolderFromAnswers = (items: QuestionnaireResponseItem[]): PolicyHolder | undefined => {
-  return extractPolicyHolder(items, '-2');
+   // group the coverage-related items into their respective group(s)
+   // if there is some indication in the answers within each group that the group should be treated as secondary, 
+  // use that group here, regardless of the suffix used within that group
+
+  const coverageGroups = getCoverageGroups(items);
+
+  const prioritizedCoverageGroups = coverageGroups.map(tagCoverageGroupWithPriortity).filter(Boolean) as PrioritizedCoverageGroup[];
+  const foundSecondaryGroup = prioritizedCoverageGroups.find((group) => group.priority === 'Secondary');
+  if (foundSecondaryGroup) {
+    return extractPolicyHolder(foundSecondaryGroup.items, foundSecondaryGroup.suffix);
+  }
+  const flattenedItems = flattenIntakeQuestionnaireItems(items as IntakeQuestionnaireItem[]);
+  return extractPolicyHolder(flattenedItems, '-2');
 };
 
 // EHR design calls for teritary insurance to be handled in addition to secondary - will need some changes to support this

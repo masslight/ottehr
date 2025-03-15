@@ -825,6 +825,331 @@
         ]
       },
       {
+        "linkId": "insurance-section-2",
+        "type": "group",
+        "text": "Insurance information",
+        "repeats": true,
+        "item": [
+          {
+            "linkId": "insurance-carrier-2",
+            "text": "Insurance carrier",
+            "type": "choice",
+            "required": true,
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-loading-options",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/strategy",
+                    "valueString": "dynamic"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/source",
+                    "valueExpression": {
+                      "language": "application/x-fhir-query",
+                      "expression": "InsurancePlan?status=active&_tag=insurance-payer-plan"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "linkId": "insurance-member-id-2",
+            "text": "Member ID",
+            "type": "string",
+            "required": true
+          },
+          {
+            "linkId": "policy-holder-first-name-2",
+            "text": "Policy holder's first name",
+            "type": "string",
+            "required": true
+          },
+          {
+            "linkId": "policy-holder-middle-name-2",
+            "text": "Policy holder's middle name",
+            "type": "string",
+            "required": false
+          },
+          {
+            "linkId": "policy-holder-last-name-2",
+            "text": "Policy holder's last name",
+            "type": "string",
+            "required": true
+          },
+          {
+            "linkId": "policy-holder-date-of-birth-2",
+            "text": "Policy holder's date of birth",
+            "type": "date",
+            "required": true,
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                "valueString": "DOB"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-birth-sex-2",
+            "text": "Policy holder's birth sex",
+            "type": "choice",
+            "required": true,
+            "answerOption": [
+              {
+                "valueString": "Male"
+              },
+              {
+                "valueString": "Female"
+              },
+              {
+                "valueString": "Intersex"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-address-2",
+            "text": "Policy holder address",
+            "type": "string",
+            "required": true
+          },
+          {
+            "linkId": "policy-holder-address-additional-line-2",
+            "text": "Policy holder address line 2 (optional)",
+            "type": "string",
+            "required": false
+          },
+          {
+            "linkId": "policy-holder-city-2",
+            "text": "City",
+            "type": "string",
+           "required": true
+          },
+          {
+            "linkId": "policy-holder-state-2",
+            "text": "State",
+            "type": "choice",
+            "answerOption": [
+              {
+                "valueString": "AL"
+              },
+              {
+                "valueString": "AK"
+              },
+              {
+                "valueString": "AZ"
+              },
+              {
+                "valueString": "AR"
+              },
+              {
+                "valueString": "CA"
+              },
+              {
+                "valueString": "CO"
+              },
+              {
+                "valueString": "CT"
+              },
+              {
+                "valueString": "DE"
+              },
+              {
+                "valueString": "DC"
+              },
+              {
+                "valueString": "FL"
+              },
+              {
+                "valueString": "GA"
+              },
+              {
+                "valueString": "HI"
+              },
+              {
+                "valueString": "ID"
+              },
+              {
+                "valueString": "IL"
+              },
+              {
+                "valueString": "IN"
+              },
+              {
+                "valueString": "IA"
+              },
+              {
+                "valueString": "KS"
+              },
+              {
+                "valueString": "KY"
+              },
+              {
+                "valueString": "LA"
+              },
+              {
+                "valueString": "ME"
+              },
+              {
+                "valueString": "MD"
+              },
+              {
+                "valueString": "MA"
+              },
+              {
+                "valueString": "MI"
+              },
+              {
+                "valueString": "MN"
+              },
+              {
+                "valueString": "MS"
+              },
+              {
+                "valueString": "MO"
+              },
+              {
+                "valueString": "MT"
+              },
+              {
+                "valueString": "NE"
+              },
+              {
+                "valueString": "NV"
+              },
+              {
+                "valueString": "NH"
+              },
+              {
+                "valueString": "NJ"
+              },
+              {
+                "valueString": "NM"
+              },
+              {
+                "valueString": "NY"
+              },
+              {
+                "valueString": "NC"
+              },
+              {
+                "valueString": "ND"
+              },
+              {
+                "valueString": "OH"
+              },
+              {
+                "valueString": "OK"
+              },
+              {
+                "valueString": "OR"
+              },
+              {
+                "valueString": "PA"
+              },
+              {
+                "valueString": "RI"
+              },
+              {
+                "valueString": "SC"
+              },
+              {
+                "valueString": "SD"
+              },
+              {
+                "valueString": "TN"
+              },
+              {
+                "valueString": "TX"
+              },
+              {
+                "valueString": "UT"
+              },
+              {
+                "valueString": "VT"
+              },
+              {
+                "valueString": "VA"
+              },
+              {
+                "valueString": "VI"
+              },
+              {
+                "valueString": "WA"
+              },
+              {
+                "valueString": "WV"
+              },
+              {
+                "valueString": "WI"
+              },
+              {
+                "valueString": "WY"
+              }
+            ],
+            "required": true
+          },
+          {
+            "linkId": "policy-holder-zip",
+            "text": "ZIP",
+            "type": "string",
+            "required": true,
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                "valueString": "ZIP"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-relationship-to-insured-2",
+            "text": "Patient's relationship to insured",
+            "type": "choice",
+            "required": true,
+            "answerOption": [
+              {
+                "valueString": "Self"
+              },
+              {
+                "valueString": "Child"
+              },
+              {
+                "valueString": "Parent"
+              },
+              {
+                "valueString": "Spouse"
+              },
+              {
+                "valueString": "Common Law Spouse"
+              },
+              {
+                "valueString": "Injured Party"
+              },
+              {
+                "valueString": "Other"
+              }
+            ]
+          },
+          {
+            "linkId": "insurance-priority-2",
+            "text": "Type",
+            "type": "choice",
+            "required": true,
+            "answerOption": [
+              {
+                "valueString": "Primary"
+              },
+              {
+                "valueString": "Secondary"
+              },
+              {
+                "valueString": "Tertiary"
+              }
+            ]
+          }
+        ]
+      },
+      {
         "linkId": "responsible-party-section",
         "type": "group",
         "text": "Responsible party information",
