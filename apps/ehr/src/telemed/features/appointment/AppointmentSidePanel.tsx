@@ -30,7 +30,7 @@ import {
 } from 'utils';
 import { EditPatientDialog } from '../../../components/dialogs';
 import { adjustTopForBannerHeight } from '../../../constants';
-import ChatModal from '../../../features/chat/ChatModal';
+import ChatModal from '@features/chat/ChatModal';
 import { addSpacesAfterCommas } from '../../../helpers/formatString';
 import useEvolveUser from '../../../hooks/useEvolveUser';
 import { getSelectors } from '../../../shared/store/getSelectors';

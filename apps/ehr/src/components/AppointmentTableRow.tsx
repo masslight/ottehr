@@ -34,7 +34,7 @@ import {
 import { LANGUAGES } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { otherColors } from '../CustomThemeProvider';
-import ChatModal from '../features/chat/ChatModal';
+import ChatModal from '@features/chat/ChatModal';
 import { CSSButton } from '../features/css-module/components/CSSButton';
 import { usePractitionerActions } from '../features/css-module/hooks/usePractitioner';
 import { checkinPatient } from '../helpers';

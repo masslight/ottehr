@@ -39,5 +39,11 @@ export default ({ mode }: { mode: string }): UserConfig => {
       outDir: './build',
       target: browserslistToEsbuild(),
     },
+    resolve: {
+      alias: {
+        // Override `ui-package/ChatModal` to use `hlthi-ui-components/ChatModal`
+        '@features/chat/ChatModal': 'hlthi-ui-components/lib/plugins/ChatModal'
+      }
+    }
   });
 };

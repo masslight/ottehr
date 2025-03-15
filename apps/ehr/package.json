@@ -83,7 +83,8 @@
     "styled-system": "^5.1.5",
     "tsconfig": "*",
     "utils": "*",
-    "uuid": "^11.0.3"
+    "uuid": "^11.0.3",
+    "hlthi-ui-components": "file:../../custom-packages/ui-components/lib"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
