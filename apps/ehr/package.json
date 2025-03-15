@@ -44,6 +44,12 @@
     "ci-deploy-skeleton": "VITE_APP_ENV=${ENV} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') npm run build:env --env=${ENV} && aws s3 sync build/ s3://ehr-${PREFIX}.ottehr.com --region us-east-1 --delete && aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_ID} --paths '/*' --region us-east-1"
   },
   "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-helmet-async": "^2.0.5",
+    "react-hook-form": "^7.40.0",
+    "react-markdown": "^9.0.0",
+    "react-router-dom": "^6.3.0",
     "@fullcalendar/core": "^5.11.3",
     "@fullcalendar/daygrid": "^5.11.3",
     "@fullcalendar/list": "^5.11.3",
