@@ -18,6 +18,8 @@
     "test": {
       "dependsOn": ["build"],
       "inputs": [
+        "hlthi-packages/**/*.tsx",
+        "hlthi-packages/**/*.ts",
         "apps/**/*.tsx",
         "apps/**/*.ts",
         "packages/**/*.ts",
