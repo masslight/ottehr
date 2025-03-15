@@ -4,12 +4,62 @@ import { useFormContext } from 'react-hook-form';
 import { usePatientStore } from '../../state/patient.store';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { enqueueSnackbar } from 'notistack';
+import { Questionnaire, QuestionnaireItem, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import { IntakeQuestionnaireItem, makeQRResponseItem, mapQuestionnaireAndValueSetsToItemsList } from 'utils';
 
 type ActionBarProps = {
   handleDiscard: () => void;
+  questionnaire: Questionnaire | undefined;
 };
 
-export const ActionBar: FC<ActionBarProps> = ({ handleDiscard }) => {
+const containedItemWithLinkId = (item: QuestionnaireItem, linkId: string): QuestionnaireItem | undefined => {
+  // note: if item.linkId === linkId, return item
+  const { linkId: itemLinkId, item: subItems } = item;
+  if (itemLinkId === linkId) return item;
+  if (!subItems) return undefined;
+  return subItems.find((subItem) => containedItemWithLinkId(subItem, linkId));
+};
+
+const structureQuestionnaireResponse = (questionnaire: Questionnaire, formValues: any): QuestionnaireResponse => {
+  const pageDict: Map<string, QuestionnaireResponseItem[]> = new Map();
+
+  const qItems = mapQuestionnaireAndValueSetsToItemsList(questionnaire.item ?? [], []);
+  qItems.forEach((item) => {
+    pageDict.set(item.linkId, []);
+  });
+
+  Object.entries(formValues).forEach(([key, value]) => {
+    const parentItem = qItems?.find((item) => containedItemWithLinkId(item, key));
+    if (parentItem) {
+      const pageItems = pageDict.get(parentItem.linkId);
+      const qItem = containedItemWithLinkId(parentItem, key) as IntakeQuestionnaireItem;
+      if (pageItems && qItem) {
+        const answer = value != undefined ? makeQRResponseItem(value, qItem) : undefined;
+        if (answer) {
+          pageItems.push(answer);
+        } else {
+          pageItems.push({ linkId: key });
+        }
+      }
+    }
+  });
+  const qrItem: QuestionnaireResponseItem[] = Array.from(pageDict.entries()).map(([linkId, items]) => {
+    const item: QuestionnaireResponseItem = {
+      linkId,
+      item: items,
+    };
+    return item;
+  });
+
+  return {
+    resourceType: 'QuestionnaireResponse',
+    questionnaire: `${questionnaire.url}|${questionnaire.version}`,
+    status: 'completed',
+    item: qrItem,
+  };
+};
+
+export const ActionBar: FC<ActionBarProps> = ({ handleDiscard, questionnaire }) => {
   const theme = useTheme();
 
   const { patchOperations, tempInsurances } = usePatientStore();
@@ -29,7 +79,7 @@ export const ActionBar: FC<ActionBarProps> = ({ handleDiscard }) => {
     );
   }, [isDirty, patchOperations, tempInsurances]);
 
-  if (isDirty) return null;
+  if (!isDirty) return null;
 
   const handleSave = async (): Promise<void> => {
     // Trigger validation for all fields
@@ -39,7 +89,13 @@ export const ActionBar: FC<ActionBarProps> = ({ handleDiscard }) => {
       return;
     }
 
+    if (!questionnaire) {
+      enqueueSnackbar('Something went wrong. Please reload the page.', { variant: 'error' });
+      return;
+    }
     console.log('form vals', getValues());
+    const qr = structureQuestionnaireResponse(questionnaire, getValues());
+    console.log('qr', qr);
   };
 
   return (

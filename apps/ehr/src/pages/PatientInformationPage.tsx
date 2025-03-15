@@ -252,7 +252,7 @@ const PatientInformationPage: FC = () => {
             </Box>
           </Box>
         </Box>
-        <ActionBar handleDiscard={handleBackClickWithConfirmation} />
+        <ActionBar handleDiscard={handleBackClickWithConfirmation} questionnaire={questionnaire} />
       </Box>
       <CustomDialog
         open={openConfirmationDialog}
