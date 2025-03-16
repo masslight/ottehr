@@ -48,7 +48,7 @@ const deleteTestPatientsData = async (config: any): Promise<void> => {
 };
 
 const main = async (): Promise<void> => {
-  await performEffectWithEnvFile('intake', deleteTestPatientsData);
+  await performEffectWithEnvFile(deleteTestPatientsData);
 };
 
 main().catch((error) => {

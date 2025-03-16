@@ -84,7 +84,7 @@ function filterInHouseMedications(allResources: Resource[]): Medication[] {
 
 const main = async (): Promise<void> => {
   try {
-    await performEffectWithEnvFile('ehr', checkAndUpdateInHouseMedications);
+    await performEffectWithEnvFile(checkAndUpdateInHouseMedications);
   } catch (e) {
     console.log('Catch some error while running all effects: ', e);
     console.log('Stringifies: ', JSON.stringify(e));

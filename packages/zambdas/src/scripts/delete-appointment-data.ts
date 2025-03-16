@@ -129,7 +129,7 @@ const getAppointmentById = async (oystehr: Oystehr, appointmentId: string): Prom
 };
 
 const main = async (): Promise<void> => {
-  await performEffectWithEnvFile('intake', deleteAppointmentData);
+  await performEffectWithEnvFile(deleteAppointmentData);
 };
 
 main().catch((error) => {

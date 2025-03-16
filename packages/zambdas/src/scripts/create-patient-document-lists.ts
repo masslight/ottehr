@@ -102,7 +102,7 @@ const createPatientDocumentLists = async (config: any): Promise<void> => {
 };
 
 const main = async (): Promise<void> => {
-  await performEffectWithEnvFile('ehr', createPatientDocumentLists);
+  await performEffectWithEnvFile(createPatientDocumentLists);
 };
 
 main().catch((error) => {

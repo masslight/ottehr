@@ -1,12 +1,9 @@
 import path from 'path';
 
-export const performEffectWithEnvFile = async (
-  pkg: 'intake' | 'ehr',
-  callback: (config: any) => void
-): Promise<void> => {
+export const performEffectWithEnvFile = async (callback: (config: any) => void): Promise<void> => {
   const env = process.argv[2];
   try {
-    const configPath = path.resolve(__dirname, `../../../${pkg}/zambdas/.env/${env}.json`);
+    const configPath = path.resolve(__dirname, `../../../zambdas/.env/${env}.json`);
     const config = await import(configPath);
     await callback(config);
   } catch (e) {

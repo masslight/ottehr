@@ -39,7 +39,7 @@ const cleanUserData = async (config: any): Promise<void> => {
 };
 
 const main = async (): Promise<void> => {
-  await performEffectWithEnvFile('ehr', cleanUserData);
+  await performEffectWithEnvFile(cleanUserData);
 };
 
 main().catch((error) => {
