@@ -59,7 +59,7 @@ function createZambdaEnvFile(
     ENVIRONMENT: environment,
   };
 
-  const envFolderPath = 'packages/ehr/zambdas/.env';
+  const envFolderPath = 'packages/zambdas/.env';
   const envPath = path.join(envFolderPath, `${environment}.json`);
   const envTemplatePath = path.join(envFolderPath, 'local.template.json');
 
@@ -315,7 +315,7 @@ export async function setupEHR(
   try {
     console.log('Starting to update insurances and payer orgs...');
     const { stdout: stdout1, stderr: stderr1 } = await execPromise(
-      `cd packages/ehr/zambdas && npm run update-insurances-and-payer-orgs ${environment}`
+      `cd packages/zambdas && npm run update-insurances-and-payer-orgs ${environment}`
     );
     if (stderr1) {
       console.log(`Command executed with warnings: ${stderr1}`);
@@ -326,7 +326,7 @@ export async function setupEHR(
 
     console.log('Starting to update in-house medications list...');
     const { stdout: stdout2, stderr: stderr2 } = await execPromise(
-      `cd packages/ehr/zambdas && npm run create-update-in-house-medications-list ${environment}`
+      `cd packages/zambdas && npm run create-update-in-house-medications-list ${environment}`
     );
     if (stderr2) {
       console.log(`Command executed with warnings: ${stderr2}`);

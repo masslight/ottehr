@@ -31,6 +31,8 @@ functions:
           path: zambda/intake-version/execute-public
           method: GET
     timeout: 25
+    environment:
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
   check-in:
     handler: src/patient/check-in/index.index
     events:
