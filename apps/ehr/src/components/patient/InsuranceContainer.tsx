@@ -114,7 +114,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
                   if (newValue) {
                     setValue(
                       FormFields.insuranceCarrier.key,
-                      { reference: `InsurancePlan/${newValue.id}` },
+                      { reference: `InsurancePlan/${newValue.id}`, display: newValue.name },
                       { shouldDirty: true }
                     );
                   } else {

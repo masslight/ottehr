@@ -863,7 +863,10 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
       matchingOrg &&
       insurancePlans.find((plan) => plan.ownedBy?.reference === `${matchingOrg.resourceType}/${matchingOrg.id}`);
     if (matchingPlan) {
-      primaryInsurancePlanReference = { reference: `${matchingPlan.resourceType}/${matchingPlan.id}` };
+      primaryInsurancePlanReference = {
+        reference: `${matchingPlan.resourceType}/${matchingPlan.id}`,
+        display: matchingPlan.name,
+      };
     }
   }
   if (secondary && insuranceOrgs && insurancePlans) {
@@ -872,7 +875,10 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
       matchingOrg &&
       insurancePlans.find((plan) => plan.ownedBy?.reference === `${matchingOrg.resourceType}/${matchingOrg.id}`);
     if (matchingPlan) {
-      secondaryInsurancePlanReference = { reference: `${matchingPlan.resourceType}/${matchingPlan.id}` };
+      secondaryInsurancePlanReference = {
+        reference: `${matchingPlan.resourceType}/${matchingPlan.id}`,
+        display: matchingPlan.name,
+      };
     }
   }
 
@@ -894,6 +900,13 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
   let primarySubscriberFirstName = '';
   let primarySubscriberLastName = '';
   let primarySubscriberMiddleName = '';
+  const relationshipToInsured = primary?.relationship?.coding?.[0].display;
+  const policyHolderAddress = primarySubscriber?.address?.[0];
+  const policyHolderZip = policyHolderAddress?.postalCode;
+  const policyHolderState = policyHolderAddress?.state;
+  const policyHolderCity = policyHolderAddress?.city;
+  const policyHolderAddressAdditionalLine = policyHolderAddress?.line?.[1];
+  const policyHolderAddressLine = policyHolderAddress?.line?.[0];
 
   if (primarySubscriber) {
     primarySubscriberFirstName = getFirstName(primarySubscriber) ?? '';
@@ -964,6 +977,25 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     if (linkId === 'policy-holder-birth-sex-2' && secondarySubscriberBirthSex) {
       answer = makeAnswer(capitalize(secondarySubscriberBirthSex));
     }
+    if (linkId === 'patient-relationship-to-insured' && relationshipToInsured) {
+      answer = makeAnswer(relationshipToInsured);
+    }
+    if (linkId === 'policy-holder-zip' && policyHolderZip) {
+      answer = makeAnswer(policyHolderZip);
+    }
+    if (linkId === 'policy-holder-state' && policyHolderState) {
+      answer = makeAnswer(policyHolderState);
+    }
+    if (linkId === 'policy-holder-city' && policyHolderCity) {
+      answer = makeAnswer(policyHolderCity);
+    }
+    if (linkId === 'policy-holder-address-additional-line' && policyHolderAddressAdditionalLine) {
+      answer = makeAnswer(policyHolderAddressAdditionalLine);
+    }
+    if (linkId === 'policy-holder-address' && policyHolderAddressLine) {
+      answer = makeAnswer(policyHolderAddressLine);
+    }
+
     if (linkId === 'insurance-priority') {
       // todo
       answer = makeAnswer('Primary');
@@ -1008,8 +1040,9 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuantorItemsInput): 
       const cc = relationCode[0];
       const coding = cc?.coding?.[0];
 
-      if (coding && coding.code) {
-        relationship = capitalize(coding.code);
+      // would be an improvement not to have to rely on display like this
+      if (coding && coding.display) {
+        relationship = coding.display;
       }
     }
   }

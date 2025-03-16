@@ -1,11 +1,12 @@
 import { Autocomplete, Box, TextField } from '@mui/material';
 import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { emailRegex, isPhoneNumberValid, isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { emailRegex, isPostalCodeValid, phoneRegex, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { STATE_OPTIONS } from '../../constants';
 import { FormTextField } from '../form';
 import { Row, Section } from '../layout';
 import { dataTestIds } from '../../constants/data-test-ids';
+import InputMask from '../InputMask';
 
 const FormFields = {
   streetAddress: { key: 'patient-street-address', type: 'String' },
@@ -111,9 +112,14 @@ export const ContactContainer: FC = () => {
           id={FormFields.phone.key}
           name={FormFields.phone.key}
           control={control}
+          inputProps={{ mask: '(000) 000-0000' }}
+          InputProps={{
+            inputComponent: InputMask as any,
+          }}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
-            validate: (value: string) => isPhoneNumberValid(value) || 'Must be 10 digits',
+            validate: (value: string) =>
+              phoneRegex.test(value) || 'Phone number must be 10 digits in the format (xxx) xxx-xxxx',
           }}
           data-testid={dataTestIds.contactInformationContainer.patientMobile}
         />

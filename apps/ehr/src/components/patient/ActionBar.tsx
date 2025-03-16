@@ -6,10 +6,12 @@ import { dataTestIds } from '../../constants/data-test-ids';
 import { enqueueSnackbar } from 'notistack';
 import { Questionnaire, QuestionnaireItem, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { IntakeQuestionnaireItem, makeQRResponseItem, mapQuestionnaireAndValueSetsToItemsList } from 'utils';
+import { useUpdatePatientAccount } from '../../hooks/useGetPatient';
 
 type ActionBarProps = {
   handleDiscard: () => void;
   questionnaire: Questionnaire | undefined;
+  patientId: string;
 };
 
 const containedItemWithLinkId = (item: QuestionnaireItem, linkId: string): QuestionnaireItem | undefined => {
@@ -20,7 +22,11 @@ const containedItemWithLinkId = (item: QuestionnaireItem, linkId: string): Quest
   return subItems.find((subItem) => containedItemWithLinkId(subItem, linkId));
 };
 
-const structureQuestionnaireResponse = (questionnaire: Questionnaire, formValues: any): QuestionnaireResponse => {
+const structureQuestionnaireResponse = (
+  questionnaire: Questionnaire,
+  formValues: any,
+  patientId: string
+): QuestionnaireResponse => {
   const pageDict: Map<string, QuestionnaireResponseItem[]> = new Map();
 
   const qItems = mapQuestionnaireAndValueSetsToItemsList(questionnaire.item ?? [], []);
@@ -35,6 +41,9 @@ const structureQuestionnaireResponse = (questionnaire: Questionnaire, formValues
       const qItem = containedItemWithLinkId(parentItem, key) as IntakeQuestionnaireItem;
       if (pageItems && qItem) {
         const answer = value != undefined ? makeQRResponseItem(value, qItem) : undefined;
+        if (qItem.linkId === 'insurance-carrier') {
+          console.log('patient-birthdate value, answer', value, answer);
+        }
         if (answer) {
           pageItems.push(answer);
         } else {
@@ -43,24 +52,29 @@ const structureQuestionnaireResponse = (questionnaire: Questionnaire, formValues
       }
     }
   });
-  const qrItem: QuestionnaireResponseItem[] = Array.from(pageDict.entries()).map(([linkId, items]) => {
-    const item: QuestionnaireResponseItem = {
-      linkId,
-      item: items,
-    };
-    return item;
-  });
+  const qrItem: QuestionnaireResponseItem[] = Array.from(pageDict.entries())
+    .map(([linkId, items]) => {
+      const item: QuestionnaireResponseItem = {
+        linkId,
+        item: items,
+      };
+      return item;
+    })
+    .filter((i) => Boolean(i.item?.length));
 
   return {
     resourceType: 'QuestionnaireResponse',
     questionnaire: `${questionnaire.url}|${questionnaire.version}`,
     status: 'completed',
+    subject: { reference: `Patient/${patientId}` },
     item: qrItem,
   };
 };
 
-export const ActionBar: FC<ActionBarProps> = ({ handleDiscard, questionnaire }) => {
+export const ActionBar: FC<ActionBarProps> = ({ handleDiscard, questionnaire, patientId }) => {
   const theme = useTheme();
+
+  const submitQR = useUpdatePatientAccount();
 
   const { patchOperations, tempInsurances } = usePatientStore();
   const {
@@ -94,8 +108,9 @@ export const ActionBar: FC<ActionBarProps> = ({ handleDiscard, questionnaire }) 
       return;
     }
     console.log('form vals', getValues());
-    const qr = structureQuestionnaireResponse(questionnaire, getValues());
+    const qr = structureQuestionnaireResponse(questionnaire, getValues(), patientId);
     console.log('qr', qr);
+    submitQR.mutate(qr);
   };
 
   return (

@@ -120,6 +120,7 @@ const PatientInformationPage: FC = () => {
     const isFetching = accountFetching || questionnaireFetching;
     let defaultFormVals: any | undefined;
     if (!isFetching && accountData && questionnaire) {
+      console.log('accountData', accountData);
       const prepopulatedForm = makePrepopulatedItemsFromPatientRecord({ ...accountData, questionnaire });
       console.log('prepopulatedForm', prepopulatedForm);
       defaultFormVals = makeFormDefaults(prepopulatedForm);
@@ -252,7 +253,11 @@ const PatientInformationPage: FC = () => {
             </Box>
           </Box>
         </Box>
-        <ActionBar handleDiscard={handleBackClickWithConfirmation} questionnaire={questionnaire} />
+        <ActionBar
+          handleDiscard={handleBackClickWithConfirmation}
+          questionnaire={questionnaire}
+          patientId={patient.id ?? ''}
+        />
       </Box>
       <CustomDialog
         open={openConfirmationDialog}

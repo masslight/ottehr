@@ -10,6 +10,7 @@ import {
   Location,
   Patient,
   Questionnaire,
+  QuestionnaireResponse,
   RelatedPerson,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -35,6 +36,7 @@ import { getVisitTypeLabelForAppointment } from '../types/types';
 import { useApiClients } from './useAppClients';
 import { enqueueSnackbar } from 'notistack';
 import { OystehrTelemedAPIClient } from '../telemed/data';
+import { useZapEHRAPIClient } from '../telemed/hooks/useOystehrAPIClient';
 const updateQRUrl = import.meta.env.VITE_APP_EHR_ACCOUNT_UPDATE_FORM;
 
 const getTelemedLength = (history?: EncounterStatusHistory[]): number => {
@@ -285,6 +287,41 @@ export const useGetPatientAccount = (
         console.error('Error fetching patient account: ', err);
       },
       enabled: apiClient != null && patientId != null,
+    }
+  );
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useUpdatePatientAccount = (onSuccess?: () => void) => {
+  const apiClient = useZapEHRAPIClient();
+
+  return useMutation(
+    ['update-patient-account'],
+    async (questionnaireResponse: QuestionnaireResponse): Promise<void> => {
+      try {
+        if (!apiClient || !questionnaireResponse) return;
+        await apiClient.updatePatientAccount({
+          questionnaireResponse,
+        });
+      } catch (error) {
+        console.error(error);
+        throw error;
+      }
+    },
+    {
+      onSuccess: () => {
+        enqueueSnackbar('Patient information updated successfully', {
+          variant: 'success',
+        });
+        if (onSuccess) {
+          onSuccess();
+        }
+      },
+      onError: () => {
+        enqueueSnackbar('Save operation failed. The server encountered an error while processing your request.', {
+          variant: 'error',
+        });
+      },
     }
   );
 };

@@ -1075,12 +1075,6 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-ethnicity': patientFieldPaths.ethnicity,
   'patient-race': patientFieldPaths.race,
   'patient-point-of-discovery': patientFieldPaths.pointOfDiscovery,
-  'responsible-party-relationship': patientFieldPaths.responsiblePartyRelationship,
-  'responsible-party-first-name': patientFieldPaths.responsiblePartyFirstName,
-  'responsible-party-last-name': patientFieldPaths.responsiblePartyLastName,
-  'responsible-party-birth-sex': patientFieldPaths.responsiblePartyGender,
-  'responsible-party-date-of-birth': patientFieldPaths.responsiblePartyBirthDate,
-  'responsible-party-number': patientFieldPaths.responsiblePartyPhone,
   'insurance-carrier': coverageFieldPaths.carrier,
   'insurance-member-id': coverageFieldPaths.memberId,
   'policy-holder-first-name': relatedPersonFieldPaths.firstName,
@@ -1260,25 +1254,6 @@ export function createMasterRecordPatchOperations(
           return;
         }
 
-        // TODO: make handler for nested extensions
-        // Special handler for responsible-party-date-of-birth
-        if (item.linkId === 'responsible-party-date-of-birth') {
-          const url = DATE_OF_BIRTH_URL;
-          const currentValue = getCurrentValue(patient, path);
-          if (value !== currentValue) {
-            tempOperations.patient.push({
-              op: 'add',
-              path: '/contact/0/extension',
-              value: [
-                {
-                  url: url,
-                  valueString: value,
-                },
-              ],
-            });
-          }
-          return;
-        }
         // Special handler for practice-name
         if (item.linkId === 'pcp-practice') {
           const url = PRACTICE_NAME_URL;
@@ -2992,6 +2967,7 @@ export const updatePatientAccountFromQuestionnaire = async (
 ): Promise<Bundle> => {
   const { patientId, questionnaireResponseItem } = input;
 
+
   const flattenedPaperwork = flattenIntakeQuestionnaireItems(
     questionnaireResponseItem as IntakeQuestionnaireItem[]
   ) as QuestionnaireResponseItem[];
@@ -3020,6 +2996,21 @@ export const updatePatientAccountFromQuestionnaire = async (
     guarantorResource: existingGuarantorResource,
   } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
 
+  const patientPatchOps = createMasterRecordPatchOperations({item: questionnaireResponseItem } as QuestionnaireResponse, patient);
+  console.time('patching patient resource');
+  if (patientPatchOps.patient.patchOpsForDirectUpdate.length > 0) {
+    try {
+      await oystehr.fhir.patch({
+        resourceType: 'Patient',
+        id: patient.id!,
+        operations: patientPatchOps.patient.patchOpsForDirectUpdate,
+      });
+    } catch (error: unknown) {
+      console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
+    }
+  }
+  console.timeEnd('patching patient resource');
+
   console.log('existing coverages', JSON.stringify(existingCoverages, null, 2));
   console.log('existing account', JSON.stringify(existingAccount, null, 2));
   console.log('existing guarantor resource', JSON.stringify(existingGuarantorResource, null, 2));
@@ -3038,7 +3029,7 @@ export const updatePatientAccountFromQuestionnaire = async (
 
   const { patch, accountPost, put, coveragePosts } = accountOperations;
 
-  const transactionRequests: BatchInputRequest<Account | RelatedPerson | Coverage>[] = [
+  const transactionRequests: BatchInputRequest<Account | RelatedPerson | Coverage | Patient>[] = [
     ...coveragePosts,
     ...patch,
     ...put,

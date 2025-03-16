@@ -397,7 +397,7 @@
             "linkId": "preferred-language",
             "text": "Preferred language",
             "type": "choice",
-            "required": true,
+            "required": false,
             "answerOption": [
               {
                 "valueString": "English"
@@ -1090,7 +1090,7 @@
             "required": true
           },
           {
-            "linkId": "policy-holder-zip",
+            "linkId": "policy-holder-zip-2",
             "text": "ZIP",
             "type": "string",
             "required": true,
@@ -1226,7 +1226,7 @@
             "linkId": "responsible-party-number",
             "text": "Phone",
             "type": "string",
-            "required": true,
+            "required": false,
             "extension": [
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",

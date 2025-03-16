@@ -1,10 +1,11 @@
 import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { isPhoneNumberValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { phoneRegex, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
 import { RELATIONSHIP_OPTIONS, SEX_OPTIONS } from '../../constants';
 import { Row, Section } from '../layout';
 import { dataTestIds } from '../../constants/data-test-ids';
+import InputMask from '../InputMask';
 
 const FormFields = {
   relationship: { key: 'responsible-party-relationship', type: 'String', label: 'Relationship to the patient' },
@@ -28,24 +29,22 @@ export const ResponsibleInformationContainer: FC = () => {
             required: REQUIRED_FIELD_ERROR_MESSAGE,
             validate: (value: string) => RELATIONSHIP_OPTIONS.some((option) => option.value === value),
           }}
-          defaultValue={''}
         />
       </Row>
       <Row label={FormFields.firstName.label} required inputId={FormFields.firstName.key}>
         <FormTextField
           name={FormFields.firstName.key}
-          data-testid={dataTestIds.responsiblePartyInformationContainer.fullName}
+          data-testid={dataTestIds.responsiblePartyInformationContainer.firstName}
           control={control}
-          defaultValue={''}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           id={FormFields.firstName.key}
         />
       </Row>
       <Row label={FormFields.lastName.label} required inputId={FormFields.lastName.key}>
         <FormTextField
+          data-testid={dataTestIds.responsiblePartyInformationContainer.lastName}
           name={FormFields.lastName.key}
           control={control}
-          defaultValue={''}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           id={FormFields.lastName.key}
         />
@@ -63,7 +62,6 @@ export const ResponsibleInformationContainer: FC = () => {
             required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
           required={true}
-          defaultValue={''}
         />
       </Row>
       <Row label={FormFields.phone.label} inputId={FormFields.phone.key}>
@@ -72,9 +70,15 @@ export const ResponsibleInformationContainer: FC = () => {
           name={FormFields.phone.key}
           data-testid={dataTestIds.responsiblePartyInformationContainer.phoneInput}
           control={control}
-          defaultValue={''}
+          inputProps={{ mask: '(000) 000-0000' }}
+          InputProps={{
+            inputComponent: InputMask as any,
+          }}
           rules={{
-            validate: (value: string) => !value || isPhoneNumberValid(value) || 'Must be 10 digits',
+            validate: (value: string) => {
+              if (!value) return true;
+              return phoneRegex.test(value) || 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
+            },
           }}
         />
       </Row>

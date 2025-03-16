@@ -372,27 +372,22 @@ export const RELATIONSHIP_OPTIONS = [
   {
     label: 'Self',
     value: 'Self',
-    code: 'SELF',
-  },
-  {
-    label: 'Legal Guardian',
-    value: 'Legal Guardian',
-    code: 'GUARD',
-  },
-  {
-    label: 'Father',
-    value: 'Father',
-    code: 'FTH',
-  },
-  {
-    label: 'Mother',
-    value: 'Mother',
-    code: 'MTH',
   },
   {
     label: 'Spouse',
     value: 'Spouse',
-    code: 'SPO',
+  },
+  {
+    label: 'Parent',
+    value: 'Parent',
+  },
+  {
+    label: 'Legal Guardian',
+    value: 'Legal Guardian',
+  },
+  {
+    label: 'Other',
+    value: 'Other',
   },
 ];
 
@@ -525,6 +520,10 @@ export const POINT_OF_DISCOVERY_OPTIONS = [
 
 export const RELATIONSHIP_TO_INSURED_OPTIONS = [
   {
+    label: 'Self',
+    value: 'Self',
+  },
+  {
     label: 'Child',
     value: 'Child',
   },
@@ -537,12 +536,16 @@ export const RELATIONSHIP_TO_INSURED_OPTIONS = [
     value: 'Spouse',
   },
   {
-    label: 'Other',
-    value: 'Other',
+    label: 'Common Law Spouse',
+    value: 'Common Law Spouse',
   },
   {
-    label: 'Self',
-    value: 'Self',
+    label: 'Injured Party',
+    value: 'Injured Party',
+  },
+  {
+    label: 'Other',
+    value: 'Other',
   },
 ];
 
