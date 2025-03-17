@@ -1,7 +1,7 @@
 import { BrowserContext, expect, Locator, Page } from '@playwright/test';
+import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
 import { Locators } from '../locators';
 import { FillingInfo } from './FillingInfo';
-import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
 
 export abstract class BaseInPersonFlow {
   protected page: Page;

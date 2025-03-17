@@ -1,10 +1,10 @@
-import { BrowserContext, test, Page, expect } from '@playwright/test';
+import { BrowserContext, Page, expect, test } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
-import { Locators } from '../../utils/locators';
+import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
+import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
 import { UploadImage } from '../../utils/UploadImage';
-import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 
 let page: Page;
 let context: BrowserContext;
@@ -154,7 +154,7 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await expect(locator.responsiblePartyLastName).toHaveValue(bookingData.lastName);
     await expect(locator.responsiblePartyBirthSex).toHaveValue(bookingData.birthSex);
     await expect(locator.responsiblePartyDOBAnswer).toHaveValue(
-      `${dob.monthNumber}/${dob.dayNumber}/${bookingData.dobYear}`
+      `${dob?.monthNumber}/${dob?.dayNumber}/${bookingData.dobYear}`
     );
   });
   test('PRPI-5 Select self - check fields are disabled', async () => {

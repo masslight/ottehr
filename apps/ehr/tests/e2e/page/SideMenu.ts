@@ -1,9 +1,9 @@
 import { Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { expectInHouseMedicationsPage, InHouseMedicationsPage } from './InHouseMedicationsPage';
 import { expectHospitalizationPage, HospitalizationPage } from './HospitalizationPage';
-import { expectProgressNotePage, ProgressNotePage } from './ProgressNotePage';
-import { AssessmentPage, expectAssessmentPage } from './AssessmentPage';
+import { expectInHouseMedicationsPage, InHouseMedicationsPage } from './in-person/InHouseMedicationsPage';
+import { expectAssessmentPage, InPersonAssessmentPage } from './in-person/InPersonAssessmentPage';
+import { expectInPersonProgressNotePage, InPersonProgressNotePage } from './in-person/InPersonProgressNotePage';
 
 export class SideMenu {
   #page: Page;
@@ -22,12 +22,12 @@ export class SideMenu {
     return expectHospitalizationPage(this.#page);
   }
 
-  async clickProgressNote(): Promise<ProgressNotePage> {
+  async clickProgressNote(): Promise<InPersonProgressNotePage> {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('progress-note')).click();
-    return expectProgressNotePage(this.#page);
+    return expectInPersonProgressNotePage(this.#page);
   }
 
-  async clickAssessment(): Promise<AssessmentPage> {
+  async clickAssessment(): Promise<InPersonAssessmentPage> {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('assessment')).click();
     return expectAssessmentPage(this.#page);
   }

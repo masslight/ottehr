@@ -1,4 +1,5 @@
 import { expect, Page } from '@playwright/test';
+import { waitForResponseWithData } from 'test-utils';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { PageWithTablePagination } from './PageWithTablePagination';
 
@@ -132,9 +133,7 @@ export class PatientsPage extends PageWithTablePagination {
       },
       async () => {
         // Wait for the backend API call to complete
-        await this.#page.waitForResponse(
-          (response) => response.url().includes('/Patient?') && response.status() === 200
-        );
+        await waitForResponseWithData(this.#page, '/Patient?');
 
         // Ensure search results update after response is received
         await this.#page
@@ -144,7 +143,7 @@ export class PatientsPage extends PageWithTablePagination {
       }
     );
 
-    expect(patientPresent).toBe(true);
+    await expect.soft(patientPresent).toBe(true);
   }
 }
 

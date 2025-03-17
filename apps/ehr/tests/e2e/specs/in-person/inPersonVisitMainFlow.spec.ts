@@ -1,10 +1,10 @@
 import { Page, test } from '@playwright/test';
-import { ResourceHandler } from '../../e2e-utils/resource-handler';
-import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
-import { openVisitsPage } from '../page/VisitsPage';
-import { expectPatientInfoPage, PatientInfoPage } from '../page/PatientInfo';
-import { expectProgressNotePage } from '../page/ProgressNotePage';
-import { expectAssessmentPage } from '../page/AssessmentPage';
+import { ResourceHandler } from '../../../e2e-utils/resource-handler';
+import { ENV_LOCATION_NAME } from '../../../e2e-utils/resource/constants';
+import { expectAssessmentPage } from '../../page/in-person/InPersonAssessmentPage';
+import { expectInPersonProgressNotePage } from '../../page/in-person/InPersonProgressNotePage';
+import { expectPatientInfoPage, PatientInfoPage } from '../../page/PatientInfo';
+import { openVisitsPage } from '../../page/VisitsPage';
 
 const DIAGNOSIS = 'Situs inversus';
 const EM_CODE = '99201 New Patient - E/M Level 1';
@@ -41,7 +41,7 @@ test('Book appointment, click Provider on "Patient info", check statuses', async
 test('Book appointment,fill required fields for signing the visit, review and sign progress note', async ({ page }) => {
   const patientInfoPage = await intakeTestAppointment(page);
   await patientInfoPage.cssHeader().clickSwitchStatusButton('provider');
-  const progressNotePage = await expectProgressNotePage(page);
+  const progressNotePage = await expectInPersonProgressNotePage(page);
   await progressNotePage.verifyReviewAndSignButtonDisabled();
   await patientInfoPage.sideMenu().clickAssessment();
   const assessmentPage = await expectAssessmentPage(page);

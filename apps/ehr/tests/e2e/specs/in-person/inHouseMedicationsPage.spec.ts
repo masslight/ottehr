@@ -1,10 +1,10 @@
 import { Page, test } from '@playwright/test';
-import { ResourceHandler } from '../../e2e-utils/resource-handler';
-import { expectPatientInfoPage } from '../page/PatientInfo';
-import { expectProgressNotePage } from '../page/ProgressNotePage';
-import { expectEditOrderPage, OrderMedicationPage } from '../page/OrderMedicationPage';
-import { expectAssessmentPage } from '../page/AssessmentPage';
-import { Field } from '../page/EditMedicationCard';
+import { ResourceHandler } from '../../../e2e-utils/resource-handler';
+import { Field } from '../../page/EditMedicationCard';
+import { expectAssessmentPage } from '../../page/in-person/InPersonAssessmentPage';
+import { expectInPersonProgressNotePage } from '../../page/in-person/InPersonProgressNotePage';
+import { expectEditOrderPage, OrderMedicationPage } from '../../page/OrderMedicationPage';
+import { expectPatientInfoPage } from '../../page/PatientInfo';
 
 const resourceHandler = new ResourceHandler('in-person');
 
@@ -107,7 +107,7 @@ async function prepareAndOpenOrderMedicationPage(page: Page): Promise<OrderMedic
   await page.waitForTimeout(10000);
   const patientInfoPage = await expectPatientInfoPage(resourceHandler.appointment.id!, page);
   await patientInfoPage.cssHeader().clickSwitchStatusButton('provider');
-  const progressNotePage = await expectProgressNotePage(page);
+  const progressNotePage = await expectInPersonProgressNotePage(page);
   await patientInfoPage.sideMenu().clickAssessment();
   const assessmentPage = await expectAssessmentPage(page);
   await assessmentPage.selectDiagnosis(DIAGNOSIS);
