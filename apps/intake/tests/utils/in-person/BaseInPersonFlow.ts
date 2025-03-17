@@ -72,21 +72,16 @@ export abstract class BaseInPersonFlow {
   protected abstract clickVisitButton(): Promise<void>;
   protected abstract completeBooking(): Promise<void>;
 
-  async startVisit(): Promise<{
-    bookingURL: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    birthSex: string;
-    dobMonth: string;
-    dobYear: string;
-    dobDay: string;
-  }> {
+  async startVisit(): Promise<{ bookingURL: string; bookingUUID: string | null; firstName: string; lastName: string; email: string, birthSex: string, dobMonth: string, dobYear: string, dobDay: string }> {
     const bookingData = await this.goToReviewPage();
     await this.completeBooking();
     await this.page.waitForURL(/\/visit\//);
+    const bookingURL = this.page.url();
+    const match = bookingURL.match(/visit\/([0-9a-fA-F-]+)/);
+    const bookingUUID = match ? match[1] : null;
     return {
-      bookingURL: this.page.url(),
+      bookingURL,
+      bookingUUID,
       firstName: bookingData.firstName,
       lastName: bookingData.lastName,
       email: bookingData.email,
