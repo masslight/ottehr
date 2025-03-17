@@ -1,9 +1,9 @@
-import React, { FC } from 'react';
 import { Autocomplete, TextField } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
+import { FC } from 'react';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore, useDeleteChartData, useSaveChartData } from '../../../../state';
-import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export type CPTCodeOption = {
   code: string;
@@ -48,7 +48,7 @@ export const EMCodeField: FC = () => {
     <Autocomplete
       disabled={isSaveLoading || isDeleteLoading}
       options={emCodeOptions}
-      data-testid={dataTestIds.telemedEhrFlow.emCodeAutocomplete}
+      data-testid={dataTestIds.assessmentPage.emCodeDropdown}
       isOptionEqualToValue={(option, value) => option.code === value.code}
       value={emCode ? { display: emCode.display, code: emCode.code } : null}
       getOptionLabel={(option) => option.display}

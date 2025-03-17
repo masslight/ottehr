@@ -1,8 +1,8 @@
 import { expect, Page } from '@playwright/test';
-import { SideMenu } from './SideMenu';
-import { dataTestIds } from '../../../src/constants/data-test-ids';
+import { dataTestIds } from '../../../../src/constants/data-test-ids';
+import { SideMenu } from '../SideMenu';
 
-export class AssessmentPage {
+export class InPersonAssessmentPage {
   #page: Page;
 
   constructor(page: Page) {
@@ -16,7 +16,9 @@ export class AssessmentPage {
   async selectDiagnosis(diagnosis: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.assessmentPage.diagnosisDropdown).locator('input').fill(diagnosis);
     await this.#page.getByText(diagnosis).click();
-    await expect(this.#page.getByTestId(dataTestIds.diagnosisContainer.deleteButton)).toBeEnabled({ timeout: 30000 });
+    await expect(this.#page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosisDeleteButton)).toBeEnabled({
+      timeout: 30000,
+    });
     //wait the diagnosis to be processed
     await this.#page.waitForTimeout(3000);
   }
@@ -28,10 +30,10 @@ export class AssessmentPage {
   }
 }
 
-export async function expectAssessmentPage(page: Page): Promise<AssessmentPage> {
+export async function expectAssessmentPage(page: Page): Promise<InPersonAssessmentPage> {
   await page.waitForURL(new RegExp('/in-person/.*/assessment'));
   await expect(page.getByTestId(dataTestIds.assessmentPage.medicalDecisionField)).toBeEnabled({
     timeout: 30000,
   });
-  return new AssessmentPage(page);
+  return new InPersonAssessmentPage(page);
 }

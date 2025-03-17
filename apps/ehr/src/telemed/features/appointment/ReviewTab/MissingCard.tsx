@@ -1,11 +1,13 @@
-import React, { FC } from 'react';
-import { Box, Typography, Link } from '@mui/material';
+import { Box, Link, Typography } from '@mui/material';
+import { FC } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { TelemedAppointmentVisitTabs } from 'utils';
+import { dataTestIds } from '../../../../constants/data-test-ids';
+import { useFeatureFlags } from '../../../../features/css-module/context/featureFlags';
+import { getAssessmentUrl } from '../../../../features/css-module/routing/helpers';
+import { getSelectors } from '../../../../shared/store/getSelectors';
 import { AccordionCard } from '../../../components';
 import { useAppointmentStore } from '../../../state';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useFeatureFlags } from '../../../../features/css-module/context/featureFlags';
-import { useNavigate } from 'react-router-dom';
-import { getAssessmentUrl } from '../../../../features/css-module/routing/helpers';
 
 export const MissingCard: FC = () => {
   const { chartData, appointment } = getSelectors(useAppointmentStore, ['chartData', 'appointment']);
@@ -26,30 +28,45 @@ export const MissingCard: FC = () => {
         navigate(getAssessmentUrl(appointment?.id || ''));
       });
     } else {
-      useAppointmentStore.setState({ currentTab: 'erx' });
+      useAppointmentStore.setState({ currentTab: TelemedAppointmentVisitTabs.assessment });
     }
   };
 
   return (
-    <AccordionCard label="Missing">
+    <AccordionCard label="Missing" dataTestId={dataTestIds.progressNotePage.missingCard}>
       <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'start' }}>
-        <Typography>
+        <Typography data-testid={dataTestIds.progressNotePage.missingCardText}>
           This information is required to sign the chart. Please go to Assessment tab and complete it.
         </Typography>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           {!primaryDiagnosis && (
-            <Link sx={{ cursor: 'pointer' }} color="error" onClick={navigateToTab}>
+            <Link
+              sx={{ cursor: 'pointer' }}
+              color="error"
+              onClick={navigateToTab}
+              data-testid={dataTestIds.progressNotePage.primaryDiagnosisLink}
+            >
               Primary diagnosis
             </Link>
           )}
           {!medicalDecision && (
-            <Link sx={{ cursor: 'pointer' }} color="error" onClick={navigateToTab}>
+            <Link
+              sx={{ cursor: 'pointer' }}
+              color="error"
+              onClick={navigateToTab}
+              data-testid={dataTestIds.progressNotePage.medicalDecisionLink}
+            >
               Medical decision making
             </Link>
           )}
           {!emCode && (
-            <Link sx={{ cursor: 'pointer' }} color="error" onClick={navigateToTab}>
+            <Link
+              sx={{ cursor: 'pointer' }}
+              color="error"
+              onClick={navigateToTab}
+              data-testid={dataTestIds.progressNotePage.emCodeLink}
+            >
               E&M code
             </Link>
           )}

@@ -6,7 +6,7 @@ import { getSelectors } from '../../../shared/store/getSelectors';
 import { ContractEditIcon, DiagnosisIcon, PatientListIcon, StethoscopeIcon } from '../../assets';
 import { useAppointmentStore } from '../../state';
 import { dataTestIds } from '../../../constants/data-test-ids';
-import { AppointmentVisitTabs } from 'utils';
+import { TelemedAppointmentVisitTabs } from 'utils';
 
 export const AppointmentTabsHeader: FC = () => {
   const { currentTab } = getSelectors(useAppointmentStore, ['currentTab']);
@@ -27,8 +27,8 @@ export const AppointmentTabsHeader: FC = () => {
               </Typography>
             </Box>
           }
-          data-testid={dataTestIds.telemedEhrFlow.appointmentVisitTabs(AppointmentVisitTabs.hpi)}
-          value={AppointmentVisitTabs.hpi}
+          data-testid={dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.hpi)}
+          value={TelemedAppointmentVisitTabs.hpi}
         />
         <Tab
           label={
@@ -37,8 +37,8 @@ export const AppointmentTabsHeader: FC = () => {
               <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>Exam</Typography>
             </Box>
           }
-          data-testid={dataTestIds.telemedEhrFlow.appointmentVisitTabs(AppointmentVisitTabs.exam)}
-          value={AppointmentVisitTabs.exam}
+          data-testid={dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.exam)}
+          value={TelemedAppointmentVisitTabs.exam}
         />
         <Tab
           label={
@@ -47,8 +47,8 @@ export const AppointmentTabsHeader: FC = () => {
               <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>Assessment</Typography>
             </Box>
           }
-          data-testid={dataTestIds.telemedEhrFlow.appointmentVisitTabs(AppointmentVisitTabs.erx)}
-          value={AppointmentVisitTabs.erx}
+          data-testid={dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.assessment)}
+          value={TelemedAppointmentVisitTabs.assessment}
         />
         <Tab
           label={
@@ -57,8 +57,8 @@ export const AppointmentTabsHeader: FC = () => {
               <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>Plan</Typography>
             </Box>
           }
-          data-testid={dataTestIds.telemedEhrFlow.appointmentVisitTabs(AppointmentVisitTabs.plan)}
-          value={AppointmentVisitTabs.plan}
+          data-testid={dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.plan)}
+          value={TelemedAppointmentVisitTabs.plan}
         />
         <Tab
           label={
@@ -67,8 +67,8 @@ export const AppointmentTabsHeader: FC = () => {
               <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>Review and Sign</Typography>
             </Box>
           }
-          data-testid={dataTestIds.telemedEhrFlow.appointmentVisitTabs(AppointmentVisitTabs.sign)}
-          value={AppointmentVisitTabs.sign}
+          data-testid={dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)}
+          value={TelemedAppointmentVisitTabs.sign}
         />
       </TabList>
     </TabContext>
