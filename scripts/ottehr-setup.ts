@@ -1,7 +1,7 @@
 import { input, password } from '@inquirer/prompts';
 import Oystehr, { M2m, M2mRotateSecretResponse } from '@oystehr/sdk';
-import { setupEHR } from '../packages/ehr/zambdas/scripts/setup';
-import { setupIntake } from '../packages/intake/zambdas/scripts/setup-intake';
+import { setupEHR } from '../packages/zambdas/src/scripts/setup';
+import { setupIntake } from '../packages/zambdas/src/scripts/setup-intake';
 
 const projectApiUrl = 'https://project-api.zapehr.com/v1';
 
