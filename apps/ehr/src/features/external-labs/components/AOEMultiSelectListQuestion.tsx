@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import { Select, MenuItem, InputLabel, FormControl, OutlinedInput, Box, Chip, FormHelperText } from '@mui/material';
 import { UserProvidedAnswer, UserProvidedAnswerType } from './SampleCollection';
 import { useState } from 'react';
@@ -12,6 +13,18 @@ interface MultiListQuestionProps {
   userProvidedAnswer: UserProvidedAnswer;
   onChange: (answer: UserProvidedAnswerType, isValid: boolean) => void;
   submitAttempted: boolean;
+=======
+import { Select, MenuItem, InputLabel, OutlinedInput, Box, Chip } from '@mui/material';
+import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
+import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
+
+interface MultiListQuestionProps {
+  questionText: string;
+  linkId: string;
+  answerOption: QuestionnaireItemAnswerOption[];
+  required: boolean;
+  field: ControllerRenderProps<FieldValues, string>;
+>>>>>>> Stashed changes
 }
 
 export const AOEMultiSelectListQuestion: React.FC<MultiListQuestionProps> = (props) => {
