@@ -53,10 +53,10 @@ test('Check assessment page initial state', async ({ page }) => {
 });
 
 test('Remove MDM and check missing required fields on review and sign page', async ({ page }) => {
+  await waitForGetChartDataResponse(page, (json) => json.medicalDecision?.text === MDM_FIELD_DEFAULT_TEXT);
+
   const mdmField = page.getByTestId(dataTestIds.assessmentPage.medicalDecisionField);
   await expect(await mdmField.locator('textarea:visible')).toBeVisible(DEFAULT_TIMEOUT);
-
-  await waitForGetChartDataResponse(page, (json) => json.medicalDecision?.text === MDM_FIELD_DEFAULT_TEXT);
 
   await page.getByTestId(dataTestIds.assessmentPage.medicalDecisionField).locator('textarea:visible').fill('');
   await waitForChartDataDeletion(page);
