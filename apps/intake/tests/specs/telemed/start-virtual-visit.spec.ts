@@ -122,6 +122,7 @@ test('Should display correct patient info', async () => {
   await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
 
   const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
+  await patientName.scrollIntoViewIfNeeded();
   await patientName.click();
   await clickContinueButton();
 
@@ -155,6 +156,7 @@ test('Should fill in reason for visit', async () => {
   await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
 
   const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
+  await patientName.scrollIntoViewIfNeeded();
   await patientName.click();
   await clickContinueButton();
 

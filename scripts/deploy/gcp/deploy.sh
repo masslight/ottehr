@@ -23,17 +23,13 @@ cd ./scripts/deploy
 npx ts-node ./gcp/deploy.ts
 cd ../..
 
-cd packages/intake/zambdas
-ENV=$environment npm run deploy-zambdas $environment
-ENV=$environment npm run setup-zapehr-secrets $environment
-
-cd ../../../apps/intake
-npm run build:env --env=$environment
-
-cd ../../packages/ehr/zambdas
+cd ../../packages/zambdas
 ENV=$environment npm run deploy-zambdas $environment
 ENV=$environment npm run setup-zapehr-secrets $environment
 ENV=$environment npm run setup-deployed-resources $environment
+
+cd ../../../apps/intake
+npm run build:env --env=$environment
 
 cd ../../../apps/ehr
 npm run build:env --env=$environment

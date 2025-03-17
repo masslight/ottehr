@@ -1,0 +1,4 @@
+1 deprecation triggered in the last command:
+
+Support for "package.include" and "package.exclude" will be removed in the next major release. Please use "package.patterns" instead
+More info: https://serverless.com/framework/docs/deprecations/#PACKAGE_PATTERNS
