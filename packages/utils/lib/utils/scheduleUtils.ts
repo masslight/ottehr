@@ -1,5 +1,5 @@
 import Oystehr, { BatchInputDeleteRequest, BatchInputRequest } from '@oystehr/sdk';
-import { Appointment, Location, Schedule, Slot, Encounter, Practitioner, HealthcareService } from 'fhir/r4b';
+import { Appointment, Location, Schedule, Slot, Encounter, Practitioner, HealthcareService, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   Closure,
@@ -180,19 +180,28 @@ export function getTimezone(schedule: Location | Practitioner | HealthcareServic
   return timezone;
 }
 
-export const getAppointmentTimezone = async (oystehr: Oystehr, appointment: Appointment): Promise<string> => {
-  const resourceId = appointment.participant?.[1]?.actor?.reference?.split('/')[1];
+export const getAppointmentTimezone = async (
+  appointment: Appointment,
+  relevantResources: Resource[]
+): Promise<string> => {
+  const resourceReference = appointment.participant?.find(
+    (participant) =>
+      participant.actor?.reference?.startsWith('Location/') ||
+      participant.actor?.reference?.startsWith('HealthcareService/') ||
+      participant.actor?.reference?.startsWith('Practitioner/')
+  )?.actor?.reference;
 
-  const resourceType = appointment.participant?.[1]?.actor?.reference?.split('/')[0];
-
-  if (!resourceId || !resourceType) {
-    throw new Error(`Could not determine timezone for appointment ${appointment.id} - missing resource type or id`);
+  if (!resourceReference) {
+    console.log('no valid resource reference found in appointment', appointment.id);
   }
 
-  const resource = await oystehr.fhir.get<Location | HealthcareService | Practitioner>({
-    resourceType,
-    id: resourceId,
-  });
+  const resource = relevantResources.find(
+    (res) => res.resourceType && res.id && `${res.resourceType}/${res.id}` === resourceReference
+  );
+
+  if (!resource) {
+    console.log('referenced resource not found in provided resources', resourceReference);
+  }
 
   const timezone = getTimezone(resource as Location | HealthcareService | Practitioner);
 
