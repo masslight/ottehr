@@ -29,23 +29,6 @@ export enum FillingOutAsValue {
   Other = 'Other',
 }
 
-export const getFillingThisOutAsOptions = (t: (key: string) => string): { value: string; label: string }[] => {
-  return [
-    {
-      label: t('welcome.fillingOutOptions.option1'),
-      value: FillingOutAsValue.ParentGuardian,
-    },
-    {
-      label: t('welcome.fillingOutOptions.option2'),
-      value: FillingOutAsValue.Patient,
-    },
-    {
-      label: t('welcome.fillingOutOptions.option3'),
-      value: FillingOutAsValue.Other,
-    },
-  ];
-};
-
 export const NOT_PATIENT_OR_GUARDIAN_ERROR = (t: (key: string) => string): ErrorDialogConfig => ({
   title: '',
   description: t('welcome.proceedToDesk'),

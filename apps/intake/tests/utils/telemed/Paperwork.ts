@@ -1,7 +1,7 @@
 import { Page, expect } from '@playwright/test';
+import { waitForResponseWithData } from 'test-utils';
 import { FillingInfo } from './FillingInfo';
 import { UIDesign } from './UIdesign';
-import { clickContinue } from '../utils';
 import {
   CURRENT_MEDICATIONS_ABSENT_LABEL,
   CURRENT_MEDICATIONS_PRESENT_LABEL,
@@ -28,6 +28,10 @@ export class Paperwork {
     this.locators = new Locators(page);
   }
 
+  private async clickContinueButton(awaitRedirect = true): Promise<void> {
+    await this.locators.clickContinueButton(awaitRedirect);
+  }
+
   private async nextBackClick(waitFor?: () => Promise<void>) {
     await this.page.getByRole('button', { name: 'Continue', exact: true }).click();
 
@@ -44,9 +48,7 @@ export class Paperwork {
   }
 
   private async getPaymentMethodFromConfirmCardRequest() {
-    const response = await this.page.waitForResponse(
-      (response) => response.url().includes('api.stripe.com/v1/setup_intents') && response.status() === 200
-    );
+    const response = await waitForResponseWithData(this.page, 'api.stripe.com/v1/setup_intents');
     return (await response.json())?.payment_method;
   }
 
@@ -111,7 +113,7 @@ export class Paperwork {
   }
 
   async fillAndCheckFilledCurrentMedications() {
-    await clickContinue(this.page, false);
+    await this.clickContinueButton(false);
     await expect(this.locators.paperworkSelectOptionFieldErrorMessage).toBeVisible();
 
     const { filledValue, selectedValue } = await this.fillingInfo.fillCurrentMedications();
@@ -146,7 +148,7 @@ export class Paperwork {
   }
 
   async fillAndCheckFilledCurrentAllergies() {
-    await clickContinue(this.page, false);
+    await this.clickContinueButton(false);
     await expect(this.locators.paperworkSelectOptionFieldErrorMessage).toBeVisible();
 
     const { filledValue, selectedValue } = await this.fillingInfo.fillCurrentAllergies();
@@ -181,7 +183,7 @@ export class Paperwork {
   }
 
   async fillAndCheckFilledMedicalHistory() {
-    await clickContinue(this.page, false);
+    await this.clickContinueButton(false);
     await expect(this.locators.paperworkSelectOptionFieldErrorMessage).toBeVisible();
 
     const { filledValue, selectedValue } = await this.fillingInfo.fillMedicalHistory();
@@ -216,7 +218,7 @@ export class Paperwork {
   }
 
   async fillAndCheckFilledSurgicalHistory() {
-    await clickContinue(this.page, false);
+    await this.clickContinueButton(false);
     await expect(this.locators.paperworkSelectOptionFieldErrorMessage).toBeVisible();
 
     const { filledValue, selectedValue } = await this.fillingInfo.fillSurgicalHistory();

@@ -1,6 +1,5 @@
 import { Page, expect } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { clickContinue } from '../utils';
 import { Locators } from '../locators';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
@@ -15,6 +14,10 @@ export class FillingInfo {
   // Helper method to get a random element from an array
   private getRandomElement(arr: string[]) {
     return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  private async clickContinueButton(awaitRedirect = true): Promise<void> {
+    await this.locators.clickContinueButton(awaitRedirect);
   }
 
   // Helper method to get a random integer between min and max (inclusive)
@@ -81,6 +84,13 @@ export class FillingInfo {
     const reasonForVisit = this.getRandomElement(this.reasonForVisit);
     await this.page.getByPlaceholder('Type or select all that apply').click();
     await this.page.getByRole('option', { name: reasonForVisit, exact: true }).click();
+    return reasonForVisit;
+  }
+
+  async fillTelemedReasonForVisit() {
+    await this.page.locator('#reasonForVisit').click();
+    const reasonForVisit = this.getRandomElement(this.reasonForVisit);
+    await this.page.getByRole('option', { name: reasonForVisit, exact: true }).click({ timeout: 5000 });
     return reasonForVisit;
   }
 
@@ -293,7 +303,7 @@ export class FillingInfo {
     const selectedValue = 'Albuterol';
 
     await this.locators.currentMedicationsPresent.click();
-    await clickContinue(this.page, false);
+    await this.clickContinueButton(false);
     await expect(this.locators.paperworkErrorInFieldAboveMessage).toBeVisible();
 
     const input = this.page.getByPlaceholder('Type or select all that apply');
@@ -312,7 +322,7 @@ export class FillingInfo {
     const selectedValue = 'Aspirin';
 
     await this.locators.knownAllergiesPresent.click();
-    await clickContinue(this.page, false);
+    await this.clickContinueButton(false);
     await expect(this.locators.paperworkErrorInFieldAboveMessage).toBeVisible();
 
     await this.page.locator(`input[value='Other']`).click();
@@ -333,7 +343,7 @@ export class FillingInfo {
     const selectedValue = 'Anemia';
 
     await this.locators.medicalConditionsPresent.click();
-    await clickContinue(this.page, false);
+    await this.clickContinueButton(false);
     await expect(this.locators.paperworkErrorInFieldAboveMessage).toBeVisible();
 
     const input = this.page.getByPlaceholder('Type or select all that apply');
@@ -352,7 +362,7 @@ export class FillingInfo {
     const selectedValue = 'Appendectomy';
 
     await this.locators.surgicalHistoryPresent.click();
-    await clickContinue(this.page, false);
+    await this.clickContinueButton(false);
     await expect(this.locators.paperworkErrorInFieldAboveMessage).toBeVisible();
 
     const input = this.page.getByPlaceholder('Type or select all that apply');
@@ -533,5 +543,23 @@ export class FillingInfo {
     await this.page.locator('#patient-relationship-to-insured').click();
     await this.page.getByRole('option', { name: randomRelationships }).click();
     return { firstName, lastName, randomRelationships };
+  }
+  async selectRandomSlot(): Promise<{ time: string; fullSlot: string }> {
+    await expect(this.locators.firstAvailableTime).toBeVisible();
+    const timeSlotsButtons = this.page.locator('role=button[name=/^\\d{1,2}:\\d{2} (AM|PM)$/]');
+    const buttonCount = await timeSlotsButtons.count();
+    expect(buttonCount).toBeGreaterThan(0);
+    const randomIndex = Math.floor(Math.random() * (buttonCount - 1)) + 1;
+    const selectedSlotButton = timeSlotsButtons.nth(randomIndex);
+    const time = await selectedSlotButton.textContent();
+    if (!time) throw new Error('No time found in selected slot button');
+    console.log(`Selected time: ${time}`);
+    await selectedSlotButton.click();
+    const selectButton = await this.page.getByRole('button', { name: /^Select/ });
+    const selectButtonContent = await selectButton.textContent();
+    const fullSlot = selectButtonContent?.replace('Select ', '').trim();
+    if (!fullSlot) throw new Error('No fullSlot info found in select slot button');
+    console.log(`Selected slot: ${fullSlot}`);
+    return { time, fullSlot };
   }
 }

@@ -4,7 +4,8 @@ import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { UploadImage } from '../../utils/UploadImage';
 import { FillingInfo } from '../../utils/telemed/FillingInfo';
 import { Paperwork } from '../../utils/telemed/Paperwork';
-import { clickContinue } from '../../utils/utils';
+import { Locators } from '../../utils/locators';
+import { TelemedVisitFlow } from '../../utils/telemed/TelemedVisitFlow';
 
 enum PersonSex {
   Male = 'male',
@@ -13,12 +14,6 @@ enum PersonSex {
 }
 
 const appointmentIds: string[] = [];
-
-const selectState = async (page: Page): Promise<void> => {
-  await page.getByPlaceholder('Search or select').click();
-  await page.getByRole('option', { name: 'California' }).click();
-  await clickContinue(page);
-};
 
 test.describe.configure({ mode: 'serial' });
 
@@ -38,15 +33,23 @@ test.describe('Start virtual visit with required information only', async () => 
   let page: Page;
   let fillingInfo: FillingInfo;
   let paperwork: Paperwork;
+  let locators: Locators;
+  let telemedFlow: TelemedVisitFlow;
 
   let patientInfo: Awaited<ReturnType<FillingInfo['fillNewPatientInfo']>> | undefined;
   let dob: Awaited<ReturnType<FillingInfo['fillDOBless18']>> | undefined;
+
+  async function clickContinueButton(awaitRedirect = true): Promise<void> {
+    await locators.clickContinueButton(awaitRedirect);
+  }
 
   test.beforeAll(async ({ browser }) => {
     context = await browser.newContext();
     page = await context.newPage();
     fillingInfo = new FillingInfo(page);
     paperwork = new Paperwork(page);
+    locators = new Locators(page);
+    telemedFlow = new TelemedVisitFlow(page);
 
     page.on('response', async (response) => {
       if (response.url().includes('/telemed-create-appointment/')) {
@@ -66,27 +69,22 @@ test.describe('Start virtual visit with required information only', async () => 
   test('Should create new patient', async () => {
     await page.goto('/home');
 
-    await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
+    await telemedFlow.selectVisitAndContinue();
+    await telemedFlow.selectDifferentFamilyMemberAndContinue();
 
-    await page.getByRole('heading', { name: 'Different family member' }).click();
+    await telemedFlow.selectTimeLocationAndContinue();
 
-    await clickContinue(page);
-
-    await selectState(page);
-
-    await expect(page.getByText('About the patient')).toBeVisible();
-
-    await expect(page.getByPlaceholder('First name')).toBeVisible();
-
-    patientInfo = await fillingInfo.fillNewPatientInfo();
-
-    dob = await fillingInfo.fillDOBless18();
-
-    await page.getByRole('button', { name: 'Continue' }).click({ timeout: 30000 });
+    const patientData = await telemedFlow.fillNewPatientDataAndContinue();
+    patientInfo = patientData;
+    dob = {
+      randomDay: patientData.dob.d,
+      randomMonth: patientData.dob.m,
+      randomYear: patientData.dob.y,
+    };
 
     await paperwork.fillAndCheckContactInformation(patientInfo);
 
-    await clickContinue(page);
+    await clickContinueButton();
   });
 
   test('Should display new patient in patients list', async () => {
@@ -131,9 +129,9 @@ test.describe('Start virtual visit with required information only', async () => 
 
     const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
     await patientName.click();
-    await clickContinue(page);
+    await clickContinueButton();
 
-    await selectState(page);
+    await telemedFlow.selectTimeLocationAndContinue();
 
     await expect(page.getByText('About the patient')).toBeVisible({ timeout: 20000 });
 
@@ -158,8 +156,25 @@ test.describe('Start virtual visit with required information only', async () => 
     await expect(page.locator("input[type='text'][id='email']")).toHaveValue(patientInfo?.email || '');
   });
 
+  test('Should fill in reason for visit', async () => {
+    await page.goto('/home');
+    await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
+
+    const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
+    await patientName.click();
+    await clickContinueButton();
+
+    await telemedFlow.selectTimeLocationAndContinue();
+
+    await expect(page.getByText('About the patient')).toBeVisible({ timeout: 20000 });
+
+    await expect(page.locator('#reasonForVisit')).toHaveText('Select...');
+    const Reason = await fillingInfo.fillTelemedReasonForVisit();
+    await expect(page.locator('#reasonForVisit')).toHaveText(Reason);
+  });
+
   test("Should fill in correct patient's DOB", async () => {
-    await clickContinue(page);
+    await clickContinueButton();
 
     await expect(page.getByText(`Confirm ${patientInfo?.firstName}'s date of birth`)).toBeVisible();
 
@@ -168,7 +183,7 @@ test.describe('Start virtual visit with required information only', async () => 
     }
 
     await fillingInfo.fillWrongDOB(dob?.randomMonth, dob?.randomDay, dob?.randomYear);
-    await clickContinue(page, false);
+    await clickContinueButton(false);
 
     const errorText = await page
       .getByText('Unfortunately, this patient record is not confirmed.') // modal, in that case try again option should be selected
@@ -181,7 +196,7 @@ test.describe('Start virtual visit with required information only', async () => 
     }
 
     await fillingInfo.fillCorrectDOB(dob?.randomMonth, dob?.randomDay, dob?.randomYear);
-    await clickContinue(page);
+    await clickContinueButton();
 
     // todo use another way to get appointment id
     // await getAppointmentIdFromCreateAppointmentRequest(page);
@@ -194,49 +209,49 @@ test.describe('Start virtual visit with required information only', async () => 
   });
 
   test('Should fill in patient details', async () => {
-    await clickContinue(page);
+    await clickContinueButton();
 
     await paperwork.fillAndCheckPatientDetails();
   });
 
   test('Should fill in current medications as empty', async () => {
-    await clickContinue(page);
-    await clickContinue(page); // skip page with no required fields
+    await clickContinueButton();
+    await clickContinueButton(); // skip page with no required fields
 
     await paperwork.fillAndCheckEmptyCurrentMedications();
   });
 
   test('Should fill in current allergies as empty', async () => {
-    await clickContinue(page);
+    await clickContinueButton();
 
     await paperwork.fillAndCheckEmptyCurrentAllergies();
   });
 
   test('Should fill in medical history as empty', async () => {
-    await clickContinue(page);
+    await clickContinueButton();
 
     await paperwork.fillAndCheckEmptyMedicalHistory();
   });
 
   test('Should fill in surgical history as empty', async () => {
-    await clickContinue(page);
+    await clickContinueButton();
 
     await paperwork.fillAndCheckEmptySurgicalHistory();
   });
 
   test('Should fill in payment option as self-pay', async () => {
-    await clickContinue(page);
-    await clickContinue(page); // skip page with no required fields
+    await clickContinueButton();
+    await clickContinueButton(); // skip page with no required fields
 
     await paperwork.fillAndCheckSelfPay();
   });
 
   test('Skip optional Photo ID', async () => {
-    await clickContinue(page);
+    await clickContinueButton();
   });
 
   test('Fill patient conditions', async () => {
-    await clickContinue(page);
+    await clickContinueButton();
   });
 
   test('Should fill school or work note as none', async () => {
@@ -244,19 +259,19 @@ test.describe('Start virtual visit with required information only', async () => 
   });
 
   test('Should fill consent forms', async () => {
-    await clickContinue(page);
+    await clickContinueButton();
 
     await paperwork.fillAndCheckConsentForms();
   });
 
   test('Should not invite anyone', async () => {
-    await clickContinue(page);
+    await clickContinueButton();
 
     await paperwork.fillAndCheckNoInviteParticipant();
   });
 
   test('Should go to waiting room', async () => {
-    await clickContinue(page);
+    await clickContinueButton();
     await page.getByRole('button', { name: 'Go to the Waiting Room' }).click();
     await expect(page.getByText('Please wait, call will start automatically.')).toBeVisible({ timeout: 30000 });
   });
@@ -269,15 +284,23 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
   let page: Page;
   let fillingInfo: FillingInfo;
   let paperwork: Paperwork;
+  let locators: Locators;
+  let telemedFlow: TelemedVisitFlow;
 
   let patientInfo: Awaited<ReturnType<FillingInfo['fillNewPatientInfo']>> | undefined;
   let dob: Awaited<ReturnType<FillingInfo['fillDOBless18']>> | undefined;
+
+  async function clickContinueButton(awaitRedirect = true): Promise<void> {
+    await locators.clickContinueButton(awaitRedirect);
+  }
 
   test.beforeAll(async ({ browser }) => {
     context = await browser.newContext();
     page = await context.newPage();
     fillingInfo = new FillingInfo(page);
     paperwork = new Paperwork(page);
+    locators = new Locators(page);
+    telemedFlow = new TelemedVisitFlow(page);
 
     page.on('response', async (response) => {
       if (response.url().includes('/telemed-create-appointment/')) {
@@ -297,27 +320,22 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
   test('Should create new patient', async () => {
     await page.goto('/home');
 
-    await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
+    await telemedFlow.selectVisitAndContinue();
+    await telemedFlow.selectDifferentFamilyMemberAndContinue();
 
-    await page.getByRole('heading', { name: 'Different family member' }).click();
+    await telemedFlow.selectTimeLocationAndContinue();
 
-    await clickContinue(page);
-
-    await selectState(page);
-
-    await expect(page.getByText('About the patient')).toBeVisible();
-
-    await expect(page.getByPlaceholder('First name')).toBeVisible();
-
-    patientInfo = await fillingInfo.fillNewPatientInfo();
-
-    dob = await fillingInfo.fillDOBless18();
-
-    await page.getByRole('button', { name: 'Continue' }).click({ timeout: 30000 });
+    const patientData = await telemedFlow.fillNewPatientDataAndContinue();
+    patientInfo = patientData;
+    dob = {
+      randomDay: patientData.dob.d,
+      randomMonth: patientData.dob.m,
+      randomYear: patientData.dob.y,
+    };
 
     await paperwork.fillAndCheckContactInformation(patientInfo);
 
-    await clickContinue(page);
+    await clickContinueButton();
   });
 
   test('Should display new patient in patients list', async () => {
@@ -346,9 +364,9 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
 
     const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
     await patientName.click();
-    await clickContinue(page);
+    await clickContinueButton();
 
-    await selectState(page);
+    await telemedFlow.selectTimeLocationAndContinue();
 
     await expect(page.getByText('About the patient')).toBeVisible({ timeout: 20000 });
 
@@ -373,8 +391,25 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
     await expect(page.locator("input[type='text'][id='email']")).toHaveValue(patientInfo?.email || '');
   });
 
+  test('Should fill in reason for visit', async () => {
+    await page.goto('/home');
+    await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
+
+    const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
+    await patientName.click();
+    await clickContinueButton();
+
+    await telemedFlow.selectTimeLocationAndContinue();
+
+    await expect(page.getByText('About the patient')).toBeVisible({ timeout: 20000 });
+
+    await expect(page.locator('#reasonForVisit')).toHaveText('Select...');
+    const Reason = await fillingInfo.fillTelemedReasonForVisit();
+    await expect(page.locator('#reasonForVisit')).toHaveText(Reason);
+  });
+
   test("Should fill in correct patient's DOB", async () => {
-    await clickContinue(page);
+    await clickContinueButton();
 
     await expect(page.getByText(`Confirm ${patientInfo?.firstName}'s date of birth`)).toBeVisible();
 
@@ -383,7 +418,7 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
     }
 
     await fillingInfo.fillWrongDOB(dob?.randomMonth, dob?.randomDay, dob?.randomYear);
-    await clickContinue(page, false);
+    await clickContinueButton(false);
 
     const errorText = await page
       .getByText('Unfortunately, this patient record is not confirmed.') // modal, in that case try again option should be selected
@@ -396,7 +431,7 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
     }
 
     await fillingInfo.fillCorrectDOB(dob?.randomMonth, dob?.randomDay, dob?.randomYear);
-    await clickContinue(page);
+    await clickContinueButton();
 
     // todo use another way to get appointment id
     // await getAppointmentIdFromCreateAppointmentRequest(page);
@@ -409,54 +444,54 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
   });
 
   test('Should fill in patient details', async () => {
-    await clickContinue(page);
+    await clickContinueButton();
 
     await paperwork.fillAndCheckPatientDetails();
   });
 
   test('Should fill in current medications', async () => {
-    await clickContinue(page);
-    await clickContinue(page); // skip page with no required fields
+    await clickContinueButton();
+    await clickContinueButton(); // skip page with no required fields
 
     await paperwork.fillAndCheckFilledCurrentMedications();
   });
 
   test('Should fill in current allergies', async () => {
-    await clickContinue(page);
+    await clickContinueButton();
 
     await paperwork.fillAndCheckFilledCurrentAllergies();
   });
 
   test('Should fill in medical history', async () => {
-    await clickContinue(page);
+    await clickContinueButton();
 
     await paperwork.fillAndCheckFilledMedicalHistory();
   });
 
   test('Should fill in surgical history', async () => {
-    await clickContinue(page);
+    await clickContinueButton();
 
     await paperwork.fillAndCheckFilledSurgicalHistory();
   });
 
   test('Should fill in additional questions', async () => {
-    await clickContinue(page);
+    await clickContinueButton();
 
     await paperwork.fillAndCheckAdditionalQuestions();
   });
 
   test('Should fill in payment option as self-pay', async () => {
-    await clickContinue(page);
+    await clickContinueButton();
 
     await paperwork.fillAndCheckSelfPay();
   });
 
   test('Skip optional Photo ID', async () => {
-    await clickContinue(page);
+    await clickContinueButton();
   });
 
   test('Fill patient conditions', async () => {
-    await clickContinue(page);
+    await clickContinueButton();
   });
 
   test('Should fill school or work note as none', async () => {
@@ -464,19 +499,19 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
   });
 
   test('Should fill consent forms', async () => {
-    await clickContinue(page);
+    await clickContinueButton();
 
     await paperwork.fillAndCheckConsentForms();
   });
 
   test('Should not invite anyone', async () => {
-    await clickContinue(page);
+    await clickContinueButton();
 
     await paperwork.fillAndCheckNoInviteParticipant();
   });
 
   test('Should go to waiting room', async () => {
-    await clickContinue(page);
+    await clickContinueButton();
     await page.getByRole('button', { name: 'Go to the Waiting Room' }).click();
     await expect(page.getByText('Please wait, call will start automatically.')).toBeVisible({ timeout: 30000 });
   });
