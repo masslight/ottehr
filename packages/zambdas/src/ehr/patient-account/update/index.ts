@@ -47,12 +47,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 };
 
 const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<void> => {
-  const { questionnaireResponse, items, patientId, providerProfileReference } = input;
+  const { questionnaireResponse, items, patientId, providerProfileReference, preserveOmittedCoverages } = input;
 
   let resultBundle: Bundle;
   try {
     resultBundle = await updatePatientAccountFromQuestionnaire(
-      { questionnaireResponseItem: items, patientId },
+      { questionnaireResponseItem: items, patientId, preserveOmittedCoverages },
       oystehr
     );
   } catch (e) {
@@ -227,6 +227,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
 interface FinishedInput extends BasicInput {
   providerProfileReference: string;
   items: QuestionnaireResponseItem[];
+  preserveOmittedCoverages: boolean;
 }
 
 const complexValidation = async (input: BasicInput, oystehrM2M: Oystehr): Promise<FinishedInput> => {
@@ -243,9 +244,7 @@ const complexValidation = async (input: BasicInput, oystehrM2M: Oystehr): Promis
   if (!providerProfileReference) {
     throw NOT_AUTHORIZED;
   }
-  console.log('here 3');
   const [url, version] = (questionnaireResponse.questionnaire ?? ' | ').split('|');
-  console.log('here 4');
   const questionnaire = (
     await oystehrM2M.fhir.search<Questionnaire>({
       resourceType: 'Questionnaire',
@@ -261,14 +260,17 @@ const complexValidation = async (input: BasicInput, oystehrM2M: Oystehr): Promis
       ],
     })
   ).unbundle()[0];
-  console.log('here 5');
   if (!questionnaire) {
     throw QUESTIONNAIRE_NOT_FOUND_FOR_QR_ERROR;
   }
 
+  const preserveOmittedCoverages = questionnaireResponse.item?.length === 1;
+  console.log('preserveOmittedCoverages', preserveOmittedCoverages);
+
   const questionnaireItems = mapQuestionnaireAndValueSetsToItemsList(questionnaire.item ?? [], []);
   const validationSchema = makeValidationSchema(questionnaireItems, undefined);
-
+  // when a coverage is added via the add coverage modal, a single item with the data for the added coverage is sent to
+  // this endpoint. passing this allows us to refrain from removing any existing coverages from the account when a new one is added.
   try {
     await validationSchema.validate(questionnaireResponse.item, { abortEarly: false });
   } catch (e) {
@@ -325,5 +327,6 @@ const complexValidation = async (input: BasicInput, oystehrM2M: Oystehr): Promis
     ...input,
     providerProfileReference,
     items,
+    preserveOmittedCoverages,
   };
 };

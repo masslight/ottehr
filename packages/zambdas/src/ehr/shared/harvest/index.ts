@@ -2093,6 +2093,7 @@ export interface GetAccountOperationsInput {
   existingCoverages: OrderedCoveragesWithSubscribers;
   existingGuarantorResource?: RelatedPerson | Patient;
   existingAccount?: Account;
+  preserveOmittedCoverages?: boolean;
 }
 
 export interface GetAccountOperationsOutput {
@@ -2112,6 +2113,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     insurancePlanResources,
     organizationResources,
     existingAccount,
+    preserveOmittedCoverages,
   } = input;
 
   if (!patient.id) {
@@ -2161,6 +2163,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       patient,
       existingCoverages,
       newCoverages: questionnaireCoverages,
+      preserveOmittedCoverages,
     });
   deactivatedCoverages.forEach((cov) => {
     patch.push({
@@ -2288,6 +2291,7 @@ interface CompareCoverageInput {
   patient: Patient;
   newCoverages: OrderedCoverages;
   existingCoverages: OrderedCoveragesWithSubscribers;
+  preserveOmittedCoverages?: boolean;
 }
 interface CompareCoverageResult {
   suggestedNewCoverageObject: Account['coverage'];
@@ -2298,7 +2302,7 @@ interface CompareCoverageResult {
 
 // this function is exported for testing purposes
 export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCoverageResult => {
-  const { patient, existingCoverages, newCoverages } = input;
+  const { patient, existingCoverages, newCoverages, preserveOmittedCoverages } = input;
   const suggestedNewCoverageObject: Account['coverage'] = [];
   const deactivatedCoverages: Coverage[] = [];
   const coverageUpdates: Record<string, Operation[]> = {};
@@ -2349,9 +2353,6 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
       }
     }
   }
-
-  //const primarySubscriberFromPaperwork = primaryCoverageFromPaperwork?.contained?.[0] as RelatedPerson | Patient;
-  //const secondarySubscriberFromPaperwork = secondaryCoverageFromPaperwork?.contained?.[0] as RelatedPerson;
 
   if (primaryCoverageFromPaperwork && coveragesAreSame(primaryCoverageFromPaperwork, secondaryCoverageFromPaperwork)) {
     secondaryCoverageFromPaperwork = undefined;
@@ -2532,7 +2533,9 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
     existingCoverages.primary.id !== newPrimaryCoverage?.reference?.split('/')[1] &&
     existingCoverages.primary.id !== newSecondaryCoverage?.reference?.split('/')[1]
   ) {
-    deactivatedCoverages.push(existingCoverages.primary);
+    if (!preserveOmittedCoverages || newPrimaryCoverage?.reference?.split('/')[1] !== undefined) {
+      deactivatedCoverages.push(existingCoverages.primary);
+    }
   }
 
   if (
@@ -2540,8 +2543,24 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
     existingCoverages.secondary.id !== newSecondaryCoverage?.reference?.split('/')[1] &&
     existingCoverages.secondary.id !== newPrimaryCoverage?.reference?.split('/')[1]
   ) {
-    deactivatedCoverages.push(existingCoverages.secondary);
+    if (!preserveOmittedCoverages || newSecondaryCoverage?.reference?.split('/')[1] !== undefined) {
+      deactivatedCoverages.push(existingCoverages.secondary);
+    }
   }
+
+  if (preserveOmittedCoverages && existingCoverages.primary && !newPrimaryCoverage) {
+    suggestedNewCoverageObject.push({
+      coverage: { reference: `Coverage/${existingCoverages.primary.id}` },
+      priority: 1,
+    });
+  }
+  if (preserveOmittedCoverages && existingCoverages.secondary && !newSecondaryCoverage) {
+    suggestedNewCoverageObject.push({
+      coverage: { reference: `Coverage/${existingCoverages.secondary.id}` },
+      priority: 2,
+    });
+  }
+  suggestedNewCoverageObject.sort((a, b) => (a?.priority ?? Number.MAX_VALUE) - (b?.priority ?? Number.MAX_VALUE));
 
   console.log('existing primary coverage', JSON.stringify(existingCoverages.primary, null, 2));
   console.log('new primary coverage', JSON.stringify(newPrimaryCoverage, null, 2));
@@ -3039,13 +3058,14 @@ export const getAccountAndCoverageResourcesForPatient = async (
 export interface UpdatePatientAccountInput {
   patientId: string;
   questionnaireResponseItem: QuestionnaireResponse['item'];
+  preserveOmittedCoverages?: boolean;
 }
 
 export const updatePatientAccountFromQuestionnaire = async (
   input: UpdatePatientAccountInput,
   oystehr: Oystehr
 ): Promise<Bundle> => {
-  const { patientId, questionnaireResponseItem } = input;
+  const { patientId, questionnaireResponseItem, preserveOmittedCoverages } = input;
 
   const flattenedPaperwork = flattenIntakeQuestionnaireItems(
     questionnaireResponseItem as IntakeQuestionnaireItem[]
@@ -3106,6 +3126,7 @@ export const updatePatientAccountFromQuestionnaire = async (
     existingCoverages,
     existingAccount,
     existingGuarantorResource,
+    preserveOmittedCoverages,
   });
 
   console.log('account and coverage operations created', JSON.stringify(accountOperations, null, 2));
