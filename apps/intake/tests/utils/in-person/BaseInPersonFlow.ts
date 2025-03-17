@@ -1,7 +1,7 @@
 import { BrowserContext, expect, Locator, Page } from '@playwright/test';
+import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
 import { Locators } from '../locators';
 import { FillingInfo } from './FillingInfo';
-import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
 
 export abstract class BaseInPersonFlow {
   protected page: Page;
@@ -21,7 +21,11 @@ export abstract class BaseInPersonFlow {
   async goToReviewPage(): Promise<{
     firstName: string;
     lastName: string;
+    birthSex: string;
     email: string;
+    dobMonth: string;
+    dobYear: string;
+    dobDay: string;
     selectedSlot?: { buttonName: string | null; selectedSlot: string | undefined };
     location?: string | null;
   }> {
@@ -34,18 +38,30 @@ export abstract class BaseInPersonFlow {
       ...additionalData, // Includes selectedSlot & location (for prebook)
     };
   }
-  private async fillPatientDetailsAndContinue(): Promise<{ firstName: string; lastName: string; email: string }> {
+  private async fillPatientDetailsAndContinue(): Promise<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    birthSex: string;
+    dobMonth: string;
+    dobYear: string;
+    dobDay: string;
+  }> {
     await this.locator.selectDifferentFamilyMember();
     await this.locator.clickContinueButton();
 
     const bookingData = await this.fillingInfo.fillNewPatientInfo();
-    await this.fillingInfo.fillDOBgreater18();
+    const dob = await this.fillingInfo.fillDOBgreater18();
     await this.locator.clickContinueButton();
 
     return {
       firstName: bookingData.firstName,
       lastName: bookingData.lastName,
       email: bookingData.email,
+      birthSex: bookingData.BirthSex,
+      dobMonth: dob.randomMonth,
+      dobYear: dob.randomYear,
+      dobDay: dob.randomDay,
     };
   }
 
@@ -56,15 +72,33 @@ export abstract class BaseInPersonFlow {
   protected abstract clickVisitButton(): Promise<void>;
   protected abstract completeBooking(): Promise<void>;
 
-  async startVisit(): Promise<{ bookingURL: string; firstName: string; lastName: string; email: string }> {
+  async startVisit(): Promise<{
+    bookingURL: string;
+    bookingUUID: string | null;
+    firstName: string;
+    lastName: string;
+    email: string;
+    birthSex: string;
+    dobMonth: string;
+    dobYear: string;
+    dobDay: string;
+  }> {
     const bookingData = await this.goToReviewPage();
     await this.completeBooking();
     await this.page.waitForURL(/\/visit\//);
+    const bookingURL = this.page.url();
+    const match = bookingURL.match(/visit\/([0-9a-fA-F-]+)/);
+    const bookingUUID = match ? match[1] : null;
     return {
-      bookingURL: this.page.url(),
+      bookingURL,
+      bookingUUID,
       firstName: bookingData.firstName,
       lastName: bookingData.lastName,
       email: bookingData.email,
+      birthSex: bookingData.birthSex,
+      dobMonth: bookingData.dobMonth,
+      dobYear: bookingData.dobYear,
+      dobDay: bookingData.dobDay,
     };
   }
   async checkValueIsNotEmpty(value: Locator): Promise<void> {

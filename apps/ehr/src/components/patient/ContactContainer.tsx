@@ -13,10 +13,11 @@ import { STATE_OPTIONS } from '../../constants';
 import { getTelecomInfo, usePatientStore } from '../../state/patient.store';
 import { FormAutocomplete, FormTextField } from '../form';
 import { Row, Section } from '../layout';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 export const ContactContainer: FC = () => {
   const { patient, updatePatientField } = usePatientStore();
-  const { control } = useFormContext();
+  const { control, trigger } = useFormContext();
 
   if (!patient) return null;
 
@@ -31,17 +32,28 @@ export const ContactContainer: FC = () => {
 
   const handleAutocompleteChange = (name: string, value: string): void => {
     updatePatientField(name, value);
+    void trigger(name);
   };
 
   return (
     <Section title="Contact information">
       <Row label="Street address" inputId="patient-street-address" required>
         <FormTextField
+          data-testid={dataTestIds.contactInformationContainer.streetAddress}
           name={patientFieldPaths.streetAddress}
           control={control}
           defaultValue={patient?.address?.[0]?.line?.[0]}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           id="patient-street-address"
+          onChangeHandler={handleChange}
+        />
+      </Row>
+      <Row label="Address line 2" inputId="patient-street-address-line-2">
+        <FormTextField
+          name={patientFieldPaths.streetAddressLine2}
+          control={control}
+          defaultValue={patient?.address?.[0]?.line?.[1]}
+          id="patient-street-address-line-2"
           onChangeHandler={handleChange}
         />
       </Row>
@@ -55,6 +67,7 @@ export const ContactContainer: FC = () => {
               required: REQUIRED_FIELD_ERROR_MESSAGE,
             }}
             onChangeHandler={handleChange}
+            data-testid={dataTestIds.contactInformationContainer.city}
           />
           <FormAutocomplete
             name={patientFieldPaths.state}
@@ -66,6 +79,7 @@ export const ContactContainer: FC = () => {
               required: REQUIRED_FIELD_ERROR_MESSAGE,
             }}
             onChangeHandler={handleAutocompleteChange}
+            data-testid={dataTestIds.contactInformationContainer.state}
           />
           <FormTextField
             name={patientFieldPaths.zip}
@@ -76,11 +90,13 @@ export const ContactContainer: FC = () => {
               validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
             }}
             onChangeHandler={handleChange}
+            data-testid={dataTestIds.contactInformationContainer.zip}
           />
         </Box>
       </Row>
       <Row label="Patient email" required={true}>
         <FormTextField
+          data-testid={dataTestIds.contactInformationContainer.patientEmail}
           id="patient-email"
           name={emailPath}
           control={control}
@@ -106,6 +122,7 @@ export const ContactContainer: FC = () => {
             validate: (value: string) => isPhoneNumberValid(value) || 'Must be 10 digits',
           }}
           onChangeHandler={handleChange}
+          data-testid={dataTestIds.contactInformationContainer.patientMobile}
         />
       </Row>
     </Section>

@@ -10,6 +10,7 @@ import { getInHouseMedicationDetailsUrl } from '../../../routing/helpers';
 import { alpha, styled, useTheme } from '@mui/material/styles';
 import { ExtendedMedicationDataForResponse, searchRouteByCode } from 'utils';
 import { DateTime } from 'luxon';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 interface MarTableRowProps {
   medication: ExtendedMedicationDataForResponse;
@@ -57,6 +58,7 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
 
   return (
     <TableRow
+      data-testid={dataTestIds.inHouseMedicationsPage.marTableRow}
       sx={{
         cursor: 'pointer',
         position: 'relative',
@@ -74,14 +76,14 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
       {...getRippleHandlers()}
     >
       <StyledTouchRipple ref={rippleRef} center={false} />
-      <TableCell sx={columnStyles.medication}>
+      <TableCell data-testid={dataTestIds.inHouseMedicationsPage.marTableMedicationCell} sx={columnStyles.medication}>
         <MedicationBarcodeScan medication={medication} />
       </TableCell>
       <TableCell sx={columnStyles.dose}>{medication.dose}</TableCell>
       <TableCell sx={columnStyles.route}>{searchRouteByCode(medication.route)?.display || '-'}</TableCell>
       <TableCell sx={columnStyles.orderDateTime}>{formatDateTime}</TableCell>
       <TableCell sx={columnStyles.instructions}>{medication.instructions}</TableCell>
-      <TableCell sx={columnStyles.status}>
+      <TableCell data-testid={dataTestIds.inHouseMedicationsPage.marTableStatusCell} sx={columnStyles.status}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <MedicationStatusChip medication={medication} />
           <MedicationActions medication={medication} />
