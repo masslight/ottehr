@@ -37,6 +37,7 @@ export enum ROUTER_PATH {
   PLAN = 'plan',
   ERX = 'erx',
 
+  // TODO: Uncomment after the module is ready
   // ERX = 'erx',
   EXTERNAL_LAB_ORDER = 'external-lab-orders',
   EXTERNAL_LAB_ORDER_CREATE = 'external-lab-orders/create',
@@ -134,13 +135,6 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     text: 'In-house Medications',
     iconKey: 'Med. Administration',
   },
-  [ROUTER_PATH.EXTERNAL_LAB_ORDER]: {
-    path: ROUTER_PATH.EXTERNAL_LAB_ORDER,
-    modes: ['provider', 'readonly'],
-    element: <ExternalLabOrdersListPage />,
-    text: 'Labs',
-    iconKey: 'Send Out Labs',
-  },
   [ROUTER_PATH.ERX]: {
     path: ROUTER_PATH.ERX,
     modes: ['provider', 'readonly'],
@@ -169,7 +163,13 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     text: 'Plan',
     iconKey: 'Lab profile',
   },
-
+  [ROUTER_PATH.EXTERNAL_LAB_ORDER]: {
+    path: ROUTER_PATH.EXTERNAL_LAB_ORDER,
+    modes: ['provider', 'readonly'],
+    element: <ExternalLabOrdersListPage />,
+    text: 'Labs',
+    iconKey: 'Send Out Labs',
+  },
   [ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE]: {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE,
     modes: ['provider', 'readonly'],
