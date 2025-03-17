@@ -289,7 +289,7 @@ export class Paperwork {
     await expect(locators.policyHolderState).toBeVisible();
     await expect(locators.policyHolderZip).toBeVisible();
   }
-  
+
   async fillInsuranceRequiredFields(isSecondary: boolean): Promise<InsuranceRequiredData> {
     const firstName = 'Insurance first name';
     const lastName = 'Insurance last name';
@@ -429,7 +429,7 @@ export class Paperwork {
   async fillPaperworkDOB(dobField: Locator): Promise<{ paperworkDOB: string }> {
     await dobField.click();
     await this.locator.calendarArrowDown.click();
-    const year = this.page.getByText('2005');
+    const year = this.page.locator('button', { hasText: '2005' });
     await year.scrollIntoViewIfNeeded();
     await year.click();
     await this.locator.calendarDay.click();
