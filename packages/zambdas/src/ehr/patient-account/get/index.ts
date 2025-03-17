@@ -10,6 +10,7 @@ import {
 } from 'utils';
 import Oystehr from '@oystehr/sdk';
 import { Practitioner } from 'fhir/r4b';
+import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 let m2mtoken: string;
 
