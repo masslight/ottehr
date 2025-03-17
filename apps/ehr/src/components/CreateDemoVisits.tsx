@@ -49,7 +49,7 @@ const CreateDemoVisits = (): ReactElement => {
         authToken,
         phoneNumber: formattedPhoneNumber,
         createAppointmentZambdaId,
-        intakeZambdaUrl,
+        zambdaUrl: intakeZambdaUrl,
         selectedLocationId: selectedLocation.id,
         projectId: import.meta.env.VITE_APP_PROJECT_ID,
       });
