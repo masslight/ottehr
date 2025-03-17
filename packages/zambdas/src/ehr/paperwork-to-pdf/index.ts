@@ -2,7 +2,7 @@ import { getSecret, Secrets, SecretsKeys, topLevelCatch, ZambdaInput } from 'zam
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import Oystehr from '@oystehr/sdk';
-import { createOystehrClient, validateJsonBody, validateString } from '../shared/helpers';
+import { createOystehrClient, validateJsonBody, validateString } from '../../shared/helpers';
 import { createDocument } from './document';
 import { generatePdf } from './draw';
 import { DocumentReference, List, QuestionnaireResponse } from 'fhir/r4b';
@@ -10,7 +10,7 @@ import { BUCKET_PAPERWORK_PDF } from '../../scripts/setup';
 import { DateTime } from 'luxon';
 import { addOperation, EXPORTED_QUESTIONNAIRE_CODE, findExistingListByDocumentTypeCode, replaceOperation } from 'utils';
 import { configSentry, captureSentryException } from '../../patient/shared';
-import { getAuth0Token } from '../shared';
+import { getAuth0Token } from '../../shared';
 
 interface Input {
   questionnaireResponseId: string;

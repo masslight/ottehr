@@ -1,18 +1,12 @@
-import {
-  ChartDataWithResources,
-  createCodingCode,
-  DispositionFollowUpType,
-  DispositionMetaFieldsNames,
-  GetChartDataResponse,
-} from 'utils';
 import Oystehr from '@oystehr/sdk';
 import { Bundle, CodeableConcept, Coding, Encounter, FhirResource, Resource, ServiceRequest } from 'fhir/r4b';
-import { parseCreatedResourcesBundle } from '../shared';
+import { ChartDataWithResources, DispositionMetaFieldsNames, GetChartDataResponse } from 'utils';
+import { parseCreatedResourcesBundle } from '../../shared';
 import {
   chartDataResourceHasMetaTagByCode,
   handleCustomDTOExtractions,
   mapResourceToChartDataResponse,
-} from '../shared/chart-data/chart-data-helpers';
+} from '../../shared/chart-data/chart-data-helpers';
 
 export const validateBundleAndExtractSavedChartData = (
   bundle: Bundle,
@@ -55,15 +49,6 @@ export const validateBundleAndExtractSavedChartData = (
     chartData: chartDataResponse,
     chartResources: chartDataResources,
   };
-};
-
-export const followUpToPerformerMap: { [field in DispositionFollowUpType]: CodeableConcept | undefined } = {
-  dentistry: createCodingCode('106289002', 'Dentist', 'http://snomed.info/sct'),
-  ent: createCodingCode('309372007', 'Ear, nose and throat surgeon', 'http://snomed.info/sct'),
-  ophthalmology: createCodingCode('422234006', 'Ophthalmologist (occupation)', 'http://snomed.info/sct'),
-  orthopedics: createCodingCode('59169001', 'Orthopedic technician', 'http://snomed.info/sct'),
-  'lurie-ct': createCodingCode('lurie-ct', undefined, 'lurie-ct'),
-  other: createCodingCode('other', 'other'),
 };
 
 export async function getEncounterAndRelatedResources(oystehr: Oystehr, encounterId?: string): Promise<Resource[]> {

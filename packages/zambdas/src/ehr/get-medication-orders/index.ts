@@ -16,7 +16,7 @@ import {
   MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
   OrderPackage,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
+import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from 'zambda-utils';
 import { validateRequestParameters } from './validateRequestParameters';
 

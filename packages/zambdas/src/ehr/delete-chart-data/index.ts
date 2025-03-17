@@ -29,15 +29,15 @@ import {
   ObservationDTO,
 } from 'utils';
 import { createFindResourceRequestByPatientField } from '../get-chart-data/helpers';
-import { parseCreatedResourcesBundle } from '../shared';
+import { parseCreatedResourcesBundle } from '../../shared';
 import {
   chartDataResourceHasMetaTagByCode,
   deleteEncounterAddendumNote,
   deleteEncounterDiagnosis,
   updateEncounterDischargeDisposition,
-} from '../shared/chart-data/chart-data-helpers';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
-import { deleteZ3Object } from '../shared/z3Utils';
+} from '../../shared/chart-data/chart-data-helpers';
+import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared/helpers';
+import { deleteZ3Object } from '../../shared/z3Utils';
 import { ZambdaInput } from 'zambda-utils';
 import { deleteResourceRequest, getEncounterAndRelatedResources } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';

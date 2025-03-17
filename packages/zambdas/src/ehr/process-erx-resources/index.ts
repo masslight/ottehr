@@ -3,8 +3,8 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, MedicationRequest } from 'fhir/r4b';
 import { getPatchBinary, isTruthy } from 'utils';
 import { Secrets } from 'zambda-utils';
-import { topLevelCatch } from '../shared/errors';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
+import { topLevelCatch } from '../../shared/errors';
+import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from 'zambda-utils';
 
 export function validateRequestParameters(input: ZambdaInput): { secrets: Secrets | null } {

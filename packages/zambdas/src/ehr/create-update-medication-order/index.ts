@@ -19,7 +19,7 @@ import {
   UpdateMedicationOrderInput,
 } from 'utils';
 import { ZambdaInput } from 'zambda-utils';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
+import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared/helpers';
 import { createMedicationAdministrationResource, createMedicationStatementResource } from './fhir-recources-creation';
 import {
   createMedicationCopy,

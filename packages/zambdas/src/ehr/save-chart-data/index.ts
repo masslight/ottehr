@@ -37,9 +37,10 @@ import {
 } from 'utils';
 import { examCardsMap, examFieldsMap } from 'utils';
 import { deleteResourceRequest } from '../delete-chart-data/helpers';
-import { saveOrUpdateResourceRequest } from '../shared';
+import { saveOrUpdateResourceRequest } from '../../shared';
 import {
   createDispositionServiceRequest,
+  followUpToPerformerMap,
   makeAllergyResource,
   makeBirthHistoryObservationResource,
   makeClinicalImpressionResource,
@@ -59,14 +60,13 @@ import {
   updateEncounterDiagnosis,
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
-} from '../shared/chart-data/chart-data-helpers';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
-import { PdfDocumentReferencePublishedStatuses } from '../shared/pdf/pdf-utils';
-import { createSchoolWorkNotePDF } from '../shared/pdf/school-work-note-pdf';
+} from '../../shared/chart-data/chart-data-helpers';
+import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared/helpers';
+import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-utils';
+import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
 import { ZambdaInput } from 'zambda-utils';
 import {
   filterServiceRequestsFromFhir,
-  followUpToPerformerMap,
   getEncounterAndRelatedResources,
   validateBundleAndExtractSavedChartData,
 } from './helpers';

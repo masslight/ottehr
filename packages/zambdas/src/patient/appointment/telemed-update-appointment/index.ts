@@ -15,7 +15,7 @@ import {
 import { ZambdaInput } from 'zambda-utils';
 import { getSecret, SecretsKeys, topLevelCatch } from 'zambda-utils';
 import { checkOrCreateM2MClientToken, getUser } from '../../shared';
-import { createUpdateUserRelatedResources, creatingPatientUpdateRequest } from '../../shared/appointment/helpers';
+import { createUpdateUserRelatedResources, creatingPatientUpdateRequest } from '../../../shared/appointment/helpers';
 import { getTelemedLocation } from '../telemed-create-appointment';
 import { validateUpdateAppointmentParams } from './validateRequestParameters';
 

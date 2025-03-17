@@ -2,8 +2,8 @@ import Oystehr, { BatchInputGetRequest, Bundle } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Resource } from 'fhir/r4b';
 import { ChartDataFields, ChartDataRequestedFields, GetChartDataResponse } from 'utils';
-import { getPatientEncounter } from '../shared';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
+import { getPatientEncounter } from '../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from 'zambda-utils';
 import {
   convertSearchResultsToResponse,

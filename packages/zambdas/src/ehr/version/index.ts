@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { version } from '../../../package.json';
-import { topLevelCatch } from '../shared/errors';
+import { topLevelCatch } from '../../shared/errors';
 
 export const index = async (): Promise<APIGatewayProxyResult> => {
   try {

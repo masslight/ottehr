@@ -1,8 +1,8 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
-import { topLevelCatch } from '../shared/errors';
-import { checkOrCreateM2MClientToken } from '../shared/helpers';
-import { createPresignedUrl } from '../shared/z3Utils';
+import { topLevelCatch } from '../../shared/errors';
+import { checkOrCreateM2MClientToken } from '../../shared/helpers';
+import { createPresignedUrl } from '../../shared/z3Utils';
 import { ZambdaInput } from 'zambda-utils';
 import { validateRequestParameters } from './validateRequestParameters';
 
