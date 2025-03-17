@@ -2,11 +2,14 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { Address, ContactPoint, LocationHoursOfOperation } from 'fhir/r4b';
 import {
   ConversationMessage,
+  SubmitLabOrderInput,
   GetEmployeesResponse,
+  GetLabOrderDetailsInput,
   GetScheduleRequestParams,
   GetScheduleResponse,
   GetUserParams,
   GetUserResponse,
+  OrderDetails,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -29,6 +32,8 @@ export interface PatchOperation {
 }
 
 const VITE_APP_IS_LOCAL = import.meta.env.VITE_APP_IS_LOCAL;
+const GET_LAB_ORDER_DETAILS_ZAMBDA_ID = import.meta.env.VITE_APP_GET_LAB_ORDER_DETAILS_ZAMBDA_ID;
+const SUBMIT_LAB_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_SUBMIT_LAB_ORDER_ZAMBDA_ID;
 const GET_APPOINTMENTS_ZAMBDA_ID = import.meta.env.VITE_APP_GET_APPOINTMENTS_ZAMBDA_ID;
 const CREATE_APPOINTMENT_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID;
 const CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID = import.meta.env.VITE_APP_CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID;
@@ -62,6 +67,43 @@ export const getUser = async (token: string): Promise<User> => {
 if (!VITE_APP_IS_LOCAL) {
   throw new Error('VITE_APP_IS_LOCAL is not defined');
 }
+
+export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrderInput): Promise<OrderDetails> => {
+  try {
+    if (SUBMIT_LAB_ORDER_ZAMBDA_ID == null) {
+      throw new Error('submit lab order environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: SUBMIT_LAB_ORDER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response, VITE_APP_IS_LOCAL);
+  } catch (error: unknown) {
+    console.log(error);
+    throw new Error(JSON.stringify(error));
+  }
+};
+
+export const getLabOrderDetails = async (
+  oystehr: Oystehr,
+  parameters: GetLabOrderDetailsInput
+): Promise<OrderDetails> => {
+  try {
+    if (GET_LAB_ORDER_DETAILS_ZAMBDA_ID == null) {
+      throw new Error('get lab order details environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: GET_LAB_ORDER_DETAILS_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response, VITE_APP_IS_LOCAL);
+  } catch (error: unknown) {
+    console.log(error);
+    throw new Error(JSON.stringify(error));
+  }
+};
 
 export const getAppointments = async (oystehr: Oystehr, parameters: GetAppointmentsParameters): Promise<any> => {
   try {
