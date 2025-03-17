@@ -1,10 +1,5 @@
 import { expect, test } from '@playwright/test';
-import {
-  waitForChartDataDeletion,
-  waitForGetChartDataResponse,
-  waitForPractitionerResponse,
-  waitForSaveChartDataResponse,
-} from 'test-utils';
+import { waitForChartDataDeletion, waitForPractitionerResponse, waitForSaveChartDataResponse } from 'test-utils';
 import { MDM_FIELD_DEFAULT_TEXT, TelemedAppointmentVisitTabs } from 'utils';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
@@ -50,11 +45,11 @@ test('Check assessment page initial state', async ({ page }) => {
   await expect(
     page.getByTestId(dataTestIds.assessmentPage.medicalDecisionField).locator('textarea:visible')
   ).toHaveText(MDM_FIELD_DEFAULT_TEXT);
+
+  await waitForSaveChartDataResponse(page, (json) => json.chartData.medicalDecision?.text === MDM_FIELD_DEFAULT_TEXT);
 });
 
 test('Remove MDM and check missing required fields on review and sign page', async ({ page }) => {
-  await waitForGetChartDataResponse(page, (json) => json.medicalDecision?.text === MDM_FIELD_DEFAULT_TEXT);
-
   const mdmField = page.getByTestId(dataTestIds.assessmentPage.medicalDecisionField);
   await expect(await mdmField.locator('textarea:visible')).toBeVisible(DEFAULT_TIMEOUT);
 
