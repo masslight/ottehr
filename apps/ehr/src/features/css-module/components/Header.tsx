@@ -84,25 +84,26 @@ export const Header = (): JSX.Element => {
     practitionerTypeFromMode
   );
 
-  useEffect(() => {
-    if (
-      encounter?.participant?.find(
-        (participant) =>
-          participant.type?.find(
-            (type) =>
-              type.coding?.find(
-                (coding) =>
-                  coding.system === 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType' &&
-                  coding.code === 'ATND'
-              ) != null
-          ) != null
-      )
-    ) {
-      if (interactionMode === 'intake') {
-        setInteractionMode('provider', false);
-      }
-    }
-  }, [encounter?.participant, setInteractionMode, interactionMode]);
+  // TODO: fix this
+  // useEffect(() => {
+  //   if (
+  //     encounter?.participant?.find(
+  //       (participant) =>
+  //         participant.type?.find(
+  //           (type) =>
+  //             type.coding?.find(
+  //               (coding) =>
+  //                 coding.system === 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType' &&
+  //                 coding.code === 'ATND'
+  //             ) != null
+  //         ) != null
+  //     )
+  //   ) {
+  //     if (interactionMode === 'intake') {
+  //       setInteractionMode('provider', false);
+  //     }
+  //   }
+  // }, [encounter?.participant, setInteractionMode, interactionMode]);
 
   const handleSwitchMode = async (): Promise<void> => {
     try {
