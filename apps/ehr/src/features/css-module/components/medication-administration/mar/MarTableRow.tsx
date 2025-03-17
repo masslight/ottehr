@@ -53,7 +53,7 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
 
     if (!dt.isValid) return '-';
 
-    return dt.toFormat('MM/dd/yyyy HH:mm a');
+    return dt.toFormat('MM/dd/yyyy hh:mm a');
   }, [medication.dateTimeCreated]);
 
   const formatGivenDateTime = useMemo(() => {
