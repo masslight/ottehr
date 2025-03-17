@@ -14,6 +14,11 @@ export class CssHeader {
     });
   }
 
+  async changeStatus(status: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.cssHeader.appointmentStatus).click();
+    await this.#page.getByText(status, { exact: true }).click();
+  }
+
   async clickSwitchStatusButton(status: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.cssHeader.switchStatusButton(status)).click();
   }
