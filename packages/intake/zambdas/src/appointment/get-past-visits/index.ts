@@ -57,61 +57,87 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const allResources = await getFhirResources(oystehr, patientIDs, patientId);
 
     console.log('allResources awaited');
+    const allAppointments = allResources.filter((resource) => resource.resourceType === 'Appointment') as Appointment[];
+    const relevantParticipants = Array.from(
+      // Sometimes there are duplicate participants in the appointments, so we use a Set to deduplicate
+      new Set(
+        allAppointments.flatMap((appointment) =>
+          appointment.participant
+            .filter((participant) => {
+              const reference = participant.actor?.reference;
+              if (!reference) return false;
+
+              return (
+                reference.startsWith('Location/') ||
+                reference.startsWith('HealthcareService/') ||
+                reference.startsWith('Practitioner/')
+              );
+            })
+            .map((participant) => participant.actor?.reference)
+            .filter(Boolean)
+        )
+      )
+    );
+
+    const relevantResources = allResources.filter((resource) => {
+      console.log('resource', resource.resourceType, resource.id);
+      return relevantParticipants.includes(`${resource.resourceType}/${resource.id}`);
+    });
+
+    console.log('relevantResources', relevantResources);
     const locations = allResources.filter((resource) => resource.resourceType === 'Location') as Location[];
     const encountersMap = mapEncountersToAppointmentIds(allResources);
     const appointments: AppointmentInformationIntake[] = [];
     const pastVisitStatuses = ['fulfilled', 'cancelled'];
 
-    const appointmentPromises = allResources
-      .filter((resourceTemp) => resourceTemp.resourceType === 'Appointment')
-      .map(async (appointmentTemp) => {
-        const fhirAppointment = appointmentTemp as Appointment;
+    const appointmentPromises = allAppointments.map(async (appointmentTemp) => {
+      const fhirAppointment = appointmentTemp as Appointment;
 
-        if (!fhirAppointment.id) return Promise.resolve(null);
-        if (!pastVisitStatuses.includes(fhirAppointment.status)) return Promise.resolve(null);
+      if (!fhirAppointment.id) return Promise.resolve(null);
+      if (!pastVisitStatuses.includes(fhirAppointment.status)) return Promise.resolve(null);
 
-        const patient = allResources.find(
-          (resourceTemp) => resourceTemp.id === getParticipantIdFromAppointment(fhirAppointment, 'Patient')
-        ) as Patient;
-        const encounter = encountersMap[fhirAppointment.id];
+      const patient = allResources.find(
+        (resourceTemp) => resourceTemp.id === getParticipantIdFromAppointment(fhirAppointment, 'Patient')
+      ) as Patient;
+      const encounter = encountersMap[fhirAppointment.id];
 
-        if (!encounter) {
-          console.log('No encounter for appointment: ' + fhirAppointment.id);
-          return Promise.resolve(null);
-        }
+      if (!encounter) {
+        console.log('No encounter for appointment: ' + fhirAppointment.id);
+        return Promise.resolve(null);
+      }
 
-        const stateId = encounter?.location?.[0]?.location?.reference?.split('/')?.[1];
-        const stateCode = locations.find((location) => location.id === stateId)?.address?.state;
+      const stateId = encounter?.location?.[0]?.location?.reference?.split('/')?.[1];
+      const stateCode = locations.find((location) => location.id === stateId)?.address?.state;
 
-        const timezone = await getAppointmentTimezone(oystehr, fhirAppointment);
-        const appointmentTypeTag = fhirAppointment.meta?.tag?.find((tag) => tag.code && tag.code in appointmentTypeMap);
-        const appointmentType = appointmentTypeTag?.code ? appointmentTypeMap[appointmentTypeTag.code] : 'Unknown';
-        let status: AppointmentStatus | undefined;
-        if (appointmentType === 'Telemedicine') {
-          status = mapStatusToTelemed(encounter.status, fhirAppointment.status);
-        } else if (appointmentType === 'In-Person') {
-          status = getVisitStatus(fhirAppointment, encounter);
-        }
-        if (!status) {
-          console.log('No visit status for appointment');
-          return null;
-        }
-        console.log(`build appointment resource for appointment with id ${fhirAppointment.id}`);
-        return {
-          id: fhirAppointment.id || 'Unknown',
-          start: fhirAppointment.start,
-          patient: {
-            id: patient?.id || '',
-            firstName: patient?.name?.[0]?.given?.[0],
-            lastName: patient?.name?.[0].family,
-          },
-          appointmentStatus: fhirAppointment.status,
-          status: status,
-          state: { code: stateCode, id: stateId },
-          timezone: timezone,
-          type: appointmentType,
-        };
-      });
+      const timezone = await getAppointmentTimezone(oystehr, fhirAppointment);
+      const appointmentTypeTag = fhirAppointment.meta?.tag?.find((tag) => tag.code && tag.code in appointmentTypeMap);
+      const appointmentType = appointmentTypeTag?.code ? appointmentTypeMap[appointmentTypeTag.code] : 'Unknown';
+      let status: AppointmentStatus | undefined;
+      if (appointmentType === 'Telemedicine') {
+        status = mapStatusToTelemed(encounter.status, fhirAppointment.status);
+      } else if (appointmentType === 'In-Person') {
+        status = getVisitStatus(fhirAppointment, encounter);
+      }
+      if (!status) {
+        console.log('No visit status for appointment');
+        return null;
+      }
+      console.log(`build appointment resource for appointment with id ${fhirAppointment.id}`);
+      return {
+        id: fhirAppointment.id || 'Unknown',
+        start: fhirAppointment.start,
+        patient: {
+          id: patient?.id || '',
+          firstName: patient?.name?.[0]?.given?.[0],
+          lastName: patient?.name?.[0].family,
+        },
+        appointmentStatus: fhirAppointment.status,
+        status: status,
+        state: { code: stateCode, id: stateId },
+        timezone: timezone,
+        type: appointmentType,
+      };
+    });
 
     const resolvedAppointments = (await Promise.all(appointmentPromises)).filter(
       Boolean
