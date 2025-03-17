@@ -24,25 +24,7 @@
     "noUnusedParameters": false,
     "noUnusedLocals": false,
     "resolveJsonModule": true,
-    "noEmit": true,
-    "paths": {
-      "@api/*": ["./src/api/*"],
-      "@assets/*": ["./src/assets/*"],
-      "@components/*": ["./src/components/*"],
-      "@constants/*": ["./src/constants/*"],
-      "@features/*": ["./src/features/*"],
-      "@helpers/*": ["./src/helpers/*"],
-      "@hooks/*": ["./src/hooks/*"],
-      "@layout/*": ["./src/layout/*"],
-      "@pages/*": ["./src/pages/*"],
-      "@rcm/*": ["./src/rcm/*"],
-      "@shared/*": ["./src/shared/*"],
-      "@state/*": ["./src/state/*"],
-      "@telemed/*": ["./src/telemed/*"],
-      "@types/*": ["./src/types/*"],
-      "@fonts/*": ["./src/fonts/*"],
-      "@lib/*": ["./src/lib/*"]
-    }
+    "noEmit": true
   },
   "exclude": ["node_modules"],
   "include": [".eslintrc.cjs", "**/instrument.mts", "scripts/**/*.ts", "scripts/**/*.js"]

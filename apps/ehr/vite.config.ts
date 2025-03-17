@@ -42,7 +42,7 @@ export default ({ mode }: { mode: string }): UserConfig => {
     resolve: {
       alias: {
         // Override `ui-package/ChatModal` to use `hlthi-ui-components/ChatModal`
-        '@features/chat/ChatModal': 'hlthi-ui-components/lib/plugins/ChatModal'
+        '@features/chat/ChatModal': 'custom-ui-components/lib/plugins/ConversationProvider'
       }
     }
   });

@@ -26,7 +26,7 @@
     "intake:build": "turbo build --filter=intake-ui --filter=intake-zambdas",
     "intake:lint": "turbo lint --filter=intake-ui... --filter=intake-zambdas...",
     "intake:start:ui": "turbo start --filter=intake-ui",
-    "ehr:start": "turbo start --filter=ehr-ui --filter=ehr-zambdas",
+    " ": "turbo start --filter=ehr-ui --filter=ehr-zambdas",
     "ehr:e2e:local": "tsx scripts/run-e2e.ts --app=ehr",
     "ehr:e2e:local:ui": "tsx scripts/run-e2e.ts --app=ehr --ui",
     "ehr:e2e:demo": "ENV=demo tsx scripts/run-e2e.ts --app=ehr",
@@ -50,6 +50,7 @@
     "apps/*"
   ],
   "dependencies": {
+    "file-saver": "2.0.5",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-helmet-async": "^2.0.5",

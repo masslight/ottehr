@@ -1,6 +1,8 @@
 /// <reference lib="dom" />
+import { User } from '@oystehr/sdk/dist/cjs/resources/classes/user';
 import {
   Address,
+  Appointment,
   ContactPoint,
   DocumentReference,
   Encounter,
@@ -649,6 +651,27 @@ export interface GetBookableItemListParams {
 export interface BookableItemListResponse {
   items: BookableItem[];
   categorized: boolean;
+}
+
+export interface CreateConversationParams {
+  appointment: Appointment;
+  user?: Object | null;
+}
+
+export interface CreateConversationResponse {
+  conversationSid: string;
+  accessToken?: string | undefined;
+}
+
+
+export interface AddParticipantToConversationParams {
+  appointment: Appointment;
+  user?: User | null;
+}
+
+export interface AddParticipantToConversationResponse {
+  status: boolean;
+  accessToken?: string | undefined;
 }
 
 export const telemedStateWorkingSchedule: {
