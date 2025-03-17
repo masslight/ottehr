@@ -2,7 +2,13 @@ import { BrowserContext, expect, Locator, Page, test } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { ResourceHandler } from '../../e2e-utils/resource-handler';
 import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../e2e-utils/helpers/tests-utils';
-import { allLicensesForPractitioner, AllStates, stateCodeToFullName, TelemedAppointmentStatusEnum } from 'utils';
+import {
+  allLicensesForPractitioner,
+  AllStates,
+  ApptTelemedTab,
+  stateCodeToFullName,
+  TelemedAppointmentStatusEnum,
+} from 'utils';
 import { ADDITIONAL_QUESTIONS } from '../../../src/constants';
 
 const myResources = new ResourceHandler('telemed');
@@ -54,21 +60,6 @@ async function fillWaitAndSelectDropdown(page: Page, dropdownDataTestId: string,
   await dropdownOptions.first().waitFor(); // Wait for the first option to become visible
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Enter');
-}
-
-async function checkAppointmentAssigned(page: Page): Promise<void> {
-  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.appointmentChartFooter)).toBeVisible();
-  const assignButton = page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonAssignMe);
-  // CHECK IF APPOINTMENT IS ASSIGNED ON ME AND ASSIGN IF NOT
-  if (await assignButton.isVisible()) {
-    await assignButton.click();
-
-    await telemedDialogConfirm(page);
-
-    const statusChip = page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip);
-    await expect(statusChip).toBeVisible();
-    await expect(statusChip).toHaveText(TelemedAppointmentStatusEnum['pre-video']);
-  }
 }
 
 test("Appointment should appear correctly in 'my patients' tab", async () => {
@@ -173,6 +164,27 @@ test('Assigned appointment has connect-to-patient button', async () => {
   });
 });
 
+test('Appointment should be in "provider" tab', async () => {
+  await page.goto(`telemed/appointments`);
+  await awaitAppointmentsTableToBeVisible(page);
+
+  await page.getByTestId(dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTelemedTab.provider)).click();
+  await awaitAppointmentsTableToBeVisible(page);
+  await expect(page.getByTestId(
+      dataTestIds.telemedEhrFlow.trackingBoardTableRow(myResources.appointment.id!)
+  )).toBeVisible();
+});
+
+test('Buttons on visit page should appear', async () => {
+  await page.goto(`telemed/appointments/${myResources.appointment.id}`);
+
+  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient)).toBeVisible();
+  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonUnassign)).toBeVisible();
+  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.cancelThisVisitButton)).toBeVisible();
+  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.inviteParticipant)).toBeVisible();
+  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.editPatientButtonSideBar)).toBeVisible();
+});
+
 test('Appointment hpi fields', async () => {
   const medicalConditionsPattern = 'Z3A';
   const knownAllergiePattern = '10-undecenal';
@@ -180,11 +192,6 @@ test('Appointment hpi fields', async () => {
   const surgicalNote = 'surgical note';
   const chiefComplaintNotes = 'chief complaint';
   const chiefComplaintRos = 'chief ros';
-
-  await test.step("go to appointment page and make sure it's in pre-video", async () => {
-    await page.goto(`telemed/appointments/${myResources.appointment.id}`);
-    await checkAppointmentAssigned(page);
-  });
 
   await test.step('await until hpi fields are ready', async () => {
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput)).toBeVisible();
@@ -290,8 +297,8 @@ test('Appointment hpi fields', async () => {
 });
 
 test('Connect to patient function', async () => {
-  await page.goto(`telemed/appointments/${myResources.appointment.id}`);
-  await checkAppointmentAssigned(page);
+  // await page.goto(`telemed/appointments/${myResources.appointment.id}`);
+  // await checkAppointmentAndAssign(page);
 
   const connectButton = page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient);
   await expect(connectButton).toBeVisible();
