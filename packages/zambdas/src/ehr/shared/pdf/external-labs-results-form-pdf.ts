@@ -15,8 +15,8 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   const { height, width } = page.getSize();
   const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helveticaBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const callIcon = './assets/call.png';
-  const faxIcon = './assets/fax.png';
+  const callIcon = './call.png';
+  const faxIcon = './fax.png';
 
   const styles = {
     image: {

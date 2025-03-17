@@ -71,7 +71,7 @@ async function drawFirstPage({
   const { width, height } = page.getSize();
   const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
   const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const dancingSignatureFont = await pdfDoc.embedFont(fs.readFileSync('./assets/DancingScript-Regular.otf'));
+  const dancingSignatureFont = await pdfDoc.embedFont(fs.readFileSync('./DancingScript-Regular.otf'));
   const helveticaSupportedChars = helveticaFont.getCharacterSet();
   const scriptSupportedChars = dancingSignatureFont.getCharacterSet();
   const rbgNormalized = (r: number, g: number, b: number): Color => rgb(r / 255, g / 255, b / 255);
@@ -240,7 +240,7 @@ async function drawFirstPage({
   let currYPos = height - styles.margin.y; // top of page. Content starts after this point
 
   // add Ottehr logo at the top of the PDF
-  const imgPath = './assets/ottehrLogo.png';
+  const imgPath = './ottehrLogo.png';
   const imgBytes = fs.readFileSync(imgPath);
   const img = await pdfDoc.embedPng(imgBytes);
   const imgDimensions = img.scale(0.3);

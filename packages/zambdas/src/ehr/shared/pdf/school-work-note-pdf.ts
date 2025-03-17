@@ -13,9 +13,9 @@ async function createSchoolWorkNotePdfBytes(data: SchoolWorkNoteExcuseDocDTO): P
   const page = pdfDoc.addPage();
   page.setSize(PageSizes.A4[0], PageSizes.A4[1]);
   const { height, width } = page.getSize();
-  const dancingSignatureFont = await pdfDoc.embedFont(fs.readFileSync('./assets/DancingScript-Regular.otf'));
-  const RobotoFont = await pdfDoc.embedFont(fs.readFileSync('./assets/Roboto-Regular.otf'));
-  const RobotoFontBold = await pdfDoc.embedFont(fs.readFileSync('./assets/Roboto-Bold.otf'));
+  const dancingSignatureFont = await pdfDoc.embedFont(fs.readFileSync('./DancingScript-Regular.otf'));
+  const RobotoFont = await pdfDoc.embedFont(fs.readFileSync('./Roboto-Regular.otf'));
+  const RobotoFontBold = await pdfDoc.embedFont(fs.readFileSync('./Roboto-Bold.otf'));
   const styles = {
     image: {
       width: 110,
@@ -96,7 +96,7 @@ async function createSchoolWorkNotePdfBytes(data: SchoolWorkNoteExcuseDocDTO): P
   };
 
   // add Ottehr logo at the top of the PDF
-  const imgPath = './assets/ottehrLogo.png';
+  const imgPath = './ottehrLogo.png';
   const imgBytes = fs.readFileSync(imgPath);
   const img = await pdfDoc.embedPng(imgBytes);
   currYPos -= styles.margin.y;
