@@ -5,5 +5,5 @@
     "noUnusedParameters": false,
     "types": ["node"]
   },
-  "include": ["test", "playwright.config.ts", "setup-test-deps.js", "auth.setup.js", "vitest.config.ts"]
+  "include": ["tests", "playwright.config.ts", "setup-test-deps.js", "auth.setup.js", "vitest.config.ts"]
 }

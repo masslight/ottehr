@@ -3,6 +3,7 @@
   "compilerOptions": {
     "noUnusedLocals": false,
     "noUnusedParameters": false,
+    "moduleResolution": "node",
     "types": ["node"]
   },
   "include": ["tests", "playwright.config.ts", "setup-test-deps.js", "vitest.config.ts"]
