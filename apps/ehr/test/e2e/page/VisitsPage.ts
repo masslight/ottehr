@@ -16,11 +16,30 @@ export class VisitsPage {
     await expect(visitLocator).toBeVisible();
   }
 
+  async verifyVisitsStatus(appointmentId: string, visitStatus: string): Promise<void> {
+    await expect(
+      this.#page
+        .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
+        .getByTestId(dataTestIds.dashboard.appointmentStatus)
+    ).toHaveText(visitStatus);
+  }
+
   async clickIntakeButton(appointmentId: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
       .getByTestId(dataTestIds.dashboard.intakeButton)
       .click();
+  }
+
+  async clickArrivedButton(appointmentId: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
+      .getByTestId(dataTestIds.dashboard.arrivedButton)
+      .click();
+  }
+
+  async clickChatButton(appointmentId: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.dashboard.chatButton).click();
   }
 
   async clickPrebookedTab(): Promise<void> {
@@ -38,6 +57,11 @@ export class VisitsPage {
     await this.#page.waitForTimeout(15000);
   }
 
+  async clickCancelledTab(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.dashboard.cancelledTab).click();
+    await this.#page.waitForTimeout(15000);
+  }
+
   async selectLocation(locationName: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dashboard.locationSelect).click();
     await this.#page.locator(`li[role="option"]:has-text("${locationName}")`).first().click();
@@ -46,6 +70,14 @@ export class VisitsPage {
   async selectGroup(groupName: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dashboard.groupSelect).click();
     await this.#page.getByText(new RegExp(groupName, 'i')).click();
+  }
+
+  async clickAddPatientButton(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.dashboard.addPatientButton).click();
+  }
+
+  async clickOnVisit(appointmentId: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId)).click();
   }
 }
 

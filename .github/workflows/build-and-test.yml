@@ -7,8 +7,7 @@ on:
     paths:
       - 'apps/ehr/**'
       - 'apps/intake/**'
-      - 'packages/ehr/**'
-      - 'packages/intake/**'
+      - 'packages/zambdas/**'
       - 'packages/utils/**'
       - 'packages/ui-components/**'
       - 'scripts/**'
@@ -20,8 +19,7 @@ on:
     paths:
       - 'apps/ehr/**'
       - 'apps/intake/**'
-      - 'packages/ehr/**'
-      - 'packages/intake/**'
+      - 'packages/zambdas/**'
       - 'packages/utils/**'
       - 'packages/ui-components/**'
       - 'scripts/**'
@@ -69,9 +67,8 @@ jobs:
 
       - name: Setup secrets
         run: |
-          mkdir -p packages/ehr/zambdas/.env packages/intake/zambdas/.env
-          cp secrets/zambdas/* packages/ehr/zambdas/.env
-          cp secrets/zambdas/* packages/intake/zambdas/.env
+          mkdir -p packages/zambdas/.env
+          cp secrets/zambdas/* packages/zambdas/.env
           mkdir -p apps/ehr/env apps/intake/env
           cp secrets/ehr/app/.env.local apps/ehr/env/
           cp secrets/ehr/app/tests.*.json apps/ehr/env/
