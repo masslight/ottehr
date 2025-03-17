@@ -14,19 +14,9 @@ import { FormSelect, FormTextField } from '../form';
 import { Row, Section } from '../layout';
 import ShowMoreButton from './ShowMoreButton';
 import { dataTestIds } from '../../constants/data-test-ids';
+import { FormFields as AllFormFields } from '../../constants';
 
-const FormFields = {
-  ethinicity: { key: 'patient-ethnicity' },
-  race: { key: 'patient-race' },
-  sexualOrientation: { key: 'patient-sexual-orientation' },
-  genderIdentity: { key: 'patient-gender-identity' },
-  genderIdentityDetails: { key: 'patient-gender-identity-details' },
-  language: { key: 'patient-preferred-language' },
-  pointOfDiscovery: { key: 'patient-point-of-discovery' },
-  sendMarketing: { key: 'mobile-opt-in' },
-  commonWellConsent: { key: 'common-well-consent' },
-};
-
+const FormFields = AllFormFields.patientDetails;
 interface PatientDetailsContainerProps {
   patient: Patient;
 }

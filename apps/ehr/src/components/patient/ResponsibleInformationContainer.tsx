@@ -6,15 +6,9 @@ import { RELATIONSHIP_OPTIONS, SEX_OPTIONS } from '../../constants';
 import { Row, Section } from '../layout';
 import { dataTestIds } from '../../constants/data-test-ids';
 import InputMask from '../InputMask';
+import { FormFields as AllFormFields } from '../../constants';
 
-const FormFields = {
-  relationship: { key: 'responsible-party-relationship', type: 'String', label: 'Relationship to the patient' },
-  firstName: { key: 'responsible-party-first-name', type: 'String', label: 'First name' },
-  lastName: { key: 'responsible-party-last-name', type: 'String', label: 'Last name' },
-  birthDate: { key: 'responsible-party-date-of-birth', type: 'String', label: 'Date of birth' },
-  birthSex: { key: 'responsible-party-birth-sex', type: 'String', label: 'Birth sex' },
-  phone: { key: 'responsible-party-number', type: 'String', label: 'Phone' },
-};
+const FormFields = AllFormFields.responsibleParty;
 export const ResponsibleInformationContainer: FC = () => {
   const { control } = useFormContext();
   return (

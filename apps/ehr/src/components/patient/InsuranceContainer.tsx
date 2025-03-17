@@ -1,5 +1,5 @@
 import { Autocomplete, Box, Button, Checkbox, TextField, Typography, useTheme } from '@mui/material';
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useMemo, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
@@ -13,46 +13,36 @@ import { Row, Section } from '../layout';
 import ShowMoreButton from './ShowMoreButton';
 import { InsurancePlanDTO, usePatientStore } from '../../state/patient.store';
 import { PatientAddressFields } from './ContactContainer';
+import { FormFields as AllFormFields } from '../../constants';
 
 type InsuranceContainerProps = {
-  insuranceId: string;
+  ordinal: number;
 };
 
-const FormFields = {
-  insurancePriority: { key: 'insurance-priority', type: 'String' },
-  insuranceCarrier: { key: 'insurance-carrier', type: 'Reference' },
-  memberId: { key: 'insurance-member-id', type: 'String' },
-  firstName: { key: 'policy-holder-first-name', type: 'String' },
-  middleName: { key: 'policy-holder-middle-name', type: 'String' },
-  lastName: { key: 'policy-holder-last-name', type: 'String' },
-  birthDate: { key: 'policy-holder-date-of-birth', type: 'String' },
-  birthSex: { key: 'policy-holder-birth-sex', type: 'String' },
-  streetAddress: { key: 'policy-holder-address', type: 'String' },
-  addressLine2: { key: 'policy-holder-address-additional-line', type: 'String' },
-  city: { key: 'policy-holder-city', type: 'String' },
-  state: { key: 'policy-holder-state', type: 'String' },
-  zip: { key: 'policy-holder-zip', type: 'String' },
-  relationship: { key: 'patient-relationship-to-insured', type: 'String' },
-  additionalInformation: { key: 'insurance-additional-information', type: 'String' },
-};
-
-const LocalAddressFields = [
-  FormFields.streetAddress.key,
-  FormFields.addressLine2.key,
-  FormFields.city.key,
-  FormFields.state.key,
-  FormFields.zip.key,
-];
-
-export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId }) => {
-  console.log('insuranceId', insuranceId);
+export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal }) => {
+  //console.log('insuranceId', insuranceId);
   const theme = useTheme();
   const { insurancePlans } = usePatientStore();
 
   const [showMoreInfo, setShowMoreInfo] = useState(false);
   const [sameAsPatientAddress, setSameAsPatientAddress] = useState(false);
 
-  const { control, setValue, watch } = useFormContext();
+  const { control, setValue, watch, getValues } = useFormContext();
+
+  const { FormFields, LocalAddressFields } = useMemo(() => {
+    const FormFields = AllFormFields.insurance[ordinal - 1];
+
+    const LocalAddressFields = [
+      FormFields.streetAddress.key,
+      FormFields.addressLine2.key,
+      FormFields.city.key,
+      FormFields.state.key,
+      FormFields.zip.key,
+    ];
+    return { FormFields, LocalAddressFields };
+  }, [ordinal]);
+
+  console.log('insurance FormFields', FormFields, getValues());
 
   const patientAddressData = watch(PatientAddressFields);
   const localAddressData = watch(LocalAddressFields);
@@ -66,7 +56,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
         }
       }
     }
-  }, [localAddressData, patientAddressData, sameAsPatientAddress, setValue]);
+  }, [LocalAddressFields, localAddressData, patientAddressData, sameAsPatientAddress, setValue]);
 
   const toggleMoreInfo = (): void => {
     setShowMoreInfo((prev) => !prev);
@@ -82,6 +72,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ insuranceId })
         <FormSelect
           name={FormFields.insurancePriority.key}
           control={control}
+          defaultValue={ordinal === 1 ? 'Primary' : 'Secondary'}
           options={INSURANCE_COVERAGE_OPTIONS}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,

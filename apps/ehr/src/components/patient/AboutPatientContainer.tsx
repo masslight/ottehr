@@ -5,17 +5,9 @@ import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../for
 import { Row, Section } from '../layout';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { FormFields as AllFormFields } from '../../constants';
 
-const FormFields = {
-  firstName: { key: 'patient-first-name', type: 'String' },
-  middleName: { key: 'policy-holder-middle-name', type: 'String' },
-  lastName: { key: 'patient-last-name', type: 'String' },
-  suffix: { key: 'patient-suffix', type: 'String' },
-  preferredName: { key: 'patient-preferred-name', type: 'String' },
-  birthDate: { key: 'patient-birthdate', type: 'String' },
-  birthSex: { key: 'patient-birth-sex', type: 'String' },
-  pronouns: { key: 'patient-pronouns', type: 'String' },
-};
+const FormFields = AllFormFields.patientSumary;
 
 export const AboutPatientContainer: FC = () => {
   const { control } = useFormContext();

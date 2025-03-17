@@ -4,16 +4,9 @@ import { Controller, useFormContext } from 'react-hook-form';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { Row, Section } from '../layout';
 import { FormTextField } from '../form';
+import { FormFields as AllFormFields } from '../../constants';
 
-const FormFields = {
-  firstName: { key: 'pcp-first', type: 'String' },
-  lastName: { key: 'pcp-last', type: 'String' },
-  practiceName: { key: 'pcp-practice', type: 'String' },
-  address: { key: 'pcp-address', type: 'String' },
-  phone: { key: 'pcp-number', type: 'String' },
-  active: { key: 'pcp-active', type: 'Boolean' },
-};
-
+const FormFields = AllFormFields.primaryCarePhysician;
 export const PrimaryCareContainer: FC = () => {
   const { control, watch, setValue } = useFormContext();
 

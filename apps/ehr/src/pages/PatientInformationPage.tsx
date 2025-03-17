@@ -107,15 +107,14 @@ const PatientInformationPage: FC = () => {
   });
 
   const { isFetching: questionnaireFetching, data: questionnaire } = useGetPatientDetailsUpdateForm();
-
   const { patient, coverages, isFetching, defaultFormVals } = useMemo(() => {
     const patient = accountData?.patient;
-    const coverages: Coverage[] = [];
+    const coverages: { resource: Coverage; startingPriority: number }[] = [];
     if (accountData?.coverages?.primary) {
-      coverages.push(accountData.coverages.primary);
+      coverages.push({ resource: accountData.coverages.primary, startingPriority: 1 });
     }
     if (accountData?.coverages?.secondary) {
-      coverages.push(accountData.coverages.secondary);
+      coverages.push({ resource: accountData.coverages.secondary, startingPriority: 2 });
     }
     const isFetching = accountFetching || questionnaireFetching;
     let defaultFormVals: any | undefined;
@@ -174,102 +173,109 @@ const PatientInformationPage: FC = () => {
   };
 
   return (
-    <FormProvider {...methods}>
-      <Box>
-        <Header handleDiscard={handleBackClickWithConfirmation} id={id} />
-        <Box sx={{ display: 'flex', flexDirection: 'column', padding: theme.spacing(3) }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <CustomBreadcrumbs
-              chain={[
-                { link: '/patients', children: 'Patients' },
-                {
-                  link: `/patient/${patient?.id}`,
-                  children: patient ? getFullName(patient) : '',
-                },
-                {
-                  link: '#',
-                  children: `Patient Information`,
-                },
-              ]}
-            />
-            <Typography variant="h3" color="primary.main">
-              Patient Information
-            </Typography>
-            {otherPatientsWithSameName && (
-              <Box
-                sx={{
-                  marginTop: 1,
-                  padding: 1,
-                  background: otherColors.dialogNote,
-                  borderRadius: '4px',
-                }}
-                display="flex"
-              >
-                <WarningAmberIcon sx={{ marginTop: 1, color: otherColors.warningIcon }} />
-                <Typography
-                  variant="body2"
-                  color={otherColors.closeCross}
-                  sx={{ m: 1.25, maxWidth: 850, fontWeight: 700 }}
+    <div>
+      <FormProvider {...methods}>
+        <Box>
+          <Header handleDiscard={handleBackClickWithConfirmation} id={id} />
+          <Box sx={{ display: 'flex', flexDirection: 'column', padding: theme.spacing(3) }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <CustomBreadcrumbs
+                chain={[
+                  { link: '/patients', children: 'Patients' },
+                  {
+                    link: `/patient/${patient?.id}`,
+                    children: patient ? getFullName(patient) : '',
+                  },
+                  {
+                    link: '#',
+                    children: `Patient Information`,
+                  },
+                ]}
+              />
+              <Typography variant="h3" color="primary.main">
+                Patient Information
+              </Typography>
+              {otherPatientsWithSameName && (
+                <Box
+                  sx={{
+                    marginTop: 1,
+                    padding: 1,
+                    background: otherColors.dialogNote,
+                    borderRadius: '4px',
+                  }}
+                  display="flex"
                 >
-                  There are another patients with this name in our database. Please confirm by the DOB that you are
-                  viewing the right patient.
-                </Typography>
-                <CloseIcon
-                  onClick={() => setOtherPatientsWithSameName(false)}
-                  sx={{ marginLeft: 'auto', marginRight: 0, marginTop: 1, color: otherColors.closeCross }}
-                />
-              </Box>
-            )}
-            <Box sx={{ display: 'flex', gap: 3 }}>
-              <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <AboutPatientContainer />
-                <ContactContainer />
-                <PatientDetailsContainer patient={patient} />
-                <PrimaryCareContainer />
-              </Box>
-              <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {coverages.map((coverage) => (
-                  <InsuranceContainer key={coverage.id} insuranceId={coverage.id!} />
-                ))}
-                {/*todo*/}
-                {coverages.length < 2 && (
-                  <Button
-                    variant="outlined"
-                    color="primary"
-                    onClick={() => setOpenAddInsuranceModal(true)}
-                    sx={{
-                      borderRadius: 25,
-                      textTransform: 'none',
-                      fontWeight: 'bold',
-                      width: 'fit-content',
-                    }}
+                  <WarningAmberIcon sx={{ marginTop: 1, color: otherColors.warningIcon }} />
+                  <Typography
+                    variant="body2"
+                    color={otherColors.closeCross}
+                    sx={{ m: 1.25, maxWidth: 850, fontWeight: 700 }}
                   >
-                    + Add Insurance
-                  </Button>
-                )}
-                <ResponsibleInformationContainer />
-                <SettingsContainer />
+                    There are another patients with this name in our database. Please confirm by the DOB that you are
+                    viewing the right patient.
+                  </Typography>
+                  <CloseIcon
+                    onClick={() => setOtherPatientsWithSameName(false)}
+                    sx={{ marginLeft: 'auto', marginRight: 0, marginTop: 1, color: otherColors.closeCross }}
+                  />
+                </Box>
+              )}
+              <Box sx={{ display: 'flex', gap: 3 }}>
+                <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <AboutPatientContainer />
+                  <ContactContainer />
+                  <PatientDetailsContainer patient={patient} />
+                  <PrimaryCareContainer />
+                </Box>
+                <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {coverages.map((coverage) => (
+                    <InsuranceContainer key={coverage.resource.id} ordinal={coverage.startingPriority} />
+                  ))}
+                  {coverages.length < 2 && (
+                    <Button
+                      variant="outlined"
+                      color="primary"
+                      onClick={() => setOpenAddInsuranceModal(true)}
+                      sx={{
+                        borderRadius: 25,
+                        textTransform: 'none',
+                        fontWeight: 'bold',
+                        width: 'fit-content',
+                      }}
+                    >
+                      + Add Insurance
+                    </Button>
+                  )}
+                  <ResponsibleInformationContainer />
+                  <SettingsContainer />
+                </Box>
               </Box>
             </Box>
           </Box>
+          <ActionBar
+            handleDiscard={handleBackClickWithConfirmation}
+            questionnaire={questionnaire}
+            patientId={patient.id ?? ''}
+          />
         </Box>
-        <ActionBar
-          handleDiscard={handleBackClickWithConfirmation}
-          questionnaire={questionnaire}
-          patientId={patient.id ?? ''}
+        <CustomDialog
+          open={openConfirmationDialog}
+          handleClose={handleCloseConfirmationDialog}
+          title="Discard Changes?"
+          description="You have unsaved changes. Are you sure you want to discard them and go back?"
+          closeButtonText="Cancel"
+          handleConfirm={handleDiscardChanges}
+          confirmText="Discard Changes"
         />
-      </Box>
-      <CustomDialog
-        open={openConfirmationDialog}
-        handleClose={handleCloseConfirmationDialog}
-        title="Discard Changes?"
-        description="You have unsaved changes. Are you sure you want to discard them and go back?"
-        closeButtonText="Cancel"
-        handleConfirm={handleDiscardChanges}
-        confirmText="Discard Changes"
+        // eslint-disable-next-line prettier/prettier
+      </FormProvider>
+      <AddInsuranceModal
+        open={openAddInsuranceModal}
+        onClose={() => setOpenAddInsuranceModal(false)}
+        questionnaire={questionnaire ?? { resourceType: 'Questionnaire', status: 'draft' }}
+        patientId={patient.id ?? ''}
       />
-      <AddInsuranceModal open={openAddInsuranceModal} onClose={() => setOpenAddInsuranceModal(false)} />
-    </FormProvider>
+    </div>
   );
 };
 

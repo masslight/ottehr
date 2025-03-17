@@ -634,7 +634,7 @@ export const makePrepopulatedItemsFromPatientRecord = (
 ): QuestionnaireResponseItem[] => {
   const { patient, questionnaire, primaryCarePhysician, coverages, insuranceOrgs, insurancePlans, guarantorResource } =
     input;
-  console.log('making prepopulated items from patient record', primaryCarePhysician);
+  console.log('making prepopulated items from patient record', coverages);
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
       const itemItems = (item.item ?? []).filter((i: QuestionnaireItem) => i.type !== 'display');
@@ -839,7 +839,7 @@ const mapPCPToQuestionnaireResponseItems = (input: MapPCPItemsInput): Questionna
   });
 };
 
-const COVERAGE_ITEMS = ['insurance-section', 'payment-option-page'];
+const COVERAGE_ITEMS = ['insurance-section', 'insurance-section-2', 'payment-option-page'];
 interface MapCoverageItemsInput {
   items: QuestionnaireItem[];
   coverages: PatientAccountResponse['coverages'];
@@ -849,7 +849,7 @@ interface MapCoverageItemsInput {
 const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput): QuestionnaireResponseItem[] => {
   const { items, coverages, insuranceOrgs, insurancePlans } = input;
 
-  console.log('mapping coverages to questionnaire response items', insuranceOrgs, insurancePlans);
+  console.log('mapping coverages to questionnaire response items', items, coverages);
 
   const { primary, secondary, primarySubscriber, secondarySubscriber } = coverages;
 
@@ -920,6 +920,13 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
   let secondarySubscriberFirstName: string | undefined;
   let secondarySubscribeLastName: string | undefined;
   let secondarySubscriberMiddleName: string | undefined;
+  const secondaryRelationshipToInsured = secondary?.relationship?.coding?.[0].display;
+  const secondaryPolicyHolderAddress = secondarySubscriber?.address?.[0];
+  const secondaryPolicyHolderZip = secondaryPolicyHolderAddress?.postalCode;
+  const secondaryPolicyHolderState = secondaryPolicyHolderAddress?.state;
+  const secondaryPolicyHolderCity = secondaryPolicyHolderAddress?.city;
+  const secondaryPolicyHolderAddressAdditionalLine = secondaryPolicyHolderAddress?.line?.[1];
+  const secondaryPolicyHolderAddressLine = secondaryPolicyHolderAddress?.line?.[0];
   if (secondarySubscriber) {
     secondarySubscriberFirstName = getFirstName(secondarySubscriber) ?? '';
     secondarySubscribeLastName = getLastName(secondarySubscriber) ?? '';
@@ -998,9 +1005,30 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
       answer = makeAnswer(policyHolderAddressLine);
     }
 
+    if (linkId === 'patient-relationship-to-insured-2' && secondaryRelationshipToInsured) {
+      answer = makeAnswer(secondaryRelationshipToInsured);
+    }
+    if (linkId === 'policy-holder-zip-2' && secondaryPolicyHolderZip) {
+      answer = makeAnswer(secondaryPolicyHolderZip);
+    }
+    if (linkId === 'policy-holder-state-2' && secondaryPolicyHolderState) {
+      answer = makeAnswer(secondaryPolicyHolderState);
+    }
+    if (linkId === 'policy-holder-city-2' && secondaryPolicyHolderCity) {
+      answer = makeAnswer(secondaryPolicyHolderCity);
+    }
+    if (linkId === 'policy-holder-address-additional-line-2' && secondaryPolicyHolderAddressAdditionalLine) {
+      answer = makeAnswer(secondaryPolicyHolderAddressAdditionalLine);
+    }
+    if (linkId === 'policy-holder-address-2' && secondaryPolicyHolderAddressLine) {
+      answer = makeAnswer(secondaryPolicyHolderAddressLine);
+    }
+
     if (linkId === 'insurance-priority') {
-      // todo
       answer = makeAnswer('Primary');
+    }
+    if (linkId === 'insurance-priority-2') {
+      answer = makeAnswer('Secondary');
     }
 
     return {

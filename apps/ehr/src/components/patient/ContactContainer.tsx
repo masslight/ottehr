@@ -7,16 +7,9 @@ import { FormTextField } from '../form';
 import { Row, Section } from '../layout';
 import { dataTestIds } from '../../constants/data-test-ids';
 import InputMask from '../InputMask';
+import { FormFields as AllFormFields } from '../../constants';
 
-const FormFields = {
-  streetAddress: { key: 'patient-street-address', type: 'String' },
-  addressLine2: { key: 'patient-street-address-2', type: 'String' },
-  city: { key: 'patient-city', type: 'String' },
-  state: { key: 'patient-state', type: 'String' },
-  zip: { key: 'patient-zip', type: 'String' },
-  email: { key: 'patient-email', type: 'String' },
-  phone: { key: 'patient-number', type: 'String' },
-};
+const FormFields = AllFormFields.patientContactInformation;
 
 export const PatientAddressFields = [
   FormFields.streetAddress.key,
