@@ -2,7 +2,7 @@ export type MedicationOrderType = 'order-new' | 'order-edit' | 'dispense';
 
 export const fieldsConfigForOrder = {
   medicationId: { xs: 6, isRequired: true },
-  associatedDx: { xs: 6, isRequired: false },
+  associatedDx: { xs: 6, isRequired: true },
   dose: { xs: 6, isRequired: true },
   units: { xs: 6, isRequired: true },
   manufacturer: { xs: 6, isRequired: true },
@@ -15,7 +15,7 @@ export const fieldsConfigForOrder = {
 
 export const fieldsConfigForDispense = {
   medicationId: { xs: 6, isRequired: true },
-  associatedDx: { xs: 6, isRequired: false },
+  associatedDx: { xs: 6, isRequired: true },
   dose: { xs: 6, isRequired: true },
   units: { xs: 6, isRequired: true },
   lotNumber: { xs: 3, isRequired: true },
