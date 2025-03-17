@@ -6,7 +6,7 @@ const exec = promisify(execCb);
 export const cleanAppointment = async (appointmentId: string, env: string): Promise<boolean> => {
   try {
     const { stdout, stderr } = await exec(
-      `tsx ../../packages/ehr/zambdas/scripts/delete-appointment-data.ts ${env} ${appointmentId}`
+      `tsx ../../packages/zambdas/src/scripts/delete-appointment-data.ts ${env} ${appointmentId}`
     );
 
     if (stdout) {

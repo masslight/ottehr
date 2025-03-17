@@ -20,11 +20,13 @@ export const dataTestIds = {
     loadingIndicator: 'loading-indicator',
     tableRowWrapper: (appointmentId: string) => `appointments-table-row-${appointmentId}`,
     tableRowStatus: (appointmentId: string) => `appointments-table-row-status-${appointmentId}`,
-    patientName: 'patient-name',
-    appointmentTime: 'appointment-time',
     inOfficeTab: 'in-office-tab',
     groupSelect: 'group-select',
     dischargedTab: 'discharged-tab',
+    cancelledTab: 'cancelled-tab',
+    arrivedButton: 'arrived-button',
+    appointmentStatus: 'appointment-status',
+    chatButton: 'Chat-outlined-icon',
   },
   appointmentPage: {
     patientFullName: 'patient-full-name',
@@ -230,6 +232,11 @@ export const dataTestIds = {
     inputField: (field: string): string => `input-${field}`,
     fillOrderToSaveButton: 'fill-order-to-save-button',
     backButton: 'back-button',
+  },
+  visitDetailsPage: {
+    cancelVisitButton: 'cancel-visit-button',
+    cancelationReasonDropdown: 'cancelation-reason-dropdown',
+    cancelVisitDialogue: 'cancel-visit-dialogue',
   },
   patientRecordPage: {
     seeAllPatientInfoButton: 'see-all-patient-info-button',
