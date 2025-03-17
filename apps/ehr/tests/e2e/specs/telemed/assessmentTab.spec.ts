@@ -54,7 +54,7 @@ test('Check assessment page initial state', async ({ page }) => {
 
 test('Remove MDM and check missing required fields on review and sign page', async ({ page }) => {
   const mdmField = page.getByTestId(dataTestIds.assessmentPage.medicalDecisionField);
-  expect(await mdmField.locator('textarea:visible')).toBeVisible(DEFAULT_TIMEOUT);
+  await expect(await mdmField.locator('textarea:visible')).toBeVisible(DEFAULT_TIMEOUT);
 
   await waitForGetChartDataResponse(page, (json) => json.medicalDecision?.text === MDM_FIELD_DEFAULT_TEXT);
 
@@ -178,8 +178,8 @@ test('Change primary diagnosis', async ({ page }) => {
 });
 
 test('Delete primary diagnosis', async ({ page }) => {
-  const primaryDiagnosis = page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis);
-  const primaryDiagnosisValue = await primaryDiagnosis.textContent();
+  // const primaryDiagnosis = page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis);
+  // const primaryDiagnosisValue = await primaryDiagnosis.textContent();
 
   // Get secondary diagnosis value before deletion
   const secondaryDiagnosis = page.getByTestId(dataTestIds.diagnosisContainer.secondaryDiagnosis);
