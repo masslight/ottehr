@@ -18,19 +18,14 @@ else
     npm install
 fi
 
-pushd packages/intake/zambdas
+pushd packages/zambdas
 ENV=$environment npm run deploy-zambdas $environment
 ENV=$environment npm run setup-zapehr-secrets $environment
+ENV=$environment npm run setup-deployed-resources $environment
 popd
 
 pushd apps/intake
 npm run build:env --env=$environment
-popd
-
-pushd packages/ehr/zambdas
-ENV=$environment npm run deploy-zambdas $environment
-ENV=$environment npm run setup-zapehr-secrets $environment
-ENV=$environment npm run setup-deployed-resources $environment
 popd
 
 pushd apps/ehr
