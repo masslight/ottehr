@@ -20,8 +20,7 @@ on:
     paths:
       - 'apps/ehr/**'
       - 'apps/intake/**'
-      - 'packages/ehr/**'
-      - 'packages/intake/**'
+      - 'packages/zambdas/**'
       - 'packages/utils/**'
       - 'packages/ui-components/**'
       - '.github/**'
@@ -79,9 +78,8 @@ jobs:
       - name: Setup environment
         run: |
           setup_env() {
-            local app=$1
-            mkdir -p "packages/$app/zambdas/.env"
-            cp secrets/zambdas/* "packages/$app/zambdas/.env"
+            mkdir -p "packages/zambdas/.env"
+            cp secrets/zambdas/* "packages/zambdas/.env"
             mkdir -p "apps/$app/env"
             cp "secrets/$app/app/tests."*.json "apps/$app/env/"
             cp "secrets/$app/app/.env"* "apps/$app/env/"
