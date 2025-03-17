@@ -1,7 +1,14 @@
 export async function getAuth0Token(): Promise<string> {
   const AUTH0_ENDPOINT = process.env.AUTH0_ENDPOINT;
-  const AUTH0_CLIENT = process.env.AUTH0_CLIENT_TESTS ?? process.env.AUTH0_CLIENT;
-  const AUTH0_SECRET = process.env.AUTH0_SECRET_TESTS ?? process.env.AUTH0_SECRET;
+  let AUTH0_CLIENT: string;
+  let AUTH0_SECRET: string;
+  if (process.env.AUTH0_CLIENT_TESTS && process.env.AUTH0_SECRET_TESTS) {
+    AUTH0_CLIENT = process.env.AUTH0_CLIENT_TESTS;
+    AUTH0_SECRET = process.env.AUTH0_SECRET_TESTS;
+  } else {
+    AUTH0_CLIENT = process.env.AUTH0_CLIENT;
+    AUTH0_SECRET = process.env.AUTH0_SECRET;
+  }
   const AUTH0_AUDIENCE = process.env.AUTH0_AUDIENCE;
 
   if (!AUTH0_ENDPOINT || !AUTH0_CLIENT || !AUTH0_SECRET || !AUTH0_AUDIENCE) {
