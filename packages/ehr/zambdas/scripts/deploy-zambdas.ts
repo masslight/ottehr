@@ -152,6 +152,9 @@ const ZAMBDAS: { [name: string]: DeployZambda } = {
   'PAPERWORK-TO-PDF': {
     type: 'http_auth',
   },
+  'GET-LAB-ORDERS': {
+    type: 'http_auth',
+  },
 };
 
 const updateZambdas = async (config: any, env: string): Promise<void> => {

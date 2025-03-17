@@ -328,7 +328,10 @@ const getAdditionalResources = async (
   let patientId: string | undefined;
   let location: Location | undefined;
 
-  const resources = flattenBundleResources(searchResults);
+  const resources = flattenBundleResources<Organization | ActivityDefinition | Coverage | Patient | Location>(
+    searchResults
+  );
+
   resources.forEach((resource) => {
     if (resource.resourceType === 'Organization') labOrganizationSearchResults.push(resource as Organization);
     if (resource.resourceType === 'ActivityDefinition')

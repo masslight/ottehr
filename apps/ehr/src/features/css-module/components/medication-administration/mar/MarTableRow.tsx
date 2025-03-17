@@ -25,7 +25,7 @@ const StyledTouchRipple = styled(TouchRipple)(({ theme }) => ({
 
 export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyles }) => {
   const navigate = useNavigate();
-  const { id: encounterId } = useParams();
+  const { id: appointmentId } = useParams();
   const rippleRef = React.useRef(null);
   const theme = useTheme();
 
@@ -42,7 +42,7 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
       return;
     }
     requestAnimationFrame(() => {
-      navigate(`${getInHouseMedicationDetailsUrl(encounterId!)}?scrollTo=${medication.id}`);
+      navigate(`${getInHouseMedicationDetailsUrl(appointmentId!)}?scrollTo=${medication.id}`);
     });
   };
 
