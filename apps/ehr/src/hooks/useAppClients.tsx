@@ -38,7 +38,7 @@ export function useApiClients() {
         oystehrZambda: new Oystehr({
           accessToken: token,
           fhirApiUrl: import.meta.env.VITE_APP_FHIR_API_URL,
-          projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_ZAMBDA_URL,
+          projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_ZAMBDA_URL_OLD,
           projectId: import.meta.env.VITE_APP_PROJECT_ID,
         }),
       });
@@ -51,7 +51,7 @@ export function useApiClients() {
         oystehrZambdaIntake: new Oystehr({
           accessToken: token,
           fhirApiUrl: import.meta.env.VITE_APP_FHIR_API_URL,
-          projectApiUrl: import.meta.env.VITE_APP_INTAKE_ZAMBDAS_URL,
+          projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_ZAMBDA_URL,
           projectId: import.meta.env.VITE_APP_PROJECT_ID,
         }),
       });
