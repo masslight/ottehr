@@ -60,6 +60,7 @@ test.describe.serial('Past Visits - Empty State', () => {
     await homepage.clickPastVisitsButton();
 
     const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
+    await patientName.scrollIntoViewIfNeeded();
     await patientName.click();
 
     await homepage.clickContinue();
@@ -75,6 +76,7 @@ test.describe.serial('Past Visits - Empty State', () => {
     await homepage.clickPastVisitsButton();
 
     const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
+    await patientName.scrollIntoViewIfNeeded();
     await patientName.click();
 
     await homepage.clickContinue();
