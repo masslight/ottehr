@@ -1,6 +1,7 @@
 import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import { Questionnaire } from 'fhir/r4b';
 import fs from 'fs';
+import path from 'path';
 import { getAuth0Token } from '../patient/shared';
 import { createOystehrClient } from '../patient/shared/helpers';
 
@@ -12,11 +13,16 @@ const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> =
   }
   const oystehrClient = createOystehrClient(token, envConfig);
   try {
-    const folder = fs.readdirSync('../../utils/lib/deployed-resources/questionnaires');
+    const folder = fs.readdirSync(
+      path.join(__dirname, '../../../../packages/utils/lib/deployed-resources/questionnaires')
+    );
     const requests = await Promise.all(
       folder.flatMap(async (file) => {
         const questionnaireData = JSON.parse(
-          fs.readFileSync(`../../utils/lib/deployed-resources/questionnaires/${file}`, 'utf8')
+          fs.readFileSync(
+            path.join(__dirname, '../../../../packages/utils/lib/deployed-resources/questionnaires', file),
+            'utf8'
+          )
         );
         const { resource: questionnaire } = questionnaireData;
 
@@ -68,7 +74,10 @@ const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> =
     const newSecrets: any = {};
     folder.forEach((file) => {
       const questionnaireData = JSON.parse(
-        fs.readFileSync(`../../utils/lib/deployed-resources/questionnaires/${file}`, 'utf8')
+        fs.readFileSync(
+          path.join(__dirname, '../../../../packages/utils/lib/deployed-resources/questionnaires', file),
+          'utf8'
+        )
       );
       const { resource: questionnaire, envVarName } = questionnaireData;
       if (envVarName && questionnaire?.url && questionnaire?.version) {

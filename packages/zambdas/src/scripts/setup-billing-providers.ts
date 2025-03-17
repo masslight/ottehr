@@ -1,9 +1,11 @@
 import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import { Location, Organization, Practitioner } from 'fhir/r4b';
 import fs from 'fs';
+import path from 'path';
 import { FHIR_IDENTIFIER_NPI, getNPI, getTaxID } from 'utils';
 import { getAuth0Token } from '../patient/shared';
 import { createOystehrClient } from '../patient/shared/helpers';
+
 const writeProviders = async (envConfig: any, env: string): Promise<void> => {
   const token = await getAuth0Token(envConfig);
 
@@ -12,13 +14,18 @@ const writeProviders = async (envConfig: any, env: string): Promise<void> => {
   }
   const oystehrClient = createOystehrClient(token, envConfig);
   try {
-    const folder = fs.readdirSync('../../utils/lib/deployed-resources/billing-provider');
+    const folder = fs.readdirSync(
+      path.join(__dirname, '../../../../packages/utils/lib/deployed-resources/billing-provider')
+    );
     const newSecrets: any = {};
     const allResources: { envVarName: string; resource: Location | Practitioner | Organization }[] = [];
     const requests = await Promise.all(
       folder.flatMap(async (file) => {
         const providerData = JSON.parse(
-          fs.readFileSync(`../../utils/lib/deployed-resources/billing-provider/${file}`, 'utf8')
+          fs.readFileSync(
+            path.join(__dirname, '../../../../packages/utils/lib/deployed-resources/billing-provider', file),
+            'utf8'
+          )
         );
         const { resource, envVarName } = providerData;
         allResources.push(providerData);

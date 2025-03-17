@@ -3,7 +3,7 @@
   "version": "1.4.4",
   "private": true,
   "scripts": {
-    "start": "export HOME=./ && env-cmd -f ./.env/${ENV:-local}.json sls offline --stage ${ENV:-local}",
+    "start": "ENV=${ENV:-local} export HOME=./ && npm run setup-deployed-resources ${ENV:-local} && env-cmd -f ./.env/${ENV:-local}.json sls offline --stage ${ENV:-local}",
     "start:local": "ENV=local npm run start",
     "start:demo": "ENV=demo npm run start",
     "debug": "export HOME=./ && export SLS_DEBUG=* && node --inspect ../../../node_modules/serverless/bin/serverless offline --stage=local",
