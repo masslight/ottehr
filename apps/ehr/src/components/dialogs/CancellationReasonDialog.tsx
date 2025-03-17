@@ -18,6 +18,7 @@ import React, { ReactElement, useState } from 'react';
 import { cancelAppointment } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import { CancelAppointmentParameters, CancellationReasonOptions } from '../../types/types';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 interface CancellationReasonDialogProps {
   handleClose: () => void;
@@ -122,6 +123,7 @@ export default function CancellationReasonDialog({
             <FormControl required sx={{ mt: 2, width: '100%' }}>
               <InputLabel id="select-label">Cancelation reason</InputLabel>
               <Select
+                data-testid={dataTestIds.visitDetailsPage.cancelationReasonDropdown}
                 labelId="select-label"
                 id="select"
                 label="Cancelation reason"
@@ -141,6 +143,7 @@ export default function CancellationReasonDialog({
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'flex-start', marginLeft: 1 }}>
           <LoadingButton
+            data-testid={dataTestIds.visitDetailsPage.cancelVisitDialogue}
             loading={cancelLoading}
             type="submit"
             variant="contained"

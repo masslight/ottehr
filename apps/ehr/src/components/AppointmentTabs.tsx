@@ -119,7 +119,12 @@ export default function AppointmentTabs({
                 value={ApptTab.completed}
                 sx={{ textTransform: 'none', fontWeight: 500 }}
               />
-              <Tab label="Cancelled" value={ApptTab.cancelled} sx={{ textTransform: 'none', fontWeight: 500 }} />
+              <Tab
+                data-testid={dataTestIds.dashboard.cancelledTab}
+                label="Cancelled"
+                value={ApptTab.cancelled}
+                sx={{ textTransform: 'none', fontWeight: 500 }}
+              />
               {loading && <Loading />}
             </TabList>
           </Box>

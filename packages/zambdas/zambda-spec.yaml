@@ -1,0 +1,55 @@
+version: '1.0.0'
+secrets:
+  - name: m2m-client-id
+    value: var.m2m-client-id
+  - name: m2m-client-secret
+    value: var.m2m-client-secret
+zambdas:
+  - name: VERSION
+    type: http_open
+    runtime: nodejs20.x
+    memory: 1024
+    source: .dist/zambdas/version.zip
+    secrets:
+      - m2m-client-id
+      - m2m-client-secret
+  - name: DEACTIVATE-USER
+    type: http_auth
+  - name: GET-APPOINTMENTS
+    type: http_auth
+  - name: GET-TELEMED-APPOINTMENTS
+    type: http_auth
+  - name: CHANGE-TELEMED-APPOINTMENT-STATUS
+    type: http_auth
+  - name: ASSIGN-PRACTITIONER
+    type: http_auth
+  - name: UNASSIGN-PRACTITIONER
+    type: http_auth
+  - name: CHANGE-IN-PERSON-VISIT-STATUS
+    type: http_auth
+  - name: SIGN-APPOINTMENT
+    type: http_auth
+  - name: GET-CHART-DATA
+    type: http_auth
+  - name: SAVE-CHART-DATA
+    type: http_auth
+  - name: DELETE-CHART-DATA
+    type: http_auth
+  - name: UPDATE-USER
+    type: http_auth
+  - name: INIT-TELEMED-SESSION
+    type: http_auth
+  - name: GET-USER
+    type: http_auth
+  - name: SAVE-PATIENT-INSTRUCTION
+    type: http_auth
+  - name: GET-PATIENT-INSTRUCTIONS
+    type: http_auth
+  - name: DELETE-PATIENT-INSTRUCTION
+    type: http_auth
+  - name: SAVE-FOLLOWUP-ENCOUNTER
+    type: http_auth
+  - name: GET-CONVERSATION
+    type: http_auth
+  - name: GET-EMPLOYEES
+    type: http_auth

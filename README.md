@@ -161,13 +161,11 @@ This repository uses a monorepo structure.
 ### EHR App
 
 - [Frontend Documentation](./apps/ehr/README.md)
-- [Zambda Documentation](./packages/ehr/zambdas/README.md)
 - [E2E Testing Guide](./apps/ehr/test/e2e-readme/README.md)
 
 ### Patient Portal App
 
 - [Frontend Documentation](./apps/intake/README.md)
-- [Zambda Documentation](./packages/intake/zambdas/README.md)
 - [E2E Testing Guide](./apps/intake/tests/e2e-readme/README.md)
 
 ### Customization
@@ -196,3 +194,7 @@ This repository uses a monorepo structure.
   ```
 - Modify the images, svgs and colors as needed
 - Restart the app
+
+## Zambdas
+
+- [Zambda Documentation](./packages/zambdas/README.md)
