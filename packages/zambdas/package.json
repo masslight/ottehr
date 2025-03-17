@@ -14,6 +14,7 @@
     "revoke-practitioners-erx-enrollment": "tsx src/scripts/revoke-practitioners-erx-enrollment.ts",
     "create-update-in-house-medications-list": "tsx src/scripts/create-update-in-house-medications-list.ts $npm_config_env",
     "remove-test-patient-data": "tsx src/scripts/remove-test-patient-data.ts local",
+    "delete-appointment-data": "tsx src/scripts/delete-appointment-data.ts",
     "setup-default-locations": "tsx src/scripts/setup-default-locations.ts",
     "setup-zapehr-secrets": "tsx src/scripts/configure-zapehr-secrets.ts",
     "deploy-zambdas": "ENV=$ENV npm run package && tsx src/scripts/deploy-zambdas.ts",
