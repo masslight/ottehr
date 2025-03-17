@@ -56,7 +56,10 @@ test('Remove MDM and check missing required fields on review and sign page', asy
   await page.getByTestId(dataTestIds.assessmentPage.medicalDecisionField).locator('textarea:visible').fill('');
   await waitForChartDataDeletion(page);
 
-  await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
+  await page.reload();
+  await page
+    .getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.assessment))
+    .click();
   const progressNotePage = await expectTelemedProgressNotePage(page);
   await progressNotePage.verifyReviewAndSignButtonDisabled();
   await expect(page.getByTestId(dataTestIds.progressNotePage.missingCard)).toBeVisible();
