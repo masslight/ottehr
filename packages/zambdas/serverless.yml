@@ -1342,7 +1342,7 @@ functions:
       PROJECT_ID: ${file(./.env/${self:provider.stage}.json):PROJECT_ID}
   
   get-patient-account:
-    handler: src/patient-account/get/index.index
+    handler: src/ehr/patient-account/get/index.index
     events:
       - http:
           path: zambda/get-patient-account/execute
@@ -1360,7 +1360,7 @@ functions:
       ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
   
   update-patient-account:
-    handler: src/patient-account/update/index.index
+    handler: src/ehr/patient-account/update/index.index
     events:
       - http:
           path: zambda/update-patient-account/execute

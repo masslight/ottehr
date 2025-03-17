@@ -1,4 +1,4 @@
-import { Secrets, updatePatientAccountFromQuestionnaire, ZambdaInput } from 'zambda-utils';
+import { Secrets, ZambdaInput } from 'zambda-utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared/helpers';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { AuditEvent, Bundle, Questionnaire, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
@@ -17,6 +17,7 @@ import {
 import Oystehr from '@oystehr/sdk';
 import { ValidationError } from 'yup';
 import { DateTime } from 'luxon';
+import { updatePatientAccountFromQuestionnaire } from '../../shared/harvest';
 
 let m2mtoken: string;
 

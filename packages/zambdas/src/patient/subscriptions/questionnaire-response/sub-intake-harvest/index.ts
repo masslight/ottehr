@@ -9,19 +9,15 @@ import { createOystehrClient } from '../../../shared/helpers';
 
 import { QRSubscriptionInput, validateRequestParameters } from './validateRequestParameters';
 import Oystehr from '@oystehr/sdk';
+import { getSecret, SecretsKeys, topLevelCatch, triggerSlackAlarm, ZambdaInput } from 'zambda-utils';
 import {
   createConsentResources,
   createDocumentResources,
   createErxContactOperation,
   createMasterRecordPatchOperations,
   flagPaperworkEdit,
-  getSecret,
-  SecretsKeys,
-  topLevelCatch,
-  triggerSlackAlarm,
   updatePatientAccountFromQuestionnaire,
-  ZambdaInput,
-} from 'zambda-utils';
+} from '../../../../ehr/shared/harvest';
 
 let zapehrToken: string;
 

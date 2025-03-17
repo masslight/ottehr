@@ -5,7 +5,7 @@ import Oystehr, {
   BatchInputRequest,
 } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { AddOperation, Operation } from 'fast-json-patch';
+import { Operation } from 'fast-json-patch';
 import {
   Account,
   AccountGuarantor,
@@ -41,7 +41,6 @@ import {
   createConsentResource,
   createFilesDocumentReferences,
   createPatchOperationForTelecom,
-  DATE_OF_BIRTH_URL,
   DateComponents,
   extractResourceTypeAndPath,
   FHIR_EXTENSION,
@@ -75,7 +74,6 @@ import {
   PHOTO_ID_BACK_ID,
   PHOTO_ID_CARD_CODE,
   PHOTO_ID_FRONT_ID,
-  PRACTICE_NAME_URL,
   PRIVACY_POLICY_CODE,
   PRIVATE_EXTENSION_BASE_URL,
   relatedPersonFieldPaths,
@@ -105,9 +103,8 @@ import {
 } from 'utils';
 import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 import _ from 'lodash';
-import { createPdfBytes } from '../pdf';
-import { createOrUpdateFlags } from '../sharedHelpers';
-import path from 'path';
+import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
+import { createPdfBytes } from '../../../patient/shared/pdf';
 
 const IGNORE_CREATING_TASKS_FOR_REVIEW = true;
 
@@ -1123,14 +1120,7 @@ interface MasterRecordPatchOperations {
   relatedPerson: { [key: string]: ResourcePatchOperations }; // key is RelatedPerson.id
 }
 
-const PCP_FIELDS = [
-  'pcp-first',
-  'pcp-last',
-  'pcp-practice',
-  'pcp-address',
-  'pcp-number',
-  'pcp-active',
-];
+const PCP_FIELDS = ['pcp-first', 'pcp-last', 'pcp-practice', 'pcp-address', 'pcp-number', 'pcp-active'];
 
 export interface PatientMasterRecordResources {
   patient: Patient;
@@ -1315,7 +1305,11 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
   const operations: Operation[] = [];
 
   const currentPCPRef = patient.generalPractitioner?.[0];
-  const currentContainedPCP = Boolean(currentPCPRef?.reference) ? patient.contained?.find((resource) => `#${resource.id}` === currentPCPRef?.reference && resource.resourceType === 'Practitioner') : undefined;
+  const currentContainedPCP = currentPCPRef?.reference
+    ? patient.contained?.find(
+        (resource) => `#${resource.id}` === currentPCPRef?.reference && resource.resourceType === 'Practitioner'
+      )
+    : undefined;
 
   if (isActive === false) {
     if (currentPCPRef) {
@@ -1330,7 +1324,7 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
         operations.push({
           op: 'remove',
           path: '/contained',
-        })
+        });
       } else {
         operations.push({
           op: 'replace',
@@ -1340,7 +1334,6 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
       }
     }
   } else {
-
     let name: Practitioner['name'];
     let telecom: Practitioner['telecom'];
     let address: Practitioner['address'];
@@ -1383,7 +1376,7 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
       return operations;
     }
 
-    let newContained: Patient['contained'] = [newPCP]
+    let newContained: Patient['contained'] = [newPCP];
 
     if (currentContainedPCP) {
       newContained = (patient.contained ?? []).map((resource) => {
@@ -1748,8 +1741,8 @@ export async function searchInsuranceInformation(
   >;
 }
 
- const getCoverageGroups = (items: QuestionnaireResponseItem[]): QuestionnaireResponseItem[][] => {
-   const VARIABLE_PRIORITY_COVERAGE_SECTION_ID = 'insurance-section'
+const getCoverageGroups = (items: QuestionnaireResponseItem[]): QuestionnaireResponseItem[][] => {
+  const VARIABLE_PRIORITY_COVERAGE_SECTION_ID = 'insurance-section';
   const groups: QuestionnaireResponseItem[][] = [];
 
   items.forEach((item) => {
@@ -1759,18 +1752,22 @@ export async function searchInsuranceInformation(
     }
   });
   return groups;
- }
+};
 
- interface PrioritizedCoverageGroup {
+interface PrioritizedCoverageGroup {
   priority: 'Primary' | 'Secondary'; // | 'Tertiary' some day
   suffix: string;
   items: QuestionnaireResponseItem[];
- }
+}
 
- const tagCoverageGroupWithPriortity = (items: QuestionnaireResponseItem[]): PrioritizedCoverageGroup | undefined => {
-  const primaryItem = items.find((item) => item.linkId.startsWith('insurance-priority') && item.answer?.[0]?.valueString === 'Primary');
-  const secondaryItem = items.find((item) => item.linkId.startsWith('insurance-priority') && item.answer?.[0]?.valueString === 'Secondary');
-  
+const tagCoverageGroupWithPriortity = (items: QuestionnaireResponseItem[]): PrioritizedCoverageGroup | undefined => {
+  const primaryItem = items.find(
+    (item) => item.linkId.startsWith('insurance-priority') && item.answer?.[0]?.valueString === 'Primary'
+  );
+  const secondaryItem = items.find(
+    (item) => item.linkId.startsWith('insurance-priority') && item.answer?.[0]?.valueString === 'Secondary'
+  );
+
   const isPrimary = primaryItem !== undefined;
   const isSecondary = secondaryItem !== undefined;
 
@@ -1792,17 +1789,19 @@ export async function searchInsuranceInformation(
     };
   }
   return undefined;
- };
+};
 
 // the following 3 functions are exported for testing purposes; not expected to be called outside this file but for unit testing
 export const getPrimaryPolicyHolderFromAnswers = (items: QuestionnaireResponseItem[]): PolicyHolder | undefined => {
   // group the coverage-related items into their respective group(s)
-  // if there is some indication in the answers within each group that the group should be treated as primary, 
+  // if there is some indication in the answers within each group that the group should be treated as primary,
   // use that group here, regardless of the suffix used within that group
 
   const coverageGroups = getCoverageGroups(items);
 
-  const prioritizedCoverageGroups = coverageGroups.map(tagCoverageGroupWithPriortity).filter(Boolean) as PrioritizedCoverageGroup[];
+  const prioritizedCoverageGroups = coverageGroups
+    .map(tagCoverageGroupWithPriortity)
+    .filter(Boolean) as PrioritizedCoverageGroup[];
   const foundPrimaryGroup = prioritizedCoverageGroups.find((group) => group.priority === 'Primary');
 
   if (foundPrimaryGroup) {
@@ -1814,13 +1813,15 @@ export const getPrimaryPolicyHolderFromAnswers = (items: QuestionnaireResponseIt
 };
 
 export const getSecondaryPolicyHolderFromAnswers = (items: QuestionnaireResponseItem[]): PolicyHolder | undefined => {
-   // group the coverage-related items into their respective group(s)
-   // if there is some indication in the answers within each group that the group should be treated as secondary, 
+  // group the coverage-related items into their respective group(s)
+  // if there is some indication in the answers within each group that the group should be treated as secondary,
   // use that group here, regardless of the suffix used within that group
 
   const coverageGroups = getCoverageGroups(items);
 
-  const prioritizedCoverageGroups = coverageGroups.map(tagCoverageGroupWithPriortity).filter(Boolean) as PrioritizedCoverageGroup[];
+  const prioritizedCoverageGroups = coverageGroups
+    .map(tagCoverageGroupWithPriortity)
+    .filter(Boolean) as PrioritizedCoverageGroup[];
   const foundSecondaryGroup = prioritizedCoverageGroups.find((group) => group.priority === 'Secondary');
   if (foundSecondaryGroup) {
     return extractPolicyHolder(foundSecondaryGroup.items, foundSecondaryGroup.suffix);
@@ -2950,8 +2951,12 @@ export const getCoverageUpdateResourcesFromUnbundled = (
     existingCoverages.secondarySubscriber = subscriberResult;
   }
 
-  const insurancePlans: InsurancePlan[] = resources.filter((res): res is InsurancePlan => res.resourceType === 'InsurancePlan');
-  const insuranceOrgs: Organization[] = resources.filter((res): res is Organization => res.resourceType === 'Organization');
+  const insurancePlans: InsurancePlan[] = resources.filter(
+    (res): res is InsurancePlan => res.resourceType === 'InsurancePlan'
+  );
+  const insuranceOrgs: Organization[] = resources.filter(
+    (res): res is Organization => res.resourceType === 'Organization'
+  );
 
   return {
     patient,
@@ -3004,7 +3009,7 @@ export const getAccountAndCoverageResourcesForPatient = async (
         {
           name: '_revinclude:iterate',
           value: 'InsurancePlan:owned-by',
-        }
+        },
       ],
     })
   ).unbundle();
@@ -3042,7 +3047,6 @@ export const updatePatientAccountFromQuestionnaire = async (
 ): Promise<Bundle> => {
   const { patientId, questionnaireResponseItem } = input;
 
-
   const flattenedPaperwork = flattenIntakeQuestionnaireItems(
     questionnaireResponseItem as IntakeQuestionnaireItem[]
   ) as QuestionnaireResponseItem[];
@@ -3071,7 +3075,10 @@ export const updatePatientAccountFromQuestionnaire = async (
     guarantorResource: existingGuarantorResource,
   } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
 
-  const patientPatchOps = createMasterRecordPatchOperations({item: questionnaireResponseItem } as QuestionnaireResponse, patient);
+  const patientPatchOps = createMasterRecordPatchOperations(
+    { item: questionnaireResponseItem } as QuestionnaireResponse,
+    patient
+  );
   console.time('patching patient resource');
   if (patientPatchOps.patient.patchOpsForDirectUpdate.length > 0) {
     try {

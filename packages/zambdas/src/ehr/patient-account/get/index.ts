@@ -1,4 +1,4 @@
-import { getAccountAndCoverageResourcesForPatient, Secrets, ZambdaInput } from 'zambda-utils';
+import { Secrets, ZambdaInput } from 'zambda-utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared/helpers';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
