@@ -9,6 +9,7 @@ import {
   PatientAccountResponse,
 } from 'utils';
 import Oystehr from '@oystehr/sdk';
+import { Practitioner } from 'fhir/r4b';
 
 let m2mtoken: string;
 
@@ -39,9 +40,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAccountResponse> => {
   const { patientId } = input;
   const accountAndCoverages = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+  const primaryCarePhysician = accountAndCoverages.patient?.contained?.find(
+    (resource) => resource.resourceType === 'Practitioner' && resource.active === true
+  ) as Practitioner;
   return {
     ...accountAndCoverages,
-    primaryCarePhysician: undefined,
+    primaryCarePhysician,
   };
 };
 

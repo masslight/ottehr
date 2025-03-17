@@ -600,7 +600,7 @@ export const makeQRResponseItem = (
         }
       }
     } else if (item.type === 'boolean') {
-      return { ...base, answer: [{ valueBoolean: !(value ?? false) }] };
+      return { ...base, answer: [{ valueBoolean: value ?? false }] };
     } else if (item.type === 'attachment') {
       // the file upload component will give us the attachment directly; de don't pull it from an event
       return { ...base, answer: [{ valueAttachment: value }] };

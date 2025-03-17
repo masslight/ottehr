@@ -24,6 +24,7 @@ import {
   Location,
   Organization,
   Patient,
+  Practitioner,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   Reference,
@@ -106,6 +107,7 @@ import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 import _ from 'lodash';
 import { createPdfBytes } from '../pdf';
 import { createOrUpdateFlags } from '../sharedHelpers';
+import path from 'path';
 
 const IGNORE_CREATING_TASKS_FOR_REVIEW = true;
 
@@ -1121,6 +1123,15 @@ interface MasterRecordPatchOperations {
   relatedPerson: { [key: string]: ResourcePatchOperations }; // key is RelatedPerson.id
 }
 
+const PCP_FIELDS = [
+  'pcp-first',
+  'pcp-last',
+  'pcp-practice',
+  'pcp-address',
+  'pcp-number',
+  'pcp-active',
+];
+
 export interface PatientMasterRecordResources {
   patient: Patient;
 }
@@ -1155,9 +1166,15 @@ export function createMasterRecordPatchOperations(
     'pcp-number': { system: 'phone' },
   };
 
+  const pcpItems: QuestionnaireResponseItem[] = [];
+
   flattenedPaperwork.forEach((item) => {
     const value = extractValueFromItem(item);
     if (value === undefined) return;
+    if (PCP_FIELDS.includes(item.linkId)) {
+      pcpItems.push(item);
+      return;
+    }
 
     // Remove '-2' suffix for secondary fields
     const baseFieldId = item.linkId === 'patient-street-address-2' ? item.linkId : item.linkId.replace(/-2$/, '');
@@ -1254,25 +1271,6 @@ export function createMasterRecordPatchOperations(
           return;
         }
 
-        // Special handler for practice-name
-        if (item.linkId === 'pcp-practice') {
-          const url = PRACTICE_NAME_URL;
-          const currentValue = getCurrentValue(patient, path);
-          if (value !== currentValue) {
-            tempOperations.patient.push({
-              op: 'add',
-              path: '/contained/0/extension',
-              value: [
-                {
-                  url: url,
-                  valueString: value,
-                },
-              ],
-            });
-          }
-          return;
-        }
-
         // Handle regular fields
         const currentValue = getCurrentValue(patient, path);
         if (value !== currentValue) {
@@ -1287,15 +1285,131 @@ export function createMasterRecordPatchOperations(
   // Separate operations for each resource
   // Separate Patient operations
   result.patient = separateResourceUpdates(tempOperations.patient, patient, 'Patient');
-  result.patient.patchOpsForDirectUpdate = addAuxiliaryPatchOperations(result.patient.patchOpsForDirectUpdate, patient);
   result.patient.patchOpsForDirectUpdate = result.patient.patchOpsForDirectUpdate.filter((op) => {
     const { path, op: oper } = op;
     return path != undefined && oper != undefined;
   });
   result.patient.patchOpsForDirectUpdate = consolidateOperations(result.patient.patchOpsForDirectUpdate, patient);
-
+  // this needs to go here for now because consolitdateOperations breaks it
+  result.patient.patchOpsForDirectUpdate.push(...getPCPPatchOps(pcpItems, patient));
+  console.log('result.patient.patchops', JSON.stringify(result.patient.patchOpsForDirectUpdate, null, 2));
   return result;
 }
+
+const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Patient): Operation[] => {
+  const isActive = flattenedItems.find((field) => field.linkId === 'pcp-active')?.answer?.[0]?.valueBoolean;
+  const firstName = flattenedItems.find((field) => field.linkId === 'pcp-first')?.answer?.[0]?.valueString;
+  const lastName = flattenedItems.find((field) => field.linkId === 'pcp-last')?.answer?.[0]?.valueString;
+  const practiceName = flattenedItems.find((field) => field.linkId === 'pcp-practice')?.answer?.[0]?.valueString;
+  const pcpAddress = flattenedItems.find((field) => field.linkId === 'pcp-address')?.answer?.[0]?.valueString;
+  const phone = flattenedItems.find((field) => field.linkId === 'pcp-number')?.answer?.[0]?.valueString;
+
+  console.log('pcp patch inputs', isActive, firstName, lastName, practiceName, pcpAddress, phone);
+
+  const hasSomeValue = (firstName && lastName) || practiceName || pcpAddress || phone;
+
+  if (isActive === undefined && !hasSomeValue) {
+    return [];
+  }
+
+  const operations: Operation[] = [];
+
+  const currentPCPRef = patient.generalPractitioner?.[0];
+  const currentContainedPCP = Boolean(currentPCPRef?.reference) ? patient.contained?.find((resource) => `#${resource.id}` === currentPCPRef?.reference && resource.resourceType === 'Practitioner') : undefined;
+
+  if (isActive === false) {
+    if (currentPCPRef) {
+      operations.push({
+        op: 'remove',
+        path: '/generalPractitioner',
+      });
+    }
+    if (currentContainedPCP) {
+      const contained = (patient.contained ?? []).filter((resource) => resource.id !== currentContainedPCP.id);
+      if (contained.length == 0) {
+        operations.push({
+          op: 'remove',
+          path: '/contained',
+        })
+      } else {
+        operations.push({
+          op: 'replace',
+          path: '/contained',
+          value: contained,
+        });
+      }
+    }
+  } else {
+
+    let name: Practitioner['name'];
+    let telecom: Practitioner['telecom'];
+    let address: Practitioner['address'];
+    let extension: Practitioner['extension'];
+
+    if (lastName) {
+      name = [{ family: lastName }];
+      if (firstName) {
+        name[0].given = [firstName];
+      }
+    }
+
+    if (phone) {
+      telecom = [{ system: 'phone', value: phone }];
+    }
+    if (pcpAddress) {
+      address = [{ text: pcpAddress }];
+    }
+
+    if (practiceName) {
+      extension = [
+        {
+          url: `${PRIVATE_EXTENSION_BASE_URL}/practice-name`,
+          valueString: practiceName,
+        },
+      ];
+    }
+
+    const newPCP: Practitioner = {
+      resourceType: 'Practitioner',
+      id: 'primary-care-physician',
+      name,
+      telecom,
+      address,
+      extension,
+      active: true,
+    };
+
+    if (_.isEqual(newPCP, currentContainedPCP)) {
+      return operations;
+    }
+
+    let newContained: Patient['contained'] = [newPCP]
+
+    if (currentContainedPCP) {
+      newContained = (patient.contained ?? []).map((resource) => {
+        if (resource.id === currentContainedPCP?.id) {
+          return newPCP;
+        }
+        return resource;
+      });
+    }
+
+    operations.push({
+      op: patient.contained != undefined ? 'replace' : 'add',
+      path: '/contained',
+      value: newContained,
+    });
+
+    if (currentPCPRef?.reference !== `#${newPCP.id}`) {
+      operations.push({
+        op: currentPCPRef ? 'replace' : 'add',
+        path: '/generalPractitioner',
+        value: [{ reference: `#${newPCP.id}`, resourceType: 'Practitioner' }],
+      });
+    }
+  }
+  return operations;
+};
 
 function separateResourceUpdates(
   patchOps: Operation[],
@@ -1907,46 +2021,6 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   return coverage;
 };
 
-function addAuxiliaryPatchOperations(operations: Operation[], patient: Patient): Operation[] {
-  const auxOperations: Operation[] = [];
-
-  // Add required link to contained Practitioner resource
-  if (operations.some((op) => op.path && op.path.includes('contained'))) {
-    const addResourceTypeOperation: AddOperation<any> = {
-      op: 'add',
-      path: '/contained/0/resourceType',
-      value: 'Practitioner',
-    };
-    auxOperations.push(addResourceTypeOperation);
-
-    if (!patient.generalPractitioner) {
-      const addGeneralPractitionerOperation: AddOperation<any> = {
-        op: 'add',
-        path: '/generalPractitioner',
-        value: {
-          reference: '#primary-care-physician',
-        },
-      };
-      auxOperations.push(addGeneralPractitionerOperation);
-    }
-
-    const addPractitionerIdOperation: AddOperation<any> = {
-      op: 'add',
-      path: '/contained/0/id',
-      value: 'primary-care-physician',
-    };
-    auxOperations.push(addPractitionerIdOperation);
-    const addPractitionerActiveStatusOperation: AddOperation<any> = {
-      op: 'add',
-      path: '/contained/0/active',
-      value: true,
-    };
-    auxOperations.push(addPractitionerActiveStatusOperation);
-  }
-
-  return [...operations, ...auxOperations];
-}
-
 export function createErxContactOperation(
   relatedPerson: RelatedPerson,
   patientResource: Patient
@@ -2046,12 +2120,12 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
   const flattenedItems = flattenItems(questionnaireResponseItem ?? []);
 
   const guarantorData = extractAccountGuarantor(flattenedItems);
-  console.log(
+  /*console.log(
     'insurance plan resources',
     JSON.stringify(insurancePlanResources, null, 2),
     JSON.stringify(organizationResources, null, 2),
     JSON.stringify(flattenedItems, null, 2)
-  );
+  );*/
 
   const { orderedCoverages: questionnaireCoverages } = getCoverageResources({
     questionnaireResponse: {
@@ -2781,6 +2855,7 @@ interface UnbundledAccountResourceWithInsuranceResources {
   resources: UnbundledAccountResources;
 }
 // this function is exported for testing purposes
+// todo: rename this function to something more descriptive
 export const getCoverageUpdateResourcesFromUnbundled = (
   input: UnbundledAccountResourceWithInsuranceResources
 ): PatientAccountAndCoverageResources => {
@@ -3011,10 +3086,11 @@ export const updatePatientAccountFromQuestionnaire = async (
   }
   console.timeEnd('patching patient resource');
 
+  /*
   console.log('existing coverages', JSON.stringify(existingCoverages, null, 2));
   console.log('existing account', JSON.stringify(existingAccount, null, 2));
   console.log('existing guarantor resource', JSON.stringify(existingGuarantorResource, null, 2));
-
+*/
   const accountOperations = getAccountOperations({
     patient,
     questionnaireResponseItem: flattenedPaperwork,

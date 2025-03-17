@@ -2,7 +2,6 @@ import {
   Organization,
   Patient,
   Practitioner,
-  PractitionerRole,
   Coverage,
   DocumentReference,
   InsurancePlan,
@@ -633,9 +632,9 @@ export interface PrepopulationFromPatientRecordInput extends PatientAccountRespo
 export const makePrepopulatedItemsFromPatientRecord = (
   input: PrepopulationFromPatientRecordInput
 ): QuestionnaireResponseItem[] => {
-  console.log('making prepopulated items from patient record');
   const { patient, questionnaire, primaryCarePhysician, coverages, insuranceOrgs, insurancePlans, guarantorResource } =
     input;
+  console.log('making prepopulated items from patient record', primaryCarePhysician);
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
       const itemItems = (item.item ?? []).filter((i: QuestionnaireItem) => i.type !== 'display');
@@ -781,11 +780,9 @@ const PCP_ITEMS = ['primary-care-physician-section', 'primary-care-physician-pag
 interface MapPCPItemsInput {
   items: QuestionnaireItem[];
   physician?: Practitioner;
-  role?: PractitionerRole;
-  org?: Organization;
 }
 const mapPCPToQuestionnaireResponseItems = (input: MapPCPItemsInput): QuestionnaireResponseItem[] => {
-  const { physician, items, org } = input;
+  const { physician, items } = input;
 
   /*
    const pcp = patient?.contained?.find(
@@ -795,8 +792,10 @@ const mapPCPToQuestionnaireResponseItems = (input: MapPCPItemsInput): Questionna
 
 
   */
-
-  const phone = physician?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value;
+  const practiceName =
+    physician?.extension?.find((e: { url: string }) => e.url === PRACTICE_NAME_URL)?.valueString ?? '';
+  const phone = physician?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ?? '';
+  const address = physician?.address?.[0]?.text ?? '';
 
   return items.map((item) => {
     let answer: QuestionnaireResponseItemAnswer[] | undefined;
@@ -819,16 +818,19 @@ const mapPCPToQuestionnaireResponseItems = (input: MapPCPItemsInput): Questionna
 
     if (linkId === 'pcp-practice') {
       // not really sure where this will come from yet...
-      answer = makeAnswer(org?.name ?? '');
+      answer = makeAnswer(practiceName);
     }
 
     if (linkId === 'pcp-address') {
       // not really sure where this will come from yet...
-      answer = makeAnswer(org?.address?.[0]?.line?.[0] ?? '');
+      answer = makeAnswer(address);
     }
 
     if (linkId === 'pcp-number') {
-      answer = makeAnswer(phone ?? '');
+      answer = makeAnswer(phone);
+    }
+    if (linkId === 'pcp-active') {
+      answer = makeAnswer(!!physician && !physician.active === false, 'Boolean');
     }
     return {
       linkId,
