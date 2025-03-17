@@ -25,6 +25,7 @@ import {
   PRIVATE_EXTENSION_BASE_URL,
 } from '.';
 import {
+  PATIENT_INDIVIDUAL_PRONOUNS_URL,
   PatientInfo,
   PROVIDER_NOTIFICATION_METHOD_URL,
   PROVIDER_NOTIFICATIONS_ENABLED_URL,
@@ -620,4 +621,12 @@ export const getContactEmailForPatientAccount = (patient: Patient | undefined): 
   } else {
     return patient?.telecom?.find((tc) => tc.system === 'email')?.value;
   }
+};
+
+export const getPronounsFromExtension = (patient: Patient): string => {
+  const pronounsExtension = patient.extension?.find(
+    (ext: { url: string }) => ext.url === PATIENT_INDIVIDUAL_PRONOUNS_URL
+  );
+  if (!pronounsExtension?.valueCodeableConcept?.coding?.[0]) return '';
+  return pronounsExtension.valueCodeableConcept.coding[0].display || '';
 };

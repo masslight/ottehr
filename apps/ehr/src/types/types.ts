@@ -8,6 +8,7 @@ import {
   VisitStatusWithoutUnknown,
   DiagnosisDTO,
   OrderableItemSearchResult,
+  OTTEHR_MODULE,
 } from 'utils';
 import { ScheduleType, ServiceMode } from 'utils';
 
@@ -147,12 +148,14 @@ export const getFhirAppointmentTypeForVisitType = (
 
 export const getVisitTypeLabelForAppointment = (appointment: Appointment): string => {
   const fhirAppointmentType = appointment?.appointmentType?.text as FhirAppointmentType;
+  const isFhirAppointmentMetaTagTelemed = appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.TM);
 
   if (fhirAppointmentType === FhirAppointmentType.walkin) {
     return 'Walk-in In Person Visit';
   } else if (fhirAppointmentType === FhirAppointmentType.posttelemed) {
     return 'Post Telemed Lab Only';
   } else if (fhirAppointmentType === FhirAppointmentType.prebook) {
+    if (isFhirAppointmentMetaTagTelemed) return 'Pre-booked Telemed';
     return 'Pre-booked In Person Visit';
   } else if (fhirAppointmentType === FhirAppointmentType.virtual) {
     return 'Telemed';

@@ -17,9 +17,10 @@ export const InvitedParticipantList: FC<InvitedParticipantListProps> = ({ items,
   const cancelInviteMutation = useCancelInviteMutation();
   const invite = items[0]; // for this release we take only one invite.
 
-  const submitCancelInvite = (emailAddress: string): void => {
+  const submitCancelInvite = (emailAddress: string, phoneNumber: string): void => {
     const params = {
       emailAddress: emailAddress,
+      phoneNumber: phoneNumber,
     };
     cancelInviteMutation.mutate(params, {
       onSuccess: () => onInviteCancelled?.(),
@@ -77,7 +78,7 @@ export const InvitedParticipantList: FC<InvitedParticipantListProps> = ({ items,
           <ConfirmationDialog
             title="Cancel invite"
             description={`Are you sure you want to cancel invite for ${name} for this visit?`}
-            response={() => submitCancelInvite(invite.emailAddress)}
+            response={() => submitCancelInvite(invite.emailAddress, invite.phoneNumber)}
             actionButtons={{
               proceed: {
                 text: 'Cancel invite',

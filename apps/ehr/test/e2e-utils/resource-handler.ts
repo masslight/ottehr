@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
-import { Address, Appointment, Encounter, Patient, QuestionnaireResponse } from 'fhir/r4b';
+import { Address, Appointment, Encounter, FhirResource, Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { readFileSync } from 'fs';
+import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
 import { cleanAppointment } from 'test-utils';
 import { fileURLToPath } from 'url';
@@ -19,7 +20,7 @@ import {
   TEST_EMPLOYEE_2,
   TestEmployee,
 } from './resource/employees';
-import { DateTime } from 'luxon';
+import { getInHouseMedicationsResources } from './resource/in-house-medications';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -78,6 +79,7 @@ export class ResourceHandler {
   private resources!: CreateAppointmentResponse['resources'] & { relatedPerson: { id: string; resourceType: string } };
   private zambdaId: string;
   private flow: 'telemed' | 'in-person';
+  private initPromise: Promise<void>;
 
   public testEmployee1!: TestEmployee;
   public testEmployee2!: TestEmployee;
@@ -85,7 +87,7 @@ export class ResourceHandler {
   constructor(flow: 'telemed' | 'in-person' = 'in-person') {
     this.flow = flow;
 
-    this.initApi();
+    this.initPromise = this.initApi();
 
     if (flow === 'in-person') {
       this.zambdaId = process.env.CREATE_APPOINTMENT_ZAMBDA_ID!;
@@ -115,7 +117,7 @@ export class ResourceHandler {
   private async createAppointment(
     inputParams?: CreateTestAppointmentInput
   ): Promise<CreateAppointmentResponse | CreateAppointmentUCTelemedResponse> {
-    await this.initApi();
+    await this.initPromise;
 
     try {
       const address: Address = {
@@ -213,28 +215,40 @@ export class ResourceHandler {
   }
 
   public async cleanupResources(): Promise<void> {
-    await Promise.allSettled(
-      Object.values(this.resources ?? {}).map((resource) => {
-        if (resource.id && resource.resourceType) {
-          return this.apiClient.fhir
-            .delete({ id: resource.id, resourceType: resource.resourceType })
-            .then(() => {
-              console.log(`🗑️ deleted ${resource.resourceType} ${resource.id}`);
-            })
-            .catch((error) => {
-              console.error(`❌ 🗑️ ${resource.resourceType} not deleted ${resource.id}`, error);
-            });
-        } else {
-          console.error(`❌ 🫣 resource not found: ${resource.resourceType} ${resource.id}`);
-          return Promise.resolve();
-        }
-      })
-    );
+    let appointmentResources = Object.values(this.resources ?? {}) as FhirResource[];
+    // TODO: here we should change appointment id to encounter id when we'll fix this bug in frontend,
+    // because for this moment frontend creates order with appointment id in place of encounter one
+    if (this.resources.appointment) {
+      const inHouseMedicationsResources = await getInHouseMedicationsResources(
+        this.apiClient,
+        'encounter',
+        this.resources.appointment.id!
+      );
+
+      appointmentResources = appointmentResources.concat(inHouseMedicationsResources);
+      await Promise.allSettled(
+        appointmentResources.map((resource) => {
+          if (resource.id && resource.resourceType) {
+            return this.apiClient.fhir
+              .delete({ id: resource.id, resourceType: resource.resourceType })
+              .then(() => {
+                console.log(`🗑️ deleted ${resource.resourceType} ${resource.id}`);
+              })
+              .catch((error) => {
+                console.error(`❌ 🗑️ ${resource.resourceType} not deleted ${resource.id}`, error);
+              });
+          } else {
+            console.error(`❌ 🫣 resource not found: ${resource.resourceType} ${resource.id}`);
+            return Promise.resolve();
+          }
+        })
+      );
+    }
   }
 
   async setEmployees(): Promise<void> {
     try {
-      await this.initApi();
+      await this.initPromise;
       const [employee1, employee2] = await Promise.all([
         inviteTestEmployeeUser(TEST_EMPLOYEE_1, this.apiClient, this.authToken),
         inviteTestEmployeeUser(TEST_EMPLOYEE_2, this.apiClient, this.authToken),

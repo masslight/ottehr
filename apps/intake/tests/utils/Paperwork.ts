@@ -206,13 +206,13 @@ export class Paperwork {
     await expect(this.locator.pcpNumber).toHaveValue(formattedPhoneNumber);
     return { firstName, lastName, pcpAddress, pcpName, formattedPhoneNumber };
   }
-  async checkPhoneValidations(number: any, error: any): Promise<void> {
+  async checkPhoneValidations(number: any): Promise<void> {
     await number.fill('123');
-    await this.locator.clickContinueButton();
-    await expect(error).toBeVisible();
+    await this.locator.clickContinueButton(false);
+    await expect(this.locator.numberErrorText).toBeVisible();
     await number.fill('1234567890');
     await this.page.keyboard.press('Tab');
-    await expect(error).not.toBeVisible();
+    await expect(this.locator.numberErrorText).not.toBeVisible();
   }
   async skipPhotoID(): Promise<void> {
     await this.CommonLocatorsHelper.clickContinue();
@@ -223,27 +223,50 @@ export class Paperwork {
   async fillResponsiblePartyDataSelf(): Promise<void> {
     await this.fillResponsiblePartySelfRelationship();
   }
-  async fillResponsiblePartyDataNotSelf(): Promise<void> {
-    await this.fillResponsiblePartyNotSelfRelationship();
-    await this.fillResponsiblePartyPatientName();
-    await this.fillResponsiblePartyBirthSex();
-    await this.fillResponsiblePartyDOB();
+  async fillResponsiblePartyDataNotSelf(): Promise<{
+    relationship: string;
+    birthSex: string;
+    firstName: string;
+    lastName: string;
+    dob: string;
+  }> {
+    const { relationship } = await this.fillResponsiblePartyNotSelfRelationship();
+    const name = await this.fillResponsiblePartyPatientName();
+    const { birthSex } = await this.fillResponsiblePartyBirthSex();
+    const { responsiblePartyDOB } = await this.fillResponsiblePartyDOB();
+    return {
+      relationship,
+      birthSex,
+      firstName: name.firstName,
+      lastName: name.lastName,
+      dob: responsiblePartyDOB,
+    };
   }
-  async fillResponsiblePartyPatientName(): Promise<void> {
+  async fillResponsiblePartyPatientName(): Promise<{ firstName: string; lastName: string }> {
     const firstName = `TA-UserFN${this.getRandomString()}`;
     const lastName = `TA-UserLN${this.getRandomString()}`;
     await this.locator.responsiblePartyFirstName.click();
     await this.locator.responsiblePartyFirstName.fill(firstName);
     await this.locator.responsiblePartyLastName.click();
     await this.locator.responsiblePartyLastName.fill(lastName);
+    return { firstName, lastName };
   }
-  async fillResponsiblePartyBirthSex(): Promise<void> {
+  async fillResponsiblePartyBirthSex(): Promise<{ birthSex: string }> {
     await this.validateAllOptions(this.locator.responsiblePartyBirthSex, this.birthSex, 'birth sex');
     const birthSex = this.getRandomElement(this.birthSex);
-    await this.page.getByRole('option', { name: birthSex }).click();
+    await this.page.getByRole('option', { name: birthSex, exact: true }).click();
+    return { birthSex };
   }
-  async fillResponsiblePartyDOB(): Promise<void> {
-    // TO DO
+  async fillResponsiblePartyDOB(): Promise<{ responsiblePartyDOB: string }> {
+    await this.locator.responsiblePartyDOBAnswer.click();
+    await this.locator.responsiblePartyCalendarArrowDown.click();
+    const year = this.page.getByText('2005');
+    await year.scrollIntoViewIfNeeded();
+    await year.click();
+    await this.locator.responsiblePartyCalendarDay.click();
+    await this.locator.responsiblePartyCalendarButtonOK.click();
+    const responsiblePartyDOB = (await this.locator.responsiblePartyDOBAnswer.getAttribute('value')) || '';
+    return { responsiblePartyDOB };
   }
   async fillResponsiblePartySelfRelationship(): Promise<void> {
     await this.validateAllOptions(
@@ -253,7 +276,7 @@ export class Paperwork {
     );
     await this.page.getByRole('option', { name: this.relationshipResponsiblePartySelf }).click();
   }
-  async fillResponsiblePartyNotSelfRelationship(): Promise<void> {
+  async fillResponsiblePartyNotSelfRelationship(): Promise<{ relationship: string }> {
     await this.validateAllOptions(
       this.locator.responsiblePartyRelationship,
       this.relationshipResponsiblePartyNotSelf,
@@ -261,6 +284,16 @@ export class Paperwork {
     );
     const relationship = this.getRandomElement(this.relationshipResponsiblePartyNotSelf);
     await this.page.getByRole('option', { name: relationship }).click();
+    return { relationship };
+  }
+  async checkImagesAreSaved(): Promise<void> {
+    const today = await this.CommonLocatorsHelper.getToday();
+    await expect(this.locator.photoIdFrontImage).toHaveText(
+      `We already have this! It was saved on ${today}. Click to re-upload.`
+    );
+    await expect(this.locator.photoIdBackImage).toHaveText(
+      `We already have this! It was saved on ${today}. Click to re-upload.`
+    );
   }
   async fillConsentForms(): Promise<void> {
     await this.validateAllOptions(

@@ -32,7 +32,7 @@ export const FormTextField = <T extends FieldValues>({
         {...textFieldProps}
         id={id}
         error={!!error}
-        variant="standard"
+        variant={textFieldProps.variant ?? 'standard'}
         fullWidth
         onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
           field.onChange(e);
