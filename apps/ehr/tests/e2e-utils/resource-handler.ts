@@ -163,7 +163,7 @@ export class ResourceHandler {
               authToken: getAccessToken(),
               phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
               createAppointmentZambdaId: this.zambdaId,
-              intakeZambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
+              zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
               selectedLocationId: process.env.LOCATION_ID,
               demoData: patientData,
               projectId: process.env.PROJECT_ID!,
@@ -174,7 +174,7 @@ export class ResourceHandler {
               phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
               createAppointmentZambdaId: this.zambdaId,
               islocal: process.env.APP_IS_LOCAL === 'true',
-              intakeZambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
+              zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
               selectedLocationId: process.env.STATE_ONE, // todo: check why state is used here
               demoData: patientData,
               projectId: process.env.PROJECT_ID!,

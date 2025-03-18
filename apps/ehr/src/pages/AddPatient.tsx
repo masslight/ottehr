@@ -111,7 +111,7 @@ export default function AddPatient(): JSX.Element {
   // general variables
   const theme = useTheme();
   const navigate = useNavigate();
-  const { oystehr, oystehrZambdaIntake } = useApiClients();
+  const { oystehr, oystehrZambda } = useApiClients();
   const reasonForVisitErrorMessage = `Input cannot be more than ${MAXIMUM_CHARACTER_LIMIT} characters`;
   const phoneNumberErrorMessage = 'Phone number must be 10 digits';
 
@@ -139,14 +139,14 @@ export default function AddPatient(): JSX.Element {
       return;
     }
     if (
-      !oystehrZambdaIntake ||
+      !oystehrZambda ||
       loadingSlotState.status === 'loading' ||
       (loadingSlotState.status === 'loaded' && loadingSlotState.input === locationSlug)
     ) {
       return;
     }
-    void fetchLocationWithSlotData({ slug: locationSlug, scheduleType: ScheduleType.location }, oystehrZambdaIntake);
-  }, [selectedLocation, loadingSlotState, oystehrZambdaIntake]);
+    void fetchLocationWithSlotData({ slug: locationSlug, scheduleType: ScheduleType.location }, oystehrZambda);
+  }, [selectedLocation, loadingSlotState, oystehrZambda]);
 
   // handle functions
   const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
@@ -197,7 +197,7 @@ export default function AddPatient(): JSX.Element {
       if (emailUser == undefined && emailToUse) {
         emailUser = 'Parent/Guardian';
       }
-      if (!oystehrZambdaIntake) throw new Error('Zambda client not found');
+      if (!oystehrZambda) throw new Error('Zambda client not found');
       const zambdaParams: CreateAppointmentParameters = {
         patient: {
           id: selectedPatient?.id,
@@ -222,7 +222,7 @@ export default function AddPatient(): JSX.Element {
       let response;
       let apiErr = false;
       try {
-        response = await createAppointment(oystehrZambdaIntake, zambdaParams);
+        response = await createAppointment(oystehrZambda, zambdaParams);
       } catch (error) {
         console.error(`Failed to add patient: ${error}`);
         apiErr = true;

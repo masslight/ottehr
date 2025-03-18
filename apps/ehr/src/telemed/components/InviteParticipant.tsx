@@ -1,5 +1,4 @@
-import React, { ReactElement } from 'react';
-import { useForm } from 'react-hook-form';
+import { LoadingButton } from '@mui/lab';
 import {
   Button,
   Dialog,
@@ -10,10 +9,11 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useApiClients } from '../../hooks/useAppClients';
-import { inviteParticipant } from '../../api/api';
+import React, { ReactElement } from 'react';
+import { useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
-import { LoadingButton } from '@mui/lab';
+import { inviteParticipant } from '../../api/api';
+import { useApiClients } from '../../hooks/useAppClients';
 
 interface InviteParticipantProps {
   modalOpen: boolean;
@@ -41,15 +41,15 @@ const InviteParticipant = ({ modalOpen, onClose }: InviteParticipantProps): Reac
   });
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<boolean>(false);
-  const { oystehrZambdaIntake } = useApiClients();
+  const { oystehrZambda } = useApiClients();
   const { id: appointmentID } = useParams();
 
   const onSubmit = async (data: FormInputs): Promise<void> => {
     setIsLoading(true);
     setError(false);
-    if (!oystehrZambdaIntake) throw new Error('Zambda client not found');
+    if (!oystehrZambda) throw new Error('Zambda client not found');
     try {
-      const response = await inviteParticipant(oystehrZambdaIntake, {
+      const response = await inviteParticipant(oystehrZambda, {
         appointmentId: appointmentID || '',
         firstName: data.firstName,
         lastName: data.lastName,

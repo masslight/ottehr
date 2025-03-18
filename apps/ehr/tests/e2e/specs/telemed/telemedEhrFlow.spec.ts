@@ -1,13 +1,15 @@
-import { expect, Locator, Page, test } from '@playwright/test';
-import { dataTestIds } from '../../../src/constants/data-test-ids';
+import { expect, Locator, test } from '@playwright/test';
+import { fillWaitAndSelectDropdown, iterateThroughTable } from 'test-utils';
+import { dataTestIds } from '../../../../src/constants/data-test-ids';
+import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
+import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../../e2e-utils/helpers/tests-utils';
+import { PATIENT_STATE, ResourceHandler } from '../../../e2e-utils/resource-handler';
+import { TelemedFlowResourceHandler } from '../../../e2e-utils/resource-handlers/telemed-flow-rh';
 import {
   ADDITIONAL_QUESTIONS,
   stateCodeToFullName,
   TelemedAppointmentStatusEnum,
-} from '../../e2e-utils/temp-imports-from-utils';
-import { PATIENT_STATE, ResourceHandler } from '../../e2e-utils/resource-handler';
-import { TelemedFlowResourceHandler } from '../../e2e-utils/resource-handlers/telemed-flow-rh';
-import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../e2e-utils/helpers/tests-utils';
+} from '../../../e2e-utils/temp-imports-from-utils';
 
 // We may create new instances for the tests with mutable operations, and keep parralel tests isolated
 const resourceHandler = new ResourceHandler('telemed');
@@ -21,41 +23,6 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   await resourceHandler.cleanupResources();
 });
-
-async function iterateThroughTable(tableLocator: Locator, callback: (row: Locator) => Promise<void>): Promise<void> {
-  const rows = tableLocator.locator('tbody tr');
-  const rowCount = await rows.count();
-
-  for (let i = 0; i < rowCount; i++) {
-    await callback(rows.nth(i));
-  }
-}
-
-async function fillWaitAndSelectDropdown(page: Page, dropdownDataTestId: string, textToFill: string): Promise<void> {
-  // await page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput).click(DEFAULT_TIMEOUT);
-  await page.getByTestId(dropdownDataTestId).locator('input').fill(textToFill);
-  // Wait for dropdown options to appear
-  const dropdownOptions = page.locator('.MuiAutocomplete-popper li'); // MUI uses this class for dropdown items
-  await dropdownOptions.first().waitFor(); // Wait for the first option to become visible
-  await page.keyboard.press('ArrowDown');
-  await page.keyboard.press('Enter');
-}
-
-async function checkAppointmentAssigned(page: Page): Promise<void> {
-  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.appointmentChartFooter)).toBeVisible(DEFAULT_TIMEOUT);
-  const assignButton = page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonAssignMe);
-  // CHECK IF APPOINTMENT IS ASSIGNED ON ME AND ASSIGN IF NOT
-  if (await assignButton.isVisible(DEFAULT_TIMEOUT)) {
-    await assignButton.click(DEFAULT_TIMEOUT);
-
-    await telemedDialogConfirm(page);
-
-    const statusChip = page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip);
-    await expect(statusChip).toBeVisible(DEFAULT_TIMEOUT);
-    // todo: is it ok to have check like this that rely on status text??
-    await expect(statusChip).toHaveText(TelemedAppointmentStatusEnum['pre-video']);
-  }
-}
 
 test.describe('Appointment appearing correctly', async () => {
   test("in 'my patients' tab", async ({ page }) => {
@@ -206,7 +173,7 @@ test('Appointment hpi fields', async ({ page }) => {
 
   await test.step("go to appointment page and make sure it's in pre-video", async () => {
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
-    await checkAppointmentAssigned(page);
+    await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page);
   });
 
   await test.step('await until hpi fields are ready', async () => {
@@ -314,7 +281,7 @@ test('Appointment hpi fields', async ({ page }) => {
 
 test('Connect to patient function', async ({ page }) => {
   await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
-  await checkAppointmentAssigned(page);
+  await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page);
 
   const connectButton = page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient);
   await expect(connectButton).toBeVisible(DEFAULT_TIMEOUT);

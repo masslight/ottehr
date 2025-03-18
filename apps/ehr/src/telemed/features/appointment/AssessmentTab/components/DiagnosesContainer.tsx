@@ -1,15 +1,15 @@
-import React, { FC } from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { IcdSearchResponse } from 'utils';
-import { AssessmentTitle } from './AssessmentTitle';
-import { DiagnosesField } from './DiagnosesField';
+import { FC } from 'react';
+import { DIAGNOSIS_MAKE_PRIMARY_BUTTON, IcdSearchResponse } from 'utils';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore, useDeleteChartData, useSaveChartData } from '../../../../state';
 import { ActionsList, DeleteIconButton } from '../../../../components';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
-import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
-import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { useAppointmentStore, useDeleteChartData, useSaveChartData } from '../../../../state';
+import { AssessmentTitle } from './AssessmentTitle';
+import { DiagnosesField } from './DiagnosesField';
 
 export const DiagnosesContainer: FC = () => {
   const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
@@ -150,7 +150,7 @@ export const DiagnosesContainer: FC = () => {
             data={[primaryDiagnosis]}
             getKey={(value, index) => value.resourceId || index}
             renderItem={(value) => (
-              <Typography>
+              <Typography data-testid={dataTestIds.diagnosisContainer.primaryDiagnosis}>
                 {value.display} {value.code}
               </Typography>
             )}
@@ -159,7 +159,7 @@ export const DiagnosesContainer: FC = () => {
                 ? undefined
                 : (value) => (
                     <DeleteIconButton
-                      dataTestId={dataTestIds.diagnosisContainer.deleteButton}
+                      dataTestId={dataTestIds.diagnosisContainer.primaryDiagnosisDeleteButton}
                       disabled={isLoading || !value.resourceId}
                       onClick={() => onDelete(value.resourceId!)}
                     />
@@ -176,7 +176,7 @@ export const DiagnosesContainer: FC = () => {
             data={otherDiagnoses}
             getKey={(value, index) => value.resourceId || index}
             renderItem={(value) => (
-              <Typography>
+              <Typography data-testid={dataTestIds.diagnosisContainer.secondaryDiagnosis}>
                 {value.display} {value.code}
               </Typography>
             )}
@@ -190,13 +190,14 @@ export const DiagnosesContainer: FC = () => {
                           disabled={isLoading || !value.resourceId}
                           onClick={() => onMakePrimary(value.resourceId!)}
                           size="small"
+                          data-testid={dataTestIds.diagnosisContainer.makePrimaryButton}
                           sx={{ textTransform: 'none', fontWeight: 500 }}
                         >
-                          Make Primary
+                          {DIAGNOSIS_MAKE_PRIMARY_BUTTON}
                         </Button>
                       )}
                       <DeleteIconButton
-                        dataTestId={dataTestIds.diagnosisContainer.deleteButton}
+                        dataTestId={dataTestIds.diagnosisContainer.secondaryDiagnosisDeleteButton}
                         disabled={isLoading || !value.resourceId}
                         onClick={() => onDelete(value.resourceId!)}
                       />

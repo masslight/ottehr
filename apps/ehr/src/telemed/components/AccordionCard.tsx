@@ -10,10 +10,11 @@ type AccordionCardProps = PropsWithChildren<{
   label?: string | ReactNode;
   headerItem?: ReactNode;
   withBorder?: boolean;
+  dataTestId?: string;
 }>;
 
 export const AccordionCard: FC<AccordionCardProps> = (props) => {
-  const { collapsed, onSwitch, label, children, headerItem, withBorder = true } = props;
+  const { collapsed, onSwitch, label, children, headerItem, dataTestId, withBorder = true } = props;
 
   const theme = useTheme();
 
@@ -27,6 +28,7 @@ export const AccordionCard: FC<AccordionCardProps> = (props) => {
         border: withBorder ? `1px solid ${otherColors.solidLine}` : 'none',
         borderRadius: 1,
       }}
+      data-testid={dataTestId}
     >
       {label && (
         <Box
