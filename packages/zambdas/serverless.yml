@@ -24,7 +24,7 @@ custom:
     keepNames: true
 
 functions:
-  intake-version:
+  version:
     handler: src/patient/version/index.index
     events:
       - http:
