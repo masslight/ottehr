@@ -3,20 +3,30 @@ import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../../e2e-utils/helpers/tests-utils';
 import {
+  AdditionalBooleanQuestionsFieldsNames,
   allLicensesForPractitioner,
   AllStates,
   ApptTelemedTab,
+  getAdditionalQuestionsAnswers,
   getAllergiesStepAnswers,
+  getConsentStepAnswers,
+  getContactInformationAnswers,
+  getInviteParticipantStepAnswers,
   getMedicalConditionsStepAnswers,
   getMedicationsStepAnswers,
+  getPatientDetailsStepAnswers,
+  getPaymentOptionSelfPayAnswers,
+  getResponsiblePartyStepAnswers,
+  getSchoolWorkNoteStepAnswers,
+  getSurgicalHistoryStepAnswers,
+  isoToDateObject,
   stateCodeToFullName,
   TelemedAppointmentStatusEnum,
 } from 'utils';
 import { ADDITIONAL_QUESTIONS } from '../../../../src/constants';
+import { getPatientConditionPhotosStepAnswers } from 'test-utils';
 
-const myResources = new ResourceHandler('telemed');
-const otherResources = new ResourceHandler('telemed');
-const resourceHandler = new ResourceHandler(
+const myResources = new ResourceHandler(
   'telemed',
   async ({ patientInfo, appointmentId, authToken, zambdaUrl, projectId }) => {
     const patientConditionPhotosStepAnswers = await getPatientConditionPhotosStepAnswers({
@@ -50,6 +60,7 @@ const resourceHandler = new ResourceHandler(
     ];
   }
 );
+const otherResources = new ResourceHandler('telemed');
 let myState: string;
 let otherState: string;
 let context: BrowserContext;
@@ -222,12 +233,7 @@ test('Buttons on visit page should appear', async () => {
   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.editPatientButtonSideBar)).toBeVisible();
 });
 
-test('Patient provided hpi data', async ({ page }) => {
-  await test.step("go to appointment page and make sure it's in pre-video", async () => {
-    await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
-    await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page);
-  });
-
+test('Patient provided hpi data', async () => {
   await test.step('Medical conditions provided by patient', async () => {
     await expect(
       page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionPatientProvidedsList).getByText('Constipation')
@@ -284,7 +290,7 @@ test('Patient provided hpi data', async ({ page }) => {
 
   await test.step('Reason for visit provided by patient', async () => {
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiReasonForVisit)).toHaveText(
-      resourceHandler.appointment.description
+      myResources.appointment.description
     );
   });
 
