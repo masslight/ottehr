@@ -103,16 +103,16 @@ export const STATES_ROWS_PER_PAGE = 10;
 
 export const PRONOUN_OPTIONS = [
   {
-    label: 'He/Him/His',
-    value: 'He/Him/His',
+    label: 'He/him',
+    value: 'He/him',
   },
   {
-    label: 'She/Her/Her',
-    value: 'She/Her/Her',
+    label: 'She/her',
+    value: 'She/her',
   },
   {
-    label: 'They/Them/Their',
-    value: 'They/Them/Their',
+    label: 'They/them',
+    value: 'They/them',
   },
   {
     label: 'My pronouns are not listed',
