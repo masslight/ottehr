@@ -1,4 +1,4 @@
-import { AppointmentVisitTabs, ApptTelemedTab, PractitionerQualificationCode, RoleType } from 'utils';
+import { ApptTelemedTab, PractitionerQualificationCode, RoleType, TelemedAppointmentVisitTabs } from 'utils';
 
 export const dataTestIds = {
   header: {
@@ -189,9 +189,8 @@ export const dataTestIds = {
     hpiChiefComplaintRos: 'telemed-chief-complaint-ros',
     videoRoomContainer: 'telemed-video-room-container',
     endVideoCallButton: 'telemed-end-video-call-button',
-    appointmentVisitTabs: (tab: AppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
+    appointmentVisitTabs: (tab: TelemedAppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
     diagnosisAutocomplete: 'telemed-diagnosis-autocomplete',
-    emCodeAutocomplete: 'telemed-em-code-autocomplete',
     patientInfoConfirmationCheckbox: 'telemed-patient-info-confirmation-checkbox',
     signButton: 'telemed-sign-button',
   },
@@ -204,6 +203,13 @@ export const dataTestIds = {
   },
   progressNotePage: {
     reviewAndSignButton: 'review-and-sign-button',
+    missingCard: 'missing-card',
+    missingCardText: 'missing-card-text',
+    primaryDiagnosisLink: 'primary-diagnosis-link',
+    secondaryDiagnosisLink: 'secondary-diagnosis-link',
+    medicalDecisionLink: 'medical-decision-link',
+    emCodeLink: 'em-code-link',
+    visitNoteCard: 'visit-note-card',
   },
   assessmentPage: {
     diagnosisDropdown: 'diagnosis-dropdown',
@@ -211,7 +217,11 @@ export const dataTestIds = {
     medicalDecisionField: 'medical-decision-field',
   },
   diagnosisContainer: {
-    deleteButton: 'diagnosis-container-delete-button',
+    primaryDiagnosis: 'diagnosis-container-primary-diagnosis',
+    secondaryDiagnosis: 'diagnosis-container-secondary-diagnosis',
+    primaryDiagnosisDeleteButton: 'diagnosis-container-primary-diagnosis-delete-button',
+    secondaryDiagnosisDeleteButton: 'diagnosis-container-secondary-diagnosis-delete-button',
+    makePrimaryButton: 'diagnosis-container-make-primary-button',
   },
   billingContainer: {
     deleteButton: 'billing-container-delete-button',

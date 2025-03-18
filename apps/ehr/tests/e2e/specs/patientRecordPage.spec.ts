@@ -1,12 +1,8 @@
 import { test } from '@playwright/test';
 import { ResourceHandler } from '../../e2e-utils/resource-handler';
 
+import { expectPatientInformationPage, openPatientInformationPage } from '../page/PatientInformationPage';
 import { expectPatientRecordPage } from '../page/PatientRecordPage';
-import {
-  expectPatientInformationPage,
-  openPatientInformationPage,
-  PatientInformationPage,
-} from '../page/PatientInformationPage';
 
 const resourceHandler = new ResourceHandler();
 const PATIENT_LAST_NAME = 'Test_lastname';

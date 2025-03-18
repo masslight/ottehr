@@ -1,9 +1,9 @@
 import { expect, Page } from '@playwright/test';
-import { SideMenu } from './SideMenu';
-import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { CssHeader } from './CssHeader';
-import { expectOrderMedicationPage, OrderMedicationPage } from './OrderMedicationPage';
-import { EditMedicationCard } from './EditMedicationCard';
+import { dataTestIds } from '../../../../src/constants/data-test-ids';
+import { CssHeader } from '../CssHeader';
+import { EditMedicationCard } from '../EditMedicationCard';
+import { expectOrderMedicationPage, OrderMedicationPage } from '../OrderMedicationPage';
+import { SideMenu } from '../SideMenu';
 
 export class InHouseMedicationsPage {
   #page: Page;

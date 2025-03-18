@@ -598,7 +598,7 @@ export const useGetIcd10Search = ({ search, sabs }: IcdSearchRequestParams) => {
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useUpdatePaperwork = () => {
-  const { oystehrZambdaIntake } = useApiClients();
+  const { oystehrZambda } = useApiClients();
 
   return useMutation({
     mutationFn: async ({
@@ -610,14 +610,14 @@ export const useUpdatePaperwork = () => {
     }) => {
       const UPDATE_PAPERWORK_ZAMBDA_ID = import.meta.env.VITE_APP_UPDATE_PAPERWORK_ZAMBDA_ID;
 
-      if (!oystehrZambdaIntake) {
+      if (!oystehrZambda) {
         throw new Error('api client not defined');
       }
       if (!UPDATE_PAPERWORK_ZAMBDA_ID) {
         throw new Error('update paperwork zambda id not defined');
       }
 
-      const response = await oystehrZambdaIntake.zambda.execute({
+      const response = await oystehrZambda.zambda.execute({
         id: UPDATE_PAPERWORK_ZAMBDA_ID,
         appointmentID,
         paperwork,
