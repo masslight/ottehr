@@ -14,13 +14,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export async function getPatientConditionPhotosStepAnswers({
-  intakeZambdaUrl,
+  zambdaUrl,
   authToken,
   projectId,
   appointmentId,
   fileName,
 }: {
-  intakeZambdaUrl: string;
+  zambdaUrl: string;
   authToken: string;
   projectId: string;
   appointmentId: string;
@@ -40,7 +40,7 @@ export async function getPatientConditionPhotosStepAnswers({
 
   const file = new File([blob], 'filename.jpg', { type: blob.type });
 
-  const presignedFileUrlResponse = await fetch(`${intakeZambdaUrl}/zambda/get-presigned-file-url/execute-public`, {
+  const presignedFileUrlResponse = await fetch(`${zambdaUrl}/zambda/get-presigned-file-url/execute-public`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

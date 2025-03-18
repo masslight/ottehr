@@ -51,13 +51,13 @@ export interface CreateAppointmentInput {
 
 export type GetPaperworkAnswers = ({
   patientInfo,
-  intakeZambdaUrl,
+  zambdaUrl,
   authToken,
   projectId,
   appointmentId,
 }: {
   patientInfo: CreateAppointmentInput;
-  intakeZambdaUrl: string;
+  zambdaUrl: string;
   authToken: string;
   projectId: string;
   appointmentId: string;
@@ -293,7 +293,7 @@ const processPaperwork = async (
     await makeSequentialPaperworkPatches(
       questionnaireResponseId,
       paperworkAnswers
-        ? await paperworkAnswers({ patientInfo, appointmentId, authToken, intakeZambdaUrl, projectId })
+        ? await paperworkAnswers({ patientInfo, appointmentId, authToken, zambdaUrl, projectId })
         : [
             getContactInformationAnswers({
               firstName: patientInfo.patient.firstName,
