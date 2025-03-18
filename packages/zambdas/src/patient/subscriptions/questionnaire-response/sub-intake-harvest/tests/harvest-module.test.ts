@@ -9,8 +9,7 @@ import {
   QuestionnaireResponse,
   RelatedPerson,
 } from 'fhir/r4b';
-import { flattenItems } from '../../../../../../../utils/lib/helpers/paperwork/validation';
-import { COVERAGE_MEMBER_IDENTIFIER_BASE, isValidUUID } from 'utils';
+import { COVERAGE_MEMBER_IDENTIFIER_BASE, isValidUUID, flattenItems } from 'utils';
 import { v4 as uuidv4 } from 'uuid';
 import { DateTime } from 'luxon';
 import { BatchInputPostRequest } from '@oystehr/sdk';
