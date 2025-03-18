@@ -12,8 +12,8 @@ const appointmentIds: string[] = [];
 test.beforeEach(async ({ page }) => {
   page.on('response', async (response) => {
     if (response.url().includes('/telemed-create-appointment')) {
-      const { resources } = (await response.json()) as CreateAppointmentUCTelemedResponse;
-      const id = resources?.appointment.id;
+      const { resources, appointmentId } = (await response.json()) as CreateAppointmentUCTelemedResponse;
+      const id = appointmentId || resources?.appointment.id;
 
       if (id) {
         appointmentIds.push(id);
