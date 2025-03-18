@@ -104,7 +104,7 @@ export const createSamplePrebookAppointments = async ({
   authToken,
   phoneNumber,
   createAppointmentZambdaId,
-  intakeZambdaUrl,
+  zambdaUrl,
   selectedLocationId,
   demoData,
   projectId,
@@ -113,7 +113,7 @@ export const createSamplePrebookAppointments = async ({
   authToken: string;
   phoneNumber: string;
   createAppointmentZambdaId: string;
-  intakeZambdaUrl: string;
+  zambdaUrl: string;
   selectedLocationId?: string;
   demoData?: DemoAppointmentData;
   projectId: string;
@@ -148,17 +148,14 @@ export const createSamplePrebookAppointments = async ({
           selectedLocationId
         );
 
-        const createAppointmentResponse = await fetch(
-          `${intakeZambdaUrl}/zambda/${createAppointmentZambdaId}/execute`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${authToken}`,
-            },
-            body: JSON.stringify(randomPatientInfo),
-          }
-        );
+        const createAppointmentResponse = await fetch(`${zambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(randomPatientInfo),
+        });
 
         if (!createAppointmentResponse.ok) {
           throw new Error(`Failed to create appointment. Status: ${createAppointmentResponse.status}`);
@@ -177,14 +174,7 @@ export const createSamplePrebookAppointments = async ({
           return null;
         }
 
-        await processPrebookPaperwork(
-          appointmentData,
-          randomPatientInfo,
-          intakeZambdaUrl,
-          authToken,
-          projectId,
-          serviceMode
-        );
+        await processPrebookPaperwork(appointmentData, randomPatientInfo, zambdaUrl, authToken, projectId, serviceMode);
 
         // If it's a virtual appointment, mark it as 'arrived'
         if (serviceMode === ServiceMode.virtual) {

@@ -34,7 +34,6 @@
             "required": false
           },
           {
-
             "linkId": "patient-preferred-name",
             "type": "string",
             "required": false
@@ -642,7 +641,7 @@
             "linkId": "policy-holder-city",
             "text": "City",
             "type": "string",
-           "required": true
+            "required": true
           },
           {
             "linkId": "policy-holder-state",
@@ -967,7 +966,7 @@
             "linkId": "policy-holder-city-2",
             "text": "City",
             "type": "string",
-           "required": true
+            "required": true
           },
           {
             "linkId": "policy-holder-state-2",
@@ -1284,8 +1283,7 @@
         "linkId": "user-settings-section",
         "type": "group",
         "text": "User settings",
-        "item": [
-        ]
+        "item": []
       }
     ]
   }

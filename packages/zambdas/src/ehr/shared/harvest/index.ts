@@ -1179,12 +1179,7 @@ export function createMasterRecordPatchOperations(
         // Handle telecom fields
         const contactTelecomConfig = contactTelecomConfigs[item.linkId];
         if (contactTelecomConfig) {
-          const operation = createPatchOperationForTelecom(
-            value as string | boolean,
-            contactTelecomConfig,
-            patient,
-            path
-          );
+          const operation = createPatchOperationForTelecom(value as string, contactTelecomConfig, patient, path);
           if (operation) tempOperations.patient.push(operation);
           return;
         }

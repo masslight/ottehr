@@ -12,8 +12,6 @@ export const PrimaryCareContainer: FC = () => {
 
   const isActive = watch(FormFields.active.key, true);
 
-  console.log('isActive', isActive);
-
   return (
     <Section title="Primary Care Physician">
       <Controller

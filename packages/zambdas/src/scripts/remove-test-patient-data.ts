@@ -31,7 +31,7 @@ const deleteTestPatientsData = async (config: any): Promise<void> => {
 
   appointments.forEach(async (appt) => {
     const { stdout, stderr } = await exec(
-      `tsx ../../../packages/zambdas/src/scripts/delete-appointment-data.ts ${env} ${appt.id}`
+      `tsx ./src/scripts/delete-appointment-data.ts ${env} ${appt.id}`
     );
 
     if (stdout) {
