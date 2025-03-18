@@ -74,6 +74,7 @@ export abstract class BaseInPersonFlow {
 
   async startVisit(): Promise<{
     bookingURL: string;
+    bookingUUID: string | null;
     firstName: string;
     lastName: string;
     email: string;
