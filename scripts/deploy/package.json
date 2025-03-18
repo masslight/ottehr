@@ -1,0 +1,36 @@
+{
+  "name": "deploy",
+  "version": "0.1.0",
+  "bin": {
+    "deploy": "bin/deploy.js"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=9.0.0"
+  },
+  "scripts": {
+    "build": "",
+    "watch": "tsc -w",
+    "test": "vitest --silent",
+    "cdk": "cdk",
+    "deploy": "./deploy.sh"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.10",
+    "@types/prettier": "2.6.0",
+    "aws-cdk": "2.177.0",
+    "ts-node": "^10.9.1",
+    "typescript": "~3.9.7",
+    "vitest": "^3.0.4"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cloudfront": "^3.645.0",
+    "@aws-sdk/credential-providers": "^3.645.0",
+    "@oystehr/sdk": "3.0.7",
+    "@types/node-fetch": "^2.6.11",
+    "aws-cdk-lib": "2.177.0",
+    "constructs": "^10.0.0",
+    "ts-node": "10.9.2",
+    "source-map-support": "^0.5.21"
+  }
+}

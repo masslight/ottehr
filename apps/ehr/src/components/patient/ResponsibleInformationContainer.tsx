@@ -5,6 +5,7 @@ import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../
 import { RELATIONSHIP_OPTIONS, SEX_OPTIONS } from '../../constants';
 import { Row, Section } from '../layout';
 import { usePatientStore } from '../../state/patient.store';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 export const ResponsibleInformationContainer: FC = () => {
   const { patient, updatePatientField } = usePatientStore();
@@ -115,9 +116,10 @@ export const ResponsibleInformationContainer: FC = () => {
   };
 
   return (
-    <Section title="Responsible party information">
+    <Section dataTestId={dataTestIds.responsiblePartyInformationContainer.id} title="Responsible party information">
       <Row label="Relationship" required>
         <FormSelect
+          data-testid={dataTestIds.responsiblePartyInformationContainer.relationshipDropdown}
           name={responsiblePartyRelationshipPath}
           control={control}
           options={RELATIONSHIP_OPTIONS}
@@ -131,6 +133,7 @@ export const ResponsibleInformationContainer: FC = () => {
       </Row>
       <Row label="Full name" required inputId="responsible-party-full-name">
         <FormTextField
+          data-testid={dataTestIds.responsiblePartyInformationContainer.fullName}
           name={responsiblePartyFullNamePath}
           control={control}
           defaultValue={fullName}
@@ -152,6 +155,7 @@ export const ResponsibleInformationContainer: FC = () => {
       </Row>
       <Row label="Birth sex" required>
         <FormSelect
+          data-testid={dataTestIds.responsiblePartyInformationContainer.birthSexDropdown}
           name={responsiblePartyGenderPath}
           control={control}
           options={SEX_OPTIONS}
@@ -165,6 +169,7 @@ export const ResponsibleInformationContainer: FC = () => {
       </Row>
       <Row label="Phone" inputId="responsible-party-phone">
         <FormTextField
+          data-testid={dataTestIds.responsiblePartyInformationContainer.phoneInput}
           id="responsible-party-phone"
           name={responsiblePartyPhonePath}
           control={control}
