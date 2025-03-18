@@ -93,16 +93,18 @@ export const AdditionalQuestionEdit = ({
   );
 };
 
-export const AdditionalQuestionView: FC<{ label: string; value: boolean | undefined; isLoading: boolean }> = ({
-  label,
-  value,
-  isLoading,
-}) => (
+export const AdditionalQuestionView: FC<{
+  label: string;
+  value: boolean | undefined;
+  isLoading: boolean;
+  field: AdditionalBooleanQuestionsFieldsNames;
+}> = ({ label, value, isLoading, field }) => (
   <Box
     sx={{
       display: 'flex',
       justifyContent: 'space-between',
     }}
+    data-testid={dataTestIds.telemedEhrFlow.hpiAdditionalQuestionsPatientProvided(field)}
   >
     <Typography>{label}</Typography>
     {isLoading ? (
