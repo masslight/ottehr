@@ -1,4 +1,5 @@
 import { Questionnaire, QuestionnaireItem, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import _ from 'lodash';
 import { mapQuestionnaireAndValueSetsToItemsList, IntakeQuestionnaireItem, makeQRResponseItem } from 'utils';
 
 const containedItemWithLinkId = (item: QuestionnaireItem, linkId: string): QuestionnaireItem | undefined => {
@@ -16,7 +17,8 @@ export const structureQuestionnaireResponse = (
 ): QuestionnaireResponse => {
   const pageDict: Map<string, QuestionnaireResponseItem[]> = new Map();
 
-  const qItems = mapQuestionnaireAndValueSetsToItemsList(questionnaire.item ?? [], []);
+  const itemInput = questionnaire.item ?? [];
+  const qItems = mapQuestionnaireAndValueSetsToItemsList(_.cloneDeep(itemInput), []);
   qItems.forEach((item) => {
     pageDict.set(item.linkId, []);
   });

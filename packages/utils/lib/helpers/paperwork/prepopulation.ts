@@ -12,7 +12,14 @@ import {
   Reference,
   RelatedPerson,
 } from 'fhir/r4b';
-import { getFirstName, getLastName, getPronounsFromExtension, PRIVATE_EXTENSION_BASE_URL } from '../../fhir';
+import {
+  getFirstName,
+  getLastName,
+  getMiddleName,
+  getNameSuffix,
+  getPronounsFromExtension,
+  PRIVATE_EXTENSION_BASE_URL,
+} from '../../fhir';
 import { DateTime } from 'luxon';
 import { formatPhoneNumberDisplay } from '../helpers';
 import { PatientAccountResponse } from '../../types';
@@ -739,6 +746,15 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
     if (linkId === 'patient-last-name') {
       answer = makeAnswer(getLastName(patient) ?? '');
     }
+
+    if (linkId === 'patient-middle-name') {
+      answer = makeAnswer(getMiddleName(patient) ?? '');
+    }
+
+    if (linkId === 'patient-name-suffix') {
+      answer = makeAnswer(getNameSuffix(patient) ?? '');
+    }
+
     if (linkId === 'patient-street-address' && patientAddressLine1) {
       answer = makeAnswer(patientAddressLine1);
     }

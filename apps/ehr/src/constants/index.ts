@@ -566,11 +566,11 @@ export const RX_HISTORY_CONSENT_OPTIONS = [
 
 // patient record fields
 export const FormFields = {
-  patientSumary: {
+  patientSummary: {
     firstName: { key: 'patient-first-name', type: 'String' },
     middleName: { key: 'patient-middle-name', type: 'String' },
     lastName: { key: 'patient-last-name', type: 'String' },
-    suffix: { key: 'patient-suffix', type: 'String' },
+    suffix: { key: 'patient-name-suffix', type: 'String' },
     preferredName: { key: 'patient-preferred-name', type: 'String' },
     birthDate: { key: 'patient-birthdate', type: 'String' },
     birthSex: { key: 'patient-birth-sex', type: 'String' },

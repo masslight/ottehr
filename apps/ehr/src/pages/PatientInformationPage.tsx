@@ -23,6 +23,7 @@ import {
   useGetPatient,
   useGetPatientAccount,
   useGetPatientDetailsUpdateForm,
+  useUpdatePatientAccount,
 } from '../hooks/useGetPatient';
 import { createInsurancePlanDto, InsurancePlanDTO, usePatientStore } from '../state/patient.store';
 import CloseIcon from '@mui/icons-material/Close';
@@ -30,6 +31,9 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { otherColors } from '../CustomThemeProvider';
 import { AddInsuranceModal } from '../components/patient/AddInsuranceModal';
 import { useZapEHRAPIClient } from '../telemed/hooks/useOystehrAPIClient';
+import { enqueueSnackbar } from 'notistack';
+import { structureQuestionnaireResponse } from '../helpers/qr-structure';
+import { useQueryClient } from 'react-query';
 
 const getAnyAnswer = (item: QuestionnaireResponseItem): any | undefined => {
   let index = 0;
@@ -137,17 +141,29 @@ const PatientInformationPage: FC = () => {
     defaultValues: defaultFormVals,
     values: defaultFormVals,
     mode: 'onBlur',
+    reValidateMode: 'onChange',
+  });
+
+  const { handleSubmit, formState } = methods;
+  const { isDirty } = formState;
+
+  const queryClient = useQueryClient();
+  const submitQR = useUpdatePatientAccount(() => {
+    void queryClient.invalidateQueries('patient-account-get');
   });
 
   useEffect(() => {
-    if (defaultFormVals) {
+    if (defaultFormVals && formState.isSubmitSuccessful && submitQR.isSuccess) {
       methods.reset();
     }
-  }, [defaultFormVals, methods]);
+  }, [defaultFormVals, methods, formState.isSubmitSuccessful, submitQR.isSuccess]);
 
-  if (!patient) return null;
-
-  if (isFetching || questionnaireFetching) return <LoadingScreen />;
+  useEffect(() => {
+    if (formState.isSubmitting && !formState.isValid) {
+      console.log('snackbar effect fired');
+      enqueueSnackbar('Please fix all field validation errors and try again', { variant: 'error' });
+    }
+  }, [formState.isSubmitting, formState.isValid]);
 
   const handleDiscardChanges = (): void => {
     methods.reset();
@@ -160,11 +176,7 @@ const PatientInformationPage: FC = () => {
   };
 
   const handleBackClickWithConfirmation = (): void => {
-    /*if (
-      (patchOperations?.patient?.length ?? 0) > 0 ||
-      Object.values(patchOperations?.coverages || {}).some((ops) => ops.length > 0) ||
-      Object.values(patchOperations?.relatedPersons || {}).some((ops) => ops.length > 0)
-    ) {
+    /*if (isDirty) {
       setOpenConfirmationDialog(true);
     } else {
       navigate(-1);
@@ -172,8 +184,27 @@ const PatientInformationPage: FC = () => {
     navigate(-1);
   };
 
+  const handleSaveForm = async (values: any): Promise<void> => {
+    // Trigger validation for all fields
+    if (!questionnaire) {
+      enqueueSnackbar('Something went wrong. Please reload the page.', { variant: 'error' });
+      return;
+    }
+    console.log('form vals', values);
+    const qr = structureQuestionnaireResponse(questionnaire, values, patient?.id ?? '');
+    console.log('qr', qr);
+    submitQR.mutate(qr);
+  };
+
+  if ((isFetching || questionnaireFetching) && !patient) {
+    return <LoadingScreen />;
+  } else {
+    if (!patient) return null;
+  }
+
   return (
     <div>
+      {isFetching ? <LoadingScreen /> : null}
       <FormProvider {...methods}>
         <Box>
           <Header handleDiscard={handleBackClickWithConfirmation} id={id} />
@@ -254,8 +285,9 @@ const PatientInformationPage: FC = () => {
           </Box>
           <ActionBar
             handleDiscard={handleBackClickWithConfirmation}
-            questionnaire={questionnaire}
-            patientId={patient.id ?? ''}
+            handleSave={handleSubmit(handleSaveForm)}
+            loading={submitQR.isLoading}
+            hidden={!isDirty}
           />
         </Box>
         <CustomDialog
@@ -267,7 +299,6 @@ const PatientInformationPage: FC = () => {
           handleConfirm={handleDiscardChanges}
           confirmText="Discard Changes"
         />
-        // eslint-disable-next-line prettier/prettier
       </FormProvider>
       <AddInsuranceModal
         open={openAddInsuranceModal}

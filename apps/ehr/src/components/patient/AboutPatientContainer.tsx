@@ -7,7 +7,7 @@ import { dataTestIds } from '../../constants/data-test-ids';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { FormFields as AllFormFields } from '../../constants';
 
-const FormFields = AllFormFields.patientSumary;
+const FormFields = AllFormFields.patientSummary;
 
 export const AboutPatientContainer: FC = () => {
   const { control } = useFormContext();

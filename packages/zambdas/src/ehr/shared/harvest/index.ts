@@ -2562,12 +2562,14 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
   }
   suggestedNewCoverageObject.sort((a, b) => (a?.priority ?? Number.MAX_VALUE) - (b?.priority ?? Number.MAX_VALUE));
 
+  /*
   console.log('existing primary coverage', JSON.stringify(existingCoverages.primary, null, 2));
   console.log('new primary coverage', JSON.stringify(newPrimaryCoverage, null, 2));
   console.log('existing secondary coverage', JSON.stringify(existingCoverages.secondary, null, 2));
   console.log('new secondary coverage', JSON.stringify(newSecondaryCoverage, null, 2));
   console.log('deactivated coverages', JSON.stringify(deactivatedCoverages, null, 2));
   console.log('coverage updates', JSON.stringify(coverageUpdates, null, 2));
+  */
 
   return {
     suggestedNewCoverageObject,
@@ -2634,7 +2636,8 @@ export const resolveGuarantor = (input: ResolveGuarantorInput): ResolveGuarantor
     } else if (relatedPersonsAreSame(existingGuarantorResource, rpFromGuarantorData)) {
       const contained = existingContained?.map((c) => {
         if (c.id === existingGuarantorResource.id) {
-          return rpFromGuarantorData;
+          // just take the latest full content and leave the id as is
+          return { ...rpFromGuarantorData, id: c.id };
         }
         return c;
       });
@@ -2643,9 +2646,6 @@ export const resolveGuarantor = (input: ResolveGuarantorInput): ResolveGuarantor
         contained,
       };
     } else {
-      if (existingContained?.length) {
-        rpFromGuarantorData.id += `-${existingContained.length}`;
-      }
       const newGuarantor = {
         party: {
           reference: `#${rpFromGuarantorData.id}`,

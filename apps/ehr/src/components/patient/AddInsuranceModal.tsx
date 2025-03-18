@@ -26,6 +26,7 @@ import { Questionnaire } from 'fhir/r4b';
 import { FormFields as AllFormFields } from '../../constants';
 import { useUpdatePatientAccount } from '../../hooks/useGetPatient';
 import { structureQuestionnaireResponse } from '../../helpers/qr-structure';
+import { useQueryClient } from 'react-query';
 
 interface AddInsuranceModalProps {
   open: boolean;
@@ -47,7 +48,10 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, pati
   const { errors } = formState;
 
   const { insurancePlans } = usePatientStore();
-  const submitQR = useUpdatePatientAccount();
+  const queryClient = useQueryClient();
+  const submitQR = useUpdatePatientAccount(() => {
+    void queryClient.invalidateQueries('patient-account-get');
+  });
 
   const onSubmit = (data: any): void => {
     // send the data to a zambda
