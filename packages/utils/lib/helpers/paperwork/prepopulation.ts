@@ -237,8 +237,6 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
     display: primaryCoverage?.class?.[0].name,
   };
 
-  const paymentOption = primaryCoverage ? 'I have insurance' : 'I will pay without insurance';
-
   const secondaryCoverage = insuranceInfo?.find(
     (resource): resource is Coverage => resource.resourceType === 'Coverage' && resource.order === 2
   );
@@ -475,8 +473,8 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
           if (linkId === 'insurance-carrier' && primaryInsurancePlan) {
             answer = makeAnswer(insuranceCarrier, 'Reference');
           }
-          if (linkId === 'payment-option' && paymentOption) {
-            answer = makeAnswer(paymentOption);
+          if (linkId === 'payment-option' && primaryCoverage) {
+            answer = makeAnswer('I have insurance');
           }
           if (linkId === 'display-secondary-insurance') {
             answer = makeAnswer(displaySecondaryInsurance, 'Boolean');
