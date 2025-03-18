@@ -1266,7 +1266,7 @@ export function createMasterRecordPatchOperations(
         const contactTelecomConfig = contactTelecomConfigs[item.linkId];
         if (contactTelecomConfig) {
           const operation = createPatchOperationForTelecom(
-            value as string | boolean,
+            value as string,
             contactTelecomConfig,
             resources.patient,
             path
