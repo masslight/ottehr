@@ -49,7 +49,7 @@ interface EffectInput {
   account?: Account;
 }
 
-const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<undefined> => {
+const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void> => {
   const { account, coverage, providerProfileReference, patientId } = input;
   const batchRequests: BatchInputPatchRequest<Account | Coverage>[] = [];
   const currentAccountCoverage = account?.coverage;

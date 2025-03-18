@@ -93,13 +93,13 @@ import {
   isValidUUID,
   deduplicateIdentifiers,
   deduplicateObjectsByStrictKeyValEquality,
-  flattenItems,
   deduplicateUnbundledResources,
   takeContainedOrFind,
   PATIENT_NOT_FOUND_ERROR,
   OrderedCoverages,
   OrderedCoveragesWithSubscribers,
   PatientAccountAndCoverageResources,
+  flattenItems,
 } from 'utils';
 import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 import _ from 'lodash';
