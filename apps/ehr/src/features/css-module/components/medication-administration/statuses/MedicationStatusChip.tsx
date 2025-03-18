@@ -85,11 +85,6 @@ export const MedicationStatusChip: React.FC<MedicationStatusChipProps> = ({
 
   const availableStatuses = onClick ? getAvailableStatuses(medication?.status) : [];
 
-  const formatReason = (reason: string): string => {
-    if (!reason) return '';
-    return reason.replace(/-/g, ' ');
-  };
-
   return (
     <>
       <Stack direction="column" spacing={1} sx={{ width: 'fit-content' }}>
@@ -121,7 +116,7 @@ export const MedicationStatusChip: React.FC<MedicationStatusChipProps> = ({
               whiteSpace: 'nowrap',
             }}
           >
-            {formatReason(medication?.reason)}
+            {medication.reason}
           </Typography>
         )}
       </Stack>
