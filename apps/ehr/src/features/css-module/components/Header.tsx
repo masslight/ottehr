@@ -1,22 +1,22 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { Box, Typography, IconButton, Grid } from '@mui/material';
-import { styled } from '@mui/system';
 import CloseIcon from '@mui/icons-material/Close';
-import { ChangeStatusDropdown } from './ChangeStatusDropdown';
+import { Box, Grid, IconButton, Typography } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
-import { InternalNotes } from './InternalNotes';
-import { SwitchIntakeModeButton } from './SwitchIntakeModeButton';
-import { useAppointment } from '../hooks/useAppointment';
-import { ProfileAvatar } from './ProfileAvatar';
+import { styled } from '@mui/system';
+import { enqueueSnackbar } from 'notistack';
+import { useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { VisitStatusLabel } from 'utils';
+import { dataTestIds } from '../../../constants/data-test-ids';
+import { practitionerType } from '../../../helpers/practitionerUtils';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../telemed';
-import { dataTestIds } from '../../../constants/data-test-ids';
-import { VisitStatusLabel } from 'utils';
-import { usePractitionerActions } from '../hooks/usePractitioner';
-import { practitionerType } from '../../../helpers/practitionerUtils';
 import { useNavigationContext } from '../context/NavigationContext';
-import { enqueueSnackbar } from 'notistack';
+import { useAppointment } from '../hooks/useAppointment';
+import { usePractitionerActions } from '../hooks/usePractitioner';
+import { ChangeStatusDropdown } from './ChangeStatusDropdown';
+import { InternalNotes } from './InternalNotes';
+import { ProfileAvatar } from './ProfileAvatar';
+import { SwitchIntakeModeButton } from './SwitchIntakeModeButton';
 
 const HeaderWrapper = styled(Box)(({ theme }) => ({
   backgroundColor: theme.palette.background.paper,
@@ -83,27 +83,6 @@ export const Header = (): JSX.Element => {
     'start',
     practitionerTypeFromMode
   );
-
-  // TODO: fix this
-  // useEffect(() => {
-  //   if (
-  //     encounter?.participant?.find(
-  //       (participant) =>
-  //         participant.type?.find(
-  //           (type) =>
-  //             type.coding?.find(
-  //               (coding) =>
-  //                 coding.system === 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType' &&
-  //                 coding.code === 'ATND'
-  //             ) != null
-  //         ) != null
-  //     )
-  //   ) {
-  //     if (interactionMode === 'intake') {
-  //       setInteractionMode('provider', false);
-  //     }
-  //   }
-  // }, [encounter?.participant, setInteractionMode, interactionMode]);
 
   const handleSwitchMode = async (): Promise<void> => {
     try {
