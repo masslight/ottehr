@@ -18,7 +18,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);
 
-    const { serviceRequests, tasks, diagnosticReports, practitioners, pagination } = await getLabResources(
+    const { serviceRequests, tasks, diagnosticReports, practitioners, pagination, encounters } = await getLabResources(
       oystehr,
       validatedParameters
     );
@@ -33,7 +33,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       };
     }
 
-    const labOrders = transformToLabOrderDTOs(serviceRequests, tasks, diagnosticReports, practitioners);
+    const labOrders = transformToLabOrderDTOs(serviceRequests, tasks, diagnosticReports, practitioners, encounters);
 
     return {
       statusCode: 200,

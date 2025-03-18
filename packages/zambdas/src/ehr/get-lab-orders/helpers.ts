@@ -1,8 +1,10 @@
 import Oystehr, { BatchInputRequest, SearchParam } from '@oystehr/sdk';
 import {
   ActivityDefinition,
+  Appointment,
   Bundle,
   DiagnosticReport,
+  Encounter,
   FhirResource,
   Practitioner,
   ServiceRequest,
@@ -23,29 +25,36 @@ export const transformToLabOrderDTOs = (
   serviceRequests: ServiceRequest[],
   tasks: Task[],
   diagnosticReports: DiagnosticReport[],
-  practitioners: Practitioner[]
+  practitioners: Practitioner[],
+  encounters: Encounter[]
 ): LabOrderDTO[] => {
   return serviceRequests.map((sr) => {
-    // Extract practitioner ID from the reference
     const practitionerId = sr.requester?.reference?.split('/').pop();
 
-    // Get lab information from the contained ActivityDefinition
+    const encounterId = sr.encounter?.reference?.split('/').pop();
+
+    let appointmentId = '';
+
+    if (encounterId) {
+      const relatedEncounter = encounters.find((encounter) => encounter.id === encounterId);
+      if (relatedEncounter && relatedEncounter.appointment?.length) {
+        appointmentId = relatedEncounter.appointment[0]?.reference?.split('/').pop() || '';
+      }
+    }
+
     const { type, location } = extractLabInfoFromActivityDefinition(sr);
 
-    // Determine the current status based on tasks and reports
     const status = determineLabStatus(sr, tasks, diagnosticReports);
 
-    // Check if this is a PSC (Patient Service Center) hold
     const isPSC = checkIsPSC(sr);
 
-    // Count the number of reflex tests
     const reflexTestsCount = countReflexTests(sr.id || '', diagnosticReports);
 
-    // Get diagnoses
     const diagnoses = extractDiagnosesFromServiceRequest(sr);
 
     return {
       id: sr.id || '',
+      appointmentId,
       type,
       location,
       orderAdded: sr.authoredOn || 'Unknown', // todo: by the design authoredOn should be here, but during testing it's not
@@ -67,11 +76,12 @@ export const getLabResources = async (
   diagnosticReports: DiagnosticReport[];
   practitioners: Practitioner[];
   pagination: Pagination;
+  encounters: Encounter[];
 }> => {
   const { encounterId, testType } = params;
   const labOrdersSearchParams = createLabOrdersSearchParams(params);
 
-  const labOrdersResponse = await oystehr.fhir.search<ServiceRequest | Task>({
+  const labOrdersResponse = await oystehr.fhir.search<ServiceRequest | Task | Encounter>({
     resourceType: 'ServiceRequest',
     params: labOrdersSearchParams,
   });
@@ -79,9 +89,9 @@ export const getLabResources = async (
   const labResources =
     labOrdersResponse.entry
       ?.map((entry) => entry.resource)
-      .filter((res): res is ServiceRequest | Task => Boolean(res)) || [];
+      .filter((res): res is ServiceRequest | Task | Encounter => Boolean(res)) || [];
 
-  const { serviceRequests: allServiceRequests, tasks } = extractLabResources(labResources);
+  const { serviceRequests: allServiceRequests, tasks, encounters } = extractLabResources(labResources);
 
   // todo: check; Further filter service requests if testType is provided
   let serviceRequests = allServiceRequests;
@@ -107,11 +117,19 @@ export const getLabResources = async (
     diagnosticReports,
     practitioners,
     pagination: parsePaginationFromResponse(labOrdersResponse),
+    encounters,
   };
 };
 
 export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): SearchParam[] => {
-  const { encounterId, patientId, visitDate, itemsPerPage = DEFAULT_LABS_ITEMS_PER_PAGE, pageIndex = 0 } = params;
+  const {
+    encounterId,
+    patientId,
+    serviceRequestId,
+    visitDate,
+    itemsPerPage = DEFAULT_LABS_ITEMS_PER_PAGE,
+    pageIndex = 0,
+  } = params;
 
   const searchParams: SearchParam[] = [
     {
@@ -140,6 +158,10 @@ export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): S
       value: 'false',
     },
     {
+      name: '_include',
+      value: 'ServiceRequest:encounter',
+    },
+    {
       name: '_revinclude',
       value: 'Task:based-on',
     },
@@ -149,7 +171,6 @@ export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): S
     },
   ];
 
-  // Add filters
   if (encounterId) {
     searchParams.push({
       name: 'encounter',
@@ -161,6 +182,13 @@ export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): S
     searchParams.push({
       name: 'subject',
       value: `Patient/${patientId}`,
+    });
+  }
+
+  if (serviceRequestId) {
+    searchParams.push({
+      name: '_id',
+      value: serviceRequestId,
     });
   }
 
@@ -224,15 +252,17 @@ export const fetchReflexTestResources = async (
 };
 
 export const extractLabResources = (
-  resources: (ServiceRequest | Task | DiagnosticReport)[]
+  resources: (ServiceRequest | Task | DiagnosticReport | Appointment | Encounter)[]
 ): {
   serviceRequests: ServiceRequest[];
   tasks: Task[];
   diagnosticReports: DiagnosticReport[];
+  encounters: Encounter[];
 } => {
   const serviceRequests: ServiceRequest[] = [];
   const tasks: Task[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
+  const encounters: Encounter[] = [];
 
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
@@ -247,10 +277,12 @@ export const extractLabResources = (
       tasks.push(resource as Task);
     } else if (resource.resourceType === 'DiagnosticReport') {
       diagnosticReports.push(resource as DiagnosticReport);
+    } else if (resource.resourceType === 'Encounter') {
+      encounters.push(resource as Encounter);
     }
   }
 
-  return { serviceRequests, tasks, diagnosticReports };
+  return { serviceRequests, tasks, diagnosticReports, encounters };
 };
 
 export const fetchPractitionersForServiceRequests = async (

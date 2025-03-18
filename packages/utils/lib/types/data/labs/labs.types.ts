@@ -74,6 +74,7 @@ export interface LabOrderDTO {
   status: ExternalLabsStatus; // Derived from SR, Tasks and DiagnosticReports based on the mapping table
   isPSC: boolean; // Derived from SR.orderDetail
   reflexTestsCount: number; // Number of DiagnosticReports with the same SR identifier but different test codes
+  appointmentId: string;
 }
 
 export interface Pagination {
@@ -90,6 +91,7 @@ export interface PaginatedLabOrderResponse {
 export interface GetLabOrdersParameters {
   encounterId?: string;
   patientId?: string;
+  serviceRequestId?: string;
   testType?: string;
   visitDate?: string;
   itemsPerPage?: number;

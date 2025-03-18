@@ -1,7 +1,6 @@
 import { ReactElement } from 'react';
 import { TableCell, TableRow, Box, Chip, Button, Typography, Tooltip } from '@mui/material';
 import { formatDate, LabOrderDTO } from 'utils';
-import { useNavigate } from 'react-router-dom';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { LabsTableColumn } from './LabsTable';
 import { otherColors } from '../../../../CustomThemeProvider';
@@ -13,30 +12,22 @@ import {
   getStatusColor,
   getVisitDate,
 } from './labs.helpers';
-import { getExternalLabOrderEditUrl } from '../../../css-module/routing/helpers';
 
 interface LabsTableRowProps {
-  appointmentId: string;
-  labOrderData: LabOrderDTO;
-  onDeleteOrder?: (encounterId?: string) => void;
   columns: LabsTableColumn[];
+  labOrderData: LabOrderDTO;
+  onDeleteOrder?: () => void;
+  onRowClick: () => void;
   allowDelete?: boolean;
 }
 
 export const LabsTableRow = ({
-  appointmentId,
   labOrderData,
   onDeleteOrder,
+  onRowClick,
   columns,
   allowDelete = false,
 }: LabsTableRowProps): ReactElement => {
-  const navigateTo = useNavigate();
-
-  const handleRowClick = (): void => {
-    // navigateTo(getExternalLabOrderEditUrl(appointmentId, labOrderData.id));
-    navigateTo(getExternalLabOrderEditUrl(appointmentId, labOrderData.id));
-  };
-
   const handleDeleteClick = (e: React.MouseEvent): void => {
     e.stopPropagation();
     if (onDeleteOrder) {
@@ -115,7 +106,7 @@ export const LabsTableRow = ({
 
   return (
     <TableRow
-      onClick={handleRowClick}
+      onClick={onRowClick}
       sx={{
         '&:hover': { backgroundColor: '#f5f5f5' },
         cursor: 'pointer',

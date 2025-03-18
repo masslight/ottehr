@@ -15,10 +15,11 @@ export function validateRequestParameters(input: ZambdaInput): GetZambdaLabOrder
     visitDate,
     itemsPerPage = DEFAULT_LABS_ITEMS_PER_PAGE,
     pageIndex = 0,
+    serviceRequestId,
   } = JSON.parse(input.body);
 
-  if (!encounterId && !patientId) {
-    throw new Error('Missing required parameter: either encounterId or patientId must be provided');
+  if (!encounterId && !patientId && !serviceRequestId) {
+    throw new Error('Missing required parameter: either encounterId or patientId or serviceRequestId must be provided');
   }
 
   if (typeof itemsPerPage !== 'number' || isNaN(itemsPerPage) || itemsPerPage < 1) {

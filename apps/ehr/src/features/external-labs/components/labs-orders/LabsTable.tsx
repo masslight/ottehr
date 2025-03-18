@@ -22,6 +22,9 @@ import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import SearchIcon from '@mui/icons-material/Search';
 import { LabsTableRow } from './LabsTableRow';
 import { usePatientLabOrders } from './usePatientLabOrders';
+import { useNavigate } from 'react-router-dom';
+import { LabOrderDTO } from 'utils/lib/types/data/labs';
+import { getExternalLabOrderEditUrl } from '../../../css-module/routing/helpers';
 
 export type LabsTableColumn =
   | 'testType'
@@ -56,6 +59,8 @@ export const LabsTable = ({
   redirectToOrderCreateIfOrdersEmpty = false,
   onCreateOrder,
 }: LabsTableProps): ReactElement => {
+  const navigateTo = useNavigate();
+
   const {
     labOrders,
     loading,
@@ -74,6 +79,10 @@ export const LabsTable = ({
     patientId,
     encounterId,
   });
+
+  const onRowClick = (labOrderData: LabOrderDTO): void => {
+    navigateTo(getExternalLabOrderEditUrl(labOrderData.appointmentId, labOrderData.id));
+  };
 
   // Redirect to create order page if needed (controlled by the parent component by prop redirectToOrderCreateIfOrdersEmpty)
   useEffect(() => {
@@ -290,9 +299,9 @@ export const LabsTable = ({
                 {labOrders.map((order) => (
                   <LabsTableRow
                     key={order.id}
-                    appointmentId={'a194bf8c-6f03-4634-9189-be7f75bfea7e'} // TODO: add real appointmentId
                     labOrderData={order}
                     onDeleteOrder={() => onDeleteOrder(order)}
+                    onRowClick={() => onRowClick(order)}
                     columns={columns}
                     allowDelete={allowDelete}
                   />
