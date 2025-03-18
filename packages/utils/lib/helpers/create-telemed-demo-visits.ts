@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Address, Location, Patient } from 'fhir/r4b';
+import { Address, Location, Patient, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { isLocationVirtual } from '../fhir';
 import { CreateAppointmentUCTelemedResponse, PatientInfo, PersonSex, SubmitPaperworkParameters } from '../types';
@@ -41,13 +41,27 @@ interface DemoConfig {
 
 type DemoAppointmentData = AppointmentData & DemoConfig;
 
-interface CreateAppointmentInput {
+export interface CreateAppointmentInput {
   locationState: string;
   patient: PatientInfo;
   // user: User;
   unconfirmedDateOfBirth: string;
   // secrets: Secrets | null;
 }
+
+export type GetPaperworkAnswers = ({
+  patientInfo,
+  zambdaUrl,
+  authToken,
+  projectId,
+  appointmentId,
+}: {
+  patientInfo: CreateAppointmentInput;
+  zambdaUrl: string;
+  authToken: string;
+  projectId: string;
+  appointmentId: string;
+}) => Promise<QuestionnaireResponseItem[]>;
 
 const DEFAULT_FIRST_NAMES = [
   'Alice',
@@ -176,6 +190,7 @@ export const createSampleTelemedAppointments = async ({
   selectedLocationId,
   demoData,
   projectId,
+  paperworkAnswers,
 }: {
   oystehr: Oystehr | undefined;
   authToken: string;
@@ -186,6 +201,7 @@ export const createSampleTelemedAppointments = async ({
   selectedLocationId?: string;
   demoData?: DemoAppointmentData;
   projectId: string;
+  paperworkAnswers?: GetPaperworkAnswers;
 }): Promise<CreateAppointmentUCTelemedResponse | null> => {
   if (!projectId) {
     throw new Error('PROJECT_ID is not set');
@@ -232,7 +248,7 @@ export const createSampleTelemedAppointments = async ({
           return null;
         }
 
-        await processPaperwork(appointmentData, patientInfo, zambdaUrl, authToken, projectId);
+        await processPaperwork(appointmentData, patientInfo, zambdaUrl, authToken, projectId, paperworkAnswers);
         return appointmentData;
       } catch (error) {
         console.error(`Error processing appointment ${i + 1}:`, error);
@@ -263,7 +279,8 @@ const processPaperwork = async (
   patientInfo: any,
   zambdaUrl: string,
   authToken: string,
-  projectId: string
+  projectId: string,
+  paperworkAnswers?: GetPaperworkAnswers
 ): Promise<void> => {
   try {
     const appointmentId = appointmentData.appointmentId;
@@ -275,27 +292,29 @@ const processPaperwork = async (
 
     await makeSequentialPaperworkPatches(
       questionnaireResponseId,
-      [
-        getContactInformationAnswers({
-          firstName: patientInfo.patient.firstName,
-          lastName: patientInfo.patient.lastName,
-          birthDate,
-          email: patientInfo.patient.email,
-          phoneNumber: patientInfo.patient.phoneNumber,
-          birthSex: patientInfo.patient.sex,
-        }),
-        getPatientDetailsStepAnswers({}),
-        getMedicationsStepAnswers(),
-        getAllergiesStepAnswers(),
-        getMedicalConditionsStepAnswers(),
-        getSurgicalHistoryStepAnswers(),
-        getAdditionalQuestionsAnswers(),
-        getPaymentOptionSelfPayAnswers(),
-        getResponsiblePartyStepAnswers({}),
-        getSchoolWorkNoteStepAnswers(),
-        getConsentStepAnswers({}),
-        getInviteParticipantStepAnswers(),
-      ],
+      paperworkAnswers
+        ? await paperworkAnswers({ patientInfo, appointmentId, authToken, zambdaUrl, projectId })
+        : [
+            getContactInformationAnswers({
+              firstName: patientInfo.patient.firstName,
+              lastName: patientInfo.patient.lastName,
+              birthDate,
+              email: patientInfo.patient.email,
+              phoneNumber: patientInfo.patient.phoneNumber,
+              birthSex: patientInfo.patient.sex,
+            }),
+            getPatientDetailsStepAnswers({}),
+            getMedicationsStepAnswers(),
+            getAllergiesStepAnswers(),
+            getMedicalConditionsStepAnswers(),
+            getSurgicalHistoryStepAnswers(),
+            getAdditionalQuestionsAnswers(),
+            getPaymentOptionSelfPayAnswers(),
+            getResponsiblePartyStepAnswers({}),
+            getSchoolWorkNoteStepAnswers(),
+            getConsentStepAnswers({}),
+            getInviteParticipantStepAnswers(),
+          ],
       zambdaUrl,
       authToken,
       projectId

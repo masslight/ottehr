@@ -108,7 +108,7 @@ const waitForZambdas = async (): Promise<void> => {
   return new Promise((resolve, reject) => {
     const process = spawn(
       'wait-on',
-      [`http://localhost:3000/${envMapping['ehr'][ENV]}/zambda/intake-version/execute-public`, '--timeout', '60000'],
+      [`http://localhost:3000/${envMapping['ehr'][ENV]}/zambda/version/execute-public`, '--timeout', '60000'],
       {
         shell: true,
         stdio: 'inherit',
