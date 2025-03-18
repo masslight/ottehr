@@ -11,9 +11,9 @@ import {
   TextField,
   useTheme,
 } from '@mui/material';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm, Controller, FormProvider } from 'react-hook-form';
-import { flattenItems, InsurancePlanDTO, isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { InsurancePlanDTO, isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import {
   INSURANCE_COVERAGE_OPTIONS,
   RELATIONSHIP_TO_INSURED_OPTIONS,
@@ -27,6 +27,7 @@ import { FormFields as AllFormFields } from '../../constants';
 import { useUpdatePatientAccount } from '../../hooks/useGetPatient';
 import { structureQuestionnaireResponse } from '../../helpers/qr-structure';
 import { useQueryClient } from 'react-query';
+import { LoadingButton } from '@mui/lab';
 
 interface AddInsuranceModalProps {
   open: boolean;
@@ -56,13 +57,22 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, pati
   const onSubmit = (data: any): void => {
     // send the data to a zambda
     const questionnaireResponse = structureQuestionnaireResponse(questionnaire, data, patientId);
-    const insuranceCarrier = flattenItems(questionnaireResponse.item ?? []).find(
-      (item: any) => item.linkId === 'insurance-carrier'
-    );
-    console.log('insurance carrier', insuranceCarrier);
     submitQR.mutate(questionnaireResponse);
-    // onClose();
   };
+
+  useEffect(() => {
+    if (!open) {
+      methods.reset();
+    }
+  }, [open, methods]);
+
+  useEffect(() => {
+    if (!open && !submitQR.isIdle) {
+      submitQR.reset();
+    } else if (open && submitQR.isSuccess) {
+      onClose();
+    }
+  }, [open, submitQR, onClose]);
 
   return (
     <Dialog open={open} onClose={onClose} PaperProps={{ sx: { p: 2, maxWidth: 'none' } }}>
@@ -367,7 +377,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, pati
         >
           Cancel
         </Button>
-        <Button
+        <LoadingButton
           variant="contained"
           color="primary"
           sx={{
@@ -379,7 +389,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, pati
           onClick={handleSubmit(onSubmit)}
         >
           Add Insurance
-        </Button>
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   );

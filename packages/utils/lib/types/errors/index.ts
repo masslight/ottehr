@@ -1,3 +1,5 @@
+import { FhirResource } from 'fhir/r4b';
+
 export enum APIErrorCode {
   NOT_AUTHORIZED = 4000,
   CANT_UPDATE_CANCELED_APT_ERROR = 4001,
@@ -16,6 +18,7 @@ export enum APIErrorCode {
   MALFORMED_GET_ANSWER_OPTIONS_INPUT = 4014,
   ANSWER_OPTION_FROM_RESOURCE_UNDEFINED = 4015,
   BILLING_PROVIDER_NOT_FOUND = 4016,
+  FHIR_RESOURCE_NOT_FOUND = 4017,
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
   QUESTIONNAIRE_NOT_FOUND_FOR_QR = 4101,
   MISSING_REQUEST_BODY = 4200,
@@ -177,6 +180,11 @@ export const MISSING_REQUEST_BODY = {
   code: APIErrorCode.MISSING_REQUEST_BODY,
   message: 'The request was missing a required request body',
 };
+
+export const FHIR_RESOURCE_NOT_FOUND = (resourceType: FhirResource['resourceType']): APIError => ({
+  code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
+  message: `The requested ${resourceType} resource could not be found`,
+});
 
 export const MISSING_REQUIRED_PARAMETERS = (params: string[]): APIError => {
   return {

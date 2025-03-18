@@ -1,4 +1,4 @@
-import { Account, Coverage, InsurancePlan, Organization, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
+import { Account, Coverage, InsurancePlan, Organization, Patient, RelatedPerson } from 'fhir/r4b';
 
 export interface OrderedCoverages {
   primary?: Coverage;
@@ -17,8 +17,4 @@ export interface PatientAccountAndCoverageResources {
   insuranceOrgs: Organization[];
   account?: Account;
   guarantorResource?: RelatedPerson | Patient;
-}
-
-export interface PatientAccountResponse extends PatientAccountAndCoverageResources {
-  primaryCarePhysician?: Practitioner;
 }

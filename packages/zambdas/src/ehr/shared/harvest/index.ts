@@ -2955,7 +2955,7 @@ export const getCoverageUpdateResourcesFromUnbundled = (
       resources,
       existingCoverages.primary
     );
-    console.log('checked primary subscriber reference:', subscriberResult);
+    // console.log('checked primary subscriber reference:', subscriberResult);
     existingCoverages.primarySubscriber = subscriberResult;
   }
 
@@ -2966,7 +2966,7 @@ export const getCoverageUpdateResourcesFromUnbundled = (
       resources,
       existingCoverages.secondary
     );
-    console.log('checked secondary subscriber reference:', subscriberResult);
+    // console.log('checked secondary subscriber reference:', subscriberResult);
     existingCoverages.secondarySubscriber = subscriberResult;
   }
 

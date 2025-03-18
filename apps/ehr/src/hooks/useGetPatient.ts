@@ -28,6 +28,7 @@ import {
   consolidateOperations,
   PatientMasterRecordResource,
   PromiseReturnType,
+  RemoveCoverageZambdaInput,
 } from 'utils';
 import { getTimezone } from '../helpers/formatDateTime';
 import { getPatientNameSearchParams } from '../helpers/patientSearch';
@@ -287,6 +288,39 @@ export const useGetPatientAccount = (
         console.error('Error fetching patient account: ', err);
       },
       enabled: apiClient != null && patientId != null,
+    }
+  );
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useRemovePatientCoverage = (onSuccess?: () => void) => {
+  const apiClient = useZapEHRAPIClient();
+
+  return useMutation(
+    ['remove-patient-coverage'],
+    async (input: RemoveCoverageZambdaInput): Promise<void> => {
+      try {
+        if (!apiClient || !input) return;
+        await apiClient.removePatientCoverage(input);
+      } catch (error) {
+        console.error(error);
+        throw error;
+      }
+    },
+    {
+      onSuccess: () => {
+        enqueueSnackbar('Coverage removed from patient account', {
+          variant: 'success',
+        });
+        if (onSuccess) {
+          onSuccess();
+        }
+      },
+      onError: () => {
+        enqueueSnackbar('Save operation failed. The server encountered an error while processing your request.', {
+          variant: 'error',
+        });
+      },
     }
   );
 };

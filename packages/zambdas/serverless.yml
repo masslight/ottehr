@@ -1357,13 +1357,29 @@ functions:
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       PROJECT_ID: ${file(./.env/${self:provider.stage}.json):PROJECT_ID}
-      ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
   
   update-patient-account:
     handler: src/ehr/patient-account/update/index.index
     events:
       - http:
           path: zambda/update-patient-account/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
+      AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      PROJECT_ID: ${file(./.env/${self:provider.stage}.json):PROJECT_ID}
+
+  remove-patient-coverage:
+    handler: src/ehr/patient-account/remove-coverage/index.index
+    events:
+      - http:
+          path: zambda/remove-patient-coverage/execute
           method: POST
     timeout: 25
     environment:

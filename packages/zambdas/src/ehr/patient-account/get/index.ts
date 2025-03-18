@@ -1,4 +1,4 @@
-import { Secrets, ZambdaInput } from 'zambda-utils';
+import { Secrets, topLevelCatch, ZambdaInput } from 'zambda-utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared/helpers';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
@@ -31,10 +31,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    };
+    return topLevelCatch('get-patient-account', error, input.secrets);
   }
 };
 

@@ -24,6 +24,7 @@ import {
   useGetPatientAccount,
   useGetPatientDetailsUpdateForm,
   useUpdatePatientAccount,
+  useRemovePatientCoverage,
 } from '../hooks/useGetPatient';
 import { createInsurancePlanDto, InsurancePlanDTO, usePatientStore } from '../state/patient.store';
 import CloseIcon from '@mui/icons-material/Close';
@@ -63,7 +64,19 @@ const PatientInformationPage: FC = () => {
 
   const apiClient = useZapEHRAPIClient();
   const { setInsurancePlans } = usePatientStore();
+
+  // data queries
   const { isFetching: accountFetching, data: accountData } = useGetPatientAccount({ apiClient, patientId: id ?? null });
+  const { isFetching: questionnaireFetching, data: questionnaire } = useGetPatientDetailsUpdateForm();
+
+  // data mutations
+  const queryClient = useQueryClient();
+  const submitQR = useUpdatePatientAccount(() => {
+    void queryClient.invalidateQueries('patient-account-get');
+  });
+  const removeCoverage = useRemovePatientCoverage(() => {
+    void queryClient.invalidateQueries('patient-account-get');
+  });
 
   useGetInsurancePlans((data) => {
     const bundleEntries = data.entry;
@@ -110,7 +123,6 @@ const PatientInformationPage: FC = () => {
     }
   });
 
-  const { isFetching: questionnaireFetching, data: questionnaire } = useGetPatientDetailsUpdateForm();
   const { patient, coverages, isFetching, defaultFormVals } = useMemo(() => {
     const patient = accountData?.patient;
     const coverages: { resource: Coverage; startingPriority: number }[] = [];
@@ -147,11 +159,6 @@ const PatientInformationPage: FC = () => {
   const { handleSubmit, formState } = methods;
   const { isDirty } = formState;
 
-  const queryClient = useQueryClient();
-  const submitQR = useUpdatePatientAccount(() => {
-    void queryClient.invalidateQueries('patient-account-get');
-  });
-
   useEffect(() => {
     if (defaultFormVals && formState.isSubmitSuccessful && submitQR.isSuccess) {
       methods.reset();
@@ -160,7 +167,6 @@ const PatientInformationPage: FC = () => {
 
   useEffect(() => {
     if (formState.isSubmitting && !formState.isValid) {
-      console.log('snackbar effect fired');
       enqueueSnackbar('Please fix all field validation errors and try again', { variant: 'error' });
     }
   }, [formState.isSubmitting, formState.isValid]);
@@ -185,7 +191,6 @@ const PatientInformationPage: FC = () => {
   };
 
   const handleSaveForm = async (values: any): Promise<void> => {
-    // Trigger validation for all fields
     if (!questionnaire) {
       enqueueSnackbar('Something went wrong. Please reload the page.', { variant: 'error' });
       return;
@@ -194,6 +199,16 @@ const PatientInformationPage: FC = () => {
     const qr = structureQuestionnaireResponse(questionnaire, values, patient?.id ?? '');
     console.log('qr', qr);
     submitQR.mutate(qr);
+  };
+
+  const handleRemoveCoverage = (coverageId: string): void => {
+    console.log('removing coverage', coverageId);
+    if (patient?.id) {
+      removeCoverage.mutate({
+        patientId: patient.id,
+        coverageId,
+      });
+    }
   };
 
   if ((isFetching || questionnaireFetching) && !patient) {
@@ -260,7 +275,18 @@ const PatientInformationPage: FC = () => {
                 </Box>
                 <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {coverages.map((coverage) => (
-                    <InsuranceContainer key={coverage.resource.id} ordinal={coverage.startingPriority} />
+                    <InsuranceContainer
+                      key={coverage.resource.id}
+                      ordinal={coverage.startingPriority}
+                      removeInProgress={removeCoverage.isLoading}
+                      handleRemoveClick={
+                        coverage.resource.id !== undefined
+                          ? () => {
+                              handleRemoveCoverage(coverage.resource.id!);
+                            }
+                          : undefined
+                      }
+                    />
                   ))}
                   {coverages.length < 2 && (
                     <Button

@@ -1,4 +1,4 @@
-import { Autocomplete, Box, Button, Checkbox, TextField, Typography, useTheme } from '@mui/material';
+import { Autocomplete, Box, Checkbox, TextField, Typography, useTheme } from '@mui/material';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
@@ -14,12 +14,15 @@ import ShowMoreButton from './ShowMoreButton';
 import { InsurancePlanDTO, usePatientStore } from '../../state/patient.store';
 import { PatientAddressFields } from './ContactContainer';
 import { FormFields as AllFormFields } from '../../constants';
+import { LoadingButton } from '@mui/lab';
 
 type InsuranceContainerProps = {
   ordinal: number;
+  removeInProgress?: boolean;
+  handleRemoveClick?: () => void;
 };
 
-export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal }) => {
+export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, removeInProgress, handleRemoveClick }) => {
   //console.log('insuranceId', insuranceId);
   const theme = useTheme();
   const { insurancePlans } = usePatientStore();
@@ -27,7 +30,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal }) => 
   const [showMoreInfo, setShowMoreInfo] = useState(false);
   const [sameAsPatientAddress, setSameAsPatientAddress] = useState(false);
 
-  const { control, setValue, watch, getValues } = useFormContext();
+  const { control, setValue, watch } = useFormContext();
 
   const { FormFields, LocalAddressFields } = useMemo(() => {
     const FormFields = AllFormFields.insurance[ordinal - 1];
@@ -41,8 +44,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal }) => 
     ];
     return { FormFields, LocalAddressFields };
   }, [ordinal]);
-
-  console.log('insurance FormFields', FormFields, getValues());
 
   const patientAddressData = watch(PatientAddressFields);
   const localAddressData = watch(LocalAddressFields);
@@ -63,7 +64,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal }) => 
   };
 
   const handleRemoveInsurance = (): void => {
-    console.log('remove insurance');
+    handleRemoveClick?.();
   };
 
   return (
@@ -261,15 +262,16 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal }) => 
               control={control}
             />
           </Row>
-          <Button
+          <LoadingButton
             onClick={handleRemoveInsurance}
             variant="text"
+            loading={removeInProgress}
             sx={{
               color: theme.palette.error.main,
               textTransform: 'none',
               fontSize: '13px',
               fontWeight: 700,
-              display: 'flex',
+              display: handleRemoveClick !== undefined ? 'flex' : 'none',
               alignItems: 'center',
               justifyContent: 'flex-start',
               padding: '0',
@@ -277,7 +279,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal }) => 
             }}
           >
             Remove This Insurance
-          </Button>
+          </LoadingButton>
         </>
       )}
     </Section>

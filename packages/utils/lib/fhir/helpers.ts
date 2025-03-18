@@ -1247,3 +1247,8 @@ export const getVersionedReferencesFromBundleResources = (bundle: Bundle): Refer
     return { reference };
   });
 };
+
+export const checkBundleOutcomeOk = (bundle: Bundle): boolean => {
+  const outcomeEntry = bundle.entry?.[0]?.response?.outcome?.id === 'ok';
+  return outcomeEntry;
+};

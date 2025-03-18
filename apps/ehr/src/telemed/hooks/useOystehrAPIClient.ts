@@ -29,6 +29,7 @@ export const useZapEHRAPIClient = (): ReturnType<typeof getOystehrTelemedAPI> | 
           isAppLocal: import.meta.env.VITE_APP_IS_LOCAL,
           getPatientAccountZambdaID: import.meta.env.VITE_APP_GET_PATIENT_ACCOUNT_ZAMBDA_ID,
           updatePatientAccountZambdaID: import.meta.env.VITE_APP_UPDATE_PATIENT_ACCOUNT_ZAMBDA_ID,
+          removePatientCoverageZambdaID: import.meta.env.VITE_APP_REMOVE_PATIENT_COVERAGE_ZAMBDA_ID,
         },
         oystehrZambda
       );

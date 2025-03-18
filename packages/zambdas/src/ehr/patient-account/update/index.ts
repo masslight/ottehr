@@ -1,8 +1,9 @@
-import { Secrets, ZambdaInput } from 'zambda-utils';
+import { Secrets, topLevelCatch, ZambdaInput } from 'zambda-utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared/helpers';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { AuditEvent, Bundle, Questionnaire, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import {
+  checkBundleOutcomeOk,
   getVersionedReferencesFromBundleResources,
   isValidUUID,
   makeValidationSchema,
@@ -39,10 +40,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    };
+    return topLevelCatch('update-patient-account-from-questionnaire', error, input.secrets);
   }
 };
 
@@ -67,7 +65,6 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
 
   console.log('resultBundle', JSON.stringify(resultBundle, null, 2));
 
-  // todo: write an AuditEvent
   const ae = await writeAuditEvent(
     { resultBundle, providerProfileReference, questionnaireResponse, patientId },
     oystehr
@@ -85,8 +82,12 @@ interface AuditEventInput {
 
 const writeAuditEvent = async (input: AuditEventInput, oystehr: Oystehr): Promise<AuditEvent> => {
   const { resultBundle, providerProfileReference, patientId, questionnaireResponse } = input;
-  // todo: check that bundle outcome was successful
-  const outcome = resultBundle ? '0' : '8';
+  const outcome = (() => {
+    if (!resultBundle) {
+      return '8';
+    }
+    return checkBundleOutcomeOk(resultBundle) ? '0' : '8';
+  })();
   const contained: AuditEvent['contained'] = [{ ...questionnaireResponse, id: 'inputQR' }];
   const entity: AuditEvent['entity'] = [
     {

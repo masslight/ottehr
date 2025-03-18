@@ -32,10 +32,12 @@ import {
   ChangeInPersonVisitStatusInput,
   ChangeInPersonVisitStatusResponse,
   PatientAccountResponse,
+  RemoveCoverageZambdaInput,
+  UpdateCoverageZambdaInput,
+  GetPatientAccountZambdaInput,
 } from 'utils';
 import { GetAppointmentsRequestParams } from '../utils';
 import { GetOystehrTelemedAPIParams } from './types';
-import { QuestionnaireResponse } from 'fhir/r4b';
 
 enum ZambdaNames {
   'get telemed appointments' = 'get telemed appointments',
@@ -58,6 +60,7 @@ enum ZambdaNames {
   'create update patient followup' = 'create update patient followup',
   'get patient account' = 'get patient account',
   'update patient account' = 'update patient account',
+  'remove patient coverage' = 'remove patient coverage',
 }
 
 const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
@@ -81,6 +84,7 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'create update patient followup': false,
   'get patient account': false,
   'update patient account': false,
+  'remove patient coverage': false,
 };
 
 export type OystehrTelemedAPIClient = ReturnType<typeof getOystehrTelemedAPI>;
@@ -109,6 +113,7 @@ export const getOystehrTelemedAPI = (
   savePatientFollowup: typeof savePatientFollowup;
   getPatientAccount: typeof getPatientAccount;
   updatePatientAccount: typeof updatePatientAccount;
+  removePatientCoverage: typeof removePatientCoverage;
 } => {
   const {
     getTelemedAppointmentsZambdaID,
@@ -131,6 +136,7 @@ export const getOystehrTelemedAPI = (
     savePatientFollowupZambdaID,
     getPatientAccountZambdaID,
     updatePatientAccountZambdaID,
+    removePatientCoverageZambdaID,
   } = params;
 
   const zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined> = {
@@ -154,6 +160,7 @@ export const getOystehrTelemedAPI = (
     'create update patient followup': savePatientFollowupZambdaID,
     'get patient account': getPatientAccountZambdaID,
     'update patient account': updatePatientAccountZambdaID,
+    'remove patient coverage': removePatientCoverageZambdaID,
   };
   const isAppLocalProvided = params.isAppLocal != null;
   const isAppLocal = params.isAppLocal === 'true';
@@ -255,14 +262,16 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('get medication orders', parameters);
   };
 
-  const getPatientAccount = async (parameters: { patientId: string }): Promise<PatientAccountResponse> => {
+  const getPatientAccount = async (parameters: GetPatientAccountZambdaInput): Promise<PatientAccountResponse> => {
     return await makeZapRequest('get patient account', parameters);
   };
 
-  const updatePatientAccount = async (parameters: {
-    questionnaireResponse: QuestionnaireResponse;
-  }): Promise<PatientAccountResponse> => {
+  const updatePatientAccount = async (parameters: UpdateCoverageZambdaInput): Promise<PatientAccountResponse> => {
     return await makeZapRequest('update patient account', parameters);
+  };
+
+  const removePatientCoverage = async (parameters: RemoveCoverageZambdaInput): Promise<PatientAccountResponse> => {
+    return await makeZapRequest('remove patient coverage', parameters);
   };
 
   return {
@@ -286,5 +295,6 @@ export const getOystehrTelemedAPI = (
     savePatientFollowup,
     getPatientAccount,
     updatePatientAccount,
+    removePatientCoverage,
   };
 };
