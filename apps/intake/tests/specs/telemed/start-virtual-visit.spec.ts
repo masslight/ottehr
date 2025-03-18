@@ -128,6 +128,7 @@ test.describe('Start virtual visit with required information only', async () => 
     await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
 
     const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
+    await patientName.scrollIntoViewIfNeeded();
     await patientName.click();
     await clickContinueButton();
 
@@ -161,6 +162,7 @@ test.describe('Start virtual visit with required information only', async () => 
     await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
 
     const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
+    await patientName.scrollIntoViewIfNeeded();
     await patientName.click();
     await clickContinueButton();
 
@@ -363,6 +365,7 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
     await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
 
     const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
+    await patientName.scrollIntoViewIfNeeded();
     await patientName.click();
     await clickContinueButton();
 
@@ -396,6 +399,7 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
     await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
 
     const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
+    await patientName.scrollIntoViewIfNeeded();
     await patientName.click();
     await clickContinueButton();
 

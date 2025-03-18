@@ -186,7 +186,7 @@ export const createSampleTelemedAppointments = async ({
   authToken,
   phoneNumber,
   createAppointmentZambdaId,
-  intakeZambdaUrl,
+  zambdaUrl,
   selectedLocationId,
   demoData,
   projectId,
@@ -197,7 +197,7 @@ export const createSampleTelemedAppointments = async ({
   phoneNumber: string;
   createAppointmentZambdaId: string;
   islocal: boolean;
-  intakeZambdaUrl: string;
+  zambdaUrl: string;
   selectedLocationId?: string;
   demoData?: DemoAppointmentData;
   projectId: string;
@@ -220,17 +220,14 @@ export const createSampleTelemedAppointments = async ({
       try {
         const patientInfo = await generateRandomPatientInfo(oystehr, phoneNumber, demoData, selectedLocationId);
 
-        const createAppointmentResponse = await fetch(
-          `${intakeZambdaUrl}/zambda/${createAppointmentZambdaId}/execute`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${authToken}`,
-            },
-            body: JSON.stringify(patientInfo),
-          }
-        );
+        const createAppointmentResponse = await fetch(`${zambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(patientInfo),
+        });
 
         if (!createAppointmentResponse.ok) {
           throw new Error(`Failed to create appointment. Status: ${createAppointmentResponse.status}`);
@@ -251,7 +248,7 @@ export const createSampleTelemedAppointments = async ({
           return null;
         }
 
-        await processPaperwork(appointmentData, patientInfo, intakeZambdaUrl, authToken, projectId, paperworkAnswers);
+        await processPaperwork(appointmentData, patientInfo, zambdaUrl, authToken, projectId, paperworkAnswers);
         return appointmentData;
       } catch (error) {
         console.error(`Error processing appointment ${i + 1}:`, error);
@@ -280,7 +277,7 @@ export const createSampleTelemedAppointments = async ({
 const processPaperwork = async (
   appointmentData: CreateAppointmentUCTelemedResponse,
   patientInfo: any,
-  intakeZambdaUrl: string,
+  zambdaUrl: string,
   authToken: string,
   projectId: string,
   paperworkAnswers?: GetPaperworkAnswers
@@ -318,12 +315,12 @@ const processPaperwork = async (
             getConsentStepAnswers({}),
             getInviteParticipantStepAnswers(),
           ],
-      intakeZambdaUrl,
+      zambdaUrl,
       authToken,
       projectId
     );
 
-    const response = await fetch(`${intakeZambdaUrl}/zambda/submit-paperwork/execute-public`, {
+    const response = await fetch(`${zambdaUrl}/zambda/submit-paperwork/execute-public`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
