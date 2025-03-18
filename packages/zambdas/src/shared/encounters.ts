@@ -1,7 +1,37 @@
 import Oystehr from '@oystehr/sdk';
 import { Address, Appointment, Encounter, Location } from 'fhir/r4b';
-import { SLUG_SYSTEM, VisitType, getEncounterForAppointment } from 'utils';
-import { getParticipantFromAppointment } from './helpers';
+import {
+  SLUG_SYSTEM,
+  TELEMED_VIDEO_ROOM_CODE,
+  VisitType,
+  getEncounterForAppointment,
+  getVirtualServiceResourceExtension,
+} from 'utils';
+import { getParticipantFromAppointment } from '../shared';
+
+export const getVideoEncounterForAppointment = async (
+  appointmentID: string,
+  oystehr: Oystehr
+): Promise<Encounter | undefined> => {
+  let encounter: Encounter | undefined = undefined;
+
+  const encounters = (
+    await oystehr.fhir.search<Encounter>({
+      resourceType: 'Encounter',
+      params: [
+        {
+          name: 'appointment',
+          value: `Appointment/${appointmentID}`,
+        },
+      ],
+    })
+  ).unbundle();
+
+  encounter = (encounters ?? []).find((encounterTemp) =>
+    Boolean(getVirtualServiceResourceExtension(encounterTemp, TELEMED_VIDEO_ROOM_CODE))
+  );
+  return encounter;
+};
 
 interface EncounterDetails {
   encounter: Encounter;

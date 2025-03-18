@@ -29,10 +29,15 @@ import {
   userHasAccessToPatient,
   VisitType,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { getSecret, Secrets, SecretsKeys, topLevelCatch } from 'zambda-utils';
-import { AuditableZambdaEndpoints, checkOrCreateM2MClientToken, createAuditEvent, getUser } from '../../shared';
-import { createUpdateUserRelatedResources, generatePatientRelatedRequests } from '../../../shared/appointment';
+import { getSecret, Secrets, SecretsKeys, topLevelCatch, ZambdaInput } from 'zambda-utils';
+import {
+  AuditableZambdaEndpoints,
+  checkOrCreateM2MClientToken,
+  createAuditEvent,
+  createUpdateUserRelatedResources,
+  generatePatientRelatedRequests,
+  getUser,
+} from '../../../shared';
 import {
   getCurrentQuestionnaireForServiceType,
   getEncounterClass,

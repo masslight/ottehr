@@ -83,7 +83,7 @@ import {
 import { v4 as uuid } from 'uuid';
 import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 import { createOrUpdateFlags } from '../../../paperwork/sharedHelpers';
-import { createPdfBytes } from '../../../shared/pdf';
+import { createPdfBytes } from '../../../../shared/pdf';
 
 const IGNORE_CREATING_TASKS_FOR_REVIEW = true;
 

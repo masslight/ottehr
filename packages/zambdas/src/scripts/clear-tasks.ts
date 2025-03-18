@@ -2,7 +2,7 @@ import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { Task } from 'fhir/r4b';
 import fs from 'fs';
 import { Secrets } from 'zambda-utils';
-import { getAuth0Token } from '../patient/shared';
+import { getAuth0Token } from '../shared';
 import { fhirApiUrlFromAuth0Audience } from './helpers';
 
 const clearTasks = async (config: any): Promise<void> => {

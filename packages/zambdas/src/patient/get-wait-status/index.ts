@@ -9,12 +9,9 @@ import {
   getLocationIdFromAppointment,
   mapStatusToTelemed,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { SecretsKeys, getSecret } from 'zambda-utils';
-import { getAuth0Token } from '../shared';
+import { SecretsKeys, ZambdaInput, getSecret } from 'zambda-utils';
+import { getAuth0Token, getUser, getVideoEncounterForAppointment } from '../../shared';
 import { estimatedTimeStatesGroups } from '../../shared/appointment/constants';
-import { getUser } from '../shared/auth';
-import { getVideoEncounterForAppointment } from '../shared/encounters';
 import { convertStatesAbbreviationsToLocationIds, getAllAppointmentsByLocations } from './utils/fhir';
 import { validateRequestParameters } from './validateRequestParameters';
 

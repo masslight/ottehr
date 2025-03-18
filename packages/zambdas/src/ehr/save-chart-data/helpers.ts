@@ -6,7 +6,7 @@ import {
   chartDataResourceHasMetaTagByCode,
   handleCustomDTOExtractions,
   mapResourceToChartDataResponse,
-} from '../../shared/chart-data/chart-data-helpers';
+} from '../../shared/chart-data';
 
 export const validateBundleAndExtractSavedChartData = (
   bundle: Bundle,

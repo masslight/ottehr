@@ -28,16 +28,16 @@ import {
   SNOMEDCodeConceptInterface,
 } from 'utils';
 import { Secrets } from 'zambda-utils';
-import { saveResourceRequest } from '../../shared';
+import { checkOrCreateM2MClientToken, saveResourceRequest } from '../../shared';
 import {
   createDispositionServiceRequest,
   makeExamObservationResource,
   makeObservationResource,
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
-} from '../../shared/chart-data/chart-data-helpers';
+} from '../../shared/chart-data';
 import { topLevelCatch } from '../../shared/errors';
-import { checkOrCreateM2MClientToken, createOystehrClient, getVideoRoomResourceExtension } from '../../shared/helpers';
+import { createOystehrClient, getVideoRoomResourceExtension } from '../../shared/helpers';
 import { ZambdaInput } from 'zambda-utils';
 import { createAdditionalQuestions, createExamObservations } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';

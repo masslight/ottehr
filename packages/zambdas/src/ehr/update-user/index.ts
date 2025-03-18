@@ -3,11 +3,12 @@ import { HumanName, Practitioner } from 'fhir/r4b';
 import { FHIR_IDENTIFIER_NPI, PractitionerLicense, RoleType } from 'utils';
 import { getSecret, Secrets } from 'zambda-utils';
 import { topLevelCatch } from '../../shared/errors';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared/helpers';
+import { createOystehrClient } from '../../shared/helpers';
 import { makeQualificationForPractitioner } from '../../shared/practitioners';
 import { getRoleId } from '../../shared/rolesUtils';
 import { ZambdaInput } from 'zambda-utils';
 import { validateRequestParameters } from './validateRequestParameters';
+import { checkOrCreateM2MClientToken } from '../../shared';
 
 export interface UpdateUserInput {
   secrets: Secrets | null;

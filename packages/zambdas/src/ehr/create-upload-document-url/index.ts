@@ -7,9 +7,10 @@ import { DateTime } from 'luxon';
 import { addOperation, OTTEHR_MODULE, replaceOperation } from 'utils';
 import { makeZ3Url, Secrets, ZambdaInput } from 'zambda-utils';
 import { topLevelCatch } from '../../shared/errors';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared/helpers';
+import { createOystehrClient } from '../../shared/helpers';
 import { createPresignedUrl } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';
+import { checkOrCreateM2MClientToken } from '../../shared';
 
 const logIt = (msg: string): void => {
   console.log(`[create-upload-document-url]: ${msg}`);

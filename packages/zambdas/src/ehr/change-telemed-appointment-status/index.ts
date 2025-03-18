@@ -12,9 +12,9 @@ import { SecretsKeys, getSecret } from 'zambda-utils';
 
 import { ZambdaInput } from 'zambda-utils';
 import { getChartData } from '../get-chart-data';
-import { parseCreatedResourcesBundle, saveResourceRequest } from '../../shared';
+import { checkOrCreateM2MClientToken, parseCreatedResourcesBundle, saveResourceRequest } from '../../shared';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../../shared/candid';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared/helpers';
+import { createOystehrClient } from '../../shared/helpers';
 import { getVideoResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
 import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';

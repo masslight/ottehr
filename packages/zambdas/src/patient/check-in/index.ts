@@ -14,16 +14,18 @@ import {
 } from 'utils';
 import { ZambdaInput } from 'zambda-utils';
 import { Secrets, topLevelCatch } from 'zambda-utils';
-import '../shared/instrument.mjs';
-import { captureSentryException, configSentry, getAuth0Token } from '../shared';
-import { getUser } from '../shared/auth';
+import '../../shared/instrument.mjs';
 import {
+  captureSentryException,
+  configSentry,
+  getAuth0Token,
   checkPaperworkComplete,
   createOystehrClient,
   getEncounterStatusHistoryIdx,
   getLocationInformation,
-} from '../shared/helpers';
-import { AuditableZambdaEndpoints, createAuditEvent } from '../shared/userAuditLog';
+} from '../../shared';
+import { getUser } from '../../shared/auth';
+import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAuditLog';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface CheckInInput {

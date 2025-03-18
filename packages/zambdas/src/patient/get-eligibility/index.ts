@@ -29,7 +29,7 @@ import {
   removeTimeFromDate,
 } from 'utils';
 import { SecretsKeys, ZambdaInput, getSecret, lambdaResponse, topLevelCatch } from 'zambda-utils';
-import { createInsurancePlanDto, createOrUpdateRelatedPerson, getAuth0Token } from '../shared';
+import { createInsurancePlanDto, createOrUpdateRelatedPerson, getAuth0Token } from '../../shared';
 import { parseEligibilityCheckResponse } from './helpers';
 import { prevalidationHandler } from './prevalidation-handler';
 import { validateInsuranceRequirements, validateRequestParameters } from './validation';

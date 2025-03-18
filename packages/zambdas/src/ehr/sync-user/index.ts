@@ -10,10 +10,11 @@ import {
   getPractitionerNPIIdentitifier,
 } from 'utils';
 import { SecretsKeys, getSecret, Secrets } from 'zambda-utils';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared/helpers';
+import { createOystehrClient } from '../../shared/helpers';
 import { makeQualificationForPractitioner } from '../../shared/practitioners';
 import { ZambdaInput } from 'zambda-utils';
 import { validateRequestParameters } from './validateRequestParameters';
+import { checkOrCreateM2MClientToken } from '../../shared';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;

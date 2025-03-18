@@ -2,7 +2,7 @@ import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest } from '@oysteh
 import { Subscription } from 'fhir/r4b';
 import fs from 'fs';
 import { COMMUNICATION_ISSUE_REPORT_CODE, SubscriptionZambdaDetails, Task_Send_Messages_Url } from 'utils';
-import { getAuth0Token } from '../patient/shared';
+import { getAuth0Token } from '../shared';
 
 const APPOINTMENT_PREPROCESSED = 'APPOINTMENT_PREPROCESSED';
 

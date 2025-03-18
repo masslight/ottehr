@@ -33,12 +33,10 @@ import {
   serviceModeForHealthcareService,
   userHasAccessToPatient,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { Secrets, topLevelCatch } from 'zambda-utils';
-import '../../shared/instrument.mjs';
-import { getAuth0Token } from '../../shared';
-import { getUser } from '../../shared/auth';
-import { createOystehrClient, getOtherOfficesForLocation } from '../../shared/helpers';
+import { Secrets, ZambdaInput, topLevelCatch } from 'zambda-utils';
+import { createOystehrClient, getAuth0Token, getOtherOfficesForLocation } from '../../../shared';
+import { getUser } from '../../../shared/auth';
+import '../../../shared/instrument.mjs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetPaperworkInput {

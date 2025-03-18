@@ -11,8 +11,7 @@ import {
 import { ZambdaInput } from 'zambda-utils';
 import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 import { SCHEDULE_TYPES } from '../../get-schedule/validateRequestParameters';
-import { phoneRegex } from '../../shared';
-import { checkValidBookingTime } from '../../shared/helpers';
+import { checkValidBookingTime, phoneRegex } from '../../../shared';
 export interface CreateAppointmentValidatedInput
   extends Omit<CreateAppointmentInputParams, 'providerID' | 'groupID' | 'locationID'> {
   currentCanonicalQuestionnaireUrl: string;

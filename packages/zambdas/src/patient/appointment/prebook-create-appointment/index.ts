@@ -44,12 +44,17 @@ import {
 } from 'utils';
 import { ZambdaInput } from 'zambda-utils';
 import { Secrets, topLevelCatch } from 'zambda-utils';
-import '../../shared/instrument.mjs';
-import { captureSentryException, configSentry, getAuth0Token } from '../../shared';
-import { generatePatientRelatedRequests } from '../../../shared/appointment';
-import { getUser } from '../../shared/auth';
-import { createOystehrClient } from '../../shared/helpers';
-import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAuditLog';
+import '../../../shared/instrument.mjs';
+import {
+  captureSentryException,
+  createOystehrClient,
+  configSentry,
+  getAuth0Token,
+  AuditableZambdaEndpoints,
+  createAuditEvent,
+  generatePatientRelatedRequests,
+  getUser,
+} from '../../../shared';
 import {
   getCanonicalUrlForPrevisitQuestionnaire,
   getEncounterClass,

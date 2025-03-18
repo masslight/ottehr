@@ -18,13 +18,14 @@ import {
 
 import { validateRequestParameters } from './validateRequestParameters';
 import { getChartData } from '../get-chart-data';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared/helpers';
+import { createOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from 'zambda-utils';
 import { VideoResourcesAppointmentPackage } from '../../shared/pdf/visit-details-pdf/types';
 import { getVideoResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../../shared/candid';
+import { checkOrCreateM2MClientToken } from '../../shared';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
