@@ -128,7 +128,7 @@ async function createApplication(oystehr: Oystehr, applicationName: string): Pro
           'Zambda:Function:telemed-update-appointment',
           'Zambda:Function:get-visit-details',
           'Zambda:Function:list-bookables',
-          'Zambda:Function:intake-version',
+          'Zambda:Function:version',
         ],
         action: ['Zambda:InvokeFunction'],
         effect: 'Allow',

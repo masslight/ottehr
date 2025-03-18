@@ -24,11 +24,11 @@ custom:
     keepNames: true
 
 functions:
-  intake-version:
+  version:
     handler: src/patient/version/index.index
     events:
       - http:
-          path: zambda/intake-version/execute-public
+          path: zambda/version/execute-public
           method: GET
     timeout: 25
     environment:
