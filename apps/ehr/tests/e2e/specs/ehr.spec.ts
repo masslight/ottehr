@@ -1,7 +1,7 @@
 import { expect, Page, test } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import { ResourceHandler } from '../../e2e-utils/resource-handler';
+import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 
 // We may create new instances for the tests with mutable operations, and keep parralel tests isolated
 const resourceHandler = new ResourceHandler();
@@ -81,51 +81,51 @@ test('Happy path: set up filters and navigate to visit page', async ({ page }) =
 });
 
 test('CSS intake patient page is available', async ({ page }) => {
-  await page.goto(`in-person/intake/${resourceHandler.appointment.id}/patient-info`);
+  await page.goto(`in-person/${resourceHandler.appointment.id}/patient-info`);
   await awaitCSSHeaderInit(page);
 });
 
 test('CSS intake screening-questions page is available', async ({ page }) => {
-  await page.goto(`/in-person/intake/${resourceHandler.appointment.id}/screening-questions`);
+  await page.goto(`/in-person/${resourceHandler.appointment.id}/screening-questions`);
   await awaitCSSHeaderInit(page);
 });
 
 test('CSS intake vitals page is available', async ({ page }) => {
-  await page.goto(`in-person/intake/${resourceHandler.appointment.id}/vitals`);
+  await page.goto(`in-person/${resourceHandler.appointment.id}/vitals`);
   await awaitCSSHeaderInit(page);
 });
 
 test('CSS intake allergies page is available', async ({ page }) => {
-  await page.goto(`in-person/intake/${resourceHandler.appointment.id}/allergies`);
+  await page.goto(`in-person/${resourceHandler.appointment.id}/allergies`);
   await awaitCSSHeaderInit(page);
 });
 
 test('CSS intake medications page is available', async ({ page }) => {
-  await page.goto(`in-person/intake/${resourceHandler.appointment.id}/medications`);
+  await page.goto(`in-person/${resourceHandler.appointment.id}/medications`);
   await awaitCSSHeaderInit(page);
 });
 
 test('CSS intake medical conditions page is available', async ({ page }) => {
-  await page.goto(`in-person/intake/${resourceHandler.appointment.id}/medical-conditions`);
+  await page.goto(`in-person/${resourceHandler.appointment.id}/medical-conditions`);
   await awaitCSSHeaderInit(page);
 });
 
 test('CSS intake surgical history page is available', async ({ page }) => {
-  await page.goto(`in-person/intake/${resourceHandler.appointment.id}/surgical-history`);
+  await page.goto(`in-person/${resourceHandler.appointment.id}/surgical-history`);
   await awaitCSSHeaderInit(page);
 });
 
 test('CSS intake hospitalization page is available', async ({ page }) => {
-  await page.goto(`in-person/intake/${resourceHandler.appointment.id}/hospitalization`);
+  await page.goto(`in-person/${resourceHandler.appointment.id}/hospitalization`);
   await awaitCSSHeaderInit(page);
 });
 
 test('CSS intake external lab orders page is available', async ({ page }) => {
-  await page.goto(`in-person/intake/${resourceHandler.appointment.id}/external-lab-orders`);
+  await page.goto(`in-person/${resourceHandler.appointment.id}/external-lab-orders`);
   await awaitCSSHeaderInit(page);
 });
 
 test('CSS intake assessment page is available', async ({ page }) => {
-  await page.goto(`in-person/intake/${resourceHandler.appointment.id}/assessment`);
+  await page.goto(`in-person/${resourceHandler.appointment.id}/assessment`);
   await awaitCSSHeaderInit(page);
 });

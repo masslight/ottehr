@@ -27,6 +27,7 @@ import {
   getPatchOperationToAddOrUpdateResponsiblePartyRelationship,
   RelationshipOption,
   RELATIONSHIP_OPTIONS,
+  normalizePhoneNumber,
 } from 'utils';
 import { create } from 'zustand';
 
@@ -150,6 +151,9 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
     })),
   setInsurancePlans: (insurancePlans) => set({ insurancePlans }),
   updatePatientField: (fieldName, value, resourceId, fieldType) => {
+    if (fieldType === 'phone') {
+      value = normalizePhoneNumber(value as string);
+    }
     const state = usePatientStore.getState();
     const { resourceType, path } = extractResourceTypeAndPath(fieldName);
 
