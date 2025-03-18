@@ -463,21 +463,24 @@ export class Paperwork {
     await expect(frontImage).toHaveText(`We already have this! It was saved on ${today}. Click to re-upload.`);
     await expect(backImage).toHaveText(`We already have this! It was saved on ${today}. Click to re-upload.`);
   }
-  async fillConsentForms(): Promise<void> {
+  async fillConsentForms(): Promise<{ signature: string; relationshipConsentForms: string; consentFullName: string }> {
     await this.validateAllOptions(
       this.locator.consentSignerRelationship,
       this.relationshipConsentForms,
       'consent signer'
     );
     const relationshipConsentForms = this.getRandomElement(this.relationshipConsentForms);
+    const signature = 'Test signature';
+    const consentFullName = 'Test consent full name';
     await this.locator.hipaaAcknowledgement.check();
     await this.locator.consentToTreat.check();
     await this.locator.signature.click();
-    await this.locator.signature.fill('Test signature');
+    await this.locator.signature.fill(signature);
     await this.locator.consentFullName.click();
-    await this.locator.consentFullName.fill('Test consent full name');
+    await this.locator.consentFullName.fill(consentFullName);
     await this.locator.consentSignerRelationship.click();
     await this.page.getByRole('option', { name: relationshipConsentForms }).click();
+    return { signature, relationshipConsentForms, consentFullName };
   }
   async validateAllOptions(locator: any, optionsList: string[], type: string): Promise<void> {
     await locator.click();
