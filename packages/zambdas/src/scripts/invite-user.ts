@@ -11,12 +11,8 @@ import {
     AllStatesValues,
     makeQualificationForPractitioner,
     PractitionerLicense,
-    TIMEZONE_EXTENSION_URL,
-    AllStatesValues,
-    PractitionerLicense,
     TIMEZONE_EXTENSION_URL
 } from 'utils';
-import { makeQualificationForPractitioner } from '../ehr/shared/practitioners';
 import Oystehr, { AccessPolicy, Role, RoleListItem } from '@oystehr/sdk';
 
 const DEFAULTS = {
