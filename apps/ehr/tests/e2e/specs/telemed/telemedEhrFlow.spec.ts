@@ -2,18 +2,12 @@ import { expect, Locator, test } from '@playwright/test';
 import { fillWaitAndSelectDropdown, iterateThroughTable } from 'test-utils';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
-import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../../e2e-utils/helpers/tests-utils';
-import { PATIENT_STATE, ResourceHandler } from '../../../e2e-utils/resource-handler';
-import { TelemedFlowResourceHandler } from '../../../e2e-utils/resource-handlers/telemed-flow-rh';
 import {
   ADDITIONAL_QUESTIONS,
   AdditionalBooleanQuestionsFieldsNames,
   stateCodeToFullName,
   TelemedAppointmentStatusEnum,
 } from '../../../e2e-utils/temp-imports-from-utils';
-import { PATIENT_STATE, ResourceHandler } from '../../e2e-utils/resource-handler';
-import { TelemedFlowResourceHandler } from '../../e2e-utils/resource-handlers/telemed-flow-rh';
-import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../e2e-utils/helpers/tests-utils';
 import {
   getAdditionalQuestionsAnswers,
   getAllergiesStepAnswers,
@@ -30,15 +24,18 @@ import {
   isoToDateObject,
 } from 'utils';
 import { getPatientConditionPhotosStepAnswers } from 'test-utils';
+import { PATIENT_STATE, ResourceHandler } from '../../../e2e-utils/resource-handler';
+import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../../e2e-utils/helpers/tests-utils';
+import { TelemedFlowResourceHandler } from '../../../e2e-utils/resource-handlers/telemed-flow-rh';
 
 // We may create new instances for the tests with mutable operations, and keep parralel tests isolated
 const resourceHandler = new ResourceHandler(
   'telemed',
-  async ({ patientInfo, appointmentId, authToken, intakeZambdaUrl, projectId }) => {
+  async ({ patientInfo, appointmentId, authToken, zambdaUrl, projectId }) => {
     const patientConditionPhotosStepAnswers = await getPatientConditionPhotosStepAnswers({
       appointmentId,
       authToken,
-      intakeZambdaUrl,
+      zambdaUrl,
       projectId,
       fileName: 'Landscape_1.jpg',
     });
@@ -219,7 +216,7 @@ test('Assigned appointment has connect-to-patient button', async ({ page }) => {
 test('Patient provided hpi data', async ({ page }) => {
   await test.step("go to appointment page and make sure it's in pre-video", async () => {
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
-    await checkAppointmentAssigned(page);
+    await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page);
   });
 
   await test.step('Medical conditions provided by patient', async () => {
