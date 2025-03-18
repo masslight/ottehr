@@ -234,8 +234,25 @@ const get = (obj: any, path: string): any => {
   return path.split('.').reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), obj);
 };
 
+export const normalizePhoneNumber = (phone: string | undefined): string => {
+  if (!phone) return '';
+  // Remove all non-digit characters
+  const digitsOnly = phone.replace(/\D/g, '');
+  // Ensure it has the '+1' prefix for US numbers
+  if (digitsOnly.length === 10) {
+    return `+1${digitsOnly}`;
+  } else if (digitsOnly.length === 11 && digitsOnly.startsWith('1')) {
+    return `+${digitsOnly}`;
+  } else if (digitsOnly.length > 0) {
+    // Handle other cases
+    return digitsOnly.startsWith('+') ? digitsOnly : `+${digitsOnly}`;
+  }
+
+  return '';
+};
+
 export function createPatchOperationForTelecom(
-  newValue: string | boolean,
+  newValue: string,
   contactTelecomConfig: ContactTelecomConfig,
   resource: Resource,
   path: string
@@ -245,8 +262,15 @@ export function createPatchOperationForTelecom(
   const existingIndex = existingArray?.findIndex((item) => item.system === contactTelecomConfig.system) ?? -1;
   const existingValue = existingIndex > -1 ? existingArray?.[existingIndex].value : undefined;
 
-  if (newValue !== existingValue) {
-    if (!newValue || newValue === '') {
+  let normalizedNewValue = newValue;
+  let normalizedExistingValue = existingValue;
+  if (contactTelecomConfig.system === 'phone') {
+    normalizedNewValue = normalizePhoneNumber(newValue) || '';
+    normalizedExistingValue = normalizePhoneNumber(existingValue);
+  }
+
+  if (normalizedNewValue !== normalizedExistingValue) {
+    if (!newValue || normalizedNewValue === '') {
       // Remove value if it exists
       if (existingIndex > -1) {
         if (existingArray?.length === 1) {
@@ -261,13 +285,13 @@ export function createPatchOperationForTelecom(
       return {
         op: 'replace',
         path: `${arrayPath}/${existingIndex}/value`,
-        value: newValue,
+        value: normalizedNewValue,
       };
     } else {
       // Add new item with system
       const newItem = {
         system: contactTelecomConfig.system,
-        value: newValue,
+        value: normalizedNewValue,
         ...(contactTelecomConfig.use ? { use: contactTelecomConfig.use } : {}),
         ...(contactTelecomConfig.rank ? { rank: contactTelecomConfig.rank } : {}),
       };
