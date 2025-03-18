@@ -1,7 +1,7 @@
 import { BrowserContext, expect, Locator, Page, test } from '@playwright/test';
-import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { ResourceHandler } from '../../e2e-utils/resource-handler';
-import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../e2e-utils/helpers/tests-utils';
+import { dataTestIds } from '../../../../src/constants/data-test-ids';
+import { ResourceHandler } from '../../../e2e-utils/resource-handler';
+import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../../e2e-utils/helpers/tests-utils';
 import {
   allLicensesForPractitioner,
   AllStates,
@@ -9,7 +9,7 @@ import {
   stateCodeToFullName,
   TelemedAppointmentStatusEnum,
 } from 'utils';
-import { ADDITIONAL_QUESTIONS } from '../../../src/constants';
+import { ADDITIONAL_QUESTIONS } from '../../../../src/constants';
 
 const myResources = new ResourceHandler('telemed');
 const otherResources = new ResourceHandler('telemed');
@@ -296,7 +296,7 @@ test('Appointment hpi fields', async () => {
   });
 });
 
-test('Connect to patient function', async ({ page }) => {
+test('Connect to patient function', async () => {
   const connectButton = page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient);
   await expect(connectButton).toBeVisible();
   await connectButton.click();

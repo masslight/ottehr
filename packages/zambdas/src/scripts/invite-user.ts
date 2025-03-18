@@ -6,7 +6,7 @@ import {
   STAFF_RULES,
   PROVIDER_RULES,
   PRESCRIBER_RULES,
-} from '../src/shared';
+} from '../ehr/shared';
 import {
     AllStatesValues,
     makeQualificationForPractitioner,
