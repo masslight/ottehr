@@ -33,6 +33,13 @@ const AIInterview = (): JSX.Element => {
   }, [questionnaireResponse, setQuestionnaireResponse, zambdaClient]);
 
   const messages = questionnaireResponse != null ? createMessages(questionnaireResponse) : [];
+  if (loading) {
+    messages.push({
+      linkId: '1000000',
+      author: 'ai',
+      text: '...',
+    });
+  }
 
   const onSend = async (): Promise<void> => {
     if (zambdaClient == null) return;
@@ -51,33 +58,35 @@ const AIInterview = (): JSX.Element => {
   };
   return (
     <PageContainer>
-      {messages.map((message) => (
-        <Box
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: message.author === 'ai' ? 'flex-start' : 'flex-end',
-            marginBottom: message.author === 'ai' ? '10px' : '18px',
-          }}
-        >
-          {message.author === 'ai' && <img src={ottehrDarkBlue} style={{ width: '24px', marginRight: '10px' }} />}
-          <Typography
-            variant="body1"
-            key={message.linkId + '-' + message.author}
+      <Box style={{ overflowY: 'auto', height: 'calc(100vh - 400px)' }}>
+        {messages.map((message) => (
+          <Box
             style={{
-              background: message.author === 'user' ? 'rgba(244, 246, 248, 1)' : 'none',
-              borderRadius: '4px',
-              padding: '8px',
-              paddingTop: message.author === 'ai' ? '0' : '8px',
-              paddingLeft: message.author === 'ai' ? '0' : '8px',
-              width: 'fit-content',
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: message.author === 'ai' ? 'flex-start' : 'flex-end',
+              marginBottom: message.author === 'ai' ? '10px' : '18px',
             }}
           >
-            {message.text}
-          </Typography>
-          {message.author === 'user' && <Avatar style={{ width: '24px', height: '24px', marginLeft: '10px' }} />}
-        </Box>
-      ))}
+            {message.author === 'ai' && <img src={ottehrDarkBlue} style={{ width: '24px', marginRight: '10px' }} />}
+            <Typography
+              variant="body1"
+              key={message.linkId + '-' + message.author}
+              style={{
+                background: message.author === 'user' ? 'rgba(244, 246, 248, 1)' : 'none',
+                borderRadius: '4px',
+                padding: '8px',
+                paddingTop: message.author === 'ai' ? '0' : '8px',
+                paddingLeft: message.author === 'ai' ? '0' : '8px',
+                width: 'fit-content',
+              }}
+            >
+              {message.text}
+            </Typography>
+            {message.author === 'user' && <Avatar style={{ width: '24px', height: '24px', marginLeft: '10px' }} />}
+          </Box>
+        ))}
+      </Box>
       <Box
         style={{
           display: 'flex',

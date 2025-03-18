@@ -737,7 +737,7 @@ functions:
     handler: src/ai-interview/start/index.index
     events:
       - http:
-          path: zambda/ai-interview/start/execute
+          path: zambda/ai-interview-start/execute
           method: POST
     timeout: 25
     environment:
@@ -754,7 +754,7 @@ functions:
     handler: src/ai-interview/handle-answer/index.index
     events:
       - http:
-          path: zambda/ai-interview/handle-answer/execute
+          path: zambda/ai-interview-handle-answer/execute
           method: POST
     timeout: 25
     environment:

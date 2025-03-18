@@ -14,6 +14,7 @@ import { getAuth0Token } from '../../shared';
 import Oystehr from '@oystehr/sdk';
 import { BaseMessageLike } from '@langchain/core/messages';
 import { invokeChatbot } from '../common';
+import { INTERVIEW_COMPLETED } from '../start';
 
 let oystehrToken: string;
 
@@ -34,6 +35,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       resourceType: 'QuestionnaireResponse',
       id: questionnaireResponseId,
     });
+    if (questionnaireResponse.status === 'completed') {
+      throw new Error('QuestionnaireResponse is completed.');
+    }
     questionnaireResponse.item?.push({
       linkId,
       answer: [
@@ -47,12 +51,15 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       throw new Error(`Invalid chatbot input "${chatbotInput}"`);
     }
     console.log(`chatbotInput: ${JSON.stringify(chatbotInput)}`);
-    const chatbotResponse = await invokeChatbot(chatbotInput);
+    const chatbotResponse = (await invokeChatbot(chatbotInput)).content.toString();
     (questionnaireResponse.contained?.[0] as Questionnaire).item?.push({
       linkId: (parseInt(linkId) + 1).toString(),
-      text: chatbotResponse.content.toString(),
+      text: chatbotResponse,
       type: 'text',
     });
+    if (chatbotResponse.includes(INTERVIEW_COMPLETED)) {
+      questionnaireResponse.status = 'completed';
+    }
     const output: Output = {
       questionnaireResponse: await oystehr.fhir.update(questionnaireResponse),
     };
