@@ -1,89 +1,87 @@
-import { Box } from '@mui/material';
+import { Autocomplete, Box, TextField } from '@mui/material';
 import { FC } from 'react';
-import { useFormContext } from 'react-hook-form';
-import {
-  emailRegex,
-  isPhoneNumberValid,
-  isPostalCodeValid,
-  patientFieldPaths,
-  REQUIRED_FIELD_ERROR_MESSAGE,
-  standardizePhoneNumber,
-} from 'utils';
+import { Controller, useFormContext } from 'react-hook-form';
+import { emailRegex, isPostalCodeValid, phoneRegex, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { STATE_OPTIONS } from '../../constants';
-import { getTelecomInfo, usePatientStore } from '../../state/patient.store';
-import { FormAutocomplete, FormTextField } from '../form';
+import { FormTextField } from '../form';
 import { Row, Section } from '../layout';
+import { dataTestIds } from '../../constants/data-test-ids';
+import InputMask from '../InputMask';
+import { FormFields as AllFormFields } from '../../constants';
+
+const FormFields = AllFormFields.patientContactInformation;
 
 export const ContactContainer: FC = () => {
-  const { patient, updatePatientField } = usePatientStore();
-  const { control, trigger } = useFormContext();
-
-  if (!patient) return null;
-
-  const { value: phone, path: phonePath } = getTelecomInfo(patient, 'phone', 0);
-  const { value: email, path: emailPath } = getTelecomInfo(patient, 'email', 1);
-
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    const { name, value } = event.target;
-    const fieldType = name === emailPath ? 'email' : name === phonePath ? 'phone' : undefined;
-    updatePatientField(name, value, undefined, fieldType);
-  };
-
-  const handleAutocompleteChange = (name: string, value: string): void => {
-    updatePatientField(name, value);
-    void trigger(name);
-  };
+  const { control, setValue } = useFormContext();
 
   return (
     <Section title="Contact information">
-      <Row label="Street address" inputId="patient-street-address" required>
+      <Row label="Street address" inputId={FormFields.streetAddress.key} required>
         <FormTextField
-          name={patientFieldPaths.streetAddress}
+          name={FormFields.streetAddress.key}
+          data-testid={dataTestIds.contactInformationContainer.streetAddress}
           control={control}
-          defaultValue={patient?.address?.[0]?.line?.[0]}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-          id="patient-street-address"
-          onChangeHandler={handleChange}
+          id={FormFields.streetAddress.key}
         />
+      </Row>
+      <Row label="Address line 2" inputId={FormFields.addressLine2.key}>
+        <FormTextField name={FormFields.addressLine2.key} control={control} id={FormFields.addressLine2.key} />
       </Row>
       <Row label="City, State, ZIP" required>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <FormTextField
-            name={patientFieldPaths.city}
+            name={FormFields.city.key}
             control={control}
-            defaultValue={patient?.address?.[0]?.city}
             rules={{
               required: REQUIRED_FIELD_ERROR_MESSAGE,
             }}
-            onChangeHandler={handleChange}
+            data-testid={dataTestIds.contactInformationContainer.city}
           />
-          <FormAutocomplete
-            name={patientFieldPaths.state}
+          <Controller
+            name={FormFields.state.key}
             control={control}
-            options={STATE_OPTIONS}
-            defaultValue={patient?.address?.[0]?.state}
+            data-testid={dataTestIds.contactInformationContainer.state}
             rules={{
-              validate: (value: string) => STATE_OPTIONS.some((option) => option.value === value),
               required: REQUIRED_FIELD_ERROR_MESSAGE,
             }}
-            onChangeHandler={handleAutocompleteChange}
+            render={({ field: { value }, fieldState: { error } }) => {
+              return (
+                <Autocomplete
+                  options={STATE_OPTIONS.map((option) => option.value)}
+                  value={value ?? ''}
+                  onChange={(_, newValue) => {
+                    if (newValue) {
+                      setValue(FormFields.state.key, newValue);
+                    } else {
+                      setValue(FormFields.state.key, '');
+                    }
+                  }}
+                  disableClearable
+                  fullWidth
+                  renderInput={(params) => (
+                    <TextField {...params} variant="standard" error={!!error} required helperText={error?.message} />
+                  )}
+                />
+              );
+            }}
           />
           <FormTextField
-            name={patientFieldPaths.zip}
+            name={FormFields.zip.key}
             control={control}
-            defaultValue={patient?.address?.[0]?.postalCode}
             rules={{
               required: REQUIRED_FIELD_ERROR_MESSAGE,
               validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
             }}
-            onChangeHandler={handleChange}
+            data-testid={dataTestIds.contactInformationContainer.zip}
           />
         </Box>
       </Row>
       <Row label="Patient email" required={true}>
         <FormTextField
-          id="patient-email"
-          name={emailPath}
+          id={FormFields.email.key}
+          name={FormFields.email.key}
+          data-testid={dataTestIds.contactInformationContainer.patientEmail}
           control={control}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
@@ -92,21 +90,23 @@ export const ContactContainer: FC = () => {
               message: 'Must be in the format "email@example.com"',
             },
           }}
-          defaultValue={email}
-          onChangeHandler={handleChange}
         />
       </Row>
       <Row label="Patient mobile" required={true}>
         <FormTextField
-          id="patient-mobile"
-          name={phonePath}
+          id={FormFields.phone.key}
+          name={FormFields.phone.key}
           control={control}
-          defaultValue={standardizePhoneNumber(phone)}
+          inputProps={{ mask: '(000) 000-0000' }}
+          InputProps={{
+            inputComponent: InputMask as any,
+          }}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
-            validate: (value: string) => isPhoneNumberValid(value) || 'Must be 10 digits',
+            validate: (value: string) =>
+              phoneRegex.test(value) || 'Phone number must be 10 digits in the format (xxx) xxx-xxxx',
           }}
-          onChangeHandler={handleChange}
+          data-testid={dataTestIds.contactInformationContainer.patientMobile}
         />
       </Row>
     </Section>

@@ -51,11 +51,27 @@ export const InviteParticipantForm: FC<InviteParticipantsFormProps> = ({ onInvit
             width: 6,
           },
           {
+            type: 'Radio List',
+            name: 'preferredContact',
+            label: 'Preferred contact',
+            required: true,
+            radioOptions: [
+              { label: 'Email', value: 'email' },
+              { label: 'Phone', value: 'phone' },
+            ],
+            style: { display: 'flex', flexDirection: 'row' },
+          },
+          {
             type: 'Text',
             name: 'phoneNumber',
             label: 'Phone number',
             format: 'Phone Number',
             required: true,
+            requireWhen: {
+              question: 'preferredContact',
+              operator: '=',
+              answer: 'phone',
+            },
           },
           {
             type: 'Text',
@@ -63,6 +79,11 @@ export const InviteParticipantForm: FC<InviteParticipantsFormProps> = ({ onInvit
             label: 'Email address',
             format: 'Email',
             required: true,
+            requireWhen: {
+              question: 'preferredContact',
+              operator: '=',
+              answer: 'email',
+            },
           },
         ]}
         onSubmit={submitInviteParticipantForm}

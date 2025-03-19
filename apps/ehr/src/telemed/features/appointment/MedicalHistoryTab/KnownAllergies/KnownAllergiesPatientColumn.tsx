@@ -4,6 +4,7 @@ import { getQuestionnaireResponseByLinkId } from 'utils';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
 import { PatientSideListSkeleton } from '../PatientSideListSkeleton';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const KnownAllergiesPatientColumn: FC<{ noItemsMessage?: string }> = ({ noItemsMessage }) => {
   const theme = useTheme();
@@ -29,6 +30,7 @@ export const KnownAllergiesPatientColumn: FC<{ noItemsMessage?: string }> = ({ n
         flexDirection: 'column',
         gap: 1,
       }}
+      data-testid={dataTestIds.telemedEhrFlow.hpiKnownAllergiesPatientProvidedList}
     >
       {isAppointmentLoading ? (
         <PatientSideListSkeleton />

@@ -835,7 +835,9 @@ export function getProviderNameWithProfession(practitioner: Practitioner): strin
   const firstName = practitioner.name?.[0].given?.[0];
   const secondName = practitioner.name?.[0].family;
   const professionAbbreviation = practitioner.name?.[0].suffix?.join(' ');
-  return [`${secondName}, ${firstName}`, professionAbbreviation].join(' | ');
+  const fullName = [secondName, firstName].filter(Boolean).join(', ');
+
+  return [fullName, professionAbbreviation].filter(Boolean).join(' | ');
 }
 
 export const findExtensionIndex = (extensions: Extension[], url: string): number => {
@@ -1227,4 +1229,26 @@ export const unpackFhirResponse = async <T>(response: { json: () => Promise<any>
 
 export const unbundleBatchPostOutput = <T extends Resource>(bundle: Bundle<T>): T[] => {
   return (bundle.entry?.map((entry) => entry.resource) ?? []) as T[];
+};
+
+export const getVersionedReferencesFromBundleResources = (bundle: Bundle): Reference[] => {
+  return (bundle.entry ?? []).flatMap((entry) => {
+    const { resource } = entry;
+    if (!resource) {
+      return [];
+    }
+    const { meta, resourceType, id } = resource;
+    const versionId = meta?.versionId;
+    let reference = `${resourceType}/${id}`;
+    if (versionId) {
+      reference += `/_history/${versionId}`;
+    }
+
+    return { reference };
+  });
+};
+
+export const checkBundleOutcomeOk = (bundle: Bundle): boolean => {
+  const outcomeEntry = bundle.entry?.[0]?.response?.outcome?.id === 'ok';
+  return outcomeEntry;
 };
