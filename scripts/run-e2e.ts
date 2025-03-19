@@ -10,11 +10,11 @@ const supportedApps = ['ehr', 'intake'] as const;
 const ports = {
   ehr: {
     frontend: 4002,
-    backend: 4001,
+    backend: 3000,
   },
   intake: {
     frontend: 3002,
-    backend: 3001,
+    backend: 3000,
   },
 } as const;
 
@@ -81,6 +81,51 @@ const waitForApp = async (app: (typeof supportedApps)[number]): Promise<void> =>
   });
 };
 
+const startZambdas = async (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    // ehr envMapping happnens to match zambdas env names
+    const childProcess = spawn('cross-env', [`ENV=${envMapping['ehr'][ENV]}`, 'npm', 'run', `zambdas:start`], {
+      shell: true,
+      stdio: 'inherit',
+      env: { ...process.env, ENV: envMapping['ehr'][ENV] },
+    });
+
+    childProcess.on('error', (err) => {
+      console.error('Zambdas start error ', err);
+      reject(err);
+    });
+
+    waitForZambdas()
+      .then(() => {
+        console.log('Zambdas service is ready');
+        resolve();
+      })
+      .catch(reject);
+  });
+};
+
+const waitForZambdas = async (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const process = spawn(
+      'wait-on',
+      [`http://localhost:3000/${envMapping['ehr'][ENV]}/zambda/version/execute-public`, '--timeout', '60000'],
+      {
+        shell: true,
+        stdio: 'inherit',
+      }
+    );
+
+    process.on('error', reject);
+    process.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`Failed to start zambdas`));
+      }
+    });
+  });
+};
+
 const startApp = async (app: (typeof supportedApps)[number]): Promise<void> => {
   return new Promise((resolve, reject) => {
     const childProcess = spawn(
@@ -140,6 +185,7 @@ const setupTestDeps = async (): Promise<void> => {
 };
 
 const startApps = async (): Promise<void> => {
+  await startZambdas();
   for (const app of supportedApps) {
     console.log(`Starting ${app} application...`);
     await startApp(app);

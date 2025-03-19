@@ -1,4 +1,4 @@
-import { Locator, expect, Page } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 
 export async function checkString(locator: Locator, string: string): Promise<void> {
   await expect(locator).toHaveText(string);
@@ -128,4 +128,29 @@ export async function checkFieldHasError(
 export async function nextPage(pageTest: Page, button = 'Continue'): Promise<void> {
   const nextButton = pageTest.getByRole('button', { name: button });
   await nextButton.click();
+}
+
+export async function iterateThroughTable(
+  tableLocator: Locator,
+  callback: (row: Locator) => Promise<void>
+): Promise<void> {
+  const rows = tableLocator.locator('tbody tr');
+  const rowCount = await rows.count();
+
+  for (let i = 0; i < rowCount; i++) {
+    await callback(rows.nth(i));
+  }
+}
+
+export async function fillWaitAndSelectDropdown(
+  page: Page,
+  dropdownDataTestId: string,
+  textToFill: string
+): Promise<void> {
+  await page.getByTestId(dropdownDataTestId).locator('input').fill(textToFill);
+  // Wait for dropdown options to appear
+  const dropdownOptions = page.locator('.MuiAutocomplete-popper li'); // MUI uses this class for dropdown items
+  await dropdownOptions.first().waitFor(); // Wait for the first option to become visible
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
 }

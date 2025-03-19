@@ -5,6 +5,7 @@ import ImageCarousel, { ImageCarouselObject } from '../../../../../components/Im
 import { getPresignedFileUrl } from '../../../../../helpers/files.helper';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const ChiefComplaintPatientColumn: FC = () => {
   const theme = useTheme();
@@ -65,7 +66,9 @@ export const ChiefComplaintPatientColumn: FC = () => {
             <Typography>.</Typography>
           </Skeleton>
         ) : (
-          <Typography>{appointment?.description ?? ''}</Typography>
+          <Typography data-testid={dataTestIds.telemedEhrFlow.hpiReasonForVisit}>
+            {appointment?.description ?? ''}
+          </Typography>
         )}
       </Box>
       {(isAppointmentLoading || photoUrlsLoading || photoCarouselObjects?.length > 0) && (
@@ -87,7 +90,10 @@ export const ChiefComplaintPatientColumn: FC = () => {
               ))}
             </Box>
           ) : (
-            <Box sx={{ width: '100%', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridGap: 16 }}>
+            <Box
+              sx={{ width: '100%', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridGap: 16 }}
+              data-testid={dataTestIds.telemedEhrFlow.hpiPatientConditionPhotos}
+            >
               {photoCarouselObjects.map((photoObj, ind) => (
                 <Box key={photoObj.url} display="inline-block" sx={{ cursor: 'pointer' }}>
                   <img
