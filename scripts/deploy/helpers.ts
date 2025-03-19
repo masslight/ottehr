@@ -86,7 +86,7 @@ export async function updateZambdas(
     if (typeof ehrDistribution === 'string') {
       ehrEnvFile = ehrEnvFile.replace(
         'VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL=http://localhost:4002',
-        `VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL=https://${ehrDistribution}`
+        `VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL=${ehrDistribution}`
       );
     } else {
       ehrEnvFile = ehrEnvFile.replace(
@@ -99,7 +99,7 @@ export async function updateZambdas(
     if (typeof intakeDistribution === 'string') {
       ehrEnvFile = ehrEnvFile.replace(
         'VITE_APP_QRS_URL=http://localhost:3002',
-        `VITE_APP_QRS_URL=https://${intakeDistribution}`
+        `VITE_APP_QRS_URL=${intakeDistribution}`
       );
     } else {
       ehrEnvFile = ehrEnvFile.replace(
