@@ -21,7 +21,7 @@ export const ResponsibleInformationContainer: FC = () => {
 
   const patientData = watch(PatientGuarantorFields);
   const localData = watch(LocalDependentFields);
-  const selfSelected = watch(FormFields.relationship.key) === 'SELF';
+  const selfSelected = watch(FormFields.relationship.key) === 'Self';
 
   useEffect(() => {
     if (selfSelected) {
