@@ -1,12 +1,12 @@
 import { Appointment, Patient, Location, Encounter } from 'fhir/r4b';
 import { FillingOutAs, Gender } from './constants';
 
-export type AppointmentProcessedSourceData = {
-  sourceData: SourceData;
-  processedData: ProcessedData;
+export type VisitDataAndMappedData = {
+  data: VisitSourceData;
+  mappedData: VisitMappedData;
 };
 
-export type SourceData = Partial<{
+export type VisitSourceData = Partial<{
   appointment: AppointmentValues;
   location: LocationValues;
   encounter: EncounterValues;
@@ -14,7 +14,7 @@ export type SourceData = Partial<{
   patient: PatientValues;
 }>;
 
-export type ProcessedData = Partial<{
+export type VisitMappedData = Partial<{
   firstName: string;
   lastName: string;
   birthDate: string;

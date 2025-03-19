@@ -1,13 +1,21 @@
-import React, { useState, useRef } from 'react';
-import { MedicationCardView } from './MedicationCardView';
-import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
-import { getEditOrderUrl } from '../../../routing/helpers';
+import React, { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { CSSModal } from '../../CSSModal';
-import { useReactNavigationBlocker } from '../../../hooks/useReactNavigationBlocker';
-import { ROUTER_PATH, routesCSS } from '../../../routing/routesCSS';
+import {
+  ExtendedMedicationDataForResponse,
+  MedicationData,
+  medicationExtendedToMedicationData,
+  MedicationOrderStatusesType,
+  UpdateMedicationOrderInput,
+} from 'utils';
 import { useAppointment } from '../../../hooks/useAppointment';
+import { useFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
+import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
+import { useReactNavigationBlocker } from '../../../hooks/useReactNavigationBlocker';
+import { getEditOrderUrl } from '../../../routing/helpers';
+import { ROUTER_PATH, routesCSS } from '../../../routing/routesCSS';
+import { CSSModal } from '../../CSSModal';
 import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
+import { MedicationCardView } from './MedicationCardView';
 import {
   ConfirmSaveModalConfig,
   getConfirmSaveModalConfigs,
@@ -17,14 +25,6 @@ import {
   isUnsavedMedicationData,
   validateAllMedicationFields,
 } from './utils';
-import {
-  ExtendedMedicationDataForResponse,
-  MedicationData,
-  medicationExtendedToMedicationData,
-  MedicationOrderStatusesType,
-  UpdateMedicationOrderInput,
-} from 'utils';
-import { useFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 
 export const EditableMedicationCard: React.FC<{
   medication?: ExtendedMedicationDataForResponse;
@@ -37,7 +37,7 @@ export const EditableMedicationCard: React.FC<{
   const [isConfirmSaveModalOpen, setIsConfirmSaveModalOpen] = useState(false);
   const confirmedMedicationUpdateRequestRef = useRef<Partial<UpdateMedicationOrderInput>>({});
   const [confirmationModalConfig, setConfirmationModalConfig] = useState<ConfirmSaveModalConfig | null>(null);
-  const { processedData, sourceData } = useAppointment(encounterId);
+  const { mappedData, data } = useAppointment(encounterId);
   const [isReasonSelected, setIsReasonSelected] = useState(true);
   const selectsOptions = useFieldsSelectsOptions();
 
@@ -106,7 +106,7 @@ export const EditableMedicationCard: React.FC<{
       orderData: {
         ...(medication ? medicationExtendedToMedicationData(medication) : {}),
         ...updatedRequestInput.orderData,
-        patient: sourceData?.patient?.id || '',
+        patient: data?.patient?.id || '',
         encounter: encounterId,
       } as MedicationData,
     };
@@ -132,7 +132,7 @@ export const EditableMedicationCard: React.FC<{
       const confirmSaveModalConfigs = getConfirmSaveModalConfigs({
         medicationName,
         routeName,
-        patientName: processedData.patientName || '',
+        patientName: mappedData.patientName || '',
         newStatus: updatedRequestInput.newStatus,
         updateRequestInputRef: confirmedMedicationUpdateRequestRef,
         setIsReasonSelected,

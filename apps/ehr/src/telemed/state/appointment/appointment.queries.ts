@@ -122,7 +122,7 @@ export const useGetTelemedAppointmentPeriodicRefresh = (
     isEnabled: boolean;
     refreshIntervalMs: number | undefined;
   },
-  onSuccess: (data: TelemedAppointmentData[]) => void
+  onSuccess: (data: VisitResources[]) => void
 ) => {
   const { oystehr } = useApiClients();
   const refetchOptions = refreshIntervalMs ? { refetchInterval: refreshIntervalMs } : {};
@@ -131,7 +131,7 @@ export const useGetTelemedAppointmentPeriodicRefresh = (
     async () => {
       if (oystehr && appointmentId) {
         return (
-          await oystehr.fhir.search<TelemedAppointmentData>({
+          await oystehr.fhir.search<VisitResources>({
             resourceType: 'Appointment',
             params: [
               { name: '_id', value: appointmentId },
@@ -153,22 +153,16 @@ export const useGetTelemedAppointmentPeriodicRefresh = (
   );
 };
 
-export type TelemedAppointmentData =
-  | Appointment
-  | DocumentReference
-  | Encounter
-  | Location
-  | Patient
-  | QuestionnaireResponse;
+export type VisitResources = Appointment | DocumentReference | Encounter | Location | Patient | QuestionnaireResponse;
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetTelemedAppointment = (
+export const useGetAppointment = (
   {
     appointmentId,
   }: {
     appointmentId: string | undefined;
   },
-  onSuccess: (data: TelemedAppointmentData[]) => void
+  onSuccess: (data: VisitResources[]) => void
 ) => {
   const { oystehr } = useApiClients();
   return useQuery(
@@ -176,7 +170,7 @@ export const useGetTelemedAppointment = (
     async () => {
       if (oystehr && appointmentId) {
         return (
-          await oystehr.fhir.search<TelemedAppointmentData>({
+          await oystehr.fhir.search<VisitResources>({
             resourceType: 'Appointment',
             params: [
               { name: '_id', value: appointmentId },
@@ -408,7 +402,6 @@ export const useGetChartData = (
           console.error('Error during fetching get telemed appointments: ', err);
         },
         enabled: !!apiClient && !!encounterId && !!user && !isAppointmentLoading && enabled,
-        staleTime: 5000,
       }
     ),
     queryKey: key,

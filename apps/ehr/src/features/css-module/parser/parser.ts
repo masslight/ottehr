@@ -14,9 +14,9 @@ import {
   getQuestionnaireResponseValues,
   getResources,
 } from './extractors';
-import { AppointmentProcessedSourceData, ProcessedData } from './types';
+import { VisitDataAndMappedData, VisitMappedData } from './types';
 
-export const getParsedAppointmentData = (resourceBundle: FhirResource[]): Partial<ProcessedData> => {
+export const getVisitMappedData = (resourceBundle: FhirResource[]): Partial<VisitMappedData> => {
   const { patient, questionnaireResponse } = getResources(resourceBundle);
   const patientName = getPatientName(patient?.name);
 
@@ -36,7 +36,7 @@ export const getParsedAppointmentData = (resourceBundle: FhirResource[]): Partia
   };
 };
 
-export const parseBundle = (resourceBundle: FhirResource[]): AppointmentProcessedSourceData => {
+export const parseBundle = (resourceBundle: FhirResource[]): VisitDataAndMappedData => {
   const {
     appointment: appointmentResource,
     patient: patientResource,
@@ -51,17 +51,17 @@ export const parseBundle = (resourceBundle: FhirResource[]): AppointmentProcesse
   const encounter = getEncounterValues(encounterResource);
   const questionnaire = getQuestionnaireResponseValues(questionnaireResponseResource);
   const patientInfoWithFallback = getPatientInfoWithFallback(patient, questionnaire);
-  const parsedAppointmentData = getParsedAppointmentData(resourceBundle);
+  const parsedAppointmentData = getVisitMappedData(resourceBundle);
 
   return {
-    sourceData: {
+    data: {
       appointment,
       location,
       encounter,
       questionnaire,
       patient,
     },
-    processedData: {
+    mappedData: {
       ...patientInfoWithFallback,
       ...parsedAppointmentData,
     },

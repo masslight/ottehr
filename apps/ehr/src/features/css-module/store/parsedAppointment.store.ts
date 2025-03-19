@@ -1,8 +1,8 @@
 import { create } from 'zustand';
-import { AppointmentProcessedSourceData } from '../parser';
+import { VisitDataAndMappedData } from '../parser';
 
-const PARSED_APPOINTMENT_INITIAL: AppointmentProcessedSourceData = { sourceData: {}, processedData: {} };
+const PARSED_APPOINTMENT_INITIAL: VisitDataAndMappedData = { data: {}, mappedData: {} };
 
-export const useParsedAppointmentStore = create<AppointmentProcessedSourceData>()(() => ({
+export const useParsedAppointmentStore = create<VisitDataAndMappedData>()(() => ({
   ...PARSED_APPOINTMENT_INITIAL,
 }));
