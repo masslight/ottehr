@@ -16,7 +16,6 @@ import {
   PatientDetailsContainer,
   PrimaryCareContainer,
   ResponsibleInformationContainer,
-  SettingsContainer,
 } from '../components/patient';
 import {
   useGetInsurancePlans,
@@ -309,7 +308,6 @@ const PatientInformationPage: FC = () => {
                     </Button>
                   )}
                   <ResponsibleInformationContainer />
-                  <SettingsContainer />
                 </Box>
               </Box>
             </Box>
