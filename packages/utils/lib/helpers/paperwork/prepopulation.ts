@@ -68,6 +68,9 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
     ?.valueCodeableConcept?.coding?.[0]?.display;
 
   const pronouns = getPronounsFromExtension(patient);
+  const customPronouns = patient.extension?.find(
+    (e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/individual-pronouns-custom`
+  )?.valueString;
   const language = patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0].display;
 
   let patientSex: string | undefined;
@@ -354,6 +357,9 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
           const { linkId } = item;
           if (linkId === 'patient-pronouns' && pronouns) {
             answer = makeAnswer(pronouns);
+          }
+          if (linkId === 'patient-pronouns-custom' && customPronouns) {
+            answer = makeAnswer(customPronouns);
           }
           if (linkId === 'preferred-language' && language) {
             answer = makeAnswer(language);
