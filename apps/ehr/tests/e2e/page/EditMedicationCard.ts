@@ -57,6 +57,9 @@ export class EditMedicationCard {
   async enterDose(dose: string): Promise<void> {
     await this.#page.getByTestId(FIELD_TO_TEST_ID.get(Field.DOSE)!).locator('input').pressSequentially(dose);
   }
+  async clearDose(): Promise<void> {
+    await this.#page.getByTestId(FIELD_TO_TEST_ID.get(Field.DOSE)!).locator('input').clear();
+  }
 
   async verifyDose(dose: string): Promise<void> {
     await expect(this.#page.getByTestId(FIELD_TO_TEST_ID.get(Field.DOSE)!).locator('input')).toHaveValue(dose);
@@ -83,6 +86,10 @@ export class EditMedicationCard {
     );
   }
 
+  async clearManufacturer(): Promise<void> {
+    await this.#page.getByTestId(FIELD_TO_TEST_ID.get(Field.MANUFACTURER)!).locator('input').clear();
+  }
+
   async selectRoute(route: string): Promise<void> {
     await this.#page.getByTestId(FIELD_TO_TEST_ID.get(Field.ROUTE)!).click();
     await this.#page.getByText(route, { exact: true }).click();
@@ -107,8 +114,14 @@ export class EditMedicationCard {
     ).toHaveText(instructions);
   }
 
-  async verifyValidationErrorShown(field: Field): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.dialog.closeButton).click();
+  async clearInstructions(): Promise<void> {
+    await this.#page.getByTestId(FIELD_TO_TEST_ID.get(Field.INSTRUCTIONS)!).locator('textarea:visible').clear();
+  }
+
+  async verifyValidationErrorShown(field: Field, closeErrorDialog = true): Promise<void> {
+    if (closeErrorDialog) {
+      await this.#page.getByTestId(dataTestIds.dialog.closeButton).click();
+    }
     await expect(
       this.#page.getByTestId(FIELD_TO_TEST_ID.get(field)!).locator('p:text("This field is required")')
     ).toBeVisible();

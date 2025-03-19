@@ -29,25 +29,50 @@ export class InHouseMedicationsPage {
     return expectOrderMedicationPage(this.#page);
   }
 
-  async verifyMedicationPresent(medicationName: string, status: string): Promise<void> {
+  async verifyMedicationPresent(input: {
+    medicationName: string;
+    dose: string;
+    route: string;
+    instructions: string;
+    status: string;
+  }): Promise<void> {
     await expect(
       this.#page
         .getByTestId(dataTestIds.inHouseMedicationsPage.marTableRow)
         .filter({
           has: this.#page
             .getByTestId(dataTestIds.inHouseMedicationsPage.marTableMedicationCell)
-            .filter({ hasText: medicationName }),
+            .filter({ hasText: input.medicationName }),
+        })
+        .filter({
+          has: this.#page
+            .getByTestId(dataTestIds.inHouseMedicationsPage.marTableDoseCell)
+            .filter({ hasText: input.dose }),
+        })
+        .filter({
+          has: this.#page
+            .getByTestId(dataTestIds.inHouseMedicationsPage.marTableRouteCell)
+            .filter({ hasText: input.route }),
+        })
+        .filter({
+          has: this.#page
+            .getByTestId(dataTestIds.inHouseMedicationsPage.marTableInstructionsCell)
+            .filter({ hasText: input.instructions }),
         })
         .filter({
           has: this.#page
             .getByTestId(dataTestIds.inHouseMedicationsPage.marTableStatusCell)
-            .filter({ hasText: status }),
+            .filter({ hasText: input.status }),
         })
     ).toBeVisible();
   }
 
   async clickMedicationDetailsTab(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.medicationDetailsTab).click();
+  }
+
+  async clickPencilIcon(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.pencilIconButton).click();
   }
 }
 
