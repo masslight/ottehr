@@ -3,6 +3,7 @@ import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared/h
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { AuditEvent, Bundle, Questionnaire, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import {
+  AUDIT_EVENT_OUTCOME_CODE,
   checkBundleOutcomeOk,
   getVersionedReferencesFromBundleResources,
   isValidUUID,
@@ -84,9 +85,11 @@ const writeAuditEvent = async (input: AuditEventInput, oystehr: Oystehr): Promis
   const { resultBundle, providerProfileReference, patientId, questionnaireResponse } = input;
   const outcome = (() => {
     if (!resultBundle) {
-      return '8';
+      return AUDIT_EVENT_OUTCOME_CODE.seriousFailure;
     }
-    return checkBundleOutcomeOk(resultBundle) ? '0' : '8';
+    return checkBundleOutcomeOk(resultBundle)
+      ? AUDIT_EVENT_OUTCOME_CODE.success
+      : AUDIT_EVENT_OUTCOME_CODE.seriousFailure;
   })();
   const contained: AuditEvent['contained'] = [{ ...questionnaireResponse, id: 'inputQR' }];
   const entity: AuditEvent['entity'] = [
