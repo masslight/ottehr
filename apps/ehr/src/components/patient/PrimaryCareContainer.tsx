@@ -13,7 +13,7 @@ export const PrimaryCareContainer: FC = () => {
   const isActive = watch(FormFields.active.key, true);
 
   return (
-    <Section title="Primary Care Physician">
+    <Section title="Primary care physician">
       <Controller
         name={FormFields.active.key}
         control={control}

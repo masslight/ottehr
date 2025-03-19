@@ -5,6 +5,7 @@ import { isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
 import {
   INSURANCE_COVERAGE_OPTIONS,
+  PatientIdentifyingFields,
   RELATIONSHIP_TO_INSURED_OPTIONS,
   SEX_OPTIONS,
   STATE_OPTIONS,
@@ -32,7 +33,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
 
   const { control, setValue, watch } = useFormContext();
 
-  const { FormFields, LocalAddressFields } = useMemo(() => {
+  const { FormFields, LocalAddressFields, LocalIdentifyingFields } = useMemo(() => {
     const FormFields = AllFormFields.insurance[ordinal - 1];
 
     const LocalAddressFields = [
@@ -42,22 +43,49 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
       FormFields.state.key,
       FormFields.zip.key,
     ];
-    return { FormFields, LocalAddressFields };
+
+    const LocalIdentifyingFields = [
+      FormFields.firstName.key,
+      FormFields.middleName.key,
+      FormFields.lastName.key,
+      FormFields.birthDate.key,
+      FormFields.birthSex.key,
+    ];
+    return { FormFields, LocalAddressFields, LocalIdentifyingFields };
   }, [ordinal]);
 
   const patientAddressData = watch(PatientAddressFields);
+  const patientIdentifyingData = watch(PatientIdentifyingFields);
   const localAddressData = watch(LocalAddressFields);
+  const localIdentifyingData = watch(LocalIdentifyingFields);
+  const selfSelected = watch(FormFields.relationship.key) === 'Self';
 
   useEffect(() => {
-    // console.log('patientAddressData state', patientAddressData[3]);
-    if (sameAsPatientAddress) {
+    if (sameAsPatientAddress || selfSelected) {
       for (let i = 0; i < localAddressData.length; i++) {
         if (patientAddressData[i] && localAddressData[i] !== patientAddressData[i]) {
           setValue(LocalAddressFields[i], patientAddressData[i]);
         }
       }
+      if (selfSelected) {
+        for (let i = 0; i < localIdentifyingData.length; i++) {
+          if (patientIdentifyingData[i] && localIdentifyingData[i] !== patientIdentifyingData[i]) {
+            setValue(LocalIdentifyingFields[i], patientIdentifyingData[i]);
+          }
+        }
+      }
     }
-  }, [LocalAddressFields, localAddressData, patientAddressData, sameAsPatientAddress, setValue]);
+  }, [
+    LocalAddressFields,
+    LocalIdentifyingFields,
+    localAddressData,
+    localIdentifyingData,
+    patientAddressData,
+    patientIdentifyingData,
+    sameAsPatientAddress,
+    selfSelected,
+    setValue,
+  ]);
 
   const toggleMoreInfo = (): void => {
     setShowMoreInfo((prev) => !prev);
@@ -68,7 +96,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
   };
 
   return (
-    <Section title="Insurance Information">
+    <Section title="Insurance information">
       <Row label="Type" required>
         <FormSelect
           name={FormFields.insurancePriority.key}
@@ -140,39 +168,48 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
             <FormTextField
               id={FormFields.firstName.key}
               name={FormFields.firstName.key}
+              disabled={selfSelected}
               control={control}
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
             />
           </Row>
           <Row label="Policy holder's middle name" inputId={FormFields.middleName.key}>
-            <FormTextField id={FormFields.middleName.key} name={FormFields.middleName.key} control={control} />
+            <FormTextField
+              id={FormFields.middleName.key}
+              name={FormFields.middleName.key}
+              control={control}
+              disabled={selfSelected}
+            />
           </Row>
           <Row label="Policy holder's last name" required inputId={FormFields.lastName.key}>
             <FormTextField
               id={FormFields.lastName.key}
               name={FormFields.lastName.key}
+              disabled={selfSelected}
               control={control}
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
             />
           </Row>
           <Row label="Policy holder's date of birth" required>
-            <DatePicker name={FormFields.birthDate.key} control={control} required={true} />
+            <DatePicker name={FormFields.birthDate.key} control={control} required={true} disabled={selfSelected} />
           </Row>
           <Row label="Policy holder's sex" required>
             <FormSelect
               name={FormFields.birthSex.key}
               control={control}
               options={SEX_OPTIONS}
+              disabled={selfSelected}
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
             />
           </Row>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: '5px' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: '0px' }}>
               <Checkbox
-                checked={sameAsPatientAddress}
+                checked={sameAsPatientAddress || selfSelected}
                 onChange={() => {
                   setSameAsPatientAddress((currentVal) => !currentVal);
                 }}
+                disabled={selfSelected}
               />
               <Typography>Policy holder address is the same as patient's address</Typography>
             </Box>
@@ -181,7 +218,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
             <FormTextField
               id={FormFields.streetAddress.key}
               name={FormFields.streetAddress.key}
-              disabled={sameAsPatientAddress && Boolean(patientAddressData[0])}
+              disabled={(sameAsPatientAddress || selfSelected) && Boolean(patientAddressData[0])}
               control={control}
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
             />
@@ -190,7 +227,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
             <FormTextField
               id={FormFields.addressLine2.key}
               name={FormFields.addressLine2.key}
-              disabled={sameAsPatientAddress}
+              disabled={sameAsPatientAddress || selfSelected}
               control={control}
             />
           </Row>
@@ -198,7 +235,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
             <Box sx={{ display: 'flex', gap: 2 }}>
               <FormTextField
                 name={FormFields.city.key}
-                disabled={sameAsPatientAddress && Boolean(patientAddressData[2])}
+                disabled={(sameAsPatientAddress || selfSelected) && Boolean(patientAddressData[2])}
                 control={control}
                 rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
               />
@@ -212,7 +249,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
                   return (
                     <Autocomplete
                       options={STATE_OPTIONS.map((option) => option.value)}
-                      disabled={sameAsPatientAddress && Boolean(patientAddressData[3])}
+                      disabled={(sameAsPatientAddress || selfSelected) && Boolean(patientAddressData[3])}
                       value={value ?? ''}
                       onChange={(_, newValue) => {
                         if (newValue) {
@@ -239,7 +276,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
               <FormTextField
                 name={FormFields.zip.key}
                 control={control}
-                disabled={sameAsPatientAddress && Boolean(patientAddressData[4])}
+                disabled={(sameAsPatientAddress || selfSelected) && Boolean(patientAddressData[4])}
                 rules={{
                   validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
                   required: REQUIRED_FIELD_ERROR_MESSAGE,

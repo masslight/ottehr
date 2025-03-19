@@ -650,6 +650,14 @@ export const FormFields = {
   },
 };
 
+export const PatientIdentifyingFields = [
+  FormFields.patientSummary.firstName.key,
+  FormFields.patientSummary.middleName.key,
+  FormFields.patientSummary.lastName.key,
+  FormFields.patientSummary.birthDate.key,
+  FormFields.patientSummary.birthSex.key,
+];
+
 export const PatientAddressFields = [
   FormFields.patientContactInformation.streetAddress.key,
   FormFields.patientContactInformation.addressLine2.key,
