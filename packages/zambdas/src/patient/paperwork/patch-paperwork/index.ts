@@ -6,9 +6,8 @@ import { QuestionnaireResponse } from 'fhir/r4b';
 import {} from 'utils';
 import { ZambdaInput } from 'zambda-utils';
 import { topLevelCatch } from 'zambda-utils';
-import '../../shared/instrument.mjs';
-import { getAuth0Token } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import '../../../shared/instrument.mjs';
+import { createOystehrClient, getAuth0Token } from '../../../shared';
 import { PatchPaperworkEffectInput, validatePatchInputs } from '../validateRequestParameters';
 
 // Lifting the token out of the handler function allows it to persist across warm lambda invocations.

@@ -12,7 +12,7 @@ import {
 } from 'utils';
 import { ZambdaInput } from 'zambda-utils';
 import { SecretsKeys, getSecret } from 'zambda-utils';
-import { getAuth0Token } from '../shared';
+import { getAuth0Token } from '../../shared';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;

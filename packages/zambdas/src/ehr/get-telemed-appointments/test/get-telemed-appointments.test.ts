@@ -1,6 +1,6 @@
 import Oystehr, { OystehrConfig, User } from '@oystehr/sdk';
-import { mapStatusToTelemed } from '../../shared/appointment/helpers';
-import { getVideoRoomResourceExtension } from '../../shared/helpers';
+import { mapStatusToTelemed } from '../../../shared/appointment/helpers';
+import { getVideoRoomResourceExtension } from '../../../shared/helpers';
 import { getPractLicensesLocationsAbbreviations } from '../helpers/fhir-utils';
 import { mapQuestionnaireToEncountersIds } from '../helpers/mappers';
 import {

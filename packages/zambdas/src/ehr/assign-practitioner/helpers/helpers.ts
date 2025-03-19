@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Encounter, Practitioner, PractitionerRole } from 'fhir/r4b';
 import { getPatchBinary, UserRole } from 'utils';
-import { EncounterPackage } from '../../shared/practitioner/types';
+import { EncounterPackage } from '../../../shared/practitioner/types';
 
 export const assignPractitionerIfPossible = async (
   oystehr: Oystehr,

@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment } from 'fhir/r4b';
-import { getAuth0Token } from '../src/ehr/shared';
+import { getAuth0Token } from '../src/shared';
 import { contact, healthcareContacts, patient } from './appointment-validation.test';
 import { vi } from 'vitest';
 export const DEFAULT_TEST_TIMEOUT = 100000;

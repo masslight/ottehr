@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { getWaitingTimeForAppointment } from '../src/ehr/shared/waitTimeUtils';
+import { getWaitingTimeForAppointment } from '../src/shared/waitTimeUtils';
 import { Encounter, EncounterStatusHistory } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FhirEncounterStatus } from 'utils';

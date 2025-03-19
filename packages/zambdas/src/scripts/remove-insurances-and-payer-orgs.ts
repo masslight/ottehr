@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { getAuth0Token } from '../patient/shared';
+import { getAuth0Token } from '../shared';
 // import { fhirApiUrlFromAuth0Audience } from './helpers';
 import Oystehr from '@oystehr/sdk';
 import { InsurancePlan, Organization } from 'fhir/r4b';

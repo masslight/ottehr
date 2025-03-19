@@ -74,7 +74,6 @@ import {
   makeVitalsObservationDTO,
   removeOperation,
 } from 'utils';
-import { followUpToPerformerMap } from '../../save-chart-data/helpers';
 import { removePrefix } from '../appointment/helpers';
 import { PdfDocumentReferencePublishedStatuses, PdfInfo, isDocumentPublished } from '../pdf/pdf-utils';
 import { saveOrUpdateResourceRequest } from '../resources.helpers';
@@ -1232,4 +1231,13 @@ export const createDispositionServiceRequest = ({
       [NOTHING_TO_EAT_OR_DRINK_FIELD]: disposition[NOTHING_TO_EAT_OR_DRINK_FIELD],
     })
   );
+};
+
+export const followUpToPerformerMap: { [field in DispositionFollowUpType]: CodeableConcept | undefined } = {
+  dentistry: createCodingCode('106289002', 'Dentist', 'http://snomed.info/sct'),
+  ent: createCodingCode('309372007', 'Ear, nose and throat surgeon', 'http://snomed.info/sct'),
+  ophthalmology: createCodingCode('422234006', 'Ophthalmologist (occupation)', 'http://snomed.info/sct'),
+  orthopedics: createCodingCode('59169001', 'Orthopedic technician', 'http://snomed.info/sct'),
+  'lurie-ct': createCodingCode('lurie-ct', undefined, 'lurie-ct'),
+  other: createCodingCode('other', 'other'),
 };

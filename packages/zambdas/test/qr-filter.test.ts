@@ -1,8 +1,7 @@
 import { IntakeQuestionnaireItem, getQuestionnaireItemsAndProgress, recursiveGroupTransform } from 'utils';
-import { getAuth0Token } from '../src/patient/shared';
-import { createOystehrClient } from '../src/patient/shared/helpers';
-import QRData from './data/quetionnaire-responses.json';
 import { vi } from 'vitest';
+import { createOystehrClient, getAuth0Token } from '../src/shared';
+import QRData from './data/quetionnaire-responses.json';
 import { SECRETS as S } from './data/secrets';
 
 // where does this come form, and how can we get the questionnaire id instead?

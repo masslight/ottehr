@@ -9,7 +9,7 @@ import {
   visitStatusToFhirEncounterStatusMap,
   VisitStatusWithoutUnknown,
 } from 'utils';
-import { EncounterPackage } from '../../shared/practitioner/types';
+import { EncounterPackage } from '../../../shared/practitioner/types';
 
 export const changeInPersonVisitStatusIfPossible = async (
   oystehr: Oystehr,

@@ -11,9 +11,8 @@ import {
 } from 'utils';
 import { ZambdaInput } from 'zambda-utils';
 import { topLevelCatch } from 'zambda-utils';
-import '../../../shared/instrument.mjs';
-import { captureSentryException, configSentry, getAuth0Token } from '../../../shared';
-import { createOystehrClient } from '../../../shared/helpers';
+import '../../../../shared/instrument.mjs';
+import { captureSentryException, createOystehrClient, configSentry, getAuth0Token } from '../../../../shared';
 import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
 

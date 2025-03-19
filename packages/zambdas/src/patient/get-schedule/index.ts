@@ -14,12 +14,16 @@ import {
   isWalkinOpen,
   makeSlotTentativelyBusy,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { SecretsKeys, getSecret, topLevelCatch } from 'zambda-utils';
-import '../shared/instrument.mjs';
-import { captureSentryException, configSentry, getAuth0Token } from '../shared';
-import { getSchedule } from '../shared/fhir';
-import { createOystehrClient, getLocationInformation } from '../shared/helpers';
+import { SecretsKeys, ZambdaInput, getSecret, topLevelCatch } from 'zambda-utils';
+import {
+  captureSentryException,
+  configSentry,
+  createOystehrClient,
+  getAuth0Token,
+  getLocationInformation,
+  getSchedule,
+} from '../../shared';
+import '../../shared/instrument.mjs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations

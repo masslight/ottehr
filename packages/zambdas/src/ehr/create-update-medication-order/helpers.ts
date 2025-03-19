@@ -13,7 +13,7 @@ import {
   searchRouteByCode,
 } from 'utils';
 import { Secrets } from 'zambda-utils';
-import { createOystehrClient } from '../shared/helpers';
+import { createOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from 'zambda-utils';
 import { createMedicationAdministrationResource } from './fhir-recources-creation';
 import { ExtendedMedicationData } from './index';

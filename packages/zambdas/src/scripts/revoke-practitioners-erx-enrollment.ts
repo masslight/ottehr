@@ -3,7 +3,7 @@ import { Extension, Practitioner } from 'fhir/r4b';
 import * as fs from 'fs';
 import { getPatchBinary } from 'utils';
 import { FHIR_EXTENSION } from 'utils';
-import { getAuth0Token } from '../patient/shared';
+import { getAuth0Token } from '../shared';
 import { fhirApiUrlFromAuth0Audience } from './helpers';
 
 async function getPractitionersBatch(oystehr: Oystehr, offset: number, count: number): Promise<Practitioner[]> {

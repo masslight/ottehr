@@ -14,9 +14,9 @@
 //   WORK_NOTE_CODE,
 //  } from 'utils';
 // import { getPatchBinary } from '../../../../app/src/helpers/fhir';
-// import { telemedStatusToEncounter } from '../../shared/appointment/helpers';
-// import { sendSmsForPatient } from '../../shared/communication';
-// import { PdfDocumentReferencePublishedStatuses, PdfInfo } from '../../shared/pdf/pdf-utils';
+// import { telemedStatusToEncounter } from '../../../shared/appointment/helpers';
+// import { sendSmsForPatient } from '../../../shared/communication';
+// import { PdfDocumentReferencePublishedStatuses, PdfInfo } from '../../../shared/pdf/pdf-utils';
 // import {
 //   addPeriodEndOp,
 //   addStatusHistoryRecordOp,

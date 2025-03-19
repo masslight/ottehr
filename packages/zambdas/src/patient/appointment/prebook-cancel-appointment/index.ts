@@ -22,14 +22,20 @@ import {
   getRelatedPersonForPatient,
   isPostTelemedAppointment,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { Secrets, SecretsKeys, getSecret, topLevelCatch } from 'zambda-utils';
-import { captureSentryException, configSentry, getAuth0Token, sendInPersonCancellationEmail } from '../../shared';
-import { getUser } from '../../shared/auth';
-import { getEncounterDetails } from '../../shared/getEncounterDetails';
-import { createOystehrClient, getLocationInformation } from '../../shared/helpers';
-import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAuditLog';
-import { validateBundleAndExtractAppointment } from '../../shared/validateBundleAndExtractAppointment';
+import { Secrets, SecretsKeys, ZambdaInput, getSecret, topLevelCatch } from 'zambda-utils';
+import {
+  AuditableZambdaEndpoints,
+  captureSentryException,
+  configSentry,
+  createAuditEvent,
+  createOystehrClient,
+  getAuth0Token,
+  getEncounterDetails,
+  getLocationInformation,
+  getUser,
+  validateBundleAndExtractAppointment,
+} from '../../../shared';
+import { sendInPersonCancellationEmail } from '../../../shared/communication';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface CancelAppointmentInput {

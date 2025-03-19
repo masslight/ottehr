@@ -5,10 +5,10 @@ import { DateTime } from 'luxon';
 import { DATETIME_FULL_NO_YEAR, TaskStatus, getPatientContactEmail } from 'utils';
 import { ZambdaInput } from 'zambda-utils';
 import { Secrets, topLevelCatch } from 'zambda-utils';
-import '../../../shared/instrument.mjs';
-import { captureSentryException, configSentry, getAuth0Token, sendInPersonCancellationEmail } from '../../../shared';
-import { createOystehrClient } from '../../../shared/helpers';
+import '../../../../shared/instrument.mjs';
+import { captureSentryException, createOystehrClient, configSentry, getAuth0Token } from '../../../../shared';
 import { validateRequestParameters } from '../validateRequestParameters';
+import { sendInPersonCancellationEmail } from '../../../../shared/communication';
 
 export interface TaskSubscriptionInput {
   task: Task;

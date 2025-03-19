@@ -1,16 +1,10 @@
 import Oystehr, { TransactionalSMSSendParams } from '@oystehr/sdk';
 import sendgrid from '@sendgrid/mail';
-import { Appointment, HealthcareService, Location, Practitioner } from 'fhir/r4b';
+import { getRelatedPersonForPatient } from './patients';
+import { Appointment, HealthcareService, Location, Patient, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  createOystehrClient,
-  formatPhoneNumberDisplay,
-  getRelatedPersonForPatient,
-  isLocationVirtual,
-  ServiceMode,
-  SLUG_SYSTEM,
-} from 'utils';
-import { getSecret, Secrets, SecretsKeys, sendErrors } from 'zambda-utils';
+import { formatPhoneNumberDisplay, isLocationVirtual, SLUG_SYSTEM, ServiceMode, createOystehrClient } from 'utils';
+import { Secrets, getSecret, SecretsKeys, sendErrors } from 'zambda-utils';
 
 export interface InPersonCancellationEmailSettings {
   email: string;
@@ -362,44 +356,32 @@ export const sendVideoChatInvititationEmail = async (input: VideoChatInvitationE
   }
 };
 
-export async function sendConfirmationMessages(
-  email: string | undefined,
-  message: string,
-  messageRecipient: string,
-  secrets: Secrets | null,
-  appointmentID: string,
-  token: string
-): Promise<void> {
-  const messagePromises: Promise<any>[] = [];
-  if (email) {
-    messagePromises.push(sendVirtualConfirmationEmail({ toAddress: email, appointmentID, secrets }));
-  } else {
-    console.log('email undefined');
-  }
-  messagePromises.push(sendSms(message, token, messageRecipient, secrets));
-  await Promise.all(messagePromises).catch((e) =>
-    console.error(`Stringified err: ${JSON.stringify(e)}, just error: ${e}`)
-  );
-}
-
-export async function sendSms(
-  message: string,
-  token: string,
-  messageRecipient: string,
-  secrets: Secrets | null
-): Promise<void> {
+export async function sendSms(message: string, resourceReference: string, oystehr: Oystehr): Promise<void> {
   try {
-    const oystehr = createOystehrClient(
-      token,
-      getSecret(SecretsKeys.FHIR_API, secrets),
-      getSecret(SecretsKeys.PROJECT_API, secrets)
-    );
     const commid = await oystehr.transactionalSMS.send({
       message,
-      resource: messageRecipient,
+      resource: resourceReference,
     });
-    console.log('Sms message send res: ', commid);
+    console.log('message send res: ', commid);
   } catch (e) {
-    console.log('Sms message send error: ', JSON.stringify(e));
+    console.log('message send error: ', JSON.stringify(e));
   }
+}
+
+export async function sendSmsForPatient(
+  message: string,
+  oystehr: Oystehr,
+  patient: Patient | undefined
+): Promise<void> {
+  if (!patient) {
+    console.error("Message didn't send because no patient was found for encounter");
+    return;
+  }
+  const relatedPerson = await getRelatedPersonForPatient(patient.id!, oystehr);
+  if (!relatedPerson) {
+    console.error("Message didn't send because no related person was found for this patient, patientId: " + patient.id);
+    return;
+  }
+  const recepient = `RelatedPerson/${relatedPerson.id}`;
+  await sendSms(message, recepient, oystehr);
 }

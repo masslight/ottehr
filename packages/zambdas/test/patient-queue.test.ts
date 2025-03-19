@@ -10,8 +10,8 @@ import {
   visitStatusToFhirEncounterStatusMap,
 } from 'utils';
 import { beforeAll, expect, test } from 'vitest';
-import { HOP_QUEUE_URI } from '../src/ehr/shared/constants';
-import { sortAppointments } from '../src/ehr/shared/queueingUtils';
+import { HOP_QUEUE_URI } from '../src/shared/constants';
+import { sortAppointments } from '../src/shared/queueingUtils';
 
 let NOW: DateTime;
 

@@ -3,9 +3,9 @@
 // import { SecretsKeys, getSecret, Secrets } from 'zambda-utils';
 // import { Patient } from 'fhir/r4';
 // import { DateTime } from 'luxon';
-// import { PdfInfo } from '../../shared/pdf/pdf-utils';
-// import { ExternalLabsData } from '../../shared/pdf/types';
-// import { createExternalLabsOrderFormPDF } from '../../shared/pdf/external-labs-order-form-pdf';
+// import { PdfInfo } from '../../../shared/pdf/pdf-utils';
+// import { ExternalLabsData } from '../../../shared/pdf/types';
+// import { createExternalLabsOrderFormPDF } from '../../../shared/pdf/external-labs-order-form-pdf';
 
 // export async function composeAndCreateExternalLabsOrderFormPdf(
 //   chartData: GetChartDataResponse,

@@ -10,9 +10,14 @@ import {
 } from 'utils';
 import { ZambdaInput } from 'zambda-utils';
 import { Secrets, SecretsKeys, getSecret, topLevelCatch } from 'zambda-utils';
-import '../shared/instrument.mjs';
-import { captureSentryException, configSentry, getAuth0Token } from '../shared';
-import { createOystehrClient, getLocationInformation } from '../shared/helpers';
+import '../../shared/instrument.mjs';
+import {
+  captureSentryException,
+  configSentry,
+  createOystehrClient,
+  getAuth0Token,
+  getLocationInformation,
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetAppointmentDetailInput {

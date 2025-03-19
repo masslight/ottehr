@@ -6,9 +6,8 @@ import { DateTime } from 'luxon';
 import {} from 'utils';
 import { ZambdaInput } from 'zambda-utils';
 import { topLevelCatch } from 'zambda-utils';
-import '../../shared/instrument.mjs';
-import { captureSentryException, configSentry, getAuth0Token, getUser } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import '../../../shared/instrument.mjs';
+import { captureSentryException, createOystehrClient, configSentry, getAuth0Token, getUser } from '../../../shared';
 import { createOrUpdateFlags } from '../sharedHelpers';
 import { validateUpdatePaperworkParams } from './validateRequestParameters';
 

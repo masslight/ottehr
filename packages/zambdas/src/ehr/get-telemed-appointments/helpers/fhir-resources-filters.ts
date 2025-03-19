@@ -1,7 +1,7 @@
 import { Appointment, Encounter, Patient, Practitioner, QuestionnaireResponse, Resource } from 'fhir/r4b';
 import { AppointmentLocation, mapEncounterStatusHistory, TelemedCallStatuses } from 'utils';
-import { mapStatusToTelemed, removePrefix } from '../../shared/appointment/helpers';
-import { getVideoRoomResourceExtension } from '../../shared/helpers';
+import { mapStatusToTelemed, removePrefix } from '../../../shared/appointment/helpers';
+import { getVideoRoomResourceExtension } from '../../../shared/helpers';
 import { getLocationIdFromAppointment } from './helpers';
 import { mapQuestionnaireToEncountersIds, mapTelemedEncountersToAppointmentsIdsMap } from './mappers';
 import { AppointmentPackage, LocationIdToAbbreviationMap } from './types';

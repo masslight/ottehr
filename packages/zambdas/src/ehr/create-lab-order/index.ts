@@ -27,7 +27,8 @@ import { DateTime } from 'luxon';
 import { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import Oystehr from '@oystehr/sdk';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
+import { createOystehrClient } from '../../shared/helpers';
+import { checkOrCreateM2MClientToken } from '../../shared';
 
 export interface SubmitLabOrder {
   dx: DiagnosisDTO[];

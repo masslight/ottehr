@@ -5,11 +5,11 @@ import { DateTime } from 'luxon';
 import { DATETIME_FULL_NO_YEAR, TaskStatus, VisitType, getPatientContactEmail, getPatientFirstName } from 'utils';
 import { ZambdaInput } from 'zambda-utils';
 import { topLevelCatch } from 'zambda-utils';
-import '../../../shared/instrument.mjs';
-import { captureSentryException, configSentry, getAuth0Token, sendInPersonMessages } from '../../../shared';
-import { createOystehrClient } from '../../../shared/helpers';
+import '../../../../shared/instrument.mjs';
+import { captureSentryException, createOystehrClient, configSentry, getAuth0Token } from '../../../../shared';
 import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
+import { sendInPersonMessages } from '../../../../shared/communication';
 
 let zapehrToken: string;
 

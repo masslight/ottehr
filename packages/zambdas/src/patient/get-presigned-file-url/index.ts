@@ -17,11 +17,9 @@ import {
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_WORK_ID,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { makeZ3Url, Secrets, topLevelCatch } from 'zambda-utils';
-import '../shared/instrument.mjs';
-import { captureSentryException, configSentry, getAuth0Token } from '../shared';
-import { createOystehrClient } from '../shared/helpers';
+import { makeZ3Url, Secrets, topLevelCatch, ZambdaInput } from 'zambda-utils';
+import { captureSentryException, configSentry, createOystehrClient, getAuth0Token } from '../../shared';
+import '../../shared/instrument.mjs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let zapehrToken: string;

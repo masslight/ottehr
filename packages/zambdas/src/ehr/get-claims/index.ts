@@ -1,6 +1,6 @@
 import { ZambdaInput } from 'zambda-utils';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
+import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
   Appointment,
@@ -31,6 +31,7 @@ import {
 } from './helpers/fhir-utils';
 import { DateTime } from 'luxon';
 import Oystehr from '@oystehr/sdk';
+import { checkOrCreateM2MClientToken } from '../../shared';
 
 export interface ClaimPackage {
   appointment?: Appointment;

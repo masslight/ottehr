@@ -1,10 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication } from 'fhir/r4b';
-import { makeCommunicationDTO } from '../shared/chart-data/chart-data-helpers';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
+import { makeCommunicationDTO } from '../../shared/chart-data';
+import { createOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from 'zambda-utils';
 import { checkIfProvidersInstruction, createCommunicationResource, updateCommunicationResource } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+import { checkOrCreateM2MClientToken } from '../../shared';
 
 let m2mtoken: string;
 
