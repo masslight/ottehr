@@ -101,7 +101,7 @@ export async function createUserResourcesForPatient(
     );
     person = personResults[0];
     const hasLink = person.link;
-    if (hasLink) {
+    if (!hasLink) {
       console.log(
         "Person does not have link, this shouldn't happen outside of test cases but is still possible - The account may not have patients"
       );
