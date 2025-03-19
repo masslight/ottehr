@@ -68,6 +68,9 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
     ?.valueCodeableConcept?.coding?.[0]?.display;
 
   const pronouns = getPronounsFromExtension(patient);
+  const customPronouns = patient.extension?.find(
+    (e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/individual-pronouns-custom`
+  )?.valueString;
   const language = patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0].display;
 
   let patientSex: string | undefined;
@@ -114,11 +117,11 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
   const responsiblePartyBirthDate = responsibleParty?.extension?.find((e) => e.url === DATE_OF_BIRTH_URL)?.valueString;
 
   let responsiblePartySex: string | undefined;
-  if (patient?.gender === 'male') {
+  if (responsibleParty?.gender === 'male') {
     responsiblePartySex = 'Male';
-  } else if (patient?.gender === 'female') {
+  } else if (responsibleParty?.gender === 'female') {
     responsiblePartySex = 'Female';
-  } else if (patient?.gender !== undefined) {
+  } else if (responsibleParty?.gender !== undefined) {
     responsiblePartySex = 'Intersex';
   }
   const responsiblePartyPhoneNumber = responsibleParty?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
@@ -236,8 +239,6 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
     reference: `InsurancePlan/${primaryInsurancePlan?.id}`,
     display: primaryCoverage?.class?.[0].name,
   };
-
-  const paymentOption = primaryCoverage ? 'I have insurance' : 'I will pay without insurance';
 
   const secondaryCoverage = insuranceInfo?.find(
     (resource): resource is Coverage => resource.resourceType === 'Coverage' && resource.order === 2
@@ -357,6 +358,9 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
           if (linkId === 'patient-pronouns' && pronouns) {
             answer = makeAnswer(pronouns);
           }
+          if (linkId === 'patient-pronouns-custom' && customPronouns) {
+            answer = makeAnswer(customPronouns);
+          }
           if (linkId === 'preferred-language' && language) {
             answer = makeAnswer(language);
           }
@@ -475,8 +479,8 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
           if (linkId === 'insurance-carrier' && primaryInsurancePlan) {
             answer = makeAnswer(insuranceCarrier, 'Reference');
           }
-          if (linkId === 'payment-option' && paymentOption) {
-            answer = makeAnswer(paymentOption);
+          if (linkId === 'payment-option' && primaryCoverage) {
+            answer = makeAnswer('I have insurance');
           }
           if (linkId === 'display-secondary-insurance') {
             answer = makeAnswer(displaySecondaryInsurance, 'Boolean');

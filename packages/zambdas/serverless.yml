@@ -419,11 +419,11 @@ functions:
     timeout: 25
     package:
       include:
-        - CTT.and.Guarantee.of.Payment-S.pdf
-        - CTT.and.Guarantee.of.Payment.Illinois-S.pdf
-        - HIPAA.Acknowledgement-S.pdf
-        - DancingScript-Regular.otf
-        - ottehrLogo.png
+        - assets/CTT.and.Guarantee.of.Payment-S.pdf
+        - assets/CTT.and.Guarantee.of.Payment.Illinois-S.pdf
+        - assets/HIPAA.Acknowledgement-S.pdf
+        - assets/DancingScript-Regular.otf
+        - assets/ottehrLogo.png
     environment:
       AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
       AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
@@ -781,12 +781,12 @@ functions:
     timeout: 25
     package:
       include:
-        - Roboto-Bold.otf
-        - Roboto-Regular.otf
-        - TiemposHeadline-Regular.otf
-        - ottehrLogo.png
-        - red-dot.png
-        - green-dot.png
+        - assets/Roboto-Bold.otf
+        - assets/Roboto-Regular.otf
+        - assets/TiemposHeadline-Regular.otf
+        - assets/ottehrLogo.png
+        - assets/red-dot.png
+        - assets/green-dot.png
     environment:
       AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
       AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
@@ -810,12 +810,12 @@ functions:
     timeout: 25
     package:
       include:
-        - Roboto-Bold.otf
-        - Roboto-Regular.otf
-        - TiemposHeadline-Regular.otf
-        - ottehrLogo.png
-        - red-dot.png
-        - green-dot.png
+        - assets/Roboto-Bold.otf
+        - assets/Roboto-Regular.otf
+        - assets/TiemposHeadline-Regular.otf
+        - assets/ottehrLogo.png
+        - assets/red-dot.png
+        - assets/green-dot.png
     environment:
       AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
       AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
@@ -838,12 +838,12 @@ functions:
     timeout: 25
     package:
       include:
-        - Roboto-Bold.otf
-        - Roboto-Regular.otf
-        - TiemposHeadline-Regular.otf
-        - ottehrLogo.png
-        - red-dot.png
-        - green-dot.png
+        - assets/Roboto-Bold.otf
+        - assets/Roboto-Regular.otf
+        - assets/TiemposHeadline-Regular.otf
+        - assets/ottehrLogo.png
+        - assets/red-dot.png
+        - assets/green-dot.png
     environment:
       AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
       AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
@@ -863,12 +863,12 @@ functions:
     timeout: 25
     package:
       include:
-        - Roboto-Bold.otf
-        - Roboto-Regular.otf
-        - TiemposHeadline-Regular.otf
-        - ottehrLogo.png
-        - red-dot.png
-        - green-dot.png
+        - assets/Roboto-Bold.otf
+        - assets/Roboto-Regular.otf
+        - assets/TiemposHeadline-Regular.otf
+        - assets/ottehrLogo.png
+        - assets/red-dot.png
+        - assets/green-dot.png
     environment:
       AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
       AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
@@ -888,12 +888,12 @@ functions:
     timeout: 25
     package:
       include:
-        - Roboto-Bold.otf
-        - Roboto-Regular.otf
-        - TiemposHeadline-Regular.otf
-        - ottehrLogo.png
-        - red-dot.png
-        - green-dot.png
+        - assets/Roboto-Bold.otf
+        - assets/Roboto-Regular.otf
+        - assets/TiemposHeadline-Regular.otf
+        - assets/ottehrLogo.png
+        - assets/red-dot.png
+        - assets/green-dot.png
     environment:
       AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
       AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
@@ -981,10 +981,10 @@ functions:
     timeout: 25
     package:
       include:
-        - DancingScript-Regular.otf
-        - Roboto-Bold.otf
-        - Roboto-Regular.otf
-        - ottehrLogo.png
+        - assets/DancingScript-Regular.otf
+        - assets/Roboto-Bold.otf
+        - assets/Roboto-Regular.otf
+        - assets/ottehrLogo.png
     environment:
       AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
       AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
