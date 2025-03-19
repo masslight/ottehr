@@ -383,3 +383,11 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
     substituteText: `${PRIVATE_EXTENSION_BASE_URL}/text-when-substitute-text`,
   },
 };
+
+// https://hl7.org/fhir/R4B/valueset-audit-event-outcome.html
+export const AUDIT_EVENT_OUTCOME_CODE = {
+  success: '0',
+  minorFailure: '4',
+  seriousFailure: '8',
+  majorFailure: '12',
+};

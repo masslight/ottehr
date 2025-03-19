@@ -2,6 +2,7 @@ import { Secrets, topLevelCatch, ZambdaInput } from 'zambda-utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared/helpers';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
+  AUDIT_EVENT_OUTCOME_CODE,
   checkBundleOutcomeOk,
   FHIR_RESOURCE_NOT_FOUND,
   getVersionedReferencesFromBundleResources,
@@ -194,9 +195,11 @@ const writeAuditEvent = async (input: AuditEventInput, oystehr: Oystehr): Promis
   console.log('result bundle', JSON.stringify(resultBundle, null, 2));
   const outcome = (() => {
     if (!resultBundle) {
-      return '8';
+      return AUDIT_EVENT_OUTCOME_CODE.seriousFailure;
     }
-    return checkBundleOutcomeOk(resultBundle) ? '0' : '8';
+    return checkBundleOutcomeOk(resultBundle)
+      ? AUDIT_EVENT_OUTCOME_CODE.success
+      : AUDIT_EVENT_OUTCOME_CODE.seriousFailure;
   })();
   const entity: AuditEvent['entity'] = [
     {
