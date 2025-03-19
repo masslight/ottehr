@@ -807,7 +807,7 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
 
   console.log('pdfsToCreate len', pdfsToCreate.length);
   for (const pdfInfo of pdfsToCreate) {
-    const documentReferences = await createFilesDocumentReferences({
+    const { docRefs: documentReferences } = await createFilesDocumentReferences({
       files: [{ url: pdfInfo.uploadURL, title: pdfInfo.formTitle }],
       type: pdfInfo.type,
       dateCreated: nowIso,
@@ -1015,8 +1015,9 @@ export async function createDocumentResources(
   }
 
   console.log('docsToSave len', docsToSave.length);
+  let newListResources = listResources;
   for (const d of docsToSave) {
-    await createFilesDocumentReferences({
+    const result = await createFilesDocumentReferences({
       files: d.files,
       type: {
         coding: [
@@ -1042,12 +1043,13 @@ export async function createDocumentResources(
       references: d.references,
       oystehr,
       generateUUID: randomUUID,
-      listResources,
+      listResources: newListResources,
       meta: {
         // for backward compatibility. TODO: remove this
         tag: [{ code: OTTEHR_MODULE.IP }, { code: OTTEHR_MODULE.TM }],
       },
     });
+    newListResources = result.listResources ?? listResources;
   }
 }
 
