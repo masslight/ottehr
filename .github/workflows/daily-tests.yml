@@ -97,10 +97,13 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
-      - name: Run test-setup script
+      - name: Run setup script
         run: |
-          chmod +x scripts/e2e-test-setup.sh
-          ./scripts/e2e-test-setup.sh --skip-prompts    
+          chmod +x scripts/ottehr-setup.sh
+          ./scripts/ottehr-setup.sh \
+            "${{ env.PROJECT_ID }}" \
+            "${{ steps.get-token.outputs.access_token }}" \
+            "${{ env.TEST_EMAIL }}"
 
       - name: Run E2E tests on the EHR application
         continue-on-error: true

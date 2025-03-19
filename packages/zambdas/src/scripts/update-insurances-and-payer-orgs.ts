@@ -20,7 +20,7 @@ enum PayersFileColumns {
   payerType = 'Payer Type',
 }
 
-const CSV_FILE_PATH = 'scripts/data/insurance-payers.csv';
+const CSV_FILE_PATH = 'src/scripts/data/insurance-payers.csv';
 
 const PAYER_ID_SYSTEM = 'payer-id';
 
