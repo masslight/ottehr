@@ -86,9 +86,9 @@ export class Paperwork {
     await expect(this.locator.flowHeading).toHaveText('Contact information');
   }
   async fillContactInformationRequiredFields(): Promise<void> {
+    await this.fillPatientState();
     await this.fillStreetAddress();
     await this.fillPatientCity();
-    await this.fillPatientState();
     await this.fillPatientZip();
     await expect(this.locator.streetAddress).not.toBeEmpty();
     await expect(this.locator.patientCity).not.toBeEmpty();
@@ -114,7 +114,6 @@ export class Paperwork {
     const city = `City${this.getRandomString()}`;
     await this.locator.patientCity.fill(city);
     await expect(this.locator.patientCity).toHaveValue(city);
-    await this.locator.streetAddress.fill(`Address ${this.getRandomString()}`);
   }
   async fillPatientState(): Promise<void> {
     const randomState = this.getRandomState();
