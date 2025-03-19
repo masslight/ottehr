@@ -1,16 +1,38 @@
-import { FC } from 'react';
+import { FC, useEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { phoneRegex, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
-import { RELATIONSHIP_OPTIONS, SEX_OPTIONS } from '../../constants';
+import { PatientGuarantorFields, RELATIONSHIP_OPTIONS, SEX_OPTIONS } from '../../constants';
 import { Row, Section } from '../layout';
 import { dataTestIds } from '../../constants/data-test-ids';
 import InputMask from '../InputMask';
 import { FormFields as AllFormFields } from '../../constants';
 
 const FormFields = AllFormFields.responsibleParty;
+const LocalDependentFields = [
+  FormFields.firstName.key,
+  FormFields.lastName.key,
+  FormFields.birthDate.key,
+  FormFields.birthSex.key,
+  FormFields.phone.key,
+];
 export const ResponsibleInformationContainer: FC = () => {
-  const { control } = useFormContext();
+  const { control, watch, setValue } = useFormContext();
+
+  const patientData = watch(PatientGuarantorFields);
+  const localData = watch(LocalDependentFields);
+  const selfSelected = watch(FormFields.relationship.key) === 'SELF';
+
+  useEffect(() => {
+    if (selfSelected) {
+      for (let i = 0; i < localData.length; i++) {
+        if (patientData[i] && localData[i] !== patientData[i]) {
+          setValue(LocalDependentFields[i], patientData[i]);
+        }
+      }
+    }
+  }, [localData, patientData, selfSelected, setValue]);
+
   return (
     <Section title="Responsible party information" dataTestId={dataTestIds.responsiblePartyInformationContainer.id}>
       <Row label={FormFields.relationship.label} required>
@@ -32,6 +54,7 @@ export const ResponsibleInformationContainer: FC = () => {
           control={control}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           id={FormFields.firstName.key}
+          disabled={selfSelected}
         />
       </Row>
       <Row label={FormFields.lastName.label} required inputId={FormFields.lastName.key}>
@@ -41,10 +64,17 @@ export const ResponsibleInformationContainer: FC = () => {
           control={control}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           id={FormFields.lastName.key}
+          disabled={selfSelected}
         />
       </Row>
       <Row label={FormFields.birthDate.label} required>
-        <DatePicker name={FormFields.birthDate.key} control={control} required={true} defaultValue={''} />
+        <DatePicker
+          name={FormFields.birthDate.key}
+          control={control}
+          required={true}
+          defaultValue={''}
+          disabled={selfSelected}
+        />
       </Row>
       <Row label={FormFields.birthSex.label} required>
         <FormSelect
@@ -56,6 +86,7 @@ export const ResponsibleInformationContainer: FC = () => {
             required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
           required={true}
+          disabled={selfSelected}
         />
       </Row>
       <Row label={FormFields.phone.label} inputId={FormFields.phone.key}>
@@ -74,6 +105,7 @@ export const ResponsibleInformationContainer: FC = () => {
               return phoneRegex.test(value) || 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
             },
           }}
+          disabled={selfSelected}
         />
       </Row>
     </Section>

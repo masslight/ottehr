@@ -12,7 +12,7 @@ import {
 import { Row, Section } from '../layout';
 import ShowMoreButton from './ShowMoreButton';
 import { InsurancePlanDTO, usePatientStore } from '../../state/patient.store';
-import { PatientAddressFields } from './ContactContainer';
+import { PatientAddressFields } from '../../constants';
 import { FormFields as AllFormFields } from '../../constants';
 import { LoadingButton } from '@mui/lab';
 

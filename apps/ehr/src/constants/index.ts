@@ -649,3 +649,19 @@ export const FormFields = {
     phone: { key: 'responsible-party-number', type: 'String', label: 'Phone' },
   },
 };
+
+export const PatientAddressFields = [
+  FormFields.patientContactInformation.streetAddress.key,
+  FormFields.patientContactInformation.addressLine2.key,
+  FormFields.patientContactInformation.city.key,
+  FormFields.patientContactInformation.state.key,
+  FormFields.patientContactInformation.zip.key,
+];
+
+export const PatientGuarantorFields = [
+  FormFields.patientSummary.firstName.key,
+  FormFields.patientSummary.lastName.key,
+  FormFields.patientSummary.birthDate.key,
+  FormFields.patientSummary.birthSex.key,
+  FormFields.patientContactInformation.phone.key,
+];

@@ -11,14 +11,6 @@ import { FormFields as AllFormFields } from '../../constants';
 
 const FormFields = AllFormFields.patientContactInformation;
 
-export const PatientAddressFields = [
-  FormFields.streetAddress.key,
-  FormFields.addressLine2.key,
-  FormFields.city.key,
-  FormFields.state.key,
-  FormFields.zip.key,
-];
-
 export const ContactContainer: FC = () => {
   const { control, setValue } = useFormContext();
 
