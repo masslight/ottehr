@@ -14,12 +14,7 @@ import {
 import React, { useEffect } from 'react';
 import { useForm, Controller, FormProvider } from 'react-hook-form';
 import { InsurancePlanDTO, isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
-import {
-  INSURANCE_COVERAGE_OPTIONS,
-  RELATIONSHIP_TO_INSURED_OPTIONS,
-  SEX_OPTIONS,
-  STATE_OPTIONS,
-} from '../../constants';
+import { RELATIONSHIP_TO_INSURED_OPTIONS, SEX_OPTIONS, STATE_OPTIONS } from '../../constants';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField, LabeledField, Option } from '../form';
 import { usePatientStore } from '../../state/patient.store';
 import { Questionnaire } from 'fhir/r4b';
@@ -33,12 +28,19 @@ interface AddInsuranceModalProps {
   open: boolean;
   patientId: string;
   questionnaire: Questionnaire;
+  priorityOptions: { value: string; label: string }[];
   onClose: () => void;
 }
 
 const FormFields = AllFormFields.insurance[0];
 
-export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, patientId, questionnaire, onClose }) => {
+export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
+  open,
+  patientId,
+  questionnaire,
+  priorityOptions,
+  onClose,
+}) => {
   const theme = useTheme();
 
   const methods = useForm({
@@ -74,6 +76,8 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, pati
     }
   }, [open, submitQR, onClose]);
 
+  console.log('priorityOptions', priorityOptions);
+
   return (
     <Dialog open={open} onClose={onClose} PaperProps={{ sx: { p: 2, maxWidth: 'none' } }}>
       <DialogTitle
@@ -108,11 +112,12 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, pati
                   name={FormFields.insurancePriority.key}
                   variant="outlined"
                   control={control}
-                  options={INSURANCE_COVERAGE_OPTIONS}
-                  defaultValue="Primary"
+                  options={priorityOptions}
+                  defaultValue={priorityOptions[0]?.value ?? 'Primary'}
                   rules={{
                     required: REQUIRED_FIELD_ERROR_MESSAGE,
                   }}
+                  disabled={priorityOptions.length === 1}
                 />
               </LabeledField>
             </Grid>

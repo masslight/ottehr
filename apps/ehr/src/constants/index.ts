@@ -665,3 +665,8 @@ export const PatientGuarantorFields = [
   FormFields.patientSummary.birthSex.key,
   FormFields.patientContactInformation.phone.key,
 ];
+
+export const InsurancePriorityOptions = [
+  FormFields.insurance[0].insurancePriority.key,
+  FormFields.insurance[1].insurancePriority.key,
+];

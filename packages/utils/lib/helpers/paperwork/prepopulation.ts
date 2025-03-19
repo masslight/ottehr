@@ -1039,10 +1039,10 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     }
 
     if (linkId === 'insurance-priority') {
-      answer = makeAnswer('Primary');
+      answer = primary ? makeAnswer('Primary') : undefined;
     }
     if (linkId === 'insurance-priority-2') {
-      answer = makeAnswer('Secondary');
+      answer = secondary ? makeAnswer('Secondary') : undefined;
     }
 
     return {

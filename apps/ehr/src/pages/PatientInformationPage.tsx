@@ -35,6 +35,7 @@ import { useZapEHRAPIClient } from '../telemed/hooks/useOystehrAPIClient';
 import { enqueueSnackbar } from 'notistack';
 import { structureQuestionnaireResponse } from '../helpers/qr-structure';
 import { useQueryClient } from 'react-query';
+import { INSURANCE_COVERAGE_OPTIONS, InsurancePriorityOptions } from '../constants';
 
 const getAnyAnswer = (item: QuestionnaireResponseItem): any | undefined => {
   let index = 0;
@@ -156,7 +157,7 @@ const PatientInformationPage: FC = () => {
     reValidateMode: 'onChange',
   });
 
-  const { handleSubmit, formState } = methods;
+  const { handleSubmit, watch, formState } = methods;
   const { isDirty } = formState;
 
   useEffect(() => {
@@ -216,6 +217,10 @@ const PatientInformationPage: FC = () => {
   } else {
     if (!patient) return null;
   }
+
+  const currentlyAssignedPriorities = watch(InsurancePriorityOptions);
+
+  console.log('currentlyAssignedPriorities', currentlyAssignedPriorities);
 
   return (
     <div>
@@ -331,6 +336,9 @@ const PatientInformationPage: FC = () => {
         onClose={() => setOpenAddInsuranceModal(false)}
         questionnaire={questionnaire ?? { resourceType: 'Questionnaire', status: 'draft' }}
         patientId={patient.id ?? ''}
+        priorityOptions={INSURANCE_COVERAGE_OPTIONS.filter(
+          (option) => !currentlyAssignedPriorities.includes(option.value)
+        )}
       />
     </div>
   );
