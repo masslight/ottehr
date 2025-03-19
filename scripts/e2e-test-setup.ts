@@ -1,3 +1,4 @@
+import { spawn } from 'child_process';
 import fs from 'fs';
 import { input, password } from '@inquirer/prompts';
 import dotenv from 'dotenv';
@@ -20,6 +21,12 @@ const getEnvironment = (): string => {
 
 const environment = getEnvironment();
 console.log(`Using environment: ${environment}`);
+
+type Envs = {
+  zambdaEnv: any;
+  ehrUiEnv: any;
+  intakeUiEnv: any;
+};
 
 interface EhrConfig {
   TEXT_USERNAME?: string;
@@ -128,19 +135,31 @@ async function getLocationForTesting(
   throw Error('No locations found in FHIR API');
 }
 
-export async function createTestEnvFiles(): Promise<void> {
+async function loadEnvFiles(): Promise<Envs> {
+  const zambdaEnv: Record<string, string> = JSON.parse(
+    fs.readFileSync(`packages/zambdas/.env/${environment}.json`, 'utf8')
+  );
+  const ehrUiEnv: Record<string, string> = dotenv.parse(fs.readFileSync(`apps/ehr/env/.env.${environment}`, 'utf8'));
+  const intakeUiEnv: Record<string, string> = dotenv.parse(
+    fs.readFileSync(`apps/intake/env/.env.${environment}`, 'utf8')
+  );
+  return {
+    zambdaEnv,
+    ehrUiEnv,
+    intakeUiEnv,
+  };
+}
+
+async function createTestEnvFiles({
+  zambdaEnv,
+  ehrUiEnv,
+  intakeUiEnv,
+}): Promise<Envs & { userEmail: string; userPassword: string }> {
+  let ehrTextUsername = '';
+  let ehrTextPassword = '';
+
   try {
     const skipPrompts = process.argv.includes('--skip-prompts');
-
-    const zambdaEnv: Record<string, string> = JSON.parse(
-      fs.readFileSync(`packages/zambdas/.env/${environment}.json`, 'utf8')
-    );
-
-    const ehrUiEnv: Record<string, string> = dotenv.parse(fs.readFileSync(`apps/ehr/env/.env.${environment}`, 'utf8'));
-
-    const intakeUiEnv: Record<string, string> = dotenv.parse(
-      fs.readFileSync(`apps/intake/env/.env.${environment}`, 'utf8')
-    );
 
     const { locationId, locationName, locationSlug, locationState } = await getLocationForTesting(zambdaEnv);
 
@@ -163,8 +182,6 @@ export async function createTestEnvFiles(): Promise<void> {
       console.log('No existing Intake test config file found');
     }
 
-    let ehrTextUsername = '';
-    let ehrTextPassword = '';
     let phoneNumber = '';
     let textUsername = '';
     let textPassword = '';
@@ -259,6 +276,96 @@ export async function createTestEnvFiles(): Promise<void> {
   } catch (e) {
     console.error('Error creating env files for tests', e);
   }
+
+  return { zambdaEnv, ehrUiEnv, intakeUiEnv, userEmail: ehrTextUsername, userPassword: ehrTextPassword };
 }
 
-createTestEnvFiles().catch(() => process.exit(1));
+async function inviteUser({
+  zambdaEnv,
+  ehrUiEnv,
+  userEmail,
+  userPassword,
+}): Promise<{ inviteUrl: string; userPassword: string }> {
+  const tokenResponse = await fetch(zambdaEnv.AUTH0_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      client_id: zambdaEnv.AUTH0_CLIENT,
+      client_secret: zambdaEnv.AUTH0_SECRET,
+      audience: zambdaEnv.AUTH0_AUDIENCE,
+      grant_type: 'client_credentials',
+    }),
+  });
+
+  const tokenData = await tokenResponse.json();
+  const oystehr = new Oystehr({
+    accessToken: tokenData.access_token,
+    projectId: zambdaEnv.PROJECT_ID,
+    services: {
+      fhirApiUrl: zambdaEnv.FHIR_API,
+      projectApiUrl: zambdaEnv.PROJECT_API,
+    },
+  });
+
+  const allRoles = await oystehr.role.list();
+  const invite = await oystehr.user.invite({
+    applicationId: ehrUiEnv.VITE_APP_OYSTEHR_APPLICATION_ID,
+    email: userEmail,
+    resource: {
+      resourceType: 'Practitioner',
+    },
+    roles: [
+      ...allRoles
+        .filter((role) => ['Administrator', 'Manager', 'Staff', 'Provider'].includes(role.name))
+        .map((role) => role.id),
+    ],
+  });
+  return { inviteUrl: invite.invitationUrl, userPassword };
+}
+
+async function completeRegistration({ inviteUrl, userPassword }): Promise<void> {
+  // env-cmd -f ./env/tests.${ENV}.json playwright test ./complete-registration.spec.test
+  const completeRegistration = spawn(
+    'npx',
+    [
+      'playwright',
+      'test',
+      './complete-registration.spec.ts',
+      '--',
+      '--verbosity=2',
+      '--headed=false',
+      '--reporter=null',
+    ],
+    {
+      shell: true,
+      stdio: 'inherit',
+      cwd: 'scripts/e2e-test',
+      env: {
+        ...process.env,
+        E2E_TEST_USER_INVITE_URL: inviteUrl,
+        E2E_TEST_USER_PASSWORD: userPassword,
+        ENV: process.env.ENV,
+      },
+    }
+  );
+  completeRegistration.on('message', (m) => console.log(m));
+  completeRegistration.on('error', (e) => console.error(e));
+  completeRegistration.on('disconnect', () => console.error('registration disconnected'));
+  completeRegistration.on('exit', () => console.error('registration exit'));
+  completeRegistration.on('close', (code: number) => {
+    if (code !== 0) {
+      process.exit(code);
+    }
+  });
+}
+
+loadEnvFiles()
+  .then(createTestEnvFiles)
+  .then(inviteUser)
+  .then(completeRegistration)
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });

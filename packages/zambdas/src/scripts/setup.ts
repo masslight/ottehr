@@ -319,6 +319,7 @@ export async function setupEHR(
     );
     if (stderr1) {
       console.log(`Command executed with warnings: ${stderr1}`);
+      throw new Error(stderr1);
     } else {
       console.log(`stdout: ${stdout1}`);
       console.log('Update of insurances and payer orgs completed successfully.');
@@ -330,12 +331,14 @@ export async function setupEHR(
     );
     if (stderr2) {
       console.log(`Command executed with warnings: ${stderr2}`);
+      throw new Error(stderr1);
     } else {
       console.log(`stdout: ${stdout2}`);
       console.log('Update of in-house medications list completed successfully.');
     }
   } catch (error: any) {
     console.log(`Error occurred while executing command: ${error.message}`);
+    throw new Error(error);
   }
 
   if (invitationUrl1) {

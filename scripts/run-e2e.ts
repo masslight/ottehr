@@ -162,19 +162,26 @@ const startApp = async (app: (typeof supportedApps)[number]): Promise<void> => {
 };
 
 const setupTestDeps = async (): Promise<void> => {
+  try {
+    // Run the e2e-test-setup.sh script with skip-prompts and current environment
+    console.log(`Running e2e-test-setup.sh with environment ${ENV}...`);
+    execSync(`bash ./scripts/e2e-test-setup.sh --skip-prompts --environment ${ENV}`, {
+      stdio: 'inherit',
+      env: { ...process.env, ENV: ENV },
+    });
+  } catch (error) {
+    console.error(`Failed to run e2e-test-setup.sh:`, error);
+    clearPorts();
+    process.exit(1);
+  }
+
+  // Set up per-app test deps
   for (const app of supportedApps) {
     try {
       execSync(`node --experimental-vm-modules setup-test-deps.js`, {
         stdio: 'inherit',
         env: { ...process.env, ENV: ENV },
         cwd: path.join(process.cwd(), `apps/${app}`),
-      });
-
-      // Run the e2e-test-setup.sh script with skip-prompts and current environment
-      console.log(`Running e2e-test-setup.sh for ${app} with environment ${ENV}...`);
-      execSync(`bash ./scripts/e2e-test-setup.sh --skip-prompts --environment ${ENV}`, {
-        stdio: 'inherit',
-        env: { ...process.env, ENV: ENV },
       });
     } catch (error) {
       console.error(`Failed to run setup-test-deps.js for ${app}:`, error);
@@ -208,6 +215,10 @@ function runTests(): void {
       env: { ...process.env, ENV },
     }
   );
+  loginTest.on('message', (m) => console.log(m));
+  loginTest.on('error', (e) => console.error(e));
+  loginTest.on('disconnect', () => console.error('login disconnected'));
+  loginTest.on('exit', () => console.error('login exit'));
 
   loginTest.on('close', (loginCode) => {
     if (loginCode === 0) {
