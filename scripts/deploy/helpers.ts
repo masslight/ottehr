@@ -1,6 +1,7 @@
 import fetch from 'node-fetch';
 import fs from 'fs';
 import config from './deploy-config.json';
+import { DistributionSummary } from '@aws-sdk/client-cloudfront';
 
 const projectConfig: any = config;
 const environment = projectConfig.environment;
@@ -67,8 +68,8 @@ export async function updateZapehr(intakeDistribution: string, ehrDistribution: 
 
 export async function updateZambdas(
   environment: string,
-  intakeDistribution: string,
-  ehrDistribution: string
+  intakeDistribution: DistributionSummary | undefined,
+  ehrDistribution: DistributionSummary | undefined
 ): Promise<void> {
   console.log(__dirname);
   let intakeEnvFile = fs.readFileSync(`${__dirname}/../../apps/intake/env/.env.${environment}`, 'utf8');
@@ -84,11 +85,14 @@ export async function updateZambdas(
   if (ehrDistribution) {
     ehrEnvFile = ehrEnvFile.replace(
       'VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL=http://localhost:4002',
-      `VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL=${ehrDistribution}`
+      `VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL=https://${ehrDistribution.DomainName}`
     );
   }
   if (intakeDistribution) {
-    ehrEnvFile = ehrEnvFile.replace('VITE_APP_QRS_URL=http://localhost:3002', `VITE_APP_QRS_URL=${intakeDistribution}`);
+    ehrEnvFile = ehrEnvFile.replace(
+      'VITE_APP_QRS_URL=http://localhost:3002',
+      `VITE_APP_QRS_URL=https://${intakeDistribution.DomainName}`
+    );
   }
 
   fs.writeFileSync(`${__dirname}/../../apps/intake/env/.env.${environment}`, intakeEnvFile);

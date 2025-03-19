@@ -29,6 +29,7 @@ export const AdditionalQuestionsPatientColumn: FC = () => {
               label={question.label}
               value={convertToBoolean(value)}
               isLoading={isAppointmentLoading}
+              field={question.field}
             />
             {index < ADDITIONAL_QUESTIONS.length - 1 && <Divider />}
           </React.Fragment>
