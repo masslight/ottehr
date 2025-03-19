@@ -43,12 +43,12 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   };
   const pdfClient = await createPdfClient(pdfClientStyles);
 
-  const RobotoFont = await pdfClient.embedFont(fs.readFileSync('./Roboto-Regular.otf'));
-  const RobotoFontBold = await pdfClient.embedFont(fs.readFileSync('./Roboto-Bold.otf'));
-  const tiemposFontRegular = await pdfClient.embedFont(fs.readFileSync('./TiemposHeadline-Regular.otf'));
-  const ottehrLogo = await pdfClient.embedImage(fs.readFileSync('./ottehrLogo.png'));
-  const redDot = await pdfClient.embedImage(fs.readFileSync('./red-dot.png'));
-  const greenDot = await pdfClient.embedImage(fs.readFileSync('./green-dot.png'));
+  const RobotoFont = await pdfClient.embedFont(fs.readFileSync('./assets/Roboto-Regular.otf'));
+  const RobotoFontBold = await pdfClient.embedFont(fs.readFileSync('./assets/Roboto-Bold.otf'));
+  const tiemposFontRegular = await pdfClient.embedFont(fs.readFileSync('./assets/TiemposHeadline-Regular.otf'));
+  const ottehrLogo = await pdfClient.embedImage(fs.readFileSync('./assets/ottehrLogo.png'));
+  const redDot = await pdfClient.embedImage(fs.readFileSync('./assets/red-dot.png'));
+  const greenDot = await pdfClient.embedImage(fs.readFileSync('./assets/green-dot.png'));
 
   const textStyles: Record<string, TextStyle> = {
     header: {

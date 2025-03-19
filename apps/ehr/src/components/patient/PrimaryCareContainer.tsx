@@ -18,7 +18,8 @@ export const PrimaryCareContainer: FC = () => {
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const { name, value, type, checked } = event.target;
-    updatePatientField(name, type === 'checkbox' ? checked : value);
+    const fieldType = name === patientFieldPaths.pcpPhone ? 'phone' : undefined;
+    updatePatientField(name, type === 'checkbox' ? checked : value, undefined, fieldType);
   };
 
   return (
