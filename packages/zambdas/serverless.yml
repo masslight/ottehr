@@ -738,7 +738,7 @@ functions:
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
   ai-interview-start:
-    handler: src/ai-interview/start/index.index
+    handler: src/patient/ai-interview/start/index.index
     events:
       - http:
           path: zambda/ai-interview-start/execute
@@ -755,7 +755,7 @@ functions:
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
   ai-interview-handle-answer:
-    handler: src/ai-interview/handle-answer/index.index
+    handler: src/patient/ai-interview/handle-answer/index.index
     events:
       - http:
           path: zambda/ai-interview-handle-answer/execute
