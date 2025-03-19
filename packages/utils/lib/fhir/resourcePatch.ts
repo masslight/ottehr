@@ -263,13 +263,11 @@ export function createPatchOperationForTelecom(
   const existingValue = existingIndex > -1 ? existingArray?.[existingIndex].value : undefined;
 
   let normalizedNewValue = newValue;
-  let normalizedExistingValue = existingValue;
   if (contactTelecomConfig.system === 'phone') {
     normalizedNewValue = normalizePhoneNumber(newValue) || '';
-    normalizedExistingValue = normalizePhoneNumber(existingValue);
   }
 
-  if (normalizedNewValue !== normalizedExistingValue) {
+  if (normalizedNewValue !== existingValue) {
     if (!newValue || normalizedNewValue === '') {
       // Remove value if it exists
       if (existingIndex > -1) {
