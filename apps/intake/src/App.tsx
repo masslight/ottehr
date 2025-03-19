@@ -160,7 +160,7 @@ export const intakeFlowPageRoute = {
     getPage: () => <CancellationReason />,
   }, // IP
   AIInterview: {
-    path: '/ai-interview',
+    path: `${visitBasePath}/ai-interview`,
     getPage: () => <AIInterview />,
   }, // IP
 

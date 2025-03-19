@@ -7,6 +7,7 @@ import { Box } from '@mui/system';
 import { Avatar, Button, TextField, Typography } from '@mui/material';
 import { ottehrDarkBlue } from '../assets/icons';
 import { Send } from '@mui/icons-material';
+import { useParams } from 'react-router-dom';
 
 interface Message {
   linkId: string;
@@ -17,6 +18,7 @@ interface Message {
 const AIInterview = (): JSX.Element => {
   const zambdaClient = useUCZambdaClient({ tokenless: true });
 
+  const { id: appointmentId } = useParams();
   const [questionnaireResponse, setQuestionnaireResponse] = useState<QuestionnaireResponse | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(false);
   const [answer, setAnswer] = useState<string>('');
@@ -27,10 +29,10 @@ const AIInterview = (): JSX.Element => {
       const questionnaireResponse = await api.aIInterviewStart({ appointmentId }, zambdaClient);
       setQuestionnaireResponse(questionnaireResponse);
     };
-    if (questionnaireResponse == null) {
-      void startInterview('todo');
+    if (questionnaireResponse == null && appointmentId != null) {
+      void startInterview(appointmentId);
     }
-  }, [questionnaireResponse, setQuestionnaireResponse, zambdaClient]);
+  }, [questionnaireResponse, setQuestionnaireResponse, zambdaClient, appointmentId]);
 
   const messages = questionnaireResponse != null ? createMessages(questionnaireResponse) : [];
   if (loading) {
