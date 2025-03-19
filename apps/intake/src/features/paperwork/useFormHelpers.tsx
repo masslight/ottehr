@@ -50,7 +50,7 @@ export const getPaperworkFieldId = (input: UserPaperworkFieldIdInput): string =>
       }),
     0
   );
-  return `${parentFieldId ?? parentItem.linkId}.item.${idx}`;
+  return `${parentFieldId ?? parentItem.linkId}.item.${idx + 1}`;
 };
 
 export function usePaperworkFormHelpers(input: UsePaperworkFormHelpersInput): PaperworkFormHelpers {
