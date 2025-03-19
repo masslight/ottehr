@@ -60,7 +60,7 @@ const AIInterview = (): JSX.Element => {
       await api.aIInterviewHandleAnswer(
         {
           questionnaireResponseId: questionnaireResponse?.id ?? '',
-          linkId: messages.findLast((message) => message.author === 'ai')?.linkId ?? '',
+          linkId: messages.filter((message) => message.author === 'ai').slice(-1)[0]?.linkId ?? '',
           answer: answer,
         },
         zambdaClient
