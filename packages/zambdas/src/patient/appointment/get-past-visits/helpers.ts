@@ -1,14 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import {
-  Appointment,
-  Encounter,
-  HealthcareService,
-  Location,
-  Patient,
-  Practitioner,
-  RelatedPerson,
-  Resource,
-} from 'fhir/r4b';
+import { Appointment, Encounter, Location, Patient, RelatedPerson, Resource } from 'fhir/r4b';
 import { OTTEHR_MODULE, removePrefix } from 'utils';
 
 export type EncounterToAppointmentIdMap = { [appointmentId: string]: Encounter };
@@ -31,7 +22,7 @@ export async function getFhirResources(
   patientIDs: string[],
   patientID?: string
 ): Promise<Resource[]> {
-  const appointmentSearchParams = {
+  const fhirSearchParams = {
     resourceType: 'Appointment',
     params: [
       { name: '_tag', value: [OTTEHR_MODULE.TM, OTTEHR_MODULE.IP].join(',') },
@@ -59,22 +50,15 @@ export async function getFhirResources(
         name: '_include',
         value: 'Appointment:location',
       },
+      {
+        name: '_include',
+        value: 'Appointment:actor',
+      },
     ],
   };
 
-  const participantSearchParams = { name: '_count', value: '1000' };
-
-  const [appointmentBundle, healthcareServiceBundle, practitionerBundle] = await Promise.all([
-    oystehr.fhir.search<Appointment | Encounter | Location | Patient | RelatedPerson>(appointmentSearchParams),
-    oystehr.fhir.search<HealthcareService>({
-      resourceType: 'HealthcareService',
-      params: [participantSearchParams],
-    }),
-    oystehr.fhir.search<Practitioner>({
-      resourceType: 'Practitioner',
-      params: [participantSearchParams],
-    }),
-  ]);
-
-  return [...appointmentBundle.unbundle(), ...healthcareServiceBundle.unbundle(), ...practitionerBundle.unbundle()];
+  const bundle = await oystehr.fhir.search<Appointment | Encounter | Location | Patient | RelatedPerson>(
+    fhirSearchParams
+  );
+  return bundle.unbundle();
 }
