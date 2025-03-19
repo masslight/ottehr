@@ -483,7 +483,7 @@ export const PaperworkPage: FC = () => {
               });
               if (existingIdx >= 0) {
                 responseItems[existingIdx] = { linkId: key, answer: val };
-              } else {
+              } else if (val) {
                 responseItems.push({ linkId: key, answer: val });
               }
             });
