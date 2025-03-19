@@ -341,8 +341,10 @@ export const useGetMeetingData = (
   );
 };
 
+export const CHART_DATA_QUERY_KEY_BASE = 'telemed-get-chart-data';
+
 export type ChartDataCacheKey = [
-  'telemed-get-chart-data',
+  typeof CHART_DATA_QUERY_KEY_BASE,
   OystehrTelemedAPIClient | undefined | null,
   string | undefined,
   EvolveUser | undefined,
@@ -372,7 +374,7 @@ export const useGetChartData = (
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const key: ChartDataCacheKey = [
-    'telemed-get-chart-data',
+    CHART_DATA_QUERY_KEY_BASE,
     apiClient,
     encounterId,
     user,

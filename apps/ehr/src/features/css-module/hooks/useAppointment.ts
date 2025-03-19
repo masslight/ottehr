@@ -6,7 +6,7 @@ import { useAppointmentStore, useGetAppointment } from '../../../telemed';
 import { getResources } from '../parser/extractors';
 import { parseBundle } from '../parser/parser';
 import { VisitMappedData, VisitSourceData } from '../parser/types';
-import { useParsedAppointmentStore } from '../store/parsedAppointment.store';
+import { useMappedVisitDataStore } from '../store/parsedAppointment.store';
 import { useChartData } from './useChartData';
 
 type VisitState = Partial<{
@@ -29,7 +29,7 @@ export const useAppointment = (
     options?: (RefetchOptions & RefetchQueryFilters<TPageData>) | undefined
   ) => Promise<QueryObserverResult<FhirResource[], unknown>>;
 } => {
-  const { data, mappedData } = useParsedAppointmentStore();
+  const { data, mappedData } = useMappedVisitDataStore();
 
   const visitData = getSelectors(useAppointmentStore, [
     'appointment',
@@ -76,15 +76,15 @@ export const useAppointment = (
 
   // update parsed appointment store on telemed data change
   useEffect(() => {
-    const telemedResources = Object.values([
+    const visitResources = Object.values([
       visitData.appointment,
       visitData.patient,
       visitData.location,
       visitData.encounter,
       visitData.questionnaireResponse,
     ] as FhirResource[]).filter(Boolean);
-    const parsedResources = parseBundle(telemedResources as Bundle[]);
-    useParsedAppointmentStore.setState(parsedResources);
+    const parsedResources = parseBundle(visitResources as Bundle[]);
+    useMappedVisitDataStore.setState(parsedResources);
   }, [
     visitData.appointment,
     visitData.patient,

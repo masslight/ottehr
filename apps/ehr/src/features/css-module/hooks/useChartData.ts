@@ -29,7 +29,7 @@ export const useChartData = ({
   queryKey: QueryKey;
 } => {
   const apiClient = useZapEHRAPIClient();
-  const { update } = useExamObservations();
+  const { update: updateExamObservations } = useExamObservations();
   const setPartialChartData = useAppointmentStore((state) => state.setPartialChartData);
 
   const {
@@ -53,7 +53,7 @@ export const useChartData = ({
       if (requestedFields) return;
 
       // should be updated only from root (useAppointment hook)
-      shouldUpdateExams && update(data.examObservations, true);
+      shouldUpdateExams && updateExamObservations(data.examObservations, true);
     },
     onError
   );
