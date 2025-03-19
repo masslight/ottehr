@@ -722,7 +722,9 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
     patientResource.id
   }/${Date.now()}`;
   const consentDocument =
-    locationState === 'IL' ? './CTT.and.Guarantee.of.Payment.Illinois-S.pdf' : './CTT.and.Guarantee.of.Payment-S.pdf';
+    locationState === 'IL'
+      ? './assets/CTT.and.Guarantee.of.Payment.Illinois-S.pdf'
+      : './assets/CTT.and.Guarantee.of.Payment-S.pdf';
   const pdfsToCreate = [
     {
       uploadURL: `${baseUploadURL}-consent-to-treat.pdf`,
@@ -742,7 +744,7 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
     },
     {
       uploadURL: `${baseUploadURL}-hippa-acknowledgement.pdf`,
-      copyFromPath: './HIPAA.Acknowledgement-S.pdf',
+      copyFromPath: './assets/HIPAA.Acknowledgement-S.pdf',
       formTitle: 'HIPAA Acknowledgement',
       resourceTitle: 'HIPPA forms',
       type: {
@@ -1266,7 +1268,7 @@ export function createMasterRecordPatchOperations(
         const contactTelecomConfig = contactTelecomConfigs[item.linkId];
         if (contactTelecomConfig) {
           const operation = createPatchOperationForTelecom(
-            value as string | boolean,
+            value as string,
             contactTelecomConfig,
             resources.patient,
             path

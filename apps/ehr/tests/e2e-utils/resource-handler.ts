@@ -11,6 +11,7 @@ import {
   createSamplePrebookAppointments,
   createSampleTelemedAppointments,
   formatPhoneNumber,
+  GetPaperworkAnswers,
 } from 'utils';
 import { getAuth0Token } from './auth/getAuth0Token';
 import {
@@ -80,12 +81,14 @@ export class ResourceHandler {
   private zambdaId: string;
   private flow: 'telemed' | 'in-person';
   private initPromise: Promise<void>;
+  private paperworkAnswers?: GetPaperworkAnswers;
 
   public testEmployee1!: TestEmployee;
   public testEmployee2!: TestEmployee;
 
-  constructor(flow: 'telemed' | 'in-person' = 'in-person') {
+  constructor(flow: 'telemed' | 'in-person' = 'in-person', paperworkAnswers?: GetPaperworkAnswers) {
     this.flow = flow;
+    this.paperworkAnswers = paperworkAnswers;
 
     this.initPromise = this.initApi();
 
@@ -163,7 +166,7 @@ export class ResourceHandler {
               authToken: getAccessToken(),
               phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
               createAppointmentZambdaId: this.zambdaId,
-              intakeZambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
+              zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
               selectedLocationId: process.env.LOCATION_ID,
               demoData: patientData,
               projectId: process.env.PROJECT_ID!,
@@ -174,10 +177,11 @@ export class ResourceHandler {
               phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
               createAppointmentZambdaId: this.zambdaId,
               islocal: process.env.APP_IS_LOCAL === 'true',
-              intakeZambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
+              zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
               selectedLocationId: process.env.STATE_ONE, // todo: check why state is used here
               demoData: patientData,
               projectId: process.env.PROJECT_ID!,
+              paperworkAnswers: this.paperworkAnswers,
             });
 
       if (!appointmentData?.resources) {
