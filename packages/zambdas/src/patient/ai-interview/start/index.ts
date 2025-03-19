@@ -21,10 +21,6 @@ interface Input extends StartInterviewInput {
   secrets: Secrets | null;
 }
 
-interface Output {
-  questionnaireResponse: QuestionnaireResponse;
-}
-
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
@@ -41,12 +37,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     } else {
       questionnaireResponse = await createQuestionnaireResponse(encounterId, oystehr);
     }
-    const output: Output = {
-      questionnaireResponse,
-    };
     return {
       statusCode: 200,
-      body: JSON.stringify(output),
+      body: JSON.stringify(questionnaireResponse),
     };
   } catch (error: any) {
     console.log('error', error, error.issue);

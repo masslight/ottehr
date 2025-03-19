@@ -22,6 +22,7 @@ const AIInterview = (): JSX.Element => {
   const [questionnaireResponse, setQuestionnaireResponse] = useState<QuestionnaireResponse | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(false);
   const [answer, setAnswer] = useState<string>('');
+  const [lastAnswer, setLastAnswer] = useState<string>('');
 
   useEffect(() => {
     const startInterview = async (appointmentId: string): Promise<void> => {
@@ -36,8 +37,15 @@ const AIInterview = (): JSX.Element => {
 
   const messages = questionnaireResponse != null ? createMessages(questionnaireResponse) : [];
   if (loading) {
+    if (lastAnswer != null) {
+      messages.push({
+        linkId: '1000000',
+        author: 'user',
+        text: lastAnswer,
+      });
+    }
     messages.push({
-      linkId: '1000000',
+      linkId: '1000001',
       author: 'ai',
       text: '...',
     });
@@ -45,6 +53,8 @@ const AIInterview = (): JSX.Element => {
 
   const onSend = async (): Promise<void> => {
     if (zambdaClient == null) return;
+    setLastAnswer(answer);
+    setAnswer('');
     setLoading(true);
     setQuestionnaireResponse(
       await api.aIInterviewHandleAnswer(
@@ -98,7 +108,13 @@ const AIInterview = (): JSX.Element => {
         <TextField
           style={{ width: '100%' }}
           placeholder="Your message..."
+          value={answer}
           onChange={(e) => setAnswer(e.target.value)}
+          onKeyUp={async (event) => {
+            if (event.key === 'Enter') {
+              await onSend();
+            }
+          }}
         />
         <Button
           disabled={loading || questionnaireResponse == null}

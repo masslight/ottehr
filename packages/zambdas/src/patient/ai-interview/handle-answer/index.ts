@@ -22,10 +22,6 @@ interface Input extends HandleAnswerInput {
   secrets: Secrets | null;
 }
 
-interface Output {
-  questionnaireResponse: QuestionnaireResponse;
-}
-
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
@@ -60,12 +56,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     if (chatbotResponse.includes(INTERVIEW_COMPLETED)) {
       questionnaireResponse.status = 'completed';
     }
-    const output: Output = {
-      questionnaireResponse: await oystehr.fhir.update(questionnaireResponse),
-    };
     return {
       statusCode: 200,
-      body: JSON.stringify(output),
+      body: JSON.stringify(await oystehr.fhir.update(questionnaireResponse)),
     };
   } catch (error: any) {
     console.log('error', error, error.issue);
