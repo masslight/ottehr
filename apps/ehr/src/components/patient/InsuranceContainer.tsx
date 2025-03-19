@@ -5,6 +5,7 @@ import { isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
 import {
   INSURANCE_COVERAGE_OPTIONS,
+  InsurancePriorityOptions,
   PatientIdentifyingFields,
   RELATIONSHIP_TO_INSURED_OPTIONS,
   SEX_OPTIONS,
@@ -105,6 +106,18 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
           options={INSURANCE_COVERAGE_OPTIONS}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
+            validate: (value, ctxt) => {
+              // todo: this validation concept would be good to lift into the paperwork validation engine
+              const otherGroupKey = InsurancePriorityOptions.find((key) => key !== FormFields.insuranceCarrier.key);
+              let otherGroupValue: 'Primary' | 'Secondary' | undefined;
+              if (otherGroupKey) {
+                otherGroupValue = ctxt[otherGroupKey];
+              }
+              if (otherGroupValue === value) {
+                return `Account may not have two ${value.toLowerCase()} insurance plans`;
+              }
+              return true;
+            },
           }}
         />
       </Row>
