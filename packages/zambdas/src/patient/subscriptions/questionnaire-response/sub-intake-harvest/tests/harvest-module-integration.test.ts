@@ -21,7 +21,12 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
-import { COVERAGE_MEMBER_IDENTIFIER_BASE, isValidUUID, unbundleBatchPostOutput } from 'utils';
+import {
+  COVERAGE_MEMBER_IDENTIFIER_BASE,
+  isValidUUID,
+  PATIENT_BILLING_ACCOUNT_TYPE,
+  unbundleBatchPostOutput,
+} from 'utils';
 import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest } from '@oystehr/sdk';
 import { performEffect } from '..';
 import {
@@ -38,15 +43,7 @@ import { randomUUID } from 'crypto';
 
 const stubAccount: Account = {
   resourceType: 'Account',
-  type: {
-    coding: [
-      {
-        system: 'http://terminology.hl7.org/CodeSystem/account-type',
-        code: 'PBILLACCT',
-        display: 'patient billing account',
-      },
-    ],
-  },
+  type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
   status: 'active',
   subject: [{ reference: `{{PATIENT_REF}}` }],
   description: 'Patient account',

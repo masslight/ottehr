@@ -1,4 +1,4 @@
-import { Identifier } from 'fhir/r4b';
+import { Account, Identifier } from 'fhir/r4b';
 import {
   AppointmentType,
   CONSENT_CODE,
@@ -330,6 +330,16 @@ export const COVERAGE_MEMBER_IDENTIFIER_BASE: Partial<Identifier> = {
       },
     ],
   },
+};
+
+export const PATIENT_BILLING_ACCOUNT_TYPE: Account['type'] = {
+  coding: [
+    {
+      system: 'http://terminology.hl7.org/CodeSystem/account-type',
+      code: 'PBILLACCT',
+      display: 'patient billing account',
+    },
+  ],
 };
 
 export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {

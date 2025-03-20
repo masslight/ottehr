@@ -100,6 +100,7 @@ import {
   OrderedCoveragesWithSubscribers,
   PatientAccountAndCoverageResources,
   flattenItems,
+  PATIENT_BILLING_ACCOUNT_TYPE,
 } from 'utils';
 import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 import _ from 'lodash';
@@ -2290,15 +2291,7 @@ export const createAccount = (input: CreateAccountInput): Account => {
   const account: Account = {
     contained,
     resourceType: 'Account',
-    type: {
-      coding: [
-        {
-          system: 'http://terminology.hl7.org/CodeSystem/account-type',
-          code: 'PBILLACCT',
-          display: 'patient billing account',
-        },
-      ],
-    },
+    type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
     status: 'active',
     subject: [{ reference: `Patient/${patientId}` }],
     coverage,
