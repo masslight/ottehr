@@ -754,6 +754,7 @@ functions:
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+      ANTHROPIC_API_KEY: ${file(./.env/${self:provider.stage}.json):ANTHROPIC_API_KEY}
   ai-interview-handle-answer:
     handler: src/patient/ai-interview/handle-answer/index.index
     events:
@@ -771,6 +772,7 @@ functions:
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+      ANTHROPIC_API_KEY: ${file(./.env/${self:provider.stage}.json):ANTHROPIC_API_KEY}
 
   get-appointments:
     handler: src/ehr/get-appointments/index.index
