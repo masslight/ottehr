@@ -11,7 +11,8 @@
   "scripts": {
     "start": "vite",
     "build": "tsc && vite build",
-    "lint": "eslint lib --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint --ext ts,tsx,js,jsx --report-unused-disable-directives --max-warnings 0",
+    "prettier": "prettier --write .",
     "preview": "vite preview",
     "test": "vitest --silent",
     "coverage": "vitest run --coverage"

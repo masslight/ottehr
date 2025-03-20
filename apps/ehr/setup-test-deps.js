@@ -25,7 +25,7 @@ if (!isCI) {
         ],
       },
       {
-        localEnvFolder: '../../packages/ehr/zambdas/.env',
+        localEnvFolder: '../../packages/zambdas/.env',
         repoEnvFolder: './ottehr-secrets/zambdas/',
         envsToCopy: ['demo.json', 'development.json', 'local.json', 'staging.json', 'testing.json'],
       },
