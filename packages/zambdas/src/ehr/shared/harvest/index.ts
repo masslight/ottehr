@@ -1174,6 +1174,11 @@ export function createMasterRecordPatchOperations(
 
     const { resourceType, path } = extractResourceTypeAndPath(fullPath);
 
+    const shouldThrow = path.includes('contact') || fullPath.includes('contact');
+    if (shouldThrow) {
+      throw new Error(`SHORT CIRCUIT: trigger occurs`);
+    }
+
     switch (resourceType) {
       case 'Patient': {
         // Handle telecom fields
@@ -1222,6 +1227,14 @@ export function createMasterRecordPatchOperations(
         const { isArray, parentPath } = getArrayInfo(path);
         if (isArray) {
           const effectiveArrayValue = getEffectiveValue(patient, parentPath, tempOperations.patient);
+
+          if (effectiveArrayValue === undefined) {
+            const currentParentValue = getCurrentValue(patient, parentPath);
+            const operation = createBasicPatchOperation([value], parentPath, currentParentValue);
+            if (operation) tempOperations.patient.push(operation);
+            return;
+          }
+
           const arrayMatch = path.match(/^(.+)\/(\d+)$/);
 
           if (arrayMatch) {
@@ -1434,8 +1447,9 @@ export function hasConflictingUpdates(operations: MasterRecordPatchOperations): 
   );
 }
 
+type PatchValueBase = string | number | boolean | Reference;
 function createBasicPatchOperation(
-  value: string | number | boolean | Reference,
+  value: PatchValueBase | PatchValueBase[],
   path: string,
   currentValue: string | number | boolean | undefined
 ): Operation | undefined {
@@ -2067,13 +2081,25 @@ export function createErxContactOperation(
       };
     } else {
       console.log('building patient patch operations: add patient erx contact telecom');
-      return {
-        op: 'add',
-        path: `/contact/-`,
-        value: {
-          telecom: [erxContactTelecom],
-        },
-      };
+      if (patientResource.contact === undefined) {
+        return {
+          op: 'add',
+          path: `/contact`,
+          value: [
+            {
+              telecom: [erxContactTelecom],
+            },
+          ],
+        };
+      } else {
+        return {
+          op: 'add',
+          path: `/contact/-`,
+          value: {
+            telecom: [erxContactTelecom],
+          },
+        };
+      }
     }
   }
 

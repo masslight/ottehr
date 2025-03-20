@@ -2,7 +2,7 @@ import { describe, it, expect, assert } from 'vitest';
 import * as fs from 'fs';
 import { getAuth0Token } from '../../../../shared';
 import { createOystehrClient } from '../../../../shared/helpers';
-import baseQRItem from './data/integration-base-qr-1.json';
+import questionnaireResponse from './data/base-qr.json';
 import {
   expectedCoverageResources as qr1ExpectedCoverageResources,
   expectedPrimaryPolicyHolderFromQR1,
@@ -11,7 +11,9 @@ import {
 } from './data/expected-coverage-resources-qr1';
 import {
   Account,
+  Appointment,
   Coverage,
+  Encounter,
   InsurancePlan,
   Organization,
   Patient,
@@ -19,8 +21,8 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
-import { COVERAGE_MEMBER_IDENTIFIER_BASE, sleep, unbundleBatchPostOutput } from 'utils';
-import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
+import { COVERAGE_MEMBER_IDENTIFIER_BASE, isValidUUID, unbundleBatchPostOutput } from 'utils';
+import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest } from '@oystehr/sdk';
 import { performEffect } from '..';
 import {
   batchTestInsuranceWrites,
@@ -32,18 +34,7 @@ import {
 
 import { uuid } from 'short-uuid';
 import { relatedPersonsAreSame } from '../../../../../ehr/shared/harvest';
-
-const TEST_ENCOUNTER_ID_KEY = 'test-encounter-id';
-const TEST_PATIENT_ID_KEY = 'test-patient-id';
-const TEST_APPOINTMENT_ID_KEY = 'test-appointment-id';
-const TEST_QUESTIONNAIRE_RESPONSE_ID_KEY = 'test-questionnaire-response-id';
-
-const TEST_CONFIG: Record<string, string> = {
-  [TEST_ENCOUNTER_ID_KEY]: '9b019c97-3156-4745-b384-5dc8a60f63d2',
-  [TEST_APPOINTMENT_ID_KEY]: '308c7a77-c992-45f6-b41c-00d021fe4710',
-  [TEST_PATIENT_ID_KEY]: '099639e6-c89c-4bad-becf-ce15ce010f21',
-  [TEST_QUESTIONNAIRE_RESPONSE_ID_KEY]: 'e5f86b53-cfc4-49f1-baa7-ac70be95589b',
-};
+import { randomUUID } from 'crypto';
 
 const stubAccount: Account = {
   resourceType: 'Account',
@@ -67,6 +58,8 @@ describe('Harvest Module Integration Tests', () => {
   let token: string | undefined;
   let oystehrClient: Oystehr;
   let BASE_QR: QuestionnaireResponse;
+  const patientIdsForCleanup: Record<string, string[]> = {};
+  const patientsUsed: Set<string> = new Set();
 
   const stripIdAndMeta = <T extends Resource>(resource: T): T => {
     return {
@@ -110,95 +103,144 @@ describe('Harvest Module Integration Tests', () => {
     item: replaceGuarantorWithAlternate(BASE_QR.item ?? [], param),
   });
 
-  const getQR1Refs = (): string[] => {
+  const getQR1Refs = (pId: string): string[] => {
     const [key, val] = Object.entries(INSURANCE_PLAN_ORG_MAP)[0];
-    const refs = [`InsurancePlan/${key}`, `Organization/${val}`, `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`];
+    const [patientId, encounterId, appointmentId] = patientIdsForCleanup[pId];
+    const refs = [
+      `InsurancePlan/${key}`,
+      `Organization/${val}`,
+      `Patient/${patientId}`,
+      `Encounter/${encounterId}`,
+      `Appointment/${appointmentId}`,
+    ];
     return refs;
   };
 
-  const fillWithQR1Refs = (template: any): any => {
-    const refs = getQR1Refs();
+  const fillWithQR1Refs = (template: any, patientId: string): any => {
+    const refs = getQR1Refs(patientId);
     return fillReferences(template, refs);
   };
 
-  const normalizedCompare = (rawTemplate: any, rawExpectation: any): any => {
-    const template = fillWithQR1Refs(rawTemplate);
+  const normalizedCompare = (rawTemplate: any, rawExpectation: any, patientId: string): any => {
+    const template = fillWithQR1Refs(rawTemplate, patientId);
     expect(template).toEqual(stripIdAndMeta(rawExpectation));
   };
 
-  const changeCoveragerMemberId = (coverage: Coverage): Coverage => {
+  const changeCoveragerMemberId = (coverage: Coverage, patientId: string): Coverage => {
     const newId = uuid();
-    return fillWithQR1Refs({
-      ...coverage,
-      identifier: [
-        {
-          ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
-          value: newId,
-          assigner: {
-            reference: '{{ORGANIZATION_REF}}',
-            display: 'Aetna',
+    return fillWithQR1Refs(
+      {
+        ...coverage,
+        identifier: [
+          {
+            ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
+            value: newId,
+            assigner: {
+              reference: '{{ORGANIZATION_REF}}',
+              display: 'Aetna',
+            },
           },
-        },
-      ],
-      subscriberId: newId,
-    });
+        ],
+        subscriberId: newId,
+      },
+      patientId
+    );
   };
 
   const cleanup = async (): Promise<void> => {
-    console.log('Cleaning up environment...');
+    await Promise.all(
+      (Object.values(patientIdsForCleanup) ?? []).map((resources) => cleanupPatientResources(resources))
+    );
+  };
+
+  const cleanupPatientResources = async (ids: string[]): Promise<void> => {
+    const [patientId, encounterId, appointmentId, relatedPersonId] = ids;
     if (!token) {
       throw new Error('Failed to fetch auth token.');
     }
     const oystehrClient = createOystehrClient(token, envConfig);
-    const createdAccount = (
-      await oystehrClient.fhir.search<Account>({
-        resourceType: 'Account',
+    const createdResources = (
+      await oystehrClient.fhir.search<Account | Coverage | RelatedPerson | Patient>({
+        resourceType: 'Patient',
         params: [
           {
-            name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            name: '_id',
+            value: patientId,
           },
           {
-            name: 'status',
-            value: 'active',
-          },
-        ],
-      })
-    ).unbundle();
-    const patientCoverages = (
-      await oystehrClient.fhir.search<Coverage | RelatedPerson>({
-        resourceType: 'Coverage',
-        params: [
-          {
-            name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            name: '_revinclude',
+            value: 'Appointment:patient',
           },
           {
-            name: '_include',
+            name: '_revinclude',
+            value: 'Encounter:patient',
+          },
+          {
+            name: '_revinclude',
+            value: 'RelatedPerson:patient',
+          },
+          {
+            name: '_revinclude',
+            value: `Account:patient`,
+          },
+          {
+            name: '_revinclude',
+            value: 'Coverage:patient',
+          },
+          {
+            name: '_include:iterate',
             value: 'Coverage:subscriber:RelatedPerson',
           },
         ],
       })
     ).unbundle();
-    const deletes: BatchInputDeleteRequest[] = patientCoverages.map((res) => {
-      if ((res as any).resourceType === 'Patient') {
-        throw new Error('Patient should not be included in the search results');
-      }
-      return {
-        method: 'DELETE',
-        url: `${res.resourceType}/${res.id}`,
-      };
-    });
-    if (createdAccount[0]?.id) {
-      deletes.push({
-        method: 'DELETE',
-        url: `Account/${createdAccount[0].id}`,
+
+    const uniques = new Set<string>();
+    const deletes: BatchInputDeleteRequest[] = createdResources
+      .map((res) => {
+        return {
+          method: 'DELETE',
+          url: `${res.resourceType}/${res.id}`,
+        } as BatchInputDeleteRequest;
+      })
+      .filter((request) => {
+        if (uniques.has(request.url)) {
+          return false;
+        }
+        uniques.add(request.url);
+        return true;
       });
-    }
+
     await oystehrClient.fhir.transaction({ requests: deletes });
+
+    try {
+      await oystehrClient.fhir.get({ resourceType: 'Patient', id: patientId });
+    } catch (error: any) {
+      expect(error).toBeDefined();
+      expect(error?.code).toBe(410);
+    }
+    try {
+      await oystehrClient.fhir.get({ resourceType: 'Appointment', id: appointmentId });
+    } catch (error: any) {
+      expect(error).toBeDefined();
+      expect(error?.code).toBe(410);
+    }
+    try {
+      await oystehrClient.fhir.get({ resourceType: 'Encounter', id: encounterId });
+    } catch (error: any) {
+      expect(error).toBeDefined();
+      expect(error?.code).toBe(410);
+    }
+    try {
+      await oystehrClient.fhir.get({ resourceType: 'RelatedPerson', id: relatedPersonId });
+    } catch (error: any) {
+      expect(error).toBeDefined();
+      expect(error?.code).toBe(410);
+    }
   };
 
   interface ValidateAccountInput {
+    patientId: string;
     qr?: QuestionnaireResponse;
     idToCheck?: string;
     guarantorRef?: string;
@@ -210,8 +252,9 @@ describe('Harvest Module Integration Tests', () => {
     persistedGuarantor?: RelatedPerson | Patient;
   }
   const applyEffectAndValidateResults = async (input: ValidateAccountInput): Promise<ValidatedAccountData> => {
-    const { qr, idToCheck, guarantorRef } = input;
-    const effect = await performEffect({ qr: qr ?? BASE_QR, secrets: envConfig }, oystehrClient);
+    const { qr, idToCheck, guarantorRef, patientId } = input;
+    const qrWithPatient = fillWithQR1Refs(qr ?? BASE_QR, patientId);
+    const effect = await performEffect({ qr: qrWithPatient, secrets: envConfig }, oystehrClient);
     expect(effect).toBe('all tasks executed successfully');
     const foundAccounts = (
       await oystehrClient.fhir.search<Account>({
@@ -219,7 +262,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -267,7 +310,6 @@ describe('Harvest Module Integration Tests', () => {
 
   beforeAll(async () => {
     // Set up environment
-    console.log('Setting up environment...');
     // Add your setup code here
     expect(process.env).toBeDefined();
     expect(envConfig).toBeDefined();
@@ -278,12 +320,6 @@ describe('Harvest Module Integration Tests', () => {
 
     oystehrClient = createOystehrClient(token, envConfig);
     expect(oystehrClient).toBeDefined();
-    const quesionnaireResponse = await oystehrClient.fhir.get<QuestionnaireResponse>({
-      resourceType: 'QuestionnaireResponse',
-      id: TEST_CONFIG[TEST_QUESTIONNAIRE_RESPONSE_ID_KEY],
-    });
-    expect(quesionnaireResponse).toBeDefined();
-    expect(quesionnaireResponse.encounter?.reference).toEqual(`Encounter/${TEST_CONFIG[TEST_ENCOUNTER_ID_KEY]}`);
 
     const ipAndOrg1 = (
       await oystehrClient.fhir.search<InsurancePlan | Organization>({
@@ -330,32 +366,158 @@ describe('Harvest Module Integration Tests', () => {
 
     const refs = [`InsurancePlan/${key}`, `Organization/${val}`];
 
-    const replacedItem = fillReferences(baseQRItem, refs);
+    const replacedItem = fillReferences(questionnaireResponse.item, refs);
 
-    quesionnaireResponse.item = replacedItem;
-    quesionnaireResponse.status = 'completed';
+    questionnaireResponse.item = replacedItem;
+    questionnaireResponse.status = 'completed';
 
-    BASE_QR = quesionnaireResponse;
+    BASE_QR = questionnaireResponse as QuestionnaireResponse;
     expect(BASE_QR).toBeDefined();
   });
 
   beforeEach(async () => {
-    await cleanup();
+    const patient: Patient = {
+      resourceType: 'Patient',
+      active: true,
+      gender: 'male',
+      birthDate: '2020-08-06',
+    };
+    const patientFullUrl = `urn:uuid:${randomUUID()}`;
+    const appointmentFullUrl = `urn:uuid:${randomUUID()}`;
+    const postRequests: BatchInputPostRequest<Patient | Appointment | Encounter | RelatedPerson>[] = [
+      {
+        resource: patient,
+        method: 'POST',
+        url: 'Patient',
+        fullUrl: patientFullUrl,
+      },
+      {
+        method: 'POST',
+        url: 'Appointment',
+        fullUrl: appointmentFullUrl,
+        resource: {
+          resourceType: 'Appointment',
+          status: 'proposed',
+          participant: [
+            {
+              actor: {
+                reference: patientFullUrl,
+              },
+              status: 'accepted',
+            },
+            {
+              actor: {
+                reference: 'HealthcareService/3ad8f817-d3a4-4879-aac7-8a0b9461738b',
+              },
+              status: 'accepted',
+            },
+          ],
+        },
+      },
+      {
+        method: 'POST',
+        url: 'Encounter',
+        resource: {
+          resourceType: 'Encounter',
+          status: 'finished',
+          class: {
+            system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+            code: 'ACUTE',
+          },
+          appointment: [
+            {
+              reference: appointmentFullUrl,
+            },
+          ],
+          subject: {
+            reference: patientFullUrl,
+          },
+        },
+      },
+      {
+        method: 'POST',
+        url: 'RelatedPerson',
+        resource: {
+          resourceType: 'RelatedPerson',
+          patient: {
+            reference: patientFullUrl,
+          },
+          telecom: [
+            {
+              value: '+15555555555',
+              system: 'phone',
+            },
+            {
+              value: '+15555555555',
+              system: 'sms',
+            },
+          ],
+          relationship: [
+            {
+              coding: [
+                {
+                  code: 'user-relatedperson',
+                  system: 'https://fhir.zapehr.com/r4/StructureDefinitions/relationship',
+                },
+              ],
+            },
+          ],
+        },
+      },
+    ];
+    const createdBundle = await oystehrClient.fhir.transaction<Patient | Appointment | Encounter | RelatedPerson>({
+      requests: postRequests,
+    });
+    expect(createdBundle).toBeDefined();
+    const resources = unbundleBatchPostOutput<Patient | Appointment | Encounter | RelatedPerson>(createdBundle);
+    expect(resources.length).toBe(4);
+    const createdPatient = resources.find((res) => res.resourceType === 'Patient') as Patient;
+    const createdAppointment = resources.find((res) => res.resourceType === 'Appointment') as Appointment;
+    const createdEncounter = resources.find((res) => res.resourceType === 'Encounter') as Encounter;
+    const createdRelatedPerson = resources.find((res) => res.resourceType === 'RelatedPerson') as RelatedPerson;
+    expect(createdPatient).toBeDefined();
+    expect(createdPatient.id).toBeDefined();
+    assert(createdPatient.id);
+    expect(createdAppointment).toBeDefined();
+    expect(createdAppointment.id).toBeDefined();
+    assert(createdAppointment.id);
+    expect(createdEncounter).toBeDefined();
+    expect(createdEncounter.id).toBeDefined();
+    assert(createdEncounter.id);
+    expect(createdRelatedPerson).toBeDefined();
+    expect(createdRelatedPerson.id).toBeDefined();
+    assert(createdRelatedPerson.id);
+    patientIdsForCleanup[createdPatient.id] = [
+      createdPatient.id,
+      createdEncounter.id,
+      createdAppointment.id,
+      createdRelatedPerson.id,
+    ];
   });
   afterAll(async () => {
     await cleanup();
   });
 
+  const getPatientId = (): string => {
+    const allEntries = Array.from(Object.entries(patientIdsForCleanup));
+    const [pId] = allEntries[allEntries.length - 1];
+    expect(isValidUUID(pId)).toBe(true);
+    expect(patientsUsed.has(pId)).toBe(false);
+    patientsUsed.add(pId);
+    return pId;
+  };
+
   it('should perform a sample test', async () => {
     // Add your test code here
+    const patientId = getPatientId();
     expect(true).toBe(true);
     const createdAccount = (
       await oystehrClient.fhir.search<Account>({
         resourceType: 'Account',
         params: [
           {
-            name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            name: 'patient._id',
+            value: `${patientId}`,
           },
           {
             name: 'status',
@@ -367,26 +529,37 @@ describe('Harvest Module Integration Tests', () => {
     expect(createdAccount.length).toBe(0);
   });
   it('should create an account with two associated coverages from the base sample QR', async () => {
-    const effect = await performEffect({ qr: BASE_QR, secrets: envConfig }, oystehrClient);
-    expect(effect).toBe('all tasks executed successfully');
-    // give the updates a chance to propagate
-    await sleep(500);
+    const patientId = getPatientId();
+    expect(patientId).toBeDefined();
+    expect(isValidUUID(patientId)).toBe(true);
+    const [_, encounterId] = patientIdsForCleanup[patientId];
+    expect(encounterId).toBeDefined();
+    const qr = fillWithQR1Refs(BASE_QR, patientId);
+    const encounterRef = qr.encounter?.reference;
+    expect(encounterRef).toBeDefined();
+    const encounterIdFromQr = encounterRef?.replace('Encounter/', '');
+    assert(encounterRef);
+    expect(encounterIdFromQr).toBeDefined();
+    expect(isValidUUID(encounterIdFromQr)).toBe(true);
+    expect(encounterId).toBe(encounterIdFromQr);
 
-    const createdAccount = (
-      await oystehrClient.fhir.search<Account>({
-        resourceType: 'Account',
-        params: [
-          {
-            name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
-          },
-          {
-            name: 'status',
-            value: 'active',
-          },
-        ],
-      })
-    ).unbundle()[0];
+    const effect = await performEffect({ qr, secrets: envConfig }, oystehrClient);
+    expect(effect).toBe('all tasks executed successfully');
+
+    const createdAccountBundle = await oystehrClient.fhir.search<Account>({
+      resourceType: 'Account',
+      params: [
+        {
+          name: 'patient._id',
+          value: `${patientId}`,
+        },
+        {
+          name: 'status',
+          value: 'active',
+        },
+      ],
+    });
+    const createdAccount = createdAccountBundle.unbundle()[0];
     expect(createdAccount).toBeDefined();
     assert(createdAccount.id);
     const primaryCoverageRef = createdAccount.coverage?.find((cov) => cov.priority === 1)?.coverage?.reference;
@@ -402,7 +575,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -423,23 +596,24 @@ describe('Harvest Module Integration Tests', () => {
     });
     expect(primaryCoverage).toBeDefined();
     expect(secondaryCoverage).toBeDefined();
-    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
-    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
+    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
+    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
 
     // both coverages should have contained RP as the subscriber
     expect(primaryCoverage?.subscriber?.reference).toEqual('#coverageSubscriber');
     expect(secondaryCoverage?.subscriber?.reference).toEqual('#coverageSubscriber');
 
     const { primary, secondary } = qr1ExpectedCoverageResources;
-    normalizedCompare(primary, primaryCoverage);
-    normalizedCompare(secondary, secondaryCoverage);
+    normalizedCompare(primary, primaryCoverage, patientId);
+    normalizedCompare(secondary, secondaryCoverage, patientId);
   });
 
   it('should update existing coverages to live on the new Account when the inputs match', async () => {
-    const persistedRP1 = fillReferences(expectedPrimaryPolicyHolderFromQR1, getQR1Refs());
-    const persistedRP2 = fillReferences(expectedSecondaryPolicyHolderFromQR1, getQR1Refs());
-    const persistedCoverage1 = fillReferences(qr1ExpectedCoverageResources.primary, getQR1Refs());
-    const persistedCoverage2 = fillReferences(qr1ExpectedCoverageResources.secondary, getQR1Refs());
+    const patientId = getPatientId();
+    const persistedRP1 = fillReferences(expectedPrimaryPolicyHolderFromQR1, getQR1Refs(patientId));
+    const persistedRP2 = fillReferences(expectedSecondaryPolicyHolderFromQR1, getQR1Refs(patientId));
+    const persistedCoverage1 = fillReferences(qr1ExpectedCoverageResources.primary, getQR1Refs(patientId));
+    const persistedCoverage2 = fillReferences(qr1ExpectedCoverageResources.secondary, getQR1Refs(patientId));
 
     const batchRequests = batchTestInsuranceWrites({
       primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
@@ -464,7 +638,8 @@ describe('Harvest Module Integration Tests', () => {
       (res) => `RelatedPerson/${res.id}` === writtenSecondaryCoverage?.subscriber?.reference
     ) as RelatedPerson;
 
-    const effect = await performEffect({ qr: BASE_QR, secrets: envConfig }, oystehrClient);
+    const qr = fillWithQR1Refs(BASE_QR, patientId);
+    const effect = await performEffect({ qr, secrets: envConfig }, oystehrClient);
     expect(effect).toBe('all tasks executed successfully');
 
     const createdAccount = (
@@ -473,7 +648,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -497,7 +672,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -518,8 +693,8 @@ describe('Harvest Module Integration Tests', () => {
     });
     expect(primaryCoverage).toBeDefined();
     expect(secondaryCoverage).toBeDefined();
-    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
-    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
+    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
+    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
 
     // both coverages should have the existing persisted RP as the subscriber
     expect(primaryCoverage?.subscriber?.reference).toEqual(`RelatedPerson/${writtenPrimarySubscriber.id}`);
@@ -530,10 +705,11 @@ describe('Harvest Module Integration Tests', () => {
   });
 
   it('should update existing primary coverage to live on the new Account when the inputs match, but should create a new one for secondary if no match found', async () => {
-    const persistedRP1 = fillReferences(expectedPrimaryPolicyHolderFromQR1, getQR1Refs());
-    const persistedRP2 = fillReferences(expectedSecondaryPolicyHolderFromQR1, getQR1Refs());
-    const persistedCoverage1 = fillReferences(qr1ExpectedCoverageResources.primary, getQR1Refs());
-    const persistedCoverage2 = fillReferences(qr1ExpectedCoverageResources.secondary, getQR1Refs());
+    const patientId = getPatientId();
+    const persistedRP1 = fillReferences(expectedPrimaryPolicyHolderFromQR1, getQR1Refs(patientId));
+    const persistedRP2 = fillReferences(expectedSecondaryPolicyHolderFromQR1, getQR1Refs(patientId));
+    const persistedCoverage1 = fillReferences(qr1ExpectedCoverageResources.primary, getQR1Refs(patientId));
+    const persistedCoverage2 = fillReferences(qr1ExpectedCoverageResources.secondary, getQR1Refs(patientId));
 
     const batchRequests = batchTestInsuranceWrites({
       primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
@@ -558,7 +734,8 @@ describe('Harvest Module Integration Tests', () => {
       (res) => `RelatedPerson/${res.id}` === writtenSecondaryCoverage?.subscriber?.reference
     ) as RelatedPerson;
 
-    const effect = await performEffect({ qr: BASE_QR, secrets: envConfig }, oystehrClient);
+    const qr = fillWithQR1Refs(BASE_QR, patientId);
+    const effect = await performEffect({ qr, secrets: envConfig }, oystehrClient);
     expect(effect).toBe('all tasks executed successfully');
 
     const createdAccount = (
@@ -567,7 +744,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -591,7 +768,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -616,8 +793,8 @@ describe('Harvest Module Integration Tests', () => {
     });
     expect(primaryCoverage).toBeDefined();
     expect(secondaryCoverage).toBeDefined();
-    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
-    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
+    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
+    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
     expect(extraCoverageJustHangingOutInFhir).toBeDefined();
     expect(extraCoverageJustHangingOutInFhir?.status).toBe('active');
     expect(extraCoverageJustHangingOutInFhir?.subscriber?.reference).toEqual(
@@ -629,7 +806,7 @@ describe('Harvest Module Integration Tests', () => {
 
     expect(writtenPrimaryCoverage).toEqual(primaryCoverage);
     const { secondary } = qr1ExpectedCoverageResources;
-    normalizedCompare(secondary, secondaryCoverage);
+    normalizedCompare(secondary, secondaryCoverage, patientId);
 
     expect(relatedPersonsAreSame(writtenSecondarySubscriber, secondaryCoverage?.contained?.[0] as RelatedPerson)).toBe(
       true
@@ -637,10 +814,11 @@ describe('Harvest Module Integration Tests', () => {
   });
 
   it('should update existing secondary coverage to live on the new Account when the inputs match, but should create a new one for primary is no match found', async () => {
-    const persistedRP1 = fillReferences(expectedPrimaryPolicyHolderFromQR1, getQR1Refs());
-    const persistedRP2 = fillReferences(expectedSecondaryPolicyHolderFromQR1, getQR1Refs());
-    const persistedCoverage1 = fillReferences(qr1ExpectedCoverageResources.primary, getQR1Refs());
-    const persistedCoverage2 = fillReferences(qr1ExpectedCoverageResources.secondary, getQR1Refs());
+    const patientId = getPatientId();
+    const persistedRP1 = fillReferences(expectedPrimaryPolicyHolderFromQR1, getQR1Refs(patientId));
+    const persistedRP2 = fillReferences(expectedSecondaryPolicyHolderFromQR1, getQR1Refs(patientId));
+    const persistedCoverage1 = fillReferences(qr1ExpectedCoverageResources.primary, getQR1Refs(patientId));
+    const persistedCoverage2 = fillReferences(qr1ExpectedCoverageResources.secondary, getQR1Refs(patientId));
 
     const batchRequests = batchTestInsuranceWrites({
       primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: false },
@@ -665,7 +843,8 @@ describe('Harvest Module Integration Tests', () => {
       (res) => `RelatedPerson/${res.id}` === writtenSecondaryCoverage?.subscriber?.reference
     ) as RelatedPerson;
 
-    const effect = await performEffect({ qr: BASE_QR, secrets: envConfig }, oystehrClient);
+    const qr = fillWithQR1Refs(BASE_QR, patientId);
+    const effect = await performEffect({ qr, secrets: envConfig }, oystehrClient);
     expect(effect).toBe('all tasks executed successfully');
 
     const createdAccount = (
@@ -674,7 +853,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -698,7 +877,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -725,8 +904,8 @@ describe('Harvest Module Integration Tests', () => {
     expect(primaryCoverage).toBeDefined();
     expect(secondaryCoverage).toBeDefined();
     expect(extraCoverageJustHangingOutInFhir).toBeDefined();
-    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
-    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
+    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
+    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
     expect(extraCoverageJustHangingOutInFhir?.status).toBe('active');
     expect(extraCoverageJustHangingOutInFhir?.subscriber?.reference).toEqual(
       `RelatedPerson/${writtenPrimarySubscriber.id}`
@@ -737,7 +916,7 @@ describe('Harvest Module Integration Tests', () => {
 
     expect(writtenSecondaryCoverage).toEqual(secondaryCoverage);
     const { primary } = qr1ExpectedCoverageResources;
-    normalizedCompare(primary, primaryCoverage);
+    normalizedCompare(primary, primaryCoverage, patientId);
 
     expect(relatedPersonsAreSame(writtenPrimarySubscriber, primaryCoverage?.contained?.[0] as RelatedPerson)).toBe(
       true
@@ -745,10 +924,11 @@ describe('Harvest Module Integration Tests', () => {
   });
 
   it('should create two new coverages when neither matches existing coverages', async () => {
-    const persistedRP1 = fillReferences(expectedPrimaryPolicyHolderFromQR1, getQR1Refs());
-    const persistedRP2 = fillReferences(expectedSecondaryPolicyHolderFromQR1, getQR1Refs());
-    const persistedCoverage1 = fillReferences(qr1ExpectedCoverageResources.primary, getQR1Refs());
-    const persistedCoverage2 = fillReferences(qr1ExpectedCoverageResources.secondary, getQR1Refs());
+    const patientId = getPatientId();
+    const persistedRP1 = fillReferences(expectedPrimaryPolicyHolderFromQR1, getQR1Refs(patientId));
+    const persistedRP2 = fillReferences(expectedSecondaryPolicyHolderFromQR1, getQR1Refs(patientId));
+    const persistedCoverage1 = fillReferences(qr1ExpectedCoverageResources.primary, getQR1Refs(patientId));
+    const persistedCoverage2 = fillReferences(qr1ExpectedCoverageResources.secondary, getQR1Refs(patientId));
 
     const batchRequests = batchTestInsuranceWrites({
       primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: false },
@@ -760,7 +940,8 @@ describe('Harvest Module Integration Tests', () => {
     const writtenResources = unbundleBatchPostOutput<Account | RelatedPerson | Coverage | Patient>(transactionRequests);
     expect(writtenResources.length).toBe(4);
 
-    const effect = await performEffect({ qr: BASE_QR, secrets: envConfig }, oystehrClient);
+    const qr = fillWithQR1Refs(BASE_QR, patientId);
+    const effect = await performEffect({ qr, secrets: envConfig }, oystehrClient);
     expect(effect).toBe('all tasks executed successfully');
 
     const createdAccount = (
@@ -769,7 +950,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -793,7 +974,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -815,19 +996,20 @@ describe('Harvest Module Integration Tests', () => {
 
     expect(primaryCoverage).toBeDefined();
     expect(secondaryCoverage).toBeDefined();
-    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
-    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
+    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
+    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
 
     expect(primaryCoverage?.subscriber?.reference).toEqual('#coverageSubscriber');
     expect(secondaryCoverage?.subscriber?.reference).toEqual('#coverageSubscriber');
 
     const { primary, secondary } = qr1ExpectedCoverageResources;
-    normalizedCompare(primary, primaryCoverage);
-    normalizedCompare(secondary, secondaryCoverage);
+    normalizedCompare(primary, primaryCoverage, patientId);
+    normalizedCompare(secondary, secondaryCoverage, patientId);
   });
 
   it('existing Account with no coverages should be updated with newly written coverages', async () => {
-    const batchRequests = batchTestInsuranceWrites({ account: fillWithQR1Refs(stubAccount) });
+    const patientId = getPatientId();
+    const batchRequests = batchTestInsuranceWrites({ account: fillWithQR1Refs(stubAccount, patientId) });
 
     const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
     expect(transactionRequests).toBeDefined();
@@ -835,7 +1017,8 @@ describe('Harvest Module Integration Tests', () => {
     expect(writtenResources.length).toBe(1);
     const writtenAccount = writtenResources.find((res) => res.resourceType === 'Account') as Account;
 
-    const effect = await performEffect({ qr: BASE_QR, secrets: envConfig }, oystehrClient);
+    const qr = fillWithQR1Refs(BASE_QR, patientId);
+    const effect = await performEffect({ qr, secrets: envConfig }, oystehrClient);
     expect(effect).toBe('all tasks executed successfully');
     const foundAccounts = (
       await oystehrClient.fhir.search<Account>({
@@ -843,7 +1026,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -873,7 +1056,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -895,24 +1078,25 @@ describe('Harvest Module Integration Tests', () => {
 
     expect(primaryCoverage).toBeDefined();
     expect(secondaryCoverage).toBeDefined();
-    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
-    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
+    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
+    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
 
     expect(primaryCoverage?.subscriber?.reference).toEqual('#coverageSubscriber');
     expect(secondaryCoverage?.subscriber?.reference).toEqual('#coverageSubscriber');
 
     const { primary, secondary } = qr1ExpectedCoverageResources;
-    normalizedCompare(primary, primaryCoverage);
-    normalizedCompare(secondary, secondaryCoverage);
+    normalizedCompare(primary, primaryCoverage, patientId);
+    normalizedCompare(secondary, secondaryCoverage, patientId);
   });
 
   it('should update an existing Account to replace old coverage with unmatched member number, which should be updated to "cancelled', async () => {
-    const persistedRP1 = fillWithQR1Refs(expectedPrimaryPolicyHolderFromQR1);
-    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.primary);
+    const patientId = getPatientId();
+    const persistedRP1 = fillWithQR1Refs(expectedPrimaryPolicyHolderFromQR1, patientId);
+    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.primary, patientId);
 
     const batchRequests = batchTestInsuranceWrites({
       primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
-      account: fillWithQR1Refs(stubAccount),
+      account: fillWithQR1Refs(stubAccount, patientId),
     });
 
     const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
@@ -923,6 +1107,7 @@ describe('Harvest Module Integration Tests', () => {
 
     const { primaryCoverageRef, secondaryCoverageRef } = await applyEffectAndValidateResults({
       idToCheck: writtenAccount.id,
+      patientId,
     });
     const allCoverages = (
       await oystehrClient.fhir.search<Coverage>({
@@ -930,7 +1115,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -952,15 +1137,15 @@ describe('Harvest Module Integration Tests', () => {
 
     expect(primaryCoverage).toBeDefined();
     expect(secondaryCoverage).toBeDefined();
-    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
-    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
+    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
+    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
 
     expect(primaryCoverage?.subscriber?.reference).toEqual('#coverageSubscriber');
     expect(secondaryCoverage?.subscriber?.reference).toEqual('#coverageSubscriber');
 
     const { primary, secondary } = qr1ExpectedCoverageResources;
-    normalizedCompare(primary, primaryCoverage);
-    normalizedCompare(secondary, secondaryCoverage);
+    normalizedCompare(primary, primaryCoverage, patientId);
+    normalizedCompare(secondary, secondaryCoverage, patientId);
 
     const canceledCoverages = (
       await oystehrClient.fhir.search<Coverage>({
@@ -968,7 +1153,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -988,10 +1173,17 @@ describe('Harvest Module Integration Tests', () => {
     });
   });
   it('should update an existing Account to update secondary Coverage with unmatched contained subscriber', async () => {
-    const persistedRP2 = fillWithQR1Refs({ ...expectedSecondaryPolicyHolderFromQR1, birthDate: '1990-01-01' });
-    const persistedCoverage2 = fillWithQR1Refs({
-      ...qr1ExpectedCoverageResources.secondary,
-    });
+    const patientId = getPatientId();
+    const persistedRP2 = fillWithQR1Refs(
+      { ...expectedSecondaryPolicyHolderFromQR1, birthDate: '1990-01-01' },
+      patientId
+    );
+    const persistedCoverage2 = fillWithQR1Refs(
+      {
+        ...qr1ExpectedCoverageResources.secondary,
+      },
+      patientId
+    );
 
     const batchRequests = batchTestInsuranceWrites({
       secondary: {
@@ -1000,7 +1192,7 @@ describe('Harvest Module Integration Tests', () => {
         ensureOrder: true,
         containedSubscriber: true,
       },
-      account: fillWithQR1Refs(stubAccount),
+      account: fillWithQR1Refs(stubAccount, patientId),
     });
 
     const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
@@ -1011,6 +1203,7 @@ describe('Harvest Module Integration Tests', () => {
 
     const { primaryCoverageRef, secondaryCoverageRef } = await applyEffectAndValidateResults({
       idToCheck: writtenAccount.id,
+      patientId,
     });
     const allCoverages = (
       await oystehrClient.fhir.search<Coverage | RelatedPerson>({
@@ -1018,7 +1211,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -1044,14 +1237,14 @@ describe('Harvest Module Integration Tests', () => {
 
     expect(primaryCoverage).toBeDefined();
     expect(secondaryCoverage).toBeDefined();
-    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
-    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
+    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
+    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
 
     expect(primaryCoverage?.subscriber?.reference).toEqual('#coverageSubscriber');
     expect(secondaryCoverage?.subscriber?.reference).toEqual('#coverageSubscriber');
 
     const { primary } = qr1ExpectedCoverageResources;
-    normalizedCompare(primary, primaryCoverage);
+    normalizedCompare(primary, primaryCoverage, patientId);
 
     const shouldHaveNewSubscriber = writtenResources.find((res) => res.resourceType === 'Coverage') as Coverage;
     const oldContained = shouldHaveNewSubscriber.contained?.[0] as RelatedPerson;
@@ -1070,7 +1263,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -1082,14 +1275,21 @@ describe('Harvest Module Integration Tests', () => {
     expect(canceledCoverages.length).toBe(0);
   });
   it('should update an existing Account to update secondary Coverage with unmatched persisted subscriber, old subscriber should be unchanged', async () => {
-    const persistedRP2 = fillWithQR1Refs({ ...expectedSecondaryPolicyHolderFromQR1, birthDate: '1990-01-01' });
-    const persistedCoverage2 = fillWithQR1Refs({
-      ...qr1ExpectedCoverageResources.secondary,
-    });
+    const patientId = getPatientId();
+    const persistedRP2 = fillWithQR1Refs(
+      { ...expectedSecondaryPolicyHolderFromQR1, birthDate: '1990-01-01' },
+      patientId
+    );
+    const persistedCoverage2 = fillWithQR1Refs(
+      {
+        ...qr1ExpectedCoverageResources.secondary,
+      },
+      patientId
+    );
 
     const batchRequests = batchTestInsuranceWrites({
       secondary: { subscriber: persistedRP2, coverage: persistedCoverage2, ensureOrder: true },
-      account: fillWithQR1Refs(stubAccount),
+      account: fillWithQR1Refs(stubAccount, patientId),
     });
 
     const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
@@ -1100,6 +1300,7 @@ describe('Harvest Module Integration Tests', () => {
 
     const { primaryCoverageRef, secondaryCoverageRef } = await applyEffectAndValidateResults({
       idToCheck: writtenAccount.id,
+      patientId,
     });
     const allCoverages = (
       await oystehrClient.fhir.search<Coverage | RelatedPerson>({
@@ -1107,7 +1308,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -1133,14 +1334,14 @@ describe('Harvest Module Integration Tests', () => {
 
     expect(primaryCoverage).toBeDefined();
     expect(secondaryCoverage).toBeDefined();
-    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
-    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
+    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
+    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
 
     expect(primaryCoverage?.subscriber?.reference).toEqual('#coverageSubscriber');
     expect(secondaryCoverage?.subscriber?.reference).toEqual('#coverageSubscriber');
 
     const { primary } = qr1ExpectedCoverageResources;
-    normalizedCompare(primary, primaryCoverage);
+    normalizedCompare(primary, primaryCoverage, patientId);
 
     const shouldHaveNewSubscriber = writtenResources.find((res) => res.resourceType === 'Coverage') as Coverage;
     const newContained = secondaryCoverage.contained?.[0] as RelatedPerson;
@@ -1164,7 +1365,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -1176,14 +1377,18 @@ describe('Harvest Module Integration Tests', () => {
     expect(canceledCoverages.length).toBe(0);
   });
   it('should update an existing Account to update Coverage with unmatched persisted subscriber, old subscriber should be unchanged', async () => {
-    const persistedRP1 = fillWithQR1Refs({ ...expectedPrimaryPolicyHolderFromQR1, birthDate: '1990-01-01' });
-    const persistedCoverage1 = fillWithQR1Refs({
-      ...qr1ExpectedCoverageResources.primary,
-    });
+    const patientId = getPatientId();
+    const persistedRP1 = fillWithQR1Refs({ ...expectedPrimaryPolicyHolderFromQR1, birthDate: '1990-01-01' }, patientId);
+    const persistedCoverage1 = fillWithQR1Refs(
+      {
+        ...qr1ExpectedCoverageResources.primary,
+      },
+      patientId
+    );
 
     const batchRequests = batchTestInsuranceWrites({
       primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
-      account: fillWithQR1Refs(stubAccount),
+      account: fillWithQR1Refs(stubAccount, patientId),
     });
 
     const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
@@ -1194,6 +1399,7 @@ describe('Harvest Module Integration Tests', () => {
 
     const { primaryCoverageRef, secondaryCoverageRef } = await applyEffectAndValidateResults({
       idToCheck: writtenAccount.id,
+      patientId,
     });
     const allCoverages = (
       await oystehrClient.fhir.search<Coverage | RelatedPerson>({
@@ -1201,7 +1407,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -1227,14 +1433,14 @@ describe('Harvest Module Integration Tests', () => {
 
     expect(primaryCoverage).toBeDefined();
     expect(secondaryCoverage).toBeDefined();
-    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
-    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
+    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
+    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
 
     expect(primaryCoverage?.subscriber?.reference).toEqual('#coverageSubscriber');
     expect(secondaryCoverage?.subscriber?.reference).toEqual('#coverageSubscriber');
 
     const { secondary } = qr1ExpectedCoverageResources;
-    normalizedCompare(secondary, secondaryCoverage);
+    normalizedCompare(secondary, secondaryCoverage, patientId);
 
     const shouldHaveNewSubscriber = writtenResources.find((res) => res.resourceType === 'Coverage') as Coverage;
     const newContained = primaryCoverage.contained?.[0] as RelatedPerson;
@@ -1258,7 +1464,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -1270,14 +1476,18 @@ describe('Harvest Module Integration Tests', () => {
     expect(canceledCoverages.length).toBe(0);
   });
   it('should update an existing Account to update Coverage with unmatched contained subscriber', async () => {
-    const persistedRP1 = fillWithQR1Refs({ ...expectedPrimaryPolicyHolderFromQR1, birthDate: '1990-01-01' });
-    const persistedCoverage1 = fillWithQR1Refs({
-      ...qr1ExpectedCoverageResources.primary,
-    });
+    const patientId = getPatientId();
+    const persistedRP1 = fillWithQR1Refs({ ...expectedPrimaryPolicyHolderFromQR1, birthDate: '1990-01-01' }, patientId);
+    const persistedCoverage1 = fillWithQR1Refs(
+      {
+        ...qr1ExpectedCoverageResources.primary,
+      },
+      patientId
+    );
 
     const batchRequests = batchTestInsuranceWrites({
       primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true, containedSubscriber: true },
-      account: fillWithQR1Refs(stubAccount),
+      account: fillWithQR1Refs(stubAccount, patientId),
     });
 
     const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
@@ -1288,6 +1498,7 @@ describe('Harvest Module Integration Tests', () => {
 
     const { primaryCoverageRef, secondaryCoverageRef } = await applyEffectAndValidateResults({
       idToCheck: writtenAccount.id,
+      patientId,
     });
     const allCoverages = (
       await oystehrClient.fhir.search<Coverage | RelatedPerson>({
@@ -1295,7 +1506,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -1321,14 +1532,14 @@ describe('Harvest Module Integration Tests', () => {
 
     expect(primaryCoverage).toBeDefined();
     expect(secondaryCoverage).toBeDefined();
-    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
-    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
+    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
+    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
 
     expect(primaryCoverage?.subscriber?.reference).toEqual('#coverageSubscriber');
     expect(secondaryCoverage?.subscriber?.reference).toEqual('#coverageSubscriber');
 
     const { secondary } = qr1ExpectedCoverageResources;
-    normalizedCompare(secondary, secondaryCoverage);
+    normalizedCompare(secondary, secondaryCoverage, patientId);
 
     const shouldHaveNewSubscriber = writtenResources.find((res) => res.resourceType === 'Coverage') as Coverage;
     const oldContained = shouldHaveNewSubscriber.contained?.[0] as RelatedPerson;
@@ -1347,7 +1558,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -1359,10 +1570,17 @@ describe('Harvest Module Integration Tests', () => {
     expect(canceledCoverages.length).toBe(0);
   });
   it('should update an existing Account to update secondary Coverage with unmatched contained subscriber', async () => {
-    const persistedRP2 = fillWithQR1Refs({ ...expectedSecondaryPolicyHolderFromQR1, birthDate: '1990-01-01' });
-    const persistedCoverage2 = fillWithQR1Refs({
-      ...qr1ExpectedCoverageResources.secondary,
-    });
+    const patientId = getPatientId();
+    const persistedRP2 = fillWithQR1Refs(
+      { ...expectedSecondaryPolicyHolderFromQR1, birthDate: '1990-01-01' },
+      patientId
+    );
+    const persistedCoverage2 = fillWithQR1Refs(
+      {
+        ...qr1ExpectedCoverageResources.secondary,
+      },
+      patientId
+    );
 
     const batchRequests = batchTestInsuranceWrites({
       secondary: {
@@ -1371,7 +1589,7 @@ describe('Harvest Module Integration Tests', () => {
         ensureOrder: true,
         containedSubscriber: true,
       },
-      account: fillWithQR1Refs(stubAccount),
+      account: fillWithQR1Refs(stubAccount, patientId),
     });
 
     const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
@@ -1382,6 +1600,7 @@ describe('Harvest Module Integration Tests', () => {
 
     const { primaryCoverageRef, secondaryCoverageRef } = await applyEffectAndValidateResults({
       idToCheck: writtenAccount.id,
+      patientId,
     });
     const allCoverages = (
       await oystehrClient.fhir.search<Coverage | RelatedPerson>({
@@ -1389,7 +1608,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -1415,14 +1634,14 @@ describe('Harvest Module Integration Tests', () => {
 
     expect(primaryCoverage).toBeDefined();
     expect(secondaryCoverage).toBeDefined();
-    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
-    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
+    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
+    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
 
     expect(primaryCoverage?.subscriber?.reference).toEqual('#coverageSubscriber');
     expect(secondaryCoverage?.subscriber?.reference).toEqual('#coverageSubscriber');
 
     const { primary } = qr1ExpectedCoverageResources;
-    normalizedCompare(primary, primaryCoverage);
+    normalizedCompare(primary, primaryCoverage, patientId);
 
     const shouldHaveNewSubscriber = writtenResources.find((res) => res.resourceType === 'Coverage') as Coverage;
     const oldContained = shouldHaveNewSubscriber.contained?.[0] as RelatedPerson;
@@ -1441,7 +1660,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -1453,10 +1672,11 @@ describe('Harvest Module Integration Tests', () => {
     expect(canceledCoverages.length).toBe(0);
   });
   it('should correctly create an Account where primary and secondary Coverages are swapped', async () => {
-    const persistedRP2 = fillReferences(expectedPrimaryPolicyHolderFromQR1, getQR1Refs());
-    const persistedRP1 = fillReferences(expectedSecondaryPolicyHolderFromQR1, getQR1Refs());
-    const persistedCoverage2 = fillReferences(qr1ExpectedCoverageResources.primary, getQR1Refs());
-    const persistedCoverage1 = fillReferences(qr1ExpectedCoverageResources.secondary, getQR1Refs());
+    const patientId = getPatientId();
+    const persistedRP2 = fillReferences(expectedPrimaryPolicyHolderFromQR1, getQR1Refs(patientId));
+    const persistedRP1 = fillReferences(expectedSecondaryPolicyHolderFromQR1, getQR1Refs(patientId));
+    const persistedCoverage2 = fillReferences(qr1ExpectedCoverageResources.primary, getQR1Refs(patientId));
+    const persistedCoverage1 = fillReferences(qr1ExpectedCoverageResources.secondary, getQR1Refs(patientId));
 
     const batchRequests = batchTestInsuranceWrites({
       primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
@@ -1480,7 +1700,9 @@ describe('Harvest Module Integration Tests', () => {
     expect(writtenPrimaryCoverage).toBeDefined();
     expect(writtenSecondaryCoverage).toBeDefined();
 
-    const { primaryCoverageRef, secondaryCoverageRef, account } = await applyEffectAndValidateResults({});
+    const { primaryCoverageRef, secondaryCoverageRef, account } = await applyEffectAndValidateResults({
+      patientId: patientId,
+    });
     expect(account.coverage?.length).toBe(2);
     expect(primaryCoverageRef.startsWith('Coverage/')).toBe(true);
     expect(secondaryCoverageRef.startsWith('Coverage/')).toBe(true);
@@ -1493,7 +1715,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -1513,15 +1735,16 @@ describe('Harvest Module Integration Tests', () => {
   });
 
   it('should correctly update an Account where primary and secondary Coverages are swapped', async () => {
-    const persistedRP2 = fillReferences(expectedPrimaryPolicyHolderFromQR1, getQR1Refs());
-    const persistedRP1 = fillReferences(expectedSecondaryPolicyHolderFromQR1, getQR1Refs());
-    const persistedCoverage2 = fillReferences(qr1ExpectedCoverageResources.primary, getQR1Refs());
-    const persistedCoverage1 = fillReferences(qr1ExpectedCoverageResources.secondary, getQR1Refs());
+    const patientId = getPatientId();
+    const persistedRP2 = fillReferences(expectedPrimaryPolicyHolderFromQR1, getQR1Refs(patientId));
+    const persistedRP1 = fillReferences(expectedSecondaryPolicyHolderFromQR1, getQR1Refs(patientId));
+    const persistedCoverage2 = fillReferences(qr1ExpectedCoverageResources.primary, getQR1Refs(patientId));
+    const persistedCoverage1 = fillReferences(qr1ExpectedCoverageResources.secondary, getQR1Refs(patientId));
 
     const batchRequests = batchTestInsuranceWrites({
       primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
       secondary: { subscriber: persistedRP2, coverage: persistedCoverage2, ensureOrder: true },
-      account: fillWithQR1Refs(stubAccount),
+      account: fillWithQR1Refs(stubAccount, patientId),
     });
 
     const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
@@ -1543,6 +1766,7 @@ describe('Harvest Module Integration Tests', () => {
 
     const { primaryCoverageRef, secondaryCoverageRef, account } = await applyEffectAndValidateResults({
       idToCheck: writtenAccount.id,
+      patientId,
     });
     expect(account.coverage?.length).toBe(2);
     expect(primaryCoverageRef.startsWith('Coverage/')).toBe(true);
@@ -1556,7 +1780,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -1576,16 +1800,17 @@ describe('Harvest Module Integration Tests', () => {
   });
 
   it('should correctly update an Account whose existing primary coverage becomes secondary and secondary is replaced with new Coverage', async () => {
-    const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1);
-    const persistedCoverage1 = fillReferences(qr1ExpectedCoverageResources.secondary, getQR1Refs());
+    const patientId = getPatientId();
+    const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
+    const persistedCoverage1 = fillReferences(qr1ExpectedCoverageResources.secondary, getQR1Refs(patientId));
 
-    const persistedRP2 = fillWithQR1Refs(expectedPrimaryPolicyHolderFromQR1);
-    const persistedCoverage2 = changeCoveragerMemberId(qr1ExpectedCoverageResources.primary);
+    const persistedRP2 = fillWithQR1Refs(expectedPrimaryPolicyHolderFromQR1, patientId);
+    const persistedCoverage2 = changeCoveragerMemberId(qr1ExpectedCoverageResources.primary, patientId);
 
     const batchRequests = batchTestInsuranceWrites({
       primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
       secondary: { subscriber: persistedRP2, coverage: persistedCoverage2, ensureOrder: true },
-      account: fillWithQR1Refs(stubAccount),
+      account: fillWithQR1Refs(stubAccount, patientId),
     });
 
     const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
@@ -1607,6 +1832,7 @@ describe('Harvest Module Integration Tests', () => {
 
     const { primaryCoverageRef, secondaryCoverageRef, account } = await applyEffectAndValidateResults({
       idToCheck: writtenAccount.id,
+      patientId,
     });
 
     expect(secondaryCoverageRef).toEqual(`Coverage/${writtenPrimaryCoverage.id}`);
@@ -1617,7 +1843,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -1644,21 +1870,22 @@ describe('Harvest Module Integration Tests', () => {
 
     expect(primaryCoverage).toBeDefined();
     expect(secondaryCoverage).toBeDefined();
-    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
-    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
+    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
+    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
     expect(account.coverage?.find((cov) => cov.coverage?.reference === secondaryCoverageRef)).toBeDefined();
   });
   it('should correctly update an Account whose existing secondary coverage becomes primary and primary is replaced with new Coverage', async () => {
-    const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1);
-    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary);
+    const patientId = getPatientId();
+    const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
+    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary, patientId);
 
-    const persistedRP2 = fillWithQR1Refs(expectedPrimaryPolicyHolderFromQR1);
-    const persistedCoverage2 = fillWithQR1Refs(qr1ExpectedCoverageResources.primary);
+    const persistedRP2 = fillWithQR1Refs(expectedPrimaryPolicyHolderFromQR1, patientId);
+    const persistedCoverage2 = fillWithQR1Refs(qr1ExpectedCoverageResources.primary, patientId);
 
     const batchRequests = batchTestInsuranceWrites({
       primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
       secondary: { subscriber: persistedRP2, coverage: persistedCoverage2, ensureOrder: true },
-      account: fillWithQR1Refs(stubAccount),
+      account: fillWithQR1Refs(stubAccount, patientId),
     });
 
     const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
@@ -1680,6 +1907,7 @@ describe('Harvest Module Integration Tests', () => {
 
     const { primaryCoverageRef, secondaryCoverageRef, account } = await applyEffectAndValidateResults({
       idToCheck: writtenAccount.id,
+      patientId,
     });
 
     expect(primaryCoverageRef).toEqual(`Coverage/${writtenSecondaryCoverage.id}`);
@@ -1690,7 +1918,7 @@ describe('Harvest Module Integration Tests', () => {
         params: [
           {
             name: 'patient',
-            value: `Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`,
+            value: `Patient/${patientId}`,
           },
           {
             name: 'status',
@@ -1716,16 +1944,17 @@ describe('Harvest Module Integration Tests', () => {
     }) as Coverage;
     expect(primaryCoverage).toBeDefined();
     expect(secondaryCoverage).toBeDefined();
-    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
-    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${TEST_CONFIG[TEST_PATIENT_ID_KEY]}`);
+    expect(primaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
+    expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
     expect(account.coverage?.find((cov) => cov.coverage?.reference === primaryCoverageRef)).toBeDefined();
   });
   it('should correctly update an Account with a new guarantor when there is no existing guarantor', async () => {
-    const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1);
-    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary);
+    const patientId = getPatientId();
+    const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
+    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary, patientId);
     const batchRequests = batchTestInsuranceWrites({
       primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
-      account: fillWithQR1Refs(stubAccount),
+      account: fillWithQR1Refs(stubAccount, patientId),
     });
 
     const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
@@ -1742,18 +1971,20 @@ describe('Harvest Module Integration Tests', () => {
 
     const { account } = await applyEffectAndValidateResults({
       idToCheck: writtenAccount.id,
+      patientId,
     });
     const containedGuarantor = account.contained?.find((res) => res.resourceType === 'RelatedPerson') as RelatedPerson;
     expect(containedGuarantor).toBeDefined();
-    expect(containedGuarantor).toEqual(fillWithQR1Refs(expectedAccountGuarantorFromQR1));
+    expect(containedGuarantor).toEqual(fillWithQR1Refs(expectedAccountGuarantorFromQR1, patientId));
   });
   it('should make no changes to an existing contained guarantor when the input matches', async () => {
-    const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1);
-    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary);
+    const patientId = getPatientId();
+    const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
+    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary, patientId);
     const batchRequests = batchTestInsuranceWrites({
       primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
-      account: fillWithQR1Refs(stubAccount),
-      containedGuarantor: fillWithQR1Refs(expectedAccountGuarantorFromQR1),
+      account: fillWithQR1Refs(stubAccount, patientId),
+      containedGuarantor: fillWithQR1Refs(expectedAccountGuarantorFromQR1, patientId),
     });
 
     const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
@@ -1770,20 +2001,22 @@ describe('Harvest Module Integration Tests', () => {
 
     const { account } = await applyEffectAndValidateResults({
       idToCheck: writtenAccount.id,
+      patientId,
     });
     const containedGuarantor = account.contained?.find((res) => res.resourceType === 'RelatedPerson') as RelatedPerson;
     expect(account.contained?.length).toBe(1);
     expect(containedGuarantor).toBeDefined();
-    expect({ ...containedGuarantor }).toEqual(fillWithQR1Refs(expectedAccountGuarantorFromQR1));
+    expect({ ...containedGuarantor }).toEqual(fillWithQR1Refs(expectedAccountGuarantorFromQR1, patientId));
     expect(containedGuarantor).toEqual(writtenAccount.contained?.[0]);
   });
   it('should make no changes to an existing persisted guarantor when the input matches', async () => {
-    const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1);
-    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary);
+    const patientId = getPatientId();
+    const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
+    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary, patientId);
     const batchRequests = batchTestInsuranceWrites({
       primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
-      account: fillWithQR1Refs(stubAccount),
-      persistedGuarantor: fillWithQR1Refs(expectedAccountGuarantorFromQR1),
+      account: fillWithQR1Refs(stubAccount, patientId),
+      persistedGuarantor: fillWithQR1Refs(expectedAccountGuarantorFromQR1, patientId),
     });
 
     const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
@@ -1801,6 +2034,7 @@ describe('Harvest Module Integration Tests', () => {
     const { account, persistedGuarantor } = await applyEffectAndValidateResults({
       idToCheck: writtenAccount.id,
       guarantorRef: writtenAccount.guarantor?.[0]?.party?.reference,
+      patientId,
     });
     const containedGuarantor = account.contained?.find((res) => res.resourceType === 'RelatedPerson') as RelatedPerson;
     expect(containedGuarantor).toBeUndefined();
@@ -1811,8 +2045,9 @@ describe('Harvest Module Integration Tests', () => {
     );
   });
   it('should update the relationship on an existing persisted guarantor when all other input matches', async () => {
-    const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1);
-    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary);
+    const patientId = getPatientId();
+    const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
+    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary, patientId);
     const newRelationship = [
       {
         coding: [
@@ -1830,8 +2065,8 @@ describe('Harvest Module Integration Tests', () => {
     };
     const batchRequests = batchTestInsuranceWrites({
       primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
-      account: fillWithQR1Refs(stubAccount),
-      persistedGuarantor: fillWithQR1Refs(guarantorToPersist),
+      account: fillWithQR1Refs(stubAccount, patientId),
+      persistedGuarantor: fillWithQR1Refs(guarantorToPersist, patientId),
     });
 
     const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
@@ -1847,6 +2082,7 @@ describe('Harvest Module Integration Tests', () => {
     expect(writtenAccount.contained).toBeUndefined();
 
     const { account, persistedGuarantor } = await applyEffectAndValidateResults({
+      patientId,
       idToCheck: writtenAccount.id,
       guarantorRef: writtenAccount.guarantor?.[0]?.party?.reference,
     });
@@ -1861,12 +2097,13 @@ describe('Harvest Module Integration Tests', () => {
     expect((persistedGuarantor as RelatedPerson).relationship).toEqual(newRelationship);
   });
   it('should update guarantor from referenced Patient to contained RP when guarantor relationship != self', async () => {
-    const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1);
-    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary);
+    const patientId = getPatientId();
+    const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
+    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary, patientId);
     const batchRequests = batchTestInsuranceWrites({
       primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
-      account: fillWithQR1Refs(stubAccount),
-      persistedGuarantorReference: fillWithQR1Refs(`{{PATIENT_REF}}`),
+      account: fillWithQR1Refs(stubAccount, patientId),
+      persistedGuarantorReference: fillWithQR1Refs(`{{PATIENT_REF}}`, patientId),
     });
 
     const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
@@ -1882,6 +2119,7 @@ describe('Harvest Module Integration Tests', () => {
     expect(writtenAccount.contained).toBeUndefined();
 
     const { account, persistedGuarantor } = await applyEffectAndValidateResults({
+      patientId,
       idToCheck: writtenAccount.id,
     });
     const containedGuarantor = account.contained?.find((res) => res.resourceType === 'RelatedPerson') as RelatedPerson;
@@ -1890,17 +2128,18 @@ describe('Harvest Module Integration Tests', () => {
     assert(containedGuarantor);
     expect(`#${containedGuarantor.id}`).toEqual(account.guarantor?.[0]?.party?.reference);
     expect(account.guarantor?.length).toBe(2);
-    expect(fillWithQR1Refs(`{{PATIENT_REF}}`)).toEqual(account.guarantor?.[1]?.party?.reference);
+    expect(fillWithQR1Refs(`{{PATIENT_REF}}`, patientId)).toEqual(account.guarantor?.[1]?.party?.reference);
     expect(account.guarantor?.[0]?.period?.end).toBeUndefined();
     expect(account.guarantor?.[1]?.period?.end).toBeDefined();
   });
   it('should update guarantor from contained RP to referenced Patient when relationship = self', async () => {
-    const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1);
-    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary);
+    const patientId = getPatientId();
+    const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
+    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary, patientId);
     const batchRequests = batchTestInsuranceWrites({
       primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
-      account: fillWithQR1Refs(stubAccount),
-      containedGuarantor: fillWithQR1Refs(expectedAccountGuarantorFromQR1),
+      account: fillWithQR1Refs(stubAccount, patientId),
+      containedGuarantor: fillWithQR1Refs(expectedAccountGuarantorFromQR1, patientId),
     });
 
     const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
@@ -1918,24 +2157,26 @@ describe('Harvest Module Integration Tests', () => {
     const { account, persistedGuarantor } = await applyEffectAndValidateResults({
       idToCheck: writtenAccount.id,
       qr: QR_WITH_PATIENT_GUARANTOR,
-      guarantorRef: fillWithQR1Refs(`{{PATIENT_REF}}`),
+      guarantorRef: fillWithQR1Refs(`{{PATIENT_REF}}`, patientId),
+      patientId,
     });
     const containedGuarantor = account.contained?.find((res) => res.resourceType === 'RelatedPerson') as RelatedPerson;
     expect(persistedGuarantor).toBeDefined();
     assert(containedGuarantor);
     expect(`#${containedGuarantor.id}`).toEqual(account.guarantor?.[1]?.party?.reference);
     expect(account.guarantor?.length).toBe(2);
-    expect(fillWithQR1Refs(`{{PATIENT_REF}}`)).toEqual(account.guarantor?.[0]?.party?.reference);
+    expect(fillWithQR1Refs(`{{PATIENT_REF}}`, patientId)).toEqual(account.guarantor?.[0]?.party?.reference);
     expect(account.guarantor?.[0]?.period?.end).toBeUndefined();
     expect(account.guarantor?.[1]?.period?.end).toBeDefined();
   });
   it('should update guarantor from referenced RP to Patient when relationship = self', async () => {
-    const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1);
-    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary);
+    const patientId = getPatientId();
+    const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
+    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary, patientId);
     const batchRequests = batchTestInsuranceWrites({
       primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
-      account: fillWithQR1Refs(stubAccount),
-      persistedGuarantor: fillWithQR1Refs(expectedAccountGuarantorFromQR1),
+      account: fillWithQR1Refs(stubAccount, patientId),
+      persistedGuarantor: fillWithQR1Refs(expectedAccountGuarantorFromQR1, patientId),
     });
 
     const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
@@ -1954,13 +2195,14 @@ describe('Harvest Module Integration Tests', () => {
     const { account, persistedGuarantor } = await applyEffectAndValidateResults({
       idToCheck: writtenAccount.id,
       qr,
-      guarantorRef: fillWithQR1Refs(`{{PATIENT_REF}}`),
+      guarantorRef: fillWithQR1Refs(`{{PATIENT_REF}}`, patientId),
+      patientId,
     });
     const containedGuarantor = account.contained?.find((res) => res.resourceType === 'RelatedPerson') as RelatedPerson;
     expect(containedGuarantor).toBeUndefined();
     expect(persistedGuarantor).toBeDefined();
     expect(account.guarantor?.length).toBe(2);
-    expect(fillWithQR1Refs(`{{PATIENT_REF}}`)).toEqual(account.guarantor?.[0]?.party?.reference);
+    expect(fillWithQR1Refs(`{{PATIENT_REF}}`, patientId)).toEqual(account.guarantor?.[0]?.party?.reference);
     expect(account.guarantor?.[0]?.period?.end).toBeUndefined();
     expect(account.guarantor?.[1]?.period?.end).toBeDefined();
     expect(account.guarantor?.[0]?.party?.reference).toEqual(
@@ -1970,12 +2212,13 @@ describe('Harvest Module Integration Tests', () => {
   it(
     'should handle successive guarantor updates resulting in multiple contained RP resources',
     async () => {
-      const persistedRP1 = fillWithQR1Refs(expectedPrimaryPolicyHolderFromQR1);
-      const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.primary);
+      const patientId = getPatientId();
+      const persistedRP1 = fillWithQR1Refs(expectedPrimaryPolicyHolderFromQR1, patientId);
+      const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.primary, patientId);
       const batchRequests = batchTestInsuranceWrites({
         primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
-        account: fillWithQR1Refs(stubAccount),
-        containedGuarantor: fillWithQR1Refs(expectedAccountGuarantorFromQR1),
+        account: fillWithQR1Refs(stubAccount, patientId),
+        containedGuarantor: fillWithQR1Refs(expectedAccountGuarantorFromQR1, patientId),
       });
 
       const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
@@ -1992,9 +2235,10 @@ describe('Harvest Module Integration Tests', () => {
 
       const qr = QR_WITH_PATIENT_GUARANTOR();
       const { account, persistedGuarantor } = await applyEffectAndValidateResults({
+        patientId,
         idToCheck: writtenAccount.id,
         qr,
-        guarantorRef: fillWithQR1Refs(`{{PATIENT_REF}}`),
+        guarantorRef: fillWithQR1Refs(`{{PATIENT_REF}}`, patientId),
       });
       const containedGuarantor = account.contained?.find(
         (res) => res.resourceType === 'RelatedPerson'
@@ -2002,7 +2246,7 @@ describe('Harvest Module Integration Tests', () => {
       expect(containedGuarantor).toBeDefined();
       expect(persistedGuarantor).toBeDefined();
       expect(account.guarantor?.length).toBe(2);
-      expect(fillWithQR1Refs(`{{PATIENT_REF}}`)).toEqual(account.guarantor?.[0]?.party?.reference);
+      expect(fillWithQR1Refs(`{{PATIENT_REF}}`, patientId)).toEqual(account.guarantor?.[0]?.party?.reference);
       expect(account.guarantor?.[0]?.period?.end).toBeUndefined();
       expect(account.guarantor?.[1]?.period?.end).toBeDefined();
       expect(account.guarantor?.[0]?.party?.reference).toEqual(
@@ -2012,6 +2256,7 @@ describe('Harvest Module Integration Tests', () => {
       const { account: account2 } = await applyEffectAndValidateResults({
         idToCheck: writtenAccount.id,
         qr: QR_WITH_ALT_GUARANTOR(),
+        patientId,
       });
       expect(account2.contained?.length).toBe(2);
       expect(account2.guarantor?.length).toBe(3);
@@ -2023,7 +2268,8 @@ describe('Harvest Module Integration Tests', () => {
       const { account: account3, persistedGuarantor: persistedGuarantor2 } = await applyEffectAndValidateResults({
         idToCheck: writtenAccount.id,
         qr, // this is the patient guarantor qr again
-        guarantorRef: fillWithQR1Refs(`{{PATIENT_REF}}`),
+        guarantorRef: fillWithQR1Refs(`{{PATIENT_REF}}`, patientId),
+        patientId,
       });
       const containedGuarantor2 = account3.contained?.find(
         (res) => res.resourceType === 'RelatedPerson'
@@ -2031,7 +2277,7 @@ describe('Harvest Module Integration Tests', () => {
       expect(containedGuarantor2).toBeDefined();
       expect(persistedGuarantor2).toBeDefined();
       expect(account3.guarantor?.length).toBe(4);
-      expect(fillWithQR1Refs(`{{PATIENT_REF}}`)).toEqual(account3.guarantor?.[0]?.party?.reference);
+      expect(fillWithQR1Refs(`{{PATIENT_REF}}`, patientId)).toEqual(account3.guarantor?.[0]?.party?.reference);
       expect(account.guarantor?.[0]?.period?.end).toBeUndefined();
       expect(account.guarantor?.[1]?.period?.end).toBeDefined();
       expect(account.guarantor?.[0]?.party?.reference).toEqual(
@@ -2042,11 +2288,12 @@ describe('Harvest Module Integration Tests', () => {
     { timeout: 10000 }
   );
   it('should update contained primary subscriber to persisted Patient when relationship = self', async () => {
-    const containedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1);
-    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary);
+    const patientId = getPatientId();
+    const containedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
+    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary, patientId);
     const batchRequests = batchTestInsuranceWrites({
       primary: { subscriber: containedRP1, coverage: persistedCoverage1, ensureOrder: true, containedSubscriber: true },
-      account: fillWithQR1Refs(stubAccount),
+      account: fillWithQR1Refs(stubAccount, patientId),
     });
 
     const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
@@ -2076,6 +2323,7 @@ describe('Harvest Module Integration Tests', () => {
     const { primaryCoverageRef } = await applyEffectAndValidateResults({
       idToCheck: writtenAccount.id,
       qr,
+      patientId,
     });
     expect(primaryCoverageRef).toBeDefined();
     const [_, coverageId] = primaryCoverageRef.split('/');
@@ -2100,13 +2348,14 @@ describe('Harvest Module Integration Tests', () => {
     ) as RelatedPerson;
     expect(persistedCoverage).toBeDefined();
     expect(persistedCoverage.contained).toBeUndefined();
-    expect(persistedCoverage.subscriber?.reference).toEqual(fillWithQR1Refs(`{{PATIENT_REF}}`));
+    expect(persistedCoverage.subscriber?.reference).toEqual(fillWithQR1Refs(`{{PATIENT_REF}}`, patientId));
     expect(persistedSubscriber).toBeDefined();
     expect(`Patient/${persistedSubscriber.id}`).toEqual(persistedCoverage.subscriber?.reference);
   });
   it('should update contained secondary subscriber to persisted Patient when relationship = self', async () => {
-    const containedRP2 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1);
-    const persistedCoverage2 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary);
+    const patientId = getPatientId();
+    const containedRP2 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
+    const persistedCoverage2 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary, patientId);
     const batchRequests = batchTestInsuranceWrites({
       secondary: {
         subscriber: containedRP2,
@@ -2114,7 +2363,7 @@ describe('Harvest Module Integration Tests', () => {
         ensureOrder: true,
         containedSubscriber: true,
       },
-      account: fillWithQR1Refs(stubAccount),
+      account: fillWithQR1Refs(stubAccount, patientId),
     });
 
     const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
@@ -2145,6 +2394,7 @@ describe('Harvest Module Integration Tests', () => {
     const { secondaryCoverageRef } = await applyEffectAndValidateResults({
       idToCheck: writtenAccount.id,
       qr,
+      patientId,
     });
     expect(secondaryCoverageRef).toBeDefined();
     const [_, coverageId] = secondaryCoverageRef.split('/');
@@ -2169,16 +2419,17 @@ describe('Harvest Module Integration Tests', () => {
     ) as RelatedPerson;
     expect(persistedCoverage).toBeDefined();
     expect(persistedCoverage.contained).toBeUndefined();
-    expect(persistedCoverage.subscriber?.reference).toEqual(fillWithQR1Refs(`{{PATIENT_REF}}`));
+    expect(persistedCoverage.subscriber?.reference).toEqual(fillWithQR1Refs(`{{PATIENT_REF}}`, patientId));
     expect(persistedSubscriber).toBeDefined();
     expect(`Patient/${persistedSubscriber.id}`).toEqual(persistedCoverage.subscriber?.reference);
   });
 
   it('should update contained primary and secondary subscribers as well as Account guarantor to persisted Patient when relationship = self', async () => {
-    const containedRP1 = fillWithQR1Refs(expectedPrimaryPolicyHolderFromQR1);
-    const containedRP2 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1);
-    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.primary);
-    const persistedCoverage2 = fillWithQR1Refs(qr1ExpectedCoverageResources.secondary);
+    const patientId = getPatientId();
+    const containedRP1 = fillWithQR1Refs(expectedPrimaryPolicyHolderFromQR1, patientId);
+    const containedRP2 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
+    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.primary, patientId);
+    const persistedCoverage2 = fillWithQR1Refs(qr1ExpectedCoverageResources.secondary, patientId);
     const batchRequests = batchTestInsuranceWrites({
       primary: {
         subscriber: containedRP1,
@@ -2192,8 +2443,8 @@ describe('Harvest Module Integration Tests', () => {
         ensureOrder: true,
         containedSubscriber: true,
       },
-      account: fillWithQR1Refs(stubAccount),
-      containedGuarantor: fillWithQR1Refs(expectedAccountGuarantorFromQR1),
+      account: fillWithQR1Refs(stubAccount, patientId),
+      containedGuarantor: fillWithQR1Refs(expectedAccountGuarantorFromQR1, patientId),
     });
     const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
     expect(transactionRequests).toBeDefined();
@@ -2230,7 +2481,8 @@ describe('Harvest Module Integration Tests', () => {
       await applyEffectAndValidateResults({
         idToCheck: writtenAccount.id,
         qr,
-        guarantorRef: fillWithQR1Refs(`{{PATIENT_REF}}`),
+        guarantorRef: fillWithQR1Refs(`{{PATIENT_REF}}`, patientId),
+        patientId,
       });
     expect(primaryCoverageRef).toBeDefined();
     expect(secondaryCoverageRef).toBeDefined();
@@ -2259,7 +2511,7 @@ describe('Harvest Module Integration Tests', () => {
     ) as RelatedPerson;
     expect(persistedPrimaryCoverage).toBeDefined();
     expect(persistedPrimaryCoverage.contained).toBeUndefined();
-    expect(persistedPrimaryCoverage.subscriber?.reference).toEqual(fillWithQR1Refs(`{{PATIENT_REF}}`));
+    expect(persistedPrimaryCoverage.subscriber?.reference).toEqual(fillWithQR1Refs(`{{PATIENT_REF}}`, patientId));
     expect(persistedPrimarySubscriber).toBeDefined();
     expect(`Patient/${persistedPrimarySubscriber.id}`).toEqual(persistedPrimaryCoverage.subscriber?.reference);
 
@@ -2286,7 +2538,7 @@ describe('Harvest Module Integration Tests', () => {
     ) as RelatedPerson;
     expect(persistedSecondaryCoverage).toBeDefined();
     expect(persistedSecondaryCoverage.contained).toBeUndefined();
-    expect(persistedSecondaryCoverage.subscriber?.reference).toEqual(fillWithQR1Refs(`{{PATIENT_REF}}`));
+    expect(persistedSecondaryCoverage.subscriber?.reference).toEqual(fillWithQR1Refs(`{{PATIENT_REF}}`, patientId));
     expect(persistedSecondarySubscriber).toBeDefined();
     expect(`Patient/${persistedSecondarySubscriber.id}`).toEqual(persistedSecondaryCoverage.subscriber?.reference);
 
@@ -2295,7 +2547,7 @@ describe('Harvest Module Integration Tests', () => {
     assert(containedGuarantor);
     expect(`#${containedGuarantor.id}`).toEqual(account.guarantor?.[1]?.party?.reference);
     expect(account.guarantor?.length).toBe(2);
-    expect(fillWithQR1Refs(`{{PATIENT_REF}}`)).toEqual(account.guarantor?.[0]?.party?.reference);
+    expect(fillWithQR1Refs(`{{PATIENT_REF}}`, patientId)).toEqual(account.guarantor?.[0]?.party?.reference);
     expect(account.guarantor?.[0]?.period?.end).toBeUndefined();
     expect(account.guarantor?.[1]?.period?.end).toBeDefined();
   });

@@ -77,10 +77,6 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
           name: '_include:iterate',
           value: 'Appointment:location',
         },
-        {
-          name: '_revinclude:iterate',
-          value: 'List:patient',
-        },
       ],
     })
   ).unbundle();
@@ -212,7 +208,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
       });
       console.timeEnd('patching patient resource');
     } catch (error: unknown) {
-      tasksFailed.push('patch patient');
+      tasksFailed.push(JSON.stringify(error));
       console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
     }
   }
