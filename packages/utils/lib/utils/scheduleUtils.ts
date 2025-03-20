@@ -180,27 +180,20 @@ export function getTimezone(schedule: Location | Practitioner | HealthcareServic
   return timezone;
 }
 
-export const getAppointmentTimezone = (appointment: Appointment, relevantResources: Resource[]): string => {
-  const resourceReference = appointment.participant?.find(
-    (participant) =>
-      participant.actor?.reference?.startsWith('Location/') ||
-      participant.actor?.reference?.startsWith('HealthcareService/') ||
-      participant.actor?.reference?.startsWith('Practitioner/')
-  )?.actor?.reference;
+export const getAppointmentTimezone = (appointment: Appointment, scheduleResources: Resource[]): string => {
+  const participantReferences =
+    appointment.participant?.map((participant) => participant.actor?.reference).filter(Boolean) ?? [];
 
-  if (!resourceReference) {
-    console.log('no valid resource reference found in appointment', appointment.id);
-  }
-
-  const resource = relevantResources.find(
-    (res) => res.resourceType && res.id && `${res.resourceType}/${res.id}` === resourceReference
+  const scheduleResource = scheduleResources.find(
+    (resource) =>
+      resource.resourceType && resource.id && participantReferences.includes(`${resource.resourceType}/${resource.id}`)
   );
 
-  if (!resource) {
-    console.log('referenced resource not found in provided resources', resourceReference);
+  if (!scheduleResource) {
+    console.log('referenced resource not found in provided resources', scheduleResources);
   }
 
-  const timezone = getTimezone(resource as Location | HealthcareService | Practitioner);
+  const timezone = getTimezone(scheduleResource as Location | HealthcareService | Practitioner);
 
   return timezone;
 };
