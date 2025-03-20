@@ -41,7 +41,7 @@ function getAppointmentStatusChip<T extends string>(status?: T, item?: number | 
       sx={{
         borderRadius: '4px',
         border: 'none',
-        fontWeight: 700,
+        fontWeight: 500,
         textTransform: 'uppercase',
         background: mapper[status][isBackgroundWhite ? 'color' : 'background'].primary,
         color: mapper[status][isBackgroundWhite ? 'background' : 'color'].primary,

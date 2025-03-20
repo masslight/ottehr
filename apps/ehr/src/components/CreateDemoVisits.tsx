@@ -4,9 +4,9 @@ import { Alert, Snackbar, TextField, Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import React, { ReactElement, useState } from 'react';
 import { createSamplePrebookAppointments } from 'utils/lib/helpers';
-import { otherColors } from '../CustomThemeProvider';
-import createDemoVisits from '../assets/create-demo-visits.svg';
 import { useApiClients } from '../hooks/useAppClients';
+import { otherColors } from '@theme/colors';
+import { createDemoVisits } from '@theme/icons';
 
 const createAppointmentZambdaId = import.meta.env.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID;
 const intakeZambdaUrl = import.meta.env.VITE_APP_PROJECT_API_ZAMBDA_URL;

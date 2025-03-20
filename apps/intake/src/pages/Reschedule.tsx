@@ -5,9 +5,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ErrorDialog, ErrorDialogConfig, useUCZambdaClient } from 'ui-components';
-import { APIError, CANT_UPDATE_CANCELED_APT_ERROR, PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR, VisitType } from 'utils';
+import {
+  APIError,
+  CANT_UPDATE_CANCELED_APT_ERROR,
+  PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
+  VisitType,
+  PROJECT_NAME,
+  PROJECT_WEBSITE,
+} from 'utils';
 import zapehrApi, { AppointmentBasicInfo, AvailableLocationInformation } from '../api/zapehrApi';
-import { ottehrLightBlue } from '../assets/icons';
+import { ottehrLightBlue } from '../themes/ottehr/icons';
 import { PageContainer, Schedule } from '../components';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
@@ -145,7 +152,7 @@ const Reschedule = (): JSX.Element => {
             description: (
               <>
                 {t('modify.errors.unexpected.description')}{' '}
-                <Link to="https://ottehr.com/contact-us/" target="_blank">
+                <Link to={`${PROJECT_WEBSITE}/contact-us/`} target="_blank">
                   {t('modify.errors.unexpected.link')}
                 </Link>
                 .
@@ -165,8 +172,8 @@ const Reschedule = (): JSX.Element => {
     return (
       <PageContainer title={t('modify.errors.notFound.title')}>
         <Typography variant="body1">
-          {t('modify.errors.notFound.description')}{' '}
-          <a href="https://ottehr.com/find-care/">{t('modify.errors.notFound.link')}</a>.
+          {t('modify.errors.notFound.description', { PROJECT_NAME })}{' '}
+          <a href={`${PROJECT_WEBSITE}/find-care/`}>{t('modify.errors.notFound.link')}</a>.
         </Typography>
       </PageContainer>
     );

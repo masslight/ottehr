@@ -2,7 +2,7 @@ import React, { FC, useEffect, useState } from 'react';
 import { Autocomplete, Box, TextField, Typography } from '@mui/material';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { StatelessExamCheckbox } from './StatelessExamCheckbox';
-import { otherColors } from '../../../../../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import { ExamObservationDTO } from 'utils';
 import { useExamObservations } from '../../../../hooks/useExamObservations';
 import { ActionsList, DeleteIconButton } from '../../../../components';

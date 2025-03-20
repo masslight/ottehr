@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
 import { CodeableConcept, DocumentReference, List, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { addOperation, OTTEHR_MODULE, replaceOperation } from 'utils';
+import { addOperation, PROJECT_MODULE, replaceOperation } from 'utils';
 import { makeZ3Url, Secrets, ZambdaInput } from 'zambda-utils';
 import { topLevelCatch } from '../shared/errors';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
@@ -244,7 +244,7 @@ function createDocumentReferenceRequest(input: CreateDocRefInput): BatchInputPos
     resource: {
       resourceType: 'DocumentReference',
       meta: {
-        tag: [{ code: OTTEHR_MODULE.TM }],
+        tag: [{ code: PROJECT_MODULE.TM }],
       },
       date: DateTime.now().setZone('UTC').toISO() ?? '',
       status: 'current',

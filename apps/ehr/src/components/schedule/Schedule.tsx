@@ -19,12 +19,11 @@ import React, { ReactElement, useMemo } from 'react';
 import { ScheduleCapacity } from './ScheduleCapacity';
 import { HealthcareService, Location, LocationHoursOfOperation, Practitioner } from 'fhir/r4b';
 import { ScheduleOverrides } from './ScheduleOverrides';
-import { otherColors } from '../../CustomThemeProvider';
 import { DateTime } from 'luxon';
 import { Operation } from 'fast-json-patch';
 import { Closure, Day, Overrides, ScheduleExtension, Weekday, Weekdays } from '../../types/types';
 import { useApiClients } from '../../hooks/useAppClients';
-
+import { otherColors } from '@theme/colors';
 interface InfoForDayProps {
   day: Weekday;
   setDay: (day: Day) => void;
@@ -451,7 +450,7 @@ export default function Schedule({ item, setItem }: ScheduleProps): ReactElement
                       width: 'fit-content',
                       height: '36px',
                       minHeight: '36px',
-                      fontWeight: 700,
+                      fontWeight: 500,
                       '&.Mui-selected': {
                         color: '#FFFFFF',
                         background: '#2169F5',

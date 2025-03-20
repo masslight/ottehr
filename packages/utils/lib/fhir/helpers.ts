@@ -41,6 +41,7 @@ import {
   HealthcareServiceWithLocationContext,
   PractitionerLicense,
   PractitionerQualificationCode,
+  PROJECT_WEBSITE,
   ServiceMode,
   VisitType,
 } from '../types';
@@ -412,10 +413,10 @@ export async function createConsentResource(
       ],
       policy: [
         {
-          uri: 'https://ottehr.com',
+          uri: PROJECT_WEBSITE,
         },
         {
-          uri: 'https://ottehr.com',
+          uri: PROJECT_WEBSITE,
         },
       ],
       sourceReference: {

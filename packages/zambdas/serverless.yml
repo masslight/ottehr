@@ -781,9 +781,8 @@ functions:
     timeout: 25
     package:
       include:
-        - assets/Roboto-Bold.otf
-        - assets/Roboto-Regular.otf
-        - assets/TiemposHeadline-Regular.otf
+        - assets/Rubik-Bold.otf
+        - assets/Rubik-Regular.otf
         - assets/ottehrLogo.png
         - assets/red-dot.png
         - assets/green-dot.png
@@ -810,9 +809,8 @@ functions:
     timeout: 25
     package:
       include:
-        - assets/Roboto-Bold.otf
-        - assets/Roboto-Regular.otf
-        - assets/TiemposHeadline-Regular.otf
+        - assets/Rubik-Bold.otf
+        - assets/Rubik-Regular.otf
         - assets/ottehrLogo.png
         - assets/red-dot.png
         - assets/green-dot.png
@@ -838,9 +836,8 @@ functions:
     timeout: 25
     package:
       include:
-        - assets/Roboto-Bold.otf
-        - assets/Roboto-Regular.otf
-        - assets/TiemposHeadline-Regular.otf
+        - assets/Rubik-Bold.otf
+        - assets/Rubik-Regular.otf
         - assets/ottehrLogo.png
         - assets/red-dot.png
         - assets/green-dot.png
@@ -863,9 +860,8 @@ functions:
     timeout: 25
     package:
       include:
-        - assets/Roboto-Bold.otf
-        - assets/Roboto-Regular.otf
-        - assets/TiemposHeadline-Regular.otf
+        - assets/Rubik-Bold.otf
+        - assets/Rubik-Regular.otf
         - assets/ottehrLogo.png
         - assets/red-dot.png
         - assets/green-dot.png
@@ -888,9 +884,8 @@ functions:
     timeout: 25
     package:
       include:
-        - assets/Roboto-Bold.otf
-        - assets/Roboto-Regular.otf
-        - assets/TiemposHeadline-Regular.otf
+        - assets/Rubik-Bold.otf
+        - assets/Rubik-Regular.otf
         - assets/ottehrLogo.png
         - assets/red-dot.png
         - assets/green-dot.png
@@ -982,8 +977,8 @@ functions:
     package:
       include:
         - assets/DancingScript-Regular.otf
-        - assets/Roboto-Bold.otf
-        - assets/Roboto-Regular.otf
+        - assets/Rubik-Bold.otf
+        - assets/Rubik-Regular.otf
         - assets/ottehrLogo.png
     environment:
       AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}

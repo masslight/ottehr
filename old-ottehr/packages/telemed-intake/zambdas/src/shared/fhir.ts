@@ -3,7 +3,7 @@ import { Operation } from 'fast-json-patch';
 import { Appointment, Coding, Encounter, Meta, Patient, RelatedPerson, Resource } from 'fhir/r4';
 import {
   ConsentSigner,
-  OTTEHR_MODULE,
+  PROJECT_MODULE,
   Secrets,
   SecretsKeys,
   createConsentResource,
@@ -51,7 +51,7 @@ export async function createConsentItems(
   fhirClient: FhirClient,
   token: string,
   secrets: Secrets | null,
-  ottehrModule: OTTEHR_MODULE,
+  ottehrModule: PROJECT_MODULE,
 ): Promise<void> {
   console.log('Creating consent PDFs');
   if (!patient.id) {
@@ -68,9 +68,8 @@ export async function createConsentItems(
       (ext) => ext.url === 'https://extensions.fhir.zapehr.com/location-form-pre-release',
     )?.valueCoding?.code === 'vi';
 
-  const timezone = locationResource.extension?.find(
-    (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL,
-  )?.valueString;
+  const timezone = locationResource.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL)
+    ?.valueString;
 
   const facilityName = isVirtualLocation
     ? 'Ottehr'
@@ -86,7 +85,7 @@ async function createFhirResources(
   dateTime: string,
   patientId: string,
   appointmentId: string,
-  ottehrModule: OTTEHR_MODULE,
+  ottehrModule: PROJECT_MODULE,
 ): Promise<void> {
   // Create DocumentReference for consent PDFs
   const consentDocumentReference = await createDocumentReference({

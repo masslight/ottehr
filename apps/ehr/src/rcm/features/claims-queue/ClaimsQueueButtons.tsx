@@ -106,7 +106,7 @@ export const ClaimsQueueButtons: FC = () => {
         <DialogActions sx={{ display: 'flex', justifyContent: 'start', gap: 2, p: 3, pt: 2 }}>
           <LoadingButton
             sx={{
-              fontWeight: '700',
+              fontWeight: 500,
               borderRadius: '100px',
               mr: '8px',
               textTransform: 'none',

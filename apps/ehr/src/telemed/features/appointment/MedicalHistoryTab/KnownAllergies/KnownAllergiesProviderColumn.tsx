@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { Controller, useForm } from 'react-hook-form';
 import { AllergyDTO } from 'utils';
-import { otherColors } from '../../../../../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
 import { useGetAppointmentAccessibility } from '../../../../hooks';

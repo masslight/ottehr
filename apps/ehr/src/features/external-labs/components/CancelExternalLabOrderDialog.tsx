@@ -33,7 +33,7 @@ const CancelExternalLabDialog = ({
   };
 
   const buttonSx = {
-    fontWeight: '700',
+    fontWeight: 500,
     textTransform: 'none',
     borderRadius: 6,
     mb: 2,

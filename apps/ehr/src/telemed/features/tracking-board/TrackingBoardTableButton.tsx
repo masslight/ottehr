@@ -13,7 +13,7 @@ const baseStyles = {
   borderRadius: 8,
   textTransform: 'none',
   fontSize: '15px',
-  fontWeight: '700',
+  fontWeight: 500,
 };
 
 export const TrackingBoardTableButton: FC<{ appointment: TelemedAppointmentInformation }> = (props) => {

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Appointment, Encounter, EncounterStatusHistory, Location, Patient, RelatedPerson, Resource } from 'fhir/r4';
 import { DateTime } from 'luxon';
 import { SearchParam } from '@zapehr/sdk';
-import { getFirstName, getLastName, OTTEHR_MODULE } from 'ehr-utils';
+import { getFirstName, getLastName, PROJECT_MODULE } from 'ehr-utils';
 import { getPatientNameSearchParams } from '../helpers/patientSearch';
 import { getVisitTypeLabelForAppointment } from '../types/types';
 import { getVisitTotalTime } from '../helpers/visitDurationUtils';
@@ -79,7 +79,7 @@ export const useGetPatient = (
       const appointmentsTemp: Appointment[] = resourcesTemp.filter(
         (resource) =>
           resource.resourceType === 'Appointment' &&
-          resource.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.UC || tag.code === OTTEHR_MODULE.TM),
+          resource.meta?.tag?.find((tag) => tag.code === PROJECT_MODULE.UC || tag.code === PROJECT_MODULE.TM),
       ) as Appointment[];
       const locations: Location[] = resourcesTemp.filter(
         (resource) => resource.resourceType === 'Location',

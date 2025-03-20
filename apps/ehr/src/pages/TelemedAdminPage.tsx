@@ -36,13 +36,13 @@ export function TelemedAdminPage(): JSX.Element {
               <Tab
                 label="Insurance"
                 value={PageTab.insurance}
-                sx={{ textTransform: 'none', fontWeight: 700 }}
+                sx={{ textTransform: 'none', fontWeight: 500 }}
                 onClick={() => navigate(`/telemed-admin/${PageTab.insurance}`)}
               />
               <Tab
                 label="States"
                 value={PageTab.states}
-                sx={{ textTransform: 'none', fontWeight: 700 }}
+                sx={{ textTransform: 'none', fontWeight: 500 }}
                 onClick={() => navigate(`/telemed-admin/${PageTab.states}`)}
               />
             </TabList>

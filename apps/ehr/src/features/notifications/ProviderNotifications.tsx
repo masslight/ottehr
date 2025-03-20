@@ -8,11 +8,11 @@ import {
   ProviderNotificationSettings,
   getProviderNotificationSettingsForPractitioner,
 } from 'utils';
-import NotificationSound from '../../assets/notification.ogg';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { IconButtonContained } from '../../telemed/components/IconButtonContained';
 import { useGetProviderNotifications, useUpdateProviderNotificationsMutation } from './notifications.queries';
 import { useProviderNotificationsStore } from './notifications.store';
+import { notificationSound } from '@theme/index';
 
 type ProviderNotificationDisplay = {
   id: string;
@@ -23,7 +23,7 @@ type ProviderNotificationDisplay = {
 };
 
 export const ProviderNotifications: FC = memo(() => {
-  const audioRef = useRef(new Audio(NotificationSound));
+  const audioRef = useRef(new Audio(notificationSound));
   const theme = useTheme();
   const user = useEvolveUser();
   const navigate = useNavigate();

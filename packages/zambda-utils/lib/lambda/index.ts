@@ -1,7 +1,7 @@
 import sendgrid from '@sendgrid/mail';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DateTime } from 'luxon';
-import { APIError, isApiError, isFHIRError } from 'utils';
+import { APIError, isApiError, isFHIRError, PROJECT_NAME, SUPPORT_EMAIL } from 'utils';
 import { getSecret, Secrets, SecretsKeys } from '../secrets';
 
 const handleErrorResult = (errorResult: unknown): APIGatewayProxyResult => {
@@ -64,12 +64,12 @@ export const sendErrors = async (
   sendgrid.setApiKey(SENDGRID_API_KEY);
 
   // TODO confirm details
-  const email = 'support@ottehr.com';
+  const email = SUPPORT_EMAIL;
   const emailConfiguration = {
     to: email,
     from: {
       email: email,
-      name: 'Ottehr In Person',
+      name: `${PROJECT_NAME} In Person`,
     },
     replyTo: email,
     templateId: SENDGRID_ERROR_EMAIL_TEMPLATE_ID,
