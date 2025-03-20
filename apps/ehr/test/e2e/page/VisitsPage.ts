@@ -17,7 +17,7 @@ export class VisitsPage {
   }
 
   async clickIntakeButton(appointmentId: string): Promise<void> {
-    this.#page
+    await this.#page
       .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
       .getByTestId(dataTestIds.dashboard.intakeButton)
       .click();
@@ -40,7 +40,7 @@ export class VisitsPage {
 
   async selectLocation(locationName: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dashboard.locationSelect).click();
-    await this.#page.getByText(new RegExp(locationName, 'i')).click();
+    await this.#page.locator(`li[role="option"]:has-text("${locationName}")`).first().click();
   }
 
   async selectGroup(groupName: string): Promise<void> {
@@ -50,7 +50,7 @@ export class VisitsPage {
 }
 
 export async function expectVisitsPage(page: Page): Promise<VisitsPage> {
-  await page.waitForURL(`/visits`);
+  await page.waitForURL(/visits/);
   return new VisitsPage(page);
 }
 

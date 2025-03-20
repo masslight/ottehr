@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
 import { Address, Appointment, Location, Patient, Practitioner, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { isLocationVirtual } from '../fhir';
@@ -98,17 +98,30 @@ const DEFAULT_REASONS_FOR_VISIT = [
   'Allergic reaction',
   'Eye concern',
 ];
-export const createSamplePrebookAppointments = async (
-  oystehr: Oystehr | undefined,
-  authToken: string,
-  phoneNumber: string,
-  createAppointmentZambdaId: string,
-  islocal: boolean,
-  intakeZambdaUrl: string,
-  projectId: string,
-  selectedLocationId?: string,
-  demoData?: DemoAppointmentData
-): Promise<CreateAppointmentResponse | null> => {
+
+export const createSamplePrebookAppointments = async ({
+  oystehr,
+  authToken,
+  phoneNumber,
+  createAppointmentZambdaId,
+  intakeZambdaUrl,
+  selectedLocationId,
+  demoData,
+  projectId,
+}: {
+  oystehr: Oystehr | undefined;
+  authToken: string;
+  phoneNumber: string;
+  createAppointmentZambdaId: string;
+  intakeZambdaUrl: string;
+  selectedLocationId?: string;
+  demoData?: DemoAppointmentData;
+  projectId: string;
+}): Promise<CreateAppointmentResponse | null> => {
+  if (!projectId) {
+    throw new Error('PROJECT_ID is not set');
+  }
+
   if (!oystehr) {
     console.log('oystehr client is not defined');
     return null;
@@ -153,9 +166,11 @@ export const createSamplePrebookAppointments = async (
 
         console.log(`Appointment ${i + 1} created successfully.`);
 
-        const appointmentData: CreateAppointmentResponse = islocal
-          ? await createAppointmentResponse.json()
-          : (await createAppointmentResponse.json()).output;
+        let appointmentData = await createAppointmentResponse.json();
+
+        if ((appointmentData as any)?.output) {
+          appointmentData = (appointmentData as any).output as CreateAppointmentResponse;
+        }
 
         if (!appointmentData) {
           console.error('Error: appointment data is null');
@@ -212,8 +227,7 @@ const processPrebookPaperwork = async (
   serviceMode: ServiceMode
 ): Promise<void> => {
   try {
-    const appointmentId = appointmentData.appointment;
-    const questionnaireResponseId = appointmentData.questionnaireResponseId;
+    const { appointment: appointmentId, questionnaireResponseId } = appointmentData;
 
     if (!questionnaireResponseId) return;
 
@@ -283,7 +297,11 @@ const processPrebookPaperwork = async (
     });
 
     if (!response.ok) {
-      throw new Error(`Error submitting paperwork: ${response.status}`);
+      // This may be an error if some paperwork required answers were not provided.
+      // Check QuestionnaireResponse resource if it corresponds to all Questionnaire requirements
+      throw new Error(
+        `Error submitting paperwork, response: ${response}, body: ${JSON.stringify(await response.json())}`
+      );
     }
 
     console.log(`Paperwork submitted for appointment: ${appointmentId}`);
@@ -403,7 +421,7 @@ export async function makeSequentialPaperworkPatches(
 ): Promise<void> {
   await stepAnswers.reduce(async (previousPromise, answer) => {
     await previousPromise;
-    console.log('Patching paperwork with with linkid:', answer.linkId);
+
     const response = await fetch(`${intakeZambdaUrl}/zambda/patch-paperwork/execute-public`, {
       method: 'POST',
       headers: {
@@ -416,6 +434,7 @@ export async function makeSequentialPaperworkPatches(
         questionnaireResponseId: questionnaireResponseId,
       }),
     });
+
     if (!response.ok) {
       throw new Error(`Failed to patch paperwork with linkId: ${answer.linkId}`);
     }

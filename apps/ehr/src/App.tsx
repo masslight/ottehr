@@ -105,7 +105,8 @@ function App(): ReactElement {
   // we may use sleep + page.refresh() and other workarounds, but better to run photon tests separately and don't affect other tests
   const photonDisadledByEnv = import.meta.env.VITE_APP_CI_PHOTON_DISABLED === 'true';
   const photonEnabledForUser = currentUser?.hasRole([RoleType.Provider]) && currentUser.isPractitionerEnrolledInPhoton;
-  const shouldUsePhoton = !photonDisadledByEnv && (photonEnabledForUser || wasEnrolledInphoton);
+  const isE2EUser = currentUser?.email?.includes('e2euser');
+  const shouldUsePhoton = !photonDisadledByEnv && !isE2EUser && (photonEnabledForUser || wasEnrolledInphoton);
 
   return (
     <CustomThemeProvider>

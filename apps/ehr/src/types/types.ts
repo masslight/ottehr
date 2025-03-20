@@ -1,7 +1,15 @@
 import { User } from '@oystehr/sdk';
-import { Appointment, Coding, Practitioner } from 'fhir/r4b';
+import { Appointment, Coding, Practitioner, Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { PatientFollowupDetails, FhirAppointmentType, PractitionerLicense, VisitStatusWithoutUnknown } from 'utils';
+import {
+  PatientFollowupDetails,
+  FhirAppointmentType,
+  PractitionerLicense,
+  VisitStatusWithoutUnknown,
+  DiagnosisDTO,
+  OrderableItemSearchResult,
+  OTTEHR_MODULE,
+} from 'utils';
 import { ScheduleType, ServiceMode } from 'utils';
 
 export interface GetAppointmentsParameters {
@@ -140,12 +148,14 @@ export const getFhirAppointmentTypeForVisitType = (
 
 export const getVisitTypeLabelForAppointment = (appointment: Appointment): string => {
   const fhirAppointmentType = appointment?.appointmentType?.text as FhirAppointmentType;
+  const isFhirAppointmentMetaTagTelemed = appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.TM);
 
   if (fhirAppointmentType === FhirAppointmentType.walkin) {
     return 'Walk-in In Person Visit';
   } else if (fhirAppointmentType === FhirAppointmentType.posttelemed) {
     return 'Post Telemed Lab Only';
   } else if (fhirAppointmentType === FhirAppointmentType.prebook) {
+    if (isFhirAppointmentMetaTagTelemed) return 'Pre-booked Telemed';
     return 'Pre-booked In Person Visit';
   } else if (fhirAppointmentType === FhirAppointmentType.virtual) {
     return 'Telemed';
@@ -249,4 +259,12 @@ export interface DocumentInfo {
   type: DocumentType;
   z3Url: string;
   presignedUrl: string | undefined;
+}
+
+export interface SubmitLabOrderParameters {
+  dx: DiagnosisDTO[];
+  encounter: Encounter;
+  practitionerId: string;
+  orderableItem: OrderableItemSearchResult;
+  pscHold: boolean;
 }

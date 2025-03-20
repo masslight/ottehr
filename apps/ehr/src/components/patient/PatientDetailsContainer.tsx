@@ -27,6 +27,7 @@ import { FormSelect, FormTextField } from '../form';
 import { Row, Section } from '../layout';
 import ShowMoreButton from './ShowMoreButton';
 import { usePatientStore } from '../../state/patient.store';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 export const PatientDetailsContainer: FC = () => {
   const theme = useTheme();
@@ -107,6 +108,7 @@ export const PatientDetailsContainer: FC = () => {
       </Row>
       <Row label="Patient's ethnicity" required>
         <FormSelect
+          data-testid={dataTestIds.patientDetailsContainer.patientsEthnicity}
           name={patientFieldPaths.ethnicity}
           control={control}
           options={ETHNICITY_OPTIONS}
@@ -119,6 +121,7 @@ export const PatientDetailsContainer: FC = () => {
       </Row>
       <Row label="Patient's race" required>
         <FormSelect
+          data-testid={dataTestIds.patientDetailsContainer.patientsRace}
           name={patientFieldPaths.race}
           control={control}
           options={RACE_OPTIONS}

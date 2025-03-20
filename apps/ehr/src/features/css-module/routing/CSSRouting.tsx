@@ -1,16 +1,17 @@
 import React from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { CSSLayout } from '../layout/CSSLayout';
-import { useCSSPermissions } from '../hooks/useCSSPermissions';
-import { FeatureFlagsProvider } from '../context/featureFlags';
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { CSSLoader } from '../components/CSSLoader';
+import { FeatureFlagsProvider } from '../context/featureFlags';
 import { NavigationProvider, useNavigationContext } from '../context/NavigationContext';
+import { useCSSPermissions } from '../hooks/useCSSPermissions';
+import { CSSLayout } from '../layout/CSSLayout';
 
 const CSSRouting: React.FC = () => {
   const permissions = useCSSPermissions();
   const navigate = useNavigate();
-  const { availableRoutes } = useNavigationContext();
-  if (permissions.isPending) {
+  const { availableRoutes, isLoading } = useNavigationContext();
+
+  if (permissions.isPending || isLoading) {
     return <CSSLoader />;
   }
 

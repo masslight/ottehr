@@ -576,11 +576,13 @@
         "linkId": "primary-care-physician-page",
         "text": "Primary Care Physician",
         "type": "group",
-        "enableWhen": [{
-          "question": "contact-information-page.patient-street-address-2",
-          "operator": "!=",
-          "answerString": "conditional-filter-test-1234"
-        }],
+        "enableWhen": [
+          {
+            "question": "contact-information-page.patient-street-address-2",
+            "operator": "!=",
+            "answerString": "conditional-filter-test-1234"
+          }
+        ],
         "item": [
           {
             "linkId": "pcp-first",
