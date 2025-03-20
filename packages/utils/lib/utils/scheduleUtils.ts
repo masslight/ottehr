@@ -11,6 +11,7 @@ import {
   scheduleStrategyForHealthcareService,
   ScheduleStrategy,
   SCHEDULE_NUM_DAYS,
+  SCHEDULE_EXTENSION_URL,
 } from 'utils';
 import {
   applyBuffersToSlots,
@@ -160,7 +161,7 @@ export function getScheduleDetails(
     scheduleResource.id
   );
   const scheduleExtension = scheduleResource?.extension?.find(function (extensionTemp) {
-    return extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule';
+    return extensionTemp.url === SCHEDULE_EXTENSION_URL;
   })?.valueString;
 
   if (!scheduleExtension) return undefined;

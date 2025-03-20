@@ -11,6 +11,7 @@ import {
   getPatientsForUser,
   getVisitStatus,
   mapStatusToTelemed,
+  SCHEDULE_EXTENSION_URL,
 } from 'utils';
 import { ZambdaInput } from 'zambda-utils';
 import { getSecret, SecretsKeys } from 'zambda-utils';
@@ -58,9 +59,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const scheduleResources = allResources.filter((resource) => {
       const extensionTemp = (resource as { extension?: Array<{ url: string }> }).extension;
-      const extensionSchedule = extensionTemp?.find(
-        (extension) => extension.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule'
-      );
+      const extensionSchedule = extensionTemp?.find((extension) => extension.url === SCHEDULE_EXTENSION_URL);
       return !!extensionSchedule;
     });
 
