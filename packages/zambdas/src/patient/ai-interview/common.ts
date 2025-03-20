@@ -1,8 +1,6 @@
 import { ChatAnthropic } from '@langchain/anthropic';
 import { AIMessageChunk, BaseMessageLike } from '@langchain/core/messages';
 
-process.env.ANTHROPIC_API_KEY = import.meta.env.VITE_APP_ANTHROPIC_API_KEY;
-
 let chatbot: ChatAnthropic;
 
 export async function invokeChatbot(input: BaseMessageLike[]): Promise<AIMessageChunk> {
