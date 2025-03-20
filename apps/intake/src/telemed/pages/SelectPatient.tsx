@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { Box, CircularProgress, Skeleton } from '@mui/material';
+import { Box, Button, CircularProgress, Skeleton, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FieldValues } from 'react-hook-form';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -42,6 +42,8 @@ const SelectPatient = (): JSX.Element => {
     const { patients } = patientsStore;
     return patients ? [...patients].sort(sortFullNames) : [];
   }, [patientsStore]);
+
+  const hasNoPatients = flow === 'pastVisits' && sortedPatients.length === 0;
 
   useEffect(() => {
     if (apiClient) {
@@ -116,6 +118,22 @@ const SelectPatient = (): JSX.Element => {
               ))}
           </Box>
         </Box>
+      ) : hasNoPatients ? (
+        <Box sx={{ color: 'text.primary' }}>
+          <Typography sx={{ mb: 2 }}>No patients are found for this user.</Typography>
+          <Button
+            data-testid="control-back-button"
+            variant="outlined"
+            onClick={() => {
+              navigate(-1);
+            }}
+            size="large"
+            type="button"
+            color="secondary"
+          >
+            Back
+          </Button>
+        </Box>
       ) : (
         <PageForm
           formElements={[
@@ -141,7 +159,10 @@ const SelectPatient = (): JSX.Element => {
             },
           ]}
           onSubmit={onSubmit}
-          controlButtons={{ onBack }}
+          controlButtons={{
+            onBack,
+            submitDisabled: hasNoPatients,
+          }}
         />
       )}
     </CustomContainer>
