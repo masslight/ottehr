@@ -473,8 +473,8 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
           if (linkId === 'insurance-carrier' && primaryInsurancePlan) {
             answer = makeAnswer(insuranceCarrier, 'Reference');
           }
-          if (linkId === 'payment-option' && primaryCoverage) {
-            answer = makeAnswer('I have insurance');
+          if (linkId === 'payment-option' && !isNewQrsPatient) {
+            answer = makeAnswer(primaryCoverage ? 'I have insurance' : 'I will pay without insurance');
           }
           if (linkId === 'display-secondary-insurance') {
             answer = makeAnswer(displaySecondaryInsurance, 'Boolean');
