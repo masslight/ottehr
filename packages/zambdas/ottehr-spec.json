@@ -15,9 +15,8 @@
       "name": "VERSION",
       "type": "http_open",
       "runtime": "nodejs20.x",
-      "memory": 1024,
-      "zip": ".dist/zambdas/version.zip",
-      "secrets": ["m2m-client-id", "m2m-client-secret"]
+      "src": "src/patient/version/index",
+      "zip": ".dist/zambdas/version.zip"
     }
   },
   "fhirResources": {

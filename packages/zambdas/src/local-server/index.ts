@@ -1,6 +1,6 @@
 import cors from 'cors';
 import express from 'express';
-import { index as versionHandler } from '../patient/version/index';
+import ottehrSpec from '../../ottehr-spec.json';
 import { expressLambda } from './utils';
 
 const app = express();
@@ -9,9 +9,12 @@ app.use(express.text({ type: '*/*', limit: '6mb' }));
 
 app.use(cors());
 
-// Version
-app.get('/version', async (req, res) => {
-  await expressLambda(versionHandler, req, res);
+Object.entries(ottehrSpec.zambdas).forEach(([_key, spec]) => {
+  console.log('spec', spec);
+  app.post(`/${spec.name}`, async (req, res) => {
+    const { index } = await import(`../../${spec.src}`);
+    await expressLambda(index, req, res);
+  });
 });
 
 app.listen(3000, () => {
