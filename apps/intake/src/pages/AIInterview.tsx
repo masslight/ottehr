@@ -9,6 +9,8 @@ import { ottehrDarkBlue } from '../assets/icons';
 import { Send } from '@mui/icons-material';
 import { useParams } from 'react-router-dom';
 
+const MESSAGES_CONTAINER_ID = 'messages-container';
+
 interface Message {
   linkId: string;
   author: 'user' | 'ai';
@@ -68,9 +70,15 @@ const AIInterview = (): JSX.Element => {
     );
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (messages.length) {
+      scrollToBottom();
+    }
+  }, [messages]);
   return (
     <PageContainer>
-      <Box style={{ overflowY: 'auto', height: 'calc(100vh - 400px)' }}>
+      <Box style={{ overflowY: 'auto', height: 'calc(100vh - 400px)' }} id={MESSAGES_CONTAINER_ID}>
         {messages.map((message) => (
           <Box
             style={{
@@ -155,6 +163,15 @@ function createMessages(questionnaireResponse: QuestionnaireResponse): Message[]
         return result;
       }) ?? []
   );
+}
+
+function scrollToBottom(): void {
+  setTimeout(() => {
+    const element = document.getElementById(MESSAGES_CONTAINER_ID);
+    if (element) {
+      element.scrollTop = element?.scrollHeight;
+    }
+  }, 0);
 }
 
 export default AIInterview;
