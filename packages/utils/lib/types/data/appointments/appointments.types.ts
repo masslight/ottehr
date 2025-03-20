@@ -35,6 +35,7 @@ export interface AppointmentInformationIntake {
   appointmentStatus: string;
   status: AppointmentStatus;
   state?: { code?: string; id?: string };
+  timezone?: string;
   type?: string;
 }
 

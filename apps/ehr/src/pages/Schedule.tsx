@@ -26,6 +26,7 @@ import GroupSchedule from '../components/schedule/GroupSchedule';
 import { Operation } from 'fast-json-patch';
 import { getTimezone } from '../helpers/formatDateTime';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
+import { SCHEDULE_EXTENSION_URL } from 'utils';
 
 const INTAKE_URL = import.meta.env.VITE_APP_INTAKE_URL;
 
@@ -169,7 +170,7 @@ export default function SchedulePage(): ReactElement {
       scheduleExtension = [];
     }
     scheduleExtension?.push({
-      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule',
+      url: SCHEDULE_EXTENSION_URL,
       valueString: START_SCHEDULE,
     });
 
@@ -371,10 +372,8 @@ export default function SchedulePage(): ReactElement {
                 <TabPanel value="schedule" sx={{ padding: 0 }}>
                   {scheduleType === 'group' && <GroupSchedule groupID={item.id || ''} />}
                   {['location', 'provider'].includes(scheduleType) &&
-                    (item.extension?.find(
-                      (extensionTemp) =>
-                        extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule'
-                    )?.valueString ? (
+                    (item.extension?.find((extensionTemp) => extensionTemp.url === SCHEDULE_EXTENSION_URL)
+                      ?.valueString ? (
                       <Schedule id={id} item={item} setItem={setItem}></Schedule>
                     ) : (
                       <Typography variant="body1">

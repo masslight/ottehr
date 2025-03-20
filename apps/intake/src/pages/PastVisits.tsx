@@ -27,7 +27,7 @@ const PastVisits = (): JSX.Element => {
   const handleVisitDetails = (appointment: AppointmentInformationIntake): void => {
     usePastVisitsStore.setState({
       appointmentID: appointment.id,
-      appointmentDate: formatVisitDate(appointment.start || '', 'visit'),
+      appointmentDate: formatVisitDate(appointment.start || '', 'visit', appointment.timezone),
     });
     navigate(`${intakeFlowPageRoute.VisitDetails.path}?id=${appointment.id}`);
   };
@@ -81,7 +81,7 @@ const PastVisits = (): JSX.Element => {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column ', alignItems: 'flex-start', gap: 1 }}>
                     <Typography variant="subtitle1" color={otherColors.darkPurple}>
-                      {formatVisitDate(appointment.start || '', 'visit')}
+                      {formatVisitDate(appointment.start || '', 'visit', appointment.timezone)}
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1.5 }}>
                       <Typography variant="caption" color="text.secondary" sx={{ lineBreak: 'anywhere', flexGrow: 1 }}>

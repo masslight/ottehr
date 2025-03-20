@@ -27,6 +27,7 @@ import { OVERRIDE_DATE_FORMAT } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import { Closure, ClosureType, ScheduleExtension } from '../types/types';
 import Loading from './Loading';
+import { SCHEDULE_EXTENSION_URL } from 'utils';
 
 export type ScheduleType = 'location' | 'provider' | 'group';
 
@@ -131,9 +132,8 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
 
   const getHoursOfOperationForToday = (item: Location | Practitioner, time: 'open' | 'close'): any => {
     const dayOfWeek = DateTime.now().toLocaleString({ weekday: 'long' }).toLowerCase();
-    const extensionSchedule = item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule'
-    )?.valueString;
+    const extensionSchedule = item.extension?.find((extensionTemp) => extensionTemp.url === SCHEDULE_EXTENSION_URL)
+      ?.valueString;
 
     if (!extensionSchedule) {
       return undefined;
@@ -200,9 +200,8 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
 
   function getItemOverrideInformation(item: Location | Practitioner): string | undefined {
     const extensionTemp = item.extension;
-    const extensionSchedule = extensionTemp?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule'
-    )?.valueString;
+    const extensionSchedule = extensionTemp?.find((extensionTemp) => extensionTemp.url === SCHEDULE_EXTENSION_URL)
+      ?.valueString;
 
     if (extensionSchedule) {
       const { scheduleOverrides, closures } = JSON.parse(extensionSchedule) as ScheduleExtension;

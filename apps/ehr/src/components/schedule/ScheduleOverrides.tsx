@@ -26,6 +26,7 @@ import ScheduleOverridesDialog from './ScheduleOverridesDialog';
 import { ScheduleCapacity } from './ScheduleCapacity';
 import { OVERRIDE_DATE_FORMAT, datesCompareFn } from '../../helpers/formatDateTime';
 import { Closure, ScheduleExtension, DOW, Day, Overrides, ClosureType } from '../../types/types';
+import { SCHEDULE_EXTENSION_URL } from 'utils';
 
 interface ScheduleOverridesProps {
   item: Location | Practitioner | HealthcareService;
@@ -180,8 +181,7 @@ export function ScheduleOverrides({
                                 const dateFormatted = date?.toLocaleString(DateTime.DATE_SHORT);
                                 if (dateFormatted) {
                                   const scheduleExtension = item.extension?.find(
-                                    (extensionTemp) =>
-                                      extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule'
+                                    (extensionTemp) => extensionTemp.url === SCHEDULE_EXTENSION_URL
                                   )?.valueString;
                                   if (scheduleExtension) {
                                     const { schedule } = JSON.parse(scheduleExtension) as ScheduleExtension;
