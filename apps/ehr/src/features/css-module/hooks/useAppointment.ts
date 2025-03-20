@@ -7,7 +7,6 @@ import { getResources } from '../parser/extractors';
 import { parseBundle } from '../parser/parser';
 import { VisitMappedData, VisitSourceData } from '../parser/types';
 import { useMappedVisitDataStore } from '../store/parsedAppointment.store';
-import { useChartData } from './useChartData';
 
 type VisitState = Partial<{
   appointment: Appointment;
@@ -38,21 +37,6 @@ export const useAppointment = (
     'encounter',
     'questionnaireResponse',
   ]) as VisitState;
-
-  const { isLoading: isChartDataLoading, chartData } = useChartData({
-    encounterId: visitData.encounter?.id || '',
-    shouldUpdateExams: true,
-  });
-  const encounterId = visitData.encounter?.id;
-
-  useEffect(() => {
-    if (!encounterId) return;
-
-    useAppointmentStore.setState({
-      chartData,
-      isChartDataLoading: isChartDataLoading,
-    });
-  }, [chartData, encounterId, isChartDataLoading]);
 
   const { isLoading, error, refetch } = useGetAppointment({ appointmentId }, (data) => {
     const bundleResources = getResources(data);
