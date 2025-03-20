@@ -79,14 +79,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       )
     );
 
-    const relevantResources = allResources.filter((resource) => {
-      if (resource.resourceType === 'Appointment' || resource.resourceType === 'Encounter') {
-        return false;
-      }
-      return relevantParticipants.includes(`${resource.resourceType}/${resource.id}`);
-    });
-
-    console.log('relevantResources', relevantResources);
     const locations = allResources.filter((resource) => resource.resourceType === 'Location') as Location[];
     const encountersMap = mapEncountersToAppointmentIds(allResources);
     const appointments: AppointmentInformationIntake[] = [];
@@ -111,7 +103,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       const stateId = encounter?.location?.[0]?.location?.reference?.split('/')?.[1];
       const stateCode = locations.find((location) => location.id === stateId)?.address?.state;
 
-      const timezone = await getAppointmentTimezone(fhirAppointment, relevantResources);
+      const timezone = getAppointmentTimezone(fhirAppointment);
       const appointmentTypeTag = fhirAppointment.meta?.tag?.find((tag) => tag.code && tag.code in appointmentTypeMap);
       const appointmentType = appointmentTypeTag?.code ? appointmentTypeMap[appointmentTypeTag.code] : 'Unknown';
       let status: AppointmentStatus | undefined;

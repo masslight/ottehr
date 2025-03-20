@@ -180,10 +180,7 @@ export function getTimezone(schedule: Location | Practitioner | HealthcareServic
   return timezone;
 }
 
-export const getAppointmentTimezone = async (
-  appointment: Appointment,
-  relevantResources: Resource[]
-): Promise<string> => {
+export const getAppointmentTimezone = (appointment: Appointment, relevantResources: Resource[]): string => {
   const resourceReference = appointment.participant?.find(
     (participant) =>
       participant.actor?.reference?.startsWith('Location/') ||
