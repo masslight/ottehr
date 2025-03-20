@@ -1,0 +1,71 @@
+{
+  "schema-version": "2025-03-19",
+  "secrets": {
+    "AUTH0_DOMAIN": {
+      "name": "m2m-client-id",
+      "value": "var.m2m-client-id"
+    },
+    "AUTH0_SECRET": {
+      "name": "m2m-client-secret",
+      "value": "var.m2m-client-secret"
+    }
+  },
+  "zambdas": {
+    "VERSION": {
+      "name": "VERSION",
+      "type": "http_open",
+      "runtime": "nodejs20.x",
+      "memory": 1024,
+      "zip": ".dist/zambdas/version.zip",
+      "secrets": ["m2m-client-id", "m2m-client-secret"]
+    }
+  },
+  "fhirResources": {
+    "patient-paperwork-questionnaire-v1.0.0": {
+      "content": {
+        "resourceType": "Questionnaire",
+        "name": "cool-questionnaire",
+        "url": "http: //google.com",
+        "patient": "patient-id",
+        "title": "My Questions"
+      },
+      "managedFields": ["name", "title"]
+    }
+  },
+  "apps": {
+    "PATIENT_PORTAL": {
+      "name": "patient-portal",
+      "description": "Patient Portal",
+      "callbackUrls": [],
+      "allowedOrigins": [],
+      "allowedWebOrigins": [],
+      "allowedLogoutUrls": []
+    }
+  },
+  "m2ms": {
+    "ZAMBDAS_ADMIN": {
+      "name": "zambdas-admin",
+      "policy": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "Allow"
+        }
+      ],
+      "roles": ["#ref/EHR_SUPER_ADMIN"]
+    }
+  },
+  "roles": {
+    "EHR_SUPER_ADMIN": {
+      "name": "ehr-admin",
+      "description": "EHR Super Admin",
+      "policy": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "Allow"
+        }
+      ]
+    }
+  }
+}
