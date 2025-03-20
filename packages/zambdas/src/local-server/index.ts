@@ -10,8 +10,8 @@ app.use(express.text({ type: '*/*', limit: '6mb' }));
 app.use(cors());
 
 Object.entries(ottehrSpec.zambdas).forEach(([_key, spec]) => {
-  console.log('spec', spec);
-  app.post(`/${spec.name}`, async (req, res) => {
+  const executeOrExecutePublic = spec.type === 'http_auth' ? 'execute' : 'execute-public';
+  app.post(`/local/zambda/${spec.name}/${executeOrExecutePublic}`, async (req, res) => {
     const { index } = await import(`../../${spec.src}`);
     await expressLambda(index, req, res);
   });
