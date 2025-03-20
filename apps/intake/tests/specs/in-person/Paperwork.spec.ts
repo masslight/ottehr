@@ -17,6 +17,7 @@ let pcpData: Awaited<ReturnType<Paperwork['fillPrimaryCarePhysician']>>;
 let insuranceData: Awaited<ReturnType<Paperwork['fillInsuranceAllFieldsWithoutCards']>>;
 let secondaryInsuranceData: Awaited<ReturnType<Paperwork['fillSecondaryInsuranceAllFieldsWithoutCards']>>;
 let responsiblePartyData: Awaited<ReturnType<Paperwork['fillResponsiblePartyDataNotSelf']>>;
+let consentFormsData: Awaited<ReturnType<Paperwork['fillConsentForms']>>;
 let commonLocatorsHelper: CommonLocatorsHelper;
 const appointmentIds: string[] = [];
 
@@ -454,5 +455,47 @@ test.describe('Photo ID - Upload photo', () => {
     await paperwork.checkCorrectPageOpens('Complete consent forms');
     await locator.clickBackButton();
     await paperwork.checkImagesAreSaved(locator.photoIdFrontImage, locator.photoIdBackImage);
+  });
+});
+test.describe('Consent forms - Check and fill all fields', () => {
+  test.describe.configure({ mode: 'serial' });
+  test('PCF-1 Open Consent forms', async () => {
+    await page.goto(`paperwork/${bookingData.bookingUUID}/consent-forms`);
+    await page.waitForLoadState('networkidle');
+    await paperwork.checkCorrectPageOpens('Complete consent forms');
+  });
+  test('PCF-2 Consent Forms - Check patient name is displayed', async () => {
+    await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
+  });
+  test('PCF-3 Consent Forms - Check required fields', async () => {
+    await paperwork.checkRequiredFields(
+      '"I have reviewed and accept HIPAA Acknowledgement","I have reviewed and accept Consent to Treat and Guarantee of Payment","Signature","Full name","Relationship to the patient"',
+      'Complete consent forms',
+      true
+    );
+  });
+  test('PCF-4 Consent Forms - Check links are correct', async () => {
+    expect(await page.getAttribute('a:has-text("HIPAA Acknowledgement")', 'href')).toBe('/hippa_notice_template.pdf');
+    expect(await page.getAttribute('a:has-text("Consent to Treat and Guarantee of Payment")', 'href')).toBe(
+      '/consent_to_treat_template.pdf'
+    );
+  });
+  test('PCF-5 Consent Forms - Check links opens in new tab', async () => {
+    expect(await page.getAttribute('a:has-text("HIPAA Acknowledgement")', 'target')).toBe('_blank');
+    expect(await page.getAttribute('a:has-text("Consent to Treat and Guarantee of Payment")', 'target')).toBe('_blank');
+  });
+  test('PCF-7 Consent Forms - Fill all data and click on [Continue]', async () => {
+    consentFormsData = await paperwork.fillConsentForms();
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Review and submit');
+  });
+  test('PCF-8 Consent Forms - Check that values are saved after coming back', async () => {
+    await locator.clickBackButton();
+    await paperwork.checkCorrectPageOpens('Complete consent forms');
+    await expect(locator.hipaaAcknowledgement).toBeChecked();
+    await expect(locator.consentToTreat).toBeChecked();
+    await expect(locator.signature).toHaveValue(consentFormsData.signature);
+    await expect(locator.consentFullName).toHaveValue(consentFormsData.consentFullName);
+    await expect(locator.consentSignerRelationship).toHaveValue(consentFormsData.relationshipConsentForms);
   });
 });

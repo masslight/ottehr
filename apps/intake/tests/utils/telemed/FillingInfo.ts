@@ -5,15 +5,19 @@ import { Locators } from '../locators';
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 export class FillingInfo {
   page: Page;
-  locator: Locators;
+  locators: Locators;
 
   constructor(page: Page) {
     this.page = page;
-    this.locator = new Locators(page);
+    this.locators = new Locators(page);
   }
   // Helper method to get a random element from an array
   private getRandomElement(arr: string[]) {
     return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  private async clickContinueButton(awaitRedirect = true): Promise<void> {
+    await this.locators.clickContinueButton(awaitRedirect);
   }
 
   // Helper method to get a random integer between min and max (inclusive)
@@ -272,6 +276,7 @@ export class FillingInfo {
     await this.page.locator('#patient-number').fill(number);
     return { streetAddress, streetAddress2, patientCity, patientZIP, patientState, email, number };
   }
+
   async fillPatientDetails() {
     const ethnicity = this.getRandomElement(this.ethnicity);
     const race = this.getRandomElement(this.race);
@@ -291,6 +296,96 @@ export class FillingInfo {
     await this.page.getByRole('radio', { name: 'No' }).check();
 
     return { ethnicity, race, discovery, preferredLanguage };
+  }
+
+  async fillCurrentMedications() {
+    const filledValue = 'some medication';
+    const selectedValue = 'Albuterol';
+
+    await this.locators.currentMedicationsPresent.click();
+    await this.clickContinueButton(false);
+    await expect(this.locators.paperworkErrorInFieldAboveMessage).toBeVisible();
+
+    const input = this.page.getByPlaceholder('Type or select all that apply');
+    await input.click();
+    await input.fill(filledValue);
+    await this.page.keyboard.press('Enter');
+
+    await input.click();
+    await this.page.getByRole('option', { name: selectedValue }).click();
+
+    return { filledValue, selectedValue };
+  }
+
+  async fillCurrentAllergies() {
+    const filledValue = 'other allergy';
+    const selectedValue = 'Aspirin';
+
+    await this.locators.knownAllergiesPresent.click();
+    await this.clickContinueButton(false);
+    await expect(this.locators.paperworkErrorInFieldAboveMessage).toBeVisible();
+
+    await this.page.locator(`input[value='Other']`).click();
+    const input = this.page.getByPlaceholder('Type or select all that apply');
+    await input.click();
+    await input.fill(filledValue);
+    await this.page.keyboard.press('Enter');
+
+    await this.page.locator(`input[value='Medications']`).click();
+    await input.click();
+    await this.page.getByRole('option', { name: selectedValue }).click();
+
+    return { filledValue: `${filledValue} | Other`, selectedValue: `${selectedValue} | Medication` };
+  }
+
+  async fillMedicalHistory() {
+    const filledValue = 'some history';
+    const selectedValue = 'Anemia';
+
+    await this.locators.medicalConditionsPresent.click();
+    await this.clickContinueButton(false);
+    await expect(this.locators.paperworkErrorInFieldAboveMessage).toBeVisible();
+
+    const input = this.page.getByPlaceholder('Type or select all that apply');
+    await input.click();
+    await input.fill(filledValue);
+    await this.page.keyboard.press('Enter');
+
+    await input.click();
+    await this.page.getByRole('option', { name: selectedValue }).click();
+
+    return { filledValue, selectedValue };
+  }
+
+  async fillSurgicalHistory() {
+    const filledValue = 'some history';
+    const selectedValue = 'Appendectomy';
+
+    await this.locators.surgicalHistoryPresent.click();
+    await this.clickContinueButton(false);
+    await expect(this.locators.paperworkErrorInFieldAboveMessage).toBeVisible();
+
+    const input = this.page.getByPlaceholder('Type or select all that apply');
+    await input.click();
+    await input.fill(filledValue);
+    await this.page.keyboard.press('Enter');
+
+    await input.click();
+    await this.page.getByRole('option', { name: selectedValue }).click();
+
+    return { filledValue, selectedValue };
+  }
+
+  async fillAdditionalQuestions() {
+    const covid = 'Yes';
+    const test = 'No';
+    const travel = 'Yes';
+
+    await this.locators.covidSymptoms(covid).click();
+    await this.locators.testedPositiveCovid(test).click();
+    await this.locators.travelUSA(travel).click();
+
+    return { covid, test, travel };
   }
 
   async fillSelfPayCardData(card: { number: string; expDate: string; cvc: string }) {
@@ -450,7 +545,7 @@ export class FillingInfo {
     return { firstName, lastName, randomRelationships };
   }
   async selectRandomSlot(): Promise<{ time: string; fullSlot: string }> {
-    await expect(this.locator.firstAvailableTime).toBeVisible();
+    await expect(this.locators.firstAvailableTime).toBeVisible();
     const timeSlotsButtons = this.page.locator('role=button[name=/^\\d{1,2}:\\d{2} (AM|PM)$/]');
     const buttonCount = await timeSlotsButtons.count();
     expect(buttonCount).toBeGreaterThan(0);

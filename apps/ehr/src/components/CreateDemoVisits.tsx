@@ -9,7 +9,7 @@ import { otherColors } from '@theme/colors';
 import { createDemoVisits } from '@theme/icons';
 
 const createAppointmentZambdaId = import.meta.env.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID;
-const intakeZambdaUrl = import.meta.env.VITE_APP_INTAKE_ZAMBDAS_URL;
+const intakeZambdaUrl = import.meta.env.VITE_APP_PROJECT_API_ZAMBDA_URL;
 
 const CreateDemoVisits = (): ReactElement => {
   const [phoneNumber, setPhoneNumber] = useState('');

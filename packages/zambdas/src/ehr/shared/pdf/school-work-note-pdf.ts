@@ -96,7 +96,7 @@ async function createSchoolWorkNotePdfBytes(data: SchoolWorkNoteExcuseDocDTO): P
   };
 
   // add Ottehr logo at the top of the PDF
-  const imgPath = './ottehrLogo.png';
+  const imgPath = './assets/ottehrLogo.png';
   const imgBytes = fs.readFileSync(imgPath);
   const img = await pdfDoc.embedPng(imgBytes);
   currYPos -= styles.margin.y;
