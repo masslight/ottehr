@@ -21,9 +21,9 @@ async function createReceiptPdfBytes(data: ReceiptData): Promise<Uint8Array> {
   };
   const pdfClient = await createPdfClient(pdfClientStyles);
 
-  const RobotoFont = await pdfClient.embedFont(fs.readFileSync('./Roboto-Regular.otf'));
-  const RobotoFontBold = await pdfClient.embedFont(fs.readFileSync('./Roboto-Bold.otf'));
-  const ottehrLogo = await pdfClient.embedImage(fs.readFileSync('./ottehrLogo.png'));
+  const RobotoFont = await pdfClient.embedFont(fs.readFileSync('./assets/Roboto-Regular.otf'));
+  const RobotoFontBold = await pdfClient.embedFont(fs.readFileSync('./assets/Roboto-Bold.otf'));
+  const ottehrLogo = await pdfClient.embedImage(fs.readFileSync('./assets/ottehrLogo.png'));
 
   const textStyles: Record<string, TextStyle> = {
     blockHeader: {
