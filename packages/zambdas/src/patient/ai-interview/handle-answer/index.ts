@@ -47,7 +47,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       throw new Error(`Invalid chatbot input "${chatbotInput}"`);
     }
     console.log(`chatbotInput: ${JSON.stringify(chatbotInput)}`);
-    const chatbotResponse = (await invokeChatbot(chatbotInput)).content.toString();
+    const chatbotResponse = (await invokeChatbot(chatbotInput, secrets)).content.toString();
     (questionnaireResponse.contained?.[0] as Questionnaire).item?.push({
       linkId: (parseInt(linkId) + 1).toString(),
       text: chatbotResponse,

@@ -35,7 +35,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     if (existingQuestionnaireResponse != null) {
       questionnaireResponse = existingQuestionnaireResponse;
     } else {
-      questionnaireResponse = await createQuestionnaireResponse(encounterId, oystehr);
+      questionnaireResponse = await createQuestionnaireResponse(encounterId, oystehr, secrets);
     }
     return {
       statusCode: 200,
@@ -104,8 +104,14 @@ async function findAIInterviewQuestionnaireResponse(
   ).unbundle()[0];
 }
 
-async function createQuestionnaireResponse(encounterId: string, oystehr: Oystehr): Promise<QuestionnaireResponse> {
-  const firstAIQuestion = (await invokeChatbot([{ role: 'user', content: INITIAL_USER_MESSAGE }])).content.toString();
+async function createQuestionnaireResponse(
+  encounterId: string,
+  oystehr: Oystehr,
+  secrets: Secrets | null
+): Promise<QuestionnaireResponse> {
+  const firstAIQuestion = (
+    await invokeChatbot([{ role: 'user', content: INITIAL_USER_MESSAGE }], secrets)
+  ).content.toString();
   return oystehr.fhir.create<QuestionnaireResponse>({
     resourceType: 'QuestionnaireResponse',
     status: 'in-progress',
