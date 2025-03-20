@@ -5,6 +5,7 @@ import { IncomingHttpHeaders } from 'http2';
 import _ from 'lodash';
 import { resolve } from 'path';
 import { ZambdaInput } from 'zambda-utils';
+import ottehrSpec from '../../ottehr-spec.json';
 
 export const expressLambda = async (
   handler: Handler<any, APIGatewayProxyResult>,
@@ -34,11 +35,40 @@ export const expressLambda = async (
   }
 };
 
+function parseArgs(args: string[]): Record<string, string> {
+  return args.reduce(
+    (acc, arg) => {
+      const [key, value] = arg.split('=');
+      acc[key] = value;
+      return acc;
+    },
+    {} as Record<string, string>
+  );
+}
+
+const cliParams = parseArgs(process.argv.slice(2));
+const pathToEnvFile = cliParams['env'];
+
 // Setup env vars for express
-const configString = readFileSync(resolve(__dirname, '../../.env/local.json'), {
+// env file path to be specified from the root of the zambdas package.
+const configString = readFileSync(resolve(__dirname, `../../${pathToEnvFile}`), {
   encoding: 'utf8',
 });
-const secrets = configString.length > 2 ? JSON.parse(configString) : null;
+const envFileContents = configString.length > 2 ? JSON.parse(configString) : null;
+
+const secrets: Record<string, string> = {};
+Object.entries(ottehrSpec.secrets).forEach(([_key, secret]) => {
+  if (secret.value.startsWith('#var/')) {
+    const varName = secret.value.split('#var/')[1];
+    const secretValue = envFileContents[varName];
+    if (secretValue == null) {
+      throw new Error(`Secret ${secret.name} was not found in the env file.`);
+    }
+    secrets[secret.name] = envFileContents[varName];
+  } else {
+    secrets[secret.name] = secret.value;
+  }
+});
 
 const singleValueHeaders = (input: IncomingHttpHeaders): APIGatewayProxyEventHeaders => {
   const headers = _.flow([

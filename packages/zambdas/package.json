@@ -6,7 +6,7 @@
     "start": "ENV=${ENV:-local} export HOME=./ && npm run setup-deployed-resources ${ENV:-local} && env-cmd -f ./.env/${ENV:-local}.json sls offline --stage ${ENV:-local}",
     "start:local": "ENV=local npm run start",
     "start:demo": "ENV=demo npm run start",
-    "start:express": "nodemon --watch 'src/**/*.ts' --exec 'tsx' src/local-server/index.ts",
+    "start:express": "nodemon --watch 'src/**/*.ts' --exec 'tsx' src/local-server/index.ts -- env=.env/local.json",
     "debug": "export HOME=./ && export SLS_DEBUG=* && node --inspect ../../../node_modules/serverless/bin/serverless offline --stage=local",
     "cancel-telemed-appointments": "tsx src/scripts/cancel-telemed-appointments.ts",
     "remove-insurances-and-payer-orgs": "tsx src/scripts/remove-insurances-and-payer-orgs.ts",
