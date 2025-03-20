@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { Box, Button, CircularProgress, Skeleton, Typography } from '@mui/material';
+import { Box, CircularProgress, Skeleton } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FieldValues } from 'react-hook-form';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -118,22 +118,6 @@ const SelectPatient = (): JSX.Element => {
               ))}
           </Box>
         </Box>
-      ) : hasNoPatients ? (
-        <Box sx={{ color: 'text.primary' }}>
-          <Typography sx={{ mb: 2 }}>No patients are found for this user.</Typography>
-          <Button
-            data-testid="control-back-button"
-            variant="outlined"
-            onClick={() => {
-              navigate(-1);
-            }}
-            size="large"
-            type="button"
-            color="secondary"
-          >
-            Back
-          </Button>
-        </Box>
       ) : (
         <PageForm
           formElements={[
@@ -141,21 +125,23 @@ const SelectPatient = (): JSX.Element => {
               type: 'Radio',
               ...FORM_PATIENT_ID_ELEMENT_BASE,
               defaultValue: currentPatientInfo.id || FORM_PATIENT_ID_ELEMENT_BASE.defaultValue || 'new-patient',
-              radioOptions: sortedPatients
-                .map((patient) => {
-                  if (!patient.id) {
-                    throw new Error('Patient id is not defined');
-                  }
-                  return {
-                    label: getPatientInfoFullNameUsingChosen(patient),
-                    description: `Birthday: ${DateTime.fromFormat(patient.dateOfBirth || '', 'yyyy-MM-dd').toFormat(
-                      'MMMM dd, yyyy'
-                    )}`,
-                    value: patient.id,
-                    color: otherColors.lightBlue,
-                  };
-                })
-                .concat(flow !== 'pastVisits' ? DIFFERENT_FAMILY_MEMBER_DATA : []),
+              radioOptions: hasNoPatients
+                ? []
+                : sortedPatients
+                    .map((patient) => {
+                      if (!patient.id) {
+                        throw new Error('Patient id is not defined');
+                      }
+                      return {
+                        label: getPatientInfoFullNameUsingChosen(patient),
+                        description: `Birthday: ${DateTime.fromFormat(patient.dateOfBirth || '', 'yyyy-MM-dd').toFormat(
+                          'MMMM dd, yyyy'
+                        )}`,
+                        value: patient.id,
+                        color: otherColors.lightBlue,
+                      };
+                    })
+                    .concat(flow !== 'pastVisits' ? DIFFERENT_FAMILY_MEMBER_DATA : []),
             },
           ]}
           onSubmit={onSubmit}
@@ -163,6 +149,11 @@ const SelectPatient = (): JSX.Element => {
             onBack,
             submitDisabled: hasNoPatients,
           }}
+          bottomComponent={
+            hasNoPatients ? (
+              <Box sx={{ pt: 2, color: 'text.primary' }}>No patients are found for this user.</Box>
+            ) : undefined
+          }
         />
       )}
     </CustomContainer>
