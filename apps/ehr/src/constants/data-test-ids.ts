@@ -68,6 +68,7 @@ export const dataTestIds = {
     patientLastName: 'patient-last-name',
     patientFirstName: 'patient-first-name',
     patientBirthSex: 'patient-birth-sex',
+    patientDOB: 'patient-date-of-birth',
   },
   contactInformationContainer: {
     streetAddress: 'street-address',

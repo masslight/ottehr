@@ -42,7 +42,13 @@ export const AboutPatientContainer: FC = () => {
         <FormTextField name={FormFields.preferredName.key} control={control} id={FormFields.preferredName.key} />
       </Row>
       <Row label="Date of birth" inputId={FormFields.birthDate.key} required>
-        <DatePicker id={FormFields.birthDate.key} name={FormFields.birthDate.key} control={control} required={true} />
+        <DatePicker
+          id={FormFields.birthDate.key}
+          name={FormFields.birthDate.key}
+          control={control}
+          required={true}
+          data-testid={dataTestIds.patientInformationContainer.patientDOB}
+        />
       </Row>
       <Row label="Preferred pronouns">
         <FormSelect name={FormFields.pronouns.key} control={control} options={PRONOUN_OPTIONS} />
