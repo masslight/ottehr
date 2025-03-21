@@ -6,13 +6,16 @@ import {
   CodeableConcept,
   Coding,
   Consent,
+  ContactPoint,
   Coverage,
   DocumentReference,
+  DomainResource,
   Encounter,
   Extension,
   FhirResource,
   HealthcareService,
   HumanName,
+  Identifier,
   InsurancePlan,
   List,
   Location,
@@ -20,9 +23,11 @@ import {
   Money,
   OperationOutcome,
   Organization,
+  Patient,
   Practitioner,
   QuestionnaireResponse,
   Reference,
+  RelatedPerson,
   Resource,
   Task,
   TaskInput,
@@ -45,6 +50,7 @@ import {
   VisitType,
 } from '../types';
 import {
+  COVERAGE_MEMBER_IDENTIFIER_BASE,
   FHIR_EXTENSION,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAX_SS,
@@ -1027,6 +1033,162 @@ export const createFhirHumanName = (
   return fhirName;
 };
 
+export const mapBirthSexToGender = (
+  birthSex: 'Male' | 'Female' | 'Intersex' | undefined
+): (RelatedPerson | Patient)['gender'] => {
+  if (birthSex === 'Male') {
+    return 'male';
+  }
+  if (birthSex === 'Female') {
+    return 'female';
+  }
+  if (birthSex === 'Intersex') {
+    return 'other';
+  }
+  return 'unknown';
+};
+
+export const getMemberIdFromCoverage = (coverage: Coverage): string | undefined => {
+  return coverage.identifier?.find((ident) => {
+    return ident.type?.coding?.some(
+      (tc) =>
+        tc.code === COVERAGE_MEMBER_IDENTIFIER_BASE.type?.coding?.[0].code &&
+        tc.system === COVERAGE_MEMBER_IDENTIFIER_BASE.type?.coding?.[0]?.system
+    );
+  })?.value;
+};
+
+export const createCoverageMemberIdentifier = (memberId: string, insuranceOrg: Organization): Identifier => {
+  return {
+    ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
+    value: memberId,
+    assigner: {
+      reference: `Organization/${insuranceOrg.id}`,
+      display: insuranceOrg.name,
+    },
+  };
+};
+
+export const identifiersMatch = (ident1: Identifier, ident2: Identifier): boolean => {
+  const systemAndValueMatch = ident1.value === ident2.value && ident1.system === ident2.system;
+  const assignerMatch = ident1.assigner?.reference === ident2.assigner?.reference;
+  if (ident1.type?.coding !== undefined && ident2.type?.coding !== undefined) {
+    const codingOverlap = ident1.type?.coding?.some((coding) => {
+      return codingContainedInList(coding, ident2.type?.coding ?? []);
+    });
+    if (!codingOverlap) {
+      return false;
+    }
+  } else if (ident1.type?.coding !== undefined) {
+    return false;
+  } else if (ident2?.type?.coding !== undefined) {
+    return false;
+  }
+  return systemAndValueMatch && assignerMatch;
+};
+
+export const deduplicateContactPoints = (contactPoints: ContactPoint[]): ContactPoint[] => {
+  const uniqueContactPoints: ContactPoint[] = [];
+  contactPoints.forEach((contactPoint) => {
+    if (
+      !uniqueContactPoints.some(
+        (uniqueContactPoint) =>
+          uniqueContactPoint.system === contactPoint.system &&
+          uniqueContactPoint.value === contactPoint.value &&
+          uniqueContactPoint.use === contactPoint.use
+      )
+    ) {
+      uniqueContactPoints.push(contactPoint);
+    }
+  });
+  return uniqueContactPoints;
+};
+
+export const deduplicateIdentifiers = (identifiers: Identifier[]): Identifier[] => {
+  const uniqueIdentifiers: Identifier[] = [];
+  identifiers.forEach((identifier) => {
+    if (
+      !uniqueIdentifiers.some((uniqueIdentifier) => {
+        return identifiersMatch(uniqueIdentifier, identifier);
+      })
+    ) {
+      uniqueIdentifiers.push(identifier);
+    }
+  });
+  return uniqueIdentifiers;
+};
+
+const normalizeObject = <T extends object>(input: T): T => {
+  const normalizedObject: any = {};
+  const sortedKeys = Object.keys(input).sort();
+
+  sortedKeys.forEach((key) => {
+    const value = (input as any)[key];
+    if (Array.isArray(value)) {
+      normalizedObject[key] = value.map((item) => normalizeObject(item));
+    } else if (typeof value === 'object' && value !== null) {
+      normalizedObject[key] = normalizeObject(value);
+    } else {
+      normalizedObject[key] = value;
+    }
+  });
+
+  return normalizedObject as T;
+};
+
+export const deduplicateObjectsByStrictKeyValEquality = <T extends object>(objects: T[]): T[] => {
+  const uniqueObjects: Record<string, T> = {};
+  objects.forEach((object) => {
+    uniqueObjects[JSON.stringify(normalizeObject(object))] = object;
+  });
+  return Object.values(uniqueObjects);
+};
+
+export const checkForPatientDemographicMatch = (
+  patient: Patient,
+  comp: Partial<Patient>,
+  optionalAdditionalProps?: (keyof Patient)[]
+): boolean => {
+  const additionalProps = optionalAdditionalProps ?? [];
+
+  const { name: patientName, birthDate: patientDOB } = patient;
+  const { name: compName, birthDate: compDOB } = comp;
+
+  if (!compName || !compDOB || !patientName || !patientDOB || !patientName.length || !compName.length) {
+    return false;
+  }
+
+  if (patientDOB !== compDOB) {
+    return false;
+  }
+
+  const { given: patientGiven, family: patientFamily } = patientName[0];
+  const { given: compGiven, family: compFamily } = compName[0];
+
+  if (patientFamily !== compFamily) {
+    return false;
+  }
+
+  if (!patientGiven || !patientGiven.length || !compGiven || !compGiven.length) {
+    return false;
+  }
+  if (patientGiven[0] !== compGiven[0]) {
+    return false;
+  }
+  for (let i = 0; i < patientGiven.length; i++) {
+    if (patientGiven[i] && compGiven[i] && patientGiven[i] !== compGiven[i]) {
+      return false;
+    }
+  }
+
+  for (const prop of additionalProps) {
+    if (patient[prop] !== comp[prop]) {
+      return false;
+    }
+  }
+
+  return true;
+};
 export function flattenBundleResources(searchResults: Bundle<FhirResource>): FhirResource[] {
   const flattenedResources: FhirResource[] = [];
 
@@ -1054,7 +1216,53 @@ export function slashPathToLodashPath(slashPath: string): string {
     .replace(/\.\[/g, '[');
 }
 
+export const deduplicateUnbundledResources = <T extends Resource>(unbundledResources: T[]): T[] => {
+  const uniqueObjects: Record<string, T> = {};
+  unbundledResources.forEach((object) => {
+    uniqueObjects[`${object.resourceType}/${object.id}`] = object;
+  });
+  return Object.values(uniqueObjects);
+};
+
+export const takeContainedOrFind = <T extends Resource>(
+  referenceString: string,
+  resourceList: Resource[],
+  parent: DomainResource
+): T | undefined => {
+  if (referenceString.startsWith('#')) {
+    return parent.contained?.find((resource) => `#${resource.id}` === referenceString) as T | undefined;
+  }
+
+  return resourceList.find((res) => `${res.resourceType}/${res.id}` === referenceString) as T | undefined;
+};
+
 export const unpackFhirResponse = async <T>(response: { json: () => Promise<any> }): Promise<T> => {
   const data = await response.json();
   return (data.output ? data.output : data) as T;
+};
+
+export const unbundleBatchPostOutput = <T extends Resource>(bundle: Bundle<T>): T[] => {
+  return (bundle.entry?.map((entry) => entry.resource) ?? []) as T[];
+};
+
+export const getVersionedReferencesFromBundleResources = (bundle: Bundle): Reference[] => {
+  return (bundle.entry ?? []).flatMap((entry) => {
+    const { resource } = entry;
+    if (!resource) {
+      return [];
+    }
+    const { meta, resourceType, id } = resource;
+    const versionId = meta?.versionId;
+    let reference = `${resourceType}/${id}`;
+    if (versionId) {
+      reference += `/_history/${versionId}`;
+    }
+
+    return { reference };
+  });
+};
+
+export const checkBundleOutcomeOk = (bundle: Bundle): boolean => {
+  const outcomeEntry = bundle.entry?.[0]?.response?.outcome?.id === 'ok';
+  return outcomeEntry;
 };

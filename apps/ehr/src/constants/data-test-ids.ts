@@ -68,6 +68,7 @@ export const dataTestIds = {
     patientLastName: 'patient-last-name',
     patientFirstName: 'patient-first-name',
     patientBirthSex: 'patient-birth-sex',
+    patientDOB: 'patient-date-of-birth',
   },
   contactInformationContainer: {
     streetAddress: 'street-address',
@@ -84,7 +85,8 @@ export const dataTestIds = {
   responsiblePartyInformationContainer: {
     id: 'responsible-party-information-container',
     relationshipDropdown: 'relationship-dropdown',
-    fullName: 'full-name',
+    firstName: 'first-name',
+    lastName: 'last-name',
     dateOfBirthDropdown: 'date-of-birth-dropdown',
     birthSexDropdown: 'birth-sex-dropdown',
     phoneInput: 'phone-input',
