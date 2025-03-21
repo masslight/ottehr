@@ -123,25 +123,26 @@ export const makeAppointmentSearchRequest = async ({
   resourceType: 'Location' | 'Practitioner' | 'HealthcareService';
   searchDate: string;
 }): Promise<{ resourceType: 'Appointment'; params: SearchParam[] }> => {
-  // timezone will be cached and we can use it to show date in user timezone
-  await getTimezone({
+  const timezone = await getTimezone({
     oystehr,
     resourceType,
     resourceId,
   });
 
-  const searchDateWithTimezone = DateTime.fromISO(searchDate).setZone('UTC');
+  const searchDateInTargetTimezone = DateTime.fromISO(searchDate, { zone: timezone });
+  const startDay = searchDateInTargetTimezone.startOf('day').toUTC().toISO();
+  const endDay = searchDateInTargetTimezone.endOf('day').toUTC().toISO();
 
   return {
     resourceType: 'Appointment',
     params: [
       {
         name: 'date',
-        value: `ge${searchDateWithTimezone.startOf('day').toISO()}`,
+        value: `ge${startDay}`,
       },
       {
         name: 'date',
-        value: `le${searchDateWithTimezone.endOf('day').toISO()}`,
+        value: `le${endDay}`,
       },
       {
         name: 'date:missing',
@@ -211,29 +212,40 @@ export const getTimezoneResourceIdFromAppointment = (appointment: Appointment): 
 
 export const makeEncounterBaseSearchParams = (): SearchParam[] => [
   { name: '_count', value: '1000' },
+  { name: '_sort', value: '-date' },
   { name: '_include', value: 'Encounter:appointment' },
   { name: '_include', value: 'Encounter:participant' },
   { name: 'appointment._tag', value: OTTEHR_MODULE.IP },
-  { name: 'appointment.date', value: `lt${DateTime.now().setZone('UTC').startOf('day').toISO()}` },
   { name: 'status:not', value: 'planned' },
   { name: 'status:not', value: 'finished' },
   { name: 'status:not', value: 'cancelled' },
 ];
 
-export const makeEncounterSearchParams = ({
+export const makeEncounterSearchParams = async ({
   resourceId,
   resourceType,
   cacheKey,
+  oystehr,
 }: {
   resourceId: string;
   resourceType: 'Location' | 'Practitioner' | 'HealthcareService';
   cacheKey: string;
-}): SearchParam[] | null => {
+  oystehr: Oystehr;
+}): Promise<SearchParam[] | null> => {
   const cachedEncounterIds = encounterIdMap.get(cacheKey);
+
+  const timezone = await getTimezone({
+    oystehr,
+    resourceType,
+    resourceId,
+  });
+
+  const startDay = DateTime.now().setZone(timezone).startOf('day').toUTC().toISO();
 
   if (cachedEncounterIds !== null) {
     return [
       ...makeEncounterBaseSearchParams(),
+      { name: 'appointment.date', value: `lt${startDay}` },
       ...(cachedEncounterIds ? [{ name: '_id', value: cachedEncounterIds }] : []),
       ...(resourceType === 'Location' ? [{ name: 'appointment.location', value: `Location/${resourceId}` }] : []),
       ...(resourceType === 'Practitioner' ? [{ name: 'appointment.actor', value: `Practitioner/${resourceId}` }] : []),

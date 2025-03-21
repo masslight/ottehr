@@ -182,7 +182,7 @@ export default function Appointments(): ReactElement {
   }, [oystehrZambda]);
 
   useEffect(() => {
-    const fetchStuff = async (client: Oystehr, searchDate: DateTime | undefined): Promise<void> => {
+    const fetchStuff = async (client: Oystehr, searchDate: string | undefined): Promise<void> => {
       setLoadingState({ status: 'loading' });
 
       if (
@@ -212,8 +212,9 @@ export default function Appointments(): ReactElement {
       loadingState.status !== 'loading' &&
       pageIsVisible
     ) {
-      const searchDateToUse =
-        (searchDate && DateTime.fromISO(searchDate, { zone: 'UTC' }).startOf('day')) || appointmentDate || undefined;
+      // send searchDate without timezone, in get-appointments zamdba we apply appointment timezone to it to find appointments for that day
+      // looks like searchDate is always exists, and we can remove rest options
+      const searchDateToUse = searchDate || appointmentDate?.toISO?.() || '';
       void fetchStuff(oystehrZambda, searchDateToUse);
     }
   }, [
