@@ -361,7 +361,7 @@ export const getQuestionnaireItemsAndProgress = async (
     })
   ).unbundle();
 
-  console.log('qrs', JSON.stringify(results));
+  // console.log('qrs', JSON.stringify(results));
 
   const qr: QuestionnaireResponse | undefined = results.find((res) => {
     return res.resourceType === 'QuestionnaireResponse';
