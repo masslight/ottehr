@@ -6,14 +6,6 @@ env:
 on:
   workflow_dispatch:
     inputs:
-      service:
-        description: 'Service to deploy'
-        required: true
-        type: choice
-        default: 'ehr'
-        options:
-          - ehr
-          - intake
       environment:
         description: 'Environment name'
         required: true
@@ -61,17 +53,6 @@ jobs:
           - "20"
 
     steps:
-      - name: Set Service-Specific Variables
-        id: vars
-        run: |
-          if [[ "${{ github.event.inputs.service }}" == "ehr" ]]; then
-            echo "PACKAGE_LOCATION=apps/ehr" >> $GITHUB_ENV
-            echo "SLACK_NOTIFICATION_SERVICE_NAME=ehr" >> $GITHUB_ENV
-          elif [[ "${{ github.event.inputs.service }}" == "intake" ]]; then
-            echo "PACKAGE_LOCATION=apps/intake" >> $GITHUB_ENV
-            echo "SLACK_NOTIFICATION_SERVICE_NAME=intake-ui" >> $GITHUB_ENV
-          fi
-
       - name: Install SSH Client
         uses: webfactory/ssh-agent@836c84ec59a0e7bc0eabc79988384eb567561ee2 # v0.7.0
         with:
@@ -100,14 +81,15 @@ jobs:
       - name: Increase version if input dictates.
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
         run: |
-          cd ${{ github.workspace }}/${{ env.PACKAGE_LOCATION }} && npm version ${{ github.event.inputs.versionType }} --no-git-tag-version
+          cd ${{ github.workspace }}/apps/intake && npm version ${{ github.event.inputs.versionType }} --no-git-tag-version
+          cd ${{ github.workspace }}/apps/ehr && npm version ${{ github.event.inputs.versionType }} --no-git-tag-version
           cd ${{ github.workspace }}/packages/zambdas && npm version ${{ github.event.inputs.versionType }} --no-git-tag-version
 
       - name: Get Version Number from package.json
         id: package-version
         uses: martinbeentjes/npm-get-version-action@95bc31c6dd3145896c110e382f840bb1e750d09c # v1.1.0
         with:
-          path: ${{ env.PACKAGE_LOCATION }}
+          path: apps/intake # it won't matter if the version numbers are synced
 
       - name: Create Pull Request to the base branch with version bump
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
@@ -135,19 +117,19 @@ jobs:
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
           path: 'secrets'
 
-      - name: Move zambda secrets file into service zambdas dir.
+      - name: Move zambda secrets file into zambdas dir.
         run: mkdir -p packages/zambdas/.env; cp secrets/zambdas/* packages/zambdas/.env
 
-      - name: Move app secrets file into service app dir.
-        run: mkdir -p ${{ env.PACKAGE_LOCATION }}/env; cp secrets/${{ github.event.inputs.service }}/app/.env.${{ github.event.inputs.environment }} ${{ env.PACKAGE_LOCATION }}/env
-
-      - name: Lint directories
+      - name: Move app secrets file into app dirs.
         run: |
-          if [[ "${{ github.event.inputs.service }}" == "ehr" ]]; then
-            npm run ehr:lint
-          elif [[ "${{ github.event.inputs.service }}" == "intake" ]]; then
-            npm run intake:lint
-          fi
+          mkdir -p apps/intake/env; cp secrets/intake/app/.env.${{ github.event.inputs.environment }} apps/intake/env
+          mkdir -p apps/ehr/env; cp secrets/ehr/app/.env.${{ github.event.inputs.environment }} apps/ehr/env
+
+      - name: Lint Intake
+        run: npm run intake:lint
+
+      - name: Lint EHR
+        run: npm run ehr:lint
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@50ac8dd1e1b10d09dac7b8727528b91bed831ac0 # v3 (v3.0.2)
@@ -155,18 +137,19 @@ jobs:
           role-to-assume: arn:aws:iam::381491874541:role/deploy-ottehr
           aws-region: us-east-1
 
-      - name: Deploy app
-        run: cd ${{ env.PACKAGE_LOCATION }} && npm run ci-deploy:${{ env.ENVIRONMENT }}
+      - name: Deploy Intake
+        run: cd apps/intake && npm run ci-deploy:${{ env.ENVIRONMENT }}
+
+      - name: Deploy EHR
+        run: cd apps/ehr && npm run ci-deploy:${{ env.ENVIRONMENT }}
 
       - name: Deploy zambdas
         run: cd packages/zambdas && ENV=${{ env.ENVIRONMENT }} npm run deploy-zambdas ${{ env.ENVIRONMENT }}
 
       - name: Update user roles
-        if: ${{ github.event.inputs.service == 'ehr' }}
         run: cd packages/zambdas && npm run update-user-roles ${{ env.ENVIRONMENT }}
 
       - name: Ensure insurance plans and payer orgs created from CSV
-        if: ${{ github.event.inputs.service == 'ehr' }}
         run: cd packages/zambdas && npm run update-insurances-and-payer-orgs ${{ env.ENVIRONMENT }}
 
       - name: Setup secrets in Oystehr console
@@ -178,7 +161,6 @@ jobs:
         run: cd packages/zambdas && npm run setup-deployed-resources
 
       - name: Create/update in-house medication resources
-        if: ${{ github.event.inputs.service == 'ehr' }}
         run: cd packages/zambdas && npm run create-update-in-house-medications-list --env=${{ env.ENVIRONMENT }}
 
       - name: Notify Slack
@@ -195,8 +177,7 @@ jobs:
           failure_text: '${env.GITHUB_WORKFLOW} (${env.GITHUB_RUN_NUMBER}) build failed'
           cancelled_text: '${env.GITHUB_WORKFLOW} (${env.GITHUB_RUN_NUMBER}) build was cancelled'
           fields: |
-            [{ "title": "Service", "value": "${env.SLACK_NOTIFICATION_SERVICE_NAME}", "short": true },
-            { "title": "Action URL", "value": "${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}"},
+            [{ "title": "Action URL", "value": "${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}"},
             { "title": "Branch", "value": "${env.BRANCH}", "short": true },
             { "title": "Environment", "value": "${env.ENVIRONMENT}", "short": true },
             { "title": "Version", "value": "${env.PACKAGE_VERSION}", "short": true }]
