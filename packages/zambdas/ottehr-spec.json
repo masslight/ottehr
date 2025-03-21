@@ -353,7 +353,7 @@
       "name": "CANCEL-APPOINTMENT",
       "type": "http_open",
       "runtime": "nodejs20.x",
-      "src": "src/patient/cancel-appointment/index",
+      "src": "src/patient/appointment/prebook-cancel-appointment/index",
       "zip": ".dist/zambdas/cancel-appointment.zip"
     },
     "CHECK-IN": {
@@ -374,35 +374,35 @@
       "name": "UPDATE-PAPERWORK-IN-PROGRESS",
       "type": "http_open",
       "runtime": "nodejs20.x",
-      "src": "src/patient/update-paperwork-in-progress/index",
+      "src": "src/patient/paperwork/update-paperwork-in-progress/index",
       "zip": ".dist/zambdas/update-paperwork-in-progress.zip"
     },
     "PATCH-PAPERWORK": {
       "name": "PATCH-PAPERWORK",
       "type": "http_open",
       "runtime": "nodejs20.x",
-      "src": "src/patient/patch-paperwork/index",
+      "src": "src/patient/paperwork/patch-paperwork/index",
       "zip": ".dist/zambdas/patch-paperwork.zip"
     },
     "SUBMIT-PAPERWORK": {
       "name": "SUBMIT-PAPERWORK",
       "type": "http_open",
       "runtime": "nodejs20.x",
-      "src": "src/patient/submit-paperwork/index",
+      "src": "src/patient/paperwork/submit-paperwork/index",
       "zip": ".dist/zambdas/submit-paperwork.zip"
     },
     "CREATE-APPOINTMENT": {
       "name": "CREATE-APPOINTMENT",
       "type": "http_auth",
       "runtime": "nodejs20.x",
-      "src": "src/patient/create-appointment/index",
+      "src": "src/patient/appointment/prebook-create-appointment/index",
       "zip": ".dist/zambdas/create-appointment.zip"
     },
     "INTAKE-GET-APPOINTMENTS": {
       "name": "INTAKE-GET-APPOINTMENTS",
       "type": "http_auth",
       "runtime": "nodejs20.x",
-      "src": "src/patient/intake-get-appointments/index",
+      "src": "src/patient/appointment/prebook-get-appointments/index",
       "zip": ".dist/zambdas/intake-get-appointments.zip"
     },
     "GET-PATIENTS": {
@@ -416,14 +416,14 @@
       "name": "GET-PAPERWORK",
       "type": "http_open",
       "runtime": "nodejs20.x",
-      "src": "src/patient/get-paperwork/index",
+      "src": "src/patient/paperwork/get-paperwork/index",
       "zip": ".dist/zambdas/get-paperwork.zip"
     },
     "UPDATE-APPOINTMENT": {
       "name": "UPDATE-APPOINTMENT",
       "type": "http_open",
       "runtime": "nodejs20.x",
-      "src": "src/patient/update-appointment/index",
+      "src": "src/patient/appointment/prebook-update-appointment/index",
       "zip": ".dist/zambdas/update-appointment.zip"
     },
     "GET-PRESIGNED-FILE-URL": {
@@ -444,56 +444,56 @@
       "name": "PAYMENT-METHODS-LIST",
       "type": "http_auth",
       "runtime": "nodejs20.x",
-      "src": "src/patient/payment-methods-list/index",
+      "src": "src/patient/payment-methods/list/index",
       "zip": ".dist/zambdas/payment-methods-list.zip"
     },
     "PAYMENT-METHODS-DELETE": {
       "name": "PAYMENT-METHODS-DELETE",
       "type": "http_auth",
       "runtime": "nodejs20.x",
-      "src": "src/patient/payment-methods-delete/index",
+      "src": "src/patient/payment-methods/delete/index",
       "zip": ".dist/zambdas/payment-methods-delete.zip"
     },
     "PAYMENT-METHODS-SETUP": {
       "name": "PAYMENT-METHODS-SETUP",
       "type": "http_auth",
       "runtime": "nodejs20.x",
-      "src": "src/patient/payment-methods-setup/index",
+      "src": "src/patient/payment-methods/setup/index",
       "zip": ".dist/zambdas/payment-methods-setup.zip"
     },
     "PAYMENT-METHODS-SET-DEFAULT": {
       "name": "PAYMENT-METHODS-SET-DEFAULT",
       "type": "http_auth",
       "runtime": "nodejs20.x",
-      "src": "src/patient/payment-methods-set-default/index",
+      "src": "src/patient/payment-methods/set-default/index",
       "zip": ".dist/zambdas/payment-methods-set-default.zip"
     },
     "VIDEO-CHAT-INVITES-CANCEL": {
       "name": "VIDEO-CHAT-INVITES-CANCEL",
       "type": "http_auth",
       "runtime": "nodejs20.x",
-      "src": "src/patient/video-chat-invites-cancel/index",
+      "src": "src/patient/video-chat-invites/cancel-invite/index",
       "zip": ".dist/zambdas/video-chat-invites-cancel.zip"
     },
     "VIDEO-CHAT-INVITES-CREATE": {
       "name": "VIDEO-CHAT-INVITES-CREATE",
       "type": "http_auth",
       "runtime": "nodejs20.x",
-      "src": "src/patient/video-chat-invites-create/index",
+      "src": "src/patient/video-chat-invites/create-invite/index",
       "zip": ".dist/zambdas/video-chat-invites-create.zip"
     },
     "VIDEO-CHAT-INVITES-LIST": {
       "name": "VIDEO-CHAT-INVITES-LIST",
       "type": "http_auth",
       "runtime": "nodejs20.x",
-      "src": "src/patient/video-chat-invites-list/index",
+      "src": "src/patient/video-chat-invites/list-invites/index",
       "zip": ".dist/zambdas/video-chat-invites-list.zip"
     },
     "GET-VISIT-DETAILS": {
       "name": "GET-VISIT-DETAILS",
       "type": "http_auth",
       "runtime": "nodejs20.x",
-      "src": "src/patient/get-visit-details/index",
+      "src": "src/patient/appointment/get-visit-details/index",
       "zip": ".dist/zambdas/get-visit-details.zip"
     },
     "GET-ELIGIBILITY": {
@@ -535,35 +535,35 @@
       "name": "TELEMED-CANCEL-APPOINTMENT",
       "type": "http_auth",
       "runtime": "nodejs20.x",
-      "src": "src/patient/telemed-cancel-appointment/index",
+      "src": "src/patient/appointment/telemed-cancel-appointment/index",
       "zip": ".dist/zambdas/telemed-cancel-appointment.zip"
     },
     "TELEMED-CREATE-APPOINTMENT": {
       "name": "TELEMED-CREATE-APPOINTMENT",
       "type": "http_auth",
       "runtime": "nodejs20.x",
-      "src": "src/patient/telemed-create-appointment/index",
+      "src": "src/patient/appointment/telemed-create-appointment/index",
       "zip": ".dist/zambdas/telemed-create-appointment.zip"
     },
     "TELEMED-GET-APPOINTMENTS": {
       "name": "TELEMED-GET-APPOINTMENTS",
       "type": "http_auth",
       "runtime": "nodejs20.x",
-      "src": "src/patient/telemed-get-appointments/index",
+      "src": "src/patient/appointment/telemed-get-appointments/index",
       "zip": ".dist/zambdas/telemed-get-appointments.zip"
     },
     "GET-PAST-VISITS": {
       "name": "GET-PAST-VISITS",
       "type": "http_auth",
       "runtime": "nodejs20.x",
-      "src": "src/patient/get-past-visits/index",
+      "src": "src/patient/appointment/get-past-visits/index",
       "zip": ".dist/zambdas/get-past-visits.zip"
     },
     "TELEMED-UPDATE-APPOINTMENT": {
       "name": "TELEMED-UPDATE-APPOINTMENT",
       "type": "http_auth",
       "runtime": "nodejs20.x",
-      "src": "src/patient/telemed-update-appointment/index",
+      "src": "src/patient/appointment/telemed-update-appointment/index",
       "zip": ".dist/zambdas/telemed-update-appointment.zip"
     },
     "TELEMED-GET-PATIENTS": {
@@ -577,7 +577,7 @@
       "name": "LIST-BOOKABLES",
       "type": "http_open",
       "runtime": "nodejs20.x",
-      "src": "src/patient/list-bookables/index",
+      "src": "src/patient/bookable/list-bookables/index",
       "zip": ".dist/zambdas/list-bookables.zip"
     },
     "NOTIFICATIONS-UPDATER": {
