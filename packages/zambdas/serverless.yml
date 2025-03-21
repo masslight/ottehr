@@ -737,6 +737,42 @@ functions:
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+  ai-interview-start:
+    handler: src/patient/ai-interview/start/index.index
+    events:
+      - http:
+          path: zambda/ai-interview-start/execute
+          method: POST
+    timeout: 25
+    environment:
+      WEBSITE_URL: ${file(./.env/${self:provider.stage}.json):WEBSITE_URL}
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
+      AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+      ANTHROPIC_API_KEY: ${file(./.env/${self:provider.stage}.json):ANTHROPIC_API_KEY}
+  ai-interview-handle-answer:
+    handler: src/patient/ai-interview/handle-answer/index.index
+    events:
+      - http:
+          path: zambda/ai-interview-handle-answer/execute
+          method: POST
+    timeout: 25
+    environment:
+      WEBSITE_URL: ${file(./.env/${self:provider.stage}.json):WEBSITE_URL}
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
+      AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      ORGANIZATION_ID: ${file(./.env/${self:provider.stage}.json):ORGANIZATION_ID}
+      ANTHROPIC_API_KEY: ${file(./.env/${self:provider.stage}.json):ANTHROPIC_API_KEY}
 
   get-appointments:
     handler: src/ehr/get-appointments/index.index

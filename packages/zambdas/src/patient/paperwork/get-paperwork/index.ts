@@ -152,7 +152,11 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       }) as Practitioner;
     }
     const questionnaireResponseResource: QuestionnaireResponse = baseCategoryResources.find((resource) => {
-      return resource.resourceType == 'QuestionnaireResponse';
+      return (
+        resource.resourceType == 'QuestionnaireResponse' &&
+        (resource.questionnaire === 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson' ||
+          resource.questionnaire === 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual')
+      );
     }) as QuestionnaireResponse;
 
     const missingResources: string[] = [];

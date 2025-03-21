@@ -312,6 +312,12 @@ const ZAMBDAS: { [name: string]: DeployZambda } = {
   'LIST-BOOKABLES': {
     type: 'http_open',
   },
+  'AI-INTERVIEW-START': {
+    type: 'http_auth',
+  },
+  'AI-INTERVIEW-HANDLE-ANSWER': {
+    type: 'http_auth',
+  },
 };
 
 const RENAMED_ZAMBDAS: { [newName: string]: string } = {};

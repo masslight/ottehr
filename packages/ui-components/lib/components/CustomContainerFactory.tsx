@@ -6,7 +6,7 @@ import { dataTestIds } from '../../../../apps/intake/src/helpers/data-test-ids';
 // import { LanguagePicker } from './LanguagePicker';
 
 export interface ContainerProps {
-  title: string;
+  title?: string;
   logo: string;
   alt: string;
   subtitle?: string;
@@ -163,29 +163,31 @@ export const CustomContainer: FC<ContainerProps> = ({
                     justifyContent="center"
                     sx={{ justifyContent: 'space-between' }}
                   >
-                    <Grid item xs={12} md={gridWidths.title}>
-                      <Typography
-                        sx={{
-                          width: { xs: '100%', md: isFirstPage ? '350px' : '100%' },
-                        }}
-                        variant={isFirstPage ? 'h1' : 'h2'}
-                        color="primary.main"
-                        data-testid={isFirstPage ? dataTestIds.firstFlowPageTitle : dataTestIds.flowPageTitle}
-                      >
-                        {title}
-                      </Typography>
-                      {patientFullName && (
-                        <Typography variant="body2" color={theme.palette.secondary.main} fontSize={'18px'}>
-                          {patientFullName}
+                    {title && (
+                      <Grid item xs={12} md={gridWidths.title}>
+                        <Typography
+                          sx={{
+                            width: { xs: '100%', md: isFirstPage ? '350px' : '100%' },
+                          }}
+                          variant={isFirstPage ? 'h1' : 'h2'}
+                          color="primary.main"
+                          data-testid={isFirstPage ? dataTestIds.firstFlowPageTitle : dataTestIds.flowPageTitle}
+                        >
+                          {title}
                         </Typography>
-                      )}
-                      {subtitle && (
-                        <Typography variant="h2" color="primary.main" mt={1}>
-                          {subtitle}
-                        </Typography>
-                      )}
-                      {subtext && <Typography variant="body2">{subtext}</Typography>}
-                    </Grid>
+                        {patientFullName && (
+                          <Typography variant="body2" color={theme.palette.secondary.main} fontSize={'18px'}>
+                            {patientFullName}
+                          </Typography>
+                        )}
+                        {subtitle && (
+                          <Typography variant="h2" color="primary.main" mt={1}>
+                            {subtitle}
+                          </Typography>
+                        )}
+                        {subtext && <Typography variant="body2">{subtext}</Typography>}
+                      </Grid>
+                    )}
                     {img && (
                       <Grid
                         item

@@ -46,6 +46,7 @@ import UserFlowRoot from './telemed/pages/UserFlowRoot';
 import VideoChatPage from './telemed/pages/VideoChatPage';
 import WaitingRoom from './telemed/pages/WaitingRoom';
 import Welcome from './telemed/pages/Welcome';
+import AIInterview from './pages/AIInterview';
 
 const {
   MODE: environment,
@@ -157,6 +158,10 @@ export const intakeFlowPageRoute = {
   CancellationReason: {
     path: `${visitBasePath}/cancel`,
     getPage: () => <CancellationReason />,
+  }, // IP
+  AIInterview: {
+    path: `${visitBasePath}/ai-interview`,
+    getPage: () => <AIInterview />,
   }, // IP
 
   // telemed
@@ -478,6 +483,10 @@ function App(): JSX.Element {
                 <Route
                   path={intakeFlowPageRoute.CancellationConfirmation.path}
                   element={intakeFlowPageRoute.CancellationConfirmation.getPage()}
+                />
+                <Route
+                  path={intakeFlowPageRoute.AIInterview.path}
+                  element={intakeFlowPageRoute.AIInterview.getPage()}
                 />
               </Route>
               {/* TODO: make IOS routes be under protected route but without custom container */}

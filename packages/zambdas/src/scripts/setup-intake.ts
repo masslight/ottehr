@@ -129,6 +129,8 @@ async function createApplication(oystehr: Oystehr, applicationName: string): Pro
           'Zambda:Function:get-visit-details',
           'Zambda:Function:list-bookables',
           'Zambda:Function:version',
+          'Zambda:Function:ai-interview-start',
+          'Zambda:Function:ai-interview-handle-answer',
         ],
         action: ['Zambda:InvokeFunction'],
         effect: 'Allow',

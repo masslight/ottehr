@@ -8,10 +8,12 @@ import {
   GetPresignedFileURLInput,
   GetScheduleRequestParams,
   GetScheduleResponse,
+  HandleAnswerInput,
   PatchPaperworkParameters,
   PatientInfo,
   PresignUploadUrlResponse,
   ScheduleType,
+  StartInterviewInput,
   SubmitPaperworkParameters,
   UCGetPaperworkResponse,
   VisitType,
@@ -47,6 +49,8 @@ const GET_APPOINTMENT_DETAILS = import.meta.env.VITE_APP_GET_APPOINTMENT_DETAILS
 const PATCH_PAPERWORK_ZAMBDA_ID = import.meta.env.VITE_APP_PATCH_PAPERWORK_ZAMBDA_ID;
 const SUBMIT_PAPERWORK_ZAMBDA_ID = import.meta.env.VITE_APP_SUBMIT_PAPERWORK_ZAMBDA_ID;
 const GET_ELIGIBILITY_ZAMBDA_ID = import.meta.env.VITE_APP_GET_ELIGIBILITY_ZAMBDA_ID;
+const AI_INTERVIEW_START_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTERVIEW_START_ZAMBDA_ID;
+const AI_INTERVIEW_HANDLE_ANSWER_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTERVIEW_HANDLE_ANSWER_ZAMBDA_ID;
 
 export function chooseJson(json: any, isLocal: string): any {
   if (isLocal === 'true' || !json.output) {
@@ -410,6 +414,32 @@ class API {
       const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
       console.log('json from get eligibility', jsonToUse);
       return jsonToUse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
+  async aIInterviewStart(input: StartInterviewInput, zambdaClient: ZambdaClient): Promise<QuestionnaireResponse> {
+    try {
+      if (AI_INTERVIEW_START_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
+        throw new Error('AI_INTERVIEW_START_ZAMBDA_ID environment variable is missing');
+      }
+      const response = await zambdaClient.execute(AI_INTERVIEW_START_ZAMBDA_ID, input);
+      const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
+      return jsonToUse as QuestionnaireResponse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
+  async aIInterviewHandleAnswer(input: HandleAnswerInput, zambdaClient: ZambdaClient): Promise<QuestionnaireResponse> {
+    try {
+      if (AI_INTERVIEW_HANDLE_ANSWER_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
+        throw new Error('AI_INTERVIEW_HANDLE_ANSWER_ZAMBDA_ID environment variable is missing');
+      }
+      const response = await zambdaClient.execute(AI_INTERVIEW_HANDLE_ANSWER_ZAMBDA_ID, input);
+      const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
+      return jsonToUse as QuestionnaireResponse;
     } catch (error: unknown) {
       throw apiErrorToThrow(error);
     }
