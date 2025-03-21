@@ -223,6 +223,34 @@ test('Appointment should be in "provider" tab', async () => {
   ).toBeVisible();
 });
 
+test('Unassign appointment', async () => {
+  await page.goto(`telemed/appointments/${myResources.appointment.id}`);
+
+  await page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonUnassign).click();
+  await telemedDialogConfirm(page);
+  await awaitAppointmentsTableToBeVisible(page);
+  await page.goto(`telemed/appointments/${myResources.appointment.id}`);
+  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip)).toHaveText(
+    TelemedAppointmentStatusEnum['ready']
+  );
+});
+
+test('Buttons on visit page should not appear', async () => {
+  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient)).not.toBeVisible();
+  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonUnassign)).not.toBeVisible();
+  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.cancelThisVisitButton)).not.toBeVisible();
+  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.inviteParticipant)).not.toBeVisible();
+  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.editPatientButtonSideBar)).not.toBeVisible();
+});
+
+test('Assign my appointment back', async () => {
+  await page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonAssignMe).click();
+  await telemedDialogConfirm(page);
+  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip)).toHaveText(
+    TelemedAppointmentStatusEnum['pre-video']
+  );
+});
+
 test('Buttons on visit page should appear', async () => {
   await page.goto(`telemed/appointments/${myResources.appointment.id}`);
 
@@ -317,6 +345,8 @@ test('Appointment hpi fields', async () => {
   const chiefComplaintNotes = 'chief complaint';
   const chiefComplaintRos = 'chief ros';
 
+  await page.goto(`telemed/appointments/${myResources.appointment.id}`);
+
   await test.step('await until hpi fields are ready', async () => {
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput)).toBeVisible();
     await expect(
@@ -333,8 +363,6 @@ test('Appointment hpi fields', async () => {
       dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput,
       medicalConditionsPattern
     );
-
-    // todo make tests for current medications tab, for this moment it's broken
 
     await fillWaitAndSelectDropdown(page, dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput, knownAllergiePattern);
 
