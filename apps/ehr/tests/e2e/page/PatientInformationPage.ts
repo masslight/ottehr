@@ -158,17 +158,30 @@ export class PatientInformationPage {
     ).toHaveValue(relationship);
   }
 
-  async enterFullName(fullName: string): Promise<void> {
+  async enterFirstName(firstName: string): Promise<void> {
     await this.#page
-      .getByTestId(dataTestIds.responsiblePartyInformationContainer.fullName)
+      .getByTestId(dataTestIds.responsiblePartyInformationContainer.firstName)
       .locator('input')
-      .fill(fullName);
+      .fill(firstName);
   }
 
-  async verifyFullName(fullName: string): Promise<void> {
+  async verifyFirstName(firstName: string): Promise<void> {
     await expect(
-      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.fullName).locator('input')
-    ).toHaveValue(fullName);
+      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.firstName).locator('input')
+    ).toHaveValue(firstName);
+  }
+
+  async enterLastName(lastName: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.responsiblePartyInformationContainer.lastName)
+      .locator('input')
+      .fill(lastName);
+  }
+
+  async verifyLastName(lastName: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.lastName).locator('input')
+    ).toHaveValue(lastName);
   }
 
   async enterDateOfBirthFromResponsibleContainer(dateOfBirth: string): Promise<void> {

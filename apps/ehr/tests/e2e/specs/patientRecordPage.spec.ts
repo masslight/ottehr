@@ -17,7 +17,8 @@ const PATIENT_MOBILE = '2027139680';
 const PATIENT_ETHNICITY = 'Hispanic or Latino';
 const PATIENT_RACE = 'Asian';
 const RELATIONSHIP = 'Self';
-const FULL_NAME = 'Last name, First name';
+const FIRST_NAME = 'First name';
+const LAST_NAME = 'Last name';
 const BIRTHDATE_FROM_RESPONSIBLE_CONTAINER = '10/10/2000';
 const BIRTSEX_FROM_RESPONSIBLE_CONTAINER = 'Male';
 const PHONE_FROM_RESPONSIBLE_CONTAINER = '1111111111';
@@ -72,7 +73,8 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.selectPatientEthnicity(PATIENT_ETHNICITY);
     await patientInformationPage.selectPatientRace(PATIENT_RACE);
     await patientInformationPage.selectRelationship(RELATIONSHIP);
-    await patientInformationPage.enterFullName(FULL_NAME);
+    await patientInformationPage.enterFirstName(FIRST_NAME);
+    await patientInformationPage.enterLastName(LAST_NAME);
     await patientInformationPage.enterDateOfBirthFromResponsibleContainer(BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.selectBirthSexFromResponsibleContainer(BIRTSEX_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.enterPhoneFromResponsibleContainer(PHONE_FROM_RESPONSIBLE_CONTAINER);
@@ -94,7 +96,8 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPatientEthnicity(PATIENT_ETHNICITY);
     await patientInformationPage.verifyPatientRace(PATIENT_RACE);
     await patientInformationPage.verifyRelationship(RELATIONSHIP);
-    await patientInformationPage.verifyFullName(FULL_NAME);
+    await patientInformationPage.verifyFirstName(FIRST_NAME);
+    await patientInformationPage.verifyLastName(LAST_NAME);
     await patientInformationPage.verifyDateOfBirthFromResponsibleContainer(BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.verifyBirthSexFromResponsibleContainer(
       BIRTSEX_FROM_RESPONSIBLE_CONTAINER.toLowerCase()
