@@ -40,7 +40,7 @@ export class PatientInformationPage {
   }
 
   async enterPatientDateOfBirth(patientDateOfBirth: string): Promise<void> {
-    const locator = this.#page.locator('patient-date-of-birth');
+    const locator = this.#page.locator('#patient-birthdate');
     await locator.click();
     await this.#page.waitForTimeout(2000);
     await locator.pressSequentially(patientDateOfBirth);

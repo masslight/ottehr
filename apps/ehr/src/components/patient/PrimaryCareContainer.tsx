@@ -5,6 +5,7 @@ import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { Row, Section } from '../layout';
 import { FormTextField } from '../form';
 import { FormFields as AllFormFields } from '../../constants';
+import InputMask from '../InputMask';
 
 const FormFields = AllFormFields.primaryCarePhysician;
 export const PrimaryCareContainer: FC = () => {
@@ -56,7 +57,15 @@ export const PrimaryCareContainer: FC = () => {
           <FormTextField name={FormFields.address.key} control={control} id={FormFields.address.key} />
         </Row>
         <Row label="Mobile" inputId={FormFields.phone.key}>
-          <FormTextField name={FormFields.phone.key} control={control} id={FormFields.phone.key} />
+          <FormTextField
+            name={FormFields.phone.key}
+            control={control}
+            id={FormFields.phone.key}
+            inputProps={{ mask: '(000) 000-0000' }}
+            InputProps={{
+              inputComponent: InputMask as any,
+            }}
+          />
         </Row>
       </Box>
     </Section>

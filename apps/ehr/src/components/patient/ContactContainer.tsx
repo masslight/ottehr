@@ -41,7 +41,6 @@ export const ContactContainer: FC = () => {
           <Controller
             name={FormFields.state.key}
             control={control}
-            data-testid={dataTestIds.contactInformationContainer.state}
             rules={{
               required: REQUIRED_FIELD_ERROR_MESSAGE,
             }}
@@ -50,6 +49,7 @@ export const ContactContainer: FC = () => {
                 <Autocomplete
                   options={STATE_OPTIONS.map((option) => option.value)}
                   value={value ?? ''}
+                  data-testid={dataTestIds.contactInformationContainer.state}
                   onChange={(_, newValue) => {
                     if (newValue) {
                       setValue(FormFields.state.key, newValue);

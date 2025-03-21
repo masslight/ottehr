@@ -101,6 +101,7 @@ import {
   PatientAccountAndCoverageResources,
   flattenItems,
   PATIENT_BILLING_ACCOUNT_TYPE,
+  formatPhoneNumber,
 } from 'utils';
 import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 import _ from 'lodash';
@@ -1051,7 +1052,7 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-first-name': patientFieldPaths.firstName,
   'patient-middle-name': patientFieldPaths.middleName,
   'patient-last-name': patientFieldPaths.lastName,
-  'patient-birth-date': patientFieldPaths.birthDate,
+  'patient-birthdate': patientFieldPaths.birthDate,
   'patient-pronouns': patientFieldPaths.preferredPronouns,
   'patient-pronouns-custom': patientFieldPaths.preferredPronounsCustom,
   'patient-birth-sex': patientFieldPaths.gender,
@@ -2841,12 +2842,24 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
   const guarantorId = 'accountGuarantorId';
   const policyHolderName = createFhirHumanName(guarantor.firstName, undefined, guarantor.lastName);
   const relationshipCode = SUBSCRIBER_RELATIONSHIP_CODE_MAP[guarantor.relationship] || 'other';
+  const number = guarantor.number;
+  let telecom: RelatedPerson['telecom'];
+  if (number) {
+    telecom = [
+      {
+        value: formatPhoneNumber(number),
+        system: 'phone',
+        use: 'mobile',
+      },
+    ];
+  }
   return {
     resourceType: 'RelatedPerson',
     id: guarantorId,
     name: policyHolderName ? policyHolderName : undefined,
     birthDate: guarantor.dob,
     gender: mapBirthSexToGender(guarantor.birthSex),
+    telecom,
     patient: { reference: `Patient/${patientId}` },
     relationship: [
       {

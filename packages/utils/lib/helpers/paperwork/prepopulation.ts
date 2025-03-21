@@ -58,7 +58,7 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
   let formattedVerifiedPhoneNumber: string | undefined;
   if (verifiedPhoneNumber) {
     try {
-      formattedVerifiedPhoneNumber = formatPhoneNumberDisplay(verifiedPhoneNumber.slice(-10));
+      formattedVerifiedPhoneNumber = formatPhoneNumberDisplay(verifiedPhoneNumber);
     } catch (e) {
       console.log('unable to format phone number', verifiedPhoneNumber);
     }
@@ -103,7 +103,7 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
   let formattedPcpPhoneNumber: string | undefined;
   if (pcpPhoneNumber) {
     try {
-      formattedPcpPhoneNumber = formatPhoneNumberDisplay(pcpPhoneNumber.slice(-10));
+      formattedPcpPhoneNumber = formatPhoneNumberDisplay(pcpPhoneNumber);
     } catch (e) {
       console.log('unable to format phone number', pcpPhoneNumber);
     }
@@ -348,7 +348,7 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
             answer = makeAnswer(patientEmail);
           }
           if (linkId === 'patient-number' && formattedVerifiedPhoneNumber) {
-            answer = makeAnswer(formattedVerifiedPhoneNumber);
+            answer = makeAnswer(formatPhoneNumberDisplay(formattedVerifiedPhoneNumber));
           }
           if (linkId === 'patient-birth-sex' && patientSex) {
             answer = makeAnswer(patientSex);
@@ -589,7 +589,7 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
     };
   });
 
-  console.log('prepopulation result', JSON.stringify(item));
+  // console.log('prepopulation result', JSON.stringify(item));
 
   return item;
 };
@@ -783,7 +783,7 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
       answer = makeAnswer(patientEmail);
     }
     if (linkId === 'patient-number' && patientPhone) {
-      answer = makeAnswer(patientPhone);
+      answer = makeAnswer(formatPhoneNumberDisplay(patientPhone));
     }
     if (linkId === 'patient-birth-sex' && patientSex) {
       answer = makeAnswer(patientSex);
@@ -1120,7 +1120,7 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuantorItemsInput): 
       answer = makeAnswer(birthSex);
     }
     if (linkId === 'responsible-party-number') {
-      answer = makeAnswer(phone);
+      answer = makeAnswer(formatPhoneNumberDisplay(phone));
     }
     return {
       linkId,

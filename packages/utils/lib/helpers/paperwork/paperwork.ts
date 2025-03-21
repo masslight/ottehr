@@ -28,6 +28,7 @@ import Oystehr from '@oystehr/sdk';
 import { getCanonicalQuestionnaire, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../fhir';
 import { DateTime } from 'luxon';
 import { DOB_DATE_FORMAT } from '../../utils';
+import _ from 'lodash';
 
 export interface OptionConfig {
   label: string;
@@ -621,4 +622,27 @@ export const makeQRResponseItem = (
 
   console.log('returning base', value, item);
   return base;
+};
+
+export const itemContainsAnyAnswer = (item: QuestionnaireResponseItem): boolean => {
+  if (item.answer) {
+    return item.answer.some((answer) => {
+      return Object.values(answer).some((val) => {
+        return val !== undefined;
+      });
+    });
+  } else if (item.item) {
+    return item.item.some((subItem) => {
+      return itemContainsAnyAnswer(subItem);
+    });
+  }
+  return false;
+};
+
+export const pruneEmptySections = (qr: QuestionnaireResponse): QuestionnaireResponse => {
+  const prunedQR = _.cloneDeep(qr);
+  //console.log('qr.item', qr.item);
+  prunedQR.item = prunedQR.item?.filter((item) => itemContainsAnyAnswer(item));
+  //console.log('pruned qr.item', prunedQR.item);
+  return prunedQR;
 };

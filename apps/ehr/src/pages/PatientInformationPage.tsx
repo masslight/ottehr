@@ -3,7 +3,13 @@ import { BundleEntry, Coverage, InsurancePlan, Organization, QuestionnaireRespon
 import { FC, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
-import { extractFirstValueFromAnswer, flattenItems, getFullName, makePrepopulatedItemsFromPatientRecord } from 'utils';
+import {
+  extractFirstValueFromAnswer,
+  flattenItems,
+  getFullName,
+  makePrepopulatedItemsFromPatientRecord,
+  pruneEmptySections,
+} from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { CustomDialog } from '../components/dialogs';
 import { LoadingScreen } from '../components/LoadingScreen';
@@ -190,7 +196,7 @@ const PatientInformationPage: FC = () => {
       enqueueSnackbar('Something went wrong. Please reload the page.', { variant: 'error' });
       return;
     }
-    const qr = structureQuestionnaireResponse(questionnaire, values, patient?.id ?? '');
+    const qr = pruneEmptySections(structureQuestionnaireResponse(questionnaire, values, patient?.id ?? ''));
     submitQR.mutate(qr);
   };
 
