@@ -32,6 +32,7 @@ import i18n from '../lib/i18n';
 import { useCreateInviteMutation } from '../telemed/features/waiting-room';
 import { useOpenExternalLink } from '../telemed/hooks/useOpenExternalLink';
 import { slugFromLinkId } from './PaperworkPage';
+import { dataTestIds } from '../../src/helpers/data-test-ids';
 
 const ReviewPaperwork = (): JSX.Element => {
   const openExternalLink = useOpenExternalLink();
@@ -162,15 +163,18 @@ const ReviewPaperwork = (): JSX.Element => {
       name: 'Patient',
       valueString: patientFullName,
       hidden: !patientInfo?.firstName, // users who are not logged in will not see name
+      testId: dataTestIds.patientNamePaperworkReviewScreen,
     },
     {
       name: 'Location',
       valueString: selectedLocation ? `${selectedLocation?.name}` : 'Unknown',
+      testId: dataTestIds.locationNamePaperworkReviewScreen,
     },
     {
       name: 'Check-in time',
       valueString: `${getLocaleDateTimeString(selectedSlotTimezoneAdjusted, 'medium', i18n.language)}`,
       hidden: visitType === VisitType.WalkIn,
+      testId: dataTestIds.checkInTimePaperworkReviewScreen,
     },
     ...(paperworkPages ?? []).map((paperworkPage) => {
       let hasError = false;
@@ -181,6 +185,9 @@ const ReviewPaperwork = (): JSX.Element => {
         name: paperworkPage.text ?? 'Review',
         path: `/paperwork/${appointmentID}/${slugFromLinkId(paperworkPage.linkId)}`,
         valueBoolean: paperworkCompletedStatus[paperworkPage.linkId] && !hasError,
+        testId: paperworkPage.linkId + '-status',
+        rowID: paperworkPage.linkId,
+        valueTestId: paperworkPage.linkId + '-edit',
       };
     }),
   ];
@@ -297,7 +304,7 @@ const ReviewPaperwork = (): JSX.Element => {
           {reviewItems
             .filter((reviewItem) => !reviewItem.hidden)
             .map((reviewItem) => (
-              <TableRow key={reviewItem.name}>
+              <TableRow key={reviewItem.name} data-testid={reviewItem.rowID}>
                 <TableCell
                   sx={{
                     paddingTop: 2,
@@ -317,7 +324,7 @@ const ReviewPaperwork = (): JSX.Element => {
                     <span>{reviewItem.name}</span>
                   )}
                 </TableCell>
-                <TableCell padding="none" align="right">
+                <TableCell padding="none" align="right" data-testid={reviewItem.testId}>
                   {reviewItem.valueString !== undefined && reviewItem.valueString}
                   {reviewItem.valueBoolean !== undefined && getValueBoolean(reviewItem.valueBoolean)}
                 </TableCell>
@@ -325,7 +332,7 @@ const ReviewPaperwork = (): JSX.Element => {
                   {reviewItem.path && (
                     <Tooltip title={t('reviewAndSubmit.edit')} placement="right">
                       <Link to={reviewItem.path}>
-                        <IconButton aria-label="edit" color="primary">
+                        <IconButton aria-label="edit" color="primary" data-testid={reviewItem.valueTestId}>
                           <EditOutlined />
                         </IconButton>
                       </Link>
@@ -338,11 +345,21 @@ const ReviewPaperwork = (): JSX.Element => {
       </Table>
       <Typography variant="body2">
         By proceeding with a visit, you acknowledge that you have reviewed and accept our{' '}
-        <MuiLink sx={{ cursor: 'pointer' }} onClick={() => openExternalLink('/template.pdf')} target="_blank">
+        <MuiLink
+          sx={{ cursor: 'pointer' }}
+          onClick={() => openExternalLink('/template.pdf')}
+          target="_blank"
+          data-testid={dataTestIds.privacyPolicyReviewScreen}
+        >
           Privacy Policy
         </MuiLink>{' '}
         and{' '}
-        <MuiLink sx={{ cursor: 'pointer' }} onClick={() => openExternalLink('/template.pdf')} target="_blank">
+        <MuiLink
+          sx={{ cursor: 'pointer' }}
+          onClick={() => openExternalLink('/template.pdf')}
+          target="_blank"
+          data-testid={dataTestIds.termsAndConditionsReviewScreen}
+        >
           Terms and Conditions of Service
         </MuiLink>
         .
