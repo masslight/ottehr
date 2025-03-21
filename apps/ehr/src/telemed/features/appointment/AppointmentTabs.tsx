@@ -1,10 +1,10 @@
 import { TabContext, TabPanel } from '@mui/lab';
-import { FC, useEffect } from 'react';
+import { FC, useRef } from 'react';
 import { TelemedAppointmentVisitTabs } from 'utils';
+import { useChartData } from '../../../features/css-module/hooks/useChartData';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useExamObservations } from '../../hooks/useExamObservations';
-import { useZapEHRAPIClient } from '../../hooks/useOystehrAPIClient';
-import { useAppointmentStore, useGetChartData } from '../../state';
+import { useAppointmentStore } from '../../state';
 import { AssessmentTab } from './AssessmentTab';
 import { ExamTab } from './ExamTab';
 import { MedicalHistoryTab } from './MedicalHistoryTab';
@@ -12,7 +12,7 @@ import { PlanTab } from './PlanTab';
 import { ReviewTab } from './ReviewTab';
 
 export const AppointmentTabs: FC = () => {
-  const apiClient = useZapEHRAPIClient();
+  const isInitialLoad = useRef(true);
   const { currentTab, encounter, chartData } = getSelectors(useAppointmentStore, [
     'currentTab',
     'encounter',
@@ -20,16 +20,18 @@ export const AppointmentTabs: FC = () => {
   ]);
   const { update } = useExamObservations();
 
-  const { isFetching } = useGetChartData({ apiClient, encounterId: encounter.id }, (data) => {
-    useAppointmentStore.setState({ chartData: { ...chartData, ...data } });
-    update(data.examObservations, true);
+  useChartData({
+    encounterId: encounter.id!,
+    onSuccess: (data) => {
+      useAppointmentStore.setState({ chartData: { ...chartData, ...data } });
+      update(data.examObservations, true);
+      isInitialLoad.current = false;
+    },
+    onError: (error) => {
+      console.error(error);
+    },
+    enabled: isInitialLoad.current,
   });
-
-  useEffect(() => {
-    useAppointmentStore.setState({
-      isChartDataLoading: isFetching,
-    });
-  }, [chartData, isFetching]);
 
   return (
     <TabContext value={currentTab}>

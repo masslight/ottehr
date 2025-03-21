@@ -71,8 +71,8 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const [_disabledNavigationState, _setDisabledNavigationState] = useState<Record<string, boolean>>({});
 
-  const { isLoading, visitState: telemedData } = useAppointment(appointmentID);
-  const { encounter } = telemedData;
+  const { isLoading, visitState } = useAppointment(appointmentID);
+  const { encounter } = visitState;
   const { chartData, isChartDataLoading } = getSelectors(useAppointmentStore, ['chartData', 'isChartDataLoading']);
 
   const setInteractionMode = useCallback(

@@ -87,7 +87,7 @@ export const AppointmentPage: FC = () => {
     }
   );
 
-  const { isFetching } = useGetAppointment(
+  useGetAppointment(
     {
       appointmentId: id,
     },
@@ -147,10 +147,6 @@ export const AppointmentPage: FC = () => {
       setSearchParams(searchParams);
     }
   }, [searchParams, setSearchParams, tab]);
-
-  useEffect(() => {
-    useAppointmentStore.setState({ isAppointmentLoading: isFetching });
-  }, [isFetching]);
 
   return (
     <Box

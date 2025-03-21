@@ -15,6 +15,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
+import { useEffect } from 'react';
 import { useMutation, useQuery } from 'react-query';
 import {
   ChartDataFields,
@@ -165,7 +166,7 @@ export const useGetAppointment = (
   onSuccess: (data: VisitResources[]) => void
 ) => {
   const { oystehr } = useApiClients();
-  return useQuery(
+  const query = useQuery(
     ['telemed-appointment', { appointmentId }],
     async () => {
       if (oystehr && appointmentId) {
@@ -209,6 +210,13 @@ export const useGetAppointment = (
       },
     }
   );
+  const { isFetching } = query;
+
+  useEffect(() => {
+    useAppointmentStore.setState({ isAppointmentLoading: isFetching });
+  }, [isFetching]);
+
+  return query;
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -383,29 +391,31 @@ export const useGetChartData = (
     requestedFields,
   ];
 
-  return {
-    ...useQuery(
-      key,
-      () => {
-        if (apiClient && encounterId) {
-          return apiClient.getChartData({
-            encounterId,
-            requestedFields,
-          });
-        }
-        throw new Error('api client not defined or encounterId not provided');
-      },
-      {
-        onSuccess: (data) => {
-          onSuccess(data);
-        },
-        onError: (err) => {
-          onError?.(err);
-          console.error('Error during fetching get telemed appointments: ', err);
-        },
-        enabled: !!apiClient && !!encounterId && !!user && !isAppointmentLoading && enabled,
+  const query = useQuery(
+    key,
+    () => {
+      if (apiClient && encounterId) {
+        return apiClient.getChartData({
+          encounterId,
+          requestedFields,
+        });
       }
-    ),
+      throw new Error('api client not defined or encounterId not provided');
+    },
+    {
+      onSuccess: (data) => {
+        onSuccess(data);
+      },
+      onError: (err) => {
+        onError?.(err);
+        console.error('Error during fetching get telemed appointments: ', err);
+      },
+      enabled: !!apiClient && !!encounterId && !!user && !isAppointmentLoading && enabled,
+      staleTime: 0,
+    }
+  );
+  return {
+    ...query,
     queryKey: key,
   };
 };
