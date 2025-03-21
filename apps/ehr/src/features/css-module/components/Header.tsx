@@ -58,7 +58,7 @@ export const Header = (): JSX.Element => {
   const { id: appointmentID } = useParams();
   const navigate = useNavigate();
   const {
-    data: { appointment, patient },
+    resources: { appointment, patient },
     mappedData,
     visitState: telemedData,
     refetch,

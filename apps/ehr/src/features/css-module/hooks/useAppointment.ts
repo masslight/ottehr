@@ -5,7 +5,7 @@ import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore, useGetAppointment } from '../../../telemed';
 import { getResources } from '../parser/extractors';
 import { parseBundle } from '../parser/parser';
-import { VisitMappedData, VisitSourceData } from '../parser/types';
+import { VisitMappedData, VisitResources } from '../parser/types';
 import { useMappedVisitDataStore } from '../store/parsedAppointment.store';
 
 type VisitState = Partial<{
@@ -19,7 +19,7 @@ type VisitState = Partial<{
 export const useAppointment = (
   appointmentId?: string
 ): {
-  data: VisitSourceData;
+  resources: VisitResources;
   mappedData: VisitMappedData;
   visitState: VisitState;
   error: any;
@@ -28,7 +28,7 @@ export const useAppointment = (
     options?: (RefetchOptions & RefetchQueryFilters<TPageData>) | undefined
   ) => Promise<QueryObserverResult<FhirResource[], unknown>>;
 } => {
-  const { data, mappedData } = useMappedVisitDataStore();
+  const { resources, mappedData } = useMappedVisitDataStore();
 
   const visitData = getSelectors(useAppointmentStore, [
     'appointment',
@@ -77,5 +77,5 @@ export const useAppointment = (
     visitData.questionnaireResponse,
   ]);
 
-  return { data, mappedData, visitState: visitData, error, isLoading, refetch };
+  return { resources, mappedData, visitState: visitData, error, isLoading, refetch };
 };

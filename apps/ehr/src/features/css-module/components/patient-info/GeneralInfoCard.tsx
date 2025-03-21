@@ -35,10 +35,10 @@ const getPatientDisplayedName = (patient: Patient | undefined): string => {
 const GeneralInfoCard: React.FC = (): JSX.Element => {
   const theme = useTheme();
 
-  const { visitState: telemedData, data, mappedData } = useAppointment();
+  const { visitState: telemedData, resources, mappedData } = useAppointment();
   const { patient: patientData } = telemedData;
 
-  const encounterId = data.encounter!.id!;
+  const encounterId = resources.encounter!.id!;
 
   const fieldName = 'patientInfoConfirmed';
   const requestedFields: ChartDataRequestedFields = { [fieldName]: {} };

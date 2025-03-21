@@ -54,7 +54,7 @@ export const parseBundle = (resourceBundle: FhirResource[]): VisitDataAndMappedD
   const parsedAppointmentData = getVisitMappedData(resourceBundle);
 
   return {
-    data: {
+    resources: {
       appointment,
       location,
       encounter,
