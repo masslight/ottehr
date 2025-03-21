@@ -312,6 +312,9 @@ const ZAMBDAS: { [name: string]: DeployZambda } = {
   'LIST-BOOKABLES': {
     type: 'http_open',
   },
+  'GET-LAB-ORDERS': {
+    type: 'http_auth',
+  },
 };
 
 const RENAMED_ZAMBDAS: { [newName: string]: string } = {};

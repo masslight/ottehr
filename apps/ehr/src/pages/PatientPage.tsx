@@ -10,6 +10,7 @@ import { RoundedButton } from '../components/RoundedButton';
 import { useGetPatient } from '../hooks/useGetPatient';
 import PageContainer from '../layout/PageContainer';
 import { PatientFollowupEncountersGrid } from '../components/patient/PatientFollowupEncountersGrid';
+import { PatientLabsTab } from '../components/PatientLabsTab';
 import { dataTestIds } from '../constants/data-test-ids';
 
 export default function PatientPage(): JSX.Element {
@@ -121,6 +122,12 @@ export default function PatientPage(): JSX.Element {
                     </Typography>
                   }
                 />
+                <Tab
+                  value="labs"
+                  label={
+                    <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>Labs</Typography>
+                  }
+                />
               </TabList>
             </Box>
 
@@ -129,6 +136,9 @@ export default function PatientPage(): JSX.Element {
             </TabPanel>
             <TabPanel value="followups" sx={{ p: 0 }}>
               <PatientFollowupEncountersGrid patient={patient} loading={loading}></PatientFollowupEncountersGrid>
+            </TabPanel>
+            <TabPanel value="labs" sx={{ p: 0 }}>
+              <PatientLabsTab patientId={id || ''} />
             </TabPanel>
           </TabContext>
         </Stack>
