@@ -67,6 +67,7 @@ export const getVisitDate = (labOrderData: LabOrderDTO): string => {
   return formatDate(labOrderData.orderAdded);
 };
 
+// todo: move to LabOrderDTO
 export const getResultsReceivedDate = (labOrderData: LabOrderDTO): string => {
   if (labOrderData.status === 'received' || labOrderData.status === 'reviewed') {
     return formatDate(labOrderData.orderAdded);
@@ -74,6 +75,7 @@ export const getResultsReceivedDate = (labOrderData: LabOrderDTO): string => {
   return '';
 };
 
+// todo: move to LabOrderDTO
 export const getAccessionNumber = (labOrderData: LabOrderDTO): string => {
   // todo: implement logic for getting accession number
   return labOrderData.id ? `mock: DL4523H${labOrderData.id.slice(0, 3)}` : '';

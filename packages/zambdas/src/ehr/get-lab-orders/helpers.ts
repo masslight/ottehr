@@ -1,19 +1,8 @@
-import Oystehr, { BatchInputRequest, SearchParam } from '@oystehr/sdk';
-import {
-  ActivityDefinition,
-  Appointment,
-  Bundle,
-  DiagnosticReport,
-  Encounter,
-  FhirResource,
-  Practitioner,
-  ServiceRequest,
-  Task,
-} from 'fhir/r4b';
+import Oystehr, { SearchParam } from '@oystehr/sdk';
+import { ActivityDefinition, Bundle, DiagnosticReport, Encounter, Practitioner, ServiceRequest, Task } from 'fhir/r4b';
 import {
   DEFAULT_LABS_ITEMS_PER_PAGE,
   EMPTY_PAGINATION,
-  flattenBundleResources,
   isPositiveNumberOrZero,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   Pagination,
@@ -28,36 +17,31 @@ export const transformToLabOrderDTOs = (
   practitioners: Practitioner[],
   encounters: Encounter[]
 ): LabOrderDTO[] => {
-  return serviceRequests.map((sr) => {
-    const practitionerId = sr.requester?.reference?.split('/').pop();
-
-    const encounterId = sr.encounter?.reference?.split('/').pop();
-
-    let appointmentId = '';
-
-    if (encounterId) {
-      const relatedEncounter = encounters.find((encounter) => encounter.id === encounterId);
-      if (relatedEncounter && relatedEncounter.appointment?.length) {
-        appointmentId = relatedEncounter.appointment[0]?.reference?.split('/').pop() || '';
-      }
+  return serviceRequests.map((serviceRequest) => {
+    if (!serviceRequest.id) {
+      throw new Error('ServiceRequest ID is required');
     }
 
-    const { type, location } = extractLabInfoFromActivityDefinition(sr);
+    const practitionerId = parsePractitionerId(serviceRequest);
 
-    const status = determineLabStatus(sr, tasks, diagnosticReports);
+    const { type, location } = extractLabInfoFromActivityDefinition(serviceRequest);
 
-    const isPSC = checkIsPSC(sr);
+    const status = determineLabStatus(serviceRequest, tasks, diagnosticReports);
 
-    const reflexTestsCount = countReflexTests(sr.id || '', diagnosticReports);
+    const isPSC = checkIsPSC(serviceRequest);
 
-    const diagnoses = extractDiagnosesFromServiceRequest(sr);
+    const tests = parseTests(serviceRequest, diagnosticReports);
+
+    const reflexTestsCount = tests.reflexTests.length;
+
+    const diagnoses = extractDiagnosesFromServiceRequest(serviceRequest);
 
     return {
-      id: sr.id || '',
-      appointmentId,
+      id: serviceRequest.id,
+      appointmentId: parseAppointmentId(serviceRequest, encounters),
       type,
       location,
-      orderAdded: sr.authoredOn || 'Unknown', // todo: by the design authoredOn should be here, but during testing it's not
+      orderAdded: serviceRequest.authoredOn || 'Unknown', // todo: by the design authoredOn should be here, but during testing it's not
       provider: getPractitionerName(practitionerId, practitioners),
       diagnoses,
       status,
@@ -78,10 +62,10 @@ export const getLabResources = async (
   pagination: Pagination;
   encounters: Encounter[];
 }> => {
-  const { encounterId, testType } = params;
+  // const { encounterId, testType } = params;
   const labOrdersSearchParams = createLabOrdersSearchParams(params);
 
-  const labOrdersResponse = await oystehr.fhir.search<ServiceRequest | Task | Encounter>({
+  const labOrdersResponse: Bundle<ServiceRequest | Task | DiagnosticReport | Encounter> = await oystehr.fhir.search({
     resourceType: 'ServiceRequest',
     params: labOrdersSearchParams,
   });
@@ -89,27 +73,13 @@ export const getLabResources = async (
   const labResources =
     labOrdersResponse.entry
       ?.map((entry) => entry.resource)
-      .filter((res): res is ServiceRequest | Task | Encounter => Boolean(res)) || [];
+      .filter((res): res is ServiceRequest | Task | Encounter | DiagnosticReport => Boolean(res)) || [];
 
-  const { serviceRequests: allServiceRequests, tasks, encounters } = extractLabResources(labResources);
+  const { serviceRequests, tasks, encounters, diagnosticReports } = extractLabResources(labResources);
 
-  // todo: check; Further filter service requests if testType is provided
-  let serviceRequests = allServiceRequests;
-  if (testType) {
-    serviceRequests = allServiceRequests.filter((sr) => {
-      const activityDefinition = sr.contained?.find((c) => c.resourceType === 'ActivityDefinition');
-      return activityDefinition && (activityDefinition as any).title?.toLowerCase().includes(testType.toLowerCase());
-    });
-  }
-
-  const diagnosticRequests = createDiagnosticReportBatchInput(serviceRequests, encounterId || '');
-
-  const [reflexTestResources, practitioners] = await Promise.all([
-    diagnosticRequests.length > 0 ? fetchReflexTestResources(oystehr, diagnosticRequests) : Promise.resolve([]),
+  const [practitioners] = await Promise.all([
     serviceRequests.length > 0 ? fetchPractitionersForServiceRequests(oystehr, serviceRequests) : Promise.resolve([]),
   ]);
-
-  const { diagnosticReports } = extractLabResources(reflexTestResources);
 
   return {
     serviceRequests,
@@ -202,57 +172,8 @@ export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): S
   return searchParams;
 };
 
-export const createDiagnosticReportBatchInput = (
-  mainResources: FhirResource[],
-  encounterId: string
-): BatchInputRequest<DiagnosticReport>[] => {
-  return mainResources
-    .filter((resource): resource is ServiceRequest => resource.resourceType === 'ServiceRequest')
-    .flatMap((sr) => {
-      // todo: check that the ServiceRequest get an identifier when it's submitted to Oystehr
-      if (!sr.identifier || !sr.identifier.length) return [];
-      return sr.identifier.map((id) => ({
-        system: id.system,
-        value: id.value,
-      }));
-    })
-    .filter((id) => id.system && id.value)
-    .map(
-      (id) =>
-        ({
-          method: 'GET',
-          url: `DiagnosticReport?identifier=${id.system}|${id.value}&encounter=${encounterId}`,
-        }) as const
-    );
-};
-
-export const fetchReflexTestResources = async (
-  oystehr: Oystehr,
-  diagnosticRequests: BatchInputRequest<FhirResource>[]
-): Promise<DiagnosticReport[]> => {
-  if (diagnosticRequests.length > 0) {
-    try {
-      const reflexResponse = await oystehr.fhir.batch({
-        requests: diagnosticRequests,
-      });
-      if (reflexResponse.entry) {
-        const reflexTestResources = reflexResponse.entry
-          .filter((entry) => entry.resource && entry.resource.resourceType === 'Bundle')
-          .flatMap((entry) => flattenBundleResources<DiagnosticReport>(entry.resource as Bundle<FhirResource>))
-          .filter((resource): resource is DiagnosticReport => resource.resourceType === 'DiagnosticReport');
-
-        return reflexTestResources;
-      }
-    } catch (error) {
-      console.error('Error fetching reflex tests');
-      throw error;
-    }
-  }
-  return [];
-};
-
 export const extractLabResources = (
-  resources: (ServiceRequest | Task | DiagnosticReport | Appointment | Encounter)[]
+  resources: (ServiceRequest | Task | DiagnosticReport | Encounter)[]
 ): {
   serviceRequests: ServiceRequest[];
   tasks: Task[];
@@ -309,7 +230,7 @@ export const fetchPractitionersForServiceRequests = async (
   }
 
   try {
-    const practitionerResponse = await oystehr.fhir.batch({
+    const practitionerResponse: Bundle<Practitioner> = await oystehr.fhir.batch({
       requests: practitionerRequest,
     });
 
@@ -323,6 +244,8 @@ export const fetchPractitionersForServiceRequests = async (
   }
 };
 
+// todo: update logic, see the doc UI status label ←→ FHIR model source mapping https://docs.google.com/document/d/1iiZOHzr6RG-EvFaqu8OQxj6URpnEOA30XyJgCGx3wfs/edit?tab=t.0#heading=h.pn9f8pddk4sb
+//   and Patient Record Labs Page for the detail page attributes
 export const determineLabStatus = (
   serviceRequest: ServiceRequest,
   tasks: Task[],
@@ -404,6 +327,7 @@ export const getPractitionerName = (practitionerId: string | undefined, practiti
   return [name.prefix, name.given, name.family].flat().filter(Boolean).join(' ') || 'Unknown';
 };
 
+// todo: check;
 export const extractLabInfoFromActivityDefinition = (
   serviceRequest: ServiceRequest
 ): { type: string; location: string } => {
@@ -431,20 +355,50 @@ export const checkIsPSC = (serviceRequest: ServiceRequest): boolean => {
   );
 };
 
-export const countReflexTests = (serviceRequestId: string, diagnosticReports: DiagnosticReport[]): number => {
+export const parseTests = (
+  serviceRequest: ServiceRequest,
+  diagnosticReports: DiagnosticReport[]
+): {
+  tests: DiagnosticReport[];
+  reflexTests: DiagnosticReport[];
+} => {
+  if (!serviceRequest.id) {
+    throw new Error('ServiceRequest ID is required');
+  }
+
+  const serviceRequestCodes = serviceRequest.code?.coding?.map((coding) => coding.code);
+
+  if (!serviceRequestCodes?.length) {
+    throw new Error('ServiceRequest code is required');
+  }
+
   const relatedReports = diagnosticReports.filter(
-    (report) => report.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequestId}`)
+    (report) => report.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`)
   );
 
-  // Count reports with different codes (different tests from the same order)
-  const uniqueCodes = new Set();
+  const diagnosticReportsDirect = new Map<string, DiagnosticReport>();
+  const diagnosticReportsReflex = new Map<string, DiagnosticReport>();
 
-  relatedReports.forEach((report) => {
-    const codeString = JSON.stringify(report.code);
-    uniqueCodes.add(codeString);
-  });
+  for (let i = 0; i < relatedReports.length; i++) {
+    const report = relatedReports[i];
 
-  return Math.max(0, uniqueCodes.size - 1); // Subtract 1 for the primary test, todo: check if this is correct
+    // filter out reports that are not based on the current service request
+    if (!report.id || !report.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`)) {
+      continue;
+    }
+
+    const reportCodes = report.code?.coding?.map((coding) => coding.code);
+    if (reportCodes?.some((code) => serviceRequestCodes?.includes(code))) {
+      diagnosticReportsDirect.set(report.id, report);
+    } else {
+      diagnosticReportsReflex.set(report.id, report);
+    }
+  }
+
+  return {
+    tests: Array.from(diagnosticReportsDirect.values()),
+    reflexTests: Array.from(diagnosticReportsReflex.values()),
+  };
 };
 
 export const parsePaginationFromResponse = (data: {
@@ -485,4 +439,31 @@ export const parsePaginationFromResponse = (data: {
     totalItems,
     totalPages,
   };
+};
+
+export const parseAppointmentId = (serviceRequest: ServiceRequest, encounters: Encounter[]): string => {
+  const encounterId = parseEncounterId(serviceRequest);
+  const NOT_FOUND = '';
+
+  if (!encounterId) {
+    return NOT_FOUND;
+  }
+
+  const relatedEncounter = encounters.find((encounter) => encounter.id === encounterId);
+
+  if (relatedEncounter?.appointment?.length) {
+    return relatedEncounter.appointment[0]?.reference?.split('/').pop() || NOT_FOUND;
+  }
+
+  return NOT_FOUND;
+};
+
+const parseEncounterId = (serviceRequest: ServiceRequest): string => {
+  const NOT_FOUND = '';
+  return serviceRequest.encounter?.reference?.split('/').pop() || NOT_FOUND;
+};
+
+export const parsePractitionerId = (serviceRequest: ServiceRequest): string => {
+  const NOT_FOUND = '';
+  return serviceRequest.requester?.reference?.split('/').pop() || NOT_FOUND;
 };
