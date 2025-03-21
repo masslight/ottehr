@@ -217,7 +217,9 @@ export interface CreateDocumentReferenceInput {
   listResources?: List[];
 }
 
-export async function createFilesDocumentReferences(input: CreateDocumentReferenceInput): Promise<DocumentReference[]> {
+export async function createFilesDocumentReferences(
+  input: CreateDocumentReferenceInput
+): Promise<{ listResources: List[] | undefined; docRefs: DocumentReference[] }> {
   const { files, type, meta, dateCreated, docStatus, references, oystehr, searchParams, generateUUID, listResources } =
     input;
   console.log('files for doc refs', JSON.stringify(files, null, 2));
@@ -236,7 +238,7 @@ export async function createFilesDocumentReferences(input: CreateDocumentReferen
       })
     ).unbundle();
 
-    const results: DocumentReference[] = [];
+    const docRefs: DocumentReference[] = [];
     // Track new entries by list type code
     const newEntriesByType: Record<string, Array<{ date: string; item: { type: string; reference: string } }>> = {};
 
@@ -248,7 +250,7 @@ export async function createFilesDocumentReferences(input: CreateDocumentReferen
 
       if (existingDoc) {
         // If exact same file exists, reuse it
-        results.push(existingDoc);
+        docRefs.push(existingDoc);
         continue;
       }
       // If different version exists, mark it as superseded
@@ -311,12 +313,14 @@ export async function createFilesDocumentReferences(input: CreateDocumentReferen
             reference: `DocumentReference/${docRef.id}`,
           },
         });
-        results.push(docRef);
+        docRefs.push(docRef);
       }
     }
 
     // Update lists
+    let updatedListResources: List[] | undefined = undefined;
     if (listResources) {
+      const newListResources: List[] = [];
       for (const [typeCode, newEntries] of Object.entries(newEntriesByType)) {
         const list = findExistingListByDocumentTypeCode(listResources, typeCode);
         if (!list?.id) {
@@ -340,11 +344,21 @@ export async function createFilesDocumentReferences(input: CreateDocumentReferen
 
           console.log(`patch results => `);
           console.log(JSON.stringify(listPatchResult));
+          newListResources.push(listPatchResult);
         }
       }
+
+      updatedListResources = listResources.map((list) => {
+        const updatedList = newListResources.find((newList) => newList.id === list.id);
+        if (updatedList) console.log(`updating ${list.title}`);
+        return updatedList ?? list;
+      });
     }
 
-    return results;
+    return {
+      listResources: updatedListResources ?? [],
+      docRefs,
+    };
   } catch (error: unknown) {
     throw new Error(`Failed to create DocumentReference resource: ${JSON.stringify(error)}`);
   }
