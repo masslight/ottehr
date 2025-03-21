@@ -650,12 +650,12 @@ export const makePrepopulatedItemsFromPatientRecord = (
 ): QuestionnaireResponseItem[] => {
   const { patient, questionnaire, primaryCarePhysician, coverages, insuranceOrgs, insurancePlans, guarantorResource } =
     input;
-  console.log('making prepopulated items from patient record', coverages);
+  // console.log('making prepopulated items from patient record', coverages);
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
       const itemItems = (item.item ?? []).filter((i: QuestionnaireItem) => i.type !== 'display');
       if (PATIENT_ITEMS.includes(item.linkId)) {
-        console.log('mapping patient items', itemItems);
+        // console.log('mapping patient items', itemItems);
         return mapPatientItemsToQuestionnaireResponseItems({
           patient,
           items: itemItems,
@@ -874,7 +874,7 @@ interface MapCoverageItemsInput {
 const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput): QuestionnaireResponseItem[] => {
   const { items, coverages, insuranceOrgs, insurancePlans } = input;
 
-  console.log('mapping coverages to questionnaire response items', items, coverages);
+  // console.log('mapping coverages to questionnaire response items', items, coverages);
 
   const { primary, secondary, primarySubscriber, secondarySubscriber } = coverages;
 
@@ -970,7 +970,6 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     }
     if (linkId === 'insurance-carrier') {
       answer = makeAnswer(primaryInsurancePlanReference, 'Reference');
-      console.log('insurance carrier answer', answer);
     }
     if (linkId === 'insurance-carrier-2') {
       answer = makeAnswer(secondaryInsurancePlanReference, 'Reference');

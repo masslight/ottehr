@@ -8,9 +8,10 @@ type ActionBarProps = {
   handleSave: () => Promise<void>;
   loading: boolean;
   hidden?: boolean;
+  submitDisabled?: boolean;
 };
 
-export const ActionBar: FC<ActionBarProps> = ({ handleDiscard, handleSave, loading, hidden }) => {
+export const ActionBar: FC<ActionBarProps> = ({ handleDiscard, handleSave, loading, hidden, submitDisabled }) => {
   const theme = useTheme();
 
   return (
@@ -49,6 +50,7 @@ export const ActionBar: FC<ActionBarProps> = ({ handleDiscard, handleSave, loadi
           textTransform: 'none',
           fontWeight: 'bold',
         }}
+        disabled={submitDisabled}
         onClick={handleSave}
       >
         Save changes

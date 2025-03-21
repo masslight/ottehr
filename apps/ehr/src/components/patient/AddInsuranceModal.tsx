@@ -76,8 +76,6 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
     }
   }, [open, submitQR, onClose]);
 
-  console.log('priorityOptions', priorityOptions);
-
   return (
     <Dialog open={open} onClose={onClose} PaperProps={{ sx: { p: 2, maxWidth: 'none' } }}>
       <DialogTitle

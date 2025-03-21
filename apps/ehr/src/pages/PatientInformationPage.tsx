@@ -35,6 +35,7 @@ import { enqueueSnackbar } from 'notistack';
 import { structureQuestionnaireResponse } from '../helpers/qr-structure';
 import { useQueryClient } from 'react-query';
 import { INSURANCE_COVERAGE_OPTIONS, InsurancePriorityOptions } from '../constants';
+import _ from 'lodash';
 
 const getAnyAnswer = (item: QuestionnaireResponseItem): any | undefined => {
   let index = 0;
@@ -74,9 +75,7 @@ const PatientInformationPage: FC = () => {
   const submitQR = useUpdatePatientAccount(() => {
     void queryClient.invalidateQueries('patient-account-get');
   });
-  const removeCoverage = useRemovePatientCoverage(() => {
-    void queryClient.invalidateQueries('patient-account-get');
-  });
+  const removeCoverage = useRemovePatientCoverage();
 
   useGetInsurancePlans((data) => {
     const bundleEntries = data.entry;
@@ -135,11 +134,8 @@ const PatientInformationPage: FC = () => {
     const isFetching = accountFetching || questionnaireFetching;
     let defaultFormVals: any | undefined;
     if (!isFetching && accountData && questionnaire) {
-      console.log('accountData', accountData);
       const prepopulatedForm = makePrepopulatedItemsFromPatientRecord({ ...accountData, questionnaire });
-      console.log('prepopulatedForm', prepopulatedForm);
       defaultFormVals = makeFormDefaults(prepopulatedForm);
-      console.log('defaultFormVals', defaultFormVals);
     }
     return { patient, coverages, isFetching, defaultFormVals };
   }, [accountData, questionnaire, questionnaireFetching, accountFetching]);
@@ -157,7 +153,7 @@ const PatientInformationPage: FC = () => {
   });
 
   const { handleSubmit, watch, formState } = methods;
-  const { isDirty } = formState;
+  const { dirtyFields } = formState;
 
   useEffect(() => {
     if (defaultFormVals && formState.isSubmitSuccessful && submitQR.isSuccess) {
@@ -182,12 +178,11 @@ const PatientInformationPage: FC = () => {
   };
 
   const handleBackClickWithConfirmation = (): void => {
-    /*if (isDirty) {
+    if (Object.keys(dirtyFields).length > 0) {
       setOpenConfirmationDialog(true);
     } else {
       navigate(-1);
-    }*/
-    navigate(-1);
+    }
   };
 
   const handleSaveForm = async (values: any): Promise<void> => {
@@ -195,19 +190,31 @@ const PatientInformationPage: FC = () => {
       enqueueSnackbar('Something went wrong. Please reload the page.', { variant: 'error' });
       return;
     }
-    console.log('form vals', values);
     const qr = structureQuestionnaireResponse(questionnaire, values, patient?.id ?? '');
-    console.log('qr', qr);
     submitQR.mutate(qr);
   };
 
   const handleRemoveCoverage = (coverageId: string): void => {
-    console.log('removing coverage', coverageId);
     if (patient?.id) {
-      removeCoverage.mutate({
-        patientId: patient.id,
-        coverageId,
-      });
+      removeCoverage.mutate(
+        {
+          patientId: patient.id,
+          coverageId,
+        },
+        {
+          onSuccess: () => {
+            enqueueSnackbar('Coverage removed from patient account', {
+              variant: 'success',
+            });
+            void queryClient.invalidateQueries('patient-account-get');
+          },
+          onError: () => {
+            enqueueSnackbar('Save operation failed. The server encountered an error while processing your request.', {
+              variant: 'error',
+            });
+          },
+        }
+      );
     }
   };
 
@@ -218,8 +225,6 @@ const PatientInformationPage: FC = () => {
   }
 
   const currentlyAssignedPriorities = watch(InsurancePriorityOptions);
-
-  console.log('currentlyAssignedPriorities', currentlyAssignedPriorities);
 
   return (
     <div>
@@ -316,7 +321,8 @@ const PatientInformationPage: FC = () => {
             handleDiscard={handleBackClickWithConfirmation}
             handleSave={handleSubmit(handleSaveForm)}
             loading={submitQR.isLoading}
-            hidden={!isDirty}
+            hidden={false}
+            submitDisabled={Object.keys(dirtyFields).length === 0}
           />
         </Box>
         <CustomDialog

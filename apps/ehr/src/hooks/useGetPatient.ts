@@ -31,6 +31,7 @@ import { useApiClients } from './useAppClients';
 import { enqueueSnackbar } from 'notistack';
 import { OystehrTelemedAPIClient } from '../telemed/data';
 import { useZapEHRAPIClient } from '../telemed/hooks/useOystehrAPIClient';
+
 const updateQRUrl = import.meta.env.VITE_APP_EHR_ACCOUNT_UPDATE_FORM;
 
 const getTelemedLength = (history?: EncounterStatusHistory[]): number => {
@@ -286,36 +287,18 @@ export const useGetPatientAccount = (
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useRemovePatientCoverage = (onSuccess?: () => void) => {
+export const useRemovePatientCoverage = () => {
   const apiClient = useZapEHRAPIClient();
 
-  return useMutation(
-    ['remove-patient-coverage'],
-    async (input: RemoveCoverageZambdaInput): Promise<void> => {
-      try {
-        if (!apiClient || !input) return;
-        await apiClient.removePatientCoverage(input);
-      } catch (error) {
-        console.error(error);
-        throw error;
-      }
-    },
-    {
-      onSuccess: () => {
-        enqueueSnackbar('Coverage removed from patient account', {
-          variant: 'success',
-        });
-        if (onSuccess) {
-          onSuccess();
-        }
-      },
-      onError: () => {
-        enqueueSnackbar('Save operation failed. The server encountered an error while processing your request.', {
-          variant: 'error',
-        });
-      },
+  return useMutation(['remove-patient-coverage'], async (input: RemoveCoverageZambdaInput): Promise<void> => {
+    try {
+      if (!apiClient || !input) return;
+      await apiClient.removePatientCoverage(input);
+    } catch (error) {
+      console.error(error);
+      throw error;
     }
-  );
+  });
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
