@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import csvToJson from 'csvtojson';
 import { InsurancePlan, Organization } from 'fhir/r4b';
 import * as fs from 'fs';
+import path from 'path';
 import {
   FHIR_EXTENSION,
   INSURANCE_PLAN_PAYER_META_TAG_CODE,
@@ -20,7 +21,7 @@ enum PayersFileColumns {
   payerType = 'Payer Type',
 }
 
-const CSV_FILE_PATH = 'scripts/data/insurance-payers.csv';
+const CSV_FILE_PATH = path.join(__dirname, 'data', 'insurance-payers.csv');
 
 const PAYER_ID_SYSTEM = 'payer-id';
 
@@ -279,7 +280,9 @@ async function processCsv(
       org,
     ])
   );
+  console.log('filePath', filePath);
   const csvData = await csvToJson().fromFile(filePath);
+  console.log('csvData', csvData);
   const BATCH_SIZE = 20;
 
   for (let i = 0; i < csvData.length; i += BATCH_SIZE) {
@@ -342,6 +345,7 @@ async function main(): Promise<void> {
     insurancePlans.filter((plan) => Boolean(plan.name)).map((plan) => [plan.name!, plan])
   );
 
+  console.log('CSV_FILE_PATH', CSV_FILE_PATH);
   await processCsv(CSV_FILE_PATH, oystehr, organizations, existingPlansMap);
 }
 
