@@ -1,8 +1,7 @@
 import { FC } from 'react';
-import { getSpentTime, telemedProgressNoteChartDataRequestedFields } from 'utils';
+import { getSpentTime } from 'utils';
 import { ADDITIONAL_QUESTIONS } from '../../../../constants';
 import { dataTestIds } from '../../../../constants/data-test-ids';
-import { useChartData } from '../../../../features/css-module/hooks/useChartData';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { AccordionCard, SectionList } from '../../../components';
 import { usePatientInstructionsVisibility } from '../../../hooks';
@@ -28,19 +27,7 @@ import {
 } from './components';
 
 export const VisitNoteCard: FC = () => {
-  const { chartData, encounter, setPartialChartData } = getSelectors(useAppointmentStore, [
-    'chartData',
-    'encounter',
-    'setPartialChartData',
-  ]);
-
-  useChartData({
-    encounterId: encounter.id || '',
-    requestedFields: telemedProgressNoteChartDataRequestedFields,
-    onSuccess: (data) => {
-      setPartialChartData({ prescribedMedications: data.prescribedMedications });
-    },
-  });
+  const { encounter, chartData } = getSelectors(useAppointmentStore, ['encounter', 'chartData']);
 
   const chiefComplaint = chartData?.chiefComplaint?.text;
   const spentTime = getSpentTime(encounter.statusHistory);

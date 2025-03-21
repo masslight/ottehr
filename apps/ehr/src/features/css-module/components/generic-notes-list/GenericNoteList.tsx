@@ -8,9 +8,9 @@ export const GenericNoteList: React.FC<GenericNoteListProps> = ({
   locales,
   separateEncounterNotes = true,
 }) => {
-  const { sourceData } = useAppointment();
-  const encounterId = sourceData.encounter?.id;
-  const patientId = sourceData.patient?.id;
+  const { resources } = useAppointment();
+  const encounterId = resources.encounter?.id;
+  const patientId = resources.patient?.id;
 
   if (!encounterId || !patientId) return <CSSLoader />;
 

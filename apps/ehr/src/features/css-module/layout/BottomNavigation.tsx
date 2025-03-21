@@ -12,7 +12,7 @@ import { useAppointment } from '../hooks/useAppointment';
 
 export const BottomNavigation = (): JSX.Element => {
   const { id: appointmentID } = useParams();
-  const { telemedData, refetch } = useAppointment(appointmentID);
+  const { visitState: telemedData, refetch } = useAppointment(appointmentID);
   const { encounter } = telemedData;
   const theme = useTheme();
   const {

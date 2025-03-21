@@ -1,16 +1,16 @@
-import React, { FC } from 'react';
-import { Typography, Box } from '@mui/material';
+import { Box, Typography } from '@mui/material';
+import { FC } from 'react';
 import { useParams } from 'react-router-dom';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../telemed';
-import { useAppointment } from '../hooks/useAppointment';
-import { CSSLoader } from '../components/CSSLoader';
-import { InfoAlert } from '../components/InfoAlert';
 import {
   MedicalConditionsPatientColumn,
   MedicalConditionsProviderColumn,
   MedicalHistoryDoubleCard,
 } from '../../../telemed/features/appointment';
+import { CSSLoader } from '../components/CSSLoader';
+import { InfoAlert } from '../components/InfoAlert';
+import { useAppointment } from '../hooks/useAppointment';
 
 interface MedicalConditionsProps {
   appointmentID?: string;
@@ -19,7 +19,7 @@ interface MedicalConditionsProps {
 export const MedicalConditions: FC<MedicalConditionsProps> = () => {
   const { id: appointmentID } = useParams();
   const {
-    sourceData: { appointment },
+    resources: { appointment },
     isLoading,
     error,
   } = useAppointment(appointmentID);

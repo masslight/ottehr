@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { QueryKey, QueryObserverResult } from 'react-query';
 import { ChartDataRequestedFields, GetChartDataResponse } from 'utils';
 import { useAppointmentStore, useGetChartData } from '../../../telemed';
@@ -29,7 +30,7 @@ export const useChartData = ({
   queryKey: QueryKey;
 } => {
   const apiClient = useZapEHRAPIClient();
-  const { update } = useExamObservations();
+  const { update: updateExamObservations } = useExamObservations();
   const setPartialChartData = useAppointmentStore((state) => state.setPartialChartData);
 
   const {
@@ -49,14 +50,35 @@ export const useChartData = ({
         });
       }
 
+      if (!requestedFields) {
+        useAppointmentStore.setState({
+          isChartDataLoading: false,
+        });
+      }
+
       // not set state for custom fileds request, because data will be incompleted
       if (requestedFields) return;
 
       // should be updated only from root (useAppointment hook)
-      shouldUpdateExams && update(data.examObservations, true);
+      shouldUpdateExams && updateExamObservations(data.examObservations, true);
     },
-    onError
+    (error) => {
+      if (!requestedFields) {
+        useAppointmentStore.setState({
+          isChartDataLoading: false,
+        });
+      }
+      onError?.(error);
+    }
   );
+
+  useEffect(() => {
+    if (!requestedFields && enabled) {
+      useAppointmentStore.setState({
+        isChartDataLoading: isFetching,
+      });
+    }
+  }, [chartData, isFetching, requestedFields, enabled]);
 
   return { refetch, chartData, isLoading, error: chartDataError, queryKey, isFetching };
 };

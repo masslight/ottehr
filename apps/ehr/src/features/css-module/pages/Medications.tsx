@@ -20,7 +20,7 @@ interface MedicationsProps {
 export const Medications: React.FC<MedicationsProps> = () => {
   const { id: appointmentID } = useParams();
   const {
-    sourceData: { appointment },
+    resources: { appointment },
     isLoading,
     error,
   } = useAppointment(appointmentID);

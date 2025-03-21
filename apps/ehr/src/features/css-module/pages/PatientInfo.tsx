@@ -1,13 +1,13 @@
-import React from 'react';
 import { Typography } from '@mui/material';
+import React from 'react';
 import { useParams } from 'react-router-dom';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../telemed';
-import { useAppointment } from '../hooks/useAppointment';
 import { CSSLoader } from '../components/CSSLoader';
 import GeneralInfoCard from '../components/patient-info/GeneralInfoCard';
 import VitalsNotesCard from '../components/patient-info/VitalsNotesCard';
 import VitalsWeightsCard from '../components/vitals/weights/VitalsWeightsCard';
+import { useAppointment } from '../hooks/useAppointment';
 
 interface PatientInfoProps {
   appointmentID?: string;
@@ -16,7 +16,7 @@ interface PatientInfoProps {
 export const PatientInfo: React.FC<PatientInfoProps> = () => {
   const { id: appointmentID } = useParams();
   const {
-    sourceData: { appointment },
+    resources: { appointment },
     isLoading,
     error,
   } = useAppointment(appointmentID);
