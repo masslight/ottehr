@@ -8,10 +8,10 @@ import {
   SyncUserResponse,
   allLicensesForPractitioner,
   getPractitionerNPIIdentitifier,
+  makeQualificationForPractitioner,
 } from 'utils';
 import { SecretsKeys, getSecret, Secrets } from 'zambda-utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
-import { makeQualificationForPractitioner } from '../shared/practitioners';
 import { ZambdaInput } from 'zambda-utils';
 import { validateRequestParameters } from './validateRequestParameters';
 

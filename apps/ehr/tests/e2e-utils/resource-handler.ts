@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Address, Appointment, Encounter, FhirResource, Patient, QuestionnaireResponse } from 'fhir/r4b';
+import { Address, Appointment, Encounter, FhirResource, Patient, Practitioner, QuestionnaireResponse } from 'fhir/r4b';
 import { readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
@@ -22,7 +22,9 @@ import {
   TestEmployee,
 } from './resource/employees';
 import { getInHouseMedicationsResources } from './resource/in-house-medications';
+import { fetchWithOystAuth } from './helpers/tests-utils';
 
+// @ts-ignore
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -129,6 +131,7 @@ export class ResourceHandler {
         state: inputParams?.state ?? PATIENT_STATE,
         postalCode: inputParams?.postalCode ?? PATIENT_POSTALCODE,
       };
+      console.log('address: ', JSON.stringify(address));
 
       const patientData = {
         firstNames: [inputParams?.firstName ?? PATIENT_FIRST_NAME],
@@ -178,7 +181,7 @@ export class ResourceHandler {
               createAppointmentZambdaId: this.zambdaId,
               islocal: process.env.APP_IS_LOCAL === 'true',
               zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
-              selectedLocationId: process.env.STATE_ONE, // todo: check why state is used here
+              selectedLocationId: address.state, // todo: check why state is used here
               demoData: patientData,
               projectId: process.env.PROJECT_ID!,
               paperworkAnswers: this.paperworkAnswers,
@@ -205,8 +208,8 @@ export class ResourceHandler {
     }
   }
 
-  public async setResources(): Promise<void> {
-    const response = await this.createAppointment();
+  public async setResources(inputParams?: CreateTestAppointmentInput): Promise<void> {
+    const response = await this.createAppointment(inputParams);
 
     this.resources = {
       ...response.resources,
@@ -323,5 +326,35 @@ export class ResourceHandler {
 
   async cleanAppointment(appointmentId: string): Promise<boolean> {
     return cleanAppointment(appointmentId, process.env.ENV!);
+  }
+
+  async getMyUserAndPractitioner(): Promise<{
+    id: string;
+    name: string;
+    email: string;
+    practitioner: Practitioner;
+  }> {
+    await this.initPromise;
+    const users = await fetchWithOystAuth<
+      {
+        id: string;
+        name: string;
+        email: string;
+        profile: string;
+      }[]
+    >('GET', 'https://project-api.zapehr.com/v1/user', this.authToken);
+
+    const myUser = users?.find((user) => user.email === process.env.TEXT_USERNAME);
+    if (!myUser) throw new Error('Failed to find my user');
+    const practitioner = (await this.apiClient.fhir.get({
+      resourceType: 'Practitioner',
+      id: myUser.profile.replace('Practitioner/', ''),
+    })) as Practitioner;
+    return {
+      id: myUser.id,
+      name: myUser.name,
+      email: myUser.email,
+      practitioner,
+    };
   }
 }
