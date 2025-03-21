@@ -85,6 +85,12 @@ export const expectedAccountGuarantorFromQR1: RelatedPerson = {
       ],
     },
   ],
+  telecom: [
+    {
+      system: 'phone',
+      value: '+15559876543',
+    },
+  ],
 };
 
 export const expectedCoverageResources: { primary: Coverage; secondary: Coverage } = {

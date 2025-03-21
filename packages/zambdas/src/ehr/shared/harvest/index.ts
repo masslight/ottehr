@@ -2849,7 +2849,6 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
       {
         value: formatPhoneNumber(number),
         system: 'phone',
-        use: 'mobile',
       },
     ];
   }

@@ -86,6 +86,12 @@ describe('Harvest Module', () => {
             ],
           },
         ],
+        telecom: [
+          {
+            system: 'phone',
+            value: '+15559876543',
+          },
+        ],
       },
     ],
     status: 'active',
