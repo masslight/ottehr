@@ -280,9 +280,7 @@ async function processCsv(
       org,
     ])
   );
-  console.log('filePath', filePath);
   const csvData = await csvToJson().fromFile(filePath);
-  console.log('csvData', csvData);
   const BATCH_SIZE = 20;
 
   for (let i = 0; i < csvData.length; i += BATCH_SIZE) {
@@ -345,7 +343,6 @@ async function main(): Promise<void> {
     insurancePlans.filter((plan) => Boolean(plan.name)).map((plan) => [plan.name!, plan])
   );
 
-  console.log('CSV_FILE_PATH', CSV_FILE_PATH);
   await processCsv(CSV_FILE_PATH, oystehr, organizations, existingPlansMap);
 }
 
