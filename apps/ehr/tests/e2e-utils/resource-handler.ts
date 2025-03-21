@@ -270,10 +270,12 @@ export class ResourceHandler {
 
   async deleteEmployees(): Promise<void> {
     try {
-      await Promise.all([
-        removeUser(this.testEmployee1.id, this.testEmployee1.profile.id!, this.apiClient, this.authToken),
-        removeUser(this.testEmployee2.id, this.testEmployee2.profile.id!, this.apiClient, this.authToken),
-      ]);
+      if (process.env.AUTH0_CLIENT_TESTS && process.env.AUTH0_SECRET_TESTS) {
+        await Promise.all([
+          removeUser(this.testEmployee1.id, this.testEmployee1.profile.id!, this.apiClient, this.authToken),
+          removeUser(this.testEmployee2.id, this.testEmployee2.profile.id!, this.apiClient, this.authToken),
+        ]);
+      } else throw new Error('No "AUTH0_CLIENT_TESTS" or "AUTH0_SECRET_TESTS" secret provided');
     } catch (e) {
       console.error('❌ Failed to delete users: ', e);
     }

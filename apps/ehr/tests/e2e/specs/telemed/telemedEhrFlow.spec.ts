@@ -296,7 +296,16 @@ test('Patient provided hpi data', async () => {
 
   await test.step('Condition photo provided by patient', async () => {
     const block = page.getByTestId(dataTestIds.telemedEhrFlow.hpiPatientConditionPhotos);
-    await expect(block.locator('img')).toHaveCount(1);
+    const image = block.locator('img');
+    await expect(image).toHaveCount(1);
+    const imageSrc = await image.getAttribute('src');
+    await image.click();
+
+    const zoomedImage = page.locator("div[role='dialog'] img[alt='Patient condition photo #1']");
+    await expect(zoomedImage).toBeVisible();
+    const zoomedImageSrc = await zoomedImage.getAttribute('src');
+
+    expect(imageSrc).toEqual(zoomedImageSrc);
   });
 });
 

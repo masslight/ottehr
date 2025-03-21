@@ -15,9 +15,9 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   const { height, width } = page.getSize();
   const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helveticaBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const locationIcon = './location_on.png';
-  const callIcon = './call.png';
-  const faxIcon = './fax.png';
+  const locationIcon = './assets/location_on.png';
+  const callIcon = './assets/call.png';
+  const faxIcon = './assets/fax.png';
 
   const styles = {
     image: {
