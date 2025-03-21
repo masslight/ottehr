@@ -744,7 +744,7 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
 
   console.log('pdfsToCreate len', pdfsToCreate.length);
   for (const pdfInfo of pdfsToCreate) {
-    const documentReferences = await createFilesDocumentReferences({
+    const { docRefs: documentReferences } = await createFilesDocumentReferences({
       files: [{ url: pdfInfo.uploadURL, title: pdfInfo.formTitle }],
       type: pdfInfo.type,
       dateCreated: nowIso,
