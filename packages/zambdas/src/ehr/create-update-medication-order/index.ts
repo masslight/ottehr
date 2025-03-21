@@ -132,7 +132,7 @@ async function updateOrder(
 
   const resultPromises: Promise<any>[] = [];
   if (extendedOrderData) {
-    if (newStatus === 'administered') extendedOrderData.administeredProvider = practitionerIdCalledZambda;
+    extendedOrderData.administeredProvider = practitionerIdCalledZambda;
     await updateMedicationAdministrationData(oystehr, extendedOrderData, orderPkg);
     console.log('MedicationAdministration data was successfully updated.');
   }

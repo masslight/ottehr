@@ -21,7 +21,6 @@ const cellStyles = {
 } as CSSProperties;
 
 const HEADER_CELL_STYLES = {
-  paddingLeft: 1.7,
   fontWeight: 'bold',
 } as CSSProperties;
 
@@ -57,11 +56,12 @@ export const MarTable: React.FC = () => {
   };
 
   const columnStyles: ColumnStyles = {
-    medication: { width: '30%', ...cellStyles, paddingLeft: '16px' },
+    medication: { width: '25%', ...cellStyles, paddingLeft: '16px' },
     dose: { width: '7%', ...cellStyles },
-    route: { width: '12%', ...cellStyles },
-    orderDateTime: { width: '14%', ...cellStyles },
-    instructions: { width: '20%', ...cellStyles },
+    route: { width: '10%', ...cellStyles },
+    orderDateTime: { width: '12%', ...cellStyles },
+    orderedBy: { width: '12%', ...cellStyles },
+    instructions: { width: '15%', ...cellStyles },
     status: {
       width: 'auto',
       textWrap: 'nowrap',
@@ -80,19 +80,9 @@ export const MarTable: React.FC = () => {
         sx={{ minWidth: 650, tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: 0 }}
         aria-label="medication table"
       >
-        <TableHead>
-          <TableRow>
-            <TableCell sx={{ ...columnStyles.medication, ...HEADER_CELL_STYLES }}>Medication</TableCell>
-            <TableCell sx={{ ...columnStyles.dose, ...HEADER_CELL_STYLES }}>Dose</TableCell>
-            <TableCell sx={{ ...columnStyles.route, ...HEADER_CELL_STYLES }}>Route</TableCell>
-            <TableCell sx={{ ...columnStyles.orderDateTime, ...HEADER_CELL_STYLES }}>Order date/time</TableCell>
-            <TableCell sx={{ ...columnStyles.instructions, ...HEADER_CELL_STYLES }}>Instructions</TableCell>
-            <TableCell sx={{ ...columnStyles.status, ...HEADER_CELL_STYLES }}>Status</TableCell>
-          </TableRow>
-        </TableHead>
         <TableBody>
           <TableRow>
-            <TableCell colSpan={7} sx={{ padding: 0 }}>
+            <TableCell colSpan={6} sx={{ padding: 0 }}>
               <AccordionCard
                 label={`Pending (${pendingMedications.length})`}
                 collapsed={isPendingCollapsed}
@@ -100,6 +90,19 @@ export const MarTable: React.FC = () => {
                 withBorder={false}
               >
                 <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ ...columnStyles.medication, ...HEADER_CELL_STYLES }}>Medication</TableCell>
+                      <TableCell sx={{ ...columnStyles.dose, ...HEADER_CELL_STYLES }}>Dose</TableCell>
+                      <TableCell sx={{ ...columnStyles.route, ...HEADER_CELL_STYLES }}>Route</TableCell>
+                      <TableCell sx={{ ...columnStyles.orderDateTime, ...HEADER_CELL_STYLES }}>
+                        Order date/time
+                      </TableCell>
+                      <TableCell sx={{ ...columnStyles.orderDateTime, ...HEADER_CELL_STYLES }}>Ordered by</TableCell>
+                      <TableCell sx={{ ...columnStyles.instructions, ...HEADER_CELL_STYLES }}>Instructions</TableCell>
+                      <TableCell sx={{ ...columnStyles.status, ...HEADER_CELL_STYLES }}>Status</TableCell>
+                    </TableRow>
+                  </TableHead>
                   <TableBody>
                     {pendingMedications.map((row) => (
                       <MarTableRow key={row.id} medication={row} columnStyles={columnStyles} />
@@ -110,7 +113,7 @@ export const MarTable: React.FC = () => {
             </TableCell>
           </TableRow>
           <TableRow>
-            <TableCell colSpan={7} sx={{ padding: 0 }}>
+            <TableCell colSpan={6} sx={{ padding: 0 }}>
               <AccordionCard
                 label={`Completed (${completedMedications.length})`}
                 collapsed={isCompletedCollapsed}
@@ -118,6 +121,21 @@ export const MarTable: React.FC = () => {
                 withBorder={false}
               >
                 <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ ...columnStyles.medication, ...HEADER_CELL_STYLES }}>Medication</TableCell>
+                      <TableCell sx={{ ...columnStyles.dose, ...HEADER_CELL_STYLES }}>Dose</TableCell>
+                      <TableCell sx={{ ...columnStyles.route, ...HEADER_CELL_STYLES }}>Route</TableCell>
+                      <TableCell sx={{ ...columnStyles.orderDateTime, ...HEADER_CELL_STYLES }}>
+                        Order date/time
+                      </TableCell>
+                      <TableCell sx={{ ...columnStyles.orderDateTime, ...HEADER_CELL_STYLES }}>Ordered by</TableCell>
+                      <TableCell sx={{ ...columnStyles.orderDateTime, ...HEADER_CELL_STYLES }}>Given</TableCell>
+                      <TableCell sx={{ ...columnStyles.orderDateTime, ...HEADER_CELL_STYLES }}>Given by</TableCell>
+                      <TableCell sx={{ ...columnStyles.instructions, ...HEADER_CELL_STYLES }}>Instructions</TableCell>
+                      <TableCell sx={{ ...columnStyles.status, ...HEADER_CELL_STYLES }}>Status</TableCell>
+                    </TableRow>
+                  </TableHead>
                   <TableBody>
                     {completedMedications.map((row) => (
                       <MarTableRow key={row.id} medication={row} columnStyles={columnStyles} />
