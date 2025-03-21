@@ -125,7 +125,7 @@ const AIInterview = (): JSX.Element => {
           }}
         />
         <Button
-          disabled={loading || questionnaireResponse == null}
+          disabled={loading || questionnaireResponse == null || questionnaireResponse.status === 'completed'}
           onClick={onSend}
           size="large"
           type="button"
