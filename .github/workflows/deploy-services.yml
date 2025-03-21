@@ -48,7 +48,7 @@ jobs:
 
     runs-on: ubuntu-latest-16-cores
     timeout-minutes: 15
-    
+
     permissions:
       id-token: write # Required for OIDC
       contents: write # Required for version bumping
@@ -102,13 +102,13 @@ jobs:
         run: |
           cd ${{ github.workspace }}/${{ env.PACKAGE_LOCATION }} && npm version ${{ github.event.inputs.versionType }} --no-git-tag-version
           cd ${{ github.workspace }}/packages/zambdas && npm version ${{ github.event.inputs.versionType }} --no-git-tag-version
-      
+
       - name: Get Version Number from package.json
         id: package-version
         uses: martinbeentjes/npm-get-version-action@v1.1.0
         with:
           path: ${{ env.PACKAGE_LOCATION }}
-      
+
       - name: Create Pull Request to the base branch with version bump
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
         uses: peter-evans/create-pull-request@v5
@@ -117,11 +117,11 @@ jobs:
           commit-message: Bump version to ${{ steps.package-version.outputs.current-version }}
           title: "Version Bump ${{ steps.package-version.outputs.current-version }}"
           body: "This PR updates package versions automatically."
-      
+
       - name: Auto-merge PR
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
         run: |
-          gh pr merge --auto --squash version-bump-${{ github.run_id }}
+          gh pr merge --auto --squash --delete-branch version-bump-${{ github.run_id }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
