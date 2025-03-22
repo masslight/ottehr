@@ -151,6 +151,9 @@ const ZAMBDAS: { [name: string]: DeployZambda } = {
   'UPDATE-PATIENT-ACCOUNT': {
     type: 'http_auth',
   },
+  'REMOVE-PATIENT-COVERAGE': {
+    type: 'http_auth',
+  },
   'SUB-CANCELLATION-EMAIL': {
     type: 'subscription',
     subscriptionDetails: [
