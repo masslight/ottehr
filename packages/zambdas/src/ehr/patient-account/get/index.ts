@@ -19,7 +19,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
     console.groupEnd();
-    console.debug('validateRequestParameters success');
+    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
     const { secrets } = validatedParameters;
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);
@@ -65,6 +65,8 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
   if (!userToken) {
     throw new Error('usere token unexpectedly missing');
   }
+
+  console.log('input', JSON.stringify(input, null, 2));
 
   const { secrets, patientId } = JSON.parse(input.body);
 
