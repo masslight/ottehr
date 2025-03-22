@@ -67,8 +67,8 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
   }
 
   console.log('input', JSON.stringify(input, null, 2));
-
-  const { secrets, patientId } = JSON.parse(input.body);
+  const { secrets } = input;
+  const { patientId } = JSON.parse(input.body);
 
   if (!patientId) {
     throw MISSING_REQUIRED_PARAMETERS(['patientId']);
