@@ -187,7 +187,8 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     throw new Error('usere token unexpectedly missing');
   }
 
-  const { questionnaireResponse, secrets } = JSON.parse(input.body);
+  const { secrets } = input;
+  const { questionnaireResponse } = JSON.parse(input.body);
   if (questionnaireResponse === undefined) {
     throw MISSING_REQUIRED_PARAMETERS(['questionnaireResponse']);
   }

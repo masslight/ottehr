@@ -121,7 +121,8 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
     throw new Error('usere token unexpectedly missing');
   }
 
-  const { secrets, patientId, coverageId } = JSON.parse(input.body);
+  const { secrets } = input;
+  const { patientId, coverageId } = JSON.parse(input.body);
 
   if (!patientId) {
     throw MISSING_REQUIRED_PARAMETERS(['patientId']);
