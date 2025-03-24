@@ -16,6 +16,15 @@ const MANUFACTURER = 'Test';
 const ROUTE = 'Route of administration values';
 const INSTRUCTIONS = 'Instructions';
 
+const NEW_DIAGNOSIS = 'Situational type phobia';
+const NEW_MEDICATION = '0.9% Sodium Chloride IV (250cc)';
+const NEW_DOSE = '1';
+const NEW_UNITS = 'g';
+const NEW_MANUFACTURER = 'Edited test';
+const NEW_ROUTE = 'Topical route';
+const NEW_INSTRUCTIONS = 'Edited instructions';
+const STATUS = 'pending';
+
 test.beforeEach(async () => {
   await resourceHandler.setResources();
 });
@@ -90,7 +99,7 @@ test('Order medication, order is submitted successfully and entered data are dis
     dose: DOSE,
     route: ROUTE,
     instructions: INSTRUCTIONS,
-    status: 'pending',
+    status: STATUS,
   });
   await medicationsPage.clickMedicationDetailsTab();
   await medicationsPage.medicationDetails().verifyAssociatedDx(DIAGNOSIS);
@@ -138,29 +147,29 @@ test('Edit order page is opened after clicking on pencil icon for order in "pend
   await editOrderPage.editMedicationCard().verifyValidationErrorShown(Field.INSTRUCTIONS, false);
 
   //Updated values are saved successfully and Order is updated on the "MAR" tab
-  await editOrderPage.editMedicationCard().selectAssociatedDx('Situational type phobia');
-  await editOrderPage.editMedicationCard().selectMedication('0.9% Sodium Chloride IV (250cc)');
-  await editOrderPage.editMedicationCard().enterDose('1');
-  await editOrderPage.editMedicationCard().selectUnits('g');
-  await editOrderPage.editMedicationCard().enterManufacturer('Edited test');
-  await editOrderPage.editMedicationCard().selectRoute('Topical route');
-  await editOrderPage.editMedicationCard().enterInstructions('Edited instructions');
+  await editOrderPage.editMedicationCard().selectAssociatedDx(NEW_DIAGNOSIS);
+  await editOrderPage.editMedicationCard().selectMedication(NEW_MEDICATION);
+  await editOrderPage.editMedicationCard().enterDose(NEW_DOSE);
+  await editOrderPage.editMedicationCard().selectUnits(NEW_UNITS);
+  await editOrderPage.editMedicationCard().enterManufacturer(NEW_MANUFACTURER);
+  await editOrderPage.editMedicationCard().selectRoute(NEW_ROUTE);
+  await editOrderPage.editMedicationCard().enterInstructions(NEW_INSTRUCTIONS);
   await editOrderPage.clickOrderMedicationButton();
 
-  await editOrderPage.editMedicationCard().verifyMedication('0.9% Sodium Chloride IV (250cc)');
-  await editOrderPage.editMedicationCard().verifyDose('1');
-  await editOrderPage.editMedicationCard().verifyUnits('g');
-  await editOrderPage.editMedicationCard().verifyManufacturer('Edited test');
-  await editOrderPage.editMedicationCard().verifyRoute('Topical route');
-  await editOrderPage.editMedicationCard().verifyInstructions('Edited instructions');
+  await editOrderPage.editMedicationCard().verifyMedication(NEW_MEDICATION);
+  await editOrderPage.editMedicationCard().verifyDose(NEW_DOSE);
+  await editOrderPage.editMedicationCard().verifyUnits(NEW_UNITS);
+  await editOrderPage.editMedicationCard().verifyManufacturer(NEW_MANUFACTURER);
+  await editOrderPage.editMedicationCard().verifyRoute(NEW_ROUTE);
+  await editOrderPage.editMedicationCard().verifyInstructions(NEW_INSTRUCTIONS);
 
   medicationsPage = await editOrderPage.clickBackButton();
   await medicationsPage.verifyMedicationPresent({
-    medicationName: '0.9% Sodium Chloride IV (250cc)',
-    dose: '1',
-    route: 'Topical route',
-    instructions: 'Edited instructions',
-    status: 'pending',
+    medicationName: NEW_MEDICATION,
+    dose: NEW_DOSE,
+    route: NEW_ROUTE,
+    instructions: NEW_INSTRUCTIONS,
+    status: STATUS,
   });
 });
 
