@@ -601,7 +601,7 @@
       }
     },
     "COMMUNICATION-SUBSCRIPTION": {
-      "name": "SEND-MESSAGE-CRON",
+      "name": "COMMUNICATION-SUBSCRIPTION",
       "type": "subscription",
       "runtime": "nodejs20.x",
       "src": "src/ehr/communication-subscription/index",

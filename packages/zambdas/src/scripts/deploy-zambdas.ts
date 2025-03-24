@@ -42,7 +42,7 @@ Object.entries(ottehrSpec.zambdas).forEach(([_key, spec]) => {
       throw new Error('Subscription zambda must have the subscription.event property');
     }
 
-    zambdaDefinition.subscriptionDetails = anySpec.subscription;
+    zambdaDefinition.subscriptionDetails = [anySpec.subscription];
   } else if (spec.type === 'cron') {
     if (anySpec.schedule === undefined) {
       throw new Error('Cron zambda must have the schedule property');
@@ -54,6 +54,11 @@ Object.entries(ottehrSpec.zambdas).forEach(([_key, spec]) => {
     zambdaDefinition.schedule = {
       expression: anySpec.schedule.expression,
     }
+  }
+
+  if (process.env.environment !== 'demo' && (spec.name === 'SEND-MESSAGE-CRON' || spec.name === 'NOTIFICATIONS-UPDATER')) {
+    console.log('TODO Skipping zambda because we only want it in the demo env', spec.name);
+    return;
   }
 
   ZAMBDAS[spec.name] = zambdaDefinition;
@@ -228,7 +233,7 @@ async function updateProjectZambda(
   console.log('Uploading zip file to S3');
   // zip file names are lowercase with dashes
   const zipFile = zambdaName.toLowerCase().replace(/_/g, '-');
-  const file = fs.readFileSync(`.dist/${zipFile}.zip`);
+  const file = fs.readFileSync(`.dist/zips/${zipFile}.zip`);
   const awsResponse = await fetch(s3Url, {
     method: 'put',
     body: file,
