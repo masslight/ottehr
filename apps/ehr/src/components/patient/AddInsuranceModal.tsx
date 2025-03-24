@@ -11,157 +11,70 @@ import {
   TextField,
   useTheme,
 } from '@mui/material';
-import { Coverage, RelatedPerson } from 'fhir/r4b';
-import React from 'react';
-import { useForm, Controller } from 'react-hook-form';
-import { v4 as uuid } from 'uuid';
-import {
-  coverageFieldPaths,
-  InsurancePlanDTO,
-  isPostalCodeValid,
-  relatedPersonFieldPaths,
-  REQUIRED_FIELD_ERROR_MESSAGE,
-  SUBSCRIBER_RELATIONSHIP_CODE_MAP,
-} from 'utils';
+import React, { useEffect } from 'react';
+import { useForm, Controller, FormProvider } from 'react-hook-form';
+import { InsurancePlanDTO, isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { RELATIONSHIP_TO_INSURED_OPTIONS, SEX_OPTIONS, STATE_OPTIONS } from '../../constants';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField, LabeledField, Option } from '../form';
 import { usePatientStore } from '../../state/patient.store';
+import { Questionnaire } from 'fhir/r4b';
+import { FormFields as AllFormFields } from '../../constants';
+import { useUpdatePatientAccount } from '../../hooks/useGetPatient';
+import { structureQuestionnaireResponse } from '../../helpers/qr-structure';
+import { useQueryClient } from 'react-query';
+import { LoadingButton } from '@mui/lab';
 
 interface AddInsuranceModalProps {
   open: boolean;
+  patientId: string;
+  questionnaire: Questionnaire;
+  priorityOptions: { value: string; label: string }[];
   onClose: () => void;
 }
 
-export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onClose }) => {
-  const theme = useTheme();
-  const {
-    control,
-    handleSubmit,
-    formState: { errors },
-  } = useForm();
+const FormFields = AllFormFields.insurance[0];
 
-  const { insurancePlans, patient, addTempInsurance, insurances, tempInsurances } = usePatientStore();
+export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
+  open,
+  patientId,
+  questionnaire,
+  priorityOptions,
+  onClose,
+}) => {
+  const theme = useTheme();
+
+  const methods = useForm({
+    mode: 'onBlur',
+  });
+
+  const { control, formState, handleSubmit, setValue } = methods;
+  const { errors } = formState;
+
+  const { insurancePlans } = usePatientStore();
+  const queryClient = useQueryClient();
+  const submitQR = useUpdatePatientAccount(() => {
+    void queryClient.invalidateQueries('patient-account-get');
+  });
 
   const onSubmit = (data: any): void => {
-    if (!patient) return;
-
-    // Create RelatedPerson resource
-    const relatedPersonResource: RelatedPerson = {
-      resourceType: 'RelatedPerson',
-      id: uuid(),
-      name: [
-        {
-          given: [
-            data[relatedPersonFieldPaths.firstName],
-            ...(data[relatedPersonFieldPaths.middleName] ? [data[relatedPersonFieldPaths.middleName]] : []),
-          ],
-          family: data[relatedPersonFieldPaths.lastName],
-        },
-      ],
-      gender: data[relatedPersonFieldPaths.gender],
-      patient: {
-        reference: `Patient/${patient.id}`,
-      },
-      birthDate: data[relatedPersonFieldPaths.birthDate],
-      relationship: [
-        {
-          coding: [
-            {
-              system: 'http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype',
-              code: SUBSCRIBER_RELATIONSHIP_CODE_MAP[data[coverageFieldPaths.relationship]],
-              display: data[coverageFieldPaths.relationship],
-            },
-          ],
-        },
-      ],
-    };
-
-    // Add address only if any address field is filled
-    const hasAddressFields = [
-      data[relatedPersonFieldPaths.streetAddress],
-      data[relatedPersonFieldPaths.addressLine2],
-      data[relatedPersonFieldPaths.city],
-      data[relatedPersonFieldPaths.state],
-      data[relatedPersonFieldPaths.zip],
-    ].some((field) => field);
-
-    if (hasAddressFields) {
-      relatedPersonResource.address = [
-        {
-          line: [
-            data[relatedPersonFieldPaths.streetAddress],
-            ...(data[relatedPersonFieldPaths.addressLine2] ? [data[relatedPersonFieldPaths.addressLine2]] : []),
-          ].filter(Boolean), // Remove empty lines
-          ...(data[relatedPersonFieldPaths.city] && { city: data[relatedPersonFieldPaths.city] }),
-          ...(data[relatedPersonFieldPaths.state] && { state: data[relatedPersonFieldPaths.state] }),
-          ...(data[relatedPersonFieldPaths.zip] && { postalCode: data[relatedPersonFieldPaths.zip] }),
-        },
-      ];
-    }
-
-    // Create Coverage resource
-    const countOfInsurances = insurances.length + tempInsurances.length;
-    const coverageResource: Coverage = {
-      resourceType: 'Coverage',
-      id: uuid(),
-      status: 'active',
-      subscriberId: data[coverageFieldPaths.memberId],
-      subscriber: {
-        reference: `RelatedPerson/${relatedPersonResource.id}`,
-      },
-      beneficiary: {
-        type: 'Patient',
-        reference: `Patient/${patient.id}`,
-      },
-      payor: [
-        {
-          reference: 'Organization/65eebe57-0b68-49e5-a96d-abb1123f9aa4', // data[CoverageFieldPaths.carrier],
-        },
-      ],
-      relationship: {
-        coding: [
-          {
-            system: 'http://terminology.hl7.org/CodeSystem/subscriber-relationship',
-            code: SUBSCRIBER_RELATIONSHIP_CODE_MAP[data[coverageFieldPaths.relationship]],
-            display: data[coverageFieldPaths.relationship],
-          },
-        ],
-      },
-      class: [
-        {
-          type: {
-            coding: [
-              {
-                system: 'http://terminology.hl7.org/CodeSystem/coverage-class',
-                code: 'plan',
-              },
-            ],
-          },
-          value: '951',
-          name: data[coverageFieldPaths.carrier],
-        },
-      ],
-      order: countOfInsurances + 1,
-      identifier: [
-        {
-          value: data[coverageFieldPaths.memberId],
-        },
-      ],
-    };
-
-    // Add extension only if additional information is provided
-    if (data['Coverage/additionalInformation']) {
-      coverageResource.extension = [
-        {
-          url: 'https://fhir.zapehr.com/r4/StructureDefinitions/additional-information',
-          valueString: data['Coverage/additionalInformation'],
-        },
-      ];
-    }
-
-    addTempInsurance(coverageResource, relatedPersonResource);
-    onClose();
+    // send the data to a zambda
+    const questionnaireResponse = structureQuestionnaireResponse(questionnaire, data, patientId);
+    submitQR.mutate(questionnaireResponse);
   };
+
+  useEffect(() => {
+    if (!open) {
+      methods.reset();
+    }
+  }, [open, methods]);
+
+  useEffect(() => {
+    if (!open && !submitQR.isIdle) {
+      submitQR.reset();
+    } else if (open && submitQR.isSuccess) {
+      onClose();
+    }
+  }, [open, submitQR, onClose]);
 
   return (
     <Dialog open={open} onClose={onClose} PaperProps={{ sx: { p: 2, maxWidth: 'none' } }}>
@@ -175,7 +88,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
           fontWeight: '600 !important',
         }}
       >
-        Add Secondary Insurance
+        Add Insurance
         <IconButton
           aria-label="Close"
           onClick={onClose}
@@ -188,243 +101,271 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
           <Close />
         </IconButton>
       </DialogTitle>
-      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <Grid container spacing={2} columns={9} sx={{ pt: 1 }}>
-          <Grid item xs={3}>
-            <LabeledField label="Insurance carrier" required error={!!errors[coverageFieldPaths.carrier]}>
-              <Controller
-                name={coverageFieldPaths.carrier}
-                control={control}
-                defaultValue={null}
-                rules={{
-                  required: REQUIRED_FIELD_ERROR_MESSAGE,
-                  validate: (value) => insurancePlans.some((option) => option.name === value),
-                }}
-                render={({ field: { onChange, value }, fieldState: { error } }) => (
-                  <Autocomplete
-                    options={insurancePlans}
-                    value={(insurancePlans.find((option) => option.name === value) || null) as InsurancePlanDTO}
-                    getOptionLabel={(option) => option?.name || ''}
-                    isOptionEqualToValue={(option, value) => option?.name === value?.name || (!option && !value)}
-                    onChange={(_, newValue) => {
-                      onChange(newValue?.name || null);
-                    }}
-                    disableClearable
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        error={!!error}
-                        required
-                        placeholder="Select"
-                        helperText={error?.message}
+      <FormProvider {...methods}>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Grid container spacing={2} columns={9} sx={{ pt: 1 }}>
+            <Grid item xs={3}>
+              <LabeledField label="Type" required error={!!errors[FormFields.insurancePriority.key]}>
+                <FormSelect
+                  name={FormFields.insurancePriority.key}
+                  variant="outlined"
+                  control={control}
+                  options={priorityOptions}
+                  defaultValue={priorityOptions[0]?.value ?? 'Primary'}
+                  rules={{
+                    required: REQUIRED_FIELD_ERROR_MESSAGE,
+                  }}
+                  disabled={priorityOptions.length === 1}
+                />
+              </LabeledField>
+            </Grid>
+            <Grid item xs={3}>
+              <LabeledField label="Insurance carrier" required error={!!errors[FormFields.insuranceCarrier.key]}>
+                <Controller
+                  name={FormFields.insuranceCarrier.key}
+                  control={control}
+                  rules={{
+                    required: REQUIRED_FIELD_ERROR_MESSAGE,
+                    validate: (value) =>
+                      insurancePlans.some((option) => `InsurancePlan/${option.id}` === value?.reference),
+                  }}
+                  render={({ field: { value }, fieldState: { error } }) => {
+                    const isLoading = insurancePlans.length === 0;
+
+                    const selectedOption = insurancePlans.find(
+                      (option) => `InsurancePlan/${option.id}` === value?.reference
+                    );
+                    return (
+                      <Autocomplete
+                        options={insurancePlans}
+                        loading={isLoading}
+                        loadingText={'Loading...'}
+                        value={selectedOption ?? ({} as InsurancePlanDTO)}
+                        isOptionEqualToValue={(option, value) => {
+                          return option?.id === value?.id;
+                        }}
+                        getOptionLabel={(option) => option.name || ''}
+                        onChange={(_, newValue) => {
+                          if (newValue) {
+                            setValue(
+                              FormFields.insuranceCarrier.key,
+                              { reference: `InsurancePlan/${newValue.id}`, display: newValue.name },
+                              { shouldDirty: true }
+                            );
+                          } else {
+                            setValue(FormFields.insuranceCarrier.key, null);
+                          }
+                        }}
+                        disableClearable
+                        fullWidth
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            error={!!error}
+                            required
+                            helperText={error?.message}
+                          />
+                        )}
                       />
-                    )}
-                  />
-                )}
-              />
-            </LabeledField>
+                    );
+                  }}
+                />
+              </LabeledField>
+            </Grid>
+            <Grid item xs={3}>
+              <LabeledField label="Member ID" required error={!!errors[FormFields.memberId.key]}>
+                <FormTextField
+                  variant="outlined"
+                  name={FormFields.memberId.key}
+                  control={control}
+                  defaultValue={''}
+                  rules={{
+                    required: REQUIRED_FIELD_ERROR_MESSAGE,
+                  }}
+                />
+              </LabeledField>
+            </Grid>
+            <Grid item xs={3}>
+              <LabeledField label="Policy holder's first name" required error={!!errors[FormFields.firstName.key]}>
+                <FormTextField
+                  variant="outlined"
+                  name={FormFields.firstName.key}
+                  control={control}
+                  defaultValue={''}
+                  rules={{
+                    required: REQUIRED_FIELD_ERROR_MESSAGE,
+                  }}
+                />
+              </LabeledField>
+            </Grid>
+            <Grid item xs={3}>
+              <LabeledField label="Policy holder's middle name">
+                <FormTextField
+                  InputLabelProps={{
+                    shrink: true,
+                    sx: {
+                      fontWeight: 'bold',
+                    },
+                  }}
+                  variant="outlined"
+                  name={FormFields.middleName.key}
+                  control={control}
+                  defaultValue={''}
+                />
+              </LabeledField>
+            </Grid>
+            <Grid item xs={3}>
+              <LabeledField label="Policy holder's last name" required error={!!errors[FormFields.lastName.key]}>
+                <FormTextField
+                  variant="outlined"
+                  name={FormFields.lastName.key}
+                  control={control}
+                  defaultValue={''}
+                  rules={{
+                    required: REQUIRED_FIELD_ERROR_MESSAGE,
+                  }}
+                />
+              </LabeledField>
+            </Grid>
+            <Grid item xs={3}>
+              <LabeledField label="Policy holder's date of birth" required error={!!errors[FormFields.birthDate.key]}>
+                <DatePicker
+                  name={FormFields.birthDate.key}
+                  variant="outlined"
+                  control={control}
+                  required={true}
+                  defaultValue={''}
+                />
+              </LabeledField>
+            </Grid>
+            <Grid item xs={3}>
+              <LabeledField label="Policy holder's sex" required error={!!errors[FormFields.birthSex.key]}>
+                <FormSelect
+                  variant="outlined"
+                  name={FormFields.birthSex.key}
+                  control={control}
+                  defaultValue={''}
+                  options={SEX_OPTIONS}
+                  rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+                />
+              </LabeledField>
+            </Grid>
+            <Grid item xs={3}>
+              <LabeledField
+                label="Patient’s relationship to insured"
+                required
+                error={!!errors[FormFields.relationship.key]}
+              >
+                <FormSelect
+                  variant="outlined"
+                  name={FormFields.relationship.key}
+                  control={control}
+                  defaultValue={''}
+                  options={RELATIONSHIP_TO_INSURED_OPTIONS}
+                  rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+                />
+              </LabeledField>
+            </Grid>
+            <Grid item xs={3}>
+              <LabeledField label="Street address" required error={!!errors[FormFields.streetAddress.key]}>
+                <FormTextField
+                  placeholder="No., Street"
+                  variant="outlined"
+                  name={FormFields.streetAddress.key}
+                  control={control}
+                  defaultValue={''}
+                  rules={{
+                    required: REQUIRED_FIELD_ERROR_MESSAGE,
+                  }}
+                />
+              </LabeledField>
+            </Grid>
+            <Grid item xs={3}>
+              <LabeledField label="Address line 2">
+                <FormTextField
+                  placeholder="No., Street"
+                  variant="outlined"
+                  name={FormFields.addressLine2.key}
+                  control={control}
+                  defaultValue={''}
+                />
+              </LabeledField>
+            </Grid>
+            <Grid item xs={1}>
+              <LabeledField label="City" required error={!!errors[FormFields.city.key]}>
+                <FormTextField
+                  variant="outlined"
+                  name={FormFields.city.key}
+                  control={control}
+                  defaultValue={''}
+                  rules={{
+                    required: REQUIRED_FIELD_ERROR_MESSAGE,
+                  }}
+                />
+              </LabeledField>
+            </Grid>
+            <Grid item xs={1}>
+              <LabeledField label="State" required error={!!errors[FormFields.state.key]}>
+                <Controller
+                  name={FormFields.state.key}
+                  control={control}
+                  defaultValue={null}
+                  rules={{
+                    required: REQUIRED_FIELD_ERROR_MESSAGE,
+                    validate: (value) => !value || STATE_OPTIONS.some((option) => option.value === value),
+                  }}
+                  render={({ field: { onChange, value }, fieldState: { error } }) => (
+                    <Autocomplete
+                      options={STATE_OPTIONS}
+                      value={(STATE_OPTIONS.find((option) => option.value === value) || null) as Option}
+                      getOptionLabel={(option) => option.label || ''}
+                      isOptionEqualToValue={(option, value) => option?.value === value?.value || (!option && !value)}
+                      onChange={(_, newValue) => {
+                        onChange(newValue?.value || null);
+                      }}
+                      disableClearable
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          required
+                          error={!!error}
+                          placeholder="Select"
+                          helperText={error?.message}
+                        />
+                      )}
+                    />
+                  )}
+                />
+              </LabeledField>
+            </Grid>
+            <Grid item xs={1}>
+              <LabeledField label="ZIP" required error={!!errors[FormFields.zip.key]}>
+                <FormTextField
+                  variant="outlined"
+                  name={FormFields.zip.key}
+                  control={control}
+                  defaultValue={''}
+                  rules={{
+                    required: REQUIRED_FIELD_ERROR_MESSAGE,
+                    validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
+                  }}
+                />
+              </LabeledField>
+            </Grid>
+            <Grid item xs={9}>
+              <LabeledField label="Additional insurance information">
+                <FormTextField
+                  variant="outlined"
+                  name="Coverage/additionalInformation"
+                  control={control}
+                  defaultValue={''}
+                />
+              </LabeledField>
+            </Grid>
           </Grid>
-          <Grid item xs={3}>
-            <LabeledField label="Member ID" required error={!!errors[relatedPersonFieldPaths.firstName]}>
-              <FormTextField
-                variant="outlined"
-                name={coverageFieldPaths.memberId}
-                control={control}
-                defaultValue={''}
-                rules={{
-                  required: REQUIRED_FIELD_ERROR_MESSAGE,
-                }}
-              />
-            </LabeledField>
-          </Grid>
-          <Grid item xs={3} />
-          <Grid item xs={3}>
-            <LabeledField
-              label="Policy holder's first name"
-              required
-              error={!!errors[relatedPersonFieldPaths.firstName]}
-            >
-              <FormTextField
-                variant="outlined"
-                name={relatedPersonFieldPaths.firstName}
-                control={control}
-                defaultValue={''}
-                rules={{
-                  required: REQUIRED_FIELD_ERROR_MESSAGE,
-                }}
-              />
-            </LabeledField>
-          </Grid>
-          <Grid item xs={3}>
-            <LabeledField label="Policy holder's middle name">
-              <FormTextField
-                InputLabelProps={{
-                  shrink: true,
-                  sx: {
-                    fontWeight: 'bold',
-                  },
-                }}
-                variant="outlined"
-                name={relatedPersonFieldPaths.middleName}
-                control={control}
-                defaultValue={''}
-              />
-            </LabeledField>
-          </Grid>
-          <Grid item xs={3}>
-            <LabeledField label="Policy holder's last name" required error={!!errors[relatedPersonFieldPaths.lastName]}>
-              <FormTextField
-                variant="outlined"
-                name={relatedPersonFieldPaths.lastName}
-                control={control}
-                defaultValue={''}
-                rules={{
-                  required: REQUIRED_FIELD_ERROR_MESSAGE,
-                }}
-              />
-            </LabeledField>
-          </Grid>
-          <Grid item xs={3}>
-            <LabeledField
-              label="Policy holder's date of birth"
-              required
-              error={!!errors[relatedPersonFieldPaths.birthDate]}
-            >
-              <DatePicker
-                name={relatedPersonFieldPaths.birthDate}
-                variant="outlined"
-                control={control}
-                required={true}
-                defaultValue={''}
-              />
-            </LabeledField>
-          </Grid>
-          <Grid item xs={3}>
-            <LabeledField label="Policy holder's sex" required error={!!errors[relatedPersonFieldPaths.gender]}>
-              <FormSelect
-                variant="outlined"
-                name={relatedPersonFieldPaths.gender}
-                control={control}
-                defaultValue={''}
-                options={SEX_OPTIONS}
-                rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-              />
-            </LabeledField>
-          </Grid>
-          <Grid item xs={3}>
-            <LabeledField
-              label="Patient’s relationship to insured"
-              required
-              error={!!errors[coverageFieldPaths.relationship]}
-            >
-              <FormSelect
-                variant="outlined"
-                name={coverageFieldPaths.relationship}
-                control={control}
-                defaultValue={''}
-                options={RELATIONSHIP_TO_INSURED_OPTIONS}
-                rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-              />
-            </LabeledField>
-          </Grid>
-          <Grid item xs={3}>
-            <LabeledField label="Street address" required error={!!errors[relatedPersonFieldPaths.streetAddress]}>
-              <FormTextField
-                placeholder="No., Street"
-                variant="outlined"
-                name={relatedPersonFieldPaths.streetAddress}
-                control={control}
-                defaultValue={''}
-                rules={{
-                  required: REQUIRED_FIELD_ERROR_MESSAGE,
-                }}
-              />
-            </LabeledField>
-          </Grid>
-          <Grid item xs={3}>
-            <LabeledField label="Address line 2">
-              <FormTextField
-                placeholder="No., Street"
-                variant="outlined"
-                name={relatedPersonFieldPaths.addressLine2}
-                control={control}
-                defaultValue={''}
-              />
-            </LabeledField>
-          </Grid>
-          <Grid item xs={1}>
-            <LabeledField label="City" required error={!!errors[relatedPersonFieldPaths.city]}>
-              <FormTextField
-                variant="outlined"
-                name={relatedPersonFieldPaths.city}
-                control={control}
-                defaultValue={''}
-                rules={{
-                  required: REQUIRED_FIELD_ERROR_MESSAGE,
-                }}
-              />
-            </LabeledField>
-          </Grid>
-          <Grid item xs={1}>
-            <LabeledField label="State" required error={!!errors[relatedPersonFieldPaths.state]}>
-              <Controller
-                name={relatedPersonFieldPaths.state}
-                control={control}
-                defaultValue={null}
-                rules={{
-                  required: REQUIRED_FIELD_ERROR_MESSAGE,
-                  validate: (value) => !value || STATE_OPTIONS.some((option) => option.value === value),
-                }}
-                render={({ field: { onChange, value }, fieldState: { error } }) => (
-                  <Autocomplete
-                    options={STATE_OPTIONS}
-                    value={(STATE_OPTIONS.find((option) => option.value === value) || null) as Option}
-                    getOptionLabel={(option) => option.label || ''}
-                    isOptionEqualToValue={(option, value) => option?.value === value?.value || (!option && !value)}
-                    onChange={(_, newValue) => {
-                      onChange(newValue?.value || null);
-                    }}
-                    disableClearable
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        required
-                        error={!!error}
-                        placeholder="Select"
-                        helperText={error?.message}
-                      />
-                    )}
-                  />
-                )}
-              />
-            </LabeledField>
-          </Grid>
-          <Grid item xs={1}>
-            <LabeledField label="ZIP" required error={!!errors[relatedPersonFieldPaths.zip]}>
-              <FormTextField
-                variant="outlined"
-                name={relatedPersonFieldPaths.zip}
-                control={control}
-                defaultValue={''}
-                rules={{
-                  required: REQUIRED_FIELD_ERROR_MESSAGE,
-                  validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
-                }}
-              />
-            </LabeledField>
-          </Grid>
-          <Grid item xs={9}>
-            <LabeledField label="Additional insurance information">
-              <FormTextField
-                variant="outlined"
-                name="Coverage/additionalInformation"
-                control={control}
-                defaultValue={''}
-              />
-            </LabeledField>
-          </Grid>
-        </Grid>
-      </DialogContent>
+        </DialogContent>
+      </FormProvider>
       <DialogActions sx={{ p: 3, justifyContent: 'space-between' }}>
         <Button
           variant="outlined"
@@ -439,7 +380,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
         >
           Cancel
         </Button>
-        <Button
+        <LoadingButton
           variant="contained"
           color="primary"
           sx={{
@@ -451,7 +392,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({ open, onCl
           onClick={handleSubmit(onSubmit)}
         >
           Add Insurance
-        </Button>
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   );

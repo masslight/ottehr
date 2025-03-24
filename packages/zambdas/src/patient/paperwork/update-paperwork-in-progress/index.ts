@@ -9,8 +9,8 @@ import { topLevelCatch } from 'zambda-utils';
 import '../../shared/instrument.mjs';
 import { captureSentryException, configSentry, getAuth0Token, getUser } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { createOrUpdateFlags } from '../sharedHelpers';
 import { validateUpdatePaperworkParams } from './validateRequestParameters';
+import { createOrUpdateFlags } from '../sharedHelpers';
 
 // Lifting the token out of the handler function allows it to persist across warm lambda invocations.
 export let token: string;

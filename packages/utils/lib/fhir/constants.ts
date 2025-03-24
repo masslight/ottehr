@@ -1,3 +1,4 @@
+import { Account, Identifier } from 'fhir/r4b';
 import {
   AppointmentType,
   CONSENT_CODE,
@@ -313,8 +314,34 @@ export const SUBSCRIBER_RELATIONSHIP_CODE_MAP: Record<string, string> = {
   Child: 'child',
   Parent: 'parent',
   Spouse: 'spouse',
+  'Common Law Spouse': 'common',
   Other: 'other',
   Self: 'self',
+  'Injured Party': 'injured',
+};
+
+// this is recquired by US Core
+// https://build.fhir.org/ig/HL7/US-Core/StructureDefinition-us-core-coverage-definitions.html#key_Coverage.identifier:memberid.type
+export const COVERAGE_MEMBER_IDENTIFIER_BASE: Partial<Identifier> = {
+  type: {
+    coding: [
+      {
+        system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+        code: 'MB',
+        display: 'Member Number',
+      },
+    ],
+  },
+};
+
+export const PATIENT_BILLING_ACCOUNT_TYPE: Account['type'] = {
+  coding: [
+    {
+      system: 'http://terminology.hl7.org/CodeSystem/account-type',
+      code: 'PBILLACCT',
+      display: 'patient billing account',
+    },
+  ],
 };
 
 export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
@@ -367,4 +394,12 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
     answer: `${PRIVATE_EXTENSION_BASE_URL}/text-when-answer`,
     substituteText: `${PRIVATE_EXTENSION_BASE_URL}/text-when-substitute-text`,
   },
+};
+
+// https://hl7.org/fhir/R4B/valueset-audit-event-outcome.html
+export const AUDIT_EVENT_OUTCOME_CODE = {
+  success: '0',
+  minorFailure: '4',
+  seriousFailure: '8',
+  majorFailure: '12',
 };

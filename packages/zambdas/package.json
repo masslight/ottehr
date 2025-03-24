@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.4.4",
+  "version": "1.4.11",
   "private": true,
   "scripts": {
     "start": "ENV=${ENV:-local} export HOME=./ && npm run setup-deployed-resources ${ENV:-local} && env-cmd -f ./.env/${ENV:-local}.json sls offline --stage ${ENV:-local}",
@@ -31,7 +31,7 @@
     "setup-questionnaires": "tsx src/scripts/setup-questionnaires.ts",
     "setup-billing-providers": "tsx src/scripts/setup-billing-providers.ts",
     "setup-deployed-resources": "tsx src/scripts/setup-questionnaires.ts ${ENV} && tsx src/scripts/setup-billing-providers.ts ${ENV}",
-    "test": "vitest --silent"
+    "test": "vitest"
   },
   "engines": {
     "node": ">=20.0.0",

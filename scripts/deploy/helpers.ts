@@ -68,8 +68,8 @@ export async function updateZapehr(intakeDistribution: string, ehrDistribution: 
 
 export async function updateZambdas(
   environment: string,
-  intakeDistribution: DistributionSummary | undefined,
-  ehrDistribution: DistributionSummary | undefined
+  intakeDistribution: DistributionSummary | string | undefined,
+  ehrDistribution: DistributionSummary | string | undefined
 ): Promise<void> {
   console.log(__dirname);
   let intakeEnvFile = fs.readFileSync(`${__dirname}/../../apps/intake/env/.env.${environment}`, 'utf8');
@@ -83,16 +83,30 @@ export async function updateZambdas(
   ehrEnvFile = ehrEnvFile.replace('VITE_APP_IS_LOCAL=true', 'VITE_APP_IS_LOCAL=false');
 
   if (ehrDistribution) {
-    ehrEnvFile = ehrEnvFile.replace(
-      'VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL=http://localhost:4002',
-      `VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL=https://${ehrDistribution.DomainName}`
-    );
+    if (typeof ehrDistribution === 'string') {
+      ehrEnvFile = ehrEnvFile.replace(
+        'VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL=http://localhost:4002',
+        `VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL=${ehrDistribution}`
+      );
+    } else {
+      ehrEnvFile = ehrEnvFile.replace(
+        'VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL=http://localhost:4002',
+        `VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL=https://${ehrDistribution.DomainName}`
+      );
+    }
   }
   if (intakeDistribution) {
-    ehrEnvFile = ehrEnvFile.replace(
-      'VITE_APP_QRS_URL=http://localhost:3002',
-      `VITE_APP_QRS_URL=https://${intakeDistribution.DomainName}`
-    );
+    if (typeof intakeDistribution === 'string') {
+      ehrEnvFile = ehrEnvFile.replace(
+        'VITE_APP_QRS_URL=http://localhost:3002',
+        `VITE_APP_QRS_URL=${intakeDistribution}`
+      );
+    } else {
+      ehrEnvFile = ehrEnvFile.replace(
+        'VITE_APP_QRS_URL=http://localhost:3002',
+        `VITE_APP_QRS_URL=https://${intakeDistribution.DomainName}`
+      );
+    }
   }
 
   fs.writeFileSync(`${__dirname}/../../apps/intake/env/.env.${environment}`, intakeEnvFile);
