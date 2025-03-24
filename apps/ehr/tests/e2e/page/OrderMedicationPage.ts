@@ -7,9 +7,11 @@ import { SideMenu } from './SideMenu';
 
 export class OrderMedicationPage {
   #page: Page;
+  #editMedicationCard: EditMedicationCard;
 
   constructor(page: Page) {
     this.#page = page;
+    this.#editMedicationCard = new EditMedicationCard(this.#page);
   }
 
   cssHeader(): CssHeader {
@@ -21,7 +23,7 @@ export class OrderMedicationPage {
   }
 
   editMedicationCard(): EditMedicationCard {
-    return new EditMedicationCard(this.#page);
+    return this.#editMedicationCard;
   }
 
   async verifyFillOrderToSaveButtonDisabled(): Promise<void> {
