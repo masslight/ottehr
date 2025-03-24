@@ -24,9 +24,8 @@ import {
   Patient,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { BatchInputRequest, Bundle } from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import Oystehr from '@oystehr/sdk';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
 
 export interface SubmitLabOrder {

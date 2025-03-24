@@ -1,10 +1,13 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import {
   ActivityDefinition,
+  Appointment,
   Bundle,
+  BundleEntry,
   DiagnosticReport,
   Encounter,
   Observation,
+  Resource,
   Practitioner,
   ServiceRequest,
   Task,
@@ -24,12 +27,23 @@ export const transformToLabOrderDTOs = (
   tasks: Task[],
   diagnosticReports: DiagnosticReport[],
   practitioners: Practitioner[],
-  encounters: Encounter[]
+  encounters: Encounter[],
+  appointments: Appointment[]
 ): LabOrderDTO[] => {
   return serviceRequests.map((serviceRequest) => {
     if (!serviceRequest.id) {
       throw new Error('ServiceRequest ID is required');
     }
+
+    const pstTask = parseTaskPST(tasks);
+
+    const orderAdded = pstTask?.authoredOn || '';
+
+    const appointmentId = parseAppointmentId(serviceRequest, encounters);
+
+    const appointment = appointments.find((a) => a.id === appointmentId);
+
+    const visitDate = appointment?.created || '';
 
     const practitionerId = parsePractitionerId(serviceRequest);
 
@@ -47,18 +61,31 @@ export const transformToLabOrderDTOs = (
 
     const accessionNumber = parseAccessionNumber(tests);
 
+    // Results received, Task(RFRT).authoredOn, For the most recent RFRT task
+    // todo: check is the data correct? 'Invalid date' in UI
+    const resultsReceived =
+      parseTasksRFRT(tasks)
+        .filter((task) => Boolean(task.authoredOn))
+        .sort((a, b) => {
+          const dateA = new Date(a.authoredOn as string);
+          const dateB = new Date(b.authoredOn as string);
+          return dateB.getTime() - dateA.getTime();
+        })[0]?.authoredOn || '';
+
     return {
       id: serviceRequest.id,
-      appointmentId: parseAppointmentId(serviceRequest, encounters),
+      appointmentId,
       type,
       location,
-      orderAdded: serviceRequest.authoredOn || 'Unknown', // todo: by the design authoredOn should be here, but during testing it's not
+      orderAdded,
+      visitDate,
       provider: getPractitionerName(practitionerId, practitioners),
       diagnoses,
       status,
       isPSC,
       reflexTestsCount,
       accessionNumber,
+      resultsReceived,
     };
   });
 };
@@ -74,6 +101,7 @@ export const getLabResources = async (
   pagination: Pagination;
   encounters: Encounter[];
   observations: Observation[];
+  appointments: Appointment[];
 }> => {
   // const { encounterId, testType } = params;
   const labOrdersSearchParams = createLabOrdersSearchParams(params);
@@ -90,18 +118,22 @@ export const getLabResources = async (
 
   const { serviceRequests, tasks, encounters, diagnosticReports, observations } = extractLabResources(labResources);
 
-  const [practitioners] = await Promise.all([
-    serviceRequests.length > 0 ? fetchPractitionersForServiceRequests(oystehr, serviceRequests) : Promise.resolve([]),
+  const [practitioners, appointments] = await Promise.all([
+    fetchPractitionersForServiceRequests(oystehr, serviceRequests),
+    fetchAppointmentsForServiceRequests(oystehr, serviceRequests, encounters),
   ]);
+
+  const pagination = parsePaginationFromResponse(labOrdersResponse);
 
   return {
     serviceRequests,
     tasks,
     diagnosticReports,
     practitioners,
-    pagination: parsePaginationFromResponse(labOrdersResponse),
     encounters,
     observations,
+    appointments,
+    pagination,
   };
 };
 
@@ -233,6 +265,10 @@ export const fetchPractitionersForServiceRequests = async (
   oystehr: Oystehr,
   serviceRequests: ServiceRequest[]
 ): Promise<Practitioner[]> => {
+  if (!serviceRequests.length) {
+    return [] as Practitioner[];
+  }
+
   const practitionerRefs = serviceRequests
     .map((sr) => sr.requester?.reference)
     .filter(Boolean)
@@ -257,14 +293,39 @@ export const fetchPractitionersForServiceRequests = async (
       requests: practitionerRequest,
     });
 
-    return (practitionerResponse.entry || [])
-      .filter((entry) => entry.response?.status?.startsWith('2')) // todo: should we filter out failed responses like this?
-      .map((entry) => entry.resource)
-      .filter((resource): resource is Practitioner => resource?.resourceType === 'Practitioner');
+    return mapResourcesFromBundleEntry<Practitioner>(practitionerResponse.entry).filter(
+      (resource): resource is Practitioner => resource?.resourceType === 'Practitioner'
+    );
   } catch (error) {
     console.error(`Failed to fetch Practitioners`, JSON.stringify(error, null, 2));
     return [];
   }
+};
+
+export const fetchAppointmentsForServiceRequests = async (
+  oystehr: Oystehr,
+  serviceRequests: ServiceRequest[],
+  encounters: Encounter[]
+): Promise<Appointment[]> => {
+  const appointmentsIds = serviceRequests.map((sr) => parseAppointmentId(sr, encounters)).filter(Boolean);
+
+  if (!appointmentsIds.length) {
+    return [] as Appointment[];
+  }
+
+  const appointmentsResponse = await oystehr.fhir.search({
+    resourceType: 'Appointment',
+    params: [
+      {
+        name: '_id',
+        value: appointmentsIds.join(','),
+      },
+    ],
+  });
+
+  const appointments = appointmentsResponse.unbundle();
+
+  return appointments;
 };
 
 // todo: update logic, see the doc UI status label ←→ FHIR model source mapping https://docs.google.com/document/d/1iiZOHzr6RG-EvFaqu8OQxj6URpnEOA30XyJgCGx3wfs/edit?tab=t.0#heading=h.pn9f8pddk4sb
@@ -508,4 +569,53 @@ export const parseAccessionNumber = (tests: DiagnosticReport[]): string => {
   }
 
   return NOT_FOUND;
+};
+
+export const parseTaskPST = (tasks: Task[]): Task | null => {
+  for (const task of tasks) {
+    if (isTaskPST(task)) {
+      return task;
+    }
+  }
+
+  return null;
+};
+
+export const parseTasksRFRT = (tasks: Task[]): Task[] => {
+  return tasks.filter(isTaskRFRT);
+};
+
+export const parseTasksRPRT = (tasks: Task[]): Task[] => {
+  return tasks.filter(isTaskRPRT);
+};
+
+export const isTaskPST = (task: Task): boolean => {
+  return (
+    task.code?.coding?.some(
+      (coding) => coding.system === LAB_ORDER_TASK.system && coding.code === LAB_ORDER_TASK.code.presubmission
+    ) || false
+  );
+};
+
+export const isTaskRFRT = (task: Task): boolean => {
+  return (
+    task.code?.coding?.some(
+      (coding) => coding.system === LAB_ORDER_TASK.system && coding.code === LAB_ORDER_TASK.code.reviewFinalResult
+    ) || false
+  );
+};
+
+export const isTaskRPRT = (task: Task): boolean => {
+  return (
+    task.code?.coding?.some(
+      (coding) => coding.system === LAB_ORDER_TASK.system && coding.code === LAB_ORDER_TASK.code.reviewPreliminaryResult
+    ) || false
+  );
+};
+
+export const mapResourcesFromBundleEntry = <T = Resource>(bundleEntry: BundleEntry<T>[] | undefined): T[] => {
+  return (bundleEntry || ([] as BundleEntry<T>[]))
+    .filter((entry) => entry.response?.status?.startsWith('2')) // todo: should we filter out failed responses like this?
+    .map((entry) => entry.resource)
+    .filter(Boolean) as T[];
 };

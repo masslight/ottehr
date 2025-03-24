@@ -13,7 +13,7 @@ export const LAB_ORDER_TASK = {
     reviewPreliminaryResult: 'RPRT',
     reviewFinalResult: 'RFRT',
   },
-};
+} as const;
 
 export const LAB_ORG_TYPE_CODING = { system: 'http://snomed.info/sct', code: '261904005', display: 'Laboratory' };
 

@@ -68,7 +68,7 @@ export interface LabOrderDTO {
   id: string; // ServiceRequest.id
   type: string; // ServiceRequest.contained[0](ActivityDefinition).title
   location: string; // ServiceRequest.contained[0](ActivityDefinition).publisher
-  orderAdded: string; // SR.authoredOn
+  orderAdded: string; // Task PST authoredOn
   provider: string; // SR.requester
   diagnoses: DiagnosisDTO[]; // SR.reasonCode
   status: ExternalLabsStatus; // Derived from SR, Tasks and DiagnosticReports based on the mapping table
@@ -76,6 +76,8 @@ export interface LabOrderDTO {
   reflexTestsCount: number; // Number of DiagnosticReports with the same SR identifier but different test codes
   appointmentId: string;
   accessionNumber: string;
+  visitDate: string;
+  resultsReceived: string; // the most recent Task RFRT.authoredOn
 }
 
 export interface Pagination {

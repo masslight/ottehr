@@ -63,10 +63,6 @@ export const getStatusColor = (status: string): string => {
   }
 };
 
-export const getVisitDate = (labOrderData: LabOrderDTO): string => {
-  return formatDate(labOrderData.orderAdded);
-};
-
 // todo: move to LabOrderDTO
 export const getResultsReceivedDate = (labOrderData: LabOrderDTO): string => {
   if (labOrderData.status === 'received' || labOrderData.status === 'reviewed') {

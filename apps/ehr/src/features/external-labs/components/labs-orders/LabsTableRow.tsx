@@ -48,9 +48,9 @@ export const LabsTableRow = ({
           </Box>
         );
       case 'visit':
-        return getVisitDate(labOrderData);
+        return <DateTimeDisplay dateTimeString={labOrderData.visitDate} />;
       case 'orderAdded':
-        return formatDate(labOrderData.orderAdded);
+        return <DateTimeDisplay dateTimeString={labOrderData.orderAdded} />;
       case 'provider':
         return labOrderData.provider || '';
       case 'dx': {
@@ -65,7 +65,7 @@ export const LabsTableRow = ({
         return <Typography variant="body2">{getFormattedDiagnoses(labOrderData.diagnoses || [])}</Typography>;
       }
       case 'resultsReceived':
-        return getResultsReceivedDate(labOrderData);
+        return <DateTimeDisplay dateTimeString={labOrderData.resultsReceived} />;
       case 'accessionNumber':
         return labOrderData.accessionNumber;
       case 'status':
@@ -115,5 +115,24 @@ export const LabsTableRow = ({
         <TableCell key={column}>{renderCellContent(column)}</TableCell>
       ))}
     </TableRow>
+  );
+};
+
+const DateTimeDisplay = ({ dateTimeString }: { dateTimeString: string }): ReactElement => {
+  const dateTimeRegex = /^(\d{2}\/\d{2}\/\d{4}) (\d{2}:\d{2} [AP]M)$/;
+  const formattedDate = formatDate(dateTimeString);
+  const match = formattedDate.match(dateTimeRegex);
+
+  if (!match) {
+    return <Box>{formattedDate}</Box>;
+  }
+
+  const [, dateStr, timeStr] = match;
+
+  return (
+    <Box>
+      <Typography variant="body2">{dateStr}</Typography>
+      <Typography variant="body2">{timeStr}</Typography>
+    </Box>
   );
 };
