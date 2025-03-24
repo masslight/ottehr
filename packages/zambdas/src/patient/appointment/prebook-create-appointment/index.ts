@@ -16,6 +16,7 @@ import {
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   Resource,
+  Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
@@ -32,6 +33,7 @@ import {
   formatPhoneNumber,
   formatPhoneNumberDisplay,
   getCanonicalQuestionnaire,
+  getTaskResource,
   makePrepopulatedItemsForPatient,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   OTTEHR_MODULE,
@@ -39,6 +41,7 @@ import {
   REASON_MAXIMUM_CHAR_LIMIT,
   ScheduleType,
   ServiceMode,
+  TaskIndicator,
   userHasAccessToPatient,
   VisitType,
 } from 'utils';
@@ -251,6 +254,23 @@ export async function createAppointment(
   }
 
   console.log('success, here is the id: ', appointment.id);
+
+  // this is done after the performTransactionalFhirRequests because it needs the appointment id
+  try {
+    const confirmationTextTask = getTaskResource(TaskIndicator.confirmationMessages, appointment.id || '');
+    const taskRequest: BatchInputPostRequest<Task> = {
+      method: 'POST',
+      url: '/Task',
+      resource: confirmationTextTask,
+    };
+    console.log('making transaction request to create task to send text');
+    await oystehr.fhir.transaction({
+      requests: [taskRequest],
+    });
+  } catch (error) {
+    console.error('Error creating task to send text', error);
+  }
+
   return {
     message: 'Successfully created an appointment and encounter',
     appointment: appointment.id || '',

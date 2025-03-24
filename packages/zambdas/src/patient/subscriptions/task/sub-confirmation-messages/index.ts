@@ -1,6 +1,6 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Location, Patient, RelatedPerson } from 'fhir/r4b';
+import { Appointment, HealthcareService, Location, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { DATETIME_FULL_NO_YEAR, TaskStatus, VisitType, getPatientContactEmail, getPatientFirstName } from 'utils';
 import { ZambdaInput } from 'zambda-utils';
@@ -43,11 +43,11 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     console.log('searching for appointment, location and patient resources related to this task');
     let fhirAppointment: Appointment | undefined,
-      fhirLocation: Location | undefined,
+      fhirSchedule: Location | HealthcareService | Practitioner | undefined,
       fhirPatient: Patient | undefined,
       fhirRelatedPerson: RelatedPerson | undefined;
     const allResources = (
-      await oystehr.fhir.search<Appointment | Location | Patient | RelatedPerson>({
+      await oystehr.fhir.search<Appointment | Location | HealthcareService | Practitioner | Patient | RelatedPerson>({
         resourceType: 'Appointment',
         params: [
           {
@@ -57,6 +57,14 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
           {
             name: '_include',
             value: 'Appointment:location',
+          },
+          {
+            name: '_include',
+            value: 'Appointment:actor:HealthcareService',
+          },
+          {
+            name: '_include',
+            value: 'Appointment:actor:Practitioner',
           },
           {
             name: '_include',
@@ -76,7 +84,13 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         fhirAppointment = resource as Appointment;
       }
       if (resource.resourceType === 'Location') {
-        fhirLocation = resource as Location;
+        fhirSchedule = resource as Location;
+      }
+      if (resource.resourceType === 'HealthcareService') {
+        fhirSchedule = resource as HealthcareService;
+      }
+      if (resource.resourceType === 'Practitioner') {
+        fhirSchedule = resource as Practitioner;
       }
       if (resource.resourceType === 'Patient') {
         fhirPatient = resource as Patient;
@@ -94,14 +108,14 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     const missingResources = [];
     if (!fhirAppointment) missingResources.push('appointment');
-    if (!fhirLocation) missingResources.push('location');
+    if (!fhirSchedule) missingResources.push('location, healthcare service, or practitioner');
     if (!fhirPatient) missingResources.push('patient');
 
-    if (!fhirAppointment || !fhirLocation || !fhirPatient) {
-      throw new Error(`missing the following vital resources: ${missingResources.join(',')}`);
+    if (!fhirAppointment || !fhirSchedule || !fhirPatient) {
+      throw new Error(`missing the following vital resources: ${missingResources.join(';')}`);
     }
 
-    const timezone = fhirLocation.extension?.find(
+    const timezone = fhirSchedule.extension?.find(
       (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
     )?.valueString;
     const visitType = fhirAppointment.appointmentType?.text ?? 'Unknown';
@@ -117,7 +131,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
           `RelatedPerson/${fhirRelatedPerson?.id}`,
           startTime.setZone(timezone).toFormat(DATETIME_FULL_NO_YEAR),
           secrets,
-          fhirLocation,
+          fhirSchedule,
           fhirAppointment.id,
           visitType,
           'en', // todo: pass this in from somewhere
