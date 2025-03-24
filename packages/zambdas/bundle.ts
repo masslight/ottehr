@@ -17,8 +17,6 @@ import ottehrSpec from './ottehr-spec.json';
 
 // plugins.push(sentryPlugin);
 
-// ottehrSpec.
-
 interface ZambdaSpec {
   name: string;
   type: string;
