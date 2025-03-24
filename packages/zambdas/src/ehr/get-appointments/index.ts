@@ -48,6 +48,7 @@ import {
   timezoneMap,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+import { isNonPaperworkQuestionnaireResponse } from '../../common';
 
 export interface GetAppointmentsInput {
   searchDate: string;
@@ -162,7 +163,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
               : Promise.resolve(null);
 
           const [appointmentResponse, encounters] = await Promise.all([appointmentPromise, encounterPromise]);
-          const appointments = appointmentResponse.unbundle();
+          const appointments = appointmentResponse
+            .unbundle()
+            .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
 
           return { appointments, encounters };
         })

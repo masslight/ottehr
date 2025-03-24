@@ -15,6 +15,7 @@ import {
 } from 'fhir/r4b';
 import { getVideoRoomResourceExtension } from '../../helpers';
 import { VideoResourcesAppointmentPackage } from './types';
+import { isNonPaperworkQuestionnaireResponse } from '../../../../common';
 
 export const getVideoResources = async (
   oystehr: Oystehr,
@@ -108,7 +109,9 @@ export const getVideoResources = async (
         },
       ],
     })
-  ).unbundle();
+  )
+    .unbundle()
+    .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
 
   const appointment: Appointment | undefined = items.find((item: Resource) => {
     return item.resourceType === 'Appointment';
