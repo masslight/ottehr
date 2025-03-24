@@ -108,9 +108,7 @@ function composeDataForPdf(
   const medications = chartData.medications ? mapResourceByNameField(chartData.medications) : [];
 
   // --- Allergies ---
-  const allergies = chartData.allergies
-    ? mapResourceByNameField(chartData?.allergies?.filter((allergy) => allergy.current === true))
-    : [];
+  const allergies = chartData.allergies ? mapResourceByNameField(chartData.allergies) : [];
 
   // --- Medical conditions ---
   const medicalConditions = mapMedicalConditions(chartData);
@@ -343,8 +341,7 @@ function mapResourceByNameField(data: { name?: string }[] | CPTCodeDTO[]): strin
 
 function mapMedicalConditions(chartData: GetChartDataResponse): string[] {
   const medicalConditions: string[] = [];
-  const conditions = chartData?.conditions?.filter((condition) => condition.current === true);
-  conditions?.forEach((mc) => {
+  chartData?.conditions?.forEach((mc) => {
     if (mc.display && mc.code) medicalConditions.push(`${mc.display} ${mc.code}`);
   });
   return medicalConditions;

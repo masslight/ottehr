@@ -148,6 +148,24 @@ export class Locators {
   covidSymptoms: (flag: string) => Locator;
   testedPositiveCovid: (flag: string) => Locator;
   travelUSA: (flag: string) => Locator;
+  finishButton: Locator;
+  patientNamePaperworkReviewScreen: Locator;
+  locationNamePaperworkReviewScreen: Locator;
+  checkInTimePaperworkReviewScreen: Locator;
+  contactInformationEditButton: Locator;
+  patientDetailsEditButton: Locator;
+  pcpEditButton: Locator;
+  insuranceDetailsEditButton: Locator;
+  responsiblePartyEditButton: Locator;
+  photoIdEditButton: Locator;
+  consentFormsEditButton: Locator;
+  contactInformationChipStatus: Locator;
+  patientDetailsChipStatus: Locator;
+  pcpChipStatus: Locator;
+  insuranceDetailsChipStatus: Locator;
+  responsiblePartyChipStatus: Locator;
+  photoIdChipStatus: Locator;
+  consentFormsChipStatus: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -328,6 +346,26 @@ export class Locators {
     this.testedPositiveCovid = (flag) =>
       page.locator(`div[aria-labelledby='tested-positive-covid-label'] input[value='${flag}']`);
     this.travelUSA = (flag) => page.locator(`div[aria-labelledby='travel-usa-label'] input[value='${flag}']`);
+
+    // Paperwork - Review and Submit locators
+    this.finishButton = page.getByRole('button', { name: 'Finish' });
+    this.patientNamePaperworkReviewScreen = page.getByTestId(dataTestIds.patientNamePaperworkReviewScreen);
+    this.locationNamePaperworkReviewScreen = page.getByTestId(dataTestIds.locationNamePaperworkReviewScreen);
+    this.checkInTimePaperworkReviewScreen = page.getByTestId(dataTestIds.checkInTimePaperworkReviewScreen);
+    this.contactInformationEditButton = page.getByTestId('contact-information-page-edit');
+    this.patientDetailsEditButton = page.getByTestId('patient-details-page-edit');
+    this.pcpEditButton = page.getByTestId('primary-care-physician-page-edit');
+    this.insuranceDetailsEditButton = page.getByTestId('payment-option-page-edit');
+    this.responsiblePartyEditButton = page.getByTestId('responsible-party-page-edit');
+    this.photoIdEditButton = page.getByTestId('photo-id-page-edit');
+    this.consentFormsEditButton = page.getByTestId('consent-forms-page-edit');
+    this.contactInformationChipStatus = page.locator('[data-testid="contact-information-page-status"] div');
+    this.patientDetailsChipStatus = page.locator('[data-testid="patient-details-page-status"] div');
+    this.pcpChipStatus = page.locator('[data-testid="primary-care-physician-page-status"] div');
+    this.insuranceDetailsChipStatus = page.locator('[data-testid="payment-option-page-status"] div');
+    this.responsiblePartyChipStatus = page.locator('[data-testid="responsible-party-page-status"] div');
+    this.photoIdChipStatus = page.locator('[data-testid="photo-id-page-status"] div');
+    this.consentFormsChipStatus = page.locator('[data-testid="consent-forms-page-status"] div');
   }
 
   private getInputByValue(value: string): Locator {

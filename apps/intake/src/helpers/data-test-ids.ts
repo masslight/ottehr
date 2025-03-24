@@ -19,4 +19,8 @@ export const dataTestIds = {
   termsAndConditionsReviewScreen: 'terms-conditions-review-screen',
   thankYouPageSelectedTimeBlock: 'thank-you-page-selected-time-block',
   backButton: 'control-back-button',
+  editButtonReviewScreen: 'edit-button-review-screen',
+  patientNamePaperworkReviewScreen: 'patient-name',
+  locationNamePaperworkReviewScreen: 'location-name',
+  checkInTimePaperworkReviewScreen: 'check-in-time',
 };

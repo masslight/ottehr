@@ -21,3 +21,4 @@ export * from './sign-appointment';
 export * from './sync-user';
 export * from './unassign-practitioner';
 export * from './user.types';
+export * from './patient-account';

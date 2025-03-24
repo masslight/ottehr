@@ -140,8 +140,7 @@ test.describe('Payment option - Check Self pay and insurance options', () => {
     await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
   });
-  // Need to uncomment when https://github.com/masslight/ottehr/issues/1515 is fixed
-  test.skip('PPO-2 Payment option - Check required fields', async () => {
+  test('PPO-2 Payment option - Check required fields', async () => {
     await paperwork.checkRequiredFields('"Select payment option"', 'How would you like to pay for your visit?', false);
   });
   test('PPO-3 Payment option - Check patient name is displayed', async () => {
@@ -359,8 +358,7 @@ test.describe('Responsible party information - check and fill all fields', () =>
   test('PRPI-1 Check patient name is displayed', async () => {
     await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
   });
-  //need to uncomment when https://github.com/masslight/ottehr/issues/1514 fixed
-  test.skip('PRPI-2 Check required fields', async () => {
+  test('PRPI-2 Check required fields', async () => {
     await paperwork.checkRequiredFields(
       '"Relationship to the patient","First name","Last name","Date of birth","Birth sex"',
       'Responsible party information',

@@ -1,37 +1,38 @@
-import { Operation } from 'fast-json-patch';
 import {
   Appointment,
   Bundle,
-  Coverage,
   Encounter,
   EncounterStatusHistory,
   FhirResource,
   InsurancePlan,
   Location,
   Patient,
+  Questionnaire,
+  QuestionnaireResponse,
   RelatedPerson,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
-import { BatchInputPostRequest, SearchParam } from '@oystehr/sdk';
+import { SearchParam } from '@oystehr/sdk';
 import { useMutation, useQuery } from 'react-query';
 import {
   getFirstName,
   getLastName,
-  getPatchBinary,
   PROJECT_MODULE,
-  ResourceTypeNames,
   getVisitStatusHistory,
   getVisitTotalTime,
-  consolidateOperations,
-  PatientMasterRecordResource,
+  PromiseReturnType,
+  RemoveCoverageZambdaInput,
 } from 'utils';
 import { getTimezone } from '../helpers/formatDateTime';
 import { getPatientNameSearchParams } from '../helpers/patientSearch';
-import { usePatientStore } from '../state/patient.store';
 import { getVisitTypeLabelForAppointment } from '../types/types';
 import { useApiClients } from './useAppClients';
 import { enqueueSnackbar } from 'notistack';
+import { OystehrTelemedAPIClient } from '../telemed/data';
+import { useZapEHRAPIClient } from '../telemed/hooks/useOystehrAPIClient';
+
+const updateQRUrl = import.meta.env.VITE_APP_EHR_ACCOUNT_UPDATE_FORM;
 
 const getTelemedLength = (history?: EncounterStatusHistory[]): number => {
   const value = history?.find((item) => item.status === 'in-progress');
@@ -257,181 +258,61 @@ export const useGetPatientQuery = (
   );
 };
 
-const preprocessUpdateOperations = (operations: Operation[], resource: PatientMasterRecordResource): Operation[] => {
-  const processedOps = consolidateOperations(operations, resource);
-  const telecomOp = processedOps.find((op) => op.path === '/telecom');
-  if (telecomOp && telecomOp.op === 'add') {
-    telecomOp.value = deduplicateContacts(telecomOp.value);
-  }
-
-  if (resource.resourceType === ResourceTypeNames.patient) {
-    // Find name-related operations and add old name to the list
-    const nameOperations = operations.filter(
-      (op) => op.path.startsWith('/name/0/') && (op.op === 'replace' || op.op === 'remove')
-    );
-
-    if (nameOperations.length > 0) {
-      const currentOfficialName = (resource as Patient).name?.find((name) => name.use === 'official');
-      if (currentOfficialName) {
-        processedOps.push({
-          op: 'add',
-          path: '/name/-',
-          value: {
-            ...currentOfficialName,
-            use: 'old',
-          },
-        });
-      }
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useGetPatientAccount = (
+  {
+    apiClient,
+    patientId,
+  }: {
+    apiClient: OystehrTelemedAPIClient | null;
+    patientId: string | null;
+  },
+  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientAccount']>>) => void
+) => {
+  return useQuery(
+    ['patient-account-get', { apiClient, patientId }],
+    () => {
+      return apiClient!.getPatientAccount({
+        patientId: patientId!,
+      });
+    },
+    {
+      onSuccess,
+      onError: (err) => {
+        console.error('Error fetching patient account: ', err);
+      },
+      enabled: apiClient != null && patientId != null,
     }
-  }
-
-  return processedOps;
+  );
 };
 
-type Contact = { system: string; value: string };
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useRemovePatientCoverage = () => {
+  const apiClient = useZapEHRAPIClient();
 
-function deduplicateContacts(contacts: Contact[]): Contact[] {
-  const lastContacts = new Map();
-
-  for (let i = contacts.length - 1; i >= 0; i--) {
-    if (!lastContacts.has(contacts[i].system)) {
-      lastContacts.set(contacts[i].system, contacts[i]);
+  return useMutation(['remove-patient-coverage'], async (input: RemoveCoverageZambdaInput): Promise<void> => {
+    try {
+      if (!apiClient || !input) return;
+      await apiClient.removePatientCoverage(input);
+    } catch (error) {
+      console.error(error);
+      throw error;
     }
-  }
-
-  return Array.from(lastContacts.values());
-}
+  });
+};
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useUpdatePatient = () => {
-  const {
-    patient,
-    insurances,
-    policyHolders,
-    tempInsurances,
-    patchOperations,
-    setPatient,
-    setInsurances,
-    setPolicyHolders,
-  } = usePatientStore();
-  const { oystehr } = useApiClients();
+export const useUpdatePatientAccount = (onSuccess?: () => void) => {
+  const apiClient = useZapEHRAPIClient();
 
   return useMutation(
-    ['update-patient'],
-    async (): Promise<void> => {
+    ['update-patient-account'],
+    async (questionnaireResponse: QuestionnaireResponse): Promise<void> => {
       try {
-        if (!oystehr || !patient) return;
-        const patchRequests = [];
-
-        // Process Patient patches
-        if (patchOperations?.patient.length > 0) {
-          const processedPatientOperations = preprocessUpdateOperations(patchOperations?.patient || [], patient);
-          const patientPatch = getPatchBinary({
-            resourceId: patient.id!,
-            resourceType: ResourceTypeNames.patient,
-            patchOperations: processedPatientOperations,
-          });
-          patchRequests.push(patientPatch);
-        }
-
-        // Process Coverage patches
-        if (patchOperations?.coverages && Object.keys(patchOperations?.coverages).length > 0) {
-          Object.entries(patchOperations?.coverages || {}).forEach(([coverageId, operations]) => {
-            const coverage = insurances.find((ins) => ins.id === coverageId);
-            if (coverage) {
-              const processedCoverageOperations = preprocessUpdateOperations(operations, coverage);
-              const coveragePatch = getPatchBinary({
-                resourceType: ResourceTypeNames.coverage,
-                resourceId: coverageId,
-                patchOperations: processedCoverageOperations,
-              });
-              patchRequests.push(coveragePatch);
-            }
-          });
-        }
-
-        // Process RelatedPerson patches
-        if (patchOperations?.relatedPersons && Object.keys(patchOperations?.relatedPersons).length > 0) {
-          Object.entries(patchOperations?.relatedPersons || {}).forEach(([relatedPersonId, operations]) => {
-            const relatedPersonPatch = getPatchBinary({
-              resourceType: ResourceTypeNames.relatedPerson,
-              resourceId: relatedPersonId,
-              patchOperations: operations,
-            });
-            patchRequests.push(relatedPersonPatch);
-          });
-        }
-
-        // Create POST requests for temporary insurances
-        const postInsuranceRequests: BatchInputPostRequest<FhirResource>[] = tempInsurances.flatMap(
-          ({ coverage, relatedPerson }) => [
-            {
-              method: 'POST',
-              url: '/RelatedPerson',
-              resource: relatedPerson,
-            },
-            {
-              method: 'POST',
-              url: '/Coverage',
-              resource: coverage,
-            },
-          ]
-        );
-
-        const response = await oystehr.fhir.transaction({
-          requests: [...patchRequests, ...postInsuranceRequests],
+        if (!apiClient || !questionnaireResponse) return;
+        await apiClient.updatePatientAccount({
+          questionnaireResponse,
         });
-
-        const updatedPatient = response.entry?.find(
-          (entry) => entry.resource?.resourceType === ResourceTypeNames.patient && entry.resource?.id === patient.id
-        )?.resource as Patient;
-
-        const updatedCoverages = response.entry
-          ?.filter((entry) => entry.resource?.resourceType === ResourceTypeNames.coverage)
-          .map((entry) => entry.resource as Coverage)
-          .filter((coverage) => coverage.status === 'active') as Coverage[];
-
-        const updatedRelatedPersons = response.entry
-          ?.filter((entry) => entry.resource?.resourceType === ResourceTypeNames.relatedPerson)
-          .map((entry) => entry.resource) as RelatedPerson[];
-
-        // Update store with all updated resources
-        if (updatedPatient) setPatient(updatedPatient);
-        if (updatedCoverages.length > 0) {
-          const updatedInsuranceIds = updatedCoverages.map((coverage) => coverage.id);
-
-          const mergedInsurances = insurances
-            .map((insurance) =>
-              updatedInsuranceIds.includes(insurance.id)
-                ? updatedCoverages.find((updated) => updated.id === insurance.id)
-                : insurance
-            )
-            .filter((insurance): insurance is Coverage => insurance !== undefined);
-
-          const newInsurances = updatedCoverages.filter(
-            (updated) => !insurances.some((existing) => existing.id === updated.id)
-          );
-
-          setInsurances([...mergedInsurances, ...newInsurances]);
-        }
-
-        if (updatedRelatedPersons.length > 0) {
-          const updatedPolicyHolderIds = updatedRelatedPersons.map((relatedPerson) => relatedPerson.id);
-
-          const mergedPolicyHolders = policyHolders
-            .map((policyHolder) =>
-              updatedPolicyHolderIds.includes(policyHolder.id)
-                ? updatedRelatedPersons.find((updated) => updated.id === policyHolder.id)
-                : policyHolder
-            )
-            .filter((policyHolder): policyHolder is RelatedPerson => policyHolder !== undefined);
-
-          const newPolicyHolders = updatedRelatedPersons.filter(
-            (updated) => !policyHolders.some((existing) => existing.id === updated.id)
-          );
-
-          setPolicyHolders([...mergedPolicyHolders, ...newPolicyHolders]);
-        }
       } catch (error) {
         console.error(error);
         throw error;
@@ -442,6 +323,9 @@ export const useUpdatePatient = () => {
         enqueueSnackbar('Patient information updated successfully', {
           variant: 'success',
         });
+        if (onSuccess) {
+          onSuccess();
+        }
       },
       onError: () => {
         enqueueSnackbar('Save operation failed. The server encountered an error while processing your request.', {
@@ -484,6 +368,50 @@ export const useGetInsurancePlans = (onSuccess: (data: Bundle<InsurancePlan>) =>
       onSuccess,
       onError: (err) => {
         console.error('Error during fetching insurance plans: ', err);
+      },
+    }
+  );
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useGetPatientDetailsUpdateForm = (onSuccess?: (data: Questionnaire) => void) => {
+  const { oystehr } = useApiClients();
+
+  const [url, version] = updateQRUrl.split('|');
+
+  return useQuery(
+    ['patient-update-form'],
+    async () => {
+      if (oystehr) {
+        const searchResults = (
+          await oystehr.fhir.search<Questionnaire>({
+            resourceType: 'Questionnaire',
+            params: [
+              {
+                name: 'url',
+                value: url,
+              },
+              {
+                name: 'version',
+                value: version,
+              },
+            ],
+          })
+        ).unbundle();
+        const form = searchResults[0];
+        if (!form) {
+          throw new Error('Form not found');
+        }
+        return form;
+      } else {
+        throw new Error('FHIR client not defined');
+      }
+    },
+    {
+      enabled: Boolean(oystehr) && Boolean(updateQRUrl),
+      onSuccess,
+      onError: (err) => {
+        console.error('Error during patient update form: ', err);
       },
     }
   );
