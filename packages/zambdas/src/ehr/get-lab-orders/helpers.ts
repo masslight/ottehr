@@ -1,5 +1,14 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
-import { ActivityDefinition, Bundle, DiagnosticReport, Encounter, Practitioner, ServiceRequest, Task } from 'fhir/r4b';
+import {
+  ActivityDefinition,
+  Bundle,
+  DiagnosticReport,
+  Encounter,
+  Observation,
+  Practitioner,
+  ServiceRequest,
+  Task,
+} from 'fhir/r4b';
 import {
   DEFAULT_LABS_ITEMS_PER_PAGE,
   EMPTY_PAGINATION,
@@ -30,11 +39,13 @@ export const transformToLabOrderDTOs = (
 
     const isPSC = checkIsPSC(serviceRequest);
 
-    const tests = parseTests(serviceRequest, diagnosticReports);
+    const { tests, reflexTests } = parseTests(serviceRequest, diagnosticReports);
 
-    const reflexTestsCount = tests.reflexTests.length;
+    const reflexTestsCount = reflexTests.length;
 
     const diagnoses = extractDiagnosesFromServiceRequest(serviceRequest);
+
+    const accessionNumber = parseAccessionNumber(tests);
 
     return {
       id: serviceRequest.id,
@@ -47,6 +58,7 @@ export const transformToLabOrderDTOs = (
       status,
       isPSC,
       reflexTestsCount,
+      accessionNumber,
     };
   });
 };
@@ -61,6 +73,7 @@ export const getLabResources = async (
   practitioners: Practitioner[];
   pagination: Pagination;
   encounters: Encounter[];
+  observations: Observation[];
 }> => {
   // const { encounterId, testType } = params;
   const labOrdersSearchParams = createLabOrdersSearchParams(params);
@@ -75,7 +88,7 @@ export const getLabResources = async (
       ?.map((entry) => entry.resource)
       .filter((res): res is ServiceRequest | Task | Encounter | DiagnosticReport => Boolean(res)) || [];
 
-  const { serviceRequests, tasks, encounters, diagnosticReports } = extractLabResources(labResources);
+  const { serviceRequests, tasks, encounters, diagnosticReports, observations } = extractLabResources(labResources);
 
   const [practitioners] = await Promise.all([
     serviceRequests.length > 0 ? fetchPractitionersForServiceRequests(oystehr, serviceRequests) : Promise.resolve([]),
@@ -88,6 +101,7 @@ export const getLabResources = async (
     practitioners,
     pagination: parsePaginationFromResponse(labOrdersResponse),
     encounters,
+    observations,
   };
 };
 
@@ -139,6 +153,12 @@ export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): S
       name: '_revinclude',
       value: 'DiagnosticReport:based-on',
     },
+
+    // include Observations
+    {
+      name: '_include:iterate',
+      value: 'DiagnosticReport:result',
+    },
   ];
 
   if (encounterId) {
@@ -173,18 +193,19 @@ export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): S
 };
 
 export const extractLabResources = (
-  resources: (ServiceRequest | Task | DiagnosticReport | Encounter)[]
+  resources: (ServiceRequest | Task | DiagnosticReport | Encounter | Observation)[]
 ): {
   serviceRequests: ServiceRequest[];
   tasks: Task[];
   diagnosticReports: DiagnosticReport[];
   encounters: Encounter[];
+  observations: Observation[];
 } => {
   const serviceRequests: ServiceRequest[] = [];
   const tasks: Task[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
   const encounters: Encounter[] = [];
-
+  const observations: Observation[] = [];
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
       const serviceRequest = resource as ServiceRequest;
@@ -200,10 +221,12 @@ export const extractLabResources = (
       diagnosticReports.push(resource as DiagnosticReport);
     } else if (resource.resourceType === 'Encounter') {
       encounters.push(resource as Encounter);
+    } else if (resource.resourceType === 'Observation') {
+      observations.push(resource as Observation);
     }
   }
 
-  return { serviceRequests, tasks, diagnosticReports, encounters };
+  return { serviceRequests, tasks, diagnosticReports, encounters, observations };
 };
 
 export const fetchPractitionersForServiceRequests = async (
@@ -466,4 +489,23 @@ const parseEncounterId = (serviceRequest: ServiceRequest): string => {
 export const parsePractitionerId = (serviceRequest: ServiceRequest): string => {
   const NOT_FOUND = '';
   return serviceRequest.requester?.reference?.split('/').pop() || NOT_FOUND;
+};
+
+export const parseAccessionNumber = (tests: DiagnosticReport[]): string => {
+  const NOT_FOUND = '';
+
+  if (tests.length > 0) {
+    const report = tests[0];
+    if (report.identifier) {
+      const accessionIdentifier = report.identifier.find(
+        (identifier) => identifier.type?.coding?.some((coding) => coding.code === 'FILL') && identifier.use === 'usual'
+      );
+
+      if (accessionIdentifier?.value) {
+        return accessionIdentifier.value;
+      }
+    }
+  }
+
+  return NOT_FOUND;
 };

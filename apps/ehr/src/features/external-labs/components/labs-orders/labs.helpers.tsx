@@ -74,9 +74,3 @@ export const getResultsReceivedDate = (labOrderData: LabOrderDTO): string => {
   }
   return '';
 };
-
-// todo: move to LabOrderDTO
-export const getAccessionNumber = (labOrderData: LabOrderDTO): string => {
-  // todo: implement logic for getting accession number
-  return labOrderData.id ? `mock: DL4523H${labOrderData.id.slice(0, 3)}` : '';
-};

@@ -75,6 +75,7 @@ export interface LabOrderDTO {
   isPSC: boolean; // Derived from SR.orderDetail
   reflexTestsCount: number; // Number of DiagnosticReports with the same SR identifier but different test codes
   appointmentId: string;
+  accessionNumber: string;
 }
 
 export interface Pagination {

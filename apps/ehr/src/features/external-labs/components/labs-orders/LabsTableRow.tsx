@@ -5,7 +5,6 @@ import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { LabsTableColumn } from './LabsTable';
 import { otherColors } from '../../../../CustomThemeProvider';
 import {
-  getAccessionNumber,
   getFormattedDiagnoses,
   getFullDiagnosesText,
   getResultsReceivedDate,
@@ -68,7 +67,7 @@ export const LabsTableRow = ({
       case 'resultsReceived':
         return getResultsReceivedDate(labOrderData);
       case 'accessionNumber':
-        return getAccessionNumber(labOrderData);
+        return labOrderData.accessionNumber;
       case 'status':
         return (
           <Chip
