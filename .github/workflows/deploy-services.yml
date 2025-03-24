@@ -170,7 +170,7 @@ jobs:
         run: cd packages/zambdas && npm run update-insurances-and-payer-orgs ${{ env.ENVIRONMENT }}
 
       - name: Setup secrets in Oystehr console
-        run: cd packages/zambdas && npm run setup-zapehr-secrets ${{ env.ENVIRONMENT }}
+        run: cd packages/zambdas && npm run setup-secrets ${{ env.ENVIRONMENT }}
 
       - name: Ensure deployed resources are in place
         env:

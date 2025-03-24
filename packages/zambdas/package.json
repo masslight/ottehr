@@ -15,7 +15,7 @@
     "remove-test-patient-data": "tsx src/scripts/remove-test-patient-data.ts local",
     "delete-appointment-data": "tsx src/scripts/delete-appointment-data.ts",
     "setup-default-locations": "tsx src/scripts/setup-default-locations.ts",
-    "setup-zapehr-secrets": "tsx src/scripts/configure-zapehr-secrets.ts",
+    "setup-secrets": "tsx src/scripts/configure-secrets.ts",
     "deploy-zambdas": "ENV=$ENV npm run build && tsx src/scripts/deploy-zambdas.ts",
     "update-user-roles": "tsx src/scripts/update-user-roles.ts",
     "build": "tsx bundle.ts",
