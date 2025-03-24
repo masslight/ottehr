@@ -182,7 +182,7 @@ async function prepareAndOpenOrderMedicationPage(page: Page): Promise<OrderMedic
   await patientInfoPage.sideMenu().clickAssessment();
   const assessmentPage = await expectAssessmentPage(page);
   await assessmentPage.selectDiagnosis(DIAGNOSIS);
-  await assessmentPage.selectDiagnosis('Situational type phobia');
+  await assessmentPage.selectDiagnosis(NEW_DIAGNOSIS);
   const inHouseMedicationsPage = await progressNotePage.sideMenu().clickInHouseMedications();
   return await inHouseMedicationsPage.clickOrderButton();
 }
