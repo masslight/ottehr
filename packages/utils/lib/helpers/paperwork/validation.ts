@@ -686,8 +686,8 @@ export const evalItemText = (item: IntakeQuestionnaireItem, context: any, questi
 interface NestedItem {
   item?: NestedItem[];
 }
-export const flattenItems = (items: NestedItem[]): any => {
-  let itemsList = items as NestedItem[];
+export const flattenItems = <T extends NestedItem>(items: T[]): any => {
+  let itemsList = items;
   if (typeof items === 'object') {
     itemsList = Object.values(items);
   }

@@ -85,6 +85,22 @@ export class Paperwork {
     await expect(this.locator.flowHeading).toBeVisible();
     await expect(this.locator.flowHeading).toHaveText('Contact information');
   }
+  async fillPaperworkOnlyRequiredFieldsInPerson(): Promise<void> {
+    await this.fillContactInformationRequiredFields();
+    await this.locator.clickContinueButton();
+    await this.fillPatientDetailsRequiredFields();
+    await this.locator.clickContinueButton();
+    await this.skipPrimaryCarePhysician();
+    await this.locator.clickContinueButton();
+    await this.selectSelfPayPayment();
+    await this.locator.clickContinueButton();
+    await this.fillResponsiblePartyDataSelf();
+    await this.locator.clickContinueButton();
+    await this.skipPhotoID();
+    await this.locator.clickContinueButton();
+    await this.fillConsentForms();
+    await this.locator.clickContinueButton();
+  }
   async fillContactInformationRequiredFields(): Promise<void> {
     await this.fillPatientState();
     await this.fillStreetAddress();
@@ -480,6 +496,15 @@ export class Paperwork {
     await this.locator.consentSignerRelationship.click();
     await this.page.getByRole('option', { name: relationshipConsentForms }).click();
     return { signature, relationshipConsentForms, consentFullName };
+  }
+  async checkAllChipsAreCompletedInPerson(): Promise<void> {
+    await expect(this.locator.contactInformationChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.patientDetailsChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.pcpChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.insuranceDetailsChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.responsiblePartyChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.photoIdChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.consentFormsChipStatus).toHaveAttribute('data-testid', 'completed');
   }
   async validateAllOptions(locator: any, optionsList: string[], type: string): Promise<void> {
     await locator.click();
