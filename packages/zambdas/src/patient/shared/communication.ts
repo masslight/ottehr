@@ -7,6 +7,7 @@ import {
   formatPhoneNumberDisplay,
   getRelatedPersonForPatient,
   isLocationVirtual,
+  PROJECT_DOMAIN,
   PROJECT_NAME,
   ServiceMode,
   SLUG_SYSTEM,
@@ -277,11 +278,11 @@ export async function sendEmail(
   const emailConfiguration = {
     to: email,
     from: {
-      email: 'no-reply@ottehr.com',
+      email: 'no-reply@' + PROJECT_DOMAIN,
       name: `${PROJECT_NAME} In Person`,
     },
     bcc: SENDGRID_EMAIL_BCC,
-    replyTo: 'no-reply@ottehr.com',
+    replyTo: 'no-reply@' + PROJECT_DOMAIN,
     templateId: templateID,
     dynamic_template_data: {
       subject,

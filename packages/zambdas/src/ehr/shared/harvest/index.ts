@@ -60,8 +60,8 @@ import {
   INSURANCE_COVERAGE_CODING,
   IntakeQuestionnaireItem,
   isoStringFromDateComponents,
-  OTTEHR_BASE_URL,
-  OTTEHR_MODULE,
+  FHIR_BASE_URL,
+  PROJECT_MODULE,
   PATIENT_PHOTO_CODE,
   PATIENT_PHOTO_ID_PREFIX,
   PatientEthnicity,
@@ -705,7 +705,7 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
   const facilityName = isVirtualLocation
     ? 'Ottehr Telemedicine'
     : locationResource?.identifier?.find(
-        (identifierTemp) => identifierTemp.system === `${OTTEHR_BASE_URL}/r4/facility-name`
+        (identifierTemp) => identifierTemp.system === `${FHIR_BASE_URL}/r4/facility-name`
       )?.value;
 
   const ipAddress = questionnaireResponse.extension?.find((ext) => {
@@ -767,7 +767,7 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       searchParams: [],
       meta: {
         // for backward compatibility. TODO: remove this
-        tag: [{ code: OTTEHR_MODULE.IP }, { code: OTTEHR_MODULE.TM }],
+        tag: [{ code: PROJECT_MODULE.IP }, { code: PROJECT_MODULE.TM }],
       },
     });
 
@@ -981,7 +981,7 @@ export async function createDocumentResources(
       listResources,
       meta: {
         // for backward compatibility. TODO: remove this
-        tag: [{ code: OTTEHR_MODULE.IP }, { code: OTTEHR_MODULE.TM }],
+        tag: [{ code: PROJECT_MODULE.IP }, { code: PROJECT_MODULE.TM }],
       },
     });
   }

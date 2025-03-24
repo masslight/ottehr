@@ -3,7 +3,7 @@ import { exec } from 'child_process';
 import { FhirResource, Organization } from 'fhir/r4b';
 import fs from 'fs';
 import path from 'path';
-import { FHIR_BASE_URL, ScheduleStrategyCoding, TIMEZONE_EXTENSION_URL } from 'utils';
+import {PROJECT_NAME, PROJECT_NAME_LOWER, FHIR_BASE_URL, PROJECT_DOMAIN, ScheduleStrategyCoding, TIMEZONE_EXTENSION_URL } from 'utils';
 import { inviteUser } from './invite-user';
 import { promisify } from 'node:util';
 
@@ -147,7 +147,7 @@ export async function setupEHR(
 ): Promise<void> {
   console.log('Starting setup of EHR...');
 
-  const applicationName = 'Ottehr EHR';
+  const applicationName = `${PROJECT_NAME} EHR`;
   const [applicationId, clientId] = await createApplication(oystehr, applicationName);
   console.log(`Created application "${applicationName}".`);
 
@@ -169,7 +169,7 @@ export async function setupEHR(
     'practitioner1'
   );
 
-  const provider2Email = 'jane.smith@ottehr.com';
+  const provider2Email = 'jane.smith@' + PROJECT_DOMAIN;
   const { userId: userId2 } = await inviteUser(
     oystehr,
     provider2Email,
@@ -180,7 +180,7 @@ export async function setupEHR(
     'practitioner2'
   );
 
-  const provider3Email = 'kevin.brown@ottehr.com';
+  const provider3Email = 'kevin.brown@' + PROJECT_DOMAIN;
   const { userId: userId3 } = await inviteUser(
     oystehr,
     provider3Email,
@@ -267,14 +267,14 @@ export async function setupEHR(
       resourceType: 'Group',
       identifier: [
         {
-          system: 'ottehr-internal',
+          system: `${PROJECT_NAME_LOWER}-internal`,
           value: 'intake-issue-reports',
         },
       ],
       active: true,
       type: 'practitioner',
       code: {
-        text: 'ottehr-admins',
+        text: `${PROJECT_NAME_LOWER}-admins`,
       },
       name: 'Issue Report Recipients',
       member: [
