@@ -245,7 +245,11 @@ export const dataTestIds = {
     marTableRow: 'mar-table-row',
     marTableMedicationCell: 'mar-table-medication-cell',
     marTableStatusCell: 'mar-table-status-cell',
+    marTableDoseCell: 'mar-table-dose-cell',
+    marTableRouteCell: 'mar-table-route-cell',
+    marTableInstructionsCell: 'mar-table-instructions-cell',
     medicationDetailsTab: 'medication-details-tab',
+    pencilIconButton: 'EditOutlinedIcon',
   },
   orderMedicationPage: {
     inputField: (field: string): string => `input-${field}`,
