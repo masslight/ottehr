@@ -72,7 +72,19 @@ export abstract class BaseInPersonFlow {
   protected abstract clickVisitButton(): Promise<void>;
   protected abstract completeBooking(): Promise<void>;
 
-  async startVisit(): Promise<{ bookingURL: string; bookingUUID: string | null; firstName: string; lastName: string; email: string, birthSex: string, dobMonth: string, dobYear: string, dobDay: string }> {
+  async startVisit(): Promise<{
+    bookingURL: string;
+    bookingUUID: string | null;
+    firstName: string;
+    lastName: string;
+    email: string;
+    birthSex: string;
+    dobMonth: string;
+    dobYear: string;
+    dobDay: string;
+    location?: string | null;
+    selectedSlot?: string | null;
+  }> {
     const bookingData = await this.goToReviewPage();
     await this.completeBooking();
     await this.page.waitForURL(/\/visit\//);
@@ -89,6 +101,8 @@ export abstract class BaseInPersonFlow {
       dobMonth: bookingData.dobMonth,
       dobYear: bookingData.dobYear,
       dobDay: bookingData.dobDay,
+      location: bookingData.location,
+      selectedSlot: bookingData.selectedSlot?.selectedSlot,
     };
   }
   async checkValueIsNotEmpty(value: Locator): Promise<void> {

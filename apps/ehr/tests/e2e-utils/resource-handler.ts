@@ -11,6 +11,7 @@ import {
   createSamplePrebookAppointments,
   createSampleTelemedAppointments,
   formatPhoneNumber,
+  GetPaperworkAnswers,
 } from 'utils';
 import { getAuth0Token } from './auth/getAuth0Token';
 import {
@@ -45,7 +46,7 @@ const EightDigitsString = DateTime.now().toFormat('yyyyMMdd');
 
 export const PATIENT_FIRST_NAME = 'Test_John_Random' + EightDigitsString;
 export const PATIENT_LAST_NAME = 'Test_Doe_Random' + EightDigitsString; // don't use real random values in parallel related tests
-export const PATIENT_GENDER = 'male';
+export const PATIENT_GENDER = 'Male';
 
 export const PATIENT_BIRTHDAY = '2002-07-07';
 export const PATIENT_BIRTH_DATE_SHORT = '07/07/2002';
@@ -80,12 +81,14 @@ export class ResourceHandler {
   private zambdaId: string;
   private flow: 'telemed' | 'in-person';
   private initPromise: Promise<void>;
+  private paperworkAnswers?: GetPaperworkAnswers;
 
   public testEmployee1!: TestEmployee;
   public testEmployee2!: TestEmployee;
 
-  constructor(flow: 'telemed' | 'in-person' = 'in-person') {
+  constructor(flow: 'telemed' | 'in-person' = 'in-person', paperworkAnswers?: GetPaperworkAnswers) {
     this.flow = flow;
+    this.paperworkAnswers = paperworkAnswers;
 
     this.initPromise = this.initApi();
 
@@ -134,7 +137,7 @@ export class ResourceHandler {
         reasonsForVisit: [inputParams?.reasonsForVisit ?? PATIENT_REASON_FOR_VISIT],
         phoneNumbers: [inputParams?.phoneNumber ?? PATIENT_PHONE_NUMBER],
         emails: [inputParams?.email ?? PATIENT_EMAIL],
-        gender: inputParams?.gender ?? PATIENT_GENDER,
+        gender: inputParams?.gender ?? PATIENT_GENDER.toLowerCase(),
         birthDate: inputParams?.birthDate ?? PATIENT_BIRTHDAY,
         address: [address],
       };
@@ -178,6 +181,7 @@ export class ResourceHandler {
               selectedLocationId: process.env.STATE_ONE, // todo: check why state is used here
               demoData: patientData,
               projectId: process.env.PROJECT_ID!,
+              paperworkAnswers: this.paperworkAnswers,
             });
 
       if (!appointmentData?.resources) {
@@ -263,10 +267,12 @@ export class ResourceHandler {
 
   async deleteEmployees(): Promise<void> {
     try {
-      await Promise.all([
-        removeUser(this.testEmployee1.id, this.testEmployee1.profile.id!, this.apiClient, this.authToken),
-        removeUser(this.testEmployee2.id, this.testEmployee2.profile.id!, this.apiClient, this.authToken),
-      ]);
+      if (process.env.AUTH0_CLIENT_TESTS && process.env.AUTH0_SECRET_TESTS) {
+        await Promise.all([
+          removeUser(this.testEmployee1.id, this.testEmployee1.profile.id!, this.apiClient, this.authToken),
+          removeUser(this.testEmployee2.id, this.testEmployee2.profile.id!, this.apiClient, this.authToken),
+        ]);
+      } else throw new Error('No "AUTH0_CLIENT_TESTS" or "AUTH0_SECRET_TESTS" secret provided');
     } catch (e) {
       console.error('❌ Failed to delete users: ', e);
     }

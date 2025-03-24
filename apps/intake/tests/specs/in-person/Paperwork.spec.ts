@@ -14,9 +14,10 @@ let paperwork: Paperwork;
 let locator: Locators;
 let uploadPhoto: UploadImage;
 let pcpData: Awaited<ReturnType<Paperwork['fillPrimaryCarePhysician']>>;
-let insuranceData:  Awaited<ReturnType<Paperwork['fillInsuranceAllFieldsWithoutCards']>>;
+let insuranceData: Awaited<ReturnType<Paperwork['fillInsuranceAllFieldsWithoutCards']>>;
 let secondaryInsuranceData: Awaited<ReturnType<Paperwork['fillSecondaryInsuranceAllFieldsWithoutCards']>>;
 let responsiblePartyData: Awaited<ReturnType<Paperwork['fillResponsiblePartyDataNotSelf']>>;
+let consentFormsData: Awaited<ReturnType<Paperwork['fillConsentForms']>>;
 let commonLocatorsHelper: CommonLocatorsHelper;
 const appointmentIds: string[] = [];
 
@@ -139,8 +140,7 @@ test.describe('Payment option - Check Self pay and insurance options', () => {
     await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
   });
-  // Need to uncomment when https://github.com/masslight/ottehr/issues/1515 is fixed
-  test.skip('PPO-2 Payment option - Check required fields', async () => {
+  test('PPO-2 Payment option - Check required fields', async () => {
     await paperwork.checkRequiredFields('"Select payment option"', 'How would you like to pay for your visit?', false);
   });
   test('PPO-3 Payment option - Check patient name is displayed', async () => {
@@ -173,7 +173,11 @@ test.describe('Primary Insurance', () => {
     await expect(locator.insuranceHeading).toBeVisible();
   });
   test('Primary Insurance - Check required fields', async () => {
-    await paperwork.checkRequiredFields('"Insurance carrier","Member ID","Policy holder\'s first name","Policy holder\'s last name","Policy holder\'s date of birth","Policy holder\'s birth sex","Policy holder address","City","State","ZIP","Patient\'s relationship to insured"', 'How would you like to pay for your visit?', true);
+    await paperwork.checkRequiredFields(
+      '"Insurance carrier","Member ID","Policy holder\'s first name","Policy holder\'s last name","Policy holder\'s date of birth","Policy holder\'s birth sex","Policy holder address","City","State","ZIP","Patient\'s relationship to insured"',
+      'How would you like to pay for your visit?',
+      true
+    );
   });
   test('Primary Insurance Select future dob - check validation error', async () => {
     await locator.policyHolderDOB.click();
@@ -207,8 +211,12 @@ test.describe('Primary Insurance', () => {
     await expect(locator.policyHolderZip).toHaveValue(insuranceData.insuranceRequiredData.policyHolderZip);
     await expect(locator.policyHolderBirthSex).toHaveValue(insuranceData.insuranceRequiredData.birthSex);
     await expect(locator.patientRelationship).toHaveValue(insuranceData.insuranceRequiredData.relationship);
-    await expect(locator.policyHolderMiddleName).toHaveValue(insuranceData.insuranceOptionalData.policyHolderMiddleName);
-    await expect(locator.policyHolderAddressLine2).toHaveValue(insuranceData.insuranceOptionalData.policyHolderAddressLine2);
+    await expect(locator.policyHolderMiddleName).toHaveValue(
+      insuranceData.insuranceOptionalData.policyHolderMiddleName
+    );
+    await expect(locator.policyHolderAddressLine2).toHaveValue(
+      insuranceData.insuranceOptionalData.policyHolderAddressLine2
+    );
   });
   test('Primary Insurance - Upload and Clear Insurance cards', async () => {
     const uploadedFrontPhoto = await uploadPhoto.fillInsuranceFront();
@@ -244,7 +252,6 @@ test.describe('Primary Insurance', () => {
     await locator.clickBackButton();
     await paperwork.checkPolicyAddressIsTheSameCheckbox(false);
   });
-
 });
 test.describe('Secondary Insurance', () => {
   test.describe.configure({ mode: 'serial' });
@@ -276,19 +283,45 @@ test.describe('Secondary Insurance', () => {
   test('Secondary Insurance - Go back and check that data is present]', async () => {
     await locator.clickBackButton();
     await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
-    await expect(locator.secondaryInsuranceCarrier).toHaveValue(secondaryInsuranceData.insuranceRequiredData.insuranceCarrier);
-    await expect(locator.secondaryInsuranceMemberID).toHaveValue(secondaryInsuranceData.insuranceRequiredData.insuranceMember);
-    await expect(locator.secondaryPolicyHolderDOB).toHaveValue(secondaryInsuranceData.insuranceRequiredData.paperworkDOB);
-    await expect(locator.secondaryPolicyHolderFirstName).toHaveValue(secondaryInsuranceData.insuranceRequiredData.firstName);
-    await expect(locator.secondaryPolicyHolderLastName).toHaveValue(secondaryInsuranceData.insuranceRequiredData.lastName);
-    await expect(locator.secondaryPolicyHolderAddress).toHaveValue(secondaryInsuranceData.insuranceRequiredData.policyHolderAddress);
-    await expect(locator.secondaryPolicyHolderCity).toHaveValue(secondaryInsuranceData.insuranceRequiredData.policyHolderCity);
-    await expect(locator.secondaryPolicyHolderState).toHaveValue(secondaryInsuranceData.insuranceRequiredData.policyHolderState);
-    await expect(locator.secondaryPolicyHolderZip).toHaveValue(secondaryInsuranceData.insuranceRequiredData.policyHolderZip);
-    await expect(locator.secondaryPolicyHolderBirthSex).toHaveValue(secondaryInsuranceData.insuranceRequiredData.birthSex);
-    await expect(locator.secondaryPatientRelationship).toHaveValue(secondaryInsuranceData.insuranceRequiredData.relationship);
-    await expect(locator.secondaryPolicyHolderMiddleName).toHaveValue(secondaryInsuranceData.insuranceOptionalData.policyHolderMiddleName);
-    await expect(locator.secondaryPolicyHolderAddressLine2).toHaveValue(secondaryInsuranceData.insuranceOptionalData.policyHolderAddressLine2);
+    await expect(locator.secondaryInsuranceCarrier).toHaveValue(
+      secondaryInsuranceData.insuranceRequiredData.insuranceCarrier
+    );
+    await expect(locator.secondaryInsuranceMemberID).toHaveValue(
+      secondaryInsuranceData.insuranceRequiredData.insuranceMember
+    );
+    await expect(locator.secondaryPolicyHolderDOB).toHaveValue(
+      secondaryInsuranceData.insuranceRequiredData.paperworkDOB
+    );
+    await expect(locator.secondaryPolicyHolderFirstName).toHaveValue(
+      secondaryInsuranceData.insuranceRequiredData.firstName
+    );
+    await expect(locator.secondaryPolicyHolderLastName).toHaveValue(
+      secondaryInsuranceData.insuranceRequiredData.lastName
+    );
+    await expect(locator.secondaryPolicyHolderAddress).toHaveValue(
+      secondaryInsuranceData.insuranceRequiredData.policyHolderAddress
+    );
+    await expect(locator.secondaryPolicyHolderCity).toHaveValue(
+      secondaryInsuranceData.insuranceRequiredData.policyHolderCity
+    );
+    await expect(locator.secondaryPolicyHolderState).toHaveValue(
+      secondaryInsuranceData.insuranceRequiredData.policyHolderState
+    );
+    await expect(locator.secondaryPolicyHolderZip).toHaveValue(
+      secondaryInsuranceData.insuranceRequiredData.policyHolderZip
+    );
+    await expect(locator.secondaryPolicyHolderBirthSex).toHaveValue(
+      secondaryInsuranceData.insuranceRequiredData.birthSex
+    );
+    await expect(locator.secondaryPatientRelationship).toHaveValue(
+      secondaryInsuranceData.insuranceRequiredData.relationship
+    );
+    await expect(locator.secondaryPolicyHolderMiddleName).toHaveValue(
+      secondaryInsuranceData.insuranceOptionalData.policyHolderMiddleName
+    );
+    await expect(locator.secondaryPolicyHolderAddressLine2).toHaveValue(
+      secondaryInsuranceData.insuranceOptionalData.policyHolderAddressLine2
+    );
   });
   test('Secondary Insurance - Upload and Clear Insurance cards', async () => {
     const uploadedFrontPhoto = await uploadPhoto.fillSecondaryInsuranceFront();
@@ -325,11 +358,10 @@ test.describe('Responsible party information - check and fill all fields', () =>
   test('PRPI-1 Check patient name is displayed', async () => {
     await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
   });
-  //need to uncomment when https://github.com/masslight/ottehr/issues/1514 fixed
-  test.skip('PRPI-2 Check required fields', async () => {
+  test('PRPI-2 Check required fields', async () => {
     await paperwork.checkRequiredFields(
       '"Relationship to the patient","First name","Last name","Date of birth","Birth sex"',
-      'Responsible party information', 
+      'Responsible party information',
       true
     );
   });
@@ -421,5 +453,47 @@ test.describe('Photo ID - Upload photo', () => {
     await paperwork.checkCorrectPageOpens('Complete consent forms');
     await locator.clickBackButton();
     await paperwork.checkImagesAreSaved(locator.photoIdFrontImage, locator.photoIdBackImage);
+  });
+});
+test.describe('Consent forms - Check and fill all fields', () => {
+  test.describe.configure({ mode: 'serial' });
+  test('PCF-1 Open Consent forms', async () => {
+    await page.goto(`paperwork/${bookingData.bookingUUID}/consent-forms`);
+    await page.waitForLoadState('networkidle');
+    await paperwork.checkCorrectPageOpens('Complete consent forms');
+  });
+  test('PCF-2 Consent Forms - Check patient name is displayed', async () => {
+    await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
+  });
+  test('PCF-3 Consent Forms - Check required fields', async () => {
+    await paperwork.checkRequiredFields(
+      '"I have reviewed and accept HIPAA Acknowledgement","I have reviewed and accept Consent to Treat and Guarantee of Payment","Signature","Full name","Relationship to the patient"',
+      'Complete consent forms',
+      true
+    );
+  });
+  test('PCF-4 Consent Forms - Check links are correct', async () => {
+    expect(await page.getAttribute('a:has-text("HIPAA Acknowledgement")', 'href')).toBe('/hippa_notice_template.pdf');
+    expect(await page.getAttribute('a:has-text("Consent to Treat and Guarantee of Payment")', 'href')).toBe(
+      '/consent_to_treat_template.pdf'
+    );
+  });
+  test('PCF-5 Consent Forms - Check links opens in new tab', async () => {
+    expect(await page.getAttribute('a:has-text("HIPAA Acknowledgement")', 'target')).toBe('_blank');
+    expect(await page.getAttribute('a:has-text("Consent to Treat and Guarantee of Payment")', 'target')).toBe('_blank');
+  });
+  test('PCF-7 Consent Forms - Fill all data and click on [Continue]', async () => {
+    consentFormsData = await paperwork.fillConsentForms();
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Review and submit');
+  });
+  test('PCF-8 Consent Forms - Check that values are saved after coming back', async () => {
+    await locator.clickBackButton();
+    await paperwork.checkCorrectPageOpens('Complete consent forms');
+    await expect(locator.hipaaAcknowledgement).toBeChecked();
+    await expect(locator.consentToTreat).toBeChecked();
+    await expect(locator.signature).toHaveValue(consentFormsData.signature);
+    await expect(locator.consentFullName).toHaveValue(consentFormsData.consentFullName);
+    await expect(locator.consentSignerRelationship).toHaveValue(consentFormsData.relationshipConsentForms);
   });
 });

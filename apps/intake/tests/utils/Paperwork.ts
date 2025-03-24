@@ -18,7 +18,7 @@ interface InsuranceRequiredData {
   insuranceCarrier: string;
 }
 interface InsuranceOptionalData {
-  policyHolderMiddleName:string; 
+  policyHolderMiddleName: string;
   policyHolderAddressLine2: string;
 }
 export class Paperwork {
@@ -85,10 +85,26 @@ export class Paperwork {
     await expect(this.locator.flowHeading).toBeVisible();
     await expect(this.locator.flowHeading).toHaveText('Contact information');
   }
+  async fillPaperworkOnlyRequiredFieldsInPerson(): Promise<void> {
+    await this.fillContactInformationRequiredFields();
+    await this.locator.clickContinueButton();
+    await this.fillPatientDetailsRequiredFields();
+    await this.locator.clickContinueButton();
+    await this.skipPrimaryCarePhysician();
+    await this.locator.clickContinueButton();
+    await this.selectSelfPayPayment();
+    await this.locator.clickContinueButton();
+    await this.fillResponsiblePartyDataSelf();
+    await this.locator.clickContinueButton();
+    await this.skipPhotoID();
+    await this.locator.clickContinueButton();
+    await this.fillConsentForms();
+    await this.locator.clickContinueButton();
+  }
   async fillContactInformationRequiredFields(): Promise<void> {
+    await this.fillPatientState();
     await this.fillStreetAddress();
     await this.fillPatientCity();
-    await this.fillPatientState();
     await this.fillPatientZip();
     await expect(this.locator.streetAddress).not.toBeEmpty();
     await expect(this.locator.patientCity).not.toBeEmpty();
@@ -114,7 +130,6 @@ export class Paperwork {
     const city = `City${this.getRandomString()}`;
     await this.locator.patientCity.fill(city);
     await expect(this.locator.patientCity).toHaveValue(city);
-    await this.locator.streetAddress.fill(`Address ${this.getRandomString()}`);
   }
   async fillPatientState(): Promise<void> {
     const randomState = this.getRandomState();
@@ -180,15 +195,12 @@ export class Paperwork {
   async checkRequiredFields(requiredFields: string, pageTitle: string, multiple: boolean): Promise<void> {
     await this.CommonLocatorsHelper.clickContinue();
     if (multiple) {
-    await expect(
-      this.page.getByText(`Please fix the errors in the following fields to proceed: ${requiredFields}`)
-    ).toBeVisible();
-    }
-    else {
       await expect(
-        this.page.getByText(`Please fix the error in the ${requiredFields} field to proceed`)
+        this.page.getByText(`Please fix the errors in the following fields to proceed: ${requiredFields}`)
       ).toBeVisible();
-      }
+    } else {
+      await expect(this.page.getByText(`Please fix the error in the ${requiredFields} field to proceed`)).toBeVisible();
+    }
     await this.CommonLocatorsHelper.clickContinue();
     await expect(this.locator.flowHeading).toHaveText(pageTitle);
   }
@@ -260,22 +272,22 @@ export class Paperwork {
 
   async checkPolicyAddressIsTheSameCheckbox(isSecondary: boolean): Promise<void> {
     const locators = isSecondary
-    ? {
-        policyHolderAddress: this.locator.secondaryPolicyHolderAddress,
-        policyHolderAddressLine2: this.locator.secondaryPolicyHolderAddressLine2,
-        policyHolderCity: this.locator.secondaryPolicyHolderCity,
-        policyHolderState: this.locator.secondaryPolicyHolderState,
-        policyHolderZip: this.locator.secondaryPolicyHolderZip,
-        policyAddressIsTheSameCheckbox: this.locator.secondaryPolicyAddressIsTheSame
-      }
-    : {
-        policyHolderAddress: this.locator.policyHolderAddress,
-        policyHolderAddressLine2: this.locator.policyHolderAddressLine2,
-        policyHolderCity: this.locator.policyHolderCity,
-        policyHolderState: this.locator.policyHolderState,
-        policyHolderZip: this.locator.policyHolderZip,
-        policyAddressIsTheSameCheckbox: this.locator.policyAddressIsTheSame
-      };
+      ? {
+          policyHolderAddress: this.locator.secondaryPolicyHolderAddress,
+          policyHolderAddressLine2: this.locator.secondaryPolicyHolderAddressLine2,
+          policyHolderCity: this.locator.secondaryPolicyHolderCity,
+          policyHolderState: this.locator.secondaryPolicyHolderState,
+          policyHolderZip: this.locator.secondaryPolicyHolderZip,
+          policyAddressIsTheSameCheckbox: this.locator.secondaryPolicyAddressIsTheSame,
+        }
+      : {
+          policyHolderAddress: this.locator.policyHolderAddress,
+          policyHolderAddressLine2: this.locator.policyHolderAddressLine2,
+          policyHolderCity: this.locator.policyHolderCity,
+          policyHolderState: this.locator.policyHolderState,
+          policyHolderZip: this.locator.policyHolderZip,
+          policyAddressIsTheSameCheckbox: this.locator.policyAddressIsTheSame,
+        };
     await locators.policyAddressIsTheSameCheckbox.check();
     await expect(locators.policyHolderAddress).not.toBeVisible();
     await expect(locators.policyHolderAddressLine2).not.toBeVisible();
@@ -293,8 +305,8 @@ export class Paperwork {
   async fillInsuranceRequiredFields(isSecondary: boolean): Promise<InsuranceRequiredData> {
     const firstName = 'Insurance first name';
     const lastName = 'Insurance last name';
-   // Need to uncomment when issue https://github.com/masslight/ottehr/issues/1486 is fixed
-   // const relationship = this.getRandomElement(this.relationshipsInsurance);
+    // Need to uncomment when issue https://github.com/masslight/ottehr/issues/1486 is fixed
+    // const relationship = this.getRandomElement(this.relationshipsInsurance);
     const relationship = 'Spouse';
     const birthSex = this.getRandomElement(this.birthSex);
     const insuranceMember = 'Insurance member test';
@@ -303,38 +315,38 @@ export class Paperwork {
     const policyHolderZip = '10111';
     const policyHolderState = 'CO';
     const locators = isSecondary
-    ? {
-        insuranceCarrier: this.locator.secondaryInsuranceCarrier,
-        insuranceCarrierOption: this.locator.secondaryInsuranceCarrierSecondOption,
-        insuranceMemberID: this.locator.secondaryInsuranceMemberID,
-        policyHolderFirstName: this.locator.secondaryPolicyHolderFirstName,
-        policyHolderLastName: this.locator.secondaryPolicyHolderLastName,
-        policyHolderDOB: this.locator.secondaryPolicyHolderDOB,
-        policyHolderBirthSex: this.locator.secondaryPolicyHolderBirthSex,
-        patientRelationship: this.locator.secondaryPatientRelationship,
-        policyHolderAddress: this.locator.secondaryPolicyHolderAddress,
-        policyHolderCity: this.locator.secondaryPolicyHolderCity,
-        policyHolderState: this.locator.secondaryPolicyHolderState,
-        policyHolderZip: this.locator.secondaryPolicyHolderZip
-      }
-    : {
-        insuranceCarrier: this.locator.insuranceCarrier,
-        insuranceCarrierOption: this.locator.insuranceCarrierFirstOption,
-        insuranceMemberID: this.locator.insuranceMemberID,
-        policyHolderFirstName: this.locator.policyHolderFirstName,
-        policyHolderLastName: this.locator.policyHolderLastName,
-        policyHolderDOB: this.locator.policyHolderDOB,
-        policyHolderBirthSex: this.locator.policyHolderBirthSex,
-        patientRelationship: this.locator.patientRelationship,
-        policyHolderAddress: this.locator.policyHolderAddress,
-        policyHolderCity: this.locator.policyHolderCity,
-        policyHolderState: this.locator.policyHolderState,
-        policyHolderZip: this.locator.policyHolderZip
-      };
+      ? {
+          insuranceCarrier: this.locator.secondaryInsuranceCarrier,
+          insuranceCarrierOption: this.locator.secondaryInsuranceCarrierSecondOption,
+          insuranceMemberID: this.locator.secondaryInsuranceMemberID,
+          policyHolderFirstName: this.locator.secondaryPolicyHolderFirstName,
+          policyHolderLastName: this.locator.secondaryPolicyHolderLastName,
+          policyHolderDOB: this.locator.secondaryPolicyHolderDOB,
+          policyHolderBirthSex: this.locator.secondaryPolicyHolderBirthSex,
+          patientRelationship: this.locator.secondaryPatientRelationship,
+          policyHolderAddress: this.locator.secondaryPolicyHolderAddress,
+          policyHolderCity: this.locator.secondaryPolicyHolderCity,
+          policyHolderState: this.locator.secondaryPolicyHolderState,
+          policyHolderZip: this.locator.secondaryPolicyHolderZip,
+        }
+      : {
+          insuranceCarrier: this.locator.insuranceCarrier,
+          insuranceCarrierOption: this.locator.insuranceCarrierFirstOption,
+          insuranceMemberID: this.locator.insuranceMemberID,
+          policyHolderFirstName: this.locator.policyHolderFirstName,
+          policyHolderLastName: this.locator.policyHolderLastName,
+          policyHolderDOB: this.locator.policyHolderDOB,
+          policyHolderBirthSex: this.locator.policyHolderBirthSex,
+          patientRelationship: this.locator.patientRelationship,
+          policyHolderAddress: this.locator.policyHolderAddress,
+          policyHolderCity: this.locator.policyHolderCity,
+          policyHolderState: this.locator.policyHolderState,
+          policyHolderZip: this.locator.policyHolderZip,
+        };
     const { paperworkDOB } = await this.fillPaperworkDOB(locators.policyHolderDOB);
     await locators.insuranceCarrier.click();
     await locators.insuranceCarrierOption.click();
-    const insuranceCarrier = await locators.insuranceCarrier.getAttribute('value') || '';
+    const insuranceCarrier = (await locators.insuranceCarrier.getAttribute('value')) || '';
     await locators.insuranceMemberID.fill(insuranceMember);
     await locators.policyHolderFirstName.fill(firstName);
     await locators.policyHolderLastName.fill(lastName);
@@ -366,28 +378,34 @@ export class Paperwork {
     const policyHolderMiddleName = 'Insurance middle name';
     const policyHolderAddressLine2 = 'Insurance Address Line 2';
     const locators = isSecondary
-    ? {
-      policyHolderMiddleName: this.locator.secondaryPolicyHolderMiddleName,
-      policyHolderAddressLine2: this.locator.secondaryPolicyHolderAddressLine2,
-      }
-    : {
-      policyHolderMiddleName: this.locator.policyHolderMiddleName,
-      policyHolderAddressLine2: this.locator.policyHolderAddressLine2,
-      };
+      ? {
+          policyHolderMiddleName: this.locator.secondaryPolicyHolderMiddleName,
+          policyHolderAddressLine2: this.locator.secondaryPolicyHolderAddressLine2,
+        }
+      : {
+          policyHolderMiddleName: this.locator.policyHolderMiddleName,
+          policyHolderAddressLine2: this.locator.policyHolderAddressLine2,
+        };
     await locators.policyHolderMiddleName.fill(policyHolderMiddleName);
     await locators.policyHolderAddressLine2.fill(policyHolderAddressLine2);
-    return {policyHolderMiddleName, policyHolderAddressLine2}
+    return { policyHolderMiddleName, policyHolderAddressLine2 };
   }
 
-  async fillInsuranceAllFieldsWithoutCards(): Promise<{insuranceRequiredData: InsuranceRequiredData, insuranceOptionalData: InsuranceOptionalData}> {
+  async fillInsuranceAllFieldsWithoutCards(): Promise<{
+    insuranceRequiredData: InsuranceRequiredData;
+    insuranceOptionalData: InsuranceOptionalData;
+  }> {
     const insuranceRequiredData = await this.fillInsuranceRequiredFields(false);
     const insuranceOptionalData = await this.fillInsuranceOptionalFields(false);
-    return {insuranceRequiredData, insuranceOptionalData}
+    return { insuranceRequiredData, insuranceOptionalData };
   }
-  async fillSecondaryInsuranceAllFieldsWithoutCards(): Promise<{insuranceRequiredData: InsuranceRequiredData, insuranceOptionalData: InsuranceOptionalData}> {
+  async fillSecondaryInsuranceAllFieldsWithoutCards(): Promise<{
+    insuranceRequiredData: InsuranceRequiredData;
+    insuranceOptionalData: InsuranceOptionalData;
+  }> {
     const insuranceRequiredData = await this.fillInsuranceRequiredFields(true);
     const insuranceOptionalData = await this.fillInsuranceOptionalFields(true);
-    return {insuranceRequiredData, insuranceOptionalData}
+    return { insuranceRequiredData, insuranceOptionalData };
   }
   async fillResponsiblePartyDataSelf(): Promise<void> {
     await this.fillResponsiblePartySelfRelationship();
@@ -457,28 +475,36 @@ export class Paperwork {
   }
   async checkImagesAreSaved(frontImage: Locator, backImage: Locator): Promise<void> {
     const today = await this.CommonLocatorsHelper.getToday();
-    await expect(frontImage).toHaveText(
-      `We already have this! It was saved on ${today}. Click to re-upload.`
-    );
-    await expect(backImage).toHaveText(
-      `We already have this! It was saved on ${today}. Click to re-upload.`
-    );
+    await expect(frontImage).toHaveText(`We already have this! It was saved on ${today}. Click to re-upload.`);
+    await expect(backImage).toHaveText(`We already have this! It was saved on ${today}. Click to re-upload.`);
   }
-  async fillConsentForms(): Promise<void> {
+  async fillConsentForms(): Promise<{ signature: string; relationshipConsentForms: string; consentFullName: string }> {
     await this.validateAllOptions(
       this.locator.consentSignerRelationship,
       this.relationshipConsentForms,
       'consent signer'
     );
     const relationshipConsentForms = this.getRandomElement(this.relationshipConsentForms);
+    const signature = 'Test signature';
+    const consentFullName = 'Test consent full name';
     await this.locator.hipaaAcknowledgement.check();
     await this.locator.consentToTreat.check();
     await this.locator.signature.click();
-    await this.locator.signature.fill('Test signature');
+    await this.locator.signature.fill(signature);
     await this.locator.consentFullName.click();
-    await this.locator.consentFullName.fill('Test consent full name');
+    await this.locator.consentFullName.fill(consentFullName);
     await this.locator.consentSignerRelationship.click();
     await this.page.getByRole('option', { name: relationshipConsentForms }).click();
+    return { signature, relationshipConsentForms, consentFullName };
+  }
+  async checkAllChipsAreCompletedInPerson(): Promise<void> {
+    await expect(this.locator.contactInformationChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.patientDetailsChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.pcpChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.insuranceDetailsChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.responsiblePartyChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.photoIdChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.consentFormsChipStatus).toHaveAttribute('data-testid', 'completed');
   }
   async validateAllOptions(locator: any, optionsList: string[], type: string): Promise<void> {
     await locator.click();
