@@ -7,8 +7,11 @@
 !apps/**/*.js
 !apps/**/*.jsx
 !/vite.config.ts
+build/
+dist/
 .esbuild/
 packages/**/.esbuild
+.serverless/
 .github
 apps/**/env
 packages/**/scripts/

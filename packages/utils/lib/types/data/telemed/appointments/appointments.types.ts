@@ -1,6 +1,6 @@
 import { FileURLs } from '../../../common';
-import { PatientInfo } from './create-appointment.types';
 import { AnswerOptionSource } from '../../paperwork';
+import { PatientInfo } from './create-appointment.types';
 export interface CancelAppointmentRequestParams {
   appointmentID: string;
   cancellationReason: string;
@@ -98,10 +98,10 @@ export interface TelemedStatusHistoryElement {
   status?: TelemedCallStatuses;
 }
 
-export enum AppointmentVisitTabs {
+export enum TelemedAppointmentVisitTabs {
   'hpi' = 'hpi',
   'exam' = 'exam',
-  'erx' = 'erx',
+  'assessment' = 'assessment',
   'plan' = 'plan',
   'sign' = 'sign',
 }

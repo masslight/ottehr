@@ -260,7 +260,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         return sex as PersonSex | undefined;
       };
 
-      console.log('qrresponse item', JSON.stringify(questionnaireResponseResource.item));
+      // console.log('qrresponse item', JSON.stringify(questionnaireResponseResource.item));
 
       const response: UCGetPaperworkResponse = {
         ...partialAppointment,

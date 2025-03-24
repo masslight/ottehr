@@ -85,7 +85,7 @@ export const isNPIValid = (npi: string): boolean => {
 };
 
 export function formatPhoneNumberDisplay(phoneNumber: string): string {
-  const cleaned = ('' + phoneNumber).replace(/\D/g, '');
+  const cleaned = ('' + phoneNumber.slice(-10)).replace(/\D/g, '');
   const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
 
   if (match) {

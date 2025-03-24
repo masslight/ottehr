@@ -4,6 +4,7 @@ import { FC } from 'react';
 import { showEnvironmentBanner } from '../../App';
 import { BANNER_HEIGHT } from '../../constants';
 import { Contacts, FullNameDisplay, IdentifiersRow, PatientAvatar, Summary } from './info';
+import { useGetPatient } from '../../hooks/useGetPatient';
 
 type HeaderProps = {
   handleDiscard: () => void;
@@ -12,6 +13,8 @@ type HeaderProps = {
 
 export const Header: FC<HeaderProps> = ({ handleDiscard, id }) => {
   const theme = useTheme();
+
+  const { loading, patient } = useGetPatient(id);
 
   return (
     <Box
@@ -29,17 +32,17 @@ export const Header: FC<HeaderProps> = ({ handleDiscard, id }) => {
       }}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        <IdentifiersRow id={id} />
+        <IdentifiersRow id={id} loading={false} />
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box sx={{ flex: '64px 0 0' }}>
             <PatientAvatar id={id} sx={{ width: 64, height: 64 }} />
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             <Box sx={{ display: 'flex', rowGap: 0.5, columnGap: 2, flexWrap: 'wrap' }}>
-              <FullNameDisplay id={id} variant="h5" />
-              <Summary id={id} />
+              <FullNameDisplay patient={patient} loading={loading} variant="h5" />
+              <Summary patient={patient} loading={loading} />
             </Box>
-            <Contacts id={id} />
+            <Contacts patient={patient} loading={loading} />
           </Box>
         </Box>
       </Box>
