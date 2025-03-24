@@ -170,6 +170,8 @@ export const dataTestIds = {
     trackingBoardAssignButton: 'telemed-tracking-board-assign-appointment-button',
     trackingBoardViewButton: (appointmentId?: string) =>
       `telemed-tracking-board-view-appointment-button-${appointmentId}`,
+    trackingBoardChatButton: (appointmentId?: string) =>
+      `telemed-tracking-board-chat-appointment-button-${appointmentId}`,
     appointmentStatusChip: 'telemed-appointment-status-chip',
     footerButtonConnectToPatient: 'telemed-appointment-footer-button-connect-to-patient',
     footerButtonAssignMe: 'telemed-appointment-footer-button-assign-me',
@@ -206,6 +208,7 @@ export const dataTestIds = {
     cancelThisVisitButton: 'telemed-cancel-this-visit-button',
     inviteParticipant: 'telemed-invite-participant-button',
     editPatientButtonSideBar: 'telemed-edit-patient-button-side-bar',
+    chatModalDescription: 'telemed-chat-modal-description',
   },
   sideMenu: {
     completeIntakeButton: 'complete-intake-button',

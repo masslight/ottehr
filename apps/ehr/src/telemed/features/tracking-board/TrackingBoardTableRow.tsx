@@ -233,6 +233,7 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
               setChatModalOpen(true);
             }}
             aria-label={hasUnread ? 'unread messages chat icon' : 'chat icon, no unread messages'}
+            data-testid={dataTestIds.telemedEhrFlow.trackingBoardChatButton(appointment.id)}
           >
             {/* todo reduce code duplication */}
             {hasUnread ? (

@@ -229,13 +229,23 @@ test('Unassign appointment', async () => {
   await page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonUnassign).click();
   await telemedDialogConfirm(page);
   await awaitAppointmentsTableToBeVisible(page);
+});
+
+test('Check message for patient', async () => {
+  await page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardChatButton(myResources.appointment.id!)).click();
+  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.chatModalDescription)).toBeVisible();
+
+  const expectedSms =
+    'Thank you for your patience. We apologize, but the provider is unexpectedly no longer available. You will receive an update when another provider is available';
+  await expect(page.getByText(expectedSms)).toBeVisible({ timeout: 25000 });
+});
+
+test('Buttons on visit page should not appear', async () => {
   await page.goto(`telemed/appointments/${myResources.appointment.id}`);
   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip)).toHaveText(
     TelemedAppointmentStatusEnum['ready']
   );
-});
 
-test('Buttons on visit page should not appear', async () => {
   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient)).not.toBeVisible();
   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonUnassign)).not.toBeVisible();
   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.cancelThisVisitButton)).not.toBeVisible();
