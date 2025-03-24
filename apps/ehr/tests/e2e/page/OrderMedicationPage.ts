@@ -22,7 +22,7 @@ export class OrderMedicationPage {
     return new SideMenu(this.#page);
   }
 
-  editMedicationCard(): EditMedicationCard {
+  get editMedicationCard(): EditMedicationCard {
     return this.#editMedicationCard;
   }
 
