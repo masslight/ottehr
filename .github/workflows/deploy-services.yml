@@ -81,6 +81,7 @@ jobs:
       - name: Increase version if input dictates.
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
         run: |
+          cd ${{ github.workspace }} && npm version ${{ github.event.inputs.versionType }} --no-git-tag-version
           cd ${{ github.workspace }}/apps/intake && npm version ${{ github.event.inputs.versionType }} --no-git-tag-version
           cd ${{ github.workspace }}/apps/ehr && npm version ${{ github.event.inputs.versionType }} --no-git-tag-version
           cd ${{ github.workspace }}/packages/zambdas && npm version ${{ github.event.inputs.versionType }} --no-git-tag-version
