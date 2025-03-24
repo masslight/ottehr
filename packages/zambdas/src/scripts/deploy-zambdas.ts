@@ -187,6 +187,7 @@ const ZAMBDAS: { [name: string]: DeployZambda } = {
   },
   'SUB-CONFIRMATION-MESSAGES': {
     type: 'subscription',
+    // you're the problem
     subscriptionDetails: [
       {
         criteria: `Task?code=${Task_Send_Messages_Url}|&status=requested`,
