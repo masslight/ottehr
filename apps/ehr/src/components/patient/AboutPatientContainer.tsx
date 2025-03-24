@@ -13,18 +13,21 @@ export const AboutPatientContainer: FC = () => {
 
   if (!patient) return null;
 
+  const nameIndex = patient.name?.findIndex((name) => name.use === 'official');
+  const prefferedNameIndex = patient.name?.findIndex((name) => name.use === 'nickname');
+
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    const { name, value } = event.target;
-    updatePatientField(name, value);
+    const { name, value, id } = event.target;
+    updatePatientField(name, value, undefined, id === 'patient-preffered-name' ? 'prefferedName' : undefined);
   };
 
   return (
     <Section title="Patient information">
       <Row label="Last name" inputId="patient-last-name" required>
         <FormTextField
-          name={patientFieldPaths.lastName}
+          name={patientFieldPaths.lastName.replace(/name\/\d+/, `name/${nameIndex}`)}
           control={control}
-          defaultValue={patient?.name?.[0]?.family}
+          defaultValue={patient?.name?.[nameIndex || 0]?.family}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           id="patient-last-name"
           onChangeHandler={handleChange}
@@ -33,9 +36,9 @@ export const AboutPatientContainer: FC = () => {
       </Row>
       <Row label="First name" inputId="patient-first-name" required>
         <FormTextField
-          name={patientFieldPaths.firstName}
+          name={patientFieldPaths.firstName.replace(/name\/\d+/, `name/${nameIndex}`)}
           control={control}
-          defaultValue={patient?.name?.[0]?.given?.[0]}
+          defaultValue={patient?.name?.[nameIndex || 0]?.given?.[0]}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           id="patient-first-name"
           onChangeHandler={handleChange}
@@ -44,27 +47,27 @@ export const AboutPatientContainer: FC = () => {
       </Row>
       <Row label="Middle name" inputId="patient-middle-name">
         <FormTextField
-          name={patientFieldPaths.middleName}
+          name={patientFieldPaths.middleName.replace(/name\/\d+/, `name/${nameIndex}`)}
           control={control}
-          defaultValue={patient?.name?.[0]?.given?.[1]}
+          defaultValue={patient?.name?.[nameIndex || 0]?.given?.[1]}
           id="patient-middle-name"
           onChangeHandler={handleChange}
         />
       </Row>
       <Row label="Suffix" inputId="patient-suffix">
         <FormTextField
-          name={patientFieldPaths.suffix}
+          name={patientFieldPaths.suffix.replace(/name\/\d+/, `name/${nameIndex}`)}
           control={control}
-          defaultValue={patient?.name?.[0]?.suffix?.[0]}
+          defaultValue={patient?.name?.[nameIndex || 0]?.suffix?.[0]}
           id="patient-suffix"
           onChangeHandler={handleChange}
         />
       </Row>
       <Row label="Preffered name" inputId="patient-preffered-name">
         <FormTextField
-          name={patientFieldPaths.preferredName}
+          name={patientFieldPaths.preferredName.replace(/name\/\d+/, `name/${prefferedNameIndex}`)}
           control={control}
-          defaultValue={patient?.name?.[1]?.given?.[0]}
+          defaultValue={patient?.name?.[prefferedNameIndex || 1]?.given?.[0]}
           id="patient-preffered-name"
           onChangeHandler={handleChange}
         />

@@ -181,6 +181,7 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
     if (!resource) return;
 
     const { isArray, parentPath } = getArrayInfo(path);
+    const prefferedName = fieldType === 'prefferedName';
     const isTelecom = path.includes('/telecom/');
     const isResponsiblePartyBirthDate = path.match(/\/contact\/\d+\/extension\/0\/valueString$/);
     const isResponsiblePartyRelationship = path.match(/\/contact\/\d+\/relationship\//);
@@ -225,6 +226,26 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
         resource as Patient,
         effectiveValue as LanguageOption
       );
+    } else if (prefferedName) {
+      if (value === '') {
+        if (effectiveValue !== undefined && effectiveValue !== null) {
+          newPatchOperation = {
+            op: 'remove',
+            path: path.replace('/given/0', ''),
+          };
+        }
+      } else {
+        if (effectiveValue !== undefined) {
+          newPatchOperation = { op: 'replace', path, value };
+        } else {
+          const prefferedNameItem = { given: [value], use: 'nickname' };
+          newPatchOperation = {
+            op: 'add',
+            path: '/name/-',
+            value: prefferedNameItem,
+          };
+        }
+      }
     } else if (isArray && !path.match(/^\/contact\/\d+\/name\/given\/0$/)) {
       // ^skip contact name to process like general value
       const effectiveArrayValue = getEffectiveValue(resource, parentPath, state.patchOperations?.patient || []);
