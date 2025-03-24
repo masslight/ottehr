@@ -588,12 +588,12 @@ const makeAppointmentInformation = (
     flattenedItems.find((item: { linkId: string }) => item.linkId === 'full-name') &&
     flattenedItems.find((item: { linkId: string }) => item.linkId === 'consent-form-signer-relationship');
   const docRefComplete = (type: string, frontTitle: string): boolean => {
-    const docFound = allDocRefs.find(
+    const docFound = allDocRefs.filter(
       (document) =>
         document.context?.related?.find((related) => related.reference === `Patient/${patient?.id}`) &&
         document.type?.text === type
     );
-    return !!docFound?.content.find((content) => content.attachment.title === frontTitle);
+    return !!docFound.find((doc) => doc.content.find((content) => content.attachment.title === frontTitle));
   };
   const idCard = docRefComplete('Photo ID cards', 'photo-id-front');
   const insuranceCard = docRefComplete('Insurance cards', 'insurance-card-front');

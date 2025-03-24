@@ -1,20 +1,8 @@
 import { Box, Divider, MenuItem, Select, Typography, useTheme } from '@mui/material';
-import { HumanName } from 'fhir/r4b';
+import { HumanName, Patient } from 'fhir/r4b';
 import { FC, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import {
-  LANGUAGE_OPTIONS,
-  PATIENT_COMMON_WELL_CONSENT_URL,
-  PATIENT_ETHNICITY_URL,
-  PATIENT_GENDER_IDENTITY_DETAILS_URL,
-  PATIENT_GENDER_IDENTITY_URL,
-  PATIENT_POINT_OF_DISCOVERY_URL,
-  PATIENT_RACE_URL,
-  PATIENT_SEND_MARKETING_URL,
-  PATIENT_SEXUAL_ORIENTATION_URL,
-  patientFieldPaths,
-  REQUIRED_FIELD_ERROR_MESSAGE,
-} from 'utils';
+import { LANGUAGE_OPTIONS, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import {
   ETHNICITY_OPTIONS,
   GENDER_IDENTITY_OPTIONS,
@@ -22,59 +10,27 @@ import {
   RACE_OPTIONS,
   SEXUAL_ORIENTATION_OPTIONS,
 } from '../../constants';
-import { getExtensionValue } from '../../features/css-module/parser';
 import { FormSelect, FormTextField } from '../form';
 import { Row, Section } from '../layout';
 import ShowMoreButton from './ShowMoreButton';
-import { usePatientStore } from '../../state/patient.store';
 import { dataTestIds } from '../../constants/data-test-ids';
+import { FormFields as AllFormFields } from '../../constants';
 
-export const PatientDetailsContainer: FC = () => {
+const FormFields = AllFormFields.patientDetails;
+interface PatientDetailsContainerProps {
+  patient: Patient;
+}
+export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ patient }) => {
   const theme = useTheme();
-  const { patient, updatePatientField } = usePatientStore();
-  const { control, setValue, watch } = useFormContext();
+  const { control, watch } = useFormContext();
 
   const [showAllPreviousNames, setShowAllPreviousNames] = useState(false);
-  const genderIdentityCurrentValue = watch(patientFieldPaths.genderIdentity);
 
   if (!patient) return null;
 
-  const howDidYouHearAboutUs = patient.extension?.find((e: { url: string }) => e.url === PATIENT_POINT_OF_DISCOVERY_URL)
-    ?.valueString;
-
-  const sendMarketingMessages = patient.extension?.find((e: { url: string }) => e.url === PATIENT_SEND_MARKETING_URL)
-    ?.valueBoolean;
-
-  const commonWellConsent = patient.extension?.find((e: { url: string }) => e.url === PATIENT_COMMON_WELL_CONSENT_URL)
-    ?.valueBoolean;
-
   const previousNames = patient.name?.filter((name) => name.use === 'old').reverse() || [];
 
-  const preferredLanguage = patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0].display;
-
-  const sexualOrientation = patient.extension?.find((e: { url: string }) => e.url === PATIENT_SEXUAL_ORIENTATION_URL)
-    ?.valueCodeableConcept?.coding?.[0].display;
-
-  const genderIdentity = patient.extension?.find((e: { url: string }) => e.url === PATIENT_GENDER_IDENTITY_URL)
-    ?.valueCodeableConcept?.coding?.[0].display;
-
-  const genderIdentityDetails = patient.extension?.find(
-    (e: { url: string }) => e.url === PATIENT_GENDER_IDENTITY_DETAILS_URL
-  )?.valueString;
-
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    const { name, value } = event.target;
-    updatePatientField(name, value);
-  };
-
-  const handleGenderIdentityChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    handleChange(e as any);
-    // Remove gender identity details if not selecting "Other"
-    if (e.target.value !== 'Non-binary gender identity') {
-      setValue(patientFieldPaths.genderIdentityDetails, '');
-      updatePatientField(patientFieldPaths.genderIdentityDetails, '');
-    }
-  };
+  const genderIdentityCurrentValue = watch(FormFields.genderIdentity.key);
 
   return (
     <Section title="Patient details">
@@ -108,47 +64,31 @@ export const PatientDetailsContainer: FC = () => {
       </Row>
       <Row label="Patient's ethnicity" required>
         <FormSelect
+          name={FormFields.ethinicity.key}
           data-testid={dataTestIds.patientDetailsContainer.patientsEthnicity}
-          name={patientFieldPaths.ethnicity}
           control={control}
           options={ETHNICITY_OPTIONS}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
-          defaultValue={getExtensionValue(patient, PATIENT_ETHNICITY_URL)}
-          onChangeHandler={handleChange}
         />
       </Row>
       <Row label="Patient's race" required>
         <FormSelect
+          name={FormFields.race.key}
           data-testid={dataTestIds.patientDetailsContainer.patientsRace}
-          name={patientFieldPaths.race}
           control={control}
           options={RACE_OPTIONS}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
-          defaultValue={getExtensionValue(patient, PATIENT_RACE_URL)}
-          onChangeHandler={handleChange}
         />
       </Row>
       <Row label="Sexual orientation">
-        <FormSelect
-          name={patientFieldPaths.sexualOrientation}
-          control={control}
-          options={SEXUAL_ORIENTATION_OPTIONS}
-          defaultValue={sexualOrientation}
-          onChangeHandler={handleChange}
-        />
+        <FormSelect name={FormFields.sexualOrientation.key} control={control} options={SEXUAL_ORIENTATION_OPTIONS} />
       </Row>
       <Row label="Gender identity">
-        <FormSelect
-          name={patientFieldPaths.genderIdentity}
-          control={control}
-          options={GENDER_IDENTITY_OPTIONS}
-          defaultValue={genderIdentity}
-          onChangeHandler={handleGenderIdentityChange}
-        />
+        <FormSelect name={FormFields.genderIdentity.key} control={control} options={GENDER_IDENTITY_OPTIONS} />
       </Row>
       {genderIdentityCurrentValue === 'Non-binary gender identity' && (
         <Box
@@ -159,23 +99,12 @@ export const PatientDetailsContainer: FC = () => {
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', alignSelf: 'end', flex: '0 1 70%' }}>
-            <FormTextField
-              name={patientFieldPaths.genderIdentityDetails}
-              control={control}
-              defaultValue={genderIdentityDetails}
-              onChangeHandler={handleChange}
-            />
+            <FormTextField name={FormFields.genderIdentityDetails.key} control={control} />
           </Box>
         </Box>
       )}
       <Row label="How did you hear about us?">
-        <FormSelect
-          name={patientFieldPaths.pointOfDiscovery}
-          control={control}
-          options={POINT_OF_DISCOVERY_OPTIONS}
-          defaultValue={howDidYouHearAboutUs}
-          onChangeHandler={handleChange}
-        />
+        <FormSelect name={FormFields.pointOfDiscovery.key} control={control} options={POINT_OF_DISCOVERY_OPTIONS} />
       </Row>
       <Box
         sx={{
@@ -189,20 +118,10 @@ export const PatientDetailsContainer: FC = () => {
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', flex: '1 1 70%' }}>
           <Controller
-            name={patientFieldPaths.sendMarketing}
+            name={FormFields.sendMarketing.key}
             control={control}
-            defaultValue={sendMarketingMessages === undefined ? '' : String(sendMarketingMessages)}
             render={({ field }) => (
-              <Select
-                {...field}
-                value={field.value || ''}
-                variant="standard"
-                sx={{ width: '100%' }}
-                onChange={(e) => {
-                  field.onChange(e);
-                  handleChange(e as any);
-                }}
-              >
+              <Select {...field} value={field.value || ''} variant="standard" sx={{ width: '100%' }}>
                 {[
                   { value: true, label: 'Yes' },
                   { value: false, label: 'No' },
@@ -228,20 +147,10 @@ export const PatientDetailsContainer: FC = () => {
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', flex: '1 1 70%' }}>
           <Controller
-            name={patientFieldPaths.preferredLanguage}
+            name={FormFields.language.key}
             control={control}
-            defaultValue={preferredLanguage || ''}
             render={({ field }) => (
-              <Select
-                {...field}
-                value={field.value || ''}
-                variant="standard"
-                sx={{ width: '100%' }}
-                onChange={(e) => {
-                  field.onChange(e);
-                  handleChange(e as any);
-                }}
-              >
+              <Select {...field} value={field.value || ''} variant="standard" sx={{ width: '100%' }}>
                 {Object.entries(LANGUAGE_OPTIONS).map(([key, value]) => (
                   <MenuItem key={value} value={value}>
                     {key}
@@ -264,20 +173,10 @@ export const PatientDetailsContainer: FC = () => {
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', flex: '1 1 70%' }}>
           <Controller
-            name={patientFieldPaths.commonWellConsent}
+            name={FormFields.commonWellConsent.key}
             control={control}
-            defaultValue={commonWellConsent === undefined ? '' : String(commonWellConsent)}
             render={({ field }) => (
-              <Select
-                {...field}
-                value={field.value || ''}
-                variant="standard"
-                sx={{ width: '100%' }}
-                onChange={(e) => {
-                  field.onChange(e);
-                  handleChange(e as any);
-                }}
-              >
+              <Select {...field} value={field.value || ''} variant="standard" sx={{ width: '100%' }}>
                 {[
                   { value: true, label: 'Yes' },
                   { value: false, label: 'No' },

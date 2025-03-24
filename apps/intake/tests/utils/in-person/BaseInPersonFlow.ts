@@ -82,6 +82,8 @@ export abstract class BaseInPersonFlow {
     dobMonth: string;
     dobYear: string;
     dobDay: string;
+    location?: string | null;
+    selectedSlot?: string | null;
   }> {
     const bookingData = await this.goToReviewPage();
     await this.completeBooking();
@@ -99,6 +101,8 @@ export abstract class BaseInPersonFlow {
       dobMonth: bookingData.dobMonth,
       dobYear: bookingData.dobYear,
       dobDay: bookingData.dobDay,
+      location: bookingData.location,
+      selectedSlot: bookingData.selectedSlot?.selectedSlot,
     };
   }
   async checkValueIsNotEmpty(value: Locator): Promise<void> {
