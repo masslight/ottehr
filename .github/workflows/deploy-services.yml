@@ -80,7 +80,7 @@ jobs:
 
       - name: Increase version if input dictates.
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
-        run: cd ${{ github.workspace }} && npm version ${{ github.event.inputs.versionType }} --no-git-tag-version
+        run: cd ${{ github.workspace }} && npm version ${{ github.event.inputs.versionType }} --allow-same-version --no-git-tag-version
 
       - name: Get Version Number from package.json
         id: package-version
