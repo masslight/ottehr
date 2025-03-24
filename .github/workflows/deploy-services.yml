@@ -88,8 +88,6 @@ jobs:
       - name: Get Version Number from package.json
         id: package-version
         uses: martinbeentjes/npm-get-version-action@95bc31c6dd3145896c110e382f840bb1e750d09c # v1.1.0
-        with:
-          path: apps/intake # it won't matter if the version numbers are synced
 
       - name: Create Pull Request to the base branch with version bump
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
