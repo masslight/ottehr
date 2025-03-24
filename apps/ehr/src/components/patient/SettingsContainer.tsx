@@ -28,15 +28,10 @@ import { usePatientStore } from '../../state/patient.store';
 import { dataTestIds } from '../../constants/data-test-ids';
 
 export const SettingsContainer: FC = () => {
-  const { patient, updatePatientField } = usePatientStore();
+  const { patient } = usePatientStore();
   const { control, watch, setValue } = useFormContext();
 
   if (!patient) return null;
-
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    const { name, value, type, checked } = event.target;
-    updatePatientField(name, type === 'checkbox' ? checked : value);
-  };
 
   const releaseOfInfo = patient?.extension?.find((e: { url: string }) => e.url === PATIENT_RELEASE_OF_INFO_URL)
     ?.valueBoolean;
@@ -67,10 +62,6 @@ export const SettingsContainer: FC = () => {
                 value={field.value || ''}
                 variant="standard"
                 sx={{ width: '100%' }}
-                onChange={(e) => {
-                  field.onChange(e);
-                  handleChange(e as any);
-                }}
               >
                 {[
                   { value: true, label: 'Yes, Release Allowed' },
@@ -97,7 +88,6 @@ export const SettingsContainer: FC = () => {
             required: REQUIRED_FIELD_ERROR_MESSAGE,
             validate: (value: string) => RX_HISTORY_CONSENT_OPTIONS.some((option) => option.value === value),
           }}
-          onChangeHandler={handleChange}
         />
       </Row>
       <Box
@@ -120,15 +110,6 @@ export const SettingsContainer: FC = () => {
                   onChange={(e) => {
                     const newActiveValue = !e.target.checked;
                     onChange(newActiveValue);
-                    handleChange({
-                      ...e,
-                      target: {
-                        ...e.target,
-                        type: e.target.type,
-                        name: patientFieldPaths.active,
-                        checked: newActiveValue,
-                      },
-                    });
                   }}
                 />
               }
@@ -164,11 +145,9 @@ export const SettingsContainer: FC = () => {
                     onChange={(e) => {
                       const isChecked = e.target.checked;
                       onChange(isChecked);
-                      handleChange(e);
 
                       if (!isChecked) {
                         if (deceasedDate) {
-                          updatePatientField(patientFieldPaths.deceasedDate, '');
                           setValue(patientFieldPaths.deceasedDate, '');
                         }
                       } else {
@@ -195,6 +174,7 @@ export const SettingsContainer: FC = () => {
                     value={field.value}
                     onChange={(e) => {
                       field.onChange(e);
+                      /*
                       const isDateKnown = e.target.value === 'known';
                       if (isDateKnown) {
                         updatePatientField(patientFieldPaths.deceasedDate, '');
@@ -202,7 +182,7 @@ export const SettingsContainer: FC = () => {
                         updatePatientField(patientFieldPaths.deceasedDate, '');
                         updatePatientField(patientFieldPaths.deceased, true);
                         setValue(patientFieldPaths.deceasedDate, '');
-                      }
+                      }*/
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -222,8 +202,10 @@ export const SettingsContainer: FC = () => {
                               onChange={(dateStr) => {
                                 const isoDateTime = createLocalDateTime(dateStr)?.toISO?.();
                                 if (isoDateTime) {
+                                  /*
                                   updatePatientField(patientFieldPaths.deceased, '');
                                   updatePatientField(patientFieldPaths.deceasedDate, isoDateTime);
+                                  */
                                 }
                               }}
                             />
@@ -251,7 +233,7 @@ export const SettingsContainer: FC = () => {
                     value={field.value}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                       field.onChange(e);
-                      handleChange(e);
+                      // handleChange(e);
                     }}
                     label="Note"
                     fullWidth

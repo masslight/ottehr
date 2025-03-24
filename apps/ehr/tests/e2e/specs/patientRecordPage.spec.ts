@@ -13,16 +13,17 @@ const STREET_ADDRESS = 'Test address, 1';
 const CITY = 'New York';
 const STATE = 'CA';
 const PATIENT_EMAIL = 'testemail@getMaxListeners.com';
-const PATIENT_MOBILE = '2027139680';
+const PATIENT_MOBILE = '(120) 271-3968';
 const PATIENT_ETHNICITY = 'Hispanic or Latino';
 const PATIENT_RACE = 'Asian';
-const RELATIONSHIP = 'Self';
-const FULL_NAME = 'Last name, First name';
+const RELATIONSHIP = 'Parent';
+const FIRST_NAME = 'First name';
+const LAST_NAME = 'Last name';
 const BIRTHDATE_FROM_RESPONSIBLE_CONTAINER = '10/10/2000';
 const BIRTSEX_FROM_RESPONSIBLE_CONTAINER = 'Male';
-const PHONE_FROM_RESPONSIBLE_CONTAINER = '1111111111';
-const RELEASE_OF_INFO = 'Yes, Release Allowed';
-const RX_HISTORY_CONSENT = 'Rx history consent signed by the patient';
+const PHONE_FROM_RESPONSIBLE_CONTAINER = '(111) 111-1111';
+//const RELEASE_OF_INFO = 'Yes, Release Allowed';
+//const RX_HISTORY_CONSENT = 'Rx history consent signed by the patient';
 
 test.describe('Patient Record Page non-mutating tests', () => {
   test.beforeAll(async () => {
@@ -72,12 +73,13 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.selectPatientEthnicity(PATIENT_ETHNICITY);
     await patientInformationPage.selectPatientRace(PATIENT_RACE);
     await patientInformationPage.selectRelationship(RELATIONSHIP);
-    await patientInformationPage.enterFullName(FULL_NAME);
+    await patientInformationPage.enterFirstName(FIRST_NAME);
+    await patientInformationPage.enterLastName(LAST_NAME);
     await patientInformationPage.enterDateOfBirthFromResponsibleContainer(BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.selectBirthSexFromResponsibleContainer(BIRTSEX_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.enterPhoneFromResponsibleContainer(PHONE_FROM_RESPONSIBLE_CONTAINER);
-    await patientInformationPage.selectReleaseOfInfo(RELEASE_OF_INFO);
-    await patientInformationPage.selectRxHistoryConsent(RX_HISTORY_CONSENT);
+    // await patientInformationPage.selectReleaseOfInfo(RELEASE_OF_INFO);
+    // await patientInformationPage.selectRxHistoryConsent(RX_HISTORY_CONSENT);
     await patientInformationPage.clickSaveChangesButton();
     await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
     await patientInformationPage.reloadPatientInformationPage();
@@ -85,22 +87,25 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPatientLastName(PATIENT_LAST_NAME);
     await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
     await patientInformationPage.verifyPatientDateOfBirth(PATIENT_DATE_OF_BIRTH);
-    await patientInformationPage.verifyPatientBirthSex(PATIENT_BIRTH_SEX.toLowerCase());
+    await patientInformationPage.verifyPatientBirthSex(PATIENT_BIRTH_SEX);
     await patientInformationPage.verifyStreetAddress(STREET_ADDRESS);
     await patientInformationPage.verifyCity(CITY);
     await patientInformationPage.verifyState(STATE);
     await patientInformationPage.verifyPatientEmail(PATIENT_EMAIL);
-    await patientInformationPage.verifyPatientMobile('+1' + PATIENT_MOBILE);
+    await patientInformationPage.verifyPatientMobile(PATIENT_MOBILE);
     await patientInformationPage.verifyPatientEthnicity(PATIENT_ETHNICITY);
     await patientInformationPage.verifyPatientRace(PATIENT_RACE);
     await patientInformationPage.verifyRelationship(RELATIONSHIP);
-    await patientInformationPage.verifyFullName(FULL_NAME);
+    await patientInformationPage.verifyFirstName(FIRST_NAME);
+    await patientInformationPage.verifyLastName(LAST_NAME);
     await patientInformationPage.verifyDateOfBirthFromResponsibleContainer(BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
-    await patientInformationPage.verifyBirthSexFromResponsibleContainer(
-      BIRTSEX_FROM_RESPONSIBLE_CONTAINER.toLowerCase()
-    );
-    await patientInformationPage.verifyPhoneFromResponsibleContainer('+1' + PHONE_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.verifyBirthSexFromResponsibleContainer(BIRTSEX_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.verifyPhoneFromResponsibleContainer(PHONE_FROM_RESPONSIBLE_CONTAINER);
+
+    /*
+    skipping these tests because this component has been hidden while await requirement clarification from product team
     await patientInformationPage.verifyReleaseOfInfo(RELEASE_OF_INFO);
     await patientInformationPage.verifyRxHistoryConsent(RX_HISTORY_CONSENT);
+    */
   });
 });
