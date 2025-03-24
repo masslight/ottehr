@@ -24,13 +24,6 @@ export const MedicalDecisionField: FC<MedicalDecisionFieldProps> = ({ loading, s
   const { onValueChange, isLoading } = useDebounceNotesField('medicalDecision');
 
   useEffect(() => {
-    if (!loading && !chartData?.medicalDecision) {
-      onValueChange(MDM_FIELD_DEFAULT_TEXT);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading]);
-
-  useEffect(() => {
     setIsUpdating(isLoading);
   }, [isLoading, setIsUpdating]);
 

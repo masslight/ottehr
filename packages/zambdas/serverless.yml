@@ -1159,11 +1159,11 @@ functions:
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
       SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
 
-  telemed-appointment-subscription:
-    handler: src/ehr/telemed-appointment-subscription/index.index
+  appointment-chart-data-prefilling:
+    handler: src/subscriptions/appointment-chart-data-prefilling/index.index
     events:
       - http:
-          path: zambda/telemed-appointment-subscription/execute
+          path: zambda/appointment-chart-data-prefilling/execute
           method: POST
     timeout: 25
     environment:
@@ -1174,7 +1174,6 @@ functions:
       FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
-      SENDGRID_API_KEY: ${file(./.env/${self:provider.stage}.json):SENDGRID_API_KEY}
 
   notifications-updater:
     handler: src/ehr/notifications-updater/index.index

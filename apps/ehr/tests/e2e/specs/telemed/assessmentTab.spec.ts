@@ -4,9 +4,12 @@ import { MDM_FIELD_DEFAULT_TEXT, TelemedAppointmentVisitTabs } from 'utils';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
-import { expectTelemedProgressNotePage } from '../../page/telemed/TelemedProgressNotePage';
+import { TelemedAssessmentPage } from '../../page/telemed/TelemedAssessmentPage';
+import { TelemedProgressNotePage } from '../../page/telemed/TelemedProgressNotePage';
 
 const resourceHandler = new ResourceHandler('telemed');
+let telemedAssessmentPage: TelemedAssessmentPage;
+let telemedProgressNotePage: TelemedProgressNotePage;
 
 const DEFAULT_TIMEOUT = { timeout: 15000 };
 
@@ -16,8 +19,12 @@ const E_M_CODE = '99201';
 
 test.describe.configure({ mode: 'serial' });
 
-test.beforeAll(async () => {
+test.beforeAll(async ({ browser }) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
   await resourceHandler.setResources();
+  telemedAssessmentPage = new TelemedAssessmentPage(page);
+  telemedProgressNotePage = new TelemedProgressNotePage(page);
 });
 
 test.afterAll(async () => {
@@ -33,33 +40,27 @@ test.beforeEach(async ({ page }) => {
     .click();
 });
 
-test('Check assessment page initial state', async ({ page }) => {
+test('Check assessment page initial state and default MDM saving', async ({ page }) => {
   await page
     .getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.assessment))
     .click();
 
-  const diagnosisAutocomplete = page.getByTestId(dataTestIds.telemedEhrFlow.diagnosisAutocomplete);
-  await expect(diagnosisAutocomplete).toBeVisible(DEFAULT_TIMEOUT);
+  await telemedAssessmentPage.expectDiagnosisDropdown();
   await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis)).not.toBeVisible();
   await expect(page.getByTestId(dataTestIds.diagnosisContainer.secondaryDiagnosis)).not.toBeVisible();
-  await expect(
-    page.getByTestId(dataTestIds.assessmentPage.medicalDecisionField).locator('textarea:visible')
-  ).toHaveText(MDM_FIELD_DEFAULT_TEXT);
+  await telemedAssessmentPage.expectMdmField({ text: MDM_FIELD_DEFAULT_TEXT });
 
   await waitForSaveChartDataResponse(page, (json) => json.chartData.medicalDecision?.text === MDM_FIELD_DEFAULT_TEXT);
 });
 
 test('Remove MDM and check missing required fields on review and sign page', async ({ page }) => {
-  const mdmField = page.getByTestId(dataTestIds.assessmentPage.medicalDecisionField);
-  await expect(await mdmField.locator('textarea:visible')).toBeVisible(DEFAULT_TIMEOUT);
-
-  await page.getByTestId(dataTestIds.assessmentPage.medicalDecisionField).locator('textarea:visible').fill('');
+  await telemedAssessmentPage.expectMdmField();
+  await telemedAssessmentPage.fillMdmField('');
   await waitForChartDataDeletion(page);
 
-  await page.reload();
   await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
-  const progressNotePage = await expectTelemedProgressNotePage(page);
-  await progressNotePage.verifyReviewAndSignButtonDisabled();
+  await telemedProgressNotePage.expectLoaded();
+  await telemedProgressNotePage.verifyReviewAndSignButtonDisabled();
   await expect(page.getByTestId(dataTestIds.progressNotePage.missingCard)).toBeVisible();
   await expect(page.getByTestId(dataTestIds.progressNotePage.emCodeLink)).toBeVisible();
   await expect(page.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).toBeVisible();
@@ -70,20 +71,11 @@ test('Remove MDM and check missing required fields on review and sign page', asy
 });
 
 test('Search and select diagnoses', async ({ page }) => {
-  const diagnosisAutocomplete = page.getByTestId(dataTestIds.telemedEhrFlow.diagnosisAutocomplete);
+  await telemedAssessmentPage.expectDiagnosisDropdown();
 
   // Test ICD 10 code search
   await test.step('Search for ICD 10 code', async () => {
-    await diagnosisAutocomplete.click();
-    await diagnosisAutocomplete.locator('input').fill(DIAGNOSIS_CODE);
-    await page
-      .getByRole('option', { name: new RegExp(DIAGNOSIS_CODE, 'i') })
-      .first()
-      .waitFor();
-    await page
-      .getByRole('option', { name: new RegExp(DIAGNOSIS_CODE, 'i') })
-      .first()
-      .click();
+    await telemedAssessmentPage.selectDiagnosis({ diagnosisCode: DIAGNOSIS_CODE });
     await waitForSaveChartDataResponse(
       page,
       (json) =>
@@ -103,16 +95,7 @@ test('Search and select diagnoses', async ({ page }) => {
 
   // Test diagnosis name search
   await test.step('Search for diagnosis name', async () => {
-    await diagnosisAutocomplete.click();
-    await diagnosisAutocomplete.locator('input').fill(DIAGNOSIS_NAME);
-    await page
-      .getByRole('option', { name: new RegExp(DIAGNOSIS_NAME, 'i') })
-      .first()
-      .waitFor();
-    await page
-      .getByRole('option', { name: new RegExp(DIAGNOSIS_NAME, 'i') })
-      .first()
-      .click();
+    await telemedAssessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS_NAME });
     await waitForSaveChartDataResponse(
       page,
       (json) =>
@@ -135,7 +118,7 @@ test('Search and select diagnoses', async ({ page }) => {
   // Verify diagnoses on Review and Sign page
   await test.step('Verify diagnoses on Review and Sign page', async () => {
     await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
-    await expectTelemedProgressNotePage(page);
+    await telemedProgressNotePage.expectLoaded();
 
     // Verify both diagnoses are present
     await expect(page.getByText(primaryDiagnosisValue!, { exact: false })).toBeVisible();
@@ -165,7 +148,7 @@ test('Change primary diagnosis', async ({ page }) => {
   // Verify on Review and Sign page
   await test.step('Verify swapped diagnoses on Review and Sign page', async () => {
     await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
-    await expectTelemedProgressNotePage(page);
+    await telemedProgressNotePage.expectLoaded();
 
     // Verify both diagnoses are present
     await expect(page.getByText(initialSecondaryValue!, { exact: false })).toBeVisible();
@@ -174,8 +157,8 @@ test('Change primary diagnosis', async ({ page }) => {
 });
 
 test('Delete primary diagnosis', async ({ page }) => {
-  // const primaryDiagnosis = page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis);
-  // const primaryDiagnosisValue = await primaryDiagnosis.textContent();
+  const primaryDiagnosis = page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis);
+  const primaryDiagnosisValue = await primaryDiagnosis.textContent();
 
   // Get secondary diagnosis value before deletion
   const secondaryDiagnosis = page.getByTestId(dataTestIds.diagnosisContainer.secondaryDiagnosis);
@@ -196,20 +179,15 @@ test('Delete primary diagnosis', async ({ page }) => {
     expect(newPrimaryValue?.toLocaleLowerCase()).toEqual(secondaryDiagnosisValue?.toLocaleLowerCase());
   });
 
-  // TODO: Fix test to verify deleted diagnosis is not present and current primary diagnosis is present
-  // because it's not behaving same way in local browser and in e2e test (in e2e test it's not rerequesting chart data on
-  // Review and Sign page)
-
   // Verify on Review and Sign page
-  /* await test.step('Verify promoted diagnosis on Review and Sign page, deleted diagnosis is not present', async () => {
+  await test.step('Verify promoted diagnosis on Review and Sign page, deleted diagnosis is not present', async () => {
     await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
-    await expectTelemedProgressNotePage(page);
-    await waitForGetChartDataResponse(page, (json) => json.diagnosis?.length === 1);
+    await telemedProgressNotePage.expectLoaded();
 
     // Verify only one diagnosis is present
     await expect(page.getByText(secondaryDiagnosisValue!, { exact: false })).toBeVisible();
     await expect(page.getByText(primaryDiagnosisValue!, { exact: false })).not.toBeVisible(DEFAULT_TIMEOUT);
-  }); */
+  });
 });
 
 test('Medical Decision Making functionality', async ({ page }) => {
@@ -227,7 +205,7 @@ test('Medical Decision Making functionality', async ({ page }) => {
 
   // Navigate to Review and Sign to verify text is displayed
   await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
-  await expectTelemedProgressNotePage(page);
+  await telemedProgressNotePage.expectLoaded();
   await expect(page.getByText(newText)).toBeVisible();
 });
 
@@ -243,23 +221,18 @@ test('Add E&M code', async ({ page }) => {
     await waitForSaveChartDataResponse(page, (json) => json.chartData.emCode?.code === E_M_CODE);
   });
 
-  // Verify E&M code is added
-  // TODO: fix review&sign page to verify E&M code is added after clicking on this tab (in tests)
-  // it doesn't work stable
-  // for now will add next step page refresh to verify
-  /* await test.step('Verify E&M code is added', async () => {
+  await test.step('Verify E&M code is added', async () => {
     const value = await emCodeDropdown.locator('input').inputValue();
 
     // Navigate to Review and Sign to verify code is displayed
     await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
-    await expectTelemedProgressNotePage(page);
+    await telemedProgressNotePage.expectLoaded();
     await expect(page.getByText(value)).toBeVisible();
-  }); */
+  });
 
   await test.step('Verify E&M code is added', async () => {
-    await page.reload();
     await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
-    await expectTelemedProgressNotePage(page);
+    await telemedProgressNotePage.expectLoaded();
     await expect(page.getByText(E_M_CODE)).toBeVisible();
   });
 });

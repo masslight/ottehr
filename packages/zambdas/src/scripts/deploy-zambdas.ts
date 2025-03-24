@@ -120,7 +120,7 @@ const ZAMBDAS: { [name: string]: DeployZambda } = {
   'GET-CLAIMS': {
     type: 'http_auth',
   },
-  'TELEMED-APPOINTMENT-SUBSCRIPTION': {
+  'APPOINTMENT-CHART-DATA-PREFILLING': {
     type: 'subscription',
     subscriptionDetails: [
       {
