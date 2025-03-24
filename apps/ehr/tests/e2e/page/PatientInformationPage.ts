@@ -40,14 +40,14 @@ export class PatientInformationPage {
   }
 
   async enterPatientDateOfBirth(patientDateOfBirth: string): Promise<void> {
-    const locator = this.#page.locator('#patient-date-of-birth');
+    const locator = this.#page.locator('#patient-birthdate');
     await locator.click();
     await this.#page.waitForTimeout(2000);
     await locator.pressSequentially(patientDateOfBirth);
   }
 
   async verifyPatientDateOfBirth(patientDateOfBirth: string): Promise<void> {
-    await expect(this.#page.locator('#patient-date-of-birth')).toHaveValue(patientDateOfBirth);
+    await expect(this.#page.locator('#patient-birthdate')).toHaveValue(patientDateOfBirth);
   }
 
   async selectPatientBirthSex(birthSex: string): Promise<void> {
@@ -158,17 +158,30 @@ export class PatientInformationPage {
     ).toHaveValue(relationship);
   }
 
-  async enterFullName(fullName: string): Promise<void> {
+  async enterFirstName(firstName: string): Promise<void> {
     await this.#page
-      .getByTestId(dataTestIds.responsiblePartyInformationContainer.fullName)
+      .getByTestId(dataTestIds.responsiblePartyInformationContainer.firstName)
       .locator('input')
-      .fill(fullName);
+      .fill(firstName);
   }
 
-  async verifyFullName(fullName: string): Promise<void> {
+  async verifyFirstName(firstName: string): Promise<void> {
     await expect(
-      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.fullName).locator('input')
-    ).toHaveValue(fullName);
+      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.firstName).locator('input')
+    ).toHaveValue(firstName);
+  }
+
+  async enterLastName(lastName: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.responsiblePartyInformationContainer.lastName)
+      .locator('input')
+      .fill(lastName);
+  }
+
+  async verifyLastName(lastName: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.lastName).locator('input')
+    ).toHaveValue(lastName);
   }
 
   async enterDateOfBirthFromResponsibleContainer(dateOfBirth: string): Promise<void> {
