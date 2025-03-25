@@ -100,6 +100,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           reference: `Organization/${labOrganization.id}`,
         },
       ],
+      locationReference: [
+        {
+          type: 'Location',
+          reference: `Location/${location.id}`,
+        },
+      ],
       priority: 'routine',
       code: serviceRequestCode,
       reasonCode: serviceRequestReasonCode,
