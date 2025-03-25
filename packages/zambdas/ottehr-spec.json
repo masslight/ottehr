@@ -349,6 +349,27 @@
       "src": "src/ehr/paperwork-to-pdf/index",
       "zip": ".dist/zips/paperwork-to-pdf.zip"
     },
+    "GET-PATIENT-ACCOUNT": {
+      "name": "GET-PATIENT-ACCOUNT",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/patient-account/get/index",
+      "zip": ".dist/zips/get-patient-account.zip"
+    },
+    "UPDATE-PATIENT-ACCOUNT": {
+      "name": "UPDATE-PATIENT-ACCOUNT",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/patient-account/update/index",
+      "zip": ".dist/zips/update-patient-account.zip"
+    },
+    "REMOVE-PATIENT-COVERAGE": {
+      "name": "REMOVE-PATIENT-COVERAGE",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/patient-account/remove-coverage/index",
+      "zip": ".dist/zips/remove-patient-coverage.zip"
+    },
     "CANCEL-APPOINTMENT": {
       "name": "CANCEL-APPOINTMENT",
       "type": "http_open",
