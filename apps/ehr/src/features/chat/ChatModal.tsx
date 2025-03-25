@@ -27,6 +27,7 @@ import { useApiClients } from '../../hooks/useAppClients';
 import useEvolveUser, { EvolveUser } from '../../hooks/useEvolveUser';
 import { useFetchChatMessagesQuery, useSendMessagesMutation } from './chat.queries';
 import { getPatientName, removeHtmlTags } from '../../telemed/utils';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 function scrollToBottomOfChat(): void {
   // this helps with the scroll working,
@@ -267,6 +268,7 @@ const ChatModal = memo(
               <Typography
                 id="modal-description"
                 variant="h5"
+                data-testid={dataTestIds.telemedEhrFlow.chatModalDescription}
                 sx={{ fontWeight: 600, color: theme.palette.primary.dark }}
               >
                 {numbersToSendTo ? numbersToSendTo.join(',') : ''}
