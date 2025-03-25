@@ -5,4 +5,7 @@ export interface ReviewItem {
   valueString?: string;
   valueBoolean?: boolean;
   isPending?: boolean;
+  valueTestId?: string;
+  rowID?: string;
+  testId?: string;
 }

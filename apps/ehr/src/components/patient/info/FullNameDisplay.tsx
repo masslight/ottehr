@@ -3,16 +3,16 @@ import { Variant } from '@mui/material/styles/createTypography';
 import { FC, useMemo } from 'react';
 import { getFirstName, getLastName, getMiddleName, getNickname } from 'utils/lib/fhir/patient';
 import { formatPatientName } from '../../../helpers/formatPatientName';
-import { useGetPatient } from '../../../hooks/useGetPatient';
 import { dataTestIds } from '../../../constants/data-test-ids';
+import { Patient } from 'fhir/r4b';
 
 type Props = {
-  id?: string;
+  patient: Patient | undefined;
+  loading?: boolean;
   variant?: Variant;
 };
 
-export const FullNameDisplay: FC<Props> = ({ id, variant = 'h3' }) => {
-  const { loading, patient } = useGetPatient(id);
+export const FullNameDisplay: FC<Props> = ({ patient, loading, variant = 'h3' }) => {
   const { firstName, lastName, middleName, nickname } = useMemo(() => {
     if (!patient) return {};
     return {
