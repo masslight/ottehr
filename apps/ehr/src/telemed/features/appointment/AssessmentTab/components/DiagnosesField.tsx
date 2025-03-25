@@ -60,8 +60,8 @@ export const DiagnosesField: FC<DiagnosesFieldProps> = (props) => {
       getOptionDisabled={(option) => disableForPrimary && option.code.startsWith('W')}
       renderInput={(params) => (
         <TextField
-          data-testid={dataTestIds.assessmentPage.diagnosisDropdown}
           {...params}
+          data-testid={dataTestIds.assessmentPage.diagnosisDropdown}
           onChange={(e) => debouncedHandleInputChange(e.target.value)}
           size="small"
           label={label || 'Search'}

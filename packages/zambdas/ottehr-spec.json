@@ -628,10 +628,10 @@
       "name": "APPOINTMENT-CHART-DATA-PREFILLING",
       "type": "subscription",
       "runtime": "nodejs20.x",
-      "src": "src/ehr/appointment-chart-data-prefilling/index",
+      "src": "src/subscriptions/appointment-chart-data-prefilling/index",
       "zip": ".dist/zips/appointment-chart-data-prefilling.zip",
       "subscription": {
-        "criteria": "Appointment?_tag:not=APPOINTMENT_PREPROCESSED&status=arrived,booked",
+        "criteria": "Appointment?_tag=APPOINTMENT_READY_FOR_PREPROCESSING",
         "reason": "Appointment pre-processor",
         "event": "update"
       }

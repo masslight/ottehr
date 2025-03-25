@@ -1,8 +1,7 @@
 import { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, FhirResource, Patient, QuestionnaireResponse } from 'fhir/r4b';
+import { Appointment, Encounter, FhirResource, Patient } from 'fhir/r4b';
 import {
-  ADDITIONAL_QUESTIONS_META_SYSTEM,
   ChartDataResources,
   chunkThings,
   DispositionDTO,
@@ -10,6 +9,7 @@ import {
   ExamCardsNames,
   examFieldsMap,
   ExamFieldsNames,
+  FHIR_APPOINTMENT_PREPROCESSED_TAG,
   getDefaultNote,
   getPatchBinary,
   getPatchOperationForNewMetaTag,
@@ -27,7 +27,6 @@ import {
   createDispositionServiceRequest,
   makeClinicalImpressionResource,
   makeExamObservationResource,
-  makeObservationResource,
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
 } from '../../ehr/shared/chart-data/chart-data-helpers';
@@ -37,7 +36,7 @@ import {
   createOystehrClient,
   getVideoRoomResourceExtension,
 } from '../../ehr/shared/helpers';
-import { createAdditionalQuestions, createExamObservations } from './helpers';
+import { createExamObservations } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const CHUNK_SIZE = 50;
@@ -68,13 +67,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!['arrived', 'booked'].includes(appointment.status)) {
-      console.log(`appointment has inappropriate status ${appointment.status}`);
-      return {
-        statusCode: 400,
-        body: `Appointment has status ${appointment.status}. To initialize it should have status 'arrived' or 'booked'`,
-      };
-    }
     if (!appointment.id) throw new Error("Appointment FHIR resource doesn't exist.");
 
     zapehrToken = await checkOrCreateM2MClientToken(zapehrToken, secrets);
@@ -82,7 +74,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.log('Created zapToken and fhir client');
 
     const resourceBundle = (
-      await oystehr.fhir.search<Appointment | Encounter | Patient | QuestionnaireResponse>({
+      await oystehr.fhir.search<Appointment | Encounter | Patient>({
         resourceType: 'Appointment',
         params: [
           { name: '_id', value: appointment.id },
@@ -94,10 +86,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             name: '_revinclude:iterate',
             value: 'Encounter:appointment',
           },
-          {
-            name: '_revinclude:iterate',
-            value: 'QuestionnaireResponse:encounter',
-          },
         ],
       })
     ).unbundle();
@@ -105,10 +93,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const isInPersonAppointment = !!appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
 
-    const patient = resourceBundle?.find(
-      (resource: FhirResource) => resource.resourceType === 'Patient'
-    ) as unknown as Patient;
-    if (!patient.id) throw new Error('Patient is missing from resource bundle.');
+    const patient = resourceBundle?.find((resource: FhirResource) => resource.resourceType === 'Patient') as
+      | Patient
+      | undefined;
+    if (!patient?.id) throw new Error('Patient is missing from resource bundle.');
     // When in forEach, TS forgets this is no longer undefined.
     const patientId = patient.id;
 
@@ -116,27 +104,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       (resource: FhirResource) =>
         resource.resourceType === 'Encounter' &&
         (isInPersonAppointment || Boolean(getVideoRoomResourceExtension(resource)))
-    ) as unknown as Encounter;
-    if (!encounter.id) throw new Error('Encounter is missing from resource bundle.');
+    ) as Encounter | undefined;
+    if (!encounter?.id) throw new Error('Encounter is missing from resource bundle.');
     // When in forEach, TS forgets this is no longer undefined.
     const encounterId = encounter.id;
-
-    if (!isInPersonAppointment) {
-      const questionnaireResponse = resourceBundle?.find(
-        (resource: FhirResource) => resource.resourceType === 'QuestionnaireResponse'
-      ) as unknown as QuestionnaireResponse;
-
-      // Additional questions
-      const additionalQuestions = createAdditionalQuestions(questionnaireResponse);
-
-      additionalQuestions.forEach((observation) => {
-        saveOrUpdateRequests.push(
-          saveResourceRequest(
-            makeObservationResource(encounterId, patientId, '', observation, ADDITIONAL_QUESTIONS_META_SYSTEM)
-          )
-        );
-      });
-    }
 
     // Exam observations
     const examObservations = createExamObservations(isInPersonAppointment);
@@ -173,12 +144,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       getPatchBinary({
         resourceId: appointment.id,
         resourceType: 'Appointment',
-        patchOperations: [
-          getPatchOperationForNewMetaTag(appointment, {
-            system: 'appointment-preprocessed',
-            code: 'APPOINTMENT_PREPROCESSED',
-          }),
-        ],
+        patchOperations: [getPatchOperationForNewMetaTag(appointment, FHIR_APPOINTMENT_PREPROCESSED_TAG)],
       })
     );
 

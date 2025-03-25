@@ -1,6 +1,7 @@
 import { ApptTelemedTab, PractitionerQualificationCode, RoleType, TelemedAppointmentVisitTabs } from 'utils';
 
 export const dataTestIds = {
+  loadingSpinner: 'loading-spinner',
   header: {
     userName: 'header-user-name',
   },

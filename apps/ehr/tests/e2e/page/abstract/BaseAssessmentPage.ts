@@ -11,13 +11,16 @@ export abstract class BaseAssessmentPage {
   }
 
   async expectDiagnosisDropdown(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.assessmentPage.diagnosisDropdown).locator('input').waitFor({
+      state: 'visible',
+    });
     const diagnosisAutocomplete = this.#page.getByTestId(dataTestIds.assessmentPage.diagnosisDropdown);
-    await expect(diagnosisAutocomplete).toBeVisible(DEFAULT_TIMEOUT);
+    await expect(await diagnosisAutocomplete.locator('input')).toBeVisible(DEFAULT_TIMEOUT);
   }
 
   async expectMdmField(options?: { text?: string }): Promise<void> {
     const { text } = options ?? {};
-    const mdmField = this.#page.getByTestId(dataTestIds.assessmentPage.medicalDecisionField);
+    const mdmField = await this.#page.getByTestId(dataTestIds.assessmentPage.medicalDecisionField);
     await expect(await mdmField.locator('textarea:visible')).toBeVisible(DEFAULT_TIMEOUT);
     if (text) {
       await expect(await mdmField.locator('textarea:visible')).toHaveText(text);
@@ -25,7 +28,7 @@ export abstract class BaseAssessmentPage {
   }
 
   async fillMdmField(text: string): Promise<void> {
-    const mdmField = this.#page.getByTestId(dataTestIds.assessmentPage.medicalDecisionField);
+    const mdmField = await this.#page.getByTestId(dataTestIds.assessmentPage.medicalDecisionField);
     await mdmField.locator('textarea:visible').fill(text);
   }
 
@@ -54,5 +57,16 @@ export abstract class BaseAssessmentPage {
       .getByRole('option', { name: new RegExp(searchText, 'i') })
       .first()
       .click();
+  }
+
+  async expectEmCodeDropdown(): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.assessmentPage.emCodeDropdown)).toBeVisible();
+  }
+
+  async selectEmCode(code: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.assessmentPage.emCodeDropdown).click();
+    await this.#page.getByTestId(dataTestIds.assessmentPage.emCodeDropdown).locator('input').fill(code);
+    await this.#page.getByRole('option').first().waitFor();
+    await this.#page.getByRole('option').first().click();
   }
 }
