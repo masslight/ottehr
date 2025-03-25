@@ -11,15 +11,15 @@ export const useFetchChatMessagesQuery = (
   numbersToSendTo?: string[],
   onSuccess?: (data: ConversationMessage[]) => void
 ) => {
-  const { oystehr } = useApiClients();
+  const { oystehrZambda } = useApiClients();
   return useQuery(
     ['chat-messages', numbersToSendTo, timezone],
     async () => {
-      return await getConversation(oystehr!, { smsNumbers: numbersToSendTo!, timezone });
+      return await getConversation(oystehrZambda!, { smsNumbers: numbersToSendTo!, timezone });
     },
     {
       onSuccess,
-      enabled: Boolean(oystehr && numbersToSendTo?.length && timezone),
+      enabled: Boolean(oystehrZambda && numbersToSendTo?.length && timezone),
     }
   );
 };

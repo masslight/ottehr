@@ -4,6 +4,7 @@ import { getQuestionnaireResponseByLinkId } from 'utils';
 import { PatientSideListSkeleton } from '../PatientSideListSkeleton';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const SurgicalHistoryPatientColumn: FC = () => {
   const theme = useTheme();
@@ -21,6 +22,7 @@ export const SurgicalHistoryPatientColumn: FC = () => {
         flexDirection: 'column',
         gap: 1,
       }}
+      data-testid={dataTestIds.telemedEhrFlow.hpiSurgicalHistoryPatientProvidedList}
     >
       {isAppointmentLoading ? (
         <PatientSideListSkeleton />

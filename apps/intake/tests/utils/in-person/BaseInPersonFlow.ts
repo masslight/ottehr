@@ -1,7 +1,7 @@
 import { BrowserContext, expect, Locator, Page } from '@playwright/test';
+import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
 import { Locators } from '../locators';
 import { FillingInfo } from './FillingInfo';
-import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
 
 export abstract class BaseInPersonFlow {
   protected page: Page;
@@ -74,6 +74,7 @@ export abstract class BaseInPersonFlow {
 
   async startVisit(): Promise<{
     bookingURL: string;
+    bookingUUID: string | null;
     firstName: string;
     lastName: string;
     email: string;
@@ -81,12 +82,18 @@ export abstract class BaseInPersonFlow {
     dobMonth: string;
     dobYear: string;
     dobDay: string;
+    location?: string | null;
+    selectedSlot?: string | null;
   }> {
     const bookingData = await this.goToReviewPage();
     await this.completeBooking();
     await this.page.waitForURL(/\/visit\//);
+    const bookingURL = this.page.url();
+    const match = bookingURL.match(/visit\/([0-9a-fA-F-]+)/);
+    const bookingUUID = match ? match[1] : null;
     return {
-      bookingURL: this.page.url(),
+      bookingURL,
+      bookingUUID,
       firstName: bookingData.firstName,
       lastName: bookingData.lastName,
       email: bookingData.email,
@@ -94,6 +101,8 @@ export abstract class BaseInPersonFlow {
       dobMonth: bookingData.dobMonth,
       dobYear: bookingData.dobYear,
       dobDay: bookingData.dobDay,
+      location: bookingData.location,
+      selectedSlot: bookingData.selectedSlot?.selectedSlot,
     };
   }
   async checkValueIsNotEmpty(value: Locator): Promise<void> {

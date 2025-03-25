@@ -12,6 +12,7 @@ import {
   formatPhoneNumber,
   getPatchBinary,
   getPatientResourceWithVerifiedPhoneNumber,
+  normalizePhoneNumber,
   removeTimeFromDate,
 } from 'utils';
 
@@ -308,7 +309,7 @@ export function creatingPatientCreateRequest(
         },
         {
           system: 'phone',
-          value: patient.phoneNumber,
+          value: normalizePhoneNumber(patient.phoneNumber),
         },
       ];
     } else {

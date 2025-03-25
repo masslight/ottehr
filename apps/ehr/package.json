@@ -1,6 +1,6 @@
 {
   "name": "ehr-ui",
-  "version": "1.4.4",
+  "version": "1.5.2",
   "private": true,
   "type": "module",
   "engines": {
@@ -22,7 +22,8 @@
   "scripts": {
     "start": "vite --mode default",
     "preview": "vite preview --port 4002",
-    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint --ext ts,tsx,js,jsx --report-unused-disable-directives --max-warnings 0",
+    "prettier": "prettier --write .",
     "build": "npm run build:env --env=default",
     "build:env": "ENV=$npm_config_env npm run build-skeleton",
     "build:development": "ENV=development npm run build-skeleton",
@@ -31,9 +32,9 @@
     "build:demo": "ENV=demo npm run build-skeleton",
     "build-skeleton": "tsc && vite build --mode ${ENV}",
     "test": "vitest --silent",
-    "e2e:login": "npm run e2e-skeleton ./test/e2e/login",
-    "e2e:specs": "npm run e2e-skeleton ./test/e2e/specs",
-    "e2e:specs:ui": "npm run e2e-skeleton ./test/e2e/specs -- --ui",
+    "e2e:login": "npm run e2e-skeleton ./tests/e2e/login",
+    "e2e:specs": "npm run e2e-skeleton ./tests/e2e/specs",
+    "e2e:specs:ui": "npm run e2e-skeleton ./tests/e2e/specs -- --ui",
     "e2e:manual-login": "node ./auth.setup.js",
     "e2e-skeleton": "env-cmd -f ./env/tests.${ENV}.json playwright test",
     "setup-test-deps": "node setup-test-deps.js",

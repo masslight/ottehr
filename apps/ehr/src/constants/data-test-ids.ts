@@ -1,4 +1,4 @@
-import { AppointmentVisitTabs, ApptTelemedTab, PractitionerQualificationCode, RoleType } from 'utils';
+import { ApptTelemedTab, PractitionerQualificationCode, RoleType, TelemedAppointmentVisitTabs } from 'utils';
 
 export const dataTestIds = {
   header: {
@@ -68,6 +68,7 @@ export const dataTestIds = {
     patientLastName: 'patient-last-name',
     patientFirstName: 'patient-first-name',
     patientBirthSex: 'patient-birth-sex',
+    patientDOB: 'patient-date-of-birth',
   },
   contactInformationContainer: {
     streetAddress: 'street-address',
@@ -84,7 +85,8 @@ export const dataTestIds = {
   responsiblePartyInformationContainer: {
     id: 'responsible-party-information-container',
     relationshipDropdown: 'relationship-dropdown',
-    fullName: 'full-name',
+    firstName: 'first-name',
+    lastName: 'last-name',
     dateOfBirthDropdown: 'date-of-birth-dropdown',
     birthSexDropdown: 'birth-sex-dropdown',
     phoneInput: 'phone-input',
@@ -176,22 +178,29 @@ export const dataTestIds = {
     hpiMedicalConditionsLoadingSkeleton: 'telemed-medical-conditions-loading-skeleton',
     hpiMedicalConditionColumn: 'telemed-hpi-medical-condition-column',
     hpiMedicalConditionsList: 'telemed-hpi-medical-condition-list',
+    hpiMedicalConditionPatientProvidedsList: 'telemed-hpi-medical-condition-patient-provided-list',
     hpiMedicalConditionsInput: 'telemed-hpi-medical-condition-input',
+    hpiCurrentMedicationsPatientProvidedsList: 'telemed-hpi-current-medications-patient-provided-list',
     hpiKnownAllergiesColumn: 'telemed-hpi-known-allergies-column',
     hpiKnownAllergiesList: 'telemed-hpi-known-allergies-list',
+    hpiKnownAllergiesPatientProvidedList: 'telemed-hpi-known-allergies-patient-provided-list',
     hpiKnownAllergiesInput: 'telemed-hpi-known-allergies-input',
     hpiSurgicalHistoryColumn: 'telemed-hpi-surgical-history-column',
     // hpiSurgicalHistoryList: 'telemed-hpi-surgical-history-list',
+    hpiSurgicalHistoryPatientProvidedList: 'telemed-hpi-surgical-history-patient-provided-list',
     hpiSurgicalHistoryInput: 'telemed-hpi-surgical-history-input',
     hpiAdditionalQuestions: (questionSymptom: string) => `telemed-additional-questions-${questionSymptom}`,
+    hpiAdditionalQuestionsPatientProvided: (questionSymptom: string) =>
+      `telemed-additional-questions-patient-provided-${questionSymptom}`,
     hpiSurgicalHistoryNote: 'telemed-hpi-surgical-history-note',
     hpiChiefComplaintNotes: 'telemed-chief-complaint-notes',
     hpiChiefComplaintRos: 'telemed-chief-complaint-ros',
+    hpiPatientConditionPhotos: 'telemed-patient-condition-photos',
+    hpiReasonForVisit: 'telemed-reason-for-visit',
     videoRoomContainer: 'telemed-video-room-container',
     endVideoCallButton: 'telemed-end-video-call-button',
-    appointmentVisitTabs: (tab: AppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
+    appointmentVisitTabs: (tab: TelemedAppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
     diagnosisAutocomplete: 'telemed-diagnosis-autocomplete',
-    emCodeAutocomplete: 'telemed-em-code-autocomplete',
     patientInfoConfirmationCheckbox: 'telemed-patient-info-confirmation-checkbox',
     signButton: 'telemed-sign-button',
   },
@@ -204,6 +213,13 @@ export const dataTestIds = {
   },
   progressNotePage: {
     reviewAndSignButton: 'review-and-sign-button',
+    missingCard: 'missing-card',
+    missingCardText: 'missing-card-text',
+    primaryDiagnosisLink: 'primary-diagnosis-link',
+    secondaryDiagnosisLink: 'secondary-diagnosis-link',
+    medicalDecisionLink: 'medical-decision-link',
+    emCodeLink: 'em-code-link',
+    visitNoteCard: 'visit-note-card',
   },
   assessmentPage: {
     diagnosisDropdown: 'diagnosis-dropdown',
@@ -211,7 +227,11 @@ export const dataTestIds = {
     medicalDecisionField: 'medical-decision-field',
   },
   diagnosisContainer: {
-    deleteButton: 'diagnosis-container-delete-button',
+    primaryDiagnosis: 'diagnosis-container-primary-diagnosis',
+    secondaryDiagnosis: 'diagnosis-container-secondary-diagnosis',
+    primaryDiagnosisDeleteButton: 'diagnosis-container-primary-diagnosis-delete-button',
+    secondaryDiagnosisDeleteButton: 'diagnosis-container-secondary-diagnosis-delete-button',
+    makePrimaryButton: 'diagnosis-container-make-primary-button',
   },
   billingContainer: {
     deleteButton: 'billing-container-delete-button',
@@ -225,7 +245,11 @@ export const dataTestIds = {
     marTableRow: 'mar-table-row',
     marTableMedicationCell: 'mar-table-medication-cell',
     marTableStatusCell: 'mar-table-status-cell',
+    marTableDoseCell: 'mar-table-dose-cell',
+    marTableRouteCell: 'mar-table-route-cell',
+    marTableInstructionsCell: 'mar-table-instructions-cell',
     medicationDetailsTab: 'medication-details-tab',
+    pencilIconButton: 'EditOutlinedIcon',
   },
   orderMedicationPage: {
     inputField: (field: string): string => `input-${field}`,
