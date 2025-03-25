@@ -2,8 +2,6 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { useCallback, useMemo } from 'react';
 import { chooseJson } from '../../../../apps/intake/src/api/zapehrApi';
 
-const REACT_APP_IS_LOCAL = import.meta.env.VITE_APP_IS_LOCAL ?? 'false';
-
 export interface ZambdaClient {
   execute: (id: string, body?: any) => Promise<any>;
   executePublic: (id: string, body?: any) => Promise<any>;
