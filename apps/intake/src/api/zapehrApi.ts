@@ -48,8 +48,8 @@ const PATCH_PAPERWORK_ZAMBDA_ID = import.meta.env.VITE_APP_PATCH_PAPERWORK_ZAMBD
 const SUBMIT_PAPERWORK_ZAMBDA_ID = import.meta.env.VITE_APP_SUBMIT_PAPERWORK_ZAMBDA_ID;
 const GET_ELIGIBILITY_ZAMBDA_ID = import.meta.env.VITE_APP_GET_ELIGIBILITY_ZAMBDA_ID;
 
-export function chooseJson(json: any, isLocal: string): any {
-  if (isLocal === 'true' || !json.output) {
+export function chooseJson(json: any): any {
+  if (!json.output) {
     return json;
   } else {
     return json.output;
@@ -101,7 +101,7 @@ class API {
         throw new Error('check in environment variable could not be loaded');
       }
       const response = await zambdaClient.executePublic(CHECK_IN_ZAMBDA_ID, { appointment: appointmentID });
-      const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
+      const jsonToUse = chooseJson(response);
       return jsonToUse;
     } catch (error: any) {
       if (throwError) {
@@ -125,7 +125,7 @@ class API {
       const fhirParams = fhirifyAppointmentInputs({ ...parameters });
       const response = await zambdaClient.execute(CREATE_APPOINTMENT_ZAMBDA_ID, fhirParams);
 
-      const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
+      const jsonToUse = chooseJson(response);
       return jsonToUse;
     } catch (error: unknown) {
       throw apiErrorToThrow(error, !isApiError(error));
@@ -143,7 +143,7 @@ class API {
       }
 
       const response = await zambdaClient.executePublic(CANCEL_APPOINTMENT_ZAMBDA_ID, parameters);
-      const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
+      const jsonToUse = chooseJson(response);
       return jsonToUse;
     } catch (error: any) {
       if (throwError) {
@@ -162,7 +162,7 @@ class API {
         throw new Error('update appointment environment variable could not be loaded');
       }
       const response = await zambdaClient.executePublic(UPDATE_APPOINTMENT_ZAMBDA_ID, parameters);
-      const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
+      const jsonToUse = chooseJson(response);
       return jsonToUse;
     } catch (error: unknown) {
       console.log('error', error);
@@ -177,7 +177,7 @@ class API {
       }
 
       const response = await zambdaClient.execute(GET_PATIENTS_ZAMBDA_ID);
-      const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
+      const jsonToUse = chooseJson(response);
       return jsonToUse;
     } catch (error: unknown) {
       throw apiErrorToThrow(error);
@@ -198,7 +198,7 @@ class API {
         ...parameters,
       });
 
-      const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
+      const jsonToUse = chooseJson(response);
       return jsonToUse;
     } catch (error: unknown) {
       if (throwError) {
@@ -224,7 +224,7 @@ class API {
         questionnaireResponseId,
       });
 
-      const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
+      const jsonToUse = chooseJson(response);
       return jsonToUse as QuestionnaireResponse;
     } catch (error: unknown) {
       console.error('Error updating paperwork', error);
@@ -246,7 +246,7 @@ class API {
 
       const response = await zambdaClient.executePublic(SUBMIT_PAPERWORK_ZAMBDA_ID, parameters);
 
-      const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
+      const jsonToUse = chooseJson(response);
       return jsonToUse;
     } catch (error: unknown) {
       throw apiErrorToThrow(error, false);
@@ -260,7 +260,7 @@ class API {
       }
 
       const response = await zambdaClient.executePublic(GET_SCHEDULE_ZAMBDA_ID, parameters);
-      const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
+      const jsonToUse = chooseJson(response);
       return jsonToUse;
     } catch (error: unknown) {
       throw apiErrorToThrow(error, false);
@@ -277,7 +277,7 @@ class API {
       }
 
       const response = await zambdaClient.executePublic(GET_APPOINTMENT_DETAILS, { appointmentID: appointmentID });
-      const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
+      const jsonToUse = chooseJson(response);
       return jsonToUse;
     } catch (error: unknown) {
       throw apiErrorToThrow(error, false);
@@ -291,7 +291,7 @@ class API {
       }
       const response = await zambdaClient.execute(TELEMED_GET_APPOINTMENTS_ZAMBDA_ID, parameters);
 
-      const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
+      const jsonToUse = chooseJson(response);
       return jsonToUse;
     } catch (error: unknown) {
       throw apiErrorToThrow(error);
@@ -311,7 +311,7 @@ class API {
       }
 
       const response = await zambdaClient.executePublic(GET_PAPERWORK_ZAMBDA_ID, parameters);
-      const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
+      const jsonToUse = chooseJson(response);
       return jsonToUse;
     } catch (error: any) {
       console.log('error from get paperwork', error);
@@ -394,7 +394,7 @@ class API {
         fileType,
         fileFormat,
       });
-      const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
+      const jsonToUse = chooseJson(response);
       return jsonToUse;
     } catch (error: unknown) {
       throw apiErrorToThrow(error);
@@ -407,7 +407,7 @@ class API {
       }
 
       const response = await zambdaClient.execute(GET_ELIGIBILITY_ZAMBDA_ID, input);
-      const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
+      const jsonToUse = chooseJson(response);
       console.log('json from get eligibility', jsonToUse);
       return jsonToUse;
     } catch (error: unknown) {
