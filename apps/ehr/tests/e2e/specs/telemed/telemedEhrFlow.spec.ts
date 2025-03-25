@@ -223,12 +223,15 @@ test('Appointment should be in "provider" tab', async () => {
   ).toBeVisible();
 });
 
-test('Unassign appointment', async () => {
+test('Unassign appointment, and check in "Ready for provider"', async () => {
   await page.goto(`telemed/appointments/${myResources.appointment.id}`);
 
   await page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonUnassign).click();
   await telemedDialogConfirm(page);
   await awaitAppointmentsTableToBeVisible(page);
+  await expect(
+    page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(myResources.appointment.id))
+  ).toBeVisible();
 });
 
 test('Check message for patient', async () => {
@@ -242,9 +245,6 @@ test('Check message for patient', async () => {
 
 test('Buttons on visit page should not appear', async () => {
   await page.goto(`telemed/appointments/${myResources.appointment.id}`);
-  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip)).toHaveText(
-    TelemedAppointmentStatusEnum['ready']
-  );
 
   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient)).not.toBeVisible();
   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonUnassign)).not.toBeVisible();
