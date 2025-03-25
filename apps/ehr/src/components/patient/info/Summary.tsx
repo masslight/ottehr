@@ -4,15 +4,16 @@ import { FC } from 'react';
 import { PATIENT_INDIVIDUAL_PRONOUNS_URL } from 'utils/lib/types';
 import { getExtensionValue } from '../../../features/css-module/parser';
 import { formatDOB } from 'utils';
-import { useGetPatient } from '../../../hooks/useGetPatient';
 import { dataTestIds } from '../../../constants/data-test-ids';
+import { Patient } from 'fhir/r4b';
 
 type Props = {
   id?: string;
+  patient: Patient | undefined;
+  loading?: boolean;
 };
 
-export const Summary: FC<Props> = ({ id }) => {
-  const { loading, patient } = useGetPatient(id);
+export const Summary: FC<Props> = ({ patient, loading }) => {
   const pronouns = getExtensionValue(patient, PATIENT_INDIVIDUAL_PRONOUNS_URL);
 
   return (

@@ -6,7 +6,7 @@ import { useAppointmentStore } from '../../../../state';
 export const AllergiesContainer: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
 
-  const allergies = chartData?.allergies?.filter((allergy) => allergy.current === true);
+  const allergies = chartData?.allergies;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>

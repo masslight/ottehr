@@ -20,14 +20,14 @@ npm run start:local
 
 Currently available scripts:
 
-### `setup-zapehr-secrets`
+### `setup-secrets`
 
 Set secrets for each environment.
 
 #### Usage Example
 
 ```sh
-npm run setup-zapehr-secrets
+npm run setup-secrets
 ```
 
 ### `deploy-zambdas`

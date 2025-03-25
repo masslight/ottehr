@@ -62,7 +62,7 @@ const basicValidation = (input: ZambdaInput): BasicInput => {
   console.log('Environment: ', environment);
   switch (environment) {
     case 'local':
-      ipAddress = input?.requestContext?.identity?.sourceIp ? input.requestContext.identity.sourceIp : 'Unknown';
+      ipAddress = 'Unknown';
       break;
     case 'dev':
     case 'testing':
