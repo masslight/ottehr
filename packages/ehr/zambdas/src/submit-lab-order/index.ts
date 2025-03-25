@@ -4,6 +4,10 @@ import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/help
 import { ZambdaInput } from 'zambda-utils';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
+  Coverage,
+  Location,
+  Organization,
+  Patient,
   Provenance,
   Questionnaire,
   QuestionnaireResponseItem,
@@ -40,6 +44,56 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       questionnaireResponse,
       task,
     } = await getLabOrderResources(oystehr, serviceRequestID);
+
+    const location: Location = await oystehr.fhir.get({
+      resourceType: 'Location',
+      id: serviceRequest.locationReference?.[0].reference?.replace('Location/', '') || 'UNKNOWN',
+    });
+    let coverage: Coverage | undefined = undefined;
+    let organization: Organization | undefined = undefined;
+    let coveragePatient: Patient | undefined = undefined;
+    if (serviceRequest.insurance && serviceRequest.insurance?.length > 0) {
+      const insuranceRequestTemp = (
+        await oystehr.fhir.search<Patient | Coverage | Organization>({
+          resourceType: 'Coverage',
+          params: [
+            {
+              name: '_id',
+              value: serviceRequest.insurance?.[0].reference?.replace('Coverage/', '') || 'UNKNOWN',
+            },
+            {
+              name: '_include',
+              value: 'Coverage:payor',
+            },
+            {
+              name: '_include',
+              value: 'Coverage:beneficiary',
+            },
+          ],
+        })
+      )?.unbundle();
+      const coveragesRequestsTemp: Coverage[] | undefined = insuranceRequestTemp?.filter(
+        (resourceTemp) => resourceTemp.resourceType === 'Coverage'
+      );
+      const organizationsRequestsTemp: Organization[] | undefined = insuranceRequestTemp?.filter(
+        (resourceTemp) => resourceTemp.resourceType === 'Organization'
+      );
+      const patientsRequestsTemp: Patient[] | undefined = insuranceRequestTemp?.filter(
+        (resourceTemp) => resourceTemp.resourceType === 'Patient'
+      );
+      if (coveragesRequestsTemp?.length !== 1) {
+        throw new Error('coverage is not found');
+      }
+      if (organizationsRequestsTemp?.length !== 1) {
+        throw new Error('organization is not found');
+      }
+      if (patientsRequestsTemp?.length !== 1) {
+        throw new Error('patient is not found');
+      }
+      coverage = coveragesRequestsTemp[0];
+      organization = organizationsRequestsTemp[0];
+      coveragePatient = patientsRequestsTemp[0];
+    }
     const questionnaireUrl = questionnaireResponse.questionnaire;
 
     if (!questionnaireUrl) {
@@ -55,6 +109,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     if (!questionnaire.item) {
       throw new Error('questionnaire item is not found');
     }
+    const questionsAndAnswers: { question: string; answer: any }[] = [];
     const questionnaireItems: QuestionnaireResponseItem[] = Object.keys(data).map((questionResponse) => {
       const question = questionnaire.item?.find((item) => item.linkId === questionResponse);
       if (!question) {
@@ -107,6 +162,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       if (answer == undefined) {
         throw new Error('answer is undefined');
       }
+      questionsAndAnswers.push({ question: question.text || 'UNKNOWN', answer: data[questionResponse] || 'UNKNOWN' });
       return {
         linkId: questionResponse,
         answer: answer,
@@ -237,32 +293,47 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const pdfDetail = await createExternalLabsOrderFormPDF(
       {
-        locationName: 'test', // check with sarah
-        locationStreetAddress: 'test',
-        locationCity: 'test',
-        locationState: 'test',
-        locationZip: 'test',
-        locationPhone: 'test',
-        locationFax: 'test',
+        locationName: location.name || 'UNKNOWN',
+        locationStreetAddress: location.address?.line?.join(',') || 'UNKNOWN',
+        locationCity: location.address?.city || 'UNKNOWN',
+        locationState: location.address?.state || 'UNKNOWN',
+        locationZip: location.address?.postalCode || 'UNKNOWN',
+        locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value || 'UNKNOWN',
+        locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value || 'UNKNOWN',
         reqId: orderID || 'UNKNOWN',
         providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : 'UNKNOWN',
-        providerTitle: 'test', // qualifications
+        providerTitle:
+          provider.qualification?.map((qualificationTemp) => qualificationTemp.code.text).join(', ') || 'UNKNOWN',
         providerNPI: 'test',
-        serviceName: 'test',
         patientFirstName: patient.name?.[0].given?.[0] || 'UNKNOWN',
-        patientMiddleName: '',
+        patientMiddleName: patient.name?.[0].given?.[1] || '',
         patientLastName: patient.name?.[0].family || 'UNKNOWN',
         patientSex: patient.gender || 'UNKNOWN',
-        patientDOB: patient.birthDate || 'UNKNOWN',
+        patientDOB: patient.birthDate
+          ? DateTime.fromFormat(patient.birthDate, 'yyyy-MM-dd').toFormat('MM/dd/yyyy')
+          : 'UNKNOWN',
         patientId: patient.id,
         patientAddress: patient.address?.[0] ? oystehr.fhir.formatAddress(patient.address[0]) : 'UNKNOWN',
         patientPhone: patient.telecom?.[0].value || 'UNKNOWN',
-        todayDate: now.toFormat('MM/dd/yyyy'),
-        orderDate: now.toFormat('MM/dd/yyyy'),
-        aoeAnswers: [''],
-        labType: 'test', // orderName
-        assessmentCode: 'test', // service request reason code
-        assessmentName: 'test',
+        todayDate: now.toFormat('MM/dd/yy hh:mm a'),
+        orderDate: now.toFormat('MM/dd/yy hh:mm a'),
+        primaryInsuranceName: organization?.name,
+        primaryInsuranceAddress: organization?.address
+          ? oystehr.fhir.formatAddress(organization.address?.[0])
+          : undefined,
+        primaryInsuranceSubNum: coverage?.subscriberId,
+        insuredName: coveragePatient?.name ? oystehr.fhir.formatHumanName(coveragePatient.name[0]) : undefined,
+        insuredAddress: coveragePatient?.address ? oystehr.fhir.formatAddress(coveragePatient.address?.[0]) : undefined,
+        aoeAnswers: questionsAndAnswers,
+        orderName: serviceRequest.code?.coding?.map((codingTemp) => codingTemp.display).join(', ') || 'UNKNOWN',
+        assessmentCode:
+          serviceRequest.reasonCode
+            ?.map((reasonTemp) => reasonTemp.coding?.map((codingTemp) => codingTemp.code).join(', '))
+            .join(', ') || 'UNKNOWN',
+        assessmentName:
+          serviceRequest.reasonCode
+            ?.map((reasonTemp) => reasonTemp.coding?.map((codingTemp) => codingTemp.display).join(', '))
+            .join(', ') || 'UNKNOWN',
         orderPriority: serviceRequest.priority || 'UNKNOWN',
       },
       patient.id,
