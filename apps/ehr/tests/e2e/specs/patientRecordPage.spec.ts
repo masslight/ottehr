@@ -1,5 +1,11 @@
 import { test } from '@playwright/test';
-import { PATIENT_BIRTH_DATE_SHORT, PATIENT_FIRST_NAME, PATIENT_GENDER, PATIENT_LAST_NAME, ResourceHandler } from '../../e2e-utils/resource-handler';
+import {
+  PATIENT_BIRTH_DATE_SHORT,
+  PATIENT_FIRST_NAME,
+  PATIENT_GENDER,
+  PATIENT_LAST_NAME,
+  ResourceHandler,
+} from '../../e2e-utils/resource-handler';
 
 import { expectPatientInformationPage, openPatientInformationPage } from '../page/PatientInformationPage';
 import { expectPatientRecordPage } from '../page/PatientRecordPage';
@@ -121,6 +127,6 @@ test.describe('Patient Record Page mutating tests', () => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.clearPatientLastName();
     await patientInformationPage.clickSaveChangesButton();
-    await patientInformationPage.verifyValidationErrorShown
-
+    await patientInformationPage.verifyValidationErrorShown();
+  });
 });
