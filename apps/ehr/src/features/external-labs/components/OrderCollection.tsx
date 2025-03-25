@@ -11,6 +11,8 @@ import { OrderDetails } from 'utils';
 import { submitLabOrder } from '../../../api/api';
 import { QuestionnaireItem } from 'fhir/r4b';
 import { Link, useParams } from 'react-router-dom';
+import { useAuth0 } from '@auth0/auth0-react';
+import { getPresignedFileUrl } from '../../../helpers/files.helper';
 
 interface CollectionInstructions {
   container: string;
@@ -46,6 +48,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   // can add a Yup resolver {resolver: yupResolver(definedSchema)} for validation, see PaperworkGroup for example
   const methods = useForm<DynamicAOEInput>();
   const { id: appointmentID } = useParams();
+  const { getAccessTokenSilently } = useAuth0();
   // const currentUser = useEvolveUser();
 
   // NEW TODO: will probably end up getting rid of a lot of this state since it will be held in the form state
@@ -84,10 +87,37 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
         }
       });
 
-      await submitLabOrder(oystehr, {
+      const request: any = await submitLabOrder(oystehr, {
         serviceRequestID: serviceRequestID,
         data: data,
       });
+      const token = await getAccessTokenSilently();
+      const url = request.url;
+      // const pdf = await (
+      //   await fetch(
+      //     (
+      //       await (
+      //         await fetch(url, {
+      //           method: 'POST',
+      //           headers: {
+      //             Authorization: `Bearer ${token}`,
+      //           },
+      //           body: JSON.stringify({
+      //             action: 'download',
+      //           }),
+      //         })
+      //       ).json()
+      //     ).signedUrl
+      //   )
+      // ).blob();
+      const urlTemp = await getPresignedFileUrl(url, token);
+      if (!urlTemp) {
+        throw new Error('error with a presigned url');
+      }
+      const orderForm = await (await fetch(urlTemp)).blob();
+      const pdfUrl = URL.createObjectURL(orderForm);
+      console.log(pdfUrl);
+      window.open(pdfUrl);
       setSubmitLoading(false);
     }
     updateFhir().catch((error) => console.log(error));

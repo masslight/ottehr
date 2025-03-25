@@ -1,5 +1,4 @@
 import fontkit from '@pdf-lib/fontkit';
-import { Patient } from 'fhir/r4';
 import fs from 'fs';
 import { PageSizes, PDFDocument, PDFFont, StandardFonts } from 'pdf-lib';
 import { makeZ3Url, Secrets } from 'zambda-utils';
@@ -375,14 +374,10 @@ async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: strin
 
 export async function createExternalLabsOrderFormPDF(
   input: ExternalLabsData,
-  patient: Patient,
+  patientID: string,
   secrets: Secrets | null,
   token: string
 ): Promise<PdfInfo> {
-  if (!patient.id) {
-    throw new Error('No patient id found for external lab order');
-  }
-
   console.log('Creating labs order form pdf bytes');
   const pdfBytes = await createExternalLabsOrderFormPdfBytes(input).catch((error) => {
     throw new Error('failed creating labs order form pdfBytes: ' + error.message);
@@ -392,7 +387,7 @@ export async function createExternalLabsOrderFormPDF(
   const bucketName = 'visit-notes';
   const fileName = 'ExternalLabsOrderForm.pdf';
   console.log('Creating base file url');
-  const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID: patient.id });
+  const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID });
   console.log('Uploading file to bucket');
   await uploadPDF(pdfBytes, token, baseFileUrl).catch((error) => {
     throw new Error('failed uploading pdf to z3: ' + error.message);

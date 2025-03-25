@@ -3,10 +3,17 @@ import { getPatchBinary } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
 import { ZambdaInput } from 'zambda-utils';
 import { validateRequestParameters } from './validateRequestParameters';
-import { Provenance, Questionnaire, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
+import {
+  Provenance,
+  Questionnaire,
+  QuestionnaireResponseItem,
+  QuestionnaireResponseItemAnswer,
+  ServiceRequest,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import { getLabOrderResources } from '../shared/labs';
+import { createExternalLabsOrderFormPDF } from '../shared/pdf/external-labs-order-form-pdf';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -26,7 +33,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const userToken = input.headers.Authorization.replace('Bearer ', '');
     const currentUser = await createOystehrClient(userToken, secrets).user.me();
 
-    const { serviceRequest, questionnaireResponse, task } = await getLabOrderResources(oystehr, serviceRequestID);
+    const {
+      serviceRequest,
+      patient,
+      practitioner: provider,
+      questionnaireResponse,
+      task,
+    } = await getLabOrderResources(oystehr, serviceRequestID);
     const questionnaireUrl = questionnaireResponse.questionnaire;
 
     if (!questionnaireUrl) {
@@ -61,7 +74,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         ];
       }
       if (multiSelect) {
-        answer = data[questionResponse].map((item) => ({ valueString: item }));
+        answer = data[questionResponse].map((item: any) => ({ valueString: item }));
       }
       if (question.type === 'boolean') {
         answer = [
@@ -117,6 +130,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     //   throw new Error('error when validating the labs');
     // }
 
+    const now = DateTime.now();
     const fhirUrl = `urn:uuid:${uuid()}`;
     const provenanceFhir: Provenance = {
       resourceType: 'Provenance',
@@ -125,7 +139,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           reference: `ServiceRequest/${serviceRequest.id}`,
         },
       ],
-      recorded: DateTime.now().toISO(),
+      recorded: now.toISO(),
       location: task.location,
       agent: [
         {
@@ -209,8 +223,59 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       throw new Error('error submitting lab request');
     }
 
+    if (!patient.id) {
+      throw new Error('patient.id is undefined');
+    }
+
+    const serviceRequestTemp: ServiceRequest = await oystehr.fhir.get({
+      resourceType: 'ServiceRequest',
+      id: serviceRequestID,
+    });
+    const orderID = serviceRequestTemp.identifier?.find(
+      (item) => item.system === 'https://identifiers.fhir.oystehr.com/lab-order-placer-id'
+    )?.value;
+
+    const pdfDetail = await createExternalLabsOrderFormPDF(
+      {
+        locationName: 'test', // check with sarah
+        locationStreetAddress: 'test',
+        locationCity: 'test',
+        locationState: 'test',
+        locationZip: 'test',
+        locationPhone: 'test',
+        locationFax: 'test',
+        reqId: orderID || 'UNKNOWN',
+        providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : 'UNKNOWN',
+        providerTitle: 'test', // qualifications
+        providerNPI: 'test',
+        serviceName: 'test',
+        patientFirstName: patient.name?.[0].given?.[0] || 'UNKNOWN',
+        patientMiddleName: '',
+        patientLastName: patient.name?.[0].family || 'UNKNOWN',
+        patientSex: patient.gender || 'UNKNOWN',
+        patientDOB: patient.birthDate || 'UNKNOWN',
+        patientId: patient.id,
+        patientAddress: patient.address?.[0] ? oystehr.fhir.formatAddress(patient.address[0]) : 'UNKNOWN',
+        patientPhone: patient.telecom?.[0].value || 'UNKNOWN',
+        todayDate: now.toFormat('MM/dd/yyyy'),
+        orderDate: now.toFormat('MM/dd/yyyy'),
+        aoeAnswers: [''],
+        labType: 'test', // orderName
+        assessmentCode: 'test', // service request reason code
+        assessmentName: 'test',
+        orderPriority: serviceRequest.priority || 'UNKNOWN',
+      },
+      patient.id,
+      secrets,
+      m2mtoken
+    );
+
     return {
-      body: JSON.stringify({ message: 'success', example: request }),
+      body: JSON.stringify({
+        message: 'success',
+        example: request,
+        url: pdfDetail.uploadURL,
+      }),
       statusCode: 200,
     };
   } catch (error) {
