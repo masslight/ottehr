@@ -7,7 +7,7 @@
     },
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", "build/**"]
+      "outputs": ["dist/**", "build/**", ".dist/**"]
     },
     "ci-deploy": {
       "dependsOn": ["build", "lint"]

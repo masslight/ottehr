@@ -66,7 +66,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
 
-    // searchDate should be in UTC(Zulu) format
+    // Appointment dates in the resource are stored in Zulu (UTC) format:
+    // "start": "2025-03-21T00:15:00.000Z",
+    // "end": "2025-03-21T00:30:00.000Z",
+    // But in local time (e.g., America/New_York) this may actually be 2025-03-20.
+    // We should use the appointment's timezone to request the correct appointments.
+    // The approach: use date without timezone from client and convert it to Zulu (UTC)
+    // with the appointment's timezone.
     const { visitType, searchDate, locationID, providerIDs, groupIDs, secrets } = validatedParameters;
 
     console.groupEnd();
@@ -111,10 +117,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             resourceType: resource.resourceType,
           });
 
-          const searchParams = makeEncounterSearchParams({
+          const searchParams = await makeEncounterSearchParams({
             resourceId: resource.resourceId,
             resourceType: resource.resourceType,
             cacheKey,
+            oystehr,
           });
 
           return {
