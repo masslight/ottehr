@@ -333,6 +333,8 @@ test('Appointment hpi fields', async () => {
   const chiefComplaintNotes = 'chief complaint';
   const chiefComplaintRos = 'chief ros';
 
+  await page.goto(`telemed/appointments/${myPatientsTabAppointmentResources.appointment.id}`);
+
   await test.step('await until hpi fields are ready', async () => {
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput)).toBeVisible();
     await expect(
