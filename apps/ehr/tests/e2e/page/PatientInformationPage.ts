@@ -25,6 +25,17 @@ export class PatientInformationPage {
       this.#page.getByTestId(dataTestIds.patientInformationContainer.patientLastName).locator('input')
     ).toHaveValue(patientLastName);
   }
+  async clearPatientLastName(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.patientInformationContainer.patientLastName).locator('input').clear();
+  }
+
+  async verifyValidationErrorShown(): Promise<void> {
+    await expect(
+      this.#page
+        .getByTestId(dataTestIds.patientInformationContainer.patientLastName)
+        .locator('p:text("This field is required")')
+    ).toBeVisible();
+  }
 
   async enterPatientFirstName(patientFirstName: string): Promise<void> {
     await this.#page
