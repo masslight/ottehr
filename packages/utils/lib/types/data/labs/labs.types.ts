@@ -45,12 +45,13 @@ export interface OrderableItemLab {
   compendiumVersion: string;
 }
 
-// will change when real data is used but wanted to input the right hex codes for now via ExternalLabsStatusPalette / ExternalLabsStatusChip
 export enum ExternalLabsStatus {
-  pending = 'pending', // Task 1 created
-  sent = 'sent', // Task 1 completed, Task 2 not yet created
-  received = 'received', // Task 2 created, results received from lab
-  reviewed = 'reviewed', // Task 2 (bot completed?), results reviewed by provider
+  pending = 'pending',
+  sent = 'sent',
+  prelim = 'prelim',
+  received = 'received',
+  reviewed = 'reviewed',
+  unparsed = '-', // for debugging purposes
 }
 
 /* previous types description:
@@ -78,6 +79,7 @@ export interface LabOrderDTO {
   accessionNumber: string;
   visitDate: string;
   resultsReceived: string; // the most recent Task RFRT.authoredOn
+  dx: string; // SR.reasonCode joins
 }
 
 export interface Pagination {

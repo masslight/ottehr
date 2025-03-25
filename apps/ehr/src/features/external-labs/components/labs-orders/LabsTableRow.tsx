@@ -1,16 +1,10 @@
 import { ReactElement } from 'react';
-import { TableCell, TableRow, Box, Chip, Button, Typography, Tooltip } from '@mui/material';
+import { TableCell, TableRow, Box, Chip, Button, Typography } from '@mui/material';
 import { formatDate, LabOrderDTO } from 'utils';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { LabsTableColumn } from './LabsTable';
 import { otherColors } from '../../../../CustomThemeProvider';
-import {
-  getFormattedDiagnoses,
-  getFullDiagnosesText,
-  getResultsReceivedDate,
-  getStatusColor,
-  getVisitDate,
-} from './labs.helpers';
+import { getStatusColor } from './labs.helpers';
 
 interface LabsTableRowProps {
   columns: LabsTableColumn[];
@@ -54,15 +48,10 @@ export const LabsTableRow = ({
       case 'provider':
         return labOrderData.provider || '';
       case 'dx': {
-        const fullDiagnosesText = getFullDiagnosesText(labOrderData.diagnoses || []);
-        if (fullDiagnosesText) {
-          return (
-            <Tooltip title={fullDiagnosesText} arrow placement="top">
-              <Typography variant="body2">{getFormattedDiagnoses(labOrderData.diagnoses || [])}</Typography>
-            </Tooltip>
-          );
-        }
-        return <Typography variant="body2">{getFormattedDiagnoses(labOrderData.diagnoses || [])}</Typography>;
+        // <Tooltip title={fullDxText} arrow placement="top">
+        //   <Typography variant="body2">{dx}</Typography>
+        // </Tooltip>
+        return <Typography variant="body2">{labOrderData.dx}</Typography>;
       }
       case 'resultsReceived':
         return <DateTimeDisplay dateTimeString={labOrderData.resultsReceived} />;

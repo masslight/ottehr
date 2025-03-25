@@ -1,5 +1,4 @@
 import { DateTime } from 'luxon';
-import { DiagnosisDTO } from 'utils';
 import { LabOrderDTO } from 'utils/lib/types/data/labs/labs.types';
 
 export const formatDate = (dateString: string): string => {
@@ -16,34 +15,6 @@ export const formatDate = (dateString: string): string => {
     console.error('Error formatting date:', error);
     return '';
   }
-};
-
-export const getFullDiagnosesText = (diagnoses: DiagnosisDTO[]): string => {
-  if (!diagnoses || !Array.isArray(diagnoses) || diagnoses.length <= 1) return '';
-
-  return diagnoses
-    .map((dx) => {
-      const display = dx.display || '';
-      const code = dx.code || '';
-      return `${code} ${display}`;
-    })
-    .join('\n');
-};
-
-export const getFormattedDiagnoses = (diagnoses: DiagnosisDTO[]): React.ReactNode => {
-  if (!diagnoses || diagnoses.length === 0) {
-    return '';
-  }
-
-  if (diagnoses.length === 1) {
-    return `${diagnoses[0].code} ${diagnoses[0].display || ''}`;
-  }
-
-  return (
-    <>
-      {diagnoses[0].code} <span style={{ color: 'gray' }}>{diagnoses.length - 1} more</span>
-    </>
-  );
 };
 
 export const getStatusColor = (status: string): string => {
