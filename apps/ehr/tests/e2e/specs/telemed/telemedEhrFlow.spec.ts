@@ -26,7 +26,7 @@ import {
 import { ADDITIONAL_QUESTIONS } from '../../../../src/constants';
 import { getPatientConditionPhotosStepAnswers } from 'test-utils';
 
-const myResources = new ResourceHandler(
+const myPatientsTabAppointmentResources = new ResourceHandler(
   'telemed',
   async ({ patientInfo, appointmentId, authToken, zambdaUrl, projectId }) => {
     const patientConditionPhotosStepAnswers = await getPatientConditionPhotosStepAnswers({
@@ -60,9 +60,9 @@ const myResources = new ResourceHandler(
     ];
   }
 );
-const otherResources = new ResourceHandler('telemed');
-let myState: string;
-let otherState: string;
+const otherPatientsTabAppointmentResources = new ResourceHandler('telemed');
+let testsUserQualificationState: string;
+let randomState: string;
 let context: BrowserContext;
 let page: Page;
 
@@ -70,23 +70,29 @@ test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
   page = await context.newPage();
 
-  const myPractitioner = await myResources.getMyUserAndPractitioner();
-  const myPractitionerLicenses: string[] = [];
-  allLicensesForPractitioner(myPractitioner.practitioner).forEach((license) => {
-    if (license.active && license.state) myPractitionerLicenses.push(license.state);
+  const testsUser = await myPatientsTabAppointmentResources.getTestsUserAndPractitioner();
+  const testsPractitionerLicenses: string[] = [];
+  allLicensesForPractitioner(testsUser.practitioner).forEach((license) => {
+    if (license.active && license.state) testsPractitionerLicenses.push(license.state);
   });
-  myState = myPractitionerLicenses[0];
-  otherState = AllStates.find((state) => !myPractitionerLicenses.includes(state.value)).value;
-  if (!myState || !otherState)
-    throw new Error('My practitioner has no active qualification states, or has all states in qualification');
-  console.log(`My state ${myState}, other state: ${otherState}`);
+  testsUserQualificationState = testsPractitionerLicenses[0];
+  randomState = AllStates.find((state) => !testsPractitionerLicenses.includes(state.value)).value;
+  if (!testsUserQualificationState || !randomState)
+    throw new Error('Tests practitioner has no active qualification states, or has all states in qualification');
+  console.log(`Tests practitioner qualification state ${testsUserQualificationState}, random state: ${randomState}`);
 
-  await myResources.setResources({ state: myState, city: stateCodeToFullName[myState] });
-  await otherResources.setResources({ state: otherState, city: stateCodeToFullName[otherState] });
+  await myPatientsTabAppointmentResources.setResources({
+    state: testsUserQualificationState,
+    city: stateCodeToFullName[testsUserQualificationState],
+  });
+  await otherPatientsTabAppointmentResources.setResources({
+    state: randomState,
+    city: stateCodeToFullName[randomState],
+  });
 });
 
 test.afterAll(async () => {
-  await myResources.cleanupResources();
+  await myPatientsTabAppointmentResources.cleanupResources();
 });
 
 test.describe.configure({ mode: 'serial' });
@@ -115,7 +121,9 @@ test("Appointment should appear correctly in 'my patients' tab", async () => {
   await awaitAppointmentsTableToBeVisible(page);
 
   await expect(
-    page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(myResources.appointment.id!))
+    page.getByTestId(
+      dataTestIds.telemedEhrFlow.trackingBoardTableRow(myPatientsTabAppointmentResources.appointment.id!)
+    )
   ).toBeVisible({ timeout: 20000 });
 });
 
@@ -124,7 +132,9 @@ test("Appointment should appear correctly in 'all patients' tab.", async () => {
   await awaitAppointmentsTableToBeVisible(page);
 
   await expect(
-    page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(otherResources.appointment.id!))
+    page.getByTestId(
+      dataTestIds.telemedEhrFlow.trackingBoardTableRow(otherPatientsTabAppointmentResources.appointment.id!)
+    )
   ).toBeVisible();
 });
 
@@ -136,7 +146,7 @@ test('Appointment has location label and is in a relevant location group', async
   let foundLocationGroup = false;
   let foundAppointment = false;
 
-  const fullStateName = stateCodeToFullName[myState];
+  const fullStateName = stateCodeToFullName[testsUserQualificationState];
 
   await iterateThroughTable(table, async (row) => {
     if (foundAppointment) return;
@@ -150,7 +160,11 @@ test('Appointment has location label and is in a relevant location group', async
       foundLocationGroup = true;
     }
 
-    if (foundLocationGroup && rowText.includes(myResources.appointment?.id ?? '') && rowText.includes(myState)) {
+    if (
+      foundLocationGroup &&
+      rowText.includes(myPatientsTabAppointmentResources.appointment?.id ?? '') &&
+      rowText.includes(testsUserQualificationState)
+    ) {
       foundAppointment = true;
     }
   });
@@ -175,7 +189,7 @@ test('Appointment in all-patients section should be readonly', async () => {
     await awaitAppointmentsTableToBeVisible(page);
 
     const otherAppointmentViewButton = page.getByTestId(
-      dataTestIds.telemedEhrFlow.trackingBoardViewButton(otherResources.appointment.id!)
+      dataTestIds.telemedEhrFlow.trackingBoardViewButton(otherPatientsTabAppointmentResources.appointment.id!)
     );
 
     expect(otherAppointmentViewButton).toBeDefined();
@@ -195,7 +209,7 @@ test('Assigned appointment has connect-to-patient button', async () => {
 
   await test.step('Find and assign my appointment', async () => {
     const myAppointmentAssignButton = page
-      .getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(myResources.appointment.id!))
+      .getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(myPatientsTabAppointmentResources.appointment.id!))
       .getByTestId(dataTestIds.telemedEhrFlow.trackingBoardAssignButton);
 
     expect(myAppointmentAssignButton).toBeDefined();
@@ -219,12 +233,14 @@ test('Appointment should be in "provider" tab', async () => {
   await page.getByTestId(dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTelemedTab.provider)).click();
   await awaitAppointmentsTableToBeVisible(page);
   await expect(
-    page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(myResources.appointment.id!))
+    page.getByTestId(
+      dataTestIds.telemedEhrFlow.trackingBoardTableRow(myPatientsTabAppointmentResources.appointment.id!)
+    )
   ).toBeVisible();
 });
 
 test('Buttons on visit page should appear', async () => {
-  await page.goto(`telemed/appointments/${myResources.appointment.id}`);
+  await page.goto(`telemed/appointments/${myPatientsTabAppointmentResources.appointment.id}`);
 
   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient)).toBeVisible();
   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonUnassign)).toBeVisible();
@@ -290,7 +306,7 @@ test('Patient provided hpi data', async () => {
 
   await test.step('Reason for visit provided by patient', async () => {
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiReasonForVisit)).toHaveText(
-      myResources.appointment.description
+      myPatientsTabAppointmentResources.appointment.description
     );
   });
 
@@ -370,7 +386,7 @@ test('Appointment hpi fields', async () => {
 
   await test.step('reload and wait until data is loaded', async () => {
     await page.reload();
-    await page.goto(`telemed/appointments/${myResources.appointment.id}`);
+    await page.goto(`telemed/appointments/${myPatientsTabAppointmentResources.appointment.id}`);
     await expect(
       page
         .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)

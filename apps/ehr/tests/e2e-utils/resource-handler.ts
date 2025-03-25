@@ -1,5 +1,14 @@
 import Oystehr from '@oystehr/sdk';
-import { Address, Appointment, Encounter, FhirResource, Patient, Practitioner, QuestionnaireResponse } from 'fhir/r4b';
+import {
+  Address,
+  Appointment,
+  Encounter,
+  FhirResource,
+  Patient,
+  Practitioner,
+  QuestionnaireResponse,
+  Location,
+} from 'fhir/r4b';
 import { readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
@@ -12,6 +21,7 @@ import {
   createSampleTelemedAppointments,
   formatPhoneNumber,
   GetPaperworkAnswers,
+  isLocationVirtual,
 } from 'utils';
 import { getAuth0Token } from './auth/getAuth0Token';
 import {
@@ -24,7 +34,6 @@ import {
 import { getInHouseMedicationsResources } from './resource/in-house-medications';
 import { fetchWithOystAuth } from './helpers/tests-utils';
 
-// @ts-ignore
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -131,7 +140,6 @@ export class ResourceHandler {
         state: inputParams?.state ?? PATIENT_STATE,
         postalCode: inputParams?.postalCode ?? PATIENT_POSTALCODE,
       };
-      console.log('address: ', JSON.stringify(address));
 
       const patientData = {
         firstNames: [inputParams?.firstName ?? PATIENT_FIRST_NAME],
@@ -161,6 +169,22 @@ export class ResourceHandler {
         throw new Error('PROJECT_ID is not set');
       }
 
+      let inPersonLocationId: string | undefined;
+      if (this.flow === 'in-person') {
+        const locations = (
+          await this.apiClient.fhir.search({
+            resourceType: 'Location',
+            params: [
+              {
+                name: 'address-state',
+                value: address.state,
+              },
+            ],
+          })
+        ).unbundle();
+        inPersonLocationId = locations.filter((res) => !isLocationVirtual(res as Location))[0]?.id;
+        if (!inPersonLocationId) throw new Error(`No not virtual location found for '${address.state}' state`);
+      }
       // Create appointment and related resources using zambda
       const appointmentData =
         this.flow === 'in-person'
@@ -170,7 +194,7 @@ export class ResourceHandler {
               phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
               createAppointmentZambdaId: this.zambdaId,
               zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
-              selectedLocationId: process.env.LOCATION_ID,
+              selectedLocationId: inPersonLocationId ?? process.env.LOCATION_ID,
               demoData: patientData,
               projectId: process.env.PROJECT_ID!,
             })
@@ -328,7 +352,7 @@ export class ResourceHandler {
     return cleanAppointment(appointmentId, process.env.ENV!);
   }
 
-  async getMyUserAndPractitioner(): Promise<{
+  async getTestsUserAndPractitioner(): Promise<{
     id: string;
     name: string;
     email: string;
@@ -344,16 +368,16 @@ export class ResourceHandler {
       }[]
     >('GET', 'https://project-api.zapehr.com/v1/user', this.authToken);
 
-    const myUser = users?.find((user) => user.email === process.env.TEXT_USERNAME);
-    if (!myUser) throw new Error('Failed to find my user');
+    const user = users?.find((user) => user.email === process.env.TEXT_USERNAME);
+    if (!user) throw new Error('Failed to find authorized user');
     const practitioner = (await this.apiClient.fhir.get({
       resourceType: 'Practitioner',
-      id: myUser.profile.replace('Practitioner/', ''),
+      id: user.profile.replace('Practitioner/', ''),
     })) as Practitioner;
     return {
-      id: myUser.id,
-      name: myUser.name,
-      email: myUser.email,
+      id: user.id,
+      name: user.name,
+      email: user.email,
       practitioner,
     };
   }
