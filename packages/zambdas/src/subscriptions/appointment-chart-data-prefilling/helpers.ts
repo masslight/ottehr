@@ -22,7 +22,7 @@ export const createAdditionalQuestions = (questionnaireResponse: QuestionnaireRe
     const valueString = response?.answer?.[0]?.valueString;
     return {
       field,
-      value: convertToBoolean(valueString),
+      value: convertToBoolean(valueString) || false,
     };
   });
 };

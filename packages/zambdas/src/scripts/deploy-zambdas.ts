@@ -1,9 +1,9 @@
 import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest } from '@oystehr/sdk';
 import { Subscription } from 'fhir/r4b';
 import fs from 'fs';
-import { COMMUNICATION_ISSUE_REPORT_CODE, SubscriptionZambdaDetails, Task_Send_Messages_Url } from 'utils';
-import { getAuth0Token } from '../patient/shared';
+import { SubscriptionZambdaDetails } from 'utils';
 import ottehrSpec from '../../ottehr-spec.json';
+import { getAuth0Token } from '../patient/shared';
 
 interface DeployZambda {
   type: 'http_open' | 'http_auth' | 'subscription' | 'cron';

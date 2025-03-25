@@ -1,22 +1,15 @@
-import { BatchInputRequest } from '@oystehr/sdk';
+import { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Appointment, Encounter, FhirResource, Patient } from 'fhir/r4b';
 import {
-  Appointment,
-  Encounter,
-  FhirResource,
-  Observation,
-  Patient,
-  QuestionnaireResponse,
-  ServiceRequest,
-} from 'fhir/r4b';
-import {
-  ADDITIONAL_QUESTIONS_META_SYSTEM,
+  ChartDataResources,
   chunkThings,
   DispositionDTO,
   examCardsMap,
   ExamCardsNames,
   examFieldsMap,
   ExamFieldsNames,
+  FHIR_APPOINTMENT_PREPROCESSED_TAG,
   getDefaultNote,
   getPatchBinary,
   getPatchOperationForNewMetaTag,
@@ -24,22 +17,26 @@ import {
   InPersonExamCardsNames,
   inPersonExamFieldsMap,
   InPersonExamFieldsNames,
+  MDM_FIELD_DEFAULT_TEXT,
   OTTEHR_MODULE,
   SNOMEDCodeConceptInterface,
 } from 'utils';
-import { Secrets } from 'zambda-utils';
-import { saveResourceRequest } from '../shared';
+import { Secrets, ZambdaInput } from 'zambda-utils';
+import { saveResourceRequest } from '../../ehr/shared';
 import {
   createDispositionServiceRequest,
+  makeClinicalImpressionResource,
   makeExamObservationResource,
-  makeObservationResource,
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
-} from '../shared/chart-data/chart-data-helpers';
-import { topLevelCatch } from '../shared/errors';
-import { checkOrCreateM2MClientToken, createOystehrClient, getVideoRoomResourceExtension } from '../shared/helpers';
-import { ZambdaInput } from 'zambda-utils';
-import { createAdditionalQuestions, createExamObservations } from './helpers';
+} from '../../ehr/shared/chart-data/chart-data-helpers';
+import { topLevelCatch } from '../../ehr/shared/errors';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  getVideoRoomResourceExtension,
+} from '../../ehr/shared/helpers';
+import { createExamObservations } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const CHUNK_SIZE = 50;
@@ -55,10 +52,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   console.log(`Input: ${JSON.stringify(input)}`);
 
   const updateAppointmentRequests: BatchInputRequest<Appointment>[] = [];
-  const createAdditionalQuestionsRequests: BatchInputRequest<Observation>[] = [];
-  const createExamRequests: BatchInputRequest<Observation>[] = [];
   const encounterUpdateRequests: BatchInputRequest<Encounter>[] = [];
-  const dispositionServiceRequestRequest: BatchInputRequest<ServiceRequest>[] = [];
+  const saveOrUpdateRequests: (
+    | BatchInputPostRequest<ChartDataResources>
+    | BatchInputPutRequest<ChartDataResources>
+    | BatchInputRequest<ChartDataResources>
+  )[] = [];
 
   try {
     console.group('validateRequestParameters');
@@ -68,13 +67,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!['arrived', 'booked'].includes(appointment.status)) {
-      console.log(`appointment has inappropriate status ${appointment.status}`);
-      return {
-        statusCode: 400,
-        body: `Appointment has status ${appointment.status}. To initialize it should have status 'arrived' or 'booked'`,
-      };
-    }
     if (!appointment.id) throw new Error("Appointment FHIR resource doesn't exist.");
 
     zapehrToken = await checkOrCreateM2MClientToken(zapehrToken, secrets);
@@ -82,7 +74,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.log('Created zapToken and fhir client');
 
     const resourceBundle = (
-      await oystehr.fhir.search<Appointment | Encounter | Patient | QuestionnaireResponse>({
+      await oystehr.fhir.search<Appointment | Encounter | Patient>({
         resourceType: 'Appointment',
         params: [
           { name: '_id', value: appointment.id },
@@ -94,10 +86,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             name: '_revinclude:iterate',
             value: 'Encounter:appointment',
           },
-          {
-            name: '_revinclude:iterate',
-            value: 'QuestionnaireResponse:encounter',
-          },
         ],
       })
     ).unbundle();
@@ -105,10 +93,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const isInPersonAppointment = !!appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
 
-    const patient = resourceBundle?.find(
-      (resource: FhirResource) => resource.resourceType === 'Patient'
-    ) as unknown as Patient;
-    if (!patient.id) throw new Error('Patient is missing from resource bundle.');
+    const patient = resourceBundle?.find((resource: FhirResource) => resource.resourceType === 'Patient') as
+      | Patient
+      | undefined;
+    if (!patient?.id) throw new Error('Patient is missing from resource bundle.');
     // When in forEach, TS forgets this is no longer undefined.
     const patientId = patient.id;
 
@@ -116,29 +104,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       (resource: FhirResource) =>
         resource.resourceType === 'Encounter' &&
         (isInPersonAppointment || Boolean(getVideoRoomResourceExtension(resource)))
-    ) as unknown as Encounter;
-    if (!encounter.id) throw new Error('Encounter is missing from resource bundle.');
+    ) as Encounter | undefined;
+    if (!encounter?.id) throw new Error('Encounter is missing from resource bundle.');
     // When in forEach, TS forgets this is no longer undefined.
     const encounterId = encounter.id;
-
-    if (!isInPersonAppointment) {
-      const questionnaireResponse = resourceBundle?.find(
-        (resource: FhirResource) => resource.resourceType === 'QuestionnaireResponse'
-      ) as unknown as QuestionnaireResponse;
-
-      // Additional questions
-      const additionalQuestions = createAdditionalQuestions(questionnaireResponse);
-
-      additionalQuestions.forEach((observation) => {
-        createAdditionalQuestionsRequests.push(
-          saveResourceRequest(
-            makeObservationResource(encounterId, patientId, '', observation, ADDITIONAL_QUESTIONS_META_SYSTEM)
-          )
-        );
-      });
-
-      console.log(`Create additional questions requests: ${JSON.stringify(createAdditionalQuestionsRequests)}`);
-    }
 
     // Exam observations
     const examObservations = createExamObservations(isInPersonAppointment);
@@ -165,35 +134,38 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         );
       }
 
-      createExamRequests.push(
+      saveOrUpdateRequests.push(
         saveResourceRequest(makeExamObservationResource(encounterId, patientId, element, snomedCode))
       );
     });
-
-    console.log(`Create exam observations requests: ${JSON.stringify(createExamRequests)}`);
 
     // Appointment
     updateAppointmentRequests.push(
       getPatchBinary({
         resourceId: appointment.id,
         resourceType: 'Appointment',
-        patchOperations: [
-          getPatchOperationForNewMetaTag(appointment, {
-            system: 'appointment-preprocessed',
-            code: 'APPOINTMENT_PREPROCESSED',
-          }),
-        ],
+        patchOperations: [getPatchOperationForNewMetaTag(appointment, FHIR_APPOINTMENT_PREPROCESSED_TAG)],
       })
     );
 
-    console.log(`Update appointment requests: ${JSON.stringify(updateAppointmentRequests)}`);
-
-    const dispositionType = 'pcp-no-type';
-
     const disposition: DispositionDTO = {
-      type: dispositionType,
-      note: getDefaultNote(dispositionType),
+      type: 'pcp-no-type',
+      note: getDefaultNote('pcp-no-type'),
     };
+
+    saveOrUpdateRequests.push(
+      createDispositionServiceRequest({
+        disposition,
+        encounterId: encounter.id,
+        patientId: patient.id,
+      })
+    );
+
+    saveOrUpdateRequests.push(
+      saveResourceRequest(
+        makeClinicalImpressionResource(encounterId, patient.id, { text: MDM_FIELD_DEFAULT_TEXT }, 'medical-decision')
+      )
+    );
 
     encounterUpdateRequests.push(
       getPatchBinary({
@@ -206,25 +178,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       })
     );
 
-    console.log(`Encounter update request: ${JSON.stringify(encounterUpdateRequests)}`);
-
-    dispositionServiceRequestRequest.push(
-      createDispositionServiceRequest({
-        disposition,
-        encounterId: encounter.id,
-        patientId: patient.id,
-      })
-    );
-
-    console.log(`Disposition ServiceRequest request: ${JSON.stringify(dispositionServiceRequestRequest)}`);
-
-    const allRequests = [
-      ...updateAppointmentRequests,
-      ...createAdditionalQuestionsRequests,
-      ...createExamRequests,
-      ...encounterUpdateRequests,
-      ...dispositionServiceRequestRequest,
-    ];
+    const allRequests = [...updateAppointmentRequests, ...encounterUpdateRequests, ...saveOrUpdateRequests];
     if (allRequests.length > CHUNK_SIZE) {
       console.log('chunking batches...');
       const requestChunks = chunkThings(allRequests, CHUNK_SIZE);
@@ -233,7 +187,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       try {
         await Promise.all(
           requestChunks.map((chunk) => {
-            return oystehr.fhir.transaction<Appointment | Encounter | Observation | ServiceRequest>({
+            return oystehr.fhir.transaction<Appointment | Encounter | ChartDataResources>({
               requests: chunk,
             });
           })
@@ -245,7 +199,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       console.timeEnd('Batch requests');
     } else {
       try {
-        await oystehr.fhir.transaction<Appointment | Encounter | Observation | ServiceRequest>({
+        await oystehr.fhir.transaction<Appointment | Encounter | ChartDataResources>({
           requests: allRequests,
         });
       } catch (error) {
