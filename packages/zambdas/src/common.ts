@@ -1,9 +1,10 @@
 import { FhirResource } from 'fhir/r4b';
+import { inPersonIntakeQuestionnaire, virtualIntakeQuestionnaire } from 'utils';
 
 export function isNonPaperworkQuestionnaireResponse<T extends FhirResource>(resource: T): boolean {
   return (
     resource.resourceType === 'QuestionnaireResponse' &&
-    !resource.questionnaire?.startsWith('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson') &&
-    !resource.questionnaire?.startsWith('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual')
+    !resource.questionnaire?.startsWith(inPersonIntakeQuestionnaire.resource.url) &&
+    !resource.questionnaire?.startsWith(virtualIntakeQuestionnaire.resource.url)
   );
 }

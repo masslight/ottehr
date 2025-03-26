@@ -34,7 +34,9 @@ import {
   UpdateMedicationOrderInput,
   createSmsModel,
   filterResources,
+  inPersonIntakeQuestionnaire,
   relatedPersonAndCommunicationMaps,
+  virtualIntakeQuestionnaire,
 } from 'utils';
 import { APPOINTMENT_REFRESH_INTERVAL, CHAT_REFETCH_INTERVAL, QUERY_STALE_TIME } from '../../../constants';
 import { useApiClients } from '../../../hooks/useAppClients';
@@ -203,8 +205,8 @@ export const useGetAppointment = (
           .filter(
             (resource) =>
               resource.resourceType !== 'QuestionnaireResponse' ||
-              resource.questionnaire === 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson' ||
-              resource.questionnaire === 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual'
+              resource.questionnaire === inPersonIntakeQuestionnaire.resource.url ||
+              resource.questionnaire === virtualIntakeQuestionnaire.resource.url
           );
       }
       throw new Error('fhir client not defined or appointmentId not provided');
