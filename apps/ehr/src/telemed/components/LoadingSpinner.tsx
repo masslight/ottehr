@@ -1,7 +1,8 @@
+import { Box, useTheme } from '@mui/material';
 import CircularProgress from '@mui/material/CircularProgress';
 import { FC } from 'react';
-import { useTheme, Box } from '@mui/material';
 import { otherColors } from '../../CustomThemeProvider';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 interface LoadingSpinnerProps {
   transparent?: boolean;
@@ -10,6 +11,7 @@ export const LoadingSpinner: FC<LoadingSpinnerProps> = ({ transparent }) => {
   const theme = useTheme();
   return (
     <Box
+      data-testid={dataTestIds.loadingSpinner}
       sx={{
         alignItems: 'center',
         backgroundColor: transparent ? otherColors.blackTransparent : theme.palette.background.default,

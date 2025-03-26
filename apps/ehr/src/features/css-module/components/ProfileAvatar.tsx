@@ -19,7 +19,7 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
   embracingSquareSize,
   hasEditableInfo,
 }): JSX.Element => {
-  const { processedData } = useAppointment(appointmentID);
+  const { mappedData } = useAppointment(appointmentID);
 
   const theme = useTheme();
 
@@ -27,7 +27,7 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
   const [isEditDialogOpen, setIsEditDialogOpen] = useState<boolean>(false);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | undefined>(undefined);
 
-  const patientPhoto = processedData?.patientAvatarPhotoUrl;
+  const patientPhoto = mappedData?.patientAvatarPhotoUrl;
 
   useEffect(() => {
     if (!patientPhoto) {

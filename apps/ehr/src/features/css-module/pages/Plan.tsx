@@ -1,15 +1,15 @@
-import React, { FC } from 'react';
-import { Typography, Stack } from '@mui/material';
+import { Stack, Typography } from '@mui/material';
+import { FC } from 'react';
 import { useParams } from 'react-router-dom';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../telemed';
-import { useAppointment } from '../hooks/useAppointment';
-import { CSSLoader } from '../components/CSSLoader';
 import {
   DispositionCard,
   PatientInstructionsCard,
   SchoolWorkExcuseCard,
 } from '../../../telemed/features/appointment/PlanTab';
+import { CSSLoader } from '../components/CSSLoader';
+import { useAppointment } from '../hooks/useAppointment';
 
 interface PlanProps {
   appointmentID?: string;
@@ -18,7 +18,7 @@ interface PlanProps {
 export const Plan: FC<PlanProps> = () => {
   const { id: appointmentID } = useParams();
   const {
-    sourceData: { appointment },
+    resources: { appointment },
     isLoading,
     error,
   } = useAppointment(appointmentID);
