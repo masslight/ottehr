@@ -23,9 +23,9 @@ const environment = getEnvironment();
 console.log(`Using environment: ${environment}`);
 
 type Envs = {
-  zambdaEnv: any;
-  ehrUiEnv: any;
-  intakeUiEnv: any;
+  zambdaEnv: Record<string, string>;
+  ehrUiEnv: Record<string, string>;
+  intakeUiEnv: Record<string, string>;
 };
 
 interface EhrConfig {
@@ -156,7 +156,7 @@ async function createTestEnvFiles({
   zambdaEnv,
   ehrUiEnv,
   intakeUiEnv,
-}): Promise<Envs & { userEmail: string; userPassword: string }> {
+}: Awaited<ReturnType<typeof loadEnvFiles>>): Promise<Envs & { userEmail: string; userPassword: string }> {
   let ehrTextUsername = '';
   let ehrTextPassword = '';
 
@@ -291,7 +291,7 @@ async function inviteUser({
   ehrUiEnv,
   userEmail,
   userPassword,
-}): Promise<{ inviteUrl: string; userPassword: string }> {
+}: Awaited<ReturnType<typeof createTestEnvFiles>>): Promise<{ inviteUrl: string | null; userPassword: string }> {
   const tokenResponse = await fetch(zambdaEnv.AUTH0_ENDPOINT, {
     method: 'POST',
     headers: {
@@ -316,23 +316,38 @@ async function inviteUser({
   });
 
   const allRoles = await oystehr.role.list();
-  const invite = await oystehr.user.invite({
-    applicationId: ehrUiEnv.VITE_APP_OYSTEHR_APPLICATION_ID,
-    email: userEmail,
-    resource: {
-      resourceType: 'Practitioner',
-    },
-    roles: [
-      ...allRoles
-        .filter((role) => ['Administrator', 'Manager', 'Staff', 'Provider'].includes(role.name))
-        .map((role) => role.id),
-    ],
-  });
-  return { inviteUrl: invite.invitationUrl, userPassword };
+  try {
+    const invite = await oystehr.user.invite({
+      applicationId: ehrUiEnv.VITE_APP_OYSTEHR_APPLICATION_ID,
+      email: userEmail,
+      resource: {
+        resourceType: 'Practitioner',
+      },
+      roles: [
+        ...allRoles
+          .filter((role) => ['Administrator', 'Manager', 'Staff', 'Provider'].includes(role.name))
+          .map((role) => role.id),
+      ],
+    });
+    return { inviteUrl: invite.invitationUrl, userPassword };
+  } catch (err) {
+    if (err instanceof Oystehr.OystehrSdkError && err.message === 'User is already a member of the project.') {
+      console.log('User is already a member of the project, continuing.');
+      return { inviteUrl: null, userPassword };
+    }
+    throw err;
+  }
 }
 
-async function completeRegistration({ inviteUrl, userPassword }): Promise<void> {
-  // env-cmd -f ./env/tests.${ENV}.json playwright test ./complete-registration.spec.test
+async function completeRegistration({
+  inviteUrl,
+  userPassword,
+}: Awaited<ReturnType<typeof inviteUser>>): Promise<void> {
+  if (!inviteUrl) {
+    // User is already a member of the project
+    return;
+  }
+
   const completeRegistration = spawn(
     'npx',
     [
