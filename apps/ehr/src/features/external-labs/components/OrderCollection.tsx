@@ -93,23 +93,6 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
       });
       const token = await getAccessTokenSilently();
       const url = request.url;
-      // const pdf = await (
-      //   await fetch(
-      //     (
-      //       await (
-      //         await fetch(url, {
-      //           method: 'POST',
-      //           headers: {
-      //             Authorization: `Bearer ${token}`,
-      //           },
-      //           body: JSON.stringify({
-      //             action: 'download',
-      //           }),
-      //         })
-      //       ).json()
-      //     ).signedUrl
-      //   )
-      // ).blob();
       const urlTemp = await getPresignedFileUrl(url, token);
       if (!urlTemp) {
         throw new Error('error with a presigned url');

@@ -290,31 +290,33 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const orderID = serviceRequestTemp.identifier?.find(
       (item) => item.system === 'https://identifiers.fhir.oystehr.com/lab-order-placer-id'
     )?.value;
+    const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
 
     const pdfDetail = await createExternalLabsOrderFormPDF(
       {
-        locationName: location.name || 'UNKNOWN',
-        locationStreetAddress: location.address?.line?.join(',') || 'UNKNOWN',
-        locationCity: location.address?.city || 'UNKNOWN',
-        locationState: location.address?.state || 'UNKNOWN',
-        locationZip: location.address?.postalCode || 'UNKNOWN',
-        locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value || 'UNKNOWN',
-        locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value || 'UNKNOWN',
-        reqId: orderID || 'UNKNOWN',
-        providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : 'UNKNOWN',
+        locationName: location.name || ORDER_ITEM_UNKNOWN,
+        locationStreetAddress: location.address?.line?.join(',') || ORDER_ITEM_UNKNOWN,
+        locationCity: location.address?.city || ORDER_ITEM_UNKNOWN,
+        locationState: location.address?.state || ORDER_ITEM_UNKNOWN,
+        locationZip: location.address?.postalCode || ORDER_ITEM_UNKNOWN,
+        locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value || ORDER_ITEM_UNKNOWN,
+        locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value || ORDER_ITEM_UNKNOWN,
+        reqId: orderID || ORDER_ITEM_UNKNOWN,
+        providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : ORDER_ITEM_UNKNOWN,
         providerTitle:
-          provider.qualification?.map((qualificationTemp) => qualificationTemp.code.text).join(', ') || 'UNKNOWN',
+          provider.qualification?.map((qualificationTemp) => qualificationTemp.code.text).join(', ') ||
+          ORDER_ITEM_UNKNOWN,
         providerNPI: 'test',
-        patientFirstName: patient.name?.[0].given?.[0] || 'UNKNOWN',
+        patientFirstName: patient.name?.[0].given?.[0] || ORDER_ITEM_UNKNOWN,
         patientMiddleName: patient.name?.[0].given?.[1] || '',
-        patientLastName: patient.name?.[0].family || 'UNKNOWN',
-        patientSex: patient.gender || 'UNKNOWN',
+        patientLastName: patient.name?.[0].family || ORDER_ITEM_UNKNOWN,
+        patientSex: patient.gender || ORDER_ITEM_UNKNOWN,
         patientDOB: patient.birthDate
           ? DateTime.fromFormat(patient.birthDate, 'yyyy-MM-dd').toFormat('MM/dd/yyyy')
-          : 'UNKNOWN',
+          : ORDER_ITEM_UNKNOWN,
         patientId: patient.id,
-        patientAddress: patient.address?.[0] ? oystehr.fhir.formatAddress(patient.address[0]) : 'UNKNOWN',
-        patientPhone: patient.telecom?.[0].value || 'UNKNOWN',
+        patientAddress: patient.address?.[0] ? oystehr.fhir.formatAddress(patient.address[0]) : ORDER_ITEM_UNKNOWN,
+        patientPhone: patient.telecom?.[0].value || ORDER_ITEM_UNKNOWN,
         todayDate: now.toFormat('MM/dd/yy hh:mm a'),
         orderDate: now.toFormat('MM/dd/yy hh:mm a'),
         primaryInsuranceName: organization?.name,
@@ -325,16 +327,17 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         insuredName: coveragePatient?.name ? oystehr.fhir.formatHumanName(coveragePatient.name[0]) : undefined,
         insuredAddress: coveragePatient?.address ? oystehr.fhir.formatAddress(coveragePatient.address?.[0]) : undefined,
         aoeAnswers: questionsAndAnswers,
-        orderName: serviceRequest.code?.coding?.map((codingTemp) => codingTemp.display).join(', ') || 'UNKNOWN',
+        orderName:
+          serviceRequest.code?.coding?.map((codingTemp) => codingTemp.display).join(', ') || ORDER_ITEM_UNKNOWN,
         assessmentCode:
           serviceRequest.reasonCode
             ?.map((reasonTemp) => reasonTemp.coding?.map((codingTemp) => codingTemp.code).join(', '))
-            .join(', ') || 'UNKNOWN',
+            .join(', ') || ORDER_ITEM_UNKNOWN,
         assessmentName:
           serviceRequest.reasonCode
             ?.map((reasonTemp) => reasonTemp.coding?.map((codingTemp) => codingTemp.display).join(', '))
-            .join(', ') || 'UNKNOWN',
-        orderPriority: serviceRequest.priority || 'UNKNOWN',
+            .join(', ') || ORDER_ITEM_UNKNOWN,
+        orderPriority: serviceRequest.priority || ORDER_ITEM_UNKNOWN,
       },
       patient.id,
       secrets,

@@ -34,10 +34,6 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
           name: '_include',
           value: 'ServiceRequest:requester',
         },
-        {
-          name: '_include',
-          value: 'ServiceRequest:requester',
-        },
       ],
     })
   )?.unbundle();
