@@ -43,7 +43,7 @@ export const useAppointmentStore = create<AppointmentState & AppointmentStoreAct
   ...APPOINTMENT_INITIAL,
   setPartialChartData: (data) => {
     set((state) => ({
-      chartData: { ...state.chartData, patientId: state.chartData!.patientId, ...data },
+      chartData: { ...state.chartData, patientId: state.chartData?.patientId || '', ...data },
     }));
   },
   updateObservation: (newObservation: ObservationDTO) =>

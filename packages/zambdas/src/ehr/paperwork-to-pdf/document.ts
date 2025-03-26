@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Patient, Questionnaire, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { getCanonicalQuestionnaire } from 'utils';
-import { assertDefined } from '../shared/helpers';
+import { assertDefined } from 'zambda-utils';
 
 export interface Document {
   patientInfo: PatientInfo;

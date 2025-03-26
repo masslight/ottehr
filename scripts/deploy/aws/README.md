@@ -1,14 +1,9 @@
-# Welcome to your CDK TypeScript project
+# Deploying Ottehr to AWS
 
-This is a blank project for CDK development with TypeScript.
+This directory contains an AWS CDK application to deploy Ottehr to AWS and Oystehr, along with supporting scripts.
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+To deploy Ottehr, follow the instructions [in our docs](https://docs.oystehr.com/ottehr/deploying/aws/).
 
-## Useful commands
+## Permissions for Deploying
 
-- `npm run build` compile typescript to js
-- `npm run watch` watch for changes and compile
-- `npm run test` perform the jest unit tests
-- `cdk deploy` deploy this stack to your default AWS account/region
-- `cdk diff` compare deployed stack with current state
-- `cdk synth` emits the synthesized CloudFormation template
+The AWS role used for deploying must have at least the permissions enumerated in `deployer-role.json`. This policy definition can be used as-is to enable an AWS role to deploy Ottehr.
