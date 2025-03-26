@@ -12,9 +12,8 @@ import {
   serviceModeForHealthcareService,
   stateCodeToFullName,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { getSecret, SecretsKeys, topLevelCatch } from 'zambda-utils';
-import { getAuth0Token } from '../../shared';
+import { getSecret, SecretsKeys, topLevelCatch, ZambdaInput } from 'zambda-utils';
+import { getAuth0Token } from '../../../shared';
 import { getSlugForBookableResource } from '../helpers';
 
 let zapehrToken: string;

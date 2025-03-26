@@ -7,11 +7,11 @@ import { ZambdaInput } from 'zambda-utils';
 import { SecretsKeys, getSecret, lambdaResponse } from 'zambda-utils';
 import {
   getAuth0Token,
-  getUser,
   getVideoEncounterForAppointment,
   searchInvitedParticipantResourcesByEncounterId,
-} from '../../shared';
+} from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
+import { getUser } from '../../../shared';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;

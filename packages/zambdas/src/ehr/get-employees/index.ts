@@ -14,9 +14,9 @@ import {
   standardizePhoneNumber,
 } from 'utils';
 import { Secrets } from 'zambda-utils';
-import { getAuth0Token, getRoleMembers, lambdaResponse } from '../shared';
-import { topLevelCatch } from '../shared/errors';
-import { createOystehrClient } from '../shared/helpers';
+import { getAuth0Token, getRoleMembers, lambdaResponse } from '../../shared';
+import { topLevelCatch } from '../../shared/errors';
+import { createOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from 'zambda-utils';
 import { validateRequestParameters } from './validateRequestParameters';
 

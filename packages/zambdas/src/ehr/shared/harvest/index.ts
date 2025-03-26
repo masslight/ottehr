@@ -106,7 +106,7 @@ import {
 import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 import _ from 'lodash';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
-import { createPdfBytes } from '../../../patient/shared/pdf';
+import { createPdfBytes } from '../../../shared';
 
 const IGNORE_CREATING_TASKS_FOR_REVIEW = true;
 

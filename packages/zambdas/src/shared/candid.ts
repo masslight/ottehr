@@ -38,8 +38,9 @@ import {
 import { DateTime } from 'luxon';
 import { FHIR_IDENTIFIER_NPI } from 'utils';
 import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm';
-import { assertDefined, getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'zambda-utils';
-import { chartDataResourceHasMetaTagByCode } from './chart-data/chart-data-helpers';
+import { getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'zambda-utils';
+import { chartDataResourceHasMetaTagByCode } from './chart-data';
+import { assertDefined } from './helpers';
 import { VideoResourcesAppointmentPackage } from './pdf/visit-details-pdf/types';
 
 export const CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM =

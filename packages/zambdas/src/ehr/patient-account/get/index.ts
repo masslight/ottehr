@@ -1,5 +1,5 @@
 import { Secrets, topLevelCatch, ZambdaInput } from 'zambda-utils';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared/helpers';
+import { checkOrCreateM2MClientToken, createOystehrClient } from '../../../shared';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   INVALID_RESOURCE_ID_ERROR,

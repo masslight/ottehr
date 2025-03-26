@@ -1,5 +1,5 @@
 import { Secrets, topLevelCatch, ZambdaInput } from 'zambda-utils';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared/helpers';
+import { checkOrCreateM2MClientToken, createOystehrClient } from '../../../shared';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   AUDIT_EVENT_OUTCOME_CODE,

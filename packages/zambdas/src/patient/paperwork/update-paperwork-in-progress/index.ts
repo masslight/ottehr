@@ -6,11 +6,10 @@ import { DateTime } from 'luxon';
 import {} from 'utils';
 import { ZambdaInput } from 'zambda-utils';
 import { topLevelCatch } from 'zambda-utils';
-import '../../shared/instrument.mjs';
-import { captureSentryException, configSentry, getAuth0Token, getUser } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
-import { validateUpdatePaperworkParams } from './validateRequestParameters';
+import '../../../shared/instrument.mjs';
+import { captureSentryException, createOystehrClient, configSentry, getAuth0Token, getUser } from '../../../shared';
 import { createOrUpdateFlags } from '../sharedHelpers';
+import { validateUpdatePaperworkParams } from './validateRequestParameters';
 
 // Lifting the token out of the handler function allows it to persist across warm lambda invocations.
 export let token: string;

@@ -8,7 +8,7 @@ import {
 } from 'utils';
 import { useCheckOfficeOpen } from '../../../apps/intake/src/hooks/useCheckOfficeOpen';
 import { getNextOpeningDateTime } from '../src/patient/get-schedule';
-import { getLocationInformation } from '../src/patient/shared/helpers';
+import { getLocationInformation } from '../src/shared';
 import * as overrideData from './data/override-constants';
 import * as slotData from './data/slot-constants';
 import { addDateToSlotTimes } from './data/slot-constants';

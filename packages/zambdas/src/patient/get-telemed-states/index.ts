@@ -4,7 +4,7 @@ import { Location } from 'fhir/r4b';
 import { GetTelemedLocationsResponse, PUBLIC_EXTENSION_BASE_URL, TelemedLocation, createOystehrClient } from 'utils';
 import { ZambdaInput } from 'zambda-utils';
 import { SecretsKeys, getSecret } from 'zambda-utils';
-import { getAuth0Token } from '../shared';
+import { getAuth0Token } from '../../shared';
 
 let zapehrToken: string;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {

@@ -1,12 +1,12 @@
 // import { FhirClient } from '@zapehr/sdk';
 // import { APIGatewayProxyResult } from 'aws-lambda';
 // import { ChangeTelemedAppointmentStatusInput, ChangeTelemedAppointmentStatusResponse } from 'utils';
-// import { checkOrCreateM2MClientToken, createFhirClient } from '../shared/helpers';
+// import { checkOrCreateM2MClientToken, createFhirClient } from '../../shared/helpers';
 // import { ZambdaInput } from 'zambda-utils';
 // import { getVideoResources } from './helpers/fhir-utils';
 // import { makeVisitNotePdfDocumentReference } from './helpers/helpers';
 // import { validateRequestParameters } from './validateRequestParameters';
-// import { createExternalLabsResultsFormPDF } from '../shared/pdf/external-labs-results-form-pdf';
+// import { createExternalLabsResultsFormPDF } from '../../shared/pdf/external-labs-results-form-pdf';
 
 // // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 // let m2mtoken: string;

@@ -8,8 +8,8 @@ import {
 } from 'utils';
 import { ZambdaInput } from 'zambda-utils';
 import { Secrets, SecretsKeys, getSecret } from 'zambda-utils';
-import { getAuth0Token } from '../shared';
-import { getUser } from '../shared/auth';
+import { getAuth0Token } from '../../shared';
+import { getUser } from '../../shared/auth';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetPatientsInput {
