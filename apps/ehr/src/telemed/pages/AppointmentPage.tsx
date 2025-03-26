@@ -32,12 +32,7 @@ import {
   VideoChatContainer,
 } from '../features/appointment';
 import { useResetAppointmentStore } from '../hooks';
-import {
-  useAppointmentStore,
-  useGetTelemedAppointment,
-  useRefreshableAppointmentData,
-  useVideoCallStore,
-} from '../state';
+import { useAppointmentStore, useGetAppointment, useRefreshableAppointmentData, useVideoCallStore } from '../state';
 import { arraysEqual, extractPhotoUrlsFromAppointmentData, extractReviewAndSignAppointmentData } from '../utils';
 
 export const AppointmentPage: FC = () => {
@@ -92,7 +87,7 @@ export const AppointmentPage: FC = () => {
     }
   );
 
-  const { isFetching } = useGetTelemedAppointment(
+  useGetAppointment(
     {
       appointmentId: id,
     },
@@ -152,10 +147,6 @@ export const AppointmentPage: FC = () => {
       setSearchParams(searchParams);
     }
   }, [searchParams, setSearchParams, tab]);
-
-  useEffect(() => {
-    useAppointmentStore.setState({ isAppointmentLoading: isFetching });
-  }, [isFetching]);
 
   return (
     <Box

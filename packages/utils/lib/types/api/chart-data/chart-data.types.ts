@@ -1,4 +1,19 @@
-import { MedicationRequest, MedicationStatement, Practitioner, Reference, Resource } from 'fhir/r4b';
+import {
+  AllergyIntolerance,
+  ClinicalImpression,
+  Communication,
+  Condition,
+  DocumentReference,
+  EpisodeOfCare,
+  MedicationRequest,
+  MedicationStatement,
+  Observation,
+  Practitioner,
+  Procedure,
+  Reference,
+  Resource,
+  ServiceRequest,
+} from 'fhir/r4b';
 import {
   ASQ_FIELD,
   ASQKeys,
@@ -12,13 +27,13 @@ import {
   VitalsOxygenSatObservationMethod,
   VitalTemperatureObservationMethod,
 } from './chart-data.constants';
+import { GetChartDataResponse } from './get-chart-data.types';
 import {
   ExamCardsNames,
   ExamFieldsNames,
   InPersonExamCardsNames,
   InPersonExamFieldsNames,
 } from './save-chart-data.types';
-import { GetChartDataResponse } from './get-chart-data.types';
 
 export interface ChartDataFields {
   chiefComplaint?: FreeTextNoteDTO;
@@ -47,6 +62,18 @@ export interface ChartDataFields {
 }
 
 export type ChartDataFieldsKeys = keyof ChartDataFields;
+
+export type ChartDataResources =
+  | AllergyIntolerance
+  | ClinicalImpression
+  | Communication
+  | Condition
+  | DocumentReference
+  | MedicationStatement
+  | Observation
+  | Procedure
+  | ServiceRequest
+  | EpisodeOfCare;
 
 export interface ChartDataWithResources {
   chartData: GetChartDataResponse;
