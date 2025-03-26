@@ -181,6 +181,9 @@ jobs:
         if: ${{ github.event.inputs.service == 'ehr' }}
         run: cd packages/zambdas && npm run create-update-in-house-medications-list --env=${{ env.ENVIRONMENT }}
 
+      - name: Setup Document explorer resources
+        run: cd packages/zambdas && npm run setup-document-explorer --env=${{ env.ENVIRONMENT }}
+
       - name: Notify Slack
         if: always()
         uses: edge/simple-slack-notify@v1.1.2
