@@ -1,6 +1,7 @@
 import { ApptTelemedTab, PractitionerQualificationCode, RoleType, TelemedAppointmentVisitTabs } from 'utils';
 
 export const dataTestIds = {
+  loadingSpinner: 'loading-spinner',
   header: {
     userName: 'header-user-name',
   },
@@ -204,7 +205,6 @@ export const dataTestIds = {
     videoRoomContainer: 'telemed-video-room-container',
     endVideoCallButton: 'telemed-end-video-call-button',
     appointmentVisitTabs: (tab: TelemedAppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
-    diagnosisAutocomplete: 'telemed-diagnosis-autocomplete',
     patientInfoConfirmationCheckbox: 'telemed-patient-info-confirmation-checkbox',
     signButton: 'telemed-sign-button',
   },

@@ -46,7 +46,7 @@ export const useChartDataArrayValue = <
     queryKey,
   } = useChartData({
     encounterId: encounter.id || '',
-    requestedFields: { [name]: customParams },
+    requestedFields: { [name]: customParams || {} },
     enabled: !!customParams,
     replaceStoreValues: true,
   });

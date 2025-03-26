@@ -1,1 +1,0 @@
-export const DEFAULT_TEST_TIMEOUT = 10000;
