@@ -216,6 +216,13 @@ export class Paperwork {
     await this.fillPointOfDiscovery();
     await this.fillPreferredLanguage();
   }
+  async fillPatientDetailsTelemedAllFields(): Promise<void> {
+    await this.fillPatientDetailsAllFields();
+    await this.fillRelayServiceNo();
+  }
+  async fillRelayServiceNo(): Promise<void> {
+    await this.locator.relayServiceNo.check();
+  }
   async skipPrimaryCarePhysician(): Promise<void> {
     await this.CommonLocatorsHelper.clickContinue();
   }
