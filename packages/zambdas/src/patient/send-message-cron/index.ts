@@ -10,6 +10,7 @@ import '../shared/instrument.mjs';
 import { captureSentryException, configSentry, getAuth0Token } from '../shared';
 import { getMessageRecipientForAppointment } from '../shared/communication';
 import { createOystehrClient } from '../shared/helpers';
+import { isNonPaperworkQuestionnaireResponse } from '../../common';
 
 let zapehrToken: string;
 
@@ -55,7 +56,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
           },
         ],
       })
-    ).unbundle();
+    )
+      .unbundle()
+      .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
     console.log('successfully retrieved resources');
 
     const appointments = allResources.filter(

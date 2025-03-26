@@ -26,12 +26,14 @@ import {
   CREATED_BY_SYSTEM,
   createUserResourcesForPatient,
   deleteSpecificBusySlot,
+  FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG,
   FHIR_EXTENSION,
   FhirAppointmentStatus,
   FhirEncounterStatus,
   formatPhoneNumber,
   formatPhoneNumberDisplay,
   getCanonicalQuestionnaire,
+  getPatchOperationForNewMetaTag,
   makePrepopulatedItemsForPatient,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   OTTEHR_MODULE,
@@ -42,13 +44,12 @@ import {
   userHasAccessToPatient,
   VisitType,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { Secrets, topLevelCatch } from 'zambda-utils';
-import '../../shared/instrument.mjs';
+import { Secrets, topLevelCatch, ZambdaInput } from 'zambda-utils';
 import { captureSentryException, configSentry, getAuth0Token } from '../../shared';
 import { generatePatientRelatedRequests } from '../../shared/appointment';
 import { getUser } from '../../shared/auth';
 import { createOystehrClient } from '../../shared/helpers';
+import '../../shared/instrument.mjs';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAuditLog';
 import {
   getCanonicalUrlForPrevisitQuestionnaire,
@@ -530,7 +531,13 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   };
   console.log('making transaction request');
   const bundle = await oystehr.fhir.transaction(transactionInput);
-  return extractResourcesFromBundle(bundle);
+  const resources = extractResourcesFromBundle(bundle);
+  await oystehr.fhir.patch({
+    resourceType: 'Appointment',
+    id: resources.appointment.id!,
+    operations: [getPatchOperationForNewMetaTag(resources.appointment, FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG)],
+  });
+  return resources;
 };
 
 const extractResourcesFromBundle = (bundle: Bundle<Resource>): TransactionOutput => {
