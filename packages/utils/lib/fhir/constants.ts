@@ -189,6 +189,18 @@ export const AppointmentInsuranceRelatedResourcesExtension = {
   },
 };
 
+export const FHIR_APPOINTMENT_PREPROCESSING_STATUS_SYSTEM = 'appointment-preprocessing-status';
+
+export const FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG = {
+  system: FHIR_APPOINTMENT_PREPROCESSING_STATUS_SYSTEM,
+  code: 'APPOINTMENT_READY_FOR_PREPROCESSING',
+};
+
+export const FHIR_APPOINTMENT_PREPROCESSED_TAG = {
+  system: FHIR_APPOINTMENT_PREPROCESSING_STATUS_SYSTEM,
+  code: 'APPOINTMENT_PREPROCESSED',
+};
+
 export const FHIR_APPOINTMENT_TYPE_MAP: Record<string, AppointmentType> = {
   walkin: 'walk-in',
   prebook: 'pre-booked',

@@ -9,23 +9,25 @@ import {
   CancellationReasonOptionsTelemed,
   FHIR_ZAPEHR_URL,
   SLUG_SYSTEM,
+  Secrets,
+  SecretsKeys,
   cancelAppointmentResource,
   createOystehrClient,
   getAppointmentResourceById,
   getPatchBinary,
   getRelatedPersonForPatient,
+  getSecret,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { Secrets, SecretsKeys, getSecret } from 'zambda-utils';
 import {
   AuditableZambdaEndpoints,
   checkOrCreateM2MClientToken,
   createAuditEvent,
   getVideoEncounterForAppointment,
   sendSms,
-} from '../../shared';
-import { sendVirtualCancellationEmail } from '../../shared/communication';
-import { validateBundleAndExtractAppointment } from '../../shared/validateBundleAndExtractAppointment';
+  sendVirtualCancellationEmail,
+  validateBundleAndExtractAppointment,
+  ZambdaInput,
+} from '../../../shared';
 import { getPatientContactEmail } from '../telemed-create-appointment';
 import { validateRequestParameters } from './validateRequestParameters';
 export interface CancelAppointmentInput {
@@ -216,7 +218,7 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
   if (relatedPerson) {
     const message = `Sorry to see you go. Questions? Call 202-555-1212 `;
 
-    await sendSms(message, zapehrToken, `RelatedPerson/${relatedPerson.id}`, secrets);
+    await sendSms(message, `RelatedPerson/${relatedPerson.id}`, oystehr);
   } else {
     console.log(`No RelatedPerson found for patient ${patient.id} not sending text message`);
   }

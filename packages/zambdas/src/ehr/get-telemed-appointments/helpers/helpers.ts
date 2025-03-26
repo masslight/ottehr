@@ -1,6 +1,6 @@
 import { Appointment, QuestionnaireResponse } from 'fhir/r4b';
 import { TelemedCallStatuses } from 'utils';
-import { removePrefix } from '../../shared/appointment/helpers';
+import { removePrefix } from '../../../shared/appointment/helpers';
 
 export const getPhoneNumberFromQuestionnaire = (questionnaire: QuestionnaireResponse): string | undefined => {
   const items = questionnaire.item;

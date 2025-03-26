@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 import {} from 'utils';
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../../shared';
 
 interface UpdatePaperworkInProgressParams {
   appointmentID: string;

@@ -12,8 +12,8 @@ import {
   TIMEZONE_EXTENSION_URL,
   VirtualLocationBody,
 } from 'utils';
-import { getAuth0Token } from '../patient/shared';
-import { createOystehrClient } from '../patient/shared/helpers';
+import { getAuth0Token } from '../shared';
+import { createOystehrClient } from '../shared';
 
 export const DEFAULT_TESTING_SLUG = 'testing';
 

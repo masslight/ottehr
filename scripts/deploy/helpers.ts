@@ -1,114 +1,71 @@
-import fetch from 'node-fetch';
 import fs from 'fs';
 import config from './deploy-config.json';
-import { DistributionSummary } from '@aws-sdk/client-cloudfront';
+import Oystehr from '@oystehr/sdk';
 
 const projectConfig: any = config;
 const environment = projectConfig.environment;
-const projectID = projectConfig.project_id;
-const accessToken = projectConfig.access_token;
 
-export async function updateZapehr(intakeDistribution: string, ehrDistribution: string): Promise<void> {
-  const applicationsRequest = await fetch('https://project-api.zapehr.com/v1/application', {
-    headers: {
-      'x-zapehr-project-id': projectID,
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  const applications = await applicationsRequest.json();
-  const envIntakeFile = fs.readFileSync(`${__dirname}/../../apps/intake/env/.env.${environment}`, 'utf8');
-  const applicationIntakeClientID = envIntakeFile
+export async function updateZapehr(oystehr: Oystehr, patientPortalUrl: string, ehrUrl: string): Promise<void> {
+  const applications = await oystehr.application.list();
+  const envPatientPortalFile = fs.readFileSync(`${__dirname}/../../apps/intake/env/.env.${environment}`, 'utf8');
+  const applicationPatientPortalClientID = envPatientPortalFile
     .split('\n')
     .find((item) => item.split('=')[0] === 'VITE_APP_CLIENT_ID')
     ?.split('=')[1];
-  const applicationIntakeID = applications.find(
-    (application: any) => application.clientId === applicationIntakeClientID
-  ).id;
+  const patientPortalApplication = applications.find(
+    (application) => application.clientId === applicationPatientPortalClientID
+  );
+  if (patientPortalApplication) {
+    await oystehr.application.update({
+      id: patientPortalApplication.id,
+      loginRedirectUri: patientPortalUrl,
+      allowedCallbackUrls: [patientPortalUrl, `${patientPortalUrl}/redirect`],
+      allowedLogoutUrls: [patientPortalUrl],
+      allowedCORSOriginsUrls: [patientPortalUrl],
+      allowedWebOriginsUrls: [patientPortalUrl],
+    });
+    console.log('Updated patient portal application');
+  }
+
   const envEHRFile = fs.readFileSync(`${__dirname}/../../apps/ehr/env/.env.${environment}`, 'utf8');
   const applicationEHRClientID = envEHRFile
     .split('\n')
     .find((item) => item.split('=')[0] === 'VITE_APP_OYSTEHR_APPLICATION_CLIENT_ID')
     ?.split('=')[1];
-  const applicationEHRID = applications.find((application: any) => application.clientId === applicationEHRClientID).id;
-
-  const updateIntakeApplicationRequest = await fetch(
-    `https://project-api.zapehr.com/v1/application/${applicationIntakeID}`,
-    {
-      method: 'PATCH',
-      headers: {
-        'x-zapehr-project-id': projectID,
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        loginRedirectUri: intakeDistribution,
-        allowedCallbackUrls: [intakeDistribution, `${intakeDistribution}/redirect`],
-        allowedLogoutUrls: [intakeDistribution],
-        allowedCORSOriginsUrls: [intakeDistribution],
-        allowedWebOriginsUrls: [intakeDistribution],
-      }),
-    }
-  );
-  const updateEHRApplicationRequest = await fetch(`https://project-api.zapehr.com/v1/application/${applicationEHRID}`, {
-    method: 'PATCH',
-    headers: {
-      'x-zapehr-project-id': projectID,
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify({
-      loginRedirectUri: ehrDistribution,
-      allowedCallbackUrls: [ehrDistribution],
-      allowedLogoutUrls: [ehrDistribution],
-      allowedCORSOriginsUrls: [ehrDistribution],
-      allowedWebOriginsUrls: [ehrDistribution],
-    }),
-  });
-  console.log(await updateIntakeApplicationRequest.json());
-  console.log(await updateEHRApplicationRequest.json());
+  const ehrApplication = applications.find((application: any) => application.clientId === applicationEHRClientID);
+  if (ehrApplication) {
+    await oystehr.application.update({
+      id: ehrApplication.id,
+      loginRedirectUri: ehrUrl,
+      allowedCallbackUrls: [ehrUrl],
+      allowedLogoutUrls: [ehrUrl],
+      allowedCORSOriginsUrls: [ehrUrl],
+      allowedWebOriginsUrls: [ehrUrl],
+    });
+    console.log('Updated EHR application');
+  }
 }
 
-export async function updateZambdas(
-  environment: string,
-  intakeDistribution: DistributionSummary | string | undefined,
-  ehrDistribution: DistributionSummary | string | undefined
-): Promise<void> {
+export async function updateEnvFiles(environment: string, patientPortalUrl: string, ehrUrl: string): Promise<void> {
   console.log(__dirname);
-  let intakeEnvFile = fs.readFileSync(`${__dirname}/../../apps/intake/env/.env.${environment}`, 'utf8');
-  intakeEnvFile = intakeEnvFile.replace(/paperwork\//g, '');
-  intakeEnvFile = intakeEnvFile.replace('http://localhost:3000/local', 'https://project-api.zapehr.com/v1');
-  intakeEnvFile = intakeEnvFile.replace('VITE_APP_IS_LOCAL=true', 'VITE_APP_IS_LOCAL=false');
+  let patientPortalEnvFile = fs.readFileSync(`${__dirname}/../../apps/intake/env/.env.${environment}`, 'utf8');
+  patientPortalEnvFile = patientPortalEnvFile.replace(/paperwork\//g, '');
+  patientPortalEnvFile = patientPortalEnvFile.replace(
+    'http://localhost:3000/local',
+    'https://project-api.zapehr.com/v1'
+  );
+  patientPortalEnvFile = patientPortalEnvFile.replace('VITE_APP_IS_LOCAL=true', 'VITE_APP_IS_LOCAL=false');
 
   let ehrEnvFile = fs.readFileSync(`${__dirname}/../../apps/ehr/env/.env.${environment}`, 'utf8');
   ehrEnvFile = ehrEnvFile.replace('http://localhost:3000/local', 'https://project-api.zapehr.com/v1');
   ehrEnvFile = ehrEnvFile.replace('http://localhost:4000/local', 'https://project-api.zapehr.com/v1');
   ehrEnvFile = ehrEnvFile.replace('VITE_APP_IS_LOCAL=true', 'VITE_APP_IS_LOCAL=false');
+  ehrEnvFile = ehrEnvFile.replace(
+    'VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL=http://localhost:4002',
+    `VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL=${ehrUrl}`
+  );
+  ehrEnvFile = ehrEnvFile.replace('VITE_APP_QRS_URL=http://localhost:3002', `VITE_APP_QRS_URL=${patientPortalUrl}`);
 
-  if (ehrDistribution) {
-    if (typeof ehrDistribution === 'string') {
-      ehrEnvFile = ehrEnvFile.replace(
-        'VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL=http://localhost:4002',
-        `VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL=${ehrDistribution}`
-      );
-    } else {
-      ehrEnvFile = ehrEnvFile.replace(
-        'VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL=http://localhost:4002',
-        `VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL=https://${ehrDistribution.DomainName}`
-      );
-    }
-  }
-  if (intakeDistribution) {
-    if (typeof intakeDistribution === 'string') {
-      ehrEnvFile = ehrEnvFile.replace(
-        'VITE_APP_QRS_URL=http://localhost:3002',
-        `VITE_APP_QRS_URL=${intakeDistribution}`
-      );
-    } else {
-      ehrEnvFile = ehrEnvFile.replace(
-        'VITE_APP_QRS_URL=http://localhost:3002',
-        `VITE_APP_QRS_URL=https://${intakeDistribution.DomainName}`
-      );
-    }
-  }
-
-  fs.writeFileSync(`${__dirname}/../../apps/intake/env/.env.${environment}`, intakeEnvFile);
+  fs.writeFileSync(`${__dirname}/../../apps/intake/env/.env.${environment}`, patientPortalEnvFile);
   fs.writeFileSync(`${__dirname}/../../apps/ehr/env/.env.${environment}`, ehrEnvFile);
 }

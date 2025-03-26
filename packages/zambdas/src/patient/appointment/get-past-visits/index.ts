@@ -9,13 +9,13 @@ import {
   getParticipantIdFromAppointment,
   GetPastVisitsResponse,
   getPatientsForUser,
+  getSecret,
   getVisitStatus,
   mapStatusToTelemed,
   SCHEDULE_EXTENSION_URL,
+  SecretsKeys,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { getSecret, SecretsKeys } from 'zambda-utils';
-import { checkOrCreateM2MClientToken, getUser } from '../../shared';
+import { checkOrCreateM2MClientToken, getUser, ZambdaInput } from '../../../shared';
 import { getFhirResources, mapEncountersToAppointmentIds } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
