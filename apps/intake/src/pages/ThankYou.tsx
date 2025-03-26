@@ -1,7 +1,7 @@
 import { EditCalendarOutlined, EventBusyOutlined } from '@mui/icons-material';
 import CreateOutlinedIcon from '@mui/icons-material/CreateOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
-import { Box, Button, CircularProgress, Divider, Grid, Typography, useMediaQuery } from '@mui/material';
+import { Box, Button, CircularProgress, Divider, Grid, Modal, Typography, useMediaQuery } from '@mui/material';
 import { ContactPoint } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
@@ -30,6 +30,19 @@ import useAppointmentNotFoundInformation from '../helpers/information';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import i18n from '../lib/i18n';
 import { dataTestIds } from '../helpers/data-test-ids';
+import { ottehrAiLogo } from '../assets';
+
+export const MOBILE_MODAL_STYLE = {
+  position: 'absolute' as const,
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  width: '80%',
+  border: 'none',
+  bgcolor: 'background.paper',
+  boxShadow: 24,
+  p: 4,
+};
 
 type AppointmentState = { appointmentData: Partial<AppointmentData> };
 
@@ -108,6 +121,7 @@ const ThankYou = (): JSX.Element => {
   const [notFound, setNotFound] = useState<boolean>(false);
   const [paperworkCompleted, setPaperworkCompleted] = useState<boolean>(false);
   const [checkedIn, setCheckedIn] = useState<boolean>(false);
+  const [aiChatConsentModalOpen, setAiChatConsentModalOpen] = useState<boolean>(false);
   const outletContext = useVisitStore();
   const { id: appointmentId } = useParams();
   const { pathname } = useLocation();
@@ -252,6 +266,27 @@ const ThankYou = (): JSX.Element => {
     );
   };
 
+  const aiChatBanner = (): ReactElement => {
+    return (
+      <Box style={{ background: '#FFF3E0', borderRadius: '8px', padding: '24px', display: 'flex' }}>
+        <Box style={{ fontWeight: 600, fontSize: '18px' }}>
+          <Typography variant="subtitle1" color="text.primary" style={{ paddingBottom: '16px', fontSize: '18px' }}>
+            Save your time and get ready for the visit with Ottehr AI Chat
+          </Typography>
+          <Button
+            type="button"
+            variant="contained"
+            style={{ backgroundColor: '#F57C00' }}
+            onClick={() => setAiChatConsentModalOpen(true)}
+          >
+            Try Ottehr AI chat
+          </Button>
+        </Box>
+        <img src={ottehrAiLogo} style={{ width: '80px', marginLeft: '8px' }} />
+      </Box>
+    );
+  };
+
   if (shouldRenderOutlet) {
     console.log('rendering outlet...', pathname, visitBasePath, loading);
     return <Outlet context={{ ...outletContext }} />;
@@ -334,6 +369,7 @@ const ThankYou = (): JSX.Element => {
                 <PhoneNumberMessage locationTelecom={selectedLocation?.telecom} />
               </Typography>
               {paperworkCompleted && buttons(2)}
+              {paperworkCompleted && aiChatBanner()}
             </>
           ) : (
             <>
@@ -364,6 +400,9 @@ const ThankYou = (): JSX.Element => {
               )}
             </>
           )}
+          <Modal open={aiChatConsentModalOpen} onClose={() => setAiChatConsentModalOpen(false)}>
+            <Box sx={MOBILE_MODAL_STYLE}>test</Box>
+          </Modal>
         </>
       )) || <CircularProgress />}
     </PageContainer>
