@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import csvToJson from 'csvtojson';
 import { InsurancePlan, Organization } from 'fhir/r4b';
 import * as fs from 'fs';
+import path from 'path';
 import {
   FHIR_EXTENSION,
   INSURANCE_PLAN_PAYER_META_TAG_CODE,
@@ -20,7 +21,7 @@ enum PayersFileColumns {
   payerType = 'Payer Type',
 }
 
-const CSV_FILE_PATH = 'scripts/data/insurance-payers.csv';
+const CSV_FILE_PATH = path.join(__dirname, 'data', 'insurance-payers.csv');
 
 const PAYER_ID_SYSTEM = 'payer-id';
 

@@ -38,6 +38,7 @@ import { createOystehrClient, getAuth0Token, getOtherOfficesForLocation } from '
 import { getUser } from '../../../shared/auth';
 import '../../../shared/instrument.mjs';
 import { validateRequestParameters } from './validateRequestParameters';
+import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 
 export interface GetPaperworkInput {
   appointmentID: string;
@@ -127,7 +128,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
           },
         ],
       })
-    ).unbundle();
+    )
+      .unbundle()
+      .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
 
     // parse retrieved resources
     appointment = baseCategoryResources.find((resource) => {
@@ -258,7 +261,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         return sex as PersonSex | undefined;
       };
 
-      console.log('qrresponse item', JSON.stringify(questionnaireResponseResource.item));
+      // console.log('qrresponse item', JSON.stringify(questionnaireResponseResource.item));
 
       const response: UCGetPaperworkResponse = {
         ...partialAppointment,

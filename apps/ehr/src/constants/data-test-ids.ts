@@ -1,6 +1,7 @@
 import { ApptTelemedTab, PractitionerQualificationCode, RoleType, TelemedAppointmentVisitTabs } from 'utils';
 
 export const dataTestIds = {
+  loadingSpinner: 'loading-spinner',
   header: {
     userName: 'header-user-name',
   },
@@ -68,6 +69,7 @@ export const dataTestIds = {
     patientLastName: 'patient-last-name',
     patientFirstName: 'patient-first-name',
     patientBirthSex: 'patient-birth-sex',
+    patientDOB: 'patient-date-of-birth',
   },
   contactInformationContainer: {
     streetAddress: 'street-address',
@@ -84,7 +86,8 @@ export const dataTestIds = {
   responsiblePartyInformationContainer: {
     id: 'responsible-party-information-container',
     relationshipDropdown: 'relationship-dropdown',
-    fullName: 'full-name',
+    firstName: 'first-name',
+    lastName: 'last-name',
     dateOfBirthDropdown: 'date-of-birth-dropdown',
     birthSexDropdown: 'birth-sex-dropdown',
     phoneInput: 'phone-input',
@@ -198,7 +201,6 @@ export const dataTestIds = {
     videoRoomContainer: 'telemed-video-room-container',
     endVideoCallButton: 'telemed-end-video-call-button',
     appointmentVisitTabs: (tab: TelemedAppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
-    diagnosisAutocomplete: 'telemed-diagnosis-autocomplete',
     patientInfoConfirmationCheckbox: 'telemed-patient-info-confirmation-checkbox',
     signButton: 'telemed-sign-button',
   },
@@ -243,7 +245,11 @@ export const dataTestIds = {
     marTableRow: 'mar-table-row',
     marTableMedicationCell: 'mar-table-medication-cell',
     marTableStatusCell: 'mar-table-status-cell',
+    marTableDoseCell: 'mar-table-dose-cell',
+    marTableRouteCell: 'mar-table-route-cell',
+    marTableInstructionsCell: 'mar-table-instructions-cell',
     medicationDetailsTab: 'medication-details-tab',
+    pencilIconButton: 'EditOutlinedIcon',
   },
   orderMedicationPage: {
     inputField: (field: string): string => `input-${field}`,

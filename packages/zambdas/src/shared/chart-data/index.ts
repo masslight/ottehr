@@ -894,7 +894,7 @@ export async function makeSchoolWorkDR(
   fieldName: ProviderChartDataFieldsNames,
   listResources: List[]
 ): Promise<DocumentReference> {
-  const docRefs = await createFilesDocumentReferences({
+  const { docRefs } = await createFilesDocumentReferences({
     files: [
       {
         url: pdfInfo.uploadURL,

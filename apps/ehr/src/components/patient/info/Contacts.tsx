@@ -5,15 +5,15 @@ import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
 import { FC } from 'react';
 import { getPatientAddress } from 'utils/lib/fhir/patient';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
-import { useGetPatient } from '../../../hooks/useGetPatient';
 import { dataTestIds } from '../../../constants/data-test-ids';
+import { Patient } from 'fhir/r4b';
 
 type Props = {
-  id?: string;
+  patient: Patient | undefined;
+  loading?: boolean;
 };
 
-export const Contacts: FC<Props> = ({ id }) => {
-  const { loading, patient } = useGetPatient(id);
+export const Contacts: FC<Props> = ({ loading, patient }) => {
   const patientNumber = patient?.telecom?.find((obj) => obj.system === 'phone')?.value;
   const contactNumber = patient?.contact?.[0].telecom?.find((obj) => obj?.system === 'phone')?.value;
 

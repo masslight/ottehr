@@ -1,29 +1,15 @@
 import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import {
-  AllergyIntolerance,
-  ClinicalImpression,
-  CodeableConcept,
-  Communication,
-  Condition,
-  DocumentReference,
-  Encounter,
-  EpisodeOfCare,
-  FhirResource,
-  List,
-  MedicationStatement,
-  Observation,
-  Patient,
-  Practitioner,
-  Procedure,
-  ServiceRequest,
-} from 'fhir/r4b';
+import { CodeableConcept, DocumentReference, Encounter, FhirResource, List, Patient, Practitioner } from 'fhir/r4b';
 import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
+  ChartDataResources,
   createCodingCode,
   DispositionFollowUpType,
+  examCardsMap,
   ExamCardsNames,
+  examFieldsMap,
   ExamFieldsNames,
   getPatchBinary,
   inPersonExamCardsMap,
@@ -35,8 +21,7 @@ import {
   SCHOOL_WORK_NOTE,
   SNOMEDCodeConceptInterface,
 } from 'utils';
-import { examCardsMap, examFieldsMap } from 'utils';
-import { deleteResourceRequest } from '../delete-chart-data/helpers';
+import { ZambdaInput } from 'zambda-utils';
 import { checkOrCreateM2MClientToken, saveOrUpdateResourceRequest } from '../../shared';
 import {
   createDispositionServiceRequest,
@@ -64,7 +49,7 @@ import {
 import { createOystehrClient } from '../../shared/helpers';
 import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
-import { ZambdaInput } from 'zambda-utils';
+import { deleteResourceRequest } from '../delete-chart-data/helpers';
 import {
   filterServiceRequestsFromFhir,
   getEncounterAndRelatedResources,
@@ -74,18 +59,6 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
-
-type ChartData =
-  | AllergyIntolerance
-  | ClinicalImpression
-  | Communication
-  | Condition
-  | DocumentReference
-  | MedicationStatement
-  | Observation
-  | Procedure
-  | ServiceRequest
-  | EpisodeOfCare;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -155,9 +128,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.timeLog('time', 'after fetching resources');
 
     const saveOrUpdateRequests: (
-      | BatchInputPostRequest<ChartData>
-      | BatchInputPutRequest<ChartData>
-      | BatchInputRequest<ChartData>
+      | BatchInputPostRequest<ChartDataResources>
+      | BatchInputPutRequest<ChartDataResources>
+      | BatchInputRequest<ChartDataResources>
     )[] = [];
     const updateEncounterOperations: Operation[] = [];
     const additionalResourcesForResponse: FhirResource[] = [];

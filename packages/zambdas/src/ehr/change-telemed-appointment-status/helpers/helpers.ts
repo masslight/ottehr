@@ -296,7 +296,7 @@ export async function makeReceiptPdfDocumentReference(
   encounterId: string,
   listResources: List[]
 ): Promise<DocumentReference> {
-  const docRefs = await createFilesDocumentReferences({
+  const { docRefs } = await createFilesDocumentReferences({
     files: [
       {
         url: pdfInfo.uploadURL,

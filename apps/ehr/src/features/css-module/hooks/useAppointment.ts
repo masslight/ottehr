@@ -1,15 +1,14 @@
-import { Appointment, Bundle, Encounter, FhirResource, Patient, QuestionnaireResponse, Location } from 'fhir/r4b';
+import { Appointment, Bundle, Encounter, FhirResource, Location, Patient, QuestionnaireResponse } from 'fhir/r4b';
+import { useEffect } from 'react';
 import { QueryObserverResult, RefetchOptions, RefetchQueryFilters } from 'react-query';
-import { useParsedAppointmentStore } from '../store/parsedAppointment.store';
-import { ProcessedData, SourceData } from '../parser/types';
+import { getSelectors } from '../../../shared/store/getSelectors';
+import { useAppointmentStore, useGetAppointment } from '../../../telemed';
 import { getResources } from '../parser/extractors';
 import { parseBundle } from '../parser/parser';
-import { useAppointmentStore, useGetTelemedAppointment } from '../../../telemed';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { useChartData } from './useChartData';
-import { useEffect } from 'react';
+import { VisitMappedData, VisitResources } from '../parser/types';
+import { useMappedVisitDataStore } from '../store/parsedAppointment.store';
 
-type TelemedState = Partial<{
+type VisitState = Partial<{
   appointment: Appointment;
   patient: Patient;
   location: Location;
@@ -20,41 +19,26 @@ type TelemedState = Partial<{
 export const useAppointment = (
   appointmentId?: string
 ): {
-  sourceData: SourceData;
-  processedData: ProcessedData;
-  telemedData: TelemedState;
+  resources: VisitResources;
+  mappedData: VisitMappedData;
+  visitState: VisitState;
   error: any;
   isLoading: boolean;
   refetch: <TPageData>(
     options?: (RefetchOptions & RefetchQueryFilters<TPageData>) | undefined
   ) => Promise<QueryObserverResult<FhirResource[], unknown>>;
 } => {
-  const { sourceData, processedData } = useParsedAppointmentStore();
+  const { resources, mappedData } = useMappedVisitDataStore();
 
-  const telemedData = getSelectors(useAppointmentStore, [
+  const visitData = getSelectors(useAppointmentStore, [
     'appointment',
     'patient',
     'location',
     'encounter',
     'questionnaireResponse',
-  ]) as TelemedState;
+  ]) as VisitState;
 
-  const { isLoading: isChartDataLoading, chartData } = useChartData({
-    encounterId: telemedData.encounter?.id || '',
-    shouldUpdateExams: true,
-  });
-  const encounterId = telemedData.encounter?.id;
-
-  useEffect(() => {
-    if (!encounterId) return;
-
-    useAppointmentStore.setState({
-      chartData,
-      isChartDataLoading: isChartDataLoading,
-    });
-  }, [chartData, encounterId, isChartDataLoading]);
-
-  const { isLoading, error, refetch } = useGetTelemedAppointment({ appointmentId }, (data) => {
+  const { isLoading, error, refetch } = useGetAppointment({ appointmentId }, (data) => {
     const bundleResources = getResources(data);
     const parsedResources = parseBundle(data);
 
@@ -67,8 +51,8 @@ export const useAppointment = (
       questionnaireResponse: bundleResources.questionnaireResponse,
 
       // the patientPhotoUrls and schoolWorkNoteUrls structures are equal with Telemed
-      patientPhotoUrls: parsedResources.processedData?.patientConditionalPhotosUrls || [],
-      schoolWorkNoteUrls: parsedResources.processedData?.schoolWorkNoteUrls || [],
+      patientPhotoUrls: parsedResources.mappedData?.patientConditionalPhotosUrls || [],
+      schoolWorkNoteUrls: parsedResources.mappedData?.schoolWorkNoteUrls || [],
 
       isAppointmentLoading: false,
     });
@@ -76,22 +60,22 @@ export const useAppointment = (
 
   // update parsed appointment store on telemed data change
   useEffect(() => {
-    const telemedResources = Object.values([
-      telemedData.appointment,
-      telemedData.patient,
-      telemedData.location,
-      telemedData.encounter,
-      telemedData.questionnaireResponse,
+    const visitResources = Object.values([
+      visitData.appointment,
+      visitData.patient,
+      visitData.location,
+      visitData.encounter,
+      visitData.questionnaireResponse,
     ] as FhirResource[]).filter(Boolean);
-    const parsedResources = parseBundle(telemedResources as Bundle[]);
-    useParsedAppointmentStore.setState(parsedResources);
+    const parsedResources = parseBundle(visitResources as Bundle[]);
+    useMappedVisitDataStore.setState(parsedResources);
   }, [
-    telemedData.appointment,
-    telemedData.patient,
-    telemedData.location,
-    telemedData.encounter,
-    telemedData.questionnaireResponse,
+    visitData.appointment,
+    visitData.patient,
+    visitData.location,
+    visitData.encounter,
+    visitData.questionnaireResponse,
   ]);
 
-  return { sourceData, processedData, telemedData, error, isLoading, refetch };
+  return { resources, mappedData, visitState: visitData, error, isLoading, refetch };
 };

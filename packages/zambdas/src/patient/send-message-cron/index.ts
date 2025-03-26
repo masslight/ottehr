@@ -9,6 +9,7 @@ import { Secrets, SecretsKeys, getSecret, topLevelCatch } from 'zambda-utils';
 import '../../shared/instrument.mjs';
 import { captureSentryException, createOystehrClient, configSentry, getAuth0Token } from '../../shared';
 import { getMessageRecipientForAppointment } from '../../shared/communication';
+import { isNonPaperworkQuestionnaireResponse } from '../../common';
 
 let zapehrToken: string;
 
@@ -54,7 +55,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
           },
         ],
       })
-    ).unbundle();
+    )
+      .unbundle()
+      .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
     console.log('successfully retrieved resources');
 
     const appointments = allResources.filter(

@@ -15,6 +15,7 @@ import {
   getPatchBinary,
   getPatientResourceWithVerifiedPhoneNumber,
   mapStatusToTelemed,
+  normalizePhoneNumber,
   removeTimeFromDate,
 } from 'utils';
 import { AppointmentInsuranceRelatedResourcesExtension } from 'utils';
@@ -408,7 +409,7 @@ export function creatingPatientCreateRequest(
         },
         {
           system: 'phone',
-          value: patient.phoneNumber,
+          value: normalizePhoneNumber(patient.phoneNumber),
         },
       ];
     } else {

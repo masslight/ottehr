@@ -1,10 +1,10 @@
 import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest } from '@oystehr/sdk';
 import { Subscription } from 'fhir/r4b';
 import fs from 'fs';
-import { COMMUNICATION_ISSUE_REPORT_CODE, SubscriptionZambdaDetails, Task_Send_Messages_Url } from 'utils';
+import { SubscriptionZambdaDetails } from 'utils';
+import ottehrSpec from '../../ottehr-spec.json';
 import { getAuth0Token } from '../shared';
 
-const APPOINTMENT_PREPROCESSED = 'APPOINTMENT_PREPROCESSED';
 
 interface DeployZambda {
   type: 'http_open' | 'http_auth' | 'subscription' | 'cron';
@@ -17,302 +17,53 @@ interface DeployZambda {
   environments?: string[];
 }
 
-const ZAMBDAS: { [name: string]: DeployZambda } = {
-  VERSION: {
-    type: 'http_open',
-  },
-  'DEACTIVATE-USER': {
-    type: 'http_auth',
-  },
-  'GET-APPOINTMENTS': {
-    type: 'http_auth',
-  },
-  'GET-TELEMED-APPOINTMENTS': {
-    type: 'http_auth',
-  },
-  'CHANGE-TELEMED-APPOINTMENT-STATUS': {
-    type: 'http_auth',
-  },
-  'ASSIGN-PRACTITIONER': {
-    type: 'http_auth',
-  },
-  'UNASSIGN-PRACTITIONER': {
-    type: 'http_auth',
-  },
-  'CHANGE-IN-PERSON-VISIT-STATUS': {
-    type: 'http_auth',
-  },
-  'SIGN-APPOINTMENT': {
-    type: 'http_auth',
-  },
-  'GET-CHART-DATA': {
-    type: 'http_auth',
-  },
-  'SAVE-CHART-DATA': {
-    type: 'http_auth',
-  },
-  'DELETE-CHART-DATA': {
-    type: 'http_auth',
-  },
-  'UPDATE-USER': {
-    type: 'http_auth',
-  },
-  'INIT-TELEMED-SESSION': {
-    type: 'http_auth',
-  },
-  'GET-USER': {
-    type: 'http_auth',
-  },
-  'SAVE-PATIENT-INSTRUCTION': {
-    type: 'http_auth',
-  },
-  'GET-PATIENT-INSTRUCTIONS': {
-    type: 'http_auth',
-  },
-  'DELETE-PATIENT-INSTRUCTION': {
-    type: 'http_auth',
-  },
-  'SAVE-FOLLOWUP-ENCOUNTER': {
-    type: 'http_auth',
-  },
-  'GET-CONVERSATION': {
-    type: 'http_auth',
-  },
-  'GET-EMPLOYEES': {
-    type: 'http_auth',
-  },
-  'NOTIFICATIONS-UPDATER': {
-    type: 'cron',
-    schedule: {
-      expression: 'cron(*/5 * * * ? *)', // every 3 minutes
-    },
-    environments: ['demo'],
-  },
-  'SYNC-USER': {
-    type: 'http_auth',
-  },
-  'ICD-SEARCH': {
-    type: 'http_auth',
-  },
-  'GET-PATIENT-PROFILE-PHOTO-URL': {
-    type: 'http_auth',
-  },
-  'COMMUNICATION-SUBSCRIPTION': {
-    type: 'subscription',
-    subscriptionDetails: [
-      {
-        criteria: `Communication?category=${COMMUNICATION_ISSUE_REPORT_CODE.system}|${COMMUNICATION_ISSUE_REPORT_CODE.code}&status=in-progress`,
-        reason: 'Internal communication',
-        event: 'create',
-      },
-    ],
-  },
-  'PROCESS-ERX-RESOURCES': {
-    type: 'subscription',
-    subscriptionDetails: [
-      {
-        criteria: `MedicationRequest`,
-        reason: 'ERX incoming resources processor',
-        event: 'create',
-      },
-    ],
-  },
-  'GET-CLAIMS': {
-    type: 'http_auth',
-  },
-  'TELEMED-APPOINTMENT-SUBSCRIPTION': {
-    type: 'subscription',
-    subscriptionDetails: [
-      {
-        criteria: `Appointment?_tag:not=${APPOINTMENT_PREPROCESSED}&status=arrived,booked`,
-        reason: 'Appointment pre-processor',
-        event: 'update',
-      },
-    ],
-  },
-  'CREATE-UPDATE-MEDICATION-ORDER': {
-    type: 'http_auth',
-  },
-  'GET-MEDICATION-ORDERS': {
-    type: 'http_auth',
-  },
-  'CREATE-UPLOAD-DOCUMENT-URL': {
-    type: 'http_auth',
-  },
-  'CREATE-LAB-ORDER': {
-    type: 'http_auth',
-  },
-  'PAPERWORK-TO-PDF': {
-    type: 'http_auth',
-  },
-  'SUB-CANCELLATION-EMAIL': {
-    type: 'subscription',
-    subscriptionDetails: [
-      {
-        criteria: 'Task?code=urgent-care-email|&status=requested',
-        reason: 'in person communication',
-        event: 'create',
-      },
-    ],
-  },
-  'SUB-CHECK-IN-TEXT': {
-    type: 'subscription',
-    subscriptionDetails: [
-      {
-        criteria: 'Task?code=urgent-care-text|checkin&status=requested',
-        reason: 'in person communication',
-        event: 'create',
-      },
-    ],
-  },
-  'SUB-READY-TEXT': {
-    type: 'subscription',
-    subscriptionDetails: [
-      {
-        criteria: 'Task?code=urgent-care-text|ready&status=requested',
-        reason: 'in person communication',
-        event: 'create',
-      },
-    ],
-  },
-  'SUB-UPDATE-APPOINTMENTS': {
-    type: 'subscription',
-    subscriptionDetails: [
-      {
-        criteria: 'Task?code=urgent-care-update-appointment|&status=requested',
-        reason: 'in person appointment update',
-        event: 'create',
-      },
-    ],
-  },
-  'SUB-CONFIRMATION-MESSAGES': {
-    type: 'subscription',
-    subscriptionDetails: [
-      {
-        criteria: `Task?code=${Task_Send_Messages_Url}|&status=requested`,
-        reason: 'in person appointment confirmation messages',
-        event: 'create',
-      },
-    ],
-  },
-  'SUB-INTAKE-HARVEST': {
-    type: 'subscription',
-    subscriptionDetails: [
-      {
-        criteria: `QuestionnaireResponse?status=completed,amended`,
-        reason: 'paperwork harvest',
-        event: 'update',
-      },
-    ],
-  },
-  'CANCEL-APPOINTMENT': {
-    type: 'http_open',
-  },
-  'CHECK-IN': {
-    type: 'http_open',
-  },
-  'GET-SCHEDULE': {
-    type: 'http_open',
-  },
-  'UPDATE-PAPERWORK-IN-PROGRESS': {
-    type: 'http_open',
-  },
-  'PATCH-PAPERWORK': {
-    type: 'http_open',
-  },
-  'SUBMIT-PAPERWORK': {
-    type: 'http_open',
-  },
-  'CREATE-APPOINTMENT': {
-    type: 'http_auth',
-  },
-  'INTAKE-GET-APPOINTMENTS': {
-    type: 'http_auth',
-  },
-  'GET-PATIENTS': {
-    type: 'http_auth',
-  },
-  'GET-PAPERWORK': {
-    type: 'http_open',
-  },
-  'UPDATE-APPOINTMENT': {
-    type: 'http_open',
-  },
-  'GET-PRESIGNED-FILE-URL': {
-    type: 'http_open',
-  },
-  'SEND-MESSAGE-CRON': {
-    type: 'cron',
-    schedule: {
-      expression: 'cron(0,15,30,45 * * * ? *)', // every 0, 15, 30 and 45 minute mark
-      // expression: 'cron(* * * * ? *)', // for testing, sends every minute
-    },
-    environments: ['demo'],
-  },
-  'GET-APPOINTMENT-DETAILS': {
-    type: 'http_open',
-  },
-  'PAYMENT-METHODS-LIST': {
-    type: 'http_auth',
-  },
-  'PAYMENT-METHODS-DELETE': {
-    type: 'http_auth',
-  },
-  'PAYMENT-METHODS-SETUP': {
-    type: 'http_auth',
-  },
-  'PAYMENT-METHODS-SET-DEFAULT': {
-    type: 'http_auth',
-  },
-  'VIDEO-CHAT-INVITES-CANCEL': {
-    type: 'http_auth',
-  },
-  'VIDEO-CHAT-INVITES-CREATE': {
-    type: 'http_auth',
-  },
-  'VIDEO-CHAT-INVITES-LIST': {
-    type: 'http_auth',
-  },
-  'GET-VISIT-DETAILS': {
-    type: 'http_auth',
-  },
-  'GET-ELIGIBILITY': {
-    type: 'http_auth',
-  },
-  'GET-ANSWER-OPTIONS': {
-    type: 'http_auth',
-  },
-  'GET-TELEMED-STATES': {
-    type: 'http_open',
-  },
-  'GET-WAIT-STATUS': {
-    type: 'http_open',
-  },
-  'JOIN-CALL': {
-    type: 'http_open',
-  },
-  'TELEMED-CANCEL-APPOINTMENT': {
-    type: 'http_auth',
-  },
-  'TELEMED-CREATE-APPOINTMENT': {
-    type: 'http_auth',
-  },
-  'TELEMED-GET-APPOINTMENTS': {
-    type: 'http_auth',
-  },
-  'GET-PAST-VISITS': {
-    type: 'http_auth',
-  },
-  'TELEMED-UPDATE-APPOINTMENT': {
-    type: 'http_auth',
-  },
-  'TELEMED-GET-PATIENTS': {
-    type: 'http_auth',
-  },
-  'LIST-BOOKABLES': {
-    type: 'http_open',
-  },
-};
+const ZAMBDAS: { [name: string]: DeployZambda } = {};
+
+Object.entries(ottehrSpec.zambdas).forEach(([_key, spec]) => {
+  const anySpec = spec as any;
+  if (spec.type !== 'http_open' && spec.type !== 'http_auth' && spec.type !== 'subscription' && spec.type !== 'cron') {
+    throw new Error('Invalid zambda type found in spec file. Must be one of: http_open, http_auth, subscription, cron');
+  }
+
+  const zambdaDefinition: DeployZambda = {
+    type: spec.type,
+  }
+
+  if (spec.type === 'subscription') {
+    if (anySpec.subscription === undefined) {
+      throw new Error('Subscription zambda must have subscription details');
+    }
+    if (anySpec.subscription.criteria === undefined) {
+      throw new Error('Subscription zambda must have the subscription.criteria property');
+    }
+    if (anySpec.subscription.reason === undefined) {
+      throw new Error('Subscription zambda must have the subscription.reason property');
+    }
+    if (anySpec.subscription.event === undefined) {
+      throw new Error('Subscription zambda must have the subscription.event property');
+    }
+
+    zambdaDefinition.subscriptionDetails = [anySpec.subscription];
+  } else if (spec.type === 'cron') {
+    if (anySpec.schedule === undefined) {
+      throw new Error('Cron zambda must have the schedule property');
+    }
+    if (anySpec.schedule.expression === undefined) {
+      throw new Error('Cron zambda must have the schedule.expression property');
+    }
+
+    zambdaDefinition.schedule = {
+      expression: anySpec.schedule.expression,
+    }
+  }
+
+  if (process.env.environment !== 'demo' && (spec.name === 'SEND-MESSAGE-CRON' || spec.name === 'NOTIFICATIONS-UPDATER')) {
+    console.log('TODO Skipping zambda because we only want it in the demo env', spec.name);
+    return;
+  }
+
+  ZAMBDAS[spec.name] = zambdaDefinition;
+});
 
 const RENAMED_ZAMBDAS: { [newName: string]: string } = {};
 
@@ -483,7 +234,7 @@ async function updateProjectZambda(
   console.log('Uploading zip file to S3');
   // zip file names are lowercase with dashes
   const zipFile = zambdaName.toLowerCase().replace(/_/g, '-');
-  const file = fs.readFileSync(`.dist/${zipFile}.zip`);
+  const file = fs.readFileSync(`.dist/zips/${zipFile}.zip`);
   const awsResponse = await fetch(s3Url, {
     method: 'put',
     body: file,
