@@ -29,7 +29,10 @@ export const expressLambda = async (
     } catch (_) {
       body = handlerResponse.body;
     }
-    res.send(body);
+    res.send({
+      status: handlerResponse.statusCode,
+      output: body,
+    });
   } else {
     throw 'Unexpectedly have no response from handler';
   }
