@@ -1,10 +1,11 @@
-import React, { createContext, useContext, ReactNode, useState, useCallback, useEffect, useRef } from 'react';
-import { useNavigate, useLocation, useMatch } from 'react-router-dom';
-import { sidebarMenuIcons } from '../components/Sidebar';
-import { CSSModal } from '../components/CSSModal';
-import { ROUTER_PATH, routesCSS } from '../routing/routesCSS';
+import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useLocation, useMatch, useNavigate, useParams } from 'react-router-dom';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../telemed';
+import { CSSModal } from '../components/CSSModal';
+import { sidebarMenuIcons } from '../components/Sidebar';
+import { useAppointment } from '../hooks/useAppointment';
+import { ROUTER_PATH, routesCSS } from '../routing/routesCSS';
 
 export type InteractionMode = 'intake' | 'provider' | 'readonly';
 
@@ -33,13 +34,14 @@ interface NavigationContextType {
   setIsNavigationHidden: (hide: boolean) => void;
   isNavigationHidden: boolean;
   interactionMode: InteractionMode;
-  setInteractionMode: (mode: InteractionMode) => void;
+  setInteractionMode: (mode: InteractionMode, shouldNavigate: boolean) => void;
   availableRoutes: RouteCSS[];
   isFirstPage: boolean;
   isLastPage: boolean;
   isNavigationDisabled: boolean;
   setNavigationDisable: (state: Record<string, boolean>) => void; // disable intake navigation buttons, use case - updating required field
   nextButtonText: string;
+  isLoading: boolean;
 }
 
 const NavigationContext = createContext<NavigationContextType | undefined>(undefined);
@@ -50,6 +52,8 @@ export let setNavigationDisable: NavigationContextType['setNavigationDisable'] =
 };
 
 export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { id: appointmentID } = useParams();
+
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -58,6 +62,7 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const [isNavigationHidden, setIsNavigationHidden] = useState(false);
 
+  const [isModeInitialized, setIsModeInitialized] = useState(false);
   const [interactionMode, _setInteractionMode] = useState<InteractionMode>('intake'); // todo: calc actual initial InteractionMode value
 
   const [modalContent, setModalContent] = useState<ReturnType<CSSValidator>>();
@@ -65,6 +70,57 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [_disabledNavigationState, _setDisabledNavigationState] = useState<Record<string, boolean>>({});
+
+  const { isLoading, telemedData } = useAppointment(appointmentID);
+  const { encounter } = telemedData;
+  const { chartData, isChartDataLoading } = getSelectors(useAppointmentStore, ['chartData', 'isChartDataLoading']);
+
+  const setInteractionMode = useCallback(
+    (mode: InteractionMode, shouldNavigate: boolean): void => {
+      const basePath = location.pathname.match(/.*?(in-person)\/[^/]*/)?.[0];
+
+      if (!basePath) {
+        return;
+      }
+
+      const firstAvailableRoute = Object.values(routesCSS).find((route) => route.modes.includes(mode));
+
+      if (!firstAvailableRoute) {
+        return;
+      }
+
+      const routePath = firstAvailableRoute.sidebarPath || firstAvailableRoute.path;
+      const newPath = `${basePath}/${routePath}`;
+      _setInteractionMode(mode);
+      setIsModeInitialized(true);
+
+      if (shouldNavigate) {
+        navigate(newPath);
+      }
+    },
+    [location.pathname, navigate]
+  );
+
+  useEffect(() => {
+    if (
+      encounter?.participant?.find(
+        (participant) =>
+          participant.type?.find(
+            (type) =>
+              type.coding?.find(
+                (coding) =>
+                  coding.system === 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType' &&
+                  coding.code === 'ATND'
+              ) != null
+          ) != null
+      ) &&
+      !isModeInitialized
+    ) {
+      setInteractionMode('provider', false);
+    } else if (encounter?.id) {
+      setIsModeInitialized(true);
+    }
+  }, [encounter?.id, encounter?.participant, setInteractionMode, interactionMode, isModeInitialized]);
 
   setNavigationDisable = (newState: Record<string, boolean>): void => {
     let shouldUpdate = false;
@@ -101,31 +157,14 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
     _setDisabledNavigationState({});
   };
 
-  const availableRoutes = Object.values(routesCSS).filter((route) => route.modes.includes(interactionMode));
+  const availableRoutes = Object.values(routesCSS).filter(
+    (route) => !isLoading && isModeInitialized && route.modes.includes(interactionMode)
+  );
   const availableRoutesForBottomNavigation = availableRoutes.filter((route) => !route.isSkippedInNavigation);
 
   const availableRoutesPathsForBottomNavigation = availableRoutesForBottomNavigation.map(
     (route) => route.sidebarPath || route.path
   );
-
-  const setInteractionMode = (mode: InteractionMode): void => {
-    const basePath = location.pathname.match(/.*?(in-person)\/[^/]*/)?.[0];
-
-    if (!basePath) {
-      return;
-    }
-
-    const firstAvailableRoute = Object.values(routesCSS).find((route) => route.modes.includes(mode));
-
-    if (!firstAvailableRoute) {
-      return;
-    }
-
-    const routePath = firstAvailableRoute.sidebarPath || firstAvailableRoute.path;
-    const newPath = `${basePath}/${routePath}`;
-    _setInteractionMode(mode);
-    navigate(newPath);
-  };
 
   const match = useMatch('/in-person/:id/*');
   const splat = match?.params['*'];
@@ -184,8 +223,6 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
     navigate(previousRoutePath);
   }, [previousRoutePath, navigate]);
 
-  const { chartData, isChartDataLoading } = getSelectors(useAppointmentStore, ['chartData', 'isChartDataLoading']);
-
   const nextButtonText = (() => {
     if (isChartDataLoading) return ' ';
 
@@ -223,6 +260,7 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
         setIsNavigationHidden,
         isNavigationHidden,
         interactionMode,
+        isLoading: isLoading || !isModeInitialized,
         setInteractionMode,
         availableRoutes,
         isFirstPage,

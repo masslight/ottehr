@@ -142,9 +142,12 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
 
   return (
     <Stack spacing={2} sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
-        Order Lab
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
+          Order Lab
+        </Typography>
+      </Box>
+
       {loadingState !== LoadingState.loaded ? (
         <CircularProgress />
       ) : (

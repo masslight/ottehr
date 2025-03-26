@@ -9,7 +9,7 @@ import { defineConfig, devices } from '@playwright/test';
  */
 
 export default defineConfig({
-  testDir: './test',
+  testDir: './tests',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   reporter: [['html'], ['list'], ['junit', { outputFile: 'test-results/results.xml' }]],

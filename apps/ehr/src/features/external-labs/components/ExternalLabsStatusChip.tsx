@@ -1,8 +1,8 @@
 import { Chip } from '@mui/material';
 import { ReactElement } from 'react';
-import { ExternalLabsStatus } from '../helpers/types';
+import { ExternalLabsStatus } from 'utils';
 
-interface ExternalLabsStatusChip {
+interface ExternalLabsStatusChipProps {
   status?: keyof typeof ExternalLabsStatus;
 }
 
@@ -52,12 +52,15 @@ export const ExternalLabsStatusPalette: {
   },
 };
 
-export function ExternalLabsStatusChip({ status }: ExternalLabsStatusChip): ReactElement {
+export function ExternalLabsStatusChip({ status }: ExternalLabsStatusChipProps): ReactElement {
   if (!status) {
-    return <span>todo1</span>;
+    console.error('Status is undefined');
+    return <span>Unknown status</span>;
   }
+
   if (!ExternalLabsStatusPalette[status]) {
-    return <span>todo2</span>;
+    console.error(`Status "${status}" not found in ExternalLabsStatusPalette`);
+    return <span>Invalid status: {status}</span>;
   }
 
   return (

@@ -10,6 +10,7 @@ import { MedicationNotes } from '../components/medication-administration/Medicat
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getInHouseMedicationMARUrl, getInHouseMedicationDetailsUrl } from '../routing/helpers';
 import { CSSLoader } from '../components/CSSLoader';
+import { dataTestIds } from '../../../constants/data-test-ids';
 
 interface TabContentProps {
   isActive: boolean;
@@ -27,7 +28,7 @@ const TabContent: React.FC<TabContentProps> = ({ isActive, children }) => (
 );
 
 export const InHouseMedication: React.FC = () => {
-  const { id: encounterId } = useParams();
+  const { id: appointmentId } = useParams();
   const { medications } = useMedicationAPI();
   const navigate = useNavigate();
   const tabContentRef = useRef<HTMLDivElement>(null);
@@ -44,10 +45,10 @@ export const InHouseMedication: React.FC = () => {
     isTabTransitionRef.current = true;
     requestAnimationFrame(() => {
       tabName === 'mar'
-        ? navigate(getInHouseMedicationDetailsUrl(encounterId!))
-        : navigate(getInHouseMedicationMARUrl(encounterId!));
+        ? navigate(getInHouseMedicationDetailsUrl(appointmentId!))
+        : navigate(getInHouseMedicationMARUrl(appointmentId!));
     });
-  }, [encounterId, navigate, tabName]);
+  }, [appointmentId, navigate, tabName]);
 
   const [searchParams] = useSearchParams();
   const scrollTo = searchParams.get('scrollTo');
@@ -102,8 +103,13 @@ export const InHouseMedication: React.FC = () => {
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" pl={0.5} mb={2} mt={2}>
-        <PageHeader title="Medications" variant="h3" component="h1" />
-        <OrderButton />
+        <PageHeader
+          dataTestId={dataTestIds.inHouseMedicationsPage.title}
+          title="Medications"
+          variant="h3"
+          component="h1"
+        />
+        <OrderButton dataTestId={dataTestIds.inHouseMedicationsPage.orderButton} />
       </Box>
       <MedicationHistoryList />
 
@@ -144,7 +150,7 @@ export const InHouseMedication: React.FC = () => {
               aria-label="medication tabs"
             >
               <Tab label="MAR" />
-              <Tab label="Medication Details" />
+              <Tab data-testid={dataTestIds.inHouseMedicationsPage.medicationDetailsTab} label="Medication Details" />
             </Tabs>
             <Box
               sx={{

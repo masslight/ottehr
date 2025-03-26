@@ -7,6 +7,7 @@ import {
   Coding,
   Consent,
   Coverage,
+  DiagnosticReport,
   DocumentReference,
   Encounter,
   Extension,
@@ -24,6 +25,7 @@ import {
   QuestionnaireResponse,
   Reference,
   Resource,
+  ServiceRequest,
   Task,
   TaskInput,
 } from 'fhir/r4b';
@@ -829,7 +831,9 @@ export function getProviderNameWithProfession(practitioner: Practitioner): strin
   const firstName = practitioner.name?.[0].given?.[0];
   const secondName = practitioner.name?.[0].family;
   const professionAbbreviation = practitioner.name?.[0].suffix?.join(' ');
-  return [`${secondName}, ${firstName}`, professionAbbreviation].join(' | ');
+  const fullName = [secondName, firstName].filter(Boolean).join(', ');
+
+  return [fullName, professionAbbreviation].filter(Boolean).join(' | ');
 }
 
 export const findExtensionIndex = (extensions: Extension[], url: string): number => {
@@ -1011,7 +1015,9 @@ export const createFhirHumanName = (
   return fhirName;
 };
 
-export function flattenBundleResources(searchResults: Bundle<FhirResource>): FhirResource[] {
+export function flattenBundleResources<T extends FhirResource = ServiceRequest | Task>(
+  searchResults: Bundle<FhirResource>
+): T[] {
   const flattenedResources: FhirResource[] = [];
 
   searchResults.entry?.forEach((resultEntry) => {
@@ -1026,7 +1032,7 @@ export function flattenBundleResources(searchResults: Bundle<FhirResource>): Fhi
     }
   });
 
-  return flattenedResources;
+  return flattenedResources as T[];
 }
 
 export function slashPathToLodashPath(slashPath: string): string {

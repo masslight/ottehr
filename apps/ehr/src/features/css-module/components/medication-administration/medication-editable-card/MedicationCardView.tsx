@@ -15,6 +15,7 @@ import {
   UpdateMedicationOrderInput,
 } from 'utils';
 import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 type MedicationCardViewProps = {
   type: 'dispense' | 'order-new' | 'order-edit';
@@ -64,14 +65,15 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   selectsOptions,
 }) => {
   const navigate = useNavigate();
-  const { id: encounterId } = useParams();
+  const { id: appointmentId } = useParams();
 
   const OrderFooter = (): React.ReactElement => {
     return (
       <Box sx={{ minHeight: '40px' }} display="flex" justifyContent="space-between" alignItems="center">
         <ButtonRounded
+          data-testid={dataTestIds.orderMedicationPage.backButton}
           variant="outlined"
-          onClick={() => navigate(getInHouseMedicationMARUrl(encounterId!))}
+          onClick={() => navigate(getInHouseMedicationMARUrl(appointmentId!))}
           color="primary"
           size="large"
           startIcon={<ArrowBackIcon />}
@@ -80,6 +82,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
         </ButtonRounded>
         {isEditable && (
           <ButtonRounded
+            data-testid={dataTestIds.orderMedicationPage.fillOrderToSaveButton}
             disabled={isSaveButtonDisabled}
             onClick={() =>
               onSave(

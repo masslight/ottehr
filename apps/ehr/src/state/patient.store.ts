@@ -271,13 +271,23 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
         if (effectiveValue !== undefined) {
           newPatchOperation = { op: 'replace', path, value };
         } else {
-          const telecomConfig = contactTelecomConfigs[fieldType!];
-          const telecomItem = { system: telecomConfig.system, value };
-          newPatchOperation = {
-            op: 'add',
-            path: path.replace(/(\/telecom)\/(-1|\d+)\/value/, '$1/-'),
-            value: telecomItem,
-          };
+          if (path.startsWith('/contact/')) {
+            const telecomConfig = contactTelecomConfigs[fieldType!];
+            const telecomItem = { system: telecomConfig.system, value };
+            newPatchOperation = {
+              op: 'add',
+              path: path.replace(/(\/telecom)\/(-1|\d+)\/value/, '$1'),
+              value: [telecomItem],
+            };
+          } else {
+            const telecomConfig = contactTelecomConfigs[fieldType!];
+            const telecomItem = { system: telecomConfig.system, value };
+            newPatchOperation = {
+              op: 'add',
+              path: path.replace(/(\/telecom)\/(-1|\d+)\/value/, '$1/-'),
+              value: telecomItem,
+            };
+          }
         }
       }
     } else if (isResponsiblePartyBirthDate) {
@@ -531,7 +541,16 @@ export const getTelecomInfo = (
   system: 'phone' | 'email',
   defaultIndex: number
 ): { value?: string; path: string } => {
-  const index = patient.telecom?.findIndex((telecom) => telecom.system === system) ?? defaultIndex;
+  let index: number;
+
+  if (!patient.telecom) {
+    index = defaultIndex;
+  } else {
+    const matches = patient.telecom.map((telecom, i) => (telecom.system === system ? i : -1)).filter((i) => i !== -1);
+
+    index = matches.length > 0 ? matches[matches.length - 1] : -1;
+  }
+
   return {
     value: patient.telecom?.[index]?.value,
     path: patientFieldPaths[system].replace(/telecom\/\d+/, `telecom/${index}`),

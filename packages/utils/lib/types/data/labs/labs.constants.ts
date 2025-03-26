@@ -1,3 +1,5 @@
+import { Pagination } from './labs.types';
+
 export const PSC_HOLD_CONFIG = {
   system: 'psc-hold-identifier',
   code: 'psc-hold',
@@ -11,7 +13,7 @@ export const LAB_ORDER_TASK = {
     reviewPreliminaryResult: 'RPRT',
     reviewFinalResult: 'RFRT',
   },
-};
+} as const;
 
 export const LAB_ORG_TYPE_CODING = { system: 'http://snomed.info/sct', code: '261904005', display: 'Laboratory' };
 
@@ -25,4 +27,13 @@ export const OYSTEHR_LAB_GUID_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab
 
 // Oystehr Labs APIs
 export const OYSTEHR_LAB_API_BASE = 'https://labs-api.zapehr.com/v1';
+
 export const OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API = `${OYSTEHR_LAB_API_BASE}/orderableItem`;
+
+export const DEFAULT_LABS_ITEMS_PER_PAGE = 10;
+
+export const EMPTY_PAGINATION: Pagination = {
+  currentPageIndex: 0,
+  totalItems: 0,
+  totalPages: 0,
+};
