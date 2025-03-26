@@ -331,7 +331,7 @@ export async function setupEHR(
     );
     if (stderr2) {
       console.log(`Command executed with warnings: ${stderr2}`);
-      throw new Error(stderr1);
+      throw new Error(stderr2);
     } else {
       console.log(`stdout: ${stdout2}`);
       console.log('Update of in-house medications list completed successfully.');
