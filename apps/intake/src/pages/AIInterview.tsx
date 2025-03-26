@@ -25,6 +25,7 @@ const AIInterview = (): JSX.Element => {
   const [loading, setLoading] = useState<boolean>(false);
   const [answer, setAnswer] = useState<string>('');
   const [lastAnswer, setLastAnswer] = useState<string>('');
+  const [messages, setMessages] = useState<Message[]>([]);
 
   useEffect(() => {
     const startInterview = async (appointmentId: string): Promise<void> => {
@@ -37,21 +38,26 @@ const AIInterview = (): JSX.Element => {
     }
   }, [questionnaireResponse, setQuestionnaireResponse, zambdaClient, appointmentId]);
 
-  const messages = questionnaireResponse != null ? createMessages(questionnaireResponse) : [];
-  if (loading) {
-    if (lastAnswer != null) {
-      messages.push({
-        linkId: '1000000',
-        author: 'user',
-        text: lastAnswer,
-      });
+  useEffect(() => {
+    if (questionnaireResponse != null) {
+      const messages = createMessages(questionnaireResponse);
+      if (loading) {
+        if (lastAnswer != null) {
+          messages.push({
+            linkId: '1000000',
+            author: 'user',
+            text: lastAnswer,
+          });
+        }
+        messages.push({
+          linkId: '1000001',
+          author: 'ai',
+          text: '...',
+        });
+      }
+      setMessages(messages);
     }
-    messages.push({
-      linkId: '1000001',
-      author: 'ai',
-      text: '...',
-    });
-  }
+  }, [questionnaireResponse, loading, lastAnswer]);
 
   const onSend = async (): Promise<void> => {
     if (zambdaClient == null) return;
