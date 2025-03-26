@@ -6,8 +6,7 @@ export const getZapEHRApiHelpers = <T extends Record<string, string>>(
   ZambdaNames: T,
   zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined>,
   zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean>,
-  isAppLocalProvided: boolean,
-  isAppLocal: boolean
+  isAppLocalProvided: boolean
 ): {
   verifyZambdaProvidedAndNotLocalThrowErrorOtherwise: (
     zambdaID: string | undefined,
