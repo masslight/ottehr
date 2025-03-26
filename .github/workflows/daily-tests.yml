@@ -106,7 +106,6 @@ jobs:
             "${{ env.TEST_EMAIL }}"
 
       - name: Run E2E tests on the EHR application
-        continue-on-error: true
         run: npm run ehr:e2e:local
         env:
           CI: true
@@ -123,7 +122,6 @@ jobs:
           retention-days: 30
 
       - name: Run E2E tests on the Intake application
-        continue-on-error: true
         run: npm run intake:e2e:local
         env:
           CI: true
@@ -141,7 +139,6 @@ jobs:
 
       - name: Validate user.json
         id: validate
-        continue-on-error: true
         run: |
           node -e '
           const fs = require("fs");
