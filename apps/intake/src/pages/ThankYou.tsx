@@ -1,7 +1,17 @@
 import { EditCalendarOutlined, EventBusyOutlined } from '@mui/icons-material';
 import CreateOutlinedIcon from '@mui/icons-material/CreateOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
-import { Box, Button, CircularProgress, Divider, Grid, Modal, Typography, useMediaQuery } from '@mui/material';
+import {
+  Box,
+  Button,
+  Checkbox,
+  CircularProgress,
+  Divider,
+  Grid,
+  Modal,
+  Typography,
+  useMediaQuery,
+} from '@mui/material';
 import { ContactPoint } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
@@ -32,16 +42,18 @@ import i18n from '../lib/i18n';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { ottehrAiLogo } from '../assets';
 
-export const MOBILE_MODAL_STYLE = {
+const MODAL_STYLE = {
   position: 'absolute' as const,
   top: '50%',
   left: '50%',
   transform: 'translate(-50%, -50%)',
   width: '80%',
+  maxWidth: '450px',
   border: 'none',
   bgcolor: 'background.paper',
   boxShadow: 24,
   p: 4,
+  borderRadius: '8px',
 };
 
 type AppointmentState = { appointmentData: Partial<AppointmentData> };
@@ -401,7 +413,31 @@ const ThankYou = (): JSX.Element => {
             </>
           )}
           <Modal open={aiChatConsentModalOpen} onClose={() => setAiChatConsentModalOpen(false)}>
-            <Box sx={MOBILE_MODAL_STYLE}>test</Box>
+            <Box sx={MODAL_STYLE}>
+              <Typography variant={'h2'} color="primary.main" style={{ marginBottom: '16px' }}>
+                Chat with Ottehr AI
+              </Typography>
+              <Typography color="text.primary" style={{ marginBottom: '8px' }}>
+                Our AI assistant will ask about your symptoms, conditions, and medical history. Your doctor will review
+                all information to provide personalized care.
+              </Typography>
+              <Typography color="text.primary">
+                You can pause the interview, and then complete later. Once interview is completed, you cannot start a
+                new interview.
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', margin: '16px 0 16px 0' }}>
+                <Checkbox color="secondary" />
+                <Typography color="text.primary">I consent to Ottehr AI collecting my information</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Button variant="outlined" color="secondary">
+                  Cancel
+                </Button>
+                <Button variant="contained" color="secondary">
+                  Start chat
+                </Button>
+              </Box>
+            </Box>
           </Modal>
         </>
       )) || <CircularProgress />}
