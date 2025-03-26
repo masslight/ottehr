@@ -16,6 +16,7 @@ import { captureSentryException, configSentry, getAuth0Token } from '../../share
 import { getUser } from '../../shared/auth';
 import { checkPaperworkComplete, createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 
 export interface GetPatientsInput {
   patientID?: string;
@@ -160,7 +161,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         resourceType: 'Appointment',
         params,
       })
-    ).unbundle();
+    )
+      .unbundle()
+      .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
     console.log('successfully retrieved appointment resources');
     const appointments: Appointment[] = allResources
       .filter((resourceTemp) => resourceTemp.resourceType === 'Appointment')
