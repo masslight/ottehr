@@ -6,7 +6,7 @@ import { useApiClients } from './useAppClients';
 import { SearchParam } from '@oystehr/sdk';
 import { useAuth0 } from '@auth0/auth0-react';
 import { getPresignedFileUrl, parseFileExtension } from '../helpers/files.helper';
-import { chooseJson } from '../api/api';
+import { chooseJson } from 'utils';
 
 const PATIENT_FOLDERS_CODE = 'patient-docs-folder';
 
