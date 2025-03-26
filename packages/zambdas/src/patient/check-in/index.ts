@@ -10,10 +10,10 @@ import {
   getCriticalUpdateTagOp,
   getPatchBinary,
   getTaskResource,
+  Secrets,
   TaskIndicator,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { Secrets, topLevelCatch } from 'zambda-utils';
+import { topLevelCatch, ZambdaInput } from '../../shared';
 import '../../shared/instrument.mjs';
 import {
   captureSentryException,

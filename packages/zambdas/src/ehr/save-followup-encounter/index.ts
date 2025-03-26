@@ -1,10 +1,8 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter } from 'fhir/r4b';
-import { FOLLOWUP_TYPES, PatientFollowupDetails } from 'utils';
-import { Secrets } from 'zambda-utils';
-import { topLevelCatch } from '../../shared/errors';
+import { FOLLOWUP_TYPES, PatientFollowupDetails, Secrets } from 'utils';
 import { createOystehrClient } from '../../shared/helpers';
-import { ZambdaInput } from 'zambda-utils';
+import { topLevelCatch, ZambdaInput } from '../../shared';
 import { createEncounterResource, makeEncounterDTO, updateEncounterResource } from './helpers';
 import { checkOrCreateM2MClientToken } from '../../shared';
 

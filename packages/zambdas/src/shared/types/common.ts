@@ -1,4 +1,4 @@
-import { Secrets } from '../secrets';
+import { Secrets } from 'utils/lib/secrets';
 
 export interface ZambdaInput {
   headers: any | null;

@@ -29,7 +29,7 @@ import {
   ObservationDTO,
 } from 'utils';
 import { createFindResourceRequestByPatientField } from '../get-chart-data/helpers';
-import { checkOrCreateM2MClientToken, parseCreatedResourcesBundle } from '../../shared';
+import { checkOrCreateM2MClientToken, parseCreatedResourcesBundle, ZambdaInput } from '../../shared';
 import {
   chartDataResourceHasMetaTagByCode,
   deleteEncounterAddendumNote,
@@ -38,7 +38,6 @@ import {
 } from '../../shared/chart-data';
 import { createOystehrClient } from '../../shared/helpers';
 import { deleteZ3Object } from '../../shared/z3Utils';
-import { ZambdaInput } from 'zambda-utils';
 import { deleteResourceRequest, getEncounterAndRelatedResources } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

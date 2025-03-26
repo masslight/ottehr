@@ -8,10 +8,10 @@ import {
   InPersonExamObservationFieldItem,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
+  Secrets,
   SEEN_IN_LAST_THREE_YEARS_LABEL,
   VitalFieldNames,
 } from 'utils';
-import { makeZ3Url, Secrets } from 'zambda-utils';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { createPdfClient, PdfInfo, rgbNormalized } from './pdf-utils';
 import {
@@ -24,6 +24,7 @@ import {
   TextStyle,
   VisitNoteData,
 } from './types';
+import { makeZ3Url } from '../presigned-file-urls';
 
 async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointment: boolean): Promise<Uint8Array> {
   const pdfClientStyles: PdfClientStyles = {

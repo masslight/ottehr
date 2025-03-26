@@ -41,9 +41,9 @@ import {
   parseMusculoskeletalFieldToName,
   rashesOptions,
   recentVisitLabels,
+  Secrets,
   SEEN_IN_LAST_THREE_YEARS_FIELD,
 } from 'utils';
-import { Secrets } from 'zambda-utils';
 import { PdfInfo } from '../pdf-utils';
 import { InPersonExamBlockData, TelemedExamBlockData, VisitNoteData } from '../types';
 import { createVisitNotePDF } from '../visit-note-pdf';

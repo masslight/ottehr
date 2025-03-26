@@ -7,8 +7,8 @@ import {
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   FHIR_IDC10_VALUESET_SYSTEM,
   flattenBundleResources,
+  Secrets,
 } from 'utils';
-import { topLevelCatch, Secrets, ZambdaInput } from 'zambda-utils';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
   Encounter,
@@ -28,7 +28,8 @@ import { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import Oystehr from '@oystehr/sdk';
 import { createOystehrClient } from '../../shared/helpers';
-import { checkOrCreateM2MClientToken } from '../../shared';
+import { checkOrCreateM2MClientToken, topLevelCatch } from '../../shared';
+import { ZambdaInput } from '../../shared/types';
 
 export interface SubmitLabOrder {
   dx: DiagnosisDTO[];

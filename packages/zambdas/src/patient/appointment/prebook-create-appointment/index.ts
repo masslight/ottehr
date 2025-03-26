@@ -40,12 +40,11 @@ import {
   PatientInfo,
   REASON_MAXIMUM_CHAR_LIMIT,
   ScheduleType,
+  Secrets,
   ServiceMode,
   userHasAccessToPatient,
   VisitType,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { Secrets, topLevelCatch } from 'zambda-utils';
 import '../../../shared/instrument.mjs';
 import {
   captureSentryException,
@@ -56,6 +55,8 @@ import {
   createAuditEvent,
   generatePatientRelatedRequests,
   getUser,
+  topLevelCatch,
+  ZambdaInput,
 } from '../../../shared';
 import {
   getCanonicalUrlForPrevisitQuestionnaire,
