@@ -5,15 +5,18 @@ import { JSONPath } from 'jsonpath-plus';
 import {
   ListInvitedParticipantsInput,
   ListInvitedParticipantsResponse,
+  SecretsKeys,
   createOystehrClient,
   getAppointmentResourceById,
+  getSecret,
 } from 'utils';
-import { SecretsKeys, ZambdaInput, getSecret, lambdaResponse } from 'zambda-utils';
 import {
   getAuth0Token,
   getUser,
   getVideoEncounterForAppointment,
+  lambdaResponse,
   searchInvitedParticipantResourcesByEncounterId,
+  ZambdaInput,
 } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 

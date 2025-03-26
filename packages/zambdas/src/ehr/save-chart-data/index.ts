@@ -21,7 +21,7 @@ import {
   SCHOOL_WORK_NOTE,
   SNOMEDCodeConceptInterface,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../shared';
 import { checkOrCreateM2MClientToken, saveOrUpdateResourceRequest } from '../../shared';
 import {
   createDispositionServiceRequest,

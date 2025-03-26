@@ -4,7 +4,7 @@ import { FhirResource, Resource } from 'fhir/r4b';
 import { ChartDataFields, ChartDataRequestedFields, GetChartDataResponse } from 'utils';
 import { checkOrCreateM2MClientToken, getPatientEncounter } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../shared';
 import {
   convertSearchResultsToResponse,
   createFindResourceRequest,

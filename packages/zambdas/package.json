@@ -18,6 +18,7 @@
     "setup-secrets": "tsx src/scripts/configure-secrets.ts",
     "deploy-zambdas": "ENV=$ENV npm run build && tsx src/scripts/deploy-zambdas.ts",
     "update-user-roles": "tsx src/scripts/update-user-roles.ts",
+    "tsc": "tsc",
     "build": "tsx bundle.ts",
     "lint": "eslint --ext ts,tsx,js,jsx --report-unused-disable-directives --max-warnings 0",
     "prettier": "prettier --write .",
@@ -40,8 +41,7 @@
     "luxon": "^3.4.3",
     "query-string": "^8.1.0",
     "short-uuid": "^4.2.2",
-    "utils": "*",
-    "zambda-utils": "*"
+    "utils": "*"
   },
   "devDependencies": {
     "@types/archiver": "^6.0.3",

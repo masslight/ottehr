@@ -4,13 +4,13 @@ import { ChargeItem, Encounter, Task } from 'fhir/r4b';
 import {
   ChangeTelemedAppointmentStatusInput,
   ChangeTelemedAppointmentStatusResponse,
+  SecretsKeys,
   TelemedAppointmentStatusEnum,
   getQuestionnaireResponseByLinkId,
+  getSecret,
   mapStatusToTelemed,
 } from 'utils';
-import { SecretsKeys, getSecret } from 'zambda-utils';
 
-import { ZambdaInput } from 'zambda-utils';
 import { getChartData } from '../get-chart-data';
 import { checkOrCreateM2MClientToken, parseCreatedResourcesBundle, saveResourceRequest } from '../../shared';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../../shared/candid';
@@ -23,6 +23,7 @@ import { getInsurancePlan } from './helpers/fhir-utils';
 import { changeStatusIfPossible, makeAppointmentChargeItem, makeReceiptPdfDocumentReference } from './helpers/helpers';
 import { composeAndCreateReceiptPdf, getPaymentDataRequest, postChargeIssueRequest } from './helpers/payments';
 import { validateRequestParameters } from './validateRequestParameters';
+import { ZambdaInput } from '../../shared/types';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;

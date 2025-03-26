@@ -8,7 +8,7 @@ import {
   recursiveGroupTransform,
 } from 'utils';
 import { ValidationError } from 'yup';
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../shared';
 
 interface BasicInput extends PatchPaperworkParameters {
   ipAddress: string;

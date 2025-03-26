@@ -11,13 +11,12 @@ import {
   PractitionerQualificationCode,
   PromiseInnerType,
   RoleType,
+  Secrets,
   standardizePhoneNumber,
 } from 'utils';
-import { Secrets } from 'zambda-utils';
-import { getAuth0Token, getRoleMembers, lambdaResponse } from '../../shared';
-import { topLevelCatch } from '../../shared/errors';
+import { getAuth0Token, getRoleMembers, lambdaResponse, topLevelCatch } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // For local development it makes it easier to track performance

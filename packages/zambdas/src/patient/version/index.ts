@@ -1,8 +1,7 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { topLevelCatch, ZambdaInput } from 'zambda-utils';
 import { version } from '../../../package.json';
-import { captureSentryException, configSentry } from '../../shared';
+import { captureSentryException, configSentry, topLevelCatch, ZambdaInput } from '../../shared';
 import '../../shared/instrument.mjs';
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {

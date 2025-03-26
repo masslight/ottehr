@@ -1,4 +1,3 @@
-import { getSecret, Secrets, SecretsKeys, topLevelCatch, ZambdaInput } from 'zambda-utils';
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import Oystehr from '@oystehr/sdk';
@@ -7,14 +6,24 @@ import { generatePdf } from './draw';
 import { DocumentReference, List, QuestionnaireResponse } from 'fhir/r4b';
 import { BUCKET_PAPERWORK_PDF } from '../../scripts/setup';
 import { DateTime } from 'luxon';
-import { addOperation, EXPORTED_QUESTIONNAIRE_CODE, findExistingListByDocumentTypeCode, replaceOperation } from 'utils';
+import {
+  addOperation,
+  EXPORTED_QUESTIONNAIRE_CODE,
+  findExistingListByDocumentTypeCode,
+  getSecret,
+  replaceOperation,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
 import {
   captureSentryException,
   configSentry,
   createOystehrClient,
   getAuth0Token,
+  topLevelCatch,
   validateJsonBody,
   validateString,
+  ZambdaInput,
 } from '../../shared';
 
 interface Input {

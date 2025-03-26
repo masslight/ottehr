@@ -19,11 +19,11 @@ import {
   InPersonExamFieldsNames,
   MDM_FIELD_DEFAULT_TEXT,
   OTTEHR_MODULE,
+  Secrets,
   SNOMEDCodeConceptInterface,
 } from 'utils';
-import { Secrets, ZambdaInput } from 'zambda-utils';
 import { isNonPaperworkQuestionnaireResponse } from '../../common';
-import { checkOrCreateM2MClientToken, saveResourceRequest } from '../../shared';
+import { checkOrCreateM2MClientToken, saveResourceRequest, topLevelCatch, ZambdaInput } from '../../shared';
 import {
   createDispositionServiceRequest,
   makeClinicalImpressionResource,
@@ -31,7 +31,6 @@ import {
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
 } from '../../shared/chart-data';
-import { topLevelCatch } from '../../shared/errors';
 import { createOystehrClient, getVideoRoomResourceExtension } from '../../shared/helpers';
 import { createExamObservations } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';

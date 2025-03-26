@@ -1,4 +1,4 @@
-import { Secrets } from 'zambda-utils';
+import { Secrets } from '../../../secrets';
 
 export interface SignAppointmentInput {
   appointmentId: string;

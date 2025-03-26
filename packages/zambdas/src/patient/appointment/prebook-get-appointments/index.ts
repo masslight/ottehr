@@ -5,11 +5,11 @@ import { DateTime } from 'luxon';
 import {
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   SLUG_SYSTEM,
+  Secrets,
   VisitStatusLabel,
   getPatientsForUser,
   getVisitStatus,
 } from 'utils';
-import { Secrets, ZambdaInput, topLevelCatch } from 'zambda-utils';
 import {
   captureSentryException,
   checkPaperworkComplete,
@@ -17,6 +17,8 @@ import {
   createOystehrClient,
   getAuth0Token,
   getUser,
+  topLevelCatch,
+  ZambdaInput,
 } from '../../../shared';
 import '../../../shared/instrument.mjs';
 import { validateRequestParameters } from './validateRequestParameters';

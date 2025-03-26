@@ -1,48 +1,67 @@
 import sendgrid, { ClientResponse } from '@sendgrid/mail';
 import { DateTime } from 'luxon';
-import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
+import { getSecret, isFHIRError, Secrets, SecretsKeys } from 'utils';
+import { triggerSlackAlarm } from './lambda';
 
-export async function topLevelCatch(zambda: string, error: any, secrets: Secrets | null): Promise<void> {
-  console.error(`Top level catch block in ${zambda}: \n ${error} \n Error stringified: ${JSON.stringify(error)}`);
-  await sendErrors(zambda, error, secrets);
-}
-
-export const sendErrors = async (zambda: string, error: any, secrets: Secrets | null): Promise<void> => {
+export const sendErrors = async (
+  zambda: string,
+  error: any,
+  secrets: Secrets | null,
+  captureSentryException?: (error: any) => void
+): Promise<void> => {
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-  // Only fires in staging and production
-  if (!['staging', 'production'].includes(ENVIRONMENT)) {
+  // Only fires in testing, staging and production
+  if (!['testing', 'staging', 'production'].includes(ENVIRONMENT)) {
     return;
   }
 
-  console.log('Sending error message to Slack');
-  // const notification = ENVIRONMENT === 'production' ? '@channel' : '@ottehr-devs';
-  const slackMessage = `todo Alert in ${ENVIRONMENT} zambda ${zambda}.\n\n${error}\n\n${JSON.stringify(error)}`;
-  await sendSlackNotification(slackMessage, ENVIRONMENT);
+  if (captureSentryException) {
+    captureSentryException(error);
+  } else {
+    // const notification = ENVIRONMENT === 'production' ? '@channel' : '@ottehr-dev';
+    const message = `Alert in ${ENVIRONMENT} zambda ${zambda}.\n\n${
+      isFHIRError(error) ? 'FHIR Error' : `${error}\n\n${JSON.stringify(error)}`
+    }`;
+    await triggerSlackAlarm(message, secrets);
+  }
 
-  const email = 'support@masslight.com';
-  const errorMessage = `Error in ${zambda}.\n${error}.\nError stringified: ${JSON.stringify(error)}`;
+  // Send error to email
+  const SENDGRID_API_KEY = getSecret(SecretsKeys.SENDGRID_API_KEY, secrets);
   const SENDGRID_ERROR_EMAIL_TEMPLATE_ID = getSecret(SecretsKeys.IN_PERSON_SENDGRID_ERROR_EMAIL_TEMPLATE_ID, secrets);
 
   console.log('Sending error email');
+  sendgrid.setApiKey(SENDGRID_API_KEY);
+
+  // TODO confirm details
+  const email = 'support@ottehr.com';
+  const emailConfiguration = {
+    to: email,
+    from: {
+      email: email,
+      name: 'Ottehr In Person',
+    },
+    replyTo: email,
+    templateId: SENDGRID_ERROR_EMAIL_TEMPLATE_ID,
+    dynamic_template_data: {
+      environment: ENVIRONMENT,
+      errorMessage: `Error in ${zambda}.\n${error}.\nError stringified: ${JSON.stringify(error)}`,
+      timestamp: DateTime.now().setZone('UTC').toFormat("EEEE, MMMM d, yyyy 'at' h:mm a ZZZZ"),
+    },
+  };
+
   try {
-    const sendResult = await sendgridEmail(
-      secrets,
-      SENDGRID_ERROR_EMAIL_TEMPLATE_ID,
-      [email],
-      email,
-      ENVIRONMENT,
-      errorMessage
+    const sendResult = await sendgrid.send(emailConfiguration);
+    console.log(
+      `Details of successful sendgrid send: statusCode, ${sendResult[0].statusCode}. body, ${JSON.stringify(
+        sendResult[0].body
+      )}`
     );
-    if (sendResult)
-      console.log(
-        `Details of successful sendgrid send: statusCode, ${sendResult[0].statusCode}. body, ${JSON.stringify(
-          sendResult[0].body
-        )}`
-      );
   } catch (error) {
     console.error(`Error sending email to ${email}: ${JSON.stringify(error)}`);
-    // Re-throw error so caller knows we failed.
-    throw error;
+    // // Re-throw error so caller knows we failed.
+    // // commenting out because this is causing caught errors to fail and we do not have sendgrid configured yet
+    // // adding todo fix this after configuring sendgrid secrets
+    // throw error;
   }
 };
 

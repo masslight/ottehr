@@ -21,6 +21,7 @@ export * from './queueingUtils';
 export * from './resources.helpers';
 export * from './rolesUtils';
 export * from './sentry';
+export * from './types';
 export * from './userAuditLog';
 export * from './users.helper';
 export * from './validateBundleAndExtractAppointment';

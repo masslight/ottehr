@@ -1,8 +1,6 @@
 import { DateTime } from 'luxon';
-import { CreateAppointmentUCTelemedParams, PersonSex, RequiredAllProps } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { Secrets } from 'zambda-utils';
-import { phoneRegex } from '../../../shared';
+import { CreateAppointmentUCTelemedParams, PersonSex, RequiredAllProps, Secrets } from 'utils';
+import { phoneRegex, ZambdaInput } from '../../../shared';
 
 // Note that this file is copied from BH and needs significant changes
 export function validateCreateAppointmentParams(

@@ -1,5 +1,5 @@
 import { InitTelemedSessionRequestParams } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(
   input: ZambdaInput

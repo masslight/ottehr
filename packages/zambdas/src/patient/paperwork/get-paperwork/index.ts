@@ -21,6 +21,7 @@ import {
   PersonSex,
   SLUG_SYSTEM,
   ScheduleType,
+  Secrets,
   ServiceMode,
   UCGetPaperworkResponse,
   VisitType,
@@ -33,8 +34,13 @@ import {
   serviceModeForHealthcareService,
   userHasAccessToPatient,
 } from 'utils';
-import { Secrets, ZambdaInput, topLevelCatch } from 'zambda-utils';
-import { createOystehrClient, getAuth0Token, getOtherOfficesForLocation } from '../../../shared';
+import {
+  createOystehrClient,
+  getAuth0Token,
+  getOtherOfficesForLocation,
+  topLevelCatch,
+  ZambdaInput,
+} from '../../../shared';
 import { getUser } from '../../../shared/auth';
 import '../../../shared/instrument.mjs';
 import { validateRequestParameters } from './validateRequestParameters';
