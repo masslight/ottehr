@@ -764,6 +764,20 @@
         "reason": "paperwork harvest",
         "event": "update"
       }
+    },
+    "AI-INTERVIEW-START": {
+      "name": "AI-INTERVIEW-START",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/patient/ai-interview/start/index",
+      "zip": ".dist/zips/ai-interview-start.zip"
+    },
+    "AI-INTERVIEW-HANDLE-ANSWER": {
+      "name": "AI-INTERVIEW-HANDLE-ANSWER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/patient/ai-interview/handle-answer/index",
+      "zip": ".dist/zips/ai-interview-handle-answer.zip"
     }
   },
   "fhirResources": {

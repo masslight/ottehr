@@ -198,7 +198,14 @@ export const useGetAppointment = (
               { name: '_revinclude', value: 'DocumentReference:related' },
             ],
           })
-        ).unbundle();
+        )
+          .unbundle()
+          .filter(
+            (resource) =>
+              resource.resourceType !== 'QuestionnaireResponse' ||
+              resource.questionnaire === 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson' ||
+              resource.questionnaire === 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual'
+          );
       }
       throw new Error('fhir client not defined or appointmentId not provided');
     },

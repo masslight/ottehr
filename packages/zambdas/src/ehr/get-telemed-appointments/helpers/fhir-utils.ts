@@ -11,6 +11,7 @@ import {
 import { joinLocationsIdsForFhirSearch } from './helpers';
 import { mapStatesToLocationIds, mapTelemedStatusToEncounterAndAppointment } from './mappers';
 import { LocationIdToAbbreviationMap } from './types';
+import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 
 export const getAllResourcesFromFhir = async (
   oystehr: Oystehr,
@@ -95,7 +96,9 @@ export const getAllResourcesFromFhir = async (
       value: joinLocationsIdsForFhirSearch(locationIds),
     });
   }
-  return (await oystehr.fhir.search<FhirResource>(fhirSearchParams)).unbundle();
+  return (await oystehr.fhir.search<FhirResource>(fhirSearchParams))
+    .unbundle()
+    .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
 };
 
 export const getPractLicensesLocationsAbbreviations = async (oystehr: Oystehr): Promise<string[]> => {

@@ -38,6 +38,7 @@ import {
 } from '../../ehr/shared/helpers';
 import { createExamObservations } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+import { isNonPaperworkQuestionnaireResponse } from '../../common';
 
 const CHUNK_SIZE = 50;
 
@@ -88,7 +89,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           },
         ],
       })
-    ).unbundle();
+    )
+      .unbundle()
+      .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
     console.log('Got Appointment related resources');
 
     const isInPersonAppointment = !!appointment.meta?.tag?.find((tag) => tag.code === PROJECT_MODULE.IP);
