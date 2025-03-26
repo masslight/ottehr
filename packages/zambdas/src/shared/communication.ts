@@ -3,8 +3,17 @@ import sendgrid from '@sendgrid/mail';
 import { getRelatedPersonForPatient } from './patients';
 import { Appointment, HealthcareService, Location, Patient, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { formatPhoneNumberDisplay, isLocationVirtual, SLUG_SYSTEM, ServiceMode, createOystehrClient } from 'utils';
-import { Secrets, getSecret, SecretsKeys, sendErrors } from 'zambda-utils';
+import {
+  formatPhoneNumberDisplay,
+  isLocationVirtual,
+  SLUG_SYSTEM,
+  ServiceMode,
+  createOystehrClient,
+  Secrets,
+  SecretsKeys,
+  getSecret,
+} from 'utils';
+import { sendErrors } from './errors';
 
 export interface InPersonCancellationEmailSettings {
   email: string;

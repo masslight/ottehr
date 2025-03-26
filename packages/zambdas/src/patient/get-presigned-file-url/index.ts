@@ -16,11 +16,19 @@ import {
   SCHOOL_WORK_NOTE,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_WORK_ID,
+  Secrets,
 } from 'utils';
-import { makeZ3Url, Secrets, topLevelCatch, ZambdaInput } from 'zambda-utils';
-import { captureSentryException, configSentry, createOystehrClient, getAuth0Token } from '../../shared';
+import {
+  captureSentryException,
+  configSentry,
+  createOystehrClient,
+  getAuth0Token,
+  topLevelCatch,
+  ZambdaInput,
+} from '../../shared';
 import '../../shared/instrument.mjs';
 import { validateRequestParameters } from './validateRequestParameters';
+import { makeZ3Url } from '../../shared/presigned-file-urls';
 
 let zapehrToken: string;
 

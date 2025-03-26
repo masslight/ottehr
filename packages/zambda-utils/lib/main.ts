@@ -1,5 +1,5 @@
 export * from './types';
 export * from './lambda';
-export * from './presigned-file-urls';
-export * from './secrets';
+export * from '../../zambdas/src/shared/presigned-file-urls';
+export * from 'utils/lib/secrets';
 export * from './validation';

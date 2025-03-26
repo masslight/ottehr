@@ -4,10 +4,15 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FHIR_EXTENSION, OTTEHR_MODULE } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { topLevelCatch } from 'zambda-utils';
 import '../../../shared/instrument.mjs';
-import { captureSentryException, createOystehrClient, configSentry, getAuth0Token } from '../../../shared';
+import {
+  captureSentryException,
+  createOystehrClient,
+  configSentry,
+  getAuth0Token,
+  topLevelCatch,
+  ZambdaInput,
+} from '../../../shared';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
 import { SubmitPaperworkEffectInput, validateSubmitInputs } from '../validateRequestParameters';
 

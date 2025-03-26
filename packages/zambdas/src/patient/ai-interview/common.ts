@@ -1,6 +1,6 @@
 import { ChatAnthropic } from '@langchain/anthropic';
 import { AIMessageChunk, BaseMessageLike } from '@langchain/core/messages';
-import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
+import { Secrets, getSecret, SecretsKeys } from 'utils';
 
 let chatbot: ChatAnthropic;
 

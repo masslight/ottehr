@@ -4,8 +4,8 @@ import { readFileSync } from 'fs';
 import { IncomingHttpHeaders } from 'http2';
 import _ from 'lodash';
 import { resolve } from 'path';
-import { ZambdaInput } from 'zambda-utils';
 import ottehrSpec from '../../ottehr-spec.json';
+import { ZambdaInput } from '../shared';
 
 export const expressLambda = async (
   handler: Handler<any, APIGatewayProxyResult>,

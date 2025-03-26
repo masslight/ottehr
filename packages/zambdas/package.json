@@ -40,8 +40,7 @@
     "luxon": "^3.4.3",
     "query-string": "^8.1.0",
     "short-uuid": "^4.2.2",
-    "utils": "*",
-    "zambda-utils": "*"
+    "utils": "*"
   },
   "devDependencies": {
     "@types/archiver": "^6.0.3",

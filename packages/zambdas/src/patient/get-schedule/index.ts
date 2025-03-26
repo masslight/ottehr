@@ -6,15 +6,16 @@ import { DateTime } from 'luxon';
 import {
   AvailableLocationInformation,
   GetScheduleResponse,
+  SecretsKeys,
   getAvailableSlotsForSchedule,
   getOpeningTime,
   getScheduleDetails,
+  getSecret,
   getWaitingMinutesAtSchedule,
   isLocationOpen,
   isWalkinOpen,
   makeSlotTentativelyBusy,
 } from 'utils';
-import { SecretsKeys, ZambdaInput, getSecret, topLevelCatch } from 'zambda-utils';
 import {
   captureSentryException,
   configSentry,
@@ -22,6 +23,8 @@ import {
   getAuth0Token,
   getLocationInformation,
   getSchedule,
+  topLevelCatch,
+  ZambdaInput,
 } from '../../shared';
 import '../../shared/instrument.mjs';
 import { validateRequestParameters } from './validateRequestParameters';

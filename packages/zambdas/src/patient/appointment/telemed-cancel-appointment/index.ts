@@ -9,13 +9,15 @@ import {
   CancellationReasonOptionsTelemed,
   FHIR_ZAPEHR_URL,
   SLUG_SYSTEM,
+  Secrets,
+  SecretsKeys,
   cancelAppointmentResource,
   createOystehrClient,
   getAppointmentResourceById,
   getPatchBinary,
   getRelatedPersonForPatient,
+  getSecret,
 } from 'utils';
-import { Secrets, SecretsKeys, ZambdaInput, getSecret } from 'zambda-utils';
 import {
   AuditableZambdaEndpoints,
   checkOrCreateM2MClientToken,
@@ -24,6 +26,7 @@ import {
   sendSms,
   sendVirtualCancellationEmail,
   validateBundleAndExtractAppointment,
+  ZambdaInput,
 } from '../../../shared';
 import { getPatientContactEmail } from '../telemed-create-appointment';
 import { validateRequestParameters } from './validateRequestParameters';
