@@ -1,6 +1,7 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { Address, ContactPoint, LocationHoursOfOperation } from 'fhir/r4b';
 import {
+  chooseJson,
   ConversationMessage,
   GetEmployeesResponse,
   GetScheduleRequestParams,
@@ -46,14 +47,6 @@ const GET_EMPLOYEES_ZAMBDA_ID = import.meta.env.VITE_APP_GET_EMPLOYEES_ZAMBDA_ID
 const GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID = import.meta.env.VITE_APP_GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID;
 const SAVE_PATIENT_FOLLOWUP_ZAMBDA_ID = import.meta.env.VITE_APP_SAVE_PATIENT_FOLLOWUP_ZAMBDA_ID;
 const CREATE_LAB_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_LAB_ORDER_ZAMBDA_ID;
-
-export function chooseJson(json: any): any {
-  if (!json.output) {
-    return json;
-  } else {
-    return json.output;
-  }
-}
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({

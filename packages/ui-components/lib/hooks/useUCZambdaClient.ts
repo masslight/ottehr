@@ -1,7 +1,6 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { useCallback, useMemo } from 'react';
-import { chooseJson } from '../../../../apps/intake/src/api/zapehrApi';
-
+import { chooseJson } from 'utils';
 export interface ZambdaClient {
   execute: (id: string, body?: any) => Promise<any>;
   executePublic: (id: string, body?: any) => Promise<any>;

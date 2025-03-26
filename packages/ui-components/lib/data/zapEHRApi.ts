@@ -45,6 +45,7 @@ import {
   WaitingRoomInput,
   WaitingRoomResponse,
   isoStringFromMDYString,
+  chooseJson,
 } from 'utils';
 import { GetZapEHRAPIParams } from '../types/data';
 import { QuestionnaireItemAnswerOption, QuestionnaireResponse } from 'fhir/r4b';
@@ -214,10 +215,6 @@ export const getZapEHRAPI = (
       throw new Error(`${zambdaName} zambda environment variable could not be loaded`);
     }
     return true;
-  };
-
-  const chooseJson = (json: any): any => {
-    return isAppLocal ? json : json.output;
   };
 
   const makeZapRequest = async <TResponse, TPayload>(

@@ -30,10 +30,6 @@ export const getZapEHRApiHelpers = <T extends Record<string, string>>(
     return true;
   };
 
-  const chooseJson = (json: any): any => {
-    return isAppLocal ? json : json.output;
-  };
-
   const makeZapRequest = async <TResponse, TPayload>(
     zambdaName: keyof typeof ZambdaNames,
     payload?: TPayload,
@@ -86,3 +82,7 @@ export function NotFoundApointmentErrorHandler(error: any): void {
     throw error;
   }
 }
+
+export const chooseJson = (json: any): any => {
+  return json.output;
+};

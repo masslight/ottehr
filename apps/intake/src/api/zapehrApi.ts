@@ -17,6 +17,7 @@ import {
   SubmitPaperworkParameters,
   UCGetPaperworkResponse,
   VisitType,
+  chooseJson,
   isApiError,
   isoStringFromMDYString,
 } from 'utils';
@@ -51,14 +52,6 @@ const SUBMIT_PAPERWORK_ZAMBDA_ID = import.meta.env.VITE_APP_SUBMIT_PAPERWORK_ZAM
 const GET_ELIGIBILITY_ZAMBDA_ID = import.meta.env.VITE_APP_GET_ELIGIBILITY_ZAMBDA_ID;
 const AI_INTERVIEW_START_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTERVIEW_START_ZAMBDA_ID;
 const AI_INTERVIEW_HANDLE_ANSWER_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTERVIEW_HANDLE_ANSWER_ZAMBDA_ID;
-
-export function chooseJson(json: any): any {
-  if (!json.output) {
-    return json;
-  } else {
-    return json.output;
-  }
-}
 
 export interface AvailableLocationInformation {
   id: string | undefined;
