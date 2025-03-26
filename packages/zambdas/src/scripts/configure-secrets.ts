@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import fs from 'fs';
 import { getAuth0Token } from '../ehr/shared';
 import { projectApiUrlFromAuth0Audience } from './helpers';
+import ottehrSpec from '../../ottehr-spec.json';
 
 const setupSecrets = async (config: any): Promise<void> => {
   const token = await getAuth0Token(config);
@@ -32,12 +33,36 @@ const setupSecrets = async (config: any): Promise<void> => {
   }
 };
 
+const prepareSecretsFromSpecAndEnv = (env: string): Record<string, string> => {
+  const envFile = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+
+  const secrets: Record<string, string> = {};
+  Object.entries(ottehrSpec.secrets).forEach(([_key, secret]) => {
+    if (secret.value.startsWith('#var/')) {
+      const varName = secret.value.split('#var/')[1];
+      const secretValue = envFile[varName];
+      if (secretValue == null) {
+        throw new Error(`Secret ${secret.name} was not found in the env file.`);
+      }
+      secrets[secret.name] = envFile[varName];
+    } else {
+      secrets[secret.name] = secret.value;
+    }
+  });
+
+  return secrets;
+};
+
 // So we can use await
 const main = async (): Promise<void> => {
   const env = process.argv[2];
 
-  const configuration = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
-  await setupSecrets(configuration);
+  if (!env) {
+    throw new Error('Please provide an environment to configure secrets.');
+  }
+  
+  const secrets = prepareSecretsFromSpecAndEnv(env);
+  await setupSecrets(secrets);
 };
 
 main().catch((error) => {

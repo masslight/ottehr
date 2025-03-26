@@ -41,6 +41,10 @@
       "name": "SENDGRID_API_KEY",
       "value": "#var/SENDGRID_API_KEY"
     },
+    "VIRTUAL_SENDGRID_EMAIL_BCC": {
+      "name": "VIRTUAL_SENDGRID_EMAIL_BCC",
+      "value": "#var/VIRTUAL_SENDGRID_EMAIL_BCC"
+    },
     "VIRTUAL_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID": {
       "name": "VIRTUAL_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID",
       "value": "#var/VIRTUAL_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID"
@@ -97,17 +101,13 @@
       "name": "IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR",
       "value": "#var/IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR"
     },
+    "UC_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID": {
+      "name": "UC_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID",
+      "value": "#var/UC_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID"
+    },
     "INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID": {
       "name": "INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID",
       "value": "#var/INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID"
-    },
-    "IN_PERSON_PREVISIT_QUESTIONNAIRE": {
-      "name": "IN_PERSON_PREVISIT_QUESTIONNAIRE",
-      "value": "#var/IN_PERSON_PREVISIT_QUESTIONNAIRE"
-    },
-    "VIRTUAL_PREVISIT_QUESTIONNAIRE": {
-      "name": "VIRTUAL_PREVISIT_QUESTIONNAIRE",
-      "value": "#var/VIRTUAL_PREVISIT_QUESTIONNAIRE"
     },
     "SENTRY_INTAKE_API_AUTH_TOKEN": {
       "name": "SENTRY_INTAKE_API_AUTH_TOKEN",
@@ -116,6 +116,38 @@
     "PROJECT_ID": {
       "name": "PROJECT_ID",
       "value": "#var/PROJECT_ID"
+    },
+    "SENTRY_AUTH_TOKEN": {
+      "name": "SENTRY_AUTH_TOKEN",
+      "value": "#var/SENTRY_AUTH_TOKEN"
+    },
+    "SENTRY_ORG": {
+      "name": "SENTRY_ORG",
+      "value": "#var/SENTRY_ORG"
+    },
+    "SENTRY_PROJECT": {
+      "name": "SENTRY_PROJECT",
+      "value": "#var/SENTRY_PROJECT"
+    },
+    "SENTRY_DSN": {
+      "name": "SENTRY_DSN",
+      "value": "#var/SENTRY_DSN"
+    },
+    "TELEMED_CLIENT_ID": {
+      "name": "TELEMED_CLIENT_ID",
+      "value": "#var/TELEMED_CLIENT_ID"
+    },
+    "TELEMED_CLIENT_SECRET": {
+      "name": "TELEMED_CLIENT_SECRET",
+      "value": "#var/TELEMED_CLIENT_SECRET"
+    },
+    "IN_PERSON_PREVISIT_QUESTIONNAIRE": {
+      "name": "IN_PERSON_PREVISIT_QUESTIONNAIRE",
+      "value": "#var/IN_PERSON_PREVISIT_QUESTIONNAIRE"
+    },
+    "VIRTUAL_PREVISIT_QUESTIONNAIRE": {
+      "name": "VIRTUAL_PREVISIT_QUESTIONNAIRE",
+      "value": "#var/VIRTUAL_PREVISIT_QUESTIONNAIRE"
     },
     "CANDID_CLIENT_ID": {
       "name": "CANDID_CLIENT_ID",
@@ -136,6 +168,10 @@
     "STRIPE_SECRET_KEY": {
       "name": "STRIPE_SECRET_KEY",
       "value": "#var/STRIPE_SECRET_KEY"
+    },
+    "ANTHROPIC_API_KEY": {
+      "name": "ANTHROPIC_API_KEY",
+      "value": "#var/ANTHROPIC_API_KEY"
     }
   },
   "zambdas": {
@@ -645,14 +681,14 @@
         "event": "create"
       }
     },
-    "TELEMED-APPOINTMENT-SUBSCRIPTION": {
-      "name": "TELEMED-APPOINTMENT-SUBSCRIPTION",
+    "APPOINTMENT-CHART-DATA-PREFILLING": {
+      "name": "APPOINTMENT-CHART-DATA-PREFILLING",
       "type": "subscription",
       "runtime": "nodejs20.x",
-      "src": "src/ehr/telemed-appointment-subscription/index",
-      "zip": ".dist/zips/telemed-appointment-subscription.zip",
+      "src": "src/subscriptions/appointment-chart-data-prefilling/index",
+      "zip": ".dist/zips/appointment-chart-data-prefilling.zip",
       "subscription": {
-        "criteria": "Appointment?_tag:not=APPOINTMENT_PREPROCESSED&status=arrived,booked",
+        "criteria": "Appointment?_tag=APPOINTMENT_READY_FOR_PREPROCESSING",
         "reason": "Appointment pre-processor",
         "event": "update"
       }
@@ -728,6 +764,20 @@
         "reason": "paperwork harvest",
         "event": "update"
       }
+    },
+    "AI-INTERVIEW-START": {
+      "name": "AI-INTERVIEW-START",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/patient/ai-interview/start/index",
+      "zip": ".dist/zips/ai-interview-start.zip"
+    },
+    "AI-INTERVIEW-HANDLE-ANSWER": {
+      "name": "AI-INTERVIEW-HANDLE-ANSWER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/patient/ai-interview/handle-answer/index",
+      "zip": ".dist/zips/ai-interview-handle-answer.zip"
     }
   },
   "fhirResources": {

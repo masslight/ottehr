@@ -41,7 +41,7 @@ export async function waitForResponseWithData<T extends object = object>(
  */
 export async function waitForGetChartDataResponse(
   page: Page,
-  predicate: ResponsePredicate<GetChartDataResponse>
+  predicate?: ResponsePredicate<GetChartDataResponse>
 ): Promise<Response> {
   return waitForResponseWithData(page, '/get-chart-data', predicate);
 }
@@ -76,7 +76,7 @@ export async function waitForChartDataDeletion(page: Page): Promise<Response> {
  */
 export async function waitForPractitionerResponse(
   page: Page,
-  predicate: ResponsePredicate<Practitioner>
+  predicate?: ResponsePredicate<Practitioner>
 ): Promise<Response> {
   return waitForResponseWithData(page, '/Practitioner/', predicate);
 }
