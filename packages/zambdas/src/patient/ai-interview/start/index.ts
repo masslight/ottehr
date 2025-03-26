@@ -8,7 +8,6 @@ import { invokeChatbot } from '../common';
 
 export const INTERVIEW_COMPLETED = 'Interview completed.';
 
-const QUESTIONNAIRE_URL = 'https://ottehr.com/FHIR/Questionnaire/ai-interview';
 const INITIAL_USER_MESSAGE = `Perform a medical history intake session with me by asking me relevant questions.
  Ask no more than 30 questions.
  Ask one question at a time.
@@ -115,7 +114,7 @@ async function createQuestionnaireResponse(
   return oystehr.fhir.create<QuestionnaireResponse>({
     resourceType: 'QuestionnaireResponse',
     status: 'in-progress',
-    questionnaire: QUESTIONNAIRE_URL,
+    questionnaire: '#questionnaire',
     encounter: {
       reference: 'Encounter/' + encounterId,
     },
@@ -146,14 +145,6 @@ async function createQuestionnaireResponse(
             type: 'text',
           },
         ],
-      },
-    ],
-    extension: [
-      {
-        url: 'questionnaire',
-        valueReference: {
-          reference: '#questionnaire',
-        },
       },
     ],
   });
