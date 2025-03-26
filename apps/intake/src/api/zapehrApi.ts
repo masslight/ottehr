@@ -425,7 +425,7 @@ class API {
         throw new Error('AI_INTERVIEW_START_ZAMBDA_ID environment variable is missing');
       }
       const response = await zambdaClient.execute(AI_INTERVIEW_START_ZAMBDA_ID, input);
-      const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
+      const jsonToUse = chooseJson(response);
       return jsonToUse as QuestionnaireResponse;
     } catch (error: unknown) {
       throw apiErrorToThrow(error);
@@ -438,7 +438,7 @@ class API {
         throw new Error('AI_INTERVIEW_HANDLE_ANSWER_ZAMBDA_ID environment variable is missing');
       }
       const response = await zambdaClient.execute(AI_INTERVIEW_HANDLE_ANSWER_ZAMBDA_ID, input);
-      const jsonToUse = chooseJson(response, REACT_APP_IS_LOCAL);
+      const jsonToUse = chooseJson(response);
       return jsonToUse as QuestionnaireResponse;
     } catch (error: unknown) {
       throw apiErrorToThrow(error);
