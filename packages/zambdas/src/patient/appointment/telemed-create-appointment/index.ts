@@ -18,8 +18,10 @@ import {
   CreateAppointmentUCTelemedParams,
   CreateAppointmentUCTelemedResponse,
   createOystehrClient,
+  FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG,
   FHIR_EXTENSION,
   formatPhoneNumber,
+  getPatchOperationForNewMetaTag,
   makePrepopulatedItemsForPatient,
   OTTEHR_MODULE,
   PatientInfo,
@@ -29,8 +31,7 @@ import {
   userHasAccessToPatient,
   VisitType,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { getSecret, Secrets, SecretsKeys, topLevelCatch } from 'zambda-utils';
+import { getSecret, Secrets, SecretsKeys, topLevelCatch, ZambdaInput } from 'zambda-utils';
 import { AuditableZambdaEndpoints, checkOrCreateM2MClientToken, createAuditEvent, getUser } from '../../shared';
 import { createUpdateUserRelatedResources, generatePatientRelatedRequests } from '../../shared/appointment';
 import {
@@ -415,8 +416,14 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   const bundle = await oystehr.fhir.transaction<Appointment | Encounter | Patient | List | QuestionnaireResponse>(
     transactionInput
   );
+  const resources = extractResourcesFromBundle(bundle, patient);
 
-  return extractResourcesFromBundle(bundle, patient);
+  await oystehr.fhir.patch({
+    resourceType: 'Appointment',
+    id: resources.appointment.id!,
+    operations: [getPatchOperationForNewMetaTag(resources.appointment, FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG)],
+  });
+  return resources;
 };
 
 const extractResourcesFromBundle = (bundle: Bundle<Resource>, maybePatient?: Patient): TransactionOutput => {
