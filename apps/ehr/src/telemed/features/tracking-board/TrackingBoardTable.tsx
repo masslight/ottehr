@@ -13,12 +13,12 @@ import {
 import { DateTime } from 'luxon';
 import React, { ReactElement, useMemo } from 'react';
 import { AllStatesToNames, ApptTelemedTab, StateType, TelemedAppointmentInformation } from 'utils';
+import { dataTestIds } from '../../../constants/data-test-ids';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useTrackingBoardStore } from '../../state';
 import { compareAppointments, compareLuxonDates, filterAppointments } from '../../utils';
 import { TrackingBoardFilters } from './TrackingBoardFilters';
 import { TrackingBoardTableRow, TrackingBoardTableRowSkeleton } from './TrackingBoardTableRow';
-import { dataTestIds } from '../../../constants/data-test-ids';
 
 interface AppointmentTableProps {
   tab: ApptTelemedTab;
@@ -180,7 +180,7 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
             ) : (
               Object.keys(groupsSortedByState).map((state) => (
                 <React.Fragment key={state}>
-                  <TableRow>
+                  <TableRow data-testid={dataTestIds.telemedEhrFlow.trackingBoardTableGroupRow}>
                     <TableCell
                       sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }}
                       colSpan={9 + +showProvider}
