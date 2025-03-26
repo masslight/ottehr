@@ -11,9 +11,9 @@ import {
   getMessageHasBeenRead,
 } from 'utils';
 import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
-import { getAuth0Token } from '../shared';
-import { topLevelCatch } from '../shared/errors';
-import { createOystehrClient } from '../shared/helpers';
+import { getAuth0Token } from '../../shared';
+import { topLevelCatch } from '../../shared/errors';
+import { createOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from 'zambda-utils';
 
 export interface GetConversationInput {

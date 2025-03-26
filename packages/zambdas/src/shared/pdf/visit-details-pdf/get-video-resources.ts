@@ -15,7 +15,7 @@ import {
 } from 'fhir/r4b';
 import { getVideoRoomResourceExtension } from '../../helpers';
 import { VideoResourcesAppointmentPackage } from './types';
-import { isNonPaperworkQuestionnaireResponse } from '../../../../common';
+import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 
 export const getVideoResources = async (
   oystehr: Oystehr,

@@ -25,7 +25,7 @@ import {
   getUser,
   getVideoEncounterForAppointment,
   searchInvitedParticipantResourcesByEncounterId,
-} from '../shared';
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations

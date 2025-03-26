@@ -13,7 +13,7 @@ import {
 } from 'utils';
 import { ZambdaInput } from 'zambda-utils';
 import { getSecret, SecretsKeys } from 'zambda-utils';
-import { checkOrCreateM2MClientToken, getUser } from '../../shared';
+import { checkOrCreateM2MClientToken, getUser } from '../../../shared';
 import { getFhirResources, mapEncountersToAppointmentIds } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import {} from 'utils';
 import { ZambdaInput } from 'zambda-utils';
 import { SecretsKeys, getSecret, lambdaResponse } from 'zambda-utils';
-import { getAuth0Token, getUser } from '../../shared';
+import { getAuth0Token, getUser } from '../../../shared';
 import { postPaymentMethodListRequest } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

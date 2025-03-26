@@ -1,6 +1,6 @@
 import fs from 'fs';
 import Oystehr, { ZambdaFunction } from '@oystehr/sdk';
-import { getAuth0Token } from '../patient/shared';
+import { getAuth0Token } from '../shared';
 
 const projectApiUrlFromAuth0Audience = (auth0Audience: string): string => {
   switch (auth0Audience) {

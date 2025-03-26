@@ -9,12 +9,16 @@ import {
   getPatientsForUser,
   getVisitStatus,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { Secrets, topLevelCatch } from 'zambda-utils';
-import '../../shared/instrument.mjs';
-import { captureSentryException, configSentry, getAuth0Token } from '../../shared';
-import { getUser } from '../../shared/auth';
-import { checkPaperworkComplete, createOystehrClient } from '../../shared/helpers';
+import { Secrets, ZambdaInput, topLevelCatch } from 'zambda-utils';
+import {
+  captureSentryException,
+  checkPaperworkComplete,
+  configSentry,
+  createOystehrClient,
+  getAuth0Token,
+  getUser,
+} from '../../../shared';
+import '../../../shared/instrument.mjs';
 import { validateRequestParameters } from './validateRequestParameters';
 import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 

@@ -10,7 +10,7 @@ import {
 } from 'zambda-utils';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { createOystehrClient, HandleAnswerInput } from 'utils';
-import { getAuth0Token } from '../../shared';
+import { getAuth0Token } from '../../../shared';
 import Oystehr from '@oystehr/sdk';
 import { BaseMessageLike } from '@langchain/core/messages';
 import { invokeChatbot } from '../common';

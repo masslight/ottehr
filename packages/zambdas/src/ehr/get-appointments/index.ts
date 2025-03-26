@@ -34,9 +34,9 @@ import {
   isTruthy,
 } from 'utils';
 import { Secrets, ZambdaInput } from 'zambda-utils';
-import { topLevelCatch } from '../shared/errors';
-import { checkOrCreateM2MClientToken, createOystehrClient, getRelatedPersonsFromResourceList } from '../shared/helpers';
-import { sortAppointments } from '../shared/queueingUtils';
+import { topLevelCatch } from '../../shared/errors';
+import { createOystehrClient, getRelatedPersonsFromResourceList } from '../../shared/helpers';
+import { sortAppointments } from '../../shared/queueingUtils';
 import {
   mergeResources,
   parseEncounterParticipants,
@@ -48,6 +48,7 @@ import {
   timezoneMap,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+import { checkOrCreateM2MClientToken } from '../../shared';
 import { isNonPaperworkQuestionnaireResponse } from '../../common';
 
 export interface GetAppointmentsInput {
