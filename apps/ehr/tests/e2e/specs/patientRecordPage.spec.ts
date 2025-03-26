@@ -7,13 +7,17 @@ import {
   ResourceHandler,
 } from '../../e2e-utils/resource-handler';
 
-import { expectPatientInformationPage, openPatientInformationPage } from '../page/PatientInformationPage';
+import { expectPatientInformationPage, Field, openPatientInformationPage } from '../page/PatientInformationPage';
 import { expectPatientRecordPage } from '../page/PatientRecordPage';
 
 const resourceHandler = new ResourceHandler();
 const NEW_PATIENT_LAST_NAME = 'Test_lastname';
 const NEW_PATIENT_FIRST_NAME = 'Test_firstname';
+const NEW_PATIENT_MIDDLE_NAME = 'Test_middle';
+const NEW_PATIENT_SUFFIX = 'Mrs';
+const NEW_PATIENT_PREFERRED_NAME = 'Test_pref';
 const NEW_PATIENT_DATE_OF_BIRTH = '01/01/2024';
+const NEW_PATIENT_PREFERRED_PRONOUNS = 'They/them';
 const NEW_PATIENT_BIRTH_SEX = 'Female';
 const NEW_STREET_ADDRESS = 'Test address, 1';
 const NEW_CITY = 'New York';
@@ -91,7 +95,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.reloadPatientInformationPage();
 
     await patientInformationPage.verifyPatientLastName(NEW_PATIENT_LAST_NAME);
-    await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
+    await patientInformationPage.verifyPatientFirstName(NEW_PATIENT_FIRST_NAME);
     await patientInformationPage.verifyPatientDateOfBirth(NEW_PATIENT_DATE_OF_BIRTH);
     await patientInformationPage.verifyPatientBirthSex(NEW_PATIENT_BIRTH_SEX);
     await patientInformationPage.verifyStreetAddress(NEW_STREET_ADDRESS);
@@ -123,10 +127,40 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPatientBirthSex(PATIENT_GENDER);
   });
 
-  test('Check validation error is displayed if any required field is missing', async ({ page }) => {
+  test('Check validation error is displayed if any required field in Patient info block is missing', async ({
+    page,
+  }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.clearPatientLastName();
+    await patientInformationPage.clearPatientFirstName();
+    await patientInformationPage.clearPatientDateOfBirth();
     await patientInformationPage.clickSaveChangesButton();
-    await patientInformationPage.verifyValidationErrorShown();
+    await patientInformationPage.verifyValidationErrorShown(Field.PATIENT_LAST_NAME);
+    await patientInformationPage.verifyValidationErrorShown(Field.PATIENT_FIRST_NAME);
+    await patientInformationPage.verifyValidationErrorShown(Field.PATIENT_DOB);
+  });
+  test('Updated values from Patient info block are saved and displayed correctly', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.enterPatientLastName(NEW_PATIENT_LAST_NAME);
+    await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
+    await patientInformationPage.enterPatientMiddleName(NEW_PATIENT_MIDDLE_NAME);
+    await patientInformationPage.enterPatientSuffix(NEW_PATIENT_SUFFIX);
+    await patientInformationPage.enterPatientPreferredName(NEW_PATIENT_PREFERRED_NAME);
+    await patientInformationPage.enterPatientDateOfBirth(NEW_PATIENT_DATE_OF_BIRTH);
+    await patientInformationPage.selectPatientPreferredPronouns(NEW_PATIENT_PREFERRED_PRONOUNS);
+    await patientInformationPage.selectPatientBirthSex(NEW_PATIENT_BIRTH_SEX);
+
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
+    await patientInformationPage.reloadPatientInformationPage();
+
+    await patientInformationPage.verifyPatientLastName(NEW_PATIENT_LAST_NAME);
+    await patientInformationPage.verifyPatientFirstName(NEW_PATIENT_FIRST_NAME);
+    await patientInformationPage.verifyPatientMiddleName(NEW_PATIENT_MIDDLE_NAME);
+    await patientInformationPage.verifyPatientSuffix(NEW_PATIENT_SUFFIX);
+    await patientInformationPage.verifyPatientPreferredName(NEW_PATIENT_PREFERRED_NAME);
+    await patientInformationPage.verifyPatientDateOfBirth(NEW_PATIENT_DATE_OF_BIRTH);
+    await patientInformationPage.verifyPatientPreferredPronouns(NEW_PATIENT_PREFERRED_PRONOUNS);
+    await patientInformationPage.verifyPatientBirthSex(NEW_PATIENT_BIRTH_SEX);
   });
 });
