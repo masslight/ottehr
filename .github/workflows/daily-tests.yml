@@ -106,6 +106,7 @@ jobs:
             "${{ env.TEST_EMAIL }}"
 
       - name: Run E2E tests on the EHR application
+        id: ehr-test
         run: npm run ehr:e2e:local
         env:
           CI: true
@@ -122,6 +123,8 @@ jobs:
           retention-days: 30
 
       - name: Run E2E tests on the Intake application
+        if: success() || steps.ehr-test.outcome == 'failure' || steps.ehr-test.outcome == 'cancelled'
+        id: intake-test
         run: npm run intake:e2e:local
         env:
           CI: true
