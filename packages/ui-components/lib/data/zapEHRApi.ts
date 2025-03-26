@@ -205,7 +205,6 @@ export const getZapEHRAPI = (
     'list bookables': listBookablesZambdaID,
   };
   const isAppLocalProvided = params.isAppLocal != null;
-  const isAppLocal = params.isAppLocal === 'true';
 
   const verifyZambdaProvidedAndNotLocalThrowErrorOtherwise = (
     zambdaID: string | undefined,
