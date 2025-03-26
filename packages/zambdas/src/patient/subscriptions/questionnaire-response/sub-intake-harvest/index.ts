@@ -1,15 +1,21 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter, List, Location, Patient, QuestionnaireResponseItem } from 'fhir/r4b';
-import { flattenIntakeQuestionnaireItems, getRelatedPersonForPatient, IntakeQuestionnaireItem } from 'utils';
-import '../../../shared/instrument.mjs';
+import { Appointment, Encounter, List, Location, Observation, Patient, QuestionnaireResponseItem } from 'fhir/r4b';
+import {
+  ADDITIONAL_QUESTIONS_META_SYSTEM,
+  flattenIntakeQuestionnaireItems,
+  getRelatedPersonForPatient,
+  IntakeQuestionnaireItem,
+} from 'utils';
 import { captureSentryException, configSentry, getAuth0Token } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';
+import '../../../shared/instrument.mjs';
 
-import { QRSubscriptionInput, validateRequestParameters } from './validateRequestParameters';
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { getSecret, SecretsKeys, topLevelCatch, triggerSlackAlarm, ZambdaInput } from 'zambda-utils';
+import { saveResourceRequest } from '../../../../ehr/shared';
+import { makeObservationResource } from '../../../../ehr/shared/chart-data/chart-data-helpers';
 import {
   createConsentResources,
   createDocumentResources,
@@ -18,6 +24,8 @@ import {
   flagPaperworkEdit,
   updatePatientAccountFromQuestionnaire,
 } from '../../../../ehr/shared/harvest';
+import { createAdditionalQuestions } from '../../../../subscriptions/appointment-chart-data-prefilling/helpers';
+import { QRSubscriptionInput, validateRequestParameters } from './validateRequestParameters';
 
 let zapehrToken: string;
 
@@ -211,6 +219,33 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
       tasksFailed.push(JSON.stringify(error));
       console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
     }
+  }
+
+  try {
+    // Additional questions chart data resource prefilling
+    const additionalQuestions = createAdditionalQuestions(qr);
+    const saveOrUpdateChartDataResourceRequests: BatchInputPostRequest<Observation>[] = [];
+
+    additionalQuestions.forEach((observation) => {
+      console.log('additionalQuestion: ', JSON.stringify(observation));
+      saveOrUpdateChartDataResourceRequests.push(
+        saveResourceRequest(
+          makeObservationResource(
+            encounterResource.id!,
+            patientResource.id!,
+            '',
+            observation,
+            ADDITIONAL_QUESTIONS_META_SYSTEM
+          )
+        )
+      );
+    });
+    await oystehr.fhir.batch({
+      requests: saveOrUpdateChartDataResourceRequests,
+    });
+  } catch (error: unknown) {
+    tasksFailed.push('create additional questions chart data resource', JSON.stringify(error));
+    console.log(`Failed to create additional questions chart data resource: ${error}`);
   }
 
   const response = tasksFailed.length

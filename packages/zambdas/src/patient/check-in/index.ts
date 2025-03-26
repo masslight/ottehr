@@ -25,6 +25,7 @@ import {
 } from '../shared/helpers';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../shared/userAuditLog';
 import { validateRequestParameters } from './validateRequestParameters';
+import { isNonPaperworkQuestionnaireResponse } from '../../common';
 
 export interface CheckInInput {
   appointment: string;
@@ -88,7 +89,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
           },
         ],
       })
-    ).unbundle();
+    )
+      .unbundle()
+      .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
     console.timeEnd('resource search for checkin');
 
     let appointment: Appointment | undefined,

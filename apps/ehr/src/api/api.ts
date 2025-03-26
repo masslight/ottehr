@@ -48,7 +48,11 @@ const SAVE_PATIENT_FOLLOWUP_ZAMBDA_ID = import.meta.env.VITE_APP_SAVE_PATIENT_FO
 const CREATE_LAB_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_LAB_ORDER_ZAMBDA_ID;
 
 export function chooseJson(json: any): any {
-  return json.output;
+  if (!json.output) {
+    return json;
+  } else {
+    return json.output;
+  }
 }
 
 export const getUser = async (token: string): Promise<User> => {
