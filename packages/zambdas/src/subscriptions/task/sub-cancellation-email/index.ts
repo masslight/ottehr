@@ -1,25 +1,29 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Location, Patient, RelatedPerson } from 'fhir/r4b';
+import { Appointment, Location, Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR, TaskStatus, VisitType, getPatientContactEmail, getPatientFirstName } from 'utils';
-import '../../../../shared/instrument.mjs';
+import { DATETIME_FULL_NO_YEAR, Secrets, TaskStatus, getPatientContactEmail } from 'utils';
+import '../../../shared/instrument.mjs';
+import { validateRequestParameters } from '../validateRequestParameters';
 import {
   captureSentryException,
-  createOystehrClient,
   configSentry,
+  createOystehrClient,
   getAuth0Token,
+  sendInPersonCancellationEmail,
   topLevelCatch,
   ZambdaInput,
-} from '../../../../shared';
-import { patchTaskStatus } from '../../helpers';
-import { validateRequestParameters } from '../validateRequestParameters';
-import { sendInPersonMessages } from '../../../../shared/communication';
+} from '../../../shared';
+
+export interface TaskSubscriptionInput {
+  task: Task;
+  secrets: Secrets | null;
+}
 
 let zapehrToken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('sub-confirmation-messages', input.secrets);
+  configSentry('sub-cancellation-email', input.secrets);
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     console.group('validateRequestParameters');
@@ -47,12 +51,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('appointment ID parsed: ', appointmentID);
 
     console.log('searching for appointment, location and patient resources related to this task');
-    let fhirAppointment: Appointment | undefined,
-      fhirLocation: Location | undefined,
-      fhirPatient: Patient | undefined,
-      fhirRelatedPerson: RelatedPerson | undefined;
+    let fhirAppointment: Appointment | undefined, fhirLocation: Location | undefined, fhirPatient: Patient | undefined;
     const allResources = (
-      await oystehr.fhir.search<Appointment | Location | Patient | RelatedPerson>({
+      await oystehr.fhir.search<Appointment | Location | Patient>({
         resourceType: 'Appointment',
         params: [
           {
@@ -86,15 +87,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       if (resource.resourceType === 'Patient') {
         fhirPatient = resource as Patient;
       }
-      if (resource.resourceType === 'RelatedPerson') {
-        const relatedPerson = resource as RelatedPerson;
-        const isUserRelatedPerson = relatedPerson.relationship?.find(
-          (relationship) => relationship.coding?.find((code) => code.code === 'user-relatedperson')
-        );
-        if (isUserRelatedPerson) {
-          fhirRelatedPerson = relatedPerson;
-        }
-      }
     });
 
     const missingResources = [];
@@ -106,41 +98,41 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       throw new Error(`missing the following vital resources: ${missingResources.join(',')}`);
     }
 
+    console.log('formatting information included in email');
+    const email = getPatientContactEmail(fhirPatient);
     const timezone = fhirLocation.extension?.find(
       (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
     )?.valueString;
+    const startTime = DateTime.fromISO(fhirAppointment?.start || '')
+      .setZone(timezone)
+      .toFormat(DATETIME_FULL_NO_YEAR);
     const visitType = fhirAppointment.appointmentType?.text ?? 'Unknown';
+    console.log('info', email, timezone, startTime, visitType);
 
-    console.log('sending confirmation messages for new appointment');
-    const startTime = visitType === VisitType.WalkIn ? DateTime.now() : DateTime.fromISO(fhirAppointment.start ?? '');
-
-    if (fhirAppointment.id && startTime.isValid) {
+    if (email) {
+      console.group('sendCancellationEmail');
       try {
-        await sendInPersonMessages(
-          getPatientContactEmail(fhirPatient),
-          getPatientFirstName(fhirPatient),
-          `RelatedPerson/${fhirRelatedPerson?.id}`,
-          startTime.setZone(timezone).toFormat(DATETIME_FULL_NO_YEAR),
+        await sendInPersonCancellationEmail({
+          email,
+          startTime,
           secrets,
-          fhirLocation,
-          fhirAppointment.id,
+          scheduleResource: fhirLocation,
           visitType,
-          'en', // todo: pass this in from somewhere
-          zapehrToken
-        );
-        console.log('messages sent successfully');
+          language: 'en',
+        });
         taskStatusToUpdate = 'completed';
-        statusReasonToUpdate = 'messages sent successfully';
-      } catch (err) {
-        console.log('failed to send messages', err, JSON.stringify(err));
-        taskStatusToUpdate = 'failed';
-        statusReasonToUpdate = 'sending messages failed';
+        statusReasonToUpdate = 'email sent successfully';
+        console.groupEnd();
+      } catch (error: any) {
+        console.error('error sending email', error);
+        console.groupEnd();
       }
     } else {
-      console.log('invalid appointment ID or start time. skipping sending confirmation messages.');
       taskStatusToUpdate = 'failed';
-      statusReasonToUpdate = 'sending messages failed';
+      statusReasonToUpdate = 'could not find email for patient';
+      console.log('No email found. Skipping sending email.');
     }
+
     if (!taskStatusToUpdate) {
       console.log('no task was attempted');
       taskStatusToUpdate = 'failed';
@@ -149,7 +141,29 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     // update task status and status reason
     console.log('making patch request to update task status');
-    const patchedTask = await patchTaskStatus({ task, taskStatusToUpdate, statusReasonToUpdate }, oystehr);
+    const patchedTask = await oystehr.fhir.patch({
+      resourceType: 'Task',
+      id: task.id || '',
+      operations: [
+        {
+          op: 'replace',
+          path: '/status',
+          value: taskStatusToUpdate,
+        },
+        {
+          op: 'add',
+          path: '/statusReason',
+          value: {
+            coding: [
+              {
+                system: 'status-reason',
+                code: statusReasonToUpdate || 'no reason given',
+              },
+            ],
+          },
+        },
+      ],
+    });
 
     console.log('successfully patched task');
     console.log(JSON.stringify(patchedTask));
@@ -164,6 +178,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('sub-confirmation-messages', error, input.secrets, captureSentryException);
+    return topLevelCatch('sub-cancellation-email', error, input.secrets, captureSentryException);
   }
 });
