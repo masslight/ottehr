@@ -1,16 +1,23 @@
 import { BrowserContext, Page, expect, test } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
-import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
+import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
+import { PaperworkTelemed } from '../../utils/telemed/Paperwork';
 import { UploadImage } from '../../utils/UploadImage';
 
 let page: Page;
 let context: BrowserContext;
-let flowClass: PrebookInPersonFlow;
-let bookingData: Awaited<ReturnType<PrebookInPersonFlow['startVisit']>>;
+let flowClass: PrebookTelemedFlow;
+let bookingData: Awaited<ReturnType<PrebookTelemedFlow['startVisitFullFlow']>>;
 let paperwork: Paperwork;
+let paperworkTelemed: PaperworkTelemed;
+let medications: Awaited<ReturnType<PaperworkTelemed['fillAndCheckFilledCurrentMedications']>>;
+let medHistory: Awaited<ReturnType<PaperworkTelemed['fillAndCheckFilledMedicalHistory']>>;
+let surgicalHistory: Awaited<ReturnType<PaperworkTelemed['fillAndCheckFilledSurgicalHistory']>>;
+let allergies: Awaited<ReturnType<PaperworkTelemed['fillAndCheckFilledCurrentAllergies']>>;
+let additionalQuestions: Awaited<ReturnType<PaperworkTelemed['fillAndCheckAdditionalQuestions']>>;
 let locator: Locators;
 let uploadPhoto: UploadImage;
 let pcpData: Awaited<ReturnType<Paperwork['fillPrimaryCarePhysician']>>;
@@ -32,12 +39,13 @@ test.beforeAll(async ({ browser }) => {
       }
     }
   });
-  flowClass = new PrebookInPersonFlow(page);
+  flowClass = new PrebookTelemedFlow(page);
   paperwork = new Paperwork(page);
+  paperworkTelemed = new PaperworkTelemed(page);
   locator = new Locators(page);
   uploadPhoto = new UploadImage(page);
   commonLocatorsHelper = new CommonLocatorsHelper(page);
-  bookingData = await flowClass.startVisit();
+  bookingData = await flowClass.startVisitFullFlow();
 });
 test.afterAll(async () => {
   await page.close();
@@ -61,13 +69,16 @@ test.describe('Contact information screen - Check and fill all fields', () => {
     await paperwork.fillContactInformationAllFields();
   });
   test('PCI-3 Contact Information - Check email is prefilled', async () => {
-    await paperwork.checkEmailIsPrefilled(bookingData.email);
+    await paperwork.checkEmailIsPrefilled(bookingData.patientBasicInfo.email);
   });
   test('PCI-4 Contact Information - Check mobile is prefilled', async () => {
     await paperwork.checkMobileIsPrefilled(process.env.PHONE_NUMBER || '');
   });
   test('PCI-5 Contact Information - Check patient name is displayed', async () => {
-    await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
+    await paperwork.checkPatientNameIsDisplayed(
+      bookingData.patientBasicInfo.firstName,
+      bookingData.patientBasicInfo.lastName
+    );
   });
   test('PPD-1 Click on [Continue] - Patient details screen opens', async () => {
     await locator.clickContinueButton();
@@ -82,13 +93,20 @@ test.describe('Patient details screen - Check and fill all fields', () => {
     await paperwork.checkCorrectPageOpens('Patient details');
   });
   test('PPD-1 Check required fields', async () => {
-    await paperwork.checkRequiredFields('"Ethnicity","Race","Preferred language"', 'Patient details', true);
+    await paperwork.checkRequiredFields(
+      '"Ethnicity","Race","Preferred language","Do you require a Hearing Impaired Relay Service? (711)"',
+      'Patient details',
+      true
+    );
   });
   test('PPD-2 Fill Patient details all fields', async () => {
-    await paperwork.fillPatientDetailsAllFields();
+    await paperwork.fillPatientDetailsTelemedAllFields();
   });
   test('PPD-3 Patient details - Check patient name is displayed', async () => {
-    await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
+    await paperwork.checkPatientNameIsDisplayed(
+      bookingData.patientBasicInfo.firstName,
+      bookingData.patientBasicInfo.lastName
+    );
   });
   test('PPD-4 Patient details - Fill not listed pronoun', async () => {
     await paperwork.fillNotListedPronouns();
@@ -106,11 +124,14 @@ test.describe('Primary Care Physician - Check and fill all fields', () => {
     await paperwork.checkCorrectPageOpens('Primary Care Physician');
   });
   test('PPCP-1 Primary Care Physician - Check patient name is displayed', async () => {
-    await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
+    await paperwork.checkPatientNameIsDisplayed(
+      bookingData.patientBasicInfo.firstName,
+      bookingData.patientBasicInfo.lastName
+    );
   });
-  test('PPCP-2 Click on [Continue] with empty fields - Primary Care Physician opens', async () => {
+  test('PPCP-2 Click on [Continue] with empty fields - Current medications opens', async () => {
     await locator.clickContinueButton();
-    await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
+    await paperwork.checkCorrectPageOpens('Current medications');
   });
   test('PPCP-3 Click on [Back] - Primary Care Physician opens', async () => {
     await locator.clickBackButton();
@@ -122,7 +143,7 @@ test.describe('Primary Care Physician - Check and fill all fields', () => {
   test('PPCP-5 Fill all fields and click [Continue]', async () => {
     pcpData = await paperwork.fillPrimaryCarePhysician();
     await locator.clickContinueButton();
-    await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
+    await paperwork.checkCorrectPageOpens('Current medications');
   });
   test('PPCP-6 Click on [Back] - fields have correct values', async () => {
     await locator.clickBackButton();
@@ -131,6 +152,212 @@ test.describe('Primary Care Physician - Check and fill all fields', () => {
     await expect(locator.pcpAddress).toHaveValue(pcpData.pcpAddress);
     await expect(locator.pcpPractice).toHaveValue(pcpData.pcpName);
     await expect(locator.pcpNumber).toHaveValue(pcpData.formattedPhoneNumber);
+  });
+});
+test.describe('Current medications', () => {
+  test.describe.configure({ mode: 'serial' });
+  test('PCM-1 Current medications - Check page opens', async () => {
+    await page.goto(`paperwork/${bookingData.bookingUUID}/current-medications`);
+    await page.waitForLoadState('networkidle');
+    await paperwork.checkCorrectPageOpens('Current medications');
+  });
+  test('PCM-2 Current medications - Check required fields', async () => {
+    await paperwork.checkRequiredFields('"Select option"', 'Current medications', false);
+  });
+  test('PCM-3 Current medications - Check patient name is displayed', async () => {
+    await paperwork.checkPatientNameIsDisplayed(
+      bookingData.patientBasicInfo.firstName,
+      bookingData.patientBasicInfo.lastName
+    );
+  });
+  test('PCM-4 Current medications - Select "Patient takes medication", then select "Patient does not take medications" and click [Continue]', async () => {
+    await locator.currentMedicationsPresent.click();
+    await locator.currentMedicationsAbsent.click();
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Current allergies');
+  });
+  test('PCM-5 Current medications - Go back from next page, "Patient does not take medications" is selected', async () => {
+    await locator.clickBackButton();
+    await paperwork.checkCorrectPageOpens('Current medications');
+    await paperworkTelemed.checkEmptyCurrentMedications();
+  });
+  test('PCM-6 Current medications - Fill and check filled medications', async () => {
+    medications = await paperworkTelemed.fillAndCheckFilledCurrentMedications();
+  });
+  test('PCM-7 Current medications - Check filled medications after reload', async () => {
+    await page.reload();
+    await paperworkTelemed.checkFilledCurrentMedications([medications.filledValue, medications.selectedValue]);
+  });
+  test('PCM-8 Current medications - Delete medications', async () => {
+    await locator.deleteButton.nth(0).click();
+    await locator.deleteButton.click();
+    await paperworkTelemed.checkEnteredDataIsRemoved([medications.filledValue, medications.selectedValue]);
+  });
+  test('PCM-9 Current medications - Click [Continue] after removing medications', async () => {
+    await locator.clickContinueButton();
+    await expect(locator.paperworkErrorInFieldAboveMessage).toBeVisible();
+  });
+});
+test.describe('Current allergies', () => {
+  test.describe.configure({ mode: 'serial' });
+  test('PCA-1 Current allergies - Check page opens', async () => {
+    await page.goto(`paperwork/${bookingData.bookingUUID}/allergies`);
+    await page.waitForLoadState('networkidle');
+    await paperwork.checkCorrectPageOpens('Current allergies');
+  });
+  test('PCA-2 Current allergies - Check required fields', async () => {
+    await paperwork.checkRequiredFields('"Select option"', 'Current allergies', false);
+  });
+  test('PCA-3 Current allergies - Check patient name is displayed', async () => {
+    await paperwork.checkPatientNameIsDisplayed(
+      bookingData.patientBasicInfo.firstName,
+      bookingData.patientBasicInfo.lastName
+    );
+  });
+  test('PCA-4 Current allergies - Select "Patient has known current allergies", then select "Patient has no known current allergies" and click [Continue]', async () => {
+    await locator.knownAllergiesPresent.click();
+    await locator.knownAllergiesAbsent.click();
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Medical history');
+  });
+  test('PCA-5 Current allergies - Go back from next page, "Patient has no known current allergies" is selected', async () => {
+    await locator.clickBackButton();
+    await paperwork.checkCorrectPageOpens('Current allergies');
+    await paperworkTelemed.checkEmptyCurrentAllergies();
+  });
+  test('PCA-6 Current allergies - Fill and check filled allergies', async () => {
+    allergies = await paperworkTelemed.fillAndCheckFilledCurrentAllergies();
+  });
+  test('PCA-7 Current allergies - Check filled allergies after reload', async () => {
+    await page.reload();
+    await paperworkTelemed.checkFilledCurrentAllergies([allergies.filledValue, allergies.selectedValue]);
+  });
+  test('PCA-8 Current allergies - Delete allergies', async () => {
+    await locator.deleteButton.nth(0).click();
+    await locator.deleteButton.click();
+    await paperworkTelemed.checkEnteredDataIsRemoved([allergies.filledValue, allergies.selectedValue]);
+  });
+  // TODO: Need to remove skip when https://github.com/masslight/ottehr/issues/1650 is fixed
+  test.skip('PCA-9 Current allergies - Click [Continue] after removing allergies', async () => {
+    await locator.clickContinueButton();
+    await expect(locator.paperworkErrorInFieldAboveMessage).toBeVisible();
+  });
+});
+test.describe('Medical history', () => {
+  test.describe.configure({ mode: 'serial' });
+  test('PMH-1 Medical history - Check page opens', async () => {
+    await page.goto(`paperwork/${bookingData.bookingUUID}/medical-history`);
+    await page.waitForLoadState('networkidle');
+    await paperwork.checkCorrectPageOpens('Medical history');
+  });
+  test('PMH-2 Medical history - Check required fields', async () => {
+    await paperwork.checkRequiredFields('"Select option"', 'Medical history', false);
+  });
+  test('PMH-3 Medical history - Check patient name is displayed', async () => {
+    await paperwork.checkPatientNameIsDisplayed(
+      bookingData.patientBasicInfo.firstName,
+      bookingData.patientBasicInfo.lastName
+    );
+  });
+  test('PMH-4 Medical history - Select "Patient has current medical conditions", then select "Patient has no current medical conditions" and click [Continue]', async () => {
+    await locator.medicalConditionsPresent.click();
+    await locator.medicalConditionsAbsent.click();
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Surgical history');
+  });
+  test('PMH-5 Medical history - Go back from next page, "Patient has no current medical conditions" is selected', async () => {
+    await locator.clickBackButton();
+    await paperwork.checkCorrectPageOpens('Medical history');
+    await paperworkTelemed.checkEmptyMedicalHistory();
+  });
+  test('PMH-6 Medical history - Fill and check filled medical history', async () => {
+    medHistory = await paperworkTelemed.fillAndCheckFilledMedicalHistory();
+  });
+  test('PMH-7 Medical history - Check filled medical history after reload', async () => {
+    await page.reload();
+    await paperworkTelemed.checkFilledMedicalHistory([medHistory.filledValue, medHistory.selectedValue]);
+  });
+  test('PMH-8 Medical history - Delete medical history', async () => {
+    await locator.deleteButton.nth(0).click();
+    await locator.deleteButton.click();
+    await paperworkTelemed.checkEnteredDataIsRemoved([medHistory.filledValue, medHistory.selectedValue]);
+  });
+  test('PMH-9 Medical history - Click [Continue] after removing medical history', async () => {
+    await locator.clickContinueButton();
+    await expect(locator.paperworkErrorInFieldAboveMessage).toBeVisible();
+  });
+});
+test.describe('Surgical history', () => {
+  test.describe.configure({ mode: 'serial' });
+  test('PSH-1 Surgical history - Check page opens', async () => {
+    await page.goto(`paperwork/${bookingData.bookingUUID}/surgical-history`);
+    await page.waitForLoadState('networkidle');
+    await paperwork.checkCorrectPageOpens('Surgical history');
+  });
+  test('PSH-2 Surgical history - Check required fields', async () => {
+    await paperwork.checkRequiredFields('"Select option"', 'Surgical history', false);
+  });
+  test('PSH-3 Surgical history - Check patient name is displayed', async () => {
+    await paperwork.checkPatientNameIsDisplayed(
+      bookingData.patientBasicInfo.firstName,
+      bookingData.patientBasicInfo.lastName
+    );
+  });
+  test('PSH-4 Surgical history - Select "Patient has surgical history", then select "Patient has no surgical history" and click [Continue]', async () => {
+    await locator.surgicalHistoryPresent.click();
+    await locator.surgicalHistoryAbsent.click();
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Additional questions');
+  });
+  test('PSH-5 Surgical history - Go back from next page, "Patient has no surgical history" is selected', async () => {
+    await locator.clickBackButton();
+    await paperwork.checkCorrectPageOpens('Surgical history');
+    await paperworkTelemed.checkEmptySurgicalHistory();
+  });
+  test('PSH-6 Surgical history - Fill and check filled surgical history', async () => {
+    surgicalHistory = await paperworkTelemed.fillAndCheckFilledSurgicalHistory();
+  });
+  test('PSH-7 Surgical history - Check filled surgical history after reload', async () => {
+    await page.reload();
+    await paperworkTelemed.checkFilledSurgicalHistory([surgicalHistory.filledValue, surgicalHistory.selectedValue]);
+  });
+  test('PSH-8 Surgical history - Delete surgical history', async () => {
+    await locator.deleteButton.nth(0).click();
+    await locator.deleteButton.click();
+    await paperworkTelemed.checkEnteredDataIsRemoved([surgicalHistory.filledValue, surgicalHistory.selectedValue]);
+  });
+  test('PSH-9 Surgical history - Click [Continue] after removing surgical history', async () => {
+    await locator.clickContinueButton();
+    await expect(locator.paperworkErrorInFieldAboveMessage).toBeVisible();
+  });
+});
+test.describe('Additional questions', () => {
+  test.describe.configure({ mode: 'serial' });
+  test('PAQ-1 Additional questions - Check page opens', async () => {
+    await page.goto(`paperwork/${bookingData.bookingUUID}/additional`);
+    await page.waitForLoadState('networkidle');
+    await paperwork.checkCorrectPageOpens('Additional questions');
+  });
+  test('PAQ-2 Click on [Continue] with empty fields - How would you like to pay for your visit? opens', async () => {
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
+  });
+  test('PAQ-3 Click on [Back] - Additional questions opens', async () => {
+    await locator.clickBackButton();
+    await paperwork.checkCorrectPageOpens('Additional questions');
+  });
+  test('PAQ-4 Additional questions - Check patient name is displayed', async () => {
+    await paperwork.checkPatientNameIsDisplayed(
+      bookingData.patientBasicInfo.firstName,
+      bookingData.patientBasicInfo.lastName
+    );
+  });
+  test('PAQ-5 Additional questions - Fill and check filled additional questions', async () => {
+    additionalQuestions = await paperworkTelemed.fillAndCheckAdditionalQuestions();
+  });
+  test('PAQ-6 Additional questions - Check filled additional questions after reload', async () => {
+    await page.reload();
+    await paperworkTelemed.checkAdditionalQuestions(additionalQuestions);
   });
 });
 test.describe('Payment option - Check Self pay and insurance options', () => {
@@ -144,7 +371,10 @@ test.describe('Payment option - Check Self pay and insurance options', () => {
     await paperwork.checkRequiredFields('"Select payment option"', 'How would you like to pay for your visit?', false);
   });
   test('PPO-3 Payment option - Check patient name is displayed', async () => {
-    await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
+    await paperwork.checkPatientNameIsDisplayed(
+      bookingData.patientBasicInfo.firstName,
+      bookingData.patientBasicInfo.lastName
+    );
   });
   test('PPO-4 Payment option - Select self pay and click [Continue]', async () => {
     await paperwork.selectSelfPayPayment();
@@ -360,7 +590,10 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await paperwork.checkCorrectPageOpens('Responsible party information');
   });
   test('PRPI-1 Check patient name is displayed', async () => {
-    await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
+    await paperwork.checkPatientNameIsDisplayed(
+      bookingData.patientBasicInfo.firstName,
+      bookingData.patientBasicInfo.lastName
+    );
   });
   test('PRPI-2 Check required fields', async () => {
     await paperwork.checkRequiredFields(
@@ -373,16 +606,19 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await paperwork.checkPhoneValidations(locator.responsiblePartyNumber);
   });
   test('PRPI-4 Select self - check fields are prefilled with correct values', async () => {
-    const dob = await commonLocatorsHelper.getMonthDay(bookingData.dobMonth, bookingData.dobDay);
+    const dob = await commonLocatorsHelper.getMonthDay(
+      bookingData.patientBasicInfo.dob.m,
+      bookingData.patientBasicInfo.dob.d
+    );
     if (!dob) {
       throw new Error('DOB data is null');
     }
     await paperwork.fillResponsiblePartyDataSelf();
-    await expect(locator.responsiblePartyFirstName).toHaveValue(bookingData.firstName);
-    await expect(locator.responsiblePartyLastName).toHaveValue(bookingData.lastName);
-    await expect(locator.responsiblePartyBirthSex).toHaveValue(bookingData.birthSex);
+    await expect(locator.responsiblePartyFirstName).toHaveValue(bookingData.patientBasicInfo.firstName);
+    await expect(locator.responsiblePartyLastName).toHaveValue(bookingData.patientBasicInfo.lastName);
+    await expect(locator.responsiblePartyBirthSex).toHaveValue(bookingData.patientBasicInfo.birthSex);
     await expect(locator.responsiblePartyDOBAnswer).toHaveValue(
-      `${dob?.monthNumber}/${dob?.dayNumber}/${bookingData.dobYear}`
+      `${dob?.monthNumber}/${dob?.dayNumber}/${bookingData.patientBasicInfo.dob.y}`
     );
   });
   test('PRPI-5 Select self - check fields are disabled', async () => {
@@ -436,7 +672,10 @@ test.describe('Photo ID - Upload photo', () => {
     await paperwork.checkCorrectPageOpens('Photo ID');
   });
   test('PPID-2 Photo ID - Check patient name is displayed', async () => {
-    await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
+    await paperwork.checkPatientNameIsDisplayed(
+      bookingData.patientBasicInfo.firstName,
+      bookingData.patientBasicInfo.lastName
+    );
   });
   test('PPID-3 Upload and Clear images', async () => {
     const uploadedFrontPhoto = await uploadPhoto.fillPhotoFrontID();
@@ -455,10 +694,40 @@ test.describe('Photo ID - Upload photo', () => {
   });
   test('PPID-6 Open next page, click [Back] - check images are saved', async () => {
     await locator.clickContinueButton();
-    await paperwork.checkCorrectPageOpens('Complete consent forms');
+    await paperwork.checkCorrectPageOpens('Patient condition');
     await locator.clickBackButton();
     await paperwork.checkImagesIsSaved(locator.photoIdFrontImage);
     await paperwork.checkImagesIsSaved(locator.photoIdBackImage);
+  });
+});
+test.describe('Patient condition', () => {
+  test.describe.configure({ mode: 'serial' });
+  test('PPC-1 Open Patient condition', async () => {
+    await page.goto(`paperwork/${bookingData.bookingUUID}/patient-condition`);
+    await page.waitForLoadState('networkidle');
+    await paperwork.checkCorrectPageOpens('Patient condition');
+  });
+  test('PPC-2 Patient condition - Check patient name is displayed', async () => {
+    await paperwork.checkPatientNameIsDisplayed(
+      bookingData.patientBasicInfo.firstName,
+      bookingData.patientBasicInfo.lastName
+    );
+  });
+  test('PPC-3 Upload and Clear image', async () => {
+    const uploadedPhoto = await uploadPhoto.fillPatientConditionPhotoPaperwork();
+    await locator.clearImage.click();
+    await expect(uploadedPhoto).toBeHidden();
+  });
+  test('PPC-4 Upload image, reload page, check image is saved', async () => {
+    await uploadPhoto.fillPatientConditionPhotoPaperwork();
+    await page.reload();
+    await paperwork.checkImagesIsSaved(locator.photoPatientCondition);
+  });
+  test('PPC-5 Open next page, click [Back] - check images are saved', async () => {
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Do you need a school or work note?');
+    await locator.clickBackButton();
+    await paperwork.checkImagesIsSaved(locator.photoPatientCondition);
   });
 });
 test.describe('Consent forms - Check and fill all fields', () => {
@@ -469,7 +738,10 @@ test.describe('Consent forms - Check and fill all fields', () => {
     await paperwork.checkCorrectPageOpens('Complete consent forms');
   });
   test('PCF-2 Consent Forms - Check patient name is displayed', async () => {
-    await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
+    await paperwork.checkPatientNameIsDisplayed(
+      bookingData.patientBasicInfo.firstName,
+      bookingData.patientBasicInfo.lastName
+    );
   });
   test('PCF-3 Consent Forms - Check required fields', async () => {
     await paperwork.checkRequiredFields(
@@ -491,7 +763,7 @@ test.describe('Consent forms - Check and fill all fields', () => {
   test('PCF-7 Consent Forms - Fill all data and click on [Continue]', async () => {
     consentFormsData = await paperwork.fillConsentForms();
     await locator.clickContinueButton();
-    await paperwork.checkCorrectPageOpens('Review and submit');
+    await paperwork.checkCorrectPageOpens('Would you like someone to join this call?');
   });
   test('PCF-8 Consent Forms - Check that values are saved after coming back', async () => {
     await locator.clickBackButton();

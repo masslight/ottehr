@@ -51,7 +51,7 @@
     "@types/luxon": "^3.3.2",
     "archiver": "^7.0.1",
     "cors": "^2.8.5",
-    "esbuild": "^0.18.20",
+    "esbuild": "^0.25.1",
     "esbuild-plugin-copy": "^2.1.1",
     "express": "^4.21.2",
     "glob": "^11.0.1",

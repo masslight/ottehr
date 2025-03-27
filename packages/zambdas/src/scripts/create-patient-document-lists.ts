@@ -1,7 +1,6 @@
 import { DocumentReference, List, Patient } from 'fhir/r4b';
 import { FOLDERS_CONFIG } from 'utils/lib/fhir/constants';
-import { createOystehrClientFromConfig } from './helpers';
-import { performEffectWithEnvFile } from 'utils';
+import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpers';
 
 const createPatientDocumentLists = async (config: any): Promise<void> => {
   const oystehr = await createOystehrClientFromConfig(config);

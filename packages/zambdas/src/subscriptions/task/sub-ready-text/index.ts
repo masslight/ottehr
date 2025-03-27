@@ -1,9 +1,9 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Location, Patient, Task } from 'fhir/r4b';
+import { Appointment, Location, Patient, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR, Secrets, TaskStatus, getPatientContactEmail } from 'utils';
-import '../../../../shared/instrument.mjs';
+import { DATETIME_FULL_NO_YEAR, TaskStatus, getPatientContactEmail } from 'utils';
+import '../../../shared/instrument.mjs';
 import {
   captureSentryException,
   createOystehrClient,
@@ -11,19 +11,15 @@ import {
   getAuth0Token,
   topLevelCatch,
   ZambdaInput,
-} from '../../../../shared';
+} from '../../../shared';
+import { sendText } from '../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
-import { sendInPersonCancellationEmail } from '../../../../shared/communication';
-
-export interface TaskSubscriptionInput {
-  task: Task;
-  secrets: Secrets | null;
-}
+import { patchTaskStatus } from '../../helpers';
 
 let zapehrToken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('sub-cancellation-email', input.secrets);
+  configSentry('sub-ready-text', input.secrets);
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     console.group('validateRequestParameters');
@@ -51,9 +47,12 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('appointment ID parsed: ', appointmentID);
 
     console.log('searching for appointment, location and patient resources related to this task');
-    let fhirAppointment: Appointment | undefined, fhirLocation: Location | undefined, fhirPatient: Patient | undefined;
+    let fhirAppointment: Appointment | undefined,
+      fhirLocation: Location | undefined,
+      fhirPatient: Patient | undefined,
+      fhirRelatedPerson: RelatedPerson | undefined;
     const allResources = (
-      await oystehr.fhir.search<Appointment | Location | Patient>({
+      await oystehr.fhir.search<Appointment | Location | Patient | RelatedPerson>({
         resourceType: 'Appointment',
         params: [
           {
@@ -87,6 +86,15 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       if (resource.resourceType === 'Patient') {
         fhirPatient = resource as Patient;
       }
+      if (resource.resourceType === 'RelatedPerson') {
+        const relatedPerson = resource as RelatedPerson;
+        const isUserRelatedPerson = relatedPerson.relationship?.find(
+          (relationship) => relationship.coding?.find((code) => code.code === 'user-relatedperson')
+        );
+        if (isUserRelatedPerson) {
+          fhirRelatedPerson = relatedPerson;
+        }
+      }
     });
 
     const missingResources = [];
@@ -109,28 +117,16 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const visitType = fhirAppointment.appointmentType?.text ?? 'Unknown';
     console.log('info', email, timezone, startTime, visitType);
 
-    if (email) {
-      console.group('sendCancellationEmail');
-      try {
-        await sendInPersonCancellationEmail({
-          email,
-          startTime,
-          secrets,
-          scheduleResource: fhirLocation,
-          visitType,
-          language: 'en',
-        });
-        taskStatusToUpdate = 'completed';
-        statusReasonToUpdate = 'email sent successfully';
-        console.groupEnd();
-      } catch (error: any) {
-        console.error('error sending email', error);
-        console.groupEnd();
-      }
+    if (fhirRelatedPerson) {
+      const message =
+        'Please set up access to your patient portal so you can view test results and discharge information: https://ottehr.com/patient-portal';
+      const { taskStatus, statusReason } = await sendText(message, fhirRelatedPerson, zapehrToken, secrets);
+      taskStatusToUpdate = taskStatus;
+      statusReasonToUpdate = statusReason;
     } else {
       taskStatusToUpdate = 'failed';
-      statusReasonToUpdate = 'could not find email for patient';
-      console.log('No email found. Skipping sending email.');
+      statusReasonToUpdate = 'could not retrieve related person to get sms number';
+      console.log('No related person found. Skipping sending text');
     }
 
     if (!taskStatusToUpdate) {
@@ -141,29 +137,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     // update task status and status reason
     console.log('making patch request to update task status');
-    const patchedTask = await oystehr.fhir.patch({
-      resourceType: 'Task',
-      id: task.id || '',
-      operations: [
-        {
-          op: 'replace',
-          path: '/status',
-          value: taskStatusToUpdate,
-        },
-        {
-          op: 'add',
-          path: '/statusReason',
-          value: {
-            coding: [
-              {
-                system: 'status-reason',
-                code: statusReasonToUpdate || 'no reason given',
-              },
-            ],
-          },
-        },
-      ],
-    });
+    const patchedTask = await patchTaskStatus({ task, taskStatusToUpdate, statusReasonToUpdate }, oystehr);
 
     console.log('successfully patched task');
     console.log(JSON.stringify(patchedTask));
@@ -178,6 +152,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('sub-cancellation-email', error, input.secrets, captureSentryException);
+    return topLevelCatch('sub-ready-text', error, input.secrets, captureSentryException);
   }
 });

@@ -33,13 +33,28 @@ export const AboutPatientContainer: FC = () => {
         />
       </Row>
       <Row label="Middle name" inputId={FormFields.middleName.key}>
-        <FormTextField name={FormFields.middleName.key} control={control} id={FormFields.middleName.key} />
+        <FormTextField
+          name={FormFields.middleName.key}
+          control={control}
+          id={FormFields.middleName.key}
+          data-testid={dataTestIds.patientInformationContainer.patientMiddleName}
+        />
       </Row>
       <Row label="Suffix" inputId={FormFields.suffix.key}>
-        <FormTextField name={FormFields.suffix.key} control={control} id={FormFields.suffix.key} />
+        <FormTextField
+          name={FormFields.suffix.key}
+          control={control}
+          id={FormFields.suffix.key}
+          data-testid={dataTestIds.patientInformationContainer.patientSuffix}
+        />
       </Row>
       <Row label="Preferred name" inputId={FormFields.preferredName.key}>
-        <FormTextField name={FormFields.preferredName.key} control={control} id={FormFields.preferredName.key} />
+        <FormTextField
+          name={FormFields.preferredName.key}
+          control={control}
+          id={FormFields.preferredName.key}
+          data-testid={dataTestIds.patientInformationContainer.patientPreferredName}
+        />
       </Row>
       <Row label="Date of birth" inputId={FormFields.birthDate.key} required>
         <DatePicker
@@ -47,11 +62,16 @@ export const AboutPatientContainer: FC = () => {
           name={FormFields.birthDate.key}
           control={control}
           required={true}
-          data-testid={dataTestIds.patientInformationContainer.patientDOB}
+          dataTestId={dataTestIds.patientInformationContainer.patientDateOfBirth}
         />
       </Row>
       <Row label="Preferred pronouns">
-        <FormSelect name={FormFields.pronouns.key} control={control} options={PRONOUN_OPTIONS} />
+        <FormSelect
+          name={FormFields.pronouns.key}
+          control={control}
+          options={PRONOUN_OPTIONS}
+          data-testid={dataTestIds.patientInformationContainer.patientPreferredPronouns}
+        />
       </Row>
       <Row label="Birth sex" required>
         <FormSelect

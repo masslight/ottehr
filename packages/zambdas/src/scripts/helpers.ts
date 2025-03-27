@@ -15,6 +15,7 @@ import {
   Resource,
   Substance,
 } from 'fhir/r4b';
+import path from 'path';
 import { createOystehrClient, getSecret, Secrets, SecretsKeys } from 'utils';
 import { getAuth0Token } from '../shared';
 
@@ -215,3 +216,15 @@ function createOystehrClientFromSecrets(token: string, secrets: Secrets | null):
   const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
   return createOystehrClient(token, FHIR_API, PROJECT_API);
 }
+
+export const performEffectWithEnvFile = async (callback: (config: any) => void): Promise<void> => {
+  const env = process.argv[2];
+  try {
+    const configPath = path.resolve(__dirname, `../../.env/${env}.json`);
+    const config = await import(configPath);
+    await callback(config);
+  } catch (e) {
+    console.error(e);
+    throw new Error(`can't import config for the environment: '${env}'`);
+  }
+};

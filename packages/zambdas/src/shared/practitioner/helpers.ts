@@ -7,6 +7,7 @@ export const getVisitResources = async (
   oystehr: Oystehr,
   encounterId: string
 ): Promise<EncounterPackage | undefined> => {
+  console.log('getVisitResources', encounterId);
   const items: Array<Appointment | Encounter | Patient | Location | Practitioner | PractitionerRole> = (
     await oystehr.fhir.search<Appointment | Encounter | Patient | Location | Practitioner | PractitionerRole>({
       resourceType: 'Encounter',

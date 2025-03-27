@@ -1,19 +1,18 @@
 import Oystehr from '@oystehr/sdk';
 import { Medication, Resource } from 'fhir/r4b';
 import {
+  CODE_SYSTEM_CPT, CODE_SYSTEM_NDC,
   getMedicationName,
+  getMedicationTypeCode, getResourcesFromBatchInlineRequests,
   InHouseMedicationInfo,
   InHouseMedications,
   INVENTORY_MEDICATION_TYPE_CODE,
   MEDICATION_IDENTIFIER_ADMIN_CODE_SYSTEM,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
-  performEffectWithEnvFile,
 } from 'utils';
-
-import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC, getMedicationTypeCode, getResourcesFromBatchInlineRequests } from 'utils';
 import { getAuth0Token } from '../shared';
-import { fhirApiUrlFromAuth0Audience } from './helpers';
+import { fhirApiUrlFromAuth0Audience, performEffectWithEnvFile } from './helpers';
 
 const checkAndUpdateInHouseMedications = async (config: any): Promise<void> => {
   const token = await getAuth0Token(config);
