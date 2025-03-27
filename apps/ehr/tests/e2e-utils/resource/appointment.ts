@@ -60,9 +60,7 @@ export function createAppointment({
     resourceType: 'Appointment',
     meta: {
       tag: [
-        {
-          code: 'OTTEHR-IP',
-        },
+        { code: 'OTTEHR-IP' },
         {
           system: 'created-by',
           display: createdBy || 'System',

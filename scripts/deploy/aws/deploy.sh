@@ -20,7 +20,7 @@ fi
 
 pushd packages/zambdas
 ENV=$environment npm run deploy-zambdas $environment
-ENV=$environment npm run setup-zapehr-secrets $environment
+ENV=$environment npm run setup-secrets $environment
 ENV=$environment npm run setup-deployed-resources $environment
 popd
 
@@ -32,32 +32,29 @@ pushd apps/ehr
 npm run build:env --env=$environment
 popd
 
-# first cdk deploy creates cloudformation distributions
-pushd scripts/deploy/aws
+# bootstrap if necessary
 if $first_setup; then
+    pushd scripts/deploy/aws
     npx cdk bootstrap
-    npx cdk deploy
+    popd
 fi
+
+# first deploy creates infra
+pushd scripts/deploy/aws
+npx cdk deploy --require-approval=never "ottehr-infra-stack-${environment}"
+# update env files
+npx ts-node ./bin/update-config.ts
 popd
 
-# second cdk deploy updates env files
+# recompile apps with updated env files
 pushd apps/intake
 npm run build:env --env=$environment
 popd
 pushd apps/ehr
 npm run build:env --env=$environment
 popd
-pushd scripts/deploy/aws
-npx cdk deploy
-popd
 
-# third cdk deploy deploys updated code with updated env vars
-pushd apps/intake
-npm run build:env --env=$environment
-popd
-pushd apps/ehr
-npm run build:env --env=$environment
-popd
+# second cdk deploy uploads compiled apps
 pushd scripts/deploy/aws
-npx cdk deploy
+npx cdk deploy --require-approval=never "ottehr-data-stack-${environment}"
 popd

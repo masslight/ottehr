@@ -9,10 +9,9 @@ export class TelemedProgressNotePage extends BaseProgressNotePage {
     super(page);
     this.#page = page;
   }
-}
 
-export async function expectTelemedProgressNotePage(page: Page): Promise<TelemedProgressNotePage> {
-  await page.waitForURL(new RegExp('/telemed/.*'));
-  await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
-  return new TelemedProgressNotePage(page);
+  async expectLoaded(): Promise<void> {
+    await this.#page.waitForURL(new RegExp('/telemed/.*'));
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
+  }
 }

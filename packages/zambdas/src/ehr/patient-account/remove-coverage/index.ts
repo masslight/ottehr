@@ -1,5 +1,4 @@
-import { Secrets, topLevelCatch, ZambdaInput } from 'zambda-utils';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared/helpers';
+import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   AUDIT_EVENT_OUTCOME_CODE,
@@ -11,6 +10,7 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
+  Secrets,
 } from 'utils';
 import Oystehr, { BatchInputPatchRequest } from '@oystehr/sdk';
 import { Account, AuditEvent, Bundle, Coverage } from 'fhir/r4b';

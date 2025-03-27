@@ -102,11 +102,13 @@ import {
   flattenItems,
   PATIENT_BILLING_ACCOUNT_TYPE,
   formatPhoneNumber,
+  getSecret,
+  Secrets,
+  SecretsKeys,
 } from 'utils';
-import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 import _ from 'lodash';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
-import { createPdfBytes } from '../../../patient/shared/pdf';
+import { createPdfBytes } from '../../../shared';
 
 const IGNORE_CREATING_TASKS_FOR_REVIEW = true;
 
@@ -660,7 +662,9 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
     patientResource.id
   }/${Date.now()}`;
   const consentDocument =
-    locationState === 'IL' ? './CTT.and.Guarantee.of.Payment.Illinois-S.pdf' : './CTT.and.Guarantee.of.Payment-S.pdf';
+    locationState === 'IL'
+      ? './assets/CTT.and.Guarantee.of.Payment.Illinois-S.pdf'
+      : './assets/CTT.and.Guarantee.of.Payment-S.pdf';
   const pdfsToCreate = [
     {
       uploadURL: `${baseUploadURL}-consent-to-treat.pdf`,
@@ -680,7 +684,7 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
     },
     {
       uploadURL: `${baseUploadURL}-hippa-acknowledgement.pdf`,
-      copyFromPath: './HIPAA.Acknowledgement-S.pdf',
+      copyFromPath: './assets/HIPAA.Acknowledgement-S.pdf',
       formTitle: 'HIPAA Acknowledgement',
       resourceTitle: 'HIPPA forms',
       type: {

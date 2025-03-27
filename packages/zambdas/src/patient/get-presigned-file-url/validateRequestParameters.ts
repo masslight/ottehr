@@ -9,9 +9,9 @@ import {
   PHOTO_ID_FRONT_ID,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_WORK_ID,
+  Secrets,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { Secrets } from 'zambda-utils';
+import { ZambdaInput } from '../../shared';
 
 const fileTypes = [
   INSURANCE_CARD_BACK_ID,
