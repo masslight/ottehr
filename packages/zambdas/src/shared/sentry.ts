@@ -1,6 +1,5 @@
 import { captureException, isInitialized, setTag } from '@sentry/aws-serverless';
-import { handleUnknownError } from 'utils';
-import { getSecret, Secrets } from 'zambda-utils';
+import { getSecret, handleUnknownError, Secrets } from 'utils';
 
 export function configSentry(zambdaName: string, secrets: Secrets | null): void {
   const environment = getSecret('ENVIRONMENT', secrets);

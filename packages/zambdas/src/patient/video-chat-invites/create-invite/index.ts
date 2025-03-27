@@ -5,14 +5,15 @@ import { SignJWT } from 'jose';
 import { JSONPath } from 'jsonpath-plus';
 import {
   FHIR_EXTENSION,
+  SecretsKeys,
   VideoChatCreateInviteInput,
   VideoChatCreateInviteResponse,
   createOystehrClient,
   formatPhoneNumber,
   getAppointmentResourceById,
+  getSecret,
 } from 'utils';
-import { SecretsKeys, ZambdaInput, getSecret, lambdaResponse } from 'zambda-utils';
-import { getAuth0Token, getVideoEncounterForAppointment } from '../../../shared';
+import { getAuth0Token, getVideoEncounterForAppointment, lambdaResponse, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import { getUser } from '../../../shared/auth';
 import { sendSms, sendVideoChatInvititationEmail } from '../../../shared/communication';

@@ -5,14 +5,14 @@ import { ContactPoint, Identifier, Practitioner } from 'fhir/r4b';
 import {
   FHIR_IDENTIFIER_NPI,
   PractitionerLicense,
+  Secrets,
   SyncUserResponse,
   allLicensesForPractitioner,
   getPractitionerNPIIdentitifier,
 } from 'utils';
-import { SecretsKeys, getSecret, Secrets } from 'zambda-utils';
 import { createOystehrClient } from '../../shared/helpers';
 import { makeQualificationForPractitioner } from '../../shared/practitioners';
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import { checkOrCreateM2MClientToken } from '../../shared';
 

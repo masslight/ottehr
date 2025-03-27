@@ -7,9 +7,10 @@ import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   flattenIntakeQuestionnaireItems,
   getRelatedPersonForPatient,
+  getSecret,
   IntakeQuestionnaireItem,
+  SecretsKeys,
 } from 'utils';
-import { getSecret, SecretsKeys, topLevelCatch, triggerSlackAlarm, ZambdaInput } from 'zambda-utils';
 import {
   createConsentResources,
   createDocumentResources,
@@ -25,6 +26,9 @@ import {
   getAuth0Token,
   makeObservationResource,
   saveResourceRequest,
+  topLevelCatch,
+  triggerSlackAlarm,
+  ZambdaInput,
 } from '../../../../shared';
 import '../../../../shared/instrument.mjs';
 import { createAdditionalQuestions } from '../../../../subscriptions/appointment-chart-data-prefilling/helpers';

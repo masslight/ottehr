@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { getSecret, Secrets, SecretsKeys } from '../secrets';
+import { Secrets, getSecret, SecretsKeys } from 'utils';
 
 type Z3UrlInput =
   | {

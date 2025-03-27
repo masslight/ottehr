@@ -9,7 +9,7 @@ import {
   getVisitStatusHistory,
   relatedPersonAndCommunicationMaps,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { filterAppointmentsFromResources, filterPatientForAppointment } from './helpers/fhir-resources-filters';
 import { getAllPrefilteredFhirResources, getAllVirtualLocationsMap } from './helpers/fhir-utils';

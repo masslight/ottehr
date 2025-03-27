@@ -4,13 +4,13 @@ import {
   createOystehrClient,
   getParticipantIdFromAppointment,
   getPatientsForUser,
+  getSecret,
   GetTelemedAppointmentsResponse,
   mapStatusToTelemed,
+  SecretsKeys,
   TelemedAppointmentInformationIntake,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { getSecret, SecretsKeys } from 'zambda-utils';
-import { checkOrCreateM2MClientToken, getUser } from '../../../shared';
+import { checkOrCreateM2MClientToken, getUser, ZambdaInput } from '../../../shared';
 import { filterTelemedVideoEncounters, getFhirResources } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

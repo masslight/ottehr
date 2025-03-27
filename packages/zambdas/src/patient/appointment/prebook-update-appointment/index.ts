@@ -10,6 +10,7 @@ import {
   PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
   POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
   SCHEDULE_NOT_FOUND_ERROR,
+  Secrets,
   checkValidBookingTime,
   getAvailableSlotsForSchedule,
   getPatientContactEmail,
@@ -18,8 +19,6 @@ import {
   getSMSNumberForIndividual,
   isPostTelemedAppointment,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { Secrets, topLevelCatch } from 'zambda-utils';
 import {
   AuditableZambdaEndpoints,
   captureSentryException,
@@ -29,7 +28,9 @@ import {
   getAuth0Token,
   getParticipantFromAppointment,
   sendInPersonMessages,
+  topLevelCatch,
   updateAppointmentTime,
+  ZambdaInput,
 } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 

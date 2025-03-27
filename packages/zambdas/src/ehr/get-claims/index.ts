@@ -1,4 +1,4 @@
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../shared';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';

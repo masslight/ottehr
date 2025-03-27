@@ -2,7 +2,7 @@
 // import { APIGatewayProxyResult } from 'aws-lambda';
 // import { ChangeTelemedAppointmentStatusInput, ChangeTelemedAppointmentStatusResponse } from 'utils';
 // import { checkOrCreateM2MClientToken, createFhirClient } from '../../shared/helpers';
-// import { ZambdaInput } from 'zambda-utils';
+// import { ZambdaInput } from '../../shared';
 // import { getVideoResources } from './helpers/fhir-utils';
 // import { makeVisitNotePdfDocumentReference } from './helpers/helpers';
 // import { validateRequestParameters } from './validateRequestParameters';

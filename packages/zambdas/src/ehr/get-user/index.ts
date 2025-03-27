@@ -2,7 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Practitioner } from 'fhir/r4b';
 import { PractitionerLicense } from 'utils';
 import { createOystehrClient } from '../../shared/helpers';
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import { checkOrCreateM2MClientToken } from '../../shared';
 

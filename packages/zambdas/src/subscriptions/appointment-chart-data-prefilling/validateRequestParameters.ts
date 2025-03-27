@@ -1,5 +1,5 @@
 import { Appointment } from 'fhir/r4b';
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../shared';
 import { AppointmentSubscriptionInput } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): AppointmentSubscriptionInput {
