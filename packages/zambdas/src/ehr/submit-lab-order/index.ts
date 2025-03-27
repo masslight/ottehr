@@ -1,7 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getPatchBinary, isValidUUID } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
-import { ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
   Coverage,
@@ -17,7 +16,7 @@ import {
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import { getLabOrderResources } from '../shared/labs';
-import { createExternalLabsOrderFormPDF } from '../shared/pdf/external-labs-order-form-pdf';
+import { createExternalLabsOrderFormPDF } from '../../shared/pdf/external-labs-order-form-pdf';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
