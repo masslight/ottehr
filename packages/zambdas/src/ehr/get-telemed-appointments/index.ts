@@ -9,12 +9,13 @@ import {
   getVisitStatusHistory,
   relatedPersonAndCommunicationMaps,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
+import { ZambdaInput } from '../../shared';
+import { createOystehrClient } from '../../shared/helpers';
 import { filterAppointmentsFromResources, filterPatientForAppointment } from './helpers/fhir-resources-filters';
 import { getAllPrefilteredFhirResources, getAllVirtualLocationsMap } from './helpers/fhir-utils';
 import { getPhoneNumberFromQuestionnaire } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+import { checkOrCreateM2MClientToken } from '../../shared';
 
 if (process.env.IS_OFFLINE === 'true') {
   // eslint-disable-next-line @typescript-eslint/no-var-requires

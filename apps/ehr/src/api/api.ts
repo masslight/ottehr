@@ -1,6 +1,7 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { Address, ContactPoint, LocationHoursOfOperation } from 'fhir/r4b';
 import {
+  chooseJson,
   ConversationMessage,
   SubmitLabOrderInput,
   GetEmployeesResponse,
@@ -56,10 +57,6 @@ const CREATE_LAB_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_LAB_ORDER_ZAM
 const GET_LAB_ORDERS_ZAMBDA_ID = import.meta.env.VITE_APP_GET_LAB_ORDERS_ZAMBDA_ID;
 const DELETE_LAB_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_DELETE_LAB_ORDER_ZAMBDA_ID;
 
-function chooseJson(json: any, isLocal: string): any {
-  return isLocal === 'true' ? json : json.output;
-}
-
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
     accessToken: token,
@@ -82,7 +79,7 @@ export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrde
       id: SUBMIT_LAB_ORDER_ZAMBDA_ID,
       ...parameters,
     });
-    return chooseJson(response, VITE_APP_IS_LOCAL);
+    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
     throw new Error(JSON.stringify(error));
@@ -102,7 +99,7 @@ export const getLabOrderDetails = async (
       id: GET_LAB_ORDER_DETAILS_ZAMBDA_ID,
       ...parameters,
     });
-    return chooseJson(response, VITE_APP_IS_LOCAL);
+    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
     throw new Error(JSON.stringify(error));
@@ -119,7 +116,7 @@ export const getAppointments = async (oystehr: Oystehr, parameters: GetAppointme
       id: GET_APPOINTMENTS_ZAMBDA_ID,
       ...parameters,
     });
-    return chooseJson(response, VITE_APP_IS_LOCAL);
+    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
   }
@@ -142,7 +139,7 @@ export const createAppointment = async (oystehr: Oystehr, parameters: CreateAppo
       id: CREATE_APPOINTMENT_ZAMBDA_ID,
       ...translatedParams,
     });
-    return chooseJson(response, VITE_APP_IS_LOCAL);
+    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
   }
@@ -158,7 +155,7 @@ export const saveFollowup = async (oystehr: Oystehr, parameters: SaveFollowupPar
       id: SAVE_PATIENT_FOLLOWUP_ZAMBDA_ID,
       ...parameters,
     });
-    return chooseJson(response, VITE_APP_IS_LOCAL);
+    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
     throw new Error(JSON.stringify(error));
@@ -182,7 +179,7 @@ export const cancelTelemedAppointment = async (
       id: CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID,
       ...parameters,
     });
-    return chooseJson(response, VITE_APP_IS_LOCAL);
+    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error, 'error');
     throw new Error(JSON.stringify(error));
@@ -208,7 +205,7 @@ export const inviteParticipant = async (
       id: INVITE_PARTICIPANT_ZAMBDA_ID,
       ...parameters,
     });
-    return chooseJson(response, VITE_APP_IS_LOCAL);
+    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error, 'Error occurred trying to invite participant');
     throw new Error(JSON.stringify(error));
@@ -225,7 +222,7 @@ export const updateUser = async (oystehr: Oystehr, parameters: UpdateUserParamet
       id: UPDATE_USER_ZAMBDA_ID,
       ...parameters,
     });
-    return chooseJson(response, VITE_APP_IS_LOCAL);
+    return chooseJson(response);
   } catch (error: unknown) {
     throw new Error(JSON.stringify(error));
   }
@@ -241,7 +238,7 @@ export const assignPractitioner = async (oystehr: Oystehr, parameters: AssignPra
       id: ASSIGN_PRACTITIONER_ZAMBDA_ID,
       ...parameters,
     });
-    return chooseJson(response, VITE_APP_IS_LOCAL);
+    return chooseJson(response);
   } catch (error: any) {
     throw new Error(error.message);
   }
@@ -260,7 +257,7 @@ export const unassignPractitioner = async (
       id: UNASSIGN_PRACTITIONER_ZAMBDA_ID,
       ...parameters,
     });
-    return chooseJson(response, VITE_APP_IS_LOCAL);
+    return chooseJson(response);
   } catch (error: unknown) {
     throw new Error(JSON.stringify(error));
   }
@@ -279,7 +276,7 @@ export const changeInPersonVisitStatus = async (
       id: CHANGE_IN_PERSON_VISIT_STATUS_ZAMBDA_ID,
       ...parameters,
     });
-    return chooseJson(response, VITE_APP_IS_LOCAL);
+    return chooseJson(response);
   } catch (error: unknown) {
     throw new Error(JSON.stringify(error));
   }
@@ -295,7 +292,7 @@ export const getUserDetails = async (oystehr: Oystehr, parameters: GetUserParams
       id: GET_USER_ZAMBDA_ID,
       ...parameters,
     });
-    return chooseJson(response, VITE_APP_IS_LOCAL);
+    return chooseJson(response);
   } catch (error: unknown) {
     throw new Error(JSON.stringify(error));
   }
@@ -311,7 +308,7 @@ export const deactivateUser = async (oystehr: Oystehr, parameters: DeactivateUse
       id: DEACTIVATE_USER_ZAMBDA_ID,
       ...parameters,
     });
-    return chooseJson(response, VITE_APP_IS_LOCAL);
+    return chooseJson(response);
   } catch (error: unknown) {
     throw new Error(JSON.stringify(error));
   }
@@ -334,7 +331,7 @@ export const getConversation = async (
       id: GET_CONVERSATION_ZAMBDA_ID,
       ...parameters,
     });
-    return chooseJson(response, VITE_APP_IS_LOCAL);
+    return chooseJson(response);
   } catch (error: unknown) {
     throw new Error(JSON.stringify(error));
   }
@@ -365,7 +362,7 @@ export const getLocations = async (
       id: GET_SCHEDULE_ZAMBDA_ID,
       ...parameters,
     });
-    return chooseJson(response, VITE_APP_IS_LOCAL);
+    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
     throw error;
@@ -382,7 +379,7 @@ export const cancelAppointment = async (oystehr: Oystehr, parameters: CancelAppo
       id: CANCEL_APPOINTMENT_ZAMBDA_ID,
       ...parameters,
     });
-    return chooseJson(response, VITE_APP_IS_LOCAL);
+    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
     throw error;
@@ -398,7 +395,7 @@ export const getEmployees = async (oystehr: Oystehr): Promise<GetEmployeesRespon
     const response = await oystehr.zambda.execute({
       id: GET_EMPLOYEES_ZAMBDA_ID,
     });
-    return chooseJson(response, VITE_APP_IS_LOCAL);
+    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
     throw error;
@@ -430,7 +427,7 @@ export const uploadPatientProfilePhoto = async (
       action: 'upload',
     });
 
-    const { presignedImageUrl } = chooseJson(urlSigningResponse, VITE_APP_IS_LOCAL);
+    const { presignedImageUrl } = chooseJson(urlSigningResponse);
 
     const photoFile = parameters.patientPhotoFile;
     // Upload the file to S3
@@ -446,7 +443,7 @@ export const uploadPatientProfilePhoto = async (
       throw new Error('Failed to upload file');
     }
 
-    return chooseJson(urlSigningResponse, VITE_APP_IS_LOCAL);
+    return chooseJson(urlSigningResponse);
   } catch (error: unknown) {
     console.error(error);
     throw error;
@@ -476,7 +473,7 @@ export const getSignedPatientProfilePhotoUrl = async (
       action: 'download',
     });
 
-    return chooseJson(urlSigningResponse, VITE_APP_IS_LOCAL);
+    return chooseJson(urlSigningResponse);
   } catch (error: unknown) {
     console.error(error);
     throw error;
@@ -492,7 +489,7 @@ export const createLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrde
       id: CREATE_LAB_ORDER_ZAMBDA_ID,
       ...parameters,
     });
-    return chooseJson(response, VITE_APP_IS_LOCAL);
+    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
     throw error;
@@ -511,7 +508,7 @@ export const getLabOrders = async (
       id: GET_LAB_ORDERS_ZAMBDA_ID,
       ...parameters,
     });
-    return chooseJson(response, VITE_APP_IS_LOCAL);
+    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
     throw error;
@@ -532,7 +529,7 @@ export const deleteLabOrder = async (oystehr: Oystehr, parameters: DeleteLabOrde
       id: DELETE_LAB_ORDER_ZAMBDA_ID,
       ...parameters,
     });
-    return chooseJson(response, VITE_APP_IS_LOCAL);
+    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
     throw error;

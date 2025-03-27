@@ -14,6 +14,7 @@ export function getValueBoolean(value: boolean): ReactNode {
     return (
       <Chip
         icon={<CheckCircle />}
+        data-testid="completed"
         size="small"
         color="info"
         sx={{
@@ -28,6 +29,7 @@ export function getValueBoolean(value: boolean): ReactNode {
     return (
       <Chip
         icon={<CancelIcon />}
+        data-testid="uncompleted"
         label={t('reviewAndSubmit.notComplete')}
         size="small"
         sx={{

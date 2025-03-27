@@ -1,5 +1,5 @@
 import { GetLabOrderDetailsInput } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): GetLabOrderDetailsInput & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {

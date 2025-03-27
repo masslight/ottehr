@@ -1,4 +1,4 @@
-import { Secrets } from 'zambda-utils';
+import { Secrets } from '../../../secrets';
 import { VisitStatusWithoutUnknown } from '../appointment.types';
 import { User } from '../user.types';
 

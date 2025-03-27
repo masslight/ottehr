@@ -1,9 +1,9 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { topLevelCatch, ZambdaInput } from 'zambda-utils';
+import { topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import { getLabResources, transformToLabOrderDTOs } from './helpers';
 import { EMPTY_PAGINATION } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
+import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 
 let m2mtoken: string;
 

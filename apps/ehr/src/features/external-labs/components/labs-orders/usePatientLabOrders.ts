@@ -8,7 +8,7 @@ import { useDeleteLabOrderDialog } from './useDeleteLabOrderDialog';
 export interface GetLabOrdersParameters {
   patientId?: string;
   encounterId?: string;
-  testType?: string;
+  orderableItemCode?: string;
   visitDate?: string;
   pageIndex?: number;
   itemsPerPage?: number;
@@ -36,8 +36,8 @@ interface UsePatientLabOrdersResult {
   totalPages: number;
   page: number;
   setPage: (page: number) => void;
-  testTypeFilter: string;
-  setTestTypeFilter: (filter: string) => void;
+  orderableItemCodeFilter: string;
+  setOrderableItemCodeFilter: (filter: string) => void;
   visitDateFilter: DateTime | null;
   setVisitDateFilter: (date: DateTime | null) => void;
   fetchLabOrders: (params: Partial<GetLabOrdersParameters>) => Promise<void>;
@@ -57,7 +57,7 @@ export const usePatientLabOrders = (options: UsePatientLabOrdersOptions = {}): U
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
   const [showPagination, setShowPagination] = useState(false);
-  const [testTypeFilter, setTestTypeFilter] = useState('');
+  const [orderableItemCodeFilter, setOrderableItemCodeFilter] = useState('');
   const [visitDateFilter, setVisitDateFilter] = useState<DateTime | null>(null);
 
   const getCurrentSearchParamsWithoutPageIndex = useCallback((): Partial<GetLabOrdersParameters> => {
@@ -74,8 +74,8 @@ export const usePatientLabOrders = (options: UsePatientLabOrdersOptions = {}): U
       params.encounterId = encounterId;
     }
 
-    if (testTypeFilter) {
-      params.testType = testTypeFilter;
+    if (orderableItemCodeFilter) {
+      params.orderableItemCode = orderableItemCodeFilter;
     }
 
     if (visitDateFilter && visitDateFilter.isValid) {
@@ -87,7 +87,7 @@ export const usePatientLabOrders = (options: UsePatientLabOrdersOptions = {}): U
     }
 
     return params;
-  }, [patientId, encounterId, testTypeFilter, visitDateFilter]);
+  }, [patientId, encounterId, orderableItemCodeFilter, visitDateFilter]);
 
   const getCurrentSearchParamsForPage = useCallback(
     (pageNubmer: number): Partial<GetLabOrdersParameters> => {
@@ -233,8 +233,8 @@ export const usePatientLabOrders = (options: UsePatientLabOrdersOptions = {}): U
     totalPages,
     page,
     setPage,
-    testTypeFilter,
-    setTestTypeFilter,
+    orderableItemCodeFilter,
+    setOrderableItemCodeFilter,
     visitDateFilter,
     setVisitDateFilter,
     fetchLabOrders,

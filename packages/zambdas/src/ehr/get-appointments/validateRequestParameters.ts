@@ -1,4 +1,4 @@
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../shared';
 import { GetAppointmentsInput } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): GetAppointmentsInput {

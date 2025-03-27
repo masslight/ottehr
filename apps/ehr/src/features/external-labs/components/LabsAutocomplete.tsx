@@ -13,7 +13,7 @@ import Oystehr from '@oystehr/sdk';
 
 type LabsAutocompleteProps = {
   selectedLab: OrderableItemSearchResult | null;
-  setSelectedLab: React.Dispatch<React.SetStateAction<OrderableItemSearchResult | null>>;
+  setSelectedLab: (value: OrderableItemSearchResult | null) => void;
 };
 
 export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
