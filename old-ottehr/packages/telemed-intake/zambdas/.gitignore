@@ -1,6 +1,0 @@
-.serverless
-.esbuild
-.env/*
-!.env/local.template.json
-consent-forms-*.pdf
-

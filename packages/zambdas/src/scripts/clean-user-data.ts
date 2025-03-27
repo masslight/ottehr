@@ -1,6 +1,5 @@
 import { Person } from 'fhir/r4b';
-import { getPatchBinary } from 'utils';
-import { performEffectWithEnvFile } from 'zambda-utils';
+import { getPatchBinary, performEffectWithEnvFile } from 'utils';
 import { createOystehrClientFromConfig } from './helpers';
 
 const cleanUserData = async (config: any): Promise<void> => {

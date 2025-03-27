@@ -13,6 +13,8 @@ import {
   DATETIME_FULL_NO_YEAR,
   FHIR_ZAPEHR_URL,
   POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR,
+  Secrets,
+  SecretsKeys,
   formatPhoneNumberDisplay,
   getAppointmentResourceById,
   getCriticalUpdateTagOp,
@@ -20,16 +22,24 @@ import {
   getPatientContactEmail,
   getPatientFirstName,
   getRelatedPersonForPatient,
+  getSecret,
   isPostTelemedAppointment,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { Secrets, SecretsKeys, getSecret, topLevelCatch } from 'zambda-utils';
-import { captureSentryException, configSentry, getAuth0Token, sendInPersonCancellationEmail } from '../../shared';
-import { getUser } from '../../shared/auth';
-import { getEncounterDetails } from '../../shared/getEncounterDetails';
-import { createOystehrClient, getLocationInformation } from '../../shared/helpers';
-import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAuditLog';
-import { validateBundleAndExtractAppointment } from '../../shared/validateBundleAndExtractAppointment';
+import {
+  AuditableZambdaEndpoints,
+  captureSentryException,
+  configSentry,
+  createAuditEvent,
+  createOystehrClient,
+  getAuth0Token,
+  getEncounterDetails,
+  getLocationInformation,
+  getUser,
+  topLevelCatch,
+  validateBundleAndExtractAppointment,
+  ZambdaInput,
+} from '../../../shared';
+import { sendInPersonCancellationEmail } from '../../../shared/communication';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface CancelAppointmentInput {

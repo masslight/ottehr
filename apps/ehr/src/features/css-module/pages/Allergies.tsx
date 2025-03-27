@@ -1,16 +1,16 @@
+import { Box, Typography } from '@mui/material';
 import React from 'react';
-import { Typography, Box } from '@mui/material';
 import { useParams } from 'react-router-dom';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../telemed';
-import { useAppointment } from '../hooks/useAppointment';
-import { CSSLoader } from '../components/CSSLoader';
-import { InfoAlert } from '../components/InfoAlert';
 import {
   KnownAllergiesPatientColumn,
   KnownAllergiesProviderColumn,
   MedicalHistoryDoubleCard,
 } from '../../../telemed/features/appointment';
+import { CSSLoader } from '../components/CSSLoader';
+import { InfoAlert } from '../components/InfoAlert';
+import { useAppointment } from '../hooks/useAppointment';
 
 interface AllergiesProps {
   appointmentID?: string;
@@ -19,7 +19,7 @@ interface AllergiesProps {
 export const Allergies: React.FC<AllergiesProps> = () => {
   const { id: appointmentID } = useParams();
   const {
-    sourceData: { appointment },
+    resources: { appointment },
     isLoading,
     error,
   } = useAppointment(appointmentID);
