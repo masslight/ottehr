@@ -20,7 +20,7 @@ import {
 } from 'utils';
 import { assert, describe, expect, it } from 'vitest';
 import { performEffect } from '..';
-import { createOystehrClient, getAuth0Token } from '../../../../../shared';
+import { createOystehrClient, getAuth0Token } from '../../../../shared';
 import questionnaireResponse from './data/base-qr.json';
 import {
   expectedAccountGuarantorFromQR1,
@@ -38,7 +38,7 @@ import {
 
 import { randomUUID } from 'crypto';
 import { uuid } from 'short-uuid';
-import { relatedPersonsAreSame } from '../../../../../ehr/shared/harvest';
+import { relatedPersonsAreSame } from '../../../../ehr/shared/harvest';
 
 const stubAccount: Account = {
   resourceType: 'Account',
