@@ -1,15 +1,9 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Location, Patient, RelatedPerson } from 'fhir/r4b';
+import { Appointment, Location, Patient, RelatedPerson, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  addWaitingMinutesToAppointment,
-  DATETIME_FULL_NO_YEAR,
-  getPatientContactEmail,
-  getWaitingMinutesAtSchedule,
-  TaskStatus,
-} from 'utils';
-import '../../../../shared/instrument.mjs';
+import { DATETIME_FULL_NO_YEAR, Secrets, TaskStatus, getPatientContactEmail, getPatientFirstName } from 'utils';
+import '../../../shared/instrument.mjs';
 import {
   captureSentryException,
   createOystehrClient,
@@ -17,14 +11,20 @@ import {
   getAuth0Token,
   topLevelCatch,
   ZambdaInput,
-} from '../../../../shared';
-import { patchTaskStatus } from '../../helpers';
+} from '../../../shared';
+import { sendText } from '../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
+import { patchTaskStatus } from '../../helpers';
+
+export interface TaskSubscriptionInput {
+  task: Task;
+  secrets: Secrets | null;
+}
 
 let zapehrToken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('sub-update-appointments', input.secrets);
+  configSentry('sub-check-in-text', input.secrets);
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     console.group('validateRequestParameters');
@@ -43,9 +43,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     const oystehr = createOystehrClient(zapehrToken, secrets);
 
-    const taskCodingList = task.code?.coding ?? [];
-    console.log('taskCodingList', JSON.stringify(taskCodingList));
-
     let taskStatusToUpdate: TaskStatus;
     let statusReasonToUpdate: string | undefined;
 
@@ -55,7 +52,10 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('appointment ID parsed: ', appointmentID);
 
     console.log('searching for appointment, location and patient resources related to this task');
-    let fhirAppointment: Appointment | undefined, fhirLocation: Location | undefined, fhirPatient: Patient | undefined;
+    let fhirAppointment: Appointment | undefined,
+      fhirLocation: Location | undefined,
+      fhirPatient: Patient | undefined,
+      fhirRelatedPerson: RelatedPerson | undefined;
     const allResources = (
       await oystehr.fhir.search<Appointment | Location | Patient | RelatedPerson>({
         resourceType: 'Appointment',
@@ -91,6 +91,15 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       if (resource.resourceType === 'Patient') {
         fhirPatient = resource as Patient;
       }
+      if (resource.resourceType === 'RelatedPerson') {
+        const relatedPerson = resource as RelatedPerson;
+        const isUserRelatedPerson = relatedPerson.relationship?.find(
+          (relationship) => relationship.coding?.find((code) => code.code === 'user-relatedperson')
+        );
+        if (isUserRelatedPerson) {
+          fhirRelatedPerson = relatedPerson;
+        }
+      }
     });
 
     const missingResources = [];
@@ -113,18 +122,17 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const visitType = fhirAppointment.appointmentType?.text ?? 'Unknown';
     console.log('info', email, timezone, startTime, visitType);
 
-    const nowForTimezone = DateTime.now().setZone(timezone);
-    const waitingMinutes = await getWaitingMinutesAtSchedule(oystehr, nowForTimezone, fhirLocation);
-
-    try {
-      console.log('making patch request to record waiting time');
-      await addWaitingMinutesToAppointment(fhirAppointment, waitingMinutes, oystehr);
-      taskStatusToUpdate = 'completed';
-      statusReasonToUpdate = `patch made to stamp waiting estimate: ${waitingMinutes.toString()}`;
-    } catch (e) {
-      console.log('appointment patch request failed');
+    if (fhirRelatedPerson) {
+      const message = `Welcome, and thanks for checking in! Our care team will see ${getPatientFirstName(
+        fhirPatient
+      )} soon. We appreciate your patience!`;
+      const { taskStatus, statusReason } = await sendText(message, fhirRelatedPerson, zapehrToken, secrets);
+      taskStatusToUpdate = taskStatus;
+      statusReasonToUpdate = statusReason;
+    } else {
       taskStatusToUpdate = 'failed';
-      statusReasonToUpdate = `could not complete appointment patch to stamp waiting estimate: ${waitingMinutes.toString()}`;
+      statusReasonToUpdate = 'could not retrieve related person to get sms number';
+      console.log('No related person found. Skipping sending text');
     }
 
     if (!taskStatusToUpdate) {
@@ -150,6 +158,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('sub-update-appointments', error, input.secrets, captureSentryException);
+    return topLevelCatch('sub-check-in-text', error, input.secrets, captureSentryException);
   }
 });
