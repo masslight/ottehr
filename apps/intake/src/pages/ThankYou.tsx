@@ -16,7 +16,7 @@ import { ContactPoint } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { breakpoints, useUCZambdaClient } from 'ui-components';
 import {
   APIError,
@@ -136,6 +136,7 @@ const ThankYou = (): JSX.Element => {
   const [aiChatConsentModalOpen, setAiChatConsentModalOpen] = useState<boolean>(false);
   const [aiChatStartButtonEnabled, setAiChatStartButtonEnabled] = useState<boolean>(false);
   const outletContext = useVisitStore();
+  const navigate = useNavigate();
   const { id: appointmentId } = useParams();
   const { pathname } = useLocation();
   const { t } = useTranslation();
@@ -447,7 +448,12 @@ const ThankYou = (): JSX.Element => {
                 >
                   Cancel
                 </Button>
-                <Button variant="contained" color="secondary" disabled={!aiChatStartButtonEnabled}>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  disabled={!aiChatStartButtonEnabled}
+                  onClick={() => navigate(intakeFlowPageRoute.AIInterview.path.replace(':id', appointmentID!))}
+                >
                   Start chat
                 </Button>
               </Box>
