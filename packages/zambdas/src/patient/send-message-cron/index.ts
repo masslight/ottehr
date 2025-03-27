@@ -3,13 +3,11 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Location, Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { Secrets, SecretsKeys, getSecret, topLevelCatch } from 'zambda-utils';
-import '../shared/instrument.mjs';
-import { captureSentryException, configSentry, getAuth0Token } from '../shared';
-import { getMessageRecipientForAppointment } from '../shared/communication';
-import { createOystehrClient } from '../shared/helpers';
+import { DATETIME_FULL_NO_YEAR, getSecret, Secrets, SecretsKeys } from 'utils';
+import { topLevelCatch, ZambdaInput } from '../../shared';
+import '../../shared/instrument.mjs';
+import { captureSentryException, createOystehrClient, configSentry, getAuth0Token } from '../../shared';
+import { getMessageRecipientForAppointment } from '../../shared/communication';
 import { isNonPaperworkQuestionnaireResponse } from '../../common';
 
 let zapehrToken: string;

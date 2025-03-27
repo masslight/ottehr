@@ -8,7 +8,7 @@ import {
   GetChartDataResponse,
   SearchParams,
 } from 'utils';
-import { handleCustomDTOExtractions, mapResourceToChartDataResponse } from '../shared/chart-data/chart-data-helpers';
+import { handleCustomDTOExtractions, mapResourceToChartDataResponse } from '../../shared/chart-data';
 
 type RequestOptions = ChartDataRequestedFields[keyof ChartDataRequestedFields];
 

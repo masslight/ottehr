@@ -1,6 +1,6 @@
 import { isNPIValid, RoleType, isPhoneNumberValid } from 'utils';
 import { UpdateUserInput } from '.';
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): UpdateUserInput {
   if (!input.body) {

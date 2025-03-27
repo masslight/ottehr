@@ -1,5 +1,5 @@
-import { ZambdaInput } from 'zambda-utils';
 import { DeleteChartDataRequest } from 'utils';
+import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): DeleteChartDataRequest & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {

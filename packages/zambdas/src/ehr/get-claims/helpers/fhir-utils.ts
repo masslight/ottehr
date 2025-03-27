@@ -4,7 +4,7 @@ import { CODE_SYSTEM_COVERAGE_CLASS, getResourcesFromBatchInlineRequests } from 
 import {
   AppointmentInsuranceRelatedResRefs,
   getInsuranceRelatedRefsFromAppointmentExtension,
-} from '../../shared/appointment/helpers';
+} from '../../../shared/appointment/helpers';
 import { ClaimPackage } from '../index';
 
 export function createSearchUrlFromReference(inputReference: string): string {
