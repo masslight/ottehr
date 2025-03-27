@@ -987,6 +987,7 @@ functions:
       FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
       PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+      PROJECT_ID: ${file(./.env/${self:provider.stage}.json):PROJECT_ID}
 
   get-lab-order-details:
     handler: src/ehr/get-lab-order-details/index.index

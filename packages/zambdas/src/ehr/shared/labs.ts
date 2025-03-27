@@ -77,6 +77,7 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
   const patient = patientsTemp?.[0];
   const practitioner = practitionersTemp?.[0];
   const questionnaireResponse = questionnaireResponsesTemp?.[0];
+  console.log(questionnaireResponse);
   const task = tasksTemp?.[0];
 
   return {

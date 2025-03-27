@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getPatchBinary } from 'utils';
+import { getPatchBinary, isValidUUID } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
 import { ZambdaInput } from 'zambda-utils';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -44,10 +44,15 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       questionnaireResponse,
       task,
     } = await getLabOrderResources(oystehr, serviceRequestID);
+    const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
+
+    if (!locationID || !isValidUUID(locationID)) {
+      throw new Error(`location id ${locationID} is not a uuid`);
+    }
 
     const location: Location = await oystehr.fhir.get({
       resourceType: 'Location',
-      id: serviceRequest.locationReference?.[0].reference?.replace('Location/', '') || 'UNKNOWN',
+      id: locationID,
     });
     let coverage: Coverage | undefined = undefined;
     let organization: Organization | undefined = undefined;
@@ -93,6 +98,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       coverage = coveragesRequestsTemp[0];
       organization = organizationsRequestsTemp[0];
       coveragePatient = patientsRequestsTemp[0];
+      if (coveragePatient.id !== patient.id) {
+        throw new Error(
+          `the patient check with coverage isn't the same as the patient the order is being requested on behalf of, coverage patient ${coveragePatient.id}, patient ${patient.id}`
+        );
+      }
     }
     const questionnaireUrl = questionnaireResponse.questionnaire;
 
