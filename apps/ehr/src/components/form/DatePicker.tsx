@@ -18,6 +18,7 @@ interface BasicDatePickerProps {
   label?: string;
   InputLabelProps?: InputLabelProps;
   id?: string;
+  dataTestId?: string;
 }
 
 export function BasicDatePicker({
@@ -31,12 +32,13 @@ export function BasicDatePicker({
   label,
   InputLabelProps,
   id,
+  dataTestId,
 }: BasicDatePickerProps): JSX.Element {
   const defaultErrorHelperText = required ? REQUIRED_FIELD_ERROR_MESSAGE : '';
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
-      <Box sx={{ width: '100%' }}>
+      <Box sx={{ width: '100%' }} data-testid={dataTestId}>
         <Controller
           name={name}
           control={control}

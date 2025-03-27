@@ -1,6 +1,5 @@
 import { User } from '@oystehr/sdk';
 import { Appointment, Coding, Practitioner } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import {
   PatientFollowupDetails,
   FhirAppointmentType,
@@ -11,7 +10,7 @@ import {
 import { ScheduleType, ServiceMode } from 'utils';
 
 export interface GetAppointmentsParameters {
-  searchDate?: DateTime | undefined;
+  searchDate?: string;
   locationID: string | undefined;
   visitType?: string[];
   providerIDs?: string[];

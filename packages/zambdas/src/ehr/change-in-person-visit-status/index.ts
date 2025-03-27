@@ -7,11 +7,12 @@ import {
   User,
   VisitStatusWithoutUnknown,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
-import { getVisitResources } from '../shared/practitioner/helpers';
+import { createOystehrClient } from '../../shared/helpers';
+import { getVisitResources } from '../../shared/practitioner/helpers';
 import { changeInPersonVisitStatusIfPossible } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+import { checkOrCreateM2MClientToken } from '../../shared';
+import { ZambdaInput } from '../../shared/types';
 
 let m2mtoken: string;
 

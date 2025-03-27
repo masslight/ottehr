@@ -1,6 +1,6 @@
-import { ZambdaInput } from 'zambda-utils';
 import { CommunicationSubscriptionInput } from '.';
 import { Communication } from 'fhir/r4b';
+import { ZambdaInput } from '../../shared/types';
 
 // Note that this file is copied from BH and needs significant changes
 export function validateRequestParameters(input: ZambdaInput): CommunicationSubscriptionInput {

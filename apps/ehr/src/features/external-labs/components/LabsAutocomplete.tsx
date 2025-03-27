@@ -4,7 +4,7 @@ import { Autocomplete, TextField, Box } from '@mui/material';
 
 type LabsAutocompleteProps = {
   selectedLab: OrderableItemSearchResult | null;
-  setSelectedLab: React.Dispatch<React.SetStateAction<OrderableItemSearchResult | null>>;
+  setSelectedLab: (value: OrderableItemSearchResult | null) => void;
   labs: OrderableItemSearchResult[];
 };
 

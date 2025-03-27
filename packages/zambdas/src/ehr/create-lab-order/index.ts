@@ -7,7 +7,6 @@ import {
   FHIR_IDC10_VALUESET_SYSTEM,
   flattenBundleResources,
 } from 'utils';
-import { topLevelCatch, ZambdaInput } from 'zambda-utils';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
   Encounter,
@@ -26,7 +25,9 @@ import {
 import { DateTime } from 'luxon';
 import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
+import { createOystehrClient } from '../../shared/helpers';
+import { checkOrCreateM2MClientToken, topLevelCatch } from '../../shared';
+import { ZambdaInput } from '../../shared/types';
 import { getPrimaryInsurance } from '../shared/labs';
 
 let m2mtoken: string;

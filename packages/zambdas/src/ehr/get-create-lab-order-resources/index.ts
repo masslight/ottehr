@@ -1,7 +1,8 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { topLevelCatch, ZambdaInput } from 'zambda-utils';
 import { validateRequestParameters } from './validateRequestParameters';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
+import { ZambdaInput } from '../../shared/types';
+import { checkOrCreateM2MClientToken, topLevelCatch } from '../../shared';
+import { createOystehrClient } from '../../shared/helpers';
 import {
   LAB_ORG_TYPE_CODING,
   OYSTEHR_LAB_GUID_SYSTEM,

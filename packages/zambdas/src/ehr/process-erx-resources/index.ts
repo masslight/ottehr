@@ -1,11 +1,10 @@
 import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, MedicationRequest } from 'fhir/r4b';
-import { getPatchBinary, isTruthy } from 'utils';
-import { Secrets } from 'zambda-utils';
-import { topLevelCatch } from '../shared/errors';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
-import { ZambdaInput } from 'zambda-utils';
+import { getPatchBinary, isTruthy, Secrets } from 'utils';
+import { createOystehrClient } from '../../shared/helpers';
+import { topLevelCatch, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): { secrets: Secrets | null } {
   return {

@@ -8,8 +8,7 @@ import {
   QuestionnaireResponse,
   RelatedPerson,
 } from 'fhir/r4b';
-import { getParticipantIdFromAppointment } from 'utils';
-import { performEffectWithEnvFile } from 'zambda-utils';
+import { getParticipantIdFromAppointment, performEffectWithEnvFile } from 'utils';
 import { createOystehrClientFromConfig } from './helpers';
 
 const deleteAppointmentData = async (config: any): Promise<void> => {
@@ -20,9 +19,9 @@ const deleteAppointmentData = async (config: any): Promise<void> => {
   const allResources = await getAppointmentById(oystehr, appointmentId);
   const deleteRequests = generateDeleteRequests(allResources);
 
-  const result = await oystehr.fhir.transaction({ requests: deleteRequests });
+  await oystehr.fhir.transaction({ requests: deleteRequests });
 
-  console.log('Appointment data deleted', JSON.stringify(result, null, 2));
+  console.log('Appointment data batch removed');
 };
 
 const generateDeleteRequests = (allResources: FhirResource[]): BatchInputDeleteRequest[] => {

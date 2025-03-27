@@ -94,13 +94,15 @@ export interface PaginatedLabOrderResponse {
 }
 
 export interface GetLabOrdersParameters {
-  encounterId?: string;
-  patientId?: string;
-  serviceRequestId?: string;
-  testType?: string;
-  visitDate?: string;
-  itemsPerPage?: number;
-  pageIndex?: number;
+  encounterId?: string; // is specified, then we will fetch orders for that encounter
+  patientId?: string; // is specified, then we will fetch orders for that patient
+  serviceRequestId?: string; // is specified, then we will fetch orders for that service request
+
+  orderableItemCode?: string; // search filter by lab
+  visitDate?: string; // search filter by visit date
+
+  itemsPerPage?: number; // pagination option;
+  pageIndex?: number; // pagination option;
 }
 
 export interface CreateLabOrderParameters {

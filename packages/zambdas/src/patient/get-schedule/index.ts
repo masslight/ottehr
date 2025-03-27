@@ -6,20 +6,27 @@ import { DateTime } from 'luxon';
 import {
   AvailableLocationInformation,
   GetScheduleResponse,
+  SecretsKeys,
   getAvailableSlotsForSchedule,
   getOpeningTime,
   getScheduleDetails,
+  getSecret,
   getWaitingMinutesAtSchedule,
   isLocationOpen,
   isWalkinOpen,
   makeSlotTentativelyBusy,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { SecretsKeys, getSecret, topLevelCatch } from 'zambda-utils';
-import '../shared/instrument.mjs';
-import { captureSentryException, configSentry, getAuth0Token } from '../shared';
-import { getSchedule } from '../shared/fhir';
-import { createOystehrClient, getLocationInformation } from '../shared/helpers';
+import {
+  captureSentryException,
+  configSentry,
+  createOystehrClient,
+  getAuth0Token,
+  getLocationInformation,
+  getSchedule,
+  topLevelCatch,
+  ZambdaInput,
+} from '../../shared';
+import '../../shared/instrument.mjs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations

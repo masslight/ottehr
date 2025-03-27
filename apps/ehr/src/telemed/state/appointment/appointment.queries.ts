@@ -15,6 +15,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
+import { useEffect } from 'react';
 import { useMutation, useQuery } from 'react-query';
 import {
   ChartDataFields,
@@ -122,7 +123,7 @@ export const useGetTelemedAppointmentPeriodicRefresh = (
     isEnabled: boolean;
     refreshIntervalMs: number | undefined;
   },
-  onSuccess: (data: TelemedAppointmentData[]) => void
+  onSuccess: (data: VisitResources[]) => void
 ) => {
   const { oystehr } = useApiClients();
   const refetchOptions = refreshIntervalMs ? { refetchInterval: refreshIntervalMs } : {};
@@ -131,7 +132,7 @@ export const useGetTelemedAppointmentPeriodicRefresh = (
     async () => {
       if (oystehr && appointmentId) {
         return (
-          await oystehr.fhir.search<TelemedAppointmentData>({
+          await oystehr.fhir.search<VisitResources>({
             resourceType: 'Appointment',
             params: [
               { name: '_id', value: appointmentId },
@@ -153,30 +154,24 @@ export const useGetTelemedAppointmentPeriodicRefresh = (
   );
 };
 
-export type TelemedAppointmentData =
-  | Appointment
-  | DocumentReference
-  | Encounter
-  | Location
-  | Patient
-  | QuestionnaireResponse;
+export type VisitResources = Appointment | DocumentReference | Encounter | Location | Patient | QuestionnaireResponse;
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetTelemedAppointment = (
+export const useGetAppointment = (
   {
     appointmentId,
   }: {
     appointmentId: string | undefined;
   },
-  onSuccess: (data: TelemedAppointmentData[]) => void
+  onSuccess: (data: VisitResources[]) => void
 ) => {
   const { oystehr } = useApiClients();
-  return useQuery(
+  const query = useQuery(
     ['telemed-appointment', { appointmentId }],
     async () => {
       if (oystehr && appointmentId) {
         return (
-          await oystehr.fhir.search<TelemedAppointmentData>({
+          await oystehr.fhir.search<VisitResources>({
             resourceType: 'Appointment',
             params: [
               { name: '_id', value: appointmentId },
@@ -203,7 +198,14 @@ export const useGetTelemedAppointment = (
               { name: '_revinclude', value: 'DocumentReference:related' },
             ],
           })
-        ).unbundle();
+        )
+          .unbundle()
+          .filter(
+            (resource) =>
+              resource.resourceType !== 'QuestionnaireResponse' ||
+              resource.questionnaire === 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson' ||
+              resource.questionnaire === 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual'
+          );
       }
       throw new Error('fhir client not defined or appointmentId not provided');
     },
@@ -215,6 +217,13 @@ export const useGetTelemedAppointment = (
       },
     }
   );
+  const { isFetching } = query;
+
+  useEffect(() => {
+    useAppointmentStore.setState({ isAppointmentLoading: isFetching });
+  }, [isFetching]);
+
+  return query;
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -347,8 +356,10 @@ export const useGetMeetingData = (
   );
 };
 
+export const CHART_DATA_QUERY_KEY_BASE = 'telemed-get-chart-data';
+
 export type ChartDataCacheKey = [
-  'telemed-get-chart-data',
+  typeof CHART_DATA_QUERY_KEY_BASE,
   OystehrTelemedAPIClient | undefined | null,
   string | undefined,
   EvolveUser | undefined,
@@ -378,7 +389,7 @@ export const useGetChartData = (
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const key: ChartDataCacheKey = [
-    'telemed-get-chart-data',
+    CHART_DATA_QUERY_KEY_BASE,
     apiClient,
     encounterId,
     user,
@@ -387,30 +398,31 @@ export const useGetChartData = (
     requestedFields,
   ];
 
-  return {
-    ...useQuery(
-      key,
-      () => {
-        if (apiClient && encounterId) {
-          return apiClient.getChartData({
-            encounterId,
-            requestedFields,
-          });
-        }
-        throw new Error('api client not defined or encounterId not provided');
-      },
-      {
-        onSuccess: (data) => {
-          onSuccess(data);
-        },
-        onError: (err) => {
-          onError?.(err);
-          console.error('Error during fetching get telemed appointments: ', err);
-        },
-        enabled: !!apiClient && !!encounterId && !!user && !isAppointmentLoading && enabled,
-        staleTime: 5000,
+  const query = useQuery(
+    key,
+    () => {
+      if (apiClient && encounterId) {
+        return apiClient.getChartData({
+          encounterId,
+          requestedFields,
+        });
       }
-    ),
+      throw new Error('api client not defined or encounterId not provided');
+    },
+    {
+      onSuccess: (data) => {
+        onSuccess(data);
+      },
+      onError: (err) => {
+        onError?.(err);
+        console.error('Error during fetching get telemed appointments: ', err);
+      },
+      enabled: !!apiClient && !!encounterId && !!user && !isAppointmentLoading && enabled,
+      staleTime: 0,
+    }
+  );
+  return {
+    ...query,
     queryKey: key,
   };
 };
@@ -598,7 +610,7 @@ export const useGetIcd10Search = ({ search, sabs }: IcdSearchRequestParams) => {
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useUpdatePaperwork = () => {
-  const { oystehrZambdaIntake } = useApiClients();
+  const { oystehrZambda } = useApiClients();
 
   return useMutation({
     mutationFn: async ({
@@ -610,14 +622,14 @@ export const useUpdatePaperwork = () => {
     }) => {
       const UPDATE_PAPERWORK_ZAMBDA_ID = import.meta.env.VITE_APP_UPDATE_PAPERWORK_ZAMBDA_ID;
 
-      if (!oystehrZambdaIntake) {
+      if (!oystehrZambda) {
         throw new Error('api client not defined');
       }
       if (!UPDATE_PAPERWORK_ZAMBDA_ID) {
         throw new Error('update paperwork zambda id not defined');
       }
 
-      const response = await oystehrZambdaIntake.zambda.execute({
+      const response = await oystehrZambda.zambda.execute({
         id: UPDATE_PAPERWORK_ZAMBDA_ID,
         appointmentID,
         paperwork,

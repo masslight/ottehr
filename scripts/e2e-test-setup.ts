@@ -26,6 +26,8 @@ interface EhrConfig {
   TEXT_PASSWORD?: string;
   AUTH0_CLIENT?: string;
   AUTH0_SECRET?: string;
+  AUTH0_CLIENT_TESTS?: string;
+  AUTH0_SECRET_TESTS?: string;
   LOCATION?: string;
   LOCATION_ID?: string;
   WEBSITE_URL?: string;
@@ -210,6 +212,8 @@ export async function createTestEnvFiles(): Promise<void> {
       TEXT_PASSWORD: ehrTextPassword,
       AUTH0_CLIENT: zambdaEnv.AUTH0_CLIENT,
       AUTH0_SECRET: zambdaEnv.AUTH0_SECRET,
+      AUTH0_CLIENT_TESTS: existingEhrConfig.AUTH0_CLIENT_TESTS,
+      AUTH0_SECRET_TESTS: existingEhrConfig.AUTH0_SECRET_TESTS,
       LOCATION: locationName,
       LOCATION_ID: locationId,
       WEBSITE_URL: ehrUiEnv.VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL,
@@ -217,7 +221,7 @@ export async function createTestEnvFiles(): Promise<void> {
       AUTH0_ENDPOINT: zambdaEnv.AUTH0_ENDPOINT,
       AUTH0_AUDIENCE: zambdaEnv.AUTH0_AUDIENCE,
       PROJECT_API: intakeUiEnv.VITE_APP_PROJECT_API_URL,
-      PROJECT_API_ZAMBDA_URL: intakeUiEnv.VITE_APP_PROJECT_API_URL,
+      PROJECT_API_ZAMBDA_URL: ehrUiEnv.VITE_APP_PROJECT_API_ZAMBDA_URL,
       CREATE_APPOINTMENT_ZAMBDA_ID: ehrUiEnv.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID,
       CREATE_TELEMED_APPOINTMENT_ZAMBDA_ID: intakeUiEnv.VITE_APP_TELEMED_CREATE_APPOINTMENT_ZAMBDA_ID,
       PROJECT_ID: ehrUiEnv.VITE_APP_PROJECT_ID,
@@ -235,6 +239,8 @@ export async function createTestEnvFiles(): Promise<void> {
       STATE_ONE: locationState,
       AUTH0_CLIENT: zambdaEnv.AUTH0_CLIENT,
       AUTH0_SECRET: zambdaEnv.AUTH0_SECRET,
+      AUTH0_CLIENT_TESTS: existingIntakeConfig.AUTH0_CLIENT_TESTS,
+      AUTH0_SECRET_TESTS: existingIntakeConfig.AUTH0_SECRET_TESTS,
       LOCATION: locationName,
       LOCATION_ID: locationId,
       WEBSITE_URL: zambdaEnv.WEBSITE_URL,

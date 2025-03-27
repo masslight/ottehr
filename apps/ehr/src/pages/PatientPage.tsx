@@ -66,12 +66,9 @@ export default function PatientPage(): JSX.Element {
 
             <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
               <IdentifiersRow id={id} />
-
-              <FullNameDisplay id={id} />
-
-              <Summary id={id} />
-
-              <Contacts id={id} />
+              <FullNameDisplay patient={patient} loading={loading} />
+              <Summary patient={patient} loading={loading} />
+              <Contacts patient={patient} loading={loading} />
 
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <RoundedButton

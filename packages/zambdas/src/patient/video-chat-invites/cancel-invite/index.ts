@@ -2,16 +2,22 @@ import { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, EncounterParticipant, RelatedPerson } from 'fhir/r4b';
 import { JSONPath } from 'jsonpath-plus';
-import { CancelInviteParticipantRequestInput, createOystehrClient, getAppointmentResourceById } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { SecretsKeys, getSecret, lambdaResponse } from 'zambda-utils';
+import {
+  CancelInviteParticipantRequestInput,
+  createOystehrClient,
+  getAppointmentResourceById,
+  getSecret,
+  SecretsKeys,
+} from 'utils';
 import {
   getAuth0Token,
-  getUser,
   getVideoEncounterForAppointment,
+  lambdaResponse,
   searchInvitedParticipantResourcesByEncounterId,
-} from '../../shared';
+  ZambdaInput,
+} from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
+import { getUser } from '../../../shared';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;

@@ -1,4 +1,4 @@
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../shared/types';
 import { CreateLabOrderParameters } from 'utils';
 
 export function validateRequestParameters(input: ZambdaInput): CreateLabOrderParameters & { secrets: any } {

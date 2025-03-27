@@ -2,7 +2,6 @@ import Oystehr, { SearchParam } from '@oystehr/sdk';
 import {
   ActivityDefinition,
   Appointment,
-  Bundle,
   BundleEntry,
   DiagnosticReport,
   Encounter,
@@ -106,7 +105,7 @@ export const getLabResources = async (
   // const { encounterId, testType } = params;
   const labOrdersSearchParams = createLabOrdersSearchParams(params);
 
-  const labOrdersResponse: Bundle<ServiceRequest | Task | DiagnosticReport | Encounter> = await oystehr.fhir.search({
+  const labOrdersResponse = await oystehr.fhir.search({
     resourceType: 'ServiceRequest',
     params: labOrdersSearchParams,
   });
@@ -152,6 +151,7 @@ export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): S
     visitDate,
     itemsPerPage = DEFAULT_LABS_ITEMS_PER_PAGE,
     pageIndex = 0,
+    orderableItemCode,
   } = params;
 
   const searchParams: SearchParam[] = [
@@ -173,8 +173,8 @@ export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): S
     },
     {
       name: 'code',
-      // search any code value for given system
-      value: `${OYSTEHR_LAB_OI_CODE_SYSTEM}|`,
+      // empty value will search any code value for given system
+      value: `${OYSTEHR_LAB_OI_CODE_SYSTEM}|${orderableItemCode || ''}`,
     },
     {
       name: 'code:missing',
@@ -225,7 +225,7 @@ export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): S
 
   if (visitDate) {
     searchParams.push({
-      name: 'authored',
+      name: 'encounter.appointment.date',
       value: visitDate,
     });
   }
@@ -298,11 +298,11 @@ export const fetchPractitionersForServiceRequests = async (
   }
 
   try {
-    const practitionerResponse: Bundle<Practitioner> = await oystehr.fhir.batch({
+    const practitionerResponse = await oystehr.fhir.batch({
       requests: practitionerRequest,
     });
 
-    return mapResourcesFromBundleEntry<Practitioner>(practitionerResponse.entry).filter(
+    return mapResourcesFromBundleEntry<Practitioner>(practitionerResponse.entry as BundleEntry<Practitioner>[]).filter(
       (resource): resource is Practitioner => resource?.resourceType === 'Practitioner'
     );
   } catch (error) {
@@ -322,7 +322,7 @@ export const fetchAppointmentsForServiceRequests = async (
     return [] as Appointment[];
   }
 
-  const appointmentsResponse = await oystehr.fhir.search({
+  const appointmentsResponse = await oystehr.fhir.search<Appointment>({
     resourceType: 'Appointment',
     params: [
       {
@@ -347,7 +347,7 @@ export const fetchRFRTAndRPRTTasks = async (
     return [];
   }
 
-  const tasksResponse = await oystehr.fhir.search({
+  const tasksResponse = await oystehr.fhir.search<Task>({
     resourceType: 'Task',
     params: [
       {

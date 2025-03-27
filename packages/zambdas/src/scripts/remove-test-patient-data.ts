@@ -1,8 +1,8 @@
 import { Appointment, Patient } from 'fhir/r4b';
 import { exec as execCb } from 'node:child_process';
 import { promisify } from 'node:util';
-import { performEffectWithEnvFile } from 'zambda-utils';
 import { createOystehrClientFromConfig } from './helpers';
+import { performEffectWithEnvFile } from 'utils';
 
 const exec = promisify(execCb);
 

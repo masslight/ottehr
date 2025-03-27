@@ -1,7 +1,6 @@
+import { Stack, Typography } from '@mui/material';
 import React from 'react';
-import { Typography, Stack } from '@mui/material';
 import { useParams } from 'react-router-dom';
-import { MissingCard, ReviewAndSignButton } from '../../../telemed/features/appointment/ReviewTab';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import {
   AccordionCard,
@@ -9,12 +8,13 @@ import {
   useAppointmentStore,
   useGetAppointmentAccessibility,
 } from '../../../telemed';
-import { useAppointment } from '../hooks/useAppointment';
+import { ChiefComplaintCard } from '../../../telemed/features/appointment';
+import { MissingCard, ReviewAndSignButton } from '../../../telemed/features/appointment/ReviewTab';
 import { CSSLoader } from '../components/CSSLoader';
 import { PatientInformationContainer } from '../components/progress-note/PatientInformationContainer';
-import { VisitDetailsContainer } from '../components/progress-note/VisitDetailsContainer';
 import { ProgressNoteDetails } from '../components/progress-note/ProgressNoteDetails';
-import { ChiefComplaintCard } from '../../../telemed/features/appointment';
+import { VisitDetailsContainer } from '../components/progress-note/VisitDetailsContainer';
+import { useAppointment } from '../hooks/useAppointment';
 import { IntakeNotes } from '../hooks/useIntakeNotes';
 
 interface PatientInfoProps {
@@ -24,7 +24,7 @@ interface PatientInfoProps {
 export const ProgressNote: React.FC<PatientInfoProps> = () => {
   const { id: appointmentID } = useParams();
   const {
-    sourceData: { appointment },
+    resources: { appointment },
     isLoading,
     error,
   } = useAppointment(appointmentID);
