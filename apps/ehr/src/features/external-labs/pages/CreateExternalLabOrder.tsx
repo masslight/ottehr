@@ -17,23 +17,22 @@ import {
   Box,
 } from '@mui/material';
 import { LoadingButton } from '@mui/lab';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppointmentStore, useGetIcd10Search, useDebounce, ActionsList, DeleteIconButton } from '../../../telemed';
 import { getSelectors } from '../../../shared/store/getSelectors';
-import { DiagnosisDTO, OrderableItemSearchResult, SELF_PAY_CODING, CODE_SYSTEM_COVERAGE_CLASS } from 'utils';
+import { DiagnosisDTO, OrderableItemSearchResult } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { Coverage } from 'fhir/r4b';
 import useEvolveUser from '../../../hooks/useEvolveUser';
 import Oystehr from '@oystehr/sdk';
 import { LabsAutocomplete } from '../components/LabsAutocomplete';
-import { createLabOrder } from '../../../api/api';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import { createLabOrder, getCreateLabOrderResources } from '../../../api/api';
 
 enum LoadingState {
   initial,
   loading,
   loaded,
+  loadedWithError,
 }
 interface CreateExternalLabOrdersProps {
   appointmentID?: string;
@@ -41,7 +40,7 @@ interface CreateExternalLabOrdersProps {
 
 export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = () => {
   const theme = useTheme();
-  const { oystehr, oystehrZambda } = useApiClients();
+  const { oystehrZambda } = useApiClients();
   const user = useEvolveUser();
   const navigate = useNavigate();
   const practitionerId = user?.profile.replace('Practitioner/', '');
@@ -54,13 +53,15 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     'encounter',
     'appointment',
   ]);
-  const { diagnosis, patientId } = chartData || {};
+  console.log('encounter', encounter.id);
+  const { diagnosis } = chartData || {};
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
 
   const [orderDx, setOrderDx] = useState<DiagnosisDTO[]>(primaryDiagnosis ? [primaryDiagnosis] : []);
   const [selectedLab, setSelectedLab] = useState<OrderableItemSearchResult | null>(null);
-  const [pscHold, setPscHold] = useState<boolean>(true); // defaulting & locking to true for mvp
-  const [coverage, setCoverage] = useState<Coverage | undefined>(undefined);
+  const [psc, setPsc] = useState<boolean>(true); // defaulting & locking to true for mvp
+  const [coverageName, setCoverageName] = useState<string | undefined>(undefined);
+  const [labs, setLabs] = useState<OrderableItemSearchResult[]>([]);
 
   // used to fetch dx icd10 codes
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -74,46 +75,39 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   };
 
   useEffect(() => {
-    async function getPatientCoverage(oystehr: Oystehr): Promise<void> {
+    async function getResources(oystehrZambda: Oystehr): Promise<void> {
+      let loadingError = false;
       setLoadingState(LoadingState.loading);
       try {
-        const coverageResults = (
-          await oystehr.fhir.search<Coverage>({
-            resourceType: 'Coverage',
-            params: [
-              { name: 'patient', value: `Patient/${patientId}` },
-              { name: 'status', value: 'active' },
-            ],
-          })
-        ).unbundle();
-        // todo is there a way to confirm primary?
-        setCoverage(coverageResults[0]);
+        const { coverageName, labs: labsFetched } = await getCreateLabOrderResources(oystehrZambda, { encounter });
+        setCoverageName(coverageName);
+        setLabs(labsFetched);
       } catch (e) {
-        console.error('error loading locations', e);
+        console.error('error loading resources', e);
+        const error = e as any;
+        const errorMessage = error?.message
+          ? [error?.message]
+          : ['There was an error fetching resources to order this lab'];
+        setError(errorMessage);
+        loadingError = true;
       } finally {
-        setLoadingState(LoadingState.loaded);
+        if (loadingError) {
+          setLoadingState(LoadingState.loadedWithError);
+        } else {
+          setLoadingState(LoadingState.loaded);
+        }
       }
     }
 
-    if (patientId && oystehr && loadingState === LoadingState.initial) {
-      void getPatientCoverage(oystehr);
+    if (encounter && oystehrZambda && loadingState === LoadingState.initial) {
+      void getResources(oystehrZambda);
     }
-  }, [patientId, oystehr, loadingState]);
-
-  const coverageName = useMemo(() => {
-    if (!coverage) return;
-    const isSelfPay = !!coverage.type?.coding?.find((coding) => coding.system === SELF_PAY_CODING.system);
-    if (isSelfPay) return 'Self Pay'; // todo check that this is implemented / or being implmented
-    const coveragePlanClass = coverage.class?.find(
-      (c) => c.type.coding?.find((code) => code.system === CODE_SYSTEM_COVERAGE_CLASS)
-    );
-    return coveragePlanClass?.name;
-  }, [coverage]);
+  }, [encounter, oystehrZambda, loadingState]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setSubmitting(true);
-    const paramsSatisfied = orderDx.length && patientId && practitionerId && selectedLab && coverage;
+    const paramsSatisfied = orderDx.length && practitionerId && selectedLab;
     if (oystehrZambda && paramsSatisfied) {
       try {
         await createLabOrder(oystehrZambda, {
@@ -121,24 +115,48 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
           encounter,
           practitionerId,
           orderableItem: selectedLab,
-          pscHold,
+          psc,
         });
         navigate(`/in-person/${appointment?.id}/external-lab-orders`);
       } catch (e) {
-        const oysterError = e as OystehrSdkError;
-        const errorMessage = oysterError?.message ? [oysterError?.message] : ['There was an error ordering this lab'];
+        const error = e as any;
+        const errorMessage = error?.message ? [error?.message] : ['There was an error ordering this lab'];
         setError(errorMessage);
       }
     } else if (!paramsSatisfied) {
       const errorMessage = [];
       if (!orderDx.length) errorMessage.push('Please enter at least one dx');
-      if (!coverage) errorMessage.push('Patient insurance is missing, you cannot submit a lab order without one');
       if (!selectedLab) errorMessage.push('Please select a lab to order');
       if (errorMessage.length === 0) errorMessage.push('There was an error ordering this lab');
       setError(errorMessage);
     }
     setSubmitting(false);
   };
+
+  if (loadingState === LoadingState.loadedWithError) {
+    return (
+      <Stack spacing={2} sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
+            Order Lab
+          </Typography>
+        </Box>
+        <Paper sx={{ p: 3 }}>
+          {error?.length && error.length > 0 ? (
+            error.map((msg, idx) => (
+              <Grid item xs={12} sx={{ paddingTop: 1 }} key={idx}>
+                <Typography sx={{ color: theme.palette.error.main }}>{msg}</Typography>
+              </Grid>
+            ))
+          ) : (
+            <Grid item xs={12} sx={{ textAlign: 'right', paddingTop: 1 }}>
+              <Typography sx={{ color: theme.palette.error.main }}>error</Typography>
+            </Grid>
+          )}
+        </Paper>
+      </Stack>
+    );
+  }
 
   return (
     <Stack spacing={2} sx={{ p: 3 }}>
@@ -266,14 +284,18 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                 <Typography variant="h6" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
                   Lab
                 </Typography>
-                <LabsAutocomplete selectedLab={selectedLab} setSelectedLab={setSelectedLab}></LabsAutocomplete>
+                <LabsAutocomplete
+                  selectedLab={selectedLab}
+                  setSelectedLab={setSelectedLab}
+                  labs={labs}
+                ></LabsAutocomplete>
               </Grid>
               <Grid item xs={12}>
-                {/* disabling this field as we are only allowing psc hold orders for mvp */}
+                {/* disabling this field as we are only allowing psc orders for mvp */}
                 <FormControlLabel
                   sx={{ fontSize: '14px' }}
-                  control={<Switch checked={pscHold} onChange={() => setPscHold(!pscHold)} disabled />}
-                  label={<Typography variant="body2">PSC Hold</Typography>}
+                  control={<Switch checked={psc} onChange={() => setPsc(!psc)} disabled />}
+                  label={<Typography variant="body2">PSC</Typography>}
                 />
               </Grid>
               <Grid item xs={6}>

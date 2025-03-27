@@ -1,12 +1,12 @@
 import { ZambdaInput } from 'zambda-utils';
-import { SubmitLabOrder } from '.';
+import { CreateLabOrderParameters } from 'utils';
 
-export function validateRequestParameters(input: ZambdaInput): SubmitLabOrder {
+export function validateRequestParameters(input: ZambdaInput): CreateLabOrderParameters & { secrets: any } {
   if (!input.body) {
     throw new Error('No request body provided');
   }
 
-  const { dx, encounter, practitionerId, orderableItem, pscHold } = JSON.parse(input.body);
+  const { dx, encounter, practitionerId, orderableItem, psc } = JSON.parse(input.body);
 
   const missingResources = [];
   if (!dx) missingResources.push('dx');
@@ -22,7 +22,7 @@ export function validateRequestParameters(input: ZambdaInput): SubmitLabOrder {
     encounter,
     practitionerId,
     orderableItem,
-    pscHold,
+    psc,
     secrets: input.secrets,
   };
 }

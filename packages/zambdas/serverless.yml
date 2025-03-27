@@ -1354,6 +1354,22 @@ functions:
       FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
       ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
 
+  get-create-lab-order-resources:
+    handler: src/ehr/get-create-lab-order-resources/index.index
+    events:
+      - http:
+          path: zambda/get-create-lab-order-resources/execute
+          method: POST
+    timeout: 25
+    environment:
+      AUTH0_ENDPOINT: ${file(./.env/${self:provider.stage}.json):AUTH0_ENDPOINT}
+      AUTH0_CLIENT: ${file(./.env/${self:provider.stage}.json):AUTH0_CLIENT}
+      AUTH0_SECRET: ${file(./.env/${self:provider.stage}.json):AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${file(./.env/${self:provider.stage}.json):AUTH0_AUDIENCE}
+      PROJECT_API: ${file(./.env/${self:provider.stage}.json):PROJECT_API}
+      FHIR_API: ${file(./.env/${self:provider.stage}.json):FHIR_API}
+      ENVIRONMENT: ${file(./.env/${self:provider.stage}.json):ENVIRONMENT}
+
   get-lab-orders:
     handler: src/ehr/get-lab-orders/index.index
     events:
