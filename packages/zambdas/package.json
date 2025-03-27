@@ -3,10 +3,9 @@
   "version": "1.5.2",
   "private": true,
   "scripts": {
-    "start": "ENV=${ENV:-local} npm run setup-deployed-resources ${ENV:-local} && tsx watch src/local-server/index.ts -- env=.env/${ENV:-local}.json",
+    "start": "ENV=${ENV:-local} npm run setup-deployed-resources ${ENV:-local} && tsx watch --include './src/**/*' src/local-server/index.ts -- env=.env/${ENV:-local}.json",
     "start:local": "ENV=local npm run start",
     "start:demo": "ENV=demo npm run start",
-    "start:debug": "ENV=${ENV:-local} NODE_OPTIONS='--inspect' tsx watch src/local-server/index.ts -- env=.env/${ENV:-local}.json",
     "cancel-telemed-appointments": "tsx src/scripts/cancel-telemed-appointments.ts",
     "remove-insurances-and-payer-orgs": "tsx src/scripts/remove-insurances-and-payer-orgs.ts",
     "update-insurances-and-payer-orgs": "tsx src/scripts/update-insurances-and-payer-orgs.ts",
