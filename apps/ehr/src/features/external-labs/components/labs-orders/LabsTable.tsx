@@ -13,7 +13,9 @@ import {
   Paper,
   CircularProgress,
   Button,
+  IconButton,
 } from '@mui/material';
+import ClearIcon from '@mui/icons-material/Clear';
 import { DatePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
@@ -59,8 +61,6 @@ export const LabsTable = ({
 }: LabsTableProps): ReactElement => {
   const navigateTo = useNavigate();
 
-  const [selectedLab, setSelectedLab] = useState<OrderableItemSearchResult | null>(null);
-
   const {
     labOrders,
     loading,
@@ -79,6 +79,19 @@ export const LabsTable = ({
     encounterId,
   });
 
+  const [selectedOrderedItem, setSelectedOrderedItem] = useState<OrderableItemSearchResult | null>(null);
+
+  const [tempDateFilter, setTempDateFilter] = useState(visitDateFilter);
+
+  const submitFilterByDate = (): void => {
+    setVisitDateFilter(tempDateFilter);
+  };
+
+  const handleClearDate = (): void => {
+    setTempDateFilter(null);
+    setVisitDateFilter(null);
+  };
+
   const onRowClick = (labOrderData: LabOrderDTO): void => {
     navigateTo(getExternalLabOrderEditUrl(labOrderData.appointmentId, labOrderData.id));
   };
@@ -96,11 +109,7 @@ export const LabsTable = ({
 
   const handleOrderableItemCodeChange = (value: OrderableItemSearchResult | null): void => {
     setOrderableItemCodeFilter(value?.item.itemLoinc || '');
-    setSelectedLab(value || null);
-  };
-
-  const handleVisitDateChange = (date: any): void => {
-    setVisitDateFilter(date);
+    setSelectedOrderedItem(value || null);
   };
 
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number): void => {
@@ -231,20 +240,37 @@ export const LabsTable = ({
             <Grid container spacing={2} sx={{ mb: 2, mt: 1 }}>
               <Grid item xs={4} sx={{ mt: -1 }}>
                 <LabsAutocomplete
-                  selectedLab={selectedLab}
+                  selectedLab={selectedOrderedItem}
                   setSelectedLab={handleOrderableItemCodeChange}
                 ></LabsAutocomplete>
               </Grid>
               <Grid item xs={4}>
                 <DatePicker
                   label="Visit date"
-                  value={visitDateFilter}
-                  onChange={handleVisitDateChange}
+                  value={tempDateFilter}
+                  onChange={setTempDateFilter}
+                  onAccept={setVisitDateFilter}
+                  format="dd.MM.yyyy"
                   slotProps={{
-                    textField: {
+                    textField: (params) => ({
+                      ...params,
+                      onBlur: submitFilterByDate,
                       fullWidth: true,
                       size: 'small',
-                    },
+                      InputProps: {
+                        ...params.InputProps,
+                        endAdornment: (
+                          <>
+                            {tempDateFilter && (
+                              <IconButton size="small" onClick={handleClearDate} edge="end">
+                                <ClearIcon fontSize="small" />
+                              </IconButton>
+                            )}
+                            {params.InputProps?.endAdornment}
+                          </>
+                        ),
+                      },
+                    }),
                   }}
                 />
               </Grid>
