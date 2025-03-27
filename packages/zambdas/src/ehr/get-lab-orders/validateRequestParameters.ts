@@ -11,7 +11,7 @@ export function validateRequestParameters(input: ZambdaInput): GetZambdaLabOrder
   const {
     encounterId,
     patientId,
-    testType,
+    orderableItemCode,
     visitDate,
     itemsPerPage = DEFAULT_LABS_ITEMS_PER_PAGE,
     pageIndex = 0,
@@ -33,7 +33,7 @@ export function validateRequestParameters(input: ZambdaInput): GetZambdaLabOrder
   return {
     encounterId,
     patientId,
-    testType,
+    orderableItemCode,
     visitDate,
     itemsPerPage,
     pageIndex,

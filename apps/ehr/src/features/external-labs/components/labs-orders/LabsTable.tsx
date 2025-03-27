@@ -1,4 +1,4 @@
-import { ReactElement, useEffect } from 'react';
+import { ReactElement, useEffect, useState } from 'react';
 import {
   Table,
   TableBody,
@@ -9,8 +9,6 @@ import {
   Typography,
   Box,
   Pagination,
-  TextField,
-  InputAdornment,
   Grid,
   Paper,
   CircularProgress,
@@ -19,12 +17,12 @@ import {
 import { DatePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
-import SearchIcon from '@mui/icons-material/Search';
 import { LabsTableRow } from './LabsTableRow';
 import { usePatientLabOrders } from './usePatientLabOrders';
 import { useNavigate } from 'react-router-dom';
-import { LabOrderDTO } from 'utils/lib/types/data/labs';
+import { LabOrderDTO, OrderableItemSearchResult } from 'utils/lib/types/data/labs';
 import { getExternalLabOrderEditUrl } from '../../../css-module/routing/helpers';
+import { LabsAutocomplete } from '../LabsAutocomplete';
 
 export type LabsTableColumn =
   | 'testType'
@@ -61,14 +59,15 @@ export const LabsTable = ({
 }: LabsTableProps): ReactElement => {
   const navigateTo = useNavigate();
 
+  const [selectedLab, setSelectedLab] = useState<OrderableItemSearchResult | null>(null);
+
   const {
     labOrders,
     loading,
     totalPages,
     page,
     setPage,
-    testTypeFilter,
-    setTestTypeFilter,
+    setOrderableItemCodeFilter,
     visitDateFilter,
     setVisitDateFilter,
     showPagination,
@@ -95,8 +94,9 @@ export const LabsTable = ({
     return;
   }, [redirectToOrderCreateIfOrdersEmpty, loading, labOrders.length, error, onCreateOrder]);
 
-  const handleTestTypeChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    setTestTypeFilter(event.target.value);
+  const handleOrderableItemCodeChange = (value: OrderableItemSearchResult | null): void => {
+    setOrderableItemCodeFilter(value?.item.itemLoinc || '');
+    setSelectedLab(value || null);
   };
 
   const handleVisitDateChange = (date: any): void => {
@@ -229,23 +229,11 @@ export const LabsTable = ({
         {showFilters && (
           <LocalizationProvider dateAdapter={AdapterLuxon}>
             <Grid container spacing={2} sx={{ mb: 2, mt: 1 }}>
-              <Grid item xs={4}>
-                <TextField
-                  fullWidth
-                  label="Test type"
-                  variant="outlined"
-                  size="small"
-                  value={testTypeFilter}
-                  onChange={handleTestTypeChange}
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <SearchIcon cursor="pointer" />
-                      </InputAdornment>
-                    ),
-                  }}
-                  placeholder="CBC"
-                />
+              <Grid item xs={4} sx={{ mt: -1 }}>
+                <LabsAutocomplete
+                  selectedLab={selectedLab}
+                  setSelectedLab={handleOrderableItemCodeChange}
+                ></LabsAutocomplete>
               </Grid>
               <Grid item xs={4}>
                 <DatePicker
