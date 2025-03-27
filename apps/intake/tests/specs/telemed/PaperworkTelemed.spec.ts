@@ -461,13 +461,15 @@ test.describe('Primary Insurance', () => {
     await uploadPhoto.fillInsuranceBack();
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await paperwork.checkImagesAreSaved(locator.insuranceFrontImage, locator.insuranceBackImage);
+    await paperwork.checkImagesIsSaved(locator.insuranceFrontImage);
+    await paperwork.checkImagesIsSaved(locator.insuranceBackImage);
   });
   test('Primary Insurance - Open next page, click [Back] - check images are saved', async () => {
     await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('Responsible party information');
     await locator.clickBackButton();
-    await paperwork.checkImagesAreSaved(locator.insuranceFrontImage, locator.insuranceBackImage);
+    await paperwork.checkImagesIsSaved(locator.insuranceFrontImage);
+    await paperwork.checkImagesIsSaved(locator.insuranceBackImage);
   });
   test('Primary Insurance - Add secondary insurance with empty fields, remove secondary insurance, continue with primary insurance', async () => {
     await locator.addSecondaryInsurance.click();
@@ -566,13 +568,15 @@ test.describe('Secondary Insurance', () => {
     await uploadPhoto.fillSecondaryInsuranceBack();
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await paperwork.checkImagesAreSaved(locator.secondaryInsuranceFrontImage, locator.secondaryInsuranceBackImage);
+    await paperwork.checkImagesIsSaved(locator.secondaryInsuranceFrontImage);
+    await paperwork.checkImagesIsSaved(locator.secondaryInsuranceBackImage);
   });
   test('Secondary Insurance - Open next page, click [Back] - check images are saved', async () => {
     await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('Responsible party information');
     await locator.clickBackButton();
-    await paperwork.checkImagesAreSaved(locator.secondaryInsuranceFrontImage, locator.secondaryInsuranceBackImage);
+    await paperwork.checkImagesIsSaved(locator.secondaryInsuranceFrontImage);
+    await paperwork.checkImagesIsSaved(locator.secondaryInsuranceBackImage);
   });
   test('Secondary Insurance - Policy holder address is the same checkbox', async () => {
     await paperwork.checkPolicyAddressIsTheSameCheckbox(true);
@@ -685,13 +689,45 @@ test.describe('Photo ID - Upload photo', () => {
     await uploadPhoto.fillPhotoFrontID();
     await uploadPhoto.fillPhotoBackID();
     await page.reload();
-    await paperwork.checkImagesAreSaved(locator.photoIdFrontImage, locator.photoIdBackImage);
+    await paperwork.checkImagesIsSaved(locator.photoIdFrontImage);
+    await paperwork.checkImagesIsSaved(locator.photoIdBackImage);
   });
   test('PPID-6 Open next page, click [Back] - check images are saved', async () => {
     await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('Patient condition');
     await locator.clickBackButton();
-    await paperwork.checkImagesAreSaved(locator.photoIdFrontImage, locator.photoIdBackImage);
+    await paperwork.checkImagesIsSaved(locator.photoIdFrontImage);
+    await paperwork.checkImagesIsSaved(locator.photoIdBackImage);
+  });
+});
+test.describe('Patient condition', () => {
+  test.describe.configure({ mode: 'serial' });
+  test('PPC-1 Open Patient condition', async () => {
+    await page.goto(`paperwork/${bookingData.bookingUUID}/patient-condition`);
+    await page.waitForLoadState('networkidle');
+    await paperwork.checkCorrectPageOpens('Patient condition');
+  });
+  test('PPC-2 Patient condition - Check patient name is displayed', async () => {
+    await paperwork.checkPatientNameIsDisplayed(
+      bookingData.patientBasicInfo.firstName,
+      bookingData.patientBasicInfo.lastName
+    );
+  });
+  test('PPC-3 Upload and Clear image', async () => {
+    const uploadedPhoto = await uploadPhoto.fillPatientConditionPhotoPaperwork();
+    await locator.clearImage.click();
+    await expect(uploadedPhoto).toBeHidden();
+  });
+  test('PPC-4 Upload image, reload page, check image is saved', async () => {
+    await uploadPhoto.fillPatientConditionPhotoPaperwork();
+    await page.reload();
+    await paperwork.checkImagesIsSaved(locator.photoPatientCondition);
+  });
+  test('PPC-5 Open next page, click [Back] - check images are saved', async () => {
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Do you need a school or work note?');
+    await locator.clickBackButton();
+    await paperwork.checkImagesIsSaved(locator.photoPatientCondition);
   });
 });
 test.describe('Consent forms - Check and fill all fields', () => {
