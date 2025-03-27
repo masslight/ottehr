@@ -268,13 +268,11 @@ test.describe('Tests interacting with appointment state', () => {
       const image = block.locator('img');
       await expect(image).toHaveCount(1);
       const imageSrc = await image.getAttribute('src');
+      expect(imageSrc).toContain(resourceHandlerPrefilled.patient.id);
       await image.click();
 
       const zoomedImage = page.locator("div[role='dialog'] img[alt='Patient condition photo #1']");
       await expect(zoomedImage).toBeVisible();
-      const zoomedImageSrc = await zoomedImage.getAttribute('src');
-
-      expect(imageSrc).toEqual(zoomedImageSrc);
     });
   });
 
