@@ -8,8 +8,9 @@ import {
   EligibilityPractitionerType,
   FHIR_IDENTIFIER_NPI,
   filterVirtualLocations,
+  TELEMED_INITIAL_STATES,
   TIMEZONE_EXTENSION_URL,
-  VirtualLocationBody,
+  VirtualLocationBody
 } from 'utils';
 import { getAuth0Token } from '../shared';
 import { createOystehrClient } from '../shared';
@@ -17,8 +18,7 @@ import { createOystehrClient } from '../shared';
 export const DEFAULT_TESTING_SLUG = 'testing';
 
 const virtualLocations: { value: string; label: string }[] = [
-  { value: 'NJ', label: 'NJ' },
-  { value: 'OH', label: 'OH' },
+  ...TELEMED_INITIAL_STATES.map((state) => ({ value: state, label: state })),
 ];
 
 const allPhysicalLocations: { state: string; city: string }[] = [
