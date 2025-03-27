@@ -8,8 +8,8 @@ import {
   QuestionnaireResponse,
   RelatedPerson,
 } from 'fhir/r4b';
-import { getParticipantIdFromAppointment, performEffectWithEnvFile } from 'utils';
-import { createOystehrClientFromConfig } from './helpers';
+import { getParticipantIdFromAppointment } from 'utils';
+import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpers';
 
 const deleteAppointmentData = async (config: any): Promise<void> => {
   const oystehr = await createOystehrClientFromConfig(config);
