@@ -225,7 +225,7 @@ export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): S
 
   if (visitDate) {
     searchParams.push({
-      name: 'encounter.date',
+      name: 'encounter.appointment.date',
       value: visitDate,
     });
   }
