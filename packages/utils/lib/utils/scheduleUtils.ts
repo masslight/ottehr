@@ -175,7 +175,7 @@ export function getTimezone(schedule: Location | Practitioner | HealthcareServic
     (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
   )?.valueString;
   if (!timezone) {
-    console.log('error for', schedule.resourceType, schedule.id);
+    console.error('Schedule does not have timezone', schedule.resourceType, schedule.id);
     throw new Error('schedule does not have timezone');
   }
   return timezone;
@@ -191,7 +191,7 @@ export const getAppointmentTimezone = (appointment: Appointment, scheduleResourc
   );
 
   if (!scheduleResource) {
-    console.log('referenced resource not found in provided resources', scheduleResources);
+    console.error('Resource with Schedule extension not found in appointment.participant resources', scheduleResources);
   }
 
   const timezone = getTimezone(scheduleResource as Location | HealthcareService | Practitioner);
