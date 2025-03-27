@@ -1,6 +1,7 @@
 import { ApptTelemedTab, PractitionerQualificationCode, RoleType, TelemedAppointmentVisitTabs } from 'utils';
 
 export const dataTestIds = {
+  loadingSpinner: 'loading-spinner',
   header: {
     userName: 'header-user-name',
   },
@@ -68,7 +69,11 @@ export const dataTestIds = {
     patientLastName: 'patient-last-name',
     patientFirstName: 'patient-first-name',
     patientBirthSex: 'patient-birth-sex',
-    patientDOB: 'patient-date-of-birth',
+    patientDateOfBirth: 'patient-date-of-birth',
+    patientMiddleName: 'patient-middle-name',
+    patientSuffix: 'patient-suffix',
+    patientPreferredName: 'patient-preferred-name',
+    patientPreferredPronouns: 'patient-preferred-pronouns',
   },
   contactInformationContainer: {
     streetAddress: 'street-address',
@@ -164,6 +169,7 @@ export const dataTestIds = {
   },
   telemedEhrFlow: {
     telemedAppointmentsTabs: (tab: ApptTelemedTab) => `telemed-appointments-tabs-${tab}`,
+    trackingBoardTableGroupRow: `telemed-tracking-board-table-group-row`,
     trackingBoardTableRow: (appointmentId: string) => `telemed-tracking-board-table-row-${appointmentId}`,
     myPatientsButton: 'telemed-my-patients-button',
     allPatientsButton: 'telemed-all-patients-button',
@@ -200,7 +206,6 @@ export const dataTestIds = {
     videoRoomContainer: 'telemed-video-room-container',
     endVideoCallButton: 'telemed-end-video-call-button',
     appointmentVisitTabs: (tab: TelemedAppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
-    diagnosisAutocomplete: 'telemed-diagnosis-autocomplete',
     patientInfoConfirmationCheckbox: 'telemed-patient-info-confirmation-checkbox',
     signButton: 'telemed-sign-button',
   },

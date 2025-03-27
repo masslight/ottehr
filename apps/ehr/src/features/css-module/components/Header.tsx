@@ -58,19 +58,19 @@ export const Header = (): JSX.Element => {
   const { id: appointmentID } = useParams();
   const navigate = useNavigate();
   const {
-    sourceData: { appointment, patient },
-    processedData,
-    telemedData,
+    resources: { appointment, patient },
+    mappedData,
+    visitState: telemedData,
     refetch,
   } = useAppointment(appointmentID);
   const { encounter } = telemedData;
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
   const encounterId = encounter?.id;
-  const patientName = format(processedData?.patientName, 'Name');
-  const pronouns = format(processedData?.pronouns, 'Pronouns');
-  const gender = format(processedData?.gender, 'Gender');
-  const language = format(processedData?.preferredLanguage, 'Lang');
-  const dob = format(processedData?.DOB, 'DOB', true);
+  const patientName = format(mappedData?.patientName, 'Name');
+  const pronouns = format(mappedData?.pronouns, 'Pronouns');
+  const gender = format(mappedData?.gender, 'Gender');
+  const language = format(mappedData?.preferredLanguage, 'Lang');
+  const dob = format(mappedData?.DOB, 'DOB', true);
   const allergies = format(
     chartData?.allergies
       ?.filter((allergy) => allergy.current === true)

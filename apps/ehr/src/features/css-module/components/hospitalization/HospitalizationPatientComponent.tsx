@@ -1,15 +1,15 @@
-import React, { FC } from 'react';
 import { Box, Divider, Typography, useTheme } from '@mui/material';
-import { useAppointment } from '../../hooks/useAppointment';
-import { PatientSideListSkeleton } from '../../../../telemed/features/appointment';
+import { FC } from 'react';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../telemed';
+import { PatientSideListSkeleton } from '../../../../telemed/features/appointment';
+import { useAppointment } from '../../hooks/useAppointment';
 
 export const HospitalizationPatientComponent: FC = () => {
   const theme = useTheme();
 
   const { isAppointmentLoading } = getSelectors(useAppointmentStore, ['isAppointmentLoading']);
-  const { processedData: questionnaire } = useAppointment();
+  const { mappedData: questionnaire } = useAppointment();
 
   const hospitalizations = questionnaire.hospitalizations;
   return (

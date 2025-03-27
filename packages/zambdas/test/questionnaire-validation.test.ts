@@ -1,7 +1,7 @@
 import { IntakeQuestionnaireItem, getQuestionnaireItemsAndProgress, makeValidationSchema } from 'utils';
 import { AnyObjectSchema, AnySchema } from 'yup';
-import { getAuth0Token } from '../src/patient/shared';
-import { createOystehrClient } from '../src/patient/shared/helpers';
+import { getAuth0Token } from '../src/shared';
+import { createOystehrClient } from '../src/shared';
 import QRData from './data/quetionnaire-responses.json';
 import { vi } from 'vitest';
 import { SECRETS as S } from './data/secrets';

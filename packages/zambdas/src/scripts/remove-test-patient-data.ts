@@ -1,8 +1,7 @@
 import { Appointment, Patient } from 'fhir/r4b';
 import { exec as execCb } from 'node:child_process';
 import { promisify } from 'node:util';
-import { performEffectWithEnvFile } from 'zambda-utils';
-import { createOystehrClientFromConfig } from './helpers';
+import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpers';
 
 const exec = promisify(execCb);
 
@@ -16,7 +15,7 @@ const deleteTestPatientsData = async (config: any): Promise<void> => {
     params: [
       {
         name: 'name',
-        value: 'Test_Doe_Random',
+        value: 'Test_Doe_Random,TA_User,TM_User',
       },
       {
         name: '_revinclude',

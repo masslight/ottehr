@@ -33,6 +33,7 @@ interface AppointmentData {
     value: string;
   }[];
   address?: Address[];
+  customLocationId?: string;
 }
 
 interface DemoConfig {
@@ -117,7 +118,7 @@ const generateRandomPatientInfo = async (
   oystehr: Oystehr,
   phoneNumber?: string,
   demoData?: DemoAppointmentData,
-  selectedLocationId?: string
+  locationState?: string
 ): Promise<CreateAppointmentInput> => {
   const {
     firstNames = DEFAULT_FIRST_NAMES,
@@ -158,7 +159,8 @@ const generateRandomPatientInfo = async (
   ).unbundle();
 
   const telemedOffices = allOffices.filter((loc) => isLocationVirtual(loc));
-  const randomTelemedLocationId = telemedOffices[Math.floor(Math.random() * telemedOffices.length)].id!;
+  const randomTelemedLocationState =
+    telemedOffices[Math.floor(Math.random() * telemedOffices.length)].address?.state || '';
   const randomReason = reasonsForVisit[Math.floor(Math.random() * reasonsForVisit.length)];
 
   const patientData = {
@@ -177,7 +179,7 @@ const generateRandomPatientInfo = async (
   return {
     patient: patientData,
     unconfirmedDateOfBirth: randomDateOfBirth,
-    locationState: selectedLocationId || randomTelemedLocationId, // ?
+    locationState: locationState || randomTelemedLocationState, // ?
   };
 };
 
@@ -187,7 +189,7 @@ export const createSampleTelemedAppointments = async ({
   phoneNumber,
   createAppointmentZambdaId,
   zambdaUrl,
-  selectedLocationId,
+  locationState,
   demoData,
   projectId,
   paperworkAnswers,
@@ -198,7 +200,7 @@ export const createSampleTelemedAppointments = async ({
   createAppointmentZambdaId: string;
   islocal: boolean;
   zambdaUrl: string;
-  selectedLocationId?: string;
+  locationState?: string;
   demoData?: DemoAppointmentData;
   projectId: string;
   paperworkAnswers?: GetPaperworkAnswers;
@@ -218,7 +220,7 @@ export const createSampleTelemedAppointments = async ({
     // Run all appointment creations in parallel
     const appointmentPromises = Array.from({ length: numberOfAppointments }, async (_, i) => {
       try {
-        const patientInfo = await generateRandomPatientInfo(oystehr, phoneNumber, demoData, selectedLocationId);
+        const patientInfo = await generateRandomPatientInfo(oystehr, phoneNumber, demoData, locationState);
 
         const createAppointmentResponse = await fetch(`${zambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
           method: 'POST',
