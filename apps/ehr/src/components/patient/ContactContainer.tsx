@@ -1,107 +1,112 @@
-import { Box } from '@mui/material';
+import { Autocomplete, Box, TextField } from '@mui/material';
 import { FC } from 'react';
-import { useFormContext } from 'react-hook-form';
-import { patientFieldPaths, standardizePhoneNumber } from 'utils';
+import { Controller, useFormContext } from 'react-hook-form';
+import { emailRegex, isPostalCodeValid, phoneRegex, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { STATE_OPTIONS } from '../../constants';
-import { FormAutocomplete, FormTextField } from '../form';
+import { FormTextField } from '../form';
 import { Row, Section } from '../layout';
-import { usePatientStore } from '../../state/patient.store';
+import { dataTestIds } from '../../constants/data-test-ids';
+import InputMask from '../InputMask';
+import { FormFields as AllFormFields } from '../../constants';
+
+const FormFields = AllFormFields.patientContactInformation;
 
 export const ContactContainer: FC = () => {
-  const { patient, updatePatientField } = usePatientStore();
-  const { control } = useFormContext();
-
-  if (!patient) return null;
-
-  const phone = patient?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
-  const phoneIndex = patient?.telecom?.findIndex((telecom) => telecom.system === 'phone' && telecom.value === phone);
-  const phonePath = patientFieldPaths.phone.replace(/telecom\/\d+/, `telecom/${phoneIndex}`);
-
-  const email = patient.telecom?.find((telecom) => telecom.system === 'email')?.value;
-  const emailIndex = patient?.telecom?.findIndex((telecom) => telecom.system === 'email' && telecom.value === email);
-  const emailPath = patientFieldPaths.email.replace(/telecom\/\d+/, `telecom/${emailIndex}`);
-
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    const { name, value } = event.target;
-    updatePatientField(name, value);
-  };
-
-  const handleAutocompleteChange = (name: string, value: string): void => {
-    handleChange({
-      target: {
-        name,
-        value,
-      },
-    } as any);
-  };
+  const { control, setValue } = useFormContext();
 
   return (
     <Section title="Contact information">
-      <Row label="Street address" inputId="patient-street-address" required>
+      <Row label="Street address" inputId={FormFields.streetAddress.key} required>
         <FormTextField
-          name={patientFieldPaths.streetAddress}
+          name={FormFields.streetAddress.key}
+          data-testid={dataTestIds.contactInformationContainer.streetAddress}
           control={control}
-          defaultValue={patient?.address?.[0]?.line?.[0]}
-          rules={{ required: true }}
-          id="patient-street-address"
-          onChangeHandler={handleChange}
+          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+          id={FormFields.streetAddress.key}
         />
+      </Row>
+      <Row label="Address line 2" inputId={FormFields.addressLine2.key}>
+        <FormTextField name={FormFields.addressLine2.key} control={control} id={FormFields.addressLine2.key} />
       </Row>
       <Row label="City, State, ZIP" required>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <FormTextField
-            name={patientFieldPaths.city}
+            name={FormFields.city.key}
             control={control}
-            defaultValue={patient?.address?.[0]?.city}
-            rules={{ required: true }}
-            onChangeHandler={handleChange}
-          />
-          <FormAutocomplete
-            name={patientFieldPaths.state}
-            control={control}
-            options={STATE_OPTIONS}
-            defaultValue={patient?.address?.[0]?.state}
             rules={{
-              validate: (value: string) => STATE_OPTIONS.some((option) => option.value === value),
-              require: true,
+              required: REQUIRED_FIELD_ERROR_MESSAGE,
             }}
-            onChangeHandler={handleAutocompleteChange}
+            data-testid={dataTestIds.contactInformationContainer.city}
+          />
+          <Controller
+            name={FormFields.state.key}
+            control={control}
+            rules={{
+              required: REQUIRED_FIELD_ERROR_MESSAGE,
+            }}
+            render={({ field: { value }, fieldState: { error } }) => {
+              return (
+                <Autocomplete
+                  options={STATE_OPTIONS.map((option) => option.value)}
+                  value={value ?? ''}
+                  data-testid={dataTestIds.contactInformationContainer.state}
+                  onChange={(_, newValue) => {
+                    if (newValue) {
+                      setValue(FormFields.state.key, newValue);
+                    } else {
+                      setValue(FormFields.state.key, '');
+                    }
+                  }}
+                  disableClearable
+                  fullWidth
+                  renderInput={(params) => (
+                    <TextField {...params} variant="standard" error={!!error} required helperText={error?.message} />
+                  )}
+                />
+              );
+            }}
           />
           <FormTextField
-            name={patientFieldPaths.zip}
+            name={FormFields.zip.key}
             control={control}
-            defaultValue={patient?.address?.[0]?.postalCode}
-            rules={{ required: true }}
-            onChangeHandler={handleChange}
+            rules={{
+              required: REQUIRED_FIELD_ERROR_MESSAGE,
+              validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
+            }}
+            data-testid={dataTestIds.contactInformationContainer.zip}
           />
         </Box>
       </Row>
-      <Row label="Patient email">
+      <Row label="Patient email" required={true}>
         <FormTextField
-          id="patient-email"
-          name={emailPath}
+          id={FormFields.email.key}
+          name={FormFields.email.key}
+          data-testid={dataTestIds.contactInformationContainer.patientEmail}
           control={control}
           rules={{
-            required: true,
+            required: REQUIRED_FIELD_ERROR_MESSAGE,
             pattern: {
-              value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-              message: 'Invalid email address',
+              value: emailRegex,
+              message: 'Must be in the format "email@example.com"',
             },
           }}
-          defaultValue={email}
-          onChangeHandler={handleChange}
         />
       </Row>
       <Row label="Patient mobile" required={true}>
         <FormTextField
-          id="patient-mobile"
-          name={phonePath}
+          id={FormFields.phone.key}
+          name={FormFields.phone.key}
           control={control}
-          defaultValue={standardizePhoneNumber(phone)}
-          rules={{
-            required: true,
+          inputProps={{ mask: '(000) 000-0000' }}
+          InputProps={{
+            inputComponent: InputMask as any,
           }}
-          onChangeHandler={handleChange}
+          rules={{
+            required: REQUIRED_FIELD_ERROR_MESSAGE,
+            validate: (value: string) =>
+              phoneRegex.test(value) || 'Phone number must be 10 digits in the format (xxx) xxx-xxxx',
+          }}
+          data-testid={dataTestIds.contactInformationContainer.patientMobile}
         />
       </Row>
     </Section>

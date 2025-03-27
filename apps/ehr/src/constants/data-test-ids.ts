@@ -1,26 +1,33 @@
-import { PractitionerQualificationCode, RoleType } from 'utils';
+import { ApptTelemedTab, PractitionerQualificationCode, RoleType, TelemedAppointmentVisitTabs } from 'utils';
 
 export const dataTestIds = {
+  loadingSpinner: 'loading-spinner',
   header: {
     userName: 'header-user-name',
   },
   cssHeader: {
     container: 'css-header-container',
+    patientName: 'patient-name',
+    appointmentStatus: 'appointment-status',
+    switchStatusButton: (status: string) => `switch-status-to-${status}`,
   },
   dashboard: {
     appointmentsTable: (tab: 'prebooked' | 'in-office' | 'completed' | 'cancelled') => `appointments-table-${tab}`,
     addPatientButton: 'add-patient-button',
-    intakeButton: (appointmentId: string) => `intake-button-${appointmentId}`,
+    intakeButton: `intake-button`,
     prebookedTab: 'prebooked-tab',
     locationSelect: 'location-select',
     datePickerTodayButton: 'date-picker-today-button',
     loadingIndicator: 'loading-indicator',
     tableRowWrapper: (appointmentId: string) => `appointments-table-row-${appointmentId}`,
     tableRowStatus: (appointmentId: string) => `appointments-table-row-status-${appointmentId}`,
-    patientName: 'patient-name',
-    appointmentTime: 'appointment-time',
     inOfficeTab: 'in-office-tab',
     groupSelect: 'group-select',
+    dischargedTab: 'discharged-tab',
+    cancelledTab: 'cancelled-tab',
+    arrivedButton: 'arrived-button',
+    appointmentStatus: 'appointment-status',
+    chatButton: 'Chat-outlined-icon',
   },
   appointmentPage: {
     patientFullName: 'patient-full-name',
@@ -46,6 +53,9 @@ export const dataTestIds = {
   pagination: {
     paginationContainer: 'pagination-container',
   },
+  patientInformationPage: {
+    saveChangesButton: 'save-changes-button',
+  },
   patientHeader: {
     patientId: 'header-patient-id',
     patientName: 'header-patient-name',
@@ -55,28 +65,49 @@ export const dataTestIds = {
     patientPhoneNumber: 'header-patient-phone-number',
     emergencyContact: 'header-emergency-contact',
   },
-  patientInformation: {
+  patientInformationContainer: {
     patientLastName: 'patient-last-name',
     patientFirstName: 'patient-first-name',
     patientBirthSex: 'patient-birth-sex',
+    patientDateOfBirth: 'patient-date-of-birth',
+    patientMiddleName: 'patient-middle-name',
+    patientSuffix: 'patient-suffix',
+    patientPreferredName: 'patient-preferred-name',
+    patientPreferredPronouns: 'patient-preferred-pronouns',
+  },
+  contactInformationContainer: {
     streetAddress: 'street-address',
     city: 'city',
     state: 'state',
     zip: 'zip',
-    fillingThisInfoAs: 'filling-this-info-as',
-    parentGuardianEmail: 'parent-guardian-email',
-    patientEmail: 'patient-email',
     patientMobile: 'patient-mobile',
+    patientEmail: 'patient-email',
+  },
+  patientDetailsContainer: {
     patientsEthnicity: 'patients-ethnicity',
     patientsRace: 'patients-race',
-    howDidYouHearAboutUs: 'how-did-you-hear-about-us',
-    fullName: 'full-name',
   },
+  responsiblePartyInformationContainer: {
+    id: 'responsible-party-information-container',
+    relationshipDropdown: 'relationship-dropdown',
+    firstName: 'first-name',
+    lastName: 'last-name',
+    dateOfBirthDropdown: 'date-of-birth-dropdown',
+    birthSexDropdown: 'birth-sex-dropdown',
+    phoneInput: 'phone-input',
+  },
+
+  userSettingsContainer: {
+    releaseOfInfoDropdown: 'release-of-info-dropdown',
+    RxHistoryConsentDropdown: 'Rx-history-consent-dropdown',
+  },
+
   slots: {
     slot: 'slot',
   },
   dialog: {
     closeButton: 'close-button',
+    proceedButton: 'proceed-button',
   },
   statesPage: {
     statesSearch: 'states-search',
@@ -137,6 +168,8 @@ export const dataTestIds = {
     statusChip: 'employee-status-chip',
   },
   telemedEhrFlow: {
+    telemedAppointmentsTabs: (tab: ApptTelemedTab) => `telemed-appointments-tabs-${tab}`,
+    trackingBoardTableGroupRow: `telemed-tracking-board-table-group-row`,
     trackingBoardTableRow: (appointmentId: string) => `telemed-tracking-board-table-row-${appointmentId}`,
     myPatientsButton: 'telemed-my-patients-button',
     allPatientsButton: 'telemed-all-patients-button',
@@ -147,22 +180,93 @@ export const dataTestIds = {
     appointmentStatusChip: 'telemed-appointment-status-chip',
     footerButtonConnectToPatient: 'telemed-appointment-footer-button-connect-to-patient',
     footerButtonAssignMe: 'telemed-appointment-footer-button-assign-me',
-    dialogButtonConfirm: 'telemed-dialog-button-confirm',
     appointmentChartFooter: 'telemed-chart-appointment-footer',
     hpiMedicalConditionsLoadingSkeleton: 'telemed-medical-conditions-loading-skeleton',
     hpiMedicalConditionColumn: 'telemed-hpi-medical-condition-column',
     hpiMedicalConditionsList: 'telemed-hpi-medical-condition-list',
+    hpiMedicalConditionPatientProvidedsList: 'telemed-hpi-medical-condition-patient-provided-list',
     hpiMedicalConditionsInput: 'telemed-hpi-medical-condition-input',
+    hpiCurrentMedicationsPatientProvidedsList: 'telemed-hpi-current-medications-patient-provided-list',
     hpiKnownAllergiesColumn: 'telemed-hpi-known-allergies-column',
     hpiKnownAllergiesList: 'telemed-hpi-known-allergies-list',
+    hpiKnownAllergiesPatientProvidedList: 'telemed-hpi-known-allergies-patient-provided-list',
     hpiKnownAllergiesInput: 'telemed-hpi-known-allergies-input',
     hpiSurgicalHistoryColumn: 'telemed-hpi-surgical-history-column',
     // hpiSurgicalHistoryList: 'telemed-hpi-surgical-history-list',
+    hpiSurgicalHistoryPatientProvidedList: 'telemed-hpi-surgical-history-patient-provided-list',
     hpiSurgicalHistoryInput: 'telemed-hpi-surgical-history-input',
     hpiAdditionalQuestions: (questionSymptom: string) => `telemed-additional-questions-${questionSymptom}`,
+    hpiAdditionalQuestionsPatientProvided: (questionSymptom: string) =>
+      `telemed-additional-questions-patient-provided-${questionSymptom}`,
     hpiSurgicalHistoryNote: 'telemed-hpi-surgical-history-note',
     hpiChiefComplaintNotes: 'telemed-chief-complaint-notes',
     hpiChiefComplaintRos: 'telemed-chief-complaint-ros',
+    hpiPatientConditionPhotos: 'telemed-patient-condition-photos',
+    hpiReasonForVisit: 'telemed-reason-for-visit',
     videoRoomContainer: 'telemed-video-room-container',
+    endVideoCallButton: 'telemed-end-video-call-button',
+    appointmentVisitTabs: (tab: TelemedAppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
+    patientInfoConfirmationCheckbox: 'telemed-patient-info-confirmation-checkbox',
+    signButton: 'telemed-sign-button',
+  },
+  sideMenu: {
+    completeIntakeButton: 'complete-intake-button',
+    sideMenuItem: (item: string): string => `menu-item-${item}`,
+  },
+  hospitalizationPage: {
+    hospitalizationTitle: 'hospitalization-title',
+  },
+  progressNotePage: {
+    reviewAndSignButton: 'review-and-sign-button',
+    missingCard: 'missing-card',
+    missingCardText: 'missing-card-text',
+    primaryDiagnosisLink: 'primary-diagnosis-link',
+    secondaryDiagnosisLink: 'secondary-diagnosis-link',
+    medicalDecisionLink: 'medical-decision-link',
+    emCodeLink: 'em-code-link',
+    visitNoteCard: 'visit-note-card',
+  },
+  assessmentPage: {
+    diagnosisDropdown: 'diagnosis-dropdown',
+    emCodeDropdown: 'em-code-dropdown',
+    medicalDecisionField: 'medical-decision-field',
+  },
+  diagnosisContainer: {
+    primaryDiagnosis: 'diagnosis-container-primary-diagnosis',
+    secondaryDiagnosis: 'diagnosis-container-secondary-diagnosis',
+    primaryDiagnosisDeleteButton: 'diagnosis-container-primary-diagnosis-delete-button',
+    secondaryDiagnosisDeleteButton: 'diagnosis-container-secondary-diagnosis-delete-button',
+    makePrimaryButton: 'diagnosis-container-make-primary-button',
+  },
+  billingContainer: {
+    deleteButton: 'billing-container-delete-button',
+  },
+  patientInfoPage: {
+    patientInfoVerifiedCheckbox: 'patient-info-verified-checkbox',
+  },
+  inHouseMedicationsPage: {
+    title: 'medications-title',
+    orderButton: 'order-button',
+    marTableRow: 'mar-table-row',
+    marTableMedicationCell: 'mar-table-medication-cell',
+    marTableStatusCell: 'mar-table-status-cell',
+    marTableDoseCell: 'mar-table-dose-cell',
+    marTableRouteCell: 'mar-table-route-cell',
+    marTableInstructionsCell: 'mar-table-instructions-cell',
+    medicationDetailsTab: 'medication-details-tab',
+    pencilIconButton: 'EditOutlinedIcon',
+  },
+  orderMedicationPage: {
+    inputField: (field: string): string => `input-${field}`,
+    fillOrderToSaveButton: 'fill-order-to-save-button',
+    backButton: 'back-button',
+  },
+  visitDetailsPage: {
+    cancelVisitButton: 'cancel-visit-button',
+    cancelationReasonDropdown: 'cancelation-reason-dropdown',
+    cancelVisitDialogue: 'cancel-visit-dialogue',
+  },
+  patientRecordPage: {
+    seeAllPatientInfoButton: 'see-all-patient-info-button',
   },
 };

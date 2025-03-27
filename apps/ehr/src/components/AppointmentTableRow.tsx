@@ -77,6 +77,7 @@ export function getAppointmentStatusChip(status: VisitStatusLabel | undefined, c
 
   return (
     <span
+      data-testid={dataTestIds.dashboard.appointmentStatus}
       style={{
         fontSize: '12px',
         borderRadius: '4px',
@@ -580,7 +581,7 @@ export default function AppointmentTableRow({
           )}
         </Typography>
         <Typography variant="body1">
-          <strong data-testid={dataTestIds.dashboard.appointmentTime}>{start}</strong>
+          <strong>{start}</strong>
         </Typography>
         {tab !== ApptTab.prebooked && <Box mt={1}>{getAppointmentStatusChip(appointment.status)}</Box>}
       </TableCell>
@@ -617,7 +618,7 @@ export default function AppointmentTableRow({
       )}
       <TableCell sx={{ verticalAlign: 'center', wordWrap: 'break-word', cursor: 'pointer' }} onClick={handleCellClick}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <Typography variant="subtitle2" sx={{ fontSize: '16px' }} data-testid={dataTestIds.dashboard.patientName}>
+          <Typography variant="subtitle2" sx={{ fontSize: '16px' }}>
             {patientName}
           </Typography>
           {appointment.needsDOBConfirmation ? (
@@ -656,12 +657,7 @@ export default function AppointmentTableRow({
         }}
       >
         {appointment.status === 'arrived' || appointment.status === 'pending' || appointment.status === 'ready' ? (
-          <CSSButton
-            isDisabled={!appointment.id}
-            isLoading={isCSSButtonIsLoading}
-            handleCSSButton={handleCSSButton}
-            appointmentID={appointment.id}
-          />
+          <CSSButton isDisabled={!appointment.id} isLoading={isCSSButtonIsLoading} handleCSSButton={handleCSSButton} />
         ) : (
           <IntakeCheckmark providerName={admitterName} />
         )}
@@ -765,6 +761,7 @@ export default function AppointmentTableRow({
       {actionButtons && (
         <TableCell sx={{ verticalAlign: 'center' }}>
           <LoadingButton
+            data-testid={dataTestIds.dashboard.arrivedButton}
             onClick={handleArrivedClick}
             loading={arrivedStatusSaving}
             variant="contained"

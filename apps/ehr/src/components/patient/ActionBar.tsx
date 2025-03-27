@@ -1,43 +1,18 @@
 import { Box, Button, useTheme } from '@mui/material';
-import { FC, useMemo } from 'react';
-import { useFormContext } from 'react-hook-form';
-import { useUpdatePatient } from '../../hooks/useGetPatient';
-import { usePatientStore } from '../../state/patient.store';
+import { FC } from 'react';
+import { dataTestIds } from '../../constants/data-test-ids';
+import { LoadingButton } from '@mui/lab';
 
 type ActionBarProps = {
   handleDiscard: () => void;
+  handleSave: () => Promise<void>;
+  loading: boolean;
+  hidden?: boolean;
+  submitDisabled?: boolean;
 };
 
-export const ActionBar: FC<ActionBarProps> = ({ handleDiscard }) => {
+export const ActionBar: FC<ActionBarProps> = ({ handleDiscard, handleSave, loading, hidden, submitDisabled }) => {
   const theme = useTheme();
-
-  const { patient, patchOperations, reset, tempInsurances } = usePatientStore();
-  const {
-    formState: { isDirty },
-    trigger,
-  } = useFormContext();
-  const { mutateAsync: mutatePatientMasterRecord } = useUpdatePatient();
-
-  const hasChanges = useMemo(() => {
-    return (
-      isDirty ||
-      (patchOperations?.patient?.length ?? 0) > 0 ||
-      Object.values(patchOperations?.coverages || {}).some((ops) => ops.length > 0) ||
-      Object.values(patchOperations?.relatedPersons || {}).some((ops) => ops.length > 0) ||
-      tempInsurances.length > 0
-    );
-  }, [isDirty, patchOperations, tempInsurances]);
-
-  if (!patient) return null;
-
-  const handleSave = async (): Promise<void> => {
-    // Trigger validation for all fields
-    const isValid = await trigger();
-    if (!isValid) return;
-
-    await mutatePatientMasterRecord();
-    reset();
-  };
 
   return (
     <Box
@@ -45,7 +20,7 @@ export const ActionBar: FC<ActionBarProps> = ({ handleDiscard }) => {
         position: 'sticky',
         bottom: 0,
         zIndex: 999,
-        display: 'flex',
+        display: hidden ? 'none' : 'flex',
         justifyContent: 'space-between',
         backgroundColor: theme.palette.background.paper,
         padding: theme.spacing(2, 6),
@@ -65,19 +40,21 @@ export const ActionBar: FC<ActionBarProps> = ({ handleDiscard }) => {
       >
         Back
       </Button>
-      <Button
+      <LoadingButton
+        data-testid={dataTestIds.patientInformationPage.saveChangesButton}
         variant="contained"
         color="primary"
-        disabled={!hasChanges}
+        loading={loading}
         sx={{
           borderRadius: 25,
           textTransform: 'none',
           fontWeight: 'bold',
         }}
+        disabled={submitDisabled}
         onClick={handleSave}
       >
         Save changes
-      </Button>
+      </LoadingButton>
     </Box>
   );
 };

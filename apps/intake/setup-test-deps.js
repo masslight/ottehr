@@ -13,17 +13,23 @@ if (!isCI) {
       {
         localEnvFolder: './env/',
         repoEnvFolder: './ottehr-secrets/intake/app/',
-        envsToCopy: ['.env.demo', '.env.local'],
+        envsToCopy: [
+          '.env.demo',
+          '.env.local',
+          '.env.development',
+          '.env.staging',
+          '.env.testing',
+          'tests.local.json',
+          'tests.demo.json',
+          'tests.development.json',
+          'tests.staging.json',
+          'tests.testing.json',
+        ],
       },
       {
-        localEnvFolder: './env/',
-        repoEnvFolder: './ottehr-secrets/intake/app/',
-        envsToCopy: ['tests.local.json', 'tests.demo.json'],
-      },
-      {
-        localEnvFolder: '../../packages/intake/zambdas/.env',
+        localEnvFolder: '../../packages/zambdas/.env',
         repoEnvFolder: './ottehr-secrets/zambdas/',
-        envsToCopy: ['demo.json', 'local.json'],
+        envsToCopy: ['demo.json', 'development.json', 'local.json', 'staging.json', 'testing.json'],
       },
     ]);
   })();

@@ -9,6 +9,7 @@ import {
   FormControl,
   MenuItem,
   Select,
+  FormHelperText,
 } from '@mui/material';
 import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
@@ -18,22 +19,19 @@ import {
   PATIENT_RELEASE_OF_INFO_URL,
   PATIENT_RX_HISTORY_CONSENT_STATUS_URL,
   patientFieldPaths,
+  REQUIRED_FIELD_ERROR_MESSAGE,
 } from 'utils';
 import { RX_HISTORY_CONSENT_OPTIONS } from '../../constants';
 import { BasicDatePicker as DatePicker, FormSelect } from '../form';
 import { Row, Section } from '../layout';
 import { usePatientStore } from '../../state/patient.store';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 export const SettingsContainer: FC = () => {
-  const { patient, updatePatientField } = usePatientStore();
+  const { patient } = usePatientStore();
   const { control, watch, setValue } = useFormContext();
 
   if (!patient) return null;
-
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    const { name, value, type, checked } = event.target;
-    updatePatientField(name, type === 'checkbox' ? checked : value);
-  };
 
   const releaseOfInfo = patient?.extension?.find((e: { url: string }) => e.url === PATIENT_RELEASE_OF_INFO_URL)
     ?.valueBoolean;
@@ -55,37 +53,41 @@ export const SettingsContainer: FC = () => {
           name={patientFieldPaths.releaseOfInfo}
           control={control}
           defaultValue={releaseOfInfo === undefined ? '' : String(releaseOfInfo)}
-          rules={{ required: true }}
-          render={({ field }) => (
-            <Select
-              {...field}
-              value={field.value || ''}
-              variant="standard"
-              sx={{ width: '100%' }}
-              onChange={(e) => {
-                field.onChange(e);
-                handleChange(e as any);
-              }}
-            >
-              {[
-                { value: true, label: 'Yes, Release Allowed' },
-                { value: false, label: 'No, Release Not Allowed' },
-              ].map((option) => (
-                <MenuItem key={String(option.value)} value={String(option.value)}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </Select>
+          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+          render={({ field, fieldState: { error } }) => (
+            <Box sx={{ width: '100%' }}>
+              <Select
+                data-testid={dataTestIds.userSettingsContainer.releaseOfInfoDropdown}
+                {...field}
+                value={field.value || ''}
+                variant="standard"
+                sx={{ width: '100%' }}
+              >
+                {[
+                  { value: true, label: 'Yes, Release Allowed' },
+                  { value: false, label: 'No, Release Not Allowed' },
+                ].map((option) => (
+                  <MenuItem key={String(option.value)} value={String(option.value)}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+              {error && <FormHelperText error={true}>{error?.message}</FormHelperText>}
+            </Box>
           )}
         />
       </Row>
       <Row label="Rx History Consent" required>
         <FormSelect
+          data-testid={dataTestIds.userSettingsContainer.RxHistoryConsentDropdown}
           name={patientFieldPaths.rxHistoryConsentStatus}
           control={control}
           defaultValue={rxHistoryConsentStatus}
           options={RX_HISTORY_CONSENT_OPTIONS}
-          onChangeHandler={handleChange}
+          rules={{
+            required: REQUIRED_FIELD_ERROR_MESSAGE,
+            validate: (value: string) => RX_HISTORY_CONSENT_OPTIONS.some((option) => option.value === value),
+          }}
         />
       </Row>
       <Box
@@ -108,15 +110,6 @@ export const SettingsContainer: FC = () => {
                   onChange={(e) => {
                     const newActiveValue = !e.target.checked;
                     onChange(newActiveValue);
-                    handleChange({
-                      ...e,
-                      target: {
-                        ...e.target,
-                        type: e.target.type,
-                        name: patientFieldPaths.active,
-                        checked: newActiveValue,
-                      },
-                    });
                   }}
                 />
               }
@@ -152,11 +145,9 @@ export const SettingsContainer: FC = () => {
                     onChange={(e) => {
                       const isChecked = e.target.checked;
                       onChange(isChecked);
-                      handleChange(e);
 
                       if (!isChecked) {
                         if (deceasedDate) {
-                          updatePatientField(patientFieldPaths.deceasedDate, '');
                           setValue(patientFieldPaths.deceasedDate, '');
                         }
                       } else {
@@ -183,6 +174,7 @@ export const SettingsContainer: FC = () => {
                     value={field.value}
                     onChange={(e) => {
                       field.onChange(e);
+                      /*
                       const isDateKnown = e.target.value === 'known';
                       if (isDateKnown) {
                         updatePatientField(patientFieldPaths.deceasedDate, '');
@@ -190,7 +182,7 @@ export const SettingsContainer: FC = () => {
                         updatePatientField(patientFieldPaths.deceasedDate, '');
                         updatePatientField(patientFieldPaths.deceased, true);
                         setValue(patientFieldPaths.deceasedDate, '');
-                      }
+                      }*/
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -210,8 +202,10 @@ export const SettingsContainer: FC = () => {
                               onChange={(dateStr) => {
                                 const isoDateTime = createLocalDateTime(dateStr)?.toISO?.();
                                 if (isoDateTime) {
+                                  /*
                                   updatePatientField(patientFieldPaths.deceased, '');
                                   updatePatientField(patientFieldPaths.deceasedDate, isoDateTime);
+                                  */
                                 }
                               }}
                             />
@@ -239,7 +233,7 @@ export const SettingsContainer: FC = () => {
                     value={field.value}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                       field.onChange(e);
-                      handleChange(e);
+                      // handleChange(e);
                     }}
                     label="Note"
                     fullWidth

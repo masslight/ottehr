@@ -59,7 +59,7 @@ const SelectPatient = (): JSX.Element => {
           id: selectedPatient.id || undefined,
           newPatient: false,
           dateOfBirth: DateTime.fromISO(selectedPatient.dateOfBirth || '').toString(),
-          reasonForVisit: currentPatientInfo?.reasonForVisit,
+          reasonForVisit: selectedPatient?.reasonForVisit,
         },
         pendingPatientInfoUpdates: undefined,
       }));

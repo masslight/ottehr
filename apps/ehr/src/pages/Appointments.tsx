@@ -35,14 +35,6 @@ interface AppointmentSearchResultData {
   activeApptDatesBeforeToday: string[] | undefined;
 }
 
-interface StructuredAppointmentData {
-  preBookedAppointments: InPersonAppointmentInformation[];
-  completedAppointments: InPersonAppointmentInformation[];
-  cancelledAppointments: InPersonAppointmentInformation[];
-  inOfficeAppointments: InPersonAppointmentInformation[];
-  activeApptDatesBeforeToday: string[];
-}
-
 type CustomFormEventHandler = (event: React.FormEvent<HTMLFormElement>, value: any, field: string) => void;
 
 export default function Appointments(): ReactElement {
@@ -101,28 +93,12 @@ export default function Appointments(): ReactElement {
   })();
 
   const {
-    preBookedAppointments,
-    completedAppointments,
-    cancelledAppointments,
-    inOfficeAppointments,
-    activeApptDatesBeforeToday,
-  } = useMemo(() => {
-    const structuredAppts: StructuredAppointmentData = {
-      preBookedAppointments: [],
-      completedAppointments: [],
-      cancelledAppointments: [],
-      inOfficeAppointments: [],
-      activeApptDatesBeforeToday: [],
-    };
-    if (searchResults !== null && loadingState.status !== 'loading' && loadingState.id === queryId) {
-      structuredAppts.preBookedAppointments = searchResults.preBooked ?? [];
-      structuredAppts.completedAppointments = searchResults.completed ?? [];
-      structuredAppts.cancelledAppointments = searchResults.cancelled ?? [];
-      structuredAppts.inOfficeAppointments = searchResults.inOffice ?? [];
-      structuredAppts.activeApptDatesBeforeToday = searchResults.activeApptDatesBeforeToday ?? [];
-    }
-    return structuredAppts;
-  }, [searchResults, queryId, loadingState]);
+    preBooked: preBookedAppointments = [],
+    completed: completedAppointments = [],
+    cancelled: cancelledAppointments = [],
+    inOffice: inOfficeAppointments = [],
+    activeApptDatesBeforeToday = [],
+  } = searchResults || {};
 
   useEffect(() => {
     if (localStorage.getItem('selectedVisitTypes')) {
@@ -206,7 +182,7 @@ export default function Appointments(): ReactElement {
   }, [oystehrZambda]);
 
   useEffect(() => {
-    const fetchStuff = async (client: Oystehr, searchDate: DateTime | undefined): Promise<void> => {
+    const fetchStuff = async (client: Oystehr, searchDate: string | undefined): Promise<void> => {
       setLoadingState({ status: 'loading' });
 
       if (
@@ -236,14 +212,9 @@ export default function Appointments(): ReactElement {
       loadingState.status !== 'loading' &&
       pageIsVisible
     ) {
-      const timezone =
-        locationSelected?.extension?.find(
-          (extTemp) => extTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
-        )?.valueString ?? DateTime.local().zoneName;
-
-      const searchDateToUse =
-        (searchDate && DateTime.fromISO(searchDate, { zone: timezone })) || appointmentDate || undefined;
-
+      // send searchDate without timezone, in get-appointments zamdba we apply appointment timezone to it to find appointments for that day
+      // looks like searchDate is always exists, and we can remove rest options
+      const searchDateToUse = searchDate || appointmentDate?.toISO?.() || '';
       void fetchStuff(oystehrZambda, searchDateToUse);
     }
   }, [

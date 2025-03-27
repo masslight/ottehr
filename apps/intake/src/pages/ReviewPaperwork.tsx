@@ -26,10 +26,13 @@ import { UNEXPECTED_ERROR_CONFIG } from '../helpers';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useGetFullName } from '../hooks/useGetFullName';
+import { usePaperworkInviteParams } from '../hooks/usePaperworkInviteParams';
 import { useSetLastActiveTime } from '../hooks/useSetLastActiveTime';
 import i18n from '../lib/i18n';
+import { useCreateInviteMutation } from '../telemed/features/waiting-room';
 import { useOpenExternalLink } from '../telemed/hooks/useOpenExternalLink';
 import { slugFromLinkId } from './PaperworkPage';
+import { dataTestIds } from '../../src/helpers/data-test-ids';
 
 const ReviewPaperwork = (): JSX.Element => {
   const openExternalLink = useOpenExternalLink();
@@ -97,6 +100,19 @@ const ReviewPaperwork = (): JSX.Element => {
     }
   }, [appointmentID, pathname]);
 
+  const createInviteMutation = useCreateInviteMutation();
+
+  const inviteParams = usePaperworkInviteParams(completedPaperwork);
+
+  const navigateToWaitingRoom = useCallback(
+    (error: boolean): void => {
+      navigate(`/visit/${appointmentID}`, {
+        state: { inviteErrorSnackbarOpen: error },
+      });
+    },
+    [appointmentID, navigate]
+  );
+
   const { paperworkCompletedStatus, allComplete } = useMemo(() => {
     const validationSchema = makeValidationSchema(allItems);
     const validationState = (paperworkPages ?? []).reduce(
@@ -108,7 +124,7 @@ const ReviewPaperwork = (): JSX.Element => {
     );
 
     try {
-      validationSchema.validateSync(completedPaperwork, { abortEarly: false });
+      validationSchema.validate(completedPaperwork, { abortEarly: false });
     } catch (e) {
       const errorList =
         (e as ValidationError).inner?.map((item) => {
@@ -147,15 +163,18 @@ const ReviewPaperwork = (): JSX.Element => {
       name: 'Patient',
       valueString: patientFullName,
       hidden: !patientInfo?.firstName, // users who are not logged in will not see name
+      testId: dataTestIds.patientNamePaperworkReviewScreen,
     },
     {
       name: 'Location',
       valueString: selectedLocation ? `${selectedLocation?.name}` : 'Unknown',
+      testId: dataTestIds.locationNamePaperworkReviewScreen,
     },
     {
       name: 'Check-in time',
       valueString: `${getLocaleDateTimeString(selectedSlotTimezoneAdjusted, 'medium', i18n.language)}`,
       hidden: visitType === VisitType.WalkIn,
+      testId: dataTestIds.checkInTimePaperworkReviewScreen,
     },
     ...(paperworkPages ?? []).map((paperworkPage) => {
       let hasError = false;
@@ -166,6 +185,9 @@ const ReviewPaperwork = (): JSX.Element => {
         name: paperworkPage.text ?? 'Review',
         path: `/paperwork/${appointmentID}/${slugFromLinkId(paperworkPage.linkId)}`,
         valueBoolean: paperworkCompletedStatus[paperworkPage.linkId] && !hasError,
+        testId: paperworkPage.linkId + '-status',
+        rowID: paperworkPage.linkId,
+        valueTestId: paperworkPage.linkId + '-edit',
       };
     }),
   ];
@@ -215,7 +237,19 @@ const ReviewPaperwork = (): JSX.Element => {
         if (visitType === VisitType.WalkIn) {
           navigate(`/visit/${appointmentID}/check-in`);
         } else {
-          navigate(`/visit/${appointmentID}`);
+          // telemed logic
+          if (inviteParams) {
+            createInviteMutation.mutate(inviteParams, {
+              onSuccess: () => {
+                navigateToWaitingRoom(false);
+              },
+              onError: async () => {
+                navigateToWaitingRoom(true);
+              },
+            });
+          } else {
+            navigateToWaitingRoom(false);
+          }
         }
       } catch (e) {
         // todo: handle this better, direct to page where error was found if available
@@ -224,7 +258,17 @@ const ReviewPaperwork = (): JSX.Element => {
         setLoading(false);
       }
     }
-  }, [appointmentID, questionnaireResponseId, zambdaClient, visitType, paperworkPages, navigate]);
+  }, [
+    appointmentID,
+    createInviteMutation,
+    inviteParams,
+    questionnaireResponseId,
+    zambdaClient,
+    visitType,
+    paperworkPages,
+    navigate,
+    navigateToWaitingRoom,
+  ]);
 
   const appointmentNotFoundInformation = useAppointmentNotFoundInformation();
 
@@ -260,7 +304,7 @@ const ReviewPaperwork = (): JSX.Element => {
           {reviewItems
             .filter((reviewItem) => !reviewItem.hidden)
             .map((reviewItem) => (
-              <TableRow key={reviewItem.name}>
+              <TableRow key={reviewItem.name} data-testid={reviewItem.rowID}>
                 <TableCell
                   sx={{
                     paddingTop: 2,
@@ -280,7 +324,7 @@ const ReviewPaperwork = (): JSX.Element => {
                     <span>{reviewItem.name}</span>
                   )}
                 </TableCell>
-                <TableCell padding="none" align="right">
+                <TableCell padding="none" align="right" data-testid={reviewItem.testId}>
                   {reviewItem.valueString !== undefined && reviewItem.valueString}
                   {reviewItem.valueBoolean !== undefined && getValueBoolean(reviewItem.valueBoolean)}
                 </TableCell>
@@ -288,7 +332,7 @@ const ReviewPaperwork = (): JSX.Element => {
                   {reviewItem.path && (
                     <Tooltip title={t('reviewAndSubmit.edit')} placement="right">
                       <Link to={reviewItem.path}>
-                        <IconButton aria-label="edit" color="primary">
+                        <IconButton aria-label="edit" color="primary" data-testid={reviewItem.valueTestId}>
                           <EditOutlined />
                         </IconButton>
                       </Link>
@@ -301,11 +345,21 @@ const ReviewPaperwork = (): JSX.Element => {
       </Table>
       <Typography variant="body2">
         By proceeding with a visit, you acknowledge that you have reviewed and accept our{' '}
-        <MuiLink sx={{ cursor: 'pointer' }} onClick={() => openExternalLink('/template.pdf')} target="_blank">
+        <MuiLink
+          sx={{ cursor: 'pointer' }}
+          onClick={() => openExternalLink('/template.pdf')}
+          target="_blank"
+          data-testid={dataTestIds.privacyPolicyReviewScreen}
+        >
           Privacy Policy
         </MuiLink>{' '}
         and{' '}
-        <MuiLink sx={{ cursor: 'pointer' }} onClick={() => openExternalLink('/template.pdf')} target="_blank">
+        <MuiLink
+          sx={{ cursor: 'pointer' }}
+          onClick={() => openExternalLink('/template.pdf')}
+          target="_blank"
+          data-testid={dataTestIds.termsAndConditionsReviewScreen}
+        >
           Terms and Conditions of Service
         </MuiLink>
         .

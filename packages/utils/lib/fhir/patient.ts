@@ -25,6 +25,7 @@ import {
   PRIVATE_EXTENSION_BASE_URL,
 } from '.';
 import {
+  PATIENT_INDIVIDUAL_PRONOUNS_URL,
   PatientInfo,
   PROVIDER_NOTIFICATION_METHOD_URL,
   PROVIDER_NOTIFICATIONS_ENABLED_URL,
@@ -100,7 +101,7 @@ export async function createUserResourcesForPatient(
     );
     person = personResults[0];
     const hasLink = person.link;
-    if (hasLink) {
+    if (!hasLink) {
       console.log(
         "Person does not have link, this shouldn't happen outside of test cases but is still possible - The account may not have patients"
       );
@@ -219,6 +220,10 @@ export function getLastName(individual: Patient | Practitioner | RelatedPerson |
 
 export function getNickname(individual: Patient | Practitioner | RelatedPerson | Person): string | undefined {
   return individual.name?.[1]?.given?.[0];
+}
+
+export function getNameSuffix(individual: Patient | Practitioner | RelatedPerson | Person): string | undefined {
+  return individual.name?.[0]?.suffix?.[0];
 }
 
 export function getFullName(individual: Patient | Practitioner | RelatedPerson | Person): string {
@@ -620,4 +625,12 @@ export const getContactEmailForPatientAccount = (patient: Patient | undefined): 
   } else {
     return patient?.telecom?.find((tc) => tc.system === 'email')?.value;
   }
+};
+
+export const getPronounsFromExtension = (patient: Patient): string => {
+  const pronounsExtension = patient.extension?.find(
+    (ext: { url: string }) => ext.url === PATIENT_INDIVIDUAL_PRONOUNS_URL
+  );
+  if (!pronounsExtension?.valueCodeableConcept?.coding?.[0]) return '';
+  return pronounsExtension.valueCodeableConcept.coding[0].display || '';
 };

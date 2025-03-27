@@ -1,6 +1,11 @@
 import { FC } from 'react';
-import { getSpentTime, telemedProgressNoteChartDataRequestedFields } from 'utils';
+import { getSpentTime } from 'utils';
+import { ADDITIONAL_QUESTIONS } from '../../../../constants';
+import { dataTestIds } from '../../../../constants/data-test-ids';
+import { getSelectors } from '../../../../shared/store/getSelectors';
 import { AccordionCard, SectionList } from '../../../components';
+import { usePatientInstructionsVisibility } from '../../../hooks';
+import { useAppointmentStore } from '../../../state';
 import {
   AdditionalQuestionsContainer,
   AllergiesContainer,
@@ -20,26 +25,9 @@ import {
   SurgicalHistoryContainer,
   VisitDetailsContainer,
 } from './components';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../state';
-import { ADDITIONAL_QUESTIONS } from '../../../../constants';
-import { usePatientInstructionsVisibility } from '../../../hooks';
-import { useChartData } from '../../../../features/css-module/hooks/useChartData';
 
 export const VisitNoteCard: FC = () => {
-  const { chartData, encounter, setPartialChartData } = getSelectors(useAppointmentStore, [
-    'chartData',
-    'encounter',
-    'setPartialChartData',
-  ]);
-
-  useChartData({
-    encounterId: encounter.id || '',
-    requestedFields: telemedProgressNoteChartDataRequestedFields,
-    onSuccess: (data) => {
-      setPartialChartData({ prescribedMedications: data.prescribedMedications });
-    },
-  });
+  const { encounter, chartData } = getSelectors(useAppointmentStore, ['encounter', 'chartData']);
 
   const chiefComplaint = chartData?.chiefComplaint?.text;
   const spentTime = getSpentTime(encounter.statusHistory);
@@ -96,7 +84,7 @@ export const VisitNoteCard: FC = () => {
   ].filter(Boolean);
 
   return (
-    <AccordionCard label="Visit note">
+    <AccordionCard label="Visit note" dataTestId={dataTestIds.progressNotePage.visitNoteCard}>
       <SectionList sections={sections} sx={{ p: 2 }} />
     </AccordionCard>
   );

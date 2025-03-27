@@ -7,3 +7,5 @@ export * from './payment';
 export * from './telemed';
 export * from './zapehr-api.types.ts';
 export * from './appointments';
+export * from './labs';
+export * from './account';

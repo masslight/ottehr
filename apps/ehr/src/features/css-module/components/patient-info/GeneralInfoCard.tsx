@@ -5,6 +5,7 @@ import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ChartDataRequestedFields } from 'utils';
+import { dataTestIds } from '../../../../constants/data-test-ids';
 import { useSaveChartData } from '../../../../telemed';
 import { useAppointment } from '../../hooks/useAppointment';
 import { useChartData } from '../../hooks/useChartData';
@@ -34,10 +35,10 @@ const getPatientDisplayedName = (patient: Patient | undefined): string => {
 const GeneralInfoCard: React.FC = (): JSX.Element => {
   const theme = useTheme();
 
-  const { telemedData, sourceData, processedData } = useAppointment();
+  const { visitState: telemedData, resources, mappedData } = useAppointment();
   const { patient: patientData } = telemedData;
 
-  const encounterId = sourceData.encounter!.id!;
+  const encounterId = resources.encounter!.id!;
 
   const fieldName = 'patientInfoConfirmed';
   const requestedFields: ChartDataRequestedFields = { [fieldName]: {} };
@@ -97,7 +98,7 @@ const GeneralInfoCard: React.FC = (): JSX.Element => {
                   {getPatientDisplayedName(patientData)}
                 </Typography>
                 <Typography variant="body1" color={theme.palette.primary.dark} sx={{ mt: 1 }}>
-                  {processedData.pronouns ?? ''}
+                  {mappedData.pronouns ?? ''}
                 </Typography>
                 <Typography variant="body1" color={theme.palette.primary.dark} sx={{ mt: 1 }}>
                   DOB: {dateOfBirth}
@@ -116,6 +117,7 @@ const GeneralInfoCard: React.FC = (): JSX.Element => {
                 }}
                 control={
                   <Checkbox
+                    data-testid={dataTestIds.patientInfoPage.patientInfoVerifiedCheckbox}
                     sx={{
                       color: theme.palette.primary.main,
                       '&.Mui-checked': {

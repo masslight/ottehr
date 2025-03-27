@@ -28,7 +28,12 @@ export const AdditionalQuestionsProviderColumn: FC = () => {
         return (
           <React.Fragment key={question.field}>
             {isReadOnly ? (
-              <AdditionalQuestionView label={question.label} value={value} isLoading={isChartDataLoading} />
+              <AdditionalQuestionView
+                label={question.label}
+                value={value}
+                isLoading={isChartDataLoading}
+                field={question.field}
+              />
             ) : (
               <AdditionalQuestionEdit
                 label={question.label}

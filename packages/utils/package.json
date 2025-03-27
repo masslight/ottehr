@@ -2,7 +2,7 @@
   "name": "utils",
   "private": true,
   "type": "module",
-  "version": "0.0.1",
+  "version": "1.5.3",
   "main": "lib/main.ts",
   "types": "lib/main.ts",
   "engines": {
@@ -12,7 +12,8 @@
   "scripts": {
     "start": "vite",
     "build": "tsc && vite build",
-    "lint": "eslint lib --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint --ext ts,tsx,js,jsx --report-unused-disable-directives --max-warnings 0",
+    "prettier": "prettier --write .",
     "preview": "vite preview",
     "test": "vitest --silent",
     "coverage": "vitest run --coverage"

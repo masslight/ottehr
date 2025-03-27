@@ -4,18 +4,23 @@ import { promisify } from 'node:util';
 const exec = promisify(execCb);
 
 export const cleanAppointment = async (appointmentId: string, env: string): Promise<boolean> => {
-  const { stdout, stderr } = await exec(
-    `tsx ../../packages/ehr/zambdas/scripts/delete-appointment-data.ts ${env} ${appointmentId}`
-  );
+  try {
+    const { stdout, stderr } = await exec(
+      `tsx ../../packages/zambdas/src/scripts/delete-appointment-data.ts ${env} ${appointmentId}`
+    );
 
-  if (stdout) {
-    console.log('STDOUT:', stdout);
-    return true;
+    if (stdout) {
+      console.log('STDOUT:', stdout);
+      return true;
+    }
+
+    if (stderr) {
+      console.error('STDERR:', stderr);
+    }
+
+    return false;
+  } catch (error) {
+    console.error(error);
+    return false;
   }
-
-  if (stderr) {
-    console.error('STDERR:', stderr);
-  }
-
-  return false;
 };

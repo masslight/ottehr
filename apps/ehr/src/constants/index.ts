@@ -103,16 +103,16 @@ export const STATES_ROWS_PER_PAGE = 10;
 
 export const PRONOUN_OPTIONS = [
   {
-    label: 'He/Him/His',
-    value: 'He/Him/His',
+    label: 'He/him',
+    value: 'He/him',
   },
   {
-    label: 'She/Her/Her',
-    value: 'She/Her/Her',
+    label: 'She/her',
+    value: 'She/her',
   },
   {
-    label: 'They/Them/Their',
-    value: 'They/Them/Their',
+    label: 'They/them',
+    value: 'They/them',
   },
   {
     label: 'My pronouns are not listed',
@@ -123,15 +123,15 @@ export const PRONOUN_OPTIONS = [
 export const SEX_OPTIONS = [
   {
     label: 'Male',
-    value: 'male',
+    value: 'Male',
   },
   {
     label: 'Female',
-    value: 'female',
+    value: 'Female',
   },
   {
     label: 'Intersex',
-    value: 'intersex',
+    value: 'Intersex',
   },
 ];
 
@@ -360,15 +360,11 @@ export const PATIENT_FILLING_OUT_AS_OPTIONS = [
 export const INSURANCE_COVERAGE_OPTIONS = [
   {
     label: 'Primary',
-    value: '1',
+    value: 'Primary',
   },
   {
     label: 'Secondary',
-    value: '2',
-  },
-  {
-    label: 'Tertiary',
-    value: '3',
+    value: 'Secondary',
   },
 ];
 
@@ -376,27 +372,22 @@ export const RELATIONSHIP_OPTIONS = [
   {
     label: 'Self',
     value: 'Self',
-    code: 'SELF',
-  },
-  {
-    label: 'Legal Guardian',
-    value: 'Legal Guardian',
-    code: 'GUARD',
-  },
-  {
-    label: 'Father',
-    value: 'Father',
-    code: 'FTH',
-  },
-  {
-    label: 'Mother',
-    value: 'Mother',
-    code: 'MTH',
   },
   {
     label: 'Spouse',
     value: 'Spouse',
-    code: 'SPO',
+  },
+  {
+    label: 'Parent',
+    value: 'Parent',
+  },
+  {
+    label: 'Legal Guardian',
+    value: 'Legal Guardian',
+  },
+  {
+    label: 'Other',
+    value: 'Other',
   },
 ];
 
@@ -486,8 +477,8 @@ export const POINT_OF_DISCOVERY_OPTIONS = [
     value: 'Friend/Family',
   },
   {
-    label: 'Been there with another child or family member',
-    value: 'Been there with another child or family member',
+    label: 'Been there with another family member',
+    value: 'Been there with another family member',
   },
   {
     label: 'Pediatrician/Healthcare Professional',
@@ -529,6 +520,10 @@ export const POINT_OF_DISCOVERY_OPTIONS = [
 
 export const RELATIONSHIP_TO_INSURED_OPTIONS = [
   {
+    label: 'Self',
+    value: 'Self',
+  },
+  {
     label: 'Child',
     value: 'Child',
   },
@@ -541,12 +536,16 @@ export const RELATIONSHIP_TO_INSURED_OPTIONS = [
     value: 'Spouse',
   },
   {
-    label: 'Other',
-    value: 'Other',
+    label: 'Common Law Spouse',
+    value: 'Common Law Spouse',
   },
   {
-    label: 'Self',
-    value: 'Self',
+    label: 'Injured Party',
+    value: 'Injured Party',
+  },
+  {
+    label: 'Other',
+    value: 'Other',
   },
 ];
 
@@ -563,4 +562,119 @@ export const RX_HISTORY_CONSENT_OPTIONS = [
     label: 'Rx history consent denied by the patient',
     value: 'Rx history consent denied by the patient',
   },
+];
+
+// patient record fields
+export const FormFields = {
+  patientSummary: {
+    firstName: { key: 'patient-first-name', type: 'String' },
+    middleName: { key: 'patient-middle-name', type: 'String' },
+    lastName: { key: 'patient-last-name', type: 'String' },
+    suffix: { key: 'patient-name-suffix', type: 'String' },
+    preferredName: { key: 'patient-preferred-name', type: 'String' },
+    birthDate: { key: 'patient-birthdate', type: 'String' },
+    birthSex: { key: 'patient-birth-sex', type: 'String' },
+    pronouns: { key: 'patient-pronouns', type: 'String' },
+  },
+  patientDetails: {
+    ethinicity: { key: 'patient-ethnicity' },
+    race: { key: 'patient-race' },
+    sexualOrientation: { key: 'patient-sexual-orientation' },
+    genderIdentity: { key: 'patient-gender-identity' },
+    genderIdentityDetails: { key: 'patient-gender-identity-details' },
+    language: { key: 'patient-preferred-language' },
+    pointOfDiscovery: { key: 'patient-point-of-discovery' },
+    sendMarketing: { key: 'mobile-opt-in' },
+    commonWellConsent: { key: 'common-well-consent' },
+  },
+  patientContactInformation: {
+    streetAddress: { key: 'patient-street-address', type: 'String' },
+    addressLine2: { key: 'patient-street-address-2', type: 'String' },
+    city: { key: 'patient-city', type: 'String' },
+    state: { key: 'patient-state', type: 'String' },
+    zip: { key: 'patient-zip', type: 'String' },
+    email: { key: 'patient-email', type: 'String' },
+    phone: { key: 'patient-number', type: 'String' },
+  },
+  insurance: [
+    {
+      insurancePriority: { key: 'insurance-priority', type: 'String' },
+      insuranceCarrier: { key: 'insurance-carrier', type: 'Reference' },
+      memberId: { key: 'insurance-member-id', type: 'String' },
+      firstName: { key: 'policy-holder-first-name', type: 'String' },
+      middleName: { key: 'policy-holder-middle-name', type: 'String' },
+      lastName: { key: 'policy-holder-last-name', type: 'String' },
+      birthDate: { key: 'policy-holder-date-of-birth', type: 'String' },
+      birthSex: { key: 'policy-holder-birth-sex', type: 'String' },
+      streetAddress: { key: 'policy-holder-address', type: 'String' },
+      addressLine2: { key: 'policy-holder-address-additional-line', type: 'String' },
+      city: { key: 'policy-holder-city', type: 'String' },
+      state: { key: 'policy-holder-state', type: 'String' },
+      zip: { key: 'policy-holder-zip', type: 'String' },
+      relationship: { key: 'patient-relationship-to-insured', type: 'String' },
+      additionalInformation: { key: 'insurance-additional-information', type: 'String' },
+    },
+    {
+      insurancePriority: { key: 'insurance-priority-2', type: 'String' },
+      insuranceCarrier: { key: 'insurance-carrier-2', type: 'Reference' },
+      memberId: { key: 'insurance-member-id-2', type: 'String' },
+      firstName: { key: 'policy-holder-first-name-2', type: 'String' },
+      middleName: { key: 'policy-holder-middle-name-2', type: 'String' },
+      lastName: { key: 'policy-holder-last-name-2', type: 'String' },
+      birthDate: { key: 'policy-holder-date-of-birth-2', type: 'String' },
+      birthSex: { key: 'policy-holder-birth-sex-2', type: 'String' },
+      streetAddress: { key: 'policy-holder-address-2', type: 'String' },
+      addressLine2: { key: 'policy-holder-address-additional-line-2', type: 'String' },
+      city: { key: 'policy-holder-city-2', type: 'String' },
+      state: { key: 'policy-holder-state-2', type: 'String' },
+      zip: { key: 'policy-holder-zip-2', type: 'String' },
+      relationship: { key: 'patient-relationship-to-insured-2', type: 'String' },
+      additionalInformation: { key: 'insurance-additional-information-2', type: 'String' },
+    },
+  ],
+  primaryCarePhysician: {
+    firstName: { key: 'pcp-first', type: 'String' },
+    lastName: { key: 'pcp-last', type: 'String' },
+    practiceName: { key: 'pcp-practice', type: 'String' },
+    address: { key: 'pcp-address', type: 'String' },
+    phone: { key: 'pcp-number', type: 'String' },
+    active: { key: 'pcp-active', type: 'Boolean' },
+  },
+  responsibleParty: {
+    relationship: { key: 'responsible-party-relationship', type: 'String', label: 'Relationship to the patient' },
+    firstName: { key: 'responsible-party-first-name', type: 'String', label: 'First name' },
+    lastName: { key: 'responsible-party-last-name', type: 'String', label: 'Last name' },
+    birthDate: { key: 'responsible-party-date-of-birth', type: 'String', label: 'Date of birth' },
+    birthSex: { key: 'responsible-party-birth-sex', type: 'String', label: 'Birth sex' },
+    phone: { key: 'responsible-party-number', type: 'String', label: 'Phone' },
+  },
+};
+
+export const PatientIdentifyingFields = [
+  FormFields.patientSummary.firstName.key,
+  FormFields.patientSummary.middleName.key,
+  FormFields.patientSummary.lastName.key,
+  FormFields.patientSummary.birthDate.key,
+  FormFields.patientSummary.birthSex.key,
+];
+
+export const PatientAddressFields = [
+  FormFields.patientContactInformation.streetAddress.key,
+  FormFields.patientContactInformation.addressLine2.key,
+  FormFields.patientContactInformation.city.key,
+  FormFields.patientContactInformation.state.key,
+  FormFields.patientContactInformation.zip.key,
+];
+
+export const PatientGuarantorFields = [
+  FormFields.patientSummary.firstName.key,
+  FormFields.patientSummary.lastName.key,
+  FormFields.patientSummary.birthDate.key,
+  FormFields.patientSummary.birthSex.key,
+  FormFields.patientContactInformation.phone.key,
+];
+
+export const InsurancePriorityOptions = [
+  FormFields.insurance[0].insurancePriority.key,
+  FormFields.insurance[1].insurancePriority.key,
 ];

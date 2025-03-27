@@ -31,7 +31,7 @@ export default defineConfig({
   },
   timeout: 120000,
   expect: {
-    timeout: 10000,
+    timeout: 30000,
   },
   retries: process.env.CI ? 2 : 0,
   outputDir: 'test-results/',

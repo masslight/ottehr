@@ -1,6 +1,6 @@
 import { FileURLs } from '../../../common';
-import { PatientInfo } from './create-appointment.types';
 import { AnswerOptionSource } from '../../paperwork';
+import { PatientInfo } from './create-appointment.types';
 export interface CancelAppointmentRequestParams {
   appointmentID: string;
   cancellationReason: string;
@@ -96,4 +96,19 @@ export interface TelemedStatusHistoryElement {
   start?: string;
   end?: string;
   status?: TelemedCallStatuses;
+}
+
+export enum TelemedAppointmentVisitTabs {
+  'hpi' = 'hpi',
+  'exam' = 'exam',
+  'assessment' = 'assessment',
+  'plan' = 'plan',
+  'sign' = 'sign',
+}
+
+export enum ApptTelemedTab {
+  'ready' = 'ready',
+  'provider' = 'provider',
+  'not-signed' = 'not-signed',
+  'complete' = 'complete',
 }

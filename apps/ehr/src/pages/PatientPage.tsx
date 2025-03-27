@@ -10,6 +10,7 @@ import { RoundedButton } from '../components/RoundedButton';
 import { useGetPatient } from '../hooks/useGetPatient';
 import PageContainer from '../layout/PageContainer';
 import { PatientFollowupEncountersGrid } from '../components/patient/PatientFollowupEncountersGrid';
+import { dataTestIds } from '../constants/data-test-ids';
 
 export default function PatientPage(): JSX.Element {
   const { id } = useParams();
@@ -64,15 +65,17 @@ export default function PatientPage(): JSX.Element {
 
             <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
               <IdentifiersRow id={id} />
-
-              <FullNameDisplay id={id} />
-
-              <Summary id={id} />
-
-              <Contacts id={id} />
+              <FullNameDisplay patient={patient} loading={loading} />
+              <Summary patient={patient} loading={loading} />
+              <Contacts patient={patient} loading={loading} />
 
               <Box sx={{ display: 'flex', gap: 1 }}>
-                <RoundedButton to={`/patient/${id}/info`}>See All Patient Info</RoundedButton>
+                <RoundedButton
+                  to={`/patient/${id}/info`}
+                  data-testid={dataTestIds.patientRecordPage.seeAllPatientInfoButton}
+                >
+                  See All Patient Info
+                </RoundedButton>
               </Box>
             </Box>
 

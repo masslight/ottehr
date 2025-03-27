@@ -8,24 +8,25 @@ const isCI = Boolean(process.env.CI);
 const supportedApps = ['ehr', 'intake'] as const;
 
 const ports = {
-  ehr: {
-    frontend: 4002,
-    backend: 4001,
-  },
-  intake: {
-    frontend: 3002,
-    backend: 3001,
-  },
+  intake: 3002,
+  ehr: 4002,
+  backend: 3000,
 } as const;
 
 const envMapping = {
   ehr: {
     local: 'local',
     demo: 'demo',
+    development: 'development',
+    staging: 'staging',
+    testing: 'testing',
   },
   intake: {
     local: 'default',
     demo: 'demo',
+    development: 'development',
+    staging: 'staging',
+    testing: 'testing',
   },
 } as const;
 
@@ -45,7 +46,7 @@ const clearPorts = (): void => {
   if (isCI) {
     return;
   }
-  for (const port of [ports.ehr.frontend, ports.ehr.backend, ports.intake.frontend, ports.intake.backend]) {
+  for (const port of [ports.intake, ports.ehr, ports.backend]) {
     try {
       const pid = execSync(`lsof -ti :${port}`).toString().trim();
       if (pid) {
@@ -59,7 +60,7 @@ const clearPorts = (): void => {
 
 const waitForApp = async (app: (typeof supportedApps)[number]): Promise<void> => {
   return new Promise((resolve, reject) => {
-    const process = spawn('wait-on', [`http://localhost:${ports[app].frontend}`, '--timeout', '60000'], {
+    const process = spawn('wait-on', [`http://localhost:${ports[app]}`, '--timeout', '60000'], {
       shell: true,
       stdio: 'inherit',
     });
@@ -72,6 +73,14 @@ const waitForApp = async (app: (typeof supportedApps)[number]): Promise<void> =>
         reject(new Error(`Failed to start ${app}`));
       }
     });
+  });
+};
+
+const startZambdas = (): void => {
+  spawn('cross-env', [`ENV=${envMapping['ehr'][ENV]}`, 'npm', 'run', `zambdas:start`], {
+    shell: true,
+    stdio: 'inherit',
+    env: { ...process.env, ENV: envMapping['ehr'][ENV] },
   });
 };
 
@@ -118,6 +127,13 @@ const setupTestDeps = async (): Promise<void> => {
         env: { ...process.env, ENV: ENV },
         cwd: path.join(process.cwd(), `apps/${app}`),
       });
+
+      // Run the e2e-test-setup.sh script with skip-prompts and current environment
+      console.log(`Running e2e-test-setup.sh for ${app} with environment ${ENV}...`);
+      execSync(`bash ./scripts/e2e-test-setup.sh --skip-prompts --environment ${ENV}`, {
+        stdio: 'inherit',
+        env: { ...process.env, ENV: ENV },
+      });
     } catch (error) {
       console.error(`Failed to run setup-test-deps.js for ${app}:`, error);
       clearPorts();
@@ -127,6 +143,7 @@ const setupTestDeps = async (): Promise<void> => {
 };
 
 const startApps = async (): Promise<void> => {
+  startZambdas();
   for (const app of supportedApps) {
     console.log(`Starting ${app} application...`);
     await startApp(app);
@@ -170,25 +187,24 @@ function runTests(): void {
 
       specs.on('close', (specsCode) => {
         clearPorts();
-        process.exit(specsCode);
+        process.exit(specsCode ?? 1);
       });
     } else {
       clearPorts();
-      process.exit(loginCode);
+      process.exit(loginCode ?? 1);
     }
   });
 }
 
 async function main(): Promise<void> {
   clearPorts();
+  await setupTestDeps();
 
   if (isLocal || isCI) {
-    await setupTestDeps();
     await startApps();
-    runTests();
-  } else {
-    runTests();
   }
+
+  runTests();
 }
 
 main().catch((error) => {
