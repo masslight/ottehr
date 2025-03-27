@@ -22,18 +22,28 @@ import {
   FHIR_EXTENSION,
   formatPhoneNumber,
   getPatchOperationForNewMetaTag,
+  getSecret,
   makePrepopulatedItemsForPatient,
   PROJECT_MODULE,
   PatientInfo,
   PRIVATE_EXTENSION_BASE_URL,
   RequiredAllProps,
+  Secrets,
+  SecretsKeys,
   ServiceMode,
   userHasAccessToPatient,
   VisitType,
 } from 'utils';
-import { getSecret, Secrets, SecretsKeys, topLevelCatch, ZambdaInput } from 'zambda-utils';
-import { AuditableZambdaEndpoints, checkOrCreateM2MClientToken, createAuditEvent, getUser } from '../../shared';
-import { createUpdateUserRelatedResources, generatePatientRelatedRequests } from '../../shared/appointment';
+import {
+  AuditableZambdaEndpoints,
+  checkOrCreateM2MClientToken,
+  createAuditEvent,
+  createUpdateUserRelatedResources,
+  generatePatientRelatedRequests,
+  getUser,
+  topLevelCatch,
+  ZambdaInput,
+} from '../../../shared';
 import {
   getCurrentQuestionnaireForServiceType,
   getEncounterClass,

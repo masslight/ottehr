@@ -20,6 +20,7 @@ import {
   PHOTO_ID_CARD_CODE,
   SMSModel,
   SMSRecipient,
+  Secrets,
   ZAP_SMS_MEDIUM_CODE,
   appointmentTypeForAppointment,
   flattenItems,
@@ -33,10 +34,8 @@ import {
   getVisitStatusHistory,
   isTruthy,
 } from 'utils';
-import { Secrets, ZambdaInput } from 'zambda-utils';
-import { topLevelCatch } from '../shared/errors';
-import { checkOrCreateM2MClientToken, createOystehrClient, getRelatedPersonsFromResourceList } from '../shared/helpers';
-import { sortAppointments } from '../shared/queueingUtils';
+import { createOystehrClient, getRelatedPersonsFromResourceList } from '../../shared/helpers';
+import { sortAppointments } from '../../shared/queueingUtils';
 import {
   mergeResources,
   parseEncounterParticipants,
@@ -48,6 +47,7 @@ import {
   timezoneMap,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
 import { isNonPaperworkQuestionnaireResponse } from '../../common';
 
 export interface GetAppointmentsInput {

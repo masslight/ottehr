@@ -40,17 +40,24 @@ import {
   PatientInfo,
   REASON_MAXIMUM_CHAR_LIMIT,
   ScheduleType,
+  Secrets,
   ServiceMode,
   userHasAccessToPatient,
   VisitType,
 } from 'utils';
-import { Secrets, topLevelCatch, ZambdaInput } from 'zambda-utils';
-import { captureSentryException, configSentry, getAuth0Token } from '../../shared';
-import { generatePatientRelatedRequests } from '../../shared/appointment';
-import { getUser } from '../../shared/auth';
-import { createOystehrClient } from '../../shared/helpers';
-import '../../shared/instrument.mjs';
-import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAuditLog';
+import '../../../shared/instrument.mjs';
+import {
+  captureSentryException,
+  createOystehrClient,
+  configSentry,
+  getAuth0Token,
+  AuditableZambdaEndpoints,
+  createAuditEvent,
+  generatePatientRelatedRequests,
+  getUser,
+  topLevelCatch,
+  ZambdaInput,
+} from '../../../shared';
 import {
   getCanonicalUrlForPrevisitQuestionnaire,
   getEncounterClass,

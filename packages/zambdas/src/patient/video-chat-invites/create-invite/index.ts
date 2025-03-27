@@ -6,21 +6,18 @@ import { JSONPath } from 'jsonpath-plus';
 import {
   FHIR_EXTENSION,
   PROJECT_WEBSITE,
+  SecretsKeys,
   VideoChatCreateInviteInput,
   VideoChatCreateInviteResponse,
   createOystehrClient,
   formatPhoneNumber,
   getAppointmentResourceById,
+  getSecret,
 } from 'utils';
-import { SecretsKeys, ZambdaInput, getSecret, lambdaResponse } from 'zambda-utils';
-import {
-  getAuth0Token,
-  getUser,
-  getVideoEncounterForAppointment,
-  sendSms,
-  sendVideoChatInvititationEmail,
-} from '../../shared';
+import { getAuth0Token, getVideoEncounterForAppointment, lambdaResponse, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
+import { getUser } from '../../../shared/auth';
+import { sendSms, sendVideoChatInvititationEmail } from '../../../shared/communication';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
@@ -153,7 +150,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         const message = `You have been invited to join a telemedicine visit with ${patientChosenName}. Please click ${inviteUrl} to join.`;
         console.log(`Sms data: recipient: ${relatedPersonRef}; verifiedPhoneNumber: ${phone};`);
 
-        await sendSms(message, zapehrToken, relatedPersonRef, secrets);
+        await sendSms(message, relatedPersonRef, oystehr);
       }
     }
 

@@ -19,26 +19,21 @@ import {
   InPersonExamFieldsNames,
   MDM_FIELD_DEFAULT_TEXT,
   PROJECT_MODULE,
+  Secrets,
   SNOMEDCodeConceptInterface,
 } from 'utils';
-import { Secrets, ZambdaInput } from 'zambda-utils';
-import { saveResourceRequest } from '../../ehr/shared';
+import { isNonPaperworkQuestionnaireResponse } from '../../common';
+import { checkOrCreateM2MClientToken, saveResourceRequest, topLevelCatch, ZambdaInput } from '../../shared';
 import {
   createDispositionServiceRequest,
   makeClinicalImpressionResource,
   makeExamObservationResource,
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
-} from '../../ehr/shared/chart-data/chart-data-helpers';
-import { topLevelCatch } from '../../ehr/shared/errors';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  getVideoRoomResourceExtension,
-} from '../../ehr/shared/helpers';
+} from '../../shared/chart-data';
+import { createOystehrClient, getVideoRoomResourceExtension } from '../../shared/helpers';
 import { createExamObservations } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-import { isNonPaperworkQuestionnaireResponse } from '../../common';
 
 const CHUNK_SIZE = 50;
 

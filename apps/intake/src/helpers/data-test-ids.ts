@@ -23,4 +23,5 @@ export const dataTestIds = {
   patientNamePaperworkReviewScreen: 'patient-name',
   locationNamePaperworkReviewScreen: 'location-name',
   checkInTimePaperworkReviewScreen: 'check-in-time',
+  deletedButton: 'delete-button',
 };

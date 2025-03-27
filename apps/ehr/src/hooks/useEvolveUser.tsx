@@ -97,6 +97,12 @@ export default function useEvolveUser(): EvolveUser | undefined {
   const { mutateAsync: mutateEnrollPractitionerInERX } = useEnrollPractitionerInERX();
 
   useEffect(() => {
+    if (user?.profile && !profile) {
+      void refetchProfile();
+    }
+  }, [profile, refetchProfile, user?.profile]);
+
+  useEffect(() => {
     if (user && oystehr && profile && !isPractitionerLastLoginBeingUpdated && !_practitionerLoginUpdateStarted) {
       _practitionerLoginUpdateStarted = true;
       void mutatePractitionerAsync([
@@ -207,7 +213,6 @@ const useGetUser = () => {
 const useGetProfile = () => {
   const token = useAuthToken();
   const user = useEvolveUserStore((state) => state.user);
-  const profile = useEvolveUserStore((state) => state.profile);
   const { oystehr } = useApiClients();
 
   return useQuery(
@@ -230,7 +235,7 @@ const useGetProfile = () => {
       }
     },
     {
-      enabled: Boolean(token && oystehr && user?.profile && !profile),
+      enabled: Boolean(token && oystehr),
     }
   );
 };

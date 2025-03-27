@@ -3,8 +3,8 @@ import { randomUUID } from 'crypto';
 import { Location, Practitioner, PractitionerRole } from 'fhir/r4b';
 import { FHIR_BASE_URL } from 'utils';
 import fs from 'fs';
-import { getAuth0Token } from '../patient/shared';
-import { createOystehrClient } from '../patient/shared/helpers';
+import { getAuth0Token } from '../shared';
+import { createOystehrClient } from '../shared';
 
 const directorsAreSame = (practitioner1: Practitioner, practitioner2: Practitioner | undefined): boolean => {
   if (!practitioner1 || !practitioner2) {

@@ -66,4 +66,7 @@ export class UploadImage {
   async fillPatientCondition(): Promise<Locator> {
     return await this.uploadPhoto('#photo', 'Landscape_1.jpg');
   }
+  async fillPatientConditionPhotoPaperwork(): Promise<Locator> {
+    return await this.uploadPhoto('#patient-photos', 'Landscape_1.jpg');
+  }
 }

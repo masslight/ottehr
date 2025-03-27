@@ -1,6 +1,5 @@
-import { ClaimsQueueGetRequest } from 'utils';
-import { getSecret, SecretsKeys } from 'zambda-utils';
-import { ZambdaInput } from 'zambda-utils';
+import { ClaimsQueueGetRequest, getSecret, SecretsKeys } from 'utils';
+import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): ClaimsQueueGetRequest & Pick<ZambdaInput, 'secrets'> {
   console.group('validateRequestParameters');

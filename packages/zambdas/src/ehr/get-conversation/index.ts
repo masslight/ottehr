@@ -10,12 +10,13 @@ import {
   getLastName,
   getMessageFromComm,
   getMessageHasBeenRead,
+  getSecret,
+  Secrets,
+  SecretsKeys,
 } from 'utils';
-import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
-import { getAuth0Token } from '../shared';
-import { topLevelCatch } from '../shared/errors';
-import { createOystehrClient } from '../shared/helpers';
-import { ZambdaInput } from 'zambda-utils';
+import { getAuth0Token, topLevelCatch } from '../../shared';
+import { createOystehrClient } from '../../shared/helpers';
+import { ZambdaInput } from '../../shared';
 
 export interface GetConversationInput {
   secrets: Secrets | null;
