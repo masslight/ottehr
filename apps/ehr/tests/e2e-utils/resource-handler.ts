@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Address, Appointment, Encounter, FhirResource, Patient, QuestionnaireResponse } from 'fhir/r4b';
+import { Address, Appointment, Encounter, Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
@@ -222,7 +222,6 @@ export class ResourceHandler {
   }
 
   public async cleanupResources(): Promise<void> {
-    let appointmentResources = Object.values(this.resources ?? {}) as FhirResource[];
     // TODO: here we should change appointment id to encounter id when we'll fix this bug in frontend,
     // because for this moment frontend creates order with appointment id in place of encounter one
     if (this.resources.appointment) {
@@ -232,9 +231,8 @@ export class ResourceHandler {
         this.resources.appointment.id!
       );
 
-      appointmentResources = appointmentResources.concat(inHouseMedicationsResources);
-      await Promise.allSettled(
-        appointmentResources.map((resource) => {
+      await Promise.allSettled([
+        ...inHouseMedicationsResources.map((resource) => {
           if (resource.id && resource.resourceType) {
             return this.apiClient.fhir
               .delete({ id: resource.id, resourceType: resource.resourceType })
@@ -248,8 +246,9 @@ export class ResourceHandler {
             console.error(`❌ 🫣 resource not found: ${resource.resourceType} ${resource.id}`);
             return Promise.resolve();
           }
-        })
-      );
+        }),
+        this.cleanAppointment(this.resources.appointment.id!),
+      ]);
     }
   }
 
@@ -270,7 +269,7 @@ export class ResourceHandler {
           })
         ).unbundle()[0];
 
-        if (appointment.meta.tag?.find((tag) => tag.system === 'appointment-preprocessed')) {
+        if (appointment.meta?.tag?.find((tag) => tag.code === FHIR_APPOINTMENT_PREPROCESSED_TAG.code)) {
           return;
         }
 
@@ -336,37 +335,6 @@ export class ResourceHandler {
     }
 
     return resourse;
-  }
-
-  async waitTillAppointmentPreprocessed(id: string): Promise<void> {
-    try {
-      await this.initApi();
-
-      for (let i = 0; i < 5; i++) {
-        const appointment = (
-          await this.apiClient.fhir.search({
-            resourceType: 'Appointment',
-            params: [
-              {
-                name: '_id',
-                value: id,
-              },
-            ],
-          })
-        ).unbundle()[0];
-
-        if (appointment.meta?.tag?.find((tag) => tag.code === FHIR_APPOINTMENT_PREPROCESSED_TAG.code)) {
-          return;
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-      }
-
-      throw new Error("Appointment wasn't preprocessed");
-    } catch (e) {
-      console.error('Error during waitTillAppointmentPreprocessed', e);
-      throw e;
-    }
   }
 
   async cleanupAppointmentsForPatient(patientId: string): Promise<void> {
