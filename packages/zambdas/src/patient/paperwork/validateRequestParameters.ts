@@ -1,4 +1,5 @@
-import { QuestionnaireResponseItem, QuestionnaireResponse } from 'fhir/r4b';
+import Oystehr from '@oystehr/sdk';
+import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import {
   PatchPaperworkParameters,
   QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
@@ -6,9 +7,8 @@ import {
   makeValidationSchema,
   recursiveGroupTransform,
 } from 'utils';
-import { ZambdaInput } from '../../shared';
-import Oystehr from '@oystehr/sdk';
 import { ValidationError } from 'yup';
+import { ZambdaInput } from '../../shared';
 
 interface BasicInput extends PatchPaperworkParameters {
   ipAddress: string;
@@ -102,6 +102,7 @@ const complexSubmitValidation = async (
 ): Promise<SubmitPaperworkEffectInput> => {
   const { answers: prevalidationAnswers, questionnaireResponseId } = input;
   const qrAndQItems = await getQuestionnaireItemsAndProgress(questionnaireResponseId, oystehr);
+  console.log('qrAndQItems', JSON.stringify(qrAndQItems));
 
   if (!qrAndQItems) {
     throw new Error(`Questionnaire could not be found for QuestionnaireResponse with id ${questionnaireResponseId}`);
