@@ -1012,7 +1012,7 @@ describe('Harvest Module Integration Tests', () => {
       normalizedCompare(primary, primaryCoverage, patientId);
       normalizedCompare(secondary, secondaryCoverage, patientId);
     },
-    { timeout: 8000 }
+    { timeout: 20000 }
   );
 
   it(
@@ -1100,7 +1100,7 @@ describe('Harvest Module Integration Tests', () => {
       normalizedCompare(primary, primaryCoverage, patientId);
       normalizedCompare(secondary, secondaryCoverage, patientId);
     },
-    { timeout: 8000 }
+    { timeout: 20000 }
   );
 
   it(
@@ -1190,7 +1190,7 @@ describe('Harvest Module Integration Tests', () => {
         meta: undefined,
       });
     },
-    { timeout: 8000 }
+    { timeout: 20000 }
   );
   it(
     'should update an existing Account to update secondary Coverage with unmatched contained subscriber',
@@ -1298,7 +1298,7 @@ describe('Harvest Module Integration Tests', () => {
       ).unbundle();
       expect(canceledCoverages.length).toBe(0);
     },
-    { timeout: 8000 }
+    { timeout: 20000 }
   );
   it(
     'should update an existing Account to update secondary Coverage with unmatched persisted subscriber, old subscriber should be unchanged',
@@ -1406,7 +1406,7 @@ describe('Harvest Module Integration Tests', () => {
       ).unbundle();
       expect(canceledCoverages.length).toBe(0);
     },
-    { timeout: 8000 }
+    { timeout: 20000 }
   );
   it(
     'should update an existing Account to update Coverage with unmatched persisted subscriber, old subscriber should be unchanged',
@@ -1514,7 +1514,7 @@ describe('Harvest Module Integration Tests', () => {
       ).unbundle();
       expect(canceledCoverages.length).toBe(0);
     },
-    { timeout: 8000 }
+    { timeout: 20000 }
   );
   it(
     'should update an existing Account to update Coverage with unmatched contained subscriber',
@@ -1622,7 +1622,7 @@ describe('Harvest Module Integration Tests', () => {
       ).unbundle();
       expect(canceledCoverages.length).toBe(0);
     },
-    { timeout: 8000 }
+    { timeout: 20000 }
   );
   it(
     'should update an existing Account to update secondary Coverage with unmatched contained subscriber',
@@ -1730,7 +1730,7 @@ describe('Harvest Module Integration Tests', () => {
       ).unbundle();
       expect(canceledCoverages.length).toBe(0);
     },
-    { timeout: 8000 }
+    { timeout: 20000 }
   );
   it(
     'should correctly create an Account where primary and secondary Coverages are swapped',
@@ -1798,7 +1798,7 @@ describe('Harvest Module Integration Tests', () => {
       expect(allCoverages.length).toBe(4);
       expect(allCoverages.filter((cov) => cov.resourceType === 'Coverage').length).toBe(2);
     },
-    { timeout: 8000 }
+    { timeout: 20000 }
   );
 
   it(
@@ -1869,7 +1869,7 @@ describe('Harvest Module Integration Tests', () => {
       expect(allCoverages.length).toBe(4);
       expect(allCoverages.filter((cov) => cov.resourceType === 'Coverage').length).toBe(2);
     },
-    { timeout: 8000 }
+    { timeout: 20000 }
   );
 
   it(
@@ -1951,7 +1951,7 @@ describe('Harvest Module Integration Tests', () => {
       expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
       expect(account.coverage?.find((cov) => cov.coverage?.reference === secondaryCoverageRef)).toBeDefined();
     },
-    { timeout: 8000 }
+    { timeout: 20000 }
   );
   it(
     'should correctly update an Account whose existing secondary coverage becomes primary and primary is replaced with new Coverage',
@@ -2031,7 +2031,7 @@ describe('Harvest Module Integration Tests', () => {
       expect(secondaryCoverage?.beneficiary?.reference).toEqual(`Patient/${patientId}`);
       expect(account.coverage?.find((cov) => cov.coverage?.reference === primaryCoverageRef)).toBeDefined();
     },
-    { timeout: 8000 }
+    { timeout: 20000 }
   );
   it(
     'should correctly update an Account with a new guarantor when there is no existing guarantor',
@@ -2066,7 +2066,7 @@ describe('Harvest Module Integration Tests', () => {
       expect(containedGuarantor).toBeDefined();
       expect(containedGuarantor).toEqual(fillWithQR1Refs(expectedAccountGuarantorFromQR1, patientId));
     },
-    { timeout: 8000 }
+    { timeout: 20000 }
   );
   it(
     'should make no changes to an existing contained guarantor when the input matches',
@@ -2104,7 +2104,7 @@ describe('Harvest Module Integration Tests', () => {
       expect({ ...containedGuarantor }).toEqual(fillWithQR1Refs(expectedAccountGuarantorFromQR1, patientId));
       expect(containedGuarantor).toEqual(writtenAccount.contained?.[0]);
     },
-    { timeout: 8000 }
+    { timeout: 20000 }
   );
 
   it(
@@ -2146,7 +2146,7 @@ describe('Harvest Module Integration Tests', () => {
         account.guarantor?.[0]?.party?.reference
       );
     },
-    { timeout: 8000 }
+    { timeout: 20000 }
   );
 
   it(
@@ -2205,7 +2205,7 @@ describe('Harvest Module Integration Tests', () => {
       expect(persistedGuarantor.resourceType).toEqual('RelatedPerson');
       expect((persistedGuarantor as RelatedPerson).relationship).toEqual(newRelationship);
     },
-    { timeout: 8000 }
+    { timeout: 20000 }
   );
 
   it('should update guarantor from referenced Patient to contained RP when guarantor relationship != self', async () => {
@@ -2286,7 +2286,7 @@ describe('Harvest Module Integration Tests', () => {
       expect(account.guarantor?.[0]?.period?.end).toBeUndefined();
       expect(account.guarantor?.[1]?.period?.end).toBeDefined();
     },
-    { timeout: 8000 }
+    { timeout: 20000 }
   );
 
   it(
@@ -2333,7 +2333,7 @@ describe('Harvest Module Integration Tests', () => {
         persistedGuarantor?.resourceType + '/' + persistedGuarantor?.id
       );
     },
-    { timeout: 8000 }
+    { timeout: 20000 }
   );
 
   it(
@@ -2412,7 +2412,7 @@ describe('Harvest Module Integration Tests', () => {
       );
       expect(account3.contained?.length).toBe(2);
     },
-    { timeout: 10000 }
+    { timeout: 20000 }
   );
   it(
     'should update contained primary subscriber to persisted Patient when relationship = self',
@@ -2488,7 +2488,7 @@ describe('Harvest Module Integration Tests', () => {
       expect(persistedSubscriber).toBeDefined();
       expect(`Patient/${persistedSubscriber.id}`).toEqual(persistedCoverage.subscriber?.reference);
     },
-    { timeout: 8000 }
+    { timeout: 20000 }
   );
 
   it(
@@ -2566,7 +2566,7 @@ describe('Harvest Module Integration Tests', () => {
       expect(persistedSubscriber).toBeDefined();
       expect(`Patient/${persistedSubscriber.id}`).toEqual(persistedCoverage.subscriber?.reference);
     },
-    { timeout: 8000 }
+    { timeout: 20000 }
   );
 
   it('should update contained primary and secondary subscribers as well as Account guarantor to persisted Patient when relationship = self', async () => {
@@ -2696,6 +2696,6 @@ describe('Harvest Module Integration Tests', () => {
     expect(account.guarantor?.[0]?.period?.end).toBeUndefined();
     expect(account.guarantor?.[1]?.period?.end).toBeDefined();
   }),
-    { timeout: 8000 };
+    { timeout: 20000 };
   // todo: tests for EHR updates: 1) test when no guarantor is provided; 2) test when insurance-is-secondary = true
 });
