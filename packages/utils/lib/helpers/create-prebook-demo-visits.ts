@@ -307,6 +307,7 @@ const generateRandomPatientInfo = async (
   demoData?: AppointmentData,
   selectedLocationId?: string
 ): Promise<CreateAppointmentInputParams> => {
+  console.log('Generating random patient info...');
   const {
     firstNames = DEFAULT_FIRST_NAMES,
     lastNames = DEFAULT_LAST_NAMES,
