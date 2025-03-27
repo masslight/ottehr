@@ -134,6 +134,7 @@ const ThankYou = (): JSX.Element => {
   const [paperworkCompleted, setPaperworkCompleted] = useState<boolean>(false);
   const [checkedIn, setCheckedIn] = useState<boolean>(false);
   const [aiChatConsentModalOpen, setAiChatConsentModalOpen] = useState<boolean>(false);
+  const [aiChatStartButtonEnabled, setAiChatStartButtonEnabled] = useState<boolean>(false);
   const outletContext = useVisitStore();
   const { id: appointmentId } = useParams();
   const { pathname } = useLocation();
@@ -412,7 +413,13 @@ const ThankYou = (): JSX.Element => {
               )}
             </>
           )}
-          <Modal open={aiChatConsentModalOpen} onClose={() => setAiChatConsentModalOpen(false)}>
+          <Modal
+            open={aiChatConsentModalOpen}
+            onClose={() => {
+              setAiChatConsentModalOpen(false);
+              setAiChatStartButtonEnabled(false);
+            }}
+          >
             <Box sx={MODAL_STYLE}>
               <Typography variant={'h2'} color="primary.main" style={{ marginBottom: '16px' }}>
                 Chat with Ottehr AI
@@ -426,14 +433,21 @@ const ThankYou = (): JSX.Element => {
                 new interview.
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', margin: '16px 0 16px 0' }}>
-                <Checkbox color="secondary" />
+                <Checkbox color="secondary" onChange={(e) => setAiChatStartButtonEnabled(e.target.checked)} />
                 <Typography color="text.primary">I consent to Ottehr AI collecting my information</Typography>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Button variant="outlined" color="secondary">
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  onClick={() => {
+                    setAiChatConsentModalOpen(false);
+                    setAiChatStartButtonEnabled(false);
+                  }}
+                >
                   Cancel
                 </Button>
-                <Button variant="contained" color="secondary">
+                <Button variant="contained" color="secondary" disabled={!aiChatStartButtonEnabled}>
                   Start chat
                 </Button>
               </Box>
