@@ -99,7 +99,7 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
       {!isPending && (
         <>
           <TableCell sx={columnStyles.orderDateTime}>{formatGivenDateTime}</TableCell>
-          <TableCell sx={columnStyles.orderDateTime}>{medication.administeredProvider}</TableCell>
+          <TableCell sx={columnStyles.orderDateTime}>{medication.administeredProvider || ''}</TableCell>
         </>
       )}
       <TableCell
