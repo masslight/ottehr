@@ -205,8 +205,8 @@ export const useGetAppointment = (
           .filter(
             (resource) =>
               resource.resourceType !== 'QuestionnaireResponse' ||
-              resource.questionnaire === inPersonIntakeQuestionnaire.resource.url ||
-              resource.questionnaire === virtualIntakeQuestionnaire.resource.url
+              resource.questionnaire?.startsWith(inPersonIntakeQuestionnaire.resource.url) ||
+              resource.questionnaire?.startsWith(virtualIntakeQuestionnaire.resource.url)
           );
       }
       throw new Error('fhir client not defined or appointmentId not provided');
