@@ -5,17 +5,24 @@ import { DateTime } from 'luxon';
 import {
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   SLUG_SYSTEM,
+  Secrets,
   VisitStatusLabel,
   getPatientsForUser,
   getVisitStatus,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { Secrets, topLevelCatch } from 'zambda-utils';
-import '../../shared/instrument.mjs';
-import { captureSentryException, configSentry, getAuth0Token } from '../../shared';
-import { getUser } from '../../shared/auth';
-import { checkPaperworkComplete, createOystehrClient } from '../../shared/helpers';
+import {
+  captureSentryException,
+  checkPaperworkComplete,
+  configSentry,
+  createOystehrClient,
+  getAuth0Token,
+  getUser,
+  topLevelCatch,
+  ZambdaInput,
+} from '../../../shared';
+import '../../../shared/instrument.mjs';
 import { validateRequestParameters } from './validateRequestParameters';
+import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 
 export interface GetPatientsInput {
   patientID?: string;
@@ -160,7 +167,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         resourceType: 'Appointment',
         params,
       })
-    ).unbundle();
+    )
+      .unbundle()
+      .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
     console.log('successfully retrieved appointment resources');
     const appointments: Appointment[] = allResources
       .filter((resourceTemp) => resourceTemp.resourceType === 'Appointment')

@@ -1,5 +1,5 @@
 import { DEFAULT_LABS_ITEMS_PER_PAGE, GetLabOrdersParameters } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../shared';
 
 export type GetZambdaLabOrdersParams = GetLabOrdersParameters & { secrets: any };
 

@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Outlet } from 'react-router-dom';
+import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
+import { CommonLayoutBreadcrumbs } from '../components/breadcrumbs/CommonLayoutBreadcrumbs';
 import { Header } from '../components/Header';
 import { Sidebar } from '../components/Sidebar';
+import { useChartData } from '../hooks/useChartData';
 import { BottomNavigation } from './BottomNavigation';
-import { CommonLayoutBreadcrumbs } from '../components/breadcrumbs/CommonLayoutBreadcrumbs';
 
 const layoutStyle: React.CSSProperties = {
   display: 'flex',
@@ -27,6 +29,20 @@ const contentWrapperStyle: React.CSSProperties = {
 };
 
 export const CSSLayout: React.FC = () => {
+  const { encounter, chartData } = useAppointmentStore();
+  const isInitialLoad = useRef(true);
+  useChartData({
+    encounterId: encounter.id!,
+    onSuccess: (data) => {
+      useAppointmentStore.setState({ chartData: { ...chartData, ...data } });
+      isInitialLoad.current = false;
+    },
+    onError: (error) => {
+      console.error(error);
+    },
+    enabled: isInitialLoad.current,
+  });
+
   return (
     <div style={layoutStyle}>
       <Header />

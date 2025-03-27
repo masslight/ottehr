@@ -128,7 +128,12 @@ async function createApplication(oystehr: Oystehr, applicationName: string): Pro
           'Zambda:Function:telemed-update-appointment',
           'Zambda:Function:get-visit-details',
           'Zambda:Function:list-bookables',
-          'Zambda:Function:intake-version',
+          'Zambda:Function:version',
+          'Zambda:Function:ai-interview-start',
+          'Zambda:Function:ai-interview-handle-answer',
+          'Zambda:Function:get-lab-orders',
+          'Zambda:Function:get-lab-order-details',
+          'Zambda:Function:submit-lab-order',
         ],
         action: ['Zambda:InvokeFunction'],
         effect: 'Allow',
@@ -198,6 +203,7 @@ async function createApplication(oystehr: Oystehr, applicationName: string): Pro
       passwordlessSMS: true,
       mfaEnabled: false,
       shouldSendInviteEmail: false,
+      refreshTokenEnabled: true,
       logoUri:
         'https://assets-global.website-files.com/653fce065d76f84cf31488ae/65438838a5f9308ca9498887_otter%20logo%20dark.svg',
     });

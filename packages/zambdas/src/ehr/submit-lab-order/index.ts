@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getPatchBinary } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import { Provenance, Questionnaire, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
 import { DateTime } from 'luxon';

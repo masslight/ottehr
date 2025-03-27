@@ -1,4 +1,4 @@
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../shared';
 
 export interface DeleteLabOrderParams {
   labOrderId: string;

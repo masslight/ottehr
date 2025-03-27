@@ -79,10 +79,19 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
       <TableCell data-testid={dataTestIds.inHouseMedicationsPage.marTableMedicationCell} sx={columnStyles.medication}>
         <MedicationBarcodeScan medication={medication} />
       </TableCell>
-      <TableCell sx={columnStyles.dose}>{medication.dose}</TableCell>
-      <TableCell sx={columnStyles.route}>{searchRouteByCode(medication.route)?.display || '-'}</TableCell>
+      <TableCell data-testid={dataTestIds.inHouseMedicationsPage.marTableDoseCell} sx={columnStyles.dose}>
+        {medication.dose}
+      </TableCell>
+      <TableCell data-testid={dataTestIds.inHouseMedicationsPage.marTableRouteCell} sx={columnStyles.route}>
+        {searchRouteByCode(medication.route)?.display || '-'}
+      </TableCell>
       <TableCell sx={columnStyles.orderDateTime}>{formatDateTime}</TableCell>
-      <TableCell sx={columnStyles.instructions}>{medication.instructions}</TableCell>
+      <TableCell
+        data-testid={dataTestIds.inHouseMedicationsPage.marTableInstructionsCell}
+        sx={columnStyles.instructions}
+      >
+        {medication.instructions}
+      </TableCell>
       <TableCell data-testid={dataTestIds.inHouseMedicationsPage.marTableStatusCell} sx={columnStyles.status}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <MedicationStatusChip medication={medication} />

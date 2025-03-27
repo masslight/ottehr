@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.4.1",
+  "version": "1.5.2",
   "private": true,
   "engines": {
     "node": ">=20.0.0",
@@ -58,6 +58,9 @@
     "@emotion/styled": "^11.10.5",
     "@hookform/resolvers": "^2.9.10",
     "@inquirer/prompts": "^7.2.4",
+    "@langchain/anthropic": "^0.3.15",
+    "@langchain/core": "^0.3.42",
+    "@langchain/langgraph": "^0.2.56",
     "@mui/lab": "^5.0.0-alpha.115",
     "@mui/material": "^5.14.18",
     "@mui/system": "^5.10.16",
@@ -139,10 +142,6 @@
     "lint-staged": "^15.0.2",
     "parquetjs": "^0.11.2",
     "prettier": "^3.0.0",
-    "serverless": "^3.40.0",
-    "serverless-esbuild": "^1.54.6",
-    "serverless-offline": "^13.9.0",
-    "serverless-plugin-typescript": "^2.1.5",
     "simple-zustand-devtools": "^1.1.0",
     "tsx": "^4.19.2",
     "turbo": "^1.10.16",
