@@ -1,14 +1,4 @@
-import { describe, it, expect, assert } from 'vitest';
-import * as fs from 'fs';
-import { getAuth0Token } from '../../../../shared';
-import { createOystehrClient } from '../../../../shared/helpers';
-import questionnaireResponse from './data/base-qr.json';
-import {
-  expectedCoverageResources as qr1ExpectedCoverageResources,
-  expectedPrimaryPolicyHolderFromQR1,
-  expectedSecondaryPolicyHolderFromQR1,
-  expectedAccountGuarantorFromQR1,
-} from './data/expected-coverage-resources-qr1';
+import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest } from '@oystehr/sdk';
 import {
   Account,
   Appointment,
@@ -21,14 +11,23 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
+import * as fs from 'fs';
 import {
   COVERAGE_MEMBER_IDENTIFIER_BASE,
   isValidUUID,
   PATIENT_BILLING_ACCOUNT_TYPE,
   unbundleBatchPostOutput,
 } from 'utils';
-import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest } from '@oystehr/sdk';
+import { assert, describe, expect, it } from 'vitest';
 import { performEffect } from '..';
+import { createOystehrClient, getAuth0Token } from '../../../../../shared';
+import questionnaireResponse from './data/base-qr.json';
+import {
+  expectedAccountGuarantorFromQR1,
+  expectedPrimaryPolicyHolderFromQR1,
+  expectedSecondaryPolicyHolderFromQR1,
+  expectedCoverageResources as qr1ExpectedCoverageResources,
+} from './data/expected-coverage-resources-qr1';
 import {
   batchTestInsuranceWrites,
   fillReferences,
@@ -37,9 +36,9 @@ import {
   replaceSubscriberWithPatient,
 } from './helpers';
 
+import { randomUUID } from 'crypto';
 import { uuid } from 'short-uuid';
 import { relatedPersonsAreSame } from '../../../../../ehr/shared/harvest';
-import { randomUUID } from 'crypto';
 
 const stubAccount: Account = {
   resourceType: 'Account',

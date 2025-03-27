@@ -163,15 +163,13 @@ export const getOystehrTelemedAPI = (
     'remove patient coverage': removePatientCoverageZambdaID,
   };
   const isAppLocalProvided = params.isAppLocal != null;
-  const isAppLocal = params.isAppLocal === 'true';
 
   const { makeZapRequest } = getZapEHRApiHelpers(
     oystehr,
     ZambdaNames,
     zambdasToIdsMap,
     zambdasPublicityMap,
-    isAppLocalProvided,
-    isAppLocal
+    isAppLocalProvided
   );
 
   const getTelemedAppointments = async (

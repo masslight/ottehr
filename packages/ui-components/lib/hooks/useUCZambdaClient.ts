@@ -1,9 +1,6 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { useCallback, useMemo } from 'react';
-import { chooseJson } from '../../../../apps/intake/src/api/zapehrApi';
-
-const REACT_APP_IS_LOCAL = import.meta.env.VITE_APP_IS_LOCAL ?? 'false';
-
+import { chooseJson } from 'utils';
 export interface ZambdaClient {
   execute: (id: string, body?: any) => Promise<any>;
   executePublic: (id: string, body?: any) => Promise<any>;
@@ -56,12 +53,12 @@ export function useUCZambdaClient({ tokenless }: { tokenless: boolean }): Zambda
         const errorDetails = {
           zambdaId: id,
           requestBody: body,
-          error: chooseJson(e, REACT_APP_IS_LOCAL),
+          error: chooseJson(e),
           responseText: responseRef && !responseRef.bodyUsed ? await responseRef.text() : null,
         };
 
         console.error(`Error invoking tokenless zambda: ${JSON.stringify(errorDetails)}`);
-        throw chooseJson(e, REACT_APP_IS_LOCAL);
+        throw chooseJson(e);
       }
     },
     [getAccessTokenSilently, isAuthenticated]
@@ -95,12 +92,12 @@ export function useUCZambdaClient({ tokenless }: { tokenless: boolean }): Zambda
         const errorDetails = {
           zambdaId: id,
           requestBody: body,
-          error: chooseJson(e, REACT_APP_IS_LOCAL),
+          error: chooseJson(e),
           responseText: responseRef && !responseRef.bodyUsed ? await responseRef.text() : null,
         };
 
         console.error(`Error invoking zambda: ${JSON.stringify(errorDetails)}`);
-        throw chooseJson(e, REACT_APP_IS_LOCAL);
+        throw chooseJson(e);
       }
     },
     [getAccessTokenSilently, isAuthenticated]

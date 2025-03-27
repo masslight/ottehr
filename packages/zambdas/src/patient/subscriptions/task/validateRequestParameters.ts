@@ -1,7 +1,6 @@
 import { Task } from 'fhir/r4b';
-import { TaskSubscriptionInput } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { Secrets } from 'zambda-utils';
+import { Secrets, TaskSubscriptionInput } from 'utils';
+import { ZambdaInput } from '../../../shared';
 
 // Note that this file is copied from BH and needs significant changes
 export function validateRequestParameters(input: ZambdaInput): TaskSubscriptionInput & { secrets: Secrets | null } {

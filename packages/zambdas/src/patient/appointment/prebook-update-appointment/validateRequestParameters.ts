@@ -1,5 +1,5 @@
 import { isISODateTime } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../../shared';
 import { UpdateAppointmentInput } from '.';
 
 // Note that this file is copied from BH and needs significant changes
