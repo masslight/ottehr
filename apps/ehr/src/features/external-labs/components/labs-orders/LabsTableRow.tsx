@@ -5,19 +5,19 @@ import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { LabsTableColumn } from './LabsTable';
 import { otherColors } from '../../../../CustomThemeProvider';
 import { getStatusColor } from './labs.helpers';
+import { getExternalLabOrderEditUrl } from '../../../css-module/routing/helpers';
+import { Link } from 'react-router-dom';
 
 interface LabsTableRowProps {
   columns: LabsTableColumn[];
   labOrderData: LabOrderDTO;
   onDeleteOrder?: () => void;
-  onRowClick: () => void;
   allowDelete?: boolean;
 }
 
 export const LabsTableRow = ({
   labOrderData,
   onDeleteOrder,
-  onRowClick,
   columns,
   allowDelete = false,
 }: LabsTableRowProps): ReactElement => {
@@ -94,15 +94,19 @@ export const LabsTableRow = ({
 
   return (
     <TableRow
-      onClick={onRowClick}
       sx={{
         '&:hover': { backgroundColor: '#f5f5f5' },
         cursor: 'pointer',
       }}
     >
-      {columns.map((column) => (
-        <TableCell key={column}>{renderCellContent(column)}</TableCell>
-      ))}
+      <Link
+        to={getExternalLabOrderEditUrl(labOrderData.appointmentId, labOrderData.id)}
+        style={{ display: 'contents', verticalAlign: 'middle' }}
+      >
+        {columns.map((column) => (
+          <TableCell key={column}>{renderCellContent(column)}</TableCell>
+        ))}
+      </Link>
     </TableRow>
   );
 };

@@ -8,7 +8,6 @@ import {
   Consent,
   ContactPoint,
   Coverage,
-  DiagnosticReport,
   DocumentReference,
   DomainResource,
   Encounter,

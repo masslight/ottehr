@@ -1,4 +1,4 @@
-import { Typography, Stack, CircularProgress } from '@mui/material';
+import { Typography, Stack, CircularProgress, Grid } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import { StatusChip } from '../components/StatusChip';
 import { OrderCollection } from '../components/OrderCollection';
@@ -10,8 +10,6 @@ import { useApiClients } from '../../../hooks/useAppClients';
 import { OrderDetails } from 'utils';
 import { getLabOrderDetails } from '../../../api/api';
 import { QuestionnaireItem } from 'fhir/r4b';
-import Loading from '../../../components/Loading';
-import { LoadingScreen } from '../../../components/LoadingScreen';
 
 interface CollectionInstructions {
   container: string;
@@ -93,7 +91,14 @@ export const OrderDetailsPage: React.FC = () => {
           }}
         >
           <Typography variant="body1">{serviceRequest.diagnosis}</Typography>
-          <StatusChip status={taskStatus} />
+          <Grid container justifyContent="end" spacing={2}>
+            <Grid item>
+              <StatusChip status={taskStatus} />
+            </Grid>
+            <Grid item>
+              <Typography variant="body1">{serviceRequest.orderTypeDetail}</Typography>
+            </Grid>
+          </Grid>
         </Stack>
         {/* {taskStatus === 'pending' && (
           <TaskBanner

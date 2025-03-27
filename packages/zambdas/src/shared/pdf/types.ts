@@ -115,7 +115,6 @@ export interface ExternalLabsData {
   providerName: string;
   providerTitle: string;
   providerNPI: string;
-  serviceName: string;
   patientFirstName: string;
   patientMiddleName: string;
   patientLastName: string;
@@ -131,8 +130,8 @@ export interface ExternalLabsData {
   primaryInsuranceSubNum?: string;
   insuredName?: string;
   insuredAddress?: string;
-  aoeAnswers: string[];
-  labType: string;
+  aoeAnswers: { question: string; answer: any }[];
+  orderName: string;
   assessmentCode: string;
   assessmentName: string;
   orderPriority: string;
