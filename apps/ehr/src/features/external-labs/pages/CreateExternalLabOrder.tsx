@@ -53,7 +53,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     'encounter',
     'appointment',
   ]);
-  console.log('encounter', encounter.id);
+
   const { diagnosis } = chartData || {};
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
 

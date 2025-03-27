@@ -30,7 +30,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const oystehr = createOystehrClient(m2mtoken, secrets);
 
     const patientId = encounter.subject?.reference?.replace('Patient/', '');
-    if (!patientId) throw new Error('patientId missing'); // todo make this better
+    if (!patientId) throw new Error('Encounter is misconfigured and does not contain a patient subject');
 
     const coverageSearchRequest: BatchInputRequest<Coverage> = {
       method: 'GET',
