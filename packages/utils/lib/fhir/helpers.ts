@@ -7,7 +7,6 @@ import {
   Coding,
   Consent,
   Coverage,
-  DiagnosticReport,
   DocumentReference,
   Encounter,
   Extension,

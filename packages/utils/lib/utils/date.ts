@@ -166,7 +166,10 @@ export function formatDateForFHIR(date: string): string {
   return outputDate;
 }
 
-export function formatDate(date: string): string {
+export function formatDate(date: string | null): string {
+  if (!date) {
+    throw new Error('date is not defined');
+  }
   return DateTime.fromISO(date).toFormat('MM/dd/yyyy hh:mm a');
 }
 
