@@ -39,6 +39,7 @@ test('Book appointment, click Provider on "Patient info", check statuses', async
 });
 
 test('Book appointment,fill required fields for signing the visit, review and sign progress note', async ({ page }) => {
+  await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
   const patientInfoPage = await intakeTestAppointment(page);
   await patientInfoPage.cssHeader().clickSwitchStatusButton('provider');
   const progressNotePage = await expectInPersonProgressNotePage(page);

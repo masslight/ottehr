@@ -203,8 +203,8 @@ export const useGetAppointment = (
           .filter(
             (resource) =>
               resource.resourceType !== 'QuestionnaireResponse' ||
-              resource.questionnaire === 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson' ||
-              resource.questionnaire === 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual'
+              resource.questionnaire?.includes('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson') ||
+              resource.questionnaire?.includes('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual')
           );
       }
       throw new Error('fhir client not defined or appointmentId not provided');

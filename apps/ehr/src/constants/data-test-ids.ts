@@ -169,6 +169,7 @@ export const dataTestIds = {
   },
   telemedEhrFlow: {
     telemedAppointmentsTabs: (tab: ApptTelemedTab) => `telemed-appointments-tabs-${tab}`,
+    trackingBoardTableGroupRow: `telemed-tracking-board-table-group-row`,
     trackingBoardTableRow: (appointmentId: string) => `telemed-tracking-board-table-row-${appointmentId}`,
     myPatientsButton: 'telemed-my-patients-button',
     allPatientsButton: 'telemed-all-patients-button',
