@@ -102,7 +102,6 @@ const complexSubmitValidation = async (
 ): Promise<SubmitPaperworkEffectInput> => {
   const { answers: prevalidationAnswers, questionnaireResponseId } = input;
   const qrAndQItems = await getQuestionnaireItemsAndProgress(questionnaireResponseId, oystehr);
-  console.log('qrAndQItems', JSON.stringify(qrAndQItems));
 
   if (!qrAndQItems) {
     throw new Error(`Questionnaire could not be found for QuestionnaireResponse with id ${questionnaireResponseId}`);
