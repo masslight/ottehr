@@ -1,5 +1,5 @@
-import { ZambdaInput } from 'zambda-utils';
 import { SubmitLabOrder } from '.';
+import { ZambdaInput } from '../../shared/types';
 
 export function validateRequestParameters(input: ZambdaInput): SubmitLabOrder {
   if (!input.body) {

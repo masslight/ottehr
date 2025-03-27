@@ -1,6 +1,6 @@
 import { CancellationReasonOptionsInPerson, CancellationReasonOptionsTelemedEHR } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
 import { CancelAppointmentInput } from '.';
+import { ZambdaInput } from '../../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): CancelAppointmentInput {
   if (!input.body) {

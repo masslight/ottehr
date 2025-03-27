@@ -3,7 +3,8 @@ import { Subscription } from 'fhir/r4b';
 import fs from 'fs';
 import { SubscriptionZambdaDetails } from 'utils';
 import ottehrSpec from '../../ottehr-spec.json';
-import { getAuth0Token } from '../patient/shared';
+import { getAuth0Token } from '../shared';
+
 
 interface DeployZambda {
   type: 'http_open' | 'http_auth' | 'subscription' | 'cron';

@@ -2,7 +2,7 @@ import { BrowserContext, Page } from '@playwright/test';
 import { Locators } from '../locators';
 import { FillingInfo } from './FillingInfo';
 import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
-import { Paperwork } from './Paperwork';
+import { PaperworkTelemed } from './Paperwork';
 
 export interface SlotAndLocation {
   selectedSlot: { time: string; fullSlot: string };
@@ -11,7 +11,9 @@ export interface SlotAndLocation {
 
 export interface StartVisitResponse {
   slotAndLocation: Partial<SlotAndLocation>;
-  patientBasicInfo: Partial<PatientBasicInfo>;
+  patientBasicInfo: PatientBasicInfo;
+  bookingURL: string;
+  bookingUUID: string | null;
 }
 
 export interface PatientBasicInfo {
@@ -30,7 +32,7 @@ export abstract class BaseTelemedFlow {
   protected fillingInfo: FillingInfo;
   protected context: BrowserContext;
   protected commonLocatorsHelper: CommonLocatorsHelper;
-  protected paperwork: Paperwork;
+  protected paperwork: PaperworkTelemed;
 
   constructor(page: Page) {
     this.page = page;
@@ -38,7 +40,7 @@ export abstract class BaseTelemedFlow {
     this.fillingInfo = new FillingInfo(page);
     this.commonLocatorsHelper = new CommonLocatorsHelper(page);
     this.context = page.context();
-    this.paperwork = new Paperwork(page);
+    this.paperwork = new PaperworkTelemed(page);
   }
   abstract selectTimeLocationAndContinue(): Promise<Partial<SlotAndLocation>>;
   abstract clickVisitButton(): Promise<void>;

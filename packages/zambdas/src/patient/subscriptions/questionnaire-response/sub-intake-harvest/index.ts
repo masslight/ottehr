@@ -1,3 +1,4 @@
+import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
@@ -6,16 +7,10 @@ import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   flattenIntakeQuestionnaireItems,
   getRelatedPersonForPatient,
+  getSecret,
   IntakeQuestionnaireItem,
+  SecretsKeys,
 } from 'utils';
-import { captureSentryException, configSentry, getAuth0Token } from '../../../shared';
-import { createOystehrClient } from '../../../shared/helpers';
-import '../../../shared/instrument.mjs';
-
-import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
-import { getSecret, SecretsKeys, topLevelCatch, triggerSlackAlarm, ZambdaInput } from 'zambda-utils';
-import { saveResourceRequest } from '../../../../ehr/shared';
-import { makeObservationResource } from '../../../../ehr/shared/chart-data/chart-data-helpers';
 import {
   createConsentResources,
   createDocumentResources,
@@ -24,6 +19,18 @@ import {
   flagPaperworkEdit,
   updatePatientAccountFromQuestionnaire,
 } from '../../../../ehr/shared/harvest';
+import {
+  captureSentryException,
+  configSentry,
+  createOystehrClient,
+  getAuth0Token,
+  makeObservationResource,
+  saveResourceRequest,
+  topLevelCatch,
+  triggerSlackAlarm,
+  ZambdaInput,
+} from '../../../../shared';
+import '../../../../shared/instrument.mjs';
 import { createAdditionalQuestions } from '../../../../subscriptions/appointment-chart-data-prefilling/helpers';
 import { QRSubscriptionInput, validateRequestParameters } from './validateRequestParameters';
 

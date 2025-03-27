@@ -2,8 +2,8 @@ import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import { Questionnaire } from 'fhir/r4b';
 import fs from 'fs';
 import path from 'path';
-import { getAuth0Token } from '../patient/shared';
-import { createOystehrClient } from '../patient/shared/helpers';
+import { getAuth0Token } from '../shared';
+import { createOystehrClient } from '../shared';
 
 const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> => {
   const token = await getAuth0Token(envConfig);

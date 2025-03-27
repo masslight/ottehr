@@ -7,12 +7,13 @@ import {
   AnswerOptionSource,
   MALFORMED_GET_ANSWER_OPTIONS_INPUT,
   MISSING_REQUEST_BODY,
+  SecretsKeys,
   createOystehrClient,
+  getSecret,
   isApiError,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { SecretsKeys, getSecret } from 'zambda-utils';
-import { getAuth0Token } from '../shared';
+import { ZambdaInput } from '../../shared';
+import { getAuth0Token } from '../../shared';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;

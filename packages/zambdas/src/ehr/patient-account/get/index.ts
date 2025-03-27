@@ -1,5 +1,4 @@
-import { Secrets, topLevelCatch, ZambdaInput } from 'zambda-utils';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared/helpers';
+import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   INVALID_RESOURCE_ID_ERROR,
@@ -7,6 +6,7 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   PatientAccountResponse,
+  Secrets,
 } from 'utils';
 import Oystehr from '@oystehr/sdk';
 import { Practitioner } from 'fhir/r4b';
