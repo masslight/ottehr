@@ -166,6 +166,9 @@ export class Locators {
   responsiblePartyChipStatus: Locator;
   photoIdChipStatus: Locator;
   consentFormsChipStatus: Locator;
+  relayServiceNo: Locator;
+  relayServiceYes: Locator;
+  deleteButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -196,6 +199,7 @@ export class Locators {
     this.dateFutureError = page.getByText('Date may not be in the future');
     this.appointmentDescription = page.locator('.appointment-description');
     this.goToWaitingRoomButton = page.getByRole('button', { name: 'Go to the Waiting Room' });
+    this.deleteButton = page.getByTestId(dataTestIds.deletedButton);
 
     // Review page locators
     this.prebookSlotReviewScreen = page.getByTestId(dataTestIds.prebookSlotReviewScreen);
@@ -239,6 +243,9 @@ export class Locators {
     this.patientPreferredLanguage = page.locator('[id="preferred-language"]');
     this.patientPointOfDiscovery = page.locator('[id="patient-point-of-discovery"]');
     this.mobileOptIn = page.getByLabel('mobile-opt-in-label');
+    //Telemed Patient details locators
+    this.relayServiceNo = page.locator('[aria-labelledby="relay-phone-label"] input[type="radio"][value="No"]');
+    this.relayServiceYes = page.locator('[aria-labelledby="relay-phone-label"] input[type="radio"][value="Yes"]');
 
     // Payment, insurance locators
     this.selfPayOption = page.getByLabel('I will pay without insurance');

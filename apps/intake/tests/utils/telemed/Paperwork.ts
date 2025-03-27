@@ -15,7 +15,7 @@ import {
 } from '../locators';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
-export class Paperwork {
+export class PaperworkTelemed {
   page: Page;
   fillingInfo: FillingInfo;
   uiDesign: UIDesign;
@@ -111,11 +111,11 @@ export class Paperwork {
   async checkEmptyCurrentMedications() {
     await expect(this.page.getByRole('radio', { name: CURRENT_MEDICATIONS_ABSENT_LABEL })).toBeChecked();
   }
-
-  async fillAndCheckFilledCurrentMedications() {
+  async checkValidationError() {
     await this.clickContinueButton(false);
     await expect(this.locators.paperworkSelectOptionFieldErrorMessage).toBeVisible();
-
+  }
+  async fillAndCheckFilledCurrentMedications() {
     const { filledValue, selectedValue } = await this.fillingInfo.fillCurrentMedications();
 
     await this.checkFilledCurrentMedications([filledValue, selectedValue]);
@@ -126,12 +126,18 @@ export class Paperwork {
     await expect(this.page.getByRole('heading', { name: 'Current medications', level: 2 })).toBeVisible();
 
     await this.checkFilledCurrentMedications([filledValue, selectedValue]);
+    return { filledValue, selectedValue };
   }
 
   async checkFilledCurrentMedications(options: string[]) {
     await expect(this.page.getByRole('radio', { name: CURRENT_MEDICATIONS_PRESENT_LABEL })).toBeChecked();
     for (const option of options) {
       await expect(this.page.getByText(option)).toBeVisible();
+    }
+  }
+  async checkEnteredDataIsRemoved(options: string[]) {
+    for (const option of options) {
+      await expect(this.page.getByText(option)).not.toBeVisible();
     }
   }
 
@@ -148,9 +154,6 @@ export class Paperwork {
   }
 
   async fillAndCheckFilledCurrentAllergies() {
-    await this.clickContinueButton(false);
-    await expect(this.locators.paperworkSelectOptionFieldErrorMessage).toBeVisible();
-
     const { filledValue, selectedValue } = await this.fillingInfo.fillCurrentAllergies();
 
     await this.checkFilledCurrentAllergies([filledValue, selectedValue]);
@@ -161,6 +164,7 @@ export class Paperwork {
     await expect(this.page.getByRole('heading', { name: 'Current allergies', level: 2 })).toBeVisible();
 
     await this.checkFilledCurrentAllergies([filledValue, selectedValue]);
+    return { filledValue, selectedValue };
   }
 
   async checkFilledCurrentAllergies(options: string[]) {
@@ -183,9 +187,6 @@ export class Paperwork {
   }
 
   async fillAndCheckFilledMedicalHistory() {
-    await this.clickContinueButton(false);
-    await expect(this.locators.paperworkSelectOptionFieldErrorMessage).toBeVisible();
-
     const { filledValue, selectedValue } = await this.fillingInfo.fillMedicalHistory();
 
     await this.checkFilledMedicalHistory([filledValue, selectedValue]);
@@ -196,6 +197,7 @@ export class Paperwork {
     await expect(this.page.getByRole('heading', { name: 'Medical history', level: 2 })).toBeVisible();
 
     await this.checkFilledMedicalHistory([filledValue, selectedValue]);
+    return { filledValue, selectedValue };
   }
 
   async checkFilledMedicalHistory(options: string[]) {
@@ -218,9 +220,6 @@ export class Paperwork {
   }
 
   async fillAndCheckFilledSurgicalHistory() {
-    await this.clickContinueButton(false);
-    await expect(this.locators.paperworkSelectOptionFieldErrorMessage).toBeVisible();
-
     const { filledValue, selectedValue } = await this.fillingInfo.fillSurgicalHistory();
 
     await this.checkFilledSurgicalHistory([filledValue, selectedValue]);
@@ -231,6 +230,7 @@ export class Paperwork {
     await expect(this.page.getByRole('heading', { name: 'Surgical history', level: 2 })).toBeVisible();
 
     await this.checkFilledSurgicalHistory([filledValue, selectedValue]);
+    return { filledValue, selectedValue };
   }
 
   async checkFilledSurgicalHistory(options: string[]) {
@@ -253,6 +253,7 @@ export class Paperwork {
     await expect(this.page.getByRole('heading', { name: 'Additional questions', level: 2 })).toBeVisible();
 
     await this.checkAdditionalQuestions(flags);
+    return flags;
   }
 
   async checkAdditionalQuestions(flags: Awaited<ReturnType<FillingInfo['fillAdditionalQuestions']>>) {
