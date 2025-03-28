@@ -1,30 +1,25 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Location, Patient, RelatedPerson, Task } from 'fhir/r4b';
+import { Appointment, Location, Patient, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR, Secrets, TaskStatus, getPatientContactEmail, getPatientFirstName } from 'utils';
-import '../../../../shared/instrument.mjs';
+import { DATETIME_FULL_NO_YEAR, TaskStatus, VisitType, getPatientContactEmail, getPatientFirstName } from 'utils';
+import '../../../shared/instrument.mjs';
 import {
-  captureSentryException,
-  createOystehrClient,
+  ZambdaInput,
   configSentry,
   getAuth0Token,
+  sendInPersonMessages,
   topLevelCatch,
-  ZambdaInput,
-} from '../../../../shared';
+  captureSentryException,
+  createOystehrClient,
+} from '../../../shared';
 import { patchTaskStatus } from '../../helpers';
-import { sendText } from '../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
-
-export interface TaskSubscriptionInput {
-  task: Task;
-  secrets: Secrets | null;
-}
 
 let zapehrToken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('sub-check-in-text', input.secrets);
+  configSentry('sub-confirmation-messages', input.secrets);
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     console.group('validateRequestParameters');
@@ -111,30 +106,41 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       throw new Error(`missing the following vital resources: ${missingResources.join(',')}`);
     }
 
-    console.log('formatting information included in email');
-    const email = getPatientContactEmail(fhirPatient);
     const timezone = fhirLocation.extension?.find(
       (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
     )?.valueString;
-    const startTime = DateTime.fromISO(fhirAppointment?.start || '')
-      .setZone(timezone)
-      .toFormat(DATETIME_FULL_NO_YEAR);
     const visitType = fhirAppointment.appointmentType?.text ?? 'Unknown';
-    console.log('info', email, timezone, startTime, visitType);
 
-    if (fhirRelatedPerson) {
-      const message = `Welcome, and thanks for checking in! Our care team will see ${getPatientFirstName(
-        fhirPatient
-      )} soon. We appreciate your patience!`;
-      const { taskStatus, statusReason } = await sendText(message, fhirRelatedPerson, zapehrToken, secrets);
-      taskStatusToUpdate = taskStatus;
-      statusReasonToUpdate = statusReason;
+    console.log('sending confirmation messages for new appointment');
+    const startTime = visitType === VisitType.WalkIn ? DateTime.now() : DateTime.fromISO(fhirAppointment.start ?? '');
+
+    if (fhirAppointment.id && startTime.isValid) {
+      try {
+        await sendInPersonMessages(
+          getPatientContactEmail(fhirPatient),
+          getPatientFirstName(fhirPatient),
+          `RelatedPerson/${fhirRelatedPerson?.id}`,
+          startTime.setZone(timezone).toFormat(DATETIME_FULL_NO_YEAR),
+          secrets,
+          fhirLocation,
+          fhirAppointment.id,
+          visitType,
+          'en', // todo: pass this in from somewhere
+          zapehrToken
+        );
+        console.log('messages sent successfully');
+        taskStatusToUpdate = 'completed';
+        statusReasonToUpdate = 'messages sent successfully';
+      } catch (err) {
+        console.log('failed to send messages', err, JSON.stringify(err));
+        taskStatusToUpdate = 'failed';
+        statusReasonToUpdate = 'sending messages failed';
+      }
     } else {
+      console.log('invalid appointment ID or start time. skipping sending confirmation messages.');
       taskStatusToUpdate = 'failed';
-      statusReasonToUpdate = 'could not retrieve related person to get sms number';
-      console.log('No related person found. Skipping sending text');
+      statusReasonToUpdate = 'sending messages failed';
     }
-
     if (!taskStatusToUpdate) {
       console.log('no task was attempted');
       taskStatusToUpdate = 'failed';
@@ -158,6 +164,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('sub-check-in-text', error, input.secrets, captureSentryException);
+    return topLevelCatch('sub-confirmation-messages', error, input.secrets, captureSentryException);
   }
 });

@@ -2,8 +2,14 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR, TaskStatus, VisitType, getPatientContactEmail, getPatientFirstName } from 'utils';
-import '../../../../shared/instrument.mjs';
+import {
+  addWaitingMinutesToAppointment,
+  DATETIME_FULL_NO_YEAR,
+  getPatientContactEmail,
+  getWaitingMinutesAtSchedule,
+  TaskStatus,
+} from 'utils';
+import '../../../shared/instrument.mjs';
 import {
   captureSentryException,
   createOystehrClient,
@@ -11,15 +17,14 @@ import {
   getAuth0Token,
   topLevelCatch,
   ZambdaInput,
-} from '../../../../shared';
+} from '../../../shared';
 import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
-import { sendInPersonMessages } from '../../../../shared/communication';
 
 let zapehrToken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('sub-confirmation-messages', input.secrets);
+  configSentry('sub-update-appointments', input.secrets);
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     console.group('validateRequestParameters');
@@ -38,6 +43,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     const oystehr = createOystehrClient(zapehrToken, secrets);
 
+    const taskCodingList = task.code?.coding ?? [];
+    console.log('taskCodingList', JSON.stringify(taskCodingList));
+
     let taskStatusToUpdate: TaskStatus;
     let statusReasonToUpdate: string | undefined;
 
@@ -47,10 +55,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('appointment ID parsed: ', appointmentID);
 
     console.log('searching for appointment, location and patient resources related to this task');
-    let fhirAppointment: Appointment | undefined,
-      fhirLocation: Location | undefined,
-      fhirPatient: Patient | undefined,
-      fhirRelatedPerson: RelatedPerson | undefined;
+    let fhirAppointment: Appointment | undefined, fhirLocation: Location | undefined, fhirPatient: Patient | undefined;
     const allResources = (
       await oystehr.fhir.search<Appointment | Location | Patient | RelatedPerson>({
         resourceType: 'Appointment',
@@ -86,15 +91,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       if (resource.resourceType === 'Patient') {
         fhirPatient = resource as Patient;
       }
-      if (resource.resourceType === 'RelatedPerson') {
-        const relatedPerson = resource as RelatedPerson;
-        const isUserRelatedPerson = relatedPerson.relationship?.find(
-          (relationship) => relationship.coding?.find((code) => code.code === 'user-relatedperson')
-        );
-        if (isUserRelatedPerson) {
-          fhirRelatedPerson = relatedPerson;
-        }
-      }
     });
 
     const missingResources = [];
@@ -106,41 +102,31 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       throw new Error(`missing the following vital resources: ${missingResources.join(',')}`);
     }
 
+    console.log('formatting information included in email');
+    const email = getPatientContactEmail(fhirPatient);
     const timezone = fhirLocation.extension?.find(
       (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
     )?.valueString;
+    const startTime = DateTime.fromISO(fhirAppointment?.start || '')
+      .setZone(timezone)
+      .toFormat(DATETIME_FULL_NO_YEAR);
     const visitType = fhirAppointment.appointmentType?.text ?? 'Unknown';
+    console.log('info', email, timezone, startTime, visitType);
 
-    console.log('sending confirmation messages for new appointment');
-    const startTime = visitType === VisitType.WalkIn ? DateTime.now() : DateTime.fromISO(fhirAppointment.start ?? '');
+    const nowForTimezone = DateTime.now().setZone(timezone);
+    const waitingMinutes = await getWaitingMinutesAtSchedule(oystehr, nowForTimezone, fhirLocation);
 
-    if (fhirAppointment.id && startTime.isValid) {
-      try {
-        await sendInPersonMessages(
-          getPatientContactEmail(fhirPatient),
-          getPatientFirstName(fhirPatient),
-          `RelatedPerson/${fhirRelatedPerson?.id}`,
-          startTime.setZone(timezone).toFormat(DATETIME_FULL_NO_YEAR),
-          secrets,
-          fhirLocation,
-          fhirAppointment.id,
-          visitType,
-          'en', // todo: pass this in from somewhere
-          zapehrToken
-        );
-        console.log('messages sent successfully');
-        taskStatusToUpdate = 'completed';
-        statusReasonToUpdate = 'messages sent successfully';
-      } catch (err) {
-        console.log('failed to send messages', err, JSON.stringify(err));
-        taskStatusToUpdate = 'failed';
-        statusReasonToUpdate = 'sending messages failed';
-      }
-    } else {
-      console.log('invalid appointment ID or start time. skipping sending confirmation messages.');
+    try {
+      console.log('making patch request to record waiting time');
+      await addWaitingMinutesToAppointment(fhirAppointment, waitingMinutes, oystehr);
+      taskStatusToUpdate = 'completed';
+      statusReasonToUpdate = `patch made to stamp waiting estimate: ${waitingMinutes.toString()}`;
+    } catch (e) {
+      console.log('appointment patch request failed');
       taskStatusToUpdate = 'failed';
-      statusReasonToUpdate = 'sending messages failed';
+      statusReasonToUpdate = `could not complete appointment patch to stamp waiting estimate: ${waitingMinutes.toString()}`;
     }
+
     if (!taskStatusToUpdate) {
       console.log('no task was attempted');
       taskStatusToUpdate = 'failed';
@@ -164,6 +150,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('sub-confirmation-messages', error, input.secrets, captureSentryException);
+    return topLevelCatch('sub-update-appointments', error, input.secrets, captureSentryException);
   }
 });

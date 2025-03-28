@@ -18,7 +18,7 @@ import {
   createMasterRecordPatchOperations,
   flagPaperworkEdit,
   updatePatientAccountFromQuestionnaire,
-} from '../../../../ehr/shared/harvest';
+} from '../../../ehr/shared/harvest';
 import {
   captureSentryException,
   configSentry,
@@ -29,9 +29,9 @@ import {
   topLevelCatch,
   triggerSlackAlarm,
   ZambdaInput,
-} from '../../../../shared';
-import '../../../../shared/instrument.mjs';
-import { createAdditionalQuestions } from '../../../../subscriptions/appointment-chart-data-prefilling/helpers';
+} from '../../../shared';
+import '../../../shared/instrument.mjs';
+import { createAdditionalQuestions } from '../../appointment/appointment-chart-data-prefilling/helpers';
 import { QRSubscriptionInput, validateRequestParameters } from './validateRequestParameters';
 
 let zapehrToken: string;

@@ -20,11 +20,11 @@ import {
   getProviderNotificationSettingsForPractitioner,
   mapStatusToTelemed,
 } from 'utils';
-import { getTelemedEncounterAppointmentId } from '../get-telemed-appointments/helpers/mappers';
 import { checkOrCreateM2MClientToken, getEmployees, getRoleMembers, getRoles, topLevelCatch } from '../../shared';
 import { removePrefix } from '../../shared/appointment/helpers';
 import { createOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared';
+import { getTelemedEncounterAppointmentId } from '../../ehr/get-telemed-appointments/helpers/mappers';
 
 export function validateRequestParameters(input: ZambdaInput): { secrets: Secrets | null } {
   return {

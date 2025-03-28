@@ -22,16 +22,16 @@ import {
   Secrets,
   SNOMEDCodeConceptInterface,
 } from 'utils';
-import { isNonPaperworkQuestionnaireResponse } from '../../common';
-import { checkOrCreateM2MClientToken, saveResourceRequest, topLevelCatch, ZambdaInput } from '../../shared';
+import { isNonPaperworkQuestionnaireResponse } from '../../../common';
+import { checkOrCreateM2MClientToken, saveResourceRequest, topLevelCatch, ZambdaInput } from '../../../shared';
 import {
   createDispositionServiceRequest,
   makeClinicalImpressionResource,
   makeExamObservationResource,
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
-} from '../../shared/chart-data';
-import { createOystehrClient, getVideoRoomResourceExtension } from '../../shared/helpers';
+} from '../../../shared/chart-data';
+import { createOystehrClient, getVideoRoomResourceExtension } from '../../../shared/helpers';
 import { createExamObservations } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

@@ -24,6 +24,8 @@ import { Operation } from 'fast-json-patch';
 import { Closure, Day, Overrides, ScheduleExtension, Weekday, Weekdays } from '../../types/types';
 import { useApiClients } from '../../hooks/useAppClients';
 import { otherColors } from '@theme/colors';
+import { SCHEDULE_EXTENSION_URL } from 'utils';
+
 interface InfoForDayProps {
   day: Weekday;
   setDay: (day: Day) => void;
@@ -345,9 +347,7 @@ export default function Schedule({ item, setItem }: ScheduleProps): ReactElement
   async function updateItem(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     const extensionTemp = item.extension;
-    const extensionSchedule = extensionTemp?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule'
-    );
+    const extensionSchedule = extensionTemp?.find((extensionTemp) => extensionTemp.url === SCHEDULE_EXTENSION_URL);
 
     try {
       if (!oystehr || !extensionSchedule) {
@@ -401,9 +401,8 @@ export default function Schedule({ item, setItem }: ScheduleProps): ReactElement
   };
 
   React.useEffect(() => {
-    const scheduleExtension = item.extension?.find(
-      (extensionTemp) => extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule'
-    )?.valueString;
+    const scheduleExtension = item.extension?.find((extensionTemp) => extensionTemp.url === SCHEDULE_EXTENSION_URL)
+      ?.valueString;
 
     if (scheduleExtension) {
       const { schedule, scheduleOverrides, closures } = JSON.parse(scheduleExtension) as ScheduleExtension;
