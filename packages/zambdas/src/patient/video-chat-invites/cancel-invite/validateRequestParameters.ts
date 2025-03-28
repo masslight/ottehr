@@ -1,5 +1,5 @@
 import { CancelInviteParticipantRequestInput, emailRegex, phoneRegex } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): CancelInviteParticipantRequestInput {
   if (!input.body) {

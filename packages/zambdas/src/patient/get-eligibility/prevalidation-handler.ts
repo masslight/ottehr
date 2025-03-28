@@ -21,9 +21,9 @@ import {
   InsuranceEligibilityCheckStatus,
   InsuranceEligibilityPrevalidationInput,
   InsurancePlanDTO,
+  Secrets,
 } from 'utils';
-import { Secrets } from 'zambda-utils';
-import { createInsurancePlanDto, CreateRelatedPersonObject } from '../shared';
+import { createInsurancePlanDto, CreateRelatedPersonObject } from '../../shared';
 import {
   getInsurancePlansAndOrgs,
   makeCoverageEligibilityRequest,

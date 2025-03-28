@@ -85,7 +85,7 @@ export class PatientsPage extends PageWithTablePagination {
 
         const expectedName = patientInfo.lastName + ' ' + patientInfo.firstName;
         const normalizedExpectedPhone = patientInfo.phoneNumber.replace(/[^\d]/g, '');
-        const normalizedActualPhone = rowPatientPhoneNumber.replace(/[^\d]/g, '');
+        const normalizedActualPhone = rowPatientPhoneNumber.replace(/^(\+1)/, '').replace(/[^\d]/g, '');
 
         const idMatch = rowPatientId === patientInfo.id;
         const nameMatch = rowPatientName === expectedName;
@@ -132,9 +132,6 @@ export class PatientsPage extends PageWithTablePagination {
         return allMatches;
       },
       async () => {
-        // Wait for the backend API call to complete
-        await waitForResponseWithData(this.#page, '/Patient?');
-
         // Ensure search results update after response is received
         await this.#page
           .getByTestId(/search-result-row-/i)

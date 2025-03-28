@@ -166,6 +166,22 @@ export class Locators {
   responsiblePartyChipStatus: Locator;
   photoIdChipStatus: Locator;
   consentFormsChipStatus: Locator;
+  relayServiceNo: Locator;
+  relayServiceYes: Locator;
+  deleteButton: Locator;
+  photoPatientCondition: Locator;
+  neitherNotes: Locator;
+  schoolOnlyNotes: Locator;
+  workOnlyNotes: Locator;
+  schoolAndWorkNotes: Locator;
+  templatesBlock: Locator;
+  uploadSchoolTemplate: Locator;
+  uploadWorkTemplate: Locator;
+  schoolTemplateLabel: Locator;
+  workTemplateLabel: Locator;
+  removeFile: Locator;
+  schoolNoteFile: Locator;
+  workNoteFile: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -196,6 +212,7 @@ export class Locators {
     this.dateFutureError = page.getByText('Date may not be in the future');
     this.appointmentDescription = page.locator('.appointment-description');
     this.goToWaitingRoomButton = page.getByRole('button', { name: 'Go to the Waiting Room' });
+    this.deleteButton = page.getByTestId(dataTestIds.deletedButton);
 
     // Review page locators
     this.prebookSlotReviewScreen = page.getByTestId(dataTestIds.prebookSlotReviewScreen);
@@ -239,6 +256,9 @@ export class Locators {
     this.patientPreferredLanguage = page.locator('[id="preferred-language"]');
     this.patientPointOfDiscovery = page.locator('[id="patient-point-of-discovery"]');
     this.mobileOptIn = page.getByLabel('mobile-opt-in-label');
+    //Telemed Patient details locators
+    this.relayServiceNo = page.locator('[aria-labelledby="relay-phone-label"] input[type="radio"][value="No"]');
+    this.relayServiceYes = page.locator('[aria-labelledby="relay-phone-label"] input[type="radio"][value="Yes"]');
 
     // Payment, insurance locators
     this.selfPayOption = page.getByLabel('I will pay without insurance');
@@ -314,10 +334,11 @@ export class Locators {
     this.pcpNumber = page.locator('[id="pcp-number"]');
     this.pcpNumberErrorText = page.locator('[id="pcp-number-helper-text"]');
 
-    // Photo ID locators
+    // Photo ID & Patient condition locators
     this.clearImage = page.getByRole('button', { name: 'Clear' });
     this.photoIdFrontImage = page.locator('#photo-id-front-description');
     this.photoIdBackImage = page.locator('#photo-id-back-description');
+    this.photoPatientCondition = page.locator('#patient-photos-description');
 
     // Paperwork errors locators
     this.paperworkSelectOptionFieldErrorMessage = page.getByText(
@@ -346,6 +367,20 @@ export class Locators {
     this.testedPositiveCovid = (flag) =>
       page.locator(`div[aria-labelledby='tested-positive-covid-label'] input[value='${flag}']`);
     this.travelUSA = (flag) => page.locator(`div[aria-labelledby='travel-usa-label'] input[value='${flag}']`);
+
+    // School/work notes
+    this.neitherNotes = page.getByText('Neither', { exact: true });
+    this.schoolOnlyNotes = page.getByText('School only', { exact: true });
+    this.workOnlyNotes = page.getByText('Work only', { exact: true });
+    this.schoolAndWorkNotes = page.getByText('Both school and work notes', { exact: true });
+    this.templatesBlock = page.locator('#group-wrapper-default');
+    this.uploadSchoolTemplate = page.locator("[id='school-work-note-template-upload-group.item.0']");
+    this.uploadWorkTemplate = page.locator("[id='school-work-note-template-upload-group.item.1']");
+    this.schoolTemplateLabel = page.locator('#school-work-note-template-school-label');
+    this.workTemplateLabel = page.locator('#school-work-note-template-work-label');
+    this.removeFile = page.getByTestId('DeleteForeverIcon');
+    this.schoolNoteFile = page.getByText('school-work-note-template-school.pdf');
+    this.workNoteFile = page.getByText('school-work-note-template-work.pdf');
 
     // Paperwork - Review and Submit locators
     this.finishButton = page.getByRole('button', { name: 'Finish' });

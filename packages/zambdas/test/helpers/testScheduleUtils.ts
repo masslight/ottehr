@@ -12,6 +12,7 @@ import {
   ScheduleExtension,
   ScheduleOverrides,
   SLUG_SYSTEM,
+  SCHEDULE_EXTENSION_URL,
 } from 'utils';
 
 const DAYS_LONG = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -167,7 +168,7 @@ export const makeLocation = (schedule: string, operationHours: LocationHoursOfOp
         valueString: 'America/New_York',
       },
       {
-        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule',
+        url: SCHEDULE_EXTENSION_URL,
         valueString: schedule,
       },
     ],
@@ -194,9 +195,7 @@ export const setHourlyCapacity = (schedule: DailySchedule, day: DOW, hour: numbe
 };
 
 export const replaceSchedule = (location: Location, schedule: ScheduleExtension): Location => {
-  const scheduleIdx = location.extension?.findIndex(
-    (ext) => ext.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule'
-  );
+  const scheduleIdx = location.extension?.findIndex((ext) => ext.url === SCHEDULE_EXTENSION_URL);
   const updatedLocation: Location = { ...location };
   if (scheduleIdx !== undefined && scheduleIdx >= 0 && updatedLocation.extension) {
     updatedLocation.extension[scheduleIdx] = {

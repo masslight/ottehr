@@ -3,7 +3,7 @@ import { cleanAppointment } from 'test-utils';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
-import { UploadImage } from '../../utils/UploadImage';
+import { UploadDocs } from '../../utils/UploadDocs';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 
 let page: Page;
@@ -12,7 +12,7 @@ let flowClass: PrebookInPersonFlow;
 let bookingData: Awaited<ReturnType<PrebookInPersonFlow['startVisit']>>;
 let paperwork: Paperwork;
 let locator: Locators;
-let uploadPhoto: UploadImage;
+let uploadPhoto: UploadDocs;
 let commonLocators: CommonLocatorsHelper;
 const appointmentIds: string[] = [];
 
@@ -30,7 +30,7 @@ test.beforeAll(async ({ browser }) => {
   flowClass = new PrebookInPersonFlow(page);
   paperwork = new Paperwork(page);
   locator = new Locators(page);
-  uploadPhoto = new UploadImage(page);
+  uploadPhoto = new UploadDocs(page);
   commonLocators = new CommonLocatorsHelper(page);
   bookingData = await flowClass.startVisit();
 });

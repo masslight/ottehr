@@ -5,15 +5,16 @@ import { ContactPoint, Identifier, Practitioner } from 'fhir/r4b';
 import {
   FHIR_IDENTIFIER_NPI,
   PractitionerLicense,
+  Secrets,
   SyncUserResponse,
   allLicensesForPractitioner,
   getPractitionerNPIIdentitifier,
-  makeQualificationForPractitioner,
 } from 'utils';
-import { SecretsKeys, getSecret, Secrets } from 'zambda-utils';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
-import { ZambdaInput } from 'zambda-utils';
+import { createOystehrClient } from '../../shared/helpers';
+import { makeQualificationForPractitioner } from '../../shared/practitioners';
+import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
+import { checkOrCreateM2MClientToken } from '../../shared';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;

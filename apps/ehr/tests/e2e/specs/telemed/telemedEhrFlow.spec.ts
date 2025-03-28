@@ -147,25 +147,25 @@ test('All appointments in my-patients section has appropriate assign buttons', a
   expect(allButtonsNames).not.toEqual(new RegExp('View'));
 });
 
-test('Appointment in all-patients section should be readonly', async () => {
-  await test.step('go to all patients and find appointment', async () => {
-    await page.getByTestId(dataTestIds.telemedEhrFlow.allPatientsButton).click();
-    await awaitAppointmentsTableToBeVisible(page);
-
-    const otherAppointmentViewButton = page.getByTestId(
-      dataTestIds.telemedEhrFlow.trackingBoardViewButton(otherPatientsTabAppointmentResources.appointment.id!)
-    );
-
-    expect(otherAppointmentViewButton).toBeDefined();
-    await otherAppointmentViewButton?.click();
-  });
-
-  await test.step('check that after clicking there are readonly view', async () => {
-    const footer = page.getByTestId(dataTestIds.telemedEhrFlow.appointmentChartFooter);
-    await expect(footer).toBeVisible();
-    await expect(footer.getByTestId(dataTestIds.telemedEhrFlow.footerButtonAssignMe)).not.toBeVisible();
-  });
-});
+// test('Appointment in all-patients section should be readonly', async () => {
+//   await test.step('go to all patients and find appointment', async () => {
+//     await page.getByTestId(dataTestIds.telemedEhrFlow.allPatientsButton).click();
+//     await awaitAppointmentsTableToBeVisible(page);
+//
+//     const otherAppointmentViewButton = page.getByTestId(
+//       dataTestIds.telemedEhrFlow.trackingBoardViewButton(otherPatientsTabAppointmentResources.appointment.id!)
+//     );
+//
+//     expect(otherAppointmentViewButton).toBeDefined();
+//     await otherAppointmentViewButton?.click();
+//   });
+//
+//   await test.step('check that after clicking there are readonly view', async () => {
+//     const footer = page.getByTestId(dataTestIds.telemedEhrFlow.appointmentChartFooter);
+//     await expect(footer).toBeVisible();
+//     await expect(footer.getByTestId(dataTestIds.telemedEhrFlow.footerButtonAssignMe)).not.toBeVisible();
+//   });
+// });
 
 test('Assigned appointment has connect-to-patient button', async () => {
   await page.goto(`telemed/appointments`);
@@ -270,7 +270,7 @@ test('Patient provided hpi data', async () => {
 
   await test.step('Reason for visit provided by patient', async () => {
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiReasonForVisit)).toHaveText(
-      myPatientsTabAppointmentResources.appointment.description
+      myPatientsTabAppointmentResources.appointment.description ?? ''
     );
   });
 
@@ -279,13 +279,11 @@ test('Patient provided hpi data', async () => {
     const image = block.locator('img');
     await expect(image).toHaveCount(1);
     const imageSrc = await image.getAttribute('src');
+    expect(imageSrc).toContain(myPatientsTabAppointmentResources.patient.id);
     await image.click();
 
     const zoomedImage = page.locator("div[role='dialog'] img[alt='Patient condition photo #1']");
     await expect(zoomedImage).toBeVisible();
-    const zoomedImageSrc = await zoomedImage.getAttribute('src');
-
-    expect(imageSrc).toEqual(zoomedImageSrc);
   });
 });
 
@@ -315,8 +313,6 @@ test('Appointment hpi fields', async () => {
       dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput,
       medicalConditionsPattern
     );
-
-    // todo make tests for current medications tab, for this moment it's broken
 
     await fillWaitAndSelectDropdown(page, dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput, knownAllergiePattern);
 

@@ -5,16 +5,19 @@ import { JSONPath } from 'jsonpath-plus';
 import {
   ListInvitedParticipantsInput,
   ListInvitedParticipantsResponse,
+  SecretsKeys,
   createOystehrClient,
   getAppointmentResourceById,
+  getSecret,
 } from 'utils';
-import { SecretsKeys, ZambdaInput, getSecret, lambdaResponse } from 'zambda-utils';
 import {
   getAuth0Token,
   getUser,
   getVideoEncounterForAppointment,
+  lambdaResponse,
   searchInvitedParticipantResourcesByEncounterId,
-} from '../../shared';
+  ZambdaInput,
+} from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations

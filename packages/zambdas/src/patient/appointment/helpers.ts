@@ -12,11 +12,13 @@ import {
 import {
   CanonicalUrl,
   OtherParticipantsExtension,
+  Secrets,
+  SecretsKeys,
   ServiceMode,
   TELEMED_VIDEO_ROOM_CODE,
   getCanonicalQuestionnaire,
+  getSecret,
 } from 'utils';
-import { Secrets, SecretsKeys, getSecret } from 'zambda-utils';
 
 export const getCurrentQuestionnaireForServiceType = async (
   serviceMode: ServiceMode,

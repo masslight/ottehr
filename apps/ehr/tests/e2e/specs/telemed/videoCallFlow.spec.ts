@@ -71,7 +71,7 @@ test('Should fill all required fields', async () => {
     .getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.assessment))
     .click();
 
-  const diagnosisAutocomplete = page.getByTestId(dataTestIds.telemedEhrFlow.diagnosisAutocomplete);
+  const diagnosisAutocomplete = page.getByTestId(dataTestIds.assessmentPage.diagnosisDropdown);
   await expect(diagnosisAutocomplete).toBeVisible();
   await diagnosisAutocomplete.click();
   await diagnosisAutocomplete.locator('input').fill('fever');

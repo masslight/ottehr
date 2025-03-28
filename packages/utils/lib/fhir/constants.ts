@@ -20,6 +20,8 @@ export const PUBLIC_EXTENSION_BASE_URL = 'https://extensions.fhir.zapehr.com';
 export const FHIR_ZAPEHR_URL = 'https://fhir.zapehr.com';
 const TERMINOLOGY_BASE_URL = 'http://terminology.hl7.org/CodeSystem';
 
+export const SCHEDULE_EXTENSION_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule';
+
 const RCM_TERMINOLOGY_BASE_URL = 'https://terminology.zapehr.com/rcm/cms1500';
 
 export const TIMEZONE_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/timezone';
@@ -185,6 +187,18 @@ export const AppointmentInsuranceRelatedResourcesExtension = {
     eligibilityRequest: { url: `${SERVICE_EXTENSION}/secondary-coverage-eligibility-request-reference` },
     eligibilityResponse: { url: `${SERVICE_EXTENSION}/secondary-coverage-eligibility-response-reference` },
   },
+};
+
+export const FHIR_APPOINTMENT_PREPROCESSING_STATUS_SYSTEM = 'appointment-preprocessing-status';
+
+export const FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG = {
+  system: FHIR_APPOINTMENT_PREPROCESSING_STATUS_SYSTEM,
+  code: 'APPOINTMENT_READY_FOR_PREPROCESSING',
+};
+
+export const FHIR_APPOINTMENT_PREPROCESSED_TAG = {
+  system: FHIR_APPOINTMENT_PREPROCESSING_STATUS_SYSTEM,
+  code: 'APPOINTMENT_PREPROCESSED',
 };
 
 export const FHIR_APPOINTMENT_TYPE_MAP: Record<string, AppointmentType> = {
