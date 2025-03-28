@@ -7,12 +7,12 @@ import { invokeChatbot } from '../common';
 
 export const INTERVIEW_COMPLETED = 'Interview completed.';
 
-const QUESTIONNAIRE_URL = 'https://ottehr.com/FHIR/Questionnaire/ai-interview';
 const INITIAL_USER_MESSAGE = `Perform a medical history intake session with me by asking me relevant questions.
  Ask no more than 30 questions.
  Ask one question at a time.
  When you'll have no new questions to ask, make a summary and say 
  "I've recorded what you've shared, and this will be reviewed by your provider, to better understand your situation and prepare for your visit. ${INTERVIEW_COMPLETED}"`;
+const QUESTIONNAIRE_ID = 'aiInterviewQuestionnaire';
 
 let oystehrToken: string;
 
@@ -96,7 +96,7 @@ async function findAIInterviewQuestionnaireResponse(
         },
         {
           name: 'questionnaire',
-          value: QUESTIONNAIRE_URL,
+          value: '#' + QUESTIONNAIRE_ID,
         },
       ],
     })
@@ -114,7 +114,7 @@ async function createQuestionnaireResponse(
   return oystehr.fhir.create<QuestionnaireResponse>({
     resourceType: 'QuestionnaireResponse',
     status: 'in-progress',
-    questionnaire: QUESTIONNAIRE_URL,
+    questionnaire: '#' + QUESTIONNAIRE_ID,
     encounter: {
       reference: 'Encounter/' + encounterId,
     },
@@ -131,7 +131,7 @@ async function createQuestionnaireResponse(
     contained: [
       {
         resourceType: 'Questionnaire',
-        id: 'questionnaire',
+        id: QUESTIONNAIRE_ID,
         status: 'active',
         item: [
           {
@@ -145,14 +145,6 @@ async function createQuestionnaireResponse(
             type: 'text',
           },
         ],
-      },
-    ],
-    extension: [
-      {
-        url: 'questionnaire',
-        valueReference: {
-          reference: '#questionnaire',
-        },
       },
     ],
   });
