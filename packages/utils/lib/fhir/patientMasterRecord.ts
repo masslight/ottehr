@@ -19,7 +19,7 @@ import {
   PATIENT_SEXUAL_ORIENTATION_URL,
   PRACTICE_NAME_URL,
   RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL,
-} from 'utils';
+} from '../types/constants';
 import { extractExtensionValue } from './helpers';
 
 export type PatientMasterRecordResource = Patient | RelatedPerson | Coverage;
@@ -483,6 +483,33 @@ export function getPatchOperationToAddOrUpdatePreferredLanguage(
         op: 'add',
         path: '/communication',
         value: communication,
+      };
+    }
+  }
+}
+
+export function getPatchOperationToAddOrUpdatePreferredName(
+  path: string,
+  currentValue: string,
+  value?: string
+): Operation | undefined {
+  if (value === undefined) {
+    if (currentValue !== undefined && currentValue !== null) {
+      return {
+        op: 'remove',
+        path: path.replace('/given/0', ''),
+      };
+    }
+    return undefined;
+  } else {
+    if (currentValue !== undefined) {
+      return { op: 'replace', path, value };
+    } else {
+      const prefferedNameItem = { given: [value], use: 'nickname' };
+      return {
+        op: 'add',
+        path: '/name/-',
+        value: prefferedNameItem,
       };
     }
   }
