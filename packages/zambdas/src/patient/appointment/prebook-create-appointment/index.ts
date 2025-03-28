@@ -263,22 +263,6 @@ export async function createAppointment(
 
   console.log('success, here is the id: ', appointment.id);
 
-  // this is done after the performTransactionalFhirRequests because it needs the appointment id
-  try {
-    const confirmationTextTask = getTaskResource(TaskIndicator.confirmationMessages, appointment.id || '');
-    const taskRequest: BatchInputPostRequest<Task> = {
-      method: 'POST',
-      url: '/Task',
-      resource: confirmationTextTask,
-    };
-    console.log('making transaction request to create task to send text');
-    await oystehr.fhir.transaction({
-      requests: [taskRequest],
-    });
-  } catch (error) {
-    console.error('Error creating task to send text', error);
-  }
-
   return {
     message: 'Successfully created an appointment and encounter',
     appointment: appointment.id || '',
@@ -553,8 +537,22 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     patientRequests.push(createPatientRequest);
   }
 
-  const transactionInput: BatchInput<Appointment | Encounter | Patient | List | QuestionnaireResponse> = {
-    requests: [...patientRequests, ...listRequests, postApptReq, postEncRequest, postQuestionnaireResponseRequest],
+  const confirmationTextTask = getTaskResource(TaskIndicator.confirmationMessages, apptUrl);
+  const taskRequest: BatchInputPostRequest<Task> = {
+    method: 'POST',
+    url: '/Task',
+    resource: confirmationTextTask,
+  };
+
+  const transactionInput: BatchInput<Appointment | Encounter | Patient | List | QuestionnaireResponse | Task> = {
+    requests: [
+      ...patientRequests,
+      ...listRequests,
+      postApptReq,
+      postEncRequest,
+      postQuestionnaireResponseRequest,
+      taskRequest,
+    ],
   };
   console.log('making transaction request');
   const bundle = await oystehr.fhir.transaction(transactionInput);
