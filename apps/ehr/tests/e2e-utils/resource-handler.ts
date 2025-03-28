@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Address, Appointment, Encounter, FhirResource, Patient, QuestionnaireResponse } from 'fhir/r4b';
+import { Address, Appointment, Encounter, Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
@@ -10,6 +10,7 @@ import {
   CreateAppointmentUCTelemedResponse,
   createSamplePrebookAppointments,
   createSampleTelemedAppointments,
+  FHIR_APPOINTMENT_PREPROCESSED_TAG,
   formatPhoneNumber,
   GetPaperworkAnswers,
 } from 'utils';
@@ -72,6 +73,8 @@ export type CreateTestAppointmentInput = {
   state?: string;
   postalCode?: string;
   reasonsForVisit?: string;
+  telemedLocationState?: string;
+  selectedLocationId?: string;
 };
 
 export class ResourceHandler {
@@ -167,7 +170,7 @@ export class ResourceHandler {
               phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
               createAppointmentZambdaId: this.zambdaId,
               zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
-              selectedLocationId: process.env.LOCATION_ID,
+              selectedLocationId: inputParams?.selectedLocationId ?? process.env.LOCATION_ID,
               demoData: patientData,
               projectId: process.env.PROJECT_ID!,
             })
@@ -178,7 +181,7 @@ export class ResourceHandler {
               createAppointmentZambdaId: this.zambdaId,
               islocal: process.env.APP_IS_LOCAL === 'true',
               zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
-              selectedLocationId: process.env.STATE_ONE, // todo: check why state is used here
+              locationState: inputParams?.telemedLocationState ?? process.env.STATE_ONE, // todo: check why state is used here
               demoData: patientData,
               projectId: process.env.PROJECT_ID!,
               paperworkAnswers: this.paperworkAnswers,
@@ -205,8 +208,8 @@ export class ResourceHandler {
     }
   }
 
-  public async setResources(): Promise<void> {
-    const response = await this.createAppointment();
+  public async setResources(params?: CreateTestAppointmentInput): Promise<void> {
+    const response = await this.createAppointment(params);
 
     this.resources = {
       ...response.resources,
@@ -219,7 +222,6 @@ export class ResourceHandler {
   }
 
   public async cleanupResources(): Promise<void> {
-    let appointmentResources = Object.values(this.resources ?? {}) as FhirResource[];
     // TODO: here we should change appointment id to encounter id when we'll fix this bug in frontend,
     // because for this moment frontend creates order with appointment id in place of encounter one
     if (this.resources.appointment) {
@@ -229,9 +231,8 @@ export class ResourceHandler {
         this.resources.appointment.id!
       );
 
-      appointmentResources = appointmentResources.concat(inHouseMedicationsResources);
-      await Promise.allSettled(
-        appointmentResources.map((resource) => {
+      await Promise.allSettled([
+        ...inHouseMedicationsResources.map((resource) => {
           if (resource.id && resource.resourceType) {
             return this.apiClient.fhir
               .delete({ id: resource.id, resourceType: resource.resourceType })
@@ -245,8 +246,40 @@ export class ResourceHandler {
             console.error(`❌ 🫣 resource not found: ${resource.resourceType} ${resource.id}`);
             return Promise.resolve();
           }
-        })
-      );
+        }),
+        this.cleanAppointment(this.resources.appointment.id!),
+      ]);
+    }
+  }
+
+  async waitTillAppointmentPreprocessed(id: string): Promise<void> {
+    try {
+      await this.initApi();
+
+      for (let i = 0; i < 10; i++) {
+        const appointment = (
+          await this.apiClient.fhir.search({
+            resourceType: 'Appointment',
+            params: [
+              {
+                name: '_id',
+                value: id,
+              },
+            ],
+          })
+        ).unbundle()[0];
+
+        if (appointment.meta?.tag?.find((tag) => tag.code === FHIR_APPOINTMENT_PREPROCESSED_TAG.code)) {
+          return;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
+
+      throw new Error("Appointment wasn't preprocessed");
+    } catch (e) {
+      console.error('Error during waitTillAppointmentPreprocessed', e);
+      throw e;
     }
   }
 

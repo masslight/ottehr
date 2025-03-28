@@ -27,7 +27,7 @@ export const ResponsibleInformationContainer: FC = () => {
     if (selfSelected) {
       for (let i = 0; i < localData.length; i++) {
         if (patientData[i] && localData[i] !== patientData[i]) {
-          // setValue(LocalDependentFields[i], patientData[i]);
+          setValue(LocalDependentFields[i], patientData[i]);
         }
       }
     }

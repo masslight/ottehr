@@ -1,4 +1,5 @@
-import { QuestionnaireResponseItem, QuestionnaireResponse } from 'fhir/r4b';
+import Oystehr from '@oystehr/sdk';
+import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import {
   PatchPaperworkParameters,
   QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
@@ -6,9 +7,8 @@ import {
   makeValidationSchema,
   recursiveGroupTransform,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import Oystehr from '@oystehr/sdk';
 import { ValidationError } from 'yup';
+import { ZambdaInput } from '../../shared';
 
 interface BasicInput extends PatchPaperworkParameters {
   ipAddress: string;
@@ -62,7 +62,7 @@ const basicValidation = (input: ZambdaInput): BasicInput => {
   console.log('Environment: ', environment);
   switch (environment) {
     case 'local':
-      ipAddress = input?.requestContext?.identity?.sourceIp ? input.requestContext.identity.sourceIp : 'Unknown';
+      ipAddress = 'Unknown';
       break;
     case 'dev':
     case 'testing':
