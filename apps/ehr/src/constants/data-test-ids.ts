@@ -77,6 +77,7 @@ export const dataTestIds = {
   },
   contactInformationContainer: {
     streetAddress: 'street-address',
+    addressLineOptional: 'address-line-optional',
     city: 'city',
     state: 'state',
     zip: 'zip',
