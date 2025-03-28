@@ -33,10 +33,10 @@ export const LabsTableRow = ({
       case 'testType':
         return (
           <Box>
-            <Box sx={{ fontWeight: 'bold' }}>{labOrderData.type}</Box>
-            {(labOrderData.reflexTestsCount || 0) > 0 && (
+            <Box sx={{ fontWeight: 'bold' }}>{labOrderData.typeLab}</Box>
+            {(labOrderData.reflexResultsCount || 0) > 0 && (
               <Box sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                + {labOrderData.reflexTestsCount} Reflex results
+                + {labOrderData.reflexResultsCount} Reflex results
               </Box>
             )}
           </Box>
@@ -44,9 +44,9 @@ export const LabsTableRow = ({
       case 'visit':
         return <DateTimeDisplay dateTimeString={labOrderData.visitDate} />;
       case 'orderAdded':
-        return <DateTimeDisplay dateTimeString={labOrderData.orderAdded} />;
+        return <DateTimeDisplay dateTimeString={labOrderData.orderAddedDate} />;
       case 'provider':
-        return labOrderData.provider || '';
+        return labOrderData.providerName || '';
       case 'dx': {
         // <Tooltip title={fullDxText} arrow placement="top">
         //   <Typography variant="body2">{dx}</Typography>
@@ -54,16 +54,16 @@ export const LabsTableRow = ({
         return <Typography variant="body2">{labOrderData.dx}</Typography>;
       }
       case 'resultsReceived':
-        return <DateTimeDisplay dateTimeString={labOrderData.resultsReceived} />;
+        return <DateTimeDisplay dateTimeString={labOrderData.orderedResultsReceivedDate} />;
       case 'accessionNumber':
         return labOrderData.accessionNumber;
       case 'status':
         return (
           <Chip
-            label={(labOrderData.status || 'pending').toUpperCase()}
+            label={(labOrderData.orderedLabStatus || 'pending').toUpperCase()}
             size="small"
             sx={{
-              backgroundColor: getStatusColor(labOrderData.status || 'pending'),
+              backgroundColor: getStatusColor(labOrderData.orderedLabStatus || 'pending'),
               borderRadius: '4px',
               fontWeight: 'bold',
             }}
@@ -72,7 +72,7 @@ export const LabsTableRow = ({
       case 'psc':
         return labOrderData.isPSC ? 'PSC' : '';
       case 'actions':
-        if (allowDelete && labOrderData.status === 'pending') {
+        if (allowDelete && labOrderData.orderedLabStatus === 'pending') {
           return (
             <Button
               onClick={handleDeleteClick}

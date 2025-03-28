@@ -51,34 +51,31 @@ export enum ExternalLabsStatus {
   prelim = 'prelim',
   received = 'received',
   reviewed = 'reviewed',
+  cancelled = 'cancelled',
   unparsed = '-', // for debugging purposes
 }
 
-/* previous types description:
-    export interface MockLabOrderData {
-      type: string; // ServiceRequest.code (representing test)
-      location: string; // Organization.name (representing lab company)
-      orderAdded: DateTime; // Task(1).authoredOn (we’ll reserve SR.authoredOn for when the SR is finished and sent to Oystehr)
-      provider: string; // SR.requester -> Practitioner - user filling out the request form
-      diagnosis: DiagnosisDTO; // SR.reasonCode
-      // isPSC: boolean; // SR.performerType = PSC - this is shown in the figma but docs mention it being rolled back for MVP
-      status: ExternalLabsStatus; // Task.status
-    }
-*/
+export type ReflexLabStatus =
+  | ExternalLabsStatus.received
+  | ExternalLabsStatus.reviewed
+  | ExternalLabsStatus.cancelled
+  | null;
+
 export interface LabOrderDTO {
-  id: string; // ServiceRequest.id
-  type: string; // ServiceRequest.contained[0](ActivityDefinition).title
-  location: string; // ServiceRequest.contained[0](ActivityDefinition).publisher
-  orderAdded: string; // Task PST authoredOn
-  provider: string; // SR.requester
+  orderId: string; // ServiceRequest.id
+  typeLab: string; // ServiceRequest.contained[0](ActivityDefinition).title
+  locationLab: string; // ServiceRequest.contained[0](ActivityDefinition).publisher
+  orderAddedDate: string; // Task PST authoredOn
+  providerName: string; // SR.requester name
   diagnoses: DiagnosisDTO[]; // SR.reasonCode
-  status: ExternalLabsStatus; // Derived from SR, Tasks and DiagnosticReports based on the mapping table
+  orderedLabStatus: ExternalLabsStatus; // Derived from SR, Tasks and DiagnosticReports based on the mapping table
+  reflexLabStatus: ReflexLabStatus; // the status of the last reflex task
   isPSC: boolean; // Derived from SR.orderDetail
-  reflexTestsCount: number; // Number of DiagnosticReports with the same SR identifier but different test codes
+  reflexResultsCount: number; // Number of DiagnosticReports with the same SR identifier but different test codes
   appointmentId: string;
-  accessionNumber: string;
-  visitDate: string;
-  resultsReceived: string; // the most recent Task RFRT.authoredOn
+  accessionNumber: string; // ordered results have an corresponding DiagnosticReport.identifier
+  visitDate: string; // based on appointment
+  orderedResultsReceivedDate: string; // the most recent Task RFRT.authoredOn
   dx: string; // SR.reasonCode joins
 }
 

@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import { getLabResources, transformToLabOrderDTOs } from './helpers';
+import { getLabResources, mapResourcesToLabOrderDTOs } from './helpers';
 import { EMPTY_PAGINATION } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 
@@ -31,7 +31,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       };
     }
 
-    const labOrders = transformToLabOrderDTOs(
+    const labOrders = mapResourcesToLabOrderDTOs(
       serviceRequests,
       tasks,
       diagnosticReports,

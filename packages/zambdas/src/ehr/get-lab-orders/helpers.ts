@@ -18,14 +18,16 @@ import {
   isPositiveNumberOrZero,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   Pagination,
+  ReflexLabStatus,
 } from 'utils';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 import { DiagnosisDTO, LabOrderDTO, ExternalLabsStatus, LAB_ORDER_TASK, PSC_HOLD_CONFIG } from 'utils';
+import { DateTime } from 'luxon';
 
-export const transformToLabOrderDTOs = (
+export const mapResourcesToLabOrderDTOs = (
   serviceRequests: ServiceRequest[],
   tasks: Task[],
-  diagnosticReports: DiagnosticReport[],
+  results: DiagnosticReport[],
   practitioners: Practitioner[],
   encounters: Encounter[],
   appointments: Appointment[]
@@ -35,9 +37,19 @@ export const transformToLabOrderDTOs = (
       throw new Error('ServiceRequest ID is required');
     }
 
-    const pstTask = parseTaskPST(tasks, serviceRequest.id);
+    const { taskPST, tasksRFRT } = parseTasks({
+      tasks,
+      serviceRequestId: serviceRequest.id,
+      results: results,
+    });
 
-    const orderAdded = pstTask?.authoredOn || '';
+    const orderedLabStatus = parseOrderedLabStatus(serviceRequest, tasks, results);
+
+    const reflexLabStatus = parseReflexLabStatus(serviceRequest, tasks, results);
+
+    const orderedResultsReceivedDate = tasksRFRT[0]?.authoredOn || '';
+
+    const orderAddedDate = taskPST?.authoredOn || '';
 
     const appointmentId = parseAppointmentId(serviceRequest, encounters);
 
@@ -45,46 +57,40 @@ export const transformToLabOrderDTOs = (
 
     const visitDate = appointment?.created || '';
 
-    const { type, location } = parseLabInfo(serviceRequest);
-
-    const status = parseLabStatus(serviceRequest, tasks, diagnosticReports);
+    const { type: typeLab, location: locationLab } = parseLabInfo(serviceRequest);
 
     const isPSC = checkIsPSC(serviceRequest);
 
-    const { tests, reflexTests } = parseTests(serviceRequest, diagnosticReports);
+    const { orderedResults, reflexResults } = parseResults(serviceRequest, results);
 
-    const reflexTestsCount = reflexTests.length;
+    const reflexResultsCount = reflexResults.length;
 
     const diagnoses = parseDiagnoses(serviceRequest);
 
-    const accessionNumber = parseAccessionNumber(tests);
-
-    const resultsReceived = parseResultsReceivedDate(
-      tasks,
-      // todo: maybe use parseTests to consistent way, but double check if we can use it here for RFRT
-      filterBasedOnServiceRequest(diagnosticReports, serviceRequest.id)
-    );
+    const accessionNumber = parseAccessionNumber(orderedResults);
 
     const practitionerIdFromServiceRequest = parsePractitionerId(serviceRequest);
-    const provider = parsePractitionerName(practitionerIdFromServiceRequest, practitioners);
+
+    const providerName = parsePractitionerName(practitionerIdFromServiceRequest, practitioners);
 
     const dx = parseDx(serviceRequest);
 
     return {
-      id: serviceRequest.id,
+      orderId: serviceRequest.id,
       appointmentId,
-      type,
-      location,
-      orderAdded,
-      visitDate,
-      provider,
+      providerName,
       diagnoses,
-      status,
+      orderedLabStatus,
+      reflexLabStatus,
+      reflexResultsCount,
       isPSC,
-      reflexTestsCount,
       accessionNumber,
-      resultsReceived,
       dx,
+      typeLab,
+      locationLab,
+      visitDate,
+      orderAddedDate,
+      orderedResultsReceivedDate,
     };
   });
 };
@@ -102,7 +108,6 @@ export const getLabResources = async (
   observations: Observation[];
   appointments: Appointment[];
 }> => {
-  // const { encounterId, testType } = params;
   const labOrdersSearchParams = createLabOrdersSearchParams(params);
 
   const labOrdersResponse = await oystehr.fhir.search({
@@ -117,13 +122,13 @@ export const getLabResources = async (
 
   const {
     serviceRequests,
-    tasks: PSTTasks,
+    tasks: PST_tasks,
     encounters,
     diagnosticReports,
     observations,
   } = extractLabResources(labResources);
 
-  const [practitioners, appointments, rfrtAndRprtTasks] = await Promise.all([
+  const [practitioners, appointments, RFRT_and_RPRT_tasks] = await Promise.all([
     fetchPractitionersForServiceRequests(oystehr, serviceRequests),
     fetchAppointmentsForServiceRequests(oystehr, serviceRequests, encounters),
     fetchRFRTAndRPRTTasks(oystehr, diagnosticReports),
@@ -133,7 +138,7 @@ export const getLabResources = async (
 
   return {
     serviceRequests,
-    tasks: [...PSTTasks, ...rfrtAndRprtTasks],
+    tasks: [...PST_tasks, ...RFRT_and_RPRT_tasks],
     diagnosticReports,
     practitioners,
     encounters,
@@ -244,7 +249,7 @@ export const extractLabResources = (
 } => {
   const serviceRequests: ServiceRequest[] = [];
   const tasks: Task[] = [];
-  const diagnosticReports: DiagnosticReport[] = [];
+  const results: DiagnosticReport[] = [];
   const encounters: Encounter[] = [];
   const observations: Observation[] = [];
   for (const resource of resources) {
@@ -259,7 +264,7 @@ export const extractLabResources = (
     } else if (resource.resourceType === 'Task') {
       tasks.push(resource as Task);
     } else if (resource.resourceType === 'DiagnosticReport') {
-      diagnosticReports.push(resource as DiagnosticReport);
+      results.push(resource as DiagnosticReport);
     } else if (resource.resourceType === 'Encounter') {
       encounters.push(resource as Encounter);
     } else if (resource.resourceType === 'Observation') {
@@ -267,7 +272,7 @@ export const extractLabResources = (
     }
   }
 
-  return { serviceRequests, tasks, diagnosticReports, encounters, observations };
+  return { serviceRequests, tasks, diagnosticReports: results, encounters, observations };
 };
 
 export const fetchPractitionersForServiceRequests = async (
@@ -337,13 +342,10 @@ export const fetchAppointmentsForServiceRequests = async (
   return appointments;
 };
 
-export const fetchRFRTAndRPRTTasks = async (
-  oystehr: Oystehr,
-  diagnosticReports: DiagnosticReport[]
-): Promise<Task[]> => {
-  const diagnosticReportIds = diagnosticReports.map((report) => report.id).filter(Boolean);
+export const fetchRFRTAndRPRTTasks = async (oystehr: Oystehr, results: DiagnosticReport[]): Promise<Task[]> => {
+  const resultsIds = results.map((result) => result.id).filter(Boolean);
 
-  if (!diagnosticReportIds.length) {
+  if (!resultsIds.length) {
     return [];
   }
 
@@ -352,7 +354,7 @@ export const fetchRFRTAndRPRTTasks = async (
     params: [
       {
         name: 'based-on',
-        value: diagnosticReportIds.join(','),
+        value: resultsIds.join(','),
       },
     ],
   });
@@ -360,25 +362,27 @@ export const fetchRFRTAndRPRTTasks = async (
   return tasksResponse.unbundle();
 };
 
-export const parseLabStatus = (
+export const parseOrderedLabStatus = (
   serviceRequest: ServiceRequest,
   tasks: Task[],
-  diagnosticReports: DiagnosticReport[]
+  results: DiagnosticReport[]
 ): ExternalLabsStatus => {
   if (!serviceRequest.id) {
     return ExternalLabsStatus.pending;
   }
 
-  const { tests: orderedDiagnosticReports } = parseTests(serviceRequest, diagnosticReports);
-  const relatedPSTTasks = filterBasedOnServiceRequest(tasks, serviceRequest.id);
-  const relatedFRRTAndRPRTTasks = filterBasedOnDiagnosticReports(tasks, orderedDiagnosticReports);
-  const relatedRFRTTasks = relatedFRRTAndRPRTTasks.filter(isTaskRFRT);
+  const { orderedResults } = parseResults(serviceRequest, results);
+
+  const { taskPST, tasksRFRT } = parseTasks({
+    tasks,
+    serviceRequestId: serviceRequest.id,
+    results: results,
+  });
 
   //  reviewed: Task(RFRT).status = 'completed' and DR the Task is basedOn have DR.status = ‘final’
-  const isReviewedStatus = relatedRFRTTasks.some(
+  const isReviewedStatus = tasksRFRT.some(
     (task) =>
-      task.status === 'completed' &&
-      parseDiagnosticReportByTask(task, orderedDiagnosticReports).some((report) => report.status === 'final')
+      task.status === 'completed' && parseResultByTask(task, orderedResults).some((result) => result.status === 'final')
   );
 
   if (isReviewedStatus) {
@@ -386,10 +390,9 @@ export const parseLabStatus = (
   }
 
   // received: Task(RFRT).status = 'ready' and DR the Task is basedOn have DR.status = ‘final’
-  const hasReadyRFRTTask = relatedRFRTTasks.some(
+  const hasReadyRFRTTask = tasksRFRT.some(
     (task) =>
-      task.status === 'ready' &&
-      parseDiagnosticReportByTask(task, orderedDiagnosticReports).some((report) => report.status === 'final')
+      task.status === 'ready' && parseResultByTask(task, orderedResults).some((result) => result.status === 'final')
   );
 
   if (hasReadyRFRTTask) {
@@ -397,8 +400,8 @@ export const parseLabStatus = (
   }
 
   // 'prelim': DR.status == 'preliminary', Task(PST).status == completed, SR.status == active
-  const hasPrelimReports = orderedDiagnosticReports.some((report) => report.status === 'preliminary');
-  const hasCompletedPSTTask = relatedPSTTasks.some((task) => task.status === 'completed');
+  const hasPrelimReports = orderedResults.some((result) => result.status === 'preliminary');
+  const hasCompletedPSTTask = taskPST?.status === 'completed';
   const isActiveServiceRequest = serviceRequest.status === 'active';
   const isPreliminaryStatus = hasPrelimReports && hasCompletedPSTTask && isActiveServiceRequest;
 
@@ -407,23 +410,66 @@ export const parseLabStatus = (
   }
 
   // 'sent': If Task(PST).status == completed, SR.status == active, and there is no DR for the ordered test code
-  const isSentStatus = hasCompletedPSTTask && isActiveServiceRequest && orderedDiagnosticReports.length === 0;
+  const isSentStatus = hasCompletedPSTTask && isActiveServiceRequest && orderedResults.length === 0;
 
   if (isSentStatus) {
     return ExternalLabsStatus.sent;
   }
 
   // 'pending': If the SR.status == draft and a pre-submission task exists
-  if (
-    serviceRequest.status === 'draft' &&
-    relatedPSTTasks.length !== 0 &&
-    relatedPSTTasks.some((task) => task.status === 'ready')
-  ) {
+  if (serviceRequest.status === 'draft' && taskPST?.status === 'ready') {
     return ExternalLabsStatus.pending;
   }
 
   // unparsed status, for debugging purposes
   return ExternalLabsStatus.unparsed;
+};
+
+export const parseReflexLabStatus = (
+  serviceRequest: ServiceRequest,
+  tasks: Task[],
+  results: DiagnosticReport[]
+): ReflexLabStatus => {
+  if (!serviceRequest.id) {
+    return null;
+  }
+
+  const { reflexResults } = parseResults(serviceRequest, results);
+
+  const { tasksRPRT } = parseTasks({
+    tasks,
+    serviceRequestId: serviceRequest.id,
+    results: reflexResults,
+  });
+
+  const lastTaskRPRT = tasksRPRT[0];
+
+  if (!lastTaskRPRT) {
+    return null;
+  }
+
+  const statusMap: Partial<Record<Task['status'], ReflexLabStatus>> = {
+    received: ExternalLabsStatus.received,
+    completed: ExternalLabsStatus.reviewed,
+
+    // Indicates error state: Task was cancelled by subscription lambda but a new one wasn't created as expected. If the system is working correctly, this status should never be visible
+    cancelled: ExternalLabsStatus.cancelled,
+  };
+
+  const reflexLabStatus = statusMap[lastTaskRPRT.status];
+
+  if (reflexLabStatus === ExternalLabsStatus.cancelled) {
+    console.error(
+      `Reflex lab status is cancelled for service request ${serviceRequest.id} and task the new Task was not found. The last reflex task id is ${lastTaskRPRT.id}`
+    );
+  }
+
+  if (!reflexLabStatus) {
+    console.error(`Reflex lab status is unknown for service request ${serviceRequest.id} and task ${lastTaskRPRT.id}`);
+    return null;
+  }
+
+  return reflexLabStatus;
 };
 
 export const parseDiagnoses = (serviceRequest: ServiceRequest): DiagnosisDTO[] => {
@@ -480,12 +526,15 @@ export const checkIsPSC = (serviceRequest: ServiceRequest): boolean => {
   );
 };
 
-export const parseTests = (
+/**
+ * Returns ordered and reflex results sorted by date, the most recent results are first
+ */
+export const parseResults = (
   serviceRequest: ServiceRequest,
-  diagnosticReports: DiagnosticReport[]
+  results: DiagnosticReport[]
 ): {
-  tests: DiagnosticReport[];
-  reflexTests: DiagnosticReport[];
+  orderedResults: DiagnosticReport[];
+  reflexResults: DiagnosticReport[];
 } => {
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
@@ -497,30 +546,55 @@ export const parseTests = (
     throw new Error('ServiceRequest code is required');
   }
 
-  const relatedReports = filterBasedOnServiceRequest(diagnosticReports, serviceRequest.id);
+  const relatedReports = filterBasedOnServiceRequest(results, serviceRequest.id);
 
-  const diagnosticReportsOrdered = new Map<string, DiagnosticReport>();
-  const diagnosticReportsReflex = new Map<string, DiagnosticReport>();
+  const orderedResults = new Map<string, DiagnosticReport>();
+  const reflexResults = new Map<string, DiagnosticReport>();
 
   for (let i = 0; i < relatedReports.length; i++) {
-    const report = relatedReports[i];
+    const result = relatedReports[i];
 
-    if (!report.id) {
+    if (!result.id) {
       continue;
     }
 
-    const reportCodes = report.code?.coding?.map((coding) => coding.code);
-    if (reportCodes?.some((code) => serviceRequestCodes?.includes(code))) {
-      diagnosticReportsOrdered.set(report.id, report);
+    const resultCodes = result.code?.coding?.map((coding) => coding.code);
+    if (resultCodes?.some((code) => serviceRequestCodes?.includes(code))) {
+      orderedResults.set(result.id, result);
     } else {
-      diagnosticReportsReflex.set(report.id, report);
+      reflexResults.set(result.id, result);
     }
   }
 
+  console.log({ diagnosticReportsOrdered: JSON.stringify(orderedResults, null, 2) });
+
   return {
-    tests: Array.from(diagnosticReportsOrdered.values()),
-    reflexTests: Array.from(diagnosticReportsReflex.values()),
+    orderedResults: Array.from(orderedResults.values()).sort((a, b) =>
+      compareDates(a.meta?.lastUpdated, b.meta?.lastUpdated)
+    ),
+    reflexResults: Array.from(reflexResults.values()).sort((a, b) =>
+      compareDates(a.meta?.lastUpdated, b.meta?.lastUpdated)
+    ),
   };
+};
+
+/**
+ * Compares two dates.
+ * The most recent date will be first,
+ * invalid dates will be last
+ */
+export const compareDates = (a: string | undefined, b: string | undefined): number => {
+  const dateA = DateTime.fromISO(a || '');
+  const dateB = DateTime.fromISO(b || '');
+  const isDateAValid = dateA.isValid;
+  const isDateBValid = dateB.isValid;
+
+  // if one date is valid and the other is not, the valid date should be first
+  if (isDateAValid && !isDateBValid) return -1;
+  if (!isDateAValid && isDateBValid) return 1;
+  if (!isDateAValid && !isDateBValid) return 0;
+
+  return dateB.toMillis() - dateA.toMillis();
 };
 
 export const parsePaginationFromResponse = (data: {
@@ -590,13 +664,13 @@ export const parsePractitionerId = (serviceRequest: ServiceRequest): string => {
   return serviceRequest.requester?.reference?.split('/').pop() || NOT_FOUND;
 };
 
-export const parseAccessionNumber = (tests: DiagnosticReport[]): string => {
+export const parseAccessionNumber = (results: DiagnosticReport[]): string => {
   const NOT_FOUND = '';
 
-  if (tests.length > 0) {
-    const report = tests[0];
-    if (report.identifier) {
-      const accessionIdentifier = report.identifier.find(
+  if (results.length > 0) {
+    const result = results[0];
+    if (result.identifier) {
+      const accessionIdentifier = result.identifier.find(
         (identifier) => identifier.type?.coding?.some((coding) => coding.code === 'FILL') && identifier.use === 'usual'
       );
 
@@ -609,6 +683,35 @@ export const parseAccessionNumber = (tests: DiagnosticReport[]): string => {
   return NOT_FOUND;
 };
 
+/**
+ * Parses the tasks for a service request
+ * Returns the PST, RFRT, and RPRT tasks, sorted by authoredOn date. The most recent tasks are first.
+ */
+export const parseTasks = ({
+  tasks,
+  serviceRequestId,
+  results: results,
+}: {
+  tasks: Task[];
+  serviceRequestId: string;
+  results: DiagnosticReport[];
+}): {
+  taskPST: Task | null;
+  tasksRFRT: Task[];
+  tasksRPRT: Task[];
+} => {
+  const PST = parseTaskPST(tasks, serviceRequestId);
+  const relatedReports = filterBasedOnServiceRequest(results, serviceRequestId);
+  const RFRT = filterRFRTTasks(tasks, relatedReports);
+  const RPRT = filterRPRTTasks(tasks, relatedReports);
+
+  return {
+    taskPST: PST,
+    tasksRFRT: RFRT.sort((a, b) => compareDates(a.authoredOn, b.authoredOn)),
+    tasksRPRT: RPRT.sort((a, b) => compareDates(a.authoredOn, b.authoredOn)),
+  };
+};
+
 export const parseTaskPST = (tasks: Task[], serviceRequestId: string): Task | null => {
   const serviceRequestTasks = filterBasedOnServiceRequest(tasks, serviceRequestId);
 
@@ -619,14 +722,6 @@ export const parseTaskPST = (tasks: Task[], serviceRequestId: string): Task | nu
   }
 
   return null;
-};
-
-export const filterTasksRFRT = (tasks: Task[]): Task[] => {
-  return tasks.filter(isTaskRFRT);
-};
-
-export const filterTasksRPRT = (tasks: Task[]): Task[] => {
-  return tasks.filter(isTaskRPRT);
 };
 
 export const isTaskPST = (task: Task): boolean => {
@@ -683,22 +778,22 @@ export const filterBasedOnServiceRequest = <T extends Resource & { basedOn?: Ref
 
 export const filterBasedOnDiagnosticReports = <T extends Resource & { basedOn?: Reference[] }>(
   resources: T[],
-  diagnosticReports: DiagnosticReport[]
+  results: DiagnosticReport[]
 ): T[] => {
-  const diagnosticReportIds: string[] = diagnosticReports
-    .map((report) => report.id)
+  const resultsIds: string[] = results
+    .map((result) => result.id)
     .filter((id): id is string => typeof id === 'string' && id.length > 0);
 
-  if (!diagnosticReportIds.length) {
+  if (!resultsIds.length) {
     return [];
   }
 
   const result: T[] = [];
 
-  for (const diagnosticReportId of diagnosticReportIds) {
+  for (const resultId of resultsIds) {
     const relatedResources = filterBasedOnResource<T>({
       resources,
-      targetResourceId: diagnosticReportId,
+      targetResourceId: resultId,
       targetResourceType: 'DiagnosticReport',
     });
 
@@ -708,22 +803,14 @@ export const filterBasedOnDiagnosticReports = <T extends Resource & { basedOn?: 
   return result;
 };
 
-/**
- * Gets the most recent RFRT task's authored date for a service request
- */
-export const parseResultsReceivedDate = (tasks: Task[], orderedDiagnosticReports: DiagnosticReport[]): string => {
-  const relatedFRRTAndRPRTTasks = filterBasedOnDiagnosticReports(tasks, orderedDiagnosticReports);
-  const relatedRFRTTasks = relatedFRRTAndRPRTTasks.filter(isTaskRFRT);
+export const filterRFRTTasks = (tasks: Task[], results: DiagnosticReport[]): Task[] => {
+  const relatedFRRTAndRPRTTasks = filterBasedOnDiagnosticReports(tasks, results);
+  return relatedFRRTAndRPRTTasks.filter(isTaskRFRT);
+};
 
-  const sortedTasks = relatedRFRTTasks
-    .filter((task) => Boolean(task.authoredOn))
-    .sort((a, b) => {
-      const dateA = new Date(a.authoredOn as string);
-      const dateB = new Date(b.authoredOn as string);
-      return dateB.getTime() - dateA.getTime();
-    });
-
-  return sortedTasks[0]?.authoredOn || '';
+export const filterRPRTTasks = (tasks: Task[], results: DiagnosticReport[]): Task[] => {
+  const relatedFRRTAndRPRTTasks = filterBasedOnDiagnosticReports(tasks, results);
+  return relatedFRRTAndRPRTTasks.filter(isTaskRPRT);
 };
 
 export const parseDx = (serviceRequest: ServiceRequest): string => {
@@ -744,11 +831,11 @@ export const parseDx = (serviceRequest: ServiceRequest): string => {
 };
 
 // RPRT (Review Preliminary Result Task) and RFRT (Review Final Results Tasks) are based on DiagnosticReport
-export const parseDiagnosticReportByTask = (task: Task, diagnosticReports: DiagnosticReport[]): DiagnosticReport[] => {
+export const parseResultByTask = (task: Task, results: DiagnosticReport[]): DiagnosticReport[] => {
   const taskBasedOn = task.basedOn?.map((basedOn) => basedOn.reference).filter(Boolean) || [];
 
-  return diagnosticReports.filter((report) => {
-    const reportId = report.id;
-    return taskBasedOn.includes(`DiagnosticReport/${reportId}`);
+  return results.filter((result) => {
+    const resultId = result.id;
+    return taskBasedOn.includes(`DiagnosticReport/${resultId}`);
   });
 };

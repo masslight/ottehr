@@ -167,7 +167,11 @@ export function formatDateForFHIR(date: string): string {
 }
 
 export function formatDate(date: string): string {
-  return DateTime.fromISO(date).toFormat('MM/dd/yyyy hh:mm a');
+  const dateTime = DateTime.fromISO(date);
+  if (dateTime.isValid) {
+    return dateTime.toFormat('MM/dd/yyyy hh:mm a');
+  }
+  return '';
 }
 
 export const getDateTimeFromDateAndTime = (date: DateTime, hour: number): DateTime => {
