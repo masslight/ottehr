@@ -2,6 +2,7 @@ import { ApptTelemedTab, PractitionerQualificationCode, RoleType, TelemedAppoint
 
 export const dataTestIds = {
   loadingSpinner: 'loading-spinner',
+  muiDeleteOutlinedIcon: 'DeleteOutlinedIcon',
   header: {
     userName: 'header-user-name',
   },
@@ -176,7 +177,7 @@ export const dataTestIds = {
     footerButtonConnectToPatient: 'telemed-appointment-footer-button-connect-to-patient',
     footerButtonAssignMe: 'telemed-appointment-footer-button-assign-me',
     appointmentChartFooter: 'telemed-chart-appointment-footer',
-    hpiMedicalConditionsLoadingSkeleton: 'telemed-medical-conditions-loading-skeleton',
+    hpiFieldListLoadingSkeleton: 'telemed-hpi-field-list-loading-skeleton',
     hpiMedicalConditionColumn: 'telemed-hpi-medical-condition-column',
     hpiMedicalConditionsList: 'telemed-hpi-medical-condition-list',
     hpiMedicalConditionPatientProvidedsList: 'telemed-hpi-medical-condition-patient-provided-list',
@@ -203,6 +204,8 @@ export const dataTestIds = {
     appointmentVisitTabs: (tab: TelemedAppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
     patientInfoConfirmationCheckbox: 'telemed-patient-info-confirmation-checkbox',
     signButton: 'telemed-sign-button',
+    reviewTabMedicalConditionsContainer: 'telemed-review-tab-medical-conditions-container',
+    reviewTabKnownAllergiesContainer: 'telemed-review-tab-known-allergies-container',
   },
   sideMenu: {
     completeIntakeButton: 'complete-intake-button',
