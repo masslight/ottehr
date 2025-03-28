@@ -924,7 +924,7 @@ describe('Harvest Module Integration Tests', () => {
         true
       );
     },
-    { timeout: 8000 }
+    DEFAULT_TIMEOUT
   );
 
   it(
