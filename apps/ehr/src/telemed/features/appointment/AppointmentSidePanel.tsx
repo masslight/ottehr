@@ -201,7 +201,10 @@ export const AppointmentSidePanel: FC = () => {
             {isChartDataLoading
               ? 'Loading...'
               : allergies && allergies.length > 0
-              ? allergies.map((allergy) => allergy.name).join(', ')
+              ? allergies
+                  .filter((allergy) => allergy.current === true)
+                  .map((allergy) => allergy.name)
+                  .join(', ')
               : 'No known allergies'}
           </Typography>
 
