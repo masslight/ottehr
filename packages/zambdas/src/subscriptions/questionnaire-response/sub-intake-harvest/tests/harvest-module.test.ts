@@ -1,5 +1,5 @@
 import { describe, it, expect, assert } from 'vitest';
-import InPersonQuestionnaireFile from '../../../../../../../utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json';
+import InPersonQuestionnaireFile from 'utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json';
 import {
   Account,
   Coverage,
@@ -32,7 +32,7 @@ import {
   getAccountOperations,
   getCoverageUpdateResourcesFromUnbundled,
   GetAccountOperationsOutput,
-} from '../../../../../ehr/shared/harvest';
+} from '../../../../ehr/shared/harvest';
 
 const InPersonQuestionnaire = InPersonQuestionnaireFile.resource;
 
