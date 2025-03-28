@@ -641,7 +641,7 @@
       "name": "NOTIFICATIONS-UPDATER",
       "type": "cron",
       "runtime": "nodejs20.x",
-      "src": "src/ehr/notifications-updater/index",
+      "src": "src/cron/notifications-updater/index",
       "zip": ".dist/zips/notifications-updater.zip",
       "schedule": {
         "expression": "cron(*/5 * * * ? *)"
@@ -651,7 +651,7 @@
       "name": "SEND-MESSAGE-CRON",
       "type": "cron",
       "runtime": "nodejs20.x",
-      "src": "src/patient/send-message-cron/index",
+      "src": "src/cron/send-message-cron/index",
       "zip": ".dist/zips/send-message-cron.zip",
       "schedule": {
         "expression": "cron(0,15,30,45 * * * ? *)"
@@ -661,7 +661,7 @@
       "name": "COMMUNICATION-SUBSCRIPTION",
       "type": "subscription",
       "runtime": "nodejs20.x",
-      "src": "src/ehr/communication-subscription/index",
+      "src": "src/subscriptions/communication/communication-subscription/index",
       "zip": ".dist/zips/communication-subscription.zip",
       "subscription": {
         "criteria": "Communication?category=intra-communication|intake-issue-report&status=in-progress",
@@ -673,7 +673,7 @@
       "name": "PROCESS-ERX-RESOURCES",
       "type": "subscription",
       "runtime": "nodejs20.x",
-      "src": "src/ehr/process-erx-resources/index",
+      "src": "src/subscriptions/medication-request/process-erx-resources/index",
       "zip": ".dist/zips/process-erx-resources.zip",
       "subscription": {
         "criteria": "MedicationRequest",
@@ -685,7 +685,7 @@
       "name": "APPOINTMENT-CHART-DATA-PREFILLING",
       "type": "subscription",
       "runtime": "nodejs20.x",
-      "src": "src/subscriptions/appointment-chart-data-prefilling/index",
+      "src": "src/subscriptions/appointment/appointment-chart-data-prefilling/index",
       "zip": ".dist/zips/appointment-chart-data-prefilling.zip",
       "subscription": {
         "criteria": "Appointment?_tag=APPOINTMENT_READY_FOR_PREPROCESSING",
@@ -697,7 +697,7 @@
       "name": "SUB-CANCELLATION-EMAIL",
       "type": "subscription",
       "runtime": "nodejs20.x",
-      "src": "src/patient/subscriptions/task/sub-cancellation-email/index",
+      "src": "src/subscriptions/task/sub-cancellation-email/index",
       "zip": ".dist/zips/sub-cancellation-email.zip",
       "subscription": {
         "criteria": "Task?code=urgent-care-email|&status=requested",
@@ -709,7 +709,7 @@
       "name": "SUB-CHECK-IN-TEXT",
       "type": "subscription",
       "runtime": "nodejs20.x",
-      "src": "src/patient/subscriptions/task/sub-check-in-text/index",
+      "src": "src/subscriptions/task/sub-check-in-text/index",
       "zip": ".dist/zips/sub-check-in-text.zip",
       "subscription": {
         "criteria": "Task?code=urgent-care-text|checkin&status=requested",
@@ -721,7 +721,7 @@
       "name": "SUB-READY-TEXT",
       "type": "subscription",
       "runtime": "nodejs20.x",
-      "src": "src/patient/subscriptions/task/sub-ready-text/index",
+      "src": "src/subscriptions/task/sub-ready-text/index",
       "zip": ".dist/zips/sub-ready-text.zip",
       "subscription": {
         "criteria": "Task?code=urgent-care-text|ready&status=requested",
@@ -733,7 +733,7 @@
       "name": "SUB-UPDATE-APPOINTMENTS",
       "type": "subscription",
       "runtime": "nodejs20.x",
-      "src": "src/patient/subscriptions/task/sub-update-appointments/index",
+      "src": "src/subscriptions/task/sub-update-appointments/index",
       "zip": ".dist/zips/sub-update-appointments.zip",
       "subscription": {
         "criteria": "Task?code=urgent-care-update-appointment|&status=requested",
@@ -745,7 +745,7 @@
       "name": "SUB-CONFIRMATION-MESSAGES",
       "type": "subscription",
       "runtime": "nodejs20.x",
-      "src": "src/patient/subscriptions/task/sub-confirmation-messages/index",
+      "src": "src/subscriptions/task/sub-confirmation-messages/index",
       "zip": ".dist/zips/sub-confirmation-messages.zip",
       "subscription": {
         "criteria": "Task?code=urgent-care-send-messages|&status=requested",
@@ -757,7 +757,7 @@
       "name": "SUB-INTAKE-HARVEST",
       "type": "subscription",
       "runtime": "nodejs20.x",
-      "src": "src/patient/subscriptions/questionnaire-response/sub-intake-harvest/index",
+      "src": "src/subscriptions/questionnaire-response/sub-intake-harvest/index",
       "zip": ".dist/zips/sub-intake-harvest.zip",
       "subscription": {
         "criteria": "QuestionnaireResponse?status=completed,amended",

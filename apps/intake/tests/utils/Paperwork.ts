@@ -480,10 +480,9 @@ export class Paperwork {
     await this.page.getByRole('option', { name: relationship }).click();
     return { relationship };
   }
-  async checkImagesAreSaved(frontImage: Locator, backImage: Locator): Promise<void> {
+  async checkImagesIsSaved(image: Locator): Promise<void> {
     const today = await this.CommonLocatorsHelper.getToday();
-    await expect(frontImage).toHaveText(`We already have this! It was saved on ${today}. Click to re-upload.`);
-    await expect(backImage).toHaveText(`We already have this! It was saved on ${today}. Click to re-upload.`);
+    await expect(image).toHaveText(`We already have this! It was saved on ${today}. Click to re-upload.`);
   }
   async fillConsentForms(): Promise<{ signature: string; relationshipConsentForms: string; consentFullName: string }> {
     await this.validateAllOptions(
