@@ -1,5 +1,5 @@
-import { ChangeInPersonVisitStatusInput } from 'utils';
-import { getSecret, SecretsKeys, ZambdaInput } from 'zambda-utils';
+import { ChangeInPersonVisitStatusInput, getSecret, SecretsKeys } from 'utils';
+import { ZambdaInput } from '../../shared/types';
 
 export function validateRequestParameters(input: ZambdaInput): ChangeInPersonVisitStatusInput & { userToken: string } {
   console.group('validateRequestParameters');

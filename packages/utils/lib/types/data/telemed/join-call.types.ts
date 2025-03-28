@@ -1,4 +1,4 @@
-import { Secrets } from 'zambda-utils';
+import { Secrets } from '../../../secrets';
 
 interface LambdaSecrets {
   secrets: Secrets | null;

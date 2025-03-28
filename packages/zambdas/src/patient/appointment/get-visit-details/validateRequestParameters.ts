@@ -1,5 +1,5 @@
 import { GetVisitDetailsRequest } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): GetVisitDetailsRequest & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {

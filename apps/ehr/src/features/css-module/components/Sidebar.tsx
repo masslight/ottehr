@@ -232,7 +232,7 @@ export const Sidebar = (): JSX.Element => {
   const [open, setOpen] = useState(true);
   const { interactionMode } = useNavigationContext();
   const { id: appointmentID } = useParams();
-  const { telemedData, refetch } = useAppointment(appointmentID);
+  const { visitState: telemedData, refetch } = useAppointment(appointmentID);
   const { appointment, encounter } = telemedData;
   const status = appointment && encounter ? getVisitStatus(appointment, encounter) : undefined;
   const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
