@@ -2,11 +2,11 @@ import { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle, Communication, Group, Location, Practitioner } from 'fhir/r4b';
 import { COMMUNICATION_ISSUE_REPORT_CODE, getFullestAvailableName, getSecret, Secrets, SecretsKeys } from 'utils';
-import { getAuth0Token, sendgridEmail, sendSlackNotification, topLevelCatch } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { getAuth0Token, sendgridEmail, sendSlackNotification, topLevelCatch } from '../../../shared';
+import { createOystehrClient } from '../../../shared/helpers';
 import { bundleResourcesConfig, codingContainedInList, getEmailsFromGroup } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-import { ZambdaInput } from '../../shared/types';
+import { ZambdaInput } from '../../../shared/types';
 
 export interface CommunicationSubscriptionInput {
   communication: Communication;

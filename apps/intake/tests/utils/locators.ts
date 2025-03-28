@@ -169,6 +169,7 @@ export class Locators {
   relayServiceNo: Locator;
   relayServiceYes: Locator;
   deleteButton: Locator;
+  photoPatientCondition: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -321,10 +322,11 @@ export class Locators {
     this.pcpNumber = page.locator('[id="pcp-number"]');
     this.pcpNumberErrorText = page.locator('[id="pcp-number-helper-text"]');
 
-    // Photo ID locators
+    // Photo ID & Patient condition locators
     this.clearImage = page.getByRole('button', { name: 'Clear' });
     this.photoIdFrontImage = page.locator('#photo-id-front-description');
     this.photoIdBackImage = page.locator('#photo-id-back-description');
+    this.photoPatientCondition = page.locator('#patient-photos-description');
 
     // Paperwork errors locators
     this.paperworkSelectOptionFieldErrorMessage = page.getByText(

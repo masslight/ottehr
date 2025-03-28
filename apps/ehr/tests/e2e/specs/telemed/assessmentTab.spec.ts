@@ -38,7 +38,7 @@ test.afterAll(async () => {
 
 test('Check assessment page initial state and default MDM saving', async () => {
   await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
-  await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, true);
+  await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });
   await page
     .getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.assessment))
     .click();
