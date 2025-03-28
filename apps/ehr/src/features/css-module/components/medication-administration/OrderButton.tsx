@@ -13,14 +13,14 @@ interface OrderButtonProps {
 
 export const OrderButton: React.FC<OrderButtonProps> = ({ size = 'large', sx, dataTestId }) => {
   const navigate = useNavigate();
-  const { id } = useParams();
+  const { id: appointmentId } = useParams();
 
   const onClick = (): void => {
-    if (!id) {
+    if (!appointmentId) {
       enqueueSnackbar('navigation error', { variant: 'error' });
       return;
     }
-    navigate(getNewOrderUrl(id));
+    navigate(getNewOrderUrl(appointmentId));
   };
 
   return (

@@ -65,7 +65,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   selectsOptions,
 }) => {
   const navigate = useNavigate();
-  const { id: encounterId } = useParams();
+  const { id: appointmentId } = useParams();
 
   const OrderFooter = (): React.ReactElement => {
     return (
@@ -73,7 +73,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
         <ButtonRounded
           data-testid={dataTestIds.orderMedicationPage.backButton}
           variant="outlined"
-          onClick={() => navigate(getInHouseMedicationMARUrl(encounterId!))}
+          onClick={() => navigate(getInHouseMedicationMARUrl(appointmentId!))}
           color="primary"
           size="large"
           startIcon={<ArrowBackIcon />}

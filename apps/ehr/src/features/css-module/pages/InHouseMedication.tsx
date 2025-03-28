@@ -28,7 +28,7 @@ const TabContent: React.FC<TabContentProps> = ({ isActive, children }) => (
 );
 
 export const InHouseMedication: React.FC = () => {
-  const { id: encounterId } = useParams();
+  const { id: appointmentId } = useParams();
   const { medications } = useMedicationAPI();
   const navigate = useNavigate();
   const tabContentRef = useRef<HTMLDivElement>(null);
@@ -45,10 +45,10 @@ export const InHouseMedication: React.FC = () => {
     isTabTransitionRef.current = true;
     requestAnimationFrame(() => {
       tabName === 'mar'
-        ? navigate(getInHouseMedicationDetailsUrl(encounterId!))
-        : navigate(getInHouseMedicationMARUrl(encounterId!));
+        ? navigate(getInHouseMedicationDetailsUrl(appointmentId!))
+        : navigate(getInHouseMedicationMARUrl(appointmentId!));
     });
-  }, [encounterId, navigate, tabName]);
+  }, [appointmentId, navigate, tabName]);
 
   const [searchParams] = useSearchParams();
   const scrollTo = searchParams.get('scrollTo');

@@ -24,9 +24,8 @@ import {
   Patient,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { BatchInputRequest, Bundle } from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import Oystehr from '@oystehr/sdk';
 import { createOystehrClient } from '../../shared/helpers';
 import { checkOrCreateM2MClientToken, topLevelCatch } from '../../shared';
 import { ZambdaInput } from '../../shared/types';
@@ -101,6 +100,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       performer: [
         {
           reference: `Organization/${labOrganization.id}`,
+        },
+      ],
+      locationReference: [
+        {
+          type: 'Location',
+          reference: `Location/${location.id}`,
         },
       ],
       priority: 'routine',
@@ -329,7 +334,10 @@ const getAdditionalResources = async (
   let patientId: string | undefined;
   let location: Location | undefined;
 
-  const resources = flattenBundleResources(searchResults);
+  const resources = flattenBundleResources<Organization | ActivityDefinition | Coverage | Patient | Location>(
+    searchResults
+  );
+
   resources.forEach((resource) => {
     if (resource.resourceType === 'Organization') labOrganizationSearchResults.push(resource as Organization);
     if (resource.resourceType === 'ActivityDefinition')

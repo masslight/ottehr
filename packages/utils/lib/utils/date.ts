@@ -166,8 +166,12 @@ export function formatDateForFHIR(date: string): string {
   return outputDate;
 }
 
-export function formatDate(date: DateTime): string {
-  return `${date.toISO()}`;
+export function formatDate(date: string): string {
+  const dateTime = DateTime.fromISO(date);
+  if (dateTime.isValid) {
+    return dateTime.toFormat('MM/dd/yyyy hh:mm a');
+  }
+  return '';
 }
 
 export const getDateTimeFromDateAndTime = (date: DateTime, hour: number): DateTime => {

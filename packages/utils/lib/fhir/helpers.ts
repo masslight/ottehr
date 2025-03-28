@@ -8,6 +8,7 @@ import {
   Consent,
   ContactPoint,
   Coverage,
+  DiagnosticReport,
   DocumentReference,
   DomainResource,
   Encounter,
@@ -29,6 +30,7 @@ import {
   Reference,
   RelatedPerson,
   Resource,
+  ServiceRequest,
   Task,
   TaskInput,
 } from 'fhir/r4b';
@@ -1189,7 +1191,9 @@ export const checkForPatientDemographicMatch = (
 
   return true;
 };
-export function flattenBundleResources(searchResults: Bundle<FhirResource>): FhirResource[] {
+export function flattenBundleResources<T extends FhirResource = ServiceRequest | Task>(
+  searchResults: Bundle<FhirResource>
+): T[] {
   const flattenedResources: FhirResource[] = [];
 
   searchResults.entry?.forEach((resultEntry) => {
@@ -1204,7 +1208,7 @@ export function flattenBundleResources(searchResults: Bundle<FhirResource>): Fhi
     }
   });
 
-  return flattenedResources;
+  return flattenedResources as T[];
 }
 
 export function slashPathToLodashPath(slashPath: string): string {

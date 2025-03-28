@@ -1,5 +1,5 @@
 import Oystehr, { Bundle, SearchParam } from '@oystehr/sdk';
-import { Appointment, Encounter, FhirResource, Practitioner, Location, HealthcareService } from 'fhir/r4b';
+import { Appointment, Encounter, FhirResource, Practitioner, Location, HealthcareService, Extension } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { AppointmentParticipants, OTTEHR_MODULE, PARTICIPANT_TYPE, ParticipantInfo } from 'utils';
 
@@ -95,7 +95,7 @@ export const getTimezone = async ({
         id: resourceId,
       });
       timezone = resource?.extension?.find(
-        (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
+        (extensionTemp: Extension) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
       )?.valueString;
 
       if (timezone) {

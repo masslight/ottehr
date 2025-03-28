@@ -31,7 +31,7 @@ export const EditableMedicationCard: React.FC<{
   type: MedicationOrderType;
 }> = ({ medication, type }) => {
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
-  const { id: encounterId } = useParams();
+  const { id: appointmentId } = useParams();
   const navigate = useNavigate();
   const autoFilledFieldsRef = useRef<Partial<MedicationData>>({});
   const [isConfirmSaveModalOpen, setIsConfirmSaveModalOpen] = useState(false);
@@ -107,7 +107,7 @@ export const EditableMedicationCard: React.FC<{
         ...(medication ? medicationExtendedToMedicationData(medication) : {}),
         ...updatedRequestInput.orderData,
         patient: resources.patient?.id || '',
-        encounter: encounterId,
+        encounter: appointmentId,
       } as MedicationData,
     };
 
@@ -154,7 +154,7 @@ export const EditableMedicationCard: React.FC<{
       isSavedRef.current = true;
 
       if (type === 'order-new') {
-        response?.id && navigate(getEditOrderUrl(encounterId!, response.id));
+        response?.id && navigate(getEditOrderUrl(appointmentId!, response.id));
         return;
       }
 
