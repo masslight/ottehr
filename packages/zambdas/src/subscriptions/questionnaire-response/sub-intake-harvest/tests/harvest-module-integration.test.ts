@@ -42,8 +42,6 @@ import { relatedPersonsAreSame } from '../../../../ehr/shared/harvest';
 
 const DEFAULT_TIMEOUT = 20000;
 
-const DEFAULT_TIMEOUT = 20000;
-
 const stubAccount: Account = {
   resourceType: 'Account',
   type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
