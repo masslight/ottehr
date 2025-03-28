@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { CreditCardInfo, getSecret, Secrets, SecretsKeys } from 'utils';
+import { ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE, CreditCardInfo, getSecret, Secrets, SecretsKeys } from 'utils';
 import Stripe from 'stripe';
 import Oystehr from '@oystehr/sdk';
-import { Account } from 'fhir/r4b';
+import { Account, Identifier } from 'fhir/r4b';
 
 export interface BasePaymentMgmtInput {
   secrets: Secrets | null;
@@ -11,17 +11,6 @@ export interface BasePaymentMgmtInput {
   payorProfile: string;
   stripeCustomerId?: string;
 }
-export async function postPaymentMethodSetupRequest(input: BasePaymentMgmtInput): Promise<any> {
-  const { secrets, token, beneficiaryPatientId, payorProfile } = input;
-
-  console.log('setting up payment method', beneficiaryPatientId, payorProfile);
-
-  const stripeClient = getStripeClient(secrets);
-  console.log('stripeClient= ', stripeClient);
-
-  return {};
-}
-
 interface PostPaymentMethodInput extends BasePaymentMgmtInput {
   paymentMethodId: string;
 }
@@ -54,7 +43,10 @@ export async function postPaymentMethodListRequest(input: BasePaymentMgmtInput):
 
   console.log('benficiaryPatientId, payorProfile', beneficiaryPatientId, payorProfile);
   const stripeClient = getStripeClient(secrets);
-  console.log('stripeClient= ', stripeClient);
+  console.log('stripeClient= ', stripeClient.paymentMethods);
+  const pms = await stripeClient.paymentMethods.list();
+  console.log('pms= ', pms);
+  return pms;
 }
 
 interface CreateStripeAccountInput {
@@ -108,17 +100,6 @@ export interface PaymentCard {
   lastFour: string;
   cardholder?: string;
 }
-
-interface ListOutput {
-  default?: PaymentCard;
-  cards: PaymentCard[];
-}
-
-interface PaymentMethods {
-  cards: CreditCardInfo[];
-  default?: CreditCardInfo;
-}
-
 interface PaymentMethodsFromJSON {
   cards: CreditCardInfoFromJSON[];
   default?: CreditCardInfoFromJSON;
@@ -172,10 +153,17 @@ const validateStripeEnvironment = (secrets: Secrets | null): StripeEnvironment =
   };
 };
 
-function getStripeClient(secrets: Secrets | null): Stripe {
+export function getStripeClient(secrets: Secrets | null): Stripe {
   const env = validateStripeEnvironment(secrets);
   return new Stripe(env.secretKey, {
     // @ts-expect-error default api version older than sdk
     apiVersion: env.apiVersion,
   });
 }
+
+export const makeStripeCustomerId = (stripeId: string): Identifier => {
+  return {
+    system: ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE,
+    value: stripeId,
+  };
+};
