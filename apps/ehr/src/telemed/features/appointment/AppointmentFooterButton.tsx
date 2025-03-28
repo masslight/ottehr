@@ -232,6 +232,7 @@ export const AppointmentFooterButton: FC = () => {
                 loading={changeTelemedAppointmentStatusEnum.isLoading}
                 onClick={showDialog}
                 variant="contained"
+                data-testid={dataTestIds.telemedEhrFlow.footerButtonUnassign}
                 sx={{
                   backgroundColor: theme.palette.error.main,
                   '&:hover': { backgroundColor: darken(theme.palette.error.main, 0.125) },

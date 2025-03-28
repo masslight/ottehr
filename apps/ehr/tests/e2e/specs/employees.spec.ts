@@ -7,8 +7,7 @@ import {
   testEmployeeGivenNamePattern,
   TestEmployeeInviteParams,
 } from '../../e2e-utils/resource/employees';
-import { AVAILABLE_EMPLOYEE_ROLES, RoleType } from '../../e2e-utils/temp-imports-from-utils';
-import { PractitionerQualificationCode } from 'utils';
+import { AVAILABLE_EMPLOYEE_ROLES, PractitionerQualificationCode, RoleType } from 'utils';
 import { waitForSnackbar } from '../../e2e-utils/helpers/tests-utils';
 
 // We may create new instances for the tests with mutable operations, and keep parralel tests isolated
