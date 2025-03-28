@@ -22,7 +22,7 @@ import {
 } from '../../fhir';
 import { DateTime } from 'luxon';
 import { formatPhoneNumberDisplay } from '../helpers';
-import { PatientAccountResponse } from '../../types';
+import { PATIENT_INDIVIDUAL_PRONOUNS_URL, PatientAccountResponse } from '../../types';
 import { capitalize } from 'lodash-es';
 import { DATE_OF_BIRTH_URL, PRACTICE_NAME_URL } from '../../types';
 
@@ -717,6 +717,10 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
     ?.valueCodeableConcept?.coding?.[0]?.display;
   const patientRace = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/race`)
     ?.valueCodeableConcept?.coding?.[0]?.display;
+  const patientPrefferedPronouns = patient.extension?.find((e) => e.url === PATIENT_INDIVIDUAL_PRONOUNS_URL)
+    ?.valueCodeableConcept?.coding?.[0]?.display;
+
+  const patientPrefferedName = patient.name?.find((name) => name.use === 'nickname')?.given?.[0];
 
   let patientSex: string | undefined;
   if (patient?.gender === 'male') {
@@ -762,6 +766,14 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
 
     if (linkId === 'patient-name-suffix') {
       answer = makeAnswer(getNameSuffix(patient) ?? '');
+    }
+
+    if (linkId === 'patient-preferred-name' && patientPrefferedName) {
+      answer = makeAnswer(patientPrefferedName);
+    }
+
+    if (linkId === 'patient-pronouns' && patientPrefferedPronouns) {
+      answer = makeAnswer(patientPrefferedPronouns);
     }
 
     if (linkId === 'patient-street-address' && patientAddressLine1) {
