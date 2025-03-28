@@ -10,7 +10,7 @@ export function RoleSelection({ errors, isActive, getValues, setValue }: RoleSel
   return (
     <FormControl sx={{ width: '100%' }} error={errors.roles} data-testid={dataTestIds.employeesPage.rolesSection}>
       <FormLabel sx={{ mb: 1, mt: 2, fontWeight: '600 !important' }}>Role</FormLabel>
-      <FormLabel sx={{ fontWeight: 700, fontSize: '12px' }}>Select role *</FormLabel>
+      <FormLabel sx={{ fontWeight: 500, fontSize: '12px' }}>Select role *</FormLabel>
       <FormGroup>
         {AVAILABLE_EMPLOYEE_ROLES.map((roleEntry, index) => {
           const roles = getValues('roles') ?? [];

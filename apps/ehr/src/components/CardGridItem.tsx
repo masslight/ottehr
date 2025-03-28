@@ -1,6 +1,6 @@
 import { ReactElement } from 'react';
 import { Box, Grid } from '@mui/material';
-import { otherColors } from '../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import DownloadImagesButton from './DownloadImagesButton';
 import { DocumentInfo } from '../types/types';
 

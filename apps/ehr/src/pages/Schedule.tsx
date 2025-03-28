@@ -15,7 +15,7 @@ import {
 import { Address, HealthcareService, Identifier, Location, Practitioner } from 'fhir/r4b';
 import { ReactElement, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { otherColors } from '../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
@@ -25,6 +25,7 @@ import Loading from '../components/Loading';
 import GroupSchedule from '../components/schedule/GroupSchedule';
 import { Operation } from 'fast-json-patch';
 import { getTimezone } from '../helpers/formatDateTime';
+import { SLUG_SYSTEM } from 'utils';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import { SCHEDULE_EXTENSION_URL } from 'utils';
 
@@ -32,7 +33,6 @@ const INTAKE_URL = import.meta.env.VITE_APP_INTAKE_URL;
 
 const START_SCHEDULE =
   '{"schedule":{"monday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"tuesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"wednesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"thursday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"friday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"saturday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"sunday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]}},"scheduleOverrides":{}}';
-const IDENTIFIER_SLUG = 'https://fhir.ottehr.com/r4/slug';
 export const TIMEZONE_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/timezone';
 const TIMEZONES = ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles'];
 
@@ -91,7 +91,7 @@ export default function SchedulePage(): ReactElement {
         id: id,
       })) as any;
       setItem(itemTemp);
-      const slugTemp = itemTemp?.identifier?.find((identifierTemp) => identifierTemp.system === IDENTIFIER_SLUG);
+      const slugTemp = itemTemp?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM);
       setSlug(slugTemp?.value);
       setTimezone(getTimezone(itemTemp));
       setIsItemActive(isActive(itemTemp));
@@ -208,10 +208,10 @@ export default function SchedulePage(): ReactElement {
     // make a copy of identifier
     let identifiersTemp: Identifier[] | undefined = [...identifiers];
     const hasIdentifiers = identifiersTemp.length > 0;
-    const hasSlug = item?.identifier?.find((identifierTemp) => identifierTemp.system === IDENTIFIER_SLUG);
+    const hasSlug = item?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM);
     const removingSlug = !slug || slug === '';
     const updatedSlugIdentifier: Identifier = {
-      system: IDENTIFIER_SLUG,
+      system: SLUG_SYSTEM,
       value: slug,
     };
 
@@ -221,9 +221,7 @@ export default function SchedulePage(): ReactElement {
       slugChanged = false;
     } else if (removingSlug && hasSlug) {
       console.log('Removing slug from identifiers');
-      const identifiersUpdated = item?.identifier?.filter(
-        (identifierTemp) => identifierTemp.system !== IDENTIFIER_SLUG
-      );
+      const identifiersUpdated = item?.identifier?.filter((identifierTemp) => identifierTemp.system !== SLUG_SYSTEM);
       identifiersTemp = identifiersUpdated;
     } else if (!hasIdentifiers) {
       console.log('No identifiers, adding one');
@@ -233,9 +231,7 @@ export default function SchedulePage(): ReactElement {
       identifiersTemp.push(updatedSlugIdentifier);
     } else if (hasIdentifiers && hasSlug) {
       console.log('Has identifiers with a slug, replacing one');
-      const identifierIndex = item?.identifier?.findIndex(
-        (identifierTemp) => identifierTemp.system === IDENTIFIER_SLUG
-      );
+      const identifierIndex = item?.identifier?.findIndex((identifierTemp) => identifierTemp.system === SLUG_SYSTEM);
 
       if (identifierIndex !== undefined && identifiers) {
         identifiersTemp[identifierIndex] = updatedSlugIdentifier;
@@ -355,8 +351,8 @@ export default function SchedulePage(): ReactElement {
             <TabContext value={tabName}>
               <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                 <TabList onChange={handleTabChange} aria-label="Tabs">
-                  <Tab label="Schedule" value="schedule" sx={{ textTransform: 'none', fontWeight: 700 }} />
-                  <Tab label="General" value="general" sx={{ textTransform: 'none', fontWeight: 700 }} />
+                  <Tab label="Schedule" value="schedule" sx={{ textTransform: 'none', fontWeight: 500 }} />
+                  <Tab label="General" value="general" sx={{ textTransform: 'none', fontWeight: 500 }} />
                 </TabList>
               </Box>
               {/* Page Content */}

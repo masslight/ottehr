@@ -1,9 +1,9 @@
-import { OTTEHR_MODULE } from '../fhir';
+import { PROJECT_MODULE } from '../fhir';
 
 export const ELIGIBILITY_BENEFIT_CODES = 'UC,86,30';
-export const ELIGIBILITY_FAILED_REASON_META_TAG = `${OTTEHR_MODULE.TM}-eligibility-failed-reason`;
-export const ELIGIBILITY_PRACTITIONER_META_TAG_PREFIX = `${OTTEHR_MODULE.TM}-eligibility-billing-provider`;
-export const ELIGIBILITY_RELATED_PERSON_META_TAG = `${OTTEHR_MODULE.TM}-eligibility-related-person`;
+export const ELIGIBILITY_FAILED_REASON_META_TAG = `${PROJECT_MODULE.TM}-eligibility-failed-reason`;
+export const ELIGIBILITY_PRACTITIONER_META_TAG_PREFIX = `${PROJECT_MODULE.TM}-eligibility-billing-provider`;
+export const ELIGIBILITY_RELATED_PERSON_META_TAG = `${PROJECT_MODULE.TM}-eligibility-related-person`;
 export const BYPASS_INSURANCE_NAME = 'zz admin';
 
 export const ELIGIBILITY_FAILED_REASONS = {

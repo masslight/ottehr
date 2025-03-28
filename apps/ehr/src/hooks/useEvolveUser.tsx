@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from 'react-query';
 import {
   PHOTON_PRACTITIONER_ENROLLED,
   PHOTON_PRESCRIBER_SYSTEM_URL,
+  PROJECT_NAME,
   RoleType,
   SyncUserResponse,
   User,
@@ -159,12 +160,12 @@ export default function useEvolveUser(): EvolveUser | undefined {
 
   const { userName, userInitials, lastLogin } = useMemo(() => {
     if (profile) {
-      const userName = getFullestAvailableName(profile) ?? 'Ottehr Team';
+      const userName = getFullestAvailableName(profile) ?? `${PROJECT_NAME} Team`;
       const userInitials = initialsFromName(userName);
       const lastLogin = profile.meta?.tag?.find((tag) => tag.system === 'last-login')?.code;
       return { userName, userInitials, lastLogin };
     }
-    return { userName: 'Ottehr team', userInitials: initialsFromName('Ottehr Team') };
+    return { userName: `${PROJECT_NAME} team`, userInitials: initialsFromName(`${PROJECT_NAME} Team`) };
   }, [profile]);
 
   return useMemo(() => {

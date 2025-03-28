@@ -12,6 +12,7 @@ import {
   APIError,
   APPOINTMENT_NOT_FOUND_ERROR,
   AppointmentData,
+  PROJECT_NAME,
   UCGetPaperworkResponse,
   VisitType,
   formatPhoneNumberDisplay,
@@ -23,12 +24,12 @@ import { persist } from 'zustand/middleware';
 import { intakeFlowPageRoute, visitBasePath } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
 import zapehrApi from '../api/zapehrApi';
-import { ottehrLightBlue } from '../assets/icons';
 import { PageContainer } from '../components';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import i18n from '../lib/i18n';
+import { ottehrLightBlue } from '@theme/icons';
 import { dataTestIds } from '../helpers/data-test-ids';
 
 type AppointmentState = { appointmentData: Partial<AppointmentData> };
@@ -258,7 +259,10 @@ const ThankYou = (): JSX.Element => {
   }
 
   return (
-    <PageContainer title={t('thanks.title')} description={visitType === VisitType.WalkIn ? '' : t('thanks.subtitle')}>
+    <PageContainer
+      title={t('thanks.title', { PROJECT_NAME })}
+      description={visitType === VisitType.WalkIn ? '' : t('thanks.subtitle')}
+    >
       {(!loading && (
         <>
           {visitType !== VisitType.WalkIn && <Divider />}

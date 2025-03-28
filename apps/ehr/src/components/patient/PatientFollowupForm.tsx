@@ -31,6 +31,7 @@ import {
   TELEPHONE_REASONS,
   NONBILLABLE_REASONS,
   FollowupReason,
+  SLUG_SYSTEM,
 } from 'utils';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
@@ -81,9 +82,8 @@ export default function PatientFollowupForm({
   const [message, setMessage] = useState<string>(followupDetails?.message || '');
 
   useEffect(() => {
-    const locationSlug = selectedLocation?.identifier?.find(
-      (identifierTemp) => identifierTemp.system === 'https://fhir.ottehr.com/r4/slug'
-    )?.value;
+    const locationSlug = selectedLocation?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)
+      ?.value;
     const locationState = selectedLocation?.address?.state;
     if (!locationSlug || !locationState) {
       console.log(
