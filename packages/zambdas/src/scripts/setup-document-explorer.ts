@@ -6,9 +6,8 @@ import {
   getPatchBinary,
 } from 'utils';
 
-import { performEffectWithEnvFile } from 'zambda-utils';
-import { getAuth0Token } from '../patient/shared';
-import { fhirApiUrlFromAuth0Audience } from './helpers';
+import { fhirApiUrlFromAuth0Audience, performEffectWithEnvFile } from './helpers';
+import { getAuth0Token } from '../shared';
 
 const BATCH_SIZE = 25;
 
