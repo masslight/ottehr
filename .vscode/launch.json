@@ -8,10 +8,19 @@
       "type": "node",
       "request": "launch",
       "name": "Debug Telemed zambdas",
-      "cwd": "${workspaceFolder}/packages/telemed/zambdas",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "debug"],
-      "sourceMaps": true
+      "program": "${workspaceFolder}/packages/zambdas/src/local-server/index.ts",
+      "cwd": "${workspaceFolder}/packages/zambdas",
+      "args": ["--env", ".env/local.json"],
+      "runtimeExecutable": "tsx",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": [
+        // Node.js internal core modules
+        "<node_internals>/**",
+
+        // Ignore all dependencies (optional)
+        "${workspaceFolder}/node_modules/**"
+      ]
     }
   ]
 }

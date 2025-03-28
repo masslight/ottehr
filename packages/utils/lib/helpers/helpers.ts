@@ -212,11 +212,11 @@ export const isoToDateObject = (isoString: string): { year: string; month: strin
   };
 };
 
-export const DEMO_VISIT_STREET_ADDRESS = '123 Main Street';
+export const DEMO_VISIT_STREET_ADDRESS = `${DateTime.now().toFormat('yyyyMMdd')} Test Line`;
 export const DEMO_VISIT_STREET_ADDRESS_OPTIONAL = 'Apt 4B';
-export const DEMO_VISIT_CITY = 'Orlando';
-export const DEMO_VISIT_STATE = 'FL';
-export const DEMO_VISIT_ZIP = '32801';
+export const DEMO_VISIT_CITY = 'New York';
+export const DEMO_VISIT_STATE = 'NY';
+export const DEMO_VISIT_ZIP = '06001';
 
 export function getContactInformationAnswers({
   willBe18 = false,
