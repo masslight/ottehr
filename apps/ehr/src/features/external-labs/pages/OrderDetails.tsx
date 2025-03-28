@@ -6,6 +6,7 @@ import { DateTime } from 'luxon';
 import { SampleCollection } from '../components/SampleCollection';
 import { OrderHistoryCard } from '../components/OrderHistoryCard';
 import { StatusString } from '../components/StatusChip';
+<<<<<<< Updated upstream
 import { TaskBanner } from '../components/TaskBanner';
 import { CSSPageTitle } from '../../../telemed/components/PageTitle';
 // import { useAppointmentStore } from '../../../telemed';
@@ -13,6 +14,14 @@ import { CSSPageTitle } from '../../../telemed/components/PageTitle';
 // import { DiagnosisDTO } from 'utils';
 // import { useApiClients } from '../../../hooks/useAppClients';
 // import { FhirClient } from '@zapehr/sdk';
+=======
+import { useParams } from 'react-router-dom';
+import { CSSPageTitle } from '../../../telemed/components/PageTitle';
+import { useApiClients } from '../../../hooks/useAppClients';
+import { OrderDetails } from 'utils';
+import { getLabOrderDetails } from '../../../api/api';
+import { QuestionnaireItem } from 'fhir/r4b';
+>>>>>>> Stashed changes
 
 interface CollectionInstructions {
   container: string;
@@ -22,6 +31,7 @@ interface CollectionInstructions {
   collectionInstructions: string;
 }
 
+<<<<<<< Updated upstream
 export interface MockServiceRequest {
   diagnosis: string;
   patientName: string;
@@ -41,6 +51,30 @@ export const OrderDetails: React.FC = () => {
   const [specimen, setSpecimen] = useState({});
   const [collectionInstructions, setCollectionInstructions] = useState({} as CollectionInstructions);
   const initialAoe: any[] = [];
+=======
+type JsonPrimitive = boolean | number | string | null;
+type JsonArray = JsonValue[];
+type JsonObject = {
+  [x: string]: JsonValue | undefined;
+};
+type JsonValue = JsonArray | JsonObject | JsonPrimitive;
+
+
+export const OrderDetailsPage: React.FC = () => {
+  const { orderId } = useParams();
+  const { oystehrZambda } = useApiClients();
+
+  if (!orderId) {
+    throw new Error('orderId is undefined');
+  }
+  // TODO: The ServiceRequest and other necessary resources will have been made on Create Order. Just need to grab those
+  const [serviceRequest, setServiceRequest] = useState({} as OrderDetails);
+
+  // Note: specimens are no longer MVP, and also we'll be getting specimens from Create Order
+  const [specimen, setSpecimen] = useState({});
+  const [collectionInstructions, setCollectionInstructions] = useState({} as CollectionInstructions);
+  const initialAoe: QuestionnaireItem[] = [];
+>>>>>>> Stashed changes
   const [aoe, setAoe] = useState(initialAoe);
   const [isLoading, setIsLoading] = useState(true);
   const [taskStatus, setTaskStatus] = useState('pending' as StatusString);
@@ -51,6 +85,7 @@ export const OrderDetails: React.FC = () => {
   const handleSampleCollectionTaskChange = React.useCallback(() => setTaskStatus('collected'), [setTaskStatus]);
 
   useEffect(() => {
+<<<<<<< Updated upstream
     setServiceRequest({
       diagnosis: diagnosis,
       patientName: 'Patient Name',
@@ -59,6 +94,25 @@ export const OrderDetails: React.FC = () => {
       orderDateTime: DateTime.now(),
       labName: 'Quest',
     });
+=======
+    console.log(10);
+    async function getServiceRequestTemp(): Promise<void> {
+      if (!orderId) {
+        throw new Error('orderId is undefined');
+      }
+      if (!oystehrZambda) {
+        throw new Error('oystehr client is undefined');
+      }
+      const orderDetails = await getLabOrderDetails(oystehrZambda, { serviceRequestID: orderId });
+
+      setServiceRequest(orderDetails);
+      if (orderDetails.labQuestions.item) {
+        setAoe(orderDetails.labQuestions.item);
+      }
+    }
+    getServiceRequestTemp().catch((error) => console.log(error));
+
+>>>>>>> Stashed changes
     setSpecimen({});
     // will probably be querying oystehr to get information about the OI (Assuming the link to the OI is a code on the SR)
     // specifically will need the AOE, collection instructions from the orderable item
@@ -71,6 +125,7 @@ export const OrderDetails: React.FC = () => {
       collectionInstructions:
         'If a red-top tube or plasma tube is used, transfer separated serum or plasma to a plastic transport tube.',
     });
+<<<<<<< Updated upstream
     setAoe([
       {
         questionCode: 'fsmr6TlrOyzeiT8nDITdWw',
@@ -126,6 +181,8 @@ export const OrderDetails: React.FC = () => {
         answerRequired: false,
       },
     ]);
+=======
+>>>>>>> Stashed changes
 
     setIsLoading(false);
     // setTaskStatus('collected');

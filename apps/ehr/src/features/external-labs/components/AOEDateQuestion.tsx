@@ -1,6 +1,7 @@
 import { UserProvidedAnswer, UserProvidedAnswerType } from './SampleCollection';
 import { DatePicker, DateValidationError, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+<<<<<<< Updated upstream
 import { FormControl, FormHelperText } from '@mui/material';
 import { DateTime } from 'luxon';
 import { useState } from 'react';
@@ -14,6 +15,17 @@ interface DateQuestionProps {
   userProvidedAnswer: UserProvidedAnswer;
   onChange: (answer: UserProvidedAnswerType, isValid: boolean) => void;
   submitAttempted: boolean;
+=======
+import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
+import { Extension } from 'fhir/r4b';
+
+interface DateQuestionProps {
+  questionText: string;
+  linkId: string;
+  extension: Extension[];
+  required: boolean;
+  field: ControllerRenderProps<FieldValues, string>;
+>>>>>>> Stashed changes
 }
 
 export const AOEDateQuestion: React.FC<DateQuestionProps> = (props) => {
