@@ -84,10 +84,12 @@ test.beforeAll(async ({ browser }) => {
   await myPatientsTabAppointmentResources.setResources({
     state: testsUserQualificationState,
     city: stateCodeToFullName[testsUserQualificationState],
+    telemedLocationState: testsUserQualificationState,
   });
   await otherPatientsTabAppointmentResources.setResources({
     state: randomState,
     city: stateCodeToFullName[randomState],
+    telemedLocationState: randomState,
   });
 });
 

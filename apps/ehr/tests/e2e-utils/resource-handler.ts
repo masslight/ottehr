@@ -268,7 +268,7 @@ export class ResourceHandler {
               },
             ],
           })
-        ).unbundle()[0];
+        ).unbundle()[0] as Appointment;
 
         if (appointment.meta?.tag?.find((tag) => tag.code === FHIR_APPOINTMENT_PREPROCESSED_TAG.code)) {
           return;
