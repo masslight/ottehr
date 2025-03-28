@@ -21,6 +21,7 @@ import {
   PersonSex,
   SLUG_SYSTEM,
   ScheduleType,
+  Secrets,
   ServiceMode,
   UCGetPaperworkResponse,
   VisitType,
@@ -33,13 +34,17 @@ import {
   serviceModeForHealthcareService,
   userHasAccessToPatient,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { Secrets, topLevelCatch } from 'zambda-utils';
-import '../../shared/instrument.mjs';
-import { getAuth0Token } from '../../shared';
-import { getUser } from '../../shared/auth';
-import { createOystehrClient, getOtherOfficesForLocation } from '../../shared/helpers';
+import {
+  createOystehrClient,
+  getAuth0Token,
+  getOtherOfficesForLocation,
+  topLevelCatch,
+  ZambdaInput,
+} from '../../../shared';
+import { getUser } from '../../../shared/auth';
+import '../../../shared/instrument.mjs';
 import { validateRequestParameters } from './validateRequestParameters';
+import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 
 export interface GetPaperworkInput {
   appointmentID: string;
@@ -129,7 +134,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
           },
         ],
       })
-    ).unbundle();
+    )
+      .unbundle()
+      .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
 
     // parse retrieved resources
     appointment = baseCategoryResources.find((resource) => {
@@ -260,7 +267,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         return sex as PersonSex | undefined;
       };
 
-      console.log('qrresponse item', JSON.stringify(questionnaireResponseResource.item));
+      // console.log('qrresponse item', JSON.stringify(questionnaireResponseResource.item));
 
       const response: UCGetPaperworkResponse = {
         ...partialAppointment,

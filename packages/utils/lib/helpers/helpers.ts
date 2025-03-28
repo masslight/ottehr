@@ -85,7 +85,7 @@ export const isNPIValid = (npi: string): boolean => {
 };
 
 export function formatPhoneNumberDisplay(phoneNumber: string): string {
-  const cleaned = ('' + phoneNumber).replace(/\D/g, '');
+  const cleaned = ('' + phoneNumber.slice(-10)).replace(/\D/g, '');
   const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
 
   if (match) {
@@ -224,11 +224,11 @@ export function getContactInformationAnswers({
   },
   birthSex = 'Female',
   address = {
-    street: '123 Main Street',
+    street: `${DateTime.now().toFormat('yyyyMMdd')} Test Line`,
     street2: 'Apt 4B',
-    city: 'Orlando',
-    state: 'FL',
-    zip: '32801',
+    city: 'New York',
+    state: 'NY',
+    zip: '06001',
   },
   email = 'test-email@test-domain-1237843298123.co',
   phoneNumber = '(202) 733-9622',

@@ -1,11 +1,11 @@
+import { DateTime } from 'luxon';
 import { useMemo, useState } from 'react';
 import { VitalFieldNames, VitalsObservationDTO, createVitalsSearchConfig } from 'utils';
-import { useAppointment } from '../../../hooks/useAppointment';
-import { useVitalsHandlers } from './useVitalsHandlers';
-import { VitalHistoryEntry } from '../types';
 import useEvolveUser from '../../../../../hooks/useEvolveUser';
-import { DateTime } from 'luxon';
+import { useAppointment } from '../../../hooks/useAppointment';
+import { VitalHistoryEntry } from '../types';
 import { ScreenDimensions, useScreenDimensions } from './useScreenDimensions';
+import { useVitalsHandlers } from './useVitalsHandlers';
 
 export type HistoryEntriesCreatorFn<
   TypeObsDTO extends VitalsObservationDTO,
@@ -57,8 +57,8 @@ export const useVitalsCardState = <
   const user = useEvolveUser();
   const userId = user?.profile?.split('/')?.[1];
 
-  const { sourceData } = useAppointment();
-  const encounterId = sourceData.encounter!.id!;
+  const { resources } = useAppointment();
+  const encounterId = resources.encounter!.id!;
   // const patientId = sourceData.patient?.id;
 
   const [isSavingCardData, setSavingCardData] = useState(false);

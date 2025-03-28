@@ -19,7 +19,7 @@ import {
 import { useResetAppointmentStore } from '../hooks';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
-import { useAppointmentStore, useGetTelemedAppointment } from '../state';
+import { useAppointmentStore, useGetAppointment } from '../state';
 
 export const PatientVisitDetails: FC = () => {
   const location = useLocation();
@@ -29,7 +29,7 @@ export const PatientVisitDetails: FC = () => {
   useResetAppointmentStore();
 
   const { oystehr } = useApiClients();
-  const { isFetching } = useGetTelemedAppointment(
+  const { isFetching } = useGetAppointment(
     {
       appointmentId,
     },

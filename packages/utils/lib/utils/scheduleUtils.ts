@@ -1,5 +1,5 @@
 import Oystehr, { BatchInputDeleteRequest, BatchInputRequest } from '@oystehr/sdk';
-import { Appointment, Location, Schedule, Slot, Encounter, Practitioner, HealthcareService } from 'fhir/r4b';
+import { Appointment, Location, Schedule, Slot, Encounter, Practitioner, HealthcareService, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   Closure,
@@ -11,6 +11,7 @@ import {
   scheduleStrategyForHealthcareService,
   ScheduleStrategy,
   SCHEDULE_NUM_DAYS,
+  SCHEDULE_EXTENSION_URL,
 } from 'utils';
 import {
   applyBuffersToSlots,
@@ -160,7 +161,7 @@ export function getScheduleDetails(
     scheduleResource.id
   );
   const scheduleExtension = scheduleResource?.extension?.find(function (extensionTemp) {
-    return extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule';
+    return extensionTemp.url === SCHEDULE_EXTENSION_URL;
   })?.valueString;
 
   if (!scheduleExtension) return undefined;
@@ -174,11 +175,29 @@ export function getTimezone(schedule: Location | Practitioner | HealthcareServic
     (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
   )?.valueString;
   if (!timezone) {
-    console.log('error for', schedule.resourceType, schedule.id);
+    console.error('Schedule does not have timezone', schedule.resourceType, schedule.id);
     throw new Error('schedule does not have timezone');
   }
   return timezone;
 }
+
+export const getAppointmentTimezone = (appointment: Appointment, scheduleResources: Resource[]): string => {
+  const participantReferences =
+    appointment.participant?.map((participant) => participant.actor?.reference).filter(Boolean) ?? [];
+
+  const scheduleResource = scheduleResources.find(
+    (resource) =>
+      resource.resourceType && resource.id && participantReferences.includes(`${resource.resourceType}/${resource.id}`)
+  );
+
+  if (!scheduleResource) {
+    console.error('Resource with Schedule extension not found in appointment.participant resources', scheduleResources);
+  }
+
+  const timezone = getTimezone(scheduleResource as Location | HealthcareService | Practitioner);
+
+  return timezone;
+};
 
 // creates a map where each open hour in the day's schedule is a key and the capacity for that hour is the value
 export function getSlotCapacityMapForDayAndSchedule(

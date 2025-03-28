@@ -14,9 +14,9 @@ import {
   TelemedCallStatuses,
   WORK_NOTE_CODE,
 } from 'utils';
-import { telemedStatusToEncounter } from '../../shared/appointment/helpers';
-import { sendSmsForPatient } from '../../shared/communication';
-import { PdfDocumentReferencePublishedStatuses, PdfInfo } from '../../shared/pdf/pdf-utils';
+import { telemedStatusToEncounter } from '../../../shared/appointment/helpers';
+import { sendSmsForPatient } from '../../../shared/communication';
+import { PdfDocumentReferencePublishedStatuses, PdfInfo } from '../../../shared/pdf/pdf-utils';
 import {
   addPeriodEndOp,
   addStatusHistoryRecordOp,
@@ -25,7 +25,7 @@ import {
   deleteStatusHistoryRecordOp,
   handleEmptyEncounterStatusHistoryOp,
 } from './fhir-res-patch-operations';
-import { VideoResourcesAppointmentPackage } from '../../shared/pdf/visit-details-pdf/types';
+import { VideoResourcesAppointmentPackage } from '../../../shared/pdf/visit-details-pdf/types';
 
 export const changeStatusIfPossible = async (
   oystehr: Oystehr,
@@ -296,7 +296,7 @@ export async function makeReceiptPdfDocumentReference(
   encounterId: string,
   listResources: List[]
 ): Promise<DocumentReference> {
-  const docRefs = await createFilesDocumentReferences({
+  const { docRefs } = await createFilesDocumentReferences({
     files: [
       {
         url: pdfInfo.uploadURL,

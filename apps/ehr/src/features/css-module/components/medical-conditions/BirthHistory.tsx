@@ -1,11 +1,3 @@
-import React, { FC, useMemo, useState } from 'react';
-import {
-  AccordionCard,
-  useAppointmentStore,
-  useGetAppointmentAccessibility,
-  useSaveChartData,
-} from '../../../../telemed';
-import { otherColors } from '../../../../CustomThemeProvider';
 import {
   Box,
   Card,
@@ -20,22 +12,30 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useChartData } from '../../hooks/useChartData';
-import { BirthHistoryDTO } from 'utils';
-import { enqueueSnackbar } from 'notistack';
-import { useAppointment } from '../../hooks/useAppointment';
 import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
+import { FC, useMemo, useState } from 'react';
+import { BirthHistoryDTO } from 'utils';
+import { otherColors } from '../../../../CustomThemeProvider';
+import { getSelectors } from '../../../../shared/store/getSelectors';
+import {
+  AccordionCard,
+  useAppointmentStore,
+  useGetAppointmentAccessibility,
+  useSaveChartData,
+} from '../../../../telemed';
+import { useAppointment } from '../../hooks/useAppointment';
+import { useChartData } from '../../hooks/useChartData';
 
 type BirthHistoryProps = {
   appointmentID?: string;
 };
 
 export const BirthHistory: FC<BirthHistoryProps> = ({ appointmentID }) => {
-  const { processedData } = useAppointment(appointmentID);
+  const { mappedData } = useAppointment(appointmentID);
 
   const [isCollapsed, setIsCollapsed] = useState(
-    -DateTime.fromFormat(processedData.birthDate || '', 'yyyy-dd-MM').diff(DateTime.now(), 'days').days > 90
+    -DateTime.fromFormat(mappedData.DOB || '', 'yyyy-dd-MM').diff(DateTime.now(), 'days').days > 90
   );
   const { encounter, chartData } = getSelectors(useAppointmentStore, ['encounter', 'chartData']);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();

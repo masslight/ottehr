@@ -140,8 +140,7 @@ test.describe('Payment option - Check Self pay and insurance options', () => {
     await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
   });
-  // Need to uncomment when https://github.com/masslight/ottehr/issues/1515 is fixed
-  test.skip('PPO-2 Payment option - Check required fields', async () => {
+  test('PPO-2 Payment option - Check required fields', async () => {
     await paperwork.checkRequiredFields('"Select payment option"', 'How would you like to pay for your visit?', false);
   });
   test('PPO-3 Payment option - Check patient name is displayed', async () => {
@@ -232,13 +231,15 @@ test.describe('Primary Insurance', () => {
     await uploadPhoto.fillInsuranceBack();
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await paperwork.checkImagesAreSaved(locator.insuranceFrontImage, locator.insuranceBackImage);
+    await paperwork.checkImagesIsSaved(locator.insuranceFrontImage);
+    await paperwork.checkImagesIsSaved(locator.insuranceBackImage);
   });
   test('Primary Insurance - Open next page, click [Back] - check images are saved', async () => {
     await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('Responsible party information');
     await locator.clickBackButton();
-    await paperwork.checkImagesAreSaved(locator.insuranceFrontImage, locator.insuranceBackImage);
+    await paperwork.checkImagesIsSaved(locator.insuranceFrontImage);
+    await paperwork.checkImagesIsSaved(locator.insuranceBackImage);
   });
   test('Primary Insurance - Add secondary insurance with empty fields, remove secondary insurance, continue with primary insurance', async () => {
     await locator.addSecondaryInsurance.click();
@@ -337,13 +338,15 @@ test.describe('Secondary Insurance', () => {
     await uploadPhoto.fillSecondaryInsuranceBack();
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await paperwork.checkImagesAreSaved(locator.secondaryInsuranceFrontImage, locator.secondaryInsuranceBackImage);
+    await paperwork.checkImagesIsSaved(locator.secondaryInsuranceFrontImage);
+    await paperwork.checkImagesIsSaved(locator.secondaryInsuranceBackImage);
   });
   test('Secondary Insurance - Open next page, click [Back] - check images are saved', async () => {
     await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('Responsible party information');
     await locator.clickBackButton();
-    await paperwork.checkImagesAreSaved(locator.secondaryInsuranceFrontImage, locator.secondaryInsuranceBackImage);
+    await paperwork.checkImagesIsSaved(locator.secondaryInsuranceFrontImage);
+    await paperwork.checkImagesIsSaved(locator.secondaryInsuranceBackImage);
   });
   test('Secondary Insurance - Policy holder address is the same checkbox', async () => {
     await paperwork.checkPolicyAddressIsTheSameCheckbox(true);
@@ -359,8 +362,7 @@ test.describe('Responsible party information - check and fill all fields', () =>
   test('PRPI-1 Check patient name is displayed', async () => {
     await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
   });
-  //need to uncomment when https://github.com/masslight/ottehr/issues/1514 fixed
-  test.skip('PRPI-2 Check required fields', async () => {
+  test('PRPI-2 Check required fields', async () => {
     await paperwork.checkRequiredFields(
       '"Relationship to the patient","First name","Last name","Date of birth","Birth sex"',
       'Responsible party information',
@@ -448,13 +450,15 @@ test.describe('Photo ID - Upload photo', () => {
     await uploadPhoto.fillPhotoFrontID();
     await uploadPhoto.fillPhotoBackID();
     await page.reload();
-    await paperwork.checkImagesAreSaved(locator.photoIdFrontImage, locator.photoIdBackImage);
+    await paperwork.checkImagesIsSaved(locator.photoIdFrontImage);
+    await paperwork.checkImagesIsSaved(locator.photoIdBackImage);
   });
   test('PPID-6 Open next page, click [Back] - check images are saved', async () => {
     await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('Complete consent forms');
     await locator.clickBackButton();
-    await paperwork.checkImagesAreSaved(locator.photoIdFrontImage, locator.photoIdBackImage);
+    await paperwork.checkImagesIsSaved(locator.photoIdFrontImage);
+    await paperwork.checkImagesIsSaved(locator.photoIdBackImage);
   });
 });
 test.describe('Consent forms - Check and fill all fields', () => {

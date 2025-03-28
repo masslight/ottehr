@@ -3,7 +3,7 @@ import { cleanAppointment } from 'test-utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { UploadImage } from '../../utils/UploadImage';
 import { FillingInfo } from '../../utils/telemed/FillingInfo';
-import { Paperwork } from '../../utils/telemed/Paperwork';
+import { PaperworkTelemed } from '../../utils/telemed/Paperwork';
 import { Locators } from '../../utils/locators';
 import { TelemedVisitFlow } from '../../utils/telemed/TelemedVisitFlow';
 
@@ -32,7 +32,7 @@ test.describe('Start virtual visit with required information only', async () => 
   let context: BrowserContext;
   let page: Page;
   let fillingInfo: FillingInfo;
-  let paperwork: Paperwork;
+  let paperwork: PaperworkTelemed;
   let locators: Locators;
   let telemedFlow: TelemedVisitFlow;
 
@@ -47,7 +47,7 @@ test.describe('Start virtual visit with required information only', async () => 
     context = await browser.newContext();
     page = await context.newPage();
     fillingInfo = new FillingInfo(page);
-    paperwork = new Paperwork(page);
+    paperwork = new PaperworkTelemed(page);
     locators = new Locators(page);
     telemedFlow = new TelemedVisitFlow(page);
 
@@ -285,7 +285,7 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
   let context: BrowserContext;
   let page: Page;
   let fillingInfo: FillingInfo;
-  let paperwork: Paperwork;
+  let paperwork: PaperworkTelemed;
   let locators: Locators;
   let telemedFlow: TelemedVisitFlow;
 
@@ -300,7 +300,7 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
     context = await browser.newContext();
     page = await context.newPage();
     fillingInfo = new FillingInfo(page);
-    paperwork = new Paperwork(page);
+    paperwork = new PaperworkTelemed(page);
     locators = new Locators(page);
     telemedFlow = new TelemedVisitFlow(page);
 
@@ -456,7 +456,6 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
   test('Should fill in current medications', async () => {
     await clickContinueButton();
     await clickContinueButton(); // skip page with no required fields
-
     await paperwork.fillAndCheckFilledCurrentMedications();
   });
 
