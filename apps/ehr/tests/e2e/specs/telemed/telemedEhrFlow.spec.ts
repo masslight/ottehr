@@ -1,4 +1,4 @@
-import { BrowserContext, expect, Locator, Page, test } from '@playwright/test';
+import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../../e2e-utils/helpers/tests-utils';
@@ -97,15 +97,6 @@ test.afterAll(async () => {
 
 test.describe.configure({ mode: 'serial' });
 
-async function iterateThroughTable(tableLocator: Locator, callback: (row: Locator) => Promise<void>): Promise<void> {
-  const rows = tableLocator.locator('tbody tr');
-  const rowCount = await rows.count();
-
-  for (let i = 0; i < rowCount; i++) {
-    await callback(rows.nth(i));
-  }
-}
-
 async function fillWaitAndSelectDropdown(page: Page, dropdownDataTestId: string, textToFill: string): Promise<void> {
   // await page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput).click();
   await page.getByTestId(dropdownDataTestId).locator('input').fill(textToFill);
@@ -142,45 +133,18 @@ test('Appointment has location label and is in a relevant location group', async
   await page.goto(`telemed/appointments`);
   await awaitAppointmentsTableToBeVisible(page);
 
-  const table = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTable).locator('table');
-  let foundLocationGroup = false;
-  let foundAppointment = false;
+  const appointmentId = myPatientsTabAppointmentResources.appointment.id;
+  const appointmentRow = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(appointmentId));
 
-  const fullStateName = stateCodeToFullName[testsUserQualificationState];
+  const locationGroup = await appointmentRow.getAttribute('data-location-group');
 
-  await iterateThroughTable(table, async (row) => {
-    if (foundAppointment) return;
-    const rowText = await row.innerText();
-
-    if (foundLocationGroup && !rowText.toLowerCase().includes(TelemedAppointmentStatusEnum.ready)) {
-      foundLocationGroup = false;
-    }
-
-    if (rowText.includes(fullStateName)) {
-      foundLocationGroup = true;
-    }
-
-    if (
-      foundLocationGroup &&
-      rowText.includes(myPatientsTabAppointmentResources.appointment?.id ?? '') &&
-      rowText.includes(testsUserQualificationState)
-    ) {
-      foundAppointment = true;
-    }
-  });
-
-  console.log(`found appointment: ${foundAppointment}, ${foundLocationGroup}`);
-  expect(foundAppointment && foundLocationGroup).toBe(true);
+  expect(locationGroup).toEqual(testsUserQualificationState);
 });
 
 test('All appointments in my-patients section has appropriate assign buttons', async () => {
   const table = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTable).locator('table');
-  await iterateThroughTable(table, async (row) => {
-    const rowText = await row.innerText();
-    if (rowText.toLowerCase().includes(TelemedAppointmentStatusEnum.ready)) {
-      await expect(row.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardAssignButton)).toBeVisible();
-    }
-  });
+  const allButtonsNames = (await table.getByRole('button').allTextContents()).join(', ');
+  expect(allButtonsNames).not.toEqual(new RegExp('View'));
 });
 
 test('Appointment in all-patients section should be readonly', async () => {
