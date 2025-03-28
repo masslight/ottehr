@@ -1,4 +1,4 @@
-import { Questionnaire } from 'fhir/r4b';
+import { Questionnaire, Encounter } from 'fhir/r4b';
 import { DiagnosisDTO } from '../..';
 
 export interface OrderableItemSearchResult {
@@ -100,4 +100,20 @@ export interface GetLabOrdersParameters {
 
   itemsPerPage?: number; // pagination option;
   pageIndex?: number; // pagination option;
+}
+
+export interface CreateLabOrderParameters {
+  dx: DiagnosisDTO[];
+  encounter: Encounter;
+  practitionerId: string;
+  orderableItem: OrderableItemSearchResult;
+  psc: boolean;
+}
+export interface GetCreateLabOrderResources {
+  encounter: Encounter;
+}
+
+export interface LabOrderResourcesRes {
+  coverageName: string;
+  labs: OrderableItemSearchResult[];
 }

@@ -378,6 +378,13 @@
       "src": "src/ehr/create-lab-order/index",
       "zip": ".dist/zips/create-lab-order.zip"
     },
+    "GET-CREATE-LAB-ORDER-RESOURCES": {
+      "name": "GET-CREATE-LAB-ORDER-RESOURCES",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/get-create-lab-order-resources/index",
+      "zip": ".dist/zips/get-create-lab-order-resources.zip"
+    },
     "PAPERWORK-TO-PDF": {
       "name": "PAPERWORK-TO-PDF",
       "type": "http_auth",

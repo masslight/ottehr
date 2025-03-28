@@ -13,6 +13,9 @@ import {
   GetUserResponse,
   OrderDetails,
   PaginatedLabOrderResponse,
+  CreateLabOrderParameters,
+  GetCreateLabOrderResources,
+  LabOrderResourcesRes,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -24,7 +27,6 @@ import {
   UnassignPractitionerParameters,
   ChangeInPersonVisitStatusParameters,
   UpdateUserParameters,
-  SubmitLabOrderParameters,
 } from '../types/types';
 
 export interface PatchOperation {
@@ -54,6 +56,7 @@ const GET_EMPLOYEES_ZAMBDA_ID = import.meta.env.VITE_APP_GET_EMPLOYEES_ZAMBDA_ID
 const GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID = import.meta.env.VITE_APP_GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID;
 const SAVE_PATIENT_FOLLOWUP_ZAMBDA_ID = import.meta.env.VITE_APP_SAVE_PATIENT_FOLLOWUP_ZAMBDA_ID;
 const CREATE_LAB_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_LAB_ORDER_ZAMBDA_ID;
+const GET_CREATE_LAB_ORDER_RESOURCES = import.meta.env.VITE_APP_GET_CREATE_LAB_ORDER_RESOURCES;
 const GET_LAB_ORDERS_ZAMBDA_ID = import.meta.env.VITE_APP_GET_LAB_ORDERS_ZAMBDA_ID;
 const DELETE_LAB_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_DELETE_LAB_ORDER_ZAMBDA_ID;
 
@@ -480,13 +483,32 @@ export const getSignedPatientProfilePhotoUrl = async (
   }
 };
 
-export const createLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrderParameters): Promise<any> => {
+export const createLabOrder = async (oystehr: Oystehr, parameters: CreateLabOrderParameters): Promise<any> => {
   try {
     if (CREATE_LAB_ORDER_ZAMBDA_ID == null) {
-      throw new Error('submit lab order environment variable could not be loaded');
+      throw new Error('create lab order environment variable could not be loaded');
     }
     const response = await oystehr.zambda.execute({
       id: CREATE_LAB_ORDER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getCreateLabOrderResources = async (
+  oystehr: Oystehr,
+  parameters: GetCreateLabOrderResources
+): Promise<LabOrderResourcesRes> => {
+  try {
+    if (GET_CREATE_LAB_ORDER_RESOURCES == null) {
+      throw new Error('get create lab resources order environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: GET_CREATE_LAB_ORDER_RESOURCES,
       ...parameters,
     });
     return chooseJson(response);

@@ -1,13 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
-  DiagnosisDTO,
   OrderableItemSearchResult,
   PSC_HOLD_CONFIG,
   LAB_ORDER_TASK,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   FHIR_IDC10_VALUESET_SYSTEM,
   flattenBundleResources,
-  Secrets,
 } from 'utils';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
@@ -22,6 +20,7 @@ import {
   Coverage,
   ActivityDefinition,
   Patient,
+  Account,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
@@ -29,15 +28,7 @@ import { randomUUID } from 'crypto';
 import { createOystehrClient } from '../../shared/helpers';
 import { checkOrCreateM2MClientToken, topLevelCatch } from '../../shared';
 import { ZambdaInput } from '../../shared/types';
-
-export interface SubmitLabOrder {
-  dx: DiagnosisDTO[];
-  encounter: Encounter;
-  practitionerId: string;
-  orderableItem: OrderableItemSearchResult;
-  pscHold: boolean;
-  secrets: Secrets | null;
-}
+import { getPrimaryInsurance } from '../shared/labs';
 
 let m2mtoken: string;
 
@@ -45,13 +36,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { dx, encounter, practitionerId, orderableItem, pscHold, secrets } = validatedParameters;
+    const { dx, encounter, practitionerId, orderableItem, psc, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);
 
+    console.log('encounter id', encounter.id);
     const { labOrganization, coverage, location, patientId, existingActivityDefinition } = await getAdditionalResources(
       orderableItem,
       encounter,
@@ -86,11 +78,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       subject: {
         reference: `Patient/${patientId}`,
       },
-      insurance: [
-        {
-          reference: `Coverage/${coverage.id}`,
-        },
-      ],
       encounter: {
         reference: `Encounter/${encounter.id}`,
       },
@@ -114,7 +101,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       instantiatesCanonical: [`#${activityDefinitionId}`],
       contained: [activityDefinitionToContain],
     };
-    if (pscHold) {
+    if (coverage) {
+      serviceRequestConfig.insurance = [
+        {
+          reference: `Coverage/${coverage.id}`,
+        },
+      ];
+    }
+    if (psc) {
       serviceRequestConfig.orderDetail = [
         {
           coding: [
@@ -304,7 +298,7 @@ const getAdditionalResources = async (
   oystehr: Oystehr
 ): Promise<{
   labOrganization: Organization;
-  coverage: Coverage;
+  coverage?: Coverage;
   location: Location;
   patientId: string;
   existingActivityDefinition: ActivityDefinition | undefined;
@@ -318,9 +312,9 @@ const getAdditionalResources = async (
     method: 'GET',
     url: `/ActivityDefinition?name=${orderableItem.item.uniqueName}&publisher=${orderableItem.lab.labName}&version=${orderableItem.lab.compendiumVersion}`,
   };
-  const encounterResourceSearch: BatchInputRequest<Patient | Location | Coverage> = {
+  const encounterResourceSearch: BatchInputRequest<Patient | Location | Coverage | Account> = {
     method: 'GET',
-    url: `/Encounter?_id=${encounter.id}&_include=Encounter:patient&_include=Encounter:location&_revinclude:iterate=Coverage:patient`,
+    url: `/Encounter?_id=${encounter.id}&_include=Encounter:patient&_include=Encounter:location&_revinclude:iterate=Coverage:patient&_revinclude:iterate=Account:patient`,
   };
 
   console.log('searching for lab org, activity definition, and encounter resources');
@@ -331,10 +325,11 @@ const getAdditionalResources = async (
   const labOrganizationSearchResults: Organization[] = [];
   const activityDefinitionSearchResults: ActivityDefinition[] = [];
   const coverageSearchResults: Coverage[] = [];
+  const accountSearchResults: Account[] = [];
   let patientId: string | undefined;
   let location: Location | undefined;
 
-  const resources = flattenBundleResources<Organization | ActivityDefinition | Coverage | Patient | Location>(
+  const resources = flattenBundleResources<Organization | ActivityDefinition | Coverage | Patient | Location | Account>(
     searchResults
   );
 
@@ -345,15 +340,22 @@ const getAdditionalResources = async (
     if (resource.resourceType === 'Coverage') coverageSearchResults.push(resource as Coverage);
     if (resource.resourceType === 'Patient') patientId = resource.id;
     if (resource.resourceType === 'Location') location = resource as Location;
+    if (resource.resourceType === 'Account') {
+      const fhirAccount = resource as Account;
+      if (fhirAccount.status === 'active') accountSearchResults.push(fhirAccount);
+    }
   });
 
+  if (accountSearchResults.length !== 1)
+    throw new Error('patient must have one account account record to represent a guarantor to order labs');
+
+  const patientAccount = accountSearchResults[0];
+  const patientPrimaryInsurance = getPrimaryInsurance(patientAccount, coverageSearchResults);
+
   const missingRequiredResourcse: string[] = [];
-  const coverage = coverageSearchResults?.[0]; // todo how to confirm primary?
-  if (!coverage) missingRequiredResourcse.push('coverage');
   if (!patientId) missingRequiredResourcse.push('patient');
   if (!location) missingRequiredResourcse.push('location');
-  if (!coverage) missingRequiredResourcse.push('coverage');
-  if (!coverage || !patientId || !location || !coverage) {
+  if (!patientId || !location) {
     throw new Error(
       `The following resources could not be found for this encounter: ${missingRequiredResourcse.join(', ')}`
     );
@@ -367,7 +369,7 @@ const getAdditionalResources = async (
 
   return {
     labOrganization,
-    coverage,
+    coverage: patientPrimaryInsurance,
     location,
     patientId,
     existingActivityDefinition: activityDefinitionSearchResults?.[0],
