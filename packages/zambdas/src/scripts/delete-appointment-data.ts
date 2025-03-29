@@ -1,10 +1,12 @@
-import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputDeleteRequest, BatchInputPatchRequest } from '@oystehr/sdk';
+import { Operation } from 'fast-json-patch';
 import {
   Appointment,
   DocumentReference,
   Encounter,
   FhirResource,
   Patient,
+  Person,
   QuestionnaireResponse,
   RelatedPerson,
 } from 'fhir/r4b';
@@ -17,15 +19,18 @@ const deleteAppointmentData = async (config: any): Promise<void> => {
   const appointmentId = process.argv[3];
 
   const allResources = await getAppointmentById(oystehr, appointmentId);
-  const deleteRequests = generateDeleteRequests(allResources);
+  const [deleteRequests, updateRequests] = generateDeleteAndUpdateRequests(allResources);
 
-  await oystehr.fhir.transaction({ requests: deleteRequests });
+  await oystehr.fhir.batch({ requests: [...deleteRequests,...updateRequests] });
 
-  console.log('Appointment data batch removed');
+  console.log('Appointment data batch removed and person updated');
 };
 
-const generateDeleteRequests = (allResources: FhirResource[]): BatchInputDeleteRequest[] => {
+const generateDeleteAndUpdateRequests = (allResources: FhirResource[]): [BatchInputDeleteRequest[], BatchInputPatchRequest<Person>[]] => {
   const deleteRequests: BatchInputDeleteRequest[] = [];
+  const updateRequests: BatchInputPatchRequest<Person>[] = [];
+
+  const person = allResources.filter((resourceTemp) => resourceTemp.resourceType === 'Person')?.[0];
 
   allResources
     .filter((resourceTemp) => resourceTemp.resourceType === 'Appointment')
@@ -55,9 +60,21 @@ const generateDeleteRequests = (allResources: FhirResource[]): BatchInputDeleteR
         (allResources.filter((resourceTemp) => resourceTemp.resourceType === 'RelatedPerson') as RelatedPerson[])
           .filter((relatedPersonTemp) => relatedPersonTemp.patient.reference === `Patient/${patient.id}`)
           .forEach(
-            (relatedPersonTemp) =>
-              relatedPersonTemp.id &&
-              deleteRequests.push({ method: 'DELETE', url: `/RelatedPerson/${relatedPersonTemp.id}` })
+            (relatedPersonTemp) => {
+              if (relatedPersonTemp.id) {
+                deleteRequests.push({ method: 'DELETE', url: `/RelatedPerson/${relatedPersonTemp.id}` });
+                const linkIndex = person?.link?.findIndex((linkTemp) => linkTemp.target?.reference === `RelatedPerson/${relatedPersonTemp.id}`) || -1;
+                if (linkIndex >= 0) {
+                  const operations: Operation[] = [];
+                  if (person?.link?.length === 1) {
+                    operations.push({ op: 'remove', path: '/link' });
+                  } else {
+                    operations.push({ op: 'remove', path: `/link/${linkIndex}` });
+                  }
+                  updateRequests.push({method: 'PATCH', url: `/Person/${person?.id}`, operations});
+                }
+              }
+            }
           );
 
         (
@@ -82,7 +99,13 @@ const generateDeleteRequests = (allResources: FhirResource[]): BatchInputDeleteR
     console.log(`${resourceType}: ${id}`);
   });
 
-  return deleteRequests;
+  console.log('Resources to be updated:');
+  updateRequests.forEach((request) => {
+    const [resourceType, id] = request.url.slice(1).split('/');
+    console.log(`${resourceType}: ${id}`);
+  });
+
+  return [deleteRequests, updateRequests];
 };
 
 const getAppointmentById = async (oystehr: Oystehr, appointmentId: string): Promise<FhirResource[]> => {
@@ -117,12 +140,16 @@ const getAppointmentById = async (oystehr: Oystehr, appointmentId: string): Prom
         name: '_revinclude:iterate',
         value: 'QuestionnaireResponse:encounter',
       },
+      {
+        name: '_revinclude:iterate',
+        value: 'Person:relatedperson',
+      },
     ],
   };
 
   return (
     await oystehr.fhir.search<
-      Appointment | DocumentReference | Encounter | Patient | RelatedPerson | QuestionnaireResponse
+      Appointment | DocumentReference | Encounter | Patient | RelatedPerson | QuestionnaireResponse | Person
     >(fhirSearchParams)
   ).unbundle();
 };
