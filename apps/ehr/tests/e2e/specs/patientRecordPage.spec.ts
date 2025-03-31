@@ -91,8 +91,8 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.selectState(NEW_STATE);
     await patientInformationPage.enterPatientEmail(NEW_PATIENT_EMAIL);
     await patientInformationPage.enterPatientMobile(NEW_PATIENT_MOBILE);
-    // await patientInformationPage.selectPatientEthnicity(NEW_PATIENT_ETHNICITY);-uncomment when https://github.com/masslight/ottehr/issues/1648 will be fixed
-    //await patientInformationPage.selectPatientRace(NEW_PATIENT_RACE);
+    await patientInformationPage.selectPatientEthnicity(NEW_PATIENT_ETHNICITY);
+    await patientInformationPage.selectPatientRace(NEW_PATIENT_RACE);
     await patientInformationPage.selectRelationship(NEW_RELATIONSHIP);
     await patientInformationPage.enterFirstName(NEW_FIRST_NAME);
     await patientInformationPage.enterLastName(NEW_LAST_NAME);
@@ -114,8 +114,8 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyState(NEW_STATE);
     await patientInformationPage.verifyPatientEmail(NEW_PATIENT_EMAIL);
     await patientInformationPage.verifyPatientMobile(NEW_PATIENT_MOBILE);
-    //await patientInformationPage.verifyPatientEthnicity(NEW_PATIENT_ETHNICITY); - uncomment when https://github.com/masslight/ottehr/issues/1648 will be fixed
-    //await patientInformationPage.verifyPatientRace(NEW_PATIENT_RACE);
+    await patientInformationPage.verifyPatientEthnicity(NEW_PATIENT_ETHNICITY);
+    await patientInformationPage.verifyPatientRace(NEW_PATIENT_RACE);
     await patientInformationPage.verifyRelationship(NEW_RELATIONSHIP);
     await patientInformationPage.verifyFirstName(NEW_FIRST_NAME);
     await patientInformationPage.verifyLastName(NEW_LAST_NAME);
