@@ -102,11 +102,14 @@ import {
   flattenItems,
   PATIENT_BILLING_ACCOUNT_TYPE,
   formatPhoneNumber,
+  getSecret,
+  Secrets,
+  SecretsKeys,
+  getPatchOperationToAddOrUpdatePreferredName,
 } from 'utils';
-import { getSecret, Secrets, SecretsKeys } from 'zambda-utils';
 import _ from 'lodash';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
-import { createPdfBytes } from '../../../patient/shared/pdf';
+import { createPdfBytes } from '../../../shared';
 
 const IGNORE_CREATING_TASKS_FOR_REVIEW = true;
 
@@ -1057,6 +1060,8 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-birthdate': patientFieldPaths.birthDate,
   'patient-pronouns': patientFieldPaths.preferredPronouns,
   'patient-pronouns-custom': patientFieldPaths.preferredPronounsCustom,
+  'patient-name-suffix': patientFieldPaths.suffix,
+  'patient-preferred-name': patientFieldPaths.preferredName,
   'patient-birth-sex': patientFieldPaths.gender,
   'patient-birth-sex-missing': patientFieldPaths.genderIdentityDetails,
   'patient-number': patientFieldPaths.phone,
@@ -1220,6 +1225,23 @@ export function createMasterRecordPatchOperations(
               path,
               patient,
               currentValue as LanguageOption
+            );
+
+            if (operation) tempOperations.patient.push(operation);
+          }
+          return;
+        }
+
+        if (item.linkId === 'patient-preferred-name') {
+          const prefferedNameIndex = patient.name?.findIndex((name) => name.use === 'nickname');
+          const currentPath = path.replace(/name\/\d+/, `name/${prefferedNameIndex}`);
+          const currentValue = getCurrentValue(patient, currentPath);
+
+          if (value !== currentValue) {
+            const operation = getPatchOperationToAddOrUpdatePreferredName(
+              currentPath,
+              currentValue as string,
+              value as string
             );
 
             if (operation) tempOperations.patient.push(operation);

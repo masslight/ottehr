@@ -8,6 +8,7 @@ enum BASE_SEARCH_PARAMS {
   _elements = '_elements',
   _contained = '_contained',
   _containedType = '_containedType',
+  _tag = '_tag',
 }
 
 interface BaseSearchParams {
@@ -38,6 +39,9 @@ interface BaseSearchParams {
 
   // ?_containedType=container
   [BASE_SEARCH_PARAMS._containedType]?: 'container' | 'contained';
+
+  // ?_tag=tag
+  [BASE_SEARCH_PARAMS._tag]?: string | string[];
 }
 
 type AdvancedSearchParams = Record<
@@ -94,6 +98,12 @@ export function addSearchParams(url: string, searchParams?: SearchParams): strin
     params.push(`_contained=${searchParams[BASE_SEARCH_PARAMS._contained]}`);
   if (searchParams[BASE_SEARCH_PARAMS._containedType])
     params.push(`_containedType=${searchParams[BASE_SEARCH_PARAMS._containedType]}`);
+  if (searchParams[BASE_SEARCH_PARAMS._tag]) {
+    const tags = Array.isArray(searchParams[BASE_SEARCH_PARAMS._tag])
+      ? searchParams[BASE_SEARCH_PARAMS._tag]
+      : [searchParams[BASE_SEARCH_PARAMS._tag]];
+    params.push(`_tag=${tags.join(',')}`);
+  }
 
   // advanced search params
   Object.entries(searchParams).forEach(([key, param]) => {

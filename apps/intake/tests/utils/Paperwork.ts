@@ -216,6 +216,13 @@ export class Paperwork {
     await this.fillPointOfDiscovery();
     await this.fillPreferredLanguage();
   }
+  async fillPatientDetailsTelemedAllFields(): Promise<void> {
+    await this.fillPatientDetailsAllFields();
+    await this.fillRelayServiceNo();
+  }
+  async fillRelayServiceNo(): Promise<void> {
+    await this.locator.relayServiceNo.check();
+  }
   async skipPrimaryCarePhysician(): Promise<void> {
     await this.CommonLocatorsHelper.clickContinue();
   }
@@ -473,10 +480,9 @@ export class Paperwork {
     await this.page.getByRole('option', { name: relationship }).click();
     return { relationship };
   }
-  async checkImagesAreSaved(frontImage: Locator, backImage: Locator): Promise<void> {
+  async checkImagesIsSaved(image: Locator): Promise<void> {
     const today = await this.CommonLocatorsHelper.getToday();
-    await expect(frontImage).toHaveText(`We already have this! It was saved on ${today}. Click to re-upload.`);
-    await expect(backImage).toHaveText(`We already have this! It was saved on ${today}. Click to re-upload.`);
+    await expect(image).toHaveText(`We already have this! It was saved on ${today}. Click to re-upload.`);
   }
   async fillConsentForms(): Promise<{ signature: string; relationshipConsentForms: string; consentFullName: string }> {
     await this.validateAllOptions(

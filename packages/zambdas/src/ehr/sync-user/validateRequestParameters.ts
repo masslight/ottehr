@@ -1,4 +1,4 @@
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): Pick<ZambdaInput, 'secrets'> {
   console.group('validateRequestParameters');

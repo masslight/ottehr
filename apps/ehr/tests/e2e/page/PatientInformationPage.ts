@@ -1,6 +1,30 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { PatientHeader } from './PatientHeader';
+import { formatPhoneNumber, formatPhoneNumberForQuestionarie } from 'utils';
+
+export enum Field {
+  PATIENT_LAST_NAME,
+  PATIENT_FIRST_NAME,
+  PATIENT_DOB,
+  PATIENT_GENDER,
+  DEMO_VISIT_STREET_ADDRESS,
+  DEMO_VISIT_CITY,
+  DEMO_VISIT_ZIP,
+  PATIENT_EMAIL,
+  PATIENT_PHONE_NUMBER,
+}
+
+const FIELD_TO_TEST_ID = new Map<Field, string>()
+  .set(Field.PATIENT_LAST_NAME, dataTestIds.patientInformationContainer.patientLastName)
+  .set(Field.PATIENT_FIRST_NAME, dataTestIds.patientInformationContainer.patientFirstName)
+  .set(Field.PATIENT_DOB, dataTestIds.patientInformationContainer.patientDateOfBirth)
+  .set(Field.PATIENT_GENDER, dataTestIds.patientInformationContainer.patientBirthSex)
+  .set(Field.DEMO_VISIT_STREET_ADDRESS, dataTestIds.contactInformationContainer.streetAddress)
+  .set(Field.DEMO_VISIT_CITY, dataTestIds.contactInformationContainer.city)
+  .set(Field.DEMO_VISIT_ZIP, dataTestIds.contactInformationContainer.zip)
+  .set(Field.PATIENT_EMAIL, dataTestIds.contactInformationContainer.patientEmail)
+  .set(Field.PATIENT_PHONE_NUMBER, dataTestIds.contactInformationContainer.patientMobile);
 
 export class PatientInformationPage {
   #page: Page;
@@ -25,6 +49,15 @@ export class PatientInformationPage {
       this.#page.getByTestId(dataTestIds.patientInformationContainer.patientLastName).locator('input')
     ).toHaveValue(patientLastName);
   }
+  async clearPatientLastName(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.patientInformationContainer.patientLastName).locator('input').clear();
+  }
+
+  async verifyValidationErrorShown(field: Field): Promise<void> {
+    await expect(
+      this.#page.getByTestId(FIELD_TO_TEST_ID.get(field)!).locator('p:text("This field is required")')
+    ).toBeVisible();
+  }
 
   async enterPatientFirstName(patientFirstName: string): Promise<void> {
     await this.#page
@@ -39,15 +72,75 @@ export class PatientInformationPage {
     ).toHaveValue(patientFirstName);
   }
 
+  async clearPatientFirstName(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.patientInformationContainer.patientFirstName).locator('input').clear();
+  }
+
+  async enterPatientMiddleName(patientMiddleName: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.patientInformationContainer.patientMiddleName)
+      .locator('input')
+      .fill(patientMiddleName);
+  }
+
+  async verifyPatientMiddleName(patientMiddleName: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.patientInformationContainer.patientMiddleName).locator('input')
+    ).toHaveValue(patientMiddleName);
+  }
+
+  async enterPatientSuffix(patientSuffix: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.patientInformationContainer.patientSuffix)
+      .locator('input')
+      .fill(patientSuffix);
+  }
+
+  async verifyPatientSuffix(patientSuffix: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.patientInformationContainer.patientSuffix).locator('input')
+    ).toHaveValue(patientSuffix);
+  }
+
+  async enterPatientPreferredName(patientPreferredName: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.patientInformationContainer.patientPreferredName)
+      .locator('input')
+      .fill(patientPreferredName);
+  }
+
+  async verifyPatientPreferredName(patientPreferredName: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.patientInformationContainer.patientPreferredName).locator('input')
+    ).toHaveValue(patientPreferredName);
+  }
+
   async enterPatientDateOfBirth(patientDateOfBirth: string): Promise<void> {
-    const locator = this.#page.locator('#patient-birthdate');
+    const locator = this.#page.getByTestId(dataTestIds.patientInformationContainer.patientDateOfBirth).locator('input');
     await locator.click();
     await this.#page.waitForTimeout(2000);
     await locator.pressSequentially(patientDateOfBirth);
   }
 
   async verifyPatientDateOfBirth(patientDateOfBirth: string): Promise<void> {
-    await expect(this.#page.locator('#patient-birthdate')).toHaveValue(patientDateOfBirth);
+    await expect(
+      this.#page.getByTestId(dataTestIds.patientInformationContainer.patientDateOfBirth).locator('input')
+    ).toHaveValue(patientDateOfBirth);
+  }
+
+  async clearPatientDateOfBirth(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.patientInformationContainer.patientDateOfBirth).locator('input').clear();
+  }
+
+  async selectPatientPreferredPronouns(pronouns: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.patientInformationContainer.patientPreferredPronouns).click();
+    await this.#page.getByText(pronouns, { exact: true }).click();
+  }
+
+  async verifyPatientPreferredPronouns(patientPreferredPronouns: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.patientInformationContainer.patientPreferredPronouns).locator('input')
+    ).toHaveValue(patientPreferredPronouns);
   }
 
   async selectPatientBirthSex(birthSex: string): Promise<void> {
@@ -59,6 +152,10 @@ export class PatientInformationPage {
     await expect(
       this.#page.getByTestId(dataTestIds.patientInformationContainer.patientBirthSex).locator('input')
     ).toHaveValue(patientBirthSex);
+  }
+
+  async clearPatientBirthSex(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.patientInformationContainer.patientBirthSex).locator('input').clear();
   }
 
   async enterStreetAddress(streetAddress: string): Promise<void> {
@@ -74,6 +171,23 @@ export class PatientInformationPage {
     ).toHaveValue(streetAddress);
   }
 
+  async clearStreetAdress(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.contactInformationContainer.streetAddress).locator('input').clear();
+  }
+
+  async enterAddressLineOptional(addressLineOptional: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.contactInformationContainer.addressLineOptional)
+      .locator('input')
+      .fill(addressLineOptional);
+  }
+
+  async verifyAddressLineOptional(addressLineOptional: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.contactInformationContainer.addressLineOptional).locator('input')
+    ).toHaveValue(addressLineOptional);
+  }
+
   async enterCity(city: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.contactInformationContainer.city).locator('input').fill(city);
   }
@@ -82,6 +196,10 @@ export class PatientInformationPage {
     await expect(this.#page.getByTestId(dataTestIds.contactInformationContainer.city).locator('input')).toHaveValue(
       city
     );
+  }
+
+  async clearCity(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.contactInformationContainer.city).locator('input').clear();
   }
 
   async selectState(state: string): Promise<void> {
@@ -103,6 +221,16 @@ export class PatientInformationPage {
     await expect(this.#page.getByTestId(dataTestIds.contactInformationContainer.zip).locator('input')).toHaveValue(zip);
   }
 
+  async verifyValidationErrorZipField(): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.contactInformationContainer.zip).locator('p:text("Must be 5 digits")')
+    ).toBeVisible();
+  }
+
+  async clearZip(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.contactInformationContainer.zip).locator('input').clear();
+  }
+
   async enterPatientEmail(email: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.contactInformationContainer.patientEmail).locator('input').fill(email);
   }
@@ -111,6 +239,18 @@ export class PatientInformationPage {
     await expect(
       this.#page.getByTestId(dataTestIds.contactInformationContainer.patientEmail).locator('input')
     ).toHaveValue(email);
+  }
+
+  async clearPatientEmail(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.contactInformationContainer.patientEmail).locator('input').clear();
+  }
+
+  async verifyValidationErrorInvalidEmail(): Promise<void> {
+    await expect(
+      this.#page
+        .getByTestId(dataTestIds.contactInformationContainer.patientEmail)
+        .locator('p:text("Must be in the format \\"email@example.com\\"")')
+    ).toBeVisible();
   }
 
   async enterPatientMobile(patientMobile: string): Promise<void> {
@@ -123,7 +263,22 @@ export class PatientInformationPage {
   async verifyPatientMobile(patientMobile: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.contactInformationContainer.patientMobile).locator('input')
-    ).toHaveValue(patientMobile);
+    ).toHaveValue(formatPhoneNumberForQuestionarie(patientMobile));
+  }
+
+  async clearPatientMobile(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.contactInformationContainer.patientMobile).locator('input').click();
+    for (let i = 0; i <= 20; i++) {
+      await this.#page.keyboard.press('Backspace');
+    }
+  }
+
+  async verifyValidationErrorInvalidMobile(): Promise<void> {
+    await expect(
+      this.#page
+        .getByTestId(dataTestIds.contactInformationContainer.patientMobile)
+        .locator('p:text("Phone number must be 10 digits in the format (xxx) xxx-xxxx")')
+    ).toBeVisible();
   }
 
   async selectPatientEthnicity(patientEthnicity: string): Promise<void> {
@@ -220,7 +375,7 @@ export class PatientInformationPage {
   async verifyPhoneFromResponsibleContainer(phone: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.phoneInput).locator('input')
-    ).toHaveValue(phone);
+    ).toHaveValue(formatPhoneNumberForQuestionarie(phone));
   }
 
   async selectReleaseOfInfo(releaseOfInfo: string): Promise<void> {

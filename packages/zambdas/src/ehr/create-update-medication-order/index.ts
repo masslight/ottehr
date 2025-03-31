@@ -18,8 +18,7 @@ import {
   searchRouteByCode,
   UpdateMedicationOrderInput,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
+import { createOystehrClient } from '../../shared/helpers';
 import { createMedicationAdministrationResource, createMedicationStatementResource } from './fhir-recources-creation';
 import {
   createMedicationCopy,
@@ -31,6 +30,8 @@ import {
   validateProviderAccess,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+import { checkOrCreateM2MClientToken } from '../../shared';
+import { ZambdaInput } from '../../shared/types';
 
 export interface ExtendedMedicationData extends MedicationData {
   administeredProvider?: string;
@@ -132,7 +133,8 @@ async function updateOrder(
 
   const resultPromises: Promise<any>[] = [];
   if (extendedOrderData) {
-    if (newStatus === 'administered') extendedOrderData.administeredProvider = practitionerIdCalledZambda;
+    if (newStatus === 'administered' || newStatus === 'administered-partly')
+      extendedOrderData.administeredProvider = practitionerIdCalledZambda;
     await updateMedicationAdministrationData(oystehr, extendedOrderData, orderPkg);
     console.log('MedicationAdministration data was successfully updated.');
   }

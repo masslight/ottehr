@@ -5,7 +5,7 @@ import { telemedDialogConfirm } from './tests-utils';
 
 export async function assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(
   page: Page,
-  forceWaitForAssignButton = false
+  { forceWaitForAssignButton = false }: { forceWaitForAssignButton?: boolean } = {}
 ): Promise<void> {
   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.appointmentChartFooter)).toBeVisible();
   const assignButton = page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonAssignMe);
