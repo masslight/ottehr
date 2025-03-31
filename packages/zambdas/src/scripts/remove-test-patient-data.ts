@@ -11,45 +11,60 @@ const deleteTestPatientsData = async (config: any): Promise<void> => {
 
   const oystehr = await createOystehrClientFromConfig(config);
 
-  const fhirSearchParams = {
-    resourceType: 'Patient',
-    params: [
-      {
-        name: 'name',
-        value: 'Test_Doe_Random,TA_User,TM_User',
-      },
-      {
-        name: '_revinclude',
-        value: 'Appointment:patient',
-      },
-    ],
-  };
 
-  const resources = (await oystehr.fhir.search<Patient | Appointment>(fhirSearchParams)).unbundle();
-  const appointments = resources.filter((resource) => resource.resourceType === 'Appointment') as Appointment[];
-  console.log(appointments);
+  let hasMoreAppointments = true;
 
-  await Promise.all(appointments.map(async (appt) => {
-    try {
-      const { stdout, stderr } = await exec(
-        `tsx ./src/scripts/delete-appointment-data.ts ${env} ${appt.id}`
-      );
+  while (hasMoreAppointments) {
 
-      if (stdout) {
-        console.log('STDOUT:', stdout);
-        return true;
-      }
+    const fhirSearchParams = {
+      resourceType: 'Patient',
+      params: [
+        {
+          name: 'name',
+          value: 'Test_Doe_Random,TA_User,TM_User',
+        },
+        {
+          name: '_revinclude',
+          value: 'Appointment:patient',
+        },
+          {
+            name: '_count',
+            value: '25',
+          }
+      ],
+    };
 
-      if (stderr) {
-        console.error('STDERR:', stderr);
-      }
+    const resources = (await oystehr.fhir.search<Patient | Appointment>(fhirSearchParams)).unbundle();
+    const appointments = resources.filter((resource) => resource.resourceType === 'Appointment') as Appointment[];
+    console.log(appointments);
 
-      return false;
-    } catch (error) {
-      console.error('Error:', error);
-      return false;
+    if (appointments.length === 0) {
+      hasMoreAppointments = false;
+      continue;
     }
-  }));
+
+    await Promise.all(appointments.map(async (appt) => {
+      try {
+        const { stdout, stderr } = await exec(
+          `tsx ./src/scripts/delete-appointment-data.ts ${env} ${appt.id}`
+        );
+
+        if (stdout) {
+          console.log('STDOUT:', stdout);
+          return true;
+        }
+
+        if (stderr) {
+          console.error('STDERR:', stderr);
+        }
+
+        return false;
+      } catch (error) {
+          console.error('Error:', error);
+          return false;
+        }
+    }));
+  }
 };
 
 async function removeOldAppointments(config: any): Promise<void> {
