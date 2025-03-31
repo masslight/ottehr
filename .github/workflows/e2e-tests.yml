@@ -38,7 +38,7 @@ jobs:
         node-version:
           - "20"
       fail-fast: false
-    runs-on: ubuntu-latest-8-cores
+    runs-on: ubuntu-latest-16-cores
     timeout-minutes: 30
     steps:
       - name: Checkout repository
@@ -60,6 +60,14 @@ jobs:
             ${{ runner.os }}-build-${{ env.cache-name }}-
             ${{ runner.os }}-build-
             ${{ runner.os }}-
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
 
       - name: Cache user.json
         if: matrix.app == 'intake'
