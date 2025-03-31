@@ -11,12 +11,12 @@ import {
   removePrefix,
   searchMedicationLocation,
   searchRouteByCode,
+  Secrets,
 } from 'utils';
-import { Secrets } from 'zambda-utils';
-import { createOystehrClient } from '../shared/helpers';
-import { ZambdaInput } from 'zambda-utils';
+import { createOystehrClient } from '../../shared/helpers';
 import { createMedicationAdministrationResource } from './fhir-recources-creation';
 import { ExtendedMedicationData } from './index';
+import { ZambdaInput } from '../../shared/types';
 
 export function getPerformerId(medicationAdministration: MedicationAdministration): string | undefined {
   return medicationAdministration.performer?.find((perf) => perf.actor.reference)?.actor.reference;
