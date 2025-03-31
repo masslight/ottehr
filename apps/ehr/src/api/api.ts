@@ -2,6 +2,7 @@ import Oystehr, { User } from '@oystehr/sdk';
 import {
   chooseJson,
   ConversationMessage,
+  GetAppointmentsParameters,
   GetEmployeesResponse,
   GetScheduleRequestParams,
   GetScheduleResponse,
@@ -14,7 +15,6 @@ import {
   ChangeInPersonVisitStatusParameters,
   CreateAppointmentParameters,
   DeactivateUserParameters,
-  GetAppointmentsParameters,
   SaveFollowupParameter,
   SubmitLabOrderParameters,
   UnassignPractitionerParameters,

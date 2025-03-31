@@ -11,14 +11,6 @@ import {
 } from 'utils';
 import { ScheduleType, ServiceMode } from 'utils';
 
-export interface GetAppointmentsParameters {
-  searchDate?: string;
-  locationID: string | undefined;
-  visitType?: string[];
-  providerIDs?: string[];
-  groupIDs?: string[];
-}
-
 export interface CreateAppointmentParameters {
   slot?: string | undefined;
   patient: PatientInfo | undefined;

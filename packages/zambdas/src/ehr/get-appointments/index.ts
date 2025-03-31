@@ -15,6 +15,7 @@ import {
 import { DateTime } from 'luxon';
 import {
   AppointmentRelatedResources,
+  GetAppointmentsParameters,
   INSURANCE_CARD_CODE,
   InPersonAppointmentInformation,
   PHOTO_ID_CARD_CODE,
@@ -50,12 +51,7 @@ import { validateRequestParameters } from './validateRequestParameters';
 import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
 import { isNonPaperworkQuestionnaireResponse } from '../../common';
 
-export interface GetAppointmentsInput {
-  searchDate: string;
-  locationID?: string;
-  providerIDs?: string[];
-  groupIDs?: string[];
-  visitType: string[];
+export interface GetAppointmentsInput extends GetAppointmentsParameters {
   secrets: Secrets | null;
 }
 
@@ -389,9 +385,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     console.time('structure_appointment_data');
     let appointments: Appointment[] = [];
-    if (visitType?.length > 0) {
+    if (visitType.length > 0) {
       appointments = allAppointments?.filter((appointment) => {
-        return visitType?.includes(appointmentTypeForAppointment(appointment));
+        return visitType.includes(appointmentTypeForAppointment(appointment));
       });
     } else {
       appointments = allAppointments;

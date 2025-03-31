@@ -13,6 +13,7 @@ import { InPersonAppointmentInformation } from 'utils';
 import { otherColors } from '../CustomThemeProvider';
 import { getAppointments } from '../api/api';
 import AppointmentTabs from '../components/AppointmentTabs';
+import CreateDemoVisits from '../components/CreateDemoVisits';
 import DateSearch from '../components/DateSearch';
 import GroupSelect from '../components/GroupSelect';
 import LocationSelect from '../components/LocationSelect';
@@ -21,9 +22,8 @@ import { adjustTopForBannerHeight } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import { VisitType, VisitTypeToLabel } from '../types/types';
-import CreateDemoVisits from '../components/CreateDemoVisits';
 import { useDebounce } from '../telemed/hooks';
+import { VisitType, VisitTypeToLabel } from '../types/types';
 
 type LoadingState = { status: 'loading' | 'initial'; id?: string | undefined } | { status: 'loaded'; id: string };
 
@@ -192,7 +192,7 @@ export default function Appointments(): ReactElement {
       ) {
         const searchResults = await getAppointments(client, {
           locationID: locationID || locationSelected?.id || undefined,
-          searchDate,
+          searchDate: searchDate || appointmentDate?.toISO?.() || '',
           visitType: visitType || [],
           providerIDs: providers,
           groupIDs: groups,
