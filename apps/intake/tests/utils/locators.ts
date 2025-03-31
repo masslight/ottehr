@@ -170,6 +170,18 @@ export class Locators {
   relayServiceYes: Locator;
   deleteButton: Locator;
   photoPatientCondition: Locator;
+  neitherNotes: Locator;
+  schoolOnlyNotes: Locator;
+  workOnlyNotes: Locator;
+  schoolAndWorkNotes: Locator;
+  templatesBlock: Locator;
+  uploadSchoolTemplate: Locator;
+  uploadWorkTemplate: Locator;
+  schoolTemplateLabel: Locator;
+  workTemplateLabel: Locator;
+  removeFile: Locator;
+  schoolNoteFile: Locator;
+  workNoteFile: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -355,6 +367,20 @@ export class Locators {
     this.testedPositiveCovid = (flag) =>
       page.locator(`div[aria-labelledby='tested-positive-covid-label'] input[value='${flag}']`);
     this.travelUSA = (flag) => page.locator(`div[aria-labelledby='travel-usa-label'] input[value='${flag}']`);
+
+    // School/work notes
+    this.neitherNotes = page.getByText('Neither', { exact: true });
+    this.schoolOnlyNotes = page.getByText('School only', { exact: true });
+    this.workOnlyNotes = page.getByText('Work only', { exact: true });
+    this.schoolAndWorkNotes = page.getByText('Both school and work notes', { exact: true });
+    this.templatesBlock = page.locator('#group-wrapper-default');
+    this.uploadSchoolTemplate = page.locator("[id='school-work-note-template-upload-group.item.0']");
+    this.uploadWorkTemplate = page.locator("[id='school-work-note-template-upload-group.item.1']");
+    this.schoolTemplateLabel = page.locator('#school-work-note-template-school-label');
+    this.workTemplateLabel = page.locator('#school-work-note-template-work-label');
+    this.removeFile = page.getByTestId('DeleteForeverIcon');
+    this.schoolNoteFile = page.getByText('school-work-note-template-school.pdf');
+    this.workNoteFile = page.getByText('school-work-note-template-work.pdf');
 
     // Paperwork - Review and Submit locators
     this.finishButton = page.getByRole('button', { name: 'Finish' });
