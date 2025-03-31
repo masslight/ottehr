@@ -109,7 +109,7 @@ export const LabsTableRow = ({
 
 const DateTimeDisplay = ({ dateTimeString }: { dateTimeString: string }): ReactElement => {
   const dateTimeRegex = /^(\d{2}\/\d{2}\/\d{4}) (\d{2}:\d{2} [AP]M)$/;
-  const formattedDate = formatDate(dateTimeString);
+  const formattedDate = formatDate(dateTimeString, 'MM/dd/yyyy hh:mm a');
   const match = formattedDate.match(dateTimeRegex);
 
   if (!match) {

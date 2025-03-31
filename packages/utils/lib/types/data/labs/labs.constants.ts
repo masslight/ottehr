@@ -3,7 +3,7 @@ import { Pagination } from './labs.types';
 export const PSC_HOLD_CONFIG = {
   system: 'psc-hold-identifier',
   code: 'psc-hold',
-  display: 'psc hold',
+  display: 'PSC hold',
 };
 
 export const LAB_ORDER_TASK = {

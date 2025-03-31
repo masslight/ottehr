@@ -11,11 +11,13 @@ import {
   ServiceRequest,
   Task,
   Reference,
+  Provenance,
 } from 'fhir/r4b';
 import {
   DEFAULT_LABS_ITEMS_PER_PAGE,
   EMPTY_PAGINATION,
   isPositiveNumberOrZero,
+  LabOrderHistory,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   Pagination,
   ReflexLabStatus,
@@ -30,24 +32,31 @@ export const mapResourcesToLabOrderDTOs = (
   results: DiagnosticReport[],
   practitioners: Practitioner[],
   encounters: Encounter[],
-  appointments: Appointment[]
+  appointments: Appointment[],
+  provenances: Provenance[]
 ): LabOrderDTO[] => {
   return serviceRequests.map((serviceRequest) => {
     if (!serviceRequest.id) {
       throw new Error('ServiceRequest ID is required');
     }
 
-    const { taskPST, tasksRFRT } = parseTasks({
+    const {
+      taskPST,
+      orderedTasksRFRT,
+      reflexTasksRFRT: reflexTasksRPRT,
+    } = parseTasks({
       tasks,
-      serviceRequestId: serviceRequest.id,
-      results: results,
+      serviceRequest,
+      results,
     });
 
     const orderedLabStatus = parseOrderedLabStatus(serviceRequest, tasks, results);
 
     const reflexLabStatus = parseReflexLabStatus(serviceRequest, tasks, results);
 
-    const orderedResultsReceivedDate = tasksRFRT[0]?.authoredOn || '';
+    const orderedResultsReceivedDate = orderedTasksRFRT[0]?.authoredOn || '';
+
+    const reflexResultsReceivedDate = reflexTasksRPRT[0]?.authoredOn || '';
 
     const orderAddedDate = taskPST?.authoredOn || '';
 
@@ -75,10 +84,12 @@ export const mapResourcesToLabOrderDTOs = (
 
     const dx = parseDx(serviceRequest);
 
+    const performed = parsePerformed(serviceRequest);
+
     return {
       orderId: serviceRequest.id,
       appointmentId,
-      providerName,
+      providerName, // ordered by
       diagnoses,
       orderedLabStatus,
       reflexLabStatus,
@@ -89,8 +100,10 @@ export const mapResourcesToLabOrderDTOs = (
       typeLab,
       locationLab,
       visitDate,
-      orderAddedDate,
-      orderedResultsReceivedDate,
+      orderAddedDate, // order date
+      orderedResultsReceivedDate, // ordered resul tsreceived date
+      reflexResultsReceivedDate, // reflex results received date
+      performed, // order performed
     };
   });
 };
@@ -107,6 +120,7 @@ export const getLabResources = async (
   encounters: Encounter[];
   observations: Observation[];
   appointments: Appointment[];
+  provenances: Provenance[];
 }> => {
   const labOrdersSearchParams = createLabOrdersSearchParams(params);
 
@@ -118,7 +132,7 @@ export const getLabResources = async (
   const labResources =
     labOrdersResponse.entry
       ?.map((entry) => entry.resource)
-      .filter((res): res is ServiceRequest | Task | Encounter | DiagnosticReport => Boolean(res)) || [];
+      .filter((res): res is ServiceRequest | Task | Encounter | DiagnosticReport | Provenance => Boolean(res)) || [];
 
   const {
     serviceRequests,
@@ -126,6 +140,7 @@ export const getLabResources = async (
     encounters,
     diagnosticReports,
     observations,
+    provenances,
   } = extractLabResources(labResources);
 
   const [practitioners, appointments, RFRT_and_RPRT_tasks] = await Promise.all([
@@ -144,6 +159,7 @@ export const getLabResources = async (
     encounters,
     observations,
     appointments,
+    provenances,
     pagination,
   };
 };
@@ -205,6 +221,12 @@ export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): S
       name: '_include:iterate',
       value: 'DiagnosticReport:result',
     },
+
+    // include Provenance
+    {
+      name: '_revinclude',
+      value: 'Provenance:target',
+    },
   ];
 
   if (encounterId) {
@@ -239,19 +261,22 @@ export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): S
 };
 
 export const extractLabResources = (
-  resources: (ServiceRequest | Task | DiagnosticReport | Encounter | Observation)[]
+  resources: (ServiceRequest | Task | DiagnosticReport | Encounter | Observation | Provenance)[]
 ): {
   serviceRequests: ServiceRequest[];
   tasks: Task[];
   diagnosticReports: DiagnosticReport[];
   encounters: Encounter[];
   observations: Observation[];
+  provenances: Provenance[];
 } => {
   const serviceRequests: ServiceRequest[] = [];
   const tasks: Task[] = [];
   const results: DiagnosticReport[] = [];
   const encounters: Encounter[] = [];
   const observations: Observation[] = [];
+  const provenances: Provenance[] = [];
+
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
       const serviceRequest = resource as ServiceRequest;
@@ -269,10 +294,12 @@ export const extractLabResources = (
       encounters.push(resource as Encounter);
     } else if (resource.resourceType === 'Observation') {
       observations.push(resource as Observation);
+    } else if (resource.resourceType === 'Provenance') {
+      provenances.push(resource as Provenance);
     }
   }
 
-  return { serviceRequests, tasks, diagnosticReports: results, encounters, observations };
+  return { serviceRequests, tasks, diagnosticReports: results, encounters, observations, provenances };
 };
 
 export const fetchPractitionersForServiceRequests = async (
@@ -373,11 +400,13 @@ export const parseOrderedLabStatus = (
 
   const { orderedResults } = parseResults(serviceRequest, results);
 
-  const { taskPST, tasksRFRT } = parseTasks({
+  const { taskPST, orderedTasksRFRT } = parseTasks({
     tasks,
-    serviceRequestId: serviceRequest.id,
-    results: results,
+    serviceRequest,
+    results,
   });
+
+  const tasksRFRT = orderedTasksRFRT; // todo: is valid, or should search by [...orderedTasksRFRT, ...reflexTasksRPRT]?
 
   //  reviewed: Task(RFRT).status = 'completed' and DR the Task is basedOn have DR.status = ‘final’
   const isReviewedStatus = tasksRFRT.some(
@@ -436,15 +465,15 @@ export const parseReflexLabStatus = (
 
   const { reflexResults } = parseResults(serviceRequest, results);
 
-  const { tasksRPRT } = parseTasks({
+  const { reflexTasksRFRT: reflexTasksRPRT } = parseTasks({
     tasks,
-    serviceRequestId: serviceRequest.id,
+    serviceRequest,
     results: reflexResults,
   });
 
-  const lastTaskRPRT = tasksRPRT[0];
+  const lastReflexTask = reflexTasksRPRT[0];
 
-  if (!lastTaskRPRT) {
+  if (!lastReflexTask) {
     return null;
   }
 
@@ -456,20 +485,26 @@ export const parseReflexLabStatus = (
     cancelled: ExternalLabsStatus.cancelled,
   };
 
-  const reflexLabStatus = statusMap[lastTaskRPRT.status];
+  const reflexLabStatus = statusMap[lastReflexTask.status];
 
   if (reflexLabStatus === ExternalLabsStatus.cancelled) {
     console.error(
-      `Reflex lab status is cancelled for service request ${serviceRequest.id} and task the new Task was not found. The last reflex task id is ${lastTaskRPRT.id}`
+      `Reflex lab status is cancelled for service request ${serviceRequest.id} and task ${lastReflexTask.id}.`
     );
   }
 
   if (!reflexLabStatus) {
-    console.error(`Reflex lab status is unknown for service request ${serviceRequest.id} and task ${lastTaskRPRT.id}`);
+    console.error(
+      `Reflex lab status is unknown for service request ${serviceRequest.id} and task ${lastReflexTask.id}`
+    );
     return null;
   }
 
   return reflexLabStatus;
+};
+
+export const parseOrderStatusDetails = (): LabOrderHistory => {
+  // TODO: implement
 };
 
 export const parseDiagnoses = (serviceRequest: ServiceRequest): DiagnosisDTO[] => {
@@ -500,7 +535,6 @@ export const parsePractitionerName = (practitionerId: string | undefined, practi
   return [name.prefix, name.given, name.family].flat().filter(Boolean).join(' ') || 'Unknown';
 };
 
-// todo: check;
 export const parseLabInfo = (serviceRequest: ServiceRequest): { type: string; location: string } => {
   const activityDefinition = serviceRequest.contained?.find(
     (resource) => resource.resourceType === 'ActivityDefinition'
@@ -524,6 +558,16 @@ export const checkIsPSC = (serviceRequest: ServiceRequest): boolean => {
     (detail) =>
       detail.coding?.some((coding) => coding.system === PSC_HOLD_CONFIG.system && coding.code === PSC_HOLD_CONFIG.code)
   );
+};
+
+export const parsePerformed = (serviceRequest: ServiceRequest): string => {
+  const NOT_FOUND = '-';
+
+  if (checkIsPSC(serviceRequest)) {
+    return PSC_HOLD_CONFIG.display;
+  }
+
+  return NOT_FOUND;
 };
 
 /**
@@ -685,30 +729,43 @@ export const parseAccessionNumber = (results: DiagnosticReport[]): string => {
 
 /**
  * Parses the tasks for a service request
- * Returns the PST, RFRT, and RPRT tasks, sorted by authoredOn date. The most recent tasks are first.
+ * Returns the PST, RFRT ordered, RPRT reflex, and RPRT tasks sorted by authoredOn date. The most recent tasks are first.
  */
 export const parseTasks = ({
   tasks,
-  serviceRequestId,
+  serviceRequest,
   results: results,
 }: {
   tasks: Task[];
-  serviceRequestId: string;
+  serviceRequest: ServiceRequest;
   results: DiagnosticReport[];
 }): {
   taskPST: Task | null;
-  tasksRFRT: Task[];
   tasksRPRT: Task[];
+  orderedTasksRFRT: Task[];
+  reflexTasksRFRT: Task[];
 } => {
-  const PST = parseTaskPST(tasks, serviceRequestId);
-  const relatedReports = filterBasedOnServiceRequest(results, serviceRequestId);
-  const RFRT = filterRFRTTasks(tasks, relatedReports);
+  if (!serviceRequest.id) {
+    return {
+      taskPST: null,
+      orderedTasksRFRT: [],
+      reflexTasksRFRT: [],
+      tasksRPRT: [],
+    };
+  }
+
+  const PST = parseTaskPST(tasks, serviceRequest.id);
+  const relatedReports = filterBasedOnServiceRequest(results, serviceRequest.id);
   const RPRT = filterRPRTTasks(tasks, relatedReports);
+  const { orderedResults, reflexResults } = parseResults(serviceRequest, results);
+  const RFRT_ordered = filterRFRTTasks(tasks, orderedResults);
+  const RPRT_reflex = filterRFRTTasks(tasks, reflexResults);
 
   return {
     taskPST: PST,
-    tasksRFRT: RFRT.sort((a, b) => compareDates(a.authoredOn, b.authoredOn)),
     tasksRPRT: RPRT.sort((a, b) => compareDates(a.authoredOn, b.authoredOn)),
+    orderedTasksRFRT: RFRT_ordered.sort((a, b) => compareDates(a.authoredOn, b.authoredOn)),
+    reflexTasksRFRT: RPRT_reflex.sort((a, b) => compareDates(a.authoredOn, b.authoredOn)),
   };
 };
 

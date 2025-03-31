@@ -18,8 +18,16 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);
 
-    const { serviceRequests, tasks, diagnosticReports, practitioners, pagination, encounters, appointments } =
-      await getLabResources(oystehr, validatedParameters);
+    const {
+      serviceRequests,
+      tasks,
+      diagnosticReports,
+      practitioners,
+      pagination,
+      encounters,
+      appointments,
+      provenances,
+    } = await getLabResources(oystehr, validatedParameters);
 
     if (!serviceRequests.length) {
       return {
@@ -37,7 +45,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       diagnosticReports,
       practitioners,
       encounters,
-      appointments
+      appointments,
+      provenances
     );
 
     return {

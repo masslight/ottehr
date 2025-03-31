@@ -55,6 +55,13 @@ export enum ExternalLabsStatus {
   unparsed = '-', // for debugging purposes
 }
 
+export type LabStatusDetails = {
+  performer: string;
+  date: string;
+};
+
+export type LabOrderHistory = Record<ExternalLabsStatus, LabStatusDetails | null>;
+
 export type ReflexLabStatus =
   | ExternalLabsStatus.received
   | ExternalLabsStatus.reviewed
@@ -77,6 +84,7 @@ export interface LabOrderDTO {
   visitDate: string; // based on appointment
   orderedResultsReceivedDate: string; // the most recent Task RFRT.authoredOn
   dx: string; // SR.reasonCode joins
+  performed: string; // order performed (SR.orderDetail code.display)
 }
 
 export interface Pagination {
@@ -90,14 +98,41 @@ export interface PaginatedLabOrderResponse {
   pagination: Pagination;
 }
 
-export interface GetLabOrdersParameters {
-  encounterId?: string; // is specified, then we will fetch orders for that encounter
-  patientId?: string; // is specified, then we will fetch orders for that patient
-  serviceRequestId?: string; // is specified, then we will fetch orders for that service request
-
+interface GetLabOrdersSearchFilters {
   orderableItemCode?: string; // search filter by lab
   visitDate?: string; // search filter by visit date
-
-  itemsPerPage?: number; // pagination option;
-  pageIndex?: number; // pagination option;
 }
+
+interface GetLabOrdersPaginationOptions {
+  itemsPerPage?: number;
+  pageIndex?: number;
+}
+
+interface GetLabOrdersByEncounter {
+  encounterId: string;
+  patientId?: never;
+  serviceRequestId?: never;
+}
+
+interface GetLabOrdersByPatient {
+  encounterId?: never;
+  patientId: string;
+  serviceRequestId?: never;
+}
+
+interface GetLabOrdersByServiceRequest {
+  encounterId?: never;
+  patientId?: never;
+  serviceRequestId: string;
+}
+
+type GetLabOrdersBaseParameters = GetLabOrdersSearchFilters & GetLabOrdersPaginationOptions;
+
+type GetLabOrdersByEncounterParameters = GetLabOrdersByEncounter & GetLabOrdersBaseParameters;
+type GetLabOrdersByPatientParameters = GetLabOrdersByPatient & GetLabOrdersBaseParameters;
+type GetLabOrdersByServiceRequestParameters = GetLabOrdersByServiceRequest & GetLabOrdersBaseParameters;
+
+export type GetLabOrdersParameters =
+  | GetLabOrdersByEncounterParameters // use case: Patient Chart
+  | GetLabOrdersByPatientParameters // use case: Patient Page
+  | GetLabOrdersByServiceRequestParameters; // use case: Lab Order Detail Page
