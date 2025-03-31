@@ -100,7 +100,7 @@ jobs:
       - name: Install dependencies
         run: |
           npm ci
-          npx playwright install --with-deps chromium
+          npx playwright install chromium
       
       - name: Run E2E tests
         run: |
