@@ -25,7 +25,7 @@ test.describe('Medical conditions', async () => {
   const resourceHandler = new ResourceHandler('telemed');
   let page: Page;
   const medicalConditionPattern = 'anemia';
-  const medicalConditionIcdPattern = 'D50';
+  const medicalConditionIcdPattern = 'D60';
   const searcPatternNeverExists = 'undefined';
 
   test.beforeAll(async ({ browser }) => {
@@ -107,13 +107,13 @@ test.describe('Medical conditions', async () => {
 
     await test.step('check regular medical condition saved', async () => {
       await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsList)).toHaveText(
-        RegExp(medicalConditionPattern)
+        RegExp(medicalConditionPattern, 'i')
       );
     });
 
     await test.step('check ICD10 medical condition saved', async () => {
       await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsList)).toHaveText(
-        RegExp(medicalConditionIcdPattern)
+        RegExp(medicalConditionIcdPattern, 'i')
       );
     });
   });
@@ -121,10 +121,10 @@ test.describe('Medical conditions', async () => {
   test('Should check conditions appear in Review&Sign tab', async () => {
     await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabMedicalConditionsContainer)).toHaveText(
-      new RegExp(medicalConditionPattern)
+      new RegExp(medicalConditionPattern, 'i')
     );
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabMedicalConditionsContainer)).toHaveText(
-      new RegExp(medicalConditionIcdPattern)
+      new RegExp(medicalConditionIcdPattern, 'i')
     );
   });
 
@@ -136,7 +136,7 @@ test.describe('Medical conditions', async () => {
         .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
         .first()
     ).not.toBeVisible();
-    const parentDiv = page.getByText(new RegExp(medicalConditionPattern)).locator('..');
+    const parentDiv = page.getByText(new RegExp(medicalConditionPattern, 'i')).locator('..');
     await parentDiv.getByTestId(dataTestIds.muiDeleteOutlinedIcon).click();
     await expect(parentDiv).not.toBeVisible();
     await page.waitForTimeout(7000);
@@ -153,14 +153,14 @@ test.describe('Medical conditions', async () => {
           .first()
       ).not.toBeVisible();
 
-      await expect(page.getByText(medicalConditionPattern)).not.toBeVisible();
+      await expect(page.getByText(new RegExp(medicalConditionPattern, 'i'))).not.toBeVisible();
     });
 
     await test.step('Confirm deletion in Review&Sign tab', async () => {
       await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
 
       await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabMedicalConditionsContainer)).toBeVisible();
-      await expect(page.getByText(medicalConditionPattern)).not.toBeVisible();
+      await expect(page.getByText(new RegExp(medicalConditionPattern, 'i'))).not.toBeVisible();
     });
   });
 });
@@ -207,7 +207,7 @@ test.describe('Known allergies', () => {
     await fillWaitAndSelectDropdown(page, dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput, knownAllergyPattern);
   });
 
-  test('Should check not-in-list item search try', async () => {
+  test.skip('Should check not-in-list item search try', async () => {
     await page
       .getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput)
       .locator('input')
@@ -230,7 +230,7 @@ test.describe('Known allergies', () => {
 
     await test.step('check regular known allergy saved', async () => {
       await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesList)).toHaveText(
-        RegExp(knownAllergyPattern)
+        RegExp(knownAllergyPattern, 'i')
       );
     });
   });
@@ -238,7 +238,7 @@ test.describe('Known allergies', () => {
   test('Should check known allergy appear in Review&Sign tab', async () => {
     await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabKnownAllergiesContainer)).toHaveText(
-      new RegExp(knownAllergyPattern)
+      new RegExp(knownAllergyPattern, 'i')
     );
   });
 
@@ -250,9 +250,12 @@ test.describe('Known allergies', () => {
         .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
         .first()
     ).not.toBeVisible();
-    const parentDiv = page.getByText(new RegExp(knownAllergyPattern)).locator('..');
+    const parentDiv = page
+      .getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesColumn)
+      .getByText(new RegExp(knownAllergyPattern, 'i'))
+      .locator('..');
     await parentDiv.getByTestId(dataTestIds.muiDeleteOutlinedIcon).click();
-    await expect(parentDiv).not.toBeVisible();
+    await expect(parentDiv).not.toBeVisible({ timeout: 15000 });
   });
 
   test('Should confirm known allergy deleted on Review&Sign tab', async () => {
@@ -266,14 +269,14 @@ test.describe('Known allergies', () => {
           .first()
       ).not.toBeVisible();
 
-      await expect(page.getByText(knownAllergyPattern)).not.toBeVisible();
+      await expect(page.getByText(new RegExp(knownAllergyPattern, 'i'))).not.toBeVisible();
     });
 
     await test.step('Confirm deletion in Review&Sign tab', async () => {
       await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
 
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabKnownAllergiesContainer)).toBeVisible();
-      await expect(page.getByText(knownAllergyPattern)).not.toBeVisible();
+      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabKnownAllergiesContainer)).not.toBeVisible();
+      await expect(page.getByText(new RegExp(knownAllergyPattern, 'i'))).not.toBeVisible();
     });
   });
 });

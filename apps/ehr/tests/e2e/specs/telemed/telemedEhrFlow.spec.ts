@@ -275,7 +275,7 @@ test('Patient provided hpi data', async ({ page }) => {
 
   await test.step('Reason for visit provided by patient', async () => {
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiReasonForVisit)).toHaveText(
-      resourceHandler.appointment.description
+      resourceHandler.appointment.description ?? ''
     );
   });
 
@@ -312,7 +312,7 @@ test('Appointment hpi fields', async ({ page }) => {
     await expect(
       page
         .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsLoadingSkeleton)
+        .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
         .first()
     ).not.toBeVisible(DEFAULT_TIMEOUT);
   });
@@ -364,7 +364,7 @@ test('Appointment hpi fields', async ({ page }) => {
     await expect(
       page
         .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsLoadingSkeleton)
+        .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
         .first()
     ).not.toBeVisible(DEFAULT_TIMEOUT);
   });
