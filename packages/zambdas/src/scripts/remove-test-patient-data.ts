@@ -114,7 +114,7 @@ async function removeOldAppointments(config: any): Promise<void> {
 
 const main = async (): Promise<void> => {
   await performEffectWithEnvFile(deleteTestPatientsData);
-  await performEffectWithEnvFile(removeOldAppointments);
+  // await performEffectWithEnvFile(removeOldAppointments);
 };
 
 main().catch((error) => {
