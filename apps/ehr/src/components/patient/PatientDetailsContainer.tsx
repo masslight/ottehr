@@ -85,10 +85,20 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
         />
       </Row>
       <Row label="Sexual orientation">
-        <FormSelect name={FormFields.sexualOrientation.key} control={control} options={SEXUAL_ORIENTATION_OPTIONS} />
+        <FormSelect
+          name={FormFields.sexualOrientation.key}
+          control={control}
+          options={SEXUAL_ORIENTATION_OPTIONS}
+          data-testid={dataTestIds.patientDetailsContainer.sexualOrientation}
+        />
       </Row>
       <Row label="Gender identity">
-        <FormSelect name={FormFields.genderIdentity.key} control={control} options={GENDER_IDENTITY_OPTIONS} />
+        <FormSelect
+          name={FormFields.genderIdentity.key}
+          control={control}
+          options={GENDER_IDENTITY_OPTIONS}
+          data-testid={dataTestIds.patientDetailsContainer.genderIdentity}
+        />
       </Row>
       {genderIdentityCurrentValue === 'Non-binary gender identity' && (
         <Box
@@ -104,7 +114,12 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
         </Box>
       )}
       <Row label="How did you hear about us?">
-        <FormSelect name={FormFields.pointOfDiscovery.key} control={control} options={POINT_OF_DISCOVERY_OPTIONS} />
+        <FormSelect
+          name={FormFields.pointOfDiscovery.key}
+          control={control}
+          options={POINT_OF_DISCOVERY_OPTIONS}
+          data-testid={dataTestIds.patientDetailsContainer.howDidYouHearAboutUs}
+        />
       </Row>
       <Box
         sx={{
@@ -121,7 +136,13 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
             name={FormFields.sendMarketing.key}
             control={control}
             render={({ field }) => (
-              <Select {...field} value={field.value || ''} variant="standard" sx={{ width: '100%' }}>
+              <Select
+                {...field}
+                value={field.value || ''}
+                variant="standard"
+                sx={{ width: '100%' }}
+                data-testid={dataTestIds.patientDetailsContainer.sendMarketingMessages}
+              >
                 {[
                   { value: true, label: 'Yes' },
                   { value: false, label: 'No' },
@@ -150,7 +171,13 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
             name={FormFields.language.key}
             control={control}
             render={({ field }) => (
-              <Select {...field} value={field.value || ''} variant="standard" sx={{ width: '100%' }}>
+              <Select
+                {...field}
+                value={field.value || ''}
+                variant="standard"
+                sx={{ width: '100%' }}
+                data-testid={dataTestIds.patientDetailsContainer.preferredLanguage}
+              >
                 {Object.entries(LANGUAGE_OPTIONS).map(([key, value]) => (
                   <MenuItem key={value} value={value}>
                     {key}
@@ -176,7 +203,13 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
             name={FormFields.commonWellConsent.key}
             control={control}
             render={({ field }) => (
-              <Select {...field} value={field.value || ''} variant="standard" sx={{ width: '100%' }}>
+              <Select
+                {...field}
+                value={field.value || ''}
+                variant="standard"
+                sx={{ width: '100%' }}
+                data-testid={dataTestIds.patientDetailsContainer.commonWellConsent}
+              >
                 {[
                   { value: true, label: 'Yes' },
                   { value: false, label: 'No' },
