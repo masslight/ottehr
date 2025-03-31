@@ -15,6 +15,7 @@ import {
   Typography,
   useTheme,
   Button,
+  Card,
 } from '@mui/material';
 import { FC, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
@@ -57,6 +58,7 @@ import { usePaperworkContext } from './context';
 import MultiAnswerHeader from './components/group/MultiAnswerHeader';
 import GroupContainer from './components/group/GroupContainer';
 import { CreditCardVerification } from './components/CreditCardVerification';
+import { otherColors } from '../../IntakeThemeProvider';
 
 interface PagedQuestionnaireOptions {
   bottomComponent?: ReactElement;
@@ -163,12 +165,12 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   onSubmit,
   saveProgress,
 }) => {
-  const { paperwork, allItems, questionnaireResponse } = usePaperworkContext();
+  const { paperwork, allItems } = usePaperworkContext();
 
-  console.log('questionnaireResponse', questionnaireResponse?.questionnaire, questionnaireResponse?.id);
+  // console.log('questionnaireResponse', questionnaireResponse?.questionnaire, questionnaireResponse?.id);
 
-  console.log('paperwork', JSON.stringify(paperwork, null, 2));
-  console.log('items', JSON.stringify(allItems, null, 2));
+  // console.log('paperwork', JSON.stringify(paperwork, null, 2));
+  // console.log('items', JSON.stringify(allItems, null, 2));
 
   const validationSchema = makeValidationSchema(items, pageId, {
     values: paperwork,
@@ -699,6 +701,12 @@ const FormDisplayField: FC<FormDisplayFieldProps> = ({ item }): ReactElement => 
   const displayType = getInputTypeForItem(item);
   const element = (() => {
     switch (displayType) {
+      case 'Call Out':
+        return (
+          <Card sx={{ p: 2, backgroundColor: otherColors.coachingVisit, borderRadius: 2 }} elevation={0}>
+            <Typography color="primary.main">{item.text}</Typography>
+          </Card>
+        );
       case 'Header 4':
         return (
           <Box mb={1} key={`form-display-H4-${item.linkId}-${item.text}`}>

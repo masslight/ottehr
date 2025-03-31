@@ -36,6 +36,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const oystehrClient = createOystehrClient(zapehrM2MClientToken, secrets);
     const { stripeCustomerId } = await complexValidation({ patientId: beneficiaryPatientId, oystehrClient });
 
+    // throw FHIR_RESOURCE_NOT_FOUND('Account');
+
     const stripeClient = getStripeClient(secrets);
     const customer = await stripeClient.customers.update(stripeCustomerId, {
       invoice_settings: {

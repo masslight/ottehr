@@ -89,12 +89,15 @@ export const useAnswerOptionsQuery = (
   );
 };
 
+interface GetPaymentMethodsParams {
+  setupCompleted: boolean;
+  beneficiaryPatientId: string | undefined;
+  onSuccess?: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['getPaymentMethods']>>) => void;
+}
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetPaymentMethods = (
-  beneficiaryPatientId: string | undefined,
-  onSuccess?: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['getPaymentMethods']>>) => void
-) => {
+export const useGetPaymentMethods = (input: GetPaymentMethodsParams) => {
   const apiClient = useZapEHRAPIClient();
+  const { beneficiaryPatientId, setupCompleted, onSuccess } = input;
 
   return useQuery(
     ['payment-methods', beneficiaryPatientId],
@@ -108,7 +111,7 @@ export const useGetPaymentMethods = (
       throw new Error('api client not defined or patient id is not provided');
     },
     {
-      enabled: Boolean(beneficiaryPatientId) && Boolean(apiClient),
+      enabled: Boolean(beneficiaryPatientId) && setupCompleted && Boolean(apiClient),
       onSuccess,
       onError: (err) => {
         console.error('Error during fetching get payment methods: ', err);
@@ -163,22 +166,38 @@ export const useDeletePaymentMethod = (beneficiaryPatientId: string | undefined)
   });
 };
 
+export interface SetDefaultPaymentMethodParams {
+  paymentMethodId: string;
+  onSuccess?: () => void;
+  onError?: (error: unknown) => void;
+}
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useSetDefaultPaymentMethod = (beneficiaryPatientId: string | undefined) => {
   const apiClient = useZapEHRAPIClient();
 
   return useMutation({
-    mutationFn: ({ paymentMethodId }: { paymentMethodId: string }) => {
+    mutationFn: ({ paymentMethodId, onSuccess, onError }: SetDefaultPaymentMethodParams) => {
       if (apiClient && beneficiaryPatientId) {
-        return apiClient.setDefaultPaymentMethod({
-          beneficiaryPatientId,
-          paymentMethodId,
-        });
+        return apiClient
+          .setDefaultPaymentMethod({
+            beneficiaryPatientId,
+            paymentMethodId,
+          })
+          .then(() => {
+            if (onSuccess) {
+              onSuccess();
+            }
+          })
+          .catch((error) => {
+            if (onError) {
+              onError(error);
+            }
+          });
       }
 
       throw new Error('api client not defined or patient id is not provided');
     },
-    retry: 5,
+    retry: 2,
     retryDelay: 1000,
   });
 };

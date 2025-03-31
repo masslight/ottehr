@@ -713,6 +713,24 @@
             ]
           },
           {
+            "linkId": "self-pay-alert-text",
+            "text": "By choosing to proceed with self-pay without insurance, you agree to pay $100 at the time of service.",
+            "type": "display",
+            "enableWhen": [
+              {
+                "question": "payment-option",
+                "operator": "=",
+                "answerString": "I will pay without insurance"
+              }
+            ],
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                "valueString": "Call Out"
+              }
+            ]
+          },
+          {
             "linkId": "insurance-details-text",
             "text": "Insurance details",
             "type": "display",
