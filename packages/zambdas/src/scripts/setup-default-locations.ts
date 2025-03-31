@@ -8,6 +8,7 @@ import {
   EligibilityPractitionerType,
   FHIR_IDENTIFIER_NPI,
   filterVirtualLocations,
+  SLUG_SYSTEM,
   SCHEDULE_EXTENSION_URL,
   TELEMED_INITIAL_STATES,
   TIMEZONE_EXTENSION_URL,
@@ -92,7 +93,7 @@ const createTelemedLocation = async (
     ],
     identifier: [
       {
-        system: 'https://fhir.ottehr.com/r4/slug',
+        system: SLUG_SYSTEM,
         value: stateData.name.replace(/\s/g, ''), // remove whitespace from the name
       },
     ],
@@ -139,7 +140,7 @@ const createPhysicalLocation = async (
     // add identifiers
     newLocation.identifier = [
       {
-        system: 'https://fhir.ottehr.com/r4/slug',
+        system: SLUG_SYSTEM,
         value: `${locationInfo.city}-${locationInfo.state}`.replace(/\s/g, ''), // remove whitespace from the name
       },
     ];
@@ -148,7 +149,7 @@ const createPhysicalLocation = async (
     if (locationInfo.city == 'New York' && locationInfo.state == 'NY') {
       newLocation.identifier = [
         {
-          system: 'https://fhir.ottehr.com/r4/slug',
+          system: SLUG_SYSTEM,
           value: DEFAULT_TESTING_SLUG,
         },
       ];

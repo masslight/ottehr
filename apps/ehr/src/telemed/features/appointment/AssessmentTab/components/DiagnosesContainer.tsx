@@ -191,7 +191,7 @@ export const DiagnosesContainer: FC = () => {
                           onClick={() => onMakePrimary(value.resourceId!)}
                           size="small"
                           data-testid={dataTestIds.diagnosisContainer.makePrimaryButton}
-                          sx={{ textTransform: 'none', fontWeight: 700 }}
+                          sx={{ textTransform: 'none', fontWeight: 500 }}
                         >
                           {DIAGNOSIS_MAKE_PRIMARY_BUTTON}
                         </Button>

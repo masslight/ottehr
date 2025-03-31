@@ -67,7 +67,7 @@ export function ExternalLabsStatusChip({ status }: ExternalLabsStatusChip): Reac
       sx={{
         borderRadius: '4px',
         border: 'none',
-        fontWeight: 700,
+        fontWeight: 500,
         fontSize: '12px',
         textTransform: 'uppercase',
         background: ExternalLabsStatusPalette[status].background.primary,

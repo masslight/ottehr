@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, Location, Patient, RelatedPerson, Resource } from 'fhir/r4b';
-import { getVideoRoomResourceExtension, OTTEHR_MODULE, removePrefix } from 'utils';
+import { getVideoRoomResourceExtension, PROJECT_MODULE, removePrefix } from 'utils';
 
 export type EncounterToAppointmentIdMap = { [appointmentId: string]: Encounter };
 
@@ -25,7 +25,7 @@ export async function getFhirResources(
   const fhirSearchParams = {
     resourceType: 'Appointment',
     params: [
-      { name: '_tag', value: OTTEHR_MODULE.TM },
+      { name: '_tag', value: PROJECT_MODULE.TM },
       {
         name: 'patient',
         value: patientID ? `Patient/${patientID}` : patientIDs.join(','),

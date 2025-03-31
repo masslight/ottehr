@@ -64,25 +64,25 @@ export function TrackingBoardTabs(): ReactElement {
             <Tab
               label="Ready for provider"
               value={ApptTelemedTab.ready}
-              sx={{ textTransform: 'none', fontWeight: 700 }}
+              sx={{ textTransform: 'none', fontWeight: 500 }}
               data-testid={dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTelemedTab.ready)}
             />
             <Tab
               label="Provider"
               value={ApptTelemedTab.provider}
-              sx={{ textTransform: 'none', fontWeight: 700 }}
+              sx={{ textTransform: 'none', fontWeight: 500 }}
               data-testid={dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTelemedTab.provider)}
             />
             <Tab
               label="Unsigned"
               value={ApptTelemedTab['not-signed']}
-              sx={{ textTransform: 'none', fontWeight: 700 }}
+              sx={{ textTransform: 'none', fontWeight: 500 }}
               data-testid={dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTelemedTab['not-signed'])}
             />
             <Tab
               label="Complete"
               value={ApptTelemedTab.complete}
-              sx={{ textTransform: 'none', fontWeight: 700 }}
+              sx={{ textTransform: 'none', fontWeight: 500 }}
               data-testid={dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTelemedTab.complete)}
             />
             {isFetching && <Loading />}

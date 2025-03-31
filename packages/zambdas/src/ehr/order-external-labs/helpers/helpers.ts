@@ -7,7 +7,7 @@
 //   addOrReplaceOperation,
 //   createDocumentReference,
 //   getPatchOperationForNewMetaTag,
-//   OTTEHR_MODULE,
+//   PROJECT_MODULE,
 //   SCHOOL_NOTE_CODE,
 //   SCHOOL_WORK_NOTE_TYPE_META_SYSTEM,
 //   //   TelemedCallStatuses,
@@ -278,7 +278,7 @@
 //         text: 'Telemed document',
 //       },
 //       meta: {
-//         tag: [{ code: OTTEHR_MODULE.TM }],
+//         tag: [{ code: PROJECT_MODULE.TM }],
 //       },
 //       references: {
 //         subject: {
@@ -341,7 +341,7 @@
 //   return {
 //     resourceType: 'DocumentReference',
 //     meta: {
-//       tag: [{ code: 'OTTEHR-TM' }],
+//       tag: [{ code: 'TELEMEDICINE' }],
 //     },
 //     date: DateTime.now().setZone('UTC').toISO() ?? '',
 //     status: 'current',
