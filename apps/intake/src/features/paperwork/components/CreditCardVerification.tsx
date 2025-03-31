@@ -7,12 +7,12 @@ import { FC, MouseEvent, SyntheticEvent, useMemo, useState } from 'react';
 import { useQueryClient } from 'react-query';
 import { CreditCardInfo } from 'utils';
 import {
-  useDeletePaymentMethod,
   useGetPaymentMethods,
   useSetDefaultPaymentMethod,
   useSetupPaymentMethod,
 } from '../../../telemed/features/paperwork/paperwork.queries';
 import { otherColors } from '../../../IntakeThemeProvider';
+import { usePaperworkContext } from 'ui-components';
 
 const ADD_NEW_CARD_OPTION_VALUE = 'add-new-card';
 const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY);
@@ -27,24 +27,16 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ value:
   const [expiredCardIds, setExpiredCardIds] = useState<string[]>([]);
   const defaultCard = useMemo(() => cards.find((card) => card.default), [cards]);
   const otherCards = useMemo(() => cards.filter((card) => !card.default), [cards]);
-  const [selectedOption, setSelectedOption] = useState<string | undefined>();
+  const [selectedOption, setSelectedOption] = useState<string | undefined>(defaultCard?.id);
+  const { patient } = usePaperworkContext();
 
   console.log('validCreditCardOnFile', validCreditCardOnFile);
 
-  const handleCardToSelect = (cards: CreditCardInfo[]): void => {
-    const defaultCard = cards.find((card) => card.default);
-    const defaultCardExpired = expiredCardIds.find((cardId) => cardId === defaultCard?.id);
-    if (defaultCard && !defaultCardExpired) {
-      selectPaymentMethod(defaultCard.id);
-      return;
-    }
-    const potentialFirstValidCard: CreditCardInfo | undefined = cards.filter(
-      (card) => !expiredCardIds.includes(card.id)
-    )[0];
-    selectPaymentMethod(potentialFirstValidCard?.id || ADD_NEW_CARD_OPTION_VALUE);
-  };
+  const { data: setupData, isFetching: isSetupDataLoading } = useSetupPaymentMethod(patient?.id, () => {
+    // void refetchPaymentMethods();
+  });
 
-  const { isFetching: isCardsLoading, refetch: refetchPaymentMethods } = useGetPaymentMethods((data) => {
+  const { isFetching: isCardsLoading } = useGetPaymentMethods(setupData ? patient?.id : undefined, (data) => {
     const expiredCards = data.cards.filter((card) => {
       const { expMonth, expYear } = card;
       const today = DateTime.now();
@@ -57,19 +49,23 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ value:
     });
     setExpiredCardIds(expiredCards.map((card) => card.id));
 
+    console.log('cards', data.cards);
+
     setCards(data.cards);
-  });
-  const { data: setupData, isFetching: isSetupDataLoading } = useSetupPaymentMethod(() => {
-    void refetchPaymentMethods();
+    const defaultCard = data.cards.find((card) => card.default);
+    setSelectedOption(defaultCard?.id);
+    console.log('defaultCard', defaultCard);
   });
 
-  const { mutate: deleteMethod, isLoading: isDeleteLoading } = useDeletePaymentMethod();
-  const { mutate: setDefault, isLoading: isSetDefaultLoading } = useSetDefaultPaymentMethod();
+  console.log('selectedOption', selectedOption);
+
+  const { mutate: setDefault, isLoading: isSetDefaultLoading } = useSetDefaultPaymentMethod(patient?.id);
 
   const theme = useTheme();
 
   const [isAddLoading, setIsAddLoading] = useState(false);
-  const disabled = isAddLoading || isCardsLoading || isDeleteLoading || isSetDefaultLoading || isSetupDataLoading;
+  const disabled = isAddLoading || isCardsLoading || isSetDefaultLoading || isSetupDataLoading;
+  console.log('disabled', disabled);
 
   const onMakePrimary = (id: string): void => {
     setDefault(
@@ -77,24 +73,6 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ value:
       {
         onSuccess: (): void => {
           setCards((prevState) => prevState.map((card) => ({ ...card, default: card.id === id })));
-        },
-      }
-    );
-  };
-
-  const onDelete = (id: string): void => {
-    deleteMethod(
-      { paymentMethodId: id },
-      {
-        onSuccess: (): void => {
-          const newCards = cards.filter((card) => card.id !== id);
-          setCards(newCards);
-          setExpiredCardIds(expiredCardIds.filter((expiredId) => expiredId !== id));
-          if (newCards.length > 0) {
-            handleCardToSelect(newCards);
-          } else {
-            selectPaymentMethod(ADD_NEW_CARD_OPTION_VALUE);
-          }
         },
       }
     );
@@ -128,7 +106,6 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ value:
               width: '100%',
             },
             gap: 1,
-            display: 'none', // just hiding this until able to add cards
           }}
           value={selectedOption || ''}
           onChange={(e) => selectPaymentMethod(e.target.value)}
@@ -177,56 +154,17 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ value:
                       minHeight: 46,
                     }}
                   />
-
-                  {item.id === selectedOption && (
-                    <LoadingButton
-                      loading={isDeleteLoading}
-                      disabled={disabled}
-                      onClick={() => onDelete(item.id)}
-                      variant="outlined"
-                      color="error"
-                      sx={{ alignSelf: 'start' }}
-                    >
-                      Delete Card
-                    </LoadingButton>
-                  )}
                 </Box>
               );
             })
           )}
-
-          {!isCardsLoading && (
-            <FormControlLabel
-              value={ADD_NEW_CARD_OPTION_VALUE}
-              disabled={disabled}
-              control={<Radio />}
-              label="Add new card"
-              sx={{
-                border: '1px solid',
-                borderRadius: 2,
-                backgroundColor: () => {
-                  if (ADD_NEW_CARD_OPTION_VALUE === selectedOption) {
-                    return otherColors.lightBlue;
-                  } else {
-                    return theme.palette.background.paper;
-                  }
-                },
-                borderColor: ADD_NEW_CARD_OPTION_VALUE === selectedOption ? 'primary.main' : otherColors.borderGray,
-                paddingTop: 0,
-                paddingBottom: 0,
-                paddingRight: 2,
-                marginX: 0,
-                minHeight: 46,
-              }}
-            />
-          )}
         </RadioGroup>
       </Box>
 
-      {setupData?.clientSecret && selectedOption === ADD_NEW_CARD_OPTION_VALUE && (
-        <Elements stripe={stripePromise} options={{ clientSecret: setupData.clientSecret }}>
+      {setupData && !isCardsLoading && (
+        <Elements stripe={stripePromise} options={{ clientSecret: setupData }}>
           <CreditCardForm
-            clientSecret={setupData.clientSecret}
+            clientSecret={setupData}
             isLoading={isAddLoading}
             disabled={disabled}
             setIsLoading={setIsAddLoading}
@@ -266,8 +204,11 @@ const CreditCardForm: FC<CreditCardFormProps> = (props) => {
     }
 
     setIsLoading(true);
+    console.log('clientSecret', clientSecret);
+    console.log('card', card);
     const { error, setupIntent } = await stripe.confirmCardSetup(clientSecret, { payment_method: { card } });
     if (!error) {
+      console.log('setupIntent', setupIntent);
       const invalidateSetup = queryClient.invalidateQueries({ queryKey: ['setup-payment-method'] });
       const invalidateMethods = queryClient.invalidateQueries({ queryKey: ['payment-methods'] });
       await invalidateSetup;
@@ -285,7 +226,7 @@ const CreditCardForm: FC<CreditCardFormProps> = (props) => {
   return (
     <Box
       sx={{
-        display: 'none', // 'flex' just hiding this for now until able to add some cards,
+        display: 'flex',
         flexDirection: 'column',
         gap: 2,
         alignItems: 'end',

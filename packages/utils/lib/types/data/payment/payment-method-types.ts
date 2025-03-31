@@ -22,5 +22,4 @@ export interface CreditCardInfo {
 }
 export interface ListPaymentMethodsZambdaOutput {
   cards: CreditCardInfo[];
-  default?: CreditCardInfo;
 }

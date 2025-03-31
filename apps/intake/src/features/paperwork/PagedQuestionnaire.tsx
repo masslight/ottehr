@@ -163,9 +163,12 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   onSubmit,
   saveProgress,
 }) => {
-  const { paperwork, allItems } = usePaperworkContext();
+  const { paperwork, allItems, questionnaireResponse } = usePaperworkContext();
 
-  // console.log('questionnaireResponse', questionnaireResponse?.questionnaire, questionnaireResponse?.id);
+  console.log('questionnaireResponse', questionnaireResponse?.questionnaire, questionnaireResponse?.id);
+
+  console.log('paperwork', JSON.stringify(paperwork, null, 2));
+  console.log('items', JSON.stringify(allItems, null, 2));
 
   const validationSchema = makeValidationSchema(items, pageId, {
     values: paperwork,

@@ -64,11 +64,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     if (!account?.id) {
       throw FHIR_RESOURCE_NOT_FOUND('Account');
     }
-    const output: ListPaymentMethodsZambdaOutput = { cards: [], default: undefined };
+    const output: ListPaymentMethodsZambdaOutput = { cards: [] };
     const customerId = account ? getStripeCustomerIdFromAccount(account) : undefined;
     if (customerId !== undefined) {
       const customer = await stripeClient.customers.retrieve(customerId, {
         expand: ['invoice_settings.default_payment_method'],
+      });
+      const cards = ((customer as Stripe.Customer)?.sources?.data ?? []).filter((pm) => {
+        return pm.object === 'card';
       });
       if (
         customer !== undefined &&
@@ -83,13 +86,31 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           defaultPaymentMethod.type === 'card' &&
           defaultPaymentMethod.card !== undefined
         ) {
-          output.default = {
+          const defaultCard = {
             id: defaultPaymentMethod.id,
             brand: defaultPaymentMethod.card.brand,
             expMonth: defaultPaymentMethod.card.exp_month,
             expYear: defaultPaymentMethod.card.exp_year,
             lastFour: defaultPaymentMethod.card.last4,
+            default: true,
           };
+          output.cards = cards.map((card) => {
+            if (card.id === defaultPaymentMethod.id) {
+              return defaultCard;
+            } else {
+              return {
+                id: card.id,
+                brand: card.brand,
+                expMonth: card.exp_month,
+                expYear: card.exp_year,
+                lastFour: card.last4,
+                default: false,
+              };
+            }
+          });
+          if (output.cards.length === 0) {
+            output.cards.push(defaultCard);
+          }
         }
       }
     }

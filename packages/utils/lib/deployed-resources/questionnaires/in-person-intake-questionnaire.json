@@ -3,8 +3,8 @@
   "resource": {
     "resourceType": "Questionnaire",
     "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson",
-    "version": "1.0.5",
-    "name": "in-person_pre-visit_paperwork (please_do_not_delete)",
+    "version": "1.0.6",
+    "name": "in-person_pre-visit_paperwork",
     "title": "in-person pre-visit paperwork",
     "status": "active",
     "item": [
@@ -709,81 +709,6 @@
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
                 "valueString": "Radio"
-              }
-            ]
-          },
-          {
-            "linkId": "card-payment-data",
-            "type": "group",
-            "readOnly": true,
-            "enableWhen": [
-              {
-                "question": "payment-option",
-                "operator": "=",
-                "answerString": "I will pay without insurance"
-              }
-            ],
-            "extension": [
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
-                "extension": [
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
-                    "valueString": "payment-option"
-                  },
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                    "valueString": "="
-                  },
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
-                    "valueString": "I will pay without insurance"
-                  }
-                ]
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
-                "extension": [
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
-                    "valueString": "payment-option"
-                  },
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
-                    "valueString": "!="
-                  },
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
-                    "valueString": "I will pay without insurance"
-                  }
-                ]
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/group-type",
-                "valueString": "credit-card-collection"
-              }
-            ],
-            "item": [
-              {
-                "linkId": "credit-card-details-text",
-                "text": "Credit card details",
-                "type": "display",
-                "extension": [
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-type",
-                    "valueString": "h3"
-                  }
-                ]
-              },
-              {
-                "linkId": "valid-card-on-file",
-                "type": "boolean",
-                "extension": [
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
-                    "valueString": "Payment Validation"
-                  }
-                ]
               }
             ]
           },
@@ -2426,6 +2351,33 @@
                     "valueString": "64290-0"
                   }
                 ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "linkId": "card-payment-page",
+        "type": "group",
+        "item": [
+          {
+            "linkId": "credit-card-details-text",
+            "text": "Credit card details",
+            "type": "display",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-type",
+                "valueString": "h3"
+              }
+            ]
+          },
+          {
+            "linkId": "valid-card-on-file",
+            "type": "boolean",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                "valueString": "Payment Validation"
               }
             ]
           }

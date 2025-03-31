@@ -170,7 +170,7 @@ export const PaperworkHome: FC = () => {
     if (!isAuthenticated && !authIsLoading) {
       clearPaperworkState();
     }
-  }, [authIsLoading, authedFetchState, clearPaperworkState, isAuthenticated]);
+  }, [authIsLoading, clearPaperworkState, isAuthenticated]);
 
   useEffect(() => {
     if (appointmentId && appointment?.id && appointmentId !== appointment?.id) {
@@ -241,10 +241,6 @@ export const PaperworkHome: FC = () => {
       return item.linkId;
     });
   }, [allItems]);
-
-  // console.log('completed paperwork', completedPaperwork);
-  // console.log('allItems', allItems);
-  // console.log('questions', questions);
 
   const outletContext: PaperworkContext = useMemo(() => {
     return {

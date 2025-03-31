@@ -2,6 +2,7 @@ import Oystehr, { BatchInput, BatchInputPostRequest, BatchInputRequest, User } f
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
+  Account,
   Appointment,
   AppointmentParticipant,
   Bundle,
@@ -39,6 +40,7 @@ import {
   makePrepopulatedItemsForPatient,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   OTTEHR_MODULE,
+  PATIENT_BILLING_ACCOUNT_TYPE,
   PatientInfo,
   REASON_MAXIMUM_CHAR_LIMIT,
   ScheduleType,
@@ -544,10 +546,28 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     resource: confirmationTextTask,
   };
 
-  const transactionInput: BatchInput<Appointment | Encounter | Patient | List | QuestionnaireResponse | Task> = {
+  const postAccountRequests: BatchInputPostRequest<Account>[] = [];
+  if (createPatientRequest?.fullUrl) {
+    const accountResource: Account = {
+      resourceType: 'Account',
+      status: 'active',
+      type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
+      subject: [{ reference: createPatientRequest.fullUrl }],
+    };
+    postAccountRequests.push({
+      method: 'POST',
+      url: '/Account',
+      resource: accountResource,
+    });
+  }
+
+  const transactionInput: BatchInput<
+    Appointment | Encounter | Patient | List | QuestionnaireResponse | Account | Task
+  > = {
     requests: [
       ...patientRequests,
       ...listRequests,
+      ...postAccountRequests,
       postApptReq,
       postEncRequest,
       postQuestionnaireResponseRequest,

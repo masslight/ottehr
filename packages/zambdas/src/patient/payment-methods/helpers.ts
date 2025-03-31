@@ -11,17 +11,6 @@ export interface BasePaymentMgmtInput {
   payorProfile: string;
   stripeCustomerId?: string;
 }
-interface PostPaymentMethodInput extends BasePaymentMgmtInput {
-  paymentMethodId: string;
-}
-
-export async function postPaymentMethodSetDefaultRequest(input: PostPaymentMethodInput): Promise<any> {
-  // const serviceUrl = `${apiUrl}/payment/payment-method/set-default`;
-  const { secrets, token, beneficiaryPatientId, payorProfile, paymentMethodId } = input;
-  const stripeClient = getStripeClient(secrets);
-  console.log('stripeClient= ', stripeClient);
-}
-
 interface DeletePaymentMethodInput extends BasePaymentMgmtInput {
   paymentMethodId: string;
 }
@@ -67,17 +56,16 @@ const createStripeCustomer = async (stripe: Stripe, input: CreateStripeAccountIn
   return customer;
 };
 
-const getBillingAccountForPatient = async (patientId: string, oystehrClient: Oystehr): Promise<Account | undefined> => {
+export const getBillingAccountForPatient = async (
+  patientId: string,
+  oystehrClient: Oystehr
+): Promise<Account | undefined> => {
   const accounts = await oystehrClient.fhir.search<Account>({
     resourceType: 'Account',
     params: [
       {
         name: 'patient',
         value: `Patient/${patientId}`,
-      },
-      {
-        name: 'identifier',
-        value: 'TODO: tbd',
       },
       {
         name: 'status',

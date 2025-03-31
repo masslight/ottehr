@@ -1,8 +1,7 @@
-import { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getAuth0Token, getUser, lambdaResponse, ZambdaInput } from '../../../shared';
-import { postPaymentMethodSetDefaultRequest } from '../helpers';
-import { validateRequestParameters } from './validateRequestParameters';
+import { createOystehrClient, getAuth0Token, lambdaResponse, ZambdaInput } from '../../../shared';
+import { getStripeClient } from '../helpers';
+import { complexValidation, validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrM2MClientToken: string;
@@ -28,32 +27,25 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    let user: User;
-    try {
-      console.log('getting user');
-      user = await getUser(authorization.replace('Bearer ', ''), secrets);
-      console.log(`user: ${user.name} (profile ${user.profile})`);
-    } catch (error) {
-      console.log('getUser error:', error);
-      return lambdaResponse(401, { message: 'Unauthorized' });
-    }
-
     if (!zapehrM2MClientToken) {
       console.log('getting m2m token for service calls');
       zapehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
     } else {
       console.log('already have a token, no need to update');
     }
+    const oystehrClient = createOystehrClient(zapehrM2MClientToken, secrets);
+    const { stripeCustomerId } = await complexValidation({ patientId: beneficiaryPatientId, oystehrClient });
 
-    const response = await postPaymentMethodSetDefaultRequest({
-      secrets: secrets ?? null,
-      token: zapehrM2MClientToken,
-      beneficiaryPatientId,
-      payorProfile: user.profile,
-      paymentMethodId,
+    const stripeClient = getStripeClient(secrets);
+    const customer = await stripeClient.customers.update(stripeCustomerId, {
+      invoice_settings: {
+        default_payment_method: paymentMethodId,
+      },
     });
 
-    return lambdaResponse(200, response || {});
+    console.log('customer updated', customer);
+
+    return lambdaResponse(200, {});
   } catch (error: any) {
     console.error(error);
     return lambdaResponse(500, { error: 'Internal error' });
