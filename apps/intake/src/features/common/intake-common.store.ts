@@ -1,6 +1,6 @@
+import { AvailableLocationInformation } from 'utils';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { AvailableLocationInformation } from '../../api/zapehrApi';
 
 interface IntakeCommonState {
   networkError: boolean;

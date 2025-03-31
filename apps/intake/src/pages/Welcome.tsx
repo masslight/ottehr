@@ -14,10 +14,18 @@ import {
 } from 'react-router-dom';
 import { ErrorDialog, ErrorDialogConfig, PageForm } from 'ui-components';
 import { ZambdaClient, useUCZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
-import { GetScheduleResponse, PatientInfo, ScheduleType, ServiceMode, VisitType, getSelectors } from 'utils';
+import {
+  AvailableLocationInformation,
+  GetScheduleResponse,
+  PatientInfo,
+  ScheduleType,
+  ServiceMode,
+  VisitType,
+  getSelectors,
+} from 'utils';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import zapehrApi, { AvailableLocationInformation } from '../api/zapehrApi';
+import zapehrApi from '../api/zapehrApi';
 import {
   BOOKING_SERVICE_MODE_PARAM,
   BOOKING_SLUG_PARAMS,

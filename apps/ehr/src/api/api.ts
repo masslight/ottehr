@@ -1,5 +1,4 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { Address, ContactPoint, LocationHoursOfOperation } from 'fhir/r4b';
 import {
   chooseJson,
   ConversationMessage,
@@ -10,16 +9,16 @@ import {
   GetUserResponse,
 } from 'utils';
 import {
+  AssignPractitionerParameters,
   CancelAppointmentParameters,
+  ChangeInPersonVisitStatusParameters,
   CreateAppointmentParameters,
   DeactivateUserParameters,
   GetAppointmentsParameters,
   SaveFollowupParameter,
-  AssignPractitionerParameters,
-  UnassignPractitionerParameters,
-  ChangeInPersonVisitStatusParameters,
-  UpdateUserParameters,
   SubmitLabOrderParameters,
+  UnassignPractitionerParameters,
+  UpdateUserParameters,
 } from '../types/types';
 
 export interface PatchOperation {
@@ -290,18 +289,6 @@ export const getConversation = async (
     throw new Error(JSON.stringify(error));
   }
 };
-
-export interface AvailableLocationInformation {
-  id: string | undefined;
-  slug: string | undefined;
-  name: string | undefined;
-  description: string | undefined;
-  address: Address | undefined;
-  telecom: ContactPoint[] | undefined;
-  hoursOfOperation: LocationHoursOfOperation[] | undefined;
-  timezone: string | undefined;
-  otherOffices: { display: string; url: string }[];
-}
 
 export const getLocations = async (
   oystehr: Oystehr,

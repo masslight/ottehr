@@ -1,7 +1,7 @@
-import { Address, ContactPoint, LocationHoursOfOperation, QuestionnaireResponse } from 'fhir/r4b';
+import { QuestionnaireResponse } from 'fhir/r4b';
 import { ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import {
-  Closure,
+  AvailableLocationInformation,
   CreateAppointmentInputParams,
   GetEligibilityParameters,
   GetEligibilityResponse,
@@ -12,7 +12,6 @@ import {
   PatchPaperworkParameters,
   PatientInfo,
   PresignUploadUrlResponse,
-  ScheduleType,
   StartInterviewInput,
   SubmitPaperworkParameters,
   UCGetPaperworkResponse,
@@ -52,20 +51,6 @@ const SUBMIT_PAPERWORK_ZAMBDA_ID = import.meta.env.VITE_APP_SUBMIT_PAPERWORK_ZAM
 const GET_ELIGIBILITY_ZAMBDA_ID = import.meta.env.VITE_APP_GET_ELIGIBILITY_ZAMBDA_ID;
 const AI_INTERVIEW_START_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTERVIEW_START_ZAMBDA_ID;
 const AI_INTERVIEW_HANDLE_ANSWER_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTERVIEW_HANDLE_ANSWER_ZAMBDA_ID;
-
-export interface AvailableLocationInformation {
-  id: string | undefined;
-  slug: string | undefined;
-  name: string | undefined;
-  description: string | undefined;
-  address: Address | undefined;
-  telecom: ContactPoint[] | undefined;
-  hoursOfOperation: LocationHoursOfOperation[] | undefined;
-  closures: Closure[];
-  timezone: string | undefined;
-  otherOffices: { display: string; url: string }[];
-  scheduleType: ScheduleType;
-}
 
 export interface AppointmentBasicInfo {
   start: string;
