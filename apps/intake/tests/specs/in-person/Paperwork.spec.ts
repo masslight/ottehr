@@ -4,7 +4,7 @@ import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
-import { UploadImage } from '../../utils/UploadImage';
+import { UploadDocs } from '../../utils/UploadDocs';
 
 let page: Page;
 let context: BrowserContext;
@@ -12,7 +12,7 @@ let flowClass: PrebookInPersonFlow;
 let bookingData: Awaited<ReturnType<PrebookInPersonFlow['startVisit']>>;
 let paperwork: Paperwork;
 let locator: Locators;
-let uploadPhoto: UploadImage;
+let uploadPhoto: UploadDocs;
 let pcpData: Awaited<ReturnType<Paperwork['fillPrimaryCarePhysician']>>;
 let insuranceData: Awaited<ReturnType<Paperwork['fillInsuranceAllFieldsWithoutCards']>>;
 let secondaryInsuranceData: Awaited<ReturnType<Paperwork['fillSecondaryInsuranceAllFieldsWithoutCards']>>;
@@ -35,7 +35,7 @@ test.beforeAll(async ({ browser }) => {
   flowClass = new PrebookInPersonFlow(page);
   paperwork = new Paperwork(page);
   locator = new Locators(page);
-  uploadPhoto = new UploadImage(page);
+  uploadPhoto = new UploadDocs(page);
   commonLocatorsHelper = new CommonLocatorsHelper(page);
   bookingData = await flowClass.startVisit();
 });
@@ -231,13 +231,15 @@ test.describe('Primary Insurance', () => {
     await uploadPhoto.fillInsuranceBack();
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await paperwork.checkImagesAreSaved(locator.insuranceFrontImage, locator.insuranceBackImage);
+    await paperwork.checkImagesIsSaved(locator.insuranceFrontImage);
+    await paperwork.checkImagesIsSaved(locator.insuranceBackImage);
   });
   test('Primary Insurance - Open next page, click [Back] - check images are saved', async () => {
     await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('Responsible party information');
     await locator.clickBackButton();
-    await paperwork.checkImagesAreSaved(locator.insuranceFrontImage, locator.insuranceBackImage);
+    await paperwork.checkImagesIsSaved(locator.insuranceFrontImage);
+    await paperwork.checkImagesIsSaved(locator.insuranceBackImage);
   });
   test('Primary Insurance - Add secondary insurance with empty fields, remove secondary insurance, continue with primary insurance', async () => {
     await locator.addSecondaryInsurance.click();
@@ -336,13 +338,15 @@ test.describe('Secondary Insurance', () => {
     await uploadPhoto.fillSecondaryInsuranceBack();
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await paperwork.checkImagesAreSaved(locator.secondaryInsuranceFrontImage, locator.secondaryInsuranceBackImage);
+    await paperwork.checkImagesIsSaved(locator.secondaryInsuranceFrontImage);
+    await paperwork.checkImagesIsSaved(locator.secondaryInsuranceBackImage);
   });
   test('Secondary Insurance - Open next page, click [Back] - check images are saved', async () => {
     await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('Responsible party information');
     await locator.clickBackButton();
-    await paperwork.checkImagesAreSaved(locator.secondaryInsuranceFrontImage, locator.secondaryInsuranceBackImage);
+    await paperwork.checkImagesIsSaved(locator.secondaryInsuranceFrontImage);
+    await paperwork.checkImagesIsSaved(locator.secondaryInsuranceBackImage);
   });
   test('Secondary Insurance - Policy holder address is the same checkbox', async () => {
     await paperwork.checkPolicyAddressIsTheSameCheckbox(true);
@@ -446,13 +450,15 @@ test.describe('Photo ID - Upload photo', () => {
     await uploadPhoto.fillPhotoFrontID();
     await uploadPhoto.fillPhotoBackID();
     await page.reload();
-    await paperwork.checkImagesAreSaved(locator.photoIdFrontImage, locator.photoIdBackImage);
+    await paperwork.checkImagesIsSaved(locator.photoIdFrontImage);
+    await paperwork.checkImagesIsSaved(locator.photoIdBackImage);
   });
   test('PPID-6 Open next page, click [Back] - check images are saved', async () => {
     await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('Complete consent forms');
     await locator.clickBackButton();
-    await paperwork.checkImagesAreSaved(locator.photoIdFrontImage, locator.photoIdBackImage);
+    await paperwork.checkImagesIsSaved(locator.photoIdFrontImage);
+    await paperwork.checkImagesIsSaved(locator.photoIdBackImage);
   });
 });
 test.describe('Consent forms - Check and fill all fields', () => {

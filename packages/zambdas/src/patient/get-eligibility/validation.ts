@@ -11,10 +11,13 @@ import {
   GetEligibilityInsuranceData,
   GetEligibilityParameters,
   GetEligibilityPolicyHolder,
+  getSecret,
   InsurancePlanDTO,
   isValidUUID,
+  Secrets,
+  SecretsKeys,
 } from 'utils';
-import { getSecret, Secrets, SecretsKeys, ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): GetEligibilityInput & { secrets: Secrets | null } {
   if (!input.body) {

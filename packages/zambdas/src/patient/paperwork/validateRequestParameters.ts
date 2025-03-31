@@ -1,4 +1,5 @@
-import { QuestionnaireResponseItem, QuestionnaireResponse } from 'fhir/r4b';
+import Oystehr from '@oystehr/sdk';
+import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import {
   PatchPaperworkParameters,
   QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
@@ -6,9 +7,8 @@ import {
   makeValidationSchema,
   recursiveGroupTransform,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import Oystehr from '@oystehr/sdk';
 import { ValidationError } from 'yup';
+import { ZambdaInput } from '../../shared';
 
 interface BasicInput extends PatchPaperworkParameters {
   ipAddress: string;

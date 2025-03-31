@@ -1,5 +1,5 @@
 import {} from 'utils';
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../../shared';
 import { GetPaperworkInput } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): GetPaperworkInput {

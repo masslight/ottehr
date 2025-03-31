@@ -6,13 +6,20 @@ import {
   APPOINTMENT_NOT_FOUND_ERROR,
   AvailableLocationInformation,
   SCHEDULE_NOT_FOUND_ERROR,
+  Secrets,
+  SecretsKeys,
   getAvailableSlotsForSchedule,
+  getSecret,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { Secrets, SecretsKeys, getSecret, topLevelCatch } from 'zambda-utils';
-import '../shared/instrument.mjs';
-import { captureSentryException, configSentry, getAuth0Token } from '../shared';
-import { createOystehrClient, getLocationInformation } from '../shared/helpers';
+import { topLevelCatch, ZambdaInput } from '../../shared';
+import '../../shared/instrument.mjs';
+import {
+  captureSentryException,
+  configSentry,
+  createOystehrClient,
+  getAuth0Token,
+  getLocationInformation,
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetAppointmentDetailInput {

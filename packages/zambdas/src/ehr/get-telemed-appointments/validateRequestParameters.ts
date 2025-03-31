@@ -1,6 +1,5 @@
-import { GetTelemedAppointmentsInput } from 'utils';
-import { Secrets } from 'zambda-utils';
-import { ZambdaInput } from 'zambda-utils';
+import { GetTelemedAppointmentsInput, Secrets } from 'utils';
+import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(
   input: ZambdaInput

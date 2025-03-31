@@ -7,15 +7,21 @@ import {
   FHIR_EXTENSION,
   getPatchBinary,
   getPatchOperationToUpdateExtension,
+  getSecret,
   RequiredProps,
+  SecretsKeys,
   UpdateAppointmentRequestParams,
   UpdateAppointmentResponse,
   userHasAccessToPatient,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { getSecret, SecretsKeys, topLevelCatch } from 'zambda-utils';
-import { checkOrCreateM2MClientToken, getUser } from '../../shared';
-import { createUpdateUserRelatedResources, creatingPatientUpdateRequest } from '../../shared/appointment/helpers';
+import {
+  checkOrCreateM2MClientToken,
+  createUpdateUserRelatedResources,
+  creatingPatientUpdateRequest,
+  getUser,
+  topLevelCatch,
+  ZambdaInput,
+} from '../../../shared';
 import { getTelemedLocation } from '../telemed-create-appointment';
 import { validateUpdateAppointmentParams } from './validateRequestParameters';
 

@@ -43,7 +43,7 @@ test.describe('Medical conditions', async () => {
   test('Should display message before typing in field', async () => {
     await test.step("go to appointment page and make sure it's in pre-video", async () => {
       await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
-      await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, true);
+      await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });
     });
 
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput).locator('input').click();
@@ -187,7 +187,7 @@ test.describe('Known allergies', () => {
   test('Should display message before typing in field', async () => {
     await test.step("go to appointment page and make sure it's in pre-video", async () => {
       await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
-      await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, true);
+      await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });
     });
 
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput).locator('input').click();

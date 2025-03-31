@@ -1,6 +1,5 @@
-import { UnassignPractitionerInput } from 'utils';
-import { getSecret, SecretsKeys } from 'zambda-utils';
-import { ZambdaInput } from 'zambda-utils';
+import { getSecret, SecretsKeys, UnassignPractitionerInput } from 'utils';
+import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): UnassignPractitionerInput & { userToken: string } {
   console.group('validateRequestParameters');
