@@ -3,6 +3,7 @@ import { ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import {
   AvailableLocationInformation,
   CreateAppointmentInputParams,
+  GetAppointmentDetailsResponse,
   GetEligibilityParameters,
   GetEligibilityResponse,
   GetPresignedFileURLInput,
@@ -57,11 +58,6 @@ export interface AppointmentBasicInfo {
   location: AvailableLocationInformation;
   visitType: string;
   status?: string;
-}
-interface GetAppointmentDetailsResponse {
-  appointment: AppointmentBasicInfo;
-  availableSlots: string[];
-  displayTomorrowSlotsAtHour: number;
 }
 
 export interface CreateAppointmentResponse {

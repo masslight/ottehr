@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
   AvailableLocationInformation,
+  GetAppointmentDetailsResponse,
   SCHEDULE_NOT_FOUND_ERROR,
   Secrets,
   SecretsKeys,
@@ -32,17 +33,6 @@ interface Appointment {
   location: AvailableLocationInformation;
   visitType: string;
   status?: string;
-}
-
-interface GetAppointmentDetailsResponse {
-  appointment: {
-    start: string;
-    location: AvailableLocationInformation;
-    visitType: string;
-    status?: string;
-  };
-  availableSlots: string[];
-  displayTomorrowSlotsAtHour: number;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
