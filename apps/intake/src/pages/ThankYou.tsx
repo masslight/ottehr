@@ -41,6 +41,8 @@ import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import i18n from '../lib/i18n';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { ottehrAiLogo } from '../assets';
+import { LoadingButton } from '@mui/lab';
+import api from '../api/zapehrApi';
 
 const MODAL_STYLE = {
   position: 'absolute' as const,
@@ -135,6 +137,7 @@ const ThankYou = (): JSX.Element => {
   const [checkedIn, setCheckedIn] = useState<boolean>(false);
   const [aiChatConsentModalOpen, setAiChatConsentModalOpen] = useState<boolean>(false);
   const [aiChatStartButtonEnabled, setAiChatStartButtonEnabled] = useState<boolean>(false);
+  const [aiChatStartButtonLoading, setAiChatStartButtonLoading] = useState<boolean>(false);
   const outletContext = useVisitStore();
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
@@ -306,6 +309,20 @@ const ThankYou = (): JSX.Element => {
     return <Outlet context={{ ...outletContext }} />;
   }
 
+  const saveAiChatConsentAndStartChat = async (): Promise<void> => {
+    if (tokenlessZambdaClient == null || appointmentID == null) return;
+    setAiChatStartButtonLoading(true);
+    setAiChatStartButtonEnabled(false);
+    await api.aIInterviewPersistConsent(
+      {
+        appointmentId: appointmentID,
+      },
+      tokenlessZambdaClient
+    );
+    setAiChatConsentModalOpen(false);
+    navigate(intakeFlowPageRoute.AIInterview.path.replace(':id', appointmentID));
+  };
+
   return (
     <PageContainer title={t('thanks.title')} description={visitType === VisitType.WalkIn ? '' : t('thanks.subtitle')}>
       {(!loading && (
@@ -419,6 +436,7 @@ const ThankYou = (): JSX.Element => {
             onClose={() => {
               setAiChatConsentModalOpen(false);
               setAiChatStartButtonEnabled(false);
+              setAiChatStartButtonLoading(false);
             }}
           >
             <Box sx={MODAL_STYLE}>
@@ -444,18 +462,20 @@ const ThankYou = (): JSX.Element => {
                   onClick={() => {
                     setAiChatConsentModalOpen(false);
                     setAiChatStartButtonEnabled(false);
+                    setAiChatStartButtonLoading(false);
                   }}
                 >
                   Cancel
                 </Button>
-                <Button
+                <LoadingButton
+                  loading={aiChatStartButtonLoading}
                   variant="contained"
                   color="secondary"
                   disabled={!aiChatStartButtonEnabled}
-                  onClick={() => navigate(intakeFlowPageRoute.AIInterview.path.replace(':id', appointmentID!))}
+                  onClick={saveAiChatConsentAndStartChat}
                 >
                   Start chat
-                </Button>
+                </LoadingButton>
               </Box>
             </Box>
           </Modal>
