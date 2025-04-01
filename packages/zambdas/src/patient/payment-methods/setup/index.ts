@@ -68,6 +68,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const guarantor = accountResources.guarantorResource;
     let customerId = account ? getStripeCustomerIdFromAccount(account) : undefined;
+
     if (customerId === undefined) {
       const customer = await stripeClient.customers.create(
         {

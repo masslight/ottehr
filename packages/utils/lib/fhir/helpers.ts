@@ -1274,3 +1274,8 @@ export const getStripeCustomerIdFromAccount = (account: Account): string | undef
     return ident.system === ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE;
   })?.value;
 };
+
+export const getActiveAccountGuarantorReference = (account: Account): string | undefined => {
+  const guarantor = account?.guarantor?.find((g) => g.period?.end === undefined)?.party;
+  return guarantor?.reference;
+};
