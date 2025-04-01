@@ -106,13 +106,13 @@ describe('Test "get-telemed-appointments" endpoint', () => {
       });
     });
 
-    oystehr.fhir.get = vi.fn(() => {
+    oystehr.fhir.get = vi.fn((): Promise<any> => {
       return new Promise((resolve) => {
-        resolve(myPractitioner as any);
+        resolve(myPractitioner);
       });
     });
 
-    oystehr.fhir.search = vi.fn(() => {
+    oystehr.fhir.search = vi.fn((): Promise<any> => {
       return new Promise((resolve) => {
         resolve(allLocations as any);
       });
