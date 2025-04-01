@@ -55,20 +55,11 @@ export enum ExternalLabsStatus {
   unparsed = '-', // for debugging purposes
 }
 
-export type LabStatusDetails = {
+export type LabOrderHistoryRow = {
   action: 'ordered' | 'performed' | 'received' | 'reviewed' | 'received reflex' | 'reviewed reflex';
   performer: string;
   date: string;
-  lab: string;
 };
-
-export type LabOrderHistory = Record<ExternalLabsStatus, LabStatusDetails | null>;
-
-export type ReflexLabStatus =
-  | ExternalLabsStatus.received
-  | ExternalLabsStatus.reviewed
-  | ExternalLabsStatus.unparsed
-  | null;
 
 export interface LabOrderDTO {
   orderId: string; // ServiceRequest.id
@@ -84,8 +75,9 @@ export interface LabOrderDTO {
   visitDate: string; // based on appointment
   lastResultReceivedDate: string; // the most recent Task RFRT.authoredOn
   dx: string; // SR.reasonCode joins
-  performed: string; // order performed (SR.orderDetail code.display)
+  performedBy: string; // order performed (SR.orderDetail code.display)
   accessionNumbers: string[]; // DiagnosticReport.identifier
+  history: LabOrderHistoryRow[];
 }
 
 export interface Pagination {

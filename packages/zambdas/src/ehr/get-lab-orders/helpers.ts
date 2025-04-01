@@ -17,6 +17,7 @@ import {
   DEFAULT_LABS_ITEMS_PER_PAGE,
   EMPTY_PAGINATION,
   isPositiveNumberOrZero,
+  LabOrderHistoryRow,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   Pagination,
 } from 'utils';
@@ -31,7 +32,7 @@ export const mapResourcesToLabOrderDTOs = (
   practitioners: Practitioner[],
   encounters: Encounter[],
   appointments: Appointment[]
-  // provenances: Provenance[]
+  // provenances: Provenance[] // todo: delete this from search query if it's not needed
 ): LabOrderDTO[] => {
   return serviceRequests.map((serviceRequest) => {
     const {
@@ -48,8 +49,9 @@ export const mapResourcesToLabOrderDTOs = (
       diagnoses,
       providerName,
       dx,
-      performed,
+      performedBy,
       appointmentId,
+      history,
     } = parseOrderDetails({ tasks, serviceRequest, results, appointments, encounters, practitioners });
 
     return {
@@ -65,9 +67,10 @@ export const mapResourcesToLabOrderDTOs = (
       locationLab,
       visitDate,
       orderAddedDate, // order date
-      performed, // order performed
+      performedBy, // order performed
       lastResultReceivedDate,
       accessionNumbers,
+      history,
     };
   });
 };
@@ -100,24 +103,24 @@ export const getLabResources = async (
 
   const {
     serviceRequests,
-    tasks: PST_tasks,
+    tasks: preSubmissionTasks,
     encounters,
     diagnosticReports,
     observations,
     provenances,
   } = extractLabResources(labResources);
 
-  const [practitioners, appointments, RFRT_and_RPRT_tasks] = await Promise.all([
+  const [practitioners, appointments, finalAndPrelimTasks] = await Promise.all([
     fetchPractitionersForServiceRequests(oystehr, serviceRequests),
     fetchAppointmentsForServiceRequests(oystehr, serviceRequests, encounters),
-    fetchRFRTAndRPRTTasks(oystehr, diagnosticReports),
+    fetchFinalAndPrelimTasks(oystehr, diagnosticReports),
   ]);
 
   const pagination = parsePaginationFromResponse(labOrdersResponse);
 
   return {
     serviceRequests,
-    tasks: [...PST_tasks, ...RFRT_and_RPRT_tasks],
+    tasks: [...preSubmissionTasks, ...finalAndPrelimTasks],
     diagnosticReports,
     practitioners,
     encounters,
@@ -333,7 +336,7 @@ export const fetchAppointmentsForServiceRequests = async (
   return appointments;
 };
 
-export const fetchRFRTAndRPRTTasks = async (oystehr: Oystehr, results: DiagnosticReport[]): Promise<Task[]> => {
+export const fetchFinalAndPrelimTasks = async (oystehr: Oystehr, results: DiagnosticReport[]): Promise<Task[]> => {
   const resultsIds = results.map((result) => result.id).filter(Boolean);
 
   if (!resultsIds.length) {
@@ -453,15 +456,25 @@ export const parseDiagnoses = (serviceRequest: ServiceRequest): DiagnosisDTO[] =
 };
 
 export const parsePractitionerName = (practitionerId: string | undefined, practitioners: Practitioner[]): string => {
-  if (!practitionerId) return 'Unknown';
+  const NOT_FOUND = '-';
+
+  if (!practitionerId) {
+    return NOT_FOUND;
+  }
 
   const practitioner = practitioners.find((p) => p.id === practitionerId);
-  if (!practitioner) return 'Unknown';
+
+  if (!practitioner) {
+    return NOT_FOUND;
+  }
 
   const name = practitioner.name?.[0];
-  if (!name) return 'Unknown';
 
-  return [name.prefix, name.given, name.family].flat().filter(Boolean).join(' ') || 'Unknown';
+  if (!name) {
+    return NOT_FOUND;
+  }
+
+  return [name.prefix, name.given, name.family].flat().filter(Boolean).join(' ') || NOT_FOUND;
 };
 
 export const parseLabInfo = (serviceRequest: ServiceRequest): { type: string; location: string } => {
@@ -490,7 +503,7 @@ export const checkIsPSC = (serviceRequest: ServiceRequest): boolean => {
 };
 
 export const parsePerformed = (serviceRequest: ServiceRequest): string => {
-  const NOT_FOUND = '-';
+  const NOT_FOUND = '';
 
   if (checkIsPSC(serviceRequest)) {
     return PSC_HOLD_CONFIG.display;
@@ -698,8 +711,9 @@ export const parseOrderDetails = ({
   diagnoses: DiagnosisDTO[];
   providerName: string;
   dx: string;
-  performed: string;
+  performedBy: string;
   appointmentId: string;
+  history: LabOrderHistoryRow[];
 } => {
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
@@ -757,9 +771,46 @@ export const parseOrderDetails = ({
 
   const dx = parseDx(serviceRequest);
 
-  const performed = parsePerformed(serviceRequest); // only PSC Hold currently
+  const performedBy = parsePerformed(serviceRequest); // only PSC Hold currently
 
   const orderId = serviceRequest.id;
+
+  const history: LabOrderHistoryRow[] = (() => {
+    const history: LabOrderHistoryRow[] = [
+      {
+        action: 'ordered',
+        performer: providerName,
+        date: orderAddedDate,
+      },
+    ];
+
+    if (performedBy) {
+      history.push({
+        action: 'performed',
+        performer: providerName,
+        date: '-',
+      });
+    }
+
+    const finalTasks = [...reflexFinalTasks, ...reflexPrelimTasks].sort((a, b) =>
+      compareDates(a.authoredOn, b.authoredOn)
+    );
+
+    finalTasks.forEach((task) => {
+      const action = task.status === 'completed' ? 'reviewed' : 'received';
+      const date = task.authoredOn || '';
+      const performerId = task.owner?.reference?.split('/').pop() || '';
+      const performer = parsePractitionerName(performerId, practitioners);
+
+      history.push({
+        action,
+        performer,
+        date,
+      });
+    });
+
+    return history;
+  })();
 
   return {
     orderId,
@@ -775,8 +826,9 @@ export const parseOrderDetails = ({
     diagnoses,
     providerName,
     dx,
-    performed,
+    performedBy,
     appointmentId,
+    history,
   };
 };
 
