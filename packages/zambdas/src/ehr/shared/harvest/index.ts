@@ -1083,6 +1083,7 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-ethnicity': patientFieldPaths.ethnicity,
   'patient-race': patientFieldPaths.race,
   'patient-point-of-discovery': patientFieldPaths.pointOfDiscovery,
+  'mobile-opt-in': patientFieldPaths.sendMarketing,
   'insurance-carrier': coverageFieldPaths.carrier,
   'insurance-member-id': coverageFieldPaths.memberId,
   'policy-holder-first-name': relatedPersonFieldPaths.firstName,
@@ -1233,8 +1234,8 @@ export function createMasterRecordPatchOperations(
         }
 
         if (item.linkId === 'patient-preferred-name') {
-          const prefferedNameIndex = patient.name?.findIndex((name) => name.use === 'nickname');
-          const currentPath = path.replace(/name\/\d+/, `name/${prefferedNameIndex}`);
+          const preferredNameIndex = patient.name?.findIndex((name) => name.use === 'nickname');
+          const currentPath = path.replace(/name\/\d+/, `name/${preferredNameIndex}`);
           const currentValue = getCurrentValue(patient, currentPath);
 
           if (value !== currentValue) {

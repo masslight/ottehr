@@ -505,11 +505,11 @@ export function getPatchOperationToAddOrUpdatePreferredName(
     if (currentValue !== undefined) {
       return { op: 'replace', path, value };
     } else {
-      const prefferedNameItem = { given: [value], use: 'nickname' };
+      const preferredNameItem = { given: [value], use: 'nickname' };
       return {
         op: 'add',
         path: '/name/-',
-        value: prefferedNameItem,
+        value: preferredNameItem,
       };
     }
   }
