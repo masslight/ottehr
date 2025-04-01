@@ -15,7 +15,6 @@ import {
 import { CardElement, Elements, useElements, useStripe } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 import { FC, MouseEvent, useState } from 'react';
-import { useQueryClient } from 'react-query';
 import { CreditCardInfo } from 'utils';
 import {
   useGetPaymentMethods,
@@ -59,10 +58,7 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ value:
 
   const { mutate: setDefault, isLoading: isSetDefaultLoading } = useSetDefaultPaymentMethod(patient?.id);
 
-  const theme = useTheme();
-
-  const [isAddLoading, setIsAddLoading] = useState(false);
-  const disabled = isAddLoading || isCardsLoading || isSetDefaultLoading || isSetupDataLoading;
+  const disabled = isCardsLoading || isSetDefaultLoading || isSetupDataLoading;
 
   const onMakePrimary = (id: string, refreshOnSuccess?: boolean): void => {
     setPendingSelection(id);
@@ -90,6 +86,8 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ value:
     onMakePrimary(id, true);
   };
 
+  const isInitialLoad = (setupData === undefined && isSetupDataLoading) || (cards.length === 0 && isCardsLoading);
+
   return (
     <Box
       sx={{
@@ -103,6 +101,52 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ value:
           Choose a default payment method you'd like to be charged for any amount not covered by insurance.
         </Typography>
       </Card>
+      {isInitialLoad ? (
+        <Skeleton variant="rounded" height={250} />
+      ) : (
+        <CreditCardContent
+          setupData={setupData}
+          pendingSelection={pendingSelection}
+          selectedOption={selectedOption}
+          cards={cards}
+          disabled={disabled}
+          errorMessage={errorMessage}
+          setErrorMessage={setErrorMessage}
+          onMakePrimary={onMakePrimary}
+          handleNewPaymentMethod={handleNewPaymentMethod}
+        />
+      )}
+    </Box>
+  );
+};
+
+interface CreditCardContentProps {
+  setupData: string | undefined;
+  pendingSelection: string | undefined;
+  selectedOption: string | undefined;
+  cards: CreditCardInfo[];
+  disabled: boolean;
+  errorMessage: string | undefined;
+  setErrorMessage: (message: string | undefined) => void;
+  onMakePrimary: (id: string, refreshOnSuccess?: boolean) => void;
+  handleNewPaymentMethod: (id: string) => void;
+}
+
+const CreditCardContent: FC<CreditCardContentProps> = (props) => {
+  const {
+    setupData,
+    pendingSelection,
+    cards,
+    selectedOption,
+    disabled,
+    errorMessage,
+    setErrorMessage,
+    onMakePrimary,
+    handleNewPaymentMethod,
+  } = props;
+  const theme = useTheme();
+  return (
+    <>
       <Box>
         <BoldPurpleInputLabel
           id="default-card-selection-label"
@@ -128,72 +172,63 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ value:
           value={selectedOption || ''}
           onChange={(e) => onMakePrimary(e.target.value)}
         >
-          {isCardsLoading && cards.length === 0 ? (
-            <>
-              <Skeleton variant="rounded" height={48} />
-            </>
-          ) : (
-            cards.map((item) => {
-              return (
-                <Box key={item.id} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  <FormControlLabel
-                    value={item.id}
-                    disabled={disabled}
-                    control={
-                      pendingSelection === item.id ? (
-                        <CircularProgress sx={{ maxWidth: '22px', maxHeight: '22px', padding: '9px' }} />
-                      ) : (
-                        <Radio />
-                      )
-                    }
-                    label={
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          // flexDirection: 'row',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <Typography>XXXX - XXXX - XXXX - {item.lastFour}</Typography>
-                      </Box>
-                    }
-                    sx={{
-                      border: '1px solid',
-                      borderRadius: 2,
-                      backgroundColor: () => {
-                        if (item.id === selectedOption) {
-                          return otherColors.lightBlue;
-                        } else {
-                          return theme.palette.background.paper;
-                        }
-                      },
-                      borderColor: item.id === selectedOption ? 'primary.main' : otherColors.borderGray,
-                      paddingTop: 0,
-                      paddingBottom: 0,
-                      paddingRight: 2,
-                      marginX: 0,
-                      minHeight: 46,
-                    }}
-                  />
-                </Box>
-              );
-            })
-          )}
+          {cards.map((item) => {
+            return (
+              <Box key={item.id} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <FormControlLabel
+                  value={item.id}
+                  disabled={disabled}
+                  control={
+                    pendingSelection === item.id ? (
+                      <CircularProgress sx={{ maxWidth: '22px', maxHeight: '22px', padding: '9px' }} />
+                    ) : (
+                      <Radio />
+                    )
+                  }
+                  label={
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        // flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Typography>XXXX - XXXX - XXXX - {item.lastFour}</Typography>
+                    </Box>
+                  }
+                  sx={{
+                    border: '1px solid',
+                    borderRadius: 2,
+                    backgroundColor: () => {
+                      if (item.id === selectedOption) {
+                        return otherColors.lightBlue;
+                      } else {
+                        return theme.palette.background.paper;
+                      }
+                    },
+                    borderColor: item.id === selectedOption ? 'primary.main' : otherColors.borderGray,
+                    paddingTop: 0,
+                    paddingBottom: 0,
+                    paddingRight: 2,
+                    marginX: 0,
+                    minHeight: 46,
+                  }}
+                />
+              </Box>
+            );
+          })}
         </RadioGroup>
       </Box>
 
-      {setupData && (
-        <Elements stripe={stripePromise} options={{ clientSecret: setupData }}>
-          <CreditCardForm
-            clientSecret={setupData}
-            isLoading={isAddLoading || isCardsLoading}
-            disabled={disabled}
-            setIsLoading={setIsAddLoading}
-            selectPaymentMethod={handleNewPaymentMethod}
-          />
-        </Elements>
-      )}
+      <Elements stripe={stripePromise} options={{ clientSecret: setupData }}>
+        <CreditCardForm
+          clientSecret={setupData ?? ''}
+          isLoading={disabled}
+          disabled={disabled}
+          selectPaymentMethod={handleNewPaymentMethod}
+        />
+      </Elements>
       <Snackbar
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
         open={errorMessage !== undefined}
@@ -204,7 +239,7 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ value:
           {errorMessage}
         </Alert>
       </Snackbar>
-    </Box>
+    </>
   );
 };
 
@@ -212,16 +247,14 @@ type CreditCardFormProps = {
   clientSecret: string;
   isLoading: boolean;
   disabled: boolean;
-  setIsLoading: (value: boolean) => void;
   selectPaymentMethod: (id: string) => void;
 };
 
 const CreditCardForm: FC<CreditCardFormProps> = (props) => {
-  const { clientSecret, isLoading, disabled, setIsLoading, selectPaymentMethod } = props;
+  const { clientSecret, isLoading, disabled, selectPaymentMethod } = props;
 
   const stripe = useStripe();
   const elements = useElements();
-  const queryClient = useQueryClient();
 
   const handleSubmit = async (e: MouseEvent<HTMLButtonElement>): Promise<void> => {
     e.preventDefault();
@@ -235,21 +268,14 @@ const CreditCardForm: FC<CreditCardFormProps> = (props) => {
       throw new Error('Stripe card element not found');
     }
 
-    setIsLoading(true);
     const { error, setupIntent } = await stripe.confirmCardSetup(clientSecret, { payment_method: { card } });
     if (!error) {
-      const invalidateSetup = queryClient.invalidateQueries({ queryKey: ['setup-payment-method'] });
-      const invalidateMethods = queryClient.invalidateQueries({ queryKey: ['payment-methods'] });
-      await invalidateSetup;
-      await invalidateMethods;
-
       if (typeof setupIntent.payment_method === 'string') {
         selectPaymentMethod(setupIntent.payment_method);
       }
 
       card.clear();
     }
-    setIsLoading(false);
   };
 
   return (
