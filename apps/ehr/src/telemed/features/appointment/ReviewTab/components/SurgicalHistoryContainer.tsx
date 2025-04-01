@@ -1,10 +1,11 @@
 import { FC } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
 
 export const SurgicalHistoryContainer: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
+  const theme = useTheme();
 
   const procedures = chartData?.procedures;
   const proceduresNote = chartData?.proceduresNote?.text;
@@ -14,11 +15,15 @@ export const SurgicalHistoryContainer: FC = () => {
       <Typography variant="h5" color="primary.dark">
         Surgical history
       </Typography>
-      {procedures!.map((procedure) => (
-        <Typography key={procedure.resourceId}>
-          {procedure.code} {procedure.display}
-        </Typography>
-      ))}
+      {procedures?.length ? (
+        procedures.map((procedure) => (
+          <Typography key={procedure.resourceId}>
+            {procedure.code} {procedure.display}
+          </Typography>
+        ))
+      ) : (
+        <Typography color={theme.palette.text.secondary}>No surgical history</Typography>
+      )}
       <Typography>{proceduresNote}</Typography>
     </Box>
   );

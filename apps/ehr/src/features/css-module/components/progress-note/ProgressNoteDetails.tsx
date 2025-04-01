@@ -48,37 +48,23 @@ export const ProgressNoteDetails: FC = () => {
 
   const chiefComplaint = chartData?.chiefComplaint?.text;
   const ros = chartData?.ros?.text;
-  const allergies = chartData?.allergies;
-  const medications = chartData?.medications;
-  const conditions = chartData?.conditions;
-  const procedures = chartData?.procedures;
-  const proceduresNote = chartData?.proceduresNote?.text;
   const diagnoses = chartData?.diagnosis;
   const medicalDecision = chartData?.medicalDecision?.text;
   const emCode = chartData?.emCode;
   const cptCodes = chartData?.cptCodes;
   const prescriptions = chartData?.prescribedMedications;
-  const episodeOfCare = chartData?.episodeOfCare;
   const observations = chartData?.observations;
   const vitalsObservations = chartData?.vitalsObservations;
 
   const showChiefComplaint = !!(chiefComplaint && chiefComplaint.length > 0);
   const showReviewOfSystems = !!(ros && ros.length > 0);
   const showAdditionalQuestions = !!(observations && observations.length > 0);
-  const showAllergies = !!(allergies && allergies.length > 0);
-  const showMedications = !!(medications && medications.length > 0);
-  const showMedicalConditions = !!(conditions && conditions.length > 0);
-  const showSurgicalHistory = !!(
-    (procedures && procedures.length > 0) ||
-    (proceduresNote && proceduresNote.length > 0)
-  );
   const showAssessment = !!(diagnoses && diagnoses.length > 0);
   const showMedicalDecisionMaking = !!(medicalDecision && medicalDecision.length > 0);
   const showEmCode = !!emCode;
   const showCptCodes = !!(cptCodes && cptCodes.length > 0);
   const showPrescribedMedications = !!(prescriptions && prescriptions.length > 0);
   const { showPatientInstructions } = usePatientInstructionsVisibility();
-  const showEpisodeOfCare = !!(episodeOfCare && episodeOfCare.length > 0);
   const showVitalsObservations = !!(vitalsObservations && vitalsObservations.length > 0);
 
   const sections = [
@@ -92,11 +78,11 @@ export const ProgressNoteDetails: FC = () => {
       </Typography>
       <ExamReadOnlyBlock />
     </Stack>,
-    showAllergies && <AllergiesContainer />,
-    showMedications && <MedicationsContainer />,
-    showMedicalConditions && <MedicalConditionsContainer />,
-    showSurgicalHistory && <SurgicalHistoryContainer />,
-    showEpisodeOfCare && <HospitalizationContainer />,
+    <AllergiesContainer />,
+    <MedicationsContainer />,
+    <MedicalConditionsContainer />,
+    <SurgicalHistoryContainer />,
+    <HospitalizationContainer />,
     showAssessment && <AssessmentContainer />,
     showMedicalDecisionMaking && <MedicalDecisionMakingContainer />,
     showEmCode && <EMCodeContainer />,

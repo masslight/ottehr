@@ -182,6 +182,14 @@ export class Locators {
   removeFile: Locator;
   schoolNoteFile: Locator;
   workNoteFile: Locator;
+  inviteParticipantYes: Locator;
+  inviteeFirstName: Locator;
+  inviteeLastName: Locator;
+  inviteeEmail: Locator;
+  inviteePhone: Locator;
+  inviteeContactEmail: Locator;
+  inviteeContactPhone: Locator;
+  emailErrorText: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -207,6 +215,7 @@ export class Locators {
     this.bookAgainButton = page.getByRole('button', { name: 'Book again' });
     this.homeScreenHeading = page.getByRole('heading', { name: 'Welcome to Ottehr' });
     this.numberErrorText = page.getByText('Phone number must be 10 digits in the format (xxx) xxx-xxxx');
+    this.emailErrorText = page.getByText('Email is not valid');
     this.zipErrorText = page.getByText('ZIP Code must be 5 numbers');
     this.dateOlder18YearsError = page.getByText('Must be 18 years or older');
     this.dateFutureError = page.getByText('Date may not be in the future');
@@ -381,6 +390,16 @@ export class Locators {
     this.removeFile = page.getByTestId('DeleteForeverIcon');
     this.schoolNoteFile = page.getByText('school-work-note-template-school.pdf');
     this.workNoteFile = page.getByText('school-work-note-template-work.pdf');
+
+    // Paperwork - Invite participant
+    this.inviteParticipantYes = page.getByText('Yes, I will add invite details below');
+    this.inviteeFirstName = page.locator("[id='invite-first']");
+    this.inviteeLastName = page.locator("[id='invite-last']");
+    this.inviteeFirstName = page.locator("[id='invite-first']");
+    this.inviteeEmail = page.locator("[id='invite-email']");
+    this.inviteePhone = page.locator("[id='invite-phone']");
+    this.inviteeContactEmail = page.locator(`input[value='Email']`);
+    this.inviteeContactPhone = page.locator(`input[value='Phone']`);
 
     // Paperwork - Review and Submit locators
     this.finishButton = page.getByRole('button', { name: 'Finish' });
