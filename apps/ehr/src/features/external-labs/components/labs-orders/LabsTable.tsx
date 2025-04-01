@@ -93,7 +93,7 @@ export const LabsTable = ({
   };
 
   const onRowClick = (labOrderData: LabOrderDTO): void => {
-    navigateTo(getExternalLabOrderEditUrl(labOrderData.appointmentId, labOrderData.id));
+    navigateTo(getExternalLabOrderEditUrl(labOrderData.appointmentId, labOrderData.orderId));
   };
 
   // Redirect to create order page if needed (controlled by the parent component by prop redirectToOrderCreateIfOrdersEmpty)
@@ -312,7 +312,7 @@ export const LabsTable = ({
               <TableBody>
                 {labOrders.map((order) => (
                   <LabsTableRow
-                    key={order.id}
+                    key={order.orderId}
                     labOrderData={order}
                     onDeleteOrder={() => onDeleteOrder(order)}
                     onRowClick={() => onRowClick(order)}

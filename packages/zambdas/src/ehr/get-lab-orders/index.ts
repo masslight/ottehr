@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import { getLabResources, transformToLabOrderDTOs } from './helpers';
+import { getLabResources, mapResourcesToLabOrderDTOs } from './helpers';
 import { EMPTY_PAGINATION } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 
@@ -18,8 +18,16 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);
 
-    const { serviceRequests, tasks, diagnosticReports, practitioners, pagination, encounters, appointments } =
-      await getLabResources(oystehr, validatedParameters);
+    const {
+      serviceRequests,
+      tasks,
+      diagnosticReports,
+      practitioners,
+      pagination,
+      encounters,
+      appointments,
+      provenances,
+    } = await getLabResources(oystehr, validatedParameters);
 
     if (!serviceRequests.length) {
       return {
@@ -31,13 +39,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       };
     }
 
-    const labOrders = transformToLabOrderDTOs(
+    const labOrders = mapResourcesToLabOrderDTOs(
       serviceRequests,
       tasks,
       diagnosticReports,
       practitioners,
       encounters,
-      appointments
+      appointments,
+      provenances
     );
 
     return {
