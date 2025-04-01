@@ -27,6 +27,7 @@ export enum APIErrorCode {
   CANNOT_JOIN_CALL_NOT_IN_PROGRESS = 4300,
   MISSING_BILLING_PROVIDER_DETAILS = 4301,
   STRIPE_CUSTOMER_ID_NOT_FOUND = 4302,
+  STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED = 4303,
 }
 
 export interface APIError {
@@ -208,5 +209,10 @@ export const ANSWER_OPTION_FROM_RESOURCE_UNDEFINED = (resourceType: string): API
 
 export const STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR: APIError = {
   code: APIErrorCode.STRIPE_CUSTOMER_ID_NOT_FOUND,
-  message: 'No identifier for a stripe customer was found on the billing Account resource associated with the patient',
+  message: 'No identifier for a Stripe customer was found on the billing Account resource associated with the patient',
+};
+
+export const STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED_ERROR: APIError = {
+  code: APIErrorCode.STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED,
+  message: 'Access to this Stripe resource is not authorized. Perhaps it is no longer attached to the customer',
 };

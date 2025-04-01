@@ -1,17 +1,15 @@
-import {
-  FHIR_RESOURCE_NOT_FOUND,
-  getStripeCustomerIdFromAccount,
-  PaymentMethodSetDefaultParameters,
-  Secrets,
-  STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
-} from 'utils';
+import { NOT_AUTHORIZED, PaymentMethodSetDefaultParameters, Secrets } from 'utils';
 import { ZambdaInput } from '../../../shared';
 import Oystehr from '@oystehr/sdk';
-import { getBillingAccountForPatient } from '../helpers';
+import { getStripeCustomerId } from '../helpers';
 
 export function validateRequestParameters(
   input: ZambdaInput
 ): PaymentMethodSetDefaultParameters & { secrets: Secrets | null } {
+  const authorization = input.headers.Authorization;
+  if (!authorization) {
+    throw NOT_AUTHORIZED;
+  }
   if (!input.body) {
     throw new Error('No request body provided');
   }
@@ -38,15 +36,5 @@ interface ComplexValidationInput {
   oystehrClient: Oystehr;
 }
 export async function complexValidation(input: ComplexValidationInput): Promise<{ stripeCustomerId: string }> {
-  const { patientId, oystehrClient } = input;
-
-  const patientAccount = await getBillingAccountForPatient(patientId, oystehrClient);
-  if (!patientAccount) {
-    throw FHIR_RESOURCE_NOT_FOUND('Account');
-  }
-  const stripeCustomerId = getStripeCustomerIdFromAccount(patientAccount);
-  if (!stripeCustomerId) {
-    throw STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR;
-  }
-  return { stripeCustomerId };
+  return getStripeCustomerId(input);
 }

@@ -1,14 +1,6 @@
-import { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import {
-  createOystehrClient,
-  getAuth0Token,
-  getUser,
-  lambdaResponse,
-  topLevelCatch,
-  ZambdaInput,
-} from '../../../shared';
-import { getStripeClient } from '../helpers';
+import { createOystehrClient, getAuth0Token, lambdaResponse, topLevelCatch, ZambdaInput } from '../../../shared';
+import { getStripeClient, validateUserHasAccessToPatienAccount } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/harvest';
 import {
@@ -25,11 +17,6 @@ import { DateTime } from 'luxon';
 let zapehrM2MClientToken: string;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    const authorization = input.headers.Authorization;
-    if (!authorization) {
-      console.log('User is not authenticated yet');
-      return lambdaResponse(401, { message: 'Unauthorized' });
-    }
     console.group('validateRequestParameters');
     let validatedParameters: ReturnType<typeof validateRequestParameters>;
     try {
@@ -44,16 +31,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    let user: User;
-    try {
-      console.log('getting user');
-      user = await getUser(authorization.replace('Bearer ', ''), secrets);
-      console.log(`user: ${user.name} (profile ${user.profile})`);
-    } catch (error) {
-      console.log('getUser error:', error);
-      return lambdaResponse(401, { message: 'Unauthorized' });
-    }
-
     if (!zapehrM2MClientToken) {
       console.log('getting m2m token for service calls');
       zapehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
@@ -62,6 +39,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     const oystehrClient = createOystehrClient(zapehrM2MClientToken, secrets);
+    void (await validateUserHasAccessToPatienAccount(
+      { beneficiaryPatientId, secrets, zambdaInput: input },
+      oystehrClient
+    ));
+
     const stripeClient = getStripeClient(secrets);
 
     const accountResources = await getAccountAndCoverageResourcesForPatient(beneficiaryPatientId, oystehrClient);

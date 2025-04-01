@@ -1,8 +1,20 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE, CreditCardInfo, getSecret, Secrets, SecretsKeys } from 'utils';
+import {
+  ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE,
+  FHIR_RESOURCE_NOT_FOUND,
+  getSecret,
+  getStripeCustomerIdFromAccount,
+  NOT_AUTHORIZED,
+  Secrets,
+  SecretsKeys,
+  STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
+  userHasAccessToPatient,
+} from 'utils';
 import Stripe from 'stripe';
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { User } from '@oystehr/sdk';
 import { Account, Identifier } from 'fhir/r4b';
+import { Zambda } from '@oystehr/sdk/dist/cjs/resources/classes/zambda';
+import { getUser, ZambdaInput } from '../../shared';
 
 export interface BasePaymentMgmtInput {
   secrets: Secrets | null;
@@ -11,50 +23,6 @@ export interface BasePaymentMgmtInput {
   payorProfile: string;
   stripeCustomerId?: string;
 }
-interface DeletePaymentMethodInput extends BasePaymentMgmtInput {
-  paymentMethodId: string;
-}
-export async function deletePaymentMethodRequest(input: DeletePaymentMethodInput): Promise<any> {
-  const { secrets, token, beneficiaryPatientId, payorProfile, paymentMethodId } = input;
-
-  console.log(
-    'benficiaryPatientId, payorProfile, paymentMethodId',
-    beneficiaryPatientId,
-    payorProfile,
-    paymentMethodId
-  );
-  const stripeClient = getStripeClient(secrets);
-  console.log('stripeClient= ', stripeClient);
-}
-
-export async function postPaymentMethodListRequest(input: BasePaymentMgmtInput): Promise<any> {
-  const { secrets, token, beneficiaryPatientId, payorProfile } = input;
-
-  console.log('benficiaryPatientId, payorProfile', beneficiaryPatientId, payorProfile);
-  const stripeClient = getStripeClient(secrets);
-  console.log('stripeClient= ', stripeClient.paymentMethods);
-  const pms = await stripeClient.paymentMethods.list();
-  console.log('pms= ', pms);
-  return pms;
-}
-
-interface CreateStripeAccountInput {
-  email: string;
-  phone: string;
-  patientId: string;
-}
-
-const createStripeCustomer = async (stripe: Stripe, input: CreateStripeAccountInput): Promise<Stripe.Customer> => {
-  const { email, phone, patientId } = input;
-  const customer = await stripe.customers.create({
-    email,
-    phone,
-    metadata: {
-      oystehr_patient_id: patientId,
-    },
-  });
-  return customer;
-};
 
 export const getBillingAccountForPatient = async (
   patientId: string,
@@ -88,30 +56,6 @@ export interface PaymentCard {
   lastFour: string;
   cardholder?: string;
 }
-interface PaymentMethodsFromJSON {
-  cards: CreditCardInfoFromJSON[];
-  default?: CreditCardInfoFromJSON;
-}
-
-interface CreditCardInfoFromJSON {
-  id: string;
-  brand: string;
-  expirationMonth: number;
-  expirationYear: number;
-  lastFour: string;
-}
-
-function convert(jsonCard: CreditCardInfoFromJSON, defaultId?: string): CreditCardInfo {
-  return {
-    id: jsonCard.id,
-    brand: jsonCard.brand,
-    expMonth: jsonCard.expirationMonth,
-    expYear: jsonCard.expirationYear,
-    lastFour: jsonCard.lastFour,
-    default: jsonCard.id === defaultId,
-  };
-}
-
 export interface StripeEnvironmentConfig {
   publicKey: string;
   secretKey: string;
@@ -154,4 +98,46 @@ export const makeStripeCustomerId = (stripeId: string): Identifier => {
     system: ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE,
     value: stripeId,
   };
+};
+
+interface StripeAccountValidationInput {
+  patientId: string;
+  oystehrClient: Oystehr;
+}
+export async function getStripeCustomerId(input: StripeAccountValidationInput): Promise<{ stripeCustomerId: string }> {
+  const { patientId, oystehrClient } = input;
+
+  const patientAccount = await getBillingAccountForPatient(patientId, oystehrClient);
+  if (!patientAccount) {
+    throw FHIR_RESOURCE_NOT_FOUND('Account');
+  }
+  const stripeCustomerId = getStripeCustomerIdFromAccount(patientAccount);
+  if (!stripeCustomerId) {
+    throw STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR;
+  }
+  return { stripeCustomerId };
+}
+
+interface PatientAccountCheckInput {
+  beneficiaryPatientId: string;
+  secrets: Secrets | null;
+  zambdaInput: ZambdaInput;
+}
+export const validateUserHasAccessToPatienAccount = async (
+  input: PatientAccountCheckInput,
+  oystehrClient: Oystehr
+): Promise<User> => {
+  const { beneficiaryPatientId, secrets, zambdaInput } = input;
+  const authorization = zambdaInput.headers.Authorization;
+  if (!authorization) {
+    console.log('authorization header not found');
+    throw NOT_AUTHORIZED;
+  }
+  const user = await getUser(authorization.replace('Bearer ', ''), secrets);
+  const userAccess = await userHasAccessToPatient(user, beneficiaryPatientId, oystehrClient);
+  if (!userAccess) {
+    console.log('no user access to patient');
+    throw NOT_AUTHORIZED;
+  }
+  return user;
 };

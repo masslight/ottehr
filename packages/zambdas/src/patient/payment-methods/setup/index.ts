@@ -1,14 +1,6 @@
-import { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import {
-  createOystehrClient,
-  getAuth0Token,
-  getUser,
-  lambdaResponse,
-  topLevelCatch,
-  ZambdaInput,
-} from '../../../shared';
-import { getStripeClient, makeStripeCustomerId } from '../helpers';
+import { createOystehrClient, getAuth0Token, lambdaResponse, topLevelCatch, ZambdaInput } from '../../../shared';
+import { getStripeClient, makeStripeCustomerId, validateUserHasAccessToPatienAccount } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 import { Account, Identifier } from 'fhir/r4b';
 import { FHIR_RESOURCE_NOT_FOUND, getStripeCustomerIdFromAccount, getEmailForIndividual, getFullName } from 'utils';
@@ -16,47 +8,28 @@ import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/ha
 import Stripe from 'stripe';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrM2MClientToken: string;
+let m2mClientToken: string;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    const authorization = input.headers.Authorization;
-    if (!authorization) {
-      console.log('User is not authenticated yet');
-      return lambdaResponse(401, { message: 'Unauthorized' });
-    }
-
     console.group('validateRequestParameters');
-    let validatedParameters: ReturnType<typeof validateRequestParameters>;
-    try {
-      validatedParameters = validateRequestParameters(input);
-      console.log(JSON.stringify(validatedParameters, null, 4));
-    } catch (error: any) {
-      console.log(error);
-      return lambdaResponse(400, { message: error.message });
-    }
+    const validatedParameters = validateRequestParameters(input);
 
     const { beneficiaryPatientId, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    let user: User;
-    try {
-      console.log('getting user');
-      user = await getUser(authorization.replace('Bearer ', ''), secrets);
-      console.log(`user: ${user.name} (profile ${user.profile})`);
-    } catch (error) {
-      console.log('getUser error:', error);
-      return lambdaResponse(401, { message: 'Unauthorized' });
-    }
-
-    if (!zapehrM2MClientToken) {
+    if (!m2mClientToken) {
       console.log('getting m2m token for service calls');
-      zapehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
+      m2mClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
     } else {
       console.log('already have a token, no need to update');
     }
+    const oystehrClient = createOystehrClient(m2mClientToken, secrets);
+    void (await validateUserHasAccessToPatienAccount(
+      { beneficiaryPatientId, secrets, zambdaInput: input },
+      oystehrClient
+    ));
 
-    const oystehrClient = createOystehrClient(zapehrM2MClientToken, secrets);
     const stripeClient = getStripeClient(secrets);
 
     const accountResources = await getAccountAndCoverageResourcesForPatient(beneficiaryPatientId, oystehrClient);
