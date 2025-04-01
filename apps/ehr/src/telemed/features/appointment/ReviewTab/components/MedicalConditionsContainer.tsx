@@ -1,10 +1,11 @@
 import { FC } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
 
 export const MedicalConditionsContainer: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
+  const theme = useTheme();
 
   const conditions = chartData?.conditions?.filter((condition) => condition.current === true);
 
@@ -13,11 +14,15 @@ export const MedicalConditionsContainer: FC = () => {
       <Typography variant="h5" color="primary.dark">
         Medical conditions
       </Typography>
-      {conditions?.map((condition) => (
-        <Typography key={condition.resourceId}>
-          {condition.display} {condition.code}
-        </Typography>
-      ))}
+      {conditions?.length ? (
+        conditions?.map((condition) => (
+          <Typography key={condition.resourceId}>
+            {condition.display} {condition.code}
+          </Typography>
+        ))
+      ) : (
+        <Typography color={theme.palette.text.secondary}>No known medical conditions</Typography>
+      )}
     </Box>
   );
 };
