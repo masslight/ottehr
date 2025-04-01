@@ -396,12 +396,14 @@ export function getResponsiblePartyStepAnswers({
     year: '1900',
   },
   birthSex = 'Intersex',
+  phone = '(233) 333-3333',
 }: {
   firstName?: string;
   relationship?: string;
   birthDate?: { day: string; month: string; year: string };
   birthSex?: string;
   lastName?: string;
+  phone?: string;
 }): PatchPaperworkParameters['answers'] {
   return {
     linkId: 'responsible-party-page',
@@ -429,6 +431,14 @@ export function getResponsiblePartyStepAnswers({
       {
         linkId: 'responsible-party-birth-sex',
         answer: [{ valueString: birthSex }],
+      },
+      {
+        linkId: 'responsible-party-number',
+        answer: [
+          {
+            valueString: phone,
+          },
+        ],
       },
     ],
   };
