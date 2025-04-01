@@ -11,6 +11,7 @@ import {
   QuestionnaireResponseItemAnswer,
   Reference,
   RelatedPerson,
+  Account,
 } from 'fhir/r4b';
 import {
   getFirstName,
@@ -38,7 +39,7 @@ interface PrepopulationInput {
   unconfirmedDateOfBirth?: string;
   rp?: RelatedPerson;
   documents?: DocumentReference[];
-  insuranceInfo?: (Coverage | RelatedPerson | Organization | InsurancePlan)[];
+  insuranceInfo?: (Coverage | RelatedPerson | Organization | InsurancePlan | Account)[];
 }
 
 export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): QuestionnaireResponseItem[] => {

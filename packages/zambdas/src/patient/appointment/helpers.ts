@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import {
+  Account,
   Coding,
   Coverage,
   DocumentReference,
@@ -125,7 +126,7 @@ export async function getRelatedResources(
   patientId?: string
 ): Promise<{
   documents: DocumentReference[];
-  insuranceInfo: (Coverage | RelatedPerson | Organization | InsurancePlan)[];
+  insuranceInfo: (Coverage | RelatedPerson | Organization | InsurancePlan | Account)[];
 }> {
   let documents: DocumentReference[] = [];
   let insuranceInfo: (Coverage | RelatedPerson | Organization | InsurancePlan)[] = [];
@@ -147,18 +148,26 @@ export async function getRelatedResources(
         ],
       }),
       oystehr.fhir.search<Coverage | RelatedPerson | Organization | InsurancePlan>({
-        resourceType: 'Coverage',
+        resourceType: 'Patient',
         params: [
           {
-            name: 'patient',
-            value: `Patient/${patientId}`,
+            name: '_id',
+            value: patientId,
           },
           {
-            name: '_include',
+            name: '_revinclude',
+            value: 'Account:subject:Patient',
+          },
+          {
+            name: '_revinclude',
+            value: 'Coverage:beneficiary',
+          },
+          {
+            name: '_include:iterate',
             value: 'Coverage:subscriber:RelatedPerson',
           },
           {
-            name: '_include',
+            name: '_include:iterate',
             value: 'Coverage:payor:Organization',
           },
           {

@@ -53,6 +53,7 @@ import {
   getTelemedRequiredAppointmentEncounterExtensions,
 } from '../helpers';
 import { validateCreateAppointmentParams } from './validateRequestParameters';
+import _ from 'lodash';
 
 let zapehrToken: string;
 
@@ -246,6 +247,7 @@ interface TransactionOutput {
   encounter: Encounter;
   patient: Patient;
   questionnaire: QuestionnaireResponse;
+  account?: Account;
 }
 
 export const performTransactionalFhirRequests = async (input: TransactionInput): Promise<TransactionOutput> => {
@@ -364,6 +366,13 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
 
   const { documents, insuranceInfo } = await getRelatedResources(oystehr, patient?.id);
 
+  let currentPatientAccount: Account | undefined;
+  if (patient !== undefined) {
+    currentPatientAccount = insuranceInfo.find(
+      (res) => res.resourceType === 'Account' && res.type && _.isEqual(PATIENT_BILLING_ACCOUNT_TYPE, res.type)
+    ) as Account;
+  }
+
   const canonUrl = `${questionnaire.url}|${questionnaire.version}`;
   const patientToUse = createPatientRequest?.resource ?? patient ?? { resourceType: 'Patient' };
 
@@ -426,6 +435,18 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       status: 'active',
       type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
       subject: [{ reference: createPatientRequest.fullUrl }],
+    };
+    postAccountRequests.push({
+      method: 'POST',
+      url: '/Account',
+      resource: accountResource,
+    });
+  } else if (patient && currentPatientAccount === undefined) {
+    const accountResource: Account = {
+      resourceType: 'Account',
+      status: 'active',
+      type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
+      subject: [{ reference: `Patient/${patient.id}` }],
     };
     postAccountRequests.push({
       method: 'POST',

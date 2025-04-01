@@ -70,6 +70,7 @@ import {
   getTelemedRequiredAppointmentEncounterExtensions,
 } from '../helpers';
 import { CreateAppointmentValidatedInput, validateCreateAppointmentParams } from './validateRequestParameters';
+import _ from 'lodash';
 
 interface CreateAppointmentInput extends Omit<CreateAppointmentValidatedInput, 'currentCanonicalQuestionnaireUrl'> {
   user: User;
@@ -316,6 +317,7 @@ interface TransactionOutput {
   patient: Patient;
   questionnaire: QuestionnaireResponse;
   questionnaireResponseId: string;
+  account?: Account;
 }
 
 export const performTransactionalFhirRequests = async (input: TransactionInput): Promise<TransactionOutput> => {
@@ -479,6 +481,13 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
 
   const patientToUse = patient ?? (createPatientRequest?.resource as Patient);
 
+  let currentPatientAccount: Account | undefined;
+  if (patient !== undefined) {
+    currentPatientAccount = insuranceInfo.find(
+      (res) => res.resourceType === 'Account' && res.type && _.isEqual(PATIENT_BILLING_ACCOUNT_TYPE, res.type)
+    ) as Account;
+  }
+
   const item: QuestionnaireResponseItem[] = makePrepopulatedItemsForPatient({
     patient: patientToUse,
     isNewQrsPatient: createPatientRequest?.resource !== undefined,
@@ -553,6 +562,18 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       status: 'active',
       type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
       subject: [{ reference: createPatientRequest.fullUrl }],
+    };
+    postAccountRequests.push({
+      method: 'POST',
+      url: '/Account',
+      resource: accountResource,
+    });
+  } else if (patient && currentPatientAccount === undefined) {
+    const accountResource: Account = {
+      resourceType: 'Account',
+      status: 'active',
+      type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
+      subject: [{ reference: `Patient/${patient.id}` }],
     };
     postAccountRequests.push({
       method: 'POST',
