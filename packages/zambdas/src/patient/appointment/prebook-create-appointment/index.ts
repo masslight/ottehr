@@ -484,7 +484,11 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   let currentPatientAccount: Account | undefined;
   if (patient !== undefined) {
     currentPatientAccount = insuranceInfo.find(
-      (res) => res.resourceType === 'Account' && res.type && _.isEqual(PATIENT_BILLING_ACCOUNT_TYPE, res.type)
+      (res) =>
+        res.resourceType === 'Account' &&
+        res.type &&
+        _.isEqual(PATIENT_BILLING_ACCOUNT_TYPE, res.type) &&
+        res.status === 'active'
     ) as Account;
   }
 
