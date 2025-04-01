@@ -26,7 +26,12 @@ export const ContactContainer: FC = () => {
         />
       </Row>
       <Row label="Address line 2" inputId={FormFields.addressLine2.key}>
-        <FormTextField name={FormFields.addressLine2.key} control={control} id={FormFields.addressLine2.key} />
+        <FormTextField
+          name={FormFields.addressLine2.key}
+          control={control}
+          id={FormFields.addressLine2.key}
+          data-testid={dataTestIds.contactInformationContainer.addressLineOptional}
+        />
       </Row>
       <Row label="City, State, ZIP" required>
         <Box sx={{ display: 'flex', gap: 2 }}>

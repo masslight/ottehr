@@ -1,41 +1,43 @@
 import { List } from 'fhir/r4b';
-import { FOLDERS_CONFIG } from './constants';
+import { FOLDERS_CONFIG, ListConfig } from './constants';
 
 export const createPatientDocumentLists = (patientReference: string): List[] => {
-  return FOLDERS_CONFIG.map((listConfig) => ({
-    resourceType: 'List',
-    status: 'current',
-    mode: 'working',
-    title: listConfig.title,
-    code: {
-      coding: [
-        {
-          system: 'https://fhir.zapehr.com/r4/StructureDefinitions',
-          code: 'patient-docs-folder',
-          display: listConfig.display,
-        },
-      ],
-    },
-    subject: {
-      reference: patientReference,
-    },
-    entry: [],
-    identifier: [
+  return FOLDERS_CONFIG.map((listConfig) => createPatientDocumentList(patientReference, listConfig));
+};
+
+export const createPatientDocumentList = (patientReference: string, listConfig: ListConfig): List => ({
+  resourceType: 'List',
+  status: 'current',
+  mode: 'working',
+  title: listConfig.title,
+  code: {
+    coding: [
       {
-        type: {
-          coding: [
-            {
-              system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
-              code: 'UDI',
-              display: 'Universal Device Identifier',
-            },
-          ],
-        },
-        value: listConfig.title,
+        system: 'https://fhir.zapehr.com/r4/StructureDefinitions',
+        code: 'patient-docs-folder',
+        display: listConfig.display,
       },
     ],
-  }));
-};
+  },
+  subject: {
+    reference: patientReference,
+  },
+  entry: [],
+  identifier: [
+    {
+      type: {
+        coding: [
+          {
+            system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+            code: 'UDI',
+            display: 'Universal Device Identifier',
+          },
+        ],
+      },
+      value: listConfig.title,
+    },
+  ],
+});
 
 export const findExistingListByDocumentTypeCode = (
   listResources: List[],

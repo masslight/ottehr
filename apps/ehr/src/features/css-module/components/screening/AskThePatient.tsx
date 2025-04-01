@@ -1,36 +1,37 @@
-import React, { useEffect, useState } from 'react';
 import {
-  Typography,
+  FormControl,
+  FormControlLabel,
+  Grid,
+  MenuItem,
+  Paper,
   Radio,
   RadioGroup,
-  FormControlLabel,
-  FormControl,
   Select,
-  MenuItem,
   TextField,
-  Grid,
-  Paper,
+  Typography,
   useTheme,
 } from '@mui/material';
+import React, { useEffect, useState } from 'react';
 
-import { otherColors } from '../../../../CustomThemeProvider';
 import { enqueueSnackbar } from 'notistack';
 import {
-  ObservationTextFieldDTO,
-  ObservationSeenInLastThreeYearsDTO,
-  ObservationHistoryObtainedFromDTO,
+  ADDITIONAL_QUESTIONS_META_SYSTEM,
   HISTORY_OBTAINED_FROM_FIELD,
-  SEEN_IN_LAST_THREE_YEARS_FIELD,
   HistorySourceKeys,
+  historySourceLabels,
+  ObservationHistoryObtainedFromDTO,
+  ObservationSeenInLastThreeYearsDTO,
+  ObservationTextFieldDTO,
   RecentVisitKeys,
   recentVisitLabels,
-  historySourceLabels,
+  SEEN_IN_LAST_THREE_YEARS_FIELD,
 } from 'utils';
-import { useAppointmentStore, useDebounce, useDeleteChartData } from '../../../../telemed';
+import { otherColors } from '../../../../CustomThemeProvider';
 import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useChartData } from '../../hooks/useChartData';
+import { useAppointmentStore, useDebounce, useDeleteChartData } from '../../../../telemed';
 import { useZapEHRAPIClient } from '../../../../telemed/hooks/useOystehrAPIClient';
 import { useNavigationContext } from '../../context/NavigationContext';
+import { useChartData } from '../../hooks/useChartData';
 
 const AskThePatientComponent = (): React.ReactElement => {
   const apiClient = useZapEHRAPIClient();
@@ -42,6 +43,13 @@ const AskThePatientComponent = (): React.ReactElement => {
   ]);
   const { refetch: refetchChartData, isLoading: isChartDataLoading } = useChartData({
     encounterId: encounter?.id || '',
+    requestedFields: {
+      observations: {
+        _tag: ADDITIONAL_QUESTIONS_META_SYSTEM,
+        _search_by: 'encounter',
+      },
+    },
+    enabled: false,
   });
   const { mutate: deleteChartData } = useDeleteChartData();
   const { debounce } = useDebounce(1000);

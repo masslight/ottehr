@@ -4,7 +4,7 @@ import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
-import { UploadImage } from '../../utils/UploadImage';
+import { UploadDocs } from '../../utils/UploadDocs';
 
 let page: Page;
 let context: BrowserContext;
@@ -12,7 +12,7 @@ let flowClass: PrebookInPersonFlow;
 let bookingData: Awaited<ReturnType<PrebookInPersonFlow['startVisit']>>;
 let paperwork: Paperwork;
 let locator: Locators;
-let uploadPhoto: UploadImage;
+let uploadPhoto: UploadDocs;
 let pcpData: Awaited<ReturnType<Paperwork['fillPrimaryCarePhysician']>>;
 let insuranceData: Awaited<ReturnType<Paperwork['fillInsuranceAllFieldsWithoutCards']>>;
 let secondaryInsuranceData: Awaited<ReturnType<Paperwork['fillSecondaryInsuranceAllFieldsWithoutCards']>>;
@@ -35,7 +35,7 @@ test.beforeAll(async ({ browser }) => {
   flowClass = new PrebookInPersonFlow(page);
   paperwork = new Paperwork(page);
   locator = new Locators(page);
-  uploadPhoto = new UploadImage(page);
+  uploadPhoto = new UploadDocs(page);
   commonLocatorsHelper = new CommonLocatorsHelper(page);
   bookingData = await flowClass.startVisit();
 });

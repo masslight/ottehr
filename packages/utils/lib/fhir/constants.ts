@@ -274,7 +274,7 @@ export const ScheduleStrategyCoding = {
   },
 };
 
-interface ListConfig {
+export interface ListConfig {
   title: string;
   display: string;
   documentTypeCode: string | string[];

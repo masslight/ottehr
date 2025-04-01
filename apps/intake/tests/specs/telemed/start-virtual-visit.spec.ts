@@ -1,7 +1,7 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
-import { UploadImage } from '../../utils/UploadImage';
+import { UploadDocs } from '../../utils/UploadDocs';
 import { FillingInfo } from '../../utils/telemed/FillingInfo';
 import { PaperworkTelemed } from '../../utils/telemed/Paperwork';
 import { Locators } from '../../utils/locators';
@@ -526,7 +526,7 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
     await uploadPhotoButton.click();
     await expect(page.getByText('Patient condition photo')).toBeVisible();
 
-    const uploadPhoto = new UploadImage(page);
+    const uploadPhoto = new UploadDocs(page);
     await uploadPhoto.fillPatientCondition();
     await page.getByText('Save').click();
 

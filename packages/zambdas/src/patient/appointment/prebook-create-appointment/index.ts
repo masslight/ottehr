@@ -16,6 +16,7 @@ import {
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   Resource,
+  Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
@@ -34,6 +35,7 @@ import {
   formatPhoneNumberDisplay,
   getCanonicalQuestionnaire,
   getPatchOperationForNewMetaTag,
+  getTaskResource,
   makePrepopulatedItemsForPatient,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   OTTEHR_MODULE,
@@ -42,6 +44,7 @@ import {
   ScheduleType,
   Secrets,
   ServiceMode,
+  TaskIndicator,
   userHasAccessToPatient,
   VisitType,
 } from 'utils';
@@ -259,6 +262,7 @@ export async function createAppointment(
   }
 
   console.log('success, here is the id: ', appointment.id);
+
   return {
     message: 'Successfully created an appointment and encounter',
     appointment: appointment.id || '',
@@ -533,8 +537,22 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     patientRequests.push(createPatientRequest);
   }
 
-  const transactionInput: BatchInput<Appointment | Encounter | Patient | List | QuestionnaireResponse> = {
-    requests: [...patientRequests, ...listRequests, postApptReq, postEncRequest, postQuestionnaireResponseRequest],
+  const confirmationTextTask = getTaskResource(TaskIndicator.confirmationMessages, apptUrl);
+  const taskRequest: BatchInputPostRequest<Task> = {
+    method: 'POST',
+    url: '/Task',
+    resource: confirmationTextTask,
+  };
+
+  const transactionInput: BatchInput<Appointment | Encounter | Patient | List | QuestionnaireResponse | Task> = {
+    requests: [
+      ...patientRequests,
+      ...listRequests,
+      postApptReq,
+      postEncRequest,
+      postQuestionnaireResponseRequest,
+      taskRequest,
+    ],
   };
   console.log('making transaction request');
   const bundle = await oystehr.fhir.transaction(transactionInput);
