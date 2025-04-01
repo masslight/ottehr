@@ -19,7 +19,7 @@
     "setup-secrets": "tsx src/scripts/configure-secrets.ts",
     "deploy-zambdas": "ENV=$ENV npm run bundle && tsx src/scripts/deploy-zambdas.ts",
     "update-user-roles": "tsx src/scripts/update-user-roles.ts",
-    "build": "tsc",
+    "build": "npx tsc -v && npx tsc",
     "bundle": "tsx bundle.ts",
     "lint": "eslint --ext ts,tsx,js,jsx --report-unused-disable-directives --max-warnings 0",
     "prettier": "prettier --write .",
