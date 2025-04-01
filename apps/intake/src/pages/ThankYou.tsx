@@ -284,23 +284,28 @@ const ThankYou = (): JSX.Element => {
   };
 
   const aiChatBanner = (): ReactElement => {
+    const bannerEnabled = import.meta.env.VITE_APP_AI_INTERVIEW_BANNER_ENABLED === 'true';
     return (
-      <Box style={{ background: '#FFF3E0', borderRadius: '8px', padding: '24px', display: 'flex' }}>
-        <Box style={{ fontWeight: 600, fontSize: '18px' }}>
-          <Typography variant="subtitle1" color="text.primary" style={{ paddingBottom: '16px', fontSize: '18px' }}>
-            Save your time and get ready for the visit with Ottehr AI Chat
-          </Typography>
-          <Button
-            type="button"
-            variant="contained"
-            style={{ backgroundColor: '#F57C00' }}
-            onClick={() => setAiChatConsentModalOpen(true)}
-          >
-            Try Ottehr AI chat
-          </Button>
-        </Box>
-        <img src={ottehrAiLogo} style={{ width: '80px', marginLeft: '8px' }} />
-      </Box>
+      <>
+        {bannerEnabled && (
+          <Box style={{ background: '#FFF3E0', borderRadius: '8px', padding: '24px', display: 'flex' }}>
+            <Box style={{ fontWeight: 600, fontSize: '18px' }}>
+              <Typography variant="subtitle1" color="text.primary" style={{ paddingBottom: '16px', fontSize: '18px' }}>
+                Save your time and get ready for the visit with Ottehr AI Chat
+              </Typography>
+              <Button
+                type="button"
+                variant="contained"
+                style={{ backgroundColor: '#F57C00' }}
+                onClick={() => setAiChatConsentModalOpen(true)}
+              >
+                Try Ottehr AI chat
+              </Button>
+            </Box>
+            <img src={ottehrAiLogo} style={{ width: '80px', marginLeft: '8px' }} />
+          </Box>
+        )}
+      </>
     );
   };
 
