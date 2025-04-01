@@ -54,9 +54,9 @@ export const LabsTableRow = ({
         return <Typography variant="body2">{labOrderData.dx}</Typography>;
       }
       case 'resultsReceived':
-        return <DateTimeDisplay dateTimeString={labOrderData.orderedResultsReceivedDate} />;
+        return <DateTimeDisplay dateTimeString={labOrderData.lastResultReceivedDate} />;
       case 'accessionNumber':
-        return labOrderData.accessionNumber;
+        return labOrderData.accessionNumbers.join(', ');
       case 'status':
         return (
           <Chip

@@ -56,8 +56,10 @@ export enum ExternalLabsStatus {
 }
 
 export type LabStatusDetails = {
+  action: 'ordered' | 'performed' | 'received' | 'reviewed' | 'received reflex' | 'reviewed reflex';
   performer: string;
   date: string;
+  lab: string;
 };
 
 export type LabOrderHistory = Record<ExternalLabsStatus, LabStatusDetails | null>;
@@ -65,7 +67,7 @@ export type LabOrderHistory = Record<ExternalLabsStatus, LabStatusDetails | null
 export type ReflexLabStatus =
   | ExternalLabsStatus.received
   | ExternalLabsStatus.reviewed
-  | ExternalLabsStatus.cancelled
+  | ExternalLabsStatus.unparsed
   | null;
 
 export interface LabOrderDTO {
@@ -76,15 +78,14 @@ export interface LabOrderDTO {
   providerName: string; // SR.requester name
   diagnoses: DiagnosisDTO[]; // SR.reasonCode
   orderedLabStatus: ExternalLabsStatus; // Derived from SR, Tasks and DiagnosticReports based on the mapping table
-  reflexLabStatus: ReflexLabStatus; // the status of the last reflex task
   isPSC: boolean; // Derived from SR.orderDetail
   reflexResultsCount: number; // Number of DiagnosticReports with the same SR identifier but different test codes
   appointmentId: string;
-  accessionNumber: string; // ordered results have an corresponding DiagnosticReport.identifier
   visitDate: string; // based on appointment
-  orderedResultsReceivedDate: string; // the most recent Task RFRT.authoredOn
+  lastResultReceivedDate: string; // the most recent Task RFRT.authoredOn
   dx: string; // SR.reasonCode joins
   performed: string; // order performed (SR.orderDetail code.display)
+  accessionNumbers: string[]; // DiagnosticReport.identifier
 }
 
 export interface Pagination {
