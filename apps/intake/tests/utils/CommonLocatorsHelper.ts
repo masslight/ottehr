@@ -15,25 +15,25 @@ export class CommonLocatorsHelper {
     const downloadPromise = this.page.waitForEvent('download');
     await linkLocator.click();
     const download = await downloadPromise;
-    expect(download.suggestedFilename()).toMatch(/\.pdf$/);
+    await expect.soft(download.suggestedFilename()).toMatch(/\.pdf$/);
   }
 
   async checkPatientNameIsCorrect({ firstName, lastName }: { firstName: string; lastName: string }): Promise<void> {
-    await expect(this.page.getByText(`${firstName} ${lastName}`)).toBeVisible();
+    await expect.soft(this.page.getByText(`${firstName} ${lastName}`)).toBeVisible();
   }
 
   async checkSlotIsCorrect(selectedSlot?: string): Promise<void> {
     if (!selectedSlot) {
       throw new Error('Selected slot must not be empty or undefined');
     }
-    await expect(this.page.getByText(`${selectedSlot}`)).toBeVisible();
+    await expect.soft(this.page.getByText(`${selectedSlot}`)).toBeVisible();
   }
 
   async checkLocationValueIsCorrect(location: string | null): Promise<void> {
     if (!location) {
       throw new Error('Location must not be empty or undefined');
     }
-    await expect(this.page.getByText(`${location}`)).toBeVisible();
+    await expect.soft(this.page.getByText(`${location}`)).toBeVisible();
   }
 
   async clickContinue(): Promise<void> {

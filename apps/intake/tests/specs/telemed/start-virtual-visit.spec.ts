@@ -1,10 +1,11 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
+import { chooseJson, CreateAppointmentUCTelemedResponse } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { UploadDocs } from '../../utils/UploadDocs';
+import { Locators } from '../../utils/locators';
 import { FillingInfo } from '../../utils/telemed/FillingInfo';
 import { PaperworkTelemed } from '../../utils/telemed/Paperwork';
-import { Locators } from '../../utils/locators';
 import { TelemedVisitFlow } from '../../utils/telemed/TelemedVisitFlow';
 
 enum PersonSex {
@@ -53,7 +54,7 @@ test.describe('Start virtual visit with required information only', async () => 
 
     page.on('response', async (response) => {
       if (response.url().includes('/telemed-create-appointment/')) {
-        const { appointmentId } = await response.json();
+        const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentUCTelemedResponse;
         if (appointmentId && !appointmentIds.includes(appointmentId)) {
           appointmentIds.push(appointmentId);
         }
@@ -306,7 +307,7 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
 
     page.on('response', async (response) => {
       if (response.url().includes('/telemed-create-appointment/')) {
-        const { appointmentId } = await response.json();
+        const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentUCTelemedResponse;
         if (appointmentId && !appointmentIds.includes(appointmentId)) {
           appointmentIds.push(appointmentId);
         }
