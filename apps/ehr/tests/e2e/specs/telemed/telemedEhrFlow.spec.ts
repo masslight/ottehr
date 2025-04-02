@@ -4,6 +4,7 @@ import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../../e2e-utils/helpers/tests-utils';
 import {
   AdditionalBooleanQuestionsFieldsNames,
+  allLicensesForPractitioner,
   ApptTelemedTab,
   getAdditionalQuestionsAnswers,
   getAllergiesStepAnswers,
@@ -17,14 +18,34 @@ import {
   getResponsiblePartyStepAnswers,
   getSchoolWorkNoteStepAnswers,
   getSurgicalHistoryStepAnswers,
+  getTelemedLocations,
   isoToDateObject,
-  stateCodeToFullName,
-  TELEMED_INITIAL_STATES,
   TelemedAppointmentStatusEnum,
 } from 'utils';
 import { ADDITIONAL_QUESTIONS } from '../../../../src/constants';
 import { fillWaitAndSelectDropdown, getPatientConditionPhotosStepAnswers } from 'test-utils';
-import * as process from 'node:process';
+import Oystehr from '@oystehr/sdk';
+
+async function getTestUserQualificationStates(resourceHandler: ResourceHandler): Promise<string[]> {
+  const testsUser = await resourceHandler.getTestsUserAndPractitioner();
+  const userQualificationStates = allLicensesForPractitioner(testsUser.practitioner)
+    .filter((license) => license.active && license.state)
+    .map((license) => license.state);
+  if (userQualificationStates.length < 1) throw new Error('User has no qualification locations');
+  console.log('Test user qualifications states: ', JSON.stringify(userQualificationStates));
+  return userQualificationStates;
+}
+
+async function getTestStateThatNotInList(apiClient: Oystehr, listOfStates: string[]): Promise<string> {
+  const activeStates = (await getTelemedLocations(apiClient))
+    .filter((location) => location.available)
+    .map((location) => location.state);
+  console.log('Active test states: ', JSON.stringify(activeStates));
+  const activeStateNotInList = activeStates.find((state) => !listOfStates.includes(state));
+  if (!activeStateNotInList)
+    throw new Error(`Can't find active test state that not in list: ${JSON.stringify(listOfStates)}`);
+  return activeStateNotInList;
+}
 
 test.describe('Tests checking data without mutating state', () => {
   const myPatientsTabAppointmentResources = new ResourceHandler('telemed');
@@ -33,17 +54,15 @@ test.describe('Tests checking data without mutating state', () => {
   let randomState: string;
 
   test.beforeAll(async () => {
-    testsUserQualificationState = process.env.STATE_ONE;
-    randomState = TELEMED_INITIAL_STATES.filter((state) => state === (process.env.STATE_ONE || ''))[0];
+    const testsUserStates = await getTestUserQualificationStates(myPatientsTabAppointmentResources);
+    testsUserQualificationState = testsUserStates[0];
+    randomState = await getTestStateThatNotInList(myPatientsTabAppointmentResources.apiClient, testsUserStates);
+    console.log(`Tests practitioner qualification state ${testsUserQualificationState}, random state: ${randomState}`);
 
     await myPatientsTabAppointmentResources.setResources({
-      state: testsUserQualificationState,
-      city: stateCodeToFullName[testsUserQualificationState],
       telemedLocationState: testsUserQualificationState,
     });
     await otherPatientsTabAppointmentResources.setResources({
-      state: randomState,
-      city: stateCodeToFullName[randomState],
       telemedLocationState: randomState,
     });
   });
@@ -87,7 +106,7 @@ test.describe('Tests checking data without mutating state', () => {
 
     const locationGroup = await appointmentRow.getAttribute('data-location-group');
 
-    expect(locationGroup.toLowerCase()).toEqual(testsUserQualificationState);
+    expect(locationGroup.toLowerCase()).toEqual(testsUserQualificationState.toLowerCase());
   });
 
   test('All appointments in my-patients section has appropriate assign buttons', async ({ page }) => {

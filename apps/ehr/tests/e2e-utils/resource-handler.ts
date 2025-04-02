@@ -79,7 +79,7 @@ export type CreateTestAppointmentInput = {
 };
 
 export class ResourceHandler {
-  private apiClient!: Oystehr;
+  apiClient!: Oystehr;
   private authToken!: string;
   private resources!: CreateAppointmentResponse['resources'] & { relatedPerson: { id: string; resourceType: string } };
   private zambdaId: string;
