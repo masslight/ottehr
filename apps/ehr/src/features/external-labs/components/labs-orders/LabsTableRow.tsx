@@ -10,16 +10,16 @@ interface LabsTableRowProps {
   columns: LabsTableColumn[];
   labOrderData: LabOrderDTO;
   onDeleteOrder?: () => void;
-  onRowClick: () => void;
   allowDelete?: boolean;
+  onRowClick?: () => void;
 }
 
 export const LabsTableRow = ({
   labOrderData,
   onDeleteOrder,
-  onRowClick,
   columns,
   allowDelete = false,
+  onRowClick,
 }: LabsTableRowProps): ReactElement => {
   const handleDeleteClick = (e: React.MouseEvent): void => {
     e.stopPropagation();
@@ -94,11 +94,11 @@ export const LabsTableRow = ({
 
   return (
     <TableRow
-      onClick={onRowClick}
       sx={{
         '&:hover': { backgroundColor: '#f5f5f5' },
         cursor: 'pointer',
       }}
+      onClick={onRowClick}
     >
       {columns.map((column) => (
         <TableCell key={column}>{renderCellContent(column)}</TableCell>
