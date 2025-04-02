@@ -510,7 +510,7 @@ describe('Harvest Module Integration Tests', () => {
   afterAll(async () => {
     const { error } = await cleanup();
     expect(error).toBeUndefined();
-  });
+  }, DEFAULT_TIMEOUT + 10000);
 
   const getPatientId = (): string => {
     const allEntries = Array.from(Object.entries(patientIdsForCleanup));
