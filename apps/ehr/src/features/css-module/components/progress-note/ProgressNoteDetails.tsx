@@ -64,7 +64,8 @@ export const ProgressNoteDetails: FC = () => {
 
   const showChiefComplaint = !!(chiefComplaint && chiefComplaint.length > 0);
   const showReviewOfSystems = !!(ros && ros.length > 0);
-  const showAdditionalQuestions = !!(observations && observations.length > 0);
+  const showAdditionalQuestions =
+    !!(observations && observations.length > 0) || !!(screeningNotes && screeningNotes.length > 0);
   const showAllergies = !!(allergies && allergies.length > 0);
   const showMedications = !!(medications && medications.length > 0);
   const showMedicalConditions = !!(conditions && conditions.length > 0);
@@ -79,7 +80,8 @@ export const ProgressNoteDetails: FC = () => {
   const showPrescribedMedications = !!(prescriptions && prescriptions.length > 0);
   const { showPatientInstructions } = usePatientInstructionsVisibility();
   const showEpisodeOfCare = !!(episodeOfCare && episodeOfCare.length > 0);
-  const showVitalsObservations = !!(vitalsObservations && vitalsObservations.length > 0);
+  const showVitalsObservations =
+    !!(vitalsObservations && vitalsObservations.length > 0) || !!(vitalsNotes && vitalsNotes.length > 0);
 
   const sections = [
     showChiefComplaint && <ChiefComplaintContainer />,

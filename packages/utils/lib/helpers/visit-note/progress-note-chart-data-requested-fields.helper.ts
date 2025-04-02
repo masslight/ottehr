@@ -15,11 +15,7 @@ export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
     _sort: '-_lastUpdated',
     _count: 100,
     _tag: Object.values(VitalFieldNames)
-      .map(
-        (name) =>
-          (createVitalsSearchConfig(name, 'encounter').searchParams as { _tag: { type: string; value: string } })._tag
-            .value
-      )
+      .map((name) => (createVitalsSearchConfig(name, 'encounter').searchParams as { _tag: string })._tag)
       .join(','),
   },
 };
