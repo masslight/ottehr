@@ -720,19 +720,19 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
         item: mapCoveragesToQuestionnaireResponseItems({ ...input, items: item.item ?? [] }),
       };
     }
-    if (linkId === 'insurance-carrier') {
+    if (linkId === 'insurance-carrier' && primaryInsurancePlanReference) {
       answer = makeAnswer(primaryInsurancePlanReference, 'Reference');
     }
-    if (linkId === 'insurance-carrier-2') {
+    if (linkId === 'insurance-carrier-2' && secondaryInsurancePlanReference) {
       answer = makeAnswer(secondaryInsurancePlanReference, 'Reference');
     }
-    if (linkId === 'insurance-member-id') {
+    if (linkId === 'insurance-member-id' && primaryMemberId) {
       answer = makeAnswer(primaryMemberId);
     }
-    if (linkId === 'insurance-member-id-2') {
+    if (linkId === 'insurance-member-id-2' && secondaryMemberId) {
       answer = makeAnswer(secondaryMemberId);
     }
-    if (linkId === 'policy-holder-first-name') {
+    if (linkId === 'policy-holder-first-name' && primarySubscriberFirstName) {
       answer = makeAnswer(primarySubscriberFirstName);
     }
     if (linkId === 'policy-holder-first-name-2' && secondarySubscriberFirstName) {
@@ -744,19 +744,19 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     if (linkId === 'policy-holder-last-name-2' && secondarySubscribeLastName) {
       answer = makeAnswer(secondarySubscribeLastName);
     }
-    if (linkId === 'policy-holder-middle-name') {
+    if (linkId === 'policy-holder-middle-name' && primarySubscriberMiddleName) {
       answer = makeAnswer(primarySubscriberMiddleName);
     }
     if (linkId === 'policy-holder-middle-name-2' && secondarySubscriberMiddleName) {
       answer = makeAnswer(secondarySubscriberMiddleName);
     }
-    if (linkId === 'policy-holder-date-of-birth') {
+    if (linkId === 'policy-holder-date-of-birth' && primarySubscriberDoB) {
       answer = makeAnswer(primarySubscriberDoB);
     }
     if (linkId === 'policy-holder-date-of-birth-2' && secondarySubscriberDoB) {
       answer = makeAnswer(secondarySubscriberDoB);
     }
-    if (linkId === 'policy-holder-birth-sex') {
+    if (linkId === 'policy-holder-birth-sex' && primarySubscriberBirthSex) {
       answer = makeAnswer(primarySubscriberBirthSex);
     }
     if (linkId === 'policy-holder-birth-sex-2' && secondarySubscriberBirthSex) {
@@ -871,19 +871,19 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuantorItemsInput): 
     if (linkId === 'responsible-party-relationship' && relationship) {
       answer = makeAnswer(relationship);
     }
-    if (linkId === 'responsible-party-first-name') {
+    if (linkId === 'responsible-party-first-name' && firstName) {
       answer = makeAnswer(firstName);
     }
-    if (linkId === 'responsible-party-last-name') {
+    if (linkId === 'responsible-party-last-name' && lastName) {
       answer = makeAnswer(lastName);
     }
-    if (linkId === 'responsible-party-date-of-birth') {
+    if (linkId === 'responsible-party-date-of-birth' && dob) {
       answer = makeAnswer(dob);
     }
     if (linkId === 'responsible-party-birth-sex' && birthSex) {
       answer = makeAnswer(birthSex);
     }
-    if (linkId === 'responsible-party-number') {
+    if (linkId === 'responsible-party-number' && phone) {
       answer = makeAnswer(formatPhoneNumberDisplay(phone));
     }
     return {
