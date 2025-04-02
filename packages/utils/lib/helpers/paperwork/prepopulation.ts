@@ -11,6 +11,7 @@ import {
   QuestionnaireResponseItemAnswer,
   Reference,
   RelatedPerson,
+  Account,
 } from 'fhir/r4b';
 import {
   getFirstName,
@@ -34,6 +35,7 @@ import { DATE_OF_BIRTH_URL, PRACTICE_NAME_URL } from '../../types';
 // used when patient books an appointment and some of the inputs come from the create-appointment params
 interface PrepopulationInput {
   patient: Patient;
+  account?: Account;
   appointmentStartTime: string;
   isNewQrsPatient: boolean;
   verifiedPhoneNumber: string | undefined;
@@ -49,6 +51,7 @@ interface PrepopulationInput {
 export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): QuestionnaireResponseItem[] => {
   const {
     patient,
+    account,
     newPatientDob,
     unconfirmedDateOfBirth,
     appointmentStartTime: startTime,
@@ -77,7 +80,8 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
   const patientPostalCode = patientAddress?.postalCode;
 
   const patientEmail = contactInfo?.email;
-
+  const patientSendMarketing = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/send-marketing`)
+    ?.valueBoolean;
   const patientEthnicity = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/ethnicity`)
     ?.valueCodeableConcept?.coding?.[0]?.display;
   const patientRace = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/race`)
@@ -102,7 +106,7 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
     (resource): resource is Practitioner => resource.resourceType === 'Practitioner' && resource.active === true
   );
   const pcpPractice = pcp?.extension?.find((e) => e.url === PRACTICE_NAME_URL)?.valueString;
-  const pcpAddress = pcp?.address?.[0]?.line?.[0];
+  const pcpAddress = pcp?.address?.[0]?.text;
   const pcpPhoneNumber = pcp?.telecom?.[0]?.value;
 
   let formattedPcpPhoneNumber: string | undefined;
@@ -114,22 +118,16 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
     }
   }
 
-  const responsibleParty = patient.contact?.find(
-    (contact) =>
-      contact.relationship?.some(
-        (rel) =>
-          rel.coding?.some(
-            (code) => code.system === 'http://terminology.hl7.org/CodeSystem/v2-0131' && code.code === 'BP'
-          )
-      )
-  );
+  const responsibleParty =
+    account?.guarantor?.[0].party.type === 'RelatedPerson' ? (account.contained?.[0] as RelatedPerson) : undefined;
 
   const responsiblePartyRelationship = responsibleParty?.relationship?.find(
-    (rel) => rel.coding?.some((coding) => coding.system === 'http://hl7.org/fhir/relationship')
+    (rel) =>
+      rel.coding?.some((coding) => coding.system === 'http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype')
   )?.coding?.[0].display;
 
-  const responsiblePartyFirstName = responsibleParty?.name?.given?.[0];
-  const responsiblePartyLastName = responsibleParty?.name?.family;
+  const responsiblePartyFirstName = responsibleParty?.name?.[0].given?.[0];
+  const responsiblePartyLastName = responsibleParty?.name?.[0].family;
   const responsiblePartyBirthDate = responsibleParty?.extension?.find((e) => e.url === DATE_OF_BIRTH_URL)?.valueString;
 
   let responsiblePartySex: string | undefined;
@@ -149,6 +147,8 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
       console.log('unable to format phone number', responsiblePartyPhoneNumber);
     }
   }
+
+  const selfResponsible = account?.guarantor?.[0].party.type === 'Patient';
 
   const photoIdFrontDocumentReference = documents?.find((doc) =>
     doc.content.some((item) => item.attachment.title === 'photo-id-front')
@@ -216,8 +216,10 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
     contentType: secondaryInsuranceCardBackDocumentReference?.content[0].attachment.contentType,
   };
 
+  const primaryCoverageRef = account?.coverage?.find((c) => c.priority === 1)?.coverage.reference;
   const primaryCoverage = insuranceInfo?.find(
-    (resource): resource is Coverage => resource.resourceType === 'Coverage' && resource.order === 1
+    (resource): resource is Coverage =>
+      resource.resourceType === 'Coverage' && resource.id === primaryCoverageRef?.replace('Coverage/', '')
   );
   const primaryPolicyHolder = insuranceInfo?.find(
     (resource): resource is RelatedPerson =>
@@ -256,8 +258,10 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
     display: primaryCoverage?.class?.[0].name,
   };
 
+  const secondaryCoverageRef = account?.coverage?.find((c) => c.priority === 2)?.coverage.reference;
   const secondaryCoverage = insuranceInfo?.find(
-    (resource): resource is Coverage => resource.resourceType === 'Coverage' && resource.order === 2
+    (resource): resource is Coverage =>
+      resource.resourceType === 'Coverage' && resource.id === secondaryCoverageRef?.replace('Coverage/', '')
   );
 
   const displaySecondaryInsurance = secondaryCoverage ? true : false;
@@ -352,6 +356,9 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
           if (linkId === 'patient-email' && patientEmail) {
             answer = makeAnswer(patientEmail);
           }
+          if (linkId === 'mobile-opt-in' && patientSendMarketing) {
+            answer = makeAnswer(patientSendMarketing);
+          }
           if (linkId === 'patient-number' && formattedVerifiedPhoneNumber) {
             answer = makeAnswer(formatPhoneNumberDisplay(formattedVerifiedPhoneNumber));
           }
@@ -421,23 +428,47 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
         return itemItems.map((item) => {
           let answer: QuestionnaireResponseItemAnswer[] | undefined;
           const { linkId } = item;
-          if (linkId === 'responsible-party-relationship' && responsiblePartyRelationship) {
-            answer = makeAnswer(responsiblePartyRelationship);
-          }
-          if (linkId === 'responsible-party-first-name' && responsiblePartyFirstName) {
-            answer = makeAnswer(responsiblePartyFirstName);
-          }
-          if (linkId === 'responsible-party-last-name' && responsiblePartyLastName) {
-            answer = makeAnswer(responsiblePartyLastName);
-          }
-          if (linkId === 'responsible-party-date-of-birth' && responsiblePartyBirthDate) {
-            answer = makeAnswer(responsiblePartyBirthDate);
-          }
-          if (linkId === 'responsible-party-birth-sex' && responsiblePartySex) {
-            answer = makeAnswer(responsiblePartySex);
-          }
-          if (linkId === 'responsible-party-number' && formattedResponsiblePartyPhoneNumber) {
-            answer = makeAnswer(formattedResponsiblePartyPhoneNumber);
+          if (selfResponsible) {
+            if (linkId === 'responsible-party-relationship') {
+              answer = makeAnswer('Self');
+            }
+            if (linkId === 'responsible-party-first-name') {
+              answer = makeAnswer(getFirstName(patient) ?? '');
+            }
+            if (linkId === 'responsible-party-last-name') {
+              answer = makeAnswer(getLastName(patient) ?? '');
+            }
+            if (linkId === 'responsible-party-date-of-birth') {
+              const patientDOB = getPatientDOB(patient, newPatientDob, unconfirmedDateOfBirth);
+              if (patientDOB) {
+                answer = makeAnswer(patientDOB);
+              }
+            }
+            if (linkId === 'responsible-party-birth-sex' && patientSex) {
+              answer = makeAnswer(patientSex);
+            }
+            if (linkId === 'responsible-party-number' && formattedVerifiedPhoneNumber) {
+              answer = makeAnswer(formatPhoneNumberDisplay(formattedVerifiedPhoneNumber));
+            }
+          } else {
+            if (linkId === 'responsible-party-relationship' && responsiblePartyRelationship) {
+              answer = makeAnswer(responsiblePartyRelationship);
+            }
+            if (linkId === 'responsible-party-first-name' && responsiblePartyFirstName) {
+              answer = makeAnswer(responsiblePartyFirstName);
+            }
+            if (linkId === 'responsible-party-last-name' && responsiblePartyLastName) {
+              answer = makeAnswer(responsiblePartyLastName);
+            }
+            if (linkId === 'responsible-party-date-of-birth' && responsiblePartyBirthDate) {
+              answer = makeAnswer(responsiblePartyBirthDate);
+            }
+            if (linkId === 'responsible-party-birth-sex' && responsiblePartySex) {
+              answer = makeAnswer(responsiblePartySex);
+            }
+            if (linkId === 'responsible-party-number' && formattedResponsiblePartyPhoneNumber) {
+              answer = makeAnswer(formattedResponsiblePartyPhoneNumber);
+            }
           }
 
           return {

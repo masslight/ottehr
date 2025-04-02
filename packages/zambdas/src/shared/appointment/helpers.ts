@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter, List, Patient } from 'fhir/r4b';
+import { Account, Appointment, Encounter, List, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
@@ -449,8 +449,10 @@ export async function generatePatientRelatedRequests(
   verifiedPhoneNumber: string | undefined;
   isEHRUser: boolean;
   maybeFhirPatient: Patient | undefined;
+  account: Account | undefined;
 }> {
   let maybeFhirPatient: Patient | undefined = undefined;
+  let account: Account | undefined;
   let updatePatientRequest: BatchInputRequest<Patient> | undefined = undefined;
   let createPatientRequest: BatchInputPostRequest<Patient> | undefined = undefined;
   let verifiedPhoneNumber: string | undefined = undefined;
@@ -464,9 +466,13 @@ export async function generatePatientRelatedRequests(
   // if it is a returning patient
   if (patient.id) {
     console.log(`Have patient.id, ${patient.id} fetching Patient and building PATCH request`);
-    const { patient: foundPatient, verifiedPhoneNumber: foundPhoneNumber } =
-      await getPatientResourceWithVerifiedPhoneNumber(patient.id, oystehr);
+    const {
+      patient: foundPatient,
+      account: foundAccount,
+      verifiedPhoneNumber: foundPhoneNumber,
+    } = await getPatientResourceWithVerifiedPhoneNumber(patient.id, oystehr);
     maybeFhirPatient = foundPatient;
+    account = foundAccount;
     verifiedPhoneNumber = foundPhoneNumber;
     if (!maybeFhirPatient) {
       throw PATIENT_NOT_FOUND_ERROR;
@@ -497,5 +503,6 @@ export async function generatePatientRelatedRequests(
     verifiedPhoneNumber,
     isEHRUser,
     maybeFhirPatient,
+    account,
   };
 }
