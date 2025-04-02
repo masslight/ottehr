@@ -118,10 +118,10 @@ export async function getRelatedResources(
   patientId?: string
 ): Promise<{
   documents: DocumentReference[];
-  insuranceInfo: PatientAccountResponse | undefined;
+  accountInfo: PatientAccountResponse | undefined;
 }> {
   let documents: DocumentReference[] = [];
-  let insuranceInfo: PatientAccountResponse | undefined = undefined;
+  let accountInfo: PatientAccountResponse | undefined = undefined;
 
   if (patientId) {
     console.log('get related resources to prepopulate paperwork');
@@ -147,11 +147,11 @@ export async function getRelatedResources(
     ) as Practitioner;
 
     documents = docsResponse.unbundle();
-    insuranceInfo = {
+    accountInfo = {
       ...insuranceResponse,
       primaryCarePhysician,
     };
   }
 
-  return { documents, insuranceInfo };
+  return { documents, accountInfo };
 }
