@@ -623,7 +623,7 @@ describe('Harvest Module Integration Tests', () => {
       normalizedCompare(primary, primaryCoverage, patientId);
       normalizedCompare(secondary, secondaryCoverage, patientId);
     },
-    { timeout: DEFAULT_TIMEOUT }
+    DEFAULT_TIMEOUT
   );
 
   it(
@@ -725,7 +725,7 @@ describe('Harvest Module Integration Tests', () => {
       expect(writtenPrimaryCoverage).toEqual(primaryCoverage);
       expect(writtenSecondaryCoverage).toEqual(secondaryCoverage);
     },
-    { timeout: DEFAULT_TIMEOUT }
+    DEFAULT_TIMEOUT
   );
 
   it(
@@ -840,7 +840,7 @@ describe('Harvest Module Integration Tests', () => {
         relatedPersonsAreSame(writtenSecondarySubscriber, secondaryCoverage?.contained?.[0] as RelatedPerson)
       ).toBe(true);
     },
-    { timeout: DEFAULT_TIMEOUT }
+    DEFAULT_TIMEOUT
   );
 
   it(
