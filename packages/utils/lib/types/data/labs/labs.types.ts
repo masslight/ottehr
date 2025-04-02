@@ -52,7 +52,7 @@ export enum ExternalLabsStatus {
   received = 'received',
   reviewed = 'reviewed',
   cancelled = 'cancelled',
-  unparsed = '-', // for debugging purposes
+  unparsed = 'unparsed', // for debugging purposes
 }
 
 export type LabOrderHistoryRow = {

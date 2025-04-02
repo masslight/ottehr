@@ -10,8 +10,6 @@ import { useApiClients } from '../../../hooks/useAppClients';
 import { OrderDetails } from 'utils';
 import { getLabOrderDetails } from '../../../api/api';
 import { QuestionnaireItem } from 'fhir/r4b';
-import Loading from '../../../components/Loading';
-import { LoadingScreen } from '../../../components/LoadingScreen';
 
 interface CollectionInstructions {
   container: string;
