@@ -2603,133 +2603,138 @@ describe('Harvest Module Integration Tests', () => {
     DEFAULT_TIMEOUT
   );
 
-  it('should update contained primary and secondary subscribers as well as Account guarantor to persisted Patient when relationship = self', async () => {
-    const patientId = getPatientId();
-    const containedRP1 = fillWithQR1Refs(expectedPrimaryPolicyHolderFromQR1, patientId);
-    const containedRP2 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
-    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.primary, patientId);
-    const persistedCoverage2 = fillWithQR1Refs(qr1ExpectedCoverageResources.secondary, patientId);
-    const batchRequests = batchTestInsuranceWrites({
-      primary: {
-        subscriber: containedRP1,
-        coverage: persistedCoverage1,
-        ensureOrder: true,
-        containedSubscriber: true,
-      },
-      secondary: {
-        subscriber: containedRP2,
-        coverage: persistedCoverage2,
-        ensureOrder: true,
-        containedSubscriber: true,
-      },
-      account: fillWithQR1Refs(stubAccount, patientId),
-      containedGuarantor: fillWithQR1Refs(expectedAccountGuarantorFromQR1, patientId),
-    });
-    const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
-    expect(transactionRequests).toBeDefined();
-    const writtenResources = unbundleBatchPostOutput<Account | RelatedPerson | Coverage | Patient | Organization>(
-      transactionRequests
-    );
-    expect(writtenResources.length).toBe(3);
-
-    const writtenAccount = writtenResources.find((res) => res.resourceType === 'Account') as Account;
-    expect(writtenAccount).toBeDefined();
-    expect(writtenAccount.coverage).toBeDefined();
-    expect(writtenAccount).toBeDefined();
-    expect(writtenAccount.guarantor).toBeDefined();
-    expect(writtenAccount.contained).toBeDefined();
-
-    const writtenPrimaryCoverage = writtenResources.find(
-      (res) => res.resourceType === 'Coverage' && res.order === 1
-    ) as Coverage;
-    expect(writtenPrimaryCoverage).toBeDefined();
-    expect(writtenPrimaryCoverage.subscriber).toBeDefined();
-    expect(writtenPrimaryCoverage.contained).toBeDefined();
-    expect(writtenPrimaryCoverage.contained?.[0]).toEqual(containedRP1);
-    expect(writtenPrimaryCoverage.subscriber?.reference).toEqual(`#${writtenPrimaryCoverage.contained?.[0]?.id}`);
-    const writtenSecondaryCoverage = writtenResources.find(
-      (res) => res.resourceType === 'Coverage' && res.order === 2
-    ) as Coverage;
-    expect(writtenSecondaryCoverage).toBeDefined();
-    expect(writtenSecondaryCoverage.subscriber).toBeDefined();
-    expect(writtenSecondaryCoverage.contained).toBeDefined();
-    expect(writtenSecondaryCoverage.contained?.[0]).toEqual(containedRP2);
-    expect(writtenSecondaryCoverage.subscriber?.reference).toEqual(`#${writtenSecondaryCoverage.contained?.[0]?.id}`);
-    const qr = QR_WITH_PATIENT_FOR_ALL_SUBSCRIBERS_AND_GUARANTOR();
-    const { account, secondaryCoverageRef, primaryCoverageRef, persistedGuarantor } =
-      await applyEffectAndValidateResults({
-        idToCheck: writtenAccount.id,
-        qr,
-        guarantorRef: fillWithQR1Refs(`{{PATIENT_REF}}`, patientId),
-        patientId,
+  it(
+    'should update contained primary and secondary subscribers as well as Account guarantor to persisted Patient when relationship = self',
+    async () => {
+      const patientId = getPatientId();
+      const containedRP1 = fillWithQR1Refs(expectedPrimaryPolicyHolderFromQR1, patientId);
+      const containedRP2 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
+      const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.primary, patientId);
+      const persistedCoverage2 = fillWithQR1Refs(qr1ExpectedCoverageResources.secondary, patientId);
+      const batchRequests = batchTestInsuranceWrites({
+        primary: {
+          subscriber: containedRP1,
+          coverage: persistedCoverage1,
+          ensureOrder: true,
+          containedSubscriber: true,
+        },
+        secondary: {
+          subscriber: containedRP2,
+          coverage: persistedCoverage2,
+          ensureOrder: true,
+          containedSubscriber: true,
+        },
+        account: fillWithQR1Refs(stubAccount, patientId),
+        containedGuarantor: fillWithQR1Refs(expectedAccountGuarantorFromQR1, patientId),
       });
-    expect(primaryCoverageRef).toBeDefined();
-    expect(secondaryCoverageRef).toBeDefined();
-    const [, primaryCoverageId] = primaryCoverageRef.split('/');
-    const [, secondaryCoverageId] = secondaryCoverageRef.split('/');
-    const persistedPrimaryCoverageAndSubsriber = (
-      await oystehrClient.fhir.search<Coverage | RelatedPerson | Patient>({
-        resourceType: 'Coverage',
-        params: [
-          {
-            name: '_id',
-            value: primaryCoverageId,
-          },
-          {
-            name: '_include',
-            value: 'Coverage:subscriber',
-          },
-        ],
-      })
-    ).unbundle();
-    const persistedPrimaryCoverage = persistedPrimaryCoverageAndSubsriber.find(
-      (res) => res.resourceType === 'Coverage'
-    ) as Coverage;
-    const persistedPrimarySubscriber = persistedPrimaryCoverageAndSubsriber.find(
-      (res) => `${res.resourceType}/${res.id}` === persistedPrimaryCoverage.subscriber?.reference
-    ) as RelatedPerson;
-    expect(persistedPrimaryCoverage).toBeDefined();
-    expect(persistedPrimaryCoverage.contained).toBeUndefined();
-    expect(persistedPrimaryCoverage.subscriber?.reference).toEqual(fillWithQR1Refs(`{{PATIENT_REF}}`, patientId));
-    expect(persistedPrimarySubscriber).toBeDefined();
-    expect(`Patient/${persistedPrimarySubscriber.id}`).toEqual(persistedPrimaryCoverage.subscriber?.reference);
+      const transactionRequests = await oystehrClient.fhir.transaction({ requests: batchRequests });
+      expect(transactionRequests).toBeDefined();
+      const writtenResources = unbundleBatchPostOutput<Account | RelatedPerson | Coverage | Patient | Organization>(
+        transactionRequests
+      );
+      expect(writtenResources.length).toBe(3);
 
-    const persistedSecondaryCoverageAndSubscriber = (
-      await oystehrClient.fhir.search<Coverage | RelatedPerson | Patient>({
-        resourceType: 'Coverage',
-        params: [
-          {
-            name: '_id',
-            value: secondaryCoverageId,
-          },
-          {
-            name: '_include',
-            value: 'Coverage:subscriber',
-          },
-        ],
-      })
-    ).unbundle();
-    const persistedSecondaryCoverage = persistedSecondaryCoverageAndSubscriber.find(
-      (res) => res.resourceType === 'Coverage'
-    ) as Coverage;
-    const persistedSecondarySubscriber = persistedSecondaryCoverageAndSubscriber.find(
-      (res) => `${res.resourceType}/${res.id}` === persistedSecondaryCoverage.subscriber?.reference
-    ) as RelatedPerson;
-    expect(persistedSecondaryCoverage).toBeDefined();
-    expect(persistedSecondaryCoverage.contained).toBeUndefined();
-    expect(persistedSecondaryCoverage.subscriber?.reference).toEqual(fillWithQR1Refs(`{{PATIENT_REF}}`, patientId));
-    expect(persistedSecondarySubscriber).toBeDefined();
-    expect(`Patient/${persistedSecondarySubscriber.id}`).toEqual(persistedSecondaryCoverage.subscriber?.reference);
+      const writtenAccount = writtenResources.find((res) => res.resourceType === 'Account') as Account;
+      expect(writtenAccount).toBeDefined();
+      expect(writtenAccount.coverage).toBeDefined();
+      expect(writtenAccount).toBeDefined();
+      expect(writtenAccount.guarantor).toBeDefined();
+      expect(writtenAccount.contained).toBeDefined();
 
-    const containedGuarantor = account.contained?.find((res) => res.resourceType === 'RelatedPerson') as RelatedPerson;
-    expect(persistedGuarantor).toBeDefined();
-    assert(containedGuarantor);
-    expect(`#${containedGuarantor.id}`).toEqual(account.guarantor?.[1]?.party?.reference);
-    expect(account.guarantor?.length).toBe(2);
-    expect(fillWithQR1Refs(`{{PATIENT_REF}}`, patientId)).toEqual(account.guarantor?.[0]?.party?.reference);
-    expect(account.guarantor?.[0]?.period?.end).toBeUndefined();
-    expect(account.guarantor?.[1]?.period?.end).toBeDefined();
-  }),
-    DEFAULT_TIMEOUT;
+      const writtenPrimaryCoverage = writtenResources.find(
+        (res) => res.resourceType === 'Coverage' && res.order === 1
+      ) as Coverage;
+      expect(writtenPrimaryCoverage).toBeDefined();
+      expect(writtenPrimaryCoverage.subscriber).toBeDefined();
+      expect(writtenPrimaryCoverage.contained).toBeDefined();
+      expect(writtenPrimaryCoverage.contained?.[0]).toEqual(containedRP1);
+      expect(writtenPrimaryCoverage.subscriber?.reference).toEqual(`#${writtenPrimaryCoverage.contained?.[0]?.id}`);
+      const writtenSecondaryCoverage = writtenResources.find(
+        (res) => res.resourceType === 'Coverage' && res.order === 2
+      ) as Coverage;
+      expect(writtenSecondaryCoverage).toBeDefined();
+      expect(writtenSecondaryCoverage.subscriber).toBeDefined();
+      expect(writtenSecondaryCoverage.contained).toBeDefined();
+      expect(writtenSecondaryCoverage.contained?.[0]).toEqual(containedRP2);
+      expect(writtenSecondaryCoverage.subscriber?.reference).toEqual(`#${writtenSecondaryCoverage.contained?.[0]?.id}`);
+      const qr = QR_WITH_PATIENT_FOR_ALL_SUBSCRIBERS_AND_GUARANTOR();
+      const { account, secondaryCoverageRef, primaryCoverageRef, persistedGuarantor } =
+        await applyEffectAndValidateResults({
+          idToCheck: writtenAccount.id,
+          qr,
+          guarantorRef: fillWithQR1Refs(`{{PATIENT_REF}}`, patientId),
+          patientId,
+        });
+      expect(primaryCoverageRef).toBeDefined();
+      expect(secondaryCoverageRef).toBeDefined();
+      const [, primaryCoverageId] = primaryCoverageRef.split('/');
+      const [, secondaryCoverageId] = secondaryCoverageRef.split('/');
+      const persistedPrimaryCoverageAndSubsriber = (
+        await oystehrClient.fhir.search<Coverage | RelatedPerson | Patient>({
+          resourceType: 'Coverage',
+          params: [
+            {
+              name: '_id',
+              value: primaryCoverageId,
+            },
+            {
+              name: '_include',
+              value: 'Coverage:subscriber',
+            },
+          ],
+        })
+      ).unbundle();
+      const persistedPrimaryCoverage = persistedPrimaryCoverageAndSubsriber.find(
+        (res) => res.resourceType === 'Coverage'
+      ) as Coverage;
+      const persistedPrimarySubscriber = persistedPrimaryCoverageAndSubsriber.find(
+        (res) => `${res.resourceType}/${res.id}` === persistedPrimaryCoverage.subscriber?.reference
+      ) as RelatedPerson;
+      expect(persistedPrimaryCoverage).toBeDefined();
+      expect(persistedPrimaryCoverage.contained).toBeUndefined();
+      expect(persistedPrimaryCoverage.subscriber?.reference).toEqual(fillWithQR1Refs(`{{PATIENT_REF}}`, patientId));
+      expect(persistedPrimarySubscriber).toBeDefined();
+      expect(`Patient/${persistedPrimarySubscriber.id}`).toEqual(persistedPrimaryCoverage.subscriber?.reference);
+
+      const persistedSecondaryCoverageAndSubscriber = (
+        await oystehrClient.fhir.search<Coverage | RelatedPerson | Patient>({
+          resourceType: 'Coverage',
+          params: [
+            {
+              name: '_id',
+              value: secondaryCoverageId,
+            },
+            {
+              name: '_include',
+              value: 'Coverage:subscriber',
+            },
+          ],
+        })
+      ).unbundle();
+      const persistedSecondaryCoverage = persistedSecondaryCoverageAndSubscriber.find(
+        (res) => res.resourceType === 'Coverage'
+      ) as Coverage;
+      const persistedSecondarySubscriber = persistedSecondaryCoverageAndSubscriber.find(
+        (res) => `${res.resourceType}/${res.id}` === persistedSecondaryCoverage.subscriber?.reference
+      ) as RelatedPerson;
+      expect(persistedSecondaryCoverage).toBeDefined();
+      expect(persistedSecondaryCoverage.contained).toBeUndefined();
+      expect(persistedSecondaryCoverage.subscriber?.reference).toEqual(fillWithQR1Refs(`{{PATIENT_REF}}`, patientId));
+      expect(persistedSecondarySubscriber).toBeDefined();
+      expect(`Patient/${persistedSecondarySubscriber.id}`).toEqual(persistedSecondaryCoverage.subscriber?.reference);
+
+      const containedGuarantor = account.contained?.find(
+        (res) => res.resourceType === 'RelatedPerson'
+      ) as RelatedPerson;
+      expect(persistedGuarantor).toBeDefined();
+      assert(containedGuarantor);
+      expect(`#${containedGuarantor.id}`).toEqual(account.guarantor?.[1]?.party?.reference);
+      expect(account.guarantor?.length).toBe(2);
+      expect(fillWithQR1Refs(`{{PATIENT_REF}}`, patientId)).toEqual(account.guarantor?.[0]?.party?.reference);
+      expect(account.guarantor?.[0]?.period?.end).toBeUndefined();
+      expect(account.guarantor?.[1]?.period?.end).toBeDefined();
+    },
+    DEFAULT_TIMEOUT
+  );
   // todo: tests for EHR updates: 1) test when no guarantor is provided; 2) test when insurance-is-secondary = true
 });
