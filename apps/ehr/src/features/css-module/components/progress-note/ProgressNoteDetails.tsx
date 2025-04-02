@@ -21,7 +21,7 @@ import { ExamReadOnlyBlock } from '../examination/ExamReadOnly';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useChartData } from '../../hooks/useChartData';
 import { HospitalizationContainer } from './HospitalizationContainer';
-import { NOTE_TYPE, progressNoteChartDataRequestedFields } from 'utils';
+import { NOTE_TYPE, getProgressNoteChartDataRequestedFields } from 'utils';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
 
 export const ProgressNoteDetails: FC = () => {
@@ -33,7 +33,7 @@ export const ProgressNoteDetails: FC = () => {
 
   const { chartData: additionalChartData } = useChartData({
     encounterId: encounter.id || '',
-    requestedFields: progressNoteChartDataRequestedFields,
+    requestedFields: getProgressNoteChartDataRequestedFields(),
     onSuccess: (data) => {
       setPartialChartData({
         episodeOfCare: data?.episodeOfCare,

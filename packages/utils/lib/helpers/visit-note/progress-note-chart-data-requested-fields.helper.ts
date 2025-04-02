@@ -2,7 +2,7 @@ import { PRIVATE_EXTENSION_BASE_URL } from '../../fhir';
 import { ChartDataRequestedFields, CSS_NOTE_ID, NOTE_TYPE, VitalFieldNames } from '../../types';
 import { createVitalsSearchConfig } from './create-vitals-search-config.helper';
 
-export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
+export const getProgressNoteChartDataRequestedFields = (): ChartDataRequestedFields => ({
   episodeOfCare: {},
   prescribedMedications: {},
   notes: {
@@ -18,7 +18,7 @@ export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
       .map((name) => (createVitalsSearchConfig(name, 'encounter').searchParams as { _tag: string })._tag)
       .join(','),
   },
-};
+});
 
 export const telemedProgressNoteChartDataRequestedFields: ChartDataRequestedFields = {
   prescribedMedications: {},
