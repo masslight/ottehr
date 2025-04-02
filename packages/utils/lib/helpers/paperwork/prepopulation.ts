@@ -675,7 +675,7 @@ export const makePrepopulatedItemsFromPatientRecord = (
           insurancePlans,
         });
       }
-      if (GUANTOR_ITEMS.includes(item.linkId)) {
+      if (GUARANTOR_ITEMS.includes(item.linkId)) {
         return mapGuarantorToQuestionnaireResponseItems({ items: itemItems, guarantorResource });
       }
       return [];
@@ -1074,7 +1074,7 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
   });
 };
 
-const GUANTOR_ITEMS = ['responsible-party-section', 'responsible-party-page'];
+const GUARANTOR_ITEMS = ['responsible-party-section', 'responsible-party-page'];
 interface MapGuantorItemsInput {
   items: QuestionnaireItem[];
   guarantorResource?: RelatedPerson | Patient;

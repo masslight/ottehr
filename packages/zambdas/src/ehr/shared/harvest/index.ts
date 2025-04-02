@@ -2244,7 +2244,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     }
   });
 
-  // create Coverage BatchInputPostRequests for either of the Coverages found on Ordered coverage that are also referenced suggestedNewCaverageObject
+  // create Coverage BatchInputPostRequests for either of the Coverages found on Ordered coverage that are also referenced suggestedNewCoverageObject
   // and add them to the coveragePosts array
 
   Object.entries(questionnaireCoverages).forEach(([_key, coverage]) => {
@@ -2262,8 +2262,6 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     const { guarantors, contained } = resolveGuarantor({
       patientId: patient.id!,
       guarantorFromQuestionnaire: guarantorData,
-      existingGuarantorResource: patient,
-      existingGuarantorReferences: [],
     });
     const newAccount = createAccount({
       patientId: patient.id!,
@@ -2621,8 +2619,8 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
 interface ResolveGuarantorInput {
   patientId: string;
   guarantorFromQuestionnaire: ResponsiblePartyContact | undefined;
-  existingGuarantorResource: RelatedPerson | Patient;
-  existingGuarantorReferences: AccountGuarantor[];
+  existingGuarantorResource?: RelatedPerson | Patient;
+  existingGuarantorReferences?: AccountGuarantor[];
   existingContained?: FhirResource[];
   timestamp?: string;
 }
@@ -2636,13 +2634,13 @@ export const resolveGuarantor = (input: ResolveGuarantorInput): ResolveGuarantor
     patientId,
     guarantorFromQuestionnaire,
     existingGuarantorResource,
-    existingGuarantorReferences,
+    existingGuarantorReferences = [],
     existingContained,
     timestamp,
   } = input;
   console.log('guarantorFromQuestionnaire', JSON.stringify(guarantorFromQuestionnaire, null, 2));
   if (guarantorFromQuestionnaire === undefined || guarantorFromQuestionnaire.relationship === 'Self') {
-    if (existingGuarantorResource.resourceType === 'Patient' && existingGuarantorResource.id === patientId) {
+    if (existingGuarantorResource?.resourceType === 'Patient' && existingGuarantorResource.id === patientId) {
       return { guarantors: existingGuarantorReferences, contained: existingContained };
     } else {
       const newGuarantor = {
@@ -2661,20 +2659,20 @@ export const resolveGuarantor = (input: ResolveGuarantorInput): ResolveGuarantor
   const existingResourceIsPersisted = existingGuarantorReferences.some((r) => {
     const ref = r.party.reference;
     if (r.period?.end !== undefined) return false;
-    return `${existingGuarantorResource.resourceType}/${existingGuarantorResource.id}` === ref;
+    return `${existingGuarantorResource?.resourceType}/${existingGuarantorResource?.id}` === ref;
   });
-  const existingResourceType = existingGuarantorResource.resourceType;
+  const existingResourceType = existingGuarantorResource?.resourceType;
   const rpFromGuarantorData = createContainedGuarantor(guarantorFromQuestionnaire, patientId);
   if (existingResourceType === 'RelatedPerson') {
-    if (existingResourceIsPersisted && relatedPersonsAreSame(existingGuarantorResource, rpFromGuarantorData)) {
+    if (existingResourceIsPersisted && relatedPersonsAreSame(existingGuarantorResource!, rpFromGuarantorData)) {
       // we won't bother with trying to update the existing RelatedPerson resource
       return {
         guarantors: existingGuarantorReferences,
         contained: existingContained,
       };
-    } else if (relatedPersonsAreSame(existingGuarantorResource, rpFromGuarantorData)) {
+    } else if (relatedPersonsAreSame(existingGuarantorResource!, rpFromGuarantorData)) {
       const contained = existingContained?.map((c) => {
-        if (c.id === existingGuarantorResource.id) {
+        if (c.id === existingGuarantorResource!.id) {
           // just take the latest full content and leave the id as is
           return { ...rpFromGuarantorData, id: c.id };
         }
