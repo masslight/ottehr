@@ -145,19 +145,25 @@ describe('Harvest Module Integration Tests', () => {
     );
   };
 
-  const cleanup = async (): Promise<void> => {
+  const cleanup = async (): Promise<{ error: Error | undefined }> => {
+    const errors: string[] = [];
     try {
       const cleanupOutcoems = await Promise.allSettled(
         (Object.values(patientIdsForCleanup) ?? []).map((resources) => cleanupPatientResources(resources))
       );
       cleanupOutcoems.forEach((outcome, idx) => {
         if (outcome.status === 'rejected') {
-          console.error(`Error cleaning up resource:  ${Object.keys(patientIdsForCleanup)[idx]}`, outcome.reason);
+          errors.push(`${Object.keys(patientIdsForCleanup)[idx]}`);
         }
       });
     } catch (error) {
       console.error('Error during cleanup:', error);
+      throw error;
     }
+    if (errors.length > 0) {
+      return { error: new Error(`Failed to clean up resources for patients: ${errors.join(', ')}`) };
+    }
+    return { error: undefined };
   };
 
   const cleanupPatientResources = async (ids: string[]): Promise<void> => {
@@ -502,7 +508,8 @@ describe('Harvest Module Integration Tests', () => {
     ];
   });
   afterAll(async () => {
-    await cleanup();
+    const { error } = await cleanup();
+    expect(error).toBeUndefined();
   });
 
   const getPatientId = (): string => {
