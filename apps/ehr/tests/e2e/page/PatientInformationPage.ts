@@ -13,6 +13,10 @@ export enum Field {
   DEMO_VISIT_ZIP,
   PATIENT_EMAIL,
   PATIENT_PHONE_NUMBER,
+  DEMO_VISIT_RESPONSIBLE_FIRST_NAME,
+  DEMO_VISIT_RESPONSIBLE_LAST_NAME,
+  DEMO_VISIT_RESPONSIBLE_BIRTHDATE,
+  DEMO_VISIT_RESPONSIBLE_PHONE,
 }
 
 const FIELD_TO_TEST_ID = new Map<Field, string>()
@@ -24,7 +28,11 @@ const FIELD_TO_TEST_ID = new Map<Field, string>()
   .set(Field.DEMO_VISIT_CITY, dataTestIds.contactInformationContainer.city)
   .set(Field.DEMO_VISIT_ZIP, dataTestIds.contactInformationContainer.zip)
   .set(Field.PATIENT_EMAIL, dataTestIds.contactInformationContainer.patientEmail)
-  .set(Field.PATIENT_PHONE_NUMBER, dataTestIds.contactInformationContainer.patientMobile);
+  .set(Field.PATIENT_PHONE_NUMBER, dataTestIds.contactInformationContainer.patientMobile)
+  .set(Field.DEMO_VISIT_RESPONSIBLE_FIRST_NAME, dataTestIds.responsiblePartyInformationContainer.firstName)
+  .set(Field.DEMO_VISIT_RESPONSIBLE_LAST_NAME, dataTestIds.responsiblePartyInformationContainer.lastName)
+  .set(Field.DEMO_VISIT_RESPONSIBLE_BIRTHDATE, dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown)
+  .set(Field.DEMO_VISIT_RESPONSIBLE_PHONE, dataTestIds.responsiblePartyInformationContainer.phoneInput);
 
 export class PatientInformationPage {
   #page: Page;
@@ -326,6 +334,10 @@ export class PatientInformationPage {
     ).toHaveValue(firstName);
   }
 
+  async clearFirstNameFromResponsibleContainer(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.firstName).locator('input').clear();
+  }
+
   async enterLastNameFromResponsibleContainer(lastName: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.responsiblePartyInformationContainer.lastName)
@@ -339,10 +351,14 @@ export class PatientInformationPage {
     ).toHaveValue(lastName);
   }
 
+  async clearLastNameFromResponsibleContainer(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.lastName).locator('input').clear();
+  }
+
   async enterDateOfBirthFromResponsibleContainer(dateOfBirth: string): Promise<void> {
     const locator = this.#page
-      .getByTestId(dataTestIds.responsiblePartyInformationContainer.id)
-      .locator('[placeholder="MM/DD/YYYY"]');
+      .getByTestId(dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown)
+      .locator('input');
     await locator.click();
     await this.#page.waitForTimeout(2000);
     await locator.pressSequentially(dateOfBirth);
@@ -350,8 +366,15 @@ export class PatientInformationPage {
 
   async verifyDateOfBirthFromResponsibleContainer(dateOfBirth: string): Promise<void> {
     await expect(
-      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.id).locator('[placeholder="MM/DD/YYYY"]')
+      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown).locator('input')
     ).toHaveValue(dateOfBirth);
+  }
+
+  async clearDateOfBirthFromResponsibleContainer(): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown)
+      .locator('input')
+      .clear();
   }
 
   async selectBirthSexFromResponsibleContainer(birthSex: string): Promise<void> {
@@ -363,6 +386,13 @@ export class PatientInformationPage {
     await expect(
       this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.birthSexDropdown).locator('input')
     ).toHaveValue(birthSex);
+  }
+
+  async clearBirthSexFromResponsibleContainer(): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.responsiblePartyInformationContainer.birthSexDropdown)
+      .locator('input')
+      .clear();
   }
 
   async enterPhoneFromResponsibleContainer(phone: string): Promise<void> {
@@ -377,7 +407,20 @@ export class PatientInformationPage {
       this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.phoneInput).locator('input')
     ).toHaveValue(formatPhoneNumberForQuestionarie(phone));
   }
+  async clearPhoneFromResponsibleContainer(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.phoneInput).locator('input').click();
+    for (let i = 0; i <= 20; i++) {
+      await this.#page.keyboard.press('Backspace');
+    }
+  }
 
+  async verifyValidationErrorInvalidPhoneFromResponsibleContainer(): Promise<void> {
+    await expect(
+      this.#page
+        .getByTestId(dataTestIds.responsiblePartyInformationContainer.phoneInput)
+        .locator('p:text("Phone number must be 10 digits in the format (xxx) xxx-xxxx")')
+    ).toBeVisible();
+  }
   async selectReleaseOfInfo(releaseOfInfo: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.userSettingsContainer.releaseOfInfoDropdown).click();
     await this.#page.getByText(releaseOfInfo, { exact: true }).click();

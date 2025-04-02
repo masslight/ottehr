@@ -277,6 +277,25 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPhoneFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_PHONE);
   });
 
+  test('Check validation error is displayed if any required field in Responsible party information block is missing or phone number is invalid', async ({
+    page,
+  }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.clearFirstNameFromResponsibleContainer();
+    await patientInformationPage.clearLastNameFromResponsibleContainer();
+    await patientInformationPage.clearDateOfBirthFromResponsibleContainer();
+    await patientInformationPage.clearPhoneFromResponsibleContainer();
+    await patientInformationPage.clickSaveChangesButton();
+
+    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_RESPONSIBLE_FIRST_NAME);
+    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_RESPONSIBLE_LAST_NAME);
+    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_RESPONSIBLE_BIRTHDATE);
+    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_RESPONSIBLE_PHONE);
+    await patientInformationPage.enterPhoneFromResponsibleContainer('111');
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyValidationErrorInvalidPhoneFromResponsibleContainer();
+  });
+
   test('Updated values from Responsible party information block  are saved and displayed correctly', async ({
     page,
   }) => {
