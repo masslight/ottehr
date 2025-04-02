@@ -695,7 +695,7 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
   const secondarySubscriberDoB = secondarySubscriber?.birthDate;
   const secondarySubscriberBirthSex = secondarySubscriber?.gender;
   let secondarySubscriberFirstName: string | undefined;
-  let secondarySubscribeLastName: string | undefined;
+  let secondarySubscriberLastName: string | undefined;
   let secondarySubscriberMiddleName: string | undefined;
   const secondaryRelationshipToInsured = secondary?.relationship?.coding?.[0].display;
   const secondaryPolicyHolderAddress = secondarySubscriber?.address?.[0];
@@ -706,7 +706,7 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
   const secondaryPolicyHolderAddressLine = secondaryPolicyHolderAddress?.line?.[0];
   if (secondarySubscriber) {
     secondarySubscriberFirstName = getFirstName(secondarySubscriber) ?? '';
-    secondarySubscribeLastName = getLastName(secondarySubscriber) ?? '';
+    secondarySubscriberLastName = getLastName(secondarySubscriber) ?? '';
     secondarySubscriberMiddleName = secondarySubscriber.name?.[0]?.given?.[1] ?? '';
   }
 
@@ -738,11 +738,11 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     if (linkId === 'policy-holder-first-name-2' && secondarySubscriberFirstName) {
       answer = makeAnswer(secondarySubscriberFirstName);
     }
-    if (linkId === 'policy-holder-last-name') {
+    if (linkId === 'policy-holder-last-name' && primarySubscriberLastName) {
       answer = makeAnswer(primarySubscriberLastName);
     }
-    if (linkId === 'policy-holder-last-name-2' && secondarySubscribeLastName) {
-      answer = makeAnswer(secondarySubscribeLastName);
+    if (linkId === 'policy-holder-last-name-2' && secondarySubscriberLastName) {
+      answer = makeAnswer(secondarySubscriberLastName);
     }
     if (linkId === 'policy-holder-middle-name' && primarySubscriberMiddleName) {
       answer = makeAnswer(primarySubscriberMiddleName);
