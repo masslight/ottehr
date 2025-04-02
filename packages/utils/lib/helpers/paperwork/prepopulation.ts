@@ -49,7 +49,7 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
     contactInfo,
     questionnaire,
     documents,
-    accountInfo: insuranceInfo,
+    accountInfo,
   } = input;
 
   let formattedVerifiedPhoneNumber: string | undefined;
@@ -90,22 +90,6 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
     patientSex = 'Intersex';
   }
 
-  const pcp = patient.contained?.find(
-    (resource): resource is Practitioner => resource.resourceType === 'Practitioner' && resource.active === true
-  );
-  const pcpPractice = pcp?.extension?.find((e) => e.url === PRACTICE_NAME_URL)?.valueString;
-  const pcpAddress = pcp?.address?.[0]?.line?.[0];
-  const pcpPhoneNumber = pcp?.telecom?.[0]?.value;
-
-  let formattedPcpPhoneNumber: string | undefined;
-  if (pcpPhoneNumber) {
-    try {
-      formattedPcpPhoneNumber = formatPhoneNumberDisplay(pcpPhoneNumber);
-    } catch (e) {
-      console.log('unable to format phone number', pcpPhoneNumber);
-    }
-  }
-
   const photoIdFrontDocumentReference = documents?.find((doc) =>
     doc.content.some((item) => item.attachment.title === 'photo-id-front')
   );
@@ -132,12 +116,13 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
   console.log('patient: ', JSON.stringify(patient, null, 2));
   console.log('patientSex', patientSex);
   console.log('documents: ', JSON.stringify(documents, null, 2));
-  console.log('insurance related resources: ', JSON.stringify(insuranceInfo, null, 2));
+  console.log('insurance related resources: ', JSON.stringify(accountInfo, null, 2));
 
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
       const itemItems = item.item ?? [].filter((i: QuestionnaireItem) => i.type !== 'display');
       if (item.linkId === 'contact-information-page') {
+        // todo: consolidate this with mapPatientItemsToQuestionnaireResponseItems
         return itemItems.map((item) => {
           let answer: QuestionnaireResponseItemAnswer[] | undefined;
           const { linkId } = item;
@@ -196,6 +181,7 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
           };
         });
       } else if (item.linkId === 'patient-details-page') {
+        // todo: consolidate this with mapPatientItemsToQuestionnaireResponseItems
         return itemItems.map((item) => {
           let answer: QuestionnaireResponseItemAnswer[] | undefined;
           const { linkId } = item;
@@ -220,42 +206,22 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
             answer,
           };
         });
-      } else if (item.linkId === 'primary-care-physician-page') {
-        return itemItems.map((item) => {
-          let answer: QuestionnaireResponseItemAnswer[] | undefined;
-          const { linkId } = item;
-          if (linkId === 'pcp-first' && pcp) {
-            answer = makeAnswer(getFirstName(pcp) ?? '');
-          }
-          if (linkId === 'pcp-last' && pcp) {
-            answer = makeAnswer(getLastName(pcp) ?? '');
-          }
-          if (linkId === 'pcp-practice' && pcpPractice) {
-            answer = makeAnswer(pcpPractice);
-          }
-          if (linkId === 'pcp-address' && pcpAddress) {
-            answer = makeAnswer(pcpAddress);
-          }
-          if (linkId === 'pcp-number' && formattedPcpPhoneNumber) {
-            answer = makeAnswer(formattedPcpPhoneNumber);
-          }
-
-          return {
-            linkId,
-            answer,
-          };
+      } else if (PCP_ITEMS.includes(item.linkId)) {
+        return mapPCPToQuestionnaireResponseItems({
+          items: itemItems,
+          physician: accountInfo?.primaryCarePhysician,
         });
       } else if (GUARANTOR_ITEMS.includes(item.linkId)) {
         return mapGuarantorToQuestionnaireResponseItems({
           items: itemItems,
-          guarantorResource: insuranceInfo?.guarantorResource,
+          guarantorResource: accountInfo?.guarantorResource,
         });
       } else if (COVERAGE_ITEMS.includes(item.linkId)) {
         return mapCoveragesToQuestionnaireResponseItems({
           items: itemItems,
-          coverages: insuranceInfo?.coverages ?? {},
-          insuranceOrgs: insuranceInfo?.insuranceOrgs ?? [],
-          insurancePlans: insuranceInfo?.insurancePlans ?? [],
+          coverages: accountInfo?.coverages ?? {},
+          insuranceOrgs: accountInfo?.insuranceOrgs ?? [],
+          insurancePlans: accountInfo?.insurancePlans ?? [],
           documents,
         });
       } else if (item.linkId === 'photo-id-page') {
@@ -516,14 +482,6 @@ interface MapPCPItemsInput {
 const mapPCPToQuestionnaireResponseItems = (input: MapPCPItemsInput): QuestionnaireResponseItem[] => {
   const { physician, items } = input;
 
-  /*
-   const pcp = patient?.contained?.find(
-    (resource) => resource.resourceType === 'Practitioner' && resource.active === true
-  ) as Practitioner;
-  const practiceName = pcp?.extension?.find((e: { url: string }) => e.url === PRACTICE_NAME_URL)?.valueString;
-
-
-  */
   const practiceName =
     physician?.extension?.find((e: { url: string }) => e.url === PRACTICE_NAME_URL)?.valueString ?? '';
   const phone = physician?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ?? '';
