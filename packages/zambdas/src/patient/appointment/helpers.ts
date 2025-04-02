@@ -1,17 +1,9 @@
 import Oystehr from '@oystehr/sdk';
-import {
-  Coding,
-  Coverage,
-  DocumentReference,
-  Extension,
-  InsurancePlan,
-  Organization,
-  Questionnaire,
-  RelatedPerson,
-} from 'fhir/r4b';
+import { Coding, DocumentReference, Extension, Practitioner, Questionnaire } from 'fhir/r4b';
 import {
   CanonicalUrl,
   OtherParticipantsExtension,
+  PatientAccountResponse,
   Secrets,
   SecretsKeys,
   ServiceMode,
@@ -19,6 +11,7 @@ import {
   getCanonicalQuestionnaire,
   getSecret,
 } from 'utils';
+import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 
 export const getCurrentQuestionnaireForServiceType = async (
   serviceMode: ServiceMode,
@@ -125,10 +118,10 @@ export async function getRelatedResources(
   patientId?: string
 ): Promise<{
   documents: DocumentReference[];
-  insuranceInfo: (Coverage | RelatedPerson | Organization | InsurancePlan)[];
+  insuranceInfo: PatientAccountResponse | undefined;
 }> {
   let documents: DocumentReference[] = [];
-  let insuranceInfo: (Coverage | RelatedPerson | Organization | InsurancePlan)[] = [];
+  let insuranceInfo: PatientAccountResponse | undefined = undefined;
 
   if (patientId) {
     console.log('get related resources to prepopulate paperwork');
@@ -146,31 +139,18 @@ export async function getRelatedResources(
           },
         ],
       }),
-      oystehr.fhir.search<Coverage | RelatedPerson | Organization | InsurancePlan>({
-        resourceType: 'Coverage',
-        params: [
-          {
-            name: 'patient',
-            value: `Patient/${patientId}`,
-          },
-          {
-            name: '_include',
-            value: 'Coverage:subscriber:RelatedPerson',
-          },
-          {
-            name: '_include',
-            value: 'Coverage:payor:Organization',
-          },
-          {
-            name: '_revinclude:iterate',
-            value: 'InsurancePlan:owned-by:Organization',
-          },
-        ],
-      }),
+      getAccountAndCoverageResourcesForPatient(patientId, oystehr),
     ]);
 
+    const primaryCarePhysician = insuranceResponse.patient?.contained?.find(
+      (resource) => resource.resourceType === 'Practitioner' && resource.active === true
+    ) as Practitioner;
+
     documents = docsResponse.unbundle();
-    insuranceInfo = insuranceResponse.unbundle();
+    insuranceInfo = {
+      ...insuranceResponse,
+      primaryCarePhysician,
+    };
   }
 
   return { documents, insuranceInfo };
