@@ -146,9 +146,18 @@ describe('Harvest Module Integration Tests', () => {
   };
 
   const cleanup = async (): Promise<void> => {
-    await Promise.all(
-      (Object.values(patientIdsForCleanup) ?? []).map((resources) => cleanupPatientResources(resources))
-    );
+    try {
+      const cleanupOutcoems = await Promise.allSettled(
+        (Object.values(patientIdsForCleanup) ?? []).map((resources) => cleanupPatientResources(resources))
+      );
+      cleanupOutcoems.forEach((outcome, idx) => {
+        if (outcome.status === 'rejected') {
+          console.error(`Error cleaning up resource:  ${Object.keys(patientIdsForCleanup)[idx]}`, outcome.reason);
+        }
+      });
+    } catch (error) {
+      console.error('Error during cleanup:', error);
+    }
   };
 
   const cleanupPatientResources = async (ids: string[]): Promise<void> => {
