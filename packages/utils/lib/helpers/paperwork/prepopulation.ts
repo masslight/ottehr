@@ -22,7 +22,12 @@ import {
 } from '../../fhir';
 import { DateTime } from 'luxon';
 import { formatPhoneNumberDisplay } from '../helpers';
-import { PatientAccountResponse } from '../../types';
+import {
+  PATIENT_GENDER_IDENTITY_URL,
+  PATIENT_INDIVIDUAL_PRONOUNS_URL,
+  PATIENT_SEXUAL_ORIENTATION_URL,
+  PatientAccountResponse,
+} from '../../types';
 import { capitalize } from 'lodash-es';
 import { DATE_OF_BIRTH_URL, PRACTICE_NAME_URL } from '../../types';
 
@@ -717,6 +722,10 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
     ?.valueCodeableConcept?.coding?.[0]?.display;
   const patientRace = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/race`)
     ?.valueCodeableConcept?.coding?.[0]?.display;
+  const patientPrefferedPronouns = patient.extension?.find((e) => e.url === PATIENT_INDIVIDUAL_PRONOUNS_URL)
+    ?.valueCodeableConcept?.coding?.[0]?.display;
+
+  const patientPrefferedName = patient.name?.find((name) => name.use === 'nickname')?.given?.[0];
 
   let patientSex: string | undefined;
   if (patient?.gender === 'male') {
@@ -729,17 +738,22 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
 
   const patientDOB = patient.birthDate;
 
-  /*
-    things missing here: 
-    - sexual orientation
-    - preferred language
-    - gender identity (this is conflated with birth sex currently i believe)
-    - point of contact (how did you hear about us)
-
-    missing but probably shouldn't be changeable by ehr user
-    - marketing messages
-    - CommonWell consent
-  */
+  const patientSexualOrientation = patient.extension?.find((e) => e.url === PATIENT_SEXUAL_ORIENTATION_URL)
+    ?.valueCodeableConcept?.coding?.[0]?.display;
+  const patientGenderIdentity = patient.extension?.find((e) => e.url === PATIENT_GENDER_IDENTITY_URL)
+    ?.valueCodeableConcept?.coding?.[0]?.display;
+  const patientGenderIdentityDetails = patient.extension?.find(
+    (e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/individual-genderIdentity`
+  )?.valueString;
+  const patientPointOfDiscovery = patient.extension?.find(
+    (e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/point-of-discovery`
+  )?.valueString;
+  const patientSendMarketing = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/send-marketing`)
+    ?.valueBoolean;
+  const patientPreferredLanguage = patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0].display;
+  const patientCommonWellConsent = patient.extension?.find(
+    (e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/common-well-consent`
+  )?.valueBoolean;
 
   return items.map((item) => {
     let answer: QuestionnaireResponseItemAnswer[] | undefined;
@@ -762,6 +776,14 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
 
     if (linkId === 'patient-name-suffix') {
       answer = makeAnswer(getNameSuffix(patient) ?? '');
+    }
+
+    if (linkId === 'patient-preferred-name' && patientPrefferedName) {
+      answer = makeAnswer(patientPrefferedName);
+    }
+
+    if (linkId === 'patient-pronouns' && patientPrefferedPronouns) {
+      answer = makeAnswer(patientPrefferedPronouns);
     }
 
     if (linkId === 'patient-street-address' && patientAddressLine1) {
@@ -793,6 +815,27 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
     }
     if (linkId === 'patient-race' && patientRace) {
       answer = makeAnswer(patientRace);
+    }
+    if (linkId === 'patient-sexual-orientation' && patientSexualOrientation) {
+      answer = makeAnswer(patientSexualOrientation);
+    }
+    if (linkId === 'patient-gender-identity' && patientGenderIdentity) {
+      answer = makeAnswer(patientGenderIdentity);
+    }
+    if (linkId === 'patient-gender-identity-details' && patientGenderIdentityDetails) {
+      answer = makeAnswer(patientGenderIdentityDetails);
+    }
+    if (linkId === 'patient-point-of-discovery' && patientPointOfDiscovery) {
+      answer = makeAnswer(patientPointOfDiscovery);
+    }
+    if (linkId === 'mobile-opt-in' && patientSendMarketing) {
+      answer = makeAnswer(patientSendMarketing);
+    }
+    if (linkId === 'preferred-language' && patientPreferredLanguage) {
+      answer = makeAnswer(patientPreferredLanguage);
+    }
+    if (linkId === 'common-well-consent' && patientCommonWellConsent) {
+      answer = makeAnswer(patientCommonWellConsent);
     }
     return {
       linkId,

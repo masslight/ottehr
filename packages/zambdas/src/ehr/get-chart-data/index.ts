@@ -2,9 +2,8 @@ import Oystehr, { BatchInputGetRequest, Bundle } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Resource } from 'fhir/r4b';
 import { ChartDataFields, ChartDataRequestedFields, GetChartDataResponse } from 'utils';
-import { checkOrCreateM2MClientToken, getPatientEncounter } from '../../shared';
+import { checkOrCreateM2MClientToken, getPatientEncounter, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { ZambdaInput } from '../../shared';
 import {
   convertSearchResultsToResponse,
   createFindResourceRequest,
@@ -79,7 +78,7 @@ export async function getChartData(
 
     if (!requestedFields || fieldOptions) {
       chartDataRequests.push(
-        createFindResourceRequest(patient, encounter, resourceType, requestedFields?.[field], defaultSearchBy)
+        createFindResourceRequest(patient, encounter, resourceType, fieldOptions, defaultSearchBy)
       );
     }
   }

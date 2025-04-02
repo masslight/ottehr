@@ -1,10 +1,10 @@
-import React from 'react';
-import { Dialog, DialogTitle, DialogContent, IconButton, Typography, Box } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import { NOTE_TYPE, PRIVATE_EXTENSION_BASE_URL, CSS_NOTE_ID } from 'utils';
-import { GenericNotesConfig } from '../components/generic-notes-list/types';
+import { Box, Dialog, DialogContent, DialogTitle, IconButton, Typography } from '@mui/material';
+import React from 'react';
+import { CSS_NOTE_ID, NOTE_TYPE, PRIVATE_EXTENSION_BASE_URL } from 'utils';
 import { GenericNoteList } from '../components/generic-notes-list/GenericNoteList';
+import { GenericNotesConfig } from '../components/generic-notes-list/types';
 
 export const useInternalNotesModal = (): {
   isOpen: boolean;
@@ -65,10 +65,7 @@ const internalNotesConfig: GenericNotesConfig = {
       _search_by: 'encounter',
       _sort: '-_lastUpdated',
       _count: 1000,
-      _tag: {
-        type: 'token',
-        value: `${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.INTERNAL}|${CSS_NOTE_ID}`,
-      },
+      _tag: `${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.INTERNAL}|${CSS_NOTE_ID}`,
     },
   },
   locales: {

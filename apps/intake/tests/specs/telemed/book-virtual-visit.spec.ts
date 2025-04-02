@@ -1,5 +1,6 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
+import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { Locators } from '../../utils/locators';
 import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
@@ -23,7 +24,7 @@ test.beforeAll(async ({ browser }) => {
 
   page.on('response', async (response) => {
     if (response.url().includes('/create-appointment/')) {
-      const { appointment } = await response.json();
+      const { appointment } = chooseJson(await response.json()) as CreateAppointmentResponse;
       if (appointment && !appointmentIds.includes(appointment)) {
         console.log('Created appointment: ', appointment);
         appointmentIds.push(appointment);
@@ -44,6 +45,7 @@ test.afterAll(async () => {
 });
 
 test('Should select state and time', async () => {
+  console.log('123');
   await telemedFlow.selectVisitAndContinue();
   const slotAndLocation = await telemedFlow.selectTimeLocationAndContinue();
   firstAvailableTime = slotAndLocation.selectedSlot?.fullSlot ?? '';
