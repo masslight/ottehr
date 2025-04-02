@@ -50,6 +50,30 @@ export const ExternalLabsStatusPalette: {
       primary: '#1B5E20',
     },
   },
+  cancelled: {
+    background: {
+      primary: '#FFCDD2',
+    },
+    color: {
+      primary: '#D32F2F',
+    },
+  },
+  prelim: {
+    background: {
+      primary: '#B3E5FC',
+    },
+    color: {
+      primary: '#01579B',
+    },
+  },
+  unparsed: {
+    background: {
+      primary: '#e3c254',
+    },
+    color: {
+      primary: '#50221a',
+    },
+  },
 };
 
 export function ExternalLabsStatusChip({ status }: ExternalLabsStatusChipProps): ReactElement {

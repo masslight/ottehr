@@ -1,4 +1,4 @@
-import { Questionnaire } from 'fhir/r4b';
+import { Questionnaire, Encounter } from 'fhir/r4b';
 import { DiagnosisDTO } from '../..';
 
 export interface OrderableItemSearchResult {
@@ -52,7 +52,7 @@ export enum ExternalLabsStatus {
   received = 'received',
   reviewed = 'reviewed',
   cancelled = 'cancelled',
-  unparsed = '-', // for debugging purposes
+  unparsed = 'unparsed', // for debugging purposes
 }
 
 export type LabOrderHistoryRow = {
@@ -129,3 +129,19 @@ export type GetLabOrdersParameters =
   | GetLabOrdersByEncounterParameters // use case: Patient Chart
   | GetLabOrdersByPatientParameters // use case: Patient Page
   | GetLabOrdersByServiceRequestParameters; // use case: Lab Order Detail Page
+
+export interface CreateLabOrderParameters {
+  dx: DiagnosisDTO[];
+  encounter: Encounter;
+  practitionerId: string;
+  orderableItem: OrderableItemSearchResult;
+  psc: boolean;
+}
+export interface GetCreateLabOrderResources {
+  encounter: Encounter;
+}
+
+export interface LabOrderResourcesRes {
+  coverageName: string;
+  labs: OrderableItemSearchResult[];
+}

@@ -25,6 +25,11 @@ import { useNavigate } from 'react-router-dom';
 import { LabOrderDTO, OrderableItemSearchResult } from 'utils/lib/types/data/labs';
 import { getExternalLabOrderEditUrl } from '../../../css-module/routing/helpers';
 import { LabsAutocomplete } from '../LabsAutocomplete';
+import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
+import { getCreateLabOrderResources } from '../../../../api/api';
+import { useAppointmentStore } from '../../../../telemed/state/appointment/appointment.store';
+import { getSelectors } from '../../../../shared/store/getSelectors';
+import { useApiClients } from '../../../../hooks/useAppClients';
 
 export type LabsTableColumn =
   | 'testType'
@@ -79,6 +84,8 @@ export const LabsTable = ({
     encounterId,
   });
 
+  const [labs, setLabs] = useState<OrderableItemSearchResult[]>([]);
+
   const [selectedOrderedItem, setSelectedOrderedItem] = useState<OrderableItemSearchResult | null>(null);
 
   const [tempDateFilter, setTempDateFilter] = useState(visitDateFilter);
@@ -95,6 +102,25 @@ export const LabsTable = ({
   const onRowClick = (labOrderData: LabOrderDTO): void => {
     navigateTo(getExternalLabOrderEditUrl(labOrderData.appointmentId, labOrderData.orderId));
   };
+
+  const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
+
+  const { oystehrZambda } = useApiClients();
+
+  useEffect(() => {
+    async function getResources(oystehrZambda: Oystehr): Promise<void> {
+      try {
+        const { labs } = await getCreateLabOrderResources(oystehrZambda, { encounter });
+        setLabs(labs);
+      } catch (e) {
+        console.error('error loading resources', e);
+      }
+    }
+
+    if (encounter && oystehrZambda) {
+      void getResources(oystehrZambda);
+    }
+  }, [encounter, oystehrZambda]);
 
   // Redirect to create order page if needed (controlled by the parent component by prop redirectToOrderCreateIfOrdersEmpty)
   useEffect(() => {
@@ -242,6 +268,7 @@ export const LabsTable = ({
                 <LabsAutocomplete
                   selectedLab={selectedOrderedItem}
                   setSelectedLab={handleOrderableItemCodeChange}
+                  labs={labs}
                 ></LabsAutocomplete>
               </Grid>
               <Grid item xs={4}>
