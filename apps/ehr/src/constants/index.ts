@@ -582,7 +582,7 @@ export const FormFields = {
     sexualOrientation: { key: 'patient-sexual-orientation' },
     genderIdentity: { key: 'patient-gender-identity' },
     genderIdentityDetails: { key: 'patient-gender-identity-details' },
-    language: { key: 'patient-preferred-language' },
+    language: { key: 'preferred-language' },
     pointOfDiscovery: { key: 'patient-point-of-discovery' },
     sendMarketing: { key: 'mobile-opt-in' },
     commonWellConsent: { key: 'common-well-consent' },

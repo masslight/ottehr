@@ -87,6 +87,7 @@ const AIInterview = (): JSX.Element => {
       <Box style={{ overflowY: 'auto', height: 'calc(100vh - 400px)' }} id={MESSAGES_CONTAINER_ID}>
         {messages.map((message) => (
           <Box
+            key={message.author + ':' + message.linkId}
             style={{
               display: 'flex',
               alignItems: 'flex-start',

@@ -35,8 +35,8 @@ const NEW_STATE = 'CA';
 const NEW_ZIP = '05000';
 const NEW_PATIENT_EMAIL = 'testemail@getMaxListeners.com';
 const NEW_PATIENT_MOBILE = '2027139680';
-//const NEW_PATIENT_ETHNICITY = 'Hispanic or Latino';
-//const NEW_PATIENT_RACE = 'Asian';
+const NEW_PATIENT_ETHNICITY = 'Hispanic or Latino';
+const NEW_PATIENT_RACE = 'Asian';
 const NEW_RELATIONSHIP = 'Parent';
 const NEW_FIRST_NAME = 'First name';
 const NEW_LAST_NAME = 'Last name';
@@ -168,13 +168,11 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPatientLastName(NEW_PATIENT_LAST_NAME);
     await patientInformationPage.verifyPatientFirstName(NEW_PATIENT_FIRST_NAME);
     await patientInformationPage.verifyPatientMiddleName(NEW_PATIENT_MIDDLE_NAME);
-    //await patientInformationPage.verifyPatientSuffix(NEW_PATIENT_SUFFIX);
-    //await patientInformationPage.verifyPatientPreferredName(NEW_PATIENT_PREFERRED_NAME);
+    await patientInformationPage.verifyPatientSuffix(NEW_PATIENT_SUFFIX);
+    await patientInformationPage.verifyPatientPreferredName(NEW_PATIENT_PREFERRED_NAME);
     await patientInformationPage.verifyPatientDateOfBirth(NEW_PATIENT_DATE_OF_BIRTH);
-    //await patientInformationPage.verifyPatientPreferredPronouns(NEW_PATIENT_PREFERRED_PRONOUNS);
+    await patientInformationPage.verifyPatientPreferredPronouns(NEW_PATIENT_PREFERRED_PRONOUNS);
     await patientInformationPage.verifyPatientBirthSex(NEW_PATIENT_BIRTH_SEX);
-
-    /*uncomment when https://github.com/masslight/ottehr/issues/1648 will be fixed*/
   });
 
   test('Verify required data from Contact info block is displayed correctly', async ({ page }) => {

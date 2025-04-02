@@ -32,11 +32,6 @@ export const VisitNoteCard: FC = () => {
   const chiefComplaint = chartData?.chiefComplaint?.text;
   const spentTime = getSpentTime(encounter.statusHistory);
   const ros = chartData?.ros?.text;
-  const medications = chartData?.medications;
-  const allergies = chartData?.allergies;
-  const conditions = chartData?.conditions;
-  const procedures = chartData?.procedures;
-  const proceduresNote = chartData?.proceduresNote?.text;
   const diagnoses = chartData?.diagnosis;
   const medicalDecision = chartData?.medicalDecision?.text;
   const emCode = chartData?.emCode;
@@ -45,13 +40,6 @@ export const VisitNoteCard: FC = () => {
 
   const showChiefComplaint = !!((chiefComplaint && chiefComplaint.length > 0) || (spentTime && spentTime.length > 0));
   const showReviewOfSystems = !!(ros && ros.length > 0);
-  const showMedications = !!(medications && medications.length > 0);
-  const showAllergies = !!(allergies && allergies.length > 0);
-  const showMedicalConditions = !!(conditions && conditions.length > 0);
-  const showSurgicalHistory = !!(
-    (procedures && procedures.length > 0) ||
-    (proceduresNote && proceduresNote.length > 0)
-  );
   const showAdditionalQuestions = ADDITIONAL_QUESTIONS.some((question) => {
     const value = chartData?.observations?.find((observation) => observation.field === question.field)?.value;
     return value === true || value === false;
@@ -68,10 +56,10 @@ export const VisitNoteCard: FC = () => {
     <VisitDetailsContainer />,
     showChiefComplaint && <ChiefComplaintContainer />,
     showReviewOfSystems && <ReviewOfSystemsContainer />,
-    showMedications && <MedicationsContainer />,
-    showAllergies && <AllergiesContainer />,
-    showMedicalConditions && <MedicalConditionsContainer />,
-    showSurgicalHistory && <SurgicalHistoryContainer />,
+    <MedicationsContainer />,
+    <AllergiesContainer />,
+    <MedicalConditionsContainer />,
+    <SurgicalHistoryContainer />,
     showAdditionalQuestions && <AdditionalQuestionsContainer />,
     <ExaminationContainer />,
     showAssessment && <AssessmentContainer />,
