@@ -1,6 +1,6 @@
 import { Box, CircularProgress } from '@mui/material';
 
-export const LabOrderLoading = (): React.ReactNode => {
+export const LabOrderLoading: React.FC = () => {
   return (
     <Box
       sx={{
