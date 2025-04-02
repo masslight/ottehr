@@ -302,38 +302,38 @@ export class PatientInformationPage {
     );
   }
 
-  async selectRelationship(relationship: string): Promise<void> {
+  async selectRelationshipFromResponsibleContainer(relationship: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.relationshipDropdown).click();
     await this.#page.getByText(relationship, { exact: true }).click();
   }
 
-  async verifyRelationship(relationship: string): Promise<void> {
+  async verifyRelationshipFromResponsibleContainer(relationship: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.relationshipDropdown).locator('input')
     ).toHaveValue(relationship);
   }
 
-  async enterFirstName(firstName: string): Promise<void> {
+  async enterFirstNameFromResponsibleContainer(firstName: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.responsiblePartyInformationContainer.firstName)
       .locator('input')
       .fill(firstName);
   }
 
-  async verifyFirstName(firstName: string): Promise<void> {
+  async verifyFirstNameFromResponsibleContainer(firstName: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.firstName).locator('input')
     ).toHaveValue(firstName);
   }
 
-  async enterLastName(lastName: string): Promise<void> {
+  async enterLastNameFromResponsibleContainer(lastName: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.responsiblePartyInformationContainer.lastName)
       .locator('input')
       .fill(lastName);
   }
 
-  async verifyLastName(lastName: string): Promise<void> {
+  async verifyLastNameFromResponsibleContainer(lastName: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.lastName).locator('input')
     ).toHaveValue(lastName);

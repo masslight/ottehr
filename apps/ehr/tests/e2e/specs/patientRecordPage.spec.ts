@@ -13,6 +13,14 @@ import { expectPatientInformationPage, Field, openPatientInformationPage } from 
 import { expectPatientRecordPage } from '../page/PatientRecordPage';
 import {
   DEMO_VISIT_CITY,
+  DEMO_VISIT_RESPONSIBLE_BIRTH_SEX,
+  DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY,
+  DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH,
+  DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_YEAR,
+  DEMO_VISIT_RESPONSIBLE_FIRST_NAME,
+  DEMO_VISIT_RESPONSIBLE_LAST_NAME,
+  DEMO_VISIT_RESPONSIBLE_PHONE,
+  DEMO_VISIT_RESPONSIBLE_RELATIONSHIP,
   DEMO_VISIT_STATE,
   DEMO_VISIT_STREET_ADDRESS,
   DEMO_VISIT_STREET_ADDRESS_OPTIONAL,
@@ -35,11 +43,11 @@ const NEW_STATE = 'CA';
 const NEW_ZIP = '05000';
 const NEW_PATIENT_EMAIL = 'testemail@getMaxListeners.com';
 const NEW_PATIENT_MOBILE = '2027139680';
-//const NEW_PATIENT_ETHNICITY = 'Hispanic or Latino';
-//const NEW_PATIENT_RACE = 'Asian';
-const NEW_RELATIONSHIP = 'Parent';
-const NEW_FIRST_NAME = 'First name';
-const NEW_LAST_NAME = 'Last name';
+const NEW_PATIENT_ETHNICITY = 'Hispanic or Latino';
+const NEW_PATIENT_RACE = 'Asian';
+const NEW_RELATIONSHIP_FROM_RESPONSIBLE_CONTAINER = 'Parent';
+const NEW_FIRST_NAME_FROM_RESPONSIBLE_CONTAINER = 'First name';
+const NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER = 'Last name';
 const NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER = '10/10/2000';
 const NEW_BIRTSEX_FROM_RESPONSIBLE_CONTAINER = 'Male';
 const NEW_PHONE_FROM_RESPONSIBLE_CONTAINER = '1111111111';
@@ -93,9 +101,11 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.enterPatientMobile(NEW_PATIENT_MOBILE);
     await patientInformationPage.selectPatientEthnicity(NEW_PATIENT_ETHNICITY);
     await patientInformationPage.selectPatientRace(NEW_PATIENT_RACE);
-    await patientInformationPage.selectRelationship(NEW_RELATIONSHIP);
-    await patientInformationPage.enterFirstName(NEW_FIRST_NAME);
-    await patientInformationPage.enterLastName(NEW_LAST_NAME);
+    await patientInformationPage.selectRelationshipFromResponsibleContainer(
+      NEW_RELATIONSHIP_FROM_RESPONSIBLE_CONTAINER
+    );
+    await patientInformationPage.enterFirstNameFromResponsibleContainer(NEW_FIRST_NAME_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.enterLastNameFromResponsibleContainer(NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.enterDateOfBirthFromResponsibleContainer(NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.selectBirthSexFromResponsibleContainer(NEW_BIRTSEX_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.enterPhoneFromResponsibleContainer(NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
@@ -116,9 +126,11 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPatientMobile(NEW_PATIENT_MOBILE);
     await patientInformationPage.verifyPatientEthnicity(NEW_PATIENT_ETHNICITY);
     await patientInformationPage.verifyPatientRace(NEW_PATIENT_RACE);
-    await patientInformationPage.verifyRelationship(NEW_RELATIONSHIP);
-    await patientInformationPage.verifyFirstName(NEW_FIRST_NAME);
-    await patientInformationPage.verifyLastName(NEW_LAST_NAME);
+    await patientInformationPage.verifyRelationshipFromResponsibleContainer(
+      NEW_RELATIONSHIP_FROM_RESPONSIBLE_CONTAINER
+    );
+    await patientInformationPage.verifyFirstNameFromResponsibleContainer(NEW_FIRST_NAME_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.verifyLastNameFromResponsibleContainer(NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.verifyDateOfBirthFromResponsibleContainer(NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.verifyBirthSexFromResponsibleContainer(NEW_BIRTSEX_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.verifyPhoneFromResponsibleContainer(NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
@@ -168,13 +180,11 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPatientLastName(NEW_PATIENT_LAST_NAME);
     await patientInformationPage.verifyPatientFirstName(NEW_PATIENT_FIRST_NAME);
     await patientInformationPage.verifyPatientMiddleName(NEW_PATIENT_MIDDLE_NAME);
-    //await patientInformationPage.verifyPatientSuffix(NEW_PATIENT_SUFFIX);
-    //await patientInformationPage.verifyPatientPreferredName(NEW_PATIENT_PREFERRED_NAME);
+    await patientInformationPage.verifyPatientSuffix(NEW_PATIENT_SUFFIX);
+    await patientInformationPage.verifyPatientPreferredName(NEW_PATIENT_PREFERRED_NAME);
     await patientInformationPage.verifyPatientDateOfBirth(NEW_PATIENT_DATE_OF_BIRTH);
-    //await patientInformationPage.verifyPatientPreferredPronouns(NEW_PATIENT_PREFERRED_PRONOUNS);
+    await patientInformationPage.verifyPatientPreferredPronouns(NEW_PATIENT_PREFERRED_PRONOUNS);
     await patientInformationPage.verifyPatientBirthSex(NEW_PATIENT_BIRTH_SEX);
-
-    /*uncomment when https://github.com/masslight/ottehr/issues/1648 will be fixed*/
   });
 
   test('Verify required data from Contact info block is displayed correctly', async ({ page }) => {
@@ -249,5 +259,48 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyZip(NEW_ZIP);
     await patientInformationPage.verifyPatientEmail(NEW_PATIENT_EMAIL);
     await patientInformationPage.verifyPatientMobile(NEW_PATIENT_MOBILE);
+  });
+
+  test('Verify data from Responsible party information block is displayed correctly', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.verifyRelationshipFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_RELATIONSHIP);
+    await patientInformationPage.verifyFirstNameFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_FIRST_NAME);
+    await patientInformationPage.verifyLastNameFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_LAST_NAME);
+    await patientInformationPage.verifyDateOfBirthFromResponsibleContainer(
+      DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH +
+        '/' +
+        DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY +
+        '/' +
+        DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_YEAR
+    );
+    await patientInformationPage.verifyBirthSexFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_BIRTH_SEX);
+    await patientInformationPage.verifyPhoneFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_PHONE);
+  });
+
+  test('Updated values from Responsible party information block  are saved and displayed correctly', async ({
+    page,
+  }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.selectRelationshipFromResponsibleContainer(
+      NEW_RELATIONSHIP_FROM_RESPONSIBLE_CONTAINER
+    );
+    await patientInformationPage.enterFirstNameFromResponsibleContainer(NEW_FIRST_NAME_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.enterLastNameFromResponsibleContainer(NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.enterDateOfBirthFromResponsibleContainer(NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.selectBirthSexFromResponsibleContainer(NEW_BIRTSEX_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.enterPhoneFromResponsibleContainer(NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
+
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
+    await patientInformationPage.reloadPatientInformationPage();
+
+    await patientInformationPage.verifyRelationshipFromResponsibleContainer(
+      NEW_RELATIONSHIP_FROM_RESPONSIBLE_CONTAINER
+    );
+    await patientInformationPage.verifyFirstNameFromResponsibleContainer(NEW_FIRST_NAME_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.verifyLastNameFromResponsibleContainer(NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.verifyDateOfBirthFromResponsibleContainer(NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.verifyBirthSexFromResponsibleContainer(NEW_BIRTSEX_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.verifyPhoneFromResponsibleContainer(NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
   });
 });
