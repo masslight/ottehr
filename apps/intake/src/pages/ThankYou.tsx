@@ -1,12 +1,22 @@
 import { EditCalendarOutlined, EventBusyOutlined } from '@mui/icons-material';
 import CreateOutlinedIcon from '@mui/icons-material/CreateOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
-import { Box, Button, CircularProgress, Divider, Grid, Typography, useMediaQuery } from '@mui/material';
+import {
+  Box,
+  Button,
+  Checkbox,
+  CircularProgress,
+  Divider,
+  Grid,
+  Modal,
+  Typography,
+  useMediaQuery,
+} from '@mui/material';
 import { ContactPoint } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { breakpoints, useUCZambdaClient } from 'ui-components';
 import {
   APIError,
@@ -30,6 +40,23 @@ import useAppointmentNotFoundInformation from '../helpers/information';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import i18n from '../lib/i18n';
 import { dataTestIds } from '../helpers/data-test-ids';
+import { ottehrAiLogo } from '../assets';
+import { LoadingButton } from '@mui/lab';
+import api from '../api/zapehrApi';
+
+const MODAL_STYLE = {
+  position: 'absolute' as const,
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  width: '80%',
+  maxWidth: '450px',
+  border: 'none',
+  bgcolor: 'background.paper',
+  boxShadow: 24,
+  p: 4,
+  borderRadius: '8px',
+};
 
 type AppointmentState = { appointmentData: Partial<AppointmentData> };
 
@@ -108,7 +135,11 @@ const ThankYou = (): JSX.Element => {
   const [notFound, setNotFound] = useState<boolean>(false);
   const [paperworkCompleted, setPaperworkCompleted] = useState<boolean>(false);
   const [checkedIn, setCheckedIn] = useState<boolean>(false);
+  const [aiChatConsentModalOpen, setAiChatConsentModalOpen] = useState<boolean>(false);
+  const [aiChatStartButtonEnabled, setAiChatStartButtonEnabled] = useState<boolean>(false);
+  const [aiChatStartButtonLoading, setAiChatStartButtonLoading] = useState<boolean>(false);
   const outletContext = useVisitStore();
+  const navigate = useNavigate();
   const { id: appointmentId } = useParams();
   const { pathname } = useLocation();
   const { t } = useTranslation();
@@ -252,10 +283,50 @@ const ThankYou = (): JSX.Element => {
     );
   };
 
+  const aiChatBanner = (): ReactElement => {
+    const bannerEnabled = import.meta.env.VITE_APP_AI_INTERVIEW_BANNER_ENABLED === 'true';
+    return (
+      <>
+        {bannerEnabled && (
+          <Box style={{ background: '#FFF3E0', borderRadius: '8px', padding: '24px', display: 'flex' }}>
+            <Box style={{ fontWeight: 600, fontSize: '18px' }}>
+              <Typography variant="subtitle1" color="text.primary" style={{ paddingBottom: '16px', fontSize: '18px' }}>
+                Save your time and get ready for the visit with Ottehr AI Chat
+              </Typography>
+              <Button
+                type="button"
+                variant="contained"
+                style={{ backgroundColor: '#F57C00' }}
+                onClick={() => setAiChatConsentModalOpen(true)}
+              >
+                Try Ottehr AI chat
+              </Button>
+            </Box>
+            <img src={ottehrAiLogo} style={{ width: '80px', marginLeft: '8px' }} />
+          </Box>
+        )}
+      </>
+    );
+  };
+
   if (shouldRenderOutlet) {
     console.log('rendering outlet...', pathname, visitBasePath, loading);
     return <Outlet context={{ ...outletContext }} />;
   }
+
+  const saveAiChatConsentAndStartChat = async (): Promise<void> => {
+    if (tokenlessZambdaClient == null || appointmentID == null) return;
+    setAiChatStartButtonLoading(true);
+    setAiChatStartButtonEnabled(false);
+    await api.aIInterviewPersistConsent(
+      {
+        appointmentId: appointmentID,
+      },
+      tokenlessZambdaClient
+    );
+    setAiChatConsentModalOpen(false);
+    navigate(intakeFlowPageRoute.AIInterview.path.replace(':id', appointmentID));
+  };
 
   return (
     <PageContainer title={t('thanks.title')} description={visitType === VisitType.WalkIn ? '' : t('thanks.subtitle')}>
@@ -334,6 +405,7 @@ const ThankYou = (): JSX.Element => {
                 <PhoneNumberMessage locationTelecom={selectedLocation?.telecom} />
               </Typography>
               {paperworkCompleted && buttons(2)}
+              {paperworkCompleted && aiChatBanner()}
             </>
           ) : (
             <>
@@ -364,6 +436,54 @@ const ThankYou = (): JSX.Element => {
               )}
             </>
           )}
+          <Modal
+            open={aiChatConsentModalOpen}
+            onClose={() => {
+              setAiChatConsentModalOpen(false);
+              setAiChatStartButtonEnabled(false);
+              setAiChatStartButtonLoading(false);
+            }}
+          >
+            <Box sx={MODAL_STYLE}>
+              <Typography variant={'h2'} color="primary.main" style={{ marginBottom: '16px' }}>
+                Chat with Ottehr AI
+              </Typography>
+              <Typography color="text.primary" style={{ marginBottom: '8px' }}>
+                Our AI assistant will ask about your symptoms, conditions, and medical history. Your doctor will review
+                all information to provide personalized care.
+              </Typography>
+              <Typography color="text.primary">
+                You can pause the interview, and then complete later. Once interview is completed, you cannot start a
+                new interview.
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', margin: '16px 0 16px 0' }}>
+                <Checkbox color="secondary" onChange={(e) => setAiChatStartButtonEnabled(e.target.checked)} />
+                <Typography color="text.primary">I consent to Ottehr AI collecting my information</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  onClick={() => {
+                    setAiChatConsentModalOpen(false);
+                    setAiChatStartButtonEnabled(false);
+                    setAiChatStartButtonLoading(false);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <LoadingButton
+                  loading={aiChatStartButtonLoading}
+                  variant="contained"
+                  color="secondary"
+                  disabled={!aiChatStartButtonEnabled}
+                  onClick={saveAiChatConsentAndStartChat}
+                >
+                  Start chat
+                </LoadingButton>
+              </Box>
+            </Box>
+          </Modal>
         </>
       )) || <CircularProgress />}
     </PageContainer>
