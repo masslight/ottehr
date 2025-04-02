@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getPatchBinary } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
+import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import { Provenance, Questionnaire, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
@@ -61,7 +61,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         ];
       }
       if (multiSelect) {
-        answer = data[questionResponse].map((item) => ({ valueString: item }));
+        answer = data[questionResponse].map((item: string) => ({ valueString: item }));
       }
       if (question.type === 'boolean') {
         answer = [
