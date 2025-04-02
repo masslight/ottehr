@@ -23,7 +23,7 @@ export const AppointmentTabs: FC = () => {
   useChartData({
     encounterId: encounter.id!,
     onSuccess: (data) => {
-      useAppointmentStore.setState({ chartData: { ...chartData, emCode: undefined, ...data } });
+      useAppointmentStore.setState({ chartData: { ...chartData, ...data } });
       update(data.examObservations, true);
       isInitialLoad.current = false;
     },
