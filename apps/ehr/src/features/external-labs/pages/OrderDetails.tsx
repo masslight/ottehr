@@ -19,7 +19,7 @@ interface CollectionInstructions {
   collectionInstructions: string;
 }
 
-export const OrderDetailsPage: React.FC = () => {
+export const OrderDetailsPage = (): React.ReactNode => {
   const { serviceRequestID } = useParams();
   const { oystehrZambda } = useApiClients();
 
