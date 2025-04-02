@@ -1,12 +1,12 @@
 import React, { useRef } from 'react';
 import { Outlet } from 'react-router-dom';
+import { useResetAppointmentStore } from '../../../telemed';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { CommonLayoutBreadcrumbs } from '../components/breadcrumbs/CommonLayoutBreadcrumbs';
 import { Header } from '../components/Header';
 import { Sidebar } from '../components/Sidebar';
 import { useChartData } from '../hooks/useChartData';
 import { BottomNavigation } from './BottomNavigation';
-import { useResetAppointmentStore } from '../../../telemed';
 
 const layoutStyle: React.CSSProperties = {
   display: 'flex',
@@ -45,6 +45,7 @@ export const CSSLayout: React.FC = () => {
       console.error(error);
     },
     enabled: isInitialLoad.current,
+    shouldUpdateExams: true,
   });
 
   return (
