@@ -28,7 +28,7 @@
     "setup-questionnaires": "tsx src/scripts/setup-questionnaires.ts",
     "setup-billing-providers": "tsx src/scripts/setup-billing-providers.ts",
     "setup-deployed-resources": "tsx src/scripts/setup-questionnaires.ts ${ENV} && tsx src/scripts/setup-billing-providers.ts ${ENV}",
-    "test": "vitest --silent"
+    "test": "vitest"
   },
   "engines": {
     "node": ">=20.0.0",
