@@ -74,6 +74,7 @@ export const ResponsibleInformationContainer: FC = () => {
           required={true}
           defaultValue={''}
           disabled={selfSelected}
+          dataTestId={dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown}
         />
       </Row>
       <Row label={FormFields.birthSex.label} required>

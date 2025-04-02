@@ -357,4 +357,18 @@ export class ResourceHandler {
   async cleanAppointment(appointmentId: string): Promise<boolean> {
     return cleanAppointment(appointmentId, process.env.ENV!);
   }
+
+  async patientIdByAppointmentId(appointmentId: string): Promise<string> {
+    const appointment = await this.apiClient.fhir.get<Appointment>({
+      resourceType: 'Appointment',
+      id: appointmentId,
+    });
+    const patientId = appointment.participant
+      .find((participant) => participant.actor?.reference?.startsWith('Patient/'))
+      ?.actor?.reference?.split('/')[1];
+    if (patientId == null) {
+      throw new Error(`Patient for appointment ${appointmentId} not found`);
+    }
+    return patientId;
+  }
 }

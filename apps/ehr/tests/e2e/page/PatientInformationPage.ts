@@ -10,9 +10,13 @@ export enum Field {
   PATIENT_GENDER,
   DEMO_VISIT_STREET_ADDRESS,
   DEMO_VISIT_CITY,
+  DEMO_VISIT_STATE,
   DEMO_VISIT_ZIP,
   PATIENT_EMAIL,
   PATIENT_PHONE_NUMBER,
+  DEMO_VISIT_PATIENT_ETHNICITY,
+  DEMO_VISIT_PATIENT_RACE,
+  DEMO_VISIT_RESPONSIBLE_RELATIONSHIP,
   DEMO_VISIT_RESPONSIBLE_FIRST_NAME,
   DEMO_VISIT_RESPONSIBLE_LAST_NAME,
   DEMO_VISIT_RESPONSIBLE_BIRTHDATE,
@@ -26,9 +30,13 @@ const FIELD_TO_TEST_ID = new Map<Field, string>()
   .set(Field.PATIENT_GENDER, dataTestIds.patientInformationContainer.patientBirthSex)
   .set(Field.DEMO_VISIT_STREET_ADDRESS, dataTestIds.contactInformationContainer.streetAddress)
   .set(Field.DEMO_VISIT_CITY, dataTestIds.contactInformationContainer.city)
+  .set(Field.DEMO_VISIT_STATE, dataTestIds.contactInformationContainer.state)
   .set(Field.DEMO_VISIT_ZIP, dataTestIds.contactInformationContainer.zip)
   .set(Field.PATIENT_EMAIL, dataTestIds.contactInformationContainer.patientEmail)
   .set(Field.PATIENT_PHONE_NUMBER, dataTestIds.contactInformationContainer.patientMobile)
+  .set(Field.DEMO_VISIT_PATIENT_ETHNICITY, dataTestIds.patientDetailsContainer.patientsEthnicity)
+  .set(Field.DEMO_VISIT_PATIENT_RACE, dataTestIds.patientDetailsContainer.patientsRace)
+  .set(Field.DEMO_VISIT_RESPONSIBLE_RELATIONSHIP, dataTestIds.responsiblePartyInformationContainer.relationshipDropdown)
   .set(Field.DEMO_VISIT_RESPONSIBLE_FIRST_NAME, dataTestIds.responsiblePartyInformationContainer.firstName)
   .set(Field.DEMO_VISIT_RESPONSIBLE_LAST_NAME, dataTestIds.responsiblePartyInformationContainer.lastName)
   .set(Field.DEMO_VISIT_RESPONSIBLE_BIRTHDATE, dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown)
