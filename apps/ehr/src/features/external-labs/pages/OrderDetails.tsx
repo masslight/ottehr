@@ -10,6 +10,7 @@ import { useApiClients } from '../../../hooks/useAppClients';
 import { OrderDetails } from 'utils';
 import { getLabOrderDetails } from '../../../api/api';
 import { QuestionnaireItem } from 'fhir/r4b';
+import Loading from '../../../components/Loading';
 
 interface CollectionInstructions {
   container: string;
@@ -19,7 +20,7 @@ interface CollectionInstructions {
   collectionInstructions: string;
 }
 
-export const OrderDetailsPage = (): React.ReactNode => {
+export const OrderDetailsPage: React.FC = () => {
   const { serviceRequestID } = useParams();
   const { oystehrZambda } = useApiClients();
 
@@ -75,7 +76,7 @@ export const OrderDetailsPage = (): React.ReactNode => {
   }, [oystehrZambda, serviceRequestID]);
 
   if (!serviceRequest) {
-    return 'Loading...';
+    return <Loading />;
   }
 
   return (
