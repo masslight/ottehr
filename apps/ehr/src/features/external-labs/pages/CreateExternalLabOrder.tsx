@@ -9,7 +9,6 @@ import {
   FormControl,
   Grid,
   TextField,
-  CircularProgress,
   Autocomplete,
   Button,
   Switch,
@@ -27,6 +26,7 @@ import useEvolveUser from '../../../hooks/useEvolveUser';
 import Oystehr from '@oystehr/sdk';
 import { LabsAutocomplete } from '../components/LabsAutocomplete';
 import { createLabOrder, getCreateLabOrderResources } from '../../../api/api';
+import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
 
 enum LoadingState {
   initial,
@@ -167,7 +167,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       </Box>
 
       {loadingState !== LoadingState.loaded ? (
-        <CircularProgress />
+        <LabOrderLoading />
       ) : (
         <form onSubmit={handleSubmit}>
           <Paper sx={{ p: 3 }}>

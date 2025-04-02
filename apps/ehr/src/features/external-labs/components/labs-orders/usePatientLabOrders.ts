@@ -210,7 +210,7 @@ export const usePatientLabOrders = (options: UsePatientLabOrdersOptions = {}): U
         setLoading(false);
       }
     },
-    [encounterId, oystehrZambda]
+    [encounterId, fetchLabOrders, getCurrentSearchParamsForPage, oystehrZambda]
   );
 
   // handle delete dialog

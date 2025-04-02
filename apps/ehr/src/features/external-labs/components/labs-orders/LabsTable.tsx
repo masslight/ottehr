@@ -11,7 +11,6 @@ import {
   Pagination,
   Grid,
   Paper,
-  CircularProgress,
   Button,
   IconButton,
 } from '@mui/material';
@@ -30,6 +29,7 @@ import { getCreateLabOrderResources } from '../../../../api/api';
 import { useAppointmentStore } from '../../../../telemed/state/appointment/appointment.store';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useApiClients } from '../../../../hooks/useAppClients';
+import { LabOrderLoading } from './LabOrderLoading';
 
 export type LabsTableColumn =
   | 'testType'
@@ -143,11 +143,7 @@ export const LabsTable = ({
   };
 
   if (loading && labOrders.length === 0) {
-    return (
-      <Paper sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
-        <CircularProgress size={40} thickness={4} />
-      </Paper>
-    );
+    return <LabOrderLoading />;
   }
 
   if (error) {
@@ -231,24 +227,7 @@ export const LabsTable = ({
         position: 'relative',
       }}
     >
-      {loading && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: 'rgba(255, 255, 255, 0.7)',
-            zIndex: 10,
-          }}
-        >
-          <CircularProgress sx={{ color: 'primary.main' }} size={40} thickness={4} />
-        </Box>
-      )}
+      {loading && <LabOrderLoading />}
 
       {titleText && (
         <Typography
