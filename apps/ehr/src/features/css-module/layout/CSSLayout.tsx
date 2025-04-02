@@ -6,6 +6,7 @@ import { Header } from '../components/Header';
 import { Sidebar } from '../components/Sidebar';
 import { useChartData } from '../hooks/useChartData';
 import { BottomNavigation } from './BottomNavigation';
+import { useResetAppointmentStore } from '../../../telemed';
 
 const layoutStyle: React.CSSProperties = {
   display: 'flex',
@@ -31,6 +32,9 @@ const contentWrapperStyle: React.CSSProperties = {
 export const CSSLayout: React.FC = () => {
   const { encounter, chartData } = useAppointmentStore();
   const isInitialLoad = useRef(true);
+
+  useResetAppointmentStore();
+
   useChartData({
     encounterId: encounter.id!,
     onSuccess: (data) => {
