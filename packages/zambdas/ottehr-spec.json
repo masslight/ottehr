@@ -793,6 +793,13 @@
       "src": "src/ehr/get-lab-orders/index",
       "zip": ".dist/zips/get-lab-orders.zip"
     },
+    "DELETE-LAB-ORDER": {
+      "name": "DELETE-LAB-ORDER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/delete-lab-order/index",
+      "zip": ".dist/zips/delete-lab-order.zip"
+    },
     "GET-LAB-ORDER-DETAILS": {
       "name": "GET-LAB-ORDER-DETAILS",
       "type": "http_auth",

@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { topLevelCatch, ZambdaInput } from '../../shared';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
+import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import { makeDeleteResourceRequest, getLabOrderAndRelatedResources } from './helpers';
 

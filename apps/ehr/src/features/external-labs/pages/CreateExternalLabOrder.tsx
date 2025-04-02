@@ -323,7 +323,9 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                 error.length > 0 &&
                 error.map((msg, idx) => (
                   <Grid item xs={12} sx={{ textAlign: 'right', paddingTop: 1 }} key={idx}>
-                    <Typography sx={{ color: theme.palette.error.main }}>{msg}</Typography>
+                    <Typography sx={{ color: theme.palette.error.main }}>
+                      {typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2)}
+                    </Typography>
                   </Grid>
                 ))}
             </Grid>

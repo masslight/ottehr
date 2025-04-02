@@ -193,6 +193,8 @@ export const usePatientLabOrders = (options: UsePatientLabOrdersOptions = {}): U
         await deleteLabOrder(oystehrZambda, deleteParams);
 
         setPage(1);
+        const searchParams = getCurrentSearchParamsForPage(1);
+        await fetchLabOrders(searchParams);
 
         return true;
       } catch (err) {

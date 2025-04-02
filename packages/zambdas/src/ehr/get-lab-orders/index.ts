@@ -26,7 +26,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       pagination,
       encounters,
       appointments,
-      provenances,
+      // provenances, // todo: delete from request if it not used
     } = await getLabResources(oystehr, validatedParameters);
 
     if (!serviceRequests.length) {
@@ -45,8 +45,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       diagnosticReports,
       practitioners,
       encounters,
-      appointments,
-      provenances
+      appointments
+      // provenances
     );
 
     return {
