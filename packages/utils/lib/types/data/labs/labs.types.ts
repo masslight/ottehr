@@ -1,4 +1,4 @@
-import { Questionnaire } from 'fhir/r4b';
+import { Questionnaire, Encounter } from 'fhir/r4b';
 import { DiagnosisDTO } from '../..';
 
 export interface OrderableItemSearchResult {
@@ -51,35 +51,33 @@ export enum ExternalLabsStatus {
   prelim = 'prelim',
   received = 'received',
   reviewed = 'reviewed',
-  unparsed = '-', // for debugging purposes
+  cancelled = 'cancelled',
+  unparsed = 'unparsed', // for debugging purposes
 }
 
-/* previous types description:
-    export interface MockLabOrderData {
-      type: string; // ServiceRequest.code (representing test)
-      location: string; // Organization.name (representing lab company)
-      orderAdded: DateTime; // Task(1).authoredOn (we’ll reserve SR.authoredOn for when the SR is finished and sent to Oystehr)
-      provider: string; // SR.requester -> Practitioner - user filling out the request form
-      diagnosis: DiagnosisDTO; // SR.reasonCode
-      // isPSC: boolean; // SR.performerType = PSC - this is shown in the figma but docs mention it being rolled back for MVP
-      status: ExternalLabsStatus; // Task.status
-    }
-*/
+export type LabOrderHistoryRow = {
+  action: 'ordered' | 'performed' | 'received' | 'reviewed' | 'received reflex' | 'reviewed reflex';
+  performer: string;
+  date: string;
+};
+
 export interface LabOrderDTO {
-  id: string; // ServiceRequest.id
-  type: string; // ServiceRequest.contained[0](ActivityDefinition).title
-  location: string; // ServiceRequest.contained[0](ActivityDefinition).publisher
-  orderAdded: string; // Task PST authoredOn
-  provider: string; // SR.requester
+  orderId: string; // ServiceRequest.id
+  typeLab: string; // ServiceRequest.contained[0](ActivityDefinition).title
+  locationLab: string; // ServiceRequest.contained[0](ActivityDefinition).publisher
+  orderAddedDate: string; // Task PST authoredOn
+  providerName: string; // SR.requester name
   diagnoses: DiagnosisDTO[]; // SR.reasonCode
-  status: ExternalLabsStatus; // Derived from SR, Tasks and DiagnosticReports based on the mapping table
+  orderedLabStatus: ExternalLabsStatus; // Derived from SR, Tasks and DiagnosticReports based on the mapping table
   isPSC: boolean; // Derived from SR.orderDetail
-  reflexTestsCount: number; // Number of DiagnosticReports with the same SR identifier but different test codes
+  reflexResultsCount: number; // Number of DiagnosticReports with the same SR identifier but different test codes
   appointmentId: string;
-  accessionNumber: string;
-  visitDate: string;
-  resultsReceived: string; // the most recent Task RFRT.authoredOn
+  visitDate: string; // based on appointment
+  lastResultReceivedDate: string; // the most recent Task RFRT.authoredOn
   dx: string; // SR.reasonCode joins
+  performedBy: string; // order performed (SR.orderDetail code.display)
+  accessionNumbers: string[]; // DiagnosticReport.identifier
+  history: LabOrderHistoryRow[];
 }
 
 export interface Pagination {
@@ -93,14 +91,57 @@ export interface PaginatedLabOrderResponse {
   pagination: Pagination;
 }
 
-export interface GetLabOrdersParameters {
-  encounterId?: string; // is specified, then we will fetch orders for that encounter
-  patientId?: string; // is specified, then we will fetch orders for that patient
-  serviceRequestId?: string; // is specified, then we will fetch orders for that service request
-
+interface GetLabOrdersSearchFilters {
   orderableItemCode?: string; // search filter by lab
   visitDate?: string; // search filter by visit date
+}
 
-  itemsPerPage?: number; // pagination option;
-  pageIndex?: number; // pagination option;
+interface GetLabOrdersPaginationOptions {
+  itemsPerPage?: number;
+  pageIndex?: number;
+}
+
+interface GetLabOrdersByEncounter {
+  encounterId: string;
+  patientId?: never;
+  serviceRequestId?: never;
+}
+
+interface GetLabOrdersByPatient {
+  encounterId?: never;
+  patientId: string;
+  serviceRequestId?: never;
+}
+
+interface GetLabOrdersByServiceRequest {
+  encounterId?: never;
+  patientId?: never;
+  serviceRequestId: string;
+}
+
+type GetLabOrdersBaseParameters = GetLabOrdersSearchFilters & GetLabOrdersPaginationOptions;
+
+type GetLabOrdersByEncounterParameters = GetLabOrdersByEncounter & GetLabOrdersBaseParameters;
+type GetLabOrdersByPatientParameters = GetLabOrdersByPatient & GetLabOrdersBaseParameters;
+type GetLabOrdersByServiceRequestParameters = GetLabOrdersByServiceRequest & GetLabOrdersBaseParameters;
+
+export type GetLabOrdersParameters =
+  | GetLabOrdersByEncounterParameters // use case: Patient Chart
+  | GetLabOrdersByPatientParameters // use case: Patient Page
+  | GetLabOrdersByServiceRequestParameters; // use case: Lab Order Detail Page
+
+export interface CreateLabOrderParameters {
+  dx: DiagnosisDTO[];
+  encounter: Encounter;
+  practitionerId: string;
+  orderableItem: OrderableItemSearchResult;
+  psc: boolean;
+}
+export interface GetCreateLabOrderResources {
+  encounter: Encounter;
+}
+
+export interface LabOrderResourcesRes {
+  coverageName: string;
+  labs: OrderableItemSearchResult[];
 }

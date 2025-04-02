@@ -166,11 +166,27 @@ export function formatDateForFHIR(date: string): string {
   return outputDate;
 }
 
-export function formatDate(date: string | null): string {
-  if (!date) {
-    throw new Error('date is not defined');
+// todo: maybe add option shouldThrowError with default 'false'
+export function formatDate(date: DateTime | string, format?: string): string {
+  const FALLBACK = '-';
+
+  if (!date || (date as DateTime)?.isValid === false) return FALLBACK;
+
+  const dateTime = typeof date === 'string' ? DateTime.fromISO(date) : date;
+
+  if (!dateTime || !dateTime.isValid) return FALLBACK;
+
+  try {
+    const formatted = format ? dateTime.toFormat(format) : dateTime.toISO();
+
+    if (!formatted || formatted.toLowerCase().includes('invalid')) {
+      return FALLBACK;
+    }
+
+    return formatted;
+  } catch {
+    return FALLBACK;
   }
-  return DateTime.fromISO(date).toFormat('MM/dd/yyyy hh:mm a');
 }
 
 export const getDateTimeFromDateAndTime = (date: DateTime, hour: number): DateTime => {

@@ -10,6 +10,7 @@ import { useApiClients } from '../../../hooks/useAppClients';
 import { OrderDetails } from 'utils';
 import { getLabOrderDetails } from '../../../api/api';
 import { QuestionnaireItem } from 'fhir/r4b';
+import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
 
 interface CollectionInstructions {
   container: string;
@@ -75,7 +76,7 @@ export const OrderDetailsPage: React.FC = () => {
   }, [oystehrZambda, serviceRequestID]);
 
   if (!serviceRequest) {
-    return 'Loading...';
+    return <LabOrderLoading />;
   }
 
   return (

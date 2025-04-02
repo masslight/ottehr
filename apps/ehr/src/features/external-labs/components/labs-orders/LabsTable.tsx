@@ -11,7 +11,6 @@ import {
   Pagination,
   Grid,
   Paper,
-  CircularProgress,
   Button,
   IconButton,
 } from '@mui/material';
@@ -21,8 +20,16 @@ import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { LabsTableRow } from './LabsTableRow';
 import { usePatientLabOrders } from './usePatientLabOrders';
-import { OrderableItemSearchResult } from 'utils/lib/types/data/labs';
+import { useNavigate } from 'react-router-dom';
+import { LabOrderDTO, OrderableItemSearchResult } from 'utils/lib/types/data/labs';
+import { getExternalLabOrderEditUrl } from '../../../css-module/routing/helpers';
 import { LabsAutocomplete } from '../LabsAutocomplete';
+import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
+import { getCreateLabOrderResources } from '../../../../api/api';
+import { useAppointmentStore } from '../../../../telemed/state/appointment/appointment.store';
+import { getSelectors } from '../../../../shared/store/getSelectors';
+import { useApiClients } from '../../../../hooks/useAppClients';
+import { LabOrderLoading } from './LabOrderLoading';
 
 export type LabsTableColumn =
   | 'testType'
@@ -57,6 +64,8 @@ export const LabsTable = ({
   redirectToOrderCreateIfOrdersEmpty = false,
   onCreateOrder,
 }: LabsTableProps): ReactElement => {
+  const navigateTo = useNavigate();
+
   const {
     labOrders,
     loading,
@@ -75,6 +84,8 @@ export const LabsTable = ({
     encounterId,
   });
 
+  const [labs, setLabs] = useState<OrderableItemSearchResult[]>([]);
+
   const [selectedOrderedItem, setSelectedOrderedItem] = useState<OrderableItemSearchResult | null>(null);
 
   const [tempDateFilter, setTempDateFilter] = useState(visitDateFilter);
@@ -87,6 +98,29 @@ export const LabsTable = ({
     setTempDateFilter(null);
     setVisitDateFilter(null);
   };
+
+  const onRowClick = (labOrderData: LabOrderDTO): void => {
+    navigateTo(getExternalLabOrderEditUrl(labOrderData.appointmentId, labOrderData.orderId));
+  };
+
+  const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
+
+  const { oystehrZambda } = useApiClients();
+
+  useEffect(() => {
+    async function getResources(oystehrZambda: Oystehr): Promise<void> {
+      try {
+        const { labs } = await getCreateLabOrderResources(oystehrZambda, { encounter });
+        setLabs(labs);
+      } catch (e) {
+        console.error('error loading resources', e);
+      }
+    }
+
+    if (encounter && oystehrZambda) {
+      void getResources(oystehrZambda);
+    }
+  }, [encounter, oystehrZambda]);
 
   // Redirect to create order page if needed (controlled by the parent component by prop redirectToOrderCreateIfOrdersEmpty)
   useEffect(() => {
@@ -109,11 +143,7 @@ export const LabsTable = ({
   };
 
   if (loading && labOrders.length === 0) {
-    return (
-      <Paper sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
-        <CircularProgress size={40} thickness={4} />
-      </Paper>
-    );
+    return <LabOrderLoading />;
   }
 
   if (error) {
@@ -197,24 +227,7 @@ export const LabsTable = ({
         position: 'relative',
       }}
     >
-      {loading && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: 'rgba(255, 255, 255, 0.7)',
-            zIndex: 10,
-          }}
-        >
-          <CircularProgress sx={{ color: 'primary.main' }} size={40} thickness={4} />
-        </Box>
-      )}
+      {loading && <LabOrderLoading />}
 
       {titleText && (
         <Typography
@@ -234,6 +247,7 @@ export const LabsTable = ({
                 <LabsAutocomplete
                   selectedLab={selectedOrderedItem}
                   setSelectedLab={handleOrderableItemCodeChange}
+                  labs={labs}
                 ></LabsAutocomplete>
               </Grid>
               <Grid item xs={4}>
@@ -304,9 +318,10 @@ export const LabsTable = ({
               <TableBody>
                 {labOrders.map((order) => (
                   <LabsTableRow
-                    key={order.id}
+                    key={order.orderId}
                     labOrderData={order}
                     onDeleteOrder={() => onDeleteOrder(order)}
+                    onRowClick={() => onRowClick(order)}
                     columns={columns}
                     allowDelete={allowDelete}
                   />

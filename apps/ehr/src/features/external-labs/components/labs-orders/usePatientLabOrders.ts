@@ -1,18 +1,9 @@
 import { useCallback, useState, useEffect, ReactElement } from 'react';
-import { EMPTY_PAGINATION, LabOrderDTO, DEFAULT_LABS_ITEMS_PER_PAGE } from 'utils';
+import { EMPTY_PAGINATION, LabOrderDTO, DEFAULT_LABS_ITEMS_PER_PAGE, GetLabOrdersParameters } from 'utils';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { getLabOrders, deleteLabOrder } from '../../../../api/api';
 import { DateTime } from 'luxon';
 import { useDeleteLabOrderDialog } from './useDeleteLabOrderDialog';
-
-export interface GetLabOrdersParameters {
-  patientId?: string;
-  encounterId?: string;
-  orderableItemCode?: string;
-  visitDate?: string;
-  pageIndex?: number;
-  itemsPerPage?: number;
-}
 
 interface DeleteLabOrderParams {
   labOrderId: string;
@@ -40,8 +31,8 @@ interface UsePatientLabOrdersResult {
   setOrderableItemCodeFilter: (filter: string) => void;
   visitDateFilter: DateTime | null;
   setVisitDateFilter: (date: DateTime | null) => void;
-  fetchLabOrders: (params: Partial<GetLabOrdersParameters>) => Promise<void>;
-  getCurrentSearchParams: () => Partial<GetLabOrdersParameters>;
+  fetchLabOrders: (params: GetLabOrdersParameters) => Promise<void>;
+  getCurrentSearchParams: () => GetLabOrdersParameters;
   showPagination: boolean;
   deleteOrder: (params: DeleteOrderParams) => Promise<boolean>;
   onDeleteOrder: (order: LabOrderDTO, encounterIdOverride?: string) => void;
@@ -60,11 +51,11 @@ export const usePatientLabOrders = (options: UsePatientLabOrdersOptions = {}): U
   const [orderableItemCodeFilter, setOrderableItemCodeFilter] = useState('');
   const [visitDateFilter, setVisitDateFilter] = useState<DateTime | null>(null);
 
-  const getCurrentSearchParamsWithoutPageIndex = useCallback((): Partial<GetLabOrdersParameters> => {
-    const params: Partial<GetLabOrdersParameters> = {
+  const getCurrentSearchParamsWithoutPageIndex = useCallback((): GetLabOrdersParameters => {
+    const params: GetLabOrdersParameters = {
       // pageIndex: 0,
       itemsPerPage: DEFAULT_LABS_ITEMS_PER_PAGE,
-    };
+    } as GetLabOrdersParameters;
 
     if (patientId) {
       params.patientId = patientId;
@@ -90,7 +81,7 @@ export const usePatientLabOrders = (options: UsePatientLabOrdersOptions = {}): U
   }, [patientId, encounterId, orderableItemCodeFilter, visitDateFilter]);
 
   const getCurrentSearchParamsForPage = useCallback(
-    (pageNubmer: number): Partial<GetLabOrdersParameters> => {
+    (pageNubmer: number): GetLabOrdersParameters => {
       if (pageNubmer < 1) {
         throw Error('Page number must be greater than 0');
       }
@@ -100,7 +91,7 @@ export const usePatientLabOrders = (options: UsePatientLabOrdersOptions = {}): U
   );
 
   const fetchLabOrders = useCallback(
-    async (searchParams: Partial<GetLabOrdersParameters>): Promise<void> => {
+    async (searchParams: GetLabOrdersParameters): Promise<void> => {
       if (!oystehrZambda) {
         console.error('oystehrZambda is not defined');
         return;
@@ -202,6 +193,8 @@ export const usePatientLabOrders = (options: UsePatientLabOrdersOptions = {}): U
         await deleteLabOrder(oystehrZambda, deleteParams);
 
         setPage(1);
+        const searchParams = getCurrentSearchParamsForPage(1);
+        await fetchLabOrders(searchParams);
 
         return true;
       } catch (err) {
@@ -217,7 +210,7 @@ export const usePatientLabOrders = (options: UsePatientLabOrdersOptions = {}): U
         setLoading(false);
       }
     },
-    [encounterId, oystehrZambda]
+    [encounterId, fetchLabOrders, getCurrentSearchParamsForPage, oystehrZambda]
   );
 
   // handle delete dialog

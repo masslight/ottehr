@@ -1,6 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getPatchBinary, isValidUUID } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
+import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
   Coverage,
@@ -76,6 +77,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           ],
         })
       )?.unbundle();
+
       const coveragesRequestsTemp: Coverage[] | undefined = insuranceRequestTemp?.filter(
         (resourceTemp) => resourceTemp.resourceType === 'Coverage'
       );
@@ -138,7 +140,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         ];
       }
       if (multiSelect) {
-        answer = data[questionResponse].map((item: any) => ({ valueString: item }));
+        answer = data[questionResponse].map((item: string) => ({ valueString: item }));
       }
       if (question.type === 'boolean') {
         answer = [

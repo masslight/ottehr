@@ -48,7 +48,7 @@ export const useDeleteLabOrderDialog = ({
   }, []);
 
   const confirmDeleteOrder = useCallback(async (): Promise<void> => {
-    if (!currentOrderToDelete || !currentOrderToDelete.id) {
+    if (!currentOrderToDelete || !currentOrderToDelete.orderId) {
       setDeleteError('No lab order selected for deletion');
       return;
     }
@@ -63,7 +63,7 @@ export const useDeleteLabOrderDialog = ({
 
     try {
       const success = await deleteOrder({
-        orderId: currentOrderToDelete.id,
+        orderId: currentOrderToDelete.orderId,
         encounterId: effectiveEncounterId,
       });
 
@@ -92,8 +92,7 @@ export const useDeleteLabOrderDialog = ({
         <DialogTitle>Delete Lab Order</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete the lab order for test{' '}
-            <strong>{currentOrderToDelete?.type || 'Unknown'}</strong>?
+            Are you sure you want to delete the lab order for test <strong>{currentOrderToDelete?.typeLab}</strong>?
             <br />
             <br />
             This action cannot be undone.

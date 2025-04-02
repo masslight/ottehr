@@ -37,7 +37,7 @@ export const EditableMedicationCard: React.FC<{
   const [isConfirmSaveModalOpen, setIsConfirmSaveModalOpen] = useState(false);
   const confirmedMedicationUpdateRequestRef = useRef<Partial<UpdateMedicationOrderInput>>({});
   const [confirmationModalConfig, setConfirmationModalConfig] = useState<ConfirmSaveModalConfig | null>(null);
-  const { mappedData, resources } = useAppointment(encounterId);
+  const { mappedData, resources } = useAppointment(appointmentId);
   const [isReasonSelected, setIsReasonSelected] = useState(true);
   const selectsOptions = useFieldsSelectsOptions();
 
