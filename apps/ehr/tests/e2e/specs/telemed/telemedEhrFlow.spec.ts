@@ -32,18 +32,23 @@ async function getTestUserQualificationStates(resourceHandler: ResourceHandler):
     .filter((license) => license.active && license.state)
     .map((license) => license.state);
   if (userQualificationStates.length < 1) throw new Error('User has no qualification locations');
-  console.log('Test user qualifications states: ', JSON.stringify(userQualificationStates));
   return userQualificationStates;
 }
 
-async function getTestStateThatNotInList(apiClient: Oystehr, listOfStates: string[]): Promise<string> {
+async function getTestStateThatNotQualificationsStatesList(
+  apiClient: Oystehr,
+  qualificationStates: string[]
+): Promise<string> {
   const activeStates = (await getTelemedLocations(apiClient))
     .filter((location) => location.available)
     .map((location) => location.state);
-  console.log('Active test states: ', JSON.stringify(activeStates));
-  const activeStateNotInList = activeStates.find((state) => !listOfStates.includes(state));
+  const activeStateNotInList = activeStates.find((state) => !qualificationStates.includes(state));
   if (!activeStateNotInList)
-    throw new Error(`Can't find active test state that not in list: ${JSON.stringify(listOfStates)}`);
+    throw new Error(
+      `Can't find active test state that not in list of test user qualifications states: ${JSON.stringify(
+        qualificationStates
+      )}`
+    );
   return activeStateNotInList;
 }
 
@@ -56,8 +61,10 @@ test.describe('Tests checking data without mutating state', () => {
   test.beforeAll(async () => {
     const testsUserStates = await getTestUserQualificationStates(myPatientsTabAppointmentResources);
     testsUserQualificationState = testsUserStates[0];
-    randomState = await getTestStateThatNotInList(myPatientsTabAppointmentResources.apiClient, testsUserStates);
-    console.log(`Tests practitioner qualification state ${testsUserQualificationState}, random state: ${randomState}`);
+    randomState = await getTestStateThatNotQualificationsStatesList(
+      myPatientsTabAppointmentResources.apiClient,
+      testsUserStates
+    );
 
     await myPatientsTabAppointmentResources.setResources({
       telemedLocationState: testsUserQualificationState,
