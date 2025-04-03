@@ -202,7 +202,7 @@ export const createSamplePrebookAppointments = async ({
       return successfulAppointments[0]; // Return the first successful appointment
     }
 
-    throw new Error('All appointment creation attempts failed.');
+    throw new Error(`All appointment creation attempts failed. ${JSON.stringify(results)}`);
   } catch (error) {
     console.error('Error creating appointments:', error);
     throw error;
