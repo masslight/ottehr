@@ -18,7 +18,14 @@ import {
 import { LoadingButton } from '@mui/lab';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAppointmentStore, useGetIcd10Search, useDebounce, ActionsList, DeleteIconButton } from '../../../telemed';
+import {
+  useAppointmentStore,
+  useGetIcd10Search,
+  useDebounce,
+  ActionsList,
+  DeleteIconButton,
+  useSaveChartData,
+} from '../../../telemed';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { DiagnosisDTO, OrderableItemSearchResult } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
@@ -27,6 +34,7 @@ import Oystehr from '@oystehr/sdk';
 import { LabsAutocomplete } from '../components/LabsAutocomplete';
 import { createLabOrder, getCreateLabOrderResources } from '../../../api/api';
 import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
+import { enqueueSnackbar } from 'notistack';
 
 enum LoadingState {
   initial,
@@ -48,10 +56,12 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  const { chartData, encounter, appointment } = getSelectors(useAppointmentStore, [
+  const { mutate: saveChartData } = useSaveChartData();
+  const { chartData, encounter, appointment, setPartialChartData } = getSelectors(useAppointmentStore, [
     'chartData',
     'encounter',
     'appointment',
+    'setPartialChartData',
   ]);
 
   const { diagnosis } = chartData || {};
@@ -133,6 +143,36 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     setSubmitting(false);
   };
 
+  const handleAdditionalDxSelection = (dx: DiagnosisDTO): void => {
+    // save dx to the encounter and to the chart data state
+    const alreadyExistsOnEncounter = diagnosis?.find((d) => d.code === dx.code);
+    console.log('alreadyExistsOnEncounter', alreadyExistsOnEncounter);
+    if (!alreadyExistsOnEncounter) {
+      const preparedValue = { ...dx, isPrimary: false };
+      try {
+        saveChartData(
+          {
+            diagnosis: [preparedValue],
+          },
+          {
+            onSuccess: (data) => {
+              const returnedDiagnosis = data.chartData.diagnosis || [];
+              const allDx = [...returnedDiagnosis, ...(diagnosis || [])];
+              if (allDx) {
+                setPartialChartData({
+                  diagnosis: [...allDx],
+                });
+              }
+            },
+          }
+        );
+        setOrderDx([...orderDx, dx]);
+      } catch (e) {
+        console.log('error adding dx', e);
+      }
+    }
+  };
+
   if (loadingState === LoadingState.loadedWithError) {
     return (
       <Stack spacing={2} sx={{ p: 3 }}>
@@ -194,6 +234,10 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                         const alreadySelected = orderDx.find((tempdx) => tempdx.code === selectedDx.code);
                         if (!alreadySelected) {
                           setOrderDx([...orderDx, selectedDx]);
+                        } else {
+                          enqueueSnackbar('This Dx is already added to the order', {
+                            variant: 'error',
+                          });
                         }
                       }
                     }}
@@ -233,7 +277,11 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                   onChange={(event: any, selectedDx: any) => {
                     const alreadySelected = orderDx.find((tempdx) => tempdx.code === selectedDx.code);
                     if (!alreadySelected) {
-                      setOrderDx([...orderDx, selectedDx]);
+                      handleAdditionalDxSelection(selectedDx);
+                    } else {
+                      enqueueSnackbar('This Dx is already added to the order', {
+                        variant: 'error',
+                      });
                     }
                   }}
                   loading={isSearching}
