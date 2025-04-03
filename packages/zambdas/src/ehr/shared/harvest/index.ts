@@ -1183,8 +1183,15 @@ export function createMasterRecordPatchOperations(
     // Remove '-2' suffix for secondary fields
     const baseFieldId = item.linkId === 'patient-street-address-2' ? item.linkId : item.linkId.replace(/-2$/, '');
 
-    const fullPath = paperworkToPatientFieldMap[baseFieldId];
+    let fullPath = paperworkToPatientFieldMap[baseFieldId];
     if (!fullPath) return;
+
+    // Change index if path is changeable
+    if (['patient-first-name', 'patient-last-name'].includes(baseFieldId)) {
+      const nameIndex = patient.name?.findIndex((name) => name.use === 'official');
+
+      fullPath = fullPath.replace(/name\/\d+/, `name/${nameIndex}`);
+    }
 
     const { resourceType, path } = extractResourceTypeAndPath(fullPath);
 
@@ -1257,7 +1264,9 @@ export function createMasterRecordPatchOperations(
         // Handle array fields
         const { isArray, parentPath } = getArrayInfo(path);
         if (isArray) {
-          const effectiveArrayValue = getEffectiveValue(patient, parentPath, tempOperations.patient);
+          const effectiveArrayValue = getEffectiveValue(patient, parentPath, tempOperations.patient) as
+            | string[]
+            | undefined;
 
           if (effectiveArrayValue === undefined) {
             const currentParentValue = getCurrentValue(patient, parentPath);
@@ -1284,18 +1293,20 @@ export function createMasterRecordPatchOperations(
             const cleanArray = currentArray.filter(
               (item, index) => item !== undefined || index < currentArray.length - 1
             );
-            const operation: Operation =
-              cleanArray.length > 0
-                ? {
-                    op: effectiveArrayValue === undefined ? 'add' : 'replace',
-                    path: arrayPath,
-                    value: cleanArray,
-                  }
-                : {
-                    op: 'remove',
-                    path: arrayPath,
-                  };
-            tempOperations.patient.push(operation);
+            if (effectiveArrayValue === undefined || areArraysDifferent(effectiveArrayValue, cleanArray)) {
+              const operation: Operation =
+                cleanArray.length > 0
+                  ? {
+                      op: effectiveArrayValue === undefined ? 'add' : 'replace',
+                      path: arrayPath,
+                      value: cleanArray,
+                    }
+                  : {
+                      op: 'remove',
+                      path: arrayPath,
+                    };
+              tempOperations.patient.push(operation);
+            }
           }
           return;
         }
@@ -1537,7 +1548,7 @@ function getEffectiveValue(
   resource: PatientMasterRecordResource,
   path: string,
   patchOperations: Operation[]
-): string | boolean | number | undefined {
+): string | boolean | number | string[] | undefined {
   let effectiveValue = getCurrentValue(resource, path);
   patchOperations.forEach((operation) => {
     if (operation.path === path) {
@@ -1664,6 +1675,22 @@ function getFieldName(resource: PatientMasterRecordResource, path: string): stri
   }
 
   return pathToLinkIdMap[path] || 'unknown-field';
+}
+
+function areArraysDifferent(source: string[], target: string[]): boolean {
+  // Quick length check
+  if (source.length !== target.length) {
+    return true;
+  }
+
+  // Content comparison (order matters)
+  for (let i = 0; i < source.length; i++) {
+    if (source[i] !== target[i]) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 interface GetCoveragesInput {

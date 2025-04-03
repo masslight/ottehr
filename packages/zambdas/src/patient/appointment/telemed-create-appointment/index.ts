@@ -360,7 +360,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     extension: encExtensions,
   };
 
-  const { documents, insuranceInfo } = await getRelatedResources(oystehr, patient?.id);
+  const { documents, accountInfo } = await getRelatedResources(oystehr, patient?.id);
 
   const canonUrl = `${questionnaire.url}|${questionnaire.version}`;
   const patientToUse = createPatientRequest?.resource ?? patient ?? { resourceType: 'Patient' };
@@ -376,7 +376,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     verifiedPhoneNumber: verifiedPhoneNumber,
     contactInfo: contactInfo,
     documents,
-    insuranceInfo,
+    accountInfo,
   });
 
   const questionnaireResponse: QuestionnaireResponse = {
