@@ -148,7 +148,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     const alreadyExistsOnEncounter = diagnosis?.find((d) => d.code === dx.code);
     console.log('alreadyExistsOnEncounter', alreadyExistsOnEncounter);
     if (!alreadyExistsOnEncounter) {
-      const preparedValue = { ...dx, isPrimary: false };
+      const preparedValue: DiagnosisDTO = { ...dx, isPrimary: false, addedViaLabOrder: true };
       try {
         saveChartData(
           {

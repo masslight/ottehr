@@ -10,6 +10,9 @@ import { useGetAppointmentAccessibility } from '../../../../hooks';
 import { useAppointmentStore, useDeleteChartData, useSaveChartData } from '../../../../state';
 import { AssessmentTitle } from './AssessmentTitle';
 import { DiagnosesField } from './DiagnosesField';
+import { otherColors } from '../../../../../CustomThemeProvider';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { GenericToolTip } from '../../../../../components/GenericToolTip';
 
 export const DiagnosesContainer: FC = () => {
   const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
@@ -134,6 +137,14 @@ export const DiagnosesContainer: FC = () => {
     });
   };
 
+  const addedViaLabOrderInfo = (
+    <GenericToolTip title="Added during lab order" placement="right">
+      <span>
+        <InfoOutlinedIcon style={{ color: otherColors.disabled, height: '15px', width: '15px' }} />
+      </span>
+    </GenericToolTip>
+  );
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -151,7 +162,7 @@ export const DiagnosesContainer: FC = () => {
             getKey={(value, index) => value.resourceId || index}
             renderItem={(value) => (
               <Typography data-testid={dataTestIds.diagnosisContainer.primaryDiagnosis}>
-                {value.display} {value.code}
+                {value.display} {value.code} {value.addedViaLabOrder && addedViaLabOrderInfo}
               </Typography>
             )}
             renderActions={
@@ -177,7 +188,7 @@ export const DiagnosesContainer: FC = () => {
             getKey={(value, index) => value.resourceId || index}
             renderItem={(value) => (
               <Typography data-testid={dataTestIds.diagnosisContainer.secondaryDiagnosis}>
-                {value.display} {value.code}
+                {value.display} {value.code} {value.addedViaLabOrder && addedViaLabOrderInfo}
               </Typography>
             )}
             renderActions={
