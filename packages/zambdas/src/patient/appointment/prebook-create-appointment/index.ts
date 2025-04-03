@@ -484,7 +484,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     extension: [...(isVirtual ? telemedEncExtensions : [])],
   };
 
-  const { documents, insuranceInfo } = await getRelatedResources(oystehr, patient?.id);
+  const { documents, accountInfo } = await getRelatedResources(oystehr, patient?.id);
 
   const patientToUse = patient ?? (createPatientRequest?.resource as Patient);
 
@@ -499,7 +499,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     appointmentStartTime: startTime,
     questionnaire,
     documents,
-    insuranceInfo,
+    accountInfo,
   });
 
   console.log(
