@@ -21,7 +21,7 @@ import { ExamReadOnlyBlock } from '../examination/ExamReadOnly';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useChartData } from '../../hooks/useChartData';
 import { HospitalizationContainer } from './HospitalizationContainer';
-import { NOTE_TYPE, progressNoteChartDataRequestedFields } from 'utils';
+import { NOTE_TYPE, getProgressNoteChartDataRequestedFields } from 'utils';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
 
 export const ProgressNoteDetails: FC = () => {
@@ -33,7 +33,7 @@ export const ProgressNoteDetails: FC = () => {
 
   const { chartData: additionalChartData } = useChartData({
     encounterId: encounter.id || '',
-    requestedFields: progressNoteChartDataRequestedFields,
+    requestedFields: getProgressNoteChartDataRequestedFields(),
     onSuccess: (data) => {
       setPartialChartData({
         episodeOfCare: data?.episodeOfCare,
@@ -58,14 +58,17 @@ export const ProgressNoteDetails: FC = () => {
 
   const showChiefComplaint = !!(chiefComplaint && chiefComplaint.length > 0);
   const showReviewOfSystems = !!(ros && ros.length > 0);
-  const showAdditionalQuestions = !!(observations && observations.length > 0);
+  const showAdditionalQuestions =
+    !!(observations && observations.length > 0) || !!(screeningNotes && screeningNotes.length > 0);
   const showAssessment = !!(diagnoses && diagnoses.length > 0);
   const showMedicalDecisionMaking = !!(medicalDecision && medicalDecision.length > 0);
   const showEmCode = !!emCode;
   const showCptCodes = !!(cptCodes && cptCodes.length > 0);
   const showPrescribedMedications = !!(prescriptions && prescriptions.length > 0);
   const { showPatientInstructions } = usePatientInstructionsVisibility();
-  const showVitalsObservations = !!(vitalsObservations && vitalsObservations.length > 0);
+
+  const showVitalsObservations =
+    !!(vitalsObservations && vitalsObservations.length > 0) || !!(vitalsNotes && vitalsNotes.length > 0);
 
   const sections = [
     showChiefComplaint && <ChiefComplaintContainer />,
